@@ -2,8 +2,10 @@
 
 import json
 import logging
+import time
 
 import algosdk
+import msgpack
 import psycopg2
 from psycopg2.extras import Json as pgJson
 
@@ -11,21 +13,40 @@ logger = logging.getLogger(__name__)
 
 genesis_json_path = "installer/genesis/mainnet/genesis.json"
 
+_dev_reset = '''
+TRUNCATE account;
+TRUNCATE account_asset;
+TRUNCATE asset;
+TRUNCATE metastate;
+'''
+
 # sqlite3
 # sqlarg = '?'
 # psycopg2 postgres:
 sqlarg = '%s'
 
+def sql(query_string_with_placeholder):
+    '''workaround sqlite3 and psycopg2 using different arg value placeholders in SQL strings.
+{ph} is replaced with ? or %s as needed
+'''
+    return query_string_with_placeholder.replace('{ph}',sqlarg)
+
 def get_state(db):
     with db:
         cursor = db.cursor()
-        cursor.execute("SELECT v FROM metastate WHERE k = 'state'")
-        rows = cursor.fetchall()
+        result = _get_state(cursor)
         cursor.close()
-        if len(rows) == 0:
-            return dict()
-        if len(rows) == 1:
-            return rows[0][0]
+        return result
+
+def _get_state(cursor):
+    cursor.execute("SELECT v FROM metastate WHERE k = 'state'")
+    rows = cursor.fetchall()
+    if len(rows) == 0:
+        return dict()
+    if len(rows) == 1:
+        return rows[0][0]
+    raise Exception("get state expected 1 row but got {}".format(len(rows)))
+    
 
 def set_state(db, state):
     with db:
@@ -34,8 +55,18 @@ def set_state(db, state):
         cursor.close()
 
 def _set_state(cursor, state):
-    cursor.execute("INSERT INTO metastate (k, v) VALUES ('state', {ph}) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v".format(ph=sqlarg), (pgJson(state),))
+    cursor.execute(sql("INSERT INTO metastate (k, v) VALUES ('state', {ph}) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v"), (pgJson(state),))
 
+def get_block(db, blockround):
+    with db:
+        cursor = db.cursor()
+        cursor.execute(sql("SELECT header FROM block_header WHERE round = {ph}"), (blockround,))
+        rows = cursor.fetchall()
+        cursor.close()
+        if len(rows) == 1:
+            return msgpack.loads(rows[0][0])
+        raise Exception("get block {} expected 1 row but got {}".format(blockround, len(rows)))
+        
 
 # txnbytes fields:
 # included SignedTxn:
@@ -116,13 +147,147 @@ def _set_state(cursor, state):
 # "upgradeyes":bool UpgradeApprove
 
 
+def load_genesis(db, state, genesis_json):
+    with open(genesis_json, 'rt') as gf:
+        genesis = json.load(gf)
+    account_rows = []
+    for genesis_account in genesis['alloc']:
+        addr = algosdk.encoding.decode_address(genesis_account['addr'])
+        acctstate = genesis_account['state']
+        account_rows.append( (addr, acctstate.get('algo',0), pgJson(acctstate)) )
+    with db:
+        cursor = db.cursor()
+        cursor.executemany(sql("INSERT INTO account (addr, microalgos, account_data) VALUES ({ph}, {ph}, {ph})"), account_rows)
+        state['account_round'] = -1
+        _set_state(cursor, state)
+        cursor.close()
+    return state
 
+class Accounting:
+    def __init__(self, db, state=None):
+        self.db = db
+        self.current_round = None
+        self.block = None
+        self._init_round(None)
+        self.state = state
+
+    def _init_round(self, txround):
+        # {addr: algo delta}
+        self.algo_updates = {}
+        # {(addr, asset id): asset delta}
+        self.asset_updates = {}
+        # {(addr, asset id): frozen bool}
+        self.freeze_updates = {}
+        # {(addr from, asset id): addr to}
+        self.asset_closes = {}
+        self.current_round = txround
+        if txround is None:
+            self.fee_addr = None
+            self.reward_addr = None
+            return
+        self.block = get_block(self.db, txround)
+        self.fee_addr = self.block[b'fees']
+        self.reward_addr = self.block[b'rwd']
+        return
+
+    def update_from_db(self):
+        with self.db:
+            cursor = self.db.cursor()
+            cursor.execute(sql("SELECT round, intra, txnbytes FROM txn WHERE round > {ph} ORDER BY round, intra"), (account_round,))
+            for row in cursor:
+                txround, intra, txnbytes = row
+                self.add_stxn(txround, intra, txnbytes)
+        return
+
+    def _commit_round(self):
+        if not self.algo_updates and not self.asset_updates and not self.freeze_updates and not self.asset_closes:
+            # nothing happened
+            pass
+        with self.db:
+            cursor = self.db.cursor()
+            if self.algo_updates:
+                cursor.executemany(sql('''INSERT INTO account (addr, microalgos, account_data) VALUES ({ph}, {ph}, {ph}) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, account_data = jsonb_set(account.account_data, '{"algo"}', (account.microalgos + EXCLUDED.microalgos)::text::jsonb, true)'''), map(lambda addr_amt: (addr_amt[0],addr_amt[1],pgJson({'algo':addr_amt[1]})), self.algo_updates.items()))
+            #TODO: asset_updates, freeze_updates, asset_closes
+            if self.state is None:
+                self.state = _get_state(cursor)
+            self.state['account_round'] = self.current_round
+            # TODO: INSERT/UPDATE with psql custom jsonb operators?
+            _set_state(cursor, self.state)
+
+    def add_stxn(self, txround, intra, txnbytes):
+        if self.current_round is None:
+            self._init_round(txround)
+        elif self.current_round != txround:
+            # commit previous round, start a new one
+            self._commit_round()
+            self._init_round(txround)
+        stxn = msgpack.loads(txnbytes)
+        txn = stxn[b'txn']
+        ttype = txn[b'type']
+        sender = txn[b'snd']
+        senderRewards = stxn.get(b'rs')
+        fee = txn[b'fee']
+        self.algo_updates[sender] = self.algo_updates.get(sender, 0) - fee
+        self.algo_updates[self.fee_addr] = self.algo_updates.get(self.fee_addr, 0) + fee
+        if senderRewards:
+            self.algo_updates[self.reward_addr] = self.algo_updates.get(self.reward_addr, 0) - senderRewards
+            self.algo_updates[sender] = self.algo_updates.get(sender, 0) + senderRewards
+        if ttype == b'pay':
+            amount = txn.get(b'amt')
+            receiver = txn.get(b'rcv')
+            if amount and receiver:
+                self.algo_updates[sender] = self.algo_updates.get(sender, 0) - amount
+                self.algo_updates[receiver] = self.algo_updates.get(receiver, 0) + amount
+            closeto = txn.get(b'close')
+            closeamount = stxn.get(b'ca')
+            if closeto and closeamount:
+                self.algo_updates[sender] = self.algo_updates.get(sender, 0) - closeamount
+                self.algo_updates[closeto] = self.algo_updates.get(closeto, 0) + closeamount
+            receiverRewards = stxn.get(b'rr')
+            if receiverRewards:
+                self.algo_updates[self.reward_addr] = self.algo_updates.get(self.reward_addr, 0) - receiverRewards
+                self.algo_updates[receiver] = self.algo_updates.get(receiver, 0) + receiverRewards
+            closetoRewards = stxn.get(b'rc')
+            if closetoRewards:
+                if not closeto:
+                    logger.warn('(r=%d,i=%d) rc without close', txround, intra)
+                else:
+                    self.algo_updates[self.reward_addr] = self.algo_updates.get(self.reward_addr, 0) - closetoRewards
+                    self.algo_updates[closeto] = self.algo_updates.get(closeto, 0) + closetoRewards
+        elif ttype == b'keyreg':
+            pass
+        elif ttype == b'acfg':
+            logger.warn('(r=%d,i=%d) TODO acfg', txround, intra)
+        elif ttype == b'axfer':
+            assetId = txn[b'xaid']
+            assetSender = txn.get(b'asnd', sender)
+            assetReceiver = txn.get(b'arcv')
+            assetAmount = txn.get(b'aamt')
+            if assetAmount and assetReceiver:
+                self.asset_updates[(assetSender,assetId)] = self.asset_updates.get((assetSender,assetId), 0) - assetAmount
+                self.asset_updates[(assetReceiver,assetId)] = self.asset_updates.get((assetReceiver,assetId), 0) + assetAmount
+            assetCloseTo = txn.get(b'aclose')
+            if assetCloseTo:
+                self.asset_closes[(assetSender, assetId)] = assetCloseTo
+        elif ttype == b'afrz':
+            freezeAccount = txn.get(b'fadd')
+            freezeAssetId = txn.get(b'faid')
+            isFrozen = txn.get(b'afrz')
+            self.freeze_updates[(freezeAccount,freezeAssetId)] = isFrozen
+        else:
+            raise Exception("unknown txn type {!r} at round={},intra={}".format(ttype, txround, intra))
+
+    def close(self):
+        self._commit_round()
+        self.db = None
+        
 
 def main():
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument('-g', '--genesis-json', default=genesis_json_path, help="path to your network's genesis.json file")
     ap.add_argument('-f', '--database', default=None, help="psql connect string")
+    ap.add_argument('--max-round', default=None, type=int, help='limit progress to < max-round')
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -131,27 +296,27 @@ def main():
 
     state = get_state(db)
 
+    lastlog = time.time()
     account_round = state.get('account_round')
     if account_round is None:
-        with open(args.genesis_json, 'rt') as gf:
-            genesis = json.load(gf)
-        account_rows = []
-        for genesis_account in genesis['alloc']:
-            addr = algosdk.encoding.decode_address(genesis_account['addr'])
-            acctstate = genesis_account['state']
-            account_rows.append( (addr, acctstate.get('algo',0), pgJson(acctstate)) )
-        with db:
-            cursor = db.cursor()
-            cursor.executemany("INSERT INTO account (addr, microalgos, account_data) VALUES ({ph}, {ph}, {ph})".format(ph=sqlarg), account_rows)
-            state['account_round'] = -1
-            _set_state(cursor, state)
-            cursor.close()
-
+        state = load_genesis(db, state, args.genesis_json)
+        account_round = state.get('account_round')
+    accounting = Accounting(db)
+    txcount = 0
     with db:
         cursor = db.cursor()
-        cursor.execute('SELECT round, intra, txnbytes FROM txn ORDER BY round, intra')
+        cursor.execute(sql("SELECT round, intra, txnbytes FROM txn WHERE round > {ph} ORDER BY round, intra"), (account_round,))
         for row in cursor:
-            
+            txround, intra, txnbytes = row
+            if args.max_round and txround >= args.max_round:
+                break
+            accounting.add_stxn(txround, intra, txnbytes)
+            txcount += 1
+            now = time.time()
+            if now - lastlog > 5:
+                logger.info('r=%d, i=%d, txns=%d', txround, intra, txcount)
+                lastlog = now
+    accounting.close()
     return
 
 if __name__ == '__main__':
