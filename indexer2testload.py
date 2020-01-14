@@ -253,7 +253,7 @@ def main():
         if ldt > 5:
             dblocks = proc.count - lastblockcount
             dtx = proc.txcount - lasttxcount
-            print('{:9d} blocks, {:9d} txns, {:6} accounts, {:9.2f} algos; in {:.1f} seconds ({:.1f} block/s, {:.2f} txn/s)'.format(proc.count, proc.txcount, len(proc.accounts), proc.amount_total/1000000.0, dt, dblocks/ldt, dtx/ldt))
+            print('{:9d} blocks, {:9d} txns, {:6} accounts, {:9.2f} algos; in {:.1f} seconds ({:.1f} block/s, {:.2f} txn/s)'.format(proc.count, proc.txcount, len(proc.accounts), proc.amount_total/1000000.0, tdt, dblocks/ldt, dtx/ldt))
             lastlog = now
             lastblockcount = proc.count
             lasttxcount = proc.txcount

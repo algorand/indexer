@@ -1,3 +1,5 @@
+-- TODO? replace all 'addr bytea' with 'addr_id bigint' and a mapping table? makes addrs an 8 byte int that fits in a register instead of a 32 byte string
+
 CREATE TABLE IF NOT EXISTS block_header (
 round bigint PRIMARY KEY,
 realtime timestamp without time zone NOT NULL,
@@ -9,7 +11,8 @@ CREATE TABLE IF NOT EXISTS txn (
 round bigint NOT NULL,
 intra smallint NOT NULL,
 typeenum smallint NOT NULL,
-asset bigint NOT NULL, -- TODO? 0=Algos, otherwise AssetIndex
+asset bigint NOT NULL, -- 0=Algos, otherwise AssetIndex
+-- txid bytea NOT NULL, -- TODO? [32]byte. Index on this as a way of extending transaction-status checking into the past for things we submitted?
 txnbytes bytea NOT NULL,
 txn jsonb NOT NULL,
 PRIMARY KEY ( round, intra )
@@ -26,18 +29,19 @@ CREATE INDEX IF NOT EXISTS txn_participation_i ON txn_participation ( addr, roun
 CREATE TABLE IF NOT EXISTS imported (path text);
 
 -- like ledger/accountdb.go
-CREATE TABLE IF NOT EXISTS accounttotals (
-  id string primary key,
-  online integer,
-  onlinerewardunits integer,
-  offline integer,
-  offlinerewardunits integer,
-  notparticipating integer,
-  notparticipatingrewardunits integer,
-  rewardslevel integer);
+DROP TABLE IF EXISTS accounttotals;
+-- CREATE TABLE IF NOT EXISTS accounttotals (
+--   id text primary key,
+--   online integer,
+--   onlinerewardunits integer,
+--   offline integer,
+--   offlinerewardunits integer,
+--   notparticipating integer,
+--   notparticipatingrewardunits integer,
+--   rewardslevel integer);
 
 -- expand data.basics.AccountData
-CREATE TABLE IF NOT EXISTS accountbase (
+CREATE TABLE IF NOT EXISTS account (
   addr bytea primary key,
   microalgos bigint NOT NULL,
   account_data jsonb NOT NULL -- data.basics.AccountData except AssetParams and Assets
@@ -60,3 +64,9 @@ CREATE TABLE IF NOT EXISTS asset (
 );
 -- TODO: index on creator_addr
 
+-- subsumes ledger/accountdb.go accounttotals and acctrounds
+-- "state":{online, onlinerewardunits, offline, offlinerewardunits, notparticipating, notparticipatingrewardunits, rewardslevel, round bigint}
+CREATE TABLE IF NOT EXISTS metastate (
+  k text primary key,
+  v jsonb
+);
