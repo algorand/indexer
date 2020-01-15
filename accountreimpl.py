@@ -308,11 +308,17 @@ DELETE FROM account_asset WHERE x.addr = {ph}'''), self.asset_closes)
             pass
         elif ttype == b'acfg':
             assetId = txn.get(b'caid', self.txn_counter + intra + 1)
-            params = txn[b'apar']
-            self.acfg_updates.append( (assetId, sender, pgJson(unmsgpack(params))) )
-            self.default_frozen[assetId] = params.get(b'df', False)
-            #logger.error('r=%d block=%r', txround, self.block)
-            #raise Exception('(r={},i={}) TODO acfg'.format( txround, intra))
+            params = txn.get(b'apar')
+            if not params:
+                raise Exception("TODO destroy asset, r={} i={} caid={}".format(txround, intra, txn.get(b'caid')))
+            else:
+                self.acfg_updates.append( (assetId, sender, pgJson(unmsgpack(params))) )
+                self.default_frozen[assetId] = params.get(b'df', False)
+                if txn.get(b'caid', 0) == 0:
+                    total = params.get(b't') # it _is_ possible, though useless, to allocate an asset with zero total units
+                    if total:
+                        # on creation, creator owns total amount
+                        self.asset_updates[(sender,assetId)] = total
         elif ttype == b'axfer':
             assetId = txn[b'xaid']
             assetSender = txn.get(b'asnd', sender)
