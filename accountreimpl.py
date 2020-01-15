@@ -9,6 +9,8 @@ import msgpack
 import psycopg2
 from psycopg2.extras import Json as pgJson
 
+from indexer2testload import unmsgpack
+
 logger = logging.getLogger(__name__)
 
 genesis_json_path = "installer/genesis/mainnet/genesis.json"
@@ -66,7 +68,16 @@ def get_block(db, blockround):
         if len(rows) == 1:
             return msgpack.loads(rows[0][0])
         raise Exception("get block {} expected 1 row but got {}".format(blockround, len(rows)))
-        
+
+def get_default_frozen(db):
+    # map from asset id to true/false
+    default_frozen = {}
+    with db:
+        cursor = db.cursor()
+        cursor.execute(sql("SELECT index, params -> 'df' FROM asset"))
+        for row in cursor:
+            default_frozen[row[0]] = row[1] or False
+    return default_frozen
 
 # txnbytes fields:
 # included SignedTxn:
@@ -93,6 +104,8 @@ def get_block(db, blockround):
 # "note":[]byte
 # "gen":string GenesisID
 # "gh":[32]byte GenesisHash
+# "grp":[32]byte Group
+# "lx":[32]byte Lease
 # included KeyregTxnFields:
 # "votekey":[]byte VotePK
 # "selkey":[]byte SelectionPK
@@ -146,6 +159,18 @@ def get_block(db, blockround):
 # "upgradedelay":uint64 UpgradeDelay Round
 # "upgradeyes":bool UpgradeApprove
 
+# AssetParams
+# "t":uint64 Total
+# "dc":uint32 Decimals
+# "df":bool DefaultFrozen
+# "un":string UnitName
+# "an":string AssetName
+# "au":string URL
+# "am":[32]byte MetadataHash
+# "m":[32]byte Manager
+# "r":[32]byte Reserve
+# "f":[32]byte Freeze
+# "c":[32]byte Clawback
 
 def load_genesis(db, state, genesis_json):
     with open(genesis_json, 'rt') as gf:
@@ -170,16 +195,24 @@ class Accounting:
         self.block = None
         self._init_round(None)
         self.state = state
+        self.default_frozen = get_default_frozen(db)
 
     def _init_round(self, txround):
         # {addr: algo delta}
         self.algo_updates = {}
+        # [(asset id, creator addr, params), ...]
+        self.acfg_updates = []
         # {(addr, asset id): asset delta}
         self.asset_updates = {}
         # {(addr, asset id): frozen bool}
         self.freeze_updates = {}
-        # {(addr from, asset id): addr to}
-        self.asset_closes = {}
+        # [(close to, asset id, sender, sender), ...]
+        self.asset_closes = []
+        if self.current_round and (txround == self.current_round + 1) and self.block:
+            self.txn_counter = self.block.get(b'tc', 0)
+        elif txround and txround > 0:
+            prevblock = get_block(self.db, txround - 1)
+            self.txn_counter = prevblock.get(b'tc', 0)
         self.current_round = txround
         if txround is None:
             self.fee_addr = None
@@ -199,6 +232,12 @@ class Accounting:
                 self.add_stxn(txround, intra, txnbytes)
         return
 
+    def _asset_updates_for_db(self):
+        for addr_id, delta in self.asset_updates.items():
+            addr, assetId = addr_id
+            frozen = self.default_frozen[assetId]
+            yield (addr, assetId, delta, frozen)
+
     def _commit_round(self):
         if not self.algo_updates and not self.asset_updates and not self.freeze_updates and not self.asset_closes:
             # nothing happened
@@ -207,7 +246,18 @@ class Accounting:
             cursor = self.db.cursor()
             if self.algo_updates:
                 cursor.executemany(sql('''INSERT INTO account (addr, microalgos, account_data) VALUES ({ph}, {ph}, {ph}) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, account_data = jsonb_set(account.account_data, '{"algo"}', (account.microalgos + EXCLUDED.microalgos)::text::jsonb, true)'''), map(lambda addr_amt: (addr_amt[0],addr_amt[1],pgJson({'algo':addr_amt[1]})), self.algo_updates.items()))
-            #TODO: asset_updates, freeze_updates, asset_closes
+            if self.acfg_updates:
+                cursor.executemany(sql('''INSERT INTO asset (index, creator_addr, params) VALUES ({ph}, {ph}, {ph}) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params'''), self.acfg_updates)
+            if self.asset_updates:
+                # TODO: for INSERT clause merge in default-frozen value
+                cursor.executemany(sql('''INSERT INTO account_asset (addr, assetid, amount, frozen) VALUES ({ph}, {ph}, {ph}, {ph}) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount'''), self._asset_updates_for_db())
+            if self.freeze_updates:
+                cursor.executemany(sql('''INSERT INTO account_asset (addr, assetid, amount, frozen) VALUES ({ph}, {ph}, 0, {ph}) ON CONFLICT (addr, assetid) DO UPDATE SET frozen = EXCLUDED.frozen'''), map(lambda item: (item[0][0], item[0][1], item[1]), self.freeze_updates.items()))
+            if self.asset_closes:
+                cursor.executemany(sql('''INSERT INTO account_asset (addr, assetid, amount)
+SELECT {ph}, {ph}, x.amount FROM account_asset x WHERE x.addr = {ph}
+ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount;
+DELETE FROM account_asset WHERE x.addr = {ph}'''), self.asset_closes)
             if self.state is None:
                 self.state = _get_state(cursor)
             self.state['account_round'] = self.current_round
@@ -250,14 +300,19 @@ class Accounting:
             closetoRewards = stxn.get(b'rc')
             if closetoRewards:
                 if not closeto:
-                    logger.warn('(r=%d,i=%d) rc without close', txround, intra)
+                    logger.warning('(r=%d,i=%d) rc without close', txround, intra)
                 else:
                     self.algo_updates[self.reward_addr] = self.algo_updates.get(self.reward_addr, 0) - closetoRewards
                     self.algo_updates[closeto] = self.algo_updates.get(closeto, 0) + closetoRewards
         elif ttype == b'keyreg':
             pass
         elif ttype == b'acfg':
-            logger.warn('(r=%d,i=%d) TODO acfg', txround, intra)
+            assetId = txn.get(b'caid', self.txn_counter + intra + 1)
+            params = txn[b'apar']
+            self.acfg_updates.append( (assetId, sender, pgJson(unmsgpack(params))) )
+            self.default_frozen[assetId] = params.get(b'df', False)
+            #logger.error('r=%d block=%r', txround, self.block)
+            #raise Exception('(r={},i={}) TODO acfg'.format( txround, intra))
         elif ttype == b'axfer':
             assetId = txn[b'xaid']
             assetSender = txn.get(b'asnd', sender)
@@ -268,7 +323,7 @@ class Accounting:
                 self.asset_updates[(assetReceiver,assetId)] = self.asset_updates.get((assetReceiver,assetId), 0) + assetAmount
             assetCloseTo = txn.get(b'aclose')
             if assetCloseTo:
-                self.asset_closes[(assetSender, assetId)] = assetCloseTo
+                self.asset_closes.append( (assetCloseTo, assetId, assetSender, assetSender) )
         elif ttype == b'afrz':
             freezeAccount = txn.get(b'fadd')
             freezeAssetId = txn.get(b'faid')
