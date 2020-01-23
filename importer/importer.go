@@ -20,7 +20,7 @@ import (
 	"bytes"
 	"fmt"
 
-	idb "github.com/algorand/indexer/db"
+	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"

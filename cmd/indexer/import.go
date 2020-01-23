@@ -29,7 +29,7 @@ import (
 	"github.com/spf13/cobra"
 	//"github.com/spf13/cobra/doc"
 
-	idb "github.com/algorand/indexer/db"
+	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 )
 

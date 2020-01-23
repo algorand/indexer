@@ -17,10 +17,10 @@
 // You can build without postgres by `go build --tags nopostgres` but it's on by default
 // +build !nopostgres
 
-package db
+package idb
 
 // import text to contstant setup_postgres_sql
-//go:generate go run ../cmd/texttosource/main.go db setup_postgres.sql
+//go:generate go run ../cmd/texttosource/main.go idb setup_postgres.sql
 
 import (
 	"context"
