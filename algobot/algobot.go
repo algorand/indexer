@@ -17,7 +17,7 @@
 package algobot
 
 import (
-	"context"
+	//"context"
 	"errors"
 
 	"github.com/algorand/go-algorand-sdk/client/algod"
@@ -41,12 +41,12 @@ type algobotImpl struct {
 	kclient  kmd.Client
 }
 
-func (bot *algobotImpl) Algod() {
+func (bot *algobotImpl) Algod() algod.Client {
 	// TODO: lazy init of aclient
 	return bot.aclient
 }
 
-func (bot *algobotImpl) Kmd() {
+func (bot *algobotImpl) Kmd() kmd.Client {
 	// TODO: ensure kmd is running
 	// TODO: lazy init of kclient
 	return bot.kclient
@@ -59,12 +59,14 @@ func ForDataDir(path string) (bot Algobot, err error) {
 func algodClientForDataDir(path string) (client algod.Client, err error) {
 	// TODO: WRITEME
 	// TODO: move this to go-algorand-sdk
+	return algod.Client{}, nil
 }
 
 func kmdClientForDataDir(path string) (client kmd.Client, err error) {
 	// TODO: WRITEME
 	// TODO: use kmd in algod data dir if appropriate, otherwise ${HOME}/.algorand/kmd-v{N}
 	// TODO: move this to go-algorand-sdk
+	return kmd.Client{}, nil
 }
 
 /* TODO for general algobot

@@ -16,6 +16,60 @@
 
 package main
 
-func main() {
+import (
+	"fmt"
+	"os"
 
+	"github.com/spf13/cobra"
+	//"github.com/spf13/cobra/doc"
+
+	idb "github.com/algorand/indexer/db"
+)
+
+var rootCmd = &cobra.Command{
+	Use:   "indexer",
+	Short: "Algorand Indexer",
+	Long:  `indexer imports blocks from an algod node or from local files into an SQL database for querying. indexer is a daemon that can serve queries from that database.`,
+	Args:  cobra.NoArgs,
+	Run: func(cmd *cobra.Command, args []string) {
+		//If no arguments passed, we should fallback to help
+		cmd.HelpFunc()(cmd, args)
+	},
+}
+
+var (
+	postgresAddr   string
+	dummyIndexerDb bool
+	db             idb.IndexerDb
+)
+
+func globalIndexerDb() idb.IndexerDb {
+	if db == nil {
+		if postgresAddr != "" {
+			var err error
+			db, err = idb.IndexerDbByName("postgres", postgresAddr)
+			maybeFail(err, "could not init db, %v", err)
+		} else if dummyIndexerDb {
+			db = idb.DummyIndexerDb()
+		} else {
+			fmt.Fprintf(os.Stderr, "no import db set")
+			os.Exit(1)
+		}
+	}
+	return db
+}
+
+func init() {
+	rootCmd.AddCommand(importCmd)
+
+	rootCmd.PersistentFlags().StringVarP(&postgresAddr, "postgres", "P", "", "connection string for postgres database")
+	rootCmd.PersistentFlags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")
+	// TODO: add daemon mode subcommand
+}
+
+func main() {
+	if err := rootCmd.Execute(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 }
