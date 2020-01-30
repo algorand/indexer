@@ -25,9 +25,11 @@ package idb
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	_ "github.com/lib/pq"
 
 	"github.com/algorand/indexer/types"
@@ -99,6 +101,126 @@ func (db *postgresIndexerDb) CommitBlock(round uint64, timestamp int64, headerby
 	err = db.tx.Commit()
 	db.tx = nil
 	return err
+}
+
+func (db *postgresIndexerDb) GetBlockHeader(round uint64) (block types.Block, err error) {
+	row := db.db.QueryRow(`SELECT header FROM block_header WHERE round = $1`, round)
+	var blockbytes []byte
+	err = row.Scan(&blockbytes)
+	if err != nil {
+		return
+	}
+	err = msgpack.Decode(blockbytes, &block)
+	return
+}
+
+// GetAsset return AssetParams about an asset
+func (db *postgresIndexerDb) GetAsset(assetid uint64) (asset types.AssetParams, err error) {
+	row := db.db.QueryRow(`SELECT params FROM asset WHERE index = $1`, assetid)
+	var assetjson string
+	err = row.Scan(&assetjson)
+	if err != nil {
+		return
+	}
+	err = json.Decode([]byte(assetjson), &asset)
+	return
+}
+
+// GetDefaultFrozen get {assetid:default frozen, ...} for all assets
+func (db *postgresIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
+	rows, err := db.db.Query(`SELECT index, params -> 'df' FROM asset`)
+	if err != nil {
+		return
+	}
+	defaultFrozen = make(map[uint64]bool)
+	for rows.Next() {
+		var assetid uint64
+		var frozen bool
+		err = rows.Scan(&assetid, &frozen)
+		if err != nil {
+			return
+		}
+		defaultFrozen[assetid] = frozen
+	}
+	return
+}
+
+func (db *postgresIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
+	tx, err := db.db.Begin()
+	if err != nil {
+		return
+	}
+	defer tx.Rollback() // ignored if .Commit() first
+
+	setAccount, err := tx.Prepare(`INSERT INTO account (addr, microalgos, account_data) VALUES ($1, $2, $3)`)
+	if err != nil {
+		return
+	}
+
+	for ai, alloc := range genesis.Allocation {
+		addr := alloc.Address
+		if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
+			return fmt.Errorf("genesis account[%d] has unhandled asset", ai)
+		}
+		_, err = setAccount.Exec(addr, alloc.State.MicroAlgos, string(json.Encode(alloc.State)))
+		if err != nil {
+			return fmt.Errorf("error setting genesis account[%d], %v", ai, err)
+		}
+	}
+	return tx.Commit()
+
+}
+
+func (db *postgresIndexerDb) GetMetastate(key string) (jsonStrValue string, err error) {
+	row, err := db.db.Query(`SELECT v FROM metastate WHERE k = $1`, key)
+	if err != nil {
+		return
+	}
+	err = row.Scan(&jsonStrValue)
+	return
+}
+
+func (db *postgresIndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
+	_, err = db.db.Exec(`INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`, key, jsonStrValue)
+	return
+}
+
+func (db *postgresIndexerDb) yieldTxnsThread(ctx context.Context, minRound int64, results chan<- TxnRow) {
+	rows, err := db.db.QueryContext(ctx, `SELECT round, intra, txnbytes FROM txn WHERE round > $1 ORDER BY round, intra`, minRound)
+	if err != nil {
+		results <- TxnRow{Error: err}
+		close(results)
+		return
+	}
+	for rows.Next() {
+		var round uint64
+		var intra int
+		var txnbytes []byte
+		err = rows.Scan(&round, &intra, &txnbytes)
+		var row TxnRow
+		if err != nil {
+			row.Error = err
+		} else {
+			row.Round = round
+			row.Intra = intra
+			row.TxnBytes = txnbytes
+		}
+		select {
+		case <-ctx.Done():
+			break
+		case results <- row:
+			if err != nil {
+				break
+			}
+		}
+	}
+	close(results)
+}
+
+func (db *postgresIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow {
+	results := make(chan TxnRow)
+	go db.yieldTxnsThread(ctx, prevRound, results)
+	return results
 }
 
 type postgresFactory struct {

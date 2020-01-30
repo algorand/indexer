@@ -19,6 +19,8 @@ package main
 import (
 	"archive/tar"
 	"compress/bzip2"
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -28,9 +30,12 @@ import (
 
 	"github.com/spf13/cobra"
 	//"github.com/spf13/cobra/doc"
+	//"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 
+	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
+	"github.com/algorand/indexer/types"
 )
 
 func maybeFail(err error, errfmt string, params ...interface{}) {
@@ -102,6 +107,58 @@ func importFile(db idb.IndexerDb, imp importer.Importer, fname string) {
 	maybeFail(err, "%s: %v\n", fname, err)
 }
 
+func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
+	var genesis types.Genesis
+	err = json.NewDecoder(in).Decode(&genesis)
+	if err != nil {
+		return fmt.Errorf("error decoding genesis, %v", err)
+	}
+
+	return db.LoadGenesis(genesis)
+}
+
+type ImportState struct {
+	// AccountRound is the last round committed into account state.
+	// -1 for after genesis is committed and we need to load round 0
+	AccountRound int64
+}
+
+func updateAccounting(db idb.IndexerDb) {
+	stateJsonStr, err := db.GetMetastate("state")
+	maybeFail(err, "getting import state, %v\n", err)
+	var state ImportState
+	if stateJsonStr == "" {
+		if genesisJsonPath != "" {
+			// if we're given no previous state and we're given a genesis file, import it as initial account state
+			gf, err := os.Open(genesisJsonPath)
+			maybeFail(err, "%s: %v\n", genesisJsonPath, err)
+			err = loadGenesis(db, gf)
+			maybeFail(err, "%s: could not load genesis json, %v\n", genesisJsonPath, err)
+			state.AccountRound = -1
+		} else {
+			fmt.Fprintf(os.Stderr, "no import state recorded; need --genesis genesis.json file to get started\n")
+			os.Exit(1)
+			return
+		}
+	} else {
+		err = json.Unmarshal([]byte(stateJsonStr), &state)
+		maybeFail(err, "parsing import state, %v\n", err)
+	}
+
+	act := accounting.New(db)
+	txns := db.YieldTxns(context.Background(), state.AccountRound)
+	for txn := range txns {
+		err = act.AddTransaction(txn.Round, txn.Intra, txn.TxnBytes)
+		maybeFail(err, "txn accounting r=%d i=%d, %v\n", txn.Round, txn.Intra, err)
+	}
+	err = act.Close()
+	maybeFail(err, "accounting close %v\n", err)
+}
+
+var (
+	genesisJsonPath string
+)
+
 var importCmd = &cobra.Command{
 	Use:   "import",
 	Short: "import block file or tar file of blocks",
@@ -124,5 +181,11 @@ var importCmd = &cobra.Command{
 				importFile(db, imp, fname)
 			}
 		}
+
+		updateAccounting(db)
 	},
+}
+
+func init() {
+	importCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json")
 }

@@ -17,6 +17,7 @@
 package idb
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/algorand/indexer/types"
@@ -49,9 +50,32 @@ func (db *dummyIndexerDb) MarkImported(path string) (err error) {
 	return nil
 }
 
+func (db *dummyIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
+	return nil
+}
+
+func (db *dummyIndexerDb) GetMetastate(key string) (jsonStrValue string, err error) {
+	return "", nil
+}
+
+func (db *dummyIndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
+	return nil
+}
+
+func (db *dummyIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow {
+	return nil
+}
+
 type IndexerFactory interface {
 	Name() string
 	Build(arg string) (IndexerDb, error)
+}
+
+type TxnRow struct {
+	Round    uint64
+	Intra    int
+	TxnBytes []byte
+	Error    error
 }
 
 // TODO: move this out of Postgres imlementation when there are other implementations
@@ -64,6 +88,13 @@ type IndexerDb interface {
 
 	AlreadyImported(path string) (imported bool, err error)
 	MarkImported(path string) (err error)
+
+	LoadGenesis(genesis types.Genesis) (err error)
+
+	GetMetastate(key string) (jsonStrValue string, err error)
+	SetMetastate(key, jsonStrValue string) (err error)
+
+	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow
 }
 
 type dummyFactory struct {

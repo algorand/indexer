@@ -223,14 +223,14 @@ class Accounting:
         self.reward_addr = self.block[b'rwd']
         return
 
-    def update_from_db(self):
-        with self.db:
-            cursor = self.db.cursor()
-            cursor.execute(sql("SELECT round, intra, txnbytes FROM txn WHERE round > {ph} ORDER BY round, intra"), (account_round,))
-            for row in cursor:
-                txround, intra, txnbytes = row
-                self.add_stxn(txround, intra, txnbytes)
-        return
+    # def update_from_db(self):
+    #     with self.db:
+    #         cursor = self.db.cursor()
+    #         cursor.execute(sql("SELECT round, intra, txnbytes FROM txn WHERE round > {ph} ORDER BY round, intra"), (account_round,))
+    #         for row in cursor:
+    #             txround, intra, txnbytes = row
+    #             self.add_stxn(txround, intra, txnbytes)
+    #     return
 
     def _asset_updates_for_db(self):
         for addr_id, delta in self.asset_updates.items():

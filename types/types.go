@@ -483,4 +483,153 @@ type (
 		Sigs      [2]OneTimeSignature       `codec:"sig,omitempty,omitemptycheckstruct"`
 		Proposals [2]proposalValue          `codec:"props"`
 	}
+
+	// from github.com/algorand/go-algorand/data/bookkeeping/genesis.go
+
+	// A Genesis object defines an Algorand "universe" -- a set of nodes that can
+	// talk to each other, agree on the ledger contents, etc.  This is defined
+	// by the initial account states (GenesisAllocation), the initial
+	// consensus protocol (GenesisProto), and the schema of the ledger.
+	Genesis struct {
+		_struct struct{} `codec:",omitempty,omitemptyarray"`
+
+		// The SchemaID allows nodes to store data specific to a particular
+		// universe (in case of upgrades at development or testing time),
+		// and as an optimization to quickly check if two nodes are in
+		// the same universe.
+		SchemaID string `codec:"id"`
+
+		// Network identifies the unique algorand network for which the ledger
+		// is valid.
+		// Note the Network name should not include a '-', as we generate the
+		// GenesisID from "<Network>-<SchemaID>"; the '-' makes it easy
+		// to distinguish between the network and schema.
+		Network string `codec:"network"`
+
+		// Proto is the consensus protocol in use at the genesis block.
+		Proto ConsensusVersion `codec:"proto"`
+
+		// Allocation determines the initial accounts and their state.
+		Allocation []GenesisAllocation `codec:"alloc"`
+
+		// RewardsPool is the address of the rewards pool.
+		RewardsPool string `codec:"rwd"`
+
+		// FeeSink is the address of the fee sink.
+		FeeSink string `codec:"fees"`
+
+		// Timestamp for the genesis block
+		Timestamp int64 `codec:"timestamp"`
+
+		// Arbitrary genesis comment string - will be excluded from file if empty
+		Comment string `codec:"comment"`
+	}
+
+	// A GenesisAllocation object represents an allocation of algos to
+	// an address in the genesis block.  Address is the checksummed
+	// short address.  Comment is a note about what this address is
+	// representing, and is purely informational.  State is the initial
+	// account state.
+	GenesisAllocation struct {
+		Address string      `codec:"addr"`
+		Comment string      `codec:"comment"`
+		State   AccountData `codec:"state"`
+	}
+
+	// from github.com/algorand/go-algorand/data/basics/userBalance.go
+
+	// AccountData contains the data associated with a given address.
+	//
+	// This includes the account balance, delegation keys, delegation status, and a custom note.
+	AccountData struct {
+		_struct struct{} `codec:",omitempty,omitemptyarray"`
+
+		Status     byte       `codec:"onl"`
+		MicroAlgos MicroAlgos `codec:"algo"`
+
+		// RewardsBase is used to implement rewards.
+		// This is not meaningful for accounts with Status=NotParticipating.
+		//
+		// Every block assigns some amount of rewards (algos) to every
+		// participating account.  The amount is the product of how much
+		// block.RewardsLevel increased from the previous block and
+		// how many whole config.Protocol.RewardUnit algos this
+		// account holds.
+		//
+		// For performance reasons, we do not want to walk over every
+		// account to apply these rewards to AccountData.MicroAlgos.  Instead,
+		// we defer applying the rewards until some other transaction
+		// touches that participating account, and at that point, apply all
+		// of the rewards to the account's AccountData.MicroAlgos.
+		//
+		// For correctness, we need to be able to determine how many
+		// total algos are present in the system, including deferred
+		// rewards (deferred in the sense that they have not been
+		// reflected in the account's AccountData.MicroAlgos, as described
+		// above).  To compute this total efficiently, we avoid
+		// compounding rewards (i.e., no rewards on rewards) until
+		// they are applied to AccountData.MicroAlgos.
+		//
+		// Mechanically, RewardsBase stores the block.RewardsLevel
+		// whose rewards are already reflected in AccountData.MicroAlgos.
+		// If the account is Status=Offline or Status=Online, its
+		// effective balance (if a transaction were to be issued
+		// against this account) may be higher, as computed by
+		// AccountData.Money().  That function calls
+		// AccountData.WithUpdatedRewards() to apply the deferred
+		// rewards to AccountData.MicroAlgos.
+		RewardsBase uint64 `codec:"ebase"`
+
+		// RewardedMicroAlgos is used to track how many algos were given
+		// to this account since the account was first created.
+		//
+		// This field is updated along with RewardBase; note that
+		// it won't answer the question "how many algos did I make in
+		// the past week".
+		RewardedMicroAlgos MicroAlgos `codec:"ern"`
+
+		VoteID      OneTimeSignatureVerifier `codec:"vote"`
+		SelectionID VRFVerifier              `codec:"sel"`
+
+		VoteFirstValid  Round  `codec:"voteFst"`
+		VoteLastValid   Round  `codec:"voteLst"`
+		VoteKeyDilution uint64 `codec:"voteKD"`
+
+		// If this account created an asset, AssetParams stores
+		// the parameters defining that asset.  The params are indexed
+		// by the Index of the AssetID; the Creator is this account's address.
+		//
+		// An account with any asset in AssetParams cannot be
+		// closed, until the asset is destroyed.  An asset can
+		// be destroyed if this account holds AssetParams.Total units
+		// of that asset (in the Assets array below).
+		//
+		// NOTE: do not modify this value in-place in existing AccountData
+		// structs; allocate a copy and modify that instead.  AccountData
+		// is expected to have copy-by-value semantics.
+		AssetParams map[AssetIndex]AssetParams `codec:"apar"`
+
+		// Assets is the set of assets that can be held by this
+		// account.  Assets (i.e., slots in this map) are explicitly
+		// added and removed from an account by special transactions.
+		// The map is keyed by the AssetID, which is the address of
+		// the account that created the asset plus a unique counter
+		// to distinguish re-created assets.
+		//
+		// Each asset bumps the required MinBalance in this account.
+		//
+		// An account that creates an asset must have its own asset
+		// in the Assets map until that asset is destroyed.
+		//
+		// NOTE: do not modify this value in-place in existing AccountData
+		// structs; allocate a copy and modify that instead.  AccountData
+		// is expected to have copy-by-value semantics.
+		Assets map[AssetIndex]AssetHolding `codec:"asset"`
+	}
+
+	// AssetHolding describes an asset held by an account.
+	AssetHolding struct {
+		Amount uint64 `codec:"a"`
+		Frozen bool   `codec:"f"`
+	}
 )
