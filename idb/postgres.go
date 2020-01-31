@@ -30,6 +30,7 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	atypes "github.com/algorand/go-algorand-sdk/types"
 	_ "github.com/lib/pq"
 
 	"github.com/algorand/indexer/types"
@@ -152,7 +153,7 @@ func (db *postgresIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 
-	setAccount, err := tx.Prepare(`INSERT INTO account (addr, microalgos, account_data) VALUES ($1, $2, $3)`)
+	setAccount, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, account_data) VALUES ($1, $2, 0, $3)`)
 	if err != nil {
 		return
 	}
@@ -160,11 +161,11 @@ func (db *postgresIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 
 	total := uint64(0)
 	for ai, alloc := range genesis.Allocation {
-		addr := alloc.Address
+		addr, err := atypes.DecodeAddress(alloc.Address)
 		if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
 			return fmt.Errorf("genesis account[%d] has unhandled asset", ai)
 		}
-		_, err = setAccount.Exec(addr, alloc.State.MicroAlgos, string(json.Encode(alloc.State)))
+		_, err = setAccount.Exec(addr[:], alloc.State.MicroAlgos, string(json.Encode(alloc.State)))
 		total += uint64(alloc.State.MicroAlgos)
 		if err != nil {
 			return fmt.Errorf("error setting genesis account[%d], %v", ai, err)
@@ -228,7 +229,7 @@ func (db *postgresIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-c
 	return results
 }
 
-func (db *postgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round uint64) (err error) {
+func (db *postgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error) {
 	any := false
 	tx, err := db.db.Begin()
 	if err != nil {
@@ -239,13 +240,13 @@ func (db *postgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round u
 	if len(updates.AlgoUpdates) > 0 {
 		any = true
 		// account_data json is only used on account creation, otherwise the account data jsonb field is updated from the delta
-		setalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, account_data) VALUES ($1, $2, $3) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, account_data = jsonb_set(account.account_data, '{"algo"}', (account.microalgos + EXCLUDED.microalgos)::text::jsonb, true)`)
+		setalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase) VALUES ($1, $2, $3) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase`)
 		if err != nil {
 			return fmt.Errorf("prepare update algo, %v", err)
 		}
 		defer setalgo.Close()
 		for addr, delta := range updates.AlgoUpdates {
-			_, err = setalgo.Exec(addr[:], delta, fmt.Sprintf("{\"algo\":%d}", delta))
+			_, err = setalgo.Exec(addr[:], delta, rewardsBase)
 			if err != nil {
 				return fmt.Errorf("update algo, %v", err)
 			}
@@ -297,16 +298,39 @@ func (db *postgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round u
 		any = true
 		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount)
 SELECT $1, $2, x.amount FROM account_asset x WHERE x.addr = $3
-ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount;
-DELETE FROM account_asset WHERE x.addr = $3`)
+ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount`)
 		if err != nil {
-			return fmt.Errorf("prepare asset close, %v", err)
+			return fmt.Errorf("prepare asset close1, %v", err)
 		}
 		defer acs.Close()
+		acd, err := tx.Prepare(`DELETE FROM account_asset WHERE addr = $1`)
+		if err != nil {
+			return fmt.Errorf("prepare asset close2, %v", err)
+		}
+		defer acd.Close()
 		for _, ac := range updates.AssetCloses {
 			_, err = acs.Exec(ac.CloseTo[:], ac.AssetId, ac.Sender[:])
 			if err != nil {
-				return fmt.Errorf("asset close, %v", err)
+				return fmt.Errorf("asset close send, %v", err)
+			}
+			_, err = acd.Exec(ac.Sender[:])
+			if err != nil {
+				return fmt.Errorf("asset close del, %v", err)
+			}
+		}
+	}
+	if len(updates.AssetDestroys) > 0 {
+		any = true
+		// Note! leaves `asset` row present for historical reference, but deletes all holdings from all accounts
+		ads, err := tx.Prepare(`DELETE FROM account_asset WHERE assetid = $1`)
+		if err != nil {
+			return fmt.Errorf("prepare asset destroy, %v", err)
+		}
+		defer ads.Close()
+		for _, assetId := range updates.AssetDestroys {
+			ads.Exec(assetId)
+			if err != nil {
+				return fmt.Errorf("asset destroy, %v", err)
 			}
 		}
 	}

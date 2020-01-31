@@ -63,7 +63,8 @@ DROP TABLE IF EXISTS accounttotals;
 CREATE TABLE IF NOT EXISTS account (
   addr bytea primary key,
   microalgos bigint NOT NULL,
-  account_data jsonb NOT NULL -- data.basics.AccountData except AssetParams and Assets
+  rewardsbase bigint NOT NULL,
+  account_data jsonb -- data.basics.AccountData except AssetParams and Assets and MicroAlgos and RewardsBase
 );
 
 -- data.basics.AccountData Assets[asset id] AssetHolding{}

@@ -27,6 +27,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	//"github.com/spf13/cobra/doc"
@@ -84,6 +85,7 @@ func importFile(db idb.IndexerDb, imp importer.Importer, fname string) {
 	if imported {
 		return
 	}
+	fmt.Printf("importing %s ...\n", fname)
 	if strings.HasSuffix(fname, ".tar") {
 		fin, err := os.Open(fname)
 		maybeFail(err, "%s: %v\n", fname, err)
@@ -110,7 +112,6 @@ func importFile(db idb.IndexerDb, imp importer.Importer, fname string) {
 
 func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 	var genesis types.Genesis
-	//err = json.NewDecoder(in).Decode(&genesis)
 	gbytes, err := ioutil.ReadAll(in)
 	if err != nil {
 		return fmt.Errorf("error reading genesis, %v", err)
@@ -154,16 +155,24 @@ func updateAccounting(db idb.IndexerDb) {
 		fmt.Printf("will start from round >%d\n", state.AccountRound)
 	}
 
+	lastlog := time.Now()
 	act := accounting.New(db)
 	txns := db.YieldTxns(context.Background(), state.AccountRound)
 	currentRound := uint64(0)
 	roundsSeen := 0
 	for txn := range txns {
 		if txn.Round != currentRound {
+			prevRound := currentRound
 			roundsSeen++
 			currentRound = txn.Round
 			if (numRoundsLimit != 0) && (roundsSeen > numRoundsLimit) {
 				break
+			}
+			now := time.Now()
+			dt := now.Sub(lastlog)
+			if dt > (5 * time.Second) {
+				fmt.Printf("accounting through %d\n", prevRound)
+				lastlog = now
 			}
 		}
 		err = act.AddTransaction(txn.Round, txn.Intra, txn.TxnBytes)
@@ -193,7 +202,7 @@ var importCmd = &cobra.Command{
 			matches, err := filepath.Glob(fname)
 			if err == nil {
 				for _, gfname := range matches {
-					fmt.Printf("%s ...\n", gfname)
+					//fmt.Printf("%s ...\n", gfname)
 					importFile(db, imp, gfname)
 				}
 			} else {

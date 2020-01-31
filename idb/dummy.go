@@ -66,7 +66,7 @@ func (db *dummyIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan
 	return nil
 }
 
-func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round uint64) (err error) {
+func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error) {
 	return nil
 }
 
@@ -105,7 +105,7 @@ type IndexerDb interface {
 
 	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow
 
-	CommitRoundAccounting(updates RoundUpdates, round uint64) (err error)
+	CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error)
 
 	GetBlock(round uint64) (block types.Block, err error)
 }
@@ -167,4 +167,5 @@ type RoundUpdates struct {
 	AssetUpdates  []AssetUpdate
 	FreezeUpdates []FreezeUpdate
 	AssetCloses   []AssetClose
+	AssetDestroys []uint64
 }

@@ -35,16 +35,11 @@ type AccountingState struct {
 	currentRound uint64
 
 	idb.RoundUpdates
-	/*
-		AlgoUpdates   map[[32]byte]int64
-		AcfgUpdates   []AcfgUpdate
-		AssetUpdates  []AssetUpdate
-		FreezeUpdates []FreezeUpdate
-		AssetCloses   []AssetClose
-	*/
 
 	feeAddr    types.Address
 	rewardAddr types.Address
+
+	rewardsLevel uint64
 
 	// number of txns at the end of the previous block
 	txnCounter uint64
@@ -65,12 +60,13 @@ func (accounting *AccountingState) initRound(round uint64) error {
 	}
 	accounting.feeAddr = block.FeeSink
 	accounting.rewardAddr = block.RewardsPool
+	accounting.rewardsLevel = block.RewardsLevel
 	accounting.currentRound = round
 	return nil
 }
 
 func (accounting *AccountingState) commitRound() error {
-	err := accounting.db.CommitRoundAccounting(accounting.RoundUpdates, accounting.currentRound)
+	err := accounting.db.CommitRoundAccounting(accounting.RoundUpdates, accounting.currentRound, accounting.rewardsLevel)
 	if err != nil {
 		return err
 	}
@@ -79,6 +75,7 @@ func (accounting *AccountingState) commitRound() error {
 	accounting.AcfgUpdates = nil
 	accounting.FreezeUpdates = nil
 	accounting.AssetCloses = nil
+	accounting.AssetDestroys = nil
 	return nil
 }
 
@@ -108,6 +105,9 @@ func (accounting *AccountingState) closeAsset(from types.Address, assetId uint64
 }
 func (accounting *AccountingState) freezeAsset(addr types.Address, assetId uint64, frozen bool) {
 	accounting.FreezeUpdates = append(accounting.FreezeUpdates, idb.FreezeUpdate{Addr: addr, AssetId: assetId, Frozen: frozen})
+}
+func (accounting *AccountingState) destroyAsset(assetId uint64) {
+	accounting.AssetDestroys = append(accounting.AssetDestroys, assetId)
 }
 
 func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnbytes []byte) (err error) {
@@ -161,7 +161,7 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 			assetId = accounting.txnCounter + uint64(intra) + 1
 		}
 		if stxn.Txn.AssetParams.IsZero() {
-			return fmt.Errorf("TODO: destroy asset at r=%d i=%d", round, intra)
+			accounting.destroyAsset(assetId)
 		} else {
 			accounting.AcfgUpdates = append(accounting.AcfgUpdates, idb.AcfgUpdate{AssetId: assetId, Creator: stxn.Txn.Sender, Params: stxn.Txn.AssetParams})
 			accounting.defaultFrozen[assetId] = stxn.Txn.AssetParams.DefaultFrozen
