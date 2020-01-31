@@ -633,3 +633,15 @@ type (
 		Frozen bool   `codec:"f"`
 	}
 )
+
+var zeroAddr = [32]byte{}
+
+func (a Address) IsZero() bool {
+	return a == zeroAddr
+}
+
+var zeroAP = AssetParams{}
+
+func (ap AssetParams) IsZero() bool {
+	return ap == zeroAP
+}

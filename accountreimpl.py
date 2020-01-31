@@ -261,7 +261,6 @@ DELETE FROM account_asset WHERE x.addr = {ph}'''), self.asset_closes)
             if self.state is None:
                 self.state = _get_state(cursor)
             self.state['account_round'] = self.current_round
-            # TODO: INSERT/UPDATE with psql custom jsonb operators?
             _set_state(cursor, self.state)
 
     def add_stxn(self, txround, intra, txnbytes):

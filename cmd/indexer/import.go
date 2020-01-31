@@ -20,7 +20,7 @@ import (
 	"archive/tar"
 	"compress/bzip2"
 	"context"
-	"encoding/json"
+	//"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -31,6 +31,7 @@ import (
 	"github.com/spf13/cobra"
 	//"github.com/spf13/cobra/doc"
 	//"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
@@ -109,7 +110,12 @@ func importFile(db idb.IndexerDb, imp importer.Importer, fname string) {
 
 func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 	var genesis types.Genesis
-	err = json.NewDecoder(in).Decode(&genesis)
+	//err = json.NewDecoder(in).Decode(&genesis)
+	gbytes, err := ioutil.ReadAll(in)
+	if err != nil {
+		return fmt.Errorf("error reading genesis, %v", err)
+	}
+	err = json.Decode(gbytes, &genesis)
 	if err != nil {
 		return fmt.Errorf("error decoding genesis, %v", err)
 	}
@@ -117,18 +123,20 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 	return db.LoadGenesis(genesis)
 }
 
+/*
 type ImportState struct {
 	// AccountRound is the last round committed into account state.
 	// -1 for after genesis is committed and we need to load round 0
 	AccountRound int64
-}
+}*/
 
 func updateAccounting(db idb.IndexerDb) {
 	stateJsonStr, err := db.GetMetastate("state")
 	maybeFail(err, "getting import state, %v\n", err)
-	var state ImportState
+	var state idb.ImportState
 	if stateJsonStr == "" {
 		if genesisJsonPath != "" {
+			fmt.Printf("loading genesis %s\n", genesisJsonPath)
 			// if we're given no previous state and we're given a genesis file, import it as initial account state
 			gf, err := os.Open(genesisJsonPath)
 			maybeFail(err, "%s: %v\n", genesisJsonPath, err)
@@ -141,22 +149,34 @@ func updateAccounting(db idb.IndexerDb) {
 			return
 		}
 	} else {
-		err = json.Unmarshal([]byte(stateJsonStr), &state)
+		state, err = idb.ParseImportState(stateJsonStr)
 		maybeFail(err, "parsing import state, %v\n", err)
+		fmt.Printf("will start from round >%d\n", state.AccountRound)
 	}
 
 	act := accounting.New(db)
 	txns := db.YieldTxns(context.Background(), state.AccountRound)
+	currentRound := uint64(0)
+	roundsSeen := 0
 	for txn := range txns {
+		if txn.Round != currentRound {
+			roundsSeen++
+			currentRound = txn.Round
+			if (numRoundsLimit != 0) && (roundsSeen > numRoundsLimit) {
+				break
+			}
+		}
 		err = act.AddTransaction(txn.Round, txn.Intra, txn.TxnBytes)
 		maybeFail(err, "txn accounting r=%d i=%d, %v\n", txn.Round, txn.Intra, err)
 	}
 	err = act.Close()
 	maybeFail(err, "accounting close %v\n", err)
+	fmt.Printf("accounting updated through round %d\n", currentRound)
 }
 
 var (
 	genesisJsonPath string
+	numRoundsLimit  int
 )
 
 var importCmd = &cobra.Command{
@@ -188,4 +208,5 @@ var importCmd = &cobra.Command{
 
 func init() {
 	importCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json")
+	importCmd.Flags().IntVarP(&numRoundsLimit, "num-rounds-limit", "", 0, "number of rounds to process")
 }

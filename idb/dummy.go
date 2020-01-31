@@ -66,6 +66,15 @@ func (db *dummyIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan
 	return nil
 }
 
+func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round uint64) (err error) {
+	return nil
+}
+
+func (db *dummyIndexerDb) GetBlock(round uint64) (block types.Block, err error) {
+	err = nil
+	return
+}
+
 type IndexerFactory interface {
 	Name() string
 	Build(arg string) (IndexerDb, error)
@@ -95,6 +104,10 @@ type IndexerDb interface {
 	SetMetastate(key, jsonStrValue string) (err error)
 
 	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow
+
+	CommitRoundAccounting(updates RoundUpdates, round uint64) (err error)
+
+	GetBlock(round uint64) (block types.Block, err error)
 }
 
 type dummyFactory struct {
@@ -121,4 +134,37 @@ func IndexerDbByName(factoryname, arg string) (IndexerDb, error) {
 		}
 	}
 	return nil, fmt.Errorf("no IndexerDb factory for %s", factoryname)
+}
+
+type AcfgUpdate struct {
+	AssetId uint64
+	Creator types.Address
+	Params  types.AssetParams
+}
+
+type AssetUpdate struct {
+	Addr          types.Address
+	AssetId       uint64
+	Delta         int64
+	DefaultFrozen bool
+}
+
+type FreezeUpdate struct {
+	Addr    types.Address
+	AssetId uint64
+	Frozen  bool
+}
+
+type AssetClose struct {
+	CloseTo types.Address
+	AssetId uint64
+	Sender  types.Address
+}
+
+type RoundUpdates struct {
+	AlgoUpdates   map[[32]byte]int64
+	AcfgUpdates   []AcfgUpdate
+	AssetUpdates  []AssetUpdate
+	FreezeUpdates []FreezeUpdate
+	AssetCloses   []AssetClose
 }
