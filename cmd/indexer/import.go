@@ -20,12 +20,13 @@ import (
 	"archive/tar"
 	"compress/bzip2"
 	"context"
-	//"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -188,6 +189,37 @@ var (
 	numRoundsLimit  int
 )
 
+type blockTarPaths []string
+
+// sort.Interface
+func (paths *blockTarPaths) Len() int {
+	return len(*paths)
+}
+
+func pathNameStartInt(x string) int64 {
+	underscorePos := strings.IndexRune(x, '_')
+	if underscorePos == -1 {
+		return -1
+	}
+	v, err := strconv.ParseInt(x[:underscorePos], 10, 64)
+	if err != nil {
+		return -1
+	}
+	return v
+}
+
+// sort.Interface
+func (paths *blockTarPaths) Less(i, j int) bool {
+	return pathNameStartInt((*paths)[i]) < pathNameStartInt((*paths)[j])
+}
+
+// sort.Interface
+func (paths *blockTarPaths) Swap(i, j int) {
+	t := (*paths)[i]
+	(*paths)[i] = (*paths)[j]
+	(*paths)[j] = t
+}
+
 var importCmd = &cobra.Command{
 	Use:   "import",
 	Short: "import block file or tar file of blocks",
@@ -201,7 +233,9 @@ var importCmd = &cobra.Command{
 		for _, fname := range args {
 			matches, err := filepath.Glob(fname)
 			if err == nil {
-				for _, gfname := range matches {
+				pathsSorted := blockTarPaths(matches)
+				sort.Sort(&pathsSorted)
+				for _, gfname := range pathsSorted {
 					//fmt.Printf("%s ...\n", gfname)
 					importFile(db, imp, gfname)
 				}

@@ -21,6 +21,7 @@
 CREATE TABLE IF NOT EXISTS block_header (
 round bigint PRIMARY KEY,
 realtime timestamp without time zone NOT NULL,
+rewardslevel bigint NOT NULL,
 header bytea NOT NULL
 );
 CREATE INDEX IF NOT EXISTS block_header_time ON block_header (realtime);

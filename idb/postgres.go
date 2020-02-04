@@ -93,9 +93,9 @@ func (db *postgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum 
 	}
 	return err
 }
-func (db *postgresIndexerDb) CommitBlock(round uint64, timestamp int64, headerbytes []byte) error {
+func (db *postgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
 	var err error
-	_, err = db.tx.Exec(`INSERT INTO block_header (round, realtime, header) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0), headerbytes)
+	_, err = db.tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0), rewardslevel, headerbytes)
 	if err != nil {
 		return err
 	}

@@ -136,7 +136,7 @@ func (imp *dbImporter) ImportBlock(blockbytes []byte) (err error) {
 	blockHeader := block
 	blockHeader.Payset = nil
 	blockheaderBytes := msgpack.Encode(blockHeader)
-	err = imp.db.CommitBlock(round, block.TimeStamp, blockheaderBytes)
+	err = imp.db.CommitBlock(round, block.TimeStamp, block.RewardsLevel, blockheaderBytes)
 	if err != nil {
 		return fmt.Errorf("error committing block, %v", err)
 	}

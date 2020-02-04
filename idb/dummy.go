@@ -38,7 +38,7 @@ func (db *dummyIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int
 	fmt.Printf("\ttxn %d %d %d %d\n", round, intra, txtypeenum, assetid)
 	return nil
 }
-func (db *dummyIndexerDb) CommitBlock(round uint64, timestamp int64, headerbytes []byte) error {
+func (db *dummyIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
 	fmt.Printf("CommitBlock %d %d %d header bytes\n", round, timestamp, len(headerbytes))
 	return nil
 }
@@ -93,7 +93,7 @@ type TxnRow struct {
 type IndexerDb interface {
 	StartBlock() error
 	AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txnbytes []byte, txn types.SignedTxnInBlock, participation [][]byte) error
-	CommitBlock(round uint64, timestamp int64, headerbytes []byte) error
+	CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error
 
 	AlreadyImported(path string) (imported bool, err error)
 	MarkImported(path string) (err error)
