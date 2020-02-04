@@ -1,8 +1,47 @@
+// Copyright (C) 2019-2020 Algorand, Inc.
+// This file is part of the Algorand Indexer
+//
+// Algorand Indexer is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// Algorand Indexer is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Algorand Indexer.  If not, see <https://www.gnu.org/licenses/>.
+
+// GENERATED CODE from source setup_postgres.sql via go generate
+
+package idb
+
+const setup_postgres_sql = `-- Copyright (C) 2019-2020 Algorand, Inc.
+-- This file is part of the Algorand Indexer
+--
+-- Algorand Indexer is free software: you can redistribute it and/or modify
+-- it under the terms of the GNU Affero General Public License as
+-- published by the Free Software Foundation, either version 3 of the
+-- License, or (at your option) any later version.
+--
+-- Algorand Indexer is distributed in the hope that it will be useful,
+-- but WITHOUT ANY WARRANTY; without even the implied warranty of
+-- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+-- GNU Affero General Public License for more details.
+--
+-- You should have received a copy of the GNU Affero General Public License
+-- along with Algorand Indexer.  If not, see <https://www.gnu.org/licenses/>.
+--
+-- This file is setup_postgres.sql which gets compiled into go source using a go:generate statement in postgres.go
+--
 -- TODO? replace all 'addr bytea' with 'addr_id bigint' and a mapping table? makes addrs an 8 byte int that fits in a register instead of a 32 byte string
 
 CREATE TABLE IF NOT EXISTS block_header (
 round bigint PRIMARY KEY,
 realtime timestamp without time zone NOT NULL,
+rewardslevel bigint NOT NULL,
 header bytea NOT NULL
 );
 CREATE INDEX IF NOT EXISTS block_header_time ON block_header (realtime);
@@ -30,6 +69,7 @@ CREATE TABLE IF NOT EXISTS imported (path text);
 
 -- like ledger/accountdb.go
 DROP TABLE IF EXISTS accounttotals;
+-- TODO: do we need this?
 -- CREATE TABLE IF NOT EXISTS accounttotals (
 --   id text primary key,
 --   online integer,
@@ -44,7 +84,8 @@ DROP TABLE IF EXISTS accounttotals;
 CREATE TABLE IF NOT EXISTS account (
   addr bytea primary key,
   microalgos bigint NOT NULL,
-  account_data jsonb NOT NULL -- data.basics.AccountData except AssetParams and Assets
+  rewardsbase bigint NOT NULL,
+  account_data jsonb -- data.basics.AccountData except AssetParams and Assets and MicroAlgos and RewardsBase
 );
 
 -- data.basics.AccountData Assets[asset id] AssetHolding{}
@@ -70,3 +111,4 @@ CREATE TABLE IF NOT EXISTS metastate (
   k text primary key,
   v jsonb
 );
+`
