@@ -61,6 +61,7 @@ func globalIndexerDb() idb.IndexerDb {
 
 func init() {
 	rootCmd.AddCommand(importCmd)
+	rootCmd.AddCommand(daemonCmd)
 
 	rootCmd.PersistentFlags().StringVarP(&postgresAddr, "postgres", "P", "", "connection string for postgres database")
 	rootCmd.PersistentFlags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")

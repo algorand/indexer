@@ -109,7 +109,7 @@ func (imp *dbImporter) ImportBlock(blockbytes []byte) (err error) {
 	block := blockContainer.Block
 	round := uint64(block.Round)
 	for intra, stxn := range block.Payset {
-		txtype := stxn.Txn.Type
+		txtype := string(stxn.Txn.Type)
 		txtypeenum := typeEnumMap[txtype]
 		assetid := uint64(0)
 		switch txtypeenum {

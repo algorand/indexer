@@ -25,9 +25,12 @@ package idb
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/client/algod/models"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
@@ -191,18 +194,12 @@ func (db *postgresIndexerDb) SetMetastate(key, jsonStrValue string) (err error) 
 	return
 }
 
-func (db *postgresIndexerDb) yieldTxnsThread(ctx context.Context, minRound int64, results chan<- TxnRow) {
-	rows, err := db.db.QueryContext(ctx, `SELECT round, intra, txnbytes FROM txn WHERE round > $1 ORDER BY round, intra`, minRound)
-	if err != nil {
-		results <- TxnRow{Error: err}
-		close(results)
-		return
-	}
+func (db *postgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {
 	for rows.Next() {
 		var round uint64
 		var intra int
 		var txnbytes []byte
-		err = rows.Scan(&round, &intra, &txnbytes)
+		err := rows.Scan(&round, &intra, &txnbytes)
 		var row TxnRow
 		if err != nil {
 			row.Error = err
@@ -224,8 +221,14 @@ func (db *postgresIndexerDb) yieldTxnsThread(ctx context.Context, minRound int64
 }
 
 func (db *postgresIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow {
-	results := make(chan TxnRow)
-	go db.yieldTxnsThread(ctx, prevRound, results)
+	results := make(chan TxnRow, 1)
+	rows, err := db.db.QueryContext(ctx, `SELECT round, intra, txnbytes FROM txn WHERE round > $1 ORDER BY round, intra`, prevRound)
+	if err != nil {
+		results <- TxnRow{Error: err}
+		close(results)
+		return results
+	}
+	go db.yieldTxnsThread(ctx, rows, results)
 	return results
 }
 
@@ -369,6 +372,106 @@ func (db *postgresIndexerDb) GetBlock(round uint64) (block types.Block, err erro
 	}
 	err = msgpack.Decode(blockheaderbytes, &block)
 	return
+}
+
+func (db *postgresIndexerDb) TransactionsForAddress(ctx context.Context, addr types.Address, limit, firstRound, lastRound uint64, beforeTime, afterTime time.Time) <-chan TxnRow {
+	const maxWhereParts = 6
+	whereParts := make([]string, 0, maxWhereParts)
+	whereArgs := make([]interface{}, 0, maxWhereParts)
+	whereParts = append(whereParts, "p.addr = $1")
+	whereArgs = append(whereArgs, addr[:])
+	partNumber := 2
+	joinHeader := false
+	if firstRound != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("t.round >= $%d", partNumber))
+		whereArgs = append(whereArgs, firstRound)
+		partNumber++
+	}
+	if lastRound != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("t.round <= $%d", partNumber))
+		whereArgs = append(whereArgs, lastRound)
+		partNumber++
+	}
+	if !beforeTime.IsZero() {
+		whereParts = append(whereParts, fmt.Sprintf("h.realtime < $%d", partNumber))
+		whereArgs = append(whereArgs, beforeTime)
+		partNumber++
+		joinHeader = true
+	}
+	if !afterTime.IsZero() {
+		whereParts = append(whereParts, fmt.Sprintf("h.realtime > $%d", partNumber))
+		whereArgs = append(whereArgs, afterTime)
+		partNumber++
+		joinHeader = true
+	}
+	var query string
+	// TODO LIMIT
+	whereStr := strings.Join(whereParts, " AND ")
+	if joinHeader {
+		query = "SELECT t.round, t.intra, t.txnbytes FROM txn t JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra JOIN block_header h ON t.round = h.round WHERE " + whereStr
+	} else {
+		query = "SELECT t.round, t.intra, t.txnbytes FROM txn t JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra WHERE " + whereStr
+	}
+	out := make(chan TxnRow, 1)
+	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
+	if err != nil {
+		out <- TxnRow{Error: err}
+		close(out)
+		return out
+	}
+	go db.yieldTxnsThread(ctx, rows, out)
+	return out
+}
+
+const maxAccountsLimit = 1000
+
+func (db *postgresIndexerDb) GetAccounts(ctx context.Context, greaterThan types.Address, limit int) (accounts []models.Account, err error) {
+	if limit == 0 || limit > maxAccountsLimit {
+		limit = maxAccountsLimit
+	}
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+	defer tx.Rollback()
+	roundrow := tx.QueryRow(`SELECT (v -> 'account_round')::bigint FROM metastate WHERE k = 'state'`)
+	var round uint64
+	err = roundrow.Scan(&round)
+	if err != nil {
+		return
+	}
+	rows, err := tx.QueryContext(ctx, `SELECT addr, microalgos, rewardsbase, account_data FROM account WHERE addr > $1 ORDER BY addr LIMIT $2`, greaterThan[:], limit)
+	if err != nil {
+		return
+	}
+	out := make([]models.Account, 0, limit)
+	for rows.Next() {
+		var addr []byte
+		var microalgos uint64
+		var rewardsbase uint64
+		var dataJsonStr *string
+		err = rows.Scan(&addr, &microalgos, &rewardsbase, &dataJsonStr)
+		if err != nil {
+			return
+		}
+		var account models.Account
+		account.Round = round
+		var aaddr atypes.Address
+		if len(addr) != 32 {
+			return nil, errors.New("loaded invalid addr from db in GetAccounts")
+		}
+		copy(aaddr[:], addr)
+		account.Address = aaddr.String()
+		account.AmountWithoutPendingRewards = microalgos
+		// todo, get rewardslevel at round, calculate PendingRewards and add to get Amount
+		// account.Rewards // not filled
+		// account.Status // not filled
+		// account.AssetParams // TODO: optionally join with asset created by this addr
+		// account.Assets // TODO: optionally join with account_asset
+		out = append(out, account)
+	}
+
+	return out, nil
 }
 
 type postgresFactory struct {

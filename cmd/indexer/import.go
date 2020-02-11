@@ -187,6 +187,7 @@ func updateAccounting(db idb.IndexerDb) {
 var (
 	genesisJsonPath string
 	numRoundsLimit  int
+	blockFileLimit  int
 )
 
 type blockTarPaths []string
@@ -235,6 +236,9 @@ var importCmd = &cobra.Command{
 			if err == nil {
 				pathsSorted := blockTarPaths(matches)
 				sort.Sort(&pathsSorted)
+				if blockFileLimit != 0 && len(pathsSorted) > blockFileLimit {
+					pathsSorted = pathsSorted[:blockFileLimit]
+				}
 				for _, gfname := range pathsSorted {
 					//fmt.Printf("%s ...\n", gfname)
 					importFile(db, imp, gfname)
@@ -252,4 +256,5 @@ var importCmd = &cobra.Command{
 func init() {
 	importCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json")
 	importCmd.Flags().IntVarP(&numRoundsLimit, "num-rounds-limit", "", 0, "number of rounds to process")
+	importCmd.Flags().IntVarP(&blockFileLimit, "block-file-limit", "", 0, "number of block files to process (for debugging)")
 }
