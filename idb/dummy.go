@@ -19,6 +19,9 @@ package idb
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/algorand/go-algorand-sdk/client/algod/models"
 
 	"github.com/algorand/indexer/types"
 )
@@ -74,6 +77,13 @@ func (db *dummyIndexerDb) GetBlock(round uint64) (block types.Block, err error) 
 	err = nil
 	return
 }
+func (db *dummyIndexerDb) TransactionsForAddress(ctx context.Context, addr types.Address, limit, firstRound, lastRound uint64, beforeTime, afterTime time.Time) <-chan TxnRow {
+	return nil
+}
+
+func (db *dummyIndexerDb) GetAccounts(ctx context.Context, greaterThan types.Address, limit int) (accounts []models.Account, err error) {
+	return nil, nil
+}
 
 type IndexerFactory interface {
 	Name() string
@@ -87,7 +97,6 @@ type TxnRow struct {
 	Error    error
 }
 
-// TODO: move this out of Postgres imlementation when there are other implementations
 // TODO: sqlite3 impl
 // TODO: cockroachdb impl
 type IndexerDb interface {
@@ -108,6 +117,9 @@ type IndexerDb interface {
 	CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error)
 
 	GetBlock(round uint64) (block types.Block, err error)
+
+	TransactionsForAddress(ctx context.Context, addr types.Address, limit, firstRound, lastRound uint64, beforeTime, afterTime time.Time) <-chan TxnRow
+	GetAccounts(ctx context.Context, greaterThan types.Address, limit int) (accounts []models.Account, err error)
 }
 
 type dummyFactory struct {

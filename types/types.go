@@ -17,9 +17,12 @@
 package types
 
 // copied from github.com/algorand/go-algorand/data/bookkeeping/block.go
+import (
+	atypes "github.com/algorand/go-algorand-sdk/types"
+)
 
 type (
-	Address                  [32]byte
+	Address                  = atypes.Address //                  [32]byte
 	Digest                   [32]byte
 	Seed                     [32]byte
 	Signature                [64]byte
@@ -198,43 +201,45 @@ type (
 	SignedTxnWithAD struct {
 		_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-		SignedTxn
+		atypes.SignedTxn
 		ApplyData
 	}
 
-	MultisigSig struct {
-		_struct struct{} `codec:",omitempty,omitemptyarray"`
+	/*
+		MultisigSig struct {
+			_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-		Version   uint8            `codec:"v"`
-		Threshold uint8            `codec:"thr"`
-		Subsigs   []MultisigSubsig `codec:"subsig"`
-	}
-	MultisigSubsig struct {
-		_struct struct{} `codec:",omitempty,omitemptyarray"`
+			Version   uint8            `codec:"v"`
+			Threshold uint8            `codec:"thr"`
+			Subsigs   []MultisigSubsig `codec:"subsig"`
+		}
+		MultisigSubsig struct {
+			_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-		Key PublicKey `codec:"pk"` // all public keys that are possible signers for this address
-		Sig Signature `codec:"s"`  // may be either empty or a signature
-	}
-	LogicSig struct {
-		_struct struct{} `codec:",omitempty,omitemptyarray"`
+			Key PublicKey `codec:"pk"` // all public keys that are possible signers for this address
+			Sig Signature `codec:"s"`  // may be either empty or a signature
+		}
+		LogicSig struct {
+			_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-		// Logic signed by Sig or Msig, OR hashed to be the Address of an account.
-		Logic []byte `codec:"l"`
+			// Logic signed by Sig or Msig, OR hashed to be the Address of an account.
+			Logic []byte `codec:"l"`
 
-		Sig  Signature   `codec:"sig"`
-		Msig MultisigSig `codec:"msig"`
+			Sig  Signature   `codec:"sig"`
+			Msig MultisigSig `codec:"msig"`
 
-		// Args are not signed, but checked by Logic
-		Args [][]byte `codec:"arg"`
-	}
-	SignedTxn struct {
-		_struct struct{} `codec:",omitempty,omitemptyarray"`
+			// Args are not signed, but checked by Logic
+			Args [][]byte `codec:"arg"`
+		}
+		SignedTxn struct {
+			_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-		Sig  Signature   `codec:"sig"`
-		Msig MultisigSig `codec:"msig"`
-		Lsig LogicSig    `codec:"lsig"`
-		Txn  Transaction `codec:"txn"`
-	}
+			Sig  Signature   `codec:"sig"`
+			Msig MultisigSig `codec:"msig"`
+			Lsig LogicSig    `codec:"lsig"`
+			Txn  Transaction `codec:"txn"`
+		}
+	*/
 
 	ApplyData struct {
 		_struct struct{} `codec:",omitempty,omitemptyarray"`
@@ -248,176 +253,182 @@ type (
 		CloseRewards    MicroAlgos `codec:"rc"`
 	}
 
-	Transaction struct {
-		_struct struct{} `codec:",omitempty,omitemptyarray"`
+	Transaction = atypes.Transaction
+	/*
+			Transaction struct {
+				_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-		// Type of transaction
-		Type string `codec:"type"`
+				// Type of transaction
+				Type string `codec:"type"`
 
-		// Common fields for all types of transactions
-		TxnHeader
+				// Common fields for all types of transactions
+				TxnHeader
 
-		// Fields for different types of transactions
-		KeyregTxnFields
-		PaymentTxnFields
-		AssetConfigTxnFields
-		AssetTransferTxnFields
-		AssetFreezeTxnFields
-	}
+				// Fields for different types of transactions
+				KeyregTxnFields
+				PaymentTxnFields
+				AssetConfigTxnFields
+				AssetTransferTxnFields
+				AssetFreezeTxnFields
+			}
 
-	TxnHeader struct {
-		_struct struct{} `codec:",omitempty,omitemptyarray"`
+		TxnHeader struct {
+			_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-		Sender      Address    `codec:"snd"`
-		Fee         MicroAlgos `codec:"fee"`
-		FirstValid  Round      `codec:"fv"`
-		LastValid   Round      `codec:"lv"`
-		Note        []byte     `codec:"note"` // Uniqueness or app-level data about txn
-		GenesisID   string     `codec:"gen"`
-		GenesisHash Digest     `codec:"gh"`
+			Sender      Address    `codec:"snd"`
+			Fee         MicroAlgos `codec:"fee"`
+			FirstValid  Round      `codec:"fv"`
+			LastValid   Round      `codec:"lv"`
+			Note        []byte     `codec:"note"` // Uniqueness or app-level data about txn
+			GenesisID   string     `codec:"gen"`
+			GenesisHash Digest     `codec:"gh"`
 
-		// Group specifies that this transaction is part of a
-		// transaction group (and, if so, specifies the hash
-		// of a TxGroup).
-		Group Digest `codec:"grp"`
+			// Group specifies that this transaction is part of a
+			// transaction group (and, if so, specifies the hash
+			// of a TxGroup).
+			Group Digest `codec:"grp"`
 
-		// Lease enforces mutual exclusion of transactions.  If this field is
-		// nonzero, then once the transaction is confirmed, it acquires the
-		// lease identified by the (Sender, Lease) pair of the transaction until
-		// the LastValid round passes.  While this transaction possesses the
-		// lease, no other transaction specifying this lease can be confirmed.
-		Lease [32]byte `codec:"lx"`
-	}
+			// Lease enforces mutual exclusion of transactions.  If this field is
+			// nonzero, then once the transaction is confirmed, it acquires the
+			// lease identified by the (Sender, Lease) pair of the transaction until
+			// the LastValid round passes.  While this transaction possesses the
+			// lease, no other transaction specifying this lease can be confirmed.
+			Lease [32]byte `codec:"lx"`
+		}
 
-	KeyregTxnFields struct {
-		_struct struct{} `codec:",omitempty,omitemptyarray"`
+		KeyregTxnFields struct {
+			_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-		VotePK           OneTimeSignatureVerifier `codec:"votekey"`
-		SelectionPK      VRFVerifier              `codec:"selkey"`
-		VoteFirst        Round                    `codec:"votefst"`
-		VoteLast         Round                    `codec:"votelst"`
-		VoteKeyDilution  uint64                   `codec:"votekd"`
-		Nonparticipation bool                     `codec:"nonpart"`
-	}
+			VotePK           OneTimeSignatureVerifier `codec:"votekey"`
+			SelectionPK      VRFVerifier              `codec:"selkey"`
+			VoteFirst        Round                    `codec:"votefst"`
+			VoteLast         Round                    `codec:"votelst"`
+			VoteKeyDilution  uint64                   `codec:"votekd"`
+			Nonparticipation bool                     `codec:"nonpart"`
+		}
 
-	PaymentTxnFields struct {
-		_struct struct{} `codec:",omitempty,omitemptyarray"`
+		PaymentTxnFields struct {
+			_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-		Receiver Address    `codec:"rcv"`
-		Amount   MicroAlgos `codec:"amt"`
+			Receiver Address    `codec:"rcv"`
+			Amount   MicroAlgos `codec:"amt"`
 
-		// When CloseRemainderTo is set, it indicates that the
-		// transaction is requesting that the account should be
-		// closed, and all remaining funds be transferred to this
-		// address.
-		CloseRemainderTo Address `codec:"close"`
-	}
+			// When CloseRemainderTo is set, it indicates that the
+			// transaction is requesting that the account should be
+			// closed, and all remaining funds be transferred to this
+			// address.
+			CloseRemainderTo Address `codec:"close"`
+		}
+	*/
+	AssetParams = atypes.AssetParams
+	/*
+		AssetParams struct {
+			_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-	AssetParams struct {
-		_struct struct{} `codec:",omitempty,omitemptyarray"`
+			// Total specifies the total number of units of this asset
+			// created.
+			Total uint64 `codec:"t"`
 
-		// Total specifies the total number of units of this asset
-		// created.
-		Total uint64 `codec:"t"`
+			// Decimals specifies the number of digits to display after the decimal
+			// place when displaying this asset. A value of 0 represents an asset
+			// that is not divisible, a value of 1 represents an asset divisible
+			// into tenths, and so on. This value must be between 0 and 19
+			// (inclusive).
+			Decimals uint32 `codec:"dc"`
 
-		// Decimals specifies the number of digits to display after the decimal
-		// place when displaying this asset. A value of 0 represents an asset
-		// that is not divisible, a value of 1 represents an asset divisible
-		// into tenths, and so on. This value must be between 0 and 19
-		// (inclusive).
-		Decimals uint32 `codec:"dc"`
+			// DefaultFrozen specifies whether slots for this asset
+			// in user accounts are frozen by default or not.
+			DefaultFrozen bool `codec:"df"`
 
-		// DefaultFrozen specifies whether slots for this asset
-		// in user accounts are frozen by default or not.
-		DefaultFrozen bool `codec:"df"`
+			// UnitName specifies a hint for the name of a unit of
+			// this asset.
+			UnitName string `codec:"un"`
 
-		// UnitName specifies a hint for the name of a unit of
-		// this asset.
-		UnitName string `codec:"un"`
+			// AssetName specifies a hint for the name of the asset.
+			AssetName string `codec:"an"`
 
-		// AssetName specifies a hint for the name of the asset.
-		AssetName string `codec:"an"`
+			// URL specifies a URL where more information about the asset can be
+			// retrieved
+			URL string `codec:"au"`
 
-		// URL specifies a URL where more information about the asset can be
-		// retrieved
-		URL string `codec:"au"`
+			// MetadataHash specifies a commitment to some unspecified asset
+			// metadata. The format of this metadata is up to the application.
+			MetadataHash [32]byte `codec:"am"`
 
-		// MetadataHash specifies a commitment to some unspecified asset
-		// metadata. The format of this metadata is up to the application.
-		MetadataHash [32]byte `codec:"am"`
+			// Manager specifies an account that is allowed to change the
+			// non-zero addresses in this AssetParams.
+			Manager Address `codec:"m"`
 
-		// Manager specifies an account that is allowed to change the
-		// non-zero addresses in this AssetParams.
-		Manager Address `codec:"m"`
+			// Reserve specifies an account whose holdings of this asset
+			// should be reported as "not minted".
+			Reserve Address `codec:"r"`
 
-		// Reserve specifies an account whose holdings of this asset
-		// should be reported as "not minted".
-		Reserve Address `codec:"r"`
+			// Freeze specifies an account that is allowed to change the
+			// frozen state of holdings of this asset.
+			Freeze Address `codec:"f"`
 
-		// Freeze specifies an account that is allowed to change the
-		// frozen state of holdings of this asset.
-		Freeze Address `codec:"f"`
+			// Clawback specifies an account that is allowed to take units
+			// of this asset from any account.
+			Clawback Address `codec:"c"`
+		}
+	*/
+	/*
+		// AssetConfigTxnFields captures the fields used for asset
+		// allocation, re-configuration, and destruction.
+		AssetConfigTxnFields struct {
+			_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-		// Clawback specifies an account that is allowed to take units
-		// of this asset from any account.
-		Clawback Address `codec:"c"`
-	}
-	// AssetConfigTxnFields captures the fields used for asset
-	// allocation, re-configuration, and destruction.
-	AssetConfigTxnFields struct {
-		_struct struct{} `codec:",omitempty,omitemptyarray"`
+			// ConfigAsset is the asset being configured or destroyed.
+			// A zero value means allocation
+			ConfigAsset AssetIndex `codec:"caid"`
 
-		// ConfigAsset is the asset being configured or destroyed.
-		// A zero value means allocation
-		ConfigAsset AssetIndex `codec:"caid"`
+			// AssetParams are the parameters for the asset being
+			// created or re-configured.  A zero value means destruction.
+			AssetParams atypes.AssetParams `codec:"apar"`
+		}
 
-		// AssetParams are the parameters for the asset being
-		// created or re-configured.  A zero value means destruction.
-		AssetParams AssetParams `codec:"apar"`
-	}
+		// AssetTransferTxnFields captures the fields used for asset transfers.
+		AssetTransferTxnFields struct {
+			_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-	// AssetTransferTxnFields captures the fields used for asset transfers.
-	AssetTransferTxnFields struct {
-		_struct struct{} `codec:",omitempty,omitemptyarray"`
+			XferAsset AssetIndex `codec:"xaid"`
 
-		XferAsset AssetIndex `codec:"xaid"`
+			// AssetAmount is the amount of asset to transfer.
+			// A zero amount transferred to self allocates that asset
+			// in the account's Assets map.
+			AssetAmount uint64 `codec:"aamt"`
 
-		// AssetAmount is the amount of asset to transfer.
-		// A zero amount transferred to self allocates that asset
-		// in the account's Assets map.
-		AssetAmount uint64 `codec:"aamt"`
+			// AssetSender is the sender of the transfer.  If this is not
+			// a zero value, the real transaction sender must be the Clawback
+			// address from the AssetParams.  If this is the zero value,
+			// the asset is sent from the transaction's Sender.
+			AssetSender Address `codec:"asnd"`
 
-		// AssetSender is the sender of the transfer.  If this is not
-		// a zero value, the real transaction sender must be the Clawback
-		// address from the AssetParams.  If this is the zero value,
-		// the asset is sent from the transaction's Sender.
-		AssetSender Address `codec:"asnd"`
+			// AssetReceiver is the recipient of the transfer.
+			AssetReceiver Address `codec:"arcv"`
 
-		// AssetReceiver is the recipient of the transfer.
-		AssetReceiver Address `codec:"arcv"`
+			// AssetCloseTo indicates that the asset should be removed
+			// from the account's Assets map, and specifies where the remaining
+			// asset holdings should be transferred.  It's always valid to transfer
+			// remaining asset holdings to the creator account.
+			AssetCloseTo Address `codec:"aclose"`
+		}
 
-		// AssetCloseTo indicates that the asset should be removed
-		// from the account's Assets map, and specifies where the remaining
-		// asset holdings should be transferred.  It's always valid to transfer
-		// remaining asset holdings to the creator account.
-		AssetCloseTo Address `codec:"aclose"`
-	}
+		// AssetFreezeTxnFields captures the fields used for freezing asset slots.
+		AssetFreezeTxnFields struct {
+			_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-	// AssetFreezeTxnFields captures the fields used for freezing asset slots.
-	AssetFreezeTxnFields struct {
-		_struct struct{} `codec:",omitempty,omitemptyarray"`
+			// FreezeAccount is the address of the account whose asset
+			// slot is being frozen or un-frozen.
+			FreezeAccount Address `codec:"fadd"`
 
-		// FreezeAccount is the address of the account whose asset
-		// slot is being frozen or un-frozen.
-		FreezeAccount Address `codec:"fadd"`
+			// FreezeAsset is the asset ID being frozen or un-frozen.
+			FreezeAsset AssetIndex `codec:"faid"`
 
-		// FreezeAsset is the asset ID being frozen or un-frozen.
-		FreezeAsset AssetIndex `codec:"faid"`
-
-		// AssetFrozen is the new frozen value.
-		AssetFrozen bool `codec:"afrz"`
-	}
-
+			// AssetFrozen is the new frozen value.
+			AssetFrozen bool `codec:"afrz"`
+		}
+	*/
 	EncodedBlockCert struct {
 		Block       Block       `codec:"block"`
 		Certificate Certificate `codec:"cert"`
@@ -633,15 +644,3 @@ type (
 		Frozen bool   `codec:"f"`
 	}
 )
-
-var zeroAddr = [32]byte{}
-
-func (a Address) IsZero() bool {
-	return a == zeroAddr
-}
-
-var zeroAP = AssetParams{}
-
-func (ap AssetParams) IsZero() bool {
-	return ap == zeroAP
-}
