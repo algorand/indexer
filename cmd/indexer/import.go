@@ -49,13 +49,14 @@ func maybeFail(err error, errfmt string, params ...interface{}) {
 	os.Exit(1)
 }
 
-func importTar(imp importer.Importer, tarfile io.Reader) (err error) {
+func importTar(imp importer.Importer, tarfile io.Reader) (blocks int, err error) {
+	blocks = 0
 	tf := tar.NewReader(tarfile)
 	var header *tar.Header
 	header, err = tf.Next()
 	for err == nil {
 		if header.Typeflag != tar.TypeReg {
-			return fmt.Errorf("cannot deal with non-regular-file tar entry %#v", header.Name)
+			return blocks, fmt.Errorf("cannot deal with non-regular-file tar entry %#v", header.Name)
 		}
 		/*
 			round, err := strconv.Atoi(header.Name)
@@ -66,12 +67,13 @@ func importTar(imp importer.Importer, tarfile io.Reader) (err error) {
 		blockbytes := make([]byte, header.Size)
 		_, err = io.ReadFull(tf, blockbytes)
 		if err != nil {
-			return fmt.Errorf("error reading tar entry %#v: %v", header.Name, err)
+			return blocks, fmt.Errorf("error reading tar entry %#v: %v", header.Name, err)
 		}
 		err = imp.ImportBlock(blockbytes)
 		if err != nil {
-			return fmt.Errorf("error importing tar entry %#v: %v", header.Name, err)
+			return blocks, fmt.Errorf("error importing tar entry %#v: %v", header.Name, err)
 		}
+		blocks++
 		header, err = tf.Next()
 	}
 	if err == io.EOF {
@@ -80,7 +82,8 @@ func importTar(imp importer.Importer, tarfile io.Reader) (err error) {
 	return
 }
 
-func importFile(db idb.IndexerDb, imp importer.Importer, fname string) {
+func importFile(db idb.IndexerDb, imp importer.Importer, fname string) (blocks int) {
+	blocks = 0
 	imported, err := db.AlreadyImported(fname)
 	maybeFail(err, "%s: %v\n", fname, err)
 	if imported {
@@ -91,24 +94,28 @@ func importFile(db idb.IndexerDb, imp importer.Importer, fname string) {
 		fin, err := os.Open(fname)
 		maybeFail(err, "%s: %v\n", fname, err)
 		defer fin.Close()
-		err = importTar(imp, fin)
+		tblocks, err := importTar(imp, fin)
 		maybeFail(err, "%s: %v\n", fname, err)
+		blocks += tblocks
 	} else if strings.HasSuffix(fname, ".tar.bz2") {
 		fin, err := os.Open(fname)
 		maybeFail(err, "%s: %v\n", fname, err)
 		defer fin.Close()
 		bzin := bzip2.NewReader(fin)
-		err = importTar(imp, bzin)
+		tblocks, err := importTar(imp, bzin)
 		maybeFail(err, "%s: %v\n", fname, err)
+		blocks += tblocks
 	} else {
 		// assume a standalone block msgpack blob
 		blockbytes, err := ioutil.ReadFile(fname)
 		maybeFail(err, "%s: could not read, %v\n", fname, err)
 		err = imp.ImportBlock(blockbytes)
 		maybeFail(err, "%s: could not import, %v\n", fname, err)
+		blocks++
 	}
 	err = db.MarkImported(fname)
 	maybeFail(err, "%s: %v\n", fname, err)
+	return
 }
 
 func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
@@ -132,7 +139,8 @@ type ImportState struct {
 	AccountRound int64
 }*/
 
-func updateAccounting(db idb.IndexerDb) {
+func updateAccounting(db idb.IndexerDb) (rounds int) {
+	rounds = 0
 	stateJsonStr, err := db.GetMetastate("state")
 	maybeFail(err, "getting import state, %v\n", err)
 	var state idb.ImportState
@@ -144,6 +152,7 @@ func updateAccounting(db idb.IndexerDb) {
 			maybeFail(err, "%s: %v\n", genesisJsonPath, err)
 			err = loadGenesis(db, gf)
 			maybeFail(err, "%s: could not load genesis json, %v\n", genesisJsonPath, err)
+			rounds++
 			state.AccountRound = -1
 		} else {
 			fmt.Fprintf(os.Stderr, "no import state recorded; need --genesis genesis.json file to get started\n")
@@ -181,7 +190,11 @@ func updateAccounting(db idb.IndexerDb) {
 	}
 	err = act.Close()
 	maybeFail(err, "accounting close %v\n", err)
-	fmt.Printf("accounting updated through round %d\n", currentRound)
+	rounds += roundsSeen
+	if rounds > 0 {
+		fmt.Printf("accounting updated through round %d\n", currentRound)
+	}
+	return
 }
 
 var (
@@ -198,6 +211,7 @@ func (paths *blockTarPaths) Len() int {
 }
 
 func pathNameStartInt(x string) int64 {
+	x = filepath.Base(x)
 	underscorePos := strings.IndexRune(x, '_')
 	if underscorePos == -1 {
 		return -1
@@ -231,6 +245,8 @@ var importCmd = &cobra.Command{
 		//imp := importer.NewPrintImporter()
 		db := globalIndexerDb()
 		imp := importer.NewDBImporter(db)
+		blocks := 0
+		start := time.Now()
 		for _, fname := range args {
 			matches, err := filepath.Glob(fname)
 			if err == nil {
@@ -241,15 +257,26 @@ var importCmd = &cobra.Command{
 				}
 				for _, gfname := range pathsSorted {
 					//fmt.Printf("%s ...\n", gfname)
-					importFile(db, imp, gfname)
+					blocks += importFile(db, imp, gfname)
 				}
 			} else {
 				// try without passing throug glob
-				importFile(db, imp, fname)
+				blocks += importFile(db, imp, fname)
 			}
 		}
+		blockdone := time.Now()
+		if blocks > 0 {
+			dt := blockdone.Sub(start)
+			fmt.Printf("%d blocks in %s, %.0f/s\n", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt))
+		}
 
-		updateAccounting(db)
+		accountingRounds := updateAccounting(db)
+
+		accountingdone := time.Now()
+		if accountingRounds > 0 {
+			dt := accountingdone.Sub(blockdone)
+			fmt.Printf("%d rounds accounting in %s, %.0f/s\n", accountingRounds, dt.String(), float64(time.Second)*float64(accountingRounds)/float64(dt))
+		}
 	},
 }
 

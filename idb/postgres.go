@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/algod/models"
+	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
@@ -80,7 +81,8 @@ func (db *postgresIndexerDb) StartBlock() (err error) {
 func (db *postgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txnbytes []byte, txn types.SignedTxnInBlock, participation [][]byte) error {
 	// TODO: set txn_participation
 	var err error
-	_, err = db.tx.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT DO NOTHING`, round, intra, txtypeenum, assetid, txnbytes, string(json.Encode(txn)))
+	txid := crypto.TransactionIDString(txn.Txn)
+	_, err = db.tx.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`, round, intra, txtypeenum, assetid, txid[:], txnbytes, string(json.Encode(txn)))
 	if err != nil {
 		return err
 	}
@@ -299,8 +301,8 @@ func (db *postgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, 
 	}
 	if len(updates.AssetCloses) > 0 {
 		any = true
-		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount)
-SELECT $1, $2, x.amount FROM account_asset x WHERE x.addr = $3
+		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen)
+SELECT $1, $2, x.amount, $3 FROM account_asset x WHERE x.addr = $4
 ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount`)
 		if err != nil {
 			return fmt.Errorf("prepare asset close1, %v", err)
@@ -312,7 +314,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 		defer acd.Close()
 		for _, ac := range updates.AssetCloses {
-			_, err = acs.Exec(ac.CloseTo[:], ac.AssetId, ac.Sender[:])
+			_, err = acs.Exec(ac.CloseTo[:], ac.AssetId, ac.DefaultFrozen, ac.Sender[:])
 			if err != nil {
 				return fmt.Errorf("asset close send, %v", err)
 			}
@@ -374,47 +376,97 @@ func (db *postgresIndexerDb) GetBlock(round uint64) (block types.Block, err erro
 	return
 }
 
-func (db *postgresIndexerDb) TransactionsForAddress(ctx context.Context, addr types.Address, limit, firstRound, lastRound uint64, beforeTime, afterTime time.Time) <-chan TxnRow {
-	const maxWhereParts = 6
+const maxTxnLimit = 1000
+
+func (db *postgresIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
+	const maxWhereParts = 14
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
-	whereParts = append(whereParts, "p.addr = $1")
-	whereArgs = append(whereArgs, addr[:])
-	partNumber := 2
+	joinParticipation := false
 	joinHeader := false
-	if firstRound != 0 {
+	partNumber := 1
+	if tf.Address != nil {
+		whereParts = append(whereParts, fmt.Sprintf("p.addr = $%d", partNumber))
+		whereArgs = append(whereArgs, tf.Address)
+		partNumber++
+		joinParticipation = true
+	}
+	if tf.MinRound != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("t.round >= $%d", partNumber))
-		whereArgs = append(whereArgs, firstRound)
+		whereArgs = append(whereArgs, tf.MinRound)
 		partNumber++
 	}
-	if lastRound != 0 {
+	if tf.MaxRound != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("t.round <= $%d", partNumber))
-		whereArgs = append(whereArgs, lastRound)
+		whereArgs = append(whereArgs, tf.MaxRound)
 		partNumber++
 	}
-	if !beforeTime.IsZero() {
+	if !tf.BeforeTime.IsZero() {
 		whereParts = append(whereParts, fmt.Sprintf("h.realtime < $%d", partNumber))
-		whereArgs = append(whereArgs, beforeTime)
+		whereArgs = append(whereArgs, tf.BeforeTime)
 		partNumber++
 		joinHeader = true
 	}
-	if !afterTime.IsZero() {
+	if !tf.AfterTime.IsZero() {
 		whereParts = append(whereParts, fmt.Sprintf("h.realtime > $%d", partNumber))
-		whereArgs = append(whereArgs, afterTime)
+		whereArgs = append(whereArgs, tf.AfterTime)
 		partNumber++
 		joinHeader = true
 	}
-	var query string
-	// TODO LIMIT
-	whereStr := strings.Join(whereParts, " AND ")
-	if joinHeader {
-		query = "SELECT t.round, t.intra, t.txnbytes FROM txn t JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra JOIN block_header h ON t.round = h.round WHERE " + whereStr
-	} else {
-		query = "SELECT t.round, t.intra, t.txnbytes FROM txn t JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra WHERE " + whereStr
+	if tf.AssetId != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("t.asset = $%d", partNumber))
+		whereArgs = append(whereArgs, tf.AssetId)
+		partNumber++
 	}
+	if tf.TypeEnum != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("t.typeenum = $%d", partNumber))
+		whereArgs = append(whereArgs, tf.TypeEnum)
+		partNumber++
+	}
+	if tf.Txid != nil {
+		whereParts = append(whereParts, fmt.Sprintf("t.txid = $%d", partNumber))
+		whereArgs = append(whereArgs, tf.Txid)
+		partNumber++
+	}
+	if tf.Round >= 0 {
+		whereParts = append(whereParts, fmt.Sprintf("t.round = $%d", partNumber))
+		whereArgs = append(whereArgs, tf.Round)
+		partNumber++
+	}
+	if tf.Offset >= 0 {
+		whereParts = append(whereParts, fmt.Sprintf("t.intra = $%d", partNumber))
+		whereArgs = append(whereArgs, tf.Offset)
+		partNumber++
+	}
+	if len(tf.SigType) != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("t.txn -> $%d IS NOT NULL", partNumber))
+		whereArgs = append(whereArgs, tf.SigType)
+		partNumber++
+	}
+	query := "SELECT t.round, t.intra, t.txnbytes FROM txn t"
+	whereStr := strings.Join(whereParts, " AND ")
+	if joinParticipation {
+		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
+	}
+	if joinHeader {
+		query += " JOIN block_header h ON t.round = h.round"
+	}
+	query += " WHERE " + whereStr
+	if joinParticipation {
+		// this should match the index on txn_particpation
+		query += " ORDER BY p.addr, p.round DESC, p.intra DESC"
+	} else {
+		// this should explicitly match the primary key on txn (round,intra)
+		query += " ORDER BY t.round, t.intra"
+	}
+	if tf.Limit == 0 || tf.Limit > maxTxnLimit {
+		tf.Limit = maxTxnLimit
+	}
+	query += fmt.Sprintf(" LIMIT %d", tf.Limit)
 	out := make(chan TxnRow, 1)
 	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
+		err = fmt.Errorf("txn query %#v err %v", query, err)
 		out <- TxnRow{Error: err}
 		close(out)
 		return out

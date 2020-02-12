@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 
-	//"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 
 	"github.com/algorand/indexer/idb"
@@ -42,15 +41,24 @@ type AccountingState struct {
 	rewardsLevel uint64
 
 	// number of txns at the end of the previous block
-	txnCounter uint64
+	txnCounter      uint64
+	txnCounterRound uint64
 }
 
 func New(db idb.IndexerDb) *AccountingState {
 	return &AccountingState{db: db, defaultFrozen: make(map[uint64]bool)}
 }
 
-func foo(db idb.IndexerDb) {
-	//var defaultFrozen map[uint64]bool
+func (accounting *AccountingState) getTxnCounter(round uint64) (txnCounter uint64, err error) {
+	if round != accounting.txnCounterRound {
+		block, err := accounting.db.GetBlock(round)
+		if err != nil {
+			return 0, err
+		}
+		accounting.txnCounter = block.TxnCounter
+		accounting.txnCounterRound = round
+	}
+	return accounting.txnCounter, nil
 }
 
 func (accounting *AccountingState) initRound(round uint64) error {
@@ -101,7 +109,7 @@ func (accounting *AccountingState) updateAsset(addr types.Address, assetId uint6
 }
 
 func (accounting *AccountingState) closeAsset(from types.Address, assetId uint64, to types.Address) {
-	accounting.AssetCloses = append(accounting.AssetCloses, idb.AssetClose{CloseTo: to, AssetId: assetId, Sender: from})
+	accounting.AssetCloses = append(accounting.AssetCloses, idb.AssetClose{CloseTo: to, AssetId: assetId, Sender: from, DefaultFrozen: accounting.defaultFrozen[assetId]})
 }
 func (accounting *AccountingState) freezeAsset(addr types.Address, assetId uint64, frozen bool) {
 	accounting.FreezeUpdates = append(accounting.FreezeUpdates, idb.FreezeUpdate{Addr: addr, AssetId: assetId, Frozen: frozen})
@@ -158,7 +166,11 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 	} else if stxn.Txn.Type == "acfg" {
 		assetId := uint64(stxn.Txn.ConfigAsset)
 		if assetId == 0 {
-			assetId = accounting.txnCounter + uint64(intra) + 1
+			txnCounter, err := accounting.getTxnCounter(round - 1)
+			if err != nil {
+				return fmt.Errorf("acfg get TxnCounter round %d, %v", round, err)
+			}
+			assetId = txnCounter + uint64(intra) + 1
 		}
 		if stxn.Txn.AssetParams.IsZero() {
 			accounting.destroyAsset(assetId)
@@ -173,7 +185,7 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 			}
 		}
 	} else if stxn.Txn.Type == "axfer" {
-		sender := stxn.Txn.AssetSender // closeout
+		sender := stxn.Txn.AssetSender // clawback
 		if sender.IsZero() {
 			sender = stxn.Txn.Sender
 		}
@@ -181,6 +193,7 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 			accounting.updateAsset(sender, uint64(stxn.Txn.XferAsset), -int64(stxn.Txn.AssetAmount))
 			accounting.updateAsset(stxn.Txn.AssetReceiver, uint64(stxn.Txn.XferAsset), int64(stxn.Txn.AssetAmount))
 		}
+		// TODO: mark receivable accounts with the send-self-zero txn?
 		if !stxn.Txn.AssetCloseTo.IsZero() {
 			accounting.closeAsset(sender, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetCloseTo)
 		}

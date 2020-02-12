@@ -31,11 +31,14 @@ round bigint NOT NULL,
 intra smallint NOT NULL,
 typeenum smallint NOT NULL,
 asset bigint NOT NULL, -- 0=Algos, otherwise AssetIndex
--- txid bytea NOT NULL, -- TODO? [32]byte. Index on this as a way of extending transaction-status checking into the past for things we submitted?
+txid bytea NOT NULL, -- [32]byte
 txnbytes bytea NOT NULL,
 txn jsonb NOT NULL,
 PRIMARY KEY ( round, intra )
 );
+
+-- NOT a unique index because we don't guarantee txid is unique outside of its 1000 rounds.
+CREATE INDEX IF NOT EXISTS txn_by_tixid ON txn ( txid );
 
 CREATE TABLE IF NOT EXISTS txn_participation (
 addr bytea NOT NULL,

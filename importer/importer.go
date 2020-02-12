@@ -78,12 +78,12 @@ var typeEnumList = []stringInt{
 	{"axfer", 4},
 	{"afrz", 5},
 }
-var typeEnumMap map[string]int
+var TypeEnumMap map[string]int
 
 func init() {
-	typeEnumMap = make(map[string]int, len(typeEnumList))
+	TypeEnumMap = make(map[string]int, len(typeEnumList))
 	for _, si := range typeEnumList {
-		typeEnumMap[si.s] = si.i
+		TypeEnumMap[si.s] = si.i
 	}
 }
 
@@ -110,7 +110,7 @@ func (imp *dbImporter) ImportBlock(blockbytes []byte) (err error) {
 	round := uint64(block.Round)
 	for intra, stxn := range block.Payset {
 		txtype := string(stxn.Txn.Type)
-		txtypeenum := typeEnumMap[txtype]
+		txtypeenum := TypeEnumMap[txtype]
 		assetid := uint64(0)
 		switch txtypeenum {
 		case 3:

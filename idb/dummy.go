@@ -77,7 +77,7 @@ func (db *dummyIndexerDb) GetBlock(round uint64) (block types.Block, err error) 
 	err = nil
 	return
 }
-func (db *dummyIndexerDb) TransactionsForAddress(ctx context.Context, addr types.Address, limit, firstRound, lastRound uint64, beforeTime, afterTime time.Time) <-chan TxnRow {
+func (db *dummyIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
 	return nil
 }
 
@@ -118,8 +118,31 @@ type IndexerDb interface {
 
 	GetBlock(round uint64) (block types.Block, err error)
 
-	TransactionsForAddress(ctx context.Context, addr types.Address, limit, firstRound, lastRound uint64, beforeTime, afterTime time.Time) <-chan TxnRow
+	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
 	GetAccounts(ctx context.Context, greaterThan types.Address, limit int) (accounts []models.Account, err error)
+}
+
+type TransactionFilter struct {
+	Address    []byte
+	MinRound   uint64
+	MaxRound   uint64
+	AfterTime  time.Time
+	BeforeTime time.Time
+	AssetId    uint64
+	TypeEnum   int // ["","pay","keyreg","acfg","axfer","afrz"]
+	Txid       []byte
+	Round      int64  // -1 for no filter
+	Offset     int64  // -1 for no filter
+	SigType    string // ["", "sig", "msig", "lsig"]
+	NotePrefix []byte
+	MinAlgos   uint64 // implictly filters on "pay" txns for Algos >= this
+
+	Limit uint64
+}
+
+func (tf *TransactionFilter) Init() {
+	tf.Round = -1
+	tf.Offset = -1
 }
 
 type dummyFactory struct {
@@ -168,9 +191,10 @@ type FreezeUpdate struct {
 }
 
 type AssetClose struct {
-	CloseTo types.Address
-	AssetId uint64
-	Sender  types.Address
+	CloseTo       types.Address
+	AssetId       uint64
+	Sender        types.Address
+	DefaultFrozen bool
 }
 
 type RoundUpdates struct {

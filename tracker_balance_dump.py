@@ -5,6 +5,9 @@
 #
 # usage:
 #  python tracker_balance_dump.py -f mainnet-v1.0/ledger.tracker.sqlite
+#
+# setup requires:
+#  pip install msgpack py-algorand-sdk
 
 import json
 import logging
@@ -29,6 +32,7 @@ def main():
     ap.add_argument('-f', '--dbfile', default=None, help='sqlite3 tracker file from algod')
     ap.add_argument('--limit', default=None, type=int, help='debug limit number of accoutns to dump')
     ap.add_argument('--i2db', default=None, help='psql connect string for indexer 2 db')
+    ap.add_argument('--asset', default=None, help='filter on accounts possessing asset id')
     args = ap.parse_args()
 
     logging.basicConfig(level=logging.INFO)
@@ -65,6 +69,7 @@ def main():
         values = {"algo": microalgos}
         assets = adata.get(b'asset')
         frozen = {}
+        has_asset = False
         if assets:
             for assetidstr, assetdata in assets.items():
                 if isinstance(assetidstr, bytes):
@@ -73,9 +78,13 @@ def main():
                     pass
                 else:
                     assetidstr = str(assetidstr)
+                if assetidstr == args.asset:
+                    has_asset = True
                 values[assetidstr] = assetdata[b'a']
                 if assetdata.get(b'f'):
                     frozen[assetidstr] = True
+        if args.asset and not has_asset:
+            continue
         if args.i2db:
             i2v = i2db.pop(address, None)
             if i2v is None:
