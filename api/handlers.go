@@ -212,13 +212,19 @@ func init() {
 	sigTypeEnumMap = enumListToMap(sigTypeEnumMapList)
 }
 
+type SignedTxnWrapper struct {
+	Round  uint64                 `codec:"r,omitempty"`
+	Offset int                    `codec:"o,omitempty"`
+	Stxn   types.SignedTxnInBlock `codec:"stxn,omitempty"`
+}
+
 type transactionsListReturnObject struct {
 	Transactions []models.Transaction
-	Stxns        []types.SignedTxnInBlock
+	Stxns        []SignedTxnWrapper
 	// TODO: msgpack chunks
 }
 
-func (out *transactionsListReturnObject) storeTransactionOutput(stxn *types.SignedTxnInBlock, format int) {
+func (out *transactionsListReturnObject) storeTransactionOutput(stxn *types.SignedTxnInBlock, round uint64, intra int, format int) {
 	switch format {
 	case algodApiFormat:
 		if out.Transactions == nil {
@@ -226,12 +232,17 @@ func (out *transactionsListReturnObject) storeTransactionOutput(stxn *types.Sign
 		}
 		var mtxn models.Transaction
 		setApiTxn(&mtxn, stxn)
+		mtxn.ConfirmedRound = round
 		out.Transactions = append(out.Transactions, mtxn)
 	case jsonInternalFormat, msgpackFormat:
 		if out.Stxns == nil {
-			out.Stxns = make([]types.SignedTxnInBlock, 0, 10)
+			out.Stxns = make([]SignedTxnWrapper, 0, 10)
 		}
-		out.Stxns = append(out.Stxns, *stxn)
+		out.Stxns = append(out.Stxns, SignedTxnWrapper{
+			Round:  round,
+			Offset: intra,
+			Stxn:   *stxn,
+		})
 	}
 }
 
@@ -240,7 +251,7 @@ type algodTransactionsListReturnObject struct {
 }
 
 type rawTransactionsListReturnObject struct {
-	Transactions []types.SignedTxnInBlock `codec:"txns,omitemptyarray"`
+	Transactions []SignedTxnWrapper `codec:"txns,omitemptyarray"`
 }
 
 func (out *transactionsListReturnObject) writeTxnReturn(w http.ResponseWriter, format int) (err error) {
@@ -393,7 +404,7 @@ func TransactionsForAddress(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		result.storeTransactionOutput(&stxn, format)
+		result.storeTransactionOutput(&stxn, txnRow.Round, txnRow.Intra, format)
 	}
 	err = result.writeTxnReturn(w, format)
 	if err != nil {
