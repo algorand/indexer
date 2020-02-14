@@ -57,6 +57,10 @@ func (db *dummyIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	return nil
 }
 
+func (db *dummyIndexerDb) SetProto(version string, proto types.ConsensusParams) (err error) {
+	return nil
+}
+
 func (db *dummyIndexerDb) GetMetastate(key string) (jsonStrValue string, err error) {
 	return "", nil
 }
@@ -81,8 +85,8 @@ func (db *dummyIndexerDb) Transactions(ctx context.Context, tf TransactionFilter
 	return nil
 }
 
-func (db *dummyIndexerDb) GetAccounts(ctx context.Context, greaterThan types.Address, limit int) (accounts []models.Account, err error) {
-	return nil, nil
+func (db *dummyIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow {
+	return nil
 }
 
 type IndexerFactory interface {
@@ -100,6 +104,8 @@ type TxnRow struct {
 // TODO: sqlite3 impl
 // TODO: cockroachdb impl
 type IndexerDb interface {
+	// The next few functions define the import interface, functions for loading data into the database. StartBlock() through Get/SetMetastate().
+
 	StartBlock() error
 	AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txnbytes []byte, txn types.SignedTxnInBlock, participation [][]byte) error
 	CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error
@@ -108,10 +114,12 @@ type IndexerDb interface {
 	MarkImported(path string) (err error)
 
 	LoadGenesis(genesis types.Genesis) (err error)
+	SetProto(version string, proto types.ConsensusParams) (err error)
 
 	GetMetastate(key string) (jsonStrValue string, err error)
 	SetMetastate(key, jsonStrValue string) (err error)
 
+	// YieldTxns returns a channel that produces the whole transaction stream after some round forward
 	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow
 
 	CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error)
@@ -119,7 +127,8 @@ type IndexerDb interface {
 	GetBlock(round uint64) (block types.Block, err error)
 
 	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
-	GetAccounts(ctx context.Context, greaterThan types.Address, limit int) (accounts []models.Account, err error)
+	//GetAccounts(ctx context.Context, greaterThan types.Address, limit int) (accounts []models.Account, err error)
+	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
 }
 
 type TransactionFilter struct {
@@ -138,6 +147,21 @@ type TransactionFilter struct {
 	MinAlgos   uint64 // implictly filters on "pay" txns for Algos >= this
 
 	Limit uint64
+}
+
+type AccountQueryOptions struct {
+	GreaterThanAddress []byte // for paging results
+	EqualToAddress     []byte // return exactly this one account
+
+	IncludeAssetHoldings bool
+	IncludeAssetParams   bool
+
+	Limit uint64
+}
+
+type AccountRow struct {
+	Account models.Account
+	Error   error
 }
 
 func (tf *TransactionFilter) Init() {

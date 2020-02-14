@@ -153,19 +153,29 @@ type listAccountsReply struct {
 // return {"accounts":[]models.Account}
 func ListAccounts(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	var gtAddr types.Address
-	accounts, err := IndexerDb.GetAccounts(r.Context(), gtAddr, 10000)
-	if err != nil {
-		log.Println("ListAccounts ", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+	// TODO: arg gt=addr
+	af := idb.AccountQueryOptions{
+		Limit: 1000,
+	}
+	accountchan := IndexerDb.GetAccounts(r.Context(), af)
+	accounts := make([]models.Account, 0, 100)
+	for actrow := range accountchan {
+		if actrow.Error != nil {
+			log.Println("ListAccounts ", actrow.Error)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		accounts = append(accounts, actrow.Account)
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	out := listAccountsReply{Accounts: accounts}
 	enc := json.NewEncoder(w)
 
-	err = enc.Encode(out)
+	err := enc.Encode(out)
+	if err != nil {
+		log.Println("list account encode, ", err)
+	}
 }
 
 type stringInt struct {

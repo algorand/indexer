@@ -18,6 +18,8 @@ package types
 
 // copied from github.com/algorand/go-algorand/data/bookkeeping/block.go
 import (
+	"time"
+
 	atypes "github.com/algorand/go-algorand-sdk/types"
 )
 
@@ -205,42 +207,6 @@ type (
 		ApplyData
 	}
 
-	/*
-		MultisigSig struct {
-			_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-			Version   uint8            `codec:"v"`
-			Threshold uint8            `codec:"thr"`
-			Subsigs   []MultisigSubsig `codec:"subsig"`
-		}
-		MultisigSubsig struct {
-			_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-			Key PublicKey `codec:"pk"` // all public keys that are possible signers for this address
-			Sig Signature `codec:"s"`  // may be either empty or a signature
-		}
-		LogicSig struct {
-			_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-			// Logic signed by Sig or Msig, OR hashed to be the Address of an account.
-			Logic []byte `codec:"l"`
-
-			Sig  Signature   `codec:"sig"`
-			Msig MultisigSig `codec:"msig"`
-
-			// Args are not signed, but checked by Logic
-			Args [][]byte `codec:"arg"`
-		}
-		SignedTxn struct {
-			_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-			Sig  Signature   `codec:"sig"`
-			Msig MultisigSig `codec:"msig"`
-			Lsig LogicSig    `codec:"lsig"`
-			Txn  Transaction `codec:"txn"`
-		}
-	*/
-
 	ApplyData struct {
 		_struct struct{} `codec:",omitempty,omitemptyarray"`
 
@@ -253,182 +219,8 @@ type (
 		CloseRewards    MicroAlgos `codec:"rc"`
 	}
 
-	Transaction = atypes.Transaction
-	/*
-			Transaction struct {
-				_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-				// Type of transaction
-				Type string `codec:"type"`
-
-				// Common fields for all types of transactions
-				TxnHeader
-
-				// Fields for different types of transactions
-				KeyregTxnFields
-				PaymentTxnFields
-				AssetConfigTxnFields
-				AssetTransferTxnFields
-				AssetFreezeTxnFields
-			}
-
-		TxnHeader struct {
-			_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-			Sender      Address    `codec:"snd"`
-			Fee         MicroAlgos `codec:"fee"`
-			FirstValid  Round      `codec:"fv"`
-			LastValid   Round      `codec:"lv"`
-			Note        []byte     `codec:"note"` // Uniqueness or app-level data about txn
-			GenesisID   string     `codec:"gen"`
-			GenesisHash Digest     `codec:"gh"`
-
-			// Group specifies that this transaction is part of a
-			// transaction group (and, if so, specifies the hash
-			// of a TxGroup).
-			Group Digest `codec:"grp"`
-
-			// Lease enforces mutual exclusion of transactions.  If this field is
-			// nonzero, then once the transaction is confirmed, it acquires the
-			// lease identified by the (Sender, Lease) pair of the transaction until
-			// the LastValid round passes.  While this transaction possesses the
-			// lease, no other transaction specifying this lease can be confirmed.
-			Lease [32]byte `codec:"lx"`
-		}
-
-		KeyregTxnFields struct {
-			_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-			VotePK           OneTimeSignatureVerifier `codec:"votekey"`
-			SelectionPK      VRFVerifier              `codec:"selkey"`
-			VoteFirst        Round                    `codec:"votefst"`
-			VoteLast         Round                    `codec:"votelst"`
-			VoteKeyDilution  uint64                   `codec:"votekd"`
-			Nonparticipation bool                     `codec:"nonpart"`
-		}
-
-		PaymentTxnFields struct {
-			_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-			Receiver Address    `codec:"rcv"`
-			Amount   MicroAlgos `codec:"amt"`
-
-			// When CloseRemainderTo is set, it indicates that the
-			// transaction is requesting that the account should be
-			// closed, and all remaining funds be transferred to this
-			// address.
-			CloseRemainderTo Address `codec:"close"`
-		}
-	*/
-	AssetParams = atypes.AssetParams
-	/*
-		AssetParams struct {
-			_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-			// Total specifies the total number of units of this asset
-			// created.
-			Total uint64 `codec:"t"`
-
-			// Decimals specifies the number of digits to display after the decimal
-			// place when displaying this asset. A value of 0 represents an asset
-			// that is not divisible, a value of 1 represents an asset divisible
-			// into tenths, and so on. This value must be between 0 and 19
-			// (inclusive).
-			Decimals uint32 `codec:"dc"`
-
-			// DefaultFrozen specifies whether slots for this asset
-			// in user accounts are frozen by default or not.
-			DefaultFrozen bool `codec:"df"`
-
-			// UnitName specifies a hint for the name of a unit of
-			// this asset.
-			UnitName string `codec:"un"`
-
-			// AssetName specifies a hint for the name of the asset.
-			AssetName string `codec:"an"`
-
-			// URL specifies a URL where more information about the asset can be
-			// retrieved
-			URL string `codec:"au"`
-
-			// MetadataHash specifies a commitment to some unspecified asset
-			// metadata. The format of this metadata is up to the application.
-			MetadataHash [32]byte `codec:"am"`
-
-			// Manager specifies an account that is allowed to change the
-			// non-zero addresses in this AssetParams.
-			Manager Address `codec:"m"`
-
-			// Reserve specifies an account whose holdings of this asset
-			// should be reported as "not minted".
-			Reserve Address `codec:"r"`
-
-			// Freeze specifies an account that is allowed to change the
-			// frozen state of holdings of this asset.
-			Freeze Address `codec:"f"`
-
-			// Clawback specifies an account that is allowed to take units
-			// of this asset from any account.
-			Clawback Address `codec:"c"`
-		}
-	*/
-	/*
-		// AssetConfigTxnFields captures the fields used for asset
-		// allocation, re-configuration, and destruction.
-		AssetConfigTxnFields struct {
-			_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-			// ConfigAsset is the asset being configured or destroyed.
-			// A zero value means allocation
-			ConfigAsset AssetIndex `codec:"caid"`
-
-			// AssetParams are the parameters for the asset being
-			// created or re-configured.  A zero value means destruction.
-			AssetParams atypes.AssetParams `codec:"apar"`
-		}
-
-		// AssetTransferTxnFields captures the fields used for asset transfers.
-		AssetTransferTxnFields struct {
-			_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-			XferAsset AssetIndex `codec:"xaid"`
-
-			// AssetAmount is the amount of asset to transfer.
-			// A zero amount transferred to self allocates that asset
-			// in the account's Assets map.
-			AssetAmount uint64 `codec:"aamt"`
-
-			// AssetSender is the sender of the transfer.  If this is not
-			// a zero value, the real transaction sender must be the Clawback
-			// address from the AssetParams.  If this is the zero value,
-			// the asset is sent from the transaction's Sender.
-			AssetSender Address `codec:"asnd"`
-
-			// AssetReceiver is the recipient of the transfer.
-			AssetReceiver Address `codec:"arcv"`
-
-			// AssetCloseTo indicates that the asset should be removed
-			// from the account's Assets map, and specifies where the remaining
-			// asset holdings should be transferred.  It's always valid to transfer
-			// remaining asset holdings to the creator account.
-			AssetCloseTo Address `codec:"aclose"`
-		}
-
-		// AssetFreezeTxnFields captures the fields used for freezing asset slots.
-		AssetFreezeTxnFields struct {
-			_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-			// FreezeAccount is the address of the account whose asset
-			// slot is being frozen or un-frozen.
-			FreezeAccount Address `codec:"fadd"`
-
-			// FreezeAsset is the asset ID being frozen or un-frozen.
-			FreezeAsset AssetIndex `codec:"faid"`
-
-			// AssetFrozen is the new frozen value.
-			AssetFrozen bool `codec:"afrz"`
-		}
-	*/
+	Transaction      = atypes.Transaction
+	AssetParams      = atypes.AssetParams
 	EncodedBlockCert struct {
 		Block       Block       `codec:"block"`
 		Certificate Certificate `codec:"cert"`
@@ -644,3 +436,188 @@ type (
 		Frozen bool   `codec:"f"`
 	}
 )
+
+// from github.com/algorand/go-algorand/config/config.go
+// ConsensusParams specifies settings that might vary based on the
+// particular version of the consensus protocol.
+type ConsensusParams struct {
+	// Consensus protocol upgrades.  Votes for upgrades are collected for
+	// UpgradeVoteRounds.  If the number of positive votes is over
+	// UpgradeThreshold, the proposal is accepted.
+	//
+	// UpgradeVoteRounds needs to be long enough to collect an
+	// accurate sample of participants, and UpgradeThreshold needs
+	// to be high enough to ensure that there are sufficient participants
+	// after the upgrade.
+	//
+	// A consensus protocol upgrade may specify the delay between its
+	// acceptance and its execution.  This gives clients time to notify
+	// users.  This delay is specified by the upgrade proposer and must
+	// be between MinUpgradeWaitRounds and MaxUpgradeWaitRounds (inclusive)
+	// in the old protocol's parameters.  Note that these parameters refer
+	// to the representation of the delay in a block rather than the actual
+	// delay: if the specified delay is zero, it is equivalent to
+	// DefaultUpgradeWaitRounds.
+	//
+	// The maximum length of a consensus version string is
+	// MaxVersionStringLen.
+	UpgradeVoteRounds        uint64
+	UpgradeThreshold         uint64
+	DefaultUpgradeWaitRounds uint64
+	MinUpgradeWaitRounds     uint64
+	MaxUpgradeWaitRounds     uint64
+	MaxVersionStringLen      int
+
+	// MaxTxnBytesPerBlock determines the maximum number of bytes
+	// that transactions can take up in a block.  Specifically,
+	// the sum of the lengths of encodings of each transaction
+	// in a block must not exceed MaxTxnBytesPerBlock.
+	MaxTxnBytesPerBlock int
+
+	// MaxTxnBytesPerBlock is the maximum size of a transaction's Note field.
+	MaxTxnNoteBytes int
+
+	// MaxTxnLife is how long a transaction can be live for:
+	// the maximum difference between LastValid and FirstValid.
+	//
+	// Note that in a protocol upgrade, the ledger must first be upgraded
+	// to hold more past blocks for this value to be raised.
+	MaxTxnLife uint64
+
+	// ApprovedUpgrades describes the upgrade proposals that this protocol
+	// implementation will vote for, along with their delay value
+	// (in rounds).  A delay value of zero is the same as a delay of
+	// DefaultUpgradeWaitRounds.
+	ApprovedUpgrades map[ConsensusVersion]uint64
+
+	// SupportGenesisHash indicates support for the GenesisHash
+	// fields in transactions (and requires them in blocks).
+	SupportGenesisHash bool
+
+	// RequireGenesisHash indicates that GenesisHash must be present
+	// in every transaction.
+	RequireGenesisHash bool
+
+	// DefaultKeyDilution specifies the granularity of top-level ephemeral
+	// keys. KeyDilution is the number of second-level keys in each batch,
+	// signed by a top-level "batch" key.  The default value can be
+	// overriden in the account state.
+	DefaultKeyDilution uint64
+
+	// MinBalance specifies the minimum balance that can appear in
+	// an account.  To spend money below MinBalance requires issuing
+	// an account-closing transaction, which transfers all of the
+	// money from the account, and deletes the account state.
+	MinBalance uint64
+
+	// MinTxnFee specifies the minimum fee allowed on a transaction.
+	// A minimum fee is necessary to prevent DoS. In some sense this is
+	// a way of making the spender subsidize the cost of storing this transaction.
+	MinTxnFee uint64
+
+	// RewardUnit specifies the number of MicroAlgos corresponding to one reward
+	// unit.
+	//
+	// Rewards are received by whole reward units.  Fractions of
+	// RewardUnits do not receive rewards.
+	RewardUnit uint64
+
+	// RewardsRateRefreshInterval is the number of rounds after which the
+	// rewards level is recomputed for the next RewardsRateRefreshInterval rounds.
+	RewardsRateRefreshInterval uint64
+
+	// seed-related parameters
+	SeedLookback        uint64 // how many blocks back we use seeds from in sortition. delta_s in the spec
+	SeedRefreshInterval uint64 // how often an old block hash is mixed into the seed. delta_r in the spec
+
+	// ledger retention policy
+	MaxBalLookback uint64 // (current round - MaxBalLookback) is the oldest round the ledger must answer balance queries for
+
+	// sortition threshold factors
+	NumProposers           uint64
+	SoftCommitteeSize      uint64
+	SoftCommitteeThreshold uint64
+	CertCommitteeSize      uint64
+	CertCommitteeThreshold uint64
+	NextCommitteeSize      uint64 // for any non-FPR votes >= deadline step, committee sizes and thresholds are constant
+	NextCommitteeThreshold uint64
+	LateCommitteeSize      uint64
+	LateCommitteeThreshold uint64
+	RedoCommitteeSize      uint64
+	RedoCommitteeThreshold uint64
+	DownCommitteeSize      uint64
+	DownCommitteeThreshold uint64
+
+	FastRecoveryLambda    time.Duration // time between fast recovery attempts
+	FastPartitionRecovery bool          // set when fast partition recovery is enabled
+
+	// commit to payset using a hash of entire payset,
+	// instead of txid merkle tree
+	PaysetCommitFlat bool
+
+	MaxTimestampIncrement int64 // maximum time between timestamps on successive blocks
+
+	// support for the efficient encoding in SignedTxnInBlock
+	SupportSignedTxnInBlock bool
+
+	// force the FeeSink address to be non-participating in the genesis balances.
+	ForceNonParticipatingFeeSink bool
+
+	// support for ApplyData in SignedTxnInBlock
+	ApplyData bool
+
+	// track reward distributions in ApplyData
+	RewardsInApplyData bool
+
+	// domain-separated credentials
+	CredentialDomainSeparationEnabled bool
+
+	// support for transactions that mark an account non-participating
+	SupportBecomeNonParticipatingTransactions bool
+
+	// fix the rewards calculation by avoiding subtracting too much from the rewards pool
+	PendingResidueRewards bool
+
+	// asset support
+	Asset bool
+
+	// max number of assets per account
+	MaxAssetsPerAccount int
+
+	// max length of asset name
+	MaxAssetNameBytes int
+
+	// max length of asset unit name
+	MaxAssetUnitNameBytes int
+
+	// max length of asset url
+	MaxAssetURLBytes int
+
+	// support sequential transaction counter TxnCounter
+	TxnCounter bool
+
+	// transaction groups
+	SupportTxGroups bool
+
+	// max group size
+	MaxTxGroupSize int
+
+	// support for transaction leases
+	SupportTransactionLeases bool
+
+	// 0 for no support, otherwise highest version supported
+	LogicSigVersion uint64
+
+	// len(LogicSig.Logic) + len(LogicSig.Args[*]) must be less than this
+	LogicSigMaxSize uint64
+
+	// sum of estimated op cost must be less than this
+	LogicSigMaxCost uint64
+
+	// max decimal precision for assets
+	MaxAssetDecimals uint32
+
+	// whether to use the old buggy Credential.lowestOutput function
+	// TODO(upgrade): Please remove as soon as the upgrade goes through
+	UseBuggyProposalLowestOutput bool
+}

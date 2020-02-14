@@ -197,8 +197,21 @@ func updateAccounting(db idb.IndexerDb) (rounds int) {
 	return
 }
 
+func importProto(db idb.IndexerDb, path string) {
+	fbytes, err := ioutil.ReadFile(path)
+	maybeFail(err, "%s: read %v", path, err)
+	protos := make(map[string]types.ConsensusParams, 30)
+	err = json.Decode(fbytes, &protos)
+	maybeFail(err, "%s: proto decode %v", path, err)
+	for version, proto := range protos {
+		err = db.SetProto(version, proto)
+		maybeFail(err, "db set proto, %v", err)
+	}
+}
+
 var (
 	genesisJsonPath string
+	protoJsonPath   string
 	numRoundsLimit  int
 	blockFileLimit  int
 )
@@ -244,6 +257,11 @@ var importCmd = &cobra.Command{
 		// TODO: connect to db and instantiate Importer
 		//imp := importer.NewPrintImporter()
 		db := globalIndexerDb()
+
+		if len(protoJsonPath) > 0 {
+			importProto(db, protoJsonPath)
+		}
+
 		imp := importer.NewDBImporter(db)
 		blocks := 0
 		start := time.Now()
@@ -282,6 +300,7 @@ var importCmd = &cobra.Command{
 
 func init() {
 	importCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json")
+	importCmd.Flags().StringVarP(&protoJsonPath, "proto", "p", "", "path to proto.json")
 	importCmd.Flags().IntVarP(&numRoundsLimit, "num-rounds-limit", "", 0, "number of rounds to process")
 	importCmd.Flags().IntVarP(&blockFileLimit, "block-file-limit", "", 0, "number of block files to process (for debugging)")
 }

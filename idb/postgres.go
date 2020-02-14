@@ -25,7 +25,6 @@ package idb
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -40,45 +39,49 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
-func OpenPostgres(connection string) (idb IndexerDb, err error) {
+func OpenPostgres(connection string) (pdb *PostgresIndexerDb, err error) {
 	db, err := sql.Open("postgres", connection)
 	if err != nil {
 		return nil, err
 	}
-	pdb := &postgresIndexerDb{db: db}
+	pdb = &PostgresIndexerDb{
+		db:         db,
+		protoCache: make(map[string]types.ConsensusParams, 20),
+	}
 	err = pdb.init()
-	idb = pdb
 	return
 }
 
-type postgresIndexerDb struct {
+type PostgresIndexerDb struct {
 	db *sql.DB
 	tx *sql.Tx
+
+	protoCache map[string]types.ConsensusParams
 }
 
-func (db *postgresIndexerDb) init() (err error) {
+func (db *PostgresIndexerDb) init() (err error) {
 	_, err = db.db.Exec(setup_postgres_sql)
 	return
 }
 
-func (db *postgresIndexerDb) AlreadyImported(path string) (imported bool, err error) {
+func (db *PostgresIndexerDb) AlreadyImported(path string) (imported bool, err error) {
 	row := db.db.QueryRow(`SELECT COUNT(path) FROM imported WHERE path = $1`, path)
 	numpath := 0
 	err = row.Scan(&numpath)
 	return numpath == 1, err
 }
 
-func (db *postgresIndexerDb) MarkImported(path string) (err error) {
+func (db *PostgresIndexerDb) MarkImported(path string) (err error) {
 	_, err = db.db.Exec(`INSERT INTO imported (path) VALUES ($1)`, path)
 	return err
 }
 
-func (db *postgresIndexerDb) StartBlock() (err error) {
+func (db *PostgresIndexerDb) StartBlock() (err error) {
 	db.tx, err = db.db.BeginTx(context.Background(), nil)
 	return
 }
 
-func (db *postgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txnbytes []byte, txn types.SignedTxnInBlock, participation [][]byte) error {
+func (db *PostgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txnbytes []byte, txn types.SignedTxnInBlock, participation [][]byte) error {
 	// TODO: set txn_participation
 	var err error
 	txid := crypto.TransactionIDString(txn.Txn)
@@ -98,7 +101,7 @@ func (db *postgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum 
 	}
 	return err
 }
-func (db *postgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
+func (db *PostgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
 	var err error
 	_, err = db.tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0), rewardslevel, headerbytes)
 	if err != nil {
@@ -109,7 +112,7 @@ func (db *postgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardsl
 	return err
 }
 
-func (db *postgresIndexerDb) GetBlockHeader(round uint64) (block types.Block, err error) {
+func (db *PostgresIndexerDb) GetBlockHeader(round uint64) (block types.Block, err error) {
 	row := db.db.QueryRow(`SELECT header FROM block_header WHERE round = $1`, round)
 	var blockbytes []byte
 	err = row.Scan(&blockbytes)
@@ -121,7 +124,7 @@ func (db *postgresIndexerDb) GetBlockHeader(round uint64) (block types.Block, er
 }
 
 // GetAsset return AssetParams about an asset
-func (db *postgresIndexerDb) GetAsset(assetid uint64) (asset types.AssetParams, err error) {
+func (db *PostgresIndexerDb) GetAsset(assetid uint64) (asset types.AssetParams, err error) {
 	row := db.db.QueryRow(`SELECT params FROM asset WHERE index = $1`, assetid)
 	var assetjson string
 	err = row.Scan(&assetjson)
@@ -133,7 +136,7 @@ func (db *postgresIndexerDb) GetAsset(assetid uint64) (asset types.AssetParams, 
 }
 
 // GetDefaultFrozen get {assetid:default frozen, ...} for all assets
-func (db *postgresIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
+func (db *PostgresIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
 	rows, err := db.db.Query(`SELECT index, params -> 'df' FROM asset`)
 	if err != nil {
 		return
@@ -151,7 +154,7 @@ func (db *postgresIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, 
 	return
 }
 
-func (db *postgresIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
+func (db *PostgresIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	tx, err := db.db.Begin()
 	if err != nil {
 		return
@@ -182,7 +185,34 @@ func (db *postgresIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 
 }
 
-func (db *postgresIndexerDb) GetMetastate(key string) (jsonStrValue string, err error) {
+func (db *PostgresIndexerDb) SetProto(version string, proto types.ConsensusParams) (err error) {
+	pj := json.Encode(proto)
+	if err != nil {
+		return err
+	}
+	_, err = db.db.Exec(`INSERT INTO protocol (version, proto) VALUES ($1, $2) ON CONFLICT (version) DO UPDATE SET proto = EXCLUDED.proto`, version, pj)
+	return err
+}
+
+func (db *PostgresIndexerDb) GetProto(version string) (proto types.ConsensusParams, err error) {
+	proto, hit := db.protoCache[version]
+	if hit {
+		return
+	}
+	row := db.db.QueryRow(`SELECT proto FROM protocol WHERE version = $1`, version)
+	var protostr string
+	err = row.Scan(&protostr)
+	if err != nil {
+		return
+	}
+	err = json.Decode([]byte(protostr), &proto)
+	if err == nil {
+		db.protoCache[version] = proto
+	}
+	return
+}
+
+func (db *PostgresIndexerDb) GetMetastate(key string) (jsonStrValue string, err error) {
 	row := db.db.QueryRow(`SELECT v FROM metastate WHERE k = $1`, key)
 	err = row.Scan(&jsonStrValue)
 	if err == sql.ErrNoRows {
@@ -191,12 +221,12 @@ func (db *postgresIndexerDb) GetMetastate(key string) (jsonStrValue string, err 
 	return
 }
 
-func (db *postgresIndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
+func (db *PostgresIndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
 	_, err = db.db.Exec(`INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`, key, jsonStrValue)
 	return
 }
 
-func (db *postgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {
+func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {
 	for rows.Next() {
 		var round uint64
 		var intra int
@@ -222,7 +252,7 @@ func (db *postgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 	close(results)
 }
 
-func (db *postgresIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow {
+func (db *PostgresIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow {
 	results := make(chan TxnRow, 1)
 	rows, err := db.db.QueryContext(ctx, `SELECT round, intra, txnbytes FROM txn WHERE round > $1 ORDER BY round, intra`, prevRound)
 	if err != nil {
@@ -234,7 +264,7 @@ func (db *postgresIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-c
 	return results
 }
 
-func (db *postgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error) {
+func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error) {
 	any := false
 	tx, err := db.db.Begin()
 	if err != nil {
@@ -365,7 +395,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	return tx.Commit()
 }
 
-func (db *postgresIndexerDb) GetBlock(round uint64) (block types.Block, err error) {
+func (db *PostgresIndexerDb) GetBlock(round uint64) (block types.Block, err error) {
 	row := db.db.QueryRow(`SELECT header FROM block_header WHERE round = $1`, round)
 	var blockheaderbytes []byte
 	err = row.Scan(&blockheaderbytes)
@@ -376,9 +406,7 @@ func (db *postgresIndexerDb) GetBlock(round uint64) (block types.Block, err erro
 	return
 }
 
-const maxTxnLimit = 1000
-
-func (db *postgresIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
+func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
 	const maxWhereParts = 14
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
@@ -459,10 +487,9 @@ func (db *postgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		// this should explicitly match the primary key on txn (round,intra)
 		query += " ORDER BY t.round, t.intra"
 	}
-	if tf.Limit == 0 || tf.Limit > maxTxnLimit {
-		tf.Limit = maxTxnLimit
+	if tf.Limit != 0 {
+		query += fmt.Sprintf(" LIMIT %d", tf.Limit)
 	}
-	query += fmt.Sprintf(" LIMIT %d", tf.Limit)
 	out := make(chan TxnRow, 1)
 	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
@@ -477,53 +504,241 @@ func (db *postgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 
 const maxAccountsLimit = 1000
 
-func (db *postgresIndexerDb) GetAccounts(ctx context.Context, greaterThan types.Address, limit int) (accounts []models.Account, err error) {
-	if limit == 0 || limit > maxAccountsLimit {
-		limit = maxAccountsLimit
-	}
-	tx, err := db.db.BeginTx(ctx, nil)
-	if err != nil {
-		return
-	}
+func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts AccountQueryOptions, rows *sql.Rows, tx *sql.Tx, blockheader types.Block, out chan<- AccountRow) {
 	defer tx.Rollback()
-	roundrow := tx.QueryRow(`SELECT (v -> 'account_round')::bigint FROM metastate WHERE k = 'state'`)
-	var round uint64
-	err = roundrow.Scan(&round)
-	if err != nil {
-		return
-	}
-	rows, err := tx.QueryContext(ctx, `SELECT addr, microalgos, rewardsbase, account_data FROM account WHERE addr > $1 ORDER BY addr LIMIT $2`, greaterThan[:], limit)
-	if err != nil {
-		return
-	}
-	out := make([]models.Account, 0, limit)
 	for rows.Next() {
 		var addr []byte
 		var microalgos uint64
 		var rewardsbase uint64
-		var dataJsonStr *string
-		err = rows.Scan(&addr, &microalgos, &rewardsbase, &dataJsonStr)
+		var accountDataJsonStr *string
+
+		// these are bytes of json serialization
+		var holdingAssetid []byte
+		var holdingAmount []byte
+		var holdingFrozen []byte
+
+		// these are bytes of json serialization
+		var assetParamsIds []byte
+		var assetParamsStr []byte
+
+		var err error
+
+		if opts.IncludeAssetHoldings {
+			if opts.IncludeAssetParams {
+				err = rows.Scan(
+					&addr, &microalgos, &rewardsbase, &accountDataJsonStr,
+					&holdingAssetid, &holdingAmount, &holdingFrozen,
+					&assetParamsIds, &assetParamsStr,
+				)
+			} else {
+				err = rows.Scan(
+					&addr, &microalgos, &rewardsbase, &accountDataJsonStr,
+					&holdingAssetid, &holdingAmount, &holdingFrozen,
+				)
+			}
+		} else if opts.IncludeAssetParams {
+			err = rows.Scan(
+				&addr, &microalgos, &rewardsbase, &accountDataJsonStr,
+				&assetParamsIds, &assetParamsStr,
+			)
+		} else {
+			err = rows.Scan(&addr, &microalgos, &rewardsbase, &accountDataJsonStr)
+		}
 		if err != nil {
-			return
+			out <- AccountRow{Error: err}
+			break
 		}
+
 		var account models.Account
-		account.Round = round
 		var aaddr atypes.Address
-		if len(addr) != 32 {
-			return nil, errors.New("loaded invalid addr from db in GetAccounts")
-		}
 		copy(aaddr[:], addr)
 		account.Address = aaddr.String()
+		account.Round = uint64(blockheader.Round)
 		account.AmountWithoutPendingRewards = microalgos
-		// todo, get rewardslevel at round, calculate PendingRewards and add to get Amount
-		// account.Rewards // not filled
-		// account.Status // not filled
-		// account.AssetParams // TODO: optionally join with asset created by this addr
-		// account.Assets // TODO: optionally join with account_asset
-		out = append(out, account)
+		proto, err := db.GetProto(string(blockheader.CurrentProtocol))
+		rewardsUnits := microalgos / proto.RewardUnit
+		rewardsDelta := blockheader.RewardsLevel - rewardsbase
+		account.PendingRewards = rewardsUnits * rewardsDelta
+		account.Amount = microalgos + account.PendingRewards
+		// not implemented: account.Rewards sum of all rewards ever
+
+		const nullarraystr = "[null]"
+
+		if len(holdingAssetid) > 0 && string(holdingAssetid) != nullarraystr {
+			var haids []uint64
+			err = json.Decode(holdingAssetid, &haids)
+			if err != nil {
+				out <- AccountRow{Error: err}
+				break
+			}
+			var hamounts []uint64
+			err = json.Decode(holdingAmount, &hamounts)
+			if err != nil {
+				out <- AccountRow{Error: err}
+				break
+			}
+			var hfrozen []bool
+			err = json.Decode(holdingFrozen, &hfrozen)
+			if err != nil {
+				out <- AccountRow{Error: err}
+				break
+			}
+			account.Assets = make(map[uint64]models.AssetHolding, len(haids))
+			for i, assetid := range haids {
+				account.Assets[assetid] = models.AssetHolding{Amount: hamounts[i], Frozen: hfrozen[i]}
+			}
+		}
+		if len(assetParamsIds) > 0 && string(assetParamsIds) != nullarraystr {
+			var assetids []uint64
+			err = json.Decode(assetParamsIds, &assetids)
+			if err != nil {
+				out <- AccountRow{Error: err}
+				break
+			}
+			var assetParams []types.AssetParams
+			err = json.Decode(assetParamsStr, &assetParams)
+			if err != nil {
+				out <- AccountRow{Error: err}
+				break
+			}
+			account.AssetParams = make(map[uint64]models.AssetParams, len(assetids))
+			for i, assetid := range assetids {
+				ap := assetParams[i]
+				account.AssetParams[assetid] = models.AssetParams{
+					Creator:       account.Address,
+					Total:         ap.Total,
+					Decimals:      ap.Decimals,
+					DefaultFrozen: ap.DefaultFrozen,
+					UnitName:      ap.UnitName,
+					AssetName:     ap.AssetName,
+					URL:           ap.URL,
+					MetadataHash:  ap.MetadataHash[:],
+					ManagerAddr:   addrStr(ap.Manager[:]),
+					ReserveAddr:   addrStr(ap.Reserve[:]),
+					FreezeAddr:    addrStr(ap.Freeze[:]),
+					ClawbackAddr:  addrStr(ap.Clawback[:]),
+				}
+
+			}
+		}
+		out <- AccountRow{Account: account}
+	}
+	close(out)
+}
+
+func addrStr(addr []byte) string {
+	if len(addr) == 0 {
+		return ""
+	}
+	allZero := true
+	for _, bv := range addr {
+		if bv != 0 {
+			allZero = false
+			break
+		}
+	}
+	if allZero {
+		return ""
+	}
+	var aa atypes.Address
+	copy(aa[:], addr)
+	return aa.String()
+}
+
+func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow {
+	out := make(chan AccountRow, 1)
+
+	// Begin transaction so we get everything at one consistent point in time and round of accounting.
+	tx, err := db.db.BeginTx(ctx, nil)
+	if err != nil {
+		err = fmt.Errorf("account tx err %v", err)
+		out <- AccountRow{Error: err}
+		close(out)
+		return out
 	}
 
-	return out, nil
+	// Get round number through which accounting has been updated
+	row := tx.QueryRow(`SELECT (v -> 'account_round')::bigint as account_round FROM metastate WHERE k = 'state'`)
+	var accountRound uint64
+	err = row.Scan(&accountRound)
+	if err != nil {
+		err = fmt.Errorf("account_round err %v", err)
+		out <- AccountRow{Error: err}
+		close(out)
+		tx.Rollback()
+		return out
+	}
+
+	// Get block header for that round so we know protocol and rewards info
+	row = tx.QueryRow(`SELECT header FROM block_header WHERE round = $1`, accountRound)
+	var headerbytes []byte
+	err = row.Scan(&headerbytes)
+	if err != nil {
+		err = fmt.Errorf("account round header %d err %v", accountRound, err)
+		out <- AccountRow{Error: err}
+		close(out)
+		tx.Rollback()
+		return out
+	}
+	var blockheader types.Block
+	err = msgpack.Decode(headerbytes, &blockheader)
+	if err != nil {
+		err = fmt.Errorf("account round header %d err %v", accountRound, err)
+		out <- AccountRow{Error: err}
+		close(out)
+		tx.Rollback()
+		return out
+	}
+
+	// Construct query for fetching accounts...
+	query := `SELECT a.addr, a.microalgos, a.rewardsbase, a.account_data`
+	if opts.IncludeAssetHoldings {
+		query += `, json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf`
+	}
+	if opts.IncludeAssetParams {
+		query += `, json_agg(ap.index) as paid, json_agg(ap.params) as pp`
+	}
+	query += ` FROM account a`
+	if opts.IncludeAssetHoldings {
+		query += ` LEFT JOIN account_asset aa ON a.addr = aa.addr`
+	}
+	if opts.IncludeAssetParams {
+		query += ` LEFT JOIN asset ap ON a.addr = ap.creator_addr`
+	}
+	const maxWhereParts = 14
+	whereParts := make([]string, 0, maxWhereParts)
+	whereArgs := make([]interface{}, 0, maxWhereParts)
+	partNumber := 1
+	if len(opts.GreaterThanAddress) > 0 {
+		whereParts = append(whereParts, fmt.Sprintf("WHERE addr > $%d", partNumber))
+		whereArgs = append(whereArgs, opts.GreaterThanAddress)
+		partNumber++
+	}
+	if len(opts.EqualToAddress) > 0 {
+		whereParts = append(whereParts, fmt.Sprintf("WHERE addr = $%d", partNumber))
+		whereArgs = append(whereArgs, opts.EqualToAddress)
+		partNumber++
+	}
+	if len(whereParts) > 0 {
+		whereStr := strings.Join(whereParts, " AND ")
+		query += " WHERE " + whereStr
+	}
+	if opts.IncludeAssetHoldings || opts.IncludeAssetParams {
+		query += " GROUP BY 1,2,3,4"
+	}
+	if opts.Limit != 0 {
+		query += fmt.Sprintf(" LIMIT %d", opts.Limit)
+	}
+	rows, err := tx.Query(query, whereArgs...)
+	if err != nil {
+		err = fmt.Errorf("account query %#v err %v", query, err)
+		out <- AccountRow{Error: err}
+		close(out)
+		tx.Rollback()
+		return out
+	}
+	go db.yieldAccountsThread(ctx, opts, rows, tx, blockheader, out)
+	return out
 }
 
 type postgresFactory struct {
