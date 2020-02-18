@@ -227,6 +227,11 @@ func pathNameStartInt(x string) int64 {
 	x = filepath.Base(x)
 	underscorePos := strings.IndexRune(x, '_')
 	if underscorePos == -1 {
+		// try converting the whole string, might be a plain block
+		v, err := strconv.ParseInt(x, 10, 64)
+		if err == nil {
+			return v
+		}
 		return -1
 	}
 	v, err := strconv.ParseInt(x[:underscorePos], 10, 64)

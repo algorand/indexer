@@ -555,8 +555,13 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 		account.Address = aaddr.String()
 		account.Round = uint64(blockheader.Round)
 		account.AmountWithoutPendingRewards = microalgos
+
+		// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
 		proto, err := db.GetProto(string(blockheader.CurrentProtocol))
-		rewardsUnits := microalgos / proto.RewardUnit
+		rewardsUnits := uint64(0)
+		if proto.RewardUnit != 0 {
+			rewardsUnits = microalgos / proto.RewardUnit
+		}
 		rewardsDelta := blockheader.RewardsLevel - rewardsbase
 		account.PendingRewards = rewardsUnits * rewardsDelta
 		account.Amount = microalgos + account.PendingRewards
@@ -710,12 +715,12 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
 	if len(opts.GreaterThanAddress) > 0 {
-		whereParts = append(whereParts, fmt.Sprintf("WHERE addr > $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("a.addr > $%d", partNumber))
 		whereArgs = append(whereArgs, opts.GreaterThanAddress)
 		partNumber++
 	}
 	if len(opts.EqualToAddress) > 0 {
-		whereParts = append(whereParts, fmt.Sprintf("WHERE addr = $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("a.addr = $%d", partNumber))
 		whereArgs = append(whereArgs, opts.EqualToAddress)
 		partNumber++
 	}

@@ -46,7 +46,13 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		MaxRound: account.Round,
 	}
 	txns := db.Transactions(context.Background(), tf)
+	txcount := 0
 	for txnrow := range txns {
+		if txnrow.Error != nil {
+			err = txnrow.Error
+			return
+		}
+		txcount++
 		var stxn types.SignedTxnInBlock
 		err = msgpack.Decode(txnrow.TxnBytes, &stxn)
 		if err != nil {
@@ -90,11 +96,52 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		}
 	}
 
-	// TODO: fetch MaxRound: round, Limit: 1
+	if txcount > 0 {
+		// If we found any txns above, we need to find one
+		// more so we can know what the previous RewardsBase
+		// of the account was so we can get the accurate
+		// pending rewards at the target round.
+		//
+		// (If there weren't any txns above, the recorded
+		// RewardsBase is current from whatever previous txn
+		// happened to this account.)
 
-	tf.MaxRound = round
-	tf.MinRound = 0
-	tf.Limit = 1
+		tf.MaxRound = round
+		tf.MinRound = 0
+		tf.Limit = 1
+		txns = db.Transactions(context.Background(), tf)
+		for txnrow := range txns {
+			if txnrow.Error != nil {
+				err = txnrow.Error
+				return
+			}
+			var stxn types.SignedTxnInBlock
+			err = msgpack.Decode(txnrow.TxnBytes, &stxn)
+			if err != nil {
+				return
+			}
+			var baseBlock types.Block
+			baseBlock, err = db.GetBlock(txnrow.Round)
+			if err != nil {
+				return
+			}
+			prevRewardsBase := baseBlock.RewardsLevel
+			var blockheader types.Block
+			blockheader, err = db.GetBlock(round)
+			if err != nil {
+				return
+			}
+			var proto types.ConsensusParams
+			proto, err = db.GetProto(string(blockheader.CurrentProtocol))
+			if err != nil {
+				return
+			}
+			rewardsUnits := account.AmountWithoutPendingRewards / proto.RewardUnit
+			rewardsDelta := blockheader.RewardsLevel - prevRewardsBase
+			account.PendingRewards = rewardsDelta * rewardsUnits
+			account.Amount = account.PendingRewards + account.AmountWithoutPendingRewards
+		}
+	}
 
 	acct.Round = round
 	return

@@ -33,6 +33,7 @@ import (
 	atypes "github.com/algorand/go-algorand-sdk/types"
 	"github.com/gorilla/mux"
 
+	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
@@ -140,6 +141,41 @@ func formTime(r *http.Request, keySynonyms []string) (value time.Time, err error
 	return
 }
 
+var trueStrings = []string{
+	"t", "1", "true", "True", "T",
+}
+var falseStrings = []string{
+	"f", "0", "false", "False", "F",
+}
+
+func formBool(r *http.Request, keySynonyms []string, defaultValue bool) (value bool, err error) {
+	value = defaultValue
+	for _, key := range keySynonyms {
+		svalues, any := r.Form[key]
+		if !any || len(svalues) < 1 {
+			continue
+		}
+		// last value wins. or should we make repetition a 400 err?
+		svalue := svalues[len(svalues)-1]
+		if len(svalue) == 0 {
+			continue
+		}
+		for _, ts := range trueStrings {
+			if svalue == ts {
+				value = true
+				return
+			}
+		}
+		for _, ts := range falseStrings {
+			if svalue == ts {
+				value = false
+				return
+			}
+		}
+	}
+	return
+}
+
 type listAccountsReply struct {
 	Accounts []models.Account `json:"accounts,omitempty"`
 }
@@ -153,10 +189,35 @@ type listAccountsReply struct {
 // return {"accounts":[]models.Account}
 func ListAccounts(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	// TODO: arg gt=addr
 	af := idb.AccountQueryOptions{
 		Limit: 1000,
 	}
+	atRound, err := formUint64(r, []string{"round", "r"}, 0)
+	if err != nil {
+		err = fmt.Errorf("bad round, %v", err)
+		return
+	}
+	gtAddrStr := formString(r, []string{"gt"}, "")
+	if gtAddrStr != "" {
+		gtAddr, err := atypes.DecodeAddress(gtAddrStr)
+		if err != nil {
+			log.Println("bad gtaddr, ", err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		af.GreaterThanAddress = gtAddr[:]
+	}
+	af.IncludeAssetHoldings, err = formBool(r, []string{"assets", "ia"}, true)
+	if err != nil {
+		err = fmt.Errorf("bad ia, %v", err)
+		return
+	}
+	af.IncludeAssetParams, err = formBool(r, []string{"acfg"}, false)
+	if err != nil {
+		err = fmt.Errorf("bad acfg, %v", err)
+		return
+	}
+	// TODO: Limit
 	accountchan := IndexerDb.GetAccounts(r.Context(), af)
 	accounts := make([]models.Account, 0, 100)
 	for actrow := range accountchan {
@@ -165,6 +226,14 @@ func ListAccounts(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+		if atRound != 0 {
+			actrow.Account, err = accounting.AccountAtRound(actrow.Account, atRound, IndexerDb)
+			if err != nil {
+				log.Println("account atRow ", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+		}
 		accounts = append(accounts, actrow.Account)
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -172,7 +241,7 @@ func ListAccounts(w http.ResponseWriter, r *http.Request) {
 	out := listAccountsReply{Accounts: accounts}
 	enc := json.NewEncoder(w)
 
-	err := enc.Encode(out)
+	err = enc.Encode(out)
 	if err != nil {
 		log.Println("list account encode, ", err)
 	}

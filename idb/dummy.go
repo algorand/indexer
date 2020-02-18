@@ -61,6 +61,11 @@ func (db *dummyIndexerDb) SetProto(version string, proto types.ConsensusParams) 
 	return nil
 }
 
+func (db *dummyIndexerDb) GetProto(version string) (proto types.ConsensusParams, err error) {
+	err = nil
+	return
+}
+
 func (db *dummyIndexerDb) GetMetastate(key string) (jsonStrValue string, err error) {
 	return "", nil
 }
@@ -115,6 +120,7 @@ type IndexerDb interface {
 
 	LoadGenesis(genesis types.Genesis) (err error)
 	SetProto(version string, proto types.ConsensusParams) (err error)
+	GetProto(version string) (proto types.ConsensusParams, err error)
 
 	GetMetastate(key string) (jsonStrValue string, err error)
 	SetMetastate(key, jsonStrValue string) (err error)
