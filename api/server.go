@@ -32,6 +32,7 @@ var IndexerDb idb.IndexerDb
 func Serve() {
 	r := mux.NewRouter()
 	r.HandleFunc("/v1/accounts", ListAccounts)
+	r.HandleFunc("/v1/account/{address}", GetAccount)
 	r.HandleFunc("/v1/account/{address}/transactions", TransactionsForAddress)
 	s := &http.Server{
 		Addr:           ":8080",

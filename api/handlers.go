@@ -184,13 +184,20 @@ type listAccountsReply struct {
 // /v1/accounts
 // ?gt={addr} // return assets greater than some addr, for paging
 // ?assets=1 // return AssetHolding for assets owned by this account
-// ?assetParams=1 // return AssetParams for assets created by this account
+// ?acfg=1 // return AssetParams for assets created by this account
 // ?limit=N
 // return {"accounts":[]models.Account}
 func ListAccounts(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	af := idb.AccountQueryOptions{
-		Limit: 1000,
+	var err error
+	af := idb.AccountQueryOptions{}
+	af.Limit, err = formUint64(r, []string{"limit"}, 1000)
+	if err != nil {
+		err = fmt.Errorf("bad limit, %v", err)
+		return
+	}
+	if af.Limit <= 0 || af.Limit > 1000 {
+		af.Limit = 1000
 	}
 	atRound, err := formUint64(r, []string{"round", "r"}, 0)
 	if err != nil {
@@ -217,7 +224,12 @@ func ListAccounts(w http.ResponseWriter, r *http.Request) {
 		err = fmt.Errorf("bad acfg, %v", err)
 		return
 	}
-	// TODO: Limit
+
+	accountListReturn(w, r, af, atRound)
+}
+
+func accountListReturn(w http.ResponseWriter, r *http.Request, af idb.AccountQueryOptions, atRound uint64) {
+	var err error
 	accountchan := IndexerDb.GetAccounts(r.Context(), af)
 	accounts := make([]models.Account, 0, 100)
 	for actrow := range accountchan {
@@ -245,6 +257,44 @@ func ListAccounts(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println("list account encode, ", err)
 	}
+}
+
+// GetAccount returns one account
+// /v1/account/{address}
+// ?assets=1 // include AssetHolding data
+// ?acfg=1 // return AssetParams for assets created by this account
+// ?round=N // return state of account at a specific round in the past
+// return {"accounts":[]models.Account}
+func GetAccount(w http.ResponseWriter, r *http.Request) {
+	r.ParseForm()
+	atRound, err := formUint64(r, []string{"round", "r"}, 0)
+	if err != nil {
+		err = fmt.Errorf("bad round, %v", err)
+		return
+	}
+	af := idb.AccountQueryOptions{
+		Limit: 1,
+	}
+	queryAddr := mux.Vars(r)["address"]
+	addr, err := atypes.DecodeAddress(queryAddr)
+	if err != nil {
+		log.Println("bad addr, ", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	af.EqualToAddress = addr[:]
+	af.IncludeAssetHoldings, err = formBool(r, []string{"assets", "ia"}, true)
+	if err != nil {
+		err = fmt.Errorf("bad ia, %v", err)
+		return
+	}
+	af.IncludeAssetParams, err = formBool(r, []string{"acfg"}, true)
+	if err != nil {
+		err = fmt.Errorf("bad acfg, %v", err)
+		return
+	}
+
+	accountListReturn(w, r, af, atRound)
 }
 
 type stringInt struct {

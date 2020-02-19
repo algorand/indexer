@@ -60,7 +60,7 @@ def indexerAccounts(rooturl, blockround=None):
             gtaddr = addr
         if not some:
             break
-    logger.info('loaded %d accounts from %s', len(accounts), rooturl)
+    logger.info('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
     return accounts
 
 class CheckContext:
