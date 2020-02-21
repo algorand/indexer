@@ -176,6 +176,7 @@ func updateAccounting(db idb.IndexerDb) (rounds int) {
 			roundsSeen++
 			currentRound = txn.Round
 			if (numRoundsLimit != 0) && (roundsSeen > numRoundsLimit) {
+				fmt.Printf("hit rounds limit %d > %d\n", roundsSeen, numRoundsLimit)
 				break
 			}
 			now := time.Now()

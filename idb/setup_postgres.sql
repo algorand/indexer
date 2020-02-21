@@ -50,7 +50,7 @@ addr bytea NOT NULL,
 round bigint NOT NULL,
 intra smallint NOT NULL
 );
-CREATE INDEX IF NOT EXISTS txn_participation_i ON txn_participation ( addr, round DESC, intra DESC );
+CREATE UNIQUE INDEX IF NOT EXISTS txn_participation_i ON txn_participation ( addr, round DESC, intra DESC );
 
 -- bookeeping for local file import
 CREATE TABLE IF NOT EXISTS imported (path text);

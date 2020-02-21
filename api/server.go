@@ -17,7 +17,9 @@
 package api
 
 import (
+	"context"
 	"log"
+	"net"
 	"net/http"
 	"time"
 
@@ -29,7 +31,13 @@ import (
 // IndexerDb should be set from main()
 var IndexerDb idb.IndexerDb
 
-func Serve() {
+func Serve(ctx context.Context) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	getctx := func(l net.Listener) context.Context {
+		return ctx
+	}
 	r := mux.NewRouter()
 	r.HandleFunc("/v1/accounts", ListAccounts)
 	r.HandleFunc("/v1/account/{address}", GetAccount)
@@ -40,6 +48,7 @@ func Serve() {
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
+		BaseContext:    getctx,
 	}
 	log.Fatal(s.ListenAndServe())
 }

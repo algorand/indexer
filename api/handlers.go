@@ -234,7 +234,7 @@ func accountListReturn(w http.ResponseWriter, r *http.Request, af idb.AccountQue
 	accounts := make([]models.Account, 0, 100)
 	for actrow := range accountchan {
 		if actrow.Error != nil {
-			log.Println("ListAccounts ", actrow.Error)
+			log.Println("GetAccounts ", actrow.Error)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}

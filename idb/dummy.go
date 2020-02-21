@@ -74,6 +74,10 @@ func (db *dummyIndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
 	return nil
 }
 
+func (db *dummyIndexerDb) GetMaxRound() (round uint64, err error) {
+	return 0, nil
+}
+
 func (db *dummyIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow {
 	return nil
 }
@@ -124,6 +128,7 @@ type IndexerDb interface {
 
 	GetMetastate(key string) (jsonStrValue string, err error)
 	SetMetastate(key, jsonStrValue string) (err error)
+	GetMaxRound() (round uint64, err error)
 
 	// YieldTxns returns a channel that produces the whole transaction stream after some round forward
 	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow

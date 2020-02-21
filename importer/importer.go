@@ -28,38 +28,7 @@ import (
 
 type Importer interface {
 	ImportBlock(blockbytes []byte) error
-}
-
-type printImporter struct {
-}
-
-func (imp *printImporter) ImportBlock(blockbytes []byte) (err error) {
-	var blockContainer map[string]interface{}
-	err = msgpack.Decode(blockbytes, &blockContainer)
-	if err != nil {
-		return fmt.Errorf("error decoding blockbytes, %v", err)
-	}
-	block := blockContainer["block"].(map[interface{}]interface{})
-	txnsi, haveTxns := block["txns"]
-	numTxns := 0
-	if haveTxns {
-		txns := txnsi.([]interface{})
-		numTxns = len(txns)
-		/*
-			for intra, txni := range txns {
-				txn := txni.(map[interface{}]interface{})
-			}*/
-	}
-	blockHeader := block
-	delete(blockHeader, "txns")
-	blockheaderBytes := msgpack.Encode(blockHeader)
-	fmt.Printf("%d block header bytes. %d txns\n", len(blockheaderBytes), numTxns)
-	//fmt.Printf("blockbytes decoded %#v\n", block)
-	return nil
-}
-
-func NewPrintImporter() Importer {
-	return &printImporter{}
+	ImportDecodedBlock(block *types.EncodedBlockCert) error
 }
 
 type dbImporter struct {
@@ -90,10 +59,15 @@ func init() {
 var zeroAddr = [32]byte{}
 
 func participate(participants [][]byte, addr []byte) [][]byte {
-	if !bytes.Equal(addr, zeroAddr[:]) {
-		return append(participants, addr)
+	if len(addr) == 0 || bytes.Equal(addr, zeroAddr[:]) {
+		return participants
 	}
-	return participants
+	for _, pp := range participants {
+		if bytes.Equal(pp, addr) {
+			return participants
+		}
+	}
+	return append(participants, addr)
 }
 
 func (imp *dbImporter) ImportBlock(blockbytes []byte) (err error) {
@@ -102,6 +76,9 @@ func (imp *dbImporter) ImportBlock(blockbytes []byte) (err error) {
 	if err != nil {
 		return fmt.Errorf("error decoding blockbytes, %v", err)
 	}
+	return imp.ImportDecodedBlock(&blockContainer)
+}
+func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert) (err error) {
 	err = imp.db.StartBlock()
 	if err != nil {
 		return fmt.Errorf("error starting block, %v", err)

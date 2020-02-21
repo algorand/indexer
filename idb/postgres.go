@@ -226,6 +226,12 @@ func (db *PostgresIndexerDb) SetMetastate(key, jsonStrValue string) (err error) 
 	return
 }
 
+func (db *PostgresIndexerDb) GetMaxRound() (round uint64, err error) {
+	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
+	err = row.Scan(&round)
+	return
+}
+
 func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {
 	for rows.Next() {
 		var round uint64
@@ -370,7 +376,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 	}
 	if !any {
-		return
+		fmt.Printf("empty round %d\n", round)
 	}
 	var istate ImportState
 	staterow := tx.QueryRow(`SELECT v FROM metastate WHERE k = 'state'`)

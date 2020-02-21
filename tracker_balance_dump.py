@@ -23,6 +23,8 @@ import psycopg2
 
 from indexer2testload import unmsgpack
 
+encode_addr = algosdk.encoding.encode_address
+
 logger = logging.getLogger(__name__)
 
 def indexerAccounts(rooturl, blockround=None):
@@ -40,7 +42,11 @@ def indexerAccounts(rooturl, blockround=None):
             query['gt'] = gtaddr
             accountsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(accountsurl)
-        response = urllib.request.urlopen(pageurl)
+        try:
+            response = urllib.request.urlopen(pageurl)
+        except Exception as e:
+            logger.error('%r', pageurl, exc_info=True)
+            raise
         if (response.code != 200) or (response.getheader('Content-Type') != 'application/json'):
             raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
         ob = json.loads(response.read())
@@ -63,16 +69,45 @@ def indexerAccounts(rooturl, blockround=None):
     logger.info('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
     return accounts
 
+# generator yielding txns objects
+def indexerAccountTxns(rooturl, addr, minround=None, maxround=None):
+    niceaddr = algosdk.encoding.encode_address(addr)
+    rootparts = urllib.parse.urlparse(rooturl)
+    atxnsurl = list(rootparts)
+    atxnsurl[2] = os.path.join(atxnsurl[2], 'v1/account/{}/transactions'.format(niceaddr))
+    query = {'l':1000, 'format':'json'}
+    if minround is not None:
+        query['rl'] = minround
+    if maxround is not None:
+        query['rh'] = maxround
+    while True:
+        atxnsurl[4] = urllib.parse.urlencode(query)
+        pageurl = urllib.parse.urlunparse(atxnsurl)
+        response = urllib.request.urlopen(pageurl)
+        if (response.code != 200) or (response.getheader('Content-Type') != 'application/json'):
+            raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
+        ob = json.loads(response.read())
+        txns = ob.get('transactions')
+        if not txns:
+            return
+        for txn in txns:
+            yield txn
+        if len(txns) < 1000:
+            return
+        query['rh'] = txns[-1]['r'] - 1
+
 class CheckContext:
     def __init__(self, i2db, err):
         self.i2db = i2db
         self.err = err
         self.match = 0
         self.neq = 0
+        self.mismatches = []
 
     def check(self, address, niceaddr, microalgos, assets):
         err = self.err
         i2v = self.i2db.pop(address, None)
+        errors = []
         if i2v is None:
             self.neq += 1
             err.write('{} not in i2db\n'.format(niceaddr))
@@ -81,21 +116,25 @@ class CheckContext:
             if i2v['algo'] == microalgos:
                 pass # still ok
             else:
-                err.write('{} algod v={} i2db v={}\n'.format(niceaddr, microalgos, i2v['algo']))
+                ok = False
+                emsg = '{} algod v={} i2db v={}\n'.format(niceaddr, microalgos, i2v['algo'])
+                err.write(emsg)
+                errors.append(emsg)
                 # TODO: fetch txn delta from db?
                 # pc = pg.cursor()
                 # pc.execute("SELECT t.round, t.intra, t.txn FROM txn t JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra WHERE p.addr = %s AND t.round >= %s and t.round <= %s", (address, min(i2db_round, tracker_round), max(i2db_round, tracker_round)))
                 # for row in pc:
                 #     blockround, intra, txn = row
                 #     err.write('\t{}:{}\t{}\n'.format(blockround, intra, json.dumps(txn['txn'])))
-                ok = False
             i2assets = i2v.get('asset')
             if i2assets:
                 if assets:
                     pass
                 else:
                     ok = False
-                    err.write('{} i2db has assets but not algod\n'.format(niceaddr))
+                    emsg = '{} i2db has assets but not algod\n'.format(niceaddr)
+                    err.write(emsg)
+                    errors.append(emsg)
             elif assets:
                 allzero = True
                 nonzero = []
@@ -105,11 +144,14 @@ class CheckContext:
                         nonzero.append( (assetidstr, assetdata) )
                 if not allzero:
                     ok = False
-                    err.write('{} algod has assets but not i2db: {!r}\n'.format(niceaddr, nonzero))
+                    emsg = '{} algod has assets but not i2db: {!r}\n'.format(niceaddr, nonzero)
+                    err.write(emsg)
+                    errors.append(emsg)
             if ok:
                 self.match += 1
             else:
                 self.neq += 1
+                self.mismatches.append( (address, '\n'.join(errors)) )
 
     def summary(self):
         for addr, i2v in self.i2db.items():
@@ -244,6 +286,31 @@ def main():
         pg.close()
     if i2a_checker:
         i2a_checker.summary()
+        for addr, msg in i2a_checker.mismatches:
+            niceaddr = algosdk.encoding.encode_address(addr)
+            for stxnw in indexerAccountTxns(args.indexer, addr, minround=tracker_round):
+                stxn = stxnw['stxn']
+                txn = stxn['txn']
+                sender = txn.pop('snd')
+                parts = ['{}:{}'.format(stxnw['r'], stxnw['o']), 's={}'.format(encode_addr(sender))]
+                asnd = txn.pop('asnd', None)
+                if asnd:
+                    parts.append('as={}'.format(encode_addr(asnd)))
+                receiver = txn.pop('rcv', None)
+                if receiver:
+                    parts.append('r={}'.format(encode_addr(receiver)))
+                closeto = txn.pop('close', None)
+                if closeto:
+                    parts.append('c={}'.format(encode_addr(closeto)))
+                arcv = txn.pop('arcv', None)
+                if arcv:
+                    parts.append('ar={}'.format(encode_addr(arcv)))
+                aclose = txn.pop('aclose', None)
+                if aclose:
+                    parts.append('ac={}'.format(encode_addr(aclose)))
+                # everything else
+                parts.append(json.dumps(txn))
+                err.write('\n'.join(parts) + '\n')
     return
 
 
