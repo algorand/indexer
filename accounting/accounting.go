@@ -32,6 +32,7 @@ type AccountingState struct {
 	defaultFrozen map[uint64]bool
 
 	currentRound uint64
+	dirty        bool
 
 	idb.RoundUpdates
 
@@ -74,6 +75,9 @@ func (accounting *AccountingState) initRound(round uint64) error {
 }
 
 func (accounting *AccountingState) commitRound() error {
+	if !accounting.dirty {
+		return nil
+	}
 	err := accounting.db.CommitRoundAccounting(accounting.RoundUpdates, accounting.currentRound, accounting.rewardsLevel)
 	if err != nil {
 		return err
@@ -84,6 +88,7 @@ func (accounting *AccountingState) commitRound() error {
 	accounting.FreezeUpdates = nil
 	accounting.AssetCloses = nil
 	accounting.AssetDestroys = nil
+	accounting.dirty = false
 	return nil
 }
 
@@ -134,6 +139,7 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 			return fmt.Errorf("add tx init round %d, %v", round, err)
 		}
 	}
+	accounting.dirty = true
 
 	accounting.updateAlgo(stxn.Txn.Sender, -int64(stxn.Txn.Fee))
 	accounting.updateAlgo(accounting.feeAddr, int64(stxn.Txn.Fee))
