@@ -21,9 +21,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/algod"
 	"github.com/algorand/go-algorand-sdk/client/kmd"
@@ -52,6 +54,7 @@ type BlockHandler interface {
 type algobotImpl struct {
 	algorandData string
 	aclient      algod.Client
+	algodLastmod time.Time // newest mod time of algod.net algod.token
 
 	kmdDir   string
 	kmdUrl   string
@@ -62,8 +65,11 @@ type algobotImpl struct {
 
 	nextRound uint64
 
-	ctx context.Context
-	wg  *sync.WaitGroup
+	ctx  context.Context
+	wg   *sync.WaitGroup
+	done bool
+
+	failingSince time.Time
 }
 
 func (bot *algobotImpl) Algod() algod.Client {
@@ -77,21 +83,23 @@ func (bot *algobotImpl) Kmd() kmd.Client {
 }
 
 func (bot *algobotImpl) isDone() bool {
+	if bot.done {
+		return true
+	}
 	if bot.ctx == nil {
 		return false
 	}
 	select {
 	case <-bot.ctx.Done():
+		bot.done = true
 		return true
 	default:
 		return false
 	}
 }
 
-func (bot *algobotImpl) Run() {
-	if bot.wg != nil {
-		defer bot.wg.Done()
-	}
+// fetch the next block by round number until we find one missing (because it doesn't exist yet)
+func (bot *algobotImpl) catchupLoop() {
 	var err error
 	var blockbytes []byte
 	aclient := bot.Algod()
@@ -101,17 +109,24 @@ func (bot *algobotImpl) Run() {
 		}
 		blockbytes, err = aclient.BlockRaw(bot.nextRound)
 		if err != nil {
-			log.Printf("first try block %d, err %v", bot.nextRound, err)
-			break
+			log.Printf("catchup block %d, err %v", bot.nextRound, err)
+			return
 		}
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
-			log.Printf("err handling catchup block %d, ", bot.nextRound, err)
+			log.Printf("err handling catchup block %d, %v", bot.nextRound, err)
 			return
 		}
 		bot.nextRound++
+		bot.failingSince = time.Time{}
 	}
+}
 
+// wait for algod to notify of a new round, then fetch that block
+func (bot *algobotImpl) followLoop() {
+	var err error
+	var blockbytes []byte
+	aclient := bot.Algod()
 	for true {
 		for retries := 0; retries < 3; retries++ {
 			if bot.isDone() {
@@ -124,21 +139,52 @@ func (bot *algobotImpl) Run() {
 			}
 			blockbytes, err = aclient.BlockRaw(bot.nextRound)
 			if err == nil {
-				log.Printf("r=%d success getting block %d, %v", retries, bot.nextRound, err)
 				break
 			}
 			log.Printf("r=%d err getting block %d, %v", retries, bot.nextRound, err)
 		}
 		if err != nil {
-			log.Printf("error getting block %d, %v", bot.nextRound, err)
 			return
 		}
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
-			log.Printf("err handling follow block %d, ", bot.nextRound, err)
-			return
+			log.Printf("err handling follow block %d, %v", bot.nextRound, err)
+			break
 		}
 		bot.nextRound++
+		bot.failingSince = time.Time{}
+	}
+}
+
+func (bot *algobotImpl) Run() {
+	if bot.wg != nil {
+		defer bot.wg.Done()
+	}
+	for true {
+		if bot.isDone() {
+			return
+		}
+		bot.catchupLoop()
+		bot.followLoop()
+		if bot.isDone() {
+			return
+		}
+
+		if bot.failingSince.IsZero() {
+			bot.failingSince = time.Now()
+		} else {
+			now := time.Now()
+			dt := now.Sub(bot.failingSince)
+			log.Printf("failing to fetch from algod for %s, (since %s, now %s)", dt.String(), bot.failingSince.String(), now.String())
+		}
+		time.Sleep(5 * time.Second)
+		//err := bot.maybeReclient()
+		err := bot.reclient()
+		if err != nil {
+			log.Printf("err trying to re-client, %v", err)
+		} else {
+			log.Print("reclient happened")
+		}
 	}
 }
 
@@ -183,16 +229,68 @@ func (bot *algobotImpl) AddBlockHandler(handler BlockHandler) {
 
 func ForDataDir(path string) (bot Algobot, err error) {
 	boti := &algobotImpl{algorandData: path}
-	boti.aclient, err = algodClientForDataDir(path)
+	err = boti.reclient()
 	if err == nil {
 		bot = boti
 	}
 	return
 }
 
-func algodClientForDataDir(datadir string) (client algod.Client, err error) {
+func (bot *algobotImpl) maybeReclient() (err error) {
+	var lastmod time.Time
+	lastmod, err = algodUpdated(bot.algorandData)
+	if err != nil {
+		return
+	}
+	if lastmod.After(bot.algodLastmod) {
+		return bot.reclient()
+	}
+	return
+}
+
+func (bot *algobotImpl) reclient() (err error) {
+	var nclient algod.Client
+	var lastmod time.Time
+	nclient, lastmod, err = algodClientForDataDir(bot.algorandData)
+	if err == nil {
+		bot.aclient = nclient
+		bot.algodLastmod = lastmod
+	}
+	return
+}
+
+func algodUpdated(datadir string) (lastmod time.Time, err error) {
+	netpath, tokenpath := algodPaths(datadir)
+	return algodStat(netpath, tokenpath)
+}
+
+func algodPaths(datadir string) (netpath, tokenpath string) {
+	netpath = filepath.Join(datadir, "algod.net")
+	tokenpath = filepath.Join(datadir, "algod.token")
+	return
+}
+
+func algodStat(netpath, tokenpath string) (lastmod time.Time, err error) {
+	nstat, err := os.Stat(netpath)
+	if err != nil {
+		err = fmt.Errorf("%s: %v", netpath, err)
+		return
+	}
+	tstat, err := os.Stat(tokenpath)
+	if err != nil {
+		err = fmt.Errorf("%s: %v", tokenpath, err)
+		return
+	}
+	if nstat.ModTime().Before(tstat.ModTime()) {
+		lastmod = tstat.ModTime()
+	}
+	lastmod = nstat.ModTime()
+	return
+}
+
+func algodClientForDataDir(datadir string) (client algod.Client, lastmod time.Time, err error) {
 	// TODO: move this to go-algorand-sdk
-	netpath := filepath.Join(datadir, "algod.net")
+	netpath, tokenpath := algodPaths(datadir)
 	var netaddrbytes []byte
 	netaddrbytes, err = ioutil.ReadFile(netpath)
 	if err != nil {
@@ -203,13 +301,15 @@ func algodClientForDataDir(datadir string) (client algod.Client, err error) {
 	if !strings.HasPrefix(netaddr, "http") {
 		netaddr = "http://" + netaddr
 	}
-	tokenpath := filepath.Join(datadir, "algod.token")
 	token, err := ioutil.ReadFile(tokenpath)
 	if err != nil {
 		err = fmt.Errorf("%s: %v", tokenpath, err)
 		return
 	}
 	client, err = algod.MakeClient(netaddr, strings.TrimSpace(string(token)))
+	if err == nil {
+		lastmod, err = algodStat(netpath, tokenpath)
+	}
 	return
 }
 

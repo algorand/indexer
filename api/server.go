@@ -31,7 +31,7 @@ import (
 // IndexerDb should be set from main()
 var IndexerDb idb.IndexerDb
 
-func Serve(ctx context.Context) {
+func Serve(ctx context.Context, serveAddr string) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -43,7 +43,7 @@ func Serve(ctx context.Context) {
 	r.HandleFunc("/v1/account/{address}", GetAccount)
 	r.HandleFunc("/v1/account/{address}/transactions", TransactionsForAddress)
 	s := &http.Server{
-		Addr:           ":8080",
+		Addr:           serveAddr,
 		Handler:        r,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,

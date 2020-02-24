@@ -22,6 +22,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/spf13/cobra"
 
 	"github.com/algorand/indexer/algobot"
@@ -32,7 +33,8 @@ import (
 )
 
 var (
-	algodDataDir string
+	algodDataDir     string
+	daemonServerAddr string
 )
 
 var daemonCmd = &cobra.Command{
@@ -50,14 +52,6 @@ var daemonCmd = &cobra.Command{
 		if len(protoJsonPath) > 0 {
 			importProto(db, protoJsonPath)
 		}
-		/*
-			if genesisJsonPath != "" {
-				stateJsonStr, err := db.GetMetastate("state")
-				maybeFail(err, "getting import state, %v\n", err)
-				if stateJsonStr == "" {
-				}
-			}
-		*/
 		ctx, cf := context.WithCancel(context.Background())
 		defer cf()
 		if algodDataDir != "" {
@@ -79,7 +73,7 @@ var daemonCmd = &cobra.Command{
 			}()
 		}
 		api.IndexerDb = db
-		api.Serve(ctx)
+		api.Serve(ctx, daemonServerAddr)
 	},
 }
 
@@ -87,6 +81,7 @@ func init() {
 	daemonCmd.Flags().StringVarP(&algodDataDir, "algod", "d", "", "path to algod data dir, or $ALGORAND_DATA")
 	daemonCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json")
 	daemonCmd.Flags().StringVarP(&protoJsonPath, "proto", "p", "", "path to proto.json")
+	daemonCmd.Flags().StringVarP(&daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
 }
 
 type blockImporterHandler struct {
@@ -99,5 +94,23 @@ func (bih blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	bih.imp.ImportDecodedBlock(block)
 	updateAccounting(bih.db)
 	dt := time.Now().Sub(start)
+	if len(block.Block.Payset) == 0 {
+		// accounting won't have updated the round state, so we do it here
+		stateJsonStr, err := db.GetMetastate("state")
+		var state idb.ImportState
+		if err == nil && stateJsonStr != "" {
+			state, err = idb.ParseImportState(stateJsonStr)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "error parsing import state, %v\n", err)
+				panic("error parsing import state in bih")
+			}
+		}
+		state.AccountRound = int64(block.Block.Round)
+		stateJsonStr = string(json.Encode(state))
+		err = db.SetMetastate("state", stateJsonStr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to save import state, %v\n", err)
+		}
+	}
 	fmt.Printf("round r=%d (%d txn) imported in %s\n", block.Block.Round, len(block.Block.Payset), dt.String())
 }

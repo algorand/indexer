@@ -87,7 +87,7 @@ def indexerAccountTxns(rooturl, addr, minround=None, maxround=None):
         if (response.code != 200) or (response.getheader('Content-Type') != 'application/json'):
             raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
         ob = json.loads(response.read())
-        txns = ob.get('transactions')
+        txns = ob.get('txns')
         if not txns:
             return
         for txn in txns:
@@ -102,6 +102,7 @@ class CheckContext:
         self.err = err
         self.match = 0
         self.neq = 0
+        # [(addr, "err text"), ...]
         self.mismatches = []
 
     def check(self, address, niceaddr, microalgos, assets):
@@ -117,8 +118,8 @@ class CheckContext:
                 pass # still ok
             else:
                 ok = False
-                emsg = '{} algod v={} i2db v={}\n'.format(niceaddr, microalgos, i2v['algo'])
-                err.write(emsg)
+                emsg = 'algod v={} i2 v={}'.format(microalgos, i2v['algo'])
+                err.write('{} {}\n'.format(niceaddr, emsg))
                 errors.append(emsg)
                 # TODO: fetch txn delta from db?
                 # pc = pg.cursor()
@@ -177,6 +178,8 @@ def main():
     ap.add_argument('--i2db', default=None, help='psql connect string for indexer 2 db')
     ap.add_argument('--indexer', default=None, help='URL to indexer to fetch from')
     ap.add_argument('--asset', default=None, help='filter on accounts possessing asset id')
+    ap.add_argument('--dump', default=False, action='store_true')
+    ap.add_argument('--mismatches', default=10, type=int, help='max number of mismatches to show details on (0 for no limit)')
     ap.add_argument('-q', '--quiet', default=False, action='store_true')
     args = ap.parse_args()
 
@@ -275,7 +278,8 @@ def main():
         }
         if frozen:
             ob['f'] = frozen
-        if not args.quiet:
+        if args.dump:
+            # print every record in the tracker sqlite db
             out.write(json.dumps(ob) + '\n')
         if args.limit and count > args.limit:
             break
@@ -286,8 +290,13 @@ def main():
         pg.close()
     if i2a_checker:
         i2a_checker.summary()
-        for addr, msg in i2a_checker.mismatches:
+        err.write('txns...\n')
+        mismatches = i2a_checker.mismatches
+        if args.mismatches and len(mismatches) > args.mismatches:
+            mismatches = mismatches[:args.mismatches]
+        for addr, msg in mismatches:
             niceaddr = algosdk.encoding.encode_address(addr)
+            err.write('{}\n\t{}\n'.format(niceaddr, msg))
             for stxnw in indexerAccountTxns(args.indexer, addr, minround=tracker_round):
                 stxn = stxnw['stxn']
                 txn = stxn['txn']
