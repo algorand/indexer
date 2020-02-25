@@ -3,9 +3,7 @@ module github.com/algorand/indexer
 go 1.12
 
 require (
-	github.com/algorand/go-algorand-sdk v1.2.1
-	github.com/algorand/go-codec/codec v1.1.7 // indirect
-	github.com/google/go-querystring v1.0.0 // indirect
+	github.com/algorand/go-algorand-sdk v1.2.2-0.20200225152129-2f6afbfaba16
 	github.com/gorilla/mux v1.7.3
 	github.com/lib/pq v1.3.0
 	github.com/spf13/cobra v0.0.5
