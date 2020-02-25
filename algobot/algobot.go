@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/algod"
-	"github.com/algorand/go-algorand-sdk/client/kmd"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 
 	"github.com/algorand/indexer/types"
@@ -36,7 +35,6 @@ import (
 
 type Algobot interface {
 	Algod() algod.Client
-	Kmd() kmd.Client
 
 	// go bot.Run()
 	Run()
@@ -56,11 +54,6 @@ type algobotImpl struct {
 	aclient      algod.Client
 	algodLastmod time.Time // newest mod time of algod.net algod.token
 
-	kmdDir   string
-	kmdUrl   string
-	kmdToken string
-	kclient  kmd.Client
-
 	blockHandlers []BlockHandler
 
 	nextRound uint64
@@ -74,12 +67,6 @@ type algobotImpl struct {
 
 func (bot *algobotImpl) Algod() algod.Client {
 	return bot.aclient
-}
-
-func (bot *algobotImpl) Kmd() kmd.Client {
-	// TODO: ensure kmd is running
-	// TODO: lazy init of kclient
-	return bot.kclient
 }
 
 func (bot *algobotImpl) isDone() bool {
@@ -178,7 +165,6 @@ func (bot *algobotImpl) Run() {
 			log.Printf("failing to fetch from algod for %s, (since %s, now %s)", dt.String(), bot.failingSince.String(), now.String())
 		}
 		time.Sleep(5 * time.Second)
-		//err := bot.maybeReclient()
 		err := bot.reclient()
 		if err != nil {
 			log.Printf("err trying to re-client, %v", err)
@@ -236,19 +222,25 @@ func ForDataDir(path string) (bot Algobot, err error) {
 	return
 }
 
-func (bot *algobotImpl) maybeReclient() (err error) {
-	var lastmod time.Time
-	lastmod, err = algodUpdated(bot.algorandData)
+func ForNetAndToken(netaddr, token string) (bot Algobot, err error) {
+	var client algod.Client
+	if !strings.HasPrefix(netaddr, "http") {
+		netaddr = "http://" + netaddr
+	}
+	client, err = algod.MakeClient(netaddr, token)
 	if err != nil {
 		return
 	}
-	if lastmod.After(bot.algodLastmod) {
-		return bot.reclient()
-	}
+	bot = &algobotImpl{aclient: client}
 	return
 }
 
 func (bot *algobotImpl) reclient() (err error) {
+	if bot.algorandData == "" {
+		return nil
+	}
+	// If we know the algod data dir, re-read the algod.net and
+	// algod.token files and make a new API client object.
 	var nclient algod.Client
 	var lastmod time.Time
 	nclient, lastmod, err = algodClientForDataDir(bot.algorandData)
@@ -311,11 +303,4 @@ func algodClientForDataDir(datadir string) (client algod.Client, lastmod time.Ti
 		lastmod, err = algodStat(netpath, tokenpath)
 	}
 	return
-}
-
-func kmdClientForDataDir(path string) (client kmd.Client, err error) {
-	// TODO: WRITEME
-	// TODO: use kmd in algod data dir if appropriate, otherwise ${HOME}/.algorand/kmd-v{N}
-	// TODO: move this to go-algorand-sdk
-	return kmd.Client{}, nil
 }

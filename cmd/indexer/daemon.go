@@ -34,6 +34,8 @@ import (
 
 var (
 	algodDataDir     string
+	algodAddr        string
+	algodToken       string
 	daemonServerAddr string
 )
 
@@ -54,9 +56,16 @@ var daemonCmd = &cobra.Command{
 		}
 		ctx, cf := context.WithCancel(context.Background())
 		defer cf()
-		if algodDataDir != "" {
-			bot, err := algobot.ForDataDir(algodDataDir)
+		var bot algobot.Algobot
+		var err error
+		if algodAddr != "" && algodToken != "" {
+			bot, err = algobot.ForNetAndToken(algodAddr, algodToken)
 			maybeFail(err, "algobot setup, %v", err)
+		} else if algodDataDir != "" {
+			bot, err = algobot.ForDataDir(algodDataDir)
+			maybeFail(err, "algobot setup, %v", err)
+		}
+		if bot != nil {
 			maxRound, err := db.GetMaxRound()
 			if err == nil {
 				bot.SetNextRound(maxRound + 1)
@@ -79,6 +88,8 @@ var daemonCmd = &cobra.Command{
 
 func init() {
 	daemonCmd.Flags().StringVarP(&algodDataDir, "algod", "d", "", "path to algod data dir, or $ALGORAND_DATA")
+	daemonCmd.Flags().StringVarP(&algodAddr, "algod-net", "", "", "host:port of algod")
+	daemonCmd.Flags().StringVarP(&algodToken, "algod-token", "", "", "api access token for algod")
 	daemonCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json")
 	daemonCmd.Flags().StringVarP(&protoJsonPath, "proto", "p", "", "path to proto.json")
 	daemonCmd.Flags().StringVarP(&daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
