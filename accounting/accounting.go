@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	atypes "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
@@ -44,6 +45,8 @@ type AccountingState struct {
 	// number of txns at the end of the previous block
 	txnCounter      uint64
 	txnCounterRound uint64
+
+	accountTypes accountTypeCache
 }
 
 func New(db idb.IndexerDb) *AccountingState {
@@ -83,6 +86,7 @@ func (accounting *AccountingState) commitRound() error {
 		return err
 	}
 	accounting.AlgoUpdates = nil
+	accounting.AccountTypes = nil
 	accounting.AssetUpdates = nil
 	accounting.AcfgUpdates = nil
 	accounting.FreezeUpdates = nil
@@ -109,6 +113,13 @@ func (accounting *AccountingState) updateAlgo(addr types.Address, d int64) {
 	accounting.AlgoUpdates[addr] = accounting.AlgoUpdates[addr] + d
 }
 
+func (accounting *AccountingState) updateAccountType(addr types.Address, ktype string) {
+	if accounting.AccountTypes == nil {
+		accounting.AccountTypes = make(map[[32]byte]string)
+	}
+	accounting.AccountTypes[addr] = ktype
+}
+
 func (accounting *AccountingState) updateAsset(addr types.Address, assetId uint64, d int64) {
 	accounting.AssetUpdates = append(accounting.AssetUpdates, idb.AssetUpdate{Addr: addr, AssetId: assetId, Delta: d, DefaultFrozen: accounting.defaultFrozen[assetId]})
 }
@@ -121,6 +132,21 @@ func (accounting *AccountingState) freezeAsset(addr types.Address, assetId uint6
 }
 func (accounting *AccountingState) destroyAsset(assetId uint64) {
 	accounting.AssetDestroys = append(accounting.AssetDestroys, assetId)
+}
+
+// TODO: move to go-algorand-sdk as Signature.IsZero()
+func zeroSig(sig atypes.Signature) bool {
+	for _, b := range sig {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// TODO: move to go-algorand-sdk as LogicSig.Blank()
+func blankLsig(lsig atypes.LogicSig) bool {
+	return len(lsig.Logic) == 0
 }
 
 func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnbytes []byte) (err error) {
@@ -140,6 +166,29 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 		}
 	}
 	accounting.dirty = true
+
+	var ktype string
+	if !zeroSig(stxn.Sig) {
+		ktype = "sig"
+	} else if !stxn.Msig.Blank() {
+		ktype = "msig"
+	} else if !blankLsig(stxn.Lsig) {
+		if !zeroSig(stxn.Lsig.Sig) {
+			ktype = "sig"
+		} else if !stxn.Lsig.Msig.Blank() {
+			ktype = "msig"
+		} else {
+			ktype = "lsig"
+		}
+	}
+	var isNew bool
+	isNew, err = accounting.accountTypes.set(stxn.Txn.Sender, ktype)
+	if err != nil {
+		return fmt.Errorf("error in account type, %v", err)
+	}
+	if isNew {
+		accounting.updateAccountType(stxn.Txn.Sender, ktype)
+	}
 
 	accounting.updateAlgo(stxn.Txn.Sender, -int64(stxn.Txn.Fee))
 	accounting.updateAlgo(accounting.feeAddr, int64(stxn.Txn.Fee))

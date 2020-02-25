@@ -234,6 +234,7 @@ type AssetClose struct {
 
 type RoundUpdates struct {
 	AlgoUpdates   map[[32]byte]int64
+	AccountTypes  map[[32]byte]string
 	AcfgUpdates   []AcfgUpdate
 	AssetUpdates  []AssetUpdate
 	FreezeUpdates []FreezeUpdate

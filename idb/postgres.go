@@ -293,6 +293,20 @@ func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, 
 			}
 		}
 	}
+	if len(updates.AccountTypes) > 0 {
+		any = true
+		setat, err := tx.Prepare(`UPDATE account SET keytype = $1 WHERE addr = $2`)
+		if err != nil {
+			return fmt.Errorf("prepare update account type, %v", err)
+		}
+		defer setat.Close()
+		for addr, kt := range updates.AccountTypes {
+			_, err = setat.Exec(kt, addr[:])
+			if err != nil {
+				return fmt.Errorf("update account type, %v", err)
+			}
+		}
+	}
 	if len(updates.AcfgUpdates) > 0 {
 		any = true
 		setacfg, err := tx.Prepare(`INSERT INTO asset (index, creator_addr, params) VALUES ($1, $2, $3) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params`)

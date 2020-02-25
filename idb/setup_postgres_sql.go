@@ -75,24 +75,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS txn_participation_i ON txn_participation ( add
 -- bookeeping for local file import
 CREATE TABLE IF NOT EXISTS imported (path text);
 
--- like ledger/accountdb.go
-DROP TABLE IF EXISTS accounttotals;
--- TODO: do we need this?
--- CREATE TABLE IF NOT EXISTS accounttotals (
---   id text primary key,
---   online integer,
---   onlinerewardunits integer,
---   offline integer,
---   offlinerewardunits integer,
---   notparticipating integer,
---   notparticipatingrewardunits integer,
---   rewardslevel integer);
-
 -- expand data.basics.AccountData
 CREATE TABLE IF NOT EXISTS account (
   addr bytea primary key,
   microalgos bigint NOT NULL,
   rewardsbase bigint NOT NULL,
+  keytype varchar(8), -- sig,msig,lsig
   account_data jsonb -- data.basics.AccountData except AssetParams and Assets and MicroAlgos and RewardsBase
 );
 
