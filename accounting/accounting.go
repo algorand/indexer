@@ -259,5 +259,3 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 	}
 	return nil
 }
-
-// TODO: copy rewards calculation logic from go-algorand so that we can present full balance including unrealized rewards.

@@ -61,6 +61,9 @@ type PostgresIndexerDb struct {
 
 func (db *PostgresIndexerDb) init() (err error) {
 	_, err = db.db.Exec(setup_postgres_sql)
+
+	// TODO: Schema-migration/Upgrade. Select upgrade state from database and compare to code, apply upgrades from code to database state.
+	// upgradeJson, err := db.GetMetastate("upgrade-state")
 	return
 }
 
@@ -82,7 +85,6 @@ func (db *PostgresIndexerDb) StartBlock() (err error) {
 }
 
 func (db *PostgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txnbytes []byte, txn types.SignedTxnInBlock, participation [][]byte) error {
-	// TODO: set txn_participation
 	var err error
 	txid := crypto.TransactionIDString(txn.Txn)
 	_, err = db.tx.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`, round, intra, txtypeenum, assetid, txid[:], txnbytes, string(json.Encode(txn)))

@@ -18,7 +18,6 @@ package accounting
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/algorand/go-algorand-sdk/client/algod/models"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
@@ -79,8 +78,13 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		case atypes.AssetConfigTx:
 			if stxn.Txn.ConfigAsset == 0 {
 				// create asset, unwind the application of the value
-				// TODO: fetch block_header for txnrow.Round, .TxnCounter find `assetId = txnCounter + uint64(intra) + 1`
-				err = fmt.Errorf("%d:%d %s TODO: handle acfg", txnrow.Round, txnrow.Intra, account.Address)
+				var block types.Block
+				block, err = db.GetBlock(round - 1)
+				if err != nil {
+					return
+				}
+				assetId := block.TxnCounter + uint64(txnrow.Intra) + 1
+				assetUpdate(&acct, assetId, -int64(stxn.Txn.AssetParams.Total))
 				return
 			}
 		case atypes.AssetTransferTx:

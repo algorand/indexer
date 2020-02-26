@@ -258,8 +258,7 @@ var importCmd = &cobra.Command{
 	Long:  "import block file or tar file of blocks. arguments are interpret as file globs (e.g. *.tar.bz2)",
 	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: connect to db and instantiate Importer
-		//imp := importer.NewPrintImporter()
+		// TODO: import from block catchup endpoint of a public archival node?
 		db := globalIndexerDb()
 
 		if len(protoJsonPath) > 0 {

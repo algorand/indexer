@@ -21,7 +21,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	//"github.com/spf13/cobra/doc"
+	//"github.com/spf13/cobra/doc" // TODO: enable cobra doc generation
 
 	"github.com/algorand/indexer/idb"
 )
@@ -65,7 +65,6 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&postgresAddr, "postgres", "P", "", "connection string for postgres database")
 	rootCmd.PersistentFlags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")
-	// TODO: add daemon mode subcommand
 }
 
 func main() {

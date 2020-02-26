@@ -99,7 +99,7 @@ CREATE TABLE IF NOT EXISTS asset (
   creator_addr bytea NOT NULL,
   params jsonb NOT NULL -- data.basics.AssetParams -- TODO index some fields?
 );
--- TODO: index on creator_addr
+-- TODO: index on creator_addr?
 
 -- subsumes ledger/accountdb.go accounttotals and acctrounds
 -- "state":{online, onlinerewardunits, offline, offlinerewardunits, notparticipating, notparticipatingrewardunits, rewardslevel, round bigint}

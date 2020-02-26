@@ -37,16 +37,15 @@ var (
 	algodAddr        string
 	algodToken       string
 	daemonServerAddr string
+	noAlgod          bool
 )
 
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "run indexer daemon",
-	Long:  "run indexer daemon. Serve api on HTTP. (TODO: follow blocks from algod)",
+	Long:  "run indexer daemon. Serve api on HTTP.",
 	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: -p/--port
-		// TODO: -d/$ALGORAND_DATA/--no-algod algod to follow
 		if algodDataDir == "" {
 			algodDataDir = os.Getenv("ALGORAND_DATA")
 		}
@@ -58,7 +57,9 @@ var daemonCmd = &cobra.Command{
 		defer cf()
 		var bot algobot.Algobot
 		var err error
-		if algodAddr != "" && algodToken != "" {
+		if noAlgod {
+			fmt.Fprint(os.Stderr, "algod block following disabled")
+		} else if algodAddr != "" && algodToken != "" {
 			bot, err = algobot.ForNetAndToken(algodAddr, algodToken)
 			maybeFail(err, "algobot setup, %v", err)
 		} else if algodDataDir != "" {
@@ -93,6 +94,7 @@ func init() {
 	daemonCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json")
 	daemonCmd.Flags().StringVarP(&protoJsonPath, "proto", "p", "", "path to proto.json")
 	daemonCmd.Flags().StringVarP(&daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
+	daemonCmd.Flags().BoolVarP(&noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
 }
 
 type blockImporterHandler struct {
