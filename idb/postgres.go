@@ -137,7 +137,7 @@ func (db *PostgresIndexerDb) GetAsset(assetid uint64) (asset types.AssetParams, 
 
 // GetDefaultFrozen get {assetid:default frozen, ...} for all assets
 func (db *PostgresIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
-	rows, err := db.db.Query(`SELECT index, params -> 'df' FROM asset`)
+	rows, err := db.db.Query(`SELECT index, params -> 'df' FROM asset a`)
 	if err != nil {
 		return
 	}
@@ -764,6 +764,90 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	}
 	go db.yieldAccountsThread(ctx, opts, rows, tx, blockheader, out)
 	return out
+}
+
+func (db *PostgresIndexerDb) Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow {
+	query := `SELECT index, creator_addr, params FROM asset a`
+	const maxWhereParts = 14
+	whereParts := make([]string, 0, maxWhereParts)
+	whereArgs := make([]interface{}, 0, maxWhereParts)
+	partNumber := 1
+	if filter.AssetId != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("a.index = $%d", partNumber))
+		whereArgs = append(whereArgs, filter.AssetId)
+		partNumber++
+	}
+	if filter.AssetIdGreaterThan != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("a.index > $%d", partNumber))
+		whereArgs = append(whereArgs, filter.AssetIdGreaterThan)
+		partNumber++
+	}
+	if filter.Creator != nil {
+		whereParts = append(whereParts, fmt.Sprintf("a.creator_addr = $%d", partNumber))
+		whereArgs = append(whereArgs, filter.Creator)
+		partNumber++
+	}
+	if filter.Name != "" {
+		whereParts = append(whereParts, fmt.Sprintf("a.params ->> 'an' = $%d", partNumber))
+		whereArgs = append(whereArgs, filter.Name)
+		partNumber++
+	}
+	if filter.Unit != "" {
+		whereParts = append(whereParts, fmt.Sprintf("a.params ->> 'un' = $%d", partNumber))
+		whereArgs = append(whereArgs, filter.Unit)
+		partNumber++
+	}
+	if filter.Query != "" {
+		qs := "%" + filter.Query + "%"
+		whereParts = append(whereParts, fmt.Sprintf("(a.params ->> 'un' ILIKE $%d OR a.params ->> 'an' ILIKE $%d)", partNumber, partNumber))
+		whereArgs = append(whereArgs, qs)
+		partNumber++
+	}
+	if len(whereParts) > 0 {
+		whereStr := strings.Join(whereParts, " AND ")
+		query += " WHERE " + whereStr
+	}
+	query += " ORDER BY index ASC"
+	if filter.Limit != 0 {
+		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
+	}
+	out := make(chan AssetRow, 1)
+	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
+	if err != nil {
+		err = fmt.Errorf("asset query %#v err %v", query, err)
+		out <- AssetRow{Error: err}
+		close(out)
+		return out
+	}
+	go db.yieldAssetsThread(ctx, filter, rows, out)
+	return out
+}
+
+func (db *PostgresIndexerDb) yieldAssetsThread(ctx context.Context, filter AssetsQuery, rows *sql.Rows, out chan<- AssetRow) {
+	for rows.Next() {
+		var index uint64
+		var creator_addr []byte
+		var paramsJsonStr []byte
+		var err error
+
+		err = rows.Scan(&index, &creator_addr, &paramsJsonStr)
+		if err != nil {
+			out <- AssetRow{Error: err}
+			break
+		}
+		var params types.AssetParams
+		err = json.Decode(paramsJsonStr, &params)
+		if err != nil {
+			out <- AssetRow{Error: err}
+			break
+		}
+		out <- AssetRow{
+			AssetId: index,
+			Creator: creator_addr,
+			Params:  params,
+		}
+	}
+	close(out)
 }
 
 type postgresFactory struct {

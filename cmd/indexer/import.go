@@ -30,10 +30,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
-	//"github.com/spf13/cobra/doc"
-	//"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/spf13/cobra"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"

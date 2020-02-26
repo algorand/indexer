@@ -98,6 +98,10 @@ func (db *dummyIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOpti
 	return nil
 }
 
+func (db *dummyIndexerDb) Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow {
+	return nil
+}
+
 type IndexerFactory interface {
 	Name() string
 	Build(arg string) (IndexerDb, error)
@@ -140,6 +144,7 @@ type IndexerDb interface {
 	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
 	//GetAccounts(ctx context.Context, greaterThan types.Address, limit int) (accounts []models.Account, err error)
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
+	Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow
 }
 
 type TransactionFilter struct {
@@ -172,6 +177,30 @@ type AccountQueryOptions struct {
 
 type AccountRow struct {
 	Account models.Account
+	Error   error
+}
+
+type AssetsQuery struct {
+	AssetId            uint64
+	AssetIdGreaterThan uint64
+
+	Creator []byte
+
+	// Name checks for exact match for asset name
+	Name string
+	// Unit checks for exact match of unit name
+	Unit string
+	// Query checks for fuzzy match against either asset name or unit name
+	// (assetname ILIKE '%?%' OR unitname ILIKE '%?%')
+	Query string
+
+	Limit uint64
+}
+
+type AssetRow struct {
+	AssetId uint64
+	Creator []byte
+	Params  types.AssetParams
 	Error   error
 }
 
