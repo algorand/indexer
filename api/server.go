@@ -18,20 +18,16 @@ package api
 
 import (
 	"context"
-	"log"
-	"net"
-	"net/http"
-	"time"
-
-	"github.com/gorilla/mux"
-
+	"github.com/algorand/indexer/api/generated"
 	"github.com/algorand/indexer/idb"
+	"github.com/labstack/echo/v4"
 )
 
 // IndexerDb should be set from main()
 var IndexerDb idb.IndexerDb
 
 func Serve(ctx context.Context, serveAddr string) {
+	/*
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -51,4 +47,10 @@ func Serve(ctx context.Context, serveAddr string) {
 		BaseContext:    getctx,
 	}
 	log.Fatal(s.ListenAndServe())
+	 */
+
+	api := ServerImplementation{}
+	e := echo.New()
+	generated.RegisterHandlers(e, &api)
+
 }
