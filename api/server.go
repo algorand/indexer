@@ -22,36 +22,32 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/labstack/echo/v4"
 	"log"
+	"net"
+	"net/http"
+	"time"
 )
 
 // IndexerDb should be set from main()
 var IndexerDb idb.IndexerDb
 
 func Serve(ctx context.Context, serveAddr string) {
-	/*
+	e := echo.New()
+	api := ServerImplementation{}
+	generated.RegisterHandlers(e, &api)
+
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	getctx := func(l net.Listener) context.Context {
 		return ctx
 	}
-	r := mux.NewRouter()
-	r.HandleFunc("/v1/accounts", ListAccounts)
-	r.HandleFunc("/v1/account/{address}", GetAccount)
-	r.HandleFunc("/v1/account/{address}/transactions", TransactionsForAddress)
 	s := &http.Server{
 		Addr:           serveAddr,
-		Handler:        r,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 		BaseContext:    getctx,
 	}
-	log.Fatal(s.ListenAndServe())
-	 */
 
-	api := ServerImplementation{}
-	e := echo.New()
-	generated.RegisterHandlers(e, &api)
-	log.Fatal(e.Start(serveAddr))
+	log.Fatal(e.StartServer(s))
 }
