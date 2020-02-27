@@ -21,6 +21,7 @@ import (
 	"github.com/algorand/indexer/api/generated"
 	"github.com/algorand/indexer/idb"
 	"github.com/labstack/echo/v4"
+	"log"
 )
 
 // IndexerDb should be set from main()
@@ -52,5 +53,5 @@ func Serve(ctx context.Context, serveAddr string) {
 	api := ServerImplementation{}
 	e := echo.New()
 	generated.RegisterHandlers(e, &api)
-
+	log.Fatal(e.Start(serveAddr))
 }
