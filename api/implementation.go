@@ -2,8 +2,13 @@ package api
 
 import (
 	"errors"
+	"fmt"
+	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated"
+	"github.com/algorand/indexer/idb"
 	"github.com/labstack/echo/v4"
+	"log"
+	"net/http"
 )
 
 type ServerImplementation struct {}
@@ -23,7 +28,33 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId st
 	IndexerDb.get
 	*/
 
-	//accountchan := IndexerDb.GetAccounts(ctx.Request().Context(), accountId)
+	options := idb.AccountQueryOptions {
+			EqualToAddress:       []byte(accountId),
+			IncludeAssetHoldings: true,
+			IncludeAssetParams:   true,
+			Limit:                1,
+	}
+
+	accountchan := IndexerDb.GetAccounts(ctx.Request().Context(), options)
+
+	for actrow := range accountchan {
+		if actrow.Error != nil {
+			log.Println("GetAccounts ", actrow.Error)
+			//w.WriteHeader(http.StatusInternalServerError)
+			return fmt.Errorf("GetAccounts: %s", actrow.Error)
+		}
+		/*
+		if atRound != 0 {
+			actrow.Account, err = accounting.AccountAtRound(actrow.Account, atRound, IndexerDb)
+			if err != nil {
+				log.Println("account atRow ", err)
+				w.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+		}
+		 */
+		accounts = append(accounts, actrow.Account)
+	}
 	return errors.New("Unimplemented")
 }
 
