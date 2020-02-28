@@ -575,6 +575,12 @@ type Version struct {
 	Versions       []string `json:"versions"`
 }
 
+// AccountId defines model for account-id.
+type AccountId string
+
+// AssetId defines model for asset-id.
+type AssetId uint64
+
 // Gt defines model for gt.
 type Gt uint64
 
@@ -601,6 +607,9 @@ type Offset uint64
 
 // Round defines model for round.
 type Round uint64
+
+// RoundNumber defines model for round-number.
+type RoundNumber uint64
 
 // AccountResponse defines model for AccountResponse.
 type AccountResponse Account
@@ -777,6 +786,8 @@ type LookupAssetTransactionsParams struct {
 
 // SearchForAssetsParams defines parameters for SearchForAssets.
 type SearchForAssetsParams struct {
+
+	// Results should have an amount greater than this value.
 	Gt *uint64 `json:"gt,omitempty"`
 
 	// Maximum number of results to return.
