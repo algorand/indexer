@@ -18,7 +18,9 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"runtime/pprof"
 
 	"github.com/spf13/cobra"
 	//"github.com/spf13/cobra/doc" // TODO: enable cobra doc generation
@@ -35,12 +37,29 @@ var rootCmd = &cobra.Command{
 		//If no arguments passed, we should fallback to help
 		cmd.HelpFunc()(cmd, args)
 	},
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if cpuProfile != "" {
+			var err error
+			profFile, err = os.Create(cpuProfile)
+			maybeFail(err, "%s: create, %v", cpuProfile, err)
+			err = pprof.StartCPUProfile(profFile)
+			maybeFail(err, "%s: start pprof, %v", cpuProfile, err)
+		}
+	},
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		if cpuProfile != "" {
+			pprof.StopCPUProfile()
+			profFile.Close()
+		}
+	},
 }
 
 var (
 	postgresAddr   string
 	dummyIndexerDb bool
+	cpuProfile     string
 	db             idb.IndexerDb
+	profFile       io.WriteCloser
 )
 
 func globalIndexerDb() idb.IndexerDb {
@@ -65,6 +84,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&postgresAddr, "postgres", "P", "", "connection string for postgres database")
 	rootCmd.PersistentFlags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")
+	rootCmd.PersistentFlags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
 }
 
 func main() {

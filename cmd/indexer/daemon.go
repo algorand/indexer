@@ -72,8 +72,9 @@ var daemonCmd = &cobra.Command{
 				bot.SetNextRound(maxRound + 1)
 			}
 			bih := blockImporterHandler{
-				imp: importer.NewDBImporter(db),
-				db:  db,
+				imp:   importer.NewDBImporter(db),
+				db:    db,
+				round: maxRound,
 			}
 			bot.AddBlockHandler(&bih)
 			bot.SetContext(ctx)
@@ -98,12 +99,16 @@ func init() {
 }
 
 type blockImporterHandler struct {
-	imp importer.Importer
-	db  idb.IndexerDb
+	imp   importer.Importer
+	db    idb.IndexerDb
+	round uint64
 }
 
 func (bih blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	start := time.Now()
+	if uint64(block.Block.Round) != bih.round+1 {
+		fmt.Fprintf(os.Stderr, "received block %d when expecting %d\n", block.Block.Round, bih.round+1)
+	}
 	bih.imp.ImportDecodedBlock(block)
 	updateAccounting(bih.db)
 	dt := time.Now().Sub(start)
@@ -126,4 +131,5 @@ func (bih blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 		}
 	}
 	fmt.Printf("round r=%d (%d txn) imported in %s\n", block.Block.Round, len(block.Block.Payset), dt.String())
+	bih.round = uint64(block.Block.Round)
 }

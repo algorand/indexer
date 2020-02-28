@@ -105,7 +105,13 @@ func (db *PostgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum 
 }
 func (db *PostgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
 	var err error
-	_, err = db.tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0), rewardslevel, headerbytes)
+	var block types.Block
+	err = msgpack.Decode(headerbytes, &block)
+	if err != nil {
+		return err
+	}
+	headerjson := json.Encode(block)
+	_, err = db.tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0), rewardslevel, string(headerjson))
 	if err != nil {
 		return err
 	}
@@ -121,7 +127,7 @@ func (db *PostgresIndexerDb) GetBlockHeader(round uint64) (block types.Block, er
 	if err != nil {
 		return
 	}
-	err = msgpack.Decode(blockbytes, &block)
+	err = json.Decode(blockbytes, &block)
 	return
 }
 
@@ -419,12 +425,12 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 
 func (db *PostgresIndexerDb) GetBlock(round uint64) (block types.Block, err error) {
 	row := db.db.QueryRow(`SELECT header FROM block_header WHERE round = $1`, round)
-	var blockheaderbytes []byte
-	err = row.Scan(&blockheaderbytes)
+	var blockheaderjson []byte
+	err = row.Scan(&blockheaderjson)
 	if err != nil {
 		return
 	}
-	err = msgpack.Decode(blockheaderbytes, &block)
+	err = json.Decode(blockheaderjson, &block)
 	return
 }
 
@@ -698,8 +704,8 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 
 	// Get block header for that round so we know protocol and rewards info
 	row = tx.QueryRow(`SELECT header FROM block_header WHERE round = $1`, accountRound)
-	var headerbytes []byte
-	err = row.Scan(&headerbytes)
+	var headerjson []byte
+	err = row.Scan(&headerjson)
 	if err != nil {
 		err = fmt.Errorf("account round header %d err %v", accountRound, err)
 		out <- AccountRow{Error: err}
@@ -708,7 +714,7 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 		return out
 	}
 	var blockheader types.Block
-	err = msgpack.Decode(headerbytes, &blockheader)
+	err = json.Decode(headerjson, &blockheader)
 	if err != nil {
 		err = fmt.Errorf("account round header %d err %v", accountRound, err)
 		out <- AccountRow{Error: err}
