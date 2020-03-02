@@ -24,23 +24,9 @@ type Account struct {
 	//
 	// Note: the raw account uses `map[int] -> Asset` for this type.
 	CreatedAssets *[]Asset `json:"created-assets,omitempty"`
-	Participation *struct {
 
-		// \[sel\] Selection public key (if any) currently registered for this round.
-		SelectionParticipationKey *string `json:"selection-participation-key,omitempty"`
-
-		// \[voteFst\] First round for which this participation is valid.
-		VoteFirstValid *uint64 `json:"vote-first-valid,omitempty"`
-
-		// \[voteKD\] Number of subkeys in each batch of participation keys.
-		VoteKeyDilution *uint64 `json:"vote-key-dilution,omitempty"`
-
-		// \[voteLst\] Last round for which this participation is valid.
-		VoteLastValid *uint64 `json:"vote-last-valid,omitempty"`
-
-		// \[vote\] root participation public key (if any) currently registered for this round.
-		VoteParticipationKey *string `json:"vote-participation-key,omitempty"`
-	} `json:"participation,omitempty"`
+	// AccountParticipation describes the parameters used by this account in consensus protocol.
+	Participation *AccountParticipation `json:"participation,omitempty"`
 
 	// amount of MicroAlgos of pending rewards in this account.
 	PendingRewards uint64 `json:"pending-rewards"`
@@ -65,6 +51,25 @@ type Account struct {
 	// * logic
 	// * multisig
 	Type *string `json:"type,omitempty"`
+}
+
+// AccountParticipation defines model for AccountParticipation.
+type AccountParticipation struct {
+
+	// \[sel\] Selection public key (if any) currently registered for this round.
+	SelectionParticipationKey *string `json:"selection-participation-key,omitempty"`
+
+	// \[voteFst\] First round for which this participation is valid.
+	VoteFirstValid *uint64 `json:"vote-first-valid,omitempty"`
+
+	// \[voteKD\] Number of subkeys in each batch of participation keys.
+	VoteKeyDilution *uint64 `json:"vote-key-dilution,omitempty"`
+
+	// \[voteLst\] Last round for which this participation is valid.
+	VoteLastValid *uint64 `json:"vote-last-valid,omitempty"`
+
+	// \[vote\] root participation public key (if any) currently registered for this round.
+	VoteParticipationKey *string `json:"vote-participation-key,omitempty"`
 }
 
 // Asset defines model for Asset.
@@ -160,26 +165,7 @@ type Block struct {
 	Proposer string `json:"proposer"`
 
 	// Fields relating to rewards,
-	Rewards *struct {
-
-		// \[fees\] accepts transaction fees, it can only spend to the incentive pool.
-		FeeSink string `json:"fee-sink"`
-
-		// \[rwcalr\] number of leftover MicroAlgos after the distribution of rewards-rate MicroAlgos for every reward unit in the next round.
-		RewardsCalculationRound uint64 `json:"rewards-calculation-round"`
-
-		// \[earn\] How many rewards, in MicroAlgos, have been distributed to each RewardUnit of MicroAlgos since genesis.
-		RewardsLevel uint64 `json:"rewards-level"`
-
-		// \[rwd\] accepts periodic injections from the fee-sink and continually redistributes them as rewards.
-		RewardsPool string `json:"rewards-pool"`
-
-		// \[rate\] Number of new MicroAlgos added to the participation stake from rewards at the next round.
-		RewardsRate uint64 `json:"rewards-rate"`
-
-		// \[frac\] Number of leftover MicroAlgos after the distribution of RewardsRate/rewardUnits MicroAlgos for every reward unit in the next round.
-		RewardsResidue uint64 `json:"rewards-residue"`
-	} `json:"rewards,omitempty"`
+	Rewards *BlockRewards `json:"rewards,omitempty"`
 
 	// \[rnd\] Current round on which this block was appended to the chain.
 	Round uint64 `json:"round"`
@@ -202,36 +188,64 @@ type Block struct {
 	TxnCounter *uint64 `json:"txn-counter,omitempty"`
 
 	// Fields relating to a protocol upgrade.
-	UpgradeState *struct {
-
-		// \[proto\] The current protocol version.
-		CurrentProtocol string `json:"current-protocol"`
-
-		// \[nextproto\] The next proposed protocol version.
-		NextProtocol *string `json:"next-protocol,omitempty"`
-
-		// \[nextyes\] Number of blocks which approved the protocol upgrade.
-		NextProtocolApprovals *uint64 `json:"next-protocol-approvals,omitempty"`
-
-		// \[nextswitch\] Round on which the protocol upgrade will take effect.
-		NextProtocolSwitchOn *uint64 `json:"next-protocol-switch-on,omitempty"`
-
-		// \[nextbefore\] Deadline round for this protocol upgrade (No votes will be consider after this round).
-		NextProtocolVoteBefore *uint64 `json:"next-protocol-vote-before,omitempty"`
-	} `json:"upgrade-state,omitempty"`
+	UpgradeState *BlockUpgradeState `json:"upgrade-state,omitempty"`
 
 	// Fields relating to voting for a protocol upgrade.
-	UpgradeVote *struct {
+	UpgradeVote *BlockUpgradeVote `json:"upgrade-vote,omitempty"`
+}
 
-		// \[upgradeyes\] Indicates a yes vote for the current proposal.
-		UpgradeApprove *bool `json:"upgrade-approve,omitempty"`
+// BlockRewards defines model for BlockRewards.
+type BlockRewards struct {
 
-		// \[upgradedelay\] Indicates the time between acceptance and execution.
-		UpgradeDelay *uint64 `json:"upgrade-delay,omitempty"`
+	// \[fees\] accepts transaction fees, it can only spend to the incentive pool.
+	FeeSink string `json:"fee-sink"`
 
-		// \[upgradeprop\] Indicates a proposed upgrade.
-		UpgradePropose *string `json:"upgrade-propose,omitempty"`
-	} `json:"upgrade-vote,omitempty"`
+	// \[rwcalr\] number of leftover MicroAlgos after the distribution of rewards-rate MicroAlgos for every reward unit in the next round.
+	RewardsCalculationRound uint64 `json:"rewards-calculation-round"`
+
+	// \[earn\] How many rewards, in MicroAlgos, have been distributed to each RewardUnit of MicroAlgos since genesis.
+	RewardsLevel uint64 `json:"rewards-level"`
+
+	// \[rwd\] accepts periodic injections from the fee-sink and continually redistributes them as rewards.
+	RewardsPool string `json:"rewards-pool"`
+
+	// \[rate\] Number of new MicroAlgos added to the participation stake from rewards at the next round.
+	RewardsRate uint64 `json:"rewards-rate"`
+
+	// \[frac\] Number of leftover MicroAlgos after the distribution of RewardsRate/rewardUnits MicroAlgos for every reward unit in the next round.
+	RewardsResidue uint64 `json:"rewards-residue"`
+}
+
+// BlockUpgradeState defines model for BlockUpgradeState.
+type BlockUpgradeState struct {
+
+	// \[proto\] The current protocol version.
+	CurrentProtocol string `json:"current-protocol"`
+
+	// \[nextproto\] The next proposed protocol version.
+	NextProtocol *string `json:"next-protocol,omitempty"`
+
+	// \[nextyes\] Number of blocks which approved the protocol upgrade.
+	NextProtocolApprovals *uint64 `json:"next-protocol-approvals,omitempty"`
+
+	// \[nextswitch\] Round on which the protocol upgrade will take effect.
+	NextProtocolSwitchOn *uint64 `json:"next-protocol-switch-on,omitempty"`
+
+	// \[nextbefore\] Deadline round for this protocol upgrade (No votes will be consider after this round).
+	NextProtocolVoteBefore *uint64 `json:"next-protocol-vote-before,omitempty"`
+}
+
+// BlockUpgradeVote defines model for BlockUpgradeVote.
+type BlockUpgradeVote struct {
+
+	// \[upgradeyes\] Indicates a yes vote for the current proposal.
+	UpgradeApprove *bool `json:"upgrade-approve,omitempty"`
+
+	// \[upgradedelay\] Indicates the time between acceptance and execution.
+	UpgradeDelay *uint64 `json:"upgrade-delay,omitempty"`
+
+	// \[upgradeprop\] Indicates a proposed upgrade.
+	UpgradePropose *string `json:"upgrade-propose,omitempty"`
 }
 
 // MiniAssetHolding defines model for MiniAssetHolding.
@@ -296,57 +310,19 @@ type Transaction struct {
 	//
 	// Definition:
 	// data/transactions/asset.go : AssetConfigTxnFields
-	AssetConfigTransaction *struct {
-
-		// \[xaid\] ID of the asset being configured or empty if creating.
-		AssetId *uint64 `json:"asset-id,omitempty"`
-
-		// AssetParams specifies the parameters for an asset.
-		//
-		// \[apar\] when part of an AssetConfig transaction.
-		//
-		// Definition:
-		// data/transactions/asset.go : AssetParams
-		Params *AssetParams `json:"params,omitempty"`
-	} `json:"asset-config-transaction,omitempty"`
+	AssetConfigTransaction *TransactionAssetConfig `json:"asset-config-transaction,omitempty"`
 
 	// Fields for an asset freeze transaction.
 	//
 	// Definition:
 	// data/transactions/asset.go : AssetFreezeTxnFields
-	AssetFreezeTransaction *struct {
-
-		// \[fadd\] Address of the account whose asset is being frozen or thawed.
-		Address string `json:"address"`
-
-		// \[faid\] ID of the asset being frozen or thawed.
-		AssetId uint64 `json:"asset-id"`
-
-		// \[afrz\] The new freeze status.
-		NewFreezeStatus bool `json:"new-freeze-status"`
-	} `json:"asset-freeze-transaction,omitempty"`
+	AssetFreezeTransaction *TransactionAssetFreeze `json:"asset-freeze-transaction,omitempty"`
 
 	// Fields for an asset transfer transaction.
 	//
 	// Definition:
 	// data/transactions/asset.go : AssetTransferTxnFields
-	AssetTransferTransaction *struct {
-
-		// \[aamt\] Amount of asset to transfer. A zero amount transferred to self allocates that asset in the account's Assets map.
-		Amount uint64 `json:"amount"`
-
-		// \[xaid\] ID of the asset being transferred.
-		AssetId uint64 `json:"asset-id"`
-
-		// \[aclose\] Indicates that the asset should be removed from the account's Assets map, and specifies where the remaining asset holdings should be transferred.  It's always valid to transfer remaining asset holdings to the creator account.
-		CloseTo *string `json:"close-to,omitempty"`
-
-		// \[arcv\] Recipient address of the transfer.
-		Receiver string `json:"receiver"`
-
-		// \[asnd\] Sender of the transfer.  If this is not a zero value, the real transaction sender must be the Clawback address from the AssetParams.  If this is the zero value, the asset is sent from the transaction's Sender.
-		Sender *string `json:"sender,omitempty"`
-	} `json:"asset-transfer-transaction,omitempty"`
+	AssetTransferTransaction *TransactionAssetTransfer `json:"asset-transfer-transaction,omitempty"`
 
 	// \[rc\] rewards applied to close-remainder-to account.
 	CloseRewards *uint64 `json:"close-rewards,omitempty"`
@@ -388,26 +364,7 @@ type Transaction struct {
 	//
 	// Definition:
 	// data/transactions/keyreg.go : KeyregTxnFields
-	KeyregTransaction *struct {
-
-		// \[nonpart\] Mark the account as participating or non-participating.
-		NonParticipation *bool `json:"non-participation,omitempty"`
-
-		// \[selkey\] Public key used with the Verified Random Function (VRF) result during committee selection.
-		SelectionParticipationKey *string `json:"selection-participation-key,omitempty"`
-
-		// \[votefst\] First round this participation key is valid.
-		VoteFirstValid *uint64 `json:"vote-first-valid,omitempty"`
-
-		// \[votekd\] Number of subkeys in each batch of participation keys.
-		VoteKeyDilution *uint64 `json:"vote-key-dilution,omitempty"`
-
-		// \[votelst\] Last round this participation key is valid.
-		VoteLastValid *uint64 `json:"vote-last-valid,omitempty"`
-
-		// \[votekey\] Participation public key used in key registration transactions.
-		VoteParticipationKey *string `json:"vote-participation-key,omitempty"`
-	} `json:"keyreg-transaction,omitempty"`
+	KeyregTransaction *TransactionKeyreg `json:"keyreg-transaction,omitempty"`
 
 	// \[lv\] Last valid round for this transaction.
 	LastValid *uint64 `json:"last-valid,omitempty"`
@@ -422,20 +379,7 @@ type Transaction struct {
 	//
 	// Definition:
 	// data/transactions/payment.go : PaymentTxnFields
-	PaymentTransaction *struct {
-
-		// \[amt\] number of MicroAlgos intended to be transferred.
-		Amount uint64 `json:"amount"`
-
-		// Number of MicroAlgos that were sent to the close-remainder-to address when closing the sender account.
-		CloseAmount *uint64 `json:"close-amount,omitempty"`
-
-		// \[close\] when set, indicates that the sending account should be closed and all remaining funds be transferred to this address.
-		CloseRemainderTo *string `json:"close-remainder-to,omitempty"`
-
-		// \[rcv\] receiver's address.
-		Receiver string `json:"receiver"`
-	} `json:"payment-transaction,omitempty"`
+	PaymentTransaction *TransactionPayment `json:"payment-transaction,omitempty"`
 
 	// Part of algod API only.
 	//
@@ -452,73 +396,7 @@ type Transaction struct {
 	SenderRewards *uint64 `json:"sender-rewards,omitempty"`
 
 	// Validation signature associated with some data. Only one of the signatures should be provided.
-	Signature *struct {
-
-		// \[lsig\] Programatic transaction signature.
-		//
-		// Definition:
-		// data/transactions/logicsig.go
-		Logicsig *struct {
-
-			// \[arg\] Logic arguments, base64 encoded.
-			Args *[]string `json:"args,omitempty"`
-
-			// \[l\] Program signed by a signature or multi signature, or hashed to be the address of ana ccount. Base64 encoded TEAL program.
-			Logic *string `json:"logic,omitempty"`
-
-			// \[msig\] structure holding multiple subsignatures.
-			//
-			// Definition:
-			// crypto/multisig.go : MultisigSig
-			MultisigSignature *struct {
-
-				// \[subsig\] holds pairs of public key and signatures.
-				Subsignature *[]struct {
-
-					// \[pk\]
-					PublicKey *string `json:"public-key,omitempty"`
-
-					// \[s\]
-					Signature *string `json:"signature,omitempty"`
-				} `json:"subsignature,omitempty"`
-
-				// \[thr\]
-				Threshold *uint64 `json:"threshold,omitempty"`
-
-				// \[v\]
-				Version *uint64 `json:"version,omitempty"`
-			} `json:"multisig-signature,omitempty"`
-
-			// \[sig\] ed25519 signature.
-			Signature *string `json:"signature,omitempty"`
-		} `json:"logicsig,omitempty"`
-
-		// \[msig\] structure holding multiple subsignatures.
-		//
-		// Definition:
-		// crypto/multisig.go : MultisigSig
-		Multisig *struct {
-
-			// \[subsig\] holds pairs of public key and signatures.
-			Subsignature *[]struct {
-
-				// \[pk\]
-				PublicKey *string `json:"public-key,omitempty"`
-
-				// \[s\]
-				Signature *string `json:"signature,omitempty"`
-			} `json:"subsignature,omitempty"`
-
-			// \[thr\]
-			Threshold *uint64 `json:"threshold,omitempty"`
-
-			// \[v\]
-			Version *uint64 `json:"version,omitempty"`
-		} `json:"multisig,omitempty"`
-
-		// \[sig\] Standard ed25519 signature.
-		Sig *string `json:"sig,omitempty"`
-	} `json:"signature,omitempty"`
+	Signature *TransactionSignature `json:"signature,omitempty"`
 
 	// \[type\] Indicates what type of transaction this is. Different types have different fields.
 	//
@@ -529,6 +407,75 @@ type Transaction struct {
 	// * \[axfer\] asset-transfer-transaction
 	// * \[afrz\] asset-freeze-transaction
 	Type *string `json:"type,omitempty"`
+}
+
+// TransactionAssetConfig defines model for TransactionAssetConfig.
+type TransactionAssetConfig struct {
+
+	// \[xaid\] ID of the asset being configured or empty if creating.
+	AssetId *uint64 `json:"asset-id,omitempty"`
+
+	// AssetParams specifies the parameters for an asset.
+	//
+	// \[apar\] when part of an AssetConfig transaction.
+	//
+	// Definition:
+	// data/transactions/asset.go : AssetParams
+	Params *AssetParams `json:"params,omitempty"`
+}
+
+// TransactionAssetFreeze defines model for TransactionAssetFreeze.
+type TransactionAssetFreeze struct {
+
+	// \[fadd\] Address of the account whose asset is being frozen or thawed.
+	Address string `json:"address"`
+
+	// \[faid\] ID of the asset being frozen or thawed.
+	AssetId uint64 `json:"asset-id"`
+
+	// \[afrz\] The new freeze status.
+	NewFreezeStatus bool `json:"new-freeze-status"`
+}
+
+// TransactionAssetTransfer defines model for TransactionAssetTransfer.
+type TransactionAssetTransfer struct {
+
+	// \[aamt\] Amount of asset to transfer. A zero amount transferred to self allocates that asset in the account's Assets map.
+	Amount uint64 `json:"amount"`
+
+	// \[xaid\] ID of the asset being transferred.
+	AssetId uint64 `json:"asset-id"`
+
+	// \[aclose\] Indicates that the asset should be removed from the account's Assets map, and specifies where the remaining asset holdings should be transferred.  It's always valid to transfer remaining asset holdings to the creator account.
+	CloseTo *string `json:"close-to,omitempty"`
+
+	// \[arcv\] Recipient address of the transfer.
+	Receiver string `json:"receiver"`
+
+	// \[asnd\] Sender of the transfer.  If this is not a zero value, the real transaction sender must be the Clawback address from the AssetParams.  If this is the zero value, the asset is sent from the transaction's Sender.
+	Sender *string `json:"sender,omitempty"`
+}
+
+// TransactionKeyreg defines model for TransactionKeyreg.
+type TransactionKeyreg struct {
+
+	// \[nonpart\] Mark the account as participating or non-participating.
+	NonParticipation *bool `json:"non-participation,omitempty"`
+
+	// \[selkey\] Public key used with the Verified Random Function (VRF) result during committee selection.
+	SelectionParticipationKey *string `json:"selection-participation-key,omitempty"`
+
+	// \[votefst\] First round this participation key is valid.
+	VoteFirstValid *uint64 `json:"vote-first-valid,omitempty"`
+
+	// \[votekd\] Number of subkeys in each batch of participation keys.
+	VoteKeyDilution *uint64 `json:"vote-key-dilution,omitempty"`
+
+	// \[votelst\] Last round this participation key is valid.
+	VoteLastValid *uint64 `json:"vote-last-valid,omitempty"`
+
+	// \[votekey\] Participation public key used in key registration transactions.
+	VoteParticipationKey *string `json:"vote-participation-key,omitempty"`
 }
 
 // TransactionParams defines model for TransactionParams.
@@ -558,21 +505,134 @@ type TransactionParams struct {
 	MinFee *uint64 `json:"minFee,omitempty"`
 }
 
+// TransactionPayment defines model for TransactionPayment.
+type TransactionPayment struct {
+
+	// \[amt\] number of MicroAlgos intended to be transferred.
+	Amount uint64 `json:"amount"`
+
+	// Number of MicroAlgos that were sent to the close-remainder-to address when closing the sender account.
+	CloseAmount *uint64 `json:"close-amount,omitempty"`
+
+	// \[close\] when set, indicates that the sending account should be closed and all remaining funds be transferred to this address.
+	CloseRemainderTo *string `json:"close-remainder-to,omitempty"`
+
+	// \[rcv\] receiver's address.
+	Receiver string `json:"receiver"`
+}
+
+// TransactionSignature defines model for TransactionSignature.
+type TransactionSignature struct {
+
+	// \[lsig\] Programatic transaction signature.
+	//
+	// Definition:
+	// data/transactions/logicsig.go
+	Logicsig *struct {
+
+		// \[arg\] Logic arguments, base64 encoded.
+		Args *[]string `json:"args,omitempty"`
+
+		// \[l\] Program signed by a signature or multi signature, or hashed to be the address of ana ccount. Base64 encoded TEAL program.
+		Logic *string `json:"logic,omitempty"`
+
+		// \[msig\] structure holding multiple subsignatures.
+		//
+		// Definition:
+		// crypto/multisig.go : MultisigSig
+		MultisigSignature *struct {
+
+			// \[subsig\] holds pairs of public key and signatures.
+			Subsignature *[]struct {
+
+				// \[pk\]
+				PublicKey *string `json:"public-key,omitempty"`
+
+				// \[s\]
+				Signature *string `json:"signature,omitempty"`
+			} `json:"subsignature,omitempty"`
+
+			// \[thr\]
+			Threshold *uint64 `json:"threshold,omitempty"`
+
+			// \[v\]
+			Version *uint64 `json:"version,omitempty"`
+		} `json:"multisig-signature,omitempty"`
+
+		// \[sig\] ed25519 signature.
+		Signature *string `json:"signature,omitempty"`
+	} `json:"logicsig,omitempty"`
+
+	// \[msig\] structure holding multiple subsignatures.
+	//
+	// Definition:
+	// crypto/multisig.go : MultisigSig
+	Multisig *TransactionSignatureMultisig `json:"multisig,omitempty"`
+
+	// \[sig\] Standard ed25519 signature.
+	Sig *string `json:"sig,omitempty"`
+}
+
+// TransactionSignatureLogicsig defines model for TransactionSignatureLogicsig.
+type TransactionSignatureLogicsig struct {
+
+	// \[arg\] Logic arguments, base64 encoded.
+	Args *[]string `json:"args,omitempty"`
+
+	// \[l\] Program signed by a signature or multi signature, or hashed to be the address of ana ccount. Base64 encoded TEAL program.
+	Logic *string `json:"logic,omitempty"`
+
+	// \[msig\] structure holding multiple subsignatures.
+	//
+	// Definition:
+	// crypto/multisig.go : MultisigSig
+	MultisigSignature *TransactionSignatureMultisig `json:"multisig-signature,omitempty"`
+
+	// \[sig\] ed25519 signature.
+	Signature *string `json:"signature,omitempty"`
+}
+
+// TransactionSignatureMultisig defines model for TransactionSignatureMultisig.
+type TransactionSignatureMultisig struct {
+
+	// \[subsig\] holds pairs of public key and signatures.
+	Subsignature *[]TransactionSignatureMultisigSubsignature `json:"subsignature,omitempty"`
+
+	// \[thr\]
+	Threshold *uint64 `json:"threshold,omitempty"`
+
+	// \[v\]
+	Version *uint64 `json:"version,omitempty"`
+}
+
+// TransactionSignatureMultisigSubsignature defines model for TransactionSignatureMultisigSubsignature.
+type TransactionSignatureMultisigSubsignature struct {
+
+	// \[pk\]
+	PublicKey *string `json:"public-key,omitempty"`
+
+	// \[s\]
+	Signature *string `json:"signature,omitempty"`
+}
+
 // Version defines model for Version.
 type Version struct {
 
 	// the current algod build version information.
-	Build struct {
-		Branch      string `json:"branch"`
-		BuildNumber uint64 `json:"build_number"`
-		Channel     string `json:"channel"`
-		CommitHash  string `json:"commit_hash"`
-		Major       uint64 `json:"major"`
-		Minor       uint64 `json:"minor"`
-	} `json:"build"`
-	GenesisHashB64 string   `json:"genesis_hash_b64"`
-	GenesisId      string   `json:"genesis_id"`
-	Versions       []string `json:"versions"`
+	Build          VersionBuild `json:"build"`
+	GenesisHashB64 string       `json:"genesis_hash_b64"`
+	GenesisId      string       `json:"genesis_id"`
+	Versions       []string     `json:"versions"`
+}
+
+// VersionBuild defines model for VersionBuild.
+type VersionBuild struct {
+	Branch      string `json:"branch"`
+	BuildNumber uint64 `json:"build_number"`
+	Channel     string `json:"channel"`
+	CommitHash  string `json:"commit_hash"`
+	Major       uint64 `json:"major"`
+	Minor       uint64 `json:"minor"`
 }
 
 // AccountId defines model for account-id.
