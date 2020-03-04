@@ -630,8 +630,34 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		close(out)
 		return out
 	}
-	go db.yieldTxnsThread(ctx, rows, out)
+	go db.yieldTxnsThreadSimple(ctx, rows, out)
 	return out
+}
+
+func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {
+	for rows.Next() {
+		var round uint64
+		var intra int
+		var txnbytes []byte
+		err := rows.Scan(&round, &intra, &txnbytes)
+		var row TxnRow
+		if err != nil {
+			row.Error = err
+		} else {
+			row.Round = round
+			row.Intra = intra
+			row.TxnBytes = txnbytes
+		}
+		select {
+		case <-ctx.Done():
+			break
+		case results <- row:
+			if err != nil {
+				break
+			}
+		}
+	}
+	close(results)
 }
 
 const maxAccountsLimit = 1000

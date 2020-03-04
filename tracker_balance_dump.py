@@ -9,6 +9,7 @@
 # setup requires:
 #  pip install msgpack py-algorand-sdk
 
+import base64
 import json
 import logging
 import os
@@ -23,7 +24,12 @@ import psycopg2
 
 from indexer2testload import unmsgpack
 
-encode_addr = algosdk.encoding.encode_address
+def encode_addr(addr):
+    if len(addr) == 44:
+        addr = base64.b64decode(addr)
+    if len(addr) == 32:
+        return algosdk.encoding.encode_address(addr)
+    return 'unknown addr? {!r}'.format(addr)
 
 logger = logging.getLogger(__name__)
 
@@ -140,7 +146,7 @@ class CheckContext:
                 allzero = True
                 nonzero = []
                 for assetidstr, assetdata in assets.items():
-                    if assetdata[b'a'] != 0:
+                    if assetdata.get(b'a',0) != 0:
                         allzero = False
                         nonzero.append( (assetidstr, assetdata) )
                 if not allzero:
@@ -262,7 +268,7 @@ def main():
                     assetidstr = str(assetidstr)
                 if assetidstr == args.asset:
                     has_asset = True
-                values[assetidstr] = assetdata[b'a']
+                values[assetidstr] = assetdata.get(b'a', 0)
                 if assetdata.get(b'f'):
                     frozen[assetidstr] = True
         if args.asset and not has_asset:
@@ -296,12 +302,13 @@ def main():
             mismatches = mismatches[:args.mismatches]
         for addr, msg in mismatches:
             niceaddr = algosdk.encoding.encode_address(addr)
-            err.write('{}\n\t{}\n'.format(niceaddr, msg))
+            xaddr = base64.b16encode(addr).decode().lower()
+            err.write('\n{} \'\\x{}\'\n\t{}\n'.format(niceaddr, xaddr, msg))
             for stxnw in indexerAccountTxns(args.indexer, addr, minround=tracker_round):
                 stxn = stxnw['stxn']
                 txn = stxn['txn']
                 sender = txn.pop('snd')
-                parts = ['{}:{}'.format(stxnw['r'], stxnw['o']), 's={}'.format(encode_addr(sender))]
+                parts = ['{}:{}'.format(stxnw.get('r',0), stxnw.get('o',0)), 's={}'.format(encode_addr(sender))]
                 asnd = txn.pop('asnd', None)
                 if asnd:
                     parts.append('as={}'.format(encode_addr(asnd)))
@@ -319,7 +326,7 @@ def main():
                     parts.append('ac={}'.format(encode_addr(aclose)))
                 # everything else
                 parts.append(json.dumps(txn))
-                err.write('\n'.join(parts) + '\n')
+                err.write(' '.join(parts) + '\n')
     return
 
 
