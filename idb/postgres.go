@@ -244,76 +244,6 @@ func (db *PostgresIndexerDb) GetMaxRound() (round uint64, err error) {
 
 // Break the read query so that PostgreSQL doesn't get bogged down
 // tracking transactional changes to tables.
-const txnRecordBreak = 5000
-const roundRecordBreak = 50
-
-func (db *PostgresIndexerDb) yieldTxnsThreadA(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {
-	keepGoing := true
-	for keepGoing {
-		count := 0
-		prevRound := uint64(0)
-		keepGoing = false
-		roundsSeen := 0
-		for rows.Next() {
-			var round uint64
-			var intra int
-			var txnbytes []byte
-			err := rows.Scan(&round, &intra, &txnbytes)
-			var row TxnRow
-			if err != nil {
-				row.Error = err
-			} else {
-				row.Round = round
-				row.Intra = intra
-				row.TxnBytes = txnbytes
-			}
-			keepGoing = true
-			count++
-			if round != prevRound {
-				roundsSeen++
-				if count > txnRecordBreak {
-					break
-				}
-				if roundsSeen > roundRecordBreak {
-					break
-				}
-			}
-			select {
-			case <-ctx.Done():
-				break
-			case results <- row:
-				if err != nil {
-					break
-				}
-			}
-			prevRound = round
-		}
-		if keepGoing {
-			var err error
-			rows.Close()
-			rows, err = db.db.QueryContext(ctx, `SELECT round, intra, txnbytes FROM txn WHERE round > $1 ORDER BY round, intra`, prevRound)
-			if err != nil {
-				results <- TxnRow{Error: err}
-				break
-			}
-		}
-	}
-	rows.Close()
-	close(results)
-}
-
-func (db *PostgresIndexerDb) YieldTxnsA(ctx context.Context, prevRound int64) <-chan TxnRow {
-	results := make(chan TxnRow, 1)
-	rows, err := db.db.QueryContext(ctx, `SELECT round, intra, txnbytes FROM txn WHERE round > $1 ORDER BY round, intra`, prevRound)
-	if err != nil {
-		results <- TxnRow{Error: err}
-		close(results)
-		return results
-	}
-	go db.yieldTxnsThreadA(ctx, rows, results)
-	return results
-}
-
 const txnQueryBatchSize = 20000
 
 var yieldTxnQuery string
@@ -406,7 +336,9 @@ func (db *PostgresIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-c
 	return results
 }
 
-var debugAsset uint64 = 604
+// TODO: maybe make a flag to set this, but in case of bug set this to
+// debug any asset that isn't working out right:
+var debugAsset uint64 = 0
 
 func b64(addr []byte) string {
 	return base64.StdEncoding.EncodeToString(addr)

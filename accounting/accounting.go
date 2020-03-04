@@ -133,7 +133,6 @@ func (accounting *AccountingState) updateAsset(addr types.Address, assetId uint6
 		accounting.AssetUpdates = make(map[[32]byte][]idb.AssetUpdate)
 	}
 	accounting.AssetUpdates[addr] = append(updatelist, idb.AssetUpdate{AssetId: assetId, Delta: d, DefaultFrozen: accounting.defaultFrozen[assetId]})
-	//accounting.AssetUpdates = append(accounting.AssetUpdates, idb.AssetUpdate{Addr: addr, AssetId: assetId, Delta: d, DefaultFrozen: accounting.defaultFrozen[assetId]})
 }
 
 func (accounting *AccountingState) updateTxnAsset(round uint64, intra int, assetId uint64) {

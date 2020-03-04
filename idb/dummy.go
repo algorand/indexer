@@ -246,7 +246,6 @@ type AcfgUpdate struct {
 }
 
 type AssetUpdate struct {
-	//Addr          types.Address
 	AssetId       uint64
 	Delta         int64
 	DefaultFrozen bool
@@ -281,5 +280,3 @@ type RoundUpdates struct {
 	AssetCloses     []AssetClose
 	AssetDestroys   []uint64
 }
-
-//AssetUpdates    []AssetUpdate
