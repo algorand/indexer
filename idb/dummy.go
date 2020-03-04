@@ -142,7 +142,6 @@ type IndexerDb interface {
 	GetBlock(round uint64) (block types.Block, err error)
 
 	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
-	//GetAccounts(ctx context.Context, greaterThan types.Address, limit int) (accounts []models.Account, err error)
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
 	Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow
 }
@@ -168,6 +167,11 @@ type TransactionFilter struct {
 type AccountQueryOptions struct {
 	GreaterThanAddress []byte // for paging results
 	EqualToAddress     []byte // return exactly this one account
+
+	// Filter on accounts with current balance greater than x
+	AlgosGreaterThan uint64
+	// Filter on accounts with current balance less than x.
+	AlgosLessThan uint64
 
 	IncludeAssetHoldings bool
 	IncludeAssetParams   bool
@@ -242,7 +246,7 @@ type AcfgUpdate struct {
 }
 
 type AssetUpdate struct {
-	Addr          types.Address
+	//Addr          types.Address
 	AssetId       uint64
 	Delta         int64
 	DefaultFrozen bool
@@ -261,12 +265,21 @@ type AssetClose struct {
 	DefaultFrozen bool
 }
 
-type RoundUpdates struct {
-	AlgoUpdates   map[[32]byte]int64
-	AccountTypes  map[[32]byte]string
-	AcfgUpdates   []AcfgUpdate
-	AssetUpdates  []AssetUpdate
-	FreezeUpdates []FreezeUpdate
-	AssetCloses   []AssetClose
-	AssetDestroys []uint64
+type TxnAssetUpdate struct {
+	Round   uint64
+	Offset  int
+	AssetId uint64
 }
+
+type RoundUpdates struct {
+	AlgoUpdates     map[[32]byte]int64
+	AccountTypes    map[[32]byte]string
+	AcfgUpdates     []AcfgUpdate
+	TxnAssetUpdates []TxnAssetUpdate
+	AssetUpdates    map[[32]byte][]AssetUpdate
+	FreezeUpdates   []FreezeUpdate
+	AssetCloses     []AssetClose
+	AssetDestroys   []uint64
+}
+
+//AssetUpdates    []AssetUpdate

@@ -232,9 +232,10 @@ func accountListReturn(w http.ResponseWriter, r *http.Request, af idb.AccountQue
 	var err error
 	accountchan := IndexerDb.GetAccounts(r.Context(), af)
 	accounts := make([]models.Account, 0, 100)
+	count := 0
 	for actrow := range accountchan {
 		if actrow.Error != nil {
-			log.Println("GetAccounts ", actrow.Error)
+			log.Printf("GetAccounts row %d, %v", count, actrow.Error)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -247,6 +248,7 @@ func accountListReturn(w http.ResponseWriter, r *http.Request, af idb.AccountQue
 			}
 		}
 		accounts = append(accounts, actrow.Account)
+		count++
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)

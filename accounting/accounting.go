@@ -89,6 +89,7 @@ func (accounting *AccountingState) commitRound() error {
 	accounting.AccountTypes = nil
 	accounting.AssetUpdates = nil
 	accounting.AcfgUpdates = nil
+	accounting.TxnAssetUpdates = nil
 	accounting.FreezeUpdates = nil
 	accounting.AssetCloses = nil
 	accounting.AssetDestroys = nil
@@ -121,7 +122,22 @@ func (accounting *AccountingState) updateAccountType(addr types.Address, ktype s
 }
 
 func (accounting *AccountingState) updateAsset(addr types.Address, assetId uint64, d int64) {
-	accounting.AssetUpdates = append(accounting.AssetUpdates, idb.AssetUpdate{Addr: addr, AssetId: assetId, Delta: d, DefaultFrozen: accounting.defaultFrozen[assetId]})
+	updatelist := accounting.AssetUpdates[addr]
+	for i, up := range updatelist {
+		if up.AssetId == assetId {
+			updatelist[i].Delta += d
+			return
+		}
+	}
+	if accounting.AssetUpdates == nil {
+		accounting.AssetUpdates = make(map[[32]byte][]idb.AssetUpdate)
+	}
+	accounting.AssetUpdates[addr] = append(updatelist, idb.AssetUpdate{AssetId: assetId, Delta: d, DefaultFrozen: accounting.defaultFrozen[assetId]})
+	//accounting.AssetUpdates = append(accounting.AssetUpdates, idb.AssetUpdate{Addr: addr, AssetId: assetId, Delta: d, DefaultFrozen: accounting.defaultFrozen[assetId]})
+}
+
+func (accounting *AccountingState) updateTxnAsset(round uint64, intra int, assetId uint64) {
+	accounting.TxnAssetUpdates = append(accounting.TxnAssetUpdates, idb.TxnAssetUpdate{Round: round, Offset: intra, AssetId: assetId})
 }
 
 func (accounting *AccountingState) closeAsset(from types.Address, assetId uint64, to types.Address) {
@@ -221,11 +237,13 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 	} else if stxn.Txn.Type == "acfg" {
 		assetId := uint64(stxn.Txn.ConfigAsset)
 		if assetId == 0 {
+			// create an asset
 			txnCounter, err := accounting.getTxnCounter(round - 1)
 			if err != nil {
 				return fmt.Errorf("acfg get TxnCounter round %d, %v", round, err)
 			}
 			assetId = txnCounter + uint64(intra) + 1
+			accounting.updateTxnAsset(round, intra, assetId)
 		}
 		if stxn.Txn.AssetParams.IsZero() {
 			accounting.destroyAsset(assetId)
