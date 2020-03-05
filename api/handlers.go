@@ -9,6 +9,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
 	"net/http"
@@ -129,7 +130,7 @@ func accountToAccount(account models.Account) generated.Account {
 	return ret
 }
 
-func fetchAccounts(options idb.AccountQueryOptions, ctx context.Context) ([]generated.Account, error) {
+func fetchAccounts(options idb.AccountQueryOptions, atRound *uint64, ctx context.Context) ([]generated.Account, error) {
 	accountchan := IndexerDb.GetAccounts(ctx, options)
 
 	accounts := make([]generated.Account, 0)
@@ -141,7 +142,20 @@ func fetchAccounts(options idb.AccountQueryOptions, ctx context.Context) ([]gene
 		fmt.Printf("object: %v\n", actrow)
 		fmt.Printf("amt: %d\n", actrow.Account.Amount)
 		fmt.Printf("round: %d\n", actrow.Account.Round)
-		accounts = append(accounts, accountToAccount(actrow.Account))
+
+		// Compute for a given round if requested.
+		var account generated.Account
+		if atRound != nil {
+			acct, err := accounting.AccountAtRound(actrow.Account, *atRound, IndexerDb)
+			if err != nil {
+				return nil, fmt.Errorf("problem computing account at round: %v", err)
+			}
+			account = accountToAccount(acct)
+		} else {
+			account = accountToAccount(actrow.Account)
+		}
+
+		accounts = append(accounts, account)
 	}
 
 	return accounts, nil
@@ -445,7 +459,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId st
 			Limit:                1,
 	}
 
-	accounts, err := fetchAccounts(options, ctx.Request().Context())
+	accounts, err := fetchAccounts(options, params.Round, ctx.Request().Context())
 
 	if err != nil {
 		return badRequest(ctx, fmt.Sprintf("Failed while searching for account: %v", err))
@@ -465,6 +479,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId st
 // TODO: Missing filters:
 //  * GreaterThan and LessThan account balances.
 //  * Holds assetID
+// TODO: "at round" is missing from these params, maybe it's fine to leave it out here.
 // (GET /accounts)
 func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generated.SearchAccountsParams) error {
 	options := idb.AccountQueryOptions {
@@ -473,7 +488,7 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 		Limit:                uintOrDefault(params.Limit, 0),
 	}
 
-	accounts, err := fetchAccounts(options, ctx.Request().Context())
+	accounts, err := fetchAccounts(options, nil, ctx.Request().Context())
 
 	if err != nil {
 		return badRequest(ctx,  fmt.Sprintf("Failed while searching for account: %v", err))
@@ -495,31 +510,37 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 
 // (GET /account/{account-id}/transactions)
 func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, accountId string, params generated.LookupAccountTransactionsParams) error {
+	// TODO
 	return errors.New("Unimplemented")
 }
 
 // (GET /asset/{asset-id})
 func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetId uint64) error {
+	// TODO
 	return errors.New("Unimplemented")
 }
 
 // (GET /asset/{asset-id}/balances)
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetId uint64, params generated.LookupAssetBalancesParams) error {
+	// TODO: I don't think this exists in the backend yet.
 	return errors.New("Unimplemented")
 }
 
 // (GET /asset/{asset-id}/transactions)
 func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetId uint64, params generated.LookupAssetTransactionsParams) error {
+	// TODO: convert to /transaction call
 	return errors.New("Unimplemented")
 }
 
 // (GET /assets)
 func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generated.SearchForAssetsParams) error {
+	// TODO: Need to implement 'fetchAssets'
 	return errors.New("Unimplemented")
 }
 
 // (GET /block/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
+	// TODO: Need to implement 'fetchBlock'
 	return errors.New("Unimplemented")
 }
 
@@ -531,6 +552,7 @@ func (si *ServerImplementation) LookupBlockTimes(ctx echo.Context) error {
 // TODO:
 //  * Address - Sender/Receiver/CloseTo?
 //  * MinAlgos - MaxAlgos? Min/Max asset? Or Min/Max with implicit MinAlgo/MinAsset?
+//  * Implement "format", maybe that just returns raw bytes? Does it need to convert to stxn and add the genhash/genID back in first?
 // (GET /transactions)
 func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params generated.SearchForTransactionsParams) error {
 	filter, err := transactionParamsToTransactionFilter(params)
