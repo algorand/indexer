@@ -49,6 +49,19 @@ func boolPtr(x bool) *bool {
 	return &x
 }
 
+type genesis struct {
+	genesisHash []byte
+	genesisID string
+}
+
+func getGenesis(ctx context.Context) genesis {
+	// TODO: Use 'fetchBlock' helper to lookup these values
+	return genesis {
+		genesisHash: []byte("TODO"),
+		genesisID:   "TODO",
+	}
+}
+
 func assetHoldingToAssetHolding(id uint64, holding models.AssetHolding) generated.AssetHolding {
 	return generated.AssetHolding{
 		AssetId:  id,
@@ -200,7 +213,7 @@ func lsigToTransactionLsig(lsig sdk_types.LogicSig) *generated.TransactionSignat
 	return &ret
 }
 
-func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
+func txnRowToTransaction(row idb.TxnRow, gen genesis) (generated.Transaction, error) {
 	if row.Error != nil {
 		return generated.Transaction{}, row.Error
 	}
@@ -291,9 +304,8 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		ConfirmedRound:           uint64Ptr(row.Round),
 		Fee:                      uint64Ptr(uint64(stxn.Txn.Fee)),
 		FirstValid:               uint64Ptr(uint64(stxn.Txn.FirstValid)),
-		// TODO: Is there any point in including these?
-		GenesisHash:              nil, //strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.GenesisHash[:])),
-		GenesisId:                nil, //strPtr(stxn.Txn.GenesisID),
+		GenesisHash:              nil, // This is removed from the stxn
+		GenesisId:                nil, // This is removed from the stxn
 		Group:                    strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.Group[:])),
 		LastValid:                uint64Ptr(uint64(stxn.Txn.LastValid)),
 		Lease:                    strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.Lease[:])),
@@ -304,9 +316,17 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		SenderRewards:            uint64Ptr(uint64(stxn.SenderRewards)),
 		Type:                     strPtr(string(stxn.Txn.Type)),
 		Signature:                &sig,
-		CreatedAssetIndex:        nil,
+		CreatedAssetIndex:        nil, // TODO: What is this?
 		Id:                       strPtr(crypto.TransactionIDString(stxn.Txn)),
-		PoolError:                nil,
+		PoolError:                nil, // TODO: What is this?
+	}
+
+	// Add in the genesis fields
+	if stxn.HasGenesisHash {
+		txn.GenesisHash = strPtr(base64.StdEncoding.EncodeToString(gen.genesisHash))
+	}
+	if stxn.HasGenesisID {
+		txn.GenesisHash = strPtr(gen.genesisID)
 	}
 
 	return txn, nil
@@ -365,6 +385,9 @@ func decodeType(str *string, field string, errorArr []string) (t int, err []stri
 
 
 func transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {
+	var errorArr = make([]string, 0)
+
+	// Integer
 	filter.MaxRound = uintOrDefault(params.MaxRound, 0)
 	filter.MinRound = uintOrDefault(params.MinRound, 0)
 	filter.AssetId = uintOrDefault(params.AssetId, 0)
@@ -372,13 +395,15 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.Offset = params.Offset
 	filter.Round = params.Round
 
-	var errorArr = make([]string, 0)
+	// Byte array
 	filter.NotePrefix, errorArr = decodeB64String(params.Noteprefix, "note-prefix", errorArr)
 	filter.Txid, errorArr = decodeB64String(params.Txid, "txid", errorArr)
 
+	// Time
 	filter.AfterTime, errorArr = decodeTimeString(params.AfterTime, "after-time", errorArr)
 	filter.BeforeTime, errorArr = decodeTimeString(params.BeforeTime, "before-time", errorArr)
 
+	// Enum
 	filter.SigType, errorArr = decodeSigType(params.Sigtype, "sigtype", errorArr)
 	filter.TypeEnum, errorArr = decodeType(params.Type, "type", errorArr)
 
@@ -390,12 +415,13 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	return
 }
 
+// fetchTransactions is used to query the backend for transactions.
 func fetchTransactions(filter idb.TransactionFilter, ctx context.Context) ([]generated.Transaction, error) {
-	// Lookup the results
+	genesis := getGenesis(ctx)
 	results := make([]generated.Transaction, 0)
 	txchan := IndexerDb.Transactions(ctx, filter)
 	for txrow := range txchan {
-		tx, err := txnRowToTransaction(txrow)
+		tx, err := txnRowToTransaction(txrow, genesis)
 		if err != nil {
 			return nil, err
 		}
