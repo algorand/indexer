@@ -124,7 +124,7 @@ func accountToAccount(account models.Account) generated.Account {
 		Rewards:                     account.Rewards,
 		Round:                       account.Round,
 		Status:                      account.Status,
-		Type:                        strPtr("unknown"),
+		Type:                        strPtr("unknown"), // TODO: how to get this?
 	}
 
 	return ret
