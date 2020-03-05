@@ -249,7 +249,7 @@ const txnQueryBatchSize = 20000
 var yieldTxnQuery string
 
 func init() {
-	yieldTxnQuery = fmt.Sprintf(`SELECT round, intra, txnbytes FROM txn WHERE round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
+	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
 }
 
 func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {
@@ -259,13 +259,15 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 		rounds := make([]uint64, txnQueryBatchSize)
 		intras := make([]int, txnQueryBatchSize)
 		txnbytess := make([][]byte, txnQueryBatchSize)
+		roundtimes := make([]time.Time, txnQueryBatchSize)
 		pos := 0
 		// read from db
 		for rows.Next() {
 			var round uint64
 			var intra int
 			var txnbytes []byte
-			err := rows.Scan(&round, &intra, &txnbytes)
+			var roundtime time.Time
+			err := rows.Scan(&round, &intra, &txnbytes, &roundtime)
 			if err != nil {
 				var row TxnRow
 				row.Error = err
@@ -277,6 +279,7 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 				rounds[pos] = round
 				intras[pos] = intra
 				txnbytess[pos] = txnbytes
+				roundtimes[pos] = roundtime
 				pos++
 			}
 			keepGoing = true
@@ -303,6 +306,7 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 		for i := 0; i < pos; i++ {
 			var row TxnRow
 			row.Round = rounds[i]
+			row.RoundTime = roundtimes[i]
 			row.Intra = intras[i]
 			row.TxnBytes = txnbytess[i]
 			select {
@@ -543,7 +547,6 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	joinParticipation := false
-	joinHeader := false
 	partNumber := 1
 	if tf.Address != nil {
 		whereParts = append(whereParts, fmt.Sprintf("p.addr = $%d", partNumber))
@@ -565,13 +568,11 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		whereParts = append(whereParts, fmt.Sprintf("h.realtime < $%d", partNumber))
 		whereArgs = append(whereArgs, tf.BeforeTime)
 		partNumber++
-		joinHeader = true
 	}
 	if !tf.AfterTime.IsZero() {
 		whereParts = append(whereParts, fmt.Sprintf("h.realtime > $%d", partNumber))
 		whereArgs = append(whereArgs, tf.AfterTime)
 		partNumber++
-		joinHeader = true
 	}
 	if tf.AssetId != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("t.asset = $%d", partNumber))
@@ -603,13 +604,10 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		whereArgs = append(whereArgs, tf.SigType)
 		partNumber++
 	}
-	query := "SELECT t.round, t.intra, t.txnbytes FROM txn t"
+	query := "SELECT t.round, t.intra, t.txnbytes, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	whereStr := strings.Join(whereParts, " AND ")
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
-	}
-	if joinHeader {
-		query += " JOIN block_header h ON t.round = h.round"
 	}
 	query += " WHERE " + whereStr
 	if joinParticipation {
@@ -639,7 +637,8 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 		var round uint64
 		var intra int
 		var txnbytes []byte
-		err := rows.Scan(&round, &intra, &txnbytes)
+		var roundtime time.Time
+		err := rows.Scan(&round, &intra, &txnbytes, &roundtime)
 		var row TxnRow
 		if err != nil {
 			row.Error = err
@@ -647,6 +646,7 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 			row.Round = round
 			row.Intra = intra
 			row.TxnBytes = txnbytes
+			row.RoundTime = roundtime
 		}
 		select {
 		case <-ctx.Done():

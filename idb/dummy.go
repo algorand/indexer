@@ -108,10 +108,11 @@ type IndexerFactory interface {
 }
 
 type TxnRow struct {
-	Round    uint64
-	Intra    int
-	TxnBytes []byte
-	Error    error
+	Round     uint64
+	RoundTime time.Time
+	Intra     int
+	TxnBytes  []byte
+	Error     error
 }
 
 // TODO: sqlite3 impl
