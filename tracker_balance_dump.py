@@ -24,6 +24,9 @@ import psycopg2
 
 from indexer2testload import unmsgpack
 
+reward_addr = base64.b64decode("/v////////////////////////////////////////8=")
+fee_addr = base64.b64decode("x/zNsljw1BicK/i21o7ml1CGQrCtAB8x/LkYw1S6hZo=")
+
 def encode_addr(addr):
     if len(addr) == 44:
         addr = base64.b64decode(addr)
@@ -46,6 +49,7 @@ def indexerAccounts(rooturl, blockround=None):
         if gtaddr:
             # set query:
             query['gt'] = gtaddr
+        if query:
             accountsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(accountsurl)
         try:
@@ -125,6 +129,10 @@ class CheckContext:
             else:
                 ok = False
                 emsg = 'algod v={} i2 v={}'.format(microalgos, i2v['algo'])
+                if address == reward_addr:
+                    emsg += ' Rewards account'
+                elif address == fee_addr:
+                    emsg += ' Fee account'
                 err.write('{} {}\n'.format(niceaddr, emsg))
                 errors.append(emsg)
                 # TODO: fetch txn delta from db?
@@ -301,10 +309,19 @@ def main():
         if args.mismatches and len(mismatches) > args.mismatches:
             mismatches = mismatches[:args.mismatches]
         for addr, msg in mismatches:
+            if addr in (reward_addr, fee_addr):
+                # we know accounting for the special addrs is different
+                continue
             niceaddr = algosdk.encoding.encode_address(addr)
             xaddr = base64.b16encode(addr).decode().lower()
             err.write('\n{} \'\\x{}\'\n\t{}\n'.format(niceaddr, xaddr, msg))
+            tcount = 0
+            tmore = 0
             for stxnw in indexerAccountTxns(args.indexer, addr, minround=tracker_round):
+                if tcount > 10:
+                    tmore += 1
+                    continue
+                tcount += 1
                 stxn = stxnw['stxn']
                 txn = stxn['txn']
                 sender = txn.pop('snd')
@@ -327,6 +344,8 @@ def main():
                 # everything else
                 parts.append(json.dumps(txn))
                 err.write(' '.join(parts) + '\n')
+            if tmore:
+                err.write('... and {} more\n'.format(tmore))
     return
 
 
