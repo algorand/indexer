@@ -94,7 +94,7 @@ type AssetHolding struct {
 	Amount uint64 `json:"amount"`
 
 	// Asset ID of the holding.
-	AssetId string `json:"asset-id"`
+	AssetId uint64 `json:"asset-id"`
 
 	// Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.
 	Creator string `json:"creator"`
@@ -528,40 +528,7 @@ type TransactionSignature struct {
 	//
 	// Definition:
 	// data/transactions/logicsig.go
-	Logicsig *struct {
-
-		// \[arg\] Logic arguments, base64 encoded.
-		Args *[]string `json:"args,omitempty"`
-
-		// \[l\] Program signed by a signature or multi signature, or hashed to be the address of ana ccount. Base64 encoded TEAL program.
-		Logic *string `json:"logic,omitempty"`
-
-		// \[msig\] structure holding multiple subsignatures.
-		//
-		// Definition:
-		// crypto/multisig.go : MultisigSig
-		MultisigSignature *struct {
-
-			// \[subsig\] holds pairs of public key and signatures.
-			Subsignature *[]struct {
-
-				// \[pk\]
-				PublicKey *string `json:"public-key,omitempty"`
-
-				// \[s\]
-				Signature *string `json:"signature,omitempty"`
-			} `json:"subsignature,omitempty"`
-
-			// \[thr\]
-			Threshold *uint64 `json:"threshold,omitempty"`
-
-			// \[v\]
-			Version *uint64 `json:"version,omitempty"`
-		} `json:"multisig-signature,omitempty"`
-
-		// \[sig\] ed25519 signature.
-		Signature *string `json:"signature,omitempty"`
-	} `json:"logicsig,omitempty"`
+	Logicsig *TransactionSignatureLogicsig `json:"logicsig,omitempty"`
 
 	// \[msig\] structure holding multiple subsignatures.
 	//
@@ -638,8 +605,14 @@ type VersionBuild struct {
 // AccountId defines model for account-id.
 type AccountId string
 
+// AfterTime defines model for after-time.
+type AfterTime string
+
 // AssetId defines model for asset-id.
 type AssetId uint64
+
+// BeforeTime defines model for before-time.
+type BeforeTime string
 
 // Gt defines model for gt.
 type Gt uint64
@@ -653,14 +626,8 @@ type Lt uint64
 // MaxRound defines model for max-round.
 type MaxRound uint64
 
-// MaxTs defines model for max-ts.
-type MaxTs uint64
-
 // MinRound defines model for min-round.
 type MinRound uint64
-
-// MinTs defines model for min-ts.
-type MinTs uint64
 
 // Offset defines model for offset.
 type Offset uint64
@@ -727,7 +694,7 @@ type BlockTimesResponse struct {
 
 // Error defines model for Error.
 type Error struct {
-	Error *string `json:"error,omitempty"`
+	Error string `json:"error"`
 }
 
 // TransactionsResponse defines model for TransactionsResponse.
@@ -757,12 +724,12 @@ type LookupAccountTransactionsParams struct {
 	// Include results at or before the specified max-round.
 	MaxRound *uint64 `json:"max-round,omitempty"`
 
-	// Include results at or before the given max timestamp.
-	MaxTs *uint64 `json:"max-ts,omitempty"`
+	// Include results before the given time. Must be an RFC 3339 formatted string.
+	BeforeTime *string `json:"before-time,omitempty"`
 
-	// Include results at or after the given max timestamp.
-	MinTs *uint64 `json:"min-ts,omitempty"`
-	Asset *uint64 `json:"asset,omitempty"`
+	// Include results after the given time. Must be an RFC 3339 formatted string.
+	AfterTime *string `json:"after-time,omitempty"`
+	Asset     *uint64 `json:"asset,omitempty"`
 
 	// Used in conjunction with limit to page through results.
 	Offset *uint64 `json:"offset,omitempty"`
@@ -828,11 +795,11 @@ type LookupAssetTransactionsParams struct {
 	// Include results at or before the specified max-round.
 	MaxRound *uint64 `json:"max-round,omitempty"`
 
-	// Include results at or after the given max timestamp.
-	MinTs *uint64 `json:"min-ts,omitempty"`
+	// Include results after the given time. Must be an RFC 3339 formatted string.
+	AfterTime *string `json:"after-time,omitempty"`
 
-	// Include results at or before the given max timestamp.
-	MaxTs *uint64 `json:"max-ts,omitempty"`
+	// Include results before the given time. Must be an RFC 3339 formatted string.
+	BeforeTime *string `json:"before-time,omitempty"`
 
 	// Used in conjunction with limit to page through results.
 	Offset *uint64 `json:"offset,omitempty"`
@@ -862,8 +829,8 @@ type SearchForAssetsParams struct {
 	// Filter just assets with the given unit.
 	Unit *string `json:"unit,omitempty"`
 
-	// Used in conjunction with limit to page through results.
-	Offset *uint64 `json:"offset,omitempty"`
+	// Asset ID
+	AssetId *uint64 `json:"asset-id,omitempty"`
 }
 
 // SearchForTransactionsParams defines parameters for SearchForTransactions.
@@ -901,8 +868,8 @@ type SearchForTransactionsParams struct {
 	// Include results at or before the specified max-round.
 	MaxRound *uint64 `json:"max-round,omitempty"`
 
-	// Asset transactions related to a given asset ID.
-	AssetId *string `json:"asset-id,omitempty"`
+	// Asset ID
+	AssetId *uint64 `json:"asset-id,omitempty"`
 
 	// Encoding format returned by this endpoint. Default is json.
 	Format *string `json:"format,omitempty"`
@@ -910,11 +877,11 @@ type SearchForTransactionsParams struct {
 	// Maximum number of results to return.
 	Limit *uint64 `json:"limit,omitempty"`
 
-	// Include results at or before the given max timestamp.
-	MaxTs *uint64 `json:"max-ts,omitempty"`
+	// Include results before the given time. Must be an RFC 3339 formatted string.
+	BeforeTime *string `json:"before-time,omitempty"`
 
-	// Include results at or after the given max timestamp.
-	MinTs *uint64 `json:"min-ts,omitempty"`
+	// Include results after the given time. Must be an RFC 3339 formatted string.
+	AfterTime *string `json:"after-time,omitempty"`
 
 	// Results should have an amount greater than this value.
 	Gt *uint64 `json:"gt,omitempty"`

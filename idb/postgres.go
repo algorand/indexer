@@ -484,14 +484,14 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		whereArgs = append(whereArgs, tf.Txid)
 		partNumber++
 	}
-	if tf.Round >= 0 {
+	if tf.Round != nil {
 		whereParts = append(whereParts, fmt.Sprintf("t.round = $%d", partNumber))
-		whereArgs = append(whereArgs, tf.Round)
+		whereArgs = append(whereArgs, *tf.Round)
 		partNumber++
 	}
-	if tf.Offset >= 0 {
+	if tf.Offset != nil {
 		whereParts = append(whereParts, fmt.Sprintf("t.intra = $%d", partNumber))
-		whereArgs = append(whereArgs, tf.Offset)
+		whereArgs = append(whereArgs, *tf.Offset)
 		partNumber++
 	}
 	if len(tf.SigType) != 0 {

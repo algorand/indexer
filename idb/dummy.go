@@ -156,8 +156,8 @@ type TransactionFilter struct {
 	AssetId    uint64
 	TypeEnum   int // ["","pay","keyreg","acfg","axfer","afrz"]
 	Txid       []byte
-	Round      int64  // -1 for no filter
-	Offset     int64  // -1 for no filter
+	Round      *uint64  // nil for no filter
+	Offset     *uint64  // nil for no filter
 	SigType    string // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
 	MinAlgos   uint64 // implictly filters on "pay" txns for Algos >= this
@@ -202,11 +202,6 @@ type AssetRow struct {
 	Creator []byte
 	Params  types.AssetParams
 	Error   error
-}
-
-func (tf *TransactionFilter) Init() {
-	tf.Round = -1
-	tf.Offset = -1
 }
 
 type dummyFactory struct {

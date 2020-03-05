@@ -1,585 +1,535 @@
-// Copyright (C) 2019-2020 Algorand, Inc.
-// This file is part of the Algorand Indexer
-//
-// Algorand Indexer is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as
-// published by the Free Software Foundation, either version 3 of the
-// License, or (at your option) any later version.
-//
-// Algorand Indexer is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with Algorand Indexer.  If not, see <https://www.gnu.org/licenses/>.
-
 package api
 
 import (
-	"encoding/base32"
+	"context"
 	"encoding/base64"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"log"
-	"net/http"
-	"strconv"
-	"time"
-
 	"github.com/algorand/go-algorand-sdk/client/algod/models"
 	"github.com/algorand/go-algorand-sdk/crypto"
-	algojson "github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	atypes "github.com/algorand/go-algorand-sdk/types"
-	"github.com/gorilla/mux"
-
-	"github.com/algorand/indexer/accounting"
-	"github.com/algorand/indexer/idb"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/algorand/indexer/api/generated"
+	"github.com/algorand/indexer/idb"
+	"github.com/labstack/echo/v4"
 )
 
-func b64decode(x string) (out []byte, err error) {
+type ServerImplementation struct {}
+
+func badRequest(ctx echo.Context, err string) error {
+	return ctx.JSON(http.StatusBadRequest, generated.Error{
+		Error: err,
+	})
+}
+
+func uintOrDefault(x *uint64, def uint64) uint64 {
+	if x != nil {
+		return *x
+	}
+	return def
+}
+func uint64Ptr(x uint64) *uint64 {
+	return &x
+}
+
+func strPtr(x string) *string {
 	if len(x) == 0 {
-		return nil, nil
+		return nil
 	}
-	out, err = base64.URLEncoding.WithPadding(base64.StdPadding).DecodeString(x)
-	if err == nil {
-		return
-	}
-	out, err = base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(x)
-	return
+	return &x
 }
 
-// parseTime same as go-algorand/daemon/algod/api/server/v1/handlers/handlers.go
-func parseTime(t string) (res time.Time, err error) {
-	// check for just date
-	res, err = time.Parse("2006-01-02", t)
-	if err == nil {
-		return
-	}
-
-	// check for date and time
-	res, err = time.Parse(time.RFC3339, t)
-	if err == nil {
-		return
-	}
-
-	return
+func boolPtr(x bool) *bool {
+	return &x
 }
 
-func formUint64(r *http.Request, keySynonyms []string, defaultValue uint64) (value uint64, err error) {
-	value = defaultValue
-	for _, key := range keySynonyms {
-		svalues, any := r.Form[key]
-		if !any || len(svalues) < 1 {
-			continue
-		}
-		// last value wins. or should we make repetition a 400 err?
-		svalue := svalues[len(svalues)-1]
-		if len(svalue) == 0 {
-			continue
-		}
-		value, err = strconv.ParseUint(svalue, 10, 64)
-		return
+func assetHoldingToAssetHolding(id uint64, holding models.AssetHolding) generated.AssetHolding {
+	return generated.AssetHolding{
+		AssetId:  id,
+		Amount:   holding.Amount,
+		Creator:  holding.Creator,
+		IsFrozen: boolPtr(holding.Frozen),
 	}
-	return
 }
 
-func formInt64(r *http.Request, keySynonyms []string, defaultValue int64) (value int64, err error) {
-	value = defaultValue
-	for _, key := range keySynonyms {
-		svalues, any := r.Form[key]
-		if !any || len(svalues) < 1 {
-			continue
-		}
-		// last value wins. or should we make repetition a 400 err?
-		svalue := svalues[len(svalues)-1]
-		if len(svalue) == 0 {
-			continue
-		}
-		value, err = strconv.ParseInt(svalue, 10, 64)
-		return
+func assetParamsToAsset(id uint64, params models.AssetParams) generated.Asset {
+	return generated.Asset{
+		Index: id,
+		Params: generated.AssetParams{
+			Clawback:      strPtr(params.ClawbackAddr),
+			Creator:       params.Creator,
+			Decimals:      uint64(params.Decimals),
+			DefaultFrozen: boolPtr(params.DefaultFrozen),
+			Freeze:        strPtr(params.FreezeAddr),
+			Manager:       strPtr(params.ManagerAddr),
+			MetadataHash:  strPtr(string(params.MetadataHash)),
+			Name:          strPtr(params.AssetName),
+			Reserve:       strPtr(params.ReserveAddr),
+			Total:         params.Total,
+			UnitName:      strPtr(params.UnitName),
+			Url:           strPtr(params.URL),
+		},
 	}
-	return
 }
 
-func formString(r *http.Request, keySynonyms []string, defaultValue string) (value string) {
-	value = defaultValue
-	for _, key := range keySynonyms {
-		svalues, any := r.Form[key]
-		if !any || len(svalues) < 1 {
-			continue
-		}
-		// last value wins. or should we make repetition a 400 err?
-		value = svalues[len(svalues)-1]
-		return
-	}
-	return
-}
-
-/*
-func formUint64(r *http.Request, key string, defaultValue uint64) (value uint64, err error) {
-	return formUint64Synonyms(r, []string{key}, defaultValue)
-}
-*/
-
-func formTime(r *http.Request, keySynonyms []string) (value time.Time, err error) {
-	for _, key := range keySynonyms {
-		svalues, any := r.Form[key]
-		if !any || len(svalues) < 1 {
-			continue
-		}
-		// last value wins. or should we make repetition a 400 err?
-		svalue := svalues[len(svalues)-1]
-		if len(svalue) == 0 {
-			continue
-		}
-		value, err = parseTime(svalue)
-		return
-	}
-	return
-}
-
-var trueStrings = []string{
-	"t", "1", "true", "True", "T",
-}
-var falseStrings = []string{
-	"f", "0", "false", "False", "F",
-}
-
-func formBool(r *http.Request, keySynonyms []string, defaultValue bool) (value bool, err error) {
-	value = defaultValue
-	for _, key := range keySynonyms {
-		svalues, any := r.Form[key]
-		if !any || len(svalues) < 1 {
-			continue
-		}
-		// last value wins. or should we make repetition a 400 err?
-		svalue := svalues[len(svalues)-1]
-		if len(svalue) == 0 {
-			continue
-		}
-		for _, ts := range trueStrings {
-			if svalue == ts {
-				value = true
-				return
-			}
-		}
-		for _, ts := range falseStrings {
-			if svalue == ts {
-				value = false
-				return
-			}
-		}
-	}
-	return
-}
-
-type listAccountsReply struct {
-	Accounts []models.Account `json:"accounts,omitempty"`
-}
-
-// ListAccounts is the http api handler that lists accounts and basic data
-// /v1/accounts
-// ?gt={addr} // return assets greater than some addr, for paging
-// ?assets=1 // return AssetHolding for assets owned by this account
-// ?acfg=1 // return AssetParams for assets created by this account
-// ?limit=N
-// return {"accounts":[]models.Account}
-func ListAccounts(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	var err error
-	af := idb.AccountQueryOptions{}
-	af.Limit, err = formUint64(r, []string{"limit"}, 1000)
-	if err != nil {
-		err = fmt.Errorf("bad limit, %v", err)
-		return
-	}
-	if af.Limit <= 0 || af.Limit > 1000 {
-		af.Limit = 1000
-	}
-	atRound, err := formUint64(r, []string{"round", "r"}, 0)
-	if err != nil {
-		err = fmt.Errorf("bad round, %v", err)
-		return
-	}
-	gtAddrStr := formString(r, []string{"gt"}, "")
-	if gtAddrStr != "" {
-		gtAddr, err := atypes.DecodeAddress(gtAddrStr)
-		if err != nil {
-			log.Println("bad gtaddr, ", err)
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		af.GreaterThanAddress = gtAddr[:]
-	}
-	af.IncludeAssetHoldings, err = formBool(r, []string{"assets", "ia"}, true)
-	if err != nil {
-		err = fmt.Errorf("bad ia, %v", err)
-		return
-	}
-	af.IncludeAssetParams, err = formBool(r, []string{"acfg"}, false)
-	if err != nil {
-		err = fmt.Errorf("bad acfg, %v", err)
-		return
+func accountToAccount(account models.Account) generated.Account {
+	// TODO: This data is missing.
+	var participation = generated.AccountParticipation{
+			SelectionParticipationKey: strPtr(""),
+			VoteFirstValid:            uint64Ptr(0),
+			VoteLastValid:             uint64Ptr(0),
+			VoteKeyDilution:           uint64Ptr(0),
+			VoteParticipationKey:      strPtr(""),
 	}
 
-	accountListReturn(w, r, af, atRound)
+	var assets = make([]generated.AssetHolding, 0)
+	for k, v := range account.Assets {
+		assets = append(assets, assetHoldingToAssetHolding(k, v))
+	}
+
+	var createdAssets = make([]generated.Asset, 0)
+	for k, v := range account.AssetParams {
+		createdAssets = append(createdAssets, assetParamsToAsset(k, v))
+	}
+
+	ret := generated.Account{
+		Address:                     account.Address,
+		Amount:                      account.Amount,
+		AmountWithoutPendingRewards: account.AmountWithoutPendingRewards,
+		Assets:                      &assets,
+		CreatedAssets:               &createdAssets,
+		Participation:               &participation,
+		PendingRewards:              account.PendingRewards,
+		RewardBase:                  uint64Ptr(0),
+		Rewards:                     account.Rewards,
+		Round:                       account.Round,
+		Status:                      account.Status,
+		Type:                        strPtr("unknown"),
+	}
+
+	return ret
 }
 
-func accountListReturn(w http.ResponseWriter, r *http.Request, af idb.AccountQueryOptions, atRound uint64) {
-	var err error
-	accountchan := IndexerDb.GetAccounts(r.Context(), af)
-	accounts := make([]models.Account, 0, 100)
+func fetchAccounts(options idb.AccountQueryOptions, ctx context.Context) ([]generated.Account, error) {
+	accountchan := IndexerDb.GetAccounts(ctx, options)
+
+	accounts := make([]generated.Account, 0)
 	for actrow := range accountchan {
 		if actrow.Error != nil {
-			log.Println("GetAccounts ", actrow.Error)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			return nil, actrow.Error
 		}
-		if atRound != 0 {
-			actrow.Account, err = accounting.AccountAtRound(actrow.Account, atRound, IndexerDb)
-			if err != nil {
-				log.Println("account atRow ", err)
-				w.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-		}
-		accounts = append(accounts, actrow.Account)
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	out := listAccountsReply{Accounts: accounts}
-	enc := json.NewEncoder(w)
 
-	err = enc.Encode(out)
-	if err != nil {
-		log.Println("list account encode, ", err)
-	}
-}
-
-// GetAccount returns one account
-// /v1/account/{address}
-// ?assets=1 // include AssetHolding data
-// ?acfg=1 // return AssetParams for assets created by this account
-// ?round=N // return state of account at a specific round in the past
-// return {"accounts":[]models.Account}
-func GetAccount(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	atRound, err := formUint64(r, []string{"round", "r"}, 0)
-	if err != nil {
-		err = fmt.Errorf("bad round, %v", err)
-		return
-	}
-	af := idb.AccountQueryOptions{
-		Limit: 1,
-	}
-	queryAddr := mux.Vars(r)["address"]
-	addr, err := atypes.DecodeAddress(queryAddr)
-	if err != nil {
-		log.Println("bad addr, ", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	af.EqualToAddress = addr[:]
-	af.IncludeAssetHoldings, err = formBool(r, []string{"assets", "ia"}, true)
-	if err != nil {
-		err = fmt.Errorf("bad ia, %v", err)
-		return
-	}
-	af.IncludeAssetParams, err = formBool(r, []string{"acfg"}, true)
-	if err != nil {
-		err = fmt.Errorf("bad acfg, %v", err)
-		return
+		fmt.Printf("object: %v\n", actrow)
+		fmt.Printf("amt: %d\n", actrow.Account.Amount)
+		fmt.Printf("round: %d\n", actrow.Account.Round)
+		accounts = append(accounts, accountToAccount(actrow.Account))
 	}
 
-	accountListReturn(w, r, af, atRound)
+	return accounts, nil
 }
 
-type stringInt struct {
-	str string
-	i   int
-}
-
-const (
-	jsonInternalFormat = 1
-	algodApiFormat     = 2
-	msgpackFormat      = 3
-)
-
-// collapse format=str to int for switch
-var transactionFormatMapList = []stringInt{
-	{"json", jsonInternalFormat},
-	{"algod", algodApiFormat},
-	{"msgp", msgpackFormat},
-	{"1", jsonInternalFormat},
-	{"2", algodApiFormat},
-	{"3", msgpackFormat},
-	{"", jsonInternalFormat}, // default
-}
-var transactionFormatMap map[string]int
-
-var sigTypeEnumMapList = []stringInt{
-	{"sig", 1},
-	{"msig", 2},
-	{"lsig", 3},
-}
-
-var sigTypeEnumMap map[string]int
-
-func enumListToMap(list []stringInt) map[string]int {
-	out := make(map[string]int, len(list))
-	for _, tf := range list {
-		out[tf.str] = tf.i
+// TODO: Replace with lsig.Blank() when that gets merged into go-algorand-sdk
+func isBlank(lsig sdk_types.LogicSig) bool {
+	if lsig.Args != nil {
+		return false
 	}
-	return out
+	if len(lsig.Logic) != 0 {
+		return false
+	}
+	if !lsig.Msig.Blank() {
+		return false
+	}
+	if lsig.Sig != (sdk_types.Signature{}) {
+		return false
+	}
+	return true
 }
 
-func init() {
-	transactionFormatMap = enumListToMap(transactionFormatMapList)
-	sigTypeEnumMap = enumListToMap(sigTypeEnumMapList)
+func sigToTransactionSig(sig sdk_types.Signature) *string {
+	if sig == (sdk_types.Signature{}) {
+		return nil
+	}
+	tsig := base64.StdEncoding.EncodeToString(sig[:])
+	return &tsig
 }
 
-type SignedTxnWrapper struct {
-	Round  uint64                 `codec:"r,omitempty"`
-	Offset int                    `codec:"o,omitempty"`
-	Stxn   types.SignedTxnInBlock `codec:"stxn,omitempty"`
-}
+func msigToTransactionMsig(msig sdk_types.MultisigSig) *generated.TransactionSignatureMultisig {
+	if msig.Blank() {
+		return nil
+	}
 
-type transactionsListReturnObject struct {
-	Transactions []models.Transaction
-	Stxns        []SignedTxnWrapper
-	// TODO: msgpack chunks
-}
-
-func (out *transactionsListReturnObject) storeTransactionOutput(stxn *types.SignedTxnInBlock, round uint64, intra int, format int) {
-	switch format {
-	case algodApiFormat:
-		if out.Transactions == nil {
-			out.Transactions = make([]models.Transaction, 0, 10)
-		}
-		var mtxn models.Transaction
-		setApiTxn(&mtxn, stxn)
-		mtxn.ConfirmedRound = round
-		out.Transactions = append(out.Transactions, mtxn)
-	case jsonInternalFormat, msgpackFormat:
-		if out.Stxns == nil {
-			out.Stxns = make([]SignedTxnWrapper, 0, 10)
-		}
-		out.Stxns = append(out.Stxns, SignedTxnWrapper{
-			Round:  round,
-			Offset: intra,
-			Stxn:   *stxn,
+	subsigs := make([]generated.TransactionSignatureMultisigSubsignature, 0)
+	for _, subsig := range msig.Subsigs {
+		subsigs = append(subsigs, generated.TransactionSignatureMultisigSubsignature{
+			PublicKey: strPtr(base64.StdEncoding.EncodeToString(subsig.Key[:])),
+			Signature: sigToTransactionSig(subsig.Sig),
 		})
 	}
+
+	ret := generated.TransactionSignatureMultisig{
+		Subsignature: &subsigs,
+		Threshold:    uint64Ptr(uint64(msig.Threshold)),
+		Version:      uint64Ptr(uint64(msig.Version)),
+	}
+	return &ret
 }
 
-type algodTransactionsListReturnObject struct {
-	Transactions []models.Transaction `json:"transactions,omitempty"`
+func lsigToTransactionLsig(lsig sdk_types.LogicSig) *generated.TransactionSignatureLogicsig {
+	if isBlank(lsig) {
+		return nil
+	}
+
+	args := make([]string, 0)
+	for _, arg := range lsig.Args {
+		args = append(args, base64.StdEncoding.EncodeToString(arg))
+	}
+
+	ret := generated.TransactionSignatureLogicsig{
+		Args:              &args,
+		Logic:             strPtr(base64.StdEncoding.EncodeToString(lsig.Logic)),
+		MultisigSignature: msigToTransactionMsig(lsig.Msig),
+		Signature:         sigToTransactionSig(lsig.Sig),
+	}
+
+	return &ret
 }
 
-type rawTransactionsListReturnObject struct {
-	Transactions []SignedTxnWrapper `codec:"txns,omitemptyarray"`
+func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
+	if row.Error != nil {
+		return generated.Transaction{}, row.Error
+	}
+
+	var stxn types.SignedTxnInBlock
+	err := msgpack.Decode(row.TxnBytes, &stxn)
+	if err != nil {
+		return generated.Transaction{}, fmt.Errorf("error decoding transaction bytes: %s", err.Error())
+	}
+
+	var payment *generated.TransactionPayment
+	var keyreg *generated.TransactionKeyreg
+	var assetConfig *generated.TransactionAssetConfig
+	var assetFreeze *generated.TransactionAssetFreeze
+	var assetTransfer *generated.TransactionAssetTransfer
+
+	switch stxn.Txn.Type {
+	case sdk_types.PaymentTx:
+		p := generated.TransactionPayment{
+			Amount:           uint64(stxn.Txn.Amount),
+			// TODO: Compute this data from somewhere?
+			CloseAmount:      uint64Ptr(0),
+			CloseRemainderTo: strPtr(stxn.Txn.CloseRemainderTo.String()),
+			Receiver:         stxn.Txn.Receiver.String(),
+		}
+		payment = &p
+	case sdk_types.KeyRegistrationTx:
+		k := generated.TransactionKeyreg{
+			NonParticipation:          boolPtr(stxn.Txn.Nonparticipation),
+			SelectionParticipationKey: strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.SelectionPK[:])),
+			VoteFirstValid:            uint64Ptr(uint64(stxn.Txn.VoteFirst)),
+			VoteLastValid:             uint64Ptr(uint64(stxn.Txn.VoteLast)),
+			VoteKeyDilution:           uint64Ptr(stxn.Txn.VoteKeyDilution),
+			VoteParticipationKey:      strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.VotePK[:])),
+		}
+		keyreg = &k
+	case sdk_types.AssetConfigTx:
+		assetParams := generated.AssetParams{
+			Clawback:      strPtr(stxn.Txn.AssetParams.Clawback.String()),
+			Creator:       stxn.Txn.Sender.String(),
+			Decimals:      uint64(stxn.Txn.AssetParams.Decimals),
+			DefaultFrozen: boolPtr(stxn.Txn.AssetParams.DefaultFrozen),
+			Freeze:        strPtr(stxn.Txn.AssetParams.Freeze.String()),
+			Manager:       strPtr(stxn.Txn.AssetParams.Manager.String()),
+			MetadataHash:  strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.AssetParams.MetadataHash[:])),
+			Name:          strPtr(stxn.Txn.AssetParams.AssetName),
+			Reserve:       strPtr(stxn.Txn.AssetParams.Reserve.String()),
+			Total:         stxn.Txn.AssetParams.Total,
+			UnitName:      strPtr(stxn.Txn.AssetParams.UnitName),
+			Url:           strPtr(stxn.Txn.AssetParams.URL),
+		}
+		config := generated.TransactionAssetConfig{
+			AssetId: nil,
+			Params:  &assetParams,
+		}
+		assetConfig = &config
+	case sdk_types.AssetTransferTx:
+		t := generated.TransactionAssetTransfer{
+			Amount:   stxn.Txn.AssetAmount,
+			AssetId:  uint64(stxn.Txn.XferAsset),
+			CloseTo:  strPtr(stxn.Txn.AssetCloseTo.String()),
+			Receiver: stxn.Txn.AssetReceiver.String(),
+			Sender:   strPtr(stxn.Txn.AssetSender.String()),
+		}
+		assetTransfer = &t
+	case sdk_types.AssetFreezeTx:
+		f := generated.TransactionAssetFreeze{
+			Address:         stxn.Txn.FreezeAccount.String(),
+			AssetId:         uint64(stxn.Txn.FreezeAsset),
+			NewFreezeStatus: stxn.Txn.AssetFrozen,
+		}
+		assetFreeze = &f
+	}
+
+	sig := generated.TransactionSignature{
+		Logicsig: lsigToTransactionLsig(stxn.Lsig),
+		Multisig: msigToTransactionMsig(stxn.Msig),
+		Sig:      sigToTransactionSig(stxn.Sig),
+	}
+
+	txn := generated.Transaction{
+		AssetConfigTransaction:   assetConfig,
+		AssetFreezeTransaction:   assetFreeze,
+		AssetTransferTransaction: assetTransfer,
+		PaymentTransaction:       payment,
+		KeyregTransaction:        keyreg,
+		ClosingAmount:            uint64Ptr(uint64(stxn.ClosingAmount)),
+		ConfirmedRound:           uint64Ptr(row.Round),
+		Fee:                      uint64Ptr(uint64(stxn.Txn.Fee)),
+		FirstValid:               uint64Ptr(uint64(stxn.Txn.FirstValid)),
+		// TODO: Is there any point in including these?
+		GenesisHash:              nil, //strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.GenesisHash[:])),
+		GenesisId:                nil, //strPtr(stxn.Txn.GenesisID),
+		Group:                    strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.Group[:])),
+		LastValid:                uint64Ptr(uint64(stxn.Txn.LastValid)),
+		Lease:                    strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.Lease[:])),
+		Note:                     strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.Note[:])),
+		Sender:                   strPtr(stxn.Txn.Sender.String()),
+		ReceiverRewards:          uint64Ptr(uint64(stxn.ReceiverRewards)),
+		CloseRewards:             uint64Ptr(uint64(stxn.CloseRewards)),
+		SenderRewards:            uint64Ptr(uint64(stxn.SenderRewards)),
+		Type:                     strPtr(string(stxn.Txn.Type)),
+		Signature:                &sig,
+		CreatedAssetIndex:        nil,
+		Id:                       strPtr(crypto.TransactionIDString(stxn.Txn)),
+		PoolError:                nil,
+	}
+
+	return txn, nil
 }
 
-func (out *transactionsListReturnObject) writeTxnReturn(w http.ResponseWriter, format int) (err error) {
-	switch format {
-	case algodApiFormat:
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		retob := algodTransactionsListReturnObject{Transactions: out.Transactions}
-		enc := json.NewEncoder(w)
-		return enc.Encode(retob)
-	case jsonInternalFormat:
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		retob := rawTransactionsListReturnObject{Transactions: out.Stxns}
-		bytes := algojson.Encode(retob)
-		_, err = w.Write(bytes)
-		return
-	case msgpackFormat:
-		w.Header().Set("Content-Type", "application/msgpack")
-		w.WriteHeader(http.StatusOK)
-		retob := rawTransactionsListReturnObject{Transactions: out.Stxns}
-		bytes := msgpack.Encode(retob)
-		_, err = w.Write(bytes)
-		return
-	default:
-		panic("unknown format")
-	}
-}
-
-const txnQueryLimit = 1000
-
-func requestFilter(r *http.Request) (tf idb.TransactionFilter, err error) {
-	tf.Init()
-	tf.MinRound, err = formUint64(r, []string{"minround", "rl"}, 0)
-	if err != nil {
-		err = fmt.Errorf("bad minround, %v", err)
-		return
-	}
-	tf.MaxRound, err = formUint64(r, []string{"maxround", "rh"}, 0)
-	if err != nil {
-		err = fmt.Errorf("bad maxround, %v", err)
-		return
-	}
-	tf.BeforeTime, err = formTime(r, []string{"beforeTime", "bt", "toDate"})
-	if err != nil {
-		err = fmt.Errorf("bad beforeTime, %v", err)
-		return
-	}
-	tf.AfterTime, err = formTime(r, []string{"afterTime", "at", "fromDate"})
-	if err != nil {
-		err = fmt.Errorf("bad aftertime, %v", err)
-		return
-	}
-	tf.AssetId, err = formUint64(r, []string{"asset"}, 0)
-	if err != nil {
-		err = fmt.Errorf("bad asset, %v", err)
-		return
-	}
-	typeStr := formString(r, []string{"type"}, "")
-	// explicitly using the map lookup miss returning the zero value:
-	tf.TypeEnum = importer.TypeEnumMap[typeStr]
-	txidStr := formString(r, []string{"txid"}, "")
-	if len(txidStr) > 0 {
-		tf.Txid, err = base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(txidStr)
+func decodeB64String(str *string, field string, errorArr []string) ([]byte, []string) {
+	if str != nil {
+		value, err := b64decode(*str)
 		if err != nil {
-			err = fmt.Errorf("bad txid, %v", err)
-			return
+			return nil, append(errorArr, fmt.Sprintf("unable to decode '%s': %s", field, err.Error()))
+		}
+		return value, errorArr
+	}
+	// Pass through
+	return nil, errorArr
+}
+
+func decodeTimeString(str *string, field string, errorArr []string) (time.Time, []string) {
+	if str != nil {
+		value, err := parseTime(*str)
+		if err != nil {
+			return time.Time{}, append(errorArr, fmt.Sprintf("unable to decode '%s': %s", field, err.Error()))
+		}
+		value = value.In(time.FixedZone("UTC", 0))
+		return value, errorArr
+	}
+	// Pass through
+	return time.Time{}, errorArr
+}
+
+func decodeSigType(str *string, field string, errorArr []string) (string, []string) {
+	if str != nil {
+		sigTypeLc := strings.ToLower(*str)
+		if _, ok := sigTypeEnumMap[sigTypeLc]; ok {
+			return sigTypeLc, errorArr
+		} else {
+			return "", append(errorArr, fmt.Sprintf("invalid sigtype: '%s'", sigTypeLc))
 		}
 	}
-	tf.Round, err = formInt64(r, []string{"round", "r"}, -1)
-	if err != nil {
-		err = fmt.Errorf("bad round, %v", err)
-		return
+	// Pass through
+	return "", errorArr
+}
+
+func decodeType(str *string, field string, errorArr []string) (t int, err []string) {
+	if str != nil {
+		typeLc := strings.ToLower(*str)
+		if val, ok := importer.TypeEnumMap[typeLc]; ok {
+			return val, errorArr
+		} else {
+			return 0, append(errorArr, fmt.Sprintf("invalid transaction type: '%s'", typeLc))
+		}
 	}
-	tf.Offset, err = formInt64(r, []string{"offset", "o"}, -1)
-	if err != nil {
-		err = fmt.Errorf("bad offset, %v", err)
-		return
+	// Pass through
+	return 0, errorArr
+}
+
+
+func transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {
+	filter.MaxRound = uintOrDefault(params.MaxRound, 0)
+	filter.MinRound = uintOrDefault(params.MinRound, 0)
+	filter.AssetId = uintOrDefault(params.AssetId, 0)
+	filter.Limit = uintOrDefault(params.Limit, 0)
+	filter.Offset = params.Offset
+	filter.Round = params.Round
+
+	var errorArr = make([]string, 0)
+	filter.NotePrefix, errorArr = decodeB64String(params.Noteprefix, "note-prefix", errorArr)
+	filter.Txid, errorArr = decodeB64String(params.Txid, "txid", errorArr)
+
+	filter.AfterTime, errorArr = decodeTimeString(params.AfterTime, "after-time", errorArr)
+	filter.BeforeTime, errorArr = decodeTimeString(params.BeforeTime, "before-time", errorArr)
+
+	filter.SigType, errorArr = decodeSigType(params.Sigtype, "sigtype", errorArr)
+	filter.TypeEnum, errorArr = decodeType(params.Type, "type", errorArr)
+
+	// If there were any errorArr while setting up the TransactionFilter, return now.
+	if len(errorArr) > 0 {
+		err = errors.New(strings.Join(errorArr, ", "))
 	}
-	tf.SigType = formString(r, []string{"sig"}, "")
-	tf.NotePrefix, err = b64decode(formString(r, []string{"noteprefix"}, ""))
-	if err != nil {
-		err = fmt.Errorf("bad noteprefix, %v", err)
-		return
-	}
-	tf.MinAlgos, err = formUint64(r, []string{"minalgos"}, 0)
-	if err != nil {
-		err = fmt.Errorf("bad minalgos, %v", err)
-		return
-	}
-	tf.Limit, err = formUint64(r, []string{"limit", "l"}, txnQueryLimit)
-	if err != nil {
-		err = fmt.Errorf("bad limit, %v", err)
-		return
-	}
+
 	return
 }
 
-// TransactionsForAddress returns transactions for some account.
-// most-recent first, into the past.
-// ?limit=N  default 100? 10? 50? 20 kB?
-// ?minround=N
-// ?maxround=N
-// ?afterTime=timestamp string
-// ?beforeTime=timestamp string
-// ?format=json(default)/algod/msgp aka 1/2/3
-// TODO: ?type=pay/keyreg/acfg/axfr/afrz
-// Algod had ?fromDate ?toDate
-// Where “timestamp string” is either YYYY-MM-DD or RFC3339 = "2006-01-02T15:04:05Z07:00"
-//
-// return {"transactions":[]models.Transaction}
-// /v1/account/{address}/transactions TransactionsForAddress
-func TransactionsForAddress(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-	queryAddr := mux.Vars(r)["address"]
-	addr, err := atypes.DecodeAddress(queryAddr)
-	if err != nil {
-		log.Println("bad addr, ", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	tf, err := requestFilter(r)
-	if err != nil {
-		log.Println("bad tf, ", err)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-	tf.Address = addr[:]
-	formatStr := formString(r, []string{"format"}, "json")
-	format, ok := transactionFormatMap[formatStr]
-	if !ok {
-		log.Println("bad format: ", formatStr)
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	txns := IndexerDb.Transactions(r.Context(), tf)
-
-	result := transactionsListReturnObject{}
-	for txnRow := range txns {
-		var stxn types.SignedTxnInBlock
-		if txnRow.Error != nil {
-			log.Println("error fetching txns, ", txnRow.Error)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		err = msgpack.Decode(txnRow.TxnBytes, &stxn)
+func fetchTransactions(filter idb.TransactionFilter, ctx context.Context) ([]generated.Transaction, error) {
+	// Lookup the results
+	results := make([]generated.Transaction, 0)
+	txchan := IndexerDb.Transactions(ctx, filter)
+	for txrow := range txchan {
+		tx, err := txnRowToTransaction(txrow)
 		if err != nil {
-			log.Println("error decoding txnbytes, ", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
+			return nil, err
 		}
-		result.storeTransactionOutput(&stxn, txnRow.Round, txnRow.Intra, format)
+		results = append(results, tx)
 	}
-	err = result.writeTxnReturn(w, format)
+
+	return results, nil
+}
+
+// (GET /account/{account-id})
+func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId string, params generated.LookupAccountByIDParams) error {
+	addr, err := sdk_types.DecodeAddress(accountId)
 	if err != nil {
-		log.Println("transactions json out, ", err)
+		return badRequest(ctx, fmt.Sprintf("Unable to parse address: %v", err))
 	}
+
+	options := idb.AccountQueryOptions {
+			EqualToAddress:       addr[:],
+			IncludeAssetHoldings: true,
+			IncludeAssetParams:   true,
+			Limit:                1,
+	}
+
+	accounts, err := fetchAccounts(options, ctx.Request().Context())
+
+	if err != nil {
+		return badRequest(ctx, fmt.Sprintf("Failed while searching for account: %v", err))
+	}
+
+	if len(accounts) == 0 {
+		return badRequest(ctx, fmt.Sprintf("No accounts found for address: %s", accountId))
+	}
+
+	if len(accounts) > 1 {
+		return badRequest(ctx, fmt.Sprintf("Multiple accounts found for address, this shouldn't have happened: %s", accountId))
+	}
+
+	return ctx.JSON(http.StatusOK, generated.AccountResponse(accounts[0]))
 }
 
-func addrJson(addr atypes.Address) string {
-	if addr.IsZero() {
-		return ""
+// TODO: Missing filters:
+//  * GreaterThan and LessThan account balances.
+//  * Holds assetID
+// (GET /accounts)
+func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generated.SearchAccountsParams) error {
+	options := idb.AccountQueryOptions {
+		IncludeAssetHoldings: true,
+		IncludeAssetParams:   true,
+		Limit:                uintOrDefault(params.Limit, 0),
 	}
-	return addr.String()
+
+	accounts, err := fetchAccounts(options, ctx.Request().Context())
+
+	if err != nil {
+		return badRequest(ctx,  fmt.Sprintf("Failed while searching for account: %v", err))
+	}
+
+	round, err := IndexerDb.GetMaxRound()
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	response := generated.AccountsResponse{
+		Accounts: accounts,
+		Round:    round,
+		Total:    0,
+	}
+
+	return ctx.JSON(http.StatusOK, response)
 }
 
-func setApiTxn(out *models.Transaction, stxn *types.SignedTxnInBlock) {
-	out.Type = stxn.Txn.Type
-	out.TxID = crypto.TransactionIDString(stxn.Txn)
-	out.From = addrJson(stxn.Txn.Sender)
-	out.Fee = uint64(stxn.Txn.Fee)
-	out.FirstRound = uint64(stxn.Txn.FirstValid)
-	out.LastRound = uint64(stxn.Txn.LastValid)
-	out.Note = models.Bytes(stxn.Txn.Note)
-	// out.ConfirmedRound // TODO
-	// TODO: out.TransactionResults = &TransactionResults{CreatedAssetIndex: 0}
-	// TODO: add Group field
-	// TODO: add other txn types!
-	switch stxn.Txn.Type {
-	case atypes.PaymentTx:
-		out.Payment = &models.PaymentTransactionType{
-			To:               addrJson(stxn.Txn.Receiver),
-			CloseRemainderTo: addrJson(stxn.Txn.CloseRemainderTo),
-			CloseAmount:      uint64(stxn.ClosingAmount),
-			Amount:           uint64(stxn.Txn.Amount),
-			ToRewards:        uint64(stxn.ReceiverRewards),
-		}
-	case atypes.KeyRegistrationTx:
-		log.Println("WARNING TODO implement keyreg")
-	case atypes.AssetConfigTx:
-		log.Println("WARNING TODO implement acfg")
-	case atypes.AssetTransferTx:
-		log.Println("WARNING TODO implement axfer")
-	case atypes.AssetFreezeTx:
-		log.Println("WARNING TODO implement afrz")
-	}
-	out.FromRewards = uint64(stxn.SenderRewards)
-	out.GenesisID = stxn.Txn.GenesisID
-	out.GenesisHash = stxn.Txn.GenesisHash[:]
+// (GET /account/{account-id}/transactions)
+func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, accountId string, params generated.LookupAccountTransactionsParams) error {
+	return errors.New("Unimplemented")
+}
 
+// (GET /asset/{asset-id})
+func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetId uint64) error {
+	return errors.New("Unimplemented")
+}
+
+// (GET /asset/{asset-id}/balances)
+func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetId uint64, params generated.LookupAssetBalancesParams) error {
+	return errors.New("Unimplemented")
+}
+
+// (GET /asset/{asset-id}/transactions)
+func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetId uint64, params generated.LookupAssetTransactionsParams) error {
+	return errors.New("Unimplemented")
+}
+
+// (GET /assets)
+func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generated.SearchForAssetsParams) error {
+	return errors.New("Unimplemented")
+}
+
+// (GET /block/{round-number})
+func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
+	return errors.New("Unimplemented")
+}
+
+// (GET /blocktimes)
+func (si *ServerImplementation) LookupBlockTimes(ctx echo.Context) error {
+	return errors.New("Unimplemented")
+}
+
+// TODO:
+//  * Address - Sender/Receiver/CloseTo?
+//  * MinAlgos - MaxAlgos? Min/Max asset? Or Min/Max with implicit MinAlgo/MinAsset?
+// (GET /transactions)
+func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params generated.SearchForTransactionsParams) error {
+	filter, err := transactionParamsToTransactionFilter(params)
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	// Fetch the transactions
+	txns, err := fetchTransactions(filter, ctx.Request().Context())
+
+	if err != nil {
+		return badRequest(ctx, fmt.Sprintf("error while searching for transactions: %v", err))
+	}
+
+	round, err := IndexerDb.GetMaxRound()
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	response := generated.TransactionsResponse{
+		Round:        &round,
+		// TODO: Remove total
+		Total:        uint64Ptr(0),
+		Transactions: &txns,
+	}
+
+	return ctx.JSON(http.StatusOK, response)
 }

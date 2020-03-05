@@ -10,5 +10,7 @@ require (
 	github.com/labstack/echo/v4 v4.1.11
 	github.com/lib/pq v1.3.0
 	github.com/spf13/cobra v0.0.5
+	github.com/stretchr/testify v1.4.0
+	github.com/vektra/mockery v0.0.0-20181123154057-e78b021dcbb5 // indirect
 	golang.org/x/crypto v0.0.0-20200117160349-530e935923ad // indirect
 )
