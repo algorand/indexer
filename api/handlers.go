@@ -452,15 +452,27 @@ func requestFilter(r *http.Request) (tf idb.TransactionFilter, err error) {
 			return
 		}
 	}
-	tf.Round, err = formInt64(r, []string{"round", "r"}, -1)
+	var iround int64
+	iround, err = formInt64(r, []string{"round", "r"}, -1)
 	if err != nil {
 		err = fmt.Errorf("bad round, %v", err)
 		return
 	}
-	tf.Offset, err = formInt64(r, []string{"offset", "o"}, -1)
+	var xround uint64
+	if iround >= 0 {
+		xround = uint64(iround)
+		tf.Round = &xround
+	}
+	var ioffset int64
+	var xoffset uint64
+	ioffset, err = formInt64(r, []string{"offset", "o"}, -1)
 	if err != nil {
 		err = fmt.Errorf("bad offset, %v", err)
 		return
+	}
+	if ioffset >= 0 {
+		xoffset = uint64(ioffset)
+		tf.Offset = &xoffset
 	}
 	tf.SigType = formString(r, []string{"sig"}, "")
 	tf.NotePrefix, err = b64decode(formString(r, []string{"noteprefix"}, ""))

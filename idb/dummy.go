@@ -146,6 +146,13 @@ type IndexerDb interface {
 	Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow
 }
 
+func GetAccount(idb IndexerDb, addr []byte) (account models.Account, err error) {
+	for ar := range idb.GetAccounts(context.Background(), AccountQueryOptions{EqualToAddress: addr}) {
+		return ar.Account, ar.Error
+	}
+	return models.Account{}, nil
+}
+
 type TransactionFilter struct {
 	Address    []byte
 	MinRound   uint64
@@ -155,9 +162,9 @@ type TransactionFilter struct {
 	AssetId    uint64
 	TypeEnum   int // ["","pay","keyreg","acfg","axfer","afrz"]
 	Txid       []byte
-	Round      int64  // -1 for no filter
-	Offset     int64  // -1 for no filter
-	SigType    string // ["", "sig", "msig", "lsig"]
+	Round      *uint64 // nil for no filter
+	Offset     *uint64 // nil for no filter
+	SigType    string  // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
 	MinAlgos   uint64 // implictly filters on "pay" txns for Algos >= this
 
@@ -209,8 +216,6 @@ type AssetRow struct {
 }
 
 func (tf *TransactionFilter) Init() {
-	tf.Round = -1
-	tf.Offset = -1
 }
 
 type dummyFactory struct {
