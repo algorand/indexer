@@ -389,6 +389,9 @@ type Transaction struct {
 	// \[rr\] rewards applied to receiver account.
 	ReceiverRewards *uint64 `json:"receiver-rewards,omitempty"`
 
+	// Time when the block this transaction is in was confirmed.
+	RoundTime *uint64 `json:"round-time,omitempty"`
+
 	// \[snd\] Sender's address.
 	Sender *string `json:"sender,omitempty"`
 

@@ -316,6 +316,8 @@ func txnRowToTransaction(row idb.TxnRow, gen genesis) (generated.Transaction, er
 		KeyregTransaction:        keyreg,
 		ClosingAmount:            uint64Ptr(uint64(stxn.ClosingAmount)),
 		ConfirmedRound:           uint64Ptr(row.Round),
+		// TODO: Enable this after merging in Brian's latest
+		//RoundTime:                uint64Ptr(row.RoundTime),
 		Fee:                      uint64Ptr(uint64(stxn.Txn.Fee)),
 		FirstValid:               uint64Ptr(uint64(stxn.Txn.FirstValid)),
 		GenesisHash:              nil, // This is removed from the stxn
