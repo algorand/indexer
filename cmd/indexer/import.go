@@ -168,7 +168,9 @@ func updateAccounting(db idb.IndexerDb) (rounds int) {
 	txns := db.YieldTxns(context.Background(), state.AccountRound)
 	currentRound := uint64(0)
 	roundsSeen := 0
+	lastRoundsSeen := roundsSeen
 	for txn := range txns {
+		maybeFail(txn.Error, "updateAccounting txn fetch, %v", txn.Error)
 		if txn.Round != currentRound {
 			prevRound := currentRound
 			roundsSeen++
@@ -180,8 +182,10 @@ func updateAccounting(db idb.IndexerDb) (rounds int) {
 			now := time.Now()
 			dt := now.Sub(lastlog)
 			if dt > (5 * time.Second) {
-				fmt.Printf("accounting through %d\n", prevRound)
+				drounds := roundsSeen - lastRoundsSeen
+				fmt.Printf("accounting through %d, %.1f/s\n", prevRound, ((float64(drounds) * float64(time.Second)) / float64(dt)))
 				lastlog = now
+				lastRoundsSeen = roundsSeen
 			}
 		}
 		err = act.AddTransaction(txn.Round, txn.Intra, txn.TxnBytes)
