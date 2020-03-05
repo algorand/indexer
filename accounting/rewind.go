@@ -30,6 +30,9 @@ import (
 func assetUpdate(account *models.Account, assetid uint64, amount int64) {
 	av := account.Assets[assetid]
 	av.Amount = uint64(int64(av.Amount) + amount)
+	if account.Assets == nil {
+		account.Assets = make(map[uint64]models.AssetHolding, 1)
+	}
 	account.Assets[assetid] = av
 }
 
