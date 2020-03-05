@@ -216,9 +216,6 @@ type AssetRow struct {
 	Error   error
 }
 
-func (tf *TransactionFilter) Init() {
-}
-
 type dummyFactory struct {
 }
 
