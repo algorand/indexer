@@ -14,6 +14,13 @@ import (
 	"time"
 )
 
+func init() {
+	gen = genesis{
+		genesisHash: []byte("TestGenesisHash"),
+		genesisID:   "TestGenesisID",
+	}
+}
+
 func TestTransactionParamToTransactionFilter(t *testing.T) {
 	tests := []struct{
 		name string
@@ -41,22 +48,29 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		},
 		{
 			"Base64 field",
-			generated.SearchForTransactionsParams{Noteprefix:strPtr("U29tZURhdGE=")},
+			generated.SearchForTransactionsParams{Noteprefix: bytePtr([]byte("SomeData"))},
 			idb.TransactionFilter{NotePrefix: []byte("SomeData")},
 			nil,
 		},
 		{
 			"Enum fields",
-			generated.SearchForTransactionsParams{Type: strPtr("pay"), Sigtype: strPtr("lsig")},
+			generated.SearchForTransactionsParams{TxType: strPtr("pay"), Sigtype: strPtr("lsig")},
 			idb.TransactionFilter{TypeEnum: 1, SigType: "lsig"},
 			nil,
 		},
 		{
 			"Date time fields",
-			generated.SearchForTransactionsParams{AfterTime:strPtr("2020-03-04T12:00:00Z")},
+			generated.SearchForTransactionsParams{AfterTime: timePtr(time.Date(2020, 3, 4, 12, 0, 0, 0, time.FixedZone("UTC", 0)))},
 			idb.TransactionFilter{AfterTime: time.Date(2020, 3, 4, 12, 0, 0, 0, time.FixedZone("UTC", 0))},
 			nil,
 		},
+		{
+			"Invalid Enum fields",
+			generated.SearchForTransactionsParams{TxType: strPtr("micro"), Sigtype: strPtr("handshake")},
+			idb.TransactionFilter{},
+			[]string{"invalid sigtype", "invalid transaction type"},
+		},
+		/*
 		{
 			"Invalid Base64 field",
 			generated.SearchForTransactionsParams{Noteprefix:strPtr("U29tZURhdGE{}{}{}=")},
@@ -64,17 +78,12 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 			[]string{ "illegal base64 data" },
 		},
 		{
-			"Invalid Enum fields",
-			generated.SearchForTransactionsParams{Type: strPtr("micro"), Sigtype: strPtr("handshake")},
-			idb.TransactionFilter{},
-			[]string{"invalid sigtype", "invalid transaction type"},
-		},
-		{
 			"Invalid Date time fields",
 			generated.SearchForTransactionsParams{AfterTime:strPtr("2020-03-04T12:00:00")},
 			idb.TransactionFilter{},
 			[]string{"unable to decode 'after-time'"},
 		},
+		*/
 	}
 
 	for _, test := range tests {
@@ -209,7 +218,7 @@ func TestFetchTransactions(t *testing.T) {
 				fmt.Printf("%s\n", str)
 			}
 			fmt.Println("-------------------")
-			*/
+			 */
 
 			// Verify the results
 			assert.Equal(t, len(test.response), len(results))

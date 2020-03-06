@@ -39,6 +39,35 @@ func uint64Ptr(x uint64) *uint64 {
 	return &x
 }
 
+func bytePtr(x []byte) *[]byte {
+	if len(x) == 0 {
+		return nil
+	}
+
+	// Don't return if it's all zero.
+	for _, v := range x {
+		if v != 0 {
+			return &x
+		}
+	}
+
+	return nil
+}
+
+func timePtr(x time.Time) *time.Time {
+	if x.IsZero() {
+		return nil
+	}
+	return &x
+}
+
+func addrPtr(x sdk_types.Address) *string {
+	if bytePtr(x[:]) == nil {
+		return nil
+	}
+	return strPtr(x.String())
+}
+
 func strPtr(x string) *string {
 	if len(x) == 0 {
 		return nil
@@ -55,12 +84,21 @@ type genesis struct {
 	genesisID string
 }
 
+// Cached genesis metadata
+var gen genesis
+
 func getGenesis(ctx context.Context) genesis {
 	// TODO: Use 'fetchBlock' helper to lookup these values
-	return genesis {
+	if gen.genesisHash != nil {
+		return gen
+	}
+
+	gen = genesis {
 		genesisHash: []byte("TODO"),
 		genesisID:   "TODO",
 	}
+
+	return gen
 }
 
 func assetHoldingToAssetHolding(id uint64, holding models.AssetHolding) generated.AssetHolding {
@@ -82,7 +120,7 @@ func assetParamsToAsset(id uint64, params models.AssetParams) generated.Asset {
 			DefaultFrozen: boolPtr(params.DefaultFrozen),
 			Freeze:        strPtr(params.FreezeAddr),
 			Manager:       strPtr(params.ManagerAddr),
-			MetadataHash:  strPtr(string(params.MetadataHash)),
+			MetadataHash:  bytePtr(params.MetadataHash),
 			Name:          strPtr(params.AssetName),
 			Reserve:       strPtr(params.ReserveAddr),
 			Total:         params.Total,
@@ -95,11 +133,11 @@ func assetParamsToAsset(id uint64, params models.AssetParams) generated.Asset {
 func accountToAccount(account models.Account) generated.Account {
 	// TODO: This data is missing.
 	var participation = generated.AccountParticipation{
-			SelectionParticipationKey: strPtr(""),
+			SelectionParticipationKey: nil,
 			VoteFirstValid:            uint64Ptr(0),
 			VoteLastValid:             uint64Ptr(0),
 			VoteKeyDilution:           uint64Ptr(0),
-			VoteParticipationKey:      strPtr(""),
+			VoteParticipationKey:      nil,
 	}
 
 	var assets = make([]generated.AssetHolding, 0)
@@ -178,11 +216,12 @@ func isBlank(lsig sdk_types.LogicSig) bool {
 	return true
 }
 
-func sigToTransactionSig(sig sdk_types.Signature) *string {
+func sigToTransactionSig(sig sdk_types.Signature) *[]byte {
 	if sig == (sdk_types.Signature{}) {
 		return nil
 	}
-	tsig := base64.StdEncoding.EncodeToString(sig[:])
+
+	tsig := sig[:]
 	return &tsig
 }
 
@@ -194,7 +233,7 @@ func msigToTransactionMsig(msig sdk_types.MultisigSig) *generated.TransactionSig
 	subsigs := make([]generated.TransactionSignatureMultisigSubsignature, 0)
 	for _, subsig := range msig.Subsigs {
 		subsigs = append(subsigs, generated.TransactionSignatureMultisigSubsignature{
-			PublicKey: strPtr(base64.StdEncoding.EncodeToString(subsig.Key[:])),
+			PublicKey: bytePtr(subsig.Key[:]),
 			Signature: sigToTransactionSig(subsig.Sig),
 		})
 	}
@@ -219,7 +258,7 @@ func lsigToTransactionLsig(lsig sdk_types.LogicSig) *generated.TransactionSignat
 
 	ret := generated.TransactionSignatureLogicsig{
 		Args:              &args,
-		Logic:             strPtr(base64.StdEncoding.EncodeToString(lsig.Logic)),
+		Logic:             lsig.Logic,
 		MultisigSignature: msigToTransactionMsig(lsig.Msig),
 		Signature:         sigToTransactionSig(lsig.Sig),
 	}
@@ -250,31 +289,31 @@ func txnRowToTransaction(row idb.TxnRow, gen genesis) (generated.Transaction, er
 			Amount:           uint64(stxn.Txn.Amount),
 			// TODO: Compute this data from somewhere?
 			CloseAmount:      uint64Ptr(0),
-			CloseRemainderTo: strPtr(stxn.Txn.CloseRemainderTo.String()),
+			CloseRemainderTo: addrPtr(stxn.Txn.CloseRemainderTo),
 			Receiver:         stxn.Txn.Receiver.String(),
 		}
 		payment = &p
 	case sdk_types.KeyRegistrationTx:
 		k := generated.TransactionKeyreg{
 			NonParticipation:          boolPtr(stxn.Txn.Nonparticipation),
-			SelectionParticipationKey: strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.SelectionPK[:])),
+			SelectionParticipationKey: bytePtr(stxn.Txn.SelectionPK[:]),
 			VoteFirstValid:            uint64Ptr(uint64(stxn.Txn.VoteFirst)),
 			VoteLastValid:             uint64Ptr(uint64(stxn.Txn.VoteLast)),
 			VoteKeyDilution:           uint64Ptr(stxn.Txn.VoteKeyDilution),
-			VoteParticipationKey:      strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.VotePK[:])),
+			VoteParticipationKey:      bytePtr(stxn.Txn.VotePK[:]),
 		}
 		keyreg = &k
 	case sdk_types.AssetConfigTx:
 		assetParams := generated.AssetParams{
-			Clawback:      strPtr(stxn.Txn.AssetParams.Clawback.String()),
+			Clawback:      addrPtr(stxn.Txn.AssetParams.Clawback),
 			Creator:       stxn.Txn.Sender.String(),
 			Decimals:      uint64(stxn.Txn.AssetParams.Decimals),
 			DefaultFrozen: boolPtr(stxn.Txn.AssetParams.DefaultFrozen),
-			Freeze:        strPtr(stxn.Txn.AssetParams.Freeze.String()),
-			Manager:       strPtr(stxn.Txn.AssetParams.Manager.String()),
-			MetadataHash:  strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.AssetParams.MetadataHash[:])),
+			Freeze:        addrPtr(stxn.Txn.AssetParams.Freeze),
+			Manager:       addrPtr(stxn.Txn.AssetParams.Manager),
+			MetadataHash:  bytePtr(stxn.Txn.AssetParams.MetadataHash[:]),
 			Name:          strPtr(stxn.Txn.AssetParams.AssetName),
-			Reserve:       strPtr(stxn.Txn.AssetParams.Reserve.String()),
+			Reserve:       addrPtr(stxn.Txn.AssetParams.Reserve),
 			Total:         stxn.Txn.AssetParams.Total,
 			UnitName:      strPtr(stxn.Txn.AssetParams.UnitName),
 			Url:           strPtr(stxn.Txn.AssetParams.URL),
@@ -288,9 +327,9 @@ func txnRowToTransaction(row idb.TxnRow, gen genesis) (generated.Transaction, er
 		t := generated.TransactionAssetTransfer{
 			Amount:   stxn.Txn.AssetAmount,
 			AssetId:  uint64(stxn.Txn.XferAsset),
-			CloseTo:  strPtr(stxn.Txn.AssetCloseTo.String()),
+			CloseTo:  addrPtr(stxn.Txn.AssetCloseTo),
 			Receiver: stxn.Txn.AssetReceiver.String(),
-			Sender:   strPtr(stxn.Txn.AssetSender.String()),
+			Sender:   addrPtr(stxn.Txn.AssetSender),
 		}
 		assetTransfer = &t
 	case sdk_types.AssetFreezeTx:
@@ -318,31 +357,32 @@ func txnRowToTransaction(row idb.TxnRow, gen genesis) (generated.Transaction, er
 		ConfirmedRound:           uint64Ptr(row.Round),
 		// TODO: Enable this after merging in Brian's latest
 		//RoundTime:                uint64Ptr(row.RoundTime),
-		Fee:                      uint64Ptr(uint64(stxn.Txn.Fee)),
-		FirstValid:               uint64Ptr(uint64(stxn.Txn.FirstValid)),
+		Fee:                      uint64(stxn.Txn.Fee),
+		FirstValid:               uint64(stxn.Txn.FirstValid),
 		GenesisHash:              nil, // This is removed from the stxn
 		GenesisId:                nil, // This is removed from the stxn
-		Group:                    strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.Group[:])),
-		LastValid:                uint64Ptr(uint64(stxn.Txn.LastValid)),
-		Lease:                    strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.Lease[:])),
-		Note:                     strPtr(base64.StdEncoding.EncodeToString(stxn.Txn.Note[:])),
-		Sender:                   strPtr(stxn.Txn.Sender.String()),
+		Group:                    bytePtr(stxn.Txn.Group[:]),
+		LastValid:                uint64(stxn.Txn.LastValid),
+		Lease:                    bytePtr(stxn.Txn.Lease[:]),
+		Note:                     bytePtr(stxn.Txn.Note[:]),
+		Sender:                   stxn.Txn.Sender.String(),
 		ReceiverRewards:          uint64Ptr(uint64(stxn.ReceiverRewards)),
 		CloseRewards:             uint64Ptr(uint64(stxn.CloseRewards)),
 		SenderRewards:            uint64Ptr(uint64(stxn.SenderRewards)),
-		Type:                     strPtr(string(stxn.Txn.Type)),
-		Signature:                &sig,
+		Type:                     string(stxn.Txn.Type),
+		Signature:                sig,
 		CreatedAssetIndex:        nil, // TODO: What is this?
-		Id:                       strPtr(crypto.TransactionIDString(stxn.Txn)),
+		// TODO: This needs to come from the DB because of the GenesisHash / GenesisID
+		Id:                       crypto.TransactionID(stxn.Txn),
 		PoolError:                nil, // TODO: What is this?
 	}
 
 	// Add in the genesis fields
 	if stxn.HasGenesisHash {
-		txn.GenesisHash = strPtr(base64.StdEncoding.EncodeToString(gen.genesisHash))
+		txn.GenesisHash = bytePtr(gen.genesisHash)
 	}
 	if stxn.HasGenesisID {
-		txn.GenesisHash = strPtr(gen.genesisID)
+		txn.GenesisId = strPtr(gen.genesisID)
 	}
 
 	return txn, nil
@@ -412,16 +452,16 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.Round = params.Round
 
 	// Byte array
-	filter.NotePrefix, errorArr = decodeB64String(params.Noteprefix, "note-prefix", errorArr)
-	filter.Txid, errorArr = decodeB64String(params.Txid, "txid", errorArr)
+	filter.NotePrefix = *params.Noteprefix
+	filter.Txid = *params.Txid
 
 	// Time
-	filter.AfterTime, errorArr = decodeTimeString(params.AfterTime, "after-time", errorArr)
-	filter.BeforeTime, errorArr = decodeTimeString(params.BeforeTime, "before-time", errorArr)
+	filter.AfterTime = *params.AfterTime
+	filter.BeforeTime = *params.BeforeTime
 
 	// Enum
 	filter.SigType, errorArr = decodeSigType(params.Sigtype, "sigtype", errorArr)
-	filter.TypeEnum, errorArr = decodeType(params.Type, "type", errorArr)
+	filter.TypeEnum, errorArr = decodeType(params.TxType, "type", errorArr)
 
 	// If there were any errorArr while setting up the TransactionFilter, return now.
 	if len(errorArr) > 0 {
