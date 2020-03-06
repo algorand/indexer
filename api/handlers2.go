@@ -388,6 +388,7 @@ func txnRowToTransaction(row idb.TxnRow, gen genesis) (generated.Transaction, er
 	return txn, nil
 }
 
+// TODO: This might be deprecated now.
 func decodeB64String(str *string, field string, errorArr []string) ([]byte, []string) {
 	if str != nil {
 		value, err := b64decode(*str)
@@ -400,6 +401,7 @@ func decodeB64String(str *string, field string, errorArr []string) ([]byte, []st
 	return nil, errorArr
 }
 
+// TODO: This might be deprecated now.
 func decodeTimeString(str *string, field string, errorArr []string) (time.Time, []string) {
 	if str != nil {
 		value, err := parseTime(*str)
