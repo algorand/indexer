@@ -654,9 +654,6 @@ type AccountsResponse struct {
 
 	// Round at which the results are valid. This should be the most recent round, so that you can tell how old a cached result is. This field doesn't take into account any max round filter, you'll need to remember that.
 	Round uint64 `json:"round"`
-
-	// Total number of results, used to verify whether or not the transaction array is truncated.
-	Total uint64 `json:"total"`
 }
 
 // AssetBalancesResponse defines model for AssetBalancesResponse.
@@ -667,9 +664,6 @@ type AssetBalancesResponse struct {
 
 	// Round at which the results are valid.
 	Round uint64 `json:"round"`
-
-	// The total number of results from thsi query, used to determine whether or not the balances array is truncated.
-	Total uint64 `json:"total"`
 }
 
 // AssetResponse defines model for AssetResponse.
@@ -681,9 +675,6 @@ type AssetsResponse struct {
 
 	// Round at which the results are valid. This should be the most recent round, so that you can tell how old a cached result is. This field doesn't take into account any max round filter, you'll need to remember that.
 	Round uint64 `json:"round"`
-
-	// Total number of results, used to verify whether or not the transaction array is truncated.
-	Total uint64 `json:"total"`
 }
 
 // BlockResponse defines model for BlockResponse.
@@ -710,8 +701,6 @@ type TransactionsResponse struct {
 	// Round at which the results are valid. This should be the most recent round, so that you can tell how old a cached result is. This field doesn't take into account any max round filter, you'll need to remember that.
 	Round *uint64 `json:"round,omitempty"`
 
-	// Total number of results, used to verify whether or not the transaction array is truncated.
-	Total        *uint64        `json:"total,omitempty"`
 	Transactions *[]Transaction `json:"transactions,omitempty"`
 }
 

@@ -544,7 +544,6 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 	response := generated.AccountsResponse{
 		Accounts: accounts,
 		Round:    round,
-		Total:    0,
 	}
 
 	return ctx.JSON(http.StatusOK, response)
@@ -616,8 +615,6 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 
 	response := generated.TransactionsResponse{
 		Round:        &round,
-		// TODO: Remove total
-		Total:        uint64Ptr(0),
 		Transactions: &txns,
 	}
 
