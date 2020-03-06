@@ -551,13 +551,13 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 
 // (GET /account/{account-id}/transactions)
 func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, accountId string, params generated.LookupAccountTransactionsParams) error {
-	// TODO
+	// TODO: convert to /transactions call
 	return errors.New("Unimplemented")
 }
 
 // (GET /asset/{asset-id})
 func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetId uint64) error {
-	// TODO
+	// TODO: convert to /assets call
 	return errors.New("Unimplemented")
 }
 
@@ -587,7 +587,23 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 
 // (GET /blocktimes)
 func (si *ServerImplementation) LookupBlockTimes(ctx echo.Context) error {
-	return errors.New("Unimplemented")
+	// TODO: Are we keeping this?
+	//return errors.New("Unimplemented")
+	rounds := []struct {
+		Round *uint64 `json:"round,omitempty"`
+		Timestamp *uint64 `json:"timestamp,omitempty"`
+	}{
+		{
+			Round: uint64Ptr(1),
+			Timestamp: uint64Ptr(12345),
+		},
+	}
+
+	response := generated.BlockTimesResponse{
+		Rounds: &rounds,
+	}
+
+	return ctx.JSON(http.StatusOK, response)
 }
 
 // TODO:
