@@ -532,7 +532,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId st
 // TODO: "at round" is missing from these params, maybe it's fine to leave it out here.
 // (GET /accounts)
 func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generated.SearchAccountsParams) error {
-	options := idb.AccountQueryOptions{
+	options := idb.AccountQueryOptions {
 		AlgosGreaterThan:     uintOrDefault(params.AlgosGreaterThan, 0),
 		AlgosLessThan:        uintOrDefault(params.AlgosLessThan, 0),
 		IncludeAssetHoldings: true,
