@@ -453,7 +453,7 @@ type TransactionAssetTransfer struct {
 	// \[arcv\] Recipient address of the transfer.
 	Receiver string `json:"receiver"`
 
-	// \[asnd\] Used for clawback transactions, this field is the account sending funds. If this is not a zero value, the real transaction sender must be the Clawback address from the AssetParams.
+	// \[asnd\] The effective sender during a clawback transactions. If this is not a zero value, the real transaction sender must be the Clawback address from the AssetParams.
 	Sender *string `json:"sender,omitempty"`
 }
 
@@ -606,8 +606,17 @@ type VersionBuild struct {
 // AccountId defines model for account-id.
 type AccountId string
 
+// AddressGreaterThan defines model for address-greater-than.
+type AddressGreaterThan string
+
 // AfterTime defines model for after-time.
 type AfterTime time.Time
+
+// AlgosGreaterThan defines model for algos-greater-than.
+type AlgosGreaterThan uint64
+
+// AlgosLessThan defines model for algos-less-than.
+type AlgosLessThan uint64
 
 // AssetId defines model for asset-id.
 type AssetId uint64
@@ -615,14 +624,14 @@ type AssetId uint64
 // BeforeTime defines model for before-time.
 type BeforeTime time.Time
 
-// Gt defines model for gt.
-type Gt uint64
+// CurrencyGreaterThan defines model for currency-greater-than.
+type CurrencyGreaterThan uint64
+
+// CurrencyLessThan defines model for currency-less-than.
+type CurrencyLessThan uint64
 
 // Limit defines model for limit.
 type Limit uint64
-
-// Lt defines model for lt.
-type Lt uint64
 
 // MaxRound defines model for max-round.
 type MaxRound uint64
@@ -699,8 +708,7 @@ type Error struct {
 type TransactionsResponse struct {
 
 	// Round at which the results are valid. This should be the most recent round, so that you can tell how old a cached result is. This field doesn't take into account any max round filter, you'll need to remember that.
-	Round *uint64 `json:"round,omitempty"`
-
+	Round        *uint64        `json:"round,omitempty"`
 	Transactions *[]Transaction `json:"transactions,omitempty"`
 }
 
@@ -734,10 +742,10 @@ type LookupAccountTransactionsParams struct {
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// Results should have an amount greater than this value.
-	Gt *uint64 `json:"gt,omitempty"`
+	AlgosGreaterThan *uint64 `json:"algos-greater-than,omitempty"`
 
 	// Results should have an amount less than this value.
-	Lt *uint64 `json:"lt,omitempty"`
+	AlgosLessThan *uint64 `json:"algos-less-than,omitempty"`
 }
 
 // SearchAccountsParams defines parameters for SearchAccounts.
@@ -750,14 +758,14 @@ type SearchAccountsParams struct {
 	// Maximum number of results to return.
 	Limit *uint64 `json:"limit,omitempty"`
 
-	// Used in conjunction with limit to page through results.
-	Offset *uint64 `json:"offset,omitempty"`
-
 	// Results should have an amount greater than this value.
-	Gt *uint64 `json:"gt,omitempty"`
+	AlgosGreaterThan *uint64 `json:"algos-greater-than,omitempty"`
 
 	// Results should have an amount less than this value.
-	Lt *uint64 `json:"lt,omitempty"`
+	AlgosLessThan *uint64 `json:"algos-less-than,omitempty"`
+
+	// Only include results with an address greater than this.
+	AddressGreaterThan *string `json:"address-greater-than,omitempty"`
 }
 
 // LookupAssetBalancesParams defines parameters for LookupAssetBalances.
@@ -773,10 +781,10 @@ type LookupAssetBalancesParams struct {
 	Round *uint64 `json:"round,omitempty"`
 
 	// Results should have an amount greater than this value.
-	Gt *uint64 `json:"gt,omitempty"`
+	CurrencyGreaterThan *uint64 `json:"currency-greater-than,omitempty"`
 
 	// Results should have an amount less than this value.
-	Lt *uint64 `json:"lt,omitempty"`
+	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
 }
 
 // LookupAssetTransactionsParams defines parameters for LookupAssetTransactions.
@@ -801,17 +809,17 @@ type LookupAssetTransactionsParams struct {
 	Offset *uint64 `json:"offset,omitempty"`
 
 	// Results should have an amount greater than this value.
-	Gt *uint64 `json:"gt,omitempty"`
+	CurrencyGreaterThan *uint64 `json:"currency-greater-than,omitempty"`
 
 	// Results should have an amount less than this value.
-	Lt *uint64 `json:"lt,omitempty"`
+	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
 }
 
 // SearchForAssetsParams defines parameters for SearchForAssets.
 type SearchForAssetsParams struct {
 
-	// Results should have an amount greater than this value.
-	Gt *uint64 `json:"gt,omitempty"`
+	// For paging results, use this field to get assets greater than the last value of the previous results.
+	AssetGreaterThan *uint64 `json:"asset-greater-than,omitempty"`
 
 	// Maximum number of results to return.
 	Limit *uint64 `json:"limit,omitempty"`
@@ -873,10 +881,10 @@ type SearchForTransactionsParams struct {
 	AfterTime *time.Time `json:"after-time,omitempty"`
 
 	// Results should have an amount greater than this value.
-	Gt *uint64 `json:"gt,omitempty"`
+	AlgosGreaterThan *uint64 `json:"algos-greater-than,omitempty"`
 
 	// Results should have an amount less than this value.
-	Lt *uint64 `json:"lt,omitempty"`
+	AlgosLessThan *uint64 `json:"algos-less-than,omitempty"`
 
 	// SigType filters just results using the specified type of signature:
 	// * sig - Standard
