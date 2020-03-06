@@ -108,10 +108,11 @@ type IndexerFactory interface {
 }
 
 type TxnRow struct {
-	Round    uint64
-	Intra    int
-	TxnBytes []byte
-	Error    error
+	Round     uint64
+	RoundTime time.Time
+	Intra     int
+	TxnBytes  []byte
+	Error     error
 }
 
 // TODO: sqlite3 impl
@@ -142,9 +143,15 @@ type IndexerDb interface {
 	GetBlock(round uint64) (block types.Block, err error)
 
 	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
-	//GetAccounts(ctx context.Context, greaterThan types.Address, limit int) (accounts []models.Account, err error)
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
 	Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow
+}
+
+func GetAccount(idb IndexerDb, addr []byte) (account models.Account, err error) {
+	for ar := range idb.GetAccounts(context.Background(), AccountQueryOptions{EqualToAddress: addr}) {
+		return ar.Account, ar.Error
+	}
+	return models.Account{}, nil
 }
 
 type TransactionFilter struct {
@@ -156,9 +163,9 @@ type TransactionFilter struct {
 	AssetId    uint64
 	TypeEnum   int // ["","pay","keyreg","acfg","axfer","afrz"]
 	Txid       []byte
-	Round      *uint64  // nil for no filter
-	Offset     *uint64  // nil for no filter
-	SigType    string // ["", "sig", "msig", "lsig"]
+	Round      *uint64 // nil for no filter
+	Offset     *uint64 // nil for no filter
+	SigType    string  // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
 	MinAlgos   uint64 // implictly filters on "pay" txns for Algos >= this
 
@@ -168,6 +175,11 @@ type TransactionFilter struct {
 type AccountQueryOptions struct {
 	GreaterThanAddress []byte // for paging results
 	EqualToAddress     []byte // return exactly this one account
+
+	// Filter on accounts with current balance greater than x
+	AlgosGreaterThan uint64
+	// Filter on accounts with current balance less than x.
+	AlgosLessThan uint64
 
 	IncludeAssetHoldings bool
 	IncludeAssetParams   bool
@@ -237,7 +249,6 @@ type AcfgUpdate struct {
 }
 
 type AssetUpdate struct {
-	Addr          types.Address
 	AssetId       uint64
 	Delta         int64
 	DefaultFrozen bool
@@ -256,12 +267,19 @@ type AssetClose struct {
 	DefaultFrozen bool
 }
 
+type TxnAssetUpdate struct {
+	Round   uint64
+	Offset  int
+	AssetId uint64
+}
+
 type RoundUpdates struct {
-	AlgoUpdates   map[[32]byte]int64
-	AccountTypes  map[[32]byte]string
-	AcfgUpdates   []AcfgUpdate
-	AssetUpdates  []AssetUpdate
-	FreezeUpdates []FreezeUpdate
-	AssetCloses   []AssetClose
-	AssetDestroys []uint64
+	AlgoUpdates     map[[32]byte]int64
+	AccountTypes    map[[32]byte]string
+	AcfgUpdates     []AcfgUpdate
+	TxnAssetUpdates []TxnAssetUpdate
+	AssetUpdates    map[[32]byte][]AssetUpdate
+	FreezeUpdates   []FreezeUpdate
+	AssetCloses     []AssetClose
+	AssetDestroys   []uint64
 }

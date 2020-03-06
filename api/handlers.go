@@ -234,9 +234,10 @@ func accountListReturn(w http.ResponseWriter, r *http.Request, af idb.AccountQue
 	var err error
 	accountchan := IndexerDb.GetAccounts(r.Context(), af)
 	accounts := make([]models.Account, 0, 100)
+	count := 0
 	for actrow := range accountchan {
 		if actrow.Error != nil {
-			log.Println("GetAccounts ", actrow.Error)
+			log.Printf("GetAccounts row %d, %v", count, actrow.Error)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -249,6 +250,7 @@ func accountListReturn(w http.ResponseWriter, r *http.Request, af idb.AccountQue
 			}
 		}
 		accounts = append(accounts, actrow.Account)
+		count++
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
@@ -451,24 +453,27 @@ func requestFilter(r *http.Request) (tf idb.TransactionFilter, err error) {
 			return
 		}
 	}
-	round, err := formInt64(r, []string{"round", "r"}, -1)
+	var iround int64
+	iround, err = formInt64(r, []string{"round", "r"}, -1)
 	if err != nil {
 		err = fmt.Errorf("bad round, %v", err)
 		return
 	}
-	if round != -1 {
-		roundU64 := uint64(round)
-		tf.Round = &roundU64
+	var xround uint64
+	if iround >= 0 {
+		xround = uint64(iround)
+		tf.Round = &xround
 	}
-
-	offset, err := formInt64(r, []string{"offset", "o"}, -1)
+	var ioffset int64
+	var xoffset uint64
+	ioffset, err = formInt64(r, []string{"offset", "o"}, -1)
 	if err != nil {
 		err = fmt.Errorf("bad offset, %v", err)
 		return
 	}
-	if offset != -1 {
-		offsetU64 := uint64(offset)
-		tf.Round = &offsetU64
+	if ioffset >= 0 {
+		xoffset = uint64(ioffset)
+		tf.Offset = &xoffset
 	}
 	tf.SigType = formString(r, []string{"sig"}, "")
 	tf.NotePrefix, err = b64decode(formString(r, []string{"noteprefix"}, ""))

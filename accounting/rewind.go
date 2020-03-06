@@ -30,6 +30,9 @@ import (
 func assetUpdate(account *models.Account, assetid uint64, amount int64) {
 	av := account.Assets[assetid]
 	av.Amount = uint64(int64(av.Amount) + amount)
+	if account.Assets == nil {
+		account.Assets = make(map[uint64]models.AssetHolding, 1)
+	}
 	account.Assets[assetid] = av
 }
 
@@ -140,11 +143,17 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			if err != nil {
 				return
 			}
-			rewardsUnits := account.AmountWithoutPendingRewards / proto.RewardUnit
+			rewardsUnits := acct.AmountWithoutPendingRewards / proto.RewardUnit
 			rewardsDelta := blockheader.RewardsLevel - prevRewardsBase
-			account.PendingRewards = rewardsDelta * rewardsUnits
-			account.Amount = account.PendingRewards + account.AmountWithoutPendingRewards
+			acct.PendingRewards = rewardsDelta * rewardsUnits
+			acct.Amount = acct.PendingRewards + acct.AmountWithoutPendingRewards
+			acct.Round = round
+			return
 		}
+
+		// There were no prior transactions, it must have been empty before, zero out things
+		acct.PendingRewards = 0
+		acct.Amount = acct.AmountWithoutPendingRewards
 	}
 
 	acct.Round = round
