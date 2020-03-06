@@ -18,37 +18,61 @@ package api
 
 import (
 	"context"
+	"github.com/algorand/indexer/api/generated"
+	"github.com/algorand/indexer/idb"
+	"github.com/gorilla/mux"
+	"github.com/labstack/echo/v4"
 	"log"
 	"net"
 	"net/http"
 	"time"
-
-	"github.com/gorilla/mux"
-
-	"github.com/algorand/indexer/idb"
 )
 
 // IndexerDb should be set from main()
 var IndexerDb idb.IndexerDb
 
+var useGenerated = true
+
 func Serve(ctx context.Context, serveAddr string) {
-	if ctx == nil {
-		ctx = context.Background()
+	if useGenerated {
+		e := echo.New()
+		api := ServerImplementation{}
+		generated.RegisterHandlers(e, &api)
+
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		getctx := func(l net.Listener) context.Context {
+			return ctx
+		}
+		s := &http.Server{
+			Addr:           serveAddr,
+			ReadTimeout:    10 * time.Second,
+			WriteTimeout:   10 * time.Second,
+			MaxHeaderBytes: 1 << 20,
+			BaseContext:    getctx,
+		}
+
+		log.Fatal(e.StartServer(s))
+	} else {
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		getctx := func(l net.Listener) context.Context {
+			return ctx
+		}
+		r := mux.NewRouter()
+		r.HandleFunc("/v1/accounts", ListAccounts)
+		r.HandleFunc("/v1/account/{address}", GetAccount)
+		r.HandleFunc("/v1/account/{address}/transactions", TransactionsForAddress)
+		s := &http.Server{
+			Addr:           serveAddr,
+			Handler:        r,
+			ReadTimeout:    10 * time.Second,
+			WriteTimeout:   10 * time.Second,
+			MaxHeaderBytes: 1 << 20,
+			BaseContext:    getctx,
+		}
+		log.Fatal(s.ListenAndServe())
 	}
-	getctx := func(l net.Listener) context.Context {
-		return ctx
-	}
-	r := mux.NewRouter()
-	r.HandleFunc("/v1/accounts", ListAccounts)
-	r.HandleFunc("/v1/account/{address}", GetAccount)
-	r.HandleFunc("/v1/account/{address}/transactions", TransactionsForAddress)
-	s := &http.Server{
-		Addr:           serveAddr,
-		Handler:        r,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-		BaseContext:    getctx,
-	}
-	log.Fatal(s.ListenAndServe())
 }
