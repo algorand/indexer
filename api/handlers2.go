@@ -454,12 +454,20 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.Round = params.Round
 
 	// Byte array
-	filter.NotePrefix = *params.Noteprefix
-	filter.Txid = *params.Txid
+	if params.Noteprefix != nil {
+		filter.NotePrefix = *params.Noteprefix
+	}
+	if params.Txid != nil {
+		filter.Txid = *params.Txid
+	}
 
 	// Time
-	filter.AfterTime = *params.AfterTime
-	filter.BeforeTime = *params.BeforeTime
+	if params.AfterTime != nil {
+		filter.AfterTime = *params.AfterTime
+	}
+	if params.BeforeTime != nil {
+		filter.BeforeTime = *params.BeforeTime
+	}
 
 	// Enum
 	filter.SigType, errorArr = decodeSigType(params.Sigtype, "sigtype", errorArr)
@@ -521,15 +529,24 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId st
 }
 
 // TODO: Missing filters:
-//  * GreaterThan and LessThan account balances.
 //  * Holds assetID
 // TODO: "at round" is missing from these params, maybe it's fine to leave it out here.
 // (GET /accounts)
 func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generated.SearchAccountsParams) error {
 	options := idb.AccountQueryOptions {
+		AlgosGreaterThan:     uintOrDefault(params.AlgosGreaterThan, 0),
+		AlgosLessThan:        uintOrDefault(params.AlgosLessThan, 0),
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
 		Limit:                uintOrDefault(params.Limit, 0),
+	}
+
+	if params.AddressGreaterThan != nil {
+		addr, err := sdk_types.DecodeAddress(*params.AddressGreaterThan)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, "Unable to parse greater-than-address.")
+		}
+		options.GreaterThanAddress = addr[:]
 	}
 
 	accounts, err := fetchAccounts(options, nil, ctx.Request().Context())
