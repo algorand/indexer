@@ -68,6 +68,8 @@ func parseTime(t string) (res time.Time, err error) {
 	return
 }
 
+// TODO: Remove unused code below
+
 func formUint64(r *http.Request, keySynonyms []string, defaultValue uint64) (value uint64, err error) {
 	value = defaultValue
 	for _, key := range keySynonyms {
@@ -310,7 +312,7 @@ const (
 	msgpackFormat      = 3
 )
 
-// collapse format=str to int for switch
+// collapse format=strPtr to int for switch
 var transactionFormatMapList = []stringInt{
 	{"json", jsonInternalFormat},
 	{"algod", algodApiFormat},
