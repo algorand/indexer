@@ -165,7 +165,7 @@ func blankLsig(lsig atypes.LogicSig) bool {
 }
 
 func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnbytes []byte) (err error) {
-	var stxn types.SignedTxnInBlock
+	var stxn types.SignedTxnWithAD
 	err = msgpack.Decode(txnbytes, &stxn)
 	if err != nil {
 		return fmt.Errorf("txn r=%d i=%d failed decode, %v\n", round, intra, err)

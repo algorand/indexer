@@ -86,8 +86,9 @@ func (db *PostgresIndexerDb) StartBlock() (err error) {
 	return
 }
 
-func (db *PostgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txnbytes []byte, txn types.SignedTxnInBlock, participation [][]byte) error {
+func (db *PostgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
 	var err error
+	txnbytes := msgpack.Encode(txn)
 	txid := crypto.TransactionIDString(txn.Txn)
 	_, err = db.tx.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`, round, intra, txtypeenum, assetid, txid[:], txnbytes, string(json.Encode(txn)))
 	if err != nil {
@@ -249,7 +250,7 @@ const txnQueryBatchSize = 20000
 var yieldTxnQuery string
 
 func init() {
-	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
+	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE t.round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
 }
 
 func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {

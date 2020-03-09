@@ -24,8 +24,9 @@ import (
 )
 
 type (
-	Address                  = atypes.Address //                  [32]byte
-	Digest                   [32]byte
+	Address = atypes.Address // [32]byte
+	Digest  = atypes.Digest  // [32]byte
+
 	Seed                     [32]byte
 	Signature                [64]byte
 	PublicKey                [32]byte

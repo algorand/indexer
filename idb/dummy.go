@@ -37,7 +37,7 @@ func (db *dummyIndexerDb) StartBlock() (err error) {
 	fmt.Printf("StartBlock\n")
 	return nil
 }
-func (db *dummyIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txnbytes []byte, txn types.SignedTxnInBlock, participation [][]byte) error {
+func (db *dummyIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
 	fmt.Printf("\ttxn %d %d %d %d\n", round, intra, txtypeenum, assetid)
 	return nil
 }
@@ -121,7 +121,7 @@ type IndexerDb interface {
 	// The next few functions define the import interface, functions for loading data into the database. StartBlock() through Get/SetMetastate().
 
 	StartBlock() error
-	AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txnbytes []byte, txn types.SignedTxnInBlock, participation [][]byte) error
+	AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error
 	CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error
 
 	AlreadyImported(path string) (imported bool, err error)
@@ -155,7 +155,12 @@ func GetAccount(idb IndexerDb, addr []byte) (account models.Account, err error) 
 }
 
 type TransactionFilter struct {
-	Address    []byte
+	// Address filtering transactions for one Address will
+	// return transactions newest-first proceding into the
+	// past. Paging through such results can be achieved by
+	// setting a MaxRound to get results before.
+	Address []byte
+
 	MinRound   uint64
 	MaxRound   uint64
 	AfterTime  time.Time

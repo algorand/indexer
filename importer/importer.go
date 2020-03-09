@@ -97,7 +97,13 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		case 5:
 			assetid = uint64(stxn.Txn.FreezeAsset)
 		}
-		txnbytes := msgpack.Encode(stxn)
+		if stxn.HasGenesisID {
+			stxn.Txn.GenesisID = block.GenesisID
+		}
+		if stxn.HasGenesisHash {
+			stxn.Txn.GenesisHash = block.GenesisHash
+		}
+		stxnad := stxn.SignedTxnWithAD
 		participants := make([][]byte, 0, 10)
 		participants = participate(participants, stxn.Txn.Sender[:])
 		participants = participate(participants, stxn.Txn.Receiver[:])
@@ -105,7 +111,7 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		participants = participate(participants, stxn.Txn.AssetSender[:])
 		participants = participate(participants, stxn.Txn.AssetReceiver[:])
 		participants = participate(participants, stxn.Txn.AssetCloseTo[:])
-		err = imp.db.AddTransaction(round, intra, txtypeenum, assetid, txnbytes, stxn, participants)
+		err = imp.db.AddTransaction(round, intra, txtypeenum, assetid, stxnad, participants)
 		if err != nil {
 			return fmt.Errorf("error importing txn r=%d i=%d, %v", round, intra, err)
 		}

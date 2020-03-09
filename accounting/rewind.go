@@ -55,7 +55,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			return
 		}
 		txcount++
-		var stxn types.SignedTxnInBlock
+		var stxn types.SignedTxnWithAD
 		err = msgpack.Decode(txnrow.TxnBytes, &stxn)
 		if err != nil {
 			return
@@ -122,7 +122,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 				err = txnrow.Error
 				return
 			}
-			var stxn types.SignedTxnInBlock
+			var stxn types.SignedTxnWithAD
 			err = msgpack.Decode(txnrow.TxnBytes, &stxn)
 			if err != nil {
 				return

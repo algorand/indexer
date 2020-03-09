@@ -344,9 +344,9 @@ func init() {
 }
 
 type SignedTxnWrapper struct {
-	Round  uint64                 `codec:"r,omitempty"`
-	Offset int                    `codec:"o,omitempty"`
-	Stxn   types.SignedTxnInBlock `codec:"stxn,omitempty"`
+	Round  uint64                `codec:"r,omitempty"`
+	Offset int                   `codec:"o,omitempty"`
+	Stxn   types.SignedTxnWithAD `codec:"stxn,omitempty"`
 }
 
 type transactionsListReturnObject struct {
@@ -355,7 +355,7 @@ type transactionsListReturnObject struct {
 	// TODO: msgpack chunks
 }
 
-func (out *transactionsListReturnObject) storeTransactionOutput(stxn *types.SignedTxnInBlock, round uint64, intra int, format int) {
+func (out *transactionsListReturnObject) storeTransactionOutput(stxn *types.SignedTxnWithAD, round uint64, intra int, format int) {
 	switch format {
 	case algodApiFormat:
 		if out.Transactions == nil {
@@ -415,7 +415,6 @@ func (out *transactionsListReturnObject) writeTxnReturn(w http.ResponseWriter, f
 const txnQueryLimit = 1000
 
 func requestFilter(r *http.Request) (tf idb.TransactionFilter, err error) {
-	tf.Init()
 	tf.MinRound, err = formUint64(r, []string{"minround", "rl"}, 0)
 	if err != nil {
 		err = fmt.Errorf("bad minround, %v", err)
@@ -535,7 +534,7 @@ func TransactionsForAddress(w http.ResponseWriter, r *http.Request) {
 
 	result := transactionsListReturnObject{}
 	for txnRow := range txns {
-		var stxn types.SignedTxnInBlock
+		var stxn types.SignedTxnWithAD
 		if txnRow.Error != nil {
 			log.Println("error fetching txns, ", txnRow.Error)
 			w.WriteHeader(http.StatusInternalServerError)
@@ -562,7 +561,7 @@ func addrJson(addr atypes.Address) string {
 	return addr.String()
 }
 
-func setApiTxn(out *models.Transaction, stxn *types.SignedTxnInBlock) {
+func setApiTxn(out *models.Transaction, stxn *types.SignedTxnWithAD) {
 	out.Type = stxn.Txn.Type
 	out.TxID = crypto.TransactionIDString(stxn.Txn)
 	out.From = addrJson(stxn.Txn.Sender)
