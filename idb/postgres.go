@@ -50,7 +50,10 @@ func OpenPostgres(connection string) (pdb *PostgresIndexerDb, err error) {
 		db:         db,
 		protoCache: make(map[string]types.ConsensusParams, 20),
 	}
-	err = pdb.init()
+	// e.g. a user named "readonly" is in the connection string
+	if !strings.Contains(connection, "readonly") {
+		err = pdb.init()
+	}
 	return
 }
 
