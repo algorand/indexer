@@ -23,8 +23,11 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 )
+
+//go:generate go run ../cmd/texttosource/main.go importer protocols.json
 
 type Importer interface {
 	ImportBlock(blockbytes []byte) error
@@ -79,6 +82,11 @@ func (imp *dbImporter) ImportBlock(blockbytes []byte) (err error) {
 	return imp.ImportDecodedBlock(&blockContainer)
 }
 func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert) (err error) {
+	ensureProtos()
+	_, okversion := protocols[string(blockContainer.Block.CurrentProtocol)]
+	if !okversion {
+		return fmt.Errorf("block %d unknown protocol version %#v", blockContainer.Block.Round, string(blockContainer.Block.CurrentProtocol))
+	}
 	err = imp.db.StartBlock()
 	if err != nil {
 		return fmt.Errorf("error starting block, %v", err)
@@ -128,4 +136,35 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 
 func NewDBImporter(db idb.IndexerDb) Importer {
 	return &dbImporter{db: db}
+}
+
+var protocols map[string]types.ConsensusParams
+
+func ensureProtos() (err error) {
+	if protocols != nil {
+		return nil
+	}
+	protos := make(map[string]types.ConsensusParams, 30)
+	// Load text from protocols.json as compiled-in.
+	err = json.Decode([]byte(protocols_json), &protos)
+	if err != nil {
+		return fmt.Errorf("proto decode, %v", err)
+	}
+	protocols = protos
+	return nil
+}
+
+// ImportProto writes compiled-in protocol information to the database
+func ImportProto(db idb.IndexerDb) (err error) {
+	err = ensureProtos()
+	if err != nil {
+		return
+	}
+	for version, proto := range protocols {
+		err = db.SetProto(version, proto)
+		if err != nil {
+			return fmt.Errorf("db set proto %s, %v", version, err)
+		}
+	}
+	return nil
 }

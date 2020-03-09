@@ -50,9 +50,7 @@ var daemonCmd = &cobra.Command{
 			algodDataDir = os.Getenv("ALGORAND_DATA")
 		}
 		db := globalIndexerDb()
-		if len(protoJsonPath) > 0 {
-			importProto(db, protoJsonPath)
-		}
+
 		ctx, cf := context.WithCancel(context.Background())
 		defer cf()
 		var bot algobot.Algobot
@@ -65,6 +63,16 @@ var daemonCmd = &cobra.Command{
 		} else if algodDataDir != "" {
 			bot, err = algobot.ForDataDir(algodDataDir)
 			maybeFail(err, "algobot setup, %v", err)
+		} else {
+			// no algod was found
+			noAlgod = true
+		}
+		if !noAlgod {
+			// Only do this if we're going to be writing
+			// to the db, to allow for read-only query
+			// servers that hit the db backend.
+			err := importer.ImportProto(db)
+			maybeFail(err, "import proto, %v", err)
 		}
 		if bot != nil {
 			maxRound, err := db.GetMaxRound()
@@ -94,7 +102,6 @@ func init() {
 	daemonCmd.Flags().StringVarP(&algodAddr, "algod-net", "", "", "host:port of algod")
 	daemonCmd.Flags().StringVarP(&algodToken, "algod-token", "", "", "api access token for algod")
 	daemonCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json")
-	daemonCmd.Flags().StringVarP(&protoJsonPath, "proto", "p", "", "path to proto.json")
 	daemonCmd.Flags().StringVarP(&daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
 	daemonCmd.Flags().BoolVarP(&noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
 }
