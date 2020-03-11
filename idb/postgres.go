@@ -608,12 +608,37 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		whereArgs = append(whereArgs, tf.SigType)
 		partNumber++
 	}
+	/*
+		// TODO: 'note' in jsonb is base64, which is not amenable to prefix matching
+		if len(tf.NotePrefix) > 0 {
+			whereParts = append(whereParts, fmt.Sprintf("t.txn -> 'txn' -> 'note' ", partNumber))
+			whereArgs = append(whereArgs, tf.SigType)
+			partNumber++
+		}
+	*/
+	if tf.MinAlgos != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint >= $%d", partNumber))
+		whereArgs = append(whereArgs, tf.MinAlgos)
+		partNumber++
+	}
+	if tf.EffectiveAmountGt != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("((t.txn -> 'ca')::bigint + (t.txn -> 'txn' -> 'amt')::bigint) > $%d", partNumber))
+		whereArgs = append(whereArgs, tf.EffectiveAmountGt)
+		partNumber++
+	}
+	if tf.EffectiveAmountLt != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("((t.txn -> 'ca')::bigint + (t.txn -> 'txn' -> 'amt')::bigint) < $%d", partNumber))
+		whereArgs = append(whereArgs, tf.EffectiveAmountLt)
+		partNumber++
+	}
 	query := "SELECT t.round, t.intra, t.txnbytes, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
-	whereStr := strings.Join(whereParts, " AND ")
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
-	query += " WHERE " + whereStr
+	if len(whereParts) > 0 {
+		whereStr := strings.Join(whereParts, " AND ")
+		query += " WHERE " + whereStr
+	}
 	if joinParticipation {
 		// this should match the index on txn_particpation
 		query += " ORDER BY p.addr, p.round DESC, p.intra DESC"
@@ -788,7 +813,11 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 
 			}
 		}
-		out <- AccountRow{Account: account}
+		select {
+		case out <- AccountRow{Account: account}:
+		case <-ctx.Done():
+			break
+		}
 	}
 	close(out)
 }
@@ -993,10 +1022,60 @@ func (db *PostgresIndexerDb) yieldAssetsThread(ctx context.Context, filter Asset
 			out <- AssetRow{Error: err}
 			break
 		}
-		out <- AssetRow{
+		rec := AssetRow{
 			AssetId: index,
 			Creator: creator_addr,
 			Params:  params,
+		}
+		select {
+		case <-ctx.Done():
+			break
+		case out <- rec:
+			break
+		}
+	}
+	close(out)
+}
+
+func (db *PostgresIndexerDb) AssetBalances(ctx context.Context, assetId uint64, prevAddr []byte) <-chan AssetBalanceRow {
+	var rows *sql.Rows
+	var err error
+	if len(prevAddr) > 0 {
+		rows, err = db.db.QueryContext(ctx, `SELECT addr, amount, frozen FROM account_asset WHERE assetid = $1 AND addr > $2 ORDER BY addr ASC`, assetId, prevAddr)
+	} else {
+		rows, err = db.db.QueryContext(ctx, `SELECT addr, amount, frozen FROM account_asset WHERE assetid = $1 ORDER BY addr ASC`, assetId)
+	}
+	out := make(chan AssetBalanceRow, 1)
+	if err != nil {
+		out <- AssetBalanceRow{Error: err}
+		close(out)
+		return out
+	}
+	go db.yieldAssetBalanceThread(ctx, assetId, rows, out)
+	return out
+}
+
+func (db *PostgresIndexerDb) yieldAssetBalanceThread(ctx context.Context, assetId uint64, rows *sql.Rows, out chan<- AssetBalanceRow) {
+	for rows.Next() {
+		var addr []byte
+		var amount uint64
+		var frozen bool
+		err := rows.Scan(&addr, &amount, &frozen)
+		if err != nil {
+			out <- AssetBalanceRow{Error: err}
+			break
+		}
+		rec := AssetBalanceRow{
+			Address: addr,
+			AssetId: assetId,
+			Amount:  amount,
+			Frozen:  frozen,
+		}
+		select {
+		case <-ctx.Done():
+			break
+		case out <- rec:
+			continue
 		}
 	}
 	close(out)
