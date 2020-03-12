@@ -27,6 +27,8 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 )
 
+// protocols.json from code run in go-algorand:
+// func main() { os.Stdout.Write(protocol.EncodeJSON(config.Consensus)) }
 //go:generate go run ../cmd/texttosource/main.go importer protocols.json
 
 type Importer interface {

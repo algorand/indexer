@@ -476,11 +476,13 @@ func requestFilter(r *http.Request) (tf idb.TransactionFilter, err error) {
 		tf.Offset = &xoffset
 	}
 	tf.SigType = formString(r, []string{"sig"}, "")
-	tf.NotePrefix, err = b64decode(formString(r, []string{"noteprefix"}, ""))
-	if err != nil {
-		err = fmt.Errorf("bad noteprefix, %v", err)
-		return
-	}
+	/*
+		tf.NotePrefix, err = b64decode(formString(r, []string{"noteprefix"}, ""))
+		if err != nil {
+			err = fmt.Errorf("bad noteprefix, %v", err)
+			return
+		}
+	*/
 	tf.MinAlgos, err = formUint64(r, []string{"minalgos"}, 0)
 	if err != nil {
 		err = fmt.Errorf("bad minalgos, %v", err)

@@ -253,7 +253,7 @@ const txnQueryBatchSize = 20000
 var yieldTxnQuery string
 
 func init() {
-	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE t.round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
+	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, t.extra, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE t.round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
 }
 
 func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {
@@ -263,6 +263,7 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 		rounds := make([]uint64, txnQueryBatchSize)
 		intras := make([]int, txnQueryBatchSize)
 		txnbytess := make([][]byte, txnQueryBatchSize)
+		extrajsons := make([][]byte, txnQueryBatchSize)
 		roundtimes := make([]time.Time, txnQueryBatchSize)
 		pos := 0
 		// read from db
@@ -270,8 +271,9 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 			var round uint64
 			var intra int
 			var txnbytes []byte
+			var extrajson []byte
 			var roundtime time.Time
-			err := rows.Scan(&round, &intra, &txnbytes, &roundtime)
+			err := rows.Scan(&round, &intra, &txnbytes, &extrajson, &roundtime)
 			if err != nil {
 				var row TxnRow
 				row.Error = err
@@ -283,6 +285,7 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 				rounds[pos] = round
 				intras[pos] = intra
 				txnbytess[pos] = txnbytes
+				extrajsons[pos] = extrajson
 				roundtimes[pos] = roundtime
 				pos++
 			}
@@ -313,6 +316,9 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 			row.RoundTime = roundtimes[i]
 			row.Intra = intras[i]
 			row.TxnBytes = txnbytess[i]
+			if len(extrajsons[i]) > 0 {
+				json.Decode(extrajsons[i], &row.Extra)
+			}
 			select {
 			case <-ctx.Done():
 				break
@@ -465,6 +471,12 @@ func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, 
 	}
 	if len(updates.AssetCloses) > 0 {
 		any = true
+		acc, err := tx.Prepare(`WITH aaamount AS (SELECT ($1)::bigint as round, ($2)::bigint as intra, x.amount FROM account_asset x WHERE x.addr = $3 AND x.assetid = $4)
+UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{aca}', to_jsonb(aaamount.amount)) FROM aaamount WHERE ut.round = aaamount.round AND ut.intra = aaamount.intra`)
+		if err != nil {
+			return fmt.Errorf("prepare asset close0, %v", err)
+		}
+		defer acc.Close()
 		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen)
 SELECT $1, $2, x.amount, $3 FROM account_asset x WHERE x.addr = $4
 ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount`)
@@ -480,6 +492,10 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		for _, ac := range updates.AssetCloses {
 			if ac.AssetId == debugAsset {
 				fmt.Fprintf(os.Stderr, "%d close %s\n", round, obs(ac))
+			}
+			_, err = acc.Exec(ac.Round, ac.Offset, ac.Sender[:], ac.AssetId)
+			if err != nil {
+				return fmt.Errorf("asset close record amount, %v", err)
 			}
 			_, err = acs.Exec(ac.CloseTo[:], ac.AssetId, ac.DefaultFrozen, ac.Sender[:])
 			if err != nil {
@@ -631,7 +647,7 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		whereArgs = append(whereArgs, tf.EffectiveAmountLt)
 		partNumber++
 	}
-	query := "SELECT t.round, t.intra, t.txnbytes, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	query := "SELECT t.round, t.intra, t.txnbytes, t.extra, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
@@ -666,8 +682,9 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 		var round uint64
 		var intra int
 		var txnbytes []byte
+		var extraJson []byte
 		var roundtime time.Time
-		err := rows.Scan(&round, &intra, &txnbytes, &roundtime)
+		err := rows.Scan(&round, &intra, &txnbytes, &extraJson, &roundtime)
 		var row TxnRow
 		if err != nil {
 			row.Error = err
@@ -676,6 +693,9 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 			row.Intra = intra
 			row.TxnBytes = txnbytes
 			row.RoundTime = roundtime
+			if len(extraJson) > 0 {
+				json.Decode(extraJson, &row.Extra)
+			}
 		}
 		select {
 		case <-ctx.Done():

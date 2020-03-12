@@ -139,8 +139,18 @@ func (accounting *AccountingState) updateTxnAsset(round uint64, intra int, asset
 	accounting.TxnAssetUpdates = append(accounting.TxnAssetUpdates, idb.TxnAssetUpdate{Round: round, Offset: intra, AssetId: assetId})
 }
 
-func (accounting *AccountingState) closeAsset(from types.Address, assetId uint64, to types.Address) {
-	accounting.AssetCloses = append(accounting.AssetCloses, idb.AssetClose{CloseTo: to, AssetId: assetId, Sender: from, DefaultFrozen: accounting.defaultFrozen[assetId]})
+func (accounting *AccountingState) closeAsset(from types.Address, assetId uint64, to types.Address, round uint64, offset int) {
+	accounting.AssetCloses = append(
+		accounting.AssetCloses,
+		idb.AssetClose{
+			CloseTo:       to,
+			AssetId:       assetId,
+			Sender:        from,
+			DefaultFrozen: accounting.defaultFrozen[assetId],
+			Round:         round,
+			Offset:        uint64(offset),
+		},
+	)
 }
 func (accounting *AccountingState) freezeAsset(addr types.Address, assetId uint64, frozen bool) {
 	accounting.FreezeUpdates = append(accounting.FreezeUpdates, idb.FreezeUpdate{Addr: addr, AssetId: assetId, Frozen: frozen})
@@ -267,7 +277,7 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 		}
 		// TODO: mark receivable accounts with the send-self-zero txn?
 		if !stxn.Txn.AssetCloseTo.IsZero() {
-			accounting.closeAsset(sender, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetCloseTo)
+			accounting.closeAsset(sender, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetCloseTo, round, intra)
 		}
 	} else if stxn.Txn.Type == "afrz" {
 		accounting.freezeAsset(stxn.Txn.FreezeAccount, uint64(stxn.Txn.FreezeAsset), stxn.Txn.AssetFrozen)

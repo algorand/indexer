@@ -116,7 +116,12 @@ type TxnRow struct {
 	RoundTime time.Time
 	Intra     int
 	TxnBytes  []byte
+	Extra     TxnExtra
 	Error     error
+}
+
+type TxnExtra struct {
+	AssetCloseAmount uint64 `codec:"aca,omitempty"`
 }
 
 // TODO: sqlite3 impl
@@ -285,6 +290,8 @@ type AssetClose struct {
 	CloseTo       types.Address
 	AssetId       uint64
 	Sender        types.Address
+	Round         uint64
+	Offset        uint64
 	DefaultFrozen bool
 }
 

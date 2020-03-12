@@ -59,6 +59,7 @@ asset bigint NOT NULL, -- 0=Algos, otherwise AssetIndex
 txid bytea NOT NULL, -- [32]byte
 txnbytes bytea NOT NULL,
 txn jsonb NOT NULL,
+extra jsonb,
 PRIMARY KEY ( round, intra )
 );
 

@@ -21,7 +21,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type ServerImplementation struct {}
+type ServerImplementation struct{}
 
 func badRequest(ctx echo.Context, err string) error {
 	return ctx.JSON(http.StatusBadRequest, generated.Error{
@@ -81,7 +81,7 @@ func boolPtr(x bool) *bool {
 
 type genesis struct {
 	genesisHash []byte
-	genesisID string
+	genesisID   string
 }
 
 // Cached genesis metadata
@@ -93,7 +93,7 @@ func getGenesis(ctx context.Context) genesis {
 		return gen
 	}
 
-	gen = genesis {
+	gen = genesis{
 		genesisHash: []byte("TODO"),
 		genesisID:   "TODO",
 	}
@@ -133,11 +133,11 @@ func assetParamsToAsset(id uint64, params models.AssetParams) generated.Asset {
 func accountToAccount(account models.Account) generated.Account {
 	// TODO: This data is missing.
 	var participation = generated.AccountParticipation{
-			SelectionParticipationKey: nil,
-			VoteFirstValid:            uint64Ptr(0),
-			VoteLastValid:             uint64Ptr(0),
-			VoteKeyDilution:           uint64Ptr(0),
-			VoteParticipationKey:      nil,
+		SelectionParticipationKey: nil,
+		VoteFirstValid:            uint64Ptr(0),
+		VoteLastValid:             uint64Ptr(0),
+		VoteKeyDilution:           uint64Ptr(0),
+		VoteParticipationKey:      nil,
 	}
 
 	var assets = make([]generated.AssetHolding, 0)
@@ -286,7 +286,7 @@ func txnRowToTransaction(row idb.TxnRow, gen genesis) (generated.Transaction, er
 	switch stxn.Txn.Type {
 	case sdk_types.PaymentTx:
 		p := generated.TransactionPayment{
-			Amount:           uint64(stxn.Txn.Amount),
+			Amount: uint64(stxn.Txn.Amount),
 			// TODO: Compute this data from somewhere?
 			CloseAmount:      uint64Ptr(0),
 			CloseRemainderTo: addrPtr(stxn.Txn.CloseRemainderTo),
@@ -357,24 +357,24 @@ func txnRowToTransaction(row idb.TxnRow, gen genesis) (generated.Transaction, er
 		ConfirmedRound:           uint64Ptr(row.Round),
 		// TODO: Enable this after merging in Brian's latest
 		//RoundTime:                uint64Ptr(row.RoundTime),
-		Fee:                      uint64(stxn.Txn.Fee),
-		FirstValid:               uint64(stxn.Txn.FirstValid),
-		GenesisHash:              nil, // This is removed from the stxn
-		GenesisId:                nil, // This is removed from the stxn
-		Group:                    bytePtr(stxn.Txn.Group[:]),
-		LastValid:                uint64(stxn.Txn.LastValid),
-		Lease:                    bytePtr(stxn.Txn.Lease[:]),
-		Note:                     bytePtr(stxn.Txn.Note[:]),
-		Sender:                   stxn.Txn.Sender.String(),
-		ReceiverRewards:          uint64Ptr(uint64(stxn.ReceiverRewards)),
-		CloseRewards:             uint64Ptr(uint64(stxn.CloseRewards)),
-		SenderRewards:            uint64Ptr(uint64(stxn.SenderRewards)),
-		Type:                     string(stxn.Txn.Type),
-		Signature:                sig,
-		CreatedAssetIndex:        nil, // TODO: What is this?
+		Fee:               uint64(stxn.Txn.Fee),
+		FirstValid:        uint64(stxn.Txn.FirstValid),
+		GenesisHash:       nil, // This is removed from the stxn
+		GenesisId:         nil, // This is removed from the stxn
+		Group:             bytePtr(stxn.Txn.Group[:]),
+		LastValid:         uint64(stxn.Txn.LastValid),
+		Lease:             bytePtr(stxn.Txn.Lease[:]),
+		Note:              bytePtr(stxn.Txn.Note[:]),
+		Sender:            stxn.Txn.Sender.String(),
+		ReceiverRewards:   uint64Ptr(uint64(stxn.ReceiverRewards)),
+		CloseRewards:      uint64Ptr(uint64(stxn.CloseRewards)),
+		SenderRewards:     uint64Ptr(uint64(stxn.SenderRewards)),
+		Type:              string(stxn.Txn.Type),
+		Signature:         sig,
+		CreatedAssetIndex: nil, // TODO: What is this?
 		// TODO: This needs to come from the DB because of the GenesisHash / GenesisID
-		Id:                       crypto.TransactionID(stxn.Txn),
-		PoolError:                nil, // TODO: What is this?
+		Id:        crypto.TransactionID(stxn.Txn),
+		PoolError: nil, // TODO: What is this?
 	}
 
 	// Add in the genesis fields
@@ -441,7 +441,6 @@ func decodeType(str *string, field string, errorArr []string) (t int, err []stri
 	return 0, errorArr
 }
 
-
 func transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {
 	var errorArr = make([]string, 0)
 
@@ -454,9 +453,11 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.Round = params.Round
 
 	// Byte array
-	if params.Noteprefix != nil {
-		filter.NotePrefix = *params.Noteprefix
-	}
+	/*
+		if params.Noteprefix != nil {
+			filter.NotePrefix = *params.Noteprefix
+		}
+	*/
 	if params.Txid != nil {
 		filter.Txid = *params.Txid
 	}
@@ -504,11 +505,11 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId st
 		return badRequest(ctx, fmt.Sprintf("Unable to parse address: %v", err))
 	}
 
-	options := idb.AccountQueryOptions {
-			EqualToAddress:       addr[:],
-			IncludeAssetHoldings: true,
-			IncludeAssetParams:   true,
-			Limit:                1,
+	options := idb.AccountQueryOptions{
+		EqualToAddress:       addr[:],
+		IncludeAssetHoldings: true,
+		IncludeAssetParams:   true,
+		Limit:                1,
 	}
 
 	accounts, err := fetchAccounts(options, params.Round, ctx.Request().Context())
@@ -533,7 +534,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId st
 // TODO: "at round" is missing from these params, maybe it's fine to leave it out here.
 // (GET /accounts)
 func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generated.SearchAccountsParams) error {
-	options := idb.AccountQueryOptions {
+	options := idb.AccountQueryOptions{
 		AlgosGreaterThan:     uintOrDefault(params.AlgosGreaterThan, 0),
 		AlgosLessThan:        uintOrDefault(params.AlgosLessThan, 0),
 		IncludeAssetHoldings: true,
@@ -552,7 +553,7 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 	accounts, err := fetchAccounts(options, nil, ctx.Request().Context())
 
 	if err != nil {
-		return badRequest(ctx,  fmt.Sprintf("Failed while searching for account: %v", err))
+		return badRequest(ctx, fmt.Sprintf("Failed while searching for account: %v", err))
 	}
 
 	round, err := IndexerDb.GetMaxRound()
@@ -609,11 +610,11 @@ func (si *ServerImplementation) LookupBlockTimes(ctx echo.Context) error {
 	// TODO: Are we keeping this?
 	//return errors.New("Unimplemented")
 	rounds := []struct {
-		Round *uint64 `json:"round,omitempty"`
+		Round     *uint64 `json:"round,omitempty"`
 		Timestamp *uint64 `json:"timestamp,omitempty"`
 	}{
 		{
-			Round: uint64Ptr(1),
+			Round:     uint64Ptr(1),
 			Timestamp: uint64Ptr(12345),
 		},
 	}
