@@ -87,6 +87,7 @@ func (accounting *AccountingState) commitRound() error {
 	}
 	accounting.AlgoUpdates = nil
 	accounting.AccountTypes = nil
+	accounting.KeyregUpdates = nil
 	accounting.AssetUpdates = nil
 	accounting.AcfgUpdates = nil
 	accounting.TxnAssetUpdates = nil
@@ -105,6 +106,15 @@ var zeroAddr = [32]byte{}
 
 func addrIsZero(a types.Address) bool {
 	return bytes.Equal(a[:], zeroAddr[:])
+}
+
+func bytesAreZero(b []byte) bool {
+	for _, x := range b {
+		if x != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func (accounting *AccountingState) updateAlgo(addr types.Address, d int64) {
@@ -242,7 +252,28 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 			accounting.updateAlgo(accounting.rewardAddr, -int64(stxn.CloseRewards))
 		}
 	} else if stxn.Txn.Type == "keyreg" {
-		// TODO: record keys?
+		// see https://github.com/algorand/go-algorand/blob/master/data/transactions/keyreg.go
+		kru := idb.KeyregUpdate{
+			Addr:            stxn.Txn.Sender,
+			VoteID:          stxn.Txn.VotePK,
+			SelectionID:     stxn.Txn.SelectionPK,
+			VoteFirstValid:  uint64(stxn.Txn.VoteFirst),
+			VoteLastValid:   uint64(stxn.Txn.VoteLast),
+			VoteKeyDilution: stxn.Txn.VoteKeyDilution,
+		}
+		if bytesAreZero(stxn.Txn.VotePK[:]) || bytesAreZero(stxn.Txn.SelectionPK[:]) {
+			if stxn.Txn.Nonparticipation {
+				kru.Status = 2
+			} else {
+				kru.Status = 0
+			}
+			kru.VoteFirstValid = 0
+			kru.VoteLastValid = 0
+			kru.VoteKeyDilution = 0
+		} else {
+			kru.Status = 1 // online
+		}
+		accounting.KeyregUpdates = append(accounting.KeyregUpdates, kru)
 	} else if stxn.Txn.Type == "acfg" {
 		assetId := uint64(stxn.Txn.ConfigAsset)
 		if assetId == 0 {

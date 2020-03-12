@@ -268,6 +268,16 @@ func IndexerDbByName(factoryname, arg string) (IndexerDb, error) {
 	return nil, fmt.Errorf("no IndexerDb factory for %s", factoryname)
 }
 
+type KeyregUpdate struct {
+	Addr            types.Address
+	Status          int // {Offline:0, Online:1, NotParticipating: 2}
+	VoteID          [32]byte
+	SelectionID     [32]byte
+	VoteFirstValid  uint64
+	VoteLastValid   uint64
+	VoteKeyDilution uint64
+}
+
 type AcfgUpdate struct {
 	AssetId uint64
 	Creator types.Address
@@ -304,6 +314,7 @@ type TxnAssetUpdate struct {
 type RoundUpdates struct {
 	AlgoUpdates     map[[32]byte]int64
 	AccountTypes    map[[32]byte]string
+	KeyregUpdates   []KeyregUpdate
 	AcfgUpdates     []AcfgUpdate
 	TxnAssetUpdates []TxnAssetUpdate
 	AssetUpdates    map[[32]byte][]AssetUpdate
