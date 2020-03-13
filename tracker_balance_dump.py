@@ -177,7 +177,10 @@ class CheckContext:
                 niceaddr = algosdk.encoding.encode_address(addr)
             except:
                 niceaddr = repr(addr)
-            self.err.write('{} in indexer but not algod, v={}\n'.format(niceaddr, i2v))
+            emsg = 'in indexer but not algod, v={}'.format(i2v)
+            self.mismatches.append( (addr, emsg) )
+            self.err.write('{} {}\n'.format(niceaddr, emsg))
+            self.neq +=1
         self.err.write('{} match {} neq\n'.format(self.match, self.neq))
 
 # data/basics/userBalance.go AccountData
