@@ -58,7 +58,7 @@ A number of files are ignored according to the definition in **api/.openapi-gene
 
 ## Read-only Indexer Server
 
-It is possible to set up one Postgres database with one writer and many readers. The Indxeer pulling new data from algod can be started as above. Starting the indexer daemon without $ALGORAND_DATA or -d/--algod/--algod-net/--algod-token will start it wouthout writing new data to the database. For further isolation, create a `readonly` postgres user:
+It is possible to set up one Postgres database with one writer and many readers. The Indxer pulling new data from algod can be started as above. Starting the indexer daemon without $ALGORAND_DATA or -d/--algod/--algod-net/--algod-token will start it without writing new data to the database. For further isolation, create a `readonly` postgres user. Indexer does specifically note the username "readonly" and change behavior to not try to write to the database. The primary benefit is that Postgres can enforce restricted access to this user:
 
 ```sql
 CREATE USER readonly LOGIN PASSWORD 'YourPasswordHere';

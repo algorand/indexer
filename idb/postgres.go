@@ -1089,30 +1089,59 @@ func (db *PostgresIndexerDb) yieldAssetsThread(ctx context.Context, filter Asset
 	close(out)
 }
 
-func (db *PostgresIndexerDb) AssetBalances(ctx context.Context, assetId uint64, prevAddr []byte) <-chan AssetBalanceRow {
+func (db *PostgresIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow {
+	const maxWhereParts = 14
+	whereParts := make([]string, 0, maxWhereParts)
+	whereArgs := make([]interface{}, 0, maxWhereParts)
+	partNumber := 1
+	if abq.AssetId != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.assetid = $%d", partNumber))
+		whereArgs = append(whereArgs, abq.AssetId)
+		partNumber++
+	}
+	if abq.MinAmount != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.amount >= $%d", partNumber))
+		whereArgs = append(whereArgs, abq.MinAmount)
+		partNumber++
+	}
+	if abq.MaxAmount != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.amount <= $%d", partNumber))
+		whereArgs = append(whereArgs, abq.MaxAmount)
+		partNumber++
+	}
+	if len(abq.PrevAddress) != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.addr > $%d", partNumber))
+		whereArgs = append(whereArgs, abq.PrevAddress)
+		partNumber++
+	}
 	var rows *sql.Rows
 	var err error
-	if len(prevAddr) > 0 {
-		rows, err = db.db.QueryContext(ctx, `SELECT addr, amount, frozen FROM account_asset WHERE assetid = $1 AND addr > $2 ORDER BY addr ASC`, assetId, prevAddr)
-	} else {
-		rows, err = db.db.QueryContext(ctx, `SELECT addr, amount, frozen FROM account_asset WHERE assetid = $1 ORDER BY addr ASC`, assetId)
+	query := `SELECT addr, assetid, amount, frozen FROM account_asset aa`
+	if len(whereParts) > 0 {
+		query += " WHERE " + strings.Join(whereParts, " AND ")
 	}
+	query += " ORDER BY addr ASC"
+	if abq.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d", abq.Limit)
+	}
+	rows, err = db.db.QueryContext(ctx, query, whereArgs...)
 	out := make(chan AssetBalanceRow, 1)
 	if err != nil {
 		out <- AssetBalanceRow{Error: err}
 		close(out)
 		return out
 	}
-	go db.yieldAssetBalanceThread(ctx, assetId, rows, out)
+	go db.yieldAssetBalanceThread(ctx, rows, out)
 	return out
 }
 
-func (db *PostgresIndexerDb) yieldAssetBalanceThread(ctx context.Context, assetId uint64, rows *sql.Rows, out chan<- AssetBalanceRow) {
+func (db *PostgresIndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows, out chan<- AssetBalanceRow) {
 	for rows.Next() {
 		var addr []byte
+		var assetId uint64
 		var amount uint64
 		var frozen bool
-		err := rows.Scan(&addr, &amount, &frozen)
+		err := rows.Scan(&addr, &assetId, &amount, &frozen)
 		if err != nil {
 			out <- AssetBalanceRow{Error: err}
 			break

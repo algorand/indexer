@@ -102,7 +102,7 @@ func (db *dummyIndexerDb) Assets(ctx context.Context, filter AssetsQuery) <-chan
 	return nil
 }
 
-func (db *dummyIndexerDb) AssetBalances(ctx context.Context, assetId uint64, prevAddr []byte) <-chan AssetBalanceRow {
+func (db *dummyIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow {
 	return nil
 }
 
@@ -154,7 +154,7 @@ type IndexerDb interface {
 	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
 	Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow
-	AssetBalances(ctx context.Context, assetId uint64, prevAddr []byte) <-chan AssetBalanceRow
+	AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow
 }
 
 func GetAccount(idb IndexerDb, addr []byte) (account models.Account, err error) {
@@ -232,6 +232,18 @@ type AssetRow struct {
 	Creator []byte
 	Params  types.AssetParams
 	Error   error
+}
+
+type AssetBalanceQuery struct {
+	AssetId   uint64
+	MinAmount uint64 // only rows >= this
+	MaxAmount uint64 // only rows <= this
+
+	Limit uint64 // max rows to return
+
+	// PrevAddress for paging, the last item from the previous
+	// query (items returned in address order)
+	PrevAddress []byte
 }
 
 type AssetBalanceRow struct {
