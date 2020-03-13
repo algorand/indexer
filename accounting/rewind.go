@@ -55,7 +55,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			return
 		}
 		txcount++
-		var stxn types.SignedTxnInBlock
+		var stxn types.SignedTxnWithAD
 		err = msgpack.Decode(txnrow.TxnBytes, &stxn)
 		if err != nil {
 			return
@@ -92,7 +92,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			}
 		case atypes.AssetTransferTx:
 			if addr == stxn.Txn.AssetSender || addr == stxn.Txn.Sender {
-				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), int64(stxn.Txn.AssetAmount))
+				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), int64(stxn.Txn.AssetAmount+txnrow.Extra.AssetCloseAmount))
 			}
 			if addr == stxn.Txn.AssetReceiver {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), -int64(stxn.Txn.AssetAmount))
@@ -122,7 +122,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 				err = txnrow.Error
 				return
 			}
-			var stxn types.SignedTxnInBlock
+			var stxn types.SignedTxnWithAD
 			err = msgpack.Decode(txnrow.TxnBytes, &stxn)
 			if err != nil {
 				return

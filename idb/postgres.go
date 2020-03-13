@@ -50,7 +50,10 @@ func OpenPostgres(connection string) (pdb *PostgresIndexerDb, err error) {
 		db:         db,
 		protoCache: make(map[string]types.ConsensusParams, 20),
 	}
-	err = pdb.init()
+	// e.g. a user named "readonly" is in the connection string
+	if !strings.Contains(connection, "readonly") {
+		err = pdb.init()
+	}
 	return
 }
 
@@ -86,8 +89,9 @@ func (db *PostgresIndexerDb) StartBlock() (err error) {
 	return
 }
 
-func (db *PostgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txnbytes []byte, txn types.SignedTxnInBlock, participation [][]byte) error {
+func (db *PostgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
 	var err error
+	txnbytes := msgpack.Encode(txn)
 	txid := crypto.TransactionIDString(txn.Txn)
 	_, err = db.tx.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`, round, intra, txtypeenum, assetid, txid[:], txnbytes, string(json.Encode(txn)))
 	if err != nil {
@@ -249,7 +253,7 @@ const txnQueryBatchSize = 20000
 var yieldTxnQuery string
 
 func init() {
-	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
+	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, t.extra, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE t.round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
 }
 
 func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {
@@ -259,6 +263,7 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 		rounds := make([]uint64, txnQueryBatchSize)
 		intras := make([]int, txnQueryBatchSize)
 		txnbytess := make([][]byte, txnQueryBatchSize)
+		extrajsons := make([][]byte, txnQueryBatchSize)
 		roundtimes := make([]time.Time, txnQueryBatchSize)
 		pos := 0
 		// read from db
@@ -266,8 +271,9 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 			var round uint64
 			var intra int
 			var txnbytes []byte
+			var extrajson []byte
 			var roundtime time.Time
-			err := rows.Scan(&round, &intra, &txnbytes, &roundtime)
+			err := rows.Scan(&round, &intra, &txnbytes, &extrajson, &roundtime)
 			if err != nil {
 				var row TxnRow
 				row.Error = err
@@ -279,6 +285,7 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 				rounds[pos] = round
 				intras[pos] = intra
 				txnbytess[pos] = txnbytes
+				extrajsons[pos] = extrajson
 				roundtimes[pos] = roundtime
 				pos++
 			}
@@ -309,6 +316,9 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 			row.RoundTime = roundtimes[i]
 			row.Intra = intras[i]
 			row.TxnBytes = txnbytess[i]
+			if len(extrajsons[i]) > 0 {
+				json.Decode(extrajsons[i], &row.Extra)
+			}
 			select {
 			case <-ctx.Done():
 				break
@@ -352,6 +362,18 @@ func obs(x interface{}) string {
 	return string(json.Encode(x))
 }
 
+// this gets overlaid onto account.account_data jsonb, replacing just these fields, same as types.AccountData
+type AccountDataKeyregPart struct {
+	Status byte `codec:"onl"`
+
+	VoteID      types.OneTimeSignatureVerifier `codec:"vote"`
+	SelectionID types.VRFVerifier              `codec:"sel"`
+
+	VoteFirstValid  types.Round `codec:"voteFst"`
+	VoteLastValid   types.Round `codec:"voteLst"`
+	VoteKeyDilution uint64      `codec:"voteKD"`
+}
+
 func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error) {
 	any := false
 	tx, err := db.db.Begin()
@@ -386,6 +408,29 @@ func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, 
 			_, err = setat.Exec(kt, addr[:])
 			if err != nil {
 				return fmt.Errorf("update account type, %v", err)
+			}
+		}
+	}
+	if len(updates.KeyregUpdates) > 0 {
+		any = true
+		setkeyreg, err := tx.Prepare(`UPDATE account SET account_data = coalesce(account_data, '{}'::jsonb) || ($1)::jsonb WHERE addr = $2`)
+		if err != nil {
+			return fmt.Errorf("prepare keyreg, %v", err)
+		}
+		defer setkeyreg.Close()
+		for _, kr := range updates.KeyregUpdates {
+			part := AccountDataKeyregPart{
+				Status:          byte(kr.Status),
+				VoteID:          kr.VoteID,
+				SelectionID:     kr.SelectionID,
+				VoteFirstValid:  types.Round(kr.VoteFirstValid),
+				VoteLastValid:   types.Round(kr.VoteLastValid),
+				VoteKeyDilution: kr.VoteKeyDilution,
+			}
+			jb := json.Encode(part)
+			_, err = setkeyreg.Exec(jb, kr.Addr[:])
+			if err != nil {
+				return fmt.Errorf("update keyreg, %v", err)
 			}
 		}
 	}
@@ -461,6 +506,12 @@ func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, 
 	}
 	if len(updates.AssetCloses) > 0 {
 		any = true
+		acc, err := tx.Prepare(`WITH aaamount AS (SELECT ($1)::bigint as round, ($2)::bigint as intra, x.amount FROM account_asset x WHERE x.addr = $3 AND x.assetid = $4)
+UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{aca}', to_jsonb(aaamount.amount)) FROM aaamount WHERE ut.round = aaamount.round AND ut.intra = aaamount.intra`)
+		if err != nil {
+			return fmt.Errorf("prepare asset close0, %v", err)
+		}
+		defer acc.Close()
 		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen)
 SELECT $1, $2, x.amount, $3 FROM account_asset x WHERE x.addr = $4
 ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount`)
@@ -476,6 +527,10 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		for _, ac := range updates.AssetCloses {
 			if ac.AssetId == debugAsset {
 				fmt.Fprintf(os.Stderr, "%d close %s\n", round, obs(ac))
+			}
+			_, err = acc.Exec(ac.Round, ac.Offset, ac.Sender[:], ac.AssetId)
+			if err != nil {
+				return fmt.Errorf("asset close record amount, %v", err)
 			}
 			_, err = acs.Exec(ac.CloseTo[:], ac.AssetId, ac.DefaultFrozen, ac.Sender[:])
 			if err != nil {
@@ -604,12 +659,34 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		whereArgs = append(whereArgs, tf.SigType)
 		partNumber++
 	}
-	query := "SELECT t.round, t.intra, t.txnbytes, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
-	whereStr := strings.Join(whereParts, " AND ")
+	if len(tf.NotePrefix) > 0 {
+		whereParts = append(whereParts, fmt.Sprintf("substring(decode(t.txn -> 'txn' ->> 'note', 'base64') from 1 for %d) = $%d", len(tf.NotePrefix), partNumber))
+		whereArgs = append(whereArgs, tf.NotePrefix)
+		partNumber++
+	}
+	if tf.MinAlgos != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint >= $%d", partNumber))
+		whereArgs = append(whereArgs, tf.MinAlgos)
+		partNumber++
+	}
+	if tf.EffectiveAmountGt != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("((t.txn -> 'ca')::bigint + (t.txn -> 'txn' -> 'amt')::bigint) > $%d", partNumber))
+		whereArgs = append(whereArgs, tf.EffectiveAmountGt)
+		partNumber++
+	}
+	if tf.EffectiveAmountLt != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("((t.txn -> 'ca')::bigint + (t.txn -> 'txn' -> 'amt')::bigint) < $%d", partNumber))
+		whereArgs = append(whereArgs, tf.EffectiveAmountLt)
+		partNumber++
+	}
+	query := "SELECT t.round, t.intra, t.txnbytes, t.extra, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
-	query += " WHERE " + whereStr
+	if len(whereParts) > 0 {
+		whereStr := strings.Join(whereParts, " AND ")
+		query += " WHERE " + whereStr
+	}
 	if joinParticipation {
 		// this should match the index on txn_particpation
 		query += " ORDER BY p.addr, p.round DESC, p.intra DESC"
@@ -637,8 +714,9 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 		var round uint64
 		var intra int
 		var txnbytes []byte
+		var extraJson []byte
 		var roundtime time.Time
-		err := rows.Scan(&round, &intra, &txnbytes, &roundtime)
+		err := rows.Scan(&round, &intra, &txnbytes, &extraJson, &roundtime)
 		var row TxnRow
 		if err != nil {
 			row.Error = err
@@ -647,6 +725,9 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 			row.Intra = intra
 			row.TxnBytes = txnbytes
 			row.RoundTime = roundtime
+			if len(extraJson) > 0 {
+				json.Decode(extraJson, &row.Extra)
+			}
 		}
 		select {
 		case <-ctx.Done():
@@ -784,7 +865,11 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 
 			}
 		}
-		out <- AccountRow{Account: account}
+		select {
+		case out <- AccountRow{Account: account}:
+		case <-ctx.Done():
+			break
+		}
 	}
 	close(out)
 }
@@ -989,10 +1074,89 @@ func (db *PostgresIndexerDb) yieldAssetsThread(ctx context.Context, filter Asset
 			out <- AssetRow{Error: err}
 			break
 		}
-		out <- AssetRow{
+		rec := AssetRow{
 			AssetId: index,
 			Creator: creator_addr,
 			Params:  params,
+		}
+		select {
+		case <-ctx.Done():
+			break
+		case out <- rec:
+			break
+		}
+	}
+	close(out)
+}
+
+func (db *PostgresIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow {
+	const maxWhereParts = 14
+	whereParts := make([]string, 0, maxWhereParts)
+	whereArgs := make([]interface{}, 0, maxWhereParts)
+	partNumber := 1
+	if abq.AssetId != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.assetid = $%d", partNumber))
+		whereArgs = append(whereArgs, abq.AssetId)
+		partNumber++
+	}
+	if abq.MinAmount != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.amount >= $%d", partNumber))
+		whereArgs = append(whereArgs, abq.MinAmount)
+		partNumber++
+	}
+	if abq.MaxAmount != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.amount <= $%d", partNumber))
+		whereArgs = append(whereArgs, abq.MaxAmount)
+		partNumber++
+	}
+	if len(abq.PrevAddress) != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.addr > $%d", partNumber))
+		whereArgs = append(whereArgs, abq.PrevAddress)
+		partNumber++
+	}
+	var rows *sql.Rows
+	var err error
+	query := `SELECT addr, assetid, amount, frozen FROM account_asset aa`
+	if len(whereParts) > 0 {
+		query += " WHERE " + strings.Join(whereParts, " AND ")
+	}
+	query += " ORDER BY addr ASC"
+	if abq.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d", abq.Limit)
+	}
+	rows, err = db.db.QueryContext(ctx, query, whereArgs...)
+	out := make(chan AssetBalanceRow, 1)
+	if err != nil {
+		out <- AssetBalanceRow{Error: err}
+		close(out)
+		return out
+	}
+	go db.yieldAssetBalanceThread(ctx, rows, out)
+	return out
+}
+
+func (db *PostgresIndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows, out chan<- AssetBalanceRow) {
+	for rows.Next() {
+		var addr []byte
+		var assetId uint64
+		var amount uint64
+		var frozen bool
+		err := rows.Scan(&addr, &assetId, &amount, &frozen)
+		if err != nil {
+			out <- AssetBalanceRow{Error: err}
+			break
+		}
+		rec := AssetBalanceRow{
+			Address: addr,
+			AssetId: assetId,
+			Amount:  amount,
+			Frozen:  frozen,
+		}
+		select {
+		case <-ctx.Done():
+			break
+		case out <- rec:
+			continue
 		}
 	}
 	close(out)

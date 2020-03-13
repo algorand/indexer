@@ -87,6 +87,7 @@ func (accounting *AccountingState) commitRound() error {
 	}
 	accounting.AlgoUpdates = nil
 	accounting.AccountTypes = nil
+	accounting.KeyregUpdates = nil
 	accounting.AssetUpdates = nil
 	accounting.AcfgUpdates = nil
 	accounting.TxnAssetUpdates = nil
@@ -105,6 +106,15 @@ var zeroAddr = [32]byte{}
 
 func addrIsZero(a types.Address) bool {
 	return bytes.Equal(a[:], zeroAddr[:])
+}
+
+func bytesAreZero(b []byte) bool {
+	for _, x := range b {
+		if x != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func (accounting *AccountingState) updateAlgo(addr types.Address, d int64) {
@@ -139,8 +149,18 @@ func (accounting *AccountingState) updateTxnAsset(round uint64, intra int, asset
 	accounting.TxnAssetUpdates = append(accounting.TxnAssetUpdates, idb.TxnAssetUpdate{Round: round, Offset: intra, AssetId: assetId})
 }
 
-func (accounting *AccountingState) closeAsset(from types.Address, assetId uint64, to types.Address) {
-	accounting.AssetCloses = append(accounting.AssetCloses, idb.AssetClose{CloseTo: to, AssetId: assetId, Sender: from, DefaultFrozen: accounting.defaultFrozen[assetId]})
+func (accounting *AccountingState) closeAsset(from types.Address, assetId uint64, to types.Address, round uint64, offset int) {
+	accounting.AssetCloses = append(
+		accounting.AssetCloses,
+		idb.AssetClose{
+			CloseTo:       to,
+			AssetId:       assetId,
+			Sender:        from,
+			DefaultFrozen: accounting.defaultFrozen[assetId],
+			Round:         round,
+			Offset:        uint64(offset),
+		},
+	)
 }
 func (accounting *AccountingState) freezeAsset(addr types.Address, assetId uint64, frozen bool) {
 	accounting.FreezeUpdates = append(accounting.FreezeUpdates, idb.FreezeUpdate{Addr: addr, AssetId: assetId, Frozen: frozen})
@@ -165,7 +185,7 @@ func blankLsig(lsig atypes.LogicSig) bool {
 }
 
 func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnbytes []byte) (err error) {
-	var stxn types.SignedTxnInBlock
+	var stxn types.SignedTxnWithAD
 	err = msgpack.Decode(txnbytes, &stxn)
 	if err != nil {
 		return fmt.Errorf("txn r=%d i=%d failed decode, %v\n", round, intra, err)
@@ -232,7 +252,28 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 			accounting.updateAlgo(accounting.rewardAddr, -int64(stxn.CloseRewards))
 		}
 	} else if stxn.Txn.Type == "keyreg" {
-		// TODO: record keys?
+		// see https://github.com/algorand/go-algorand/blob/master/data/transactions/keyreg.go
+		kru := idb.KeyregUpdate{
+			Addr:            stxn.Txn.Sender,
+			VoteID:          stxn.Txn.VotePK,
+			SelectionID:     stxn.Txn.SelectionPK,
+			VoteFirstValid:  uint64(stxn.Txn.VoteFirst),
+			VoteLastValid:   uint64(stxn.Txn.VoteLast),
+			VoteKeyDilution: stxn.Txn.VoteKeyDilution,
+		}
+		if bytesAreZero(stxn.Txn.VotePK[:]) || bytesAreZero(stxn.Txn.SelectionPK[:]) {
+			if stxn.Txn.Nonparticipation {
+				kru.Status = 2
+			} else {
+				kru.Status = 0
+			}
+			kru.VoteFirstValid = 0
+			kru.VoteLastValid = 0
+			kru.VoteKeyDilution = 0
+		} else {
+			kru.Status = 1 // online
+		}
+		accounting.KeyregUpdates = append(accounting.KeyregUpdates, kru)
 	} else if stxn.Txn.Type == "acfg" {
 		assetId := uint64(stxn.Txn.ConfigAsset)
 		if assetId == 0 {
@@ -267,7 +308,7 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 		}
 		// TODO: mark receivable accounts with the send-self-zero txn?
 		if !stxn.Txn.AssetCloseTo.IsZero() {
-			accounting.closeAsset(sender, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetCloseTo)
+			accounting.closeAsset(sender, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetCloseTo, round, intra)
 		}
 	} else if stxn.Txn.Type == "afrz" {
 		accounting.freezeAsset(stxn.Txn.FreezeAccount, uint64(stxn.Txn.FreezeAsset), stxn.Txn.AssetFrozen)

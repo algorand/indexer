@@ -37,7 +37,7 @@ func (db *dummyIndexerDb) StartBlock() (err error) {
 	fmt.Printf("StartBlock\n")
 	return nil
 }
-func (db *dummyIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txnbytes []byte, txn types.SignedTxnInBlock, participation [][]byte) error {
+func (db *dummyIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
 	fmt.Printf("\ttxn %d %d %d %d\n", round, intra, txtypeenum, assetid)
 	return nil
 }
@@ -102,6 +102,10 @@ func (db *dummyIndexerDb) Assets(ctx context.Context, filter AssetsQuery) <-chan
 	return nil
 }
 
+func (db *dummyIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow {
+	return nil
+}
+
 type IndexerFactory interface {
 	Name() string
 	Build(arg string) (IndexerDb, error)
@@ -112,7 +116,12 @@ type TxnRow struct {
 	RoundTime time.Time
 	Intra     int
 	TxnBytes  []byte
+	Extra     TxnExtra
 	Error     error
+}
+
+type TxnExtra struct {
+	AssetCloseAmount uint64 `codec:"aca,omitempty"`
 }
 
 // TODO: sqlite3 impl
@@ -121,7 +130,7 @@ type IndexerDb interface {
 	// The next few functions define the import interface, functions for loading data into the database. StartBlock() through Get/SetMetastate().
 
 	StartBlock() error
-	AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txnbytes []byte, txn types.SignedTxnInBlock, participation [][]byte) error
+	AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error
 	CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error
 
 	AlreadyImported(path string) (imported bool, err error)
@@ -145,6 +154,7 @@ type IndexerDb interface {
 	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
 	Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow
+	AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow
 }
 
 func GetAccount(idb IndexerDb, addr []byte) (account models.Account, err error) {
@@ -155,7 +165,12 @@ func GetAccount(idb IndexerDb, addr []byte) (account models.Account, err error) 
 }
 
 type TransactionFilter struct {
-	Address    []byte
+	// Address filtering transactions for one Address will
+	// return transactions newest-first proceding into the
+	// past. Paging through such results can be achieved by
+	// setting a MaxRound to get results before.
+	Address []byte
+
 	MinRound   uint64
 	MaxRound   uint64
 	AfterTime  time.Time
@@ -167,7 +182,10 @@ type TransactionFilter struct {
 	Offset     *uint64 // nil for no filter
 	SigType    string  // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
-	MinAlgos   uint64 // implictly filters on "pay" txns for Algos >= this
+	MinAlgos   uint64 // implictly filters on "pay" txns for Algos >= this. This will be a slightly faster query than EffectiveAmountGt.
+
+	EffectiveAmountGt uint64 // Algo: Amount + CloseAmount > x
+	EffectiveAmountLt uint64 // Algo: Amount + CloseAmount < x
 
 	Limit uint64
 }
@@ -216,6 +234,26 @@ type AssetRow struct {
 	Error   error
 }
 
+type AssetBalanceQuery struct {
+	AssetId   uint64
+	MinAmount uint64 // only rows >= this
+	MaxAmount uint64 // only rows <= this
+
+	Limit uint64 // max rows to return
+
+	// PrevAddress for paging, the last item from the previous
+	// query (items returned in address order)
+	PrevAddress []byte
+}
+
+type AssetBalanceRow struct {
+	Address []byte
+	AssetId uint64
+	Amount  uint64
+	Frozen  bool
+	Error   error
+}
+
 type dummyFactory struct {
 }
 
@@ -242,6 +280,16 @@ func IndexerDbByName(factoryname, arg string) (IndexerDb, error) {
 	return nil, fmt.Errorf("no IndexerDb factory for %s", factoryname)
 }
 
+type KeyregUpdate struct {
+	Addr            types.Address
+	Status          int // {Offline:0, Online:1, NotParticipating: 2}
+	VoteID          [32]byte
+	SelectionID     [32]byte
+	VoteFirstValid  uint64
+	VoteLastValid   uint64
+	VoteKeyDilution uint64
+}
+
 type AcfgUpdate struct {
 	AssetId uint64
 	Creator types.Address
@@ -264,6 +312,8 @@ type AssetClose struct {
 	CloseTo       types.Address
 	AssetId       uint64
 	Sender        types.Address
+	Round         uint64
+	Offset        uint64
 	DefaultFrozen bool
 }
 
@@ -276,6 +326,7 @@ type TxnAssetUpdate struct {
 type RoundUpdates struct {
 	AlgoUpdates     map[[32]byte]int64
 	AccountTypes    map[[32]byte]string
+	KeyregUpdates   []KeyregUpdate
 	AcfgUpdates     []AcfgUpdate
 	TxnAssetUpdates []TxnAssetUpdate
 	AssetUpdates    map[[32]byte][]AssetUpdate

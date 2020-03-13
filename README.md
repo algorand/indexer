@@ -52,3 +52,22 @@ java -jar openapi-generator-cli.jar generate -i merged.oas3.yml -g go-server --t
 ```
 
 A number of files are ignored according to the definition in **api/.openapi-generator-ignore**
+
+
+# Operations
+
+## Read-only Indexer Server
+
+It is possible to set up one Postgres database with one writer and many readers. The Indxer pulling new data from algod can be started as above. Starting the indexer daemon without $ALGORAND_DATA or -d/--algod/--algod-net/--algod-token will start it without writing new data to the database. For further isolation, create a `readonly` postgres user. Indexer does specifically note the username "readonly" and change behavior to not try to write to the database. The primary benefit is that Postgres can enforce restricted access to this user:
+
+```sql
+CREATE USER readonly LOGIN PASSWORD 'YourPasswordHere';
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM readonly;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly;
+```
+
+Then start the Indexer:
+
+```bash
+indexer daemon --postgres "user=readonly password=YourPasswordHere {other connection options for your database}"
+```

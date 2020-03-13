@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
@@ -50,9 +51,7 @@ var daemonCmd = &cobra.Command{
 			algodDataDir = os.Getenv("ALGORAND_DATA")
 		}
 		db := globalIndexerDb()
-		if len(protoJsonPath) > 0 {
-			importProto(db, protoJsonPath)
-		}
+
 		ctx, cf := context.WithCancel(context.Background())
 		defer cf()
 		var bot algobot.Algobot
@@ -63,8 +62,21 @@ var daemonCmd = &cobra.Command{
 			bot, err = algobot.ForNetAndToken(algodAddr, algodToken)
 			maybeFail(err, "algobot setup, %v", err)
 		} else if algodDataDir != "" {
+			if genesisJsonPath == "" {
+				genesisJsonPath = filepath.Join(algodDataDir, "genesis.json")
+			}
 			bot, err = algobot.ForDataDir(algodDataDir)
 			maybeFail(err, "algobot setup, %v", err)
+		} else {
+			// no algod was found
+			noAlgod = true
+		}
+		if !noAlgod {
+			// Only do this if we're going to be writing
+			// to the db, to allow for read-only query
+			// servers that hit the db backend.
+			err := importer.ImportProto(db)
+			maybeFail(err, "import proto, %v", err)
 		}
 		if bot != nil {
 			maxRound, err := db.GetMaxRound()
@@ -93,8 +105,7 @@ func init() {
 	daemonCmd.Flags().StringVarP(&algodDataDir, "algod", "d", "", "path to algod data dir, or $ALGORAND_DATA")
 	daemonCmd.Flags().StringVarP(&algodAddr, "algod-net", "", "", "host:port of algod")
 	daemonCmd.Flags().StringVarP(&algodToken, "algod-token", "", "", "api access token for algod")
-	daemonCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json")
-	daemonCmd.Flags().StringVarP(&protoJsonPath, "proto", "p", "", "path to proto.json")
+	daemonCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
 	daemonCmd.Flags().StringVarP(&daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
 	daemonCmd.Flags().BoolVarP(&noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
 }

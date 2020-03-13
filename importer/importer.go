@@ -23,8 +23,13 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 )
+
+// protocols.json from code run in go-algorand:
+// func main() { os.Stdout.Write(protocol.EncodeJSON(config.Consensus)) }
+//go:generate go run ../cmd/texttosource/main.go importer protocols.json
 
 type Importer interface {
 	ImportBlock(blockbytes []byte) error
@@ -79,6 +84,11 @@ func (imp *dbImporter) ImportBlock(blockbytes []byte) (err error) {
 	return imp.ImportDecodedBlock(&blockContainer)
 }
 func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert) (err error) {
+	ensureProtos()
+	_, okversion := protocols[string(blockContainer.Block.CurrentProtocol)]
+	if !okversion {
+		return fmt.Errorf("block %d unknown protocol version %#v", blockContainer.Block.Round, string(blockContainer.Block.CurrentProtocol))
+	}
 	err = imp.db.StartBlock()
 	if err != nil {
 		return fmt.Errorf("error starting block, %v", err)
@@ -97,7 +107,13 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		case 5:
 			assetid = uint64(stxn.Txn.FreezeAsset)
 		}
-		txnbytes := msgpack.Encode(stxn)
+		if stxn.HasGenesisID {
+			stxn.Txn.GenesisID = block.GenesisID
+		}
+		if stxn.HasGenesisHash {
+			stxn.Txn.GenesisHash = block.GenesisHash
+		}
+		stxnad := stxn.SignedTxnWithAD
 		participants := make([][]byte, 0, 10)
 		participants = participate(participants, stxn.Txn.Sender[:])
 		participants = participate(participants, stxn.Txn.Receiver[:])
@@ -105,7 +121,7 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		participants = participate(participants, stxn.Txn.AssetSender[:])
 		participants = participate(participants, stxn.Txn.AssetReceiver[:])
 		participants = participate(participants, stxn.Txn.AssetCloseTo[:])
-		err = imp.db.AddTransaction(round, intra, txtypeenum, assetid, txnbytes, stxn, participants)
+		err = imp.db.AddTransaction(round, intra, txtypeenum, assetid, stxnad, participants)
 		if err != nil {
 			return fmt.Errorf("error importing txn r=%d i=%d, %v", round, intra, err)
 		}
@@ -122,4 +138,35 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 
 func NewDBImporter(db idb.IndexerDb) Importer {
 	return &dbImporter{db: db}
+}
+
+var protocols map[string]types.ConsensusParams
+
+func ensureProtos() (err error) {
+	if protocols != nil {
+		return nil
+	}
+	protos := make(map[string]types.ConsensusParams, 30)
+	// Load text from protocols.json as compiled-in.
+	err = json.Decode([]byte(protocols_json), &protos)
+	if err != nil {
+		return fmt.Errorf("proto decode, %v", err)
+	}
+	protocols = protos
+	return nil
+}
+
+// ImportProto writes compiled-in protocol information to the database
+func ImportProto(db idb.IndexerDb) (err error) {
+	err = ensureProtos()
+	if err != nil {
+		return
+	}
+	for version, proto := range protocols {
+		err = db.SetProto(version, proto)
+		if err != nil {
+			return fmt.Errorf("db set proto %s, %v", version, err)
+		}
+	}
+	return nil
 }
