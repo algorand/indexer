@@ -659,14 +659,11 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		whereArgs = append(whereArgs, tf.SigType)
 		partNumber++
 	}
-	/*
-		// TODO: 'note' in jsonb is base64, which is not amenable to prefix matching
-		if len(tf.NotePrefix) > 0 {
-			whereParts = append(whereParts, fmt.Sprintf("t.txn -> 'txn' -> 'note' ", partNumber))
-			whereArgs = append(whereArgs, tf.SigType)
-			partNumber++
-		}
-	*/
+	if len(tf.NotePrefix) > 0 {
+		whereParts = append(whereParts, fmt.Sprintf("substring(decode(t.txn -> 'txn' ->> 'note', 'base64') from 1 for %d) = $%d", len(tf.NotePrefix), partNumber))
+		whereArgs = append(whereArgs, tf.NotePrefix)
+		partNumber++
+	}
 	if tf.MinAlgos != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint >= $%d", partNumber))
 		whereArgs = append(whereArgs, tf.MinAlgos)

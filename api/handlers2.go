@@ -453,11 +453,9 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.Round = params.Round
 
 	// Byte array
-	/*
-		if params.Noteprefix != nil {
-			filter.NotePrefix = *params.Noteprefix
-		}
-	*/
+	if params.Noteprefix != nil {
+		filter.NotePrefix = *params.Noteprefix
+	}
 	if params.Txid != nil {
 		filter.Txid = *params.Txid
 	}

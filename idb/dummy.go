@@ -181,8 +181,8 @@ type TransactionFilter struct {
 	Round      *uint64 // nil for no filter
 	Offset     *uint64 // nil for no filter
 	SigType    string  // ["", "sig", "msig", "lsig"]
-	// NotePrefix []byte // TODO: 'note' in jsonb is base64, which is not amenable to prefix matching
-	MinAlgos uint64 // implictly filters on "pay" txns for Algos >= this. This will be a slightly faster query than EffectiveAmountGt.
+	NotePrefix []byte
+	MinAlgos   uint64 // implictly filters on "pay" txns for Algos >= this. This will be a slightly faster query than EffectiveAmountGt.
 
 	EffectiveAmountGt uint64 // Algo: Amount + CloseAmount > x
 	EffectiveAmountLt uint64 // Algo: Amount + CloseAmount < x
