@@ -29,6 +29,12 @@ func badRequest(ctx echo.Context, err string) error {
 	})
 }
 
+func indexerError(ctx echo.Context, err string) error {
+	return ctx.JSON(http.StatusInternalServerError, generated.Error{
+		Error: err,
+	})
+}
+
 func uintOrDefault(x *uint64, def uint64) uint64 {
 	if x != nil {
 		return *x
@@ -441,8 +447,18 @@ func decodeType(str *string, field string, errorArr []string) (t int, err []stri
 	return 0, errorArr
 }
 
+
+// TODO: idb.TransactionFilter is missing MaxAlgos, MinAssetAmount and MaxAssetAmount
 func transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {
 	var errorArr = make([]string, 0)
+
+	if params.Round != nil && params.MaxRound != nil && *params.Round > *params.MaxRound {
+		errorArr = append(errorArr, "invalid parameters: round > max-round")
+	}
+
+	if params.Round != nil && params.MinRound != nil && *params.Round < *params.MinRound {
+		errorArr = append(errorArr, "invalid parameters: round < min-round")
+	}
 
 	// Integer
 	filter.MaxRound = uintOrDefault(params.MaxRound, 0)
@@ -605,16 +621,74 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 	return errors.New("Unimplemented")
 }
 
+// TODO: Missing a few fields from the indexer lookup:
+//    * genesis hash
+//    * period
+//    * previous block hash
+//    * proposer
 // (GET /block/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
-	// TODO: Need to implement 'fetchBlock'
-	return errors.New("Unimplemented")
+	blk, err := IndexerDb.GetBlock(roundNumber)
+	if err != nil {
+		return indexerError(ctx, fmt.Sprintf("error while looking up for block for round '%d': %v", roundNumber, err))
+	}
+
+	// Lookup transactions
+	filter := idb.TransactionFilter{ Round: uint64Ptr(roundNumber) }
+	transactions, err := fetchTransactions(filter, ctx.Request().Context())
+	if err != nil {
+		return indexerError(ctx, fmt.Sprintf("error while looking up for transactions for round '%d': %v", roundNumber, err))
+	}
+
+	rewards := generated.BlockRewards{
+		FeeSink:                 "",
+		RewardsCalculationRound: uint64(blk.RewardsRecalculationRound),
+		RewardsLevel:            blk.RewardsLevel,
+		RewardsPool:             blk.RewardsPool.String(),
+		RewardsRate:             blk.RewardsRate,
+		RewardsResidue:          blk.RewardsResidue,
+	}
+
+	upgradeState := generated.BlockUpgradeState{
+		CurrentProtocol:        string(blk.CurrentProtocol),
+		NextProtocol:           strPtr(string(blk.NextProtocol)),
+		NextProtocolApprovals:  uint64Ptr(blk.NextProtocolApprovals),
+		NextProtocolSwitchOn:   uint64Ptr(uint64(blk.NextProtocolSwitchOn)),
+		NextProtocolVoteBefore: uint64Ptr(uint64(blk.NextProtocolVoteBefore)),
+	}
+
+	upgradeVote := generated.BlockUpgradeVote{
+		UpgradeApprove: boolPtr(blk.UpgradeApprove),
+		UpgradeDelay:   uint64Ptr(uint64(blk.UpgradeDelay)),
+		UpgradePropose: strPtr(string(blk.UpgradePropose)),
+	}
+
+	ret := generated.Block{
+		GenesisHash:       blk.GenesisHash[:],
+		GenesisId:         blk.GenesisID,
+		Hash:              []byte{}, // TODO
+		Period:            0,        // TODO
+		PreviousBlockHash: []byte{}, // TODO
+		Proposer:          "",       // TODO
+		Rewards:           &rewards,
+		Round:             uint64(blk.Round),
+		Seed:              blk.Seed[:],
+		Timestamp:         uint64(blk.TimeStamp),
+		Transactions:      &transactions,
+		TransactionsRoot:  blk.TxnRoot[:],
+		TxnCounter:        uint64Ptr(blk.TxnCounter),
+		UpgradeState:      &upgradeState,
+		UpgradeVote:       &upgradeVote,
+	}
+
+	return ctx.JSON(http.StatusOK, generated.BlockResponse(ret))
 }
 
 // TODO:
-//  * Address - Sender/Receiver/CloseTo?
-//  * MinAlgos - MaxAlgos? Min/Max asset? Or Min/Max with implicit MinAlgo/MinAsset?
-//  * Implement "format", maybe that just returns raw bytes? Does it need to convert to stxn and add the genhash/genID back in first?
+//  * Missing from params: Address - Sender/Receiver/CloseTo?
+//  * MaxAlgos - MaxAlgos? Min/Max asset? Or Min/Max with implicit MinAlgo/MinAsset?
+//  * MinAssetAmount
+//  * MaxAssetAmount
 // (GET /transactions)
 func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params generated.SearchForTransactionsParams) error {
 	filter, err := transactionParamsToTransactionFilter(params)
@@ -626,7 +700,7 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 	txns, err := fetchTransactions(filter, ctx.Request().Context())
 
 	if err != nil {
-		return badRequest(ctx, fmt.Sprintf("error while searching for transactions: %v", err))
+		return indexerError(ctx, fmt.Sprintf("error while searching for transactions: %v", err))
 	}
 
 	round, err := IndexerDb.GetMaxRound()
