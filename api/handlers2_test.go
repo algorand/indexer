@@ -54,7 +54,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		},
 		{
 			"Enum fields",
-			generated.SearchForTransactionsParams{TxType: strPtr("pay"), Sigtype: strPtr("lsig")},
+			generated.SearchForTransactionsParams{TxType: strPtr("pay"), SigType: strPtr("lsig")},
 			idb.TransactionFilter{TypeEnum: 1, SigType: "lsig"},
 			nil,
 		},
@@ -66,7 +66,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		},
 		{
 			"Invalid Enum fields",
-			generated.SearchForTransactionsParams{TxType: strPtr("micro"), Sigtype: strPtr("handshake")},
+			generated.SearchForTransactionsParams{TxType: strPtr("micro"), SigType: strPtr("handshake")},
 			idb.TransactionFilter{},
 			[]string{"invalid sigtype", "invalid transaction type"},
 		},

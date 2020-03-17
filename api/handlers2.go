@@ -469,7 +469,7 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	}
 
 	// Enum
-	filter.SigType, errorArr = decodeSigType(params.Sigtype, "sigtype", errorArr)
+	filter.SigType, errorArr = decodeSigType(params.SigType, "sigtype", errorArr)
 	filter.TypeEnum, errorArr = decodeType(params.TxType, "type", errorArr)
 
 	// If there were any errorArr while setting up the TransactionFilter, return now.
@@ -524,17 +524,25 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId st
 		return badRequest(ctx, fmt.Sprintf("Multiple accounts found for address, this shouldn't have happened: %s", accountId))
 	}
 
-	return ctx.JSON(http.StatusOK, generated.AccountResponse(accounts[0]))
+	round, err := IndexerDb.GetMaxRound()
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	return ctx.JSON(http.StatusOK, generated.AccountResponse{
+		CurrentRound: round,
+		Account: accounts[0],
+	})
 }
 
 // TODO: Missing filters:
 //  * Holds assetID
-// TODO: "at round" is missing from these params, maybe it's fine to leave it out here.
+//  * assetID holding gt/lt amount
 // (GET /accounts)
 func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generated.SearchAccountsParams) error {
 	options := idb.AccountQueryOptions {
-		AlgosGreaterThan:     uintOrDefault(params.AlgosGreaterThan, 0),
-		AlgosLessThan:        uintOrDefault(params.AlgosLessThan, 0),
+		AlgosGreaterThan:     uintOrDefault(params.CurrencyGreaterThan, 0),
+		AlgosLessThan:        uintOrDefault(params.CurrencyLessThan, 0),
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
 		Limit:                uintOrDefault(params.Limit, 0),
@@ -560,8 +568,8 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 	}
 
 	response := generated.AccountsResponse{
-		Accounts: accounts,
-		Round:    round,
+		CurrentRound: round,
+		Accounts:     accounts,
 	}
 
 	return ctx.JSON(http.StatusOK, response)
@@ -603,27 +611,6 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 	return errors.New("Unimplemented")
 }
 
-// (GET /blocktimes)
-func (si *ServerImplementation) LookupBlockTimes(ctx echo.Context) error {
-	// TODO: Are we keeping this?
-	//return errors.New("Unimplemented")
-	rounds := []struct {
-		Round     *uint64 `json:"round,omitempty"`
-		Timestamp *uint64 `json:"timestamp,omitempty"`
-	}{
-		{
-			Round:     uint64Ptr(1),
-			Timestamp: uint64Ptr(12345),
-		},
-	}
-
-	response := generated.BlockTimesResponse{
-		Rounds: &rounds,
-	}
-
-	return ctx.JSON(http.StatusOK, response)
-}
-
 // TODO:
 //  * Address - Sender/Receiver/CloseTo?
 //  * MinAlgos - MaxAlgos? Min/Max asset? Or Min/Max with implicit MinAlgo/MinAsset?
@@ -648,8 +635,8 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 	}
 
 	response := generated.TransactionsResponse{
-		Round:        &round,
-		Transactions: &txns,
+		CurrentRound: round,
+		Transactions: txns,
 	}
 
 	return ctx.JSON(http.StatusOK, response)
