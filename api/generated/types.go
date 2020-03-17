@@ -29,6 +29,9 @@ type Account struct {
 	// Note: the raw account uses `map[int] -> Asset` for this type.
 	CreatedAssets *[]Asset `json:"created-assets,omitempty"`
 
+	// AccountParticipation describes the parameters used by this account in consensus protocol.
+	Participation *AccountParticipation `json:"participation,omitempty"`
+
 	// amount of MicroAlgos of pending rewards in this account.
 	PendingRewards uint64 `json:"pending-rewards"`
 
