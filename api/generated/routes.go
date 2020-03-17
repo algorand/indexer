@@ -18,32 +18,29 @@ import (
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
-	// (GET /account/{account-id})
-	LookupAccountByID(ctx echo.Context, accountId string, params LookupAccountByIDParams) error
-
-	// (GET /account/{account-id}/transactions)
-	LookupAccountTransactions(ctx echo.Context, accountId string, params LookupAccountTransactionsParams) error
-
 	// (GET /accounts)
 	SearchAccounts(ctx echo.Context, params SearchAccountsParams) error
 
-	// (GET /asset/{asset-id})
-	LookupAssetByID(ctx echo.Context, assetId uint64) error
+	// (GET /accounts/{account-id})
+	LookupAccountByID(ctx echo.Context, accountId string, params LookupAccountByIDParams) error
 
-	// (GET /asset/{asset-id}/balances)
-	LookupAssetBalances(ctx echo.Context, assetId uint64, params LookupAssetBalancesParams) error
-
-	// (GET /asset/{asset-id}/transactions)
-	LookupAssetTransactions(ctx echo.Context, assetId uint64, params LookupAssetTransactionsParams) error
+	// (GET /accounts/{account-id}/transactions)
+	LookupAccountTransactions(ctx echo.Context, accountId string, params LookupAccountTransactionsParams) error
 
 	// (GET /assets)
 	SearchForAssets(ctx echo.Context, params SearchForAssetsParams) error
 
-	// (GET /block/{round-number})
-	LookupBlock(ctx echo.Context, roundNumber uint64) error
+	// (GET /assets/{asset-id})
+	LookupAssetByID(ctx echo.Context, assetId uint64) error
 
-	// (GET /blocktimes)
-	LookupBlockTimes(ctx echo.Context) error
+	// (GET /assets/{asset-id}/balances)
+	LookupAssetBalances(ctx echo.Context, assetId uint64, params LookupAssetBalancesParams) error
+
+	// (GET /assets/{asset-id}/transactions)
+	LookupAssetTransactions(ctx echo.Context, assetId uint64, params LookupAssetTransactionsParams) error
+
+	// (GET /blocks/{round-number})
+	LookupBlock(ctx echo.Context, roundNumber uint64) error
 
 	// (GET /transactions)
 	SearchForTransactions(ctx echo.Context, params SearchForTransactionsParams) error
@@ -52,6 +49,67 @@ type ServerInterface interface {
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// SearchAccounts converts echo context to params.
+func (w *ServerInterfaceWrapper) SearchAccounts(ctx echo.Context) error {
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SearchAccountsParams
+	// ------------- Optional query parameter "asset-id" -------------
+	if paramValue := ctx.QueryParam("asset-id"); paramValue != "" {
+
+	}
+
+	err = runtime.BindQueryParameter("form", true, false, "asset-id", ctx.QueryParams(), &params.AssetId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter asset-id: %s", err))
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+	if paramValue := ctx.QueryParam("limit"); paramValue != "" {
+
+	}
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
+	}
+
+	// ------------- Optional query parameter "currency-greater-than" -------------
+	if paramValue := ctx.QueryParam("currency-greater-than"); paramValue != "" {
+
+	}
+
+	err = runtime.BindQueryParameter("form", true, false, "currency-greater-than", ctx.QueryParams(), &params.CurrencyGreaterThan)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter currency-greater-than: %s", err))
+	}
+
+	// ------------- Optional query parameter "currency-less-than" -------------
+	if paramValue := ctx.QueryParam("currency-less-than"); paramValue != "" {
+
+	}
+
+	err = runtime.BindQueryParameter("form", true, false, "currency-less-than", ctx.QueryParams(), &params.CurrencyLessThan)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter currency-less-than: %s", err))
+	}
+
+	// ------------- Optional query parameter "address-greater-than" -------------
+	if paramValue := ctx.QueryParam("address-greater-than"); paramValue != "" {
+
+	}
+
+	err = runtime.BindQueryParameter("form", true, false, "address-greater-than", ctx.QueryParams(), &params.AddressGreaterThan)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter address-greater-than: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.SearchAccounts(ctx, params)
+	return err
 }
 
 // LookupAccountByID converts echo context to params.
@@ -135,14 +193,14 @@ func (w *ServerInterfaceWrapper) LookupAccountTransactions(ctx echo.Context) err
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter after-time: %s", err))
 	}
 
-	// ------------- Optional query parameter "asset" -------------
-	if paramValue := ctx.QueryParam("asset"); paramValue != "" {
+	// ------------- Optional query parameter "asset-id" -------------
+	if paramValue := ctx.QueryParam("asset-id"); paramValue != "" {
 
 	}
 
-	err = runtime.BindQueryParameter("form", true, false, "asset", ctx.QueryParams(), &params.Asset)
+	err = runtime.BindQueryParameter("form", true, false, "asset-id", ctx.QueryParams(), &params.AssetId)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter asset: %s", err))
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter asset-id: %s", err))
 	}
 
 	// ------------- Optional query parameter "offset" -------------
@@ -165,24 +223,24 @@ func (w *ServerInterfaceWrapper) LookupAccountTransactions(ctx echo.Context) err
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
 	}
 
-	// ------------- Optional query parameter "algos-greater-than" -------------
-	if paramValue := ctx.QueryParam("algos-greater-than"); paramValue != "" {
+	// ------------- Optional query parameter "currency-greater-than" -------------
+	if paramValue := ctx.QueryParam("currency-greater-than"); paramValue != "" {
 
 	}
 
-	err = runtime.BindQueryParameter("form", true, false, "algos-greater-than", ctx.QueryParams(), &params.AlgosGreaterThan)
+	err = runtime.BindQueryParameter("form", true, false, "currency-greater-than", ctx.QueryParams(), &params.CurrencyGreaterThan)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter algos-greater-than: %s", err))
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter currency-greater-than: %s", err))
 	}
 
-	// ------------- Optional query parameter "algos-less-than" -------------
-	if paramValue := ctx.QueryParam("algos-less-than"); paramValue != "" {
+	// ------------- Optional query parameter "currency-less-than" -------------
+	if paramValue := ctx.QueryParam("currency-less-than"); paramValue != "" {
 
 	}
 
-	err = runtime.BindQueryParameter("form", true, false, "algos-less-than", ctx.QueryParams(), &params.AlgosLessThan)
+	err = runtime.BindQueryParameter("form", true, false, "currency-less-than", ctx.QueryParams(), &params.CurrencyLessThan)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter algos-less-than: %s", err))
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter currency-less-than: %s", err))
 	}
 
 	// Invoke the callback with all the unmarshalled arguments
@@ -190,32 +248,12 @@ func (w *ServerInterfaceWrapper) LookupAccountTransactions(ctx echo.Context) err
 	return err
 }
 
-// SearchAccounts converts echo context to params.
-func (w *ServerInterfaceWrapper) SearchAccounts(ctx echo.Context) error {
+// SearchForAssets converts echo context to params.
+func (w *ServerInterfaceWrapper) SearchForAssets(ctx echo.Context) error {
 	var err error
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params SearchAccountsParams
-	// ------------- Optional query parameter "asset-id" -------------
-	if paramValue := ctx.QueryParam("asset-id"); paramValue != "" {
-
-	}
-
-	err = runtime.BindQueryParameter("form", true, false, "asset-id", ctx.QueryParams(), &params.AssetId)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter asset-id: %s", err))
-	}
-
-	// ------------- Optional query parameter "assetParams" -------------
-	if paramValue := ctx.QueryParam("assetParams"); paramValue != "" {
-
-	}
-
-	err = runtime.BindQueryParameter("form", true, false, "assetParams", ctx.QueryParams(), &params.AssetParams)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter assetParams: %s", err))
-	}
-
+	var params SearchForAssetsParams
 	// ------------- Optional query parameter "limit" -------------
 	if paramValue := ctx.QueryParam("limit"); paramValue != "" {
 
@@ -226,38 +264,58 @@ func (w *ServerInterfaceWrapper) SearchAccounts(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
 	}
 
-	// ------------- Optional query parameter "algos-greater-than" -------------
-	if paramValue := ctx.QueryParam("algos-greater-than"); paramValue != "" {
+	// ------------- Optional query parameter "creator" -------------
+	if paramValue := ctx.QueryParam("creator"); paramValue != "" {
 
 	}
 
-	err = runtime.BindQueryParameter("form", true, false, "algos-greater-than", ctx.QueryParams(), &params.AlgosGreaterThan)
+	err = runtime.BindQueryParameter("form", true, false, "creator", ctx.QueryParams(), &params.Creator)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter algos-greater-than: %s", err))
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter creator: %s", err))
 	}
 
-	// ------------- Optional query parameter "algos-less-than" -------------
-	if paramValue := ctx.QueryParam("algos-less-than"); paramValue != "" {
+	// ------------- Optional query parameter "name" -------------
+	if paramValue := ctx.QueryParam("name"); paramValue != "" {
 
 	}
 
-	err = runtime.BindQueryParameter("form", true, false, "algos-less-than", ctx.QueryParams(), &params.AlgosLessThan)
+	err = runtime.BindQueryParameter("form", true, false, "name", ctx.QueryParams(), &params.Name)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter algos-less-than: %s", err))
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter name: %s", err))
 	}
 
-	// ------------- Optional query parameter "address-greater-than" -------------
-	if paramValue := ctx.QueryParam("address-greater-than"); paramValue != "" {
+	// ------------- Optional query parameter "unit" -------------
+	if paramValue := ctx.QueryParam("unit"); paramValue != "" {
 
 	}
 
-	err = runtime.BindQueryParameter("form", true, false, "address-greater-than", ctx.QueryParams(), &params.AddressGreaterThan)
+	err = runtime.BindQueryParameter("form", true, false, "unit", ctx.QueryParams(), &params.Unit)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter address-greater-than: %s", err))
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter unit: %s", err))
+	}
+
+	// ------------- Optional query parameter "asset-id" -------------
+	if paramValue := ctx.QueryParam("asset-id"); paramValue != "" {
+
+	}
+
+	err = runtime.BindQueryParameter("form", true, false, "asset-id", ctx.QueryParams(), &params.AssetId)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter asset-id: %s", err))
+	}
+
+	// ------------- Optional query parameter "asset-greater-than" -------------
+	if paramValue := ctx.QueryParam("asset-greater-than"); paramValue != "" {
+
+	}
+
+	err = runtime.BindQueryParameter("form", true, false, "asset-greater-than", ctx.QueryParams(), &params.AssetGreaterThan)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter asset-greater-than: %s", err))
 	}
 
 	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.SearchAccounts(ctx, params)
+	err = w.Handler.SearchForAssets(ctx, params)
 	return err
 }
 
@@ -443,77 +501,6 @@ func (w *ServerInterfaceWrapper) LookupAssetTransactions(ctx echo.Context) error
 	return err
 }
 
-// SearchForAssets converts echo context to params.
-func (w *ServerInterfaceWrapper) SearchForAssets(ctx echo.Context) error {
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params SearchForAssetsParams
-	// ------------- Optional query parameter "asset-greater-than" -------------
-	if paramValue := ctx.QueryParam("asset-greater-than"); paramValue != "" {
-
-	}
-
-	err = runtime.BindQueryParameter("form", true, false, "asset-greater-than", ctx.QueryParams(), &params.AssetGreaterThan)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter asset-greater-than: %s", err))
-	}
-
-	// ------------- Optional query parameter "limit" -------------
-	if paramValue := ctx.QueryParam("limit"); paramValue != "" {
-
-	}
-
-	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
-	}
-
-	// ------------- Optional query parameter "creator" -------------
-	if paramValue := ctx.QueryParam("creator"); paramValue != "" {
-
-	}
-
-	err = runtime.BindQueryParameter("form", true, false, "creator", ctx.QueryParams(), &params.Creator)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter creator: %s", err))
-	}
-
-	// ------------- Optional query parameter "name" -------------
-	if paramValue := ctx.QueryParam("name"); paramValue != "" {
-
-	}
-
-	err = runtime.BindQueryParameter("form", true, false, "name", ctx.QueryParams(), &params.Name)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter name: %s", err))
-	}
-
-	// ------------- Optional query parameter "unit" -------------
-	if paramValue := ctx.QueryParam("unit"); paramValue != "" {
-
-	}
-
-	err = runtime.BindQueryParameter("form", true, false, "unit", ctx.QueryParams(), &params.Unit)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter unit: %s", err))
-	}
-
-	// ------------- Optional query parameter "asset-id" -------------
-	if paramValue := ctx.QueryParam("asset-id"); paramValue != "" {
-
-	}
-
-	err = runtime.BindQueryParameter("form", true, false, "asset-id", ctx.QueryParams(), &params.AssetId)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter asset-id: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.SearchForAssets(ctx, params)
-	return err
-}
-
 // LookupBlock converts echo context to params.
 func (w *ServerInterfaceWrapper) LookupBlock(ctx echo.Context) error {
 	var err error
@@ -527,15 +514,6 @@ func (w *ServerInterfaceWrapper) LookupBlock(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.LookupBlock(ctx, roundNumber)
-	return err
-}
-
-// LookupBlockTimes converts echo context to params.
-func (w *ServerInterfaceWrapper) LookupBlockTimes(ctx echo.Context) error {
-	var err error
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.LookupBlockTimes(ctx)
 	return err
 }
 
@@ -565,14 +543,14 @@ func (w *ServerInterfaceWrapper) SearchForTransactions(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter tx-type: %s", err))
 	}
 
-	// ------------- Optional query parameter "sigtype" -------------
-	if paramValue := ctx.QueryParam("sigtype"); paramValue != "" {
+	// ------------- Optional query parameter "sig-type" -------------
+	if paramValue := ctx.QueryParam("sig-type"); paramValue != "" {
 
 	}
 
-	err = runtime.BindQueryParameter("form", true, false, "sigtype", ctx.QueryParams(), &params.Sigtype)
+	err = runtime.BindQueryParameter("form", true, false, "sig-type", ctx.QueryParams(), &params.SigType)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter sigtype: %s", err))
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter sig-type: %s", err))
 	}
 
 	// ------------- Optional query parameter "txid" -------------
@@ -635,16 +613,6 @@ func (w *ServerInterfaceWrapper) SearchForTransactions(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter asset-id: %s", err))
 	}
 
-	// ------------- Optional query parameter "format" -------------
-	if paramValue := ctx.QueryParam("format"); paramValue != "" {
-
-	}
-
-	err = runtime.BindQueryParameter("form", true, false, "format", ctx.QueryParams(), &params.Format)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter format: %s", err))
-	}
-
 	// ------------- Optional query parameter "limit" -------------
 	if paramValue := ctx.QueryParam("limit"); paramValue != "" {
 
@@ -675,34 +643,24 @@ func (w *ServerInterfaceWrapper) SearchForTransactions(ctx echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter after-time: %s", err))
 	}
 
-	// ------------- Optional query parameter "algos-greater-than" -------------
-	if paramValue := ctx.QueryParam("algos-greater-than"); paramValue != "" {
+	// ------------- Optional query parameter "currency-greater-than" -------------
+	if paramValue := ctx.QueryParam("currency-greater-than"); paramValue != "" {
 
 	}
 
-	err = runtime.BindQueryParameter("form", true, false, "algos-greater-than", ctx.QueryParams(), &params.AlgosGreaterThan)
+	err = runtime.BindQueryParameter("form", true, false, "currency-greater-than", ctx.QueryParams(), &params.CurrencyGreaterThan)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter algos-greater-than: %s", err))
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter currency-greater-than: %s", err))
 	}
 
-	// ------------- Optional query parameter "algos-less-than" -------------
-	if paramValue := ctx.QueryParam("algos-less-than"); paramValue != "" {
+	// ------------- Optional query parameter "currency-less-than" -------------
+	if paramValue := ctx.QueryParam("currency-less-than"); paramValue != "" {
 
 	}
 
-	err = runtime.BindQueryParameter("form", true, false, "algos-less-than", ctx.QueryParams(), &params.AlgosLessThan)
+	err = runtime.BindQueryParameter("form", true, false, "currency-less-than", ctx.QueryParams(), &params.CurrencyLessThan)
 	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter algos-less-than: %s", err))
-	}
-
-	// ------------- Optional query parameter "sig-type" -------------
-	if paramValue := ctx.QueryParam("sig-type"); paramValue != "" {
-
-	}
-
-	err = runtime.BindQueryParameter("form", true, false, "sig-type", ctx.QueryParams(), &params.SigType)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter sig-type: %s", err))
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter currency-less-than: %s", err))
 	}
 
 	// Invoke the callback with all the unmarshalled arguments
@@ -727,15 +685,14 @@ func RegisterHandlers(router interface {
 		Handler: si,
 	}
 
-	router.GET("/account/:account-id", wrapper.LookupAccountByID)
-	router.GET("/account/:account-id/transactions", wrapper.LookupAccountTransactions)
 	router.GET("/accounts", wrapper.SearchAccounts)
-	router.GET("/asset/:asset-id", wrapper.LookupAssetByID)
-	router.GET("/asset/:asset-id/balances", wrapper.LookupAssetBalances)
-	router.GET("/asset/:asset-id/transactions", wrapper.LookupAssetTransactions)
+	router.GET("/accounts/:account-id", wrapper.LookupAccountByID)
+	router.GET("/accounts/:account-id/transactions", wrapper.LookupAccountTransactions)
 	router.GET("/assets", wrapper.SearchForAssets)
-	router.GET("/block/:round-number", wrapper.LookupBlock)
-	router.GET("/blocktimes", wrapper.LookupBlockTimes)
+	router.GET("/assets/:asset-id", wrapper.LookupAssetByID)
+	router.GET("/assets/:asset-id/balances", wrapper.LookupAssetBalances)
+	router.GET("/assets/:asset-id/transactions", wrapper.LookupAssetTransactions)
+	router.GET("/blocks/:round-number", wrapper.LookupBlock)
 	router.GET("/transactions", wrapper.SearchForTransactions)
 
 }
@@ -743,136 +700,116 @@ func RegisterHandlers(router interface {
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"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",
+	"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",
 }
 
 // GetSwagger returns the Swagger specification corresponding to the generated code

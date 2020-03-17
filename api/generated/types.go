@@ -29,9 +29,6 @@ type Account struct {
 	// Note: the raw account uses `map[int] -> Asset` for this type.
 	CreatedAssets *[]Asset `json:"created-assets,omitempty"`
 
-	// AccountParticipation describes the parameters used by this account in consensus protocol.
-	Participation *AccountParticipation `json:"participation,omitempty"`
-
 	// amount of MicroAlgos of pending rewards in this account.
 	PendingRewards uint64 `json:"pending-rewards"`
 
@@ -256,51 +253,7 @@ type BlockUpgradeVote struct {
 type MiniAssetHolding struct {
 	Address  string `json:"address"`
 	Amount   uint64 `json:"amount"`
-	IsFrozen bool   `json:"isFrozen"`
-}
-
-// NodeStatus defines model for NodeStatus.
-type NodeStatus struct {
-
-	// CatchupTime in nanoseconds
-	CatchupTime uint64 `json:"catchup-time"`
-
-	// HasSyncedSinceStartup indicates whether a round has completed since startup
-	HasSyncedSinceStartup bool `json:"has-synced-since-startup"`
-
-	// LastRound indicates the last round seen
-	LastRound uint64 `json:"last-round"`
-
-	// LastVersion indicates the last consensus version supported
-	LastVersion *string `json:"last-version,omitempty"`
-
-	// NextVersion of consensus protocol to use
-	NextVersion *string `json:"next-version,omitempty"`
-
-	// NextVersionRound is the round at which the next consensus version will apply
-	NextVersionRound *uint64 `json:"next-version-round,omitempty"`
-
-	// NextVersionSupported indicates whether the next consensus version is supported by this node
-	NextVersionSupported *bool `json:"next-version-supported,omitempty"`
-
-	// StoppedAtUnsupportedRound indicates that the node does not support the new rounds and has stopped making progress
-	StoppedAtUnsupportedRound bool `json:"stopped-at-unsupported-round"`
-
-	// TimeSinceLastRound in nanoseconds
-	TimeSinceLastRound uint64 `json:"time-since-last-round"`
-}
-
-// Supply defines model for Supply.
-type Supply struct {
-
-	// OnlineMoney
-	OnlineMoney uint64 `json:"onlineMoney"`
-
-	// Round
-	Round uint64 `json:"round"`
-
-	// TotalMoney
-	TotalMoney uint64 `json:"totalMoney"`
+	IsFrozen bool   `json:"is-frozen"`
 }
 
 // Transaction defines model for Transaction.
@@ -479,33 +432,6 @@ type TransactionKeyreg struct {
 	VoteParticipationKey *[]byte `json:"vote-participation-key,omitempty"`
 }
 
-// TransactionParams defines model for TransactionParams.
-type TransactionParams struct {
-
-	// ConsensusVersion indicates the consensus protocol version
-	// as of LastRound.
-	ConsensusVersion string `json:"consensusVersion"`
-
-	// Fee is the suggested transaction fee
-	// Fee is in units of micro-Algos per byte.
-	// Fee may fall to zero but transactions must still have a fee of
-	// at least MinTxnFee for the current network protocol.
-	Fee uint64 `json:"fee"`
-
-	// GenesisID is an ID listed in the genesis block.
-	GenesisID string `json:"genesisID"`
-
-	// GenesisHash is the hash of the genesis block.
-	Genesishash []byte `json:"genesishash"`
-
-	// LastRound indicates the last round seen
-	LastRound uint64 `json:"lastRound"`
-
-	// The minimum transaction fee (not per byte) required for the
-	// txn to validate for the current network protocol.
-	MinFee *uint64 `json:"minFee,omitempty"`
-}
-
 // TransactionPayment defines model for TransactionPayment.
 type TransactionPayment struct {
 
@@ -583,26 +509,6 @@ type TransactionSignatureMultisigSubsignature struct {
 	Signature *[]byte `json:"signature,omitempty"`
 }
 
-// Version defines model for Version.
-type Version struct {
-
-	// the current algod build version information.
-	Build       VersionBuild `json:"build"`
-	GenesisHash []byte       `json:"genesis-hash"`
-	GenesisId   string       `json:"genesis-id"`
-	Versions    []string     `json:"versions"`
-}
-
-// VersionBuild defines model for VersionBuild.
-type VersionBuild struct {
-	Branch      string `json:"branch"`
-	BuildNumber uint64 `json:"build-number"`
-	Channel     string `json:"channel"`
-	CommitHash  []byte `json:"commit-hash"`
-	Major       uint64 `json:"major"`
-	Minor       uint64 `json:"minor"`
-}
-
 // AccountId defines model for account-id.
 type AccountId string
 
@@ -611,12 +517,6 @@ type AddressGreaterThan string
 
 // AfterTime defines model for after-time.
 type AfterTime time.Time
-
-// AlgosGreaterThan defines model for algos-greater-than.
-type AlgosGreaterThan uint64
-
-// AlgosLessThan defines model for algos-less-than.
-type AlgosLessThan uint64
 
 // AssetId defines model for asset-id.
 type AssetId uint64
@@ -655,14 +555,24 @@ type SigType string
 type TxType string
 
 // AccountResponse defines model for AccountResponse.
-type AccountResponse Account
+type AccountResponse struct {
+
+	// Account information at a given round.
+	//
+	// Definition:
+	// data/basics/userBalance.go : AccountData
+	Account Account `json:"account"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+}
 
 // AccountsResponse defines model for AccountsResponse.
 type AccountsResponse struct {
 	Accounts []Account `json:"accounts"`
 
-	// Round at which the results are valid. This should be the most recent round, so that you can tell how old a cached result is. This field doesn't take into account any max round filter, you'll need to remember that.
-	Round uint64 `json:"round"`
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
 }
 
 // AssetBalancesResponse defines model for AssetBalancesResponse.
@@ -671,33 +581,30 @@ type AssetBalancesResponse struct {
 	// A simplified version of AssetHolding
 	Balances MiniAssetHolding `json:"balances"`
 
-	// Round at which the results are valid.
-	Round uint64 `json:"round"`
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
 }
 
 // AssetResponse defines model for AssetResponse.
-type AssetResponse Asset
+type AssetResponse struct {
+
+	// Specifies both the unique identifier and the parameters for an asset
+	Asset Asset `json:"asset"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+}
 
 // AssetsResponse defines model for AssetsResponse.
 type AssetsResponse struct {
 	Assets []Asset `json:"assets"`
 
-	// Round at which the results are valid. This should be the most recent round, so that you can tell how old a cached result is. This field doesn't take into account any max round filter, you'll need to remember that.
-	Round uint64 `json:"round"`
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
 }
 
 // BlockResponse defines model for BlockResponse.
 type BlockResponse Block
-
-// BlockTimesResponse defines model for BlockTimesResponse.
-type BlockTimesResponse struct {
-	Rounds *[]struct {
-		Round *uint64 `json:"round,omitempty"`
-
-		// Time when block was confirmed.
-		Timestamp *uint64 `json:"timestamp,omitempty"`
-	} `json:"rounds,omitempty"`
-}
 
 // Error defines model for Error.
 type Error struct {
@@ -707,9 +614,28 @@ type Error struct {
 // TransactionsResponse defines model for TransactionsResponse.
 type TransactionsResponse struct {
 
-	// Round at which the results are valid. This should be the most recent round, so that you can tell how old a cached result is. This field doesn't take into account any max round filter, you'll need to remember that.
-	Round        *uint64        `json:"round,omitempty"`
-	Transactions *[]Transaction `json:"transactions,omitempty"`
+	// Round at which the results were computed.
+	CurrentRound uint64        `json:"current-round"`
+	Transactions []Transaction `json:"transactions"`
+}
+
+// SearchAccountsParams defines parameters for SearchAccounts.
+type SearchAccountsParams struct {
+
+	// Include accounts holding the specified asset
+	AssetId *string `json:"asset-id,omitempty"`
+
+	// Maximum number of results to return.
+	Limit *uint64 `json:"limit,omitempty"`
+
+	// Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
+	CurrencyGreaterThan *uint64 `json:"currency-greater-than,omitempty"`
+
+	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
+	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
+
+	// Only include results with an address greater than this.
+	AddressGreaterThan *string `json:"address-greater-than,omitempty"`
 }
 
 // LookupAccountByIDParams defines parameters for LookupAccountByID.
@@ -733,7 +659,9 @@ type LookupAccountTransactionsParams struct {
 
 	// Include results after the given time. Must be an RFC 3339 formatted string.
 	AfterTime *time.Time `json:"after-time,omitempty"`
-	Asset     *uint64    `json:"asset,omitempty"`
+
+	// Asset ID
+	AssetId *uint64 `json:"asset-id,omitempty"`
 
 	// Used in conjunction with limit to page through results.
 	Offset *uint64 `json:"offset,omitempty"`
@@ -741,31 +669,33 @@ type LookupAccountTransactionsParams struct {
 	// Maximum number of results to return.
 	Limit *uint64 `json:"limit,omitempty"`
 
-	// Results should have an amount greater than this value.
-	AlgosGreaterThan *uint64 `json:"algos-greater-than,omitempty"`
+	// Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
+	CurrencyGreaterThan *uint64 `json:"currency-greater-than,omitempty"`
 
-	// Results should have an amount less than this value.
-	AlgosLessThan *uint64 `json:"algos-less-than,omitempty"`
+	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
+	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
 }
 
-// SearchAccountsParams defines parameters for SearchAccounts.
-type SearchAccountsParams struct {
-
-	// Include accounts holding the specified asset
-	AssetId     *string `json:"asset-id,omitempty"`
-	AssetParams *string `json:"assetParams,omitempty"`
+// SearchForAssetsParams defines parameters for SearchForAssets.
+type SearchForAssetsParams struct {
 
 	// Maximum number of results to return.
 	Limit *uint64 `json:"limit,omitempty"`
 
-	// Results should have an amount greater than this value.
-	AlgosGreaterThan *uint64 `json:"algos-greater-than,omitempty"`
+	// Filter just assets with the given creator address.
+	Creator *string `json:"creator,omitempty"`
 
-	// Results should have an amount less than this value.
-	AlgosLessThan *uint64 `json:"algos-less-than,omitempty"`
+	// Filter just assets with the given name.
+	Name *string `json:"name,omitempty"`
 
-	// Only include results with an address greater than this.
-	AddressGreaterThan *string `json:"address-greater-than,omitempty"`
+	// Filter just assets with the given unit.
+	Unit *string `json:"unit,omitempty"`
+
+	// Asset ID
+	AssetId *uint64 `json:"asset-id,omitempty"`
+
+	// For paging results, use this field to get assets greater than the last value of the previous results.
+	AssetGreaterThan *uint64 `json:"asset-greater-than,omitempty"`
 }
 
 // LookupAssetBalancesParams defines parameters for LookupAssetBalances.
@@ -780,10 +710,10 @@ type LookupAssetBalancesParams struct {
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
 
-	// Results should have an amount greater than this value.
+	// Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyGreaterThan *uint64 `json:"currency-greater-than,omitempty"`
 
-	// Results should have an amount less than this value.
+	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
 }
 
@@ -808,33 +738,11 @@ type LookupAssetTransactionsParams struct {
 	// Used in conjunction with limit to page through results.
 	Offset *uint64 `json:"offset,omitempty"`
 
-	// Results should have an amount greater than this value.
+	// Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyGreaterThan *uint64 `json:"currency-greater-than,omitempty"`
 
-	// Results should have an amount less than this value.
+	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
-}
-
-// SearchForAssetsParams defines parameters for SearchForAssets.
-type SearchForAssetsParams struct {
-
-	// For paging results, use this field to get assets greater than the last value of the previous results.
-	AssetGreaterThan *uint64 `json:"asset-greater-than,omitempty"`
-
-	// Maximum number of results to return.
-	Limit *uint64 `json:"limit,omitempty"`
-
-	// Filter just assets with the given creator address.
-	Creator *string `json:"creator,omitempty"`
-
-	// Filter just assets with the given name.
-	Name *string `json:"name,omitempty"`
-
-	// Filter just assets with the given unit.
-	Unit *string `json:"unit,omitempty"`
-
-	// Asset ID
-	AssetId *uint64 `json:"asset-id,omitempty"`
 }
 
 // SearchForTransactionsParams defines parameters for SearchForTransactions.
@@ -844,11 +752,11 @@ type SearchForTransactionsParams struct {
 	Noteprefix *[]byte `json:"noteprefix,omitempty"`
 	TxType     *string `json:"tx-type,omitempty"`
 
-	// Type of signature used to sign the transaction, must be one of:
-	// * standard
-	// * multisig
-	// * logicsig
-	Sigtype *string `json:"sigtype,omitempty"`
+	// SigType filters just results using the specified type of signature:
+	// * sig - Standard
+	// * msig - MultiSig
+	// * lsig - LogicSig
+	SigType *string `json:"sig-type,omitempty"`
 
 	// Lookup the specific transaction by ID.
 	Txid *[]byte `json:"txid,omitempty"`
@@ -868,9 +776,6 @@ type SearchForTransactionsParams struct {
 	// Asset ID
 	AssetId *uint64 `json:"asset-id,omitempty"`
 
-	// Encoding format returned by this endpoint. Default is json.
-	Format *string `json:"format,omitempty"`
-
 	// Maximum number of results to return.
 	Limit *uint64 `json:"limit,omitempty"`
 
@@ -880,15 +785,9 @@ type SearchForTransactionsParams struct {
 	// Include results after the given time. Must be an RFC 3339 formatted string.
 	AfterTime *time.Time `json:"after-time,omitempty"`
 
-	// Results should have an amount greater than this value.
-	AlgosGreaterThan *uint64 `json:"algos-greater-than,omitempty"`
+	// Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
+	CurrencyGreaterThan *uint64 `json:"currency-greater-than,omitempty"`
 
-	// Results should have an amount less than this value.
-	AlgosLessThan *uint64 `json:"algos-less-than,omitempty"`
-
-	// SigType filters just results using the specified type of signature:
-	// * sig - Standard
-	// * msig - MultiSig
-	// * lsig - LogicSig
-	SigType *string `json:"sig-type,omitempty"`
+	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
+	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
 }
