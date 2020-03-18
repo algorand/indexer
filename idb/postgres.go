@@ -675,6 +675,16 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		whereArgs = append(whereArgs, tf.AssetId)
 		partNumber++
 	}
+	if tf.MinAssetAmount != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::bigint >= $%d", partNumber))
+		whereArgs = append(whereArgs, tf.MinAssetAmount)
+		partNumber++
+	}
+	if tf.MaxAssetAmount != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::bigint <= $%d", partNumber))
+		whereArgs = append(whereArgs, tf.MaxAssetAmount)
+		partNumber++
+	}
 	if tf.TypeEnum != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("t.typeenum = $%d", partNumber))
 		whereArgs = append(whereArgs, tf.TypeEnum)
