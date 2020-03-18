@@ -607,6 +607,47 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		whereParts = append(whereParts, fmt.Sprintf("p.addr = $%d", partNumber))
 		whereArgs = append(whereArgs, tf.Address)
 		partNumber++
+		if tf.AddressRole != 0 {
+			addrBase64 := base64.StdEncoding.EncodeToString(tf.Address)
+			roleparts := make([]string, 0, 8)
+			if tf.AddressRole&AddressRoleSender != 0 {
+				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'snd' = $%d", partNumber))
+				whereArgs = append(whereArgs, addrBase64)
+				partNumber++
+			}
+			if tf.AddressRole&AddressRoleReceiver != 0 {
+				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'rcv' = $%d", partNumber))
+				whereArgs = append(whereArgs, addrBase64)
+				partNumber++
+			}
+			if tf.AddressRole&AddressRoleCloseRemainderTo != 0 {
+				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'close' = $%d", partNumber))
+				whereArgs = append(whereArgs, addrBase64)
+				partNumber++
+			}
+			if tf.AddressRole&AddressRoleAssetSender != 0 {
+				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'asnd' = $%d", partNumber))
+				whereArgs = append(whereArgs, addrBase64)
+				partNumber++
+			}
+			if tf.AddressRole&AddressRoleAssetReceiver != 0 {
+				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'arcv' = $%d", partNumber))
+				whereArgs = append(whereArgs, addrBase64)
+				partNumber++
+			}
+			if tf.AddressRole&AddressRoleAssetCloseTo != 0 {
+				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'aclose' = $%d", partNumber))
+				whereArgs = append(whereArgs, addrBase64)
+				partNumber++
+			}
+			if tf.AddressRole&AddressRoleFreeze != 0 {
+				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'afrz' = $%d", partNumber))
+				whereArgs = append(whereArgs, addrBase64)
+				partNumber++
+			}
+			rolepart := strings.Join(roleparts, " OR ")
+			whereParts = append(whereParts, "("+rolepart+")")
+		}
 		joinParticipation = true
 	}
 	if tf.MinRound != 0 {
@@ -667,6 +708,11 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 	if tf.MinAlgos != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint >= $%d", partNumber))
 		whereArgs = append(whereArgs, tf.MinAlgos)
+		partNumber++
+	}
+	if tf.MaxAlgos != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint <= $%d", partNumber))
+		whereArgs = append(whereArgs, tf.MaxAlgos)
 		partNumber++
 	}
 	if tf.EffectiveAmountGt != 0 {

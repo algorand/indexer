@@ -164,12 +164,25 @@ func GetAccount(idb IndexerDb, addr []byte) (account models.Account, err error) 
 	return models.Account{}, nil
 }
 
+// TransactionFilter.AddressRole bitfield values
+const (
+	AddressRoleSender           = 0x01
+	AddressRoleReceiver         = 0x02
+	AddressRoleCloseRemainderTo = 0x04
+	AddressRoleAssetSender      = 0x08
+	AddressRoleAssetReceiver    = 0x10
+	AddressRoleAssetCloseTo     = 0x20
+	AddressRoleFreeze           = 0x40
+)
+
 type TransactionFilter struct {
 	// Address filtering transactions for one Address will
 	// return transactions newest-first proceding into the
 	// past. Paging through such results can be achieved by
 	// setting a MaxRound to get results before.
 	Address []byte
+
+	AddressRole uint64 // 0=Any, otherwise AddressRole* bitfields above
 
 	MinRound   uint64
 	MaxRound   uint64
@@ -183,6 +196,7 @@ type TransactionFilter struct {
 	SigType    string  // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
 	MinAlgos   uint64 // implictly filters on "pay" txns for Algos >= this. This will be a slightly faster query than EffectiveAmountGt.
+	MaxAlgos   uint64
 
 	EffectiveAmountGt uint64 // Algo: Amount + CloseAmount > x
 	EffectiveAmountLt uint64 // Algo: Amount + CloseAmount < x
