@@ -174,6 +174,53 @@ func accountToAccount(account models.Account) generated.Account {
 	return ret
 }
 
+func fetchBlock(round uint64, ctx context.Context) (generated.Block, error){
+	blk, err := IndexerDb.GetBlock(round)
+	if err != nil {
+		return generated.Block{}, fmt.Errorf("error while looking up for block for round '%d': %v", round, err)
+	}
+
+	rewards := generated.BlockRewards{
+		FeeSink:                 "",
+		RewardsCalculationRound: uint64(blk.RewardsRecalculationRound),
+		RewardsLevel:            blk.RewardsLevel,
+		RewardsPool:             blk.RewardsPool.String(),
+		RewardsRate:             blk.RewardsRate,
+		RewardsResidue:          blk.RewardsResidue,
+	}
+
+	upgradeState := generated.BlockUpgradeState{
+		CurrentProtocol:        string(blk.CurrentProtocol),
+		NextProtocol:           strPtr(string(blk.NextProtocol)),
+		NextProtocolApprovals:  uint64Ptr(blk.NextProtocolApprovals),
+		NextProtocolSwitchOn:   uint64Ptr(uint64(blk.NextProtocolSwitchOn)),
+		NextProtocolVoteBefore: uint64Ptr(uint64(blk.NextProtocolVoteBefore)),
+	}
+
+	upgradeVote := generated.BlockUpgradeVote{
+		UpgradeApprove: boolPtr(blk.UpgradeApprove),
+		UpgradeDelay:   uint64Ptr(uint64(blk.UpgradeDelay)),
+		UpgradePropose: strPtr(string(blk.UpgradePropose)),
+	}
+
+	ret := generated.Block{
+		GenesisHash:       blk.GenesisHash[:],
+		GenesisId:         blk.GenesisID,
+		PreviousBlockHash: blk.Branch[:],
+		Rewards:           &rewards,
+		Round:             uint64(blk.Round),
+		Seed:              blk.Seed[:],
+		Timestamp:         uint64(blk.TimeStamp),
+		Transactions:      nil,
+		TransactionsRoot:  blk.TxnRoot[:],
+		TxnCounter:        uint64Ptr(blk.TxnCounter),
+		UpgradeState:      &upgradeState,
+		UpgradeVote:       &upgradeVote,
+	}
+
+	return ret, nil
+}
+
 func fetchAccounts(options idb.AccountQueryOptions, atRound *uint64, ctx context.Context) ([]generated.Account, error) {
 	accountchan := IndexerDb.GetAccounts(ctx, options)
 
@@ -621,67 +668,22 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 	return errors.New("Unimplemented")
 }
 
-// TODO: Missing a few fields from the indexer lookup:
-//    * genesis hash
-//    * period
-//    * previous block hash
-//    * proposer
 // (GET /block/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
-	blk, err := IndexerDb.GetBlock(roundNumber)
+	blk, err := fetchBlock(roundNumber, ctx.Request().Context())
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("error while looking up for block for round '%d': %v", roundNumber, err))
+		return indexerError(ctx, err.Error())
 	}
 
 	// Lookup transactions
 	filter := idb.TransactionFilter{ Round: uint64Ptr(roundNumber) }
-	transactions, err := fetchTransactions(filter, ctx.Request().Context())
+	txns, err := fetchTransactions(filter, ctx.Request().Context())
 	if err != nil {
 		return indexerError(ctx, fmt.Sprintf("error while looking up for transactions for round '%d': %v", roundNumber, err))
 	}
 
-	rewards := generated.BlockRewards{
-		FeeSink:                 "",
-		RewardsCalculationRound: uint64(blk.RewardsRecalculationRound),
-		RewardsLevel:            blk.RewardsLevel,
-		RewardsPool:             blk.RewardsPool.String(),
-		RewardsRate:             blk.RewardsRate,
-		RewardsResidue:          blk.RewardsResidue,
-	}
-
-	upgradeState := generated.BlockUpgradeState{
-		CurrentProtocol:        string(blk.CurrentProtocol),
-		NextProtocol:           strPtr(string(blk.NextProtocol)),
-		NextProtocolApprovals:  uint64Ptr(blk.NextProtocolApprovals),
-		NextProtocolSwitchOn:   uint64Ptr(uint64(blk.NextProtocolSwitchOn)),
-		NextProtocolVoteBefore: uint64Ptr(uint64(blk.NextProtocolVoteBefore)),
-	}
-
-	upgradeVote := generated.BlockUpgradeVote{
-		UpgradeApprove: boolPtr(blk.UpgradeApprove),
-		UpgradeDelay:   uint64Ptr(uint64(blk.UpgradeDelay)),
-		UpgradePropose: strPtr(string(blk.UpgradePropose)),
-	}
-
-	ret := generated.Block{
-		GenesisHash:       blk.GenesisHash[:],
-		GenesisId:         blk.GenesisID,
-		Hash:              []byte{}, // TODO
-		Period:            0,        // TODO
-		PreviousBlockHash: []byte{}, // TODO
-		Proposer:          "",       // TODO
-		Rewards:           &rewards,
-		Round:             uint64(blk.Round),
-		Seed:              blk.Seed[:],
-		Timestamp:         uint64(blk.TimeStamp),
-		Transactions:      &transactions,
-		TransactionsRoot:  blk.TxnRoot[:],
-		TxnCounter:        uint64Ptr(blk.TxnCounter),
-		UpgradeState:      &upgradeState,
-		UpgradeVote:       &upgradeVote,
-	}
-
-	return ctx.JSON(http.StatusOK, generated.BlockResponse(ret))
+	blk.Transactions = &txns
+	return ctx.JSON(http.StatusOK, generated.BlockResponse(blk))
 }
 
 // TODO:

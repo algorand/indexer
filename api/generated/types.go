@@ -156,17 +156,8 @@ type Block struct {
 	// \[gen\] ID to which this block belongs.
 	GenesisId string `json:"genesis-id"`
 
-	// Current block hash
-	Hash []byte `json:"hash"`
-
-	// Period on which the block was confirmed.
-	Period uint64 `json:"period"`
-
 	// \[prev\] Previous block hash.
 	PreviousBlockHash []byte `json:"previous-block-hash"`
-
-	// Address that proposed this block.
-	Proposer string `json:"proposer"`
 
 	// Fields relating to rewards,
 	Rewards *BlockRewards `json:"rewards,omitempty"`
