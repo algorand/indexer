@@ -515,8 +515,14 @@ type TransactionSignatureMultisigSubsignature struct {
 // AccountId defines model for account-id.
 type AccountId string
 
+// Address defines model for address.
+type Address string
+
 // AddressGreaterThan defines model for address-greater-than.
 type AddressGreaterThan string
+
+// AddressRole defines model for address-role.
+type AddressRole string
 
 // AfterTime defines model for after-time.
 type AfterTime time.Time
@@ -533,6 +539,9 @@ type CurrencyGreaterThan uint64
 // CurrencyLessThan defines model for currency-less-than.
 type CurrencyLessThan uint64
 
+// ExcludeCloseTo defines model for exclude-close-to.
+type ExcludeCloseTo bool
+
 // Limit defines model for limit.
 type Limit uint64
 
@@ -541,6 +550,9 @@ type MaxRound uint64
 
 // MinRound defines model for min-round.
 type MinRound uint64
+
+// NotePrefix defines model for note-prefix.
+type NotePrefix []byte
 
 // Offset defines model for offset.
 type Offset uint64
@@ -553,6 +565,9 @@ type RoundNumber uint64
 
 // SigType defines model for sig-type.
 type SigType string
+
+// TxId defines model for tx-id.
+type TxId []byte
 
 // TxType defines model for tx-type.
 type TxType string
@@ -651,11 +666,36 @@ type LookupAccountByIDParams struct {
 // LookupAccountTransactionsParams defines parameters for LookupAccountTransactions.
 type LookupAccountTransactionsParams struct {
 
+	// Specifies a prefix which must be contained in the note field.
+	NotePrefix *[]byte `json:"note-prefix,omitempty"`
+	TxType     *string `json:"tx-type,omitempty"`
+
+	// SigType filters just results using the specified type of signature:
+	// * sig - Standard
+	// * msig - MultiSig
+	// * lsig - LogicSig
+	SigType *string `json:"sig-type,omitempty"`
+
+	// Lookup the specific transaction by ID.
+	TxId *[]byte `json:"tx-id,omitempty"`
+
+	// Include results for the specified round.
+	Round *uint64 `json:"round,omitempty"`
+
+	// Used in conjunction with limit to page through results.
+	Offset *uint64 `json:"offset,omitempty"`
+
 	// Include results at or after the specified min-round.
 	MinRound *uint64 `json:"min-round,omitempty"`
 
 	// Include results at or before the specified max-round.
 	MaxRound *uint64 `json:"max-round,omitempty"`
+
+	// Asset ID
+	AssetId *uint64 `json:"asset-id,omitempty"`
+
+	// Maximum number of results to return.
+	Limit *uint64 `json:"limit,omitempty"`
 
 	// Include results before the given time. Must be an RFC 3339 formatted string.
 	BeforeTime *time.Time `json:"before-time,omitempty"`
@@ -663,20 +703,17 @@ type LookupAccountTransactionsParams struct {
 	// Include results after the given time. Must be an RFC 3339 formatted string.
 	AfterTime *time.Time `json:"after-time,omitempty"`
 
-	// Asset ID
-	AssetId *uint64 `json:"asset-id,omitempty"`
-
-	// Used in conjunction with limit to page through results.
-	Offset *uint64 `json:"offset,omitempty"`
-
-	// Maximum number of results to return.
-	Limit *uint64 `json:"limit,omitempty"`
-
 	// Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyGreaterThan *uint64 `json:"currency-greater-than,omitempty"`
 
 	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
+
+	// Combine with the address parameter to define what type of address to search for.
+	AddressRole *string `json:"address-role,omitempty"`
+
+	// Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.
+	ExcludeCloseTo *bool `json:"exclude-close-to,omitempty"`
 }
 
 // SearchForAssetsParams defines parameters for SearchForAssets.
@@ -723,36 +760,8 @@ type LookupAssetBalancesParams struct {
 // LookupAssetTransactionsParams defines parameters for LookupAssetTransactions.
 type LookupAssetTransactionsParams struct {
 
-	// Maximum number of results to return.
-	Limit *uint64 `json:"limit,omitempty"`
-
-	// Include results at or after the specified min-round.
-	MinRound *uint64 `json:"min-round,omitempty"`
-
-	// Include results at or before the specified max-round.
-	MaxRound *uint64 `json:"max-round,omitempty"`
-
-	// Include results after the given time. Must be an RFC 3339 formatted string.
-	AfterTime *time.Time `json:"after-time,omitempty"`
-
-	// Include results before the given time. Must be an RFC 3339 formatted string.
-	BeforeTime *time.Time `json:"before-time,omitempty"`
-
-	// Used in conjunction with limit to page through results.
-	Offset *uint64 `json:"offset,omitempty"`
-
-	// Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
-	CurrencyGreaterThan *uint64 `json:"currency-greater-than,omitempty"`
-
-	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
-	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
-}
-
-// SearchForTransactionsParams defines parameters for SearchForTransactions.
-type SearchForTransactionsParams struct {
-
 	// Specifies a prefix which must be contained in the note field.
-	Noteprefix *[]byte `json:"noteprefix,omitempty"`
+	NotePrefix *[]byte `json:"note-prefix,omitempty"`
 	TxType     *string `json:"tx-type,omitempty"`
 
 	// SigType filters just results using the specified type of signature:
@@ -762,7 +771,60 @@ type SearchForTransactionsParams struct {
 	SigType *string `json:"sig-type,omitempty"`
 
 	// Lookup the specific transaction by ID.
-	Txid *[]byte `json:"txid,omitempty"`
+	TxId *[]byte `json:"tx-id,omitempty"`
+
+	// Include results for the specified round.
+	Round *uint64 `json:"round,omitempty"`
+
+	// Used in conjunction with limit to page through results.
+	Offset *uint64 `json:"offset,omitempty"`
+
+	// Include results at or after the specified min-round.
+	MinRound *uint64 `json:"min-round,omitempty"`
+
+	// Include results at or before the specified max-round.
+	MaxRound *uint64 `json:"max-round,omitempty"`
+
+	// Maximum number of results to return.
+	Limit *uint64 `json:"limit,omitempty"`
+
+	// Include results before the given time. Must be an RFC 3339 formatted string.
+	BeforeTime *time.Time `json:"before-time,omitempty"`
+
+	// Include results after the given time. Must be an RFC 3339 formatted string.
+	AfterTime *time.Time `json:"after-time,omitempty"`
+
+	// Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
+	CurrencyGreaterThan *uint64 `json:"currency-greater-than,omitempty"`
+
+	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
+	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
+
+	// Only include transactions with this address in one of the transaction fields.
+	Address *string `json:"address,omitempty"`
+
+	// Combine with the address parameter to define what type of address to search for.
+	AddressRole *string `json:"address-role,omitempty"`
+
+	// Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.
+	ExcludeCloseTo *bool `json:"exclude-close-to,omitempty"`
+}
+
+// SearchForTransactionsParams defines parameters for SearchForTransactions.
+type SearchForTransactionsParams struct {
+
+	// Specifies a prefix which must be contained in the note field.
+	NotePrefix *[]byte `json:"note-prefix,omitempty"`
+	TxType     *string `json:"tx-type,omitempty"`
+
+	// SigType filters just results using the specified type of signature:
+	// * sig - Standard
+	// * msig - MultiSig
+	// * lsig - LogicSig
+	SigType *string `json:"sig-type,omitempty"`
+
+	// Lookup the specific transaction by ID.
+	TxId *[]byte `json:"tx-id,omitempty"`
 
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
@@ -793,4 +855,13 @@ type SearchForTransactionsParams struct {
 
 	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
+
+	// Only include transactions with this address in one of the transaction fields.
+	Address *string `json:"address,omitempty"`
+
+	// Combine with the address parameter to define what type of address to search for.
+	AddressRole *string `json:"address-role,omitempty"`
+
+	// Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.
+	ExcludeCloseTo *bool `json:"exclude-close-to,omitempty"`
 }
