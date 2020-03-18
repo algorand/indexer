@@ -48,7 +48,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		},
 		{
 			"Base64 field",
-			generated.SearchForTransactionsParams{Noteprefix: bytePtr([]byte("SomeData"))},
+			generated.SearchForTransactionsParams{NotePrefix: bytePtr([]byte("SomeData"))},
 			idb.TransactionFilter{NotePrefix: []byte("SomeData")},
 			nil,
 		},

@@ -465,15 +465,15 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.MinRound = uintOrDefault(params.MinRound, 0)
 	filter.AssetId = uintOrDefault(params.AssetId, 0)
 	filter.Limit = uintOrDefault(params.Limit, 0)
-	filter.Offset = params.Offset
+	//filter.Offset = params.Offset
 	filter.Round = params.Round
 
 	// Byte array
-	if params.Noteprefix != nil {
-		filter.NotePrefix = *params.Noteprefix
+	if params.NotePrefix != nil {
+		filter.NotePrefix = *params.NotePrefix
 	}
-	if params.Txid != nil {
-		filter.Txid = *params.Txid
+	if params.TxId != nil {
+		filter.Txid = *params.TxId
 	}
 
 	// Time
@@ -564,8 +564,8 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 		Limit:                uintOrDefault(params.Limit, 0),
 	}
 
-	if params.AddressGreaterThan != nil {
-		addr, err := sdk_types.DecodeAddress(*params.AddressGreaterThan)
+	if params.AfterAddress != nil {
+		addr, err := sdk_types.DecodeAddress(*params.AfterAddress)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, "Unable to parse greater-than-address.")
 		}

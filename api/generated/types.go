@@ -682,9 +682,6 @@ type LookupAccountTransactionsParams struct {
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
 
-	// Used in conjunction with limit to page through results.
-	AfterAddress *string `json:"after-address,omitempty"`
-
 	// Include results at or after the specified min-round.
 	MinRound *uint64 `json:"min-round,omitempty"`
 
@@ -776,9 +773,6 @@ type LookupAssetTransactionsParams struct {
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
 
-	// Used in conjunction with limit to page through results.
-	AfterAddress *string `json:"after-address,omitempty"`
-
 	// Include results at or after the specified min-round.
 	MinRound *uint64 `json:"min-round,omitempty"`
 
@@ -828,9 +822,6 @@ type SearchForTransactionsParams struct {
 
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
-
-	// Used in conjunction with limit to page through results.
-	AfterAddress *string `json:"after-address,omitempty"`
 
 	// Include results at or after the specified min-round.
 	MinRound *uint64 `json:"min-round,omitempty"`
