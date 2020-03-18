@@ -518,11 +518,14 @@ type AccountId string
 // Address defines model for address.
 type Address string
 
-// AddressGreaterThan defines model for address-greater-than.
-type AddressGreaterThan string
-
 // AddressRole defines model for address-role.
 type AddressRole string
+
+// AfterAddress defines model for after-address.
+type AfterAddress string
+
+// AfterAsset defines model for after-asset.
+type AfterAsset uint64
 
 // AfterTime defines model for after-time.
 type AfterTime time.Time
@@ -553,9 +556,6 @@ type MinRound uint64
 
 // NotePrefix defines model for note-prefix.
 type NotePrefix []byte
-
-// Offset defines model for offset.
-type Offset uint64
 
 // Round defines model for round.
 type Round uint64
@@ -652,8 +652,8 @@ type SearchAccountsParams struct {
 	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
 
-	// Only include results with an address greater than this.
-	AddressGreaterThan *string `json:"address-greater-than,omitempty"`
+	// Used in conjunction with limit to page through results.
+	AfterAddress *string `json:"after-address,omitempty"`
 }
 
 // LookupAccountByIDParams defines parameters for LookupAccountByID.
@@ -683,7 +683,7 @@ type LookupAccountTransactionsParams struct {
 	Round *uint64 `json:"round,omitempty"`
 
 	// Used in conjunction with limit to page through results.
-	Offset *uint64 `json:"offset,omitempty"`
+	AfterAddress *string `json:"after-address,omitempty"`
 
 	// Include results at or after the specified min-round.
 	MinRound *uint64 `json:"min-round,omitempty"`
@@ -734,8 +734,8 @@ type SearchForAssetsParams struct {
 	// Asset ID
 	AssetId *uint64 `json:"asset-id,omitempty"`
 
-	// For paging results, use this field to get assets greater than the last value of the previous results.
-	AssetGreaterThan *uint64 `json:"asset-greater-than,omitempty"`
+	// Used in conjunction with limit to page through results.
+	AfterAsset *uint64 `json:"after-asset,omitempty"`
 }
 
 // LookupAssetBalancesParams defines parameters for LookupAssetBalances.
@@ -745,7 +745,7 @@ type LookupAssetBalancesParams struct {
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// Used in conjunction with limit to page through results.
-	Offset *uint64 `json:"offset,omitempty"`
+	AfterAddress *string `json:"after-address,omitempty"`
 
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
@@ -777,7 +777,7 @@ type LookupAssetTransactionsParams struct {
 	Round *uint64 `json:"round,omitempty"`
 
 	// Used in conjunction with limit to page through results.
-	Offset *uint64 `json:"offset,omitempty"`
+	AfterAddress *string `json:"after-address,omitempty"`
 
 	// Include results at or after the specified min-round.
 	MinRound *uint64 `json:"min-round,omitempty"`
@@ -830,7 +830,7 @@ type SearchForTransactionsParams struct {
 	Round *uint64 `json:"round,omitempty"`
 
 	// Used in conjunction with limit to page through results.
-	Offset *uint64 `json:"offset,omitempty"`
+	AfterAddress *string `json:"after-address,omitempty"`
 
 	// Include results at or after the specified min-round.
 	MinRound *uint64 `json:"min-round,omitempty"`
