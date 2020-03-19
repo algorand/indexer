@@ -540,7 +540,7 @@ type MaxRound uint64
 type MinRound uint64
 
 // Next defines model for next.
-type Next []byte
+type Next string
 
 // NotePrefix defines model for note-prefix.
 type NotePrefix []byte
@@ -581,7 +581,7 @@ type AccountsResponse struct {
 	CurrentRound uint64 `json:"current-round"`
 
 	// Used for pagination, when making another request provide this token with the next parameter.
-	NextToken *[]byte `json:"next-token,omitempty"`
+	NextToken *string `json:"next-token,omitempty"`
 }
 
 // AssetBalancesResponse defines model for AssetBalancesResponse.
@@ -594,7 +594,7 @@ type AssetBalancesResponse struct {
 	CurrentRound uint64 `json:"current-round"`
 
 	// Used for pagination, when making another request provide this token with the next parameter.
-	NextToken *[]byte `json:"next-token,omitempty"`
+	NextToken *string `json:"next-token,omitempty"`
 }
 
 // AssetResponse defines model for AssetResponse.
@@ -615,7 +615,7 @@ type AssetsResponse struct {
 	CurrentRound uint64 `json:"current-round"`
 
 	// Used for pagination, when making another request provide this token with the next parameter.
-	NextToken *[]byte `json:"next-token,omitempty"`
+	NextToken *string `json:"next-token,omitempty"`
 }
 
 // BlockResponse defines model for BlockResponse.
@@ -633,7 +633,7 @@ type TransactionsResponse struct {
 	CurrentRound uint64 `json:"current-round"`
 
 	// Used for pagination, when making another request provide this token with the next parameter.
-	NextToken    *[]byte       `json:"next-token,omitempty"`
+	NextToken    *string       `json:"next-token,omitempty"`
 	Transactions []Transaction `json:"transactions"`
 }
 
@@ -647,7 +647,7 @@ type SearchAccountsParams struct {
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// The next page of results. Use the next token provided by the previous results.
-	Next *[]byte `json:"next,omitempty"`
+	Next *string `json:"next,omitempty"`
 
 	// Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyGreaterThan *uint64 `json:"currency-greater-than,omitempty"`
@@ -670,7 +670,7 @@ type LookupAccountTransactionsParams struct {
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// The next page of results. Use the next token provided by the previous results.
-	Next *[]byte `json:"next,omitempty"`
+	Next *string `json:"next,omitempty"`
 
 	// Specifies a prefix which must be contained in the note field.
 	NotePrefix *[]byte `json:"note-prefix,omitempty"`
@@ -717,7 +717,7 @@ type SearchForAssetsParams struct {
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// The next page of results. Use the next token provided by the previous results.
-	Next *[]byte `json:"next,omitempty"`
+	Next *string `json:"next,omitempty"`
 
 	// Filter just assets with the given creator address.
 	Creator *string `json:"creator,omitempty"`
@@ -739,7 +739,7 @@ type LookupAssetBalancesParams struct {
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// The next page of results. Use the next token provided by the previous results.
-	Next *[]byte `json:"next,omitempty"`
+	Next *string `json:"next,omitempty"`
 
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
@@ -758,7 +758,7 @@ type LookupAssetTransactionsParams struct {
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// The next page of results. Use the next token provided by the previous results.
-	Next *[]byte `json:"next,omitempty"`
+	Next *string `json:"next,omitempty"`
 
 	// Specifies a prefix which must be contained in the note field.
 	NotePrefix *[]byte `json:"note-prefix,omitempty"`
@@ -811,7 +811,7 @@ type SearchForTransactionsParams struct {
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// The next page of results. Use the next token provided by the previous results.
-	Next *[]byte `json:"next,omitempty"`
+	Next *string `json:"next,omitempty"`
 
 	// Specifies a prefix which must be contained in the note field.
 	NotePrefix *[]byte `json:"note-prefix,omitempty"`

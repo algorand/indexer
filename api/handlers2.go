@@ -726,11 +726,11 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 	}
 
 	if params.Next != nil {
-		//addr, err := sdk_types.DecodeAddress(*params.AfterAddress)
-		//if err != nil {
-		//	ctx.JSON(http.StatusBadRequest, "Unable to parse greater-than-address.")
-		//}
-		options.GreaterThanAddress = (*params.Next)[:]
+		addr, err := sdk_types.DecodeAddress(*params.Next)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, "Unable to parse next.")
+		}
+		options.GreaterThanAddress = addr[:]
 	}
 
 	accounts, err := fetchAccounts(options, nil, ctx.Request().Context())
