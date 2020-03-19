@@ -512,12 +512,6 @@ type Address string
 // AddressRole defines model for address-role.
 type AddressRole string
 
-// AfterAddress defines model for after-address.
-type AfterAddress string
-
-// AfterAsset defines model for after-asset.
-type AfterAsset uint64
-
 // AfterTime defines model for after-time.
 type AfterTime time.Time
 
@@ -544,6 +538,9 @@ type MaxRound uint64
 
 // MinRound defines model for min-round.
 type MinRound uint64
+
+// Next defines model for next.
+type Next []byte
 
 // NotePrefix defines model for note-prefix.
 type NotePrefix []byte
@@ -582,6 +579,9 @@ type AccountsResponse struct {
 
 	// Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *[]byte `json:"next-token,omitempty"`
 }
 
 // AssetBalancesResponse defines model for AssetBalancesResponse.
@@ -592,6 +592,9 @@ type AssetBalancesResponse struct {
 
 	// Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *[]byte `json:"next-token,omitempty"`
 }
 
 // AssetResponse defines model for AssetResponse.
@@ -610,6 +613,9 @@ type AssetsResponse struct {
 
 	// Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *[]byte `json:"next-token,omitempty"`
 }
 
 // BlockResponse defines model for BlockResponse.
@@ -624,7 +630,10 @@ type Error struct {
 type TransactionsResponse struct {
 
 	// Round at which the results were computed.
-	CurrentRound uint64        `json:"current-round"`
+	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken    *[]byte       `json:"next-token,omitempty"`
 	Transactions []Transaction `json:"transactions"`
 }
 
@@ -637,14 +646,14 @@ type SearchAccountsParams struct {
 	// Maximum number of results to return.
 	Limit *uint64 `json:"limit,omitempty"`
 
+	// The next page of results. Use the next token provided by the previous results.
+	Next *[]byte `json:"next,omitempty"`
+
 	// Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyGreaterThan *uint64 `json:"currency-greater-than,omitempty"`
 
 	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
-
-	// Used in conjunction with limit to page through results.
-	AfterAddress *string `json:"after-address,omitempty"`
 }
 
 // LookupAccountByIDParams defines parameters for LookupAccountByID.
@@ -656,6 +665,12 @@ type LookupAccountByIDParams struct {
 
 // LookupAccountTransactionsParams defines parameters for LookupAccountTransactions.
 type LookupAccountTransactionsParams struct {
+
+	// Maximum number of results to return.
+	Limit *uint64 `json:"limit,omitempty"`
+
+	// The next page of results. Use the next token provided by the previous results.
+	Next *[]byte `json:"next,omitempty"`
 
 	// Specifies a prefix which must be contained in the note field.
 	NotePrefix *[]byte `json:"note-prefix,omitempty"`
@@ -681,9 +696,6 @@ type LookupAccountTransactionsParams struct {
 
 	// Asset ID
 	AssetId *uint64 `json:"asset-id,omitempty"`
-
-	// Maximum number of results to return.
-	Limit *uint64 `json:"limit,omitempty"`
 
 	// Include results before the given time. Must be an RFC 3339 formatted string.
 	BeforeTime *time.Time `json:"before-time,omitempty"`
@@ -710,6 +722,9 @@ type SearchForAssetsParams struct {
 	// Maximum number of results to return.
 	Limit *uint64 `json:"limit,omitempty"`
 
+	// The next page of results. Use the next token provided by the previous results.
+	Next *[]byte `json:"next,omitempty"`
+
 	// Filter just assets with the given creator address.
 	Creator *string `json:"creator,omitempty"`
 
@@ -721,9 +736,6 @@ type SearchForAssetsParams struct {
 
 	// Asset ID
 	AssetId *uint64 `json:"asset-id,omitempty"`
-
-	// Used in conjunction with limit to page through results.
-	AfterAsset *uint64 `json:"after-asset,omitempty"`
 }
 
 // LookupAssetBalancesParams defines parameters for LookupAssetBalances.
@@ -732,8 +744,8 @@ type LookupAssetBalancesParams struct {
 	// Maximum number of results to return.
 	Limit *uint64 `json:"limit,omitempty"`
 
-	// Used in conjunction with limit to page through results.
-	AfterAddress *string `json:"after-address,omitempty"`
+	// The next page of results. Use the next token provided by the previous results.
+	Next *[]byte `json:"next,omitempty"`
 
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
@@ -747,6 +759,12 @@ type LookupAssetBalancesParams struct {
 
 // LookupAssetTransactionsParams defines parameters for LookupAssetTransactions.
 type LookupAssetTransactionsParams struct {
+
+	// Maximum number of results to return.
+	Limit *uint64 `json:"limit,omitempty"`
+
+	// The next page of results. Use the next token provided by the previous results.
+	Next *[]byte `json:"next,omitempty"`
 
 	// Specifies a prefix which must be contained in the note field.
 	NotePrefix *[]byte `json:"note-prefix,omitempty"`
@@ -769,9 +787,6 @@ type LookupAssetTransactionsParams struct {
 
 	// Include results at or before the specified max-round.
 	MaxRound *uint64 `json:"max-round,omitempty"`
-
-	// Maximum number of results to return.
-	Limit *uint64 `json:"limit,omitempty"`
 
 	// Include results before the given time. Must be an RFC 3339 formatted string.
 	BeforeTime *time.Time `json:"before-time,omitempty"`
@@ -798,6 +813,12 @@ type LookupAssetTransactionsParams struct {
 // SearchForTransactionsParams defines parameters for SearchForTransactions.
 type SearchForTransactionsParams struct {
 
+	// Maximum number of results to return.
+	Limit *uint64 `json:"limit,omitempty"`
+
+	// The next page of results. Use the next token provided by the previous results.
+	Next *[]byte `json:"next,omitempty"`
+
 	// Specifies a prefix which must be contained in the note field.
 	NotePrefix *[]byte `json:"note-prefix,omitempty"`
 	TxType     *string `json:"tx-type,omitempty"`
@@ -822,9 +843,6 @@ type SearchForTransactionsParams struct {
 
 	// Asset ID
 	AssetId *uint64 `json:"asset-id,omitempty"`
-
-	// Maximum number of results to return.
-	Limit *uint64 `json:"limit,omitempty"`
 
 	// Include results before the given time. Must be an RFC 3339 formatted string.
 	BeforeTime *time.Time `json:"before-time,omitempty"`
