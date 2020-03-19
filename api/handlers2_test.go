@@ -194,10 +194,14 @@ func TestFetchTransactions(t *testing.T) {
 			ch := make(chan idb.TxnRow, len(test.txnBytes))
 			for _, bytes := range test.txnBytes {
 				txnRow := idb.TxnRow{
-					Round:    1,
-					Intra:    2,
-					TxnBytes: bytes,
-					Error:    nil,
+					Round:     1,
+					RoundTime: time.Now(),
+					Extra:     idb.TxnExtra {
+						AssetCloseAmount: 0,
+					},
+					Intra:     2,
+					TxnBytes:  bytes,
+					Error:     nil,
 				}
 				ch <- txnRow
 			}

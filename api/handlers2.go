@@ -35,12 +35,37 @@ func indexerError(ctx echo.Context, err string) error {
 	})
 }
 
+////////////////////////////////
+// Safe dereference wrappers. //
+////////////////////////////////
 func uintOrDefault(x *uint64, def uint64) uint64 {
 	if x != nil {
 		return *x
 	}
 	return def
 }
+
+func uintOrDefaultMod(x *uint64, modifier int64, def uint64) uint64 {
+	if x != nil {
+		val := int64(*x) + modifier
+		if val < 0 {
+			return 0
+		}
+		return uint64(0)
+	}
+	return def
+}
+
+func strOrDefault(str *string) string {
+	if str != nil {
+		return *str
+	}
+	return ""
+}
+
+////////////////////////////
+// Safe pointer wrappers. //
+////////////////////////////
 func uint64Ptr(x uint64) *uint64 {
 	return &x
 }
@@ -90,7 +115,9 @@ type genesis struct {
 	genesisID   string
 }
 
-// Cached genesis metadata
+/////////////////////////////
+// Cached genesis metadata //
+/////////////////////////////
 var gen genesis
 
 func getGenesis(ctx context.Context) genesis {
@@ -106,6 +133,104 @@ func getGenesis(ctx context.Context) genesis {
 
 	return gen
 }
+
+//////////////////////////////////////////////////////////////////////
+// String decoding helpers (with 'errorArr' helper to group errors) //
+//////////////////////////////////////////////////////////////////////
+
+// TODO: This might be deprecated now.
+func decodeB64String(str *string, field string, errorArr []string) ([]byte, []string) {
+	if str != nil {
+		value, err := b64decode(*str)
+		if err != nil {
+			return nil, append(errorArr, fmt.Sprintf("unable to decode '%s': %s", field, err.Error()))
+		}
+		return value, errorArr
+	}
+	// Pass through
+	return nil, errorArr
+}
+
+// TODO: This might be deprecated now.
+func decodeTimeString(str *string, field string, errorArr []string) (time.Time, []string) {
+	if str != nil {
+		value, err := parseTime(*str)
+		if err != nil {
+			return time.Time{}, append(errorArr, fmt.Sprintf("unable to decode '%s': %s", field, err.Error()))
+		}
+		value = value.In(time.FixedZone("UTC", 0))
+		return value, errorArr
+	}
+	// Pass through
+	return time.Time{}, errorArr
+}
+
+func decodeAddress(str *string, field string, errorArr []string) ([]byte, []string) {
+	if str != nil {
+		addr, err := sdk_types.DecodeAddress(*str)
+		if err != nil {
+			return nil, append(errorArr, fmt.Sprintf("Unable to parse address: %v", err))
+		}
+		return addr[:], errorArr
+	}
+	// Pass through
+	return nil, errorArr
+}
+
+func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (uint64, []string) {
+	ret := uint64(0)
+
+	// Set sender/receiver bits
+	if role != nil {
+		lc := strings.ToLower(*role)
+		if lc == "sender" {
+			ret |= idb.AddressRoleSender|idb.AddressRoleAssetSender
+		} else if lc == "receiver" {
+			ret |= idb.AddressRoleReceiver|idb.AddressRoleAssetReceiver
+
+			// Also add close to flags to sender unless they were explicitly disabled.
+			if excludeCloseTo == nil || !(*excludeCloseTo) {
+				ret |= idb.AddressRoleCloseRemainderTo|idb.AddressRoleAssetCloseTo
+			}
+		} else if lc == "freeze-target" {
+			ret |= idb.AddressRoleFreeze
+		} else {
+			return 0, append(errorArr, fmt.Sprintf("unknown address role: '%s' (expected sender, receiver or freeze-target)", lc))
+		}
+	}
+
+	return ret, errorArr
+}
+
+func decodeSigType(str *string, field string, errorArr []string) (string, []string) {
+	if str != nil {
+		sigTypeLc := strings.ToLower(*str)
+		if _, ok := sigTypeEnumMap[sigTypeLc]; ok {
+			return sigTypeLc, errorArr
+		} else {
+			return "", append(errorArr, fmt.Sprintf("invalid sigtype: '%s'", sigTypeLc))
+		}
+	}
+	// Pass through
+	return "", errorArr
+}
+
+func decodeType(str *string, field string, errorArr []string) (t int, err []string) {
+	if str != nil {
+		typeLc := strings.ToLower(*str)
+		if val, ok := importer.TypeEnumMap[typeLc]; ok {
+			return val, errorArr
+		} else {
+			return 0, append(errorArr, fmt.Sprintf("invalid transaction type: '%s'", typeLc))
+		}
+	}
+	// Pass through
+	return 0, errorArr
+}
+
+////////////////////////////////////////////////////
+// Helpers to convert to and from generated types //
+////////////////////////////////////////////////////
 
 func assetHoldingToAssetHolding(id uint64, holding models.AssetHolding) generated.AssetHolding {
 	return generated.AssetHolding{
@@ -174,101 +299,6 @@ func accountToAccount(account models.Account) generated.Account {
 	return ret
 }
 
-func fetchBlock(round uint64, ctx context.Context) (generated.Block, error){
-	blk, err := IndexerDb.GetBlock(round)
-	if err != nil {
-		return generated.Block{}, fmt.Errorf("error while looking up for block for round '%d': %v", round, err)
-	}
-
-	rewards := generated.BlockRewards{
-		FeeSink:                 "",
-		RewardsCalculationRound: uint64(blk.RewardsRecalculationRound),
-		RewardsLevel:            blk.RewardsLevel,
-		RewardsPool:             blk.RewardsPool.String(),
-		RewardsRate:             blk.RewardsRate,
-		RewardsResidue:          blk.RewardsResidue,
-	}
-
-	upgradeState := generated.BlockUpgradeState{
-		CurrentProtocol:        string(blk.CurrentProtocol),
-		NextProtocol:           strPtr(string(blk.NextProtocol)),
-		NextProtocolApprovals:  uint64Ptr(blk.NextProtocolApprovals),
-		NextProtocolSwitchOn:   uint64Ptr(uint64(blk.NextProtocolSwitchOn)),
-		NextProtocolVoteBefore: uint64Ptr(uint64(blk.NextProtocolVoteBefore)),
-	}
-
-	upgradeVote := generated.BlockUpgradeVote{
-		UpgradeApprove: boolPtr(blk.UpgradeApprove),
-		UpgradeDelay:   uint64Ptr(uint64(blk.UpgradeDelay)),
-		UpgradePropose: strPtr(string(blk.UpgradePropose)),
-	}
-
-	ret := generated.Block{
-		GenesisHash:       blk.GenesisHash[:],
-		GenesisId:         blk.GenesisID,
-		PreviousBlockHash: blk.Branch[:],
-		Rewards:           &rewards,
-		Round:             uint64(blk.Round),
-		Seed:              blk.Seed[:],
-		Timestamp:         uint64(blk.TimeStamp),
-		Transactions:      nil,
-		TransactionsRoot:  blk.TxnRoot[:],
-		TxnCounter:        uint64Ptr(blk.TxnCounter),
-		UpgradeState:      &upgradeState,
-		UpgradeVote:       &upgradeVote,
-	}
-
-	return ret, nil
-}
-
-func fetchAccounts(options idb.AccountQueryOptions, atRound *uint64, ctx context.Context) ([]generated.Account, error) {
-	accountchan := IndexerDb.GetAccounts(ctx, options)
-
-	accounts := make([]generated.Account, 0)
-	for actrow := range accountchan {
-		if actrow.Error != nil {
-			return nil, actrow.Error
-		}
-
-		fmt.Printf("object: %v\n", actrow)
-		fmt.Printf("amt: %d\n", actrow.Account.Amount)
-		fmt.Printf("round: %d\n", actrow.Account.Round)
-
-		// Compute for a given round if requested.
-		var account generated.Account
-		if atRound != nil {
-			acct, err := accounting.AccountAtRound(actrow.Account, *atRound, IndexerDb)
-			if err != nil {
-				return nil, fmt.Errorf("problem computing account at round: %v", err)
-			}
-			account = accountToAccount(acct)
-		} else {
-			account = accountToAccount(actrow.Account)
-		}
-
-		accounts = append(accounts, account)
-	}
-
-	return accounts, nil
-}
-
-// TODO: Replace with lsig.Blank() when that gets merged into go-algorand-sdk
-func isBlank(lsig sdk_types.LogicSig) bool {
-	if lsig.Args != nil {
-		return false
-	}
-	if len(lsig.Logic) != 0 {
-		return false
-	}
-	if !lsig.Msig.Blank() {
-		return false
-	}
-	if lsig.Sig != (sdk_types.Signature{}) {
-		return false
-	}
-	return true
-}
-
 func sigToTransactionSig(sig sdk_types.Signature) *[]byte {
 	if sig == (sdk_types.Signature{}) {
 		return nil
@@ -299,6 +329,24 @@ func msigToTransactionMsig(msig sdk_types.MultisigSig) *generated.TransactionSig
 	return &ret
 }
 
+
+// TODO: Replace with lsig.Blank() when that gets merged into go-algorand-sdk
+func isBlank(lsig sdk_types.LogicSig) bool {
+	if lsig.Args != nil {
+		return false
+	}
+	if len(lsig.Logic) != 0 {
+		return false
+	}
+	if !lsig.Msig.Blank() {
+		return false
+	}
+	if lsig.Sig != (sdk_types.Signature{}) {
+		return false
+	}
+	return true
+}
+
 func lsigToTransactionLsig(lsig sdk_types.LogicSig) *generated.TransactionSignatureLogicsig {
 	if isBlank(lsig) {
 		return nil
@@ -324,7 +372,7 @@ func txnRowToTransaction(row idb.TxnRow, gen genesis) (generated.Transaction, er
 		return generated.Transaction{}, row.Error
 	}
 
-	var stxn types.SignedTxnInBlock
+	var stxn types.SignedTxnWithAD
 	err := msgpack.Decode(row.TxnBytes, &stxn)
 	if err != nil {
 		return generated.Transaction{}, fmt.Errorf("error decoding transaction bytes: %s", err.Error())
@@ -412,8 +460,8 @@ func txnRowToTransaction(row idb.TxnRow, gen genesis) (generated.Transaction, er
 		//RoundTime:                uint64Ptr(row.RoundTime),
 		Fee:               uint64(stxn.Txn.Fee),
 		FirstValid:        uint64(stxn.Txn.FirstValid),
-		GenesisHash:       nil, // This is removed from the stxn
-		GenesisId:         nil, // This is removed from the stxn
+		GenesisHash:       bytePtr(stxn.SignedTxn.Txn.GenesisHash[:]),
+		GenesisId:         strPtr(stxn.SignedTxn.Txn.GenesisID),
 		Group:             bytePtr(stxn.Txn.Group[:]),
 		LastValid:         uint64(stxn.Txn.LastValid),
 		Lease:             bytePtr(stxn.Txn.Lease[:]),
@@ -430,72 +478,14 @@ func txnRowToTransaction(row idb.TxnRow, gen genesis) (generated.Transaction, er
 		PoolError: nil, // TODO: What is this?
 	}
 
-	// Add in the genesis fields
-	if stxn.HasGenesisHash {
-		txn.GenesisHash = bytePtr(gen.genesisHash)
-	}
-	if stxn.HasGenesisID {
-		txn.GenesisId = strPtr(gen.genesisID)
-	}
-
 	return txn, nil
 }
 
-// TODO: This might be deprecated now.
-func decodeB64String(str *string, field string, errorArr []string) ([]byte, []string) {
-	if str != nil {
-		value, err := b64decode(*str)
-		if err != nil {
-			return nil, append(errorArr, fmt.Sprintf("unable to decode '%s': %s", field, err.Error()))
-		}
-		return value, errorArr
-	}
-	// Pass through
-	return nil, errorArr
-}
-
-// TODO: This might be deprecated now.
-func decodeTimeString(str *string, field string, errorArr []string) (time.Time, []string) {
-	if str != nil {
-		value, err := parseTime(*str)
-		if err != nil {
-			return time.Time{}, append(errorArr, fmt.Sprintf("unable to decode '%s': %s", field, err.Error()))
-		}
-		value = value.In(time.FixedZone("UTC", 0))
-		return value, errorArr
-	}
-	// Pass through
-	return time.Time{}, errorArr
-}
-
-func decodeSigType(str *string, field string, errorArr []string) (string, []string) {
-	if str != nil {
-		sigTypeLc := strings.ToLower(*str)
-		if _, ok := sigTypeEnumMap[sigTypeLc]; ok {
-			return sigTypeLc, errorArr
-		} else {
-			return "", append(errorArr, fmt.Sprintf("invalid sigtype: '%s'", sigTypeLc))
-		}
-	}
-	// Pass through
-	return "", errorArr
-}
-
-func decodeType(str *string, field string, errorArr []string) (t int, err []string) {
-	if str != nil {
-		typeLc := strings.ToLower(*str)
-		if val, ok := importer.TypeEnumMap[typeLc]; ok {
-			return val, errorArr
-		} else {
-			return 0, append(errorArr, fmt.Sprintf("invalid transaction type: '%s'", typeLc))
-		}
-	}
-	// Pass through
-	return 0, errorArr
-}
-
-
-// TODO: idb.TransactionFilter is missing MaxAlgos, MinAssetAmount and MaxAssetAmount
+// TODO: idb.TransactionFilter missing:
+//      * MinAssetAmount
+//      * MaxAssetAmount
+// TODO: Convert Max/Min to LessThan/GreaterThan
+// TODO: Pagination
 func transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {
 	var errorArr = make([]string, 0)
 
@@ -512,8 +502,17 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.MinRound = uintOrDefault(params.MinRound, 0)
 	filter.AssetId = uintOrDefault(params.AssetId, 0)
 	filter.Limit = uintOrDefault(params.Limit, 0)
-	//filter.Offset = params.Offset
+	// TODO: Convert Max/Min to LessThan/GreaterThan
+	filter.MaxAlgos = uintOrDefaultMod(params.CurrencyLessThan, 1, 0)
+	filter.MinAlgos = uintOrDefaultMod(params.CurrencyGreaterThan, -1, 0)
 	filter.Round = params.Round
+	//filter.Offset = params.Offset
+
+	// String
+	filter.AddressRole, errorArr = decodeAddressRole(params.AddressRole, params.ExcludeCloseTo, errorArr)
+
+	// Address
+	filter.Address, errorArr = decodeAddress(params.Address, "address", errorArr)
 
 	// Byte array
 	if params.NotePrefix != nil {
@@ -543,6 +542,121 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	return
 }
 
+///////////////////////
+// IndexerDb helpers //
+///////////////////////
+
+func fetchAssets(options idb.AssetsQuery, ctx context.Context) ([]generated.Asset, error) {
+	assetchan := IndexerDb.Assets(ctx, options)
+	assets := make([]generated.Asset, 0)
+	for row := range assetchan {
+		creator := sdk_types.Address{}
+		if len(row.Creator) != len(creator) {
+			return nil, fmt.Errorf("found an invalid creator address")
+		}
+		copy(creator[:], row.Creator[:])
+
+		asset := generated.Asset{
+			Index:  row.AssetId,
+			Params: generated.AssetParams{
+				Creator:       creator.String(),
+				Name:          strPtr(row.Params.AssetName),
+				UnitName:      strPtr(row.Params.UnitName),
+				Url:           strPtr(row.Params.URL),
+				Total:         row.Params.Total,
+				Decimals:      uint64(row.Params.Decimals),
+				DefaultFrozen: boolPtr(row.Params.DefaultFrozen),
+				MetadataHash:  bytePtr(row.Params.MetadataHash[:]),
+				Clawback:      strPtr(row.Params.Clawback.String()),
+				Reserve:       strPtr(row.Params.Reserve.String()),
+				Freeze:        strPtr(row.Params.Freeze.String()),
+				Manager:       strPtr(row.Params.Manager.String()),
+			},
+		}
+
+		assets = append(assets, asset)
+	}
+	return  assets, nil
+}
+
+func fetchBlock(round uint64, ctx context.Context) (generated.Block, error){
+	blk, err := IndexerDb.GetBlock(round)
+	if err != nil {
+		return generated.Block{}, fmt.Errorf("error while looking up for block for round '%d': %v", round, err)
+	}
+
+	rewards := generated.BlockRewards{
+		FeeSink:                 "",
+		RewardsCalculationRound: uint64(blk.RewardsRecalculationRound),
+		RewardsLevel:            blk.RewardsLevel,
+		RewardsPool:             blk.RewardsPool.String(),
+		RewardsRate:             blk.RewardsRate,
+		RewardsResidue:          blk.RewardsResidue,
+	}
+
+	upgradeState := generated.BlockUpgradeState{
+		CurrentProtocol:        string(blk.CurrentProtocol),
+		NextProtocol:           strPtr(string(blk.NextProtocol)),
+		NextProtocolApprovals:  uint64Ptr(blk.NextProtocolApprovals),
+		NextProtocolSwitchOn:   uint64Ptr(uint64(blk.NextProtocolSwitchOn)),
+		NextProtocolVoteBefore: uint64Ptr(uint64(blk.NextProtocolVoteBefore)),
+	}
+
+	upgradeVote := generated.BlockUpgradeVote{
+		UpgradeApprove: boolPtr(blk.UpgradeApprove),
+		UpgradeDelay:   uint64Ptr(uint64(blk.UpgradeDelay)),
+		UpgradePropose: strPtr(string(blk.UpgradePropose)),
+	}
+
+	ret := generated.Block{
+		GenesisHash:       blk.GenesisHash[:],
+		GenesisId:         blk.GenesisID,
+		PreviousBlockHash: blk.Branch[:],
+		Rewards:           &rewards,
+		Round:             uint64(blk.Round),
+		Seed:              blk.Seed[:],
+		Timestamp:         uint64(blk.TimeStamp),
+		Transactions:      nil,
+		TransactionsRoot:  blk.TxnRoot[:],
+		TxnCounter:        uint64Ptr(blk.TxnCounter),
+		UpgradeState:      &upgradeState,
+		UpgradeVote:       &upgradeVote,
+	}
+
+	return ret, nil
+}
+
+func fetchAccounts(options idb.AccountQueryOptions, atRound *uint64, ctx context.Context) ([]generated.Account, error) {
+	accountchan := IndexerDb.GetAccounts(ctx, options)
+
+	accounts := make([]generated.Account, 0)
+	for actrow := range accountchan {
+		if actrow.Error != nil {
+			return nil, actrow.Error
+		}
+
+		fmt.Printf("object: %v\n", actrow)
+		fmt.Printf("amt: %d\n", actrow.Account.Amount)
+		fmt.Printf("round: %d\n", actrow.Account.Round)
+
+		// Compute for a given round if requested.
+		var account generated.Account
+		if atRound != nil {
+			acct, err := accounting.AccountAtRound(actrow.Account, *atRound, IndexerDb)
+			if err != nil {
+				return nil, fmt.Errorf("problem computing account at round: %v", err)
+			}
+			account = accountToAccount(acct)
+		} else {
+			account = accountToAccount(actrow.Account)
+		}
+
+		accounts = append(accounts, account)
+	}
+
+	return accounts, nil
+}
+
 // fetchTransactions is used to query the backend for transactions.
 func fetchTransactions(filter idb.TransactionFilter, ctx context.Context) ([]generated.Transaction, error) {
 	genesis := getGenesis(ctx)
@@ -561,9 +675,9 @@ func fetchTransactions(filter idb.TransactionFilter, ctx context.Context) ([]gen
 
 // (GET /account/{account-id})
 func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId string, params generated.LookupAccountByIDParams) error {
-	addr, err := sdk_types.DecodeAddress(accountId)
-	if err != nil {
-		return badRequest(ctx, fmt.Sprintf("Unable to parse address: %v", err))
+	addr, errors := decodeAddress(&accountId, "account-id", make([]string, 0))
+	if len(errors) != 0 {
+		return badRequest(ctx, errors[0])
 	}
 
 	options := idb.AccountQueryOptions{
@@ -594,7 +708,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId st
 
 	return ctx.JSON(http.StatusOK, generated.AccountResponse{
 		CurrentRound: round,
-		Account: accounts[0],
+		Account:      accounts[0],
 	})
 }
 
@@ -611,12 +725,12 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 		Limit:                uintOrDefault(params.Limit, 0),
 	}
 
-	if params.AfterAddress != nil {
-		addr, err := sdk_types.DecodeAddress(*params.AfterAddress)
-		if err != nil {
-			ctx.JSON(http.StatusBadRequest, "Unable to parse greater-than-address.")
-		}
-		options.GreaterThanAddress = addr[:]
+	if params.Next != nil {
+		//addr, err := sdk_types.DecodeAddress(*params.AfterAddress)
+		//if err != nil {
+		//	ctx.JSON(http.StatusBadRequest, "Unable to parse greater-than-address.")
+		//}
+		options.GreaterThanAddress = (*params.Next)[:]
 	}
 
 	accounts, err := fetchAccounts(options, nil, ctx.Request().Context())
@@ -632,6 +746,7 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 
 	response := generated.AccountsResponse{
 		CurrentRound: round,
+		NextToken:    nil,
 		Accounts:     accounts,
 	}
 
@@ -640,8 +755,33 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 
 // (GET /account/{account-id}/transactions)
 func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, accountId string, params generated.LookupAccountTransactionsParams) error {
-	// TODO: convert to /transactions call
-	return errors.New("Unimplemented")
+	// Check that a valid account was provided
+	_, errors := decodeAddress(strPtr(accountId), "account-id", make([]string, 0))
+	if len(errors) != 0 {
+		return badRequest(ctx, errors[0])
+	}
+
+	searchParams := generated.SearchForTransactionsParams{
+		Address:             strPtr(accountId),
+		//AddressRole:         params.AddressRole,
+		//ExcludeCloseTo:      params.ExcludeCloseTo,
+		AssetId:			 params.AssetId,
+		Limit:               params.Limit,
+		Next:                params.Next,
+		NotePrefix:          params.NotePrefix,
+		TxType:              params.TxType,
+		SigType:             params.SigType,
+		TxId:                params.TxId,
+		Round:               params.Round,
+		MinRound:            params.MinRound,
+		MaxRound:            params.MaxRound,
+		BeforeTime:          params.BeforeTime,
+		AfterTime:           params.AfterTime,
+		CurrencyGreaterThan: params.CurrencyGreaterThan,
+		CurrencyLessThan:    params.CurrencyLessThan,
+	}
+
+	return si.SearchForTransactions(ctx, searchParams)
 }
 
 // (GET /asset/{asset-id})
@@ -658,14 +798,63 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetId ui
 
 // (GET /asset/{asset-id}/transactions)
 func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetId uint64, params generated.LookupAssetTransactionsParams) error {
-	// TODO: convert to /transaction call
-	return errors.New("Unimplemented")
+	searchParams := generated.SearchForTransactionsParams{
+		AssetId:             uint64Ptr(assetId),
+		Limit:               params.Limit,
+		Next:                params.Next,
+		NotePrefix:          params.NotePrefix,
+		TxType:              params.TxType,
+		SigType:             params.SigType,
+		TxId:                params.TxId,
+		Round:               params.Round,
+		MinRound:            params.MinRound,
+		MaxRound:            params.MaxRound,
+		BeforeTime:          params.BeforeTime,
+		AfterTime:           params.AfterTime,
+		CurrencyGreaterThan: params.CurrencyGreaterThan,
+		CurrencyLessThan:    params.CurrencyLessThan,
+		Address:             params.AddressRole,
+		AddressRole:         params.AddressRole,
+		ExcludeCloseTo:      params.ExcludeCloseTo,
+	}
+
+	return si.SearchForTransactions(ctx, searchParams)
 }
 
+// TODO: Fuzzy matching? check Name/Unit for asterisk and convert to query...
+// TODO: Pagination
 // (GET /assets)
 func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generated.SearchForAssetsParams) error {
-	// TODO: Need to implement 'fetchAssets'
-	return errors.New("Unimplemented")
+	creator, errors := decodeAddress(params.Creator, "creator", make([]string, 0))
+	if len(errors) != 0 {
+		return badRequest(ctx, errors[0])
+	}
+
+	options := idb.AssetsQuery{
+		AssetId:            uintOrDefault(params.AssetId, 0),
+//		AssetIdGreaterThan: params.Next,
+		Creator:            creator,
+		Name:				strOrDefault(params.Name),
+		Unit:               strOrDefault(params.Unit),
+		Query:              "",
+		Limit:              uintOrDefault(params.Limit, 0),
+	}
+
+	assets, err := fetchAssets(options, ctx.Request().Context())
+	if err != nil {
+		return indexerError(ctx, err.Error())
+	}
+
+	round, err := IndexerDb.GetMaxRound()
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	return ctx.JSON(http.StatusOK, generated.AssetsResponse{
+		Assets:       assets,
+		CurrentRound: round,
+		NextToken:    nil,
+	})
 }
 
 // (GET /block/{round-number})
@@ -712,6 +901,7 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 
 	response := generated.TransactionsResponse{
 		CurrentRound: round,
+		NextToken:    nil,
 		Transactions: txns,
 	}
 

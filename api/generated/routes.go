@@ -293,26 +293,6 @@ func (w *ServerInterfaceWrapper) LookupAccountTransactions(ctx echo.Context) err
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter currency-less-than: %s", err))
 	}
 
-	// ------------- Optional query parameter "address-role" -------------
-	if paramValue := ctx.QueryParam("address-role"); paramValue != "" {
-
-	}
-
-	err = runtime.BindQueryParameter("form", true, false, "address-role", ctx.QueryParams(), &params.AddressRole)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter address-role: %s", err))
-	}
-
-	// ------------- Optional query parameter "exclude-close-to" -------------
-	if paramValue := ctx.QueryParam("exclude-close-to"); paramValue != "" {
-
-	}
-
-	err = runtime.BindQueryParameter("form", true, false, "exclude-close-to", ctx.QueryParams(), &params.ExcludeCloseTo)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter exclude-close-to: %s", err))
-	}
-
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.LookupAccountTransactions(ctx, accountId, params)
 	return err
@@ -984,15 +964,17 @@ var swaggerSpec = []string{
 	"Tp6cPHVYWxEhnMb36C+T1w817/A01wTi1EhNpEO9yptGz9tL3+Mn4t6PPQbSXDsYOEz3IYxwc9Ftn+Vq",
 	"t++BH935jTwn8wd+1OuP+H7Xh96LJc+ePDm+u3F8d2PPTdWWoznzfuKeYZt8wN8aYXH6S/to582o5PCP",
 	"AfHhfdZDAeLaelr5dktZhDtlyKd8WfThH6/6JGf09/uSUESfBRHOLvo87V+fcAix9t20O6g1vsxgH9Ue",
-	"FZAUmJ/VC3YP9ZDY9A/xUNyv/UDcr/AO4WfwvOXn8OLnp3ln+Tf3svJv7KHso234x3rb+ddUq39bz98f",
-	"n7w+8Mnr+7Vljj6CP94rWWnbrnmSaK+bmlqOOalfKv08PJJ3tNVurUC/JOvEGSf+0aeGyp0G0ySTtrkd",
-	"SVHVXHR6C5Gxf3YcfXT1vKcT3cN8tXRXHafmw2+3m+9elOR7diYdH/v8PT/2OerqpbFPfwkkt9/N69P5",
-	"9zt56UnnpIs3pWzG6dIHP8j/CY7A7/NV4N3SNtr+0/jl7F10QAXa/h7a6F05RUHe+Mb4neTRvgt9lNG/",
-	"BSfX0U/we/cTfKa8+fig/+/wQf/DpdJtYnuda3Q6Ty/tEkXH8N4xvHcM7x3De8fw3jEQdwzEHRXsBwrE",
-	"UdGZ8DTa0VzaKypD6EjIuDyt80CAuxJod2RscozaHaN2n6+Fd7TSjhFAsv7cRfunv7hb6pyNtdct3Vxk",
-	"mzLwmnfudhl1jsDcdOmEiBighz0pe9/MuROiDzKqo4Dr7mTZJux6tKSPlvTRkj5a0kdL+pgoe7TPj/b5",
-	"0T4/2udH+/yYVXu0qT+9TT2dfN0nmEFjd2d/OiOMbmDU62Csda+3gGteVgXQzRbrpxOkVT9CczWGty/x",
-	"wAed2Y198+HmfwIAAP//lvGmm1+wAAA=",
+	"FZAUmJ/VC3YP9ZDY9A/xUNyv/UDcr/AO4WfwvOXn8OLnp3ln+Tf3svJv7KHso234x3rb+QHV6vvVcY+2",
+	"4x/v9aS0zt88VbPXfUktx5yXL5V+Hh5PO+rwt1asXpLW6pRW/xhQQ+VOsjVJhm3MP8nCmgswb2Gh758d",
+	"Rx9dPe/JynuYr5buCtzUfPjtdvPdi/J0z06G4yOQv+dHIEddgDT26S+B5Pa7/3ya937nHz31m3T9pZSQ",
+	"OI324IfaP8ER+H2+Frtb2kbbfxq/qLyLDqhw199PGr03pij4F98kvpM82veCjzL6t+D8ONqPv3f78TPl",
+	"zceH3n+HD70fLpVuE/PpXK/SeZJnlyg6hn2OYZ9j2OcY9jmGfY4BmmOA5qhgP1CAhoqRhKfRjubSXl0Y",
+	"CjeEjMuWOhfHu6tixgi0ue3gFi7K71Q5FxJa/TNA0WhG7n2wBTWK77pp3vBTzDTe+j2wzbQqRgRUuJol",
+	"USl2IPQBIKqLi+aLnwu81Vrc3deFMnTnanT/jsQzXxRbZv39kxyVoQD5lIkF26qabYjAC3FF/enSN1L6",
+	"oaR3UkLBa4tmNLbGMOi7z5rLDhLbHN2D8dlaeEcr7RgBJOvPXcB++ou7vczZWHvd0s0FpykDr3n/bJdR",
+	"5wjMTZcOlMcAPexJ2fuWyp0QfZBRHQVcdydRNmHXoyV9tKSPlvTRkj5a0scEyqN9frTPj/b50T4/2ucH",
+	"2udHm/poU3+ETT2dfN0nmEFjd5d7OiOMbubT62Csda89gGteVgXQjQfrpxOkVT9Cc2WCty/xwAed2Y19",
+	"8+HmfwIAAP//gKxVW3euAAA=",
 }
 
 // GetSwagger returns the Swagger specification corresponding to the generated code
