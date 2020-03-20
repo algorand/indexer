@@ -116,25 +116,6 @@ type genesis struct {
 	genesisID   string
 }
 
-/////////////////////////////
-// Cached genesis metadata //
-/////////////////////////////
-var gen genesis
-
-func getGenesis(ctx context.Context) genesis {
-	// TODO: Use 'fetchBlock' helper to lookup these values
-	if gen.genesisHash != nil {
-		return gen
-	}
-
-	gen = genesis{
-		genesisHash: []byte("TODO"),
-		genesisID:   "TODO",
-	}
-
-	return gen
-}
-
 //////////////////////////////////////////////////////////////////////
 // String decoding helpers (with 'errorArr' helper to group errors) //
 //////////////////////////////////////////////////////////////////////
@@ -368,7 +349,7 @@ func lsigToTransactionLsig(lsig sdk_types.LogicSig) *generated.TransactionSignat
 	return &ret
 }
 
-func txnRowToTransaction(row idb.TxnRow, gen genesis) (generated.Transaction, error) {
+func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Error != nil {
 		return generated.Transaction{}, row.Error
 	}
@@ -457,26 +438,24 @@ func txnRowToTransaction(row idb.TxnRow, gen genesis) (generated.Transaction, er
 		KeyregTransaction:        keyreg,
 		ClosingAmount:            uint64Ptr(uint64(stxn.ClosingAmount)),
 		ConfirmedRound:           uint64Ptr(row.Round),
-		// TODO: Enable this after merging in Brian's latest
-		//RoundTime:                uint64Ptr(row.RoundTime),
-		Fee:               uint64(stxn.Txn.Fee),
-		FirstValid:        uint64(stxn.Txn.FirstValid),
-		GenesisHash:       bytePtr(stxn.SignedTxn.Txn.GenesisHash[:]),
-		GenesisId:         strPtr(stxn.SignedTxn.Txn.GenesisID),
-		Group:             bytePtr(stxn.Txn.Group[:]),
-		LastValid:         uint64(stxn.Txn.LastValid),
-		Lease:             bytePtr(stxn.Txn.Lease[:]),
-		Note:              bytePtr(stxn.Txn.Note[:]),
-		Sender:            stxn.Txn.Sender.String(),
-		ReceiverRewards:   uint64Ptr(uint64(stxn.ReceiverRewards)),
-		CloseRewards:      uint64Ptr(uint64(stxn.CloseRewards)),
-		SenderRewards:     uint64Ptr(uint64(stxn.SenderRewards)),
-		Type:              string(stxn.Txn.Type),
-		Signature:         sig,
-		CreatedAssetIndex: nil, // TODO: What is this?
-		// TODO: This needs to come from the DB because of the GenesisHash / GenesisID
-		Id:        crypto.TransactionID(stxn.Txn),
-		PoolError: nil, // TODO: What is this?
+		RoundTime:                uint64Ptr(uint64(row.RoundTime.Unix())),
+		Fee:                      uint64(stxn.Txn.Fee),
+		FirstValid:               uint64(stxn.Txn.FirstValid),
+		GenesisHash:              bytePtr(stxn.SignedTxn.Txn.GenesisHash[:]),
+		GenesisId:                strPtr(stxn.SignedTxn.Txn.GenesisID),
+		Group:                    bytePtr(stxn.Txn.Group[:]),
+		LastValid:                uint64(stxn.Txn.LastValid),
+		Lease:                    bytePtr(stxn.Txn.Lease[:]),
+		Note:                     bytePtr(stxn.Txn.Note[:]),
+		Sender:                   stxn.Txn.Sender.String(),
+		ReceiverRewards:          uint64Ptr(uint64(stxn.ReceiverRewards)),
+		CloseRewards:             uint64Ptr(uint64(stxn.CloseRewards)),
+		SenderRewards:            uint64Ptr(uint64(stxn.SenderRewards)),
+		Type:                     string(stxn.Txn.Type),
+		Signature:                sig,
+		CreatedAssetIndex:        nil,                            // TODO: What is this?
+		Id:                       crypto.TransactionID(stxn.Txn), // TODO: This needs to come from the DB because of the GenesisHash / GenesisID
+		PoolError:                nil,                            // TODO: What is this?
 	}
 
 	return txn, nil
@@ -579,6 +558,10 @@ func fetchAssets(options idb.AssetsQuery, ctx context.Context) ([]generated.Asse
 	assetchan := IndexerDb.Assets(ctx, options)
 	assets := make([]generated.Asset, 0)
 	for row := range assetchan {
+		if row.Error != nil {
+			return nil, row.Error
+		}
+
 		creator := sdk_types.Address{}
 		if len(row.Creator) != len(creator) {
 			return nil, fmt.Errorf("found an invalid creator address")
@@ -608,7 +591,33 @@ func fetchAssets(options idb.AssetsQuery, ctx context.Context) ([]generated.Asse
 	return  assets, nil
 }
 
-func fetchBlock(round uint64, ctx context.Context) (generated.Block, error){
+func fetchAssetBalances(options idb.AssetBalanceQuery, ctx context.Context) ([]generated.MiniAssetHolding, error) {
+	assetbalchan := IndexerDb.AssetBalances(ctx, options)
+	balances := make([]generated.MiniAssetHolding, 0)
+	for row := range assetbalchan {
+		if row.Error != nil {
+			return nil, row.Error
+		}
+
+		addr := sdk_types.Address{}
+		if len(row.Address) != len(addr) {
+			return nil, fmt.Errorf("found an invalid creator address")
+		}
+		copy(addr[:], row.Address[:])
+
+		bal := generated.MiniAssetHolding{
+			Address:  addr.String(),
+			Amount:   row.Amount,
+			IsFrozen: row.Frozen,
+		}
+
+		balances = append(balances, bal)
+	}
+
+	return balances, nil
+}
+
+func fetchBlock(round uint64) (generated.Block, error) {
 	blk, err := IndexerDb.GetBlock(round)
 	if err != nil {
 		return generated.Block{}, fmt.Errorf("error while looking up for block for round '%d': %v", round, err)
@@ -659,25 +668,25 @@ func fetchAccounts(options idb.AccountQueryOptions, atRound *uint64, ctx context
 	accountchan := IndexerDb.GetAccounts(ctx, options)
 
 	accounts := make([]generated.Account, 0)
-	for actrow := range accountchan {
-		if actrow.Error != nil {
-			return nil, actrow.Error
+	for row := range accountchan {
+		if row.Error != nil {
+			return nil, row.Error
 		}
 
-		fmt.Printf("object: %v\n", actrow)
-		fmt.Printf("amt: %d\n", actrow.Account.Amount)
-		fmt.Printf("round: %d\n", actrow.Account.Round)
+		fmt.Printf("object: %v\n", row)
+		fmt.Printf("amt: %d\n", row.Account.Amount)
+		fmt.Printf("round: %d\n", row.Account.Round)
 
 		// Compute for a given round if requested.
 		var account generated.Account
 		if atRound != nil {
-			acct, err := accounting.AccountAtRound(actrow.Account, *atRound, IndexerDb)
+			acct, err := accounting.AccountAtRound(row.Account, *atRound, IndexerDb)
 			if err != nil {
 				return nil, fmt.Errorf("problem computing account at round: %v", err)
 			}
 			account = accountToAccount(acct)
 		} else {
-			account = accountToAccount(actrow.Account)
+			account = accountToAccount(row.Account)
 		}
 
 		accounts = append(accounts, account)
@@ -688,11 +697,10 @@ func fetchAccounts(options idb.AccountQueryOptions, atRound *uint64, ctx context
 
 // fetchTransactions is used to query the backend for transactions.
 func fetchTransactions(filter idb.TransactionFilter, ctx context.Context) ([]generated.Transaction, error) {
-	genesis := getGenesis(ctx)
 	results := make([]generated.Transaction, 0)
 	txchan := IndexerDb.Transactions(ctx, filter)
 	for txrow := range txchan {
-		tx, err := txnRowToTransaction(txrow, genesis)
+		tx, err := txnRowToTransaction(txrow)
 		if err != nil {
 			return nil, err
 		}
@@ -793,6 +801,7 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 
 	searchParams := generated.SearchForTransactionsParams{
 		Address:             strPtr(accountId),
+		// not applicable to this endpoint
 		//AddressRole:         params.AddressRole,
 		//ExcludeCloseTo:      params.ExcludeCloseTo,
 		AssetId:			 params.AssetId,
@@ -851,10 +860,39 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetId uint64
 
 // (GET /asset/{asset-id}/balances)
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetId uint64, params generated.LookupAssetBalancesParams) error {
-	// TODO: MISSING
-	return errors.New("Unimplemented")
+	query := idb.AssetBalanceQuery{
+		AssetId:     assetId,
+		MinAmount:   uintOrDefault(params.CurrencyGreaterThan, 0),
+		MaxAmount:   uintOrDefault(params.CurrencyLessThan, 0),
+		Limit:       uintOrDefault(params.Limit, 0),
+	}
+
+	if params.Next != nil {
+		addr, err := sdk_types.DecodeAddress(*params.Next)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, "Unable to parse next.")
+		}
+		query.PrevAddress = addr[:]
+	}
+
+	balances, err := fetchAssetBalances(query, ctx.Request().Context())
+	if err != nil {
+		indexerError(ctx, err.Error())
+	}
+
+	round, err := IndexerDb.GetMaxRound()
+	if err != nil {
+		return indexerError(ctx, err.Error())
+	}
+
+	return ctx.JSON(http.StatusOK, generated.AssetBalancesResponse{
+		Balances:     balances,
+		CurrentRound: round,
+		NextToken:    strPtr(balances[len(balances)-1].Address),
+	})
 }
 
+// TODO: pagination
 // (GET /asset/{asset-id}/transactions)
 func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetId uint64, params generated.LookupAssetTransactionsParams) error {
 	searchParams := generated.SearchForTransactionsParams{
@@ -907,7 +945,7 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 
 // (GET /block/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
-	blk, err := fetchBlock(roundNumber, ctx.Request().Context())
+	blk, err := fetchBlock(roundNumber)
 	if err != nil {
 		return indexerError(ctx, err.Error())
 	}
