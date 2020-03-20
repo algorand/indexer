@@ -43,7 +43,7 @@ def indexerAccounts(rooturl, blockround=None):
     accountsurl[2] = os.path.join(accountsurl[2], 'accounts')
     gtaddr = None
     accounts = {}
-    query = {}
+    query = {'limit':500}
     if blockround is not None:
         query['round'] = blockround
     while True:
