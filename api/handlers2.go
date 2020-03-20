@@ -22,7 +22,9 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type ServerImplementation struct{}
+type ServerImplementation struct{
+	EnableAddressSearchRoundRewind bool
+}
 
 func badRequest(ctx echo.Context, err string) error {
 	return ctx.JSON(http.StatusBadRequest, generated.Error{
@@ -369,9 +371,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	switch stxn.Txn.Type {
 	case sdk_types.PaymentTx:
 		p := generated.TransactionPayment{
-			Amount: uint64(stxn.Txn.Amount),
-			// TODO: Compute this data from somewhere?
-			CloseAmount:      uint64Ptr(0),
+			CloseAmount:      uint64Ptr(row.Extra.AssetCloseAmount),
 			CloseRemainderTo: addrPtr(stxn.Txn.CloseRemainderTo),
 			Receiver:         stxn.Txn.Receiver.String(),
 		}
@@ -438,6 +438,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		KeyregTransaction:        keyreg,
 		ClosingAmount:            uint64Ptr(uint64(stxn.ClosingAmount)),
 		ConfirmedRound:           uint64Ptr(row.Round),
+		IntraRoundOffset:         uint64Ptr(uint64(row.Intra)),
 		RoundTime:                uint64Ptr(uint64(row.RoundTime.Unix())),
 		Fee:                      uint64(stxn.Txn.Fee),
 		FirstValid:               uint64(stxn.Txn.FirstValid),
@@ -710,6 +711,10 @@ func fetchTransactions(filter idb.TransactionFilter, ctx context.Context) ([]gen
 	return results, nil
 }
 
+/////////////////////////////
+// Handler implementations //
+/////////////////////////////
+
 // (GET /account/{account-id})
 func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId string, params generated.LookupAccountByIDParams) error {
 	addr, errors := decodeAddress(&accountId, "account-id", make([]string, 0))
@@ -762,6 +767,12 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 		Limit:                uintOrDefault(params.Limit, 0),
 	}
 
+	var atRound *uint64
+
+	if si.EnableAddressSearchRoundRewind {
+		atRound = params.Round
+	}
+
 	if params.Next != nil {
 		addr, err := sdk_types.DecodeAddress(*params.Next)
 		if err != nil {
@@ -770,7 +781,7 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 		options.GreaterThanAddress = addr[:]
 	}
 
-	accounts, err := fetchAccounts(options, nil, ctx.Request().Context())
+	accounts, err := fetchAccounts(options, atRound, ctx.Request().Context())
 
 	if err != nil {
 		return badRequest(ctx, fmt.Sprintf("Failed while searching for account: %v", err))
@@ -983,8 +994,6 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 }
 
 // TODO:
-//  * Missing from params: Address - Sender/Receiver/CloseTo?
-//  * MaxAlgos - MaxAlgos? Min/Max asset? Or Min/Max with implicit MinAlgo/MinAsset?
 //  * MinAssetAmount
 //  * MaxAssetAmount
 //  * Pagination
