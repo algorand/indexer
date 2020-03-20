@@ -305,6 +305,9 @@ type Transaction struct {
 	// Transaction ID
 	Id []byte `json:"id"`
 
+	// Offset into the round where this transaction was confirmed.
+	IntraRoundOffset *uint64 `json:"intra-round-offset,omitempty"`
+
 	// Fields for a keyreg transaction.
 	//
 	// Definition:
@@ -652,6 +655,9 @@ type SearchAccountsParams struct {
 
 	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
+
+	// Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.
+	Round *uint64 `json:"round,omitempty"`
 }
 
 // LookupAccountByIDParams defines parameters for LookupAccountByID.

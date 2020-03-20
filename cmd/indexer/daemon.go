@@ -39,6 +39,7 @@ var (
 	algodToken       string
 	daemonServerAddr string
 	noAlgod          bool
+	developerMode    bool
 )
 
 var daemonCmd = &cobra.Command{
@@ -97,7 +98,7 @@ var daemonCmd = &cobra.Command{
 		}
 		api.IndexerDb = db
 		fmt.Printf("serving on %s\n", daemonServerAddr)
-		api.Serve(ctx, daemonServerAddr)
+		api.Serve(ctx, daemonServerAddr, developerMode)
 	},
 }
 
@@ -108,6 +109,7 @@ func init() {
 	daemonCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
 	daemonCmd.Flags().StringVarP(&daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
 	daemonCmd.Flags().BoolVarP(&noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
+	daemonCmd.Flags().BoolVarP(&developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round.")
 }
 
 type blockImporterHandler struct {

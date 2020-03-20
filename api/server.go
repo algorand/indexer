@@ -33,10 +33,12 @@ var IndexerDb idb.IndexerDb
 
 var useGenerated = true
 
-func Serve(ctx context.Context, serveAddr string) {
+func Serve(ctx context.Context, serveAddr string, developerMode bool) {
 	if useGenerated {
 		e := echo.New()
-		api := ServerImplementation{}
+		api := ServerImplementation{
+			EnableAddressSearchRoundRewind: developerMode,
+		}
 		generated.RegisterHandlers(e, &api)
 
 		if ctx == nil {
