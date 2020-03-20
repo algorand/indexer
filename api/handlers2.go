@@ -781,9 +781,16 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 		return indexerError(ctx, err.Error())
 	}
 
+	// Set the next token if we hit the results limit
+	// TODO: set the limit to +1, so we know that there are actually more results?
+	var next *string
+	if params.Limit != nil && uint64(len(accounts)) >= *params.Limit {
+		next = strPtr(accounts[len(accounts)-1].Address)
+	}
+
 	response := generated.AccountsResponse{
 		CurrentRound: round,
-		NextToken:    strPtr(accounts[len(accounts)-1].Address),
+		NextToken:    next,
 		Accounts:     accounts,
 	}
 
@@ -885,10 +892,17 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetId ui
 		return indexerError(ctx, err.Error())
 	}
 
+	// Set the next token if we hit the results limit
+	// TODO: set the limit to +1, so we know that there are actually more results?
+	var next *string
+	if params.Limit != nil && uint64(len(balances)) >= *params.Limit {
+		next = strPtr(balances[len(balances)-1].Address)
+	}
+
 	return ctx.JSON(http.StatusOK, generated.AssetBalancesResponse{
-		Balances:     balances,
 		CurrentRound: round,
-		NextToken:    strPtr(balances[len(balances)-1].Address),
+		NextToken:    next,
+		Balances:     balances,
 	})
 }
 
@@ -936,10 +950,17 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 		return indexerError(ctx, err.Error())
 	}
 
+	// Set the next token if we hit the results limit
+	// TODO: set the limit to +1, so we know that there are actually more results?
+	var next *string
+	if params.Limit != nil && uint64(len(assets)) >= *params.Limit {
+		next = strPtr(strconv.FormatUint(assets[len(assets)-1].Index, 10))
+	}
+
 	return ctx.JSON(http.StatusOK, generated.AssetsResponse{
-		Assets:       assets,
 		CurrentRound: round,
-		NextToken:    strPtr(strconv.FormatUint(assets[len(assets)-1].Index, 10)),
+		NextToken:    next,
+		Assets:       assets,
 	})
 }
 
