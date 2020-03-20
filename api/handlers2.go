@@ -13,6 +13,7 @@ import (
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -481,6 +482,34 @@ func txnRowToTransaction(row idb.TxnRow, gen genesis) (generated.Transaction, er
 	return txn, nil
 }
 
+func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.AssetsQuery, error) {
+	creator, errorArr := decodeAddress(params.Creator, "creator", make([]string, 0))
+	if len(errorArr) != 0 {
+		return idb.AssetsQuery{}, errors.New(errorArr[0])
+	}
+
+	var assetGreaterThan uint64 = 0
+	if params.Next != nil {
+		agt, err := strconv.ParseUint(*params.Next, 10, 64)
+		if err != nil {
+			return idb.AssetsQuery{}, fmt.Errorf("unable to parse 'next': %v", err)
+		}
+		assetGreaterThan = agt
+	}
+
+	query := idb.AssetsQuery{
+		AssetId:            uintOrDefault(params.AssetId, 0),
+		AssetIdGreaterThan: assetGreaterThan,
+		Creator:            creator,
+		Name:				strOrDefault(params.Name),
+		Unit:               strOrDefault(params.Unit),
+		Query:              "",
+		Limit:              uintOrDefault(params.Limit, 0),
+	}
+
+	return query, nil
+}
+
 // TODO: idb.TransactionFilter missing:
 //      * MinAssetAmount
 //      * MaxAssetAmount
@@ -690,7 +719,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId st
 	accounts, err := fetchAccounts(options, params.Round, ctx.Request().Context())
 
 	if err != nil {
-		return badRequest(ctx, fmt.Sprintf("Failed while searching for account: %v", err))
+		return indexerError(ctx, fmt.Sprintf("Failed while searching for account: %v", err))
 	}
 
 	if len(accounts) == 0 {
@@ -703,7 +732,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId st
 
 	round, err := IndexerDb.GetMaxRound()
 	if err != nil {
-		return badRequest(ctx, err.Error())
+		return indexerError(ctx, err.Error())
 	}
 
 	return ctx.JSON(http.StatusOK, generated.AccountResponse{
@@ -741,18 +770,19 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 
 	round, err := IndexerDb.GetMaxRound()
 	if err != nil {
-		return badRequest(ctx, err.Error())
+		return indexerError(ctx, err.Error())
 	}
 
 	response := generated.AccountsResponse{
 		CurrentRound: round,
-		NextToken:    nil,
+		NextToken:    strPtr(accounts[len(accounts)-1].Address),
 		Accounts:     accounts,
 	}
 
 	return ctx.JSON(http.StatusOK, response)
 }
 
+// TODO: Pagination
 // (GET /account/{account-id}/transactions)
 func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, accountId string, params generated.LookupAccountTransactionsParams) error {
 	// Check that a valid account was provided
@@ -786,13 +816,42 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 
 // (GET /asset/{asset-id})
 func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetId uint64) error {
-	// TODO: convert to /assets call
-	return errors.New("Unimplemented")
+	search := generated.SearchForAssetsParams{
+		AssetId: uint64Ptr(assetId),
+		Limit:   uint64Ptr(1),
+	}
+	options, err := assetParamsToAssetQuery(search)
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	assets, err := fetchAssets(options, ctx.Request().Context())
+	if err != nil {
+		return indexerError(ctx, err.Error())
+	}
+
+	if len(assets) == 0 {
+		return badRequest(ctx, fmt.Sprintf("No assets found for id: %d", assetId))
+	}
+
+	if len(assets) > 1 {
+		return badRequest(ctx, fmt.Sprintf("Multiple assets found for id, this shouldn't have happened: %s", assetId))
+	}
+
+	round, err := IndexerDb.GetMaxRound()
+	if err != nil {
+		return indexerError(ctx, err.Error())
+	}
+
+	return ctx.JSON(http.StatusOK, generated.AssetResponse{
+		Asset:       assets[0],
+		CurrentRound: round,
+	})
 }
 
 // (GET /asset/{asset-id}/balances)
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetId uint64, params generated.LookupAssetBalancesParams) error {
-	// TODO: I don't think this exists in the backend yet.
+	// TODO: MISSING
 	return errors.New("Unimplemented")
 }
 
@@ -822,22 +881,11 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 }
 
 // TODO: Fuzzy matching? check Name/Unit for asterisk and convert to query...
-// TODO: Pagination
 // (GET /assets)
 func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generated.SearchForAssetsParams) error {
-	creator, errors := decodeAddress(params.Creator, "creator", make([]string, 0))
-	if len(errors) != 0 {
-		return badRequest(ctx, errors[0])
-	}
-
-	options := idb.AssetsQuery{
-		AssetId:            uintOrDefault(params.AssetId, 0),
-//		AssetIdGreaterThan: params.Next,
-		Creator:            creator,
-		Name:				strOrDefault(params.Name),
-		Unit:               strOrDefault(params.Unit),
-		Query:              "",
-		Limit:              uintOrDefault(params.Limit, 0),
+	options, err := assetParamsToAssetQuery(params)
+	if err != nil {
+		return badRequest(ctx, err.Error())
 	}
 
 	assets, err := fetchAssets(options, ctx.Request().Context())
@@ -847,13 +895,13 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 
 	round, err := IndexerDb.GetMaxRound()
 	if err != nil {
-		return badRequest(ctx, err.Error())
+		return indexerError(ctx, err.Error())
 	}
 
 	return ctx.JSON(http.StatusOK, generated.AssetsResponse{
 		Assets:       assets,
 		CurrentRound: round,
-		NextToken:    nil,
+		NextToken:    strPtr(strconv.FormatUint(assets[len(assets)-1].Index, 10)),
 	})
 }
 
@@ -880,6 +928,7 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 //  * MaxAlgos - MaxAlgos? Min/Max asset? Or Min/Max with implicit MinAlgo/MinAsset?
 //  * MinAssetAmount
 //  * MaxAssetAmount
+//  * Pagination
 // (GET /transactions)
 func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params generated.SearchForTransactionsParams) error {
 	filter, err := transactionParamsToTransactionFilter(params)
@@ -896,12 +945,12 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 
 	round, err := IndexerDb.GetMaxRound()
 	if err != nil {
-		return badRequest(ctx, err.Error())
+		return indexerError(ctx, err.Error())
 	}
 
 	response := generated.TransactionsResponse{
 		CurrentRound: round,
-		NextToken:    nil,
+		NextToken:    nil, // TODO
 		Transactions: txns,
 	}
 
