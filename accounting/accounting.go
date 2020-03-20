@@ -19,6 +19,7 @@ package accounting
 import (
 	"bytes"
 	"fmt"
+	"math/big"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
@@ -131,18 +132,40 @@ func (accounting *AccountingState) updateAccountType(addr types.Address, ktype s
 	accounting.AccountTypes[addr] = ktype
 }
 
-func (accounting *AccountingState) updateAsset(addr types.Address, assetId uint64, d int64) {
+func (accounting *AccountingState) updateAsset(addr types.Address, assetId uint64, add, sub uint64) {
 	updatelist := accounting.AssetUpdates[addr]
 	for i, up := range updatelist {
 		if up.AssetId == assetId {
-			updatelist[i].Delta += d
+			if add != 0 {
+				var xa big.Int
+				xa.SetUint64(add)
+				up.Delta.Add(&xa, &up.Delta)
+			}
+			if sub != 0 {
+				var xa big.Int
+				xa.SetUint64(sub)
+				up.Delta.Sub(&up.Delta, &xa)
+			}
+			updatelist[i] = up
 			return
 		}
 	}
 	if accounting.AssetUpdates == nil {
 		accounting.AssetUpdates = make(map[[32]byte][]idb.AssetUpdate)
 	}
-	accounting.AssetUpdates[addr] = append(updatelist, idb.AssetUpdate{AssetId: assetId, Delta: d, DefaultFrozen: accounting.defaultFrozen[assetId]})
+
+	au := idb.AssetUpdate{AssetId: assetId, DefaultFrozen: accounting.defaultFrozen[assetId]}
+	if add != 0 {
+		var xa big.Int
+		xa.SetUint64(add)
+		au.Delta.Add(&au.Delta, &xa)
+	}
+	if sub != 0 {
+		var xa big.Int
+		xa.SetUint64(sub)
+		au.Delta.Sub(&au.Delta, &xa)
+	}
+	accounting.AssetUpdates[addr] = append(updatelist, au)
 }
 
 func (accounting *AccountingState) updateTxnAsset(round uint64, intra int, assetId uint64) {
@@ -293,7 +316,7 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 			if stxn.Txn.ConfigAsset == 0 {
 				// initial creation, give all initial value to creator
 				if stxn.Txn.AssetParams.Total != 0 {
-					accounting.updateAsset(stxn.Txn.Sender, assetId, int64(stxn.Txn.AssetParams.Total))
+					accounting.updateAsset(stxn.Txn.Sender, assetId, stxn.Txn.AssetParams.Total, 0)
 				}
 			}
 		}
@@ -303,8 +326,8 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 			sender = stxn.Txn.Sender
 		}
 		if stxn.Txn.AssetAmount != 0 {
-			accounting.updateAsset(sender, uint64(stxn.Txn.XferAsset), -int64(stxn.Txn.AssetAmount))
-			accounting.updateAsset(stxn.Txn.AssetReceiver, uint64(stxn.Txn.XferAsset), int64(stxn.Txn.AssetAmount))
+			accounting.updateAsset(sender, uint64(stxn.Txn.XferAsset), 0, stxn.Txn.AssetAmount)
+			accounting.updateAsset(stxn.Txn.AssetReceiver, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetAmount, 0)
 		}
 		// TODO: mark receivable accounts with the send-self-zero txn?
 		if !stxn.Txn.AssetCloseTo.IsZero() {

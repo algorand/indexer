@@ -15,6 +15,7 @@ import logging
 import os
 import sqlite3
 import sys
+import urllib.error
 import urllib.request
 import urllib.parse
 
@@ -39,41 +40,56 @@ logger = logging.getLogger(__name__)
 def indexerAccounts(rooturl, blockround=None):
     rootparts = urllib.parse.urlparse(rooturl)
     accountsurl = list(rootparts)
-    accountsurl[2] = os.path.join(accountsurl[2], 'v1/accounts')
+    accountsurl[2] = os.path.join(accountsurl[2], 'accounts')
     gtaddr = None
     accounts = {}
     query = {}
     if blockround is not None:
-        query['r'] = blockround
+        query['round'] = blockround
     while True:
         if gtaddr:
             # set query:
-            query['gt'] = gtaddr
+            query['next'] = gtaddr
         if query:
             accountsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(accountsurl)
         try:
+            logger.debug('GET %s', pageurl)
             response = urllib.request.urlopen(pageurl)
+        except urllib.error.HTTPError as e:
+            logger.error('failed to fetch %r', pageurl)
+            logger.error('msg: %s', e.file.read())
+            raise
         except Exception as e:
             logger.error('%r', pageurl, exc_info=True)
             raise
-        if (response.code != 200) or (response.getheader('Content-Type') != 'application/json'):
+        if (response.code != 200) or not response.getheader('Content-Type').startswith('application/json'):
             raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
         ob = json.loads(response.read())
         some = False
+        batchcount = 0
         for acct in ob.get('accounts',[]):
+            batchcount += 1
             some = True
             addr = acct['address']
-            microalgos = acct['amountwithoutpendingrewards']
+            #microalgos = acct['amountwithoutpendingrewards']
+            microalgos = acct['amount-without-pending-rewards']
             av = {"algo":microalgos}
             assets = {}
-            for assetid, assetholding in acct.get('assets',{}).items():
-                assets[str(assetid)] = {"a":assetholding['amount'],"f":assetholding.get('frozen',False)}
+            #for assetid, assetholding in acct.get('assets',{}).items():
+            #assetamount = assetholding['amount']
+            #assetfrozen = assetholding.get('frozen',False)
+            for assetrec in acct.get('assets', []):
+                assetid = assetrec['asset-id']
+                assetamount = assetrec.get('amount', 0)
+                assetfrozen = assetrec.get('is-frozen', False)
+                assets[str(assetid)] = {"a":assetamount,"f":assetfrozen}
             if assets:
                 av['asset'] = assets
             rawaddr = algosdk.encoding.decode_address(addr)
             accounts[rawaddr] = av
             gtaddr = addr
+        logger.debug('got %d accounts', batchcount)
         if not some:
             break
     logger.info('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
@@ -84,20 +100,30 @@ def indexerAccountTxns(rooturl, addr, minround=None, maxround=None):
     niceaddr = algosdk.encoding.encode_address(addr)
     rootparts = urllib.parse.urlparse(rooturl)
     atxnsurl = list(rootparts)
-    atxnsurl[2] = os.path.join(atxnsurl[2], 'v1/account/{}/transactions'.format(niceaddr))
-    query = {'l':1000, 'format':'json'}
+    atxnsurl[2] = os.path.join(atxnsurl[2], 'transactions')
+    query = {'limit':1000, 'address':niceaddr}
     if minround is not None:
-        query['rl'] = minround
+        query['min-round'] = minround
     if maxround is not None:
-        query['rh'] = maxround
+        query['max-round'] = maxround
     while True:
         atxnsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(atxnsurl)
-        response = urllib.request.urlopen(pageurl)
-        if (response.code != 200) or (response.getheader('Content-Type') != 'application/json'):
-            raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
+        try:
+            logger.debug('GET %s', pageurl)
+            response = urllib.request.urlopen(pageurl)
+        except urllib.error.HTTPError as e:
+            logger.error('failed to fetch %r', pageurl)
+            logger.error('msg: %s', e.file.read())
+            raise
+        except Exception as e:
+            logger.error('failed to fetch %r', pageurl)
+            logger.error('err %r (%s)', e, type(e))
+            raise
+        if (response.code != 200) or (not response.getheader('Content-Type').startswith('application/json')):
+            raise Exception("bad response to {!r}: {} {}, {!r}".format(pageurl, response.code, response.reason, response.getheader('Content-Type')))
         ob = json.loads(response.read())
-        txns = ob.get('txns')
+        txns = ob.get('transactions')
         if not txns:
             return
         for txn in txns:
@@ -198,9 +224,13 @@ def main():
     ap.add_argument('--dump', default=False, action='store_true')
     ap.add_argument('--mismatches', default=10, type=int, help='max number of mismatches to show details on (0 for no limit)')
     ap.add_argument('-q', '--quiet', default=False, action='store_true')
+    ap.add_argument('--verbose', default=False, action='store_true')
     args = ap.parse_args()
 
-    logging.basicConfig(level=logging.INFO)
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
     out = sys.stdout
     err = sys.stderr
@@ -320,28 +350,46 @@ def main():
             err.write('\n{} \'\\x{}\'\n\t{}\n'.format(niceaddr, xaddr, msg))
             tcount = 0
             tmore = 0
-            for stxnw in indexerAccountTxns(args.indexer, addr, minround=tracker_round):
+            for txn in indexerAccountTxns(args.indexer, addr, minround=tracker_round):
                 if tcount > 10:
                     tmore += 1
                     continue
                 tcount += 1
-                stxn = stxnw['stxn']
-                txn = stxn['txn']
-                sender = txn.pop('snd')
-                parts = ['{}:{}'.format(stxnw.get('r',0), stxnw.get('o',0)), 's={}'.format(encode_addr(sender))]
-                asnd = txn.pop('asnd', None)
+                #stxn = stxnw['stxn']
+                #txn = stxn['txn']
+                sender = txn.pop('sender')
+                cround = txn.pop('confirmed-round')
+                intra = '?' # TODO update when model adds this
+                parts = ['{}:{}'.format(cround, intra), 's={}'.format(encode_addr(sender))]
+                pay = txn.get('payment-transaction', None)
+                if pay:
+                    receiver = pay.pop('receiver', None)
+                    closeto = pay.pop('close-remainder-to', None)
+                else:
+                    receiver = None
+                    closeto = None
+                axfer = txn.get('asset-transfer-transaction', None)
+                if axfer is not None:
+                    asnd = axfer.pop('sender', None)
+                    arcv = axfer.pop('receiver', None)
+                    aclose = axfer.pop('close-to', None)
+                else:
+                    asnd = None
+                    arcv = None
+                    aclose = None
+                #asnd = txn.pop('asnd', None)
                 if asnd:
                     parts.append('as={}'.format(encode_addr(asnd)))
-                receiver = txn.pop('rcv', None)
+                #receiver = txn.pop('rcv', None)
                 if receiver:
                     parts.append('r={}'.format(encode_addr(receiver)))
-                closeto = txn.pop('close', None)
+                #closeto = txn.pop('close', None)
                 if closeto:
                     parts.append('c={}'.format(encode_addr(closeto)))
-                arcv = txn.pop('arcv', None)
+                #arcv = txn.pop('arcv', None)
                 if arcv:
                     parts.append('ar={}'.format(encode_addr(arcv)))
-                aclose = txn.pop('aclose', None)
+                #aclose = txn.pop('aclose', None)
                 if aclose:
                     parts.append('ac={}'.format(encode_addr(aclose)))
                 # everything else

@@ -27,6 +27,8 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"math"
+	"math/big"
 	"os"
 	"strings"
 	"time"
@@ -474,15 +476,46 @@ func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, 
 		defer seta.Close()
 		for addr, aulist := range updates.AssetUpdates {
 			for _, au := range aulist {
-				if au.Delta == 0 {
-					continue
-				}
 				if au.AssetId == debugAsset {
 					fmt.Fprintf(os.Stderr, "%d axfer %s %s\n", round, b64(addr[:]), obs(au))
 				}
-				_, err = seta.Exec(addr[:], au.AssetId, au.Delta, au.DefaultFrozen)
-				if err != nil {
-					return fmt.Errorf("update account asset, %v", err)
+				if au.Delta.IsInt64() {
+					// easy case
+					delta := au.Delta.Int64()
+					if delta == 0 {
+						continue
+					}
+					_, err = seta.Exec(addr[:], au.AssetId, delta, au.DefaultFrozen)
+					if err != nil {
+						return fmt.Errorf("update account asset, %v", err)
+					}
+				} else {
+					sign := au.Delta.Sign()
+					var mi big.Int
+					var step int64
+					if sign > 0 {
+						mi.SetInt64(math.MaxInt64)
+						step = math.MaxInt64
+					} else if sign < 0 {
+						mi.SetInt64(math.MinInt64)
+						step = math.MinInt64
+					} else {
+						continue
+					}
+					for !au.Delta.IsInt64() {
+						_, err = seta.Exec(addr[:], au.AssetId, step, au.DefaultFrozen)
+						if err != nil {
+							return fmt.Errorf("update account asset, %v", err)
+						}
+						au.Delta.Sub(&au.Delta, &mi)
+					}
+					sign = au.Delta.Sign()
+					if sign != 0 {
+						_, err = seta.Exec(addr[:], au.AssetId, au.Delta.Int64(), au.DefaultFrozen)
+						if err != nil {
+							return fmt.Errorf("update account asset, %v", err)
+						}
+					}
 				}
 			}
 		}

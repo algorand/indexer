@@ -78,6 +78,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 				acct.AmountWithoutPendingRewards -= uint64(stxn.CloseRewards)
 			}
 		case atypes.KeyRegistrationTx:
+			// TODO: keyreg does not rewind. workaround: query for txns on an account with typeenum=2 to find previous values it was set to.
 		case atypes.AssetConfigTx:
 			if stxn.Txn.ConfigAsset == 0 {
 				// create asset, unwind the application of the value
