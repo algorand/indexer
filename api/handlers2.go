@@ -504,9 +504,9 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 			if err != nil {
 				return nil, fmt.Errorf("problem computing account at round: %v", err)
 			}
-			account = accountToAccount(acct)
+			account = acct
 		} else {
-			account = accountToAccount(row.Account)
+			account = row.Account
 		}
 
 		accounts = append(accounts, account)

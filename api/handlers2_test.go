@@ -184,7 +184,7 @@ func TestFetchTransactions(t *testing.T) {
 			// Setup the mocked responses
 
 			mockIndexer := &mocks.IndexerDb{}
-			IndexerDb = mockIndexer
+			indexerDb = mockIndexer
 			si := ServerImplementation{
 				EnableAddressSearchRoundRewind: true,
 				db:                             mockIndexer,

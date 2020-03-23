@@ -7,9 +7,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/go-algorand-sdk/client/algod/models"
 	"github.com/algorand/go-algorand-sdk/crypto"
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/api/generated"
@@ -50,7 +50,7 @@ func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (u
 
 	// Receiver + closeTo flags if excludeCloseTo is missing/disabled
 	if lc == "receiver" && excludeCloseTo == nil || !(*excludeCloseTo) {
-		mask := idb.AddressRoleReceiver | idb.AddressRoleAssetReceiver|idb.AddressRoleCloseRemainderTo | idb.AddressRoleAssetCloseTo
+		mask := idb.AddressRoleReceiver | idb.AddressRoleAssetReceiver | idb.AddressRoleCloseRemainderTo | idb.AddressRoleAssetCloseTo
 		return uint64(mask), errorArr
 	}
 
@@ -64,6 +64,30 @@ func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (u
 	}
 
 	return 0, append(errorArr, fmt.Sprintf("unknown address role: '%s' (expected sender, receiver or freeze-target)", lc))
+}
+
+type stringInt struct {
+	str string
+	i   int
+}
+
+var sigTypeEnumMapList = []stringInt{
+	{"sig", 1},
+	{"msig", 2},
+	{"lsig", 3},
+}
+
+var sigTypeEnumMap map[string]int
+
+func enumListToMap(list []stringInt) map[string]int {
+	out := make(map[string]int, len(list))
+	for _, tf := range list {
+		out[tf.str] = tf.i
+	}
+	return out
+}
+func init() {
+	sigTypeEnumMap = enumListToMap(sigTypeEnumMapList)
 }
 
 // decodeSigType validates the input string and dereferences it if present, or appends an error to errorArr
@@ -360,7 +384,7 @@ func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.Assets
 		AssetId:            uintOrDefault(params.AssetId),
 		AssetIdGreaterThan: assetGreaterThan,
 		Creator:            creator,
-		Name:				strOrDefault(params.Name),
+		Name:               strOrDefault(params.Name),
 		Unit:               strOrDefault(params.Unit),
 		Query:              "",
 		Limit:              uintOrDefault(params.Limit),
