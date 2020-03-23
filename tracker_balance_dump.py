@@ -72,13 +72,9 @@ def indexerAccounts(rooturl, blockround=None):
             batchcount += 1
             some = True
             addr = acct['address']
-            #microalgos = acct['amountwithoutpendingrewards']
             microalgos = acct['amount-without-pending-rewards']
             av = {"algo":microalgos}
             assets = {}
-            #for assetid, assetholding in acct.get('assets',{}).items():
-            #assetamount = assetholding['amount']
-            #assetfrozen = assetholding.get('frozen',False)
             for assetrec in acct.get('assets', []):
                 assetid = assetrec['asset-id']
                 assetamount = assetrec.get('amount', 0)
@@ -355,8 +351,6 @@ def main():
                     tmore += 1
                     continue
                 tcount += 1
-                #stxn = stxnw['stxn']
-                #txn = stxn['txn']
                 sender = txn.pop('sender')
                 cround = txn.pop('confirmed-round')
                 intra = '?' # TODO update when model adds this
@@ -377,19 +371,14 @@ def main():
                     asnd = None
                     arcv = None
                     aclose = None
-                #asnd = txn.pop('asnd', None)
                 if asnd:
                     parts.append('as={}'.format(encode_addr(asnd)))
-                #receiver = txn.pop('rcv', None)
                 if receiver:
                     parts.append('r={}'.format(encode_addr(receiver)))
-                #closeto = txn.pop('close', None)
                 if closeto:
                     parts.append('c={}'.format(encode_addr(closeto)))
-                #arcv = txn.pop('arcv', None)
                 if arcv:
                     parts.append('ar={}'.format(encode_addr(arcv)))
-                #aclose = txn.pop('aclose', None)
                 if aclose:
                     parts.append('ac={}'.format(encode_addr(aclose)))
                 # everything else
