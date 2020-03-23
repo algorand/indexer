@@ -22,7 +22,8 @@ import (
 	"math/big"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/client/algod/models"
+	// "github.com/algorand/go-algorand-sdk/client/algod/models"
+	models "github.com/algorand/indexer/api/generated"
 
 	"github.com/algorand/indexer/types"
 )

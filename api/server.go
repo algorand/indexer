@@ -20,7 +20,7 @@ import (
 	"context"
 	"github.com/algorand/indexer/api/generated"
 	"github.com/algorand/indexer/idb"
-	"github.com/gorilla/mux"
+	//"github.com/gorilla/mux"
 	"github.com/labstack/echo/v4"
 	"log"
 	"net"
@@ -57,24 +57,26 @@ func Serve(ctx context.Context, serveAddr string, developerMode bool) {
 
 		log.Fatal(e.StartServer(s))
 	} else {
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		getctx := func(l net.Listener) context.Context {
-			return ctx
-		}
-		r := mux.NewRouter()
-		r.HandleFunc("/v1/accounts", ListAccounts)
-		r.HandleFunc("/v1/account/{address}", GetAccount)
-		r.HandleFunc("/v1/account/{address}/transactions", TransactionsForAddress)
-		s := &http.Server{
-			Addr:           serveAddr,
-			Handler:        r,
-			ReadTimeout:    10 * time.Second,
-			WriteTimeout:   10 * time.Second,
-			MaxHeaderBytes: 1 << 20,
-			BaseContext:    getctx,
-		}
-		log.Fatal(s.ListenAndServe())
+		/*
+			if ctx == nil {
+				ctx = context.Background()
+			}
+			getctx := func(l net.Listener) context.Context {
+				return ctx
+			}
+			r := mux.NewRouter()
+			r.HandleFunc("/v1/accounts", ListAccounts)
+			r.HandleFunc("/v1/account/{address}", GetAccount)
+			r.HandleFunc("/v1/account/{address}/transactions", TransactionsForAddress)
+			s := &http.Server{
+				Addr:           serveAddr,
+				Handler:        r,
+				ReadTimeout:    10 * time.Second,
+				WriteTimeout:   10 * time.Second,
+				MaxHeaderBytes: 1 << 20,
+				BaseContext:    getctx,
+			}
+			log.Fatal(s.ListenAndServe())
+		*/
 	}
 }

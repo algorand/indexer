@@ -19,21 +19,35 @@ package accounting
 import (
 	"context"
 
-	"github.com/algorand/go-algorand-sdk/client/algod/models"
+	// "github.com/algorand/go-algorand-sdk/client/algod/models"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
+	models "github.com/algorand/indexer/api/generated"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 )
 
-func assetUpdate(account *models.Account, assetid uint64, amount int64) {
-	av := account.Assets[assetid]
-	av.Amount = uint64(int64(av.Amount) + amount)
+func assetUpdate(account *models.Account, assetid uint64, add, sub uint64) {
 	if account.Assets == nil {
-		account.Assets = make(map[uint64]models.AssetHolding, 1)
+		account.Assets = new([]models.AssetHolding)
 	}
-	account.Assets[assetid] = av
+	assets := *account.Assets
+	for i, ah := range assets {
+		if ah.AssetId == assetid {
+			ah.Amount += add
+			ah.Amount -= sub
+			assets[i] = ah
+			return
+		}
+	}
+	assets = append(assets, models.AssetHolding{
+		Amount:  add - sub,
+		AssetId: assetid,
+		//Creator: base32 addr string of asset creator, TODO
+		//IsFrozen: leave nil? // TODO: on close record frozen state for rewind
+	})
+	*account.Assets = assets
 }
 
 func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acct models.Account, err error) {
@@ -88,15 +102,15 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 					return
 				}
 				assetId := block.TxnCounter + uint64(txnrow.Intra) + 1
-				assetUpdate(&acct, assetId, -int64(stxn.Txn.AssetParams.Total))
+				assetUpdate(&acct, assetId, 0, stxn.Txn.AssetParams.Total)
 				return
 			}
 		case atypes.AssetTransferTx:
 			if addr == stxn.Txn.AssetSender || addr == stxn.Txn.Sender {
-				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), int64(stxn.Txn.AssetAmount+txnrow.Extra.AssetCloseAmount))
+				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetAmount+txnrow.Extra.AssetCloseAmount, 0)
 			}
 			if addr == stxn.Txn.AssetReceiver {
-				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), -int64(stxn.Txn.AssetAmount))
+				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), 0, stxn.Txn.AssetAmount)
 			}
 		case atypes.AssetFreezeTx:
 		default:

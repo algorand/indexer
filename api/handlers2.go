@@ -5,7 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/algorand/go-algorand-sdk/client/algod/models"
+	//"github.com/algorand/go-algorand-sdk/client/algod/models"
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
@@ -22,7 +22,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
-type ServerImplementation struct{
+type ServerImplementation struct {
 	EnableAddressSearchRoundRewind bool
 }
 
@@ -122,6 +122,35 @@ type genesis struct {
 // String decoding helpers (with 'errorArr' helper to group errors) //
 //////////////////////////////////////////////////////////////////////
 
+func b64decode(x string) (out []byte, err error) {
+	if len(x) == 0 {
+		return nil, nil
+	}
+	out, err = base64.URLEncoding.WithPadding(base64.StdPadding).DecodeString(x)
+	if err == nil {
+		return
+	}
+	out, err = base64.URLEncoding.WithPadding(base64.NoPadding).DecodeString(x)
+	return
+}
+
+// parseTime same as go-algorand/daemon/algod/api/server/v1/handlers/handlers.go
+func parseTime(t string) (res time.Time, err error) {
+	// check for just date
+	res, err = time.Parse("2006-01-02", t)
+	if err == nil {
+		return
+	}
+
+	// check for date and time
+	res, err = time.Parse(time.RFC3339, t)
+	if err == nil {
+		return
+	}
+
+	return
+}
+
 // TODO: This might be deprecated now.
 func decodeB64String(str *string, field string, errorArr []string) ([]byte, []string) {
 	if str != nil {
@@ -168,13 +197,13 @@ func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (u
 	if role != nil {
 		lc := strings.ToLower(*role)
 		if lc == "sender" {
-			ret |= idb.AddressRoleSender|idb.AddressRoleAssetSender
+			ret |= idb.AddressRoleSender | idb.AddressRoleAssetSender
 		} else if lc == "receiver" {
-			ret |= idb.AddressRoleReceiver|idb.AddressRoleAssetReceiver
+			ret |= idb.AddressRoleReceiver | idb.AddressRoleAssetReceiver
 
 			// Also add close to flags to sender unless they were explicitly disabled.
 			if excludeCloseTo == nil || !(*excludeCloseTo) {
-				ret |= idb.AddressRoleCloseRemainderTo|idb.AddressRoleAssetCloseTo
+				ret |= idb.AddressRoleCloseRemainderTo | idb.AddressRoleAssetCloseTo
 			}
 		} else if lc == "freeze-target" {
 			ret |= idb.AddressRoleFreeze
@@ -216,6 +245,7 @@ func decodeType(str *string, field string, errorArr []string) (t int, err []stri
 // Helpers to convert to and from generated types //
 ////////////////////////////////////////////////////
 
+/*
 func assetHoldingToAssetHolding(id uint64, holding models.AssetHolding) generated.AssetHolding {
 	return generated.AssetHolding{
 		AssetId:  id,
@@ -282,6 +312,7 @@ func accountToAccount(account models.Account) generated.Account {
 
 	return ret
 }
+*/
 
 func sigToTransactionSig(sig sdk_types.Signature) *[]byte {
 	if sig == (sdk_types.Signature{}) {
@@ -312,7 +343,6 @@ func msigToTransactionMsig(msig sdk_types.MultisigSig) *generated.TransactionSig
 	}
 	return &ret
 }
-
 
 // TODO: Replace with lsig.Blank() when that gets merged into go-algorand-sdk
 func isBlank(lsig sdk_types.LogicSig) bool {
@@ -481,7 +511,7 @@ func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.Assets
 		AssetId:            uintOrDefault(params.AssetId, 0),
 		AssetIdGreaterThan: assetGreaterThan,
 		Creator:            creator,
-		Name:				strOrDefault(params.Name),
+		Name:               strOrDefault(params.Name),
 		Unit:               strOrDefault(params.Unit),
 		Query:              "",
 		Limit:              uintOrDefault(params.Limit, 0),
@@ -570,7 +600,7 @@ func fetchAssets(options idb.AssetsQuery, ctx context.Context) ([]generated.Asse
 		copy(creator[:], row.Creator[:])
 
 		asset := generated.Asset{
-			Index:  row.AssetId,
+			Index: row.AssetId,
 			Params: generated.AssetParams{
 				Creator:       creator.String(),
 				Name:          strPtr(row.Params.AssetName),
@@ -589,7 +619,7 @@ func fetchAssets(options idb.AssetsQuery, ctx context.Context) ([]generated.Asse
 
 		assets = append(assets, asset)
 	}
-	return  assets, nil
+	return assets, nil
 }
 
 func fetchAssetBalances(options idb.AssetBalanceQuery, ctx context.Context) ([]generated.MiniAssetHolding, error) {
@@ -674,9 +704,11 @@ func fetchAccounts(options idb.AccountQueryOptions, atRound *uint64, ctx context
 			return nil, row.Error
 		}
 
-		fmt.Printf("object: %v\n", row)
-		fmt.Printf("amt: %d\n", row.Account.Amount)
-		fmt.Printf("round: %d\n", row.Account.Round)
+		if false {
+			fmt.Printf("object: %v\n", row)
+			fmt.Printf("amt: %d\n", row.Account.Amount)
+			fmt.Printf("round: %d\n", row.Account.Round)
+		}
 
 		// Compute for a given round if requested.
 		var account generated.Account
@@ -685,9 +717,9 @@ func fetchAccounts(options idb.AccountQueryOptions, atRound *uint64, ctx context
 			if err != nil {
 				return nil, fmt.Errorf("problem computing account at round: %v", err)
 			}
-			account = accountToAccount(acct)
+			account = acct //accountToAccount(acct)
 		} else {
-			account = accountToAccount(row.Account)
+			account = row.Account //accountToAccount(row.Account)
 		}
 
 		accounts = append(accounts, account)
@@ -759,7 +791,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountId st
 //  * assetID holding gt/lt amount
 // (GET /accounts)
 func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generated.SearchAccountsParams) error {
-	options := idb.AccountQueryOptions {
+	options := idb.AccountQueryOptions{
 		AlgosGreaterThan:     uintOrDefault(params.CurrencyGreaterThan, 0),
 		AlgosLessThan:        uintOrDefault(params.CurrencyLessThan, 0),
 		IncludeAssetHoldings: true,
@@ -818,11 +850,11 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 	}
 
 	searchParams := generated.SearchForTransactionsParams{
-		Address:             strPtr(accountId),
+		Address: strPtr(accountId),
 		// not applicable to this endpoint
 		//AddressRole:         params.AddressRole,
 		//ExcludeCloseTo:      params.ExcludeCloseTo,
-		AssetId:			 params.AssetId,
+		AssetId:             params.AssetId,
 		Limit:               params.Limit,
 		Next:                params.Next,
 		NotePrefix:          params.NotePrefix,
@@ -862,7 +894,7 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetId uint64
 	}
 
 	if len(assets) > 1 {
-		return badRequest(ctx, fmt.Sprintf("Multiple assets found for id, this shouldn't have happened: %s", assetId))
+		return badRequest(ctx, fmt.Sprintf("Multiple assets found for id, this shouldn't have happened: assetid=%d", assetId))
 	}
 
 	round, err := IndexerDb.GetMaxRound()
@@ -871,7 +903,7 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetId uint64
 	}
 
 	return ctx.JSON(http.StatusOK, generated.AssetResponse{
-		Asset:       assets[0],
+		Asset:        assets[0],
 		CurrentRound: round,
 	})
 }
@@ -879,10 +911,10 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetId uint64
 // (GET /asset/{asset-id}/balances)
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetId uint64, params generated.LookupAssetBalancesParams) error {
 	query := idb.AssetBalanceQuery{
-		AssetId:     assetId,
-		MinAmount:   uintOrDefault(params.CurrencyGreaterThan, 0),
-		MaxAmount:   uintOrDefault(params.CurrencyLessThan, 0),
-		Limit:       uintOrDefault(params.Limit, 0),
+		AssetId:   assetId,
+		MinAmount: uintOrDefault(params.CurrencyGreaterThan, 0),
+		MaxAmount: uintOrDefault(params.CurrencyLessThan, 0),
+		Limit:     uintOrDefault(params.Limit, 0),
 	}
 
 	if params.Next != nil {
@@ -983,7 +1015,7 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 	}
 
 	// Lookup transactions
-	filter := idb.TransactionFilter{ Round: uint64Ptr(roundNumber) }
+	filter := idb.TransactionFilter{Round: uint64Ptr(roundNumber)}
 	txns, err := fetchTransactions(filter, ctx.Request().Context())
 	if err != nil {
 		return indexerError(ctx, fmt.Sprintf("error while looking up for transactions for round '%d': %v", roundNumber, err))
@@ -1023,4 +1055,30 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 	}
 
 	return ctx.JSON(http.StatusOK, response)
+}
+
+type stringInt struct {
+	str string
+	i   int
+}
+
+var sigTypeEnumMapList = []stringInt{
+	{"sig", 1},
+	{"msig", 2},
+	{"lsig", 3},
+}
+
+var sigTypeEnumMap map[string]int
+
+func enumListToMap(list []stringInt) map[string]int {
+	out := make(map[string]int, len(list))
+	for _, tf := range list {
+		out[tf.str] = tf.i
+	}
+	return out
+}
+
+func init() {
+	//transactionFormatMap = enumListToMap(transactionFormatMapList)
+	sigTypeEnumMap = enumListToMap(sigTypeEnumMapList)
 }

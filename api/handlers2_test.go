@@ -14,20 +14,22 @@ import (
 	"time"
 )
 
+/*
 func init() {
-	gen = genesis{
+	gen := genesis{
 		genesisHash: []byte("TestGenesisHash"),
 		genesisID:   "TestGenesisID",
 	}
 }
+*/
 
 func TestTransactionParamToTransactionFilter(t *testing.T) {
-	tests := []struct{
-		name string
-		params generated.SearchForTransactionsParams
-		filter idb.TransactionFilter
+	tests := []struct {
+		name          string
+		params        generated.SearchForTransactionsParams
+		filter        idb.TransactionFilter
 		errorContains []string
-	} {
+	}{
 		{
 			"Default",
 			generated.SearchForTransactionsParams{},
@@ -36,8 +38,8 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		},
 		{
 			"Int field",
-			generated.SearchForTransactionsParams{AssetId:uint64Ptr(1234)},
-			idb.TransactionFilter{AssetId:1234},
+			generated.SearchForTransactionsParams{AssetId: uint64Ptr(1234)},
+			idb.TransactionFilter{AssetId: 1234},
 			nil,
 		},
 		{
@@ -71,18 +73,18 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 			[]string{"invalid sigtype", "invalid transaction type"},
 		},
 		/*
-		{
-			"Invalid Base64 field",
-			generated.SearchForTransactionsParams{Noteprefix:strPtr("U29tZURhdGE{}{}{}=")},
-			idb.TransactionFilter{},
-			[]string{ "illegal base64 data" },
-		},
-		{
-			"Invalid Date time fields",
-			generated.SearchForTransactionsParams{AfterTime:strPtr("2020-03-04T12:00:00")},
-			idb.TransactionFilter{},
-			[]string{"unable to decode 'after-time'"},
-		},
+			{
+				"Invalid Base64 field",
+				generated.SearchForTransactionsParams{Noteprefix:strPtr("U29tZURhdGE{}{}{}=")},
+				idb.TransactionFilter{},
+				[]string{ "illegal base64 data" },
+			},
+			{
+				"Invalid Date time fields",
+				generated.SearchForTransactionsParams{AfterTime:strPtr("2020-03-04T12:00:00")},
+				idb.TransactionFilter{},
+				[]string{"unable to decode 'after-time'"},
+			},
 		*/
 	}
 
@@ -91,7 +93,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			//t.Parallel()
 			filter, err := transactionParamsToTransactionFilter(test.params)
-			if (test.errorContains != nil) {
+			if test.errorContains != nil {
 				for _, msg := range test.errorContains {
 					assert.Contains(t, err.Error(), msg)
 				}
@@ -123,13 +125,13 @@ func loadTransactionFromFile(path string) generated.Transaction {
 
 func TestFetchTransactions(t *testing.T) {
 	// Add in txnRows (with TxnBytes to parse), verify that they are properly serialized to generated.TransactionResponse
-	tests := []struct{
-		name string
+	tests := []struct {
+		name     string
 		txnBytes [][]byte
 		response []generated.Transaction
 	}{
 		{
-			name:     "Payment",
+			name: "Payment",
 			txnBytes: [][]byte{
 				loadResourceFileOrPanic("test_resources/payment.txn"),
 			},
@@ -138,7 +140,7 @@ func TestFetchTransactions(t *testing.T) {
 			},
 		},
 		{
-			name:     "Key Registration",
+			name: "Key Registration",
 			txnBytes: [][]byte{
 				loadResourceFileOrPanic("test_resources/keyreg.txn"),
 			},
@@ -147,7 +149,7 @@ func TestFetchTransactions(t *testing.T) {
 			},
 		},
 		{
-			name:     "Asset Configuration",
+			name: "Asset Configuration",
 			txnBytes: [][]byte{
 				loadResourceFileOrPanic("test_resources/asset_config.txn"),
 			},
@@ -156,7 +158,7 @@ func TestFetchTransactions(t *testing.T) {
 			},
 		},
 		{
-			name:     "Asset Transfer",
+			name: "Asset Transfer",
 			txnBytes: [][]byte{
 				loadResourceFileOrPanic("test_resources/asset_transfer.txn"),
 			},
@@ -165,7 +167,7 @@ func TestFetchTransactions(t *testing.T) {
 			},
 		},
 		{
-			name:     "Asset Freeze",
+			name: "Asset Freeze",
 			txnBytes: [][]byte{
 				loadResourceFileOrPanic("test_resources/asset_freeze.txn"),
 			},
@@ -174,7 +176,7 @@ func TestFetchTransactions(t *testing.T) {
 			},
 		},
 		{
-			name:     "Multisig Transaction",
+			name: "Multisig Transaction",
 			txnBytes: [][]byte{
 				loadResourceFileOrPanic("test_resources/multisig.txn"),
 			},
@@ -196,18 +198,18 @@ func TestFetchTransactions(t *testing.T) {
 				txnRow := idb.TxnRow{
 					Round:     1,
 					RoundTime: time.Now(),
-					Extra:     idb.TxnExtra {
+					Extra: idb.TxnExtra{
 						AssetCloseAmount: 0,
 					},
-					Intra:     2,
-					TxnBytes:  bytes,
-					Error:     nil,
+					Intra:    2,
+					TxnBytes: bytes,
+					Error:    nil,
 				}
 				ch <- txnRow
 			}
 
 			close(ch)
-			var outCh <- chan idb.TxnRow = ch
+			var outCh <-chan idb.TxnRow = ch
 			mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh)
 
 			// Call the function
@@ -215,14 +217,14 @@ func TestFetchTransactions(t *testing.T) {
 			assert.NoError(t, err)
 
 			/*
-			fmt.Printf("Test: %s\n", test.name)
-			for _, result := range results {
+				fmt.Printf("Test: %s\n", test.name)
+				for _, result := range results {
+					fmt.Println("-------------------")
+					str, _ := json.Marshal(result)
+					fmt.Printf("%s\n", str)
+				}
 				fmt.Println("-------------------")
-				str, _ := json.Marshal(result)
-				fmt.Printf("%s\n", str)
-			}
-			fmt.Println("-------------------")
-			 */
+			*/
 
 			// Verify the results
 			assert.Equal(t, len(test.response), len(results))

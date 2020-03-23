@@ -14,6 +14,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Algorand Indexer.  If not, see <https://www.gnu.org/licenses/>.
 
+// +build disabled
+
 package api
 
 import (
@@ -26,7 +28,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/client/algod/models"
+	//"github.com/algorand/go-algorand-sdk/client/algod/models"
 	"github.com/algorand/go-algorand-sdk/crypto"
 	algojson "github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
