@@ -30,17 +30,20 @@ import (
 	"github.com/algorand/indexer/idb"
 )
 
-// IndexerDb should be set from main()
-var IndexerDb idb.IndexerDb
+// TODO: Get rid of this global
+var indexerDb idb.IndexerDb
 
 var useGenerated = true
 
 // Serve starts an http server for the indexer API. This call blocks.
-func Serve(ctx context.Context, serveAddr string, developerMode bool) {
+func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, developerMode bool) {
+	indexerDb = db
+
 	if useGenerated {
 		e := echo.New()
 		api := ServerImplementation{
 			EnableAddressSearchRoundRewind: developerMode,
+			db:                             db,
 		}
 		generated.RegisterHandlers(e, &api)
 

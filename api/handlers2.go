@@ -219,7 +219,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 		indexerError(ctx, err.Error())
 	}
 
-	round, err := IndexerDb.GetMaxRound()
+	round, err := si.db.GetMaxRound()
 	if err != nil {
 		return indexerError(ctx, err.Error())
 	}
@@ -279,7 +279,7 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 		return indexerError(ctx, err.Error())
 	}
 
-	round, err := IndexerDb.GetMaxRound()
+	round, err := si.db.GetMaxRound()
 	if err != nil {
 		return indexerError(ctx, err.Error())
 	}
@@ -336,7 +336,7 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 		return indexerError(ctx, fmt.Sprintf("error while searching for transactions: %v", err))
 	}
 
-	round, err := IndexerDb.GetMaxRound()
+	round, err := si.db.GetMaxRound()
 	if err != nil {
 		return indexerError(ctx, err.Error())
 	}
@@ -496,10 +496,6 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 		if row.Error != nil {
 			return nil, row.Error
 		}
-
-		fmt.Printf("object: %v\n", row)
-		fmt.Printf("amt: %d\n", row.Account.Amount)
-		fmt.Printf("round: %d\n", row.Account.Round)
 
 		// Compute for a given round if requested.
 		var account generated.Account

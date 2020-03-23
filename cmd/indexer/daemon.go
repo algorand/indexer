@@ -96,9 +96,8 @@ var daemonCmd = &cobra.Command{
 				cf()
 			}()
 		}
-		api.IndexerDb = db
 		fmt.Printf("serving on %s\n", daemonServerAddr)
-		api.Serve(ctx, daemonServerAddr, developerMode)
+		api.Serve(ctx, daemonServerAddr, db, developerMode)
 	},
 }
 
