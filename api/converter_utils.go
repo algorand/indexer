@@ -37,28 +37,33 @@ func decodeAddress(str *string, field string, errorArr []string) ([]byte, []stri
 
 // decodeAddress converts the role information into a bitmask, or appends an error to errorArr
 func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (uint64, []string) {
-	ret := uint64(0)
-
-	// Set sender/receiver bits
-	if role != nil {
-		lc := strings.ToLower(*role)
-		if lc == "sender" {
-			ret |= idb.AddressRoleSender|idb.AddressRoleAssetSender
-		} else if lc == "receiver" {
-			ret |= idb.AddressRoleReceiver|idb.AddressRoleAssetReceiver
-
-			// Also add close to flags to sender unless they were explicitly disabled.
-			if excludeCloseTo == nil || !(*excludeCloseTo) {
-				ret |= idb.AddressRoleCloseRemainderTo|idb.AddressRoleAssetCloseTo
-			}
-		} else if lc == "freeze-target" {
-			ret |= idb.AddressRoleFreeze
-		} else {
-			return 0, append(errorArr, fmt.Sprintf("unknown address role: '%s' (expected sender, receiver or freeze-target)", lc))
-		}
+	// If the string is nil, return early.
+	if role == nil {
+		return 0, errorArr
 	}
 
-	return ret, errorArr
+	lc := strings.ToLower(*role)
+
+	if lc == "sender" {
+		return idb.AddressRoleSender | idb.AddressRoleAssetSender, errorArr
+	}
+
+	// Receiver + closeTo flags if excludeCloseTo is missing/disabled
+	if lc == "receiver" && excludeCloseTo == nil || !(*excludeCloseTo) {
+		mask := idb.AddressRoleReceiver | idb.AddressRoleAssetReceiver|idb.AddressRoleCloseRemainderTo | idb.AddressRoleAssetCloseTo
+		return uint64(mask), errorArr
+	}
+
+	// closeTo must have been true to get here
+	if lc == "receiver" {
+		return idb.AddressRoleReceiver | idb.AddressRoleAssetReceiver, errorArr
+	}
+
+	if lc == "freeze-target" {
+		return idb.AddressRoleFreeze, errorArr
+	}
+
+	return 0, append(errorArr, fmt.Sprintf("unknown address role: '%s' (expected sender, receiver or freeze-target)", lc))
 }
 
 // decodeSigType validates the input string and dereferences it if present, or appends an error to errorArr
