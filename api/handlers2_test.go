@@ -4,24 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/algorand/indexer/api/generated"
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/mocks"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"io/ioutil"
 	"testing"
 	"time"
-)
 
-/*
-func init() {
-	gen := genesis{
-		genesisHash: []byte("TestGenesisHash"),
-		genesisID:   "TestGenesisID",
-	}
-}
-*/
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+
+	"github.com/algorand/indexer/api/generated"
+	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/mocks"
+)
 
 func TestTransactionParamToTransactionFilter(t *testing.T) {
 	tests := []struct {
@@ -192,6 +185,10 @@ func TestFetchTransactions(t *testing.T) {
 
 			mockIndexer := &mocks.IndexerDb{}
 			IndexerDb = mockIndexer
+			si := ServerImplementation{
+				EnableAddressSearchRoundRewind: true,
+				db:                             mockIndexer,
+			}
 
 			ch := make(chan idb.TxnRow, len(test.txnBytes))
 			for _, bytes := range test.txnBytes {
@@ -213,7 +210,7 @@ func TestFetchTransactions(t *testing.T) {
 			mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh)
 
 			// Call the function
-			results, err := fetchTransactions(idb.TransactionFilter{}, context.Background())
+			results, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
 			assert.NoError(t, err)
 
 			/*
@@ -228,7 +225,7 @@ func TestFetchTransactions(t *testing.T) {
 
 			// Verify the results
 			assert.Equal(t, len(test.response), len(results))
-			for i, _ := range test.response {
+			for i := range test.response {
 				expected := test.response[i]
 				actual := results[i]
 				assert.Equal(t, expected, actual)

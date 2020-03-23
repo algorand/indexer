@@ -18,26 +18,31 @@ package api
 
 import (
 	"context"
-	"github.com/algorand/indexer/api/generated"
-	"github.com/algorand/indexer/idb"
-	//"github.com/gorilla/mux"
-	"github.com/labstack/echo/v4"
 	"log"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/labstack/echo/v4"
+
+	"github.com/algorand/indexer/api/generated"
+	"github.com/algorand/indexer/idb"
 )
 
-// IndexerDb should be set from main()
-var IndexerDb idb.IndexerDb
+// TODO: Get rid of this global
+var indexerDb idb.IndexerDb
 
 var useGenerated = true
 
-func Serve(ctx context.Context, serveAddr string, developerMode bool) {
+// Serve starts an http server for the indexer API. This call blocks.
+func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, developerMode bool) {
+	indexerDb = db
+
 	if useGenerated {
 		e := echo.New()
 		api := ServerImplementation{
 			EnableAddressSearchRoundRewind: developerMode,
+			db:                             db,
 		}
 		generated.RegisterHandlers(e, &api)
 

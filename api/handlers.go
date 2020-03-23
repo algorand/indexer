@@ -234,7 +234,7 @@ func ListAccounts(w http.ResponseWriter, r *http.Request) {
 
 func accountListReturn(w http.ResponseWriter, r *http.Request, af idb.AccountQueryOptions, atRound uint64) {
 	var err error
-	accountchan := IndexerDb.GetAccounts(r.Context(), af)
+	accountchan := indexerDb.GetAccounts(r.Context(), af)
 	accounts := make([]models.Account, 0, 100)
 	count := 0
 	for actrow := range accountchan {
@@ -244,7 +244,7 @@ func accountListReturn(w http.ResponseWriter, r *http.Request, af idb.AccountQue
 			return
 		}
 		if atRound != 0 {
-			actrow.Account, err = accounting.AccountAtRound(actrow.Account, atRound, IndexerDb)
+			actrow.Account, err = accounting.AccountAtRound(actrow.Account, atRound, indexerDb)
 			if err != nil {
 				log.Println("account atRow ", err)
 				w.WriteHeader(http.StatusInternalServerError)
@@ -534,7 +534,7 @@ func TransactionsForAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	txns := IndexerDb.Transactions(r.Context(), tf)
+	txns := indexerDb.Transactions(r.Context(), tf)
 
 	result := transactionsListReturnObject{}
 	for txnRow := range txns {
