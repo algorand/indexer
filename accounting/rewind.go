@@ -19,7 +19,6 @@ package accounting
 import (
 	"context"
 
-	// "github.com/algorand/go-algorand-sdk/client/algod/models"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
 	models "github.com/algorand/indexer/api/generated"
