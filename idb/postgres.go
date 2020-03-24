@@ -546,7 +546,7 @@ UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{aca}', to
 		}
 		defer acc.Close()
 		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen)
-SELECT $1, $2, x.amount, $3 FROM account_asset x WHERE x.addr = $4
+SELECT $1, $2, x.amount, $3 FROM account_asset x WHERE x.addr = $4 AND x.assetid = $5
 ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount`)
 		if err != nil {
 			return fmt.Errorf("prepare asset close1, %v", err)
@@ -565,7 +565,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			if err != nil {
 				return fmt.Errorf("asset close record amount, %v", err)
 			}
-			_, err = acs.Exec(ac.CloseTo[:], ac.AssetId, ac.DefaultFrozen, ac.Sender[:])
+			_, err = acs.Exec(ac.CloseTo[:], ac.AssetId, ac.DefaultFrozen, ac.Sender[:], ac.AssetId)
 			if err != nil {
 				return fmt.Errorf("asset close send, %v", err)
 			}

@@ -128,6 +128,30 @@ def indexerAccountTxns(rooturl, addr, minround=None, maxround=None):
             return
         query['rh'] = txns[-1]['r'] - 1
 
+def assetEquality(indexer, algod):
+    ta = dict(algod)
+    errs = []
+    for assetidstr, rec in indexer.items():
+        assetid = int(assetidstr)
+        iv = rec.get('a', 0)
+        arec = ta.pop(assetid, None)
+        if arec is None:
+            if iv == 0:
+                pass # ok
+            else:
+                errs.append('asset={!r} indxer had {!r} but algod None'.format(assetid, rec))
+        else:
+            av = arec.get(b'a', 0)
+            if av != iv:
+                errs.append('asset={!r} indexer {!r} != algod {!r}'.format(assetid, rec, arec))
+    for assetid, arec in ta.items():
+        av = arec.get(b'a', 0)
+        if av != 0:
+            errs.append('asset={!r} indexer had None but algod {!r}'.format(assetid, arec))
+    if not errs:
+        return None
+    return ', '.join(errs)
+
 class CheckContext:
     def __init__(self, i2db, err):
         self.i2db = i2db
@@ -166,12 +190,23 @@ class CheckContext:
             i2assets = i2v.get('asset')
             if i2assets:
                 if assets:
-                    pass
+                    emsg = assetEquality(i2assets, assets)
+                    if emsg:
+                        err.write('{} {}\n'.format(niceaddr, emsg))
+                        errors.append(emsg)
+                        ok = False
                 else:
-                    ok = False
-                    emsg = '{} i2db has assets but not algod\n'.format(niceaddr)
-                    err.write(emsg)
-                    errors.append(emsg)
+                    allzero = True
+                    nonzero = []
+                    for assetid, rec in i2assets.items():
+                        if rec.get('a', 0) != 0:
+                            nonzero.append( (assetid, rec) )
+                            allzero = False
+                    if not allzero:
+                        ok = False
+                        emsg = '{} i2db has assets but not algod: {!r}\n'.format(niceaddr, i2assets)
+                        err.write(emsg)
+                        errors.append(emsg)
             elif assets:
                 allzero = True
                 nonzero = []
