@@ -388,8 +388,8 @@ def main():
                 tcount += 1
                 sender = txn.pop('sender')
                 cround = txn.pop('confirmed-round')
-                intra = '?' # TODO update when model adds this
-                parts = ['{}:{}'.format(cround, intra), 's={}'.format(encode_addr(sender))]
+                intra = txn.pop('intra-round-offset')
+                parts = ['{}:{}'.format(cround, intra), 's={}'.format(sender)]
                 pay = txn.get('payment-transaction', None)
                 if pay:
                     receiver = pay.pop('receiver', None)
@@ -407,15 +407,15 @@ def main():
                     arcv = None
                     aclose = None
                 if asnd:
-                    parts.append('as={}'.format(encode_addr(asnd)))
+                    parts.append('as={}'.format(asnd))
                 if receiver:
-                    parts.append('r={}'.format(encode_addr(receiver)))
+                    parts.append('r={}'.format(receiver))
                 if closeto:
-                    parts.append('c={}'.format(encode_addr(closeto)))
+                    parts.append('c={}'.format(closeto))
                 if arcv:
-                    parts.append('ar={}'.format(encode_addr(arcv)))
+                    parts.append('ar={}'.format(arcv))
                 if aclose:
-                    parts.append('ac={}'.format(encode_addr(aclose)))
+                    parts.append('ac={}'.format(aclose))
                 # everything else
                 parts.append(json.dumps(txn))
                 err.write(' '.join(parts) + '\n')
