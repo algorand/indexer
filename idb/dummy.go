@@ -22,8 +22,6 @@ import (
 	"math/big"
 	"time"
 
-	models "github.com/algorand/indexer/api/generated"
-
 	"github.com/algorand/indexer/types"
 )
 
@@ -158,11 +156,11 @@ type IndexerDb interface {
 	AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow
 }
 
-func GetAccount(idb IndexerDb, addr []byte) (account models.Account, err error) {
+func GetAccount(idb IndexerDb, addr []byte) (account types.Account, err error) {
 	for ar := range idb.GetAccounts(context.Background(), AccountQueryOptions{EqualToAddress: addr}) {
 		return ar.Account, ar.Error
 	}
-	return models.Account{}, nil
+	return types.Account{}, nil
 }
 
 // TransactionFilter.AddressRole bitfield values
@@ -224,7 +222,7 @@ type AccountQueryOptions struct {
 }
 
 type AccountRow struct {
-	Account models.Account
+	Account types.Account
 	Error   error
 }
 
@@ -248,7 +246,7 @@ type AssetsQuery struct {
 type AssetRow struct {
 	AssetId uint64
 	Creator []byte
-	Params  types.AssetParams
+	Params  types.AccountAssetParams
 	Error   error
 }
 

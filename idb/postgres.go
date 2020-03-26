@@ -37,7 +37,6 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
-	models "github.com/algorand/indexer/api/generated"
 	_ "github.com/lib/pq"
 
 	"github.com/algorand/indexer/types"
@@ -877,7 +876,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 			break
 		}
 
-		var account models.Account
+		var account types.Account
 		var aaddr atypes.Address
 		copy(aaddr[:], addr)
 		account.Address = aaddr.String()
@@ -916,14 +915,12 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				out <- AccountRow{Error: err}
 				break
 			}
-			//account.Assets = make(map[uint64]models.AssetHolding, len(haids))
-			av := make([]models.AssetHolding, len(haids))
-			account.Assets = new([]models.AssetHolding)
+			//account.Assets = make(map[uint64]types.AccountAssetHolding, len(haids))
+			av := make([]types.AccountAssetHolding, len(haids))
+			account.Assets = new([]types.AccountAssetHolding)
 			*account.Assets = av
 			for i, assetid := range haids {
-				frozenp := new(bool)
-				*frozenp = hfrozen[i]
-				av[i] = models.AssetHolding{Amount: hamounts[i], IsFrozen: frozenp, AssetId: assetid} // TODO: set Creator to asset creator addr string
+				av[i] = types.AccountAssetHolding{Amount: hamounts[i], IsFrozen: hfrozen[i], AssetId: assetid} // TODO: set Creator to asset creator addr string
 			}
 		}
 		if len(assetParamsIds) > 0 && string(assetParamsIds) != nullarraystr {
@@ -939,14 +936,14 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				out <- AccountRow{Error: err}
 				break
 			}
-			//account.AssetParams = make(map[uint64]models.AssetParams, len(assetids))
-			account.CreatedAssets = new([]models.Asset)
-			*account.CreatedAssets = make([]models.Asset, len(assetids))
+			//types.AssetParams = make(map[uint64]types.AssetParams, len(assetids))
+			account.CreatedAssets = new([]types.Asset)
+			*account.CreatedAssets = make([]types.Asset, len(assetids))
 			for i, assetid := range assetids {
 				ap := assetParams[i]
-				(*account.CreatedAssets)[i] = models.Asset{
+				(*account.CreatedAssets)[i] = types.Asset{
 					Index: assetid,
-					Params: models.AssetParams{
+					Params: types.AccountAssetParams{
 						Creator:       account.Address,
 						Total:         ap.Total,
 						Decimals:      uint64(ap.Decimals),
@@ -1189,7 +1186,7 @@ func (db *PostgresIndexerDb) yieldAssetsThread(ctx context.Context, filter Asset
 			out <- AssetRow{Error: err}
 			break
 		}
-		var params types.AssetParams
+		var params types.AccountAssetParams
 		err = json.Decode(paramsJsonStr, &params)
 		if err != nil {
 			out <- AssetRow{Error: err}

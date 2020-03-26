@@ -13,6 +13,7 @@ import (
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated"
 	"github.com/algorand/indexer/idb"
+	models "github.com/algorand/indexer/types"
 )
 
 // ServerImplementation implements the handler interface used by the generated route definitions.
@@ -389,20 +390,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 
 		asset := generated.Asset{
 			Index: row.AssetId,
-			Params: generated.AssetParams{
-				Creator:       creator.String(),
-				Name:          strPtr(row.Params.AssetName),
-				UnitName:      strPtr(row.Params.UnitName),
-				Url:           strPtr(row.Params.URL),
-				Total:         row.Params.Total,
-				Decimals:      uint64(row.Params.Decimals),
-				DefaultFrozen: boolPtr(row.Params.DefaultFrozen),
-				MetadataHash:  bytePtr(row.Params.MetadataHash[:]),
-				Clawback:      strPtr(row.Params.Clawback.String()),
-				Reserve:       strPtr(row.Params.Reserve.String()),
-				Freeze:        strPtr(row.Params.Freeze.String()),
-				Manager:       strPtr(row.Params.Manager.String()),
-			},
+			Params: accountAssetParamsToAssetParams(row.Params),
 		}
 
 		assets = append(assets, asset)
@@ -498,7 +486,7 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 		}
 
 		// Compute for a given round if requested.
-		var account generated.Account
+		var account models.Account
 		if atRound != nil {
 			acct, err := accounting.AccountAtRound(row.Account, *atRound, si.db)
 			if err != nil {
@@ -509,7 +497,55 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 			account = row.Account
 		}
 
-		accounts = append(accounts, account)
+		var assets *[]generated.AssetHolding
+		if account.Assets != nil {
+			a := make([]generated.AssetHolding, 0)
+			for _, asset := range *account.Assets {
+				a = append(a, generated.AssetHolding{
+					Amount:   asset.Amount,
+					AssetId:  asset.AssetId,
+					Creator:  asset.Creator,
+					IsFrozen: asset.IsFrozen,
+				})
+			}
+			assets = &a
+		}
+
+		var createdAssets *[]generated.Asset
+		if account.CreatedAssets != nil {
+			 a := make([]generated.Asset, 0)
+			for _, asset := range *account.CreatedAssets {
+				a = append(a, generated.Asset{
+					Index:  asset.Index,
+					Params: accountAssetParamsToAssetParams(asset.Params),
+				})
+			}
+			createdAssets = &a
+		}
+
+		accountParticipation := generated.AccountParticipation{
+			SelectionParticipationKey: account.Participation.SelectionParticipationKey,
+			VoteFirstValid:            account.Participation.VoteFirstValid,
+			VoteKeyDilution:           account.Participation.VoteKeyDilution,
+			VoteLastValid:             account.Participation.VoteLastValid,
+			VoteParticipationKey:      account.Participation.VoteParticipationKey,
+		}
+
+		convertedAccount := generated.Account{
+			Address:                     account.Address,
+			Amount:                      account.Amount,
+			AmountWithoutPendingRewards: account.AmountWithoutPendingRewards,
+			Assets:                      assets,
+			CreatedAssets:               createdAssets,
+			Participation:               &accountParticipation,
+			PendingRewards:              account.PendingRewards,
+			RewardBase:                  account.RewardBase,
+			Rewards:                     account.Rewards,
+			Round:                       account.Round,
+			Status:                      account.Status,
+			Type:                        account.Type,
+		}
+		accounts = append(accounts, convertedAccount)
 	}
 
 	return accounts, nil

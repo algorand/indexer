@@ -21,15 +21,14 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
-	models "github.com/algorand/indexer/api/generated"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 )
 
-func assetUpdate(account *models.Account, assetid uint64, add, sub uint64) {
+func assetUpdate(account *types.Account, assetid uint64, add, sub uint64) {
 	if account.Assets == nil {
-		account.Assets = new([]models.AssetHolding)
+		account.Assets = new([]types.AccountAssetHolding)
 	}
 	assets := *account.Assets
 	for i, ah := range assets {
@@ -40,7 +39,7 @@ func assetUpdate(account *models.Account, assetid uint64, add, sub uint64) {
 			return
 		}
 	}
-	assets = append(assets, models.AssetHolding{
+	assets = append(assets, types.AccountAssetHolding{
 		Amount:  add - sub,
 		AssetId: assetid,
 		//Creator: base32 addr string of asset creator, TODO
@@ -49,7 +48,7 @@ func assetUpdate(account *models.Account, assetid uint64, add, sub uint64) {
 	*account.Assets = assets
 }
 
-func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acct models.Account, err error) {
+func AccountAtRound(account types.Account, round uint64, db idb.IndexerDb) (acct types.Account, err error) {
 	acct = account
 	addr, err := atypes.DecodeAddress(account.Address)
 	if err != nil {

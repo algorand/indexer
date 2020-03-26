@@ -622,3 +622,146 @@ type ConsensusParams struct {
 	// TODO(upgrade): Please remove as soon as the upgrade goes through
 	UseBuggyProposalLowestOutput bool
 }
+
+// The structures below are copies of types found in the 'generated' package. They are duplicated to allow updating
+// the backend before the API.
+
+// Account defines model for Account.
+type Account struct {
+
+	// the account public key
+	Address string `json:"address"`
+
+	// \[algo\] total number of MicroAlgos in the account
+	Amount uint64 `json:"amount"`
+
+	// specifies the amount of MicroAlgos in the account, without the pending rewards.
+	AmountWithoutPendingRewards uint64 `json:"amount-without-pending-rewards"`
+
+	// \[asset\] assets held by this account.
+	//
+	// Note the raw object uses `map[int] -> AssetHolding` for this type.
+	Assets *[]AccountAssetHolding `json:"assets,omitempty"`
+
+	// \[apar\] parameters of assets created by this account.
+	//
+	// Note: the raw account uses `map[int] -> Asset` for this type.
+	CreatedAssets *[]Asset `json:"created-assets,omitempty"`
+
+	// AccountParticipation describes the parameters used by this account in consensus protocol.
+	Participation *AccountParticipation `json:"participation,omitempty"`
+
+	// amount of MicroAlgos of pending rewards in this account.
+	PendingRewards uint64 `json:"pending-rewards"`
+
+	// \[ebase\] used as part of the rewards computation. Only applicable to accounts which are participating.
+	RewardBase *uint64 `json:"reward-base,omitempty"`
+
+	// \[ern\] total rewards of MicroAlgos the account has received, including pending rewards.
+	Rewards uint64 `json:"rewards"`
+
+	// The round for which this information is relevant.
+	Round uint64 `json:"round"`
+
+	// \[onl\] delegation status of the account's MicroAlgos
+	// * Offline - indicates that the associated account is delegated.
+	// *  Online  - indicates that the associated account used as part of the delegation pool.
+	// *   NotParticipating - indicates that the associated account is neither a delegator nor a delegate.
+	Status string `json:"status"`
+
+	// Indicates what type of signature is used by this account, must be one of:
+	// * sig
+	// * msig
+	// * lsig
+	Type *string `json:"type,omitempty"`
+}
+
+// AccountAssetHolding defines model for AssetHolding.
+type AccountAssetHolding struct {
+
+	// \[a\] number of units held.
+	Amount uint64 `json:"amount"`
+
+	// Asset ID of the holding.
+	AssetId uint64 `json:"asset-id"`
+
+	// Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.
+	Creator string `json:"creator"`
+
+	// \[f\] whether or not the holding is frozen.
+	IsFrozen bool `json:"is-frozen"`
+}
+
+// Asset defines model for Asset.
+type Asset struct {
+
+	// unique asset identifier
+	Index uint64 `json:"index"`
+
+	// AssetParams specifies the parameters for an asset.
+	//
+	// \[apar\] when part of an AssetConfig transaction.
+	//
+	// Definition:
+	// data/transactions/asset.go : AssetParams
+	Params AccountAssetParams `json:"params"`
+}
+
+// AccountParticipation defines model for AccountParticipation.
+type AccountParticipation struct {
+
+	// \[sel\] Selection public key (if any) currently registered for this round.
+	SelectionParticipationKey *[]byte `json:"selection-participation-key,omitempty"`
+
+	// \[voteFst\] First round for which this participation is valid.
+	VoteFirstValid *uint64 `json:"vote-first-valid,omitempty"`
+
+	// \[voteKD\] Number of subkeys in each batch of participation keys.
+	VoteKeyDilution *uint64 `json:"vote-key-dilution,omitempty"`
+
+	// \[voteLst\] Last round for which this participation is valid.
+	VoteLastValid *uint64 `json:"vote-last-valid,omitempty"`
+
+	// \[vote\] root participation public key (if any) currently registered for this round.
+	VoteParticipationKey *[]byte `json:"vote-participation-key,omitempty"`
+}
+
+// AssetParams defines model for AssetParams.
+type AccountAssetParams struct {
+
+	// \[c\] Address of account used to clawback holdings of this asset.  If empty, clawback is not permitted.
+	Clawback *string `json:"clawback,omitempty"`
+
+	// The address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.
+	Creator string `json:"creator"`
+
+	// \[dc\] The number of digits to use after the decimal point when displaying this asset. If 0, the asset is not divisible. If 1, the base unit of the asset is in tenths. If 2, the base unit of the asset is in hundredths, and so on. This value must be between 0 and 19 (inclusive).
+	Decimals uint64 `json:"decimals"`
+
+	// \[df\] Whether holdings of this asset are frozen by default.
+	DefaultFrozen *bool `json:"default-frozen,omitempty"`
+
+	// \[f\] Address of account used to freeze holdings of this asset.  If empty, freezing is not permitted.
+	Freeze *string `json:"freeze,omitempty"`
+
+	// \[m\] Address of account used to manage the keys of this asset and to destroy it.
+	Manager *string `json:"manager,omitempty"`
+
+	// \[am\] A commitment to some unspecified asset metadata. The format of this metadata is up to the application.
+	MetadataHash *[]byte `json:"metadata-hash,omitempty"`
+
+	// \[an\] Name of this asset, as supplied by the creator.
+	Name *string `json:"name,omitempty"`
+
+	// \[r\] Address of account holding reserve (non-minted) units of this asset.
+	Reserve *string `json:"reserve,omitempty"`
+
+	// \[t\] The total number of units of this asset.
+	Total uint64 `json:"total"`
+
+	// \[un\] Name of a unit of this asset, as supplied by the creator.
+	UnitName *string `json:"unit-name,omitempty"`
+
+	// \[au\] URL where more information about the asset can be retrieved.
+	Url *string `json:"url,omitempty"`
+}

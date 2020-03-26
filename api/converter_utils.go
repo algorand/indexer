@@ -385,3 +385,20 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 
 	return
 }
+
+func accountAssetParamsToAssetParams(params types.AccountAssetParams) generated.AssetParams {
+	return generated.AssetParams{
+		Clawback:      params.Clawback,
+		Creator:       params.Creator,
+		Decimals:      params.Decimals,
+		DefaultFrozen: params.DefaultFrozen,
+		Freeze:        params.Freeze,
+		Manager:       params.Manager,
+		MetadataHash:  params.MetadataHash,
+		Name:          params.Name,
+		Reserve:       params.Reserve,
+		Total:         params.Total,
+		UnitName:      params.UnitName,
+		Url:           params.Url,
+	}
+}
