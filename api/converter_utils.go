@@ -101,7 +101,7 @@ func assetHoldingToAssetHolding(id uint64, holding models.AssetHolding) generate
 		AssetId:  id,
 		Amount:   holding.Amount,
 		Creator:  holding.Creator,
-		IsFrozen: boolPtr(holding.Frozen),
+		IsFrozen: holding.Frozen,
 	}
 }
 
