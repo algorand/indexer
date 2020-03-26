@@ -346,12 +346,19 @@ class BlockArchiver:
             raise Exception('could not get block {}'.format(xround))
         # trivial check
         bl = msgpack.loads(raw)
-        if bl[b'block'][b'rnd'] != xround:
+        if xround == 0:
+            blockround = bl[b'block'].get(b'rnd', 0)
+        else:
+            blockround = bl[b'block'][b'rnd']
+        if blockround != xround:
             raise Exception('fetching round {} retrieved block for round {}'.format(xround, bl[b'block'][b'rnd']))
         blockpath = os.path.join(self.blockdir, str(xround))
         with open(blockpath, 'wb') as fout:
             fout.write(raw)
-        logger.debug('got block %s', blockpath)
+        if xround % 100 == 0:
+            logger.info('got block %s', blockpath)
+        else:
+            logger.debug('got block %s', blockpath)
         self.storedBlocks.add(xround)
         self.lastBlockOkTime = time.time()
 
@@ -381,6 +388,7 @@ class BlockArchiver:
             bs = str(r)
             tf.add(os.path.join(self.blockdir, bs), arcname=bs)
         tf.close()
+        logger.info('%s', tarname)
         # tar made, cleanup block files
         for r in range(xm, xm+1000):
             bs = str(r)
@@ -390,12 +398,15 @@ class BlockArchiver:
         return
 
     def _fetchloop(self, lastround):
+        some = False
         while self.go:
             try:
                 self.fetchAndStoreBlock(lastround + 1)
                 self.maybeTarBlocks()
+                some = True
             except Exception as e:
-                logger.warning('err in fetch, %s', e)
+                if not some:
+                    logger.warning('err in fetch (%d), %s', lastround + 1, e)
                 break
             lastround += 1
         return lastround
@@ -410,8 +421,7 @@ class BlockArchiver:
                 logger.debug('lastround from tardir %d', lastround)
         algod = self.algod()
         if lastround is None:
-            lastround = algod.status()['lastRound']
-            logger.debug('last round from status %d', lastround)
+            lastround = 0
             self.fetchAndStoreBlock(lastround)
         lastround = self._fetchloop(lastround)
         while self.go:
