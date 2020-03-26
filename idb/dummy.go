@@ -19,9 +19,10 @@ package idb
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/client/algod/models"
+	models "github.com/algorand/indexer/api/generated"
 
 	"github.com/algorand/indexer/types"
 )
@@ -315,7 +316,7 @@ type AcfgUpdate struct {
 
 type AssetUpdate struct {
 	AssetId       uint64
-	Delta         int64
+	Delta         big.Int
 	DefaultFrozen bool
 }
 

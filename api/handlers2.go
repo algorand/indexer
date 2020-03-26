@@ -16,7 +16,7 @@ import (
 )
 
 // ServerImplementation implements the handler interface used by the generated route definitions.
-type ServerImplementation struct{
+type ServerImplementation struct {
 	// EnableAddressSearchRoundRewind is allows configuring whether or not the
 	// 'accounts' endpoint allows specifying a round number. This is done for
 	// performance reasons, because requesting many accounts at a particular
@@ -77,7 +77,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 //  * Holds assetID
 //  * assetID holding gt/lt amount
 func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generated.SearchAccountsParams) error {
-	options := idb.AccountQueryOptions {
+	options := idb.AccountQueryOptions{
 		AlgosGreaterThan:     uintOrDefault(params.CurrencyGreaterThan),
 		AlgosLessThan:        uintOrDefault(params.CurrencyLessThan),
 		IncludeAssetHoldings: true,
@@ -137,11 +137,11 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 	}
 
 	searchParams := generated.SearchForTransactionsParams{
-		Address:             strPtr(accountID),
+		Address: strPtr(accountID),
 		// not applicable to this endpoint
 		//AddressRole:         params.AddressRole,
 		//ExcludeCloseTo:      params.ExcludeCloseTo,
-		AssetId:			 params.AssetId,
+		AssetId:             params.AssetId,
 		Limit:               params.Limit,
 		Next:                params.Next,
 		NotePrefix:          params.NotePrefix,
@@ -182,7 +182,7 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 	}
 
 	if len(assets) > 1 {
-		return badRequest(ctx, fmt.Sprintf("Multiple assets found for id, this shouldn't have happened: %s", assetID))
+		return badRequest(ctx, fmt.Sprintf("Multiple assets found for id, this shouldn't have happened: assetid=%d", assetID))
 	}
 
 	round, err := si.db.GetMaxRound()
@@ -191,7 +191,7 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 	}
 
 	return ctx.JSON(http.StatusOK, generated.AssetResponse{
-		Asset:       assets[0],
+		Asset:        assets[0],
 		CurrentRound: round,
 	})
 }
@@ -200,10 +200,10 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 // (GET /asset/{asset-id}/balances)
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID uint64, params generated.LookupAssetBalancesParams) error {
 	query := idb.AssetBalanceQuery{
-		AssetId:     assetID,
-		MinAmount:   uintOrDefault(params.CurrencyGreaterThan),
-		MaxAmount:   uintOrDefault(params.CurrencyLessThan),
-		Limit:       uintOrDefault(params.Limit),
+		AssetId:   assetID,
+		MinAmount: uintOrDefault(params.CurrencyGreaterThan),
+		MaxAmount: uintOrDefault(params.CurrencyLessThan),
+		Limit:     uintOrDefault(params.Limit),
 	}
 
 	if params.Next != nil {
@@ -307,7 +307,7 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 	}
 
 	// Lookup transactions
-	filter := idb.TransactionFilter{ Round: uint64Ptr(roundNumber) }
+	filter := idb.TransactionFilter{Round: uint64Ptr(roundNumber)}
 	txns, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
 		return indexerError(ctx, fmt.Sprintf("error while looking up for transactions for round '%d': %v", roundNumber, err))
@@ -388,7 +388,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 		copy(creator[:], row.Creator[:])
 
 		asset := generated.Asset{
-			Index:  row.AssetId,
+			Index: row.AssetId,
 			Params: generated.AssetParams{
 				Creator:       creator.String(),
 				Name:          strPtr(row.Params.AssetName),
@@ -407,7 +407,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 
 		assets = append(assets, asset)
 	}
-	return  assets, nil
+	return assets, nil
 }
 
 // fetchAssetBalances fetches all balances from a query and converts them into
@@ -504,9 +504,9 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 			if err != nil {
 				return nil, fmt.Errorf("problem computing account at round: %v", err)
 			}
-			account = accountToAccount(acct)
+			account = acct
 		} else {
-			account = accountToAccount(row.Account)
+			account = row.Account
 		}
 
 		accounts = append(accounts, account)

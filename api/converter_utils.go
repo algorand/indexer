@@ -7,9 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	"github.com/algorand/go-algorand-sdk/client/algod/models"
 	"github.com/algorand/go-algorand-sdk/crypto"
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/api/generated"
@@ -50,7 +49,7 @@ func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (u
 
 	// Receiver + closeTo flags if excludeCloseTo is missing/disabled
 	if lc == "receiver" && excludeCloseTo == nil || !(*excludeCloseTo) {
-		mask := idb.AddressRoleReceiver | idb.AddressRoleAssetReceiver|idb.AddressRoleCloseRemainderTo | idb.AddressRoleAssetCloseTo
+		mask := idb.AddressRoleReceiver | idb.AddressRoleAssetReceiver | idb.AddressRoleCloseRemainderTo | idb.AddressRoleAssetCloseTo
 		return uint64(mask), errorArr
 	}
 
@@ -64,6 +63,30 @@ func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (u
 	}
 
 	return 0, append(errorArr, fmt.Sprintf("unknown address role: '%s' (expected sender, receiver or freeze-target)", lc))
+}
+
+type stringInt struct {
+	str string
+	i   int
+}
+
+var sigTypeEnumMapList = []stringInt{
+	{"sig", 1},
+	{"msig", 2},
+	{"lsig", 3},
+}
+
+var sigTypeEnumMap map[string]int
+
+func enumListToMap(list []stringInt) map[string]int {
+	out := make(map[string]int, len(list))
+	for _, tf := range list {
+		out[tf.str] = tf.i
+	}
+	return out
+}
+func init() {
+	sigTypeEnumMap = enumListToMap(sigTypeEnumMapList)
 }
 
 // decodeSigType validates the input string and dereferences it if present, or appends an error to errorArr
@@ -95,73 +118,6 @@ func decodeType(str *string, errorArr []string) (t int, err []string) {
 ////////////////////////////////////////////////////
 // Helpers to convert to and from generated types //
 ////////////////////////////////////////////////////
-
-func assetHoldingToAssetHolding(id uint64, holding models.AssetHolding) generated.AssetHolding {
-	return generated.AssetHolding{
-		AssetId:  id,
-		Amount:   holding.Amount,
-		Creator:  holding.Creator,
-		IsFrozen: holding.Frozen,
-	}
-}
-
-func assetParamsToAsset(id uint64, params models.AssetParams) generated.Asset {
-	return generated.Asset{
-		Index: id,
-		Params: generated.AssetParams{
-			Clawback:      strPtr(params.ClawbackAddr),
-			Creator:       params.Creator,
-			Decimals:      uint64(params.Decimals),
-			DefaultFrozen: boolPtr(params.DefaultFrozen),
-			Freeze:        strPtr(params.FreezeAddr),
-			Manager:       strPtr(params.ManagerAddr),
-			MetadataHash:  bytePtr(params.MetadataHash),
-			Name:          strPtr(params.AssetName),
-			Reserve:       strPtr(params.ReserveAddr),
-			Total:         params.Total,
-			UnitName:      strPtr(params.UnitName),
-			Url:           strPtr(params.URL),
-		},
-	}
-}
-
-func accountToAccount(account models.Account) generated.Account {
-	// TODO: This data is missing.
-	var participation = generated.AccountParticipation{
-		SelectionParticipationKey: nil,
-		VoteFirstValid:            uint64Ptr(0),
-		VoteLastValid:             uint64Ptr(0),
-		VoteKeyDilution:           uint64Ptr(0),
-		VoteParticipationKey:      nil,
-	}
-
-	var assets = make([]generated.AssetHolding, 0)
-	for k, v := range account.Assets {
-		assets = append(assets, assetHoldingToAssetHolding(k, v))
-	}
-
-	var createdAssets = make([]generated.Asset, 0)
-	for k, v := range account.AssetParams {
-		createdAssets = append(createdAssets, assetParamsToAsset(k, v))
-	}
-
-	ret := generated.Account{
-		Address:                     account.Address,
-		Amount:                      account.Amount,
-		AmountWithoutPendingRewards: account.AmountWithoutPendingRewards,
-		Assets:                      &assets,
-		CreatedAssets:               &createdAssets,
-		Participation:               &participation,
-		PendingRewards:              account.PendingRewards,
-		RewardBase:                  uint64Ptr(0),
-		Rewards:                     account.Rewards,
-		Round:                       account.Round,
-		Status:                      account.Status,
-		Type:                        strPtr("unknown"), // TODO: how to get this?
-	}
-
-	return ret
-}
 
 func sigToTransactionSig(sig sdk_types.Signature) *[]byte {
 	if sig == (sdk_types.Signature{}) {
@@ -360,7 +316,7 @@ func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.Assets
 		AssetId:            uintOrDefault(params.AssetId),
 		AssetIdGreaterThan: assetGreaterThan,
 		Creator:            creator,
-		Name:				strOrDefault(params.Name),
+		Name:               strOrDefault(params.Name),
 		Unit:               strOrDefault(params.Unit),
 		Query:              "",
 		Limit:              uintOrDefault(params.Limit),

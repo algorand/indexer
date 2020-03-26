@@ -27,15 +27,17 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"math"
+	"math/big"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/client/algod/models"
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
+	models "github.com/algorand/indexer/api/generated"
 	_ "github.com/lib/pq"
 
 	"github.com/algorand/indexer/types"
@@ -474,15 +476,46 @@ func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, 
 		defer seta.Close()
 		for addr, aulist := range updates.AssetUpdates {
 			for _, au := range aulist {
-				if au.Delta == 0 {
-					continue
-				}
 				if au.AssetId == debugAsset {
 					fmt.Fprintf(os.Stderr, "%d axfer %s %s\n", round, b64(addr[:]), obs(au))
 				}
-				_, err = seta.Exec(addr[:], au.AssetId, au.Delta, au.DefaultFrozen)
-				if err != nil {
-					return fmt.Errorf("update account asset, %v", err)
+				if au.Delta.IsInt64() {
+					// easy case
+					delta := au.Delta.Int64()
+					if delta == 0 {
+						continue
+					}
+					_, err = seta.Exec(addr[:], au.AssetId, delta, au.DefaultFrozen)
+					if err != nil {
+						return fmt.Errorf("update account asset, %v", err)
+					}
+				} else {
+					sign := au.Delta.Sign()
+					var mi big.Int
+					var step int64
+					if sign > 0 {
+						mi.SetInt64(math.MaxInt64)
+						step = math.MaxInt64
+					} else if sign < 0 {
+						mi.SetInt64(math.MinInt64)
+						step = math.MinInt64
+					} else {
+						continue
+					}
+					for !au.Delta.IsInt64() {
+						_, err = seta.Exec(addr[:], au.AssetId, step, au.DefaultFrozen)
+						if err != nil {
+							return fmt.Errorf("update account asset, %v", err)
+						}
+						au.Delta.Sub(&au.Delta, &mi)
+					}
+					sign = au.Delta.Sign()
+					if sign != 0 {
+						_, err = seta.Exec(addr[:], au.AssetId, au.Delta.Int64(), au.DefaultFrozen)
+						if err != nil {
+							return fmt.Errorf("update account asset, %v", err)
+						}
+					}
 				}
 			}
 		}
@@ -513,7 +546,7 @@ UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{aca}', to
 		}
 		defer acc.Close()
 		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen)
-SELECT $1, $2, x.amount, $3 FROM account_asset x WHERE x.addr = $4
+SELECT $1, $2, x.amount, $3 FROM account_asset x WHERE x.addr = $4 AND x.assetid = $5
 ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount`)
 		if err != nil {
 			return fmt.Errorf("prepare asset close1, %v", err)
@@ -532,7 +565,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			if err != nil {
 				return fmt.Errorf("asset close record amount, %v", err)
 			}
-			_, err = acs.Exec(ac.CloseTo[:], ac.AssetId, ac.DefaultFrozen, ac.Sender[:])
+			_, err = acs.Exec(ac.CloseTo[:], ac.AssetId, ac.DefaultFrozen, ac.Sender[:], ac.AssetId)
 			if err != nil {
 				return fmt.Errorf("asset close send, %v", err)
 			}
@@ -883,9 +916,14 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				out <- AccountRow{Error: err}
 				break
 			}
-			account.Assets = make(map[uint64]models.AssetHolding, len(haids))
+			//account.Assets = make(map[uint64]models.AssetHolding, len(haids))
+			av := make([]models.AssetHolding, len(haids))
+			account.Assets = new([]models.AssetHolding)
+			*account.Assets = av
 			for i, assetid := range haids {
-				account.Assets[assetid] = models.AssetHolding{Amount: hamounts[i], Frozen: hfrozen[i]}
+				frozenp := new(bool)
+				*frozenp = hfrozen[i]
+				av[i] = models.AssetHolding{Amount: hamounts[i], IsFrozen: frozenp, AssetId: assetid} // TODO: set Creator to asset creator addr string
 			}
 		}
 		if len(assetParamsIds) > 0 && string(assetParamsIds) != nullarraystr {
@@ -901,22 +939,27 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				out <- AccountRow{Error: err}
 				break
 			}
-			account.AssetParams = make(map[uint64]models.AssetParams, len(assetids))
+			//account.AssetParams = make(map[uint64]models.AssetParams, len(assetids))
+			account.CreatedAssets = new([]models.Asset)
+			*account.CreatedAssets = make([]models.Asset, len(assetids))
 			for i, assetid := range assetids {
 				ap := assetParams[i]
-				account.AssetParams[assetid] = models.AssetParams{
-					Creator:       account.Address,
-					Total:         ap.Total,
-					Decimals:      ap.Decimals,
-					DefaultFrozen: ap.DefaultFrozen,
-					UnitName:      ap.UnitName,
-					AssetName:     ap.AssetName,
-					URL:           ap.URL,
-					MetadataHash:  ap.MetadataHash[:],
-					ManagerAddr:   addrStr(ap.Manager[:]),
-					ReserveAddr:   addrStr(ap.Reserve[:]),
-					FreezeAddr:    addrStr(ap.Freeze[:]),
-					ClawbackAddr:  addrStr(ap.Clawback[:]),
+				(*account.CreatedAssets)[i] = models.Asset{
+					Index: assetid,
+					Params: models.AssetParams{
+						Creator:       account.Address,
+						Total:         ap.Total,
+						Decimals:      uint64(ap.Decimals),
+						DefaultFrozen: boolPtr(ap.DefaultFrozen),
+						UnitName:      stringPtr(ap.UnitName),
+						Name:          stringPtr(ap.AssetName),
+						Url:           stringPtr(ap.URL),
+						MetadataHash:  baPtr(ap.MetadataHash[:]),
+						Manager:       addrStr(ap.Manager[:]),
+						Reserve:       addrStr(ap.Reserve[:]),
+						Freeze:        addrStr(ap.Freeze[:]),
+						Clawback:      addrStr(ap.Clawback[:]),
+					},
 				}
 
 			}
@@ -930,9 +973,29 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 	close(out)
 }
 
-func addrStr(addr []byte) string {
+func boolPtr(x bool) *bool {
+	out := new(bool)
+	*out = x
+	return out
+}
+
+func stringPtr(x string) *string {
+	out := new(string)
+	*out = x
+	return out
+}
+
+func baPtr(x []byte) *[]byte {
+	out := new([]byte)
+	*out = x
+	return out
+}
+
+var emptyString = ""
+
+func addrStr(addr []byte) *string {
 	if len(addr) == 0 {
-		return ""
+		return &emptyString
 	}
 	allZero := true
 	for _, bv := range addr {
@@ -942,11 +1005,13 @@ func addrStr(addr []byte) string {
 		}
 	}
 	if allZero {
-		return ""
+		return &emptyString
 	}
 	var aa atypes.Address
 	copy(aa[:], addr)
-	return aa.String()
+	out := new(string)
+	*out = aa.String()
+	return out
 }
 
 func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow {

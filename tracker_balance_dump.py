@@ -15,6 +15,7 @@ import logging
 import os
 import sqlite3
 import sys
+import urllib.error
 import urllib.request
 import urllib.parse
 
@@ -39,41 +40,52 @@ logger = logging.getLogger(__name__)
 def indexerAccounts(rooturl, blockround=None):
     rootparts = urllib.parse.urlparse(rooturl)
     accountsurl = list(rootparts)
-    accountsurl[2] = os.path.join(accountsurl[2], 'v1/accounts')
+    accountsurl[2] = os.path.join(accountsurl[2], 'accounts')
     gtaddr = None
     accounts = {}
-    query = {}
+    query = {'limit':500}
     if blockround is not None:
-        query['r'] = blockround
+        query['round'] = blockround
     while True:
         if gtaddr:
             # set query:
-            query['gt'] = gtaddr
+            query['next'] = gtaddr
         if query:
             accountsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(accountsurl)
         try:
+            logger.debug('GET %s', pageurl)
             response = urllib.request.urlopen(pageurl)
+        except urllib.error.HTTPError as e:
+            logger.error('failed to fetch %r', pageurl)
+            logger.error('msg: %s', e.file.read())
+            raise
         except Exception as e:
             logger.error('%r', pageurl, exc_info=True)
             raise
-        if (response.code != 200) or (response.getheader('Content-Type') != 'application/json'):
+        if (response.code != 200) or not response.getheader('Content-Type').startswith('application/json'):
             raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
         ob = json.loads(response.read())
         some = False
+        batchcount = 0
         for acct in ob.get('accounts',[]):
+            batchcount += 1
             some = True
             addr = acct['address']
-            microalgos = acct['amountwithoutpendingrewards']
+            microalgos = acct['amount-without-pending-rewards']
             av = {"algo":microalgos}
             assets = {}
-            for assetid, assetholding in acct.get('assets',{}).items():
-                assets[str(assetid)] = {"a":assetholding['amount'],"f":assetholding.get('frozen',False)}
+            for assetrec in acct.get('assets', []):
+                assetid = assetrec['asset-id']
+                assetamount = assetrec.get('amount', 0)
+                assetfrozen = assetrec.get('is-frozen', False)
+                assets[str(assetid)] = {"a":assetamount,"f":assetfrozen}
             if assets:
                 av['asset'] = assets
             rawaddr = algosdk.encoding.decode_address(addr)
             accounts[rawaddr] = av
             gtaddr = addr
+        logger.debug('got %d accounts', batchcount)
         if not some:
             break
     logger.info('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
@@ -84,20 +96,30 @@ def indexerAccountTxns(rooturl, addr, minround=None, maxround=None):
     niceaddr = algosdk.encoding.encode_address(addr)
     rootparts = urllib.parse.urlparse(rooturl)
     atxnsurl = list(rootparts)
-    atxnsurl[2] = os.path.join(atxnsurl[2], 'v1/account/{}/transactions'.format(niceaddr))
-    query = {'l':1000, 'format':'json'}
+    atxnsurl[2] = os.path.join(atxnsurl[2], 'transactions')
+    query = {'limit':1000, 'address':niceaddr}
     if minround is not None:
-        query['rl'] = minround
+        query['min-round'] = minround
     if maxround is not None:
-        query['rh'] = maxround
+        query['max-round'] = maxround
     while True:
         atxnsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(atxnsurl)
-        response = urllib.request.urlopen(pageurl)
-        if (response.code != 200) or (response.getheader('Content-Type') != 'application/json'):
-            raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
+        try:
+            logger.debug('GET %s', pageurl)
+            response = urllib.request.urlopen(pageurl)
+        except urllib.error.HTTPError as e:
+            logger.error('failed to fetch %r', pageurl)
+            logger.error('msg: %s', e.file.read())
+            raise
+        except Exception as e:
+            logger.error('failed to fetch %r', pageurl)
+            logger.error('err %r (%s)', e, type(e))
+            raise
+        if (response.code != 200) or (not response.getheader('Content-Type').startswith('application/json')):
+            raise Exception("bad response to {!r}: {} {}, {!r}".format(pageurl, response.code, response.reason, response.getheader('Content-Type')))
         ob = json.loads(response.read())
-        txns = ob.get('txns')
+        txns = ob.get('transactions')
         if not txns:
             return
         for txn in txns:
@@ -105,6 +127,30 @@ def indexerAccountTxns(rooturl, addr, minround=None, maxround=None):
         if len(txns) < 1000:
             return
         query['rh'] = txns[-1]['r'] - 1
+
+def assetEquality(indexer, algod):
+    ta = dict(algod)
+    errs = []
+    for assetidstr, rec in indexer.items():
+        assetid = int(assetidstr)
+        iv = rec.get('a', 0)
+        arec = ta.pop(assetid, None)
+        if arec is None:
+            if iv == 0:
+                pass # ok
+            else:
+                errs.append('asset={!r} indxer had {!r} but algod None'.format(assetid, rec))
+        else:
+            av = arec.get(b'a', 0)
+            if av != iv:
+                errs.append('asset={!r} indexer {!r} != algod {!r}'.format(assetid, rec, arec))
+    for assetid, arec in ta.items():
+        av = arec.get(b'a', 0)
+        if av != 0:
+            errs.append('asset={!r} indexer had None but algod {!r}'.format(assetid, arec))
+    if not errs:
+        return None
+    return ', '.join(errs)
 
 class CheckContext:
     def __init__(self, i2db, err):
@@ -144,12 +190,23 @@ class CheckContext:
             i2assets = i2v.get('asset')
             if i2assets:
                 if assets:
-                    pass
+                    emsg = assetEquality(i2assets, assets)
+                    if emsg:
+                        err.write('{} {}\n'.format(niceaddr, emsg))
+                        errors.append(emsg)
+                        ok = False
                 else:
-                    ok = False
-                    emsg = '{} i2db has assets but not algod\n'.format(niceaddr)
-                    err.write(emsg)
-                    errors.append(emsg)
+                    allzero = True
+                    nonzero = []
+                    for assetid, rec in i2assets.items():
+                        if rec.get('a', 0) != 0:
+                            nonzero.append( (assetid, rec) )
+                            allzero = False
+                    if not allzero:
+                        ok = False
+                        emsg = '{} i2db has assets but not algod: {!r}\n'.format(niceaddr, i2assets)
+                        err.write(emsg)
+                        errors.append(emsg)
             elif assets:
                 allzero = True
                 nonzero = []
@@ -198,9 +255,13 @@ def main():
     ap.add_argument('--dump', default=False, action='store_true')
     ap.add_argument('--mismatches', default=10, type=int, help='max number of mismatches to show details on (0 for no limit)')
     ap.add_argument('-q', '--quiet', default=False, action='store_true')
+    ap.add_argument('--verbose', default=False, action='store_true')
     args = ap.parse_args()
 
-    logging.basicConfig(level=logging.INFO)
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
 
     out = sys.stdout
     err = sys.stderr
@@ -320,30 +381,41 @@ def main():
             err.write('\n{} \'\\x{}\'\n\t{}\n'.format(niceaddr, xaddr, msg))
             tcount = 0
             tmore = 0
-            for stxnw in indexerAccountTxns(args.indexer, addr, minround=tracker_round):
+            for txn in indexerAccountTxns(args.indexer, addr, minround=tracker_round):
                 if tcount > 10:
                     tmore += 1
                     continue
                 tcount += 1
-                stxn = stxnw['stxn']
-                txn = stxn['txn']
-                sender = txn.pop('snd')
-                parts = ['{}:{}'.format(stxnw.get('r',0), stxnw.get('o',0)), 's={}'.format(encode_addr(sender))]
-                asnd = txn.pop('asnd', None)
+                sender = txn.pop('sender')
+                cround = txn.pop('confirmed-round')
+                intra = txn.pop('intra-round-offset')
+                parts = ['{}:{}'.format(cround, intra), 's={}'.format(sender)]
+                pay = txn.get('payment-transaction', None)
+                if pay:
+                    receiver = pay.pop('receiver', None)
+                    closeto = pay.pop('close-remainder-to', None)
+                else:
+                    receiver = None
+                    closeto = None
+                axfer = txn.get('asset-transfer-transaction', None)
+                if axfer is not None:
+                    asnd = axfer.pop('sender', None)
+                    arcv = axfer.pop('receiver', None)
+                    aclose = axfer.pop('close-to', None)
+                else:
+                    asnd = None
+                    arcv = None
+                    aclose = None
                 if asnd:
-                    parts.append('as={}'.format(encode_addr(asnd)))
-                receiver = txn.pop('rcv', None)
+                    parts.append('as={}'.format(asnd))
                 if receiver:
-                    parts.append('r={}'.format(encode_addr(receiver)))
-                closeto = txn.pop('close', None)
+                    parts.append('r={}'.format(receiver))
                 if closeto:
-                    parts.append('c={}'.format(encode_addr(closeto)))
-                arcv = txn.pop('arcv', None)
+                    parts.append('c={}'.format(closeto))
                 if arcv:
-                    parts.append('ar={}'.format(encode_addr(arcv)))
-                aclose = txn.pop('aclose', None)
+                    parts.append('ar={}'.format(arcv))
                 if aclose:
-                    parts.append('ac={}'.format(encode_addr(aclose)))
+                    parts.append('ac={}'.format(aclose))
                 # everything else
                 parts.append(json.dumps(txn))
                 err.write(' '.join(parts) + '\n')

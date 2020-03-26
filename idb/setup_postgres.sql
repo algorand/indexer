@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS imported (path text);
 -- expand data.basics.AccountData
 CREATE TABLE IF NOT EXISTS account (
   addr bytea primary key,
-  microalgos bigint NOT NULL,
+  microalgos bigint NOT NULL, -- okay because less than 2^54 Algos
   rewardsbase bigint NOT NULL,
   keytype varchar(8), -- sig,msig,lsig
   account_data jsonb -- data.basics.AccountData except AssetParams and Assets and MicroAlgos and RewardsBase
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS account (
 CREATE TABLE IF NOT EXISTS account_asset (
   addr bytea NOT NULL, -- [32]byte
   assetid bigint NOT NULL,
-  amount bigint NOT NULL,
+  amount numeric(20) NOT NULL, -- need the full 18446744073709551615
   frozen boolean NOT NULL,
   PRIMARY KEY (addr, assetid)
 );
