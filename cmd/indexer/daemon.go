@@ -117,7 +117,7 @@ type blockImporterHandler struct {
 	round uint64
 }
 
-func (bih blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
+func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	start := time.Now()
 	if uint64(block.Block.Round) != bih.round+1 {
 		fmt.Fprintf(os.Stderr, "received block %d when expecting %d\n", block.Block.Round, bih.round+1)
