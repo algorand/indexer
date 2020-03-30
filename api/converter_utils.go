@@ -289,9 +289,8 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		SenderRewards:            uint64Ptr(uint64(stxn.SenderRewards)),
 		Type:                     string(stxn.Txn.Type),
 		Signature:                sig,
-		CreatedAssetIndex:        nil,                            // TODO: What is this?
-		Id:                       crypto.TransactionID(stxn.Txn), // TODO: This needs to come from the DB because of the GenesisHash / GenesisID
-		PoolError:                nil,                            // TODO: What is this?
+		Id:                       crypto.TransactionIDString(stxn.Txn),
+		CreatedAssetIndex:        nil, // TODO: Where does this come from?
 	}
 
 	return txn, nil
