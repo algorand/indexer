@@ -921,9 +921,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 			account.Assets = new([]models.AssetHolding)
 			*account.Assets = av
 			for i, assetid := range haids {
-				frozenp := new(bool)
-				*frozenp = hfrozen[i]
-				av[i] = models.AssetHolding{Amount: hamounts[i], IsFrozen: frozenp, AssetId: assetid} // TODO: set Creator to asset creator addr string
+				av[i] = models.AssetHolding{Amount: hamounts[i], IsFrozen: hfrozen[i], AssetId: assetid} // TODO: set Creator to asset creator addr string
 			}
 		}
 		if len(assetParamsIds) > 0 && string(assetParamsIds) != nullarraystr {

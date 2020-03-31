@@ -38,6 +38,7 @@ def encode_addr(addr):
 logger = logging.getLogger(__name__)
 
 def indexerAccounts(rooturl, blockround=None):
+    '''return {raw account: {"algo":N, "asset":{}}, ...}'''
     rootparts = urllib.parse.urlparse(rooturl)
     accountsurl = list(rootparts)
     accountsurl[2] = os.path.join(accountsurl[2], 'accounts')
@@ -244,10 +245,121 @@ class CheckContext:
 # "onl":uint Status
 # "algo":uint64 MicroAlgos
 
+def check_from_sqlite(args):
+    db = sqlite3.connect(args.dbfile)
+    cursor = db.cursor()
+    tracker_round = None
+    cursor.execute("SELECT rnd FROM acctrounds WHERE id = 'acctbase'")
+    for row in cursor:
+        tracker_round = row[0]
+    if args.indexer:
+        i2a = indexerAccounts(args.indexer, blockround=tracker_round)
+        i2a_checker = CheckContext(i2a, err)
+    else:
+        i2a_checker = None
+    logger.info('tracker round %d, i2db round %d', tracker_round, i2db_round)
+    cursor.execute('''SELECT address, data FROM accountbase''')
+    count = 0
+    #match = 0
+    #neq = 0
+    algosum = 0
+    for row in cursor:
+        address, data = row
+        niceaddr = algosdk.encoding.encode_address(address)
+        adata = msgpack.loads(data)
+        count += 1
+        rewardsbase = adata.get(b'ebase', 0)
+        microalgos = adata[b'algo']
+        values = {"algo": microalgos}
+        assets = adata.get(b'asset')
+        frozen = {}
+        has_asset = False
+        algosum += microalgos
+        if assets:
+            for assetidstr, assetdata in assets.items():
+                if isinstance(assetidstr, bytes):
+                    assetidstr = assetidstr.decode()
+                elif isinstance(assetidstr, str):
+                    pass
+                else:
+                    assetidstr = str(assetidstr)
+                if assetidstr == args.asset:
+                    has_asset = True
+                values[assetidstr] = assetdata.get(b'a', 0)
+                if assetdata.get(b'f'):
+                    frozen[assetidstr] = True
+        if args.asset and not has_asset:
+            continue
+        #if i2db_checker:
+        #    i2db_checker.check(address, niceaddr, microalgos, assets)
+        if i2a_checker:
+            i2a_checker.check(address, niceaddr, microalgos, assets)
+        ob = {
+            "addr": niceaddr,
+            "v": values,
+            "ebase": rewardsbase,
+        }
+        if frozen:
+            ob['f'] = frozen
+        if args.dump:
+            # print every record in the tracker sqlite db
+            out.write(json.dumps(ob) + '\n')
+        if args.limit and count > args.limit:
+            break
+    return tracker_round, i2a_checker
+
+def token_addr_from_algod(algorand_data):
+    addr = open(os.path.join(algorand_data, 'algod.net'), 'rt').read().strip()
+    if not addr.startswith('http'):
+        addr = 'http://' + addr
+    token = open(os.path.join(algorand_data, 'algod.token'), 'rt').read().strip()
+    return token, addr
+
+def check_from_algod(args):
+    with open(os.path.join(args.algod, 'genesis.json')) as fin:
+        genesis = json.load(fin)
+        rwd = genesis.get('rwd')
+        if rwd is not None:
+            global reward_addr
+            reward_addr = algosdk.encoding.decode_address(rwd)
+        fees = genesis.get('fees')
+        if fees is not None:
+            global fee_addr
+            fee_addr = algosdk.encoding.decode_address(fees)
+    token, addr = token_addr_from_algod(args.algod)
+    algod = algosdk.algod.AlgodClient(token, addr)
+    status = algod.status()
+    lastround = status['lastRound']
+    if args.indexer:
+        i2a = indexerAccounts(args.indexer, blockround=lastround)
+        i2a_checker = CheckContext(i2a, sys.stderr)
+    else:
+        logger.warn('no indexer, nothing to do')
+        return None, None
+    rawad = []
+    for address in i2a.keys():
+        niceaddr = algosdk.encoding.encode_address(address)
+        rawad.append(algod.account_info(niceaddr))
+    logger.debug('ad %r', rawad[:5])
+    #raise Exception("TODO")
+    for ad in rawad:
+        logger.debug('ad %r', ad)
+        niceaddr = ad['address']
+        microalgos = ad['amountwithoutpendingrewards']
+        #values = {"algo": microalgos}
+        xa = {}
+        for assetidstr, assetdata in ad.get('assets',{}).items():
+            #values[assetidstr] = assetdata.get('amount', 0)
+            xa[int(assetidstr)] = {b'a':assetdata.get('amount', 0), b'f': assetdata.get('frozen', False)}
+        address = algosdk.encoding.decode_address(niceaddr)
+        i2a_checker.check(address, niceaddr, microalgos, xa)
+    return lastround, i2a_checker
+
 def main():
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument('-f', '--dbfile', default=None, help='sqlite3 tracker file from algod')
+    ap.add_argument('-d', '--algod', default=None, help='algorand data dir')
     ap.add_argument('--limit', default=None, type=int, help='debug limit number of accoutns to dump')
     ap.add_argument('--i2db', default=None, help='psql connect string for indexer 2 db')
     ap.add_argument('--indexer', default=None, help='URL to indexer to fetch from')
@@ -303,64 +415,12 @@ def main():
         cursor.close()
         i2db_checker = CheckContext(i2db, err)
 
-    db = sqlite3.connect(args.dbfile)
-    cursor = db.cursor()
-    tracker_round = None
-    cursor.execute("SELECT rnd FROM acctrounds WHERE id = 'acctbase'")
-    for row in cursor:
-        tracker_round = row[0]
-    if args.indexer:
-        i2a = indexerAccounts(args.indexer, blockround=tracker_round)
-        i2a_checker = CheckContext(i2a, err)
-    err.write('tracker round {}, i2db round {}\n'.format(tracker_round, i2db_round))
-    cursor.execute('''SELECT address, data FROM accountbase''')
-    count = 0
-    #match = 0
-    #neq = 0
-    algosum = 0
-    for row in cursor:
-        address, data = row
-        niceaddr = algosdk.encoding.encode_address(address)
-        adata = msgpack.loads(data)
-        count += 1
-        rewardsbase = adata.get(b'ebase', 0)
-        microalgos = adata[b'algo']
-        values = {"algo": microalgos}
-        assets = adata.get(b'asset')
-        frozen = {}
-        has_asset = False
-        algosum += microalgos
-        if assets:
-            for assetidstr, assetdata in assets.items():
-                if isinstance(assetidstr, bytes):
-                    assetidstr = assetidstr.decode()
-                elif isinstance(assetidstr, str):
-                    pass
-                else:
-                    assetidstr = str(assetidstr)
-                if assetidstr == args.asset:
-                    has_asset = True
-                values[assetidstr] = assetdata.get(b'a', 0)
-                if assetdata.get(b'f'):
-                    frozen[assetidstr] = True
-        if args.asset and not has_asset:
-            continue
-        if i2db_checker:
-            i2db_checker.check(address, niceaddr, microalgos, assets)
-        if i2a_checker:
-            i2a_checker.check(address, niceaddr, microalgos, assets)
-        ob = {
-            "addr": niceaddr,
-            "v": values,
-            "ebase": rewardsbase,
-        }
-        if frozen:
-            ob['f'] = frozen
-        if args.dump:
-            # print every record in the tracker sqlite db
-            out.write(json.dumps(ob) + '\n')
-        if args.limit and count > args.limit:
-            break
+    if args.dbfile:
+        tracker_round, i2a_checker = check_from_sqlite(args)
+    elif args.algod:
+        tracker_round, i2a_checker = check_from_algod(args)
+    else:
+        raise Exception("need to check from algod sqlite or running algod")
     if i2db_checker:
         err.write('i2db microalgo sum {}, algod {}\n'.format(i2algosum, algosum))
         i2db_checker.summary()
@@ -368,7 +428,7 @@ def main():
         pg.close()
     if i2a_checker:
         i2a_checker.summary()
-        err.write('txns...\n')
+        logger.info('txns...')
         mismatches = i2a_checker.mismatches
         if args.mismatches and len(mismatches) > args.mismatches:
             mismatches = mismatches[:args.mismatches]
