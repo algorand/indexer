@@ -28,6 +28,18 @@ from indexer2testload import unmsgpack
 reward_addr = base64.b64decode("/v////////////////////////////////////////8=")
 fee_addr = base64.b64decode("x/zNsljw1BicK/i21o7ml1CGQrCtAB8x/LkYw1S6hZo=")
 
+def getGenesisVars(genesispath):
+    with open(genesispath) as fin:
+        genesis = json.load(fin)
+        rwd = genesis.get('rwd')
+        if rwd is not None:
+            global reward_addr
+            reward_addr = algosdk.encoding.decode_address(rwd)
+        fees = genesis.get('fees')
+        if fees is not None:
+            global fee_addr
+            fee_addr = algosdk.encoding.decode_address(fees)
+
 def encode_addr(addr):
     if len(addr) == 44:
         addr = base64.b64decode(addr)
@@ -246,10 +258,13 @@ class CheckContext:
 # "algo":uint64 MicroAlgos
 
 def check_from_sqlite(args):
+    genesispath = os.path.join(os.path.dirname(os.path.dirname(args.dbfile)), 'genesis.json')
+    getGenesisVars(genesispath)
     db = sqlite3.connect(args.dbfile)
     cursor = db.cursor()
     tracker_round = None
     cursor.execute("SELECT rnd FROM acctrounds WHERE id = 'acctbase'")
+    err = sys.stderr
     for row in cursor:
         tracker_round = row[0]
     if args.indexer:
@@ -257,7 +272,7 @@ def check_from_sqlite(args):
         i2a_checker = CheckContext(i2a, err)
     else:
         i2a_checker = None
-    logger.info('tracker round %d, i2db round %d', tracker_round, i2db_round)
+#    logger.info('tracker round %d, i2db round %d', tracker_round, i2db_round)
     cursor.execute('''SELECT address, data FROM accountbase''')
     count = 0
     #match = 0
@@ -316,16 +331,7 @@ def token_addr_from_algod(algorand_data):
     return token, addr
 
 def check_from_algod(args):
-    with open(os.path.join(args.algod, 'genesis.json')) as fin:
-        genesis = json.load(fin)
-        rwd = genesis.get('rwd')
-        if rwd is not None:
-            global reward_addr
-            reward_addr = algosdk.encoding.decode_address(rwd)
-        fees = genesis.get('fees')
-        if fees is not None:
-            global fee_addr
-            fee_addr = algosdk.encoding.decode_address(fees)
+    getGenesisVars(os.path.join(args.algod, 'genesis.json'))
     token, addr = token_addr_from_algod(args.algod)
     algod = algosdk.algod.AlgodClient(token, addr)
     status = algod.status()
