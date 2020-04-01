@@ -545,9 +545,34 @@ def setup(args):
     signal.signal(signal.SIGINT, gogently)
     return bot
 
+def tar_whatever_blocks(args):
+    # whatever blocks there are in --blockdir, tar them into a file in --tardir
+    blocknames = os.listdir(args.blockdir)
+    if not blocknames:
+        logger.debug('no blocks. done.')
+        return
+    blocknumbers = [int(x) for x in blocknames]
+    minblock = min(blocknumbers)
+    maxblock = max(blocknumbers)
+    tarname = '{}_{}.tar.bz2'.format(minblock, maxblock)
+    outpath = os.path.join(args.tardir, tarname)
+    tf = tarfile.open(outpath, 'w:bz2')
+    for bs in blocknames:
+        tf.add(os.path.join(args.blockdir, bs), arcname=bs)
+    tf.close()
+    logger.info('%s', tarname)
+    # cleanup
+    for bs in blocknames:
+        os.remove(os.path.join(args.blockdir, bs))
+
 def main(arghook=None):
     ap = make_arg_parser()
+    ap.add_argument('--just-tar-blocks', default=False, action='store_true', help='tar all blocks in --blockdir into a file in --tardir')
     args = ap.parse_args()
+
+    if args.just_tar_blocks:
+        tar_whatever_blocks(args)
+        return
 
     if arghook is not None:
         arghook(args)
