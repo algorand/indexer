@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 #
-# Dump algod tracker database to show all current algo and asset balances.
-# Prints json per line {"addr":"", "v":{"algo":0, "123":0}, "f":{"123":true}}
-#
-# usage:
-#  python tracker_balance_dump.py -f mainnet-v1.0/ledger.tracker.sqlite
+# Compare accounting of algod and indexer
 #
 # setup requires:
 #  pip install msgpack py-algorand-sdk
