@@ -1,16 +1,45 @@
 #!/usr/bin/env python3
 
 import atexit
+import glob
 import logging
 import os
 import random
 import subprocess
 import sys
+import tempfile
 import time
 
 logger = logging.getLogger(__name__)
 
 defaultTimeout = 30 # seconds
+
+def ensureTestData(e2edata):
+    blocktars = glob.glob(os.path.join(e2edata, 'blocktars', '*.tar.bz2'))
+    if not blocktars:
+        tarname = 'e2edata.tar.bz2'
+        tarpath = os.path.join(e2edata, tarname)
+        if not os.path.exists(tarpath):
+            logger.info('fetching testdata from s3...')
+            if not os.path.isdir(e2edata):
+                os.makedirs(e2edata)
+            import boto3
+            bucket = 'algorand-testdata'
+            s3 = boto3.client('s3')
+            response = s3.list_objects_v2(Bucket=bucket, Prefix='indexer/e2e1', MaxKeys=2)
+            if (not response.get('KeyCount')) or ('Contents' not in response):
+                logger.error('no testdata found in s3')
+                sys.exit(1)
+            for x in response['Contents']:
+                path = x['Key']
+                _, fname = path.rsplit('/', 1)
+                if fname == tarname:
+                    logger.info('s3://%s/%s -> %s', bucket, x['Key'], tarpath)
+                    s3.download_file(bucket, x['Key'], tarpath)
+                    break
+        logger.info('unpacking %s', tarpath)
+        subprocess.run(['tar', '-jxf', tarpath], cwd=e2edata).check_returncode()
+
 
 def _getio(p, od, ed):
     if od is None and p.stdout:
@@ -75,7 +104,12 @@ def atexitrun(cmd, *args, **kwargs):
 def main():
     start = time.time()
     logging.basicConfig(level=logging.INFO)
-    e2edata = os.getenv('E2EDATA') or os.path.join(os.getenv('HOME'), 'Algorand', 'e2edata')
+    e2edata = os.getenv('E2EDATA')
+    if not e2edata:
+        tdir = tempfile.TemporaryDirectory()
+        e2edata = tdir.name
+        atexit.register(tdir.cleanup)
+    ensureTestData(e2edata)
 
     dbname = 'e2eindex_{}_{}'.format(int(time.time()), random.randrange(1000))
     xrun(['dropdb', '--if-exists', dbname], timeout=5)
@@ -87,7 +121,10 @@ def main():
     indexerdp = subprocess.Popen(cmd)
     atexit.register(indexerdp.kill)
     time.sleep(0.2)
-    xrun(['python3', 'validate_accounting.py', '--dbfile', os.path.join(e2edata, 'algod', 'tbd-v1', 'ledger.tracker.sqlite'), '--indexer', 'http://localhost:8980'], timeout=20)
+    sqliteglob = os.path.join(e2edata, 'algod', '*', 'ledger.tracker.sqlite')
+    sqlitepaths = glob.glob(sqliteglob)
+    sqlitepath = sqlitepaths[0]
+    xrun(['python3', 'validate_accounting.py', '--dbfile', sqlitepath, '--indexer', 'http://localhost:8980'], timeout=20)
     dt = time.time() - start
     sys.stdout.write("indexer e2etest OK ({:.1f}s)\n".format(dt))
     return 0

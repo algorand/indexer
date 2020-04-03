@@ -45,7 +45,11 @@ cp -p "${E2EDATA}/net/Primary/genesis.json" "${E2EDATA}/algod/genesis.json"
 
 python3 ./blockarchiver.py --just-tar-blocks --blockdir "${E2EDATA}/blocks" --tardir "${E2EDATA}/blocktars"
 
-PDIR=$(dirname "${E2EDATA}")
-EDIR=$(basename "${E2EDATA}")
-(cd "${PDIR}" && tar jcf "${E2EDATA}/e2edata.tar.bz2" "${EDIR}/blocktars" "${EDIR}/algod")
+(cd "${E2EDATA}" && tar jcf e2edata.tar.bz2 blocktars algod)
 ls -l "${E2EDATA}/e2edata.tar.bz2"
+
+#RSTAMP=$(python -c 'import time; print("{:08x}".format(0xffffffff - int(time.time() + time.mktime((2020,1,1,0,0,0,-1,-1,-1)))))')
+RSTAMP=$(TZ=UTC python -c 'import time; print("{:08x}".format(0xffffffff - int(time.time() - time.mktime((2020,1,1,0,0,0,-1,-1,-1)))))')
+
+echo "COPY AND PASTE THIS TO UPLOAD:"
+echo aws s3 cp "${E2EDATA}/e2edata.tar.bz2" s3://algorand-testdata/indexer/e2e1/${RSTAMP}/e2edata.tar.bz2
