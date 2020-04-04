@@ -243,11 +243,12 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		assetConfig = &config
 	case sdk_types.AssetTransferTx:
 		t := generated.TransactionAssetTransfer{
-			Amount:   stxn.Txn.AssetAmount,
-			AssetId:  uint64(stxn.Txn.XferAsset),
-			CloseTo:  addrPtr(stxn.Txn.AssetCloseTo),
-			Receiver: stxn.Txn.AssetReceiver.String(),
-			Sender:   addrPtr(stxn.Txn.AssetSender),
+			Amount:      stxn.Txn.AssetAmount,
+			AssetId:     uint64(stxn.Txn.XferAsset),
+			CloseTo:     addrPtr(stxn.Txn.AssetCloseTo),
+			Receiver:    stxn.Txn.AssetReceiver.String(),
+			Sender:      addrPtr(stxn.Txn.AssetSender),
+			CloseAmount: uint64Ptr(row.Extra.AssetCloseAmount),
 		}
 		assetTransfer = &t
 	case sdk_types.AssetFreezeTx:

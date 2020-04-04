@@ -392,6 +392,9 @@ type TransactionAssetTransfer struct {
 	// \[xaid\] ID of the asset being transferred.
 	AssetId uint64 `json:"asset-id"`
 
+	// Number of assets transfered to the close-to account as part of the transaction.
+	CloseAmount *uint64 `json:"close-amount,omitempty"`
+
 	// \[aclose\] Indicates that the asset should be removed from the account's Assets map, and specifies where the remaining asset holdings should be transferred.  It's always valid to transfer remaining asset holdings to the creator account.
 	CloseTo *string `json:"close-to,omitempty"`
 
