@@ -640,7 +640,7 @@ type TransactionsResponse struct {
 type SearchAccountsParams struct {
 
 	// Include accounts holding the specified asset
-	AssetId *string `json:"asset-id,omitempty"`
+	AssetId *uint64 `json:"asset-id,omitempty"`
 
 	// Maximum number of results to return.
 	Limit *uint64 `json:"limit,omitempty"`

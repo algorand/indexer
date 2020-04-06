@@ -73,16 +73,21 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 
 // SearchAccounts returns accounts matching the provided parameters
 // (GET /accounts)
-// TODO: Missing filters:
-//  * Holds assetID
-//  * assetID holding gt/lt amount
 func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generated.SearchAccountsParams) error {
 	options := idb.AccountQueryOptions{
-		AlgosGreaterThan:     uintOrDefault(params.CurrencyGreaterThan),
-		AlgosLessThan:        uintOrDefault(params.CurrencyLessThan),
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
 		Limit:                uintOrDefault(params.Limit),
+		HasAssetId:           uintOrDefault(params.AssetId),
+	}
+
+	// Set GT/LT on Algos or Asset depending on whether or not an assetID was specified
+	if options.HasAssetId == 0 {
+		options.AlgosGreaterThan = uintOrDefault(params.CurrencyGreaterThan)
+		options.AlgosLessThan = uintOrDefault(params.CurrencyLessThan)
+	} else {
+		options.AssetGT = uintOrDefault(params.CurrencyGreaterThan)
+		options.AssetLT = uintOrDefault(params.CurrencyLessThan)
 	}
 
 	var atRound *uint64
@@ -128,7 +133,6 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 
 // LookupAccountTransactions looks up transactions associated with a particular account.
 // (GET /account/{account-id}/transactions)
-// TODO: Pagination
 func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, accountID string, params generated.LookupAccountTransactionsParams) error {
 	// Check that a valid account was provided
 	_, errors := decodeAddress(strPtr(accountID), "account-id", make([]string, 0))
@@ -240,7 +244,6 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 
 // LookupAssetTransactions looks up transactions associated with a particular asset
 // (GET /asset/{asset-id}/transactions)
-// TODO: pagination
 func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetID uint64, params generated.LookupAssetTransactionsParams) error {
 	searchParams := generated.SearchForTransactionsParams{
 		AssetId:             uint64Ptr(assetID),
@@ -267,7 +270,6 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 
 // SearchForAssets returns assets matching the provided parameters
 // (GET /assets)
-// TODO: Fuzzy matching? check Name/Unit for asterisk and convert to query...
 func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generated.SearchForAssetsParams) error {
 	options, err := assetParamsToAssetQuery(params)
 	if err != nil {
@@ -308,7 +310,7 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 
 	// Lookup transactions
 	filter := idb.TransactionFilter{Round: uint64Ptr(roundNumber)}
-	txns, err := si.fetchTransactions(ctx.Request().Context(), filter)
+	txns, _, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
 		return indexerError(ctx, fmt.Sprintf("error while looking up for transactions for round '%d': %v", roundNumber, err))
 	}
@@ -319,10 +321,6 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 
 // SearchForTransactions returns transactions matching the provided parameters
 // (GET /transactions)
-// TODO:
-//  * MinAssetAmount
-//  * MaxAssetAmount
-//  * Pagination
 func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params generated.SearchForTransactionsParams) error {
 	filter, err := transactionParamsToTransactionFilter(params)
 	if err != nil {
@@ -330,7 +328,7 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 	}
 
 	// Fetch the transactions
-	txns, err := si.fetchTransactions(ctx.Request().Context(), filter)
+	txns, next, err := si.fetchTransactions(ctx.Request().Context(), filter)
 
 	if err != nil {
 		return indexerError(ctx, fmt.Sprintf("error while searching for transactions: %v", err))
@@ -343,7 +341,7 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 
 	response := generated.TransactionsResponse{
 		CurrentRound: round,
-		NextToken:    nil, // TODO
+		NextToken:    strPtr(next),
 		Transactions: txns,
 	}
 
@@ -515,17 +513,19 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 	return accounts, nil
 }
 
-// fetchTransactions is used to query the backend for transactions.
-func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, error) {
+// fetchTransactions is used to query the backend for transactions, and compute the next token
+func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, error) {
 	results := make([]generated.Transaction, 0)
 	txchan := si.db.Transactions(ctx, filter)
+	nextToken := ""
 	for txrow := range txchan {
 		tx, err := txnRowToTransaction(txrow)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		results = append(results, tx)
+		nextToken = txrow.Next()
 	}
 
-	return results, nil
+	return results, nextToken, nil
 }

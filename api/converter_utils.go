@@ -325,11 +325,7 @@ func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.Assets
 	return query, nil
 }
 
-// TODO: idb.TransactionFilter missing:
-//      * MinAssetAmount
-//      * MaxAssetAmount
 // TODO: Convert Max/Min to LessThan/GreaterThan
-// TODO: Pagination
 func transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {
 	var errorArr = make([]string, 0)
 
@@ -346,14 +342,21 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.MinRound = uintOrDefault(params.MinRound)
 	filter.AssetId = uintOrDefault(params.AssetId)
 	filter.Limit = uintOrDefault(params.Limit)
+
 	// TODO: Convert Max/Min to LessThan/GreaterThan
-	filter.MaxAlgos = uintOrDefaultMod(params.CurrencyLessThan, 1)
-	filter.MinAlgos = uintOrDefaultMod(params.CurrencyGreaterThan, -1)
+	// filter Algos or Asset but not both.
+	if (filter.AssetId != 0) {
+		filter.MaxAssetAmount = uintOrDefaultMod(params.CurrencyLessThan, 1)
+		filter.MinAssetAmount = uintOrDefaultMod(params.CurrencyGreaterThan, -1)
+	} else {
+		filter.MaxAlgos = uintOrDefaultMod(params.CurrencyLessThan, 1)
+		filter.MinAlgos = uintOrDefaultMod(params.CurrencyGreaterThan, -1)
+	}
 	filter.Round = params.Round
-	//filter.Offset = params.Offset
 
 	// String
 	filter.AddressRole, errorArr = decodeAddressRole(params.AddressRole, params.ExcludeCloseTo, errorArr)
+	filter.NextToken = strOrDefault(params.Next)
 
 	// Address
 	filter.Address, errorArr = decodeAddress(params.Address, "address", errorArr)
