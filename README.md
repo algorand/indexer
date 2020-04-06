@@ -7,7 +7,7 @@ searchable history and current state
 Start a private network
 ```
 ~$ goal network create -n indexer-network -r ~/private-network -d ~/private-network/data -k ~/private-network/data/kmd -t /path/to/go-algorand/test/testdata/nettemplates/TwoNodes50EachFuture.json
-~$ goal network start ~/private-network/
+~$ goal network start -r ~/private-network/
 ~$ goal node status -d ~/private-network/Primary
 ```
 
