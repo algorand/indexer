@@ -18,6 +18,8 @@ package idb
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"math/big"
 	"time"
@@ -121,6 +123,26 @@ type TxnRow struct {
 	Error     error
 }
 
+// Next returns what should be an opaque string to be returned in the next query to resume where a previous limit left off.
+func (tr TxnRow) Next() string {
+	var b [12]byte
+	binary.LittleEndian.PutUint64(b[:8], tr.Round)
+	binary.LittleEndian.PutUint32(b[8:], uint32(tr.Intra))
+	return base64.URLEncoding.EncodeToString(b[:])
+}
+
+// DecodeTxnRowNext unpacks opaque string returned from TxnRow.Next()
+func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
+	var b []byte
+	b, err = base64.URLEncoding.DecodeString(s)
+	if err != nil {
+		return
+	}
+	round = binary.LittleEndian.Uint64(b[:8])
+	intra = binary.LittleEndian.Uint32(b[8:])
+	return
+}
+
 type TxnExtra struct {
 	AssetCloseAmount uint64 `codec:"aca,omitempty"`
 }
@@ -193,6 +215,8 @@ type TransactionFilter struct {
 	Txid       []byte
 	Round      *uint64 // nil for no filter
 	Offset     *uint64 // nil for no filter
+	OffsetLT   *uint64 // nil for no filter
+	OffsetGT   *uint64 // nil for no filter
 	SigType    string  // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
 	MinAlgos   uint64 // implictly filters on "pay" txns for Algos >= this. This will be a slightly faster query than EffectiveAmountGt.
@@ -204,6 +228,9 @@ type TransactionFilter struct {
 
 	EffectiveAmountGt uint64 // Algo: Amount + CloseAmount > x
 	EffectiveAmountLt uint64 // Algo: Amount + CloseAmount < x
+
+	// pointer to last returned object of previous query
+	NextToken string
 
 	Limit uint64
 }

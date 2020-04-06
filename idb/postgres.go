@@ -630,10 +630,13 @@ func (db *PostgresIndexerDb) GetBlock(round uint64) (block types.Block, err erro
 	return
 }
 
-func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
-	const maxWhereParts = 14
+func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []interface{}) {
+	// TODO? There are some combinations of tf params that will
+	// yield no results and we could catch that before asking the
+	// database. A hopefully rare optimization.
+	const maxWhereParts = 30
 	whereParts := make([]string, 0, maxWhereParts)
-	whereArgs := make([]interface{}, 0, maxWhereParts)
+	whereArgs = make([]interface{}, 0, maxWhereParts)
 	joinParticipation := false
 	partNumber := 1
 	if tf.Address != nil {
@@ -738,6 +741,16 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		whereArgs = append(whereArgs, *tf.Offset)
 		partNumber++
 	}
+	if tf.OffsetLT != nil {
+		whereParts = append(whereParts, fmt.Sprintf("t.intra < $%d", partNumber))
+		whereArgs = append(whereArgs, *tf.OffsetLT)
+		partNumber++
+	}
+	if tf.OffsetGT != nil {
+		whereParts = append(whereParts, fmt.Sprintf("t.intra > $%d", partNumber))
+		whereArgs = append(whereArgs, *tf.OffsetGT)
+		partNumber++
+	}
 	if len(tf.SigType) != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("t.txn -> $%d IS NOT NULL", partNumber))
 		whereArgs = append(whereArgs, tf.SigType)
@@ -768,7 +781,7 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		whereArgs = append(whereArgs, tf.EffectiveAmountLt)
 		partNumber++
 	}
-	query := "SELECT t.round, t.intra, t.txnbytes, t.extra, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	query = "SELECT t.round, t.intra, t.txnbytes, t.extra, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
@@ -786,7 +799,16 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 	if tf.Limit != 0 {
 		query += fmt.Sprintf(" LIMIT %d", tf.Limit)
 	}
+	return
+}
+
+func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
 	out := make(chan TxnRow, 1)
+	if len(tf.NextToken) > 0 {
+		go db.txnsWithNext(ctx, tf, out)
+		return out
+	}
+	query, whereArgs := buildTransactionQuery(tf)
 	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
@@ -794,11 +816,75 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		close(out)
 		return out
 	}
-	go db.yieldTxnsThreadSimple(ctx, rows, out)
+	go db.yieldTxnsThreadSimple(ctx, rows, out, true)
 	return out
 }
 
-func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {
+func (db *PostgresIndexerDb) txnsWithNext(ctx context.Context, tf TransactionFilter, out chan<- TxnRow) {
+	nextround, nextintra32, err := DecodeTxnRowNext(tf.NextToken)
+	nextintra := uint64(nextintra32)
+	if err != nil {
+		out <- TxnRow{Error: err}
+		close(out)
+	}
+	origRound := tf.Round
+	origOLT := tf.OffsetLT
+	origOGT := tf.OffsetGT
+	if tf.Address != nil {
+		// (round,intra) descending into the past
+		if nextround == 0 && nextintra == 0 {
+			close(out)
+			return
+		}
+		tf.Round = &nextround
+		tf.OffsetLT = &nextintra
+	} else {
+		// (round,intra) ascending into the future
+		tf.Round = &nextround
+		tf.OffsetGT = &nextintra
+	}
+	query, whereArgs := buildTransactionQuery(tf)
+	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
+	if err != nil {
+		err = fmt.Errorf("txn query %#v err %v", query, err)
+		out <- TxnRow{Error: err}
+		close(out)
+		return
+	}
+	db.yieldTxnsThreadSimple(ctx, rows, out, false)
+	select {
+	case <-ctx.Done():
+		close(out)
+		return
+	default:
+	}
+	tf.Round = origRound
+	if tf.Address != nil {
+		// (round,intra) descending into the past
+		tf.OffsetLT = origOLT
+		if nextround == 0 {
+			// NO second query
+			close(out)
+			return
+		}
+		tf.MaxRound = nextround - 1
+	} else {
+		// (round,intra) ascending into the future
+		tf.OffsetGT = origOGT
+		tf.MinRound = nextround + 1
+	}
+	query, whereArgs = buildTransactionQuery(tf)
+	rows, err = db.db.QueryContext(ctx, query, whereArgs...)
+	if err != nil {
+		err = fmt.Errorf("txn query %#v err %v", query, err)
+		out <- TxnRow{Error: err}
+		close(out)
+		return
+	}
+	db.yieldTxnsThreadSimple(ctx, rows, out, true)
+}
+
+func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, results chan<- TxnRow, doClose bool) {
 	for rows.Next() {
 		var round uint64
 		var intra int
@@ -827,7 +913,9 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 			}
 		}
 	}
-	close(results)
+	if doClose {
+		close(results)
+	}
 }
 
 const maxAccountsLimit = 1000
@@ -921,9 +1009,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 			account.Assets = new([]models.AssetHolding)
 			*account.Assets = av
 			for i, assetid := range haids {
-				frozenp := new(bool)
-				*frozenp = hfrozen[i]
-				av[i] = models.AssetHolding{Amount: hamounts[i], IsFrozen: frozenp, AssetId: assetid} // TODO: set Creator to asset creator addr string
+				av[i] = models.AssetHolding{Amount: hamounts[i], IsFrozen: hfrozen[i], AssetId: assetid} // TODO: set Creator to asset creator addr string
 			}
 		}
 		if len(assetParamsIds) > 0 && string(assetParamsIds) != nullarraystr {
