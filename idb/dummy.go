@@ -244,6 +244,13 @@ type AccountQueryOptions struct {
 	// Filter on accounts with current balance less than x.
 	AlgosLessThan uint64
 
+	// HasAssetId, AssetGT, and AssetLT are implemented in Go code
+	// after data has returned from Postgres and thus are slightly
+	// less efficient. They will turn on IncludeAssetHoldings.
+	HasAssetId uint64
+	AssetGT    uint64
+	AssetLT    uint64
+
 	IncludeAssetHoldings bool
 	IncludeAssetParams   bool
 
