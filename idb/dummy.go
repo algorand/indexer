@@ -119,6 +119,7 @@ type TxnRow struct {
 	RoundTime time.Time
 	Intra     int
 	TxnBytes  []byte
+	AssetId   uint64
 	Extra     TxnExtra
 	Error     error
 }

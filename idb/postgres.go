@@ -782,7 +782,7 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 		whereArgs = append(whereArgs, tf.EffectiveAmountLt)
 		partNumber++
 	}
-	query = "SELECT t.round, t.intra, t.txnbytes, t.extra, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	query = "SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
@@ -899,11 +899,12 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 	count := 0
 	for rows.Next() {
 		var round uint64
+		var asset uint64
 		var intra int
 		var txnbytes []byte
 		var extraJson []byte
 		var roundtime time.Time
-		err := rows.Scan(&round, &intra, &txnbytes, &extraJson, &roundtime)
+		err := rows.Scan(&round, &intra, &txnbytes, &extraJson, &asset, &roundtime)
 		var row TxnRow
 		if err != nil {
 			row.Error = err
@@ -912,6 +913,7 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 			row.Intra = intra
 			row.TxnBytes = txnbytes
 			row.RoundTime = roundtime
+			row.AssetId = asset
 			if len(extraJson) > 0 {
 				json.Decode(extraJson, &row.Extra)
 			}

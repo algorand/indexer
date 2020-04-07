@@ -237,7 +237,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 			Url:           strPtr(stxn.Txn.AssetParams.URL),
 		}
 		config := generated.TransactionAssetConfig{
-			AssetId: nil,
+			AssetId: uint64Ptr(uint64(stxn.Txn.ConfigAsset)),
 			Params:  &assetParams,
 		}
 		assetConfig = &config
@@ -291,7 +291,12 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		Type:                     string(stxn.Txn.Type),
 		Signature:                sig,
 		Id:                       crypto.TransactionIDString(stxn.Txn),
-		CreatedAssetIndex:        nil, // TODO: Where does this come from?
+	}
+
+	if stxn.Txn.Type == sdk_types.AssetConfigTx {
+		if txn.AssetConfigTransaction != nil && txn.AssetConfigTransaction.AssetId == nil {
+			txn.CreatedAssetIndex = uint64Ptr(row.AssetId)
+		}
 	}
 
 	return txn, nil
