@@ -291,7 +291,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		Type:                     string(stxn.Txn.Type),
 		Signature:                sig,
 		Id:                       crypto.TransactionIDString(stxn.Txn),
-		CreatedAssetIndex:        nil, // TODO: Where does this come from?
+		CreatedAssetIndex:        uint64PtrOrNil(row.AssetId),
 	}
 
 	return txn, nil
