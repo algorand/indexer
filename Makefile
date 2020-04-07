@@ -42,10 +42,12 @@ VER=$(shell cat .version)
 	mkdir -p .deb_tmp/DEBIAN
 	bash misc/debian_make_copyright.sh
 
-algorand_indexer.deb:	.deb_tmp/usr/bin/algorand-indexer ${SYSTEMD_DEST} ${DEB_CONTROL_DEST} .deb_tmp/DEBIAN/copyright
+algorand-indexer.deb:	.deb_tmp/usr/bin/algorand-indexer ${SYSTEMD_DEST} ${DEB_CONTROL_DEST} .deb_tmp/DEBIAN/copyright
 #	chmod +x .deb_tmp/DEBIAN/{postinst,postrm,preinst,prerm}
-	dpkg-deb --build .deb_tmp algorand_indexer.deb
+	dpkg-deb --build .deb_tmp algorand-indexer_${VER}_${ARCH}.deb
+	rm -f algorand-indexer.deb
+	ln algorand-indexer_${VER}_${ARCH}.deb algorand-indexer.deb
 
-deb:	algorand_indexer.deb .PHONY
+deb:	algorand-indexer.deb .PHONY
 
 .PHONY:
