@@ -27,15 +27,17 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"math"
+	"math/big"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/client/algod/models"
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
+	models "github.com/algorand/indexer/api/generated"
 	_ "github.com/lib/pq"
 
 	"github.com/algorand/indexer/types"
@@ -321,7 +323,8 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 			}
 			select {
 			case <-ctx.Done():
-				break
+				close(results)
+				return
 			case results <- row:
 			}
 		}
@@ -474,15 +477,46 @@ func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, 
 		defer seta.Close()
 		for addr, aulist := range updates.AssetUpdates {
 			for _, au := range aulist {
-				if au.Delta == 0 {
-					continue
-				}
 				if au.AssetId == debugAsset {
 					fmt.Fprintf(os.Stderr, "%d axfer %s %s\n", round, b64(addr[:]), obs(au))
 				}
-				_, err = seta.Exec(addr[:], au.AssetId, au.Delta, au.DefaultFrozen)
-				if err != nil {
-					return fmt.Errorf("update account asset, %v", err)
+				if au.Delta.IsInt64() {
+					// easy case
+					delta := au.Delta.Int64()
+					if delta == 0 {
+						continue
+					}
+					_, err = seta.Exec(addr[:], au.AssetId, delta, au.DefaultFrozen)
+					if err != nil {
+						return fmt.Errorf("update account asset, %v", err)
+					}
+				} else {
+					sign := au.Delta.Sign()
+					var mi big.Int
+					var step int64
+					if sign > 0 {
+						mi.SetInt64(math.MaxInt64)
+						step = math.MaxInt64
+					} else if sign < 0 {
+						mi.SetInt64(math.MinInt64)
+						step = math.MinInt64
+					} else {
+						continue
+					}
+					for !au.Delta.IsInt64() {
+						_, err = seta.Exec(addr[:], au.AssetId, step, au.DefaultFrozen)
+						if err != nil {
+							return fmt.Errorf("update account asset, %v", err)
+						}
+						au.Delta.Sub(&au.Delta, &mi)
+					}
+					sign = au.Delta.Sign()
+					if sign != 0 {
+						_, err = seta.Exec(addr[:], au.AssetId, au.Delta.Int64(), au.DefaultFrozen)
+						if err != nil {
+							return fmt.Errorf("update account asset, %v", err)
+						}
+					}
 				}
 			}
 		}
@@ -513,7 +547,7 @@ UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{aca}', to
 		}
 		defer acc.Close()
 		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen)
-SELECT $1, $2, x.amount, $3 FROM account_asset x WHERE x.addr = $4
+SELECT $1, $2, x.amount, $3 FROM account_asset x WHERE x.addr = $4 AND x.assetid = $5
 ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount`)
 		if err != nil {
 			return fmt.Errorf("prepare asset close1, %v", err)
@@ -532,7 +566,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			if err != nil {
 				return fmt.Errorf("asset close record amount, %v", err)
 			}
-			_, err = acs.Exec(ac.CloseTo[:], ac.AssetId, ac.DefaultFrozen, ac.Sender[:])
+			_, err = acs.Exec(ac.CloseTo[:], ac.AssetId, ac.DefaultFrozen, ac.Sender[:], ac.AssetId)
 			if err != nil {
 				return fmt.Errorf("asset close send, %v", err)
 			}
@@ -597,10 +631,13 @@ func (db *PostgresIndexerDb) GetBlock(round uint64) (block types.Block, err erro
 	return
 }
 
-func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
-	const maxWhereParts = 14
+func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []interface{}) {
+	// TODO? There are some combinations of tf params that will
+	// yield no results and we could catch that before asking the
+	// database. A hopefully rare optimization.
+	const maxWhereParts = 30
 	whereParts := make([]string, 0, maxWhereParts)
-	whereArgs := make([]interface{}, 0, maxWhereParts)
+	whereArgs = make([]interface{}, 0, maxWhereParts)
 	joinParticipation := false
 	partNumber := 1
 	if tf.Address != nil {
@@ -705,6 +742,16 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		whereArgs = append(whereArgs, *tf.Offset)
 		partNumber++
 	}
+	if tf.OffsetLT != nil {
+		whereParts = append(whereParts, fmt.Sprintf("t.intra < $%d", partNumber))
+		whereArgs = append(whereArgs, *tf.OffsetLT)
+		partNumber++
+	}
+	if tf.OffsetGT != nil {
+		whereParts = append(whereParts, fmt.Sprintf("t.intra > $%d", partNumber))
+		whereArgs = append(whereArgs, *tf.OffsetGT)
+		partNumber++
+	}
 	if len(tf.SigType) != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("t.txn -> $%d IS NOT NULL", partNumber))
 		whereArgs = append(whereArgs, tf.SigType)
@@ -735,7 +782,7 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		whereArgs = append(whereArgs, tf.EffectiveAmountLt)
 		partNumber++
 	}
-	query := "SELECT t.round, t.intra, t.txnbytes, t.extra, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	query = "SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
@@ -753,7 +800,16 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 	if tf.Limit != 0 {
 		query += fmt.Sprintf(" LIMIT %d", tf.Limit)
 	}
+	return
+}
+
+func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
 	out := make(chan TxnRow, 1)
+	if len(tf.NextToken) > 0 {
+		go db.txnsWithNext(ctx, tf, out)
+		return out
+	}
+	query, whereArgs := buildTransactionQuery(tf)
 	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
@@ -761,18 +817,94 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		close(out)
 		return out
 	}
-	go db.yieldTxnsThreadSimple(ctx, rows, out)
+	go db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
 	return out
 }
 
-func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {
+func (db *PostgresIndexerDb) txnsWithNext(ctx context.Context, tf TransactionFilter, out chan<- TxnRow) {
+	nextround, nextintra32, err := DecodeTxnRowNext(tf.NextToken)
+	nextintra := uint64(nextintra32)
+	if err != nil {
+		out <- TxnRow{Error: err}
+		close(out)
+	}
+	origRound := tf.Round
+	origOLT := tf.OffsetLT
+	origOGT := tf.OffsetGT
+	if tf.Address != nil {
+		// (round,intra) descending into the past
+		if nextround == 0 && nextintra == 0 {
+			close(out)
+			return
+		}
+		tf.Round = &nextround
+		tf.OffsetLT = &nextintra
+	} else {
+		// (round,intra) ascending into the future
+		tf.Round = &nextround
+		tf.OffsetGT = &nextintra
+	}
+	query, whereArgs := buildTransactionQuery(tf)
+	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
+	if err != nil {
+		err = fmt.Errorf("txn query %#v err %v", query, err)
+		out <- TxnRow{Error: err}
+		close(out)
+		return
+	}
+	count := int(0)
+	db.yieldTxnsThreadSimple(ctx, rows, out, false, &count, &err)
+	if err != nil {
+		close(out)
+		return
+	}
+	if uint64(count) >= tf.Limit {
+		close(out)
+		return
+	}
+	tf.Limit -= uint64(count)
+	select {
+	case <-ctx.Done():
+		close(out)
+		return
+	default:
+	}
+	tf.Round = origRound
+	if tf.Address != nil {
+		// (round,intra) descending into the past
+		tf.OffsetLT = origOLT
+		if nextround == 0 {
+			// NO second query
+			close(out)
+			return
+		}
+		tf.MaxRound = nextround - 1
+	} else {
+		// (round,intra) ascending into the future
+		tf.OffsetGT = origOGT
+		tf.MinRound = nextround + 1
+	}
+	query, whereArgs = buildTransactionQuery(tf)
+	rows, err = db.db.QueryContext(ctx, query, whereArgs...)
+	if err != nil {
+		err = fmt.Errorf("txn query %#v err %v", query, err)
+		out <- TxnRow{Error: err}
+		close(out)
+		return
+	}
+	db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
+}
+
+func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, results chan<- TxnRow, doClose bool, countp *int, errp *error) {
+	count := 0
 	for rows.Next() {
 		var round uint64
+		var asset uint64
 		var intra int
 		var txnbytes []byte
 		var extraJson []byte
 		var roundtime time.Time
-		err := rows.Scan(&round, &intra, &txnbytes, &extraJson, &roundtime)
+		err := rows.Scan(&round, &intra, &txnbytes, &extraJson, &asset, &roundtime)
 		var row TxnRow
 		if err != nil {
 			row.Error = err
@@ -781,26 +913,38 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 			row.Intra = intra
 			row.TxnBytes = txnbytes
 			row.RoundTime = roundtime
+			row.AssetId = asset
 			if len(extraJson) > 0 {
 				json.Decode(extraJson, &row.Extra)
 			}
 		}
 		select {
 		case <-ctx.Done():
-			break
+			goto finish
 		case results <- row:
 			if err != nil {
-				break
+				if errp != nil {
+					*errp = err
+				}
+				goto finish
 			}
+			count++
 		}
 	}
-	close(results)
+finish:
+	if doClose {
+		close(results)
+	}
+	if countp != nil {
+		*countp = count
+	}
 }
 
 const maxAccountsLimit = 1000
 
 func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts AccountQueryOptions, rows *sql.Rows, tx *sql.Tx, blockheader types.Block, out chan<- AccountRow) {
 	defer tx.Rollback()
+	count := uint64(0)
 	for rows.Next() {
 		var addr []byte
 		var microalgos uint64
@@ -863,6 +1007,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 		// not implemented: account.Rewards sum of all rewards ever
 
 		const nullarraystr = "[null]"
+		reject := opts.HasAssetId != 0
 
 		if len(holdingAssetid) > 0 && string(holdingAssetid) != nullarraystr {
 			var haids []uint64
@@ -883,10 +1028,28 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				out <- AccountRow{Error: err}
 				break
 			}
-			account.Assets = make(map[uint64]models.AssetHolding, len(haids))
+			av := make([]models.AssetHolding, len(haids))
+			account.Assets = new([]models.AssetHolding)
+			*account.Assets = av
 			for i, assetid := range haids {
-				account.Assets[assetid] = models.AssetHolding{Amount: hamounts[i], Frozen: hfrozen[i]}
+				if assetid == opts.HasAssetId {
+					if opts.AssetGT != 0 {
+						if hamounts[i] > opts.AssetGT {
+							reject = false
+						}
+					} else if opts.AssetLT != 0 {
+						if hamounts[i] < opts.AssetGT {
+							reject = false
+						}
+					} else {
+						reject = false
+					}
+				}
+				av[i] = models.AssetHolding{Amount: hamounts[i], IsFrozen: hfrozen[i], AssetId: assetid} // TODO: set Creator to asset creator addr string
 			}
+		}
+		if reject {
+			continue
 		}
 		if len(assetParamsIds) > 0 && string(assetParamsIds) != nullarraystr {
 			var assetids []uint64
@@ -901,38 +1064,68 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				out <- AccountRow{Error: err}
 				break
 			}
-			account.AssetParams = make(map[uint64]models.AssetParams, len(assetids))
+			account.CreatedAssets = new([]models.Asset)
+			*account.CreatedAssets = make([]models.Asset, len(assetids))
 			for i, assetid := range assetids {
 				ap := assetParams[i]
-				account.AssetParams[assetid] = models.AssetParams{
-					Creator:       account.Address,
-					Total:         ap.Total,
-					Decimals:      ap.Decimals,
-					DefaultFrozen: ap.DefaultFrozen,
-					UnitName:      ap.UnitName,
-					AssetName:     ap.AssetName,
-					URL:           ap.URL,
-					MetadataHash:  ap.MetadataHash[:],
-					ManagerAddr:   addrStr(ap.Manager[:]),
-					ReserveAddr:   addrStr(ap.Reserve[:]),
-					FreezeAddr:    addrStr(ap.Freeze[:]),
-					ClawbackAddr:  addrStr(ap.Clawback[:]),
+				(*account.CreatedAssets)[i] = models.Asset{
+					Index: assetid,
+					Params: models.AssetParams{
+						Creator:       account.Address,
+						Total:         ap.Total,
+						Decimals:      uint64(ap.Decimals),
+						DefaultFrozen: boolPtr(ap.DefaultFrozen),
+						UnitName:      stringPtr(ap.UnitName),
+						Name:          stringPtr(ap.AssetName),
+						Url:           stringPtr(ap.URL),
+						MetadataHash:  baPtr(ap.MetadataHash[:]),
+						Manager:       addrStr(ap.Manager[:]),
+						Reserve:       addrStr(ap.Reserve[:]),
+						Freeze:        addrStr(ap.Freeze[:]),
+						Clawback:      addrStr(ap.Clawback[:]),
+					},
 				}
 
 			}
 		}
 		select {
 		case out <- AccountRow{Account: account}:
+			count++
+			if count >= opts.Limit {
+				close(out)
+				return
+			}
 		case <-ctx.Done():
-			break
+			close(out)
+			return
 		}
 	}
 	close(out)
 }
 
-func addrStr(addr []byte) string {
+func boolPtr(x bool) *bool {
+	out := new(bool)
+	*out = x
+	return out
+}
+
+func stringPtr(x string) *string {
+	out := new(string)
+	*out = x
+	return out
+}
+
+func baPtr(x []byte) *[]byte {
+	out := new([]byte)
+	*out = x
+	return out
+}
+
+var emptyString = ""
+
+func addrStr(addr []byte) *string {
 	if len(addr) == 0 {
-		return ""
+		return &emptyString
 	}
 	allZero := true
 	for _, bv := range addr {
@@ -942,15 +1135,26 @@ func addrStr(addr []byte) string {
 		}
 	}
 	if allZero {
-		return ""
+		return &emptyString
 	}
 	var aa atypes.Address
 	copy(aa[:], addr)
-	return aa.String()
+	out := new(string)
+	*out = aa.String()
+	return out
 }
 
 func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow {
 	out := make(chan AccountRow, 1)
+
+	if opts.HasAssetId != 0 {
+		opts.IncludeAssetHoldings = true
+	} else if (opts.AssetGT != 0) || (opts.AssetLT != 0) {
+		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetId=%d", opts.AssetGT, opts.AssetLT, opts.HasAssetId)
+		out <- AccountRow{Error: err}
+		close(out)
+		return out
+	}
 
 	// Begin transaction so we get everything at one consistent point in time and round of accounting.
 	tx, err := db.db.BeginTx(ctx, nil)
@@ -1040,7 +1244,8 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	if opts.IncludeAssetHoldings || opts.IncludeAssetParams {
 		query += " GROUP BY 1,2,3,4"
 	}
-	if opts.Limit != 0 {
+	if opts.Limit != 0 && opts.HasAssetId == 0 {
+		// sql limit gets disabled when we filter client side
 		query += fmt.Sprintf(" LIMIT %d", opts.Limit)
 	}
 	rows, err := tx.Query(query, whereArgs...)
@@ -1137,9 +1342,9 @@ func (db *PostgresIndexerDb) yieldAssetsThread(ctx context.Context, filter Asset
 		}
 		select {
 		case <-ctx.Done():
-			break
+			close(out)
+			return
 		case out <- rec:
-			break
 		}
 	}
 	close(out)
@@ -1210,9 +1415,9 @@ func (db *PostgresIndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *
 		}
 		select {
 		case <-ctx.Done():
-			break
+			close(out)
+			return
 		case out <- rec:
-			continue
 		}
 	}
 	close(out)

@@ -14,3 +14,5 @@ require (
 	github.com/vektra/mockery v0.0.0-20181123154057-e78b021dcbb5 // indirect
 	golang.org/x/crypto v0.0.0-20200117160349-530e935923ad // indirect
 )
+
+replace github.com/deepmap/oapi-codegen v1.3.5 => github.com/winder/oapi-codegen v1.3.5-algorand

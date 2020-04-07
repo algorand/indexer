@@ -16,13 +16,13 @@ type IndexerDb struct {
 	mock.Mock
 }
 
-// AddTransaction provides a mock function with given fields: round, intra, txtypeenum, assetid, txnbytes, txn, participation
-func (_m *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txnbytes []byte, txn types.SignedTxnInBlock, participation [][]byte) error {
-	ret := _m.Called(round, intra, txtypeenum, assetid, txnbytes, txn, participation)
+// AddTransaction provides a mock function with given fields: round, intra, txtypeenum, assetid, txn, participation
+func (_m *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
+	ret := _m.Called(round, intra, txtypeenum, assetid, txn, participation)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(uint64, int, int, uint64, []byte, types.SignedTxnInBlock, [][]byte) error); ok {
-		r0 = rf(round, intra, txtypeenum, assetid, txnbytes, txn, participation)
+	if rf, ok := ret.Get(0).(func(uint64, int, int, uint64, types.SignedTxnWithAD, [][]byte) error); ok {
+		r0 = rf(round, intra, txtypeenum, assetid, txn, participation)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -49,6 +49,22 @@ func (_m *IndexerDb) AlreadyImported(path string) (bool, error) {
 	}
 
 	return r0, r1
+}
+
+// AssetBalances provides a mock function with given fields: ctx, abq
+func (_m *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuery) <-chan idb.AssetBalanceRow {
+	ret := _m.Called(ctx, abq)
+
+	var r0 <-chan idb.AssetBalanceRow
+	if rf, ok := ret.Get(0).(func(context.Context, idb.AssetBalanceQuery) <-chan idb.AssetBalanceRow); ok {
+		r0 = rf(ctx, abq)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(<-chan idb.AssetBalanceRow)
+		}
+	}
+
+	return r0
 }
 
 // Assets provides a mock function with given fields: ctx, filter

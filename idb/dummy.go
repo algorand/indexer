@@ -18,10 +18,13 @@ package idb
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/binary"
 	"fmt"
+	"math/big"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/client/algod/models"
+	models "github.com/algorand/indexer/api/generated"
 
 	"github.com/algorand/indexer/types"
 )
@@ -116,8 +119,29 @@ type TxnRow struct {
 	RoundTime time.Time
 	Intra     int
 	TxnBytes  []byte
+	AssetId   uint64
 	Extra     TxnExtra
 	Error     error
+}
+
+// Next returns what should be an opaque string to be returned in the next query to resume where a previous limit left off.
+func (tr TxnRow) Next() string {
+	var b [12]byte
+	binary.LittleEndian.PutUint64(b[:8], tr.Round)
+	binary.LittleEndian.PutUint32(b[8:], uint32(tr.Intra))
+	return base64.URLEncoding.EncodeToString(b[:])
+}
+
+// DecodeTxnRowNext unpacks opaque string returned from TxnRow.Next()
+func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
+	var b []byte
+	b, err = base64.URLEncoding.DecodeString(s)
+	if err != nil {
+		return
+	}
+	round = binary.LittleEndian.Uint64(b[:8])
+	intra = binary.LittleEndian.Uint32(b[8:])
+	return
 }
 
 type TxnExtra struct {
@@ -192,6 +216,8 @@ type TransactionFilter struct {
 	Txid       []byte
 	Round      *uint64 // nil for no filter
 	Offset     *uint64 // nil for no filter
+	OffsetLT   *uint64 // nil for no filter
+	OffsetGT   *uint64 // nil for no filter
 	SigType    string  // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
 	MinAlgos   uint64 // implictly filters on "pay" txns for Algos >= this. This will be a slightly faster query than EffectiveAmountGt.
@@ -204,6 +230,9 @@ type TransactionFilter struct {
 	EffectiveAmountGt uint64 // Algo: Amount + CloseAmount > x
 	EffectiveAmountLt uint64 // Algo: Amount + CloseAmount < x
 
+	// pointer to last returned object of previous query
+	NextToken string
+
 	Limit uint64
 }
 
@@ -215,6 +244,13 @@ type AccountQueryOptions struct {
 	AlgosGreaterThan uint64
 	// Filter on accounts with current balance less than x.
 	AlgosLessThan uint64
+
+	// HasAssetId, AssetGT, and AssetLT are implemented in Go code
+	// after data has returned from Postgres and thus are slightly
+	// less efficient. They will turn on IncludeAssetHoldings.
+	HasAssetId uint64
+	AssetGT    uint64
+	AssetLT    uint64
 
 	IncludeAssetHoldings bool
 	IncludeAssetParams   bool
@@ -315,7 +351,7 @@ type AcfgUpdate struct {
 
 type AssetUpdate struct {
 	AssetId       uint64
-	Delta         int64
+	Delta         big.Int
 	DefaultFrozen bool
 }
 

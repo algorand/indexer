@@ -18,61 +18,44 @@ package api
 
 import (
 	"context"
-	"github.com/algorand/indexer/api/generated"
-	"github.com/algorand/indexer/idb"
-	"github.com/gorilla/mux"
-	"github.com/labstack/echo/v4"
 	"log"
 	"net"
 	"net/http"
 	"time"
+
+	"github.com/labstack/echo/v4"
+
+	"github.com/algorand/indexer/api/generated"
+	"github.com/algorand/indexer/idb"
 )
 
-// IndexerDb should be set from main()
-var IndexerDb idb.IndexerDb
+// TODO: Get rid of this global
+var indexerDb idb.IndexerDb
 
-var useGenerated = true
+// Serve starts an http server for the indexer API. This call blocks.
+func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, developerMode bool) {
+	indexerDb = db
 
-func Serve(ctx context.Context, serveAddr string) {
-	if useGenerated {
-		e := echo.New()
-		api := ServerImplementation{}
-		generated.RegisterHandlers(e, &api)
-
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		getctx := func(l net.Listener) context.Context {
-			return ctx
-		}
-		s := &http.Server{
-			Addr:           serveAddr,
-			ReadTimeout:    10 * time.Second,
-			WriteTimeout:   10 * time.Second,
-			MaxHeaderBytes: 1 << 20,
-			BaseContext:    getctx,
-		}
-
-		log.Fatal(e.StartServer(s))
-	} else {
-		if ctx == nil {
-			ctx = context.Background()
-		}
-		getctx := func(l net.Listener) context.Context {
-			return ctx
-		}
-		r := mux.NewRouter()
-		r.HandleFunc("/v1/accounts", ListAccounts)
-		r.HandleFunc("/v1/account/{address}", GetAccount)
-		r.HandleFunc("/v1/account/{address}/transactions", TransactionsForAddress)
-		s := &http.Server{
-			Addr:           serveAddr,
-			Handler:        r,
-			ReadTimeout:    10 * time.Second,
-			WriteTimeout:   10 * time.Second,
-			MaxHeaderBytes: 1 << 20,
-			BaseContext:    getctx,
-		}
-		log.Fatal(s.ListenAndServe())
+	e := echo.New()
+	api := ServerImplementation{
+		EnableAddressSearchRoundRewind: developerMode,
+		db:                             db,
 	}
+	generated.RegisterHandlers(e, &api)
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	getctx := func(l net.Listener) context.Context {
+		return ctx
+	}
+	s := &http.Server{
+		Addr:           serveAddr,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+		BaseContext:    getctx,
+	}
+
+	log.Fatal(e.StartServer(s))
 }
