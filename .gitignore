@@ -25,3 +25,6 @@ __pycache__
 
 # jetbrains IDE
 .idea
+
+.deb_tmp
+*.deb

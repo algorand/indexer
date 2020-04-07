@@ -15,14 +15,14 @@ test:	mocks
 
 .deb_tmp/usr/bin/algorand-indexer:	cmd/indexer/indexer
 	mkdir -p .deb_tmp/usr/bin
-	rm -f .deb_tmp/usr/bin/indexer
+	rm -f $@
 	ln $< $@
 
-SYSTEMD_SOURCES=$(wildcard misc/systemd/*)
-SYSTEMD_DEST=$(patsubst misc/systemd/%,.deb_tmp/lib/systemd/system/%,${SYSTEMD_SOURCES})
+SYSTEMD_DEST=.deb_tmp/lib/systemd/system/algorand-indexer.service
 
-.deb_tmp/lib/systemd/system/%:	misc/systemd/
+.deb_tmp/lib/systemd/system/%:	misc/systemd/%
 	mkdir -p .deb_tmp/lib/systemd/system
+	rm -f $@
 	ln $< $@
 
 DEB_CONTROL_FILES=control
@@ -43,8 +43,9 @@ VER=$(shell cat .version)
 	bash misc/debian_make_copyright.sh
 
 algorand_indexer.deb:	.deb_tmp/usr/bin/algorand-indexer ${SYSTEMD_DEST} ${DEB_CONTROL_DEST} .deb_tmp/DEBIAN/copyright
-#	for i in control; do echo "foo ${i} bar"; if [ ! -f ".deb_tmp/DEBIAN/${i}" ]; then sed -e "s,@ARCH@,${ARCH}," -e "s,@VER@,${VER}," < "misc/debian/${i}" > ".deb_tmp/DEBIAN/${i}"; fi; done)
 #	chmod +x .deb_tmp/DEBIAN/{postinst,postrm,preinst,prerm}
 	dpkg-deb --build .deb_tmp algorand_indexer.deb
+
+deb:	algorand_indexer.deb .PHONY
 
 .PHONY:

@@ -71,3 +71,16 @@ Then start the Indexer:
 ```bash
 indexer daemon --postgres "user=readonly password=YourPasswordHere {other connection options for your database}"
 ```
+
+## Systemd
+
+`/lib/systemd/system/algorand-indexer.service` can be partially overridden by creating `/etc/systemd/system/algorand-indexer.service.d/local.conf`. The most common things to override will be the command line and pidfile. The overriding local.conf file might be this:
+
+```
+[Service]
+ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indxer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
+PIDFile=/var/lib/algorand/algorand-indxer.pid
+
+```
+
+The systemd unit file can be found in source at [misc/systemd/algorand-indexer.service](misc/systemd/algorand-indexer.service)
