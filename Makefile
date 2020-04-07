@@ -18,7 +18,7 @@ test:	mocks
 	rm -f $@
 	ln $< $@
 
-SYSTEMD_DEST=.deb_tmp/lib/systemd/system/algorand-indexer.service
+SYSTEMD_DEST=.deb_tmp/lib/systemd/system/algorand-indexer.service .deb_tmp/lib/systemd/system/algorand-indexer@.service
 
 .deb_tmp/lib/systemd/system/%:	misc/systemd/%
 	mkdir -p .deb_tmp/lib/systemd/system

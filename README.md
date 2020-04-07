@@ -84,3 +84,12 @@ PIDFile=/var/lib/algorand/algorand-indxer.pid
 ```
 
 The systemd unit file can be found in source at [misc/systemd/algorand-indexer.service](misc/systemd/algorand-indexer.service)
+
+Once configured, turn on your daemon with:
+
+```bash
+sudo systemctl enable algorand-indexer
+sudo systemctl start algorand-indexer
+```
+
+If you wish to run multiple indexers on one server under systemd, see the comments in `/lib/systemd/system/algorand-indexer@.service` or [misc/systemd/algorand-indexer@.service](misc/systemd/algorand-indexer@.service)
