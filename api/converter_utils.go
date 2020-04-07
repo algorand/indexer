@@ -237,7 +237,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 			Url:           strPtr(stxn.Txn.AssetParams.URL),
 		}
 		config := generated.TransactionAssetConfig{
-			AssetId: nil,
+			AssetId: uint64Ptr(uint64(stxn.Txn.ConfigAsset)),
 			Params:  &assetParams,
 		}
 		assetConfig = &config
