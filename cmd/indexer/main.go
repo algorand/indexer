@@ -38,6 +38,14 @@ var rootCmd = &cobra.Command{
 		cmd.HelpFunc()(cmd, args)
 	},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if pidFilePath != "" {
+			fout, err := os.Create(pidFilePath)
+			maybeFail(err, "%s: could not create pid file, %v", pidFilePath, err)
+			_, err = fmt.Fprintf(fout, "%d", os.Getpid())
+			maybeFail(err, "%s: could not write pid file, %v", pidFilePath, err)
+			err = fout.Close()
+			maybeFail(err, "%s: could not close pid file, %v", pidFilePath, err)
+		}
 		if cpuProfile != "" {
 			var err error
 			profFile, err = os.Create(cpuProfile)
@@ -51,6 +59,12 @@ var rootCmd = &cobra.Command{
 			pprof.StopCPUProfile()
 			profFile.Close()
 		}
+		if pidFilePath != "" {
+			err := os.Remove(pidFilePath)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%s: could not remove pid file, %v", pidFilePath, err)
+			}
+		}
 	},
 }
 
@@ -58,6 +72,7 @@ var (
 	postgresAddr   string
 	dummyIndexerDb bool
 	cpuProfile     string
+	pidFilePath    string
 	db             idb.IndexerDb
 	profFile       io.WriteCloser
 )
@@ -85,6 +100,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&postgresAddr, "postgres", "P", "", "connection string for postgres database")
 	rootCmd.PersistentFlags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")
 	rootCmd.PersistentFlags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
+	rootCmd.PersistentFlags().StringVarP(&pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
 }
 
 func main() {
