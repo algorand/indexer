@@ -291,7 +291,12 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		Type:                     string(stxn.Txn.Type),
 		Signature:                sig,
 		Id:                       crypto.TransactionIDString(stxn.Txn),
-		CreatedAssetIndex:        uint64PtrOrNil(row.AssetId),
+	}
+
+	if stxn.Txn.Type == sdk_types.AssetConfigTx {
+		if txn.AssetConfigTransaction != nil && txn.AssetConfigTransaction.AssetId == nil {
+			txn.CreatedAssetIndex = uint64Ptr(row.AssetId)
+		}
 	}
 
 	return txn, nil
