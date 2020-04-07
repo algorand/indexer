@@ -255,7 +255,7 @@ const txnQueryBatchSize = 20000
 var yieldTxnQuery string
 
 func init() {
-	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE t.round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
+	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, t.extra, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE t.round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
 }
 
 func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {
@@ -782,7 +782,7 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 		whereArgs = append(whereArgs, tf.EffectiveAmountLt)
 		partNumber++
 	}
-	query = "SELECT t.round, t.intra, t.txnbytes, t.extra, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	query = "SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
@@ -913,10 +913,10 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 			row.Intra = intra
 			row.TxnBytes = txnbytes
 			row.RoundTime = roundtime
+			row.AssetId = asset
 			if len(extraJson) > 0 {
 				json.Decode(extraJson, &row.Extra)
 			}
-			row.Extra.AssetId = asset
 		}
 		select {
 		case <-ctx.Done():
