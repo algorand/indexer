@@ -899,11 +899,12 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 	count := 0
 	for rows.Next() {
 		var round uint64
+		var asset uint64
 		var intra int
 		var txnbytes []byte
 		var extraJson []byte
 		var roundtime time.Time
-		err := rows.Scan(&round, &intra, &txnbytes, &extraJson, &roundtime)
+		err := rows.Scan(&round, &intra, &txnbytes, &extraJson, &roundtime, &asset)
 		var row TxnRow
 		if err != nil {
 			row.Error = err
@@ -915,6 +916,7 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 			if len(extraJson) > 0 {
 				json.Decode(extraJson, &row.Extra)
 			}
+			row.Extra.AssetId = asset
 		}
 		select {
 		case <-ctx.Done():

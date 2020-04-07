@@ -145,6 +145,7 @@ func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
 
 type TxnExtra struct {
 	AssetCloseAmount uint64 `codec:"aca,omitempty"`
+	AssetId          uint64 `codec:"aid,omitempty"`
 }
 
 // TODO: sqlite3 impl
