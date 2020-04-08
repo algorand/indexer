@@ -190,16 +190,20 @@ func TestFetchTransactions(t *testing.T) {
 				db:                             mockIndexer,
 			}
 
+			roundTime := time.Now()
+			roundTime64 := uint64(roundTime.Unix())
+
 			ch := make(chan idb.TxnRow, len(test.txnBytes))
 			for _, bytes := range test.txnBytes {
 				txnRow := idb.TxnRow{
 					Round:     1,
-					RoundTime: time.Now(),
+					Intra:     2,
+					RoundTime: roundTime,
+					TxnBytes:  bytes,
+					AssetId:   0,
 					Extra: idb.TxnExtra{
 						AssetCloseAmount: 0,
 					},
-					Intra:    2,
-					TxnBytes: bytes,
 					Error:    nil,
 				}
 				ch <- txnRow
@@ -210,10 +214,11 @@ func TestFetchTransactions(t *testing.T) {
 			mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh)
 
 			// Call the function
-			results, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
+			results, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
 			assert.NoError(t, err)
 
-			/*
+			printIt := false
+			if printIt {
 				fmt.Printf("Test: %s\n", test.name)
 				for _, result := range results {
 					fmt.Println("-------------------")
@@ -221,14 +226,17 @@ func TestFetchTransactions(t *testing.T) {
 					fmt.Printf("%s\n", str)
 				}
 				fmt.Println("-------------------")
-			*/
+			}
+
 
 			// Verify the results
 			assert.Equal(t, len(test.response), len(results))
-			for i := range test.response {
-				expected := test.response[i]
+			for i, expected := range test.response {
 				actual := results[i]
-				assert.Equal(t, expected, actual)
+				// This is set in the mock above, so override it in the expected value.
+				expected.RoundTime = &roundTime64
+				fmt.Println(roundTime64)
+				assert.EqualValues(t, expected, actual)
 			}
 		})
 	}
