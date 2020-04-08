@@ -1,6 +1,6 @@
 # This is the default target, build the indexer:
-cmd/indexer/indexer:	idb/setup_postgres_sql.go importer/protocols_json.go .PHONY
-	cd cmd/indexer && CGO_ENABLED=0 go build
+cmd/algorand-indexer/algorand-indexer:	idb/setup_postgres_sql.go importer/protocols_json.go .PHONY
+	cd cmd/algorand-indexer && CGO_ENABLED=0 go build
 
 # may need to
 # sudo apt-get install -y dpkg-dev
