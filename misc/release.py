@@ -35,18 +35,6 @@ filespec = [
         None,
         '',
     ],
-    # [
-    #     ['control'],
-    #     'misc/debian',
-    #     'DEBIAN',
-    #     None,
-    # ],
-    # [
-    #     ['copyright'],
-    #     '.deb_tmp/DEBIAN',
-    #     'DEBIAN',
-    #     None,
-    # ],
 ]
 
 debian_copyright_top = (
@@ -79,11 +67,6 @@ def arch_ver(outpath, inpath, debarch, version):
                 line = line.replace('@ARCH@', debarch)
                 line = line.replace('@VER@', version)
                 fout.write(line)
-
-def sourcenewer(sourcepath, destpath):
-    if not os.path.exists(destpath):
-        return True
-    return os.path.getmtime(destpath) < os.path.getmtime(sourcepath)
 
 def link(sourcepath, destpath):
     if os.path.exists(destpath):
