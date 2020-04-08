@@ -1,6 +1,11 @@
 cmd/indexer/indexer:	idb/setup_postgres_sql.go importer/protocols_json.go .PHONY
 	cd cmd/indexer && CGO_ENABLED=0 go build
 
+# may need to
+# sudo apt-get install -y dpkg-dev
+DEB_ARCH?=$(shell dpkg-architecture -q DEB_HOST_ARCH)
+VER=$(shell cat .version)
+
 idb/setup_postgres_sql.go:	idb/setup_postgres.sql
 	cd idb && go generate
 
@@ -18,7 +23,9 @@ test:	mocks
 	rm -f $@
 	ln $< $@
 
-SYSTEMD_DEST=.deb_tmp/lib/systemd/system/algorand-indexer.service .deb_tmp/lib/systemd/system/algorand-indexer@.service
+SYSTEMD_FILES=algorand-indexer.service algorand-indexer@.service
+SYSTEMD_DEST=$(patsubst %,.deb_tmp/lib/systemd/system/%,${SYSTEMD_FILES})
+SYSTEMD_TARDEST=$(patsubst %,.tar_tmp/algorand-indxer_${VER}/%,${SYSTEMD_FILES})
 
 .deb_tmp/lib/systemd/system/%:	misc/systemd/%
 	mkdir -p .deb_tmp/lib/systemd/system
@@ -29,14 +36,9 @@ DEB_CONTROL_FILES=control
 DEB_CONTROL_SOURCES=$(patsubst %,misc/debian/%,${DEB_CONTROL_FILES})
 DEB_CONTROL_DEST=$(patsubst %,.deb_tmp/DEBIAN/%,${DEB_CONTROL_FILES})
 
-# may need to
-# sudo apt-get install -y dpkg-dev
-ARCH=$(shell dpkg-architecture -q DEB_HOST_ARCH)
-VER=$(shell cat .version)
-
 .deb_tmp/DEBIAN/%:	misc/debian/%
 	mkdir -p .deb_tmp/DEBIAN
-	sed -e "s,@ARCH@,${ARCH}," -e "s,@VER@,${VER}," < $< > $@
+	sed -e "s,@ARCH@,${DEB_ARCH}," -e "s,@VER@,${VER}," < $< > $@
 
 .deb_tmp/DEBIAN/copyright:	LICENSE misc/debian_make_copyright.sh
 	mkdir -p .deb_tmp/DEBIAN
@@ -44,10 +46,30 @@ VER=$(shell cat .version)
 
 algorand-indexer.deb:	.deb_tmp/usr/bin/algorand-indexer ${SYSTEMD_DEST} ${DEB_CONTROL_DEST} .deb_tmp/DEBIAN/copyright
 #	chmod +x .deb_tmp/DEBIAN/{postinst,postrm,preinst,prerm}
-	dpkg-deb --build .deb_tmp algorand-indexer_${VER}_${ARCH}.deb
+	dpkg-deb --build .deb_tmp algorand-indexer_${VER}_${DEB_ARCH}.deb
 	rm -f algorand-indexer.deb
-	ln algorand-indexer_${VER}_${ARCH}.deb algorand-indexer.deb
+	ln algorand-indexer_${VER}_${DEB_ARCH}.deb algorand-indexer.deb
 
-deb:	algorand-indexer.deb .PHONY
+.tar_tmp/algorand-indxer_${VER}/%:	misc/systemd/%
+	mkdir -p .tar_tmp/algorand-indxer_${VER}
+	rm -f $@
+	ln $< $@
+
+.tar_tmp/algorand-indxer_${VER}/algorand-indexer:	cmd/indexer/indexer
+	mkdir -p .tar_tmp/algorand-indxer_${VER}
+	rm -f $@
+	ln $< $@
+
+.tar_tmp/algorand-indxer_${VER}/%:	%
+	mkdir -p .tar_tmp/algorand-indxer_${VER}
+	rm -f $@
+	ln $< $@
+
+algorand-indexer.tar.bz2:	cmd/indexer/indexer ${SYSTEMD_TARDEST} .tar_tmp/algorand-indxer_${VER}/algorand-indexer .tar_tmp/algorand-indxer_${VER}/LICENSE .tar_tmp/algorand-indxer_${VER}/README.md
+	tar -c -j -f algorand-indxer_${VER}.tar.bz2 -C .tar_tmp algorand-indxer_${VER}
+	rm -f algorand-indexer.tar.bz2
+	ln algorand-indxer_${VER}.tar.bz2 algorand-indexer.tar.bz2
+
+package:	algorand-indexer.tar.bz2 algorand-indexer.deb .PHONY
 
 .PHONY:
