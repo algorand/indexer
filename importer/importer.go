@@ -19,12 +19,14 @@ package importer
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	"github.com/algorand/indexer/util"
 )
 
 // protocols.json from code run in go-algorand:
@@ -40,12 +42,7 @@ type dbImporter struct {
 	db idb.IndexerDb
 }
 
-type stringInt struct {
-	s string
-	i int
-}
-
-var typeEnumList = []stringInt{
+var typeEnumList = []util.StringInt{
 	{"pay", 1},
 	{"keyreg", 2},
 	{"acfg", 3},
@@ -53,12 +50,20 @@ var typeEnumList = []stringInt{
 	{"afrz", 5},
 }
 var TypeEnumMap map[string]int
+var TypeEnumString string
 
 func init() {
-	TypeEnumMap = make(map[string]int, len(typeEnumList))
-	for _, si := range typeEnumList {
-		TypeEnumMap[si.s] = si.i
+	TypeEnumMap = util.EnumListToMap(typeEnumList)
+	TypeEnumString = util.KeysStringInt(TypeEnumMap)
+}
+
+
+func keysString(m map[string]bool) string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
 	}
+	return "[" + strings.Join(keys, ", ") + "]"
 }
 
 var zeroAddr = [32]byte{}
