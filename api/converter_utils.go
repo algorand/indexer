@@ -26,7 +26,7 @@ func decodeAddress(str *string, field string, errorArr []string) ([]byte, []stri
 	if str != nil {
 		addr, err := sdk_types.DecodeAddress(*str)
 		if err != nil {
-			return nil, append(errorArr, fmt.Sprintf("Unable to parse address '%s': %v", field, err))
+			return nil, append(errorArr, fmt.Sprintf("%s '%s': %v", errUnableToParseAddress, field, err))
 		}
 		return addr[:], errorArr
 	}
@@ -36,6 +36,10 @@ func decodeAddress(str *string, field string, errorArr []string) ([]byte, []stri
 
 // decodeAddress converts the role information into a bitmask, or appends an error to errorArr
 func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (uint64, []string) {
+	exclude := false
+	if excludeCloseTo != nil {
+		exclude = *excludeCloseTo
+	}
 	// If the string is nil, return early.
 	if role == nil {
 		return 0, errorArr
@@ -48,7 +52,7 @@ func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (u
 	}
 
 	// Receiver + closeTo flags if excludeCloseTo is missing/disabled
-	if lc == "receiver" && excludeCloseTo == nil || !(*excludeCloseTo) {
+	if lc == "receiver" && !exclude {
 		mask := idb.AddressRoleReceiver | idb.AddressRoleAssetReceiver | idb.AddressRoleCloseRemainderTo | idb.AddressRoleAssetCloseTo
 		return uint64(mask), errorArr
 	}
@@ -62,7 +66,7 @@ func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (u
 		return idb.AddressRoleFreeze, errorArr
 	}
 
-	return 0, append(errorArr, fmt.Sprintf("unknown address role: '%s' (expected sender, receiver or freeze-target)", lc))
+	return 0, append(errorArr, fmt.Sprintf("%s: '%s'", errUnknownAddressRole, lc))
 }
 
 type stringInt struct {
@@ -96,7 +100,7 @@ func decodeSigType(str *string, errorArr []string) (string, []string) {
 		if _, ok := sigTypeEnumMap[sigTypeLc]; ok {
 			return sigTypeLc, errorArr
 		}
-		return "", append(errorArr, fmt.Sprintf("invalid sigtype: '%s'", sigTypeLc))
+		return "", append(errorArr, fmt.Sprintf("%s: '%s'", errUnknownSigType, sigTypeLc))
 	}
 	// Pass through
 	return "", errorArr
@@ -109,7 +113,7 @@ func decodeType(str *string, errorArr []string) (t int, err []string) {
 		if val, ok := importer.TypeEnumMap[typeLc]; ok {
 			return val, errorArr
 		}
-		return 0, append(errorArr, fmt.Sprintf("invalid transaction type: '%s'", typeLc))
+		return 0, append(errorArr, fmt.Sprintf("%s: '%s'", errUnknownTxType, typeLc))
 	}
 	// Pass through
 	return 0, errorArr
@@ -324,7 +328,7 @@ func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.Assets
 		Name:               strOrDefault(params.Name),
 		Unit:               strOrDefault(params.Unit),
 		Query:              "",
-		Limit:              uintOrDefault(params.Limit),
+		Limit:              min(uintOrDefaultValue(params.Limit, defaultAssetsLimit), maxAssetsLimit),
 	}
 
 	return query, nil
@@ -334,28 +338,29 @@ func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.Assets
 func transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {
 	var errorArr = make([]string, 0)
 
-	if params.Round != nil && params.MaxRound != nil && *params.Round > *params.MaxRound {
-		errorArr = append(errorArr, "invalid parameters: round > max-round")
+	if params.Round != nil && (params.MaxRound != nil || params.MinRound != nil) {
+		errorArr = append(errorArr, errInvalidRoundMinMax)
 	}
 
-	if params.Round != nil && params.MinRound != nil && *params.Round < *params.MinRound {
-		errorArr = append(errorArr, "invalid parameters: round < min-round")
+	// If min/max are mixed up, correct the mixup.
+	if params.Round == nil && params.MinRound != nil && params.MaxRound != nil && *params.MinRound > *params.MaxRound {
+		params.MinRound, params.MaxRound = params.MaxRound, params.MinRound
 	}
 
 	// Integer
 	filter.MaxRound = uintOrDefault(params.MaxRound)
 	filter.MinRound = uintOrDefault(params.MinRound)
 	filter.AssetId = uintOrDefault(params.AssetId)
-	filter.Limit = uintOrDefault(params.Limit)
+	filter.Limit = min(uintOrDefaultValue(params.Limit, defaultTransactionsLimit), maxTransactionsLimit)
 
 	// TODO: Convert Max/Min to LessThan/GreaterThan
 	// filter Algos or Asset but not both.
-	if (filter.AssetId != 0) {
-		filter.MaxAssetAmount = uintOrDefaultMod(params.CurrencyLessThan, 1)
-		filter.MinAssetAmount = uintOrDefaultMod(params.CurrencyGreaterThan, -1)
+	if filter.AssetId != 0 {
+		filter.MaxAssetAmount = uintOrDefaultMod(params.CurrencyLessThan, -1)
+		filter.MinAssetAmount = uintOrDefaultMod(params.CurrencyGreaterThan, 1)
 	} else {
-		filter.MaxAlgos = uintOrDefaultMod(params.CurrencyLessThan, 1)
-		filter.MinAlgos = uintOrDefaultMod(params.CurrencyGreaterThan, -1)
+		filter.MaxAlgos = uintOrDefaultMod(params.CurrencyLessThan, -1)
+		filter.MinAlgos = uintOrDefaultMod(params.CurrencyGreaterThan, 1)
 	}
 	filter.Round = params.Round
 
@@ -388,7 +393,10 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 
 	// If there were any errorArr while setting up the TransactionFilter, return now.
 	if len(errorArr) > 0 {
-		err = errors.New(strings.Join(errorArr, ", "))
+		err = errors.New("invalid input: " + strings.Join(errorArr, ", "))
+
+		// clear out the intermediates.
+		filter = idb.TransactionFilter{}
 	}
 
 	return

@@ -26,59 +26,175 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		{
 			"Default",
 			generated.SearchForTransactionsParams{},
-			idb.TransactionFilter{},
+			idb.TransactionFilter{Limit: defaultTransactionsLimit},
+			nil,
+		},
+		{
+			"Limit",
+			generated.SearchForTransactionsParams{Limit: uint64Ptr(defaultTransactionsLimit + 10)},
+			idb.TransactionFilter{Limit: defaultTransactionsLimit + 10},
+			nil,
+		},
+		{
+			"Limit Max",
+			generated.SearchForTransactionsParams{Limit: uint64Ptr(maxTransactionsLimit + 10)},
+			idb.TransactionFilter{Limit: maxTransactionsLimit},
 			nil,
 		},
 		{
 			"Int field",
 			generated.SearchForTransactionsParams{AssetId: uint64Ptr(1234)},
-			idb.TransactionFilter{AssetId: 1234},
+			idb.TransactionFilter{AssetId: 1234, Limit: defaultTransactionsLimit},
 			nil,
 		},
 		{
 			"Pointer field",
 			generated.SearchForTransactionsParams{Round: uint64Ptr(1234)},
-			idb.TransactionFilter{Round: uint64Ptr(1234)},
+			idb.TransactionFilter{Round: uint64Ptr(1234), Limit: defaultTransactionsLimit},
 			nil,
 		},
 		{
 			"Base64 field",
 			generated.SearchForTransactionsParams{NotePrefix: bytePtr([]byte("SomeData"))},
-			idb.TransactionFilter{NotePrefix: []byte("SomeData")},
+			idb.TransactionFilter{NotePrefix: []byte("SomeData"), Limit: defaultTransactionsLimit},
 			nil,
 		},
 		{
 			"Enum fields",
 			generated.SearchForTransactionsParams{TxType: strPtr("pay"), SigType: strPtr("lsig")},
-			idb.TransactionFilter{TypeEnum: 1, SigType: "lsig"},
+			idb.TransactionFilter{TypeEnum: 1, SigType: "lsig", Limit: defaultTransactionsLimit},
 			nil,
 		},
 		{
 			"Date time fields",
 			generated.SearchForTransactionsParams{AfterTime: timePtr(time.Date(2020, 3, 4, 12, 0, 0, 0, time.FixedZone("UTC", 0)))},
-			idb.TransactionFilter{AfterTime: time.Date(2020, 3, 4, 12, 0, 0, 0, time.FixedZone("UTC", 0))},
+			idb.TransactionFilter{AfterTime: time.Date(2020, 3, 4, 12, 0, 0, 0, time.FixedZone("UTC", 0)), Limit: defaultTransactionsLimit},
 			nil,
 		},
 		{
 			"Invalid Enum fields",
 			generated.SearchForTransactionsParams{TxType: strPtr("micro"), SigType: strPtr("handshake")},
 			idb.TransactionFilter{},
-			[]string{"invalid sigtype", "invalid transaction type"},
+			[]string{errUnknownSigType, errUnknownTxType},
 		},
-		/*
-			{
-				"Invalid Base64 field",
-				generated.SearchForTransactionsParams{Noteprefix:strPtr("U29tZURhdGE{}{}{}=")},
-				idb.TransactionFilter{},
-				[]string{ "illegal base64 data" },
+		{
+			"As many fields as possible",
+			generated.SearchForTransactionsParams{
+				Limit:               uint64Ptr(defaultTransactionsLimit + 1),
+				Next:                strPtr("next-token"),
+				NotePrefix:          bytePtr([]byte("custom-note")),
+				TxType:              strPtr("pay"),
+				SigType:             strPtr("sig"),
+				TxId:                bytePtr([]byte("tx-id")),
+				Round:               nil,
+				MinRound:            uint64Ptr(2),
+				MaxRound:            uint64Ptr(3),
+				AssetId:             uint64Ptr(4),
+				BeforeTime:          timePtr(time.Date(2021, 1, 1, 1, 0, 0, 0, time.FixedZone("UTC", 0))),
+				AfterTime:           timePtr(time.Date(2022, 2, 2, 2, 0, 0, 0, time.FixedZone("UTC", 0))),
+				CurrencyGreaterThan: uint64Ptr(5),
+				CurrencyLessThan:    uint64Ptr(8),
+				Address:             strPtr("YXGBWVBK764KGYPX6ENIADKXPWLBNAZ7MTXDZULZWGOBO2W6IAR622VSLA"),
+				AddressRole:         strPtr("sender"),
+				ExcludeCloseTo:      boolPtr(true),
 			},
-			{
-				"Invalid Date time fields",
-				generated.SearchForTransactionsParams{AfterTime:strPtr("2020-03-04T12:00:00")},
-				idb.TransactionFilter{},
-				[]string{"unable to decode 'after-time'"},
+			idb.TransactionFilter{
+				Limit:             defaultTransactionsLimit + 1,
+				NextToken:         "next-token",
+				NotePrefix:        []byte("custom-note"),
+				TypeEnum:          1,
+				SigType:           "sig",
+				Txid:              []byte("tx-id"),
+				Round:             nil,
+				MinRound:          2,
+				MaxRound:          3,
+				AssetId:           4,
+				BeforeTime:        time.Date(2021, 1, 1, 1, 0, 0, 0, time.FixedZone("UTC", 0)),
+				AfterTime:         time.Date(2022, 2, 2, 2, 0, 0, 0, time.FixedZone("UTC", 0)),
+				MinAlgos:          0,
+				MaxAlgos:          0,
+				MinAssetAmount:    5 + 1, // GT -> Min
+				MaxAssetAmount:    8 - 1, // LT -> Max
+				EffectiveAmountGt: 0,
+				EffectiveAmountLt: 0,
+				Address:           []byte{197, 204, 27, 84, 42, 255, 184, 163, 97, 247, 241, 26, 128, 13, 87, 125, 150, 22, 131, 63, 100, 238, 60, 209, 121, 177, 156, 23, 106, 222, 64, 35},
+				AddressRole:       9,
+				Offset:            nil,
+				OffsetLT:          nil,
+				OffsetGT:          nil,
 			},
-		*/
+			nil,
+		},
+		{
+			name: "Round + Min/Max Error",
+			params: generated.SearchForTransactionsParams{
+				Round:    uint64Ptr(10),
+				MinRound: uint64Ptr(5),
+				MaxRound: uint64Ptr(15),
+			},
+			filter:        idb.TransactionFilter{},
+			errorContains: []string{errInvalidRoundMinMax},
+		},
+		{
+			name:          "Swapped Min/Max Round",
+			params:        generated.SearchForTransactionsParams{MinRound: uint64Ptr(20), MaxRound: uint64Ptr(10)},
+			filter:        idb.TransactionFilter{MinRound: 10, MaxRound: 20, Limit: defaultTransactionsLimit},
+			errorContains: nil,
+		},
+		{
+			name:          "Illegal Address",
+			params:        generated.SearchForTransactionsParams{Address: strPtr("Not-our-base32-thing")},
+			filter:        idb.TransactionFilter{},
+			errorContains: []string{errUnableToParseAddress},
+		},
+		{
+			name:          "Unknown address role error",
+			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("unknown")},
+			filter:        idb.TransactionFilter{},
+			errorContains: []string{errUnknownAddressRole},
+		},
+		{
+			name:          "Bitmask sender + closeTo(true)",
+			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("sender"), ExcludeCloseTo: boolPtr(true)},
+			filter:        idb.TransactionFilter{AddressRole: 9, Limit: defaultTransactionsLimit},
+			errorContains: nil,
+		},
+		{
+			name:          "Bitmask sender + closeTo(false)",
+			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("sender"), ExcludeCloseTo: boolPtr(false)},
+			filter:        idb.TransactionFilter{AddressRole: 9, Limit: defaultTransactionsLimit},
+			errorContains: nil,
+		},
+		{
+			name:          "Bitmask receiver + closeTo(true)",
+			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("receiver"), ExcludeCloseTo: boolPtr(true)},
+			filter:        idb.TransactionFilter{AddressRole: 18, Limit: defaultTransactionsLimit},
+			errorContains: nil,
+		},
+		{
+			name:          "Bitmask receiver + closeTo(false)",
+			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("receiver"), ExcludeCloseTo: boolPtr(false)},
+			filter:        idb.TransactionFilter{AddressRole: 54, Limit: defaultTransactionsLimit},
+			errorContains: nil,
+		},
+		{
+			name:          "Bitmask receiver + implicit closeTo (false)",
+			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("receiver")},
+			filter:        idb.TransactionFilter{AddressRole: 54, Limit: defaultTransactionsLimit},
+			errorContains: nil,
+		},
+		{
+			name:          "Bitmask freeze-target",
+			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("freeze-target")},
+			filter:        idb.TransactionFilter{AddressRole: 64, Limit: defaultTransactionsLimit},
+			errorContains: nil,
+		},
+		{
+			name:          "Currency to Algos when no asset-id",
+			params:        generated.SearchForTransactionsParams{CurrencyGreaterThan: uint64Ptr(9), CurrencyLessThan: uint64Ptr(21)},
+			filter:        idb.TransactionFilter{MinAlgos: 10, MaxAlgos: 20, Limit: defaultTransactionsLimit},
+			errorContains: nil,
+		},
 	}
 
 	for _, test := range tests {
@@ -92,9 +208,9 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				}
 			} else {
 				assert.NoError(t, err)
+				assert.Equal(t, test.errorContains != nil, err != nil)
+				assert.Equal(t, test.filter, filter)
 			}
-			assert.Equal(t, test.errorContains != nil, err != nil)
-			assert.Equal(t, test.filter, filter)
 		})
 	}
 }
@@ -204,7 +320,7 @@ func TestFetchTransactions(t *testing.T) {
 					Extra: idb.TxnExtra{
 						AssetCloseAmount: 0,
 					},
-					Error:    nil,
+					Error: nil,
 				}
 				ch <- txnRow
 			}
@@ -227,7 +343,6 @@ func TestFetchTransactions(t *testing.T) {
 				}
 				fmt.Println("-------------------")
 			}
-
 
 			// Verify the results
 			assert.Equal(t, len(test.response), len(results))
