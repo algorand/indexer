@@ -1,3 +1,4 @@
+# This is the default target, build the indexer:
 cmd/indexer/indexer:	idb/setup_postgres_sql.go importer/protocols_json.go .PHONY
 	cd cmd/indexer && CGO_ENABLED=0 go build
 
@@ -25,7 +26,7 @@ test:	mocks
 
 SYSTEMD_FILES=algorand-indexer.service algorand-indexer@.service
 SYSTEMD_DEST=$(patsubst %,.deb_tmp/lib/systemd/system/%,${SYSTEMD_FILES})
-SYSTEMD_TARDEST=$(patsubst %,.tar_tmp/algorand-indxer_${VER}/%,${SYSTEMD_FILES})
+SYSTEMD_TARDEST=$(patsubst %,.tar_tmp/algorand-indexer_${VER}/%,${SYSTEMD_FILES})
 
 .deb_tmp/lib/systemd/system/%:	misc/systemd/%
 	mkdir -p .deb_tmp/lib/systemd/system
@@ -50,25 +51,25 @@ algorand-indexer.deb:	.deb_tmp/usr/bin/algorand-indexer ${SYSTEMD_DEST} ${DEB_CO
 	rm -f algorand-indexer.deb
 	ln algorand-indexer_${VER}_${DEB_ARCH}.deb algorand-indexer.deb
 
-.tar_tmp/algorand-indxer_${VER}/%:	misc/systemd/%
-	mkdir -p .tar_tmp/algorand-indxer_${VER}
+.tar_tmp/algorand-indexer_${VER}/%:	misc/systemd/%
+	mkdir -p .tar_tmp/algorand-indexer_${VER}
 	rm -f $@
 	ln $< $@
 
-.tar_tmp/algorand-indxer_${VER}/algorand-indexer:	cmd/indexer/indexer
-	mkdir -p .tar_tmp/algorand-indxer_${VER}
+.tar_tmp/algorand-indexer_${VER}/algorand-indexer:	cmd/indexer/indexer
+	mkdir -p .tar_tmp/algorand-indexer_${VER}
 	rm -f $@
 	ln $< $@
 
-.tar_tmp/algorand-indxer_${VER}/%:	%
-	mkdir -p .tar_tmp/algorand-indxer_${VER}
+.tar_tmp/algorand-indexer_${VER}/%:	%
+	mkdir -p .tar_tmp/algorand-indexer_${VER}
 	rm -f $@
 	ln $< $@
 
-algorand-indexer.tar.bz2:	cmd/indexer/indexer ${SYSTEMD_TARDEST} .tar_tmp/algorand-indxer_${VER}/algorand-indexer .tar_tmp/algorand-indxer_${VER}/LICENSE .tar_tmp/algorand-indxer_${VER}/README.md
-	tar -c -j -f algorand-indxer_${VER}.tar.bz2 -C .tar_tmp algorand-indxer_${VER}
+algorand-indexer.tar.bz2:	cmd/indexer/indexer ${SYSTEMD_TARDEST} .tar_tmp/algorand-indexer_${VER}/algorand-indexer .tar_tmp/algorand-indexer_${VER}/LICENSE .tar_tmp/algorand-indexer_${VER}/README.md
+	tar -c -j -f algorand-indexer_${VER}.tar.bz2 -C .tar_tmp algorand-indexer_${VER}
 	rm -f algorand-indexer.tar.bz2
-	ln algorand-indxer_${VER}.tar.bz2 algorand-indexer.tar.bz2
+	ln algorand-indexer_${VER}.tar.bz2 algorand-indexer.tar.bz2
 
 package:	algorand-indexer.tar.bz2 algorand-indexer.deb .PHONY
 
