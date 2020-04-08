@@ -7,8 +7,9 @@ import(
 )
 
 const (
-	errInvalidRoundMinMax   = "cannot specify round and min-round/max-round"
-	errUnableToParseAddress = "unable to parse address"
+	errInvalidRoundAndMinMax = "cannot specify round and min-round/max-round"
+	errInvalidRoundMinMax    = "min-round must be less than max-round"
+	errUnableToParseAddress  = "unable to parse address"
 )
 
 var errUnknownAddressRole string

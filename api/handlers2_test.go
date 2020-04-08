@@ -133,13 +133,13 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				MaxRound: uint64Ptr(15),
 			},
 			filter:        idb.TransactionFilter{},
-			errorContains: []string{errInvalidRoundMinMax},
+			errorContains: []string{errInvalidRoundAndMinMax},
 		},
 		{
 			name:          "Swapped Min/Max Round",
 			params:        generated.SearchForTransactionsParams{MinRound: uint64Ptr(20), MaxRound: uint64Ptr(10)},
-			filter:        idb.TransactionFilter{MinRound: 10, MaxRound: 20, Limit: defaultTransactionsLimit},
-			errorContains: nil,
+			filter:        idb.TransactionFilter{},
+			errorContains: []string{errInvalidRoundMinMax},
 		},
 		{
 			name:          "Illegal Address",
