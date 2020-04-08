@@ -1,7 +1,7 @@
 # indexer
 searchable history and current state
 
-# Bootstrapping Development 
+# Bootstrapping Development
 
 ### Setup Private Network
 Start a private network
@@ -58,7 +58,7 @@ A number of files are ignored according to the definition in **api/.openapi-gene
 
 ## Read-only Indexer Server
 
-It is possible to set up one Postgres database with one writer and many readers. The Indxer pulling new data from algod can be started as above. Starting the indexer daemon without $ALGORAND_DATA or -d/--algod/--algod-net/--algod-token will start it without writing new data to the database. For further isolation, create a `readonly` postgres user. Indexer does specifically note the username "readonly" and change behavior to not try to write to the database. The primary benefit is that Postgres can enforce restricted access to this user:
+It is possible to set up one Postgres database with one writer and many readers. The Indexer pulling new data from algod can be started as above. Starting the indexer daemon without $ALGORAND_DATA or -d/--algod/--algod-net/--algod-token will start it without writing new data to the database. For further isolation, create a `readonly` postgres user. Indexer does specifically note the username "readonly" and change behavior to not try to write to the database. The primary benefit is that Postgres can enforce restricted access to this user:
 
 ```sql
 CREATE USER readonly LOGIN PASSWORD 'YourPasswordHere';
@@ -78,8 +78,8 @@ indexer daemon --postgres "user=readonly password=YourPasswordHere {other connec
 
 ```
 [Service]
-ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indxer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
-PIDFile=/var/lib/algorand/algorand-indxer.pid
+ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
+PIDFile=/var/lib/algorand/algorand-indexer.pid
 
 ```
 

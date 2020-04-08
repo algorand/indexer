@@ -9,7 +9,7 @@
 ## sudo mkdir -p /etc/systemd/system/algorand-indexer@$(systemd-escape ${ALGORAND_DATA}).service.d
 ## cat <<EOF>/etc/systemd/system/algorand-indexer@$(systemd-escape ${ALGORAND_DATA}).service.d/override.conf
 ## [Service]
-## ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indxer.pid --algod %I --postgres "host= user= password= dbname="
+## ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod %I --postgres "host= user= password= dbname="
 ## EOF
 ##
 ## sudo systemctl enable algorand-indexer@$(systemd-escape ${ALGORAND_DATA})
@@ -20,8 +20,8 @@ Description=Algorand Indexer daemon for %I
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indxer.pid --algod %I --postgres "host= user= password= dbname="
-PIDFile=%I/algorand-indxer.pid
+ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod %I --postgres "host= user= password= dbname="
+PIDFile=%I/algorand-indexer.pid
 User=algorand
 Group=algorand
 Restart=always

@@ -3,8 +3,8 @@ Description=Algorand Indexer daemon
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indxer.pid --algod /var/lib/algorand --postgres "host= user= password= dbname="
-PIDFile=/var/lib/algorand/algorand-indxer.pid
+ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host= user= password= dbname="
+PIDFile=/var/lib/algorand/algorand-indexer.pid
 User=algorand
 Group=algorand
 Restart=always
