@@ -45,7 +45,7 @@ Source: https://github.com/algorand/indexer
 
 Files: *
 Copyright: Algorand developers <dev@algorand.com>
-License: AGPL-3+
+License: MIT
 ''')
 
 def debian_copyright(outpath):

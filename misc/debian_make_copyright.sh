@@ -7,6 +7,6 @@ Source: https://github.com/algorand/indexer
 
 Files: *
 Copyright: Algorand developers <dev@algorand.com>
-License: AGPL-3+
+License: MIT
 EOF
 sed 's/^$/./g' < LICENSE | sed 's/^/ /g' >> ".deb_tmp/DEBIAN/copyright"
