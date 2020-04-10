@@ -209,6 +209,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 			CloseAmount:      uint64Ptr(row.Extra.AssetCloseAmount),
 			CloseRemainderTo: addrPtr(stxn.Txn.CloseRemainderTo),
 			Receiver:         stxn.Txn.Receiver.String(),
+			Amount:           uint64(stxn.Txn.Amount),
 		}
 		payment = &p
 	case sdk_types.KeyRegistrationTx:
@@ -348,7 +349,7 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.Limit = uintOrDefault(params.Limit)
 
 	// filter Algos or Asset but not both.
-	if (filter.AssetId != 0) {
+	if filter.AssetId != 0 {
 		filter.AssetAmountLT = uintOrDefault(params.CurrencyLessThan)
 		filter.AssetAmountGT = uintOrDefault(params.CurrencyGreaterThan)
 	} else {
