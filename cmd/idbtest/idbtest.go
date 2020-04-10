@@ -257,14 +257,14 @@ func main() {
 		printTxnQuery(db, idb.TransactionFilter{Offset: &offset, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{SigType: "lsig", Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{NotePrefix: []byte("a"), Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{MinAlgos: 10000000, Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{AlgosGT: 10000000, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{EffectiveAmountGt: 10000000, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{EffectiveAmountLt: 1000000, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{Address: xa[:], Limit: 6})
 		printTxnQuery(db, idb.TransactionFilter{Address: xa[:], AddressRole: idb.AddressRoleSender, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{Address: xa[:], AddressRole: idb.AddressRoleReceiver, Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{MinAssetAmount: 100, Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{MaxAssetAmount: 99, Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{AssetAmountGT: 99, Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{AssetAmountLT: 100, Limit: 2})
 	}
 
 	//printTxnQuery(db, idb.TransactionFilter{AssetId: 312769, Limit: 30})
@@ -275,7 +275,7 @@ func main() {
 		xa, _ := atypes.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
 		testTxnPaging(db, idb.TransactionFilter{Address: xa[:]})
 		testTxnPaging(db, idb.TransactionFilter{TypeEnum: 2})
-		testTxnPaging(db, idb.TransactionFilter{MinAlgos: 2})
+		testTxnPaging(db, idb.TransactionFilter{AlgosGT: 1})
 	}
 
 	dt := time.Now().Sub(start)
