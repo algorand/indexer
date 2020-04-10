@@ -1,5 +1,10 @@
-# indexer
-searchable history and current state
+# Algorand Indexer
+
+The Indexer reads committed blocks from the Algorand blockchain and mantains a database of transactions and accounts that are searchable and indexed on several features.
+
+# Operations
+
+See [usage.md](usage.md)
 
 # Bootstrapping Development
 
@@ -52,44 +57,3 @@ java -jar openapi-generator-cli.jar generate -i merged.oas3.yml -g go-server --t
 ```
 
 A number of files are ignored according to the definition in **api/.openapi-generator-ignore**
-
-
-# Operations
-
-## Read-only Indexer Server
-
-It is possible to set up one Postgres database with one writer and many readers. The Indexer pulling new data from algod can be started as above. Starting the indexer daemon without $ALGORAND_DATA or -d/--algod/--algod-net/--algod-token will start it without writing new data to the database. For further isolation, create a `readonly` postgres user. Indexer does specifically note the username "readonly" and change behavior to not try to write to the database. The primary benefit is that Postgres can enforce restricted access to this user:
-
-```sql
-CREATE USER readonly LOGIN PASSWORD 'YourPasswordHere';
-REVOKE ALL ON ALL TABLES IN SCHEMA public FROM readonly;
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly;
-```
-
-Then start the Indexer:
-
-```bash
-indexer daemon --postgres "user=readonly password=YourPasswordHere {other connection options for your database}"
-```
-
-## Systemd
-
-`/lib/systemd/system/algorand-indexer.service` can be partially overridden by creating `/etc/systemd/system/algorand-indexer.service.d/local.conf`. The most common things to override will be the command line and pidfile. The overriding local.conf file might be this:
-
-```
-[Service]
-ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
-PIDFile=/var/lib/algorand/algorand-indexer.pid
-
-```
-
-The systemd unit file can be found in source at [misc/systemd/algorand-indexer.service](misc/systemd/algorand-indexer.service)
-
-Once configured, turn on your daemon with:
-
-```bash
-sudo systemctl enable algorand-indexer
-sudo systemctl start algorand-indexer
-```
-
-If you wish to run multiple indexers on one server under systemd, see the comments in `/lib/systemd/system/algorand-indexer@.service` or [misc/systemd/algorand-indexer@.service](misc/systemd/algorand-indexer@.service)
