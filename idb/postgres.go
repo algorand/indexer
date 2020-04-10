@@ -712,14 +712,14 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 		whereArgs = append(whereArgs, tf.AssetId)
 		partNumber++
 	}
-	if tf.MinAssetAmount != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::bigint >= $%d", partNumber))
-		whereArgs = append(whereArgs, tf.MinAssetAmount)
+	if tf.AssetAmountGT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::bigint > $%d", partNumber))
+		whereArgs = append(whereArgs, tf.AssetAmountGT)
 		partNumber++
 	}
-	if tf.MaxAssetAmount != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::bigint <= $%d", partNumber))
-		whereArgs = append(whereArgs, tf.MaxAssetAmount)
+	if tf.AssetAmountLT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::bigint < $%d", partNumber))
+		whereArgs = append(whereArgs, tf.AssetAmountLT)
 		partNumber++
 	}
 	if tf.TypeEnum != 0 {
@@ -762,14 +762,14 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 		whereArgs = append(whereArgs, tf.NotePrefix)
 		partNumber++
 	}
-	if tf.MinAlgos != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint >= $%d", partNumber))
-		whereArgs = append(whereArgs, tf.MinAlgos)
+	if tf.AlgosGT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint > $%d", partNumber))
+		whereArgs = append(whereArgs, tf.AlgosGT)
 		partNumber++
 	}
-	if tf.MaxAlgos != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint <= $%d", partNumber))
-		whereArgs = append(whereArgs, tf.MaxAlgos)
+	if tf.AlgosGT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint < $%d", partNumber))
+		whereArgs = append(whereArgs, tf.AlgosGT)
 		partNumber++
 	}
 	if tf.EffectiveAmountGt != 0 {
