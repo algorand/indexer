@@ -712,14 +712,14 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 		whereArgs = append(whereArgs, tf.AssetId)
 		partNumber++
 	}
-	if tf.MinAssetAmount != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::bigint >= $%d", partNumber))
-		whereArgs = append(whereArgs, tf.MinAssetAmount)
+	if tf.AssetAmountGT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::bigint > $%d", partNumber))
+		whereArgs = append(whereArgs, tf.AssetAmountGT)
 		partNumber++
 	}
-	if tf.MaxAssetAmount != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::bigint <= $%d", partNumber))
-		whereArgs = append(whereArgs, tf.MaxAssetAmount)
+	if tf.AssetAmountLT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::bigint < $%d", partNumber))
+		whereArgs = append(whereArgs, tf.AssetAmountLT)
 		partNumber++
 	}
 	if tf.TypeEnum != 0 {
@@ -762,14 +762,14 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 		whereArgs = append(whereArgs, tf.NotePrefix)
 		partNumber++
 	}
-	if tf.MinAlgos != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint >= $%d", partNumber))
-		whereArgs = append(whereArgs, tf.MinAlgos)
+	if tf.AlgosGT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint > $%d", partNumber))
+		whereArgs = append(whereArgs, tf.AlgosGT)
 		partNumber++
 	}
-	if tf.MaxAlgos != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint <= $%d", partNumber))
-		whereArgs = append(whereArgs, tf.MaxAlgos)
+	if tf.AlgosGT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint < $%d", partNumber))
+		whereArgs = append(whereArgs, tf.AlgosGT)
 		partNumber++
 	}
 	if tf.EffectiveAmountGt != 0 {
@@ -942,6 +942,17 @@ finish:
 
 const maxAccountsLimit = 1000
 
+var statusStrings = []string{"Offline", "Online", "NotParticipating"}
+
+func maybeUint64(x uint64) *uint64 {
+	if x == 0 {
+		return nil
+	}
+	out := new(uint64)
+	*out = x
+	return out
+}
+
 func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts AccountQueryOptions, rows *sql.Rows, tx *sql.Tx, blockheader types.Block, out chan<- AccountRow) {
 	defer tx.Rollback()
 	count := uint64(0)
@@ -949,7 +960,8 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 		var addr []byte
 		var microalgos uint64
 		var rewardsbase uint64
-		var accountDataJsonStr *string
+		var keytype *string
+		var accountDataJsonStr []byte
 
 		// these are bytes of json serialization
 		var holdingAssetid []byte
@@ -965,23 +977,23 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 		if opts.IncludeAssetHoldings {
 			if opts.IncludeAssetParams {
 				err = rows.Scan(
-					&addr, &microalgos, &rewardsbase, &accountDataJsonStr,
+					&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
 					&holdingAssetid, &holdingAmount, &holdingFrozen,
 					&assetParamsIds, &assetParamsStr,
 				)
 			} else {
 				err = rows.Scan(
-					&addr, &microalgos, &rewardsbase, &accountDataJsonStr,
+					&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
 					&holdingAssetid, &holdingAmount, &holdingFrozen,
 				)
 			}
 		} else if opts.IncludeAssetParams {
 			err = rows.Scan(
-				&addr, &microalgos, &rewardsbase, &accountDataJsonStr,
+				&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
 				&assetParamsIds, &assetParamsStr,
 			)
 		} else {
-			err = rows.Scan(&addr, &microalgos, &rewardsbase, &accountDataJsonStr)
+			err = rows.Scan(&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr)
 		}
 		if err != nil {
 			out <- AccountRow{Error: err}
@@ -994,6 +1006,38 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 		account.Address = aaddr.String()
 		account.Round = uint64(blockheader.Round)
 		account.AmountWithoutPendingRewards = microalgos
+		account.RewardBase = new(uint64)
+		*account.RewardBase = rewardsbase
+		if keytype != nil && *keytype != "" {
+			account.Type = keytype
+		}
+
+		if accountDataJsonStr != nil {
+			var ad types.AccountData
+			err = json.Decode(accountDataJsonStr, &ad)
+			if err != nil {
+				out <- AccountRow{Error: err}
+				break
+			}
+			account.Status = statusStrings[ad.Status]
+			hasSel := !allZero(ad.SelectionID[:])
+			hasVote := !allZero(ad.VoteID[:])
+			if hasSel || hasVote {
+				part := new(models.AccountParticipation)
+				if hasSel {
+					part.SelectionParticipationKey = new([]byte)
+					*part.SelectionParticipationKey = ad.SelectionID[:]
+				}
+				if hasVote {
+					part.VoteParticipationKey = new([]byte)
+					*part.VoteParticipationKey = ad.VoteID[:]
+				}
+				part.VoteFirstValid = maybeUint64(uint64(ad.VoteFirstValid))
+				part.VoteLastValid = maybeUint64(uint64(ad.VoteLastValid))
+				part.VoteKeyDilution = maybeUint64(uint64(ad.VoteKeyDilution))
+				account.Participation = part
+			}
+		}
 
 		// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
 		proto, err := db.GetProto(string(blockheader.CurrentProtocol))
@@ -1123,18 +1167,20 @@ func baPtr(x []byte) *[]byte {
 
 var emptyString = ""
 
+func allZero(x []byte) bool {
+	for _, v := range x {
+		if v != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func addrStr(addr []byte) *string {
 	if len(addr) == 0 {
 		return &emptyString
 	}
-	allZero := true
-	for _, bv := range addr {
-		if bv != 0 {
-			allZero = false
-			break
-		}
-	}
-	if allZero {
+	if allZero(addr) {
 		return &emptyString
 	}
 	var aa atypes.Address
@@ -1199,7 +1245,7 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	}
 
 	// Construct query for fetching accounts...
-	query := `SELECT a.addr, a.microalgos, a.rewardsbase, a.account_data`
+	query := `SELECT a.addr, a.microalgos, a.rewardsbase, a.keytype, a.account_data`
 	if opts.IncludeAssetHoldings {
 		query += `, json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf`
 	}

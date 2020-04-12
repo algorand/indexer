@@ -341,7 +341,6 @@ func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.Assets
 	return query, nil
 }
 
-// TODO: Convert Max/Min to LessThan/GreaterThan
 func transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {
 	var errorArr = make([]string, 0)
 
@@ -361,14 +360,13 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.AssetId = uintOrDefault(params.AssetId)
 	filter.Limit = min(uintOrDefaultValue(params.Limit, defaultTransactionsLimit), maxTransactionsLimit)
 
-	// TODO: Convert Max/Min to LessThan/GreaterThan
 	// filter Algos or Asset but not both.
 	if filter.AssetId != 0 {
-		filter.MaxAssetAmount = uintOrDefaultMod(params.CurrencyLessThan, -1)
-		filter.MinAssetAmount = uintOrDefaultMod(params.CurrencyGreaterThan, 1)
+		filter.AssetAmountLT = uintOrDefault(params.CurrencyLessThan)
+		filter.AssetAmountGT = uintOrDefault(params.CurrencyGreaterThan)
 	} else {
-		filter.MaxAlgos = uintOrDefaultMod(params.CurrencyLessThan, -1)
-		filter.MinAlgos = uintOrDefaultMod(params.CurrencyGreaterThan, 1)
+		filter.AlgosLT = uintOrDefault(params.CurrencyLessThan)
+		filter.AlgosGT = uintOrDefault(params.CurrencyGreaterThan)
 	}
 	filter.Round = params.Round
 
