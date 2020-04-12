@@ -93,7 +93,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				BeforeTime:          timePtr(time.Date(2021, 1, 1, 1, 0, 0, 0, time.FixedZone("UTC", 0))),
 				AfterTime:           timePtr(time.Date(2022, 2, 2, 2, 0, 0, 0, time.FixedZone("UTC", 0))),
 				CurrencyGreaterThan: uint64Ptr(5),
-				CurrencyLessThan:    uint64Ptr(8),
+				CurrencyLessThan:    uint64Ptr(6),
 				Address:             strPtr("YXGBWVBK764KGYPX6ENIADKXPWLBNAZ7MTXDZULZWGOBO2W6IAR622VSLA"),
 				AddressRole:         strPtr("sender"),
 				ExcludeCloseTo:      boolPtr(true),
@@ -111,10 +111,10 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				AssetId:           4,
 				BeforeTime:        time.Date(2021, 1, 1, 1, 0, 0, 0, time.FixedZone("UTC", 0)),
 				AfterTime:         time.Date(2022, 2, 2, 2, 0, 0, 0, time.FixedZone("UTC", 0)),
-				MinAlgos:          0,
-				MaxAlgos:          0,
-				MinAssetAmount:    5 + 1, // GT -> Min
-				MaxAssetAmount:    8 - 1, // LT -> Max
+				AlgosGT:           0,
+				AlgosLT:           0,
+				AssetAmountGT:     5,
+				AssetAmountLT:     6,
 				EffectiveAmountGt: 0,
 				EffectiveAmountLt: 0,
 				Address:           []byte{197, 204, 27, 84, 42, 255, 184, 163, 97, 247, 241, 26, 128, 13, 87, 125, 150, 22, 131, 63, 100, 238, 60, 209, 121, 177, 156, 23, 106, 222, 64, 35},
@@ -191,8 +191,8 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		},
 		{
 			name:          "Currency to Algos when no asset-id",
-			params:        generated.SearchForTransactionsParams{CurrencyGreaterThan: uint64Ptr(9), CurrencyLessThan: uint64Ptr(21)},
-			filter:        idb.TransactionFilter{MinAlgos: 10, MaxAlgos: 20, Limit: defaultTransactionsLimit},
+			params:        generated.SearchForTransactionsParams{CurrencyGreaterThan: uint64Ptr(10), CurrencyLessThan: uint64Ptr(20)},
+			filter:        idb.TransactionFilter{AlgosGT: 10, AlgosLT: 20, Limit: defaultTransactionsLimit},
 			errorContains: nil,
 		},
 	}
