@@ -1,5 +1,17 @@
 #!/bin/bash
-# requires a python3 environment with "py-algorand-sdk" installed
+# requires go-algorand checked out at $GOALGORAND or "${GOPATH}/src/github.com/algorand/go-algorand"
+#
+# Builds data to $E2EDATA or "${HOME}/Algorand/e2edata"
+#
+# Requires Python with py-algorand-sdk installed.
+#
+# usage:
+# python3 -m venv ve3
+# ve3/bin/pip install py-algorand-sdk
+# bash
+# . ve3/bin/activate
+# bash misc/buildtestdata.sh
+
 set -x
 set -e
 
@@ -24,7 +36,7 @@ goal network start -r "${E2EDATA}"/net
 mkdir -p "${E2EDATA}/blocks"
 mkdir -p "${E2EDATA}/blocktars"
 
-python3 ./blockarchiver.py --algod "${E2EDATA}"/net/Primary --blockdir "${E2EDATA}/blocks" --tardir "${E2EDATA}/blocktars" &
+python3 misc/blockarchiver.py --algod "${E2EDATA}"/net/Primary --blockdir "${E2EDATA}/blocks" --tardir "${E2EDATA}/blocktars" &
 BLOCKARCHIVERPID=$!
 
 ACCTROUND=$(sqlite3 "${E2EDATA}"/net/Primary/*/ledger.tracker.sqlite "SELECT rnd FROM acctrounds WHERE id = 'acctbase'")
@@ -43,7 +55,7 @@ mkdir -p "${E2EDATA}/algod/tbd-v1/"
 sqlite3 "${E2EDATA}"/net/Primary/*/ledger.tracker.sqlite ".backup '${E2EDATA}/algod/tbd-v1/ledger.tracker.sqlite'"
 cp -p "${E2EDATA}/net/Primary/genesis.json" "${E2EDATA}/algod/genesis.json"
 
-python3 ./blockarchiver.py --just-tar-blocks --blockdir "${E2EDATA}/blocks" --tardir "${E2EDATA}/blocktars"
+python3 misc/blockarchiver.py --just-tar-blocks --blockdir "${E2EDATA}/blocks" --tardir "${E2EDATA}/blocktars"
 
 (cd "${E2EDATA}" && tar jcf e2edata.tar.bz2 blocktars algod)
 ls -l "${E2EDATA}/e2edata.tar.bz2"
