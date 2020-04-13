@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/algorand/go-algorand-sdk v1.2.2-0.20200225152129-2f6afbfaba16
+	github.com/algorand/go-codec/codec v1.1.7
 	github.com/deepmap/oapi-codegen v1.3.5
 	github.com/getkin/kin-openapi v0.2.0
 	github.com/gorilla/mux v1.7.3

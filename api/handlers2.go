@@ -27,9 +27,29 @@ type ServerImplementation struct {
 	db idb.IndexerDb
 }
 
-/////////////////////////////
-// Handler implementations //
-/////////////////////////////
+/////////////////////
+// Limit Constants //
+/////////////////////
+
+// Transactions
+const maxTransactionsLimit = 10000
+const defaultTransactionsLimit = 1000
+
+// Accounts
+const maxAccountsLimit = 1000
+const defaultAccountsLimit = 100
+
+// Assets
+const maxAssetsLimit = 1000
+const defaultAssetsLimit = 100
+
+// Asset Balances
+const maxBalancesLimit = 10000
+const defaultBalancesLimit = 1000
+
+////////////////////////////
+// Handler implementation //
+////////////////////////////
 
 // LookupAccountByID queries indexer for a given account.
 // (GET /account/{account-id})
@@ -77,7 +97,7 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 	options := idb.AccountQueryOptions{
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
-		Limit:                uintOrDefault(params.Limit),
+		Limit:                min(uintOrDefaultValue(params.Limit, defaultAccountsLimit), maxAccountsLimit),
 		HasAssetId:           uintOrDefault(params.AssetId),
 	}
 
@@ -116,7 +136,6 @@ func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generate
 	}
 
 	// Set the next token if we hit the results limit
-	// TODO: set the limit to +1, so we know that there are actually more results?
 	var next *string
 	if params.Limit != nil && uint64(len(accounts)) >= *params.Limit {
 		next = strPtr(accounts[len(accounts)-1].Address)
@@ -207,7 +226,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 		AssetId:   assetID,
 		MinAmount: uintOrDefault(params.CurrencyGreaterThan),
 		MaxAmount: uintOrDefault(params.CurrencyLessThan),
-		Limit:     uintOrDefault(params.Limit),
+		Limit:     min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
 	}
 
 	if params.Next != nil {
@@ -229,7 +248,6 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 	}
 
 	// Set the next token if we hit the results limit
-	// TODO: set the limit to +1, so we know that there are actually more results?
 	var next *string
 	if params.Limit != nil && uint64(len(balances)) >= *params.Limit {
 		next = strPtr(balances[len(balances)-1].Address)
@@ -287,7 +305,6 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 	}
 
 	// Set the next token if we hit the results limit
-	// TODO: set the limit to +1, so we know that there are actually more results?
 	var next *string
 	if params.Limit != nil && uint64(len(assets)) >= *params.Limit {
 		next = strPtr(strconv.FormatUint(assets[len(assets)-1].Index, 10))
@@ -528,4 +545,22 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 	}
 
 	return results, nextToken, nil
+}
+
+//////////////////////
+// Helper functions //
+//////////////////////
+
+func min(x, y uint64) uint64 {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func max(x, y uint64) uint64 {
+	if x > y {
+		return x
+	}
+	return y
 }
