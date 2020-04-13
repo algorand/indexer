@@ -220,6 +220,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 			CloseAmount:      uint64Ptr(row.Extra.AssetCloseAmount),
 			CloseRemainderTo: addrPtr(stxn.Txn.CloseRemainderTo),
 			Receiver:         stxn.Txn.Receiver.String(),
+			Amount:           uint64(stxn.Txn.Amount),
 		}
 		payment = &p
 	case sdk_types.KeyRegistrationTx:

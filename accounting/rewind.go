@@ -102,7 +102,6 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 				}
 				assetId := block.TxnCounter + uint64(txnrow.Intra) + 1
 				assetUpdate(&acct, assetId, 0, stxn.Txn.AssetParams.Total)
-				return
 			}
 		case atypes.AssetTransferTx:
 			if addr == stxn.Txn.AssetSender || addr == stxn.Txn.Sender {
