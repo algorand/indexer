@@ -1,0 +1,33 @@
+## For some data directory $ALGORAND_DATA where an algod runs
+##
+## Setup:
+## ALGORAND_DATA=/var/lib/algorand_testnet
+##
+## systemd allows for config overrides in a .conf file under a directory named for the service. e.g.:
+##
+## Create a local override where the db connection string can be set:
+## sudo mkdir -p /etc/systemd/system/algorand-indexer@$(systemd-escape ${ALGORAND_DATA}).service.d
+## cat <<EOF>/etc/systemd/system/algorand-indexer@$(systemd-escape ${ALGORAND_DATA}).service.d/override.conf
+## [Service]
+## ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod %I --postgres "host= user= password= dbname="
+## EOF
+##
+## sudo systemctl enable algorand-indexer@$(systemd-escape ${ALGORAND_DATA})
+## sudo systemctl start algorand-indexer@$(systemd-escape ${ALGORAND_DATA})
+
+[Unit]
+Description=Algorand Indexer daemon for %I
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod %I --postgres "host= user= password= dbname="
+PIDFile=%I/algorand-indexer.pid
+User=algorand
+Group=algorand
+Restart=always
+RestartSec=5s
+ProtectSystem=full
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

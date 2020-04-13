@@ -148,7 +148,7 @@ def assetEquality(indexer, algod):
             if iv == 0:
                 pass # ok
             else:
-                errs.append('asset={!r} indxer had {!r} but algod None'.format(assetid, rec))
+                errs.append('asset={!r} indexer had {!r} but algod None'.format(assetid, rec))
         else:
             av = arec.get(b'a', 0)
             if av != iv:
@@ -386,7 +386,7 @@ def main():
     i2algosum = 0
     i2a = None
     i2a_checker = None
-    
+
     if args.i2db:
         pg = psycopg2.connect(args.i2db)
         cursor = pg.cursor()
@@ -488,4 +488,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-

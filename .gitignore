@@ -1,5 +1,5 @@
 # Build artifacts
-cmd/indexer/indexer
+cmd/algorand-indexer/algorand-indexer
 
 # Binaries for programs and plugins
 *.exe
@@ -25,3 +25,8 @@ __pycache__
 
 # jetbrains IDE
 .idea
+
+.deb_tmp
+.tar_tmp
+*.deb
+*.tar.bz2
