@@ -12,6 +12,14 @@ import subprocess
 import tarfile
 import time
 
+try:
+    import grp
+    def groupname(gid):
+        return grp.getgrgid(gid)[0]
+except:
+    def groupname(gid):
+        return str(gid)
+
 import markdown2
 
 logger = logging.getLogger(__name__)
@@ -102,8 +110,8 @@ def build_deb(debarch, version):
             continue
         for fname in files:
             if deb_path:
-                os.makedirs(deb_path, exist_ok=True)
-            link(os.path.join(source_path, fname), os.path.join(deb_path, fname))
+                os.makedirs(os.path.join('.deb_tmp', deb_path), exist_ok=True)
+            link(os.path.join(source_path, fname), os.path.join('.deb_tmp', deb_path, fname))
     debname = 'algorand-indexer_{}_{}.deb'.format(version, debarch)
     subprocess.run(
         ['dpkg-deb', '--build', '.deb_tmp', debname])
@@ -126,13 +134,15 @@ def build_tar(goos, goarch, version):
         if tar_path is None:
             continue
         for fname in files:
-            if tar_path:
-                os.makedirs(tar_path, exist_ok=True)
             tf.add(os.path.join(source_path, fname), os.path.join(rootdir, tar_path, fname))
-    ti = tarfile.TarInfo("usage.html")
+    ti = tarfile.TarInfo(os.path.join(rootdir, "usage.html"))
     ti.mtime = time.time()
     ti.mode = 0o444
     ti.type = tarfile.REGTYPE
+    ti.uid = os.getuid()
+    ti.uname = os.getenv('USER')
+    ti.gid = os.getgid()
+    ti.gname = groupname(os.getgid())
     uhtml = usage_html().encode('utf-8')
     ti.size=len(uhtml)
     tf.addfile(ti, io.BytesIO(uhtml))
@@ -140,6 +150,7 @@ def build_tar(goos, goarch, version):
     return tarname
 
 def main():
+    start = time.time()
     logging.basicConfig(level=logging.INFO)
     with open('.version') as fin:
         version = fin.read().strip()
@@ -151,6 +162,8 @@ def main():
         if debarch is not None:
             debname = build_deb(debarch, version)
             logger.info('\t%s', debname)
+    dt = time.time() - start
+    logger.info('done %0.1fs', dt)
     return
 
 if __name__ == '__main__':
