@@ -16,15 +16,11 @@ func uintOrDefault(x *uint64) uint64 {
 	return 0
 }
 
-func uintOrDefaultMod(x *uint64, modifier int64) uint64 {
+func uintOrDefaultValue(x *uint64, value uint64) uint64 {
 	if x != nil {
-		val := int64(*x) + modifier
-		if val < 0 {
-			return 0
-		}
-		return uint64(val)
+		return *x
 	}
-	return 0
+	return value
 }
 
 func strOrDefault(str *string) string {

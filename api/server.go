@@ -37,6 +37,8 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, developerMod
 	indexerDb = db
 
 	e := echo.New()
+	e.HideBanner = true
+
 	api := ServerImplementation{
 		EnableAddressSearchRoundRewind: developerMode,
 		db:                             db,

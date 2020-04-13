@@ -220,12 +220,12 @@ type TransactionFilter struct {
 	OffsetGT   *uint64 // nil for no filter
 	SigType    string  // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
-	MinAlgos   uint64 // implictly filters on "pay" txns for Algos >= this. This will be a slightly faster query than EffectiveAmountGt.
-	MaxAlgos   uint64
+	AlgosGT    uint64 // implictly filters on "pay" txns for Algos > this. This will be a slightly faster query than EffectiveAmountGt.
+	AlgosLT    uint64
 
-	AssetId        uint64 // filter transactions relevant to an asset
-	MinAssetAmount uint64
-	MaxAssetAmount uint64
+	AssetId       uint64 // filter transactions relevant to an asset
+	AssetAmountGT uint64
+	AssetAmountLT uint64
 
 	EffectiveAmountGt uint64 // Algo: Amount + CloseAmount > x
 	EffectiveAmountLt uint64 // Algo: Amount + CloseAmount < x
