@@ -124,7 +124,7 @@ def main():
     sqliteglob = os.path.join(e2edata, 'algod', '*', 'ledger.tracker.sqlite')
     sqlitepaths = glob.glob(sqliteglob)
     sqlitepath = sqlitepaths[0]
-    xrun(['python3', 'validate_accounting.py', '--dbfile', sqlitepath, '--indexer', 'http://localhost:8980'], timeout=20)
+    xrun(['python3', 'misc/validate_accounting.py', '--dbfile', sqlitepath, '--indexer', 'http://localhost:8980'], timeout=20)
     dt = time.time() - start
     sys.stdout.write("indexer e2etest OK ({:.1f}s)\n".format(dt))
     return 0

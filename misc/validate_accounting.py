@@ -19,7 +19,7 @@ import msgpack
 import algosdk
 import psycopg2
 
-from indexer2testload import unmsgpack
+logger = logging.getLogger(__name__)
 
 reward_addr = base64.b64decode("/v////////////////////////////////////////8=")
 fee_addr = base64.b64decode("x/zNsljw1BicK/i21o7ml1CGQrCtAB8x/LkYw1S6hZo=")
@@ -42,8 +42,6 @@ def encode_addr(addr):
     if len(addr) == 32:
         return algosdk.encoding.encode_address(addr)
     return 'unknown addr? {!r}'.format(addr)
-
-logger = logging.getLogger(__name__)
 
 def indexerAccounts(rooturl, blockround=None):
     '''return {raw account: {"algo":N, "asset":{}}, ...}'''
