@@ -1086,7 +1086,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 							reject = false
 						}
 					} else if opts.AssetLT != 0 {
-						if hamounts[i] < opts.AssetGT {
+						if hamounts[i] < opts.AssetLT {
 							reject = false
 						}
 					} else {
