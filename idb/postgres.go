@@ -800,6 +800,7 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 	if tf.Limit != 0 {
 		query += fmt.Sprintf(" LIMIT %d", tf.Limit)
 	}
+
 	return
 }
 
@@ -1406,14 +1407,14 @@ func (db *PostgresIndexerDb) AssetBalances(ctx context.Context, abq AssetBalance
 		whereArgs = append(whereArgs, abq.AssetId)
 		partNumber++
 	}
-	if abq.MinAmount != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("aa.amount >= $%d", partNumber))
-		whereArgs = append(whereArgs, abq.MinAmount)
+	if abq.AmountGT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.amount > $%d", partNumber))
+		whereArgs = append(whereArgs, abq.AmountGT)
 		partNumber++
 	}
-	if abq.MaxAmount != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("aa.amount <= $%d", partNumber))
-		whereArgs = append(whereArgs, abq.MaxAmount)
+	if abq.AmountLT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.amount < $%d", partNumber))
+		whereArgs = append(whereArgs, abq.AmountLT)
 		partNumber++
 	}
 	if len(abq.PrevAddress) != 0 {
