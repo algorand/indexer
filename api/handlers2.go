@@ -91,9 +91,9 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 	})
 }
 
-// SearchAccounts returns accounts matching the provided parameters
+// SearchForAccounts returns accounts matching the provided parameters
 // (GET /accounts)
-func (si *ServerImplementation) SearchAccounts(ctx echo.Context, params generated.SearchAccountsParams) error {
+func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params generated.SearchForAccountsParams) error {
 	options := idb.AccountQueryOptions{
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,

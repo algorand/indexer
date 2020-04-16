@@ -946,15 +946,6 @@ const maxAccountsLimit = 1000
 var statusStrings = []string{"Offline", "Online", "NotParticipating"}
 const offlineStatusIdx = 0
 
-func maybeUint64(x uint64) *uint64 {
-	if x == 0 {
-		return nil
-	}
-	out := new(uint64)
-	*out = x
-	return out
-}
-
 func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts AccountQueryOptions, rows *sql.Rows, tx *sql.Tx, blockheader types.Block, out chan<- AccountRow) {
 	defer tx.Rollback()
 	count := uint64(0)
@@ -1029,16 +1020,14 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 			if hasSel || hasVote {
 				part := new(models.AccountParticipation)
 				if hasSel {
-					part.SelectionParticipationKey = new([]byte)
-					*part.SelectionParticipationKey = ad.SelectionID[:]
+					part.SelectionParticipationKey = ad.SelectionID[:]
 				}
 				if hasVote {
-					part.VoteParticipationKey = new([]byte)
-					*part.VoteParticipationKey = ad.VoteID[:]
+					part.VoteParticipationKey = ad.VoteID[:]
 				}
-				part.VoteFirstValid = maybeUint64(uint64(ad.VoteFirstValid))
-				part.VoteLastValid = maybeUint64(uint64(ad.VoteLastValid))
-				part.VoteKeyDilution = maybeUint64(uint64(ad.VoteKeyDilution))
+				part.VoteFirstValid = uint64(ad.VoteFirstValid)
+				part.VoteLastValid = uint64(ad.VoteLastValid)
+				part.VoteKeyDilution = ad.VoteKeyDilution
 				account.Participation = part
 			}
 		}
