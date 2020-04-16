@@ -23,7 +23,7 @@ Start pingpong to generate data for indexer.
 
 ### Start with dummy DB
 ```
-~$ ./indexer daemon -d ~/algorand/private-network/Primary/ --genesis ~/algorand/private-network/Primary/genesis.json  -n
+~$ algorand-indexer daemon -d ~/algorand/private-network/Primary/ --genesis ~/algorand/private-network/Primary/genesis.json  -n
 ```
 
 ### Start with postgres
@@ -37,7 +37,7 @@ You can test postgres with an SQL client like SQuirreL, the JDBC connection stri
 
 Start indexer
 ```
-~$ ./indexer daemon -d ~/algorand/private-network/Primary/ --genesis ~/algorand/private-network/Primary/genesis.json --postgres "host=localhost port=5432 user=postgres password=docker dbname=postgres sslmode=disable"
+~$ algorand-indexer daemon -d ~/algorand/private-network/Primary/ --genesis ~/algorand/private-network/Primary/genesis.json --postgres "host=localhost port=5432 user=postgres password=docker dbname=postgres sslmode=disable"
 ```
 
 # Code Generation

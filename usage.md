@@ -9,7 +9,7 @@ The most common usage of the Indexer is expect to be getting validated blocks fr
 Once you have setup a PostgreSQL database for this purpose, and supposing that a local Algorand node's data directory is at `/var/lib/algorand`, the Indexer can be started like this:
 
 ```bash
-indexer daemon --postgres "user=postgres password=YourPasswordHere dbname=foo {other connection options for your database}" --algod /var/lib/algorand
+algorand-indexer daemon --postgres "user=postgres password=YourPasswordHere dbname=foo {other connection options for your database}" --algod /var/lib/algorand
 ```
 
 * **The Algorand Node should be an archival/relay node** that keeps a copy of all the blocks in the entire history of the block chain. This way the indexer can get any block and create an index of the entire history of the block chain.
@@ -29,7 +29,7 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly;
 Then start the Indexer:
 
 ```bash
-indexer daemon --postgres "user=readonly password=YourPasswordHere {other connection options for your database}" --no-algod
+algorand-indexerindexer daemon --postgres "user=readonly password=YourPasswordHere {other connection options for your database}" --no-algod
 ```
 
 ## Systemd
