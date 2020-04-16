@@ -32,6 +32,9 @@ osArchArch = [
     ('darwin', 'amd64', None),
 ]
 
+# TODO: someday we might serve a 'nightly' channel of binaries; until then people who care can build from source
+channel = 'stable'
+
 filespec = [
     # [files], source path, deb path, tar path
     [
@@ -83,6 +86,7 @@ def arch_ver(outpath, inpath, debarch, version):
             for line in fin:
                 line = line.replace('@ARCH@', debarch)
                 line = line.replace('@VER@', version)
+                line = line.replace('@CHANNEL@', channel)
                 fout.write(line)
 
 def link(sourcepath, destpath):
@@ -105,6 +109,8 @@ def build_deb(debarch, version):
     os.makedirs('.deb_tmp/DEBIAN', exist_ok=True)
     debian_copyright('.deb_tmp/DEBIAN/copyright')
     arch_ver('.deb_tmp/DEBIAN/control', 'misc/debian/control', debarch, version)
+    os.makedirs('.deb_tmp/etc/apt/apt.conf.d', exist_ok=True)
+    arch_ver('.deb_tmp/etc/apt/apt.conf.d/52algorand-indexer-upgrades', 'misc/debian/52algorand-indexer-upgrades', debarch, version)
     for files, source_path, deb_path, _ in filespec:
         if deb_path is None:
             continue

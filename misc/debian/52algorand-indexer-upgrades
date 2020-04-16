@@ -1,0 +1,11 @@
+## This file is provided by the Algorand package to configure
+## unattended upgrades for the Algorand node software.
+
+Unattended-Upgrade::Allowed-Origins {
+  "Algorand:@CHANNEL@";
+};
+
+Dpkg::Options {
+   "--force-confdef";
+   "--force-confold";
+};
