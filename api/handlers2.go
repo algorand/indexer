@@ -224,8 +224,8 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID uint64, params generated.LookupAssetBalancesParams) error {
 	query := idb.AssetBalanceQuery{
 		AssetId:   assetID,
-		MinAmount: uintOrDefault(params.CurrencyGreaterThan),
-		MaxAmount: uintOrDefault(params.CurrencyLessThan),
+		AmountGT: uintOrDefault(params.CurrencyGreaterThan),
+		AmountLT: uintOrDefault(params.CurrencyLessThan),
 		Limit:     min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
 	}
 

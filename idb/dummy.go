@@ -288,9 +288,9 @@ type AssetRow struct {
 }
 
 type AssetBalanceQuery struct {
-	AssetId   uint64
-	MinAmount uint64 // only rows >= this
-	MaxAmount uint64 // only rows <= this
+	AssetId  uint64
+	AmountGT uint64 // only rows > this
+	AmountLT uint64 // only rows < this
 
 	Limit uint64 // max rows to return
 

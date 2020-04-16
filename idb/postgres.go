@@ -800,6 +800,7 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 	if tf.Limit != 0 {
 		query += fmt.Sprintf(" LIMIT %d", tf.Limit)
 	}
+
 	return
 }
 
@@ -943,6 +944,7 @@ finish:
 const maxAccountsLimit = 1000
 
 var statusStrings = []string{"Offline", "Online", "NotParticipating"}
+const offlineStatusIdx = 0
 
 func maybeUint64(x uint64) *uint64 {
 	if x == 0 {
@@ -1008,6 +1010,8 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 		account.AmountWithoutPendingRewards = microalgos
 		account.RewardBase = new(uint64)
 		*account.RewardBase = rewardsbase
+		// default to Offline in there have been no keyreg transactions.
+		account.Status = statusStrings[offlineStatusIdx]
 		if keytype != nil && *keytype != "" {
 			account.Type = keytype
 		}
@@ -1406,14 +1410,14 @@ func (db *PostgresIndexerDb) AssetBalances(ctx context.Context, abq AssetBalance
 		whereArgs = append(whereArgs, abq.AssetId)
 		partNumber++
 	}
-	if abq.MinAmount != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("aa.amount >= $%d", partNumber))
-		whereArgs = append(whereArgs, abq.MinAmount)
+	if abq.AmountGT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.amount > $%d", partNumber))
+		whereArgs = append(whereArgs, abq.AmountGT)
 		partNumber++
 	}
-	if abq.MaxAmount != 0 {
-		whereParts = append(whereParts, fmt.Sprintf("aa.amount <= $%d", partNumber))
-		whereArgs = append(whereArgs, abq.MaxAmount)
+	if abq.AmountLT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.amount < $%d", partNumber))
+		whereArgs = append(whereArgs, abq.AmountLT)
 		partNumber++
 	}
 	if len(abq.PrevAddress) != 0 {
