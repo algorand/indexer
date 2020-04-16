@@ -944,6 +944,7 @@ finish:
 const maxAccountsLimit = 1000
 
 var statusStrings = []string{"Offline", "Online", "NotParticipating"}
+const offlineStatusIdx = 0
 
 func maybeUint64(x uint64) *uint64 {
 	if x == 0 {
@@ -1009,6 +1010,8 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 		account.AmountWithoutPendingRewards = microalgos
 		account.RewardBase = new(uint64)
 		*account.RewardBase = rewardsbase
+		// default to Offline in there have been no keyreg transactions.
+		account.Status = statusStrings[offlineStatusIdx]
 		if keytype != nil && *keytype != "" {
 			account.Type = keytype
 		}
