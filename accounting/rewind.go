@@ -110,6 +110,9 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			if addr == stxn.Txn.AssetReceiver {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), 0, stxn.Txn.AssetAmount)
 			}
+			if addr == stxn.Txn.AssetCloseTo {
+				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), 0, txnrow.Extra.AssetCloseAmount)
+			}
 		case atypes.AssetFreezeTx:
 		default:
 			panic("unknown txn type")
