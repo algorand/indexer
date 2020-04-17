@@ -1321,13 +1321,13 @@ func (db *PostgresIndexerDb) Assets(ctx context.Context, filter AssetsQuery) <-c
 		partNumber++
 	}
 	if filter.Name != "" {
-		whereParts = append(whereParts, fmt.Sprintf("a.params ->> 'an' = $%d", partNumber))
-		whereArgs = append(whereArgs, filter.Name)
+		whereParts = append(whereParts, fmt.Sprintf("a.params ->> 'an' ILIKE $%d", partNumber))
+		whereArgs = append(whereArgs, "%" + filter.Name + "%")
 		partNumber++
 	}
 	if filter.Unit != "" {
-		whereParts = append(whereParts, fmt.Sprintf("a.params ->> 'un' = $%d", partNumber))
-		whereArgs = append(whereArgs, filter.Unit)
+		whereParts = append(whereParts, fmt.Sprintf("a.params ->> 'un' ILIKE $%d", partNumber))
+		whereArgs = append(whereArgs, "%" + filter.Unit + "%")
 		partNumber++
 	}
 	if filter.Query != "" {

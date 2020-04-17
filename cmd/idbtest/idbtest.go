@@ -88,7 +88,7 @@ func printAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 func doAssetQueryTests(db idb.IndexerDb) {
 	printAssetQuery(db, idb.AssetsQuery{Query: "us", Limit: 9})
 	printAssetQuery(db, idb.AssetsQuery{Name: "Tether USDt", Limit: 1})
-	printAssetQuery(db, idb.AssetsQuery{Unit: "USDt", Limit: 1})
+	printAssetQuery(db, idb.AssetsQuery{Unit: "USDt", Limit: 2})
 	printAssetQuery(db, idb.AssetsQuery{AssetId: 312769, Limit: 1})
 	printAssetQuery(db, idb.AssetsQuery{AssetIdGreaterThan: 312769, Query: "us", Limit: 2})
 	tcreator, err := atypes.DecodeAddress("XIU7HGGAJ3QOTATPDSIIHPFVKMICXKHMOR2FJKHTVLII4FAOA3CYZQDLG4")
