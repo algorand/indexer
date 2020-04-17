@@ -1283,6 +1283,7 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	if opts.IncludeAssetHoldings || opts.IncludeAssetParams {
 		query += " GROUP BY 1,2,3,4"
 	}
+	query += " ORDER BY a.addr ASC"
 	if opts.Limit != 0 && opts.HasAssetId == 0 {
 		// sql limit gets disabled when we filter client side
 		query += fmt.Sprintf(" LIMIT %d", opts.Limit)
