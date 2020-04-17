@@ -18,8 +18,6 @@ package accounting
 
 import (
 	"context"
-	"math"
-
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
 	models "github.com/algorand/indexer/api/generated"
@@ -58,7 +56,6 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 	}
 	tf := idb.TransactionFilter{
 		Address:     addr[:],
-		AddressRole: math.MaxUint64, // All the addresses, even ones we haven't thought of yet.
 		MinRound:    round + 1,
 		MaxRound:    account.Round,
 	}
@@ -107,13 +104,13 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			}
 		case atypes.AssetTransferTx:
 			if addr == stxn.Txn.AssetSender || addr == stxn.Txn.Sender {
-				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetAmount, 0)
+				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetAmount+txnrow.Extra.AssetCloseAmount, 0)
 			}
 			if addr == stxn.Txn.AssetReceiver {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), 0, stxn.Txn.AssetAmount)
 			}
 			if addr == stxn.Txn.AssetCloseTo {
-				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), txnrow.Extra.AssetCloseAmount, 0)
+				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), 0, txnrow.Extra.AssetCloseAmount)
 			}
 		case atypes.AssetFreezeTx:
 		default:
