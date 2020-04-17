@@ -61,19 +61,19 @@ type Account struct {
 type AccountParticipation struct {
 
 	// \[sel\] Selection public key (if any) currently registered for this round.
-	SelectionParticipationKey *[]byte `json:"selection-participation-key,omitempty"`
+	SelectionParticipationKey []byte `json:"selection-participation-key"`
 
 	// \[voteFst\] First round for which this participation is valid.
-	VoteFirstValid *uint64 `json:"vote-first-valid,omitempty"`
+	VoteFirstValid uint64 `json:"vote-first-valid"`
 
 	// \[voteKD\] Number of subkeys in each batch of participation keys.
-	VoteKeyDilution *uint64 `json:"vote-key-dilution,omitempty"`
+	VoteKeyDilution uint64 `json:"vote-key-dilution"`
 
 	// \[voteLst\] Last round for which this participation is valid.
-	VoteLastValid *uint64 `json:"vote-last-valid,omitempty"`
+	VoteLastValid uint64 `json:"vote-last-valid"`
 
 	// \[vote\] root participation public key (if any) currently registered for this round.
-	VoteParticipationKey *[]byte `json:"vote-participation-key,omitempty"`
+	VoteParticipationKey []byte `json:"vote-participation-key"`
 }
 
 // Asset defines model for Asset.
@@ -636,10 +636,10 @@ type TransactionsResponse struct {
 	Transactions []Transaction `json:"transactions"`
 }
 
-// SearchAccountsParams defines parameters for SearchAccounts.
-type SearchAccountsParams struct {
+// SearchForAccountsParams defines parameters for SearchForAccounts.
+type SearchForAccountsParams struct {
 
-	// Include accounts holding the specified asset
+	// Asset ID
 	AssetId *uint64 `json:"asset-id,omitempty"`
 
 	// Maximum number of results to return.
