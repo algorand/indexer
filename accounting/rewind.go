@@ -56,9 +56,9 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		return
 	}
 	tf := idb.TransactionFilter{
-		Address:     addr[:],
-		MinRound:    round + 1,
-		MaxRound:    account.Round,
+		Address:  addr[:],
+		MinRound: round + 1,
+		MaxRound: account.Round,
 	}
 	txns := db.Transactions(context.Background(), tf)
 	txcount := 0
