@@ -243,6 +243,12 @@ type BlockUpgradeVote struct {
 	UpgradePropose *string `json:"upgrade-propose,omitempty"`
 }
 
+// ErrorResponse defines model for ErrorResponse.
+type ErrorResponse struct {
+	Data    *string `json:"data,omitempty"`
+	Message string  `json:"message"`
+}
+
 // MiniAssetHolding defines model for MiniAssetHolding.
 type MiniAssetHolding struct {
 	Address  string `json:"address"`
@@ -619,12 +625,6 @@ type AssetsResponse struct {
 
 // BlockResponse defines model for BlockResponse.
 type BlockResponse Block
-
-// ErrorResponse defines model for ErrorResponse.
-type ErrorResponse struct {
-	Data    *string `json:"data,omitempty"`
-	Message string  `json:"message"`
-}
 
 // TransactionsResponse defines model for TransactionsResponse.
 type TransactionsResponse struct {

@@ -821,6 +821,21 @@
         }
       }
     },
+    "ErrorResponse": {
+      "description": "An error response with optional data field.",
+      "type": "object",
+      "required": [
+        "message"
+      ],
+      "properties": {
+        "data": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
     "MiniAssetHolding": {
       "description": "A simplified version of AssetHolding ",
       "type": "object",
@@ -1441,23 +1456,6 @@
       "description": "(empty)",
       "schema": {
         "$ref": "#/definitions/Block"
-      }
-    },
-    "ErrorResponse": {
-      "description": "An error response with optional data field.",
-      "schema": {
-        "type": "object",
-        "required": [
-          "message"
-        ],
-        "properties": {
-          "data": {
-            "type": "string"
-          },
-          "message": {
-            "type": "string"
-          }
-        }
       }
     },
     "TransactionsResponse": {
