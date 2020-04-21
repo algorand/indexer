@@ -269,9 +269,9 @@ type AssetsQuery struct {
 
 	Creator []byte
 
-	// Name checks for exact match for asset name
+	// Name is a case insensitive substring comparison of the asset name
 	Name string
-	// Unit checks for exact match of unit name
+	// Unit is a case insensitive substring comparison of the asset unit
 	Unit string
 	// Query checks for fuzzy match against either asset name or unit name
 	// (assetname ILIKE '%?%' OR unitname ILIKE '%?%')
