@@ -27,7 +27,9 @@ type Account struct {
 	// \[apar\] parameters of assets created by this account.
 	//
 	// Note: the raw account uses `map[int] -> Asset` for this type.
-	CreatedAssets *[]Asset              `json:"created-assets,omitempty"`
+	CreatedAssets *[]Asset `json:"created-assets,omitempty"`
+
+	// AccountParticipation describes the parameters used by this account in consensus protocol.
 	Participation *AccountParticipation `json:"participation,omitempty"`
 
 	// amount of MicroAlgos of pending rewards in this account.
@@ -78,7 +80,14 @@ type AccountParticipation struct {
 type Asset struct {
 
 	// unique asset identifier
-	Index  uint64      `json:"index"`
+	Index uint64 `json:"index"`
+
+	// AssetParams specifies the parameters for an asset.
+	//
+	// \[apar\] when part of an AssetConfig transaction.
+	//
+	// Definition:
+	// data/transactions/asset.go : AssetParams
 	Params AssetParams `json:"params"`
 }
 
@@ -148,8 +157,10 @@ type Block struct {
 	GenesisId string `json:"genesis-id"`
 
 	// \[prev\] Previous block hash.
-	PreviousBlockHash []byte        `json:"previous-block-hash"`
-	Rewards           *BlockRewards `json:"rewards,omitempty"`
+	PreviousBlockHash []byte `json:"previous-block-hash"`
+
+	// Fields relating to rewards,
+	Rewards *BlockRewards `json:"rewards,omitempty"`
 
 	// \[rnd\] Current round on which this block was appended to the chain.
 	Round uint64 `json:"round"`
@@ -169,9 +180,13 @@ type Block struct {
 	// \[tc\] TxnCounter counts the number of transactions committed in the ledger, from the time at which support for this feature was introduced.
 	//
 	// Specifically, TxnCounter is the number of the next transaction that will be committed after this block.  It is 0 when no transactions have ever been committed (since TxnCounter started being supported).
-	TxnCounter   *uint64            `json:"txn-counter,omitempty"`
+	TxnCounter *uint64 `json:"txn-counter,omitempty"`
+
+	// Fields relating to a protocol upgrade.
 	UpgradeState *BlockUpgradeState `json:"upgrade-state,omitempty"`
-	UpgradeVote  *BlockUpgradeVote  `json:"upgrade-vote,omitempty"`
+
+	// Fields relating to voting for a protocol upgrade.
+	UpgradeVote *BlockUpgradeVote `json:"upgrade-vote,omitempty"`
 }
 
 // BlockRewards defines model for BlockRewards.
@@ -237,8 +252,27 @@ type MiniAssetHolding struct {
 
 // Transaction defines model for Transaction.
 type Transaction struct {
-	AssetConfigTransaction   *TransactionAssetConfig   `json:"asset-config-transaction,omitempty"`
-	AssetFreezeTransaction   *TransactionAssetFreeze   `json:"asset-freeze-transaction,omitempty"`
+
+	// Fields for asset allocation, re-configuration, and destruction.
+	//
+	//
+	// A zero value for asset-id indicates asset creation.
+	// A zero value for the params indicates asset destruction.
+	//
+	// Definition:
+	// data/transactions/asset.go : AssetConfigTxnFields
+	AssetConfigTransaction *TransactionAssetConfig `json:"asset-config-transaction,omitempty"`
+
+	// Fields for an asset freeze transaction.
+	//
+	// Definition:
+	// data/transactions/asset.go : AssetFreezeTxnFields
+	AssetFreezeTransaction *TransactionAssetFreeze `json:"asset-freeze-transaction,omitempty"`
+
+	// Fields for an asset transfer transaction.
+	//
+	// Definition:
+	// data/transactions/asset.go : AssetTransferTxnFields
 	AssetTransferTransaction *TransactionAssetTransfer `json:"asset-transfer-transaction,omitempty"`
 
 	// \[rc\] rewards applied to close-remainder-to account.
@@ -272,7 +306,12 @@ type Transaction struct {
 	Id string `json:"id"`
 
 	// Offset into the round where this transaction was confirmed.
-	IntraRoundOffset  *uint64            `json:"intra-round-offset,omitempty"`
+	IntraRoundOffset *uint64 `json:"intra-round-offset,omitempty"`
+
+	// Fields for a keyreg transaction.
+	//
+	// Definition:
+	// data/transactions/keyreg.go : KeyregTxnFields
 	KeyregTransaction *TransactionKeyreg `json:"keyreg-transaction,omitempty"`
 
 	// \[lv\] Last valid round for this transaction.
@@ -282,7 +321,12 @@ type Transaction struct {
 	Lease *[]byte `json:"lease,omitempty"`
 
 	// \[note\] Free form data.
-	Note               *[]byte             `json:"note,omitempty"`
+	Note *[]byte `json:"note,omitempty"`
+
+	// Fields for a payment transaction.
+	//
+	// Definition:
+	// data/transactions/payment.go : PaymentTxnFields
 	PaymentTransaction *TransactionPayment `json:"payment-transaction,omitempty"`
 
 	// \[rr\] rewards applied to receiver account.
@@ -295,8 +339,10 @@ type Transaction struct {
 	Sender string `json:"sender"`
 
 	// \[rs\] rewards applied to sender account.
-	SenderRewards *uint64              `json:"sender-rewards,omitempty"`
-	Signature     TransactionSignature `json:"signature"`
+	SenderRewards *uint64 `json:"sender-rewards,omitempty"`
+
+	// Validation signature associated with some data. Only one of the signatures should be provided.
+	Signature TransactionSignature `json:"signature"`
 
 	// \[type\] Indicates what type of transaction this is. Different types have different fields.
 	//
@@ -313,8 +359,15 @@ type Transaction struct {
 type TransactionAssetConfig struct {
 
 	// \[xaid\] ID of the asset being configured or empty if creating.
-	AssetId *uint64      `json:"asset-id,omitempty"`
-	Params  *AssetParams `json:"params,omitempty"`
+	AssetId *uint64 `json:"asset-id,omitempty"`
+
+	// AssetParams specifies the parameters for an asset.
+	//
+	// \[apar\] when part of an AssetConfig transaction.
+	//
+	// Definition:
+	// data/transactions/asset.go : AssetParams
+	Params *AssetParams `json:"params,omitempty"`
 }
 
 // TransactionAssetFreeze defines model for TransactionAssetFreeze.
@@ -392,7 +445,17 @@ type TransactionPayment struct {
 
 // TransactionSignature defines model for TransactionSignature.
 type TransactionSignature struct {
+
+	// \[lsig\] Programatic transaction signature.
+	//
+	// Definition:
+	// data/transactions/logicsig.go
 	Logicsig *TransactionSignatureLogicsig `json:"logicsig,omitempty"`
+
+	// \[msig\] structure holding multiple subsignatures.
+	//
+	// Definition:
+	// crypto/multisig.go : MultisigSig
 	Multisig *TransactionSignatureMultisig `json:"multisig,omitempty"`
 
 	// \[sig\] Standard ed25519 signature.
@@ -406,7 +469,12 @@ type TransactionSignatureLogicsig struct {
 	Args *[]string `json:"args,omitempty"`
 
 	// \[l\] Program signed by a signature or multi signature, or hashed to be the address of ana ccount. Base64 encoded TEAL program.
-	Logic             []byte                        `json:"logic"`
+	Logic []byte `json:"logic"`
+
+	// \[msig\] structure holding multiple subsignatures.
+	//
+	// Definition:
+	// crypto/multisig.go : MultisigSig
 	MultisigSignature *TransactionSignatureMultisig `json:"multisig-signature,omitempty"`
 
 	// \[sig\] ed25519 signature.
@@ -495,6 +563,11 @@ type TxType string
 
 // AccountResponse defines model for AccountResponse.
 type AccountResponse struct {
+
+	// Account information at a given round.
+	//
+	// Definition:
+	// data/basics/userBalance.go : AccountData
 	Account Account `json:"account"`
 
 	// Round at which the results were computed.
@@ -525,6 +598,8 @@ type AssetBalancesResponse struct {
 
 // AssetResponse defines model for AssetResponse.
 type AssetResponse struct {
+
+	// Specifies both the unique identifier and the parameters for an asset
 	Asset Asset `json:"asset"`
 
 	// Round at which the results were computed.

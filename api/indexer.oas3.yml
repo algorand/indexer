@@ -1,0 +1,2182 @@
+{
+   "components" : {
+      "responses" : {
+         "AccountResponse" : {
+            "description" : "(empty)",
+            "content" : {
+               "application/json" : {
+                  "schema" : {
+                     "properties" : {
+                        "current-round" : {
+                           "description" : "Round at which the results were computed.",
+                           "type" : "integer"
+                        },
+                        "account" : {
+                           "$ref" : "#/components/schemas/Account"
+                        }
+                     },
+                     "required" : [
+                        "account",
+                        "current-round"
+                     ],
+                     "type" : "object"
+                  }
+               }
+            }
+         },
+         "TransactionsResponse" : {
+            "content" : {
+               "application/json" : {
+                  "schema" : {
+                     "type" : "object",
+                     "properties" : {
+                        "transactions" : {
+                           "type" : "array",
+                           "items" : {
+                              "$ref" : "#/components/schemas/Transaction"
+                           }
+                        },
+                        "next-token" : {
+                           "description" : "Used for pagination, when making another request provide this token with the next parameter.",
+                           "type" : "string"
+                        },
+                        "current-round" : {
+                           "type" : "integer",
+                           "description" : "Round at which the results were computed."
+                        }
+                     },
+                     "required" : [
+                        "current-round",
+                        "transactions"
+                     ]
+                  }
+               }
+            },
+            "description" : "(empty)"
+         },
+         "AssetsResponse" : {
+            "content" : {
+               "application/json" : {
+                  "schema" : {
+                     "type" : "object",
+                     "properties" : {
+                        "assets" : {
+                           "items" : {
+                              "$ref" : "#/components/schemas/Asset"
+                           },
+                           "type" : "array"
+                        },
+                        "current-round" : {
+                           "type" : "integer",
+                           "description" : "Round at which the results were computed."
+                        },
+                        "next-token" : {
+                           "type" : "string",
+                           "description" : "Used for pagination, when making another request provide this token with the next parameter."
+                        }
+                     },
+                     "required" : [
+                        "assets",
+                        "current-round"
+                     ]
+                  }
+               }
+            },
+            "description" : "(empty)"
+         },
+         "AssetResponse" : {
+            "content" : {
+               "application/json" : {
+                  "schema" : {
+                     "properties" : {
+                        "asset" : {
+                           "$ref" : "#/components/schemas/Asset"
+                        },
+                        "current-round" : {
+                           "description" : "Round at which the results were computed.",
+                           "type" : "integer"
+                        }
+                     },
+                     "required" : [
+                        "asset",
+                        "current-round"
+                     ],
+                     "type" : "object"
+                  }
+               }
+            },
+            "description" : "(empty)"
+         },
+         "AccountsResponse" : {
+            "description" : "(empty)",
+            "content" : {
+               "application/json" : {
+                  "schema" : {
+                     "required" : [
+                        "accounts",
+                        "current-round"
+                     ],
+                     "properties" : {
+                        "current-round" : {
+                           "type" : "integer",
+                           "description" : "Round at which the results were computed."
+                        },
+                        "next-token" : {
+                           "type" : "string",
+                           "description" : "Used for pagination, when making another request provide this token with the next parameter."
+                        },
+                        "accounts" : {
+                           "type" : "array",
+                           "items" : {
+                              "$ref" : "#/components/schemas/Account"
+                           }
+                        }
+                     },
+                     "type" : "object"
+                  }
+               }
+            }
+         },
+         "AssetBalancesResponse" : {
+            "content" : {
+               "application/json" : {
+                  "schema" : {
+                     "type" : "object",
+                     "properties" : {
+                        "next-token" : {
+                           "type" : "string",
+                           "description" : "Used for pagination, when making another request provide this token with the next parameter."
+                        },
+                        "current-round" : {
+                           "type" : "integer",
+                           "description" : "Round at which the results were computed."
+                        },
+                        "balances" : {
+                           "type" : "array",
+                           "items" : {
+                              "$ref" : "#/components/schemas/MiniAssetHolding"
+                           }
+                        }
+                     },
+                     "required" : [
+                        "balances",
+                        "current-round"
+                     ]
+                  }
+               }
+            },
+            "description" : "(empty)"
+         },
+         "BlockResponse" : {
+            "description" : "(empty)",
+            "content" : {
+               "application/json" : {
+                  "schema" : {
+                     "$ref" : "#/components/schemas/Block"
+                  }
+               }
+            }
+         },
+         "ErrorResponse" : {
+            "content" : {
+               "application/json" : {
+                  "schema" : {
+                     "properties" : {
+                        "data" : {
+                           "type" : "string"
+                        },
+                        "message" : {
+                           "type" : "string"
+                        }
+                     },
+                     "required" : [
+                        "message"
+                     ],
+                     "type" : "object"
+                  }
+               }
+            },
+            "description" : "An error response with optional data field."
+         }
+      },
+      "parameters" : {
+         "address" : {
+            "x-algorand-format" : "RFC3339 String",
+            "in" : "query",
+            "description" : "Only include transactions with this address in one of the transaction fields.",
+            "name" : "address",
+            "schema" : {
+               "type" : "string",
+               "x-algorand-format" : "RFC3339 String"
+            }
+         },
+         "asset-id" : {
+            "schema" : {
+               "type" : "integer",
+               "x-go-name" : "AssetID"
+            },
+            "x-go-name" : "AssetID",
+            "description" : "Asset ID",
+            "name" : "asset-id",
+            "in" : "query"
+         },
+         "address-role" : {
+            "description" : "Combine with the address parameter to define what type of address to search for.",
+            "name" : "address-role",
+            "in" : "query",
+            "schema" : {
+               "type" : "string",
+               "enum" : [
+                  "sender",
+                  "receiver",
+                  "freeze-target"
+               ]
+            }
+         },
+         "sig-type" : {
+            "in" : "query",
+            "description" : "SigType filters just results using the specified type of signature:\n* sig - Standard\n* msig - MultiSig\n* lsig - LogicSig",
+            "name" : "sig-type",
+            "schema" : {
+               "type" : "string",
+               "enum" : [
+                  "sig",
+                  "msig",
+                  "lsig"
+               ]
+            }
+         },
+         "round" : {
+            "description" : "Include results for the specified round.",
+            "in" : "query",
+            "name" : "round",
+            "schema" : {
+               "type" : "integer"
+            }
+         },
+         "limit" : {
+            "schema" : {
+               "type" : "integer"
+            },
+            "description" : "Maximum number of results to return.",
+            "name" : "limit",
+            "in" : "query"
+         },
+         "tx-type" : {
+            "in" : "query",
+            "name" : "tx-type",
+            "schema" : {
+               "enum" : [
+                  "pay",
+                  "keyreg",
+                  "acfg",
+                  "axfer",
+                  "afrz"
+               ],
+               "type" : "string"
+            }
+         },
+         "currency-less-than" : {
+            "schema" : {
+               "type" : "integer"
+            },
+            "description" : "Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
+            "in" : "query",
+            "name" : "currency-less-than"
+         },
+         "before-time" : {
+            "x-algorand-format" : "RFC3339 String",
+            "in" : "query",
+            "description" : "Include results before the given time. Must be an RFC 3339 formatted string.",
+            "name" : "before-time",
+            "schema" : {
+               "format" : "date-time",
+               "x-algorand-format" : "RFC3339 String",
+               "type" : "string"
+            }
+         },
+         "max-round" : {
+            "name" : "max-round",
+            "description" : "Include results at or before the specified max-round.",
+            "in" : "query",
+            "schema" : {
+               "type" : "integer"
+            }
+         },
+         "min-round" : {
+            "in" : "query",
+            "description" : "Include results at or after the specified min-round.",
+            "name" : "min-round",
+            "schema" : {
+               "type" : "integer"
+            }
+         },
+         "next" : {
+            "schema" : {
+               "type" : "string"
+            },
+            "name" : "next",
+            "description" : "The next page of results. Use the next token provided by the previous results.",
+            "in" : "query"
+         },
+         "round-number" : {
+            "schema" : {
+               "type" : "integer"
+            },
+            "required" : true,
+            "in" : "path",
+            "description" : "Round number",
+            "name" : "round-number"
+         },
+         "tx-id" : {
+            "description" : "Lookup the specific transaction by ID.",
+            "x-go-name" : "TxID",
+            "x-algorand-format" : "Address",
+            "in" : "query",
+            "name" : "tx-id",
+            "schema" : {
+               "type" : "string",
+               "x-go-name" : "TxID",
+               "x-algorand-format" : "Address",
+               "format" : "byte"
+            }
+         },
+         "note-prefix" : {
+            "schema" : {
+               "format" : "byte",
+               "type" : "string"
+            },
+            "in" : "query",
+            "description" : "Specifies a prefix which must be contained in the note field.",
+            "name" : "note-prefix"
+         },
+         "account-id" : {
+            "x-go-name" : "AccountID",
+            "in" : "path",
+            "description" : "account string",
+            "name" : "account-id",
+            "required" : true,
+            "schema" : {
+               "x-go-name" : "AccountID",
+               "type" : "string"
+            }
+         },
+         "after-time" : {
+            "schema" : {
+               "type" : "string",
+               "format" : "date-time",
+               "x-algorand-format" : "RFC3339 String"
+            },
+            "name" : "after-time",
+            "x-algorand-format" : "RFC3339 String",
+            "description" : "Include results after the given time. Must be an RFC 3339 formatted string.",
+            "in" : "query"
+         },
+         "currency-greater-than" : {
+            "schema" : {
+               "type" : "integer"
+            },
+            "in" : "query",
+            "description" : "Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
+            "name" : "currency-greater-than"
+         },
+         "exclude-close-to" : {
+            "schema" : {
+               "type" : "boolean"
+            },
+            "in" : "query",
+            "description" : "Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.",
+            "name" : "exclude-close-to"
+         }
+      },
+      "schemas" : {
+         "TransactionSignatureMultisigSubsignature" : {
+            "type" : "object",
+            "properties" : {
+               "public-key" : {
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "type" : "string",
+                  "description" : "\\[pk\\]",
+                  "format" : "byte"
+               },
+               "signature" : {
+                  "format" : "byte",
+                  "description" : "\\[s\\]",
+                  "type" : "string",
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+               }
+            }
+         },
+         "TransactionPayment" : {
+            "type" : "object",
+            "properties" : {
+               "amount" : {
+                  "type" : "integer",
+                  "description" : "\\[amt\\] number of MicroAlgos intended to be transferred."
+               },
+               "close-amount" : {
+                  "type" : "integer",
+                  "description" : "Number of MicroAlgos that were sent to the close-remainder-to address when closing the sender account."
+               },
+               "receiver" : {
+                  "description" : "\\[rcv\\] receiver's address.",
+                  "type" : "string"
+               },
+               "close-remainder-to" : {
+                  "type" : "string",
+                  "description" : "\\[close\\] when set, indicates that the sending account should be closed and all remaining funds be transferred to this address."
+               }
+            },
+            "required" : [
+               "amount",
+               "receiver"
+            ],
+            "description" : "Fields for a payment transaction.\n\nDefinition:\ndata/transactions/payment.go : PaymentTxnFields"
+         },
+         "AccountParticipation" : {
+            "type" : "object",
+            "properties" : {
+               "selection-participation-key" : {
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "type" : "string",
+                  "format" : "byte",
+                  "description" : "\\[sel\\] Selection public key (if any) currently registered for this round."
+               },
+               "vote-first-valid" : {
+                  "type" : "integer",
+                  "description" : "\\[voteFst\\] First round for which this participation is valid."
+               },
+               "vote-last-valid" : {
+                  "type" : "integer",
+                  "description" : "\\[voteLst\\] Last round for which this participation is valid."
+               },
+               "vote-participation-key" : {
+                  "type" : "string",
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "format" : "byte",
+                  "description" : "\\[vote\\] root participation public key (if any) currently registered for this round."
+               },
+               "vote-key-dilution" : {
+                  "description" : "\\[voteKD\\] Number of subkeys in each batch of participation keys.",
+                  "type" : "integer"
+               }
+            },
+            "required" : [
+               "selection-participation-key",
+               "vote-first-valid",
+               "vote-key-dilution",
+               "vote-last-valid",
+               "vote-participation-key"
+            ],
+            "description" : "AccountParticipation describes the parameters used by this account in consensus protocol."
+         },
+         "AssetParams" : {
+            "description" : "AssetParams specifies the parameters for an asset.\n\n\\[apar\\] when part of an AssetConfig transaction.\n\nDefinition:\ndata/transactions/asset.go : AssetParams",
+            "type" : "object",
+            "properties" : {
+               "decimals" : {
+                  "minimum" : 0,
+                  "description" : "\\[dc\\] The number of digits to use after the decimal point when displaying this asset. If 0, the asset is not divisible. If 1, the base unit of the asset is in tenths. If 2, the base unit of the asset is in hundredths, and so on. This value must be between 0 and 19 (inclusive).",
+                  "type" : "integer",
+                  "maximum" : 19
+               },
+               "unit-name" : {
+                  "type" : "string",
+                  "description" : "\\[un\\] Name of a unit of this asset, as supplied by the creator."
+               },
+               "creator" : {
+                  "description" : "The address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.",
+                  "type" : "string"
+               },
+               "manager" : {
+                  "type" : "string",
+                  "description" : "\\[m\\] Address of account used to manage the keys of this asset and to destroy it."
+               },
+               "metadata-hash" : {
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "type" : "string",
+                  "format" : "byte",
+                  "description" : "\\[am\\] A commitment to some unspecified asset metadata. The format of this metadata is up to the application."
+               },
+               "reserve" : {
+                  "description" : "\\[r\\] Address of account holding reserve (non-minted) units of this asset.",
+                  "type" : "string"
+               },
+               "url" : {
+                  "description" : "\\[au\\] URL where more information about the asset can be retrieved.",
+                  "type" : "string"
+               },
+               "total" : {
+                  "description" : "\\[t\\] The total number of units of this asset.",
+                  "x-algorand-format" : "uint64",
+                  "type" : "integer"
+               },
+               "freeze" : {
+                  "description" : "\\[f\\] Address of account used to freeze holdings of this asset.  If empty, freezing is not permitted.",
+                  "type" : "string"
+               },
+               "clawback" : {
+                  "type" : "string",
+                  "description" : "\\[c\\] Address of account used to clawback holdings of this asset.  If empty, clawback is not permitted."
+               },
+               "name" : {
+                  "type" : "string",
+                  "description" : "\\[an\\] Name of this asset, as supplied by the creator."
+               },
+               "default-frozen" : {
+                  "type" : "boolean",
+                  "description" : "\\[df\\] Whether holdings of this asset are frozen by default."
+               }
+            },
+            "required" : [
+               "creator",
+               "decimals",
+               "total"
+            ]
+         },
+         "TransactionSignature" : {
+            "description" : "Validation signature associated with some data. Only one of the signatures should be provided.",
+            "properties" : {
+               "multisig" : {
+                  "$ref" : "#/components/schemas/TransactionSignatureMultisig"
+               },
+               "sig" : {
+                  "description" : "\\[sig\\] Standard ed25519 signature.",
+                  "format" : "byte",
+                  "type" : "string",
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+               },
+               "logicsig" : {
+                  "$ref" : "#/components/schemas/TransactionSignatureLogicsig"
+               }
+            },
+            "type" : "object"
+         },
+         "TransactionAssetConfig" : {
+            "properties" : {
+               "params" : {
+                  "$ref" : "#/components/schemas/AssetParams"
+               },
+               "asset-id" : {
+                  "description" : "\\[xaid\\] ID of the asset being configured or empty if creating.",
+                  "type" : "integer"
+               }
+            },
+            "type" : "object",
+            "description" : "Fields for asset allocation, re-configuration, and destruction.\n\n\nA zero value for asset-id indicates asset creation.\nA zero value for the params indicates asset destruction.\n\nDefinition:\ndata/transactions/asset.go : AssetConfigTxnFields"
+         },
+         "MiniAssetHolding" : {
+            "description" : "A simplified version of AssetHolding ",
+            "properties" : {
+               "is-frozen" : {
+                  "type" : "boolean"
+               },
+               "amount" : {
+                  "type" : "integer"
+               },
+               "address" : {
+                  "type" : "string"
+               }
+            },
+            "required" : [
+               "address",
+               "amount",
+               "is-frozen"
+            ],
+            "type" : "object"
+         },
+         "Account" : {
+            "description" : "Account information at a given round.\n\nDefinition:\ndata/basics/userBalance.go : AccountData\n",
+            "type" : "object",
+            "properties" : {
+               "status" : {
+                  "type" : "string",
+                  "description" : "\\[onl\\] delegation status of the account's MicroAlgos\n* Offline - indicates that the associated account is delegated.\n*  Online  - indicates that the associated account used as part of the delegation pool.\n*   NotParticipating - indicates that the associated account is neither a delegator nor a delegate."
+               },
+               "pending-rewards" : {
+                  "type" : "integer",
+                  "description" : "amount of MicroAlgos of pending rewards in this account."
+               },
+               "rewards" : {
+                  "description" : "\\[ern\\] total rewards of MicroAlgos the account has received, including pending rewards.",
+                  "type" : "integer"
+               },
+               "amount-without-pending-rewards" : {
+                  "description" : "specifies the amount of MicroAlgos in the account, without the pending rewards.",
+                  "type" : "integer"
+               },
+               "created-assets" : {
+                  "description" : "\\[apar\\] parameters of assets created by this account.\n\nNote: the raw account uses `map[int] -> Asset` for this type.",
+                  "items" : {
+                     "$ref" : "#/components/schemas/Asset"
+                  },
+                  "type" : "array"
+               },
+               "participation" : {
+                  "$ref" : "#/components/schemas/AccountParticipation"
+               },
+               "amount" : {
+                  "type" : "integer",
+                  "description" : "\\[algo\\] total number of MicroAlgos in the account"
+               },
+               "reward-base" : {
+                  "description" : "\\[ebase\\] used as part of the rewards computation. Only applicable to accounts which are participating.",
+                  "type" : "integer"
+               },
+               "type" : {
+                  "description" : "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig",
+                  "type" : "string",
+                  "enum" : [
+                     "sig",
+                     "msig",
+                     "lsig"
+                  ]
+               },
+               "round" : {
+                  "description" : "The round for which this information is relevant.",
+                  "type" : "integer"
+               },
+               "assets" : {
+                  "type" : "array",
+                  "items" : {
+                     "$ref" : "#/components/schemas/AssetHolding"
+                  },
+                  "description" : "\\[asset\\] assets held by this account.\n\nNote the raw object uses `map[int] -> AssetHolding` for this type."
+               },
+               "address" : {
+                  "type" : "string",
+                  "description" : "the account public key"
+               }
+            },
+            "required" : [
+               "address",
+               "amount",
+               "amount-without-pending-rewards",
+               "pending-rewards",
+               "rewards",
+               "round",
+               "status"
+            ]
+         },
+         "TransactionKeyreg" : {
+            "description" : "Fields for a keyreg transaction.\n\nDefinition:\ndata/transactions/keyreg.go : KeyregTxnFields",
+            "type" : "object",
+            "properties" : {
+               "vote-participation-key" : {
+                  "format" : "byte",
+                  "description" : "\\[votekey\\] Participation public key used in key registration transactions.",
+                  "type" : "string",
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+               },
+               "vote-last-valid" : {
+                  "description" : "\\[votelst\\] Last round this participation key is valid.",
+                  "type" : "integer"
+               },
+               "vote-key-dilution" : {
+                  "description" : "\\[votekd\\] Number of subkeys in each batch of participation keys.",
+                  "type" : "integer"
+               },
+               "non-participation" : {
+                  "type" : "boolean",
+                  "description" : "\\[nonpart\\] Mark the account as participating or non-participating."
+               },
+               "vote-first-valid" : {
+                  "type" : "integer",
+                  "description" : "\\[votefst\\] First round this participation key is valid."
+               },
+               "selection-participation-key" : {
+                  "type" : "string",
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "format" : "byte",
+                  "description" : "\\[selkey\\] Public key used with the Verified Random Function (VRF) result during committee selection."
+               }
+            }
+         },
+         "TransactionAssetTransfer" : {
+            "description" : "Fields for an asset transfer transaction.\n\nDefinition:\ndata/transactions/asset.go : AssetTransferTxnFields",
+            "required" : [
+               "amount",
+               "asset-id",
+               "receiver"
+            ],
+            "properties" : {
+               "amount" : {
+                  "type" : "integer",
+                  "description" : "\\[aamt\\] Amount of asset to transfer. A zero amount transferred to self allocates that asset in the account's Assets map."
+               },
+               "sender" : {
+                  "type" : "string",
+                  "description" : "\\[asnd\\] The effective sender during a clawback transactions. If this is not a zero value, the real transaction sender must be the Clawback address from the AssetParams."
+               },
+               "close-amount" : {
+                  "type" : "integer",
+                  "description" : "Number of assets transfered to the close-to account as part of the transaction."
+               },
+               "receiver" : {
+                  "description" : "\\[arcv\\] Recipient address of the transfer.",
+                  "type" : "string"
+               },
+               "close-to" : {
+                  "type" : "string",
+                  "description" : "\\[aclose\\] Indicates that the asset should be removed from the account's Assets map, and specifies where the remaining asset holdings should be transferred.  It's always valid to transfer remaining asset holdings to the creator account."
+               },
+               "asset-id" : {
+                  "type" : "integer",
+                  "description" : "\\[xaid\\] ID of the asset being transferred."
+               }
+            },
+            "type" : "object"
+         },
+         "BlockRewards" : {
+            "description" : "Fields relating to rewards,",
+            "type" : "object",
+            "properties" : {
+               "fee-sink" : {
+                  "type" : "string",
+                  "description" : "\\[fees\\] accepts transaction fees, it can only spend to the incentive pool."
+               },
+               "rewards-calculation-round" : {
+                  "description" : "\\[rwcalr\\] number of leftover MicroAlgos after the distribution of rewards-rate MicroAlgos for every reward unit in the next round.",
+                  "type" : "integer"
+               },
+               "rewards-level" : {
+                  "type" : "integer",
+                  "description" : "\\[earn\\] How many rewards, in MicroAlgos, have been distributed to each RewardUnit of MicroAlgos since genesis."
+               },
+               "rewards-pool" : {
+                  "description" : "\\[rwd\\] accepts periodic injections from the fee-sink and continually redistributes them as rewards.",
+                  "type" : "string"
+               },
+               "rewards-rate" : {
+                  "description" : "\\[rate\\] Number of new MicroAlgos added to the participation stake from rewards at the next round.",
+                  "type" : "integer"
+               },
+               "rewards-residue" : {
+                  "description" : "\\[frac\\] Number of leftover MicroAlgos after the distribution of RewardsRate/rewardUnits MicroAlgos for every reward unit in the next round.",
+                  "type" : "integer"
+               }
+            },
+            "required" : [
+               "fee-sink",
+               "rewards-calculation-round",
+               "rewards-level",
+               "rewards-pool",
+               "rewards-rate",
+               "rewards-residue"
+            ]
+         },
+         "Asset" : {
+            "type" : "object",
+            "required" : [
+               "index",
+               "params"
+            ],
+            "properties" : {
+               "params" : {
+                  "$ref" : "#/components/schemas/AssetParams"
+               },
+               "index" : {
+                  "description" : "unique asset identifier",
+                  "type" : "integer"
+               }
+            },
+            "description" : "Specifies both the unique identifier and the parameters for an asset"
+         },
+         "BlockUpgradeState" : {
+            "required" : [
+               "current-protocol"
+            ],
+            "properties" : {
+               "next-protocol" : {
+                  "type" : "string",
+                  "description" : "\\[nextproto\\] The next proposed protocol version."
+               },
+               "next-protocol-switch-on" : {
+                  "type" : "integer",
+                  "description" : "\\[nextswitch\\] Round on which the protocol upgrade will take effect."
+               },
+               "next-protocol-vote-before" : {
+                  "description" : "\\[nextbefore\\] Deadline round for this protocol upgrade (No votes will be consider after this round).",
+                  "type" : "integer"
+               },
+               "next-protocol-approvals" : {
+                  "type" : "integer",
+                  "description" : "\\[nextyes\\] Number of blocks which approved the protocol upgrade."
+               },
+               "current-protocol" : {
+                  "type" : "string",
+                  "description" : "\\[proto\\] The current protocol version."
+               }
+            },
+            "type" : "object",
+            "description" : "Fields relating to a protocol upgrade."
+         },
+         "TransactionAssetFreeze" : {
+            "description" : "Fields for an asset freeze transaction.\n\nDefinition:\ndata/transactions/asset.go : AssetFreezeTxnFields",
+            "properties" : {
+               "new-freeze-status" : {
+                  "type" : "boolean",
+                  "description" : "\\[afrz\\] The new freeze status."
+               },
+               "asset-id" : {
+                  "type" : "integer",
+                  "description" : "\\[faid\\] ID of the asset being frozen or thawed."
+               },
+               "address" : {
+                  "type" : "string",
+                  "description" : "\\[fadd\\] Address of the account whose asset is being frozen or thawed."
+               }
+            },
+            "required" : [
+               "address",
+               "asset-id",
+               "new-freeze-status"
+            ],
+            "type" : "object"
+         },
+         "BlockUpgradeVote" : {
+            "properties" : {
+               "upgrade-delay" : {
+                  "description" : "\\[upgradedelay\\] Indicates the time between acceptance and execution.",
+                  "type" : "integer"
+               },
+               "upgrade-approve" : {
+                  "description" : "\\[upgradeyes\\] Indicates a yes vote for the current proposal.",
+                  "type" : "boolean"
+               },
+               "upgrade-propose" : {
+                  "type" : "string",
+                  "description" : "\\[upgradeprop\\] Indicates a proposed upgrade."
+               }
+            },
+            "type" : "object",
+            "description" : "Fields relating to voting for a protocol upgrade."
+         },
+         "AssetHolding" : {
+            "description" : "Describes an asset held by an account.\n\nDefinition:\ndata/basics/userBalance.go : AssetHolding",
+            "required" : [
+               "amount",
+               "asset-id",
+               "creator",
+               "is-frozen"
+            ],
+            "properties" : {
+               "asset-id" : {
+                  "description" : "Asset ID of the holding.",
+                  "x-go-name" : "AssetID",
+                  "type" : "integer"
+               },
+               "is-frozen" : {
+                  "description" : "\\[f\\] whether or not the holding is frozen.",
+                  "type" : "boolean"
+               },
+               "creator" : {
+                  "description" : "Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.",
+                  "type" : "string"
+               },
+               "amount" : {
+                  "description" : "\\[a\\] number of units held.",
+                  "type" : "integer"
+               }
+            },
+            "type" : "object"
+         },
+         "TransactionSignatureLogicsig" : {
+            "description" : "\\[lsig\\] Programatic transaction signature.\n\nDefinition:\ndata/transactions/logicsig.go",
+            "required" : [
+               "logic"
+            ],
+            "properties" : {
+               "multisig-signature" : {
+                  "$ref" : "#/components/schemas/TransactionSignatureMultisig"
+               },
+               "args" : {
+                  "type" : "array",
+                  "items" : {
+                     "type" : "string"
+                  },
+                  "description" : "\\[arg\\] Logic arguments, base64 encoded."
+               },
+               "logic" : {
+                  "format" : "byte",
+                  "description" : "\\[l\\] Program signed by a signature or multi signature, or hashed to be the address of ana ccount. Base64 encoded TEAL program.",
+                  "type" : "string",
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+               },
+               "signature" : {
+                  "description" : "\\[sig\\] ed25519 signature.",
+                  "format" : "byte",
+                  "type" : "string",
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+               }
+            },
+            "type" : "object"
+         },
+         "TransactionSignatureMultisig" : {
+            "description" : "\\[msig\\] structure holding multiple subsignatures.\n\nDefinition:\ncrypto/multisig.go : MultisigSig",
+            "type" : "object",
+            "properties" : {
+               "version" : {
+                  "type" : "integer",
+                  "description" : "\\[v\\]"
+               },
+               "subsignature" : {
+                  "items" : {
+                     "$ref" : "#/components/schemas/TransactionSignatureMultisigSubsignature"
+                  },
+                  "description" : "\\[subsig\\] holds pairs of public key and signatures.",
+                  "type" : "array"
+               },
+               "threshold" : {
+                  "description" : "\\[thr\\]",
+                  "type" : "integer"
+               }
+            }
+         },
+         "Transaction" : {
+            "description" : "Contains all fields common to all transactions and serves as an envelope to all transactions type.\n\nDefinition:\ndata/transactions/signedtxn.go : SignedTxn\ndata/transactions/transaction.go : Transaction\n",
+            "type" : "object",
+            "required" : [
+               "fee",
+               "first-valid",
+               "id",
+               "last-valid",
+               "sender",
+               "signature",
+               "type"
+            ],
+            "properties" : {
+               "genesis-hash" : {
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "type" : "string",
+                  "description" : "\\[gh\\] Hash of genesis block.",
+                  "format" : "byte"
+               },
+               "asset-freeze-transaction" : {
+                  "$ref" : "#/components/schemas/TransactionAssetFreeze"
+               },
+               "genesis-id" : {
+                  "description" : "\\[gen\\] genesis block ID.",
+                  "type" : "string"
+               },
+               "signature" : {
+                  "$ref" : "#/components/schemas/TransactionSignature"
+               },
+               "id" : {
+                  "type" : "string",
+                  "description" : "Transaction ID"
+               },
+               "close-rewards" : {
+                  "type" : "integer",
+                  "description" : "\\[rc\\] rewards applied to close-remainder-to account."
+               },
+               "closing-amount" : {
+                  "description" : "\\[ca\\] closing amount for transaction.",
+                  "type" : "integer"
+               },
+               "asset-config-transaction" : {
+                  "$ref" : "#/components/schemas/TransactionAssetConfig"
+               },
+               "created-asset-index" : {
+                  "description" : "Specifies an asset index (ID) if an asset was created with this transaction.",
+                  "type" : "integer"
+               },
+               "keyreg-transaction" : {
+                  "$ref" : "#/components/schemas/TransactionKeyreg"
+               },
+               "confirmed-round" : {
+                  "description" : "Round when the transaction was confirmed.",
+                  "type" : "integer"
+               },
+               "asset-transfer-transaction" : {
+                  "$ref" : "#/components/schemas/TransactionAssetTransfer"
+               },
+               "first-valid" : {
+                  "type" : "integer",
+                  "description" : "\\[fv\\] First valid round for this transaction."
+               },
+               "note" : {
+                  "description" : "\\[note\\] Free form data.",
+                  "format" : "byte",
+                  "type" : "string",
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+               },
+               "lease" : {
+                  "description" : "\\[lx\\] Base64 encoded 32-byte array. Lease enforces mutual exclusion of transactions.  If this field is nonzero, then once the transaction is confirmed, it acquires the lease identified by the (Sender, Lease) pair of the transaction until the LastValid round passes.  While this transaction possesses the lease, no other transaction specifying this lease can be confirmed.",
+                  "format" : "byte",
+                  "type" : "string",
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+               },
+               "payment-transaction" : {
+                  "$ref" : "#/components/schemas/TransactionPayment"
+               },
+               "type" : {
+                  "x-algorand-format" : "tx-type-enum",
+                  "description" : "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction",
+                  "enum" : [
+                     "pay",
+                     "keyreg",
+                     "acfg",
+                     "axfer",
+                     "afrz"
+                  ],
+                  "type" : "string"
+               },
+               "sender-rewards" : {
+                  "type" : "integer",
+                  "description" : "\\[rs\\] rewards applied to sender account."
+               },
+               "sender" : {
+                  "description" : "\\[snd\\] Sender's address.",
+                  "type" : "string"
+               },
+               "fee" : {
+                  "type" : "integer",
+                  "description" : "\\[fee\\] Transaction fee."
+               },
+               "last-valid" : {
+                  "type" : "integer",
+                  "description" : "\\[lv\\] Last valid round for this transaction."
+               },
+               "round-time" : {
+                  "description" : "Time when the block this transaction is in was confirmed.",
+                  "type" : "integer"
+               },
+               "group" : {
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "type" : "string",
+                  "description" : "\\[grp\\] Base64 encoded byte array of a sha512/256 digest. When present indicates that this transaction is part of a transaction group and the value is the sha512/256 hash of the transactions in that group.",
+                  "format" : "byte"
+               },
+               "intra-round-offset" : {
+                  "description" : "Offset into the round where this transaction was confirmed.",
+                  "type" : "integer"
+               },
+               "receiver-rewards" : {
+                  "description" : "\\[rr\\] rewards applied to receiver account.",
+                  "type" : "integer"
+               }
+            }
+         },
+         "Block" : {
+            "description" : "Block information.\n\nDefinition:\ndata/bookkeeping/block.go : Block",
+            "type" : "object",
+            "properties" : {
+               "upgrade-vote" : {
+                  "$ref" : "#/components/schemas/BlockUpgradeVote"
+               },
+               "txn-counter" : {
+                  "description" : "\\[tc\\] TxnCounter counts the number of transactions committed in the ledger, from the time at which support for this feature was introduced.\n\nSpecifically, TxnCounter is the number of the next transaction that will be committed after this block.  It is 0 when no transactions have ever been committed (since TxnCounter started being supported).",
+                  "type" : "integer"
+               },
+               "rewards" : {
+                  "$ref" : "#/components/schemas/BlockRewards"
+               },
+               "transactions" : {
+                  "type" : "array",
+                  "description" : "\\[txns\\] list of transactions corresponding to a given round.",
+                  "items" : {
+                     "$ref" : "#/components/schemas/Transaction"
+                  }
+               },
+               "seed" : {
+                  "description" : "\\[seed\\] Sortition seed.",
+                  "format" : "byte",
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "type" : "string"
+               },
+               "transactions-root" : {
+                  "type" : "string",
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "format" : "byte",
+                  "description" : "\\[txn\\] TransactionsRoot authenticates the set of transactions appearing in the block. More specifically, it's the root of a merkle tree whose leaves are the block's Txids, in lexicographic order. For the empty block, it's 0. Note that the TxnRoot does not authenticate the signatures on the transactions, only the transactions themselves. Two blocks with the same transactions but in a different order and with different signatures will have the same TxnRoot."
+               },
+               "timestamp" : {
+                  "type" : "integer",
+                  "description" : "\\[ts\\] Block creation timestamp in seconds since eposh"
+               },
+               "genesis-id" : {
+                  "description" : "\\[gen\\] ID to which this block belongs.",
+                  "type" : "string"
+               },
+               "upgrade-state" : {
+                  "$ref" : "#/components/schemas/BlockUpgradeState"
+               },
+               "round" : {
+                  "description" : "\\[rnd\\] Current round on which this block was appended to the chain.",
+                  "type" : "integer"
+               },
+               "previous-block-hash" : {
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "type" : "string",
+                  "format" : "byte",
+                  "description" : "\\[prev\\] Previous block hash."
+               },
+               "genesis-hash" : {
+                  "type" : "string",
+                  "pattern" : "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+                  "description" : "\\[gh\\] hash to which this block belongs.",
+                  "format" : "byte"
+               }
+            },
+            "required" : [
+               "genesis-hash",
+               "genesis-id",
+               "previous-block-hash",
+               "round",
+               "seed",
+               "timestamp",
+               "transactions-root"
+            ]
+         }
+      }
+   },
+   "info" : {
+      "title" : "Indexer 2 0",
+      "contact" : {
+         "url" : "https://www.algorand.com/get-in-touch/contact",
+         "name" : "Algorand"
+      },
+      "description" : "Algorand ledger analytics API.",
+      "version" : "1.0"
+   },
+   "paths" : {
+      "/accounts/{account-id}/transactions" : {
+         "get" : {
+            "responses" : {
+               "200" : {
+                  "description" : "(empty)",
+                  "content" : {
+                     "application/json" : {
+                        "schema" : {
+                           "type" : "object",
+                           "properties" : {
+                              "transactions" : {
+                                 "type" : "array",
+                                 "items" : {
+                                    "$ref" : "#/components/schemas/Transaction"
+                                 }
+                              },
+                              "next-token" : {
+                                 "type" : "string",
+                                 "description" : "Used for pagination, when making another request provide this token with the next parameter."
+                              },
+                              "current-round" : {
+                                 "description" : "Round at which the results were computed.",
+                                 "type" : "integer"
+                              }
+                           },
+                           "required" : [
+                              "current-round",
+                              "transactions"
+                           ]
+                        }
+                     }
+                  }
+               }
+            },
+            "parameters" : [
+               {
+                  "name" : "limit",
+                  "description" : "Maximum number of results to return.",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               },
+               {
+                  "description" : "The next page of results. Use the next token provided by the previous results.",
+                  "in" : "query",
+                  "name" : "next",
+                  "schema" : {
+                     "type" : "string"
+                  }
+               },
+               {
+                  "schema" : {
+                     "type" : "string",
+                     "format" : "byte"
+                  },
+                  "description" : "Specifies a prefix which must be contained in the note field.",
+                  "in" : "query",
+                  "name" : "note-prefix"
+               },
+               {
+                  "schema" : {
+                     "type" : "string",
+                     "enum" : [
+                        "pay",
+                        "keyreg",
+                        "acfg",
+                        "axfer",
+                        "afrz"
+                     ]
+                  },
+                  "in" : "query",
+                  "name" : "tx-type"
+               },
+               {
+                  "schema" : {
+                     "type" : "string",
+                     "enum" : [
+                        "sig",
+                        "msig",
+                        "lsig"
+                     ]
+                  },
+                  "description" : "SigType filters just results using the specified type of signature:\n* sig - Standard\n* msig - MultiSig\n* lsig - LogicSig",
+                  "in" : "query",
+                  "name" : "sig-type"
+               },
+               {
+                  "schema" : {
+                     "type" : "string",
+                     "format" : "byte",
+                     "x-go-name" : "TxID",
+                     "x-algorand-format" : "Address"
+                  },
+                  "x-go-name" : "TxID",
+                  "x-algorand-format" : "Address",
+                  "name" : "tx-id",
+                  "description" : "Lookup the specific transaction by ID.",
+                  "in" : "query"
+               },
+               {
+                  "in" : "query",
+                  "description" : "Include results for the specified round.",
+                  "name" : "round",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               },
+               {
+                  "description" : "Include results at or after the specified min-round.",
+                  "in" : "query",
+                  "name" : "min-round",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               },
+               {
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "description" : "Include results at or before the specified max-round.",
+                  "in" : "query",
+                  "name" : "max-round"
+               },
+               {
+                  "schema" : {
+                     "x-go-name" : "AssetID",
+                     "type" : "integer"
+                  },
+                  "x-go-name" : "AssetID",
+                  "in" : "query",
+                  "description" : "Asset ID",
+                  "name" : "asset-id"
+               },
+               {
+                  "x-algorand-format" : "RFC3339 String",
+                  "name" : "before-time",
+                  "description" : "Include results before the given time. Must be an RFC 3339 formatted string.",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "string",
+                     "format" : "date-time",
+                     "x-algorand-format" : "RFC3339 String"
+                  }
+               },
+               {
+                  "x-algorand-format" : "RFC3339 String",
+                  "in" : "query",
+                  "description" : "Include results after the given time. Must be an RFC 3339 formatted string.",
+                  "name" : "after-time",
+                  "schema" : {
+                     "type" : "string",
+                     "format" : "date-time",
+                     "x-algorand-format" : "RFC3339 String"
+                  }
+               },
+               {
+                  "description" : "Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
+                  "name" : "currency-greater-than",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               },
+               {
+                  "description" : "Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
+                  "name" : "currency-less-than",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               },
+               {
+                  "required" : true,
+                  "schema" : {
+                     "x-go-name" : "AccountID",
+                     "type" : "string"
+                  },
+                  "in" : "path",
+                  "x-go-name" : "AccountID",
+                  "description" : "account string",
+                  "name" : "account-id"
+               }
+            ],
+            "operationId" : "lookupAccountTransactions",
+            "description" : "Lookup account transactions.",
+            "tags" : [
+               "lookup"
+            ]
+         }
+      },
+      "/assets/{asset-id}/balances" : {
+         "get" : {
+            "parameters" : [
+               {
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "name" : "limit",
+                  "description" : "Maximum number of results to return.",
+                  "in" : "query"
+               },
+               {
+                  "description" : "The next page of results. Use the next token provided by the previous results.",
+                  "name" : "next",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "string"
+                  }
+               },
+               {
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "description" : "Include results for the specified round.",
+                  "in" : "query",
+                  "name" : "round"
+               },
+               {
+                  "description" : "Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
+                  "name" : "currency-greater-than",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               },
+               {
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "name" : "currency-less-than",
+                  "description" : "Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
+                  "in" : "query"
+               },
+               {
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "required" : true,
+                  "in" : "path",
+                  "name" : "asset-id"
+               }
+            ],
+            "operationId" : "lookupAssetBalances",
+            "description" : "Lookup the list of accounts who hold this asset ",
+            "tags" : [
+               "lookup"
+            ],
+            "responses" : {
+               "200" : {
+                  "content" : {
+                     "application/json" : {
+                        "schema" : {
+                           "type" : "object",
+                           "properties" : {
+                              "next-token" : {
+                                 "description" : "Used for pagination, when making another request provide this token with the next parameter.",
+                                 "type" : "string"
+                              },
+                              "current-round" : {
+                                 "description" : "Round at which the results were computed.",
+                                 "type" : "integer"
+                              },
+                              "balances" : {
+                                 "items" : {
+                                    "$ref" : "#/components/schemas/MiniAssetHolding"
+                                 },
+                                 "type" : "array"
+                              }
+                           },
+                           "required" : [
+                              "balances",
+                              "current-round"
+                           ]
+                        }
+                     }
+                  },
+                  "description" : "(empty)"
+               }
+            }
+         }
+      },
+      "/accounts/{account-id}" : {
+         "get" : {
+            "responses" : {
+               "200" : {
+                  "description" : "(empty)",
+                  "content" : {
+                     "application/json" : {
+                        "schema" : {
+                           "type" : "object",
+                           "properties" : {
+                              "account" : {
+                                 "$ref" : "#/components/schemas/Account"
+                              },
+                              "current-round" : {
+                                 "description" : "Round at which the results were computed.",
+                                 "type" : "integer"
+                              }
+                           },
+                           "required" : [
+                              "account",
+                              "current-round"
+                           ]
+                        }
+                     }
+                  }
+               }
+            },
+            "parameters" : [
+               {
+                  "name" : "account-id",
+                  "x-go-name" : "AccountID",
+                  "description" : "account string",
+                  "in" : "path",
+                  "required" : true,
+                  "schema" : {
+                     "x-go-name" : "AccountID",
+                     "type" : "string"
+                  }
+               },
+               {
+                  "description" : "Include results for the specified round.",
+                  "in" : "query",
+                  "name" : "round",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               }
+            ],
+            "operationId" : "lookupAccountByID",
+            "description" : "Lookup account information.",
+            "tags" : [
+               "lookup"
+            ]
+         }
+      },
+      "/blocks/{round-number}" : {
+         "get" : {
+            "description" : "Lookup block.",
+            "parameters" : [
+               {
+                  "required" : true,
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "name" : "round-number",
+                  "description" : "Round number",
+                  "in" : "path"
+               }
+            ],
+            "operationId" : "lookupBlock",
+            "tags" : [
+               "lookup"
+            ],
+            "responses" : {
+               "200" : {
+                  "description" : "(empty)",
+                  "content" : {
+                     "application/json" : {
+                        "schema" : {
+                           "$ref" : "#/components/schemas/Block"
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      },
+      "/assets/{asset-id}" : {
+         "get" : {
+            "responses" : {
+               "200" : {
+                  "description" : "(empty)",
+                  "content" : {
+                     "application/json" : {
+                        "schema" : {
+                           "properties" : {
+                              "current-round" : {
+                                 "description" : "Round at which the results were computed.",
+                                 "type" : "integer"
+                              },
+                              "asset" : {
+                                 "$ref" : "#/components/schemas/Asset"
+                              }
+                           },
+                           "required" : [
+                              "asset",
+                              "current-round"
+                           ],
+                           "type" : "object"
+                        }
+                     }
+                  }
+               }
+            },
+            "tags" : [
+               "lookup"
+            ],
+            "operationId" : "lookupAssetByID",
+            "parameters" : [
+               {
+                  "required" : true,
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "in" : "path",
+                  "name" : "asset-id"
+               }
+            ],
+            "description" : "Lookup asset information."
+         }
+      },
+      "/transactions" : {
+         "get" : {
+            "parameters" : [
+               {
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "description" : "Maximum number of results to return.",
+                  "in" : "query",
+                  "name" : "limit"
+               },
+               {
+                  "description" : "The next page of results. Use the next token provided by the previous results.",
+                  "name" : "next",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "string"
+                  }
+               },
+               {
+                  "name" : "note-prefix",
+                  "description" : "Specifies a prefix which must be contained in the note field.",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "string",
+                     "format" : "byte"
+                  }
+               },
+               {
+                  "schema" : {
+                     "enum" : [
+                        "pay",
+                        "keyreg",
+                        "acfg",
+                        "axfer",
+                        "afrz"
+                     ],
+                     "type" : "string"
+                  },
+                  "name" : "tx-type",
+                  "in" : "query"
+               },
+               {
+                  "schema" : {
+                     "type" : "string",
+                     "enum" : [
+                        "sig",
+                        "msig",
+                        "lsig"
+                     ]
+                  },
+                  "description" : "SigType filters just results using the specified type of signature:\n* sig - Standard\n* msig - MultiSig\n* lsig - LogicSig",
+                  "in" : "query",
+                  "name" : "sig-type"
+               },
+               {
+                  "in" : "query",
+                  "x-go-name" : "TxID",
+                  "x-algorand-format" : "Address",
+                  "description" : "Lookup the specific transaction by ID.",
+                  "name" : "tx-id",
+                  "schema" : {
+                     "format" : "byte",
+                     "x-go-name" : "TxID",
+                     "x-algorand-format" : "Address",
+                     "type" : "string"
+                  }
+               },
+               {
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "description" : "Include results for the specified round.",
+                  "in" : "query",
+                  "name" : "round"
+               },
+               {
+                  "description" : "Include results at or after the specified min-round.",
+                  "in" : "query",
+                  "name" : "min-round",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               },
+               {
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "description" : "Include results at or before the specified max-round.",
+                  "in" : "query",
+                  "name" : "max-round"
+               },
+               {
+                  "schema" : {
+                     "x-go-name" : "AssetID",
+                     "type" : "integer"
+                  },
+                  "in" : "query",
+                  "x-go-name" : "AssetID",
+                  "description" : "Asset ID",
+                  "name" : "asset-id"
+               },
+               {
+                  "schema" : {
+                     "x-algorand-format" : "RFC3339 String",
+                     "format" : "date-time",
+                     "type" : "string"
+                  },
+                  "x-algorand-format" : "RFC3339 String",
+                  "description" : "Include results before the given time. Must be an RFC 3339 formatted string.",
+                  "in" : "query",
+                  "name" : "before-time"
+               },
+               {
+                  "x-algorand-format" : "RFC3339 String",
+                  "in" : "query",
+                  "description" : "Include results after the given time. Must be an RFC 3339 formatted string.",
+                  "name" : "after-time",
+                  "schema" : {
+                     "type" : "string",
+                     "x-algorand-format" : "RFC3339 String",
+                     "format" : "date-time"
+                  }
+               },
+               {
+                  "in" : "query",
+                  "description" : "Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
+                  "name" : "currency-greater-than",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               },
+               {
+                  "description" : "Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
+                  "name" : "currency-less-than",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               },
+               {
+                  "x-algorand-format" : "RFC3339 String",
+                  "name" : "address",
+                  "description" : "Only include transactions with this address in one of the transaction fields.",
+                  "in" : "query",
+                  "schema" : {
+                     "x-algorand-format" : "RFC3339 String",
+                     "type" : "string"
+                  }
+               },
+               {
+                  "schema" : {
+                     "enum" : [
+                        "sender",
+                        "receiver",
+                        "freeze-target"
+                     ],
+                     "type" : "string"
+                  },
+                  "name" : "address-role",
+                  "description" : "Combine with the address parameter to define what type of address to search for.",
+                  "in" : "query"
+               },
+               {
+                  "schema" : {
+                     "type" : "boolean"
+                  },
+                  "description" : "Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.",
+                  "name" : "exclude-close-to",
+                  "in" : "query"
+               }
+            ],
+            "operationId" : "searchForTransactions",
+            "description" : "Search for transactions.",
+            "tags" : [
+               "search"
+            ],
+            "responses" : {
+               "500" : {
+                  "content" : {},
+                  "description" : "error"
+               },
+               "200" : {
+                  "content" : {
+                     "application/json" : {
+                        "schema" : {
+                           "type" : "object",
+                           "properties" : {
+                              "next-token" : {
+                                 "description" : "Used for pagination, when making another request provide this token with the next parameter.",
+                                 "type" : "string"
+                              },
+                              "current-round" : {
+                                 "description" : "Round at which the results were computed.",
+                                 "type" : "integer"
+                              },
+                              "transactions" : {
+                                 "items" : {
+                                    "$ref" : "#/components/schemas/Transaction"
+                                 },
+                                 "type" : "array"
+                              }
+                           },
+                           "required" : [
+                              "current-round",
+                              "transactions"
+                           ]
+                        }
+                     }
+                  },
+                  "description" : "(empty)"
+               }
+            }
+         }
+      },
+      "/accounts" : {
+         "get" : {
+            "tags" : [
+               "search"
+            ],
+            "description" : "Search for accounts.",
+            "parameters" : [
+               {
+                  "schema" : {
+                     "x-go-name" : "AssetID",
+                     "type" : "integer"
+                  },
+                  "x-go-name" : "AssetID",
+                  "in" : "query",
+                  "description" : "Asset ID",
+                  "name" : "asset-id"
+               },
+               {
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "name" : "limit",
+                  "description" : "Maximum number of results to return.",
+                  "in" : "query"
+               },
+               {
+                  "name" : "next",
+                  "description" : "The next page of results. Use the next token provided by the previous results.",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "string"
+                  }
+               },
+               {
+                  "name" : "currency-greater-than",
+                  "description" : "Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               },
+               {
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "description" : "Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
+                  "name" : "currency-less-than",
+                  "in" : "query"
+               },
+               {
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "description" : "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.",
+                  "in" : "query",
+                  "name" : "round"
+               }
+            ],
+            "operationId" : "searchForAccounts",
+            "responses" : {
+               "200" : {
+                  "content" : {
+                     "application/json" : {
+                        "schema" : {
+                           "required" : [
+                              "accounts",
+                              "current-round"
+                           ],
+                           "properties" : {
+                              "current-round" : {
+                                 "description" : "Round at which the results were computed.",
+                                 "type" : "integer"
+                              },
+                              "next-token" : {
+                                 "type" : "string",
+                                 "description" : "Used for pagination, when making another request provide this token with the next parameter."
+                              },
+                              "accounts" : {
+                                 "items" : {
+                                    "$ref" : "#/components/schemas/Account"
+                                 },
+                                 "type" : "array"
+                              }
+                           },
+                           "type" : "object"
+                        }
+                     }
+                  },
+                  "description" : "(empty)"
+               }
+            }
+         }
+      },
+      "/assets/{asset-id}/transactions" : {
+         "get" : {
+            "responses" : {
+               "200" : {
+                  "description" : "(empty)",
+                  "content" : {
+                     "application/json" : {
+                        "schema" : {
+                           "required" : [
+                              "current-round",
+                              "transactions"
+                           ],
+                           "properties" : {
+                              "transactions" : {
+                                 "type" : "array",
+                                 "items" : {
+                                    "$ref" : "#/components/schemas/Transaction"
+                                 }
+                              },
+                              "current-round" : {
+                                 "type" : "integer",
+                                 "description" : "Round at which the results were computed."
+                              },
+                              "next-token" : {
+                                 "description" : "Used for pagination, when making another request provide this token with the next parameter.",
+                                 "type" : "string"
+                              }
+                           },
+                           "type" : "object"
+                        }
+                     }
+                  }
+               }
+            },
+            "tags" : [
+               "lookup"
+            ],
+            "operationId" : "lookupAssetTransactions",
+            "parameters" : [
+               {
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "description" : "Maximum number of results to return.",
+                  "in" : "query",
+                  "name" : "limit"
+               },
+               {
+                  "in" : "query",
+                  "description" : "The next page of results. Use the next token provided by the previous results.",
+                  "name" : "next",
+                  "schema" : {
+                     "type" : "string"
+                  }
+               },
+               {
+                  "description" : "Specifies a prefix which must be contained in the note field.",
+                  "name" : "note-prefix",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "string",
+                     "format" : "byte"
+                  }
+               },
+               {
+                  "schema" : {
+                     "enum" : [
+                        "pay",
+                        "keyreg",
+                        "acfg",
+                        "axfer",
+                        "afrz"
+                     ],
+                     "type" : "string"
+                  },
+                  "in" : "query",
+                  "name" : "tx-type"
+               },
+               {
+                  "schema" : {
+                     "type" : "string",
+                     "enum" : [
+                        "sig",
+                        "msig",
+                        "lsig"
+                     ]
+                  },
+                  "description" : "SigType filters just results using the specified type of signature:\n* sig - Standard\n* msig - MultiSig\n* lsig - LogicSig",
+                  "in" : "query",
+                  "name" : "sig-type"
+               },
+               {
+                  "schema" : {
+                     "type" : "string",
+                     "x-go-name" : "TxID",
+                     "x-algorand-format" : "Address",
+                     "format" : "byte"
+                  },
+                  "x-go-name" : "TxID",
+                  "x-algorand-format" : "Address",
+                  "description" : "Lookup the specific transaction by ID.",
+                  "name" : "tx-id",
+                  "in" : "query"
+               },
+               {
+                  "in" : "query",
+                  "description" : "Include results for the specified round.",
+                  "name" : "round",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               },
+               {
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "in" : "query",
+                  "description" : "Include results at or after the specified min-round.",
+                  "name" : "min-round"
+               },
+               {
+                  "description" : "Include results at or before the specified max-round.",
+                  "name" : "max-round",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               },
+               {
+                  "x-algorand-format" : "RFC3339 String",
+                  "in" : "query",
+                  "description" : "Include results before the given time. Must be an RFC 3339 formatted string.",
+                  "name" : "before-time",
+                  "schema" : {
+                     "x-algorand-format" : "RFC3339 String",
+                     "format" : "date-time",
+                     "type" : "string"
+                  }
+               },
+               {
+                  "description" : "Include results after the given time. Must be an RFC 3339 formatted string.",
+                  "x-algorand-format" : "RFC3339 String",
+                  "name" : "after-time",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "string",
+                     "x-algorand-format" : "RFC3339 String",
+                     "format" : "date-time"
+                  }
+               },
+               {
+                  "schema" : {
+                     "type" : "integer"
+                  },
+                  "description" : "Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
+                  "in" : "query",
+                  "name" : "currency-greater-than"
+               },
+               {
+                  "name" : "currency-less-than",
+                  "description" : "Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               },
+               {
+                  "description" : "Only include transactions with this address in one of the transaction fields.",
+                  "x-algorand-format" : "RFC3339 String",
+                  "in" : "query",
+                  "name" : "address",
+                  "schema" : {
+                     "x-algorand-format" : "RFC3339 String",
+                     "type" : "string"
+                  }
+               },
+               {
+                  "schema" : {
+                     "type" : "string",
+                     "enum" : [
+                        "sender",
+                        "receiver",
+                        "freeze-target"
+                     ]
+                  },
+                  "name" : "address-role",
+                  "description" : "Combine with the address parameter to define what type of address to search for.",
+                  "in" : "query"
+               },
+               {
+                  "schema" : {
+                     "type" : "boolean"
+                  },
+                  "in" : "query",
+                  "description" : "Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.",
+                  "name" : "exclude-close-to"
+               },
+               {
+                  "in" : "path",
+                  "name" : "asset-id",
+                  "required" : true,
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               }
+            ],
+            "description" : "Lookup transactions for an asset."
+         }
+      },
+      "/assets" : {
+         "get" : {
+            "tags" : [
+               "search"
+            ],
+            "parameters" : [
+               {
+                  "name" : "limit",
+                  "description" : "Maximum number of results to return.",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "integer"
+                  }
+               },
+               {
+                  "description" : "The next page of results. Use the next token provided by the previous results.",
+                  "name" : "next",
+                  "in" : "query",
+                  "schema" : {
+                     "type" : "string"
+                  }
+               },
+               {
+                  "schema" : {
+                     "type" : "string"
+                  },
+                  "description" : "Filter just assets with the given creator address.",
+                  "name" : "creator",
+                  "in" : "query"
+               },
+               {
+                  "schema" : {
+                     "type" : "string"
+                  },
+                  "name" : "name",
+                  "description" : "Filter just assets with the given name.",
+                  "in" : "query"
+               },
+               {
+                  "schema" : {
+                     "type" : "string"
+                  },
+                  "name" : "unit",
+                  "description" : "Filter just assets with the given unit.",
+                  "in" : "query"
+               },
+               {
+                  "name" : "asset-id",
+                  "x-go-name" : "AssetID",
+                  "description" : "Asset ID",
+                  "in" : "query",
+                  "schema" : {
+                     "x-go-name" : "AssetID",
+                     "type" : "integer"
+                  }
+               }
+            ],
+            "operationId" : "searchForAssets",
+            "description" : "Search for assets.",
+            "responses" : {
+               "200" : {
+                  "description" : "(empty)",
+                  "content" : {
+                     "application/json" : {
+                        "schema" : {
+                           "required" : [
+                              "assets",
+                              "current-round"
+                           ],
+                           "properties" : {
+                              "next-token" : {
+                                 "description" : "Used for pagination, when making another request provide this token with the next parameter.",
+                                 "type" : "string"
+                              },
+                              "current-round" : {
+                                 "type" : "integer",
+                                 "description" : "Round at which the results were computed."
+                              },
+                              "assets" : {
+                                 "type" : "array",
+                                 "items" : {
+                                    "$ref" : "#/components/schemas/Asset"
+                                 }
+                              }
+                           },
+                           "type" : "object"
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      }
+   },
+   "openapi" : "3.0.1",
+   "servers" : [
+      {
+         "url" : "https://example.com/v1"
+      }
+   ],
+   "tags" : [
+      {
+         "name" : "lookup"
+      },
+      {
+         "name" : "search"
+      }
+   ]
+}
