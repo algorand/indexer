@@ -371,15 +371,15 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 
 // badRequest is a simple helper to return a 400 error.
 func badRequest(ctx echo.Context, err string) error {
-	return ctx.JSON(http.StatusBadRequest, generated.Error{
-		Error: err,
+	return ctx.JSON(http.StatusBadRequest, generated.ErrorResponse{
+		Message: err,
 	})
 }
 
 // indexerRequest is a simple helper to return a 500 error.
 func indexerError(ctx echo.Context, err string) error {
-	return ctx.JSON(http.StatusInternalServerError, generated.Error{
-		Error: err,
+	return ctx.JSON(http.StatusInternalServerError, generated.ErrorResponse{
+		Message: err,
 	})
 }
 
