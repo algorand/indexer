@@ -100,6 +100,17 @@ func init() {
 	AddressRoleEnumString = util.KeysStringBool(AddressRoleEnumMap)
 }
 
+func decodeBase64Byte(str *string, field string, errorArr []string) ([]byte, []string) {
+	if str != nil {
+		data, err := base64.StdEncoding.DecodeString(*str)
+		if err != nil {
+			return nil, append(errorArr, fmt.Sprintf("%s: '%s'", errUnableToParseBase64, field))
+		}
+		return data, errorArr
+	}
+	return nil, errorArr
+}
+
 // decodeSigType validates the input string and dereferences it if present, or appends an error to errorArr
 func decodeSigType(str *string, errorArr []string) (string, []string) {
 	if str != nil {
@@ -377,14 +388,10 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 
 	// Address
 	filter.Address, errorArr = decodeAddress(params.Address, "address", errorArr)
+	filter.Txid, errorArr = decodeAddress(params.TxId, "tx-id", errorArr)
 
 	// Byte array
-	if params.NotePrefix != nil {
-		filter.NotePrefix = *params.NotePrefix
-	}
-	if params.TxId != nil {
-		filter.Txid = *params.TxId
-	}
+	filter.NotePrefix, errorArr = decodeBase64Byte(params.NotePrefix, "note-prefix", errorArr)
 
 	// Time
 	if params.AfterTime != nil {

@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -55,7 +56,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		},
 		{
 			"Base64 field",
-			generated.SearchForTransactionsParams{NotePrefix: bytePtr([]byte("SomeData"))},
+			generated.SearchForTransactionsParams{NotePrefix: strPtr(base64.StdEncoding.EncodeToString([]byte("SomeData")))},
 			idb.TransactionFilter{NotePrefix: []byte("SomeData"), Limit: defaultTransactionsLimit},
 			nil,
 		},
@@ -82,10 +83,10 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 			generated.SearchForTransactionsParams{
 				Limit:               uint64Ptr(defaultTransactionsLimit + 1),
 				Next:                strPtr("next-token"),
-				NotePrefix:          bytePtr([]byte("custom-note")),
+				NotePrefix:          strPtr(base64.StdEncoding.EncodeToString([]byte("custom-note"))),
 				TxType:              strPtr("pay"),
 				SigType:             strPtr("sig"),
-				TxId:                bytePtr([]byte("tx-id")),
+				TxId:                strPtr("YXGBWVBK764KGYPX6ENIADKXPWLBNAZ7MTXDZULZWGOBO2W6IAR622VSLA"),
 				Round:               nil,
 				MinRound:            uint64Ptr(2),
 				MaxRound:            uint64Ptr(3),
@@ -104,7 +105,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				NotePrefix:        []byte("custom-note"),
 				TypeEnum:          1,
 				SigType:           "sig",
-				Txid:              []byte("tx-id"),
+				Txid:              []byte{197, 204, 27, 84, 42, 255, 184, 163, 97, 247, 241, 26, 128, 13, 87, 125, 150, 22, 131, 63, 100, 238, 60, 209, 121, 177, 156, 23, 106, 222, 64, 35},
 				Round:             nil,
 				MinRound:          2,
 				MaxRound:          3,
