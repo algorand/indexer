@@ -10,6 +10,7 @@ const (
 	errInvalidRoundAndMinMax = "cannot specify round and min-round/max-round"
 	errInvalidRoundMinMax    = "min-round must be less than max-round"
 	errUnableToParseAddress  = "unable to parse address"
+	errUnableToParseBase64   = "unable to parse base64 data"
 )
 
 var errUnknownAddressRole string

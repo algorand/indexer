@@ -550,7 +550,7 @@ type MinRound uint64
 type Next string
 
 // NotePrefix defines model for note-prefix.
-type NotePrefix []byte
+type NotePrefix string
 
 // Round defines model for round.
 type Round uint64
@@ -562,7 +562,7 @@ type RoundNumber uint64
 type SigType string
 
 // TxId defines model for tx-id.
-type TxId []byte
+type TxId string
 
 // TxType defines model for tx-type.
 type TxType string
@@ -676,7 +676,7 @@ type LookupAccountTransactionsParams struct {
 	Next *string `json:"next,omitempty"`
 
 	// Specifies a prefix which must be contained in the note field.
-	NotePrefix *[]byte `json:"note-prefix,omitempty"`
+	NotePrefix *string `json:"note-prefix,omitempty"`
 	TxType     *string `json:"tx-type,omitempty"`
 
 	// SigType filters just results using the specified type of signature:
@@ -686,7 +686,7 @@ type LookupAccountTransactionsParams struct {
 	SigType *string `json:"sig-type,omitempty"`
 
 	// Lookup the specific transaction by ID.
-	TxId *[]byte `json:"tx-id,omitempty"`
+	TxId *string `json:"tx-id,omitempty"`
 
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
@@ -764,7 +764,7 @@ type LookupAssetTransactionsParams struct {
 	Next *string `json:"next,omitempty"`
 
 	// Specifies a prefix which must be contained in the note field.
-	NotePrefix *[]byte `json:"note-prefix,omitempty"`
+	NotePrefix *string `json:"note-prefix,omitempty"`
 	TxType     *string `json:"tx-type,omitempty"`
 
 	// SigType filters just results using the specified type of signature:
@@ -774,7 +774,7 @@ type LookupAssetTransactionsParams struct {
 	SigType *string `json:"sig-type,omitempty"`
 
 	// Lookup the specific transaction by ID.
-	TxId *[]byte `json:"tx-id,omitempty"`
+	TxId *string `json:"tx-id,omitempty"`
 
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
@@ -817,7 +817,7 @@ type SearchForTransactionsParams struct {
 	Next *string `json:"next,omitempty"`
 
 	// Specifies a prefix which must be contained in the note field.
-	NotePrefix *[]byte `json:"note-prefix,omitempty"`
+	NotePrefix *string `json:"note-prefix,omitempty"`
 	TxType     *string `json:"tx-type,omitempty"`
 
 	// SigType filters just results using the specified type of signature:
@@ -827,7 +827,7 @@ type SearchForTransactionsParams struct {
 	SigType *string `json:"sig-type,omitempty"`
 
 	// Lookup the specific transaction by ID.
-	TxId *[]byte `json:"tx-id,omitempty"`
+	TxId *string `json:"tx-id,omitempty"`
 
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
