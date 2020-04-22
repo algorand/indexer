@@ -24,7 +24,7 @@ import (
 //////////////////////////////////////////////////////////////////////
 
 
-// decodeDigest returns the byte representation of the input string, or appends an error to errorArr
+// decodeDigest verifies that the digest is valid, then returns the dereferenced input string, or appends an error to errorArr
 func decodeDigest(str *string, field string, errorArr []string) (string, []string) {
 	if str != nil {
 		_, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(*str)
