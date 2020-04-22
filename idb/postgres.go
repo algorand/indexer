@@ -727,7 +727,7 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 		whereArgs = append(whereArgs, tf.TypeEnum)
 		partNumber++
 	}
-	if tf.Txid != nil {
+	if len(tf.Txid) != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("t.txid = $%d", partNumber))
 		whereArgs = append(whereArgs, tf.Txid)
 		partNumber++
