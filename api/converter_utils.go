@@ -403,7 +403,7 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 
 	// Address
 	filter.Address, errorArr = decodeAddress(params.Address, "address", errorArr)
-	filter.Txid, errorArr = decodeDigest(params.TxId, "tx-id", errorArr)
+	filter.Txid, errorArr = decodeDigest(params.Txid, "txid", errorArr)
 
 	// Byte array
 	filter.NotePrefix, errorArr = decodeBase64Byte(params.NotePrefix, "note-prefix", errorArr)
