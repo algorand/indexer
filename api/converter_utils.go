@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base32"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -21,6 +22,20 @@ import (
 //////////////////////////////////////////////////////////////////////
 // String decoding helpers (with 'errorArr' helper to group errors) //
 //////////////////////////////////////////////////////////////////////
+
+
+// decodeDigest verifies that the digest is valid, then returns the dereferenced input string, or appends an error to errorArr
+func decodeDigest(str *string, field string, errorArr []string) (string, []string) {
+	if str != nil {
+		_, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(*str)
+		if err != nil {
+			return "", append(errorArr, fmt.Sprintf("%s '%s': %v", errUnableToParseDigest, field, err))
+		}
+		return *str, errorArr
+	}
+	// Pass through
+	return "", errorArr
+}
 
 // decodeAddress returns the byte representation of the input string, or appends an error to errorArr
 func decodeAddress(str *string, field string, errorArr []string) ([]byte, []string) {
@@ -388,7 +403,7 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 
 	// Address
 	filter.Address, errorArr = decodeAddress(params.Address, "address", errorArr)
-	filter.Txid, errorArr = decodeAddress(params.TxId, "tx-id", errorArr)
+	filter.Txid, errorArr = decodeDigest(params.TxId, "tx-id", errorArr)
 
 	// Byte array
 	filter.NotePrefix, errorArr = decodeBase64Byte(params.NotePrefix, "note-prefix", errorArr)

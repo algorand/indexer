@@ -11,6 +11,7 @@ const (
 	errInvalidRoundMinMax    = "min-round must be less than max-round"
 	errUnableToParseAddress  = "unable to parse address"
 	errUnableToParseBase64   = "unable to parse base64 data"
+	errUnableToParseDigest   = "unable to parse base32 digest data"
 )
 
 var errUnknownAddressRole string

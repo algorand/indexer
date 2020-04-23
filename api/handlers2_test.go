@@ -105,7 +105,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				NotePrefix:        []byte("custom-note"),
 				TypeEnum:          1,
 				SigType:           "sig",
-				Txid:              []byte{197, 204, 27, 84, 42, 255, 184, 163, 97, 247, 241, 26, 128, 13, 87, 125, 150, 22, 131, 63, 100, 238, 60, 209, 121, 177, 156, 23, 106, 222, 64, 35},
+				Txid:              "YXGBWVBK764KGYPX6ENIADKXPWLBNAZ7MTXDZULZWGOBO2W6IAR622VSLA",
 				Round:             nil,
 				MinRound:          2,
 				MaxRound:          3,

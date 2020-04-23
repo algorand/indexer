@@ -213,7 +213,7 @@ type TransactionFilter struct {
 	AfterTime  time.Time
 	BeforeTime time.Time
 	TypeEnum   int // ["","pay","keyreg","acfg","axfer","afrz"]
-	Txid       []byte
+	Txid       string
 	Round      *uint64 // nil for no filter
 	Offset     *uint64 // nil for no filter
 	OffsetLT   *uint64 // nil for no filter
