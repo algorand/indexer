@@ -767,9 +767,9 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 		whereArgs = append(whereArgs, tf.AlgosGT)
 		partNumber++
 	}
-	if tf.AlgosGT != 0 {
+	if tf.AlgosLT != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint < $%d", partNumber))
-		whereArgs = append(whereArgs, tf.AlgosGT)
+		whereArgs = append(whereArgs, tf.AlgosLT)
 		partNumber++
 	}
 	if tf.EffectiveAmountGt != 0 {
