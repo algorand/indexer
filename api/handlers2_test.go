@@ -86,7 +86,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				NotePrefix:          strPtr(base64.StdEncoding.EncodeToString([]byte("custom-note"))),
 				TxType:              strPtr("pay"),
 				SigType:             strPtr("sig"),
-				TxId:                strPtr("YXGBWVBK764KGYPX6ENIADKXPWLBNAZ7MTXDZULZWGOBO2W6IAR622VSLA"),
+				Txid:                strPtr("YXGBWVBK764KGYPX6ENIADKXPWLBNAZ7MTXDZULZWGOBO2W6IAR622VSLA"),
 				Round:               nil,
 				MinRound:            uint64Ptr(2),
 				MaxRound:            uint64Ptr(3),

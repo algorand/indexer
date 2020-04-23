@@ -561,11 +561,11 @@ type RoundNumber uint64
 // SigType defines model for sig-type.
 type SigType string
 
-// TxId defines model for tx-id.
-type TxId string
-
 // TxType defines model for tx-type.
 type TxType string
+
+// Txid defines model for txid.
+type Txid string
 
 // AccountResponse defines model for AccountResponse.
 type AccountResponse struct {
@@ -686,7 +686,7 @@ type LookupAccountTransactionsParams struct {
 	SigType *string `json:"sig-type,omitempty"`
 
 	// Lookup the specific transaction by ID.
-	TxId *string `json:"tx-id,omitempty"`
+	Txid *string `json:"txid,omitempty"`
 
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
@@ -774,7 +774,7 @@ type LookupAssetTransactionsParams struct {
 	SigType *string `json:"sig-type,omitempty"`
 
 	// Lookup the specific transaction by ID.
-	TxId *string `json:"tx-id,omitempty"`
+	Txid *string `json:"txid,omitempty"`
 
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
@@ -827,7 +827,7 @@ type SearchForTransactionsParams struct {
 	SigType *string `json:"sig-type,omitempty"`
 
 	// Lookup the specific transaction by ID.
-	TxId *string `json:"tx-id,omitempty"`
+	Txid *string `json:"txid,omitempty"`
 
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`

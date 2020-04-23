@@ -116,7 +116,7 @@
             "$ref": "#/parameters/sig-type"
           },
           {
-            "$ref": "#/parameters/tx-id"
+            "$ref": "#/parameters/txid"
           },
           {
             "$ref": "#/parameters/round"
@@ -303,7 +303,7 @@
             "$ref": "#/parameters/sig-type"
           },
           {
-            "$ref": "#/parameters/tx-id"
+            "$ref": "#/parameters/txid"
           },
           {
             "$ref": "#/parameters/round"
@@ -404,7 +404,7 @@
             "$ref": "#/parameters/sig-type"
           },
           {
-            "$ref": "#/parameters/tx-id"
+            "$ref": "#/parameters/txid"
           },
           {
             "$ref": "#/parameters/round"
@@ -1201,7 +1201,7 @@
     },
     "address": {
       "type": "string",
-      "x-algorand-format": "RFC3339 String",
+      "x-algorand-format": "Address",
       "description": "Only include transactions with this address in one of the transaction fields.",
       "name": "address",
       "in": "query"
@@ -1312,12 +1312,11 @@
       "name": "sig-type",
       "in": "query"
     },
-    "tx-id": {
+    "txid": {
       "type": "string",
-      "x-algorand-format": "Address",
       "x-go-name": "TxID",
       "description": "Lookup the specific transaction by ID.",
-      "name": "tx-id",
+      "name": "txid",
       "in": "query"
     },
     "tx-type": {
