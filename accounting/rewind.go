@@ -87,7 +87,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 				acct.AmountWithoutPendingRewards -= uint64(stxn.ReceiverRewards)
 			}
 			if addr == stxn.Txn.CloseRemainderTo {
-				acct.AmountWithoutPendingRewards += uint64(stxn.ClosingAmount)
+				acct.AmountWithoutPendingRewards -= uint64(stxn.ClosingAmount)
 				acct.AmountWithoutPendingRewards -= uint64(stxn.CloseRewards)
 			}
 		case atypes.KeyRegistrationTx:
