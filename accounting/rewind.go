@@ -95,13 +95,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		case atypes.AssetConfigTx:
 			if stxn.Txn.ConfigAsset == 0 {
 				// create asset, unwind the application of the value
-				var block types.Block
-				block, err = db.GetBlock(round - 1)
-				if err != nil {
-					return
-				}
-				assetId := block.TxnCounter + uint64(txnrow.Intra) + 1
-				assetUpdate(&acct, assetId, 0, stxn.Txn.AssetParams.Total)
+				assetUpdate(&acct, txnrow.AssetId, 0, stxn.Txn.AssetParams.Total)
 			}
 		case atypes.AssetTransferTx:
 			if addr == stxn.Txn.AssetSender || addr == stxn.Txn.Sender {
