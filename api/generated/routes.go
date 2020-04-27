@@ -53,6 +53,23 @@ type ServerInterfaceWrapper struct {
 
 // SearchForAccounts converts echo context to params.
 func (w *ServerInterfaceWrapper) SearchForAccounts(ctx echo.Context) error {
+
+	validQueryParams := map[string]bool{
+		"asset-id":              true,
+		"limit":                 true,
+		"next":                  true,
+		"currency-greater-than": true,
+		"currency-less-than":    true,
+		"round":                 true,
+	}
+
+	// Check for unknown query parameters.
+	for name, _ := range ctx.QueryParams() {
+		if _, ok := validQueryParams[name]; !ok {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Unknown parameter detected: %s", name))
+		}
+	}
+
 	var err error
 
 	// Parameter object where we will unmarshal all parameters from the context
@@ -124,6 +141,18 @@ func (w *ServerInterfaceWrapper) SearchForAccounts(ctx echo.Context) error {
 
 // LookupAccountByID converts echo context to params.
 func (w *ServerInterfaceWrapper) LookupAccountByID(ctx echo.Context) error {
+
+	validQueryParams := map[string]bool{
+		"round": true,
+	}
+
+	// Check for unknown query parameters.
+	for name, _ := range ctx.QueryParams() {
+		if _, ok := validQueryParams[name]; !ok {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Unknown parameter detected: %s", name))
+		}
+	}
+
 	var err error
 	// ------------- Path parameter "account-id" -------------
 	var accountId string
@@ -152,6 +181,31 @@ func (w *ServerInterfaceWrapper) LookupAccountByID(ctx echo.Context) error {
 
 // LookupAccountTransactions converts echo context to params.
 func (w *ServerInterfaceWrapper) LookupAccountTransactions(ctx echo.Context) error {
+
+	validQueryParams := map[string]bool{
+		"limit":                 true,
+		"next":                  true,
+		"note-prefix":           true,
+		"tx-type":               true,
+		"sig-type":              true,
+		"txid":                  true,
+		"round":                 true,
+		"min-round":             true,
+		"max-round":             true,
+		"asset-id":              true,
+		"before-time":           true,
+		"after-time":            true,
+		"currency-greater-than": true,
+		"currency-less-than":    true,
+	}
+
+	// Check for unknown query parameters.
+	for name, _ := range ctx.QueryParams() {
+		if _, ok := validQueryParams[name]; !ok {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Unknown parameter detected: %s", name))
+		}
+	}
+
 	var err error
 	// ------------- Path parameter "account-id" -------------
 	var accountId string
@@ -310,6 +364,23 @@ func (w *ServerInterfaceWrapper) LookupAccountTransactions(ctx echo.Context) err
 
 // SearchForAssets converts echo context to params.
 func (w *ServerInterfaceWrapper) SearchForAssets(ctx echo.Context) error {
+
+	validQueryParams := map[string]bool{
+		"limit":    true,
+		"next":     true,
+		"creator":  true,
+		"name":     true,
+		"unit":     true,
+		"asset-id": true,
+	}
+
+	// Check for unknown query parameters.
+	for name, _ := range ctx.QueryParams() {
+		if _, ok := validQueryParams[name]; !ok {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Unknown parameter detected: %s", name))
+		}
+	}
+
 	var err error
 
 	// Parameter object where we will unmarshal all parameters from the context
@@ -381,6 +452,16 @@ func (w *ServerInterfaceWrapper) SearchForAssets(ctx echo.Context) error {
 
 // LookupAssetByID converts echo context to params.
 func (w *ServerInterfaceWrapper) LookupAssetByID(ctx echo.Context) error {
+
+	validQueryParams := map[string]bool{}
+
+	// Check for unknown query parameters.
+	for name, _ := range ctx.QueryParams() {
+		if _, ok := validQueryParams[name]; !ok {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Unknown parameter detected: %s", name))
+		}
+	}
+
 	var err error
 	// ------------- Path parameter "asset-id" -------------
 	var assetId uint64
@@ -397,6 +478,22 @@ func (w *ServerInterfaceWrapper) LookupAssetByID(ctx echo.Context) error {
 
 // LookupAssetBalances converts echo context to params.
 func (w *ServerInterfaceWrapper) LookupAssetBalances(ctx echo.Context) error {
+
+	validQueryParams := map[string]bool{
+		"limit":                 true,
+		"next":                  true,
+		"round":                 true,
+		"currency-greater-than": true,
+		"currency-less-than":    true,
+	}
+
+	// Check for unknown query parameters.
+	for name, _ := range ctx.QueryParams() {
+		if _, ok := validQueryParams[name]; !ok {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Unknown parameter detected: %s", name))
+		}
+	}
+
 	var err error
 	// ------------- Path parameter "asset-id" -------------
 	var assetId uint64
@@ -465,6 +562,33 @@ func (w *ServerInterfaceWrapper) LookupAssetBalances(ctx echo.Context) error {
 
 // LookupAssetTransactions converts echo context to params.
 func (w *ServerInterfaceWrapper) LookupAssetTransactions(ctx echo.Context) error {
+
+	validQueryParams := map[string]bool{
+		"limit":                 true,
+		"next":                  true,
+		"note-prefix":           true,
+		"tx-type":               true,
+		"sig-type":              true,
+		"txid":                  true,
+		"round":                 true,
+		"min-round":             true,
+		"max-round":             true,
+		"before-time":           true,
+		"after-time":            true,
+		"currency-greater-than": true,
+		"currency-less-than":    true,
+		"address":               true,
+		"address-role":          true,
+		"exclude-close-to":      true,
+	}
+
+	// Check for unknown query parameters.
+	for name, _ := range ctx.QueryParams() {
+		if _, ok := validQueryParams[name]; !ok {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Unknown parameter detected: %s", name))
+		}
+	}
+
 	var err error
 	// ------------- Path parameter "asset-id" -------------
 	var assetId uint64
@@ -643,6 +767,16 @@ func (w *ServerInterfaceWrapper) LookupAssetTransactions(ctx echo.Context) error
 
 // LookupBlock converts echo context to params.
 func (w *ServerInterfaceWrapper) LookupBlock(ctx echo.Context) error {
+
+	validQueryParams := map[string]bool{}
+
+	// Check for unknown query parameters.
+	for name, _ := range ctx.QueryParams() {
+		if _, ok := validQueryParams[name]; !ok {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Unknown parameter detected: %s", name))
+		}
+	}
+
 	var err error
 	// ------------- Path parameter "round-number" -------------
 	var roundNumber uint64
@@ -659,6 +793,34 @@ func (w *ServerInterfaceWrapper) LookupBlock(ctx echo.Context) error {
 
 // SearchForTransactions converts echo context to params.
 func (w *ServerInterfaceWrapper) SearchForTransactions(ctx echo.Context) error {
+
+	validQueryParams := map[string]bool{
+		"limit":                 true,
+		"next":                  true,
+		"note-prefix":           true,
+		"tx-type":               true,
+		"sig-type":              true,
+		"txid":                  true,
+		"round":                 true,
+		"min-round":             true,
+		"max-round":             true,
+		"asset-id":              true,
+		"before-time":           true,
+		"after-time":            true,
+		"currency-greater-than": true,
+		"currency-less-than":    true,
+		"address":               true,
+		"address-role":          true,
+		"exclude-close-to":      true,
+	}
+
+	// Check for unknown query parameters.
+	for name, _ := range ctx.QueryParams() {
+		if _, ok := validQueryParams[name]; !ok {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Unknown parameter detected: %s", name))
+		}
+	}
+
 	var err error
 
 	// Parameter object where we will unmarshal all parameters from the context
@@ -849,21 +1011,21 @@ func RegisterHandlers(router interface {
 	POST(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
 	PUT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
 	TRACE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
-}, si ServerInterface) {
+}, si ServerInterface, m ...echo.MiddlewareFunc) {
 
 	wrapper := ServerInterfaceWrapper{
 		Handler: si,
 	}
 
-	router.GET("/accounts", wrapper.SearchForAccounts)
-	router.GET("/accounts/:account-id", wrapper.LookupAccountByID)
-	router.GET("/accounts/:account-id/transactions", wrapper.LookupAccountTransactions)
-	router.GET("/assets", wrapper.SearchForAssets)
-	router.GET("/assets/:asset-id", wrapper.LookupAssetByID)
-	router.GET("/assets/:asset-id/balances", wrapper.LookupAssetBalances)
-	router.GET("/assets/:asset-id/transactions", wrapper.LookupAssetTransactions)
-	router.GET("/blocks/:round-number", wrapper.LookupBlock)
-	router.GET("/transactions", wrapper.SearchForTransactions)
+	router.GET("/accounts", wrapper.SearchForAccounts, m...)
+	router.GET("/accounts/:account-id", wrapper.LookupAccountByID, m...)
+	router.GET("/accounts/:account-id/transactions", wrapper.LookupAccountTransactions, m...)
+	router.GET("/assets", wrapper.SearchForAssets, m...)
+	router.GET("/assets/:asset-id", wrapper.LookupAssetByID, m...)
+	router.GET("/assets/:asset-id/balances", wrapper.LookupAssetBalances, m...)
+	router.GET("/assets/:asset-id/transactions", wrapper.LookupAssetTransactions, m...)
+	router.GET("/blocks/:round-number", wrapper.LookupBlock, m...)
+	router.GET("/transactions", wrapper.SearchForTransactions, m...)
 
 }
 
