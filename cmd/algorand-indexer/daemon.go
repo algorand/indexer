@@ -19,7 +19,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/indexer/util/tokens"
 	"os"
 	"path/filepath"
 	"time"
@@ -33,6 +32,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util/tokens"
 )
 
 var (
