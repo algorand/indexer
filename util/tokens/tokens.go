@@ -16,12 +16,11 @@
 package tokens
 
 import (
-	"bufio"
 	"crypto/rand"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"path/filepath"
+	"strings"
 )
 
 const minimumAPITokenLength = 64
@@ -32,19 +31,14 @@ func tokenFilepath(dataDir, tokenFilename string) string {
 }
 
 // GetFirstLineFromFile retrieves the first line of the specified file.
-func getFirstLineFromFile(netFile string) (string, error) {
-	file, err := os.Open(netFile) // For read access.
+func GetFirstLineFromFile(netFile string) (string, error) {
+	addrStr, err := ioutil.ReadFile(netFile)
 	if err != nil {
 		return "", err
 	}
-
-	bufferedReader := bufio.NewReader(file)
-	data, err := bufferedReader.ReadBytes('\n')
-	if err != nil {
-		return "", err
-	}
-
-	return string(data), err
+	// We only want the first line, so split at newlines and take the first
+	lines := strings.Split(string(addrStr), "\n")
+	return lines[0], err
 }
 
 
@@ -52,7 +46,7 @@ func getFirstLineFromFile(netFile string) (string, error) {
 // it. Always returns the potentially invalid token along with the error
 func GetAndValidateAPIToken(dataDir, tokenFilename string) (string, error) {
 	filepath := tokenFilepath(dataDir, tokenFilename)
-	apiToken, err := getFirstLineFromFile(filepath)
+	apiToken, err := GetFirstLineFromFile(filepath)
 
 	// Failed to read token from file
 	if err != nil {
