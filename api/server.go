@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/api/generated"
@@ -40,15 +41,15 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, log *log.Log
 	e := echo.New()
 	e.HideBanner = true
 
-	logMiddleware := middlewares.Logger(log)
-	//e.Use(logMiddleware)
+	e.Use(middlewares.Logger(log))
+	e.Use(middleware.CORS())
 
 	auth := middlewares.Auth(log, "X-Indexer-API-Token", tokens)
 	api := ServerImplementation{
 		EnableAddressSearchRoundRewind: developerMode,
 		db:                             db,
 	}
-	generated.RegisterHandlers(e, &api, logMiddleware, auth)
+	generated.RegisterHandlers(e, &api, auth)
 
 	if ctx == nil {
 		ctx = context.Background()
