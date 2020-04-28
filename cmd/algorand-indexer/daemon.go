@@ -108,18 +108,23 @@ var daemonCmd = &cobra.Command{
 			}()
 		}
 
-		APIToken, wroteNewToken, err := tokens.ValidateOrGenerateAPIToken(tokenDir, "indexer.token")
-		if err != nil {
-			log.Fatalf("API token error: %v", err)
-		}
+		tokenArray := make([]string, 0)
+		if (tokenDir != "") {
+			APIToken, wroteNewToken, err := tokens.ValidateOrGenerateAPIToken(tokenDir, "indexer.token")
+			if err != nil {
+				log.Fatalf("API token error: %v", err)
+			}
 
-		if wroteNewToken {
-			fmt.Printf("No REST API Token found. Generated token: %s\n", APIToken)
+			if wroteNewToken {
+				fmt.Printf("No REST API Token found. Generated token: %s\n", APIToken)
+			}
+
+			tokenArray = append(tokenArray, APIToken)
 		}
 
 		// TODO: trap SIGTERM and call cf() to exit gracefully
 		fmt.Printf("serving on %s\n", daemonServerAddr)
-		api.Serve(ctx, daemonServerAddr, db, logger, []string{APIToken}, developerMode)
+		api.Serve(ctx, daemonServerAddr, db, logger, tokenArray, developerMode)
 	},
 }
 

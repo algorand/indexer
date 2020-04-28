@@ -44,12 +44,16 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, log *log.Log
 	e.Use(middlewares.Logger(log))
 	e.Use(middleware.CORS())
 
-	auth := middlewares.Auth(log, "X-Indexer-API-Token", tokens)
+	auth := make([]echo.MiddlewareFunc, 0)
+	if (len(tokens) > 0) {
+		auth = append(auth, middlewares.Auth(log, "X-Indexer-API-Token", tokens))
+	}
+
 	api := ServerImplementation{
 		EnableAddressSearchRoundRewind: developerMode,
 		db:                             db,
 	}
-	generated.RegisterHandlers(e, &api, auth)
+	generated.RegisterHandlers(e, &api, auth...)
 
 	if ctx == nil {
 		ctx = context.Background()
