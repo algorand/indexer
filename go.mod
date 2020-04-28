@@ -9,6 +9,7 @@ require (
 	github.com/getkin/kin-openapi v0.3.1
 	github.com/labstack/echo/v4 v4.1.16
 	github.com/lib/pq v1.3.0
+	github.com/sirupsen/logrus v1.5.0
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/objx v0.1.1 // indirect
 	github.com/stretchr/testify v1.4.0

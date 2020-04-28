@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand-sdk/types"
 
@@ -25,6 +26,8 @@ type ServerImplementation struct {
 	EnableAddressSearchRoundRewind bool
 
 	db idb.IndexerDb
+
+	log *log.Logger
 }
 
 /////////////////////

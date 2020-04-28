@@ -1,0 +1,60 @@
+// Copyright (C) 2019-2020 Algorand, Inc.
+// This file is part of go-algorand
+//
+// go-algorand is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as
+// published by the Free Software Foundation, either version 3 of the
+// License, or (at your option) any later version.
+//
+// go-algorand is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with go-algorand.  If not, see <https://www.gnu.org/licenses/>.
+
+package middlewares
+
+import (
+	"strconv"
+	"time"
+
+	"github.com/labstack/echo/v4"
+	log "github.com/sirupsen/logrus"
+)
+
+// Logger is an echo middleware to add log to the API
+func Logger(log *log.Logger) func(echo.HandlerFunc) echo.HandlerFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(ctx echo.Context) (err error) {
+			start := time.Now()
+
+			// Get a reference to the response object.
+			res := ctx.Response()
+			req := ctx.Request()
+
+			// Propogate the error if the next middleware has a problem
+			if err = next(ctx); err != nil {
+				ctx.Error(err)
+			}
+
+			//next.ServeHTTP(wrapper, r)
+			log.Infof("%s %s %s [%v] \"%s %s %s\" %d %d \"%s\" %s",
+				req.RemoteAddr,
+				"-",
+				"-",
+				start,
+				req.Method,
+				req.RequestURI,
+				req.Proto, // string "HTTP/1.1"
+				res.Status,
+				strconv.FormatInt(res.Size, 10), // bytes_out
+				req.UserAgent(),
+				time.Since(start),
+			)
+
+			return
+		}
+	}
+}

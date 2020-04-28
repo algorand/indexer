@@ -19,11 +19,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/algorand/indexer/util/tokens"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/algorand/indexer/algobot"
@@ -40,7 +42,16 @@ var (
 	daemonServerAddr string
 	noAlgod          bool
 	developerMode    bool
+	tokenDir         string
+	logger           *log.Logger
 )
+
+func init() {
+	logger = log.New()
+	logger.SetFormatter(&log.JSONFormatter{})
+	logger.SetOutput(os.Stdout)
+	logger.SetLevel(log.InfoLevel)
+}
 
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
@@ -96,9 +107,19 @@ var daemonCmd = &cobra.Command{
 				cf()
 			}()
 		}
+
+		APIToken, wroteNewToken, err := tokens.ValidateOrGenerateAPIToken(tokenDir, "indexer.token")
+		if err != nil {
+			log.Fatalf("API token error: %v", err)
+		}
+
+		if wroteNewToken {
+			fmt.Printf("No REST API Token found. Generated token: %s\n", APIToken)
+		}
+
 		// TODO: trap SIGTERM and call cf() to exit gracefully
 		fmt.Printf("serving on %s\n", daemonServerAddr)
-		api.Serve(ctx, daemonServerAddr, db, developerMode)
+		api.Serve(ctx, daemonServerAddr, db, logger, []string{APIToken}, developerMode)
 	},
 }
 
@@ -109,6 +130,7 @@ func init() {
 	daemonCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
 	daemonCmd.Flags().StringVarP(&daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
 	daemonCmd.Flags().BoolVarP(&noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
+	daemonCmd.Flags().StringVarP(&tokenDir, "token", "t", "", "path to store access API tokens")
 	daemonCmd.Flags().BoolVarP(&developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round.")
 }
 

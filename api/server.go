@@ -18,14 +18,15 @@ package api
 
 import (
 	"context"
-	"log"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/labstack/echo/v4"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/api/generated"
+	"github.com/algorand/indexer/api/middlewares"
 	"github.com/algorand/indexer/idb"
 )
 
@@ -33,17 +34,21 @@ import (
 var indexerDb idb.IndexerDb
 
 // Serve starts an http server for the indexer API. This call blocks.
-func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, developerMode bool) {
+func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, log *log.Logger, tokens []string, developerMode bool) {
 	indexerDb = db
 
 	e := echo.New()
 	e.HideBanner = true
 
+	logMiddleware := middlewares.Logger(log)
+	//e.Use(logMiddleware)
+
+	auth := middlewares.Auth(log, "X-Indexer-API-Token", tokens)
 	api := ServerImplementation{
 		EnableAddressSearchRoundRewind: developerMode,
 		db:                             db,
 	}
-	generated.RegisterHandlers(e, &api)
+	generated.RegisterHandlers(e, &api, logMiddleware, auth)
 
 	if ctx == nil {
 		ctx = context.Background()
