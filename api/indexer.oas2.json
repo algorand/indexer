@@ -514,7 +514,7 @@
           "description": "\\[onl\\] delegation status of the account's MicroAlgos\n* Offline - indicates that the associated account is delegated.\n*  Online  - indicates that the associated account used as part of the delegation pool.\n*   NotParticipating - indicates that the associated account is neither a delegator nor a delegate.",
           "type": "string"
         },
-        "type": {
+        "sig-type": {
           "description": "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig",
           "type": "string",
           "enum": [
@@ -589,7 +589,8 @@
       "properties": {
         "amount": {
           "description": "\\[a\\] number of units held.",
-          "type": "integer"
+           "type": "integer",
+           "x-algorand-format": "uint64"
         },
         "asset-id": {
           "description": "Asset ID of the holding.",
@@ -849,7 +850,8 @@
           "type": "string"
         },
         "amount": {
-          "type": "integer"
+           "type": "integer",
+           "x-algorand-format": "uint64"
         },
         "is-frozen": {
           "type": "boolean"
@@ -860,7 +862,7 @@
       "description": "Contains all fields common to all transactions and serves as an envelope to all transactions type.\n\nDefinition:\ndata/transactions/signedtxn.go : SignedTxn\ndata/transactions/transaction.go : Transaction\n",
       "type": "object",
       "required": [
-        "type",
+        "tx-type",
         "id",
         "sender",
         "fee",
@@ -963,7 +965,7 @@
         "signature": {
           "$ref": "#/definitions/TransactionSignature"
         },
-        "type": {
+        "tx-type": {
           "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction",
           "type": "string",
           "enum": [
@@ -1024,7 +1026,8 @@
       "properties": {
         "amount": {
           "description": "\\[aamt\\] Amount of asset to transfer. A zero amount transferred to self allocates that asset in the account's Assets map.",
-          "type": "integer"
+           "type": "integer",
+           "x-algorand-format": "uint64"
         },
         "asset-id": {
           "description": "\\[xaid\\] ID of the asset being transferred.",
@@ -1032,7 +1035,8 @@
         },
         "close-amount": {
           "description": "Number of assets transfered to the close-to account as part of the transaction.",
-          "type": "integer"
+           "type": "integer",
+           "x-algorand-format": "uint64"
         },
         "close-to": {
           "description": "\\[aclose\\] Indicates that the asset should be removed from the account's Assets map, and specifies where the remaining asset holdings should be transferred.  It's always valid to transfer remaining asset holdings to the creator account.",

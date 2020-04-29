@@ -326,7 +326,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		ReceiverRewards:          uint64Ptr(uint64(stxn.ReceiverRewards)),
 		CloseRewards:             uint64Ptr(uint64(stxn.CloseRewards)),
 		SenderRewards:            uint64Ptr(uint64(stxn.SenderRewards)),
-		Type:                     string(stxn.Txn.Type),
+		TxType:                   string(stxn.Txn.Type),
 		Signature:                sig,
 		Id:                       crypto.TransactionIDString(stxn.Txn),
 	}

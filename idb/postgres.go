@@ -1004,7 +1004,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 		// default to Offline in there have been no keyreg transactions.
 		account.Status = statusStrings[offlineStatusIdx]
 		if keytype != nil && *keytype != "" {
-			account.Type = keytype
+			account.SigType = keytype
 		}
 
 		if accountDataJsonStr != nil {
