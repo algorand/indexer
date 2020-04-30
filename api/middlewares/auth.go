@@ -21,25 +21,14 @@ import (
 	"net/http"
 	"strings"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/labstack/echo/v4"
-
-	"github.com/algorand/indexer/util/tokens"
 )
 
 const urlAuthFormatter = "/urlAuth/%s"
 
 // Auth takes a logger and an array of api token and return a middleware function
 // that ensures one of the api tokens was provided.
-func Auth(log *log.Logger, tokenHeader string, apiTokens []string) func(echo.HandlerFunc) echo.HandlerFunc {
-	// Make sure no one is trying to call us with an invalid token
-	for _, token := range apiTokens {
-		err := tokens.ValidateAPIToken(token)
-		if err != nil {
-			log.Fatalf("Invalid APIToken: %v", err)
-		}
-	}
-
+func Auth(tokenHeader string, apiTokens []string) func(echo.HandlerFunc) echo.HandlerFunc {
 	apiTokenBytes := make([][]byte, 0)
 	for _, token := range apiTokens {
 		apiTokenBytes = append(apiTokenBytes, []byte(token))
@@ -89,4 +78,3 @@ func Auth(log *log.Logger, tokenHeader string, apiTokens []string) func(echo.Han
 		}
 	}
 }
-

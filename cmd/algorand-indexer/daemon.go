@@ -32,7 +32,6 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
-	"github.com/algorand/indexer/util/tokens"
 )
 
 var (
@@ -42,7 +41,7 @@ var (
 	daemonServerAddr string
 	noAlgod          bool
 	developerMode    bool
-	tokenDir         string
+	tokenString      string
 	logger           *log.Logger
 )
 
@@ -109,17 +108,8 @@ var daemonCmd = &cobra.Command{
 		}
 
 		tokenArray := make([]string, 0)
-		if (tokenDir != "") {
-			APIToken, wroteNewToken, err := tokens.ValidateOrGenerateAPIToken(tokenDir, "indexer.token")
-			if err != nil {
-				log.Fatalf("API token error: %v", err)
-			}
-
-			if wroteNewToken {
-				fmt.Printf("No REST API Token found. Generated token: %s\n", APIToken)
-			}
-
-			tokenArray = append(tokenArray, APIToken)
+		if (tokenString != "") {
+			tokenArray = append(tokenArray, tokenString)
 		}
 
 		// TODO: trap SIGTERM and call cf() to exit gracefully
@@ -135,8 +125,8 @@ func init() {
 	daemonCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
 	daemonCmd.Flags().StringVarP(&daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
 	daemonCmd.Flags().BoolVarP(&noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
-	daemonCmd.Flags().StringVarP(&tokenDir, "token", "t", "", "path to store access API tokens")
-	daemonCmd.Flags().BoolVarP(&developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round.")
+	daemonCmd.Flags().StringVarP(&tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
+	daemonCmd.Flags().BoolVarP(&developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
 }
 
 type blockImporterHandler struct {
