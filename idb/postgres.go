@@ -1,19 +1,3 @@
-// Copyright (C) 2019-2020 Algorand, Inc.
-// This file is part of the Algorand Indexer
-//
-// Algorand Indexer is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Affero General Public License as
-// published by the Free Software Foundation, either version 3 of the
-// License, or (at your option) any later version.
-//
-// Algorand Indexer is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with Algorand Indexer.  If not, see <https://www.gnu.org/licenses/>.
-
 // You can build without postgres by `go build --tags nopostgres` but it's on by default
 // +build !nopostgres
 
@@ -944,6 +928,7 @@ finish:
 const maxAccountsLimit = 1000
 
 var statusStrings = []string{"Offline", "Online", "NotParticipating"}
+
 const offlineStatusIdx = 0
 
 func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts AccountQueryOptions, rows *sql.Rows, tx *sql.Tx, blockheader types.Block, out chan<- AccountRow) {
@@ -1323,12 +1308,12 @@ func (db *PostgresIndexerDb) Assets(ctx context.Context, filter AssetsQuery) <-c
 	}
 	if filter.Name != "" {
 		whereParts = append(whereParts, fmt.Sprintf("a.params ->> 'an' ILIKE $%d", partNumber))
-		whereArgs = append(whereArgs, "%" + filter.Name + "%")
+		whereArgs = append(whereArgs, "%"+filter.Name+"%")
 		partNumber++
 	}
 	if filter.Unit != "" {
 		whereParts = append(whereParts, fmt.Sprintf("a.params ->> 'un' ILIKE $%d", partNumber))
-		whereArgs = append(whereArgs, "%" + filter.Unit + "%")
+		whereArgs = append(whereArgs, "%"+filter.Unit+"%")
 		partNumber++
 	}
 	if filter.Query != "" {
