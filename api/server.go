@@ -41,11 +41,11 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, log *log.Log
 	e := echo.New()
 	e.HideBanner = true
 
-	e.Use(middlewares.Logger(log))
+	e.Use(middlewares.MakeLogger(log))
 	e.Use(middleware.CORS())
 
 	if (len(tokens) > 0) {
-		e.Use(middlewares.Auth("X-Indexer-API-Token", tokens))
+		e.Use(middlewares.MakeAuth("X-Indexer-API-Token", tokens))
 	}
 
 	api := ServerImplementation{
