@@ -2,7 +2,7 @@ version: '3'
 
 services:
   indexer:
-    image: "sdk-harness-indexer"
+    image: "indexer-test-env"
     build:
       context: .
       dockerfile: ./docker/Dockerfile
@@ -18,5 +18,5 @@ services:
       - 5433:5432
     environment:
       POSTGRES_USER: algorand
-      POSTGRES_PASSWORD: harness
+      POSTGRES_PASSWORD: indexer
       POSTGRES_DB: pgdb
