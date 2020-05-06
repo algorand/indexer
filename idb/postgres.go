@@ -350,7 +350,10 @@ func obs(x interface{}) string {
 }
 
 // this gets overlaid onto account.account_data jsonb, replacing just these fields, same as types.AccountData
-type AccountDataKeyregPart struct {
+/*
+type AccountDataUpdatePart struct {
+	_struct struct{} `codec:",omitempty,omitemptyarray"`
+
 	Status byte `codec:"onl"`
 
 	VoteID      types.OneTimeSignatureVerifier `codec:"vote"`
@@ -359,7 +362,10 @@ type AccountDataKeyregPart struct {
 	VoteFirstValid  types.Round `codec:"voteFst"`
 	VoteLastValid   types.Round `codec:"voteLst"`
 	VoteKeyDilution uint64      `codec:"voteKD"`
+
+	SpendingKey Address `codec:"spend"`
 }
+*/
 
 func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error) {
 	any := false
@@ -398,24 +404,25 @@ func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, 
 			}
 		}
 	}
-	if len(updates.KeyregUpdates) > 0 {
+	if len(updates.AccountDataUpdates) > 0 {
 		any = true
 		setkeyreg, err := tx.Prepare(`UPDATE account SET account_data = coalesce(account_data, '{}'::jsonb) || ($1)::jsonb WHERE addr = $2`)
 		if err != nil {
 			return fmt.Errorf("prepare keyreg, %v", err)
 		}
 		defer setkeyreg.Close()
-		for _, kr := range updates.KeyregUpdates {
-			part := AccountDataKeyregPart{
-				Status:          byte(kr.Status),
-				VoteID:          kr.VoteID,
-				SelectionID:     kr.SelectionID,
-				VoteFirstValid:  types.Round(kr.VoteFirstValid),
-				VoteLastValid:   types.Round(kr.VoteLastValid),
-				VoteKeyDilution: kr.VoteKeyDilution,
-			}
-			jb := json.Encode(part)
-			_, err = setkeyreg.Exec(jb, kr.Addr[:])
+		for addr, kr := range updates.AccountDataUpdates {
+			/*
+				part := AccountDataUpdatePart{
+					Status:          byte(kr.Status),
+					VoteID:          kr.VoteID,
+					SelectionID:     kr.SelectionID,
+					VoteFirstValid:  types.Round(kr.VoteFirstValid),
+					VoteLastValid:   types.Round(kr.VoteLastValid),
+					VoteKeyDilution: kr.VoteKeyDilution,
+				}*/
+			jb := json.Encode(kr)
+			_, err = setkeyreg.Exec(jb, addr[:])
 			if err != nil {
 				return fmt.Errorf("update keyreg, %v", err)
 			}

@@ -1,9 +1,9 @@
 module github.com/algorand/indexer
 
-go 1.12
+go 1.13
 
 require (
-	github.com/algorand/go-algorand-sdk v1.3.0
+	github.com/algorand/go-algorand-sdk v1.2.2-0.20200428191731-dcd581c9834c
 	github.com/algorand/go-codec/codec v1.1.7
 	github.com/algorand/oapi-codegen v1.3.5-algorand4
 	github.com/getkin/kin-openapi v0.3.1
