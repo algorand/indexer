@@ -2,6 +2,24 @@
 
 The Indexer is a standalone service reads committed blocks from the Algorand blockchain and maintains a database of transactions and accounts that are searchable and indexed.
 
+# Quickstart
+
+We prepared a docker compose file to bring up indexer and postgres preloaded with some data. From the root directory run:
+```
+~$ docker-compose up
+```
+
+Once running, here are a few commands to try out:
+```bash
+~$ curl "localhost:8980/assets?name=bogo"
+~$ curl "localhost:8980/transactions?limit=1"
+~$ curl "localhost:8980/transactions?round=10"
+~$ curl "localhost:8980/transactions?tx-type=acfg"
+~$ curl "localhost:8980/accounts?asset-id=9"
+~$ curl "localhost:8980/accounts?asset-id=9&round=15"
+~$ curl "localhost:8980/assets/9/balances"
+```
+
 # Features
 
 - Search and filter accounts, transactions, assets, and asset balances with many different parameters:
