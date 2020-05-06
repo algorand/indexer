@@ -24,18 +24,18 @@ var rootCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if pidFilePath != "" {
 			fout, err := os.Create(pidFilePath)
-			maybeFail(err, "%s: could not create pid file, %v", pidFilePath, err)
+			maybeFail(err, "%s: could not create pid file, %v\n", pidFilePath, err)
 			_, err = fmt.Fprintf(fout, "%d", os.Getpid())
-			maybeFail(err, "%s: could not write pid file, %v", pidFilePath, err)
+			maybeFail(err, "%s: could not write pid file, %v\n", pidFilePath, err)
 			err = fout.Close()
-			maybeFail(err, "%s: could not close pid file, %v", pidFilePath, err)
+			maybeFail(err, "%s: could not close pid file, %v\n", pidFilePath, err)
 		}
 		if cpuProfile != "" {
 			var err error
 			profFile, err = os.Create(cpuProfile)
-			maybeFail(err, "%s: create, %v", cpuProfile, err)
+			maybeFail(err, "%s: create, %v\n", cpuProfile, err)
 			err = pprof.StartCPUProfile(profFile)
-			maybeFail(err, "%s: start pprof, %v", cpuProfile, err)
+			maybeFail(err, "%s: start pprof, %v\n", cpuProfile, err)
 		}
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
@@ -46,7 +46,7 @@ var rootCmd = &cobra.Command{
 		if pidFilePath != "" {
 			err := os.Remove(pidFilePath)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not remove pid file, %v", pidFilePath, err)
+				fmt.Fprintf(os.Stderr, "%s: could not remove pid file, %v\n", pidFilePath, err)
 			}
 		}
 	},
@@ -66,11 +66,11 @@ func globalIndexerDb() idb.IndexerDb {
 		if postgresAddr != "" {
 			var err error
 			db, err = idb.IndexerDbByName("postgres", postgresAddr)
-			maybeFail(err, "could not init db, %v", err)
+			maybeFail(err, "could not init db, %v\n", err)
 		} else if dummyIndexerDb {
 			db = idb.DummyIndexerDb()
 		} else {
-			fmt.Fprintf(os.Stderr, "no import db set")
+			fmt.Fprintf(os.Stderr, "no import db set\n")
 			os.Exit(1)
 		}
 	}

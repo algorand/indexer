@@ -70,7 +70,7 @@ func maybeFail(err error, errfmt string, params ...interface{}) {
 func printAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 	count := uint64(0)
 	for ar := range db.Assets(context.Background(), q) {
-		maybeFail(ar.Error, "asset query %v", ar.Error)
+		maybeFail(ar.Error, "asset query %v\n", ar.Error)
 		pjs, err := json.Marshal(ar.Params)
 		maybeFail(err, "json.Marshal params %v\n", err)
 		var creator atypes.Address
@@ -92,7 +92,7 @@ func doAssetQueryTests(db idb.IndexerDb) {
 	printAssetQuery(db, idb.AssetsQuery{AssetId: 312769, Limit: 1})
 	printAssetQuery(db, idb.AssetsQuery{AssetIdGreaterThan: 312769, Query: "us", Limit: 2})
 	tcreator, err := atypes.DecodeAddress("XIU7HGGAJ3QOTATPDSIIHPFVKMICXKHMOR2FJKHTVLII4FAOA3CYZQDLG4")
-	maybeFail(err, "addr decode, %v", err)
+	maybeFail(err, "addr decode, %v\n", err)
 	printAssetQuery(db, idb.AssetsQuery{Creator: tcreator[:], Limit: 1})
 }
 
