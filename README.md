@@ -1,59 +1,104 @@
 # Algorand Indexer
 
-The Indexer reads committed blocks from the Algorand blockchain and mantains a database of transactions and accounts that are searchable and indexed on several features.
+The Indexer is a standalone service reads committed blocks from the Algorand blockchain and maintains a database of transactions and accounts that are searchable and indexed.
 
-# Operations
+# Features
 
-See [usage.md](usage.md)
+- Search and filter accounts, transactions, assets, and asset balances with many different parameters:
+    - Round
+    - Date
+    - Address (Sender|Receiver)
+    - Balances
+    - Signature type
+    - Transaction type
+    - Asset holdings
+    - Asset name
+    - More
+- Lookup historic account data for a particular round.
+- Result paging
+- Enriched transaction and account data:
+    - Confirmation round (block containing the transaction)
+    - Confirmation time
+    - Signature type
+    - Asset ID
+    - Close amount when applicable
+    - Rewards
+- Human readable field names instead of the space optimized protocol level names.
 
-# Bootstrapping Development
+There are a number of technical features as well:
+- Abstracted database layer. We want to support many different backend databases.
+- Optimized postgres DB backend.
+- User defined API token.
 
-### Setup Private Network
-Start a private network
-```
-~$ goal network create -n indexer-network -r ~/private-network -d ~/private-network/data -k ~/private-network/data/kmd -t /path/to/go-algorand/test/testdata/nettemplates/TwoNodes50EachFuture.json
-~$ goal network start -r ~/private-network/
-~$ goal node status -d ~/private-network/Primary
-```
+# Usage
 
-Start pingpong to generate data for indexer.
-```
-~$ pingpong run -d private-network/Primary/
-```
+The most common usage of the Indexer is expect to be getting validated blocks from a local `algod` Algorand node, adding them to a [PostgreSQL](https://www.postgresql.org/) database, and serving an API to make available a variety of prepared queries. Some users may wish to directly write SQL queries of the database.
 
-### Start with dummy DB
-```
-~$ algorand-indexer daemon -d ~/algorand/private-network/Primary/ --genesis ~/algorand/private-network/Primary/genesis.json  -n
-```
+Indexer works by fetching blocks one at a time, processing the block data, and loading it into a traditional database. There is a database abstraction layer to support different database implementations. In normal operation the service will run as a daemon and always requires access to a database.
 
-### Start with postgres
-Start postgres docker container
-```
-~$ docker pull postgres
-~$ docker run --rm   --name pg-docker -e POSTGRES_PASSWORD=docker -d -p 5432:5432 -v $HOME/docker/volumes/postgres:/var/lib/postgresql/data  postgres
-```
+As of April 2020, storing all the raw blocks is about 100 GB and the PostgreSQL database of transactions and accounts is about 1 GB. Much of that size difference is the Indexer ignoring cryptographic signature data; relying on `algod` to validate blocks. Dropping that, the Indexer can focus on the 'what happened' details of transactions and accounts.
 
-You can test postgres with an SQL client like SQuirreL, the JDBC connection string to the default `postgres` database is `jdbc:postgresql://localhost:5432/postgres`
+There are two primary modes of operation:
+* Database updater
+* Read only
 
-Start indexer
-```
-~$ algorand-indexer daemon -d ~/algorand/private-network/Primary/ --genesis ~/algorand/private-network/Primary/genesis.json --postgres "host=localhost port=5432 user=postgres password=docker dbname=postgres sslmode=disable"
-```
+### Database updater
+In this mode the database will be populated with data fetched from an [Algorand archival node](https://developer.algorand.org/docs/run-a-node/setup/types/#archival-mode). Because every block must be fetched to bootstrap the database, the initial import for a ledger with a long history will take a while. If the daemon is terminated, it will resume processing wherever it left off.
 
-# Code Generation
+You should use a process manager, like systemd, to ensure the daemon is always running. Indexer will continue to update the database as new blocks are created.
 
-### oapi-codegen
-The gontents of **api/models.go** and **api/routes.go** are generated with the following:
+To start indexer as a daemon in update mode, provide the required fields:
 ```
-oapi-codegen -package generated -type-mappings integer=uint64 -generate types -o ../oapi-codegen/chi/types.go indexer.oas3.yml
-oapi-codegen -package generated -type-mappings integer=uint64 -generate server -o ../oapi-codegen/chi/route.go indexer.oas3.yml
-```
-
-### openapi-generator
-**This didn't generate input validators. Remove this section once the final validator is chosen.**
-The contents of **api/gen** was made with opeanapi-generator-cli, specifically:
-```
-java -jar openapi-generator-cli.jar generate -i merged.oas3.yml -g go-server --type-mappings=integer=uint64 --additional-properties=sourceFolder=gen --additional-properties=packageName=api -o /path/to/indexer/api/
+~$ algorand-indexer daemon --algodAddr yournode.com:1234 --algodToken token --genesis ~/path/to/genesis.json  --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
 ```
 
-A number of files are ignored according to the definition in **api/.openapi-generator-ignore**
+Alternatively if indexer is running on the same host as the archival node, a simplified command may be used:
+```
+~$ algorand-indexer daemon --algodAddr yournode.com:1234 -d /path/to/algod/data/dir --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
+```
+
+### Read only
+It is possible to set up one daemon as a writer and one or more readers. The Indexer pulling new data from algod can be started as above. Starting the indexer daemon without $ALGORAND_DATA or -d/--algod/--algod-net/--algod-token will start it without writing new data to the database. For further isolation, a `readonly` user can be created for the database.
+```
+~$ algorand-indexer daemon --no-algod --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
+```
+
+The Postgres backend does specifically note the username "readonly" and changes behavior to avoid writing to the database. But the primary benefit is that Postgres can enforce restricted access to this user. This can be configured with:
+```sql
+CREATE USER readonly LOGIN PASSWORD 'YourPasswordHere';
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM readonly;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly;
+```
+
+## Authorization
+
+When `--token your-token` is provided, an authentication header is required. For example:
+```
+~$ curl localhost:8980/transactions -H "X-Indexer-API-Token: your-token"
+```
+
+# Systemd
+
+`/lib/systemd/system/algorand-indexer.service` can be partially overridden by creating `/etc/systemd/system/algorand-indexer.service.d/local.conf`. The most common things to override will be the command line and pidfile. The overriding local.conf file might be this:
+
+```
+[Service]
+ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
+PIDFile=/var/lib/algorand/algorand-indexer.pid
+
+```
+
+The systemd unit file can be found in source at [misc/systemd/algorand-indexer.service](misc/systemd/algorand-indexer.service)
+
+Once configured, turn on your daemon with:
+
+```bash
+sudo systemctl enable algorand-indexer
+sudo systemctl start algorand-indexer
+```
+
+If you wish to run multiple indexers on one server under systemd, see the comments in `/lib/systemd/system/algorand-indexer@.service` or [misc/systemd/algorand-indexer@.service](misc/systemd/algorand-indexer@.service)
+
+# Migrating from Indexer v1
+
+Indexer v1 was built into the algod v1 REST API. It has been removed with the algod v2 REST API, all of the old functionality is now part of this project. The API endpoints, parameters, and response objects have all been modified and extended. Any projects depending on the old endpoints will need to be updated accordingly.
