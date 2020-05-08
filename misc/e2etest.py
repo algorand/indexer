@@ -41,15 +41,24 @@ def ensureTestData(e2edata):
         subprocess.run(['tar', '-jxf', tarpath], cwd=e2edata).check_returncode()
 
 
+def maybe_decode(x):
+    if hasattr(x, 'decode'):
+        return x.decode()
+    return x
+
 def _getio(p, od, ed):
-    if od is None and p.stdout:
+    if od is not None:
+        od = maybe_decode(od)
+    elif p.stdout:
         try:
-            od = p.stdout.read()
+            od = maybe_decode(p.stdout.read())
         except:
             logger.error('subcomand out', exc_info=True)
-    if ed is None and p.stderr:
+    if ed is not None:
+        ed = maybe_decode(ed)
+    elif p.stderr:
         try:
-            ed = p.stderr.read()
+            ed = maybe_decode(p.stderr.read())
         except:
             logger.error('subcomand err', exc_info=True)
     return od, ed
@@ -103,28 +112,43 @@ def atexitrun(cmd, *args, **kwargs):
 
 def main():
     start = time.time()
-    logging.basicConfig(level=logging.INFO)
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--keep-temps', default=False, action='store_true')
+    ap.add_argument('--verbose', default=False, action='store_true')
+    args = ap.parse_args()
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
     e2edata = os.getenv('E2EDATA')
     if not e2edata:
         tdir = tempfile.TemporaryDirectory()
         e2edata = tdir.name
-        atexit.register(tdir.cleanup)
+        if not args.keep_temps:
+            atexit.register(tdir.cleanup)
+        else:
+            logger.info("leaving temp dir %r", tdir.name)
     ensureTestData(e2edata)
 
     dbname = 'e2eindex_{}_{}'.format(int(time.time()), random.randrange(1000))
     xrun(['dropdb', '--if-exists', dbname], timeout=5)
     xrun(['createdb', dbname], timeout=5)
-    atexitrun(['dropdb', '--if-exists', dbname], timeout=5)
+    if not args.keep_temps:
+        atexitrun(['dropdb', '--if-exists', dbname], timeout=5)
+    else:
+        logger.info("leaving db %r", dbname)
     psqlstring = 'dbname={} sslmode=disable'.format(dbname)
-    xrun(['cmd/indexer/indexer', 'import', '-P', psqlstring, os.path.join(e2edata, 'blocktars', '*'), '--genesis', os.path.join(e2edata, 'algod', 'genesis.json')], timeout=20)
-    cmd = ['cmd/indexer/indexer', 'daemon', '-P', psqlstring, '--dev-mode', '--no-algod']
+    xrun(['cmd/algorand-indexer/algorand-indexer', 'import', '-P', psqlstring, os.path.join(e2edata, 'blocktars', '*'), '--genesis', os.path.join(e2edata, 'algod', 'genesis.json')], timeout=20)
+    cmd = ['cmd/algorand-indexer/algorand-indexer', 'daemon', '-P', psqlstring, '--dev-mode', '--no-algod']
+    logger.debug("%s", ' '.join(map(repr,cmd)))
     indexerdp = subprocess.Popen(cmd)
     atexit.register(indexerdp.kill)
     time.sleep(0.2)
     sqliteglob = os.path.join(e2edata, 'algod', '*', 'ledger.tracker.sqlite')
     sqlitepaths = glob.glob(sqliteglob)
     sqlitepath = sqlitepaths[0]
-    xrun(['python3', 'misc/validate_accounting.py', '--dbfile', sqlitepath, '--indexer', 'http://localhost:8980'], timeout=20)
+    xrun(['python3', 'misc/validate_accounting.py', '--verbose', '--dbfile', sqlitepath, '--indexer', 'http://localhost:8980/'], timeout=20)
     dt = time.time() - start
     sys.stdout.write("indexer e2etest OK ({:.1f}s)\n".format(dt))
     return 0

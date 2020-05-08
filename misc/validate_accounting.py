@@ -61,7 +61,7 @@ def indexerAccounts(rooturl, blockround=None):
             accountsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(accountsurl)
         try:
-            logger.debug('GET %s', pageurl)
+            logger.debug('GET %r', pageurl)
             response = urllib.request.urlopen(pageurl)
         except urllib.error.HTTPError as e:
             logger.error('failed to fetch %r', pageurl)
