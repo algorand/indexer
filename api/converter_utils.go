@@ -231,7 +231,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	var stxn types.SignedTxnWithAD
 	err := msgpack.Decode(row.TxnBytes, &stxn)
 	if err != nil {
-		return generated.Transaction{}, fmt.Errorf("error decoding transaction bytes: %s", err.Error())
+		return generated.Transaction{}, fmt.Errorf("%s: %s", errUnableToDecodeTransaction, err.Error())
 	}
 
 	var payment *generated.TransactionPayment
@@ -343,14 +343,14 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.AssetsQuery, error) {
 	creator, errorArr := decodeAddress(params.Creator, "creator", make([]string, 0))
 	if len(errorArr) != 0 {
-		return idb.AssetsQuery{}, errors.New(errorArr[0])
+		return idb.AssetsQuery{}, errors.New(errUnableToParseAddress)
 	}
 
 	var assetGreaterThan uint64 = 0
 	if params.Next != nil {
 		agt, err := strconv.ParseUint(*params.Next, 10, 64)
 		if err != nil {
-			return idb.AssetsQuery{}, fmt.Errorf("unable to parse 'next': %v", err)
+			return idb.AssetsQuery{}, fmt.Errorf("%s: %v", errUnableToParseNext, err)
 		}
 		assetGreaterThan = agt
 	}
