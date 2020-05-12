@@ -349,24 +349,6 @@ func obs(x interface{}) string {
 	return string(json.Encode(x))
 }
 
-// this gets overlaid onto account.account_data jsonb, replacing just these fields, same as types.AccountData
-/*
-type AccountDataUpdatePart struct {
-	_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-	Status byte `codec:"onl"`
-
-	VoteID      types.OneTimeSignatureVerifier `codec:"vote"`
-	SelectionID types.VRFVerifier              `codec:"sel"`
-
-	VoteFirstValid  types.Round `codec:"voteFst"`
-	VoteLastValid   types.Round `codec:"voteLst"`
-	VoteKeyDilution uint64      `codec:"voteKD"`
-
-	SpendingKey Address `codec:"spend"`
-}
-*/
-
 func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error) {
 	any := false
 	tx, err := db.db.Begin()
@@ -411,17 +393,8 @@ func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, 
 			return fmt.Errorf("prepare keyreg, %v", err)
 		}
 		defer setkeyreg.Close()
-		for addr, kr := range updates.AccountDataUpdates {
-			/*
-				part := AccountDataUpdatePart{
-					Status:          byte(kr.Status),
-					VoteID:          kr.VoteID,
-					SelectionID:     kr.SelectionID,
-					VoteFirstValid:  types.Round(kr.VoteFirstValid),
-					VoteLastValid:   types.Round(kr.VoteLastValid),
-					VoteKeyDilution: kr.VoteKeyDilution,
-				}*/
-			jb := json.Encode(kr)
+		for addr, adu := range updates.AccountDataUpdates {
+			jb := json.Encode(adu)
 			_, err = setkeyreg.Exec(jb, addr[:])
 			if err != nil {
 				return fmt.Errorf("update keyreg, %v", err)
