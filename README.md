@@ -16,7 +16,7 @@ Once running, here are a few commands to try out:
 ~$ curl "localhost:8980/transactions?round=10"
 ~$ curl "localhost:8980/transactions?tx-type=acfg"
 ~$ curl "localhost:8980/accounts?asset-id=9"
-~$ curl "localhost:8980/accounts?asset-id=9&round=15"
+~$ curl "localhost:8980/accounts/ZBBRQD73JH5KZ7XRED6GALJYJUXOMBBP3X2Z2XFA4LATV3MUJKKMKG7SHA?round=15"
 ~$ curl "localhost:8980/assets/9/balances"
 ```
 
@@ -48,6 +48,7 @@ There are a number of technical features as well:
 - Optimized postgres DB backend.
 - User defined API token.
 
+<!-- USAGE_START_MARKER -->
 # Usage
 
 The most common usage of the Indexer is expect to be getting validated blocks from a local `algod` Algorand node, adding them to a [PostgreSQL](https://www.postgresql.org/) database, and serving an API to make available a variety of prepared queries. Some users may wish to directly write SQL queries of the database.
@@ -116,6 +117,7 @@ sudo systemctl start algorand-indexer
 ```
 
 If you wish to run multiple indexers on one server under systemd, see the comments in `/lib/systemd/system/algorand-indexer@.service` or [misc/systemd/algorand-indexer@.service](misc/systemd/algorand-indexer@.service)
+<!-- USAGE_END_MARKER_LINE -->
 
 # Migrating from Indexer v1
 

@@ -123,12 +123,27 @@ def build_deb(debarch, version):
         ['dpkg-deb', '--build', '.deb_tmp', debname])
     return debname
 
+def extract_usage():
+    usage = False
+    usageBuffer = ""
+    with open('README.md') as infile:
+        for line in infile:
+            if "USAGE_START_MARKER" in line:
+                usage = True
+                continue
+            elif "USAGE_END_MARKER" in line:
+                usage = False
+                continue
+            elif usage:
+                usageBuffer += line
+    return usageBuffer
+
 _usage_html = None
 def usage_html():
     global _usage_html
     if _usage_html is not None:
         return _usage_html
-    md = open('usage.md').read()
+    md = extract_usage()
     _usage_html = markdown2.markdown(md, extras=["tables", "fenced-code-blocks"])
     return _usage_html
 
