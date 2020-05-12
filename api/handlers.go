@@ -55,7 +55,7 @@ const defaultBalancesLimit = 1000
 ////////////////////////////
 
 // LookupAccountByID queries indexer for a given account.
-// (GET /account/{account-id})
+// (GET /accounts/{account-id})
 func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID string, params generated.LookupAccountByIDParams) error {
 	addr, errors := decodeAddress(&accountID, "account-id", make([]string, 0))
 	if len(errors) != 0 {
@@ -72,15 +72,15 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 	accounts, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
 
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("Failed while searching for account: %v", err))
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedSearchingAccount, err))
 	}
 
 	if len(accounts) == 0 {
-		return badRequest(ctx, fmt.Sprintf("No accounts found for address: %s", accountID))
+		return notFound(ctx, fmt.Sprintf("%s: %s", errNoAccountsFound, accountID))
 	}
 
 	if len(accounts) > 1 {
-		return badRequest(ctx, fmt.Sprintf("Multiple accounts found for address, this shouldn't have happened: %s", accountID))
+		return badRequest(ctx, fmt.Sprintf("%s: %s", errMultipleAccounts, accountID))
 	}
 
 	round, err := si.db.GetMaxRound()
@@ -97,6 +97,10 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 // SearchForAccounts returns accounts matching the provided parameters
 // (GET /accounts)
 func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params generated.SearchForAccountsParams) error {
+	if !si.EnableAddressSearchRoundRewind && params.Round != nil {
+		return badRequest(ctx, errMultiAcctRewind)
+	}
+
 	options := idb.AccountQueryOptions{
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
@@ -113,24 +117,18 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		options.AssetLT = uintOrDefault(params.CurrencyLessThan)
 	}
 
-	var atRound *uint64
-
-	if si.EnableAddressSearchRoundRewind {
-		atRound = params.Round
-	}
-
 	if params.Next != nil {
 		addr, err := types.DecodeAddress(*params.Next)
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, "Unable to parse next.")
+			ctx.JSON(http.StatusBadRequest, errUnableToParseNext)
 		}
 		options.GreaterThanAddress = addr[:]
 	}
 
-	accounts, err := si.fetchAccounts(ctx.Request().Context(), options, atRound)
+	accounts, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
 
 	if err != nil {
-		return badRequest(ctx, fmt.Sprintf("Failed while searching for account: %v", err))
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedSearchingAccount, err))
 	}
 
 	round, err := si.db.GetMaxRound()
@@ -154,7 +152,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 }
 
 // LookupAccountTransactions looks up transactions associated with a particular account.
-// (GET /account/{account-id}/transactions)
+// (GET /accounts/{account-id}/transactions)
 func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, accountID string, params generated.LookupAccountTransactionsParams) error {
 	// Check that a valid account was provided
 	_, errors := decodeAddress(strPtr(accountID), "account-id", make([]string, 0))
@@ -187,7 +185,7 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 }
 
 // LookupAssetByID looks up a particular asset
-// (GET /asset/{asset-id})
+// (GET /assets/{asset-id})
 func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64) error {
 	search := generated.SearchForAssetsParams{
 		AssetId: uint64Ptr(assetID),
@@ -204,11 +202,11 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 	}
 
 	if len(assets) == 0 {
-		return badRequest(ctx, fmt.Sprintf("No assets found for id: %d", assetID))
+		return notFound(ctx, fmt.Sprintf("%s: %d", errNoAssetsFound, assetID))
 	}
 
 	if len(assets) > 1 {
-		return badRequest(ctx, fmt.Sprintf("Multiple assets found for id, this shouldn't have happened: assetid=%d", assetID))
+		return badRequest(ctx, fmt.Sprintf("%s: %d", errMultipleAssets, assetID))
 	}
 
 	round, err := si.db.GetMaxRound()
@@ -223,19 +221,19 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 }
 
 // LookupAssetBalances looks up balances for a particular asset
-// (GET /asset/{asset-id}/balances)
+// (GET /assets/{asset-id}/balances)
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID uint64, params generated.LookupAssetBalancesParams) error {
 	query := idb.AssetBalanceQuery{
-		AssetId:   assetID,
+		AssetId:  assetID,
 		AmountGT: uintOrDefault(params.CurrencyGreaterThan),
 		AmountLT: uintOrDefault(params.CurrencyLessThan),
-		Limit:     min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
+		Limit:    min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
 	}
 
 	if params.Next != nil {
 		addr, err := types.DecodeAddress(*params.Next)
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, "Unable to parse next.")
+			ctx.JSON(http.StatusBadRequest, errUnableToParseNext)
 		}
 		query.PrevAddress = addr[:]
 	}
@@ -264,7 +262,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 }
 
 // LookupAssetTransactions looks up transactions associated with a particular asset
-// (GET /asset/{asset-id}/transactions)
+// (GET /assets/{asset-id}/transactions)
 func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetID uint64, params generated.LookupAssetTransactionsParams) error {
 	searchParams := generated.SearchForTransactionsParams{
 		AssetId:             uint64Ptr(assetID),
@@ -321,7 +319,7 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 }
 
 // LookupBlock returns the block for a given round number
-// (GET /block/{round-number})
+// (GET /blocks/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
 	blk, err := si.fetchBlock(roundNumber)
 	if err != nil {
@@ -332,7 +330,7 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 	filter := idb.TransactionFilter{Round: uint64Ptr(roundNumber)}
 	txns, _, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("error while looking up for transactions for round '%d': %v", roundNumber, err))
+		return indexerError(ctx, fmt.Sprintf("%s for round '%d': %v", errTransactionSearch, roundNumber, err))
 	}
 
 	blk.Transactions = &txns
@@ -351,7 +349,7 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 	txns, next, err := si.fetchTransactions(ctx.Request().Context(), filter)
 
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("error while searching for transactions: %v", err))
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errRewindingAccount, err))
 	}
 
 	round, err := si.db.GetMaxRound()
@@ -372,16 +370,23 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 // Error Helpers //
 ///////////////////
 
-// badRequest is a simple helper to return a 400 error.
+// return a 400
 func badRequest(ctx echo.Context, err string) error {
 	return ctx.JSON(http.StatusBadRequest, generated.ErrorResponse{
 		Message: err,
 	})
 }
 
-// indexerRequest is a simple helper to return a 500 error.
+// return a 500
 func indexerError(ctx echo.Context, err string) error {
 	return ctx.JSON(http.StatusInternalServerError, generated.ErrorResponse{
+		Message: err,
+	})
+}
+
+// return a 404
+func notFound(ctx echo.Context, err string) error {
+	return ctx.JSON(http.StatusNotFound, generated.ErrorResponse{
 		Message: err,
 	})
 }
@@ -401,7 +406,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 
 		creator := types.Address{}
 		if len(row.Creator) != len(creator) {
-			return nil, fmt.Errorf("found an invalid creator address")
+			return nil, fmt.Errorf(errInvalidCreatorAddress)
 		}
 		copy(creator[:], row.Creator[:])
 
@@ -440,7 +445,7 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 
 		addr := types.Address{}
 		if len(row.Address) != len(addr) {
-			return nil, fmt.Errorf("found an invalid creator address")
+			return nil, fmt.Errorf(errInvalidCreatorAddress)
 		}
 		copy(addr[:], row.Address[:])
 
@@ -460,7 +465,7 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 func (si *ServerImplementation) fetchBlock(round uint64) (generated.Block, error) {
 	blk, err := si.db.GetBlock(round)
 	if err != nil {
-		return generated.Block{}, fmt.Errorf("error while looking up for block for round '%d': %v", round, err)
+		return generated.Block{}, fmt.Errorf("%s '%d': %v", errLookingUpBlock, round, err)
 	}
 
 	rewards := generated.BlockRewards{
@@ -520,7 +525,7 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 		if atRound != nil {
 			acct, err := accounting.AccountAtRound(row.Account, *atRound, si.db)
 			if err != nil {
-				return nil, fmt.Errorf("problem computing account at round: %v", err)
+				return nil, fmt.Errorf("%s: %v", errRewindingAccount, err)
 			}
 			account = acct
 		} else {

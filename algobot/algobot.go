@@ -80,12 +80,12 @@ func (bot *algobotImpl) catchupLoop() {
 		}
 		blockbytes, err = aclient.BlockRaw(bot.nextRound)
 		if err != nil {
-			log.Printf("catchup block %d, err %v", bot.nextRound, err)
+			log.Printf("catchup block %d, err %v\n", bot.nextRound, err)
 			return
 		}
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
-			log.Printf("err handling catchup block %d, %v", bot.nextRound, err)
+			log.Printf("err handling catchup block %d, %v\n", bot.nextRound, err)
 			return
 		}
 		bot.nextRound++
@@ -105,21 +105,21 @@ func (bot *algobotImpl) followLoop() {
 			}
 			_, err = aclient.StatusAfterBlock(bot.nextRound)
 			if err != nil {
-				log.Printf("r=%d error getting status %d, %v", retries, bot.nextRound, err)
+				log.Printf("r=%d error getting status %d, %v\n", retries, bot.nextRound, err)
 				continue
 			}
 			blockbytes, err = aclient.BlockRaw(bot.nextRound)
 			if err == nil {
 				break
 			}
-			log.Printf("r=%d err getting block %d, %v", retries, bot.nextRound, err)
+			log.Printf("r=%d err getting block %d, %v\n", retries, bot.nextRound, err)
 		}
 		if err != nil {
 			return
 		}
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
-			log.Printf("err handling follow block %d, %v", bot.nextRound, err)
+			log.Printf("err handling follow block %d, %v\n", bot.nextRound, err)
 			break
 		}
 		bot.nextRound++
@@ -146,12 +146,12 @@ func (bot *algobotImpl) Run() {
 		} else {
 			now := time.Now()
 			dt := now.Sub(bot.failingSince)
-			log.Printf("failing to fetch from algod for %s, (since %s, now %s)", dt.String(), bot.failingSince.String(), now.String())
+			log.Printf("failing to fetch from algod for %s, (since %s, now %s)\n", dt.String(), bot.failingSince.String(), now.String())
 		}
 		time.Sleep(5 * time.Second)
 		err := bot.reclient()
 		if err != nil {
-			log.Printf("err trying to re-client, %v", err)
+			log.Printf("err trying to re-client, %v\n", err)
 		} else {
 			log.Print("reclient happened")
 		}
