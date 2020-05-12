@@ -52,16 +52,16 @@ var daemonCmd = &cobra.Command{
 		var bot algobot.Algobot
 		var err error
 		if noAlgod {
-			fmt.Fprint(os.Stderr, "algod block following disabled")
+			fmt.Fprint(os.Stderr, "algod block following disabled\n")
 		} else if algodAddr != "" && algodToken != "" {
 			bot, err = algobot.ForNetAndToken(algodAddr, algodToken)
-			maybeFail(err, "algobot setup, %v", err)
+			maybeFail(err, "algobot setup, %v\n", err)
 		} else if algodDataDir != "" {
 			if genesisJsonPath == "" {
 				genesisJsonPath = filepath.Join(algodDataDir, "genesis.json")
 			}
 			bot, err = algobot.ForDataDir(algodDataDir)
-			maybeFail(err, "algobot setup, %v", err)
+			maybeFail(err, "algobot setup, %v\n", err)
 		} else {
 			// no algod was found
 			noAlgod = true
@@ -71,7 +71,7 @@ var daemonCmd = &cobra.Command{
 			// to the db, to allow for read-only query
 			// servers that hit the db backend.
 			err := importer.ImportProto(db)
-			maybeFail(err, "import proto, %v", err)
+			maybeFail(err, "import proto, %v\n", err)
 		}
 		if bot != nil {
 			maxRound, err := db.GetMaxRound()
