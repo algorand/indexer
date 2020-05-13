@@ -18,31 +18,31 @@ import (
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
-	// (GET /accounts)
+	// (GET /v2/accounts)
 	SearchForAccounts(ctx echo.Context, params SearchForAccountsParams) error
 
-	// (GET /accounts/{account-id})
+	// (GET /v2/accounts/{account-id})
 	LookupAccountByID(ctx echo.Context, accountId string, params LookupAccountByIDParams) error
 
-	// (GET /accounts/{account-id}/transactions)
+	// (GET /v2/accounts/{account-id}/transactions)
 	LookupAccountTransactions(ctx echo.Context, accountId string, params LookupAccountTransactionsParams) error
 
-	// (GET /assets)
+	// (GET /v2/assets)
 	SearchForAssets(ctx echo.Context, params SearchForAssetsParams) error
 
-	// (GET /assets/{asset-id})
+	// (GET /v2/assets/{asset-id})
 	LookupAssetByID(ctx echo.Context, assetId uint64) error
 
-	// (GET /assets/{asset-id}/balances)
+	// (GET /v2/assets/{asset-id}/balances)
 	LookupAssetBalances(ctx echo.Context, assetId uint64, params LookupAssetBalancesParams) error
 
-	// (GET /assets/{asset-id}/transactions)
+	// (GET /v2/assets/{asset-id}/transactions)
 	LookupAssetTransactions(ctx echo.Context, assetId uint64, params LookupAssetTransactionsParams) error
 
-	// (GET /blocks/{round-number})
+	// (GET /v2/blocks/{round-number})
 	LookupBlock(ctx echo.Context, roundNumber uint64) error
 
-	// (GET /transactions)
+	// (GET /v2/transactions)
 	SearchForTransactions(ctx echo.Context, params SearchForTransactionsParams) error
 }
 
@@ -1017,15 +1017,15 @@ func RegisterHandlers(router interface {
 		Handler: si,
 	}
 
-	router.GET("/accounts", wrapper.SearchForAccounts, m...)
-	router.GET("/accounts/:account-id", wrapper.LookupAccountByID, m...)
-	router.GET("/accounts/:account-id/transactions", wrapper.LookupAccountTransactions, m...)
-	router.GET("/assets", wrapper.SearchForAssets, m...)
-	router.GET("/assets/:asset-id", wrapper.LookupAssetByID, m...)
-	router.GET("/assets/:asset-id/balances", wrapper.LookupAssetBalances, m...)
-	router.GET("/assets/:asset-id/transactions", wrapper.LookupAssetTransactions, m...)
-	router.GET("/blocks/:round-number", wrapper.LookupBlock, m...)
-	router.GET("/transactions", wrapper.SearchForTransactions, m...)
+	router.GET("/v2/accounts", wrapper.SearchForAccounts, m...)
+	router.GET("/v2/accounts/:account-id", wrapper.LookupAccountByID, m...)
+	router.GET("/v2/accounts/:account-id/transactions", wrapper.LookupAccountTransactions, m...)
+	router.GET("/v2/assets", wrapper.SearchForAssets, m...)
+	router.GET("/v2/assets/:asset-id", wrapper.LookupAssetByID, m...)
+	router.GET("/v2/assets/:asset-id/balances", wrapper.LookupAssetBalances, m...)
+	router.GET("/v2/assets/:asset-id/transactions", wrapper.LookupAssetTransactions, m...)
+	router.GET("/v2/blocks/:round-number", wrapper.LookupBlock, m...)
+	router.GET("/v2/transactions", wrapper.SearchForTransactions, m...)
 
 }
 
@@ -1134,20 +1134,20 @@ var swaggerSpec = []string{
 	"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",
-	"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",
+	"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",
 }
 
 // GetSwagger returns the Swagger specification corresponding to the generated code
