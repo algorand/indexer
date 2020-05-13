@@ -13,7 +13,9 @@
     "version": "1.0"
   },
   "host": "example.com",
-  "basePath": "/v1",
+  "produces": [
+    "application/json"
+  ],
   "paths": {
     "/accounts": {
       "get": {
