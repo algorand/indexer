@@ -47,7 +47,7 @@ def indexerAccounts(rooturl, blockround=None):
     '''return {raw account: {"algo":N, "asset":{}}, ...}'''
     rootparts = urllib.parse.urlparse(rooturl)
     accountsurl = list(rootparts)
-    accountsurl[2] = os.path.join(accountsurl[2], 'accounts')
+    accountsurl[2] = os.path.join(accountsurl[2], 'v1', 'accounts')
     gtaddr = None
     accounts = {}
     query = {'limit':500}
@@ -103,7 +103,7 @@ def indexerAccountTxns(rooturl, addr, minround=None, maxround=None):
     niceaddr = algosdk.encoding.encode_address(addr)
     rootparts = urllib.parse.urlparse(rooturl)
     atxnsurl = list(rootparts)
-    atxnsurl[2] = os.path.join(atxnsurl[2], 'transactions')
+    atxnsurl[2] = os.path.join(atxnsurl[2], 'v1', 'transactions')
     query = {'limit':1000, 'address':niceaddr}
     if minround is not None:
         query['min-round'] = minround
