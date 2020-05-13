@@ -1290,7 +1290,8 @@
       "type": "string",
       "description": "Specifies a prefix which must be contained in the note field.",
       "name": "note-prefix",
-      "in": "query"
+      "in": "query",
+      "x-algorand-format": "base64" 
     },
     "round": {
       "type": "integer",
