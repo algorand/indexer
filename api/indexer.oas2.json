@@ -5,12 +5,12 @@
   "swagger": "2.0",
   "info": {
     "description": "Algorand ledger analytics API.",
-    "title": "Indexer 2 0",
+    "title": "Indexer",
     "contact": {
       "name": "Algorand",
       "url": "https://www.algorand.com/get-in-touch/contact"
     },
-    "version": "1.0"
+    "version": "2.0"
   },
   "host": "example.com",
   "produces": [
