@@ -32,7 +32,7 @@
         "operationId": "HealthCheck",
         "responses": {
           "200": {
-            "description": "OK."
+            "$ref": "#/responses/HealthCheckResponse"
           },
           "default": {
             "description": "Unknown Error"
@@ -855,7 +855,22 @@
       ],
       "properties": {
         "data": {
+          "type": "object"
+        },
+        "message": {
           "type": "string"
+        }
+      }
+    },
+    "HealthCheck": {
+      "description": "A health check response.",
+      "type": "object",
+      "required": [
+        "message"
+      ],
+      "properties": {
+        "data": {
+          "type": "object"
         },
         "message": {
           "type": "string"
@@ -1483,6 +1498,12 @@
       "description": "(empty)",
       "schema": {
         "$ref": "#/definitions/Block"
+      }
+    },
+    "HealthCheckResponse": {
+      "description": "(empty)",
+      "schema": {
+        "$ref": "#/definitions/HealthCheck"
       }
     },
     "TransactionsResponse": {

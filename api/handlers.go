@@ -13,6 +13,7 @@ import (
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/api/generated/common"
 	"github.com/algorand/indexer/idb"
 )
 
@@ -290,7 +291,7 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 // Returns 200 if healthy.
 // (GET /health)
 func (si *ServerImplementation) HealthCheck(ctx echo.Context) error {
-	return ctx.String(http.StatusOK, "{\"message\":\"OK\"}")
+	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{Message: "OK"})
 }
 
 // SearchForAssets returns assets matching the provided parameters

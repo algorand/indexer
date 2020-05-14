@@ -335,6 +335,16 @@
         },
         "description": "(empty)"
       },
+      "HealthCheckResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HealthCheck"
+            }
+          }
+        },
+        "description": "(empty)"
+      },
       "TransactionsResponse": {
         "content": {
           "application/json": {
@@ -748,7 +758,24 @@
         "description": "An error response with optional data field.",
         "properties": {
           "data": {
+            "properties": {},
+            "type": "object"
+          },
+          "message": {
             "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "type": "object"
+      },
+      "HealthCheck": {
+        "description": "A health check response.",
+        "properties": {
+          "data": {
+            "properties": {},
+            "type": "object"
           },
           "message": {
             "type": "string"
@@ -1143,8 +1170,14 @@
         "operationId": "HealthCheck",
         "responses": {
           "200": {
-            "content": {},
-            "description": "OK."
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthCheck"
+                }
+              }
+            },
+            "description": "(empty)"
           },
           "default": {
             "content": {},
