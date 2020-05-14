@@ -29,7 +29,7 @@
           "http"
         ],
         "summary": "Returns 200 if healthy.",
-        "operationId": "HealthCheck",
+        "operationId": "makeHealthCheck",
         "responses": {
           "200": {
             "$ref": "#/responses/HealthCheckResponse"
