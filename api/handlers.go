@@ -12,7 +12,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
-	"github.com/algorand/indexer/api/generated"
+	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 )
 
@@ -285,6 +285,12 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 	}
 
 	return si.SearchForTransactions(ctx, searchParams)
+}
+
+// Returns 200 if healthy.
+// (GET /health)
+func (si *ServerImplementation) HealthCheck(ctx echo.Context) error {
+	return ctx.String(http.StatusOK, "{\"message\":\"OK\"}")
 }
 
 // SearchForAssets returns assets matching the provided parameters

@@ -17,6 +17,29 @@
     "application/json"
   ],
   "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "common"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http"
+        ],
+        "summary": "Returns 200 if healthy.",
+        "operationId": "HealthCheck",
+        "responses": {
+          "200": {
+            "description": "OK."
+          },
+          "default": {
+            "description": "Unknown Error"
+          }
+        }
+      }
+    },
     "/v2/accounts": {
       "get": {
         "description": "Search for accounts.",

@@ -128,8 +128,10 @@
         "in": "query",
         "name": "note-prefix",
         "schema": {
-          "type": "string"
-        }
+          "type": "string",
+          "x-algorand-format": "base64"
+        },
+        "x-algorand-format": "base64"
       },
       "round": {
         "description": "Include results for the specified round.",
@@ -1136,6 +1138,25 @@
   },
   "openapi": "3.0.1",
   "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthCheck",
+        "responses": {
+          "200": {
+            "content": {},
+            "description": "OK."
+          },
+          "default": {
+            "content": {},
+            "description": "Unknown Error"
+          }
+        },
+        "summary": "Returns 200 if healthy.",
+        "tags": [
+          "common"
+        ]
+      }
+    },
     "/v2/accounts": {
       "get": {
         "description": "Search for accounts.",
@@ -1310,8 +1331,10 @@
             "in": "query",
             "name": "note-prefix",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "x-algorand-format": "base64"
+            },
+            "x-algorand-format": "base64"
           },
           {
             "in": "query",
@@ -1725,8 +1748,10 @@
             "in": "query",
             "name": "note-prefix",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "x-algorand-format": "base64"
+            },
+            "x-algorand-format": "base64"
           },
           {
             "in": "query",
@@ -1962,8 +1987,10 @@
             "in": "query",
             "name": "note-prefix",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "x-algorand-format": "base64"
+            },
+            "x-algorand-format": "base64"
           },
           {
             "in": "query",
