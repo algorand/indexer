@@ -55,7 +55,7 @@ const defaultBalancesLimit = 1000
 ////////////////////////////
 
 // LookupAccountByID queries indexer for a given account.
-// (GET /accounts/{account-id})
+// (GET /v2/accounts/{account-id})
 func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID string, params generated.LookupAccountByIDParams) error {
 	addr, errors := decodeAddress(&accountID, "account-id", make([]string, 0))
 	if len(errors) != 0 {
@@ -95,7 +95,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 }
 
 // SearchForAccounts returns accounts matching the provided parameters
-// (GET /accounts)
+// (GET /v2/accounts)
 func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params generated.SearchForAccountsParams) error {
 	if !si.EnableAddressSearchRoundRewind && params.Round != nil {
 		return badRequest(ctx, errMultiAcctRewind)
@@ -152,7 +152,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 }
 
 // LookupAccountTransactions looks up transactions associated with a particular account.
-// (GET /accounts/{account-id}/transactions)
+// (GET /v2/accounts/{account-id}/transactions)
 func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, accountID string, params generated.LookupAccountTransactionsParams) error {
 	// Check that a valid account was provided
 	_, errors := decodeAddress(strPtr(accountID), "account-id", make([]string, 0))
@@ -185,7 +185,7 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 }
 
 // LookupAssetByID looks up a particular asset
-// (GET /assets/{asset-id})
+// (GET /v2/assets/{asset-id})
 func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64) error {
 	search := generated.SearchForAssetsParams{
 		AssetId: uint64Ptr(assetID),
@@ -221,7 +221,7 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 }
 
 // LookupAssetBalances looks up balances for a particular asset
-// (GET /assets/{asset-id}/balances)
+// (GET /v2/assets/{asset-id}/balances)
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID uint64, params generated.LookupAssetBalancesParams) error {
 	query := idb.AssetBalanceQuery{
 		AssetId:  assetID,
@@ -262,7 +262,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 }
 
 // LookupAssetTransactions looks up transactions associated with a particular asset
-// (GET /assets/{asset-id}/transactions)
+// (GET /v2/assets/{asset-id}/transactions)
 func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetID uint64, params generated.LookupAssetTransactionsParams) error {
 	searchParams := generated.SearchForTransactionsParams{
 		AssetId:             uint64Ptr(assetID),
@@ -288,7 +288,7 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 }
 
 // SearchForAssets returns assets matching the provided parameters
-// (GET /assets)
+// (GET /v2/assets)
 func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generated.SearchForAssetsParams) error {
 	options, err := assetParamsToAssetQuery(params)
 	if err != nil {
@@ -319,7 +319,7 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 }
 
 // LookupBlock returns the block for a given round number
-// (GET /blocks/{round-number})
+// (GET /v2/blocks/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
 	blk, err := si.fetchBlock(roundNumber)
 	if err != nil {
@@ -338,7 +338,7 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 }
 
 // SearchForTransactions returns transactions matching the provided parameters
-// (GET /transactions)
+// (GET /v2/transactions)
 func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params generated.SearchForTransactionsParams) error {
 	filter, err := transactionParamsToTransactionFilter(params)
 	if err != nil {

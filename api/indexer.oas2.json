@@ -13,9 +13,11 @@
     "version": "1.0"
   },
   "host": "example.com",
-  "basePath": "/v1",
+  "produces": [
+    "application/json"
+  ],
   "paths": {
-    "/accounts": {
+    "/v2/accounts": {
       "get": {
         "description": "Search for accounts.",
         "consumes": [
@@ -58,7 +60,7 @@
         }
       }
     },
-    "/accounts/{account-id}": {
+    "/v2/accounts/{account-id}": {
       "get": {
         "description": "Lookup account information.",
         "consumes": [
@@ -86,7 +88,7 @@
         }
       }
     },
-    "/accounts/{account-id}/transactions": {
+    "/v2/accounts/{account-id}/transactions": {
       "get": {
         "description": "Lookup account transactions.",
         "consumes": [
@@ -153,7 +155,7 @@
         }
       }
     },
-    "/assets": {
+    "/v2/assets": {
       "get": {
         "description": "Search for assets.",
         "consumes": [
@@ -202,7 +204,7 @@
         }
       }
     },
-    "/assets/{asset-id}": {
+    "/v2/assets/{asset-id}": {
       "get": {
         "description": "Lookup asset information.",
         "consumes": [
@@ -230,7 +232,7 @@
         }
       }
     },
-    "/assets/{asset-id}/balances": {
+    "/v2/assets/{asset-id}/balances": {
       "get": {
         "description": "Lookup the list of accounts who hold this asset ",
         "consumes": [
@@ -273,7 +275,7 @@
         }
       }
     },
-    "/assets/{asset-id}/transactions": {
+    "/v2/assets/{asset-id}/transactions": {
       "get": {
         "description": "Lookup transactions for an asset.",
         "consumes": [
@@ -349,7 +351,7 @@
         }
       }
     },
-    "/blocks/{round-number}": {
+    "/v2/blocks/{round-number}": {
       "get": {
         "description": "Lookup block.",
         "consumes": [
@@ -374,7 +376,7 @@
         }
       }
     },
-    "/transactions": {
+    "/v2/transactions": {
       "get": {
         "description": "Search for transactions.",
         "consumes": [
