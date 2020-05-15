@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -55,6 +54,22 @@ const defaultBalancesLimit = 1000
 ////////////////////////////
 // Handler implementation //
 ////////////////////////////
+
+// Returns 200 if healthy.
+// (GET /health)
+func (si *ServerImplementation) HealthCheck(ctx echo.Context) error {
+	stateJsonStr, err := si.db.GetMetastate("state")
+	var state idb.ImportState
+	if err == nil && stateJsonStr != "" {
+		state, err = idb.ParseImportState(stateJsonStr)
+		if err != nil {
+			return indexerError(ctx, fmt.Sprintf("error parsing import state: %v", err))
+		}
+	}
+	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
+		Message: strconv.FormatInt(state.AccountRound, 10),
+	})
+}
 
 // LookupAccountByID queries indexer for a given account.
 // (GET /v2/accounts/{account-id})
@@ -287,23 +302,6 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 	}
 
 	return si.SearchForTransactions(ctx, searchParams)
-}
-
-// Returns 200 if healthy.
-// (GET /health)
-func (si *ServerImplementation) HealthCheck(ctx echo.Context) error {
-	stateJsonStr, err := si.db.GetMetastate("state")
-	var state idb.ImportState
-	if err == nil && stateJsonStr != "" {
-		state, err = idb.ParseImportState(stateJsonStr)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error parsing import state, %v\n", err)
-			panic("error parsing import state in bih")
-		}
-	}
-	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
-		Message: strconv.FormatInt(state.AccountRound, 10),
-	})
 }
 
 // SearchForAssets returns assets matching the provided parameters
