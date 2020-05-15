@@ -14,4 +14,6 @@ install:
 script:
   - make
   - go test ./...
-  - python3 misc/e2etest.py
+  # This script accesses a public bucket. It is disabled because boto3 requires
+  # credentials even if the bucket does or not.
+  #- python3 misc/e2etest.py
