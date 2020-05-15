@@ -103,7 +103,7 @@ def atexitrun(cmd, *args, **kwargs):
     cargs = [cmd]+list(args)
     atexit.register(xrun, *cargs, **kwargs)
 
-def main():
+def main(psqlstring):
     start = time.time()
     logging.basicConfig(level=logging.INFO)
     e2edata = os.getenv('E2EDATA')
@@ -113,11 +113,6 @@ def main():
         atexit.register(tdir.cleanup)
     ensureTestData(e2edata)
 
-    dbname = 'e2eindex_{}_{}'.format(int(time.time()), random.randrange(1000))
-    xrun(['dropdb', '--if-exists', dbname], timeout=5)
-    xrun(['createdb', dbname], timeout=5)
-    atexitrun(['dropdb', '--if-exists', dbname], timeout=5)
-    psqlstring = 'dbname={} sslmode=disable'.format(dbname)
     xrun(['cmd/indexer/indexer', 'import', '-P', psqlstring, os.path.join(e2edata, 'blocktars', '*'), '--genesis', os.path.join(e2edata, 'algod', 'genesis.json')], timeout=20)
     cmd = ['cmd/indexer/indexer', 'daemon', '-P', psqlstring, '--dev-mode', '--no-algod']
     indexerdp = subprocess.Popen(cmd)
@@ -132,4 +127,17 @@ def main():
     return 0
 
 if __name__ == '__main__':
-    sys.exit(main())
+    dbname = 'e2eindex_{}_{}'.format(int(time.time()), random.randrange(1000))
+
+    if len(sys.argv) == 1:
+        # No arguments, assume local postgres instance
+        xrun(['dropdb', '--if-exists', dbname], timeout=5)
+        xrun(['createdb', dbname], timeout=5)
+        atexitrun(['dropdb', '--if-exists', dbname], timeout=5)
+        psqlstring = 'dbname={} sslmode=disable'.format(dbname)
+
+    else:
+        # Otherwise assume a connection string was provided
+        psqlstring = sys.argv[1]
+
+    sys.exit(main(psqlstring))

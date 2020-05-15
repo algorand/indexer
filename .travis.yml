@@ -3,6 +3,9 @@ go:
   - 1.13.x
   - 1.14.x
 
+services:
+  -docker
+
 addons:
   apt:
     packages:
@@ -10,8 +13,9 @@ addons:
 
 install:
   - pip3 install boto3
+  - docker run -t postgres -e POSTGRES_USER='algorand' -POSTGRES_PASSWORD='indexer' POSTGRES_DB='indexer-db' -p 5432:5432
 
 script:
   - make
   - go test ./...
-  - python3 misc/e2etest.py
+  - python3 misc/e2etest.py "host=localhost port=5432 user=algorand password=indexer dbname='indexer-db' sslmode=disable"
