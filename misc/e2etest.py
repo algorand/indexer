@@ -25,7 +25,7 @@ def ensureTestData(e2edata):
                 os.makedirs(e2edata)
             import boto3
             bucket = 'algorand-testdata'
-            s3 = boto3.client('s3', region_name='us-east-1')
+            s3 = boto3.client('s3')
             response = s3.list_objects_v2(Bucket=bucket, Prefix='indexer/e2e1', MaxKeys=2)
             if (not response.get('KeyCount')) or ('Contents' not in response):
                 logger.error('no testdata found in s3')
