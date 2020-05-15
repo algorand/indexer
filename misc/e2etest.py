@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import atexit
+import boto3
 import glob
 import logging
 import os
@@ -9,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import time
+
 from botocore.config import Config
 from botocore import UNSIGNED
 
@@ -25,7 +27,6 @@ def ensureTestData(e2edata):
             logger.info('fetching testdata from s3...')
             if not os.path.isdir(e2edata):
                 os.makedirs(e2edata)
-            import boto3
             bucket = 'algorand-testdata'
             s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
             response = s3.list_objects_v2(Bucket=bucket, Prefix='indexer/e2e1', MaxKeys=2)
@@ -103,7 +104,20 @@ def atexitrun(cmd, *args, **kwargs):
     cargs = [cmd]+list(args)
     atexit.register(xrun, *cargs, **kwargs)
 
-def main(psqlstring):
+def main():
+    dbname = 'e2eindex_{}_{}'.format(int(time.time()), random.randrange(1000))
+
+    if len(sys.argv) == 1:
+        # No arguments, assume local postgres instance
+        xrun(['dropdb', '--if-exists', dbname], timeout=5)
+        xrun(['createdb', dbname], timeout=5)
+        atexitrun(['dropdb', '--if-exists', dbname], timeout=5)
+        psqlstring = 'dbname={} sslmode=disable'.format(dbname)
+
+    else:
+        # Otherwise assume a connection string was provided
+        psqlstring = sys.argv[1]
+
     start = time.time()
     logging.basicConfig(level=logging.INFO)
     e2edata = os.getenv('E2EDATA')
@@ -127,17 +141,4 @@ def main(psqlstring):
     return 0
 
 if __name__ == '__main__':
-    dbname = 'e2eindex_{}_{}'.format(int(time.time()), random.randrange(1000))
-
-    if len(sys.argv) == 1:
-        # No arguments, assume local postgres instance
-        xrun(['dropdb', '--if-exists', dbname], timeout=5)
-        xrun(['createdb', dbname], timeout=5)
-        atexitrun(['dropdb', '--if-exists', dbname], timeout=5)
-        psqlstring = 'dbname={} sslmode=disable'.format(dbname)
-
-    else:
-        # Otherwise assume a connection string was provided
-        psqlstring = sys.argv[1]
-
-    sys.exit(main(psqlstring))
+    sys.exit(main())
