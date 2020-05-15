@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.com/algorand/indexer.svg?token=VUYV6KsbTffLzzA3qd5T&branch=master)](https://travis-ci.com/algorand/indexer)
 # Algorand Indexer
 
 The Indexer is a standalone service reads committed blocks from the Algorand blockchain and maintains a database of transactions and accounts that are searchable and indexed.
@@ -47,6 +48,10 @@ There are a number of technical features as well:
 - Abstracted database layer. We want to support many different backend databases.
 - Optimized postgres DB backend.
 - User defined API token.
+
+# Contributing
+
+Contributions welcome! Please refer to our [CONTRIBUTING](https://github.com/algorand/go-algorand/blob/master/CONTRIBUTING.md) document.
 
 <!-- USAGE_START_MARKER -->
 # Usage
