@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from botocore.config import Config
 from botocore import UNSIGNED
 
 logger = logging.getLogger(__name__)
