@@ -420,6 +420,9 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.SigType, errorArr = decodeSigType(params.SigType, errorArr)
 	filter.TypeEnum, errorArr = decodeType(params.TxType, errorArr)
 
+	// Boolean
+	filter.RekeyTo = params.RekeyTo
+
 	// If there were any errorArr while setting up the TransactionFilter, return now.
 	if len(errorArr) > 0 {
 		err = errors.New("invalid input: " + strings.Join(errorArr, ", "))

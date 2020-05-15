@@ -206,6 +206,7 @@ type TransactionFilter struct {
 	NotePrefix []byte
 	AlgosGT    uint64 // implictly filters on "pay" txns for Algos > this. This will be a slightly faster query than EffectiveAmountGt.
 	AlgosLT    uint64
+	RekeyTo    *bool // nil for no filter
 
 	AssetId       uint64 // filter transactions relevant to an asset
 	AssetAmountGT uint64
@@ -223,6 +224,9 @@ type TransactionFilter struct {
 type AccountQueryOptions struct {
 	GreaterThanAddress []byte // for paging results
 	EqualToAddress     []byte // return exactly this one account
+
+	// return any accounts with this spending key
+	EqualToSpendingKey []byte
 
 	// Filter on accounts with current balance greater than x
 	AlgosGreaterThan uint64

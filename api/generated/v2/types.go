@@ -50,6 +50,9 @@ type Account struct {
 	// * lsig
 	SigType *string `json:"sig-type,omitempty"`
 
+	// \[spend\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.
+	SpendingKey *string `json:"spending-key,omitempty"`
+
 	// \[onl\] delegation status of the account's MicroAlgos
 	// * Offline - indicates that the associated account is delegated.
 	// *  Online  - indicates that the associated account used as part of the delegation pool.
@@ -287,6 +290,9 @@ type Transaction struct {
 	// data/transactions/asset.go : AssetTransferTxnFields
 	AssetTransferTransaction *TransactionAssetTransfer `json:"asset-transfer-transaction,omitempty"`
 
+	// \[sgnr\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth-addr is equal to the SpendingKey.
+	AuthAddr *string `json:"auth-addr,omitempty"`
+
 	// \[rc\] rewards applied to close-remainder-to account.
 	CloseRewards *uint64 `json:"close-rewards,omitempty"`
 
@@ -343,6 +349,9 @@ type Transaction struct {
 
 	// \[rr\] rewards applied to receiver account.
 	ReceiverRewards *uint64 `json:"receiver-rewards,omitempty"`
+
+	// \[rekey\] when included in a valid transaction, the accounts SpendingKey will be updated with this value and future signatures must be signed with the key represented by this address.
+	RekeyTo *string `json:"rekey-to,omitempty"`
 
 	// Time when the block this transaction is in was confirmed.
 	RoundTime *uint64 `json:"round-time,omitempty"`
@@ -558,6 +567,9 @@ type Next string
 // NotePrefix defines model for note-prefix.
 type NotePrefix string
 
+// RekeyTo defines model for rekey-to.
+type RekeyTo bool
+
 // Round defines model for round.
 type Round uint64
 
@@ -566,6 +578,9 @@ type RoundNumber uint64
 
 // SigType defines model for sig-type.
 type SigType string
+
+// SpendingKey defines model for spending-key.
+type SpendingKey string
 
 // TxType defines model for tx-type.
 type TxType string
@@ -664,6 +679,9 @@ type SearchForAccountsParams struct {
 	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
 
+	// Include accounts configured to use this spending key.
+	SpendingKey *string `json:"spending-key,omitempty"`
+
 	// Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.
 	Round *uint64 `json:"round,omitempty"`
 }
@@ -720,6 +738,9 @@ type LookupAccountTransactionsParams struct {
 
 	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
+
+	// Include results which include the rekey-to field.
+	RekeyTo *bool `json:"rekey-to,omitempty"`
 }
 
 // SearchForAssetsParams defines parameters for SearchForAssets.
@@ -814,6 +835,9 @@ type LookupAssetTransactionsParams struct {
 
 	// Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.
 	ExcludeCloseTo *bool `json:"exclude-close-to,omitempty"`
+
+	// Include results which include the rekey-to field.
+	RekeyTo *bool `json:"rekey-to,omitempty"`
 }
 
 // SearchForTransactionsParams defines parameters for SearchForTransactions.
@@ -870,4 +894,7 @@ type SearchForTransactionsParams struct {
 
 	// Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.
 	ExcludeCloseTo *bool `json:"exclude-close-to,omitempty"`
+
+	// Include results which include the rekey-to field.
+	RekeyTo *bool `json:"rekey-to,omitempty"`
 }

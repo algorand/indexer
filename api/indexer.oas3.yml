@@ -133,6 +133,14 @@
         },
         "x-algorand-format": "base64"
       },
+      "rekey-to": {
+        "description": "Include results which include the rekey-to field.",
+        "in": "query",
+        "name": "rekey-to",
+        "schema": {
+          "type": "boolean"
+        }
+      },
       "round": {
         "description": "Include results for the specified round.",
         "in": "query",
@@ -162,6 +170,16 @@
           ],
           "type": "string"
         }
+      },
+      "spending-key": {
+        "description": "Include accounts configured to use this spending key.",
+        "in": "query",
+        "name": "spending-key",
+        "schema": {
+          "type": "string",
+          "x-algorand-format": "Address"
+        },
+        "x-algorand-format": "Address"
       },
       "tx-type": {
         "in": "query",
@@ -433,6 +451,11 @@
               "lsig"
             ],
             "type": "string"
+          },
+          "spending-key": {
+            "description": "\\[spend\\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.",
+            "type": "string",
+            "x-algorand-format": "Address"
           },
           "status": {
             "description": "\\[onl\\] delegation status of the account's MicroAlgos\n* Offline - indicates that the associated account is delegated.\n*  Online  - indicates that the associated account used as part of the delegation pool.\n*   NotParticipating - indicates that the associated account is neither a delegator nor a delegate.",
@@ -819,6 +842,11 @@
           "asset-transfer-transaction": {
             "$ref": "#/components/schemas/TransactionAssetTransfer"
           },
+          "auth-addr": {
+            "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth-addr is equal to the SpendingKey.",
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
           "close-rewards": {
             "description": "\\[rc\\] rewards applied to close-remainder-to account.",
             "type": "integer"
@@ -892,6 +920,11 @@
           "receiver-rewards": {
             "description": "\\[rr\\] rewards applied to receiver account.",
             "type": "integer"
+          },
+          "rekey-to": {
+            "description": "\\[rekey\\] when included in a valid transaction, the accounts SpendingKey will be updated with this value and future signatures must be signed with the key represented by this address.",
+            "type": "string",
+            "x-algorand-format": "Address"
           },
           "round-time": {
             "description": "Time when the block this transaction is in was confirmed.",
@@ -1160,14 +1193,14 @@
       "url": "https://www.algorand.com/get-in-touch/contact"
     },
     "description": "Algorand ledger analytics API.",
-    "title": "Indexer 2 0",
-    "version": "1.0"
+    "title": "Indexer",
+    "version": "2.0"
   },
   "openapi": "3.0.1",
   "paths": {
     "/health": {
       "get": {
-        "operationId": "HealthCheck",
+        "operationId": "makeHealthCheck",
         "responses": {
           "200": {
             "content": {
@@ -1236,6 +1269,16 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "description": "Include accounts configured to use this spending key.",
+            "in": "query",
+            "name": "spending-key",
+            "schema": {
+              "type": "string",
+              "x-algorand-format": "Address"
+            },
+            "x-algorand-format": "Address"
           },
           {
             "description": "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.",
@@ -1488,6 +1531,14 @@
               "x-go-name": "AccountID"
             },
             "x-go-name": "AccountID"
+          },
+          {
+            "description": "Include results which include the rekey-to field.",
+            "in": "query",
+            "name": "rekey-to",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -1923,6 +1974,14 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "description": "Include results which include the rekey-to field.",
+            "in": "query",
+            "name": "rekey-to",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -2161,6 +2220,14 @@
             "description": "Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.",
             "in": "query",
             "name": "exclude-close-to",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Include results which include the rekey-to field.",
+            "in": "query",
+            "name": "rekey-to",
             "schema": {
               "type": "boolean"
             }

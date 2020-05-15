@@ -57,7 +57,7 @@ const defaultBalancesLimit = 1000
 
 // Returns 200 if healthy.
 // (GET /health)
-func (si *ServerImplementation) HealthCheck(ctx echo.Context) error {
+func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	stateJsonStr, err := si.db.GetMetastate("state")
 	var state idb.ImportState
 	if err == nil && stateJsonStr != "" {
@@ -118,11 +118,17 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		return badRequest(ctx, errMultiAcctRewind)
 	}
 
+	spendingAddr, errors := decodeAddress(params.SpendingKey, "account-id", make([]string, 0))
+	if len(errors) != 0 {
+		return badRequest(ctx, errors[0])
+	}
+
 	options := idb.AccountQueryOptions{
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
 		Limit:                min(uintOrDefaultValue(params.Limit, defaultAccountsLimit), maxAccountsLimit),
 		HasAssetId:           uintOrDefault(params.AssetId),
+		EqualToSpendingKey:   spendingAddr[:],
 	}
 
 	// Set GT/LT on Algos or Asset depending on whether or not an assetID was specified
@@ -196,6 +202,7 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 		AfterTime:           params.AfterTime,
 		CurrencyGreaterThan: params.CurrencyGreaterThan,
 		CurrencyLessThan:    params.CurrencyLessThan,
+		RekeyTo:             params.RekeyTo,
 	}
 
 	return si.SearchForTransactions(ctx, searchParams)
@@ -299,6 +306,7 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 		Address:             params.AddressRole,
 		AddressRole:         params.AddressRole,
 		ExcludeCloseTo:      params.ExcludeCloseTo,
+		RekeyTo:             params.RekeyTo,
 	}
 
 	return si.SearchForTransactions(ctx, searchParams)
