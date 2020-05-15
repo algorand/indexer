@@ -5,18 +5,41 @@
   "swagger": "2.0",
   "info": {
     "description": "Algorand ledger analytics API.",
-    "title": "Indexer 2 0",
+    "title": "Indexer",
     "contact": {
       "name": "Algorand",
       "url": "https://www.algorand.com/get-in-touch/contact"
     },
-    "version": "1.0"
+    "version": "2.0"
   },
   "host": "example.com",
   "produces": [
     "application/json"
   ],
   "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "common"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http"
+        ],
+        "summary": "Returns 200 if healthy.",
+        "operationId": "makeHealthCheck",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/HealthCheckResponse"
+          },
+          "default": {
+            "description": "Unknown Error"
+          }
+        }
+      }
+    },
     "/v2/accounts": {
       "get": {
         "description": "Search for accounts.",
@@ -832,7 +855,22 @@
       ],
       "properties": {
         "data": {
+          "type": "object"
+        },
+        "message": {
           "type": "string"
+        }
+      }
+    },
+    "HealthCheck": {
+      "description": "A health check response.",
+      "type": "object",
+      "required": [
+        "message"
+      ],
+      "properties": {
+        "data": {
+          "type": "object"
         },
         "message": {
           "type": "string"
@@ -1460,6 +1498,12 @@
       "description": "(empty)",
       "schema": {
         "$ref": "#/definitions/Block"
+      }
+    },
+    "HealthCheckResponse": {
+      "description": "(empty)",
+      "schema": {
+        "$ref": "#/definitions/HealthCheck"
       }
     },
     "TransactionsResponse": {

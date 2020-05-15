@@ -21,7 +21,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
-	models "github.com/algorand/indexer/api/generated"
+	models "github.com/algorand/indexer/api/generated/v2"
 	_ "github.com/lib/pq"
 
 	"github.com/algorand/indexer/types"

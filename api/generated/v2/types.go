@@ -245,8 +245,14 @@ type BlockUpgradeVote struct {
 
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
-	Data    *string `json:"data,omitempty"`
-	Message string  `json:"message"`
+	Data    *map[string]interface{} `json:"data,omitempty"`
+	Message string                  `json:"message"`
+}
+
+// HealthCheck defines model for HealthCheck.
+type HealthCheck struct {
+	Data    *map[string]interface{} `json:"data,omitempty"`
+	Message string                  `json:"message"`
 }
 
 // MiniAssetHolding defines model for MiniAssetHolding.
@@ -625,6 +631,9 @@ type AssetsResponse struct {
 
 // BlockResponse defines model for BlockResponse.
 type BlockResponse Block
+
+// HealthCheckResponse defines model for HealthCheckResponse.
+type HealthCheckResponse HealthCheck
 
 // TransactionsResponse defines model for TransactionsResponse.
 type TransactionsResponse struct {

@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"time"
 
-	models "github.com/algorand/indexer/api/generated"
+	models "github.com/algorand/indexer/api/generated/v2"
 
 	"github.com/algorand/indexer/types"
 )
