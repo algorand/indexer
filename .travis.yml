@@ -13,7 +13,7 @@ addons:
 
 install:
   - pip3 install boto3
-  - docker run -t postgres -e POSTGES_USER=algorand -e POSTGRES_PASSWORD=indexer -e POSTGRES_DB=indexer-db -p 5432:5432
+  - docker run -e POSTGES_USER=algorand -e POSTGRES_PASSWORD=indexer -e POSTGRES_DB=indexer-db -p 5432:5432 -t postgres
 
 script:
   - make
