@@ -9,6 +9,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from botocore import UNSIGNED
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ def ensureTestData(e2edata):
                 os.makedirs(e2edata)
             import boto3
             bucket = 'algorand-testdata'
-            s3 = boto3.client('s3')
+            s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
             response = s3.list_objects_v2(Bucket=bucket, Prefix='indexer/e2e1', MaxKeys=2)
             if (not response.get('KeyCount')) or ('Contents' not in response):
                 logger.error('no testdata found in s3')
