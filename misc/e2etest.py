@@ -113,8 +113,8 @@ def main(psqlstring):
         atexit.register(tdir.cleanup)
     ensureTestData(e2edata)
 
-    xrun(['cmd/indexer/indexer', 'import', '-P', psqlstring, os.path.join(e2edata, 'blocktars', '*'), '--genesis', os.path.join(e2edata, 'algod', 'genesis.json')], timeout=20)
-    cmd = ['cmd/indexer/indexer', 'daemon', '-P', psqlstring, '--dev-mode', '--no-algod']
+    xrun(['cmd/algorand-indexer/algorand-indexer', 'import', '-P', psqlstring, os.path.join(e2edata, 'blocktars', '*'), '--genesis', os.path.join(e2edata, 'algod', 'genesis.json')], timeout=20)
+    cmd = ['cmd/algorand-indexer/algorand-indexer', 'daemon', '-P', psqlstring, '--dev-mode', '--no-algod']
     indexerdp = subprocess.Popen(cmd)
     atexit.register(indexerdp.kill)
     time.sleep(0.2)
