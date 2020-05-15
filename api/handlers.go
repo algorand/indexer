@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
@@ -12,8 +13,8 @@ import (
 	"github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
-	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/api/generated/common"
+	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 )
 
@@ -291,7 +292,18 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 // Returns 200 if healthy.
 // (GET /health)
 func (si *ServerImplementation) HealthCheck(ctx echo.Context) error {
-	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{Message: "OK"})
+	stateJsonStr, err := si.db.GetMetastate("state")
+	var state idb.ImportState
+	if err == nil && stateJsonStr != "" {
+		state, err = idb.ParseImportState(stateJsonStr)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error parsing import state, %v\n", err)
+			panic("error parsing import state in bih")
+		}
+	}
+	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
+		Message: strconv.FormatInt(state.AccountRound, 10),
+	})
 }
 
 // SearchForAssets returns assets matching the provided parameters
