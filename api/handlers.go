@@ -12,7 +12,8 @@ import (
 	"github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
-	"github.com/algorand/indexer/api/generated"
+	"github.com/algorand/indexer/api/generated/common"
+	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 )
 
@@ -53,6 +54,22 @@ const defaultBalancesLimit = 1000
 ////////////////////////////
 // Handler implementation //
 ////////////////////////////
+
+// Returns 200 if healthy.
+// (GET /health)
+func (si *ServerImplementation) HealthCheck(ctx echo.Context) error {
+	stateJsonStr, err := si.db.GetMetastate("state")
+	var state idb.ImportState
+	if err == nil && stateJsonStr != "" {
+		state, err = idb.ParseImportState(stateJsonStr)
+		if err != nil {
+			return indexerError(ctx, fmt.Sprintf("error parsing import state: %v", err))
+		}
+	}
+	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
+		Message: strconv.FormatInt(state.AccountRound, 10),
+	})
+}
 
 // LookupAccountByID queries indexer for a given account.
 // (GET /v2/accounts/{account-id})

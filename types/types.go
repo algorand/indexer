@@ -413,6 +413,12 @@ type (
 		// structs; allocate a copy and modify that instead.  AccountData
 		// is expected to have copy-by-value semantics.
 		Assets map[AssetIndex]AssetHolding `codec:"asset"`
+
+		// SpendingKey is the address against which signatures/multisigs/logicsigs should be checked.
+		// If empty, the address of the account whose AccountData this is is used.
+		// A transaction may change an account's SpendingKey to "re-key" the account.
+		// This allows key rotation, changing the members in a multisig, etc.
+		SpendingKey Address `codec:"spend"`
 	}
 
 	// AssetHolding describes an asset held by an account.
@@ -588,7 +594,12 @@ type ConsensusParams struct {
 	MaxTxGroupSize int
 
 	// support for transaction leases
+	// note: if FixTransactionLeases is not set, the transaction
+	// leases supported are faulty; specifically, they do not
+	// enforce exclusion correctly when the FirstValid of
+	// transactions do not match.
 	SupportTransactionLeases bool
+	FixTransactionLeases     bool
 
 	// 0 for no support, otherwise highest version supported
 	LogicSigVersion uint64
@@ -605,4 +616,7 @@ type ConsensusParams struct {
 	// whether to use the old buggy Credential.lowestOutput function
 	// TODO(upgrade): Please remove as soon as the upgrade goes through
 	UseBuggyProposalLowestOutput bool
+
+	// SupportRekeying indicates support for account rekeying (the RekeyTo and AuthAddr fields)
+	SupportRekeying bool
 }

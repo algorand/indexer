@@ -72,7 +72,7 @@ func (accounting *AccountingState) commitRound() error {
 	}
 	accounting.AlgoUpdates = nil
 	accounting.AccountTypes = nil
-	accounting.KeyregUpdates = nil
+	accounting.AccountDataUpdates = nil
 	accounting.AssetUpdates = nil
 	accounting.AcfgUpdates = nil
 	accounting.TxnAssetUpdates = nil
@@ -114,6 +114,18 @@ func (accounting *AccountingState) updateAccountType(addr types.Address, ktype s
 		accounting.AccountTypes = make(map[[32]byte]string)
 	}
 	accounting.AccountTypes[addr] = ktype
+}
+
+func (accounting *AccountingState) updateAccountData(addr types.Address, key string, field interface{}) {
+	if accounting.AccountDataUpdates == nil {
+		accounting.AccountDataUpdates = make(map[[32]byte]map[string]interface{})
+	}
+	au, ok := accounting.AccountDataUpdates[addr]
+	if !ok {
+		au = make(map[string]interface{})
+		accounting.AccountDataUpdates[addr] = au
+	}
+	au[key] = field
 }
 
 func (accounting *AccountingState) updateAsset(addr types.Address, assetId uint64, add, sub uint64) {
@@ -240,6 +252,10 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 		accounting.updateAlgo(accounting.rewardAddr, -int64(stxn.SenderRewards))
 	}
 
+	if !stxn.Txn.RekeyTo.IsZero() {
+		accounting.updateAccountData(stxn.Txn.Sender, "spend", stxn.Txn.RekeyTo)
+	}
+
 	if stxn.Txn.Type == "pay" {
 		amount := int64(stxn.Txn.Amount)
 		if amount != 0 {
@@ -260,27 +276,23 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 		}
 	} else if stxn.Txn.Type == "keyreg" {
 		// see https://github.com/algorand/go-algorand/blob/master/data/transactions/keyreg.go
-		kru := idb.KeyregUpdate{
-			Addr:            stxn.Txn.Sender,
-			VoteID:          stxn.Txn.VotePK,
-			SelectionID:     stxn.Txn.SelectionPK,
-			VoteFirstValid:  uint64(stxn.Txn.VoteFirst),
-			VoteLastValid:   uint64(stxn.Txn.VoteLast),
-			VoteKeyDilution: stxn.Txn.VoteKeyDilution,
-		}
+		accounting.updateAccountData(stxn.Txn.Sender, "vote", stxn.Txn.VotePK)
+		accounting.updateAccountData(stxn.Txn.Sender, "sel", stxn.Txn.SelectionPK)
 		if bytesAreZero(stxn.Txn.VotePK[:]) || bytesAreZero(stxn.Txn.SelectionPK[:]) {
 			if stxn.Txn.Nonparticipation {
-				kru.Status = 2
+				accounting.updateAccountData(stxn.Txn.Sender, "onl", 2) // NotParticipating
 			} else {
-				kru.Status = 0
+				accounting.updateAccountData(stxn.Txn.Sender, "onl", 0) // Offline
 			}
-			kru.VoteFirstValid = 0
-			kru.VoteLastValid = 0
-			kru.VoteKeyDilution = 0
+			accounting.updateAccountData(stxn.Txn.Sender, "voteFst", 0)
+			accounting.updateAccountData(stxn.Txn.Sender, "voteLst", 0)
+			accounting.updateAccountData(stxn.Txn.Sender, "voteKD", 0)
 		} else {
-			kru.Status = 1 // online
+			accounting.updateAccountData(stxn.Txn.Sender, "onl", 1) // Online
+			accounting.updateAccountData(stxn.Txn.Sender, "voteFst", uint64(stxn.Txn.VoteFirst))
+			accounting.updateAccountData(stxn.Txn.Sender, "voteLst", uint64(stxn.Txn.VoteLast))
+			accounting.updateAccountData(stxn.Txn.Sender, "voteKD", stxn.Txn.VoteKeyDilution)
 		}
-		accounting.KeyregUpdates = append(accounting.KeyregUpdates, kru)
 	} else if stxn.Txn.Type == "acfg" {
 		assetId := uint64(stxn.Txn.ConfigAsset)
 		if assetId == 0 {

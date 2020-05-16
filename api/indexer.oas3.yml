@@ -128,8 +128,10 @@
         "in": "query",
         "name": "note-prefix",
         "schema": {
-          "type": "string"
-        }
+          "type": "string",
+          "x-algorand-format": "base64"
+        },
+        "x-algorand-format": "base64"
       },
       "round": {
         "description": "Include results for the specified round.",
@@ -328,6 +330,16 @@
           "application/json": {
             "schema": {
               "$ref": "#/components/schemas/Block"
+            }
+          }
+        },
+        "description": "(empty)"
+      },
+      "HealthCheckResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/HealthCheck"
             }
           }
         },
@@ -746,7 +758,24 @@
         "description": "An error response with optional data field.",
         "properties": {
           "data": {
+            "properties": {},
+            "type": "object"
+          },
+          "message": {
             "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "type": "object"
+      },
+      "HealthCheck": {
+        "description": "A health check response.",
+        "properties": {
+          "data": {
+            "properties": {},
+            "type": "object"
           },
           "message": {
             "type": "string"
@@ -1136,6 +1165,31 @@
   },
   "openapi": "3.0.1",
   "paths": {
+    "/health": {
+      "get": {
+        "operationId": "HealthCheck",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthCheck"
+                }
+              }
+            },
+            "description": "(empty)"
+          },
+          "default": {
+            "content": {},
+            "description": "Unknown Error"
+          }
+        },
+        "summary": "Returns 200 if healthy.",
+        "tags": [
+          "common"
+        ]
+      }
+    },
     "/v2/accounts": {
       "get": {
         "description": "Search for accounts.",
@@ -1310,8 +1364,10 @@
             "in": "query",
             "name": "note-prefix",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "x-algorand-format": "base64"
+            },
+            "x-algorand-format": "base64"
           },
           {
             "in": "query",
@@ -1725,8 +1781,10 @@
             "in": "query",
             "name": "note-prefix",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "x-algorand-format": "base64"
+            },
+            "x-algorand-format": "base64"
           },
           {
             "in": "query",
@@ -1962,8 +2020,10 @@
             "in": "query",
             "name": "note-prefix",
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "x-algorand-format": "base64"
+            },
+            "x-algorand-format": "base64"
           },
           {
             "in": "query",
