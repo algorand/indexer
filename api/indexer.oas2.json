@@ -184,6 +184,64 @@
         }
       }
     },
+    "/v2/applications": {
+      "get": {
+        "description": "Search for applications",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "search"
+        ],
+        "operationId": "searchForApplications",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "application-id",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "TODO": "Define this response object.",
+            "$ref": "#/responses/ApplicationsResponse"
+          }
+        }
+      }
+    },
+    "/v2/applications/{application-id}": {
+      "get": {
+        "description": "Lookup application.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "lookup"
+        ],
+        "operationId": "searchForApplications",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "application-id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "TODO": "Define this response object.",
+            "$ref": "#/responses/ApplicationResponse"
+          }
+        }
+      }
+    },
     "/v2/assets": {
       "get": {
         "description": "Search for assets.",
@@ -600,6 +658,155 @@
           "description": "\\[vote\\] root participation public key (if any) currently registered for this round.",
           "type": "string",
           "format": "byte"
+        }
+      }
+    },
+    "ApplicationStateSchema": {
+      "description": "Specifies maximums on the number of each type that may be stored.",
+      "type": "object",
+      "required": [
+        "num-uint",
+        "num-byte-slice"
+      ],
+      "properties": {
+        "num-uint": {
+          "description": "\\[nui\\] num of uints.",
+          "type": "integer"
+        },
+        "num-byte-slice": {
+          "description": "\\[nbs\\] num of byte slices.",
+          "type": "integer"
+        }
+      }
+    },
+    "ApplicationLocalStates": {
+      "description": "Pair of application index and application local state",
+      "type": "object",
+      "required": [
+        "app-index",
+        "state"
+      ],
+      "properties": {
+        "app-index": {
+          "type": "integer"
+        },
+        "state": {
+          "$ref": "#/definitions/ApplicationLocalState"
+        }
+      }
+    },
+    "ApplicationLocalState": {
+      "description": "Stores local state associated with an application.",
+      "type": "object",
+      "required": [
+        "schema",
+        "key-value"
+      ],
+      "properties": {
+        "schema": {
+          "description": "\\[hsch\\] schema.",
+          "$ref": "#/definitions/ApplicationStateSchema"
+        },
+        "key-value": {
+          "description": "\\[tkv\\] storage.",
+          "$ref": "#/definitions/TealKeyValueStore"
+        }
+      }
+    },
+    "TealKeyValueStore": {
+      "description": "Represents a key-value store for use in an application.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/TealKeyValue"
+      }
+    },
+    "TealKeyValue": {
+      "description": "Represents a key-value pair in an application store.",
+      "type": "object",
+      "required": [
+        "key",
+        "value"
+      ],
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/definitions/TealValue"
+        }
+      }
+    },
+    "TealValue": {
+      "description": "Represents a TEAL value.",
+      "type": "object",
+      "required": [
+        "type",
+        "uint",
+        "bytes"
+      ],
+      "properties": {
+        "type": {
+          "description": "\\[tt\\] value type.",
+          "type": "integer"
+        },
+        "bytes": {
+          "description": "\\[tb\\] bytes value.",
+          "type": "string"
+        },
+        "uint": {
+          "description": "\\[ui\\] uint value.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        }
+      }
+    },
+    "Application": {
+      "description": "Application index and its parameters",
+      "type": "object",
+      "required": [
+        "app-index",
+        "app-params"
+      ],
+      "properties": {
+        "app-index": {
+          "description": "\\[appidx\\] application index.",
+          "type": "integer"
+        },
+        "app-params": {
+          "description": "\\[appparams\\] application parameters.",
+          "$ref": "#/definitions/ApplicationParams"
+        }
+      }
+    },
+    "ApplicationParams": {
+      "description": "Stores the global information associated with an application.",
+      "type": "object",
+      "required": [
+        "approval-program",
+        "clear-state-program"
+      ],
+      "properties": {
+        "approval-program": {
+          "description": "\\[approv\\] approval program.",
+          "type": "string",
+          "format": "byte"
+        },
+        "clear-state-program": {
+          "description": "\\[clearp\\] approval program.",
+          "type": "string",
+          "format": "byte"
+        },
+        "local-state-schema": {
+          "description": "[\\lsch\\] local schema",
+          "$ref": "#/definitions/ApplicationStateSchema"
+        },
+        "global-state-schema": {
+          "description": "[\\lsch\\] global schema",
+          "$ref": "#/definitions/ApplicationStateSchema"
+        },
+        "global-state": {
+          "description": "[\\gs\\] global schema",
+          "$ref": "#/definitions/TealKeyValueStore"
         }
       }
     },
@@ -1495,6 +1702,51 @@
         }
       }
     },
+    "ApplicationResponse": {
+      "description": "(empty)",
+      "schema": {
+        "type": "object",
+        "required": [
+          "current-round",
+          "applications"
+        ],
+        "properties": {
+          "application": {
+            "$ref": "#/definitions/Application"
+          },
+          "current-round": {
+            "description": "Round at which the results were computed.",
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "ApplicationsResponse": {
+      "description": "(empty)",
+      "schema": {
+        "type": "object",
+        "required": [
+          "current-round",
+          "applications"
+        ],
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/Application"
+            }
+          },
+          "current-round": {
+            "description": "Round at which the results were computed.",
+            "type": "integer"
+          },
+          "next-token": {
+            "description": "Used for pagination, when making another request provide this token with the next parameter.",
+            "type": "string"
+          }
+        }
+      }
+    },
     "AssetResponse": {
       "description": "(empty)",
       "schema": {
@@ -1580,6 +1832,9 @@
     }
   },
   "tags": [
+    {
+      "name": "common"
+    },
     {
       "name": "lookup"
     },
