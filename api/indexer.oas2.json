@@ -70,7 +70,7 @@
             "$ref": "#/parameters/currency-less-than"
           },
           {
-            "$ref": "#/parameters/spending-key"
+            "$ref": "#/parameters/auth-addr"
           },
           {
             "type": "integer",
@@ -561,7 +561,7 @@
             "lsig"
           ]
         },
-        "spending-key": {
+        "auth-addr": {
           "description": "\\[spend\\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.",
           "type": "string",
           "x-algorand-format": "Address"
@@ -1391,10 +1391,10 @@
       "name": "sig-type",
       "in": "query"
     },
-    "spending-key": {
+    "auth-addr": {
       "type": "string",
       "description": "Include accounts configured to use this spending key.",
-      "name": "spending-key",
+      "name": "auth-addr",
       "in": "query",
       "x-algorand-format": "Address" 
     },
