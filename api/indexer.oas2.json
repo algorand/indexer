@@ -1047,6 +1047,8 @@
         },
         "auth-addr": {
           "description": "The address used to sign the transaction. This is used for rekeyed accounts to indicate that the sender address did not sign the transaction.",
+          "type": "string",
+          "x-algorand-format": "Address"
         }
       }
     },
