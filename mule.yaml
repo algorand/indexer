@@ -1,0 +1,22 @@
+tasks:
+  - task: docker.Version
+    arch: amd64
+    configFilePath: Dockerfile-release
+  - task: shell.docker.Ensure
+    arch: amd64
+    image: algorand/indexer-ci-linux
+    version: '{{ docker.Version.outputs.version }}'
+    dockerFilePath: Dockerfile-release
+    dependencies: docker.Version
+  - task: docker.Shell
+    name: build
+    command: python3 misc/release.py
+    docker:
+      image: algorand/indexer-ci-linux
+      version: '{{ docker.Version.outputs.version }}'
+      workDir: /go/src/github.com/algorand/indexer
+jobs:
+  build:
+    tasks:
+      - shell.docker.Ensure
+      - docker.Shell.build
