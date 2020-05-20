@@ -618,6 +618,9 @@ type AddressRole string
 // AfterTime defines model for after-time.
 type AfterTime time.Time
 
+// ApplicationId defines model for application-id.
+type ApplicationId uint64
+
 // AssetId defines model for asset-id.
 type AssetId uint64
 
@@ -843,11 +846,19 @@ type LookupAccountTransactionsParams struct {
 
 	// Include results which include the rekey-to field.
 	RekeyTo *bool `json:"rekey-to,omitempty"`
+
+	// Application ID
+	ApplicationId *uint64 `json:"application-id,omitempty"`
 }
 
 // SearchForApplicationsParams defines parameters for SearchForApplications.
 type SearchForApplicationsParams struct {
-	ApplicationId uint64 `json:"application-id"`
+
+	// Application ID
+	ApplicationId *uint64 `json:"application-id,omitempty"`
+
+	// Include results for the specified round.
+	Round *uint64 `json:"round,omitempty"`
 }
 
 // SearchForAssetsParams defines parameters for SearchForAssets.
@@ -945,6 +956,9 @@ type LookupAssetTransactionsParams struct {
 
 	// Include results which include the rekey-to field.
 	RekeyTo *bool `json:"rekey-to,omitempty"`
+
+	// Application ID
+	ApplicationId *uint64 `json:"application-id,omitempty"`
 }
 
 // SearchForTransactionsParams defines parameters for SearchForTransactions.
@@ -1004,4 +1018,7 @@ type SearchForTransactionsParams struct {
 
 	// Include results which include the rekey-to field.
 	RekeyTo *bool `json:"rekey-to,omitempty"`
+
+	// Application ID
+	ApplicationId *uint64 `json:"application-id,omitempty"`
 }

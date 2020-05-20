@@ -46,6 +46,14 @@
         },
         "x-algorand-format": "RFC3339 String"
       },
+      "application-id": {
+        "description": "Application ID",
+        "in": "query",
+        "name": "application-id",
+        "schema": {
+          "type": "integer"
+        }
+      },
       "asset-id": {
         "description": "Asset ID",
         "in": "query",
@@ -1736,6 +1744,14 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "description": "Application ID",
+            "in": "query",
+            "name": "application-id",
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -1781,9 +1797,17 @@
         "operationId": "searchForApplications",
         "parameters": [
           {
+            "description": "Application ID",
             "in": "query",
             "name": "application-id",
-            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include results for the specified round.",
+            "in": "query",
+            "name": "round",
             "schema": {
               "type": "integer"
             }
@@ -2273,6 +2297,14 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "description": "Application ID",
+            "in": "query",
+            "name": "application-id",
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -2521,6 +2553,14 @@
             "name": "rekey-to",
             "schema": {
               "type": "boolean"
+            }
+          },
+          {
+            "description": "Application ID",
+            "in": "query",
+            "name": "application-id",
+            "schema": {
+              "type": "integer"
             }
           }
         ],

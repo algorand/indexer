@@ -618,6 +618,9 @@ type AddressRole string
 // AfterTime defines model for after-time.
 type AfterTime time.Time
 
+// ApplicationId defines model for application-id.
+type ApplicationId uint64
+
 // AssetId defines model for asset-id.
 type AssetId uint64
 
