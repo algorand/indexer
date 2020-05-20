@@ -225,7 +225,7 @@
         "tags": [
           "lookup"
         ],
-        "operationId": "searchForApplications",
+        "operationId": "lookupApplication",
         "parameters": [
           {
             "type": "integer",

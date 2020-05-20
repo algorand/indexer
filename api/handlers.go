@@ -208,6 +208,16 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 	return si.SearchForTransactions(ctx, searchParams)
 }
 
+// (GET /v2/applications)
+func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params generated.SearchForApplicationsParams) error {
+	return echo.NewHTTPError(http.StatusMethodNotAllowed, "SearchForApplications is not implemented yet.")
+}
+
+// (GET /v2/applications/{application-id})
+func (si *ServerImplementation) LookupApplication(ctx echo.Context, applicationId uint64) error {
+	return echo.NewHTTPError(http.StatusMethodNotAllowed, "LookupApplication is not implemented yet.")
+}
+
 // LookupAssetByID looks up a particular asset
 // (GET /v2/assets/{asset-id})
 func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64) error {

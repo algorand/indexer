@@ -79,6 +79,63 @@ type AccountParticipation struct {
 	VoteParticipationKey []byte `json:"vote-participation-key"`
 }
 
+// Application defines model for Application.
+type Application struct {
+
+	// \[appidx\] application index.
+	AppIndex uint64 `json:"app-index"`
+
+	// Stores the global information associated with an application.
+	AppParams ApplicationParams `json:"app-params"`
+}
+
+// ApplicationLocalState defines model for ApplicationLocalState.
+type ApplicationLocalState struct {
+
+	// Represents a key-value store for use in an application.
+	KeyValue TealKeyValueStore `json:"key-value"`
+
+	// Specifies maximums on the number of each type that may be stored.
+	Schema ApplicationStateSchema `json:"schema"`
+}
+
+// ApplicationLocalStates defines model for ApplicationLocalStates.
+type ApplicationLocalStates struct {
+	AppIndex uint64 `json:"app-index"`
+
+	// Stores local state associated with an application.
+	State ApplicationLocalState `json:"state"`
+}
+
+// ApplicationParams defines model for ApplicationParams.
+type ApplicationParams struct {
+
+	// \[approv\] approval program.
+	ApprovalProgram []byte `json:"approval-program"`
+
+	// \[clearp\] approval program.
+	ClearStateProgram []byte `json:"clear-state-program"`
+
+	// Represents a key-value store for use in an application.
+	GlobalState *TealKeyValueStore `json:"global-state,omitempty"`
+
+	// Specifies maximums on the number of each type that may be stored.
+	GlobalStateSchema *ApplicationStateSchema `json:"global-state-schema,omitempty"`
+
+	// Specifies maximums on the number of each type that may be stored.
+	LocalStateSchema *ApplicationStateSchema `json:"local-state-schema,omitempty"`
+}
+
+// ApplicationStateSchema defines model for ApplicationStateSchema.
+type ApplicationStateSchema struct {
+
+	// \[nbs\] num of byte slices.
+	NumByteSlice uint64 `json:"num-byte-slice"`
+
+	// \[nui\] num of uints.
+	NumUint uint64 `json:"num-uint"`
+}
+
 // Asset defines model for Asset.
 type Asset struct {
 
@@ -263,6 +320,30 @@ type MiniAssetHolding struct {
 	Address  string `json:"address"`
 	Amount   uint64 `json:"amount"`
 	IsFrozen bool   `json:"is-frozen"`
+}
+
+// TealKeyValue defines model for TealKeyValue.
+type TealKeyValue struct {
+	Key string `json:"key"`
+
+	// Represents a TEAL value.
+	Value TealValue `json:"value"`
+}
+
+// TealKeyValueStore defines model for TealKeyValueStore.
+type TealKeyValueStore []TealKeyValue
+
+// TealValue defines model for TealValue.
+type TealValue struct {
+
+	// \[tb\] bytes value.
+	Bytes string `json:"bytes"`
+
+	// \[tt\] value type.
+	Type uint64 `json:"type"`
+
+	// \[ui\] uint value.
+	Uint uint64 `json:"uint"`
 }
 
 // Transaction defines model for Transaction.
@@ -604,6 +685,27 @@ type AccountResponse struct {
 // AccountsResponse defines model for AccountsResponse.
 type AccountsResponse struct {
 	Accounts []Account `json:"accounts"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
+}
+
+// ApplicationResponse defines model for ApplicationResponse.
+type ApplicationResponse struct {
+
+	// Application index and its parameters
+	Application *Application `json:"application,omitempty"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+}
+
+// ApplicationsResponse defines model for ApplicationsResponse.
+type ApplicationsResponse struct {
+	Applications []Application `json:"applications"`
 
 	// Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`
