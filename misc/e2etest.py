@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import atexit
-import boto3
 import glob
 import logging
 import os
@@ -10,9 +9,6 @@ import subprocess
 import sys
 import tempfile
 import time
-
-from botocore.config import Config
-from botocore import UNSIGNED
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +24,9 @@ def ensureTestData(e2edata):
             if not os.path.isdir(e2edata):
                 os.makedirs(e2edata)
             bucket = 'algorand-testdata'
+            import boto3
+            from botocore.config import Config
+            from botocore import UNSIGNED
             s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
             response = s3.list_objects_v2(Bucket=bucket, Prefix='indexer/e2e1', MaxKeys=2)
             if (not response.get('KeyCount')) or ('Contents' not in response):
