@@ -939,7 +939,7 @@
           "$ref": "#/definitions/TransactionAssetTransfer"
         },
         "auth-addr": {
-          "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth-addr is equal to the SpendingKey.",
+          "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth addr is equal to the accounts auth addr.",
           "type": "string",
           "x-algorand-format": "Address"
         },
@@ -1014,7 +1014,7 @@
           "type": "integer"
         },
         "rekey-to": {
-          "description": "\\[rekey\\] when included in a valid transaction, the accounts SpendingKey will be updated with this value and future signatures must be signed with the key represented by this address.",
+          "description": "\\[rekey\\] when included in a valid transaction, the accounts auth addr will be updated with this value and future signatures must be signed with the key represented by this address.",
           "type": "string",
           "x-algorand-format": "Address"
         },
@@ -1046,7 +1046,7 @@
           "x-algorand-format": "tx-type-enum"
         },
         "auth-addr": {
-          "description": "The address used to sign the transaction. This is used for rekeyed accounts to indicate that the sender address did not sign the transaction.",
+          "description": "\\[sgnr\\] The address used to sign the transaction. This is used for rekeyed accounts to indicate that the sender address did not sign the transaction.",
           "type": "string",
           "x-algorand-format": "Address"
         }

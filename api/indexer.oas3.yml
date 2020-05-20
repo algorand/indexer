@@ -56,6 +56,16 @@
         },
         "x-go-name": "AssetID"
       },
+      "auth-addr": {
+        "description": "Include accounts configured to use this spending key.",
+        "in": "query",
+        "name": "auth-addr",
+        "schema": {
+          "type": "string",
+          "x-algorand-format": "Address"
+        },
+        "x-algorand-format": "Address"
+      },
       "before-time": {
         "description": "Include results before the given time. Must be an RFC 3339 formatted string.",
         "in": "query",
@@ -170,16 +180,6 @@
           ],
           "type": "string"
         }
-      },
-      "spending-key": {
-        "description": "Include accounts configured to use this spending key.",
-        "in": "query",
-        "name": "spending-key",
-        "schema": {
-          "type": "string",
-          "x-algorand-format": "Address"
-        },
-        "x-algorand-format": "Address"
       },
       "tx-type": {
         "in": "query",
@@ -417,6 +417,11 @@
             },
             "type": "array"
           },
+          "auth-addr": {
+            "description": "\\[spend\\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.",
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
           "created-assets": {
             "description": "\\[apar\\] parameters of assets created by this account.\n\nNote: the raw account uses `map[int] -> Asset` for this type.",
             "items": {
@@ -451,11 +456,6 @@
               "lsig"
             ],
             "type": "string"
-          },
-          "spending-key": {
-            "description": "\\[spend\\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.",
-            "type": "string",
-            "x-algorand-format": "Address"
           },
           "status": {
             "description": "\\[onl\\] delegation status of the account's MicroAlgos\n* Offline - indicates that the associated account is delegated.\n*  Online  - indicates that the associated account used as part of the delegation pool.\n*   NotParticipating - indicates that the associated account is neither a delegator nor a delegate.",
@@ -843,7 +843,7 @@
             "$ref": "#/components/schemas/TransactionAssetTransfer"
           },
           "auth-addr": {
-            "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth-addr is equal to the SpendingKey.",
+            "description": "\\[sgnr\\] The address used to sign the transaction. This is used for rekeyed accounts to indicate that the sender address did not sign the transaction.",
             "type": "string",
             "x-algorand-format": "Address"
           },
@@ -922,7 +922,7 @@
             "type": "integer"
           },
           "rekey-to": {
-            "description": "\\[rekey\\] when included in a valid transaction, the accounts SpendingKey will be updated with this value and future signatures must be signed with the key represented by this address.",
+            "description": "\\[rekey\\] when included in a valid transaction, the accounts auth addr will be updated with this value and future signatures must be signed with the key represented by this address.",
             "type": "string",
             "x-algorand-format": "Address"
           },
@@ -1273,7 +1273,7 @@
           {
             "description": "Include accounts configured to use this spending key.",
             "in": "query",
-            "name": "spending-key",
+            "name": "auth-addr",
             "schema": {
               "type": "string",
               "x-algorand-format": "Address"

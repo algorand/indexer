@@ -225,8 +225,8 @@ type AccountQueryOptions struct {
 	GreaterThanAddress []byte // for paging results
 	EqualToAddress     []byte // return exactly this one account
 
-	// return any accounts with this spending key
-	EqualToSpendingKey []byte
+	// return any accounts with this auth addr
+	EqualToAuthAddr []byte
 
 	// Filter on accounts with current balance greater than x
 	AlgosGreaterThan uint64

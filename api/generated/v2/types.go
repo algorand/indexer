@@ -24,6 +24,9 @@ type Account struct {
 	// Note the raw object uses `map[int] -> AssetHolding` for this type.
 	Assets *[]AssetHolding `json:"assets,omitempty"`
 
+	// \[spend\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.
+	AuthAddr *string `json:"auth-addr,omitempty"`
+
 	// \[apar\] parameters of assets created by this account.
 	//
 	// Note: the raw account uses `map[int] -> Asset` for this type.
@@ -49,9 +52,6 @@ type Account struct {
 	// * msig
 	// * lsig
 	SigType *string `json:"sig-type,omitempty"`
-
-	// \[spend\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.
-	SpendingKey *string `json:"spending-key,omitempty"`
 
 	// \[onl\] delegation status of the account's MicroAlgos
 	// * Offline - indicates that the associated account is delegated.
@@ -290,7 +290,7 @@ type Transaction struct {
 	// data/transactions/asset.go : AssetTransferTxnFields
 	AssetTransferTransaction *TransactionAssetTransfer `json:"asset-transfer-transaction,omitempty"`
 
-	// \[sgnr\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth-addr is equal to the SpendingKey.
+	// \[sgnr\] The address used to sign the transaction. This is used for rekeyed accounts to indicate that the sender address did not sign the transaction.
 	AuthAddr *string `json:"auth-addr,omitempty"`
 
 	// \[rc\] rewards applied to close-remainder-to account.
@@ -350,7 +350,7 @@ type Transaction struct {
 	// \[rr\] rewards applied to receiver account.
 	ReceiverRewards *uint64 `json:"receiver-rewards,omitempty"`
 
-	// \[rekey\] when included in a valid transaction, the accounts SpendingKey will be updated with this value and future signatures must be signed with the key represented by this address.
+	// \[rekey\] when included in a valid transaction, the accounts auth addr will be updated with this value and future signatures must be signed with the key represented by this address.
 	RekeyTo *string `json:"rekey-to,omitempty"`
 
 	// Time when the block this transaction is in was confirmed.
@@ -540,6 +540,9 @@ type AfterTime time.Time
 // AssetId defines model for asset-id.
 type AssetId uint64
 
+// AuthAddr defines model for auth-addr.
+type AuthAddr string
+
 // BeforeTime defines model for before-time.
 type BeforeTime time.Time
 
@@ -578,9 +581,6 @@ type RoundNumber uint64
 
 // SigType defines model for sig-type.
 type SigType string
-
-// SpendingKey defines model for spending-key.
-type SpendingKey string
 
 // TxType defines model for tx-type.
 type TxType string
@@ -680,7 +680,7 @@ type SearchForAccountsParams struct {
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
 
 	// Include accounts configured to use this spending key.
-	SpendingKey *string `json:"spending-key,omitempty"`
+	AuthAddr *string `json:"auth-addr,omitempty"`
 
 	// Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.
 	Round *uint64 `json:"round,omitempty"`

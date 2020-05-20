@@ -118,7 +118,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		return badRequest(ctx, errMultiAcctRewind)
 	}
 
-	spendingAddr, errors := decodeAddress(params.SpendingKey, "account-id", make([]string, 0))
+	spendingAddr, errors := decodeAddress(params.AuthAddr, "account-id", make([]string, 0))
 	if len(errors) != 0 {
 		return badRequest(ctx, errors[0])
 	}
@@ -128,7 +128,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		IncludeAssetParams:   true,
 		Limit:                min(uintOrDefaultValue(params.Limit, defaultAccountsLimit), maxAccountsLimit),
 		HasAssetId:           uintOrDefault(params.AssetId),
-		EqualToSpendingKey:   spendingAddr[:],
+		EqualToAuthAddr:      spendingAddr[:],
 	}
 
 	// Set GT/LT on Algos or Asset depending on whether or not an assetID was specified
