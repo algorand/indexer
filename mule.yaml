@@ -14,7 +14,7 @@ tasks:
     docker:
       image: algorand/indexer-ci-linux
       version: '{{ docker.Version.outputs.version }}'
-      workDir: /go/src/github.com/algorand/indexer
+      workDir: /app/go/src/github.com/algorand/indexer
 jobs:
   build:
     tasks:
