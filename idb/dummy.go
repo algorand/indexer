@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"time"
 
-	models "github.com/algorand/indexer/api/generated"
+	models "github.com/algorand/indexer/api/generated/v2"
 
 	"github.com/algorand/indexer/types"
 )
@@ -317,7 +317,7 @@ func IndexerDbByName(factoryname, arg string) (IndexerDb, error) {
 	return nil, fmt.Errorf("no IndexerDb factory for %s", factoryname)
 }
 
-type KeyregUpdate struct {
+type AccountDataUpdate struct {
 	Addr            types.Address
 	Status          int // {Offline:0, Online:1, NotParticipating: 2}
 	VoteID          [32]byte
@@ -361,13 +361,22 @@ type TxnAssetUpdate struct {
 }
 
 type RoundUpdates struct {
-	AlgoUpdates     map[[32]byte]int64
-	AccountTypes    map[[32]byte]string
-	KeyregUpdates   []KeyregUpdate
-	AcfgUpdates     []AcfgUpdate
-	TxnAssetUpdates []TxnAssetUpdate
-	AssetUpdates    map[[32]byte][]AssetUpdate
-	FreezeUpdates   []FreezeUpdate
-	AssetCloses     []AssetClose
-	AssetDestroys   []uint64
+	AlgoUpdates  map[[32]byte]int64
+	AccountTypes map[[32]byte]string
+
+	// AccountDataUpdates is explicitly a map so that we can
+	// explicitly set values or have not set values. Instead of
+	// using msgpack or JSON serialization of a struct, each field
+	// is explicitly present or not. This makes it easier to set a
+	// field to 0 and not have the serializer helpfully drop the
+	// zero value. A 0 value may need to be sent to the database
+	// to overlay onto a JSON struct there and replace a value
+	// with a 0 value.
+	AccountDataUpdates map[[32]byte]map[string]interface{}
+	AcfgUpdates        []AcfgUpdate
+	TxnAssetUpdates    []TxnAssetUpdate
+	AssetUpdates       map[[32]byte][]AssetUpdate
+	FreezeUpdates      []FreezeUpdate
+	AssetCloses        []AssetClose
+	AssetDestroys      []uint64
 }
