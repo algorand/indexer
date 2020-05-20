@@ -113,8 +113,6 @@ def atexitrun(cmd, *args, **kwargs):
     atexit.register(xrun, *cargs, **kwargs)
 
 def main():
-    dbname = 'e2eindex_{}_{}'.format(int(time.time()), random.randrange(1000))
-
     start = time.time()
     import argparse
     ap = argparse.ArgumentParser()
