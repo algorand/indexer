@@ -175,6 +175,9 @@
           },
           {
             "$ref": "#/parameters/rekey-to"
+          },
+          {
+            "$ref": "#/parameters/application-id"
           }
         ],
         "responses": {
@@ -199,15 +202,14 @@
         "operationId": "searchForApplications",
         "parameters": [
           {
-            "type": "integer",
-            "name": "application-id",
-            "in": "query",
-            "required": true
+            "$ref": "#/parameters/application-id"
+          },
+          {
+            "$ref": "#/parameters/round"
           }
         ],
         "responses": {
           "200": {
-            "TODO": "Define this response object.",
             "$ref": "#/responses/ApplicationsResponse"
           }
         }
@@ -236,7 +238,6 @@
         ],
         "responses": {
           "200": {
-            "TODO": "Define this response object.",
             "$ref": "#/responses/ApplicationResponse"
           }
         }
@@ -432,6 +433,9 @@
           },
           {
             "$ref": "#/parameters/rekey-to"
+          },
+          {
+            "$ref": "#/parameters/application-id"
           }
         ],
         "responses": {
@@ -533,8 +537,10 @@
           },
           {
             "$ref": "#/parameters/rekey-to"
+          },
+          {
+            "$ref": "#/parameters/application-id"
           }
-
         ],
         "responses": {
           "200": {
@@ -1507,6 +1513,12 @@
       "x-algorand-format": "RFC3339 String",
       "description": "Include results after the given time. Must be an RFC 3339 formatted string.",
       "name": "after-time",
+      "in": "query"
+    },
+    "application-id": {
+      "type": "integer",
+      "description": "Application ID",
+      "name": "application-id",
       "in": "query"
     },
     "asset-id": {
