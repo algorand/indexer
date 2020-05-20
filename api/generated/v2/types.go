@@ -24,6 +24,9 @@ type Account struct {
 	// Note the raw object uses `map[int] -> AssetHolding` for this type.
 	Assets *[]AssetHolding `json:"assets,omitempty"`
 
+	// \[spend\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.
+	AuthAddr *string `json:"auth-addr,omitempty"`
+
 	// \[apar\] parameters of assets created by this account.
 	//
 	// Note: the raw account uses `map[int] -> Asset` for this type.
@@ -287,6 +290,9 @@ type Transaction struct {
 	// data/transactions/asset.go : AssetTransferTxnFields
 	AssetTransferTransaction *TransactionAssetTransfer `json:"asset-transfer-transaction,omitempty"`
 
+	// \[sgnr\] The address used to sign the transaction. This is used for rekeyed accounts to indicate that the sender address did not sign the transaction.
+	AuthAddr *string `json:"auth-addr,omitempty"`
+
 	// \[rc\] rewards applied to close-remainder-to account.
 	CloseRewards *uint64 `json:"close-rewards,omitempty"`
 
@@ -343,6 +349,9 @@ type Transaction struct {
 
 	// \[rr\] rewards applied to receiver account.
 	ReceiverRewards *uint64 `json:"receiver-rewards,omitempty"`
+
+	// \[rekey\] when included in a valid transaction, the accounts auth addr will be updated with this value and future signatures must be signed with the key represented by this address.
+	RekeyTo *string `json:"rekey-to,omitempty"`
 
 	// Time when the block this transaction is in was confirmed.
 	RoundTime *uint64 `json:"round-time,omitempty"`
@@ -531,6 +540,9 @@ type AfterTime time.Time
 // AssetId defines model for asset-id.
 type AssetId uint64
 
+// AuthAddr defines model for auth-addr.
+type AuthAddr string
+
 // BeforeTime defines model for before-time.
 type BeforeTime time.Time
 
@@ -557,6 +569,9 @@ type Next string
 
 // NotePrefix defines model for note-prefix.
 type NotePrefix string
+
+// RekeyTo defines model for rekey-to.
+type RekeyTo bool
 
 // Round defines model for round.
 type Round uint64
@@ -664,6 +679,9 @@ type SearchForAccountsParams struct {
 	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
 
+	// Include accounts configured to use this spending key.
+	AuthAddr *string `json:"auth-addr,omitempty"`
+
 	// Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.
 	Round *uint64 `json:"round,omitempty"`
 }
@@ -720,6 +738,9 @@ type LookupAccountTransactionsParams struct {
 
 	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
+
+	// Include results which include the rekey-to field.
+	RekeyTo *bool `json:"rekey-to,omitempty"`
 }
 
 // SearchForAssetsParams defines parameters for SearchForAssets.
@@ -814,6 +835,9 @@ type LookupAssetTransactionsParams struct {
 
 	// Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.
 	ExcludeCloseTo *bool `json:"exclude-close-to,omitempty"`
+
+	// Include results which include the rekey-to field.
+	RekeyTo *bool `json:"rekey-to,omitempty"`
 }
 
 // SearchForTransactionsParams defines parameters for SearchForTransactions.
@@ -870,4 +894,7 @@ type SearchForTransactionsParams struct {
 
 	// Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.
 	ExcludeCloseTo *bool `json:"exclude-close-to,omitempty"`
+
+	// Include results which include the rekey-to field.
+	RekeyTo *bool `json:"rekey-to,omitempty"`
 }

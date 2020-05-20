@@ -70,6 +70,9 @@
             "$ref": "#/parameters/currency-less-than"
           },
           {
+            "$ref": "#/parameters/auth-addr"
+          },
+          {
             "type": "integer",
             "description": "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.",
             "name": "round",
@@ -169,6 +172,9 @@
           },
           {
             "$ref": "#/parameters/account-id"
+          },
+          {
+            "$ref": "#/parameters/rekey-to"
           }
         ],
         "responses": {
@@ -365,6 +371,9 @@
             "name": "asset-id",
             "in": "path",
             "required": true
+          },
+          {
+            "$ref": "#/parameters/rekey-to"
           }
         ],
         "responses": {
@@ -463,7 +472,11 @@
           },
           {
             "$ref": "#/parameters/exclude-close-to"
+          },
+          {
+            "$ref": "#/parameters/rekey-to"
           }
+
         ],
         "responses": {
           "200": {
@@ -547,6 +560,11 @@
             "msig",
             "lsig"
           ]
+        },
+        "auth-addr": {
+          "description": "\\[spend\\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.",
+          "type": "string",
+          "x-algorand-format": "Address"
         }
       }
     },
@@ -920,6 +938,11 @@
         "asset-transfer-transaction": {
           "$ref": "#/definitions/TransactionAssetTransfer"
         },
+        "auth-addr": {
+          "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth addr is equal to the accounts auth addr.",
+          "type": "string",
+          "x-algorand-format": "Address"
+        },
         "close-rewards": {
           "description": "\\[rc\\] rewards applied to close-remainder-to account.",
           "type": "integer"
@@ -990,6 +1013,11 @@
           "description": "\\[rr\\] rewards applied to receiver account.",
           "type": "integer"
         },
+        "rekey-to": {
+          "description": "\\[rekey\\] when included in a valid transaction, the accounts auth addr will be updated with this value and future signatures must be signed with the key represented by this address.",
+          "type": "string",
+          "x-algorand-format": "Address"
+        },
         "round-time": {
           "description": "Time when the block this transaction is in was confirmed.",
           "type": "integer"
@@ -1016,6 +1044,11 @@
             "afrz"
           ],
           "x-algorand-format": "tx-type-enum"
+        },
+        "auth-addr": {
+          "description": "\\[sgnr\\] The address used to sign the transaction. This is used for rekeyed accounts to indicate that the sender address did not sign the transaction.",
+          "type": "string",
+          "x-algorand-format": "Address"
         }
       }
     },
@@ -1333,6 +1366,12 @@
       "in": "query",
       "x-algorand-format": "base64" 
     },
+    "rekey-to": {
+      "type": "boolean",
+      "description": "Include results which include the rekey-to field.",
+      "name": "rekey-to",
+      "in": "query"
+    },
     "round": {
       "type": "integer",
       "description": "Include results for the specified round.",
@@ -1356,6 +1395,13 @@
       "description": "SigType filters just results using the specified type of signature:\n* sig - Standard\n* msig - MultiSig\n* lsig - LogicSig",
       "name": "sig-type",
       "in": "query"
+    },
+    "auth-addr": {
+      "type": "string",
+      "description": "Include accounts configured to use this spending key.",
+      "name": "auth-addr",
+      "in": "query",
+      "x-algorand-format": "Address" 
     },
     "txid": {
       "type": "string",
