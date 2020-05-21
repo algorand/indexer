@@ -447,9 +447,7 @@ func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, 
 				if au.Delta.IsInt64() {
 					// easy case
 					delta := au.Delta.Int64()
-					if delta == 0 {
-						continue
-					}
+					// don't skip delta == 0; mark opt-in
 					_, err = seta.Exec(addr[:], au.AssetId, delta, au.DefaultFrozen)
 					if err != nil {
 						return fmt.Errorf("update account asset, %v", err)
