@@ -16,7 +16,7 @@ tasks:
       version: '{{ docker.Version.outputs.version }}'
       workDir: /app/go/src/github.com/algorand/indexer
 jobs:
-  build:
+  build-linux-amd64:
     tasks:
       - shell.docker.Ensure
       - docker.Shell.build
