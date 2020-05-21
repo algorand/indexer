@@ -324,8 +324,12 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 		if stxn.Txn.AssetAmount != 0 {
 			accounting.updateAsset(sender, uint64(stxn.Txn.XferAsset), 0, stxn.Txn.AssetAmount)
 			accounting.updateAsset(stxn.Txn.AssetReceiver, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetAmount, 0)
+		} else if stxn.Txn.Sender != stxn.Txn.AssetReceiver {
+			// not an opt-in, just a useless txn, ignore
+		} else {
+			// mark receivable accounts with the send-self-zero txn
+			accounting.updateAsset(stxn.Txn.AssetReceiver, uint64(stxn.Txn.XferAsset), 0, 0)
 		}
-		// TODO: mark receivable accounts with the send-self-zero txn?
 		if !stxn.Txn.AssetCloseTo.IsZero() {
 			accounting.closeAsset(sender, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetCloseTo, round, intra)
 		}
