@@ -744,6 +744,9 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 		whereArgs = append(whereArgs, tf.EffectiveAmountLt)
 		partNumber++
 	}
+	if tf.RekeyTo != nil && (*tf.RekeyTo) {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'rekey') IS NOT NULL"))
+	}
 	query = "SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
@@ -1237,6 +1240,11 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	if opts.AlgosLessThan != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("a.microalgos < $%d", partNumber))
 		whereArgs = append(whereArgs, opts.AlgosLessThan)
+		partNumber++
+	}
+	if len(opts.EqualToAuthAddr) > 0 {
+		whereParts = append(whereParts, fmt.Sprintf("decode(a.account_data ->> 'spend', 'base64') = $%d", partNumber))
+		whereArgs = append(whereArgs, opts.EqualToAuthAddr)
 		partNumber++
 	}
 	if len(whereParts) > 0 {
