@@ -3,17 +3,13 @@ package test
 import (
 	"context"
 	"encoding/json"
-	//"flag"
 	"fmt"
 	"os"
-	//"time"
 
-	//ajson "github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-codec/codec"
 
-	//"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 )
