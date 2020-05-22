@@ -1064,6 +1064,10 @@
             "description": "Round when the transaction was confirmed.",
             "type": "integer"
           },
+          "created-application-index": {
+            "description": "Specifies an application index (ID) if an application was created with this transaction.",
+            "type": "integer"
+          },
           "created-asset-index": {
             "description": "Specifies an asset index (ID) if an asset was created with this transaction.",
             "type": "integer"

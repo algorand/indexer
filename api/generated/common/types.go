@@ -383,6 +383,9 @@ type Transaction struct {
 	// Round when the transaction was confirmed.
 	ConfirmedRound *uint64 `json:"confirmed-round,omitempty"`
 
+	// Specifies an application index (ID) if an application was created with this transaction.
+	CreatedApplicationIndex *uint64 `json:"created-application-index,omitempty"`
+
 	// Specifies an asset index (ID) if an asset was created with this transaction.
 	CreatedAssetIndex *uint64 `json:"created-asset-index,omitempty"`
 
