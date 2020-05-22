@@ -214,7 +214,7 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 }
 
 // (GET /v2/applications/{application-id})
-func (si *ServerImplementation) LookupApplication(ctx echo.Context, applicationId uint64) error {
+func (si *ServerImplementation) LookupApplication(ctx echo.Context, applicationId uint64, params generated.LookupApplicationParams) error {
 	return echo.NewHTTPError(http.StatusMethodNotAllowed, "LookupApplication is not implemented yet.")
 }
 

@@ -77,6 +77,9 @@
             "description": "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.",
             "name": "round",
             "in": "query"
+          },
+          {
+            "$ref": "#/parameters/application-id"
           }
         ],
         "responses": {
@@ -234,6 +237,9 @@
             "name": "application-id",
             "in": "path",
             "required": true
+          },
+          {
+            "$ref": "#/parameters/round"
           }
         ],
         "responses": {

@@ -789,6 +789,9 @@ type SearchForAccountsParams struct {
 
 	// Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.
 	Round *uint64 `json:"round,omitempty"`
+
+	// Application ID
+	ApplicationId *uint64 `json:"application-id,omitempty"`
 }
 
 // LookupAccountByIDParams defines parameters for LookupAccountByID.
@@ -856,6 +859,13 @@ type SearchForApplicationsParams struct {
 
 	// Application ID
 	ApplicationId *uint64 `json:"application-id,omitempty"`
+
+	// Include results for the specified round.
+	Round *uint64 `json:"round,omitempty"`
+}
+
+// LookupApplicationParams defines parameters for LookupApplication.
+type LookupApplicationParams struct {
 
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
