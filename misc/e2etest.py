@@ -23,9 +23,11 @@ def ensureTestData(e2edata):
             logger.info('fetching testdata from s3...')
             if not os.path.isdir(e2edata):
                 os.makedirs(e2edata)
-            import boto3
             bucket = 'algorand-testdata'
-            s3 = boto3.client('s3')
+            import boto3
+            from botocore.config import Config
+            from botocore import UNSIGNED
+            s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
             response = s3.list_objects_v2(Bucket=bucket, Prefix='indexer/e2e1', MaxKeys=2)
             if (not response.get('KeyCount')) or ('Contents' not in response):
                 logger.error('no testdata found in s3')
@@ -116,6 +118,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--keep-temps', default=False, action='store_true')
     ap.add_argument('--verbose', default=False, action='store_true')
+    ap.add_argument('--connection-string', help='Use this connection string instead of attempting to manage a local database.')
     args = ap.parse_args()
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
@@ -131,14 +134,19 @@ def main():
             logger.info("leaving temp dir %r", tdir.name)
     ensureTestData(e2edata)
 
-    dbname = 'e2eindex_{}_{}'.format(int(time.time()), random.randrange(1000))
-    xrun(['dropdb', '--if-exists', dbname], timeout=5)
-    xrun(['createdb', dbname], timeout=5)
-    if not args.keep_temps:
-        atexitrun(['dropdb', '--if-exists', dbname], timeout=5)
+    # Setup database connection string.
+    if args.connection_string is None:
+        dbname = 'e2eindex_{}_{}'.format(int(time.time()), random.randrange(1000))
+        xrun(['dropdb', '--if-exists', dbname], timeout=5)
+        xrun(['createdb', dbname], timeout=5)
+        if not args.keep_temps:
+            atexitrun(['dropdb', '--if-exists', dbname], timeout=5)
+        else:
+            logger.info("leaving db %r", dbname)
+        psqlstring = 'dbname={} sslmode=disable'.format(dbname)
     else:
-        logger.info("leaving db %r", dbname)
-    psqlstring = 'dbname={} sslmode=disable'.format(dbname)
+        psqlstring = args.connection_string
+
     xrun(['cmd/algorand-indexer/algorand-indexer', 'import', '-P', psqlstring, os.path.join(e2edata, 'blocktars', '*'), '--genesis', os.path.join(e2edata, 'algod', 'genesis.json')], timeout=20)
     cmd = ['cmd/algorand-indexer/algorand-indexer', 'daemon', '-P', psqlstring, '--dev-mode', '--no-algod']
     logger.debug("%s", ' '.join(map(repr,cmd)))
