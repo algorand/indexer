@@ -3,13 +3,16 @@ go:
   - 1.13.x
   - 1.14.x
 
+dist: bionic
+
 services:
-  -docker
+  - docker
 
 addons:
   apt:
     packages:
       - python3-pip
+      - python3-setuptools
 
 install:
   - pip3 install boto3
