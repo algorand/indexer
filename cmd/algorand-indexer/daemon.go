@@ -229,6 +229,10 @@ func init() {
 	configBoolVarP(daemonCmd.Flags(), &developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
 
 	daemonCmd.Flags().StringVarP(&configFilePath, "config", "c", "", "path to 'key: value' config file, keys are same as command line options")
+
+	// Make config entries for global flags
+	configVars = append(configVars, configVar{"postgres", "P", "", &configStringVar{"", &postgresAddr}})
+	configVars = append(configVars, configVar{"pidfile", "", "", &configStringVar{"", &pidFilePath}})
 }
 
 type blockImporterHandler struct {
