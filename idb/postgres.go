@@ -53,6 +53,7 @@ type PostgresIndexerDb struct {
 
 	txrows  [][]interface{}
 	txprows [][]interface{}
+	pdedup  map[string]bool
 
 	protoCache map[string]types.ConsensusParams
 }
@@ -80,6 +81,7 @@ func (db *PostgresIndexerDb) MarkImported(path string) (err error) {
 func (db *PostgresIndexerDb) StartBlock() (err error) {
 	db.txrows = make([][]interface{}, 0, 6000)
 	db.txprows = make([][]interface{}, 0, 10000)
+	//db.pdedup = make(map[string]bool, 10000)
 	return nil
 }
 
@@ -89,8 +91,14 @@ func (db *PostgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum 
 	tx := []interface{}{round, intra, txtypeenum, assetid, txid[:], txnbytes, string(json.Encode(txn))}
 	db.txrows = append(db.txrows, tx)
 	for _, paddr := range participation {
-		txp := []interface{}{paddr, round, intra}
-		db.txprows = append(db.txprows, txp)
+		//key := fmt.Sprintf("%s %d %d", base64.StdEncoding.EncodeToString(paddr), round, intra)
+		//seen := db.pdedup[key]
+		seen := false
+		if !seen {
+			//db.pdedup[key] = true
+			txp := []interface{}{paddr, round, intra}
+			db.txprows = append(db.txprows, txp)
+		}
 	}
 	return nil
 }
@@ -101,7 +109,8 @@ func (db *PostgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardsl
 		return err
 	}
 	defer tx.Rollback() // ignored if already committed
-	addtx, err := tx.Prepare(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`)
+	//addtx, err := tx.Prepare(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`)
+	addtx, err := tx.Prepare(`COPY txn (round, intra, typeenum, asset, txid, txnbytes, txn) FROM STDIN`)
 	if err != nil {
 		return err
 	}
@@ -112,21 +121,47 @@ func (db *PostgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardsl
 			return err
 		}
 	}
+	_, err = addtx.Exec()
+	if err != nil {
+		return err
+	}
+	err = addtx.Close()
+	if err != nil {
+		return err
+	}
 
-	addtxpart, err := tx.Prepare(`INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`)
+	//addtxpart, err := tx.Prepare(`INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`)
+	addtxpart, err := tx.Prepare(`COPY txn_participation (addr, round, intra) FROM STDIN`)
 	if err != nil {
 		return err
 	}
 	defer addtxpart.Close()
-	for _, txpr := range db.txprows {
+	for i, txpr := range db.txprows {
 		_, err = addtxpart.Exec(txpr...)
 		if err != nil {
-			return err
+			//return err
+			for _, er := range db.txprows[:i+1] {
+				fmt.Printf("%s %d %d\n", base64.StdEncoding.EncodeToString(er[0].([]byte)), er[1], er[2])
+			}
+			return fmt.Errorf("%v, around txp row %#v", err, txpr)
 		}
+	}
+
+	_, err = addtxpart.Exec()
+	if err != nil {
+		return fmt.Errorf("during addtxp empty exec %v", err)
+	}
+	err = addtxpart.Close()
+	if err != nil {
+		return fmt.Errorf("during addtxp close %v", err)
 	}
 	err = tx.Commit()
 	db.txrows = nil
 	db.txprows = nil
+	db.pdedup = nil
+	if err != nil {
+		return fmt.Errorf("on commit, %v", err)
+	}
 	return err
 }
 

@@ -83,7 +83,8 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 	}
 	block := blockContainer.Block
 	round := uint64(block.Round)
-	for intra, stxn := range block.Payset {
+	for intra := range block.Payset {
+		stxn := &block.Payset[intra]
 		txtype := string(stxn.Txn.Type)
 		txtypeenum := TypeEnumMap[txtype]
 		assetid := uint64(0)
