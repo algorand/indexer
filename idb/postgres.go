@@ -45,7 +45,11 @@ func OpenPostgres(connection string) (pdb *PostgresIndexerDb, err error) {
 
 type PostgresIndexerDb struct {
 	db *sql.DB
-	tx *sql.Tx
+
+	// state for StartBlock/AddTransaction/CommitBlock
+	tx        *sql.Tx
+	addtx     *sql.Stmt
+	addtxpart *sql.Stmt
 
 	protoCache map[string]types.ConsensusParams
 }
@@ -72,6 +76,14 @@ func (db *PostgresIndexerDb) MarkImported(path string) (err error) {
 
 func (db *PostgresIndexerDb) StartBlock() (err error) {
 	db.tx, err = db.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		return err
+	}
+	db.addtx, err = db.tx.Prepare(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`)
+	db.addtxpart, err = db.tx.Prepare(`INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`)
+	if err != nil {
+		return err
+	}
 	return
 }
 
@@ -79,16 +91,17 @@ func (db *PostgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum 
 	var err error
 	txnbytes := msgpack.Encode(txn)
 	txid := crypto.TransactionIDString(txn.Txn)
-	_, err = db.tx.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`, round, intra, txtypeenum, assetid, txid[:], txnbytes, string(json.Encode(txn)))
+	//_, err = db.tx.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`, round, intra, txtypeenum, assetid, txid[:], txnbytes, string(json.Encode(txn)))
+	_, err = db.addtx.Exec(round, intra, txtypeenum, assetid, txid[:], txnbytes, string(json.Encode(txn)))
 	if err != nil {
 		return err
 	}
-	stmt, err := db.tx.Prepare(`INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`)
-	if err != nil {
-		return err
-	}
+	//stmt, err := db.tx.Prepare(`INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`)
+	// if err != nil {
+	// 	return err
+	// }
 	for _, paddr := range participation {
-		_, err = stmt.Exec(paddr, round, intra)
+		_, err = db.addtxpart.Exec(paddr, round, intra)
 		if err != nil {
 			return err
 		}
@@ -96,6 +109,8 @@ func (db *PostgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum 
 	return err
 }
 func (db *PostgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
+	defer db.addtx.Close()
+	defer db.addtxpart.Close()
 	var err error
 	var block types.Block
 	err = msgpack.Decode(headerbytes, &block)
