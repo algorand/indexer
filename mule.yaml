@@ -1,0 +1,103 @@
+tasks:
+  - task: docker.Version
+    configFilePath: $HOME/projects/go-algorand/scripts/configure_dev-deps.sh
+
+  - task: shell.docker.Ensure
+    name: ubuntu
+    image: algorand/indexer-ci-linux
+    version: '{{ docker.Version.outputs.version }}'
+    dockerFilePath: docker/Dockerfile.mule
+    dependencies: docker.Version
+
+  - task: docker.Make
+    name: package
+    docker:
+      image: algorand/indexer-ci-linux
+      version: '{{ docker.Version.outputs.version }}'
+      workDir: /projects/indexer
+    target: mule-package OUTDIR=$OUTDIR
+
+  - task: docker.Make
+    name: indexer
+    docker:
+      image: algorand/indexer-ci-linux
+      version: '{{ docker.Version.outputs.version }}'
+      workDir: /projects/indexer
+    target: mule-package-rpm WORKDIR=/projects/go-algorand
+
+  - task: docker.Make
+    name: package-sign-deb
+    docker:
+      image: algorand/indexer-ci-linux
+      version: '{{ docker.Version.outputs.version }}'
+      workDir: /projects/indexer
+      env: [
+        AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID,
+        AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY,
+        VERSION=0.1.0
+      ]
+      volumes: [
+        $XDG_RUNTIME_DIR/gnupg/S.gpg-agent:/root/.gnupg/S.gpg-agent,
+        $HOME/.gnupg/pubring.kbx:/root/.gnupg/pubring.kbx
+      ]
+    target: mule-sign-deb WORKDIR=/projects/indexer
+
+  - task: docker.Make
+    name: package-sign-tarball
+    docker:
+      image: algorand/indexer-ci-linux
+      version: '{{ docker.Version.outputs.version }}'
+      workDir: /projects/indexer
+      env: [
+        AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID,
+        AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY,
+        VERSION=0.1.0
+      ]
+      volumes: [
+        $XDG_RUNTIME_DIR/gnupg/S.gpg-agent:/root/.gnupg/S.gpg-agent,
+        $HOME/.gnupg/pubring.kbx:/root/.gnupg/pubring.kbx
+      ]
+    target: mule-sign-tar.bz2 WORKDIR=/projects/indexer
+
+  - task: docker.Make
+    name: package-deploy-deb
+    docker:
+      image: algorand/indexer-ci-linux
+      version: '{{ docker.Version.outputs.version }}'
+      workDir: /projects/indexer
+      env: [
+        AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID,
+        AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY,
+        VERSION=0.1.0
+      ]
+      volumes: [
+        $XDG_RUNTIME_DIR/gnupg/S.gpg-agent:/root/.gnupg/S.gpg-agent,
+        $HOME/.gnupg/pubring.kbx:/root/.gnupg/pubring.kbx
+      ]
+    target: mule-deploy-deb WORKDIR=/projects/indexer
+
+jobs:
+  package:
+    configs:
+      arch: amd64
+    tasks:
+      - shell.docker.Ensure.ubuntu
+      - docker.Make.package
+        #      - docker.Make.indexer
+
+  package-sign:
+    configs:
+      arch: amd64
+    tasks:
+      - shell.docker.Ensure.ubuntu
+      - docker.Make.package-sign-deb
+      - docker.Make.package-sign-tarball
+
+  package-deploy:
+    configs:
+      arch: amd64
+    tasks:
+      - shell.docker.Ensure.ubuntu
+      - docker.Make.package-deploy-deb
+        #      - docker.Make.generate-releases-page
+

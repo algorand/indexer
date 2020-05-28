@@ -15,3 +15,7 @@ test:	mocks
 	go test ./...
 
 .PHONY:
+
+###### TARGETS FOR CICD PROCESS ######
+include ./mule/Makefile.mule
+
