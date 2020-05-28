@@ -199,7 +199,7 @@ func configFromStream(in io.Reader) (err error) {
 		line := string(linebytes)
 		colon := strings.IndexRune(line, ':')
 		if colon < 0 {
-			return fmt.Errorf(":%d no ':'", lineno)
+			return fmt.Errorf(":%d line is not \"key: value\"", lineno)
 		}
 		key := strings.TrimSpace(line[:colon])
 		value := strings.TrimSpace(line[colon+1:])
