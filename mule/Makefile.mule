@@ -1,0 +1,23 @@
+# This file is imported into indexer/Makefile.
+
+mule-clean:
+	rm -rf tmp
+
+mule-setup:
+	mkdir -p $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)
+
+# Builds targets from the sub-directories of ./scripts/release/mule/, such as `mule-package`, `mule-sign`, `mule-test`.
+# https://scene-si.org/2019/12/04/make-dynamic-makefile-targets/
+mule = $(shell ls -d mule/*/ | awk 'BEGIN { FS="/" ; OFS="-" } { print $$3, $$4 }')
+
+mule-package: mule-setup
+	misc/release.py --outdir $$OUTDIR
+
+mule-sign-%: PKG_TYPE=$*
+mule-sign-%:
+	mule/sign/sign.sh $(PKG_TYPE) $$WORKDIR
+
+mule-deploy-%: PKG_TYPE=$*
+mule-deploy-%:
+	mule/deploy/$(PKG_TYPE)/deploy.sh $$WORKDIR
+

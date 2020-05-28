@@ -5,6 +5,7 @@
 # ve3/bin/pip install markdown2
 # ve3/bin/python misc/release.py
 
+import argparse
 import io
 import logging
 import os
@@ -105,7 +106,7 @@ def compile(goos=None, goarch=None):
         env['GOARCH'] = goarch
     subprocess.run(['go', 'build'], cwd='cmd/algorand-indexer', env=env).check_returncode()
 
-def build_deb(debarch, version):
+def build_deb(debarch, version, outdir):
     os.makedirs('.deb_tmp/DEBIAN', exist_ok=True)
     debian_copyright('.deb_tmp/DEBIAN/copyright')
     arch_ver('.deb_tmp/DEBIAN/control', 'misc/debian/control', debarch, version)
@@ -118,7 +119,7 @@ def build_deb(debarch, version):
             if deb_path:
                 os.makedirs(os.path.join('.deb_tmp', deb_path), exist_ok=True)
             link(os.path.join(source_path, fname), os.path.join('.deb_tmp', deb_path, fname))
-    debname = 'algorand-indexer_{}_{}.deb'.format(version, debarch)
+    debname = '{}/algorand-indexer_{}_{}.deb'.format(outdir, version, debarch)
     subprocess.run(
         ['dpkg-deb', '--build', '.deb_tmp', debname])
     return debname
@@ -147,8 +148,8 @@ def usage_html():
     _usage_html = markdown2.markdown(md, extras=["tables", "fenced-code-blocks"])
     return _usage_html
 
-def build_tar(goos, goarch, version):
-    rootdir = 'algorand-indexer_{}_{}_{}'.format(goos, goarch, version)
+def build_tar(goos, goarch, version, outdir):
+    rootdir = '{}/algorand-indexer_{}_{}_{}'.format(outdir, goos, goarch, version)
     tarname = rootdir + '.tar.bz2'
     tf = tarfile.open(tarname, 'w:bz2')
     for files, source_path, _, tar_path in filespec:
@@ -170,7 +171,7 @@ def build_tar(goos, goarch, version):
     tf.close()
     return tarname
 
-def main():
+def main(outdir):
     start = time.time()
     logging.basicConfig(level=logging.INFO)
     with open('.version') as fin:
@@ -178,14 +179,19 @@ def main():
     for goos, goarch, debarch in osArchArch:
         logger.info('GOOS=%s GOARCH=%s DEB_HOST_ARCH=%s', goos, goarch, debarch)
         compile(goos, goarch)
-        tarname = build_tar(goos, goarch, version)
+        tarname = build_tar(goos, goarch, version, outdir)
         logger.info('\t%s', tarname)
         if debarch is not None:
-            debname = build_deb(debarch, version)
+            debname = build_deb(debarch, version, outdir)
             logger.info('\t%s', debname)
     dt = time.time() - start
     logger.info('done %0.1fs', dt)
     return
 
 if __name__ == '__main__':
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-o", "--outdir", help="The output directory for the build assets", type=str, default=".")
+    args = parser.parse_args()
+
+    main(args.outdir)
+
