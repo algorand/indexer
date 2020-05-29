@@ -11,32 +11,18 @@ then
 fi
 
 echo
-date "+build_release begin DEPLOY stage %Y%m%d_%H%M%S"
+date "+build_indexer begin DEPLOY stage %Y%m%d_%H%M%S"
 echo
 
-OS_TYPE=$(uname | awk '{print tolower($0)}')
-ARCH_BIT=$(uname -m)
-
-if [[ "$ARCH_BIT" = "x86_64" ]]; then
-    ARCH_TYPE="amd64"
-elif [[ "$ARCH_BIT" = "armv6l" ]]; then
-    ARCH_TYPE="arm"
-elif [[ "$ARCH_BIT" = "armv7l" ]]; then
-    ARCH_TYPE="arm"
-elif [[ "$ARCH_BIT" = "aarch64" ]]; then
-    ARCH_TYPE="arm64"
-else
-    # Anything else needs to be specifically added...
-    echo "unsupported"
-    exit 1
-fi
+OS_TYPE=$("$WORKDIR/scripts/ostype.sh")
+ARCH=$("$WORKDIR/scripts/archtype.sh")
 
 #VERSION=${VERSION:-$4}
 
 #BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 #CHANNEL=${CHANNEL:-$("$WORKDIR/scripts/compute_branch_channel.sh" "$BRANCH")}
 CHANNEL=stable
-PKG_DIR="$WORKDIR/tmp/node_pkgs/$OS_TYPE/$ARCH_TYPE"
+PKG_DIR="$WORKDIR/tmp/node_pkgs/$OS_TYPE/$ARCH"
 SIGNING_KEY_ADDR=dev@algorand.com
 
 chmod 400 "$HOME/.gnupg"
@@ -99,6 +85,6 @@ aptly snapshot create "$SNAPSHOT" from repo algorand-indexer
 aptly publish snapshot -gpg-key="$SIGNING_KEY_ADDR" -origin=Algorand -label=Algorand "$SNAPSHOT" "s3:ben-test-2.0.3:"
 
 echo
-date "+build_release end DEPLOY stage %Y%m%d_%H%M%S"
+date "+build_indexer end DEPLOY stage %Y%m%d_%H%M%S"
 echo
 
