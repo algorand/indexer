@@ -19,24 +19,20 @@ ARCH=$("$WORKDIR/scripts/archtype.sh")
 
 #VERSION=${VERSION:-$4}
 
-#BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
-#CHANNEL=${CHANNEL:-$("$WORKDIR/scripts/compute_branch_channel.sh" "$BRANCH")}
 CHANNEL=stable
 PKG_DIR="$WORKDIR/tmp/node_pkgs/$OS_TYPE/$ARCH"
 SIGNING_KEY_ADDR=dev@algorand.com
 
 chmod 400 "$HOME/.gnupg"
 
-#if ! $USE_CACHE
-#then
-#    export ARCH_BIT
-#    export ARCH_TYPE
-#    export CHANNEL
-#    export OS_TYPE
-#    export VERSION
-#
-#    mule -f package-deploy.yaml package-deploy-setup-deb
-#fi
+if ! $USE_CACHE
+then
+    export ARCH
+    export OS_TYPE
+    export VERSION
+
+    mule -f mule.yaml package-setup-deb
+fi
 
 apt-get install aptly -y
 
@@ -61,11 +57,11 @@ cat <<EOF>"$HOME/.aptly.conf"
   "skipContentsPublishing": false,
   "FileSystemPublishEndpoints": {},
   "S3PublishEndpoints": {
-    "ben-test-2.0.3": {
+    "algorand-staging": {
       "region":"us-east-1",
-      "bucket":"ben-test-2.0.3",
+      "bucket":"algorand-staging",
       "acl":"public-read",
-      "prefix":"deb-indexer"
+      "prefix":"indexer/deb"
     }
   },
   "SwiftPublishEndpoints": {}
@@ -73,7 +69,7 @@ cat <<EOF>"$HOME/.aptly.conf"
 EOF
 
 #DEBS_DIR="$HOME/packages/deb/$CHANNEL"
-DEB="$PKG_DIR/algorand-indexer_${VERSION}_${ARCH_TYPE}.deb"
+DEB="$PKG_DIR/algorand-indexer_${VERSION}_${ARCH}.deb"
 
 #cp "$PKG_DIR/$DEB" "$DEBS_DIR"
 
@@ -82,7 +78,7 @@ aptly repo create -distribution="$CHANNEL" -component=main algorand-indexer
 #aptly repo add algorand "$DEBS_DIR"/*.deb
 aptly repo add algorand-indexer "$DEB"
 aptly snapshot create "$SNAPSHOT" from repo algorand-indexer
-aptly publish snapshot -gpg-key="$SIGNING_KEY_ADDR" -origin=Algorand -label=Algorand "$SNAPSHOT" "s3:ben-test-2.0.3:"
+aptly publish snapshot -gpg-key="$SIGNING_KEY_ADDR" -origin=Algorand -label=Algorand "$SNAPSHOT" "s3:algorand-staging:"
 
 echo
 date "+build_indexer end DEPLOY stage %Y%m%d_%H%M%S"
