@@ -20,34 +20,29 @@ ARCH=$("$WORKDIR/scripts/archtype.sh")
 
 #VERSION=${VERSION:-$4}
 
-#BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
-#CHANNEL=${CHANNEL:-$("$WORKDIR/scripts/compute_branch_channel.sh" "$BRANCH")}
 CHANNEL=stable
 PKG_DIR="$WORKDIR/tmp/node_pkgs/$OS_TYPE/$ARCH"
 SIGNING_KEY_ADDR=dev@algorand.com
 
-#if ! $USE_CACHE
-#then
-#    export ARCH_BIT
-#    export ARCH_TYPE
-#    export CHANNEL
-#    export OS_TYPE
-#    export VERSION
-#
-#    if [ "$PKG_TYPE" == "tar.gz" ]
-#    then
-#        mule -f package-sign.yaml package-sign-setup-tarball
-#    else
-#        mule -f package-sign.yaml "package-sign-setup-$PKG_TYPE"
-#    fi
-#fi
+if ! $USE_CACHE
+then
+    export ARCH
+    export OS_TYPE
+    export VERSION
+
+    if [ "$PKG_TYPE" == "tar.bz2" ]
+    then
+        mule -f mule.yaml package-setup-tarball
+    else
+        mule -f mule.yaml "package-setup-$PKG_TYPE"
+    fi
+fi
 
 make_hashes () {
     # We need to futz a bit with "source" to make the hashes correct.
     local HASH_TYPE=${1:-$PKG_TYPE}
     local PACKAGE_TYPE=${2:-$PKG_TYPE}
 
-#    HASHFILE="hashes_${CHANNEL}_${OS_TYPE}_${ARCH}_${VERSION}_${HASH_TYPE}"
     HASHFILE="hashes_${OS_TYPE}_${ARCH}_${VERSION}_${HASH_TYPE}"
     # Remove any previously-generated hashes.
     rm -f "$HASHFILE"*

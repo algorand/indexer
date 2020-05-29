@@ -69,6 +69,11 @@ tasks:
       ]
     target: mule-deploy-deb WORKDIR=/projects/indexer
 
+  - task: s3.BucketCopy
+    name: setup-deb
+    src: s3://algorand-staging/indexer/${VERSION}/algorand-indexer_${VERSION}_${ARCH}.deb
+    dest: /projects/indexer/tmp/node_pkgs/${OS_TYPE}/${ARCH}
+
 jobs:
   package:
     configs:
@@ -95,4 +100,8 @@ jobs:
     tasks:
       - shell.docker.Ensure.ubuntu
       - docker.Make.package-deploy-deb
+
+  package-setup-deb:
+    tasks:
+      - s3.BucketCopy.setup-deb
 
