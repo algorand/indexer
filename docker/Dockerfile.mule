@@ -13,6 +13,5 @@ RUN cd /tmp && wget https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz 
   mv -i go /usr/local && mkdir -p /app/go/src/github.com/algorand/indexer
 COPY ./ /app/go/src/github.com/algorand/indexer/
 WORKDIR /app/go/src/github.com/algorand/indexer/
-#CMD python3 misc/release.py
 CMD ["/bin/bash"]
 
