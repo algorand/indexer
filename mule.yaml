@@ -1,19 +1,15 @@
 tasks:
-  - task: docker.Version
-    configFilePath: $HOME/projects/go-algorand/scripts/configure_dev-deps.sh
-
   - task: shell.docker.Ensure
     name: ubuntu
     image: algorand/indexer-ci-linux
-    version: '{{ docker.Version.outputs.version }}'
+    version: latest
     dockerFilePath: docker/Dockerfile.mule
-    dependencies: docker.Version
 
   - task: docker.Make
     name: package
     docker:
       image: algorand/indexer-ci-linux
-      version: '{{ docker.Version.outputs.version }}'
+      version: latest
       workDir: /projects/indexer
     target: mule-package OUTDIR=$OUTDIR
 
@@ -21,7 +17,7 @@ tasks:
     name: indexer
     docker:
       image: algorand/indexer-ci-linux
-      version: '{{ docker.Version.outputs.version }}'
+      version: latest
       workDir: /projects/indexer
     target: mule-package-rpm WORKDIR=/projects/go-algorand
 
@@ -29,7 +25,7 @@ tasks:
     name: package-sign-deb
     docker:
       image: algorand/indexer-ci-linux
-      version: '{{ docker.Version.outputs.version }}'
+      version: latest
       workDir: /projects/indexer
       env: [
         AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID,
@@ -46,7 +42,7 @@ tasks:
     name: package-sign-tarball
     docker:
       image: algorand/indexer-ci-linux
-      version: '{{ docker.Version.outputs.version }}'
+      version: latest
       workDir: /projects/indexer
       env: [
         AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID,
@@ -63,7 +59,7 @@ tasks:
     name: package-deploy-deb
     docker:
       image: algorand/indexer-ci-linux
-      version: '{{ docker.Version.outputs.version }}'
+      version: latest
       workDir: /projects/indexer
       env: [
         AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID,
