@@ -155,6 +155,18 @@ func (db *PostgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardsl
 	if err != nil {
 		return fmt.Errorf("during addtxp close %v", err)
 	}
+
+	var block types.Block
+	err = msgpack.Decode(headerbytes, &block)
+	if err != nil {
+		return err
+	}
+	headerjson := json.Encode(block)
+	_, err = tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0), rewardslevel, string(headerjson))
+	if err != nil {
+		return err
+	}
+
 	err = tx.Commit()
 	db.txrows = nil
 	db.txprows = nil
@@ -286,7 +298,7 @@ func (db *PostgresIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 		}
 	}
 	err = tx.Commit()
-	fmt.Printf("genesis %d accounts %d microalgos, %v\n", len(genesis.Allocation), total, err)
+	fmt.Printf("genesis %d accounts %d microalgos, err=%v\n", len(genesis.Allocation), total, err)
 	return err
 
 }

@@ -18,8 +18,8 @@ import (
 //go:generate go run ../cmd/texttosource/main.go importer protocols.json
 
 type Importer interface {
-	ImportBlock(blockbytes []byte) error
-	ImportDecodedBlock(block *types.EncodedBlockCert) error
+	ImportBlock(blockbytes []byte) (txCount int, err error)
+	ImportDecodedBlock(block *types.EncodedBlockCert) (txCount int, err error)
 }
 
 type dbImporter struct {
@@ -63,23 +63,24 @@ func participate(participants [][]byte, addr []byte) [][]byte {
 	return append(participants, addr)
 }
 
-func (imp *dbImporter) ImportBlock(blockbytes []byte) (err error) {
+func (imp *dbImporter) ImportBlock(blockbytes []byte) (txCount int, err error) {
 	var blockContainer types.EncodedBlockCert
 	err = msgpack.Decode(blockbytes, &blockContainer)
 	if err != nil {
-		return fmt.Errorf("error decoding blockbytes, %v", err)
+		return txCount, fmt.Errorf("error decoding blockbytes, %v", err)
 	}
 	return imp.ImportDecodedBlock(&blockContainer)
 }
-func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert) (err error) {
+func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert) (txCount int, err error) {
+	txCount = 0
 	ensureProtos()
 	_, okversion := protocols[string(blockContainer.Block.CurrentProtocol)]
 	if !okversion {
-		return fmt.Errorf("block %d unknown protocol version %#v", blockContainer.Block.Round, string(blockContainer.Block.CurrentProtocol))
+		return txCount, fmt.Errorf("block %d unknown protocol version %#v", blockContainer.Block.Round, string(blockContainer.Block.CurrentProtocol))
 	}
 	err = imp.db.StartBlock()
 	if err != nil {
-		return fmt.Errorf("error starting block, %v", err)
+		return txCount, fmt.Errorf("error starting block, %v", err)
 	}
 	block := blockContainer.Block
 	round := uint64(block.Round)
@@ -112,17 +113,18 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		participants = participate(participants, stxn.Txn.AssetCloseTo[:])
 		err = imp.db.AddTransaction(round, intra, txtypeenum, assetid, stxnad, participants)
 		if err != nil {
-			return fmt.Errorf("error importing txn r=%d i=%d, %v", round, intra, err)
+			return txCount, fmt.Errorf("error importing txn r=%d i=%d, %v", round, intra, err)
 		}
+		txCount++
 	}
 	blockHeader := block
 	blockHeader.Payset = nil
 	blockheaderBytes := msgpack.Encode(blockHeader)
 	err = imp.db.CommitBlock(round, block.TimeStamp, block.RewardsLevel, blockheaderBytes)
 	if err != nil {
-		return fmt.Errorf("error committing block, %v", err)
+		return txCount, fmt.Errorf("error committing block, %v", err)
 	}
-	return nil
+	return
 }
 
 func NewDBImporter(db idb.IndexerDb) Importer {
