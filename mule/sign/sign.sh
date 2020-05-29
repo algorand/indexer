@@ -11,33 +11,19 @@ then
 fi
 
 echo
-date "+build_release begin SIGN stage %Y%m%d_%H%M%S"
+date "+build_indexer begin SIGN stage %Y%m%d_%H%M%S"
 echo
 
 PKG_TYPE="$1"
-OS_TYPE=$(uname | awk '{print tolower($0)}')
-ARCH_BIT=$(uname -m)
-
-if [[ "$ARCH_BIT" = "x86_64" ]]; then
-    ARCH_TYPE="amd64"
-elif [[ "$ARCH_BIT" = "armv6l" ]]; then
-    ARCH_TYPE="arm"
-elif [[ "$ARCH_BIT" = "armv7l" ]]; then
-    ARCH_TYPE="arm"
-elif [[ "$ARCH_BIT" = "aarch64" ]]; then
-    ARCH_TYPE="arm64"
-else
-    # Anything else needs to be specifically added...
-    echo "unsupported"
-    exit 1
-fi
+OS_TYPE=$("$WORKDIR/scripts/ostype.sh")
+ARCH=$("$WORKDIR/scripts/archtype.sh")
 
 #VERSION=${VERSION:-$4}
-#PKG_TYPE="$5"
 
 #BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 #CHANNEL=${CHANNEL:-$("$WORKDIR/scripts/compute_branch_channel.sh" "$BRANCH")}
-PKG_DIR="$WORKDIR/tmp/node_pkgs/$OS_TYPE/$ARCH_TYPE"
+CHANNEL=stable
+PKG_DIR="$WORKDIR/tmp/node_pkgs/$OS_TYPE/$ARCH"
 SIGNING_KEY_ADDR=dev@algorand.com
 
 #if ! $USE_CACHE
@@ -61,8 +47,8 @@ make_hashes () {
     local HASH_TYPE=${1:-$PKG_TYPE}
     local PACKAGE_TYPE=${2:-$PKG_TYPE}
 
-#    HASHFILE="hashes_${CHANNEL}_${OS_TYPE}_${ARCH_TYPE}_${VERSION}_${HASH_TYPE}"
-    HASHFILE="hashes_${OS_TYPE}_${ARCH_TYPE}_${VERSION}_${HASH_TYPE}"
+#    HASHFILE="hashes_${CHANNEL}_${OS_TYPE}_${ARCH}_${VERSION}_${HASH_TYPE}"
+    HASHFILE="hashes_${OS_TYPE}_${ARCH}_${VERSION}_${HASH_TYPE}"
     # Remove any previously-generated hashes.
     rm -f "$HASHFILE"*
 
@@ -111,6 +97,6 @@ fi
 popd
 
 echo
-date "+build_release end SIGN stage %Y%m%d_%H%M%S"
+date "+build_indexer end SIGN stage %Y%m%d_%H%M%S"
 echo
 
