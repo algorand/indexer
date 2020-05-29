@@ -119,10 +119,11 @@ def build_deb(debarch, version, outdir):
             if deb_path:
                 os.makedirs(os.path.join('.deb_tmp', deb_path), exist_ok=True)
             link(os.path.join(source_path, fname), os.path.join('.deb_tmp', deb_path, fname))
-    debname = '{}/algorand-indexer_{}_{}.deb'.format(outdir, version, debarch)
+    debname = 'algorand-indexer_{}_{}.deb'.format(version, debarch)
+    debpath = os.path.join(outdir, debname)
     subprocess.run(
-        ['dpkg-deb', '--build', '.deb_tmp', debname])
-    return debname
+        ['dpkg-deb', '--build', '.deb_tmp', debpath])
+    return debpath
 
 def extract_usage():
     usage = False
@@ -149,8 +150,8 @@ def usage_html():
     return _usage_html
 
 def build_tar(goos, goarch, version, outdir):
-    rootdir = '{}/algorand-indexer_{}_{}_{}'.format(outdir, goos, goarch, version)
-    tarname = rootdir + '.tar.bz2'
+    rootdir = 'algorand-indexer_{}_{}_{}'.format(goos, goarch, version)
+    tarname = os.path.join(outdir, rootdir) + '.tar.bz2'
     tf = tarfile.open(tarname, 'w:bz2')
     for files, source_path, _, tar_path in filespec:
         if tar_path is None:
@@ -171,7 +172,12 @@ def build_tar(goos, goarch, version, outdir):
     tf.close()
     return tarname
 
-def main(outdir):
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-o", "--outdir", help="The output directory for the build assets", type=str, default=".")
+    args = parser.parse_args()
+    outdir = args.outdir
+
     start = time.time()
     logging.basicConfig(level=logging.INFO)
     with open('.version') as fin:
@@ -189,9 +195,5 @@ def main(outdir):
     return
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-o", "--outdir", help="The output directory for the build assets", type=str, default=".")
-    args = parser.parse_args()
-
-    main(args.outdir)
+    main()
 
