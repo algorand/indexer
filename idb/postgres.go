@@ -1149,10 +1149,19 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				out <- AccountRow{Error: err}
 				break
 			}
-			av := make([]models.AssetHolding, len(haids))
-			account.Assets = new([]models.AssetHolding)
-			*account.Assets = av
+			av := make([]models.AssetHolding, 0, len(haids))
 			for i, assetid := range haids {
+				// SQL can result in cross-product duplication when account has bothe asset holdings and assets created, de-dup here
+				dup := false
+				for _, xaid := range haids[:i] {
+					if assetid == xaid {
+						dup = true
+						break
+					}
+				}
+				if dup {
+					continue
+				}
 				if assetid == opts.HasAssetId {
 					if opts.AssetGT != 0 {
 						if hamounts[i] > opts.AssetGT {
@@ -1166,8 +1175,11 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 						reject = false
 					}
 				}
-				av[i] = models.AssetHolding{Amount: hamounts[i], IsFrozen: hfrozen[i], AssetId: assetid} // TODO: set Creator to asset creator addr string
+				tah := models.AssetHolding{Amount: hamounts[i], IsFrozen: hfrozen[i], AssetId: assetid} // TODO: set Creator to asset creator addr string
+				av = append(av, tah)
 			}
+			account.Assets = new([]models.AssetHolding)
+			*account.Assets = av
 		}
 		if reject {
 			continue
@@ -1185,11 +1197,21 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				out <- AccountRow{Error: err}
 				break
 			}
-			account.CreatedAssets = new([]models.Asset)
-			*account.CreatedAssets = make([]models.Asset, len(assetids))
+			cal := make([]models.Asset, 0, len(assetids))
 			for i, assetid := range assetids {
+				// SQL can result in cross-product duplication when account has bothe asset holdings and assets created, de-dup here
+				dup := false
+				for _, xaid := range assetids[:i] {
+					if assetid == xaid {
+						dup = true
+						break
+					}
+				}
+				if dup {
+					continue
+				}
 				ap := assetParams[i]
-				(*account.CreatedAssets)[i] = models.Asset{
+				tma := models.Asset{
 					Index: assetid,
 					Params: models.AssetParams{
 						Creator:       account.Address,
@@ -1206,8 +1228,10 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 						Clawback:      addrStr(ap.Clawback[:]),
 					},
 				}
-
+				cal = append(cal, tma)
 			}
+			account.CreatedAssets = new([]models.Asset)
+			*account.CreatedAssets = cal
 		}
 		select {
 		case out <- AccountRow{Account: account}:
