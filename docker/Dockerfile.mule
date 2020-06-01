@@ -2,16 +2,21 @@ FROM ubuntu:18.04
 
 ARG GO_VERSION=1.13.11
 ENV DEBIAN_FRONTEND noninteractive
-ENV GOROOT /usr/local/go
-ENV GOPATH /app/go
-ENV PATH /usr/local/go/bin:$PATH
 ENV USER root
-RUN apt-get update && apt-get -y install wget build-essential python3 python3-pip
-RUN pip3 install markdown2
-RUN cd /tmp && wget https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz \
-  && tar -xzf go${GO_VERSION}.linux-amd64.tar.gz && \
-  mv -i go /usr/local && mkdir -p /app/go/src/github.com/algorand/indexer
-COPY ./ /app/go/src/github.com/algorand/indexer/
-WORKDIR /app/go/src/github.com/algorand/indexer/
+ENV GOROOT=/usr/local/go
+ENV GOPATH=$HOME/go
+ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
+
+RUN apt-get update && apt-get -y install apt-transport-https ca-certificates software-properties-common build-essential curl git python3 python3-pip && \
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" && \
+    apt-get update && apt-get install docker-ce -y && \
+    curl https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | tar xzf - && \
+    mv go /usr/local && \
+    mkdir -p $HOME/go/src/github.com/algorand/indexer && \
+    pip3 install markdown2 mulecli
+
+COPY ./ $HOME/go/src/github.com/algorand/indexer/
+WORKDIR $HOME/go/src/github.com/algorand/indexer/
 CMD ["/bin/bash"]
 

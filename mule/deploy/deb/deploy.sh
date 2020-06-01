@@ -57,9 +57,9 @@ cat <<EOF>"$HOME/.aptly.conf"
   "skipContentsPublishing": false,
   "FileSystemPublishEndpoints": {},
   "S3PublishEndpoints": {
-    "algorand-staging": {
+    "algorand-releases": {
       "region":"us-east-1",
-      "bucket":"algorand-staging",
+      "bucket":"algorand-releases",
       "acl":"public-read",
       "prefix":"indexer/deb"
     }
@@ -78,7 +78,7 @@ aptly repo create -distribution="$CHANNEL" -component=main algorand-indexer
 #aptly repo add algorand "$DEBS_DIR"/*.deb
 aptly repo add algorand-indexer "$DEB"
 aptly snapshot create "$SNAPSHOT" from repo algorand-indexer
-aptly publish snapshot -gpg-key="$SIGNING_KEY_ADDR" -origin=Algorand -label=Algorand "$SNAPSHOT" "s3:algorand-staging:"
+aptly publish snapshot -gpg-key="$SIGNING_KEY_ADDR" -origin=Algorand -label=Algorand "$SNAPSHOT" "s3:algorand-releases:"
 
 echo
 date "+build_indexer end DEPLOY stage %Y%m%d_%H%M%S"

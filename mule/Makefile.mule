@@ -22,6 +22,9 @@ mule-sign-%: PKG_TYPE=$*
 mule-sign-%:
 	mule/sign/sign.sh $(PKG_TYPE) $$WORKDIR
 
+mule-test:
+	mule/test/test.sh $$WORKDIR
+
 mule-deploy-%: PKG_TYPE=$*
 mule-deploy-%:
 	mule/deploy/$(PKG_TYPE)/deploy.sh $$WORKDIR
