@@ -17,10 +17,8 @@ echo
 PKG_TYPE="$1"
 OS_TYPE=$("$WORKDIR/scripts/ostype.sh")
 ARCH=$("$WORKDIR/scripts/archtype.sh")
-
-#VERSION=${VERSION:-$4}
-
-CHANNEL=stable
+FULLVERSION=${VERSION:-$("$WORKDIR/scripts/compute_build_number.sh")}
+CHANNEL=${CHANNEL:-$("$WORKDIR/scripts/compute_branch_channel.sh" "$BRANCH")}
 PKG_DIR="$WORKDIR/tmp/node_pkgs/$OS_TYPE/$ARCH"
 SIGNING_KEY_ADDR=dev@algorand.com
 
@@ -28,7 +26,7 @@ if ! $USE_CACHE
 then
     export ARCH
     export OS_TYPE
-    export VERSION
+    export FULLVERSION
 
     if [ "$PKG_TYPE" == "tar.bz2" ]
     then
@@ -43,14 +41,14 @@ make_hashes () {
     local HASH_TYPE=${1:-$PKG_TYPE}
     local PACKAGE_TYPE=${2:-$PKG_TYPE}
 
-    HASHFILE="hashes_${OS_TYPE}_${ARCH}_${VERSION}_${HASH_TYPE}"
+    HASHFILE="hashes_${OS_TYPE}_${ARCH}_${FULLVERSION}_${HASH_TYPE}"
     # Remove any previously-generated hashes.
     rm -f "$HASHFILE"*
 
     {
-        md5sum ./*"$VERSION"*."$PACKAGE_TYPE" ;
-        shasum -a 256 ./*"$VERSION"*."$PACKAGE_TYPE" ;
-        shasum -a 512 ./*"$VERSION"*."$PACKAGE_TYPE" ;
+        md5sum ./*"$FULLVERSION"*."$PACKAGE_TYPE" ;
+        shasum -a 256 ./*"$FULLVERSION"*."$PACKAGE_TYPE" ;
+        shasum -a 512 ./*"$FULLVERSION"*."$PACKAGE_TYPE" ;
     } >> "$HASHFILE"
 
     gpg -u "$SIGNING_KEY_ADDR" --detach-sign "$HASHFILE"
@@ -61,9 +59,9 @@ make_sigs () {
     local PACKAGE_TYPE=${1:-$PKG_TYPE}
 
     # Remove any previously-generated signatures.
-    rm -f ./*"$VERSION"*."$PACKAGE_TYPE".sig
+    rm -f ./*"$FULLVERSION"*."$PACKAGE_TYPE".sig
 
-    for item in *"$VERSION"*."$1"
+    for item in *"$FULLVERSION"*."$1"
     do
         gpg -u "$SIGNING_KEY_ADDR" --detach-sign "$item"
     done
@@ -76,7 +74,7 @@ chmod 400 "$GPG_HOME_DIR"
 
 if [ "$PKG_TYPE" == "source" ]
 then
-    git archive --prefix="algorand-$FULLVERSION/" "$BRANCH" | gzip >| "$PKG_DIR/algorand_${CHANNEL}_source_${VERSION}.tar.gz"
+    git archive --prefix="algorand-$FULLVERSION/" "$BRANCH" | gzip >| "$PKG_DIR/algorand_${CHANNEL}_source_${FULLVERSION}.tar.gz"
     make_sigs tar.gz
     make_hashes source tar.gz
 else

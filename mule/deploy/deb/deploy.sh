@@ -16,10 +16,8 @@ echo
 
 OS_TYPE=$("$WORKDIR/scripts/ostype.sh")
 ARCH=$("$WORKDIR/scripts/archtype.sh")
-
-#VERSION=${VERSION:-$4}
-
-CHANNEL=stable
+FULLVERSION=${VERSION:-$("$WORKDIR/scripts/compute_build_number.sh")}
+CHANNEL=${CHANNEL:-$("$WORKDIR/scripts/compute_branch_channel.sh" "$BRANCH")}
 PKG_DIR="$WORKDIR/tmp/node_pkgs/$OS_TYPE/$ARCH"
 SIGNING_KEY_ADDR=dev@algorand.com
 
@@ -29,7 +27,7 @@ if ! $USE_CACHE
 then
     export ARCH
     export OS_TYPE
-    export VERSION
+    export FULLVERSION
 
     mule -f mule.yaml package-setup-deb
 fi
@@ -69,11 +67,11 @@ cat <<EOF>"$HOME/.aptly.conf"
 EOF
 
 #DEBS_DIR="$HOME/packages/deb/$CHANNEL"
-DEB="$PKG_DIR/algorand-indexer_${VERSION}_${ARCH}.deb"
+DEB="$PKG_DIR/algorand-indexer_${FULLVERSION}_${ARCH}.deb"
 
 #cp "$PKG_DIR/$DEB" "$DEBS_DIR"
 
-SNAPSHOT="${CHANNEL}-${VERSION}"
+SNAPSHOT="${CHANNEL}-${FULLVERSION}"
 aptly repo create -distribution="$CHANNEL" -component=main algorand-indexer
 #aptly repo add algorand "$DEBS_DIR"/*.deb
 aptly repo add algorand-indexer "$DEB"
