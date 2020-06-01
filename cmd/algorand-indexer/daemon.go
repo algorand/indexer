@@ -15,8 +15,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/algorand/indexer/algobot"
 	"github.com/algorand/indexer/api"
+	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
@@ -63,19 +63,19 @@ var daemonCmd = &cobra.Command{
 
 		ctx, cf := context.WithCancel(context.Background())
 		defer cf()
-		var bot algobot.Algobot
+		var bot fetcher.Fetcher
 		var err error
 		if noAlgod {
 			fmt.Fprint(os.Stderr, "algod block following disabled\n")
 		} else if algodAddr != "" && algodToken != "" {
-			bot, err = algobot.ForNetAndToken(algodAddr, algodToken)
-			maybeFail(err, "algobot setup, %v\n", err)
+			bot, err = fetcher.ForNetAndToken(algodAddr, algodToken)
+			maybeFail(err, "fetcher setup, %v\n", err)
 		} else if algodDataDir != "" {
 			if genesisJsonPath == "" {
 				genesisJsonPath = filepath.Join(algodDataDir, "genesis.json")
 			}
-			bot, err = algobot.ForDataDir(algodDataDir)
-			maybeFail(err, "algobot setup, %v\n", err)
+			bot, err = fetcher.ForDataDir(algodDataDir)
+			maybeFail(err, "fetcher setup, %v\n", err)
 		} else {
 			// no algod was found
 			noAlgod = true
