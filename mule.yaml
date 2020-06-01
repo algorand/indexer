@@ -19,15 +19,14 @@ tasks:
     dest: s3://algorand-staging/indexer/0.1.0
 
   - task: docker.Make
-    name: package-sign-deb
+    name: sign-deb
     docker:
       image: algorand/indexer-ci-linux
       version: latest
       workDir: /projects/indexer
       env: [
         AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID,
-        AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY,
-        VERSION=0.1.0
+        AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
       ]
       volumes: [
         $XDG_RUNTIME_DIR/gnupg/S.gpg-agent:/root/.gnupg/S.gpg-agent,
@@ -36,15 +35,14 @@ tasks:
     target: mule-sign-deb WORKDIR=/projects/indexer
 
   - task: docker.Make
-    name: package-sign-tarball
+    name: sign-tarball
     docker:
       image: algorand/indexer-ci-linux
       version: latest
       workDir: /projects/indexer
       env: [
         AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID,
-        AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY,
-        VERSION=0.1.0
+        AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
       ]
       volumes: [
         $XDG_RUNTIME_DIR/gnupg/S.gpg-agent:/root/.gnupg/S.gpg-agent,
@@ -53,21 +51,31 @@ tasks:
     target: mule-sign-tar.bz2 WORKDIR=/projects/indexer
 
   - task: docker.Make
-    name: package-deploy-deb
+    name: deploy-deb
     docker:
       image: algorand/indexer-ci-linux
       version: latest
       workDir: /projects/indexer
       env: [
         AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID,
-        AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY,
-        VERSION=0.1.0
+        AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
       ]
       volumes: [
         $XDG_RUNTIME_DIR/gnupg/S.gpg-agent:/root/.gnupg/S.gpg-agent,
         $HOME/.gnupg/pubring.kbx:/root/.gnupg/pubring.kbx
       ]
     target: mule-deploy-deb WORKDIR=/projects/indexer
+
+  - task: docker.Make
+    name: test
+    docker:
+      image: algorand/indexer-ci-linux
+      version: latest
+      workDir: /projects/indexer
+      volumes: [
+        /var/run/docker.sock:/var/run/docker.sock
+      ]
+    target: mule-test WORKDIR=/projects/indexer
 
   - task: s3.BucketCopy
     name: setup-deb
@@ -82,24 +90,31 @@ jobs:
       - shell.docker.Ensure.ubuntu
       - docker.Make.package
 
-  package-stage:
+  stage:
     tasks:
       - s3.BucketCopy.stage
 
-  package-sign:
+  sign:
     configs:
       arch: amd64
     tasks:
       - shell.docker.Ensure.ubuntu
-      - docker.Make.package-sign-deb
-      - docker.Make.package-sign-tarball
+      - docker.Make.sign-deb
+      - docker.Make.sign-tarball
 
-  package-deploy:
+  test:
     configs:
       arch: amd64
     tasks:
       - shell.docker.Ensure.ubuntu
-      - docker.Make.package-deploy-deb
+      - docker.Make.test
+
+  deploy:
+    configs:
+      arch: amd64
+    tasks:
+      - shell.docker.Ensure.ubuntu
+      - docker.Make.deploy-deb
 
   package-setup-deb:
     tasks:
