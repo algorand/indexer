@@ -11,12 +11,11 @@ then
 fi
 
 OS_TYPE=$("$WORKDIR/scripts/ostype.sh")
-ARCH=$("$WORKDIR/scripts/archtype.sh")
-
 export OS_TYPE
+ARCH=$("$WORKDIR/scripts/archtype.sh")
 export ARCH
-export VERSION=${VERSION:-$4}
-
+FULLVERSION=${VERSION:-$("$WORKDIR/scripts/compute_build_number.sh")}
+export FULLVERSION
 BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
 export BRANCH
 CHANNEL=${CHANNEL:-$("$WORKDIR/scripts/compute_branch_channel.sh" "$BRANCH")}

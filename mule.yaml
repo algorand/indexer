@@ -79,7 +79,7 @@ tasks:
 
   - task: s3.BucketCopy
     name: setup-deb
-    src: s3://algorand-staging/indexer/${VERSION}/algorand-indexer_${VERSION}_${ARCH}.deb
+    src: s3://algorand-staging/indexer/${FULLVERSION}/algorand-indexer_${FULLVERSION}_${ARCH}.deb
     dest: /projects/indexer/tmp/node_pkgs/${OS_TYPE}/${ARCH}
 
 jobs:
