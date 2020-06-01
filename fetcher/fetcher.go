@@ -1,4 +1,4 @@
-package algobot
+package fetcher
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
-type Algobot interface {
+type Fetcher interface {
 	Algod() algod.Client
 
 	// go bot.Run()
@@ -33,7 +33,7 @@ type BlockHandler interface {
 	HandleBlock(block *types.EncodedBlockCert)
 }
 
-type algobotImpl struct {
+type fetcherImpl struct {
 	algorandData string
 	aclient      algod.Client
 	algodLastmod time.Time // newest mod time of algod.net algod.token
@@ -49,11 +49,11 @@ type algobotImpl struct {
 	failingSince time.Time
 }
 
-func (bot *algobotImpl) Algod() algod.Client {
+func (bot *fetcherImpl) Algod() algod.Client {
 	return bot.aclient
 }
 
-func (bot *algobotImpl) isDone() bool {
+func (bot *fetcherImpl) isDone() bool {
 	if bot.done {
 		return true
 	}
@@ -70,7 +70,7 @@ func (bot *algobotImpl) isDone() bool {
 }
 
 // fetch the next block by round number until we find one missing (because it doesn't exist yet)
-func (bot *algobotImpl) catchupLoop() {
+func (bot *fetcherImpl) catchupLoop() {
 	var err error
 	var blockbytes []byte
 	aclient := bot.Algod()
@@ -94,7 +94,7 @@ func (bot *algobotImpl) catchupLoop() {
 }
 
 // wait for algod to notify of a new round, then fetch that block
-func (bot *algobotImpl) followLoop() {
+func (bot *fetcherImpl) followLoop() {
 	var err error
 	var blockbytes []byte
 	aclient := bot.Algod()
@@ -127,7 +127,7 @@ func (bot *algobotImpl) followLoop() {
 	}
 }
 
-func (bot *algobotImpl) Run() {
+func (bot *fetcherImpl) Run() {
 	if bot.wg != nil {
 		defer bot.wg.Done()
 	}
@@ -158,19 +158,19 @@ func (bot *algobotImpl) Run() {
 	}
 }
 
-func (bot *algobotImpl) SetWaitGroup(wg *sync.WaitGroup) {
+func (bot *fetcherImpl) SetWaitGroup(wg *sync.WaitGroup) {
 	bot.wg = wg
 }
 
-func (bot *algobotImpl) SetContext(ctx context.Context) {
+func (bot *fetcherImpl) SetContext(ctx context.Context) {
 	bot.ctx = ctx
 }
 
-func (bot *algobotImpl) SetNextRound(nextRound uint64) {
+func (bot *fetcherImpl) SetNextRound(nextRound uint64) {
 	bot.nextRound = nextRound
 }
 
-func (bot *algobotImpl) handleBlockBytes(blockbytes []byte) (err error) {
+func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) (err error) {
 	var block types.EncodedBlockCert
 	err = msgpack.Decode(blockbytes, &block)
 	if err != nil {
@@ -182,7 +182,7 @@ func (bot *algobotImpl) handleBlockBytes(blockbytes []byte) (err error) {
 	return
 }
 
-func (bot *algobotImpl) AddBlockHandler(handler BlockHandler) {
+func (bot *fetcherImpl) AddBlockHandler(handler BlockHandler) {
 	if bot.blockHandlers == nil {
 		x := make([]BlockHandler, 1, 10)
 		x[0] = handler
@@ -197,8 +197,8 @@ func (bot *algobotImpl) AddBlockHandler(handler BlockHandler) {
 	bot.blockHandlers = append(bot.blockHandlers, handler)
 }
 
-func ForDataDir(path string) (bot Algobot, err error) {
-	boti := &algobotImpl{algorandData: path}
+func ForDataDir(path string) (bot Fetcher, err error) {
+	boti := &fetcherImpl{algorandData: path}
 	err = boti.reclient()
 	if err == nil {
 		bot = boti
@@ -206,7 +206,7 @@ func ForDataDir(path string) (bot Algobot, err error) {
 	return
 }
 
-func ForNetAndToken(netaddr, token string) (bot Algobot, err error) {
+func ForNetAndToken(netaddr, token string) (bot Fetcher, err error) {
 	var client algod.Client
 	if !strings.HasPrefix(netaddr, "http") {
 		netaddr = "http://" + netaddr
@@ -215,11 +215,11 @@ func ForNetAndToken(netaddr, token string) (bot Algobot, err error) {
 	if err != nil {
 		return
 	}
-	bot = &algobotImpl{aclient: client}
+	bot = &fetcherImpl{aclient: client}
 	return
 }
 
-func (bot *algobotImpl) reclient() (err error) {
+func (bot *fetcherImpl) reclient() (err error) {
 	if bot.algorandData == "" {
 		return nil
 	}
