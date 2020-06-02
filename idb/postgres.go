@@ -53,7 +53,6 @@ type PostgresIndexerDb struct {
 
 	txrows  [][]interface{}
 	txprows [][]interface{}
-	pdedup  map[string]bool
 
 	protoCache map[string]types.ConsensusParams
 }
@@ -81,7 +80,6 @@ func (db *PostgresIndexerDb) MarkImported(path string) (err error) {
 func (db *PostgresIndexerDb) StartBlock() (err error) {
 	db.txrows = make([][]interface{}, 0, 6000)
 	db.txprows = make([][]interface{}, 0, 10000)
-	//db.pdedup = make(map[string]bool, 10000)
 	return nil
 }
 
@@ -91,11 +89,8 @@ func (db *PostgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum 
 	tx := []interface{}{round, intra, txtypeenum, assetid, txid[:], txnbytes, string(json.Encode(txn))}
 	db.txrows = append(db.txrows, tx)
 	for _, paddr := range participation {
-		//key := fmt.Sprintf("%s %d %d", base64.StdEncoding.EncodeToString(paddr), round, intra)
-		//seen := db.pdedup[key]
 		seen := false
 		if !seen {
-			//db.pdedup[key] = true
 			txp := []interface{}{paddr, round, intra}
 			db.txprows = append(db.txprows, txp)
 		}
@@ -109,7 +104,6 @@ func (db *PostgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardsl
 		return err
 	}
 	defer tx.Rollback() // ignored if already committed
-	//addtx, err := tx.Prepare(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`)
 	addtx, err := tx.Prepare(`COPY txn (round, intra, typeenum, asset, txid, txnbytes, txn) FROM STDIN`)
 	if err != nil {
 		return err
@@ -130,7 +124,6 @@ func (db *PostgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardsl
 		return err
 	}
 
-	//addtxpart, err := tx.Prepare(`INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`)
 	addtxpart, err := tx.Prepare(`COPY txn_participation (addr, round, intra) FROM STDIN`)
 	if err != nil {
 		return err
@@ -170,75 +163,10 @@ func (db *PostgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardsl
 	err = tx.Commit()
 	db.txrows = nil
 	db.txprows = nil
-	db.pdedup = nil
 	if err != nil {
 		return fmt.Errorf("on commit, %v", err)
 	}
 	return err
-}
-
-func (db *PostgresIndexerDb) StartBlockX() (err error) {
-	db.tx, err = db.db.BeginTx(context.Background(), nil)
-	if err != nil {
-		return err
-	}
-	db.addtx, err = db.tx.Prepare(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`)
-	db.addtxpart, err = db.tx.Prepare(`INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`)
-	if err != nil {
-		return err
-	}
-	return
-}
-
-func (db *PostgresIndexerDb) AddTransactionX(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
-	var err error
-	txnbytes := msgpack.Encode(txn)
-	txid := crypto.TransactionIDString(txn.Txn)
-	//_, err = db.tx.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`, round, intra, txtypeenum, assetid, txid[:], txnbytes, string(json.Encode(txn)))
-	_, err = db.addtx.Exec(round, intra, txtypeenum, assetid, txid[:], txnbytes, string(json.Encode(txn)))
-	if err != nil {
-		return err
-	}
-	//stmt, err := db.tx.Prepare(`INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`)
-	// if err != nil {
-	// 	return err
-	// }
-	for _, paddr := range participation {
-		_, err = db.addtxpart.Exec(paddr, round, intra)
-		if err != nil {
-			return err
-		}
-	}
-	return err
-}
-func (db *PostgresIndexerDb) CommitBlockX(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	defer db.addtx.Close()
-	defer db.addtxpart.Close()
-	var err error
-	var block types.Block
-	err = msgpack.Decode(headerbytes, &block)
-	if err != nil {
-		return err
-	}
-	headerjson := json.Encode(block)
-	_, err = db.tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0), rewardslevel, string(headerjson))
-	if err != nil {
-		return err
-	}
-	err = db.tx.Commit()
-	db.tx = nil
-	return err
-}
-
-func (db *PostgresIndexerDb) GetBlockHeader(round uint64) (block types.Block, err error) {
-	row := db.db.QueryRow(`SELECT header FROM block_header WHERE round = $1`, round)
-	var blockbytes []byte
-	err = row.Scan(&blockbytes)
-	if err != nil {
-		return
-	}
-	err = json.Decode(blockbytes, &block)
-	return
 }
 
 // GetAsset return AssetParams about an asset
