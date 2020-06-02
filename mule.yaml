@@ -11,7 +11,7 @@ tasks:
       image: algorand/indexer-ci-linux
       version: latest
       workDir: /projects/indexer
-    target: mule-package
+    target: package
 
   - task: s3.BucketCopy
     name: stage
