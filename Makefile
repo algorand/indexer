@@ -3,9 +3,6 @@ OS_TYPE		:= $(shell ./scripts/ostype.sh)
    ARCH		:= $(shell ./scripts/archtype.sh)
 PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)
 
-clean:
-	rm -rf $(PKG_DIR)
-
 # This is the default target, build the indexer:
 cmd/algorand-indexer/algorand-indexer:	idb/setup_postgres_sql.go importer/protocols_json.go .PHONY
 	cd cmd/algorand-indexer && CGO_ENABLED=0 go build
@@ -27,6 +24,9 @@ setup:
 
 test:	mocks
 	go test ./...
+
+clean:
+	rm -rf $(PKG_DIR)
 
 .PHONY:
 
