@@ -16,12 +16,6 @@ ARCH=$("$WORKDIR/scripts/archtype.sh")
 export ARCH
 FULLVERSION=${VERSION:-$("$WORKDIR/scripts/compute_build_number.sh")}
 export FULLVERSION
-BRANCH=${BRANCH:-$(git rev-parse --abbrev-ref HEAD)}
-export BRANCH
-CHANNEL=${CHANNEL:-$("$WORKDIR/scripts/compute_branch_channel.sh" "$BRANCH")}
-export CHANNEL
-SHA=${SHA:-$(git rev-parse HEAD)}
-export SHA
 
 if ! $USE_CACHE
 then

@@ -17,7 +17,6 @@ echo
 OS_TYPE=$("$WORKDIR/scripts/ostype.sh")
 ARCH=$("$WORKDIR/scripts/archtype.sh")
 FULLVERSION=${VERSION:-$("$WORKDIR/scripts/compute_build_number.sh")}
-CHANNEL=${CHANNEL:-$("$WORKDIR/scripts/compute_branch_channel.sh" "$BRANCH")}
 PKG_DIR="$WORKDIR/tmp/node_pkgs/$OS_TYPE/$ARCH"
 SIGNING_KEY_ADDR=dev@algorand.com
 
@@ -66,14 +65,10 @@ cat <<EOF>"$HOME/.aptly.conf"
 }
 EOF
 
-#DEBS_DIR="$HOME/packages/deb/$CHANNEL"
 DEB="$PKG_DIR/algorand-indexer_${FULLVERSION}_${ARCH}.deb"
-
-#cp "$PKG_DIR/$DEB" "$DEBS_DIR"
-
-SNAPSHOT="${CHANNEL}-${FULLVERSION}"
-aptly repo create -distribution="$CHANNEL" -component=main algorand-indexer
-#aptly repo add algorand "$DEBS_DIR"/*.deb
+DIST=stable
+SNAPSHOT="${DIST}-${FULLVERSION}"
+aptly repo create -distribution="$DIST" -component=main algorand-indexer
 aptly repo add algorand-indexer "$DEB"
 aptly snapshot create "$SNAPSHOT" from repo algorand-indexer
 aptly publish snapshot -gpg-key="$SIGNING_KEY_ADDR" -origin=Algorand -label=Algorand "$SNAPSHOT" "s3:algorand-releases:"

@@ -18,7 +18,6 @@ PKG_TYPE="$1"
 OS_TYPE=$("$WORKDIR/scripts/ostype.sh")
 ARCH=$("$WORKDIR/scripts/archtype.sh")
 FULLVERSION=${VERSION:-$("$WORKDIR/scripts/compute_build_number.sh")}
-CHANNEL=${CHANNEL:-$("$WORKDIR/scripts/compute_branch_channel.sh" "$BRANCH")}
 PKG_DIR="$WORKDIR/tmp/node_pkgs/$OS_TYPE/$ARCH"
 SIGNING_KEY_ADDR=dev@algorand.com
 
@@ -74,7 +73,7 @@ chmod 400 "$GPG_HOME_DIR"
 
 if [ "$PKG_TYPE" == "source" ]
 then
-    git archive --prefix="algorand-$FULLVERSION/" "$BRANCH" | gzip >| "$PKG_DIR/algorand_${CHANNEL}_source_${FULLVERSION}.tar.gz"
+    git archive --prefix="algorand-indexer-$FULLVERSION/" "$BRANCH" | gzip >| "$PKG_DIR/algorand-indexer_source_${FULLVERSION}.tar.gz"
     make_sigs tar.gz
     make_hashes source tar.gz
 else
