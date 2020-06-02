@@ -1,22 +1,8 @@
 # This file is imported into indexer/Makefile.
 
-SRCPATH		:= $(shell pwd)
-OS_TYPE		:= $(shell ./scripts/ostype.sh)
-   ARCH		:= $(shell ./scripts/archtype.sh)
-PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)
-
-mule-clean:
-	rm -rf $(PKG_DIR)
-
-mule-setup:
-	mkdir -p $(PKG_DIR)
-
 # Builds targets from the sub-directories of ./scripts/release/mule/, such as `mule-package`, `mule-sign`, `mule-test`.
 # https://scene-si.org/2019/12/04/make-dynamic-makefile-targets/
 mule = $(shell ls -d mule/*/ | awk 'BEGIN { FS="/" ; OFS="-" } { print $$3, $$4 }')
-
-mule-package: mule-clean mule-setup
-	misc/release.py --outdir $(PKG_DIR)
 
 mule-sign-%: PKG_TYPE=$*
 mule-sign-%:
