@@ -1,0 +1,25 @@
+language: go
+go:
+  - 1.13.x
+  - 1.14.x
+
+dist: bionic
+
+services:
+  - docker
+
+addons:
+  apt:
+    packages:
+      - python3-pip
+      - python3-setuptools
+      - python3-wheel
+
+install:
+  - pip3 install boto3
+    #- docker run -d -e POSTGES_USER=algorand -e POSTGRES_PASSWORD=indexer -e POSTGRES_DB=indexer-db -p 5432:5432 -t postgres
+
+script:
+  - make
+  - go test ./...
+    #- python3 misc/e2etest.py "host=localhost port=5432 user=algorand password=indexer dbname='indexer-db' sslmode=disable"

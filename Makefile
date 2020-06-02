@@ -1,3 +1,8 @@
+SRCPATH		:= $(shell pwd)
+OS_TYPE		:= $(shell ./scripts/ostype.sh)
+   ARCH		:= $(shell ./scripts/archtype.sh)
+PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)
+
 # This is the default target, build the indexer:
 cmd/algorand-indexer/algorand-indexer:	idb/setup_postgres_sql.go importer/protocols_json.go .PHONY
 	cd cmd/algorand-indexer && CGO_ENABLED=0 go build
@@ -11,7 +16,20 @@ importer/protocols_json.go:	importer/protocols.json
 mocks:	idb/dummy.go
 	cd idb && mockery -name=IndexerDb
 
+package: clean setup
+	misc/release.py --outdir $(PKG_DIR)
+
+setup:
+	mkdir -p $(PKG_DIR)
+
 test:	mocks
 	go test ./...
 
+clean:
+	rm -rf $(PKG_DIR)
+
 .PHONY:
+
+###### TARGETS FOR CICD PROCESS ######
+include ./mule/Makefile.mule
+
