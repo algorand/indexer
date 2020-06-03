@@ -43,8 +43,71 @@ def encode_addr(addr):
         return algosdk.encoding.encode_address(addr)
     return 'unknown addr? {!r}'.format(addr)
 
-def indexerAccounts(rooturl, blockround=None):
+def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None):
     '''return {raw account: {"algo":N, "asset":{}}, ...}'''
+    rootparts = urllib.parse.urlparse(rooturl)
+    rawurl = list(rootparts)
+    accountsurl = list(rootparts)
+    accounts = {}
+    query = {}
+    if blockround is not None:
+        query['round'] = blockround
+    for addr in addrlist:
+        accountsurl[2] = os.path.join(rawurl[2], 'v2', 'accounts', addr)
+        if query:
+            accountsurl[4] = urllib.parse.urlencode(query)
+        pageurl = urllib.parse.urlunparse(accountsurl)
+        logger.debug('GET %s', pageurl)
+        getAccountsPage(pageurl, accounts)
+    logger.info('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
+    return accounts
+
+def getAccountsPage(pageurl, accounts):
+    try:
+        logger.debug('GET %r', pageurl)
+        response = urllib.request.urlopen(pageurl)
+    except urllib.error.HTTPError as e:
+        logger.error('failed to fetch %r', pageurl)
+        logger.error('msg: %s', e.file.read())
+        raise
+    except Exception as e:
+        logger.error('%r', pageurl, exc_info=True)
+        raise
+    if (response.code != 200) or not response.getheader('Content-Type').startswith('application/json'):
+        raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
+    ob = json.loads(response.read())
+    logger.debug('ob keys %s', ob.keys())
+    some = False
+    batchcount = 0
+    gtaddr = None
+    qa = ob.get('accounts',[])
+    acct = ob.get('account')
+    if acct is not None:
+        qa.append(acct)
+    for acct in qa:
+        batchcount += 1
+        some = True
+        addr = acct['address']
+        microalgos = acct['amount-without-pending-rewards']
+        av = {"algo":microalgos}
+        assets = {}
+        for assetrec in acct.get('assets', []):
+            assetid = assetrec['asset-id']
+            assetamount = assetrec.get('amount', 0)
+            assetfrozen = assetrec.get('is-frozen', False)
+            assets[str(assetid)] = {"a":assetamount,"f":assetfrozen}
+        if assets:
+            av['asset'] = assets
+        rawaddr = algosdk.encoding.decode_address(addr)
+        accounts[rawaddr] = av
+        gtaddr = addr
+    logger.debug('got %d accounts', batchcount)
+    return gtaddr, some
+
+def indexerAccounts(rooturl, blockround=None, addrlist=None):
+    '''return {raw account: {"algo":N, "asset":{}}, ...}'''
+    if addrlist:
+        return indexerAccountsFromAddrs(rooturl, blockround, addrlist)
     rootparts = urllib.parse.urlparse(rooturl)
     accountsurl = list(rootparts)
     accountsurl[2] = os.path.join(accountsurl[2], 'v2', 'accounts')
@@ -60,39 +123,7 @@ def indexerAccounts(rooturl, blockround=None):
         if query:
             accountsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(accountsurl)
-        try:
-            logger.debug('GET %r', pageurl)
-            response = urllib.request.urlopen(pageurl)
-        except urllib.error.HTTPError as e:
-            logger.error('failed to fetch %r', pageurl)
-            logger.error('msg: %s', e.file.read())
-            raise
-        except Exception as e:
-            logger.error('%r', pageurl, exc_info=True)
-            raise
-        if (response.code != 200) or not response.getheader('Content-Type').startswith('application/json'):
-            raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
-        ob = json.loads(response.read())
-        some = False
-        batchcount = 0
-        for acct in ob.get('accounts',[]):
-            batchcount += 1
-            some = True
-            addr = acct['address']
-            microalgos = acct['amount-without-pending-rewards']
-            av = {"algo":microalgos}
-            assets = {}
-            for assetrec in acct.get('assets', []):
-                assetid = assetrec['asset-id']
-                assetamount = assetrec.get('amount', 0)
-                assetfrozen = assetrec.get('is-frozen', False)
-                assets[str(assetid)] = {"a":assetamount,"f":assetfrozen}
-            if assets:
-                av['asset'] = assets
-            rawaddr = algosdk.encoding.decode_address(addr)
-            accounts[rawaddr] = av
-            gtaddr = addr
-        logger.debug('got %d accounts', batchcount)
+        gtaddr, some = getAccountsPage(pageurl, accounts)
         if not some:
             break
     logger.info('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
@@ -252,7 +283,7 @@ class CheckContext:
 # "algo":uint64 MicroAlgos
 
 def check_from_sqlite(args):
-    genesispath = os.path.join(os.path.dirname(os.path.dirname(args.dbfile)), 'genesis.json')
+    genesispath = args.genesis or os.path.join(os.path.dirname(os.path.dirname(args.dbfile)), 'genesis.json')
     getGenesisVars(genesispath)
     db = sqlite3.connect(args.dbfile)
     cursor = db.cursor()
@@ -262,7 +293,7 @@ def check_from_sqlite(args):
     for row in cursor:
         tracker_round = row[0]
     if args.indexer:
-        i2a = indexerAccounts(args.indexer, blockround=tracker_round)
+        i2a = indexerAccounts(args.indexer, blockround=tracker_round, addrlist=(args.accounts and args.accounts.split(',')))
         i2a_checker = CheckContext(i2a, err)
     else:
         i2a_checker = None
@@ -272,9 +303,12 @@ def check_from_sqlite(args):
     #match = 0
     #neq = 0
     algosum = 0
+    acctset = args.accounts and args.accounts.split(',')
     for row in cursor:
         address, data = row
         niceaddr = algosdk.encoding.encode_address(address)
+        if acctset and niceaddr not in acctset:
+            continue
         adata = msgpack.loads(data)
         count += 1
         rewardsbase = adata.get(b'ebase', 0)
@@ -368,6 +402,8 @@ def main():
     ap.add_argument('--mismatches', default=10, type=int, help='max number of mismatches to show details on (0 for no limit)')
     ap.add_argument('-q', '--quiet', default=False, action='store_true')
     ap.add_argument('--verbose', default=False, action='store_true')
+    ap.add_argument('--genesis')
+    ap.add_argument('--accounts', help='comma separated list of accounts to test')
     args = ap.parse_args()
 
     if args.verbose:
