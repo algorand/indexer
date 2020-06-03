@@ -79,7 +79,12 @@ tasks:
 
   - task: s3.BucketCopy
     name: setup-deb
-    src: s3://algorand-staging/indexer/${FULLVERSION}/algorand-indexer_${FULLVERSION}_${ARCH}.deb
+    src: s3://algorand-staging/indexer/${FULLVERSION}/*.deb
+    dest: /projects/indexer/tmp/node_pkgs/${OS_TYPE}/${ARCH}
+
+  - task: s3.BucketCopy
+    name: setup-tarball
+    src: s3://algorand-staging/indexer/${FULLVERSION}/*.tar.bz2
     dest: /projects/indexer/tmp/node_pkgs/${OS_TYPE}/${ARCH}
 
 jobs:
@@ -119,4 +124,8 @@ jobs:
   package-setup-deb:
     tasks:
       - s3.BucketCopy.setup-deb
+
+  package-setup-tarball:
+    tasks:
+      - s3.BucketCopy.setup-tarball
 
