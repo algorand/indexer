@@ -21,6 +21,9 @@ package: clean setup
 setup:
 	mkdir -p $(PKG_DIR)
 
+sign:
+	build/sign.sh
+
 test:	mocks
 	go test ./...
 

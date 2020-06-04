@@ -1,13 +1,5 @@
 # This file is imported into indexer/Makefile.
 
-# Builds targets from the sub-directories of ./scripts/release/mule/, such as `mule-package`, `mule-sign`, `mule-test`.
-# https://scene-si.org/2019/12/04/make-dynamic-makefile-targets/
-mule = $(shell ls -d mule/*/ | awk 'BEGIN { FS="/" ; OFS="-" } { print $$3, $$4 }')
-
-mule-sign-%: PKG_TYPE=$*
-mule-sign-%:
-	mule/sign/sign.sh $(PKG_TYPE) $$WORKDIR
-
 mule-test:
 	mule/test/test.sh $$WORKDIR
 
