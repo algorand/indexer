@@ -14,18 +14,14 @@ echo
 date "+build_indexer begin DEPLOY stage %Y%m%d_%H%M%S"
 echo
 
-OS_TYPE=$("$WORKDIR/scripts/ostype.sh")
-ARCH=$("$WORKDIR/scripts/archtype.sh")
 FULLVERSION=${VERSION:-$("$WORKDIR/scripts/compute_build_number.sh")}
-PKG_DIR="$WORKDIR/tmp/node_pkgs/$OS_TYPE/$ARCH"
+PKG_DIR="$WORKDIR/packages/$FULLVERSION"
 SIGNING_KEY_ADDR=dev@algorand.com
 
 chmod 400 "$HOME/.gnupg"
 
 if ! $USE_CACHE
 then
-    export ARCH
-    export OS_TYPE
     export FULLVERSION
 
     mule -f mule.yaml package-setup-deb

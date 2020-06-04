@@ -1,7 +1,6 @@
 SRCPATH		:= $(shell pwd)
-OS_TYPE		:= $(shell ./scripts/ostype.sh)
-   ARCH		:= $(shell ./scripts/archtype.sh)
-PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)
+VERSION		:= $(shell $(SRCPATH)/scripts/compute_build_number.sh)
+PKG_DIR		= $(SRCPATH)/packages/$(VERSION)
 
 # This is the default target, build the indexer:
 cmd/algorand-indexer/algorand-indexer:	idb/setup_postgres_sql.go importer/protocols_json.go .PHONY

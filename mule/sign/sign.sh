@@ -15,16 +15,12 @@ date "+build_indexer begin SIGN stage %Y%m%d_%H%M%S"
 echo
 
 PKG_TYPE="$1"
-OS_TYPE=$("$WORKDIR/scripts/ostype.sh")
-ARCH=$("$WORKDIR/scripts/archtype.sh")
 FULLVERSION=${VERSION:-$("$WORKDIR/scripts/compute_build_number.sh")}
-PKG_DIR="$WORKDIR/tmp/node_pkgs/$OS_TYPE/$ARCH"
+PKG_DIR="$WORKDIR/packages/$FULLVERSION"
 SIGNING_KEY_ADDR=dev@algorand.com
 
 if ! $USE_CACHE
 then
-    export ARCH
-    export OS_TYPE
     export FULLVERSION
 
     if [ "$PKG_TYPE" == "tar.bz2" ]
@@ -40,7 +36,7 @@ make_hashes () {
     local HASH_TYPE=${1:-$PKG_TYPE}
     local PACKAGE_TYPE=${2:-$PKG_TYPE}
 
-    HASHFILE="hashes_${OS_TYPE}_${ARCH}_${FULLVERSION}_${HASH_TYPE}"
+    HASHFILE="hashes_${FULLVERSION}_${HASH_TYPE}"
     # Remove any previously-generated hashes.
     rm -f "$HASHFILE"*
 

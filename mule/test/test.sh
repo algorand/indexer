@@ -10,10 +10,6 @@ then
     exit 1
 fi
 
-OS_TYPE=$("$WORKDIR/scripts/ostype.sh")
-export OS_TYPE
-ARCH=$("$WORKDIR/scripts/archtype.sh")
-export ARCH
 FULLVERSION=${VERSION:-$("$WORKDIR/scripts/compute_build_number.sh")}
 export FULLVERSION
 
