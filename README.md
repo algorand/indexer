@@ -107,6 +107,7 @@ When `--token your-token` is provided, an authentication header is required. For
 
 ```
 [Service]
+ExecStart=
 ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
 PIDFile=/var/lib/algorand/algorand-indexer.pid
 
