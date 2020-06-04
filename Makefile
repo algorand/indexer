@@ -24,6 +24,9 @@ setup:
 sign:
 	build/sign.sh
 
+stage-packages:
+	python3 build/bucket_copy.py -s $$HOME/projects/indexer/packages/$(VERSION) -d s3://algorand-staging/indexer/$(VERSION)
+
 test:	mocks
 	go test ./...
 

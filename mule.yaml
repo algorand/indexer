@@ -5,11 +5,6 @@ tasks:
     version: latest
     dockerFilePath: docker/Dockerfile.mule
 
-  - task: s3.BucketCopy
-    name: stage
-    src: $HOME/projects/indexer/tmp/node_pkgs/linux/amd64
-    dest: s3://algorand-staging/indexer/$FULLVERSION
-
   - task: docker.Make
     name: deploy-deb
     docker:
@@ -26,21 +21,7 @@ tasks:
       ]
     target: mule-deploy-deb WORKDIR=/projects/indexer
 
-  - task: s3.BucketCopy
-    name: setup-deb
-    src: s3://algorand-staging/indexer/$FULLVERSION/*.deb
-    dest: /projects/indexer/packages/$FULLVERSION
-
-  - task: s3.BucketCopy
-    name: setup-tarball
-    src: s3://algorand-staging/indexer/$FULLVERSION/*.tar.bz2
-    dest: /projects/indexer/packages/$FULLVERSION
-
 jobs:
-  stage:
-    tasks:
-      - s3.BucketCopy.stage
-
   deploy:
     configs:
       arch: amd64
