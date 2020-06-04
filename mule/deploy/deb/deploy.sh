@@ -20,13 +20,6 @@ SIGNING_KEY_ADDR=dev@algorand.com
 
 chmod 400 "$HOME/.gnupg"
 
-if ! $USE_CACHE
-then
-    export FULLVERSION
-
-    mule -f mule.yaml package-setup-deb
-fi
-
 apt-get install aptly -y
 
 cat <<EOF>"$HOME/.aptly.conf"

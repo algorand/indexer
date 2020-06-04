@@ -1,8 +1,5 @@
 # This file is imported into indexer/Makefile.
 
-mule-test:
-	mule/test/test.sh $$WORKDIR
-
 mule-deploy-%: PKG_TYPE=$*
 mule-deploy-%:
 	mule/deploy/$(PKG_TYPE)/deploy.sh $$WORKDIR

@@ -26,17 +26,6 @@ tasks:
       ]
     target: mule-deploy-deb WORKDIR=/projects/indexer
 
-  - task: docker.Make
-    name: test
-    docker:
-      image: algorand/indexer-ci-linux
-      version: latest
-      workDir: /projects/indexer
-      volumes: [
-        /var/run/docker.sock:/var/run/docker.sock
-      ]
-    target: mule-test WORKDIR=/projects/indexer
-
   - task: s3.BucketCopy
     name: setup-deb
     src: s3://algorand-staging/indexer/$FULLVERSION/*.deb
@@ -52,25 +41,10 @@ jobs:
     tasks:
       - s3.BucketCopy.stage
 
-  test:
-    configs:
-      arch: amd64
-    tasks:
-      - shell.docker.Ensure.ubuntu
-      - docker.Make.test
-
   deploy:
     configs:
       arch: amd64
     tasks:
       - shell.docker.Ensure.ubuntu
       - docker.Make.deploy-deb
-
-  package-setup-deb:
-    tasks:
-      - s3.BucketCopy.setup-deb
-
-  package-setup-tarball:
-    tasks:
-      - s3.BucketCopy.setup-tarball
 
