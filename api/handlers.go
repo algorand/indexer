@@ -303,7 +303,7 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 		AfterTime:           params.AfterTime,
 		CurrencyGreaterThan: params.CurrencyGreaterThan,
 		CurrencyLessThan:    params.CurrencyLessThan,
-		Address:             params.AddressRole,
+		Address:             params.Address,
 		AddressRole:         params.AddressRole,
 		ExcludeCloseTo:      params.ExcludeCloseTo,
 		RekeyTo:             params.RekeyTo,
