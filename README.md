@@ -12,13 +12,14 @@ We prepared a docker compose file to bring up indexer and postgres preloaded wit
 
 Once running, here are a few commands to try out:
 ```bash
-~$ curl "localhost:8980/assets?name=bogo"
-~$ curl "localhost:8980/transactions?limit=1"
-~$ curl "localhost:8980/transactions?round=10"
-~$ curl "localhost:8980/transactions?tx-type=acfg"
-~$ curl "localhost:8980/accounts?asset-id=9"
-~$ curl "localhost:8980/accounts/ZBBRQD73JH5KZ7XRED6GALJYJUXOMBBP3X2Z2XFA4LATV3MUJKKMKG7SHA?round=15"
-~$ curl "localhost:8980/assets/9/balances"
+~$ curl "localhost:8980/v2/assets?name=bogo"
+~$ curl "localhost:8980/v2/transactions?limit=1"
+~$ curl "localhost:8980/v2/transactions?round=10"
+~$ curl "localhost:8980/v2/transactions?tx-type=acfg"
+~$ curl "localhost:8980/v2/accounts?asset-id=9"
+~$ curl "localhost:8980/v2/accounts/ZBBRQD73JH5KZ7XRED6GALJYJUXOMBBP3X2Z2XFA4LATV3MUJKKMKG7SHA?round=15"
+~$ curl "localhost:8980/v2/assets/9/balances"
+~$ curl "localhost:8980/health"
 ```
 
 # Features
