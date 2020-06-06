@@ -35,6 +35,3 @@ clean:
 
 .PHONY:
 
-###### TARGETS FOR CICD PROCESS ######
-include ./mule/Makefile.mule
-

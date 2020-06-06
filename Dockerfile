@@ -8,13 +8,10 @@ ENV GOPATH=$HOME/go
 ENV PATH=$GOPATH/bin:$GOROOT/bin:$PATH
 
 RUN apt-get update && apt-get -y install apt-transport-https ca-certificates software-properties-common build-essential curl git python3 python3-pip && \
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - && \
-    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" && \
-    apt-get update && apt-get install docker-ce -y && \
     curl https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz | tar xzf - && \
     mv go /usr/local && \
     mkdir -p $HOME/go/src/github.com/algorand/indexer && \
-    pip3 install markdown2 mulecli
+    pip3 install markdown2
 
 COPY ./ $HOME/go/src/github.com/algorand/indexer/
 WORKDIR $HOME/go/src/github.com/algorand/indexer/
