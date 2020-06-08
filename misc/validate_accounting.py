@@ -3,7 +3,7 @@
 # Compare accounting of algod and indexer
 #
 # setup requires:
-#  pip install msgpack py-algorand-sdk
+#  pip install "msgpack >=1" py-algorand-sdk psycopg2
 
 import base64
 import json
@@ -43,8 +43,71 @@ def encode_addr(addr):
         return algosdk.encoding.encode_address(addr)
     return 'unknown addr? {!r}'.format(addr)
 
-def indexerAccounts(rooturl, blockround=None):
+def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None):
     '''return {raw account: {"algo":N, "asset":{}}, ...}'''
+    rootparts = urllib.parse.urlparse(rooturl)
+    rawurl = list(rootparts)
+    accountsurl = list(rootparts)
+    accounts = {}
+    query = {}
+    if blockround is not None:
+        query['round'] = blockround
+    for addr in addrlist:
+        accountsurl[2] = os.path.join(rawurl[2], 'v2', 'accounts', addr)
+        if query:
+            accountsurl[4] = urllib.parse.urlencode(query)
+        pageurl = urllib.parse.urlunparse(accountsurl)
+        logger.debug('GET %s', pageurl)
+        getAccountsPage(pageurl, accounts)
+    logger.info('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
+    return accounts
+
+def getAccountsPage(pageurl, accounts):
+    try:
+        logger.debug('GET %r', pageurl)
+        response = urllib.request.urlopen(pageurl)
+    except urllib.error.HTTPError as e:
+        logger.error('failed to fetch %r', pageurl)
+        logger.error('msg: %s', e.file.read())
+        raise
+    except Exception as e:
+        logger.error('%r', pageurl, exc_info=True)
+        raise
+    if (response.code != 200) or not response.getheader('Content-Type').startswith('application/json'):
+        raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
+    ob = json.loads(response.read())
+    logger.debug('ob keys %s', ob.keys())
+    some = False
+    batchcount = 0
+    gtaddr = None
+    qa = ob.get('accounts',[])
+    acct = ob.get('account')
+    if acct is not None:
+        qa.append(acct)
+    for acct in qa:
+        batchcount += 1
+        some = True
+        addr = acct['address']
+        microalgos = acct['amount-without-pending-rewards']
+        av = {"algo":microalgos}
+        assets = {}
+        for assetrec in acct.get('assets', []):
+            assetid = assetrec['asset-id']
+            assetamount = assetrec.get('amount', 0)
+            assetfrozen = assetrec.get('is-frozen', False)
+            assets[str(assetid)] = {"a":assetamount,"f":assetfrozen}
+        if assets:
+            av['asset'] = assets
+        rawaddr = algosdk.encoding.decode_address(addr)
+        accounts[rawaddr] = av
+        gtaddr = addr
+    logger.debug('got %d accounts', batchcount)
+    return gtaddr, some
+
+def indexerAccounts(rooturl, blockround=None, addrlist=None):
+    '''return {raw account: {"algo":N, "asset":{}}, ...}'''
+    if addrlist:
+        return indexerAccountsFromAddrs(rooturl, blockround, addrlist)
     rootparts = urllib.parse.urlparse(rooturl)
     accountsurl = list(rootparts)
     accountsurl[2] = os.path.join(accountsurl[2], 'v2', 'accounts')
@@ -60,39 +123,7 @@ def indexerAccounts(rooturl, blockround=None):
         if query:
             accountsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(accountsurl)
-        try:
-            logger.debug('GET %r', pageurl)
-            response = urllib.request.urlopen(pageurl)
-        except urllib.error.HTTPError as e:
-            logger.error('failed to fetch %r', pageurl)
-            logger.error('msg: %s', e.file.read())
-            raise
-        except Exception as e:
-            logger.error('%r', pageurl, exc_info=True)
-            raise
-        if (response.code != 200) or not response.getheader('Content-Type').startswith('application/json'):
-            raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
-        ob = json.loads(response.read())
-        some = False
-        batchcount = 0
-        for acct in ob.get('accounts',[]):
-            batchcount += 1
-            some = True
-            addr = acct['address']
-            microalgos = acct['amount-without-pending-rewards']
-            av = {"algo":microalgos}
-            assets = {}
-            for assetrec in acct.get('assets', []):
-                assetid = assetrec['asset-id']
-                assetamount = assetrec.get('amount', 0)
-                assetfrozen = assetrec.get('is-frozen', False)
-                assets[str(assetid)] = {"a":assetamount,"f":assetfrozen}
-            if assets:
-                av['asset'] = assets
-            rawaddr = algosdk.encoding.decode_address(addr)
-            accounts[rawaddr] = av
-            gtaddr = addr
-        logger.debug('got %d accounts', batchcount)
+        gtaddr, some = getAccountsPage(pageurl, accounts)
         if not some:
             break
     logger.info('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
@@ -148,11 +179,11 @@ def assetEquality(indexer, algod):
             else:
                 errs.append('asset={!r} indexer had {!r} but algod None'.format(assetid, rec))
         else:
-            av = arec.get(b'a', 0)
+            av = arec.get('a', 0)
             if av != iv:
                 errs.append('asset={!r} indexer {!r} != algod {!r}'.format(assetid, rec, arec))
     for assetid, arec in ta.items():
-        av = arec.get(b'a', 0)
+        av = arec.get('a', 0)
         if av != 0:
             errs.append('asset={!r} indexer had None but algod {!r}'.format(assetid, arec))
     if not errs:
@@ -218,7 +249,7 @@ class CheckContext:
                 allzero = True
                 nonzero = []
                 for assetidstr, assetdata in assets.items():
-                    if assetdata.get(b'a',0) != 0:
+                    if assetdata.get('a',0) != 0:
                         allzero = False
                         nonzero.append( (assetidstr, assetdata) )
                 if not allzero:
@@ -252,7 +283,7 @@ class CheckContext:
 # "algo":uint64 MicroAlgos
 
 def check_from_sqlite(args):
-    genesispath = os.path.join(os.path.dirname(os.path.dirname(args.dbfile)), 'genesis.json')
+    genesispath = args.genesis or os.path.join(os.path.dirname(os.path.dirname(args.dbfile)), 'genesis.json')
     getGenesisVars(genesispath)
     db = sqlite3.connect(args.dbfile)
     cursor = db.cursor()
@@ -262,7 +293,7 @@ def check_from_sqlite(args):
     for row in cursor:
         tracker_round = row[0]
     if args.indexer:
-        i2a = indexerAccounts(args.indexer, blockround=tracker_round)
+        i2a = indexerAccounts(args.indexer, blockround=tracker_round, addrlist=(args.accounts and args.accounts.split(',')))
         i2a_checker = CheckContext(i2a, err)
     else:
         i2a_checker = None
@@ -272,15 +303,18 @@ def check_from_sqlite(args):
     #match = 0
     #neq = 0
     algosum = 0
+    acctset = args.accounts and args.accounts.split(',')
     for row in cursor:
         address, data = row
         niceaddr = algosdk.encoding.encode_address(address)
-        adata = msgpack.loads(data)
+        if acctset and niceaddr not in acctset:
+            continue
+        adata = msgpack.loads(data, strict_map_key=False)
         count += 1
-        rewardsbase = adata.get(b'ebase', 0)
-        microalgos = adata[b'algo']
+        rewardsbase = adata.get('ebase', 0)
+        microalgos = adata['algo']
         values = {"algo": microalgos}
-        assets = adata.get(b'asset')
+        assets = adata.get('asset')
         frozen = {}
         has_asset = False
         algosum += microalgos
@@ -294,8 +328,8 @@ def check_from_sqlite(args):
                     assetidstr = str(assetidstr)
                 if assetidstr == args.asset:
                     has_asset = True
-                values[assetidstr] = assetdata.get(b'a', 0)
-                if assetdata.get(b'f'):
+                values[assetidstr] = assetdata.get('a', 0)
+                if assetdata.get('f'):
                     frozen[assetidstr] = True
         if args.asset and not has_asset:
             continue
@@ -350,7 +384,7 @@ def check_from_algod(args):
         xa = {}
         for assetidstr, assetdata in ad.get('assets',{}).items():
             #values[assetidstr] = assetdata.get('amount', 0)
-            xa[int(assetidstr)] = {b'a':assetdata.get('amount', 0), b'f': assetdata.get('frozen', False)}
+            xa[int(assetidstr)] = {'a':assetdata.get('amount', 0), 'f': assetdata.get('frozen', False)}
         address = algosdk.encoding.decode_address(niceaddr)
         i2a_checker.check(address, niceaddr, microalgos, xa)
     return lastround, i2a_checker
@@ -368,6 +402,8 @@ def main():
     ap.add_argument('--mismatches', default=10, type=int, help='max number of mismatches to show details on (0 for no limit)')
     ap.add_argument('-q', '--quiet', default=False, action='store_true')
     ap.add_argument('--verbose', default=False, action='store_true')
+    ap.add_argument('--genesis')
+    ap.add_argument('--accounts', help='comma separated list of accounts to test')
     args = ap.parse_args()
 
     if args.verbose:

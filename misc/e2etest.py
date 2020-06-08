@@ -107,6 +107,8 @@ def xrun(cmd, *args, **kwargs):
         if stderr_data:
             sys.stderr.write('stderr from {}:\n{}\n\n'.format(cmdr, stderr_data))
         raise Exception('error: cmd failed: {}'.format(cmdr))
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug('cmd succes: %r\n%s\n%s\n', cmd, maybe_decode(stdout_data), maybe_decode(stderr_data))
 
 def atexitrun(cmd, *args, **kwargs):
     cargs = [cmd]+list(args)
@@ -119,6 +121,7 @@ def main():
     ap.add_argument('--keep-temps', default=False, action='store_true')
     ap.add_argument('--verbose', default=False, action='store_true')
     ap.add_argument('--connection-string', help='Use this connection string instead of attempting to manage a local database.')
+    ap.add_argument('--indexer-port', default=None, type=int, help='port to run indexer on. defaults to random in [4000,30000]')
     args = ap.parse_args()
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
@@ -148,7 +151,8 @@ def main():
         psqlstring = args.connection_string
 
     xrun(['cmd/algorand-indexer/algorand-indexer', 'import', '-P', psqlstring, os.path.join(e2edata, 'blocktars', '*'), '--genesis', os.path.join(e2edata, 'algod', 'genesis.json')], timeout=20)
-    cmd = ['cmd/algorand-indexer/algorand-indexer', 'daemon', '-P', psqlstring, '--dev-mode', '--no-algod']
+    aiport = args.indexer_port or random.randint(4000,30000)
+    cmd = ['cmd/algorand-indexer/algorand-indexer', 'daemon', '-P', psqlstring, '--dev-mode', '--no-algod', '--server', ':{}'.format(aiport)]
     logger.debug("%s", ' '.join(map(repr,cmd)))
     indexerdp = subprocess.Popen(cmd)
     atexit.register(indexerdp.kill)
@@ -156,7 +160,8 @@ def main():
     sqliteglob = os.path.join(e2edata, 'algod', '*', 'ledger.tracker.sqlite')
     sqlitepaths = glob.glob(sqliteglob)
     sqlitepath = sqlitepaths[0]
-    xrun(['python3', 'misc/validate_accounting.py', '--verbose', '--dbfile', sqlitepath, '--indexer', 'http://localhost:8980/'], timeout=20)
+    xrun(['python3', 'misc/validate_accounting.py', '--verbose', '--dbfile', sqlitepath, '--indexer', 'http://localhost:{}/'.format(aiport)], timeout=20)
+    xrun(['go', 'run', 'cmd/e2equeries/main.go', '-pg', psqlstring, '-q'], timeout=15)
     dt = time.time() - start
     sys.stdout.write("indexer e2etest OK ({:.1f}s)\n".format(dt))
     return 0
