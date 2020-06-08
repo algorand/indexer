@@ -3,7 +3,7 @@
 # Compare accounting of algod and indexer
 #
 # setup requires:
-#  pip install msgpack py-algorand-sdk
+#  pip install "msgpack >=1" py-algorand-sdk psycopg2
 
 import base64
 import json
@@ -179,11 +179,11 @@ def assetEquality(indexer, algod):
             else:
                 errs.append('asset={!r} indexer had {!r} but algod None'.format(assetid, rec))
         else:
-            av = arec.get(b'a', 0)
+            av = arec.get('a', 0)
             if av != iv:
                 errs.append('asset={!r} indexer {!r} != algod {!r}'.format(assetid, rec, arec))
     for assetid, arec in ta.items():
-        av = arec.get(b'a', 0)
+        av = arec.get('a', 0)
         if av != 0:
             errs.append('asset={!r} indexer had None but algod {!r}'.format(assetid, arec))
     if not errs:
@@ -249,7 +249,7 @@ class CheckContext:
                 allzero = True
                 nonzero = []
                 for assetidstr, assetdata in assets.items():
-                    if assetdata.get(b'a',0) != 0:
+                    if assetdata.get('a',0) != 0:
                         allzero = False
                         nonzero.append( (assetidstr, assetdata) )
                 if not allzero:
@@ -309,12 +309,12 @@ def check_from_sqlite(args):
         niceaddr = algosdk.encoding.encode_address(address)
         if acctset and niceaddr not in acctset:
             continue
-        adata = msgpack.loads(data)
+        adata = msgpack.loads(data, strict_map_key=False)
         count += 1
-        rewardsbase = adata.get(b'ebase', 0)
-        microalgos = adata[b'algo']
+        rewardsbase = adata.get('ebase', 0)
+        microalgos = adata['algo']
         values = {"algo": microalgos}
-        assets = adata.get(b'asset')
+        assets = adata.get('asset')
         frozen = {}
         has_asset = False
         algosum += microalgos
@@ -328,8 +328,8 @@ def check_from_sqlite(args):
                     assetidstr = str(assetidstr)
                 if assetidstr == args.asset:
                     has_asset = True
-                values[assetidstr] = assetdata.get(b'a', 0)
-                if assetdata.get(b'f'):
+                values[assetidstr] = assetdata.get('a', 0)
+                if assetdata.get('f'):
                     frozen[assetidstr] = True
         if args.asset and not has_asset:
             continue
@@ -384,7 +384,7 @@ def check_from_algod(args):
         xa = {}
         for assetidstr, assetdata in ad.get('assets',{}).items():
             #values[assetidstr] = assetdata.get('amount', 0)
-            xa[int(assetidstr)] = {b'a':assetdata.get('amount', 0), b'f': assetdata.get('frozen', False)}
+            xa[int(assetidstr)] = {'a':assetdata.get('amount', 0), 'f': assetdata.get('frozen', False)}
         address = algosdk.encoding.decode_address(niceaddr)
         i2a_checker.check(address, niceaddr, microalgos, xa)
     return lastround, i2a_checker
