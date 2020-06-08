@@ -24,8 +24,9 @@ setup:
 sign:
 	build/sign.sh
 
+#	aws s3 sync $$HOME/projects/indexer/packages/$(VERSION) s3://algorand-staging/indexer/$(VERSION)
 stage-packages:
-	aws s3 sync $$HOME/projects/indexer/packages/$(VERSION) s3://algorand-staging/indexer/$(VERSION)
+	aws s3 sync ./packages/$(VERSION) s3://algorand-staging/indexer/$(VERSION)
 
 test:	mocks
 	go test ./...
