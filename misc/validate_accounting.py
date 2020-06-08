@@ -3,7 +3,7 @@
 # Compare accounting of algod and indexer
 #
 # setup requires:
-#  pip install msgpack py-algorand-sdk psycopg2
+#  pip install "msgpack >=1" py-algorand-sdk psycopg2
 
 import base64
 import json
