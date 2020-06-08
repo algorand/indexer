@@ -1,4 +1,4 @@
 @Library('make')_
 
-make(['package', 'stage-packages', 'test'])
+make(['package', 'stage-packages', 'test', 'sign'])
 
