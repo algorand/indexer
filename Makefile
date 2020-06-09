@@ -29,8 +29,7 @@ stage-packages:
 
 test: mocks
 	go test ./...
-	docker build -t e2e_tests -f docker/Dockerfile.e2e .
-	docker run -t e2e_tests
+	build/e2e.sh
 
 clean:
 	rm -rf $(PKG_DIR)
