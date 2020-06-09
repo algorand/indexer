@@ -2,11 +2,14 @@
 
 set -ex
 
+ARCH=$(./mule/scripts/archtype.sh)
+OS_TYPE=$(./mule/scripts/ostype.sh)
+VERSION=$(./mule/scripts/compute_build_number.sh)
+DEB="./tmp/node_pkgs/$OS_TYPE/$ARCH/$VERSION/algorand-indexer_${VERSION}_amd64.deb"
 DB_NAME=e2e_tests
 PORT=5432
-VERSION=$(./scripts/compute_build_number.sh)
 
-dpkg -i "./packages/$VERSION/algorand-indexer_${VERSION}_amd64.deb"
+dpkg -i "$DEB"
 
 /etc/init.d/postgresql start
 sudo -u postgres bash -c "psql -c \"CREATE ROLE $USER WITH SUPERUSER CREATEDB LOGIN ENCRYPTED PASSWORD '$USER';\""

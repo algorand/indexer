@@ -1,6 +1,8 @@
 SRCPATH		:= $(shell pwd)
-VERSION		:= $(shell $(SRCPATH)/scripts/compute_build_number.sh)
-PKG_DIR		= $(SRCPATH)/packages/$(VERSION)
+VERSION		:= $(shell $(SRCPATH)/mule/scripts/compute_build_number.sh)
+OS_TYPE		:= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
+ARCH		:= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
+PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(VERSION)
 
 # This is the default target, build the indexer:
 cmd/algorand-indexer/algorand-indexer:	idb/setup_postgres_sql.go importer/protocols_json.go .PHONY
@@ -22,7 +24,7 @@ setup:
 	mkdir -p $(PKG_DIR)
 
 sign:
-	build/sign.sh
+	mule/sign/sign.sh
 
 stage-packages:
 	aws s3 sync ./packages/$(VERSION) s3://algorand-staging/indexer/$(VERSION)
@@ -31,7 +33,7 @@ test: mocks
 	go test ./...
 
 test-package:
-	build/e2e.sh
+	mule/test/e2e.sh
 
 clean:
 	rm -rf $(PKG_DIR)
