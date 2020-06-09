@@ -22,4 +22,5 @@ install:
 script:
   - make
   - go test ./...
-    #- python3 misc/e2etest.py "host=localhost port=5432 user=algorand password=indexer dbname='indexer-db' sslmode=disable"
+    #- docker run --rm -t e2e_tests build/e2e.sh
+

@@ -19,7 +19,6 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
     apt-get update && apt-get install -y postgresql-12 libpq-dev python3 python3-dev python3-psycopg2 python3-pip sudo && \
     pip3 install boto3 markdown2 "msgpack >=1" py-algorand-sdk
 
-
 RUN go get github.com/vektra/mockery/.../
 
 COPY ./ $HOME/go/src/github.com/algorand/indexer/
