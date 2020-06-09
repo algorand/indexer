@@ -3,10 +3,10 @@
 set -ex
 
 DB_NAME=e2e_tests
-PORT=5433
+PORT=5432
 VERSION=$(./scripts/compute_build_number.sh)
 
-dpkg -I "./packages/$VERSION/algorand-indexer_${VERSION}_amd64.deb"
+dpkg -i "./packages/$VERSION/algorand-indexer_${VERSION}_amd64.deb"
 
 /etc/init.d/postgresql start
 sudo -u postgres bash -c "psql -c \"CREATE ROLE $USER WITH SUPERUSER CREATEDB LOGIN ENCRYPTED PASSWORD '$USER';\""

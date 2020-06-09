@@ -108,7 +108,7 @@ def xrun(cmd, *args, **kwargs):
             sys.stderr.write('stderr from {}:\n{}\n\n'.format(cmdr, stderr_data))
         raise Exception('error: cmd failed: {}'.format(cmdr))
     if logger.isEnabledFor(logging.DEBUG):
-        logger.debug('cmd succes: %r\n%s\n%s\n', cmd, maybe_decode(stdout_data), maybe_decode(stderr_data))
+        logger.debug('cmd success: %r\n%s\n%s\n', cmd, maybe_decode(stdout_data), maybe_decode(stderr_data))
 
 def atexitrun(cmd, *args, **kwargs):
     cargs = [cmd]+list(args)
@@ -150,9 +150,9 @@ def main():
     else:
         psqlstring = args.connection_string
 
-    xrun(['cmd/algorand-indexer/algorand-indexer', 'import', '-P', psqlstring, os.path.join(e2edata, 'blocktars', '*'), '--genesis', os.path.join(e2edata, 'algod', 'genesis.json')], timeout=20)
+    xrun(['algorand-indexer', 'import', '-P', psqlstring, os.path.join(e2edata, 'blocktars', '*'), '--genesis', os.path.join(e2edata, 'algod', 'genesis.json')], timeout=20)
     aiport = args.indexer_port or random.randint(4000,30000)
-    cmd = ['cmd/algorand-indexer/algorand-indexer', 'daemon', '-P', psqlstring, '--dev-mode', '--no-algod', '--server', ':{}'.format(aiport)]
+    cmd = ['algorand-indexer', 'daemon', '-P', psqlstring, '--dev-mode', '--no-algod', '--server', ':{}'.format(aiport)]
     logger.debug("%s", ' '.join(map(repr,cmd)))
     indexerdp = subprocess.Popen(cmd)
     atexit.register(indexerdp.kill)
