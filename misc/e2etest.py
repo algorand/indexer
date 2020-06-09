@@ -108,7 +108,7 @@ def xrun(cmd, *args, **kwargs):
             sys.stderr.write('stderr from {}:\n{}\n\n'.format(cmdr, stderr_data))
         raise Exception('error: cmd failed: {}'.format(cmdr))
     if logger.isEnabledFor(logging.DEBUG):
-        logger.debug('cmd succes: %r\n%s\n%s\n', cmd, maybe_decode(stdout_data), maybe_decode(stderr_data))
+        logger.debug('cmd success: %r\n%s\n%s\n', cmd, maybe_decode(stdout_data), maybe_decode(stderr_data))
 
 def atexitrun(cmd, *args, **kwargs):
     cargs = [cmd]+list(args)
