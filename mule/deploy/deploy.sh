@@ -6,10 +6,10 @@ echo
 date "+build_indexer begin DEPLOY stage %Y%m%d_%H%M%S"
 echo
 
-OS_TYPE=$(.mule/scripts/ostype.sh)
+OS_TYPE=$(./mule/scripts/ostype.sh)
 ARCH=$(./mule/scripts/archtype.sh)
 VERSION=$(./mule/scripts/compute_build_number.sh)
-PKG_DIR="./tmp/node_pkgs/$OS_TYPE/$ARCH"
+PKG_DIR="./tmp/node_pkgs/$OS_TYPE/$ARCH/$VERSION"
 SIGNING_KEY_ADDR=dev@algorand.com
 
 chmod 400 "$HOME/.gnupg"
@@ -41,7 +41,7 @@ cat <<EOF>"$HOME/.aptly.conf"
       "region":"us-east-1",
       "bucket":"algorand-releases",
       "acl":"public-read",
-      "prefix":"indexer/deb"
+      "prefix":"deb"
     }
   },
   "SwiftPublishEndpoints": {}

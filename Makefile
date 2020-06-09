@@ -17,6 +17,9 @@ importer/protocols_json.go:	importer/protocols.json
 mocks:	idb/dummy.go
 	cd idb && mockery -name=IndexerDb
 
+deploy:
+	mule/deploy/deploy.sh
+
 package: clean setup
 	misc/release.py --outdir $(PKG_DIR)
 

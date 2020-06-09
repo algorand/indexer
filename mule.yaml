@@ -15,8 +15,8 @@ tasks:
 
   - task: s3.BucketCopy
     name: stage
-    src: $HOME/projects/indexer/tmp/node_pkgs/linux/amd64
-    dest: s3://algorand-staging/indexer/${VERSION}
+    src: $HOME/projects/indexer/tmp/node_pkgs/linux/amd64/$VERSION
+    dest: s3://algorand-staging/indexer/$VERSION
 
   - task: docker.Make
     name: sign
@@ -35,7 +35,7 @@ tasks:
     target: sign
 
   - task: docker.Make
-    name: deploy-deb
+    name: deploy
     docker:
       image: algorand/indexer-ci-linux
       version: latest
@@ -48,7 +48,7 @@ tasks:
         $XDG_RUNTIME_DIR/gnupg/S.gpg-agent:/root/.gnupg/S.gpg-agent,
         $HOME/.gnupg/pubring.kbx:/root/.gnupg/pubring.kbx
       ]
-    target: mule-deploy-deb
+    target: deploy
 
   - task: docker.Make
     name: test
@@ -74,15 +74,22 @@ tasks:
 
   - task: s3.BucketCopy
     name: setup-deb
-    src: s3://algorand-staging/indexer/${VERSION}/*.deb
-    dest: /projects/indexer/tmp/node_pkgs/${OS_TYPE}/${ARCH}
+    src: s3://algorand-staging/indexer/$VERSION/*.deb
+    dest: /projects/indexer/tmp/node_pkgs/$OS_TYPE/$ARCH
 
   - task: s3.BucketCopy
     name: setup-tarball
-    src: s3://algorand-staging/indexer/${VERSION}/*.tar.bz2
-    dest: /projects/indexer/tmp/node_pkgs/${OS_TYPE}/${ARCH}
+    src: s3://algorand-staging/indexer/$VERSION/*.tar.bz2
+    dest: /projects/indexer/tmp/node_pkgs/$OS_TYPE/$ARCH
 
 jobs:
+  deploy:
+    configs:
+      arch: amd64
+    tasks:
+      - shell.docker.Ensure.ubuntu
+      - docker.Make.deploy
+
   package:
     configs:
       arch: amd64
@@ -90,16 +97,16 @@ jobs:
       - shell.docker.Ensure.ubuntu
       - docker.Make.package
 
-  stage:
-    tasks:
-      - s3.BucketCopy.stage
-
   sign:
     configs:
       arch: amd64
     tasks:
       - shell.docker.Ensure.ubuntu
       - docker.Make.sign
+
+  stage:
+    tasks:
+      - s3.BucketCopy.stage
 
   test:
     configs:
@@ -114,11 +121,4 @@ jobs:
     tasks:
       - shell.docker.Ensure.ubuntu
       - docker.Make.test-package
-
-  deploy:
-    configs:
-      arch: amd64
-    tasks:
-      - shell.docker.Ensure.ubuntu
-      - docker.Make.deploy-deb
 
