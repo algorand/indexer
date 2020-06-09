@@ -3,16 +3,16 @@ VERSION		:= $(shell $(SRCPATH)/scripts/compute_build_number.sh)
 PKG_DIR		= $(SRCPATH)/packages/$(VERSION)
 
 # This is the default target, build the indexer:
-cmd/algorand-indexer/algorand-indexer: idb/setup_postgres_sql.go importer/protocols_json.go .PHONY
+cmd/algorand-indexer/algorand-indexer:	idb/setup_postgres_sql.go importer/protocols_json.go .PHONY
 	cd cmd/algorand-indexer && CGO_ENABLED=0 go build
 
-idb/setup_postgres_sql.go: idb/setup_postgres.sql
+idb/setup_postgres_sql.go:	idb/setup_postgres.sql
 	cd idb && go generate
 
 importer/protocols_json.go:	importer/protocols.json
 	cd importer && go generate
 
-mocks: idb/dummy.go
+mocks:	idb/dummy.go
 	cd idb && mockery -name=IndexerDb
 
 package: clean setup
@@ -29,6 +29,8 @@ stage-packages:
 
 test: mocks
 	go test ./...
+
+test-package:
 	build/e2e.sh
 
 clean:

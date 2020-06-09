@@ -1,4 +1,4 @@
 @Library('make')_
 
-make(['package', 'test'])
+make(['package', 'test', 'test-package'])
 
