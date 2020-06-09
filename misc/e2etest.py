@@ -108,7 +108,7 @@ def xrun(cmd, *args, **kwargs):
             sys.stderr.write('stderr from {}:\n{}\n\n'.format(cmdr, stderr_data))
         raise Exception('error: cmd failed: {}'.format(cmdr))
     if logger.isEnabledFor(logging.DEBUG):
-        logger.debug('cmd succes: %r\n%s\n%s\n', cmd, maybe_decode(stdout_data), maybe_decode(stderr_data))
+        logger.debug('cmd success: %r\n%s\n%s\n', cmd, maybe_decode(stdout_data), maybe_decode(stderr_data))
 
 def atexitrun(cmd, *args, **kwargs):
     cargs = [cmd]+list(args)
@@ -122,11 +122,26 @@ def main():
     ap.add_argument('--verbose', default=False, action='store_true')
     ap.add_argument('--connection-string', help='Use this connection string instead of attempting to manage a local database.')
     ap.add_argument('--indexer-port', default=None, type=int, help='port to run indexer on. defaults to random in [4000,30000]')
+    ap.add_argument('--indexer-bin', default=None, help='path to algorand-indexer binary, otherwise search PATH')
     args = ap.parse_args()
     if args.verbose:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
+
+    indexer_bin = args.indexer_bin
+    if not indexer_bin:
+        # manually search local build and PATH for algorand-indexer
+        path = ['cmd/algorand-indexer'] + os.getenv('PATH').split(':')
+        for pd in path:
+            ib = os.path.join(pd, 'algorand-indexer')
+            if os.path.exists(ib):
+                indexer_bin = ib
+                break
+    if not indexer_bin:
+        logger.error('could not find algorand-indexer. use --indexer-bin or PATH environment variable.')
+        return 1
+
     e2edata = os.getenv('E2EDATA')
     if not e2edata:
         tdir = tempfile.TemporaryDirectory()
@@ -150,9 +165,9 @@ def main():
     else:
         psqlstring = args.connection_string
 
-    xrun(['cmd/algorand-indexer/algorand-indexer', 'import', '-P', psqlstring, os.path.join(e2edata, 'blocktars', '*'), '--genesis', os.path.join(e2edata, 'algod', 'genesis.json')], timeout=20)
+    xrun([indexer_bin, 'import', '-P', psqlstring, os.path.join(e2edata, 'blocktars', '*'), '--genesis', os.path.join(e2edata, 'algod', 'genesis.json')], timeout=20)
     aiport = args.indexer_port or random.randint(4000,30000)
-    cmd = ['cmd/algorand-indexer/algorand-indexer', 'daemon', '-P', psqlstring, '--dev-mode', '--no-algod', '--server', ':{}'.format(aiport)]
+    cmd = [indexer_bin, 'daemon', '-P', psqlstring, '--dev-mode', '--no-algod', '--server', ':{}'.format(aiport)]
     logger.debug("%s", ' '.join(map(repr,cmd)))
     indexerdp = subprocess.Popen(cmd)
     atexit.register(indexerdp.kill)
