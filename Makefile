@@ -29,7 +29,7 @@ stage-packages:
 
 test: mocks
 	go test ./...
-	python3 misc/e2e.py
+	build/e2e.sh
 
 clean:
 	rm -rf $(PKG_DIR)
