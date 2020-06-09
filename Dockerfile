@@ -27,11 +27,6 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - && \
 
 RUN go get github.com/vektra/mockery/.../
 
-#RUN add-apt-repository "deb https://releases.algorand.com/deb/ stable main" && \
-#    curl https://releases.algorand.com/key.pub | apt-key add - && \
-#    apt-get update && \
-#    apt-get install algorand-indexer -y
-
 COPY ./ $HOME/go/src/github.com/algorand/indexer/
 WORKDIR $HOME/go/src/github.com/algorand/indexer/
 CMD ["/bin/bash"]
