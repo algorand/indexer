@@ -29,7 +29,9 @@ type ServerInterfaceWrapper struct {
 // MakeHealthCheck converts echo context to params.
 func (w *ServerInterfaceWrapper) MakeHealthCheck(ctx echo.Context) error {
 
-	validQueryParams := map[string]bool{}
+	validQueryParams := map[string]bool{
+		"pretty": true,
+	}
 
 	// Check for unknown query parameters.
 	for name, _ := range ctx.QueryParams() {
