@@ -84,16 +84,6 @@ tasks:
       ]
     target: test-package
 
-  - task: s3.BucketCopy
-    name: setup-deb
-    src: s3://algorand-staging/indexer/$VERSION/*.deb
-    dest: /projects/indexer/tmp/node_pkgs/$OS_TYPE/$ARCH
-
-  - task: s3.BucketCopy
-    name: setup-tarball
-    src: s3://algorand-staging/indexer/$VERSION/*.tar.bz2
-    dest: /projects/indexer/tmp/node_pkgs/$OS_TYPE/$ARCH
-
 jobs:
   deploy:
     configs:

@@ -20,6 +20,9 @@ mocks:	idb/dummy.go
 deploy:
 	mule/deploy.sh
 
+generate-releases-page:
+	mule/generate_releases_page.sh
+
 package: clean setup
 	misc/release.py --outdir $(PKG_DIR)
 
@@ -28,9 +31,6 @@ setup:
 
 sign:
 	mule/sign.sh
-
-stage-packages:
-	aws s3 sync ./packages/$(VERSION) s3://algorand-staging/indexer/$(VERSION)
 
 test: mocks
 	go test ./...
