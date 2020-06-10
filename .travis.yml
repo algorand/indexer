@@ -16,12 +16,12 @@ addons:
       - python3-wheel
 
 install:
-  - pip3 install boto3
-    #- docker run -d -e POSTGES_USER=algorand -e POSTGRES_PASSWORD=indexer -e POSTGRES_DB=indexer-db -p 5432:5432 -t postgres
+  - pip3 install boto3 markdown2
 
 script:
   - make
   - go test ./...
-    #- docker run --rm -t e2e_tests mule/test/e2e.sh
-    #- mule -f mule.yaml test-package
+  - make package
+  - docker build -t e2e_tests .
+  - docker run --rm -t e2e_tests mule/e2e.sh
 
