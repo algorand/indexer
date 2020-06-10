@@ -18,7 +18,7 @@ mocks:	idb/dummy.go
 	cd idb && mockery -name=IndexerDb
 
 deploy:
-	mule/deploy/deploy.sh
+	mule/deploy.sh
 
 package: clean setup
 	misc/release.py --outdir $(PKG_DIR)
@@ -27,7 +27,7 @@ setup:
 	mkdir -p $(PKG_DIR)
 
 sign:
-	mule/sign/sign.sh
+	mule/sign.sh
 
 stage-packages:
 	aws s3 sync ./packages/$(VERSION) s3://algorand-staging/indexer/$(VERSION)
@@ -36,7 +36,7 @@ test: mocks
 	go test ./...
 
 test-package:
-	mule/test/e2e.sh
+	mule/e2e.sh
 
 generate-releases-page:
 	mule/generate_releases_page.sh
