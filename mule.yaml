@@ -18,6 +18,11 @@ tasks:
     src: $HOME/projects/indexer/tmp/node_pkgs/linux/amd64/$VERSION
     dest: s3://algorand-staging/indexer/$VERSION
 
+  - task: s3.BucketCopy
+    name: stage-releases-page
+    src: $HOME/projects/indexer/tmp/node_pkgs/linux/amd64/$VERSION/releases.html
+    dest: s3://algorand-staging/indexer/$VERSION
+
   - task: docker.Make
     name: generate-releases-page
     docker:
@@ -116,6 +121,10 @@ jobs:
   stage:
     tasks:
       - s3.BucketCopy.stage
+
+  stage-releases-page:
+    tasks:
+      - s3.BucketCopy.stage-releases-page
 
   test:
     configs:
