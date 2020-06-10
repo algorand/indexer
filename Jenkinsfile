@@ -1,4 +1,4 @@
 @Library('make')_
 
-make(['package', 'test', 'test-package', 'generate-releases-page'])
+make(['package', 'test', 'test-package'])
 
