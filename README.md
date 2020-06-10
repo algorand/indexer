@@ -74,12 +74,12 @@ You should use a process manager, like systemd, to ensure the daemon is always r
 
 To start indexer as a daemon in update mode, provide the required fields:
 ```
-~$ algorand-indexer daemon --algodAddr yournode.com:1234 --algodToken token --genesis ~/path/to/genesis.json  --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
+~$ algorand-indexer daemon --algod-net yournode.com:1234 --algod-token token --genesis ~/path/to/genesis.json  --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
 ```
 
 Alternatively if indexer is running on the same host as the archival node, a simplified command may be used:
 ```
-~$ algorand-indexer daemon --algodAddr yournode.com:1234 -d /path/to/algod/data/dir --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
+~$ algorand-indexer daemon --algod-net yournode.com:1234 -d /path/to/algod/data/dir --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
 ```
 
 ### Read only
