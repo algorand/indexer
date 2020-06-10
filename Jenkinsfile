@@ -1,4 +1,4 @@
-@Library('go-algorand-ci')
+@Library('go-algorand-ci')_
 
-_muleCI('../mule.yaml')
+muleCI('mule.yaml')
 
