@@ -20,9 +20,6 @@ mocks:	idb/dummy.go
 deploy:
 	mule/deploy.sh
 
-generate-releases-page:
-	mule/generate_releases_page.sh
-
 package: clean setup
 	misc/release.py --outdir $(PKG_DIR)
 
@@ -37,9 +34,6 @@ test: mocks
 
 test-package:
 	mule/e2e.sh
-
-generate-releases-page:
-	mule/generate_releases_page.sh
 
 clean:
 	rm -rf $(PKG_DIR)

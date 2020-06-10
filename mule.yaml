@@ -24,18 +24,6 @@ tasks:
     dest: s3://algorand-staging/indexer/$VERSION
 
   - task: docker.Make
-    name: generate-releases-page
-    docker:
-      image: algorand/indexer-ci-linux
-      version: latest
-      workDir: /projects/indexer
-      env: [
-        AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID,
-        AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-      ]
-    target: generate-releases-page
-
-  - task: docker.Make
     name: sign
     docker:
       image: algorand/indexer-ci-linux
@@ -96,13 +84,6 @@ jobs:
     tasks:
       - shell.docker.Ensure.ubuntu
       - docker.Make.deploy
-
-  generate-releases-page:
-    configs:
-      arch: amd64
-    tasks:
-      - shell.docker.Ensure.ubuntu
-      - docker.Make.generate-releases-page
 
   package:
     configs:

@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# This is normally run inside the docker container defined by the top
+# level Dockerfile and invoked by TravisCI as specified in .travis.yml.
 
 set -ex
 
