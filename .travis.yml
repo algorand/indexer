@@ -22,6 +22,6 @@ script:
   - make
   - go test ./...
   - make package
-  - docker build -t e2e_tests .
+  - docker build -t e2e_tests -f docker/Dockerfile.mule .
   - docker run --rm -t e2e_tests mule/e2e.sh
 
