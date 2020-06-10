@@ -38,6 +38,9 @@ test: mocks
 test-package:
 	mule/test/e2e.sh
 
+generate-releases-page:
+	mule/generate_releases_page.sh
+
 clean:
 	rm -rf $(PKG_DIR)
 
