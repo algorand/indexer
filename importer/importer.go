@@ -74,7 +74,7 @@ func (imp *dbImporter) ImportBlock(blockbytes []byte) (txCount int, err error) {
 func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert) (txCount int, err error) {
 	txCount = 0
 	ensureProtos()
-	_, okversion := protocols[string(blockContainer.Block.CurrentProtocol)]
+	proto, okversion := protocols[string(blockContainer.Block.CurrentProtocol)]
 	if !okversion {
 		return txCount, fmt.Errorf("block %d unknown protocol version %#v", blockContainer.Block.Round, string(blockContainer.Block.CurrentProtocol))
 	}
@@ -100,7 +100,7 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		if stxn.HasGenesisID {
 			stxn.Txn.GenesisID = block.GenesisID
 		}
-		if stxn.HasGenesisHash {
+		if stxn.HasGenesisHash || proto.RequireGenesisHash {
 			stxn.Txn.GenesisHash = block.GenesisHash
 		}
 		stxnad := stxn.SignedTxnWithAD
