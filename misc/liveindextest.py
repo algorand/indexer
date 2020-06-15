@@ -196,14 +196,15 @@ def main():
     psqlstring = ensure_test_db(args.connection_string, args.keep_temps)
     primary = os.path.join(netdir, 'Primary')
     aiport = args.indexer_port or random.randint(4000,30000)
-    indexerp = subprocess.Popen([indexer_bin, 'daemon', '--algod', primary, '--postgres', psqlstring, '--dev-mode', '--server', ':{}'.format(aiport)])
+    indexer_token = 'security-theater'
+    indexerp = subprocess.Popen([indexer_bin, 'daemon', '--algod', primary, '--postgres', psqlstring, '--dev-mode', '--server', ':{}'.format(aiport), '--token', indexer_token])
     atexit.register(indexerp.kill)
 
     rc = RunContext(env)
     txid, txinfo = rc.do_txn()
     logger.debug('submitted txid %s, %r', txid, txinfo)
 
-    indexer = algosdk.v2client.indexer.IndexerClient(None, 'http://localhost:{}'.format(aiport))
+    indexer = algosdk.v2client.indexer.IndexerClient(indexer_token, 'http://localhost:{}'.format(aiport))
     ok = False
     retcode = 1
     for i in range(30):
