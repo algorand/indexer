@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=2035
 
 set -exo pipefail
 
@@ -21,9 +22,9 @@ make_hashes () {
     do
         HASHFILE="hashes_${VERSION}_${ext}"
         {
-            md5sum ./*"$VERSION"*."$ext" ;
-            shasum -a 256 ./*"$VERSION"*."$ext" ;
-            shasum -a 512 ./*"$VERSION"*."$ext" ;
+            md5sum *"$VERSION"*."$ext" ;
+            shasum -a 256 *"$VERSION"*."$ext" ;
+            shasum -a 512 *"$VERSION"*."$ext" ;
         } >> "$HASHFILE"
 
         gpg -u "$SIGNING_KEY_ADDR" --detach-sign "$HASHFILE"
