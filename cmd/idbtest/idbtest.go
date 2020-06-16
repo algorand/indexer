@@ -4,20 +4,18 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"time"
 
 	ajson "github.com/algorand/go-algorand-sdk/encoding/json"
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-codec/codec"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
+	testutil "github.com/algorand/indexer/util/test"
 )
 
 var (
@@ -30,60 +28,12 @@ var (
 )
 
 var exitValue = 0
-var OneLineJsonCodecHandle *codec.JsonHandle
 
-func init() {
-	OneLineJsonCodecHandle = new(codec.JsonHandle)
-	*OneLineJsonCodecHandle = *ajson.CodecHandle
-	OneLineJsonCodecHandle.Indent = 0
-}
-
-func info(format string, a ...interface{}) {
-	if quiet {
-		return
-	}
-	fmt.Printf(format, a...)
-}
-
-func infoln(s string) {
-	if quiet {
-		return
-	}
-	fmt.Println(s)
-}
-
-func JsonOneLine(obj interface{}) []byte {
-	var b []byte
-	enc := codec.NewEncoderBytes(&b, OneLineJsonCodecHandle)
-	enc.MustEncode(obj)
-	return b
-}
-
-func maybeFail(err error, errfmt string, params ...interface{}) {
-	if err == nil {
-		return
-	}
-	fmt.Fprintf(os.Stderr, errfmt, params...)
-	os.Exit(1)
-}
-
-func printAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
-	count := uint64(0)
-	for ar := range db.Assets(context.Background(), q) {
-		maybeFail(ar.Error, "asset query %v\n", ar.Error)
-		pjs, err := json.Marshal(ar.Params)
-		maybeFail(err, "json.Marshal params %v\n", err)
-		var creator atypes.Address
-		copy(creator[:], ar.Creator)
-		info("%d %s %s\n", ar.AssetId, creator.String(), pjs)
-		count++
-	}
-	info("%d rows\n", count)
-	if q.Limit != 0 && q.Limit != count {
-		fmt.Fprintf(os.Stderr, "asset q CAME UP SHORT, limit=%d actual=%d, q=%#v\n", q.Limit, count, q)
-		exitValue = 1
-	}
-}
+var maybeFail = testutil.MaybeFail
+var printAssetQuery func(db idb.IndexerDb, q idb.AssetsQuery) = testutil.PrintAssetQuery
+var printAccountQuery = testutil.PrintAccountQuery
+var printTxnQuery = testutil.PrintTxnQuery
+var info = testutil.Info
 
 func doAssetQueryTests(db idb.IndexerDb) {
 	printAssetQuery(db, idb.AssetsQuery{Query: "us", Limit: 9})
@@ -94,45 +44,6 @@ func doAssetQueryTests(db idb.IndexerDb) {
 	tcreator, err := atypes.DecodeAddress("XIU7HGGAJ3QOTATPDSIIHPFVKMICXKHMOR2FJKHTVLII4FAOA3CYZQDLG4")
 	maybeFail(err, "addr decode, %v\n", err)
 	printAssetQuery(db, idb.AssetsQuery{Creator: tcreator[:], Limit: 1})
-}
-
-func printAccountQuery(db idb.IndexerDb, q idb.AccountQueryOptions) {
-	accountchan := db.GetAccounts(context.Background(), q)
-	count := uint64(0)
-	for ar := range accountchan {
-		maybeFail(ar.Error, "err %v\n", ar.Error)
-		jb, err := json.Marshal(ar.Account)
-		maybeFail(err, "err %v\n", err)
-		infoln(string(jb))
-		//fmt.Printf("%#v\n", ar.Account)
-		count++
-	}
-	info("%d accounts\n", count)
-	if q.Limit != 0 && q.Limit != count {
-		fmt.Fprintf(os.Stderr, "account q CAME UP SHORT, limit=%d actual=%d, q=%#v\n", q.Limit, count, q)
-		exitValue = 1
-	}
-}
-
-func printTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
-	rowchan := db.Transactions(context.Background(), q)
-	count := uint64(0)
-	for txnrow := range rowchan {
-		maybeFail(txnrow.Error, "err %v\n", txnrow.Error)
-		var stxn types.SignedTxnWithAD
-		err := msgpack.Decode(txnrow.TxnBytes, &stxn)
-		maybeFail(err, "decode txnbytes %v\n", err)
-		//tjs, err := json.Marshal(stxn.Txn) // nope, ugly
-		//maybeFail(err, "err %v\n", err)
-		tjs := string(JsonOneLine(stxn.Txn))
-		info("%d:%d %s sr=%d rr=%d ca=%d cr=%d t=%s\n", txnrow.Round, txnrow.Intra, tjs, stxn.SenderRewards, stxn.ReceiverRewards, stxn.ClosingAmount, stxn.CloseRewards, txnrow.RoundTime.String())
-		count++
-	}
-	info("%d txns\n", count)
-	if q.Limit != 0 && q.Limit != count {
-		fmt.Fprintf(os.Stderr, "txn q CAME UP SHORT, limit=%d actual=%d, q=%#v\n", q.Limit, count, q)
-		exitValue = 1
-	}
 }
 
 // like TxnRow
@@ -215,6 +126,7 @@ func main() {
 	flag.BoolVar(&quiet, "q", false, "")
 	flag.StringVar(&pgdb, "pg", "dbname=i2b sslmode=disable", "postgres connect string; e.g. \"dbname=foo sslmode=disable\"")
 	flag.Parse()
+	testutil.SetQuiet(quiet)
 
 	db, err := idb.OpenPostgres(pgdb)
 	maybeFail(err, "open postgres, %v", err)
@@ -279,6 +191,7 @@ func main() {
 	}
 
 	dt := time.Now().Sub(start)
+	exitValue += testutil.ExitValue()
 	if exitValue == 0 {
 		fmt.Printf("wat OK %s\n", dt.String())
 	} else {

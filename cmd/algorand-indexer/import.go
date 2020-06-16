@@ -31,31 +31,41 @@ func maybeFail(err error, errfmt string, params ...interface{}) {
 	os.Exit(1)
 }
 
-func importTar(imp importer.Importer, tarfile io.Reader) (blocks int, err error) {
+func importTar(imp importer.Importer, tarfile io.Reader) (blocks, txCount int, err error) {
+	lastlog := time.Now()
 	blocks = 0
+	prevBlocks := 0
 	tf := tar.NewReader(tarfile)
 	var header *tar.Header
 	header, err = tf.Next()
+	txCount = 0
+	var btxns int
 	for err == nil {
 		if header.Typeflag != tar.TypeReg {
-			return blocks, fmt.Errorf("cannot deal with non-regular-file tar entry %#v", header.Name)
+			err = fmt.Errorf("cannot deal with non-regular-file tar entry %#v", header.Name)
+			return
 		}
-		/*
-			round, err := strconv.Atoi(header.Name)
-			if err != nil {
-				return fmt.Errorf("could not parse round number in tar archive, file %#v", header.Name)
-			}
-		*/
 		blockbytes := make([]byte, header.Size)
 		_, err = io.ReadFull(tf, blockbytes)
 		if err != nil {
-			return blocks, fmt.Errorf("error reading tar entry %#v: %v", header.Name, err)
+			err = fmt.Errorf("error reading tar entry %#v: %v", header.Name, err)
+			return
 		}
-		err = imp.ImportBlock(blockbytes)
+		btxns, err = imp.ImportBlock(blockbytes)
 		if err != nil {
-			return blocks, fmt.Errorf("error importing tar entry %#v: %v", header.Name, err)
+			err = fmt.Errorf("error importing tar entry %#v: %v", header.Name, err)
+			return
 		}
+		txCount += btxns
 		blocks++
+		now := time.Now()
+		dt := now.Sub(lastlog)
+		if dt > (5 * time.Second) {
+			dblocks := blocks - prevBlocks
+			fmt.Printf("loaded from tar %v, %.1f/s\n", header.Name, ((float64(dblocks) * float64(time.Second)) / float64(dt)))
+			lastlog = now
+			prevBlocks = blocks
+		}
 		header, err = tf.Next()
 	}
 	if err == io.EOF {
@@ -64,8 +74,10 @@ func importTar(imp importer.Importer, tarfile io.Reader) (blocks int, err error)
 	return
 }
 
-func importFile(db idb.IndexerDb, imp importer.Importer, fname string) (blocks int) {
+func importFile(db idb.IndexerDb, imp importer.Importer, fname string) (blocks, txCount int) {
 	blocks = 0
+	txCount = 0
+	var btxns int
 	imported, err := db.AlreadyImported(fname)
 	maybeFail(err, "%s: %v\n", fname, err)
 	if imported {
@@ -76,24 +88,27 @@ func importFile(db idb.IndexerDb, imp importer.Importer, fname string) (blocks i
 		fin, err := os.Open(fname)
 		maybeFail(err, "%s: %v\n", fname, err)
 		defer fin.Close()
-		tblocks, err := importTar(imp, fin)
+		tblocks, btxns, err := importTar(imp, fin)
 		maybeFail(err, "%s: %v\n", fname, err)
 		blocks += tblocks
+		txCount += btxns
 	} else if strings.HasSuffix(fname, ".tar.bz2") {
 		fin, err := os.Open(fname)
 		maybeFail(err, "%s: %v\n", fname, err)
 		defer fin.Close()
 		bzin := bzip2.NewReader(fin)
-		tblocks, err := importTar(imp, bzin)
+		tblocks, btxns, err := importTar(imp, bzin)
 		maybeFail(err, "%s: %v\n", fname, err)
 		blocks += tblocks
+		txCount += btxns
 	} else {
 		// assume a standalone block msgpack blob
 		blockbytes, err := ioutil.ReadFile(fname)
 		maybeFail(err, "%s: could not read, %v\n", fname, err)
-		err = imp.ImportBlock(blockbytes)
+		btxns, err = imp.ImportBlock(blockbytes)
 		maybeFail(err, "%s: could not import, %v\n", fname, err)
 		blocks++
+		txCount += btxns
 	}
 	err = db.MarkImported(fname)
 	maybeFail(err, "%s: %v\n", fname, err)
@@ -114,15 +129,9 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 	return db.LoadGenesis(genesis)
 }
 
-/*
-type ImportState struct {
-	// AccountRound is the last round committed into account state.
-	// -1 for after genesis is committed and we need to load round 0
-	AccountRound int64
-}*/
-
-func updateAccounting(db idb.IndexerDb) (rounds int) {
+func updateAccounting(db idb.IndexerDb) (rounds, txnCount int) {
 	rounds = 0
+	txnCount = 0
 	stateJsonStr, err := db.GetMetastate("state")
 	maybeFail(err, "getting import state, %v\n", err)
 	var state idb.ImportState
@@ -174,6 +183,7 @@ func updateAccounting(db idb.IndexerDb) (rounds int) {
 		}
 		err = act.AddTransaction(txn.Round, txn.Intra, txn.TxnBytes)
 		maybeFail(err, "txn accounting r=%d i=%d, %v\n", txn.Round, txn.Intra, err)
+		txnCount++
 	}
 	err = act.Close()
 	maybeFail(err, "accounting close %v\n", err)
@@ -232,9 +242,7 @@ var importCmd = &cobra.Command{
 	Use:   "import",
 	Short: "import block file or tar file of blocks",
 	Long:  "import block file or tar file of blocks. arguments are interpret as file globs (e.g. *.tar.bz2)",
-	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: import from block catchup endpoint of a public archival node?
 		db := globalIndexerDb()
 
 		err := importer.ImportProto(db)
@@ -242,6 +250,7 @@ var importCmd = &cobra.Command{
 
 		imp := importer.NewDBImporter(db)
 		blocks := 0
+		txCount := 0
 		start := time.Now()
 		for _, fname := range args {
 			matches, err := filepath.Glob(fname)
@@ -252,27 +261,42 @@ var importCmd = &cobra.Command{
 					pathsSorted = pathsSorted[:blockFileLimit]
 				}
 				for _, gfname := range pathsSorted {
-					//fmt.Printf("%s ...\n", gfname)
-					blocks += importFile(db, imp, gfname)
+					fb, ft := importFile(db, imp, gfname)
+					blocks += fb
+					txCount += ft
 				}
 			} else {
 				// try without passing throug glob
-				blocks += importFile(db, imp, fname)
+				fb, ft := importFile(db, imp, fname)
+				blocks += fb
+				txCount += ft
 			}
 		}
 		blockdone := time.Now()
 		if blocks > 0 {
 			dt := blockdone.Sub(start)
-			fmt.Printf("%d blocks in %s, %.0f/s\n", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt))
+			fmt.Printf("%d blocks in %s, %.0f/s, %d txn, %.0f/s\n", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
 		}
 
-		accountingRounds := updateAccounting(db)
+		accountingRounds, txnCount := updateAccounting(db)
 
 		accountingdone := time.Now()
 		if accountingRounds > 0 {
 			dt := accountingdone.Sub(blockdone)
-			fmt.Printf("%d rounds accounting in %s, %.0f/s\n", accountingRounds, dt.String(), float64(time.Second)*float64(accountingRounds)/float64(dt))
+			fmt.Printf("%d rounds accounting in %s, %.1f/s (%d txns, %.1f/s)\n", accountingRounds, dt.String(), float64(time.Second)*float64(accountingRounds)/float64(dt), txnCount, float64(time.Second)*float64(txnCount)/float64(dt))
 		}
+
+		dt := accountingdone.Sub(start)
+		fmt.Printf(
+			"%d blocks loaded (%.1f/s) and %d rounds accounting in %s, %.1f/s (%d txns, %.1f/s)\n",
+			blocks,
+			float64(time.Second)*float64(blocks)/float64(dt),
+			accountingRounds,
+			dt.String(),
+			float64(time.Second)*float64(accountingRounds)/float64(dt),
+			txnCount,
+			float64(time.Second)*float64(txnCount)/float64(dt),
+		)
 	},
 }
 

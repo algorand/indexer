@@ -61,6 +61,7 @@ type ServerInterfaceWrapper struct {
 func (w *ServerInterfaceWrapper) SearchForAccounts(ctx echo.Context) error {
 
 	validQueryParams := map[string]bool{
+		"pretty":                true,
 		"asset-id":              true,
 		"limit":                 true,
 		"next":                  true,
@@ -171,7 +172,8 @@ func (w *ServerInterfaceWrapper) SearchForAccounts(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) LookupAccountByID(ctx echo.Context) error {
 
 	validQueryParams := map[string]bool{
-		"round": true,
+		"pretty": true,
+		"round":  true,
 	}
 
 	// Check for unknown query parameters.
@@ -211,6 +213,7 @@ func (w *ServerInterfaceWrapper) LookupAccountByID(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) LookupAccountTransactions(ctx echo.Context) error {
 
 	validQueryParams := map[string]bool{
+		"pretty":                true,
 		"limit":                 true,
 		"next":                  true,
 		"note-prefix":           true,
@@ -500,6 +503,7 @@ func (w *ServerInterfaceWrapper) LookupApplication(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) SearchForAssets(ctx echo.Context) error {
 
 	validQueryParams := map[string]bool{
+		"pretty":   true,
 		"limit":    true,
 		"next":     true,
 		"creator":  true,
@@ -587,7 +591,9 @@ func (w *ServerInterfaceWrapper) SearchForAssets(ctx echo.Context) error {
 // LookupAssetByID converts echo context to params.
 func (w *ServerInterfaceWrapper) LookupAssetByID(ctx echo.Context) error {
 
-	validQueryParams := map[string]bool{}
+	validQueryParams := map[string]bool{
+		"pretty": true,
+	}
 
 	// Check for unknown query parameters.
 	for name, _ := range ctx.QueryParams() {
@@ -614,6 +620,7 @@ func (w *ServerInterfaceWrapper) LookupAssetByID(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) LookupAssetBalances(ctx echo.Context) error {
 
 	validQueryParams := map[string]bool{
+		"pretty":                true,
 		"limit":                 true,
 		"next":                  true,
 		"round":                 true,
@@ -698,6 +705,7 @@ func (w *ServerInterfaceWrapper) LookupAssetBalances(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) LookupAssetTransactions(ctx echo.Context) error {
 
 	validQueryParams := map[string]bool{
+		"pretty":                true,
 		"limit":                 true,
 		"next":                  true,
 		"note-prefix":           true,
@@ -924,7 +932,9 @@ func (w *ServerInterfaceWrapper) LookupAssetTransactions(ctx echo.Context) error
 // LookupBlock converts echo context to params.
 func (w *ServerInterfaceWrapper) LookupBlock(ctx echo.Context) error {
 
-	validQueryParams := map[string]bool{}
+	validQueryParams := map[string]bool{
+		"pretty": true,
+	}
 
 	// Check for unknown query parameters.
 	for name, _ := range ctx.QueryParams() {
@@ -951,6 +961,7 @@ func (w *ServerInterfaceWrapper) LookupBlock(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) SearchForTransactions(ctx echo.Context) error {
 
 	validQueryParams := map[string]bool{
+		"pretty":                true,
 		"limit":                 true,
 		"next":                  true,
 		"note-prefix":           true,

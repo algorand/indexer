@@ -11,6 +11,8 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_NAME: pgdb
+    depends_on: 
+      - indexer-db
 
   indexer-db:
     image: "postgres"

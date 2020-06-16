@@ -7,7 +7,7 @@ The API is defined using [OpenAPI v2](https://swagger.io/specification/v2/) in *
 ## Updating REST API
 You need to have our fork of **oapi-codegen** installed:
 ```
-GO111MODULE=on go get -u github.com/algorand/oapi-codegen/...@v1.3.5-algorand2
+GO111MODULE=on go get -u github.com/algorand/oapi-codegen/...@v1.3.5-algorand5
 ```
 
 1. Document your changes by editing **indexer.oas2.yml**

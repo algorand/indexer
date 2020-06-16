@@ -45,7 +45,14 @@ func OpenPostgres(connection string) (pdb *PostgresIndexerDb, err error) {
 
 type PostgresIndexerDb struct {
 	db *sql.DB
-	tx *sql.Tx
+
+	// state for StartBlock/AddTransaction/CommitBlock
+	tx        *sql.Tx
+	addtx     *sql.Stmt
+	addtxpart *sql.Stmt
+
+	txrows  [][]interface{}
+	txprows [][]interface{}
 
 	protoCache map[string]types.ConsensusParams
 }
@@ -71,56 +78,95 @@ func (db *PostgresIndexerDb) MarkImported(path string) (err error) {
 }
 
 func (db *PostgresIndexerDb) StartBlock() (err error) {
-	db.tx, err = db.db.BeginTx(context.Background(), nil)
-	return
+	db.txrows = make([][]interface{}, 0, 6000)
+	db.txprows = make([][]interface{}, 0, 10000)
+	return nil
 }
 
 func (db *PostgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
-	var err error
 	txnbytes := msgpack.Encode(txn)
 	txid := crypto.TransactionIDString(txn.Txn)
-	_, err = db.tx.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT DO NOTHING`, round, intra, txtypeenum, assetid, txid[:], txnbytes, string(json.Encode(txn)))
-	if err != nil {
-		return err
-	}
-	stmt, err := db.tx.Prepare(`INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`)
-	if err != nil {
-		return err
-	}
+	tx := []interface{}{round, intra, txtypeenum, assetid, txid[:], txnbytes, string(json.Encode(txn))}
+	db.txrows = append(db.txrows, tx)
 	for _, paddr := range participation {
-		_, err = stmt.Exec(paddr, round, intra)
+		seen := false
+		if !seen {
+			txp := []interface{}{paddr, round, intra}
+			db.txprows = append(db.txprows, txp)
+		}
+	}
+	return nil
+}
+
+func (db *PostgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
+	tx, err := db.db.BeginTx(context.Background(), nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() // ignored if already committed
+	addtx, err := tx.Prepare(`COPY txn (round, intra, typeenum, asset, txid, txnbytes, txn) FROM STDIN`)
+	if err != nil {
+		return err
+	}
+	defer addtx.Close()
+	for _, txr := range db.txrows {
+		_, err = addtx.Exec(txr...)
 		if err != nil {
 			return err
 		}
 	}
-	return err
-}
-func (db *PostgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	var err error
+	_, err = addtx.Exec()
+	if err != nil {
+		return err
+	}
+	err = addtx.Close()
+	if err != nil {
+		return err
+	}
+
+	addtxpart, err := tx.Prepare(`COPY txn_participation (addr, round, intra) FROM STDIN`)
+	if err != nil {
+		return err
+	}
+	defer addtxpart.Close()
+	for i, txpr := range db.txprows {
+		_, err = addtxpart.Exec(txpr...)
+		if err != nil {
+			//return err
+			for _, er := range db.txprows[:i+1] {
+				fmt.Printf("%s %d %d\n", base64.StdEncoding.EncodeToString(er[0].([]byte)), er[1], er[2])
+			}
+			return fmt.Errorf("%v, around txp row %#v", err, txpr)
+		}
+	}
+
+	_, err = addtxpart.Exec()
+	if err != nil {
+		return fmt.Errorf("during addtxp empty exec %v", err)
+	}
+	err = addtxpart.Close()
+	if err != nil {
+		return fmt.Errorf("during addtxp close %v", err)
+	}
+
 	var block types.Block
 	err = msgpack.Decode(headerbytes, &block)
 	if err != nil {
 		return err
 	}
 	headerjson := json.Encode(block)
-	_, err = db.tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0), rewardslevel, string(headerjson))
+	_, err = tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0), rewardslevel, string(headerjson))
 	if err != nil {
 		return err
 	}
-	err = db.tx.Commit()
-	db.tx = nil
-	return err
-}
 
-func (db *PostgresIndexerDb) GetBlockHeader(round uint64) (block types.Block, err error) {
-	row := db.db.QueryRow(`SELECT header FROM block_header WHERE round = $1`, round)
-	var blockbytes []byte
-	err = row.Scan(&blockbytes)
+	err = tx.Commit()
+	db.txrows = nil
+	db.txprows = nil
 	if err != nil {
-		return
+		return fmt.Errorf("on commit, %v", err)
 	}
-	err = json.Decode(blockbytes, &block)
-	return
+	return err
 }
 
 // GetAsset return AssetParams about an asset
@@ -180,7 +226,7 @@ func (db *PostgresIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 		}
 	}
 	err = tx.Commit()
-	fmt.Printf("genesis %d accounts %d microalgos, %v\n", len(genesis.Allocation), total, err)
+	fmt.Printf("genesis %d accounts %d microalgos, err=%v\n", len(genesis.Allocation), total, err)
 	return err
 
 }
@@ -744,6 +790,9 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 		whereArgs = append(whereArgs, tf.EffectiveAmountLt)
 		partNumber++
 	}
+	if tf.RekeyTo != nil && (*tf.RekeyTo) {
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'rekey') IS NOT NULL"))
+	}
 	query = "SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
@@ -1028,10 +1077,19 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				out <- AccountRow{Error: err}
 				break
 			}
-			av := make([]models.AssetHolding, len(haids))
-			account.Assets = new([]models.AssetHolding)
-			*account.Assets = av
+			av := make([]models.AssetHolding, 0, len(haids))
 			for i, assetid := range haids {
+				// SQL can result in cross-product duplication when account has bothe asset holdings and assets created, de-dup here
+				dup := false
+				for _, xaid := range haids[:i] {
+					if assetid == xaid {
+						dup = true
+						break
+					}
+				}
+				if dup {
+					continue
+				}
 				if assetid == opts.HasAssetId {
 					if opts.AssetGT != 0 {
 						if hamounts[i] > opts.AssetGT {
@@ -1045,8 +1103,11 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 						reject = false
 					}
 				}
-				av[i] = models.AssetHolding{Amount: hamounts[i], IsFrozen: hfrozen[i], AssetId: assetid} // TODO: set Creator to asset creator addr string
+				tah := models.AssetHolding{Amount: hamounts[i], IsFrozen: hfrozen[i], AssetId: assetid} // TODO: set Creator to asset creator addr string
+				av = append(av, tah)
 			}
+			account.Assets = new([]models.AssetHolding)
+			*account.Assets = av
 		}
 		if reject {
 			continue
@@ -1064,11 +1125,21 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				out <- AccountRow{Error: err}
 				break
 			}
-			account.CreatedAssets = new([]models.Asset)
-			*account.CreatedAssets = make([]models.Asset, len(assetids))
+			cal := make([]models.Asset, 0, len(assetids))
 			for i, assetid := range assetids {
+				// SQL can result in cross-product duplication when account has bothe asset holdings and assets created, de-dup here
+				dup := false
+				for _, xaid := range assetids[:i] {
+					if assetid == xaid {
+						dup = true
+						break
+					}
+				}
+				if dup {
+					continue
+				}
 				ap := assetParams[i]
-				(*account.CreatedAssets)[i] = models.Asset{
+				tma := models.Asset{
 					Index: assetid,
 					Params: models.AssetParams{
 						Creator:       account.Address,
@@ -1085,8 +1156,10 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 						Clawback:      addrStr(ap.Clawback[:]),
 					},
 				}
-
+				cal = append(cal, tma)
 			}
+			account.CreatedAssets = new([]models.Asset)
+			*account.CreatedAssets = cal
 		}
 		select {
 		case out <- AccountRow{Account: account}:
@@ -1237,6 +1310,11 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	if opts.AlgosLessThan != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("a.microalgos < $%d", partNumber))
 		whereArgs = append(whereArgs, opts.AlgosLessThan)
+		partNumber++
+	}
+	if len(opts.EqualToAuthAddr) > 0 {
+		whereParts = append(whereParts, fmt.Sprintf("decode(a.account_data ->> 'spend', 'base64') = $%d", partNumber))
+		whereArgs = append(whereArgs, opts.EqualToAuthAddr)
 		partNumber++
 	}
 	if len(whereParts) > 0 {
