@@ -58,10 +58,22 @@ type PostgresIndexerDb struct {
 }
 
 func (db *PostgresIndexerDb) init() (err error) {
-	_, err = db.db.Exec(setup_postgres_sql)
+	accountingStateJson, _ := db.GetMetastate("state")
+	hasAccounting := len(accountingStateJson) > 0
+	migrationStateJson, _ := db.GetMetastate("migration")
+	hasMigration := len(migrationStateJson) > 0
 
-	// TODO: Schema-migration/Upgrade. Select upgrade state from database and compare to code, apply upgrades from code to database state.
-	// upgradeJson, err := db.GetMetastate("upgrade-state")
+	if hasMigration || hasAccounting {
+		// see postgres_migrations.go
+		return db.migrate(accountingStateJson, migrationStateJson)
+	}
+
+	// new database, run setup
+	_, err = db.db.Exec(setup_postgres_sql)
+	if err != nil {
+		return
+	}
+	err = db.markMigrationsAsDone()
 	return
 }
 
@@ -264,11 +276,16 @@ func (db *PostgresIndexerDb) GetMetastate(key string) (jsonStrValue string, err 
 	if err == sql.ErrNoRows {
 		err = nil
 	}
+	if err != nil {
+		jsonStrValue = ""
+	}
 	return
 }
 
+const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
+
 func (db *PostgresIndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
-	_, err = db.db.Exec(`INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`, key, jsonStrValue)
+	_, err = db.db.Exec(setMetastateUpsert, key, jsonStrValue)
 	return
 }
 
@@ -621,7 +638,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	}
 	istate.AccountRound = int64(round)
 	sjs := string(json.Encode(istate))
-	_, err = tx.Exec(`INSERT INTO metastate (k, v) VALUES ('state', $1) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`, sjs)
+	_, err = tx.Exec(setMetastateUpsert, "state", sjs)
 	if err != nil {
 		return
 	}
