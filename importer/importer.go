@@ -8,7 +8,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
+	//"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/indexer/util"
 )
@@ -69,7 +69,6 @@ func (imp *dbImporter) ImportBlock(blockbytes []byte) (txCount int, err error) {
 }
 func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert) (txCount int, err error) {
 	txCount = 0
-	ensureProtos()
 	proto, err := types.Protocol(string(blockContainer.Block.CurrentProtocol))
 	if err != nil {
 		return txCount, fmt.Errorf("block %d, %v", blockContainer.Block.Round, err)
@@ -129,15 +128,12 @@ func NewDBImporter(db idb.IndexerDb) Importer {
 
 // ImportProto writes compiled-in protocol information to the database
 func ImportProto(db idb.IndexerDb) (err error) {
-	err = ensureProtos()
-	if err != nil {
-		return
-	}
 	types.ForeachProtocol(func(version string, proto types.ConsensusParams) (err error) {
 		err = db.SetProto(version, proto)
 		if err != nil {
 			return fmt.Errorf("db set proto %s, %v", version, err)
 		}
+		return nil
 	})
 	return nil
 }

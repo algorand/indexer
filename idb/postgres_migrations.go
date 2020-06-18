@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"time"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
@@ -21,7 +22,7 @@ import (
 const migrationMetastateKey = "migration"
 
 type MigrationState struct {
-	NextMigration int `json:"done"`
+	NextMigration int `json:"next"`
 
 	// Used for a long migration to checkpoint progress
 	NextRound int64 `json:"round,omitempty"`
@@ -35,7 +36,7 @@ var migrations []migrationFunc
 var asyncMigration = errors.New("Migration will continue asynchronously")
 
 // TODO: don't actually need accountingStateJson ?
-func (db *PostgresIndexerDb) migrate(accountingStateJson, migrationStateJson string) (err error) {
+func (db *PostgresIndexerDb) migrate(migrationStateJson string) (err error) {
 	var state MigrationState
 	if len(migrationStateJson) > 0 {
 		err = json.Decode([]byte(migrationStateJson), &state)
@@ -68,7 +69,8 @@ func (db *PostgresIndexerDb) markMigrationsAsDone() (err error) {
 }
 
 func m0fixupTxid(db *PostgresIndexerDb, state *MigrationState) error {
-	go asyncTxidFixup(db, state)
+	mtxid := &txidFiuxpMigrationContext{db: db, state: state}
+	go mtxid.asyncTxidFixup()
 	return asyncMigration
 }
 
@@ -80,10 +82,19 @@ func init() {
 
 const txidMigrationErrMsg = "ERROR migrating txns for txid, stopped, will retry on next indexer startup"
 
+type txidFiuxpMigrationContext struct {
+	db      *PostgresIndexerDb
+	state   *MigrationState
+	lastlog time.Time
+}
+
 // read batches of at least 2 blocks or up to 10000 txns,
 // write a temporary table, UPDATE from temporary table into txn.
 // repeat until all txns consumed.
-func asyncTxidFixup(db *PostgresIndexerDb, state *MigrationState) {
+func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() {
+	db := mtxid.db
+	state := mtxid.state
+	log.Print("txid fixup migration starting")
 	prevRound := state.NextRound - 1
 	txns := db.YieldTxns(context.Background(), prevRound)
 	batch := make([]TxnRow, 15000)
@@ -99,7 +110,7 @@ func asyncTxidFixup(db *PostgresIndexerDb, state *MigrationState) {
 		}
 		if txr.Round != prevBatchRound {
 			if txInBatch > 10000 {
-				err = putTxidFixupBatch(db, state, batch[:txInBatch])
+				err = mtxid.putTxidFixupBatch(batch[:txInBatch])
 				if err != nil {
 					return
 				}
@@ -122,7 +133,7 @@ func asyncTxidFixup(db *PostgresIndexerDb, state *MigrationState) {
 				split--
 			}
 			split++ // now the first txn of the incomplete current round
-			err = putTxidFixupBatch(db, state, batch[:split])
+			err = mtxid.putTxidFixupBatch(batch[:split])
 			if err != nil {
 				return
 			}
@@ -135,11 +146,22 @@ func asyncTxidFixup(db *PostgresIndexerDb, state *MigrationState) {
 		}
 	}
 	if txInBatch > 0 {
-		err = putTxidFixupBatch(db, state, batch[:txInBatch])
+		err = mtxid.putTxidFixupBatch(batch[:txInBatch])
 		if err != nil {
 			return
 		}
 	}
+	// all done, mark migration state
+	state.NextMigration = 1
+	state.NextRound = 0
+	migrationStateJson := string(json.Encode(state))
+	err = db.SetMetastate(migrationMetastateKey, migrationStateJson)
+	if err != nil {
+		log.Printf("%s, error setting final migration state: %v", txidMigrationErrMsg, err)
+		return
+	}
+	log.Print("txid fixup migration finished")
+	db.migrate(migrationStateJson)
 }
 
 type txidFixupRow struct {
@@ -148,7 +170,9 @@ type txidFixupRow struct {
 	txid  string // base32 string
 }
 
-func putTxidFixupBatch(db *PostgresIndexerDb, state *MigrationState, batch []TxnRow) error {
+func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []TxnRow) error {
+	db := mtxid.db
+	state := mtxid.state
 	minRound := batch[0].Round
 	maxRound := batch[0].Round
 	for _, txr := range batch {
@@ -159,7 +183,7 @@ func putTxidFixupBatch(db *PostgresIndexerDb, state *MigrationState, batch []Txn
 			maxRound = txr.Round
 		}
 	}
-	headers, err := readHeaders(db, minRound, maxRound)
+	headers, err := mtxid.readHeaders(minRound, maxRound)
 	if err != nil {
 		return err
 	}
@@ -215,9 +239,16 @@ func putTxidFixupBatch(db *PostgresIndexerDb, state *MigrationState, batch []Txn
 			log.Printf("%s, migration state changed when we werene't looking: %v -> %v", txidMigrationErrMsg, state, txstate)
 		}
 	}
-	_, err = tx.Exec(`CREATE TEMP TABLE txid_fix_batch (round bigint NOT NULL, intra smallint NOT NULL, txid bytea NOT NULL, PRIMARY KEY ( round, intra ))`)
+	// _sometimes_ the temp table exists from the previous cycle.
+	// So, 'create if not exists' and truncate.
+	_, err = tx.Exec(`CREATE TEMP TABLE IF NOT EXISTS txid_fix_batch (round bigint NOT NULL, intra smallint NOT NULL, txid bytea NOT NULL, PRIMARY KEY ( round, intra ))`)
 	if err != nil {
 		log.Printf("%s, create temp err: %v", txidMigrationErrMsg, err)
+		return err
+	}
+	_, err = tx.Exec(`TRUNCATE TABLE txid_fix_batch`)
+	if err != nil {
+		log.Printf("%s, truncate temp err: %v", txidMigrationErrMsg, err)
 		return err
 	}
 	batchadd, err := tx.Prepare(`COPY txid_fix_batch (round, intra, txid) FROM STDIN`)
@@ -244,7 +275,7 @@ func putTxidFixupBatch(db *PostgresIndexerDb, state *MigrationState, batch []Txn
 		return err
 	}
 
-	_, err = tx.Exec(`UPDATE txn t SET t.txid = x.txid FROM txid_fix_batch x WHERE t.round = x.round AND t.intra = x.intra`)
+	_, err = tx.Exec(`UPDATE txn SET txid = x.txid FROM txid_fix_batch x WHERE txn.round = x.round AND txn.intra = x.intra`)
 	if err != nil {
 		log.Printf("%s, update err: %v", txidMigrationErrMsg, err)
 		return err
@@ -261,10 +292,23 @@ func putTxidFixupBatch(db *PostgresIndexerDb, state *MigrationState, batch []Txn
 		log.Printf("%s, batch commit err: %v", txidMigrationErrMsg, err)
 		return err
 	}
+	mtxid.state = &txstate
+	_, err = db.db.Exec(`DROP TABLE txid_fix_batch`)
+	if err != nil {
+		log.Printf("warning txid migration , drop temp err: %v", txidMigrationErrMsg, err)
+		// we don't actually care; psql should garbage collect the temp table eventually
+	}
+	now := time.Now()
+	dt := now.Sub(mtxid.lastlog)
+	if dt > 5*time.Second {
+		mtxid.lastlog = now
+		log.Printf("txid fixup migration through %d", maxRound)
+	}
 	return nil
 }
 
-func readHeaders(db *PostgresIndexerDb, minRound, maxRound uint64) (map[uint64]types.Block, error) {
+func (mtxid *txidFiuxpMigrationContext) readHeaders(minRound, maxRound uint64) (map[uint64]types.Block, error) {
+	db := mtxid.db
 	rows, err := db.db.Query(`SELECT round, header FROM block_header WHERE round >= $1 AND round <= $2`, minRound, maxRound)
 	if err != nil {
 		log.Printf("%s, header err: %v", txidMigrationErrMsg, err)

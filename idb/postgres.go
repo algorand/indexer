@@ -65,7 +65,7 @@ func (db *PostgresIndexerDb) init() (err error) {
 
 	if hasMigration || hasAccounting {
 		// see postgres_migrations.go
-		return db.migrate(accountingStateJson, migrationStateJson)
+		return db.migrate(migrationStateJson)
 	}
 
 	// new database, run setup
@@ -357,7 +357,6 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 			}
 			pos = lastpos + 1
 		}
-		fmt.Fprintf(os.Stderr, "got batch of %d txns round %d-%d\n", pos, rounds[0], rounds[pos-1])
 		// yield to chan
 		for i := 0; i < pos; i++ {
 			var row TxnRow
