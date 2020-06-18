@@ -8,7 +8,6 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 
-	//"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/indexer/util"
 )
