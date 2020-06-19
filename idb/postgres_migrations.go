@@ -35,8 +35,7 @@ var migrations []migrationFunc
 
 var asyncMigration = errors.New("Migration will continue asynchronously")
 
-// TODO: don't actually need accountingStateJson ?
-func (db *PostgresIndexerDb) migrate(migrationStateJson string) (err error) {
+func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (err error) {
 	var state MigrationState
 	if len(migrationStateJson) > 0 {
 		err = json.Decode([]byte(migrationStateJson), &state)
@@ -48,7 +47,7 @@ func (db *PostgresIndexerDb) migrate(migrationStateJson string) (err error) {
 	for nextMigration < len(migrations) {
 		err = migrations[nextMigration](db, &state)
 		if err == asyncMigration {
-			// migration will continue asynchronously, it should call db.migrate() when it is done
+			// migration will continue asynchronously, it should call db.runAvailableMigrations() when it is done
 			return nil
 		}
 		if err != nil {
@@ -75,6 +74,12 @@ func m0fixupTxid(db *PostgresIndexerDb, state *MigrationState) error {
 }
 
 func init() {
+	// TODO: if we build a situation where there's a blocking
+	// migration that needs to run before indexer can be ready to
+	// serve, and it comes after a non-blocking async migration
+	// (m0fixupTxid), we'll need to look ahead and detect this and
+	// prevent startup. Maybe migration funcs get wrapped in an
+	// interface with metadata available.
 	migrations = []migrationFunc{
 		m0fixupTxid,
 	}
@@ -161,7 +166,7 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() {
 		return
 	}
 	log.Print("txid fixup migration finished")
-	db.migrate(migrationStateJson)
+	db.runAvailableMigrations(migrationStateJson)
 }
 
 type txidFixupRow struct {

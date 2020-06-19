@@ -65,7 +65,7 @@ func (db *PostgresIndexerDb) init() (err error) {
 
 	if hasMigration || hasAccounting {
 		// see postgres_migrations.go
-		return db.migrate(migrationStateJson)
+		return db.runAvailableMigrations(migrationStateJson)
 	}
 
 	// new database, run setup
