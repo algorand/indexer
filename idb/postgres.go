@@ -155,7 +155,7 @@ func (db *PostgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardsl
 		return err
 	}
 	headerjson := json.Encode(block)
-	_, err = tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0), rewardslevel, string(headerjson))
+	_, err = tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0).UTC(), rewardslevel, string(headerjson))
 	if err != nil {
 		return err
 	}
