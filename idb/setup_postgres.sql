@@ -20,7 +20,7 @@ round bigint NOT NULL,
 intra smallint NOT NULL,
 typeenum smallint NOT NULL,
 asset bigint NOT NULL, -- 0=Algos, otherwise AssetIndex
-txid bytea NOT NULL, -- [32]byte
+txid bytea NOT NULL, -- base32 of [32]byte hash + [4]byte checksum
 txnbytes bytea NOT NULL,
 txn jsonb NOT NULL,
 extra jsonb,
