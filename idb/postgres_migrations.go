@@ -300,7 +300,7 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []TxnRow) error 
 	mtxid.state = &txstate
 	_, err = db.db.Exec(`DROP TABLE txid_fix_batch`)
 	if err != nil {
-		log.Printf("warning txid migration , drop temp err: %v", txidMigrationErrMsg, err)
+		log.Printf("%s, warning txid migration , drop temp err: %v", txidMigrationErrMsg, err)
 		// we don't actually care; psql should garbage collect the temp table eventually
 	}
 	now := time.Now()
