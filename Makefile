@@ -5,14 +5,14 @@ ARCH		:= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
 PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(VERSION)
 
 # This is the default target, build the indexer:
-cmd/algorand-indexer/algorand-indexer:	idb/setup_postgres_sql.go importer/protocols_json.go .PHONY
+cmd/algorand-indexer/algorand-indexer:	idb/setup_postgres_sql.go types/protocols_json.go .PHONY
 	cd cmd/algorand-indexer && CGO_ENABLED=0 go build
 
 idb/setup_postgres_sql.go:	idb/setup_postgres.sql
 	cd idb && go generate
 
-importer/protocols_json.go:	importer/protocols.json
-	cd importer && go generate
+types/protocols_json.go:	types/protocols.json types/consensus.go
+	cd types && go generate
 
 mocks:	idb/dummy.go
 	cd idb && mockery -name=IndexerDb
@@ -39,4 +39,3 @@ clean:
 	rm -rf $(PKG_DIR)
 
 .PHONY:
-
