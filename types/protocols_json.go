@@ -1,4 +1,8 @@
-{
+// GENERATED CODE from source protocols.json via go generate
+
+package types
+
+const protocols_json = `{
   "future": {
     "ApplyData": true,
     "ApprovedUpgrades": {},
@@ -52,7 +56,7 @@
     "SoftCommitteeThreshold": 2267,
     "SupportBecomeNonParticipatingTransactions": true,
     "SupportGenesisHash": true,
-    "SupportRekeying": false,
+    "SupportRekeying": true,
     "SupportSignedTxnInBlock": true,
     "SupportTransactionLeases": true,
     "SupportTxGroups": true,
@@ -640,7 +644,7 @@
   "https://github.com/algorandfoundation/specs/tree/8096e2df2da75c3339986317f9abe69d4fa86b4b": {
     "ApplyData": true,
     "ApprovedUpgrades": {
-      "https://github.com/algorandfoundation/specs/tree/57016b942f6d97e6d4c0688b373bb0a2fc85a1a2": 0
+      "https://github.com/algorandfoundation/specs/tree/e5f565421d720c6f75cdd186f7098495caf9101f": 0
     },
     "Asset": true,
     "CertCommitteeSize": 1500,
@@ -1147,4 +1151,4 @@
     "UpgradeVoteRounds": 10000,
     "UseBuggyProposalLowestOutput": true
   }
-}
+}`
