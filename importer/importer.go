@@ -66,6 +66,7 @@ func (imp *dbImporter) ImportBlock(blockbytes []byte) (txCount int, err error) {
 	}
 	return imp.ImportDecodedBlock(&blockContainer)
 }
+
 func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert) (txCount int, err error) {
 	txCount = 0
 	proto, err := types.Protocol(string(blockContainer.Block.CurrentProtocol))
