@@ -73,6 +73,45 @@ func m0fixupTxid(db *PostgresIndexerDb, state *MigrationState) error {
 	return asyncMigration
 }
 
+func m1fixupBlockTime(db *PostgresIndexerDb, state *MigrationState) error {
+	sqlLines := []string{
+		`UPDATE block_header SET realtime = to_timestamp(coalesce(header ->> 'ts', '0')::bigint) AT TIME ZONE 'UTC'`,
+	}
+	return sqlMigration(db, state, sqlLines)
+}
+
+func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []string) error {
+	thisMigration := state.NextMigration
+	tx, err := db.db.Begin()
+	if err != nil {
+		log.Printf("migration %d tx err: %v", thisMigration, err)
+		return err
+	}
+	defer tx.Rollback() // ignored if .Commit() first
+	// TODO: this line, possibly in a loop, and the NextMigration, are all that would need to be parameterized for an sql-only mirgation (which may be common for schema changes)
+	for i, cmd := range sqlLines {
+		_, err = tx.Exec(cmd)
+		if err != nil {
+			log.Printf("migration %d sql[%d] err: %v", thisMigration, i, err)
+			return err
+		}
+	}
+	state.NextMigration++
+	migrationStateJson := json.Encode(state)
+	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJson)
+	if err != nil {
+		log.Printf("migration %d meta err: %v", thisMigration, err)
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("migration %d commit err: %v", thisMigration, err)
+		return err
+	}
+	log.Printf("migration %d done", thisMigration)
+	return nil
+}
+
 func init() {
 	// TODO: if we build a situation where there's a blocking
 	// migration that needs to run before indexer can be ready to
@@ -82,6 +121,7 @@ func init() {
 	// interface with metadata available.
 	migrations = []migrationFunc{
 		m0fixupTxid,
+		m1fixupBlockTime,
 	}
 }
 
