@@ -1,0 +1,5 @@
+# packages needed for test and release
+boto3
+markdown2
+msgpack >=1
+py-algorand-sdk
