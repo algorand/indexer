@@ -128,6 +128,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		IncludeAssetParams:   true,
 		Limit:                min(uintOrDefaultValue(params.Limit, defaultAccountsLimit), maxAccountsLimit),
 		HasAssetId:           uintOrDefault(params.AssetId),
+		HasAppId:             uintOrDefault(params.ApplicationId),
 		EqualToAuthAddr:      spendingAddr[:],
 	}
 
@@ -189,6 +190,7 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 		//AddressRole:         params.AddressRole,
 		//ExcludeCloseTo:      params.ExcludeCloseTo,
 		AssetId:             params.AssetId,
+		ApplicationId:       params.ApplicationId,
 		Limit:               params.Limit,
 		Next:                params.Next,
 		NotePrefix:          params.NotePrefix,
@@ -300,6 +302,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetID uint64, params generated.LookupAssetTransactionsParams) error {
 	searchParams := generated.SearchForTransactionsParams{
 		AssetId:             uint64Ptr(assetID),
+		ApplicationId:       nil,
 		Limit:               params.Limit,
 		Next:                params.Next,
 		NotePrefix:          params.NotePrefix,

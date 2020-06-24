@@ -212,6 +212,8 @@ type TransactionFilter struct {
 	AssetAmountGT uint64
 	AssetAmountLT uint64
 
+	ApplicationId uint64 // filter transactions relevant to an application
+
 	EffectiveAmountGt uint64 // Algo: Amount + CloseAmount > x
 	EffectiveAmountLt uint64 // Algo: Amount + CloseAmount < x
 
@@ -239,6 +241,8 @@ type AccountQueryOptions struct {
 	HasAssetId uint64
 	AssetGT    uint64
 	AssetLT    uint64
+
+	HasAppId uint64
 
 	IncludeAssetHoldings bool
 	IncludeAssetParams   bool
