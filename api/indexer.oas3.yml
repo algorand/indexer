@@ -2317,14 +2317,6 @@
             "schema": {
               "type": "boolean"
             }
-          },
-          {
-            "description": "Application ID",
-            "in": "query",
-            "name": "application-id",
-            "schema": {
-              "type": "integer"
-            }
           }
         ],
         "responses": {

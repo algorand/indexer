@@ -725,7 +725,6 @@ func (w *ServerInterfaceWrapper) LookupAssetTransactions(ctx echo.Context) error
 		"address-role":          true,
 		"exclude-close-to":      true,
 		"rekey-to":              true,
-		"application-id":        true,
 	}
 
 	// Check for unknown query parameters.
@@ -914,16 +913,6 @@ func (w *ServerInterfaceWrapper) LookupAssetTransactions(ctx echo.Context) error
 	err = runtime.BindQueryParameter("form", true, false, "rekey-to", ctx.QueryParams(), &params.RekeyTo)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter rekey-to: %s", err))
-	}
-
-	// ------------- Optional query parameter "application-id" -------------
-	if paramValue := ctx.QueryParam("application-id"); paramValue != "" {
-
-	}
-
-	err = runtime.BindQueryParameter("form", true, false, "application-id", ctx.QueryParams(), &params.ApplicationId)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter application-id: %s", err))
 	}
 
 	// Invoke the callback with all the unmarshalled arguments
@@ -1358,10 +1347,10 @@ var swaggerSpec = []string{
 	"QhsOoQ13GdpwCCw4BBYcVPw/dmABJn4HX32sfLXVKX2SLONxinjnTThbeHCM1ENVrHtKm3guqhXj0CrJ",
 	"fgVtIgS+Kb7GRnHVxfDuvyAqOAj2rCuTohyRwr4CYMjo96+3Z5pKowbPkcqd1XgAsZ5BNH+7NHWztdkn",
 	"skqh8EGFqDIkN3guyx3Rrr45NbqiX8mSsDXZiYZc4mEp2Tn2x+rBNuqjwudUe/knWLGpGTXAu+5ZKFK1",
-	"LxTkzu6rh6iWQ1TLHzeqxT4Xd/zRVvi1N9+95v1Qxz917Q6vtU9dtS0Z2OnSMWsxQPdrYNr78uttcT3L",
-	"2hF5n6czOIIP+mDiOJg4DiaOg4njYOI4ZG8cjCwHI8vByHIwshyMLAcjyz0YWQ6GkYNh5PdsGFkuvrN7",
-	"2v2OT3ePRERiNW554a/X3VJncEWrugSscoYRsq5/KJJmn7NFnumv1dZIEP3i5rr+cP3/AwAA///Htb8s",
-	"Ic8AAA==",
+	"LxTkzu6rXziq5RBz8ieOObGPuR1/tPV37b10r/E9VNlPXYrDW+pTF2FLBna6dERZDND9mn/2vst6W1zP",
+	"skVEvuHp/IrgIT4YIA4GiIMB4mCAOBggDrkVBxPIwQRyMIEcTCAHE8jBBHIPJpBDMs7BMPJ7NowsF9/Z",
+	"Pe1+x4e1R+IVsVa2vPDX624hMriiVV0C1iDD+FXXP5Qws4/NIs/012prJIh+cXNdf7j+/wEAAP//lvxg",
+	"zL/OAAA=",
 }
 
 // GetSwagger returns the Swagger specification corresponding to the generated code
