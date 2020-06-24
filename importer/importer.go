@@ -8,14 +8,9 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/indexer/util"
 )
-
-// protocols.json from code run in go-algorand:
-// func main() { os.Stdout.Write(protocol.EncodeJSON(config.Consensus)) }
-//go:generate go run ../cmd/texttosource/main.go importer protocols.json
 
 type Importer interface {
 	ImportBlock(blockbytes []byte) (txCount int, err error)
@@ -71,12 +66,12 @@ func (imp *dbImporter) ImportBlock(blockbytes []byte) (txCount int, err error) {
 	}
 	return imp.ImportDecodedBlock(&blockContainer)
 }
+
 func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert) (txCount int, err error) {
 	txCount = 0
-	ensureProtos()
-	proto, okversion := protocols[string(blockContainer.Block.CurrentProtocol)]
-	if !okversion {
-		return txCount, fmt.Errorf("block %d unknown protocol version %#v", blockContainer.Block.Round, string(blockContainer.Block.CurrentProtocol))
+	proto, err := types.Protocol(string(blockContainer.Block.CurrentProtocol))
+	if err != nil {
+		return txCount, fmt.Errorf("block %d, %v", blockContainer.Block.Round, err)
 	}
 	err = imp.db.StartBlock()
 	if err != nil {
@@ -131,33 +126,14 @@ func NewDBImporter(db idb.IndexerDb) Importer {
 	return &dbImporter{db: db}
 }
 
-var protocols map[string]types.ConsensusParams
-
-func ensureProtos() (err error) {
-	if protocols != nil {
-		return nil
-	}
-	protos := make(map[string]types.ConsensusParams, 30)
-	// Load text from protocols.json as compiled-in.
-	err = json.Decode([]byte(protocols_json), &protos)
-	if err != nil {
-		return fmt.Errorf("proto decode, %v", err)
-	}
-	protocols = protos
-	return nil
-}
-
 // ImportProto writes compiled-in protocol information to the database
 func ImportProto(db idb.IndexerDb) (err error) {
-	err = ensureProtos()
-	if err != nil {
-		return
-	}
-	for version, proto := range protocols {
+	types.ForeachProtocol(func(version string, proto types.ConsensusParams) (err error) {
 		err = db.SetProto(version, proto)
 		if err != nil {
 			return fmt.Errorf("db set proto %s, %v", version, err)
 		}
-	}
+		return nil
+	})
 	return nil
 }
