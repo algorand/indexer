@@ -419,6 +419,7 @@ func (w *ServerInterfaceWrapper) LookupAccountTransactions(ctx echo.Context) err
 func (w *ServerInterfaceWrapper) SearchForApplications(ctx echo.Context) error {
 
 	validQueryParams := map[string]bool{
+		"pretty":         true,
 		"application-id": true,
 		"round":          true,
 	}
@@ -463,7 +464,8 @@ func (w *ServerInterfaceWrapper) SearchForApplications(ctx echo.Context) error {
 func (w *ServerInterfaceWrapper) LookupApplication(ctx echo.Context) error {
 
 	validQueryParams := map[string]bool{
-		"round": true,
+		"pretty": true,
+		"round":  true,
 	}
 
 	// Check for unknown query parameters.
