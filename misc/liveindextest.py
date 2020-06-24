@@ -7,6 +7,7 @@
 # Requires local postgresql and `createdb` `dropdb` standard utils.
 # `goal` etc should be built on PATH
 # `algorand-indexer` can be installed on PATH or at its development location from `make` or `go build` at cmd/algorand-indexer/algorand-indexer
+# pip install py-algorand-sdk
 #
 # The Test:
 # Create a local private Algorand network
@@ -30,7 +31,6 @@ import tempfile
 import threading
 import time
 
-# pip install py-algorand-sdk
 import algosdk
 import algosdk.v2client
 
