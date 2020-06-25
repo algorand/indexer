@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+#
+# pip install "msgpack >=1" py-algorand-sdk boto3
+# boto3 required if fetching test data from s3
 
 import atexit
 import glob
