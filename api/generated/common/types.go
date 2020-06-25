@@ -486,7 +486,7 @@ type TransactionApplication struct {
 	ApplicationArgs *[]string `json:"application-args,omitempty"`
 
 	// \[apid\] ID of the application being configured or empty if creating.
-	ApplicationId *uint64 `json:"application-id,omitempty"`
+	ApplicationId uint64 `json:"application-id"`
 
 	// \[apap\] Logic executed for every application transaction, except when on-completion is set to "clear". It can read and write global state for the application, as well as account-specific local state. Approval programs may reject the transaction.
 	ApprovalProgram *[]byte `json:"approval-program,omitempty"`
@@ -513,7 +513,7 @@ type TransactionApplication struct {
 	// * update
 	// * update
 	// * delete
-	OnCompletion *string `json:"on-completion,omitempty"`
+	OnCompletion string `json:"on-completion"`
 }
 
 // TransactionAssetConfig defines model for TransactionAssetConfig.

@@ -1295,6 +1295,10 @@
     "TransactionApplication": {
       "description": "Fields for application transactions.\n\nDefinition:\ndata/transactions/application.go : ApplicationCallTxnFields",
       "type": "object",
+      "required": [
+        "application-id",
+        "on-completion"
+      ],
       "properties": {
         "application-id": {
           "description": "\\[apid\\] ID of the application being configured or empty if creating.",

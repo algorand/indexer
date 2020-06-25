@@ -1257,6 +1257,10 @@
             "type": "string"
           }
         },
+        "required": [
+          "application-id",
+          "on-completion"
+        ],
         "type": "object"
       },
       "TransactionAssetConfig": {
