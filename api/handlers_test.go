@@ -294,6 +294,8 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/multisig.response"),
 			},
 		},
+		// TODO: Add application transaction types
+		// TODO: Add rekey transaction
 	}
 
 	for _, test := range tests {

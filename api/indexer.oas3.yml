@@ -988,6 +988,26 @@
         ],
         "type": "object"
       },
+      "StateSchema": {
+        "description": "Represents a \\[apls\\] local-state or \\[apgs\\] global-state schema. These schemas determine how much storage may be used in a local-state or global-state for an application. The more space used, the larger minimum balance must be maintained in the account holding the data.",
+        "properties": {
+          "num-byte-slice": {
+            "description": "Maximum number of TEAL byte slices that may be stored in the key/value store.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "num-uint": {
+            "description": "Maximum number of TEAL uints that may be stored in the key/value store.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          }
+        },
+        "required": [
+          "num-byte-slice",
+          "num-uint"
+        ],
+        "type": "object"
+      },
       "TealKeyValue": {
         "description": "Represents a key-value pair in an application store.",
         "properties": {
@@ -1038,6 +1058,9 @@
       "Transaction": {
         "description": "Contains all fields common to all transactions and serves as an envelope to all transactions type.\n\nDefinition:\ndata/transactions/signedtxn.go : SignedTxn\ndata/transactions/transaction.go : Transaction\n",
         "properties": {
+          "application-transaction": {
+            "$ref": "#/components/schemas/TransactionApplication"
+          },
           "asset-config-transaction": {
             "$ref": "#/components/schemas/TransactionAssetConfig"
           },
@@ -1172,6 +1195,68 @@
           "signature",
           "tx-type"
         ],
+        "type": "object"
+      },
+      "TransactionApplication": {
+        "description": "Fields for application transactions.\n\nDefinition:\ndata/transactions/application.go : ApplicationCallTxnFields",
+        "properties": {
+          "accounts": {
+            "description": "\\[apat\\] List of accounts in addition to the sender that may be accessed from the application's approval-program and clear-state-program.",
+            "items": {
+              "type": "string",
+              "x-algorand-format": "Address"
+            },
+            "type": "array"
+          },
+          "application-args": {
+            "description": "\\[apaa\\] transaction specific arguments accessed from the application's approval-program and clear-state-program.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "application-id": {
+            "description": "\\[apid\\] ID of the application being configured or empty if creating.",
+            "type": "integer"
+          },
+          "approval-program": {
+            "description": "\\[apap\\] Logic executed for every application transaction, except when on-completion is set to \"clear\". It can read and write global state for the application, as well as account-specific local state. Approval programs may reject the transaction.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "clear-state-program": {
+            "description": "\\[apsu\\] Logic executed for application transactions with on-completion set to \"clear\". It can read and write global state for the application, as well as account-specific local state. Clear state programs cannot reject the transaction.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "foreign-apps": {
+            "description": "\\[apfa\\] Lists the applications in addition to the application-id whose global states may be accessed by this application's approval-program and clear-state-program. The access is read-only.",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "global-state-schema": {
+            "$ref": "#/components/schemas/StateSchema"
+          },
+          "local-state-schema": {
+            "$ref": "#/components/schemas/StateSchema"
+          },
+          "on-completion": {
+            "description": "\\[apan\\] defines the what additional actions occur with the transaction.\n\nValid types:\n* noop\n* optin\n* closeout\n* clear\n* update\n* update\n* delete",
+            "enum": [
+              "noop",
+              "optin",
+              "closeout",
+              "clear",
+              "update",
+              "delete"
+            ],
+            "type": "string"
+          }
+        },
         "type": "object"
       },
       "TransactionAssetConfig": {

@@ -322,6 +322,16 @@ type MiniAssetHolding struct {
 	IsFrozen bool   `json:"is-frozen"`
 }
 
+// StateSchema defines model for StateSchema.
+type StateSchema struct {
+
+	// Maximum number of TEAL byte slices that may be stored in the key/value store.
+	NumByteSlice uint64 `json:"num-byte-slice"`
+
+	// Maximum number of TEAL uints that may be stored in the key/value store.
+	NumUint uint64 `json:"num-uint"`
+}
+
 // TealKeyValue defines model for TealKeyValue.
 type TealKeyValue struct {
 	Key string `json:"key"`
@@ -348,6 +358,12 @@ type TealValue struct {
 
 // Transaction defines model for Transaction.
 type Transaction struct {
+
+	// Fields for application transactions.
+	//
+	// Definition:
+	// data/transactions/application.go : ApplicationCallTxnFields
+	ApplicationTransaction *TransactionApplication `json:"application-transaction,omitempty"`
 
 	// Fields for asset allocation, re-configuration, and destruction.
 	//
@@ -458,6 +474,46 @@ type Transaction struct {
 	// * \[axfer\] asset-transfer-transaction
 	// * \[afrz\] asset-freeze-transaction
 	TxType string `json:"tx-type"`
+}
+
+// TransactionApplication defines model for TransactionApplication.
+type TransactionApplication struct {
+
+	// \[apat\] List of accounts in addition to the sender that may be accessed from the application's approval-program and clear-state-program.
+	Accounts *[]string `json:"accounts,omitempty"`
+
+	// \[apaa\] transaction specific arguments accessed from the application's approval-program and clear-state-program.
+	ApplicationArgs *[]string `json:"application-args,omitempty"`
+
+	// \[apid\] ID of the application being configured or empty if creating.
+	ApplicationId *uint64 `json:"application-id,omitempty"`
+
+	// \[apap\] Logic executed for every application transaction, except when on-completion is set to "clear". It can read and write global state for the application, as well as account-specific local state. Approval programs may reject the transaction.
+	ApprovalProgram *[]byte `json:"approval-program,omitempty"`
+
+	// \[apsu\] Logic executed for application transactions with on-completion set to "clear". It can read and write global state for the application, as well as account-specific local state. Clear state programs cannot reject the transaction.
+	ClearStateProgram *[]byte `json:"clear-state-program,omitempty"`
+
+	// \[apfa\] Lists the applications in addition to the application-id whose global states may be accessed by this application's approval-program and clear-state-program. The access is read-only.
+	ForeignApps *[]uint64 `json:"foreign-apps,omitempty"`
+
+	// Represents a \[apls\] local-state or \[apgs\] global-state schema. These schemas determine how much storage may be used in a local-state or global-state for an application. The more space used, the larger minimum balance must be maintained in the account holding the data.
+	GlobalStateSchema *StateSchema `json:"global-state-schema,omitempty"`
+
+	// Represents a \[apls\] local-state or \[apgs\] global-state schema. These schemas determine how much storage may be used in a local-state or global-state for an application. The more space used, the larger minimum balance must be maintained in the account holding the data.
+	LocalStateSchema *StateSchema `json:"local-state-schema,omitempty"`
+
+	// \[apan\] defines the what additional actions occur with the transaction.
+	//
+	// Valid types:
+	// * noop
+	// * optin
+	// * closeout
+	// * clear
+	// * update
+	// * update
+	// * delete
+	OnCompletion *string `json:"on-completion,omitempty"`
 }
 
 // TransactionAssetConfig defines model for TransactionAssetConfig.

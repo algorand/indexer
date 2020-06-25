@@ -23,7 +23,6 @@ import (
 // String decoding helpers (with 'errorArr' helper to group errors) //
 //////////////////////////////////////////////////////////////////////
 
-
 // decodeDigest verifies that the digest is valid, then returns the dereferenced input string, or appends an error to errorArr
 func decodeDigest(str *string, field string, errorArr []string) (string, []string) {
 	if str != nil {
@@ -96,15 +95,15 @@ const (
 	addrRoleFreeze   = "freeze-target"
 )
 
-var AddressRoleEnumMap = map[string]bool {
-	addrRoleSender: true,
+var AddressRoleEnumMap = map[string]bool{
+	addrRoleSender:   true,
 	addrRoleReceiver: true,
-	addrRoleFreeze: true,
+	addrRoleFreeze:   true,
 }
 var AddressRoleEnumString string
 
-var SigTypeEnumMap = map[string]int {
-	"sig": 1,
+var SigTypeEnumMap = map[string]int{
+	"sig":  1,
 	"msig": 2,
 	"lsig": 3,
 }
@@ -298,6 +297,8 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		assetFreeze = &f
 	}
 
+	// TODO: sdk_type.ApplicationTx
+
 	sig := generated.TransactionSignature{
 		Logicsig: lsigToTransactionLsig(stxn.Lsig),
 		Multisig: msigToTransactionMsig(stxn.Msig),
@@ -385,6 +386,7 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.MaxRound = uintOrDefault(params.MaxRound)
 	filter.MinRound = uintOrDefault(params.MinRound)
 	filter.AssetId = uintOrDefault(params.AssetId)
+	filter.ApplicationId = uintOrDefault(params.ApplicationId)
 	filter.Limit = min(uintOrDefaultValue(params.Limit, defaultTransactionsLimit), maxTransactionsLimit)
 
 	// filter Algos or Asset but not both.
