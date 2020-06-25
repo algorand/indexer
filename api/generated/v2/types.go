@@ -908,9 +908,6 @@ type LookupAccountTransactionsParams struct {
 
 	// Include results which include the rekey-to field.
 	RekeyTo *bool `json:"rekey-to,omitempty"`
-
-	// Application ID
-	ApplicationId *uint64 `json:"application-id,omitempty"`
 }
 
 // SearchForApplicationsParams defines parameters for SearchForApplications.

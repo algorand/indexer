@@ -178,9 +178,6 @@
           },
           {
             "$ref": "#/parameters/rekey-to"
-          },
-          {
-            "$ref": "#/parameters/application-id"
           }
         ],
         "responses": {

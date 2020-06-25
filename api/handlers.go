@@ -189,8 +189,8 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 		// not applicable to this endpoint
 		//AddressRole:         params.AddressRole,
 		//ExcludeCloseTo:      params.ExcludeCloseTo,
-		AssetId:             params.AssetId,
-		ApplicationId:       params.ApplicationId,
+		AssetId:             params.AssetId, // This probably shouldn't have been included
+		ApplicationId:       nil,
 		Limit:               params.Limit,
 		Next:                params.Next,
 		NotePrefix:          params.NotePrefix,
