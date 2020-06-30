@@ -1161,6 +1161,14 @@
         "last-valid",
         "signature"
       ],
+      "mutually-exclusive": [
+        "application-transaction",
+        "asset-config-transaction",
+        "asset-freeze-transaction",
+        "asset-transfer-transaction",
+        "keyreg-transaction",
+        "payment-transaction"
+      ],
       "properties": {
         "application-transaction": {
           "$ref": "#/definitions/TransactionApplication"
@@ -1493,6 +1501,11 @@
     "TransactionSignature": {
       "description": "Validation signature associated with some data. Only one of the signatures should be provided.",
       "type": "object",
+      "mutually-exclusive": [
+        "sig",
+        "multisig",
+        "logicsig"
+      ],
       "properties": {
         "logicsig": {
           "$ref": "#/definitions/TransactionSignatureLogicsig"
