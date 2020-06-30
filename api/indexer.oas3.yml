@@ -1174,7 +1174,7 @@
             "$ref": "#/components/schemas/TransactionSignature"
           },
           "tx-type": {
-            "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction",
+            "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction",
             "enum": [
               "pay",
               "keyreg",
@@ -1896,14 +1896,6 @@
             "schema": {
               "type": "integer"
             }
-          },
-          {
-            "description": "Include results for the specified round.",
-            "in": "query",
-            "name": "round",
-            "schema": {
-              "type": "integer"
-            }
           }
         ],
         "responses": {
@@ -1952,14 +1944,6 @@
             "in": "path",
             "name": "application-id",
             "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "description": "Include results for the specified round.",
-            "in": "query",
-            "name": "round",
             "schema": {
               "type": "integer"
             }

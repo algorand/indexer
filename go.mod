@@ -11,6 +11,7 @@ require (
 	github.com/labstack/echo/v4 v4.1.16
 	github.com/lib/pq v1.3.0
 	github.com/matryer/moq v0.0.0-20200607124540-4638a53893e6 // indirect
+	github.com/mattn/go-colorable v0.1.7 // indirect
 	github.com/sirupsen/logrus v1.5.0
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.3
@@ -19,7 +20,7 @@ require (
 	github.com/valyala/fasttemplate v1.1.1 // indirect
 	golang.org/x/mod v0.3.0 // indirect
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344 // indirect
-	golang.org/x/sys v0.0.0-20200622214017-ed371f2e16b4 // indirect
+	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
 	golang.org/x/text v0.3.3 // indirect
-	golang.org/x/tools v0.0.0-20200625173320-e31c80b82c03 // indirect
+	golang.org/x/tools v0.0.0-20200630154851-b2d8b0336632 // indirect
 )

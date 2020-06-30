@@ -203,9 +203,6 @@
         "parameters": [
           {
             "$ref": "#/parameters/application-id"
-          },
-          {
-            "$ref": "#/parameters/round"
           }
         ],
         "responses": {
@@ -234,9 +231,6 @@
             "name": "application-id",
             "in": "path",
             "required": true
-          },
-          {
-            "$ref": "#/parameters/round"
           }
         ],
         "responses": {

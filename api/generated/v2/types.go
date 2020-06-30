@@ -473,6 +473,7 @@ type Transaction struct {
 	// * \[acfg\] asset-config-transaction
 	// * \[axfer\] asset-transfer-transaction
 	// * \[afrz\] asset-freeze-transaction
+	// * \[appl\] application-transaction
 	TxType string `json:"tx-type"`
 }
 
@@ -915,16 +916,6 @@ type SearchForApplicationsParams struct {
 
 	// Application ID
 	ApplicationId *uint64 `json:"application-id,omitempty"`
-
-	// Include results for the specified round.
-	Round *uint64 `json:"round,omitempty"`
-}
-
-// LookupApplicationParams defines parameters for LookupApplication.
-type LookupApplicationParams struct {
-
-	// Include results for the specified round.
-	Round *uint64 `json:"round,omitempty"`
 }
 
 // SearchForAssetsParams defines parameters for SearchForAssets.

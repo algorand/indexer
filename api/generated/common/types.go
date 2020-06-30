@@ -473,6 +473,7 @@ type Transaction struct {
 	// * \[acfg\] asset-config-transaction
 	// * \[axfer\] asset-transfer-transaction
 	// * \[afrz\] asset-freeze-transaction
+	// * \[appl\] application-transaction
 	TxType string `json:"tx-type"`
 }
 
