@@ -683,11 +683,11 @@
       "description": "Pair of application index and application local state",
       "type": "object",
       "required": [
-        "app-index",
+        "id",
         "state"
       ],
       "properties": {
-        "app-index": {
+        "id": {
           "type": "integer"
         },
         "state": {
@@ -764,11 +764,11 @@
       "description": "Application index and its parameters",
       "type": "object",
       "required": [
-        "app-index",
+        "id",
         "app-params"
       ],
       "properties": {
-        "app-index": {
+        "id": {
           "description": "\\[appidx\\] application index.",
           "type": "integer"
         },
