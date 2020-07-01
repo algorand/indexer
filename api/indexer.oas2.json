@@ -789,12 +789,14 @@
         "approval-program": {
           "description": "\\[approv\\] approval program.",
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "x-algorand-format": "TEALProgram"
         },
         "clear-state-program": {
           "description": "\\[clearp\\] approval program.",
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "x-algorand-format": "TEALProgram"
         },
         "local-state-schema": {
           "description": "[\\lsch\\] local schema",
@@ -1352,12 +1354,14 @@
         "approval-program": {
           "description": "\\[apap\\] Logic executed for every application transaction, except when on-completion is set to \"clear\". It can read and write global state for the application, as well as account-specific local state. Approval programs may reject the transaction.",
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "x-algorand-format": "TEALProgram"
         },
         "clear-state-program": {
           "description": "\\[apsu\\] Logic executed for application transactions with on-completion set to \"clear\". It can read and write global state for the application, as well as account-specific local state. Clear state programs cannot reject the transaction.",
           "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "x-algorand-format": "TEALProgram"
         }
       }
     },
