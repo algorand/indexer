@@ -1130,6 +1130,18 @@
         }
       }
     },
+    "OnCompletion": {
+      "description": "\\[apan\\] defines the what additional actions occur with the transaction.\n\nValid types:\n* noop\n* optin\n* closeout\n* clear\n* update\n* update\n* delete",
+      "type": "string",
+      "enum": [
+        "noop",
+        "optin",
+        "closeout",
+        "clear",
+        "update",
+        "delete"
+      ]
+    },
     "StateSchema": {
       "description": "Represents a \\[apls\\] local-state or \\[apgs\\] global-state schema. These schemas determine how much storage may be used in a local-state or global-state for an application. The more space used, the larger minimum balance must be maintained in the account holding the data.",
       "type": "object",
@@ -1314,7 +1326,7 @@
           "type": "integer"
         },
         "on-completion": {
-          "$ref": "#/parameters/on-completion"
+          "$ref": "#/definitions/OnCompletion"
         },
         "application-args": {
           "description": "\\[apaa\\] transaction specific arguments accessed from the application's approval-program and clear-state-program.",
@@ -1685,19 +1697,6 @@
       "name": "note-prefix",
       "in": "query",
       "x-algorand-format": "base64" 
-    },
-    "on-completion": {
-      "description": "\\[apan\\] defines the what additional actions occur with the transaction.\n\nValid types:\n* noop\n* optin\n* closeout\n* clear\n* update\n* update\n* delete",
-      "type": "string",
-      "name": "on-completion",
-      "enum": [
-        "noop",
-        "optin",
-        "closeout",
-        "clear",
-        "update",
-        "delete"
-      ]
     },
     "rekey-to": {
       "type": "boolean",
