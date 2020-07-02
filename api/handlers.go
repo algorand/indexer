@@ -216,8 +216,8 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 }
 
 // (GET /v2/applications/{application-id})
-func (si *ServerImplementation) LookupApplication(ctx echo.Context, applicationId uint64) error {
-	return echo.NewHTTPError(http.StatusMethodNotAllowed, "LookupApplication is not implemented yet.")
+func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationId uint64) error {
+	return echo.NewHTTPError(http.StatusMethodNotAllowed, "LookupApplicationByID is not implemented yet.")
 }
 
 // LookupAssetByID looks up a particular asset

@@ -82,11 +82,11 @@ type AccountParticipation struct {
 // Application defines model for Application.
 type Application struct {
 
-	// \[appidx\] application index.
-	AppIndex uint64 `json:"app-index"`
-
 	// Stores the global information associated with an application.
 	AppParams ApplicationParams `json:"app-params"`
+
+	// \[appidx\] application index.
+	Id uint64 `json:"id"`
 }
 
 // ApplicationLocalState defines model for ApplicationLocalState.
@@ -101,7 +101,7 @@ type ApplicationLocalState struct {
 
 // ApplicationLocalStates defines model for ApplicationLocalStates.
 type ApplicationLocalStates struct {
-	AppIndex uint64 `json:"app-index"`
+	Id uint64 `json:"id"`
 
 	// Stores local state associated with an application.
 	State ApplicationLocalState `json:"state"`
@@ -115,6 +115,9 @@ type ApplicationParams struct {
 
 	// \[clearp\] approval program.
 	ClearStateProgram []byte `json:"clear-state-program"`
+
+	// The address that created this application. This is the address where the parameters and global state for this application can be found.
+	Creator *string `json:"creator,omitempty"`
 
 	// Represents a key-value store for use in an application.
 	GlobalState *TealKeyValueStore `json:"global-state,omitempty"`
@@ -322,6 +325,9 @@ type MiniAssetHolding struct {
 	IsFrozen bool   `json:"is-frozen"`
 }
 
+// OnCompletion defines model for OnCompletion.
+type OnCompletion string
+
 // StateSchema defines model for StateSchema.
 type StateSchema struct {
 
@@ -514,7 +520,7 @@ type TransactionApplication struct {
 	// * update
 	// * update
 	// * delete
-	OnCompletion string `json:"on-completion"`
+	OnCompletion OnCompletion `json:"on-completion"`
 }
 
 // TransactionAssetConfig defines model for TransactionAssetConfig.
