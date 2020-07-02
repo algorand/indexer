@@ -786,6 +786,11 @@
         "clear-state-program"
       ],
       "properties": {
+        "creator": {
+          "description": "The address that created this application. This is the address where the parameters and global state for this application can be found.",
+          "type": "string",
+          "x-algorand-format": "Address"
+        },
         "approval-program": {
           "description": "\\[approv\\] approval program.",
           "type": "string",
@@ -1309,16 +1314,7 @@
           "type": "integer"
         },
         "on-completion": {
-          "description": "\\[apan\\] defines the what additional actions occur with the transaction.\n\nValid types:\n* noop\n* optin\n* closeout\n* clear\n* update\n* update\n* delete",
-          "type":  "string",
-          "enum": [
-            "noop",
-            "optin",
-            "closeout",
-            "clear",
-            "update",
-            "delete"
-          ]
+          "$ref": "#/parameters/on-completion"
         },
         "application-args": {
           "description": "\\[apaa\\] transaction specific arguments accessed from the application's approval-program and clear-state-program.",
@@ -1689,6 +1685,19 @@
       "name": "note-prefix",
       "in": "query",
       "x-algorand-format": "base64" 
+    },
+    "on-completion": {
+      "description": "\\[apan\\] defines the what additional actions occur with the transaction.\n\nValid types:\n* noop\n* optin\n* closeout\n* clear\n* update\n* update\n* delete",
+      "type": "string",
+      "name": "on-completion",
+      "enum": [
+        "noop",
+        "optin",
+        "closeout",
+        "clear",
+        "update",
+        "delete"
+      ]
     },
     "rekey-to": {
       "type": "boolean",
