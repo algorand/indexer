@@ -573,11 +573,29 @@
           "description": "specifies the amount of MicroAlgos in the account, without the pending rewards.",
           "type": "integer"
         },
+        "apps-local-state": {
+          "description": "\\[appl\\] applications local data stored in this account.\n\nNote the raw object uses `map[int] -\u003e AppLocalState` for this type.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ApplicationLocalStates"
+          }
+        },      
+        "apps-total-schema": {
+          "description": "\\[tsch\\] stores the sum of all of the local schemas and global schemas in this account.\n\nNote: the raw account uses `StateSchema` for this type.",
+          "$ref": "#/definitions/ApplicationStateSchema"
+        },
         "assets": {
           "description": "\\[asset\\] assets held by this account.\n\nNote the raw object uses `map[int] -\u003e AssetHolding` for this type.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/AssetHolding"
+          }
+        },
+        "created-apps": {
+          "description": "\\[appp\\] parameters of applications created by this account including app global data.\n\nNote: the raw account uses `map[int] -\u003e AppParams` for this type.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Application"
           }
         },
         "created-assets": {
@@ -1594,19 +1612,6 @@
     }
   },
   "parameters": {
-    "on-completion": {
-      "description": "\\[apan\\] defines the what additional actions occur with the transaction.\n\nValid types:\n* noop\n* optin\n* closeout\n* clear\n* update\n* update\n* delete",
-      "type": "string",
-      "name": "on-completion",
-      "enum": [
-        "noop",
-        "optin",
-        "closeout",
-        "clear",
-        "update",
-        "delete"
-      ]
-    },
     "account-id": {
       "type": "string",
       "x-go-name": "AccountID",
