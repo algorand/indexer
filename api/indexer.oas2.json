@@ -1341,7 +1341,8 @@
           "type": "array",
           "format": "string",
           "items": {
-            "type": "string"
+            "type": "string",
+            "x-algorand-format": "Address"
           }
         },
         "foreign-apps": {
