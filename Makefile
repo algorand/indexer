@@ -30,6 +30,7 @@ sign:
 	mule/sign.sh
 
 test: mocks
+	go get github.com/vektra/mockery/.../
 	go test ./...
 
 test-package:
