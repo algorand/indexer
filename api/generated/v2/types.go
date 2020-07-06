@@ -19,6 +19,14 @@ type Account struct {
 	// specifies the amount of MicroAlgos in the account, without the pending rewards.
 	AmountWithoutPendingRewards uint64 `json:"amount-without-pending-rewards"`
 
+	// \[appl\] applications local data stored in this account.
+	//
+	// Note the raw object uses `map[int] -> AppLocalState` for this type.
+	AppsLocalState *[]ApplicationLocalStates `json:"apps-local-state,omitempty"`
+
+	// Specifies maximums on the number of each type that may be stored.
+	AppsTotalSchema *ApplicationStateSchema `json:"apps-total-schema,omitempty"`
+
 	// \[asset\] assets held by this account.
 	//
 	// Note the raw object uses `map[int] -> AssetHolding` for this type.
@@ -26,6 +34,11 @@ type Account struct {
 
 	// \[spend\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.
 	AuthAddr *string `json:"auth-addr,omitempty"`
+
+	// \[appp\] parameters of applications created by this account including app global data.
+	//
+	// Note: the raw account uses `map[int] -> AppParams` for this type.
+	CreatedApps *[]Application `json:"created-apps,omitempty"`
 
 	// \[apar\] parameters of assets created by this account.
 	//
@@ -82,11 +95,11 @@ type AccountParticipation struct {
 // Application defines model for Application.
 type Application struct {
 
-	// Stores the global information associated with an application.
-	AppParams ApplicationParams `json:"app-params"`
-
 	// \[appidx\] application index.
 	Id uint64 `json:"id"`
+
+	// Stores the global information associated with an application.
+	Params ApplicationParams `json:"params"`
 }
 
 // ApplicationLocalState defines model for ApplicationLocalState.

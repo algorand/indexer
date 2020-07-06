@@ -17,7 +17,7 @@ require (
 	github.com/spf13/pflag v1.0.3
 	github.com/stretchr/objx v0.1.1 // indirect
 	github.com/stretchr/testify v1.5.1
-	github.com/valyala/fasttemplate v1.1.1 // indirect
+	github.com/valyala/fasttemplate v1.2.0 // indirect
 	golang.org/x/mod v0.3.0 // indirect
 	golang.org/x/net v0.0.0-20200625001655-4c5254603344 // indirect
 	golang.org/x/sys v0.0.0-20200625212154-ddb9806d33ae // indirect
