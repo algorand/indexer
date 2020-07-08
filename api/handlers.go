@@ -128,6 +128,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		IncludeAssetParams:   true,
 		Limit:                min(uintOrDefaultValue(params.Limit, defaultAccountsLimit), maxAccountsLimit),
 		HasAssetId:           uintOrDefault(params.AssetId),
+		HasAppId:             uintOrDefault(params.ApplicationId),
 		EqualToAuthAddr:      spendingAddr[:],
 	}
 
@@ -188,7 +189,8 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 		// not applicable to this endpoint
 		//AddressRole:         params.AddressRole,
 		//ExcludeCloseTo:      params.ExcludeCloseTo,
-		AssetId:             params.AssetId,
+		AssetId:             params.AssetId, // This probably shouldn't have been included
+		ApplicationId:       nil,
 		Limit:               params.Limit,
 		Next:                params.Next,
 		NotePrefix:          params.NotePrefix,
@@ -206,6 +208,16 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 	}
 
 	return si.SearchForTransactions(ctx, searchParams)
+}
+
+// (GET /v2/applications)
+func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params generated.SearchForApplicationsParams) error {
+	return echo.NewHTTPError(http.StatusMethodNotAllowed, "SearchForApplications is not implemented yet.")
+}
+
+// (GET /v2/applications/{application-id})
+func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationId uint64) error {
+	return echo.NewHTTPError(http.StatusMethodNotAllowed, "LookupApplicationByID is not implemented yet.")
 }
 
 // LookupAssetByID looks up a particular asset
@@ -290,6 +302,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetID uint64, params generated.LookupAssetTransactionsParams) error {
 	searchParams := generated.SearchForTransactionsParams{
 		AssetId:             uint64Ptr(assetID),
+		ApplicationId:       nil,
 		Limit:               params.Limit,
 		Next:                params.Next,
 		NotePrefix:          params.NotePrefix,
