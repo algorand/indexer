@@ -1,6 +1,7 @@
 package idb
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/binary"
@@ -8,8 +9,9 @@ import (
 	"math/big"
 	"time"
 
-	models "github.com/algorand/indexer/api/generated/v2"
+	atypes "github.com/algorand/go-algorand-sdk/types"
 
+	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/types"
 )
 
@@ -129,7 +131,8 @@ func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
 }
 
 type TxnExtra struct {
-	AssetCloseAmount uint64 `codec:"aca,omitempty"`
+	AssetCloseAmount   uint64          `codec:"aca,omitempty"`
+	GlobalReverseDelta AppReverseDelta `codec:"agr,omitempty"`
 }
 
 // TODO: sqlite3 impl
@@ -381,10 +384,70 @@ type RoundUpdates struct {
 	// to overlay onto a JSON struct there and replace a value
 	// with a 0 value.
 	AccountDataUpdates map[[32]byte]map[string]interface{}
-	AcfgUpdates        []AcfgUpdate
-	TxnAssetUpdates    []TxnAssetUpdate
-	AssetUpdates       map[[32]byte][]AssetUpdate
-	FreezeUpdates      []FreezeUpdate
-	AssetCloses        []AssetClose
-	AssetDestroys      []uint64
+
+	AcfgUpdates     []AcfgUpdate
+	TxnAssetUpdates []TxnAssetUpdate
+	AssetUpdates    map[[32]byte][]AssetUpdate
+	FreezeUpdates   []FreezeUpdate
+	AssetCloses     []AssetClose
+	AssetDestroys   []uint64
+
+	AppGlobalDeltas []AppDelta
+	AppLocalDeltas  []AppDelta
+}
+
+func (ru *RoundUpdates) Clear() {
+	ru.AlgoUpdates = nil
+	ru.AccountTypes = nil
+	ru.AccountDataUpdates = nil
+	ru.AcfgUpdates = nil
+	ru.TxnAssetUpdates = nil
+	ru.AssetUpdates = nil
+	ru.FreezeUpdates = nil
+	ru.AssetCloses = nil
+	ru.AssetDestroys = nil
+	ru.AppGlobalDeltas = nil
+	ru.AppLocalDeltas = nil
+}
+
+type AppDelta struct {
+	AppIndex     int64
+	Round        uint64
+	Intra        int
+	Address      []byte
+	AddrIndex    uint64 // 0=Sender, otherwise stxn.Txn.Accounts[i-1]
+	Creator      []byte
+	Delta        types.StateDelta
+	OnCompletion atypes.OnCompletion
+
+	// AppParams settings coppied from Txn, only for AppGlobalDeltas
+	ApprovalProgram   []byte             `codec:"approv"`
+	ClearStateProgram []byte             `codec:"clearp"`
+	LocalStateSchema  atypes.StateSchema `codec:"lsch"`
+	GlobalStateSchema atypes.StateSchema `codec:"gsch"`
+}
+
+type StateDelta struct {
+	Key   []byte
+	Delta types.ValueDelta
+}
+
+// extra data attached to transactions
+type AppReverseDelta struct {
+	Delta             []StateDelta        `codec:"d,omitempty"`
+	OnCompletion      atypes.OnCompletion `codec:"oc,omitempty"`
+	ApprovalProgram   []byte              `codec:"approv,omitempty"`
+	ClearStateProgram []byte              `codec:"clearp,omitempty"`
+	LocalStateSchema  atypes.StateSchema  `codec:"lsch,omitempty"`
+	GlobalStateSchema atypes.StateSchema  `codec:"gsch,omitempty"`
+}
+
+func (ard *AppReverseDelta) SetDelta(key []byte, delta types.ValueDelta) {
+	for i, sd := range ard.Delta {
+		if bytes.Equal(key, sd.Key) {
+			ard.Delta[i].Delta = delta
+			return
+		}
+	}
+	ard.Delta = append(ard.Delta, StateDelta{Key: key, Delta: delta})
 }

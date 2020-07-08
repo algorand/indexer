@@ -50,7 +50,7 @@ func main() {
 	rowchan := db.Transactions(context.Background(), rekeyTxnQuery)
 	var rekeyTo atypes.Address
 	for txnrow := range rowchan {
-		maybeFail(txnrow.Error, "err %v\n", txnrow.Error)
+		maybeFail(txnrow.Error, "err rekey txn %v\n", txnrow.Error)
 		var stxn types.SignedTxnWithAD
 		err := msgpack.Decode(txnrow.TxnBytes, &stxn)
 		maybeFail(err, "decode txnbytes %v\n", err)

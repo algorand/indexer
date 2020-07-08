@@ -11,12 +11,15 @@ import logging
 import os
 import sqlite3
 import sys
+import time
 import urllib.error
 import urllib.request
 import urllib.parse
 
-import msgpack
+#import msgpack
 import algosdk
+
+from util import maybedecode, mloads, unmsgpack
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +100,12 @@ def getAccountsPage(pageurl, accounts):
             assets[str(assetid)] = {"a":assetamount,"f":assetfrozen}
         if assets:
             av['asset'] = assets
+        apps = acct.get('created-apps')
+        if apps:
+            av['apps'] = {a['id']:a['params'] for a in apps}
+        las = acct.get('apps-local-state')
+        if las:
+            av['las'] = {a['id']:a['state'] for a in las}
         rawaddr = algosdk.encoding.decode_address(addr)
         accounts[rawaddr] = av
         gtaddr = addr
@@ -111,6 +120,7 @@ def indexerAccounts(rooturl, blockround=None, addrlist=None):
     accountsurl = list(rootparts)
     accountsurl[2] = os.path.join(accountsurl[2], 'v2', 'accounts')
     gtaddr = None
+    start = time.time()
     accounts = {}
     query = {'limit':500}
     if blockround is not None:
@@ -125,7 +135,8 @@ def indexerAccounts(rooturl, blockround=None, addrlist=None):
         gtaddr, some = getAccountsPage(pageurl, accounts)
         if not some:
             break
-    logger.info('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
+    dt = time.time() - start
+    logger.info('loaded %d accounts from %s ?round=%d in %.2f seconds', len(accounts), rooturl, blockround, dt)
     return accounts
 
 # generator yielding txns objects
@@ -198,7 +209,7 @@ class CheckContext:
         # [(addr, "err text"), ...]
         self.mismatches = []
 
-    def check(self, address, niceaddr, microalgos, assets):
+    def check(self, address, niceaddr, microalgos, assets, appparams, applocal):
         err = self.err
         i2v = self.accounts.pop(address, None)
         errors = []
@@ -301,42 +312,28 @@ def check_from_sqlite(args):
         niceaddr = algosdk.encoding.encode_address(address)
         if acctset and niceaddr not in acctset:
             continue
-        adata = msgpack.loads(data, strict_map_key=False)
+        adata = mloads(data)
+        logger.debug('%s %r', niceaddr, sorted(adata.keys()))
         count += 1
-        rewardsbase = adata.get('ebase', 0)
-        microalgos = adata['algo']
-        values = {"algo": microalgos}
-        assets = adata.get('asset')
-        frozen = {}
+        rewardsbase = adata.get(b'ebase', 0)
+        microalgos = adata[b'algo']
+        # values = {"algo": microalgos}
+        assets = adata.get(b'asset')
+        #frozen = {}
         has_asset = False
         algosum += microalgos
         if assets:
-            for assetidstr, assetdata in assets.items():
-                if isinstance(assetidstr, bytes):
-                    assetidstr = assetidstr.decode()
-                elif isinstance(assetidstr, str):
-                    pass
-                else:
-                    assetidstr = str(assetidstr)
-                if assetidstr == args.asset:
-                    has_asset = True
-                values[assetidstr] = assetdata.get('a', 0)
-                if assetdata.get('f'):
-                    frozen[assetidstr] = True
+            assets = unmsgpack(assets)
+        appparams = adata.get(b'appp')
+        if appparams:
+            logger.debug('%s appparams %r', niceaddr, appparams)
+        applocal = adata.get(b'appl')
+        if applocal:
+            logger.debug('%s applocal %r', niceaddr, applocal)
         if args.asset and not has_asset:
             continue
         if i2a_checker:
-            i2a_checker.check(address, niceaddr, microalgos, assets)
-        ob = {
-            "addr": niceaddr,
-            "v": values,
-            "ebase": rewardsbase,
-        }
-        if frozen:
-            ob['f'] = frozen
-        if args.dump:
-            # print every record in the tracker sqlite db
-            out.write(json.dumps(ob) + '\n')
+            i2a_checker.check(address, niceaddr, microalgos, assets, appparams, applocal)
         if args.limit and count > args.limit:
             break
     return tracker_round, i2a_checker
@@ -367,8 +364,13 @@ def check_from_algod(args):
     logger.debug('ad %r', rawad[:5])
     #raise Exception("TODO")
     for ad in rawad:
-        logger.debug('ad %r', ad)
+        #logger.debug('ad %r', ad)
         niceaddr = ad['address']
+        round = ad['round']
+        if round != lastround:
+            # re fetch indexer account at round algod got it at
+            na = indexerAccounts(args.indexer, blockround=round, addrlist=[niceaddr])
+            i2a.update(na)
         microalgos = ad['amountwithoutpendingrewards']
         #values = {"algo": microalgos}
         xa = {}
@@ -387,7 +389,6 @@ def main():
     ap.add_argument('--limit', default=None, type=int, help='debug limit number of accoutns to dump')
     ap.add_argument('--indexer', default=None, help='URL to indexer to fetch from')
     ap.add_argument('--asset', default=None, help='filter on accounts possessing asset id')
-    ap.add_argument('--dump', default=False, action='store_true')
     ap.add_argument('--mismatches', default=10, type=int, help='max number of mismatches to show details on (0 for no limit)')
     ap.add_argument('-q', '--quiet', default=False, action='store_true')
     ap.add_argument('--verbose', default=False, action='store_true')

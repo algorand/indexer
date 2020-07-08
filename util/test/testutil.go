@@ -63,7 +63,7 @@ func PrintAccountQuery(db idb.IndexerDb, q idb.AccountQueryOptions) {
 	accountchan := db.GetAccounts(context.Background(), q)
 	count := uint64(0)
 	for ar := range accountchan {
-		MaybeFail(ar.Error, "err %v\n", ar.Error)
+		MaybeFail(ar.Error, "GetAccounts err %v\n", ar.Error)
 		jb, err := json.Marshal(ar.Account)
 		MaybeFail(err, "err %v\n", err)
 		infoln(string(jb))

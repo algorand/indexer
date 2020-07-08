@@ -70,15 +70,7 @@ func (accounting *AccountingState) commitRound() error {
 	if err != nil {
 		return err
 	}
-	accounting.AlgoUpdates = nil
-	accounting.AccountTypes = nil
-	accounting.AccountDataUpdates = nil
-	accounting.AssetUpdates = nil
-	accounting.AcfgUpdates = nil
-	accounting.TxnAssetUpdates = nil
-	accounting.FreezeUpdates = nil
-	accounting.AssetCloses = nil
-	accounting.AssetDestroys = nil
+	accounting.RoundUpdates.Clear()
 	accounting.dirty = false
 	return nil
 }
@@ -333,6 +325,61 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 		}
 	} else if stxn.Txn.Type == "afrz" {
 		accounting.freezeAsset(stxn.Txn.FreezeAccount, uint64(stxn.Txn.FreezeAsset), stxn.Txn.AssetFrozen)
+	} else if stxn.Txn.Type == "appl" {
+		hasGlobal := (len(stxn.EvalDelta.GlobalDelta) > 0) || (len(stxn.Txn.ApprovalProgram) > 0) || (len(stxn.Txn.ClearStateProgram) > 0)
+		if hasGlobal {
+			agd := idb.AppDelta{
+				AppIndex: int64(stxn.Txn.ApplicationID),
+				Round:    round,
+				Intra:    intra,
+				//Address:           nil,
+				Delta:             stxn.EvalDelta.GlobalDelta,
+				OnCompletion:      stxn.Txn.OnCompletion,
+				ApprovalProgram:   stxn.Txn.ApprovalProgram,
+				ClearStateProgram: stxn.Txn.ClearStateProgram,
+				LocalStateSchema:  stxn.Txn.LocalStateSchema,
+				GlobalStateSchema: stxn.Txn.GlobalStateSchema,
+			}
+			if stxn.Txn.ApplicationID == 0 {
+				// app creation
+				agd.Creator = stxn.Txn.Sender[:]
+			}
+			accounting.AppGlobalDeltas = append(
+				accounting.AppGlobalDeltas,
+				agd,
+			)
+		}
+		for accountIndex, ldelts := range stxn.EvalDelta.LocalDeltas {
+			var addr []byte
+			if accountIndex == 0 {
+				addr = stxn.Txn.Sender[:]
+			} else {
+				addr = stxn.Txn.Accounts[accountIndex-1][:]
+			}
+			accounting.AppLocalDeltas = append(
+				accounting.AppLocalDeltas,
+				idb.AppDelta{
+					AppIndex:     int64(stxn.Txn.ApplicationID),
+					Round:        round,
+					Intra:        intra,
+					Address:      addr,
+					AddrIndex:    accountIndex,
+					Delta:        ldelts,
+					OnCompletion: stxn.Txn.OnCompletion,
+				},
+			)
+		}
+		// if there's no other content change, but a state change of opt-in/close-out/clear-state, record that
+		if len(stxn.EvalDelta.LocalDeltas) == 0 && (stxn.Txn.OnCompletion == atypes.OptInOC || stxn.Txn.OnCompletion == atypes.CloseOutOC || stxn.Txn.OnCompletion == atypes.ClearStateOC) {
+			accounting.AppLocalDeltas = append(
+				accounting.AppLocalDeltas,
+				idb.AppDelta{
+					AppIndex:     int64(stxn.Txn.ApplicationID),
+					Address:      stxn.Txn.Sender[:],
+					OnCompletion: stxn.Txn.OnCompletion,
+				},
+			)
+		}
 	} else {
 		return fmt.Errorf("txn r=%d i=%d UNKNOWN TYPE %#v\n", round, intra, stxn.Txn.Type)
 	}

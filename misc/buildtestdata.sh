@@ -23,6 +23,10 @@ if [ -z "${E2EDATA}" ]; then
     E2EDATA="${HOME}/Algorand/e2edata"
 fi
 
+# TODO: EXPERIMENTAL
+# run faster rounds? 1000 down from 2000
+export ALGOSMALLLAMBDAMSEC=1000
+
 rm -rf "${E2EDATA}"
 mkdir -p "${E2EDATA}"
 (cd "${GOALGORAND}/test/scripts" && TEMPDIR="${E2EDATA}" python3 e2e_client_runner.py --keep-temps e2e_subs/*.sh)
@@ -64,4 +68,4 @@ ls -l "${E2EDATA}/e2edata.tar.bz2"
 RSTAMP=$(TZ=UTC python -c 'import time; print("{:08x}".format(0xffffffff - int(time.time() - time.mktime((2020,1,1,0,0,0,-1,-1,-1)))))')
 
 echo "COPY AND PASTE THIS TO UPLOAD:"
-echo aws s3 cp "${E2EDATA}/e2edata.tar.bz2" s3://algorand-testdata/indexer/e2e1/${RSTAMP}/e2edata.tar.bz2
+echo aws s3 cp --acl public-read "${E2EDATA}/e2edata.tar.bz2" s3://algorand-testdata/indexer/e2e1/${RSTAMP}/e2edata.tar.bz2
