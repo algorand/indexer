@@ -90,24 +90,24 @@ def getAccountsPage(pageurl, accounts):
         batchcount += 1
         some = True
         addr = acct['address']
-        microalgos = acct['amount-without-pending-rewards']
-        av = {"algo":microalgos}
-        assets = {}
-        for assetrec in acct.get('assets', []):
-            assetid = assetrec['asset-id']
-            assetamount = assetrec.get('amount', 0)
-            assetfrozen = assetrec.get('is-frozen', False)
-            assets[str(assetid)] = {"a":assetamount,"f":assetfrozen}
-        if assets:
-            av['asset'] = assets
-        apps = acct.get('created-apps')
-        if apps:
-            av['apps'] = {a['id']:a['params'] for a in apps}
-        las = acct.get('apps-local-state')
-        if las:
-            av['las'] = {a['id']:a['state'] for a in las}
+        # microalgos = acct['amount-without-pending-rewards']
+        # av = {"algo":microalgos}
+        # assets = {}
+        # for assetrec in acct.get('assets', []):
+        #     assetid = assetrec['asset-id']
+        #     assetamount = assetrec.get('amount', 0)
+        #     assetfrozen = assetrec.get('is-frozen', False)
+        #     assets[str(assetid)] = {"a":assetamount,"f":assetfrozen}
+        # if assets:
+        #     av['asset'] = assets
+        # apps = acct.get('created-apps')
+        # if apps:
+        #     av['apps'] = {a['id']:a['params'] for a in apps}
+        # las = acct.get('apps-local-state')
+        # if las:
+        #     av['las'] = {a['id']:a['state'] for a in las}
         rawaddr = algosdk.encoding.decode_address(addr)
-        accounts[rawaddr] = av
+        accounts[rawaddr] = acct#av
         gtaddr = addr
     logger.debug('got %d accounts', batchcount)
     return gtaddr, some
@@ -179,8 +179,9 @@ def indexerAccountTxns(rooturl, addr, minround=None, maxround=None):
 def assetEquality(indexer, algod):
     ta = dict(algod)
     errs = []
-    for assetidstr, rec in indexer.items():
-        assetid = int(assetidstr)
+    for assetrec in indexer:
+        assetid = assetrec['asset-id']
+        #assetid = int(assetidstr)
         iv = rec.get('a', 0)
         arec = ta.pop(assetid, None)
         if arec is None:
@@ -202,6 +203,7 @@ def assetEquality(indexer, algod):
 
 class CheckContext:
     def __init__(self, accounts, err):
+        # accounts from indexer
         self.accounts = accounts
         self.err = err
         self.match = 0
@@ -210,6 +212,7 @@ class CheckContext:
         self.mismatches = []
 
     def check(self, address, niceaddr, microalgos, assets, appparams, applocal):
+        # check data from sql or algod vs indexer
         err = self.err
         i2v = self.accounts.pop(address, None)
         errors = []
@@ -218,18 +221,21 @@ class CheckContext:
             err.write('{} not in indexer\n'.format(niceaddr))
         else:
             ok = True
-            if i2v['algo'] == microalgos:
+            indexerAlgos = i2v['amount-without-pending-rewards']
+            if indexerAlgos == microalgos:
                 pass # still ok
             else:
                 ok = False
-                emsg = 'algod v={} i2 v={}'.format(microalgos, i2v['algo'])
+                emsg = 'algod v={} i2 v={}'.format(microalgos, indexerAlgos)
                 if address == reward_addr:
                     emsg += ' Rewards account'
                 elif address == fee_addr:
                     emsg += ' Fee account'
                 err.write('{} {}\n'.format(niceaddr, emsg))
                 errors.append(emsg)
-            i2assets = i2v.get('asset')
+            if appparams or applocal:
+                logger.debug('inedxer acct keys %r', i2v.keys())
+            i2assets = i2v.get('assets')
             if i2assets:
                 if assets:
                     emsg = assetEquality(i2assets, assets)
@@ -317,19 +323,17 @@ def check_from_sqlite(args):
         count += 1
         rewardsbase = adata.get(b'ebase', 0)
         microalgos = adata[b'algo']
-        # values = {"algo": microalgos}
         assets = adata.get(b'asset')
-        #frozen = {}
         has_asset = False
         algosum += microalgos
         if assets:
             assets = unmsgpack(assets)
         appparams = adata.get(b'appp')
-        if appparams:
-            logger.debug('%s appparams %r', niceaddr, appparams)
+        # if appparams:
+        #     logger.debug('%s appparams %r', niceaddr, appparams)
         applocal = adata.get(b'appl')
-        if applocal:
-            logger.debug('%s applocal %r', niceaddr, applocal)
+        # if applocal:
+        #     logger.debug('%s applocal %r', niceaddr, applocal)
         if args.asset and not has_asset:
             continue
         if i2a_checker:
