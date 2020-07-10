@@ -177,24 +177,25 @@ def indexerAccountTxns(rooturl, addr, minround=None, maxround=None):
         query['rh'] = txns[-1]['r'] - 1
 
 def assetEquality(indexer, algod):
-    ta = dict(algod)
+    #ta = dict(algod)
     errs = []
+    #ibyaid = {r['asset-id']:r for r in indexer}
+    abyaid = {r['asset-id']:r for r in algod}
     for assetrec in indexer:
         assetid = assetrec['asset-id']
-        #assetid = int(assetidstr)
-        iv = rec.get('a', 0)
-        arec = ta.pop(assetid, None)
+        iv = assetrec.get('amount', 0)
+        arec = abyaid.pop(assetid, None)
         if arec is None:
             if iv == 0:
                 pass # ok
             else:
                 errs.append('asset={!r} indexer had {!r} but algod None'.format(assetid, rec))
         else:
-            av = arec.get('a', 0)
+            av = arec.get('amount', 0)
             if av != iv:
                 errs.append('asset={!r} indexer {!r} != algod {!r}'.format(assetid, rec, arec))
-    for assetid, arec in ta.items():
-        av = arec.get('a', 0)
+    for assetid, arec in abyaid.items():
+        av = arec.get('amount', 0)
         if av != 0:
             errs.append('asset={!r} indexer had None but algod {!r}'.format(assetid, arec))
     if not errs:
@@ -246,22 +247,22 @@ class CheckContext:
                 else:
                     allzero = True
                     nonzero = []
-                    for assetid, rec in i2assets.items():
-                        if rec.get('a', 0) != 0:
-                            nonzero.append( (assetid, rec) )
+                    for assetrec in i2assets:
+                        if assetrec.get('amount', 0) != 0:
+                            nonzero.append(assetrec)
                             allzero = False
                     if not allzero:
                         ok = False
-                        emsg = '{} indexer has assets but not algod: {!r}\n'.format(niceaddr, i2assets)
+                        emsg = '{} indexer has assets but not algod: {!r}\n'.format(niceaddr, nonzero)
                         err.write(emsg)
                         errors.append(emsg)
             elif assets:
                 allzero = True
                 nonzero = []
-                for assetidstr, assetdata in assets.items():
-                    if assetdata.get('a',0) != 0:
+                for assetrec in assets.items():
+                    if assetrec.get('amount',0) != 0:
                         allzero = False
-                        nonzero.append( (assetidstr, assetdata) )
+                        nonzero.append(assetrec)
                 if not allzero:
                     ok = False
                     emsg = '{} algod has assets but not indexer: {!r}\n'.format(niceaddr, nonzero)
@@ -291,6 +292,29 @@ class CheckContext:
 # data/basics/userBalance.go AccountData
 # "onl":uint Status
 # "algo":uint64 MicroAlgos
+
+
+
+def tvToApiTv(tv):
+    tt = tv[b'tt']
+    if tt == 1: # bytes
+        return {'type':tt, 'bytes':tv[b'tb']}
+    return {'type':tt, 'uint':tv[b'ui']}
+
+# convert from msgpack TealKeyValue to api TealKeyValueStore
+def tkvToTkvs(tkv):
+    if not tkv:
+        return None
+    return [{'key':k,'value':tvToApiTv(v)} for k,v in tkv.items()]
+
+# msgpack to api
+def schemaDecode(sch):
+    if sch is None:
+        return None
+    return {
+        'num-uint':sch.get(b'nui'),
+        'num-byte-slice':sch.get(b'nbs'),
+    }
 
 def check_from_sqlite(args):
     genesispath = args.genesis or os.path.join(os.path.dirname(os.path.dirname(args.dbfile)), 'genesis.json')
@@ -323,19 +347,63 @@ def check_from_sqlite(args):
         count += 1
         rewardsbase = adata.get(b'ebase', 0)
         microalgos = adata[b'algo']
-        assets = adata.get(b'asset')
-        has_asset = False
         algosum += microalgos
-        if assets:
-            assets = unmsgpack(assets)
-        appparams = adata.get(b'appp')
-        # if appparams:
-        #     logger.debug('%s appparams %r', niceaddr, appparams)
-        applocal = adata.get(b'appl')
-        # if applocal:
-        #     logger.debug('%s applocal %r', niceaddr, applocal)
-        if args.asset and not has_asset:
-            continue
+        rawassetholdingmap = adata.get(b'asset')
+        if rawassetholdingmap:
+            assets = []
+            for assetid, rawassetholding in rawassetholdingmap.items():
+                apiholding = {
+                    'asset-id':assetid,
+                    'amount':rawassetholding.get(b'a', 0),
+                    'is-frozen':rawassetholding.get(b'b', False),
+                }
+                assets.append(apiholding)
+        else:
+            assets = None
+        rawAssetParams = adata.get(b'apar')
+        if rawAssetParams:
+            assetp = []
+            for assetid, ap in rawAssetParams.items():
+                appparams.append({
+                    'clawback':ap.get(b'c'),
+                    'creator':niceaddr,
+                    'decimals':ap.get(b'dc',0),
+                    'default-frozen':ap.get(b'df',False),
+                    'freeze':ap.get(b'f'),
+                    'manager':ap.get(b'm'),
+                    'metadata-hash':ap.get(b'am'),
+                    'name':ap.get(b'an'),
+                    'reserve':ap.get(b'r'),
+                    'total':ap.get(b't', 0),
+                    'unit-name':ap.get(b'un'),
+                    'url':ap.get(b'au'),
+                })
+        else:
+            assetp = None
+        rawappparams = adata.get(b'appp',{})
+        appparams = []
+        for appid, ap in rawappparams.items():
+            appparams.append({
+                'id':appid,
+                'params':{
+                    'approval-program':ap.get(b'approv'),
+                    'clear-state-program':ap.get(b'clearp'),
+                    'creator':niceaddr,
+                    'global-state':tkvToTkvs(ap.get(b'gs')),
+                    'global-state-schema':schemaDecode(ap.get(b'gsch')),
+                    'local-state-schema':schemaDecode(ap.get(b'lsch')),
+                },
+            })
+        rawapplocal = adata.get(b'appl',{})
+        applocal = []
+        for appid, als in rawapplocal.items():
+            applocal.append({
+                'id':appid,
+                'state':{
+                    'schema':schemaDecode(ap.get(b'hsch')),
+                    'key-value':tkvToTkvs(ap.get(b'tkv')),
+                },
+            })
         if i2a_checker:
             i2a_checker.check(address, niceaddr, microalgos, assets, appparams, applocal)
         if args.limit and count > args.limit:
