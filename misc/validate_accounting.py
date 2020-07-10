@@ -90,22 +90,6 @@ def getAccountsPage(pageurl, accounts):
         batchcount += 1
         some = True
         addr = acct['address']
-        # microalgos = acct['amount-without-pending-rewards']
-        # av = {"algo":microalgos}
-        # assets = {}
-        # for assetrec in acct.get('assets', []):
-        #     assetid = assetrec['asset-id']
-        #     assetamount = assetrec.get('amount', 0)
-        #     assetfrozen = assetrec.get('is-frozen', False)
-        #     assets[str(assetid)] = {"a":assetamount,"f":assetfrozen}
-        # if assets:
-        #     av['asset'] = assets
-        # apps = acct.get('created-apps')
-        # if apps:
-        #     av['apps'] = {a['id']:a['params'] for a in apps}
-        # las = acct.get('apps-local-state')
-        # if las:
-        #     av['las'] = {a['id']:a['state'] for a in las}
         rawaddr = algosdk.encoding.decode_address(addr)
         accounts[rawaddr] = acct#av
         gtaddr = addr
@@ -202,6 +186,45 @@ def assetEquality(indexer, algod):
         return None
     return ', '.join(errs)
 
+def deepeq(a, b):
+    if a is None:
+        if not bool(b):
+            return True
+    if b is None:
+        if not bool(a):
+            return True
+    if isinstance(a, dict):
+        if not isinstance(b, dict):
+            return False
+        for k,av in a.items():
+            if not deepeq(av, b.get(k)):
+                return False
+        return True
+    if isinstance(a, list):
+        if not isinstance(b, list):
+            return False
+        if len(a) != len(b):
+            return False
+        for va,vb in zip(a,b):
+            if not deepeq(va,vb):
+                return False
+        return True
+    return a == b
+
+
+# CheckContext error collector
+class ccerr:
+    def __init__(self, errout):
+        self.err = errout
+        self.errors = []
+        self.ok = True
+    def __call__(self, msg):
+        if not msg:
+            return
+        self.err.write(msg)
+        self.errors.append(msg)
+        self.ok = False
+
 class CheckContext:
     def __init__(self, accounts, err):
         # accounts from indexer
@@ -214,36 +237,28 @@ class CheckContext:
 
     def check(self, address, niceaddr, microalgos, assets, appparams, applocal):
         # check data from sql or algod vs indexer
-        err = self.err
         i2v = self.accounts.pop(address, None)
-        errors = []
         if i2v is None:
             self.neq += 1
-            err.write('{} not in indexer\n'.format(niceaddr))
+            self.err.write('{} not in indexer\n'.format(niceaddr))
         else:
-            ok = True
+            xe = ccerr(self.err)
             indexerAlgos = i2v['amount-without-pending-rewards']
             if indexerAlgos == microalgos:
                 pass # still ok
             else:
-                ok = False
                 emsg = 'algod v={} i2 v={}'.format(microalgos, indexerAlgos)
                 if address == reward_addr:
                     emsg += ' Rewards account'
                 elif address == fee_addr:
                     emsg += ' Fee account'
-                err.write('{} {}\n'.format(niceaddr, emsg))
-                errors.append(emsg)
-            if appparams or applocal:
-                logger.debug('inedxer acct keys %r', i2v.keys())
+                xe(emsg)
             i2assets = i2v.get('assets')
             if i2assets:
                 if assets:
                     emsg = assetEquality(i2assets, assets)
                     if emsg:
-                        err.write('{} {}\n'.format(niceaddr, emsg))
-                        errors.append(emsg)
-                        ok = False
+                        xe('{} {}\n'.format(niceaddr, emsg))
                 else:
                     allzero = True
                     nonzero = []
@@ -252,10 +267,7 @@ class CheckContext:
                             nonzero.append(assetrec)
                             allzero = False
                     if not allzero:
-                        ok = False
-                        emsg = '{} indexer has assets but not algod: {!r}\n'.format(niceaddr, nonzero)
-                        err.write(emsg)
-                        errors.append(emsg)
+                        ex('{} indexer has assets but not algod: {!r}\n'.format(niceaddr, nonzero))
             elif assets:
                 allzero = True
                 nonzero = []
@@ -264,15 +276,24 @@ class CheckContext:
                         allzero = False
                         nonzero.append(assetrec)
                 if not allzero:
-                    ok = False
                     emsg = '{} algod has assets but not indexer: {!r}\n'.format(niceaddr, nonzero)
-                    err.write(emsg)
-                    errors.append(emsg)
-            if ok:
+                    xe(emsg)
+            i2apar = i2v.get('created-apps')
+            if appparams:
+                if i2apar:
+                    if not deepeq(i2apar, appparams):
+                        xe('{} indexer and algod disagree on created app indexer={!r} algod={!r}\n'.format(niceaddr, i2apar, appparams))
+                else:
+                    xe('{} algod has apar but not indexer: {!r}\n'.format(niceaddr, appparams))
+            elif i2apar:
+                xe('{} indexer has apar but not algod: {!r}\n'.format(niceaddr, i2apar))
+            # TODO: applocal
+            if xe.ok:
                 self.match += 1
             else:
+                self.err.write('{} indexer {!r}\n'.format(niceaddr, sorted(i2v.keys())))
                 self.neq += 1
-                self.mismatches.append( (address, '\n'.join(errors)) )
+                self.mismatches.append( (address, '\n'.join(xe.errors)) )
 
     def summary(self):
         for addr, i2v in self.accounts.items():
@@ -343,7 +364,7 @@ def check_from_sqlite(args):
         if acctset and niceaddr not in acctset:
             continue
         adata = mloads(data)
-        logger.debug('%s %r', niceaddr, sorted(adata.keys()))
+        logger.debug('%s algod %r', niceaddr, sorted(adata.keys()))
         count += 1
         rewardsbase = adata.get(b'ebase', 0)
         microalgos = adata[b'algo']
