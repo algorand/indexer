@@ -3,6 +3,11 @@
 
 The Indexer is a standalone service reads committed blocks from the Algorand blockchain and maintains a database of transactions and accounts that are searchable and indexed.
 
+# Minimum Version Requirements
+
+* go 1.13
+* Postgres 11
+
 # Quickstart
 
 We prepared a docker compose file to bring up indexer and postgres preloaded with some data. From the root directory run:
