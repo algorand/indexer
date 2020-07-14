@@ -499,10 +499,7 @@ def check_from_algod(args):
     for address in i2a.keys():
         niceaddr = algosdk.encoding.encode_address(address)
         rawad.append(algod.account_info(niceaddr))
-    #logger.debug('ad %r', rawad[:5])
-    #raise Exception("TODO")
     for ad in rawad:
-        logger.debug('ad %r', ad)
         niceaddr = ad['address']
         round = ad['round']
         if round != lastround:
@@ -511,8 +508,6 @@ def check_from_algod(args):
             i2a.update(na)
         microalgos = ad['amount-without-pending-rewards']
         xa = ad.get('assets') or []
-        #for assetidstr, assetdata in ad.get('assets',{}).items():
-        #    xa[int(assetidstr)] = assetdata#{'a':assetdata.get('amount', 0), 'f': assetdata.get('frozen', False)}
         address = algosdk.encoding.decode_address(niceaddr)
         i2a_checker.check(address, niceaddr, microalgos, xa, ad.get('created-apps'), ad.get('apps-local-state'))
     return lastround, i2a_checker
@@ -555,14 +550,13 @@ def main():
         i2a_checker.summary()
         logger.info('txns...')
         mismatches = i2a_checker.mismatches
-        if mismatches:
-            retval = 1
         if args.mismatches and len(mismatches) > args.mismatches:
             mismatches = mismatches[:args.mismatches]
         for addr, msg in mismatches:
             if addr in (reward_addr, fee_addr):
                 # we know accounting for the special addrs is different
                 continue
+            retval = 1
             niceaddr = algosdk.encoding.encode_address(addr)
             xaddr = base64.b16encode(addr).decode().lower()
             err.write('\n{} \'\\x{}\'\n\t{}\n'.format(niceaddr, xaddr, msg))
