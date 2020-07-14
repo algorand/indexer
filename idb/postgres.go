@@ -325,7 +325,7 @@ const txnQueryBatchSize = 20000
 var yieldTxnQuery string
 
 func init() {
-	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, t.extra, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE t.round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
+	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE t.round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
 }
 
 func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {
@@ -336,6 +336,7 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 		intras := make([]int, txnQueryBatchSize)
 		txnbytess := make([][]byte, txnQueryBatchSize)
 		extrajsons := make([][]byte, txnQueryBatchSize)
+		creatableids := make([]int64, txnQueryBatchSize)
 		roundtimes := make([]time.Time, txnQueryBatchSize)
 		pos := 0
 		// read from db
@@ -344,8 +345,9 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 			var intra int
 			var txnbytes []byte
 			var extrajson []byte
+			var creatableid int64
 			var roundtime time.Time
-			err := rows.Scan(&round, &intra, &txnbytes, &extrajson, &roundtime)
+			err := rows.Scan(&round, &intra, &txnbytes, &extrajson, &creatableid, &roundtime)
 			if err != nil {
 				var row TxnRow
 				row.Error = err
@@ -358,6 +360,7 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 				intras[pos] = intra
 				txnbytess[pos] = txnbytes
 				extrajsons[pos] = extrajson
+				creatableids[pos] = creatableid
 				roundtimes[pos] = roundtime
 				pos++
 			}
@@ -387,6 +390,7 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 			row.RoundTime = roundtimes[i]
 			row.Intra = intras[i]
 			row.TxnBytes = txnbytess[i]
+			row.AssetId = uint64(creatableids[i])
 			if len(extrajsons[i]) > 0 {
 				err := json.Decode(extrajsons[i], &row.Extra)
 				if err != nil {
@@ -484,32 +488,32 @@ func (tv TealValue) toModel() models.TealValue {
 	case TealUintType:
 		return models.TealValue{Uint: tv.Uint, Type: uint64(tv.Type)}
 	case TealBytesType:
-		return models.TealValue{Bytes: string(tv.Bytes), Type: uint64(tv.Type)}
+		return models.TealValue{Bytes: b64(tv.Bytes), Type: uint64(tv.Type)}
 	}
 	return models.TealValue{}
 }
 
 type KeyTealValue struct {
-	Key []byte
-	Tv  TealValue
+	Key []byte    `codec:"k"`
+	Tv  TealValue `codec:"v"`
 }
 
 type TealKeyValue struct {
-	they []KeyTealValue
+	They []KeyTealValue
 }
 
 func (tkv TealKeyValue) toModel() models.TealKeyValueStore {
-	out := make([]models.TealKeyValue, len(tkv.they))
+	out := make([]models.TealKeyValue, len(tkv.They))
 	pos := 0
-	for _, ktv := range tkv.they {
-		out[pos].Key = string(ktv.Key)
+	for _, ktv := range tkv.They {
+		out[pos].Key = b64(ktv.Key)
 		out[pos].Value = ktv.Tv.toModel()
 		pos++
 	}
 	return out
 }
 func (tkv TealKeyValue) get(key []byte) (TealValue, bool) {
-	for _, ktv := range tkv.they {
+	for _, ktv := range tkv.They {
 		if bytes.Equal(ktv.Key, key) {
 			return ktv.Tv, true
 		}
@@ -517,25 +521,32 @@ func (tkv TealKeyValue) get(key []byte) (TealValue, bool) {
 	return TealValue{}, false
 }
 func (tkv *TealKeyValue) put(key []byte, tv TealValue) {
-	for i, ktv := range tkv.they {
+	for i, ktv := range tkv.They {
 		if bytes.Equal(ktv.Key, key) {
-			tkv.they[i].Tv = tv
+			tkv.They[i].Tv = tv
 			return
 		}
 	}
-	tkv.they = append(tkv.they, KeyTealValue{Key: key, Tv: tv})
+	tkv.They = append(tkv.They, KeyTealValue{Key: key, Tv: tv})
 }
 func (tkv *TealKeyValue) delete(key []byte) {
-	for i, ktv := range tkv.they {
+	for i, ktv := range tkv.They {
 		if bytes.Equal(ktv.Key, key) {
-			last := len(tkv.they) - 1
+			last := len(tkv.They) - 1
 			if i < last {
-				tkv.they[i] = tkv.they[last]
-				tkv.they = tkv.they[:last]
+				tkv.They[i] = tkv.They[last]
+				tkv.They = tkv.They[:last]
 				return
 			}
 		}
 	}
+}
+
+func (tkv TealKeyValue) MarshalJSON() ([]byte, error) {
+	return json.Encode(tkv.They), nil
+}
+func (tkv *TealKeyValue) UnmarshalJSON(data []byte) error {
+	return json.Decode(data, &tkv.They)
 }
 
 // like go-algorand data/basics/userBalance.go AppParams{}
@@ -848,6 +859,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		// reverseDeltas for txnupglobal below: [][json, round, intra]
 		reverseDeltas := make([][]interface{}, 0, len(updates.AppGlobalDeltas))
 		for _, adelta := range updates.AppGlobalDeltas {
+			fmt.Printf("appglobal %s\n", adelta.String())
 			state, ok := dirty[uint64(adelta.AppIndex)]
 			if !ok {
 				row := getglobal.QueryRow(adelta.AppIndex)
@@ -883,6 +895,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 				// 	state.GlobalState = make(map[string]TealValue)
 				// }
 				err = apply(&state.GlobalState, []byte(key), vd, &reverseDelta)
+				fmt.Printf("appglobal i %d:%d %s\n", adelta.Round, adelta.Intra, string(JsonOneLine(state)))
 				if err != nil {
 					return fmt.Errorf("app delta apply err r=%d i=%d app=%d, %v", adelta.Round, adelta.Intra, adelta.AppIndex, err)
 				}
@@ -902,6 +915,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 		defer txnupglobal.Close()
 		for _, rd := range reverseDeltas {
+			fmt.Printf("appglobal rd %d:%d %s\n", rd[1], rd[2], string(rd[0].([]byte)))
 			_, err = txnupglobal.Exec(rd...)
 			if err != nil {
 				fmt.Println(string(rd[0].([]byte)))
@@ -917,6 +931,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		for appid, params := range dirty {
 			creator := appCreators[appid]
 			paramjson := json.Encode(params)
+			fmt.Printf("appglobal apply app=%d %s\n", appid, string(paramjson))
 			_, err = putglobal.Exec(appid, creator, paramjson)
 			if err != nil {
 				return fmt.Errorf("app global put pj=%v, %v", string(paramjson), err)
@@ -933,6 +948,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		// reverseDeltas for txnuplocal below: [][json, round, intra]
 		reverseDeltas := make([][]interface{}, 0, len(updates.AppLocalDeltas))
 		for _, ald := range updates.AppLocalDeltas {
+			fmt.Printf("applocal %s\n", ald.String())
 			localstate, err := db.gitDirtyAppLocalState(ald.Address, ald.AppIndex, dirty, getlocal)
 			if err != nil {
 				return err

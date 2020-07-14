@@ -18,6 +18,7 @@ import urllib.parse
 
 #import msgpack
 import algosdk
+from algosdk.v2client.algod import AlgodClient
 
 from util import maybedecode, mloads, unmsgpack
 
@@ -165,6 +166,7 @@ def assetEquality(indexer, algod):
     errs = []
     #ibyaid = {r['asset-id']:r for r in indexer}
     abyaid = {r['asset-id']:r for r in algod}
+    logger.debug('asset eq? i=%r a=%r', indexer, algod)
     for assetrec in indexer:
         assetid = assetrec['asset-id']
         iv = assetrec.get('amount', 0)
@@ -186,7 +188,7 @@ def assetEquality(indexer, algod):
         return None
     return ', '.join(errs)
 
-def deepeq(a, b):
+def deepeq(a, b, path=None):
     if a is None:
         if not bool(b):
             return True
@@ -267,7 +269,7 @@ class CheckContext:
                             nonzero.append(assetrec)
                             allzero = False
                     if not allzero:
-                        ex('{} indexer has assets but not algod: {!r}\n'.format(niceaddr, nonzero))
+                        xe('{} indexer has assets but not algod: {!r}\n'.format(niceaddr, nonzero))
             elif assets:
                 allzero = True
                 nonzero = []
@@ -282,7 +284,7 @@ class CheckContext:
             if appparams:
                 if i2apar:
                     if not deepeq(i2apar, appparams):
-                        xe('{} indexer and algod disagree on created app indexer={!r} algod={!r}\n'.format(niceaddr, i2apar, appparams))
+                        xe('{} indexer and algod disagree on created app indexer={} algod={}\n'.format(niceaddr, json_pp(i2apar), json_pp(appparams)))
                 else:
                     xe('{} algod has apar but not indexer: {!r}\n'.format(niceaddr, appparams))
             elif i2apar:
@@ -315,6 +317,21 @@ class CheckContext:
 # "algo":uint64 MicroAlgos
 
 
+def jsonable(x):
+    if x is None:
+        return x
+    if isinstance(x, dict):
+        return {jsonable(k):jsonable(v) for k,v in x.items()}
+    if isinstance(x, list):
+        return [jsonable(e) for e in x]
+    if isinstance(x, bytes):
+        return base64.b64encode(x).decode()
+    return x
+
+
+def json_pp(x):
+    return json.dumps(jsonable(x), indent=2, sort_keys=True)
+
 
 def tvToApiTv(tv):
     tt = tv[b'tt']
@@ -333,8 +350,8 @@ def schemaDecode(sch):
     if sch is None:
         return None
     return {
-        'num-uint':sch.get(b'nui'),
-        'num-byte-slice':sch.get(b'nbs'),
+        'num-uint':sch.get(b'nui',0),
+        'num-byte-slice':sch.get(b'nbs',0),
     }
 
 def check_from_sqlite(args):
@@ -407,8 +424,8 @@ def check_from_sqlite(args):
             appparams.append({
                 'id':appid,
                 'params':{
-                    'approval-program':ap.get(b'approv'),
-                    'clear-state-program':ap.get(b'clearp'),
+                    'approval-program':maybeb64(ap.get(b'approv')),
+                    'clear-state-program':maybeb64(ap.get(b'clearp')),
                     'creator':niceaddr,
                     'global-state':tkvToTkvs(ap.get(b'gs')),
                     'global-state-schema':schemaDecode(ap.get(b'gsch')),
@@ -431,6 +448,11 @@ def check_from_sqlite(args):
             break
     return tracker_round, i2a_checker
 
+def maybeb64(x):
+    if x:
+        return base64.b64encode(x).decode()
+    return x
+
 def token_addr_from_algod(algorand_data):
     addr = open(os.path.join(algorand_data, 'algod.net'), 'rt').read().strip()
     if not addr.startswith('http'):
@@ -441,9 +463,10 @@ def token_addr_from_algod(algorand_data):
 def check_from_algod(args):
     getGenesisVars(os.path.join(args.algod, 'genesis.json'))
     token, addr = token_addr_from_algod(args.algod)
-    algod = algosdk.algod.AlgodClient(token, addr)
+    algod = AlgodClient(token, addr)
     status = algod.status()
-    lastround = status['lastRound']
+    #logger.debug('status %r', status)
+    lastround = status['last-round']
     if args.indexer:
         i2a = indexerAccounts(args.indexer, blockround=lastround)
         i2a_checker = CheckContext(i2a, sys.stderr)
@@ -454,24 +477,22 @@ def check_from_algod(args):
     for address in i2a.keys():
         niceaddr = algosdk.encoding.encode_address(address)
         rawad.append(algod.account_info(niceaddr))
-    logger.debug('ad %r', rawad[:5])
+    #logger.debug('ad %r', rawad[:5])
     #raise Exception("TODO")
     for ad in rawad:
-        #logger.debug('ad %r', ad)
+        logger.debug('ad %r', ad)
         niceaddr = ad['address']
         round = ad['round']
         if round != lastround:
             # re fetch indexer account at round algod got it at
             na = indexerAccounts(args.indexer, blockround=round, addrlist=[niceaddr])
             i2a.update(na)
-        microalgos = ad['amountwithoutpendingrewards']
-        #values = {"algo": microalgos}
-        xa = {}
-        for assetidstr, assetdata in ad.get('assets',{}).items():
-            #values[assetidstr] = assetdata.get('amount', 0)
-            xa[int(assetidstr)] = {'a':assetdata.get('amount', 0), 'f': assetdata.get('frozen', False)}
+        microalgos = ad['amount-without-pending-rewards']
+        xa = ad.get('assets') or []
+        #for assetidstr, assetdata in ad.get('assets',{}).items():
+        #    xa[int(assetidstr)] = assetdata#{'a':assetdata.get('amount', 0), 'f': assetdata.get('frozen', False)}
         address = algosdk.encoding.decode_address(niceaddr)
-        i2a_checker.check(address, niceaddr, microalgos, xa)
+        i2a_checker.check(address, niceaddr, microalgos, xa, ad.get('created-apps'), ad.get('apps-local-state'))
     return lastround, i2a_checker
 
 def main():
@@ -507,10 +528,13 @@ def main():
         tracker_round, i2a_checker = check_from_algod(args)
     else:
         raise Exception("need to check from algod sqlite or running algod")
+    retval = 0
     if i2a_checker:
         i2a_checker.summary()
         logger.info('txns...')
         mismatches = i2a_checker.mismatches
+        if mismatches:
+            retval = 1
         if args.mismatches and len(mismatches) > args.mismatches:
             mismatches = mismatches[:args.mismatches]
         for addr, msg in mismatches:
@@ -562,8 +586,8 @@ def main():
                 err.write(' '.join(parts) + '\n')
             if tmore:
                 err.write('... and {} more\n'.format(tmore))
-    return
+    return retval
 
 
 if __name__ == '__main__':
-    main()
+    sys.exit(main())

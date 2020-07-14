@@ -3,10 +3,12 @@ package idb
 import (
 	"bytes"
 	"context"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	atypes "github.com/algorand/go-algorand-sdk/types"
@@ -427,6 +429,30 @@ type AppDelta struct {
 	GlobalStateSchema atypes.StateSchema `codec:"gsch"`
 }
 
+func (ad AppDelta) String() string {
+	parts := make([]string, 0, 10)
+	if len(ad.Address) > 0 {
+		parts = append(parts, b32np(ad.Address))
+	}
+	parts = append(parts, fmt.Sprintf("%d:%d app=%d", ad.Round, ad.Intra, ad.AppIndex))
+	if len(ad.Creator) > 0 {
+		parts = append(parts, "creator", b32np(ad.Creator))
+	}
+	ds := ""
+	if ad.Delta != nil {
+		ds = string(JsonOneLine(ad.Delta))
+	}
+	parts = append(parts, fmt.Sprintf("ai=%d oc=%v d=%s", ad.AddrIndex, ad.OnCompletion, ds))
+	if len(ad.ApprovalProgram) > 0 {
+		parts = append(parts, fmt.Sprintf("ap prog=%d bytes", len(ad.ApprovalProgram)))
+	}
+	if len(ad.ClearStateProgram) > 0 {
+		parts = append(parts, fmt.Sprintf("cs prog=%d bytes", len(ad.ClearStateProgram)))
+	}
+
+	return strings.Join(parts, " ")
+}
+
 type StateDelta struct {
 	Key   []byte
 	Delta types.ValueDelta
@@ -450,4 +476,9 @@ func (ard *AppReverseDelta) SetDelta(key []byte, delta types.ValueDelta) {
 		}
 	}
 	ard.Delta = append(ard.Delta, StateDelta{Key: key, Delta: delta})
+}
+
+// base32 no padding
+func b32np(data []byte) string {
+	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(data)
 }

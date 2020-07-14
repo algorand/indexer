@@ -195,7 +195,10 @@ func blankLsig(lsig atypes.LogicSig) bool {
 	return len(lsig.Logic) == 0
 }
 
-func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnbytes []byte) (err error) {
+func (accounting *AccountingState) AddTransaction(txnr *idb.TxnRow) (err error) {
+	round := txnr.Round
+	intra := txnr.Intra
+	txnbytes := txnr.TxnBytes
 	var stxn types.SignedTxnWithAD
 	err = msgpack.Decode(txnbytes, &stxn)
 	if err != nil {
@@ -288,13 +291,7 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 	} else if stxn.Txn.Type == "acfg" {
 		assetId := uint64(stxn.Txn.ConfigAsset)
 		if assetId == 0 {
-			// create an asset
-			txnCounter, err := accounting.getTxnCounter(round - 1)
-			if err != nil {
-				return fmt.Errorf("acfg get TxnCounter round %d, %v", round, err)
-			}
-			assetId = txnCounter + uint64(intra) + 1
-			accounting.updateTxnAsset(round, intra, assetId)
+			assetId = txnr.AssetId
 		}
 		if stxn.Txn.AssetParams.IsZero() {
 			accounting.destroyAsset(assetId)
@@ -327,9 +324,14 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 		accounting.freezeAsset(stxn.Txn.FreezeAccount, uint64(stxn.Txn.FreezeAsset), stxn.Txn.AssetFrozen)
 	} else if stxn.Txn.Type == "appl" {
 		hasGlobal := (len(stxn.EvalDelta.GlobalDelta) > 0) || (len(stxn.Txn.ApprovalProgram) > 0) || (len(stxn.Txn.ClearStateProgram) > 0)
+		appid := uint64(stxn.Txn.ApplicationID)
+		if appid == 0 {
+			// creation
+			appid = txnr.AssetId
+		}
 		if hasGlobal {
 			agd := idb.AppDelta{
-				AppIndex: int64(stxn.Txn.ApplicationID),
+				AppIndex: int64(appid),
 				Round:    round,
 				Intra:    intra,
 				//Address:           nil,
@@ -344,6 +346,7 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 				// app creation
 				agd.Creator = stxn.Txn.Sender[:]
 			}
+			fmt.Printf("agset %d %s\n", appid, agd.String())
 			accounting.AppGlobalDeltas = append(
 				accounting.AppGlobalDeltas,
 				agd,
@@ -359,7 +362,7 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 			accounting.AppLocalDeltas = append(
 				accounting.AppLocalDeltas,
 				idb.AppDelta{
-					AppIndex:     int64(stxn.Txn.ApplicationID),
+					AppIndex:     int64(appid),
 					Round:        round,
 					Intra:        intra,
 					Address:      addr,
@@ -374,8 +377,10 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 			accounting.AppLocalDeltas = append(
 				accounting.AppLocalDeltas,
 				idb.AppDelta{
-					AppIndex:     int64(stxn.Txn.ApplicationID),
+					AppIndex:     int64(appid),
 					Address:      stxn.Txn.Sender[:],
+					Round:        round,
+					Intra:        intra,
 					OnCompletion: stxn.Txn.OnCompletion,
 				},
 			)

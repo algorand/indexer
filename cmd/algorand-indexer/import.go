@@ -181,7 +181,7 @@ func updateAccounting(db idb.IndexerDb) (rounds, txnCount int) {
 				lastRoundsSeen = roundsSeen
 			}
 		}
-		err = act.AddTransaction(txn.Round, txn.Intra, txn.TxnBytes)
+		err = act.AddTransaction(&txn) //.Round, txn.Intra, txn.TxnBytes)
 		maybeFail(err, "txn accounting r=%d i=%d, %v\n", txn.Round, txn.Intra, err)
 		txnCount++
 	}
