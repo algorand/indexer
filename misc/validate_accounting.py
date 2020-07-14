@@ -188,7 +188,7 @@ def assetEquality(indexer, algod):
         return None
     return ', '.join(errs)
 
-def deepeq(a, b, path=None):
+def deepeq(a, b, path=None, msg=None):
     if a is None:
         if not bool(b):
             return True
@@ -199,7 +199,13 @@ def deepeq(a, b, path=None):
         if not isinstance(b, dict):
             return False
         for k,av in a.items():
-            if not deepeq(av, b.get(k)):
+            if path is not None and msg is not None:
+                subpath = path + (k,)
+            else:
+                subpath = None
+            if not deepeq(av, b.get(k), subpath, msg):
+                if msg is not None:
+                    msg.append('at {!r}'.format(subpath))
                 return False
         return True
     if isinstance(a, list):
@@ -208,11 +214,24 @@ def deepeq(a, b, path=None):
         if len(a) != len(b):
             return False
         for va,vb in zip(a,b):
-            if not deepeq(va,vb):
+            if not deepeq(va,vb,path,msg):
+                if msg is not None:
+                    msg.append('{!r} != {!r}'.format(va,vb))
                 return False
         return True
     return a == b
 
+def _dap(x):
+    out = dict(x)
+    out['params'] = dict(out['params'])
+    gs = out['params'].get('global-state')
+    if gs:
+        out['params']['global-state'] = {z['key']:z['value'] for z in gs}
+    return out
+
+def dictifyAppParams(ap):
+    # make a list of app params comparable by deepeq
+    return {x['id']:_dap(x) for x in ap}
 
 # CheckContext error collector
 class ccerr:
@@ -283,8 +302,11 @@ class CheckContext:
             i2apar = i2v.get('created-apps')
             if appparams:
                 if i2apar:
-                    if not deepeq(i2apar, appparams):
-                        xe('{} indexer and algod disagree on created app indexer={} algod={}\n'.format(niceaddr, json_pp(i2apar), json_pp(appparams)))
+                    i2appById = dictifyAppParams(i2apar)
+                    algodAppById = dictifyAppParams(appparams)
+                    eqerr=[]
+                    if not deepeq(i2appById, algodAppById,(),eqerr):
+                        xe('{} indexer and algod disagree on created app, {}\nindexer={}\nalgod={}\n'.format(niceaddr, eqerr, json_pp(i2appById), json_pp(algodAppById)))
                 else:
                     xe('{} algod has apar but not indexer: {!r}\n'.format(niceaddr, appparams))
             elif i2apar:
@@ -321,7 +343,7 @@ def jsonable(x):
     if x is None:
         return x
     if isinstance(x, dict):
-        return {jsonable(k):jsonable(v) for k,v in x.items()}
+        return {str(jsonable(k)):jsonable(v) for k,v in x.items()}
     if isinstance(x, list):
         return [jsonable(e) for e in x]
     if isinstance(x, bytes):

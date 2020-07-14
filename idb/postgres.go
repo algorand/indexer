@@ -452,6 +452,13 @@ type StateSchema struct {
 	NumByteSlice uint64 `codec:"nbs"`
 }
 
+func (ss *StateSchema) fromBlock(x atypes.StateSchema) {
+	if x.NumUint != 0 || x.NumByteSlice != 0 {
+		ss.NumUint = x.NumUint
+		ss.NumByteSlice = x.NumByteSlice
+	}
+}
+
 type TealType uint64
 type TealValue struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
@@ -488,7 +495,7 @@ func (tv TealValue) toModel() models.TealValue {
 	case TealUintType:
 		return models.TealValue{Uint: tv.Uint, Type: uint64(tv.Type)}
 	case TealBytesType:
-		return models.TealValue{Bytes: b64(tv.Bytes), Type: uint64(tv.Type)}
+		return models.TealValue{Bytes: string(tv.Bytes), Type: uint64(tv.Type)}
 	}
 	return models.TealValue{}
 }
@@ -506,7 +513,7 @@ func (tkv TealKeyValue) toModel() models.TealKeyValueStore {
 	out := make([]models.TealKeyValue, len(tkv.They))
 	pos := 0
 	for _, ktv := range tkv.They {
-		out[pos].Key = b64(ktv.Key)
+		out[pos].Key = string(ktv.Key)
 		out[pos].Value = ktv.Tv.toModel()
 		pos++
 	}
@@ -866,10 +873,12 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 				var paramsjson []byte
 				err = row.Scan(&paramsjson)
 				if err == sql.ErrNoRows {
+					fmt.Printf("appglobal app=%d no prev\n", adelta.AppIndex)
 					// no prior data, empty state
 				} else if err != nil {
 					return fmt.Errorf("app[%d] global get, %v", adelta.AppIndex, err)
 				} else {
+					fmt.Printf("appglobal app=%d prev=%s\n", adelta.AppIndex, string(paramsjson))
 					err = json.Decode(paramsjson, &state)
 					if err != nil {
 						return fmt.Errorf("app[%d] global get json, %v", adelta.AppIndex, err)
@@ -890,6 +899,8 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 				reverseDelta.ClearStateProgram = state.ClearStateProgram
 				state.ClearStateProgram = adelta.ClearStateProgram
 			}
+			state.GlobalStateSchema.fromBlock(adelta.GlobalStateSchema)
+			state.LocalStateSchema.fromBlock(adelta.LocalStateSchema)
 			for key, vd := range adelta.Delta {
 				// if state.GlobalState == nil {
 				// 	state.GlobalState = make(map[string]TealValue)
