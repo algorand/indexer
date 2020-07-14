@@ -912,6 +912,11 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 				}
 			}
 			reverseDeltas = append(reverseDeltas, []interface{}{json.Encode(reverseDelta), adelta.Round, adelta.Intra})
+			if adelta.OnCompletion == atypes.DeleteApplicationOC {
+				// clear content but leave row recording that it existed
+				fmt.Printf("app=%d delete\n", adelta.AppIndex)
+				state = AppParams{}
+			}
 			dirty[uint64(adelta.AppIndex)] = state
 			if adelta.Creator != nil {
 				appCreators[uint64(adelta.AppIndex)] = adelta.Creator
@@ -1606,21 +1611,30 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 			}
 
 			aout := make([]models.Application, len(appIds))
+			outpos := 0
 			for i, appid := range appIds {
-				aout[i].Id = appid
-				aout[i].Params.ApprovalProgram = apps[i].ApprovalProgram
-				aout[i].Params.ClearStateProgram = apps[i].ClearStateProgram
-				aout[i].Params.Creator = &account.Address
-				aout[i].Params.GlobalState = new(models.TealKeyValueStore)
-				*(aout[i].Params.GlobalState) = apps[i].GlobalState.toModel()
-				aout[i].Params.GlobalStateSchema = &models.ApplicationStateSchema{
+				if apps[i].ApprovalProgram == nil && apps[i].ClearStateProgram == nil {
+					// app was deleted, but a record remains that it _did_ exist, skip it here
+					continue
+				}
+				aout[outpos].Id = appid
+				aout[outpos].Params.ApprovalProgram = apps[i].ApprovalProgram
+				aout[outpos].Params.ClearStateProgram = apps[i].ClearStateProgram
+				aout[outpos].Params.Creator = &account.Address
+				aout[outpos].Params.GlobalState = new(models.TealKeyValueStore)
+				*(aout[outpos].Params.GlobalState) = apps[i].GlobalState.toModel()
+				aout[outpos].Params.GlobalStateSchema = &models.ApplicationStateSchema{
 					NumByteSlice: apps[i].GlobalStateSchema.NumByteSlice,
 					NumUint:      apps[i].GlobalStateSchema.NumUint,
 				}
-				aout[i].Params.LocalStateSchema = &models.ApplicationStateSchema{
+				aout[outpos].Params.LocalStateSchema = &models.ApplicationStateSchema{
 					NumByteSlice: apps[i].LocalStateSchema.NumByteSlice,
 					NumUint:      apps[i].LocalStateSchema.NumUint,
 				}
+				outpos++
+			}
+			if outpos != len(aout) {
+				aout = aout[:outpos]
 			}
 			account.CreatedApps = &aout
 		}

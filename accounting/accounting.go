@@ -323,7 +323,7 @@ func (accounting *AccountingState) AddTransaction(txnr *idb.TxnRow) (err error) 
 	} else if stxn.Txn.Type == "afrz" {
 		accounting.freezeAsset(stxn.Txn.FreezeAccount, uint64(stxn.Txn.FreezeAsset), stxn.Txn.AssetFrozen)
 	} else if stxn.Txn.Type == "appl" {
-		hasGlobal := (len(stxn.EvalDelta.GlobalDelta) > 0) || (len(stxn.Txn.ApprovalProgram) > 0) || (len(stxn.Txn.ClearStateProgram) > 0)
+		hasGlobal := (len(stxn.EvalDelta.GlobalDelta) > 0) || (len(stxn.Txn.ApprovalProgram) > 0) || (len(stxn.Txn.ClearStateProgram) > 0) || stxn.Txn.OnCompletion == atypes.DeleteApplicationOC
 		appid := uint64(stxn.Txn.ApplicationID)
 		if appid == 0 {
 			// creation
