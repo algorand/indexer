@@ -866,19 +866,16 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		// reverseDeltas for txnupglobal below: [][json, round, intra]
 		reverseDeltas := make([][]interface{}, 0, len(updates.AppGlobalDeltas))
 		for _, adelta := range updates.AppGlobalDeltas {
-			fmt.Printf("appglobal %s\n", adelta.String())
 			state, ok := dirty[uint64(adelta.AppIndex)]
 			if !ok {
 				row := getglobal.QueryRow(adelta.AppIndex)
 				var paramsjson []byte
 				err = row.Scan(&paramsjson)
 				if err == sql.ErrNoRows {
-					fmt.Printf("appglobal app=%d no prev\n", adelta.AppIndex)
 					// no prior data, empty state
 				} else if err != nil {
 					return fmt.Errorf("app[%d] global get, %v", adelta.AppIndex, err)
 				} else {
-					fmt.Printf("appglobal app=%d prev=%s\n", adelta.AppIndex, string(paramsjson))
 					err = json.Decode(paramsjson, &state)
 					if err != nil {
 						return fmt.Errorf("app[%d] global get json, %v", adelta.AppIndex, err)
@@ -888,7 +885,6 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			// calculate reverse delta, apply delta to state, save state to dirty
 			reverseDelta := AppReverseDelta{
 
-				//Delta:        make(map[string]types.ValueDelta),
 				OnCompletion: adelta.OnCompletion,
 			}
 			if len(adelta.ApprovalProgram) > 0 {
@@ -902,11 +898,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			state.GlobalStateSchema.fromBlock(adelta.GlobalStateSchema)
 			state.LocalStateSchema.fromBlock(adelta.LocalStateSchema)
 			for key, vd := range adelta.Delta {
-				// if state.GlobalState == nil {
-				// 	state.GlobalState = make(map[string]TealValue)
-				// }
 				err = apply(&state.GlobalState, []byte(key), vd, &reverseDelta)
-				fmt.Printf("appglobal i %d:%d %s\n", adelta.Round, adelta.Intra, string(JsonOneLine(state)))
 				if err != nil {
 					return fmt.Errorf("app delta apply err r=%d i=%d app=%d, %v", adelta.Round, adelta.Intra, adelta.AppIndex, err)
 				}
@@ -914,7 +906,6 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			reverseDeltas = append(reverseDeltas, []interface{}{json.Encode(reverseDelta), adelta.Round, adelta.Intra})
 			if adelta.OnCompletion == atypes.DeleteApplicationOC {
 				// clear content but leave row recording that it existed
-				fmt.Printf("app=%d delete\n", adelta.AppIndex)
 				state = AppParams{}
 			}
 			dirty[uint64(adelta.AppIndex)] = state
@@ -931,10 +922,8 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 		defer txnupglobal.Close()
 		for _, rd := range reverseDeltas {
-			fmt.Printf("appglobal rd %d:%d %s\n", rd[1], rd[2], string(rd[0].([]byte)))
 			_, err = txnupglobal.Exec(rd...)
 			if err != nil {
-				fmt.Println(string(rd[0].([]byte)))
 				return fmt.Errorf("app global txn up, r=%d i=%d, %#v, %v", rd[1], rd[2], string(rd[0].([]byte)), err)
 			}
 		}
@@ -947,7 +936,6 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		for appid, params := range dirty {
 			creator := appCreators[appid]
 			paramjson := json.Encode(params)
-			fmt.Printf("appglobal apply app=%d %s\n", appid, string(paramjson))
 			_, err = putglobal.Exec(appid, creator, paramjson)
 			if err != nil {
 				return fmt.Errorf("app global put pj=%v, %v", string(paramjson), err)
@@ -964,17 +952,10 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		// reverseDeltas for txnuplocal below: [][json, round, intra]
 		reverseDeltas := make([][]interface{}, 0, len(updates.AppLocalDeltas))
 		for _, ald := range updates.AppLocalDeltas {
-			fmt.Printf("applocal %s\n", ald.String())
 			localstate, err := db.gitDirtyAppLocalState(ald.Address, ald.AppIndex, dirty, getlocal)
 			if err != nil {
 				return err
 			}
-			// if localstate.KeyValue == nil {
-			// 	localstate.KeyValue = make(map[string]TealValue)
-			// }
-
-			// calculate reverse delta, apply delta to state, save state to dirty
-			//reverseDelta := make(map[string]types.ValueDelta)
 			var reverseDelta AppReverseDelta
 
 			for key, vd := range ald.Delta {

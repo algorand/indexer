@@ -346,7 +346,7 @@ func (accounting *AccountingState) AddTransaction(txnr *idb.TxnRow) (err error) 
 				// app creation
 				agd.Creator = stxn.Txn.Sender[:]
 			}
-			fmt.Printf("agset %d %s\n", appid, agd.String())
+			//fmt.Printf("agset %d %s\n", appid, agd.String())
 			accounting.AppGlobalDeltas = append(
 				accounting.AppGlobalDeltas,
 				agd,
