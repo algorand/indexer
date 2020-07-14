@@ -610,7 +610,7 @@ func apply(state *TealKeyValue, key []byte, vd types.ValueDelta, reverseDelta *A
 	return nil
 }
 
-func (db *PostgresIndexerDb) gitDirtyAppLocalState(addr []byte, appIndex int64, dirty []inmemAppLocalState, getq *sql.Stmt) (localstate inmemAppLocalState, err error) {
+func (db *PostgresIndexerDb) getDirtyAppLocalState(addr []byte, appIndex int64, dirty []inmemAppLocalState, getq *sql.Stmt) (localstate inmemAppLocalState, err error) {
 	for _, v := range dirty {
 		if v.appIndex == appIndex && bytes.Equal(addr, v.address) {
 			return v, nil
@@ -951,15 +951,46 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		defer getlocal.Close()
 		// reverseDeltas for txnuplocal below: [][json, round, intra]
 		reverseDeltas := make([][]interface{}, 0, len(updates.AppLocalDeltas))
+		var droplocals [][]interface{}
+
+		getapp, err := tx.Prepare(`SELECT params FROM app WHERE index = $1`)
+		if err != nil {
+			return fmt.Errorf("prepare app get (l), %v", err)
+		}
+
 		for _, ald := range updates.AppLocalDeltas {
-			localstate, err := db.gitDirtyAppLocalState(ald.Address, ald.AppIndex, dirty, getlocal)
+			if ald.OnCompletion == atypes.CloseOutOC || ald.OnCompletion == atypes.ClearStateOC {
+				droplocals = append(droplocals,
+					[]interface{}{ald.Address, ald.AppIndex},
+				)
+				continue
+			}
+			localstate, err := db.getDirtyAppLocalState(ald.Address, ald.AppIndex, dirty, getlocal)
 			if err != nil {
 				return err
 			}
+			if ald.OnCompletion == atypes.OptInOC {
+				row := getapp.QueryRow(ald.AppIndex)
+				var paramsjson []byte
+				err = row.Scan(&paramsjson)
+				if err != nil {
+					return fmt.Errorf("app get (l), %v", err)
+				}
+				var app AppParams
+				err = json.Decode(paramsjson, &app)
+				if err != nil {
+					return fmt.Errorf("app[%d] get json (l), %v", ald.AppIndex, err)
+				}
+				localstate.Schema = app.LocalStateSchema
+			}
+
 			var reverseDelta AppReverseDelta
 
 			for key, vd := range ald.Delta {
 				err = apply(&localstate.KeyValue, []byte(key), vd, &reverseDelta)
+				if err != nil {
+					return err
+				}
 			}
 			dirty = setDirtyAppLocalState(dirty, localstate)
 			reverseDeltas = append(reverseDeltas, []interface{}{json.Encode(reverseDelta), ald.Round, ald.Intra})
@@ -967,28 +998,46 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 
 		// update txns with reverse deltas
 		// "alr" is "app local reverse"
-		txnuplocal, err := tx.Prepare(`UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{alr}', $1) WHERE ut.round = $2 AND ut.intra = $3`)
-		if err != nil {
-			return fmt.Errorf("prepare app local txn up, %v", err)
-		}
-		defer txnuplocal.Close()
-		for _, rd := range reverseDeltas {
-			_, err = txnuplocal.Exec(rd...)
+		if len(reverseDeltas) > 0 {
+			txnuplocal, err := tx.Prepare(`UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{alr}', $1) WHERE ut.round = $2 AND ut.intra = $3`)
 			if err != nil {
-				return fmt.Errorf("app local txn up, r=%d i=%d %v", rd[1], rd[2], err)
+				return fmt.Errorf("prepare app local txn up, %v", err)
+			}
+			defer txnuplocal.Close()
+			for _, rd := range reverseDeltas {
+				_, err = txnuplocal.Exec(rd...)
+				if err != nil {
+					return fmt.Errorf("app local txn up, r=%d i=%d %v", rd[1], rd[2], err)
+				}
 			}
 		}
 
-		// apply local state deltas for the round
-		putglobal, err := tx.Prepare(`INSERT INTO account_app (addr, app, localstate) VALUES ($1, $2, $3) ON CONFLICT (addr, app) DO UPDATE SET localstate = EXCLUDED.localstate`)
-		if err != nil {
-			return fmt.Errorf("prepare app local put, %v", err)
-		}
-		defer putglobal.Close()
-		for _, ld := range dirty {
-			_, err = putglobal.Exec(ld.address, ld.appIndex, json.Encode(ld.AppLocalState))
+		if len(dirty) > 0 {
+			// apply local state deltas for the round
+			putglobal, err := tx.Prepare(`INSERT INTO account_app (addr, app, localstate) VALUES ($1, $2, $3) ON CONFLICT (addr, app) DO UPDATE SET localstate = EXCLUDED.localstate`)
 			if err != nil {
-				return fmt.Errorf("app local put, %v", err)
+				return fmt.Errorf("prepare app local put, %v", err)
+			}
+			defer putglobal.Close()
+			for _, ld := range dirty {
+				_, err = putglobal.Exec(ld.address, ld.appIndex, json.Encode(ld.AppLocalState))
+				if err != nil {
+					return fmt.Errorf("app local put, %v", err)
+				}
+			}
+		}
+
+		if len(droplocals) > 0 {
+			droplocal, err := tx.Prepare(`DELETE FROM account_app WHERE addr = $1 AND app = $2`)
+			if err != nil {
+				return fmt.Errorf("prepare app local del, %v", err)
+			}
+			defer droplocal.Close()
+			for _, dl := range droplocals {
+				_, err = droplocal.Exec(dl...)
+				if err != nil {
+					return fmt.Errorf("app local del, %v", err)
+				}
 			}
 		}
 	}

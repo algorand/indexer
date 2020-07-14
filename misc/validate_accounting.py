@@ -125,7 +125,7 @@ def indexerAccounts(rooturl, blockround=None, addrlist=None):
     return accounts
 
 # generator yielding txns objects
-def indexerAccountTxns(rooturl, addr, minround=None, maxround=None):
+def indexerAccountTxns(rooturl, addr, minround=None, maxround=None, limit=None):
     niceaddr = algosdk.encoding.encode_address(addr)
     rootparts = urllib.parse.urlparse(rooturl)
     atxnsurl = list(rootparts)
@@ -135,6 +135,8 @@ def indexerAccountTxns(rooturl, addr, minround=None, maxround=None):
         query['min-round'] = minround
     if maxround is not None:
         query['max-round'] = maxround
+    if limit is not None:
+        query['limit'] = limit
     while True:
         atxnsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(atxnsurl)
@@ -198,6 +200,8 @@ def deepeq(a, b, path=None, msg=None):
     if isinstance(a, dict):
         if not isinstance(b, dict):
             return False
+        if len(a) != len(b):
+            return False
         for k,av in a.items():
             if path is not None and msg is not None:
                 subpath = path + (k,)
@@ -232,6 +236,21 @@ def _dap(x):
 def dictifyAppParams(ap):
     # make a list of app params comparable by deepeq
     return {x['id']:_dap(x) for x in ap}
+
+def dictifyAppLocal(al):
+    out = {}
+    for ent in al:
+        ent = dict(ent)
+        appid = ent.pop('id')
+        ls = ent.pop('state')
+        if ent:
+            raise Exception('app local state leftover: {!r}'.format(ent))
+        ls = dict(ls)
+        kv = ls.get('key-value')
+        if kv:
+            ls['key-value'] = {x['key']:x['value'] for x in kv}
+        out[appid] = ls
+    return out
 
 # CheckContext error collector
 class ccerr:
@@ -311,7 +330,19 @@ class CheckContext:
                     xe('{} algod has apar but not indexer: {!r}\n'.format(niceaddr, appparams))
             elif i2apar:
                 xe('{} indexer has apar but not algod: {!r}\n'.format(niceaddr, i2apar))
-            # TODO: applocal
+            i2applocal = i2v.get('apps-local-state')
+            if i2applocal:
+                if applocal:
+                    eqerr = []
+                    ald = dictifyAppLocal(applocal)
+                    ild = dictifyAppLocal(i2applocal)
+                    if not deepeq(ald, ild, (), eqerr):
+                        xe('{} indexer and algod disagree on app local, {}\nindexer={}\nalgod={}\n'.format(niceaddr, eqerr, json_pp(i2applocal), json_pp(applocal)))
+                else:
+                    xe('{} indexer has app local but not algod: {!r}'.format(niceaddr, i2applocal))
+            elif applocal:
+                xe('{} algod has app local but not indexer: {!r}'.format(niceaddr, applocal))
+
             if xe.ok:
                 self.match += 1
             else:
@@ -562,7 +593,7 @@ def main():
             err.write('\n{} \'\\x{}\'\n\t{}\n'.format(niceaddr, xaddr, msg))
             tcount = 0
             tmore = 0
-            for txn in indexerAccountTxns(args.indexer, addr, minround=tracker_round):
+            for txn in indexerAccountTxns(args.indexer, addr, limit=30):#minround=tracker_round):
                 if tcount > 10:
                     tmore += 1
                     continue
