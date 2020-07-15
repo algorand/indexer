@@ -583,7 +583,8 @@ type inmemAppLocalState struct {
 	appIndex int64
 }
 
-func apply(state *TealKeyValue, key []byte, vd types.ValueDelta, reverseDelta *AppReverseDelta) (err error) {
+// Build a reverse delta and apply the delta to the TealKeyValue state.
+func applyKeyValueDelta(state *TealKeyValue, key []byte, vd types.ValueDelta, reverseDelta *AppReverseDelta) (err error) {
 	oldValue, ok := state.get(key)
 	if ok {
 		switch oldValue.Type {
@@ -898,7 +899,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			state.GlobalStateSchema.fromBlock(adelta.GlobalStateSchema)
 			state.LocalStateSchema.fromBlock(adelta.LocalStateSchema)
 			for key, vd := range adelta.Delta {
-				err = apply(&state.GlobalState, []byte(key), vd, &reverseDelta)
+				err = applyKeyValueDelta(&state.GlobalState, []byte(key), vd, &reverseDelta)
 				if err != nil {
 					return fmt.Errorf("app delta apply err r=%d i=%d app=%d, %v", adelta.Round, adelta.Intra, adelta.AppIndex, err)
 				}
@@ -987,7 +988,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			var reverseDelta AppReverseDelta
 
 			for key, vd := range ald.Delta {
-				err = apply(&localstate.KeyValue, []byte(key), vd, &reverseDelta)
+				err = applyKeyValueDelta(&localstate.KeyValue, []byte(key), vd, &reverseDelta)
 				if err != nil {
 					return err
 				}
@@ -1418,7 +1419,6 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 		var assetParamsIds []byte
 		var assetParamsStr []byte
 
-		// TODO WRITEME: use app params and app local
 		// appParam* are a pair of lists that should merge together
 		var appParamIndexes []byte // [appId, ...]
 		var appParams []byte       // [{AppParams}, ...]

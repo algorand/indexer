@@ -16,7 +16,6 @@ import urllib.error
 import urllib.request
 import urllib.parse
 
-#import msgpack
 import algosdk
 from algosdk.v2client.algod import AlgodClient
 
@@ -593,7 +592,7 @@ def main():
             err.write('\n{} \'\\x{}\'\n\t{}\n'.format(niceaddr, xaddr, msg))
             tcount = 0
             tmore = 0
-            for txn in indexerAccountTxns(args.indexer, addr, limit=30):#minround=tracker_round):
+            for txn in indexerAccountTxns(args.indexer, addr, limit=30):
                 if tcount > 10:
                     tmore += 1
                     continue

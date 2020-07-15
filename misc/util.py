@@ -18,11 +18,6 @@ def maybedecode(x):
         return x.decode()
     return x
 
-# def maybedecode(x):
-#     if isinstance(x, bytes):
-#         return x.decode()
-#     return x
-
 def mloads(x):
     return msgpack.loads(x, strict_map_key=False, raw=True)
 
