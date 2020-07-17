@@ -241,14 +241,10 @@ def dictifyAppLocal(al):
     for ent in al:
         ent = dict(ent)
         appid = ent.pop('id')
-        ls = ent.pop('state')
-        if ent:
-            raise Exception('app local state leftover: {!r}'.format(ent))
-        ls = dict(ls)
-        kv = ls.get('key-value')
+        kv = ent.get('key-value')
         if kv:
-            ls['key-value'] = {x['key']:x['value'] for x in kv}
-        out[appid] = ls
+            ent['key-value'] = {x['key']:x['value'] for x in kv}
+        out[appid] = ent
     return out
 
 # CheckContext error collector
