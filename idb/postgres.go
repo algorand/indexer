@@ -1689,14 +1689,14 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				out <- AccountRow{Error: err}
 				break
 			}
-			aout := make([]models.ApplicationLocalStates, len(appIds))
+			aout := make([]models.ApplicationLocalState, len(appIds))
 			for i, appid := range appIds {
 				aout[i].Id = appid
-				aout[i].State.Schema = models.ApplicationStateSchema{
+				aout[i].Schema = models.ApplicationStateSchema{
 					NumByteSlice: ls[i].Schema.NumByteSlice,
 					NumUint:      ls[i].Schema.NumUint,
 				}
-				aout[i].State.KeyValue = ls[i].KeyValue.toModel()
+				aout[i].KeyValue = ls[i].KeyValue.toModel()
 			}
 			account.AppsLocalState = &aout
 		}
