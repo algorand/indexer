@@ -212,7 +212,23 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 
 // (GET /v2/applications)
 func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params generated.SearchForApplicationsParams) error {
-	return echo.NewHTTPError(http.StatusMethodNotAllowed, "SearchForApplications is not implemented yet.")
+	results := si.db.Applications(ctx.Request().Context(), &params)
+	round, err := si.db.GetMaxRound()
+	if err != nil {
+		return indexerError(ctx, err.Error())
+	}
+	var apps []generated.Application
+	for result := range results {
+		if result.Error != nil {
+			return indexerError(ctx, result.Error.Error())
+		}
+		apps = append(apps, result.Application)
+	}
+	out := generated.ApplicationsResponse{
+		Applications: apps,
+		CurrentRound: round,
+	}
+	return ctx.JSON(http.StatusOK, out)
 }
 
 // (GET /v2/applications/{application-id})

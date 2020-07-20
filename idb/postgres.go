@@ -2058,6 +2058,63 @@ func (db *PostgresIndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *
 	close(out)
 }
 
+func (db *PostgresIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow {
+	out := make(chan ApplicationRow, 1)
+
+	var rows *sql.Rows
+	var err error
+	// TODO: builder pattern like other queries but right now there's only one option, so this is simpler
+	if filter.ApplicationId != nil {
+		rows, err = db.db.QueryContext(ctx, `SELECT index, creator, params FROM app WHERE index = $1`, *filter.ApplicationId)
+	} else {
+		rows, err = db.db.QueryContext(ctx, `SELECT index, creator, params FROM app ORDER BY 1`)
+	}
+	if err != nil {
+		out <- ApplicationRow{Error: err}
+		close(out)
+		return out
+	}
+	go db.yieldApplicationsThread(ctx, rows, out)
+	return out
+}
+
+func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows, out chan ApplicationRow) {
+	for rows.Next() {
+		var index int64
+		var creator []byte
+		var paramsjson []byte
+		err := rows.Scan(&index, &creator, &paramsjson)
+		if err != nil {
+			out <- ApplicationRow{Error: err}
+			break
+		}
+		var rec ApplicationRow
+		rec.Application.Id = uint64(index)
+		var ap AppParams
+		err = json.Decode(paramsjson, &ap)
+		if err != nil {
+			rec.Error = fmt.Errorf("app=%d json err, %v", index, err)
+			out <- rec
+			break
+		}
+		rec.Application.Params.ApprovalProgram = ap.ApprovalProgram
+		rec.Application.Params.ClearStateProgram = ap.ClearStateProgram
+		rec.Application.Params.Creator = new(string)
+		*(rec.Application.Params.Creator) = b32np(creator)
+		rec.Application.Params.GlobalState = new(models.TealKeyValueStore)
+		*(rec.Application.Params.GlobalState) = ap.GlobalState.toModel()
+		rec.Application.Params.GlobalStateSchema = &models.ApplicationStateSchema{
+			NumByteSlice: ap.GlobalStateSchema.NumByteSlice,
+			NumUint:      ap.GlobalStateSchema.NumUint,
+		}
+		rec.Application.Params.LocalStateSchema = &models.ApplicationStateSchema{
+			NumByteSlice: ap.LocalStateSchema.NumByteSlice,
+			NumUint:      ap.LocalStateSchema.NumUint,
+		}
+	}
+	close(out)
+}
+
 type postgresFactory struct {
 }
 
