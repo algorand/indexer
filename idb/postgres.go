@@ -509,15 +509,15 @@ type TealKeyValue struct {
 	They []KeyTealValue
 }
 
-func (tkv TealKeyValue) toModel() models.TealKeyValueStore {
-	out := make([]models.TealKeyValue, len(tkv.They))
+func (tkv TealKeyValue) toModel() *models.TealKeyValueStore {
+	var out models.TealKeyValueStore = make([]models.TealKeyValue, len(tkv.They))
 	pos := 0
 	for _, ktv := range tkv.They {
 		out[pos].Key = string(ktv.Key)
 		out[pos].Value = ktv.Tv.toModel()
 		pos++
 	}
-	return out
+	return &out
 }
 func (tkv TealKeyValue) get(key []byte) (TealValue, bool) {
 	for _, ktv := range tkv.They {
@@ -1651,8 +1651,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				aout[outpos].Params.ApprovalProgram = apps[i].ApprovalProgram
 				aout[outpos].Params.ClearStateProgram = apps[i].ClearStateProgram
 				aout[outpos].Params.Creator = &account.Address
-				aout[outpos].Params.GlobalState = new(models.TealKeyValueStore)
-				*(aout[outpos].Params.GlobalState) = apps[i].GlobalState.toModel()
+				aout[outpos].Params.GlobalState = apps[i].GlobalState.toModel()
 				aout[outpos].Params.GlobalStateSchema = &models.ApplicationStateSchema{
 					NumByteSlice: apps[i].GlobalStateSchema.NumByteSlice,
 					NumUint:      apps[i].GlobalStateSchema.NumUint,
