@@ -13,7 +13,7 @@ import sys
 import tempfile
 import time
 
-from util import xrun, atexitrun, find_indexer, ensure_test_db
+from util import xrun, atexitrun, find_indexer, ensure_test_db, firstFromS3Prefix
 
 logger = logging.getLogger(__name__)
 
@@ -32,35 +32,8 @@ def ensureTestData(e2edata):
             from botocore import UNSIGNED
             s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
             firstFromS3Prefix(s3, bucket, 'indexer/e2e1', tarname, outpath=tarpath)
-            # response = s3.list_objects_v2(Bucket=bucket, Prefix='indexer/e2e1', MaxKeys=2)
-            # if (not response.get('KeyCount')) or ('Contents' not in response):
-            #     logger.error('no testdata found in s3')
-            #     sys.exit(1)
-            # for x in response['Contents']:
-            #     path = x['Key']
-            #     _, fname = path.rsplit('/', 1)
-            #     if fname == tarname:
-            #         logger.info('s3://%s/%s -> %s', bucket, x['Key'], tarpath)
-            #         s3.download_file(bucket, x['Key'], tarpath)
-            #         break
         logger.info('unpacking %s', tarpath)
         subprocess.run(['tar', '-jxf', tarpath], cwd=e2edata).check_returncode()
-
-def firstFromS3Prefix(s3, bucket, prefix, desired_filename, outdir=None, outpath=None):
-    response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=10)
-    if (not response.get('KeyCount')) or ('Contents' not in response):
-        raise Exception('nothing found in s3://{}/{}'.format(bucket, prefix))
-    for x in response['Contents']:
-        path = x['Key']
-        _, fname = path.rsplit('/', 1)
-        if fname == desired_filename:
-            if outpath is None:
-                if outdir is None:
-                    outdir = '.'
-                outpath = os.path.join(outdir, desired_filename)
-            logger.info('s3://%s/%s -> %s', bucket, x['Key'], outpath)
-            s3.download_file(bucket, x['Key'], outpath)
-            return
 
 
 def main():

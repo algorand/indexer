@@ -14,8 +14,7 @@ import tempfile
 import time
 import urllib.request
 
-from util import xrun, atexitrun, find_indexer, ensure_test_db
-from e2etest import ensureTestData
+from util import xrun, atexitrun, find_indexer, ensure_test_db, firstFromS3Prefix
 
 logger = logging.getLogger(__name__)
 
@@ -39,18 +38,27 @@ def main():
     source_is_tar = False
     if not sourcenet:
         e2edata = os.getenv('E2EDATA')
-        sourcenet = os.path.join(e2edata, 'net')
-    if hassuffix(sourcenet, '.tar', '.tar.gz', '.tar.bz2', '.tar.xz'):
+        sourcenet = e2edata and os.path.join(e2edata, 'net')
+    if sourcenet and hassuffix(sourcenet, '.tar', '.tar.gz', '.tar.bz2', '.tar.xz'):
         source_is_tar = True
-    if not (source_is_tar or os.path.isdir(sourcenet)):
-        logger.error('need network or tar at %r', sourcenet)
-        return 1
     tdir = tempfile.TemporaryDirectory()
-    tempnet = os.path.join(tdir.name, 'net')
     if not args.keep_temps:
         atexit.register(tdir.cleanup)
     else:
         logger.info("leaving temp dir %r", tdir.name)
+    if not (source_is_tar or (sourcenet and os.path.isdir(sourcenet))):
+        # fetch test data from S3
+        bucket = 'algorand-testdata'
+        import boto3
+        from botocore.config import Config
+        from botocore import UNSIGNED
+        s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
+        tarname = 'net_done.tar.bz2'
+        tarpath = os.path.join(tdir.name, tarname)
+        firstFromS3Prefix(s3, bucket, 'indexer/e2e2', tarname, outpath=tarpath)
+        source_is_tar = True
+        sourcenet = tarpath
+    tempnet = os.path.join(tdir.name, 'net')
     if source_is_tar:
         xrun(['tar', '-C', tdir.name, '-x', '-f', sourcenet])
     else:
