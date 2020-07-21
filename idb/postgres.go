@@ -2111,6 +2111,7 @@ func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *
 			NumByteSlice: ap.LocalStateSchema.NumByteSlice,
 			NumUint:      ap.LocalStateSchema.NumUint,
 		}
+		out <- rec
 	}
 	close(out)
 }

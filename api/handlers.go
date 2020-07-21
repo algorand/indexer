@@ -233,7 +233,24 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 
 // (GET /v2/applications/{application-id})
 func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationId uint64) error {
-	return echo.NewHTTPError(http.StatusMethodNotAllowed, "LookupApplicationByID is not implemented yet.")
+	var params generated.SearchForApplicationsParams
+	params.ApplicationId = &applicationId
+	results := si.db.Applications(ctx.Request().Context(), &params)
+	round, err := si.db.GetMaxRound()
+	if err != nil {
+		return indexerError(ctx, err.Error())
+	}
+	out := generated.ApplicationResponse{
+		CurrentRound: round,
+	}
+	for result := range results {
+		if result.Error != nil {
+			return indexerError(ctx, result.Error.Error())
+		}
+		out.Application = &result.Application
+		return ctx.JSON(http.StatusOK, out)
+	}
+	return ctx.JSON(http.StatusNotFound, out)
 }
 
 // LookupAssetByID looks up a particular asset
