@@ -14,7 +14,8 @@ idb/setup_postgres_sql.go:	idb/setup_postgres.sql
 types/protocols_json.go:	types/protocols.json types/consensus.go
 	cd types && go generate
 
-mocks:	idb/dummy.go
+idb/mocks/IndexerDb.go:	idb/dummy.go
+	go get github.com/vektra/mockery/.../
 	cd idb && mockery -name=IndexerDb
 
 deploy:
@@ -29,8 +30,7 @@ setup:
 sign:
 	mule/sign.sh
 
-test: mocks
-	go get github.com/vektra/mockery/.../
+test: idb/mocks/IndexerDb.go
 	go test ./...
 
 test-package:
