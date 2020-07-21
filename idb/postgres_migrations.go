@@ -80,6 +80,23 @@ func m1fixupBlockTime(db *PostgresIndexerDb, state *MigrationState) error {
 	return sqlMigration(db, state, sqlLines)
 }
 
+func m2apps(db *PostgresIndexerDb, state *MigrationState) error {
+	sqlLines := []string{
+		`CREATE TABLE IF NOT EXISTS app (
+  index bigint PRIMARY KEY,
+  creator bytea, -- account address
+  params jsonb
+);`,
+		`CREATE TABLE IF NOT EXISTS account_app (
+  addr bytea,
+  app bigint,
+  localstate jsonb,
+  PRIMARY KEY (addr, app)
+);`,
+	}
+	return sqlMigration(db, state, sqlLines)
+}
+
 func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []string) error {
 	thisMigration := state.NextMigration
 	tx, err := db.db.Begin()
@@ -122,6 +139,7 @@ func init() {
 	migrations = []migrationFunc{
 		m0fixupTxid,
 		m1fixupBlockTime,
+		m2apps,
 	}
 }
 

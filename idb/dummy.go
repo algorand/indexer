@@ -1,15 +1,19 @@
 package idb
 
 import (
+	"bytes"
 	"context"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
-	models "github.com/algorand/indexer/api/generated/v2"
+	atypes "github.com/algorand/go-algorand-sdk/types"
 
+	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/types"
 )
 
@@ -129,7 +133,8 @@ func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
 }
 
 type TxnExtra struct {
-	AssetCloseAmount uint64 `codec:"aca,omitempty"`
+	AssetCloseAmount   uint64          `codec:"aca,omitempty"`
+	GlobalReverseDelta AppReverseDelta `codec:"agr,omitempty"`
 }
 
 // TODO: sqlite3 impl
@@ -381,10 +386,105 @@ type RoundUpdates struct {
 	// to overlay onto a JSON struct there and replace a value
 	// with a 0 value.
 	AccountDataUpdates map[[32]byte]map[string]interface{}
-	AcfgUpdates        []AcfgUpdate
-	TxnAssetUpdates    []TxnAssetUpdate
-	AssetUpdates       map[[32]byte][]AssetUpdate
-	FreezeUpdates      []FreezeUpdate
-	AssetCloses        []AssetClose
-	AssetDestroys      []uint64
+
+	AcfgUpdates     []AcfgUpdate
+	TxnAssetUpdates []TxnAssetUpdate
+	AssetUpdates    map[[32]byte][]AssetUpdate
+	FreezeUpdates   []FreezeUpdate
+	AssetCloses     []AssetClose
+	AssetDestroys   []uint64
+
+	AppGlobalDeltas []AppDelta
+	AppLocalDeltas  []AppDelta
+}
+
+func (ru *RoundUpdates) Clear() {
+	ru.AlgoUpdates = nil
+	ru.AccountTypes = nil
+	ru.AccountDataUpdates = nil
+	ru.AcfgUpdates = nil
+	ru.TxnAssetUpdates = nil
+	ru.AssetUpdates = nil
+	ru.FreezeUpdates = nil
+	ru.AssetCloses = nil
+	ru.AssetDestroys = nil
+	ru.AppGlobalDeltas = nil
+	ru.AppLocalDeltas = nil
+}
+
+type AppDelta struct {
+	AppIndex     int64
+	Round        uint64
+	Intra        int
+	Address      []byte
+	AddrIndex    uint64 // 0=Sender, otherwise stxn.Txn.Accounts[i-1]
+	Creator      []byte
+	Delta        types.StateDelta
+	OnCompletion atypes.OnCompletion
+
+	// AppParams settings coppied from Txn, only for AppGlobalDeltas
+	ApprovalProgram   []byte             `codec:"approv"`
+	ClearStateProgram []byte             `codec:"clearp"`
+	LocalStateSchema  atypes.StateSchema `codec:"lsch"`
+	GlobalStateSchema atypes.StateSchema `codec:"gsch"`
+}
+
+func (ad AppDelta) String() string {
+	parts := make([]string, 0, 10)
+	if len(ad.Address) > 0 {
+		parts = append(parts, b32np(ad.Address))
+	}
+	parts = append(parts, fmt.Sprintf("%d:%d app=%d", ad.Round, ad.Intra, ad.AppIndex))
+	if len(ad.Creator) > 0 {
+		parts = append(parts, "creator", b32np(ad.Creator))
+	}
+	ds := ""
+	if ad.Delta != nil {
+		ds = string(JsonOneLine(ad.Delta))
+	}
+	parts = append(parts, fmt.Sprintf("ai=%d oc=%v d=%s", ad.AddrIndex, ad.OnCompletion, ds))
+	if len(ad.ApprovalProgram) > 0 {
+		parts = append(parts, fmt.Sprintf("ap prog=%d bytes", len(ad.ApprovalProgram)))
+	}
+	if len(ad.ClearStateProgram) > 0 {
+		parts = append(parts, fmt.Sprintf("cs prog=%d bytes", len(ad.ClearStateProgram)))
+	}
+	if ad.GlobalStateSchema.NumByteSlice != 0 || ad.GlobalStateSchema.NumUint != 0 {
+		parts = append(parts, fmt.Sprintf("gss(b=%d, i=%d)", ad.GlobalStateSchema.NumByteSlice, ad.GlobalStateSchema.NumUint))
+	}
+	if ad.LocalStateSchema.NumByteSlice != 0 || ad.LocalStateSchema.NumUint != 0 {
+		parts = append(parts, fmt.Sprintf("lss(b=%d, i=%d)", ad.LocalStateSchema.NumByteSlice, ad.LocalStateSchema.NumUint))
+	}
+
+	return strings.Join(parts, " ")
+}
+
+type StateDelta struct {
+	Key   []byte
+	Delta types.ValueDelta
+}
+
+// extra data attached to transactions
+type AppReverseDelta struct {
+	Delta             []StateDelta        `codec:"d,omitempty"`
+	OnCompletion      atypes.OnCompletion `codec:"oc,omitempty"`
+	ApprovalProgram   []byte              `codec:"approv,omitempty"`
+	ClearStateProgram []byte              `codec:"clearp,omitempty"`
+	LocalStateSchema  atypes.StateSchema  `codec:"lsch,omitempty"`
+	GlobalStateSchema atypes.StateSchema  `codec:"gsch,omitempty"`
+}
+
+func (ard *AppReverseDelta) SetDelta(key []byte, delta types.ValueDelta) {
+	for i, sd := range ard.Delta {
+		if bytes.Equal(key, sd.Key) {
+			ard.Delta[i].Delta = delta
+			return
+		}
+	}
+	ard.Delta = append(ard.Delta, StateDelta{Key: key, Delta: delta})
+}
+
+// base32 no padding
+func b32np(data []byte) string {
+	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(data)
 }

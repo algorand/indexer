@@ -27,6 +27,7 @@ var typeEnumList = []util.StringInt{
 	{"acfg", 3},
 	{"axfer", 4},
 	{"afrz", 5},
+	{"appl", 6},
 }
 var TypeEnumMap map[string]int
 var TypeEnumString string
@@ -82,15 +83,26 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 	for intra := range block.Payset {
 		stxn := &block.Payset[intra]
 		txtype := string(stxn.Txn.Type)
-		txtypeenum := TypeEnumMap[txtype]
+		txtypeenum, ok := TypeEnumMap[txtype]
+		if !ok {
+			return txCount, fmt.Errorf("%d:%d unknown txn type %v", round, intra, txtype)
+		}
 		assetid := uint64(0)
 		switch txtypeenum {
 		case 3:
 			assetid = uint64(stxn.Txn.ConfigAsset)
+			if assetid == 0 {
+				assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
+			}
 		case 4:
 			assetid = uint64(stxn.Txn.XferAsset)
 		case 5:
 			assetid = uint64(stxn.Txn.FreezeAsset)
+		case 6:
+			assetid = uint64(stxn.Txn.ApplicationID)
+			if assetid == 0 {
+				assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
+			}
 		}
 		if stxn.HasGenesisID {
 			stxn.Txn.GenesisID = block.GenesisID

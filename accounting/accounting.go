@@ -70,15 +70,7 @@ func (accounting *AccountingState) commitRound() error {
 	if err != nil {
 		return err
 	}
-	accounting.AlgoUpdates = nil
-	accounting.AccountTypes = nil
-	accounting.AccountDataUpdates = nil
-	accounting.AssetUpdates = nil
-	accounting.AcfgUpdates = nil
-	accounting.TxnAssetUpdates = nil
-	accounting.FreezeUpdates = nil
-	accounting.AssetCloses = nil
-	accounting.AssetDestroys = nil
+	accounting.RoundUpdates.Clear()
 	accounting.dirty = false
 	return nil
 }
@@ -203,7 +195,10 @@ func blankLsig(lsig atypes.LogicSig) bool {
 	return len(lsig.Logic) == 0
 }
 
-func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnbytes []byte) (err error) {
+func (accounting *AccountingState) AddTransaction(txnr *idb.TxnRow) (err error) {
+	round := txnr.Round
+	intra := txnr.Intra
+	txnbytes := txnr.TxnBytes
 	var stxn types.SignedTxnWithAD
 	err = msgpack.Decode(txnbytes, &stxn)
 	if err != nil {
@@ -296,13 +291,7 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 	} else if stxn.Txn.Type == "acfg" {
 		assetId := uint64(stxn.Txn.ConfigAsset)
 		if assetId == 0 {
-			// create an asset
-			txnCounter, err := accounting.getTxnCounter(round - 1)
-			if err != nil {
-				return fmt.Errorf("acfg get TxnCounter round %d, %v", round, err)
-			}
-			assetId = txnCounter + uint64(intra) + 1
-			accounting.updateTxnAsset(round, intra, assetId)
+			assetId = txnr.AssetId
 		}
 		if stxn.Txn.AssetParams.IsZero() {
 			accounting.destroyAsset(assetId)
@@ -333,6 +322,69 @@ func (accounting *AccountingState) AddTransaction(round uint64, intra int, txnby
 		}
 	} else if stxn.Txn.Type == "afrz" {
 		accounting.freezeAsset(stxn.Txn.FreezeAccount, uint64(stxn.Txn.FreezeAsset), stxn.Txn.AssetFrozen)
+	} else if stxn.Txn.Type == "appl" {
+		hasGlobal := (len(stxn.EvalDelta.GlobalDelta) > 0) || (len(stxn.Txn.ApprovalProgram) > 0) || (len(stxn.Txn.ClearStateProgram) > 0) || stxn.Txn.OnCompletion == atypes.DeleteApplicationOC
+		appid := uint64(stxn.Txn.ApplicationID)
+		if appid == 0 {
+			// creation
+			appid = txnr.AssetId
+		}
+		if hasGlobal {
+			agd := idb.AppDelta{
+				AppIndex: int64(appid),
+				Round:    round,
+				Intra:    intra,
+				//Address:           nil,
+				Delta:             stxn.EvalDelta.GlobalDelta,
+				OnCompletion:      stxn.Txn.OnCompletion,
+				ApprovalProgram:   stxn.Txn.ApprovalProgram,
+				ClearStateProgram: stxn.Txn.ClearStateProgram,
+				LocalStateSchema:  stxn.Txn.LocalStateSchema,
+				GlobalStateSchema: stxn.Txn.GlobalStateSchema,
+			}
+			if stxn.Txn.ApplicationID == 0 {
+				// app creation
+				agd.Creator = stxn.Txn.Sender[:]
+			}
+			//fmt.Printf("agset %d %s\n", appid, agd.String())
+			accounting.AppGlobalDeltas = append(
+				accounting.AppGlobalDeltas,
+				agd,
+			)
+		}
+		for accountIndex, ldelts := range stxn.EvalDelta.LocalDeltas {
+			var addr []byte
+			if accountIndex == 0 {
+				addr = stxn.Txn.Sender[:]
+			} else {
+				addr = stxn.Txn.Accounts[accountIndex-1][:]
+			}
+			accounting.AppLocalDeltas = append(
+				accounting.AppLocalDeltas,
+				idb.AppDelta{
+					AppIndex:     int64(appid),
+					Round:        round,
+					Intra:        intra,
+					Address:      addr,
+					AddrIndex:    accountIndex,
+					Delta:        ldelts,
+					OnCompletion: stxn.Txn.OnCompletion,
+				},
+			)
+		}
+		// if there's no other content change, but a state change of opt-in/close-out/clear-state, record that
+		if len(stxn.EvalDelta.LocalDeltas) == 0 && (stxn.Txn.OnCompletion == atypes.OptInOC || stxn.Txn.OnCompletion == atypes.CloseOutOC || stxn.Txn.OnCompletion == atypes.ClearStateOC) {
+			accounting.AppLocalDeltas = append(
+				accounting.AppLocalDeltas,
+				idb.AppDelta{
+					AppIndex:     int64(appid),
+					Address:      stxn.Txn.Sender[:],
+					Round:        round,
+					Intra:        intra,
+					OnCompletion: stxn.Txn.OnCompletion,
+				},
+			)
+		}
 	} else {
 		return fmt.Errorf("txn r=%d i=%d UNKNOWN TYPE %#v\n", round, intra, stxn.Txn.Type)
 	}

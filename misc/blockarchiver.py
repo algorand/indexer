@@ -17,6 +17,8 @@ import time
 
 import algosdk
 
+from util import maybedecode, mloads, unmsgpack
+
 logger = logging.getLogger(__name__)
 
 # algod = token_addr_from_algod(os.path.join(os.getenv('HOME'),'Algorand/n3/Node1'))
@@ -47,39 +49,6 @@ def nextblock(algod, lastround=None):
     b = algod.block_info(nbr)
     return b
 
-def maybedecode(x):
-    if isinstance(x, bytes):
-        return x.decode()
-    return x
-
-def unmsgpack(ob):
-    "convert dict from msgpack.loads() with byte string keys to text string keys"
-    if isinstance(ob, dict):
-        od = {}
-        for k,v in ob.items():
-            k = maybedecode(k)
-            okv = False
-            if (not okv) and (k == 'note'):
-                try:
-                    v = unmsgpack(msgpack.loads(v))
-                    okv = True
-                except:
-                    pass
-            if (not okv) and k in ('type', 'note'):
-                try:
-                    v = v.decode()
-                    okv = True
-                except:
-                    pass
-            if not okv:
-                v = unmsgpack(v)
-            od[k] = v
-        return od
-    if isinstance(ob, list):
-        return [unmsgpack(v) for v in ob]
-    #if isinstance(ob, bytes):
-    #    return base64.b64encode(ob).decode()
-    return ob
 
 def make_ob_json_polite(ob):
     if isinstance(ob, dict):
@@ -131,7 +100,7 @@ class Algobot:
             if contentType == 'application/x-algorand-block-v1':
                 self.algod_has_block_raw = True
                 raw = response.read()
-                block = unmsgpack(msgpack.loads(raw))
+                block = unmsgpack(mloads(raw))
                 return block
             raise Exception('unknown response content type {!r}'.format(contentType))
         logger.debug('rawblock passing out')
@@ -159,7 +128,7 @@ class Algobot:
         with open(bf, 'rb') as fin:
             raw = fin.read()
         try:
-            return unmsgpack(msgpack.loads(raw))
+            return unmsgpack(mloads(raw))
         except Exception as e:
             logger.debug('%s: failed to msgpack decode, %s', bf, e)
         return json.loads(raw.decode())
@@ -279,7 +248,7 @@ class Algobot:
             self._progresslog = None
 
 blocktarParseRe = re.compile(r'(\d+)_(\d+).tar.bz2')
-            
+
 class BlockArchiver:
     def __init__(self, algorand_data=None, token=None, addr=None, headers=None, blockdir=None, tardir=None):
         self.algorand_data = algorand_data
@@ -294,7 +263,7 @@ class BlockArchiver:
         self.go = True
         self._algod = None
         return
-    
+
     def algod(self):
         if self._algod is None:
             if self.algorand_data:
@@ -345,7 +314,7 @@ class BlockArchiver:
         if raw is None:
             raise Exception('could not get block {}'.format(xround))
         # trivial check
-        bl = msgpack.loads(raw)
+        bl = mloads(raw)
         if xround == 0:
             blockround = bl[b'block'].get(b'rnd', 0)
         else:
@@ -410,7 +379,7 @@ class BlockArchiver:
                 break
             lastround += 1
         return lastround
-    
+
     def run(self):
         lastround = self.lastroundFromBlockdir()
         if lastround is not None:
@@ -439,7 +408,7 @@ class BlockArchiver:
             if dt > 30:
                 raise Exception('no block for {:.1f}s'.format(dt))
             time.sleep(1)
-            
+
 
 def blockround(b):
     bb = b.get('block')
