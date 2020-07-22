@@ -13,7 +13,7 @@ import sys
 import tempfile
 import time
 
-from util import xrun, atexitrun, find_indexer, ensure_test_db
+from util import xrun, atexitrun, find_indexer, ensure_test_db, firstFromS3Prefix
 
 logger = logging.getLogger(__name__)
 
@@ -31,20 +31,9 @@ def ensureTestData(e2edata):
             from botocore.config import Config
             from botocore import UNSIGNED
             s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
-            response = s3.list_objects_v2(Bucket=bucket, Prefix='indexer/e2e1', MaxKeys=2)
-            if (not response.get('KeyCount')) or ('Contents' not in response):
-                logger.error('no testdata found in s3')
-                sys.exit(1)
-            for x in response['Contents']:
-                path = x['Key']
-                _, fname = path.rsplit('/', 1)
-                if fname == tarname:
-                    logger.info('s3://%s/%s -> %s', bucket, x['Key'], tarpath)
-                    s3.download_file(bucket, x['Key'], tarpath)
-                    break
+            firstFromS3Prefix(s3, bucket, 'indexer/e2e1', tarname, outpath=tarpath)
         logger.info('unpacking %s', tarpath)
         subprocess.run(['tar', '-jxf', tarpath], cwd=e2edata).check_returncode()
-
 
 
 def main():

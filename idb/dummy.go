@@ -97,6 +97,10 @@ func (db *dummyIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQue
 	return nil
 }
 
+func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow {
+	return nil
+}
+
 type IndexerFactory interface {
 	Name() string
 	Build(arg string) (IndexerDb, error)
@@ -168,6 +172,7 @@ type IndexerDb interface {
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
 	Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow
 	AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow
+	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow
 }
 
 func GetAccount(idb IndexerDb, addr []byte) (account models.Account, err error) {
@@ -302,6 +307,11 @@ type AssetBalanceRow struct {
 	Amount  uint64
 	Frozen  bool
 	Error   error
+}
+
+type ApplicationRow struct {
+	Application models.Application
+	Error       error
 }
 
 type dummyFactory struct {
