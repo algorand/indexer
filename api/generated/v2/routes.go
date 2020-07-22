@@ -410,6 +410,7 @@ func (w *ServerInterfaceWrapper) SearchForApplications(ctx echo.Context) error {
 	validQueryParams := map[string]bool{
 		"pretty":         true,
 		"application-id": true,
+		"limit":          true,
 	}
 
 	// Check for unknown query parameters.
@@ -431,6 +432,16 @@ func (w *ServerInterfaceWrapper) SearchForApplications(ctx echo.Context) error {
 	err = runtime.BindQueryParameter("form", true, false, "application-id", ctx.QueryParams(), &params.ApplicationId)
 	if err != nil {
 		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter application-id: %s", err))
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+	if paramValue := ctx.QueryParam("limit"); paramValue != "" {
+
+	}
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", ctx.QueryParams(), &params.Limit)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter limit: %s", err))
 	}
 
 	// Invoke the callback with all the unmarshalled arguments
@@ -1318,18 +1329,18 @@ var swaggerSpec = []string{
 	"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",
-	"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",
+	"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",
 }
 
 // GetSwagger returns the Swagger specification corresponding to the generated code

@@ -203,6 +203,9 @@
         "parameters": [
           {
             "$ref": "#/parameters/application-id"
+          },
+          {
+            "$ref": "#/parameters/limit"
           }
         ],
         "responses": {

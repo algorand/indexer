@@ -2099,10 +2099,12 @@ func (db *PostgresIndexerDb) Applications(ctx context.Context, filter *models.Se
 
 	var rows *sql.Rows
 	var err error
-	// TODO: builder pattern like other queries but right now there's only one option, so this is simpler
+	// TODO: builder pattern like other queries but right now there's only mutually exclusive options, so this is simpler
 	if filter.ApplicationId != nil {
 		rows, err = db.db.QueryContext(ctx, `SELECT index, creator, params FROM app WHERE index = $1`, *filter.ApplicationId)
-	} else {
+	} else if filter.Limit != nil {
+		rows, err = db.db.QueryContext(ctx, `SELECT index, creator, params FROM app ORDER BY 1 LIMIT $1`, *filter.Limit)
+	}else {
 		rows, err = db.db.QueryContext(ctx, `SELECT index, creator, params FROM app ORDER BY 1`)
 	}
 	if err != nil {

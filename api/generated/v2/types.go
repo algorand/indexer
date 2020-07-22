@@ -930,6 +930,9 @@ type SearchForApplicationsParams struct {
 
 	// Application ID
 	ApplicationId *uint64 `json:"application-id,omitempty"`
+
+	// Maximum number of results to return.
+	Limit *uint64 `json:"limit,omitempty"`
 }
 
 // SearchForAssetsParams defines parameters for SearchForAssets.
