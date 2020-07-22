@@ -3,6 +3,8 @@
 
 import atexit
 import glob
+import gzip
+import io
 import json
 import logging
 import os
@@ -11,6 +13,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import urllib.request
 
@@ -74,7 +77,9 @@ def main():
     aiport = args.indexer_port or random.randint(4000,30000)
     cmd = [indexer_bin, 'daemon', '-P', psqlstring, '--dev-mode', '--algod', algoddir, '--server', ':{}'.format(aiport)]
     logger.debug("%s", ' '.join(map(repr,cmd)))
-    indexerdp = subprocess.Popen(cmd)
+    indexerdp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    indexerout = subslurp(indexerdp.stdout)
+    indexerout.start()
     atexit.register(indexerdp.kill)
     time.sleep(0.2)
 
@@ -87,9 +92,14 @@ def main():
         time.sleep(0.5)
     if not ok:
         logger.error('could not get indexer health')
+        sys.stderr.write(indexerout.dump())
         return 1
-    xrun(['python3', 'misc/validate_accounting.py', '--verbose', '--algod', algoddir, '--indexer', indexerurl], timeout=20)
-    xrun(['go', 'run', 'cmd/e2equeries/main.go', '-pg', psqlstring, '-q'], timeout=15)
+    try:
+        xrun(['python3', 'misc/validate_accounting.py', '--verbose', '--algod', algoddir, '--indexer', indexerurl], timeout=20)
+        xrun(['go', 'run', 'cmd/e2equeries/main.go', '-pg', psqlstring, '-q'], timeout=15)
+    except Exception:
+        sys.stderr.write(indexerout.dump())
+        raise
     dt = time.time() - start
     sys.stdout.write("indexer e2etest OK ({:.1f}s)\n".format(dt))
 
@@ -126,6 +136,32 @@ def tryhealthurl(healthurl, verbose=False, waitforround=100):
         if verbose:
             logging.warning('GET %s %s', healthurl, e, exc_info=True)
         return False
+
+class subslurp:
+    # asynchronously accumulate stdout or stderr from a subprocess and hold it for debugging if something goes wrong
+    def __init__(self, f):
+        self.f = f
+        self.buf = io.BytesIO()
+        self.gz = gzip.open(self.buf, 'wb')
+        self.l = threading.Lock()
+        self.t = None
+    def run(self):
+        for line in self.f:
+            with self.l:
+                if self.gz is None:
+                    return
+                self.gz.write(line)
+    def dump(self):
+        with self.l:
+            self.gz.close()
+            self.gz = None
+        self.buf.seek(0)
+        r = gzip.open(self.buf, 'rt')
+        return r.read()
+    def start(self):
+        self.t = threading.Thread(target=self.run)
+        self.t.daemon = True
+        self.t.start()
 
 
 if __name__ == '__main__':
