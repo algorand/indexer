@@ -2154,8 +2154,10 @@ func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *
 		rec.Application.Params.ClearStateProgram = ap.ClearStateProgram
 		rec.Application.Params.Creator = new(string)
 
-		encodedAddr := base64.StdEncoding.EncodeToString(creator)
-		rec.Application.Params.Creator = &encodedAddr
+		var aaddr atypes.Address
+		copy(aaddr[:], creator)
+		rec.Application.Params.Creator = new(string)
+		*(rec.Application.Params.Creator) = aaddr.String()
 		rec.Application.Params.GlobalState = ap.GlobalState.toModel()
 		rec.Application.Params.GlobalStateSchema = &models.ApplicationStateSchema{
 			NumByteSlice: ap.GlobalStateSchema.NumByteSlice,
