@@ -216,7 +216,7 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 	if err != nil {
 		return indexerError(ctx, err.Error())
 	}
-	var apps := make([]generated.Application, 0)
+	apps := make([]generated.Application, 0)
 	for result := range results {
 		if result.Error != nil {
 			return indexerError(ctx, result.Error.Error())
