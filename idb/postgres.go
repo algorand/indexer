@@ -1079,7 +1079,7 @@ func (db *PostgresIndexerDb) GetBlock(round uint64) (block types.Block, err erro
 	return
 }
 
-func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []interface{}) {
+func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []interface{}, err error) {
 	// TODO? There are some combinations of tf params that will
 	// yield no results and we could catch that before asking the
 	// database. A hopefully rare optimization.
@@ -1155,9 +1155,22 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 		whereArgs = append(whereArgs, tf.AfterTime)
 		partNumber++
 	}
-	if tf.AssetId != 0 {
+	if tf.AssetId != 0 || tf.ApplicationId != 0 {
+		var creatableId uint64
+		if tf.AssetId != 0 {
+			creatableId = tf.AssetId
+			if tf.ApplicationId != 0 {
+				if tf.AssetId == tf.ApplicationId {
+					// this is nonsense, but I'll allow it
+				} else {
+					return "", nil, fmt.Errorf("cannot search both assetid and appid")
+				}
+			}
+		} else {
+			creatableId = tf.ApplicationId
+		}
 		whereParts = append(whereParts, fmt.Sprintf("t.asset = $%d", partNumber))
-		whereArgs = append(whereArgs, tf.AssetId)
+		whereArgs = append(whereArgs, creatableId)
 		partNumber++
 	}
 	if tf.AssetAmountGT != 0 {
@@ -1251,7 +1264,6 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 	if tf.Limit != 0 {
 		query += fmt.Sprintf(" LIMIT %d", tf.Limit)
 	}
-
 	return
 }
 
@@ -1261,7 +1273,13 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 		go db.txnsWithNext(ctx, tf, out)
 		return out
 	}
-	query, whereArgs := buildTransactionQuery(tf)
+	query, whereArgs, err := buildTransactionQuery(tf)
+	if err != nil {
+		err = fmt.Errorf("txn query err %v", err)
+		out <- TxnRow{Error: err}
+		close(out)
+		return out
+	}
 	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
@@ -1296,7 +1314,13 @@ func (db *PostgresIndexerDb) txnsWithNext(ctx context.Context, tf TransactionFil
 		tf.Round = &nextround
 		tf.OffsetGT = &nextintra
 	}
-	query, whereArgs := buildTransactionQuery(tf)
+	query, whereArgs, err := buildTransactionQuery(tf)
+	if err != nil {
+		err = fmt.Errorf("txn query err %v", err)
+		out <- TxnRow{Error: err}
+		close(out)
+		return
+	}
 	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
@@ -1336,7 +1360,13 @@ func (db *PostgresIndexerDb) txnsWithNext(ctx context.Context, tf TransactionFil
 		tf.OffsetGT = origOGT
 		tf.MinRound = nextround + 1
 	}
-	query, whereArgs = buildTransactionQuery(tf)
+	query, whereArgs, err = buildTransactionQuery(tf)
+	if err != nil {
+		err = fmt.Errorf("txn query err %v", err)
+		out <- TxnRow{Error: err}
+		close(out)
+		return
+	}
 	rows, err = db.db.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
@@ -1669,6 +1699,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 			account.CreatedApps = &aout
 		}
 
+		reject = opts.HasAppId != 0
 		if len(localStateAppIds) > 0 {
 			var appIds []uint64
 			err = json.Decode(localStateAppIds, &appIds)
@@ -1697,8 +1728,14 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 					NumUint:      ls[i].Schema.NumUint,
 				}
 				aout[i].KeyValue = ls[i].KeyValue.toModel()
+				if appid == opts.HasAppId {
+					reject = false
+				}
 			}
 			account.AppsLocalState = &aout
+		}
+		if reject {
+			continue
 		}
 
 		select {
@@ -1864,7 +1901,7 @@ func (db *PostgresIndexerDb) buildAccountQuery(opts AccountQueryOptions) (query 
 		query += " WHERE " + whereStr
 	}
 	query += " ORDER BY a.addr ASC"
-	if opts.Limit != 0 && opts.HasAssetId == 0 {
+	if opts.Limit != 0 && opts.HasAssetId == 0 && opts.HasAppId == 0 {
 		// sql limit gets disabled when we filter client side
 		query += fmt.Sprintf(" LIMIT %d", opts.Limit)
 	}
@@ -2054,6 +2091,64 @@ func (db *PostgresIndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *
 			return
 		case out <- rec:
 		}
+	}
+	close(out)
+}
+
+func (db *PostgresIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow {
+	out := make(chan ApplicationRow, 1)
+
+	var rows *sql.Rows
+	var err error
+	// TODO: builder pattern like other queries but right now there's only one option, so this is simpler
+	if filter.ApplicationId != nil {
+		rows, err = db.db.QueryContext(ctx, `SELECT index, creator, params FROM app WHERE index = $1`, *filter.ApplicationId)
+	} else {
+		rows, err = db.db.QueryContext(ctx, `SELECT index, creator, params FROM app ORDER BY 1`)
+	}
+	if err != nil {
+		out <- ApplicationRow{Error: err}
+		close(out)
+		return out
+	}
+	go db.yieldApplicationsThread(ctx, rows, out)
+	return out
+}
+
+func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows, out chan ApplicationRow) {
+	for rows.Next() {
+		var index int64
+		var creator []byte
+		var paramsjson []byte
+		err := rows.Scan(&index, &creator, &paramsjson)
+		if err != nil {
+			out <- ApplicationRow{Error: err}
+			break
+		}
+		var rec ApplicationRow
+		rec.Application.Id = uint64(index)
+		var ap AppParams
+		err = json.Decode(paramsjson, &ap)
+		if err != nil {
+			rec.Error = fmt.Errorf("app=%d json err, %v", index, err)
+			out <- rec
+			break
+		}
+		rec.Application.Params.ApprovalProgram = ap.ApprovalProgram
+		rec.Application.Params.ClearStateProgram = ap.ClearStateProgram
+		rec.Application.Params.Creator = new(string)
+		*(rec.Application.Params.Creator) = b32np(creator)
+		rec.Application.Params.GlobalState = new(models.TealKeyValueStore)
+		*(rec.Application.Params.GlobalState) = ap.GlobalState.toModel()
+		rec.Application.Params.GlobalStateSchema = &models.ApplicationStateSchema{
+			NumByteSlice: ap.GlobalStateSchema.NumByteSlice,
+			NumUint:      ap.GlobalStateSchema.NumUint,
+		}
+		rec.Application.Params.LocalStateSchema = &models.ApplicationStateSchema{
+			NumByteSlice: ap.LocalStateSchema.NumByteSlice,
+			NumUint:      ap.LocalStateSchema.NumUint,
+		}
+		out <- rec
 	}
 	close(out)
 }

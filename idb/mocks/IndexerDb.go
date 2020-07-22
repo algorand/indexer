@@ -5,7 +5,9 @@ package mocks
 import (
 	context "context"
 
+	generated "github.com/algorand/indexer/api/generated/v2"
 	idb "github.com/algorand/indexer/idb"
+
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/algorand/indexer/types"
@@ -49,6 +51,22 @@ func (_m *IndexerDb) AlreadyImported(path string) (bool, error) {
 	}
 
 	return r0, r1
+}
+
+// Applications provides a mock function with given fields: ctx, filter
+func (_m *IndexerDb) Applications(ctx context.Context, filter *generated.SearchForApplicationsParams) <-chan idb.ApplicationRow {
+	ret := _m.Called(ctx, filter)
+
+	var r0 <-chan idb.ApplicationRow
+	if rf, ok := ret.Get(0).(func(context.Context, *generated.SearchForApplicationsParams) <-chan idb.ApplicationRow); ok {
+		r0 = rf(ctx, filter)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(<-chan idb.ApplicationRow)
+		}
+	}
+
+	return r0
 }
 
 // AssetBalances provides a mock function with given fields: ctx, abq
