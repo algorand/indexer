@@ -2137,8 +2137,7 @@ func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *
 		rec.Application.Params.ClearStateProgram = ap.ClearStateProgram
 		rec.Application.Params.Creator = new(string)
 		*(rec.Application.Params.Creator) = b32np(creator)
-		rec.Application.Params.GlobalState = new(models.TealKeyValueStore)
-		*(rec.Application.Params.GlobalState) = ap.GlobalState.toModel()
+		rec.Application.Params.GlobalState = ap.GlobalState.toModel()
 		rec.Application.Params.GlobalStateSchema = &models.ApplicationStateSchema{
 			NumByteSlice: ap.GlobalStateSchema.NumByteSlice,
 			NumUint:      ap.GlobalStateSchema.NumUint,
