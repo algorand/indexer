@@ -2095,18 +2095,33 @@ func (db *PostgresIndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *
 }
 
 func (db *PostgresIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow {
-	out := make(chan ApplicationRow, 1)
+	query := `SELECT index, creator, params FROM app `
 
-	var rows *sql.Rows
-	var err error
-	// TODO: builder pattern like other queries but right now there's only mutually exclusive options, so this is simpler
+	const maxWhereParts = 30
+	whereParts := make([]string, 0, maxWhereParts)
+	whereArgs := make([]interface{}, 0, maxWhereParts)
+	partNumber := 1
 	if filter.ApplicationId != nil {
-		rows, err = db.db.QueryContext(ctx, `SELECT index, creator, params FROM app WHERE index = $1`, *filter.ApplicationId)
-	} else if filter.Limit != nil {
-		rows, err = db.db.QueryContext(ctx, `SELECT index, creator, params FROM app ORDER BY 1 LIMIT $1`, *filter.Limit)
-	}else {
-		rows, err = db.db.QueryContext(ctx, `SELECT index, creator, params FROM app ORDER BY 1`)
+		whereParts = append(whereParts, fmt.Sprintf("index = $%d", partNumber))
+		whereArgs = append(whereArgs, *filter.ApplicationId)
+		partNumber++
 	}
+	if filter.Next != nil {
+		whereParts = append(whereParts, fmt.Sprintf("index > $%d", partNumber))
+		whereArgs = append(whereArgs, *filter.Next)
+		partNumber++
+	}
+	if len(whereParts) > 0 {
+		whereStr := strings.Join(whereParts, " AND ")
+		query += " WHERE " + whereStr
+	}
+	query += " ORDER BY 1"
+	if filter.Limit != nil {
+		query += fmt.Sprintf(" LIMIT %d", *filter.Limit)
+	}
+	out := make(chan ApplicationRow, 1)
+	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
+
 	if err != nil {
 		out <- ApplicationRow{Error: err}
 		close(out)

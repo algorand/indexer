@@ -206,6 +206,9 @@
           },
           {
             "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/next"
           }
         ],
         "responses": {

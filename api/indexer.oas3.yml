@@ -1921,6 +1921,14 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "description": "The next page of results. Use the next token provided by the previous results.",
+            "in": "query",
+            "name": "next",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {

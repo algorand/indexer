@@ -933,6 +933,9 @@ type SearchForApplicationsParams struct {
 
 	// Maximum number of results to return.
 	Limit *uint64 `json:"limit,omitempty"`
+
+	// The next page of results. Use the next token provided by the previous results.
+	Next *string `json:"next,omitempty"`
 }
 
 // SearchForAssetsParams defines parameters for SearchForAssets.
