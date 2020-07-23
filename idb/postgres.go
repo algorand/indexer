@@ -1530,14 +1530,22 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 			}
 		}
 
-		// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
-		proto, err := db.GetProto(string(blockheader.CurrentProtocol))
-		rewardsUnits := uint64(0)
-		if proto.RewardUnit != 0 {
-			rewardsUnits = microalgos / proto.RewardUnit
+		if account.Status == "NotParticipating" {
+			account.PendingRewards = 0
+		} else {
+			// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
+			proto, err := db.GetProto(string(blockheader.CurrentProtocol))
+			if err != nil {
+				out <- AccountRow{Error: err}
+				break
+			}
+			rewardsUnits := uint64(0)
+			if proto.RewardUnit != 0 {
+				rewardsUnits = microalgos / proto.RewardUnit
+			}
+			rewardsDelta := blockheader.RewardsLevel - rewardsbase
+			account.PendingRewards = rewardsUnits * rewardsDelta
 		}
-		rewardsDelta := blockheader.RewardsLevel - rewardsbase
-		account.PendingRewards = rewardsUnits * rewardsDelta
 		account.Amount = microalgos + account.PendingRewards
 		// not implemented: account.Rewards sum of all rewards ever
 
