@@ -198,7 +198,8 @@
             "keyreg",
             "acfg",
             "axfer",
-            "afrz"
+            "afrz",
+            "appl"
           ],
           "type": "string"
         }
@@ -1204,7 +1205,8 @@
               "keyreg",
               "acfg",
               "axfer",
-              "afrz"
+              "afrz",
+              "appl"
             ],
             "type": "string",
             "x-algorand-format": "tx-type-enum"
@@ -1744,7 +1746,8 @@
                 "keyreg",
                 "acfg",
                 "axfer",
-                "afrz"
+                "afrz",
+                "appl"
               ],
               "type": "string"
             }
@@ -2279,7 +2282,8 @@
                 "keyreg",
                 "acfg",
                 "axfer",
-                "afrz"
+                "afrz",
+                "appl"
               ],
               "type": "string"
             }
@@ -2526,7 +2530,8 @@
                 "keyreg",
                 "acfg",
                 "axfer",
-                "afrz"
+                "afrz",
+                "appl"
               ],
               "type": "string"
             }

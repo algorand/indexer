@@ -1314,7 +1314,8 @@
             "keyreg",
             "acfg",
             "axfer",
-            "afrz"
+            "afrz",
+            "appl"
           ],
           "x-algorand-format": "tx-type-enum"
         },
@@ -1760,7 +1761,8 @@
         "keyreg",
         "acfg",
         "axfer",
-        "afrz"
+        "afrz",
+        "appl"
       ],
       "type": "string",
       "name": "tx-type",
