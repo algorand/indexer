@@ -203,6 +203,12 @@
         "parameters": [
           {
             "$ref": "#/parameters/application-id"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/next"
           }
         ],
         "responses": {
@@ -702,8 +708,7 @@
       "type": "object",
       "required": [
         "id",
-        "schema",
-        "key-value"
+        "schema"
       ],
       "properties": {
         "id": {
@@ -1309,7 +1314,8 @@
             "keyreg",
             "acfg",
             "axfer",
-            "afrz"
+            "afrz",
+            "appl"
           ],
           "x-algorand-format": "tx-type-enum"
         },
@@ -1755,7 +1761,8 @@
         "keyreg",
         "acfg",
         "axfer",
-        "afrz"
+        "afrz",
+        "appl"
       ],
       "type": "string",
       "name": "tx-type",

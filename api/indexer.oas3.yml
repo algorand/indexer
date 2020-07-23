@@ -198,7 +198,8 @@
             "keyreg",
             "acfg",
             "axfer",
-            "afrz"
+            "afrz",
+            "appl"
           ],
           "type": "string"
         }
@@ -620,7 +621,6 @@
         },
         "required": [
           "id",
-          "key-value",
           "schema"
         ],
         "type": "object"
@@ -1205,7 +1205,8 @@
               "keyreg",
               "acfg",
               "axfer",
-              "afrz"
+              "afrz",
+              "appl"
             ],
             "type": "string",
             "x-algorand-format": "tx-type-enum"
@@ -1745,7 +1746,8 @@
                 "keyreg",
                 "acfg",
                 "axfer",
-                "afrz"
+                "afrz",
+                "appl"
               ],
               "type": "string"
             }
@@ -1913,6 +1915,22 @@
             "name": "application-id",
             "schema": {
               "type": "integer"
+            }
+          },
+          {
+            "description": "Maximum number of results to return.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page of results. Use the next token provided by the previous results.",
+            "in": "query",
+            "name": "next",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -2264,7 +2282,8 @@
                 "keyreg",
                 "acfg",
                 "axfer",
-                "afrz"
+                "afrz",
+                "appl"
               ],
               "type": "string"
             }
@@ -2511,7 +2530,8 @@
                 "keyreg",
                 "acfg",
                 "axfer",
-                "afrz"
+                "afrz",
+                "appl"
               ],
               "type": "string"
             }

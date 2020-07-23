@@ -109,7 +109,7 @@ type ApplicationLocalState struct {
 	Id uint64 `json:"id"`
 
 	// Represents a key-value store for use in an application.
-	KeyValue TealKeyValueStore `json:"key-value"`
+	KeyValue *TealKeyValueStore `json:"key-value,omitempty"`
 
 	// Specifies maximums on the number of each type that may be stored.
 	Schema ApplicationStateSchema `json:"schema"`
@@ -930,6 +930,12 @@ type SearchForApplicationsParams struct {
 
 	// Application ID
 	ApplicationId *uint64 `json:"application-id,omitempty"`
+
+	// Maximum number of results to return.
+	Limit *uint64 `json:"limit,omitempty"`
+
+	// The next page of results. Use the next token provided by the previous results.
+	Next *string `json:"next,omitempty"`
 }
 
 // SearchForAssetsParams defines parameters for SearchForAssets.

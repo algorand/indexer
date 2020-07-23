@@ -509,15 +509,15 @@ type TealKeyValue struct {
 	They []KeyTealValue
 }
 
-func (tkv TealKeyValue) toModel() models.TealKeyValueStore {
-	out := make([]models.TealKeyValue, len(tkv.They))
+func (tkv TealKeyValue) toModel() *models.TealKeyValueStore {
+	var out models.TealKeyValueStore = make([]models.TealKeyValue, len(tkv.They))
 	pos := 0
 	for _, ktv := range tkv.They {
 		out[pos].Key = string(ktv.Key)
 		out[pos].Value = ktv.Tv.toModel()
 		pos++
 	}
-	return out
+	return &out
 }
 func (tkv TealKeyValue) get(key []byte) (TealValue, bool) {
 	for _, ktv := range tkv.They {
@@ -1681,8 +1681,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				aout[outpos].Params.ApprovalProgram = apps[i].ApprovalProgram
 				aout[outpos].Params.ClearStateProgram = apps[i].ClearStateProgram
 				aout[outpos].Params.Creator = &account.Address
-				aout[outpos].Params.GlobalState = new(models.TealKeyValueStore)
-				*(aout[outpos].Params.GlobalState) = apps[i].GlobalState.toModel()
+				aout[outpos].Params.GlobalState = apps[i].GlobalState.toModel()
 				aout[outpos].Params.GlobalStateSchema = &models.ApplicationStateSchema{
 					NumByteSlice: apps[i].GlobalStateSchema.NumByteSlice,
 					NumUint:      apps[i].GlobalStateSchema.NumUint,
@@ -2096,16 +2095,33 @@ func (db *PostgresIndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *
 }
 
 func (db *PostgresIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow {
-	out := make(chan ApplicationRow, 1)
+	query := `SELECT index, creator, params FROM app `
 
-	var rows *sql.Rows
-	var err error
-	// TODO: builder pattern like other queries but right now there's only one option, so this is simpler
+	const maxWhereParts = 30
+	whereParts := make([]string, 0, maxWhereParts)
+	whereArgs := make([]interface{}, 0, maxWhereParts)
+	partNumber := 1
 	if filter.ApplicationId != nil {
-		rows, err = db.db.QueryContext(ctx, `SELECT index, creator, params FROM app WHERE index = $1`, *filter.ApplicationId)
-	} else {
-		rows, err = db.db.QueryContext(ctx, `SELECT index, creator, params FROM app ORDER BY 1`)
+		whereParts = append(whereParts, fmt.Sprintf("index = $%d", partNumber))
+		whereArgs = append(whereArgs, *filter.ApplicationId)
+		partNumber++
 	}
+	if filter.Next != nil {
+		whereParts = append(whereParts, fmt.Sprintf("index > $%d", partNumber))
+		whereArgs = append(whereArgs, *filter.Next)
+		partNumber++
+	}
+	if len(whereParts) > 0 {
+		whereStr := strings.Join(whereParts, " AND ")
+		query += " WHERE " + whereStr
+	}
+	query += " ORDER BY 1"
+	if filter.Limit != nil {
+		query += fmt.Sprintf(" LIMIT %d", *filter.Limit)
+	}
+	out := make(chan ApplicationRow, 1)
+	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
+
 	if err != nil {
 		out <- ApplicationRow{Error: err}
 		close(out)
@@ -2137,9 +2153,12 @@ func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *
 		rec.Application.Params.ApprovalProgram = ap.ApprovalProgram
 		rec.Application.Params.ClearStateProgram = ap.ClearStateProgram
 		rec.Application.Params.Creator = new(string)
-		*(rec.Application.Params.Creator) = b32np(creator)
-		rec.Application.Params.GlobalState = new(models.TealKeyValueStore)
-		*(rec.Application.Params.GlobalState) = ap.GlobalState.toModel()
+
+		var aaddr atypes.Address
+		copy(aaddr[:], creator)
+		rec.Application.Params.Creator = new(string)
+		*(rec.Application.Params.Creator) = aaddr.String()
+		rec.Application.Params.GlobalState = ap.GlobalState.toModel()
 		rec.Application.Params.GlobalStateSchema = &models.ApplicationStateSchema{
 			NumByteSlice: ap.GlobalStateSchema.NumByteSlice,
 			NumUint:      ap.GlobalStateSchema.NumUint,

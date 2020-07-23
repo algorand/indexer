@@ -160,9 +160,8 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		return indexerError(ctx, err.Error())
 	}
 
-	// Set the next token if we hit the results limit
 	var next *string
-	if params.Limit != nil && uint64(len(accounts)) >= *params.Limit {
+	if len(accounts) > 0 {
 		next = strPtr(accounts[len(accounts)-1].Address)
 	}
 
@@ -217,16 +216,23 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 	if err != nil {
 		return indexerError(ctx, err.Error())
 	}
-	var apps []generated.Application
+	apps := make([]generated.Application, 0)
 	for result := range results {
 		if result.Error != nil {
 			return indexerError(ctx, result.Error.Error())
 		}
 		apps = append(apps, result.Application)
 	}
+
+	var next *string
+	if len(apps) > 0 {
+		next = strPtr(strconv.FormatUint(apps[len(apps)-1].Id, 10))
+	}
+
 	out := generated.ApplicationsResponse{
 		Applications: apps,
 		CurrentRound: round,
+		NextToken   : next,
 	}
 	return ctx.JSON(http.StatusOK, out)
 }
@@ -317,9 +323,8 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 		return indexerError(ctx, err.Error())
 	}
 
-	// Set the next token if we hit the results limit
 	var next *string
-	if params.Limit != nil && uint64(len(balances)) >= *params.Limit {
+	if len(balances) > 0 {
 		next = strPtr(balances[len(balances)-1].Address)
 	}
 
@@ -376,9 +381,8 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 		return indexerError(ctx, err.Error())
 	}
 
-	// Set the next token if we hit the results limit
 	var next *string
-	if params.Limit != nil && uint64(len(assets)) >= *params.Limit {
+	if len(assets) > 0 {
 		next = strPtr(strconv.FormatUint(assets[len(assets)-1].Index, 10))
 	}
 
