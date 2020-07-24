@@ -270,7 +270,7 @@ class CheckContext:
         # [(addr, "err text"), ...]
         self.mismatches = []
 
-    def check(self, address, niceaddr, microalgos, assets, appparams, applocal):
+    def check(self, address, niceaddr, microalgos, assets, acfg, appparams, applocal):
         # check data from sql or algod vs indexer
         i2v = self.accounts.pop(address, None)
         if i2v is None:
@@ -313,6 +313,16 @@ class CheckContext:
                 if not allzero:
                     emsg = '{} algod has assets but not indexer: {!r}\n'.format(niceaddr, nonzero)
                     xe(emsg)
+            i2acfg = i2v.get('created-assets')
+            if acfg:
+                if i2acfg:
+                    eqerr = []
+                    if not deepeq(i2acfg, acfg, (), eqerr):
+                        xe('{} indexer and algod disagree on acfg, {}\nindexer={}\nalgod={}\n'.format(niceaddr, eqerr, json_pp(i2acfg), json_pp(acfg)))
+                else:
+                    xe('{} algod has acfg but not indexer: {!r}\n'.format(niceaddr, acfg))
+            elif i2acfg:
+                xe('{} indexer has acfg but not algod: {!r}\n'.format(niceaddr, i2acfg))
             i2apar = i2v.get('created-apps')
             if appparams:
                 if i2apar:
@@ -491,7 +501,8 @@ def check_from_sqlite(args):
                 },
             })
         if i2a_checker:
-            i2a_checker.check(address, niceaddr, microalgos, assets, appparams, applocal)
+            # TODO: assets created by this account
+            i2a_checker.check(address, niceaddr, microalgos, assets, None, appparams, applocal)
         if args.limit and count > args.limit:
             break
     return tracker_round, i2a_checker
@@ -535,7 +546,7 @@ def check_from_algod(args):
         microalgos = ad['amount-without-pending-rewards']
         xa = ad.get('assets') or []
         address = algosdk.encoding.decode_address(niceaddr)
-        i2a_checker.check(address, niceaddr, microalgos, xa, ad.get('created-apps'), ad.get('apps-local-state'))
+        i2a_checker.check(address, niceaddr, microalgos, xa, ad.get('created-assets'), ad.get('created-apps'), ad.get('apps-local-state'))
     return lastround, i2a_checker
 
 def main():

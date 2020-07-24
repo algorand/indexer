@@ -1767,6 +1767,9 @@ func boolPtr(x bool) *bool {
 }
 
 func stringPtr(x string) *string {
+	if len(x) == 0 {
+		return nil
+	}
 	out := new(string)
 	*out = x
 	return out
