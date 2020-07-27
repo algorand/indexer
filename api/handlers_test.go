@@ -247,6 +247,7 @@ func TestFetchTransactions(t *testing.T) {
 		name     string
 		txnBytes [][]byte
 		response []generated.Transaction
+		created  uint64
 	}{
 		{
 			name: "Payment",
@@ -274,6 +275,7 @@ func TestFetchTransactions(t *testing.T) {
 			response: []generated.Transaction{
 				loadTransactionFromFile("test_resources/asset_config.response"),
 			},
+			created: 100,
 		},
 		{
 			name: "Asset Transfer",
@@ -303,6 +305,15 @@ func TestFetchTransactions(t *testing.T) {
 			},
 		},
 		{
+			name: "Rekey Transaction",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/rekey.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/rekey.response"),
+			},
+		},
+		{
 			name: "Application Call (1)",
 			txnBytes: [][]byte{
 				loadResourceFileOrPanic("test_resources/app_call_1.txn"),
@@ -310,6 +321,7 @@ func TestFetchTransactions(t *testing.T) {
 			response: []generated.Transaction{
 				loadTransactionFromFile("test_resources/app_call_1.response"),
 			},
+			created: 10,
 		},
 		{
 			name: "Application Call (2)",
@@ -319,6 +331,7 @@ func TestFetchTransactions(t *testing.T) {
 			response: []generated.Transaction{
 				loadTransactionFromFile("test_resources/app_call_2.response"),
 			},
+			created: 10,
 		},
 		{
 			name: "Application Call (3)",
@@ -328,6 +341,7 @@ func TestFetchTransactions(t *testing.T) {
 			response: []generated.Transaction{
 				loadTransactionFromFile("test_resources/app_call_3.response"),
 			},
+			created: 10,
 		},
 		{
 			name: "Application Clear",
@@ -407,7 +421,7 @@ func TestFetchTransactions(t *testing.T) {
 					Intra:     2,
 					RoundTime: roundTime,
 					TxnBytes:  bytes,
-					AssetId:   0,
+					AssetId:   test.created,
 					Extra: idb.TxnExtra{
 						AssetCloseAmount: 0,
 					},

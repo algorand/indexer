@@ -383,11 +383,18 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		TxType:                   string(stxn.Txn.Type),
 		Signature:                sig,
 		Id:                       crypto.TransactionIDString(stxn.Txn),
+		RekeyTo:                  addrPtr(stxn.Txn.RekeyTo),
 	}
 
 	if stxn.Txn.Type == sdk_types.AssetConfigTx {
 		if txn.AssetConfigTransaction != nil && txn.AssetConfigTransaction.AssetId != nil && *txn.AssetConfigTransaction.AssetId == 0 {
 			txn.CreatedAssetIndex = uint64Ptr(row.AssetId)
+		}
+	}
+
+	if stxn.Txn.Type == sdk_types.ApplicationCallTx {
+		if txn.ApplicationTransaction != nil && txn.ApplicationTransaction.ApplicationId == 0 {
+			txn.CreatedApplicationIndex = uint64Ptr(row.AssetId)
 		}
 	}
 

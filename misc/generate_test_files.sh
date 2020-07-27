@@ -6,9 +6,9 @@
 #
 # Arguments (modes)
 #
-# data - print all encoded transactions, useful to quickly find which TXIDs are
-#        useful for whatever test is being written.
-#
+# data [query] - print all encoded transactions, useful to quickly find which
+#                TXIDs are useful for whatever test is being written.
+#                Optionally provide a query.
 
 export PGPASSWORD='harness'
 
@@ -28,8 +28,12 @@ if [[ $1 == "data" ]]; then
   echo "Transaction Report"
   echo "--------------"
 
-  # Grab all txids
-  psql -qtAX -U algorand --password -d dataset2 -p 5433 -h localhost -w -c 'select txid from txn where typeenum=6' > rows
+  if [[ $2 != "" ]]; then
+    psql -qtAX -U algorand --password -d dataset2 -p 5433 -h localhost -w -c "$2" > rows
+  else
+    # Grab all txids if no query was provided
+    psql -qtAX -U algorand --password -d dataset2 -p 5433 -h localhost -w -c 'select txid from txn where typeenum=6' > rows
+  fi
 
   while read p; do
     download_txn "$p" "temp_stxn"
@@ -55,6 +59,8 @@ APAN_CALL_1="x374454423353494b5a37485541564e3654494f4454514d324d3537435232494346
 APAN_CALL_2="x424245355635463433424f4f44444832355552523646533455324f43425a554f5834514d3744415457544a594e584c4d43434141"
 APAN_CALL_3="x4a41494b5a594834484f42344e544536444650354f444a564249334542465250545851334f585649504b5645415a354f51524241"
 
+REKEY="x494f49514e4e46515635485349515543564d4f534d374f4d4d3349373642503656414c534f5a524547423453334a56534a445451"
+
 download_txn $APAN_OPTIN ../api/test_resources/app_optin.txn
 download_txn $APAN_CLOSE ../api/test_resources/app_close.txn
 download_txn $APAN_CLEAR ../api/test_resources/app_clear.txn
@@ -64,3 +70,4 @@ download_txn $NON_ASCII_KEY ../api/test_resources/app_nonascii.txn
 download_txn $APAN_CALL_1 ../api/test_resources/app_call_1.txn
 download_txn $APAN_CALL_2 ../api/test_resources/app_call_2.txn
 download_txn $APAN_CALL_3 ../api/test_resources/app_call_3.txn
+download_txn $REKEY ../api/test_resources/rekey.txn
