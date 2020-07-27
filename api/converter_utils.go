@@ -222,6 +222,24 @@ func lsigToTransactionLsig(lsig sdk_types.LogicSig) *generated.TransactionSignat
 	return &ret
 }
 
+func onCompletionToTransactionOnCompletion(oc sdk_types.OnCompletion) generated.OnCompletion {
+	switch oc {
+	case sdk_types.NoOpOC:
+		return "noop"
+	case sdk_types.OptInOC:
+		return "optin"
+	case sdk_types.CloseOutOC:
+		return "closeout"
+	case sdk_types.ClearStateOC:
+		return "clear"
+	case sdk_types.UpdateApplicationOC:
+		return "update"
+	case sdk_types.DeleteApplicationOC:
+		return "delete"
+	}
+	return "unknown"
+}
+
 func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Error != nil {
 		return generated.Transaction{}, row.Error
@@ -238,6 +256,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	var assetConfig *generated.TransactionAssetConfig
 	var assetFreeze *generated.TransactionAssetFreeze
 	var assetTransfer *generated.TransactionAssetTransfer
+	var application *generated.TransactionApplication
 
 	switch stxn.Txn.Type {
 	case sdk_types.PaymentTx:
@@ -295,9 +314,42 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 			NewFreezeStatus: stxn.Txn.AssetFrozen,
 		}
 		assetFreeze = &f
-	}
+	case sdk_types.ApplicationCallTx:
+		args := make([]string, 0)
+		for _, v := range stxn.Txn.ApplicationArgs {
+			args = append(args, base64.StdEncoding.EncodeToString(v))
+		}
 
-	// TODO: sdk_type.ApplicationTx
+		accts := make([]string, 0)
+		for _, v := range stxn.Txn.Accounts {
+			accts = append(accts, v.String())
+		}
+
+		apps := make([]uint64, 0)
+		for _, v := range stxn.Txn.ForeignApps {
+			apps = append(apps, uint64(v))
+		}
+
+		a := generated.TransactionApplication{
+			Accounts: &accts,
+			ApplicationArgs: &args,
+			ApplicationId: uint64(stxn.Txn.ApplicationID),
+			ApprovalProgram: bytePtr(stxn.Txn.ApprovalProgram),
+			ClearStateProgram: bytePtr(stxn.Txn.ClearStateProgram),
+			ForeignApps: &apps,
+			GlobalStateSchema: &generated.StateSchema{
+				NumByteSlice: stxn.Txn.GlobalStateSchema.NumByteSlice,
+				NumUint:      stxn.Txn.GlobalStateSchema.NumUint,
+			},
+			LocalStateSchema: &generated.StateSchema{
+				NumByteSlice: stxn.Txn.LocalStateSchema.NumByteSlice,
+				NumUint:      stxn.Txn.LocalStateSchema.NumUint,
+			},
+			OnCompletion: onCompletionToTransactionOnCompletion(stxn.Txn.OnCompletion),
+		}
+
+		application = &a
+	}
 
 	sig := generated.TransactionSignature{
 		Logicsig: lsigToTransactionLsig(stxn.Lsig),
@@ -306,6 +358,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	}
 
 	txn := generated.Transaction{
+		ApplicationTransaction:   application,
 		AssetConfigTransaction:   assetConfig,
 		AssetFreezeTransaction:   assetFreeze,
 		AssetTransferTransaction: assetTransfer,

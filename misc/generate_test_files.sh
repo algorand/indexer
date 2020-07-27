@@ -58,7 +58,8 @@ APAN_CALL_3="x4a41494b5a594834484f42344e544536444650354f444a56424933454246525054
 download_txn $APAN_OPTIN ../api/test_resources/app_optin.txn
 download_txn $APAN_CLOSE ../api/test_resources/app_close.txn
 download_txn $APAN_CLEAR ../api/test_resources/app_clear.txn
-download_txn $APAN_UPDATE ../api/test_resources/app_delete.txn
+download_txn $APAN_UPDATE ../api/test_resources/app_update.txn
+download_txn $APAN_DELETE ../api/test_resources/app_delete.txn
 download_txn $NON_ASCII_KEY ../api/test_resources/app_nonascii.txn
 download_txn $APAN_CALL_1 ../api/test_resources/app_call_1.txn
 download_txn $APAN_CALL_2 ../api/test_resources/app_call_2.txn

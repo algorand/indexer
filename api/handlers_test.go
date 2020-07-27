@@ -98,6 +98,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				Address:             strPtr("YXGBWVBK764KGYPX6ENIADKXPWLBNAZ7MTXDZULZWGOBO2W6IAR622VSLA"),
 				AddressRole:         strPtr("sender"),
 				ExcludeCloseTo:      boolPtr(true),
+				ApplicationId:       uint64Ptr(7),
 			},
 			idb.TransactionFilter{
 				Limit:             defaultTransactionsLimit + 1,
@@ -123,6 +124,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				Offset:            nil,
 				OffsetLT:          nil,
 				OffsetGT:          nil,
+				ApplicationId:     7,
 			},
 			nil,
 		},
@@ -194,6 +196,12 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 			name:          "Currency to Algos when no asset-id",
 			params:        generated.SearchForTransactionsParams{CurrencyGreaterThan: uint64Ptr(10), CurrencyLessThan: uint64Ptr(20)},
 			filter:        idb.TransactionFilter{AlgosGT: 10, AlgosLT: 20, Limit: defaultTransactionsLimit},
+			errorContains: nil,
+		},
+		{
+			name:          "Searching by application-id",
+			params:        generated.SearchForTransactionsParams{ApplicationId: uint64Ptr(1234)},
+			filter:        idb.TransactionFilter{ApplicationId: 1234, Limit: defaultTransactionsLimit},
 			errorContains: nil,
 		},
 	}
@@ -294,7 +302,87 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/multisig.response"),
 			},
 		},
-		// TODO: Add application transaction types
+		{
+			name: "Application Call (1)",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_1.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_1.response"),
+			},
+		},
+		{
+			name: "Application Call (2)",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_2.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_2.response"),
+			},
+		},
+		{
+			name: "Application Call (3)",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_3.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_3.response"),
+			},
+		},
+		{
+			name: "Application Clear",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_clear.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_clear.response"),
+			},
+		},
+		{
+			name: "Application Close",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_close.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_close.response"),
+			},
+		},
+		{
+			name: "Application Update",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_update.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_update.response"),
+			},
+		},
+		{
+			name: "Application Delete",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_delete.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_delete.response"),
+			},
+		},
+		{
+			name: "Application Non ASCII Key",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_nonascii.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_nonascii.response"),
+			},
+		},
+		{
+			name: "Application Optin",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_optin.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_optin.response"),
+			},
+		},
 		// TODO: Add rekey transaction
 	}
 
