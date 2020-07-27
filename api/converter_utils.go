@@ -384,19 +384,35 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		return &delta
 	}
 
-	var localStateDelta *[]generated.LocalStateDelta
+	var localStateDelta *[]generated.AccountStateDelta
+	type tuple struct {
+		key     uint64
+		address types.Address
+	}
 	if len(stxn.ApplyData.EvalDelta.LocalDeltas) > 0 {
-		keys := make([]uint64, 0)
+		keys := make([]tuple, 0)
 		for k, _ := range stxn.ApplyData.EvalDelta.LocalDeltas {
-			keys = append(keys, k)
+			if k == 0 {
+				keys = append(keys, tuple{
+					key:     0,
+					address: stxn.Txn.Sender,
+				})
+			} else {
+				addr := types.Address{}
+				copy(addr[:], stxn.Txn.Accounts[k-1][:])
+				keys = append(keys, tuple{
+					key:     k,
+					address: addr,
+				})
+			}
 		}
-		sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
-		d := make([]generated.LocalStateDelta, 0)
+		sort.Slice(keys, func(i, j int) bool { return keys[i].key < keys[j].key})
+		d := make([]generated.AccountStateDelta, 0)
 		for _, k := range keys {
-			v := stxn.ApplyData.EvalDelta.LocalDeltas[k]
-			d = append(d, generated.LocalStateDelta{
-				ApplicationId: k,
-				StateDelta:    *(convertDelta(v)),
+			v := stxn.ApplyData.EvalDelta.LocalDeltas[k.key]
+			d = append(d, generated.AccountStateDelta{
+				Address: k.address.String(),
+				Delta:   *(convertDelta(v)),
 			})
 		}
 		localStateDelta = &d

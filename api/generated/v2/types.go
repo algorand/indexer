@@ -92,6 +92,14 @@ type AccountParticipation struct {
 	VoteParticipationKey []byte `json:"vote-participation-key"`
 }
 
+// AccountStateDelta defines model for AccountStateDelta.
+type AccountStateDelta struct {
+	Address string `json:"address"`
+
+	// Application state delta.
+	Delta StateDelta `json:"delta"`
+}
+
 // Application defines model for Application.
 type Application struct {
 
@@ -347,16 +355,6 @@ type HealthCheck struct {
 	Message string                  `json:"message"`
 }
 
-// LocalStateDelta defines model for LocalStateDelta.
-type LocalStateDelta struct {
-
-	// Application ID which had these state changes.
-	ApplicationId uint64 `json:"application-id"`
-
-	// Application state delta.
-	StateDelta StateDelta `json:"state-delta"`
-}
-
 // MiniAssetHolding defines model for MiniAssetHolding.
 type MiniAssetHolding struct {
 	Address  string `json:"address"`
@@ -487,8 +485,10 @@ type Transaction struct {
 	LastValid uint64 `json:"last-valid"`
 
 	// \[lx\] Base64 encoded 32-byte array. Lease enforces mutual exclusion of transactions.  If this field is nonzero, then once the transaction is confirmed, it acquires the lease identified by the (Sender, Lease) pair of the transaction until the LastValid round passes.  While this transaction possesses the lease, no other transaction specifying this lease can be confirmed.
-	Lease           *[]byte            `json:"lease,omitempty"`
-	LocalStateDelta *[]LocalStateDelta `json:"local-state-delta,omitempty"`
+	Lease *[]byte `json:"lease,omitempty"`
+
+	// \[ld\] Local state key/value changes for the application being executed by this transaction.
+	LocalStateDelta *[]AccountStateDelta `json:"local-state-delta,omitempty"`
 
 	// \[note\] Free form data.
 	Note *[]byte `json:"note,omitempty"`

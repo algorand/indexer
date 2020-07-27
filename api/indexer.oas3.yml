@@ -588,6 +588,22 @@
         ],
         "type": "object"
       },
+      "AccountStateDelta": {
+        "description": "Application state delta.",
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "delta": {
+            "$ref": "#/components/schemas/StateDelta"
+          }
+        },
+        "required": [
+          "address",
+          "delta"
+        ],
+        "type": "object"
+      },
       "Application": {
         "description": "Application index and its parameters",
         "properties": {
@@ -1018,23 +1034,6 @@
         ],
         "type": "object"
       },
-      "LocalStateDelta": {
-        "description": "\\[gd\\] Local state key/value changes for the applications modified by this transaction.",
-        "properties": {
-          "application-id": {
-            "description": "Application ID which had these state changes.",
-            "type": "integer"
-          },
-          "state-delta": {
-            "$ref": "#/components/schemas/StateDelta"
-          }
-        },
-        "required": [
-          "application-id",
-          "state-delta"
-        ],
-        "type": "object"
-      },
       "MiniAssetHolding": {
         "description": "A simplified version of AssetHolding ",
         "properties": {
@@ -1231,8 +1230,9 @@
             "type": "string"
           },
           "local-state-delta": {
+            "description": "\\[ld\\] Local state key/value changes for the application being executed by this transaction.",
             "items": {
-              "$ref": "#/components/schemas/LocalStateDelta"
+              "$ref": "#/components/schemas/AccountStateDelta"
             },
             "type": "array"
           },
