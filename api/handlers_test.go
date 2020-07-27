@@ -397,7 +397,6 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/app_optin.response"),
 			},
 		},
-		// TODO: Add rekey transaction
 	}
 
 	for _, test := range tests {
