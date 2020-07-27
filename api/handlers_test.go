@@ -403,7 +403,7 @@ func TestFetchTransactions(t *testing.T) {
 				loadResourceFileOrPanic("test_resources/app_foreign.txn"),
 			},
 			response: []generated.Transaction{
-				loadTransactionFromFile("test_resources/app_optin.response"),
+				loadTransactionFromFile("test_resources/app_foreign.response"),
 			},
 		},
 	}
