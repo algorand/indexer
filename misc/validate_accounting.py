@@ -232,6 +232,10 @@ def _dap(x):
         out['params']['global-state'] = {z['key']:z['value'] for z in gs}
     return out
 
+def dictifyAssetConfig(acfg):
+    return {x['index']:x for x in acfg}
+
+
 def dictifyAppParams(ap):
     # make a list of app params comparable by deepeq
     return {x['id']:_dap(x) for x in ap}
@@ -306,7 +310,7 @@ class CheckContext:
             elif assets:
                 allzero = True
                 nonzero = []
-                for assetrec in assets.items():
+                for assetrec in assets:
                     if assetrec.get('amount',0) != 0:
                         allzero = False
                         nonzero.append(assetrec)
@@ -316,8 +320,10 @@ class CheckContext:
             i2acfg = i2v.get('created-assets')
             if acfg:
                 if i2acfg:
+                    indexerAcfg = dictifyAssetConfig(i2acfg)
+                    algodAcfg = dictifyAssetConfig(acfg)
                     eqerr = []
-                    if not deepeq(i2acfg, acfg, (), eqerr):
+                    if not deepeq(indexerAcfg, algodAcfg, (), eqerr):
                         xe('{} indexer and algod disagree on acfg, {}\nindexer={}\nalgod={}\n'.format(niceaddr, eqerr, json_pp(i2acfg), json_pp(acfg)))
                 else:
                     xe('{} algod has acfg but not indexer: {!r}\n'.format(niceaddr, acfg))
@@ -527,7 +533,7 @@ def check_from_algod(args):
     #logger.debug('status %r', status)
     lastround = status['last-round']
     if args.indexer:
-        i2a = indexerAccounts(args.indexer, blockround=lastround)
+        i2a = indexerAccounts(args.indexer, blockround=lastround, addrlist=(args.accounts and args.accounts.split(',')))
         i2a_checker = CheckContext(i2a, sys.stderr)
     else:
         logger.warn('no indexer, nothing to do')
@@ -544,9 +550,8 @@ def check_from_algod(args):
             na = indexerAccounts(args.indexer, blockround=round, addrlist=[niceaddr])
             i2a.update(na)
         microalgos = ad['amount-without-pending-rewards']
-        xa = ad.get('assets') or []
         address = algosdk.encoding.decode_address(niceaddr)
-        i2a_checker.check(address, niceaddr, microalgos, xa, ad.get('created-assets'), ad.get('created-apps'), ad.get('apps-local-state'))
+        i2a_checker.check(address, niceaddr, microalgos, ad.get('assets'), ad.get('created-assets'), ad.get('created-apps'), ad.get('apps-local-state'))
     return lastround, i2a_checker
 
 def main():
