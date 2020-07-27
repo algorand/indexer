@@ -397,6 +397,15 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/app_optin.response"),
 			},
 		},
+		{
+			name: "Application With Foreign App",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_foreign.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_optin.response"),
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -437,7 +446,8 @@ func TestFetchTransactions(t *testing.T) {
 			results, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
 			assert.NoError(t, err)
 
-			printIt := false
+			// Automatically print it out when writing the test.
+			printIt := len(test.response) == 0
 			if printIt {
 				fmt.Printf("Test: %s\n", test.name)
 				for _, result := range results {
