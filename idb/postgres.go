@@ -495,7 +495,7 @@ func (tv TealValue) toModel() models.TealValue {
 	case TealUintType:
 		return models.TealValue{Uint: tv.Uint, Type: uint64(tv.Type)}
 	case TealBytesType:
-		return models.TealValue{Bytes: string(tv.Bytes), Type: uint64(tv.Type)}
+		return models.TealValue{Bytes: b64(tv.Bytes), Type: uint64(tv.Type)}
 	}
 	return models.TealValue{}
 }
@@ -510,10 +510,13 @@ type TealKeyValue struct {
 }
 
 func (tkv TealKeyValue) toModel() *models.TealKeyValueStore {
+	if len(tkv.They) == 0 {
+		return nil
+	}
 	var out models.TealKeyValueStore = make([]models.TealKeyValue, len(tkv.They))
 	pos := 0
 	for _, ktv := range tkv.They {
-		out[pos].Key = string(ktv.Key)
+		out[pos].Key = b64(ktv.Key)
 		out[pos].Value = ktv.Tv.toModel()
 		pos++
 	}
@@ -701,17 +704,44 @@ func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, 
 		}
 	}
 	if len(updates.AcfgUpdates) > 0 {
+		// TODO: fix according to this comment:
+		// if asset is new, set.
+		// if new config is empty, set empty. -- handled by AssetDestroys
+		// else, update.
 		any = true
 		setacfg, err := tx.Prepare(`INSERT INTO asset (index, creator_addr, params) VALUES ($1, $2, $3) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params`)
 		if err != nil {
 			return fmt.Errorf("prepare set asset, %v", err)
 		}
 		defer setacfg.Close()
+		getacfg, err := tx.Prepare(`SELECT params FROM asset WHERE index = $1`)
+		if err != nil {
+			return fmt.Errorf("prepare get asset, %v", err)
+		}
+		defer getacfg.Close()
 		for _, au := range updates.AcfgUpdates {
 			if au.AssetId == debugAsset {
 				fmt.Fprintf(os.Stderr, "%d acfg %s %s\n", round, b64(au.Creator[:]), obs(au))
 			}
-			_, err = setacfg.Exec(au.AssetId, au.Creator[:], string(json.Encode(au.Params)))
+			var outparams string
+			if au.IsNew {
+				outparams = string(json.Encode(au.Params))
+			} else {
+				row := getacfg.QueryRow(au.AssetId)
+				var paramjson []byte
+				err = row.Scan(&paramjson)
+				if err != nil {
+					return fmt.Errorf("get acfg %d, %v", au.AssetId, err)
+				}
+				var old atypes.AssetParams
+				err = json.Decode(paramjson, &old)
+				if err != nil {
+					return fmt.Errorf("bad acgf json %d, %v", au.AssetId, err)
+				}
+				np := types.MergeAssetConfig(old, au.Params)
+				outparams = string(json.Encode(np))
+			}
+			_, err = setacfg.Exec(au.AssetId, au.Creator[:], outparams)
 			if err != nil {
 				return fmt.Errorf("update asset, %v", err)
 			}
@@ -1291,6 +1321,32 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 	return out
 }
 
+func (db *PostgresIndexerDb) txTransactions(tx *sql.Tx, tf TransactionFilter) <-chan TxnRow {
+	out := make(chan TxnRow, 1)
+	if len(tf.NextToken) > 0 {
+		err := fmt.Errorf("txTransactions incompatible with next")
+		out <- TxnRow{Error: err}
+		close(out)
+		return out
+	}
+	query, whereArgs, err := buildTransactionQuery(tf)
+	if err != nil {
+		err = fmt.Errorf("txn query err %v", err)
+		out <- TxnRow{Error: err}
+		close(out)
+		return out
+	}
+	rows, err := tx.Query(query, whereArgs...)
+	if err != nil {
+		err = fmt.Errorf("txn query %#v err %v", query, err)
+		out <- TxnRow{Error: err}
+		close(out)
+		return out
+	}
+	go db.yieldTxnsThreadSimple(context.Background(), rows, out, true, nil, nil)
+	return out
+}
+
 func (db *PostgresIndexerDb) txnsWithNext(ctx context.Context, tf TransactionFilter, out chan<- TxnRow) {
 	nextround, nextintra32, err := DecodeTxnRowNext(tf.NextToken)
 	nextintra := uint64(nextintra32)
@@ -1644,10 +1700,10 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 						Name:          stringPtr(ap.AssetName),
 						Url:           stringPtr(ap.URL),
 						MetadataHash:  baPtr(ap.MetadataHash[:]),
-						Manager:       addrStr(ap.Manager[:]),
-						Reserve:       addrStr(ap.Reserve[:]),
-						Freeze:        addrStr(ap.Freeze[:]),
-						Clawback:      addrStr(ap.Clawback[:]),
+						Manager:       addrStr(ap.Manager),
+						Reserve:       addrStr(ap.Reserve),
+						Freeze:        addrStr(ap.Freeze),
+						Clawback:      addrStr(ap.Clawback),
 					},
 				}
 				cal = append(cal, tma)
@@ -1792,17 +1848,24 @@ func allZero(x []byte) bool {
 	return true
 }
 
-func addrStr(addr []byte) *string {
+func addrStr(addr types.Address) *string {
+	if addr.IsZero() {
+		return nil
+	}
+	out := new(string)
+	*out = addr.String()
+	return out
+}
+
+func bytesStr(addr []byte) *string {
 	if len(addr) == 0 {
-		return &emptyString
+		return nil
 	}
 	if allZero(addr) {
-		return &emptyString
+		return nil
 	}
-	var aa atypes.Address
-	copy(aa[:], addr)
 	out := new(string)
-	*out = aa.String()
+	*out = b64(addr)
 	return out
 }
 

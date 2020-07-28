@@ -663,3 +663,31 @@ type ConsensusParams struct {
 	// SupportRekeying indicates support for account rekeying (the RekeyTo and AuthAddr fields)
 	SupportRekeying bool
 }
+
+func MergeAssetConfig(old, new atypes.AssetParams) (out atypes.AssetParams) {
+	// if asset is new, set.
+	// if new config is empty, set empty.
+	// else, update.
+	if old == (atypes.AssetParams{}) {
+		out = new
+	} else if new == (atypes.AssetParams{}) {
+		out = new
+	} else {
+		out = old
+		if !old.Manager.IsZero() {
+			out.Manager = new.Manager
+		}
+		if !old.Reserve.IsZero() {
+			out.Reserve = new.Reserve
+		}
+		if !old.Freeze.IsZero() {
+			out.Freeze = new.Freeze
+		}
+		if !old.Clawback.IsZero() {
+			out.Clawback = new.Clawback
+		}
+		// no other fields get updated. See:
+		// go-algorand/data/transactions/asset.go
+	}
+	return
+}
