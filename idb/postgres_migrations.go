@@ -45,9 +45,13 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 			return fmt.Errorf("bad metastate migration json, %v", err)
 		}
 	}
+	return db.runMigrationState(&state)
+}
+
+func (db *PostgresIndexerDb) runMigrationState(state *MigrationState) (err error) {
 	nextMigration := state.NextMigration
 	for nextMigration < len(migrations) {
-		err = migrations[nextMigration](db, &state)
+		err = migrations[nextMigration](db, state)
 		if err == asyncMigration {
 			// migration will continue asynchronously, it should call db.runAvailableMigrations() when it is done
 			return nil
@@ -106,7 +110,7 @@ func m3acfgFix(db *PostgresIndexerDb, state *MigrationState) error {
 
 func m3acfgFixAsync(db *PostgresIndexerDb, state *MigrationState) {
 	log.Print("asset config fix migration starting")
-	rows, err := db.db.Query(`SELECT index FROM asset WHERE index >= $1`, state.NextAssetId)
+	rows, err := db.db.Query(`SELECT index FROM asset WHERE index >= $1 ORDER BY 1`, state.NextAssetId)
 	if err != nil {
 		log.Printf("acfg fix err getting assetids, %v", err)
 		return
@@ -133,6 +137,11 @@ func m3acfgFixAsync(db *PostgresIndexerDb, state *MigrationState) {
 			break
 		}
 		assetIds = assetIds[nexti:]
+	}
+	log.Print("acfg fix migration finished")
+	err = db.runMigrationState(state)
+	if err != nil {
+		log.Print(err)
 	}
 }
 
@@ -348,7 +357,7 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() {
 		}
 	}
 	// all done, mark migration state
-	state.NextMigration = 1
+	state.NextMigration++
 	state.NextRound = 0
 	migrationStateJson := string(json.Encode(state))
 	err = db.SetMetastate(migrationMetastateKey, migrationStateJson)
@@ -357,7 +366,10 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() {
 		return
 	}
 	log.Print("txid fixup migration finished")
-	db.runAvailableMigrations(migrationStateJson)
+	err = db.runMigrationState(state)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 type txidFixupRow struct {
