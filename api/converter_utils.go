@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -240,6 +241,32 @@ func onCompletionToTransactionOnCompletion(oc sdk_types.OnCompletion) generated.
 	return "unknown"
 }
 
+// The state delta bits need to be sorted for testing. Maybe it would be
+// for end users too, people always seem to notice results changing.
+func stateDeltaToStateDelta(d types.StateDelta) *generated.StateDelta {
+	if len(d) == 0 {
+		return nil
+	}
+	var delta generated.StateDelta
+	keys := make([]string, 0)
+	for k, _ := range d {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k:= range keys {
+		v := d[k]
+		delta = append(delta, generated.EvalDeltaKeyValue{
+			Key:   base64.StdEncoding.EncodeToString([]byte(k)),
+			Value: generated.EvalDelta{
+				Action: uint64(v.Action),
+				Bytes:  strPtr(base64.StdEncoding.EncodeToString(v.Bytes)),
+				Uint:   uint64Ptr(v.Uint),
+			},
+		})
+	}
+	return &delta
+}
+
 func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Error != nil {
 		return generated.Transaction{}, row.Error
@@ -357,6 +384,40 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		Sig:      sigToTransactionSig(stxn.Sig),
 	}
 
+	var localStateDelta *[]generated.AccountStateDelta
+	type tuple struct {
+		key     uint64
+		address types.Address
+	}
+	if len(stxn.ApplyData.EvalDelta.LocalDeltas) > 0 {
+		keys := make([]tuple, 0)
+		for k, _ := range stxn.ApplyData.EvalDelta.LocalDeltas {
+			if k == 0 {
+				keys = append(keys, tuple{
+					key:     0,
+					address: stxn.Txn.Sender,
+				})
+			} else {
+				addr := types.Address{}
+				copy(addr[:], stxn.Txn.Accounts[k-1][:])
+				keys = append(keys, tuple{
+					key:     k,
+					address: addr,
+				})
+			}
+		}
+		sort.Slice(keys, func(i, j int) bool { return keys[i].key < keys[j].key})
+		d := make([]generated.AccountStateDelta, 0)
+		for _, k := range keys {
+			v := stxn.ApplyData.EvalDelta.LocalDeltas[k.key]
+			d = append(d, generated.AccountStateDelta{
+				Address: k.address.String(),
+				Delta:   *(stateDeltaToStateDelta(v)),
+			})
+		}
+		localStateDelta = &d
+	}
+
 	txn := generated.Transaction{
 		ApplicationTransaction:   application,
 		AssetConfigTransaction:   assetConfig,
@@ -384,6 +445,8 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		Signature:                sig,
 		Id:                       crypto.TransactionIDString(stxn.Txn),
 		RekeyTo:                  addrPtr(stxn.Txn.RekeyTo),
+		GlobalStateDelta:         stateDeltaToStateDelta(stxn.EvalDelta.GlobalDelta),
+		LocalStateDelta:          localStateDelta,
 	}
 
 	if stxn.Txn.Type == sdk_types.AssetConfigTx {
