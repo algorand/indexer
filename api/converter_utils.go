@@ -241,6 +241,32 @@ func onCompletionToTransactionOnCompletion(oc sdk_types.OnCompletion) generated.
 	return "unknown"
 }
 
+// The state delta bits need to be sorted for testing. Maybe it would be
+// for end users too, people always seem to notice results changing.
+func stateDeltaToStateDelta(d types.StateDelta) *generated.StateDelta {
+	if len(d) == 0 {
+		return nil
+	}
+	var delta generated.StateDelta
+	keys := make([]string, 0)
+	for k, _ := range d {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k:= range keys {
+		v := d[k]
+		delta = append(delta, generated.EvalDeltaKeyValue{
+			Key:   base64.StdEncoding.EncodeToString([]byte(k)),
+			Value: generated.EvalDelta{
+				Action: uint64(v.Action),
+				Bytes:  strPtr(base64.StdEncoding.EncodeToString(v.Bytes)),
+				Uint:   uint64Ptr(v.Uint),
+			},
+		})
+	}
+	return &delta
+}
+
 func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Error != nil {
 		return generated.Transaction{}, row.Error
@@ -358,32 +384,6 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		Sig:      sigToTransactionSig(stxn.Sig),
 	}
 
-	// The state delta bits need to be sorted for testing. Maybe it would be
-	// for end users too, people always seem to notice results changing.
-	convertDelta := func (d types.StateDelta) *generated.StateDelta {
-		if len(d) == 0 {
-			return nil
-		}
-		var delta generated.StateDelta
-		keys := make([]string, 0)
-		for k, _ := range d {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k:= range keys {
-			v := d[k]
-			delta = append(delta, generated.EvalDeltaKeyValue{
-				Key:   base64.StdEncoding.EncodeToString([]byte(k)),
-				Value: generated.EvalDelta{
-					Action: uint64(v.Action),
-					Bytes:  strPtr(base64.StdEncoding.EncodeToString(v.Bytes)),
-					Uint:   uint64Ptr(v.Uint),
-				},
-			})
-		}
-		return &delta
-	}
-
 	var localStateDelta *[]generated.AccountStateDelta
 	type tuple struct {
 		key     uint64
@@ -412,7 +412,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 			v := stxn.ApplyData.EvalDelta.LocalDeltas[k.key]
 			d = append(d, generated.AccountStateDelta{
 				Address: k.address.String(),
-				Delta:   *(convertDelta(v)),
+				Delta:   *(stateDeltaToStateDelta(v)),
 			})
 		}
 		localStateDelta = &d
@@ -445,7 +445,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		Signature:                sig,
 		Id:                       crypto.TransactionIDString(stxn.Txn),
 		RekeyTo:                  addrPtr(stxn.Txn.RekeyTo),
-		GlobalStateDelta:         convertDelta(stxn.EvalDelta.GlobalDelta),
+		GlobalStateDelta:         stateDeltaToStateDelta(stxn.EvalDelta.GlobalDelta),
 		LocalStateDelta:          localStateDelta,
 	}
 
