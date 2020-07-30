@@ -98,6 +98,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				Address:             strPtr("YXGBWVBK764KGYPX6ENIADKXPWLBNAZ7MTXDZULZWGOBO2W6IAR622VSLA"),
 				AddressRole:         strPtr("sender"),
 				ExcludeCloseTo:      boolPtr(true),
+				ApplicationId:       uint64Ptr(7),
 			},
 			idb.TransactionFilter{
 				Limit:             defaultTransactionsLimit + 1,
@@ -123,6 +124,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				Offset:            nil,
 				OffsetLT:          nil,
 				OffsetGT:          nil,
+				ApplicationId:     7,
 			},
 			nil,
 		},
@@ -196,6 +198,12 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 			filter:        idb.TransactionFilter{AlgosGT: 10, AlgosLT: 20, Limit: defaultTransactionsLimit},
 			errorContains: nil,
 		},
+		{
+			name:          "Searching by application-id",
+			params:        generated.SearchForTransactionsParams{ApplicationId: uint64Ptr(1234)},
+			filter:        idb.TransactionFilter{ApplicationId: 1234, Limit: defaultTransactionsLimit},
+			errorContains: nil,
+		},
 	}
 
 	for _, test := range tests {
@@ -239,6 +247,7 @@ func TestFetchTransactions(t *testing.T) {
 		name     string
 		txnBytes [][]byte
 		response []generated.Transaction
+		created  uint64
 	}{
 		{
 			name: "Payment",
@@ -266,6 +275,7 @@ func TestFetchTransactions(t *testing.T) {
 			response: []generated.Transaction{
 				loadTransactionFromFile("test_resources/asset_config.response"),
 			},
+			created: 100,
 		},
 		{
 			name: "Asset Transfer",
@@ -294,8 +304,108 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/multisig.response"),
 			},
 		},
-		// TODO: Add application transaction types
-		// TODO: Add rekey transaction
+		{
+			name: "Rekey Transaction",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/rekey.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/rekey.response"),
+			},
+		},
+		{
+			name: "Application Call (1)",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_1.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_1.response"),
+			},
+			created: 10,
+		},
+		{
+			name: "Application Call (2)",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_2.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_2.response"),
+			},
+			created: 10,
+		},
+		{
+			name: "Application Call (3)",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_3.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_3.response"),
+			},
+			created: 10,
+		},
+		{
+			name: "Application Clear",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_clear.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_clear.response"),
+			},
+		},
+		{
+			name: "Application Close",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_close.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_close.response"),
+			},
+		},
+		{
+			name: "Application Update",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_update.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_update.response"),
+			},
+		},
+		{
+			name: "Application Delete",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_delete.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_delete.response"),
+			},
+		},
+		{
+			name: "Application Non ASCII Key",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_nonascii.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_nonascii.response"),
+			},
+		},
+		{
+			name: "Application Optin",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_optin.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_optin.response"),
+			},
+		},
+		{
+			name: "Application With Foreign App",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_foreign.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_foreign.response"),
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -319,7 +429,7 @@ func TestFetchTransactions(t *testing.T) {
 					Intra:     2,
 					RoundTime: roundTime,
 					TxnBytes:  bytes,
-					AssetId:   0,
+					AssetId:   test.created,
 					Extra: idb.TxnExtra{
 						AssetCloseAmount: 0,
 					},
@@ -336,7 +446,8 @@ func TestFetchTransactions(t *testing.T) {
 			results, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
 			assert.NoError(t, err)
 
-			printIt := false
+			// Automatically print it out when writing the test.
+			printIt := len(test.response) == 0
 			if printIt {
 				fmt.Printf("Test: %s\n", test.name)
 				for _, result := range results {

@@ -1154,6 +1154,67 @@
         "delete"
       ]
     },
+    "StateDelta": {
+      "description": "Application state delta.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/EvalDeltaKeyValue"      
+      }
+    },
+    "AccountStateDelta": {
+      "description": "Application state delta.",
+      "type": "object",
+      "required": [
+        "address",
+        "delta"
+      ],
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "delta": {
+          "$ref": "#/definitions/StateDelta"
+        }
+      }
+    },      
+    "EvalDeltaKeyValue": {
+      "description": "Key-value pairs for StateDelta.",
+      "type": "object",
+      "required": [
+        "key",
+        "value"       
+      ],
+      "properties": {
+        "key": {         
+          "type": "string"
+        },
+        "value": {             
+          "$ref": "#/definitions/EvalDelta"
+        }
+      }
+    },
+    "EvalDelta": {
+      "description": "Represents a TEAL value delta.",
+      "type": "object",
+      "required": [
+        "action"
+      ],
+      "properties": {
+        "action": {
+          "description": "\\[at\\] delta action.",
+          "type": "integer"
+        },
+        "bytes": {
+          "description": "\\[bs\\] bytes value.",
+          "type": "string"
+        },
+        "uint": {
+          "description": "\\[ui\\] uint value.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        }
+      }
+    },
     "StateSchema": {
       "description": "Represents a \\[apls\\] local-state or \\[apgs\\] global-state schema. These schemas determine how much storage may be used in a local-state or global-state for an application. The more space used, the larger minimum balance must be maintained in the account holding the data.",
       "type": "object",
@@ -1323,6 +1384,17 @@
           "description": "\\[sgnr\\] The address used to sign the transaction. This is used for rekeyed accounts to indicate that the sender address did not sign the transaction.",
           "type": "string",
           "x-algorand-format": "Address"
+        },
+        "local-state-delta": {
+          "description": "\\[ld\\] Local state key/value changes for the application being executed by this transaction.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AccountStateDelta"
+          }
+        },
+        "global-state-delta": {
+          "description": "\\[gd\\] Global state key/value changes for the application being executed by this transaction.",
+          "$ref": "#/definitions/StateDelta"
         }
       }
     },

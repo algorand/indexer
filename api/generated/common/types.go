@@ -92,6 +92,14 @@ type AccountParticipation struct {
 	VoteParticipationKey []byte `json:"vote-participation-key"`
 }
 
+// AccountStateDelta defines model for AccountStateDelta.
+type AccountStateDelta struct {
+	Address string `json:"address"`
+
+	// Application state delta.
+	Delta StateDelta `json:"delta"`
+}
+
 // Application defines model for Application.
 type Application struct {
 
@@ -320,6 +328,27 @@ type ErrorResponse struct {
 	Message string                  `json:"message"`
 }
 
+// EvalDelta defines model for EvalDelta.
+type EvalDelta struct {
+
+	// \[at\] delta action.
+	Action uint64 `json:"action"`
+
+	// \[bs\] bytes value.
+	Bytes *string `json:"bytes,omitempty"`
+
+	// \[ui\] uint value.
+	Uint *uint64 `json:"uint,omitempty"`
+}
+
+// EvalDeltaKeyValue defines model for EvalDeltaKeyValue.
+type EvalDeltaKeyValue struct {
+	Key string `json:"key"`
+
+	// Represents a TEAL value delta.
+	Value EvalDelta `json:"value"`
+}
+
 // HealthCheck defines model for HealthCheck.
 type HealthCheck struct {
 	Data    *map[string]interface{} `json:"data,omitempty"`
@@ -335,6 +364,9 @@ type MiniAssetHolding struct {
 
 // OnCompletion defines model for OnCompletion.
 type OnCompletion string
+
+// StateDelta defines model for StateDelta.
+type StateDelta []EvalDeltaKeyValue
 
 // StateSchema defines model for StateSchema.
 type StateSchema struct {
@@ -431,6 +463,9 @@ type Transaction struct {
 	// \[gen\] genesis block ID.
 	GenesisId *string `json:"genesis-id,omitempty"`
 
+	// Application state delta.
+	GlobalStateDelta *StateDelta `json:"global-state-delta,omitempty"`
+
 	// \[grp\] Base64 encoded byte array of a sha512/256 digest. When present indicates that this transaction is part of a transaction group and the value is the sha512/256 hash of the transactions in that group.
 	Group *[]byte `json:"group,omitempty"`
 
@@ -451,6 +486,9 @@ type Transaction struct {
 
 	// \[lx\] Base64 encoded 32-byte array. Lease enforces mutual exclusion of transactions.  If this field is nonzero, then once the transaction is confirmed, it acquires the lease identified by the (Sender, Lease) pair of the transaction until the LastValid round passes.  While this transaction possesses the lease, no other transaction specifying this lease can be confirmed.
 	Lease *[]byte `json:"lease,omitempty"`
+
+	// \[ld\] Local state key/value changes for the application being executed by this transaction.
+	LocalStateDelta *[]AccountStateDelta `json:"local-state-delta,omitempty"`
 
 	// \[note\] Free form data.
 	Note *[]byte `json:"note,omitempty"`

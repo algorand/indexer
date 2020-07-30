@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -222,6 +223,50 @@ func lsigToTransactionLsig(lsig sdk_types.LogicSig) *generated.TransactionSignat
 	return &ret
 }
 
+func onCompletionToTransactionOnCompletion(oc sdk_types.OnCompletion) generated.OnCompletion {
+	switch oc {
+	case sdk_types.NoOpOC:
+		return "noop"
+	case sdk_types.OptInOC:
+		return "optin"
+	case sdk_types.CloseOutOC:
+		return "closeout"
+	case sdk_types.ClearStateOC:
+		return "clear"
+	case sdk_types.UpdateApplicationOC:
+		return "update"
+	case sdk_types.DeleteApplicationOC:
+		return "delete"
+	}
+	return "unknown"
+}
+
+// The state delta bits need to be sorted for testing. Maybe it would be
+// for end users too, people always seem to notice results changing.
+func stateDeltaToStateDelta(d types.StateDelta) *generated.StateDelta {
+	if len(d) == 0 {
+		return nil
+	}
+	var delta generated.StateDelta
+	keys := make([]string, 0)
+	for k, _ := range d {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k:= range keys {
+		v := d[k]
+		delta = append(delta, generated.EvalDeltaKeyValue{
+			Key:   base64.StdEncoding.EncodeToString([]byte(k)),
+			Value: generated.EvalDelta{
+				Action: uint64(v.Action),
+				Bytes:  strPtr(base64.StdEncoding.EncodeToString(v.Bytes)),
+				Uint:   uint64Ptr(v.Uint),
+			},
+		})
+	}
+	return &delta
+}
+
 func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Error != nil {
 		return generated.Transaction{}, row.Error
@@ -238,6 +283,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	var assetConfig *generated.TransactionAssetConfig
 	var assetFreeze *generated.TransactionAssetFreeze
 	var assetTransfer *generated.TransactionAssetTransfer
+	var application *generated.TransactionApplication
 
 	switch stxn.Txn.Type {
 	case sdk_types.PaymentTx:
@@ -295,9 +341,42 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 			NewFreezeStatus: stxn.Txn.AssetFrozen,
 		}
 		assetFreeze = &f
-	}
+	case sdk_types.ApplicationCallTx:
+		args := make([]string, 0)
+		for _, v := range stxn.Txn.ApplicationArgs {
+			args = append(args, base64.StdEncoding.EncodeToString(v))
+		}
 
-	// TODO: sdk_type.ApplicationTx
+		accts := make([]string, 0)
+		for _, v := range stxn.Txn.Accounts {
+			accts = append(accts, v.String())
+		}
+
+		apps := make([]uint64, 0)
+		for _, v := range stxn.Txn.ForeignApps {
+			apps = append(apps, uint64(v))
+		}
+
+		a := generated.TransactionApplication{
+			Accounts: &accts,
+			ApplicationArgs: &args,
+			ApplicationId: uint64(stxn.Txn.ApplicationID),
+			ApprovalProgram: bytePtr(stxn.Txn.ApprovalProgram),
+			ClearStateProgram: bytePtr(stxn.Txn.ClearStateProgram),
+			ForeignApps: &apps,
+			GlobalStateSchema: &generated.StateSchema{
+				NumByteSlice: stxn.Txn.GlobalStateSchema.NumByteSlice,
+				NumUint:      stxn.Txn.GlobalStateSchema.NumUint,
+			},
+			LocalStateSchema: &generated.StateSchema{
+				NumByteSlice: stxn.Txn.LocalStateSchema.NumByteSlice,
+				NumUint:      stxn.Txn.LocalStateSchema.NumUint,
+			},
+			OnCompletion: onCompletionToTransactionOnCompletion(stxn.Txn.OnCompletion),
+		}
+
+		application = &a
+	}
 
 	sig := generated.TransactionSignature{
 		Logicsig: lsigToTransactionLsig(stxn.Lsig),
@@ -305,7 +384,42 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		Sig:      sigToTransactionSig(stxn.Sig),
 	}
 
+	var localStateDelta *[]generated.AccountStateDelta
+	type tuple struct {
+		key     uint64
+		address types.Address
+	}
+	if len(stxn.ApplyData.EvalDelta.LocalDeltas) > 0 {
+		keys := make([]tuple, 0)
+		for k, _ := range stxn.ApplyData.EvalDelta.LocalDeltas {
+			if k == 0 {
+				keys = append(keys, tuple{
+					key:     0,
+					address: stxn.Txn.Sender,
+				})
+			} else {
+				addr := types.Address{}
+				copy(addr[:], stxn.Txn.Accounts[k-1][:])
+				keys = append(keys, tuple{
+					key:     k,
+					address: addr,
+				})
+			}
+		}
+		sort.Slice(keys, func(i, j int) bool { return keys[i].key < keys[j].key})
+		d := make([]generated.AccountStateDelta, 0)
+		for _, k := range keys {
+			v := stxn.ApplyData.EvalDelta.LocalDeltas[k.key]
+			d = append(d, generated.AccountStateDelta{
+				Address: k.address.String(),
+				Delta:   *(stateDeltaToStateDelta(v)),
+			})
+		}
+		localStateDelta = &d
+	}
+
 	txn := generated.Transaction{
+		ApplicationTransaction:   application,
 		AssetConfigTransaction:   assetConfig,
 		AssetFreezeTransaction:   assetFreeze,
 		AssetTransferTransaction: assetTransfer,
@@ -330,11 +444,20 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		TxType:                   string(stxn.Txn.Type),
 		Signature:                sig,
 		Id:                       crypto.TransactionIDString(stxn.Txn),
+		RekeyTo:                  addrPtr(stxn.Txn.RekeyTo),
+		GlobalStateDelta:         stateDeltaToStateDelta(stxn.EvalDelta.GlobalDelta),
+		LocalStateDelta:          localStateDelta,
 	}
 
 	if stxn.Txn.Type == sdk_types.AssetConfigTx {
 		if txn.AssetConfigTransaction != nil && txn.AssetConfigTransaction.AssetId != nil && *txn.AssetConfigTransaction.AssetId == 0 {
 			txn.CreatedAssetIndex = uint64Ptr(row.AssetId)
+		}
+	}
+
+	if stxn.Txn.Type == sdk_types.ApplicationCallTx {
+		if txn.ApplicationTransaction != nil && txn.ApplicationTransaction.ApplicationId == 0 {
+			txn.CreatedApplicationIndex = uint64Ptr(row.AssetId)
 		}
 	}
 
