@@ -1337,6 +1337,13 @@
             },
             "type": "array"
           },
+          "foreign-assets": {
+            "description": "\\[apfas\\] lists the assets whose parameters may be accessed by this application's ApprovalProgram and ClearStateProgram. The access is read-only.",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
           "global-state-schema": {
             "$ref": "#/components/schemas/StateSchema"
           },
