@@ -550,7 +550,7 @@ type TransactionApplication struct {
 	// \[apfa\] Lists the applications in addition to the application-id whose global states may be accessed by this application's approval-program and clear-state-program. The access is read-only.
 	ForeignApps *[]uint64 `json:"foreign-apps,omitempty"`
 
-	// \[apfas\] lists the assets whose parameters may be accessed by this application's ApprovalProgram and ClearStateProgram. The access is read-only.
+	// \[apas\] lists the assets whose parameters may be accessed by this application's ApprovalProgram and ClearStateProgram. The access is read-only.
 	ForeignAssets *[]uint64 `json:"foreign-assets,omitempty"`
 
 	// Represents a \[apls\] local-state or \[apgs\] global-state schema. These schemas determine how much storage may be used in a local-state or global-state for an application. The more space used, the larger minimum balance must be maintained in the account holding the data.

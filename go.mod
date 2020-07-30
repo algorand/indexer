@@ -22,7 +22,7 @@ require (
 	golang.org/x/net v0.0.0-20200707034311-ab3426394381 // indirect
 	golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1 // indirect
 	golang.org/x/text v0.3.3 // indirect
-	golang.org/x/tools v0.0.0-20200730183239-644d416712ac // indirect
+	golang.org/x/tools v0.0.0-20200730200120-fe6bb45d2132 // indirect
 )
 
 replace github.com/algorand/go-algorand-sdk => github.com/algonautshant/go-algorand-sdk v0.0.0-20200708234359-21880c7a0d55
