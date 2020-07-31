@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -229,6 +230,8 @@ func loadResourceFileOrPanic(path string) []byte {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to load resource file: '%s'", path))
 	}
+	var ret idb.TxnRow
+	_ = msgpack.Decode(data, &ret)
 	return data
 }
 
@@ -404,6 +407,15 @@ func TestFetchTransactions(t *testing.T) {
 			},
 			response: []generated.Transaction{
 				loadTransactionFromFile("test_resources/app_foreign.response"),
+			},
+		},
+		{
+			name: "Application With Foreign Assets",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_foreign_assets.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_foreign_assets.response"),
 			},
 		},
 	}

@@ -25,4 +25,4 @@ require (
 	golang.org/x/tools v0.0.0-20200730200120-fe6bb45d2132 // indirect
 )
 
-replace github.com/algorand/go-algorand-sdk => github.com/algonautshant/go-algorand-sdk v0.0.0-20200708234359-21880c7a0d55
+replace github.com/algorand/go-algorand-sdk

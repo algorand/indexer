@@ -253,10 +253,10 @@ func stateDeltaToStateDelta(d types.StateDelta) *generated.StateDelta {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
-	for _, k:= range keys {
+	for _, k := range keys {
 		v := d[k]
 		delta = append(delta, generated.EvalDeltaKeyValue{
-			Key:   base64.StdEncoding.EncodeToString([]byte(k)),
+			Key: base64.StdEncoding.EncodeToString([]byte(k)),
 			Value: generated.EvalDelta{
 				Action: uint64(v.Action),
 				Bytes:  strPtr(base64.StdEncoding.EncodeToString(v.Bytes)),
@@ -357,13 +357,19 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 			apps = append(apps, uint64(v))
 		}
 
+		assets := make([]uint64, 0)
+		for _, v := range stxn.Txn.ForeignAssets {
+			assets = append(assets, uint64(v))
+		}
+
 		a := generated.TransactionApplication{
-			Accounts: &accts,
-			ApplicationArgs: &args,
-			ApplicationId: uint64(stxn.Txn.ApplicationID),
-			ApprovalProgram: bytePtr(stxn.Txn.ApprovalProgram),
+			Accounts:          &accts,
+			ApplicationArgs:   &args,
+			ApplicationId:     uint64(stxn.Txn.ApplicationID),
+			ApprovalProgram:   bytePtr(stxn.Txn.ApprovalProgram),
 			ClearStateProgram: bytePtr(stxn.Txn.ClearStateProgram),
-			ForeignApps: &apps,
+			ForeignApps:       &apps,
+			ForeignAssets:     &assets,
 			GlobalStateSchema: &generated.StateSchema{
 				NumByteSlice: stxn.Txn.GlobalStateSchema.NumByteSlice,
 				NumUint:      stxn.Txn.GlobalStateSchema.NumUint,
@@ -406,7 +412,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 				})
 			}
 		}
-		sort.Slice(keys, func(i, j int) bool { return keys[i].key < keys[j].key})
+		sort.Slice(keys, func(i, j int) bool { return keys[i].key < keys[j].key })
 		d := make([]generated.AccountStateDelta, 0)
 		for _, k := range keys {
 			v := stxn.ApplyData.EvalDelta.LocalDeltas[k.key]
