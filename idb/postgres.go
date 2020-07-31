@@ -875,11 +875,20 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			return fmt.Errorf("prepare asset destroy, %v", err)
 		}
 		defer ads.Close()
+		aclear, err := tx.Prepare(`UPDATE asset SET params = 'null'::jsonb WHERE index = $1`)
+		if err != nil {
+			return fmt.Errorf("prepare asset clear, %v", err)
+		}
+		defer aclear.Close()
 		for _, assetId := range updates.AssetDestroys {
 			if assetId == debugAsset {
 				fmt.Fprintf(os.Stderr, "%d destroy asset %d\n", round, assetId)
 			}
-			ads.Exec(assetId)
+			_, err = ads.Exec(assetId)
+			if err != nil {
+				return fmt.Errorf("asset destroy, %v", err)
+			}
+			_, err = aclear.Exec(assetId)
 			if err != nil {
 				return fmt.Errorf("asset destroy, %v", err)
 			}
