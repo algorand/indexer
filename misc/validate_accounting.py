@@ -518,16 +518,21 @@ def maybeb64(x):
         return base64.b64encode(x).decode()
     return x
 
-def token_addr_from_algod(algorand_data):
-    addr = open(os.path.join(algorand_data, 'algod.net'), 'rt').read().strip()
+def token_addr_from_args(args):
+    if args.algod:
+        addr = open(os.path.join(args.algod, 'algod.net'), 'rt').read().strip()
+        token = open(os.path.join(args.algod, 'algod.token'), 'rt').read().strip()
+    else:
+        addr = args.algod_net
+        token = args.algod_token
     if not addr.startswith('http'):
         addr = 'http://' + addr
-    token = open(os.path.join(algorand_data, 'algod.token'), 'rt').read().strip()
     return token, addr
 
 def check_from_algod(args):
-    getGenesisVars(os.path.join(args.algod, 'genesis.json'))
-    token, addr = token_addr_from_algod(args.algod)
+    gpath = args.genesis or os.path.join(args.algod, 'genesis.json')
+    getGenesisVars(gpath)
+    token, addr = token_addr_from_args(args)
     algod = AlgodClient(token, addr)
     status = algod.status()
     #logger.debug('status %r', status)
@@ -559,13 +564,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('-f', '--dbfile', default=None, help='sqlite3 tracker file from algod')
     ap.add_argument('-d', '--algod', default=None, help='algorand data dir')
+    ap.add_argument('--algod-net', default=None, help='algod host:port')
+    ap.add_argument('--algod-token', default=None, help='algod token')
+    ap.add_argument('--genesis', default=None, help='path to genesis.json')
     ap.add_argument('--limit', default=None, type=int, help='debug limit number of accoutns to dump')
     ap.add_argument('--indexer', default=None, help='URL to indexer to fetch from')
     ap.add_argument('--asset', default=None, help='filter on accounts possessing asset id')
     ap.add_argument('--mismatches', default=10, type=int, help='max number of mismatches to show details on (0 for no limit)')
     ap.add_argument('-q', '--quiet', default=False, action='store_true')
     ap.add_argument('--verbose', default=False, action='store_true')
-    ap.add_argument('--genesis')
     ap.add_argument('--accounts', help='comma separated list of accounts to test')
     args = ap.parse_args()
 
@@ -583,7 +590,7 @@ def main():
 
     if args.dbfile:
         tracker_round, i2a_checker = check_from_sqlite(args)
-    elif args.algod:
+    elif args.algod or (args.algod_net and args.algod_token):
         tracker_round, i2a_checker = check_from_algod(args)
     else:
         raise Exception("need to check from algod sqlite or running algod")
