@@ -1698,6 +1698,10 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 					continue
 				}
 				ap := assetParams[i]
+				if ap == (types.AssetParams{}) {
+					// remnant of deleted asset
+					continue
+				}
 				tma := models.Asset{
 					Index: assetid,
 					Params: models.AssetParams{
@@ -1841,6 +1845,19 @@ func stringPtr(x string) *string {
 }
 
 func baPtr(x []byte) *[]byte {
+	if x == nil || len(x) == 0 {
+		return nil
+	}
+	allzero := true
+	for _, b := range x {
+		if b != 0 {
+			allzero = false
+			break
+		}
+	}
+	if allzero {
+		return nil
+	}
 	out := new([]byte)
 	*out = x
 	return out

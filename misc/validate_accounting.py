@@ -61,7 +61,7 @@ def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None):
         pageurl = urllib.parse.urlunparse(accountsurl)
         logger.debug('GET %s', pageurl)
         getAccountsPage(pageurl, accounts)
-    logger.info('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
+    logger.debug('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
     return accounts
 
 def getAccountsPage(pageurl, accounts):
@@ -120,7 +120,7 @@ def indexerAccounts(rooturl, blockround=None, addrlist=None):
         if not some:
             break
     dt = time.time() - start
-    logger.info('loaded %d accounts from %s ?round=%d in %.2f seconds', len(accounts), rooturl, blockround, dt)
+    logger.debug('loaded %d accounts from %s ?round=%d in %.2f seconds', len(accounts), rooturl, blockround, dt)
     return accounts
 
 # generator yielding txns objects
@@ -176,11 +176,11 @@ def assetEquality(indexer, algod):
             if iv == 0:
                 pass # ok
             else:
-                errs.append('asset={!r} indexer had {!r} but algod None'.format(assetid, rec))
+                errs.append('asset={!r} indexer had {!r} but algod None'.format(assetid, assetrec))
         else:
             av = arec.get('amount', 0)
             if av != iv:
-                errs.append('asset={!r} indexer {!r} != algod {!r}'.format(assetid, rec, arec))
+                errs.append('asset={!r} indexer {!r} != algod {!r}'.format(assetid, assetrec, arec))
     for assetid, arec in abyaid.items():
         av = arec.get('amount', 0)
         if av != 0:
@@ -200,6 +200,17 @@ def deepeq(a, b, path=None, msg=None):
         if not isinstance(b, dict):
             return False
         if len(a) != len(b):
+            ak = set(a.keys())
+            bk = set(b.keys())
+            both = ak.intersection(bk)
+            onlya = ak.difference(both)
+            onlyb = bk.difference(both)
+            mp = []
+            if onlya:
+                mp.append('only in a {!r}'.format(sorted(onlya)))
+            if onlyb:
+                mp.append('only in b {!r}'.format(sorted(onlyb)))
+            msg.append(', '.join(mp))
             return False
         for k,av in a.items():
             if path is not None and msg is not None:
@@ -511,7 +522,7 @@ def check_from_sqlite(args):
             i2a_checker.check(address, niceaddr, microalgos, assets, None, appparams, applocal)
         if args.limit and count > args.limit:
             break
-    return tracker_round, i2a_checker
+    return i2a_checker
 
 def maybeb64(x):
     if x:
@@ -536,28 +547,38 @@ def check_from_algod(args):
     algod = AlgodClient(token, addr)
     status = algod.status()
     #logger.debug('status %r', status)
-    lastround = status['last-round']
+    iloadstart = time.time()
     if args.indexer:
-        i2a = indexerAccounts(args.indexer, blockround=lastround, addrlist=(args.accounts and args.accounts.split(',')))
+        i2a = indexerAccounts(args.indexer, addrlist=(args.accounts and args.accounts.split(',')))
         i2a_checker = CheckContext(i2a, sys.stderr)
     else:
         logger.warn('no indexer, nothing to do')
         return None, None
+    iloadtime = time.time() - iloadstart
+    logger.info('loaded %d accounts from indexer in %.1f seconds, %.1f a/s', len(i2a), iloadtime, len(i2a)/iloadtime)
+    aloadstart = time.time()
     rawad = []
     for address in i2a.keys():
         niceaddr = algosdk.encoding.encode_address(address)
         rawad.append(algod.account_info(niceaddr))
+    aloadtime = time.time() - aloadstart
+    logger.info('loaded %d accounts from algod in %.1f seconds, %.1f a/s', len(rawad), aloadtime, len(rawad)/aloadtime)
+    lastlog = time.time()
+    count = 0
     for ad in rawad:
         niceaddr = ad['address']
-        round = ad['round']
-        if round != lastround:
-            # re fetch indexer account at round algod got it at
-            na = indexerAccounts(args.indexer, blockround=round, addrlist=[niceaddr])
-            i2a.update(na)
+        # fetch indexer account at round algod got it at
+        na = indexerAccounts(args.indexer, blockround=ad['round'], addrlist=[niceaddr])
+        i2a.update(na)
         microalgos = ad['amount-without-pending-rewards']
         address = algosdk.encoding.decode_address(niceaddr)
         i2a_checker.check(address, niceaddr, microalgos, ad.get('assets'), ad.get('created-assets'), ad.get('created-apps'), ad.get('apps-local-state'))
-    return lastround, i2a_checker
+        count += 1
+        now = time.time()
+        if (now - lastlog) > 5:
+            logger.info('%d accounts checked, %d mismatches', count, len(i2a_checker.mismatches))
+            lastlog = now
+    return i2a_checker
 
 def main():
     import argparse
@@ -589,9 +610,9 @@ def main():
     i2a_checker = None
 
     if args.dbfile:
-        tracker_round, i2a_checker = check_from_sqlite(args)
+        i2a_checker = check_from_sqlite(args)
     elif args.algod or (args.algod_net and args.algod_token):
-        tracker_round, i2a_checker = check_from_algod(args)
+        i2a_checker = check_from_algod(args)
     else:
         raise Exception("need to check from algod sqlite or running algod")
     retval = 0
