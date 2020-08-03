@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/mocks"
@@ -229,6 +230,8 @@ func loadResourceFileOrPanic(path string) []byte {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to load resource file: '%s'", path))
 	}
+	var ret idb.TxnRow
+	_ = msgpack.Decode(data, &ret)
 	return data
 }
 
@@ -404,6 +407,15 @@ func TestFetchTransactions(t *testing.T) {
 			},
 			response: []generated.Transaction{
 				loadTransactionFromFile("test_resources/app_foreign.response"),
+			},
+		},
+		{
+			name: "Application With Foreign Assets",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_foreign_assets.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_foreign_assets.response"),
 			},
 		},
 	}
