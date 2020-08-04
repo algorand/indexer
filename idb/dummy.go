@@ -193,6 +193,16 @@ const (
 	AddressRoleFreeze           = 0x40
 )
 
+// TransactionFilter.TypeEnum and also AddTransaction(,,txtypeenum,,,)
+const (
+	TypeEnumPay           = 1
+	TypeEnumKeyreg        = 2
+	TypeEnumAssetConfig   = 3
+	TypeEnumAssetTransfer = 4
+	TypeEnumAssetFreeze   = 5
+	TypeEnumApplication   = 6
+)
+
 type TransactionFilter struct {
 	// Address filtering transactions for one Address will
 	// return transactions newest-first proceding into the
@@ -352,6 +362,7 @@ type AccountDataUpdate struct {
 
 type AcfgUpdate struct {
 	AssetId uint64
+	IsNew   bool
 	Creator types.Address
 	Params  types.AssetParams
 }

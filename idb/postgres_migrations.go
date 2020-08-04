@@ -26,6 +26,8 @@ type MigrationState struct {
 
 	// Used for a long migration to checkpoint progress
 	NextRound int64 `json:"round,omitempty"`
+
+	NextAssetId int64 `json:"assetid,omitempty"`
 }
 
 // A migration function should take care of writing back to metastate migration row
@@ -43,9 +45,13 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 			return fmt.Errorf("bad metastate migration json, %v", err)
 		}
 	}
+	return db.runMigrationState(&state)
+}
+
+func (db *PostgresIndexerDb) runMigrationState(state *MigrationState) (err error) {
 	nextMigration := state.NextMigration
 	for nextMigration < len(migrations) {
-		err = migrations[nextMigration](db, &state)
+		err = migrations[nextMigration](db, state)
 		if err == asyncMigration {
 			// migration will continue asynchronously, it should call db.runAvailableMigrations() when it is done
 			return nil
@@ -97,6 +103,136 @@ func m2apps(db *PostgresIndexerDb, state *MigrationState) error {
 	return sqlMigration(db, state, sqlLines)
 }
 
+func m3acfgFix(db *PostgresIndexerDb, state *MigrationState) error {
+	go m3acfgFixAsync(db, state)
+	return asyncMigration
+}
+
+func m3acfgFixAsync(db *PostgresIndexerDb, state *MigrationState) {
+	log.Print("asset config fix migration starting")
+	rows, err := db.db.Query(`SELECT index FROM asset WHERE index >= $1 ORDER BY 1`, state.NextAssetId)
+	if err != nil {
+		log.Printf("acfg fix err getting assetids, %v", err)
+		return
+	}
+	assetIds := make([]int64, 0, 1000)
+	for rows.Next() {
+		var aid int64
+		err = rows.Scan(&aid)
+		if err != nil {
+			log.Printf("acfg fix err getting assetid row, %v", err)
+			rows.Close()
+			return
+		}
+		assetIds = append(assetIds, aid)
+	}
+	rows.Close()
+	for true {
+		nexti, err := m3acfgFixAsyncInner(db, state, assetIds)
+		if err != nil {
+			log.Printf("acfg fix chunk, %v", err)
+			return
+		}
+		if nexti < 0 {
+			break
+		}
+		assetIds = assetIds[nexti:]
+	}
+	log.Print("acfg fix migration finished")
+	err = db.runMigrationState(state)
+	if err != nil {
+		log.Print(err)
+	}
+}
+
+// do a transactional batch of asset fixes
+// updates asset rows and metastate
+func m3acfgFixAsyncInner(db *PostgresIndexerDb, state *MigrationState, assetIds []int64) (next int, err error) {
+	lastlog := time.Now()
+	tx, err := db.db.Begin()
+	if err != nil {
+		log.Printf("acfg fix tx begin, %v", err)
+		return -1, err
+	}
+	defer tx.Rollback() // ignored if .Commit() first
+	setacfg, err := tx.Prepare(`INSERT INTO asset (index, creator_addr, params) VALUES ($1, $2, $3) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params`)
+	if err != nil {
+		log.Printf("acfg fix prepare set asset, %v", err)
+		return
+	}
+	defer setacfg.Close()
+	for i, aid := range assetIds {
+		now := time.Now()
+		if now.Sub(lastlog) > (5 * time.Second) {
+			log.Printf("acfg fix next=%d", aid)
+			state.NextAssetId = aid
+			migrationStateJson := json.Encode(state)
+			_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJson)
+			if err != nil {
+				log.Printf("acfg fix migration %d meta err: %v", state.NextMigration, err)
+				return -1, err
+			}
+			err = tx.Commit()
+			if err != nil {
+				log.Printf("acfg fix migration %d commit err: %v", state.NextMigration, err)
+				return -1, err
+			}
+			return i, nil
+		}
+		txrows := db.txTransactions(tx, TransactionFilter{TypeEnum: 3, AssetId: uint64(aid)})
+		prevRound := uint64(0)
+		first := true
+		var params types.AssetParams
+		var creator types.Address
+		for txrow := range txrows {
+			if txrow.Round < prevRound {
+				log.Printf("acfg rows out of order %d < %d", txrow.Round, prevRound)
+				return
+			}
+			var stxn types.SignedTxnInBlock
+			err = msgpack.Decode(txrow.TxnBytes, &stxn)
+			if err != nil {
+				log.Printf("acfg fix bad txn bytes %d:%d, %v", txrow.Round, txrow.Intra, err)
+				return
+			}
+			if first {
+				params = stxn.Txn.AssetParams
+				creator = stxn.Txn.Sender
+				first = false
+			} else if stxn.Txn.AssetParams == (types.AssetParams{}) {
+				// delete asset
+				params = stxn.Txn.AssetParams
+			} else {
+				params = types.MergeAssetConfig(params, stxn.Txn.AssetParams)
+			}
+		}
+		outparams := json.Encode(params)
+		_, err = setacfg.Exec(aid, creator[:], outparams)
+		if err != nil {
+			log.Printf("acfg fix asset update, %v", err)
+			return -1, err
+		}
+	}
+	state.NextAssetId = 0
+	state.NextMigration++
+	migrationStateJson := json.Encode(state)
+	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJson)
+	if err != nil {
+		log.Printf("acfg fix migration %d meta err: %v", state.NextMigration, err)
+		return -1, err
+	}
+	err = tx.Commit()
+	if err != nil {
+		log.Printf("acfg fix migration %d commit err: %v", state.NextMigration, err)
+		return -1, err
+	}
+	return -1, nil
+}
+
+func m3acfgFixFlush(db *PostgresIndexerDb, state *MigrationState, tx *sql.Tx, out [][]interface{}) error {
+	return nil
+}
+
 func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []string) error {
 	thisMigration := state.NextMigration
 	tx, err := db.db.Begin()
@@ -140,16 +276,22 @@ func init() {
 		m0fixupTxid,
 		m1fixupBlockTime,
 		m2apps,
+		m3acfgFix,
 	}
 }
 
 const txidMigrationErrMsg = "ERROR migrating txns for txid, stopped, will retry on next indexer startup"
 
-type txidFiuxpMigrationContext struct {
+type migrationContext struct {
 	db      *PostgresIndexerDb
 	state   *MigrationState
 	lastlog time.Time
 }
+type txidFiuxpMigrationContext migrationContext
+
+/*struct {
+	migrationContext
+}*/
 
 // read batches of at least 2 blocks or up to 10000 txns,
 // write a temporary table, UPDATE from temporary table into txn.
@@ -215,7 +357,7 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() {
 		}
 	}
 	// all done, mark migration state
-	state.NextMigration = 1
+	state.NextMigration++
 	state.NextRound = 0
 	migrationStateJson := string(json.Encode(state))
 	err = db.SetMetastate(migrationMetastateKey, migrationStateJson)
@@ -224,7 +366,10 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() {
 		return
 	}
 	log.Print("txid fixup migration finished")
-	db.runAvailableMigrations(migrationStateJson)
+	err = db.runMigrationState(state)
+	if err != nil {
+		log.Print(err)
+	}
 }
 
 type txidFixupRow struct {

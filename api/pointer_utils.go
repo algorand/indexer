@@ -60,10 +60,12 @@ func timePtr(x time.Time) *time.Time {
 }
 
 func addrPtr(x types.Address) *string {
-	if bytePtr(x[:]) == nil {
+	if x.IsZero() {
 		return nil
 	}
-	return strPtr(x.String())
+	out := new(string)
+	*out = x.String()
+	return out
 }
 
 func strPtr(x string) *string {

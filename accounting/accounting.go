@@ -290,13 +290,14 @@ func (accounting *AccountingState) AddTransaction(txnr *idb.TxnRow) (err error) 
 		}
 	} else if stxn.Txn.Type == "acfg" {
 		assetId := uint64(stxn.Txn.ConfigAsset)
-		if assetId == 0 {
+		isNew := assetId == 0
+		if isNew {
 			assetId = txnr.AssetId
 		}
 		if stxn.Txn.AssetParams.IsZero() {
 			accounting.destroyAsset(assetId)
 		} else {
-			accounting.AcfgUpdates = append(accounting.AcfgUpdates, idb.AcfgUpdate{AssetId: assetId, Creator: stxn.Txn.Sender, Params: stxn.Txn.AssetParams})
+			accounting.AcfgUpdates = append(accounting.AcfgUpdates, idb.AcfgUpdate{AssetId: assetId, IsNew: isNew, Creator: stxn.Txn.Sender, Params: stxn.Txn.AssetParams})
 			accounting.defaultFrozen[assetId] = stxn.Txn.AssetParams.DefaultFrozen
 			if stxn.Txn.ConfigAsset == 0 {
 				// initial creation, give all initial value to creator
