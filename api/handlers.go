@@ -58,16 +58,12 @@ const defaultBalancesLimit = 1000
 // Returns 200 if healthy.
 // (GET /health)
 func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
-	stateJsonStr, err := si.db.GetMetastate("state")
-	var state idb.ImportState
-	if err == nil && stateJsonStr != "" {
-		state, err = idb.ParseImportState(stateJsonStr)
-		if err != nil {
-			return indexerError(ctx, fmt.Sprintf("error parsing import state: %v", err))
-		}
+	maxRound, err := si.db.GetMaxRound()
+	if err != nil {
+		return indexerError(ctx, fmt.Sprintf("get max round: %v", err))
 	}
 	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
-		Message: strconv.FormatInt(state.AccountRound, 10),
+		Message: strconv.FormatUint(maxRound, 10),
 	})
 }
 
@@ -232,7 +228,7 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 	out := generated.ApplicationsResponse{
 		Applications: apps,
 		CurrentRound: round,
-		NextToken   : next,
+		NextToken:    next,
 	}
 	return ctx.JSON(http.StatusOK, out)
 }
