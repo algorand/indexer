@@ -22,12 +22,12 @@ type dbImporter struct {
 }
 
 var typeEnumList = []util.StringInt{
-	{"pay", 1},
-	{"keyreg", 2},
-	{"acfg", 3},
-	{"axfer", 4},
-	{"afrz", 5},
-	{"appl", 6},
+	{"pay", idb.TypeEnumPay},
+	{"keyreg", idb.TypeEnumKeyreg},
+	{"acfg", idb.TypeEnumAssetConfig},
+	{"axfer", idb.TypeEnumAssetTransfer},
+	{"afrz", idb.TypeEnumAssetFreeze},
+	{"appl", idb.TypeEnumApplication},
 }
 var TypeEnumMap map[string]int
 var TypeEnumString string

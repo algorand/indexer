@@ -45,6 +45,11 @@ def encode_addr(addr):
         return algosdk.encoding.encode_address(addr)
     return 'unknown addr? {!r}'.format(addr)
 
+def encode_addr_or_none(addr):
+    if addr is None or not addr:
+        return None
+    return encode_addr(addr)
+
 def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None):
     '''return {raw account: {"algo":N, "asset":{}}, ...}'''
     rootparts = urllib.parse.urlparse(rooturl)
@@ -61,7 +66,7 @@ def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None):
         pageurl = urllib.parse.urlunparse(accountsurl)
         logger.debug('GET %s', pageurl)
         getAccountsPage(pageurl, accounts)
-    logger.info('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
+    logger.debug('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
     return accounts
 
 def getAccountsPage(pageurl, accounts):
@@ -91,7 +96,7 @@ def getAccountsPage(pageurl, accounts):
         some = True
         addr = acct['address']
         rawaddr = algosdk.encoding.decode_address(addr)
-        accounts[rawaddr] = acct#av
+        accounts[rawaddr] = acct
         gtaddr = addr
     logger.debug('got %d accounts', batchcount)
     return gtaddr, some
@@ -120,7 +125,7 @@ def indexerAccounts(rooturl, blockround=None, addrlist=None):
         if not some:
             break
     dt = time.time() - start
-    logger.info('loaded %d accounts from %s ?round=%d in %.2f seconds', len(accounts), rooturl, blockround, dt)
+    logger.debug('loaded %d accounts from %s ?round=%s in %.2f seconds', len(accounts), rooturl, blockround, dt)
     return accounts
 
 # generator yielding txns objects
@@ -176,11 +181,11 @@ def assetEquality(indexer, algod):
             if iv == 0:
                 pass # ok
             else:
-                errs.append('asset={!r} indexer had {!r} but algod None'.format(assetid, rec))
+                errs.append('asset={!r} indexer had {!r} but algod None'.format(assetid, assetrec))
         else:
             av = arec.get('amount', 0)
             if av != iv:
-                errs.append('asset={!r} indexer {!r} != algod {!r}'.format(assetid, rec, arec))
+                errs.append('asset={!r} indexer {!r} != algod {!r}'.format(assetid, assetrec, arec))
     for assetid, arec in abyaid.items():
         av = arec.get('amount', 0)
         if av != 0:
@@ -200,6 +205,17 @@ def deepeq(a, b, path=None, msg=None):
         if not isinstance(b, dict):
             return False
         if len(a) != len(b):
+            ak = set(a.keys())
+            bk = set(b.keys())
+            both = ak.intersection(bk)
+            onlya = ak.difference(both)
+            onlyb = bk.difference(both)
+            mp = []
+            if onlya:
+                mp.append('only in a {!r}'.format(sorted(onlya)))
+            if onlyb:
+                mp.append('only in b {!r}'.format(sorted(onlyb)))
+            msg.append(', '.join(mp))
             return False
         for k,av in a.items():
             if path is not None and msg is not None:
@@ -231,6 +247,10 @@ def _dap(x):
     if gs:
         out['params']['global-state'] = {z['key']:z['value'] for z in gs}
     return out
+
+def dictifyAssetConfig(acfg):
+    return {x['index']:x for x in acfg}
+
 
 def dictifyAppParams(ap):
     # make a list of app params comparable by deepeq
@@ -270,7 +290,7 @@ class CheckContext:
         # [(addr, "err text"), ...]
         self.mismatches = []
 
-    def check(self, address, niceaddr, microalgos, assets, appparams, applocal):
+    def check(self, address, niceaddr, microalgos, assets, acfg, appparams, applocal):
         # check data from sql or algod vs indexer
         i2v = self.accounts.pop(address, None)
         if i2v is None:
@@ -306,13 +326,25 @@ class CheckContext:
             elif assets:
                 allzero = True
                 nonzero = []
-                for assetrec in assets.items():
+                for assetrec in assets:
                     if assetrec.get('amount',0) != 0:
                         allzero = False
                         nonzero.append(assetrec)
                 if not allzero:
                     emsg = '{} algod has assets but not indexer: {!r}\n'.format(niceaddr, nonzero)
                     xe(emsg)
+            i2acfg = i2v.get('created-assets')
+            if acfg:
+                if i2acfg:
+                    indexerAcfg = dictifyAssetConfig(i2acfg)
+                    algodAcfg = dictifyAssetConfig(acfg)
+                    eqerr = []
+                    if not deepeq(indexerAcfg, algodAcfg, (), eqerr):
+                        xe('{} indexer and algod disagree on acfg, {}\nindexer={}\nalgod={}\n'.format(niceaddr, eqerr, json_pp(i2acfg), json_pp(acfg)))
+                else:
+                    xe('{} algod has acfg but not indexer: {!r}\n'.format(niceaddr, acfg))
+            elif i2acfg:
+                xe('{} indexer has acfg but not algod: {!r}\n'.format(niceaddr, i2acfg))
             i2apar = i2v.get('created-apps')
             if appparams:
                 if i2apar:
@@ -365,21 +397,28 @@ class CheckContext:
 # "algo":uint64 MicroAlgos
 
 
-def jsonable(x):
+def jsonable(x, display=False):
     if x is None:
         return x
     if isinstance(x, dict):
-        return {str(jsonable(k)):jsonable(v) for k,v in x.items()}
+        return {str(jsonable(k, display)):jsonable(v, display) for k,v in x.items()}
     if isinstance(x, list):
-        return [jsonable(e) for e in x]
+        return [jsonable(e, display) for e in x]
     if isinstance(x, bytes):
-        return base64.b64encode(x).decode()
+        if display:
+            return 'b:' + base64.b64encode(x).decode()
+        else:
+            return base64.b64encode(x).decode()
     return x
 
 
 def json_pp(x):
-    return json.dumps(jsonable(x), indent=2, sort_keys=True)
+    return json.dumps(jsonable(x, True), indent=2, sort_keys=True)
 
+def b64_or_none(x):
+    if x is None or not x:
+        return None
+    return base64.b64encode(x).decode()
 
 def tvToApiTv(tv):
     tt = tv[b'tt']
@@ -401,6 +440,11 @@ def schemaDecode(sch):
         'num-uint':sch.get(b'nui',0),
         'num-byte-slice':sch.get(b'nbs',0),
     }
+
+def dmaybe(d, k, v):
+    if v is None:
+        return
+    d[k] = v
 
 def check_from_sqlite(args):
     genesispath = args.genesis or os.path.join(os.path.dirname(os.path.dirname(args.dbfile)), 'genesis.json')
@@ -450,19 +494,23 @@ def check_from_sqlite(args):
         if rawAssetParams:
             assetp = []
             for assetid, ap in rawAssetParams.items():
-                appparams.append({
-                    'clawback':ap.get(b'c'),
+                params = {
                     'creator':niceaddr,
                     'decimals':ap.get(b'dc',0),
                     'default-frozen':ap.get(b'df',False),
-                    'freeze':ap.get(b'f'),
-                    'manager':ap.get(b'm'),
-                    'metadata-hash':ap.get(b'am'),
-                    'name':ap.get(b'an'),
-                    'reserve':ap.get(b'r'),
                     'total':ap.get(b't', 0),
-                    'unit-name':ap.get(b'un'),
-                    'url':ap.get(b'au'),
+                }
+                dmaybe(params, 'clawback', encode_addr_or_none(ap.get(b'c')))
+                dmaybe(params, 'freeze', encode_addr_or_none(ap.get(b'f')))
+                dmaybe(params, 'manager', encode_addr_or_none(ap.get(b'm')))
+                dmaybe(params, 'metadata-hash', encode_addr_or_none(ap.get(b'am')))
+                dmaybe(params, 'name', maybedecode(ap.get(b'an')))
+                dmaybe(params, 'reserve', encode_addr_or_none(ap.get(b'r')))
+                dmaybe(params, 'unit-name', maybedecode(ap.get(b'un')))
+                dmaybe(params, 'url', maybedecode(ap.get(b'url')))
+                assetp.append({
+                    'index':assetid,
+                    'params':params
                 })
         else:
             assetp = None
@@ -491,65 +539,82 @@ def check_from_sqlite(args):
                 },
             })
         if i2a_checker:
-            i2a_checker.check(address, niceaddr, microalgos, assets, appparams, applocal)
+            # TODO: assets created by this account
+            i2a_checker.check(address, niceaddr, microalgos, assets, assetp, appparams, applocal)
         if args.limit and count > args.limit:
             break
-    return tracker_round, i2a_checker
+    return i2a_checker
 
 def maybeb64(x):
     if x:
         return base64.b64encode(x).decode()
     return x
 
-def token_addr_from_algod(algorand_data):
-    addr = open(os.path.join(algorand_data, 'algod.net'), 'rt').read().strip()
+def token_addr_from_args(args):
+    if args.algod:
+        addr = open(os.path.join(args.algod, 'algod.net'), 'rt').read().strip()
+        token = open(os.path.join(args.algod, 'algod.token'), 'rt').read().strip()
+    else:
+        addr = args.algod_net
+        token = args.algod_token
     if not addr.startswith('http'):
         addr = 'http://' + addr
-    token = open(os.path.join(algorand_data, 'algod.token'), 'rt').read().strip()
     return token, addr
 
 def check_from_algod(args):
-    getGenesisVars(os.path.join(args.algod, 'genesis.json'))
-    token, addr = token_addr_from_algod(args.algod)
+    gpath = args.genesis or os.path.join(args.algod, 'genesis.json')
+    getGenesisVars(gpath)
+    token, addr = token_addr_from_args(args)
     algod = AlgodClient(token, addr)
     status = algod.status()
     #logger.debug('status %r', status)
-    lastround = status['last-round']
+    iloadstart = time.time()
     if args.indexer:
-        i2a = indexerAccounts(args.indexer, blockround=lastround)
+        i2a = indexerAccounts(args.indexer, addrlist=(args.accounts and args.accounts.split(',')))
         i2a_checker = CheckContext(i2a, sys.stderr)
     else:
         logger.warn('no indexer, nothing to do')
         return None, None
+    iloadtime = time.time() - iloadstart
+    logger.info('loaded %d accounts from indexer in %.1f seconds, %.1f a/s', len(i2a), iloadtime, len(i2a)/iloadtime)
+    aloadstart = time.time()
     rawad = []
     for address in i2a.keys():
         niceaddr = algosdk.encoding.encode_address(address)
         rawad.append(algod.account_info(niceaddr))
+    aloadtime = time.time() - aloadstart
+    logger.info('loaded %d accounts from algod in %.1f seconds, %.1f a/s', len(rawad), aloadtime, len(rawad)/aloadtime)
+    lastlog = time.time()
+    count = 0
     for ad in rawad:
         niceaddr = ad['address']
-        round = ad['round']
-        if round != lastround:
-            # re fetch indexer account at round algod got it at
-            na = indexerAccounts(args.indexer, blockround=round, addrlist=[niceaddr])
-            i2a.update(na)
+        # fetch indexer account at round algod got it at
+        na = indexerAccounts(args.indexer, blockround=ad['round'], addrlist=[niceaddr])
+        i2a.update(na)
         microalgos = ad['amount-without-pending-rewards']
-        xa = ad.get('assets') or []
         address = algosdk.encoding.decode_address(niceaddr)
-        i2a_checker.check(address, niceaddr, microalgos, xa, ad.get('created-apps'), ad.get('apps-local-state'))
-    return lastround, i2a_checker
+        i2a_checker.check(address, niceaddr, microalgos, ad.get('assets'), ad.get('created-assets'), ad.get('created-apps'), ad.get('apps-local-state'))
+        count += 1
+        now = time.time()
+        if (now - lastlog) > 5:
+            logger.info('%d accounts checked, %d mismatches', count, len(i2a_checker.mismatches))
+            lastlog = now
+    return i2a_checker
 
 def main():
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument('-f', '--dbfile', default=None, help='sqlite3 tracker file from algod')
     ap.add_argument('-d', '--algod', default=None, help='algorand data dir')
+    ap.add_argument('--algod-net', default=None, help='algod host:port')
+    ap.add_argument('--algod-token', default=None, help='algod token')
+    ap.add_argument('--genesis', default=None, help='path to genesis.json')
     ap.add_argument('--limit', default=None, type=int, help='debug limit number of accoutns to dump')
     ap.add_argument('--indexer', default=None, help='URL to indexer to fetch from')
     ap.add_argument('--asset', default=None, help='filter on accounts possessing asset id')
     ap.add_argument('--mismatches', default=10, type=int, help='max number of mismatches to show details on (0 for no limit)')
     ap.add_argument('-q', '--quiet', default=False, action='store_true')
     ap.add_argument('--verbose', default=False, action='store_true')
-    ap.add_argument('--genesis')
     ap.add_argument('--accounts', help='comma separated list of accounts to test')
     args = ap.parse_args()
 
@@ -566,9 +631,9 @@ def main():
     i2a_checker = None
 
     if args.dbfile:
-        tracker_round, i2a_checker = check_from_sqlite(args)
-    elif args.algod:
-        tracker_round, i2a_checker = check_from_algod(args)
+        i2a_checker = check_from_sqlite(args)
+    elif args.algod or (args.algod_net and args.algod_token):
+        i2a_checker = check_from_algod(args)
     else:
         raise Exception("need to check from algod sqlite or running algod")
     retval = 0

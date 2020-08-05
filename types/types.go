@@ -471,7 +471,7 @@ const (
 	DeleteAction DeltaAction = 3
 )
 
-// from github.com/algorand/go-algorand/config/config.go
+// from github.com/algorand/go-algorand/config/consensus.go
 // ConsensusParams specifies settings that might vary based on the
 // particular version of the consensus protocol.
 type ConsensusParams struct {
@@ -662,4 +662,111 @@ type ConsensusParams struct {
 
 	// SupportRekeying indicates support for account rekeying (the RekeyTo and AuthAddr fields)
 	SupportRekeying bool
+
+	// application support
+	Application bool
+
+	// max number of ApplicationArgs for an ApplicationCall transaction
+	MaxAppArgs int
+
+	// max sum([len(arg) for arg in txn.ApplicationArgs])
+	MaxAppTotalArgLen int
+
+	// maximum length of application approval program or clear state
+	// program in bytes
+	MaxAppProgramLen int
+
+	// maximum number of accounts in the ApplicationCall Accounts field.
+	// this determines, in part, the maximum number of balance records
+	// accessed by a single transaction
+	MaxAppTxnAccounts int
+
+	// maximum number of app ids in the ApplicationCall ForeignApps field.
+	// these are the only applications besides the called application for
+	// which global state may be read in the transaction
+	MaxAppTxnForeignApps int
+
+	// maximum number of asset ids in the ApplicationCall ForeignAssets
+	// field. these are the only assets for which the asset parameters may
+	// be read in the transaction
+	MaxAppTxnForeignAssets int
+
+	// maximum cost of application approval program or clear state program
+	MaxAppProgramCost int
+
+	// maximum length of a key used in an application's global or local
+	// key/value store
+	MaxAppKeyLen int
+
+	// maximum length of a bytes value used in an application's global or
+	// local key/value store
+	MaxAppBytesValueLen int
+
+	// maximum number of applications a single account can create and store
+	// AppParams for at once
+	MaxAppsCreated int
+
+	// maximum number of applications a single account can opt in to and
+	// store AppLocalState for at once
+	MaxAppsOptedIn int
+
+	// flat MinBalance requirement for creating a single application and
+	// storing its AppParams
+	AppFlatParamsMinBalance uint64
+
+	// flat MinBalance requirement for opting in to a single application
+	// and storing its AppLocalState
+	AppFlatOptInMinBalance uint64
+
+	// MinBalance requirement per key/value entry in LocalState or
+	// GlobalState key/value stores, regardless of value type
+	SchemaMinBalancePerEntry uint64
+
+	// MinBalance requirement (in addition to SchemaMinBalancePerEntry) for
+	// integer values stored in LocalState or GlobalState key/value stores
+	SchemaUintMinBalance uint64
+
+	// MinBalance requirement (in addition to SchemaMinBalancePerEntry) for
+	// []byte values stored in LocalState or GlobalState key/value stores
+	SchemaBytesMinBalance uint64
+
+	// maximum number of total key/value pairs allowed by a given
+	// LocalStateSchema (and therefore allowed in LocalState)
+	MaxLocalSchemaEntries uint64
+
+	// maximum number of total key/value pairs allowed by a given
+	// GlobalStateSchema (and therefore allowed in GlobalState)
+	MaxGlobalSchemaEntries uint64
+
+	// maximum total minimum balance requirement for an account, used
+	// to limit the maximum size of a single balance record
+	MaximumMinimumBalance uint64
+}
+
+func MergeAssetConfig(old, new atypes.AssetParams) (out atypes.AssetParams) {
+	// if asset is new, set.
+	// if new config is empty, set empty.
+	// else, update.
+	if old == (atypes.AssetParams{}) {
+		out = new
+	} else if new == (atypes.AssetParams{}) {
+		out = new
+	} else {
+		out = old
+		if !old.Manager.IsZero() {
+			out.Manager = new.Manager
+		}
+		if !old.Reserve.IsZero() {
+			out.Reserve = new.Reserve
+		}
+		if !old.Freeze.IsZero() {
+			out.Freeze = new.Freeze
+		}
+		if !old.Clawback.IsZero() {
+			out.Clawback = new.Clawback
+		}
+		// no other fields get updated. See:
+		// go-algorand/data/transactions/asset.go
+	}
+	return
 }

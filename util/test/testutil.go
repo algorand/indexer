@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
@@ -41,6 +42,16 @@ func infoln(s string) {
 	fmt.Println(s)
 }
 
+func myStackTrace() {
+	for skip := 1; skip < 3; skip++ {
+		_, file, line, ok := runtime.Caller(skip)
+		if !ok {
+			return
+		}
+		fmt.Fprintf(os.Stderr, "%s:%d\n", file, line)
+	}
+}
+
 func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 	count := uint64(0)
 	for ar := range db.Assets(context.Background(), q) {
@@ -55,6 +66,7 @@ func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 	info("%d rows\n", count)
 	if q.Limit != 0 && q.Limit != count {
 		fmt.Fprintf(os.Stderr, "asset q CAME UP SHORT, limit=%d actual=%d, q=%#v\n", q.Limit, count, q)
+		myStackTrace()
 		exitValue = 1
 	}
 }
@@ -73,6 +85,7 @@ func PrintAccountQuery(db idb.IndexerDb, q idb.AccountQueryOptions) {
 	info("%d accounts\n", count)
 	if q.Limit != 0 && q.Limit != count {
 		fmt.Fprintf(os.Stderr, "account q CAME UP SHORT, limit=%d actual=%d, q=%#v\n", q.Limit, count, q)
+		myStackTrace()
 		exitValue = 1
 	}
 }
@@ -94,6 +107,7 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 	info("%d txns\n", count)
 	if q.Limit != 0 && q.Limit != count {
 		fmt.Fprintf(os.Stderr, "txn q CAME UP SHORT, limit=%d actual=%d, q=%#v\n", q.Limit, count, q)
+		myStackTrace()
 		exitValue = 1
 	}
 }

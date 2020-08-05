@@ -1438,6 +1438,14 @@
             "type": "integer"
           }
         },
+        "foreign-assets": {
+          "description": "\\[apas\\] lists the assets whose parameters may be accessed by this application's ApprovalProgram and ClearStateProgram. The access is read-only.",
+          "type": "array",
+          "format": "string",
+          "items": {
+            "type": "integer"
+          }
+        },
         "local-state-schema": {
           "$ref": "#/definitions/StateSchema"
         },
