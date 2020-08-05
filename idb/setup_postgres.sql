@@ -72,3 +72,19 @@ CREATE TABLE IF NOT EXISTS metastate (
   k text primary key,
   v jsonb
 );
+
+-- per app global state
+-- roughly go-algorand/data/basics/userBalance.go AppParams
+CREATE TABLE IF NOT EXISTS app (
+  index bigint PRIMARY KEY,
+  creator bytea, -- account address
+  params jsonb
+);
+
+-- per-account app local state
+CREATE TABLE IF NOT EXISTS account_app (
+  addr bytea,
+  app bigint,
+  localstate jsonb,
+  PRIMARY KEY (addr, app)
+);

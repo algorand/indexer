@@ -70,10 +70,16 @@
             "$ref": "#/parameters/currency-less-than"
           },
           {
+            "$ref": "#/parameters/auth-addr"
+          },
+          {
             "type": "integer",
             "description": "Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.",
             "name": "round",
             "in": "query"
+          },
+          {
+            "$ref": "#/parameters/application-id"
           }
         ],
         "responses": {
@@ -169,11 +175,73 @@
           },
           {
             "$ref": "#/parameters/account-id"
+          },
+          {
+            "$ref": "#/parameters/rekey-to"
           }
         ],
         "responses": {
           "200": {
             "$ref": "#/responses/TransactionsResponse"
+          }
+        }
+      }
+    },
+    "/v2/applications": {
+      "get": {
+        "description": "Search for applications",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "search"
+        ],
+        "operationId": "searchForApplications",
+        "parameters": [
+          {
+            "$ref": "#/parameters/application-id"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/next"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ApplicationsResponse"
+          }
+        }
+      }
+    },
+    "/v2/applications/{application-id}": {
+      "get": {
+        "description": "Lookup application.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "lookup"
+        ],
+        "operationId": "lookupApplicationByID",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "application-id",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ApplicationResponse"
           }
         }
       }
@@ -365,6 +433,9 @@
             "name": "asset-id",
             "in": "path",
             "required": true
+          },
+          {
+            "$ref": "#/parameters/rekey-to"
           }
         ],
         "responses": {
@@ -463,6 +534,12 @@
           },
           {
             "$ref": "#/parameters/exclude-close-to"
+          },
+          {
+            "$ref": "#/parameters/rekey-to"
+          },
+          {
+            "$ref": "#/parameters/application-id"
           }
         ],
         "responses": {
@@ -502,11 +579,29 @@
           "description": "specifies the amount of MicroAlgos in the account, without the pending rewards.",
           "type": "integer"
         },
+        "apps-local-state": {
+          "description": "\\[appl\\] applications local data stored in this account.\n\nNote the raw object uses `map[int] -\u003e AppLocalState` for this type.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/ApplicationLocalState"
+          }
+        },      
+        "apps-total-schema": {
+          "description": "\\[tsch\\] stores the sum of all of the local schemas and global schemas in this account.\n\nNote: the raw account uses `StateSchema` for this type.",
+          "$ref": "#/definitions/ApplicationStateSchema"
+        },
         "assets": {
           "description": "\\[asset\\] assets held by this account.\n\nNote the raw object uses `map[int] -\u003e AssetHolding` for this type.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/AssetHolding"
+          }
+        },
+        "created-apps": {
+          "description": "\\[appp\\] parameters of applications created by this account including app global data.\n\nNote: the raw account uses `map[int] -\u003e AppParams` for this type.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Application"
           }
         },
         "created-assets": {
@@ -547,6 +642,11 @@
             "msig",
             "lsig"
           ]
+        },
+        "auth-addr": {
+          "description": "\\[spend\\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.",
+          "type": "string",
+          "x-algorand-format": "Address"
         }
       }
     },
@@ -582,6 +682,150 @@
           "description": "\\[vote\\] root participation public key (if any) currently registered for this round.",
           "type": "string",
           "format": "byte"
+        }
+      }
+    },
+    "ApplicationStateSchema": {
+      "description": "Specifies maximums on the number of each type that may be stored.",
+      "type": "object",
+      "required": [
+        "num-uint",
+        "num-byte-slice"
+      ],
+      "properties": {
+        "num-uint": {
+          "description": "\\[nui\\] num of uints.",
+          "type": "integer"
+        },
+        "num-byte-slice": {
+          "description": "\\[nbs\\] num of byte slices.",
+          "type": "integer"
+        }
+      }
+    },
+    "ApplicationLocalState": {
+      "description": "Stores local state associated with an application.",
+      "type": "object",
+      "required": [
+        "id",
+        "schema"
+      ],
+      "properties": {
+        "id": {
+          "description": "The application which this local state is for.",
+          "type": "integer"
+        },
+        "schema": {
+          "description": "\\[hsch\\] schema.",
+          "$ref": "#/definitions/ApplicationStateSchema"
+        },
+        "key-value": {
+          "description": "\\[tkv\\] storage.",
+          "$ref": "#/definitions/TealKeyValueStore"
+        }
+      }
+    },
+    "TealKeyValueStore": {
+      "description": "Represents a key-value store for use in an application.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/TealKeyValue"
+      }
+    },
+    "TealKeyValue": {
+      "description": "Represents a key-value pair in an application store.",
+      "type": "object",
+      "required": [
+        "key",
+        "value"
+      ],
+      "properties": {
+        "key": {
+          "type": "string"
+        },
+        "value": {
+          "$ref": "#/definitions/TealValue"
+        }
+      }
+    },
+    "TealValue": {
+      "description": "Represents a TEAL value.",
+      "type": "object",
+      "required": [
+        "type",
+        "uint",
+        "bytes"
+      ],
+      "properties": {
+        "type": {
+          "description": "\\[tt\\] value type.",
+          "type": "integer"
+        },
+        "bytes": {
+          "description": "\\[tb\\] bytes value.",
+          "type": "string"
+        },
+        "uint": {
+          "description": "\\[ui\\] uint value.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        }
+      }
+    },
+    "Application": {
+      "description": "Application index and its parameters",
+      "type": "object",
+      "required": [
+        "id",
+        "params"
+      ],
+      "properties": {
+        "id": {
+          "description": "\\[appidx\\] application index.",
+          "type": "integer"
+        },
+        "params": {
+          "description": "\\[appparams\\] application parameters.",
+          "$ref": "#/definitions/ApplicationParams"
+        }
+      }
+    },
+    "ApplicationParams": {
+      "description": "Stores the global information associated with an application.",
+      "type": "object",
+      "required": [
+        "approval-program",
+        "clear-state-program"
+      ],
+      "properties": {
+        "creator": {
+          "description": "The address that created this application. This is the address where the parameters and global state for this application can be found.",
+          "type": "string",
+          "x-algorand-format": "Address"
+        },
+        "approval-program": {
+          "description": "\\[approv\\] approval program.",
+          "type": "string",
+          "format": "byte",
+          "x-algorand-format": "TEALProgram"
+        },
+        "clear-state-program": {
+          "description": "\\[clearp\\] approval program.",
+          "type": "string",
+          "format": "byte",
+          "x-algorand-format": "TEALProgram"
+        },
+        "local-state-schema": {
+          "description": "[\\lsch\\] local schema",
+          "$ref": "#/definitions/ApplicationStateSchema"
+        },
+        "global-state-schema": {
+          "description": "[\\lsch\\] global schema",
+          "$ref": "#/definitions/ApplicationStateSchema"
+        },
+        "global-state": {
+          "description": "[\\gs\\] global schema",
+          "$ref": "#/definitions/TealKeyValueStore"
         }
       }
     },
@@ -890,11 +1134,104 @@
           "type": "string"
         },
         "amount": {
-           "type": "integer",
-           "x-algorand-format": "uint64"
+          "type": "integer",
+          "x-algorand-format": "uint64"
         },
         "is-frozen": {
           "type": "boolean"
+        }
+      }
+    },
+    "OnCompletion": {
+      "description": "\\[apan\\] defines the what additional actions occur with the transaction.\n\nValid types:\n* noop\n* optin\n* closeout\n* clear\n* update\n* update\n* delete",
+      "type": "string",
+      "enum": [
+        "noop",
+        "optin",
+        "closeout",
+        "clear",
+        "update",
+        "delete"
+      ]
+    },
+    "StateDelta": {
+      "description": "Application state delta.",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/EvalDeltaKeyValue"      
+      }
+    },
+    "AccountStateDelta": {
+      "description": "Application state delta.",
+      "type": "object",
+      "required": [
+        "address",
+        "delta"
+      ],
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "delta": {
+          "$ref": "#/definitions/StateDelta"
+        }
+      }
+    },      
+    "EvalDeltaKeyValue": {
+      "description": "Key-value pairs for StateDelta.",
+      "type": "object",
+      "required": [
+        "key",
+        "value"       
+      ],
+      "properties": {
+        "key": {         
+          "type": "string"
+        },
+        "value": {             
+          "$ref": "#/definitions/EvalDelta"
+        }
+      }
+    },
+    "EvalDelta": {
+      "description": "Represents a TEAL value delta.",
+      "type": "object",
+      "required": [
+        "action"
+      ],
+      "properties": {
+        "action": {
+          "description": "\\[at\\] delta action.",
+          "type": "integer"
+        },
+        "bytes": {
+          "description": "\\[bs\\] bytes value.",
+          "type": "string"
+        },
+        "uint": {
+          "description": "\\[ui\\] uint value.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        }
+      }
+    },
+    "StateSchema": {
+      "description": "Represents a \\[apls\\] local-state or \\[apgs\\] global-state schema. These schemas determine how much storage may be used in a local-state or global-state for an application. The more space used, the larger minimum balance must be maintained in the account holding the data.",
+      "type": "object",
+      "required": [
+        "num-uint",
+        "num-byte-slice"
+      ],
+      "properties": {
+        "num-uint": {
+          "description": "Maximum number of TEAL uints that may be stored in the key/value store.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "num-byte-slice": {
+          "description": "Maximum number of TEAL byte slices that may be stored in the key/value store.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
         }
       }
     },
@@ -910,7 +1247,18 @@
         "last-valid",
         "signature"
       ],
+      "mutually-exclusive": [
+        "application-transaction",
+        "asset-config-transaction",
+        "asset-freeze-transaction",
+        "asset-transfer-transaction",
+        "keyreg-transaction",
+        "payment-transaction"
+      ],
       "properties": {
+        "application-transaction": {
+          "$ref": "#/definitions/TransactionApplication"
+        },
         "asset-config-transaction": {
           "$ref": "#/definitions/TransactionAssetConfig"
         },
@@ -919,6 +1267,11 @@
         },
         "asset-transfer-transaction": {
           "$ref": "#/definitions/TransactionAssetTransfer"
+        },
+        "auth-addr": {
+          "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth addr is equal to the accounts auth addr.",
+          "type": "string",
+          "x-algorand-format": "Address"
         },
         "close-rewards": {
           "description": "\\[rc\\] rewards applied to close-remainder-to account.",
@@ -930,6 +1283,10 @@
         },
         "confirmed-round": {
           "description": "Round when the transaction was confirmed.",
+          "type": "integer"
+        },
+        "created-application-index": {
+          "description": "Specifies an application index (ID) if an application was created with this transaction.",
           "type": "integer"
         },
         "created-asset-index": {
@@ -990,6 +1347,11 @@
           "description": "\\[rr\\] rewards applied to receiver account.",
           "type": "integer"
         },
+        "rekey-to": {
+          "description": "\\[rekey\\] when included in a valid transaction, the accounts auth addr will be updated with this value and future signatures must be signed with the key represented by this address.",
+          "type": "string",
+          "x-algorand-format": "Address"
+        },
         "round-time": {
           "description": "Time when the block this transaction is in was confirmed.",
           "type": "integer"
@@ -1006,16 +1368,101 @@
           "$ref": "#/definitions/TransactionSignature"
         },
         "tx-type": {
-          "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction",
+          "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction",
           "type": "string",
           "enum": [
             "pay",
             "keyreg",
             "acfg",
             "axfer",
-            "afrz"
+            "afrz",
+            "appl"
           ],
           "x-algorand-format": "tx-type-enum"
+        },
+        "auth-addr": {
+          "description": "\\[sgnr\\] The address used to sign the transaction. This is used for rekeyed accounts to indicate that the sender address did not sign the transaction.",
+          "type": "string",
+          "x-algorand-format": "Address"
+        },
+        "local-state-delta": {
+          "description": "\\[ld\\] Local state key/value changes for the application being executed by this transaction.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/AccountStateDelta"
+          }
+        },
+        "global-state-delta": {
+          "description": "\\[gd\\] Global state key/value changes for the application being executed by this transaction.",
+          "$ref": "#/definitions/StateDelta"
+        }
+      }
+    },
+    "TransactionApplication": {
+      "description": "Fields for application transactions.\n\nDefinition:\ndata/transactions/application.go : ApplicationCallTxnFields",
+      "type": "object",
+      "required": [
+        "application-id",
+        "on-completion"
+      ],
+      "properties": {
+        "application-id": {
+          "description": "\\[apid\\] ID of the application being configured or empty if creating.",
+          "type": "integer"
+        },
+        "on-completion": {
+          "$ref": "#/definitions/OnCompletion"
+        },
+        "application-args": {
+          "description": "\\[apaa\\] transaction specific arguments accessed from the application's approval-program and clear-state-program.",
+          "type": "array",
+          "format": "byte",
+          "items": {
+            "type": "string"
+          }
+        },
+        "accounts": {
+          "description": "\\[apat\\] List of accounts in addition to the sender that may be accessed from the application's approval-program and clear-state-program.",
+          "type": "array",
+          "format": "string",
+          "items": {
+            "type": "string",
+            "x-algorand-format": "Address"
+          }
+        },
+        "foreign-apps": {
+          "description": "\\[apfa\\] Lists the applications in addition to the application-id whose global states may be accessed by this application's approval-program and clear-state-program. The access is read-only.",
+          "type": "array",
+          "format": "string",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "foreign-assets": {
+          "description": "\\[apas\\] lists the assets whose parameters may be accessed by this application's ApprovalProgram and ClearStateProgram. The access is read-only.",
+          "type": "array",
+          "format": "string",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "local-state-schema": {
+          "$ref": "#/definitions/StateSchema"
+        },
+        "global-state-schema": {
+          "$ref": "#/definitions/StateSchema"
+        },
+        "approval-program": {
+          "description": "\\[apap\\] Logic executed for every application transaction, except when on-completion is set to \"clear\". It can read and write global state for the application, as well as account-specific local state. Approval programs may reject the transaction.",
+          "type": "string",
+          "format": "byte",
+          "x-algorand-format": "TEALProgram"
+        },
+        "clear-state-program": {
+          "description": "\\[apsu\\] Logic executed for application transactions with on-completion set to \"clear\". It can read and write global state for the application, as well as account-specific local state. Clear state programs cannot reject the transaction.",
+          "type": "string",
+          "format": "byte",
+          "x-algorand-format": "TEALProgram"
         }
       }
     },
@@ -1153,6 +1600,11 @@
     "TransactionSignature": {
       "description": "Validation signature associated with some data. Only one of the signatures should be provided.",
       "type": "object",
+      "mutually-exclusive": [
+        "sig",
+        "multisig",
+        "logicsig"
+      ],
       "properties": {
         "logicsig": {
           "$ref": "#/definitions/TransactionSignatureLogicsig"
@@ -1269,6 +1721,12 @@
       "name": "after-time",
       "in": "query"
     },
+    "application-id": {
+      "type": "integer",
+      "description": "Application ID",
+      "name": "application-id",
+      "in": "query"
+    },
     "asset-id": {
       "type": "integer",
       "x-go-name": "AssetID",
@@ -1333,6 +1791,12 @@
       "in": "query",
       "x-algorand-format": "base64" 
     },
+    "rekey-to": {
+      "type": "boolean",
+      "description": "Include results which include the rekey-to field.",
+      "name": "rekey-to",
+      "in": "query"
+    },
     "round": {
       "type": "integer",
       "description": "Include results for the specified round.",
@@ -1357,6 +1821,13 @@
       "name": "sig-type",
       "in": "query"
     },
+    "auth-addr": {
+      "type": "string",
+      "description": "Include accounts configured to use this spending key.",
+      "name": "auth-addr",
+      "in": "query",
+      "x-algorand-format": "Address" 
+    },
     "txid": {
       "type": "string",
       "x-go-name": "TxID",
@@ -1370,7 +1841,8 @@
         "keyreg",
         "acfg",
         "axfer",
-        "afrz"
+        "afrz",
+        "appl"
       ],
       "type": "string",
       "name": "tx-type",
@@ -1436,6 +1908,51 @@
             "type": "array",
             "items": {
               "$ref": "#/definitions/MiniAssetHolding"
+            }
+          },
+          "current-round": {
+            "description": "Round at which the results were computed.",
+            "type": "integer"
+          },
+          "next-token": {
+            "description": "Used for pagination, when making another request provide this token with the next parameter.",
+            "type": "string"
+          }
+        }
+      }
+    },
+    "ApplicationResponse": {
+      "description": "(empty)",
+      "schema": {
+        "type": "object",
+        "required": [
+          "current-round",
+          "applications"
+        ],
+        "properties": {
+          "application": {
+            "$ref": "#/definitions/Application"
+          },
+          "current-round": {
+            "description": "Round at which the results were computed.",
+            "type": "integer"
+          }
+        }
+      }
+    },
+    "ApplicationsResponse": {
+      "description": "(empty)",
+      "schema": {
+        "type": "object",
+        "required": [
+          "current-round",
+          "applications"
+        ],
+        "properties": {
+          "applications": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/Application"
             }
           },
           "current-round": {
@@ -1534,6 +2051,9 @@
     }
   },
   "tags": [
+    {
+      "name": "common"
+    },
     {
       "name": "lookup"
     },

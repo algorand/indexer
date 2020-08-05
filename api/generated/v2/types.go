@@ -19,10 +19,26 @@ type Account struct {
 	// specifies the amount of MicroAlgos in the account, without the pending rewards.
 	AmountWithoutPendingRewards uint64 `json:"amount-without-pending-rewards"`
 
+	// \[appl\] applications local data stored in this account.
+	//
+	// Note the raw object uses `map[int] -> AppLocalState` for this type.
+	AppsLocalState *[]ApplicationLocalState `json:"apps-local-state,omitempty"`
+
+	// Specifies maximums on the number of each type that may be stored.
+	AppsTotalSchema *ApplicationStateSchema `json:"apps-total-schema,omitempty"`
+
 	// \[asset\] assets held by this account.
 	//
 	// Note the raw object uses `map[int] -> AssetHolding` for this type.
 	Assets *[]AssetHolding `json:"assets,omitempty"`
+
+	// \[spend\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.
+	AuthAddr *string `json:"auth-addr,omitempty"`
+
+	// \[appp\] parameters of applications created by this account including app global data.
+	//
+	// Note: the raw account uses `map[int] -> AppParams` for this type.
+	CreatedApps *[]Application `json:"created-apps,omitempty"`
 
 	// \[apar\] parameters of assets created by this account.
 	//
@@ -74,6 +90,69 @@ type AccountParticipation struct {
 
 	// \[vote\] root participation public key (if any) currently registered for this round.
 	VoteParticipationKey []byte `json:"vote-participation-key"`
+}
+
+// AccountStateDelta defines model for AccountStateDelta.
+type AccountStateDelta struct {
+	Address string `json:"address"`
+
+	// Application state delta.
+	Delta StateDelta `json:"delta"`
+}
+
+// Application defines model for Application.
+type Application struct {
+
+	// \[appidx\] application index.
+	Id uint64 `json:"id"`
+
+	// Stores the global information associated with an application.
+	Params ApplicationParams `json:"params"`
+}
+
+// ApplicationLocalState defines model for ApplicationLocalState.
+type ApplicationLocalState struct {
+
+	// The application which this local state is for.
+	Id uint64 `json:"id"`
+
+	// Represents a key-value store for use in an application.
+	KeyValue *TealKeyValueStore `json:"key-value,omitempty"`
+
+	// Specifies maximums on the number of each type that may be stored.
+	Schema ApplicationStateSchema `json:"schema"`
+}
+
+// ApplicationParams defines model for ApplicationParams.
+type ApplicationParams struct {
+
+	// \[approv\] approval program.
+	ApprovalProgram []byte `json:"approval-program"`
+
+	// \[clearp\] approval program.
+	ClearStateProgram []byte `json:"clear-state-program"`
+
+	// The address that created this application. This is the address where the parameters and global state for this application can be found.
+	Creator *string `json:"creator,omitempty"`
+
+	// Represents a key-value store for use in an application.
+	GlobalState *TealKeyValueStore `json:"global-state,omitempty"`
+
+	// Specifies maximums on the number of each type that may be stored.
+	GlobalStateSchema *ApplicationStateSchema `json:"global-state-schema,omitempty"`
+
+	// Specifies maximums on the number of each type that may be stored.
+	LocalStateSchema *ApplicationStateSchema `json:"local-state-schema,omitempty"`
+}
+
+// ApplicationStateSchema defines model for ApplicationStateSchema.
+type ApplicationStateSchema struct {
+
+	// \[nbs\] num of byte slices.
+	NumByteSlice uint64 `json:"num-byte-slice"`
+
+	// \[nui\] num of uints.
+	NumUint uint64 `json:"num-uint"`
 }
 
 // Asset defines model for Asset.
@@ -249,6 +328,27 @@ type ErrorResponse struct {
 	Message string                  `json:"message"`
 }
 
+// EvalDelta defines model for EvalDelta.
+type EvalDelta struct {
+
+	// \[at\] delta action.
+	Action uint64 `json:"action"`
+
+	// \[bs\] bytes value.
+	Bytes *string `json:"bytes,omitempty"`
+
+	// \[ui\] uint value.
+	Uint *uint64 `json:"uint,omitempty"`
+}
+
+// EvalDeltaKeyValue defines model for EvalDeltaKeyValue.
+type EvalDeltaKeyValue struct {
+	Key string `json:"key"`
+
+	// Represents a TEAL value delta.
+	Value EvalDelta `json:"value"`
+}
+
 // HealthCheck defines model for HealthCheck.
 type HealthCheck struct {
 	Data    *map[string]interface{} `json:"data,omitempty"`
@@ -262,8 +362,54 @@ type MiniAssetHolding struct {
 	IsFrozen bool   `json:"is-frozen"`
 }
 
+// OnCompletion defines model for OnCompletion.
+type OnCompletion string
+
+// StateDelta defines model for StateDelta.
+type StateDelta []EvalDeltaKeyValue
+
+// StateSchema defines model for StateSchema.
+type StateSchema struct {
+
+	// Maximum number of TEAL byte slices that may be stored in the key/value store.
+	NumByteSlice uint64 `json:"num-byte-slice"`
+
+	// Maximum number of TEAL uints that may be stored in the key/value store.
+	NumUint uint64 `json:"num-uint"`
+}
+
+// TealKeyValue defines model for TealKeyValue.
+type TealKeyValue struct {
+	Key string `json:"key"`
+
+	// Represents a TEAL value.
+	Value TealValue `json:"value"`
+}
+
+// TealKeyValueStore defines model for TealKeyValueStore.
+type TealKeyValueStore []TealKeyValue
+
+// TealValue defines model for TealValue.
+type TealValue struct {
+
+	// \[tb\] bytes value.
+	Bytes string `json:"bytes"`
+
+	// \[tt\] value type.
+	Type uint64 `json:"type"`
+
+	// \[ui\] uint value.
+	Uint uint64 `json:"uint"`
+}
+
 // Transaction defines model for Transaction.
 type Transaction struct {
+
+	// Fields for application transactions.
+	//
+	// Definition:
+	// data/transactions/application.go : ApplicationCallTxnFields
+	ApplicationTransaction *TransactionApplication `json:"application-transaction,omitempty"`
 
 	// Fields for asset allocation, re-configuration, and destruction.
 	//
@@ -287,6 +433,9 @@ type Transaction struct {
 	// data/transactions/asset.go : AssetTransferTxnFields
 	AssetTransferTransaction *TransactionAssetTransfer `json:"asset-transfer-transaction,omitempty"`
 
+	// \[sgnr\] The address used to sign the transaction. This is used for rekeyed accounts to indicate that the sender address did not sign the transaction.
+	AuthAddr *string `json:"auth-addr,omitempty"`
+
 	// \[rc\] rewards applied to close-remainder-to account.
 	CloseRewards *uint64 `json:"close-rewards,omitempty"`
 
@@ -295,6 +444,9 @@ type Transaction struct {
 
 	// Round when the transaction was confirmed.
 	ConfirmedRound *uint64 `json:"confirmed-round,omitempty"`
+
+	// Specifies an application index (ID) if an application was created with this transaction.
+	CreatedApplicationIndex *uint64 `json:"created-application-index,omitempty"`
 
 	// Specifies an asset index (ID) if an asset was created with this transaction.
 	CreatedAssetIndex *uint64 `json:"created-asset-index,omitempty"`
@@ -310,6 +462,9 @@ type Transaction struct {
 
 	// \[gen\] genesis block ID.
 	GenesisId *string `json:"genesis-id,omitempty"`
+
+	// Application state delta.
+	GlobalStateDelta *StateDelta `json:"global-state-delta,omitempty"`
 
 	// \[grp\] Base64 encoded byte array of a sha512/256 digest. When present indicates that this transaction is part of a transaction group and the value is the sha512/256 hash of the transactions in that group.
 	Group *[]byte `json:"group,omitempty"`
@@ -332,6 +487,9 @@ type Transaction struct {
 	// \[lx\] Base64 encoded 32-byte array. Lease enforces mutual exclusion of transactions.  If this field is nonzero, then once the transaction is confirmed, it acquires the lease identified by the (Sender, Lease) pair of the transaction until the LastValid round passes.  While this transaction possesses the lease, no other transaction specifying this lease can be confirmed.
 	Lease *[]byte `json:"lease,omitempty"`
 
+	// \[ld\] Local state key/value changes for the application being executed by this transaction.
+	LocalStateDelta *[]AccountStateDelta `json:"local-state-delta,omitempty"`
+
 	// \[note\] Free form data.
 	Note *[]byte `json:"note,omitempty"`
 
@@ -343,6 +501,9 @@ type Transaction struct {
 
 	// \[rr\] rewards applied to receiver account.
 	ReceiverRewards *uint64 `json:"receiver-rewards,omitempty"`
+
+	// \[rekey\] when included in a valid transaction, the accounts auth addr will be updated with this value and future signatures must be signed with the key represented by this address.
+	RekeyTo *string `json:"rekey-to,omitempty"`
 
 	// Time when the block this transaction is in was confirmed.
 	RoundTime *uint64 `json:"round-time,omitempty"`
@@ -364,7 +525,51 @@ type Transaction struct {
 	// * \[acfg\] asset-config-transaction
 	// * \[axfer\] asset-transfer-transaction
 	// * \[afrz\] asset-freeze-transaction
+	// * \[appl\] application-transaction
 	TxType string `json:"tx-type"`
+}
+
+// TransactionApplication defines model for TransactionApplication.
+type TransactionApplication struct {
+
+	// \[apat\] List of accounts in addition to the sender that may be accessed from the application's approval-program and clear-state-program.
+	Accounts *[]string `json:"accounts,omitempty"`
+
+	// \[apaa\] transaction specific arguments accessed from the application's approval-program and clear-state-program.
+	ApplicationArgs *[]string `json:"application-args,omitempty"`
+
+	// \[apid\] ID of the application being configured or empty if creating.
+	ApplicationId uint64 `json:"application-id"`
+
+	// \[apap\] Logic executed for every application transaction, except when on-completion is set to "clear". It can read and write global state for the application, as well as account-specific local state. Approval programs may reject the transaction.
+	ApprovalProgram *[]byte `json:"approval-program,omitempty"`
+
+	// \[apsu\] Logic executed for application transactions with on-completion set to "clear". It can read and write global state for the application, as well as account-specific local state. Clear state programs cannot reject the transaction.
+	ClearStateProgram *[]byte `json:"clear-state-program,omitempty"`
+
+	// \[apfa\] Lists the applications in addition to the application-id whose global states may be accessed by this application's approval-program and clear-state-program. The access is read-only.
+	ForeignApps *[]uint64 `json:"foreign-apps,omitempty"`
+
+	// \[apas\] lists the assets whose parameters may be accessed by this application's ApprovalProgram and ClearStateProgram. The access is read-only.
+	ForeignAssets *[]uint64 `json:"foreign-assets,omitempty"`
+
+	// Represents a \[apls\] local-state or \[apgs\] global-state schema. These schemas determine how much storage may be used in a local-state or global-state for an application. The more space used, the larger minimum balance must be maintained in the account holding the data.
+	GlobalStateSchema *StateSchema `json:"global-state-schema,omitempty"`
+
+	// Represents a \[apls\] local-state or \[apgs\] global-state schema. These schemas determine how much storage may be used in a local-state or global-state for an application. The more space used, the larger minimum balance must be maintained in the account holding the data.
+	LocalStateSchema *StateSchema `json:"local-state-schema,omitempty"`
+
+	// \[apan\] defines the what additional actions occur with the transaction.
+	//
+	// Valid types:
+	// * noop
+	// * optin
+	// * closeout
+	// * clear
+	// * update
+	// * update
+	// * delete
+	OnCompletion OnCompletion `json:"on-completion"`
 }
 
 // TransactionAssetConfig defines model for TransactionAssetConfig.
@@ -528,8 +733,14 @@ type AddressRole string
 // AfterTime defines model for after-time.
 type AfterTime time.Time
 
+// ApplicationId defines model for application-id.
+type ApplicationId uint64
+
 // AssetId defines model for asset-id.
 type AssetId uint64
+
+// AuthAddr defines model for auth-addr.
+type AuthAddr string
 
 // BeforeTime defines model for before-time.
 type BeforeTime time.Time
@@ -557,6 +768,9 @@ type Next string
 
 // NotePrefix defines model for note-prefix.
 type NotePrefix string
+
+// RekeyTo defines model for rekey-to.
+type RekeyTo bool
 
 // Round defines model for round.
 type Round uint64
@@ -589,6 +803,27 @@ type AccountResponse struct {
 // AccountsResponse defines model for AccountsResponse.
 type AccountsResponse struct {
 	Accounts []Account `json:"accounts"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
+}
+
+// ApplicationResponse defines model for ApplicationResponse.
+type ApplicationResponse struct {
+
+	// Application index and its parameters
+	Application *Application `json:"application,omitempty"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+}
+
+// ApplicationsResponse defines model for ApplicationsResponse.
+type ApplicationsResponse struct {
+	Applications []Application `json:"applications"`
 
 	// Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`
@@ -664,8 +899,14 @@ type SearchForAccountsParams struct {
 	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
 
+	// Include accounts configured to use this spending key.
+	AuthAddr *string `json:"auth-addr,omitempty"`
+
 	// Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.
 	Round *uint64 `json:"round,omitempty"`
+
+	// Application ID
+	ApplicationId *uint64 `json:"application-id,omitempty"`
 }
 
 // LookupAccountByIDParams defines parameters for LookupAccountByID.
@@ -720,6 +961,22 @@ type LookupAccountTransactionsParams struct {
 
 	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
+
+	// Include results which include the rekey-to field.
+	RekeyTo *bool `json:"rekey-to,omitempty"`
+}
+
+// SearchForApplicationsParams defines parameters for SearchForApplications.
+type SearchForApplicationsParams struct {
+
+	// Application ID
+	ApplicationId *uint64 `json:"application-id,omitempty"`
+
+	// Maximum number of results to return.
+	Limit *uint64 `json:"limit,omitempty"`
+
+	// The next page of results. Use the next token provided by the previous results.
+	Next *string `json:"next,omitempty"`
 }
 
 // SearchForAssetsParams defines parameters for SearchForAssets.
@@ -814,6 +1071,9 @@ type LookupAssetTransactionsParams struct {
 
 	// Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.
 	ExcludeCloseTo *bool `json:"exclude-close-to,omitempty"`
+
+	// Include results which include the rekey-to field.
+	RekeyTo *bool `json:"rekey-to,omitempty"`
 }
 
 // SearchForTransactionsParams defines parameters for SearchForTransactions.
@@ -870,4 +1130,10 @@ type SearchForTransactionsParams struct {
 
 	// Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.
 	ExcludeCloseTo *bool `json:"exclude-close-to,omitempty"`
+
+	// Include results which include the rekey-to field.
+	RekeyTo *bool `json:"rekey-to,omitempty"`
+
+	// Application ID
+	ApplicationId *uint64 `json:"application-id,omitempty"`
 }

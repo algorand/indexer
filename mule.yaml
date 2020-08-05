@@ -15,11 +15,11 @@ tasks:
 
   - task: s3.BucketCopy
     name: stage
-    src: $HOME/projects/indexer/tmp/node_pkgs/linux/amd64
-    dest: s3://algorand-staging/indexer/${FULLVERSION}
+    src: $HOME/projects/indexer/tmp/node_pkgs/linux/amd64/$VERSION
+    dest: s3://algorand-staging/indexer/$VERSION
 
   - task: docker.Make
-    name: sign-deb
+    name: sign
     docker:
       image: algorand/indexer-ci-linux
       version: latest
@@ -32,10 +32,10 @@ tasks:
         $XDG_RUNTIME_DIR/gnupg/S.gpg-agent:/root/.gnupg/S.gpg-agent,
         $HOME/.gnupg/pubring.kbx:/root/.gnupg/pubring.kbx
       ]
-    target: mule-sign-deb WORKDIR=/projects/indexer
+    target: sign
 
   - task: docker.Make
-    name: sign-tarball
+    name: deploy
     docker:
       image: algorand/indexer-ci-linux
       version: latest
@@ -48,23 +48,7 @@ tasks:
         $XDG_RUNTIME_DIR/gnupg/S.gpg-agent:/root/.gnupg/S.gpg-agent,
         $HOME/.gnupg/pubring.kbx:/root/.gnupg/pubring.kbx
       ]
-    target: mule-sign-tar.bz2 WORKDIR=/projects/indexer
-
-  - task: docker.Make
-    name: deploy-deb
-    docker:
-      image: algorand/indexer-ci-linux
-      version: latest
-      workDir: /projects/indexer
-      env: [
-        AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID,
-        AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
-      ]
-      volumes: [
-        $XDG_RUNTIME_DIR/gnupg/S.gpg-agent:/root/.gnupg/S.gpg-agent,
-        $HOME/.gnupg/pubring.kbx:/root/.gnupg/pubring.kbx
-      ]
-    target: mule-deploy-deb WORKDIR=/projects/indexer
+    target: deploy
 
   - task: docker.Make
     name: test
@@ -75,14 +59,27 @@ tasks:
       volumes: [
         /var/run/docker.sock:/var/run/docker.sock
       ]
-    target: mule-test WORKDIR=/projects/indexer
+    target: test
 
-  - task: s3.BucketCopy
-    name: setup-deb
-    src: s3://algorand-staging/indexer/${FULLVERSION}/algorand-indexer_${FULLVERSION}_${ARCH}.deb
-    dest: /projects/indexer/tmp/node_pkgs/${OS_TYPE}/${ARCH}
+  - task: docker.Make
+    name: test-package
+    docker:
+      image: algorand/indexer-ci-linux
+      version: latest
+      workDir: /projects/indexer
+      volumes: [
+        /var/run/docker.sock:/var/run/docker.sock
+      ]
+    target: test-package
 
 jobs:
+  deploy:
+    configs:
+      arch: amd64
+    tasks:
+      - shell.docker.Ensure.ubuntu
+      - docker.Make.deploy
+
   package:
     configs:
       arch: amd64
@@ -90,17 +87,16 @@ jobs:
       - shell.docker.Ensure.ubuntu
       - docker.Make.package
 
-  stage:
-    tasks:
-      - s3.BucketCopy.stage
-
   sign:
     configs:
       arch: amd64
     tasks:
       - shell.docker.Ensure.ubuntu
-      - docker.Make.sign-deb
-      - docker.Make.sign-tarball
+      - docker.Make.sign
+
+  stage:
+    tasks:
+      - s3.BucketCopy.stage
 
   test:
     configs:
@@ -109,14 +105,10 @@ jobs:
       - shell.docker.Ensure.ubuntu
       - docker.Make.test
 
-  deploy:
+  test-package:
     configs:
       arch: amd64
     tasks:
       - shell.docker.Ensure.ubuntu
-      - docker.Make.deploy-deb
-
-  package-setup-deb:
-    tasks:
-      - s3.BucketCopy.setup-deb
+      - docker.Make.test-package
 

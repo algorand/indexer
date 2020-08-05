@@ -1,15 +1,19 @@
 package idb
 
 import (
+	"bytes"
 	"context"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
-	models "github.com/algorand/indexer/api/generated/v2"
+	atypes "github.com/algorand/go-algorand-sdk/types"
 
+	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/types"
 )
 
@@ -93,6 +97,10 @@ func (db *dummyIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQue
 	return nil
 }
 
+func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow {
+	return nil
+}
+
 type IndexerFactory interface {
 	Name() string
 	Build(arg string) (IndexerDb, error)
@@ -129,7 +137,8 @@ func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
 }
 
 type TxnExtra struct {
-	AssetCloseAmount uint64 `codec:"aca,omitempty"`
+	AssetCloseAmount   uint64          `codec:"aca,omitempty"`
+	GlobalReverseDelta AppReverseDelta `codec:"agr,omitempty"`
 }
 
 // TODO: sqlite3 impl
@@ -163,6 +172,7 @@ type IndexerDb interface {
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
 	Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow
 	AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow
+	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow
 }
 
 func GetAccount(idb IndexerDb, addr []byte) (account models.Account, err error) {
@@ -181,6 +191,16 @@ const (
 	AddressRoleAssetReceiver    = 0x10
 	AddressRoleAssetCloseTo     = 0x20
 	AddressRoleFreeze           = 0x40
+)
+
+// TransactionFilter.TypeEnum and also AddTransaction(,,txtypeenum,,,)
+const (
+	TypeEnumPay           = 1
+	TypeEnumKeyreg        = 2
+	TypeEnumAssetConfig   = 3
+	TypeEnumAssetTransfer = 4
+	TypeEnumAssetFreeze   = 5
+	TypeEnumApplication   = 6
 )
 
 type TransactionFilter struct {
@@ -206,10 +226,13 @@ type TransactionFilter struct {
 	NotePrefix []byte
 	AlgosGT    uint64 // implictly filters on "pay" txns for Algos > this. This will be a slightly faster query than EffectiveAmountGt.
 	AlgosLT    uint64
+	RekeyTo    *bool // nil for no filter
 
 	AssetId       uint64 // filter transactions relevant to an asset
 	AssetAmountGT uint64
 	AssetAmountLT uint64
+
+	ApplicationId uint64 // filter transactions relevant to an application
 
 	EffectiveAmountGt uint64 // Algo: Amount + CloseAmount > x
 	EffectiveAmountLt uint64 // Algo: Amount + CloseAmount < x
@@ -224,6 +247,9 @@ type AccountQueryOptions struct {
 	GreaterThanAddress []byte // for paging results
 	EqualToAddress     []byte // return exactly this one account
 
+	// return any accounts with this auth addr
+	EqualToAuthAddr []byte
+
 	// Filter on accounts with current balance greater than x
 	AlgosGreaterThan uint64
 	// Filter on accounts with current balance less than x.
@@ -235,6 +261,8 @@ type AccountQueryOptions struct {
 	HasAssetId uint64
 	AssetGT    uint64
 	AssetLT    uint64
+
+	HasAppId uint64
 
 	IncludeAssetHoldings bool
 	IncludeAssetParams   bool
@@ -291,6 +319,11 @@ type AssetBalanceRow struct {
 	Error   error
 }
 
+type ApplicationRow struct {
+	Application models.Application
+	Error       error
+}
+
 type dummyFactory struct {
 }
 
@@ -329,6 +362,7 @@ type AccountDataUpdate struct {
 
 type AcfgUpdate struct {
 	AssetId uint64
+	IsNew   bool
 	Creator types.Address
 	Params  types.AssetParams
 }
@@ -373,10 +407,105 @@ type RoundUpdates struct {
 	// to overlay onto a JSON struct there and replace a value
 	// with a 0 value.
 	AccountDataUpdates map[[32]byte]map[string]interface{}
-	AcfgUpdates        []AcfgUpdate
-	TxnAssetUpdates    []TxnAssetUpdate
-	AssetUpdates       map[[32]byte][]AssetUpdate
-	FreezeUpdates      []FreezeUpdate
-	AssetCloses        []AssetClose
-	AssetDestroys      []uint64
+
+	AcfgUpdates     []AcfgUpdate
+	TxnAssetUpdates []TxnAssetUpdate
+	AssetUpdates    map[[32]byte][]AssetUpdate
+	FreezeUpdates   []FreezeUpdate
+	AssetCloses     []AssetClose
+	AssetDestroys   []uint64
+
+	AppGlobalDeltas []AppDelta
+	AppLocalDeltas  []AppDelta
+}
+
+func (ru *RoundUpdates) Clear() {
+	ru.AlgoUpdates = nil
+	ru.AccountTypes = nil
+	ru.AccountDataUpdates = nil
+	ru.AcfgUpdates = nil
+	ru.TxnAssetUpdates = nil
+	ru.AssetUpdates = nil
+	ru.FreezeUpdates = nil
+	ru.AssetCloses = nil
+	ru.AssetDestroys = nil
+	ru.AppGlobalDeltas = nil
+	ru.AppLocalDeltas = nil
+}
+
+type AppDelta struct {
+	AppIndex     int64
+	Round        uint64
+	Intra        int
+	Address      []byte
+	AddrIndex    uint64 // 0=Sender, otherwise stxn.Txn.Accounts[i-1]
+	Creator      []byte
+	Delta        types.StateDelta
+	OnCompletion atypes.OnCompletion
+
+	// AppParams settings coppied from Txn, only for AppGlobalDeltas
+	ApprovalProgram   []byte             `codec:"approv"`
+	ClearStateProgram []byte             `codec:"clearp"`
+	LocalStateSchema  atypes.StateSchema `codec:"lsch"`
+	GlobalStateSchema atypes.StateSchema `codec:"gsch"`
+}
+
+func (ad AppDelta) String() string {
+	parts := make([]string, 0, 10)
+	if len(ad.Address) > 0 {
+		parts = append(parts, b32np(ad.Address))
+	}
+	parts = append(parts, fmt.Sprintf("%d:%d app=%d", ad.Round, ad.Intra, ad.AppIndex))
+	if len(ad.Creator) > 0 {
+		parts = append(parts, "creator", b32np(ad.Creator))
+	}
+	ds := ""
+	if ad.Delta != nil {
+		ds = string(JsonOneLine(ad.Delta))
+	}
+	parts = append(parts, fmt.Sprintf("ai=%d oc=%v d=%s", ad.AddrIndex, ad.OnCompletion, ds))
+	if len(ad.ApprovalProgram) > 0 {
+		parts = append(parts, fmt.Sprintf("ap prog=%d bytes", len(ad.ApprovalProgram)))
+	}
+	if len(ad.ClearStateProgram) > 0 {
+		parts = append(parts, fmt.Sprintf("cs prog=%d bytes", len(ad.ClearStateProgram)))
+	}
+	if ad.GlobalStateSchema.NumByteSlice != 0 || ad.GlobalStateSchema.NumUint != 0 {
+		parts = append(parts, fmt.Sprintf("gss(b=%d, i=%d)", ad.GlobalStateSchema.NumByteSlice, ad.GlobalStateSchema.NumUint))
+	}
+	if ad.LocalStateSchema.NumByteSlice != 0 || ad.LocalStateSchema.NumUint != 0 {
+		parts = append(parts, fmt.Sprintf("lss(b=%d, i=%d)", ad.LocalStateSchema.NumByteSlice, ad.LocalStateSchema.NumUint))
+	}
+
+	return strings.Join(parts, " ")
+}
+
+type StateDelta struct {
+	Key   []byte
+	Delta types.ValueDelta
+}
+
+// extra data attached to transactions
+type AppReverseDelta struct {
+	Delta             []StateDelta        `codec:"d,omitempty"`
+	OnCompletion      atypes.OnCompletion `codec:"oc,omitempty"`
+	ApprovalProgram   []byte              `codec:"approv,omitempty"`
+	ClearStateProgram []byte              `codec:"clearp,omitempty"`
+	LocalStateSchema  atypes.StateSchema  `codec:"lsch,omitempty"`
+	GlobalStateSchema atypes.StateSchema  `codec:"gsch,omitempty"`
+}
+
+func (ard *AppReverseDelta) SetDelta(key []byte, delta types.ValueDelta) {
+	for i, sd := range ard.Delta {
+		if bytes.Equal(key, sd.Key) {
+			ard.Delta[i].Delta = delta
+			return
+		}
+	}
+	ard.Delta = append(ard.Delta, StateDelta{Key: key, Delta: delta})
+}
+
+// base32 no padding
+func b32np(data []byte) string {
+	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(data)
 }

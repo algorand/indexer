@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -22,7 +23,6 @@ import (
 //////////////////////////////////////////////////////////////////////
 // String decoding helpers (with 'errorArr' helper to group errors) //
 //////////////////////////////////////////////////////////////////////
-
 
 // decodeDigest verifies that the digest is valid, then returns the dereferenced input string, or appends an error to errorArr
 func decodeDigest(str *string, field string, errorArr []string) (string, []string) {
@@ -96,15 +96,15 @@ const (
 	addrRoleFreeze   = "freeze-target"
 )
 
-var AddressRoleEnumMap = map[string]bool {
-	addrRoleSender: true,
+var AddressRoleEnumMap = map[string]bool{
+	addrRoleSender:   true,
 	addrRoleReceiver: true,
-	addrRoleFreeze: true,
+	addrRoleFreeze:   true,
 }
 var AddressRoleEnumString string
 
-var SigTypeEnumMap = map[string]int {
-	"sig": 1,
+var SigTypeEnumMap = map[string]int{
+	"sig":  1,
 	"msig": 2,
 	"lsig": 3,
 }
@@ -223,6 +223,50 @@ func lsigToTransactionLsig(lsig sdk_types.LogicSig) *generated.TransactionSignat
 	return &ret
 }
 
+func onCompletionToTransactionOnCompletion(oc sdk_types.OnCompletion) generated.OnCompletion {
+	switch oc {
+	case sdk_types.NoOpOC:
+		return "noop"
+	case sdk_types.OptInOC:
+		return "optin"
+	case sdk_types.CloseOutOC:
+		return "closeout"
+	case sdk_types.ClearStateOC:
+		return "clear"
+	case sdk_types.UpdateApplicationOC:
+		return "update"
+	case sdk_types.DeleteApplicationOC:
+		return "delete"
+	}
+	return "unknown"
+}
+
+// The state delta bits need to be sorted for testing. Maybe it would be
+// for end users too, people always seem to notice results changing.
+func stateDeltaToStateDelta(d types.StateDelta) *generated.StateDelta {
+	if len(d) == 0 {
+		return nil
+	}
+	var delta generated.StateDelta
+	keys := make([]string, 0)
+	for k, _ := range d {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := d[k]
+		delta = append(delta, generated.EvalDeltaKeyValue{
+			Key: base64.StdEncoding.EncodeToString([]byte(k)),
+			Value: generated.EvalDelta{
+				Action: uint64(v.Action),
+				Bytes:  strPtr(base64.StdEncoding.EncodeToString(v.Bytes)),
+				Uint:   uint64Ptr(v.Uint),
+			},
+		})
+	}
+	return &delta
+}
+
 func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Error != nil {
 		return generated.Transaction{}, row.Error
@@ -239,6 +283,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	var assetConfig *generated.TransactionAssetConfig
 	var assetFreeze *generated.TransactionAssetFreeze
 	var assetTransfer *generated.TransactionAssetTransfer
+	var application *generated.TransactionApplication
 
 	switch stxn.Txn.Type {
 	case sdk_types.PaymentTx:
@@ -296,6 +341,47 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 			NewFreezeStatus: stxn.Txn.AssetFrozen,
 		}
 		assetFreeze = &f
+	case sdk_types.ApplicationCallTx:
+		args := make([]string, 0)
+		for _, v := range stxn.Txn.ApplicationArgs {
+			args = append(args, base64.StdEncoding.EncodeToString(v))
+		}
+
+		accts := make([]string, 0)
+		for _, v := range stxn.Txn.Accounts {
+			accts = append(accts, v.String())
+		}
+
+		apps := make([]uint64, 0)
+		for _, v := range stxn.Txn.ForeignApps {
+			apps = append(apps, uint64(v))
+		}
+
+		assets := make([]uint64, 0)
+		for _, v := range stxn.Txn.ForeignAssets {
+			assets = append(assets, uint64(v))
+		}
+
+		a := generated.TransactionApplication{
+			Accounts:          &accts,
+			ApplicationArgs:   &args,
+			ApplicationId:     uint64(stxn.Txn.ApplicationID),
+			ApprovalProgram:   bytePtr(stxn.Txn.ApprovalProgram),
+			ClearStateProgram: bytePtr(stxn.Txn.ClearStateProgram),
+			ForeignApps:       &apps,
+			ForeignAssets:     &assets,
+			GlobalStateSchema: &generated.StateSchema{
+				NumByteSlice: stxn.Txn.GlobalStateSchema.NumByteSlice,
+				NumUint:      stxn.Txn.GlobalStateSchema.NumUint,
+			},
+			LocalStateSchema: &generated.StateSchema{
+				NumByteSlice: stxn.Txn.LocalStateSchema.NumByteSlice,
+				NumUint:      stxn.Txn.LocalStateSchema.NumUint,
+			},
+			OnCompletion: onCompletionToTransactionOnCompletion(stxn.Txn.OnCompletion),
+		}
+
+		application = &a
 	}
 
 	sig := generated.TransactionSignature{
@@ -304,7 +390,42 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		Sig:      sigToTransactionSig(stxn.Sig),
 	}
 
+	var localStateDelta *[]generated.AccountStateDelta
+	type tuple struct {
+		key     uint64
+		address types.Address
+	}
+	if len(stxn.ApplyData.EvalDelta.LocalDeltas) > 0 {
+		keys := make([]tuple, 0)
+		for k, _ := range stxn.ApplyData.EvalDelta.LocalDeltas {
+			if k == 0 {
+				keys = append(keys, tuple{
+					key:     0,
+					address: stxn.Txn.Sender,
+				})
+			} else {
+				addr := types.Address{}
+				copy(addr[:], stxn.Txn.Accounts[k-1][:])
+				keys = append(keys, tuple{
+					key:     k,
+					address: addr,
+				})
+			}
+		}
+		sort.Slice(keys, func(i, j int) bool { return keys[i].key < keys[j].key })
+		d := make([]generated.AccountStateDelta, 0)
+		for _, k := range keys {
+			v := stxn.ApplyData.EvalDelta.LocalDeltas[k.key]
+			d = append(d, generated.AccountStateDelta{
+				Address: k.address.String(),
+				Delta:   *(stateDeltaToStateDelta(v)),
+			})
+		}
+		localStateDelta = &d
+	}
+
 	txn := generated.Transaction{
+		ApplicationTransaction:   application,
 		AssetConfigTransaction:   assetConfig,
 		AssetFreezeTransaction:   assetFreeze,
 		AssetTransferTransaction: assetTransfer,
@@ -329,11 +450,20 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		TxType:                   string(stxn.Txn.Type),
 		Signature:                sig,
 		Id:                       crypto.TransactionIDString(stxn.Txn),
+		RekeyTo:                  addrPtr(stxn.Txn.RekeyTo),
+		GlobalStateDelta:         stateDeltaToStateDelta(stxn.EvalDelta.GlobalDelta),
+		LocalStateDelta:          localStateDelta,
 	}
 
 	if stxn.Txn.Type == sdk_types.AssetConfigTx {
 		if txn.AssetConfigTransaction != nil && txn.AssetConfigTransaction.AssetId != nil && *txn.AssetConfigTransaction.AssetId == 0 {
 			txn.CreatedAssetIndex = uint64Ptr(row.AssetId)
+		}
+	}
+
+	if stxn.Txn.Type == sdk_types.ApplicationCallTx {
+		if txn.ApplicationTransaction != nil && txn.ApplicationTransaction.ApplicationId == 0 {
+			txn.CreatedApplicationIndex = uint64Ptr(row.AssetId)
 		}
 	}
 
@@ -385,6 +515,7 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.MaxRound = uintOrDefault(params.MaxRound)
 	filter.MinRound = uintOrDefault(params.MinRound)
 	filter.AssetId = uintOrDefault(params.AssetId)
+	filter.ApplicationId = uintOrDefault(params.ApplicationId)
 	filter.Limit = min(uintOrDefaultValue(params.Limit, defaultTransactionsLimit), maxTransactionsLimit)
 
 	// filter Algos or Asset but not both.
@@ -419,6 +550,9 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	// Enum
 	filter.SigType, errorArr = decodeSigType(params.SigType, errorArr)
 	filter.TypeEnum, errorArr = decodeType(params.TxType, errorArr)
+
+	// Boolean
+	filter.RekeyTo = params.RekeyTo
 
 	// If there were any errorArr while setting up the TransactionFilter, return now.
 	if len(errorArr) > 0 {

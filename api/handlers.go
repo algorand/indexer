@@ -57,17 +57,13 @@ const defaultBalancesLimit = 1000
 
 // Returns 200 if healthy.
 // (GET /health)
-func (si *ServerImplementation) HealthCheck(ctx echo.Context) error {
-	stateJsonStr, err := si.db.GetMetastate("state")
-	var state idb.ImportState
-	if err == nil && stateJsonStr != "" {
-		state, err = idb.ParseImportState(stateJsonStr)
-		if err != nil {
-			return indexerError(ctx, fmt.Sprintf("error parsing import state: %v", err))
-		}
+func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
+	maxRound, err := si.db.GetMaxRound()
+	if err != nil {
+		return indexerError(ctx, fmt.Sprintf("get max round: %v", err))
 	}
 	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
-		Message: strconv.FormatInt(state.AccountRound, 10),
+		Message: strconv.FormatUint(maxRound, 10),
 	})
 }
 
@@ -118,11 +114,18 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		return badRequest(ctx, errMultiAcctRewind)
 	}
 
+	spendingAddr, errors := decodeAddress(params.AuthAddr, "account-id", make([]string, 0))
+	if len(errors) != 0 {
+		return badRequest(ctx, errors[0])
+	}
+
 	options := idb.AccountQueryOptions{
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
 		Limit:                min(uintOrDefaultValue(params.Limit, defaultAccountsLimit), maxAccountsLimit),
 		HasAssetId:           uintOrDefault(params.AssetId),
+		HasAppId:             uintOrDefault(params.ApplicationId),
+		EqualToAuthAddr:      spendingAddr[:],
 	}
 
 	// Set GT/LT on Algos or Asset depending on whether or not an assetID was specified
@@ -153,9 +156,8 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		return indexerError(ctx, err.Error())
 	}
 
-	// Set the next token if we hit the results limit
 	var next *string
-	if params.Limit != nil && uint64(len(accounts)) >= *params.Limit {
+	if len(accounts) > 0 {
 		next = strPtr(accounts[len(accounts)-1].Address)
 	}
 
@@ -182,7 +184,8 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 		// not applicable to this endpoint
 		//AddressRole:         params.AddressRole,
 		//ExcludeCloseTo:      params.ExcludeCloseTo,
-		AssetId:             params.AssetId,
+		AssetId:             params.AssetId, // This probably shouldn't have been included
+		ApplicationId:       nil,
 		Limit:               params.Limit,
 		Next:                params.Next,
 		NotePrefix:          params.NotePrefix,
@@ -196,9 +199,60 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 		AfterTime:           params.AfterTime,
 		CurrencyGreaterThan: params.CurrencyGreaterThan,
 		CurrencyLessThan:    params.CurrencyLessThan,
+		RekeyTo:             params.RekeyTo,
 	}
 
 	return si.SearchForTransactions(ctx, searchParams)
+}
+
+// (GET /v2/applications)
+func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params generated.SearchForApplicationsParams) error {
+	results := si.db.Applications(ctx.Request().Context(), &params)
+	round, err := si.db.GetMaxRound()
+	if err != nil {
+		return indexerError(ctx, err.Error())
+	}
+	apps := make([]generated.Application, 0)
+	for result := range results {
+		if result.Error != nil {
+			return indexerError(ctx, result.Error.Error())
+		}
+		apps = append(apps, result.Application)
+	}
+
+	var next *string
+	if len(apps) > 0 {
+		next = strPtr(strconv.FormatUint(apps[len(apps)-1].Id, 10))
+	}
+
+	out := generated.ApplicationsResponse{
+		Applications: apps,
+		CurrentRound: round,
+		NextToken:    next,
+	}
+	return ctx.JSON(http.StatusOK, out)
+}
+
+// (GET /v2/applications/{application-id})
+func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationId uint64) error {
+	var params generated.SearchForApplicationsParams
+	params.ApplicationId = &applicationId
+	results := si.db.Applications(ctx.Request().Context(), &params)
+	round, err := si.db.GetMaxRound()
+	if err != nil {
+		return indexerError(ctx, err.Error())
+	}
+	out := generated.ApplicationResponse{
+		CurrentRound: round,
+	}
+	for result := range results {
+		if result.Error != nil {
+			return indexerError(ctx, result.Error.Error())
+		}
+		out.Application = &result.Application
+		return ctx.JSON(http.StatusOK, out)
+	}
+	return ctx.JSON(http.StatusNotFound, out)
 }
 
 // LookupAssetByID looks up a particular asset
@@ -265,9 +319,8 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 		return indexerError(ctx, err.Error())
 	}
 
-	// Set the next token if we hit the results limit
 	var next *string
-	if params.Limit != nil && uint64(len(balances)) >= *params.Limit {
+	if len(balances) > 0 {
 		next = strPtr(balances[len(balances)-1].Address)
 	}
 
@@ -283,6 +336,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetID uint64, params generated.LookupAssetTransactionsParams) error {
 	searchParams := generated.SearchForTransactionsParams{
 		AssetId:             uint64Ptr(assetID),
+		ApplicationId:       nil,
 		Limit:               params.Limit,
 		Next:                params.Next,
 		NotePrefix:          params.NotePrefix,
@@ -299,6 +353,7 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 		Address:             params.Address,
 		AddressRole:         params.AddressRole,
 		ExcludeCloseTo:      params.ExcludeCloseTo,
+		RekeyTo:             params.RekeyTo,
 	}
 
 	return si.SearchForTransactions(ctx, searchParams)
@@ -322,9 +377,8 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 		return indexerError(ctx, err.Error())
 	}
 
-	// Set the next token if we hit the results limit
 	var next *string
-	if params.Limit != nil && uint64(len(assets)) >= *params.Limit {
+	if len(assets) > 0 {
 		next = strPtr(strconv.FormatUint(assets[len(assets)-1].Index, 10))
 	}
 

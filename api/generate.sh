@@ -11,6 +11,8 @@ python3 -c "import json; import sys; json.dump(json.load(sys.stdin), sys.stdout,
 rm 3.json
 
 echo "generating code."
-oapi-codegen -package generated -type-mappings integer=uint64 -generate types -o generated/types.go indexer.oas3.yml
-oapi-codegen -package generated -type-mappings integer=uint64 -generate server,spec -o generated/routes.go indexer.oas3.yml
+oapi-codegen -package generated -type-mappings integer=uint64 -generate types -o generated/v2/types.go -exclude-tags=common indexer.oas3.yml
+oapi-codegen -package generated -type-mappings integer=uint64 -generate server,spec -o generated/v2/routes.go -exclude-tags=common indexer.oas3.yml
 
+oapi-codegen -package generated -type-mappings integer=uint64 -generate types -o generated/common/types.go -include-tags=common indexer.oas3.yml
+oapi-codegen -package generated -type-mappings integer=uint64 -generate server,spec -o generated/common/routes.go -include-tags=common indexer.oas3.yml

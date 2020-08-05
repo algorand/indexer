@@ -13,8 +13,8 @@ import (
 )
 
 type Importer interface {
-	ImportBlock(blockbytes []byte) error
-	ImportDecodedBlock(block *types.EncodedBlockCert) error
+	ImportBlock(blockbytes []byte) (txCount int, err error)
+	ImportDecodedBlock(block *types.EncodedBlockCert) (txCount int, err error)
 }
 
 type dbImporter struct {
@@ -22,11 +22,12 @@ type dbImporter struct {
 }
 
 var typeEnumList = []util.StringInt{
-	{"pay", 1},
-	{"keyreg", 2},
-	{"acfg", 3},
-	{"axfer", 4},
-	{"afrz", 5},
+	{"pay", idb.TypeEnumPay},
+	{"keyreg", idb.TypeEnumKeyreg},
+	{"acfg", idb.TypeEnumAssetConfig},
+	{"axfer", idb.TypeEnumAssetTransfer},
+	{"afrz", idb.TypeEnumAssetFreeze},
+	{"appl", idb.TypeEnumApplication},
 }
 var TypeEnumMap map[string]int
 var TypeEnumString string
@@ -58,37 +59,50 @@ func participate(participants [][]byte, addr []byte) [][]byte {
 	return append(participants, addr)
 }
 
-func (imp *dbImporter) ImportBlock(blockbytes []byte) (err error) {
+func (imp *dbImporter) ImportBlock(blockbytes []byte) (txCount int, err error) {
 	var blockContainer types.EncodedBlockCert
 	err = msgpack.Decode(blockbytes, &blockContainer)
 	if err != nil {
-		return fmt.Errorf("error decoding blockbytes, %v", err)
+		return txCount, fmt.Errorf("error decoding blockbytes, %v", err)
 	}
 	return imp.ImportDecodedBlock(&blockContainer)
 }
 
-func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert) (err error) {
+func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert) (txCount int, err error) {
+	txCount = 0
 	proto, err := types.Protocol(string(blockContainer.Block.CurrentProtocol))
 	if err != nil {
-		return fmt.Errorf("block %d, %v", blockContainer.Block.Round, err)
+		return txCount, fmt.Errorf("block %d, %v", blockContainer.Block.Round, err)
 	}
 	err = imp.db.StartBlock()
 	if err != nil {
-		return fmt.Errorf("error starting block, %v", err)
+		return txCount, fmt.Errorf("error starting block, %v", err)
 	}
 	block := blockContainer.Block
 	round := uint64(block.Round)
-	for intra, stxn := range block.Payset {
+	for intra := range block.Payset {
+		stxn := &block.Payset[intra]
 		txtype := string(stxn.Txn.Type)
-		txtypeenum := TypeEnumMap[txtype]
+		txtypeenum, ok := TypeEnumMap[txtype]
+		if !ok {
+			return txCount, fmt.Errorf("%d:%d unknown txn type %v", round, intra, txtype)
+		}
 		assetid := uint64(0)
 		switch txtypeenum {
 		case 3:
 			assetid = uint64(stxn.Txn.ConfigAsset)
+			if assetid == 0 {
+				assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
+			}
 		case 4:
 			assetid = uint64(stxn.Txn.XferAsset)
 		case 5:
 			assetid = uint64(stxn.Txn.FreezeAsset)
+		case 6:
+			assetid = uint64(stxn.Txn.ApplicationID)
+			if assetid == 0 {
+				assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
+			}
 		}
 		if stxn.HasGenesisID {
 			stxn.Txn.GenesisID = block.GenesisID
@@ -106,17 +120,18 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		participants = participate(participants, stxn.Txn.AssetCloseTo[:])
 		err = imp.db.AddTransaction(round, intra, txtypeenum, assetid, stxnad, participants)
 		if err != nil {
-			return fmt.Errorf("error importing txn r=%d i=%d, %v", round, intra, err)
+			return txCount, fmt.Errorf("error importing txn r=%d i=%d, %v", round, intra, err)
 		}
+		txCount++
 	}
 	blockHeader := block
 	blockHeader.Payset = nil
 	blockheaderBytes := msgpack.Encode(blockHeader)
 	err = imp.db.CommitBlock(round, block.TimeStamp, block.RewardsLevel, blockheaderBytes)
 	if err != nil {
-		return fmt.Errorf("error committing block, %v", err)
+		return txCount, fmt.Errorf("error committing block, %v", err)
 	}
-	return nil
+	return
 }
 
 func NewDBImporter(db idb.IndexerDb) Importer {

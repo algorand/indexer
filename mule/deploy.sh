@@ -2,34 +2,17 @@
 
 set -ex
 
-WORKDIR="$1"
-
-if [ -z "$WORKDIR" ]
-then
-    echo "WORKDIR variable must be defined."
-    exit 1
-fi
-
 echo
 date "+build_indexer begin DEPLOY stage %Y%m%d_%H%M%S"
 echo
 
-OS_TYPE=$("$WORKDIR/scripts/ostype.sh")
-ARCH=$("$WORKDIR/scripts/archtype.sh")
-FULLVERSION=${VERSION:-$("$WORKDIR/scripts/compute_build_number.sh")}
-PKG_DIR="$WORKDIR/tmp/node_pkgs/$OS_TYPE/$ARCH"
+OS_TYPE=$(./mule/scripts/ostype.sh)
+ARCH=$(./mule/scripts/archtype.sh)
+VERSION=$(./mule/scripts/compute_build_number.sh)
+PKG_DIR="./tmp/node_pkgs/$OS_TYPE/$ARCH/$VERSION"
 SIGNING_KEY_ADDR=dev@algorand.com
 
 chmod 400 "$HOME/.gnupg"
-
-if ! $USE_CACHE
-then
-    export ARCH
-    export OS_TYPE
-    export FULLVERSION
-
-    mule -f mule.yaml package-setup-deb
-fi
 
 apt-get install aptly -y
 
@@ -58,16 +41,16 @@ cat <<EOF>"$HOME/.aptly.conf"
       "region":"us-east-1",
       "bucket":"algorand-releases",
       "acl":"public-read",
-      "prefix":"indexer/deb"
+      "prefix":"deb"
     }
   },
   "SwiftPublishEndpoints": {}
 }
 EOF
 
-DEB="$PKG_DIR/algorand-indexer_${FULLVERSION}_${ARCH}.deb"
+DEB="$PKG_DIR/algorand-indexer_${VERSION}_${ARCH}.deb"
 DIST=stable
-SNAPSHOT="${DIST}-${FULLVERSION}"
+SNAPSHOT="${DIST}-${VERSION}"
 aptly repo create -distribution="$DIST" -component=main algorand-indexer
 aptly repo add algorand-indexer "$DEB"
 aptly snapshot create "$SNAPSHOT" from repo algorand-indexer
