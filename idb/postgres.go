@@ -1709,9 +1709,9 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 						Total:         ap.Total,
 						Decimals:      uint64(ap.Decimals),
 						DefaultFrozen: boolPtr(ap.DefaultFrozen),
-						UnitName:      stringPtr(ap.UnitName),
-						Name:          stringPtr(ap.AssetName),
-						Url:           stringPtr(ap.URL),
+						UnitName:      stringPtrB64(ap.UnitName),
+						Name:          stringPtrB64(ap.AssetName),
+						Url:           stringPtrB64(ap.URL),
 						MetadataHash:  baPtr(ap.MetadataHash[:]),
 						Manager:       addrStr(ap.Manager),
 						Reserve:       addrStr(ap.Reserve),
@@ -1835,12 +1835,12 @@ func boolPtr(x bool) *bool {
 	return out
 }
 
-func stringPtr(x string) *string {
+func stringPtrB64(x string) *string {
 	if len(x) == 0 {
 		return nil
 	}
 	out := new(string)
-	*out = x
+	*out = b64([]byte(x))
 	return out
 }
 

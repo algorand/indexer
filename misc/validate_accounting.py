@@ -45,6 +45,11 @@ def encode_addr(addr):
         return algosdk.encoding.encode_address(addr)
     return 'unknown addr? {!r}'.format(addr)
 
+def encode_addr_or_none(addr):
+    if addr is None or not addr:
+        return None
+    return encode_addr(addr)
+
 def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None):
     '''return {raw account: {"algo":N, "asset":{}}, ...}'''
     rootparts = urllib.parse.urlparse(rooturl)
@@ -392,21 +397,28 @@ class CheckContext:
 # "algo":uint64 MicroAlgos
 
 
-def jsonable(x):
+def jsonable(x, display=False):
     if x is None:
         return x
     if isinstance(x, dict):
-        return {str(jsonable(k)):jsonable(v) for k,v in x.items()}
+        return {str(jsonable(k, display)):jsonable(v, display) for k,v in x.items()}
     if isinstance(x, list):
-        return [jsonable(e) for e in x]
+        return [jsonable(e, display) for e in x]
     if isinstance(x, bytes):
-        return base64.b64encode(x).decode()
+        if display:
+            return 'b:' + base64.b64encode(x).decode()
+        else:
+            return base64.b64encode(x).decode()
     return x
 
 
 def json_pp(x):
-    return json.dumps(jsonable(x), indent=2, sort_keys=True)
+    return json.dumps(jsonable(x, True), indent=2, sort_keys=True)
 
+def b64_or_none(x):
+    if x is None or not x:
+        return None
+    return base64.b64encode(x).decode()
 
 def tvToApiTv(tv):
     tt = tv[b'tt']
@@ -428,6 +440,11 @@ def schemaDecode(sch):
         'num-uint':sch.get(b'nui',0),
         'num-byte-slice':sch.get(b'nbs',0),
     }
+
+def dmaybe(d, k, v):
+    if v is None:
+        return
+    d[k] = v
 
 def check_from_sqlite(args):
     genesispath = args.genesis or os.path.join(os.path.dirname(os.path.dirname(args.dbfile)), 'genesis.json')
@@ -477,19 +494,23 @@ def check_from_sqlite(args):
         if rawAssetParams:
             assetp = []
             for assetid, ap in rawAssetParams.items():
-                appparams.append({
-                    'clawback':ap.get(b'c'),
+                params = {
                     'creator':niceaddr,
                     'decimals':ap.get(b'dc',0),
                     'default-frozen':ap.get(b'df',False),
-                    'freeze':ap.get(b'f'),
-                    'manager':ap.get(b'm'),
-                    'metadata-hash':ap.get(b'am'),
-                    'name':ap.get(b'an'),
-                    'reserve':ap.get(b'r'),
                     'total':ap.get(b't', 0),
-                    'unit-name':ap.get(b'un'),
-                    'url':ap.get(b'au'),
+                }
+                dmaybe(params, 'clawback', encode_addr_or_none(ap.get(b'c')))
+                dmaybe(params, 'freeze', encode_addr_or_none(ap.get(b'f')))
+                dmaybe(params, 'manager', encode_addr_or_none(ap.get(b'm')))
+                dmaybe(params, 'metadata-hash', encode_addr_or_none(ap.get(b'am')))
+                dmaybe(params, 'name', b64_or_none(ap.get(b'an')))
+                dmaybe(params, 'reserve', encode_addr_or_none(ap.get(b'r')))
+                dmaybe(params, 'unit-name', b64_or_none(ap.get(b'un')))
+                dmaybe(params, 'url', ap.get(b'url'))
+                assetp.append({
+                    'index':assetid,
+                    'params':params
                 })
         else:
             assetp = None
@@ -519,7 +540,7 @@ def check_from_sqlite(args):
             })
         if i2a_checker:
             # TODO: assets created by this account
-            i2a_checker.check(address, niceaddr, microalgos, assets, None, appparams, applocal)
+            i2a_checker.check(address, niceaddr, microalgos, assets, assetp, appparams, applocal)
         if args.limit and count > args.limit:
             break
     return i2a_checker
