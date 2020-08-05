@@ -96,7 +96,7 @@ def getAccountsPage(pageurl, accounts):
         some = True
         addr = acct['address']
         rawaddr = algosdk.encoding.decode_address(addr)
-        accounts[rawaddr] = acct#av
+        accounts[rawaddr] = acct
         gtaddr = addr
     logger.debug('got %d accounts', batchcount)
     return gtaddr, some
@@ -125,7 +125,7 @@ def indexerAccounts(rooturl, blockround=None, addrlist=None):
         if not some:
             break
     dt = time.time() - start
-    logger.debug('loaded %d accounts from %s ?round=%d in %.2f seconds', len(accounts), rooturl, blockround, dt)
+    logger.debug('loaded %d accounts from %s ?round=%s in %.2f seconds', len(accounts), rooturl, blockround, dt)
     return accounts
 
 # generator yielding txns objects
