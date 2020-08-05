@@ -289,10 +289,6 @@ type migrationContext struct {
 }
 type txidFiuxpMigrationContext migrationContext
 
-/*struct {
-	migrationContext
-}*/
-
 // read batches of at least 2 blocks or up to 10000 txns,
 // write a temporary table, UPDATE from temporary table into txn.
 // repeat until all txns consumed.
