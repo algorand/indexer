@@ -504,10 +504,10 @@ def check_from_sqlite(args):
                 dmaybe(params, 'freeze', encode_addr_or_none(ap.get(b'f')))
                 dmaybe(params, 'manager', encode_addr_or_none(ap.get(b'm')))
                 dmaybe(params, 'metadata-hash', encode_addr_or_none(ap.get(b'am')))
-                dmaybe(params, 'name', b64_or_none(ap.get(b'an')))
+                dmaybe(params, 'name', maybedecode(ap.get(b'an')))
                 dmaybe(params, 'reserve', encode_addr_or_none(ap.get(b'r')))
-                dmaybe(params, 'unit-name', b64_or_none(ap.get(b'un')))
-                dmaybe(params, 'url', ap.get(b'url'))
+                dmaybe(params, 'unit-name', maybedecode(ap.get(b'un')))
+                dmaybe(params, 'url', maybedecode(ap.get(b'url')))
                 assetp.append({
                     'index':assetid,
                     'params':params
