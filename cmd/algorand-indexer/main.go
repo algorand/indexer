@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	//"github.com/spf13/cobra/doc" // TODO: enable cobra doc generation
 
-	"github.com/algorand/indexer/cmd/algorand-indexer/version"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/version"
 )
 
 var rootCmd = &cobra.Command{
