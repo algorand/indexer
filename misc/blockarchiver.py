@@ -302,12 +302,16 @@ class BlockArchiver:
     def rawblock(self, xround):
         algod = self.algod()
         logger.debug('get %d', xround)
-        response = algod.algod_request("GET", "/block/" + str(xround), params={'raw':1}, raw_response=True)
-        contentType = response.getheader('Content-Type')
-        if contentType == 'application/x-algorand-block-v1':
-            raw = response.read()
-            return raw
-        return None
+        try:
+            response = algod.algod_request("GET", "/block/" + str(xround), params={'raw':1}, raw_response=True)
+            contentType = response.getheader('Content-Type')
+            if contentType == 'application/x-algorand-block-v1':
+                raw = response.read()
+                return raw
+            return None
+        except:
+            self._algod = None
+            raise
 
     def fetchAndStoreBlock(self, xround):
         raw = self.rawblock(xround)
@@ -393,6 +397,7 @@ class BlockArchiver:
             lastround = 0
             self.fetchAndStoreBlock(lastround)
         lastround = self._fetchloop(lastround)
+        lastlog = None
         while self.go:
             try:
                 algod = self.algod()
@@ -406,7 +411,9 @@ class BlockArchiver:
             now = time.time()
             dt = now - self.lastBlockOkTime
             if dt > 30:
-                raise Exception('no block for {:.1f}s'.format(dt))
+                if (lastlog is None) or ((now - lastlog) > 30):
+                    logger.warning('no block for %.1fs',dt)
+                    lastlog = now
             time.sleep(1)
 
 
