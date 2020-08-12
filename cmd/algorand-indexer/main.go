@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 	//"github.com/spf13/cobra/doc" // TODO: enable cobra doc generation
 
+	"github.com/algorand/indexer/cmd/algorand-indexer/version"
 	"github.com/algorand/indexer/idb"
 )
 
@@ -22,6 +23,15 @@ var rootCmd = &cobra.Command{
 		cmd.HelpFunc()(cmd, args)
 	},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		if doVersion {
+			dirtyStr := ""
+			if (len(version.Dirty) > 0) && (version.Dirty != "false") {
+				dirtyStr = " (modified)"
+			}
+			fmt.Printf("%s compiled at %s from git hash %s%s\n", version.Version(), version.CompileTime, version.Hash, dirtyStr)
+			os.Exit(0)
+			return
+		}
 		if pidFilePath != "" {
 			fout, err := os.Create(pidFilePath)
 			maybeFail(err, "%s: could not create pid file, %v\n", pidFilePath, err)
@@ -55,6 +65,7 @@ var rootCmd = &cobra.Command{
 var (
 	postgresAddr   string
 	dummyIndexerDb bool
+	doVersion      bool
 	cpuProfile     string
 	pidFilePath    string
 	db             idb.IndexerDb
@@ -85,6 +96,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")
 	rootCmd.PersistentFlags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
 	rootCmd.PersistentFlags().StringVarP(&pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
+	rootCmd.PersistentFlags().BoolVarP(&doVersion, "version", "v", false, "print version and exit")
 }
 
 func main() {
