@@ -20,6 +20,7 @@ var (
 const UnknownVersion = "(unknown version)"
 
 func Version() string {
+	// parse "tag: 1.2.3" out of the result of `git log -n 1 --pretty="%D"|base64`
 	if len(GitDecorateBase64) == 0 {
 		return UnknownVersion
 	}
