@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 // These are targets for compiling in build information.
@@ -33,7 +34,7 @@ func Version() string {
 	}
 	for _, group := range m {
 		if len(group[1]) > 0 {
-			return group[1]
+			return strings.TrimSpace(group[1])
 		}
 	}
 	return UnknownVersion
