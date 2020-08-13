@@ -1895,6 +1895,8 @@ func bytesStr(addr []byte) *string {
 	return out
 }
 
+var readOnlyTx = sql.TxOptions{ReadOnly: true}
+
 func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow {
 	out := make(chan AccountRow, 1)
 
@@ -1908,7 +1910,7 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	}
 
 	// Begin transaction so we get everything at one consistent point in time and round of accounting.
-	tx, err := db.db.BeginTx(ctx, nil)
+	tx, err := db.db.BeginTx(ctx, &readOnlyTx)
 	if err != nil {
 		err = fmt.Errorf("account tx err %v", err)
 		out <- AccountRow{Error: err}
