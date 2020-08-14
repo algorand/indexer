@@ -66,18 +66,17 @@ var (
 	postgresAddr   string
 	dummyIndexerDb bool
 	doVersion      bool
-	dbReadOnly     bool
 	cpuProfile     string
 	pidFilePath    string
 	db             idb.IndexerDb
 	profFile       io.WriteCloser
 )
 
-func globalIndexerDb() idb.IndexerDb {
+func globalIndexerDb(opts *idb.IndexerDbOptions) idb.IndexerDb {
 	if db == nil {
 		if postgresAddr != "" {
 			var err error
-			db, err = idb.IndexerDbByName("postgres", postgresAddr, &idb.IndexerDbOptions{ReadOnly: dbReadOnly})
+			db, err = idb.IndexerDbByName("postgres", postgresAddr, opts)
 			maybeFail(err, "could not init db, %v\n", err)
 		} else if dummyIndexerDb {
 			db = idb.DummyIndexerDb()
@@ -95,7 +94,6 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&postgresAddr, "postgres", "P", "", "connection string for postgres database")
 	rootCmd.PersistentFlags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")
-	rootCmd.PersistentFlags().BoolVarP(&dbReadOnly, "db-readonly", "", false, "connect to db in read-only mode")
 	rootCmd.PersistentFlags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
 	rootCmd.PersistentFlags().StringVarP(&pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
 	rootCmd.PersistentFlags().BoolVarP(&doVersion, "version", "v", false, "print version and exit")
