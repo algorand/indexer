@@ -121,6 +121,12 @@ PIDFile=/var/lib/algorand/algorand-indexer.pid
 
 The systemd unit file can be found in source at [misc/systemd/algorand-indexer.service](misc/systemd/algorand-indexer.service)
 
+Note that the service assumes an `algorand` group and user. If the [Algorand package](https://github.com/algorand/go-algorand/) has already been installed on the same machine, this group and user has already been created.  However, if the Indexer is running stand-alone, the group and user will need to be created before starting the daemon:
+
+```
+adduser --system --group --home /var/lib/algorand --no-create-home algorand
+```
+
 Once configured, turn on your daemon with:
 
 ```bash
@@ -134,3 +140,4 @@ If you wish to run multiple indexers on one server under systemd, see the commen
 # Migrating from Indexer v1
 
 Indexer v1 was built into the algod v1 REST API. It has been removed with the algod v2 REST API, all of the old functionality is now part of this project. The API endpoints, parameters, and response objects have all been modified and extended. Any projects depending on the old endpoints will need to be updated accordingly.
+
