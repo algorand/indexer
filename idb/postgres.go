@@ -1594,9 +1594,11 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				account.Participation = part
 			}
 
-			var spendingkey atypes.Address
-			copy(spendingkey[:], ad.SpendingKey[:])
-			account.AuthAddr=stringPtr(spendingkey.String())
+			if ! ad.SpendingKey.IsZero() {
+				var spendingkey atypes.Address
+				copy(spendingkey[:], ad.SpendingKey[:])
+				account.AuthAddr = stringPtr(spendingkey.String())
+			}
 		}
 
 		if account.Status == "NotParticipating" {
