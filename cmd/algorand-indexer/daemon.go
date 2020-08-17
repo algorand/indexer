@@ -59,7 +59,11 @@ var daemonCmd = &cobra.Command{
 		if algodDataDir == "" {
 			algodDataDir = os.Getenv("ALGORAND_DATA")
 		}
-		db := globalIndexerDb()
+		opts := idb.IndexerDbOptions{}
+		if noAlgod {
+			opts.ReadOnly = true
+		}
+		db := globalIndexerDb(&opts)
 
 		ctx, cf := context.WithCancel(context.Background())
 		defer cf()

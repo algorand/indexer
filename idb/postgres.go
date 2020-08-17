@@ -29,7 +29,7 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
-func OpenPostgres(connection string) (pdb *PostgresIndexerDb, err error) {
+func OpenPostgres(connection string, opts *IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
 	db, err := sql.Open("postgres", connection)
 	if err != nil {
 		return nil, err
@@ -39,7 +39,8 @@ func OpenPostgres(connection string) (pdb *PostgresIndexerDb, err error) {
 		protoCache: make(map[string]types.ConsensusParams, 20),
 	}
 	// e.g. a user named "readonly" is in the connection string
-	if !strings.Contains(connection, "readonly") {
+	readonly := ((opts != nil) && opts.ReadOnly) || strings.Contains(connection, "readonly")
+	if !readonly {
 		err = pdb.init()
 	}
 	return
@@ -1895,6 +1896,8 @@ func bytesStr(addr []byte) *string {
 	return out
 }
 
+var readOnlyTx = sql.TxOptions{ReadOnly: true}
+
 func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow {
 	out := make(chan AccountRow, 1)
 
@@ -1908,7 +1911,7 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	}
 
 	// Begin transaction so we get everything at one consistent point in time and round of accounting.
-	tx, err := db.db.BeginTx(ctx, nil)
+	tx, err := db.db.BeginTx(ctx, &readOnlyTx)
 	if err != nil {
 		err = fmt.Errorf("account tx err %v", err)
 		out <- AccountRow{Error: err}
@@ -2278,8 +2281,8 @@ type postgresFactory struct {
 func (df postgresFactory) Name() string {
 	return "postgres"
 }
-func (df postgresFactory) Build(arg string) (IndexerDb, error) {
-	return OpenPostgres(arg)
+func (df postgresFactory) Build(arg string, opts *IndexerDbOptions) (IndexerDb, error) {
+	return OpenPostgres(arg, opts)
 }
 
 func init() {
