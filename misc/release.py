@@ -33,8 +33,7 @@ osArchArch = [
     ('darwin', 'amd64', None),
 ]
 
-# TODO: someday we might serve a 'nightly' channel of binaries; until then people who care can build from source
-channel = 'stable'
+channel = 'indexer'
 
 filespec = [
     # [files], source path, deb path, tar path
