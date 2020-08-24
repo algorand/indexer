@@ -72,11 +72,11 @@ var (
 	profFile       io.WriteCloser
 )
 
-func globalIndexerDb() idb.IndexerDb {
+func globalIndexerDb(opts *idb.IndexerDbOptions) idb.IndexerDb {
 	if db == nil {
 		if postgresAddr != "" {
 			var err error
-			db, err = idb.IndexerDbByName("postgres", postgresAddr)
+			db, err = idb.IndexerDbByName("postgres", postgresAddr, opts)
 			maybeFail(err, "could not init db, %v\n", err)
 		} else if dummyIndexerDb {
 			db = idb.DummyIndexerDb()
