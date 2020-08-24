@@ -27,8 +27,8 @@ extra jsonb,
 PRIMARY KEY ( round, intra )
 );
 
--- NOT a unique index because we don't guarantee txid is unique outside of its 1000 rounds.
 CREATE INDEX IF NOT EXISTS txn_by_tixid ON txn ( txid );
+
 -- Optional, to make txn queries by asset fast:
 -- CREATE INDEX CONCURRENTLY IF NOT EXISTS txn_asset ON txn (asset, round, intra);
 
