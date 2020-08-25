@@ -27,8 +27,10 @@ extra jsonb,
 PRIMARY KEY ( round, intra )
 );
 
--- NOT a unique index because we don't guarantee txid is unique outside of its 1000 rounds.
 CREATE INDEX IF NOT EXISTS txn_by_tixid ON txn ( txid );
+
+-- Optional, to make txn queries by asset fast:
+-- CREATE INDEX CONCURRENTLY IF NOT EXISTS txn_asset ON txn (asset, round, intra);
 
 CREATE TABLE IF NOT EXISTS txn_participation (
 addr bytea NOT NULL,
@@ -57,6 +59,9 @@ CREATE TABLE IF NOT EXISTS account_asset (
   frozen boolean NOT NULL,
   PRIMARY KEY (addr, assetid)
 );
+
+-- Optional, to make queries of all asset balances fast /v2/assets/<assetid>/balances
+-- CREATE INDEX CONCURRENTLY IF NOT EXISTS account_asset_asset ON account_asset (assetid, addr ASC);
 
 -- data.basics.AccountData AssetParams[index] AssetParams{}
 CREATE TABLE IF NOT EXISTS asset (
