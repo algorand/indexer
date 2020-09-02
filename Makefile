@@ -4,6 +4,7 @@ OS_TYPE		:= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
 ARCH		:= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
 PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(VERSION)
 
+# TODO: ensure any additions here are mirrored in misc/release.py
 GOLDFLAGS += -X github.com/algorand/indexer/version.Hash=$(shell git log -n 1 --pretty="%H")
 GOLDFLAGS += -X github.com/algorand/indexer/version.Dirty=$(if $(filter $(strip $(shell git status --porcelain|wc -c)), "0"),,true)
 GOLDFLAGS += -X github.com/algorand/indexer/version.CompileTime=$(shell date -u +%Y-%m-%dT%H:%M:%S%z)
