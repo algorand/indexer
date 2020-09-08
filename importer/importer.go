@@ -21,19 +21,18 @@ type dbImporter struct {
 	db idb.IndexerDb
 }
 
-var typeEnumList = []util.StringInt{
-	{"pay", idb.TypeEnumPay},
-	{"keyreg", idb.TypeEnumKeyreg},
-	{"acfg", idb.TypeEnumAssetConfig},
-	{"axfer", idb.TypeEnumAssetTransfer},
-	{"afrz", idb.TypeEnumAssetFreeze},
-	{"appl", idb.TypeEnumApplication},
+var TypeEnumMap = map[string]int{
+	"pay":    idb.TypeEnumPay,
+	"keyreg": idb.TypeEnumKeyreg,
+	"acfg":   idb.TypeEnumAssetConfig,
+	"axfer":  idb.TypeEnumAssetTransfer,
+	"afrz":   idb.TypeEnumAssetFreeze,
+	"appl":   idb.TypeEnumApplication,
 }
-var TypeEnumMap map[string]int
+
 var TypeEnumString string
 
 func init() {
-	TypeEnumMap = util.EnumListToMap(typeEnumList)
 	TypeEnumString = util.KeysStringInt(TypeEnumMap)
 }
 

@@ -17,16 +17,3 @@ func KeysStringBool(m map[string]bool) string {
 	}
 	return strings.Join(keys, ", ")
 }
-
-type StringInt struct {
-	Str string
-	I   int
-}
-
-func EnumListToMap(list []StringInt) map[string]int {
-	out := make(map[string]int, len(list))
-	for _, tf := range list {
-		out[tf.Str] = tf.I
-	}
-	return out
-}
