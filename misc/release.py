@@ -125,6 +125,7 @@ def compile_version_opts(release_version=None, allow_mismatch=False):
         dirty = "true"
     else:
         dirty = ""
+    # Note: keep these in sync with Makefile
     ldflags = '-ldflags=-X github.com/algorand/indexer/version.Hash={}'.format(githash)
     ldflags += ' -X github.com/algorand/indexer/version.Dirty={}'.format(dirty)
     ldflags += ' -X github.com/algorand/indexer/version.CompileTime={}'.format(now)
@@ -229,6 +230,7 @@ def main():
     ap.add_argument('-o', '--outdir', help='The output directory for the build assets', type=str, default='.')
     ap.add_argument('--no-deb', action='store_true', default=False, help='disable debian package building')
     ap.add_argument('--host-only', action='store_true', default=False, help='only build for host OS and CPU')
+    ap.add_argument('--build-only', action='store_true', default=False, help="don't make tar or deb release")
     ap.add_argument('--fake-release', action='store_true', default=False, help='relax some checks during release script development')
     ap.add_argument('--verbose', action='store_true', default=False)
     args = ap.parse_args()
@@ -247,10 +249,13 @@ def main():
     ldflags = compile_version_opts(version, allow_mismatch=args.fake_release)
     for goos, goarch, debarch in osArchArch:
         if args.host_only and (goos != hostos or goarch != hostarch):
-            logger.info('skip %s %s', goos, goarch)
+            logger.debug('skip %s %s', goos, goarch)
             continue
         logger.info('GOOS=%s GOARCH=%s DEB_HOST_ARCH=%s', goos, goarch, debarch)
         compile(goos, goarch, ldflags)
+        if args.build_only:
+            logger.debug('skip packaging')
+            continue
         tarname = build_tar(goos, goarch, version, outdir)
         logger.info('\t%s', tarname)
         if (not args.no_deb) and (debarch is not None):
