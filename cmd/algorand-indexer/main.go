@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	//"github.com/spf13/cobra/doc" // TODO: enable cobra doc generation
+	"github.com/spf13/viper"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/version"
@@ -97,6 +98,28 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
 	rootCmd.PersistentFlags().StringVarP(&pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
 	rootCmd.PersistentFlags().BoolVarP(&doVersion, "version", "v", false, "print version and exit")
+
+	// Setup viper configuration file
+	viper.SetConfigName("indexer")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath("/etc/indexer/")
+	viper.AddConfigPath("$HOME/.indexer/")
+	viper.AddConfigPath("$HOME/.config/indexer/")
+	viper.AddConfigPath(".")
+
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			// Config file not found; ignore error if desired
+			fmt.Printf("unable to find config file: %v", err)
+			return
+		} else {
+			fmt.Printf("invalid configuration: %v", err)
+			return
+		}
+	}
+
+	viper.SetEnvPrefix("INDEXER")
+	viper.AutomaticEnv()
 }
 
 func main() {
