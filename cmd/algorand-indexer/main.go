@@ -102,19 +102,19 @@ func init() {
 	// Setup viper configuration file
 	viper.SetConfigName("indexer")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath("/etc/indexer/")
+	viper.AddConfigPath(".")
+	viper.AddConfigPath("$HOME")
 	viper.AddConfigPath("$HOME/.indexer/")
 	viper.AddConfigPath("$HOME/.config/indexer/")
-	viper.AddConfigPath(".")
+	viper.AddConfigPath("/etc/indexer/")
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found; ignore error if desired
-			fmt.Printf("unable to find config file: %v", err)
-			return
+			// Config file not found; the error message indicates locations where we look
+			fmt.Println(err.Error())
 		} else {
-			fmt.Printf("invalid configuration: %v", err)
-			return
+			fmt.Fprintf(os.Stderr, "Invalid configuration: %v\n", err)
+			os.Exit(1)
 		}
 	}
 

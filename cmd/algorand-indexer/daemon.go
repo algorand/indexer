@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"

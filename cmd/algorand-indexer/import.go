@@ -21,6 +21,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 )
 
 func maybeFail(err error, errfmt string, params ...interface{}) {
@@ -243,6 +244,8 @@ var importCmd = &cobra.Command{
 	Short: "import block file or tar file of blocks",
 	Long:  "import block file or tar file of blocks. arguments are interpret as file globs (e.g. *.tar.bz2)",
 	Run: func(cmd *cobra.Command, args []string) {
+		util.BindFlags(cmd, "INDEXER")
+
 		db := globalIndexerDb(nil)
 
 		err := importer.ImportProto(db)
