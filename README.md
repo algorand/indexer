@@ -112,10 +112,6 @@ When `--token your-token` is provided, an authentication header is required. For
 
 Settings can be provided from the command line, a configuration file, or an environment variable
 
-```
-./algorand-indexer daemon [options]
-```
-
 | Command Line Flag (long) | (short) | Config File                | Environment Variable               |
 | ------------------------ | ------- | -------------------------- | ---------------------------------- |
 | postgres                 | P       | postgres-conenction-string | INDEXER_POSTGRES_CONNECTION_STRING |
