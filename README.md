@@ -112,8 +112,6 @@ When `--token your-token` is provided, an authentication header is required. For
 
 Settings can be provided from the command line, a configuration file, or an environment variable
 
-### daemon mode
-
 ```
 ./algorand-indexer daemon [options]
 ```
@@ -130,6 +128,49 @@ Settings can be provided from the command line, a configuration file, or an envi
 | no-algod                 |         | no-algod                   | INDEXER_NO_ALGOD                   |
 | token                    | t       | api-token                  | INDEXER_API_TOKEN                  |
 | dev-mode                 |         | dev-mode                   | INDEXER_DEV_MODE                   |
+
+## command line
+
+The command line arguments always take priority over the config file and environment variables.
+
+```
+~$ ./algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"`
+```
+
+
+## configuration file
+Default values are placed in the configuration file. They can be overridden with environment variables and command line arguments.
+
+The configuration file must named **indexer**, **indexer.yml**, or **indexer.yaml**. It must also be in the correct location. Only one configuration file is loaded, the path is searched in the following order:
+* `./` (current working directory)
+* `$HOME`
+* `$HOME/.indexer`
+* `$HOME/.config/indexer`
+* `/etc/indexer/`
+
+Here is an example **indexer.yml** file:
+```
+postgres-connection-string: "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
+pidfile: "/var/lib/algorand/algorand-indexer.pid"
+algod-data-dir: "/var/lib/algorand"
+```
+
+If it is in the current working directory along with the indexer command we can start the indexer daemon with:
+```
+~$ ./algorand-indexer daemon
+```
+
+## Example environment variable
+
+Environment variables are also available to configure indexer. Environment variables override settings in the config file and are overridden by command line arguments.
+
+The same indexer configuration from earlier can be made in bash with the following:
+```
+~$ export INDEXER_POSTGRES_CONNECTION_STRING="host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
+~$ export INDEXER_PIDFILE="/var/lib/algorand/algorand-indexer.pid"
+~$ export INDEXER_ALGOD_DATA_DIR="/var/lib/algorand"
+~$ ./algorand-indexer daemon
+```
 
 # Systemd
 
