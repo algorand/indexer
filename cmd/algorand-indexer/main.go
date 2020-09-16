@@ -99,7 +99,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
 	rootCmd.PersistentFlags().BoolVarP(&doVersion, "version", "v", false, "print version and exit")
 
-	// Setup viper configuration file
+	viper.RegisterAlias("postgres", "postgres-connection-string")
+
+	// Setup configuration file
 	viper.SetConfigName("indexer")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath(".")

@@ -60,6 +60,7 @@ There are a number of technical features as well:
 Contributions welcome! Please refer to our [CONTRIBUTING](https://github.com/algorand/go-algorand/blob/master/CONTRIBUTING.md) document.
 
 <!-- USAGE_START_MARKER -->
+
 # Usage
 
 The most common usage of the Indexer is expect to be getting validated blocks from a local `algod` Algorand node, adding them to a [PostgreSQL](https://www.postgresql.org/) database, and serving an API to make available a variety of prepared queries. Some users may wish to directly write SQL queries of the database.
@@ -106,6 +107,28 @@ When `--token your-token` is provided, an authentication header is required. For
 ```
 ~$ curl localhost:8980/transactions -H "X-Indexer-API-Token: your-token"
 ```
+
+# Settings
+
+Settings can be provided from the command line, a configuration file, or an environment variable
+
+### daemon mode
+
+```
+./algorand-indexer daemon [options]
+```
+
+| Command Line Flag (long) | (short) | Config File                | Environment Variable               |
+| postgres                 | P       | postgres-conenction-string | INDEXER_POSTGRES_CONNECTION_STRING |
+| pidfile                  |         | pidfile                    | INDEXER_PIDFILE                    |
+| algod                    | d       | algod-data-dir             | INDEXER_ALGOD_DATA_DIR             |
+| algod-net                |         | algod-address              | INDEXER_ALGOD_ADDRESS              |
+| algod-token              |         | algod-token                | INDEXER_ALGOD_TOKEN                |
+| genesis                  | g       | genesis                    | INDEXER_GENESIS                    |
+| server                   | S       | server-address             | INDEXER_SERVER_ADDRESS             |
+| no-algod                 |         | no-algod                   | INDEXER_NO_ALGOD                   |
+| token                    | t       | api-token                  | INDEXER_API_TOKEN                  |
+| dev-mode                 |         | dev-mode                   | INDEXER_DEV_MODE                   |
 
 # Systemd
 

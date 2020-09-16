@@ -10,6 +10,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/fetcher"
@@ -117,6 +118,11 @@ func init() {
 	daemonCmd.Flags().BoolVarP(&noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
 	daemonCmd.Flags().StringVarP(&tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
 	daemonCmd.Flags().BoolVarP(&developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
+
+	viper.RegisterAlias("algod", "algod-data-dir")
+	viper.RegisterAlias("algod-net", "algod-address")
+	viper.RegisterAlias("server", "server-address")
+	viper.RegisterAlias("token", "api-token")
 }
 
 type blockImporterHandler struct {
