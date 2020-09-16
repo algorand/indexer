@@ -418,9 +418,8 @@ func (si *ServerImplementation) LookupTransactions(ctx echo.Context, txid string
 
 	// Fetch the transactions
 	txns, _, err := si.fetchTransactions(ctx.Request().Context(), filter)
-
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s: %v", errRewindingAccount, err))
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errTransactionSearch, err))
 	}
 
 	if len(txns) == 0 {
@@ -455,9 +454,8 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 
 	// Fetch the transactions
 	txns, next, err := si.fetchTransactions(ctx.Request().Context(), filter)
-
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s: %v", errRewindingAccount, err))
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errTransactionSearch, err))
 	}
 
 	round, err := si.db.GetMaxRound()
