@@ -2796,8 +2796,13 @@
             "description": "(empty)"
           },
           "500": {
-            "content": {},
-            "description": "error"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2807,7 +2812,7 @@
     },
     "/v2/transactions/{txid}": {
       "get": {
-        "description": "Lookup transactions.",
+        "description": "Lookup a single transaction.",
         "operationId": "lookupTransactions",
         "parameters": [
           {
@@ -2843,9 +2848,23 @@
             },
             "description": "(empty)"
           },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
-            "content": {},
-            "description": "error"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "tags": [

@@ -477,7 +477,7 @@
     },
     "/v2/transactions/{txid}": {
       "get": {
-        "description": "Lookup transactions.",
+        "description": "Lookup a single transaction.",
         "consumes": [
           "application/json"
         ],
@@ -500,8 +500,15 @@
           "200": {
             "$ref": "#/responses/TransactionResponse"
           },
+          "404": {
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
           "500": {
-            "description": "error"
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
           }
         }
       }
@@ -583,7 +590,9 @@
             "$ref": "#/responses/TransactionsResponse"
           },
           "500": {
-            "description": "error"
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
           }
         }
       }
