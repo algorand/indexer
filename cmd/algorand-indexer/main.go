@@ -14,6 +14,8 @@ import (
 	"github.com/algorand/indexer/version"
 )
 
+const envPrefix = "INDEXER"
+
 var rootCmd = &cobra.Command{
 	Use:   "indexer",
 	Short: "Algorand Indexer",
@@ -120,7 +122,7 @@ func init() {
 		}
 	}
 
-	viper.SetEnvPrefix("INDEXER")
+	viper.SetEnvPrefix(envPrefix)
 	viper.AutomaticEnv()
 }
 

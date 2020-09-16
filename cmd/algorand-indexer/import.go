@@ -244,7 +244,7 @@ var importCmd = &cobra.Command{
 	Short: "import block file or tar file of blocks",
 	Long:  "import block file or tar file of blocks. arguments are interpret as file globs (e.g. *.tar.bz2)",
 	Run: func(cmd *cobra.Command, args []string) {
-		util.BindFlags(cmd, "INDEXER")
+		util.BindFlags(cmd, envPrefix)
 
 		db := globalIndexerDb(nil)
 

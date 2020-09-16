@@ -38,7 +38,7 @@ var daemonCmd = &cobra.Command{
 	Long:  "run indexer daemon. Serve api on HTTP.",
 	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
-		util.BindFlags(cmd, "INDEXER")
+		util.BindFlags(cmd, envPrefix)
 
 		if algodDataDir == "" {
 			algodDataDir = os.Getenv("ALGORAND_DATA")
