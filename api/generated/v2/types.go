@@ -870,6 +870,20 @@ type BlockResponse Block
 // HealthCheckResponse defines model for HealthCheckResponse.
 type HealthCheckResponse HealthCheck
 
+// TransactionResponse defines model for TransactionResponse.
+type TransactionResponse struct {
+
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+
+	// Contains all fields common to all transactions and serves as an envelope to all transactions type.
+	//
+	// Definition:
+	// data/transactions/signedtxn.go : SignedTxn
+	// data/transactions/transaction.go : Transaction
+	Transaction Transaction `json:"transaction"`
+}
+
 // TransactionsResponse defines model for TransactionsResponse.
 type TransactionsResponse struct {
 
