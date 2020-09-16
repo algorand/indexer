@@ -13,11 +13,11 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/algorand/indexer/api"
+	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
-	"github.com/algorand/indexer/util"
 )
 
 var (
@@ -38,7 +38,7 @@ var daemonCmd = &cobra.Command{
 	Long:  "run indexer daemon. Serve api on HTTP.",
 	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
-		util.BindFlags(cmd, envPrefix)
+		config.BindFlags(cmd)
 
 		if algodDataDir == "" {
 			algodDataDir = os.Getenv("ALGORAND_DATA")

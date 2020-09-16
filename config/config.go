@@ -1,23 +1,28 @@
-package util
+package config
 
 import (
 	"fmt"
-	"strings"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"strings"
 )
 
+const EnvPrefix = "INDEXER"
+
 // BindFlags glues the cobra and viper libraries together.
-func BindFlags(cmd *cobra.Command, envPrefix string) {
+func BindFlags(cmd *cobra.Command) {
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		keys := viper.AllKeys()
+		for _, k := range keys {
+			fmt.Println(k)
+		}
 		// Environment variables can't have dashes in them, so bind them to their equivalent
 		// keys with underscores
 		// e.g. prefix=STING and --favorite-color is set to STING_FAVORITE_COLOR
 		if strings.Contains(f.Name, "-") {
 			envVarSuffix := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
-			viper.BindEnv(f.Name, fmt.Sprintf("%s_%s", envPrefix, envVarSuffix))
+			viper.BindEnv(f.Name, fmt.Sprintf("%s_%s", EnvPrefix, envVarSuffix))
 		}
 
 		// Apply the viper config value to the flag when the flag is not set and viper has a value

@@ -5,16 +5,16 @@ import (
 	"io"
 	"os"
 	"runtime/pprof"
+	"strings"
 
 	"github.com/spf13/cobra"
 	//"github.com/spf13/cobra/doc" // TODO: enable cobra doc generation
 	"github.com/spf13/viper"
 
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/version"
 )
-
-const envPrefix = "INDEXER"
 
 var rootCmd = &cobra.Command{
 	Use:   "indexer",
@@ -111,6 +111,8 @@ func init() {
 	viper.AddConfigPath("$HOME/.indexer/")
 	viper.AddConfigPath("$HOME/.config/indexer/")
 	viper.AddConfigPath("/etc/indexer/")
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
@@ -122,7 +124,7 @@ func init() {
 		}
 	}
 
-	viper.SetEnvPrefix(envPrefix)
+	viper.SetEnvPrefix(config.EnvPrefix)
 	viper.AutomaticEnv()
 }
 
