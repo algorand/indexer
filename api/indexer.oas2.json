@@ -319,6 +319,11 @@
         "responses": {
           "200": {
             "$ref": "#/responses/AssetResponse"
+          },
+          "404": {
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
           }
         }
       }
@@ -470,6 +475,44 @@
         }
       }
     },
+    "/v2/transactions/{txid}": {
+      "get": {
+        "description": "Lookup a single transaction.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "lookup"
+        ],
+        "operationId": "lookupTransactions",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "txid",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/TransactionResponse"
+          },
+          "404": {
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
     "/v2/transactions": {
       "get": {
         "description": "Search for transactions.",
@@ -547,7 +590,9 @@
             "$ref": "#/responses/TransactionsResponse"
           },
           "500": {
-            "description": "error"
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
           }
         }
       }
@@ -863,8 +908,7 @@
         },
         "asset-id": {
           "description": "Asset ID of the holding.",
-          "type": "integer",
-          "x-go-name": "AssetID"
+          "type": "integer"
         },
         "creator": {
           "description": "Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.",
@@ -1689,7 +1733,6 @@
   "parameters": {
     "account-id": {
       "type": "string",
-      "x-go-name": "AccountID",
       "description": "account string",
       "name": "account-id",
       "in": "path",
@@ -1729,7 +1772,6 @@
     },
     "asset-id": {
       "type": "integer",
-      "x-go-name": "AssetID",
       "description": "Asset ID",
       "name": "asset-id",
       "in": "query"
@@ -1830,7 +1872,6 @@
     },
     "txid": {
       "type": "string",
-      "x-go-name": "TxID",
       "description": "Lookup the specific transaction by ID.",
       "name": "txid",
       "in": "query"
@@ -2021,6 +2062,25 @@
       "description": "(empty)",
       "schema": {
         "$ref": "#/definitions/HealthCheck"
+      }
+    },
+    "TransactionResponse": {
+      "description": "(empty)",
+      "schema": {
+        "type": "object",
+        "required": [
+          "current-round",
+          "transaction"
+        ],
+        "properties": {
+          "transaction": {
+            "$ref": "#/definitions/Transaction"
+          },
+          "current-round": {
+            "description": "Round at which the results were computed.",
+            "type": "integer"
+          }
+        }
       }
     },
     "TransactionsResponse": {
