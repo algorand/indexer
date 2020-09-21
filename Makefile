@@ -33,11 +33,11 @@ package:
 	mkdir -p $(PKG_DIR)
 	misc/release.py --outdir $(PKG_DIR)
 
-# used in travis test builds
+# used in travis test builds; doesn't verify that tag and .version match
 fakepackage:
 	rm -rf $(PKG_DIR)
 	mkdir -p $(PKG_DIR)
-	misc/release.py --outdir $(PKG_DIR)
+	misc/release.py --outdir $(PKG_DIR) --fake-release
 
 sign:
 	mule/sign.sh
