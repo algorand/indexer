@@ -102,7 +102,7 @@ def link(sourcepath, destpath):
 _tagpat = re.compile(r'tag:\s+([^,]+)')
 
 def compile_version_opts(release_version=None, allow_mismatch=False):
-    result = subprocess.run(['git', 'log', '-n', '1', '--pretty=%H %D'], capture_output=True)
+    result = subprocess.run(['git', 'log', '-n', '1', '--pretty=%H %D'], stdout=subprocess.PIPE)
     result.check_returncode()
     so = result.stdout.decode()
     githash, desc = so.split(None, 1)
@@ -119,7 +119,7 @@ def compile_version_opts(release_version=None, allow_mismatch=False):
         else:
             logger.warning('.version is %r but tags %r', release_version, tags)
     now = time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime()) + '+0000'
-    result = subprocess.run(['git', 'status', '--porcelain'], capture_output=True)
+    result = subprocess.run(['git', 'status', '--porcelain'], stdout=subprocess.PIPE)
     result.check_returncode()
     if len(result.stdout) > 2:
         dirty = "true"
@@ -215,7 +215,7 @@ def build_tar(goos, goarch, version, outdir):
     return tarname
 
 def hostOsArch():
-    result = subprocess.run(['go', 'env'], capture_output=True)
+    result = subprocess.run(['go', 'env'], stdout=subprocess.PIPE)
     result.check_returncode()
     goenv = {}
     for line in result.stdout.decode().splitlines():
