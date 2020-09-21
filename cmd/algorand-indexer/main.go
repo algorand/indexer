@@ -11,8 +11,8 @@ import (
 	//"github.com/spf13/cobra/doc" // TODO: enable cobra doc generation
 	"github.com/spf13/viper"
 
-	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/config"
+	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/version"
 )
 
@@ -104,13 +104,11 @@ func init() {
 	viper.RegisterAlias("postgres", "postgres-connection-string")
 
 	// Setup configuration file
-	viper.SetConfigName("indexer")
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("$HOME")
-	viper.AddConfigPath("$HOME/.indexer/")
-	viper.AddConfigPath("$HOME/.config/indexer/")
-	viper.AddConfigPath("/etc/indexer/")
+	viper.SetConfigName(config.FileName)
+	viper.SetConfigType(config.FileType)
+	for _, k := range config.ConfigPaths {
+		viper.AddConfigPath(k)
+	}
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
 
