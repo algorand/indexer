@@ -28,11 +28,16 @@ idb/mocks/IndexerDb.go:	idb/dummy.go
 deploy:
 	mule/deploy.sh
 
-package: clean setup
+package:
+	rm -rf $(PKG_DIR)
+	mkdir -p $(PKG_DIR)
 	misc/release.py --outdir $(PKG_DIR)
 
-setup:
+# used in travis test builds
+fakepackage:
+	rm -rf $(PKG_DIR)
 	mkdir -p $(PKG_DIR)
+	misc/release.py --outdir $(PKG_DIR)
 
 sign:
 	mule/sign.sh
@@ -42,8 +47,5 @@ test: idb/mocks/IndexerDb.go
 
 test-package:
 	mule/e2e.sh
-
-clean:
-	rm -rf $(PKG_DIR)
 
 .PHONY:
