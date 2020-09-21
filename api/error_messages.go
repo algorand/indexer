@@ -18,6 +18,8 @@ const (
 	errFailedSearchingAccount    = "failed while searching for account"
 	errNoAccountsFound           = "no accounts found for address"
 	errNoAssetsFound             = "no assets found for asset-id"
+	errNoTransactionFound        = "no transaction found for transaction id"
+	errMultipleTransactions      = "multiple transactions found for this txid, please contact us this shouldn't happen"
 	errMultipleAccounts          = "multiple accounts found for this address, please contact us this shouldn't happen"
 	errMultipleAssets            = "multiple assets found for this id, please contact us this shouldn't happen"
 	errMultiAcctRewind           = "multiple accounts rewind is not supported by this server"

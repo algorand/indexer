@@ -7,10 +7,8 @@
         "name": "account-id",
         "required": true,
         "schema": {
-          "type": "string",
-          "x-go-name": "AccountID"
-        },
-        "x-go-name": "AccountID"
+          "type": "string"
+        }
       },
       "address": {
         "description": "Only include transactions with this address in one of the transaction fields.",
@@ -59,10 +57,8 @@
         "in": "query",
         "name": "asset-id",
         "schema": {
-          "type": "integer",
-          "x-go-name": "AssetID"
-        },
-        "x-go-name": "AssetID"
+          "type": "integer"
+        }
       },
       "auth-addr": {
         "description": "Include accounts configured to use this spending key.",
@@ -209,10 +205,8 @@
         "in": "query",
         "name": "txid",
         "schema": {
-          "type": "string",
-          "x-go-name": "TxID"
-        },
-        "x-go-name": "TxID"
+          "type": "string"
+        }
       }
     },
     "responses": {
@@ -419,6 +413,29 @@
           "application/json": {
             "schema": {
               "$ref": "#/components/schemas/HealthCheck"
+            }
+          }
+        },
+        "description": "(empty)"
+      },
+      "TransactionResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "current-round": {
+                  "description": "Round at which the results were computed.",
+                  "type": "integer"
+                },
+                "transaction": {
+                  "$ref": "#/components/schemas/Transaction"
+                }
+              },
+              "required": [
+                "current-round",
+                "transaction"
+              ],
+              "type": "object"
             }
           }
         },
@@ -724,8 +741,7 @@
           },
           "asset-id": {
             "description": "Asset ID of the holding.",
-            "type": "integer",
-            "x-go-name": "AssetID"
+            "type": "integer"
           },
           "creator": {
             "description": "Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.",
@@ -1628,10 +1644,8 @@
             "in": "query",
             "name": "asset-id",
             "schema": {
-              "type": "integer",
-              "x-go-name": "AssetID"
-            },
-            "x-go-name": "AssetID"
+              "type": "integer"
+            }
           },
           {
             "description": "Maximum number of results to return.",
@@ -1740,10 +1754,8 @@
             "name": "account-id",
             "required": true,
             "schema": {
-              "type": "string",
-              "x-go-name": "AccountID"
-            },
-            "x-go-name": "AccountID"
+              "type": "string"
+            }
           },
           {
             "description": "Include results for the specified round.",
@@ -1848,10 +1860,8 @@
             "in": "query",
             "name": "txid",
             "schema": {
-              "type": "string",
-              "x-go-name": "TxID"
-            },
-            "x-go-name": "TxID"
+              "type": "string"
+            }
           },
           {
             "description": "Include results for the specified round.",
@@ -1882,10 +1892,8 @@
             "in": "query",
             "name": "asset-id",
             "schema": {
-              "type": "integer",
-              "x-go-name": "AssetID"
-            },
-            "x-go-name": "AssetID"
+              "type": "integer"
+            }
           },
           {
             "description": "Include results before the given time. Must be an RFC 3339 formatted string.",
@@ -1931,10 +1939,8 @@
             "name": "account-id",
             "required": true,
             "schema": {
-              "type": "string",
-              "x-go-name": "AccountID"
-            },
-            "x-go-name": "AccountID"
+              "type": "string"
+            }
           },
           {
             "description": "Include results which include the rekey-to field.",
@@ -2142,10 +2148,8 @@
             "in": "query",
             "name": "asset-id",
             "schema": {
-              "type": "integer",
-              "x-go-name": "AssetID"
-            },
-            "x-go-name": "AssetID"
+              "type": "integer"
+            }
           }
         ],
         "responses": {
@@ -2222,6 +2226,15 @@
               }
             },
             "description": "(empty)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "tags": [
@@ -2384,10 +2397,8 @@
             "in": "query",
             "name": "txid",
             "schema": {
-              "type": "string",
-              "x-go-name": "TxID"
-            },
-            "x-go-name": "TxID"
+              "type": "string"
+            }
           },
           {
             "description": "Include results for the specified round.",
@@ -2632,10 +2643,8 @@
             "in": "query",
             "name": "txid",
             "schema": {
-              "type": "string",
-              "x-go-name": "TxID"
-            },
-            "x-go-name": "TxID"
+              "type": "string"
+            }
           },
           {
             "description": "Include results for the specified round.",
@@ -2666,10 +2675,8 @@
             "in": "query",
             "name": "asset-id",
             "schema": {
-              "type": "integer",
-              "x-go-name": "AssetID"
-            },
-            "x-go-name": "AssetID"
+              "type": "integer"
+            }
           },
           {
             "description": "Include results before the given time. Must be an RFC 3339 formatted string.",
@@ -2789,12 +2796,79 @@
             "description": "(empty)"
           },
           "500": {
-            "content": {},
-            "description": "error"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "tags": [
           "search"
+        ]
+      }
+    },
+    "/v2/transactions/{txid}": {
+      "get": {
+        "description": "Lookup a single transaction.",
+        "operationId": "lookupTransactions",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "txid",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "current-round": {
+                      "description": "Round at which the results were computed.",
+                      "type": "integer"
+                    },
+                    "transaction": {
+                      "$ref": "#/components/schemas/Transaction"
+                    }
+                  },
+                  "required": [
+                    "current-round",
+                    "transaction"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "(empty)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "lookup"
         ]
       }
     }

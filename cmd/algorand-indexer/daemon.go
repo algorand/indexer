@@ -1,21 +1,19 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 
 	"github.com/algorand/indexer/api"
+	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
@@ -31,17 +29,8 @@ var (
 	developerMode    bool
 	tokenString      string
 
-	configFilePath string
-
 	logger *log.Logger
 )
-
-func init() {
-	logger = log.New()
-	logger.SetFormatter(&log.JSONFormatter{})
-	logger.SetOutput(os.Stdout)
-	logger.SetLevel(log.InfoLevel)
-}
 
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
@@ -49,13 +38,8 @@ var daemonCmd = &cobra.Command{
 	Long:  "run indexer daemon. Serve api on HTTP.",
 	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
-		if configFilePath != "" {
-			cf, err := os.Open(configFilePath)
-			maybeFail(err, "%s: %v", configFilePath, err)
-			err = configFromStream(cf)
-			maybeFail(err, "%s: %v", configFilePath, err)
-			cf.Close()
-		}
+		config.BindFlags(cmd)
+
 		if algodDataDir == "" {
 			algodDataDir = os.Getenv("ALGORAND_DATA")
 		}
@@ -120,123 +104,25 @@ var daemonCmd = &cobra.Command{
 	},
 }
 
-type configVar struct {
-	name  string
-	short string
-	usage string
-	t     configTypeVar
-}
-type configTypeVar interface {
-	Set(string)
-}
-type configStringVar struct {
-	value string
-	ptr   *string
-}
-
-func (sv configStringVar) Set(x string) {
-	// only set if it still has the original value
-	if *sv.ptr == sv.value {
-		*sv.ptr = x
-	}
-}
-
-var configVars []configVar
-
-func configStringVarP(flags *pflag.FlagSet, strPtr *string, name, short, value, usage string) {
-	*strPtr = value
-	flags.StringVarP(strPtr, name, short, value, usage)
-	configVars = append(configVars, configVar{name, short, usage, &configStringVar{value, strPtr}})
-}
-
-// to-lower first
-var trueStrings = []string{"t", "true", "1"}
-
-type configBoolVar struct {
-	value bool
-	ptr   *bool
-}
-
-func (sv configBoolVar) Set(x string) {
-	// only set if it still has the original value
-	if *sv.ptr != sv.value {
-		return
-	}
-	xl := strings.ToLower(x)
-	for _, ts := range trueStrings {
-		if ts == xl {
-			*sv.ptr = true
-			return
-		}
-	}
-	*sv.ptr = false
-}
-
-func configBoolVarP(flags *pflag.FlagSet, boolPtr *bool, name, short string, value bool, usage string) {
-	*boolPtr = value
-	flags.BoolVarP(boolPtr, name, short, value, usage)
-	configVars = append(configVars, configVar{name, short, usage, &configBoolVar{value, boolPtr}})
-}
-
-// TODO: maybe someday replace file parsing with YAML library, but for now we don't need nested structure and a smaller dependency tree makes me happy
-func configFromStream(in io.Reader) (err error) {
-	lineno := 0
-	lineReader := bufio.NewReader(in)
-	for true {
-		linebytes, isPrefix, err := lineReader.ReadLine()
-		if err == io.EOF {
-			return nil
-		}
-		lineno++
-		if err != nil {
-			return err
-		}
-		if isPrefix {
-			return fmt.Errorf(":%d line too long", lineno)
-		}
-		if len(linebytes) == 0 {
-			continue
-		}
-		if linebytes[0] == '#' {
-			continue
-		}
-		line := string(linebytes)
-		colon := strings.IndexRune(line, ':')
-		if colon < 0 {
-			return fmt.Errorf(":%d line is not \"key: value\"", lineno)
-		}
-		key := strings.TrimSpace(line[:colon])
-		value := strings.TrimSpace(line[colon+1:])
-		ok := false
-		for _, cvar := range configVars {
-			if cvar.name == key {
-				cvar.t.Set(value)
-				ok = true
-				break
-			}
-		}
-		if !ok {
-			return fmt.Errorf(":%d unknown key %s", lineno, key)
-		}
-	}
-	return nil
-}
-
 func init() {
-	configStringVarP(daemonCmd.Flags(), &algodDataDir, "algod", "d", "", "path to algod data dir, or $ALGORAND_DATA")
-	configStringVarP(daemonCmd.Flags(), &algodAddr, "algod-net", "", "", "host:port of algod")
-	configStringVarP(daemonCmd.Flags(), &algodToken, "algod-token", "", "", "api access token for algod")
-	configStringVarP(daemonCmd.Flags(), &genesisJsonPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
-	configStringVarP(daemonCmd.Flags(), &daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
-	configBoolVarP(daemonCmd.Flags(), &noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
-	configStringVarP(daemonCmd.Flags(), &tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
-	configBoolVarP(daemonCmd.Flags(), &developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
+	logger = log.New()
+	logger.SetFormatter(&log.JSONFormatter{})
+	logger.SetOutput(os.Stdout)
+	logger.SetLevel(log.InfoLevel)
 
-	daemonCmd.Flags().StringVarP(&configFilePath, "config", "c", "", "path to 'key: value' config file, keys are same as command line options")
+	daemonCmd.Flags().StringVarP(&algodDataDir, "algod", "d", "", "path to algod data dir, or $ALGORAND_DATA")
+	daemonCmd.Flags().StringVarP(&algodAddr, "algod-net", "", "", "host:port of algod")
+	daemonCmd.Flags().StringVarP(&algodToken, "algod-token", "", "", "api access token for algod")
+	daemonCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
+	daemonCmd.Flags().StringVarP(&daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
+	daemonCmd.Flags().BoolVarP(&noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
+	daemonCmd.Flags().StringVarP(&tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
+	daemonCmd.Flags().BoolVarP(&developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
 
-	// Make config entries for global flags
-	configVars = append(configVars, configVar{"postgres", "P", "", &configStringVar{"", &postgresAddr}})
-	configVars = append(configVars, configVar{"pidfile", "", "", &configStringVar{"", &pidFilePath}})
+	viper.RegisterAlias("algod", "algod-data-dir")
+	viper.RegisterAlias("algod-net", "algod-address")
+	viper.RegisterAlias("server", "server-address")
+	viper.RegisterAlias("token", "api-token")
 }
 
 type blockImporterHandler struct {

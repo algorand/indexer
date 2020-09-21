@@ -93,7 +93,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 	}
 
 	if len(accounts) > 1 {
-		return badRequest(ctx, fmt.Sprintf("%s: %s", errMultipleAccounts, accountID))
+		return indexerError(ctx, fmt.Sprintf("%s: %s", errMultipleAccounts, accountID))
 	}
 
 	round, err := si.db.GetMaxRound()
@@ -277,7 +277,7 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 	}
 
 	if len(assets) > 1 {
-		return badRequest(ctx, fmt.Sprintf("%s: %d", errMultipleAssets, assetID))
+		return indexerError(ctx, fmt.Sprintf("%s: %d", errMultipleAssets, assetID))
 	}
 
 	round, err := si.db.GetMaxRound()
@@ -408,6 +408,42 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 	return ctx.JSON(http.StatusOK, generated.BlockResponse(blk))
 }
 
+func (si *ServerImplementation) LookupTransactions(ctx echo.Context, txid string) error {
+	filter, err := transactionParamsToTransactionFilter(generated.SearchForTransactionsParams{
+		Txid: strPtr(txid),
+	})
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	// Fetch the transactions
+	txns, _, err := si.fetchTransactions(ctx.Request().Context(), filter)
+	if err != nil {
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errTransactionSearch, err))
+	}
+
+	if len(txns) == 0 {
+		return notFound(ctx, fmt.Sprintf("%s: %s", errNoTransactionFound, txid))
+	}
+
+	if len(txns) > 1 {
+		return indexerError(ctx, fmt.Sprintf("%s: %s", errMultipleTransactions, txid))
+	}
+
+	round, err := si.db.GetMaxRound()
+	if err != nil {
+		return indexerError(ctx, err.Error())
+	}
+
+	response := generated.TransactionResponse{
+		CurrentRound: round,
+		Transaction: txns[0],
+	}
+
+	return ctx.JSON(http.StatusOK, response)
+}
+
+
 // SearchForTransactions returns transactions matching the provided parameters
 // (GET /v2/transactions)
 func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params generated.SearchForTransactionsParams) error {
@@ -418,9 +454,8 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 
 	// Fetch the transactions
 	txns, next, err := si.fetchTransactions(ctx.Request().Context(), filter)
-
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s: %v", errRewindingAccount, err))
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errTransactionSearch, err))
 	}
 
 	round, err := si.db.GetMaxRound()

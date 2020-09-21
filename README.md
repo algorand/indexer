@@ -60,6 +60,7 @@ There are a number of technical features as well:
 Contributions welcome! Please refer to our [CONTRIBUTING](https://github.com/algorand/go-algorand/blob/master/CONTRIBUTING.md) document.
 
 <!-- USAGE_START_MARKER -->
+
 # Usage
 
 The most common usage of the Indexer is expect to be getting validated blocks from a local `algod` Algorand node, adding them to a [PostgreSQL](https://www.postgresql.org/) database, and serving an API to make available a variety of prepared queries. Some users may wish to directly write SQL queries of the database.
@@ -105,6 +106,66 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly;
 When `--token your-token` is provided, an authentication header is required. For example:
 ```
 ~$ curl localhost:8980/transactions -H "X-Indexer-API-Token: your-token"
+```
+
+# Settings
+
+Settings can be provided from the command line, a configuration file, or an environment variable
+
+| Command Line Flag (long) | (short) | Config File                | Environment Variable               |
+| ------------------------ | ------- | -------------------------- | ---------------------------------- |
+| postgres                 | P       | postgres-conenction-string | INDEXER_POSTGRES_CONNECTION_STRING |
+| pidfile                  |         | pidfile                    | INDEXER_PIDFILE                    |
+| algod                    | d       | algod-data-dir             | INDEXER_ALGOD_DATA_DIR             |
+| algod-net                |         | algod-address              | INDEXER_ALGOD_ADDRESS              |
+| algod-token              |         | algod-token                | INDEXER_ALGOD_TOKEN                |
+| genesis                  | g       | genesis                    | INDEXER_GENESIS                    |
+| server                   | S       | server-address             | INDEXER_SERVER_ADDRESS             |
+| no-algod                 |         | no-algod                   | INDEXER_NO_ALGOD                   |
+| token                    | t       | api-token                  | INDEXER_API_TOKEN                  |
+| dev-mode                 |         | dev-mode                   | INDEXER_DEV_MODE                   |
+
+## command line
+
+The command line arguments always take priority over the config file and environment variables.
+
+```
+~$ ./algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"`
+```
+
+
+## configuration file
+Default values are placed in the configuration file. They can be overridden with environment variables and command line arguments.
+
+The configuration file must named **algorand-indexer**, **algorand-indexer.yml**, or **algorand-indexer.yaml**. It must also be in the correct location. Only one configuration file is loaded, the path is searched in the following order:
+* `./` (current working directory)
+* `$HOME`
+* `$HOME/.algorand-indexer`
+* `$HOME/.config/algorand-indexer`
+* `/etc/algorand-indexer/`
+
+Here is an example **algorand-indexer.yml** file:
+```
+postgres-connection-string: "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
+pidfile: "/var/lib/algorand/algorand-indexer.pid"
+algod-data-dir: "/var/lib/algorand"
+```
+
+If it is in the current working directory along with the indexer command we can start the indexer daemon with:
+```
+~$ ./algorand-indexer daemon
+```
+
+## Example environment variable
+
+Environment variables are also available to configure indexer. Environment variables override settings in the config file and are overridden by command line arguments.
+
+The same indexer configuration from earlier can be made in bash with the following:
+```
+~$ export INDEXER_POSTGRES_CONNECTION_STRING="host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
+~$ export INDEXER_PIDFILE="/var/lib/algorand/algorand-indexer.pid"
+~$ export INDEXER_ALGOD_DATA_DIR="/var/lib/algorand"
+~$ ./algorand-indexer daemon
 ```
 
 # Systemd
