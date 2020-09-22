@@ -15,6 +15,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 
+	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/types"
 )
 
@@ -30,10 +31,10 @@ type MigrationState struct {
 }
 
 // A migration function should take care of writing back to metastate migration row
-type migrationFunc func(*PostgresIndexerDb, *MigrationState) error
+type postgresMigrationFunc func(*PostgresIndexerDb, *MigrationState) error
 
 type migrationStruct struct {
-	migrate migrationFunc
+	migrate postgresMigrationFunc
 
 	// The system should wait for this migration to finish before trying to import new data or serve data.
 	preventStartup bool
@@ -53,18 +54,20 @@ func anyBlockers(nextMigration int) bool {
 	return false
 }
 
-type MigrationTask struct {
+type migrationTask struct {
 	migrationId    int
 	migration      migrationStruct
 	migrationState *MigrationState
 	abortChan      chan error
 }
 
-func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (err error) {
-	// Note: this function blocks the REST server startup until all blocking migrations are complete.
-	db.migrating = true
-	db.migrationStatus = "Migrations initializing"
+func wrapPostgresHandler(handler postgresMigrationFunc, db *PostgresIndexerDb, state *MigrationState) migration.Handler {
+	return func() error {
+		return handler(db, state)
+	}
+}
 
+func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (err error) {
 	var state MigrationState
 	if len(migrationStateJson) > 0 {
 		err = json.Decode([]byte(migrationStateJson), &state)
@@ -73,59 +76,54 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 		}
 	}
 
-	abortChan := make(chan error)
-	blockChan := make(chan struct{})
+	errChan := make(chan error)
+	statusChan := make(chan string)
+	doneChan := make(chan struct{})
+	unblockChan := make(chan struct{})
 
-	// Initialize tasks and blockingWaitGroup
-	tasks := make(chan MigrationTask)
+	// Make migration tasks
 	nextMigration := state.NextMigration
+	tasks := make([]migration.Task, 0)
 	for nextMigration < len(migrations) {
-		tasks <- MigrationTask{
-			migrationId:    nextMigration,
-			migration:      migrations[nextMigration],
-			migrationState: &state,
-			abortChan:      abortChan,
-		}
-
+		tasks = append(tasks, migration.Task{
+			Handler: wrapPostgresHandler(migrations[nextMigration].migrate, db, &state),
+			MigrationId: nextMigration,
+			PreventStartup: migrations[nextMigration].preventStartup,
+			Description: migrations[nextMigration].description,
+		})
 		nextMigration++
 	}
-	close(tasks)
 
+	migration.RunMigrations(errChan, statusChan, doneChan, unblockChan, tasks...)
 
 	go func() {
-		for task := range tasks {
-			// If we're done blocking notify the main thread
-			if !anyBlockers(task.migrationId) {
-				blockChan <- struct{}{}
-			}
-
-			db.migrationStatus = "Active migration: " + task.migration.description
-			err := task.migration.migrate(db, task.migrationState)
-
-			if err != nil {
-				err := fmt.Errorf("error during migration %d (%s): %v", task.migrationId, task.migration.description, err)
-				db.migrationStatus = err.Error()
+		db.migrating = true
+		for {
+			select {
+			case err := <-errChan:
 				db.migrationError = err
+			case status := <-statusChan:
+				db.migrationStatus = status
+			case <-doneChan:
 				db.migrating = false
-				abortChan <- err
-				close(blockChan)
+
+				if db.migrationError != nil {
+					// Only called if there were no errors during migration.
+					err := db.markMigrationsAsDone()
+					if err != nil {
+						db.migrationError = err
+					}
+				}
+
 				return
 			}
 		}
-
-		db.migrationStatus = "Migrations Complete"
-		db.markMigrationsAsDone()
-		db.migrating = false
-		close(blockChan)
 	}()
 
 	select {
-		case <- blockChan:
-			fmt.Printf("All blocking migrations have completed.")
-		case err := <- abortChan:
-			return fmt.Errorf("migrations have aborted: %v", err)
+	case <- unblockChan:
+		fmt.Printf("All blocking migrations have completed.")
 	}
-
 	return nil
 }
 
