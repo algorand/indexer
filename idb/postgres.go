@@ -58,12 +58,16 @@ type PostgresIndexerDb struct {
 	txprows [][]interface{}
 
 	protoCache map[string]types.ConsensusParams
+
+	migrating       bool
+	migrationError  error
+	migrationStatus string
 }
 
 func (db *PostgresIndexerDb) init() (err error) {
 	accountingStateJson, _ := db.GetMetastate("state")
 	hasAccounting := len(accountingStateJson) > 0
-	migrationStateJson, _ := db.GetMetastate("migration")
+	migrationStateJson, _ := db.GetMetastate(migrationMetastateKey)
 	hasMigration := len(migrationStateJson) > 0
 
 	if hasMigration || hasAccounting {
@@ -2279,6 +2283,22 @@ func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *
 		out <- rec
 	}
 	close(out)
+}
+
+func (db *PostgresIndexerDb) Health() (health Health, err error) {
+	var data *map[string]interface{}
+	if db.migrationError.Error() != "" {
+		data := make(map[string]interface{})
+		data["migration-error"] = db.migrationError.Error()
+	}
+
+	round, err := db.GetMaxRound()
+
+	return Health{
+		Data:        data,
+		Round:       round,
+		IsMigrating: db.migrating,
+	}, err
 }
 
 type postgresFactory struct {

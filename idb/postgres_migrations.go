@@ -37,6 +37,9 @@ type migrationStruct struct {
 
 	// The system should wait for this migration to finish before trying to import new data or serve data.
 	preventStartup bool
+
+	// Description of the migration
+	description string
 }
 
 var migrations []migrationStruct
@@ -50,7 +53,18 @@ func anyBlockers(nextMigration int) bool {
 	return false
 }
 
+type MigrationTask struct {
+	migrationId    int
+	migration      migrationStruct
+	migrationState *MigrationState
+	abortChan      chan error
+}
+
 func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (err error) {
+	// Note: this function blocks the REST server startup until all blocking migrations are complete.
+	db.migrating = true
+	db.migrationStatus = "Migrations initializing"
+
 	var state MigrationState
 	if len(migrationStateJson) > 0 {
 		err = json.Decode([]byte(migrationStateJson), &state)
@@ -59,38 +73,54 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 		}
 	}
 
-	if state.NextMigration >= len(migrations) {
-		return nil
-	}
-	if anyBlockers(state.NextMigration) {
-		// run migrations synchronously
-		log.Print("Indexer startup will be delayed until database migration completes")
-		return db.runMigrationState(&state, true)
-	} else {
-		log.Print("database migrations running in background...")
-		go db.runMigrationState(&state, false)
-		return nil
-	}
-}
+	abortChan := make(chan error)
+	blockChan := make(chan struct{})
 
-func (db *PostgresIndexerDb) runMigrationState(state *MigrationState, blocking bool) (err error) {
+	// Initialize tasks and blockingWaitGroup
+	tasks := make(chan MigrationTask)
 	nextMigration := state.NextMigration
-	for true {
-		err = migrations[nextMigration].migrate(db, state)
-		if err != nil {
-			return fmt.Errorf("error in migration %d: %v", nextMigration, err)
+	for nextMigration < len(migrations) {
+		tasks <- MigrationTask{
+			migrationId:    nextMigration,
+			migration:      migrations[nextMigration],
+			migrationState: &state,
+			abortChan:      abortChan,
 		}
+
 		nextMigration++
-		if nextMigration >= len(migrations) {
-			return nil
-		}
-		state.NextMigration = nextMigration
-		if blocking && !anyBlockers(nextMigration) {
-			log.Print("database migrations will complete in background...")
-			go db.runMigrationState(state, false)
-			return nil
-		}
 	}
+	close(tasks)
+
+
+	go func() {
+		for task := range tasks {
+			db.migrationStatus = "Active migration: " + task.migration.description
+			err := task.migration.migrate(db, task.migrationState)
+
+			if err != nil {
+				err := fmt.Errorf("error during migration %d (%s): %v", task.migrationId, task.migration.description, err)
+				db.migrationStatus = err.Error()
+				db.migrationError = err
+				db.migrating = false
+				abortChan <- err
+				close(blockChan)
+				return
+			}
+		}
+
+		db.migrationStatus = "Migrations Complete"
+		db.markMigrationsAsDone()
+		db.migrating = false
+		close(blockChan)
+	}()
+
+	select {
+		case <- blockChan:
+			fmt.Printf("All blocking migrations have completed.")
+		case err := <- abortChan:
+			return fmt.Errorf("migrations have aborted: %v", err)
+	}
+
 	return nil
 }
 
@@ -151,7 +181,7 @@ func m3acfgFix(db *PostgresIndexerDb, state *MigrationState) (err error) {
 		assetIds = append(assetIds, aid)
 	}
 	rows.Close()
-	for true {
+	for {
 		nexti, err := m3acfgFixAsyncInner(db, state, assetIds)
 		if err != nil {
 			log.Printf("acfg fix chunk, %v", err)
@@ -288,10 +318,10 @@ func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []strin
 func init() {
 	migrations = []migrationStruct{
 		// {func, preventStartup}
-		{m0fixupTxid, false},
-		{m1fixupBlockTime, true}, // UPDATE over all blocks
-		{m2apps, true},           // schema change breaks other SQL
-		{m3acfgFix, false},
+		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
+		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."}, // UPDATE over all blocks
+		{m2apps, true, "Update DB Schema for Algorand application support."},           // schema change breaks other SQL
+		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
 	}
 }
 

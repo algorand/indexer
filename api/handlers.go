@@ -58,12 +58,16 @@ const defaultBalancesLimit = 1000
 // Returns 200 if healthy.
 // (GET /health)
 func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
-	maxRound, err := si.db.GetMaxRound()
+	health, err := si.db.Health()
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("get max round: %v", err))
+		return indexerError(ctx, fmt.Sprintf("problem fetching health: %v", err))
 	}
+
 	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
-		Message: strconv.FormatUint(maxRound, 10),
+		Data: health.Data,
+		Round: health.Round,
+		IsMigrating: health.IsMigrating,
+		Message: strconv.FormatUint(health.Round, 10),
 	})
 }
 

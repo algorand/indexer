@@ -1041,12 +1041,20 @@
             "properties": {},
             "type": "object"
           },
+          "is-migrating": {
+            "type": "boolean"
+          },
           "message": {
             "type": "string"
+          },
+          "round": {
+            "type": "integer"
           }
         },
         "required": [
-          "message"
+          "is-migrating",
+          "message",
+          "round"
         ],
         "type": "object"
       },
