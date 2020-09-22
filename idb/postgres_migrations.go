@@ -94,6 +94,11 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 
 	go func() {
 		for task := range tasks {
+			// If we're done blocking notify the main thread
+			if !anyBlockers(task.migrationId) {
+				blockChan <- struct{}{}
+			}
+
 			db.migrationStatus = "Active migration: " + task.migration.description
 			err := task.migration.migrate(db, task.migrationState)
 
