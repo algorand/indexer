@@ -36,23 +36,11 @@ type postgresMigrationFunc func(*PostgresIndexerDb, *MigrationState) error
 type migrationStruct struct {
 	migrate postgresMigrationFunc
 
-	// The system should wait for this migration to finish before trying to import new data or serve data.
-	preventStartup bool
-
 	// Description of the migration
 	description string
 }
 
 var migrations []migrationStruct
-
-func anyBlockers(nextMigration int) bool {
-	for i := nextMigration; i < len(migrations); i++ {
-		if migrations[i].preventStartup {
-			return true
-		}
-	}
-	return false
-}
 
 type migrationTask struct {
 	migrationId    int
@@ -76,11 +64,6 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 		}
 	}
 
-	errChan := make(chan error)
-	statusChan := make(chan string)
-	doneChan := make(chan struct{})
-	unblockChan := make(chan struct{})
-
 	// Make migration tasks
 	nextMigration := state.NextMigration
 	tasks := make([]migration.Task, 0)
@@ -88,42 +71,28 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 		tasks = append(tasks, migration.Task{
 			Handler: wrapPostgresHandler(migrations[nextMigration].migrate, db, &state),
 			MigrationId: nextMigration,
-			PreventStartup: migrations[nextMigration].preventStartup,
 			Description: migrations[nextMigration].description,
 		})
 		nextMigration++
 	}
 
-	migration.RunMigrations(errChan, statusChan, doneChan, unblockChan, tasks...)
+	// Add a task to mark migrations as done instead of using a channel.
+	tasks = append(tasks, migration.Task{
+		MigrationId: 9999999,
+		Handler: func() error {
+			return db.markMigrationsAsDone()
+		},
+		Description: "Mark migrations done",
+	})
 
-	go func() {
-		db.migrating = true
-		for {
-			select {
-			case err := <-errChan:
-				db.migrationError = err
-			case status := <-statusChan:
-				db.migrationStatus = status
-			case <-doneChan:
-				db.migrating = false
-
-				if db.migrationError != nil {
-					// Only called if there were no errors during migration.
-					err := db.markMigrationsAsDone()
-					if err != nil {
-						db.migrationError = err
-					}
-				}
-
-				return
-			}
-		}
-	}()
-
-	select {
-	case <- unblockChan:
-		fmt.Printf("All blocking migrations have completed.")
+	db.migration, err = migration.MakeMigration(tasks)
+	if err != nil {
+		return err
 	}
+
+	// Start it in the background
+	go db.migration.Start()
+
 	return nil
 }
 
@@ -320,11 +289,10 @@ func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []strin
 
 func init() {
 	migrations = []migrationStruct{
-		// {func, preventStartup}
-		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
-		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."}, // UPDATE over all blocks
-		{m2apps, true, "Update DB Schema for Algorand application support."},           // schema change breaks other SQL
-		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
+		{m0fixupTxid, "Recompute the txid with corrected algorithm."},
+		{m1fixupBlockTime, "Adjust block time to UTC timezone."},
+		{m2apps, "Update DB Schema for Algorand application support."},
+		{m3acfgFix, "Recompute asset configurations with corrected merge function."},
 	}
 }
 

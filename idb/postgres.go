@@ -12,6 +12,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
+	"github.com/algorand/indexer/idb/migration"
 	"math"
 	"math/big"
 	"os"
@@ -59,9 +60,7 @@ type PostgresIndexerDb struct {
 
 	protoCache map[string]types.ConsensusParams
 
-	migrating       bool
-	migrationError  error
-	migrationStatus string
+	migration migration.Migration
 }
 
 func (db *PostgresIndexerDb) init() (err error) {
@@ -2286,18 +2285,26 @@ func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *
 }
 
 func (db *PostgresIndexerDb) Health() (health Health, err error) {
-	var data *map[string]interface{}
-	if db.migrationError.Error() != "" {
-		data := make(map[string]interface{})
-		data["migration-error"] = db.migrationError.Error()
+	state := db.migration.GetStatus()
+
+	var data = make(map[string]interface{})
+	if state.Err != nil {
+		data["migration-error"] = state.Err.Error()
+	}
+	if state.Status != "" {
+		data["migration-status"] = state.Status
+	}
+
+	var ptr *map[string]interface{}
+	if len(data) > 0 {
+		ptr = &data
 	}
 
 	round, err := db.GetMaxRound()
-
 	return Health{
-		Data:        data,
+		Data:        ptr,
 		Round:       round,
-		IsMigrating: db.migrating,
+		IsMigrating: state.Running,
 	}, err
 }
 

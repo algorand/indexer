@@ -2,24 +2,64 @@ package migration
 
 import (
 	"errors"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var MigrationError = errors.New("Migration Error")
-var OneSecondSuccessHandler = MakeHandler(1 * time.Second, nil)
-var ErrorHandlerFast = MakeHandler(0 * time.Second, MigrationError)
-var ErrorHandlerSlow = MakeHandler(1 * time.Second, MigrationError)
+var SlowSuccessTask1 = MakeTask(1 * time.Second, nil, 1, "slow success")
+var SlowSuccessTask2 = MakeTask(1 * time.Second, nil, 2, "slow success")
+var SlowSuccessTask3 = MakeTask(1 * time.Second, nil, 3, "slow success")
 
-func MakeHandler(d time.Duration, err error) Handler  {
-	return func() error {
-		time.Sleep(d)
-		return err
+var FastSuccessTask1 = MakeTask(0 * time.Second, nil, 1, "fast success")
+var FastSuccessTask2 = MakeTask(0 * time.Second, nil, 2, "fast success")
+var FastSuccessTask3 = MakeTask(0 * time.Second, nil, 3, "fast success")
+
+var FastErrorTask1 = MakeTask(0 * time.Second, MigrationError, 1, "fast error")
+var FastErrorTask2 = MakeTask(0 * time.Second, MigrationError, 2, "fast error")
+var FastErrorTask3 = MakeTask(0 * time.Second, MigrationError, 3, "fast error")
+
+var SlowErrorTask1 = MakeTask(1 * time.Second, MigrationError, 1, "slow error")
+var SlowErrorTask2 = MakeTask(1 * time.Second, MigrationError, 2, "slow error")
+var SlowErrorTask3 = MakeTask(1 * time.Second, MigrationError, 3, "slow error")
+
+type testTask struct {
+	id          int
+	description string
+	duration    time.Duration
+	err         error
+}
+
+func MakeTask(d time.Duration, err error, id int, description string) testTask {
+	return testTask{
+		id:          id,
+		description: description,
+		duration:    d,
+		err:         err,
 	}
 }
 
+func (tt testTask) Get(migration *Migration, recorder *[]State) Task {
+	handler := func() error {
+		*recorder = append(*recorder, migration.GetStatus())
+
+		time.Sleep(tt.duration)
+		return tt.err
+	}
+
+	return Task{
+		MigrationId:    tt.id,
+		Handler:        handler,
+		Description:    tt.description,
+	}
+
+}
+
+/*
 func MakeTask(id int, handler Handler, blocking bool, description string) Task {
 	return Task{
 		MigrationId:    id,
@@ -28,113 +68,108 @@ func MakeTask(id int, handler Handler, blocking bool, description string) Task {
 		Description:    description,
 	}
 }
+ */
 
 func TestSuccessfulMigration(t *testing.T) {
 	testcases := []struct {
 		name        string
-		tasks       []Task
+		tasks       []testTask
 		startupErr  string
-		errors      []error
+		errors      []string
 		statuses    []string
-		blockedTime time.Duration
 		runTime     time.Duration
 	}{
 		{
+			name:        "Duplicate ID error",
+			tasks:       []testTask{
+				SlowSuccessTask1,
+				SlowSuccessTask1,
+			},
+			startupErr:  DuplicateIDErr.Error(),
+			errors:      []string{},
+			statuses:    []string{},
+			runTime:     1 * time.Second,
+		},
+		{
 			name:        "No handlers exit immediately.",
-			tasks:       []Task{},
+			tasks:       []testTask{},
 			startupErr:  "",
-			errors:      []error{},
-			statuses:    []string{StatusInitializing, StatusComplete},
-			blockedTime: 0 * time.Second,
+			errors:      []string{},
+			statuses:    []string{StatusPending, StatusComplete},
 			runTime:     0 * time.Second,
 		},
 		{
-			name:        "One second blocking migration handler",
-			tasks:       []Task{MakeTask(1, OneSecondSuccessHandler, true, "description")},
+			name:        "One task",
+			tasks:       []testTask{SlowSuccessTask1},
 			startupErr:  "",
-			errors:      []error{},
-			statuses:    []string{StatusInitializing, StatusActivePrefix + "description", StatusComplete},
-			blockedTime: 1 * time.Second,
+			errors:      []string{},
+			statuses:    []string{StatusPending, StatusActivePrefix + SlowSuccessTask1.description, StatusComplete},
 			runTime:     1 * time.Second,
 		},
 		{
-			name:        "Duplicate ID error",
-			tasks:       []Task{
-				MakeTask(1, OneSecondSuccessHandler, true, "blocking"),
-				MakeTask(1, OneSecondSuccessHandler, false, "non-blocking"),
-			},
-			startupErr:  DuplicateIDErr.Error(),
-			errors:      []error{},
-			statuses:    []string{},
-			blockedTime: 1 * time.Second,
-			runTime:     1 * time.Second,
-		},
-		{
-			name:        "Different blocking and non blocking",
-			tasks:       []Task{
-				MakeTask(1, OneSecondSuccessHandler, true, "blocking"),
-				MakeTask(2, OneSecondSuccessHandler, false, "non-blocking"),
+			name:        "Two tasks",
+			tasks:       []testTask{
+				SlowSuccessTask1,
+				SlowSuccessTask2,
 			},
 			startupErr:  "",
-			errors:      []error{},
+			errors:      []string{},
 			statuses:    []string{
-				StatusInitializing,
-				StatusActivePrefix + "blocking",
-				StatusActivePrefix + "non-blocking",
+				StatusPending,
+				StatusActivePrefix + SlowSuccessTask1.description,
+				StatusActivePrefix + SlowSuccessTask2.description,
 				StatusComplete},
-			blockedTime: 1 * time.Second,
 			runTime:     2 * time.Second,
 		},
 		{
-			name:        "Non-blocking task blocks if followed by a blocking task",
-			tasks:       []Task{
-				MakeTask(1, OneSecondSuccessHandler, false, "non-blocking"),
-				MakeTask(2, OneSecondSuccessHandler, true, "blocking"),
+			name:        "3 Fast tasks",
+			tasks:       []testTask{
+				FastSuccessTask1,
+				FastSuccessTask2,
+				FastSuccessTask3,
 			},
 			startupErr:  "",
-			errors:      []error{},
+			errors:      []string{},
 			statuses:    []string{
-				StatusInitializing,
-				StatusActivePrefix + "non-blocking",
-				StatusActivePrefix + "blocking",
+				StatusPending,
+				StatusActivePrefix + FastSuccessTask1.description,
+				StatusActivePrefix + FastSuccessTask2.description,
+				StatusActivePrefix + FastSuccessTask3.description,
 				StatusComplete},
-			blockedTime: 2 * time.Second,
-			runTime:     2 * time.Second,
+			runTime:     0 * time.Second,
 		},
 		{
 			name:        "Error right away",
-			tasks:       []Task{
-				MakeTask(1, ErrorHandlerFast, false, "error handler"),
-				MakeTask(2, OneSecondSuccessHandler, false, "non-blocking"),
-				MakeTask(3, OneSecondSuccessHandler, true, "blocking"),
+			tasks:       []testTask{
+				FastErrorTask1,
+				SlowSuccessTask2,
+				SlowSuccessTask3,
 			},
 			startupErr:  "",
-			errors:      []error{MigrationError},
+			errors:      []string{MigrationError.Error()},
 			statuses:    []string{
-				StatusInitializing,
-				StatusActivePrefix + "error handler",
+				StatusPending,
+				StatusActivePrefix + FastErrorTask1.description,
 				StatusErrorPrefix,
 				},
-			blockedTime: 0 * time.Second,
 			runTime:     0 * time.Second,
 		},
 		{
-			name:        "Error at the end",
-			tasks:       []Task{
-				MakeTask(2, OneSecondSuccessHandler, false, "non-blocking"),
-				MakeTask(3, OneSecondSuccessHandler, true, "blocking"),
-				MakeTask(4, ErrorHandlerSlow, false, "error handler"),
+			name:        "Error at the end of non blocking tasks",
+			tasks:       []testTask{
+				SlowSuccessTask1,
+				SlowSuccessTask2,
+				SlowErrorTask3,
 			},
 			startupErr:  "",
-			errors:      []error{MigrationError},
+			errors:      []string{MigrationError.Error()},
 			statuses:    []string{
-				StatusInitializing,
-				StatusActivePrefix + "non-blocking",
-				StatusActivePrefix + "blocking",
-				StatusActivePrefix + "error handler",
+				StatusPending,
+				StatusActivePrefix + SlowSuccessTask1.description,
+				StatusActivePrefix + SlowSuccessTask2.description,
+				StatusActivePrefix + SlowErrorTask3.description,
 				StatusErrorPrefix,
 			},
-			blockedTime: 2 * time.Second,
 			runTime:     3 * time.Second,
 		},
 	}
@@ -146,14 +181,16 @@ func TestSuccessfulMigration(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
-			errChan := make(chan error)
-			statusChan := make(chan string)
-			doneChan := make(chan struct{})
-			blockChan := make(chan struct{})
+			recorder := make([]State, 0)
+			tasks := make([]Task, 0)
+			migration, _ := MakeMigration(tasks)
 
-			start := time.Now()
 
-			err := RunMigrations(errChan, statusChan, doneChan, blockChan, testcase.tasks...)
+			for _, testTask := range testcase.tasks {
+				tasks = append(tasks, testTask.Get(migration, &recorder))
+			}
+
+			err := migration.setTasks(tasks)
 			if testcase.startupErr != "" {
 				require.EqualError(t, err, testcase.startupErr)
 				return
@@ -161,50 +198,52 @@ func TestSuccessfulMigration(t *testing.T) {
 				require.Equal(t, "", testcase.startupErr)
 			}
 
+			// Initial Status
+			recorder = append(recorder, migration.GetStatus())
+
+			start := time.Now()
+			migChan := make(chan struct{})
+			go func() {
+				migration.Start()
+				migChan <- struct{}{}
+			}()
+
+			select {
+			case <- migChan:
+				// Final Status
+				recorder = append(recorder, migration.GetStatus())
+				fmt.Println("Migration complete, check results...")
+			case <- time.After(timeout):
+				require.Fail(t, "Migration timeout")
+				return
+			}
+
+			// Verify expected run duration
+			end := time.Now()
+			runtime := end.Sub(start)
+			if testcase.runTime > runtime + fuzzyness || testcase.runTime < runtime - fuzzyness {
+				t.Fatalf("runtime outside nominal duration %s != %s", runtime, testcase.runTime)
+			}
+
+			// Check the statuses recorded during migration
 			errNum := 0
 			statusNum := 0
-			blocking := true
-
-			for {
-				select {
-					case err := <- errChan:
-						require.Lessf(t, errNum, len(testcase.errors), "Too many errors returned by RunMigrations. Extra error: %s", err)
-						assert.Contains(t, err.Error(), testcase.errors[errNum].Error())
-						errNum++
-
-					case status := <- statusChan:
-						require.Lessf(t, statusNum, len(testcase.statuses), "Too many statuses returned by RunMigrations. Extra status: ", status)
-						require.Contains(t, status, testcase.statuses[statusNum])
-						statusNum++
-
-					case <- blockChan:
-						blocking = false
-						end := time.Now()
-						runtime := end.Sub(start)
-
-						if testcase.blockedTime > runtime + fuzzyness || testcase.blockedTime < runtime - fuzzyness {
-							t.Fatalf("blocked time outside nominal duration %s != %s", runtime, testcase.blockedTime)
-						}
-
-					case <- doneChan:
-						end := time.Now()
-						runtime := end.Sub(start)
-
-						if testcase.runTime > runtime + fuzzyness || testcase.runTime < runtime - fuzzyness {
-							t.Fatalf("runtime outside nominal duration %s != %s", runtime, testcase.runTime)
-						}
-
-						// Make sure we received all of the expected events
-						assert.Equal(t, len(testcase.statuses), statusNum)
-						assert.Equal(t, len(testcase.errors), errNum)
-						assert.Equal(t, false, blocking)
-						return
-
-					case <-time.After(timeout):
-						require.Fail(t, "Migration timeout")
-						return
+			running := true
+			for _, v := range recorder {
+				fmt.Println(v)
+				if v.Err != nil {
+					assert.Contains(t, v.Err.Error(), testcase.errors[errNum])
+					errNum++
 				}
+				if v.Status != "" {
+					assert.Contains(t, v.Status, testcase.statuses[statusNum])
+					statusNum++
+				}
+				running = v.Running
 			}
+
+			// When the migration is complete, it better not be Running!
+			assert.False(t, running)
 		})
 	}
 }

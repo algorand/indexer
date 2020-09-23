@@ -3,11 +3,12 @@ package migration
 import (
 	"errors"
 	"fmt"
+	"sync"
 )
 
 var DuplicateIDErr = errors.New("Duplicate ID detected.")
 
-const StatusInitializing = "Migration initializing"
+const StatusPending = "Migration pending"
 const StatusComplete = "Migrations Complete"
 const StatusActivePrefix = "Active migration: "
 const StatusErrorPrefix = "error during migration "
@@ -20,23 +21,28 @@ type Task struct {
 
 	Handler Handler
 
-	// The system should wait for this migration to finish before trying to import new data or serve data.
-	PreventStartup bool
-
 	// Description of the migration
 	Description string
 }
 
-func RunMigrations(errChan chan <-error, statusChan chan <-string, doneChan chan <-struct{}, unblockChan chan <-struct{}, migrations ...Task) error {
+type State struct {
+	Err     error
+	Status  string
+	Running bool
+}
+
+type Migration struct {
+	mutex sync.Mutex
+
+	state State
+	tasks []Task
+}
+
+// Broken out to allow for testing.
+func (m Migration) setTasks(migrationTasks []Task) error {
 	set := make(map[int]bool)
 
-	// Search for final blocking migration, if any.
-	unblockAfter := 0
-	for _, migration := range migrations {
-		if migration.PreventStartup {
-			unblockAfter = migration.MigrationId
-		}
-
+	for _, migration := range migrationTasks {
 		// Prevent duplicate IDs
 		if set[migration.MigrationId] {
 			return DuplicateIDErr
@@ -44,45 +50,66 @@ func RunMigrations(errChan chan <-error, statusChan chan <-string, doneChan chan
 		set[migration.MigrationId] = true
 	}
 
-	// Run migrations in another go routine.
-	go func() {
-		blocking := true
-
-		// No need to block, send the unblock message right away
-		if unblockAfter == 0 {
-			unblockChan <- struct{}{}
-			blocking = false
-		}
-
-		statusChan <- StatusInitializing
-
-		for _, task := range migrations {
-			statusChan <- StatusActivePrefix + task.Description
-			err := task.Handler()
-
-			if err != nil {
-				err := fmt.Errorf("%s%d (%s): %v", StatusErrorPrefix, task.MigrationId, task.Description, err)
-				if blocking {
-					unblockChan <- struct{}{}
-				}
-				statusChan <- err.Error()
-				errChan <- err
-				doneChan <- struct{}{}
-				return
-			}
-
-			if unblockAfter == task.MigrationId {
-				unblockChan <- struct{}{}
-				blocking = false
-			}
-		}
-
-		statusChan <- StatusComplete
-		if blocking {
-			unblockChan <- struct{}{}
-		}
-		doneChan <- struct{}{}
-	}()
+	m.tasks = migrationTasks
 
 	return nil
+}
+
+func MakeMigration(migrationTasks []Task) (Migration, error) {
+	m := Migration{
+		tasks: migrationTasks,
+		state: State{
+			Err:     nil,
+			Status:  StatusPending,
+			Running: false,
+		},
+	}
+
+	err := m.setTasks(migrationTasks)
+	return m, err
+}
+
+func (m Migration) GetStatus() State {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	return State{
+		Err:     m.state.Err,
+		Status:  m.state.Status,
+		Running: m.state.Running,
+	}
+}
+
+func (m Migration) update(err error, status string, running bool) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if err != m.state.Err {
+		m.state.Err = err
+	}
+
+	if status != m.state.Status {
+		m.state.Status = status
+	}
+
+	if running != m.state.Running {
+		m.state.Running = running
+	}
+}
+
+
+func (m Migration) Start() {
+	for _, task := range m.tasks {
+		m.update(nil, StatusActivePrefix + task.Description, true)
+		err := task.Handler()
+
+		if err != nil {
+			err := fmt.Errorf("%s%d (%s): %v", StatusErrorPrefix, task.MigrationId, task.Description, err)
+			m.update(err, err.Error(), false)
+			return
+		}
+	}
+
+	m.update(nil, StatusComplete, false)
+	return
 }
