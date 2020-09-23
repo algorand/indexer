@@ -1463,7 +1463,10 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 			row.RoundTime = roundtime
 			row.AssetId = asset
 			if len(extraJson) > 0 {
-				json.Decode(extraJson, &row.Extra)
+				err = json.Decode(extraJson, &row.Extra)
+				if err != nil {
+					row.Error = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
+				}
 			}
 		}
 		select {
@@ -1595,7 +1598,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				account.Participation = part
 			}
 
-			if ! ad.SpendingKey.IsZero() {
+			if !ad.SpendingKey.IsZero() {
 				var spendingkey atypes.Address
 				copy(spendingkey[:], ad.SpendingKey[:])
 				account.AuthAddr = stringPtr(spendingkey.String())
