@@ -229,6 +229,27 @@ func (_m *IndexerDb) GetProto(version string) (types.ConsensusParams, error) {
 	return r0, r1
 }
 
+// Health provides a mock function with given fields:
+func (_m *IndexerDb) Health() (idb.Health, error) {
+	ret := _m.Called()
+
+	var r0 idb.Health
+	if rf, ok := ret.Get(0).(func() idb.Health); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(idb.Health)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // LoadGenesis provides a mock function with given fields: genesis
 func (_m *IndexerDb) LoadGenesis(genesis types.Genesis) error {
 	ret := _m.Called(genesis)
