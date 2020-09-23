@@ -170,6 +170,8 @@ func TestSuccessfulMigration(t *testing.T) {
 
 	for _, testcase := range testcases {
 		t.Run(testcase.name, func(t *testing.T) {
+			t.Parallel()
+
 			recorder := make([]State, 0)
 			tasks := make([]Task, 0)
 			migration, _ := MakeMigration(tasks)
