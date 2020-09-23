@@ -59,17 +59,6 @@ func (tt testTask) Get(migration *Migration, recorder *[]State) Task {
 
 }
 
-/*
-func MakeTask(id int, handler Handler, blocking bool, description string) Task {
-	return Task{
-		MigrationId:    id,
-		Handler:        handler,
-		PreventStartup: blocking,
-		Description:    description,
-	}
-}
- */
-
 func TestSuccessfulMigration(t *testing.T) {
 	testcases := []struct {
 		name        string
@@ -87,7 +76,7 @@ func TestSuccessfulMigration(t *testing.T) {
 			},
 			startupErr:  DuplicateIDErr.Error(),
 			errors:      []string{},
-			statuses:    []string{},
+			statuses:    []string{StatusPending},
 			runTime:     1 * time.Second,
 		},
 		{

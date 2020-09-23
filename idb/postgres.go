@@ -60,7 +60,7 @@ type PostgresIndexerDb struct {
 
 	protoCache map[string]types.ConsensusParams
 
-	migration migration.Migration
+	migration *migration.Migration
 }
 
 func (db *PostgresIndexerDb) init() (err error) {

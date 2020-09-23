@@ -39,7 +39,7 @@ type Migration struct {
 }
 
 // Broken out to allow for testing.
-func (m Migration) setTasks(migrationTasks []Task) error {
+func (m *Migration) setTasks(migrationTasks []Task) error {
 	set := make(map[int]bool)
 
 	for _, migration := range migrationTasks {
@@ -55,8 +55,8 @@ func (m Migration) setTasks(migrationTasks []Task) error {
 	return nil
 }
 
-func MakeMigration(migrationTasks []Task) (Migration, error) {
-	m := Migration{
+func MakeMigration(migrationTasks []Task) (*Migration, error) {
+	m := &Migration{
 		tasks: migrationTasks,
 		state: State{
 			Err:     nil,
@@ -69,7 +69,7 @@ func MakeMigration(migrationTasks []Task) (Migration, error) {
 	return m, err
 }
 
-func (m Migration) GetStatus() State {
+func (m *Migration) GetStatus() State {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -80,7 +80,7 @@ func (m Migration) GetStatus() State {
 	}
 }
 
-func (m Migration) update(err error, status string, running bool) {
+func (m *Migration) update(err error, status string, running bool) {
 	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
@@ -97,8 +97,7 @@ func (m Migration) update(err error, status string, running bool) {
 	}
 }
 
-
-func (m Migration) Start() {
+func (m *Migration) Start() {
 	for _, task := range m.tasks {
 		m.update(nil, StatusActivePrefix + task.Description, true)
 		err := task.Handler()
