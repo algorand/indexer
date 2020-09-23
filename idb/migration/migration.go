@@ -99,7 +99,7 @@ func (m *Migration) update(err error, status string, running bool) {
 
 func (m *Migration) Start() {
 	for _, task := range m.tasks {
-		m.update(nil, StatusActivePrefix + task.Description, true)
+		m.update(nil, StatusActivePrefix+task.Description, true)
 		err := task.Handler()
 
 		if err != nil {

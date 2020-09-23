@@ -11,21 +11,21 @@ import (
 )
 
 var MigrationError = errors.New("Migration Error")
-var SlowSuccessTask1 = MakeTask(1 * time.Second, nil, 1, "slow success")
-var SlowSuccessTask2 = MakeTask(1 * time.Second, nil, 2, "slow success")
-var SlowSuccessTask3 = MakeTask(1 * time.Second, nil, 3, "slow success")
+var SlowSuccessTask1 = MakeTask(1*time.Second, nil, 1, "slow success")
+var SlowSuccessTask2 = MakeTask(1*time.Second, nil, 2, "slow success")
+var SlowSuccessTask3 = MakeTask(1*time.Second, nil, 3, "slow success")
 
-var FastSuccessTask1 = MakeTask(0 * time.Second, nil, 1, "fast success")
-var FastSuccessTask2 = MakeTask(0 * time.Second, nil, 2, "fast success")
-var FastSuccessTask3 = MakeTask(0 * time.Second, nil, 3, "fast success")
+var FastSuccessTask1 = MakeTask(0*time.Second, nil, 1, "fast success")
+var FastSuccessTask2 = MakeTask(0*time.Second, nil, 2, "fast success")
+var FastSuccessTask3 = MakeTask(0*time.Second, nil, 3, "fast success")
 
-var FastErrorTask1 = MakeTask(0 * time.Second, MigrationError, 1, "fast error")
-var FastErrorTask2 = MakeTask(0 * time.Second, MigrationError, 2, "fast error")
-var FastErrorTask3 = MakeTask(0 * time.Second, MigrationError, 3, "fast error")
+var FastErrorTask1 = MakeTask(0*time.Second, MigrationError, 1, "fast error")
+var FastErrorTask2 = MakeTask(0*time.Second, MigrationError, 2, "fast error")
+var FastErrorTask3 = MakeTask(0*time.Second, MigrationError, 3, "fast error")
 
-var SlowErrorTask1 = MakeTask(1 * time.Second, MigrationError, 1, "slow error")
-var SlowErrorTask2 = MakeTask(1 * time.Second, MigrationError, 2, "slow error")
-var SlowErrorTask3 = MakeTask(1 * time.Second, MigrationError, 3, "slow error")
+var SlowErrorTask1 = MakeTask(1*time.Second, MigrationError, 1, "slow error")
+var SlowErrorTask2 = MakeTask(1*time.Second, MigrationError, 2, "slow error")
+var SlowErrorTask3 = MakeTask(1*time.Second, MigrationError, 3, "slow error")
 
 type testTask struct {
 	id          int
@@ -52,114 +52,114 @@ func (tt testTask) Get(migration *Migration, recorder *[]State) Task {
 	}
 
 	return Task{
-		MigrationId:    tt.id,
-		Handler:        handler,
-		Description:    tt.description,
+		MigrationId: tt.id,
+		Handler:     handler,
+		Description: tt.description,
 	}
 
 }
 
 func TestSuccessfulMigration(t *testing.T) {
 	testcases := []struct {
-		name        string
-		tasks       []testTask
-		startupErr  string
-		errors      []string
-		statuses    []string
-		runTime     time.Duration
+		name       string
+		tasks      []testTask
+		startupErr string
+		errors     []string
+		statuses   []string
+		runTime    time.Duration
 	}{
 		{
-			name:        "Duplicate ID error",
-			tasks:       []testTask{
+			name: "Duplicate ID error",
+			tasks: []testTask{
 				SlowSuccessTask1,
 				SlowSuccessTask1,
 			},
-			startupErr:  DuplicateIDErr.Error(),
-			errors:      []string{},
-			statuses:    []string{StatusPending},
-			runTime:     1 * time.Second,
+			startupErr: DuplicateIDErr.Error(),
+			errors:     []string{},
+			statuses:   []string{StatusPending},
+			runTime:    1 * time.Second,
 		},
 		{
-			name:        "No handlers exit immediately.",
-			tasks:       []testTask{},
-			startupErr:  "",
-			errors:      []string{},
-			statuses:    []string{StatusPending, StatusComplete},
-			runTime:     0 * time.Second,
+			name:       "No handlers exit immediately.",
+			tasks:      []testTask{},
+			startupErr: "",
+			errors:     []string{},
+			statuses:   []string{StatusPending, StatusComplete},
+			runTime:    0 * time.Second,
 		},
 		{
-			name:        "One task",
-			tasks:       []testTask{SlowSuccessTask1},
-			startupErr:  "",
-			errors:      []string{},
-			statuses:    []string{StatusPending, StatusActivePrefix + SlowSuccessTask1.description, StatusComplete},
-			runTime:     1 * time.Second,
+			name:       "One task",
+			tasks:      []testTask{SlowSuccessTask1},
+			startupErr: "",
+			errors:     []string{},
+			statuses:   []string{StatusPending, StatusActivePrefix + SlowSuccessTask1.description, StatusComplete},
+			runTime:    1 * time.Second,
 		},
 		{
-			name:        "Two tasks",
-			tasks:       []testTask{
+			name: "Two tasks",
+			tasks: []testTask{
 				SlowSuccessTask1,
 				SlowSuccessTask2,
 			},
-			startupErr:  "",
-			errors:      []string{},
-			statuses:    []string{
+			startupErr: "",
+			errors:     []string{},
+			statuses: []string{
 				StatusPending,
 				StatusActivePrefix + SlowSuccessTask1.description,
 				StatusActivePrefix + SlowSuccessTask2.description,
 				StatusComplete},
-			runTime:     2 * time.Second,
+			runTime: 2 * time.Second,
 		},
 		{
-			name:        "3 Fast tasks",
-			tasks:       []testTask{
+			name: "3 Fast tasks",
+			tasks: []testTask{
 				FastSuccessTask1,
 				FastSuccessTask2,
 				FastSuccessTask3,
 			},
-			startupErr:  "",
-			errors:      []string{},
-			statuses:    []string{
+			startupErr: "",
+			errors:     []string{},
+			statuses: []string{
 				StatusPending,
 				StatusActivePrefix + FastSuccessTask1.description,
 				StatusActivePrefix + FastSuccessTask2.description,
 				StatusActivePrefix + FastSuccessTask3.description,
 				StatusComplete},
-			runTime:     0 * time.Second,
+			runTime: 0 * time.Second,
 		},
 		{
-			name:        "Error right away",
-			tasks:       []testTask{
+			name: "Error right away",
+			tasks: []testTask{
 				FastErrorTask1,
 				SlowSuccessTask2,
 				SlowSuccessTask3,
 			},
-			startupErr:  "",
-			errors:      []string{MigrationError.Error()},
-			statuses:    []string{
+			startupErr: "",
+			errors:     []string{MigrationError.Error()},
+			statuses: []string{
 				StatusPending,
 				StatusActivePrefix + FastErrorTask1.description,
 				StatusErrorPrefix,
-				},
-			runTime:     0 * time.Second,
+			},
+			runTime: 0 * time.Second,
 		},
 		{
-			name:        "Error at the end of non blocking tasks",
-			tasks:       []testTask{
+			name: "Error at the end of non blocking tasks",
+			tasks: []testTask{
 				SlowSuccessTask1,
 				SlowSuccessTask2,
 				SlowErrorTask3,
 			},
-			startupErr:  "",
-			errors:      []string{MigrationError.Error()},
-			statuses:    []string{
+			startupErr: "",
+			errors:     []string{MigrationError.Error()},
+			statuses: []string{
 				StatusPending,
 				StatusActivePrefix + SlowSuccessTask1.description,
 				StatusActivePrefix + SlowSuccessTask2.description,
 				StatusActivePrefix + SlowErrorTask3.description,
 				StatusErrorPrefix,
 			},
-			runTime:     3 * time.Second,
+			runTime: 3 * time.Second,
 		},
 	}
 
@@ -173,7 +173,6 @@ func TestSuccessfulMigration(t *testing.T) {
 			recorder := make([]State, 0)
 			tasks := make([]Task, 0)
 			migration, _ := MakeMigration(tasks)
-
 
 			for _, testTask := range testcase.tasks {
 				tasks = append(tasks, testTask.Get(migration, &recorder))
@@ -198,11 +197,11 @@ func TestSuccessfulMigration(t *testing.T) {
 			}()
 
 			select {
-			case <- migChan:
+			case <-migChan:
 				// Final Status
 				recorder = append(recorder, migration.GetStatus())
 				fmt.Println("Migration complete, check results...")
-			case <- time.After(timeout):
+			case <-time.After(timeout):
 				require.Fail(t, "Migration timeout")
 				return
 			}
@@ -210,7 +209,7 @@ func TestSuccessfulMigration(t *testing.T) {
 			// Verify expected run duration
 			end := time.Now()
 			runtime := end.Sub(start)
-			if testcase.runTime > runtime + fuzzyness || testcase.runTime < runtime - fuzzyness {
+			if testcase.runTime > runtime+fuzzyness || testcase.runTime < runtime-fuzzyness {
 				t.Fatalf("runtime outside nominal duration %s != %s", runtime, testcase.runTime)
 			}
 

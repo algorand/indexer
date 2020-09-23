@@ -69,7 +69,7 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 	tasks := make([]migration.Task, 0)
 	for nextMigration < len(migrations) {
 		tasks = append(tasks, migration.Task{
-			Handler: wrapPostgresHandler(migrations[nextMigration].migrate, db, &state),
+			Handler:     wrapPostgresHandler(migrations[nextMigration].migrate, db, &state),
 			MigrationId: nextMigration,
 			Description: migrations[nextMigration].description,
 		})
