@@ -143,6 +143,7 @@ func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
 type TxnExtra struct {
 	AssetCloseAmount   uint64          `codec:"aca,omitempty"`
 	GlobalReverseDelta AppReverseDelta `codec:"agr,omitempty"`
+	LocalReverseDelta  AppReverseDelta `codec:"alr,omitempty"`
 }
 
 // TODO: sqlite3 impl

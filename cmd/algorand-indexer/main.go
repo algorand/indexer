@@ -16,6 +16,14 @@ import (
 	"github.com/algorand/indexer/version"
 )
 
+func maybeFail(err error, errfmt string, params ...interface{}) {
+	if err == nil {
+		return
+	}
+	fmt.Fprintf(os.Stderr, errfmt, params...)
+	os.Exit(1)
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "indexer",
 	Short: "Algorand Indexer",
@@ -27,11 +35,7 @@ var rootCmd = &cobra.Command{
 	},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if doVersion {
-			dirtyStr := ""
-			if (len(version.Dirty) > 0) && (version.Dirty != "false") {
-				dirtyStr = " (modified)"
-			}
-			fmt.Printf("%s compiled at %s from git hash %s%s\n", version.Version(), version.CompileTime, version.Hash, dirtyStr)
+			fmt.Printf("%s\n", version.LongVersion())
 			os.Exit(0)
 			return
 		}
@@ -110,7 +114,6 @@ func init() {
 		viper.AddConfigPath(k)
 	}
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
