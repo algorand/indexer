@@ -31,17 +31,32 @@ import (
 )
 
 func OpenPostgres(connection string, opts *IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
+	optsCpy := opts
+
 	db, err := sql.Open("postgres", connection)
 	if err != nil {
 		return nil, err
 	}
+
+	if optsCpy == nil {
+		optsCpy = &IndexerDbOptions{}
+	}
+
+	if strings.Contains(connection, "readonly") {
+		optsCpy.ReadOnly = true
+	}
+
+	return openPostgres(db, *optsCpy)
+}
+
+// Allow tests to inject a DB
+func openPostgres(db *sql.DB, opts IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
 	pdb = &PostgresIndexerDb{
 		db:         db,
 		protoCache: make(map[string]types.ConsensusParams, 20),
 	}
 	// e.g. a user named "readonly" is in the connection string
-	readonly := ((opts != nil) && opts.ReadOnly) || strings.Contains(connection, "readonly")
-	if !readonly {
+	if !opts.ReadOnly {
 		err = pdb.init()
 	}
 	return
@@ -1598,7 +1613,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 				account.Participation = part
 			}
 
-			if ! ad.SpendingKey.IsZero() {
+			if !ad.SpendingKey.IsZero() {
 				var spendingkey atypes.Address
 				copy(spendingkey[:], ad.SpendingKey[:])
 				account.AuthAddr = stringPtr(spendingkey.String())
