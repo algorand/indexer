@@ -1,13 +1,12 @@
 // You can build without postgres by `go build --tags nopostgres` but it's on by default
 // +build !nopostgres
 
-package postgres
+package idb
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/algorand/indexer/idb"
 	"log"
 	"math"
 	"time"
@@ -203,7 +202,7 @@ func m3acfgFixAsyncInner(db *PostgresIndexerDb, state *MigrationState, assetIds 
 			}
 			return i, nil
 		}
-		txrows := db.txTransactions(tx, idb.TransactionFilter{TypeEnum: 3, AssetId: uint64(aid)})
+		txrows := db.txTransactions(tx, TransactionFilter{TypeEnum: 3, AssetId: uint64(aid)})
 		prevRound := uint64(0)
 		first := true
 		var params types.AssetParams
@@ -315,7 +314,7 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() (err error) {
 	log.Print("txid fixup migration starting")
 	prevRound := state.NextRound - 1
 	txns := db.YieldTxns(context.Background(), prevRound)
-	batch := make([]idb.TxnRow, 15000)
+	batch := make([]TxnRow, 15000)
 	txInBatch := 0
 	roundsInBatch := 0
 	prevBatchRound := uint64(math.MaxUint64)
@@ -388,7 +387,7 @@ type txidFixupRow struct {
 	txid  string // base32 string
 }
 
-func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) error {
+func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []TxnRow) error {
 	db := mtxid.db
 	state := mtxid.state
 	minRound := batch[0].Round

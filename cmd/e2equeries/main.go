@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"flag"
 	"fmt"
-	"github.com/algorand/indexer/idb/postgres"
 	"os"
 	"time"
 
@@ -42,7 +41,7 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-	db, err := postgres.OpenPostgres(pgdb, &idb.IndexerDbOptions{ReadOnly: true})
+	db, err := idb.OpenPostgres(pgdb, &idb.IndexerDbOptions{ReadOnly: true})
 	maybeFail(err, "open postgres, %v", err)
 
 	rekeyTxnQuery := idb.TransactionFilter{RekeyTo: &truev, Limit: 1}
