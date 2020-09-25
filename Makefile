@@ -12,10 +12,10 @@ GOLDFLAGS += -X github.com/algorand/indexer/version.GitDecorateBase64=$(shell gi
 GOLDFLAGS += -X github.com/algorand/indexer/version.ReleaseVersion=$(shell cat .version)
 
 # This is the default target, build the indexer:
-cmd/algorand-indexer/algorand-indexer:	idb/setup_postgres_sql.go types/protocols_json.go .PHONY
+cmd/algorand-indexer/algorand-indexer:	idb/postgres/setup_postgres_sql.go types/protocols_json.go .PHONY
 	cd cmd/algorand-indexer && CGO_ENABLED=0 go build -ldflags="${GOLDFLAGS}"
 
-idb/setup_postgres_sql.go:	idb/postgres/setup_postgres.sql
+idb/postgres/setup_postgres_sql.go:	idb/postgres/setup_postgres.sql
 	cd idb/postgres && go generate
 
 types/protocols_json.go:	types/protocols.json types/consensus.go
