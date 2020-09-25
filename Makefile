@@ -16,7 +16,7 @@ cmd/algorand-indexer/algorand-indexer:	idb/setup_postgres_sql.go types/protocols
 	cd cmd/algorand-indexer && CGO_ENABLED=0 go build -ldflags="${GOLDFLAGS}"
 
 idb/setup_postgres_sql.go:	idb/postgres/setup_postgres.sql
-	cd idb && go generate
+	cd idb/postgres && go generate
 
 types/protocols_json.go:	types/protocols.json types/consensus.go
 	cd types && go generate
