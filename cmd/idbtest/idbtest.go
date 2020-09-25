@@ -14,6 +14,7 @@ import (
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
+	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/types"
 	testutil "github.com/algorand/indexer/util/test"
 )

@@ -13,6 +13,7 @@ import (
 
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
+	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/version"
 )
 

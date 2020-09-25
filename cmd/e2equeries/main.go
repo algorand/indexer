@@ -12,6 +12,7 @@ import (
 	atypes "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/idb"
+	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/types"
 	testutil "github.com/algorand/indexer/util/test"
 )
