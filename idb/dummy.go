@@ -340,6 +340,7 @@ func (df dummyFactory) Build(arg string, opts *IndexerDbOptions) (IndexerDb, err
 var indexerFactories map[string]IndexerFactory
 
 func init() {
+	indexerFactories = make(map[string]IndexerFactory)
 	RegisterFactory("dummy", &dummyFactory{})
 }
 
