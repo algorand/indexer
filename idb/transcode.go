@@ -4,16 +4,17 @@ import (
 	"fmt"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+
 	"github.com/algorand/go-codec/codec"
 )
 
-func stringify(ob interface{}) interface{} {
+func Stringify(ob interface{}) interface{} {
 	switch v := ob.(type) {
 	case map[interface{}]interface{}:
 		return stringifyMap(v)
 	case []interface{}:
 		for i := range v {
-			v[i] = stringify(v[i])
+			v[i] = Stringify(v[i])
 		}
 		return v
 	default:
@@ -27,22 +28,22 @@ func stringifyMap(ob map[interface{}]interface{}) map[interface{}]interface{} {
 	for tk, vv := range ob {
 		switch k := tk.(type) {
 		case string, []byte:
-			out[k] = stringify(vv)
+			out[k] = Stringify(vv)
 		default:
 			nk := fmt.Sprint(tk)
-			out[nk] = stringify(vv)
+			out[nk] = Stringify(vv)
 		}
 	}
 	return out
 }
 
-func msgpackToJson(msgp []byte) (js []byte, err error) {
+func MsgpackToJson(msgp []byte) (js []byte, err error) {
 	var ob map[interface{}]interface{}
 	err = msgpack.Decode(msgp, &ob)
 	if err != nil {
 		return
 	}
-	return JsonOneLine(stringify(ob)), nil
+	return JsonOneLine(Stringify(ob)), nil
 }
 
 func JsonOneLine(obj interface{}) []byte {

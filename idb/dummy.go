@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	atypes "github.com/algorand/go-algorand-sdk/types"
 
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -336,23 +337,25 @@ func (df dummyFactory) Build(arg string, opts *IndexerDbOptions) (IndexerDb, err
 }
 
 // This layer of indirection allows for different db integrations to be compiled in or compiled out by `go build --tags ...`
-var indexerFactories []IndexerFactory
+var indexerFactories map[string]IndexerFactory
 
 func init() {
-	indexerFactories = append(indexerFactories, &dummyFactory{})
+	RegisterFactory("dummy", &dummyFactory{})
 }
 
 type IndexerDbOptions struct {
 	ReadOnly bool
 }
 
-func IndexerDbByName(factoryname, arg string, opts *IndexerDbOptions) (IndexerDb, error) {
-	for _, ifac := range indexerFactories {
-		if ifac.Name() == factoryname {
-			return ifac.Build(arg, opts)
-		}
+func RegisterFactory(name string, factory IndexerFactory) {
+	indexerFactories[name] = factory
+}
+
+func IndexerDbByName(name, arg string, opts *IndexerDbOptions) (IndexerDb, error) {
+	if val, ok := indexerFactories[name]; ok {
+		return val.Build(arg, opts)
 	}
-	return nil, fmt.Errorf("no IndexerDb factory for %s", factoryname)
+	return nil, fmt.Errorf("no IndexerDb factory for %s", name)
 }
 
 type AccountDataUpdate struct {
@@ -513,4 +516,13 @@ func (ard *AppReverseDelta) SetDelta(key []byte, delta types.ValueDelta) {
 // base32 no padding
 func b32np(data []byte) string {
 	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(data)
+}
+
+type ImportState struct {
+	AccountRound int64 `codec:"account_round"`
+}
+
+func ParseImportState(js string) (istate ImportState, err error) {
+	err = json.Decode([]byte(js), &istate)
+	return
 }
