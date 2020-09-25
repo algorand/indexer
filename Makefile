@@ -15,7 +15,7 @@ GOLDFLAGS += -X github.com/algorand/indexer/version.ReleaseVersion=$(shell cat .
 cmd/algorand-indexer/algorand-indexer:	idb/setup_postgres_sql.go types/protocols_json.go .PHONY
 	cd cmd/algorand-indexer && CGO_ENABLED=0 go build -ldflags="${GOLDFLAGS}"
 
-idb/setup_postgres_sql.go:	idb/setup_postgres.sql
+idb/setup_postgres_sql.go:	idb/postgres
 	cd idb && go generate
 
 types/protocols_json.go:	types/protocols.json types/consensus.go

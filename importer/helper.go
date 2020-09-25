@@ -29,6 +29,15 @@ type ImportHelper struct {
 	BlockFileLimit int
 }
 
+type ImportState struct {
+	AccountRound int64 `codec:"account_round"`
+}
+
+func ParseImportState(js string) (istate ImportState, err error) {
+	err = json.Decode([]byte(js), &istate)
+	return
+}
+
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	err := ImportProto(db)
 	maybeFail(err, "import proto, %v", err)
@@ -199,7 +208,7 @@ func updateAccounting(db idb.IndexerDb, genesisJsonPath string, numRoundsLimit i
 	txnCount = 0
 	stateJsonStr, err := db.GetMetastate("state")
 	maybeFail(err, "getting import state, %v\n", err)
-	var state idb.ImportState
+	var state ImportState
 	if stateJsonStr == "" {
 		if genesisJsonPath != "" {
 			fmt.Printf("loading genesis %s\n", genesisJsonPath)
@@ -216,7 +225,7 @@ func updateAccounting(db idb.IndexerDb, genesisJsonPath string, numRoundsLimit i
 			return
 		}
 	} else {
-		state, err = idb.ParseImportState(stateJsonStr)
+		state, err = ParseImportState(stateJsonStr)
 		maybeFail(err, "parsing import state, %v\n", err)
 		fmt.Printf("will start from round >%d\n", state.AccountRound)
 	}

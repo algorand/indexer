@@ -1,6 +1,6 @@
 // GENERATED CODE from source setup_postgres.sql via go generate
 
-package idb
+package postgres
 
 const setup_postgres_sql = `-- This file is setup_postgres.sql which gets compiled into go source using a go:generate statement in postgres.go
 --

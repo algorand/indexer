@@ -341,10 +341,10 @@ func (df dummyFactory) Build(arg string, opts *IndexerDbOptions) (IndexerDb, err
 }
 
 // This layer of indirection allows for different db integrations to be compiled in or compiled out by `go build --tags ...`
-var indexerFactories []IndexerFactory
+var IndexerFactories []IndexerFactory
 
 func init() {
-	indexerFactories = append(indexerFactories, &dummyFactory{})
+	IndexerFactories = append(IndexerFactories, &dummyFactory{})
 }
 
 type IndexerDbOptions struct {
@@ -352,7 +352,7 @@ type IndexerDbOptions struct {
 }
 
 func IndexerDbByName(factoryname, arg string, opts *IndexerDbOptions) (IndexerDb, error) {
-	for _, ifac := range indexerFactories {
+	for _, ifac := range IndexerFactories {
 		if ifac.Name() == factoryname {
 			return ifac.Build(arg, opts)
 		}

@@ -1,8 +1,9 @@
-package idb
+package postgres
 
 import (
 	"database/sql"
 	"fmt"
+	"github.com/algorand/indexer/idb"
 	"github.com/stretchr/testify/require"
 	"log"
 	"net"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/ory/dockertest/v3"
 	"github.com/ory/dockertest/v3/docker"
+
+	"github.com/algorand/indexer/importer"
 )
 
 
@@ -109,15 +112,30 @@ func TestMain(m *testing.M) {
 }
 
 func TestSomething(t *testing.T) {
+
 	fmt.Println("Running the test?!")
-	pdb, err := openPostgres(db, IndexerDbOptions{
+	pdb, err := openPostgres(db, idb.IndexerDbOptions{
 		ReadOnly: false,
 	})
 
+	h := importer.ImportHelper{
+		GenesisJsonPath: "/home/will/algorand/indexer/foo/algod/genesis.json",
+		NumRoundsLimit:  0,
+		BlockFileLimit:  0,
+	}
+	h.Import(pdb, []string{"/home/will/algorand/indexer/foo/blocktars/*"})
+
+
+	health, err := pdb.Health()
 	require.NoError(t, err, "Failed to open postgres")
+	fmt.Println(health)
+
 	rnd, err := pdb.GetMaxRound()
 	require.NoError(t, err, "Failed to get max round")
 	fmt.Printf("Max round: %d\n", rnd)
 	require.NoError(t, err, "Failed to get max round")
 	fmt.Printf("Max round: %d\n", rnd)
+}
+
+type fakedb struct {
 }

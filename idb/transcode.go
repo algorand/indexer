@@ -36,7 +36,7 @@ func stringifyMap(ob map[interface{}]interface{}) map[interface{}]interface{} {
 	return out
 }
 
-func msgpackToJson(msgp []byte) (js []byte, err error) {
+func MsgpackToJson(msgp []byte) (js []byte, err error) {
 	var ob map[interface{}]interface{}
 	err = msgpack.Decode(msgp, &ob)
 	if err != nil {

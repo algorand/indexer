@@ -6,6 +6,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/algorand/indexer/idb/postgres"
 	"os"
 	"time"
 
@@ -128,7 +129,7 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-	db, err := idb.OpenPostgres(pgdb, nil)
+	db, err := postgres.OpenPostgres(pgdb, nil)
 	maybeFail(err, "open postgres, %v", err)
 
 	if accounttest {
