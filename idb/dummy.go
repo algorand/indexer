@@ -341,23 +341,26 @@ func (df dummyFactory) Build(arg string, opts *IndexerDbOptions) (IndexerDb, err
 }
 
 // This layer of indirection allows for different db integrations to be compiled in or compiled out by `go build --tags ...`
-var IndexerFactories []IndexerFactory
+var indexerFactories map[string]IndexerFactory
 
 func init() {
-	IndexerFactories = append(IndexerFactories, &dummyFactory{})
+	indexerFactories = make(map[string]IndexerFactory)
+	RegisterFactory("dummy", &dummyFactory{})
 }
 
 type IndexerDbOptions struct {
 	ReadOnly bool
 }
 
-func IndexerDbByName(factoryname, arg string, opts *IndexerDbOptions) (IndexerDb, error) {
-	for _, ifac := range IndexerFactories {
-		if ifac.Name() == factoryname {
-			return ifac.Build(arg, opts)
-		}
+func RegisterFactory(name string, factory IndexerFactory) {
+	indexerFactories[name] = factory
+}
+
+func IndexerDbByName(name, arg string, opts *IndexerDbOptions) (IndexerDb, error) {
+	if val, ok := indexerFactories[name]; ok {
+		return val.Build(arg, opts)
 	}
-	return nil, fmt.Errorf("no IndexerDb factory for %s", factoryname)
+	return nil, fmt.Errorf("no IndexerDb factory for %s", name)
 }
 
 type AccountDataUpdate struct {
@@ -525,3 +528,4 @@ type Health struct {
 	Round       uint64                  `json:"round"`
 	IsMigrating bool                    `json:"is-migrating"`
 }
+

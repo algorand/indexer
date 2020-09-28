@@ -114,7 +114,7 @@ func TestMain(m *testing.M) {
 func TestSomething(t *testing.T) {
 
 	fmt.Println("Running the test?!")
-	pdb, err := idb.openPostgres(db, idb.IndexerDbOptions{
+	pdb, err := openPostgres(db, idb.IndexerDbOptions{
 		ReadOnly: false,
 	})
 

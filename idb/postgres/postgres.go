@@ -1,7 +1,7 @@
 // You can build without postgres by `go build --tags nopostgres` but it's on by default
 // +build !nopostgres
 
-package idb
+package postgres
 
 // import text to contstant setup_postgres_sql
 //go:generate go run ../cmd/texttosource/main.go idb setup_postgres.sql
@@ -25,13 +25,14 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
-	models "github.com/algorand/indexer/api/generated/v2"
 	_ "github.com/lib/pq"
 
+	models "github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 )
 
-func OpenPostgres(connection string, opts *IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
+func OpenPostgres(connection string, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
 	optsCpy := opts
 
 	db, err := sql.Open("postgres", connection)
@@ -40,7 +41,7 @@ func OpenPostgres(connection string, opts *IndexerDbOptions) (pdb *PostgresIndex
 	}
 
 	if optsCpy == nil {
-		optsCpy = &IndexerDbOptions{}
+		optsCpy = &idb.IndexerDbOptions{}
 	}
 
 	if strings.Contains(connection, "readonly") {
@@ -51,7 +52,7 @@ func OpenPostgres(connection string, opts *IndexerDbOptions) (pdb *PostgresIndex
 }
 
 // Allow tests to inject a DB
-func openPostgres(db *sql.DB, opts IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
+func openPostgres(db *sql.DB, opts idb.IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
 	pdb = &PostgresIndexerDb{
 		db:         db,
 		protoCache: make(map[string]types.ConsensusParams, 20),
@@ -120,7 +121,7 @@ func (db *PostgresIndexerDb) StartBlock() (err error) {
 func (db *PostgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
 	txnbytes := msgpack.Encode(txn)
 	var jsonbytes []byte
-	jsonbytes, err := MsgpackToJson(txnbytes)
+	jsonbytes, err := idb.MsgpackToJson(txnbytes)
 	if err != nil {
 		return err
 	}
@@ -348,7 +349,7 @@ func init() {
 	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE t.round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
 }
 
-func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- TxnRow) {
+func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- idb.TxnRow) {
 	keepGoing := true
 	for keepGoing {
 		keepGoing = false
@@ -369,7 +370,7 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 			var roundtime time.Time
 			err := rows.Scan(&round, &intra, &txnbytes, &extrajson, &creatableid, &roundtime)
 			if err != nil {
-				var row TxnRow
+				var row idb.TxnRow
 				row.Error = err
 				results <- row
 				rows.Close()
@@ -405,7 +406,7 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 		}
 		// yield to chan
 		for i := 0; i < pos; i++ {
-			var row TxnRow
+			var row idb.TxnRow
 			row.Round = rounds[i]
 			row.RoundTime = roundtimes[i]
 			row.Intra = intras[i]
@@ -432,7 +433,7 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 			prevRound := rounds[pos-1]
 			rows, err = db.db.QueryContext(ctx, yieldTxnQuery, prevRound)
 			if err != nil {
-				results <- TxnRow{Error: err}
+				results <- idb.TxnRow{Error: err}
 				break
 			}
 		}
@@ -440,11 +441,11 @@ func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows
 	close(results)
 }
 
-func (db *PostgresIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow {
-	results := make(chan TxnRow, 1)
+func (db *PostgresIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan idb.TxnRow {
+	results := make(chan idb.TxnRow, 1)
 	rows, err := db.db.QueryContext(ctx, yieldTxnQuery, prevRound)
 	if err != nil {
-		results <- TxnRow{Error: err}
+		results <- idb.TxnRow{Error: err}
 		close(results)
 		return results
 	}
@@ -607,7 +608,7 @@ type inmemAppLocalState struct {
 }
 
 // Build a reverse delta and apply the delta to the TealKeyValue state.
-func applyKeyValueDelta(state *TealKeyValue, key []byte, vd types.ValueDelta, reverseDelta *AppReverseDelta) (err error) {
+func applyKeyValueDelta(state *TealKeyValue, key []byte, vd types.ValueDelta, reverseDelta *idb.AppReverseDelta) (err error) {
 	oldValue, ok := state.get(key)
 	if ok {
 		switch oldValue.Type {
@@ -671,7 +672,7 @@ func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []i
 	return append(dirty, x)
 }
 
-func (db *PostgresIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error) {
+func (db *PostgresIndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewardsBase uint64) (err error) {
 	any := false
 	tx, err := db.db.Begin()
 	if err != nil {
@@ -943,7 +944,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 				}
 			}
 			// calculate reverse delta, apply delta to state, save state to dirty
-			reverseDelta := AppReverseDelta{
+			reverseDelta := idb.AppReverseDelta{
 
 				OnCompletion: adelta.OnCompletion,
 			}
@@ -1044,7 +1045,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 				localstate.Schema = app.LocalStateSchema
 			}
 
-			var reverseDelta AppReverseDelta
+			var reverseDelta idb.AppReverseDelta
 
 			for key, vd := range ald.Delta {
 				err = applyKeyValueDelta(&localstate.KeyValue, []byte(key), vd, &reverseDelta)
@@ -1138,7 +1139,7 @@ func (db *PostgresIndexerDb) GetBlock(round uint64) (block types.Block, err erro
 	return
 }
 
-func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []interface{}, err error) {
+func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []interface{}, err error) {
 	// TODO? There are some combinations of tf params that will
 	// yield no results and we could catch that before asking the
 	// database. A hopefully rare optimization.
@@ -1154,37 +1155,37 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 		if tf.AddressRole != 0 {
 			addrBase64 := base64.StdEncoding.EncodeToString(tf.Address)
 			roleparts := make([]string, 0, 8)
-			if tf.AddressRole&AddressRoleSender != 0 {
+			if tf.AddressRole&idb.AddressRoleSender != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'snd' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&AddressRoleReceiver != 0 {
+			if tf.AddressRole&idb.AddressRoleReceiver != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'rcv' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&AddressRoleCloseRemainderTo != 0 {
+			if tf.AddressRole&idb.AddressRoleCloseRemainderTo != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'close' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&AddressRoleAssetSender != 0 {
+			if tf.AddressRole&idb.AddressRoleAssetSender != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'asnd' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&AddressRoleAssetReceiver != 0 {
+			if tf.AddressRole&idb.AddressRoleAssetReceiver != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'arcv' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&AddressRoleAssetCloseTo != 0 {
+			if tf.AddressRole&idb.AddressRoleAssetCloseTo != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'aclose' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
-			if tf.AddressRole&AddressRoleFreeze != 0 {
+			if tf.AddressRole&idb.AddressRoleFreeze != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'afrz' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
@@ -1326,8 +1327,8 @@ func buildTransactionQuery(tf TransactionFilter) (query string, whereArgs []inte
 	return
 }
 
-func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
-	out := make(chan TxnRow, 1)
+func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) <-chan idb.TxnRow {
+	out := make(chan idb.TxnRow, 1)
 	if len(tf.NextToken) > 0 {
 		go db.txnsWithNext(ctx, tf, out)
 		return out
@@ -1335,14 +1336,14 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 	query, whereArgs, err := buildTransactionQuery(tf)
 	if err != nil {
 		err = fmt.Errorf("txn query err %v", err)
-		out <- TxnRow{Error: err}
+		out <- idb.TxnRow{Error: err}
 		close(out)
 		return out
 	}
 	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
-		out <- TxnRow{Error: err}
+		out <- idb.TxnRow{Error: err}
 		close(out)
 		return out
 	}
@@ -1350,25 +1351,25 @@ func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf TransactionFil
 	return out
 }
 
-func (db *PostgresIndexerDb) txTransactions(tx *sql.Tx, tf TransactionFilter) <-chan TxnRow {
-	out := make(chan TxnRow, 1)
+func (db *PostgresIndexerDb) txTransactions(tx *sql.Tx, tf idb.TransactionFilter) <-chan idb.TxnRow {
+	out := make(chan idb.TxnRow, 1)
 	if len(tf.NextToken) > 0 {
 		err := fmt.Errorf("txTransactions incompatible with next")
-		out <- TxnRow{Error: err}
+		out <- idb.TxnRow{Error: err}
 		close(out)
 		return out
 	}
 	query, whereArgs, err := buildTransactionQuery(tf)
 	if err != nil {
 		err = fmt.Errorf("txn query err %v", err)
-		out <- TxnRow{Error: err}
+		out <- idb.TxnRow{Error: err}
 		close(out)
 		return out
 	}
 	rows, err := tx.Query(query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
-		out <- TxnRow{Error: err}
+		out <- idb.TxnRow{Error: err}
 		close(out)
 		return out
 	}
@@ -1376,11 +1377,11 @@ func (db *PostgresIndexerDb) txTransactions(tx *sql.Tx, tf TransactionFilter) <-
 	return out
 }
 
-func (db *PostgresIndexerDb) txnsWithNext(ctx context.Context, tf TransactionFilter, out chan<- TxnRow) {
-	nextround, nextintra32, err := DecodeTxnRowNext(tf.NextToken)
+func (db *PostgresIndexerDb) txnsWithNext(ctx context.Context, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
+	nextround, nextintra32, err := idb.DecodeTxnRowNext(tf.NextToken)
 	nextintra := uint64(nextintra32)
 	if err != nil {
-		out <- TxnRow{Error: err}
+		out <- idb.TxnRow{Error: err}
 		close(out)
 	}
 	origRound := tf.Round
@@ -1402,14 +1403,14 @@ func (db *PostgresIndexerDb) txnsWithNext(ctx context.Context, tf TransactionFil
 	query, whereArgs, err := buildTransactionQuery(tf)
 	if err != nil {
 		err = fmt.Errorf("txn query err %v", err)
-		out <- TxnRow{Error: err}
+		out <- idb.TxnRow{Error: err}
 		close(out)
 		return
 	}
 	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
-		out <- TxnRow{Error: err}
+		out <- idb.TxnRow{Error: err}
 		close(out)
 		return
 	}
@@ -1448,21 +1449,21 @@ func (db *PostgresIndexerDb) txnsWithNext(ctx context.Context, tf TransactionFil
 	query, whereArgs, err = buildTransactionQuery(tf)
 	if err != nil {
 		err = fmt.Errorf("txn query err %v", err)
-		out <- TxnRow{Error: err}
+		out <- idb.TxnRow{Error: err}
 		close(out)
 		return
 	}
 	rows, err = db.db.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
-		out <- TxnRow{Error: err}
+		out <- idb.TxnRow{Error: err}
 		close(out)
 		return
 	}
 	db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
 }
 
-func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, results chan<- TxnRow, doClose bool, countp *int, errp *error) {
+func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, results chan<- idb.TxnRow, doClose bool, countp *int, errp *error) {
 	count := 0
 	for rows.Next() {
 		var round uint64
@@ -1472,7 +1473,7 @@ func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sq
 		var extraJson []byte
 		var roundtime time.Time
 		err := rows.Scan(&round, &intra, &txnbytes, &extraJson, &asset, &roundtime)
-		var row TxnRow
+		var row idb.TxnRow
 		if err != nil {
 			row.Error = err
 		} else {
@@ -1516,7 +1517,7 @@ var statusStrings = []string{"Offline", "Online", "NotParticipating"}
 
 const offlineStatusIdx = 0
 
-func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts AccountQueryOptions, rows *sql.Rows, tx *sql.Tx, blockheader types.Block, out chan<- AccountRow) {
+func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.AccountQueryOptions, rows *sql.Rows, tx *sql.Tx, blockheader types.Block, out chan<- idb.AccountRow) {
 	defer tx.Rollback()
 	count := uint64(0)
 	for rows.Next() {
@@ -1575,7 +1576,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 			)
 		}
 		if err != nil {
-			out <- AccountRow{Error: err}
+			out <- idb.AccountRow{Error: err}
 			break
 		}
 
@@ -1597,7 +1598,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 			var ad types.AccountData
 			err = json.Decode(accountDataJsonStr, &ad)
 			if err != nil {
-				out <- AccountRow{Error: err}
+				out <- idb.AccountRow{Error: err}
 				break
 			}
 			account.Status = statusStrings[ad.Status]
@@ -1630,7 +1631,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 			// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
 			proto, err := db.GetProto(string(blockheader.CurrentProtocol))
 			if err != nil {
-				out <- AccountRow{Error: err}
+				out <- idb.AccountRow{Error: err}
 				break
 			}
 			rewardsUnits := uint64(0)
@@ -1650,19 +1651,19 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 			var haids []uint64
 			err = json.Decode(holdingAssetid, &haids)
 			if err != nil {
-				out <- AccountRow{Error: err}
+				out <- idb.AccountRow{Error: err}
 				break
 			}
 			var hamounts []uint64
 			err = json.Decode(holdingAmount, &hamounts)
 			if err != nil {
-				out <- AccountRow{Error: err}
+				out <- idb.AccountRow{Error: err}
 				break
 			}
 			var hfrozen []bool
 			err = json.Decode(holdingFrozen, &hfrozen)
 			if err != nil {
-				out <- AccountRow{Error: err}
+				out <- idb.AccountRow{Error: err}
 				break
 			}
 			av := make([]models.AssetHolding, 0, len(haids))
@@ -1704,13 +1705,13 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 			var assetids []uint64
 			err = json.Decode(assetParamsIds, &assetids)
 			if err != nil {
-				out <- AccountRow{Error: err}
+				out <- idb.AccountRow{Error: err}
 				break
 			}
 			var assetParams []types.AssetParams
 			err = json.Decode(assetParamsStr, &assetParams)
 			if err != nil {
-				out <- AccountRow{Error: err}
+				out <- idb.AccountRow{Error: err}
 				break
 			}
 			cal := make([]models.Asset, 0, len(assetids))
@@ -1760,19 +1761,19 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 			err = json.Decode(appParamIndexes, &appIds)
 			if err != nil {
 				err = fmt.Errorf("parsing json appids, %v", err)
-				out <- AccountRow{Error: err}
+				out <- idb.AccountRow{Error: err}
 				break
 			}
 			var apps []AppParams
 			err = json.Decode(appParams, &apps)
 			if err != nil {
 				err = fmt.Errorf("parsing json appparams, %v", err)
-				out <- AccountRow{Error: err}
+				out <- idb.AccountRow{Error: err}
 				break
 			}
 			if len(appIds) != len(apps) {
 				err = fmt.Errorf("account app unpacking got %d appids but %d apps", len(appIds), len(apps))
-				out <- AccountRow{Error: err}
+				out <- idb.AccountRow{Error: err}
 				break
 			}
 
@@ -1810,19 +1811,19 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 			err = json.Decode(localStateAppIds, &appIds)
 			if err != nil {
 				err = fmt.Errorf("parsing json local appids, %v", err)
-				out <- AccountRow{Error: err}
+				out <- idb.AccountRow{Error: err}
 				break
 			}
 			var ls []AppLocalState
 			err = json.Decode(localStates, &ls)
 			if err != nil {
 				err = fmt.Errorf("parsing json local states, %v", err)
-				out <- AccountRow{Error: err}
+				out <- idb.AccountRow{Error: err}
 				break
 			}
 			if len(appIds) != len(ls) {
 				err = fmt.Errorf("account app unpacking got %d appids but %d appls", len(appIds), len(ls))
-				out <- AccountRow{Error: err}
+				out <- idb.AccountRow{Error: err}
 				break
 			}
 			aout := make([]models.ApplicationLocalState, len(appIds))
@@ -1844,7 +1845,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts Accou
 		}
 
 		select {
-		case out <- AccountRow{Account: account}:
+		case out <- idb.AccountRow{Account: account}:
 			count++
 			if count >= opts.Limit {
 				close(out)
@@ -1926,14 +1927,14 @@ func bytesStr(addr []byte) *string {
 
 var readOnlyTx = sql.TxOptions{ReadOnly: true}
 
-func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow {
-	out := make(chan AccountRow, 1)
+func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) <-chan idb.AccountRow {
+	out := make(chan idb.AccountRow, 1)
 
 	if opts.HasAssetId != 0 {
 		opts.IncludeAssetHoldings = true
 	} else if (opts.AssetGT != 0) || (opts.AssetLT != 0) {
 		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetId=%d", opts.AssetGT, opts.AssetLT, opts.HasAssetId)
-		out <- AccountRow{Error: err}
+		out <- idb.AccountRow{Error: err}
 		close(out)
 		return out
 	}
@@ -1942,7 +1943,7 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	tx, err := db.db.BeginTx(ctx, &readOnlyTx)
 	if err != nil {
 		err = fmt.Errorf("account tx err %v", err)
-		out <- AccountRow{Error: err}
+		out <- idb.AccountRow{Error: err}
 		close(out)
 		return out
 	}
@@ -1953,7 +1954,7 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	err = row.Scan(&accountRound)
 	if err != nil {
 		err = fmt.Errorf("account_round err %v", err)
-		out <- AccountRow{Error: err}
+		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback()
 		return out
@@ -1965,7 +1966,7 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	err = row.Scan(&headerjson)
 	if err != nil {
 		err = fmt.Errorf("account round header %d err %v", accountRound, err)
-		out <- AccountRow{Error: err}
+		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback()
 		return out
@@ -1974,7 +1975,7 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	err = json.Decode(headerjson, &blockheader)
 	if err != nil {
 		err = fmt.Errorf("account round header %d err %v", accountRound, err)
-		out <- AccountRow{Error: err}
+		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback()
 		return out
@@ -1985,7 +1986,7 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	rows, err := tx.Query(query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("account query %#v err %v", query, err)
-		out <- AccountRow{Error: err}
+		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback()
 		return out
@@ -1994,7 +1995,7 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryO
 	return out
 }
 
-func (db *PostgresIndexerDb) buildAccountQuery(opts AccountQueryOptions) (query string, whereArgs []interface{}) {
+func (db *PostgresIndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query string, whereArgs []interface{}) {
 	// Construct query for fetching accounts...
 	query = `SELECT a.addr, a.microalgos, a.rewardsbase, a.keytype, a.account_data FROM account a`
 	const maxWhereParts = 14
@@ -2062,7 +2063,7 @@ func (db *PostgresIndexerDb) buildAccountQuery(opts AccountQueryOptions) (query 
 	return query, whereArgs
 }
 
-func (db *PostgresIndexerDb) Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow {
+func (db *PostgresIndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) <-chan idb.AssetRow {
 	query := `SELECT index, creator_addr, params FROM asset a`
 	const maxWhereParts = 14
 	whereParts := make([]string, 0, maxWhereParts)
@@ -2107,11 +2108,11 @@ func (db *PostgresIndexerDb) Assets(ctx context.Context, filter AssetsQuery) <-c
 	if filter.Limit != 0 {
 		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
 	}
-	out := make(chan AssetRow, 1)
+	out := make(chan idb.AssetRow, 1)
 	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("asset query %#v err %v", query, err)
-		out <- AssetRow{Error: err}
+		out <- idb.AssetRow{Error: err}
 		close(out)
 		return out
 	}
@@ -2119,7 +2120,7 @@ func (db *PostgresIndexerDb) Assets(ctx context.Context, filter AssetsQuery) <-c
 	return out
 }
 
-func (db *PostgresIndexerDb) yieldAssetsThread(ctx context.Context, filter AssetsQuery, rows *sql.Rows, out chan<- AssetRow) {
+func (db *PostgresIndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQuery, rows *sql.Rows, out chan<- idb.AssetRow) {
 	for rows.Next() {
 		var index uint64
 		var creator_addr []byte
@@ -2128,16 +2129,16 @@ func (db *PostgresIndexerDb) yieldAssetsThread(ctx context.Context, filter Asset
 
 		err = rows.Scan(&index, &creator_addr, &paramsJsonStr)
 		if err != nil {
-			out <- AssetRow{Error: err}
+			out <- idb.AssetRow{Error: err}
 			break
 		}
 		var params types.AssetParams
 		err = json.Decode(paramsJsonStr, &params)
 		if err != nil {
-			out <- AssetRow{Error: err}
+			out <- idb.AssetRow{Error: err}
 			break
 		}
-		rec := AssetRow{
+		rec := idb.AssetRow{
 			AssetId: index,
 			Creator: creator_addr,
 			Params:  params,
@@ -2152,7 +2153,7 @@ func (db *PostgresIndexerDb) yieldAssetsThread(ctx context.Context, filter Asset
 	close(out)
 }
 
-func (db *PostgresIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow {
+func (db *PostgresIndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuery) <-chan idb.AssetBalanceRow {
 	const maxWhereParts = 14
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
@@ -2188,9 +2189,9 @@ func (db *PostgresIndexerDb) AssetBalances(ctx context.Context, abq AssetBalance
 		query += fmt.Sprintf(" LIMIT %d", abq.Limit)
 	}
 	rows, err = db.db.QueryContext(ctx, query, whereArgs...)
-	out := make(chan AssetBalanceRow, 1)
+	out := make(chan idb.AssetBalanceRow, 1)
 	if err != nil {
-		out <- AssetBalanceRow{Error: err}
+		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
 		return out
 	}
@@ -2198,7 +2199,7 @@ func (db *PostgresIndexerDb) AssetBalances(ctx context.Context, abq AssetBalance
 	return out
 }
 
-func (db *PostgresIndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows, out chan<- AssetBalanceRow) {
+func (db *PostgresIndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows, out chan<- idb.AssetBalanceRow) {
 	for rows.Next() {
 		var addr []byte
 		var assetId uint64
@@ -2206,10 +2207,10 @@ func (db *PostgresIndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *
 		var frozen bool
 		err := rows.Scan(&addr, &assetId, &amount, &frozen)
 		if err != nil {
-			out <- AssetBalanceRow{Error: err}
+			out <- idb.AssetBalanceRow{Error: err}
 			break
 		}
-		rec := AssetBalanceRow{
+		rec := idb.AssetBalanceRow{
 			Address: addr,
 			AssetId: assetId,
 			Amount:  amount,
@@ -2225,7 +2226,7 @@ func (db *PostgresIndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *
 	close(out)
 }
 
-func (db *PostgresIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow {
+func (db *PostgresIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan idb.ApplicationRow {
 	query := `SELECT index, creator, params FROM app `
 
 	const maxWhereParts = 30
@@ -2250,11 +2251,11 @@ func (db *PostgresIndexerDb) Applications(ctx context.Context, filter *models.Se
 	if filter.Limit != nil {
 		query += fmt.Sprintf(" LIMIT %d", *filter.Limit)
 	}
-	out := make(chan ApplicationRow, 1)
+	out := make(chan idb.ApplicationRow, 1)
 	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
 
 	if err != nil {
-		out <- ApplicationRow{Error: err}
+		out <- idb.ApplicationRow{Error: err}
 		close(out)
 		return out
 	}
@@ -2262,17 +2263,17 @@ func (db *PostgresIndexerDb) Applications(ctx context.Context, filter *models.Se
 	return out
 }
 
-func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows, out chan ApplicationRow) {
+func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows, out chan idb.ApplicationRow) {
 	for rows.Next() {
 		var index int64
 		var creator []byte
 		var paramsjson []byte
 		err := rows.Scan(&index, &creator, &paramsjson)
 		if err != nil {
-			out <- ApplicationRow{Error: err}
+			out <- idb.ApplicationRow{Error: err}
 			break
 		}
-		var rec ApplicationRow
+		var rec idb.ApplicationRow
 		rec.Application.Id = uint64(index)
 		var ap AppParams
 		err = json.Decode(paramsjson, &ap)
@@ -2303,7 +2304,7 @@ func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *
 	close(out)
 }
 
-func (db *PostgresIndexerDb) Health() (health Health, err error) {
+func (db *PostgresIndexerDb) Health() (health idb.Health, err error) {
 	state := db.migration.GetStatus()
 
 	var data = make(map[string]interface{})
@@ -2320,7 +2321,7 @@ func (db *PostgresIndexerDb) Health() (health Health, err error) {
 	}
 
 	round, err := db.GetMaxRound()
-	return Health{
+	return idb.Health{
 		Data:        ptr,
 		Round:       round,
 		IsMigrating: state.Running,
@@ -2333,11 +2334,11 @@ type postgresFactory struct {
 func (df postgresFactory) Name() string {
 	return "postgres"
 }
-func (df postgresFactory) Build(arg string, opts *IndexerDbOptions) (IndexerDb, error) {
+func (df postgresFactory) Build(arg string, opts *idb.IndexerDbOptions) (idb.IndexerDb, error) {
 	return OpenPostgres(arg, opts)
 }
 
 func init() {
-	IndexerFactories = append(IndexerFactories, &postgresFactory{})
+	idb.RegisterFactory("postgres", &postgresFactory{})
 }
 
