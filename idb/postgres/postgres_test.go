@@ -8,11 +8,10 @@ import (
 	"log"
 	"net"
 	"os"
-	"strconv"
 	"testing"
 
-	"github.com/ory/dockertest/v3"
-	"github.com/ory/dockertest/v3/docker"
+	//"github.com/ory/dockertest/v3"
+	//"github.com/ory/dockertest/v3/docker"
 
 	"github.com/algorand/indexer/importer"
 )
@@ -41,6 +40,7 @@ func mustGetRandomPort() int {
 	return port
 }
 
+/*
 func initDB() (cleaner func()) {
 	// uses a sensible default on windows (tcp/http) and linux/osx (socket)
 	pool, err := dockertest.NewPool("")
@@ -95,6 +95,7 @@ func initDB() (cleaner func()) {
 		}
 	}
 }
+ */
 
 func TestMain(m *testing.M) {
 	if os.Getenv("RUN_DOCKER_TESTS") == "" {
@@ -102,11 +103,11 @@ func TestMain(m *testing.M) {
 		return
 	}
 
-	cleaner := initDB()
+	//cleaner := initDB()
 
 	code := m.Run()
 
-	cleaner()
+	//cleaner()
 
 	os.Exit(code)
 }
