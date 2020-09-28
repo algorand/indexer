@@ -77,14 +77,16 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 		nextMigration++
 	}
 
-	// Add a task to mark migrations as done instead of using a channel.
-	tasks = append(tasks, migration.Task{
-		MigrationId: 9999999,
-		Handler: func() error {
-			return db.markMigrationsAsDone()
-		},
-		Description: "Mark migrations done",
-	})
+	if len(tasks) > 0 {
+		// Add a task to mark migrations as done instead of using a channel.
+		tasks = append(tasks, migration.Task{
+			MigrationId: 9999999,
+			Handler: func() error {
+				return db.markMigrationsAsDone()
+			},
+			Description: "Mark migrations done",
+		})
+	}
 
 	db.migration, err = migration.MakeMigration(tasks)
 	if err != nil {
