@@ -2,44 +2,42 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"database/sql/driver"
 	"errors"
 	"fmt"
 )
 
-type MockConnector struct{
-	driver driver.Driver
-}
-
-func MakeMockConnector(driver driver.Driver) *MockConnector {
-	return &MockConnector{
-		driver: driver,
+// MakeMockDB initializes a sql.DB object with a mocked driver loaded
+// to respond with the provided statements.
+func MakeMockDB(statements []*MockStmt) *sql.DB {
+	driver := &MockDriver{
+		statementIdx: 0,
+		Statements:   statements,
 	}
+	return sql.OpenDB(driver)
 }
 
-func (c *MockConnector) Connect(ctx context.Context) (driver.Conn, error) {
-	return c.driver.Open("")
-}
-
-func (c *MockConnector) Driver() driver.Driver {
-	return c.driver
-}
-
+// MockDriver is the core of a mocked sql.DB object. It implements
+// several interfaces: driver.Connector, driver.Conn, 
 type MockDriver struct {
 	statementIdx int
 	Statements   []*MockStmt
 }
 
-func MakeMockDriver(statements []*MockStmt) *MockDriver {
-	return &MockDriver{
-		statementIdx: 0,
-		Statements:   statements,
-	}
+// Connect - part of driver.Connector
+func (c *MockDriver) Connect(ctx context.Context) (driver.Conn, error) {
+	return c.Open("")
 }
 
-// Open is the "sql.Driver" interface
+// Driver - part of driver.Connector
+func (c *MockDriver) Driver() driver.Driver {
+	return c
+}
+
+// Open - Part of sql.Driver
 func (m *MockDriver)Open(name string) (driver.Conn, error) {
-	fmt.Println("driver.Driver : Open")
+	//fmt.Println("driver.Driver : Open")
 	return m, nil
 }
 
@@ -67,19 +65,17 @@ func (m *MockDriver)Prepare(query string) (driver.Stmt, error) {
 
 // Close - Part of driver.Conn
 func (m *MockDriver)Close() error {
-	fmt.Println("driver.Conn : Close")
+	//fmt.Println("driver.Conn : Close")
 	return nil
 }
 
 // Begin - Part of driver.Conn
 func (m *MockDriver)Begin() (driver.Tx, error) {
-	fmt.Println("driver.Conn : Begin")
+	//fmt.Println("driver.Conn : Begin")
 	return &MockTx{}, nil
 }
 
-//
-//
-//
+// MakeMockStmt is used to orchestrate the lifecycle of a sql.DB statement.
 func MakeMockStmt(parts int, columns []string, rows [][]interface{}) *MockStmt {
 	return &MockStmt{
 		parts:   parts,
@@ -89,6 +85,10 @@ func MakeMockStmt(parts int, columns []string, rows [][]interface{}) *MockStmt {
 	}
 }
 
+// MockStmt orchestrates the lifecycle of a sql.DB statement
+// It implements driver.Stmt and driver.Rows. If I needed them,
+// it probably would have also implemented driver.Tx and
+// driver.Result.
 type MockStmt struct {
 	// number of parameterized arguments
 	parts   int
@@ -100,19 +100,19 @@ type MockStmt struct {
 
 // Close - Part of driver.Stmt interfaces
 func (s *MockStmt) Close() error {
-	fmt.Println("driver.Stmt / driver.Rows - Close")
+	//fmt.Println("driver.Stmt / driver.Rows - Close")
 	return nil
 }
 
 // NumInput - Part of driver.Stmt
 func (s *MockStmt) NumInput() int {
-	fmt.Println("driver.Stmt - NumInput")
+	//fmt.Println("driver.Stmt - NumInput")
 	return s.parts
 }
 
 // Exec - Part of driver.Stmt
 func (s *MockStmt) Exec(args []driver.Value) (driver.Result, error) {
-	fmt.Println("driver.Stmt - Exec")
+	//fmt.Println("driver.Stmt - Exec")
 	return &MockResult{
 		insertId: 0,
 		rows:     0,
@@ -121,23 +121,19 @@ func (s *MockStmt) Exec(args []driver.Value) (driver.Result, error) {
 
 // Query - Part of driver.Stmt
 func (s *MockStmt) Query(args []driver.Value) (driver.Rows, error) {
-	fmt.Println("driver.Stmt - Query")
+	//fmt.Println("driver.Stmt - Query")
 	return s, nil
 }
 
-//
-//
-//
-
 // Columns - Part of driver.Rows
 func (s *MockStmt) Columns() []string {
-	fmt.Println("driver.Rows - Columns")
+	//fmt.Println("driver.Rows - Columns")
 	return s.columns
 }
 
 // Next - Part of driver.Rows
 func (s *MockStmt) Next(dest []driver.Value) error {
-	fmt.Println("driver.Rows - Next")
+	//fmt.Println("driver.Rows - Next")
 	if s.rowNum > len(s.rows) {
 		return errors.New("no more rows loaded in mock driver")
 	}
@@ -155,9 +151,7 @@ func (s *MockStmt) Next(dest []driver.Value) error {
 	return nil
 }
 
-//
-//
-//
+// MockResult is something I didn't need but is part of the interface.
 type MockResult struct {
 	insertId int64
 	rows     int64
@@ -165,28 +159,26 @@ type MockResult struct {
 
 // LastInsertId - Part of driver.Result interface
 func (s *MockResult) LastInsertId() (int64, error) {
-	fmt.Println("driver.Result - LastInsertId")
+	//fmt.Println("driver.Result - LastInsertId")
 	return s.insertId, nil
 }
 
 // RowsAffected - Part of driver.Result interface
 func (s *MockResult) RowsAffected() (int64, error) {
-	fmt.Println("driver.Result - RowsAffected")
+	//fmt.Println("driver.Result - RowsAffected")
 	return s.rows, nil
 }
 
-//
-//
-//
+// MockTx is something I didn't need but is part of the interface.
 type MockTx struct {
 }
 
 func (t *MockTx) Commit() error {
-	fmt.Println("driver.Tx - Commit")
+	//fmt.Println("driver.Tx - Commit")
 	return nil
 }
 
 func (t *MockTx) Rollback() error {
-	fmt.Println("driver.Tx - Rollback")
+	//fmt.Println("driver.Tx - Rollback")
 	return nil
 }
