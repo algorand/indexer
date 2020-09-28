@@ -52,7 +52,7 @@ const maxBalancesLimit = 10000
 const defaultBalancesLimit = 1000
 
 ////////////////////////////
-// Handler postgres //
+// Handler implementation //
 ////////////////////////////
 
 // Returns 200 if healthy.

@@ -33,32 +33,23 @@ import (
 )
 
 func OpenPostgres(connection string, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
-	optsCpy := opts
-
 	db, err := sql.Open("postgres", connection)
 	if err != nil {
 		return nil, err
 	}
-
-	if optsCpy == nil {
-		optsCpy = &idb.IndexerDbOptions{}
-	}
-
-	if strings.Contains(connection, "readonly") {
-		optsCpy.ReadOnly = true
-	}
-
-	return openPostgres(db, *optsCpy)
+	return openPostgres(db, opts)
 }
 
 // Allow tests to inject a DB
-func openPostgres(db *sql.DB, opts idb.IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
+func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
 	pdb = &PostgresIndexerDb{
 		db:         db,
 		protoCache: make(map[string]types.ConsensusParams, 20),
 	}
+
 	// e.g. a user named "readonly" is in the connection string
-	if !opts.ReadOnly {
+	readonly := ((opts != nil) && opts.ReadOnly) || strings.Contains(connection, "readonly")
+	if !readonly {
 		err = pdb.init()
 	}
 	return
