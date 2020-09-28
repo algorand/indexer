@@ -14,6 +14,7 @@ import (
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
+	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/types"
 	testutil "github.com/algorand/indexer/util/test"
 )
@@ -128,7 +129,7 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-	db, err := idb.OpenPostgres(pgdb, nil)
+	db, err := idb.IndexerDbByName("postgres", pgdb, nil)
 	maybeFail(err, "open postgres, %v", err)
 
 	if accounttest {

@@ -12,6 +12,7 @@ import (
 	atypes "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/idb"
+	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/types"
 	testutil "github.com/algorand/indexer/util/test"
 )
@@ -41,7 +42,7 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-	db, err := idb.OpenPostgres(pgdb, &idb.IndexerDbOptions{ReadOnly: true})
+	db, err := idb.IndexerDbByName("postgres", pgdb, &idb.IndexerDbOptions{ReadOnly: true})
 	maybeFail(err, "open postgres, %v", err)
 
 	rekeyTxnQuery := idb.TransactionFilter{RekeyTo: &truev, Limit: 1}
