@@ -2,23 +2,24 @@ package middlewares
 
 import (
 	"errors"
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/mocks"
+	"testing"
+
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"testing"
+
+	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/mocks"
 )
 
 var errSuccess = errors.New("unexpected success")
 var e = echo.New()
 var testAPIHeader = "API-Header-Whatever"
 
-// success is the "next" handler, it is only called when auth allows the request to continue
+// success is the "next" handler, it is only called when a request is allowed to continue
 func success(ctx echo.Context) error {
 	return errSuccess
 }
-
 
 func TestMigrationMiddlewareWaiting(t *testing.T) {
 	mockIndexer := &mocks.IndexerDb{}
@@ -31,7 +32,7 @@ func TestMigrationMiddlewareWaiting(t *testing.T) {
 	handler := MakeMigrationMiddleware(mockIndexer)(success)
 	err := handler(e.NewContext(nil, nil))
 
-	require.Error(t, err, InProgressError)
+	require.Error(t, err, InProgressError, `'IsMigrating' is true, so we should see an InProgressError`)
 }
 
 func TestMigrationMiddlewareDone(t *testing.T) {
@@ -45,5 +46,5 @@ func TestMigrationMiddlewareDone(t *testing.T) {
 	handler := MakeMigrationMiddleware(mockIndexer)(success)
 	err := handler(e.NewContext(nil, nil))
 
-	require.Error(t, err, errSuccess.Error())
+	require.Error(t, err, errSuccess.Error(), `'IsMigrating' is false, so errSuccess should pass through`)
 }
