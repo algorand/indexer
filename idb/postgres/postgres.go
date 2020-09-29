@@ -2322,9 +2322,10 @@ func (db *PostgresIndexerDb) Health() (health idb.Health, err error) {
 
 	round, err := db.GetMaxRound()
 	return idb.Health{
-		Data:        ptr,
-		Round:       round,
-		IsMigrating: state.Running,
+		Data:          ptr,
+		Round:         round,
+		IsMigrating:   state.Running,
+		DbUnavailable: state.Blocking,
 	}, err
 }
 
