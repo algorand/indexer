@@ -34,9 +34,18 @@ import (
 
 func OpenPostgres(connection string, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
 	db, err := sql.Open("postgres", connection)
+
 	if err != nil {
 		return nil, err
 	}
+
+	if strings.Contains(connection, "readonly") {
+		if opts == nil {
+			opts = &idb.IndexerDbOptions{}
+		}
+		opts.ReadOnly = true
+	}
+
 	return openPostgres(db, opts)
 }
 
@@ -48,7 +57,7 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerD
 	}
 
 	// e.g. a user named "readonly" is in the connection string
-	readonly := ((opts != nil) && opts.ReadOnly) || strings.Contains(connection, "readonly")
+	readonly := (opts != nil) && opts.ReadOnly
 	if !readonly {
 		err = pdb.init()
 	}

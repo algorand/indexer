@@ -2,9 +2,10 @@ package postgres
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/algorand/indexer/idb"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestAllMigrations(t *testing.T) {
