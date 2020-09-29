@@ -37,6 +37,8 @@ type postgresMigrationFunc func(*PostgresIndexerDb, *MigrationState) error
 type migrationStruct struct {
 	migrate postgresMigrationFunc
 
+	blocking bool
+
 	// Description of the migration
 	description string
 }
@@ -70,9 +72,10 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 	tasks := make([]migration.Task, 0)
 	for nextMigration < len(migrations) {
 		tasks = append(tasks, migration.Task{
-			Handler:     wrapPostgresHandler(migrations[nextMigration].migrate, db, &state),
-			MigrationId: nextMigration,
-			Description: migrations[nextMigration].description,
+			Handler:       wrapPostgresHandler(migrations[nextMigration].migrate, db, &state),
+			MigrationId:   nextMigration,
+			Description:   migrations[nextMigration].description,
+			DBUnavailable: migrations[nextMigration].blocking,
 		})
 		nextMigration++
 	}
@@ -291,10 +294,10 @@ func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []strin
 
 func init() {
 	migrations = []migrationStruct{
-		{m0fixupTxid, "Recompute the txid with corrected algorithm."},
-		{m1fixupBlockTime, "Adjust block time to UTC timezone."},
-		{m2apps, "Update DB Schema for Algorand application support."},
-		{m3acfgFix, "Recompute asset configurations with corrected merge function."},
+		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
+		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
+		{m2apps, true, "Update DB Schema for Algorand application support."},
+		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
 	}
 }
 

@@ -1,33 +1,17 @@
 package postgres
 
 import (
-	"database/sql"
 	"fmt"
+	"testing"
+
 	"github.com/algorand/indexer/idb"
 	"github.com/stretchr/testify/require"
-	"testing"
 )
-
-
-var (
-	db *sql.DB
-
-	user     = "postgres"
-	password = "secret"
-	database = "postgres"
-)
-
-func initializeMockDb(statements []*MockStmt) (*sql.DB, error) {
-	driver := MakeMockDriver(statements)
-	connector := MakeMockConnector(driver)
-	// OpenDB is specifically intended to create a DB instance for test purposes.
-	return sql.OpenDB(connector), nil
-}
 
 func TestAllMigrations(t *testing.T) {
 	for idx, m := range migrations {
 		t.Run(fmt.Sprintf("Test migration %d", idx), func(t *testing.T) {
-			db, err := initializeMockDb([]*MockStmt{
+			db := MakeMockDB([]*MockStmt{
 				// "state"
 				MakeMockStmt(
 					1,
@@ -43,10 +27,9 @@ func TestAllMigrations(t *testing.T) {
 						{fmt.Sprintf(`{"next": %d}`, idx)},
 					}),
 			})
-			require.NoError(t, err)
 
 			// This automatically runs migraions
-			pdb, err := openPostgres(db, idb.IndexerDbOptions{
+			pdb, err := openPostgres(db, &idb.IndexerDbOptions{
 				ReadOnly: false,
 			})
 			require.NoError(t, err)
@@ -65,7 +48,7 @@ func TestAllMigrations(t *testing.T) {
 }
 
 func TestNoMigrationsNeeded(t *testing.T) {
-	db, err := initializeMockDb([]*MockStmt{
+	db := MakeMockDB([]*MockStmt{
 		// "state"
 		MakeMockStmt(
 			1,
@@ -81,10 +64,9 @@ func TestNoMigrationsNeeded(t *testing.T) {
 				{fmt.Sprintf(`{"next": %d}`, len(migrations) + 1)},
 			}),
 	})
-	require.NoError(t, err)
 
 	// This automatically runs migraions
-	pdb, err := openPostgres(db, idb.IndexerDbOptions{
+	pdb, err := openPostgres(db, &idb.IndexerDbOptions{
 		ReadOnly: false,
 	})
 

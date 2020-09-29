@@ -1156,7 +1156,8 @@
       "required": [
         "message",
         "round",
-        "is-migrating"
+        "is-migrating",
+        "db-unavailable"
       ],
       "properties": {
         "data": {
@@ -1166,6 +1167,9 @@
           "type": "integer"
         },
         "is-migrating": {
+          "type": "boolean"
+        },
+        "db-unavailable": {
           "type": "boolean"
         },
         "message": {

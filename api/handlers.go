@@ -52,7 +52,7 @@ const maxBalancesLimit = 10000
 const defaultBalancesLimit = 1000
 
 ////////////////////////////
-// Handler postgres //
+// Handler implementation //
 ////////////////////////////
 
 // Returns 200 if healthy.
@@ -67,6 +67,7 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 		Data: health.Data,
 		Round: health.Round,
 		IsMigrating: health.IsMigrating,
+		DbUnavailable: health.DbUnavailable,
 		Message: strconv.FormatUint(health.Round, 10),
 	})
 }

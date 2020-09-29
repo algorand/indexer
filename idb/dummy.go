@@ -524,8 +524,9 @@ func b32np(data []byte) string {
 }
 
 type Health struct {
-	Data        *map[string]interface{} `json:"data,omitempty""`
-	Round       uint64                  `json:"round"`
-	IsMigrating bool                    `json:"is-migrating"`
+	Data          *map[string]interface{} `json:"data,omitempty""`
+	Round         uint64                  `json:"round"`
+	IsMigrating   bool                    `json:"is-migrating"`
+	DbUnavailable bool                    `json:"db-unavailable"`
 }
 
