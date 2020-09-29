@@ -13,13 +13,13 @@ var InProgressError = "Indexer migration in progress, please wait."
 
 // MigrationMiddleware makes sure a 500 error is returned when the IndexerDb has a migration in progress.
 type MigrationMiddleware struct {
-	idb       idb.IndexerDb
+	idb idb.IndexerDb
 }
 
 // MakeMigrationMiddleware constructs the migration middleware
 func MakeMigrationMiddleware(idb idb.IndexerDb) echo.MiddlewareFunc {
 	mw := MigrationMiddleware{
-		idb:       idb,
+		idb: idb,
 	}
 
 	return mw.handler

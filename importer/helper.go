@@ -304,4 +304,3 @@ func (paths *blockTarPaths) Swap(i, j int) {
 	(*paths)[i] = (*paths)[j]
 	(*paths)[j] = t
 }
-

@@ -64,11 +64,11 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
-		Data: health.Data,
-		Round: health.Round,
-		IsMigrating: health.IsMigrating,
+		Data:          health.Data,
+		Round:         health.Round,
+		IsMigrating:   health.IsMigrating,
 		DbUnavailable: health.DbUnavailable,
-		Message: strconv.FormatUint(health.Round, 10),
+		Message:       strconv.FormatUint(health.Round, 10),
 	})
 }
 
@@ -442,12 +442,11 @@ func (si *ServerImplementation) LookupTransactions(ctx echo.Context, txid string
 
 	response := generated.TransactionResponse{
 		CurrentRound: round,
-		Transaction: txns[0],
+		Transaction:  txns[0],
 	}
 
 	return ctx.JSON(http.StatusOK, response)
 }
-
 
 // SearchForTransactions returns transactions matching the provided parameters
 // (GET /v2/transactions)

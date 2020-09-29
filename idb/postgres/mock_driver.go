@@ -19,7 +19,7 @@ func MakeMockDB(statements []*MockStmt) *sql.DB {
 }
 
 // MockDriver is the core of a mocked sql.DB object. It implements
-// several interfaces: driver.Connector, driver.Conn, 
+// several interfaces: driver.Connector, driver.Conn,
 type MockDriver struct {
 	statementIdx int
 	Statements   []*MockStmt
@@ -36,13 +36,13 @@ func (d *MockDriver) Driver() driver.Driver {
 }
 
 // Open - Part of sql.Driver
-func (d *MockDriver)Open(name string) (driver.Conn, error) {
+func (d *MockDriver) Open(name string) (driver.Conn, error) {
 	//fmt.Println("driver.Driver : Open")
 	return d, nil
 }
 
 // Prepare - Part of driver.Conn
-func (d *MockDriver)Prepare(query string) (driver.Stmt, error) {
+func (d *MockDriver) Prepare(query string) (driver.Stmt, error) {
 	d.statementIdx++
 
 	if d.statementIdx > len(d.Statements) {
@@ -64,13 +64,13 @@ func (d *MockDriver)Prepare(query string) (driver.Stmt, error) {
 }
 
 // Close - Part of driver.Conn
-func (d *MockDriver)Close() error {
+func (d *MockDriver) Close() error {
 	//fmt.Println("driver.Conn : Close")
 	return nil
 }
 
 // Begin - Part of driver.Conn
-func (d *MockDriver)Begin() (driver.Tx, error) {
+func (d *MockDriver) Begin() (driver.Tx, error) {
 	//fmt.Println("driver.Conn : Begin")
 	return &MockTx{}, nil
 }
@@ -91,7 +91,7 @@ func MakeMockStmt(parts int, columns []string, rows [][]interface{}) *MockStmt {
 // driver.Result.
 type MockStmt struct {
 	// number of parameterized arguments
-	parts   int
+	parts int
 
 	columns []string
 	rowNum  int
