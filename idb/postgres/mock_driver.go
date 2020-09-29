@@ -26,26 +26,26 @@ type MockDriver struct {
 }
 
 // Connect - part of driver.Connector
-func (c *MockDriver) Connect(ctx context.Context) (driver.Conn, error) {
-	return c.Open("")
+func (d *MockDriver) Connect(ctx context.Context) (driver.Conn, error) {
+	return d.Open("")
 }
 
 // Driver - part of driver.Connector
-func (c *MockDriver) Driver() driver.Driver {
-	return c
+func (d *MockDriver) Driver() driver.Driver {
+	return d
 }
 
 // Open - Part of sql.Driver
-func (m *MockDriver)Open(name string) (driver.Conn, error) {
+func (d *MockDriver)Open(name string) (driver.Conn, error) {
 	//fmt.Println("driver.Driver : Open")
-	return m, nil
+	return d, nil
 }
 
 // Prepare - Part of driver.Conn
-func (m *MockDriver)Prepare(query string) (driver.Stmt, error) {
-	m.statementIdx++
+func (d *MockDriver)Prepare(query string) (driver.Stmt, error) {
+	d.statementIdx++
 
-	if m.statementIdx > len(m.Statements) {
+	if d.statementIdx > len(d.Statements) {
 		return nil, errors.New("not enough statements loaded into mock driver")
 	}
 
@@ -56,21 +56,21 @@ func (m *MockDriver)Prepare(query string) (driver.Stmt, error) {
 		}
 	}
 
-	if numParts != m.Statements[m.statementIdx-1].parts {
+	if numParts != d.Statements[d.statementIdx-1].parts {
 		return nil, fmt.Errorf("unexpected number of arguments in statement: %s", query)
 	}
 
-	return m.Statements[m.statementIdx-1], nil
+	return d.Statements[d.statementIdx-1], nil
 }
 
 // Close - Part of driver.Conn
-func (m *MockDriver)Close() error {
+func (d *MockDriver)Close() error {
 	//fmt.Println("driver.Conn : Close")
 	return nil
 }
 
 // Begin - Part of driver.Conn
-func (m *MockDriver)Begin() (driver.Tx, error) {
+func (d *MockDriver)Begin() (driver.Tx, error) {
 	//fmt.Println("driver.Conn : Begin")
 	return &MockTx{}, nil
 }
