@@ -3,6 +3,7 @@ package postgres
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/stretchr/testify/require"
@@ -29,12 +30,17 @@ func TestAllMigrations(t *testing.T) {
 			})
 
 			// This automatically runs migraions
+			//var pdb idb.IndexerDb
 			pdb, err := openPostgres(db, &idb.IndexerDbOptions{
 				ReadOnly: false,
 			})
 			require.NoError(t, err)
 
+			// Just need a moment for the go routine to get started
+			time.Sleep(100 * time.Millisecond)
+
 			h, err := pdb.Health()
+			fmt.Printf("%v\n", h)
 			// Health attempts to get num rows...
 			require.Error(t, err, "not enough statements loaded into mock driver")
 
@@ -61,7 +67,7 @@ func TestNoMigrationsNeeded(t *testing.T) {
 			1,
 			[]string{"v"},
 			[][]interface{}{
-				{fmt.Sprintf(`{"next": %d}`, len(migrations) + 1)},
+				{fmt.Sprintf(`{"next": %d}`, len(migrations)+1)},
 			}),
 	})
 
@@ -69,6 +75,9 @@ func TestNoMigrationsNeeded(t *testing.T) {
 	pdb, err := openPostgres(db, &idb.IndexerDbOptions{
 		ReadOnly: false,
 	})
+
+	// Just need a moment for the go routine to get started
+	time.Sleep(100 * time.Millisecond)
 
 	h, err := pdb.Health()
 	// Health attempts to get num rows...

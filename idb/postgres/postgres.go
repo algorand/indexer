@@ -2308,9 +2308,10 @@ func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *
 func (db *PostgresIndexerDb) Health() (health idb.Health, err error) {
 	var ptr *map[string]interface{}
 	migrating := false
+	blocking := false
 
 	// If we are not in read-only mode, there will be a migration object.
-	if db == nil {
+	if db.migration != nil {
 		state := db.migration.GetStatus()
 
 		var data = make(map[string]interface{})
@@ -2322,6 +2323,7 @@ func (db *PostgresIndexerDb) Health() (health idb.Health, err error) {
 		}
 
 		migrating = state.Running
+		blocking = state.Blocking
 
 		if len(data) > 0 {
 			ptr = &data
@@ -2333,7 +2335,7 @@ func (db *PostgresIndexerDb) Health() (health idb.Health, err error) {
 		Data:          ptr,
 		Round:         round,
 		IsMigrating:   migrating,
-		DbUnavailable: state.Blocking,
+		DbUnavailable: blocking,
 	}, err
 }
 
@@ -2350,4 +2352,3 @@ func (df postgresFactory) Build(arg string, opts *idb.IndexerDbOptions) (idb.Ind
 func init() {
 	idb.RegisterFactory("postgres", &postgresFactory{})
 }
-
