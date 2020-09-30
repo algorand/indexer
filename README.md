@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.com/algorand/indexer.svg?token=VUYV6KsbTffLzzA3qd5T&branch=master)](https://travis-ci.com/algorand/indexer)
+[![Build Status](https://travis-ci.com/algorand/indexer.svg?branch=master)](https://travis-ci.com/algorand/indexer)
 # Algorand Indexer
 
 The Indexer is a standalone service reads committed blocks from the Algorand blockchain and maintains a database of transactions and accounts that are searchable and indexed.
