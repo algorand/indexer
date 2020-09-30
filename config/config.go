@@ -12,6 +12,7 @@ import (
 const EnvPrefix = "INDEXER"
 const FileType = "yaml"
 const FileName = "algorand-indexer"
+
 var ConfigPaths = [...]string{".", "$HOME", "$HOME/.algorand-indexer/", "$HOME/.config/algorand-indexer/", "/etc/algorand-indexer/"}
 
 // BindFlags glues the cobra and viper libraries together.

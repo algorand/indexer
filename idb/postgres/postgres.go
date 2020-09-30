@@ -334,6 +334,7 @@ func (db *PostgresIndexerDb) SetMetastate(key, jsonStrValue string) (err error) 
 }
 
 func (db *PostgresIndexerDb) GetMaxRound() (round uint64, err error) {
+	round = 0
 	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
 	err = row.Scan(&round)
 	return
@@ -2305,27 +2306,36 @@ func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *
 }
 
 func (db *PostgresIndexerDb) Health() (health idb.Health, err error) {
-	state := db.migration.GetStatus()
-
-	var data = make(map[string]interface{})
-	if state.Err != nil {
-		data["migration-error"] = state.Err.Error()
-	}
-	if state.Status != "" {
-		data["migration-status"] = state.Status
-	}
-
 	var ptr *map[string]interface{}
-	if len(data) > 0 {
-		ptr = &data
+	migrating := false
+	blocking := false
+
+	// If we are not in read-only mode, there will be a migration object.
+	if db.migration != nil {
+		state := db.migration.GetStatus()
+
+		var data = make(map[string]interface{})
+		if state.Err != nil {
+			data["migration-error"] = state.Err.Error()
+		}
+		if state.Status != "" {
+			data["migration-status"] = state.Status
+		}
+
+		migrating = state.Running
+		blocking = state.Blocking
+
+		if len(data) > 0 {
+			ptr = &data
+		}
 	}
 
 	round, err := db.GetMaxRound()
 	return idb.Health{
 		Data:          ptr,
 		Round:         round,
-		IsMigrating:   state.Running,
-		DbUnavailable: state.Blocking,
+		IsMigrating:   migrating,
+		DbUnavailable: blocking,
 	}, err
 }
 
@@ -2342,4 +2352,3 @@ func (df postgresFactory) Build(arg string, opts *idb.IndexerDbOptions) (idb.Ind
 func init() {
 	idb.RegisterFactory("postgres", &postgresFactory{})
 }
-

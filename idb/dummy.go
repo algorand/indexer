@@ -529,4 +529,3 @@ type Health struct {
 	IsMigrating   bool                    `json:"is-migrating"`
 	DbUnavailable bool                    `json:"db-unavailable"`
 }
-

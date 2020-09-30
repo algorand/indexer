@@ -17,9 +17,9 @@ var importCmd = &cobra.Command{
 		db := globalIndexerDb(nil)
 
 		helper := importer.ImportHelper{
-			BlockFileLimit: blockFileLimit,
+			BlockFileLimit:  blockFileLimit,
 			GenesisJsonPath: genesisJsonPath,
-			NumRoundsLimit: numRoundsLimit,
+			NumRoundsLimit:  numRoundsLimit,
 		}
 
 		helper.Import(db, args)
@@ -28,8 +28,8 @@ var importCmd = &cobra.Command{
 
 var (
 	genesisJsonPath string
-	numRoundsLimit int
-	blockFileLimit int
+	numRoundsLimit  int
+	blockFileLimit  int
 )
 
 func init() {

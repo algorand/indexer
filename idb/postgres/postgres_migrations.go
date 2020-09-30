@@ -15,8 +15,8 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 
-	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/types"
 )
 
@@ -96,8 +96,7 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 		return err
 	}
 
-	// TODO: RunMigrations it in the background instead of blocking
-	db.migration.RunMigrations()
+	go db.migration.RunMigrations()
 
 	return nil
 }

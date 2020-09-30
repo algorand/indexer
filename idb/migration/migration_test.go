@@ -141,8 +141,8 @@ func TestSuccessfulMigration(t *testing.T) {
 				StatusActivePrefix + SlowSuccessTask1.description,
 				StatusActivePrefix + SlowSuccessTask2.description,
 				StatusComplete},
-			blocking:   []bool{true, false, false, false},
-			runTime: 2 * time.Second,
+			blocking: []bool{true, false, false, false},
+			runTime:  2 * time.Second,
 		},
 		{
 			name: "3 Fast tasks",
@@ -159,8 +159,8 @@ func TestSuccessfulMigration(t *testing.T) {
 				StatusActivePrefix + FastSuccessTask2.description,
 				StatusActivePrefix + FastSuccessTask3.description,
 				StatusComplete},
-			blocking:   []bool{true, false, false, false, false},
-			runTime: 0 * time.Second,
+			blocking: []bool{true, false, false, false, false},
+			runTime:  0 * time.Second,
 		},
 		{
 			name: "Error right away",
@@ -176,8 +176,8 @@ func TestSuccessfulMigration(t *testing.T) {
 				StatusActivePrefix + FastErrorTask1.description,
 				StatusErrorPrefix,
 			},
-			blocking:   []bool{true, false, true},
-			runTime: 0 * time.Second,
+			blocking: []bool{true, false, true},
+			runTime:  0 * time.Second,
 		},
 		{
 			name: "Error at the end of non blocking tasks",
@@ -195,8 +195,8 @@ func TestSuccessfulMigration(t *testing.T) {
 				StatusActivePrefix + SlowErrorTask3.description,
 				StatusErrorPrefix,
 			},
-			blocking:   []bool{true, false, false, false, true},
-			runTime: 3 * time.Second,
+			blocking: []bool{true, false, false, false, true},
+			runTime:  3 * time.Second,
 		},
 		{
 			name: "Only the first task is blocking",
@@ -214,8 +214,8 @@ func TestSuccessfulMigration(t *testing.T) {
 				StatusActivePrefix + SlowSuccessTask3.description,
 				StatusComplete,
 			},
-			blocking:   []bool{true, true, false, false, false},
-			runTime: 3 * time.Second,
+			blocking: []bool{true, true, false, false, false},
+			runTime:  3 * time.Second,
 		},
 		{
 			name: "Only the middle task is blocking",
@@ -233,8 +233,8 @@ func TestSuccessfulMigration(t *testing.T) {
 				StatusActivePrefix + SlowSuccessTask3.description,
 				StatusComplete,
 			},
-			blocking:   []bool{true, true, true, false, false},
-			runTime: 3 * time.Second,
+			blocking: []bool{true, true, true, false, false},
+			runTime:  3 * time.Second,
 		},
 		{
 			name: "Last task is blocking",
@@ -252,8 +252,8 @@ func TestSuccessfulMigration(t *testing.T) {
 				StatusActivePrefix + SlowSuccessBlockingTask3.description,
 				StatusComplete,
 			},
-			blocking:   []bool{true, true, true, true, false},
-			runTime: 3 * time.Second,
+			blocking: []bool{true, true, true, true, false},
+			runTime:  3 * time.Second,
 		},
 	}
 
