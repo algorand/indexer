@@ -351,8 +351,11 @@ type EvalDeltaKeyValue struct {
 
 // HealthCheck defines model for HealthCheck.
 type HealthCheck struct {
-	Data    *map[string]interface{} `json:"data,omitempty"`
-	Message string                  `json:"message"`
+	Data          *map[string]interface{} `json:"data,omitempty"`
+	DbUnavailable bool                    `json:"db-unavailable"`
+	IsMigrating   bool                    `json:"is-migrating"`
+	Message       string                  `json:"message"`
+	Round         uint64                  `json:"round"`
 }
 
 // MiniAssetHolding defines model for MiniAssetHolding.

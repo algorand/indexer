@@ -27,20 +27,37 @@ import (
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/migration"
+	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
 )
 
 func OpenPostgres(connection string, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
 	db, err := sql.Open("postgres", connection)
+
 	if err != nil {
 		return nil, err
 	}
+
+	if strings.Contains(connection, "readonly") {
+		if opts == nil {
+			opts = &idb.IndexerDbOptions{}
+		}
+		opts.ReadOnly = true
+	}
+
+	return openPostgres(db, opts)
+}
+
+// Allow tests to inject a DB
+func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
 	pdb = &PostgresIndexerDb{
 		db:         db,
 		protoCache: make(map[string]types.ConsensusParams, 20),
 	}
+
 	// e.g. a user named "readonly" is in the connection string
-	readonly := ((opts != nil) && opts.ReadOnly) || strings.Contains(connection, "readonly")
+	readonly := (opts != nil) && opts.ReadOnly
 	if !readonly {
 		err = pdb.init()
 	}
@@ -59,12 +76,14 @@ type PostgresIndexerDb struct {
 	txprows [][]interface{}
 
 	protoCache map[string]types.ConsensusParams
+
+	migration *migration.Migration
 }
 
 func (db *PostgresIndexerDb) init() (err error) {
 	accountingStateJson, _ := db.GetMetastate("state")
 	hasAccounting := len(accountingStateJson) > 0
-	migrationStateJson, _ := db.GetMetastate("migration")
+	migrationStateJson, _ := db.GetMetastate(migrationMetastateKey)
 	hasMigration := len(migrationStateJson) > 0
 
 	if hasMigration || hasAccounting {
@@ -315,6 +334,7 @@ func (db *PostgresIndexerDb) SetMetastate(key, jsonStrValue string) (err error) 
 }
 
 func (db *PostgresIndexerDb) GetMaxRound() (round uint64, err error) {
+	round = 0
 	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
 	err = row.Scan(&round)
 	return
@@ -1086,7 +1106,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	if !any {
 		fmt.Printf("empty round %d\n", round)
 	}
-	var istate idb.ImportState
+	var istate importer.ImportState
 	staterow := tx.QueryRow(`SELECT v FROM metastate WHERE k = 'state'`)
 	var stateJsonStr string
 	err = staterow.Scan(&stateJsonStr)
@@ -2283,6 +2303,40 @@ func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *
 		out <- rec
 	}
 	close(out)
+}
+
+func (db *PostgresIndexerDb) Health() (health idb.Health, err error) {
+	var ptr *map[string]interface{}
+	migrating := false
+	blocking := false
+
+	// If we are not in read-only mode, there will be a migration object.
+	if db.migration != nil {
+		state := db.migration.GetStatus()
+
+		var data = make(map[string]interface{})
+		if state.Err != nil {
+			data["migration-error"] = state.Err.Error()
+		}
+		if state.Status != "" {
+			data["migration-status"] = state.Status
+		}
+
+		migrating = state.Running
+		blocking = state.Blocking
+
+		if len(data) > 0 {
+			ptr = &data
+		}
+	}
+
+	round, err := db.GetMaxRound()
+	return idb.Health{
+		Data:          ptr,
+		Round:         round,
+		IsMigrating:   migrating,
+		DbUnavailable: blocking,
+	}, err
 }
 
 type postgresFactory struct {

@@ -1154,11 +1154,23 @@
       "description": "A health check response.",
       "type": "object",
       "required": [
-        "message"
+        "message",
+        "round",
+        "is-migrating",
+        "db-unavailable"
       ],
       "properties": {
         "data": {
           "type": "object"
+        },
+        "round": {
+          "type": "integer"
+        },
+        "is-migrating": {
+          "type": "boolean"
+        },
+        "db-unavailable": {
+          "type": "boolean"
         },
         "message": {
           "type": "string"

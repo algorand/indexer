@@ -142,9 +142,9 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	if len(block.Block.Payset) == 0 {
 		// accounting won't have updated the round state, so we do it here
 		stateJsonStr, err := db.GetMetastate("state")
-		var state idb.ImportState
+		var state importer.ImportState
 		if err == nil && stateJsonStr != "" {
-			state, err = idb.ParseImportState(stateJsonStr)
+			state, err = importer.ParseImportState(stateJsonStr)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error parsing import state, %v\n", err)
 				panic("error parsing import state in bih")

@@ -29,10 +29,12 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, log *log.Log
 	e.Use(middlewares.MakeLogger(log))
 	e.Use(middleware.CORS())
 
+	middleware := make([]echo.MiddlewareFunc, 0)
 
-	maybeAuth := make([]echo.MiddlewareFunc, 0)
+	middleware = append(middleware, middlewares.MakeMigrationMiddleware(db))
+
 	if len(tokens) > 0 {
-		maybeAuth = append(maybeAuth, middlewares.MakeAuth("X-Indexer-API-Token", tokens))
+		middleware = append(middleware, middlewares.MakeAuth("X-Indexer-API-Token", tokens))
 	}
 
 	api := ServerImplementation{
@@ -40,7 +42,7 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, log *log.Log
 		db:                             db,
 	}
 
-	generated.RegisterHandlers(e, &api, maybeAuth...)
+	generated.RegisterHandlers(e, &api, middleware...)
 	common.RegisterHandlers(e, &api)
 
 	if ctx == nil {

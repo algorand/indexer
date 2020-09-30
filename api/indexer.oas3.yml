@@ -1041,12 +1041,24 @@
             "properties": {},
             "type": "object"
           },
+          "db-unavailable": {
+            "type": "boolean"
+          },
+          "is-migrating": {
+            "type": "boolean"
+          },
           "message": {
             "type": "string"
+          },
+          "round": {
+            "type": "integer"
           }
         },
         "required": [
-          "message"
+          "db-unavailable",
+          "is-migrating",
+          "message",
+          "round"
         ],
         "type": "object"
       },
