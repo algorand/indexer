@@ -12,8 +12,6 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"fmt"
-	"github.com/algorand/indexer/idb/migration"
-	"github.com/algorand/indexer/importer"
 	"math"
 	"math/big"
 	"os"
@@ -29,6 +27,8 @@ import (
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/migration"
+	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
 )
 
