@@ -96,7 +96,7 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 		return err
 	}
 
-	go db.migration.Start()
+	go db.migration.RunMigrations()
 
 	return nil
 }

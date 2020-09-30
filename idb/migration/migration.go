@@ -125,7 +125,7 @@ func (m *Migration) update(err error, status string, running bool, blocking bool
 	}
 }
 
-func (m *Migration) Start() {
+func (m *Migration) RunMigrations() {
 	blocking := true
 	for _, task := range m.tasks {
 		if task.MigrationId > m.blockUntil {

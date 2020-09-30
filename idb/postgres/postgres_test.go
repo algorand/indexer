@@ -29,8 +29,7 @@ func TestAllMigrations(t *testing.T) {
 					}),
 			})
 
-			// This automatically runs migraions
-			//var pdb idb.IndexerDb
+			// This automatically runs migrations
 			pdb, err := openPostgres(db, &idb.IndexerDbOptions{
 				ReadOnly: false,
 			})
