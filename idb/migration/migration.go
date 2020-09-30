@@ -41,8 +41,8 @@ type State struct {
 }
 
 type Migration struct {
-	mutex      sync.Mutex
-	state      State
+	State
+	mutex      sync.RWMutex
 	tasks      []Task
 	blockUntil int
 }
@@ -50,7 +50,7 @@ type Migration struct {
 // Broken out to allow for testing.
 func (m *Migration) setTasks(migrationTasks []Task) error {
 	m.blockUntil = 0
-	set := make(map[int]bool)
+	ids := make(map[int]bool)
 	lastId := 0
 
 	for _, migration := range migrationTasks {
@@ -61,10 +61,10 @@ func (m *Migration) setTasks(migrationTasks []Task) error {
 		lastId = migration.MigrationId
 
 		// Prevent duplicate IDs
-		if set[migration.MigrationId] {
+		if ids[migration.MigrationId] {
 			return DuplicateIDErr
 		}
-		set[migration.MigrationId] = true
+		ids[migration.MigrationId] = true
 
 		// Make sure blockUntil is set to the last blocking migration
 		if migration.DBUnavailable {
@@ -80,7 +80,7 @@ func (m *Migration) setTasks(migrationTasks []Task) error {
 func MakeMigration(migrationTasks []Task) (*Migration, error) {
 	m := &Migration{
 		tasks: migrationTasks,
-		state: State{
+		State: State{
 			Err:      nil,
 			Status:   StatusPending,
 			Running:  false,
@@ -93,39 +93,40 @@ func MakeMigration(migrationTasks []Task) (*Migration, error) {
 }
 
 func (m *Migration) GetStatus() State {
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
 
 	return State{
-		Err:      m.state.Err,
-		Status:   m.state.Status,
-		Running:  m.state.Running,
-		Blocking: m.state.Blocking,
+		Err:      m.Err,
+		Status:   m.Status,
+		Running:  m.Running,
+		Blocking: m.Blocking,
 	}
 }
 
 func (m *Migration) update(err error, status string, running bool, blocking bool) {
 	m.mutex.Lock()
+
 	defer m.mutex.Unlock()
 
-	if err != m.state.Err {
-		m.state.Err = err
+	if err != m.Err {
+		m.Err = err
 	}
 
-	if status != m.state.Status {
-		m.state.Status = status
+	if status != m.Status {
+		m.Status = status
 	}
 
-	if running != m.state.Running {
-		m.state.Running = running
+	if running != m.Running {
+		m.Running = running
 	}
 
-	if blocking != m.state.Blocking {
-		m.state.Blocking = blocking
+	if blocking != m.Blocking {
+		m.Blocking = blocking
 	}
 }
 
-func (m *Migration) Start() {
+func (m *Migration) RunMigrations() {
 	blocking := true
 	for _, task := range m.tasks {
 		if task.MigrationId > m.blockUntil {

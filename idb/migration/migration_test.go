@@ -289,7 +289,7 @@ func TestSuccessfulMigration(t *testing.T) {
 			start := time.Now()
 			migChan := make(chan struct{})
 			go func() {
-				migration.Start()
+				migration.RunMigrations()
 				migChan <- struct{}{}
 			}()
 

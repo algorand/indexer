@@ -96,8 +96,8 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 		return err
 	}
 
-	// TODO: Start it in the background instead of blocking
-	db.migration.Start()
+	// TODO: RunMigrations it in the background instead of blocking
+	db.migration.RunMigrations()
 
 	return nil
 }
