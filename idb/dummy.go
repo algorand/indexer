@@ -407,9 +407,14 @@ type TxnAssetUpdate struct {
 	AssetId uint64
 }
 
+type AlgoUpdate struct {
+	Balance int64
+	Rewards int64
+}
+
 type RoundUpdates struct {
-	AlgoUpdates  map[[32]byte]int64
-	AccountTypes map[[32]byte]string
+	AlgoUpdates   map[[32]byte]*AlgoUpdate
+	AccountTypes  map[[32]byte]string
 
 	// AccountDataUpdates is explicitly a map so that we can
 	// explicitly set values or have not set values. Instead of

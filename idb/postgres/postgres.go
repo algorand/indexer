@@ -684,13 +684,13 @@ func (db *PostgresIndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, rou
 	if len(updates.AlgoUpdates) > 0 {
 		any = true
 		// account_data json is only used on account creation, otherwise the account data jsonb field is updated from the delta
-		setalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase) VALUES ($1, $2, $3) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase`)
+		setalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewardsTotal) VALUES ($1, $2, $3, $4) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewardsTotal = account.rewardsTotal + EXCLUDED.rewardsTotal`)
 		if err != nil {
 			return fmt.Errorf("prepare update algo, %v", err)
 		}
 		defer setalgo.Close()
 		for addr, delta := range updates.AlgoUpdates {
-			_, err = setalgo.Exec(addr[:], delta, rewardsBase)
+			_, err = setalgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards)
 			if err != nil {
 				return fmt.Errorf("update algo, %v", err)
 			}
