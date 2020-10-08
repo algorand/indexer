@@ -22,6 +22,18 @@ import (
 
 const migrationMetastateKey = "migration"
 
+func init() {
+	migrations = []migrationStruct{
+		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
+		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
+		{m2apps, true, "Update DB Schema for Algorand application support."},
+		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
+		{m4cumulativeRewardsDBUpdate, true, "Update DB Schema for cumulative account reward support."},
+		{m5accountCumulativeRewardsUpdate, false, "Compute cumulative account rewards for all accounts."},
+	}
+}
+
+
 type MigrationState struct {
 	NextMigration int `json:"next"`
 
@@ -257,10 +269,18 @@ func m3acfgFixAsyncInner(db *PostgresIndexerDb, state *MigrationState, assetIds 
 	return -1, nil
 }
 
-func m3acfgFixFlush(db *PostgresIndexerDb, state *MigrationState, tx *sql.Tx, out [][]interface{}) error {
+func m4cumulativeRewardsDBUpdate(db *PostgresIndexerDb, state *MigrationState) error {
+	sqlLines := []string{
+		`ALTER TABLE account ADD COLUMN rewardstotal bigint NOT NULL`,
+	}
+	return sqlMigration(db, state, sqlLines)
+}
+
+func m5accountCumulativeRewardsUpdate(db *PostgresIndexerDb, state *MigrationState) error {
 	return nil
 }
 
+// sqlMigration executes a sql statements as the entire migration.
 func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []string) error {
 	thisMigration := state.NextMigration
 	tx, err := db.db.Begin()
@@ -292,15 +312,6 @@ func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []strin
 	return nil
 }
 
-func init() {
-	migrations = []migrationStruct{
-		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
-		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
-		{m2apps, true, "Update DB Schema for Algorand application support."},
-		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
-	}
-}
-
 const txidMigrationErrMsg = "ERROR migrating txns for txid, stopped, will retry on next indexer startup"
 
 type migrationContext struct {
@@ -325,8 +336,8 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() (err error) {
 	prevBatchRound := uint64(math.MaxUint64)
 	for txr := range txns {
 		if txr.Error != nil {
-			log.Printf("ERROR migrating txns for txid rewrite: %v", txr.Error)
-			log.Print("txidMigrationErrMsg")
+			log.Printf("ERROR migrating txns for txid rewrite: %v\n", txr.Error)
+			log.Println(txidMigrationErrMsg)
 			err = txr.Error
 			return
 		}
