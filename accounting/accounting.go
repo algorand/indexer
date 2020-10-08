@@ -102,11 +102,18 @@ func (accounting *AccountingState) updateAlgoAndRewards(addr types.Address, amou
 	if accounting.AlgoUpdates == nil {
 		accounting.AlgoUpdates = make(map[[32]byte]*idb.AlgoUpdate)
 	}
-	if _, hasKey := accounting.AlgoUpdates[addr]; !hasKey {
-		accounting.AlgoUpdates[addr] = &idb.AlgoUpdate{}
+
+	acctUpdate, hasKey := accounting.AlgoUpdates[addr]
+
+	if !hasKey {
+		accounting.AlgoUpdates[addr] = &idb.AlgoUpdate{
+			Balance: amount,
+			Rewards: rewards,
+		}
+		return
 	}
-	accounting.AlgoUpdates[addr].Balance = accounting.AlgoUpdates[addr].Balance + amount
-	accounting.AlgoUpdates[addr].Rewards = accounting.AlgoUpdates[addr].Rewards + rewards
+	acctUpdate.Balance += amount
+	acctUpdate.Rewards += rewards
 }
 
 func (accounting *AccountingState) updateAccountType(addr types.Address, ktype string) {
