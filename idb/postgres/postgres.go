@@ -1524,6 +1524,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 	for rows.Next() {
 		var addr []byte
 		var microalgos uint64
+		var rewardstotal uint64
 		var rewardsbase uint64
 		var keytype *string
 		var accountDataJsonStr []byte
@@ -1552,27 +1553,27 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 		if opts.IncludeAssetHoldings {
 			if opts.IncludeAssetParams {
 				err = rows.Scan(
-					&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
+					&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJsonStr,
 					&holdingAssetid, &holdingAmount, &holdingFrozen,
 					&assetParamsIds, &assetParamsStr,
 					&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 				)
 			} else {
 				err = rows.Scan(
-					&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
+					&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJsonStr,
 					&holdingAssetid, &holdingAmount, &holdingFrozen,
 					&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 				)
 			}
 		} else if opts.IncludeAssetParams {
 			err = rows.Scan(
-				&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
+				&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJsonStr,
 				&assetParamsIds, &assetParamsStr,
 				&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 			)
 		} else {
 			err = rows.Scan(
-				&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
+				&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJsonStr,
 				&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 			)
 		}
@@ -1587,6 +1588,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 		account.Address = aaddr.String()
 		account.Round = uint64(blockheader.Round)
 		account.AmountWithoutPendingRewards = microalgos
+		account.Rewards = rewardstotal
 		account.RewardBase = new(uint64)
 		*account.RewardBase = rewardsbase
 		// default to Offline in there have been no keyreg transactions.
@@ -2028,7 +2030,7 @@ func (db *PostgresIndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (qu
 		whereArgs = append(whereArgs, opts.EqualToAuthAddr)
 		partNumber++
 	}
-	query = `SELECT a.addr, a.microalgos, a.rewardsbase, a.keytype, a.account_data FROM account a`
+	query = `SELECT a.addr, a.microalgos, a.rewardstotal, a.rewardsbase, a.keytype, a.account_data FROM account a`
 	if opts.HasAssetId != 0 {
 		// inner join requires match, filtering on presence of asset
 		query += " JOIN qasf ON a.addr = qasf.addr"
