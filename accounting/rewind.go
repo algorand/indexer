@@ -62,6 +62,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		if addr == stxn.Txn.Sender {
 			acct.AmountWithoutPendingRewards += uint64(stxn.Txn.Fee)
 			acct.AmountWithoutPendingRewards -= uint64(stxn.SenderRewards)
+			acct.Rewards -= uint64(stxn.SenderRewards)
 		}
 		switch stxn.Txn.Type {
 		case atypes.PaymentTx:
@@ -71,15 +72,18 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			if addr == stxn.Txn.Receiver {
 				acct.AmountWithoutPendingRewards -= uint64(stxn.Txn.Amount)
 				acct.AmountWithoutPendingRewards -= uint64(stxn.ReceiverRewards)
+				acct.Rewards -= uint64(stxn.ReceiverRewards)
 			}
 			if addr == stxn.Txn.CloseRemainderTo {
 				// unwind receiving a close-to
 				acct.AmountWithoutPendingRewards -= uint64(stxn.ClosingAmount)
 				acct.AmountWithoutPendingRewards -= uint64(stxn.CloseRewards)
+				acct.Rewards -= uint64(stxn.CloseRewards)
 			} else if !stxn.Txn.CloseRemainderTo.IsZero() {
 				// unwind sending a close-to
 				acct.AmountWithoutPendingRewards += uint64(stxn.ClosingAmount)
-				acct.AmountWithoutPendingRewards += uint64(stxn.CloseRewards)
+				// TODO: this doesn't seem right. Rewards don't come from the account balance so what is this doing?
+				//acct.AmountWithoutPendingRewards += uint64(stxn.CloseRewards)
 			}
 		case atypes.KeyRegistrationTx:
 			// TODO: keyreg does not rewind. workaround: query for txns on an account with typeenum=2 to find previous values it was set to.
