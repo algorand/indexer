@@ -1551,7 +1551,6 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 		var err error
 
 		if opts.IncludeAssetHoldings {
-			fmt.Println("Case 1")
 			if opts.IncludeAssetParams {
 				err = rows.Scan(
 					&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJsonStr,
@@ -1560,7 +1559,6 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 					&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 				)
 			} else {
-				fmt.Println("Case 2")
 				err = rows.Scan(
 					&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJsonStr,
 					&holdingAssetid, &holdingAmount, &holdingFrozen,
@@ -1568,14 +1566,12 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 				)
 			}
 		} else if opts.IncludeAssetParams {
-			fmt.Println("Case 3")
 			err = rows.Scan(
 				&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJsonStr,
 				&assetParamsIds, &assetParamsStr,
 				&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 			)
 		} else {
-			fmt.Println("Case 4")
 			err = rows.Scan(
 				&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJsonStr,
 				&appParamIndexes, &appParams, &localStateAppIds, &localStates,
@@ -1966,7 +1962,6 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQu
 
 	// Construct query for fetching accounts...
 	query, whereArgs := db.buildAccountQuery(opts)
-	fmt.Println("Executing query " + query)
 	rows, err := tx.Query(query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("account query %#v err %v", query, err)
@@ -2059,7 +2054,7 @@ func (db *PostgresIndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (qu
 		query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr GROUP BY 1)`
 	}
 	query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa FROM app JOIN qaccounts ON qaccounts.addr = app.creator GROUP BY 1), qls AS (SELECT la.addr, json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr GROUP BY 1)`
-	query += ` SELECT za.addr, za.microalgos, za.rewardsbase, za.keytype, za.account_data`
+	query += ` SELECT za.addr, za.microalgos, za.rewardstotal, za.rewardsbase, za.keytype, za.account_data`
 	if opts.IncludeAssetHoldings {
 		query += `, qaa.haid, qaa.hamt, qaa.hf`
 	}
