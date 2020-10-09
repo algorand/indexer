@@ -263,7 +263,7 @@ func (db *PostgresIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 
-	setAccount, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, account_data) VALUES ($1, $2, 0, $3)`)
+	setAccount, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, account_data, rewardstotal) VALUES ($1, $2, 0, $3, $4)`)
 	if err != nil {
 		return
 	}
@@ -275,7 +275,7 @@ func (db *PostgresIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 		if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
 			return fmt.Errorf("genesis account[%d] has unhandled asset", ai)
 		}
-		_, err = setAccount.Exec(addr[:], alloc.State.MicroAlgos, string(json.Encode(alloc.State)))
+		_, err = setAccount.Exec(addr[:], alloc.State.MicroAlgos, string(json.Encode(alloc.State)), 0)
 		total += uint64(alloc.State.MicroAlgos)
 		if err != nil {
 			return fmt.Errorf("error setting genesis account[%d], %v", ai, err)
