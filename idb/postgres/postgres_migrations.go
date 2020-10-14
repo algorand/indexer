@@ -294,30 +294,38 @@ const cumulativeRewardsUpdateErr = "cumulative rewards migration error"
 func m5accountCumulativeRewardsUpdate(db *PostgresIndexerDb, state *MigrationState) error {
 	db.log.Println("account cumulative rewards migration starting")
 
-	accountChan := db.GetAccounts(context.Background(), idb.AccountQueryOptions{
-		GreaterThanAddress:   state.NextAccount[:],
-	})
+	options := idb.AccountQueryOptions{}
+	if len(state.NextAccount) != 0 {
+		var address sdk_types.Address
+		copy(address[:], state.NextAccount)
+		db.log.Println("after " + address.String())
+		options.GreaterThanAddress = state.NextAccount[:]
+	}
+
+	accountChan := db.GetAccounts(context.Background(), options)
 
 	batchSize := 500
 	// loop through all of the accounts, update them in batches of batchSize.
-	accounts := make([]string, batchSize)
+	accounts := make([]string, 0, batchSize)
 	for acct := range accountChan {
-		db.log.Println("Processing account: " + acct.Account.Address)
 		if acct.Error != nil {
 			err := fmt.Errorf("%s: problem querying accounts: %v", cumulativeRewardsUpdateErr, acct.Error)
+			db.log.Errorln(err.Error())
 			return err
 		}
 
 		accounts = append(accounts, acct.Account.Address)
 
 		if len(accounts) == batchSize {
+			db.log.Println("Processing batch of accounts.")
 			m5accountCumulativeRewardsUpdateAccounts(db, state, accounts)
 			accounts = accounts[:0]
 		}
 	}
 
 	// Get the remainder
-	if len(accounts) != 0 {
+	if len(accounts) > 0 {
+		db.log.Println("Processing final batch of accounts.")
 		m5accountCumulativeRewardsUpdateAccounts(db, state, accounts)
 		accounts = accounts[:0]
 	}
@@ -454,7 +462,6 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() (err error) {
 	for txr := range txns {
 		if txr.Error != nil {
 			log.Printf("ERROR migrating txns for txid rewrite: %v\n", txr.Error)
-			log.Println(txidMigrationErrMsg)
 			err = txr.Error
 			return
 		}

@@ -1830,7 +1830,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 		select {
 		case out <- idb.AccountRow{Account: account}:
 			count++
-			if count >= opts.Limit {
+			if opts.Limit != 0 && count >= opts.Limit {
 				close(out)
 				return
 			}
