@@ -12,6 +12,7 @@ import (
 	"time"
 
 	atypes "github.com/algorand/go-algorand-sdk/types"
+	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/types"
@@ -107,7 +108,7 @@ func (db *dummyIndexerDb) Health() (state Health, err error) {
 
 type IndexerFactory interface {
 	Name() string
-	Build(arg string, opts *IndexerDbOptions) (IndexerDb, error)
+	Build(arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error)
 }
 
 type TxnRow struct {
@@ -336,7 +337,7 @@ type dummyFactory struct {
 func (df dummyFactory) Name() string {
 	return "dummy"
 }
-func (df dummyFactory) Build(arg string, opts *IndexerDbOptions) (IndexerDb, error) {
+func (df dummyFactory) Build(arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
 	return &dummyIndexerDb{}, nil
 }
 
@@ -356,9 +357,9 @@ func RegisterFactory(name string, factory IndexerFactory) {
 	indexerFactories[name] = factory
 }
 
-func IndexerDbByName(name, arg string, opts *IndexerDbOptions) (IndexerDb, error) {
+func IndexerDbByName(name, arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
 	if val, ok := indexerFactories[name]; ok {
-		return val.Build(arg, opts)
+		return val.Build(arg, opts, log)
 	}
 	return nil, fmt.Errorf("no IndexerDb factory for %s", name)
 }

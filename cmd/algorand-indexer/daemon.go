@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -28,8 +27,6 @@ var (
 	noAlgod          bool
 	developerMode    bool
 	tokenString      string
-
-	logger *log.Logger
 )
 
 var daemonCmd = &cobra.Command{
@@ -105,11 +102,6 @@ var daemonCmd = &cobra.Command{
 }
 
 func init() {
-	logger = log.New()
-	logger.SetFormatter(&log.JSONFormatter{})
-	logger.SetOutput(os.Stdout)
-	logger.SetLevel(log.InfoLevel)
-
 	daemonCmd.Flags().StringVarP(&algodDataDir, "algod", "d", "", "path to algod data dir, or $ALGORAND_DATA")
 	daemonCmd.Flags().StringVarP(&algodAddr, "algod-net", "", "", "host:port of algod")
 	daemonCmd.Flags().StringVarP(&algodToken, "algod-token", "", "", "api access token for algod")

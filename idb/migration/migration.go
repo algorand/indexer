@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var DuplicateIDErr = errors.New("duplicate ID detected")
@@ -51,6 +53,7 @@ type State struct {
 
 // Migration manages the execution of multiple migration tasks and provides a mechanism for concurrent status checks.
 type Migration struct {
+	log        *log.Logger
 	mutex      sync.RWMutex
 	tasks      []Task
 	blockUntil int
@@ -88,8 +91,9 @@ func (m *Migration) setTasks(migrationTasks []Task) error {
 }
 
 // MakeMigration initializes
-func MakeMigration(migrationTasks []Task) (*Migration, error) {
+func MakeMigration(migrationTasks []Task, log *log.Logger) (*Migration, error) {
 	m := &Migration{
+		log: log,
 		tasks: migrationTasks,
 		state: State{
 			Err:      nil,

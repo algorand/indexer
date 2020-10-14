@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"math"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
@@ -112,7 +112,7 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 		})
 	}
 
-	db.migration, err = migration.MakeMigration(tasks)
+	db.migration, err = migration.MakeMigration(tasks, db.log)
 	if err != nil {
 		return err
 	}

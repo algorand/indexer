@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	//"github.com/spf13/cobra/doc" // TODO: enable cobra doc generation
 	"github.com/spf13/viper"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
@@ -78,13 +79,14 @@ var (
 	pidFilePath    string
 	db             idb.IndexerDb
 	profFile       io.WriteCloser
+	logger         *log.Logger
 )
 
 func globalIndexerDb(opts *idb.IndexerDbOptions) idb.IndexerDb {
 	if db == nil {
 		if postgresAddr != "" {
 			var err error
-			db, err = idb.IndexerDbByName("postgres", postgresAddr, opts)
+			db, err = idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
 			maybeFail(err, "could not init db, %v\n", err)
 		} else if dummyIndexerDb {
 			db = idb.DummyIndexerDb()
@@ -97,6 +99,11 @@ func globalIndexerDb(opts *idb.IndexerDbOptions) idb.IndexerDb {
 }
 
 func init() {
+	logger = log.New()
+	logger.SetFormatter(&log.JSONFormatter{})
+	logger.SetOutput(os.Stdout)
+	logger.SetLevel(log.InfoLevel)
+
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(daemonCmd)
 

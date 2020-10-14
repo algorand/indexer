@@ -24,6 +24,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
 	_ "github.com/lib/pq"
+	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
@@ -32,7 +33,7 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
-func OpenPostgres(connection string, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
+func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *PostgresIndexerDb, err error) {
 	db, err := sql.Open("postgres", connection)
 
 	if err != nil {
@@ -46,12 +47,13 @@ func OpenPostgres(connection string, opts *idb.IndexerDbOptions) (pdb *PostgresI
 		opts.ReadOnly = true
 	}
 
-	return openPostgres(db, opts)
+	return openPostgres(db, opts, log)
 }
 
 // Allow tests to inject a DB
-func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
+func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *PostgresIndexerDb, err error) {
 	pdb = &PostgresIndexerDb{
+		log:        log,
 		db:         db,
 		protoCache: make(map[string]types.ConsensusParams, 20),
 	}
@@ -65,6 +67,8 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerD
 }
 
 type PostgresIndexerDb struct {
+	log *log.Logger
+
 	db *sql.DB
 
 	// state for StartBlock/AddTransaction/CommitBlock
@@ -2357,8 +2361,8 @@ type postgresFactory struct {
 func (df postgresFactory) Name() string {
 	return "postgres"
 }
-func (df postgresFactory) Build(arg string, opts *idb.IndexerDbOptions) (idb.IndexerDb, error) {
-	return OpenPostgres(arg, opts)
+func (df postgresFactory) Build(arg string, opts *idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, error) {
+	return OpenPostgres(arg, opts, log)
 }
 
 func init() {
