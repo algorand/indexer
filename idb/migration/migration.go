@@ -131,6 +131,7 @@ func (m *Migration) update(err error, status string, running bool, blocking bool
 	}
 
 	if status != m.state.Status {
+		m.log.Println("Setting status: " + status)
 		m.state.Status = status
 	}
 
@@ -147,6 +148,7 @@ func (m *Migration) update(err error, status string, running bool, blocking bool
 // migration runs. This call will block execution until it completes and should be run in a go routine if that is not
 // expected.
 func (m *Migration) RunMigrations() {
+	m.log.Println("Migration starting.")
 	blocking := true
 	for _, task := range m.tasks {
 		if task.MigrationId > m.blockUntil {
@@ -158,6 +160,7 @@ func (m *Migration) RunMigrations() {
 
 		if err != nil {
 			err := fmt.Errorf("%s%d (%s): %v", StatusErrorPrefix, task.MigrationId, task.Description, err)
+			m.log.Errorf("Migration failed: %v\n", err)
 			// If a migration failed, mark that the migration is blocking and terminate.
 			blocking = true
 			m.update(err, err.Error(), false, blocking)
@@ -166,5 +169,6 @@ func (m *Migration) RunMigrations() {
 	}
 
 	m.update(nil, StatusComplete, false, false)
+	m.log.Println("Migration finished successfully.")
 	return
 }

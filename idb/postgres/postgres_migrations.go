@@ -292,7 +292,7 @@ const cumulativeRewardsUpdateErr = "cumulative rewards migration error"
 // migration because we don't want to handle the case where accounts are actively transacting while we fixup their
 // table.
 func m5accountCumulativeRewardsUpdate(db *PostgresIndexerDb, state *MigrationState) error {
-	log.Print("account cumulative rewards migration starting")
+	db.log.Println("account cumulative rewards migration starting")
 
 	accountChan := db.GetAccounts(context.Background(), idb.AccountQueryOptions{
 		GreaterThanAddress:   state.NextAccount[:],
@@ -302,8 +302,10 @@ func m5accountCumulativeRewardsUpdate(db *PostgresIndexerDb, state *MigrationSta
 	// loop through all of the accounts, update them in batches of batchSize.
 	accounts := make([]string, batchSize)
 	for acct := range accountChan {
+		db.log.Println("Processing account: " + acct.Account.Address)
 		if acct.Error != nil {
-			return fmt.Errorf("%s: problem querying accounts: %v", cumulativeRewardsUpdateErr, acct.Error)
+			err := fmt.Errorf("%s: problem querying accounts: %v", cumulativeRewardsUpdateErr, acct.Error)
+			return err
 		}
 
 		accounts = append(accounts, acct.Account.Address)
@@ -312,6 +314,12 @@ func m5accountCumulativeRewardsUpdate(db *PostgresIndexerDb, state *MigrationSta
 			m5accountCumulativeRewardsUpdateAccounts(db, state, accounts)
 			accounts = accounts[:0]
 		}
+	}
+
+	// Get the remainder
+	if len(accounts) != 0 {
+		m5accountCumulativeRewardsUpdateAccounts(db, state, accounts)
+		accounts = accounts[:0]
 	}
 
 	return nil
@@ -394,14 +402,14 @@ func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []strin
 	thisMigration := state.NextMigration
 	tx, err := db.db.Begin()
 	if err != nil {
-		log.Printf("migration %d tx err: %v", thisMigration, err)
+		db.log.Printf("migration %d tx err: %v", thisMigration, err)
 		return err
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 	for i, cmd := range sqlLines {
 		_, err = tx.Exec(cmd)
 		if err != nil {
-			log.Printf("migration %d sql[%d] err: %v", thisMigration, i, err)
+			db.log.Printf("migration %d sql[%d] err: %v", thisMigration, i, err)
 			return err
 		}
 	}
@@ -409,15 +417,15 @@ func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []strin
 	migrationStateJson := json.Encode(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJson)
 	if err != nil {
-		log.Printf("migration %d meta err: %v", thisMigration, err)
+		db.log.Printf("migration %d meta err: %v", thisMigration, err)
 		return err
 	}
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("migration %d commit err: %v", thisMigration, err)
+		db.log.Printf("migration %d commit err: %v", thisMigration, err)
 		return err
 	}
-	log.Printf("migration %d done", thisMigration)
+	db.log.Printf("migration %d done", thisMigration)
 	return nil
 }
 
