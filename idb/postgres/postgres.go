@@ -1646,6 +1646,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 		// not implemented: account.Rewards sum of all rewards ever
 
 		const nullarraystr = "[null]"
+		// TODO: delete client side filter when server side filter demonstrated
 		reject := opts.HasAssetId != 0
 
 		if len(holdingAssetid) > 0 && string(holdingAssetid) != nullarraystr {
@@ -1806,6 +1807,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 			account.CreatedApps = &aout
 		}
 
+		// TODO: delete client side filter when server side filter demonstrated
 		reject = opts.HasAppId != 0
 		if len(localStateAppIds) > 0 {
 			var appIds []uint64
@@ -1998,11 +2000,23 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQu
 
 func (db *PostgresIndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query string, whereArgs []interface{}) {
 	// Construct query for fetching accounts...
-	query = `SELECT a.addr, a.microalgos, a.rewardsbase, a.keytype, a.account_data FROM account a`
 	const maxWhereParts = 14
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs = make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
+	withClauses := make([]string, 0, maxWhereParts)
+	// filter by has-asset or has-app
+	if opts.HasAssetId != 0 {
+		withClauses = append(withClauses, fmt.Sprintf("qasf AS (SELECT addr FROM account_asset WHERE assetid = $%d)", partNumber))
+		whereArgs = append(whereArgs, opts.HasAssetId)
+		partNumber++
+	}
+	if opts.HasAppId != 0 {
+		withClauses = append(withClauses, fmt.Sprintf("qapf AS (SELECT addr FROM account_app WHERE app = $%d)", partNumber))
+		whereArgs = append(whereArgs, opts.HasAppId)
+		partNumber++
+	}
+	// filters against main account table
 	if len(opts.GreaterThanAddress) > 0 {
 		whereParts = append(whereParts, fmt.Sprintf("a.addr > $%d", partNumber))
 		whereArgs = append(whereArgs, opts.GreaterThanAddress)
@@ -2028,17 +2042,23 @@ func (db *PostgresIndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (qu
 		whereArgs = append(whereArgs, opts.EqualToAuthAddr)
 		partNumber++
 	}
+	query = `SELECT a.addr, a.microalgos, a.rewardsbase, a.keytype, a.account_data FROM account a`
+	if opts.HasAssetId != 0 {
+		// inner join requires match, filtering on presence of asset
+		query += " JOIN qasf ON a.addr = qasf.addr"
+	}
+	if opts.HasAppId != 0 {
+		// inner join requires match, filtering on presence of app
+		query += " JOIN qapf ON a.addr = qapf.addr"
+	}
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
 		query += " WHERE " + whereStr
 	}
 	query += " ORDER BY a.addr ASC"
-	if opts.Limit != 0 && opts.HasAssetId == 0 && opts.HasAppId == 0 {
-		// sql limit gets disabled when we filter client side
-		query += fmt.Sprintf(" LIMIT %d", opts.Limit)
-	}
 	// TODO: asset holdings and asset params are optional, but practically always used. Either make them actually always on, or make app-global and app-local clauses also optional (they are currently always on).
-	query = "WITH qaccounts AS (" + query + ")"
+	withClauses = append(withClauses, "qaccounts AS ("+query+")")
+	query = "WITH " + strings.Join(withClauses, ", ")
 	if opts.IncludeAssetHoldings {
 		query += `, qaa AS (SELECT xa.addr, json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf FROM account_asset aa JOIN qaccounts xa ON aa.addr = xa.addr GROUP BY 1)`
 	}
@@ -2060,7 +2080,11 @@ func (db *PostgresIndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (qu
 	if opts.IncludeAssetParams {
 		query += ` LEFT JOIN qap ON za.addr = qap.addr`
 	}
-	query += " LEFT JOIN qapp ON za.addr = qapp.addr LEFT JOIN qls ON qls.addr = za.addr ORDER BY za.addr ASC;"
+	query += " LEFT JOIN qapp ON za.addr = qapp.addr LEFT JOIN qls ON qls.addr = za.addr ORDER BY za.addr ASC"
+	if opts.Limit != 0 {
+		query += fmt.Sprintf(" LIMIT %d", opts.Limit)
+	}
+	query += ";"
 	return query, whereArgs
 }
 
