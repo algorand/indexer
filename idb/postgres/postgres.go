@@ -1646,8 +1646,6 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 		// not implemented: account.Rewards sum of all rewards ever
 
 		const nullarraystr = "[null]"
-		// TODO: delete client side filter when server side filter demonstrated
-		reject := opts.HasAssetId != 0
 
 		if len(holdingAssetid) > 0 && string(holdingAssetid) != nullarraystr {
 			var haids []uint64
@@ -1681,27 +1679,11 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 				if dup {
 					continue
 				}
-				if assetid == opts.HasAssetId {
-					if opts.AssetGT != 0 {
-						if hamounts[i] > opts.AssetGT {
-							reject = false
-						}
-					} else if opts.AssetLT != 0 {
-						if hamounts[i] < opts.AssetLT {
-							reject = false
-						}
-					} else {
-						reject = false
-					}
-				}
 				tah := models.AssetHolding{Amount: hamounts[i], IsFrozen: hfrozen[i], AssetId: assetid} // TODO: set Creator to asset creator addr string
 				av = append(av, tah)
 			}
 			account.Assets = new([]models.AssetHolding)
 			*account.Assets = av
-		}
-		if reject {
-			continue
 		}
 		if len(assetParamsIds) > 0 && string(assetParamsIds) != nullarraystr {
 			var assetids []uint64
@@ -1807,8 +1789,6 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 			account.CreatedApps = &aout
 		}
 
-		// TODO: delete client side filter when server side filter demonstrated
-		reject = opts.HasAppId != 0
 		if len(localStateAppIds) > 0 {
 			var appIds []uint64
 			err = json.Decode(localStateAppIds, &appIds)
@@ -1837,14 +1817,8 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 					NumUint:      ls[i].Schema.NumUint,
 				}
 				aout[i].KeyValue = ls[i].KeyValue.toModel()
-				if appid == opts.HasAppId {
-					reject = false
-				}
 			}
 			account.AppsLocalState = &aout
-		}
-		if reject {
-			continue
 		}
 
 		select {
@@ -2007,9 +1981,21 @@ func (db *PostgresIndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (qu
 	withClauses := make([]string, 0, maxWhereParts)
 	// filter by has-asset or has-app
 	if opts.HasAssetId != 0 {
-		withClauses = append(withClauses, fmt.Sprintf("qasf AS (SELECT addr FROM account_asset WHERE assetid = $%d)", partNumber))
+		aq := fmt.Sprintf("SELECT addr FROM account_asset WHERE assetid = $%d", partNumber)
 		whereArgs = append(whereArgs, opts.HasAssetId)
 		partNumber++
+		if opts.AssetGT != 0 {
+			aq += fmt.Sprintf(" AND amount > $%d", partNumber)
+			whereArgs = append(whereArgs, opts.AssetGT)
+			partNumber++
+		}
+		if opts.AssetLT != 0 {
+			aq += fmt.Sprintf(" AND amount < $%d", partNumber)
+			whereArgs = append(whereArgs, opts.AssetLT)
+			partNumber++
+		}
+		aq = "qasf AS (" + aq + ")"
+		withClauses = append(withClauses, aq)
 	}
 	if opts.HasAppId != 0 {
 		withClauses = append(withClauses, fmt.Sprintf("qapf AS (SELECT addr FROM account_app WHERE app = $%d)", partNumber))
