@@ -42,7 +42,7 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-	db, err := idb.IndexerDbByName("postgres", pgdb, &idb.IndexerDbOptions{ReadOnly: true})
+	db, err := idb.IndexerDbByName("postgres", pgdb, &idb.IndexerDbOptions{ReadOnly: true}, nil)
 	maybeFail(err, "open postgres, %v", err)
 
 	rekeyTxnQuery := idb.TransactionFilter{RekeyTo: &truev, Limit: 1}
