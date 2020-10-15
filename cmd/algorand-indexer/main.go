@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 	//"github.com/spf13/cobra/doc" // TODO: enable cobra doc generation
-	"github.com/spf13/viper"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"

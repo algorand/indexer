@@ -51,11 +51,18 @@ func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger
 }
 
 // Allow tests to inject a DB
-func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *PostgresIndexerDb, err error) {
+func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (pdb *PostgresIndexerDb, err error) {
 	pdb = &PostgresIndexerDb{
-		log:        log,
+		log:        logger,
 		db:         db,
 		protoCache: make(map[string]types.ConsensusParams, 20),
+	}
+
+	if pdb.log == nil {
+		pdb.log = log.New()
+		pdb.log.SetFormatter(&log.JSONFormatter{})
+		pdb.log.SetOutput(os.Stdout)
+		pdb.log.SetLevel(log.TraceLevel)
 	}
 
 	// e.g. a user named "readonly" is in the connection string

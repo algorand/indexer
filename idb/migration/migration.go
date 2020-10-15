@@ -3,6 +3,7 @@ package migration
 import (
 	"errors"
 	"fmt"
+	"os"
 	"sync"
 
 	log "github.com/sirupsen/logrus"
@@ -91,9 +92,9 @@ func (m *Migration) setTasks(migrationTasks []Task) error {
 }
 
 // MakeMigration initializes
-func MakeMigration(migrationTasks []Task, log *log.Logger) (*Migration, error) {
+func MakeMigration(migrationTasks []Task, logger *log.Logger) (*Migration, error) {
 	m := &Migration{
-		log: log,
+		log: logger,
 		tasks: migrationTasks,
 		state: State{
 			Err:      nil,
@@ -101,6 +102,13 @@ func MakeMigration(migrationTasks []Task, log *log.Logger) (*Migration, error) {
 			Running:  false,
 			Blocking: true,
 		},
+	}
+
+	if m.log == nil {
+		m.log = log.New()
+		m.log.SetFormatter(&log.JSONFormatter{})
+		m.log.SetOutput(os.Stdout)
+		m.log.SetLevel(log.TraceLevel)
 	}
 
 	err := m.setTasks(migrationTasks)

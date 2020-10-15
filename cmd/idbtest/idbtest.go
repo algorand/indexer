@@ -129,7 +129,7 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-	db, err := idb.IndexerDbByName("postgres", pgdb, nil)
+	db, err := idb.IndexerDbByName("postgres", pgdb, nil, nil)
 	maybeFail(err, "open postgres, %v", err)
 
 	if accounttest {
