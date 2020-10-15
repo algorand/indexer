@@ -21,7 +21,7 @@ install:
 
 script:
   - make
-  - make integration
+  - make migration-tests
   - make test
   - make fakepackage
   - docker build -t e2e_tests -f docker/Dockerfile.mule .

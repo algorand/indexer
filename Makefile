@@ -45,7 +45,7 @@ sign:
 test: idb/mocks/IndexerDb.go
 	go test ./...
 
-integration: test/migrations/postgres_migration_test.sh
+migration-tests: test/migrations/postgres_migration_test.sh
 	test/migrations/postgres_migration_test.sh
 
 test-package:
