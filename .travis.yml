@@ -21,7 +21,7 @@ install:
 
 script:
   - make
-  - ./test/migrations/test.sh
+  - ./test/migrations/postgres_migration_test.sh
   - go test ./...
   - make fakepackage
   - docker build -t e2e_tests -f docker/Dockerfile.mule .
