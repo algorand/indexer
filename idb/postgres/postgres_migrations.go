@@ -34,15 +34,15 @@ func init() {
 	}
 }
 
-
+// MigrationState is metadata used by the postgres migrations.
 type MigrationState struct {
 	NextMigration int `json:"next"`
 
 	// NextRound used for m0 to checkpoint progress.
 	NextRound int64 `json:"round,omitempty"`
 
-	// NextAssetId used for m3 to checkpoint progress.
-	NextAssetId int64 `json:"assetid,omitempty"`
+	// NextAssetID used for m3 to checkpoint progress.
+	NextAssetID int64 `json:"assetid,omitempty"`
 
 	// NextAccount used for m5 to checkpoint progress.
 	NextAccount []byte `json:"nextaccount,omitempty"`
@@ -53,7 +53,7 @@ type MigrationState struct {
 }
 
 // A migration function should take care of writing back to metastate migration row
-type postgresMigrationFunc func(*PostgresIndexerDb, *MigrationState) error
+type postgresMigrationFunc func(*IndexerDb, *MigrationState) error
 
 type migrationStruct struct {
 	migrate postgresMigrationFunc
@@ -67,22 +67,22 @@ type migrationStruct struct {
 var migrations []migrationStruct
 
 type migrationTask struct {
-	migrationId    int
+	migrationID    int
 	migration      migrationStruct
 	migrationState *MigrationState
 	abortChan      chan error
 }
 
-func wrapPostgresHandler(handler postgresMigrationFunc, db *PostgresIndexerDb, state *MigrationState) migration.Handler {
+func wrapPostgresHandler(handler postgresMigrationFunc, db *IndexerDb, state *MigrationState) migration.Handler {
 	return func() error {
 		return handler(db, state)
 	}
 }
 
-func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (err error) {
+func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
 	var state MigrationState
-	if len(migrationStateJson) > 0 {
-		err = json.Decode([]byte(migrationStateJson), &state)
+	if len(migrationStateJSON) > 0 {
+		err = json.Decode([]byte(migrationStateJSON), &state)
 		if err != nil {
 			return fmt.Errorf("bad metastate migration json, %v", err)
 		}
@@ -94,7 +94,7 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 	for nextMigration < len(migrations) {
 		tasks = append(tasks, migration.Task{
 			Handler:       wrapPostgresHandler(migrations[nextMigration].migrate, db, &state),
-			MigrationId:   nextMigration,
+			MigrationID:   nextMigration,
 			Description:   migrations[nextMigration].description,
 			DBUnavailable: migrations[nextMigration].blocking,
 		})
@@ -104,7 +104,7 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 	if len(tasks) > 0 {
 		// Add a task to mark migrations as done instead of using a channel.
 		tasks = append(tasks, migration.Task{
-			MigrationId: 9999999,
+			MigrationID: 9999999,
 			Handler: func() error {
 				return db.markMigrationsAsDone()
 			},
@@ -123,27 +123,27 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 }
 
 // after setting up a new database, mark state as if all migrations had been done
-func (db *PostgresIndexerDb) markMigrationsAsDone() (err error) {
+func (db *IndexerDb) markMigrationsAsDone() (err error) {
 	state := MigrationState{
 		NextMigration: len(migrations),
 	}
-	migrationStateJson := string(json.Encode(state))
-	return db.SetMetastate(migrationMetastateKey, migrationStateJson)
+	migrationStateJSON := string(json.Encode(state))
+	return db.SetMetastate(migrationMetastateKey, migrationStateJSON)
 }
 
-func m0fixupTxid(db *PostgresIndexerDb, state *MigrationState) error {
+func m0fixupTxid(db *IndexerDb, state *MigrationState) error {
 	mtxid := &txidFiuxpMigrationContext{db: db, state: state}
 	return mtxid.asyncTxidFixup()
 }
 
-func m1fixupBlockTime(db *PostgresIndexerDb, state *MigrationState) error {
+func m1fixupBlockTime(db *IndexerDb, state *MigrationState) error {
 	sqlLines := []string{
 		`UPDATE block_header SET realtime = to_timestamp(coalesce(header ->> 'ts', '0')::bigint) AT TIME ZONE 'UTC'`,
 	}
 	return sqlMigration(db, state, sqlLines)
 }
 
-func m2apps(db *PostgresIndexerDb, state *MigrationState) error {
+func m2apps(db *IndexerDb, state *MigrationState) error {
 	sqlLines := []string{
 		`CREATE TABLE IF NOT EXISTS app (
   index bigint PRIMARY KEY,
@@ -160,9 +160,9 @@ func m2apps(db *PostgresIndexerDb, state *MigrationState) error {
 	return sqlMigration(db, state, sqlLines)
 }
 
-func m3acfgFix(db *PostgresIndexerDb, state *MigrationState) (err error) {
+func m3acfgFix(db *IndexerDb, state *MigrationState) (err error) {
 	log.Print("asset config fix migration starting")
-	rows, err := db.db.Query(`SELECT index FROM asset WHERE index >= $1 ORDER BY 1`, state.NextAssetId)
+	rows, err := db.db.Query(`SELECT index FROM asset WHERE index >= $1 ORDER BY 1`, state.NextAssetID)
 	if err != nil {
 		log.Printf("acfg fix err getting assetids, %v", err)
 		return err
@@ -196,7 +196,7 @@ func m3acfgFix(db *PostgresIndexerDb, state *MigrationState) (err error) {
 
 // do a transactional batch of asset fixes
 // updates asset rows and metastate
-func m3acfgFixAsyncInner(db *PostgresIndexerDb, state *MigrationState, assetIds []int64) (next int, err error) {
+func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64) (next int, err error) {
 	lastlog := time.Now()
 	tx, err := db.db.Begin()
 	if err != nil {
@@ -214,9 +214,9 @@ func m3acfgFixAsyncInner(db *PostgresIndexerDb, state *MigrationState, assetIds 
 		now := time.Now()
 		if now.Sub(lastlog) > (5 * time.Second) {
 			log.Printf("acfg fix next=%d", aid)
-			state.NextAssetId = aid
-			migrationStateJson := json.Encode(state)
-			_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJson)
+			state.NextAssetID = aid
+			migrationStateJSON := json.Encode(state)
+			_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 			if err != nil {
 				log.Printf("acfg fix migration %d meta err: %v", state.NextMigration, err)
 				return -1, err
@@ -262,10 +262,10 @@ func m3acfgFixAsyncInner(db *PostgresIndexerDb, state *MigrationState, assetIds 
 			return -1, err
 		}
 	}
-	state.NextAssetId = 0
+	state.NextAssetID = 0
 	state.NextMigration++
-	migrationStateJson := json.Encode(state)
-	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJson)
+	migrationStateJSON := json.Encode(state)
+	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		log.Printf("acfg fix migration %d meta err: %v", state.NextMigration, err)
 		return -1, err
@@ -279,7 +279,7 @@ func m3acfgFixAsyncInner(db *PostgresIndexerDb, state *MigrationState, assetIds 
 }
 
 // m4cumulativeRewardsDBUpdate adds the new rewardstotal column to the account table.
-func m4cumulativeRewardsDBUpdate(db *PostgresIndexerDb, state *MigrationState) error {
+func m4cumulativeRewardsDBUpdate(db *IndexerDb, state *MigrationState) error {
 	sqlLines := []string{
 		`ALTER TABLE account ADD COLUMN rewardstotal bigint NOT NULL DEFAULT 0`,
 	}
@@ -291,7 +291,7 @@ const cumulativeRewardsUpdateErr = "cumulative rewards migration error"
 // m5accountCumulativeRewardsUpdate computes the cumulative rewards for each account one at a time. This is a BLOCKING
 // migration because we don't want to handle the case where accounts are actively transacting while we fixup their
 // table.
-func m5accountCumulativeRewardsUpdate(db *PostgresIndexerDb, state *MigrationState) error {
+func m5accountCumulativeRewardsUpdate(db *IndexerDb, state *MigrationState) error {
 	db.log.Println("account cumulative rewards migration starting")
 
 	options := idb.AccountQueryOptions{}
@@ -337,7 +337,7 @@ func m5accountCumulativeRewardsUpdate(db *PostgresIndexerDb, state *MigrationSta
 
 // m5accountCumulativeRewardsUpdateAccounts loops through the provided accounts and generates a bunch of updates in a
 // single transactional commit.
-func m5accountCumulativeRewardsUpdateAccounts(db *PostgresIndexerDb, state *MigrationState, accounts []string, finalBatch bool) error {
+func m5accountCumulativeRewardsUpdateAccounts(db *IndexerDb, state *MigrationState, accounts []string, finalBatch bool) error {
 	tx, err := db.db.Begin()
 	if err != nil {
 		return fmt.Errorf("%s: tx begin: %v", cumulativeRewardsUpdateErr, err)
@@ -396,8 +396,8 @@ func m5accountCumulativeRewardsUpdateAccounts(db *PostgresIndexerDb, state *Migr
 	} else {
 		state.NextAccount = finalAddress[:]
 	}
-	migrationStateJson := json.Encode(state)
-	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJson)
+	migrationStateJSON := json.Encode(state)
+	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		return fmt.Errorf("%s: failed to update migration checkpoint: %v", cumulativeRewardsUpdateErr, err)
 	}
@@ -412,7 +412,7 @@ func m5accountCumulativeRewardsUpdateAccounts(db *PostgresIndexerDb, state *Migr
 }
 
 // sqlMigration executes a sql statements as the entire migration.
-func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []string) error {
+func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error {
 	thisMigration := state.NextMigration
 	tx, err := db.db.Begin()
 	if err != nil {
@@ -428,8 +428,8 @@ func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []strin
 		}
 	}
 	state.NextMigration++
-	migrationStateJson := json.Encode(state)
-	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJson)
+	migrationStateJSON := json.Encode(state)
+	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		db.log.Printf("migration %d meta err: %v", thisMigration, err)
 		return err
@@ -446,7 +446,7 @@ func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []strin
 const txidMigrationErrMsg = "ERROR migrating txns for txid, stopped, will retry on next indexer startup"
 
 type migrationContext struct {
-	db      *PostgresIndexerDb
+	db      *IndexerDb
 	state   *MigrationState
 	lastlog time.Time
 }
@@ -517,8 +517,8 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() (err error) {
 	// all done, mark migration state
 	state.NextMigration++
 	state.NextRound = 0
-	migrationStateJson := string(json.Encode(state))
-	err = db.SetMetastate(migrationMetastateKey, migrationStateJson)
+	migrationStateJSON := string(json.Encode(state))
+	err = db.SetMetastate(migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		log.Printf("%s, error setting final migration state: %v", txidMigrationErrMsg, err)
 		return
@@ -584,8 +584,8 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 	defer tx.Rollback() // ignored if .Commit() first
 	// Check that migration state in db is still what we think it is
 	row := tx.QueryRow(`SELECT v FROM metastate WHERE k = $1`, migrationMetastateKey)
-	var migrationStateJson []byte
-	err = row.Scan(&migrationStateJson)
+	var migrationStateJSON []byte
+	err = row.Scan(&migrationStateJSON)
 	var txstate MigrationState
 	if err == sql.ErrNoRows && state.NextMigration == 0 {
 		// no previous state, ok
@@ -593,7 +593,7 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 		log.Printf("%s, get m state err: %v", txidMigrationErrMsg, err)
 		return err
 	} else {
-		err = json.Decode([]byte(migrationStateJson), &txstate)
+		err = json.Decode([]byte(migrationStateJSON), &txstate)
 		if err != nil {
 			log.Printf("%s, migration json err: %v", txidMigrationErrMsg, err)
 			return err
@@ -644,8 +644,8 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 		return err
 	}
 	txstate.NextRound = int64(maxRound + 1)
-	migrationStateJson = json.Encode(txstate)
-	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJson)
+	migrationStateJSON = json.Encode(txstate)
+	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		log.Printf("%s, set metastate err: %v", txidMigrationErrMsg, err)
 		return err

@@ -9,12 +9,18 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var DuplicateIDErr = errors.New("duplicate ID detected")
-var UnorderedIDErr = errors.New("migration IDs must be in ascending order")
+// ErrDuplicateID is the error returned when the migration is given duplicate migration IDs.
+var ErrDuplicateID = errors.New("duplicate ID detected")
+// ErrUnorderedID is the error returned when the migration is given migrations that aren't ordered correctly.
+var ErrUnorderedID = errors.New("migration IDs must be in ascending order")
 
+// StatusPending is the migration status before the migration has been started.
 const StatusPending = "Migration pending"
+// StatusComplete is the migration status after the migration successfully completes.
 const StatusComplete = "Migrations Complete"
+// StatusActivePrefix is the migration status prefix for the currently running migration.
 const StatusActivePrefix = "Active migration: "
+// StatusErrorPrefix is the status message prefix when there is an error during the migration.
 const StatusErrorPrefix = "error during migration "
 
 // Handler is the function which will be executed to perform the migration for this task.
@@ -22,8 +28,8 @@ type Handler func() error
 
 // Task is used to define a migration.
 type Task struct {
-	// MigrationId is an internal ID that can be used by IndexerDb implementations.
-	MigrationId int
+	// MigrationID is an internal ID that can be used by IndexerDb implementations.
+	MigrationID int
 
 	// Handler is the function which will be executed to perform the migration for this task.
 	Handler Handler
@@ -65,24 +71,24 @@ type Migration struct {
 func (m *Migration) setTasks(migrationTasks []Task) error {
 	m.blockUntil = 0
 	ids := make(map[int]bool)
-	lastId := 0
+	lastID := 0
 
 	for _, migration := range migrationTasks {
 		// migrations must be in ascending order
-		if lastId > migration.MigrationId {
-			return UnorderedIDErr
+		if lastID > migration.MigrationID {
+			return ErrUnorderedID
 		}
-		lastId = migration.MigrationId
+		lastID = migration.MigrationID
 
 		// Prevent duplicate IDs
-		if ids[migration.MigrationId] {
-			return DuplicateIDErr
+		if ids[migration.MigrationID] {
+			return ErrDuplicateID
 		}
-		ids[migration.MigrationId] = true
+		ids[migration.MigrationID] = true
 
 		// Make sure blockUntil is set to the last blocking migration
 		if migration.DBUnavailable {
-			m.blockUntil = migration.MigrationId
+			m.blockUntil = migration.MigrationID
 		}
 	}
 
@@ -159,7 +165,7 @@ func (m *Migration) RunMigrations() {
 	m.log.Println("Migration starting.")
 	blocking := true
 	for _, task := range m.tasks {
-		if task.MigrationId > m.blockUntil {
+		if task.MigrationID > m.blockUntil {
 			blocking = false
 		}
 
@@ -167,7 +173,7 @@ func (m *Migration) RunMigrations() {
 		err := task.Handler()
 
 		if err != nil {
-			err := fmt.Errorf("%s%d (%s): %v", StatusErrorPrefix, task.MigrationId, task.Description, err)
+			err := fmt.Errorf("%s%d (%s): %v", StatusErrorPrefix, task.MigrationID, task.Description, err)
 			m.log.Errorf("Migration failed: %v\n", err)
 			// If a migration failed, mark that the migration is blocking and terminate.
 			blocking = true

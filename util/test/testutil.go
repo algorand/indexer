@@ -18,10 +18,12 @@ import (
 var quiet = false
 var exitValue = 0
 
+// SetQuiet quiet mode of this logging thing.
 func SetQuiet(q bool) {
 	quiet = q
 }
 
+// ExitValue returns the captured exit value.
 func ExitValue() int {
 	return exitValue
 }
@@ -33,6 +35,7 @@ func info(format string, a ...interface{}) {
 	fmt.Printf(format, a...)
 }
 
+// Info is the the only logging level for this thing.
 var Info = info
 
 func infoln(s string) {
@@ -52,6 +55,7 @@ func myStackTrace() {
 	}
 }
 
+// PrintAssetQuery prints information about an asset query.
 func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 	count := uint64(0)
 	for ar := range db.Assets(context.Background(), q) {
@@ -71,6 +75,7 @@ func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 	}
 }
 
+// PrintAccountQuery prints information about an account query.
 func PrintAccountQuery(db idb.IndexerDb, q idb.AccountQueryOptions) {
 	accountchan := db.GetAccounts(context.Background(), q)
 	count := uint64(0)
@@ -90,6 +95,7 @@ func PrintAccountQuery(db idb.IndexerDb, q idb.AccountQueryOptions) {
 	}
 }
 
+// PrintTxnQuery prints information about a transaction query.
 func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 	rowchan := db.Transactions(context.Background(), q)
 	count := uint64(0)
@@ -100,7 +106,7 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 		MaybeFail(err, "decode txnbytes %v\n", err)
 		//tjs, err := json.Marshal(stxn.Txn) // nope, ugly
 		//MaybeFail(err, "err %v\n", err)
-		tjs := string(JsonOneLine(stxn.Txn))
+		tjs := string(JSONOneLine(stxn.Txn))
 		info("%d:%d %s sr=%d rr=%d ca=%d cr=%d t=%s\n", txnrow.Round, txnrow.Intra, tjs, stxn.SenderRewards, stxn.ReceiverRewards, stxn.ClosingAmount, stxn.CloseRewards, txnrow.RoundTime.String())
 		count++
 	}
@@ -112,6 +118,7 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 	}
 }
 
+// MaybeFail exits if there was an error.
 func MaybeFail(err error, errfmt string, params ...interface{}) {
 	if err == nil {
 		return
@@ -120,21 +127,22 @@ func MaybeFail(err error, errfmt string, params ...interface{}) {
 	os.Exit(1)
 }
 
-func JsonOneLine(obj interface{}) []byte {
+// JSONOneLine encodes the object into a json string with no formatting.
+func JSONOneLine(obj interface{}) []byte {
 	var b []byte
-	enc := codec.NewEncoderBytes(&b, OneLineJsonCodecHandle)
+	enc := codec.NewEncoderBytes(&b, oneLineJSONCodecHandle)
 	enc.MustEncode(obj)
 	return b
 }
 
-var OneLineJsonCodecHandle *codec.JsonHandle
+var oneLineJSONCodecHandle *codec.JsonHandle
 
 func init() {
-	OneLineJsonCodecHandle = new(codec.JsonHandle)
-	OneLineJsonCodecHandle.ErrorIfNoField = true
-	OneLineJsonCodecHandle.ErrorIfNoArrayExpand = true
-	OneLineJsonCodecHandle.Canonical = true
-	OneLineJsonCodecHandle.RecursiveEmptyCheck = true
-	OneLineJsonCodecHandle.HTMLCharsAsIs = true
-	OneLineJsonCodecHandle.Indent = 0
+	oneLineJSONCodecHandle = new(codec.JsonHandle)
+	oneLineJSONCodecHandle.ErrorIfNoField = true
+	oneLineJSONCodecHandle.ErrorIfNoArrayExpand = true
+	oneLineJSONCodecHandle.Canonical = true
+	oneLineJSONCodecHandle.RecursiveEmptyCheck = true
+	oneLineJSONCodecHandle.HTMLCharsAsIs = true
+	oneLineJSONCodecHandle.Indent = 0
 }
