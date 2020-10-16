@@ -20,6 +20,7 @@ install:
   - pip3 install boto3 markdown2
 
 script:
+  - make lint
   - make
   - make migration-tests
   - make test
