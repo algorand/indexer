@@ -9,8 +9,6 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-codec/codec"
-
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 )
@@ -64,7 +62,7 @@ func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 		MaybeFail(err, "json.Marshal params %v\n", err)
 		var creator atypes.Address
 		copy(creator[:], ar.Creator)
-		info("%d %s %s\n", ar.AssetId, creator.String(), pjs)
+		info("%d %s %s\n", ar.AssetID, creator.String(), pjs)
 		count++
 	}
 	info("%d rows\n", count)
@@ -106,7 +104,8 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 		MaybeFail(err, "decode txnbytes %v\n", err)
 		//tjs, err := json.Marshal(stxn.Txn) // nope, ugly
 		//MaybeFail(err, "err %v\n", err)
-		tjs := string(JSONOneLine(stxn.Txn))
+		//tjs := string(JSONOneLine(stxn.Txn))
+		tjs := string(idb.JSONOneLine(stxn.Txn))
 		info("%d:%d %s sr=%d rr=%d ca=%d cr=%d t=%s\n", txnrow.Round, txnrow.Intra, tjs, stxn.SenderRewards, stxn.ReceiverRewards, stxn.ClosingAmount, stxn.CloseRewards, txnrow.RoundTime.String())
 		count++
 	}
@@ -125,24 +124,4 @@ func MaybeFail(err error, errfmt string, params ...interface{}) {
 	}
 	fmt.Fprintf(os.Stderr, errfmt, params...)
 	os.Exit(1)
-}
-
-// JSONOneLine encodes the object into a json string with no formatting.
-func JSONOneLine(obj interface{}) []byte {
-	var b []byte
-	enc := codec.NewEncoderBytes(&b, oneLineJSONCodecHandle)
-	enc.MustEncode(obj)
-	return b
-}
-
-var oneLineJSONCodecHandle *codec.JsonHandle
-
-func init() {
-	oneLineJSONCodecHandle = new(codec.JsonHandle)
-	oneLineJSONCodecHandle.ErrorIfNoField = true
-	oneLineJSONCodecHandle.ErrorIfNoArrayExpand = true
-	oneLineJSONCodecHandle.Canonical = true
-	oneLineJSONCodecHandle.RecursiveEmptyCheck = true
-	oneLineJSONCodecHandle.HTMLCharsAsIs = true
-	oneLineJSONCodecHandle.Indent = 0
 }

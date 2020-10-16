@@ -228,7 +228,7 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 			}
 			return i, nil
 		}
-		txrows := db.txTransactions(tx, idb.TransactionFilter{TypeEnum: 3, AssetId: uint64(aid)})
+		txrows := db.txTransactions(tx, idb.TransactionFilter{TypeEnum: 3, AssetID: uint64(aid)})
 		prevRound := uint64(0)
 		first := true
 		var params types.AssetParams

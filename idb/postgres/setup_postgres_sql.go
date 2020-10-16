@@ -1,4 +1,4 @@
-// GENERATED CODE from source setup_postgres.sql via go generate
+// Code generated from source setup_postgres.sql via go generate. DO NOT EDIT.
 
 package postgres
 

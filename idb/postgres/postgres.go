@@ -139,7 +139,7 @@ func (db *IndexerDb) StartBlock() (err error) {
 func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
 	txnbytes := msgpack.Encode(txn)
 	var jsonbytes []byte
-	jsonbytes, err := idb.MsgpackToJson(txnbytes)
+	jsonbytes, err := idb.MsgpackToJSON(txnbytes)
 	if err != nil {
 		return err
 	}
@@ -438,7 +438,7 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 			row.RoundTime = roundtimes[i]
 			row.Intra = intras[i]
 			row.TxnBytes = txnbytess[i]
-			row.AssetId = uint64(creatableids[i])
+			row.AssetID = uint64(creatableids[i])
 			if len(extrajsons[i]) > 0 {
 				err := json.Decode(extrajsons[i], &row.Extra)
 				if err != nil {
@@ -780,28 +780,28 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 		}
 		defer getacfg.Close()
 		for _, au := range updates.AcfgUpdates {
-			if au.AssetId == debugAsset {
+			if au.AssetID == debugAsset {
 				fmt.Fprintf(os.Stderr, "%d acfg %s %s\n", round, b64(au.Creator[:]), obs(au))
 			}
 			var outparams string
 			if au.IsNew {
 				outparams = string(json.Encode(au.Params))
 			} else {
-				row := getacfg.QueryRow(au.AssetId)
+				row := getacfg.QueryRow(au.AssetID)
 				var paramjson []byte
 				err = row.Scan(&paramjson)
 				if err != nil {
-					return fmt.Errorf("get acfg %d, %v", au.AssetId, err)
+					return fmt.Errorf("get acfg %d, %v", au.AssetID, err)
 				}
 				var old atypes.AssetParams
 				err = json.Decode(paramjson, &old)
 				if err != nil {
-					return fmt.Errorf("bad acgf json %d, %v", au.AssetId, err)
+					return fmt.Errorf("bad acgf json %d, %v", au.AssetID, err)
 				}
 				np := types.MergeAssetConfig(old, au.Params)
 				outparams = string(json.Encode(np))
 			}
-			_, err = setacfg.Exec(au.AssetId, au.Creator[:], outparams)
+			_, err = setacfg.Exec(au.AssetID, au.Creator[:], outparams)
 			if err != nil {
 				return fmt.Errorf("update asset, %v", err)
 			}
@@ -814,7 +814,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 			return fmt.Errorf("prepare update txn.asset, %v", err)
 		}
 		for _, tau := range updates.TxnAssetUpdates {
-			_, err = uta.Exec(tau.AssetId, tau.Round, tau.Offset)
+			_, err = uta.Exec(tau.AssetID, tau.Round, tau.Offset)
 			if err != nil {
 				return fmt.Errorf("update txn.asset, %v", err)
 			}
@@ -830,14 +830,14 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 		defer seta.Close()
 		for addr, aulist := range updates.AssetUpdates {
 			for _, au := range aulist {
-				if au.AssetId == debugAsset {
+				if au.AssetID == debugAsset {
 					fmt.Fprintf(os.Stderr, "%d axfer %s %s\n", round, b64(addr[:]), obs(au))
 				}
 				if au.Delta.IsInt64() {
 					// easy case
 					delta := au.Delta.Int64()
 					// don't skip delta == 0; mark opt-in
-					_, err = seta.Exec(addr[:], au.AssetId, delta, au.DefaultFrozen)
+					_, err = seta.Exec(addr[:], au.AssetID, delta, au.DefaultFrozen)
 					if err != nil {
 						return fmt.Errorf("update account asset, %v", err)
 					}
@@ -855,7 +855,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 						continue
 					}
 					for !au.Delta.IsInt64() {
-						_, err = seta.Exec(addr[:], au.AssetId, step, au.DefaultFrozen)
+						_, err = seta.Exec(addr[:], au.AssetID, step, au.DefaultFrozen)
 						if err != nil {
 							return fmt.Errorf("update account asset, %v", err)
 						}
@@ -863,7 +863,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 					}
 					sign = au.Delta.Sign()
 					if sign != 0 {
-						_, err = seta.Exec(addr[:], au.AssetId, au.Delta.Int64(), au.DefaultFrozen)
+						_, err = seta.Exec(addr[:], au.AssetID, au.Delta.Int64(), au.DefaultFrozen)
 						if err != nil {
 							return fmt.Errorf("update account asset, %v", err)
 						}
@@ -880,10 +880,10 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 		}
 		defer fr.Close()
 		for _, fs := range updates.FreezeUpdates {
-			if fs.AssetId == debugAsset {
+			if fs.AssetID == debugAsset {
 				fmt.Fprintf(os.Stderr, "%d %s %s\n", round, b64(fs.Addr[:]), obs(fs))
 			}
-			_, err = fr.Exec(fs.Addr[:], fs.AssetId, fs.Frozen)
+			_, err = fr.Exec(fs.Addr[:], fs.AssetID, fs.Frozen)
 			if err != nil {
 				return fmt.Errorf("update asset freeze, %v", err)
 			}
@@ -910,18 +910,18 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 		defer acd.Close()
 		for _, ac := range updates.AssetCloses {
-			if ac.AssetId == debugAsset {
+			if ac.AssetID == debugAsset {
 				fmt.Fprintf(os.Stderr, "%d close %s\n", round, obs(ac))
 			}
-			_, err = acc.Exec(ac.Round, ac.Offset, ac.Sender[:], ac.AssetId)
+			_, err = acc.Exec(ac.Round, ac.Offset, ac.Sender[:], ac.AssetID)
 			if err != nil {
 				return fmt.Errorf("asset close record amount, %v", err)
 			}
-			_, err = acs.Exec(ac.CloseTo[:], ac.AssetId, ac.DefaultFrozen, ac.Sender[:], ac.AssetId)
+			_, err = acs.Exec(ac.CloseTo[:], ac.AssetID, ac.DefaultFrozen, ac.Sender[:], ac.AssetID)
 			if err != nil {
 				return fmt.Errorf("asset close send, %v", err)
 			}
-			_, err = acd.Exec(ac.Sender[:], ac.AssetId)
+			_, err = acd.Exec(ac.Sender[:], ac.AssetID)
 			if err != nil {
 				return fmt.Errorf("asset close del, %v", err)
 			}
@@ -1255,19 +1255,19 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		whereArgs = append(whereArgs, tf.AfterTime)
 		partNumber++
 	}
-	if tf.AssetId != 0 || tf.ApplicationId != 0 {
+	if tf.AssetID != 0 || tf.ApplicationID != 0 {
 		var creatableID uint64
-		if tf.AssetId != 0 {
-			creatableID = tf.AssetId
-			if tf.ApplicationId != 0 {
-				if tf.AssetId == tf.ApplicationId {
+		if tf.AssetID != 0 {
+			creatableID = tf.AssetID
+			if tf.ApplicationID != 0 {
+				if tf.AssetID == tf.ApplicationID {
 					// this is nonsense, but I'll allow it
 				} else {
 					return "", nil, fmt.Errorf("cannot search both assetid and appid")
 				}
 			}
 		} else {
-			creatableID = tf.ApplicationId
+			creatableID = tf.ApplicationID
 		}
 		whereParts = append(whereParts, fmt.Sprintf("t.asset = $%d", partNumber))
 		whereArgs = append(whereArgs, creatableID)
@@ -1522,7 +1522,7 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, 
 			row.Intra = intra
 			row.TxnBytes = txnbytes
 			row.RoundTime = roundtime
-			row.AssetId = asset
+			row.AssetID = asset
 			if len(extraJSON) > 0 {
 				err = json.Decode(extraJSON, &row.Extra)
 				if err != nil {
@@ -1950,10 +1950,10 @@ var readOnlyTx = sql.TxOptions{ReadOnly: true}
 func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) <-chan idb.AccountRow {
 	out := make(chan idb.AccountRow, 1)
 
-	if opts.HasAssetId != 0 {
+	if opts.HasAssetID != 0 {
 		opts.IncludeAssetHoldings = true
 	} else if (opts.AssetGT != 0) || (opts.AssetLT != 0) {
-		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetId=%d", opts.AssetGT, opts.AssetLT, opts.HasAssetId)
+		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetID=%d", opts.AssetGT, opts.AssetLT, opts.HasAssetID)
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		return out
@@ -2023,9 +2023,9 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	partNumber := 1
 	withClauses := make([]string, 0, maxWhereParts)
 	// filter by has-asset or has-app
-	if opts.HasAssetId != 0 {
+	if opts.HasAssetID != 0 {
 		aq := fmt.Sprintf("SELECT addr FROM account_asset WHERE assetid = $%d", partNumber)
-		whereArgs = append(whereArgs, opts.HasAssetId)
+		whereArgs = append(whereArgs, opts.HasAssetID)
 		partNumber++
 		if opts.AssetGT != 0 {
 			aq += fmt.Sprintf(" AND amount > $%d", partNumber)
@@ -2040,9 +2040,9 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		aq = "qasf AS (" + aq + ")"
 		withClauses = append(withClauses, aq)
 	}
-	if opts.HasAppId != 0 {
+	if opts.HasAppID != 0 {
 		withClauses = append(withClauses, fmt.Sprintf("qapf AS (SELECT addr FROM account_app WHERE app = $%d)", partNumber))
-		whereArgs = append(whereArgs, opts.HasAppId)
+		whereArgs = append(whereArgs, opts.HasAppID)
 		partNumber++
 	}
 	// filters against main account table
@@ -2072,11 +2072,11 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		partNumber++
 	}
 	query = `SELECT a.addr, a.microalgos, a.rewardstotal, a.rewardsbase, a.keytype, a.account_data FROM account a`
-	if opts.HasAssetId != 0 {
+	if opts.HasAssetID != 0 {
 		// inner join requires match, filtering on presence of asset
 		query += " JOIN qasf ON a.addr = qasf.addr"
 	}
-	if opts.HasAppId != 0 {
+	if opts.HasAppID != 0 {
 		// inner join requires match, filtering on presence of app
 		query += " JOIN qapf ON a.addr = qapf.addr"
 	}
@@ -2124,14 +2124,14 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) <-chan 
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if filter.AssetId != 0 {
+	if filter.AssetID != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("a.index = $%d", partNumber))
-		whereArgs = append(whereArgs, filter.AssetId)
+		whereArgs = append(whereArgs, filter.AssetID)
 		partNumber++
 	}
-	if filter.AssetIdGreaterThan != 0 {
+	if filter.AssetIDGreaterThan != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("a.index > $%d", partNumber))
-		whereArgs = append(whereArgs, filter.AssetIdGreaterThan)
+		whereArgs = append(whereArgs, filter.AssetIDGreaterThan)
 		partNumber++
 	}
 	if filter.Creator != nil {
@@ -2194,7 +2194,7 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			break
 		}
 		rec := idb.AssetRow{
-			AssetId: index,
+			AssetID: index,
 			Creator: creatorAddr,
 			Params:  params,
 		}
@@ -2214,9 +2214,9 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if abq.AssetId != 0 {
+	if abq.AssetID != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("aa.assetid = $%d", partNumber))
-		whereArgs = append(whereArgs, abq.AssetId)
+		whereArgs = append(whereArgs, abq.AssetID)
 		partNumber++
 	}
 	if abq.AmountGT != 0 {
@@ -2268,7 +2268,7 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows
 		}
 		rec := idb.AssetBalanceRow{
 			Address: addr,
-			AssetId: assetID,
+			AssetID: assetID,
 			Amount:  amount,
 			Frozen:  frozen,
 		}
