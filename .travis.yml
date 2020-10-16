@@ -9,6 +9,9 @@ dist: bionic
 services:
   - docker
 
+install:
+  - go get -u golang.org/x/lint/golint
+
 addons:
   apt:
     packages:
