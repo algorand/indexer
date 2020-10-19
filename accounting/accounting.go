@@ -111,10 +111,8 @@ func (accounting *AccountingState) updateAlgo(addr types.Address, amount int64) 
 }
 
 func (accounting *AccountingState) updateAlgoAndRewards(addr types.Address, addAmount, subAmount, addRewards, subRewards types.MicroAlgos) {
-	bigAddAmount := new(big.Int).SetUint64(uint64(addAmount))
-	bigSubAmount := new(big.Int).SetUint64(uint64(subAmount))
-	bigAddRewards := new(big.Int).SetUint64(uint64(addRewards))
-	bigSubRewards := new(big.Int).SetUint64(uint64(subRewards))
+	balanceDelta := int64(addAmount) - int64(subAmount)
+	rewardsDelta := int64(addRewards) - int64(subRewards)
 
 	if accounting.AlgoUpdates == nil {
 		accounting.AlgoUpdates = make(map[[32]byte]*idb.AlgoUpdate)
@@ -123,14 +121,16 @@ func (accounting *AccountingState) updateAlgoAndRewards(addr types.Address, addA
 	update, hasKey := accounting.AlgoUpdates[addr]
 
 	if !hasKey {
-		update = &idb.AlgoUpdate{}
+		update = &idb.AlgoUpdate{
+			Balance: balanceDelta,
+			Rewards: rewardsDelta,
+		}
 		accounting.AlgoUpdates[addr] = update
+		return
 	}
 
-	update.Balance.Add(&update.Balance, bigAddAmount)
-	update.Balance.Sub(&update.Balance, bigSubAmount)
-	update.Rewards.Add(&update.Rewards, bigAddRewards)
-	update.Rewards.Add(&update.Rewards, bigSubRewards)
+	update.Balance += balanceDelta
+	update.Rewards += rewardsDelta
 }
 
 func (accounting *AccountingState) updateAccountType(addr types.Address, ktype string) {
