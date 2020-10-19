@@ -94,26 +94,43 @@ func bytesAreZero(b []byte) bool {
 	return true
 }
 
-func (accounting *AccountingState) updateAlgo(addr types.Address, amount int64) {
-	accounting.updateAlgoAndRewards(addr, amount, 0)
+func (accounting *AccountingState) updateRewards(rewardAddr, acctAddr types.Address, amount types.MicroAlgos) {
+	accounting.updateAlgoAndRewards(acctAddr, amount, 0, amount, 0)
+	// Note: rewardAddr is also available as accounting.rewardAddr, but all of the other accounting is done
+	// explicitly in AddTransaction.
+	accounting.updateAlgoAndRewards(rewardAddr, 0, amount, 0, 0)
 }
 
-func (accounting *AccountingState) updateAlgoAndRewards(addr types.Address, amount, rewards int64) {
+func (accounting *AccountingState) updateAlgo(addr types.Address, amount int64) {
+	if amount > 0 {
+		accounting.updateAlgoAndRewards(addr, types.MicroAlgos(amount), 0, 0, 0)
+	} else {
+		accounting.updateAlgoAndRewards(addr, 0, types.MicroAlgos(amount), 0, 0)
+
+	}
+}
+
+func (accounting *AccountingState) updateAlgoAndRewards(addr types.Address, addAmount, subAmount, addRewards, subRewards types.MicroAlgos) {
+	bigAddAmount := new(big.Int).SetUint64(uint64(addAmount))
+	bigSubAmount := new(big.Int).SetUint64(uint64(subAmount))
+	bigAddRewards := new(big.Int).SetUint64(uint64(addRewards))
+	bigSubRewards := new(big.Int).SetUint64(uint64(subRewards))
+
 	if accounting.AlgoUpdates == nil {
 		accounting.AlgoUpdates = make(map[[32]byte]*idb.AlgoUpdate)
 	}
 
-	acctUpdate, hasKey := accounting.AlgoUpdates[addr]
+	update, hasKey := accounting.AlgoUpdates[addr]
 
 	if !hasKey {
-		accounting.AlgoUpdates[addr] = &idb.AlgoUpdate{
-			Balance: amount,
-			Rewards: rewards,
-		}
-		return
+		update = &idb.AlgoUpdate{}
+		accounting.AlgoUpdates[addr] = update
 	}
-	acctUpdate.Balance += amount
-	acctUpdate.Rewards += rewards
+
+	update.Balance.Add(&update.Balance, bigAddAmount)
+	update.Balance.Sub(&update.Balance, bigSubAmount)
+	update.Rewards.Add(&update.Rewards, bigAddRewards)
+	update.Rewards.Add(&update.Rewards, bigSubRewards)
 }
 
 func (accounting *AccountingState) updateAccountType(addr types.Address, ktype string) {
@@ -258,9 +275,7 @@ func (accounting *AccountingState) AddTransaction(txnr *idb.TxnRow) (err error) 
 	accounting.updateAlgo(accounting.feeAddr, int64(stxn.Txn.Fee))
 
 	if stxn.SenderRewards != 0 {
-		v := int64(stxn.SenderRewards)
-		accounting.updateAlgoAndRewards(stxn.Txn.Sender, v, v)
-		accounting.updateAlgo(accounting.rewardAddr, -v)
+		accounting.updateRewards(accounting.rewardAddr, stxn.Txn.Sender, stxn.SenderRewards)
 	}
 
 	if !stxn.Txn.RekeyTo.IsZero() {
@@ -278,14 +293,10 @@ func (accounting *AccountingState) AddTransaction(txnr *idb.TxnRow) (err error) 
 			accounting.updateAlgo(stxn.Txn.CloseRemainderTo, int64(stxn.ClosingAmount))
 		}
 		if stxn.ReceiverRewards != 0 {
-			v := int64(stxn.ReceiverRewards)
-			accounting.updateAlgoAndRewards(stxn.Txn.Receiver, v, v)
-			accounting.updateAlgo(accounting.rewardAddr, -v)
+			accounting.updateRewards(accounting.rewardAddr, stxn.Txn.Receiver, stxn.ReceiverRewards)
 		}
 		if stxn.CloseRewards != 0 {
-			v := int64(stxn.CloseRewards)
-			accounting.updateAlgoAndRewards(stxn.Txn.CloseRemainderTo, v, v)
-			accounting.updateAlgo(accounting.rewardAddr, -v)
+			accounting.updateRewards(accounting.rewardAddr, stxn.Txn.CloseRemainderTo, stxn.CloseRewards)
 		}
 	} else if stxn.Txn.Type == "keyreg" {
 		// see https://github.com/algorand/go-algorand/blob/master/data/transactions/keyreg.go

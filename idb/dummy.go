@@ -409,8 +409,8 @@ type TxnAssetUpdate struct {
 }
 
 type AlgoUpdate struct {
-	Balance int64
-	Rewards int64
+	Balance big.Int
+	Rewards big.Int
 }
 
 type RoundUpdates struct {
