@@ -318,7 +318,7 @@ func m5accountCumulativeRewardsUpdate(db *PostgresIndexerDb, state *MigrationSta
 		accounts = append(accounts, acct.Account.Address)
 
 		if len(accounts) == batchSize {
-			db.log.Println("Processing batch %d", batchNumber)
+			db.log.Printf("Processing batch %d\n", batchNumber)
 			m5accountCumulativeRewardsUpdateAccounts(db, state, accounts, false)
 			accounts = accounts[:0]
 			batchNumber++
