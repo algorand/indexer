@@ -392,8 +392,7 @@ func m5accountCumulativeRewardsUpdateAccounts(db *PostgresIndexerDb, state *Migr
 
 	// Update checkpoint
 	if finalBatch {
-		emptyAddress := types.Address{}
-		state.NextAccount = emptyAddress[:]
+		state.NextAccount = nil
 	} else {
 		state.NextAccount = finalAddress[:]
 	}
