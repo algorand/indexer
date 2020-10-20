@@ -102,7 +102,7 @@ func (accounting *AccountingState) updateRewards(rewardAddr, acctAddr types.Addr
 }
 
 func (accounting *AccountingState) updateAlgo(addr types.Address, amount int64) {
-	accounting.updateAlgoAndRewards(addr, -amount, 0)
+	accounting.updateAlgoAndRewards(addr, amount, 0)
 }
 
 func (accounting *AccountingState) updateAlgoAndRewards(addr types.Address, amount, rewards int64) {
