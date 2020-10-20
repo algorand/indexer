@@ -102,11 +102,10 @@ func (accounting *AccountingState) updateRewards(rewardAddr, acctAddr types.Addr
 }
 
 func (accounting *AccountingState) updateAlgo(addr types.Address, amount int64) {
-	if amount > 0 {
-		accounting.updateAlgoAndRewards(addr, types.MicroAlgos(amount), 0, 0, 0)
+	if amount < 0 {
+		accounting.updateAlgoAndRewards(addr, 0, types.MicroAlgos(-amount), 0, 0)
 	} else {
-		accounting.updateAlgoAndRewards(addr, 0, types.MicroAlgos(amount), 0, 0)
-
+		accounting.updateAlgoAndRewards(addr, types.MicroAlgos(amount), 0, 0, 0)
 	}
 }
 
