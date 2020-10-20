@@ -305,6 +305,7 @@ func m5accountCumulativeRewardsUpdate(db *PostgresIndexerDb, state *MigrationSta
 	accountChan := db.GetAccounts(context.Background(), options)
 
 	batchSize := 500
+	batchNumber := 1
 	// loop through all of the accounts, update them in batches of batchSize.
 	accounts := make([]string, 0, batchSize)
 	for acct := range accountChan {
@@ -317,16 +318,17 @@ func m5accountCumulativeRewardsUpdate(db *PostgresIndexerDb, state *MigrationSta
 		accounts = append(accounts, acct.Account.Address)
 
 		if len(accounts) == batchSize {
-			db.log.Println("Processing batch of accounts.")
-			m5accountCumulativeRewardsUpdateAccounts(db, state, accounts)
+			db.log.Println("Processing batch %d", batchNumber)
+			m5accountCumulativeRewardsUpdateAccounts(db, state, accounts, false)
 			accounts = accounts[:0]
+			batchNumber++
 		}
 	}
 
 	// Get the remainder
 	if len(accounts) > 0 {
 		db.log.Println("Processing final batch of accounts.")
-		m5accountCumulativeRewardsUpdateAccounts(db, state, accounts)
+		m5accountCumulativeRewardsUpdateAccounts(db, state, accounts, true)
 		accounts = accounts[:0]
 	}
 
@@ -335,7 +337,7 @@ func m5accountCumulativeRewardsUpdate(db *PostgresIndexerDb, state *MigrationSta
 
 // m5accountCumulativeRewardsUpdateAccounts loops through the provided accounts and generates a bunch of updates in a
 // single transactional commit.
-func m5accountCumulativeRewardsUpdateAccounts(db *PostgresIndexerDb, state *MigrationState, accounts []string) error {
+func m5accountCumulativeRewardsUpdateAccounts(db *PostgresIndexerDb, state *MigrationState, accounts []string, finalBatch bool) error {
 	tx, err := db.db.Begin()
 	if err != nil {
 		return fmt.Errorf("%s: tx begin: %v", cumulativeRewardsUpdateErr, err)
@@ -389,7 +391,12 @@ func m5accountCumulativeRewardsUpdateAccounts(db *PostgresIndexerDb, state *Migr
 	}
 
 	// Update checkpoint
-	state.NextAccount = finalAddress[:]
+	if finalBatch {
+		emptyAddress := types.Address{}
+		state.NextAccount = emptyAddress[:]
+	} else {
+		state.NextAccount = finalAddress[:]
+	}
 	migrationStateJson := json.Encode(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJson)
 	if err != nil {
