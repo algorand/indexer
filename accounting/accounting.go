@@ -95,23 +95,17 @@ func bytesAreZero(b []byte) bool {
 }
 
 func (accounting *AccountingState) updateRewards(rewardAddr, acctAddr types.Address, amount types.MicroAlgos) {
-	accounting.updateAlgoAndRewards(acctAddr, amount, 0, amount, 0)
+	accounting.updateAlgoAndRewards(acctAddr, int64(amount), int64(amount))
 	// Note: rewardAddr is also available as accounting.rewardAddr, but all of the other accounting is done
 	// explicitly in AddTransaction.
-	accounting.updateAlgoAndRewards(rewardAddr, 0, amount, 0, 0)
+	accounting.updateAlgoAndRewards(rewardAddr, -int64(amount), 0)
 }
 
 func (accounting *AccountingState) updateAlgo(addr types.Address, amount int64) {
-	if amount < 0 {
-		accounting.updateAlgoAndRewards(addr, 0, types.MicroAlgos(-amount), 0, 0)
-	} else {
-		accounting.updateAlgoAndRewards(addr, types.MicroAlgos(amount), 0, 0, 0)
-	}
+	accounting.updateAlgoAndRewards(addr, -amount, 0)
 }
 
-func (accounting *AccountingState) updateAlgoAndRewards(addr types.Address, addAmount, subAmount, addRewards, subRewards types.MicroAlgos) {
-	balanceDelta := int64(addAmount) - int64(subAmount)
-	rewardsDelta := int64(addRewards) - int64(subRewards)
+func (accounting *AccountingState) updateAlgoAndRewards(addr types.Address, amount, rewards int64) {
 
 	if accounting.AlgoUpdates == nil {
 		accounting.AlgoUpdates = make(map[[32]byte]*idb.AlgoUpdate)
@@ -121,15 +115,15 @@ func (accounting *AccountingState) updateAlgoAndRewards(addr types.Address, addA
 
 	if !hasKey {
 		update = &idb.AlgoUpdate{
-			Balance: balanceDelta,
-			Rewards: rewardsDelta,
+			Balance: amount,
+			Rewards: rewards,
 		}
 		accounting.AlgoUpdates[addr] = update
 		return
 	}
 
-	update.Balance += balanceDelta
-	update.Rewards += rewardsDelta
+	update.Balance += amount
+	update.Rewards += rewards
 }
 
 func (accounting *AccountingState) updateAccountType(addr types.Address, ktype string) {
