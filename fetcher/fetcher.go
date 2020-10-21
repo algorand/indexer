@@ -13,8 +13,6 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
-
 	"github.com/algorand/indexer/types"
 )
 
@@ -76,20 +74,20 @@ func (bot *fetcherImpl) isDone() bool {
 // fetch the next block by round number until we find one missing (because it doesn't exist yet)
 func (bot *fetcherImpl) catchupLoop() {
 	var err error
-	var block sdk_types.Block
+	var blockbytes []byte
 	aclient := bot.Algod()
 	for true {
 		if bot.isDone() {
 			return
 		}
 
-		block, err = aclient.Block(bot.nextRound).Do(context.Background())
+		blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(context.Background())
 		if err != nil {
 			log.Printf("catchup block %d, err %v\n", bot.nextRound, err)
 			return
 		}
 
-		err = bot.handleBlockBytes(msgpack.Encode(block))
+		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
 			log.Printf("err handling catchup block %d, %v\n", bot.nextRound, err)
 			return
@@ -102,7 +100,7 @@ func (bot *fetcherImpl) catchupLoop() {
 // wait for algod to notify of a new round, then fetch that block
 func (bot *fetcherImpl) followLoop() {
 	var err error
-	var block sdk_types.Block
+	var blockbytes []byte
 	aclient := bot.Algod()
 	for true {
 		for retries := 0; retries < 3; retries++ {
@@ -114,7 +112,7 @@ func (bot *fetcherImpl) followLoop() {
 				log.Printf("r=%d error getting status %d, %v\n", retries, bot.nextRound, err)
 				continue
 			}
-			block, err = aclient.Block(bot.nextRound).Do(context.Background())
+			blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(context.Background())
 			if err == nil {
 				break
 			}
@@ -123,7 +121,7 @@ func (bot *fetcherImpl) followLoop() {
 		if err != nil {
 			return
 		}
-		err = bot.handleBlockBytes(msgpack.Encode(block))
+		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
 			log.Printf("err handling follow block %d, %v\n", bot.nextRound, err)
 			break
