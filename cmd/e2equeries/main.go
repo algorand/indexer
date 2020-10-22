@@ -59,6 +59,7 @@ func main() {
 	}
 
 	printAccountQuery(db, idb.AccountQueryOptions{EqualToAuthAddr: rekeyTo[:], Limit: 1})
+	printAccountQuery(db, idb.AccountQueryOptions{HasAssetId: 25, Limit: 2})
 
 	dt := time.Now().Sub(start)
 	exitValue := testutil.ExitValue()
