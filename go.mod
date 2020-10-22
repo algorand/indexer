@@ -23,4 +23,4 @@ require (
 	golang.org/x/text v0.3.3 // indirect
 )
 
-replace github.com/algorand/go-algorand-sdk => github.com/winder/go-algorand-sdk v1.5.10000
+replace github.com/algorand/go-algorand-sdk => github.com/winder/go-algorand-sdk v1.5.10001
