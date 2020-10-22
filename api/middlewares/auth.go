@@ -11,7 +11,7 @@ import (
 
 const urlAuthFormatter = "/urlAuth/%s"
 
-type AuthMiddleware struct {
+type authMiddleware struct {
 	// Header is the token header which needs to be provided. For example 'X-Algod-API-Token'.
 	header string
 
@@ -26,7 +26,7 @@ func MakeAuth(header string, tokens []string) echo.MiddlewareFunc {
 		apiTokenBytes = append(apiTokenBytes, []byte(token))
 	}
 
-	auth := AuthMiddleware{
+	auth := authMiddleware{
 		header: header,
 		tokens: apiTokenBytes,
 	}
@@ -36,7 +36,7 @@ func MakeAuth(header string, tokens []string) echo.MiddlewareFunc {
 
 // Auth takes a logger and an array of api token and return a middleware function
 // that ensures one of the api tokens was provided.
-func (auth *AuthMiddleware) handler(next echo.HandlerFunc) echo.HandlerFunc {
+func (auth *authMiddleware) handler(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(ctx echo.Context) error {
 		// OPTIONS responses never require auth
 		if ctx.Request().Method == "OPTIONS" {

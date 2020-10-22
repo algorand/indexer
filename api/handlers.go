@@ -55,6 +55,7 @@ const defaultBalancesLimit = 1000
 // Handler implementation //
 ////////////////////////////
 
+// MakeHealthCheck returns health check information about indexer and the IndexerDb being used.
 // Returns 200 if healthy.
 // (GET /health)
 func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
@@ -128,13 +129,13 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
 		Limit:                min(uintOrDefaultValue(params.Limit, defaultAccountsLimit), maxAccountsLimit),
-		HasAssetId:           uintOrDefault(params.AssetId),
-		HasAppId:             uintOrDefault(params.ApplicationId),
+		HasAssetID:           uintOrDefault(params.AssetId),
+		HasAppID:             uintOrDefault(params.ApplicationId),
 		EqualToAuthAddr:      spendingAddr[:],
 	}
 
 	// Set GT/LT on Algos or Asset depending on whether or not an assetID was specified
-	if options.HasAssetId == 0 {
+	if options.HasAssetID == 0 {
 		options.AlgosGreaterThan = uintOrDefault(params.CurrencyGreaterThan)
 		options.AlgosLessThan = uintOrDefault(params.CurrencyLessThan)
 	} else {
@@ -210,6 +211,7 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 	return si.SearchForTransactions(ctx, searchParams)
 }
 
+// SearchForApplications returns applications for the provided parameters.
 // (GET /v2/applications)
 func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params generated.SearchForApplicationsParams) error {
 	results := si.db.Applications(ctx.Request().Context(), &params)
@@ -238,10 +240,11 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 	return ctx.JSON(http.StatusOK, out)
 }
 
+// LookupApplicationByID returns one application for the requested ID.
 // (GET /v2/applications/{application-id})
-func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationId uint64) error {
+func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationID uint64) error {
 	var params generated.SearchForApplicationsParams
-	params.ApplicationId = &applicationId
+	params.ApplicationId = &applicationID
 	results := si.db.Applications(ctx.Request().Context(), &params)
 	round, err := si.db.GetMaxRound()
 	if err != nil {
@@ -300,7 +303,7 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 // (GET /v2/assets/{asset-id}/balances)
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID uint64, params generated.LookupAssetBalancesParams) error {
 	query := idb.AssetBalanceQuery{
-		AssetId:  assetID,
+		AssetID:  assetID,
 		AmountGT: uintOrDefault(params.CurrencyGreaterThan),
 		AmountLT: uintOrDefault(params.CurrencyLessThan),
 		Limit:    min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
@@ -413,6 +416,7 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 	return ctx.JSON(http.StatusOK, generated.BlockResponse(blk))
 }
 
+// LookupTransactions searches for the requested transaction ID.
 func (si *ServerImplementation) LookupTransactions(ctx echo.Context, txid string) error {
 	filter, err := transactionParamsToTransactionFilter(generated.SearchForTransactionsParams{
 		Txid: strPtr(txid),
@@ -521,7 +525,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 		copy(creator[:], row.Creator[:])
 
 		asset := generated.Asset{
-			Index: row.AssetId,
+			Index: row.AssetID,
 			Params: generated.AssetParams{
 				Creator:       creator.String(),
 				Name:          strPtr(row.Params.AssetName),

@@ -9,10 +9,16 @@ import (
 	"github.com/spf13/viper"
 )
 
+// EnvPrefix is the prefix for environment variable configurations.
 const EnvPrefix = "INDEXER"
+
+// FileType is the type of the config file.
 const FileType = "yaml"
+
+// FileName is the name of the config file.
 const FileName = "algorand-indexer"
 
+// ConfigPaths are the different locations that algorand-indexer should look for config files.
 var ConfigPaths = [...]string{".", "$HOME", "$HOME/.algorand-indexer/", "$HOME/.config/algorand-indexer/", "/etc/algorand-indexer/"}
 
 // BindFlags glues the cobra and viper libraries together.

@@ -21,23 +21,30 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
+// ImportHelper glues together a directory full of block files and an Importer objects.
 type ImportHelper struct {
-	GenesisJsonPath string
+	// GenesisJSONPath is the location of the genesis file
+	GenesisJSONPath string
 
+	// NumRoundsLimit is the number of rounds to process, if 0 import continues forever.
 	NumRoundsLimit int
 
+	// BlockFileLimit is the number of block files to process.
 	BlockFileLimit int
 }
 
+// ImportState is some metadata kept around to help the import helper.
 type ImportState struct {
 	AccountRound int64 `codec:"account_round"`
 }
 
+// ParseImportState decodes a json serialized import state object.
 func ParseImportState(js string) (istate ImportState, err error) {
 	err = json.Decode([]byte(js), &istate)
 	return
 }
 
+// Import is the main ImportHelper function that glues together a directory full of block files and an Importer objects.
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	err := ImportProto(db)
 	maybeFail(err, "import proto, %v", err)
@@ -72,7 +79,7 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 		fmt.Printf("%d blocks in %s, %.0f/s, %d txn, %.0f/s\n", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
 	}
 
-	accountingRounds, txnCount := updateAccounting(db, h.GenesisJsonPath, h.NumRoundsLimit)
+	accountingRounds, txnCount := updateAccounting(db, h.GenesisJSONPath, h.NumRoundsLimit)
 
 	accountingdone := time.Now()
 	if accountingRounds > 0 {
@@ -199,24 +206,25 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 	return db.LoadGenesis(genesis)
 }
 
-func UpdateAccounting(db idb.IndexerDb, genesisJsonPath string) (rounds, txnCount int) {
-	return updateAccounting(db, genesisJsonPath, 0)
+// UpdateAccounting triggers an accounting update.
+func UpdateAccounting(db idb.IndexerDb, genesisJSONPath string) (rounds, txnCount int) {
+	return updateAccounting(db, genesisJSONPath, 0)
 }
 
-func updateAccounting(db idb.IndexerDb, genesisJsonPath string, numRoundsLimit int) (rounds, txnCount int) {
+func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit int) (rounds, txnCount int) {
 	rounds = 0
 	txnCount = 0
-	stateJsonStr, err := db.GetMetastate("state")
+	stateJSONStr, err := db.GetMetastate("state")
 	maybeFail(err, "getting import state, %v\n", err)
 	var state ImportState
-	if stateJsonStr == "" {
-		if genesisJsonPath != "" {
-			fmt.Printf("loading genesis %s\n", genesisJsonPath)
+	if stateJSONStr == "" {
+		if genesisJSONPath != "" {
+			fmt.Printf("loading genesis %s\n", genesisJSONPath)
 			// if we're given no previous state and we're given a genesis file, import it as initial account state
-			gf, err := os.Open(genesisJsonPath)
-			maybeFail(err, "%s: %v\n", genesisJsonPath, err)
+			gf, err := os.Open(genesisJSONPath)
+			maybeFail(err, "%s: %v\n", genesisJSONPath, err)
 			err = loadGenesis(db, gf)
-			maybeFail(err, "%s: could not load genesis json, %v\n", genesisJsonPath, err)
+			maybeFail(err, "%s: could not load genesis json, %v\n", genesisJSONPath, err)
 			rounds++
 			state.AccountRound = -1
 		} else {
@@ -225,7 +233,7 @@ func updateAccounting(db idb.IndexerDb, genesisJsonPath string, numRoundsLimit i
 			return
 		}
 	} else {
-		state, err = ParseImportState(stateJsonStr)
+		state, err = ParseImportState(stateJSONStr)
 		maybeFail(err, "parsing import state, %v\n", err)
 		fmt.Printf("will start from round >%d\n", state.AccountRound)
 	}
@@ -270,7 +278,7 @@ func updateAccounting(db idb.IndexerDb, genesisJsonPath string, numRoundsLimit i
 
 type blockTarPaths []string
 
-// sort.Interface
+// Len is part of sort.Interface
 func (paths *blockTarPaths) Len() int {
 	return len(*paths)
 }
@@ -293,12 +301,12 @@ func pathNameStartInt(x string) int64 {
 	return v
 }
 
-// sort.Interface
+// Less is part of sort.Interface
 func (paths *blockTarPaths) Less(i, j int) bool {
 	return pathNameStartInt((*paths)[i]) < pathNameStartInt((*paths)[j])
 }
 
-// sort.Interface
+// Swap is part of sort.Interface
 func (paths *blockTarPaths) Swap(i, j int) {
 	t := (*paths)[i]
 	(*paths)[i] = (*paths)[j]

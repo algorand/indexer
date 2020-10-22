@@ -17,6 +17,7 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
+// Fetcher is used to query algod for new blocks.
 type Fetcher interface {
 	Algod() algod.Client
 
@@ -29,6 +30,7 @@ type Fetcher interface {
 	SetNextRound(nextRound uint64)
 }
 
+// BlockHandler is the handler fetcher uses to process a block.
 type BlockHandler interface {
 	HandleBlock(block *types.EncodedBlockCert)
 }
@@ -49,6 +51,7 @@ type fetcherImpl struct {
 	failingSince time.Time
 }
 
+// Algod is part of the Fetcher interface
 func (bot *fetcherImpl) Algod() algod.Client {
 	return bot.aclient
 }
@@ -127,6 +130,7 @@ func (bot *fetcherImpl) followLoop() {
 	}
 }
 
+// Run is part of the Fetcher interface
 func (bot *fetcherImpl) Run() {
 	if bot.wg != nil {
 		defer bot.wg.Done()
@@ -158,14 +162,17 @@ func (bot *fetcherImpl) Run() {
 	}
 }
 
+// SetWaitGroup is part of the Fetcher interface
 func (bot *fetcherImpl) SetWaitGroup(wg *sync.WaitGroup) {
 	bot.wg = wg
 }
 
+// SetContext is part of the Fetcher interface
 func (bot *fetcherImpl) SetContext(ctx context.Context) {
 	bot.ctx = ctx
 }
 
+// SetNextRound is part of the Fetcher interface
 func (bot *fetcherImpl) SetNextRound(nextRound uint64) {
 	bot.nextRound = nextRound
 }
@@ -182,6 +189,7 @@ func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) (err error) {
 	return
 }
 
+// AddBlockHandler is part of the Fetcher interface
 func (bot *fetcherImpl) AddBlockHandler(handler BlockHandler) {
 	if bot.blockHandlers == nil {
 		x := make([]BlockHandler, 1, 10)
@@ -197,6 +205,7 @@ func (bot *fetcherImpl) AddBlockHandler(handler BlockHandler) {
 	bot.blockHandlers = append(bot.blockHandlers, handler)
 }
 
+// ForDataDir is part of the Fetcher interface
 func ForDataDir(path string) (bot Fetcher, err error) {
 	boti := &fetcherImpl{algorandData: path}
 	err = boti.reclient()
@@ -206,6 +215,7 @@ func ForDataDir(path string) (bot Fetcher, err error) {
 	return
 }
 
+// ForNetAndToken is part of the Fetcher interface
 func ForNetAndToken(netaddr, token string) (bot Fetcher, err error) {
 	var client algod.Client
 	if !strings.HasPrefix(netaddr, "http") {

@@ -56,8 +56,8 @@ var daemonCmd = &cobra.Command{
 			bot, err = fetcher.ForNetAndToken(algodAddr, algodToken)
 			maybeFail(err, "fetcher setup, %v\n", err)
 		} else if algodDataDir != "" {
-			if genesisJsonPath == "" {
-				genesisJsonPath = filepath.Join(algodDataDir, "genesis.json")
+			if genesisJSONPath == "" {
+				genesisJSONPath = filepath.Join(algodDataDir, "genesis.json")
 			}
 			bot, err = fetcher.ForDataDir(algodDataDir)
 			maybeFail(err, "fetcher setup, %v\n", err)
@@ -105,7 +105,7 @@ func init() {
 	daemonCmd.Flags().StringVarP(&algodDataDir, "algod", "d", "", "path to algod data dir, or $ALGORAND_DATA")
 	daemonCmd.Flags().StringVarP(&algodAddr, "algod-net", "", "", "host:port of algod")
 	daemonCmd.Flags().StringVarP(&algodToken, "algod-token", "", "", "api access token for algod")
-	daemonCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
+	daemonCmd.Flags().StringVarP(&genesisJSONPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
 	daemonCmd.Flags().StringVarP(&daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
 	daemonCmd.Flags().BoolVarP(&noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
 	daemonCmd.Flags().StringVarP(&tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
@@ -129,22 +129,22 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 		fmt.Fprintf(os.Stderr, "received block %d when expecting %d\n", block.Block.Round, bih.round+1)
 	}
 	bih.imp.ImportDecodedBlock(block)
-	importer.UpdateAccounting(bih.db, genesisJsonPath)
+	importer.UpdateAccounting(bih.db, genesisJSONPath)
 	dt := time.Now().Sub(start)
 	if len(block.Block.Payset) == 0 {
 		// accounting won't have updated the round state, so we do it here
-		stateJsonStr, err := db.GetMetastate("state")
+		stateJSONStr, err := db.GetMetastate("state")
 		var state importer.ImportState
-		if err == nil && stateJsonStr != "" {
-			state, err = importer.ParseImportState(stateJsonStr)
+		if err == nil && stateJSONStr != "" {
+			state, err = importer.ParseImportState(stateJSONStr)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "error parsing import state, %v\n", err)
 				panic("error parsing import state in bih")
 			}
 		}
 		state.AccountRound = int64(block.Block.Round)
-		stateJsonStr = string(json.Encode(state))
-		err = db.SetMetastate("state", stateJsonStr)
+		stateJSONStr = string(json.Encode(state))
+		err = db.SetMetastate("state", stateJSONStr)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to save import state, %v\n", err)
 		}

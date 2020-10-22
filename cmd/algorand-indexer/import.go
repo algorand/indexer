@@ -18,7 +18,7 @@ var importCmd = &cobra.Command{
 
 		helper := importer.ImportHelper{
 			BlockFileLimit:  blockFileLimit,
-			GenesisJsonPath: genesisJsonPath,
+			GenesisJSONPath: genesisJSONPath,
 			NumRoundsLimit:  numRoundsLimit,
 		}
 
@@ -27,13 +27,13 @@ var importCmd = &cobra.Command{
 }
 
 var (
-	genesisJsonPath string
+	genesisJSONPath string
 	numRoundsLimit  int
 	blockFileLimit  int
 )
 
 func init() {
-	importCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json")
+	importCmd.Flags().StringVarP(&genesisJSONPath, "genesis", "g", "", "path to genesis.json")
 	importCmd.Flags().IntVarP(&numRoundsLimit, "num-rounds-limit", "", 0, "number of rounds to process")
 	importCmd.Flags().IntVarP(&blockFileLimit, "block-file-limit", "", 0, "number of block files to process (for debugging)")
 }

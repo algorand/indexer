@@ -9,6 +9,10 @@ dist: bionic
 services:
   - docker
 
+install:
+  - go get -u golang.org/x/lint/golint
+  - pip3 install boto3 markdown2
+
 addons:
   apt:
     packages:
@@ -16,10 +20,8 @@ addons:
       - python3-setuptools
       - python3-wheel
 
-install:
-  - pip3 install boto3 markdown2
-
 script:
+  - make lint
   - make
   - make migration-tests
   - make test

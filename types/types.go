@@ -8,17 +8,28 @@ import (
 )
 
 type (
+	// Address alias to SDK address.
 	Address = atypes.Address // [32]byte
+	// Digest is a hash value.
 	Digest  = atypes.Digest  // [32]byte
 
+	// Seed used by sortition.
 	Seed                     [32]byte
+	// Signature cryptographic signature.
 	Signature                [64]byte
+	// PublicKey the public encryption key.
 	PublicKey                [32]byte
+	// OneTimeSignatureVerifier verifies a signature.
 	OneTimeSignatureVerifier [32]byte
+	// VRFVerifier verifies a VRF
 	VRFVerifier              [32]byte
+	// Round identifies a particular round of consensus.
 	Round                    uint64
+	// ConsensusVersion identifies the version of the consensus protocol.
 	ConsensusVersion         string
+	// MicroAlgos are the unit of currency on the algorand network.
 	MicroAlgos               uint64
+	// AssetIndex is used to uniquely identify an asset.
 	AssetIndex               uint64
 
 	// BlockHash represents the hash of a block
@@ -172,6 +183,7 @@ type (
 		Payset Payset `codec:"txns"`
 	}
 
+	// Payset are the transactions in a block.
 	Payset []SignedTxnInBlock
 
 	// SignedTxnInBlock is how a signed transaction is encoded in a block.
@@ -192,6 +204,7 @@ type (
 		ApplyData
 	}
 
+	// ApplyData is the state change data relating to a signed transaction in a block.
 	ApplyData struct {
 		_struct struct{} `codec:",omitempty,omitemptyarray"`
 
@@ -236,13 +249,18 @@ type (
 	// delta to a TEAL key/value store
 	DeltaAction uint64
 
+	// Transaction alias for the SDK transaction
 	Transaction      = atypes.Transaction
+	// AssetParams alias for the SDK asset params
 	AssetParams      = atypes.AssetParams
+
+	// EncodedBlockCert is the block encoded along with its certificate.
 	EncodedBlockCert struct {
 		Block       Block       `codec:"block"`
 		Certificate Certificate `codec:"cert"`
 	}
 
+	// Certificate the block certificate.
 	Certificate struct {
 		_struct struct{} `codec:",omitempty,omitemptyarray"`
 
@@ -276,8 +294,10 @@ type (
 		_struct struct{} `codec:",omitempty,omitemptyarray"`
 		Proof   VrfProof `codec:"pf"`
 	}
+	// VrfProof is the vfr proof.
 	VrfProof [80]byte
 
+	// OneTimeSignature is the signature.
 	OneTimeSignature struct {
 		// Sig is a signature of msg under the key PK.
 		Sig Signature `codec:"s"`
@@ -471,9 +491,9 @@ const (
 	DeleteAction DeltaAction = 3
 )
 
-// from github.com/algorand/go-algorand/config/consensus.go
 // ConsensusParams specifies settings that might vary based on the
 // particular version of the consensus protocol.
+// from github.com/algorand/go-algorand/config/consensus.go
 type ConsensusParams struct {
 	// Consensus protocol upgrades.  Votes for upgrades are collected for
 	// UpgradeVoteRounds.  If the number of positive votes is over
@@ -743,6 +763,7 @@ type ConsensusParams struct {
 	MaximumMinimumBalance uint64
 }
 
+// MergeAssetConfig merges together two asset param objects.
 func MergeAssetConfig(old, new atypes.AssetParams) (out atypes.AssetParams) {
 	// if asset is new, set.
 	// if new config is empty, set empty.

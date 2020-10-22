@@ -35,6 +35,8 @@ func assetUpdate(account *models.Account, assetid uint64, add, sub uint64) {
 	*account.Assets = assets
 }
 
+// AccountAtRound queries the idb.IndexerDb object for transactions and rewinds most fields of the account back to
+// their values at the requested round.
 func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acct models.Account, err error) {
 	acct = account
 	addr, err := atypes.DecodeAddress(account.Address)
@@ -88,7 +90,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		case atypes.AssetConfigTx:
 			if stxn.Txn.ConfigAsset == 0 {
 				// create asset, unwind the application of the value
-				assetUpdate(&acct, txnrow.AssetId, 0, stxn.Txn.AssetParams.Total)
+				assetUpdate(&acct, txnrow.AssetID, 0, stxn.Txn.AssetParams.Total)
 			}
 		case atypes.AssetTransferTx:
 			if addr == stxn.Txn.AssetSender || addr == stxn.Txn.Sender {

@@ -45,6 +45,9 @@ sign:
 test: idb/mocks/IndexerDb.go
 	go test ./...
 
+lint:
+	golint -set_exit_status ./...
+
 migration-tests: test/migrations/postgres_migration_test.sh
 	test/migrations/postgres_migration_test.sh
 
