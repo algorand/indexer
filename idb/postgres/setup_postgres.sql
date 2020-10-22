@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS account (
   addr bytea primary key,
   microalgos bigint NOT NULL, -- okay because less than 2^54 Algos
   rewardsbase bigint NOT NULL,
+  rewardstotal bigint NOT NULL,
   keytype varchar(8), -- sig,msig,lsig
   account_data jsonb -- data.basics.AccountData except AssetParams and Assets and MicroAlgos and RewardsBase
 );

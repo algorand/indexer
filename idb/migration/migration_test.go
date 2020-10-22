@@ -269,7 +269,7 @@ func TestSuccessfulMigration(t *testing.T) {
 
 			recorder := make([]State, 0)
 			tasks := make([]Task, 0)
-			migration, _ := MakeMigration(tasks)
+			migration, _ := MakeMigration(tasks, nil)
 
 			for _, testTask := range testcase.tasks {
 				tasks = append(tasks, testTask.Get(migration, &recorder))

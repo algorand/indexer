@@ -3,7 +3,10 @@ package migration
 import (
 	"errors"
 	"fmt"
+	"os"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 var DuplicateIDErr = errors.New("duplicate ID detected")
@@ -51,6 +54,7 @@ type State struct {
 
 // Migration manages the execution of multiple migration tasks and provides a mechanism for concurrent status checks.
 type Migration struct {
+	log        *log.Logger
 	mutex      sync.RWMutex
 	tasks      []Task
 	blockUntil int
@@ -88,8 +92,9 @@ func (m *Migration) setTasks(migrationTasks []Task) error {
 }
 
 // MakeMigration initializes
-func MakeMigration(migrationTasks []Task) (*Migration, error) {
+func MakeMigration(migrationTasks []Task, logger *log.Logger) (*Migration, error) {
 	m := &Migration{
+		log: logger,
 		tasks: migrationTasks,
 		state: State{
 			Err:      nil,
@@ -97,6 +102,13 @@ func MakeMigration(migrationTasks []Task) (*Migration, error) {
 			Running:  false,
 			Blocking: true,
 		},
+	}
+
+	if m.log == nil {
+		m.log = log.New()
+		m.log.SetFormatter(&log.JSONFormatter{})
+		m.log.SetOutput(os.Stdout)
+		m.log.SetLevel(log.TraceLevel)
 	}
 
 	err := m.setTasks(migrationTasks)
@@ -127,6 +139,7 @@ func (m *Migration) update(err error, status string, running bool, blocking bool
 	}
 
 	if status != m.state.Status {
+		m.log.Println("Setting status: " + status)
 		m.state.Status = status
 	}
 
@@ -143,6 +156,7 @@ func (m *Migration) update(err error, status string, running bool, blocking bool
 // migration runs. This call will block execution until it completes and should be run in a go routine if that is not
 // expected.
 func (m *Migration) RunMigrations() {
+	m.log.Println("Migration starting.")
 	blocking := true
 	for _, task := range m.tasks {
 		if task.MigrationId > m.blockUntil {
@@ -154,6 +168,7 @@ func (m *Migration) RunMigrations() {
 
 		if err != nil {
 			err := fmt.Errorf("%s%d (%s): %v", StatusErrorPrefix, task.MigrationId, task.Description, err)
+			m.log.Errorf("Migration failed: %v\n", err)
 			// If a migration failed, mark that the migration is blocking and terminate.
 			blocking = true
 			m.update(err, err.Error(), false, blocking)
@@ -162,5 +177,6 @@ func (m *Migration) RunMigrations() {
 	}
 
 	m.update(nil, StatusComplete, false, false)
+	m.log.Println("Migration finished successfully.")
 	return
 }

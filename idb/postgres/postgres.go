@@ -24,6 +24,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
 	_ "github.com/lib/pq"
+	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
@@ -32,7 +33,7 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
-func OpenPostgres(connection string, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
+func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *PostgresIndexerDb, err error) {
 	db, err := sql.Open("postgres", connection)
 
 	if err != nil {
@@ -46,14 +47,22 @@ func OpenPostgres(connection string, opts *idb.IndexerDbOptions) (pdb *PostgresI
 		opts.ReadOnly = true
 	}
 
-	return openPostgres(db, opts)
+	return openPostgres(db, opts, log)
 }
 
 // Allow tests to inject a DB
-func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
+func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (pdb *PostgresIndexerDb, err error) {
 	pdb = &PostgresIndexerDb{
+		log:        logger,
 		db:         db,
 		protoCache: make(map[string]types.ConsensusParams, 20),
+	}
+
+	if pdb.log == nil {
+		pdb.log = log.New()
+		pdb.log.SetFormatter(&log.JSONFormatter{})
+		pdb.log.SetOutput(os.Stdout)
+		pdb.log.SetLevel(log.TraceLevel)
 	}
 
 	// e.g. a user named "readonly" is in the connection string
@@ -65,6 +74,8 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerD
 }
 
 type PostgresIndexerDb struct {
+	log *log.Logger
+
 	db *sql.DB
 
 	// state for StartBlock/AddTransaction/CommitBlock
@@ -263,7 +274,7 @@ func (db *PostgresIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 
-	setAccount, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, account_data) VALUES ($1, $2, 0, $3)`)
+	setAccount, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, account_data, rewardstotal) VALUES ($1, $2, 0, $3, $4)`)
 	if err != nil {
 		return
 	}
@@ -275,7 +286,7 @@ func (db *PostgresIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 		if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
 			return fmt.Errorf("genesis account[%d] has unhandled asset", ai)
 		}
-		_, err = setAccount.Exec(addr[:], alloc.State.MicroAlgos, string(json.Encode(alloc.State)))
+		_, err = setAccount.Exec(addr[:], alloc.State.MicroAlgos, string(json.Encode(alloc.State)), 0)
 		total += uint64(alloc.State.MicroAlgos)
 		if err != nil {
 			return fmt.Errorf("error setting genesis account[%d], %v", ai, err)
@@ -684,13 +695,13 @@ func (db *PostgresIndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, rou
 	if len(updates.AlgoUpdates) > 0 {
 		any = true
 		// account_data json is only used on account creation, otherwise the account data jsonb field is updated from the delta
-		setalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase) VALUES ($1, $2, $3) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase`)
+		setalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewardsTotal) VALUES ($1, $2, $3, $4) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewardsTotal = account.rewardsTotal + EXCLUDED.rewardsTotal`)
 		if err != nil {
 			return fmt.Errorf("prepare update algo, %v", err)
 		}
 		defer setalgo.Close()
 		for addr, delta := range updates.AlgoUpdates {
-			_, err = setalgo.Exec(addr[:], delta, rewardsBase)
+			_, err = setalgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards)
 			if err != nil {
 				return fmt.Errorf("update algo, %v", err)
 			}
@@ -1524,6 +1535,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 	for rows.Next() {
 		var addr []byte
 		var microalgos uint64
+		var rewardstotal uint64
 		var rewardsbase uint64
 		var keytype *string
 		var accountDataJsonStr []byte
@@ -1552,27 +1564,27 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 		if opts.IncludeAssetHoldings {
 			if opts.IncludeAssetParams {
 				err = rows.Scan(
-					&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
+					&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJsonStr,
 					&holdingAssetid, &holdingAmount, &holdingFrozen,
 					&assetParamsIds, &assetParamsStr,
 					&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 				)
 			} else {
 				err = rows.Scan(
-					&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
+					&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJsonStr,
 					&holdingAssetid, &holdingAmount, &holdingFrozen,
 					&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 				)
 			}
 		} else if opts.IncludeAssetParams {
 			err = rows.Scan(
-				&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
+				&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJsonStr,
 				&assetParamsIds, &assetParamsStr,
 				&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 			)
 		} else {
 			err = rows.Scan(
-				&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
+				&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJsonStr,
 				&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 			)
 		}
@@ -1587,6 +1599,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 		account.Address = aaddr.String()
 		account.Round = uint64(blockheader.Round)
 		account.AmountWithoutPendingRewards = microalgos
+		account.Rewards = rewardstotal
 		account.RewardBase = new(uint64)
 		*account.RewardBase = rewardsbase
 		// default to Offline in there have been no keyreg transactions.
@@ -1824,7 +1837,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(ctx context.Context, opts idb.A
 		select {
 		case out <- idb.AccountRow{Account: account}:
 			count++
-			if count >= opts.Limit {
+			if opts.Limit != 0 && count >= opts.Limit {
 				close(out)
 				return
 			}
@@ -2028,7 +2041,7 @@ func (db *PostgresIndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (qu
 		whereArgs = append(whereArgs, opts.EqualToAuthAddr)
 		partNumber++
 	}
-	query = `SELECT a.addr, a.microalgos, a.rewardsbase, a.keytype, a.account_data FROM account a`
+	query = `SELECT a.addr, a.microalgos, a.rewardstotal, a.rewardsbase, a.keytype, a.account_data FROM account a`
 	if opts.HasAssetId != 0 {
 		// inner join requires match, filtering on presence of asset
 		query += " JOIN qasf ON a.addr = qasf.addr"
@@ -2052,7 +2065,7 @@ func (db *PostgresIndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (qu
 		query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr GROUP BY 1)`
 	}
 	query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa FROM app JOIN qaccounts ON qaccounts.addr = app.creator GROUP BY 1), qls AS (SELECT la.addr, json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr GROUP BY 1)`
-	query += ` SELECT za.addr, za.microalgos, za.rewardsbase, za.keytype, za.account_data`
+	query += ` SELECT za.addr, za.microalgos, za.rewardstotal, za.rewardsbase, za.keytype, za.account_data`
 	if opts.IncludeAssetHoldings {
 		query += `, qaa.haid, qaa.hamt, qaa.hf`
 	}
@@ -2355,8 +2368,8 @@ type postgresFactory struct {
 func (df postgresFactory) Name() string {
 	return "postgres"
 }
-func (df postgresFactory) Build(arg string, opts *idb.IndexerDbOptions) (idb.IndexerDb, error) {
-	return OpenPostgres(arg, opts)
+func (df postgresFactory) Build(arg string, opts *idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, error) {
+	return OpenPostgres(arg, opts, log)
 }
 
 func init() {

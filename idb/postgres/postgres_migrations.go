@@ -7,13 +7,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"math"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
@@ -22,13 +23,33 @@ import (
 
 const migrationMetastateKey = "migration"
 
+func init() {
+	migrations = []migrationStruct{
+		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
+		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
+		{m2apps, true, "Update DB Schema for Algorand application support."},
+		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
+		{m4cumulativeRewardsDBUpdate, true, "Update DB Schema for cumulative account reward support."},
+		{m5accountCumulativeRewardsUpdate, true, "Compute cumulative account rewards for all accounts."},
+	}
+}
+
+
 type MigrationState struct {
 	NextMigration int `json:"next"`
 
-	// Used for a long migration to checkpoint progress
+	// NextRound used for m0 to checkpoint progress.
 	NextRound int64 `json:"round,omitempty"`
 
+	// NextAssetId used for m3 to checkpoint progress.
 	NextAssetId int64 `json:"assetid,omitempty"`
+
+	// NextAccount used for m5 to checkpoint progress.
+	NextAccount []byte `json:"nextaccount,omitempty"`
+
+	// Note: a generic "data" field here could be a good way to deal with this growing over time.
+	//       It would require a mechanism to clear the data field between migrations to avoid using migration data
+	//       from the previous migration.
 }
 
 // A migration function should take care of writing back to metastate migration row
@@ -91,7 +112,7 @@ func (db *PostgresIndexerDb) runAvailableMigrations(migrationStateJson string) (
 		})
 	}
 
-	db.migration, err = migration.MakeMigration(tasks)
+	db.migration, err = migration.MakeMigration(tasks, db.log)
 	if err != nil {
 		return err
 	}
@@ -257,22 +278,152 @@ func m3acfgFixAsyncInner(db *PostgresIndexerDb, state *MigrationState, assetIds 
 	return -1, nil
 }
 
-func m3acfgFixFlush(db *PostgresIndexerDb, state *MigrationState, tx *sql.Tx, out [][]interface{}) error {
+// m4cumulativeRewardsDBUpdate adds the new rewardstotal column to the account table.
+func m4cumulativeRewardsDBUpdate(db *PostgresIndexerDb, state *MigrationState) error {
+	sqlLines := []string{
+		`ALTER TABLE account ADD COLUMN rewardstotal bigint NOT NULL DEFAULT 0`,
+	}
+	return sqlMigration(db, state, sqlLines)
+}
+
+const cumulativeRewardsUpdateErr = "cumulative rewards migration error"
+
+// m5accountCumulativeRewardsUpdate computes the cumulative rewards for each account one at a time. This is a BLOCKING
+// migration because we don't want to handle the case where accounts are actively transacting while we fixup their
+// table.
+func m5accountCumulativeRewardsUpdate(db *PostgresIndexerDb, state *MigrationState) error {
+	db.log.Println("account cumulative rewards migration starting")
+
+	options := idb.AccountQueryOptions{}
+	if len(state.NextAccount) != 0 {
+		var address sdk_types.Address
+		copy(address[:], state.NextAccount)
+		db.log.Println("after " + address.String())
+		options.GreaterThanAddress = state.NextAccount[:]
+	}
+
+	accountChan := db.GetAccounts(context.Background(), options)
+
+	batchSize := 500
+	batchNumber := 1
+	// loop through all of the accounts, update them in batches of batchSize.
+	accounts := make([]string, 0, batchSize)
+	for acct := range accountChan {
+		if acct.Error != nil {
+			err := fmt.Errorf("%s: problem querying accounts: %v", cumulativeRewardsUpdateErr, acct.Error)
+			db.log.Errorln(err.Error())
+			return err
+		}
+
+		accounts = append(accounts, acct.Account.Address)
+
+		if len(accounts) == batchSize {
+			db.log.Printf("Processing batch %d\n", batchNumber)
+			m5accountCumulativeRewardsUpdateAccounts(db, state, accounts, false)
+			accounts = accounts[:0]
+			batchNumber++
+		}
+	}
+
+	// Get the remainder
+	if len(accounts) > 0 {
+		db.log.Println("Processing final batch of accounts.")
+		m5accountCumulativeRewardsUpdateAccounts(db, state, accounts, true)
+		accounts = accounts[:0]
+	}
+
 	return nil
 }
 
+// m5accountCumulativeRewardsUpdateAccounts loops through the provided accounts and generates a bunch of updates in a
+// single transactional commit.
+func m5accountCumulativeRewardsUpdateAccounts(db *PostgresIndexerDb, state *MigrationState, accounts []string, finalBatch bool) error {
+	tx, err := db.db.Begin()
+	if err != nil {
+		return fmt.Errorf("%s: tx begin: %v", cumulativeRewardsUpdateErr, err)
+	}
+	defer tx.Rollback() // ignored if .Commit() first
+
+	setCumulativeReward, err := tx.Prepare(`UPDATE account SET rewardstotal = $1 WHERE addr = $2`)
+	if err != nil {
+		return fmt.Errorf("%s: set rewards prepare: %v", cumulativeRewardsUpdateErr, err)
+	}
+	defer setCumulativeReward.Close()
+
+	var finalAddress []byte
+	// loop through all of the accounts.
+	for _, addressStr := range accounts {
+		address, err := sdk_types.DecodeAddress(addressStr)
+		if err != nil {
+			return fmt.Errorf("%s: failed to decode address: %s", cumulativeRewardsUpdateErr, addressStr)
+		}
+		finalAddress = address[:]
+
+		// for each account loop through all of the transactions
+		txnrows := db.txTransactions(tx, idb.TransactionFilter{Address: address[:]})
+		var cumulativeRewards types.MicroAlgos = 0
+		for txn := range txnrows {
+			// for each transaction add up the rewards for the current account
+			var stxn types.SignedTxnWithAD
+			err = msgpack.Decode(txn.TxnBytes, &stxn)
+			if err != nil {
+				return fmt.Errorf("%s: processing account %s: %v", cumulativeRewardsUpdateErr, addressStr, err)
+			}
+
+			if stxn.Txn.Sender == address {
+				cumulativeRewards += stxn.ApplyData.SenderRewards
+			}
+
+			if stxn.Txn.Receiver == address {
+				cumulativeRewards += stxn.ApplyData.ReceiverRewards
+			}
+
+			if stxn.Txn.CloseRemainderTo  == address {
+				cumulativeRewards += stxn.ApplyData.CloseRewards
+			}
+		}
+
+		// Update the account
+		_, err = setCumulativeReward.Exec(cumulativeRewards, finalAddress[:])
+		if err != nil {
+			return fmt.Errorf("%s: failed to update %s with rewards %d: %v", cumulativeRewardsUpdateErr, addressStr, cumulativeRewards, err)
+		}
+	}
+
+	// Update checkpoint
+	if finalBatch {
+		state.NextAccount = nil
+	} else {
+		state.NextAccount = finalAddress[:]
+	}
+	migrationStateJson := json.Encode(state)
+	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJson)
+	if err != nil {
+		return fmt.Errorf("%s: failed to update migration checkpoint: %v", cumulativeRewardsUpdateErr, err)
+	}
+
+	// Commit transactions
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("%s: failed to commit changes: %v", cumulativeRewardsUpdateErr, err)
+	}
+
+	return nil
+}
+
+// sqlMigration executes a sql statements as the entire migration.
 func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []string) error {
 	thisMigration := state.NextMigration
 	tx, err := db.db.Begin()
 	if err != nil {
-		log.Printf("migration %d tx err: %v", thisMigration, err)
+		db.log.Printf("migration %d tx err: %v", thisMigration, err)
 		return err
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 	for i, cmd := range sqlLines {
 		_, err = tx.Exec(cmd)
 		if err != nil {
-			log.Printf("migration %d sql[%d] err: %v", thisMigration, i, err)
+			db.log.Printf("migration %d sql[%d] err: %v", thisMigration, i, err)
 			return err
 		}
 	}
@@ -280,25 +431,16 @@ func sqlMigration(db *PostgresIndexerDb, state *MigrationState, sqlLines []strin
 	migrationStateJson := json.Encode(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJson)
 	if err != nil {
-		log.Printf("migration %d meta err: %v", thisMigration, err)
+		db.log.Printf("migration %d meta err: %v", thisMigration, err)
 		return err
 	}
 	err = tx.Commit()
 	if err != nil {
-		log.Printf("migration %d commit err: %v", thisMigration, err)
+		db.log.Printf("migration %d commit err: %v", thisMigration, err)
 		return err
 	}
-	log.Printf("migration %d done", thisMigration)
+	db.log.Printf("migration %d done", thisMigration)
 	return nil
-}
-
-func init() {
-	migrations = []migrationStruct{
-		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
-		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
-		{m2apps, true, "Update DB Schema for Algorand application support."},
-		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
-	}
 }
 
 const txidMigrationErrMsg = "ERROR migrating txns for txid, stopped, will retry on next indexer startup"
@@ -325,8 +467,7 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() (err error) {
 	prevBatchRound := uint64(math.MaxUint64)
 	for txr := range txns {
 		if txr.Error != nil {
-			log.Printf("ERROR migrating txns for txid rewrite: %v", txr.Error)
-			log.Print("txidMigrationErrMsg")
+			log.Printf("ERROR migrating txns for txid rewrite: %v\n", txr.Error)
 			err = txr.Error
 			return
 		}
