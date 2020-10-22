@@ -60,6 +60,23 @@ func main() {
 
 	printAccountQuery(db, idb.AccountQueryOptions{EqualToAuthAddr: rekeyTo[:], Limit: 1})
 
+	// find an asset with > 1 account
+	countByAssetID := make(map[uint64]uint64)
+	for abr := range db.AssetBalances(context.Background(), idb.AssetBalanceQuery{}) {
+		countByAssetID[abr.AssetId] = countByAssetID[abr.AssetId] + 1
+	}
+	var bestid uint64
+	var bestcount uint64 = 0
+	for assetid, count := range countByAssetID {
+		if (bestcount == 0) || (count > 1 && count < bestcount) {
+			bestcount = count
+			bestid = assetid
+		}
+	}
+	if bestcount != 0 {
+		printAccountQuery(db, idb.AccountQueryOptions{HasAssetId: bestid, Limit: bestcount})
+	}
+
 	dt := time.Now().Sub(start)
 	exitValue := testutil.ExitValue()
 	if exitValue == 0 {
