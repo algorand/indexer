@@ -318,7 +318,7 @@ func m5accountCumulativeRewardsUpdate(db *IndexerDb, state *MigrationState) erro
 		accounts = append(accounts, acct.Account.Address)
 
 		if len(accounts) == batchSize {
-			db.log.Printf("Processing batch %d\n", batchNumber)
+			db.log.Printf("Processing batch %d", batchNumber)
 			m5accountCumulativeRewardsUpdateAccounts(db, state, accounts, false)
 			accounts = accounts[:0]
 			batchNumber++
