@@ -278,6 +278,27 @@ func m4cumulativeRewardsDBUpdate(db *IndexerDb, state *MigrationState) error {
 
 const cumulativeRewardsUpdateErr = "cumulative rewards migration error"
 
+func b32ToIndex(c byte) int {
+	i := int(c) - 'A'
+	if i < 0 {
+		//b32 skips 0 and 1.
+		return 26 + int(c) - '2'
+	}
+	return i
+}
+
+func addrToPercent(addr string) float64 {
+	if len(addr) < 2 {
+		return 0.0
+	}
+
+	pct := 32.0 / 100.0
+	digit1 := float64(b32ToIndex(addr[0])) / 32.0
+	digit2 := float64(b32ToIndex(addr[1])) / 32.0
+
+	return digit1 * 100 + digit2 * 10 * pct
+}
+
 // m5accountCumulativeRewardsUpdate computes the cumulative rewards for each account one at a time. This is a BLOCKING
 // migration because we don't want to handle the case where accounts are actively transacting while we fixup their
 // table.
@@ -308,7 +329,7 @@ func m5accountCumulativeRewardsUpdate(db *IndexerDb, state *MigrationState) erro
 		accounts = append(accounts, acct.Account.Address)
 
 		if len(accounts) == batchSize {
-			db.log.Printf("Processing batch %d", batchNumber)
+			db.log.Printf("Processing batch %d (%f%%)", batchNumber, addrToPercent(accounts[0]))
 			m5accountCumulativeRewardsUpdateAccounts(db, state, accounts, false)
 			accounts = accounts[:0]
 			batchNumber++
