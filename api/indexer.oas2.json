@@ -630,7 +630,7 @@
           "items": {
             "$ref": "#/definitions/ApplicationLocalState"
           }
-        },      
+        },
         "apps-total-schema": {
           "description": "\\[tsch\\] stores the sum of all of the local schemas and global schemas in this account.\n\nNote: the raw account uses `StateSchema` for this type.",
           "$ref": "#/definitions/ApplicationStateSchema"
@@ -1214,7 +1214,7 @@
       "description": "Application state delta.",
       "type": "array",
       "items": {
-        "$ref": "#/definitions/EvalDeltaKeyValue"      
+        "$ref": "#/definitions/EvalDeltaKeyValue"
       }
     },
     "AccountStateDelta": {
@@ -1232,19 +1232,19 @@
           "$ref": "#/definitions/StateDelta"
         }
       }
-    },      
+    },
     "EvalDeltaKeyValue": {
       "description": "Key-value pairs for StateDelta.",
       "type": "object",
       "required": [
         "key",
-        "value"       
+        "value"
       ],
       "properties": {
-        "key": {         
+        "key": {
           "type": "string"
         },
-        "value": {             
+        "value": {
           "$ref": "#/definitions/EvalDelta"
         }
       }
@@ -1843,7 +1843,7 @@
       "description": "Specifies a prefix which must be contained in the note field.",
       "name": "note-prefix",
       "in": "query",
-      "x-algorand-format": "base64" 
+      "x-algorand-format": "base64"
     },
     "rekey-to": {
       "type": "boolean",
@@ -1880,7 +1880,7 @@
       "description": "Include accounts configured to use this spending key.",
       "name": "auth-addr",
       "in": "query",
-      "x-algorand-format": "Address" 
+      "x-algorand-format": "Address"
     },
     "txid": {
       "type": "string",

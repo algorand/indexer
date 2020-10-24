@@ -11,14 +11,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/client/algod"
+	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-
 	"github.com/algorand/indexer/types"
 )
 
 type Fetcher interface {
-	Algod() algod.Client
+	Algod() *algod.Client
 
 	// go bot.Run()
 	Run()
@@ -35,7 +34,7 @@ type BlockHandler interface {
 
 type fetcherImpl struct {
 	algorandData string
-	aclient      algod.Client
+	aclient      *algod.Client
 	algodLastmod time.Time // newest mod time of algod.net algod.token
 
 	blockHandlers []BlockHandler
@@ -49,7 +48,8 @@ type fetcherImpl struct {
 	failingSince time.Time
 }
 
-func (bot *fetcherImpl) Algod() algod.Client {
+// Algod is part of the Fetcher interface
+func (bot *fetcherImpl) Algod() *algod.Client {
 	return bot.aclient
 }
 
@@ -78,11 +78,13 @@ func (bot *fetcherImpl) catchupLoop() {
 		if bot.isDone() {
 			return
 		}
-		blockbytes, err = aclient.BlockRaw(bot.nextRound)
+
+		blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(context.Background())
 		if err != nil {
 			log.Printf("catchup block %d, err %v\n", bot.nextRound, err)
 			return
 		}
+
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
 			log.Printf("err handling catchup block %d, %v\n", bot.nextRound, err)
@@ -103,12 +105,12 @@ func (bot *fetcherImpl) followLoop() {
 			if bot.isDone() {
 				return
 			}
-			_, err = aclient.StatusAfterBlock(bot.nextRound)
+			_, err = aclient.StatusAfterBlock(bot.nextRound).Do(context.Background())
 			if err != nil {
 				log.Printf("r=%d error getting status %d, %v\n", retries, bot.nextRound, err)
 				continue
 			}
-			blockbytes, err = aclient.BlockRaw(bot.nextRound)
+			blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(context.Background())
 			if err == nil {
 				break
 			}
@@ -207,7 +209,7 @@ func ForDataDir(path string) (bot Fetcher, err error) {
 }
 
 func ForNetAndToken(netaddr, token string) (bot Fetcher, err error) {
-	var client algod.Client
+	var client *algod.Client
 	if !strings.HasPrefix(netaddr, "http") {
 		netaddr = "http://" + netaddr
 	}
@@ -225,7 +227,7 @@ func (bot *fetcherImpl) reclient() (err error) {
 	}
 	// If we know the algod data dir, re-read the algod.net and
 	// algod.token files and make a new API client object.
-	var nclient algod.Client
+	var nclient *algod.Client
 	var lastmod time.Time
 	nclient, lastmod, err = algodClientForDataDir(bot.algorandData)
 	if err == nil {
@@ -264,7 +266,7 @@ func algodStat(netpath, tokenpath string) (lastmod time.Time, err error) {
 	return
 }
 
-func algodClientForDataDir(datadir string) (client algod.Client, lastmod time.Time, err error) {
+func algodClientForDataDir(datadir string) (client *algod.Client, lastmod time.Time, err error) {
 	// TODO: move this to go-algorand-sdk
 	netpath, tokenpath := algodPaths(datadir)
 	var netaddrbytes []byte
