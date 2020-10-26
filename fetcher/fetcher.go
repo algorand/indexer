@@ -154,14 +154,14 @@ func (bot *fetcherImpl) Run() {
 		} else {
 			now := time.Now()
 			dt := now.Sub(bot.failingSince)
-			bot.log.Infoln("failing to fetch from algod for %s, (since %s, now %s)", dt.String(), bot.failingSince.String(), now.String())
+			bot.log.Infof("failing to fetch from algod for %s, (since %s, now %s)", dt.String(), bot.failingSince.String(), now.String())
 		}
 		time.Sleep(5 * time.Second)
 		err := bot.reclient()
 		if err != nil {
 			bot.log.WithError(err).Errorln("err trying to re-client")
 		} else {
-			bot.log.Infoln("reclient happened")
+			bot.log.Infof("reclient happened")
 		}
 	}
 }
