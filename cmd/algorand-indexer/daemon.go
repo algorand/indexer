@@ -143,7 +143,7 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 		if err == nil && stateJSONStr != "" {
 			state, err = importer.ParseImportState(stateJSONStr)
 			if err != nil {
-				logger.Errorf("error parsing import state, %v", err)
+				logger.WithError(err).Errorf("error parsing import state")
 				panic("error parsing import state in bih")
 			}
 		}
@@ -151,7 +151,7 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 		stateJSONStr = string(json.Encode(state))
 		err = db.SetMetastate("state", stateJSONStr)
 		if err != nil {
-			logger.Errorf("failed to save import state, %v", err)
+			logger.WithError(err).Errorf("failed to save import state")
 		}
 	}
 	logger.Info("round r=%d (%d txn) imported in %s\n", block.Block.Round, len(block.Block.Payset), dt.String())

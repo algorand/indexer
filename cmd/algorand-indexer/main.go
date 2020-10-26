@@ -65,7 +65,7 @@ var rootCmd = &cobra.Command{
 		if pidFilePath != "" {
 			err := os.Remove(pidFilePath)
 			if err != nil {
-				logger.Errorf("%s: could not remove pid file, %v", pidFilePath, err)
+				logger.WithError(err).Errorf("%s: could not remove pid file", pidFilePath)
 			}
 		}
 	},
