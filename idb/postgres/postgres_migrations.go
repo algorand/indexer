@@ -160,10 +160,10 @@ func m2apps(db *IndexerDb, state *MigrationState) error {
 }
 
 func m3acfgFix(db *IndexerDb, state *MigrationState) (err error) {
-	db.log.Print("asset config fix migration starting")
+	db.log.Printf("asset config fix migration starting")
 	rows, err := db.db.Query(`SELECT index FROM asset WHERE index >= $1 ORDER BY 1`, state.NextAssetID)
 	if err != nil {
-		db.log.Printf("acfg fix err getting assetids, %v", err)
+		db.log.WithError(err).Errorf("acfg fix err getting assetids")
 		return err
 	}
 	assetIds := make([]int64, 0, 1000)
@@ -171,7 +171,7 @@ func m3acfgFix(db *IndexerDb, state *MigrationState) (err error) {
 		var aid int64
 		err = rows.Scan(&aid)
 		if err != nil {
-			db.log.Printf("acfg fix err getting assetid row, %v", err)
+			db.log.WithError(err).Errorf("acfg fix err getting assetid row")
 			rows.Close()
 			return
 		}
@@ -181,7 +181,7 @@ func m3acfgFix(db *IndexerDb, state *MigrationState) (err error) {
 	for {
 		nexti, err := m3acfgFixAsyncInner(db, state, assetIds)
 		if err != nil {
-			db.log.Printf("acfg fix chunk, %v", err)
+			db.log.WithError(err).Errorf("acfg fix chunk")
 			return err
 		}
 		if nexti < 0 {
@@ -189,7 +189,7 @@ func m3acfgFix(db *IndexerDb, state *MigrationState) (err error) {
 		}
 		assetIds = assetIds[nexti:]
 	}
-	db.log.Print("acfg fix migration finished")
+	db.log.Printf("acfg fix migration finished")
 	return nil
 }
 
@@ -199,13 +199,13 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 	lastlog := time.Now()
 	tx, err := db.db.Begin()
 	if err != nil {
-		db.log.Printf("acfg fix tx begin, %v", err)
+		db.log.WithError(err).Errorf("acfg fix tx begin")
 		return -1, err
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 	setacfg, err := tx.Prepare(`INSERT INTO asset (index, creator_addr, params) VALUES ($1, $2, $3) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params`)
 	if err != nil {
-		db.log.Printf("acfg fix prepare set asset, %v", err)
+		db.log.WithError(err).Errorf("acfg fix prepare set asset")
 		return
 	}
 	defer setacfg.Close()
@@ -217,12 +217,12 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 			migrationStateJSON := json.Encode(state)
 			_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 			if err != nil {
-				db.log.Printf("acfg fix migration %d meta err: %v", state.NextMigration, err)
+				db.log.WithError(err).Errorf("acfg fix migration %d meta err", state.NextMigration)
 				return -1, err
 			}
 			err = tx.Commit()
 			if err != nil {
-				db.log.Printf("acfg fix migration %d commit err: %v", state.NextMigration, err)
+				db.log.WithError(err).Errorf("acfg fix migration %d commit err", state.NextMigration)
 				return -1, err
 			}
 			return i, nil
@@ -240,7 +240,7 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 			var stxn types.SignedTxnInBlock
 			err = msgpack.Decode(txrow.TxnBytes, &stxn)
 			if err != nil {
-				db.log.Printf("acfg fix bad txn bytes %d:%d, %v", txrow.Round, txrow.Intra, err)
+				db.log.WithError(err).Errorf("acfg fix bad txn bytes %d:%d", txrow.Round, txrow.Intra)
 				return
 			}
 			if first {
@@ -257,7 +257,7 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 		outparams := json.Encode(params)
 		_, err = setacfg.Exec(aid, creator[:], outparams)
 		if err != nil {
-			db.log.Printf("acfg fix asset update, %v", err)
+			db.log.WithError(err).Errorf("acfg fix asset update")
 			return -1, err
 		}
 	}
@@ -266,12 +266,12 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 	migrationStateJSON := json.Encode(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
-		db.log.Printf("acfg fix migration %d meta err: %v", state.NextMigration, err)
+		db.log.WithError(err).Errorf("acfg fix migration %d meta err", state.NextMigration)
 		return -1, err
 	}
 	err = tx.Commit()
 	if err != nil {
-		db.log.Printf("acfg fix migration %d commit err: %v", state.NextMigration, err)
+		db.log.WithError(err).Errorf("acfg fix migration %d commit err", state.NextMigration)
 		return -1, err
 	}
 	return -1, nil
@@ -415,14 +415,14 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 	thisMigration := state.NextMigration
 	tx, err := db.db.Begin()
 	if err != nil {
-		db.log.Printf("migration %d tx err: %v", thisMigration, err)
+		db.log.WithError(err).Errorf("migration %d tx err", thisMigration)
 		return err
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 	for i, cmd := range sqlLines {
 		_, err = tx.Exec(cmd)
 		if err != nil {
-			db.log.Printf("migration %d sql[%d] err: %v", thisMigration, i, err)
+			db.log.WithError(err).Errorf("migration %d sql[%d] err", thisMigration, i)
 			return err
 		}
 	}
@@ -430,12 +430,12 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 	migrationStateJSON := json.Encode(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
-		db.log.Printf("migration %d meta err: %v", thisMigration, err)
+		db.log.WithError(err).Errorf("migration %d meta err", thisMigration)
 		return err
 	}
 	err = tx.Commit()
 	if err != nil {
-		db.log.Printf("migration %d commit err: %v", thisMigration, err)
+		db.log.WithError(err).Errorf("migration %d commit err", thisMigration)
 		return err
 	}
 	db.log.Printf("migration %d done", thisMigration)
@@ -457,7 +457,7 @@ type txidFiuxpMigrationContext migrationContext
 func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() (err error) {
 	db := mtxid.db
 	state := mtxid.state
-	db.log.Print("txid fixup migration starting")
+	db.log.Println("txid fixup migration starting")
 	prevRound := state.NextRound - 1
 	txns := db.YieldTxns(context.Background(), prevRound)
 	batch := make([]idb.TxnRow, 15000)
@@ -466,7 +466,7 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() (err error) {
 	prevBatchRound := uint64(math.MaxUint64)
 	for txr := range txns {
 		if txr.Error != nil {
-			db.log.Printf("ERROR migrating txns for txid rewrite: %v\n", txr.Error)
+			db.log.WithError(txr.Error).Errorf("ERROR migrating txns for txid rewrite")
 			err = txr.Error
 			return
 		}
@@ -519,10 +519,10 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() (err error) {
 	migrationStateJSON := string(json.Encode(state))
 	err = db.SetMetastate(migrationMetastateKey, migrationStateJSON)
 	if err != nil {
-		db.log.Printf("%s, error setting final migration state: %v", txidMigrationErrMsg, err)
+		db.log.WithError(err).Errorf("%s, error setting final migration state", txidMigrationErrMsg)
 		return
 	}
-	db.log.Print("txid fixup migration finished")
+	db.log.Println("txid fixup migration finished")
 	return nil
 }
 
@@ -554,13 +554,13 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 		block := headers[txr.Round]
 		proto, err := types.Protocol(string(block.CurrentProtocol))
 		if err != nil {
-			db.log.Printf("%s, proto: %v", txidMigrationErrMsg, err)
+			db.log.WithError(err).Errorf("%s, proto", txidMigrationErrMsg)
 			return err
 		}
 		var stxn types.SignedTxnInBlock
 		err = msgpack.Decode(txr.TxnBytes, &stxn)
 		if err != nil {
-			db.log.Printf("%s, txnb msgpack err: %v", txidMigrationErrMsg, err)
+			db.log.WithError(err).Errorf("%s, txnb msgpack err", txidMigrationErrMsg)
 			return err
 		}
 		if stxn.HasGenesisID {
@@ -577,7 +577,7 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 	// do a transaction to update a batch
 	tx, err := db.db.Begin()
 	if err != nil {
-		db.log.Printf("%s, batch tx err: %v", txidMigrationErrMsg, err)
+		db.log.WithError(err).Errorf("%s, batch tx err", txidMigrationErrMsg)
 		return err
 	}
 	defer tx.Rollback() // ignored if .Commit() first
@@ -589,75 +589,75 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 	if err == sql.ErrNoRows && state.NextMigration == 0 {
 		// no previous state, ok
 	} else if err != nil {
-		db.log.Printf("%s, get m state err: %v", txidMigrationErrMsg, err)
+		db.log.WithError(err).Errorf("%s, get m state err", txidMigrationErrMsg)
 		return err
 	} else {
 		err = json.Decode([]byte(migrationStateJSON), &txstate)
 		if err != nil {
-			db.log.Printf("%s, migration json err: %v", txidMigrationErrMsg, err)
+			db.log.WithError(err).Errorf("%s, migration json err", txidMigrationErrMsg)
 			return err
 		}
 		if state.NextMigration != txstate.NextMigration || state.NextRound != txstate.NextRound {
-			db.log.Printf("%s, migration state changed when we werene't looking: %v -> %v", txidMigrationErrMsg, state, txstate)
+			db.log.Printf("%s, migration state changed when we weren't looking: %v -> %v", txidMigrationErrMsg, state, txstate)
 		}
 	}
 	// _sometimes_ the temp table exists from the previous cycle.
 	// So, 'create if not exists' and truncate.
 	_, err = tx.Exec(`CREATE TEMP TABLE IF NOT EXISTS txid_fix_batch (round bigint NOT NULL, intra smallint NOT NULL, txid bytea NOT NULL, PRIMARY KEY ( round, intra ))`)
 	if err != nil {
-		db.log.Printf("%s, create temp err: %v", txidMigrationErrMsg, err)
+		db.log.WithError(err).Errorf("%s, create temp err", txidMigrationErrMsg)
 		return err
 	}
 	_, err = tx.Exec(`TRUNCATE TABLE txid_fix_batch`)
 	if err != nil {
-		db.log.Printf("%s, truncate temp err: %v", txidMigrationErrMsg, err)
+		db.log.WithError(err).Errorf("%s, truncate temp err", txidMigrationErrMsg)
 		return err
 	}
 	batchadd, err := tx.Prepare(`COPY txid_fix_batch (round, intra, txid) FROM STDIN`)
 	if err != nil {
-		db.log.Printf("%s, temp prepare err: %v", txidMigrationErrMsg, err)
+		db.log.WithError(err).Errorf("%s, temp prepare err", txidMigrationErrMsg)
 		return err
 	}
 	defer batchadd.Close()
 	for _, tr := range outrows {
 		_, err = batchadd.Exec(tr.round, tr.intra, tr.txid)
 		if err != nil {
-			db.log.Printf("%s, temp row err: %v", txidMigrationErrMsg, err)
+			db.log.WithError(err).Errorf("%s, temp row err", txidMigrationErrMsg)
 			return err
 		}
 	}
 	_, err = batchadd.Exec()
 	if err != nil {
-		db.log.Printf("%s, temp empty row err: %v", txidMigrationErrMsg, err)
+		db.log.WithError(err).Errorf("%s, temp empty row err", txidMigrationErrMsg)
 		return err
 	}
 	err = batchadd.Close()
 	if err != nil {
-		db.log.Printf("%s, temp add close err: %v", txidMigrationErrMsg, err)
+		db.log.WithError(err).Errorf("%s, temp add close err", txidMigrationErrMsg)
 		return err
 	}
 
 	_, err = tx.Exec(`UPDATE txn SET txid = x.txid FROM txid_fix_batch x WHERE txn.round = x.round AND txn.intra = x.intra`)
 	if err != nil {
-		db.log.Printf("%s, update err: %v", txidMigrationErrMsg, err)
+		db.log.WithError(err).Errorf("%s, update err", txidMigrationErrMsg)
 		return err
 	}
 	txstate.NextRound = int64(maxRound + 1)
 	migrationStateJSON = json.Encode(txstate)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
-		db.log.Printf("%s, set metastate err: %v", txidMigrationErrMsg, err)
+		db.log.WithError(err).Errorf("%s, set metastate err", txidMigrationErrMsg)
 		return err
 	}
 	err = tx.Commit()
 	if err != nil {
-		db.log.Printf("%s, batch commit err: %v", txidMigrationErrMsg, err)
+		db.log.WithError(err).Errorf("%s, batch commit err", txidMigrationErrMsg)
 		return err
 	}
 	mtxid.state = &txstate
 	_, err = db.db.Exec(`DROP TABLE IF EXISTS txid_fix_batch`)
 	if err != nil {
-		db.log.Printf("warning txid migration, drop temp err: %v", err)
+		db.log.WithError(err).Errorf("warning txid migration, drop temp err")
 		// we don't actually care; psql should garbage collect the temp table eventually
 	}
 	now := time.Now()
@@ -673,7 +673,7 @@ func (mtxid *txidFiuxpMigrationContext) readHeaders(minRound, maxRound uint64) (
 	db := mtxid.db
 	rows, err := db.db.Query(`SELECT round, header FROM block_header WHERE round >= $1 AND round <= $2`, minRound, maxRound)
 	if err != nil {
-		db.log.Printf("%s, header err: %v", txidMigrationErrMsg, err)
+		db.log.WithError(err).Errorf("%s, header err", txidMigrationErrMsg)
 		return nil, err
 	}
 	defer rows.Close()
@@ -683,7 +683,7 @@ func (mtxid *txidFiuxpMigrationContext) readHeaders(minRound, maxRound uint64) (
 		var headerjson []byte
 		err = rows.Scan(&round, &headerjson)
 		if err != nil {
-			db.log.Printf("%s, header row err: %v", txidMigrationErrMsg, err)
+			db.log.WithError(err).Errorf("%s, header row err", txidMigrationErrMsg)
 			return nil, err
 		}
 		var tblock types.Block

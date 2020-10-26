@@ -190,7 +190,7 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 					ntxr[i] = v
 				}
 			}
-			db.log.Printf("txr %#v\n", ntxr)
+			db.log.Printf("txr %#v", ntxr)
 		}
 		return fmt.Errorf("COPY txn Exec() %v", err)
 	}
@@ -209,7 +209,7 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 		if err != nil {
 			//return err
 			for _, er := range db.txprows[:i+1] {
-				db.log.Printf("%s %d %d\n", base64.StdEncoding.EncodeToString(er[0].([]byte)), er[1], er[2])
+				db.log.Printf("%s %d %d", base64.StdEncoding.EncodeToString(er[0].([]byte)), er[1], er[2])
 			}
 			return fmt.Errorf("%v, around txp row %#v", err, txpr)
 		}
@@ -302,7 +302,7 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 		}
 	}
 	err = tx.Commit()
-	db.log.Printf("genesis %d accounts %d microalgos, err=%v\n", len(genesis.Allocation), total, err)
+	db.log.Printf("genesis %d accounts %d microalgos, err=%v", len(genesis.Allocation), total, err)
 	return err
 
 }
@@ -781,7 +781,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 		defer getacfg.Close()
 		for _, au := range updates.AcfgUpdates {
 			if au.AssetID == debugAsset {
-				fmt.Fprintf(os.Stderr, "%d acfg %s %s\n", round, b64(au.Creator[:]), obs(au))
+				db.log.Errorf("%d acfg %s %s", round, b64(au.Creator[:]), obs(au))
 			}
 			var outparams string
 			if au.IsNew {
@@ -831,7 +831,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 		for addr, aulist := range updates.AssetUpdates {
 			for _, au := range aulist {
 				if au.AssetID == debugAsset {
-					fmt.Fprintf(os.Stderr, "%d axfer %s %s\n", round, b64(addr[:]), obs(au))
+					db.log.Errorf("%d axfer %s %s", round, b64(addr[:]), obs(au))
 				}
 				if au.Delta.IsInt64() {
 					// easy case
@@ -881,7 +881,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 		defer fr.Close()
 		for _, fs := range updates.FreezeUpdates {
 			if fs.AssetID == debugAsset {
-				fmt.Fprintf(os.Stderr, "%d %s %s\n", round, b64(fs.Addr[:]), obs(fs))
+				db.log.Errorf("%d %s %s", round, b64(fs.Addr[:]), obs(fs))
 			}
 			_, err = fr.Exec(fs.Addr[:], fs.AssetID, fs.Frozen)
 			if err != nil {
@@ -911,7 +911,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		defer acd.Close()
 		for _, ac := range updates.AssetCloses {
 			if ac.AssetID == debugAsset {
-				fmt.Fprintf(os.Stderr, "%d close %s\n", round, obs(ac))
+				db.log.Errorf("%d close %s", round, obs(ac))
 			}
 			_, err = acc.Exec(ac.Round, ac.Offset, ac.Sender[:], ac.AssetID)
 			if err != nil {
@@ -942,7 +942,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		defer aclear.Close()
 		for _, assetID := range updates.AssetDestroys {
 			if assetID == debugAsset {
-				fmt.Fprintf(os.Stderr, "%d destroy asset %d\n", round, assetID)
+				db.log.Errorf("%d destroy asset %d", round, assetID)
 			}
 			_, err = ads.Exec(assetID)
 			if err != nil {
@@ -1142,7 +1142,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 	}
 	if !any {
-		db.log.Printf("empty round %d\n", round)
+		db.log.Printf("empty round %d", round)
 	}
 	var istate importer.ImportState
 	staterow := tx.QueryRow(`SELECT v FROM metastate WHERE k = 'state'`)
