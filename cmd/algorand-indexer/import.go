@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/spf13/cobra"
+	"os"
 
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/importer"
@@ -13,6 +14,11 @@ var importCmd = &cobra.Command{
 	Long:  "import block file or tar file of blocks. arguments are interpret as file globs (e.g. *.tar.bz2)",
 	Run: func(cmd *cobra.Command, args []string) {
 		config.BindFlags(cmd)
+		err := configureLogger()
+		if err != nil {
+			logger.WithError(err).Error("failed to configure logger")
+			os.Exit(1)
+		}
 
 		db := globalIndexerDb(nil)
 

@@ -34,7 +34,14 @@ var daemonCmd = &cobra.Command{
 	Long:  "run indexer daemon. Serve api on HTTP.",
 	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
+		var err error
+
 		config.BindFlags(cmd)
+		err = configureLogger()
+		if err != nil {
+			logger.WithError(err).Error("failed to configure logger")
+			os.Exit(1)
+		}
 
 		if algodDataDir == "" {
 			algodDataDir = os.Getenv("ALGORAND_DATA")
@@ -48,7 +55,6 @@ var daemonCmd = &cobra.Command{
 		ctx, cf := context.WithCancel(context.Background())
 		defer cf()
 		var bot fetcher.Fetcher
-		var err error
 		if noAlgod {
 			logger.Info("algod block following disabled")
 		} else if algodAddr != "" && algodToken != "" {

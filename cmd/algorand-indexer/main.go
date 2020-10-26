@@ -79,6 +79,8 @@ var (
 	pidFilePath    string
 	db             idb.IndexerDb
 	profFile       io.WriteCloser
+	logLevel       string
+	logFile        string
 	logger         *log.Logger
 )
 
@@ -107,6 +109,8 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(daemonCmd)
 
+	rootCmd.PersistentFlags().StringVarP(&logLevel, "loglevel", "l", "info", "verbosity of logs: [error, warn, info, debug, trace]")
+	rootCmd.PersistentFlags().StringVarP(&logFile, "logfile", "f", "", "file to write logs to, if unset logs are written to standard out")
 	rootCmd.PersistentFlags().StringVarP(&postgresAddr, "postgres", "P", "", "connection string for postgres database")
 	rootCmd.PersistentFlags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")
 	rootCmd.PersistentFlags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
@@ -135,6 +139,26 @@ func init() {
 
 	viper.SetEnvPrefix(config.EnvPrefix)
 	viper.AutomaticEnv()
+}
+
+func configureLogger() error {
+	if logLevel != "" {
+		level, err := log.ParseLevel(logLevel)
+		if err != nil {
+			return err
+		}
+		logger.SetLevel(level)
+	}
+
+	if logFile != "" {
+		f, err := os.OpenFile(logFile, os.O_WRONLY | os.O_CREATE, 0755)
+		if err != nil {
+			return err
+		}
+		logger.SetOutput(f)
+	}
+
+	return nil
 }
 
 func main() {
