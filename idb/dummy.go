@@ -24,23 +24,24 @@ func DummyIndexerDb() IndexerDb {
 }
 
 type dummyIndexerDb struct {
+	log *log.Logger
 }
 
 // StartBlock is part of idb.IndexerDB
 func (db *dummyIndexerDb) StartBlock() (err error) {
-	fmt.Printf("StartBlock\n")
+	db.log.Printf("StartBlock")
 	return nil
 }
 
 // AddTransaction is part of idb.IndexerDB
 func (db *dummyIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
-	fmt.Printf("\ttxn %d %d %d %d\n", round, intra, txtypeenum, assetid)
+	db.log.Printf("\ttxn %d %d %d %d", round, intra, txtypeenum, assetid)
 	return nil
 }
 
 // CommitBlock is part of idb.IndexerDB
 func (db *dummyIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	fmt.Printf("CommitBlock %d %d %d header bytes\n", round, timestamp, len(headerbytes))
+	db.log.Printf("CommitBlock %d %d %d header bytes", round, timestamp, len(headerbytes))
 	return nil
 }
 
@@ -384,7 +385,7 @@ func (df dummyFactory) Name() string {
 
 // Build is part of the IndexerFactory interface.
 func (df dummyFactory) Build(arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
-	return &dummyIndexerDb{}, nil
+	return &dummyIndexerDb{log: log}, nil
 }
 
 // This layer of indirection allows for different db integrations to be compiled in or compiled out by `go build --tags ...`
