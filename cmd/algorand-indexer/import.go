@@ -16,11 +16,11 @@ var importCmd = &cobra.Command{
 
 		db := globalIndexerDb(nil)
 
-		helper := importer.ImportHelper{
-			BlockFileLimit:  blockFileLimit,
-			GenesisJSONPath: genesisJSONPath,
-			NumRoundsLimit:  numRoundsLimit,
-		}
+		helper := importer.NewImportHelper(
+			genesisJSONPath,
+			numRoundsLimit,
+			blockFileLimit,
+			logger)
 
 		helper.Import(db, args)
 	},
