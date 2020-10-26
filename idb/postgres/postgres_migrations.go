@@ -14,6 +14,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
+
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/types"
