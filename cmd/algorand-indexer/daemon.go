@@ -58,13 +58,13 @@ var daemonCmd = &cobra.Command{
 		if noAlgod {
 			logger.Info("algod block following disabled")
 		} else if algodAddr != "" && algodToken != "" {
-			bot, err = fetcher.ForNetAndToken(algodAddr, algodToken)
+			bot, err = fetcher.ForNetAndToken(algodAddr, algodToken, logger)
 			maybeFail(err, "fetcher setup, %v", err)
 		} else if algodDataDir != "" {
 			if genesisJSONPath == "" {
 				genesisJSONPath = filepath.Join(algodDataDir, "genesis.json")
 			}
-			bot, err = fetcher.ForDataDir(algodDataDir)
+			bot, err = fetcher.ForDataDir(algodDataDir, logger)
 			maybeFail(err, "fetcher setup, %v", err)
 		} else {
 			// no algod was found
