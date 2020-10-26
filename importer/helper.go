@@ -22,9 +22,10 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
-func NewImportHelper(genesisJsonPath string, numRoundsLimit, blockFileLimite int, l *log.Logger) (*ImportHelper) {
+// NewImportHelper builds an ImportHelper
+func NewImportHelper(genesisJSONPath string, numRoundsLimit, blockFileLimite int, l *log.Logger) (*ImportHelper) {
 	return &ImportHelper{
-		GenesisJSONPath: genesisJsonPath,
+		GenesisJSONPath: genesisJSONPath,
 		NumRoundsLimit:  numRoundsLimit,
 		BlockFileLimit:  blockFileLimite,
 		Log:             l,
