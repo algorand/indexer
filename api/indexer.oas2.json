@@ -17,6 +17,29 @@
     "application/json"
   ],
   "paths": {
+    "/openapi": {
+      "get": {
+        "tags": [
+          "common"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "schemes": [
+          "http"
+        ],
+        "summary": "Returns 200 if healthy.",
+        "operationId": "makeHealthCheck",
+        "responses": {
+          "200": {
+            "description": "the specification"
+          },
+          "default": {
+            "description": "Unknown Error"
+          }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": [

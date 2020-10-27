@@ -19,11 +19,35 @@ type ServerInterface interface {
 	// Returns 200 if healthy.
 	// (GET /health)
 	MakeHealthCheck(ctx echo.Context) error
+	// Returns 200 if healthy.
+	// (GET /openapi)
+	MakeHealthCheck(ctx echo.Context) error
 }
 
 // ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
 	Handler ServerInterface
+}
+
+// MakeHealthCheck converts echo context to params.
+func (w *ServerInterfaceWrapper) MakeHealthCheck(ctx echo.Context) error {
+
+	validQueryParams := map[string]bool{
+		"pretty": true,
+	}
+
+	// Check for unknown query parameters.
+	for name, _ := range ctx.QueryParams() {
+		if _, ok := validQueryParams[name]; !ok {
+			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Unknown parameter detected: %s", name))
+		}
+	}
+
+	var err error
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.MakeHealthCheck(ctx)
+	return err
 }
 
 // MakeHealthCheck converts echo context to params.
@@ -65,6 +89,7 @@ func RegisterHandlers(router interface {
 	}
 
 	router.GET("/health", wrapper.MakeHealthCheck, m...)
+	router.GET("/openapi", wrapper.MakeHealthCheck, m...)
 
 }
 
@@ -202,10 +227,10 @@ var swaggerSpec = []string{
 	"8TGtbFJGalq7THe6PXJvzwY47WOc8Dap4daXBMTn5eU9NPD5QbpNPkQsZKHCI9I8Q72RKpIunnvT0sLX",
 	"DV1sra3Ns9PT6+vrk2B3OslUdbrBoP2VVU22PQ0DjR45DuP5YmROCpc7KzLDnr97jTqTsCXQ435wg/at",
 	"lrIWT0+eoNOmBslrsXi2+OrkycmXhLEtEsEpZZVTQU9chyMRVIxe55jTeAlxXjoWnMXMc+z+9MmT3+E9",
-	"dF+EOfFGtryU6loyrA5B70I3VcX1DlPqbKOlYU+fPGGi8Nn06IGz3J3aHxaUCrb46PqdXj09jeJbBr+c",
-	"fgquZZHf7vl8OqjXGNpGTtj0r6ef+i6yeKLg4Oz9ffop2JVuZz6d+lzdue4TMFNtm9NPFE5It69oqnSn",
-	"nvL0yd546NCcox2pLp59+DTgFbjhVV0Cssni9mO7RS2X+a26Xba/lEpdNnX8iwGus+3i9uPt/w8AAP//",
-	"AwvMh/6aAAA=",
+	"dF+EOfFGtryU6loyrA5B70I3VcX1DlPqbKOlYU+fPGGi8Nn06IGz3J3aHxaUCrb46Pqdtji7F2LGzz63",
+	"hQlDjtXnWMzV09MoWGfwy+mn4CcX+e2ez6eD4pOhbeRRTv96+qnv74snCt7a3t+nn4KR7Hbm06lPPJ7r",
+	"PgEzFeo5/USxkXSVjKZKd+ppgp/sjYcObVPa8d3i2YdPA8aHG17VJSDPL24/tlvUigy/VbfL9pdSqcum",
+	"jn8xwHW2Xdx+vP3/AQAA//9JFgJky5sAAA==",
 }
 
 // GetSwagger returns the Swagger specification corresponding to the generated code

@@ -1646,6 +1646,25 @@
         ]
       }
     },
+    "/openapi": {
+      "get": {
+        "operationId": "makeHealthCheck",
+        "responses": {
+          "200": {
+            "content": {},
+            "description": "the specification"
+          },
+          "default": {
+            "content": {},
+            "description": "Unknown Error"
+          }
+        },
+        "summary": "Returns 200 if healthy.",
+        "tags": [
+          "common"
+        ]
+      }
+    },
     "/v2/accounts": {
       "get": {
         "description": "Search for accounts.",
