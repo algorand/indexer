@@ -173,10 +173,7 @@ func configureLogger() error {
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-<<<<<<< HEAD
 		logger.WithError(err).Error("an error occurred running indexer")
-=======
->>>>>>> Config file updates.
 		os.Exit(1)
 	}
 }
