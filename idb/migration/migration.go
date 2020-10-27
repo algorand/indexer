@@ -174,7 +174,7 @@ func (m *Migration) RunMigrations() {
 
 		if err != nil {
 			err := fmt.Errorf("%s%d (%s): %v", StatusErrorPrefix, task.MigrationID, task.Description, err)
-			m.log.Errorf("Migration failed: %v\n", err)
+			m.log.WithError(err).Errorf("Migration failed")
 			// If a migration failed, mark that the migration is blocking and terminate.
 			blocking = true
 			m.update(err, err.Error(), false, blocking)

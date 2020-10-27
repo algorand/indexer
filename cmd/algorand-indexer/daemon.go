@@ -35,7 +35,14 @@ var daemonCmd = &cobra.Command{
 	Long:  "run indexer daemon. Serve api on HTTP.",
 	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
+		var err error
+
 		config.BindFlags(cmd)
+		err = configureLogger()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
+			os.Exit(1)
+		}
 
 		if algodDataDir == "" {
 			algodDataDir = os.Getenv("ALGORAND_DATA")
@@ -49,18 +56,17 @@ var daemonCmd = &cobra.Command{
 		ctx, cf := context.WithCancel(context.Background())
 		defer cf()
 		var bot fetcher.Fetcher
-		var err error
 		if noAlgod {
-			fmt.Fprint(os.Stderr, "algod block following disabled\n")
+			logger.Info("algod block following disabled")
 		} else if algodAddr != "" && algodToken != "" {
-			bot, err = fetcher.ForNetAndToken(algodAddr, algodToken)
-			maybeFail(err, "fetcher setup, %v\n", err)
+			bot, err = fetcher.ForNetAndToken(algodAddr, algodToken, logger)
+			maybeFail(err, "fetcher setup, %v", err)
 		} else if algodDataDir != "" {
 			if genesisJSONPath == "" {
 				genesisJSONPath = filepath.Join(algodDataDir, "genesis.json")
 			}
-			bot, err = fetcher.ForDataDir(algodDataDir)
-			maybeFail(err, "fetcher setup, %v\n", err)
+			bot, err = fetcher.ForDataDir(algodDataDir, logger)
+			maybeFail(err, "fetcher setup, %v", err)
 		} else {
 			// no algod was found
 			noAlgod = true
@@ -70,7 +76,7 @@ var daemonCmd = &cobra.Command{
 			// to the db, to allow for read-only query
 			// servers that hit the db backend.
 			err := importer.ImportProto(db)
-			maybeFail(err, "import proto, %v\n", err)
+			maybeFail(err, "import proto, %v", err)
 		}
 		if bot != nil {
 			maxRound, err := db.GetMaxRound()
@@ -96,7 +102,7 @@ var daemonCmd = &cobra.Command{
 		}
 
 		// TODO: trap SIGTERM and call cf() to exit gracefully
-		fmt.Printf("serving on %s\n", daemonServerAddr)
+		logger.Infof("serving on %s", daemonServerAddr)
 		api.Serve(ctx, daemonServerAddr, db, logger, tokenArray, developerMode)
 	},
 }
@@ -126,10 +132,10 @@ type blockImporterHandler struct {
 func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	start := time.Now()
 	if uint64(block.Block.Round) != bih.round+1 {
-		fmt.Fprintf(os.Stderr, "received block %d when expecting %d\n", block.Block.Round, bih.round+1)
+		logger.Errorf("received block %d when expecting %d", block.Block.Round, bih.round+1)
 	}
 	bih.imp.ImportDecodedBlock(block)
-	importer.UpdateAccounting(bih.db, genesisJSONPath)
+	importer.UpdateAccounting(bih.db, genesisJSONPath, logger)
 	dt := time.Now().Sub(start)
 	if len(block.Block.Payset) == 0 {
 		// accounting won't have updated the round state, so we do it here
@@ -138,7 +144,7 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 		if err == nil && stateJSONStr != "" {
 			state, err = importer.ParseImportState(stateJSONStr)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "error parsing import state, %v\n", err)
+				logger.WithError(err).Errorf("error parsing import state")
 				panic("error parsing import state in bih")
 			}
 		}
@@ -146,9 +152,9 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 		stateJSONStr = string(json.Encode(state))
 		err = db.SetMetastate("state", stateJSONStr)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to save import state, %v\n", err)
+			logger.WithError(err).Errorf("failed to save import state")
 		}
 	}
-	fmt.Printf("round r=%d (%d txn) imported in %s\n", block.Block.Round, len(block.Block.Payset), dt.String())
+	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
 	bih.round = uint64(block.Block.Round)
 }

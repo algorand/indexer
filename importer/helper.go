@@ -15,11 +15,22 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 )
+
+// NewImportHelper builds an ImportHelper
+func NewImportHelper(genesisJSONPath string, numRoundsLimit, blockFileLimite int, l *log.Logger) (*ImportHelper) {
+	return &ImportHelper{
+		GenesisJSONPath: genesisJSONPath,
+		NumRoundsLimit:  numRoundsLimit,
+		BlockFileLimit:  blockFileLimite,
+		Log:             l,
+	}
+}
 
 // ImportHelper glues together a directory full of block files and an Importer objects.
 type ImportHelper struct {
@@ -31,6 +42,8 @@ type ImportHelper struct {
 
 	// BlockFileLimit is the number of block files to process.
 	BlockFileLimit int
+
+	Log *log.Logger
 }
 
 // ImportState is some metadata kept around to help the import helper.
@@ -47,7 +60,7 @@ func ParseImportState(js string) (istate ImportState, err error) {
 // Import is the main ImportHelper function that glues together a directory full of block files and an Importer objects.
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	err := ImportProto(db)
-	maybeFail(err, "import proto, %v", err)
+	maybeFail(err, h.Log, "import proto, %v", err)
 
 	imp := NewDBImporter(db)
 	blocks := 0
@@ -62,13 +75,13 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 				pathsSorted = pathsSorted[:h.BlockFileLimit]
 			}
 			for _, gfname := range pathsSorted {
-				fb, ft := importFile(db, imp, gfname)
+				fb, ft := importFile(db, imp, gfname, h.Log)
 				blocks += fb
 				txCount += ft
 			}
 		} else {
 			// try without passing throug glob
-			fb, ft := importFile(db, imp, fname)
+			fb, ft := importFile(db, imp, fname, h.Log)
 			blocks += fb
 			txCount += ft
 		}
@@ -76,20 +89,20 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	blockdone := time.Now()
 	if blocks > 0 {
 		dt := blockdone.Sub(start)
-		fmt.Printf("%d blocks in %s, %.0f/s, %d txn, %.0f/s\n", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
+		h.Log.Infof("%d blocks in %s, %.0f/s, %d txn, %.0f/s", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
 	}
 
-	accountingRounds, txnCount := updateAccounting(db, h.GenesisJSONPath, h.NumRoundsLimit)
+	accountingRounds, txnCount := updateAccounting(db, h.GenesisJSONPath, h.NumRoundsLimit, h.Log)
 
 	accountingdone := time.Now()
 	if accountingRounds > 0 {
 		dt := accountingdone.Sub(blockdone)
-		fmt.Printf("%d rounds accounting in %s, %.1f/s (%d txns, %.1f/s)\n", accountingRounds, dt.String(), float64(time.Second)*float64(accountingRounds)/float64(dt), txnCount, float64(time.Second)*float64(txnCount)/float64(dt))
+		h.Log.Infof("%d rounds accounting in %s, %.1f/s (%d txns, %.1f/s)", accountingRounds, dt.String(), float64(time.Second)*float64(accountingRounds)/float64(dt), txnCount, float64(time.Second)*float64(txnCount)/float64(dt))
 	}
 
 	dt := accountingdone.Sub(start)
-	fmt.Printf(
-		"%d blocks loaded (%.1f/s) and %d rounds accounting in %s, %.1f/s (%d txns, %.1f/s)\n",
+	h.Log.Infof(
+		"%d blocks loaded (%.1f/s) and %d rounds accounting in %s, %.1f/s (%d txns, %.1f/s)",
 		blocks,
 		float64(time.Second)*float64(blocks)/float64(dt),
 		accountingRounds,
@@ -100,15 +113,15 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	)
 }
 
-func maybeFail(err error, errfmt string, params ...interface{}) {
+func maybeFail(err error, l *log.Logger, errfmt string, params ...interface{}) {
 	if err == nil {
 		return
 	}
-	fmt.Fprintf(os.Stderr, errfmt, params...)
+	l.Errorf(errfmt, params...)
 	os.Exit(1)
 }
 
-func importTar(imp Importer, tarfile io.Reader) (blocks, txCount int, err error) {
+func importTar(imp Importer, tarfile io.Reader, l *log.Logger) (blocks, txCount int, err error) {
 	lastlog := time.Now()
 	blocks = 0
 	prevBlocks := 0
@@ -139,7 +152,7 @@ func importTar(imp Importer, tarfile io.Reader) (blocks, txCount int, err error)
 		dt := now.Sub(lastlog)
 		if dt > (5 * time.Second) {
 			dblocks := blocks - prevBlocks
-			fmt.Printf("loaded from tar %v, %.1f/s\n", header.Name, ((float64(dblocks) * float64(time.Second)) / float64(dt)))
+			l.Infof("loaded from tar %v, %.1f/s", header.Name, ((float64(dblocks) * float64(time.Second)) / float64(dt)))
 			lastlog = now
 			prevBlocks = blocks
 		}
@@ -151,44 +164,44 @@ func importTar(imp Importer, tarfile io.Reader) (blocks, txCount int, err error)
 	return
 }
 
-func importFile(db idb.IndexerDb, imp Importer, fname string) (blocks, txCount int) {
+func importFile(db idb.IndexerDb, imp Importer, fname string, l *log.Logger) (blocks, txCount int) {
 	blocks = 0
 	txCount = 0
 	var btxns int
 	imported, err := db.AlreadyImported(fname)
-	maybeFail(err, "%s: %v\n", fname, err)
+	maybeFail(err, l, "%s: %v", fname, err)
 	if imported {
 		return
 	}
-	fmt.Printf("importing %s ...\n", fname)
+	l.Infof("importing %s ...", fname)
 	if strings.HasSuffix(fname, ".tar") {
 		fin, err := os.Open(fname)
-		maybeFail(err, "%s: %v\n", fname, err)
+		maybeFail(err, l, "%s: %v", fname, err)
 		defer fin.Close()
-		tblocks, btxns, err := importTar(imp, fin)
-		maybeFail(err, "%s: %v\n", fname, err)
+		tblocks, btxns, err := importTar(imp, fin, l)
+		maybeFail(err, l, "%s: %v", fname, err)
 		blocks += tblocks
 		txCount += btxns
 	} else if strings.HasSuffix(fname, ".tar.bz2") {
 		fin, err := os.Open(fname)
-		maybeFail(err, "%s: %v\n", fname, err)
+		maybeFail(err, l, "%s: %v", fname, err)
 		defer fin.Close()
 		bzin := bzip2.NewReader(fin)
-		tblocks, btxns, err := importTar(imp, bzin)
-		maybeFail(err, "%s: %v\n", fname, err)
+		tblocks, btxns, err := importTar(imp, bzin, l)
+		maybeFail(err, l, "%s: %v", fname, err)
 		blocks += tblocks
 		txCount += btxns
 	} else {
 		// assume a standalone block msgpack blob
 		blockbytes, err := ioutil.ReadFile(fname)
-		maybeFail(err, "%s: could not read, %v\n", fname, err)
+		maybeFail(err, l, "%s: could not read, %v", fname, err)
 		btxns, err = imp.ImportBlock(blockbytes)
-		maybeFail(err, "%s: could not import, %v\n", fname, err)
+		maybeFail(err, l, "%s: could not import, %v", fname, err)
 		blocks++
 		txCount += btxns
 	}
 	err = db.MarkImported(fname)
-	maybeFail(err, "%s: %v\n", fname, err)
+	maybeFail(err, l, "%s: %v", fname, err)
 	return
 }
 
@@ -207,35 +220,35 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 }
 
 // UpdateAccounting triggers an accounting update.
-func UpdateAccounting(db idb.IndexerDb, genesisJSONPath string) (rounds, txnCount int) {
-	return updateAccounting(db, genesisJSONPath, 0)
+func UpdateAccounting(db idb.IndexerDb, genesisJSONPath string, l *log.Logger) (rounds, txnCount int) {
+	return updateAccounting(db, genesisJSONPath, 0, l)
 }
 
-func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit int) (rounds, txnCount int) {
+func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit int, l *log.Logger) (rounds, txnCount int) {
 	rounds = 0
 	txnCount = 0
 	stateJSONStr, err := db.GetMetastate("state")
-	maybeFail(err, "getting import state, %v\n", err)
+	maybeFail(err, l, "getting import state, %v", err)
 	var state ImportState
 	if stateJSONStr == "" {
 		if genesisJSONPath != "" {
-			fmt.Printf("loading genesis %s\n", genesisJSONPath)
+			l.Infof("loading genesis %s", genesisJSONPath)
 			// if we're given no previous state and we're given a genesis file, import it as initial account state
 			gf, err := os.Open(genesisJSONPath)
-			maybeFail(err, "%s: %v\n", genesisJSONPath, err)
+			maybeFail(err, l, "%s: %v", genesisJSONPath, err)
 			err = loadGenesis(db, gf)
-			maybeFail(err, "%s: could not load genesis json, %v\n", genesisJSONPath, err)
+			maybeFail(err, l, "%s: could not load genesis json, %v", genesisJSONPath, err)
 			rounds++
 			state.AccountRound = -1
 		} else {
-			fmt.Fprintf(os.Stderr, "no import state recorded; need --genesis genesis.json file to get started\n")
+			l.Errorf("no import state recorded; need --genesis genesis.json file to get started")
 			os.Exit(1)
 			return
 		}
 	} else {
 		state, err = ParseImportState(stateJSONStr)
-		maybeFail(err, "parsing import state, %v\n", err)
-		fmt.Printf("will start from round >%d\n", state.AccountRound)
+		maybeFail(err, l, "parsing import state, %v", err)
+		l.Infof("will start from round >%d", state.AccountRound)
 	}
 
 	lastlog := time.Now()
@@ -245,33 +258,33 @@ func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit i
 	roundsSeen := 0
 	lastRoundsSeen := roundsSeen
 	for txn := range txns {
-		maybeFail(txn.Error, "updateAccounting txn fetch, %v", txn.Error)
+		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)
 		if txn.Round != currentRound {
 			prevRound := currentRound
 			roundsSeen++
 			currentRound = txn.Round
 			if (numRoundsLimit != 0) && (roundsSeen > numRoundsLimit) {
-				fmt.Printf("hit rounds limit %d > %d\n", roundsSeen, numRoundsLimit)
+				l.Infof("hit rounds limit %d > %d", roundsSeen, numRoundsLimit)
 				break
 			}
 			now := time.Now()
 			dt := now.Sub(lastlog)
 			if dt > (5 * time.Second) {
 				drounds := roundsSeen - lastRoundsSeen
-				fmt.Printf("accounting through %d, %.1f/s\n", prevRound, ((float64(drounds) * float64(time.Second)) / float64(dt)))
+				l.Infof("accounting through %d, %.1f/s", prevRound, ((float64(drounds) * float64(time.Second)) / float64(dt)))
 				lastlog = now
 				lastRoundsSeen = roundsSeen
 			}
 		}
 		err = act.AddTransaction(&txn)
-		maybeFail(err, "txn accounting r=%d i=%d, %v\n", txn.Round, txn.Intra, err)
+		maybeFail(err, l, "txn accounting r=%d i=%d, %v", txn.Round, txn.Intra, err)
 		txnCount++
 	}
 	err = act.Close()
-	maybeFail(err, "accounting close %v\n", err)
+	maybeFail(err, l, "accounting close %v", err)
 	rounds += roundsSeen
 	if rounds > 0 {
-		fmt.Printf("accounting updated through round %d\n", currentRound)
+		l.Infof("accounting updated through round %d", currentRound)
 	}
 	return
 }
