@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -39,7 +40,7 @@ var daemonCmd = &cobra.Command{
 		config.BindFlags(cmd)
 		err = configureLogger()
 		if err != nil {
-			logger.WithError(err).Error("failed to configure logger")
+			fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
 			os.Exit(1)
 		}
 

@@ -150,7 +150,9 @@ func configureLogger() error {
 		logger.SetLevel(level)
 	}
 
-	if logFile != "" {
+	if logFile == "-" {
+		logger.SetOutput(os.Stdout)
+	} else if logFile != "" {
 		f, err := os.OpenFile(logFile, os.O_WRONLY | os.O_CREATE, 0755)
 		if err != nil {
 			return err
