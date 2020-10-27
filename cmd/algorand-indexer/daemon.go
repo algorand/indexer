@@ -155,6 +155,6 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 			logger.WithError(err).Errorf("failed to save import state")
 		}
 	}
-	logger.Info("round r=%d (%d txn) imported in %s\n", block.Block.Round, len(block.Block.Payset), dt.String())
+	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
 	bih.round = uint64(block.Block.Round)
 }
