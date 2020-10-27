@@ -129,13 +129,21 @@ func init() {
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found; the error message indicates locations where we look
-			fmt.Fprintf(os.Stderr, "Could not find config file: %v", err)
+			// Config file not found. Returns an error string like:
+			//   Config File "indexer" Not Found in "[...search locations...]"
+
+			// Since we're in an init function the error message happens before
+			// any other program output which looks a little strange.
+
+			//fmt.Println(err.Error())
 		} else {
 			fmt.Fprintf(os.Stderr, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
 			os.Exit(1)
 		}
+	} else {
+		fmt.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
 	}
+
 
 	viper.SetEnvPrefix(config.EnvPrefix)
 	viper.AutomaticEnv()
@@ -165,7 +173,10 @@ func configureLogger() error {
 
 func main() {
 	if err := rootCmd.Execute(); err != nil {
+<<<<<<< HEAD
 		logger.WithError(err).Error("an error occurred running indexer")
+=======
+>>>>>>> Config file updates.
 		os.Exit(1)
 	}
 }
