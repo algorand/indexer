@@ -130,9 +130,9 @@ func init() {
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
 			// Config file not found; the error message indicates locations where we look
-			logger.WithError(err).Error("problem reading config file")
+			fmt.Fprintf(os.Stderr, "Could not find config file: %v", err)
 		} else {
-			logger.WithError(err).Error("invalid configuration", err)
+			fmt.Fprintf(os.Stderr, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
 			os.Exit(1)
 		}
 	}
