@@ -1652,7 +1652,7 @@
         "parameters": [
           {
             "description": "which spec to retrieve",
-            "in": "path",
+            "in": "query",
             "name": "spec",
             "required": true,
             "schema": {

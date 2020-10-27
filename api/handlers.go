@@ -4,12 +4,13 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"strconv"
 
+	"github.com/algorand/go-algorand-sdk/types"
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/common"
@@ -51,6 +52,28 @@ const defaultAssetsLimit = 100
 const maxBalancesLimit = 10000
 const defaultBalancesLimit = 1000
 
+var commonSpecObject *openapi3.Swagger
+var v2SpecObject *openapi3.Swagger
+
+func init() {
+	var err error
+	commonSpecObject, err = common.GetSwagger()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to read common spec: %v", err)
+		os.Exit(1)
+	}
+
+	v2SpecObject, err = generated.GetSwagger()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to read v2 spec: %v", err)
+		os.Exit(1)
+	}
+
+	commonSpecObject.Servers = nil
+	v2SpecObject.Servers = nil
+}
+
+
 ////////////////////////////
 // Handler implementation //
 ////////////////////////////
@@ -75,9 +98,18 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 
 // Gets the OpenAPI specification file.
 // (GET /openapi)
-func (si *ServerImplementation) GetOpenAPISpec(ctx echo.Context) error {
-
-	return nil;
+func (si *ServerImplementation) GetOpenAPISpec(ctx echo.Context, params common.GetOpenAPISpecParams) error {
+	switch params.Spec {
+	case "common":
+		//return ctx.String(http.StatusOK, commonSpec)
+		return ctx.JSON(http.StatusOK, commonSpecObject)
+	case "v2":
+		//return ctx.String(http.StatusOK, v2Spec)
+		return ctx.JSON(http.StatusOK, v2SpecObject)
+	default:
+		return echo.NewHTTPError(http.StatusBadRequest,
+			fmt.Sprintf("unknown spec '%s', expected one of [common, v2]", params.Spec))
+	}
 }
 
 // LookupAccountByID queries indexer for a given account.

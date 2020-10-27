@@ -35,7 +35,7 @@
             "type": "string",
             "description": "which spec to retrieve",
             "name": "spec",
-            "in": "path",
+            "in": "query",
             "required": true,
             "enum": [
               "common",
