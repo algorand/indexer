@@ -97,9 +97,9 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 }
 
 // Gets the OpenAPI specification file.
-// (GET /openapi)
-func (si *ServerImplementation) GetOpenAPISpec(ctx echo.Context, params common.GetOpenAPISpecParams) error {
-	switch params.Spec {
+// (GET /openapi/{spec})
+func (si *ServerImplementation) GetOpenAPISpec(ctx echo.Context, spec string) error {
+	switch spec {
 	case "common":
 		//return ctx.String(http.StatusOK, commonSpec)
 		return ctx.JSON(http.StatusOK, commonSpecObject)
@@ -108,7 +108,7 @@ func (si *ServerImplementation) GetOpenAPISpec(ctx echo.Context, params common.G
 		return ctx.JSON(http.StatusOK, v2SpecObject)
 	default:
 		return echo.NewHTTPError(http.StatusBadRequest,
-			fmt.Sprintf("unknown spec '%s', expected one of [common, v2]", params.Spec))
+			fmt.Sprintf("unknown spec '%s', expected one of [common, v2]", spec))
 	}
 }
 

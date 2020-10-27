@@ -897,10 +897,3 @@ type TransactionsResponse struct {
 	NextToken    *string       `json:"next-token,omitempty"`
 	Transactions []Transaction `json:"transactions"`
 }
-
-// GetOpenAPISpecParams defines parameters for GetOpenAPISpec.
-type GetOpenAPISpecParams struct {
-
-	// which spec to retrieve
-	Spec string `json:"spec"`
-}

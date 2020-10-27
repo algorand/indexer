@@ -17,7 +17,7 @@
     "application/json"
   ],
   "paths": {
-    "/openapi": {
+    "/openapi/{spec}": {
       "get": {
         "tags": [
           "common"
@@ -35,7 +35,7 @@
             "type": "string",
             "description": "which spec to retrieve",
             "name": "spec",
-            "in": "query",
+            "in": "path",
             "required": true,
             "enum": [
               "common",

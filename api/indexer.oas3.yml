@@ -1646,13 +1646,13 @@
         ]
       }
     },
-    "/openapi": {
+    "/openapi/{spec}": {
       "get": {
         "operationId": "getOpenAPISpec",
         "parameters": [
           {
             "description": "which spec to retrieve",
-            "in": "query",
+            "in": "path",
             "name": "spec",
             "required": true,
             "schema": {
