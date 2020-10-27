@@ -73,6 +73,13 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	})
 }
 
+// Gets the OpenAPI specification file.
+// (GET /openapi)
+func (si *ServerImplementation) GetOpenAPISpec(ctx echo.Context) error {
+
+	return nil;
+}
+
 // LookupAccountByID queries indexer for a given account.
 // (GET /v2/accounts/{account-id})
 func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID string, params generated.LookupAccountByIDParams) error {

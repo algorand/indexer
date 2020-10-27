@@ -28,8 +28,21 @@
         "schemes": [
           "http"
         ],
-        "summary": "Returns 200 if healthy.",
-        "operationId": "makeHealthCheck",
+        "summary": "Gets the OpenAPI specification file.",
+        "operationId": "getOpenAPISpec",
+        "parameters": [
+          {
+            "type": "string",
+            "description": "which spec to retrieve",
+            "name": "spec",
+            "in": "path",
+            "required": true,
+            "enum": [
+              "common",
+              "v2"
+            ]
+          }
+        ],
         "responses": {
           "200": {
             "description": "the specification"

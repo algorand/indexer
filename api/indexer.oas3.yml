@@ -1648,7 +1648,22 @@
     },
     "/openapi": {
       "get": {
-        "operationId": "makeHealthCheck",
+        "operationId": "getOpenAPISpec",
+        "parameters": [
+          {
+            "description": "which spec to retrieve",
+            "in": "path",
+            "name": "spec",
+            "required": true,
+            "schema": {
+              "enum": [
+                "common",
+                "v2"
+              ],
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {},
@@ -1659,7 +1674,7 @@
             "description": "Unknown Error"
           }
         },
-        "summary": "Returns 200 if healthy.",
+        "summary": "Gets the OpenAPI specification file.",
         "tags": [
           "common"
         ]
