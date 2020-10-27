@@ -96,7 +96,7 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	})
 }
 
-// Gets the OpenAPI specification file.
+// GetOpenAPISpec Gets the OpenAPI specification file.
 // (GET /openapi/{spec})
 func (si *ServerImplementation) GetOpenAPISpec(ctx echo.Context, spec string) error {
 	switch spec {
