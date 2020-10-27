@@ -15,8 +15,9 @@ const EnvPrefix = "INDEXER"
 // FileType is the type of the config file.
 const FileType = "yaml"
 
-// FileName is the name of the config file.
-const FileName = "algorand-indexer"
+// FileName is the name of the config file. Don't use 'algorand-indexer', viper
+// gets confused and thinks the binary is a config file with no extension.
+const FileName = "indexer"
 
 // ConfigPaths are the different locations that algorand-indexer should look for config files.
 var ConfigPaths = [...]string{".", "$HOME", "$HOME/.algorand-indexer/", "$HOME/.config/algorand-indexer/", "/etc/algorand-indexer/"}
