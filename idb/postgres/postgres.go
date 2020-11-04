@@ -2405,7 +2405,7 @@ func (db *IndexerDb) Health() (health idb.Health, err error) {
 func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err error) {
 	var cache string
 	cache, err = db.GetMetastate(specialAccountsMetastateKey)
-	if err != nil {
+	if err != nil || cache == "" {
 		// Initialize specialAccountsMetastateKey
 		var block types.Block
 		block, err = db.GetBlock(0)
