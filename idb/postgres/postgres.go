@@ -34,6 +34,10 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
+const stateMetastateKey = "state"
+const migrationMetastateKey = "migration"
+const specialAccountsMetastateKey = "accounts"
+
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
 func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
 	db, err := sql.Open("postgres", connection)
@@ -95,10 +99,12 @@ type IndexerDb struct {
 }
 
 func (db *IndexerDb) init() (err error) {
-	accountingStateJSON, _ := db.GetMetastate("state")
+	accountingStateJSON, _ := db.GetMetastate(stateMetastateKey)
 	hasAccounting := len(accountingStateJSON) > 0
 	migrationStateJSON, _ := db.GetMetastate(migrationMetastateKey)
 	hasMigration := len(migrationStateJSON) > 0
+
+	db.GetSpecialAccounts()
 
 	if hasMigration || hasAccounting {
 		// see postgres_migrations.go
@@ -1160,7 +1166,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	}
 	istate.AccountRound = int64(round)
 	sjs := string(json.Encode(istate))
-	_, err = tx.Exec(setMetastateUpsert, "state", sjs)
+	_, err = tx.Exec(setMetastateUpsert, stateMetastateKey, sjs)
 	if err != nil {
 		return
 	}
@@ -2394,6 +2400,35 @@ func (db *IndexerDb) Health() (health idb.Health, err error) {
 		IsMigrating:   migrating,
 		DbUnavailable: blocking,
 	}, err
+}
+
+func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err error) {
+	var cache string
+	cache, err = db.GetMetastate(specialAccountsMetastateKey)
+	if err != nil {
+		// Initialize specialAccountsMetastateKey
+		var block types.Block
+		block, err = db.GetBlock(0)
+		if err != nil {
+			return idb.SpecialAccounts{}, fmt.Errorf("problem looking up special accounts from genesis block: %v", err)
+		}
+
+		accounts = idb.SpecialAccounts{
+			FeeAcct:     block.FeeSink,
+			RewardsAcct: block.RewardsPool,
+		}
+
+		cache := string(json.Encode(accounts))
+		err = db.SetMetastate(specialAccountsMetastateKey, cache)
+		if err != nil {
+			return idb.SpecialAccounts{}, fmt.Errorf("problem saving metastate: %v", err)
+		}
+
+		return
+	}
+
+	err = json.Decode([]byte(cache), &accounts)
+	return
 }
 
 type postgresFactory struct {

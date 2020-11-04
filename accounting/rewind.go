@@ -2,6 +2,7 @@ package accounting
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
@@ -35,14 +36,31 @@ func assetUpdate(account *models.Account, assetid uint64, add, sub uint64) {
 	*account.Assets = assets
 }
 
+var specialAccounts *idb.SpecialAccounts
 // AccountAtRound queries the idb.IndexerDb object for transactions and rewinds most fields of the account back to
 // their values at the requested round.
 func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acct models.Account, err error) {
+	// Make sure special accounts cache has been initialized.
+	if specialAccounts == nil {
+		accounts, err := db.GetSpecialAccounts()
+		if err != nil {
+			return models.Account{}, fmt.Errorf("unable to get special accounts")
+		}
+		specialAccounts = &accounts
+	}
+
 	acct = account
 	addr, err := atypes.DecodeAddress(account.Address)
 	if err != nil {
 		return
 	}
+
+	// If we are rewinding, ensure that the account is not one of the special accounts.
+	if specialAccounts.FeeAcct == addr || specialAccounts.RewardsAcct == addr {
+		return models.Account{}, fmt.Errorf("unable to rewind special account '%s'", addr.String())
+	}
+
+	// Get transactions and rewind account.
 	tf := idb.TransactionFilter{
 		Address:  addr[:],
 		MinRound: round + 1,

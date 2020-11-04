@@ -86,6 +86,11 @@ func (db *dummyIndexerDb) GetMaxRound() (round uint64, err error) {
 	return 0, nil
 }
 
+// GetSpecialAccounts is part of idb.IndexerDb
+func (db *dummyIndexerDb) GetSpecialAccounts() (SpecialAccounts, error) {
+	return SpecialAccounts{}, nil
+}
+
 // YieldTxns is part of idb.IndexerDB
 func (db *dummyIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow {
 	return nil
@@ -208,6 +213,7 @@ type IndexerDb interface {
 	GetMetastate(key string) (jsonStrValue string, err error)
 	SetMetastate(key, jsonStrValue string) (err error)
 	GetMaxRound() (round uint64, err error)
+	GetSpecialAccounts() (SpecialAccounts, error)
 
 	// YieldTxns returns a channel that produces the whole transaction stream after some round forward
 	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow
@@ -600,4 +606,9 @@ type Health struct {
 	Round         uint64                  `json:"round"`
 	IsMigrating   bool                    `json:"is-migrating"`
 	DbUnavailable bool                    `json:"db-unavailable"`
+}
+
+type SpecialAccounts struct {
+	FeeAcct     types.Address
+	RewardsAcct types.Address
 }

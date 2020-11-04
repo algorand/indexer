@@ -20,8 +20,6 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
-const migrationMetastateKey = "migration"
-
 func init() {
 	migrations = []migrationStruct{
 		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
@@ -64,13 +62,6 @@ type migrationStruct struct {
 }
 
 var migrations []migrationStruct
-
-type migrationTask struct {
-	migrationID    int
-	migration      migrationStruct
-	migrationState *MigrationState
-	abortChan      chan error
-}
 
 func wrapPostgresHandler(handler postgresMigrationFunc, db *IndexerDb, state *MigrationState) migration.Handler {
 	return func() error {
