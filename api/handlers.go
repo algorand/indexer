@@ -583,7 +583,7 @@ func (si *ServerImplementation) fetchBlock(round uint64) (generated.Block, error
 	}
 
 	rewards := generated.BlockRewards{
-		FeeSink:                 "",
+		FeeSink:                 blk.FeeSink.String(),
 		RewardsCalculationRound: uint64(blk.RewardsRecalculationRound),
 		RewardsLevel:            blk.RewardsLevel,
 		RewardsPool:             blk.RewardsPool.String(),
