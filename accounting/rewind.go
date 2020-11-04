@@ -44,7 +44,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 	if specialAccounts == nil {
 		accounts, err := db.GetSpecialAccounts()
 		if err != nil {
-			return models.Account{}, fmt.Errorf("unable to get special accounts")
+			return models.Account{}, fmt.Errorf("unable to get special accounts: %v", err)
 		}
 		specialAccounts = &accounts
 	}
