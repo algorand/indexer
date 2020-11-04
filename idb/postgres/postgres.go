@@ -2402,6 +2402,7 @@ func (db *IndexerDb) Health() (health idb.Health, err error) {
 	}, err
 }
 
+// GetSpecialAccounts is part of idb.IndexerDB
 func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err error) {
 	var cache string
 	cache, err = db.GetMetastate(specialAccountsMetastateKey)
@@ -2414,8 +2415,8 @@ func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err err
 		}
 
 		accounts = idb.SpecialAccounts{
-			FeeAcct:     block.FeeSink,
-			RewardsAcct: block.RewardsPool,
+			FeeSink:     block.FeeSink,
+			RewardsPool: block.RewardsPool,
 		}
 
 		cache := string(json.Encode(accounts))

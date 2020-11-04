@@ -608,7 +608,8 @@ type Health struct {
 	DbUnavailable bool                    `json:"db-unavailable"`
 }
 
+// SpecialAccounts are the accounts which have special accounting rules.
 type SpecialAccounts struct {
-	FeeAcct     types.Address
-	RewardsAcct types.Address
+	FeeSink     types.Address
+	RewardsPool types.Address
 }

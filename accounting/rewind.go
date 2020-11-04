@@ -51,14 +51,21 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 	}
 
 	acct = account
-	addr, err := atypes.DecodeAddress(account.Address)
+	var addr types.Address
+	addr, err = atypes.DecodeAddress(account.Address)
 	if err != nil {
 		return
 	}
 
 	// If we are rewinding, ensure that the account is not one of the special accounts.
-	if specialAccounts.FeeAcct == addr || specialAccounts.RewardsAcct == addr {
-		return models.Account{}, fmt.Errorf("unable to rewind special account '%s'", addr.String())
+	if specialAccounts.FeeSink == addr {
+		err = fmt.Errorf("unable to rewind special account: FeeSink")
+		return
+	}
+
+	if specialAccounts.RewardsPool == addr {
+		err = fmt.Errorf("unable to rewind special account: RewardsPool")
+		return
 	}
 
 	// Get transactions and rewind account.
