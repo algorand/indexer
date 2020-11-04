@@ -42,7 +42,8 @@ var specialAccounts *idb.SpecialAccounts
 func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acct models.Account, err error) {
 	// Make sure special accounts cache has been initialized.
 	if specialAccounts == nil {
-		accounts, err := db.GetSpecialAccounts()
+		var accounts idb.SpecialAccounts
+		accounts, err = db.GetSpecialAccounts()
 		if err != nil {
 			return models.Account{}, fmt.Errorf("unable to get special accounts: %v", err)
 		}
