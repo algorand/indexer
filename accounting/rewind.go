@@ -57,12 +57,11 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		return
 	}
 
-	// If we are rewinding, ensure that the account is not one of the special accounts.
+	// ensure that the don't attempt to rewind a special account.
 	if specialAccounts.FeeSink == addr {
 		err = fmt.Errorf("unable to rewind the FeeSink")
 		return
 	}
-
 	if specialAccounts.RewardsPool == addr {
 		err = fmt.Errorf("unable to rewind the RewardsPool")
 		return
