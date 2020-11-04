@@ -2428,6 +2428,9 @@ func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err err
 	}
 
 	err = json.Decode([]byte(cache), &accounts)
+	if err != nil {
+		err = fmt.Errorf("problem decoding cache '%s': %v", cache, err)
+	}
 	return
 }
 
