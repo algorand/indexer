@@ -1041,7 +1041,7 @@
             "properties": {},
             "type": "object"
           },
-          "db-unavailable": {
+          "db-available": {
             "type": "boolean"
           },
           "is-migrating": {
@@ -1055,7 +1055,7 @@
           }
         },
         "required": [
-          "db-unavailable",
+          "db-available",
           "is-migrating",
           "message",
           "round"

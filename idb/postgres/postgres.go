@@ -2345,7 +2345,7 @@ func (db *PostgresIndexerDb) Health() (health idb.Health, err error) {
 		Data:          ptr,
 		Round:         round,
 		IsMigrating:   migrating,
-		DbUnavailable: blocking,
+		DBAvailable:   !blocking,
 	}, err
 }
 
