@@ -68,7 +68,7 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 		Data:          health.Data,
 		Round:         health.Round,
 		IsMigrating:   health.IsMigrating,
-		DbUnavailable: health.DbUnavailable,
+		DbAvailable:   health.DBAvailable,
 		Message:       strconv.FormatUint(health.Round, 10),
 	})
 }

@@ -1157,7 +1157,7 @@
         "message",
         "round",
         "is-migrating",
-        "db-unavailable"
+        "db-available"
       ],
       "properties": {
         "data": {
@@ -1169,7 +1169,7 @@
         "is-migrating": {
           "type": "boolean"
         },
-        "db-unavailable": {
+        "db-available": {
           "type": "boolean"
         },
         "message": {
