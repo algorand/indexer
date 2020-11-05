@@ -36,14 +36,17 @@ func assetUpdate(account *models.Account, assetid uint64, add, sub uint64) {
 	*account.Assets = assets
 }
 
+// SpecialAccountRewindError indicates that an attempt was made to rewind one of the special accounts.
 type SpecialAccountRewindError struct {
 	account string
 }
 
+// MakeSpecialAccountRewindError helper to initialize a SpecialAccountRewindError.
 func MakeSpecialAccountRewindError(account string) *SpecialAccountRewindError {
 	return &SpecialAccountRewindError{account: account}
 }
 
+// Error is part of the error interface.
 func (sare *SpecialAccountRewindError) Error() string {
 	return fmt.Sprintf("unable to rewind the %s", sare.account)
 }
