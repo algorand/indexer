@@ -296,7 +296,7 @@ func addrToPercent(addr string) float64 {
 	val = (val * 32) + b32ToIndex(addr[1])
 	val = (val * 32) + b32ToIndex(addr[2])
 
-	return float64(val) / (32 * 32 * 32)
+	return float64(val) / (32 * 32 * 32) * 100
 }
 
 // m5accountCumulativeRewardsUpdate computes the cumulative rewards for each account one at a time. This is a BLOCKING
