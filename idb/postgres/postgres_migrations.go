@@ -288,15 +288,15 @@ func b32ToIndex(c byte) int {
 }
 
 func addrToPercent(addr string) float64 {
-	if len(addr) < 2 {
+	if len(addr) < 3 {
 		return 0.0
 	}
 
-	pct := 32.0 / 100.0
-	digit1 := float64(b32ToIndex(addr[0])) / 32.0
-	digit2 := float64(b32ToIndex(addr[1])) / 32.0
+	pt1 := float64(b32ToIndex(addr[0])) / 32.0 * 100.0
+	pt2 := float64(b32ToIndex(addr[1])) / 32.0 * (100.0 / 32.0)
+	pt3 := float64(b32ToIndex(addr[2])) / 32.0 * (100.0 / 32.0 / 32.0)
 
-	return digit1 * 100 + digit2 * 10 * pct
+	return pt1 + pt2 + pt3
 }
 
 // m5accountCumulativeRewardsUpdate computes the cumulative rewards for each account one at a time. This is a BLOCKING
@@ -329,7 +329,10 @@ func m5accountCumulativeRewardsUpdate(db *IndexerDb, state *MigrationState) erro
 		accounts = append(accounts, acct.Account.Address)
 
 		if len(accounts) == batchSize {
-			db.log.Printf("Processing batch %d (%f%%)", batchNumber, addrToPercent(accounts[0]))
+			db.log.Printf("Cumulative rewards migration processing %.2f%% complete. Batch %d up through account %s",
+				addrToPercent(accounts[0]),
+				batchNumber,
+				accounts[len(accounts)-1])
 			m5accountCumulativeRewardsUpdateAccounts(db, state, accounts, false)
 			accounts = accounts[:0]
 			batchNumber++
