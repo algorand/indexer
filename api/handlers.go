@@ -643,13 +643,11 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 				_, isSpecialAccountRewindError := err.(*accounting.SpecialAccountRewindError)
 				if len(options.EqualToAddress) != 0 || !isSpecialAccountRewindError {
 					return nil, fmt.Errorf("%s: %v", errRewindingAccount, err)
-
 				}
+				// If we didn't return, continue to the next account
+				continue
 			}
-			// Because the error is a conditional return, double check that there was no error.
-			if err == nil {
-				account = acct
-			}
+			account = acct
 		} else {
 			account = row.Account
 		}
