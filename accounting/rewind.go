@@ -36,6 +36,18 @@ func assetUpdate(account *models.Account, assetid uint64, add, sub uint64) {
 	*account.Assets = assets
 }
 
+type SpecialAccountRewindError struct {
+	account string
+}
+
+func MakeSpecialAccountRewindError(account string) *SpecialAccountRewindError {
+	return &SpecialAccountRewindError{account: account}
+}
+
+func (sare *SpecialAccountRewindError) Error() string {
+	return fmt.Sprintf("unable to rewind the %s", sare.account)
+}
+
 var specialAccounts *idb.SpecialAccounts
 // AccountAtRound queries the idb.IndexerDb object for transactions and rewinds most fields of the account back to
 // their values at the requested round.
@@ -59,11 +71,11 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 
 	// ensure that the don't attempt to rewind a special account.
 	if specialAccounts.FeeSink == addr {
-		err = fmt.Errorf("unable to rewind the FeeSink")
+		err = MakeSpecialAccountRewindError("FeeSink")
 		return
 	}
 	if specialAccounts.RewardsPool == addr {
-		err = fmt.Errorf("unable to rewind the RewardsPool")
+		err = MakeSpecialAccountRewindError("RewardsPool")
 		return
 	}
 

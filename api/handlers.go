@@ -639,9 +639,17 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 		if atRound != nil {
 			acct, err := accounting.AccountAtRound(row.Account, *atRound, si.db)
 			if err != nil {
-				return nil, fmt.Errorf("%s: %v", errRewindingAccount, err)
+				// Ignore the error if this is an account search rewind error
+				_, isSpecialAccountRewindError := err.(*accounting.SpecialAccountRewindError)
+				if len(options.EqualToAddress) != 0 || !isSpecialAccountRewindError {
+					return nil, fmt.Errorf("%s: %v", errRewindingAccount, err)
+
+				}
 			}
-			account = acct
+			// Because the error is a conditional return, double check that there was no error.
+			if err == nil {
+				account = acct
+			}
 		} else {
 			account = row.Account
 		}
