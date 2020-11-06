@@ -602,10 +602,10 @@ func b32np(data []byte) string {
 
 // Health is the response object that IndexerDb objects need to return from the Health method.
 type Health struct {
-	Data          *map[string]interface{} `json:"data,omitempty""`
-	Round         uint64                  `json:"round"`
-	IsMigrating   bool                    `json:"is-migrating"`
-	DbUnavailable bool                    `json:"db-unavailable"`
+	Data        *map[string]interface{} `json:"data,omitempty""`
+	Round       uint64                  `json:"round"`
+	IsMigrating bool                    `json:"is-migrating"`
+	DBAvailable bool                    `json:"db-available"`
 }
 
 // SpecialAccounts are the accounts which have special accounting rules.
