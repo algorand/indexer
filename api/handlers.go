@@ -583,7 +583,7 @@ func (si *ServerImplementation) fetchBlock(round uint64) (generated.Block, error
 	}
 
 	rewards := generated.BlockRewards{
-		FeeSink:                 "",
+		FeeSink:                 blk.FeeSink.String(),
 		RewardsCalculationRound: uint64(blk.RewardsRecalculationRound),
 		RewardsLevel:            blk.RewardsLevel,
 		RewardsPool:             blk.RewardsPool.String(),
@@ -639,7 +639,13 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 		if atRound != nil {
 			acct, err := accounting.AccountAtRound(row.Account, *atRound, si.db)
 			if err != nil {
-				return nil, fmt.Errorf("%s: %v", errRewindingAccount, err)
+				// Ignore the error if this is an account search rewind error
+				_, isSpecialAccountRewindError := err.(*accounting.SpecialAccountRewindError)
+				if len(options.EqualToAddress) != 0 || !isSpecialAccountRewindError {
+					return nil, fmt.Errorf("%s: %v", errRewindingAccount, err)
+				}
+				// If we didn't return, continue to the next account
+				continue
 			}
 			account = acct
 		} else {

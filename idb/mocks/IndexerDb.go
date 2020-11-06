@@ -229,6 +229,27 @@ func (_m *IndexerDb) GetProto(version string) (types.ConsensusParams, error) {
 	return r0, r1
 }
 
+// GetSpecialAccounts provides a mock function with given fields:
+func (_m *IndexerDb) GetSpecialAccounts() (idb.SpecialAccounts, error) {
+	ret := _m.Called()
+
+	var r0 idb.SpecialAccounts
+	if rf, ok := ret.Get(0).(func() idb.SpecialAccounts); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(idb.SpecialAccounts)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Health provides a mock function with given fields:
 func (_m *IndexerDb) Health() (idb.Health, error) {
 	ret := _m.Called()
