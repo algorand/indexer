@@ -295,6 +295,9 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		if stxn.CloseRewards != 0 {
 			accounting.updateRewards(accounting.rewardAddr, stxn.Txn.CloseRemainderTo, stxn.CloseRewards)
 		}
+		if !stxn.Txn.CloseRemainderTo.IsZero() {
+			// Clear out the sender cumulative rewards? How?
+		}
 	} else if stxn.Txn.Type == "keyreg" {
 		// see https://github.com/algorand/go-algorand/blob/master/data/transactions/keyreg.go
 		accounting.updateAccountData(stxn.Txn.Sender, "vote", stxn.Txn.VotePK)

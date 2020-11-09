@@ -476,6 +476,7 @@ type TxnAssetUpdate struct {
 type AlgoUpdate struct {
 	Balance int64
 	Rewards int64
+	Closed  bool
 }
 
 // RoundUpdates is used by the accounting and IndexerDb implementations to share modifications in a block.
