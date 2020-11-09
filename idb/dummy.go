@@ -101,6 +101,10 @@ func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.Searc
 	return nil
 }
 
+func (db *dummyIndexerDb) Health() (state Health, err error) {
+	return Health{}, nil
+}
+
 type IndexerFactory interface {
 	Name() string
 	Build(arg string, opts *IndexerDbOptions) (IndexerDb, error)
@@ -139,13 +143,13 @@ func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
 type TxnExtra struct {
 	AssetCloseAmount   uint64          `codec:"aca,omitempty"`
 	GlobalReverseDelta AppReverseDelta `codec:"agr,omitempty"`
+	LocalReverseDelta  AppReverseDelta `codec:"alr,omitempty"`
 }
 
 // TODO: sqlite3 impl
 // TODO: cockroachdb impl
 type IndexerDb interface {
 	// The next few functions define the import interface, functions for loading data into the database. StartBlock() through Get/SetMetastate().
-
 	StartBlock() error
 	AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error
 	CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error
@@ -173,6 +177,8 @@ type IndexerDb interface {
 	Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow
 	AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow
 	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow
+
+	Health() (status Health, err error)
 }
 
 func GetAccount(idb IndexerDb, addr []byte) (account models.Account, err error) {
@@ -335,23 +341,26 @@ func (df dummyFactory) Build(arg string, opts *IndexerDbOptions) (IndexerDb, err
 }
 
 // This layer of indirection allows for different db integrations to be compiled in or compiled out by `go build --tags ...`
-var indexerFactories []IndexerFactory
+var indexerFactories map[string]IndexerFactory
 
 func init() {
-	indexerFactories = append(indexerFactories, &dummyFactory{})
+	indexerFactories = make(map[string]IndexerFactory)
+	RegisterFactory("dummy", &dummyFactory{})
 }
 
 type IndexerDbOptions struct {
 	ReadOnly bool
 }
 
-func IndexerDbByName(factoryname, arg string, opts *IndexerDbOptions) (IndexerDb, error) {
-	for _, ifac := range indexerFactories {
-		if ifac.Name() == factoryname {
-			return ifac.Build(arg, opts)
-		}
+func RegisterFactory(name string, factory IndexerFactory) {
+	indexerFactories[name] = factory
+}
+
+func IndexerDbByName(name, arg string, opts *IndexerDbOptions) (IndexerDb, error) {
+	if val, ok := indexerFactories[name]; ok {
+		return val.Build(arg, opts)
 	}
-	return nil, fmt.Errorf("no IndexerDb factory for %s", factoryname)
+	return nil, fmt.Errorf("no IndexerDb factory for %s", name)
 }
 
 type AccountDataUpdate struct {
@@ -512,4 +521,11 @@ func (ard *AppReverseDelta) SetDelta(key []byte, delta types.ValueDelta) {
 // base32 no padding
 func b32np(data []byte) string {
 	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(data)
+}
+
+type Health struct {
+	Data        *map[string]interface{} `json:"data,omitempty""`
+	Round       uint64                  `json:"round"`
+	IsMigrating bool                    `json:"is-migrating"`
+	DBAvailable bool                    `json:"db-available"`
 }

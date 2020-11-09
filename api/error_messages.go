@@ -1,6 +1,6 @@
 package api
 
-import(
+import (
 	"fmt"
 
 	"github.com/algorand/indexer/importer"
@@ -18,6 +18,8 @@ const (
 	errFailedSearchingAccount    = "failed while searching for account"
 	errNoAccountsFound           = "no accounts found for address"
 	errNoAssetsFound             = "no assets found for asset-id"
+	errNoTransactionFound        = "no transaction found for transaction id"
+	errMultipleTransactions      = "multiple transactions found for this txid, please contact us this shouldn't happen"
 	errMultipleAccounts          = "multiple accounts found for this address, please contact us this shouldn't happen"
 	errMultipleAssets            = "multiple assets found for this id, please contact us this shouldn't happen"
 	errMultiAcctRewind           = "multiple accounts rewind is not supported by this server"
@@ -32,7 +34,6 @@ var errUnknownSigType string
 
 func init() {
 	errUnknownAddressRole = fmt.Sprintf("unknown address role [valid roles: %s]", AddressRoleEnumString)
-	errUnknownTxType      = fmt.Sprintf("unknown tx-type [valid types: %s]", importer.TypeEnumString)
-	errUnknownSigType     = fmt.Sprintf("unknown sig-type [valid types: %s]", SigTypeEnumString)
+	errUnknownTxType = fmt.Sprintf("unknown tx-type [valid types: %s]", importer.TypeEnumString)
+	errUnknownSigType = fmt.Sprintf("unknown sig-type [valid types: %s]", SigTypeEnumString)
 }
-

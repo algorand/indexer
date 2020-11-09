@@ -319,6 +319,11 @@
         "responses": {
           "200": {
             "$ref": "#/responses/AssetResponse"
+          },
+          "404": {
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
           }
         }
       }
@@ -470,6 +475,44 @@
         }
       }
     },
+    "/v2/transactions/{txid}": {
+      "get": {
+        "description": "Lookup a single transaction.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "lookup"
+        ],
+        "operationId": "lookupTransactions",
+        "parameters": [
+          {
+            "type": "string",
+            "name": "txid",
+            "in": "path",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/TransactionResponse"
+          },
+          "404": {
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
     "/v2/transactions": {
       "get": {
         "description": "Search for transactions.",
@@ -547,7 +590,9 @@
             "$ref": "#/responses/TransactionsResponse"
           },
           "500": {
-            "description": "error"
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
           }
         }
       }
@@ -585,7 +630,7 @@
           "items": {
             "$ref": "#/definitions/ApplicationLocalState"
           }
-        },      
+        },
         "apps-total-schema": {
           "description": "\\[tsch\\] stores the sum of all of the local schemas and global schemas in this account.\n\nNote: the raw account uses `StateSchema` for this type.",
           "$ref": "#/definitions/ApplicationStateSchema"
@@ -863,8 +908,7 @@
         },
         "asset-id": {
           "description": "Asset ID of the holding.",
-          "type": "integer",
-          "x-go-name": "AssetID"
+          "type": "integer"
         },
         "creator": {
           "description": "Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.",
@@ -1110,11 +1154,23 @@
       "description": "A health check response.",
       "type": "object",
       "required": [
-        "message"
+        "message",
+        "round",
+        "is-migrating",
+        "db-available"
       ],
       "properties": {
         "data": {
           "type": "object"
+        },
+        "round": {
+          "type": "integer"
+        },
+        "is-migrating": {
+          "type": "boolean"
+        },
+        "db-available": {
+          "type": "boolean"
         },
         "message": {
           "type": "string"
@@ -1158,7 +1214,7 @@
       "description": "Application state delta.",
       "type": "array",
       "items": {
-        "$ref": "#/definitions/EvalDeltaKeyValue"      
+        "$ref": "#/definitions/EvalDeltaKeyValue"
       }
     },
     "AccountStateDelta": {
@@ -1176,19 +1232,19 @@
           "$ref": "#/definitions/StateDelta"
         }
       }
-    },      
+    },
     "EvalDeltaKeyValue": {
       "description": "Key-value pairs for StateDelta.",
       "type": "object",
       "required": [
         "key",
-        "value"       
+        "value"
       ],
       "properties": {
-        "key": {         
+        "key": {
           "type": "string"
         },
-        "value": {             
+        "value": {
           "$ref": "#/definitions/EvalDelta"
         }
       }
@@ -1689,7 +1745,6 @@
   "parameters": {
     "account-id": {
       "type": "string",
-      "x-go-name": "AccountID",
       "description": "account string",
       "name": "account-id",
       "in": "path",
@@ -1729,7 +1784,6 @@
     },
     "asset-id": {
       "type": "integer",
-      "x-go-name": "AssetID",
       "description": "Asset ID",
       "name": "asset-id",
       "in": "query"
@@ -1789,7 +1843,7 @@
       "description": "Specifies a prefix which must be contained in the note field.",
       "name": "note-prefix",
       "in": "query",
-      "x-algorand-format": "base64" 
+      "x-algorand-format": "base64"
     },
     "rekey-to": {
       "type": "boolean",
@@ -1826,11 +1880,10 @@
       "description": "Include accounts configured to use this spending key.",
       "name": "auth-addr",
       "in": "query",
-      "x-algorand-format": "Address" 
+      "x-algorand-format": "Address"
     },
     "txid": {
       "type": "string",
-      "x-go-name": "TxID",
       "description": "Lookup the specific transaction by ID.",
       "name": "txid",
       "in": "query"
@@ -2021,6 +2074,25 @@
       "description": "(empty)",
       "schema": {
         "$ref": "#/definitions/HealthCheck"
+      }
+    },
+    "TransactionResponse": {
+      "description": "(empty)",
+      "schema": {
+        "type": "object",
+        "required": [
+          "current-round",
+          "transaction"
+        ],
+        "properties": {
+          "transaction": {
+            "$ref": "#/definitions/Transaction"
+          },
+          "current-round": {
+            "description": "Round at which the results were computed.",
+            "type": "integer"
+          }
+        }
       }
     },
     "TransactionsResponse": {

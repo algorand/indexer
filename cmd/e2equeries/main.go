@@ -12,6 +12,7 @@ import (
 	atypes "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/idb"
+	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/types"
 	testutil "github.com/algorand/indexer/util/test"
 )
@@ -41,7 +42,7 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-	db, err := idb.OpenPostgres(pgdb, &idb.IndexerDbOptions{ReadOnly: true})
+	db, err := idb.IndexerDbByName("postgres", pgdb, &idb.IndexerDbOptions{ReadOnly: true})
 	maybeFail(err, "open postgres, %v", err)
 
 	rekeyTxnQuery := idb.TransactionFilter{RekeyTo: &truev, Limit: 1}
@@ -58,6 +59,23 @@ func main() {
 	}
 
 	printAccountQuery(db, idb.AccountQueryOptions{EqualToAuthAddr: rekeyTo[:], Limit: 1})
+
+	// find an asset with > 1 account
+	countByAssetID := make(map[uint64]uint64)
+	for abr := range db.AssetBalances(context.Background(), idb.AssetBalanceQuery{}) {
+		countByAssetID[abr.AssetId] = countByAssetID[abr.AssetId] + 1
+	}
+	var bestid uint64
+	var bestcount uint64 = 0
+	for assetid, count := range countByAssetID {
+		if (bestcount == 0) || (count > 1 && count < bestcount) {
+			bestcount = count
+			bestid = assetid
+		}
+	}
+	if bestcount != 0 {
+		printAccountQuery(db, idb.AccountQueryOptions{HasAssetId: bestid, Limit: bestcount})
+	}
 
 	dt := time.Now().Sub(start)
 	exitValue := testutil.ExitValue()

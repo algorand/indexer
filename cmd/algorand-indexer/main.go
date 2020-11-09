@@ -5,13 +5,25 @@ import (
 	"io"
 	"os"
 	"runtime/pprof"
+	"strings"
 
 	"github.com/spf13/cobra"
 	//"github.com/spf13/cobra/doc" // TODO: enable cobra doc generation
+	"github.com/spf13/viper"
 
+	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
+	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/version"
 )
+
+func maybeFail(err error, errfmt string, params ...interface{}) {
+	if err == nil {
+		return
+	}
+	fmt.Fprintf(os.Stderr, errfmt, params...)
+	os.Exit(1)
+}
 
 var rootCmd = &cobra.Command{
 	Use:   "indexer",
@@ -24,11 +36,7 @@ var rootCmd = &cobra.Command{
 	},
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if doVersion {
-			dirtyStr := ""
-			if (len(version.Dirty) > 0) && (version.Dirty != "false") {
-				dirtyStr = " (modified)"
-			}
-			fmt.Printf("%s compiled at %s from git hash %s%s\n", version.Version(), version.CompileTime, version.Hash, dirtyStr)
+			fmt.Printf("%s\n", version.LongVersion())
 			os.Exit(0)
 			return
 		}
@@ -97,6 +105,29 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
 	rootCmd.PersistentFlags().StringVarP(&pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
 	rootCmd.PersistentFlags().BoolVarP(&doVersion, "version", "v", false, "print version and exit")
+
+	viper.RegisterAlias("postgres", "postgres-connection-string")
+
+	// Setup configuration file
+	viper.SetConfigName(config.FileName)
+	viper.SetConfigType(config.FileType)
+	for _, k := range config.ConfigPaths {
+		viper.AddConfigPath(k)
+	}
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			// Config file not found; the error message indicates locations where we look
+			fmt.Println(err.Error())
+		} else {
+			fmt.Fprintf(os.Stderr, "Invalid configuration: %v\n", err)
+			os.Exit(1)
+		}
+	}
+
+	viper.SetEnvPrefix(config.EnvPrefix)
+	viper.AutomaticEnv()
 }
 
 func main() {

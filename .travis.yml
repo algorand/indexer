@@ -21,7 +21,6 @@ install:
 script:
   - make
   - go test ./...
-  - make package
+  - make fakepackage
   - docker build -t e2e_tests -f docker/Dockerfile.mule .
   - docker run --rm -t e2e_tests mule/e2e.sh
-

@@ -11,10 +11,21 @@ import (
 // See the top level Makefile and cmd/algorand-indexer/main.go
 
 var (
-	Hash              string
-	Dirty             string
-	CompileTime       string
+	// Git commit hash. Output of `git log -n 1 --pretty="%H"`
+	Hash string
+
+	// "true" or ""
+	// A release build should have no modified files and no unknown files.
+	Dirty string
+
+	// YYYY-mm-ddTHH:MM:SS+ZZZZ
+	CompileTime string
+
+	// Decorations of latest commit which may include tags. Output of `git log -n 1 --pretty="%D"|base64`
 	GitDecorateBase64 string
+
+	// What was in /.version when this was compiled.
+	ReleaseVersion string
 )
 
 const UnknownVersion = "(unknown version)"
@@ -39,4 +50,18 @@ func Version() string {
 		}
 	}
 	return UnknownVersion
+}
+
+func LongVersion() string {
+	dirtyStr := ""
+	if (len(Dirty) > 0) && (Dirty != "false") {
+		dirtyStr = " (modified)"
+	}
+	tagVersion := Version()
+	if tagVersion == UnknownVersion {
+		tagVersion = fmt.Sprintf("%s-dev.unknown", ReleaseVersion)
+	} else if tagVersion != ReleaseVersion {
+		tagVersion = fmt.Sprintf("dev release build .version=%s tag=%s", ReleaseVersion, tagVersion)
+	}
+	return fmt.Sprintf("%s compiled at %s from git hash %s%s", tagVersion, CompileTime, Hash, dirtyStr)
 }

@@ -351,8 +351,11 @@ type EvalDeltaKeyValue struct {
 
 // HealthCheck defines model for HealthCheck.
 type HealthCheck struct {
-	Data    *map[string]interface{} `json:"data,omitempty"`
-	Message string                  `json:"message"`
+	Data        *map[string]interface{} `json:"data,omitempty"`
+	DbAvailable bool                    `json:"db-available"`
+	IsMigrating bool                    `json:"is-migrating"`
+	Message     string                  `json:"message"`
+	Round       uint64                  `json:"round"`
 }
 
 // MiniAssetHolding defines model for MiniAssetHolding.
@@ -869,6 +872,20 @@ type BlockResponse Block
 
 // HealthCheckResponse defines model for HealthCheckResponse.
 type HealthCheckResponse HealthCheck
+
+// TransactionResponse defines model for TransactionResponse.
+type TransactionResponse struct {
+
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+
+	// Contains all fields common to all transactions and serves as an envelope to all transactions type.
+	//
+	// Definition:
+	// data/transactions/signedtxn.go : SignedTxn
+	// data/transactions/transaction.go : Transaction
+	Transaction Transaction `json:"transaction"`
+}
 
 // TransactionsResponse defines model for TransactionsResponse.
 type TransactionsResponse struct {
