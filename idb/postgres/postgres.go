@@ -733,10 +733,25 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 			return fmt.Errorf("prepare update algo, %v", err)
 		}
 		defer setalgo.Close()
+
+		// If the account is closing the cumulative rewards field needs to be specially overwritten.
+		resetalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewardsTotal) VALUES ($1, $2, $3, $4) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewardsTotal = EXCLUDED.rewardsTotal`)
+		if err != nil {
+			return fmt.Errorf("prepare reset algo, %v", err)
+		}
+		defer resetalgo.Close()
+
 		for addr, delta := range updates.AlgoUpdates {
-			_, err = setalgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards)
-			if err != nil {
-				return fmt.Errorf("update algo, %v", err)
+			if ! delta.Closed {
+				_, err = setalgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards)
+				if err != nil {
+					return fmt.Errorf("update algo, %v", err)
+				}
+			} else {
+				_, err = resetalgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards)
+				if err != nil {
+					return fmt.Errorf("update algo, %v", err)
+				}
 			}
 		}
 	}
