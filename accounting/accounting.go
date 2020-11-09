@@ -97,6 +97,28 @@ func bytesAreZero(b []byte) bool {
 	return true
 }
 
+func (accounting *State) closeAccount(addr types.Address) {
+	if accounting.AlgoUpdates == nil {
+		accounting.AlgoUpdates = make(map[[32]byte]*idb.AlgoUpdate)
+	}
+
+	update, hasKey := accounting.AlgoUpdates[addr]
+
+	if !hasKey {
+		update = &idb.AlgoUpdate{
+			Balance: 0,
+			Rewards: 0,
+		}
+		accounting.AlgoUpdates[addr] = update
+		return
+	}
+
+	// If the key was there, override the rewards by setting to zero.
+	// The balance will be updated with the delta as usual.
+	update.Rewards = 0
+	update.Closed = true
+}
+
 func (accounting *State) updateRewards(rewardAddr, acctAddr types.Address, amount types.MicroAlgos) {
 	accounting.updateAlgoAndRewards(acctAddr, int64(amount), int64(amount))
 	// Note: rewardAddr is also available as accounting.rewardAddr, but all of the other accounting is done
@@ -295,8 +317,10 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		if stxn.CloseRewards != 0 {
 			accounting.updateRewards(accounting.rewardAddr, stxn.Txn.CloseRemainderTo, stxn.CloseRewards)
 		}
+
+		// The sender account is being closed.
 		if !stxn.Txn.CloseRemainderTo.IsZero() {
-			// Clear out the sender cumulative rewards? How?
+			accounting.closeAccount(stxn.Txn.Sender)
 		}
 	} else if stxn.Txn.Type == "keyreg" {
 		// see https://github.com/algorand/go-algorand/blob/master/data/transactions/keyreg.go
