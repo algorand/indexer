@@ -162,7 +162,7 @@ func (m *Migration) update(err error, status string, running bool, blocking bool
 // migration runs. This call will block execution until it completes and should be run in a go routine if that is not
 // expected.
 func (m *Migration) RunMigrations() {
-	m.log.Println("Migration starting.")
+	m.log.Printf("Running %d migrations.", len(m.tasks))
 	blocking := true
 	for _, task := range m.tasks {
 		if task.MigrationID > m.blockUntil {
