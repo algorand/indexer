@@ -397,7 +397,7 @@ func m5accountCumulativeRewardsUpdateAccounts(db *IndexerDb, state *MigrationSta
 				cumulativeRewards += stxn.ApplyData.ReceiverRewards
 			}
 
-			if stxn.Txn.CloseRemainderTo  == address {
+			if stxn.Txn.CloseRemainderTo == address {
 				cumulativeRewards += stxn.ApplyData.CloseRewards
 			}
 		}
