@@ -48,6 +48,9 @@ test: idb/mocks/IndexerDb.go
 lint:
 	golint -set_exit_status ./...
 
+fmt:
+	go fmt ./...
+
 migration-tests: test/migrations/postgres_migration_test.sh
 	test/migrations/postgres_migration_test.sh
 
