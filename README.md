@@ -114,7 +114,7 @@ Settings can be provided from the command line, a configuration file, or an envi
 
 | Command Line Flag (long) | (short) | Config File                | Environment Variable               |
 | ------------------------ | ------- | -------------------------- | ---------------------------------- |
-| postgres                 | P       | postgres-conenction-string | INDEXER_POSTGRES_CONNECTION_STRING |
+| postgres                 | P       | postgres-connection-string | INDEXER_POSTGRES_CONNECTION_STRING |
 | pidfile                  |         | pidfile                    | INDEXER_PIDFILE                    |
 | algod                    | d       | algod-data-dir             | INDEXER_ALGOD_DATA_DIR             |
 | algod-net                |         | algod-address              | INDEXER_ALGOD_ADDRESS              |
