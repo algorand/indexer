@@ -19,12 +19,12 @@ import (
 	"time"
 	"unicode/utf8"
 
-	log "github.com/sirupsen/logrus"
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
 	_ "github.com/lib/pq"
+	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
@@ -1531,7 +1531,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		} else {
 			log.Printf("yieldAccounts in %fs", dt.Seconds())
 		}
-	} ()
+	}()
 	for req.rows.Next() {
 		var addr []byte
 		var microalgos uint64
@@ -1916,14 +1916,14 @@ func bytesStr(addr []byte) *string {
 var readOnlyTx = sql.TxOptions{ReadOnly: true}
 
 type getAccountsRequest struct {
-	ctx context.Context
-	opts idb.AccountQueryOptions
-	tx *sql.Tx
+	ctx         context.Context
+	opts        idb.AccountQueryOptions
+	tx          *sql.Tx
 	blockheader types.Block
-	query string
-	rows *sql.Rows
-	out chan idb.AccountRow
-	start time.Time
+	query       string
+	rows        *sql.Rows
+	out         chan idb.AccountRow
+	start       time.Time
 }
 
 func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) <-chan idb.AccountRow {
@@ -1984,13 +1984,13 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQu
 	query, whereArgs := db.buildAccountQuery(opts)
 	log.Print(query)
 	req := &getAccountsRequest{
-		ctx:ctx,
-		opts:opts,
-		tx:tx,
-		blockheader:blockheader,
-		query:query,
-		out:out,
-		start:time.Now(),
+		ctx:         ctx,
+		opts:        opts,
+		tx:          tx,
+		blockheader: blockheader,
+		query:       query,
+		out:         out,
+		start:       time.Now(),
 	}
 	req.rows, err = tx.Query(query, whereArgs...)
 	if err != nil {
@@ -2373,10 +2373,10 @@ func (db *PostgresIndexerDb) Health() (health idb.Health, err error) {
 
 	round, err := db.GetMaxRound()
 	return idb.Health{
-		Data:          ptr,
-		Round:         round,
-		IsMigrating:   migrating,
-		DBAvailable:   !blocking,
+		Data:        ptr,
+		Round:       round,
+		IsMigrating: migrating,
+		DBAvailable: !blocking,
 	}, err
 }
 
