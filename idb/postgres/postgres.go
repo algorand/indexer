@@ -1520,7 +1520,6 @@ var statusStrings = []string{"Offline", "Online", "NotParticipating"}
 const offlineStatusIdx = 0
 
 func (db *PostgresIndexerDb) yieldAccountsThread(req *getAccountsRequest) {
-	//ctx context.Context, opts idb.AccountQueryOptions, rows *sql.Rows, tx *sql.Tx, blockheader types.Block, out chan<- idb.AccountRow) {
 	defer req.tx.Rollback()
 	count := uint64(0)
 	defer func() {
@@ -1528,8 +1527,6 @@ func (db *PostgresIndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		dt := end.Sub(req.start)
 		if dt > (1 * time.Second) {
 			log.Printf("long query %fs: %s", dt.Seconds(), req.query)
-		} else {
-			log.Printf("yieldAccounts in %fs", dt.Seconds())
 		}
 	}()
 	for req.rows.Next() {
@@ -1982,7 +1979,6 @@ func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQu
 
 	// Construct query for fetching accounts...
 	query, whereArgs := db.buildAccountQuery(opts)
-	log.Print(query)
 	req := &getAccountsRequest{
 		ctx:         ctx,
 		opts:        opts,
