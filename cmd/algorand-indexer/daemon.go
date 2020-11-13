@@ -28,8 +28,6 @@ var (
 	noAlgod          bool
 	developerMode    bool
 	tokenString      string
-
-	logger *log.Logger
 )
 
 var daemonCmd = &cobra.Command{
@@ -100,15 +98,14 @@ var daemonCmd = &cobra.Command{
 
 		// TODO: trap SIGTERM and call cf() to exit gracefully
 		fmt.Printf("serving on %s\n", daemonServerAddr)
-		api.Serve(ctx, daemonServerAddr, db, logger, tokenArray, developerMode)
+		api.Serve(ctx, daemonServerAddr, db, log.StandardLogger(), tokenArray, developerMode)
 	},
 }
 
 func init() {
-	logger = log.New()
-	logger.SetFormatter(&log.JSONFormatter{})
-	logger.SetOutput(os.Stdout)
-	logger.SetLevel(log.InfoLevel)
+	log.SetFormatter(&log.JSONFormatter{})
+	log.SetOutput(os.Stdout)
+	log.SetLevel(log.InfoLevel)
 
 	daemonCmd.Flags().StringVarP(&algodDataDir, "algod", "d", "", "path to algod data dir, or $ALGORAND_DATA")
 	daemonCmd.Flags().StringVarP(&algodAddr, "algod-net", "", "", "host:port of algod")
