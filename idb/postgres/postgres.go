@@ -1526,7 +1526,7 @@ func (db *PostgresIndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		end := time.Now()
 		dt := end.Sub(req.start)
 		if dt > (1 * time.Second) {
-			log.Printf("long query %fs: %s", dt.Seconds(), req.query)
+			log.Warnf("long query %fs: %s", dt.Seconds(), req.query)
 		}
 	}()
 	for req.rows.Next() {
