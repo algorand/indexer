@@ -368,6 +368,13 @@ func (db *IndexerDb) GetMaxRound() (round uint64, err error) {
 	round = 0
 	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
 	err = row.Scan(&round)
+
+	// Fallback to return a valid round during DB initialization
+	if err != nil {
+		row := db.db.QueryRow(`SELECT coalesce(max(round),0) FROM block_header`)
+		err = row.Scan(&round)
+	}
+
 	return
 }
 
