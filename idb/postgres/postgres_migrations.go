@@ -26,8 +26,8 @@ func init() {
 		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
 		{m2apps, true, "Update DB Schema for Algorand application support."},
 		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
-		{m4cumulativeRewardsDBUpdate, true, "Update DB Schema for cumulative account reward support."},
-		{m5accountCumulativeRewardsUpdate, true, "Compute cumulative account rewards for all accounts."},
+		{m4RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
+		{m5RewardsAndDatesPart2, true, "Compute cumulative account rewards for all accounts."},
 	}
 }
 
@@ -268,10 +268,23 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 	return -1, nil
 }
 
-// m4cumulativeRewardsDBUpdate adds the new rewardstotal column to the account table.
-func m4cumulativeRewardsDBUpdate(db *IndexerDb, state *MigrationState) error {
+// m4RewardsAndDatesPart1 adds the new rewardstotal column to the account table.
+func m4RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	sqlLines := []string{
+		// rewards
 		`ALTER TABLE account ADD COLUMN rewardstotal bigint NOT NULL DEFAULT 0`,
+
+		// created/closed round
+		`ALTER TABLE account ADD COLUMN created bigint NOT NULL DEFAULT 0`,
+		`ALTER TABLE account ADD COLUMN closed bigint DEFAULT NULL`,
+		`ALTER TABLE app ADD COLUMN created bigint DEFAULT NULL`,
+		`ALTER TABLE app ADD COLUMN closed bigint DEFAULT NULL`,
+		`ALTER TABLE account_app ADD COLUMN created bigint DEFAULT NULL`,
+		`ALTER TABLE account_app ADD COLUMN closed bigint DEFAULT NULL`,
+		`ALTER TABLE account_asset ADD COLUMN created bigint DEFAULT NULL`,
+		`ALTER TABLE account_asset ADD COLUMN closed bigint DEFAULT NULL`,
+		`ALTER TABLE asset ADD COLUMN created bigint DEFAULT NULL`,
+		`ALTER TABLE asset ADD COLUMN closed bigint DEFAULT NULL`,
 	}
 	return sqlMigration(db, state, sqlLines)
 }
@@ -299,10 +312,10 @@ func addrToPercent(addr string) float64 {
 	return float64(val) / (32 * 32 * 32) * 100
 }
 
-// m5accountCumulativeRewardsUpdate computes the cumulative rewards for each account one at a time. This is a BLOCKING
+// m5RewardsAndDatesPart2 computes the cumulative rewards for each account one at a time. This is a BLOCKING
 // migration because we don't want to handle the case where accounts are actively transacting while we fixup their
 // table.
-func m5accountCumulativeRewardsUpdate(db *IndexerDb, state *MigrationState) error {
+func m5RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	db.log.Println("account cumulative rewards migration starting")
 
 	options := idb.AccountQueryOptions{}
@@ -376,7 +389,14 @@ func m5accountCumulativeRewardsUpdateAccounts(db *IndexerDb, state *MigrationSta
 		// for each account loop through all of the transactions
 		txnrows := db.txTransactions(tx, idb.TransactionFilter{Address: address[:]})
 		var cumulativeRewards types.MicroAlgos = 0
+		var created uint64 = 0
+		var closed uint64 = 0
 		for txn := range txnrows {
+			// Set created on the first transaction, or the first transaction after a close.
+			if created == 0 || closed < txn.Round {
+				created = txn.Round
+			}
+
 			// for each transaction add up the rewards for the current account
 			var stxn types.SignedTxnWithAD
 			err = msgpack.Decode(txn.TxnBytes, &stxn)
@@ -386,6 +406,10 @@ func m5accountCumulativeRewardsUpdateAccounts(db *IndexerDb, state *MigrationSta
 
 			if stxn.Txn.Sender == address {
 				cumulativeRewards += stxn.ApplyData.SenderRewards
+				// The account is closed.
+				if len(stxn.Txn.CloseRemainderTo) != 0 {
+					closed = txn.Round
+				}
 			}
 
 			// When the account is closed rewards reset to zero.

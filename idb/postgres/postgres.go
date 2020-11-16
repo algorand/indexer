@@ -728,14 +728,14 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 	if len(updates.AlgoUpdates) > 0 {
 		any = true
 		// account_data json is only used on account creation, otherwise the account data jsonb field is updated from the delta
-		setalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewardsTotal) VALUES ($1, $2, $3, $4) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewardsTotal = account.rewardsTotal + EXCLUDED.rewardsTotal`)
+		setalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewardsTotal, createdAt) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewardsTotal = account.rewardsTotal + EXCLUDED.rewardsTotal, closedAt = EXCLUDED.closedAt`)
 		if err != nil {
 			return fmt.Errorf("prepare update algo, %v", err)
 		}
 		defer setalgo.Close()
 
-		// If the account is closing the cumulative rewards field needs to be specially overwritten.
-		resetalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewardsTotal) VALUES ($1, $2, $3, $4) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewardsTotal = EXCLUDED.rewardsTotal`)
+		// If the account is closing the cumulative rewards field and closedAt needs to be set directly
+		resetalgo, err := tx.Prepare(`UPDATE account SET (addr, microalgos, rewardsbase, rewardsTotal, closedAt) VALUES ($1, $2, $3, $4, $5) SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewardsTotal = EXCLUDED.rewardsTotal, closed_at = EXCLUDED.closedAt`)
 		if err != nil {
 			return fmt.Errorf("prepare reset algo, %v", err)
 		}
@@ -743,12 +743,12 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 
 		for addr, delta := range updates.AlgoUpdates {
 			if ! delta.Closed {
-				_, err = setalgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards)
+				_, err = setalgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards, round)
 				if err != nil {
 					return fmt.Errorf("update algo, %v", err)
 				}
 			} else {
-				_, err = resetalgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards)
+				_, err = resetalgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards, round)
 				if err != nil {
 					return fmt.Errorf("update algo, %v", err)
 				}
