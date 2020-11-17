@@ -365,12 +365,13 @@ func (db *IndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
 
 // GetMaxRound is part of idb.IndexerDB
 func (db *IndexerDb) GetMaxRound() (round uint64, err error) {
+	var nullableRound sql.NullInt64
 	round = 0
 	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
-	err = row.Scan(&round)
+	err = row.Scan(&nullableRound)
 
-	if err == sql.ErrNoRows {
-		return 0, nil
+	if err == nil && nullableRound.Valid {
+		round = uint64(nullableRound.Int64)
 	}
 
 	return
