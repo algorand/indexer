@@ -276,15 +276,15 @@ func m4RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 
 		// created/closed round
 		`ALTER TABLE account ADD COLUMN created bigint NOT NULL DEFAULT 0`,
-		`ALTER TABLE account ADD COLUMN closed bigint DEFAULT NULL`,
-		`ALTER TABLE app ADD COLUMN created bigint DEFAULT NULL`,
-		`ALTER TABLE app ADD COLUMN closed bigint DEFAULT NULL`,
-		`ALTER TABLE account_app ADD COLUMN created bigint DEFAULT NULL`,
-		`ALTER TABLE account_app ADD COLUMN closed bigint DEFAULT NULL`,
-		`ALTER TABLE account_asset ADD COLUMN created bigint DEFAULT NULL`,
-		`ALTER TABLE account_asset ADD COLUMN closed bigint DEFAULT NULL`,
-		`ALTER TABLE asset ADD COLUMN created bigint DEFAULT NULL`,
-		`ALTER TABLE asset ADD COLUMN closed bigint DEFAULT NULL`,
+		`ALTER TABLE account ADD COLUMN closed bigint NOT NULL DEFAULT 0`,
+		`ALTER TABLE app ADD COLUMN created bigint NOT NULL DEFAULT 0`,
+		`ALTER TABLE app ADD COLUMN closed bigint NOT NULL DEFAULT 0`,
+		`ALTER TABLE account_app ADD COLUMN created bigint NOT NULL DEFAULT 0`,
+		`ALTER TABLE account_app ADD COLUMN closed bigint NOT NULL DEFAULT 0`,
+		`ALTER TABLE account_asset ADD COLUMN created bigint NOT NULL DEFAULT 0`,
+		`ALTER TABLE account_asset ADD COLUMN closed bigint NOT NULL DEFAULT 0`,
+		`ALTER TABLE asset ADD COLUMN created bigint NOT NULL DEFAULT 0`,
+		`ALTER TABLE asset ADD COLUMN closed bigint NOT NULL DEFAULT 0`,
 	}
 	return sqlMigration(db, state, sqlLines)
 }
@@ -371,11 +371,13 @@ func m5accountCumulativeRewardsUpdateAccounts(db *IndexerDb, state *MigrationSta
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 
-	setCumulativeReward, err := tx.Prepare(`UPDATE account SET rewardstotal = $1 WHERE addr = $2`)
+	// TODO: WHERE closedAt IS 0
+	//       Need one of those fancy conflict queries
+	updateAccount, err := tx.Prepare(`UPDATE account SET rewardstotal = $1, createdAt = $2, closedAt = $3 WHERE addr = $4`)
 	if err != nil {
 		return fmt.Errorf("%s: set rewards prepare: %v", cumulativeRewardsUpdateErr, err)
 	}
-	defer setCumulativeReward.Close()
+	defer updateAccount.Close()
 
 	var finalAddress []byte
 	// loop through all of the accounts.
@@ -393,7 +395,7 @@ func m5accountCumulativeRewardsUpdateAccounts(db *IndexerDb, state *MigrationSta
 		var closed uint64 = 0
 		for txn := range txnrows {
 			// Set created on the first transaction, or the first transaction after a close.
-			if created == 0 || closed < txn.Round {
+			if created == 0 {
 				created = txn.Round
 			}
 
@@ -406,7 +408,7 @@ func m5accountCumulativeRewardsUpdateAccounts(db *IndexerDb, state *MigrationSta
 
 			if stxn.Txn.Sender == address {
 				cumulativeRewards += stxn.ApplyData.SenderRewards
-				// The account is closed.
+				// Check if this account is closing.
 				if len(stxn.Txn.CloseRemainderTo) != 0 {
 					closed = txn.Round
 				}
@@ -427,7 +429,7 @@ func m5accountCumulativeRewardsUpdateAccounts(db *IndexerDb, state *MigrationSta
 		}
 
 		// Update the account
-		_, err = setCumulativeReward.Exec(cumulativeRewards, finalAddress[:])
+		_, err = updateAccount.Exec(cumulativeRewards, created, closed, finalAddress[:])
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with rewards %d: %v", cumulativeRewardsUpdateErr, addressStr, cumulativeRewards, err)
 		}
