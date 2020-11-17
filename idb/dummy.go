@@ -473,9 +473,14 @@ type TxnAssetUpdate struct {
 }
 
 // AlgoUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
+// When the update does not include closing the account, the values are a delta applied to the account.
+// If the update does include closing the account the rewards must be SET directly instead of applying a delta.
 type AlgoUpdate struct {
 	Balance int64
 	Rewards int64
+	// Closed changes the nature of the Rewards field. Balance and Rewards are normally deltas added to the
+	// microalgos and totalRewards columns, but if an account has been Closed then Rewards becomes a new value
+	// that replaces the old value (always zero by current reward logic)
 	Closed  bool
 }
 
