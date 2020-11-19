@@ -6,55 +6,72 @@ echo
 date "+build_indexer begin DEPLOY stage %Y%m%d_%H%M%S"
 echo
 
-OS_TYPE=$(./mule/scripts/ostype.sh)
-ARCH=$(./mule/scripts/archtype.sh)
-VERSION=$(./mule/scripts/compute_build_number.sh)
-PKG_DIR="./tmp/node_pkgs/$OS_TYPE/$ARCH/$VERSION"
-SIGNING_KEY_ADDR=dev@algorand.com
-
 chmod 400 "$HOME/.gnupg"
 
-apt-get install aptly -y
+if [ -z "$STAGING" ]
+then
+    echo "[$0] Staging is a required parameter."
+    exit 1
+fi
 
-cat <<EOF>"$HOME/.aptly.conf"
-{
-  "rootDir": "$HOME/aptly",
-  "downloadConcurrency": 4,
-  "downloadSpeedLimit": 0,
-  "architectures": [],
-  "dependencyFollowSuggests": false,
-  "dependencyFollowRecommends": false,
-  "dependencyFollowAllVariants": false,
-  "dependencyFollowSource": false,
-  "dependencyVerboseResolve": false,
-  "gpgDisableSign": false,
-  "gpgDisableVerify": false,
-  "gpgProvider": "gpg",
-  "downloadSourcePackages": false,
-  "skipLegacyPool": true,
-  "ppaDistributorID": "ubuntu",
-  "ppaCodename": "",
-  "skipContentsPublishing": false,
-  "FileSystemPublishEndpoints": {},
-  "S3PublishEndpoints": {
-    "algorand-releases": {
-      "region":"us-east-1",
-      "bucket":"algorand-releases",
-      "acl":"public-read",
-      "prefix":"deb"
-    }
-  },
-  "SwiftPublishEndpoints": {}
-}
-EOF
+if [ -z "$CHANNEL" ]
+then
+    echo "[$0] Channel is a required parameter."
+    exit 1
+fi
 
-DEB="$PKG_DIR/algorand-indexer_${VERSION}_${ARCH}.deb"
-DIST=stable
-SNAPSHOT="${DIST}-${VERSION}"
-aptly repo create -distribution="$DIST" -component=main algorand-indexer
-aptly repo add algorand-indexer "$DEB"
-aptly snapshot create "$SNAPSHOT" from repo algorand-indexer
-aptly publish snapshot -gpg-key="$SIGNING_KEY_ADDR" -origin=Algorand -label=Algorand "$SNAPSHOT" "s3:algorand-releases:"
+if [[ ! "$CHANNEL" =~ ^beta$|^stable$ ]]
+then
+    echo "[$0] Repository values must be either \`beta\` or \`stable\`."
+    exit 1
+fi
+
+if [ -z "$VERSION" ]
+then
+    echo "[$0] Version is a required parameter."
+    exit 1
+fi
+
+if [ -z "$SNAPSHOT" ]
+then
+    SNAPSHOT="$CHANNEL-$VERSION"
+fi
+
+aws cloudfront create-invalidation --distribution-id E14LR4GBB5ZIHD --paths "/*"
+
+aptly mirror update indexer
+
+KEY_PREFIX="indexer/$VERSION"
+FILENAME_SUFFIX="${VERSION}_amd64.deb"
+INDEXER_KEY="$KEY_PREFIX/algorand-indexer_${FILENAME_SUFFIX}"
+
+PACKAGES_DIR=/root/packages
+mkdir -p /root/packages
+
+if aws s3api head-object --bucket "$STAGING" --key "$INDEXER_KEY"
+then
+    aws s3 cp "s3://$STAGING/$INDEXER_KEY" "$PACKAGES_DIR"
+else
+    echo "[$0] The package \`$INDEXER_KEY\` failed to download."
+    exit 1
+fi
+
+if ls -A $PACKAGES_DIR
+then
+    aptly repo add indexer "$PACKAGES_DIR"/*.deb
+    aptly repo show -with-packages indexer
+    aptly snapshot create "$SNAPSHOT" from repo indexer
+    if ! aptly publish show indexer s3:algorand-releases: &> /dev/null
+    then
+        aptly publish snapshot -gpg-key=dev@algorand.com -origin=Algorand -label=Algorand "$SNAPSHOT" s3:algorand-releases:
+    else
+        aptly publish switch indexer s3:algorand-releases: "$SNAPSHOT"
+    fi
+
+else
+    echo "[$0] The packages directory is empty, so there is nothing to add the \`$CHANNEL\` repo."
+    exit 1
+fi
 
 echo
 date "+build_indexer end DEPLOY stage %Y%m%d_%H%M%S"

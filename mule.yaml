@@ -11,6 +11,21 @@ agents:
       - $HOME/.gnupg/pubring.kbx:/root/.gnupg/pubring.kbx
     workDir: $HOME/projects/indexer
 
+  - name: aptly
+    dockerFilePath: docker/aptly.Dockerfile
+    image: algorand/aptly
+    version: README.md
+    env:
+      - AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+      - CHANNEL=$CHANNEL
+      - STAGING=$STAGING
+      - VERSION=$VERSION
+    volumes:
+      - $XDG_RUNTIME_DIR/gnupg/S.gpg-agent:/root/.gnupg/S.gpg-agent
+      - $HOME/.gnupg/pubring.kbx:/root/.gnupg/pubring.kbx
+    workDir: $HOME/projects/indexer
+
 tasks:
   - task: docker.Make
     name: package
@@ -29,7 +44,7 @@ tasks:
 
   - task: docker.Make
     name: deploy
-    agent: ubuntu
+    agent: aptly
     target: deploy
 
   - task: docker.Make
@@ -43,13 +58,17 @@ tasks:
     target: test-package
 
 jobs:
-  deploy:
-    tasks:
-      - docker.Make.deploy
-
   package:
     tasks:
       - docker.Make.package
+
+  test:
+    tasks:
+      - docker.Make.test
+
+  test-package:
+    tasks:
+      - docker.Make.test-package
 
   sign:
     tasks:
@@ -59,11 +78,7 @@ jobs:
     tasks:
       - s3.BucketCopy.stage
 
-  test:
+  deploy:
     tasks:
-      - docker.Make.test
-
-  test-package:
-    tasks:
-      - docker.Make.test-package
+      - docker.Make.deploy
 

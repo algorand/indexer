@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
 
-cat .version
+if [ -n "$VERSION" ]
+then
+    echo "$VERSION"
+else
+    cat .version
+fi
 
