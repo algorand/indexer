@@ -108,6 +108,7 @@ var daemonCmd = &cobra.Command{
 		}
 
 		// TODO: trap SIGTERM and call cf() to exit gracefully
+		fmt.Printf("serving on %s\n", daemonServerAddr)
 		logger.Infof("serving on %s", daemonServerAddr)
 		api.Serve(ctx, daemonServerAddr, db, logger, tokenArray, developerMode)
 	},
