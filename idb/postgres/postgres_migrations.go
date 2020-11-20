@@ -428,14 +428,6 @@ func executeTransactions(stmt *sql.Stmt, address []byte, m map[uint64]*createClo
 	}
 	return
 }
-/*
-	for assetID, round := range asset {
-		_, err = setCreateCloseAsset.Exec(address[:], assetID, round.created, round.closed)
-		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with create/close: %v", rewardsCreateCloseUpdateErr, addressStr, cumulativeRewards, err)
-		}
-	}
-*/
 
 
 // m5RewardsAndDatesPart2UpdateAccounts loops through the provided accounts and generates a bunch of updates in a
@@ -453,6 +445,7 @@ func executeTransactions(stmt *sql.Stmt, address []byte, m map[uint64]*createClo
 //       unless the appLocal / account is re-opened. This also means that in the normal case "created_at" will be the
 //       most recent create instead of the first.
 // TODO: The note above may be a problem that must be solved now.
+// TODO: Some of these update queries could be upserts to repair missing holdings/appLocal objects
 func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, accounts []string, finalBatch bool) error {
 	var err error
 	tx, err := db.db.Begin()
