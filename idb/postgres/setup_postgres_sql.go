@@ -51,7 +51,9 @@ CREATE TABLE IF NOT EXISTS account (
   addr bytea primary key,
   microalgos bigint NOT NULL, -- okay because less than 2^54 Algos
   rewardsbase bigint NOT NULL,
-  rewardstotal bigint NOT NULL,
+  rewards_total bigint NOT NULL,
+  created_at bigint NOT NULL DEFAULT 0,
+  closed_at bigint,
   keytype varchar(8), -- sig,msig,lsig
   account_data jsonb -- data.basics.AccountData except AssetParams and Assets and MicroAlgos and RewardsBase
 );
@@ -62,6 +64,8 @@ CREATE TABLE IF NOT EXISTS account_asset (
   assetid bigint NOT NULL,
   amount numeric(20) NOT NULL, -- need the full 18446744073709551615
   frozen boolean NOT NULL,
+  created_at bigint NOT NULL DEFAULT 0,
+  closed_at bigint,
   PRIMARY KEY (addr, assetid)
 );
 
@@ -73,6 +77,8 @@ CREATE TABLE IF NOT EXISTS asset (
   index bigint PRIMARY KEY,
   creator_addr bytea NOT NULL,
   params jsonb NOT NULL -- data.basics.AssetParams -- TODO index some fields?
+  created_at bigint NOT NULL DEFAULT 0,
+  closed_at bigint,
 );
 -- TODO: index on creator_addr?
 
@@ -89,6 +95,8 @@ CREATE TABLE IF NOT EXISTS app (
   index bigint PRIMARY KEY,
   creator bytea, -- account address
   params jsonb
+  created_at bigint NOT NULL DEFAULT 0,
+  closed_at bigint,
 );
 
 -- per-account app local state
@@ -96,6 +104,8 @@ CREATE TABLE IF NOT EXISTS account_app (
   addr bytea,
   app bigint,
   localstate jsonb,
+  created_at bigint NOT NULL DEFAULT 0,
+  closed_at bigint,
   PRIMARY KEY (addr, app)
 );
 `

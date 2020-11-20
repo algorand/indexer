@@ -319,7 +319,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		}
 
 		// The sender account is being closed.
-		if !stxn.Txn.CloseRemainderTo.IsZero() {
+		if AccountCloseTxn(stxn.Txn.Sender, stxn) {
 			accounting.closeAccount(stxn.Txn.Sender)
 		}
 	} else if stxn.Txn.Type == "keyreg" {
@@ -343,11 +343,11 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		}
 	} else if stxn.Txn.Type == "acfg" {
 		assetID := uint64(stxn.Txn.ConfigAsset)
-		isNew := assetID == 0
+		isNew := AssetCreateTxn(stxn)
 		if isNew {
 			assetID = txnr.AssetID
 		}
-		if stxn.Txn.AssetParams.IsZero() {
+		if AssetDestroyTxn(stxn) {
 			accounting.destroyAsset(assetID)
 		} else {
 			accounting.AcfgUpdates = append(accounting.AcfgUpdates, idb.AcfgUpdate{AssetID: assetID, IsNew: isNew, Creator: stxn.Txn.Sender, Params: stxn.Txn.AssetParams})
@@ -367,11 +367,11 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		if stxn.Txn.AssetAmount != 0 {
 			accounting.updateAsset(sender, uint64(stxn.Txn.XferAsset), 0, stxn.Txn.AssetAmount)
 			accounting.updateAsset(stxn.Txn.AssetReceiver, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetAmount, 0)
-		} else if stxn.Txn.Sender == stxn.Txn.AssetReceiver {
+		} else if AssetOptInTxn(stxn) {
 			// mark receivable accounts with the send-self-zero txn
 			accounting.updateAsset(stxn.Txn.AssetReceiver, uint64(stxn.Txn.XferAsset), 0, 0)
 		}
-		if !stxn.Txn.AssetCloseTo.IsZero() {
+		if AssetOptOutTxn(stxn) {
 			accounting.closeAsset(sender, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetCloseTo, round, intra)
 		}
 	} else if stxn.Txn.Type == "afrz" {
