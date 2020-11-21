@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/algorand/indexer/accounting"
 	"math"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
+	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/types"
