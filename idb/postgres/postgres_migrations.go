@@ -538,6 +538,11 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 				cumulativeRewards += stxn.ApplyData.SenderRewards
 			}
 
+			// When the account is closed rewards reset to zero.
+			if stxn.Txn.Sender == address && !stxn.Txn.CloseRemainderTo.IsZero() {
+				cumulativeRewards = 0
+			}
+
 			if stxn.Txn.Receiver == address {
 				cumulativeRewards += stxn.ApplyData.ReceiverRewards
 			}

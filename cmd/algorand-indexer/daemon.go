@@ -81,7 +81,8 @@ var daemonCmd = &cobra.Command{
 		if bot != nil {
 			logger.Info("Initializing block import handler.")
 			maxRound, err := db.GetMaxRound()
-			if err == nil {
+			maybeFail(err, "failed to get max round, %v", err)
+			if maxRound != 0 {
 				bot.SetNextRound(maxRound + 1)
 			}
 			bih := blockImporterHandler{
@@ -107,6 +108,7 @@ var daemonCmd = &cobra.Command{
 		}
 
 		// TODO: trap SIGTERM and call cf() to exit gracefully
+		fmt.Printf("serving on %s\n", daemonServerAddr)
 		logger.Infof("serving on %s", daemonServerAddr)
 		api.Serve(ctx, daemonServerAddr, db, logger, tokenArray, developerMode)
 	},

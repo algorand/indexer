@@ -114,7 +114,7 @@ Settings can be provided from the command line, a configuration file, or an envi
 
 | Command Line Flag (long) | (short) | Config File                | Environment Variable               |
 | ------------------------ | ------- | -------------------------- | ---------------------------------- |
-| postgres                 | P       | postgres-conenction-string | INDEXER_POSTGRES_CONNECTION_STRING |
+| postgres                 | P       | postgres-connection-string | INDEXER_POSTGRES_CONNECTION_STRING |
 | pidfile                  |         | pidfile                    | INDEXER_PIDFILE                    |
 | algod                    | d       | algod-data-dir             | INDEXER_ALGOD_DATA_DIR             |
 | algod-net                |         | algod-address              | INDEXER_ALGOD_ADDRESS              |
@@ -201,4 +201,10 @@ If you wish to run multiple indexers on one server under systemd, see the commen
 # Migrating from Indexer v1
 
 Indexer v1 was built into the algod v1 REST API. It has been removed with the algod v2 REST API, all of the old functionality is now part of this project. The API endpoints, parameters, and response objects have all been modified and extended. Any projects depending on the old endpoints will need to be updated accordingly.
+
+# Building
+
+Indexer is built using an in-house task framework called [`mule`](https://pypi.org/project/mulecli/) (it has since been open-sourced).
+
+Please refer to the [build docs](mule/README.md) in the `mule/` directory.
 
