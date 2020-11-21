@@ -108,10 +108,7 @@ func (accounting *State) closeAccount(addr types.Address) {
 		update = &idb.AlgoUpdate{
 			Balance: 0,
 			Rewards: 0,
-<<<<<<< HEAD
-=======
 			Closed: true,
->>>>>>> will/cumulative-rewards-closeto
 		}
 		accounting.AlgoUpdates[addr] = update
 		return
@@ -323,11 +320,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		}
 
 		// The sender account is being closed.
-<<<<<<< HEAD
 		if AccountCloseTxn(stxn.Txn.Sender, stxn) {
-=======
-		if !stxn.Txn.CloseRemainderTo.IsZero() {
->>>>>>> will/cumulative-rewards-closeto
 			accounting.closeAccount(stxn.Txn.Sender)
 		}
 	} else if stxn.Txn.Type == "keyreg" {
