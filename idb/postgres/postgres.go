@@ -1585,10 +1585,17 @@ var statusStrings = []string{"Offline", "Online", "NotParticipating"}
 
 const offlineStatusIdx = 0
 
-func (db *IndexerDb) yieldAccountsThread(ctx context.Context, opts idb.AccountQueryOptions, rows *sql.Rows, tx *sql.Tx, blockheader types.Block, out chan<- idb.AccountRow) {
-	defer tx.Rollback()
+func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
+	defer req.tx.Rollback()
 	count := uint64(0)
-	for rows.Next() {
+	defer func() {
+		end := time.Now()
+		dt := end.Sub(req.start)
+		if dt > (1 * time.Second) {
+			log.Warnf("long query %fs: %s", dt.Seconds(), req.query)
+		}
+	}()
+	for req.rows.Next() {
 		var addr []byte
 		var microalgos uint64
 		var rewardstotal uint64
@@ -1617,35 +1624,35 @@ func (db *IndexerDb) yieldAccountsThread(ctx context.Context, opts idb.AccountQu
 
 		var err error
 
-		if opts.IncludeAssetHoldings {
-			if opts.IncludeAssetParams {
-				err = rows.Scan(
+		if req.opts.IncludeAssetHoldings {
+			if req.opts.IncludeAssetParams {
+				err = req.rows.Scan(
 					&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJSONStr,
 					&holdingAssetid, &holdingAmount, &holdingFrozen,
 					&assetParamsIds, &assetParamsStr,
 					&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 				)
 			} else {
-				err = rows.Scan(
+				err = req.rows.Scan(
 					&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJSONStr,
 					&holdingAssetid, &holdingAmount, &holdingFrozen,
 					&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 				)
 			}
-		} else if opts.IncludeAssetParams {
-			err = rows.Scan(
+		} else if req.opts.IncludeAssetParams {
+			err = req.rows.Scan(
 				&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJSONStr,
 				&assetParamsIds, &assetParamsStr,
 				&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 			)
 		} else {
-			err = rows.Scan(
+			err = req.rows.Scan(
 				&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJSONStr,
 				&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 			)
 		}
 		if err != nil {
-			out <- idb.AccountRow{Error: err}
+			req.out <- idb.AccountRow{Error: err}
 			break
 		}
 
@@ -1653,7 +1660,7 @@ func (db *IndexerDb) yieldAccountsThread(ctx context.Context, opts idb.AccountQu
 		var aaddr atypes.Address
 		copy(aaddr[:], addr)
 		account.Address = aaddr.String()
-		account.Round = uint64(blockheader.Round)
+		account.Round = uint64(req.blockheader.Round)
 		account.AmountWithoutPendingRewards = microalgos
 		account.Rewards = rewardstotal
 		account.RewardBase = new(uint64)
@@ -1668,7 +1675,7 @@ func (db *IndexerDb) yieldAccountsThread(ctx context.Context, opts idb.AccountQu
 			var ad types.AccountData
 			err = json.Decode(accountDataJSONStr, &ad)
 			if err != nil {
-				out <- idb.AccountRow{Error: err}
+				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			account.Status = statusStrings[ad.Status]
@@ -1699,16 +1706,16 @@ func (db *IndexerDb) yieldAccountsThread(ctx context.Context, opts idb.AccountQu
 			account.PendingRewards = 0
 		} else {
 			// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
-			proto, err := db.GetProto(string(blockheader.CurrentProtocol))
+			proto, err := db.GetProto(string(req.blockheader.CurrentProtocol))
 			if err != nil {
-				out <- idb.AccountRow{Error: err}
+				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			rewardsUnits := uint64(0)
 			if proto.RewardUnit != 0 {
 				rewardsUnits = microalgos / proto.RewardUnit
 			}
-			rewardsDelta := blockheader.RewardsLevel - rewardsbase
+			rewardsDelta := req.blockheader.RewardsLevel - rewardsbase
 			account.PendingRewards = rewardsUnits * rewardsDelta
 		}
 		account.Amount = microalgos + account.PendingRewards
@@ -1720,19 +1727,19 @@ func (db *IndexerDb) yieldAccountsThread(ctx context.Context, opts idb.AccountQu
 			var haids []uint64
 			err = json.Decode(holdingAssetid, &haids)
 			if err != nil {
-				out <- idb.AccountRow{Error: err}
+				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var hamounts []uint64
 			err = json.Decode(holdingAmount, &hamounts)
 			if err != nil {
-				out <- idb.AccountRow{Error: err}
+				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var hfrozen []bool
 			err = json.Decode(holdingFrozen, &hfrozen)
 			if err != nil {
-				out <- idb.AccountRow{Error: err}
+				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			av := make([]models.AssetHolding, 0, len(haids))
@@ -1758,13 +1765,13 @@ func (db *IndexerDb) yieldAccountsThread(ctx context.Context, opts idb.AccountQu
 			var assetids []uint64
 			err = json.Decode(assetParamsIds, &assetids)
 			if err != nil {
-				out <- idb.AccountRow{Error: err}
+				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var assetParams []types.AssetParams
 			err = json.Decode(assetParamsStr, &assetParams)
 			if err != nil {
-				out <- idb.AccountRow{Error: err}
+				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			cal := make([]models.Asset, 0, len(assetids))
@@ -1814,19 +1821,19 @@ func (db *IndexerDb) yieldAccountsThread(ctx context.Context, opts idb.AccountQu
 			err = json.Decode(appParamIndexes, &appIds)
 			if err != nil {
 				err = fmt.Errorf("parsing json appids, %v", err)
-				out <- idb.AccountRow{Error: err}
+				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var apps []AppParams
 			err = json.Decode(appParams, &apps)
 			if err != nil {
 				err = fmt.Errorf("parsing json appparams, %v", err)
-				out <- idb.AccountRow{Error: err}
+				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			if len(appIds) != len(apps) {
 				err = fmt.Errorf("account app unpacking got %d appids but %d apps", len(appIds), len(apps))
-				out <- idb.AccountRow{Error: err}
+				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 
@@ -1863,19 +1870,19 @@ func (db *IndexerDb) yieldAccountsThread(ctx context.Context, opts idb.AccountQu
 			err = json.Decode(localStateAppIds, &appIds)
 			if err != nil {
 				err = fmt.Errorf("parsing json local appids, %v", err)
-				out <- idb.AccountRow{Error: err}
+				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var ls []AppLocalState
 			err = json.Decode(localStates, &ls)
 			if err != nil {
 				err = fmt.Errorf("parsing json local states, %v", err)
-				out <- idb.AccountRow{Error: err}
+				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			if len(appIds) != len(ls) {
 				err = fmt.Errorf("account app unpacking got %d appids but %d appls", len(appIds), len(ls))
-				out <- idb.AccountRow{Error: err}
+				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			aout := make([]models.ApplicationLocalState, len(appIds))
@@ -1891,18 +1898,18 @@ func (db *IndexerDb) yieldAccountsThread(ctx context.Context, opts idb.AccountQu
 		}
 
 		select {
-		case out <- idb.AccountRow{Account: account}:
+		case req.out <- idb.AccountRow{Account: account}:
 			count++
-			if opts.Limit != 0 && count >= opts.Limit {
-				close(out)
+			if req.opts.Limit != 0 && count >= req.opts.Limit {
+				close(req.out)
 				return
 			}
-		case <-ctx.Done():
-			close(out)
+		case <-req.ctx.Done():
+			close(req.out)
 			return
 		}
 	}
-	close(out)
+	close(req.out)
 }
 
 func boolPtr(x bool) *bool {
@@ -1973,6 +1980,17 @@ func bytesStr(addr []byte) *string {
 
 var readOnlyTx = sql.TxOptions{ReadOnly: true}
 
+type getAccountsRequest struct {
+	ctx         context.Context
+	opts        idb.AccountQueryOptions
+	tx          *sql.Tx
+	blockheader types.Block
+	query       string
+	rows        *sql.Rows
+	out         chan idb.AccountRow
+	start       time.Time
+}
+
 // GetAccounts is part of idb.IndexerDB
 func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) <-chan idb.AccountRow {
 	out := make(chan idb.AccountRow, 1)
@@ -2030,7 +2048,16 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 
 	// Construct query for fetching accounts...
 	query, whereArgs := db.buildAccountQuery(opts)
-	rows, err := tx.Query(query, whereArgs...)
+	req := &getAccountsRequest{
+		ctx:         ctx,
+		opts:        opts,
+		tx:          tx,
+		blockheader: blockheader,
+		query:       query,
+		out:         out,
+		start:       time.Now(),
+	}
+	req.rows, err = tx.Query(query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("account query %#v err %v", query, err)
 		out <- idb.AccountRow{Error: err}
@@ -2038,7 +2065,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		tx.Rollback()
 		return out
 	}
-	go db.yieldAccountsThread(ctx, opts, rows, tx, blockheader, out)
+	go db.yieldAccountsThread(req)
 	return out
 }
 
@@ -2112,6 +2139,9 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		query += " WHERE " + whereStr
 	}
 	query += " ORDER BY a.addr ASC"
+	if opts.Limit != 0 {
+		query += fmt.Sprintf(" LIMIT %d", opts.Limit)
+	}
 	// TODO: asset holdings and asset params are optional, but practically always used. Either make them actually always on, or make app-global and app-local clauses also optional (they are currently always on).
 	withClauses = append(withClauses, "qaccounts AS ("+query+")")
 	query = "WITH " + strings.Join(withClauses, ", ")
@@ -2136,11 +2166,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	if opts.IncludeAssetParams {
 		query += ` LEFT JOIN qap ON za.addr = qap.addr`
 	}
-	query += " LEFT JOIN qapp ON za.addr = qapp.addr LEFT JOIN qls ON qls.addr = za.addr ORDER BY za.addr ASC"
-	if opts.Limit != 0 {
-		query += fmt.Sprintf(" LIMIT %d", opts.Limit)
-	}
-	query += ";"
+	query += " LEFT JOIN qapp ON za.addr = qapp.addr LEFT JOIN qls ON qls.addr = za.addr ORDER BY za.addr ASC;"
 	return query, whereArgs
 }
 
@@ -2416,10 +2442,10 @@ func (db *IndexerDb) Health() (health idb.Health, err error) {
 
 	round, err := db.GetMaxRound()
 	return idb.Health{
-		Data:          ptr,
-		Round:         round,
-		IsMigrating:   migrating,
-		DBAvailable:   !blocking,
+		Data:        ptr,
+		Round:       round,
+		IsMigrating: migrating,
+		DBAvailable: !blocking,
 	}, err
 }
 
