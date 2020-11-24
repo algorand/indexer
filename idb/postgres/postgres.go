@@ -734,7 +734,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 	if len(updates.AlgoUpdates) > 0 {
 		any = true
 		// account_data json is only used on account creation, otherwise the account data jsonb field is updated from the delta
-		upsertalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, create_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewards_total = account.rewards_total + EXCLUDED.rewards_total, closed_at = NULL`)
+		upsertalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, created_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewards_total = account.rewards_total + EXCLUDED.rewards_total, closed_at = NULL`)
 		if err != nil {
 			return fmt.Errorf("prepare update algo, %v", err)
 		}
@@ -742,7 +742,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 
 		// If the account is closing the cumulative rewards field and closed_at needs to be set directly
 		// Using an upsert because it's technically allowed to create and close an account in the same round.
-		closealgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, create_at, closed_at) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewards_total = EXCLUDED.rewards_total, closed_at = EXCLUDED.closed_at`)
+		closealgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, created_at, closed_at) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewards_total = EXCLUDED.rewards_total, closed_at = EXCLUDED.closed_at`)
 		if err != nil {
 			return fmt.Errorf("prepare reset algo, %v", err)
 		}
@@ -961,14 +961,16 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 	}
 	if len(updates.AssetDestroys) > 0 {
-		any = true
 		// Note! leaves `asset` and `account_asset` rows present for historical reference, but deletes all holdings from all accounts
+		any = true
+		// Update any account_asset holdings which were not previously closed. By now the amount should already be 0.
 		ads, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1 WHERE assetid = $2 AND closed_at IS NULL`)
 		if err != nil {
 			return fmt.Errorf("prepare asset destroy, %v", err)
 		}
 		defer ads.Close()
-		aclear, err := tx.Prepare(`UPDATE asset SET params = 'null'::jsonb, closed_at = $1 WHERE index = $2 AND closed_at IS NULL`)
+		// Clear out the parameters and set closed_at
+		aclear, err := tx.Prepare(`UPDATE asset SET params = 'null'::jsonb, closed_at = $1 WHERE index = $2`)
 		if err != nil {
 			return fmt.Errorf("prepare asset clear, %v", err)
 		}
