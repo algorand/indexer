@@ -4,7 +4,7 @@
 package postgres
 
 // import text to contstant setup_postgres_sql
-//go:generate go run ../../cmd/texttosource/main.go idb setup_postgres.sql
+//go:generate go run ../../cmd/texttosource/main.go postgres setup_postgres.sql
 
 import (
 	"bytes"
@@ -522,6 +522,7 @@ func (ss *StateSchema) fromBlock(x atypes.StateSchema) {
 
 // TealType is a teal type
 type TealType uint64
+
 // TealValue is a TealValue
 type TealValue struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
@@ -562,7 +563,6 @@ func (tv TealValue) toModel() models.TealValue {
 	}
 	return models.TealValue{}
 }
-
 
 // TODO: These should probably all be moved to the types package.
 
@@ -734,7 +734,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 	if len(updates.AlgoUpdates) > 0 {
 		any = true
 		// account_data json is only used on account creation, otherwise the account data jsonb field is updated from the delta
-		upsertalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, create_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewards_total = account.rewards_total + EXCLUDED.rewards_total`)
+		upsertalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, create_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewards_total = account.rewards_total + EXCLUDED.rewards_total, closed_at = NULL`)
 		if err != nil {
 			return fmt.Errorf("prepare update algo, %v", err)
 		}
@@ -749,7 +749,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 		defer closealgo.Close()
 
 		for addr, delta := range updates.AlgoUpdates {
-			if ! delta.Closed {
+			if !delta.Closed {
 				_, err = upsertalgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards, round)
 				if err != nil {
 					return fmt.Errorf("update algo, %v", err)
@@ -792,12 +792,13 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 		}
 	}
 	if len(updates.AcfgUpdates) > 0 {
+		// TODO: Is this still valid? I think not. -will 11/2020
 		// TODO: fix according to this comment:
 		// if asset is new, set.
 		// if new config is empty, set empty. -- handled by AssetDestroys
 		// else, update.
 		any = true
-		setacfg, err := tx.Prepare(`INSERT INTO asset (index, creator_addr, params, created_at) VALUES ($1, $2, $3, $4) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params`)
+		setacfg, err := tx.Prepare(`INSERT INTO asset (index, creator_addr, params, created_at) VALUES ($1, $2, $3, $4) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params, closed_at = NULL`)
 		if err != nil {
 			return fmt.Errorf("prepare set asset, %v", err)
 		}
@@ -851,7 +852,8 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 	}
 	if len(updates.AssetUpdates) > 0 {
 		any = true
-		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount`)
+		// Create new account_asset, or initialize a previously destroyed asset.
+		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, closed_at = NULL`)
 		if err != nil {
 			return fmt.Errorf("prepare set account_asset, %v", err)
 		}
@@ -902,7 +904,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 	}
 	if len(updates.FreezeUpdates) > 0 {
 		any = true
-		fr, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at) VALUES ($1, $2, 0, $3, $4) ON CONFLICT (addr, assetid) DO UPDATE SET frozen = EXCLUDED.frozen`)
+		fr, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at) VALUES ($1, $2, 0, $3, $4) ON CONFLICT (addr, assetid) DO UPDATE SET frozen = EXCLUDED.frozen, closed_at = NULL`)
 		if err != nil {
 			return fmt.Errorf("prepare asset freeze, %v", err)
 		}
@@ -919,22 +921,23 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 	}
 	if len(updates.AssetCloses) > 0 {
 		any = true
+		// TODO: What is acc doing? Seems to update the transaction that created the asset, but why?
 		acc, err := tx.Prepare(`WITH aaamount AS (SELECT ($1)::bigint as round, ($2)::bigint as intra, x.amount FROM account_asset x WHERE x.addr = $3 AND x.assetid = $4)
 UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{aca}', to_jsonb(aaamount.amount)) FROM aaamount WHERE ut.round = aaamount.round AND ut.intra = aaamount.intra`)
 		if err != nil {
 			return fmt.Errorf("prepare asset close0, %v", err)
 		}
 		defer acc.Close()
-		// TODO: Account is being created with a closeTo. How do I set created_at??
+		// Update the CloseTo account_asset
 		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at)
 SELECT $1, $2, x.amount, $3, $6 FROM account_asset x WHERE x.addr = $4 AND x.assetid = $5
-ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount`)
+ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, closed_at = NULL`)
 		if err != nil {
 			return fmt.Errorf("prepare asset close1, %v", err)
 		}
 		defer acs.Close()
-		// TODO: Should we leave the asset holding like we do with the asset?
-		acd, err := tx.Prepare(`DELETE FROM account_asset WHERE addr = $1 AND assetid = $2`)
+		// Mark the account_asset as closed with zero balance.
+		acd, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1 WHERE addr = $2 AND assetid = $3`)
 		if err != nil {
 			return fmt.Errorf("prepare asset close2, %v", err)
 		}
@@ -951,7 +954,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			if err != nil {
 				return fmt.Errorf("asset close send, %v", err)
 			}
-			_, err = acd.Exec(ac.Sender[:], ac.AssetID)
+			_, err = acd.Exec(round, ac.Sender[:], ac.AssetID)
 			if err != nil {
 				return fmt.Errorf("asset close del, %v", err)
 			}
@@ -959,13 +962,13 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	}
 	if len(updates.AssetDestroys) > 0 {
 		any = true
-		// Note! leaves `asset` row present for historical reference, but deletes all holdings from all accounts
-		ads, err := tx.Prepare(`DELETE FROM account_asset WHERE assetid = $1`)
+		// Note! leaves `asset` and `account_asset` rows present for historical reference, but deletes all holdings from all accounts
+		ads, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1 WHERE assetid = $2 AND closed_at IS NULL`)
 		if err != nil {
 			return fmt.Errorf("prepare asset destroy, %v", err)
 		}
 		defer ads.Close()
-		aclear, err := tx.Prepare(`UPDATE asset SET params = 'null'::jsonb WHERE index = $1`)
+		aclear, err := tx.Prepare(`UPDATE asset SET params = 'null'::jsonb, closed_at = $1 WHERE index = $2 AND closed_at IS NULL`)
 		if err != nil {
 			return fmt.Errorf("prepare asset clear, %v", err)
 		}
@@ -974,11 +977,11 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			if assetID == debugAsset {
 				db.log.Errorf("%d destroy asset %d", round, assetID)
 			}
-			_, err = ads.Exec(assetID)
+			_, err = ads.Exec(round, assetID)
 			if err != nil {
 				return fmt.Errorf("asset destroy, %v", err)
 			}
-			_, err = aclear.Exec(assetID)
+			_, err = aclear.Exec(round, assetID)
 			if err != nil {
 				return fmt.Errorf("asset destroy, %v", err)
 			}

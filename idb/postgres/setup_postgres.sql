@@ -72,9 +72,9 @@ CREATE TABLE IF NOT EXISTS account_asset (
 CREATE TABLE IF NOT EXISTS asset (
   index bigint PRIMARY KEY,
   creator_addr bytea NOT NULL,
-  params jsonb NOT NULL -- data.basics.AssetParams -- TODO index some fields?
+  params jsonb NOT NULL, -- data.basics.AssetParams -- TODO index some fields?
   created_at bigint NOT NULL DEFAULT 0,
-  closed_at bigint,
+  closed_at bigint
 );
 -- TODO: index on creator_addr?
 
@@ -90,9 +90,9 @@ CREATE TABLE IF NOT EXISTS metastate (
 CREATE TABLE IF NOT EXISTS app (
   index bigint PRIMARY KEY,
   creator bytea, -- account address
-  params jsonb
+  params jsonb,
   created_at bigint NOT NULL DEFAULT 0,
-  closed_at bigint,
+  closed_at bigint
 );
 
 -- per-account app local state
