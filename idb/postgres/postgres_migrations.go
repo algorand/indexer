@@ -362,7 +362,10 @@ func m5RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 				addrToPercent(accounts[0]),
 				batchNumber,
 				accounts[len(accounts)-1])
-			m5RewardsAndDatesPart2UpdateAccounts(db, state, accounts, false)
+			err := m5RewardsAndDatesPart2UpdateAccounts(db, state, accounts, false)
+			if err != nil {
+				return err
+			}
 			accounts = accounts[:0]
 			batchNumber++
 		}
@@ -371,7 +374,10 @@ func m5RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	// Get the remainder
 	if len(accounts) > 0 {
 		db.log.Println("Processing final batch of accounts.")
-		m5RewardsAndDatesPart2UpdateAccounts(db, state, accounts, true)
+		err := m5RewardsAndDatesPart2UpdateAccounts(db, state, accounts, true)
+		if err != nil {
+			return err
+		}
 		accounts = accounts[:0]
 	}
 
@@ -455,7 +461,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	defer tx.Rollback() // ignored if .Commit() first
 
 	// 1. setTotalRewards            - conditionally set the total rewards if the account wasn't closed during iteration.
-	setTotalRewards, err := tx.Prepare(`UPDATE account SET rewards_total = $2 WHERE addr = $1 AND closed_at IS NOT NULL`)
+	setTotalRewards, err := tx.Prepare(`UPDATE account SET rewards_total = $2 WHERE addr = $1 AND coalesce(closed_at, 0) < $3`)
 	if err != nil {
 		return fmt.Errorf("%s: set rewards prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}
@@ -469,7 +475,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	defer setCreateCloseAccount.Close()
 
 	// 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
-	setCreateCloseAsset, err := tx.Prepare(`UPDATE asset SET created_at = $3, closed_at = coalesce(closed_at, $4) WHERE addr = $1 AND assetid=$2`)
+	setCreateCloseAsset, err := tx.Prepare(`UPDATE asset SET created_at = $3, closed_at = coalesce(closed_at, $4) WHERE creator_addr = $1 AND index=$2`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close asset prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}
@@ -483,7 +489,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	defer setCreateCloseAssetHolding.Close()
 
 	// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
-	setCreateCloseApp, err := tx.Prepare(`UPDATE app SET created_at = $3, closed_at = coalesce(closed_at, $4) WHERE addr = $1 AND index=$2`)
+	setCreateCloseApp, err := tx.Prepare(`UPDATE app SET created_at = $3, closed_at = coalesce(closed_at, $4) WHERE creator = $1 AND index=$2`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close app prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}
@@ -519,8 +525,11 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 			MaxRound: uint64(state.NextRound),
 		})
 
+		numTxn := 0
 		// Loop through transactions
 		for txn := range txnrows {
+			numTxn++
+
 			// Set acctCreated on the first transaction, or the first transaction after a close.
 			if !account.created.Valid {
 				account.created.Valid = true
@@ -590,8 +599,14 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 			}
 		}
 
+		// Genesis accounts could have this property
+		if numTxn == 0 {
+			account.created.Valid = true
+			account.created.Int64 = 0
+		}
+
 		// 1. setTotalRewards            - conditionally set the total rewards if the account wasn't closed during iteration.
-		_, err = setTotalRewards.Exec(address[:], cumulativeRewards)
+		_, err = setTotalRewards.Exec(address[:], cumulativeRewards, state.NextRound)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with rewards %d: %v", rewardsCreateCloseUpdateErr, addressStr, cumulativeRewards, err)
 		}

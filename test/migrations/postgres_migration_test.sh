@@ -94,7 +94,7 @@ function call_and_verify {
 
 # $1 - postgres dbname
 function start_indexer() {
-  ALGORAND_DATA= ../../cmd/algorand-indexer/algorand-indexer daemon -P "host=localhost user=algorand password=algorand dbname=$1 port=5433 sslmode=disable" --pidfile $PIDFILE > /dev/null 2>&1 &
+  ALGORAND_DATA= ../../cmd/algorand-indexer/algorand-indexer daemon -P "host=localhost user=algorand password=algorand dbname=$1 port=5434 sslmode=disable" --pidfile $PIDFILE > /dev/null 2>&1 &
 }
 
 function kill_indexer() {
@@ -110,6 +110,7 @@ function kill_indexer() {
 
 # $1 - name of docker container to kill.
 function kill_container() {
+  print_alert "Killing container - $1"
   docker rm -f $1 > /dev/null 2>&1 || true
 }
 
@@ -129,7 +130,7 @@ function setup_postgres() {
   # Cleanup from last time
   kill_container $CONTAINER_NAME
 
-  print_alert "Starting - $CONTAINER_NAME ($DATABASE) < $DUMPFILE"
+  print_alert "Starting - $CONTAINER_NAME ($DATABASE)"
   # Start postgres container...
   docker run \
     -d \
@@ -137,12 +138,12 @@ function setup_postgres() {
     -e POSTGRES_USER=algorand \
     -e POSTGRES_PASSWORD=algorand \
     -e PGPASSWORD=algorand \
-    -p 5433:5432 \
+    -p 5434:5432 \
     postgres
 
   sleep 5
 
-  print_alert "Started - $CONTAINER_NAME ($DATABASE) < $DUMPFILE"
+  print_alert "Started - $CONTAINER_NAME ($DATABASE) + $DUMPFILE"
 
   # Create DB and load some data into it.
   docker exec -it $CONTAINER_NAME psql -Ualgorand -c "create database $DATABASE"
@@ -167,6 +168,8 @@ trap cleanup EXIT
 # Test 1
 kill_indexer
 setup_postgres ${CONTAINERS[0]} test1 cumulative_rewards_dump.txt
+# Sleeping here is useful for troubleshooting these tests with a debugger.
+# sleep infinity
 start_indexer test1
 wait_for_ready
 call_and_verify 'Ensure migration updated specific account rewards.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI' 200 '"rewards":80000539878'
