@@ -400,7 +400,7 @@ func updateCreate(cc *createClose, value uint64) *createClose {
 		}
 	}
 
-	if !cc.created.Valid  {
+	if !cc.created.Valid {
 		cc.created.Valid = true
 		cc.created.Int64 = int64(value)
 	}
@@ -434,7 +434,6 @@ func executeTransactions(stmt *sql.Stmt, address []byte, m map[uint64]*createClo
 	}
 	return
 }
-
 
 // m5RewardsAndDatesPart2UpdateAccounts loops through the provided accounts and generates a bunch of updates in a
 // single transactional commit.
@@ -521,7 +520,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 
 		// Query transactions for the account
 		txnrows := db.txTransactions(tx, idb.TransactionFilter{
-			Address: address[:],
+			Address:  address[:],
 			MaxRound: uint64(state.NextRound),
 		})
 

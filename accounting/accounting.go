@@ -108,7 +108,7 @@ func (accounting *State) closeAccount(addr types.Address) {
 		update = &idb.AlgoUpdate{
 			Balance: 0,
 			Rewards: 0,
-			Closed: true,
+			Closed:  true,
 		}
 		accounting.AlgoUpdates[addr] = update
 		return
