@@ -334,6 +334,17 @@ func addrToPercent(addr string) float64 {
 func m5RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	db.log.Println("account cumulative rewards migration starting")
 
+	var feeSinkAddr string
+	var rewardsAddr string
+	{
+		accounts, err := db.GetSpecialAccounts()
+		if err != nil {
+			return fmt.Errorf("unable to get special accounts: %v", err)
+		}
+		feeSinkAddr = accounts.FeeSink.String()
+		rewardsAddr = accounts.RewardsPool.String()
+	}
+
 	options := idb.AccountQueryOptions{}
 	if len(state.NextAccount) != 0 {
 		var address sdk_types.Address
@@ -355,7 +366,10 @@ func m5RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 			return err
 		}
 
-		accounts = append(accounts, acct.Account.Address)
+		// Don't update special accounts
+		if feeSinkAddr != acct.Account.Address && rewardsAddr != acct.Account.Address {
+			accounts = append(accounts, acct.Account.Address)
+		}
 
 		if len(accounts) == batchSize {
 			db.log.Printf("Cumulative rewards migration processing %.2f%% complete. Batch %d up through account %s",
