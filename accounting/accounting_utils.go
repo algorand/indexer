@@ -32,15 +32,15 @@ func AssetDestroyTxn(stxn types.SignedTxnWithAD) bool {
 
 // AssetOptInTxn returns whether the transaction opted into an asset.
 func AssetOptInTxn(stxn types.SignedTxnWithAD) bool {
-	if stxn.Txn.Type != sdk_types.PaymentTx {
+	if stxn.Txn.Type != sdk_types.AssetTransferTx {
 		return false
 	}
-	return stxn.Txn.Sender == stxn.Txn.AssetReceiver && stxn.Txn.AssetAmount == 0
+	return stxn.Txn.AssetAmount == 0 && stxn.Txn.Sender == stxn.Txn.AssetReceiver
 }
 
 // AssetOptOutTxn returns whether the transaction opted out of an asset.
 func AssetOptOutTxn(stxn types.SignedTxnWithAD) bool {
-	if stxn.Txn.Type != sdk_types.PaymentTx {
+	if stxn.Txn.Type != sdk_types.AssetTransferTx {
 		return false
 	}
 	return !stxn.Txn.AssetCloseTo.IsZero()

@@ -368,7 +368,8 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		if stxn.Txn.AssetAmount != 0 {
 			accounting.updateAsset(sender, uint64(stxn.Txn.XferAsset), 0, stxn.Txn.AssetAmount)
 			accounting.updateAsset(stxn.Txn.AssetReceiver, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetAmount, 0)
-		} else if AssetOptInTxn(stxn) {
+		}
+		if AssetOptInTxn(stxn) {
 			// mark receivable accounts with the send-self-zero txn
 			accounting.updateAsset(stxn.Txn.AssetReceiver, uint64(stxn.Txn.XferAsset), 0, 0)
 		}
