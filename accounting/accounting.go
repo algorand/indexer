@@ -302,7 +302,8 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		accounting.updateAccountData(stxn.Txn.Sender, "spend", stxn.Txn.RekeyTo)
 	}
 
-	if stxn.Txn.Type == "pay" {
+	switch stxn.Txn.Type {
+	case atypes.PaymentTx:
 		amount := int64(stxn.Txn.Amount)
 		if amount != 0 {
 			accounting.updateAlgo(stxn.Txn.Sender, -amount)
@@ -323,7 +324,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		if AccountCloseTxn(stxn.Txn.Sender, stxn) {
 			accounting.closeAccount(stxn.Txn.Sender)
 		}
-	} else if stxn.Txn.Type == "keyreg" {
+	case atypes.KeyRegistrationTx:
 		// see https://github.com/algorand/go-algorand/blob/master/data/transactions/keyreg.go
 		accounting.updateAccountData(stxn.Txn.Sender, "vote", stxn.Txn.VotePK)
 		accounting.updateAccountData(stxn.Txn.Sender, "sel", stxn.Txn.SelectionPK)
@@ -342,7 +343,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 			accounting.updateAccountData(stxn.Txn.Sender, "voteLst", uint64(stxn.Txn.VoteLast))
 			accounting.updateAccountData(stxn.Txn.Sender, "voteKD", stxn.Txn.VoteKeyDilution)
 		}
-	} else if stxn.Txn.Type == "acfg" {
+	case atypes.AssetConfigTx:
 		assetID := uint64(stxn.Txn.ConfigAsset)
 		isNew := AssetCreateTxn(stxn)
 		if isNew {
@@ -360,7 +361,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 				}
 			}
 		}
-	} else if stxn.Txn.Type == "axfer" {
+	case atypes.AssetTransferTx:
 		sender := stxn.Txn.AssetSender // clawback
 		if sender.IsZero() {
 			sender = stxn.Txn.Sender
@@ -376,9 +377,9 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		if AssetOptOutTxn(stxn) {
 			accounting.closeAsset(sender, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetCloseTo, round, intra)
 		}
-	} else if stxn.Txn.Type == "afrz" {
+	case atypes.AssetFreezeTx:
 		accounting.freezeAsset(stxn.Txn.FreezeAccount, uint64(stxn.Txn.FreezeAsset), stxn.Txn.AssetFrozen)
-	} else if stxn.Txn.Type == "appl" {
+	case atypes.ApplicationCallTx:
 		hasGlobal := (len(stxn.EvalDelta.GlobalDelta) > 0) || (len(stxn.Txn.ApprovalProgram) > 0) || (len(stxn.Txn.ClearStateProgram) > 0) || stxn.Txn.OnCompletion == atypes.DeleteApplicationOC
 		appid := uint64(stxn.Txn.ApplicationID)
 		if appid == 0 {
@@ -441,7 +442,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 				},
 			)
 		}
-	} else {
+	default:
 		return fmt.Errorf("txn r=%d i=%d UNKNOWN TYPE %#v", round, intra, stxn.Txn.Type)
 	}
 	return nil
