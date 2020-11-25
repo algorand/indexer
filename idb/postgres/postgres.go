@@ -852,7 +852,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 	}
 	if len(updates.AssetUpdates) > 0 {
 		any = true
-		// Create new account_asset, initialize a previously destroyed account_asset or update existing account_asset.
+		// Create new account_asset, or initialize a previously destroyed asset.
 		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, closed_at = NULL`)
 		if err != nil {
 			return fmt.Errorf("prepare set account_asset, %v", err)
@@ -937,9 +937,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 		defer acs.Close()
 		// Mark the account_asset as closed with zero balance.
-		// TODO: Change this back
-		//acd, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1 WHERE addr = $2 AND assetid = $3`)
-		acd, err := tx.Prepare(`DELETE FROM account_asset WHERE addr = $1 AND assetid = $2`)
+		acd, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1 WHERE addr = $2 AND assetid = $3`)
 		if err != nil {
 			return fmt.Errorf("prepare asset close2, %v", err)
 		}
@@ -956,9 +954,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			if err != nil {
 				return fmt.Errorf("asset close send, %v", err)
 			}
-			// TODO: Change this back
-			//_, err = acd.Exec(round, ac.Sender[:], ac.AssetID)
-			_, err = acd.Exec(ac.Sender[:], ac.AssetID)
+			_, err = acd.Exec(round, ac.Sender[:], ac.AssetID)
 			if err != nil {
 				return fmt.Errorf("asset close del, %v", err)
 			}
@@ -968,9 +964,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		// Note! leaves `asset` and `account_asset` rows present for historical reference, but deletes all holdings from all accounts
 		any = true
 		// Update any account_asset holdings which were not previously closed. By now the amount should already be 0.
-		// TODO: Change this back
-		//ads, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = coalesc(closed_at, $1) WHERE assetid = $2`)
-		ads, err := tx.Prepare(`DELETE FROM account_asset WHERE assetid = $1`)
+		ads, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1 WHERE assetid = $2 AND closed_at IS NULL`)
 		if err != nil {
 			return fmt.Errorf("prepare asset destroy, %v", err)
 		}
@@ -985,9 +979,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			if assetID == debugAsset {
 				db.log.Errorf("%d destroy asset %d", round, assetID)
 			}
-			// TODO: Change this back
-			_, err = ads.Exec(assetID)
-			//_, err = ads.Exec(round, assetID)
+			_, err = ads.Exec(round, assetID)
 			if err != nil {
 				return fmt.Errorf("asset destroy, %v", err)
 			}

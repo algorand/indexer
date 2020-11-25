@@ -181,15 +181,15 @@ def assetEquality(indexer, algod):
             if iv == 0:
                 pass # ok
             else:
-                errs.append('amounts not equal asset={!r} indexer had {!r} but algod None'.format(assetid, assetrec))
+                errs.append('asset={!r} indexer had {!r} but algod None'.format(assetid, assetrec))
         else:
             av = arec.get('amount', 0)
             if av != iv:
-                errs.append('amounts not equal asset={!r} indexer {!r} != algod {!r}'.format(assetid, assetrec, arec))
+                errs.append('asset={!r} indexer {!r} != algod {!r}'.format(assetid, assetrec, arec))
     for assetid, arec in abyaid.items():
         av = arec.get('amount', 0)
         if av != 0:
-            errs.append('amounts not equal asset={!r} indexer had None but algod {!r}'.format(assetid, arec))
+            errs.append('asset={!r} indexer had None but algod {!r}'.format(assetid, arec))
     if not errs:
         return None
     return ', '.join(errs)
