@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
 # The cleanup hook ensures these containers are removed when the script exits.
-CONTAINERS=(test-container)
+POSTGRES_CONTAINER=test-container
 
 NET=localhost:8981
 CURL_TEMPFILE=curl_out.txt
 PIDFILE=testindexerpidfile
+CONNECTION_STRING="host=localhost user=algorand password=algorand dbname=DB_NAME_HERE port=5434 sslmode=disable"
 
 ###################
 ## Print Helpers ##
@@ -31,15 +32,20 @@ function wait_for_ready() {
   local n=0
 
   set +e
-  until [ "$n" -ge 20 ]
+  local READY
+  until [ "$n" -ge 20 ] || [ ! -z $READY ]
   do
-    curl -q -s "$NET/health" | grep '"db-available":true' > /dev/null 2>&1 && break
+    curl -q -s "$NET/health" | grep '"is-migrating":false' > /dev/null 2>&1 && READY=1
     n=$((n+1))
     sleep 1
   done
   set -e
 
-  curl -q -s "$NET/health" | grep '"db-available":true' > /dev/null 2>&1
+  if [ -z $READY ]; then
+    echo "Error: timed out waiting for db to become available."
+    curl "$NET/health"
+    exit 1
+  fi
 }
 
 # $1 - test description.
@@ -84,7 +90,34 @@ function suppress() {
 
 # $1 - postgres dbname
 function start_indexer() {
-  ALGORAND_DATA= ../../cmd/algorand-indexer/algorand-indexer daemon -S $NET -P "host=localhost user=algorand password=algorand dbname=$1 port=5434 sslmode=disable" --pidfile $PIDFILE > /dev/null 2>&1 &
+  ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer daemon \
+    -S $NET \
+    -P "${CONNECTION_STRING/DB_NAME_HERE/$1}" \
+    --pidfile $PIDFILE > /dev/null 2>&1 &
+}
+
+
+# $1 - postgres dbname
+# $2 - e2edata tar.bz2 archive
+function start_indexer_with_blocks() {
+  if [ ! -f $2 ]; then
+    echo "Cannot find $2"
+    exit
+  fi
+
+  create_db $1
+
+  local TEMPDIR=$(mktemp -d -t ci-XXXXXXX)
+  tar -xf "$2" -C $TEMPDIR
+
+  ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer import \
+    -P "${CONNECTION_STRING/DB_NAME_HERE/$1}" \
+    --genesis "$TEMPDIR/algod/genesis.json" \
+    $TEMPDIR/blocktars/*
+
+  rm -rf $TEMPDIR
+
+  start_indexer $1
 }
 
 function kill_indexer() {
@@ -104,23 +137,18 @@ function kill_container() {
   docker rm -f $1 > /dev/null 2>&1 || true
 }
 
-# $1 - docker container name.
-# $2 - postgres database name.
-# $3 - pg_dump file to import into the database.
-function setup_postgres() {
-  if [ $# -ne 3 ]; then
-    print_alert "Unexpected number of arguments to setup_postgres."
+function start_postgres() {
+  if [ $# -ne 0 ]; then
+    print_alert "Unexpected number of arguments to start_postgres."
     exit 1
   fi
 
-  local CONTAINER_NAME=$1
-  local DATABASE=$2
-  local DUMPFILE=$3
+  local CONTAINER_NAME=$POSTGRES_CONTAINER
 
   # Cleanup from last time
   kill_container $CONTAINER_NAME
 
-  print_alert "Starting - $CONTAINER_NAME ($DATABASE)"
+  print_alert "Starting - $CONTAINER_NAME"
   # Start postgres container...
   docker run \
     -d \
@@ -133,19 +161,34 @@ function setup_postgres() {
 
   sleep 5
 
-  print_alert "Started - $CONTAINER_NAME ($DATABASE) + $DUMPFILE"
+  print_alert "Started - $CONTAINER_NAME"
+}
 
-  # Create DB and load some data into it.
+# $1 - postgres database name.
+function create_db() {
+  local CONTAINER_NAME=$POSTGRES_CONTAINER
+  local DATABASE=$1
+
+  # Create DB
   docker exec -it $CONTAINER_NAME psql -Ualgorand -c "create database $DATABASE"
+}
+
+# $1 - postgres database name.
+# $2 - pg_dump file to import into the database.
+function initialize_db() {
+  local CONTAINER_NAME=$POSTGRES_CONTAINER
+  local DATABASE=$1
+  local DUMPFILE=$2
+  print_alert "Initializing database ($DATABASE) with $DUMPFILE"
+
+  # load some data into it.
+  create_db $DATABASE
   #docker exec -i $CONTAINER_NAME psql -Ualgorand -c "\\l"
   docker exec -i $CONTAINER_NAME psql -Ualgorand -d $DATABASE < $DUMPFILE > /dev/null 2>&1
 }
 
 function cleanup() {
-  for i in ${CONTAINERS[*]}; do
-    kill_container $i
-  done
+  kill_container $POSTGRES_CONTAINER
   rm $CURL_TEMPFILE > /dev/null 2>&1 || true
   kill_indexer
 }
-
