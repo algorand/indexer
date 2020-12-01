@@ -23,7 +23,7 @@ addons:
 script:
   - make lint
   - make
-  - make migration-tests
+  - make integration
   - make test
   - make fakepackage
   - docker build -t e2e_tests -f docker/Dockerfile.mule .
