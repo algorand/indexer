@@ -21,9 +21,10 @@ rootdir=`dirname $0`
 pushd $rootdir > /dev/null
 pwd
 
-source ../common.sh
-
+source common.sh
 trap cleanup EXIT
+
+start_postgres
 
 ###############
 ## RUN TESTS ##
@@ -31,7 +32,7 @@ trap cleanup EXIT
 
 # Test 1
 kill_indexer
-setup_postgres ${CONTAINERS[0]} test1 cumulative_rewards_dump.txt
+initialize_db test1 migrations/cumulative_rewards_dump.txt
 # Sleeping here is useful for troubleshooting these tests with a debugger.
 # sleep infinity
 start_indexer test1
