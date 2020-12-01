@@ -51,8 +51,9 @@ lint:
 fmt:
 	go fmt ./...
 
-migration-tests: test/migrations/postgres_migration_test.sh
-	test/migrations/postgres_migration_test.sh
+integration: test/postgres_migration_test.sh
+	test/postgres_migration_test.sh
+	test/postgres_integration_test.sh
 
 test-package:
 	mule/e2e.sh
