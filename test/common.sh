@@ -24,30 +24,46 @@ function fail_and_exit {
   exit 1
 }
 
+# $1 - database
+# $2 - query
+function base_query() {
+  #export PGPASSWORD=algorand
+  #psql -XA -h localhost -p 5434 -h localhost -U algorand $1 -c "$2"
+  docker exec $POSTGRES_CONTAINER psql -XA -Ualgorand $1 -c "$2"
+}
+
+# SQL Test - query and veryify results
+# $1 - test description.
+# $2 - database
+# $3 - query
+# $4 - substring that should be in the response
+function query_and_verify {
+  local DESCRIPTION=$1
+  local DATABASE=$2
+  local QUERY=$3
+  local SUBSTRING=$4
+
+  set +e
+  RES=$(base_query $DATABASE "$QUERY")
+  if [[ $? != 0 ]]; then
+    echo "ERROR from psql: $RESULT"
+    fail_and_exit "$DESCRIPTION" "$QUERY" "psql had a non-zero exit code."
+  fi
+  set -e
+
+  if [[ "$RES" != *"$SUBSTRING"* ]]; then
+    fail_and_exit "$DESCRIPTION" "$QUERY" "unexpected response. should contain '$SUBSTRING', actual: '$RES'"
+  fi
+
+  print_alert "Passed test: $DESCRIPTION"
+}
+
+# call_and_verify helper
 function base_call() {
   curl -o "$CURL_TEMPFILE" -w "%{http_code}" -q -s "$NET$1"
 }
 
-function wait_for_ready() {
-  local n=0
-
-  set +e
-  local READY
-  until [ "$n" -ge 20 ] || [ ! -z $READY ]
-  do
-    curl -q -s "$NET/health" | grep '"is-migrating":false' > /dev/null 2>&1 && READY=1
-    n=$((n+1))
-    sleep 1
-  done
-  set -e
-
-  if [ -z $READY ]; then
-    echo "Error: timed out waiting for db to become available."
-    curl "$NET/health"
-    exit 1
-  fi
-}
-
+# CURL Test - query and veryify results
 # $1 - test description.
 # $2 - query
 # $3 - expected status code
@@ -60,7 +76,6 @@ function call_and_verify {
   if [[ $? != 0 ]]; then
     echo "ERROR"
     cat $CURL_TEMPFILE
-    return
     fail_and_exit "$1" "$2" "curl had a non-zero exit code."
   fi
   set -e
@@ -110,6 +125,8 @@ function start_indexer_with_blocks() {
   local TEMPDIR=$(mktemp -d -t ci-XXXXXXX)
   tar -xf "$2" -C $TEMPDIR
 
+  echo "Start args 'import -P \"${CONNECTION_STRING/DB_NAME_HERE/$1}\" --genesis \"$TEMPDIR/algod/genesis.json\" $TEMPDIR/blocktars/*"
+  #sleep infinity
   ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer import \
     -P "${CONNECTION_STRING/DB_NAME_HERE/$1}" \
     --genesis "$TEMPDIR/algod/genesis.json" \
@@ -120,6 +137,29 @@ function start_indexer_with_blocks() {
   start_indexer $1
 }
 
+# Query indexer for 20 seconds waiting for migration to complete.
+# Exit with error if still not ready.
+function wait_for_ready() {
+  local n=0
+
+  set +e
+  local READY
+  until [ "$n" -ge 20 ] || [ ! -z $READY ]
+  do
+    curl -q -s "$NET/health" | grep '"is-migrating":false' > /dev/null 2>&1 && READY=1
+    n=$((n+1))
+    sleep 1
+  done
+  set -e
+
+  if [ -z $READY ]; then
+    echo "Error: timed out waiting for db to become available."
+    curl "$NET/health"
+    exit 1
+  fi
+}
+
+# Kill indexer using the PIDFILE
 function kill_indexer() {
   if test -f "$PIDFILE"; then
     kill -9 $(cat "$PIDFILE") > /dev/null 2>&1 || true
@@ -143,16 +183,14 @@ function start_postgres() {
     exit 1
   fi
 
-  local CONTAINER_NAME=$POSTGRES_CONTAINER
-
   # Cleanup from last time
-  kill_container $CONTAINER_NAME
+  kill_container $POSTGRES_CONTAINER
 
-  print_alert "Starting - $CONTAINER_NAME"
+  print_alert "Starting - $POSTGRES_CONTAINER"
   # Start postgres container...
   docker run \
     -d \
-    --name $CONTAINER_NAME \
+    --name $POSTGRES_CONTAINER \
     -e POSTGRES_USER=algorand \
     -e POSTGRES_PASSWORD=algorand \
     -e PGPASSWORD=algorand \
@@ -161,30 +199,28 @@ function start_postgres() {
 
   sleep 5
 
-  print_alert "Started - $CONTAINER_NAME"
+  print_alert "Started - $POSTGRES_CONTAINER"
 }
 
 # $1 - postgres database name.
 function create_db() {
-  local CONTAINER_NAME=$POSTGRES_CONTAINER
   local DATABASE=$1
 
   # Create DB
-  docker exec -it $CONTAINER_NAME psql -Ualgorand -c "create database $DATABASE"
+  docker exec -it $POSTGRES_CONTAINER psql -Ualgorand -c "create database $DATABASE"
 }
 
 # $1 - postgres database name.
 # $2 - pg_dump file to import into the database.
 function initialize_db() {
-  local CONTAINER_NAME=$POSTGRES_CONTAINER
   local DATABASE=$1
   local DUMPFILE=$2
   print_alert "Initializing database ($DATABASE) with $DUMPFILE"
 
   # load some data into it.
   create_db $DATABASE
-  #docker exec -i $CONTAINER_NAME psql -Ualgorand -c "\\l"
-  docker exec -i $CONTAINER_NAME psql -Ualgorand -d $DATABASE < $DUMPFILE > /dev/null 2>&1
+  #docker exec -i $POSTGRES_CONTAINER psql -Ualgorand -c "\\l"
+  docker exec -i $POSTGRES_CONTAINER psql -Ualgorand -d $DATABASE < $DUMPFILE > /dev/null 2>&1
 }
 
 function cleanup() {
