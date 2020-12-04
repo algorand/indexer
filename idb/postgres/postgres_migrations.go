@@ -269,7 +269,7 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 	return -1, nil
 }
 
-// m4RewardsAndDatesPart1 adds the new rewardstotal column to the account table.
+// m4RewardsAndDatesPart1 adds the new rewards_total column to the account table.
 func m4RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	// Cache the round in the migration metastate
 	round, err := db.GetMaxRound()
