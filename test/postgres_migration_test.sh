@@ -14,6 +14,9 @@
 # Copy the postgres dump file into this directory and write some tests to make
 # sure the migration works.
 
+# Add 2nd 'halt' argument to start_indexer function to pause execution for
+# running in the debugger.
+
 set -e
 
 # This script only works when CWD is 'test/migrations'
@@ -30,15 +33,14 @@ start_postgres
 ## RUN TESTS ##
 ###############
 
-# Test 1
+# Rewards tests
 kill_indexer
 initialize_db test1 migrations/cumulative_rewards_dump.txt
-# Sleeping here is useful for troubleshooting these tests with a debugger.
-# sleep infinity
 start_indexer test1
 wait_for_ready
 cumulative_rewards_tests
 
+# Create Delete Tests
 kill_indexer
 initialize_db test2 migrations/create_delete.2.2.1.txt
 start_indexer test2
