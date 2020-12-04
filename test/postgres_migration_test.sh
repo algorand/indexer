@@ -30,6 +30,12 @@ start_postgres
 ## RUN TESTS ##
 ###############
 
+
+kill_indexer
+initialize_db test2 migrations/create_delete.2.2.1.txt
+start_indexer test2
+sleep infinity
+
 # Test 1
 kill_indexer
 initialize_db test1 migrations/cumulative_rewards_dump.txt
