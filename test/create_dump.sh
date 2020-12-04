@@ -4,12 +4,12 @@
 
 source common.sh
 
-if [ "$#" -ne 1 ]; then
-  echo "Must provide 1 argument: path to e2edata archive."
+if [ "$#" -ne 2 ]; then
+  echo "Must provide 2 argument: <path to e2edata archive> <dumpfile target>"
   exit
 fi
 
-if ! ask "Have you built the older version of 'algorand-indexer'?"; then
+if ! ask "Have you built the version of 'algorand-indexer' you want?"; then
   echo "Come back when you're serious."
   exit
 fi
@@ -17,6 +17,5 @@ fi
 trap cleanup EXIT
 
 start_postgres
-start_indexer_with_blocks createdestroy "$1"
-
-sleep infinity
+start_indexer_with_blocks test "$1"
+docker exec test-container pg_dump -d test -Ualgorand > "$2"
