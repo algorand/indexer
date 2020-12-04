@@ -397,26 +397,7 @@ type createClose struct {
 	closed  sql.NullInt64
 }
 
-// updateCreate will update the created round only if it has not been set.
-func updateCreate(cc *createClose, value uint64) *createClose {
-	if cc == nil {
-		return &createClose{
-			created: sql.NullInt64{
-				Valid: true,
-				Int64: int64(value),
-			},
-		}
-	}
-
-	if !cc.created.Valid {
-		cc.created.Valid = true
-		cc.created.Int64 = int64(value)
-	}
-
-	return cc
-}
-
-// updateClose will update the close round.
+// updateClose will update the closed round only if it is the first event (going from newest to oldest).
 func updateClose(cc *createClose, value uint64) *createClose {
 	if cc == nil {
 		return &createClose{
@@ -427,8 +408,22 @@ func updateClose(cc *createClose, value uint64) *createClose {
 		}
 	}
 
-	cc.closed.Valid = true
-	cc.closed.Int64 = int64(value)
+	return cc
+}
+
+// updateCreate will update the created round.
+func updateCreate(cc *createClose, value uint64) *createClose {
+	if cc == nil {
+		return &createClose{
+			created: sql.NullInt64{
+				Valid: true,
+				Int64: int64(value),
+			},
+		}
+	}
+
+	cc.created.Valid = true
+	cc.created.Int64 = int64(value)
 
 	return cc
 }
@@ -489,7 +484,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	defer setCreateCloseAsset.Close()
 
 	// 4. setCreateCloseAssetHolding - set the accounts asset holding create/close rounds.
-	setCreateCloseAssetHolding, err := tx.Prepare(`UPDATE account_asset SET created_at = $3, closed_at = coalesce(closed_at, $4) WHERE addr = $1 AND assetid=$2`)
+	setCreateCloseAssetHolding, err := tx.Prepare(`INSERT INTO account_asset(addr, assetid, amount, frozen, created_at, closed_at) VALUES ($1, $2, 0, false, $3, $4) ON CONFLICT (addr, assetid) DO UPDATE SET created_at = EXCLUDED.created_at, closed_at = coalesce(account_asset.closed_at, EXCLUDED.closed_at)`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close asset holding prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}
@@ -503,7 +498,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	defer setCreateCloseApp.Close()
 
 	// 6. setCreateCloseAppLocal     - set the accounts local apps create/close rounds.
-	setCreateCloseAppLocal, err := tx.Prepare(`UPDATE account_app SET created_at = $3, closed_at = coalesce(closed_at, $4) WHERE addr = $1 and app=$2`)
+	setCreateCloseAppLocal, err := tx.Prepare(`INSERT INTO account_app (addr, app, created_at, closed_at) VALUES ($1, $2, $3, $4) ON CONFLICT (addr, app) DO UPDATE SET created_at = EXCLUDED.created_at, closed_at = coalesce(account_app.closed_at, EXCLUDED.closed_at)`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close app prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}

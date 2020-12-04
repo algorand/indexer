@@ -35,7 +35,7 @@ func AssetOptInTxn(stxn types.SignedTxnWithAD) bool {
 	if stxn.Txn.Type != sdk_types.AssetTransferTx {
 		return false
 	}
-	return stxn.Txn.AssetAmount == 0 && stxn.Txn.Sender == stxn.Txn.AssetReceiver
+	return stxn.Txn.AssetAmount == 0 && stxn.Txn.Sender == stxn.Txn.AssetReceiver && stxn.Txn.AssetCloseTo.IsZero()
 }
 
 // AssetOptOutTxn returns whether the transaction opted out of an asset.
