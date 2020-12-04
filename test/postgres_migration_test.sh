@@ -30,12 +30,6 @@ start_postgres
 ## RUN TESTS ##
 ###############
 
-
-kill_indexer
-initialize_db test2 migrations/create_delete.2.2.1.txt
-start_indexer test2
-sleep infinity
-
 # Test 1
 kill_indexer
 initialize_db test1 migrations/cumulative_rewards_dump.txt
@@ -43,8 +37,10 @@ initialize_db test1 migrations/cumulative_rewards_dump.txt
 # sleep infinity
 start_indexer test1
 wait_for_ready
-call_and_verify 'Ensure migration updated specific account rewards.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI' 200 '"rewards":80000539878'
-call_and_verify 'Ensure migration updated specific account rewards @ round = 810.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI?round=810' 200 '"rewards":80000539878'
-call_and_verify 'Ensure migration updated specific account rewards @ round = 800.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI?round=800' 200 '"rewards":68000335902'
-call_and_verify 'Ensure migration updated specific account rewards @ round = 500.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI?round=500' 200 '"rewards":28000055972'
-call_and_verify 'Ensure migration updated specific account rewards @ round = 100.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI?round=100' 200 '"rewards":7999999996'
+cumulative_rewards_tests
+
+kill_indexer
+initialize_db test2 migrations/create_delete.2.2.1.txt
+start_indexer test2
+create_delete_tests test2
+
