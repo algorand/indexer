@@ -105,6 +105,7 @@ function suppress() {
 
 # $1 - postgres dbname
 function start_indexer() {
+  #echo "daemon -S $NET -P \"${CONNECTION_STRING/DB_NAME_HERE/$1}\""
   ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer daemon \
     -S $NET \
     -P "${CONNECTION_STRING/DB_NAME_HERE/$1}" \
