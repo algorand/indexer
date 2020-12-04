@@ -445,15 +445,9 @@ func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]*creat
 // 1. setTotalRewards            - conditionally set the total rewards if the account wasn't closed during iteration.
 // 2. setCreateCloseAccount      - set the accounts create/close rounds.
 // 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
-// 4. setCreateCloseAssetHolding - set the accounts asset holding create/close rounds.
+// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
 // 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
-// 6. setCreateCloseAppLocal     - set the accounts local apps create/close rounds.
-//
-// NOTE: for 4 & 6, we are currently deleting the objects in postgres. The queries we send here will not find a row
-//       unless the appLocal / account is re-opened. This also means that in the normal case "created_at" will be the
-//       most recent create instead of the first.
-// TODO: The note above may be a problem that must be solved now.
-// TODO: Some of these update queries could be upserts to repair missing holdings/appLocal objects
+// 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
 func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, accounts []string, finalBatch bool) error {
 	var err error
 	tx, err := db.db.Begin()
@@ -483,7 +477,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	}
 	defer setCreateCloseAsset.Close()
 
-	// 4. setCreateCloseAssetHolding - set the accounts asset holding create/close rounds.
+	// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
 	setCreateCloseAssetHolding, err := tx.Prepare(`INSERT INTO account_asset(addr, assetid, amount, frozen, created_at, closed_at) VALUES ($1, $2, 0, false, $3, $4) ON CONFLICT (addr, assetid) DO UPDATE SET created_at = EXCLUDED.created_at, closed_at = coalesce(account_asset.closed_at, EXCLUDED.closed_at)`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close asset holding prepare: %v", rewardsCreateCloseUpdateErr, err)
@@ -497,7 +491,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	}
 	defer setCreateCloseApp.Close()
 
-	// 6. setCreateCloseAppLocal     - set the accounts local apps create/close rounds.
+	// 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
 	setCreateCloseAppLocal, err := tx.Prepare(`INSERT INTO account_app (addr, app, created_at, closed_at) VALUES ($1, $2, $3, $4) ON CONFLICT (addr, app) DO UPDATE SET created_at = EXCLUDED.created_at, closed_at = coalesce(account_app.closed_at, EXCLUDED.closed_at)`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close app prepare: %v", rewardsCreateCloseUpdateErr, err)
@@ -629,7 +623,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 			return fmt.Errorf("%s: failed to update %s with asset create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
 
-		// 4. setCreateCloseAssetHolding - set the accounts asset holding create/close rounds.
+		// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
 		err = executeForEachCreatable(setCreateCloseAssetHolding, address[:], assetHolding)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with asset holding create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
@@ -641,7 +635,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 			return fmt.Errorf("%s: failed to update %s with app create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
 
-		// 6. setCreateCloseAppLocal     - set the accounts local apps create/close rounds.
+		// 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
 		err = executeForEachCreatable(setCreateCloseAppLocal, address[:], appLocal)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with app local create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
