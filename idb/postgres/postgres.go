@@ -700,7 +700,7 @@ func (db *IndexerDb) getDirtyAppLocalState(addr []byte, appIndex int64, dirty []
 	} else if err != nil {
 		err = fmt.Errorf("app local get, %v", err)
 		return
-	} else {
+	} else if len(localstatejson) > 0 {
 		err = json.Decode(localstatejson, &localstate.AppLocalState)
 		if err != nil {
 			err = fmt.Errorf("app local get bad json, %v", err)
@@ -916,7 +916,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 	}
 	if len(updates.AssetCloses) > 0 {
 		any = true
-		// TODO: What is acc doing? Seems to update the transaction that created the asset, but why?
+		// Attach some extra "apply data" metadata to allow rewinding the asset close if requested.
 		acc, err := tx.Prepare(`WITH aaamount AS (SELECT ($1)::bigint as round, ($2)::bigint as intra, x.amount FROM account_asset x WHERE x.addr = $3 AND x.assetid = $4)
 UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{aca}', to_jsonb(aaamount.amount)) FROM aaamount WHERE ut.round = aaamount.round AND ut.intra = aaamount.intra`)
 		if err != nil {
@@ -986,6 +986,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	}
 	if len(updates.AppGlobalDeltas) > 0 {
 		// apps with dirty global state, collection of AppParams as dict
+		destroy := make(map[uint64]bool)
 		dirty := make(map[uint64]AppParams)
 		appCreators := make(map[uint64][]byte)
 		getglobal, err := tx.Prepare(`SELECT params FROM app WHERE index = $1`)
@@ -1014,7 +1015,6 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			}
 			// calculate reverse delta, apply delta to state, save state to dirty
 			reverseDelta := idb.AppReverseDelta{
-
 				OnCompletion: adelta.OnCompletion,
 			}
 			if len(adelta.ApprovalProgram) > 0 {
@@ -1037,6 +1037,9 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			if adelta.OnCompletion == atypes.DeleteApplicationOC {
 				// clear content but leave row recording that it existed
 				state = AppParams{}
+				destroy[uint64(adelta.AppIndex)] = true
+			} else {
+				delete(destroy, uint64(adelta.AppIndex))
 			}
 			dirty[uint64(adelta.AppIndex)] = state
 			if adelta.Creator != nil {
@@ -1058,15 +1061,20 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			}
 		}
 		// apply dirty global state deltas for the round
-		putglobal, err := tx.Prepare(`INSERT INTO app (index, creator, params, created_at) VALUES ($1, $2, $3, $4) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params`)
+		putglobal, err := tx.Prepare(`INSERT INTO app (index, creator, params, created_at) VALUES ($1, $2, $3, $4) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params, closed_at = $5`)
 		if err != nil {
 			return fmt.Errorf("prepare app global put, %v", err)
 		}
 		defer putglobal.Close()
 		for appid, params := range dirty {
+			// Nullable closedAt value
+			closedAt := sql.NullInt64{
+				Int64: int64(round),
+				Valid: destroy[appid],
+			}
 			creator := appCreators[appid]
 			paramjson := json.Encode(params)
-			_, err = putglobal.Exec(appid, creator, paramjson, round)
+			_, err = putglobal.Exec(appid, creator, paramjson, round, closedAt)
 			if err != nil {
 				return fmt.Errorf("app global put pj=%v, %v", string(paramjson), err)
 			}
@@ -1091,7 +1099,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		for _, ald := range updates.AppLocalDeltas {
 			if ald.OnCompletion == atypes.CloseOutOC || ald.OnCompletion == atypes.ClearStateOC {
 				droplocals = append(droplocals,
-					[]interface{}{ald.Address, ald.AppIndex},
+					[]interface{}{ald.Address, ald.AppIndex, round},
 				)
 				continue
 			}
@@ -1144,7 +1152,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 
 		if len(dirty) > 0 {
 			// apply local state deltas for the round
-			putglobal, err := tx.Prepare(`INSERT INTO account_app (addr, app, localstate, created_at) VALUES ($1, $2, $3, $4) ON CONFLICT (addr, app) DO UPDATE SET localstate = EXCLUDED.localstate`)
+			putglobal, err := tx.Prepare(`INSERT INTO account_app (addr, app, localstate, created_at) VALUES ($1, $2, $3, $4) ON CONFLICT (addr, app) DO UPDATE SET localstate = EXCLUDED.localstate, closed_at = NULL`)
 			if err != nil {
 				return fmt.Errorf("prepare app local put, %v", err)
 			}
@@ -1158,7 +1166,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 
 		if len(droplocals) > 0 {
-			droplocal, err := tx.Prepare(`DELETE FROM account_app WHERE addr = $1 AND app = $2`)
+			droplocal, err := tx.Prepare(`UPDATE account_app SET localstate = NULL, closed_at = $3 WHERE addr = $1 AND app = $2`)
 			if err != nil {
 				return fmt.Errorf("prepare app local del, %v", err)
 			}
