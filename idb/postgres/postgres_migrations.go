@@ -28,7 +28,7 @@ func init() {
 		{m2apps, true, "Update DB Schema for Algorand application support."},
 		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
 		{m4RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
-		{m5RewardsAndDatesPart2, true, "Compute cumulative account rewards for all accounts."},
+		{m5RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
 	}
 }
 
