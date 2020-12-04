@@ -792,11 +792,6 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 		}
 	}
 	if len(updates.AcfgUpdates) > 0 {
-		// TODO: Is this still valid? I think not. -will 11/2020
-		// TODO: fix according to this comment:
-		// if asset is new, set.
-		// if new config is empty, set empty. -- handled by AssetDestroys
-		// else, update.
 		any = true
 		setacfg, err := tx.Prepare(`INSERT INTO asset (index, creator_addr, params, created_at) VALUES ($1, $2, $3, $4) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params, closed_at = NULL`)
 		if err != nil {

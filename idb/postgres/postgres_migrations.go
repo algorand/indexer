@@ -278,12 +278,8 @@ func m4RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 		return err
 	}
 
+	// state is updated in the DB when calling 'sqlMigration'
 	state.NextRound = int64(round)
-	err = db.SetMetastate(migrationMetastateKey, string(json.Encode(state)))
-	if err != nil {
-		db.log.WithError(err).Errorf("%s: problem caching max round: %v", rewardsCreateCloseUpdateErr, err)
-		return err
-	}
 
 	// update metastate
 	sqlLines := []string{
@@ -328,9 +324,7 @@ func addrToPercent(addr string) float64 {
 	return float64(val) / (32 * 32 * 32) * 100
 }
 
-// m5RewardsAndDatesPart2 computes the cumulative rewards for each account one at a time. This is a BLOCKING
-// migration because we don't want to handle the case where accounts are actively transacting while we fixup their
-// table.
+// m5RewardsAndDatesPart2 computes the cumulative rewards for each account one at a time.
 func m5RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	db.log.Println("account cumulative rewards migration starting")
 
@@ -439,9 +433,9 @@ func updateClose(cc *createClose, value uint64) *createClose {
 	return cc
 }
 
-func executeTransactions(stmt *sql.Stmt, address []byte, m map[uint64]*createClose) (err error) {
-	for assetID, round := range m {
-		_, err = stmt.Exec(address, assetID, round.created, round.closed)
+func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]*createClose) (err error) {
+	for index, round := range m {
+		_, err = stmt.Exec(address, index, round.created, round.closed)
 		if err != nil {
 			return
 		}
@@ -631,25 +625,25 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 		}
 
 		// 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
-		err = executeTransactions(setCreateCloseAsset, address[:], asset)
+		err = executeForEachCreatable(setCreateCloseAsset, address[:], asset)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with asset create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
 
 		// 4. setCreateCloseAssetHolding - set the accounts asset holding create/close rounds.
-		err = executeTransactions(setCreateCloseAssetHolding, address[:], assetHolding)
+		err = executeForEachCreatable(setCreateCloseAssetHolding, address[:], assetHolding)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with asset holding create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
 
 		// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
-		err = executeTransactions(setCreateCloseApp, address[:], app)
+		err = executeForEachCreatable(setCreateCloseApp, address[:], app)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with app create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
 
 		// 6. setCreateCloseAppLocal     - set the accounts local apps create/close rounds.
-		err = executeTransactions(setCreateCloseAppLocal, address[:], appLocal)
+		err = executeForEachCreatable(setCreateCloseAppLocal, address[:], appLocal)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with app local create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
