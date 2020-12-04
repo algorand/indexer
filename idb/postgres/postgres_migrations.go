@@ -439,7 +439,7 @@ func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]*creat
 }
 
 // m5RewardsAndDatesPart2UpdateAccounts loops through the provided accounts and generates a bunch of updates in a
-// single transactional commit.
+// single transactional commit. These queries are written so that they can run in the background.
 //
 // For each account we run several queries:
 // 1. setTotalRewards            - conditionally set the total rewards if the account wasn't closed during iteration.
@@ -448,6 +448,10 @@ func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]*creat
 // 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
 // 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
 // 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
+//
+// Note: These queries only work if closed_at was reset before the migration is started. That is true
+//       for the initial migration, but if we need to reuse it in the future we'll need to fix the queries
+//       or redo the query.
 func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, accounts []string, finalBatch bool) error {
 	var err error
 	tx, err := db.db.Begin()
@@ -457,6 +461,8 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	defer tx.Rollback() // ignored if .Commit() first
 
 	// 1. setTotalRewards            - conditionally set the total rewards if the account wasn't closed during iteration.
+	// $3 is the round after which new blocks will have the closed_at field set.
+	// We only set rewards_total when closed_at was set before that round.
 	setTotalRewards, err := tx.Prepare(`UPDATE account SET rewards_total = $2 WHERE addr = $1 AND coalesce(closed_at, 0) < $3`)
 	if err != nil {
 		return fmt.Errorf("%s: set rewards prepare: %v", rewardsCreateCloseUpdateErr, err)
@@ -464,6 +470,8 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	defer setTotalRewards.Close()
 
 	// 2. setCreateCloseAccount      - set the accounts create/close rounds.
+	// We always set the created_at field because it will never change.
+	// closed_at may already be set by the time the migration runs, or it might need to be cleared out.
 	setCreateCloseAccount, err := tx.Prepare(`UPDATE account SET created_at = $2, closed_at = coalesce(closed_at, $3) WHERE addr = $1`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close prepare: %v", rewardsCreateCloseUpdateErr, err)
@@ -539,9 +547,9 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 				return fmt.Errorf("%s: processing account %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 			}
 
-
+			// When the account is closed rewards reset to zero.
+			// We can stop accumulating rewards now.
 			if !foundClose {
-				// When the account is closed rewards reset to zero.
 				if accounting.AccountCloseTxn(address, stxn) {
 					foundClose = true
 					// Only set closed if the most recent transaction (first in results) is a close.
