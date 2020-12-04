@@ -4,7 +4,7 @@
 
 set -e
 
-# This script only works when CWD is 'test/migrations'
+# This script only works when CWD is 'test'
 rootdir=`dirname $0`
 pushd $rootdir > /dev/null
 pwd
