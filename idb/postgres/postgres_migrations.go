@@ -532,16 +532,16 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 			MaxRound: uint64(state.NextRound),
 		})
 
+		foundClose := false
+		first := true
 		numTxn := 0
 		// Loop through transactions
 		for txn := range txnrows {
 			numTxn++
 
-			// Set acctCreated on the first transaction, or the first transaction after a close.
-			if !account.created.Valid {
-				account.created.Valid = true
-				account.created.Int64 = int64(txn.Round)
-			}
+			// Transactions are ordered most recent to oldest, make sure created is set to the last transaction.
+			account.created.Valid = true
+			account.created.Int64 = int64(txn.Round)
 
 			// process transactions one at a time
 			var stxn types.SignedTxnWithAD
@@ -550,27 +550,29 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 				return fmt.Errorf("%s: processing account %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 			}
 
-			if stxn.Txn.Sender == address {
-				cumulativeRewards += stxn.ApplyData.SenderRewards
-			}
 
-			// When the account is closed rewards reset to zero.
-			if stxn.Txn.Sender == address && !stxn.Txn.CloseRemainderTo.IsZero() {
-				cumulativeRewards = 0
-			}
+			if !foundClose {
+				// When the account is closed rewards reset to zero.
+				if accounting.AccountCloseTxn(address, stxn) {
+					foundClose = true
+					// Only set closed if the most recent transaction (first in results) is a close.
+					if first {
+						account.closed.Valid = true
+						account.closed.Int64 = int64(txn.Round)
+					}
+				} else {
+					if stxn.Txn.Sender == address {
+						cumulativeRewards += stxn.ApplyData.SenderRewards
+					}
 
-			if stxn.Txn.Receiver == address {
-				cumulativeRewards += stxn.ApplyData.ReceiverRewards
-			}
+					if stxn.Txn.Receiver == address {
+						cumulativeRewards += stxn.ApplyData.ReceiverRewards
+					}
 
-			if stxn.Txn.CloseRemainderTo == address {
-				cumulativeRewards += stxn.ApplyData.CloseRewards
-			}
-
-			if accounting.AccountCloseTxn(address, stxn) {
-				cumulativeRewards = 0
-				account.closed.Valid = true
-				account.closed.Int64 = int64(txn.Round)
+					if stxn.Txn.CloseRemainderTo == address {
+						cumulativeRewards += stxn.ApplyData.CloseRewards
+					}
+				}
 			}
 
 			if accounting.AssetCreateTxn(stxn) {
@@ -604,6 +606,8 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 			if accounting.AppOptOutTxn(stxn) {
 				appLocal[txn.AssetID] = updateClose(appLocal[txn.AssetID], txn.Round)
 			}
+
+			first = false
 		}
 
 		// Genesis accounts could have this property
