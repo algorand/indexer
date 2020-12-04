@@ -51,7 +51,7 @@ lint:
 fmt:
 	go fmt ./...
 
-integration: test/postgres_migration_test.sh
+integration:
 	test/postgres_migration_test.sh
 	test/postgres_integration_test.sh
 
