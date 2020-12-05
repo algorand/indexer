@@ -97,7 +97,7 @@ func bytesAreZero(b []byte) bool {
 	return true
 }
 
-func (accounting *State) closeAccount(addr types.Address) {
+func (accounting *State) closeAccount(addr types.Address, round uint64, intra int) {
 	if accounting.AlgoUpdates == nil {
 		accounting.AlgoUpdates = make(map[[32]byte]*idb.AlgoUpdate)
 	}
@@ -118,6 +118,8 @@ func (accounting *State) closeAccount(addr types.Address) {
 	// The balance will be updated with the delta as usual.
 	update.Rewards = 0
 	update.Closed = true
+	update.Round = round
+	update.Intra = intra
 }
 
 func (accounting *State) updateRewards(rewardAddr, acctAddr types.Address, amount types.MicroAlgos) {
@@ -322,7 +324,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 
 		// The sender account is being closed.
 		if AccountCloseTxn(stxn.Txn.Sender, stxn) {
-			accounting.closeAccount(stxn.Txn.Sender)
+			accounting.closeAccount(stxn.Txn.Sender, round, intra)
 		}
 	case atypes.KeyRegistrationTx:
 		// see https://github.com/algorand/go-algorand/blob/master/data/transactions/keyreg.go

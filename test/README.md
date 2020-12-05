@@ -49,13 +49,10 @@ query_and_verify `<description>` `<database>` `<query>` `<substring>`
 # Debugging
 
 ### Integration debugging
-This one doesn't have any convenience helpers yet. You'll need to break before the `algorand-indexer import` call and startup your debugger in import mode.
+Pass a 3rd argument to `start_indexer_with_blocks`. The command will print the `algorand-indexer` arguments and hang before starting indexer.
 
 ### Migration Debugging
-If you pass a second argument to `start_indexer` the command will print the `algorand-indexer` arguments and hang before starting indexer. This makes it pretty easy to run a test in a debugger.
-
-It may be useful to edit one of the entry point scripts to make sure the dataset you're interested in is loaded first.
-
+Pass a 2nd argument to `start_indexer`. The command will print the `algorand-indexer` arguments and hang before starting indexer.
 
 # Creating a new test
 

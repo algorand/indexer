@@ -740,6 +740,13 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 		}
 		defer upsertalgo.Close()
 
+		// Attach some extra "apply data" metadata to allow rewinding the reset rewards that are about to reset.
+		setTxnCloseExtra, err := tx.Prepare(setTxnCloseExtraQuery)
+		if err != nil {
+			return fmt.Errorf("prepare set txn close extra, %v", err)
+		}
+		defer setTxnCloseExtra.Close()
+
 		// If the account is closing the cumulative rewards field and closed_at needs to be set directly
 		// Using an upsert because it's technically allowed to create and close an account in the same round.
 		closealgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, created_at, closed_at) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewards_total = EXCLUDED.rewards_total, closed_at = EXCLUDED.closed_at`)
@@ -755,6 +762,10 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 					return fmt.Errorf("update algo, %v", err)
 				}
 			} else {
+				_, err = setTxnCloseExtra.Exec(delta.Round, delta.Intra, addr[:])
+				if err != nil {
+					return fmt.Errorf("update algo, %v", err)
+				}
 				_, err = closealgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards, round, round)
 				if err != nil {
 					return fmt.Errorf("update algo, %v", err)

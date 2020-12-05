@@ -190,6 +190,7 @@ func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
 // TxnExtra is some additional metadata needed for a transaction.
 type TxnExtra struct {
 	AssetCloseAmount   uint64          `codec:"aca,omitempty"`
+	RewardsBeforeClose uint64          `codec:"rbc,omitempty"`
 	GlobalReverseDelta AppReverseDelta `codec:"agr,omitempty"`
 	LocalReverseDelta  AppReverseDelta `codec:"alr,omitempty"`
 }
@@ -481,7 +482,9 @@ type AlgoUpdate struct {
 	// Closed changes the nature of the Rewards field. Balance and Rewards are normally deltas added to the
 	// microalgos and totalRewards columns, but if an account has been Closed then Rewards becomes a new value
 	// that replaces the old value (always zero by current reward logic)
-	Closed  bool
+	Closed bool
+	Round  uint64
+	Intra  int
 }
 
 // RoundUpdates is used by the accounting and IndexerDb implementations to share modifications in a block.

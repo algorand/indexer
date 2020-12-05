@@ -124,6 +124,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			} else if !stxn.Txn.CloseRemainderTo.IsZero() {
 				// unwind sending a close-to
 				acct.AmountWithoutPendingRewards += uint64(stxn.ClosingAmount)
+				acct.Rewards = txnrow.Extra.RewardsBeforeClose
 			}
 		case atypes.KeyRegistrationTx:
 			// TODO: keyreg does not rewind. workaround: query for txns on an account with typeenum=2 to find previous values it was set to.
