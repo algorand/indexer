@@ -33,7 +33,7 @@ func (mm *MigrationMiddleware) handler(next echo.HandlerFunc) echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusInternalServerError, "Indexer health error: %s", err.Error())
 		}
 
-		if h.IsMigrating {
+		if h.IsMigrating && !h.DBAvailable {
 			return echo.NewHTTPError(http.StatusInternalServerError, InProgressError)
 		}
 
