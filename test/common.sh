@@ -120,6 +120,7 @@ function start_indexer() {
 
 # $1 - postgres dbname
 # $2 - e2edata tar.bz2 archive
+# $3 - if set, halts execution
 function start_indexer_with_blocks() {
   if [ ! -f $2 ]; then
     echo "Cannot find $2"
@@ -140,7 +141,7 @@ function start_indexer_with_blocks() {
 
   rm -rf $TEMPDIR
 
-  start_indexer $1
+  start_indexer $1 $3
 }
 
 # Query indexer for 20 seconds waiting for migration to complete.
@@ -321,7 +322,7 @@ function create_delete_tests() {
       "15|35|82"
     query_and_verify "app optin/optout/optin should clear closed_at" $1 \
       "select created_at, closed_at, app from account_app WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND app=203" \
-      "57||203"
+      "57|59|203"
 
     #######################
     # Asset Holding Tests #
@@ -337,7 +338,7 @@ function create_delete_tests() {
       "25|31|135"
     query_and_verify "asset optin / close-out / optin" $1 \
       "select created_at, closed_at, assetid from account_asset WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND assetid=168" \
-      "37||168"
+      "37|39|168"
 
     #################
     # Account Tests #
@@ -350,7 +351,7 @@ function create_delete_tests() {
       "4||999999885998"
     query_and_verify "account create close create" $1 \
       "select created_at, closed_at, microalgos from account WHERE addr = decode('KbUa0wk9gB3BgAjQF0J9NqunWaFS+h4cdZdYgGfBes0=', 'base64')" \
-      "17||100000"
+      "17|19|100000"
     query_and_verify "account create close create close" $1 \
       "select created_at, closed_at, microalgos from account WHERE addr = decode('8rpfPsaRRIyMVAnrhHF+SHpq9za99C1NknhTLGm5Xkw=', 'base64')" \
       "9|15|0"
