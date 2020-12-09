@@ -450,7 +450,6 @@ type m5AccountData struct {
 	assetHolding      map[uint64]*createClose
 	app               map[uint64]*createClose
 	appLocal          map[uint64]*createClose
-
 }
 
 func initM5AccountData() *m5AccountData {
@@ -465,7 +464,7 @@ func initM5AccountData() *m5AccountData {
 }
 
 // processAccountTransactions contains all the accounting logic to recompute total rewards and create/close rounds.
-func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, address types.Address) (error, *m5AccountData) {
+func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, address types.Address) (*m5AccountData, error) {
 	var err error
 	result := initM5AccountData()
 	numTxn := 0
@@ -492,7 +491,7 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 		// When the account is closed rewards reset to zero.
 		// Because transactions are newest to oldest, stop accumulating once we see a close.
 		if !result.account.closed.Valid {
-			if accounting.AccountCloseTxn(address, stxn){
+			if accounting.AccountCloseTxn(address, stxn) {
 				result.account.closed.Valid = true
 				result.account.closed.Int64 = int64(txn.Round)
 			} else {
@@ -636,7 +635,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 		})
 
 		// Process transactions!
-		err, result := processAccountTransactions(txnrows, addressStr, address)
+		result, err := processAccountTransactions(txnrows, addressStr, address)
 
 		// 1. updateTotalRewards            - conditionally update the total rewards if the account wasn't closed during iteration.
 		_, err = updateTotalRewards.Exec(address[:], result.cumulativeRewards, state.NextRound)
