@@ -202,5 +202,12 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 	}
 
 	acct.Round = round
+
+	// Due to accounts being closed and re-opened, we cannot always rewind Rewards. So clear it out.
+	acct.Rewards = 0
+
+	// TODO: Clear out the closed-at field as well. Like Rewards we cannot know this value for all accounts.
+	//acct.ClosedAt = 0
+
 	return
 }
