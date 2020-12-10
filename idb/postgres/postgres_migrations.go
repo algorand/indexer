@@ -84,15 +84,6 @@ func wrapPostgresHandler(handler postgresMigrationFunc, db *IndexerDb, state *Mi
 	}
 }
 
-// processAccount is a helper to modify accounts based on migration state.
-func (db *IndexerDb) processAccount(account *generated.Account) {
-	if db.migration != nil {
-		if s := db.migration.GetStatus(); s.Running && s.TaskID <= rewardsMigrationIndex {
-			account.Rewards = 0
-		}
-	}
-}
-
 func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
 	var state MigrationState
 	if len(migrationStateJSON) > 0 {
@@ -144,6 +135,59 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 	migrationStateJSON := string(json.Encode(state))
 	return db.SetMetastate(migrationMetastateKey, migrationStateJSON)
 }
+
+func getMigrationState(db *IndexerDb) (*MigrationState, error) {
+	migrationStateJSON, err := db.GetMetastate(migrationMetastateKey)
+	if err == sql.ErrNoRows {
+		// no previous state, ok
+		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("%s, get m state err", txidMigrationErrMsg)
+	}
+	var txstate MigrationState
+	err = json.Decode([]byte(migrationStateJSON), &txstate)
+	if err != nil {
+		return nil, fmt.Errorf("%s, migration json err", txidMigrationErrMsg)
+	}
+	return &txstate, nil
+}
+
+// Cached values for processAccount
+var hasRewardsSupport = false
+var lastCheckTs time.Time
+
+// processAccount is a helper to modify accounts based on migration state.
+func (db *IndexerDb) processAccount(account *generated.Account) {
+	if hasRewardsSupport {
+		// skip this whole if/else block
+	} else if db.migration != nil {
+		if s := db.migration.GetStatus(); !s.Running || s.TaskID > rewardsMigrationIndex {
+			hasRewardsSupport = true
+		}
+	} else {
+		// Only check the metastate once a minute
+		if time.Since(lastCheckTs) > time.Minute {
+			state, err := getMigrationState(db)
+			if err != nil {
+				hasRewardsSupport = false
+			} else if state == nil {
+				// no metastate object, must be a brand new installation
+				hasRewardsSupport = true
+			} else {
+				// Check that we're beyond the rewards migration task
+				hasRewardsSupport = state.NextMigration > rewardsMigrationIndex
+			}
+
+			lastCheckTs = time.Now()
+		}
+	}
+
+	if !hasRewardsSupport {
+		account.Rewards = 0
+	}
+}
+
+
 
 func m0fixupTxid(db *IndexerDb, state *MigrationState) error {
 	mtxid := &txidFiuxpMigrationContext{db: db, state: state}
@@ -918,22 +962,21 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 	row := tx.QueryRow(`SELECT v FROM metastate WHERE k = $1`, migrationMetastateKey)
 	var migrationStateJSON []byte
 	err = row.Scan(&migrationStateJSON)
-	var txstate MigrationState
-	if err == sql.ErrNoRows && state.NextMigration == 0 {
-		// no previous state, ok
-	} else if err != nil {
+	var txstate *MigrationState
+
+	txstate, err = getMigrationState(db)
+	if err != nil {
 		db.log.WithError(err).Errorf("%s, get m state err", txidMigrationErrMsg)
 		return err
+	} else if state == nil {
+		// no previous state, ok
 	} else {
-		err = json.Decode([]byte(migrationStateJSON), &txstate)
-		if err != nil {
-			db.log.WithError(err).Errorf("%s, migration json err", txidMigrationErrMsg)
-			return err
-		}
+		// Check that we're beyond the rewards migration task
 		if state.NextMigration != txstate.NextMigration || state.NextRound != txstate.NextRound {
 			db.log.Printf("%s, migration state changed when we weren't looking: %v -> %v", txidMigrationErrMsg, state, txstate)
 		}
 	}
+
 	// _sometimes_ the temp table exists from the previous cycle.
 	// So, 'create if not exists' and truncate.
 	_, err = tx.Exec(`CREATE TEMP TABLE IF NOT EXISTS txid_fix_batch (round bigint NOT NULL, intra smallint NOT NULL, txid bytea NOT NULL, PRIMARY KEY ( round, intra ))`)
@@ -987,7 +1030,7 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 		db.log.WithError(err).Errorf("%s, batch commit err", txidMigrationErrMsg)
 		return err
 	}
-	mtxid.state = &txstate
+	mtxid.state = txstate
 	_, err = db.db.Exec(`DROP TABLE IF EXISTS txid_fix_batch`)
 	if err != nil {
 		db.log.WithError(err).Errorf("warning txid migration, drop temp err")
