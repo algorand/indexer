@@ -477,7 +477,7 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 		}
 		numTxn++
 
-		// Transactions are ordered most recent to oldest, make sure created is set to the last transaction.
+		// Transactions are ordered most recent to oldest, so this makes sure created is set to the oldest transaction.
 		result.account.created.Valid = true
 		result.account.created.Int64 = int64(txn.Round)
 
