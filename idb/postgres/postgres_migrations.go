@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"os"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
@@ -16,10 +17,14 @@ import (
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
+	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/types"
 )
+
+// rewardsMigrationIndex is the index of m5RewardsAndDatesPart2.
+const rewardsMigrationIndex = 5
 
 func init() {
 	migrations = []migrationStruct{
@@ -29,6 +34,15 @@ func init() {
 		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
 		{m4RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
 		{m5RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
+	}
+
+	// Verify ensure the constant is pointing to the right index
+	var m5Ptr postgresMigrationFunc = m5RewardsAndDatesPart2
+	a2 := fmt.Sprintf("%v", migrations[rewardsMigrationIndex].migrate)
+	a1 := fmt.Sprintf("%v", m5Ptr)
+	if a1 != a2 {
+		fmt.Println("Bad constant in postgres_migrations.go")
+		os.Exit(1)
 	}
 }
 
@@ -67,6 +81,15 @@ var migrations []migrationStruct
 func wrapPostgresHandler(handler postgresMigrationFunc, db *IndexerDb, state *MigrationState) migration.Handler {
 	return func() error {
 		return handler(db, state)
+	}
+}
+
+// processAccount is a helper to modify accounts based on migration state.
+func (db *IndexerDb) processAccount(account *generated.Account) {
+	if db.migration != nil {
+		if s := db.migration.GetStatus(); s.Running && s.TaskID <= rewardsMigrationIndex {
+			account.Rewards = 0
+		}
 	}
 }
 

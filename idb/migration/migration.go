@@ -48,6 +48,9 @@ type State struct {
 	// Err is the last error which occurred during the migration. On an error the migration should halt.
 	Err      error
 
+	// TaskID if a task is running, this is the ID of that task.
+	TaskID int
+
 	// Status is the most recent status message.
 	Status   string
 
@@ -135,7 +138,7 @@ func (m *Migration) GetStatus() State {
 }
 
 // update is a helper to set values in a thread safe way.
-func (m *Migration) update(err error, status string, running bool, blocking bool) {
+func (m *Migration) update(err error, status string, running bool, blocking bool, id int) {
 	m.mutex.Lock()
 
 	defer m.mutex.Unlock()
@@ -156,6 +159,10 @@ func (m *Migration) update(err error, status string, running bool, blocking bool
 	if blocking != m.state.Blocking {
 		m.state.Blocking = blocking
 	}
+
+	if id != m.state.TaskID {
+		m.state.TaskID = id
+	}
 }
 
 // RunMigrations runs all tasks which have been loaded into the migration. It will update the status accordingly as the
@@ -169,7 +176,7 @@ func (m *Migration) RunMigrations() {
 			blocking = false
 		}
 
-		m.update(nil, StatusActivePrefix+task.Description, true, blocking)
+		m.update(nil, StatusActivePrefix+task.Description, true, blocking, task.MigrationID)
 		err := task.Handler()
 
 		if err != nil {
@@ -177,12 +184,12 @@ func (m *Migration) RunMigrations() {
 			m.log.WithError(err).Errorf("Migration failed")
 			// If a migration failed, mark that the migration is blocking and terminate.
 			blocking = true
-			m.update(err, err.Error(), false, blocking)
+			m.update(err, err.Error(), false, blocking, task.MigrationID)
 			return
 		}
 	}
 
-	m.update(nil, StatusComplete, false, false)
+	m.update(nil, StatusComplete, false, false, -1)
 	m.log.Println("Migration finished successfully.")
 	return
 }
