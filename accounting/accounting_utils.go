@@ -6,7 +6,7 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
-TODO: Move these to the SDK as helpers on the transaction type
+// TODO: Move these to the SDK as helpers on the transaction type
 
 // AccountCloseTxn returns whether the transaction closed the given account.
 func AccountCloseTxn(addr sdk_types.Address, stxn types.SignedTxnWithAD) bool {
