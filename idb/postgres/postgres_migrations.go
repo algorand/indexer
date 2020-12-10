@@ -472,7 +472,7 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 	// Loop through transactions
 	for txn := range txnrows {
 		if len(txn.TxnBytes) == 0 {
-			return fmt.Errorf("%s: processing account %s: found empty TxnBytes (rnd %d, intra %d):  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Round, txn.Intra, err), nil
+			return nil, fmt.Errorf("%s: processing account %s: found empty TxnBytes (rnd %d, intra %d):  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Round, txn.Intra, err)
 			continue
 		}
 		numTxn++
@@ -485,7 +485,7 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 		var stxn types.SignedTxnWithAD
 		err = msgpack.Decode(txn.TxnBytes, &stxn)
 		if err != nil {
-			return fmt.Errorf("%s: processing account %s: decoding txn (rnd %d, intra %d):  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Round, txn.Intra, err), nil
+			return nil, fmt.Errorf("%s: processing account %s: decoding txn (rnd %d, intra %d):  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Round, txn.Intra, err)
 		}
 
 		// When the account is closed rewards reset to zero.
@@ -548,7 +548,7 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 		result.account.created.Int64 = 0
 	}
 
-	return nil, result
+	return result, nil
 }
 
 // m5RewardsAndDatesPart2UpdateAccounts loops through the provided accounts and generates a bunch of updates in a
