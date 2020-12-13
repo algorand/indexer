@@ -636,6 +636,9 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 
 		// Process transactions!
 		result, err := processAccountTransactions(txnrows, addressStr, address)
+		if err != nil {
+			return fmt.Errorf("%s: failed to update %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+		}
 
 		// 1. updateTotalRewards            - conditionally update the total rewards if the account wasn't closed during iteration.
 		_, err = updateTotalRewards.Exec(address[:], result.cumulativeRewards, state.NextRound)

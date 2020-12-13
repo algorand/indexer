@@ -1603,7 +1603,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		end := time.Now()
 		dt := end.Sub(req.start)
 		if dt > (1 * time.Second) {
-			log.Warnf("long query %fs: %s", dt.Seconds(), req.query)
+			db.log.Warnf("long query %fs: %s", dt.Seconds(), req.query)
 		}
 	}()
 	for req.rows.Next() {
