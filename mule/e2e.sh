@@ -17,5 +17,4 @@ dpkg -i "$DEB"
 sudo -u postgres bash -c "psql -c \"CREATE ROLE $USER WITH SUPERUSER CREATEDB LOGIN ENCRYPTED PASSWORD '$USER';\""
 sudo -u postgres bash -c "psql -c \"CREATE DATABASE $DB_NAME;\""
 
-python3 misc/e2etest.py --connection-string "host=localhost port=$PORT dbname=$DB_NAME sslmode=disable user=$USER password=$USER" --indexer-bin /usr/bin/algorand-indexer
-
+python3 misc/e2elive.py --connection-string "host=localhost port=$PORT dbname=$DB_NAME sslmode=disable user=$USER password=$USER" --indexer-bin /usr/bin/algorand-indexer
