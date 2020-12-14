@@ -656,7 +656,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 			return fmt.Errorf("%s: failed to update %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
 		if dur > 5 * time.Minute {
-			db.log.Warnf("%s: slowness detected, spent %s migrating %s", rewardsCreateCloseUpdateMessage, addressStr, dur)
+			db.log.Warnf("%s: slowness detected, spent %s migrating %s", rewardsCreateCloseUpdateMessage, dur, addressStr)
 		}
 
 		// 1. updateTotalRewards            - conditionally update the total rewards if the account wasn't closed during iteration.
