@@ -475,6 +475,8 @@ func processAccountTransactionsWithRetry(tx *sql.Tx, db *IndexerDb, addressStr s
 		results, err = processAccountTransactions(txnrows, addressStr, address)
 		if err != nil {
 			db.log.Errorf("%s: (attempt %d) failed to update %s: %v", rewardsCreateCloseUpdateErr, i+1, addressStr, err)
+		} else {
+			return
 		}
 	}
 	return
