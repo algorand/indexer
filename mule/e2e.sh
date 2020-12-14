@@ -21,10 +21,6 @@ PORT=5432
 PATH="${PATH}":/usr/bin
 export PATH
 
-# TODO: delete following line which is debugging to see what docker env is doing in automated test
-which goal
-/usr/bin/goal -h
-
 dpkg -i "$DEB"
 
 /etc/init.d/postgresql start
