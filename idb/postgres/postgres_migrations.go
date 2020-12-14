@@ -301,7 +301,8 @@ func m4RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	return sqlMigration(db, state, sqlLines)
 }
 
-const rewardsCreateCloseUpdateErr = "rewards, create_at, close_at migration error"
+const rewardsCreateCloseUpdateMessage = "rewards, create_at, close_at migration error"
+const rewardsCreateCloseUpdateErr = rewardsCreateCloseUpdateMessage + " error"
 
 func b32ToIndex(c byte) int {
 	i := int(c) - 'A'
@@ -648,9 +649,14 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 		finalAddress = address[:]
 
 		// Process transactions!
+		start := time.Now()
 		result, err := processAccountTransactionsWithRetry(tx, db, addressStr, address, uint64(state.NextRound), 3)
+		dur := time.Since(start)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+		}
+		if dur > 5 * time.Minute {
+			db.log.Warnf("%s: slowness detected, spent %s migrating %s", rewardsCreateCloseUpdateMessage, addressStr, dur)
 		}
 
 		// 1. updateTotalRewards            - conditionally update the total rewards if the account wasn't closed during iteration.
