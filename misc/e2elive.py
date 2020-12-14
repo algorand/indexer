@@ -88,6 +88,7 @@ def main():
     for attempt in range(20):
         ok = tryhealthurl(healthurl, args.verbose, waitforround=lastblock)
         if ok:
+            logger.debug('health round={} OK'.format(lastblock))
             break
         time.sleep(0.5)
     if not ok:
@@ -134,7 +135,7 @@ def tryhealthurl(healthurl, verbose=False, waitforround=100):
         return int(rt) >= waitforround
     except Exception as e:
         if verbose:
-            logging.warning('GET %s %s', healthurl, e, exc_info=True)
+            logging.warning('GET %s %s', healthurl, e)
         return False
 
 class subslurp:
