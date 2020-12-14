@@ -463,6 +463,23 @@ func initM5AccountData() *m5AccountData {
 	}
 }
 
+func processAccountTransactionsWithRetry(tx *sql.Tx, db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData, err error){
+	for i := 0; i < retries; i++ {
+		// Query transactions for the account
+		txnrows := db.txTransactions(tx, idb.TransactionFilter{
+			Address:  address[:],
+			MaxRound: nextRound,
+		})
+
+		// Process transactions!
+		results, err = processAccountTransactions(txnrows, addressStr, address)
+		if err != nil {
+			db.log.Errorf("%s: (attempt %d) failed to update %s: %v", rewardsCreateCloseUpdateErr, i+1, addressStr, err)
+		}
+	}
+	return
+}
+
 // processAccountTransactions contains all the accounting logic to recompute total rewards and create/close rounds.
 func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, address types.Address) (*m5AccountData, error) {
 	var err error
@@ -628,14 +645,8 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 		}
 		finalAddress = address[:]
 
-		// Query transactions for the account
-		txnrows := db.txTransactions(tx, idb.TransactionFilter{
-			Address:  address[:],
-			MaxRound: uint64(state.NextRound),
-		})
-
 		// Process transactions!
-		result, err := processAccountTransactions(txnrows, addressStr, address)
+		result, err := processAccountTransactionsWithRetry(tx, db, addressStr, address, uint64(state.NextRound), 3)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
