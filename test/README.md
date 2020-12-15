@@ -1,5 +1,7 @@
 # Integration Test Scripts
 
+** NOTE: These are already out of date. They need to stop using e2edata and instead launch an algod private network based on the private network snapshot.**
+
 These scripts are designed to run tests covering the standard import routines and the migrations using curated data sets. This document describes how they work, how to create new tests, and how to debug problems.
 
 # How it works
