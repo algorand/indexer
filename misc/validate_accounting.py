@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 reward_addr = base64.b64decode("/v////////////////////////////////////////8=")
 fee_addr = base64.b64decode("x/zNsljw1BicK/i21o7ml1CGQrCtAB8x/LkYw1S6hZo=")
+reward_niceaddr = algosdk.encoding.encode_address(reward_addr)
+fee_niceaddr = algosdk.encoding.encode_address(fee_addr)
 
 def getGenesisVars(genesispath):
     with open(genesispath) as fin:
@@ -32,11 +34,17 @@ def getGenesisVars(genesispath):
         rwd = genesis.get('rwd')
         if rwd is not None:
             global reward_addr
+            global reward_niceaddr
+            logger.debug('reward addr %s', rwd)
             reward_addr = algosdk.encoding.decode_address(rwd)
+            reward_niceaddr = rwd
         fees = genesis.get('fees')
         if fees is not None:
             global fee_addr
+            global fee_niceaddr
+            logger.debug('fee addr %s', fees)
             fee_addr = algosdk.encoding.decode_address(fees)
+            fee_niceaddr = fees
 
 def encode_addr(addr):
     if len(addr) == 44:
@@ -60,6 +68,8 @@ def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None):
     if blockround is not None:
         query['round'] = blockround
     for addr in addrlist:
+        if addr in (reward_niceaddr, fee_niceaddr):
+            continue
         accountsurl[2] = os.path.join(rawurl[2], 'v2', 'accounts', addr)
         if query:
             accountsurl[4] = urllib.parse.urlencode(query)
@@ -644,11 +654,12 @@ def main():
         if args.mismatches and len(mismatches) > args.mismatches:
             mismatches = mismatches[:args.mismatches]
         for addr, msg in mismatches:
+            niceaddr = algosdk.encoding.encode_address(addr)
             if addr in (reward_addr, fee_addr):
+                logger.debug('skip %s', niceaddr)
                 # we know accounting for the special addrs is different
                 continue
             retval = 1
-            niceaddr = algosdk.encoding.encode_address(addr)
             xaddr = base64.b16encode(addr).decode().lower()
             err.write('\n{} \'\\x{}\'\n\t{}\n'.format(niceaddr, xaddr, msg))
             tcount = 0
