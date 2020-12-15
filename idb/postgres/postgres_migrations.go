@@ -75,7 +75,7 @@ func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err erro
 	if len(migrationStateJSON) > 0 {
 		err = json.Decode([]byte(migrationStateJSON), &state)
 		if err != nil {
-			return fmt.Errorf("bad metastate migration json, %v", err)
+			return fmt.Errorf("(%s) bad metastate migration json, %v", migrationStateJSON, err)
 		}
 	}
 
@@ -491,6 +491,9 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 
 	// Loop through transactions
 	for txn := range txnrows {
+		if txn.Error != nil {
+			return nil, fmt.Errorf("%s: processing account %s: found txnrow error:  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Error)
+		}
 		if len(txn.TxnBytes) == 0 {
 			return nil, fmt.Errorf("%s: processing account %s: found empty TxnBytes (rnd %d, intra %d):  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Round, txn.Intra, err)
 			continue
