@@ -156,23 +156,18 @@ func getMigrationState(db *IndexerDb) (*MigrationState, error) {
 var hasRewardsSupport = false
 var lastCheckTs time.Time
 
-// processAccount is a helper to modify accounts based on migration state.
-func (db *IndexerDb) processAccount(account *generated.Account) {
+// hasTotalRewardsSupport helps check the migration state for whether or not rewards are supported.
+func (db *IndexerDb) hasTotalRewardsSupport() bool {
 	if hasRewardsSupport {
 		// skip this whole if/else block
-	} else if db.migration != nil {
-		if s := db.migration.GetStatus(); !s.Running || s.TaskID > rewardsMigrationIndex {
-			hasRewardsSupport = true
-		}
+	} else if s := db.migration.GetStatus(); !s.IsZero() {
+		hasRewardsSupport = s.TaskID > rewardsMigrationIndex
 	} else {
-		// Only check the metastate once a minute
+		// Only lookup the metastate once a minute
 		if time.Since(lastCheckTs) > time.Minute {
 			state, err := getMigrationState(db)
-			if err != nil {
+			if err != nil || state == nil {
 				hasRewardsSupport = false
-			} else if state == nil {
-				// no metastate object, must be a brand new installation
-				hasRewardsSupport = true
 			} else {
 				// Check that we're beyond the rewards migration task
 				hasRewardsSupport = state.NextMigration > rewardsMigrationIndex
@@ -182,12 +177,15 @@ func (db *IndexerDb) processAccount(account *generated.Account) {
 		}
 	}
 
-	if !hasRewardsSupport {
+	return hasRewardsSupport
+}
+
+// processAccount is a helper to modify accounts based on migration state.
+func (db *IndexerDb) processAccount(account *generated.Account) {
+	if !db.hasTotalRewardsSupport() {
 		account.Rewards = 0
 	}
 }
-
-
 
 func m0fixupTxid(db *IndexerDb, state *MigrationState) error {
 	mtxid := &txidFiuxpMigrationContext{db: db, state: state}
@@ -959,12 +957,7 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 	// Check that migration state in db is still what we think it is
-	row := tx.QueryRow(`SELECT v FROM metastate WHERE k = $1`, migrationMetastateKey)
-	var migrationStateJSON []byte
-	err = row.Scan(&migrationStateJSON)
-	var txstate *MigrationState
-
-	txstate, err = getMigrationState(db)
+	txstate, err := getMigrationState(db)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, get m state err", txidMigrationErrMsg)
 		return err
@@ -1019,7 +1012,7 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 		return err
 	}
 	txstate.NextRound = int64(maxRound + 1)
-	migrationStateJSON = json.Encode(txstate)
+	migrationStateJSON := json.Encode(txstate)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, set metastate err", txidMigrationErrMsg)

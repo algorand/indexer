@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -45,6 +46,9 @@ type Task struct {
 
 // State is the current status of the migration.
 type State struct {
+	// Time is when this state was captured.
+	Time time.Time
+
 	// Err is the last error which occurred during the migration. On an error the migration should halt.
 	Err      error
 
@@ -59,6 +63,10 @@ type State struct {
 
 	// Blocking indicates that one or more tasks have requested that the DB remain unavailable until they complete.
 	Blocking bool
+}
+
+func (s State) IsZero() bool {
+	return s == State{}
 }
 
 // Migration manages the execution of multiple migration tasks and provides a mechanism for concurrent status checks.
@@ -106,6 +114,7 @@ func MakeMigration(migrationTasks []Task, logger *log.Logger) (*Migration, error
 		log: logger,
 		tasks: migrationTasks,
 		state: State{
+			Time:     time.Now(),
 			Err:      nil,
 			Status:   StatusPending,
 			Running:  false,
@@ -126,10 +135,15 @@ func MakeMigration(migrationTasks []Task, logger *log.Logger) (*Migration, error
 
 // GetStatus returns the current status of the migration. This function is thread safe.
 func (m *Migration) GetStatus() State {
+	if m == nil {
+		return State{}
+	}
+
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	return State{
+		Time:     time.Now(),
 		Err:      m.state.Err,
 		Status:   m.state.Status,
 		Running:  m.state.Running,
