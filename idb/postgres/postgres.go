@@ -73,9 +73,7 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (p
 
 	// e.g. a user named "readonly" is in the connection string
 	readonly := (opts != nil) && opts.ReadOnly
-	if !readonly {
-		err = pdb.init()
-	}
+	err = pdb.init(readonly)
 	return
 }
 
@@ -98,17 +96,22 @@ type IndexerDb struct {
 	migration *migration.Migration
 }
 
-func (db *IndexerDb) init() (err error) {
+func (db *IndexerDb) init(readonly bool) (err error) {
+	migrationState, _ := db.getMigrationState()
+	hasMigration := migrationState != nil
+
+	if hasMigration && readonly && readOnlyNeedsMigration(*migrationState) {
+		return fmt.Errorf("unable to start in read-only mode: migration required")
+	}
+
 	accountingStateJSON, _ := db.GetMetastate(stateMetastateKey)
 	hasAccounting := len(accountingStateJSON) > 0
-	migrationStateJSON, _ := db.GetMetastate(migrationMetastateKey)
-	hasMigration := len(migrationStateJSON) > 0
 
 	db.GetSpecialAccounts()
 
 	if hasMigration || hasAccounting {
 		// see postgres_migrations.go
-		return db.runAvailableMigrations(migrationStateJSON)
+		return db.runAvailableMigrations(migrationState)
 	}
 
 	// new database, run setup
