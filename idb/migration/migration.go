@@ -65,6 +65,7 @@ type State struct {
 	Blocking bool
 }
 
+// IsZero returns true if the object has not been initialized.
 func (s State) IsZero() bool {
 	return s == State{}
 }
