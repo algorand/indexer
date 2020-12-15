@@ -165,7 +165,7 @@ func (db *IndexerDb) hasTotalRewardsSupport() bool {
 
 	// If this is the read/write instance, check the migration status directly
 	if s := db.migration.GetStatus(); !s.IsZero() {
-		hasRewardsSupport = s.TaskID > rewardsMigrationIndex
+		hasRewardsSupport = s.TaskID > rewardsMigrationIndex || s.TaskID == -1
 		return hasRewardsSupport
 	}
 

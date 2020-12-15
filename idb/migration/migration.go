@@ -52,7 +52,7 @@ type State struct {
 	// Err is the last error which occurred during the migration. On an error the migration should halt.
 	Err      error
 
-	// TaskID if a task is running, this is the ID of that task.
+	// TaskID is the next task that should run, or -1 if all migrations are finished.
 	TaskID int
 
 	// Status is the most recent status message.
@@ -120,6 +120,7 @@ func MakeMigration(migrationTasks []Task, logger *log.Logger) (*Migration, error
 			Status:   StatusPending,
 			Running:  false,
 			Blocking: true,
+			TaskID:   0,
 		},
 	}
 
@@ -149,6 +150,7 @@ func (m *Migration) GetStatus() State {
 		Status:   m.state.Status,
 		Running:  m.state.Running,
 		Blocking: m.state.Blocking,
+		TaskID:   m.state.TaskID,
 	}
 }
 
