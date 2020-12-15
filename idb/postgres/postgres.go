@@ -101,7 +101,7 @@ type IndexerDb struct {
 func (db *IndexerDb) init() (err error) {
 	accountingStateJSON, _ := db.GetMetastate(stateMetastateKey)
 	hasAccounting := len(accountingStateJSON) > 0
-	migrationStateJSON, _ := db.GetMetastate(stateMetastateKey)
+	migrationStateJSON, _ := db.GetMetastate(migrationMetastateKey)
 	hasMigration := len(migrationStateJSON) > 0
 
 	db.GetSpecialAccounts()
