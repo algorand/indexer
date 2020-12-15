@@ -158,23 +158,31 @@ var lastCheckTs time.Time
 
 // hasTotalRewardsSupport helps check the migration state for whether or not rewards are supported.
 func (db *IndexerDb) hasTotalRewardsSupport() bool {
+	// It will never revert back to false, so return it if cached true.
 	if hasRewardsSupport {
-		// skip this whole if/else block
-	} else if s := db.migration.GetStatus(); !s.IsZero() {
-		hasRewardsSupport = s.TaskID > rewardsMigrationIndex
-	} else {
-		// Only lookup the metastate once a minute
-		if time.Since(lastCheckTs) > time.Minute {
-			state, err := getMigrationState(db)
-			if err != nil || state == nil {
-				hasRewardsSupport = false
-			} else {
-				// Check that we're beyond the rewards migration task
-				hasRewardsSupport = state.NextMigration > rewardsMigrationIndex
-			}
+		return hasRewardsSupport
+	}
 
-			lastCheckTs = time.Now()
+	// If this is the read/write instance, check the migration status directly
+	if s := db.migration.GetStatus(); !s.IsZero() {
+		hasRewardsSupport = s.TaskID > rewardsMigrationIndex
+		return hasRewardsSupport
+	}
+
+	// If this is a read-only instance, lookup the migration metstate from the DB once a minute.
+	if time.Since(lastCheckTs) > time.Minute {
+		// Set this unconditionally, if there's a failure lets not spam the DB.
+		lastCheckTs = time.Now()
+
+		state, err := getMigrationState(db)
+		if err != nil || state == nil {
+			hasRewardsSupport = false
+			return hasRewardsSupport
 		}
+
+		// Check that we're beyond the rewards migration task
+		hasRewardsSupport = state.NextMigration > rewardsMigrationIndex
+		return hasRewardsSupport
 	}
 
 	return hasRewardsSupport
