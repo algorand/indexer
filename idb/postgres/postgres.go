@@ -73,7 +73,9 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (p
 
 	// e.g. a user named "readonly" is in the connection string
 	readonly := (opts != nil) && opts.ReadOnly
-	err = pdb.init(readonly)
+	if !readonly {
+		err = pdb.init()
+	}
 	return
 }
 
@@ -96,22 +98,17 @@ type IndexerDb struct {
 	migration *migration.Migration
 }
 
-func (db *IndexerDb) init(readonly bool) (err error) {
-	migrationState, _ := db.getMigrationState()
-	hasMigration := migrationState != nil
-
-	if hasMigration && readonly && readOnlyNeedsMigration(*migrationState) {
-		return fmt.Errorf("unable to start in read-only mode: migration required")
-	}
-
+func (db *IndexerDb) init() (err error) {
 	accountingStateJSON, _ := db.GetMetastate(stateMetastateKey)
 	hasAccounting := len(accountingStateJSON) > 0
+	migrationStateJSON, _ := db.GetMetastate(stateMetastateKey)
+	hasMigration := len(migrationStateJSON) > 0
 
 	db.GetSpecialAccounts()
 
 	if hasMigration || hasAccounting {
 		// see postgres_migrations.go
-		return db.runAvailableMigrations(migrationState)
+		return db.runAvailableMigrations(migrationStateJSON)
 	}
 
 	// new database, run setup
@@ -2458,6 +2455,18 @@ func (db *IndexerDb) Health() (health idb.Health, err error) {
 
 		migrating = state.Running
 		blocking = state.Blocking
+
+		if len(data) > 0 {
+			ptr = &data
+		}
+	} else {
+		var data = make(map[string]interface{})
+		data["read-only-node"] = true
+		state, err := db.getMigrationState()
+		if err == nil {
+			blocking = readOnlyNeedsMigration(*state)
+			data["needs-db-migration"] = blocking
+		}
 
 		if len(data) > 0 {
 			ptr = &data

@@ -89,9 +89,13 @@ func readOnlyNeedsMigration(state MigrationState) bool {
 	return state.NextMigration < rewardsMigrationIndex
 }
 
-func (db *IndexerDb) runAvailableMigrations(state *MigrationState) (err error) {
-	if state == nil {
-		return fmt.Errorf("metastate migration is nil", err)
+func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
+	var state MigrationState
+	if len(migrationStateJSON) > 0 {
+		err = json.Decode([]byte(migrationStateJSON), &state)
+		if err != nil {
+			return fmt.Errorf("bad metastate migration json, %v", err)
+		}
 	}
 
 	// Make migration tasks
@@ -99,7 +103,7 @@ func (db *IndexerDb) runAvailableMigrations(state *MigrationState) (err error) {
 	tasks := make([]migration.Task, 0)
 	for nextMigration < len(migrations) {
 		tasks = append(tasks, migration.Task{
-			Handler:       wrapPostgresHandler(migrations[nextMigration].migrate, db, state),
+			Handler:       wrapPostgresHandler(migrations[nextMigration].migrate, db, &state),
 			MigrationID:   nextMigration,
 			Description:   migrations[nextMigration].description,
 			DBUnavailable: migrations[nextMigration].blocking,
