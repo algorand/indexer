@@ -1898,7 +1898,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			}
 			aout := make([]models.ApplicationLocalState, len(appIds))
 			for i, appid := range appIds {
-				if ls[i].Schema.NumByteSlice == 0 && ls[i].Schema.NumUint == 0 {
+				if appid == 0 {
 					continue
 				}
 				aout[i].Id = appid
