@@ -1898,6 +1898,9 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			}
 			aout := make([]models.ApplicationLocalState, len(appIds))
 			for i, appid := range appIds {
+				if ls[i].Schema.NumByteSlice == 0 && ls[i].Schema.NumUint == 0 {
+					continue
+				}
 				aout[i].Id = appid
 				aout[i].Schema = models.ApplicationStateSchema{
 					NumByteSlice: ls[i].Schema.NumByteSlice,
@@ -1905,9 +1908,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				}
 				aout[i].KeyValue = ls[i].KeyValue.toModel()
 			}
-			if len(aout) > 0 {
-				account.AppsLocalState = &aout
-			}
+			account.AppsLocalState = &aout
 		}
 
 		select {
