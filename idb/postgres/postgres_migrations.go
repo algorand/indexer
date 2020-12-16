@@ -464,10 +464,10 @@ func initM5AccountData() *m5AccountData {
 	}
 }
 
-func processAccountTransactionsWithRetry(tx *sql.Tx, db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData, err error){
+func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData, err error){
 	for i := 0; i < retries; i++ {
 		// Query transactions for the account
-		txnrows := db.txTransactions(tx, idb.TransactionFilter{
+		txnrows := db.Transactions(context.Background(), idb.TransactionFilter{
 			Address:  address[:],
 			MaxRound: nextRound,
 		})
@@ -590,7 +590,33 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 //       for the initial migration, but if we need to reuse it in the future we'll need to fix the queries
 //       or redo the query.
 func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, accounts []string, finalBatch bool) error {
-	var err error
+	// finalAddress is cached for updating the state at the end.
+	var finalAddress []byte
+
+	// Process transactions for each account.
+	accountData := make(map[types.Address]*m5AccountData, 0)
+	for _, addressStr := range accounts {
+		address, err := sdk_types.DecodeAddress(addressStr)
+		if err != nil {
+			return fmt.Errorf("%s: failed to decode address: %s", rewardsCreateCloseUpdateErr, addressStr)
+		}
+		finalAddress = address[:]
+
+		// Process transactions!
+		start := time.Now()
+		result, err := processAccountTransactionsWithRetry(db, addressStr, address, uint64(state.NextRound), 3)
+		dur := time.Since(start)
+		if err != nil {
+			return fmt.Errorf("%s: failed to update %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+		}
+		if dur > 5 * time.Minute {
+			db.log.Warnf("%s: slowness detected, spent %s migrating %s", rewardsCreateCloseUpdateMessage, dur, addressStr)
+		}
+
+		accountData[address] = result
+	}
+
+	// Open a postgres transaction and submit results for each account.
 	tx, err := db.db.Begin()
 	if err != nil {
 		return fmt.Errorf("%s: tx begin: %v", rewardsCreateCloseUpdateErr, err)
@@ -643,25 +669,9 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	}
 	defer setCreateCloseAppLocal.Close()
 
-	var finalAddress []byte
 	// loop through all of the accounts.
-	for _, addressStr := range accounts {
-		address, err := sdk_types.DecodeAddress(addressStr)
-		if err != nil {
-			return fmt.Errorf("%s: failed to decode address: %s", rewardsCreateCloseUpdateErr, addressStr)
-		}
-		finalAddress = address[:]
-
-		// Process transactions!
-		start := time.Now()
-		result, err := processAccountTransactionsWithRetry(tx, db, addressStr, address, uint64(state.NextRound), 3)
-		dur := time.Since(start)
-		if err != nil {
-			return fmt.Errorf("%s: failed to update %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
-		}
-		if dur > 5 * time.Minute {
-			db.log.Warnf("%s: slowness detected, spent %s migrating %s", rewardsCreateCloseUpdateMessage, dur, addressStr)
-		}
+	for address, result := range accountData {
+		addressStr := address.String()
 
 		// 1. updateTotalRewards            - conditionally update the total rewards if the account wasn't closed during iteration.
 		_, err = updateTotalRewards.Exec(address[:], result.cumulativeRewards, state.NextRound)
