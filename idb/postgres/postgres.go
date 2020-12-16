@@ -1896,16 +1896,23 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			aout := make([]models.ApplicationLocalState, len(appIds))
+			aout := make([]models.ApplicationLocalState, 0)
 			for i, appid := range appIds {
-				aout[i].Id = appid
-				aout[i].Schema = models.ApplicationStateSchema{
+				if ls[i].Schema.NumByteSlice == 0 && ls[i].Schema.NumUint == 0 {
+					continue
+				}
+				var state models.ApplicationLocalState
+				state.Id = appid
+				state.Schema = models.ApplicationStateSchema{
 					NumByteSlice: ls[i].Schema.NumByteSlice,
 					NumUint:      ls[i].Schema.NumUint,
 				}
-				aout[i].KeyValue = ls[i].KeyValue.toModel()
+				state.KeyValue = ls[i].KeyValue.toModel()
+				aout = append(aout, state)
 			}
-			account.AppsLocalState = &aout
+			if len(aout) > 0 {
+				account.AppsLocalState = &aout
+			}
 		}
 
 		// Sometimes the migration state effects what data should be returned.
