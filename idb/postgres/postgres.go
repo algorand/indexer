@@ -1896,17 +1896,19 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			aout := make([]models.ApplicationLocalState, len(appIds))
+			aout := make([]models.ApplicationLocalState, 0)
 			for i, appid := range appIds {
-				if appid == 0 {
+				if ls[i].Schema.NumByteSlice == 0 && ls[i].Schema.NumUint == 0 {
 					continue
 				}
-				aout[i].Id = appid
-				aout[i].Schema = models.ApplicationStateSchema{
+				var state models.ApplicationLocalState
+				state.Id = appid
+				state.Schema = models.ApplicationStateSchema{
 					NumByteSlice: ls[i].Schema.NumByteSlice,
 					NumUint:      ls[i].Schema.NumUint,
 				}
-				aout[i].KeyValue = ls[i].KeyValue.toModel()
+				state.KeyValue = ls[i].KeyValue.toModel()
+				aout = append(aout, state)
 			}
 			if len(aout) > 0 {
 				account.AppsLocalState = &aout
