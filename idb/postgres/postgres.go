@@ -1908,7 +1908,9 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				}
 				aout[i].KeyValue = ls[i].KeyValue.toModel()
 			}
-			account.AppsLocalState = &aout
+			if len(aout) > 0 {
+				account.AppsLocalState = &aout
+			}
 		}
 
 		select {
