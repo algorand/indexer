@@ -51,8 +51,12 @@ lint:
 fmt:
 	go fmt ./...
 
-migration-tests: test/migrations/postgres_migration_test.sh
-	test/migrations/postgres_migration_test.sh
+integration:
+	mkdir -p test/blockdata
+	mkdir -p test/migrations
+	curl -s https://algorand-testdata.s3.amazonaws.com/indexer/test_blockdata/create_destroy.tar.bz2 -o test/blockdata/create_destroy.tar.bz2
+	test/postgres_migration_test.sh
+	test/postgres_integration_test.sh
 
 test-package:
 	mule/e2e.sh
