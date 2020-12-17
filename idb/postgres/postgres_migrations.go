@@ -94,7 +94,7 @@ func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err erro
 	if len(migrationStateJSON) > 0 {
 		err = json.Decode([]byte(migrationStateJSON), &state)
 		if err != nil {
-			return fmt.Errorf("bad metastate migration json, %v", err)
+			return fmt.Errorf("(%s) bad metastate migration json, %v", migrationStateJSON, err)
 		}
 	}
 
