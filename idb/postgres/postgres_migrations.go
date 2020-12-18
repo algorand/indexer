@@ -84,6 +84,16 @@ func wrapPostgresHandler(handler postgresMigrationFunc, db *IndexerDb, state *Mi
 	}
 }
 
+// migrationStateBlocked returns true if a migration is required for running in read only mode.
+func migrationStateBlocked(state MigrationState) bool {
+	return state.NextMigration < rewardsMigrationIndex
+}
+
+// needsMigration returns true if there is an incomplete migration.
+func needsMigration(state MigrationState) bool {
+	return state.NextMigration < len(migrations)
+}
+
 func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
 	var state MigrationState
 	if len(migrationStateJSON) > 0 {
@@ -136,7 +146,7 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 	return db.SetMetastate(migrationMetastateKey, migrationStateJSON)
 }
 
-func getMigrationState(db *IndexerDb) (*MigrationState, error) {
+func (db *IndexerDb) getMigrationState() (*MigrationState, error) {
 	migrationStateJSON, err := db.GetMetastate(migrationMetastateKey)
 	if err == sql.ErrNoRows {
 		// no previous state, ok
@@ -174,7 +184,7 @@ func (db *IndexerDb) hasTotalRewardsSupport() bool {
 		// Set this unconditionally, if there's a failure lets not spam the DB.
 		lastCheckTs = time.Now()
 
-		state, err := getMigrationState(db)
+		state, err := db.getMigrationState()
 		if err != nil || state == nil {
 			hasRewardsSupport = false
 			return hasRewardsSupport
@@ -976,7 +986,7 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 	// Check that migration state in db is still what we think it is
-	txstate, err := getMigrationState(db)
+	txstate, err := db.getMigrationState()
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, get m state err", txidMigrationErrMsg)
 		return err
