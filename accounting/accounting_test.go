@@ -147,7 +147,7 @@ func TestOpenClose(t *testing.T) {
 	senderBalance, senderRewards := getSenderAmounts(openMainStxn)
 	receiverBalance, receiverRewards := getReceiverAmounts(closeMainToBCStxn)
 	update = state.AlgoUpdates[openMainStxn.Txn.Sender]
-	assertUpdates(t, update, false, senderBalance + receiverBalance, senderRewards + receiverRewards)
+	assertUpdates(t, update, false, senderBalance+receiverBalance, senderRewards+receiverRewards)
 }
 
 // TestCloseOpen verifies that the accounting state is set correctly when an account is closed then reopened in the same round.
