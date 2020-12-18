@@ -1915,6 +1915,9 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			}
 		}
 
+		// Sometimes the migration state effects what data should be returned.
+		db.processAccount(&account)
+
 		select {
 		case req.out <- idb.AccountRow{Account: account}:
 			count++

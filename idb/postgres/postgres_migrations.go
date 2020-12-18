@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"fmt"
 	"math"
+	"os"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
@@ -16,10 +17,14 @@ import (
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
+	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/types"
 )
+
+// rewardsMigrationIndex is the index of m5RewardsAndDatesPart2.
+const rewardsMigrationIndex = 5
 
 func init() {
 	migrations = []migrationStruct{
@@ -29,6 +34,15 @@ func init() {
 		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
 		{m4RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
 		{m5RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
+	}
+
+	// Verify ensure the constant is pointing to the right index
+	var m5Ptr postgresMigrationFunc = m5RewardsAndDatesPart2
+	a2 := fmt.Sprintf("%v", migrations[rewardsMigrationIndex].migrate)
+	a1 := fmt.Sprintf("%v", m5Ptr)
+	if a1 != a2 {
+		fmt.Println("Bad constant in postgres_migrations.go")
+		os.Exit(1)
 	}
 }
 
@@ -120,6 +134,65 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 	}
 	migrationStateJSON := string(json.Encode(state))
 	return db.SetMetastate(migrationMetastateKey, migrationStateJSON)
+}
+
+func getMigrationState(db *IndexerDb) (*MigrationState, error) {
+	migrationStateJSON, err := db.GetMetastate(migrationMetastateKey)
+	if err == sql.ErrNoRows {
+		// no previous state, ok
+		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("%s, get m state err", txidMigrationErrMsg)
+	}
+	var txstate MigrationState
+	err = json.Decode([]byte(migrationStateJSON), &txstate)
+	if err != nil {
+		return nil, fmt.Errorf("%s, migration json err", txidMigrationErrMsg)
+	}
+	return &txstate, nil
+}
+
+// Cached values for processAccount
+var hasRewardsSupport = false
+var lastCheckTs time.Time
+
+// hasTotalRewardsSupport helps check the migration state for whether or not rewards are supported.
+func (db *IndexerDb) hasTotalRewardsSupport() bool {
+	// It will never revert back to false, so return it if cached true.
+	if hasRewardsSupport {
+		return hasRewardsSupport
+	}
+
+	// If this is the read/write instance, check the migration status directly
+	if s := db.migration.GetStatus(); !s.IsZero() {
+		hasRewardsSupport = s.TaskID > rewardsMigrationIndex || s.TaskID == -1
+		return hasRewardsSupport
+	}
+
+	// If this is a read-only instance, lookup the migration metstate from the DB once a minute.
+	if time.Since(lastCheckTs) > time.Minute {
+		// Set this unconditionally, if there's a failure lets not spam the DB.
+		lastCheckTs = time.Now()
+
+		state, err := getMigrationState(db)
+		if err != nil || state == nil {
+			hasRewardsSupport = false
+			return hasRewardsSupport
+		}
+
+		// Check that we're beyond the rewards migration task
+		hasRewardsSupport = state.NextMigration > rewardsMigrationIndex
+		return hasRewardsSupport
+	}
+
+	return hasRewardsSupport
+}
+
+// processAccount is a helper to modify accounts based on migration state.
+func (db *IndexerDb) processAccount(account *generated.Account) {
+	if !db.hasTotalRewardsSupport() {
+		account.Rewards = 0
+	}
 }
 
 func m0fixupTxid(db *IndexerDb, state *MigrationState) error {
@@ -903,25 +976,19 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 	// Check that migration state in db is still what we think it is
-	row := tx.QueryRow(`SELECT v FROM metastate WHERE k = $1`, migrationMetastateKey)
-	var migrationStateJSON []byte
-	err = row.Scan(&migrationStateJSON)
-	var txstate MigrationState
-	if err == sql.ErrNoRows && state.NextMigration == 0 {
-		// no previous state, ok
-	} else if err != nil {
+	txstate, err := getMigrationState(db)
+	if err != nil {
 		db.log.WithError(err).Errorf("%s, get m state err", txidMigrationErrMsg)
 		return err
+	} else if state == nil {
+		// no previous state, ok
 	} else {
-		err = json.Decode([]byte(migrationStateJSON), &txstate)
-		if err != nil {
-			db.log.WithError(err).Errorf("%s, migration json err", txidMigrationErrMsg)
-			return err
-		}
+		// Check that we're beyond the rewards migration task
 		if state.NextMigration != txstate.NextMigration || state.NextRound != txstate.NextRound {
 			db.log.Printf("%s, migration state changed when we weren't looking: %v -> %v", txidMigrationErrMsg, state, txstate)
 		}
 	}
+
 	// _sometimes_ the temp table exists from the previous cycle.
 	// So, 'create if not exists' and truncate.
 	_, err = tx.Exec(`CREATE TEMP TABLE IF NOT EXISTS txid_fix_batch (round bigint NOT NULL, intra smallint NOT NULL, txid bytea NOT NULL, PRIMARY KEY ( round, intra ))`)
@@ -964,7 +1031,7 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 		return err
 	}
 	txstate.NextRound = int64(maxRound + 1)
-	migrationStateJSON = json.Encode(txstate)
+	migrationStateJSON := json.Encode(txstate)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, set metastate err", txidMigrationErrMsg)
@@ -975,7 +1042,7 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 		db.log.WithError(err).Errorf("%s, batch commit err", txidMigrationErrMsg)
 		return err
 	}
-	mtxid.state = &txstate
+	mtxid.state = txstate
 	_, err = db.db.Exec(`DROP TABLE IF EXISTS txid_fix_batch`)
 	if err != nil {
 		db.log.WithError(err).Errorf("warning txid migration, drop temp err")

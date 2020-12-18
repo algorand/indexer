@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"sync"
+	"time"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -45,8 +46,14 @@ type Task struct {
 
 // State is the current status of the migration.
 type State struct {
+	// Time is when this state was captured.
+	Time time.Time
+
 	// Err is the last error which occurred during the migration. On an error the migration should halt.
 	Err      error
+
+	// TaskID is the next task that should run, or -1 if all migrations are finished.
+	TaskID int
 
 	// Status is the most recent status message.
 	Status   string
@@ -56,6 +63,11 @@ type State struct {
 
 	// Blocking indicates that one or more tasks have requested that the DB remain unavailable until they complete.
 	Blocking bool
+}
+
+// IsZero returns true if the object has not been initialized.
+func (s State) IsZero() bool {
+	return s == State{}
 }
 
 // Migration manages the execution of multiple migration tasks and provides a mechanism for concurrent status checks.
@@ -103,10 +115,12 @@ func MakeMigration(migrationTasks []Task, logger *log.Logger) (*Migration, error
 		log: logger,
 		tasks: migrationTasks,
 		state: State{
+			Time:     time.Now(),
 			Err:      nil,
 			Status:   StatusPending,
 			Running:  false,
 			Blocking: true,
+			TaskID:   0,
 		},
 	}
 
@@ -123,19 +137,25 @@ func MakeMigration(migrationTasks []Task, logger *log.Logger) (*Migration, error
 
 // GetStatus returns the current status of the migration. This function is thread safe.
 func (m *Migration) GetStatus() State {
+	if m == nil {
+		return State{}
+	}
+
 	m.mutex.RLock()
 	defer m.mutex.RUnlock()
 
 	return State{
+		Time:     time.Now(),
 		Err:      m.state.Err,
 		Status:   m.state.Status,
 		Running:  m.state.Running,
 		Blocking: m.state.Blocking,
+		TaskID:   m.state.TaskID,
 	}
 }
 
 // update is a helper to set values in a thread safe way.
-func (m *Migration) update(err error, status string, running bool, blocking bool) {
+func (m *Migration) update(err error, status string, running bool, blocking bool, id int) {
 	m.mutex.Lock()
 
 	defer m.mutex.Unlock()
@@ -156,6 +176,10 @@ func (m *Migration) update(err error, status string, running bool, blocking bool
 	if blocking != m.state.Blocking {
 		m.state.Blocking = blocking
 	}
+
+	if id != m.state.TaskID {
+		m.state.TaskID = id
+	}
 }
 
 // RunMigrations runs all tasks which have been loaded into the migration. It will update the status accordingly as the
@@ -169,7 +193,7 @@ func (m *Migration) RunMigrations() {
 			blocking = false
 		}
 
-		m.update(nil, StatusActivePrefix+task.Description, true, blocking)
+		m.update(nil, StatusActivePrefix+task.Description, true, blocking, task.MigrationID)
 		err := task.Handler()
 
 		if err != nil {
@@ -177,12 +201,12 @@ func (m *Migration) RunMigrations() {
 			m.log.WithError(err).Errorf("Migration failed")
 			// If a migration failed, mark that the migration is blocking and terminate.
 			blocking = true
-			m.update(err, err.Error(), false, blocking)
+			m.update(err, err.Error(), false, blocking, task.MigrationID)
 			return
 		}
 	}
 
-	m.update(nil, StatusComplete, false, false)
+	m.update(nil, StatusComplete, false, false, -1)
 	m.log.Println("Migration finished successfully.")
 	return
 }
