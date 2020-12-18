@@ -2437,6 +2437,7 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows
 
 // Health is part of idb.IndexerDB
 func (db *IndexerDb) Health() (idb.Health, error) {
+	migrationRequired := false
 	migrating := false
 	blocking := false
 	var data = make(map[string]interface{})
@@ -2452,16 +2453,19 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 			data["migration-status"] = state.Status
 		}
 
+		migrationRequired = state.Running
 		migrating = state.Running
 		blocking = state.Blocking
 	} else {
 		data["read-only-node"] = true
 		state, err := db.getMigrationState()
 		if err == nil {
-			blocking = readOnlyNeedsMigration(*state)
+			blocking = migrationStateBlocked(*state)
+			migrationRequired = needsMigration(*state)
 		}
-		data["needs-db-migration"] = blocking
 	}
+
+	data["migration-required"] = migrationRequired
 
 	round, err := db.GetMaxRound()
 	return idb.Health{

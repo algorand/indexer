@@ -84,9 +84,14 @@ func wrapPostgresHandler(handler postgresMigrationFunc, db *IndexerDb, state *Mi
 	}
 }
 
-// readOnlyNeedsMigration returns true if a migration is required for running in read only mode.
-func readOnlyNeedsMigration(state MigrationState) bool {
+// migrationStateBlocked returns true if a migration is required for running in read only mode.
+func migrationStateBlocked(state MigrationState) bool {
 	return state.NextMigration < rewardsMigrationIndex
+}
+
+// needsMigration returns true if there is an incomplete migration.
+func needsMigration(state MigrationState) bool {
+	return state.NextMigration < len(migrations)
 }
 
 func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
