@@ -37,11 +37,14 @@ function base_query() {
 # $2 - database
 # $3 - query
 # $4 - substring that should be in the response
+# $5 - optional max runtime in seconds, default value = 20
 function query_and_verify {
   local DESCRIPTION=$1
   local DATABASE=$2
   local QUERY=$3
   local SUBSTRING=$4
+  local MAX_TIME=${5:-20}
+  local START=$SECONDS
 
   set +e
   RES=$(base_query $DATABASE "$QUERY")
@@ -53,6 +56,11 @@ function query_and_verify {
 
   if [[ "$RES" != *"$SUBSTRING"* ]]; then
     fail_and_exit "$DESCRIPTION" "$QUERY" "unexpected response. should contain '$SUBSTRING', actual: '$RES'"
+  fi
+
+  local ELAPSED=$(($SECONDS - $START))
+  if [ $ELAPSED -gt $MAX_TIME ]; then
+    fail_and_exit "$DESCRIPTION" "$QUERY" "query duration too long, $ELAPSED > $MAX_TIME"
   fi
 
   print_alert "Passed test: $DESCRIPTION"
@@ -68,27 +76,40 @@ function base_call() {
 # $2 - query
 # $3 - expected status code
 # $4 - substring that should be in the response
+# $5 - optional max runtime in seconds, default value = 20
 function call_and_verify {
+  local DESCRIPTION=$1
+  local QUERY=$2
+  local EXPECTED_CODE=$3
+  local PATTERN=$4
+  local MAX_TIME=${5:-20}
+
   local CODE
+  local START=$SECONDS
 
   set +e
-  CODE=$(base_call "$2")
+  CODE=$(base_call "$QUERY")
   if [[ $? != 0 ]]; then
     echo "ERROR"
     cat $CURL_TEMPFILE
-    fail_and_exit "$1" "$2" "curl had a non-zero exit code."
+    fail_and_exit "$DESCRIPTION" "$QUERY" "curl had a non-zero exit code."
   fi
   set -e
 
   RES=$(cat "$CURL_TEMPFILE")
-  if [[ "$CODE" != "$3" ]]; then
-    fail_and_exit "$1" "$2" "unexpected HTTP status code expected $3 (actual $CODE): $RES"
+  if [[ "$CODE" != "$EXPECTED_CODE" ]]; then
+    fail_and_exit "$DESCRIPTION" "$QUERY" "unexpected HTTP status code expected $EXPECTED_CODE (actual $CODE): $RES"
   fi
-  if [[ "$RES" != *"$4"* ]]; then
-    fail_and_exit "$1" "$2" "unexpected response. should contain '$4', actual: $RES"
+  if [[ "$RES" != *"$PATTERN"* ]]; then
+    fail_and_exit "$DESCRIPTION" "$QUERY" "unexpected response. should contain '$PATTERN', actual: $RES"
   fi
 
-  print_alert "Passed test: $1"
+  local ELAPSED=$(($SECONDS - $START))
+  if [ $ELAPSED -gt $MAX_TIME ]; then
+    fail_and_exit "$DESCRIPTION" "$QUERY" "query duration too long, $ELAPSED > $MAX_TIME"
+  fi
+
+  print_alert "Passed test: $DESCRIPTION"
 }
 
 #####################
@@ -101,6 +122,19 @@ function suppress() {
   /bin/rm --force /tmp/suppress.out 2> /dev/null
   ${1+"$@"} > /tmp/suppress.out 2>&1 || cat /tmp/suppress.out
   /bin/rm /tmp/suppress.out
+}
+
+# $1 - connection string
+# $2 - if set, puts in read-only mode
+function start_indexer_with_connection_string() {
+  if [ ! -z $2 ]; then
+    RO="--no-algod"
+  fi
+  ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer daemon \
+    -S $NET "$RO" \
+    -P "$1" \
+    "$RO" \
+    --pidfile $PIDFILE 2>&1 &
 }
 
 # $1 - postgres dbname
@@ -144,25 +178,42 @@ function start_indexer_with_blocks() {
   start_indexer $1 $3
 }
 
+# $1 - number of attempts
+function wait_for_started() {
+  wait_for '"round":' "$1"
+}
+
+# $1 - number of attempts
+function wait_for_migrated() {
+  wait_for '"migration-required":false' "$1"
+}
+
+# $1 - number of attempts
+function wait_for_available() {
+  wait_for '"db-available":true' "$1"
+}
+
 # Query indexer for 20 seconds waiting for migration to complete.
 # Exit with error if still not ready.
-function wait_for_ready() {
+# $1 - string to look for
+# $2 - number of attempts (optional, default = 20)
+function wait_for() {
   local n=0
 
   set +e
   local READY
-  until [ "$n" -ge 20 ] || [ ! -z $READY ]
+  until [ "$n" -ge "${2:-20}" ] || [ ! -z $READY ]
   do
-    curl -q -s "$NET/health" | grep '"is-migrating":false' > /dev/null 2>&1 && READY=1
+    curl -q -s "$NET/health" | grep "$1" > /dev/null 2>&1 && READY=1
     n=$((n+1))
     sleep 1
   done
   set -e
 
   if [ -z $READY ]; then
-    echo "Error: timed out waiting for db to become available."
-    curl "$NET/health"
-    exit 1
+    echo "Error: timed out waiting for $1."
+    curl -q -s "$NET/health"
+    exit "1"
   fi
 }
 
