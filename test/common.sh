@@ -209,7 +209,7 @@ function wait_for() {
   if [ -z $READY ]; then
     echo "Error: timed out waiting for $1."
     curl -q -s "$NET/health"
-    exit "1"
+    exit 1
   fi
 }
 
