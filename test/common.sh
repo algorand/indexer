@@ -145,10 +145,7 @@ function start_indexer() {
     sleep infinity
   fi
 
-  ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer daemon \
-    -S $NET \
-    -P "${CONNECTION_STRING/DB_NAME_HERE/$1}" \
-    --pidfile $PIDFILE > /dev/null 2>&1 &
+  start_indexer_with_connection_string "${CONNECTION_STRING/DB_NAME_HERE/$1}"
 }
 
 

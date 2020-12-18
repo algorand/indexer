@@ -14,7 +14,6 @@ fi
 # This script only works when CWD is 'test'
 rootdir=`dirname $0`
 pushd $rootdir > /dev/null
-pwd
 
 source common.sh
 trap cleanup EXIT
