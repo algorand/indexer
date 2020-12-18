@@ -52,6 +52,7 @@ func (sare *SpecialAccountRewindError) Error() string {
 }
 
 var specialAccounts *idb.SpecialAccounts
+
 // AccountAtRound queries the idb.IndexerDb object for transactions and rewinds most fields of the account back to
 // their values at the requested round.
 func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acct models.Account, err error) {
@@ -144,7 +145,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			}
 		case atypes.AssetFreezeTx:
 		default:
-			panic("unknown txn type")
+			panic(fmt.Sprintf("unknown txn type %s", stxn.Txn.Type))
 		}
 	}
 
