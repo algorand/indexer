@@ -202,8 +202,7 @@ function wait_for() {
 
   set +e
   local READY
-  until [ "$n" -ge "${2:-20}" ] || [ ! -z $READY ]
-  do
+  until [ "$n" -ge ${2:-20} ] || [ ! -z $READY ]; do
     curl -q -s "$NET/health" | grep "$1" > /dev/null 2>&1 && READY=1
     n=$((n+1))
     sleep 1
