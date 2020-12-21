@@ -321,6 +321,7 @@ function create_delete_tests() {
       "/v2/applications/203?pretty" \
       200 \
       '"created-at-round": 55'
+
     sql_test "[sql] app create & delete (app-id=82)" $1 \
       "select created_at, closed_at, index from app WHERE index = 82" \
       "13|37|82"
@@ -346,10 +347,12 @@ function create_delete_tests() {
     sql_test "[sql] app optin no closeout" $1 \
       "select created_at, closed_at, app from account_app WHERE addr=decode('rAMD0F85toNMRuxVEqtxTODehNMcEebqq49p/BZ9rRs=', 'base64') AND app=85" \
       "13||85"
+
     sql_test "[sql] app multiple optins first saved" $1 \
       "select created_at, closed_at, app from account_app WHERE addr=decode('Eze95btTASDFD/t5BDfgA2qvkSZtICa5pq1VSOUU0Y0=', 'base64') AND app=82" \
       "15|35|82"
-    sql_test "[sql] app optin/optout/optin should clear closed_at" $1 \
+
+    sql_test "[sql] app optin/optout/optin should leave last closed_at" $1 \
       "select created_at, closed_at, app from account_app WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND app=203" \
       "57|59|203"
 
@@ -406,19 +409,25 @@ function create_delete_tests() {
       '"created-at-round": 9' \
       '"closeout-at-round": 15'
 
-    rest_test "[rest] account with created and closed applications" \
-      "/v2/accounts/XNMIHFHAZ2GE3XUKISNMOYKNFDOJXBJMVHRSXVVVIK3LNMT22ET2TA4N4I?pretty" \
+    # Localstate account tests
+    rest_test "[rest] app optin no closeout" \
+      "/v2/accounts/VQBQHUC7HG3IGTCG5RKRFK3RJTQN5BGTDQI6N2VLR5U7YFT5VUNVAF57ZU?pretty" \
       200 \
-      '"created-at-round": 39' \
-      '"created-at-round": 13' \
-      '"destroyed-at-round": 37'
-
-    rest_test "[rest] account with created / closed / created app local states" \
+      '"optin-at-round": 13' \
+      '"key": "Y1g="'
+    rest_test "[rest] app multiple optins first saved" \
+      "/v2/accounts/CM333ZN3KMASBRIP7N4QIN7AANVK7EJGNUQCNONGVVKURZIU2GG7XJIZ4Q?pretty" \
+      200 \
+      '"optin-at-round": 15' \
+      '"closeout-at-round": 35'
+    rest_test "[rest] app optin/optout/optin should leave last closed_at" \
       "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty" \
       200 \
       '"optin-at-round": 57' \
       '"closeout-at-round": 59' \
-      '"optin-at-round": 45' \
-      '"closeout-at-round": 51'
+      '"num-byte-slice": 1'
 
+
+    # Account Asset holding
+    # Account Asset
 }
