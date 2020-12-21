@@ -1636,6 +1636,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		// localState* are a pair of lists that should merge together
 		var localStateAppIds []byte // [appId, ...]
 		var localStates []byte      // [{local state}, ...]
+		var localStateCreatedBytes []byte
+		var localStateClosedBytes []byte
 
 		var err error
 
@@ -1646,12 +1648,14 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					&holdingAssetid, &holdingAmount, &holdingFrozen,
 					&assetParamsIds, &assetParamsStr,
 					&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &localStateAppIds, &localStates,
+					&localStateCreatedBytes, &localStateClosedBytes,
 				)
 			} else {
 				err = req.rows.Scan(
 					&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
 					&holdingAssetid, &holdingAmount, &holdingFrozen,
 					&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &localStateAppIds, &localStates,
+					&localStateCreatedBytes, &localStateClosedBytes,
 				)
 			}
 		} else if req.opts.IncludeAssetParams {
@@ -1659,11 +1663,13 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
 				&assetParamsIds, &assetParamsStr,
 				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &localStateAppIds, &localStates,
+				&localStateCreatedBytes, &localStateClosedBytes,
 			)
 		} else {
 			err = req.rows.Scan(
 				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
 				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &localStateAppIds, &localStates,
+				&localStateCreatedBytes, &localStateClosedBytes,
 			)
 		}
 		if err != nil {
@@ -1911,6 +1917,20 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
+			var appCreated []*uint64
+			err = json.Decode(localStateCreatedBytes, &appCreated)
+			if err != nil {
+				err = fmt.Errorf("parsing json ls created ids, %v", err)
+				req.out <- idb.AccountRow{Error: err}
+				break
+			}
+			var appClosed []*uint64
+			err = json.Decode(localStateClosedBytes, &appClosed)
+			if err != nil {
+				err = fmt.Errorf("parsing json ls closed ids, %v", err)
+				req.out <- idb.AccountRow{Error: err}
+				break
+			}
 			var ls []AppLocalState
 			err = json.Decode(localStates, &ls)
 			if err != nil {
@@ -1918,28 +1938,24 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			if len(appIds) != len(ls) {
-				err = fmt.Errorf("account app unpacking got %d appids but %d appls", len(appIds), len(ls))
+			if len(appIds) != len(ls) || len(appClosed) != len(ls) || len(appCreated) != len(ls) {
+				err = fmt.Errorf("account app unpacking, all should be %d:  %d appids, %d appClosed, %d appCreated", len(ls), len(appIds), len(appClosed), len(appCreated))
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			aout := make([]models.ApplicationLocalState, 0)
+
+			aout := make([]models.ApplicationLocalState, len(ls))
 			for i, appid := range appIds {
-				if ls[i].Schema.NumByteSlice == 0 && ls[i].Schema.NumUint == 0 {
-					continue
-				}
-				var state models.ApplicationLocalState
-				state.Id = appid
-				state.Schema = models.ApplicationStateSchema{
+				aout[i].Id = appid
+				aout[i].OptinAtRound = appCreated[i]
+				aout[i].CloseoutAtRound = appClosed[i]
+				aout[i].Schema = models.ApplicationStateSchema{
 					NumByteSlice: ls[i].Schema.NumByteSlice,
 					NumUint:      ls[i].Schema.NumUint,
 				}
-				state.KeyValue = ls[i].KeyValue.toModel()
-				aout = append(aout, state)
+				aout[i].KeyValue = ls[i].KeyValue.toModel()
 			}
-			if len(aout) > 0 {
-				account.AppsLocalState = &aout
-			}
+			account.AppsLocalState = &aout
 		}
 
 		// Sometimes the migration state effects what data should be returned.
@@ -2212,7 +2228,12 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	if opts.IncludeAssetParams {
 		query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr GROUP BY 1)`
 	}
-	query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at FROM app JOIN qaccounts ON qaccounts.addr = app.creator GROUP BY 1), qls AS (SELECT la.addr, json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr GROUP BY 1)`
+	// app
+	query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at FROM app JOIN qaccounts ON qaccounts.addr = app.creator GROUP BY 1)`
+	// app localstate
+	query += `, qls AS (SELECT la.addr, json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls, json_agg(la.created_at) as ls_created_at, json_agg(la.closed_at) as ls_closed_at FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr GROUP BY 1)`
+
+	// query results
 	query += ` SELECT za.addr, za.microalgos, za.rewards_total, za.created_at, za.closed_at, za.rewardsbase, za.keytype, za.account_data`
 	if opts.IncludeAssetHoldings {
 		query += `, qaa.haid, qaa.hamt, qaa.hf`
@@ -2220,7 +2241,9 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	if opts.IncludeAssetParams {
 		query += `, qap.paid, qap.pp`
 	}
-	query += `, qapp.papps, qapp.ppa, qapp.app_created_at, qapp.app_closed_at, qls.lsapps, qls.lsls FROM qaccounts za`
+	query += `, qapp.papps, qapp.ppa, qapp.app_created_at, qapp.app_closed_at, qls.lsapps, qls.lsls, qls.ls_created_at, qls.ls_closed_at FROM qaccounts za`
+
+	// join everything together
 	if opts.IncludeAssetHoldings {
 		query += ` LEFT JOIN qaa ON za.addr = qaa.addr`
 	}

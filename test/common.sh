@@ -130,7 +130,7 @@ function start_indexer() {
   ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer daemon \
     -S $NET \
     -P "${CONNECTION_STRING/DB_NAME_HERE/$1}" \
-    --pidfile $PIDFILE 2>&1 &
+    --pidfile $PIDFILE 2>&1 > /dev/null &
 }
 
 
@@ -372,7 +372,6 @@ function create_delete_tests() {
     #################
     # Account Tests #
     #################
-    # TODO: Need tests for accounts with nested app, appLocal, asset, assetHolding
     sql_test "[sql] genesis account with no transactions" $1 \
       "select created_at, closed_at, microalgos from account WHERE addr = decode('4L294Wuqgwe0YXi236FDVI5RX3ayj4QL1QIloIyerC4=', 'base64')" \
       "0||5000000000000000"
@@ -413,5 +412,13 @@ function create_delete_tests() {
       '"created-at-round": 39' \
       '"created-at-round": 13' \
       '"destroyed-at-round": 37'
+
+    rest_test "[rest] account with created / closed / created app local states" \
+      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty" \
+      200 \
+      '"optin-at-round": 57' \
+      '"closeout-at-round": 59' \
+      '"optin-at-round": 45' \
+      '"closeout-at-round": 51'
 
 }
