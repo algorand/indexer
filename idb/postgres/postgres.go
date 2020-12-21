@@ -1632,8 +1632,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		var assetParamsClosedBytes []byte
 
 		// appParam* are a pair of lists that should merge together
-		var appParamIndexes []byte     // [appId, ...]
-		var appParams []byte           // [{AppParams}, ...]
+		var appParamIndexes []byte // [appId, ...]
+		var appParams []byte       // [{AppParams}, ...]
 		var appCreatedBytes []byte
 		var appClosedBytes []byte
 
@@ -1646,20 +1646,20 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		var err error
 
 		if req.opts.IncludeAssetHoldings && req.opts.IncludeAssetParams {
-				err = req.rows.Scan(
-					&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
-					&holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes,
-					&assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes,
-					&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &localStateAppIds, &localStates,
-					&localStateCreatedBytes, &localStateClosedBytes,
-				)
+			err = req.rows.Scan(
+				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
+				&holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes,
+				&assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes,
+				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &localStateAppIds, &localStates,
+				&localStateCreatedBytes, &localStateClosedBytes,
+			)
 		} else if req.opts.IncludeAssetHoldings {
-				err = req.rows.Scan(
-					&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
-					&holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes,
-					&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &localStateAppIds, &localStates,
-					&localStateCreatedBytes, &localStateClosedBytes,
-				)
+			err = req.rows.Scan(
+				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
+				&holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes,
+				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &localStateAppIds, &localStates,
+				&localStateCreatedBytes, &localStateClosedBytes,
+			)
 		} else if req.opts.IncludeAssetParams {
 			err = req.rows.Scan(
 				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
@@ -1865,8 +1865,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				ap := assetParams[i]
 
 				tma := models.Asset{
-					Index: assetid,
-					CreatedAtRound: assetCreated[i],
+					Index:            assetid,
+					CreatedAtRound:   assetCreated[i],
 					DestroyedAtRound: assetClosed[i],
 					Params: models.AssetParams{
 						Creator:       account.Address,
