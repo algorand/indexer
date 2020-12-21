@@ -1610,6 +1610,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		var addr []byte
 		var microalgos uint64
 		var rewardstotal uint64
+		var createdat sql.NullInt64
+		var closedat sql.NullInt64
 		var rewardsbase uint64
 		var keytype *string
 		var accountDataJSONStr []byte
@@ -1638,27 +1640,27 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		if req.opts.IncludeAssetHoldings {
 			if req.opts.IncludeAssetParams {
 				err = req.rows.Scan(
-					&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJSONStr,
+					&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
 					&holdingAssetid, &holdingAmount, &holdingFrozen,
 					&assetParamsIds, &assetParamsStr,
 					&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 				)
 			} else {
 				err = req.rows.Scan(
-					&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJSONStr,
+					&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
 					&holdingAssetid, &holdingAmount, &holdingFrozen,
 					&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 				)
 			}
 		} else if req.opts.IncludeAssetParams {
 			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJSONStr,
+				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
 				&assetParamsIds, &assetParamsStr,
 				&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 			)
 		} else {
 			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &rewardsbase, &keytype, &accountDataJSONStr,
+				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
 				&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 			)
 		}
@@ -1674,6 +1676,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		account.Round = uint64(req.blockheader.Round)
 		account.AmountWithoutPendingRewards = microalgos
 		account.Rewards = rewardstotal
+		account.CreatedAtRound = nullableInt64Ptr(createdat)
+		account.CloseoutAtRound = nullableInt64Ptr(closedat)
 		account.RewardBase = new(uint64)
 		*account.RewardBase = rewardsbase
 		// default to Offline in there have been no keyreg transactions.
@@ -1933,6 +1937,19 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 	close(req.out)
 }
 
+func nullableInt64Ptr(x sql.NullInt64) *uint64 {
+	if !x.Valid {
+		return nil
+	}
+	return uint64Ptr(uint64(x.Int64))
+}
+
+func uint64Ptr(x uint64) *uint64 {
+	out := new(uint64)
+	*out = x
+	return out
+}
+
 func boolPtr(x bool) *bool {
 	out := new(bool)
 	*out = x
@@ -2146,7 +2163,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		whereArgs = append(whereArgs, opts.EqualToAuthAddr)
 		partNumber++
 	}
-	query = `SELECT a.addr, a.microalgos, a.rewards_total, a.rewardsbase, a.keytype, a.account_data FROM account a`
+	query = `SELECT a.addr, a.microalgos, a.rewards_total, a.created_at, a.closed_at, a.rewardsbase, a.keytype, a.account_data FROM account a`
 	if opts.HasAssetID != 0 {
 		// inner join requires match, filtering on presence of asset
 		query += " JOIN qasf ON a.addr = qasf.addr"
@@ -2173,7 +2190,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr GROUP BY 1)`
 	}
 	query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa FROM app JOIN qaccounts ON qaccounts.addr = app.creator GROUP BY 1), qls AS (SELECT la.addr, json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr GROUP BY 1)`
-	query += ` SELECT za.addr, za.microalgos, za.rewards_total, za.rewardsbase, za.keytype, za.account_data`
+	query += ` SELECT za.addr, za.microalgos, za.rewards_total, za.created_at, za.closed_at, za.rewardsbase, za.keytype, za.account_data`
 	if opts.IncludeAssetHoldings {
 		query += `, qaa.haid, qaa.hamt, qaa.hf`
 	}
