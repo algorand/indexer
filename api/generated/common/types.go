@@ -390,9 +390,15 @@ type HealthCheck struct {
 
 // MiniAssetHolding defines model for MiniAssetHolding.
 type MiniAssetHolding struct {
-	Address  string `json:"address"`
-	Amount   uint64 `json:"amount"`
-	IsFrozen bool   `json:"is-frozen"`
+	Address string `json:"address"`
+	Amount  uint64 `json:"amount"`
+
+	// Round during which this asset holding was closed.
+	CloseoutAtRound *uint64 `json:"closeout-at-round,omitempty"`
+	IsFrozen        bool    `json:"is-frozen"`
+
+	// Round during which this asset holding was opted in.
+	OptinAtRound *uint64 `json:"optin-at-round,omitempty"`
 }
 
 // OnCompletion defines model for OnCompletion.

@@ -1245,6 +1245,16 @@
         },
         "is-frozen": {
           "type": "boolean"
+        },
+        "optin-at-round": {
+          "description": "Round during which this asset holding was opted in.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
+        },
+        "closeout-at-round": {
+          "description": "Round during which this asset holding was closed.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
         }
       }
     },

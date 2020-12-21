@@ -368,11 +368,13 @@ type AssetBalanceQuery struct {
 
 // AssetBalanceRow is metadata relating to one asset balance in an asset balance query.
 type AssetBalanceRow struct {
-	Address []byte
-	AssetID uint64
-	Amount  uint64
-	Frozen  bool
-	Error   error
+	Address      []byte
+	AssetID      uint64
+	Amount       uint64
+	Frozen       bool
+	Error        error
+	CreatedRound *uint64
+	ClosedRound  *uint64
 }
 
 // ApplicationRow is metadata relating to one application in an application query.
