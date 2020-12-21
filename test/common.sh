@@ -130,7 +130,7 @@ function start_indexer() {
   ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer daemon \
     -S $NET \
     -P "${CONNECTION_STRING/DB_NAME_HERE/$1}" \
-    --pidfile $PIDFILE > /dev/null 2>&1 &
+    --pidfile $PIDFILE 2>&1 &
 }
 
 
@@ -314,55 +314,65 @@ function create_delete_tests() {
     #####################
     # Application Tests #
     #####################
-    sql_test "app create (app-id=203)" $1 \
+    sql_test "[sql] app create (app-id=203)" $1 \
       "select created_at, closed_at, index from app WHERE index = 203" \
       "55||203"
-    sql_test "app create & delete (app-id=82)" $1 \
+    rest_test "[rest] app create (app-id=203)" \
+      "/v2/applications/203?pretty" \
+      200 \
+      '"created-at-round": 55'
+    sql_test "[sql] app create & delete (app-id=82)" $1 \
       "select created_at, closed_at, index from app WHERE index = 82" \
       "13|37|82"
+    rest_test "[rest] app create & delete (app-id=82)" \
+      "/v2/applications/82?pretty" \
+      200 \
+      '"created-at-round": 13' \
+      '"destroyed-at-round": 37'
 
     ###############
     # Asset Tests #
     ###############
-    sql_test "asset create / destroy" $1 \
+    sql_test "[sql] asset create / destroy" $1 \
       "select created_at, closed_at, index from asset WHERE index=135" \
       "23|33|135"
-    sql_test "asset create" $1 \
+    sql_test "[sql] asset create" $1 \
       "select created_at, closed_at, index from asset WHERE index=168" \
       "35||168"
 
     ###########################
     # Application Local Tests #
     ###########################
-    sql_test "app optin no closeout" $1 \
+    sql_test "[sql] app optin no closeout" $1 \
       "select created_at, closed_at, app from account_app WHERE addr=decode('rAMD0F85toNMRuxVEqtxTODehNMcEebqq49p/BZ9rRs=', 'base64') AND app=85" \
       "13||85"
-    sql_test "app multiple optins first saved" $1 \
+    sql_test "[sql] app multiple optins first saved" $1 \
       "select created_at, closed_at, app from account_app WHERE addr=decode('Eze95btTASDFD/t5BDfgA2qvkSZtICa5pq1VSOUU0Y0=', 'base64') AND app=82" \
       "15|35|82"
-    sql_test "app optin/optout/optin should clear closed_at" $1 \
+    sql_test "[sql] app optin/optout/optin should clear closed_at" $1 \
       "select created_at, closed_at, app from account_app WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND app=203" \
       "57|59|203"
 
     #######################
     # Asset Holding Tests #
     #######################
-    sql_test "asset optin" $1 \
+    sql_test "[sql] asset optin" $1 \
       "select created_at, closed_at, assetid from account_asset WHERE addr=decode('MFkWBNGTXkuqhxtNVtRZYFN6jHUWeQQxqEn5cUp1DGs=', 'base64') AND assetid=27" \
       "13||27"
-    sql_test "asset optin / close-out" $1 \
+    sql_test "[sql] asset optin / close-out" $1 \
       "select created_at, closed_at, assetid from account_asset WHERE addr=decode('E/p3R9m9X0c7eAv9DapnDcuNGC47kU0BxIVdSgHaFbk=', 'base64') AND assetid=36" \
       "16|25|36"
-    sql_test "asset optin / close-out / optin / close-out" $1 \
+    sql_test "[sql] asset optin / close-out / optin / close-out" $1 \
       "select created_at, closed_at, assetid from account_asset WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND assetid=135" \
       "25|31|135"
-    sql_test "asset optin / close-out / optin" $1 \
+    sql_test "[sql] asset optin / close-out / optin" $1 \
       "select created_at, closed_at, assetid from account_asset WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND assetid=168" \
       "37|39|168"
 
     #################
     # Account Tests #
     #################
+    # TODO: Need tests for accounts with nested app, appLocal, asset, assetHolding
     sql_test "[sql] genesis account with no transactions" $1 \
       "select created_at, closed_at, microalgos from account WHERE addr = decode('4L294Wuqgwe0YXi236FDVI5RX3ayj4QL1QIloIyerC4=', 'base64')" \
       "0||5000000000000000"
@@ -396,4 +406,12 @@ function create_delete_tests() {
       200 \
       '"created-at-round": 9' \
       '"closeout-at-round": 15'
+
+    rest_test "[rest] account with created and closed applications" \
+      "/v2/accounts/XNMIHFHAZ2GE3XUKISNMOYKNFDOJXBJMVHRSXVVVIK3LNMT22ET2TA4N4I?pretty" \
+      200 \
+      '"created-at-round": 39' \
+      '"created-at-round": 13' \
+      '"destroyed-at-round": 37'
+
 }
