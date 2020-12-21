@@ -1619,13 +1619,17 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		// below are bytes of json serialization
 
 		// holding* are a triplet of lists that should merge together
-		var holdingAssetid []byte
+		var holdingAssetids []byte
 		var holdingAmount []byte
 		var holdingFrozen []byte
+		var holdingCreatedBytes []byte
+		var holdingClosedBytes []byte
 
 		// assetParams* are a pair of lists that should merge together
 		var assetParamsIds []byte
 		var assetParamsStr []byte
+		var assetParamsCreatedBytes []byte
+		var assetParamsClosedBytes []byte
 
 		// appParam* are a pair of lists that should merge together
 		var appParamIndexes []byte     // [appId, ...]
@@ -1641,27 +1645,25 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 
 		var err error
 
-		if req.opts.IncludeAssetHoldings {
-			if req.opts.IncludeAssetParams {
+		if req.opts.IncludeAssetHoldings && req.opts.IncludeAssetParams {
 				err = req.rows.Scan(
 					&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
-					&holdingAssetid, &holdingAmount, &holdingFrozen,
-					&assetParamsIds, &assetParamsStr,
+					&holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes,
+					&assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes,
 					&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &localStateAppIds, &localStates,
 					&localStateCreatedBytes, &localStateClosedBytes,
 				)
-			} else {
+		} else if req.opts.IncludeAssetHoldings {
 				err = req.rows.Scan(
 					&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
-					&holdingAssetid, &holdingAmount, &holdingFrozen,
+					&holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes,
 					&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &localStateAppIds, &localStates,
 					&localStateCreatedBytes, &localStateClosedBytes,
 				)
-			}
 		} else if req.opts.IncludeAssetParams {
 			err = req.rows.Scan(
 				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &rewardsbase, &keytype, &accountDataJSONStr,
-				&assetParamsIds, &assetParamsStr,
+				&assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes,
 				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &localStateAppIds, &localStates,
 				&localStateCreatedBytes, &localStateClosedBytes,
 			)
@@ -1746,9 +1748,9 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 
 		const nullarraystr = "[null]"
 
-		if len(holdingAssetid) > 0 && string(holdingAssetid) != nullarraystr {
+		if len(holdingAssetids) > 0 && string(holdingAssetids) != nullarraystr {
 			var haids []uint64
-			err = json.Decode(holdingAssetid, &haids)
+			err = json.Decode(holdingAssetids, &haids)
 			if err != nil {
 				req.out <- idb.AccountRow{Error: err}
 				break
@@ -1765,9 +1767,31 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
+			var holdingCreated []*uint64
+			err = json.Decode(holdingCreatedBytes, &holdingCreated)
+			if err != nil {
+				err = fmt.Errorf("parsing json holding created ids, %v", err)
+				req.out <- idb.AccountRow{Error: err}
+				break
+			}
+			var holdingClosed []*uint64
+			err = json.Decode(holdingClosedBytes, &holdingClosed)
+			if err != nil {
+				err = fmt.Errorf("parsing json holding closed ids, %v", err)
+				req.out <- idb.AccountRow{Error: err}
+				break
+			}
+
+			if len(hamounts) != len(haids) || len(hfrozen) != len(haids) || len(holdingCreated) != len(haids) || len(holdingClosed) != len(haids) {
+				err = fmt.Errorf("account asset holding unpacking, all should be %d:  %d amounts, %d frozen, %d created, %d closed",
+					len(haids), len(hamounts), len(hfrozen), len(holdingCreated), len(holdingClosed))
+				req.out <- idb.AccountRow{Error: err}
+				break
+			}
+
 			av := make([]models.AssetHolding, 0, len(haids))
 			for i, assetid := range haids {
-				// SQL can result in cross-product duplication when account has bothe asset holdings and assets created, de-dup here
+				// SQL can result in cross-product duplication when account has both asset holdings and assets created, de-dup here
 				dup := false
 				for _, xaid := range haids[:i] {
 					if assetid == xaid {
@@ -1778,7 +1802,13 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				if dup {
 					continue
 				}
-				tah := models.AssetHolding{Amount: hamounts[i], IsFrozen: hfrozen[i], AssetId: assetid} // TODO: set Creator to asset creator addr string
+				tah := models.AssetHolding{
+					Amount:          hamounts[i],
+					IsFrozen:        hfrozen[i],
+					AssetId:         assetid,
+					CloseoutAtRound: holdingClosed[i],
+					OptinAtRound:    holdingCreated[i],
+				} // TODO: set Creator to asset creator addr string
 				av = append(av, tah)
 			}
 			account.Assets = new([]models.AssetHolding)
@@ -1797,9 +1827,31 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
+			var assetCreated []*uint64
+			err = json.Decode(assetParamsCreatedBytes, &assetCreated)
+			if err != nil {
+				err = fmt.Errorf("parsing json asset created ids, %v", err)
+				req.out <- idb.AccountRow{Error: err}
+				break
+			}
+			var assetClosed []*uint64
+			err = json.Decode(assetParamsClosedBytes, &assetClosed)
+			if err != nil {
+				err = fmt.Errorf("parsing json asset closed ids, %v", err)
+				req.out <- idb.AccountRow{Error: err}
+				break
+			}
+
+			if len(assetParams) != len(assetids) || len(assetCreated) != len(assetids) || len(assetClosed) != len(assetids) {
+				err = fmt.Errorf("account asset unpacking, all should be %d:  %d assetids, %d created, %d closed",
+					len(assetParams), len(assetids), len(assetCreated), len(assetClosed))
+				req.out <- idb.AccountRow{Error: err}
+				break
+			}
+
 			cal := make([]models.Asset, 0, len(assetids))
 			for i, assetid := range assetids {
-				// SQL can result in cross-product duplication when account has bothe asset holdings and assets created, de-dup here
+				// SQL can result in cross-product duplication when account has both asset holdings and assets created, de-dup here
 				dup := false
 				for _, xaid := range assetids[:i] {
 					if assetid == xaid {
@@ -1811,12 +1863,11 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					continue
 				}
 				ap := assetParams[i]
-				if ap == (types.AssetParams{}) {
-					// remnant of deleted asset
-					continue
-				}
+
 				tma := models.Asset{
 					Index: assetid,
+					CreatedAtRound: assetCreated[i],
+					DestroyedAtRound: assetClosed[i],
 					Params: models.AssetParams{
 						Creator:       account.Address,
 						Total:         ap.Total,
@@ -1850,14 +1901,14 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			var appCreated []*uint64
 			err = json.Decode(appCreatedBytes, &appCreated)
 			if err != nil {
-				err = fmt.Errorf("parsing json created ids, %v", err)
+				err = fmt.Errorf("parsing json app created ids, %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var appClosed []*uint64
 			err = json.Decode(appClosedBytes, &appClosed)
 			if err != nil {
-				err = fmt.Errorf("parsing json closed ids, %v", err)
+				err = fmt.Errorf("parsing json app closed ids, %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
@@ -2223,10 +2274,10 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	withClauses = append(withClauses, "qaccounts AS ("+query+")")
 	query = "WITH " + strings.Join(withClauses, ", ")
 	if opts.IncludeAssetHoldings {
-		query += `, qaa AS (SELECT xa.addr, json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf FROM account_asset aa JOIN qaccounts xa ON aa.addr = xa.addr GROUP BY 1)`
+		query += `, qaa AS (SELECT xa.addr, json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf, json_agg(aa.created_at) as holding_created_at, json_agg(aa.closed_at) as holding_closed_at FROM account_asset aa JOIN qaccounts xa ON aa.addr = xa.addr GROUP BY 1)`
 	}
 	if opts.IncludeAssetParams {
-		query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr GROUP BY 1)`
+		query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp, json_agg(ap.created_at) as asset_created_at, json_agg(ap.closed_at) as asset_closed_at FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr GROUP BY 1)`
 	}
 	// app
 	query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at FROM app JOIN qaccounts ON qaccounts.addr = app.creator GROUP BY 1)`
@@ -2236,10 +2287,10 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	// query results
 	query += ` SELECT za.addr, za.microalgos, za.rewards_total, za.created_at, za.closed_at, za.rewardsbase, za.keytype, za.account_data`
 	if opts.IncludeAssetHoldings {
-		query += `, qaa.haid, qaa.hamt, qaa.hf`
+		query += `, qaa.haid, qaa.hamt, qaa.hf, qaa.holding_created_at, qaa.holding_closed_at`
 	}
 	if opts.IncludeAssetParams {
-		query += `, qap.paid, qap.pp`
+		query += `, qap.paid, qap.pp, qap.asset_created_at, qap.asset_closed_at`
 	}
 	query += `, qapp.papps, qapp.ppa, qapp.app_created_at, qapp.app_closed_at, qls.lsapps, qls.lsls, qls.ls_created_at, qls.ls_closed_at FROM qaccounts za`
 
@@ -2256,7 +2307,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 
 // Assets is part of idb.IndexerDB
 func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) <-chan idb.AssetRow {
-	query := `SELECT index, creator_addr, params FROM asset a`
+	query := `SELECT index, creator_addr, params, created_at, closed_at FROM asset a`
 	const maxWhereParts = 14
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
@@ -2317,9 +2368,11 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 		var index uint64
 		var creatorAddr []byte
 		var paramsJSONStr []byte
+		var created *uint64
+		var closed *uint64
 		var err error
 
-		err = rows.Scan(&index, &creatorAddr, &paramsJSONStr)
+		err = rows.Scan(&index, &creatorAddr, &paramsJSONStr, &created, &closed)
 		if err != nil {
 			out <- idb.AssetRow{Error: err}
 			break
@@ -2331,9 +2384,11 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			break
 		}
 		rec := idb.AssetRow{
-			AssetID: index,
-			Creator: creatorAddr,
-			Params:  params,
+			AssetID:      index,
+			Creator:      creatorAddr,
+			Params:       params,
+			CreatedRound: created,
+			ClosedRound:  closed,
 		}
 		select {
 		case <-ctx.Done():
@@ -2373,7 +2428,7 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	}
 	var rows *sql.Rows
 	var err error
-	query := `SELECT addr, assetid, amount, frozen FROM account_asset aa`
+	query := `SELECT addr, assetid, amount, frozen, created_at, closed_at FROM account_asset aa`
 	if len(whereParts) > 0 {
 		query += " WHERE " + strings.Join(whereParts, " AND ")
 	}
@@ -2398,16 +2453,20 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows
 		var assetID uint64
 		var amount uint64
 		var frozen bool
-		err := rows.Scan(&addr, &assetID, &amount, &frozen)
+		var created *uint64
+		var closed *uint64
+		err := rows.Scan(&addr, &assetID, &amount, &frozen, &created, &closed)
 		if err != nil {
 			out <- idb.AssetBalanceRow{Error: err}
 			break
 		}
 		rec := idb.AssetBalanceRow{
-			Address: addr,
-			AssetID: assetID,
-			Amount:  amount,
-			Frozen:  frozen,
+			Address:      addr,
+			AssetID:      assetID,
+			Amount:       amount,
+			Frozen:       frozen,
+			ClosedRound:  closed,
+			CreatedRound: created,
 		}
 		select {
 		case <-ctx.Done():

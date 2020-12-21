@@ -525,8 +525,10 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 		copy(creator[:], row.Creator[:])
 
 		asset := generated.Asset{
-			Index: row.AssetID,
-			Params: generated.AssetParams{
+			Index:            row.AssetID,
+			CreatedAtRound:   row.CreatedRound,
+			DestroyedAtRound: row.ClosedRound,
+			Params:           generated.AssetParams{
 				Creator:       creator.String(),
 				Name:          strPtr(row.Params.AssetName),
 				UnitName:      strPtr(row.Params.UnitName),
@@ -564,9 +566,11 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 		copy(addr[:], row.Address[:])
 
 		bal := generated.MiniAssetHolding{
-			Address:  addr.String(),
-			Amount:   row.Amount,
-			IsFrozen: row.Frozen,
+			Address:         addr.String(),
+			Amount:          row.Amount,
+			IsFrozen:        row.Frozen,
+			OptinAtRound:    row.CreatedRound,
+			CloseoutAtRound: row.ClosedRound,
 		}
 
 		balances = append(balances, bal)

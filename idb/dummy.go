@@ -347,10 +347,12 @@ type AssetsQuery struct {
 
 // AssetRow is metadata relating to one asset in a asset query.
 type AssetRow struct {
-	AssetID uint64
-	Creator []byte
-	Params  types.AssetParams
-	Error   error
+	AssetID      uint64
+	Creator      []byte
+	Params       types.AssetParams
+	Error        error
+	CreatedRound *uint64
+	ClosedRound  *uint64
 }
 
 // AssetBalanceQuery is a parameter object with all of the asset balance filter options.

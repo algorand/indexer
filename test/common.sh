@@ -337,9 +337,32 @@ function create_delete_tests() {
     sql_test "[sql] asset create / destroy" $1 \
       "select created_at, closed_at, index from asset WHERE index=135" \
       "23|33|135"
+    rest_test "[rest - asset]  asset create / destroy" \
+      "/v2/assets/135?pretty" \
+      200 \
+      '"created-at-round": 23' \
+      '"destroyed-at-round": 33' \
+      '"total": 0'
+    rest_test "[rest - account]  asset create / destroy" \
+      "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty"
+      200 \
+      '"created-at-round": 23' \
+      '"destroyed-at-round": 33' \
+      '"total": 0'
+
     sql_test "[sql] asset create" $1 \
       "select created_at, closed_at, index from asset WHERE index=168" \
       "35||168"
+    rest_test "[rest - asset] asset create" \
+      "/v2/assets/168?pretty" \
+      200 \
+      '"created-at-round": 35' \
+      '"total": 1337'
+    rest_test "[rest - account] asset create" \
+      "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty"
+      200 \
+      '"created-at-round": 35' \
+      '"total": 1337'
 
     ###########################
     # Application Local Tests #
@@ -347,14 +370,30 @@ function create_delete_tests() {
     sql_test "[sql] app optin no closeout" $1 \
       "select created_at, closed_at, app from account_app WHERE addr=decode('rAMD0F85toNMRuxVEqtxTODehNMcEebqq49p/BZ9rRs=', 'base64') AND app=85" \
       "13||85"
+    rest_test "[rest] app optin no closeout" \
+      "/v2/accounts/VQBQHUC7HG3IGTCG5RKRFK3RJTQN5BGTDQI6N2VLR5U7YFT5VUNVAF57ZU?pretty" \
+      200 \
+      '"optin-at-round": 13' \
+      '"key": "Y1g="'
 
     sql_test "[sql] app multiple optins first saved" $1 \
       "select created_at, closed_at, app from account_app WHERE addr=decode('Eze95btTASDFD/t5BDfgA2qvkSZtICa5pq1VSOUU0Y0=', 'base64') AND app=82" \
       "15|35|82"
+    rest_test "[rest] app multiple optins first saved" \
+      "/v2/accounts/CM333ZN3KMASBRIP7N4QIN7AANVK7EJGNUQCNONGVVKURZIU2GG7XJIZ4Q?pretty" \
+      200 \
+      '"optin-at-round": 15' \
+      '"closeout-at-round": 35'
 
     sql_test "[sql] app optin/optout/optin should leave last closed_at" $1 \
       "select created_at, closed_at, app from account_app WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND app=203" \
       "57|59|203"
+    rest_test "[rest] app optin/optout/optin should leave last closed_at" \
+      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty" \
+      200 \
+      '"optin-at-round": 57' \
+      '"closeout-at-round": 59' \
+      '"num-byte-slice": 1'
 
     #######################
     # Asset Holding Tests #
@@ -362,15 +401,41 @@ function create_delete_tests() {
     sql_test "[sql] asset optin" $1 \
       "select created_at, closed_at, assetid from account_asset WHERE addr=decode('MFkWBNGTXkuqhxtNVtRZYFN6jHUWeQQxqEn5cUp1DGs=', 'base64') AND assetid=27" \
       "13||27"
+    rest_test "[rest - balances] asset optin" \
+      "/v2/assets/27/balances?pretty&currency-less-than=100" \
+      200 \
+      '"optin-at-round": 13'
+    rest_test "[rest - account] asset optin" \
+      "/v2/accounts/GBMRMBGRSNPEXKUHDNGVNVCZMBJXVDDVCZ4QIMNIJH4XCSTVBRVYWWVCZA?pretty" \
+      200 \
+      '"optin-at-round": 13'
+
     sql_test "[sql] asset optin / close-out" $1 \
       "select created_at, closed_at, assetid from account_asset WHERE addr=decode('E/p3R9m9X0c7eAv9DapnDcuNGC47kU0BxIVdSgHaFbk=', 'base64') AND assetid=36" \
       "16|25|36"
+    rest_test "[rest] asset optin" \
+      "/v2/assets/36/balances?pretty&currency-less-than=100" \
+      200 \
+      '"optin-at-round": 16' \
+      '"closeout-at-round": 25'
+
     sql_test "[sql] asset optin / close-out / optin / close-out" $1 \
       "select created_at, closed_at, assetid from account_asset WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND assetid=135" \
       "25|31|135"
+    rest_test "[rest] asset optin" \
+      "/v2/assets/135/balances?pretty&currency-less-than=100" \
+      200 \
+      '"optin-at-round": 25' \
+      '"closeout-at-round": 31'
+
     sql_test "[sql] asset optin / close-out / optin" $1 \
       "select created_at, closed_at, assetid from account_asset WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND assetid=168" \
       "37|39|168"
+    rest_test "[rest] asset optin" \
+      "/v2/assets/168/balances?pretty&currency-less-than=100" \
+      200 \
+      '"optin-at-round": 37' \
+      '"closeout-at-round": 39'
 
     #################
     # Account Tests #
@@ -408,26 +473,4 @@ function create_delete_tests() {
       200 \
       '"created-at-round": 9' \
       '"closeout-at-round": 15'
-
-    # Localstate account tests
-    rest_test "[rest] app optin no closeout" \
-      "/v2/accounts/VQBQHUC7HG3IGTCG5RKRFK3RJTQN5BGTDQI6N2VLR5U7YFT5VUNVAF57ZU?pretty" \
-      200 \
-      '"optin-at-round": 13' \
-      '"key": "Y1g="'
-    rest_test "[rest] app multiple optins first saved" \
-      "/v2/accounts/CM333ZN3KMASBRIP7N4QIN7AANVK7EJGNUQCNONGVVKURZIU2GG7XJIZ4Q?pretty" \
-      200 \
-      '"optin-at-round": 15' \
-      '"closeout-at-round": 35'
-    rest_test "[rest] app optin/optout/optin should leave last closed_at" \
-      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty" \
-      200 \
-      '"optin-at-round": 57' \
-      '"closeout-at-round": 59' \
-      '"num-byte-slice": 1'
-
-
-    # Account Asset holding
-    # Account Asset
 }
