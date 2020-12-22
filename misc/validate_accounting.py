@@ -250,17 +250,32 @@ def deepeq(a, b, path=None, msg=None):
         return True
     return a == b
 
+def remove_at_round_fields(x):
+    x.pop('created-at-round', None)
+    x.pop('deleted-at-round', None)
+    x.pop('destroyed-at-round', None)
+    x.pop('optin-at-round', None)
+    x.pop('optedin-at-round', None)
+    x.pop('optedout-at-round', None)
+    x.pop('closeout-at-round', None)
+    x.pop('closed-at-round', None)
+
+def _dac(x):
+    out = dict(x)
+    remove_at_round_fields(out)
+    return out
+
+def dictifyAssetConfig(acfg):
+    return {x['index']:_dac(x) for x in acfg}
+
 def _dap(x):
     out = dict(x)
+    remove_at_round_fields(out)
     out['params'] = dict(out['params'])
     gs = out['params'].get('global-state')
     if gs:
         out['params']['global-state'] = {z['key']:z['value'] for z in gs}
     return out
-
-def dictifyAssetConfig(acfg):
-    return {x['index']:x for x in acfg}
-
 
 def dictifyAppParams(ap):
     # make a list of app params comparable by deepeq
@@ -274,6 +289,7 @@ def dictifyAppLocal(al):
         kv = ent.get('key-value')
         if kv:
             ent['key-value'] = {x['key']:x['value'] for x in kv}
+        remove_at_round_fields(ent)
         out[appid] = ent
     return out
 
@@ -344,6 +360,9 @@ class CheckContext:
                     emsg = '{} algod has assets but not indexer: {!r}\n'.format(niceaddr, nonzero)
                     xe(emsg)
             i2acfg = i2v.get('created-assets')
+            # filter out deleted entries that indexer is showing to us
+            if i2acfg:
+                i2acfg = list(filter(lambda x: x['params']['total'] is not 0, i2acfg))
             if acfg:
                 if i2acfg:
                     indexerAcfg = dictifyAssetConfig(i2acfg)
@@ -356,6 +375,12 @@ class CheckContext:
             elif i2acfg:
                 xe('{} indexer has acfg but not algod: {!r}\n'.format(niceaddr, i2acfg))
             i2apar = i2v.get('created-apps')
+            # filter out deleted entries that indexer is showing to us
+            if i2apar:
+                print('size of i2apar before {}'.format(len(i2apar)))
+                i2apar = list(filter(lambda x: x['params']['approval-program'] is not None and x['params']['clear-state-program'] is not None, i2apar))
+                print('size of i2apar after {}'.format(len(i2apar)))
+
             if appparams:
                 if i2apar:
                     i2appById = dictifyAppParams(i2apar)
@@ -368,17 +393,20 @@ class CheckContext:
             elif i2apar:
                 xe('{} indexer has apar but not algod: {!r}\n'.format(niceaddr, i2apar))
             i2applocal = i2v.get('apps-local-state')
+            # filter out deleted entries that indexer is showing to us
             if i2applocal:
-                if applocal:
+                i2applocal = list(filter(lambda x: x['schema']['num-byte-slice'] is not 0 or x['schema']['num-uint'] is not 0, i2applocal))
+            if applocal:
+                if i2applocal:
                     eqerr = []
                     ald = dictifyAppLocal(applocal)
                     ild = dictifyAppLocal(i2applocal)
                     if not deepeq(ald, ild, (), eqerr):
                         xe('{} indexer and algod disagree on app local, {}\nindexer={}\nalgod={}\n'.format(niceaddr, eqerr, json_pp(i2applocal), json_pp(applocal)))
                 else:
-                    xe('{} indexer has app local but not algod: {!r}'.format(niceaddr, i2applocal))
-            elif applocal:
-                xe('{} algod has app local but not indexer: {!r}'.format(niceaddr, applocal))
+                    xe('{} algod has app local but not indexer: {!r}'.format(niceaddr, applocal))
+            elif i2applocal:
+                xe('{} indexer has app local but not algod: {!r}'.format(niceaddr, i2applocal))
 
             if xe.ok:
                 self.match += 1

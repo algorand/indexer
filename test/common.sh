@@ -86,7 +86,6 @@ function rest_test {
   set +e
   local CODE=$(base_curl "$QUERY")
   if [[ $? != 0 ]]; then
-    echo "ERROR"
     cat $CURL_TEMPFILE
     fail_and_exit "$DESCRIPTION" "$QUERY" "curl had a non-zero exit code."
   fi
@@ -344,7 +343,7 @@ function create_delete_tests() {
       '"destroyed-at-round": 33' \
       '"total": 0'
     rest_test "[rest - account]  asset create / destroy" \
-      "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty"
+      "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty" \
       200 \
       '"created-at-round": 23' \
       '"destroyed-at-round": 33' \
@@ -359,7 +358,7 @@ function create_delete_tests() {
       '"created-at-round": 35' \
       '"total": 1337'
     rest_test "[rest - account] asset create" \
-      "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty"
+      "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty" \
       200 \
       '"created-at-round": 35' \
       '"total": 1337'
