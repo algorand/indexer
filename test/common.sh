@@ -372,7 +372,7 @@ function create_delete_tests() {
     rest_test "[rest] app optin no closeout" \
       "/v2/accounts/VQBQHUC7HG3IGTCG5RKRFK3RJTQN5BGTDQI6N2VLR5U7YFT5VUNVAF57ZU?pretty" \
       200 \
-      '"optin-at-round": 13' \
+      '"created-at-round": 13' \
       '"key": "Y1g="'
 
     sql_test "[sql] app multiple optins first saved" $1 \
@@ -381,8 +381,8 @@ function create_delete_tests() {
     rest_test "[rest] app multiple optins first saved" \
       "/v2/accounts/CM333ZN3KMASBRIP7N4QIN7AANVK7EJGNUQCNONGVVKURZIU2GG7XJIZ4Q?pretty" \
       200 \
-      '"optin-at-round": 15' \
-      '"closeout-at-round": 35'
+      '"created-at-round": 15' \
+      '"closed-at-round": 35'
 
     sql_test "[sql] app optin/optout/optin should leave last closed_at" $1 \
       "select created_at, closed_at, app from account_app WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND app=203" \
@@ -390,8 +390,8 @@ function create_delete_tests() {
     rest_test "[rest] app optin/optout/optin should leave last closed_at" \
       "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty" \
       200 \
-      '"optin-at-round": 57' \
-      '"closeout-at-round": 59' \
+      '"created-at-round": 57' \
+      '"closed-at-round": 59' \
       '"num-byte-slice": 1'
 
     #######################
@@ -403,11 +403,11 @@ function create_delete_tests() {
     rest_test "[rest - balances] asset optin" \
       "/v2/assets/27/balances?pretty&currency-less-than=100" \
       200 \
-      '"optin-at-round": 13'
+      '"opted-in-at-round": 13'
     rest_test "[rest - account] asset optin" \
       "/v2/accounts/GBMRMBGRSNPEXKUHDNGVNVCZMBJXVDDVCZ4QIMNIJH4XCSTVBRVYWWVCZA?pretty" \
       200 \
-      '"optin-at-round": 13'
+      '"opted-in-at-round": 13'
 
     sql_test "[sql] asset optin / close-out" $1 \
       "select created_at, closed_at, assetid from account_asset WHERE addr=decode('E/p3R9m9X0c7eAv9DapnDcuNGC47kU0BxIVdSgHaFbk=', 'base64') AND assetid=36" \
@@ -415,8 +415,8 @@ function create_delete_tests() {
     rest_test "[rest] asset optin" \
       "/v2/assets/36/balances?pretty&currency-less-than=100" \
       200 \
-      '"optin-at-round": 16' \
-      '"closeout-at-round": 25'
+      '"opted-in-at-round": 16' \
+      '"opted-out-at-round": 25'
 
     sql_test "[sql] asset optin / close-out / optin / close-out" $1 \
       "select created_at, closed_at, assetid from account_asset WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND assetid=135" \
@@ -424,8 +424,8 @@ function create_delete_tests() {
     rest_test "[rest] asset optin" \
       "/v2/assets/135/balances?pretty&currency-less-than=100" \
       200 \
-      '"optin-at-round": 25' \
-      '"closeout-at-round": 31'
+      '"opted-in-at-round": 25' \
+      '"opted-out-at-round": 31'
 
     sql_test "[sql] asset optin / close-out / optin" $1 \
       "select created_at, closed_at, assetid from account_asset WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND assetid=168" \
@@ -433,8 +433,8 @@ function create_delete_tests() {
     rest_test "[rest] asset optin" \
       "/v2/assets/168/balances?pretty&currency-less-than=100" \
       200 \
-      '"optin-at-round": 37' \
-      '"closeout-at-round": 39'
+      '"opted-in-at-round": 37' \
+      '"opted-out-at-round": 39'
 
     #################
     # Account Tests #
@@ -462,7 +462,7 @@ function create_delete_tests() {
       "/v2/accounts/FG2RVUYJHWAB3QMABDIBOQT5G2V2OWNBKL5B4HDVS5MIAZ6BPLGR65YW3Y?pretty" \
       200 \
       '"created-at-round": 17' \
-      '"closeout-at-round": 19'
+      '"closed-at-round": 19'
 
     sql_test "[sql] account create close create close" $1 \
       "select created_at, closed_at, microalgos from account WHERE addr = decode('8rpfPsaRRIyMVAnrhHF+SHpq9za99C1NknhTLGm5Xkw=', 'base64')" \
@@ -471,5 +471,5 @@ function create_delete_tests() {
       "/v2/accounts/6K5F6PWGSFCIZDCUBHVYI4L6JB5GV5ZWXX2C2TMSPBJSY2NZLZGCF2NH5U?pretty" \
       200 \
       '"created-at-round": 9' \
-      '"closeout-at-round": 15'
+      '"closed-at-round": 15'
 }

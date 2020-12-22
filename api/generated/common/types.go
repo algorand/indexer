@@ -36,7 +36,7 @@ type Account struct {
 	AuthAddr *string `json:"auth-addr,omitempty"`
 
 	// Round during which this accound was closed.
-	CloseoutAtRound *uint64 `json:"closeout-at-round,omitempty"`
+	ClosedAtRound *uint64 `json:"closed-at-round,omitempty"`
 
 	// \[appp\] parameters of applications created by this account including app global data.
 	//
@@ -126,16 +126,16 @@ type Application struct {
 type ApplicationLocalState struct {
 
 	// Round when this application was closed out from the account.
-	CloseoutAtRound *uint64 `json:"closeout-at-round,omitempty"`
+	ClosedAtRound *uint64 `json:"closed-at-round,omitempty"`
+
+	// Round when this account created the application local state.
+	CreatedAtRound *uint64 `json:"created-at-round,omitempty"`
 
 	// The application which this local state is for.
 	Id uint64 `json:"id"`
 
 	// Represents a key-value store for use in an application.
 	KeyValue *TealKeyValueStore `json:"key-value,omitempty"`
-
-	// Round when this account opted into the application.
-	OptinAtRound *uint64 `json:"optin-at-round,omitempty"`
 
 	// Specifies maximums on the number of each type that may be stored.
 	Schema ApplicationStateSchema `json:"schema"`
@@ -203,9 +203,6 @@ type AssetHolding struct {
 	// Asset ID of the holding.
 	AssetId uint64 `json:"asset-id"`
 
-	// Round during which this asset holding was closed.
-	CloseoutAtRound *uint64 `json:"closeout-at-round,omitempty"`
-
 	// Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.
 	Creator string `json:"creator"`
 
@@ -213,7 +210,10 @@ type AssetHolding struct {
 	IsFrozen bool `json:"is-frozen"`
 
 	// Round during which this asset holding was opted in.
-	OptinAtRound *uint64 `json:"optin-at-round,omitempty"`
+	OptedInAtRound *uint64 `json:"opted-in-at-round,omitempty"`
+
+	// Round during which this asset holding was closed.
+	OptedOutAtRound *uint64 `json:"opted-out-at-round,omitempty"`
 }
 
 // AssetParams defines model for AssetParams.
@@ -390,15 +390,15 @@ type HealthCheck struct {
 
 // MiniAssetHolding defines model for MiniAssetHolding.
 type MiniAssetHolding struct {
-	Address string `json:"address"`
-	Amount  uint64 `json:"amount"`
-
-	// Round during which this asset holding was closed.
-	CloseoutAtRound *uint64 `json:"closeout-at-round,omitempty"`
-	IsFrozen        bool    `json:"is-frozen"`
+	Address  string `json:"address"`
+	Amount   uint64 `json:"amount"`
+	IsFrozen bool   `json:"is-frozen"`
 
 	// Round during which this asset holding was opted in.
-	OptinAtRound *uint64 `json:"optin-at-round,omitempty"`
+	OptedInAtRound *uint64 `json:"opted-in-at-round,omitempty"`
+
+	// Round during which this asset holding was opted out.
+	OptedOutAtRound *uint64 `json:"opted-out-at-round,omitempty"`
 }
 
 // OnCompletion defines model for OnCompletion.

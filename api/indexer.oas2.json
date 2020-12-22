@@ -698,7 +698,7 @@
            "type": "integer",
            "x-algorand-format": "uint64"
         },
-        "closeout-at-round": {
+        "closed-at-round": {
           "description": "Round during which this accound was closed.",
            "type": "integer",
            "x-algorand-format": "uint64"
@@ -770,12 +770,12 @@
           "description": "The application which this local state is for.",
           "type": "integer"
         },
-        "optin-at-round": {
-          "description": "Round when this account opted into the application.",
+        "created-at-round": {
+          "description": "Round when this account created the application local state.",
           "type": "integer",
           "x-algorand-format": "uint64"
         },
-        "closeout-at-round": {
+        "closed-at-round": {
           "description": "Round when this application was closed out from the account.",
           "type": "integer",
           "x-algorand-format": "uint64"
@@ -958,12 +958,12 @@
           "description": "\\[f\\] whether or not the holding is frozen.",
           "type": "boolean"
         },
-        "optin-at-round": {
+        "opted-in-at-round": {
           "description": "Round during which this asset holding was opted in.",
            "type": "integer",
            "x-algorand-format": "uint64"
         },
-        "closeout-at-round": {
+        "opted-out-at-round": {
           "description": "Round during which this asset holding was closed.",
            "type": "integer",
            "x-algorand-format": "uint64"
@@ -1246,13 +1246,13 @@
         "is-frozen": {
           "type": "boolean"
         },
-        "optin-at-round": {
+        "opted-in-at-round": {
           "description": "Round during which this asset holding was opted in.",
            "type": "integer",
            "x-algorand-format": "uint64"
         },
-        "closeout-at-round": {
-          "description": "Round during which this asset holding was closed.",
+        "opted-out-at-round": {
+          "description": "Round during which this asset holding was opted out.",
            "type": "integer",
            "x-algorand-format": "uint64"
         }

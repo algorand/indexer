@@ -569,8 +569,8 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 			Address:         addr.String(),
 			Amount:          row.Amount,
 			IsFrozen:        row.Frozen,
-			OptinAtRound:    row.CreatedRound,
-			CloseoutAtRound: row.ClosedRound,
+			OptedInAtRound:  row.CreatedRound,
+			OptedOutAtRound: row.ClosedRound,
 		}
 
 		balances = append(balances, bal)

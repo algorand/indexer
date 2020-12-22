@@ -1687,7 +1687,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		account.AmountWithoutPendingRewards = microalgos
 		account.Rewards = rewardstotal
 		account.CreatedAtRound = nullableInt64Ptr(createdat)
-		account.CloseoutAtRound = nullableInt64Ptr(closedat)
+		account.ClosedAtRound = nullableInt64Ptr(closedat)
 		account.RewardBase = new(uint64)
 		*account.RewardBase = rewardsbase
 		// default to Offline in there have been no keyreg transactions.
@@ -1806,8 +1806,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					Amount:          hamounts[i],
 					IsFrozen:        hfrozen[i],
 					AssetId:         assetid,
-					CloseoutAtRound: holdingClosed[i],
-					OptinAtRound:    holdingCreated[i],
+					OptedOutAtRound: holdingClosed[i],
+					OptedInAtRound:  holdingCreated[i],
 				} // TODO: set Creator to asset creator addr string
 				av = append(av, tah)
 			}
@@ -1998,8 +1998,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			aout := make([]models.ApplicationLocalState, len(ls))
 			for i, appid := range appIds {
 				aout[i].Id = appid
-				aout[i].OptinAtRound = appCreated[i]
-				aout[i].CloseoutAtRound = appClosed[i]
+				aout[i].CreatedAtRound = appCreated[i]
+				aout[i].ClosedAtRound = appClosed[i]
 				aout[i].Schema = models.ApplicationStateSchema{
 					NumByteSlice: ls[i].Schema.NumByteSlice,
 					NumUint:      ls[i].Schema.NumUint,

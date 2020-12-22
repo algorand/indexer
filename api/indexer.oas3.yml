@@ -510,7 +510,7 @@
             "type": "string",
             "x-algorand-format": "Address"
           },
-          "closeout-at-round": {
+          "closed-at-round": {
             "description": "Round during which this accound was closed.",
             "type": "integer",
             "x-algorand-format": "uint64"
@@ -661,8 +661,13 @@
       "ApplicationLocalState": {
         "description": "Stores local state associated with an application.",
         "properties": {
-          "closeout-at-round": {
+          "closed-at-round": {
             "description": "Round when this application was closed out from the account.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "created-at-round": {
+            "description": "Round when this account created the application local state.",
             "type": "integer",
             "x-algorand-format": "uint64"
           },
@@ -672,11 +677,6 @@
           },
           "key-value": {
             "$ref": "#/components/schemas/TealKeyValueStore"
-          },
-          "optin-at-round": {
-            "description": "Round when this account opted into the application.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
           },
           "schema": {
             "$ref": "#/components/schemas/ApplicationStateSchema"
@@ -783,11 +783,6 @@
             "description": "Asset ID of the holding.",
             "type": "integer"
           },
-          "closeout-at-round": {
-            "description": "Round during which this asset holding was closed.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
-          },
           "creator": {
             "description": "Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.",
             "type": "string"
@@ -796,8 +791,13 @@
             "description": "\\[f\\] whether or not the holding is frozen.",
             "type": "boolean"
           },
-          "optin-at-round": {
+          "opted-in-at-round": {
             "description": "Round during which this asset holding was opted in.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "opted-out-at-round": {
+            "description": "Round during which this asset holding was closed.",
             "type": "integer",
             "x-algorand-format": "uint64"
           }
@@ -1122,16 +1122,16 @@
             "type": "integer",
             "x-algorand-format": "uint64"
           },
-          "closeout-at-round": {
-            "description": "Round during which this asset holding was closed.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
-          },
           "is-frozen": {
             "type": "boolean"
           },
-          "optin-at-round": {
+          "opted-in-at-round": {
             "description": "Round during which this asset holding was opted in.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "opted-out-at-round": {
+            "description": "Round during which this asset holding was opted out.",
             "type": "integer",
             "x-algorand-format": "uint64"
           }
