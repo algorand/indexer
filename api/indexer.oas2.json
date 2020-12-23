@@ -694,12 +694,12 @@
           "x-algorand-format": "Address"
         },
         "created-at-round": {
-          "description": "Round during which this account was created.",
+          "description": "Round during which this account first appeared in a transaction.",
            "type": "integer",
            "x-algorand-format": "uint64"
         },
         "closed-at-round": {
-          "description": "Round during which this accound was closed.",
+          "description": "Round during which this account was most recently closed.",
            "type": "integer",
            "x-algorand-format": "uint64"
         }
@@ -770,13 +770,13 @@
           "description": "The application which this local state is for.",
           "type": "integer"
         },
-        "created-at-round": {
-          "description": "Round when this account created the application local state.",
+        "opted-in-at-round": {
+          "description": "Round when the account opted into the application.",
           "type": "integer",
           "x-algorand-format": "uint64"
         },
-        "closed-at-round": {
-          "description": "Round when this application was closed out from the account.",
+        "closed-out-at-round": {
+          "description": "Round when account closed out of the application.",
           "type": "integer",
           "x-algorand-format": "uint64"
         },
@@ -854,8 +854,8 @@
           "type": "integer",
           "x-algorand-format": "uint64"
         },
-        "destroyed-at-round": {
-          "description": "Round when this application was destroyed.",
+        "deleted-at-round": {
+          "description": "Round when this application was deleted.",
           "type": "integer",
           "x-algorand-format": "uint64"
         },
@@ -959,12 +959,12 @@
           "type": "boolean"
         },
         "opted-in-at-round": {
-          "description": "Round during which this asset holding was opted in.",
+          "description": "Round during which the account opted into this asset holding.",
            "type": "integer",
            "x-algorand-format": "uint64"
         },
         "opted-out-at-round": {
-          "description": "Round during which this asset holding was closed.",
+          "description": "Round during which the account opted out of this asset holding.",
            "type": "integer",
            "x-algorand-format": "uint64"
         }
@@ -1247,12 +1247,12 @@
           "type": "boolean"
         },
         "opted-in-at-round": {
-          "description": "Round during which this asset holding was opted in.",
+          "description": "Round during which the account opted into the asset.",
            "type": "integer",
            "x-algorand-format": "uint64"
         },
         "opted-out-at-round": {
-          "description": "Round during which this asset holding was opted out.",
+          "description": "Round during which the account opted out of the asset.",
            "type": "integer",
            "x-algorand-format": "uint64"
         }

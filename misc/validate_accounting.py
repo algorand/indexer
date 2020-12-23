@@ -258,6 +258,7 @@ def remove_at_round_fields(x):
     x.pop('optedin-at-round', None)
     x.pop('optedout-at-round', None)
     x.pop('closeout-at-round', None)
+    x.pop('closed-out-at-round', None)
     x.pop('closed-at-round', None)
 
 def _dac(x):

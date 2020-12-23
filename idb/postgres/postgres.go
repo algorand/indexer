@@ -1933,7 +1933,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			for i, appid := range appIds {
 				aout[outpos].Id = appid
 				aout[outpos].CreatedAtRound = appCreated[i]
-				aout[outpos].DestroyedAtRound = appClosed[i]
+				aout[outpos].DeletedAtRound = appClosed[i]
 				aout[outpos].Params.Creator = &account.Address
 
 				// If these are both nil the app was probably deleted, leave out params
@@ -1998,8 +1998,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			aout := make([]models.ApplicationLocalState, len(ls))
 			for i, appid := range appIds {
 				aout[i].Id = appid
-				aout[i].CreatedAtRound = appCreated[i]
-				aout[i].ClosedAtRound = appClosed[i]
+				aout[i].OptedInAtRound = appCreated[i]
+				aout[i].ClosedOutAtRound = appClosed[i]
 				aout[i].Schema = models.ApplicationStateSchema{
 					NumByteSlice: ls[i].Schema.NumByteSlice,
 					NumUint:      ls[i].Schema.NumUint,
@@ -2531,7 +2531,7 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows
 		var rec idb.ApplicationRow
 		rec.Application.Id = index
 		rec.Application.CreatedAtRound = created
-		rec.Application.DestroyedAtRound = closed
+		rec.Application.DeletedAtRound = closed
 		var ap AppParams
 		err = json.Decode(paramsjson, &ap)
 		if err != nil {
