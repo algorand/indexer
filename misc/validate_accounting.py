@@ -255,8 +255,8 @@ def remove_at_round_fields(x):
     x.pop('deleted-at-round', None)
     x.pop('destroyed-at-round', None)
     x.pop('optin-at-round', None)
-    x.pop('optedin-at-round', None)
-    x.pop('optedout-at-round', None)
+    x.pop('opted-in-at-round', None)
+    x.pop('opted-out-at-round', None)
     x.pop('closeout-at-round', None)
     x.pop('closed-out-at-round', None)
     x.pop('closed-at-round', None)
@@ -378,9 +378,7 @@ class CheckContext:
             i2apar = i2v.get('created-apps')
             # filter out deleted entries that indexer is showing to us
             if i2apar:
-                print('size of i2apar before {}'.format(len(i2apar)))
                 i2apar = list(filter(lambda x: x['params']['approval-program'] is not None and x['params']['clear-state-program'] is not None, i2apar))
-                print('size of i2apar after {}'.format(len(i2apar)))
 
             if appparams:
                 if i2apar:
