@@ -328,7 +328,7 @@ function create_delete_tests() {
       "/v2/applications/82?pretty" \
       200 \
       '"created-at-round": 13' \
-      '"destroyed-at-round": 37'
+      '"deleted-at-round": 37'
 
     ###############
     # Asset Tests #
@@ -372,7 +372,7 @@ function create_delete_tests() {
     rest_test "[rest] app optin no closeout" \
       "/v2/accounts/VQBQHUC7HG3IGTCG5RKRFK3RJTQN5BGTDQI6N2VLR5U7YFT5VUNVAF57ZU?pretty" \
       200 \
-      '"created-at-round": 13' \
+      '"opted-in-at-round": 13' \
       '"key": "Y1g="'
 
     sql_test "[sql] app multiple optins first saved" $1 \
@@ -381,8 +381,8 @@ function create_delete_tests() {
     rest_test "[rest] app multiple optins first saved" \
       "/v2/accounts/CM333ZN3KMASBRIP7N4QIN7AANVK7EJGNUQCNONGVVKURZIU2GG7XJIZ4Q?pretty" \
       200 \
-      '"created-at-round": 15' \
-      '"closed-at-round": 35'
+      '"opted-in-at-round": 15' \
+      '"closed-out-at-round": 35'
 
     sql_test "[sql] app optin/optout/optin should leave last closed_at" $1 \
       "select created_at, closed_at, app from account_app WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND app=203" \
@@ -390,8 +390,8 @@ function create_delete_tests() {
     rest_test "[rest] app optin/optout/optin should leave last closed_at" \
       "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty" \
       200 \
-      '"created-at-round": 57' \
-      '"closed-at-round": 59' \
+      '"opted-in-at-round": 57' \
+      '"closed-out-at-round": 59' \
       '"num-byte-slice": 1'
 
     #######################
