@@ -35,6 +35,9 @@ type Account struct {
 	// \[spend\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.
 	AuthAddr *string `json:"auth-addr,omitempty"`
 
+	// Round during which this account was most recently closed.
+	ClosedAtRound *uint64 `json:"closed-at-round,omitempty"`
+
 	// \[appp\] parameters of applications created by this account including app global data.
 	//
 	// Note: the raw account uses `map[int] -> AppParams` for this type.
@@ -44,6 +47,9 @@ type Account struct {
 	//
 	// Note: the raw account uses `map[int] -> Asset` for this type.
 	CreatedAssets *[]Asset `json:"created-assets,omitempty"`
+
+	// Round during which this account first appeared in a transaction.
+	CreatedAtRound *uint64 `json:"created-at-round,omitempty"`
 
 	// AccountParticipation describes the parameters used by this account in consensus protocol.
 	Participation *AccountParticipation `json:"participation,omitempty"`
@@ -103,6 +109,12 @@ type AccountStateDelta struct {
 // Application defines model for Application.
 type Application struct {
 
+	// Round when this application was created.
+	CreatedAtRound *uint64 `json:"created-at-round,omitempty"`
+
+	// Round when this application was deleted.
+	DeletedAtRound *uint64 `json:"deleted-at-round,omitempty"`
+
 	// \[appidx\] application index.
 	Id uint64 `json:"id"`
 
@@ -113,11 +125,17 @@ type Application struct {
 // ApplicationLocalState defines model for ApplicationLocalState.
 type ApplicationLocalState struct {
 
+	// Round when account closed out of the application.
+	ClosedOutAtRound *uint64 `json:"closed-out-at-round,omitempty"`
+
 	// The application which this local state is for.
 	Id uint64 `json:"id"`
 
 	// Represents a key-value store for use in an application.
 	KeyValue *TealKeyValueStore `json:"key-value,omitempty"`
+
+	// Round when the account opted into the application.
+	OptedInAtRound *uint64 `json:"opted-in-at-round,omitempty"`
 
 	// Specifies maximums on the number of each type that may be stored.
 	Schema ApplicationStateSchema `json:"schema"`
@@ -158,6 +176,12 @@ type ApplicationStateSchema struct {
 // Asset defines model for Asset.
 type Asset struct {
 
+	// Round during which this asset was created.
+	CreatedAtRound *uint64 `json:"created-at-round,omitempty"`
+
+	// Round during which this asset was destroyed.
+	DestroyedAtRound *uint64 `json:"destroyed-at-round,omitempty"`
+
 	// unique asset identifier
 	Index uint64 `json:"index"`
 
@@ -184,6 +208,12 @@ type AssetHolding struct {
 
 	// \[f\] whether or not the holding is frozen.
 	IsFrozen bool `json:"is-frozen"`
+
+	// Round during which the account opted into this asset holding.
+	OptedInAtRound *uint64 `json:"opted-in-at-round,omitempty"`
+
+	// Round during which the account opted out of this asset holding.
+	OptedOutAtRound *uint64 `json:"opted-out-at-round,omitempty"`
 }
 
 // AssetParams defines model for AssetParams.
@@ -363,6 +393,12 @@ type MiniAssetHolding struct {
 	Address  string `json:"address"`
 	Amount   uint64 `json:"amount"`
 	IsFrozen bool   `json:"is-frozen"`
+
+	// Round during which the account opted into the asset.
+	OptedInAtRound *uint64 `json:"opted-in-at-round,omitempty"`
+
+	// Round during which the account opted out of the asset.
+	OptedOutAtRound *uint64 `json:"opted-out-at-round,omitempty"`
 }
 
 // OnCompletion defines model for OnCompletion.

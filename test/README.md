@@ -34,14 +34,14 @@ kill_container - stops the postgres container
 
 ### common.sh - test helpers
 
-call_and_verify `<description>` `<command>` `<expected status code>` `<substring>`
+rest_test `<description>` `<command>` `<expected status code>` `<substring>`
 
 * description - informative description displayed when the testcase runs
 * command - indexer command, like `/v2/accounts`
 * expected status code - HTTP status code
 * substring - A simple pattern is used to verify results, find a substring in your expected results to put here
 
-query_and_verify `<description>` `<database>` `<query>` `<substring>`
+sql_test `<description>` `<database>` `<query>` `<substring>`
 
 * description - informative description displayed when the testcase runs
 * database - the database to query
@@ -61,7 +61,7 @@ It may be useful to edit one of the entry point scripts to make sure the dataset
 
 # Creating a new test
 
-When you have setup for a migration or integration test, use the provided `call_and_verify` / `query_and_verify` functions to write your tests.
+When you have setup for a migration or integration test, use the provided `rest_test` / `sql_test` functions to write your tests.
 
 ### Integration test
 

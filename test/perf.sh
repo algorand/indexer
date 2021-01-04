@@ -31,28 +31,28 @@ fi
 set -e
 
 print_alert "Running performance tests"
-call_and_verify "account endpoint" \
+rest_test_timeout 5 \
+  "account endpoint" \
   "/v2/accounts" \
   200 \
-  "{" \
-  5
-call_and_verify "transactions endpoint" \
+  "{"
+rest_test_timeout 5 \
+  "transactions endpoint" \
   "/v2/transactions" \
   200 \
-  "{" \
-  5
-call_and_verify "assets endpoint" \
+  "{"
+rest_test_timeout 5 \
+  "assets endpoint" \
   "/v2/assets" \
   200 \
-  "{" \
-  5
-call_and_verify "applications endpoint" \
+  "{"
+rest_test_timeout 5 \
+  "applications endpoint" \
   "/v2/applications" \
   200 \
-  "{" \
-  5
-call_and_verify "busy account transactions" \
+  "{"
+rest_test_timeout 5 \
+  "busy account transactions" \
   "/v2/accounts/5K6J3Z54656IR7YY65WNJT54UW6RBZZYL5LWQUTG4RWOTRTRBE2MR2AODQ/transactions" \
   200 \
-  "{" \
-  5
+  "{"
