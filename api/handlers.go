@@ -65,11 +65,11 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
-		Data:          health.Data,
-		Round:         health.Round,
-		IsMigrating:   health.IsMigrating,
-		DbAvailable:   health.DBAvailable,
-		Message:       strconv.FormatUint(health.Round, 10),
+		Data:        health.Data,
+		Round:       health.Round,
+		IsMigrating: health.IsMigrating,
+		DbAvailable: health.DBAvailable,
+		Message:     strconv.FormatUint(health.Round, 10),
 	})
 }
 
@@ -525,7 +525,9 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 		copy(creator[:], row.Creator[:])
 
 		asset := generated.Asset{
-			Index: row.AssetID,
+			Index:            row.AssetID,
+			CreatedAtRound:   row.CreatedRound,
+			DestroyedAtRound: row.ClosedRound,
 			Params: generated.AssetParams{
 				Creator:       creator.String(),
 				Name:          strPtr(row.Params.AssetName),
@@ -564,9 +566,11 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 		copy(addr[:], row.Address[:])
 
 		bal := generated.MiniAssetHolding{
-			Address:  addr.String(),
-			Amount:   row.Amount,
-			IsFrozen: row.Frozen,
+			Address:         addr.String(),
+			Amount:          row.Amount,
+			IsFrozen:        row.Frozen,
+			OptedInAtRound:  row.CreatedRound,
+			OptedOutAtRound: row.ClosedRound,
 		}
 
 		balances = append(balances, bal)
