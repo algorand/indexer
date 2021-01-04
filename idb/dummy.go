@@ -347,10 +347,12 @@ type AssetsQuery struct {
 
 // AssetRow is metadata relating to one asset in a asset query.
 type AssetRow struct {
-	AssetID uint64
-	Creator []byte
-	Params  types.AssetParams
-	Error   error
+	AssetID      uint64
+	Creator      []byte
+	Params       types.AssetParams
+	Error        error
+	CreatedRound *uint64
+	ClosedRound  *uint64
 }
 
 // AssetBalanceQuery is a parameter object with all of the asset balance filter options.
@@ -368,11 +370,13 @@ type AssetBalanceQuery struct {
 
 // AssetBalanceRow is metadata relating to one asset balance in an asset balance query.
 type AssetBalanceRow struct {
-	Address []byte
-	AssetID uint64
-	Amount  uint64
-	Frozen  bool
-	Error   error
+	Address      []byte
+	AssetID      uint64
+	Amount       uint64
+	Frozen       bool
+	Error        error
+	CreatedRound *uint64
+	ClosedRound  *uint64
 }
 
 // ApplicationRow is metadata relating to one application in an application query.
