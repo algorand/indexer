@@ -20,5 +20,5 @@ start_postgres
 # Test 1
 kill_indexer
 start_indexer_with_blocks createdestroy blockdata/create_destroy.tar.bz2
-wait_for_ready
+wait_for_migrated
 create_delete_tests createdestroy

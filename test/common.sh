@@ -33,10 +33,24 @@ function base_query() {
 }
 
 # SQL Test - query and veryify results
+# $1 - max runtime in seconds, default value = 20
+# $2 - test description.
+# $3 - database
+# $4 - query
+# $5 - substring that should be in the response
+function sql_test_timeout {
+  local MAX_TIME_BEFORE=MAX_TIME
+  MAX_TIME=$1
+  shift
+  sql_test "$@"
+  MAX_TIME=$MAX_TIME_BEFORE
+}
+
+# SQL Test - query and veryify results
 # $1 - test description.
 # $2 - database
 # $3 - query
-# $4... - substring that should be in the response
+# $4... - substring(s) that should be in the response
 function sql_test {
   local DESCRIPTION=$1
   shift
@@ -45,6 +59,8 @@ function sql_test {
   local QUERY=$1
   shift
   local SUBSTRING
+
+  local START=$SECONDS
 
   set +e
   RES=$(base_query $DATABASE "$QUERY")
@@ -61,6 +77,11 @@ function sql_test {
     fi
   done
 
+  local ELAPSED=$(($SECONDS - $START))
+  if [ $ELAPSED -gt $MAX_TIME ]; then
+    fail_and_exit "$DESCRIPTION" "$QUERY" "query duration too long, $ELAPSED > $MAX_TIME"
+  fi
+
   print_alert "Passed test: $DESCRIPTION"
 }
 
@@ -70,10 +91,24 @@ function base_curl() {
 }
 
 # CURL Test - query and veryify results
+# $1 - max runtime in seconds, default value = 20
+# $2 - test description.
+# $3 - query
+# $4 - expected status code
+# $5... - substring that should be in the response
+function rest_test_timeout {
+  local MAX_TIME_BEFORE=MAX_TIME
+  MAX_TIME=$1
+  shift
+  rest_test "$@"
+  MAX_TIME=$MAX_TIME_BEFORE
+}
+
+# CURL Test - query and veryify results
 # $1 - test description.
 # $2 - query
 # $3 - expected status code
-# $4... - substring that should be in the response
+# $4... - substring(s) that should be in the response
 function rest_test {
   local DESCRIPTION=$1
   shift
@@ -83,6 +118,8 @@ function rest_test {
   shift
   local SUBSTRING
 
+  local START=$SECONDS
+
   set +e
   local CODE=$(base_curl "$QUERY")
   if [[ $? != 0 ]]; then
@@ -91,12 +128,17 @@ function rest_test {
   fi
   set -e
 
-  RES=$(cat "$CURL_TEMPFILE")
+  local RES=$(cat "$CURL_TEMPFILE")
   if [[ "$CODE" != "$EXPECTED_CODE" ]]; then
     fail_and_exit "$DESCRIPTION" "$QUERY" "unexpected HTTP status code expected $EXPECTED_CODE (actual $CODE): $RES"
   fi
 
-  # Check results
+  local ELAPSED=$(($SECONDS - $START))
+  if [ $ELAPSED -gt $MAX_TIME ]; then
+    fail_and_exit "$DESCRIPTION" "$QUERY" "query duration too long, $ELAPSED > $MAX_TIME"
+  fi
+
+  # Check result substrings
   for SUBSTRING in "$@"; do
     if [[ "$RES" != *"$SUBSTRING"* ]]; then
       fail_and_exit "$DESCRIPTION" "$QUERY" "unexpected response. should contain '$SUBSTRING', actual: $RES"
@@ -118,6 +160,19 @@ function suppress() {
   /bin/rm /tmp/suppress.out
 }
 
+# $1 - connection string
+# $2 - if set, puts in read-only mode
+function start_indexer_with_connection_string() {
+  if [ ! -z $2 ]; then
+    RO="--no-algod"
+  fi
+  ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer daemon \
+    -S $NET "$RO" \
+    -P "$1" \
+    "$RO" \
+    --pidfile $PIDFILE 2>&1 > /dev/null &
+}
+
 # $1 - postgres dbname
 # $2 - if set, halts execution
 function start_indexer() {
@@ -126,10 +181,7 @@ function start_indexer() {
     sleep infinity
   fi
 
-  ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer daemon \
-    -S $NET \
-    -P "${CONNECTION_STRING/DB_NAME_HERE/$1}" \
-    --pidfile $PIDFILE 2>&1 > /dev/null &
+  start_indexer_with_connection_string "${CONNECTION_STRING/DB_NAME_HERE/$1}"
 }
 
 
@@ -159,24 +211,40 @@ function start_indexer_with_blocks() {
   start_indexer $1 $3
 }
 
+# $1 - number of attempts
+function wait_for_started() {
+  wait_for '"round":' "$1"
+}
+
+# $1 - number of attempts
+function wait_for_migrated() {
+  wait_for '"migration-required":false' "$1"
+}
+
+# $1 - number of attempts
+function wait_for_available() {
+  wait_for '"db-available":true' "$1"
+}
+
 # Query indexer for 20 seconds waiting for migration to complete.
 # Exit with error if still not ready.
-function wait_for_ready() {
+# $1 - string to look for
+# $2 - number of attempts (optional, default = 20)
+function wait_for() {
   local n=0
 
   set +e
   local READY
-  until [ "$n" -ge 20 ] || [ ! -z $READY ]
-  do
-    curl -q -s "$NET/health" | grep '"is-migrating":false' > /dev/null 2>&1 && READY=1
+  until [ "$n" -ge ${2:-20} ] || [ ! -z $READY ]; do
+    curl -q -s "$NET/health" | grep "$1" > /dev/null 2>&1 && READY=1
     n=$((n+1))
     sleep 1
   done
   set -e
 
   if [ -z $READY ]; then
-    echo "Error: timed out waiting for db to become available."
-    curl "$NET/health"
+    echo "Error: timed out waiting for $1."
+    curl -q -s "$NET/health"
     exit 1
   fi
 }
