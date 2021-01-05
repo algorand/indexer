@@ -8,12 +8,13 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type LoggerMiddleware struct {
+type loggerMiddleware struct {
 	log *log.Logger
 }
 
+// MakeLogger initializes a logger echo.MiddlewareFunc
 func MakeLogger(log *log.Logger) echo.MiddlewareFunc {
-	logger := LoggerMiddleware{
+	logger := loggerMiddleware{
 		log: log,
 	}
 
@@ -21,7 +22,7 @@ func MakeLogger(log *log.Logger) echo.MiddlewareFunc {
 }
 
 // Logger is an echo middleware to add log to the API
-func (logger *LoggerMiddleware) handler(next echo.HandlerFunc) echo.HandlerFunc {
+func (logger *loggerMiddleware) handler(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(ctx echo.Context) (err error) {
 		start := time.Now()
 

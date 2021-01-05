@@ -25,6 +25,8 @@ logger = logging.getLogger(__name__)
 
 reward_addr = base64.b64decode("/v////////////////////////////////////////8=")
 fee_addr = base64.b64decode("x/zNsljw1BicK/i21o7ml1CGQrCtAB8x/LkYw1S6hZo=")
+reward_niceaddr = algosdk.encoding.encode_address(reward_addr)
+fee_niceaddr = algosdk.encoding.encode_address(fee_addr)
 
 def getGenesisVars(genesispath):
     with open(genesispath) as fin:
@@ -32,11 +34,17 @@ def getGenesisVars(genesispath):
         rwd = genesis.get('rwd')
         if rwd is not None:
             global reward_addr
+            global reward_niceaddr
+            logger.debug('reward addr %s', rwd)
             reward_addr = algosdk.encoding.decode_address(rwd)
+            reward_niceaddr = rwd
         fees = genesis.get('fees')
         if fees is not None:
             global fee_addr
+            global fee_niceaddr
+            logger.debug('fee addr %s', fees)
             fee_addr = algosdk.encoding.decode_address(fees)
+            fee_niceaddr = fees
 
 def encode_addr(addr):
     if len(addr) == 44:
@@ -60,6 +68,8 @@ def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None):
     if blockround is not None:
         query['round'] = blockround
     for addr in addrlist:
+        if addr in (reward_niceaddr, fee_niceaddr):
+            continue
         accountsurl[2] = os.path.join(rawurl[2], 'v2', 'accounts', addr)
         if query:
             accountsurl[4] = urllib.parse.urlencode(query)
@@ -240,17 +250,33 @@ def deepeq(a, b, path=None, msg=None):
         return True
     return a == b
 
+def remove_at_round_fields(x):
+    x.pop('created-at-round', None)
+    x.pop('deleted-at-round', None)
+    x.pop('destroyed-at-round', None)
+    x.pop('optin-at-round', None)
+    x.pop('opted-in-at-round', None)
+    x.pop('opted-out-at-round', None)
+    x.pop('closeout-at-round', None)
+    x.pop('closed-out-at-round', None)
+    x.pop('closed-at-round', None)
+
+def _dac(x):
+    out = dict(x)
+    remove_at_round_fields(out)
+    return out
+
+def dictifyAssetConfig(acfg):
+    return {x['index']:_dac(x) for x in acfg}
+
 def _dap(x):
     out = dict(x)
+    remove_at_round_fields(out)
     out['params'] = dict(out['params'])
     gs = out['params'].get('global-state')
     if gs:
         out['params']['global-state'] = {z['key']:z['value'] for z in gs}
     return out
-
-def dictifyAssetConfig(acfg):
-    return {x['index']:x for x in acfg}
-
 
 def dictifyAppParams(ap):
     # make a list of app params comparable by deepeq
@@ -264,6 +290,7 @@ def dictifyAppLocal(al):
         kv = ent.get('key-value')
         if kv:
             ent['key-value'] = {x['key']:x['value'] for x in kv}
+        remove_at_round_fields(ent)
         out[appid] = ent
     return out
 
@@ -334,6 +361,9 @@ class CheckContext:
                     emsg = '{} algod has assets but not indexer: {!r}\n'.format(niceaddr, nonzero)
                     xe(emsg)
             i2acfg = i2v.get('created-assets')
+            # filter out deleted entries that indexer is showing to us
+            if i2acfg:
+                i2acfg = list(filter(lambda x: x['params']['total'] is not 0, i2acfg))
             if acfg:
                 if i2acfg:
                     indexerAcfg = dictifyAssetConfig(i2acfg)
@@ -346,6 +376,10 @@ class CheckContext:
             elif i2acfg:
                 xe('{} indexer has acfg but not algod: {!r}\n'.format(niceaddr, i2acfg))
             i2apar = i2v.get('created-apps')
+            # filter out deleted entries that indexer is showing to us
+            if i2apar:
+                i2apar = list(filter(lambda x: x['params']['approval-program'] is not None and x['params']['clear-state-program'] is not None, i2apar))
+
             if appparams:
                 if i2apar:
                     i2appById = dictifyAppParams(i2apar)
@@ -358,17 +392,20 @@ class CheckContext:
             elif i2apar:
                 xe('{} indexer has apar but not algod: {!r}\n'.format(niceaddr, i2apar))
             i2applocal = i2v.get('apps-local-state')
+            # filter out deleted entries that indexer is showing to us
             if i2applocal:
-                if applocal:
+                i2applocal = list(filter(lambda x: x['schema']['num-byte-slice'] is not 0 or x['schema']['num-uint'] is not 0, i2applocal))
+            if applocal:
+                if i2applocal:
                     eqerr = []
                     ald = dictifyAppLocal(applocal)
                     ild = dictifyAppLocal(i2applocal)
                     if not deepeq(ald, ild, (), eqerr):
                         xe('{} indexer and algod disagree on app local, {}\nindexer={}\nalgod={}\n'.format(niceaddr, eqerr, json_pp(i2applocal), json_pp(applocal)))
                 else:
-                    xe('{} indexer has app local but not algod: {!r}'.format(niceaddr, i2applocal))
-            elif applocal:
-                xe('{} algod has app local but not indexer: {!r}'.format(niceaddr, applocal))
+                    xe('{} algod has app local but not indexer: {!r}'.format(niceaddr, applocal))
+            elif i2applocal:
+                xe('{} indexer has app local but not algod: {!r}'.format(niceaddr, i2applocal))
 
             if xe.ok:
                 self.match += 1
@@ -644,11 +681,12 @@ def main():
         if args.mismatches and len(mismatches) > args.mismatches:
             mismatches = mismatches[:args.mismatches]
         for addr, msg in mismatches:
+            niceaddr = algosdk.encoding.encode_address(addr)
             if addr in (reward_addr, fee_addr):
+                logger.debug('skip %s', niceaddr)
                 # we know accounting for the special addrs is different
                 continue
             retval = 1
-            niceaddr = algosdk.encoding.encode_address(addr)
             xaddr = base64.b16encode(addr).decode().lower()
             err.write('\n{} \'\\x{}\'\n\t{}\n'.format(niceaddr, xaddr, msg))
             tcount = 0

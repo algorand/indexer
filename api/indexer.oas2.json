@@ -692,6 +692,16 @@
           "description": "\\[spend\\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.",
           "type": "string",
           "x-algorand-format": "Address"
+        },
+        "created-at-round": {
+          "description": "Round during which this account first appeared in a transaction.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
+        },
+        "closed-at-round": {
+          "description": "Round during which this account was most recently closed.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
         }
       }
     },
@@ -759,6 +769,16 @@
         "id": {
           "description": "The application which this local state is for.",
           "type": "integer"
+        },
+        "opted-in-at-round": {
+          "description": "Round when the account opted into the application.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "closed-out-at-round": {
+          "description": "Round when account closed out of the application.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
         },
         "schema": {
           "description": "\\[hsch\\] schema.",
@@ -829,6 +849,16 @@
           "description": "\\[appidx\\] application index.",
           "type": "integer"
         },
+        "created-at-round": {
+          "description": "Round when this application was created.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "deleted-at-round": {
+          "description": "Round when this application was deleted.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
         "params": {
           "description": "\\[appparams\\] application parameters.",
           "$ref": "#/definitions/ApplicationParams"
@@ -886,6 +916,16 @@
           "description": "unique asset identifier",
           "type": "integer"
         },
+        "created-at-round": {
+          "description": "Round during which this asset was created.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
+        },
+        "destroyed-at-round": {
+          "description": "Round during which this asset was destroyed.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
+        },
         "params": {
           "$ref": "#/definitions/AssetParams"
         }
@@ -917,6 +957,16 @@
         "is-frozen": {
           "description": "\\[f\\] whether or not the holding is frozen.",
           "type": "boolean"
+        },
+        "opted-in-at-round": {
+          "description": "Round during which the account opted into this asset holding.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
+        },
+        "opted-out-at-round": {
+          "description": "Round during which the account opted out of this asset holding.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
         }
       }
     },
@@ -1195,6 +1245,16 @@
         },
         "is-frozen": {
           "type": "boolean"
+        },
+        "opted-in-at-round": {
+          "description": "Round during which the account opted into the asset.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
+        },
+        "opted-out-at-round": {
+          "description": "Round during which the account opted out of the asset.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
         }
       }
     },

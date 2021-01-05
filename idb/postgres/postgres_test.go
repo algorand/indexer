@@ -32,7 +32,7 @@ func TestAllMigrations(t *testing.T) {
 			// This automatically runs migrations
 			pdb, err := openPostgres(db, &idb.IndexerDbOptions{
 				ReadOnly: false,
-			})
+			}, nil)
 			require.NoError(t, err)
 
 			// Just need a moment for the go routine to get started
@@ -73,7 +73,7 @@ func TestNoMigrationsNeeded(t *testing.T) {
 	// This automatically runs migraions
 	pdb, err := openPostgres(db, &idb.IndexerDbOptions{
 		ReadOnly: false,
-	})
+	}, nil)
 
 	// Just need a moment for the go routine to get started
 	time.Sleep(100 * time.Millisecond)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,9 +12,12 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/algorand/indexer/types"
 )
 
+// Fetcher is used to query algod for new blocks.
 type Fetcher interface {
 	Algod() *algod.Client
 
@@ -28,6 +30,7 @@ type Fetcher interface {
 	SetNextRound(nextRound uint64)
 }
 
+// BlockHandler is the handler fetcher uses to process a block.
 type BlockHandler interface {
 	HandleBlock(block *types.EncodedBlockCert)
 }
@@ -46,6 +49,8 @@ type fetcherImpl struct {
 	done bool
 
 	failingSince time.Time
+
+	log *log.Logger
 }
 
 // Algod is part of the Fetcher interface
@@ -81,13 +86,13 @@ func (bot *fetcherImpl) catchupLoop() {
 
 		blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(context.Background())
 		if err != nil {
-			log.Printf("catchup block %d, err %v\n", bot.nextRound, err)
+			bot.log.WithError(err).Errorf("catchup block %d", bot.nextRound)
 			return
 		}
 
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
-			log.Printf("err handling catchup block %d, %v\n", bot.nextRound, err)
+			bot.log.WithError(err).Errorf("err handling catchup block %d", bot.nextRound)
 			return
 		}
 		bot.nextRound++
@@ -107,21 +112,21 @@ func (bot *fetcherImpl) followLoop() {
 			}
 			_, err = aclient.StatusAfterBlock(bot.nextRound).Do(context.Background())
 			if err != nil {
-				log.Printf("r=%d error getting status %d, %v\n", retries, bot.nextRound, err)
+				bot.log.WithError(err).Errorf("r=%d error getting status %d", retries, bot.nextRound)
 				continue
 			}
 			blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(context.Background())
 			if err == nil {
 				break
 			}
-			log.Printf("r=%d err getting block %d, %v\n", retries, bot.nextRound, err)
+			bot.log.WithError(err).Errorf("r=%d err getting block %d", retries, bot.nextRound)
 		}
 		if err != nil {
 			return
 		}
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
-			log.Printf("err handling follow block %d, %v\n", bot.nextRound, err)
+			bot.log.WithError(err).Errorf("err handling follow block %d", bot.nextRound)
 			break
 		}
 		bot.nextRound++
@@ -129,6 +134,7 @@ func (bot *fetcherImpl) followLoop() {
 	}
 }
 
+// Run is part of the Fetcher interface
 func (bot *fetcherImpl) Run() {
 	if bot.wg != nil {
 		defer bot.wg.Done()
@@ -148,26 +154,29 @@ func (bot *fetcherImpl) Run() {
 		} else {
 			now := time.Now()
 			dt := now.Sub(bot.failingSince)
-			log.Printf("failing to fetch from algod for %s, (since %s, now %s)\n", dt.String(), bot.failingSince.String(), now.String())
+			bot.log.Infof("failing to fetch from algod for %s, (since %s, now %s)", dt.String(), bot.failingSince.String(), now.String())
 		}
 		time.Sleep(5 * time.Second)
 		err := bot.reclient()
 		if err != nil {
-			log.Printf("err trying to re-client, %v\n", err)
+			bot.log.WithError(err).Errorln("err trying to re-client")
 		} else {
-			log.Print("reclient happened")
+			bot.log.Infof("reclient happened")
 		}
 	}
 }
 
+// SetWaitGroup is part of the Fetcher interface
 func (bot *fetcherImpl) SetWaitGroup(wg *sync.WaitGroup) {
 	bot.wg = wg
 }
 
+// SetContext is part of the Fetcher interface
 func (bot *fetcherImpl) SetContext(ctx context.Context) {
 	bot.ctx = ctx
 }
 
+// SetNextRound is part of the Fetcher interface
 func (bot *fetcherImpl) SetNextRound(nextRound uint64) {
 	bot.nextRound = nextRound
 }
@@ -184,6 +193,7 @@ func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) (err error) {
 	return
 }
 
+// AddBlockHandler is part of the Fetcher interface
 func (bot *fetcherImpl) AddBlockHandler(handler BlockHandler) {
 	if bot.blockHandlers == nil {
 		x := make([]BlockHandler, 1, 10)
@@ -199,8 +209,9 @@ func (bot *fetcherImpl) AddBlockHandler(handler BlockHandler) {
 	bot.blockHandlers = append(bot.blockHandlers, handler)
 }
 
-func ForDataDir(path string) (bot Fetcher, err error) {
-	boti := &fetcherImpl{algorandData: path}
+// ForDataDir initializes Fetcher to read data from the data directory.
+func ForDataDir(path string, log *log.Logger) (bot Fetcher, err error) {
+	boti := &fetcherImpl{algorandData: path, log: log}
 	err = boti.reclient()
 	if err == nil {
 		bot = boti
@@ -208,7 +219,8 @@ func ForDataDir(path string) (bot Fetcher, err error) {
 	return
 }
 
-func ForNetAndToken(netaddr, token string) (bot Fetcher, err error) {
+// ForNetAndToken initializes Fetch to read data from an algod REST endpoint.
+func ForNetAndToken(netaddr, token string, log *log.Logger) (bot Fetcher, err error) {
 	var client *algod.Client
 	if !strings.HasPrefix(netaddr, "http") {
 		netaddr = "http://" + netaddr
@@ -217,7 +229,7 @@ func ForNetAndToken(netaddr, token string) (bot Fetcher, err error) {
 	if err != nil {
 		return
 	}
-	bot = &fetcherImpl{aclient: client}
+	bot = &fetcherImpl{aclient: client, log: log}
 	return
 }
 

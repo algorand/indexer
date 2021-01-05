@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 
 	"github.com/algorand/indexer/config"
@@ -13,27 +16,32 @@ var importCmd = &cobra.Command{
 	Long:  "import block file or tar file of blocks. arguments are interpret as file globs (e.g. *.tar.bz2)",
 	Run: func(cmd *cobra.Command, args []string) {
 		config.BindFlags(cmd)
+		err := configureLogger()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
+			os.Exit(1)
+		}
 
 		db := globalIndexerDb(nil)
 
-		helper := importer.ImportHelper{
-			BlockFileLimit:  blockFileLimit,
-			GenesisJsonPath: genesisJsonPath,
-			NumRoundsLimit:  numRoundsLimit,
-		}
+		helper := importer.NewImportHelper(
+			genesisJSONPath,
+			numRoundsLimit,
+			blockFileLimit,
+			logger)
 
 		helper.Import(db, args)
 	},
 }
 
 var (
-	genesisJsonPath string
+	genesisJSONPath string
 	numRoundsLimit  int
 	blockFileLimit  int
 )
 
 func init() {
-	importCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json")
+	importCmd.Flags().StringVarP(&genesisJSONPath, "genesis", "g", "", "path to genesis.json")
 	importCmd.Flags().IntVarP(&numRoundsLimit, "num-rounds-limit", "", 0, "number of rounds to process")
 	importCmd.Flags().IntVarP(&blockFileLimit, "block-file-limit", "", 0, "number of block files to process (for debugging)")
 }

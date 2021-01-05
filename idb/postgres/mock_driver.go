@@ -114,7 +114,7 @@ func (s *MockStmt) NumInput() int {
 func (s *MockStmt) Exec(args []driver.Value) (driver.Result, error) {
 	//fmt.Println("driver.Stmt - Exec")
 	return &MockResult{
-		insertId: 0,
+		insertID: 0,
 		rows:     0,
 	}, nil
 }
@@ -153,14 +153,14 @@ func (s *MockStmt) Next(dest []driver.Value) error {
 
 // MockResult is something I didn't need but is part of the interface.
 type MockResult struct {
-	insertId int64
+	insertID int64
 	rows     int64
 }
 
 // LastInsertId - Part of driver.Result interface
 func (s *MockResult) LastInsertId() (int64, error) {
 	//fmt.Println("driver.Result - LastInsertId")
-	return s.insertId, nil
+	return s.insertID, nil
 }
 
 // RowsAffected - Part of driver.Result interface
@@ -173,11 +173,13 @@ func (s *MockResult) RowsAffected() (int64, error) {
 type MockTx struct {
 }
 
+// Commit - Part of driver.Tx interface
 func (t *MockTx) Commit() error {
 	//fmt.Println("driver.Tx - Commit")
 	return nil
 }
 
+// Rollback - Part of driver.Tx interface
 func (t *MockTx) Rollback() error {
 	//fmt.Println("driver.Tx - Rollback")
 	return nil

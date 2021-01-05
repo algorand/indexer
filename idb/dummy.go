@@ -12,111 +12,158 @@ import (
 	"time"
 
 	atypes "github.com/algorand/go-algorand-sdk/types"
+	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/types"
 )
 
+// DummyIndexerDb is a mock implementation of IndexerDb
 func DummyIndexerDb() IndexerDb {
 	return &dummyIndexerDb{}
 }
 
 type dummyIndexerDb struct {
+	log *log.Logger
 }
 
+// StartBlock is part of idb.IndexerDB
 func (db *dummyIndexerDb) StartBlock() (err error) {
-	fmt.Printf("StartBlock\n")
-	return nil
-}
-func (db *dummyIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
-	fmt.Printf("\ttxn %d %d %d %d\n", round, intra, txtypeenum, assetid)
-	return nil
-}
-func (db *dummyIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	fmt.Printf("CommitBlock %d %d %d header bytes\n", round, timestamp, len(headerbytes))
+	db.log.Printf("StartBlock")
 	return nil
 }
 
+// AddTransaction is part of idb.IndexerDB
+func (db *dummyIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
+	db.log.Printf("\ttxn %d %d %d %d", round, intra, txtypeenum, assetid)
+	return nil
+}
+
+// CommitBlock is part of idb.IndexerDB
+func (db *dummyIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
+	db.log.Printf("CommitBlock %d %d %d header bytes", round, timestamp, len(headerbytes))
+	return nil
+}
+
+// AlreadyImported is part of idb.IndexerDB
 func (db *dummyIndexerDb) AlreadyImported(path string) (imported bool, err error) {
 	return false, nil
 }
+
+// MarkImported is part of idb.IndexerDB
 func (db *dummyIndexerDb) MarkImported(path string) (err error) {
 	return nil
 }
 
+// LoadGenesis is part of idb.IndexerDB
 func (db *dummyIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	return nil
 }
 
+// SetProto is part of idb.IndexerDB
 func (db *dummyIndexerDb) SetProto(version string, proto types.ConsensusParams) (err error) {
 	return nil
 }
 
+// GetProto is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetProto(version string) (proto types.ConsensusParams, err error) {
 	err = nil
 	return
 }
 
+// GetMetastate is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetMetastate(key string) (jsonStrValue string, err error) {
 	return "", nil
 }
 
+// SetMetastate is part of idb.IndexerDB
 func (db *dummyIndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
 	return nil
 }
 
+// GetMaxRound is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetMaxRound() (round uint64, err error) {
 	return 0, nil
 }
 
+// GetSpecialAccounts is part of idb.IndexerDb
+func (db *dummyIndexerDb) GetSpecialAccounts() (SpecialAccounts, error) {
+	return SpecialAccounts{}, nil
+}
+
+// YieldTxns is part of idb.IndexerDB
 func (db *dummyIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow {
 	return nil
 }
 
+// CommitRoundAccounting is part of idb.IndexerDB
 func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error) {
 	return nil
 }
 
+// GetBlock is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetBlock(round uint64) (block types.Block, err error) {
 	err = nil
 	return
 }
+
+// Transactions is part of idb.IndexerDB
 func (db *dummyIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
 	return nil
 }
 
+// GetAccounts is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow {
 	return nil
 }
 
+// Assets is part of idb.IndexerDB
 func (db *dummyIndexerDb) Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow {
 	return nil
 }
 
+// AssetBalances is part of idb.IndexerDB
 func (db *dummyIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow {
 	return nil
 }
 
+// Applications is part of idb.IndexerDB
 func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow {
 	return nil
 }
 
+// Health is part of idb.IndexerDB
 func (db *dummyIndexerDb) Health() (state Health, err error) {
 	return Health{}, nil
 }
 
+// IndexerFactory is used to install an IndexerDb implementation.
 type IndexerFactory interface {
 	Name() string
-	Build(arg string, opts *IndexerDbOptions) (IndexerDb, error)
+	Build(arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error)
 }
 
+// TxnRow is metadata relating to one transaction in a transaction query.
 type TxnRow struct {
+	// Round is the round where the transaction was committed.
 	Round     uint64
+
+	// Round time  is the block time when the block was confirmed.
 	RoundTime time.Time
+
+	// Intra is the offset into the block where this transaction was placed.
 	Intra     int
+
+	// TxnBytes is the raw signed transaction with apply data object.
 	TxnBytes  []byte
-	AssetId   uint64
+
+	// AssetID is the ID of any asset or application created by this transaction.
+	AssetID uint64
+
+	// Extra are some additional fields which might be related to to the transaction.
 	Extra     TxnExtra
+
+	// Error indicates that there was an internal problem processing the expected transaction.
 	Error     error
 }
 
@@ -140,12 +187,14 @@ func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
 	return
 }
 
+// TxnExtra is some additional metadata needed for a transaction.
 type TxnExtra struct {
 	AssetCloseAmount   uint64          `codec:"aca,omitempty"`
 	GlobalReverseDelta AppReverseDelta `codec:"agr,omitempty"`
 	LocalReverseDelta  AppReverseDelta `codec:"alr,omitempty"`
 }
 
+// IndexerDb is the interface used to define alternative Indexer backends.
 // TODO: sqlite3 impl
 // TODO: cockroachdb impl
 type IndexerDb interface {
@@ -164,6 +213,7 @@ type IndexerDb interface {
 	GetMetastate(key string) (jsonStrValue string, err error)
 	SetMetastate(key, jsonStrValue string) (err error)
 	GetMaxRound() (round uint64, err error)
+	GetSpecialAccounts() (SpecialAccounts, error)
 
 	// YieldTxns returns a channel that produces the whole transaction stream after some round forward
 	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow
@@ -179,13 +229,6 @@ type IndexerDb interface {
 	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow
 
 	Health() (status Health, err error)
-}
-
-func GetAccount(idb IndexerDb, addr []byte) (account models.Account, err error) {
-	for ar := range idb.GetAccounts(context.Background(), AccountQueryOptions{EqualToAddress: addr}) {
-		return ar.Account, ar.Error
-	}
-	return models.Account{}, nil
 }
 
 // TransactionFilter.AddressRole bitfield values
@@ -209,6 +252,7 @@ const (
 	TypeEnumApplication   = 6
 )
 
+// TransactionFilter is a parameter object with all the transaction filter options.
 type TransactionFilter struct {
 	// Address filtering transactions for one Address will
 	// return transactions newest-first proceding into the
@@ -234,11 +278,11 @@ type TransactionFilter struct {
 	AlgosLT    uint64
 	RekeyTo    *bool // nil for no filter
 
-	AssetId       uint64 // filter transactions relevant to an asset
+	AssetID       uint64 // filter transactions relevant to an asset
 	AssetAmountGT uint64
 	AssetAmountLT uint64
 
-	ApplicationId uint64 // filter transactions relevant to an application
+	ApplicationID uint64 // filter transactions relevant to an application
 
 	EffectiveAmountGt uint64 // Algo: Amount + CloseAmount > x
 	EffectiveAmountLt uint64 // Algo: Amount + CloseAmount < x
@@ -249,6 +293,7 @@ type TransactionFilter struct {
 	Limit uint64
 }
 
+// AccountQueryOptions is a parameter object with all of the account filter options.
 type AccountQueryOptions struct {
 	GreaterThanAddress []byte // for paging results
 	EqualToAddress     []byte // return exactly this one account
@@ -261,14 +306,14 @@ type AccountQueryOptions struct {
 	// Filter on accounts with current balance less than x.
 	AlgosLessThan uint64
 
-	// HasAssetId, AssetGT, and AssetLT are implemented in Go code
+	// HasAssetID, AssetGT, and AssetLT are implemented in Go code
 	// after data has returned from Postgres and thus are slightly
 	// less efficient. They will turn on IncludeAssetHoldings.
-	HasAssetId uint64
+	HasAssetID uint64
 	AssetGT    uint64
 	AssetLT    uint64
 
-	HasAppId uint64
+	HasAppID uint64
 
 	IncludeAssetHoldings bool
 	IncludeAssetParams   bool
@@ -276,14 +321,16 @@ type AccountQueryOptions struct {
 	Limit uint64
 }
 
+// AccountRow is metadata relating to one account in a account query.
 type AccountRow struct {
 	Account models.Account
 	Error   error
 }
 
+// AssetsQuery is a parameter object with all of the asset filter options.
 type AssetsQuery struct {
-	AssetId            uint64
-	AssetIdGreaterThan uint64
+	AssetID            uint64
+	AssetIDGreaterThan uint64
 
 	Creator []byte
 
@@ -298,15 +345,19 @@ type AssetsQuery struct {
 	Limit uint64
 }
 
+// AssetRow is metadata relating to one asset in a asset query.
 type AssetRow struct {
-	AssetId uint64
-	Creator []byte
-	Params  types.AssetParams
-	Error   error
+	AssetID      uint64
+	Creator      []byte
+	Params       types.AssetParams
+	Error        error
+	CreatedRound *uint64
+	ClosedRound  *uint64
 }
 
+// AssetBalanceQuery is a parameter object with all of the asset balance filter options.
 type AssetBalanceQuery struct {
-	AssetId  uint64
+	AssetID  uint64
 	AmountGT uint64 // only rows > this
 	AmountLT uint64 // only rows < this
 
@@ -317,14 +368,18 @@ type AssetBalanceQuery struct {
 	PrevAddress []byte
 }
 
+// AssetBalanceRow is metadata relating to one asset balance in an asset balance query.
 type AssetBalanceRow struct {
-	Address []byte
-	AssetId uint64
-	Amount  uint64
-	Frozen  bool
-	Error   error
+	Address      []byte
+	AssetID      uint64
+	Amount       uint64
+	Frozen       bool
+	Error        error
+	CreatedRound *uint64
+	ClosedRound  *uint64
 }
 
+// ApplicationRow is metadata relating to one application in an application query.
 type ApplicationRow struct {
 	Application models.Application
 	Error       error
@@ -333,11 +388,14 @@ type ApplicationRow struct {
 type dummyFactory struct {
 }
 
+// Name is part of the IndexerFactory interface.
 func (df dummyFactory) Name() string {
 	return "dummy"
 }
-func (df dummyFactory) Build(arg string, opts *IndexerDbOptions) (IndexerDb, error) {
-	return &dummyIndexerDb{}, nil
+
+// Build is part of the IndexerFactory interface.
+func (df dummyFactory) Build(arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
+	return &dummyIndexerDb{log: log}, nil
 }
 
 // This layer of indirection allows for different db integrations to be compiled in or compiled out by `go build --tags ...`
@@ -348,21 +406,27 @@ func init() {
 	RegisterFactory("dummy", &dummyFactory{})
 }
 
+// IndexerDbOptions are the options common to all indexer backends.
 type IndexerDbOptions struct {
 	ReadOnly bool
 }
 
+// RegisterFactory is used by IndexerDb implementations to register their implementations. This mechanism allows
+// for loose coupling between the configuration and the implementation. It is extremely similar to the way sql.DB
+// driver's are configured and used.
 func RegisterFactory(name string, factory IndexerFactory) {
 	indexerFactories[name] = factory
 }
 
-func IndexerDbByName(name, arg string, opts *IndexerDbOptions) (IndexerDb, error) {
+// IndexerDbByName is used to construct an IndexerDb object by name.
+func IndexerDbByName(name, arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
 	if val, ok := indexerFactories[name]; ok {
-		return val.Build(arg, opts)
+		return val.Build(arg, opts, log)
 	}
 	return nil, fmt.Errorf("no IndexerDb factory for %s", name)
 }
 
+// AccountDataUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AccountDataUpdate struct {
 	Addr            types.Address
 	Status          int // {Offline:0, Online:1, NotParticipating: 2}
@@ -373,43 +437,61 @@ type AccountDataUpdate struct {
 	VoteKeyDilution uint64
 }
 
+// AcfgUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AcfgUpdate struct {
-	AssetId uint64
+	AssetID uint64
 	IsNew   bool
 	Creator types.Address
 	Params  types.AssetParams
 }
 
+// AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AssetUpdate struct {
-	AssetId       uint64
+	AssetID       uint64
 	Delta         big.Int
 	DefaultFrozen bool
 }
 
+// FreezeUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type FreezeUpdate struct {
 	Addr    types.Address
-	AssetId uint64
+	AssetID uint64
 	Frozen  bool
 }
 
+// AssetClose is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AssetClose struct {
 	CloseTo       types.Address
-	AssetId       uint64
+	AssetID       uint64
 	Sender        types.Address
 	Round         uint64
 	Offset        uint64
 	DefaultFrozen bool
 }
 
+// TxnAssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type TxnAssetUpdate struct {
 	Round   uint64
 	Offset  int
-	AssetId uint64
+	AssetID uint64
 }
 
+// AlgoUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
+// When the update does not include closing the account, the values are a delta applied to the account.
+// If the update does include closing the account the rewards must be SET directly instead of applying a delta.
+type AlgoUpdate struct {
+	Balance int64
+	Rewards int64
+	// Closed changes the nature of the Rewards field. Balance and Rewards are normally deltas added to the
+	// microalgos and totalRewards columns, but if an account has been Closed then Rewards becomes a new value
+	// that replaces the old value (always zero by current reward logic)
+	Closed  bool
+}
+
+// RoundUpdates is used by the accounting and IndexerDb implementations to share modifications in a block.
 type RoundUpdates struct {
-	AlgoUpdates  map[[32]byte]int64
-	AccountTypes map[[32]byte]string
+	AlgoUpdates   map[[32]byte]*AlgoUpdate
+	AccountTypes  map[[32]byte]string
 
 	// AccountDataUpdates is explicitly a map so that we can
 	// explicitly set values or have not set values. Instead of
@@ -432,6 +514,7 @@ type RoundUpdates struct {
 	AppLocalDeltas  []AppDelta
 }
 
+// Clear is used to set a RoundUpdates object back to it's default values.
 func (ru *RoundUpdates) Clear() {
 	ru.AlgoUpdates = nil
 	ru.AccountTypes = nil
@@ -446,6 +529,7 @@ func (ru *RoundUpdates) Clear() {
 	ru.AppLocalDeltas = nil
 }
 
+// AppDelta used by the accounting and IndexerDb implementations to share modifications in a block.
 type AppDelta struct {
 	AppIndex     int64
 	Round        uint64
@@ -463,6 +547,7 @@ type AppDelta struct {
 	GlobalStateSchema atypes.StateSchema `codec:"gsch"`
 }
 
+// String is part of the Stringer interface.
 func (ad AppDelta) String() string {
 	parts := make([]string, 0, 10)
 	if len(ad.Address) > 0 {
@@ -474,7 +559,7 @@ func (ad AppDelta) String() string {
 	}
 	ds := ""
 	if ad.Delta != nil {
-		ds = string(JsonOneLine(ad.Delta))
+		ds = string(JSONOneLine(ad.Delta))
 	}
 	parts = append(parts, fmt.Sprintf("ai=%d oc=%v d=%s", ad.AddrIndex, ad.OnCompletion, ds))
 	if len(ad.ApprovalProgram) > 0 {
@@ -493,12 +578,13 @@ func (ad AppDelta) String() string {
 	return strings.Join(parts, " ")
 }
 
+// StateDelta used by the accounting and IndexerDb implementations to share modifications in a block.
 type StateDelta struct {
 	Key   []byte
 	Delta types.ValueDelta
 }
 
-// extra data attached to transactions
+// AppReverseDelta extra data attached to transactions relating to applications
 type AppReverseDelta struct {
 	Delta             []StateDelta        `codec:"d,omitempty"`
 	OnCompletion      atypes.OnCompletion `codec:"oc,omitempty"`
@@ -508,6 +594,7 @@ type AppReverseDelta struct {
 	GlobalStateSchema atypes.StateSchema  `codec:"gsch,omitempty"`
 }
 
+// SetDelta adds delta values to the AppReverseDelta object.
 func (ard *AppReverseDelta) SetDelta(key []byte, delta types.ValueDelta) {
 	for i, sd := range ard.Delta {
 		if bytes.Equal(key, sd.Key) {
@@ -523,9 +610,16 @@ func b32np(data []byte) string {
 	return base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(data)
 }
 
+// Health is the response object that IndexerDb objects need to return from the Health method.
 type Health struct {
 	Data        *map[string]interface{} `json:"data,omitempty""`
 	Round       uint64                  `json:"round"`
 	IsMigrating bool                    `json:"is-migrating"`
 	DBAvailable bool                    `json:"db-available"`
+}
+
+// SpecialAccounts are the accounts which have special accounting rules.
+type SpecialAccounts struct {
+	FeeSink     types.Address
+	RewardsPool types.Address
 }

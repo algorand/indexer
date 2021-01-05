@@ -1,4 +1,4 @@
-// GENERATED CODE from source protocols.json via go generate
+// Code generated from source protocols.json via go generate. DO NOT EDIT.
 
 package types
 
