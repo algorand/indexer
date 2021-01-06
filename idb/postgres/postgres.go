@@ -23,6 +23,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
+
 	// Load the postgres sql.DB implementation
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
@@ -611,6 +612,10 @@ func (tkv *TealKeyValue) delete(key []byte) {
 	for i, ktv := range tkv.They {
 		if bytes.Equal(ktv.Key, key) {
 			last := len(tkv.They) - 1
+			if last == 0 {
+				tkv.They = nil
+				return
+			}
 			if i < last {
 				tkv.They[i] = tkv.They[last]
 				tkv.They = tkv.They[:last]
