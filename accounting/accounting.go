@@ -46,11 +46,6 @@ func (accounting *State) InitRound(block types.Block) error {
 	return nil
 }
 
-// Close is part of the Closer interface.
-func (accounting *State) Close() error {
-	return nil
-}
-
 var zeroAddr = [32]byte{}
 
 func addrIsZero(a types.Address) bool {

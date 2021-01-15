@@ -296,8 +296,16 @@ func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit i
 		maybeFail(err, l, "txn accounting r=%d i=%d, %v", txn.Round, txn.Intra, err)
 		txnCount++
 	}
-	err = act.Close()
-	maybeFail(err, l, "accounting close %v", err)
+
+	// Commit the last round
+	if blockPtr != nil {
+		// TODO: commit rounds with empty paysets to avoid a special case to update the db metastate.
+		if len(blockPtr.Payset) > 0 {
+			err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr.RewardsLevel)
+			maybeFail(err, l, "failed to commit round accounting")
+		}
+	}
+
 	rounds += roundsSeen
 	if rounds > 0 {
 		l.Infof("accounting updated through round %d", currentRound)
