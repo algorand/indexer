@@ -2,6 +2,7 @@ package accounting
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -14,12 +15,9 @@ import (
 
 // State is used to record accounting changes as a result of processing transactions.
 type State struct {
-	db idb.IndexerDb
-
 	defaultFrozen map[uint64]bool
 
 	currentRound uint64
-	dirty        bool
 
 	idb.RoundUpdates
 
@@ -36,50 +34,21 @@ type State struct {
 }
 
 // New creates a new State object.
-func New(db idb.IndexerDb) *State {
-	return &State{db: db, defaultFrozen: make(map[uint64]bool)}
+func New() *State {
+	return &State{defaultFrozen: make(map[uint64]bool)}
 }
 
-func (accounting *State) getTxnCounter(round uint64) (txnCounter uint64, err error) {
-	if round != accounting.txnCounterRound {
-		block, err := accounting.db.GetBlock(round)
-		if err != nil {
-			return 0, err
-		}
-		accounting.txnCounter = block.TxnCounter
-		accounting.txnCounterRound = round
-	}
-	return accounting.txnCounter, nil
-}
-
-func (accounting *State) initRound(round uint64) error {
-	block, err := accounting.db.GetBlock(round)
-	if err != nil {
-		return err
-	}
+func (accounting *State) InitRound(block types.Block) error {
 	accounting.feeAddr = block.FeeSink
 	accounting.rewardAddr = block.RewardsPool
 	accounting.rewardsLevel = block.RewardsLevel
-	accounting.currentRound = round
-	return nil
-}
-
-func (accounting *State) commitRound() error {
-	if !accounting.dirty {
-		return nil
-	}
-	err := accounting.db.CommitRoundAccounting(accounting.RoundUpdates, accounting.currentRound, accounting.rewardsLevel)
-	if err != nil {
-		return err
-	}
-	accounting.RoundUpdates.Clear()
-	accounting.dirty = false
+	accounting.currentRound = uint64(block.Round)
 	return nil
 }
 
 // Close is part of the Closer interface.
 func (accounting *State) Close() error {
-	return accounting.commitRound()
+	return nil
 }
 
 var zeroAddr = [32]byte{}
@@ -246,6 +215,8 @@ func blankLsig(lsig atypes.LogicSig) bool {
 	return len(lsig.Logic) == 0
 }
 
+var ErrWrongRound error = errors.New("Wrong round.")
+
 // AddTransaction updates the State with the provided idb.TxnRow data.
 func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 	round := txnr.Round
@@ -257,16 +228,8 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		return fmt.Errorf("txn r=%d i=%d failed decode, %v", round, intra, err)
 	}
 	if accounting.currentRound != round {
-		err = accounting.commitRound()
-		if err != nil {
-			return fmt.Errorf("add tx commit round %d, %v", accounting.currentRound, err)
-		}
-		err = accounting.initRound(round)
-		if err != nil {
-			return fmt.Errorf("add tx init round %d, %v", round, err)
-		}
+		return ErrWrongRound
 	}
-	accounting.dirty = true
 
 	var ktype string
 	if !zeroSig(stxn.Sig) {

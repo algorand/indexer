@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/mocks"
 )
 
 var mainAcct = decodeAddressOrPanic("GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY")
@@ -75,8 +74,7 @@ func assertUpdates(t *testing.T, update *idb.AlgoUpdate, closed bool, balance, r
 }
 
 func getAccounting() *State {
-	mockIndexer := &mocks.IndexerDb{}
-	accountingState := New(mockIndexer)
+	accountingState := New()
 	accountingState.feeAddr = feeAddr
 	accountingState.rewardAddr = rewardAddr
 	accountingState.currentRound = closeMainToBC.Round

@@ -252,17 +252,33 @@ func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit i
 	}
 
 	lastlog := time.Now()
-	act := accounting.New(db)
+	act := accounting.New()
 	txns := db.YieldTxns(context.Background(), state.AccountRound)
 	currentRound := uint64(0)
 	roundsSeen := 0
 	lastRoundsSeen := roundsSeen
+	var blockPtr *types.Block = nil
 	for txn := range txns {
 		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)
 		if txn.Round != currentRound {
+			if blockPtr != nil {
+				// TODO: commit rounds with empty paysets to avoid a special case to update the db metastate.
+				if len(blockPtr.Payset) > 0 {
+					err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr.RewardsLevel)
+					maybeFail(err, l, "failed to commit round accounting")
+				}
+			}
+
+			// initialize accounting for next round
 			prevRound := currentRound
 			roundsSeen++
 			currentRound = txn.Round
+			block, err := db.GetBlock(currentRound)
+			maybeFail(err, l, "problem fetching next round (%d)", currentRound)
+			blockPtr = &block
+			act.InitRound(block)
+
+			// Log progress
 			if (numRoundsLimit != 0) && (roundsSeen > numRoundsLimit) {
 				l.Infof("hit rounds limit %d > %d", roundsSeen, numRoundsLimit)
 				break
