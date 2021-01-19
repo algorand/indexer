@@ -39,6 +39,7 @@ func New() *State {
 }
 
 func (accounting *State) InitRound(block types.Block) error {
+	accounting.RoundUpdates.Clear()
 	accounting.feeAddr = block.FeeSink
 	accounting.rewardAddr = block.RewardsPool
 	accounting.rewardsLevel = block.RewardsLevel
