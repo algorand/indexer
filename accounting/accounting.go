@@ -38,6 +38,7 @@ func New() *State {
 	return &State{defaultFrozen: make(map[uint64]bool)}
 }
 
+// InitRound should be called before each round to initialize the accounting state.
 func (accounting *State) InitRound(block types.Block) error {
 	accounting.RoundUpdates.Clear()
 	accounting.feeAddr = block.FeeSink
@@ -211,7 +212,9 @@ func blankLsig(lsig atypes.LogicSig) bool {
 	return len(lsig.Logic) == 0
 }
 
-var ErrWrongRound error = errors.New("Wrong round.")
+// ErrWrongRound is returned when adding a transaction which belongs to a different round
+// than what the State is configured for.
+var ErrWrongRound error = errors.New("wrong round")
 
 // AddTransaction updates the State with the provided idb.TxnRow data.
 func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
