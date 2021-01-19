@@ -147,8 +147,10 @@ function start_indexer_with_blocks() {
   local TEMPDIR=$(mktemp -d -t ci-XXXXXXX)
   tar -xf "$2" -C $TEMPDIR
 
-  echo "Start args 'import -P \"${CONNECTION_STRING/DB_NAME_HERE/$1}\" --genesis \"$TEMPDIR/algod/genesis.json\" $TEMPDIR/blocktars/*"
-  #sleep infinity
+  if [ ! -z $3 ]; then
+    echo "Start args 'import -P \"${CONNECTION_STRING/DB_NAME_HERE/$1}\" --genesis \"$TEMPDIR/algod/genesis.json\" $TEMPDIR/blocktars/*"
+    sleep infinity
+  fi
   ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer import \
     -P "${CONNECTION_STRING/DB_NAME_HERE/$1}" \
     --genesis "$TEMPDIR/algod/genesis.json" \

@@ -257,19 +257,21 @@ func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit i
 	currentRound := uint64(0)
 	roundsSeen := 0
 	lastRoundsSeen := roundsSeen
+	txnForRound := 0
 	var blockPtr *types.Block = nil
 	for txn := range txns {
 		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)
 		if txn.Round != currentRound {
 			if blockPtr != nil {
-				// TODO: commit rounds with empty paysets to avoid a special case to update the db metastate.
-				if len(blockPtr.Payset) > 0 {
+				// TODO: commit rounds with no transactions to avoid a special case to update the db metastate.
+				if txnForRound > 0 {
 					err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr.RewardsLevel)
 					maybeFail(err, l, "failed to commit round accounting")
 				}
 			}
 
 			// initialize accounting for next round
+			txnForRound = 0
 			prevRound := currentRound
 			roundsSeen++
 			currentRound = txn.Round
@@ -295,12 +297,13 @@ func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit i
 		err = act.AddTransaction(&txn)
 		maybeFail(err, l, "txn accounting r=%d i=%d, %v", txn.Round, txn.Intra, err)
 		txnCount++
+		txnForRound++
 	}
 
 	// Commit the last round
 	if blockPtr != nil {
 		// TODO: commit rounds with empty paysets to avoid a special case to update the db metastate.
-		if len(blockPtr.Payset) > 0 {
+		if txnForRound > 0 {
 			err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr.RewardsLevel)
 			maybeFail(err, l, "failed to commit round accounting")
 		}
