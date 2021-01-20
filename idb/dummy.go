@@ -81,6 +81,16 @@ func (db *dummyIndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
 	return nil
 }
 
+// GetMetastate is part of idb.IndexerDB
+func (db *dummyIndexerDb) GetImportState() (is ImportState, err error) {
+	return ImportState{}, nil
+}
+
+// SetMetastate is part of idb.IndexerDB
+func (db *dummyIndexerDb) SetImportState(is ImportState) (err error) {
+	return nil
+}
+
 // GetMaxRound is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetMaxRound() (round uint64, err error) {
 	return 0, nil
@@ -212,6 +222,8 @@ type IndexerDb interface {
 
 	GetMetastate(key string) (jsonStrValue string, err error)
 	SetMetastate(key, jsonStrValue string) (err error)
+	GetImportState() (is ImportState, err error)
+	SetImportState(ImportState) (err error)
 	GetMaxRound() (round uint64, err error)
 	GetSpecialAccounts() (SpecialAccounts, error)
 
@@ -219,6 +231,7 @@ type IndexerDb interface {
 	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow
 
 	CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error)
+
 
 	GetBlock(round uint64) (block types.Block, err error)
 
@@ -529,6 +542,22 @@ func (ru *RoundUpdates) Clear() {
 	ru.AppLocalDeltas = nil
 }
 
+type UpdateFilter struct {
+	StartRound int64
+	Address    *types.Address
+}
+
+// Filter is used to get a RoundUpdates copy containing only particular RoundUpdates.
+func (ru *RoundUpdates) Filter(filter UpdateFilter) RoundUpdates {
+	if filter.Address == nil {
+		return *ru
+	}
+
+	var response RoundUpdates
+
+	return response
+}
+
 // AppDelta used by the accounting and IndexerDb implementations to share modifications in a block.
 type AppDelta struct {
 	AppIndex     int64
@@ -622,4 +651,9 @@ type Health struct {
 type SpecialAccounts struct {
 	FeeSink     types.Address
 	RewardsPool types.Address
+}
+
+// ImportState is some metadata kept around to help the import helper.
+type ImportState struct {
+	AccountRound int64 `codec:"account_round"`
 }

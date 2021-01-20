@@ -139,6 +139,7 @@ func (bot *fetcherImpl) Run() {
 	if bot.wg != nil {
 		defer bot.wg.Done()
 	}
+
 	for true {
 		if bot.isDone() {
 			return

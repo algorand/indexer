@@ -46,17 +46,6 @@ type ImportHelper struct {
 	Log *log.Logger
 }
 
-// ImportState is some metadata kept around to help the import helper.
-type ImportState struct {
-	AccountRound int64 `codec:"account_round"`
-}
-
-// ParseImportState decodes a json serialized import state object.
-func ParseImportState(js string) (istate ImportState, err error) {
-	err = json.Decode([]byte(js), &istate)
-	return
-}
-
 // Import is the main ImportHelper function that glues together a directory full of block files and an Importer objects.
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	err := ImportProto(db)
@@ -92,7 +81,18 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 		h.Log.Infof("%d blocks in %s, %.0f/s, %d txn, %.0f/s", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
 	}
 
-	accountingRounds, txnCount := updateAccounting(db, h.GenesisJSONPath, h.NumRoundsLimit, h.Log)
+	initialImport := InitialImport(db, h.GenesisJSONPath, h.Log)
+	maybeFail(err, h.Log, "problem getting the max round")
+	filter := idb.UpdateFilter{StartRound: -1}
+	if !initialImport {
+		state, err := db.GetImportState()
+		maybeFail(err, h.Log, "problem getting the import state")
+		filter.StartRound = state.AccountRound
+	}
+	accountingRounds, txnCount := updateAccounting(db, filter, h.NumRoundsLimit, h.Log)
+	if initialImport {
+		accountingRounds++
+	}
 
 	accountingdone := time.Now()
 	if accountingRounds > 0 {
@@ -117,7 +117,7 @@ func maybeFail(err error, l *log.Logger, errfmt string, params ...interface{}) {
 	if err == nil {
 		return
 	}
-	l.Errorf(errfmt, params...)
+	l.WithError(err).Errorf(errfmt, params...)
 	os.Exit(1)
 }
 
@@ -219,17 +219,11 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 	return db.LoadGenesis(genesis)
 }
 
-// UpdateAccounting triggers an accounting update.
-func UpdateAccounting(db idb.IndexerDb, genesisJSONPath string, l *log.Logger) (rounds, txnCount int) {
-	return updateAccounting(db, genesisJSONPath, 0, l)
-}
-
-func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit int, l *log.Logger) (rounds, txnCount int) {
-	rounds = 0
-	txnCount = 0
+// InititialImport imports the genesis block if needed. Returns true if the initial import occurred.
+func InitialImport(db idb.IndexerDb, genesisJSONPath string, l *log.Logger) bool {
 	stateJSONStr, err := db.GetMetastate("state")
 	maybeFail(err, l, "getting import state, %v", err)
-	var state ImportState
+
 	if stateJSONStr == "" {
 		if genesisJSONPath != "" {
 			l.Infof("loading genesis %s", genesisJSONPath)
@@ -238,22 +232,57 @@ func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit i
 			maybeFail(err, l, "%s: %v", genesisJSONPath, err)
 			err = loadGenesis(db, gf)
 			maybeFail(err, l, "%s: could not load genesis json, %v", genesisJSONPath, err)
-			rounds++
-			state.AccountRound = -1
+			return true
 		} else {
 			l.Errorf("no import state recorded; need --genesis genesis.json file to get started")
 			os.Exit(1)
-			return
+			return false
 		}
-	} else {
-		state, err = ParseImportState(stateJSONStr)
-		maybeFail(err, l, "parsing import state, %v", err)
-		l.Infof("will start from round >%d", state.AccountRound)
+	}
+	return false
+}
+
+// allTransactionsFor is a helper to iterate through all of the transactions
+func allTransactionsFor(db idb.IndexerDb, filter idb.UpdateFilter) <-chan idb.TxnRow {
+	if filter.Address == nil {
+		return db.YieldTxns(context.Background(), filter.StartRound)
 	}
 
+	result := make(chan idb.TxnRow)
+	go func() {
+		done := false
+		var next = ""
+		for !done {
+			txns := db.Transactions(context.Background(), idb.TransactionFilter{
+				Address: filter.Address[:],
+				MinRound: uint64(filter.StartRound),
+				NextToken: next,
+			})
+
+			// Forward transactions to the response channel, save next token.
+			for txrow := range txns {
+				result <- txrow
+				next = txrow.Next()
+			}
+		}
+		close(result)
+	}()
+	return result
+}
+
+// UpdateAccounting triggers an accounting update.
+func UpdateAccounting(db idb.IndexerDb, filter idb.UpdateFilter, l *log.Logger) (rounds, txnCount int) {
+	return updateAccounting(db, filter, 0, l)
+}
+
+func updateAccounting(db idb.IndexerDb, filter idb.UpdateFilter, numRoundsLimit int, l *log.Logger) (rounds, txnCount int) {
+	l.Infof("will start from round %d", filter.StartRound + 1)
+
+	rounds = 0
+	txnCount = 0
 	lastlog := time.Now()
 	act := accounting.New()
-	txns := db.YieldTxns(context.Background(), state.AccountRound)
+	txns := allTransactionsFor(db, filter)
 	currentRound := uint64(0)
 	roundsSeen := 0
 	lastRoundsSeen := roundsSeen
@@ -264,7 +293,7 @@ func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit i
 		if txn.Round != currentRound {
 			// TODO: commit rounds with no transactions to avoid a special case to update the db metastate.
 			if blockPtr != nil && txnForRound > 0 {
-				err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr.RewardsLevel)
+				err := db.CommitRoundAccounting(act.RoundUpdates.Filter(filter), currentRound, blockPtr.RewardsLevel)
 				maybeFail(err, l, "failed to commit round accounting")
 			}
 
@@ -292,7 +321,7 @@ func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit i
 				lastRoundsSeen = roundsSeen
 			}
 		}
-		err = act.AddTransaction(&txn)
+		err := act.AddTransaction(&txn)
 		maybeFail(err, l, "txn accounting r=%d i=%d, %v", txn.Round, txn.Intra, err)
 		txnCount++
 		txnForRound++
@@ -301,7 +330,7 @@ func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit i
 	// Commit the final round
 	// TODO: commit rounds with empty paysets to avoid a special case to update the db metastate.
 	if blockPtr != nil && txnForRound > 0 {
-		err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr.RewardsLevel)
+		err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr.RewardsLevel)
 		maybeFail(err, l, "failed to commit round accounting")
 	}
 

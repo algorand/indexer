@@ -108,6 +108,7 @@ func init() {
 
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(daemonCmd)
+	rootCmd.AddCommand(reindexCmd)
 
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "loglevel", "l", "info", "verbosity of logs: [error, warn, info, debug, trace]")
 	rootCmd.PersistentFlags().StringVarP(&logFile, "logfile", "f", "", "file to write logs to, if unset logs are written to standard out")

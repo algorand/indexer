@@ -166,6 +166,27 @@ func (_m *IndexerDb) GetBlock(round uint64) (types.Block, error) {
 	return r0, r1
 }
 
+// GetImportState provides a mock function with given fields:
+func (_m *IndexerDb) GetImportState() (idb.ImportState, error) {
+	ret := _m.Called()
+
+	var r0 idb.ImportState
+	if rf, ok := ret.Get(0).(func() idb.ImportState); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(idb.ImportState)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetMaxRound provides a mock function with given fields:
 func (_m *IndexerDb) GetMaxRound() (uint64, error) {
 	ret := _m.Called()
@@ -292,6 +313,20 @@ func (_m *IndexerDb) MarkImported(path string) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(string) error); ok {
 		r0 = rf(path)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// SetImportState provides a mock function with given fields: _a0
+func (_m *IndexerDb) SetImportState(_a0 idb.ImportState) error {
+	ret := _m.Called(_a0)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(idb.ImportState) error); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Error(0)
 	}

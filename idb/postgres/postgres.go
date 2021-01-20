@@ -31,7 +31,6 @@ import (
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
-	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
 )
 
@@ -282,7 +281,7 @@ func (db *IndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err erro
 	return
 }
 
-// LoadGenesis is part of idb.IndexerDB
+// LoadGenesis initializes the genesis accounts in the database. Part of idb.IndexerDB
 func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	tx, err := db.db.Begin()
 	if err != nil {
@@ -362,6 +361,32 @@ const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONF
 func (db *IndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
 	_, err = db.db.Exec(setMetastateUpsert, key, jsonStrValue)
 	return
+}
+
+// GetMetastate is part of idb.IndexerDB
+func (db *IndexerDb) GetImportState() (state idb.ImportState, err error) {
+	var importStateJSON string
+	importStateJSON, err = db.GetMetastate(stateMetastateKey)
+	if err == sql.ErrNoRows || importStateJSON == "" {
+		// no previous state, ok
+		return state, nil
+	} else if err != nil {
+		err = fmt.Errorf("unable to get import state: %v", err)
+		return
+	}
+
+	var istate idb.ImportState
+	err = json.Decode([]byte(importStateJSON), &istate)
+	if err != nil {
+		err = fmt.Errorf("unable to parse import state: %v", err)
+		return
+	}
+	return
+}
+
+// SetImportState is part of idb.IndexerDB
+func (db *IndexerDb) SetImportState(state idb.ImportState) (err error) {
+	return db.SetMetastate(stateMetastateKey, string(json.Encode(state)))
 }
 
 // GetMaxRound is part of idb.IndexerDB
@@ -1187,7 +1212,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	if !any {
 		db.log.Printf("empty round %d", round)
 	}
-	var istate importer.ImportState
+	var istate idb.ImportState
 	staterow := tx.QueryRow(`SELECT v FROM metastate WHERE k = 'state'`)
 	var stateJSONStr string
 	err = staterow.Scan(&stateJSONStr)

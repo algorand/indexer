@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -94,6 +93,10 @@ var daemonCmd = &cobra.Command{
 			bot.SetContext(ctx)
 			go func() {
 				waitForDBAvailable(db)
+
+				// Initial import if needed.
+				importer.InitialImport(db, genesisJSONPath, logger)
+
 				logger.Info("Starting block importer.")
 				bot.Run()
 				cf()
@@ -171,25 +174,15 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 		logger.Errorf("received block %d when expecting %d", block.Block.Round, bih.round+1)
 	}
 	bih.imp.ImportDecodedBlock(block)
-	importer.UpdateAccounting(bih.db, genesisJSONPath, logger)
+	filter := idb.UpdateFilter{StartRound: int64(block.Block.Round)}
+	importer.UpdateAccounting(bih.db, filter, logger)
 	dt := time.Now().Sub(start)
 	if len(block.Block.Payset) == 0 {
 		// accounting won't have updated the round state, so we do it here
-		stateJSONStr, err := db.GetMetastate("state")
-		var state importer.ImportState
-		if err == nil && stateJSONStr != "" {
-			state, err = importer.ParseImportState(stateJSONStr)
-			if err != nil {
-				logger.WithError(err).Errorf("error parsing import state")
-				panic("error parsing import state in bih")
-			}
-		}
+		state, err := db.GetImportState()
 		state.AccountRound = int64(block.Block.Round)
-		stateJSONStr = string(json.Encode(state))
-		err = db.SetMetastate("state", stateJSONStr)
-		if err != nil {
-			logger.WithError(err).Errorf("failed to save import state")
-		}
+		err = db.SetImportState(state)
+		logger.WithError(err).Errorf("failed to set import state")
 	}
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
 	bih.round = uint64(block.Block.Round)

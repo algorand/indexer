@@ -7,6 +7,7 @@ NET=localhost:8981
 CURL_TEMPFILE=curl_out.txt
 PIDFILE=testindexerpidfile
 CONNECTION_STRING="host=localhost user=algorand password=algorand dbname=DB_NAME_HERE port=5434 sslmode=disable"
+MAX_TIME=20
 
 ###################
 ## Print Helpers ##
@@ -78,7 +79,7 @@ function sql_test {
   done
 
   local ELAPSED=$(($SECONDS - $START))
-  if [ $ELAPSED -gt $MAX_TIME ]; then
+  if [[ $ELAPSED -gt $MAX_TIME ]]; then
     fail_and_exit "$DESCRIPTION" "$QUERY" "query duration too long, $ELAPSED > $MAX_TIME"
   fi
 
@@ -134,7 +135,7 @@ function rest_test {
   fi
 
   local ELAPSED=$(($SECONDS - $START))
-  if [ $ELAPSED -gt $MAX_TIME ]; then
+  if [[ $ELAPSED -gt $MAX_TIME ]]; then
     fail_and_exit "$DESCRIPTION" "$QUERY" "query duration too long, $ELAPSED > $MAX_TIME"
   fi
 
@@ -200,7 +201,7 @@ function start_indexer_with_blocks() {
   tar -xf "$2" -C $TEMPDIR
 
   if [ ! -z $3 ]; then
-    echo "Start args 'import -P \"${CONNECTION_STRING/DB_NAME_HERE/$1}\" --genesis \"$TEMPDIR/algod/genesis.json\" $TEMPDIR/blocktars/*"
+    echo "Start args 'import -P \"${CONNECTION_STRING/DB_NAME_HERE/$1}\" --genesis \"$TEMPDIR/algod/genesis.json\" $TEMPDIR/blocktars/*'"
     sleep infinity
   fi
   ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer import \
