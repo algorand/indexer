@@ -85,7 +85,9 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	maybeFail(err, h.Log, "problem getting the max round")
 	filter := idb.UpdateFilter{
 		StartRound: -1,
-		RoundLimit: &h.NumRoundsLimit,
+	}
+	if h.NumRoundsLimit != 0 {
+		filter.RoundLimit = &h.NumRoundsLimit
 	}
 	if !initialImport {
 		state, err := db.GetImportState()
