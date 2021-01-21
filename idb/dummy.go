@@ -147,6 +147,11 @@ func (db *dummyIndexerDb) Health() (state Health, err error) {
 	return Health{}, nil
 }
 
+// DeleteAccount is used to remove an account from the database, needed for re-indexing an account. part of idb.IndexerDB.
+func (db *dummyIndexerDb) DeleteAccount(address atypes.Address) (err error) {
+	return nil
+}
+
 // IndexerFactory is used to install an IndexerDb implementation.
 type IndexerFactory interface {
 	Name() string
@@ -242,6 +247,8 @@ type IndexerDb interface {
 	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow
 
 	Health() (status Health, err error)
+
+	DeleteAccount(account atypes.Address) (err error)
 }
 
 // TransactionFilter.AddressRole bitfield values
@@ -263,6 +270,12 @@ const (
 	TypeEnumAssetTransfer = 4
 	TypeEnumAssetFreeze   = 5
 	TypeEnumApplication   = 6
+)
+
+type Order string
+const (
+	OrderAsc Order = "ASC"
+	OrderDesc Order = "DESC"
 )
 
 // TransactionFilter is a parameter object with all the transaction filter options.
@@ -303,6 +316,7 @@ type TransactionFilter struct {
 	// pointer to last returned object of previous query
 	NextToken string
 
+	ResultOrder *Order
 	Limit uint64
 }
 
@@ -529,12 +543,17 @@ type RoundUpdates struct {
 
 // Clear is used to set a RoundUpdates object back to it's default values.
 func (ru *RoundUpdates) Clear() {
-	ru.AlgoUpdates = nil
-	ru.AccountTypes = nil
-	ru.AccountDataUpdates = nil
+	//ru.AlgoUpdates = nil
+	//ru.AccountTypes = nil
+	//ru.AccountDataUpdates = nil
+	//ru.AssetUpdates = nil
+
+	ru.AlgoUpdates = make(map[[32]byte]*AlgoUpdate)
+	ru.AccountTypes = make(map[[32]byte]string)
+	ru.AccountDataUpdates = make(map[[32]byte]map[string]interface{})
 	ru.AcfgUpdates = nil
 	ru.TxnAssetUpdates = nil
-	ru.AssetUpdates = nil
+	ru.AssetUpdates = make(map[[32]byte][]AssetUpdate)
 	ru.FreezeUpdates = nil
 	ru.AssetCloses = nil
 	ru.AssetDestroys = nil
@@ -544,6 +563,7 @@ func (ru *RoundUpdates) Clear() {
 
 type UpdateFilter struct {
 	StartRound int64
+	RoundLimit *int
 	Address    *types.Address
 }
 
@@ -554,6 +574,68 @@ func (ru *RoundUpdates) Filter(filter UpdateFilter) RoundUpdates {
 	}
 
 	var response RoundUpdates
+	response.Clear()
+
+	var addrBytes [32]byte
+	copy(addrBytes[:], filter.Address[:])
+
+	if val, ok := ru.AlgoUpdates[addrBytes]; ok {
+		response.AlgoUpdates[addrBytes] = val
+	}
+
+	if val, ok := ru.AccountDataUpdates[addrBytes]; ok {
+		response.AccountDataUpdates[addrBytes] = val
+	}
+
+	for _, update := range ru.AcfgUpdates {
+		if update.Creator == *filter.Address {
+			response.AcfgUpdates = append(response.AcfgUpdates, update)
+		}
+	}
+
+	// TODO: Somehow figure out if this is an asset owned by filter.Address
+	/*
+	for _, update := range ru.TxnAssetUpdates {
+		if update.AssetID == *filter.Address {
+			response.AssetUpdates = append(response.AssetUpdates, update)
+		}
+	}
+	*/
+
+	if val, ok := ru.AssetUpdates[addrBytes]; ok {
+		response.AssetUpdates[addrBytes] = val
+	}
+
+	for _, update := range ru.FreezeUpdates {
+		if update.Addr == *filter.Address {
+			response.FreezeUpdates = append(response.FreezeUpdates, update)
+		}
+	}
+
+	for _, update := range ru.AssetCloses {
+		if update.Sender == *filter.Address || update.CloseTo == *filter.Address {
+			response.AssetCloses = append(response.AssetCloses, update)
+		}
+	}
+	// TODO: Somehow figure out if this is an asset owned by filter.Address
+	/*
+	for _, update := range ru.AssetDestroys {
+		if update.Sender == *filter.Address || update.CloseTo == *filter.Address {
+			response.AssetDestroys = append(response.AssetCloses, update)
+		}
+	}
+	 */
+	for _, update := range ru.AppGlobalDeltas {
+		if bytes.Equal(update.Address, addrBytes[:]) || bytes.Equal(update.Creator, addrBytes[:]) {
+			response.AppGlobalDeltas = append(response.AppGlobalDeltas, update)
+		}
+	}
+
+	for _, update := range ru.AppGlobalDeltas {
+		if bytes.Equal(update.Address, addrBytes[:]) || bytes.Equal(update.Creator, addrBytes[:]) {
+			response.AppGlobalDeltas = append(response.AppGlobalDeltas, update)
+		}
+	}
 
 	return response
 }

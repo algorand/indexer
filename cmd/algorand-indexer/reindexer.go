@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -36,22 +35,17 @@ var reindexCmd = &cobra.Command{
 		addr, err := types.DecodeAddress(reindexAccount)
 		maybeFail(err, "unable to decode address: %s", reindexAccount)
 
-		accounts := db.GetAccounts(context.Background(), idb.AccountQueryOptions{
-			EqualToAddress: addr[:],
-		})
+		maxRounds, err := db.GetMaxRound()
+		maybeFail(err, "unable to fetch max rounds")
 
-		num := 0
-		var createdAt int64
-		for acct := range accounts {
-			num++
-			createdAt = int64(*acct.Account.CreatedAtRound)
+		limit := int(maxRounds)
+		filter := idb.UpdateFilter{
+			Address: &addr,
+			StartRound: 0,
+			RoundLimit: &limit,
 		}
-
-		if num != 0 {
-			logger.Errorf("expected one account but found %d for address: %s", num, addr.String())
-		}
-
-		filter := idb.UpdateFilter{Address: &addr, StartRound: createdAt}
+		err = db.DeleteAccount(addr)
+		maybeFail(err, "unable to delete the account: %s", addr.String())
 		importer.UpdateAccounting(db, filter, logger)
 	},
 }

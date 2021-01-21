@@ -1422,13 +1422,24 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		whereStr := strings.Join(whereParts, " AND ")
 		query += " WHERE " + whereStr
 	}
+
 	if joinParticipation {
+		order := "DESC"
+		if tf.ResultOrder != nil {
+			order = string(*tf.ResultOrder)
+		}
 		// this should match the index on txn_particpation
-		query += " ORDER BY p.addr, p.round DESC, p.intra DESC"
+		query += " ORDER BY p.addr, p.round " + order + ", p.intra " + order
 	} else {
+		order := ""
+		if tf.ResultOrder != nil {
+			order = " " + string(*tf.ResultOrder)
+		}
 		// this should explicitly match the primary key on txn (round,intra)
-		query += " ORDER BY t.round, t.intra"
+		query += " ORDER BY t.round, t.intra" + order
 	}
+
+
 	if tf.Limit != 0 {
 		query += fmt.Sprintf(" LIMIT %d", tf.Limit)
 	}
@@ -2663,6 +2674,12 @@ func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err err
 		err = fmt.Errorf("problem decoding cache '%s': %v", cache, err)
 	}
 	return
+}
+
+// DeleteAccount is used to remove an account from the database, needed for re-indexing an account. part of idb.IndexerDB.
+func (db *IndexerDb) DeleteAccount(address atypes.Address) error {
+	_, err := db.db.Exec(`DELETE FROM account WHERE account.addr = $1`, address[:])
+	return err
 }
 
 type postgresFactory struct {

@@ -83,13 +83,16 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 
 	initialImport := InitialImport(db, h.GenesisJSONPath, h.Log)
 	maybeFail(err, h.Log, "problem getting the max round")
-	filter := idb.UpdateFilter{StartRound: -1}
+	filter := idb.UpdateFilter{
+		StartRound: -1,
+		RoundLimit: &h.NumRoundsLimit,
+	}
 	if !initialImport {
 		state, err := db.GetImportState()
 		maybeFail(err, h.Log, "problem getting the import state")
 		filter.StartRound = state.AccountRound
 	}
-	accountingRounds, txnCount := updateAccounting(db, filter, h.NumRoundsLimit, h.Log)
+	accountingRounds, txnCount := updateAccounting(db, filter, h.Log)
 	if initialImport {
 		accountingRounds++
 	}
@@ -253,17 +256,22 @@ func allTransactionsFor(db idb.IndexerDb, filter idb.UpdateFilter) <-chan idb.Tx
 		done := false
 		var next = ""
 		for !done {
+			order := idb.OrderAsc
 			txns := db.Transactions(context.Background(), idb.TransactionFilter{
 				Address: filter.Address[:],
 				MinRound: uint64(filter.StartRound),
 				NextToken: next,
+				ResultOrder: &order,
 			})
 
 			// Forward transactions to the response channel, save next token.
+			count := 0
 			for txrow := range txns {
 				result <- txrow
 				next = txrow.Next()
+				count++
 			}
+			done = count == 0
 		}
 		close(result)
 	}()
@@ -272,10 +280,10 @@ func allTransactionsFor(db idb.IndexerDb, filter idb.UpdateFilter) <-chan idb.Tx
 
 // UpdateAccounting triggers an accounting update.
 func UpdateAccounting(db idb.IndexerDb, filter idb.UpdateFilter, l *log.Logger) (rounds, txnCount int) {
-	return updateAccounting(db, filter, 0, l)
+	return updateAccounting(db, filter, l)
 }
 
-func updateAccounting(db idb.IndexerDb, filter idb.UpdateFilter, numRoundsLimit int, l *log.Logger) (rounds, txnCount int) {
+func updateAccounting(db idb.IndexerDb, filter idb.UpdateFilter, l *log.Logger) (rounds, txnCount int) {
 	l.Infof("will start from round %d", filter.StartRound + 1)
 
 	rounds = 0
@@ -307,11 +315,13 @@ func updateAccounting(db idb.IndexerDb, filter idb.UpdateFilter, numRoundsLimit 
 			blockPtr = &block
 			act.InitRound(block)
 
-			// Log progress
-			if (numRoundsLimit != 0) && (roundsSeen > numRoundsLimit) {
-				l.Infof("hit rounds limit %d > %d", roundsSeen, numRoundsLimit)
+			// Exit if limit reached
+			if (filter.RoundLimit != nil) && (roundsSeen > *filter.RoundLimit) {
+				l.Infof("hit rounds limit %d > %d", roundsSeen, filter.RoundLimit)
 				break
 			}
+
+			// Log progress
 			now := time.Now()
 			dt := now.Sub(lastlog)
 			if dt > (5 * time.Second) {
