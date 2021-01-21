@@ -34,6 +34,7 @@ func init() {
 		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
 		{m4RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
 		{m5RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
+		{m6MarkTxnJsonSplit, false, "record round at which txn json recording changes, for future migration to fixup prior records"},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -547,7 +548,7 @@ func initM5AccountData() *m5AccountData {
 	}
 }
 
-func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData, err error){
+func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData, err error) {
 	for i := 0; i < retries; i++ {
 		// Query transactions for the account
 		txnrows := db.Transactions(context.Background(), idb.TransactionFilter{
@@ -559,7 +560,7 @@ func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, addre
 		results, err = processAccountTransactions(txnrows, addressStr, address)
 		if err != nil {
 			db.log.Errorf("%s: (attempt %d) failed to update %s: %v", rewardsCreateCloseUpdateErr, i+1, addressStr, err)
-			time.Sleep(10*time.Second)
+			time.Sleep(10 * time.Second)
 		} else {
 			return
 		}
@@ -580,7 +581,6 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 		}
 		if len(txn.TxnBytes) == 0 {
 			return nil, fmt.Errorf("%s: processing account %s: found empty TxnBytes (rnd %d, intra %d):  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Round, txn.Intra, err)
-			continue
 		}
 		numTxn++
 
@@ -692,7 +692,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
-		if dur > 5 * time.Minute {
+		if dur > 5*time.Minute {
 			db.log.Warnf("%s: slowness detected, spent %s migrating %s", rewardsCreateCloseUpdateMessage, dur, addressStr)
 		}
 
@@ -1089,4 +1089,11 @@ func (mtxid *txidFiuxpMigrationContext) readHeaders(minRound, maxRound uint64) (
 		headers[uint64(round)] = tblock
 	}
 	return headers, nil
+}
+
+func m6MarkTxnJsonSplit(db *IndexerDb, state *MigrationState) error {
+	sqlLines := []string{
+		`INSERT INTO metastate (k,v) SELECT 'm6MarkTxnJsonSplit', m.v FROM metastate m WHERE m.k = 'state'`,
+	}
+	return sqlMigration(db, state, sqlLines)
 }
