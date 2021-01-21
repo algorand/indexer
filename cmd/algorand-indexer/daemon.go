@@ -174,7 +174,7 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 		logger.Errorf("received block %d when expecting %d", block.Block.Round, bih.round+1)
 	}
 	bih.imp.ImportDecodedBlock(block)
-	filter := idb.UpdateFilter{StartRound: int64(block.Block.Round)}
+	filter := idb.UpdateFilter{StartRound: int64(block.Block.Round) - 1}
 	importer.UpdateAccounting(bih.db, filter, logger)
 	dt := time.Now().Sub(start)
 	if len(block.Block.Payset) == 0 {
