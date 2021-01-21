@@ -1091,6 +1091,8 @@ func (mtxid *txidFiuxpMigrationContext) readHeaders(minRound, maxRound uint64) (
 	return headers, nil
 }
 
+// Record round at which behavior changed for encoding txn.txn JSON.
+// A future migration should go back and apply new encoding to prior txn rows then delete this row in metastate.
 func m6MarkTxnJsonSplit(db *IndexerDb, state *MigrationState) error {
 	sqlLines := []string{
 		`INSERT INTO metastate (k,v) SELECT 'm6MarkTxnJsonSplit', m.v FROM metastate m WHERE m.k = 'state'`,
