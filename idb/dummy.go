@@ -237,7 +237,6 @@ type IndexerDb interface {
 
 	CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error)
 
-
 	GetBlock(round uint64) (block types.Block, err error)
 
 	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
@@ -272,9 +271,13 @@ const (
 	TypeEnumApplication   = 6
 )
 
+// Order is used to specify how transactions are sorted.
 type Order string
 const (
+	// OrderAsc will sort results in ascending order.
 	OrderAsc Order = "ASC"
+
+	// OrderDesc will sort results in descending order.
 	OrderDesc Order = "DESC"
 )
 
@@ -561,6 +564,7 @@ func (ru *RoundUpdates) Clear() {
 	ru.AppLocalDeltas = nil
 }
 
+// UpdateFilter is used by some functions to filter how an update is done.
 type UpdateFilter struct {
 	StartRound int64
 	RoundLimit *int

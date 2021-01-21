@@ -224,7 +224,7 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 	return db.LoadGenesis(genesis)
 }
 
-// InititialImport imports the genesis block if needed. Returns true if the initial import occurred.
+// InitialImport imports the genesis block if needed. Returns true if the initial import occurred.
 func InitialImport(db idb.IndexerDb, genesisJSONPath string, l *log.Logger) bool {
 	stateJSONStr, err := db.GetMetastate("state")
 	maybeFail(err, l, "getting import state, %v", err)
@@ -238,11 +238,10 @@ func InitialImport(db idb.IndexerDb, genesisJSONPath string, l *log.Logger) bool
 			err = loadGenesis(db, gf)
 			maybeFail(err, l, "%s: could not load genesis json, %v", genesisJSONPath, err)
 			return true
-		} else {
-			l.Errorf("no import state recorded; need --genesis genesis.json file to get started")
-			os.Exit(1)
-			return false
 		}
+		l.Errorf("no import state recorded; need --genesis genesis.json file to get started")
+		os.Exit(1)
+		return false
 	}
 	return false
 }

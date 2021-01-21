@@ -363,7 +363,7 @@ func (db *IndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
 	return
 }
 
-// GetMetastate is part of idb.IndexerDB
+// GetImportState is part of idb.IndexerDB
 func (db *IndexerDb) GetImportState() (state idb.ImportState, err error) {
 	var importStateJSON string
 	importStateJSON, err = db.GetMetastate(stateMetastateKey)

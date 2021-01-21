@@ -5,7 +5,9 @@ package mocks
 import (
 	context "context"
 
+	go_algorand_sdktypes "github.com/algorand/go-algorand-sdk/types"
 	generated "github.com/algorand/indexer/api/generated/v2"
+
 	idb "github.com/algorand/indexer/idb"
 
 	mock "github.com/stretchr/testify/mock"
@@ -122,6 +124,20 @@ func (_m *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 	var r0 error
 	if rf, ok := ret.Get(0).(func(idb.RoundUpdates, uint64, uint64) error); ok {
 		r0 = rf(updates, round, rewardsBase)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// DeleteAccount provides a mock function with given fields: account
+func (_m *IndexerDb) DeleteAccount(account go_algorand_sdktypes.Address) error {
+	ret := _m.Called(account)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(go_algorand_sdktypes.Address) error); ok {
+		r0 = rf(account)
 	} else {
 		r0 = ret.Error(0)
 	}
