@@ -84,7 +84,7 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	initialImport := InitialImport(db, h.GenesisJSONPath, h.Log)
 	maybeFail(err, h.Log, "problem getting the max round")
 	filter := idb.UpdateFilter{
-		StartRound: -1,
+		StartRound: 0,
 	}
 	if h.NumRoundsLimit != 0 {
 		filter.RoundLimit = &h.NumRoundsLimit
@@ -249,7 +249,7 @@ func InitialImport(db idb.IndexerDb, genesisJSONPath string, l *log.Logger) bool
 // allTransactionsFor is a helper to iterate through all of the transactions
 func allTransactionsFor(db idb.IndexerDb, filter idb.UpdateFilter) <-chan idb.TxnRow {
 	if filter.Address == nil {
-		return db.YieldTxns(context.Background(), filter.StartRound)
+		return db.YieldTxns(context.Background(), filter.StartRound - 1)
 	}
 
 	result := make(chan idb.TxnRow)
@@ -285,7 +285,7 @@ func UpdateAccounting(db idb.IndexerDb, filter idb.UpdateFilter, l *log.Logger) 
 }
 
 func updateAccounting(db idb.IndexerDb, filter idb.UpdateFilter, l *log.Logger) (rounds, txnCount int) {
-	l.Infof("will start from round %d", filter.StartRound + 1)
+	l.Infof("will start from round %d", filter.StartRound)
 
 	rounds = 0
 	txnCount = 0
