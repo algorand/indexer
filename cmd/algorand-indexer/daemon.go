@@ -180,9 +180,10 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	if len(block.Block.Payset) == 0 {
 		// accounting won't have updated the round state, so we do it here
 		state, err := db.GetImportState()
+		maybeFail(err, "failed to get import state")
 		state.AccountRound = int64(block.Block.Round)
 		err = db.SetImportState(state)
-		logger.WithError(err).Errorf("failed to set import state")
+		maybeFail(err, "failed to set import state")
 	}
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
 	bih.round = uint64(block.Block.Round)
