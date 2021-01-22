@@ -156,7 +156,7 @@ func stxnToJSON(txn types.SignedTxnWithAD) []byte {
 		ldout := make(map[uint64]types.StateDelta, len(jt.EvalDelta.LocalDeltas))
 		for i, ld := range jt.EvalDelta.LocalDeltas {
 			nld := make(map[string]types.ValueDelta, len(ld))
-			for k, v := range jt.EvalDelta.GlobalDelta {
+			for k, v := range ld {
 				nld[b64([]byte(k))] = v
 			}
 			ldout[i] = nld
