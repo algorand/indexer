@@ -34,7 +34,7 @@ func init() {
 		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
 		{m4RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
 		{m5RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
-		{m6MarkTxnJsonSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
+		{m6MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
 	}
 
 	// Verify ensure the constant is pointing to the right index
