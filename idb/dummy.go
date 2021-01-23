@@ -546,11 +546,6 @@ type RoundUpdates struct {
 
 // Clear is used to set a RoundUpdates object back to it's default values.
 func (ru *RoundUpdates) Clear() {
-	//ru.AlgoUpdates = nil
-	//ru.AccountTypes = nil
-	//ru.AccountDataUpdates = nil
-	//ru.AssetUpdates = nil
-
 	ru.AlgoUpdates = make(map[[32]byte]*AlgoUpdate)
 	ru.AccountTypes = make(map[[32]byte]string)
 	ru.AccountDataUpdates = make(map[[32]byte]map[string]interface{})
@@ -596,20 +591,23 @@ func (ru *RoundUpdates) Filter(filter UpdateFilter) RoundUpdates {
 		response.AccountDataUpdates[addrBytes] = val
 	}
 
+	/*
+	// Do not include asset configuration. Note: in the future that would be supported with an AssetID filter.
 	for _, update := range ru.AcfgUpdates {
 		if update.Creator == *filter.Address {
 			response.AcfgUpdates = append(response.AcfgUpdates, update)
 		}
 	}
+	 */
 
-	// TODO: Somehow figure out if this is an asset owned by filter.Address
 	/*
+	// I think TxnAssetUpdates is dead code.
 	for _, update := range ru.TxnAssetUpdates {
 		if update.AssetID == *filter.Address {
 			response.AssetUpdates = append(response.AssetUpdates, update)
 		}
 	}
-	*/
+	 */
 
 	if val, ok := ru.AssetUpdates[addrBytes]; ok {
 		response.AssetUpdates[addrBytes] = val
@@ -626,23 +624,27 @@ func (ru *RoundUpdates) Filter(filter UpdateFilter) RoundUpdates {
 			response.AssetCloses = append(response.AssetCloses, update)
 		}
 	}
-	// TODO: Somehow figure out if this is an asset owned by filter.Address
 	/*
+	// Do not include asset configuration. Note: in the future that would be supported with an AssetID filter.
 	for _, update := range ru.AssetDestroys {
 		if update.Sender == *filter.Address || update.CloseTo == *filter.Address {
 			response.AssetDestroys = append(response.AssetCloses, update)
 		}
 	}
 	 */
+
+	/*
+	// Do not include app global changes. Note: in the future that would be supported with an AppID filter.
 	for _, update := range ru.AppGlobalDeltas {
 		if bytes.Equal(update.Address, addrBytes[:]) || bytes.Equal(update.Creator, addrBytes[:]) {
 			response.AppGlobalDeltas = append(response.AppGlobalDeltas, update)
 		}
 	}
+	 */
 
-	for _, update := range ru.AppGlobalDeltas {
+	for _, update := range ru.AppLocalDeltas {
 		if bytes.Equal(update.Address, addrBytes[:]) || bytes.Equal(update.Creator, addrBytes[:]) {
-			response.AppGlobalDeltas = append(response.AppGlobalDeltas, update)
+			response.AppLocalDeltas = append(response.AppLocalDeltas, update)
 		}
 	}
 

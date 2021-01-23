@@ -64,10 +64,6 @@ func bytesAreZero(b []byte) bool {
 }
 
 func (accounting *State) closeAccount(addr types.Address) {
-	if accounting.AlgoUpdates == nil {
-		accounting.AlgoUpdates = make(map[[32]byte]*idb.AlgoUpdate)
-	}
-
 	update, hasKey := accounting.AlgoUpdates[addr]
 
 	if !hasKey {
@@ -98,10 +94,6 @@ func (accounting *State) updateAlgo(addr types.Address, amount int64) {
 }
 
 func (accounting *State) updateAlgoAndRewards(addr types.Address, amount, rewards int64) {
-	if accounting.AlgoUpdates == nil {
-		accounting.AlgoUpdates = make(map[[32]byte]*idb.AlgoUpdate)
-	}
-
 	update, hasKey := accounting.AlgoUpdates[addr]
 
 	if !hasKey {
@@ -118,16 +110,10 @@ func (accounting *State) updateAlgoAndRewards(addr types.Address, amount, reward
 }
 
 func (accounting *State) updateAccountType(addr types.Address, ktype string) {
-	if accounting.AccountTypes == nil {
-		accounting.AccountTypes = make(map[[32]byte]string)
-	}
 	accounting.AccountTypes[addr] = ktype
 }
 
 func (accounting *State) updateAccountData(addr types.Address, key string, field interface{}) {
-	if accounting.AccountDataUpdates == nil {
-		accounting.AccountDataUpdates = make(map[[32]byte]map[string]interface{})
-	}
 	au, ok := accounting.AccountDataUpdates[addr]
 	if !ok {
 		au = make(map[string]interface{})
@@ -154,9 +140,6 @@ func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, su
 			return
 		}
 	}
-	if accounting.AssetUpdates == nil {
-		accounting.AssetUpdates = make(map[[32]byte][]idb.AssetUpdate)
-	}
 
 	au := idb.AssetUpdate{AssetID: assetID, DefaultFrozen: accounting.defaultFrozen[assetID]}
 	if add != 0 {
@@ -172,6 +155,7 @@ func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, su
 	accounting.AssetUpdates[addr] = append(updatelist, au)
 }
 
+// TODO: Figure out if this is dead code. Delete if it is.
 func (accounting *State) updateTxnAsset(round uint64, intra int, assetID uint64) {
 	accounting.TxnAssetUpdates = append(accounting.TxnAssetUpdates, idb.TxnAssetUpdate{Round: round, Offset: intra, AssetID: assetID})
 }

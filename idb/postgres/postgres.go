@@ -945,6 +945,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 		}
 	}
 	if len(updates.AssetCloses) > 0 {
+		fmt.Println("ASSET CLOSE")
 		any = true
 		// Attach some extra "apply data" metadata to allow rewinding the asset close if requested.
 		acc, err := tx.Prepare(`WITH aaamount AS (SELECT ($1)::bigint as round, ($2)::bigint as intra, x.amount FROM account_asset x WHERE x.addr = $3 AND x.assetid = $4)
@@ -2678,8 +2679,28 @@ func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err err
 
 // DeleteAccount is used to remove an account from the database, needed for re-indexing an account. part of idb.IndexerDB.
 func (db *IndexerDb) DeleteAccount(address atypes.Address) error {
-	_, err := db.db.Exec(`DELETE FROM account WHERE account.addr = $1`, address[:])
-	return err
+	tx, err := db.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.Exec(`DELETE FROM account WHERE account.addr = $1`, address[:])
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`DELETE FROM account_asset WHERE addr = $1`, address[:])
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Exec(`DELETE FROM account_app WHERE addr = $1`, address[:])
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 type postgresFactory struct {
