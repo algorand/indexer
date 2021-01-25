@@ -1223,7 +1223,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			return
 		}
 	}
-	tx.Exec(`SET TRANSACTION READ UNCOMMITTED`)
+	//tx.Exec(`SET TRANSACTION READ UNCOMMITTED`)
 	istate.AccountRound = int64(round)
 	sjs := string(json.Encode(istate))
 	result, err := tx.Exec(`INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v WHERE (v->>'account_round')::int < $3`, stateMetastateKey, sjs, istate.AccountRound)
