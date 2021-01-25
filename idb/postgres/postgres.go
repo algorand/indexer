@@ -1222,10 +1222,19 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			return
 		}
 	}
+	tx.Exec(`SET TRANSACTION READ UNCOMMITTED`)
 	istate.AccountRound = int64(round)
 	sjs := string(json.Encode(istate))
-	_, err = tx.Exec(setMetastateUpsert, stateMetastateKey, sjs)
+	result, err := tx.Exec(`INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v WHERE (v->>'account_round')::int < $3`, stateMetastateKey, sjs, istate.AccountRound)
 	if err != nil {
+		return
+	}
+	numRows, err := result.RowsAffected()
+	if err != nil {
+		return
+	}
+	if numRows != 1 {
+		db.log.Warn("concurrent updates detected.")
 		return
 	}
 	return tx.Commit()
