@@ -175,9 +175,9 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	}
 	bih.imp.ImportDecodedBlock(block)
 	filter := idb.UpdateFilter{StartRound: int64(block.Block.Round)}
-	importer.UpdateAccounting(bih.db, filter, logger)
+	_, txns := importer.UpdateAccounting(bih.db, filter, logger)
 	dt := time.Now().Sub(start)
-	if len(block.Block.Payset) == 0 {
+	if txns == 0 {
 		// accounting won't have updated the round state, so we do it here
 		state, err := db.GetImportState()
 		maybeFail(err, "failed to get import state")

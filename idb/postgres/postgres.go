@@ -196,7 +196,7 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 					ntxr[i] = v
 				}
 			}
-			db.log.Printf("txr %#v", ntxr)
+			db.log.Tracef("txr %#v", ntxr)
 		}
 		return fmt.Errorf("COPY txn Exec() %v", err)
 	}
@@ -215,7 +215,7 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 		if err != nil {
 			//return err
 			for _, er := range db.txprows[:i+1] {
-				db.log.Printf("%s %d %d", base64.StdEncoding.EncodeToString(er[0].([]byte)), er[1], er[2])
+				db.log.Debugf("%s %d %d", base64.StdEncoding.EncodeToString(er[0].([]byte)), er[1], er[2])
 			}
 			return fmt.Errorf("%v, around txp row %#v", err, txpr)
 		}
@@ -308,7 +308,7 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 		}
 	}
 	err = tx.Commit()
-	db.log.Printf("genesis %d accounts %d microalgos, err=%v", len(genesis.Allocation), total, err)
+	db.log.Infof("genesis %d accounts %d microalgos, err=%v", len(genesis.Allocation), total, err)
 	return err
 
 }
@@ -1211,7 +1211,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 	}
 	if !any {
-		db.log.Printf("empty round %d", round)
+		db.log.Debugf("empty round %d", round)
 	}
 	var istate idb.ImportState
 	staterow := tx.QueryRow(`SELECT v FROM metastate WHERE k = 'state'`)
