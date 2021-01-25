@@ -142,14 +142,34 @@ func (db *IndexerDb) StartBlock() (err error) {
 	return nil
 }
 
+// For App apply data, convert "string" keys which are secretly []byte blobs to their base64 representation so that JSON systems that require strings to be utf8 don't panic.
+func stxnToJSON(txn types.SignedTxnWithAD) []byte {
+	jt := txn
+	if len(jt.EvalDelta.GlobalDelta) > 0 {
+		gd := make(map[string]types.ValueDelta, len(jt.EvalDelta.GlobalDelta))
+		for k, v := range jt.EvalDelta.GlobalDelta {
+			gd[b64([]byte(k))] = v
+		}
+		jt.EvalDelta.GlobalDelta = gd
+	}
+	if len(jt.EvalDelta.LocalDeltas) > 0 {
+		ldout := make(map[uint64]types.StateDelta, len(jt.EvalDelta.LocalDeltas))
+		for i, ld := range jt.EvalDelta.LocalDeltas {
+			nld := make(map[string]types.ValueDelta, len(ld))
+			for k, v := range ld {
+				nld[b64([]byte(k))] = v
+			}
+			ldout[i] = nld
+		}
+		jt.EvalDelta.LocalDeltas = ldout
+	}
+	return idb.JSONOneLine(jt)
+}
+
 // AddTransaction is part of idb.IndexerDB
 func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
 	txnbytes := msgpack.Encode(txn)
-	var jsonbytes []byte
-	jsonbytes, err := idb.MsgpackToJSON(txnbytes)
-	if err != nil {
-		return err
-	}
+	jsonbytes := stxnToJSON(txn)
 	txid := crypto.TransactionIDString(txn.Txn)
 	tx := []interface{}{round, intra, txtypeenum, assetid, txid[:], txnbytes, jsonbytes}
 	db.txrows = append(db.txrows, tx)
@@ -183,6 +203,7 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 	}
 	_, err = addtx.Exec()
 	if err != nil {
+		db.log.Errorf("CommitBlock failed: %v (%#v)", err, err)
 		for _, txr := range db.txrows {
 			ntxr := make([]interface{}, len(txr))
 			for i, v := range txr {
@@ -197,7 +218,7 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 					ntxr[i] = v
 				}
 			}
-			db.log.Printf("txr %#v", ntxr)
+			db.log.Errorf("txr %#v", ntxr)
 		}
 		return fmt.Errorf("COPY txn Exec() %v", err)
 	}

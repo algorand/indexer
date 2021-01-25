@@ -66,4 +66,5 @@ func init() {
 	oneLineJSONCodecHandle.RecursiveEmptyCheck = true
 	oneLineJSONCodecHandle.HTMLCharsAsIs = true
 	oneLineJSONCodecHandle.Indent = 0
+	oneLineJSONCodecHandle.MapKeyAsString = true
 }
