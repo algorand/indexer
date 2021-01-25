@@ -26,6 +26,7 @@ import (
 
 	// Load the postgres sql.DB implementation
 	_ "github.com/lib/pq"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -1227,15 +1228,14 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	sjs := string(json.Encode(istate))
 	result, err := tx.Exec(`INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v WHERE (v->>'account_round')::int < $3`, stateMetastateKey, sjs, istate.AccountRound)
 	if err != nil {
-		return
+		return errors.Wrap(err, "failure updating metastate")
 	}
 	numRows, err := result.RowsAffected()
 	if err != nil {
-		return
+		return errors.Wrap(err, "failure reading metstate update result")
 	}
 	if numRows != 1 {
-		db.log.Warn("concurrent updates detected.")
-		return
+		return errors.New(fmt.Sprintf("concurrent updates detected, expected 1 row change found %d", numRows))
 	}
 	return tx.Commit()
 }
