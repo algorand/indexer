@@ -11,6 +11,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -1221,6 +1222,11 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		if err != nil {
 			return
 		}
+	}
+	if istate.AccountRound >= int64(round) {
+		msg := fmt.Sprintf("metastate round = %d while trying to write round %d", istate.AccountRound, round)
+		db.log.Error(msg)
+		return errors.New(msg)
 	}
 	istate.AccountRound = int64(round)
 	sjs := string(json.Encode(istate))

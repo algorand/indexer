@@ -171,7 +171,7 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 		logger.Errorf("received block %d when expecting %d", block.Block.Round, bih.round+1)
 	}
 	bih.imp.ImportDecodedBlock(block)
-	importer.UpdateAccounting(bih.db, genesisJSONPath, logger)
+	importer.UpdateAccounting(bih.db, uint64(block.Block.Round), genesisJSONPath, logger)
 	dt := time.Now().Sub(start)
 	if len(block.Block.Payset) == 0 {
 		// accounting won't have updated the round state, so we do it here
