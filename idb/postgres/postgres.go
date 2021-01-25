@@ -768,7 +768,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 
 		// If the account is closing the cumulative rewards field and closed_at needs to be set directly
 		// Using an upsert because it's technically allowed to create and close an account in the same round.
-		closealgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, created_at, closed_at) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewards_total = EXCLUDED.rewards_total, closed_at = EXCLUDED.closed_at, account_data = account.account_data - '{spend,vote,sel,onl,voteFirst,voteLst,voteKD}'::text[]`)
+		closealgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, created_at, closed_at) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewards_total = EXCLUDED.rewards_total, closed_at = EXCLUDED.closed_at, account_data = NULL`)
 		if err != nil {
 			return fmt.Errorf("prepare reset algo, %v", err)
 		}
