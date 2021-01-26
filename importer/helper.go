@@ -263,7 +263,7 @@ func updateAccounting(db idb.IndexerDb, round uint64, genesisJSONPath string, nu
 		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)
 		if txn.Round != currentRound {
 			if blockPtr != nil && txnForRound > 0 {
-				err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr.RewardsLevel)
+				err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr)
 				maybeFail(err, l, "failed to commit round accounting")
 			}
 
@@ -302,7 +302,7 @@ func updateAccounting(db idb.IndexerDb, round uint64, genesisJSONPath string, nu
 		if currentRound < round {
 			currentRound = round
 		}
-		err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr.RewardsLevel)
+		err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr)
 		maybeFail(err, l, "failed to commit round accounting")
 	}
 

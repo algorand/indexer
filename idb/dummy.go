@@ -97,7 +97,7 @@ func (db *dummyIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan
 }
 
 // CommitRoundAccounting is part of idb.IndexerDB
-func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error) {
+func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
 	return nil
 }
 
@@ -146,25 +146,25 @@ type IndexerFactory interface {
 // TxnRow is metadata relating to one transaction in a transaction query.
 type TxnRow struct {
 	// Round is the round where the transaction was committed.
-	Round     uint64
+	Round uint64
 
 	// Round time  is the block time when the block was confirmed.
 	RoundTime time.Time
 
 	// Intra is the offset into the block where this transaction was placed.
-	Intra     int
+	Intra int
 
 	// TxnBytes is the raw signed transaction with apply data object.
-	TxnBytes  []byte
+	TxnBytes []byte
 
 	// AssetID is the ID of any asset or application created by this transaction.
 	AssetID uint64
 
 	// Extra are some additional fields which might be related to to the transaction.
-	Extra     TxnExtra
+	Extra TxnExtra
 
 	// Error indicates that there was an internal problem processing the expected transaction.
-	Error     error
+	Error error
 }
 
 // Next returns what should be an opaque string to be returned in the next query to resume where a previous limit left off.
@@ -218,7 +218,7 @@ type IndexerDb interface {
 	// YieldTxns returns a channel that produces the whole transaction stream after some round forward
 	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow
 
-	CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error)
+	CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error)
 
 	GetBlock(round uint64) (block types.Block, err error)
 
@@ -485,13 +485,13 @@ type AlgoUpdate struct {
 	// Closed changes the nature of the Rewards field. Balance and Rewards are normally deltas added to the
 	// microalgos and totalRewards columns, but if an account has been Closed then Rewards becomes a new value
 	// that replaces the old value (always zero by current reward logic)
-	Closed  bool
+	Closed bool
 }
 
 // RoundUpdates is used by the accounting and IndexerDb implementations to share modifications in a block.
 type RoundUpdates struct {
-	AlgoUpdates   map[[32]byte]*AlgoUpdate
-	AccountTypes  map[[32]byte]string
+	AlgoUpdates  map[[32]byte]*AlgoUpdate
+	AccountTypes map[[32]byte]string
 
 	// AccountDataUpdates is explicitly a map so that we can
 	// explicitly set values or have not set values. Instead of

@@ -330,6 +330,12 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 			return fmt.Errorf("error setting genesis account[%d], %v", ai, err)
 		}
 	}
+	var istate importer.ImportState
+	sjs := string(json.Encode(istate))
+	_, err = tx.Exec(setMetastateUpsert, stateMetastateKey, sjs)
+	if err != nil {
+		return
+	}
 	err = tx.Commit()
 	db.log.Printf("genesis %d accounts %d microalgos, err=%v", len(genesis.Allocation), total, err)
 	return err
@@ -750,7 +756,7 @@ func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []i
 }
 
 // CommitRoundAccounting is part of idb.IndexerDB
-func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewardsBase uint64) (err error) {
+func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
 	any := false
 	tx, err := db.db.Begin()
 	if err != nil {
@@ -777,12 +783,12 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 
 		for addr, delta := range updates.AlgoUpdates {
 			if !delta.Closed {
-				_, err = upsertalgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards, round)
+				_, err = upsertalgo.Exec(addr[:], delta.Balance, blockPtr.RewardsLevel, delta.Rewards, round)
 				if err != nil {
 					return fmt.Errorf("update algo, %v", err)
 				}
 			} else {
-				_, err = closealgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards, round, round)
+				_, err = closealgo.Exec(addr[:], delta.Balance, blockPtr.RewardsLevel, delta.Rewards, round, round)
 				if err != nil {
 					return fmt.Errorf("close algo, %v", err)
 				}
