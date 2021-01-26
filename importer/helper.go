@@ -262,7 +262,6 @@ func updateAccounting(db idb.IndexerDb, round uint64, genesisJSONPath string, nu
 	for txn := range txns {
 		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)
 		if txn.Round != currentRound {
-			// TODO: commit rounds with no transactions to avoid a special case to update the db metastate.
 			if blockPtr != nil && txnForRound > 0 {
 				err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr.RewardsLevel)
 				maybeFail(err, l, "failed to commit round accounting")
@@ -299,9 +298,10 @@ func updateAccounting(db idb.IndexerDb, round uint64, genesisJSONPath string, nu
 	}
 
 	// Commit the final round
-	// TODO: commit rounds with empty paysets to avoid a special case to update the db metastate.
-	if blockPtr != nil && txnForRound > 0 {
-		// TODO: if round != 0 ensure metastate marked as progressed through round
+	if (blockPtr != nil && txnForRound > 0) || ((round != 0) && (currentRound < round)) {
+		if currentRound < round {
+			currentRound = round
+		}
 		err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr.RewardsLevel)
 		maybeFail(err, l, "failed to commit round accounting")
 	}

@@ -1207,7 +1207,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 	}
 	if !any {
-		db.log.Printf("empty round %d", round)
+		db.log.Debugf("empty round %d", round)
 	}
 	var istate importer.ImportState
 	staterow := tx.QueryRow(`SELECT v FROM metastate WHERE k = 'state'`)
