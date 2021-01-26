@@ -80,6 +80,10 @@ func (accounting *State) closeAccount(addr types.Address) {
 		return
 	}
 
+	if accounting.AccountDataUpdates != nil {
+		delete(accounting.AccountDataUpdates, addr)
+	}
+
 	// If the key was there, override the rewards by setting to zero.
 	// The balance will be updated with the delta as usual.
 	update.Rewards = 0
