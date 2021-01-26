@@ -11,26 +11,26 @@ type (
 	// Address alias to SDK address.
 	Address = atypes.Address // [32]byte
 	// Digest is a hash value.
-	Digest  = atypes.Digest  // [32]byte
+	Digest = atypes.Digest // [32]byte
 
 	// Seed used by sortition.
-	Seed                     [32]byte
+	Seed [32]byte
 	// Signature cryptographic signature.
-	Signature                [64]byte
+	Signature [64]byte
 	// PublicKey the public encryption key.
-	PublicKey                [32]byte
+	PublicKey [32]byte
 	// OneTimeSignatureVerifier verifies a signature.
 	OneTimeSignatureVerifier [32]byte
 	// VRFVerifier verifies a VRF
-	VRFVerifier              [32]byte
+	VRFVerifier [32]byte
 	// Round identifies a particular round of consensus.
-	Round                    uint64
+	Round uint64
 	// ConsensusVersion identifies the version of the consensus protocol.
-	ConsensusVersion         string
+	ConsensusVersion string
 	// MicroAlgos are the unit of currency on the algorand network.
-	MicroAlgos               uint64
+	MicroAlgos uint64
 	// AssetIndex is used to uniquely identify an asset.
-	AssetIndex               uint64
+	AssetIndex uint64
 
 	// BlockHash represents the hash of a block
 	BlockHash Digest
@@ -123,6 +123,24 @@ type (
 		// transactions have ever been committed (since TxnCounter
 		// started being supported).
 		TxnCounter uint64 `codec:"tc"`
+
+		// CompactCertVoters is the root of a Merkle tree containing the
+		// online accounts that will help sign a compact certificate.  The
+		// Merkle root, and the compact certificate, happen on blocks that
+		// are a multiple of ConsensusParams.CompactCertRounds.  For blocks
+		// that are not a multiple of ConsensusParams.CompactCertRounds,
+		// this value is zero.
+		CompactCertVoters Digest `codec:"ccv"`
+
+		// CompactCertVotersTotal is the total number of microalgos held by
+		// the accounts in CompactCertVoters (or zero, if the merkle root is
+		// zero).  This is intended for computing the threshold of votes to
+		// expect from CompactCertVoters.
+		CompactCertVotersTotal MicroAlgos `codec:"ccvt"`
+
+		// CompactCertNextRound is the next round for which we will accept
+		// a CompactCert transaction.
+		CompactCertNextRound Round `codec:"ccn"`
 	}
 	// RewardsState represents the global parameters controlling the rate
 	// at which accounts accrue rewards.
@@ -250,9 +268,9 @@ type (
 	DeltaAction uint64
 
 	// Transaction alias for the SDK transaction
-	Transaction      = atypes.Transaction
+	Transaction = atypes.Transaction
 	// AssetParams alias for the SDK asset params
-	AssetParams      = atypes.AssetParams
+	AssetParams = atypes.AssetParams
 
 	// EncodedBlockCert is the block encoded along with its certificate.
 	EncodedBlockCert struct {
