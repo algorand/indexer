@@ -40,6 +40,9 @@ const stateMetastateKey = "state"
 const migrationMetastateKey = "migration"
 const specialAccountsMetastateKey = "accounts"
 
+// Be a real ACID database
+var serializable = sql.TxOptions{Isolation: sql.LevelSerializable}
+
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
 func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
 	db, err := sql.Open("postgres", connection)
@@ -186,7 +189,7 @@ func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, ass
 
 // CommitBlock is part of idb.IndexerDB
 func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	tx, err := db.db.BeginTx(context.Background(), nil)
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		return fmt.Errorf("BeginTx %v", err)
 	}
@@ -306,7 +309,7 @@ func (db *IndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err erro
 
 // LoadGenesis is part of idb.IndexerDB
 func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
-	tx, err := db.db.Begin()
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		return
 	}
@@ -758,8 +761,7 @@ func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []i
 // CommitRoundAccounting is part of idb.IndexerDB
 func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
 	any := false
-	txo := sql.TxOptions{Isolation: sql.LevelSerializable}
-	tx, err := db.db.BeginTx(context.Background(), &txo)
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		return
 	}
