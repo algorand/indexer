@@ -758,7 +758,8 @@ func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []i
 // CommitRoundAccounting is part of idb.IndexerDB
 func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
 	any := false
-	tx, err := db.db.Begin()
+	txo := sql.TxOptions{Isolation: sql.LevelSerializable}
+	tx, err := db.db.BeginTx(context.Background(), &txo)
 	if err != nil {
 		return
 	}
