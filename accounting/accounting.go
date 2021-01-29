@@ -141,7 +141,9 @@ func (accounting *State) updateAccountData(addr types.Address, key string, field
 }
 
 func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, sub uint64) {
-	updatelist := accounting.AssetUpdates[addr]
+	// Get update list from final subround. When a subround ends an empty subround is appended
+	// so there is no need to check whether an account has closed.
+	updatelist := accounting.AssetUpdates[len(accounting.AssetUpdates)-1][addr]
 	for i, up := range updatelist {
 		if up.AssetID == assetID {
 			if add != 0 {
@@ -158,9 +160,6 @@ func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, su
 			return
 		}
 	}
-	if accounting.AssetUpdates == nil {
-		accounting.AssetUpdates = make(map[[32]byte][]idb.AssetUpdate)
-	}
 
 	au := idb.AssetUpdate{AssetID: assetID, DefaultFrozen: accounting.defaultFrozen[assetID]}
 	if add != 0 {
@@ -173,7 +172,9 @@ func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, su
 		xa.SetUint64(sub)
 		au.Delta.Sub(&au.Delta, &xa)
 	}
-	accounting.AssetUpdates[addr] = append(updatelist, au)
+
+	// Add the AssetUpdate to the final subround
+	accounting.AssetUpdates[len(accounting.AssetUpdates)-1][addr] = append(updatelist, au)
 }
 
 func (accounting *State) updateTxnAsset(round uint64, intra int, assetID uint64) {
@@ -181,17 +182,27 @@ func (accounting *State) updateTxnAsset(round uint64, intra int, assetID uint64)
 }
 
 func (accounting *State) closeAsset(from types.Address, assetID uint64, to types.Address, round uint64, offset int) {
-	accounting.AssetCloses = append(
-		accounting.AssetCloses,
-		idb.AssetClose{
+	updatelist := accounting.AssetUpdates[len(accounting.AssetUpdates)-1][from]
+
+	assetClose := &idb.AssetClose{
 			CloseTo:       to,
 			AssetID:       assetID,
 			Sender:        from,
 			DefaultFrozen: accounting.defaultFrozen[assetID],
 			Round:         round,
 			Offset:        uint64(offset),
-		},
-	)
+	}
+
+	// Add an empty AssetUpdate with asset close reference.
+	accounting.AssetUpdates[len(accounting.AssetUpdates)-1][from] = append(updatelist, idb.AssetUpdate{
+		AssetID:       assetID,
+		Delta:         *big.NewInt(0),
+		DefaultFrozen: assetClose.DefaultFrozen,
+		Closed:        assetClose,
+	})
+
+	// Put an empty subround for any subsequent updates.
+	accounting.AssetUpdates = append(accounting.AssetUpdates, make(map[[32]byte][]idb.AssetUpdate))
 }
 func (accounting *State) freezeAsset(addr types.Address, assetID uint64, frozen bool) {
 	accounting.FreezeUpdates = append(accounting.FreezeUpdates, idb.FreezeUpdate{Addr: addr, AssetID: assetID, Frozen: frozen})
