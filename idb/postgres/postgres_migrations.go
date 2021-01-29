@@ -35,6 +35,7 @@ func init() {
 		{m4RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
 		{m5RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
 		{m6MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
+		{m7StaleClosedAccounts, false, "clear some stale data from closed accounts"},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -1096,6 +1097,13 @@ func (mtxid *txidFiuxpMigrationContext) readHeaders(minRound, maxRound uint64) (
 func m6MarkTxnJSONSplit(db *IndexerDb, state *MigrationState) error {
 	sqlLines := []string{
 		`INSERT INTO metastate (k,v) SELECT 'm6MarkTxnJSONSplit', m.v FROM metastate m WHERE m.k = 'state'`,
+	}
+	return sqlMigration(db, state, sqlLines)
+}
+
+func m7StaleClosedAccounts(db *IndexerDb, state *MigrationState) error {
+	sqlLines := []string{
+		`UPDATE account SET account_data = NULL WHERE microalgos = 0`,
 	}
 	return sqlMigration(db, state, sqlLines)
 }
