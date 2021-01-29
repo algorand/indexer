@@ -169,7 +169,8 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	if uint64(block.Block.Round) != bih.round+1 {
 		logger.Errorf("received block %d when expecting %d", block.Block.Round, bih.round+1)
 	}
-	bih.imp.ImportDecodedBlock(block)
+	_, err := bih.imp.ImportDecodedBlock(block)
+	maybeFail(err, "ImportDecodedBlock %d: %v", block.Block.Round, err)
 	importer.UpdateAccounting(bih.db, uint64(block.Block.Round), genesisJSONPath, logger)
 	dt := time.Now().Sub(start)
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())

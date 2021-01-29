@@ -261,10 +261,10 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 	if err != nil {
 		return fmt.Errorf("decode header %v", err)
 	}
-	headerjson := json.Encode(block)
+	headerjson := idb.JSONOneLine(block)
 	_, err = tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0).UTC(), rewardslevel, string(headerjson))
 	if err != nil {
-		return fmt.Errorf("put block_header %v", err)
+		return fmt.Errorf("put block_header %v    %#v", err, err)
 	}
 
 	err = tx.Commit()
