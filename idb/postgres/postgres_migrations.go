@@ -1375,7 +1375,6 @@ func putTxnJsonBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 	} else if state == nil {
 		// no previous state, ok
 	} else {
-		// Check that we're beyond the rewards migration task
 		if state.NextMigration != txstate.NextMigration || state.NextRound != txstate.NextRound {
 			return fmt.Errorf("%s, migration state changed when we weren't looking: %v -> %v", m8ErrPrefix, state, txstate)
 		}
@@ -1383,7 +1382,7 @@ func putTxnJsonBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 
 	// _sometimes_ the temp table exists from the previous cycle.
 	// So, 'create if not exists' and truncate.
-	_, err = tx.Exec(`CREATE TEMP TABLE IF NOT EXISTS txid_fix_batch (round bigint NOT NULL, intra smallint NOT NULL, txid bytea NOT NULL, PRIMARY KEY ( round, intra ))`)
+	_, err = tx.Exec(`CREATE TEMP TABLE IF NOT EXISTS txjson_fix_batch (round bigint NOT NULL, intra smallint NOT NULL, txn jsonb NOT NULL, PRIMARY KEY ( round, intra ))`)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, create temp err", m8ErrPrefix)
 		return err
@@ -1393,6 +1392,51 @@ func putTxnJsonBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 		db.log.WithError(err).Errorf("%s, truncate temp err", m8ErrPrefix)
 		return err
 	}
-	// TODO: write new json string
+	batchadd, err := tx.Prepare(`COPY txjson_fix_batch (round, intra, txn) FROM STDIN`)
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, temp prepare err", m8ErrPrefix)
+		return err
+	}
+	defer batchadd.Close()
+	for _, tr := range outrows {
+		_, err = batchadd.Exec(tr.round, tr.intra, tr.txnJson)
+		if err != nil {
+			db.log.WithError(err).Errorf("%s, temp row err", m8ErrPrefix)
+			return err
+		}
+	}
+	_, err = batchadd.Exec()
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, temp empty row err", m8ErrPrefix)
+		return err
+	}
+	err = batchadd.Close()
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, temp add close err", m8ErrPrefix)
+		return err
+	}
+
+	_, err = tx.Exec(`UPDATE txn SET txn.txn = x.txn FROM txjson_fix_batch x WHERE txn.round = x.round AND txn.intra = x.intra`)
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, update err", m8ErrPrefix)
+		return err
+	}
+	txstate.NextRound = int64(maxRound + 1)
+	migrationStateJSON := json.Encode(txstate)
+	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, set metastate err", m8ErrPrefix)
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, batch commit err", m8ErrPrefix)
+		return err
+	}
+	_, err = db.db.Exec(`DROP TABLE IF EXISTS txjson_fix_batch`)
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, warning, drop temp err")
+		// we don't actually care; psql should garbage collect the temp table eventually
+	}
 	return nil
 }
