@@ -26,6 +26,7 @@ func getAccounting() *accounting.State {
 // setupPostgres starts a gnomock postgres DB then returns the connection string and a shutdown function.
 func setupPostgres(t *testing.T) (*sql.DB, string, func()) {
 	p := postgres.Preset(
+		postgres.WithVersion("12.5"),
 		postgres.WithUser("gnomock", "gnomick"),
 		postgres.WithDatabase("mydb"),
 		// 'IndexerDbByName' does this if necessary, so not needed here.
