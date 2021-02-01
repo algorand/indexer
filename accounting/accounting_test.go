@@ -61,7 +61,7 @@ func TestSimpleAccountClose(t *testing.T) {
 	state.AddTransaction(test.CloseMainToBC)
 
 	senderBalance, _ := getSenderAmounts(test.CloseMainToBCStxn)
-	assertUpdates(t, state.AlgoUpdates[test.MainAcct], true, senderBalance, 0)
+	assertUpdates(t, state.AlgoUpdates[test.AccountA], true, senderBalance, 0)
 
 	closeBalance, closeRewards := getCloseAmounts(test.CloseMainToBCStxn)
 	assertUpdates(t, state.AlgoUpdates[test.CloseMainToBCStxn.Txn.CloseRemainderTo], false, closeBalance, closeRewards)
@@ -76,11 +76,11 @@ func TestOpenClose(t *testing.T) {
 	state := GetAccounting()
 	state.AddTransaction(test.OpenMain)
 	// In order to make sure rewards were actually reset, they need to be non-zero at this point
-	assert.True(t, state.AlgoUpdates[test.MainAcct].Rewards > 0)
+	assert.True(t, state.AlgoUpdates[test.AccountA].Rewards > 0)
 	state.AddTransaction(test.CloseMainToBC)
 
 	// main account balance should add up to 0, and rewards should be reset to 0
-	update = state.AlgoUpdates[test.MainAcct]
+	update = state.AlgoUpdates[test.AccountA]
 	assertUpdates(t, update, true, 0, 0)
 
 	senderBalance, senderRewards := getSenderAmounts(test.OpenMainStxn)
@@ -102,7 +102,7 @@ func TestCloseOpen(t *testing.T) {
 	// This could happen in a real network if the main account was re-opened by another close-to transaction which
 	// sent closeRewards to the main-account. Yikes.
 	receiverBalance, receiverRewards := getReceiverAmounts(test.OpenMainStxn)
-	update = state.AlgoUpdates[test.MainAcct]
+	update = state.AlgoUpdates[test.AccountA]
 	assertUpdates(t, update, true, receiverBalance, receiverRewards)
 }
 
@@ -110,9 +110,9 @@ func TestCloseOpen(t *testing.T) {
 func TestAssetCloseReopenPay(t *testing.T) {
 	assetid := uint64(22222)
 	amt := uint64(10000)
-	_, closeMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.MainAcct, test.AccountB, test.AccountB)
-	_, optinMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.MainAcct, test.MainAcct, types.ZeroAddress)
-	_, payMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountB, test.MainAcct, types.ZeroAddress)
+	_, closeMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountB, test.AccountB)
+	_, optinMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, types.ZeroAddress)
+	_, payMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountB, test.AccountA, types.ZeroAddress)
 
 	state := GetAccounting()
 	state.AddTransaction(closeMain)
@@ -124,12 +124,12 @@ func TestAssetCloseReopenPay(t *testing.T) {
 
 	// Subround 1 has 1 update (the close)
 	assert.Len(t, state.RoundUpdates.AssetUpdates[0], 1)
-	assert.Equal(t, state.RoundUpdates.AssetUpdates[0][test.MainAcct][0].Delta.Int64(), int64(0))
-	assert.NotNil(t, state.RoundUpdates.AssetUpdates[0][test.MainAcct][0].Closed)
+	assert.Equal(t, state.RoundUpdates.AssetUpdates[0][test.AccountA][0].Delta.Int64(), int64(0))
+	assert.NotNil(t, state.RoundUpdates.AssetUpdates[0][test.AccountA][0].Closed)
 
 	// Subround 2 has 2 updates (debit one account, credit the other)
 	assert.Len(t, state.RoundUpdates.AssetUpdates[1], 2)
-	assert.Equal(t, state.RoundUpdates.AssetUpdates[1][test.MainAcct][0].Delta.Int64(), int64(amt))
+	assert.Equal(t, state.RoundUpdates.AssetUpdates[1][test.AccountA][0].Delta.Int64(), int64(amt))
 	assert.Equal(t, state.RoundUpdates.AssetUpdates[1][test.AccountB][0].Delta.Int64(), int64(amt) * -1)
 }
 
@@ -137,7 +137,7 @@ func TestAssetCloseReopenPay(t *testing.T) {
 func TestAssetCloseWithAmountReopenPay(t *testing.T) {
 	assetid := uint64(22222)
 	amt := uint64(10000)
-	_, closeMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.MainAcct, test.AccountB, test.AccountB)
+	_, closeMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountA, test.AccountB, test.AccountB)
 
 	state := GetAccounting()
 	state.AddTransaction(closeMain)
@@ -147,8 +147,8 @@ func TestAssetCloseWithAmountReopenPay(t *testing.T) {
 
 	// Subround 1 has 2 updates (one debit, one close)
 	assert.Len(t, state.RoundUpdates.AssetUpdates[0], 2)
-	assert.Equal(t, int64(amt) * -1, state.RoundUpdates.AssetUpdates[0][test.MainAcct][0].Delta.Int64())
-	assert.NotNil(t, state.RoundUpdates.AssetUpdates[0][test.MainAcct][1].Closed)
+	assert.Equal(t, int64(amt) * -1, state.RoundUpdates.AssetUpdates[0][test.AccountA][0].Delta.Int64())
+	assert.NotNil(t, state.RoundUpdates.AssetUpdates[0][test.AccountA][1].Closed)
 
 	// Subround 2 is empty
 	assert.Len(t, state.RoundUpdates.AssetUpdates[1], 0)

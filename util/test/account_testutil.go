@@ -12,8 +12,8 @@ import (
 const Round = uint64(10)
 
 var (
-    // MainAcct is a premade account for use in tests.
-    MainAcct = DecodeAddressOrPanic("GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY")
+	// AccountA is a premade account for use in tests.
+    AccountA = DecodeAddressOrPanic("GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY")
     // AccountB is a premade account for use in tests.
     AccountB = DecodeAddressOrPanic("N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU")
     // AccountC is a premade account for use in tests.
@@ -37,9 +37,9 @@ var (
 )
 
 func init() {
-	OpenMainStxn, OpenMain = MakePayTxnRowOrPanic(Round, 1000, 10234, 0, 111, 1111, 0, AccountC, MainAcct, types.ZeroAddress)
+	OpenMainStxn, OpenMain = MakePayTxnRowOrPanic(Round, 1000, 10234, 0, 111, 1111, 0, AccountC, AccountA, types.ZeroAddress)
 	// CloseMainToBCStxn and CloseMainToBC are premade transactions which may be useful in tests.
-	CloseMainToBCStxn, CloseMainToBC = MakePayTxnRowOrPanic(Round, 1000, 1234, 9111, 0, 111, 111, MainAcct, AccountC, AccountB)
+	CloseMainToBCStxn, CloseMainToBC = MakePayTxnRowOrPanic(Round, 1000, 1234, 9111, 0, 111, 111, AccountA, AccountC, AccountB)
 }
 
 // DecodeAddressOrPanic is a helper to ensure addresses are initialized.
