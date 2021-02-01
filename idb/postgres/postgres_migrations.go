@@ -4,6 +4,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -36,6 +37,7 @@ func init() {
 		{m5RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
 		{m6MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
 		{m7StaleClosedAccounts, false, "clear some stale data from closed accounts"},
+		{m8TxnJsonEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -52,7 +54,7 @@ func init() {
 type MigrationState struct {
 	NextMigration int `json:"next"`
 
-	// NextRound used for m0 to checkpoint progress.
+	// NextRound used for m0,m8 to checkpoint progress.
 	NextRound int64 `json:"round,omitempty"`
 
 	// NextAssetID used for m3 to checkpoint progress.
@@ -1070,6 +1072,10 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 
 func (mtxid *txidFiuxpMigrationContext) readHeaders(minRound, maxRound uint64) (map[uint64]types.Block, error) {
 	db := mtxid.db
+	return readHeaders(db, minRound, maxRound)
+}
+
+func readHeaders(db *IndexerDb, minRound, maxRound uint64) (map[uint64]types.Block, error) {
 	rows, err := db.db.Query(`SELECT round, header FROM block_header WHERE round >= $1 AND round <= $2`, minRound, maxRound)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, header err", txidMigrationErrMsg)
@@ -1103,7 +1109,290 @@ func m6MarkTxnJSONSplit(db *IndexerDb, state *MigrationState) error {
 
 func m7StaleClosedAccounts(db *IndexerDb, state *MigrationState) error {
 	sqlLines := []string{
+		// remove stale data from closed accounts
 		`UPDATE account SET account_data = NULL WHERE microalgos = 0`,
+		// don't leave empty arrays around
+		`UPDATE app SET params = app.params - 'gs'  WHERE app.params ->> 'gs' = '[]'`,
+		`UPDATE account_app SET localstate = account_app.localstate - 'tkv' WHERE account_app.localstate ->> 'tkv' = '[]'`,
 	}
 	return sqlMigration(db, state, sqlLines)
+}
+
+var jsonFixupTxnQuery string
+
+func init() {
+	jsonFixupTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, t.txn FROM txn t WHERE t.round > $1 AND t.round <= $2 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
+}
+
+type jsonFixupTxnRow struct {
+	Round    uint64
+	Intra    int
+	TxnBytes []byte
+	Json     []byte
+
+	Error error
+}
+
+func (db *IndexerDb) yieldJsonFixupTxnsThread(ctx context.Context, rows *sql.Rows, lastRound int64, results chan<- jsonFixupTxnRow) {
+	keepGoing := true
+	for keepGoing {
+		keepGoing = false
+		rounds := make([]uint64, txnQueryBatchSize)
+		intras := make([]int, txnQueryBatchSize)
+		txnbytess := make([][]byte, txnQueryBatchSize)
+		txnjsons := make([][]byte, txnQueryBatchSize)
+		pos := 0
+		// read from db
+		for rows.Next() {
+			var round uint64
+			var intra int
+			var txnbytes []byte
+			var txnjson []byte
+			err := rows.Scan(&round, &intra, &txnbytes, &txnjson)
+			if err != nil {
+				var row jsonFixupTxnRow
+				row.Error = err
+				results <- row
+				rows.Close()
+				close(results)
+				return
+			}
+
+			rounds[pos] = round
+			intras[pos] = intra
+			txnbytess[pos] = txnbytes
+			txnjsons[pos] = txnjson
+			pos++
+
+			keepGoing = true
+		}
+		rows.Close()
+		if pos == 0 {
+			break
+		}
+		if pos == txnQueryBatchSize {
+			// figure out last whole round we got
+			lastpos := pos - 1
+			lastround := rounds[lastpos]
+			lastpos--
+			for lastpos >= 0 && rounds[lastpos] == lastround {
+				lastpos--
+			}
+			if lastpos == 0 {
+				panic("unwound whole fetch!")
+			}
+			pos = lastpos + 1
+		}
+		// yield to chan
+		for i := 0; i < pos; i++ {
+			var row jsonFixupTxnRow
+			row.Round = rounds[i]
+			row.Intra = intras[i]
+			row.TxnBytes = txnbytess[i]
+			row.Json = txnjsons[i]
+			select {
+			case <-ctx.Done():
+				close(results)
+				return
+			case results <- row:
+			}
+		}
+		if keepGoing {
+			var err error
+			prevRound := rounds[pos-1]
+			rows, err = db.db.QueryContext(ctx, jsonFixupTxnQuery, prevRound, lastRound)
+			if err != nil {
+				results <- jsonFixupTxnRow{Error: err}
+				break
+			}
+		}
+	}
+	close(results)
+}
+
+const m8ErrPrefix = "m8 txn json fixup"
+
+// read batches of at least 2 blocks or up to 10000 txns,
+// write a temporary table, UPDATE from temporary table into txn.
+// repeat until all txns consumed.
+func m8TxnJsonEncoding(db *IndexerDb, state *MigrationState) (err error) {
+	db.log.Println("txn json fixup migration starting")
+	row := db.db.QueryRow(`SELECT (v -> 'account_round')::bigint FROM metastate WHERE k = 'm6MarkTxnJSONSplit'`)
+	var lastRound int64
+	err = row.Scan(&lastRound)
+	if err == sql.ErrNoRows {
+		// Indexer may be new after m6, marking it as done without running it, so we don't need to do anything here.
+		state.NextMigration++
+		migrationStateJSON := json.Encode(state)
+		_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+		if err != nil {
+			db.log.WithError(err).Errorf("%s, meta err", m8ErrPrefix)
+		}
+		return err
+	} else if err != nil {
+		db.log.WithError(err).Errorf("%s, getting m6MarkTxnJSONSplit", m8ErrPrefix)
+		return err
+	}
+
+	prevRound := state.NextRound - 1
+	ctx, cf := context.WithCancel(context.Background())
+	defer cf()
+	rows, err := db.db.QueryContext(ctx, jsonFixupTxnQuery, prevRound, lastRound)
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, getting txns", m8ErrPrefix)
+	}
+	txns := make(chan jsonFixupTxnRow, 10)
+	go db.yieldJsonFixupTxnsThread(ctx, rows, lastRound, txns)
+	batch := make([]jsonFixupTxnRow, 15000)
+	txInBatch := 0
+	roundsInBatch := 0
+	prevBatchRound := uint64(math.MaxUint64)
+	for txr := range txns {
+		if txr.Error != nil {
+			db.log.WithError(txr.Error).Errorf("%s, reading txns", m8ErrPrefix)
+			err = txr.Error
+			return
+		}
+		if txr.Round != prevBatchRound {
+			if txInBatch > 10000 {
+				err = putTxnJsonBatch(db, state, batch[:txInBatch])
+				if err != nil {
+					return
+				}
+				// start next batch
+				batch[0] = txr
+				txInBatch = 1
+				roundsInBatch = 1
+				prevBatchRound = txr.Round
+				continue
+			}
+			roundsInBatch++
+			prevBatchRound = txr.Round
+		}
+		batch[txInBatch] = txr
+		txInBatch++
+		if roundsInBatch > 2 && txInBatch > 10000 {
+			// post the first complete rounds
+			split := txInBatch - 1
+			for batch[split].Round == txr.Round {
+				split--
+			}
+			split++ // now the first txn of the incomplete current round
+			err = putTxnJsonBatch(db, state, batch[:split])
+			if err != nil {
+				return
+			}
+			// move incomplete round to next batch
+			copy(batch, batch[split:txInBatch])
+			txInBatch = txInBatch - split
+			roundsInBatch = 1
+			prevBatchRound = txr.Round
+			continue
+		}
+	}
+	if txInBatch > 0 {
+		err = putTxnJsonBatch(db, state, batch[:txInBatch])
+		if err != nil {
+			return
+		}
+	}
+	// all done, mark migration state
+	state.NextMigration++
+	state.NextRound = 0
+	migrationStateJSON := string(json.Encode(state))
+	err = db.SetMetastate(migrationMetastateKey, migrationStateJSON)
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, error setting final migration state", m8ErrPrefix)
+		return
+	}
+	db.log.Println("txn json fixup migration finished")
+	return nil
+}
+
+type jsonFixupUpdateRow struct {
+	round   uint64
+	intra   int
+	txnJson []byte
+}
+
+func putTxnJsonBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnRow) error {
+	minRound := batch[0].Round
+	maxRound := batch[0].Round
+	for _, txr := range batch {
+		if txr.Round < minRound {
+			minRound = txr.Round
+		}
+		if txr.Round > maxRound {
+			maxRound = txr.Round
+		}
+	}
+	headers, err := readHeaders(db, minRound, maxRound)
+	if err != nil {
+		return err
+	}
+	outrows := make([]jsonFixupUpdateRow, len(batch))
+	pos := 0
+	for _, txr := range batch {
+		block := headers[txr.Round]
+		proto, err := types.Protocol(string(block.CurrentProtocol))
+		if err != nil {
+			db.log.WithError(err).Errorf("%s, proto", m8ErrPrefix)
+			return err
+		}
+		var stxn types.SignedTxnInBlock
+		err = msgpack.Decode(txr.TxnBytes, &stxn)
+		if err != nil {
+			db.log.WithError(err).Errorf("%s, txnb msgpack err", m8ErrPrefix)
+			return err
+		}
+		if stxn.HasGenesisID {
+			stxn.Txn.GenesisID = block.GenesisID
+		}
+		if stxn.HasGenesisHash || proto.RequireGenesisHash {
+			stxn.Txn.GenesisHash = block.GenesisHash
+		}
+		js := idb.JSONOneLine(stxn)
+		if !bytes.Equal(js, txr.Json) {
+			outrows[pos].round = txr.Round
+			outrows[pos].intra = txr.Intra
+			outrows[pos].txnJson = js
+			pos++
+		}
+	}
+
+	// do a transaction to update a batch
+	tx, err := db.db.Begin()
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, batch tx err", m8ErrPrefix)
+		return err
+	}
+	defer tx.Rollback() // ignored if .Commit() first
+	// Check that migration state in db is still what we think it is
+	txstate, err := db.getMigrationState()
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, get m state err", m8ErrPrefix)
+		return err
+	} else if state == nil {
+		// no previous state, ok
+	} else {
+		// Check that we're beyond the rewards migration task
+		if state.NextMigration != txstate.NextMigration || state.NextRound != txstate.NextRound {
+			return fmt.Errorf("%s, migration state changed when we weren't looking: %v -> %v", m8ErrPrefix, state, txstate)
+		}
+	}
+
+	// _sometimes_ the temp table exists from the previous cycle.
+	// So, 'create if not exists' and truncate.
+	_, err = tx.Exec(`CREATE TEMP TABLE IF NOT EXISTS txid_fix_batch (round bigint NOT NULL, intra smallint NOT NULL, txid bytea NOT NULL, PRIMARY KEY ( round, intra ))`)
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, create temp err", m8ErrPrefix)
+		return err
+	}
+	_, err = tx.Exec(`TRUNCATE TABLE txid_fix_batch`)
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, truncate temp err", m8ErrPrefix)
+		return err
+	}
+	// TODO: write new json string
+	return nil
 }
