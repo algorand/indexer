@@ -103,7 +103,6 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	//////////
 	pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, 0)
 
-
 	//////////
 	// Then // Accounts A, B, C and D have the correct balances.
 	//////////
