@@ -437,20 +437,24 @@ type AccountDataUpdate struct {
 	VoteKeyDilution uint64
 }
 
+// AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
+type AssetUpdate struct {
+	AssetID       uint64
+	Transfer      *AssetTransfer
+	Closed        *AssetClose
+	Config        *AcfgUpdate
+}
+
 // AcfgUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AcfgUpdate struct {
-	AssetID uint64
 	IsNew   bool
 	Creator types.Address
 	Params  types.AssetParams
 }
 
-// AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
-type AssetUpdate struct {
-	AssetID       uint64
+type AssetTransfer struct {
 	Delta         big.Int
 	DefaultFrozen bool
-	Closed        *AssetClose
 }
 
 // FreezeUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
@@ -504,7 +508,6 @@ type RoundUpdates struct {
 	// with a 0 value.
 	AccountDataUpdates map[[32]byte]map[string]interface{}
 
-	AcfgUpdates     []AcfgUpdate
 	TxnAssetUpdates []TxnAssetUpdate
 
 	// AssetUpdates is more complicated than AlgoUpdates because there
@@ -518,6 +521,7 @@ type RoundUpdates struct {
 	// The next subround starts when an account close has been detected
 	// Once a subround has been processed, move to the next subround and
 	// apply the updates.
+	// AssetConfig transactions also trigger the end of a subround.
 	AssetUpdates    []map[[32]byte][]AssetUpdate
 	FreezeUpdates   []FreezeUpdate
 	AssetDestroys   []uint64
@@ -531,7 +535,6 @@ func (ru *RoundUpdates) Clear() {
 	ru.AlgoUpdates = nil
 	ru.AccountTypes = nil
 	ru.AccountDataUpdates = nil
-	ru.AcfgUpdates = nil
 	ru.TxnAssetUpdates = nil
 	ru.AssetUpdates = nil
 	ru.AssetUpdates = append(ru.AssetUpdates, make(map[[32]byte][]AssetUpdate, 0))
