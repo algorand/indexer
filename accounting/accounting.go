@@ -45,6 +45,7 @@ func (accounting *State) InitRound(block types.Block) error {
 	return accounting.InitRoundParts(uint64(block.Round), block.FeeSink, block.RewardsPool, block.RewardsLevel)
 }
 
+// InitRoundParts are the specific parts from a block needed to initialize accounting. Used for testing, normally you would pass in the block.
 func (accounting *State) InitRoundParts(round uint64, feeSink, rewardsPool atypes.Address, rewardsLevel uint64) error {
 	accounting.RoundUpdates.Clear()
 	accounting.feeAddr = feeSink
