@@ -35,16 +35,22 @@ type State struct {
 
 // New creates a new State object.
 func New() *State {
-	return &State{defaultFrozen: make(map[uint64]bool)}
+	result := &State{defaultFrozen: make(map[uint64]bool)}
+	result.Clear()
+	return result
 }
 
 // InitRound should be called before each round to initialize the accounting state.
 func (accounting *State) InitRound(block types.Block) error {
+	return accounting.InitRoundParts(uint64(block.Round), block.FeeSink, block.RewardsPool, block.RewardsLevel)
+}
+
+func (accounting *State) InitRoundParts(round uint64, feeSink, rewardsPool atypes.Address, rewardsLevel uint64) error {
 	accounting.RoundUpdates.Clear()
-	accounting.feeAddr = block.FeeSink
-	accounting.rewardAddr = block.RewardsPool
-	accounting.rewardsLevel = block.RewardsLevel
-	accounting.currentRound = uint64(block.Round)
+	accounting.feeAddr = feeSink
+	accounting.rewardAddr = rewardsPool
+	accounting.rewardsLevel = rewardsLevel
+	accounting.currentRound = round
 	return nil
 }
 
