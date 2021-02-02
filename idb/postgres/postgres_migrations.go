@@ -29,13 +29,14 @@ const rewardsMigrationIndex = 5
 
 func init() {
 	migrations = []migrationStruct{
+		// function, blocking, description
 		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
 		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
 		{m2apps, true, "Update DB Schema for Algorand application support."},
 		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
 		{m4RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
 		{m5RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
-		{m6MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
+		{m6MarkTxnJSONSplit, false, "record round at which txn json recording changes, for future migration to fixup prior records"},
 		{m7StaleClosedAccounts, false, "clear some stale data from closed accounts"},
 		{m8TxnJsonEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
 	}
