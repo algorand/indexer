@@ -353,6 +353,7 @@ type AssetRow struct {
 	Error        error
 	CreatedRound *uint64
 	ClosedRound  *uint64
+	Deleted      *bool
 }
 
 // AssetBalanceQuery is a parameter object with all of the asset balance filter options.
@@ -377,6 +378,7 @@ type AssetBalanceRow struct {
 	Error        error
 	CreatedRound *uint64
 	ClosedRound  *uint64
+	Deleted      *bool
 }
 
 // ApplicationRow is metadata relating to one application in an application query.

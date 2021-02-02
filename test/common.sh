@@ -386,19 +386,21 @@ function create_delete_tests() {
     # Application Tests #
     #####################
     sql_test "[sql] app create (app-id=203)" $1 \
-      "select created_at, closed_at, index from app WHERE index = 203" \
-      "55||203"
+      "select deleted, created_at, closed_at, index from app WHERE index = 203" \
+      "f|55||203"
     rest_test "[rest] app create (app-id=203)" \
       "/v2/applications/203?pretty" \
       200 \
+      '"deleted": false' \
       '"created-at-round": 55'
 
     sql_test "[sql] app create & delete (app-id=82)" $1 \
-      "select created_at, closed_at, index from app WHERE index = 82" \
-      "13|37|82"
+      "select deleted, created_at, closed_at, index from app WHERE index = 82" \
+      "t|13|37|82"
     rest_test "[rest] app create & delete (app-id=82)" \
       "/v2/applications/82?pretty" \
       200 \
+      '"deleted": true' \
       '"created-at-round": 13' \
       '"deleted-at-round": 37'
 
@@ -406,11 +408,12 @@ function create_delete_tests() {
     # Asset Tests #
     ###############
     sql_test "[sql] asset create / destroy" $1 \
-      "select created_at, closed_at, index from asset WHERE index=135" \
-      "23|33|135"
+      "select deleted, created_at, closed_at, index from asset WHERE index=135" \
+      "t|23|33|135"
     rest_test "[rest - asset]  asset create / destroy" \
       "/v2/assets/135?pretty" \
       200 \
+      '"deleted": true' \
       '"created-at-round": 23' \
       '"destroyed-at-round": 33' \
       '"total": 0'
@@ -422,16 +425,18 @@ function create_delete_tests() {
       '"total": 0'
 
     sql_test "[sql] asset create" $1 \
-      "select created_at, closed_at, index from asset WHERE index=168" \
-      "35||168"
+      "select deleted, created_at, closed_at, index from asset WHERE index=168" \
+      "f|35||168"
     rest_test "[rest - asset] asset create" \
       "/v2/assets/168?pretty" \
       200 \
+      '"deleted": false' \
       '"created-at-round": 35' \
       '"total": 1337'
     rest_test "[rest - account] asset create" \
       "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty" \
       200 \
+      '"deleted": false' \
       '"created-at-round": 35' \
       '"total": 1337'
 
@@ -439,29 +444,33 @@ function create_delete_tests() {
     # Application Local Tests #
     ###########################
     sql_test "[sql] app optin no closeout" $1 \
-      "select created_at, closed_at, app from account_app WHERE addr=decode('rAMD0F85toNMRuxVEqtxTODehNMcEebqq49p/BZ9rRs=', 'base64') AND app=85" \
-      "13||85"
+      "select deleted, created_at, closed_at, app from account_app WHERE addr=decode('rAMD0F85toNMRuxVEqtxTODehNMcEebqq49p/BZ9rRs=', 'base64') AND app=85" \
+      "f|13||85"
     rest_test "[rest] app optin no closeout" \
       "/v2/accounts/VQBQHUC7HG3IGTCG5RKRFK3RJTQN5BGTDQI6N2VLR5U7YFT5VUNVAF57ZU?pretty" \
       200 \
+      '"deleted": false' \
       '"opted-in-at-round": 13' \
+      '"deleted": false' \
       '"key": "Y1g="'
 
-    sql_test "[sql] app multiple optins first saved" $1 \
-      "select created_at, closed_at, app from account_app WHERE addr=decode('Eze95btTASDFD/t5BDfgA2qvkSZtICa5pq1VSOUU0Y0=', 'base64') AND app=82" \
-      "15|35|82"
-    rest_test "[rest] app multiple optins first saved" \
+    sql_test "[sql] app multiple optins first saved (it is also closed)" $1 \
+      "select deleted, created_at, closed_at, app from account_app WHERE addr=decode('Eze95btTASDFD/t5BDfgA2qvkSZtICa5pq1VSOUU0Y0=', 'base64') AND app=82" \
+      "t|15|35|82"
+    rest_test "[rest] app multiple optins first saved (it is also closed)" \
       "/v2/accounts/CM333ZN3KMASBRIP7N4QIN7AANVK7EJGNUQCNONGVVKURZIU2GG7XJIZ4Q?pretty" \
       200 \
+      '"deleted": true' \
       '"opted-in-at-round": 15' \
       '"closed-out-at-round": 35'
 
     sql_test "[sql] app optin/optout/optin should leave last closed_at" $1 \
-      "select created_at, closed_at, app from account_app WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND app=203" \
-      "57|59|203"
+      "select deleted, created_at, closed_at, app from account_app WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND app=203" \
+      "f|57|59|203"
     rest_test "[rest] app optin/optout/optin should leave last closed_at" \
       "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty" \
       200 \
+      '"deleted": false' \
       '"opted-in-at-round": 57' \
       '"closed-out-at-round": 59' \
       '"num-byte-slice": 1'
@@ -470,41 +479,46 @@ function create_delete_tests() {
     # Asset Holding Tests #
     #######################
     sql_test "[sql] asset optin" $1 \
-      "select created_at, closed_at, assetid from account_asset WHERE addr=decode('MFkWBNGTXkuqhxtNVtRZYFN6jHUWeQQxqEn5cUp1DGs=', 'base64') AND assetid=27" \
-      "13||27"
+      "select deleted, created_at, closed_at, assetid from account_asset WHERE addr=decode('MFkWBNGTXkuqhxtNVtRZYFN6jHUWeQQxqEn5cUp1DGs=', 'base64') AND assetid=27" \
+      "f|13||27"
     rest_test "[rest - balances] asset optin" \
       "/v2/assets/27/balances?pretty&currency-less-than=100" \
       200 \
+      '"deleted": false' \
       '"opted-in-at-round": 13'
     rest_test "[rest - account] asset optin" \
       "/v2/accounts/GBMRMBGRSNPEXKUHDNGVNVCZMBJXVDDVCZ4QIMNIJH4XCSTVBRVYWWVCZA?pretty" \
       200 \
+      '"deleted": false' \
       '"opted-in-at-round": 13'
 
     sql_test "[sql] asset optin / close-out" $1 \
-      "select created_at, closed_at, assetid from account_asset WHERE addr=decode('E/p3R9m9X0c7eAv9DapnDcuNGC47kU0BxIVdSgHaFbk=', 'base64') AND assetid=36" \
-      "16|25|36"
+      "select deleted, created_at, closed_at, assetid from account_asset WHERE addr=decode('E/p3R9m9X0c7eAv9DapnDcuNGC47kU0BxIVdSgHaFbk=', 'base64') AND assetid=36" \
+      "t|16|25|36"
     rest_test "[rest] asset optin" \
       "/v2/assets/36/balances?pretty&currency-less-than=100" \
       200 \
+      '"deleted": true' \
       '"opted-in-at-round": 16' \
       '"opted-out-at-round": 25'
 
     sql_test "[sql] asset optin / close-out / optin / close-out" $1 \
-      "select created_at, closed_at, assetid from account_asset WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND assetid=135" \
-      "25|31|135"
+      "select deleted, created_at, closed_at, assetid from account_asset WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND assetid=135" \
+      "t|25|31|135"
     rest_test "[rest] asset optin" \
       "/v2/assets/135/balances?pretty&currency-less-than=100" \
       200 \
+      '"deleted": true' \
       '"opted-in-at-round": 25' \
       '"opted-out-at-round": 31'
 
     sql_test "[sql] asset optin / close-out / optin" $1 \
-      "select created_at, closed_at, assetid from account_asset WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND assetid=168" \
-      "37|39|168"
+      "select deleted, created_at, closed_at, assetid from account_asset WHERE addr=decode('ZF6AVNLThS9R3lC9jO+c7DQxMGyJvOqrNSYQdZPBQ0Y=', 'base64') AND assetid=168" \
+      "f|37|39|168"
     rest_test "[rest] asset optin" \
       "/v2/assets/168/balances?pretty&currency-less-than=100" \
       200 \
+      '"deleted": false' \
       '"opted-in-at-round": 37' \
       '"opted-out-at-round": 39'
 
@@ -512,36 +526,40 @@ function create_delete_tests() {
     # Account Tests #
     #################
     sql_test "[sql] genesis account with no transactions" $1 \
-      "select created_at, closed_at, microalgos from account WHERE addr = decode('4L294Wuqgwe0YXi236FDVI5RX3ayj4QL1QIloIyerC4=', 'base64')" \
-      "0||5000000000000000"
+      "select deleted, created_at, closed_at, microalgos from account WHERE addr = decode('4L294Wuqgwe0YXi236FDVI5RX3ayj4QL1QIloIyerC4=', 'base64')" \
+      "f|0||5000000000000000"
     rest_test "[rest] genesis account with no transactions" \
       "/v2/accounts/4C633YLLVKBQPNDBPC3N7IKDKSHFCX3WWKHYIC6VAIS2BDE6VQXACGG3BQ?pretty" \
       200 \
+      '"deleted": false' \
       '"created-at-round": 0'
 
     sql_test "[sql] account created then never closed" $1 \
-      "select created_at, closed_at, microalgos from account WHERE addr = decode('HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=', 'base64')" \
-      "4||999999885998"
+      "select deleted, created_at, closed_at, microalgos from account WHERE addr = decode('HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=', 'base64')" \
+      "f|4||999999885998"
     rest_test "[rest] account created then never closed" \
       "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty" \
       200 \
+      '"deleted": false' \
       '"created-at-round": 4'
 
     sql_test "[sql] account create close create" $1 \
-      "select created_at, closed_at, microalgos from account WHERE addr = decode('KbUa0wk9gB3BgAjQF0J9NqunWaFS+h4cdZdYgGfBes0=', 'base64')" \
-      "17|19|100000"
+      "select deleted, created_at, closed_at, microalgos from account WHERE addr = decode('KbUa0wk9gB3BgAjQF0J9NqunWaFS+h4cdZdYgGfBes0=', 'base64')" \
+      "f|17|19|100000"
     rest_test "[rest] account create close create" \
       "/v2/accounts/FG2RVUYJHWAB3QMABDIBOQT5G2V2OWNBKL5B4HDVS5MIAZ6BPLGR65YW3Y?pretty" \
       200 \
+      '"deleted": false' \
       '"created-at-round": 17' \
       '"closed-at-round": 19'
 
     sql_test "[sql] account create close create close" $1 \
-      "select created_at, closed_at, microalgos from account WHERE addr = decode('8rpfPsaRRIyMVAnrhHF+SHpq9za99C1NknhTLGm5Xkw=', 'base64')" \
-      "9|15|0"
+      "select deleted, created_at, closed_at, microalgos from account WHERE addr = decode('8rpfPsaRRIyMVAnrhHF+SHpq9za99C1NknhTLGm5Xkw=', 'base64')" \
+      "t|9|15|0"
     rest_test "[rest] account create close create close" \
       "/v2/accounts/6K5F6PWGSFCIZDCUBHVYI4L6JB5GV5ZWXX2C2TMSPBJSY2NZLZGCF2NH5U?pretty" \
       200 \
+      '"deleted": true' \
       '"created-at-round": 9' \
       '"closed-at-round": 15'
 }

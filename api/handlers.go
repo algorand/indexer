@@ -528,6 +528,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 			Index:            row.AssetID,
 			CreatedAtRound:   row.CreatedRound,
 			DestroyedAtRound: row.ClosedRound,
+			Deleted:          row.Deleted,
 			Params: generated.AssetParams{
 				Creator:       creator.String(),
 				Name:          strPtr(row.Params.AssetName),
@@ -571,6 +572,7 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 			IsFrozen:        row.Frozen,
 			OptedInAtRound:  row.CreatedRound,
 			OptedOutAtRound: row.ClosedRound,
+			Deleted:         row.Deleted,
 		}
 
 		balances = append(balances, bal)
