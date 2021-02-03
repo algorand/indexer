@@ -800,6 +800,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	// Update checkpoint
 	if finalBatch {
 		state.NextAccount = nil
+		state.NextRound = 0
 	} else {
 		state.NextAccount = finalAddress[:]
 	}
@@ -1217,7 +1218,7 @@ const m8ErrPrefix = "m8 txn json fixup"
 // write a temporary table, UPDATE from temporary table into txn.
 // repeat until all txns consumed.
 func m8TxnJsonEncoding(db *IndexerDb, state *MigrationState) (err error) {
-	db.log.Println("txn json fixup migration starting")
+	db.log.Infof("txn json fixup migration starting")
 	row := db.db.QueryRow(`SELECT (v -> 'account_round')::bigint FROM metastate WHERE k = 'm6MarkTxnJSONSplit'`)
 	var lastRound int64
 	err = row.Scan(&lastRound)
@@ -1352,7 +1353,7 @@ func putTxnJsonBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 		if stxn.HasGenesisHash || proto.RequireGenesisHash {
 			stxn.Txn.GenesisHash = block.GenesisHash
 		}
-		js := idb.JSONOneLine(stxn)
+		js := stxnToJSON(stxn.SignedTxnWithAD)
 		if !bytes.Equal(js, txr.Json) {
 			outrows[pos].round = txr.Round
 			outrows[pos].intra = txr.Intra
@@ -1388,7 +1389,7 @@ func putTxnJsonBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 		db.log.WithError(err).Errorf("%s, create temp err", m8ErrPrefix)
 		return err
 	}
-	_, err = tx.Exec(`TRUNCATE TABLE txid_fix_batch`)
+	_, err = tx.Exec(`TRUNCATE TABLE txjson_fix_batch`)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, truncate temp err", m8ErrPrefix)
 		return err
@@ -1417,7 +1418,7 @@ func putTxnJsonBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 		return err
 	}
 
-	_, err = tx.Exec(`UPDATE txn SET txn.txn = x.txn FROM txjson_fix_batch x WHERE txn.round = x.round AND txn.intra = x.intra`)
+	_, err = tx.Exec(`UPDATE txn SET txn = x.txn FROM txjson_fix_batch x WHERE txn.round = x.round AND txn.intra = x.intra`)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, update err", m8ErrPrefix)
 		return err
