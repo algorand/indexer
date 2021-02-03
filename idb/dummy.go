@@ -454,6 +454,7 @@ type AcfgUpdate struct {
 	Params  types.AssetParams
 }
 
+// AssetTransfer is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AssetTransfer struct {
 	Delta         big.Int
 	DefaultFrozen bool
