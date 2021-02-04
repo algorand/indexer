@@ -32,6 +32,8 @@ func init() {
 		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
 		{m2apps, true, "Update DB Schema for Algorand application support."},
 		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
+
+		// Migrations for 2.3.1 release
 		{m4MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
 		{m5RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
 		{m6RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
