@@ -91,6 +91,11 @@ func (db *dummyIndexerDb) GetSpecialAccounts() (SpecialAccounts, error) {
 	return SpecialAccounts{}, nil
 }
 
+// GetDefaultFrozen is part of idb.IndexerDb
+func (db *dummyIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
+	return make(map[uint64]bool), nil
+}
+
 // YieldTxns is part of idb.IndexerDB
 func (db *dummyIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow {
 	return nil
@@ -214,6 +219,7 @@ type IndexerDb interface {
 	SetMetastate(key, jsonStrValue string) (err error)
 	GetMaxRound() (round uint64, err error)
 	GetSpecialAccounts() (SpecialAccounts, error)
+	GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error)
 
 	// YieldTxns returns a channel that produces the whole transaction stream after some round forward
 	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow
@@ -441,7 +447,8 @@ type AccountDataUpdate struct {
 
 // AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AssetUpdate struct {
-	AssetID  uint64
+	AssetID       uint64
+	DefaultFrozen bool
 	Transfer *AssetTransfer
 	Close    *AssetClose
 	Config   *AcfgUpdate

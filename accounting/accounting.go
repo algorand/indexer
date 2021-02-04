@@ -34,8 +34,8 @@ type State struct {
 }
 
 // New creates a new State object.
-func New() *State {
-	result := &State{defaultFrozen: make(map[uint64]bool)}
+func New(defaultFrozenCache map[uint64]bool) *State {
+	result := &State{defaultFrozen: defaultFrozenCache}
 	result.Clear()
 	return result
 }
@@ -148,6 +148,7 @@ func (accounting *State) updateAccountData(addr types.Address, key string, field
 }
 
 func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, sub uint64) {
+	// in-place optimization in case an asset is modified by multiple transactions.
 	// Get update list from final subround. When a subround ends an empty subround is appended
 	// so there is no need to check whether an account has closed.
 	updatelist := accounting.AssetUpdates[len(accounting.AssetUpdates)-1][addr]
@@ -168,7 +169,7 @@ func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, su
 		}
 	}
 
-	au := idb.AssetUpdate{AssetID: assetID, Transfer: &idb.AssetTransfer{/*DefaultFrozen: accounting.defaultFrozen[assetID]*/}}
+	au := idb.AssetUpdate{AssetID: assetID, DefaultFrozen: accounting.defaultFrozen[assetID], Transfer: &idb.AssetTransfer{}}
 	if add != 0 {
 		var xa big.Int
 		xa.SetUint64(add)
@@ -180,8 +181,7 @@ func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, su
 		au.Transfer.Delta.Sub(&au.Transfer.Delta, &xa)
 	}
 
-	// Add the AssetUpdate to the final subround
-	accounting.AssetUpdates[len(accounting.AssetUpdates)-1][addr] = append(updatelist, au)
+	accounting.addAssetAccounting(addr, au, false)
 }
 
 func (accounting *State) updateTxnAsset(round uint64, intra int, assetID uint64) {
@@ -202,6 +202,7 @@ func (accounting *State) addAssetAccounting(addr types.Address, update idb.Asset
 func (accounting *State) configAsset(assetID uint64, isNew bool, creator types.Address, params atypes.AssetParams){
 	update := idb.AssetUpdate{
 		AssetID: assetID,
+		DefaultFrozen: accounting.defaultFrozen[assetID],
 		Config: &idb.AcfgUpdate{
 			IsNew:   isNew,
 			Creator: creator,
@@ -215,11 +216,10 @@ func (accounting *State) configAsset(assetID uint64, isNew bool, creator types.A
 func (accounting *State) closeAsset(from types.Address, assetID uint64, to types.Address, round uint64, offset int) {
 	update := idb.AssetUpdate{
 		AssetID: assetID,
+		DefaultFrozen: accounting.defaultFrozen[assetID],
 		Close: &idb.AssetClose{
 			CloseTo:       to,
-			//AssetID:       assetID,
 			Sender:        from,
-			//DefaultFrozen: accounting.defaultFrozen[assetID],
 			Round:         round,
 			Offset:        uint64(offset),
 		},
@@ -230,6 +230,7 @@ func (accounting *State) closeAsset(from types.Address, assetID uint64, to types
 func (accounting *State) freezeAsset(addr types.Address, assetID uint64, frozen bool) {
 	update := idb.AssetUpdate{
 		AssetID: assetID,
+		DefaultFrozen: accounting.defaultFrozen[assetID],
 		Freeze: &idb.FreezeUpdate{Frozen: frozen},
 	}
 	accounting.addAssetAccounting(addr, update, false)
@@ -357,7 +358,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 			accounting.destroyAsset(assetID)
 		} else {
 			accounting.configAsset(assetID, isNew, stxn.Txn.Sender, stxn.Txn.AssetParams)
-			//accounting.defaultFrozen[assetID] = stxn.Txn.AssetParams.DefaultFrozen
+			accounting.defaultFrozen[assetID] = stxn.Txn.AssetParams.DefaultFrozen
 			if stxn.Txn.ConfigAsset == 0 {
 				// initial creation, give all initial value to creator
 				if stxn.Txn.AssetParams.Total != 0 {

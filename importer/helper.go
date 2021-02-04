@@ -252,7 +252,9 @@ func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit i
 	}
 
 	lastlog := time.Now()
-	act := accounting.New()
+	cache, err := db.GetDefaultFrozen()
+	maybeFail(err, l, "failed to get default frozen cache")
+	act := accounting.New(cache)
 	txns := db.YieldTxns(context.Background(), state.AccountRound)
 	currentRound := uint64(0)
 	roundsSeen := 0

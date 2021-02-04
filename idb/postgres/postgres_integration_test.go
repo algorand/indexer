@@ -17,8 +17,8 @@ import (
 )
 
 // getAccounting initializes the ac counting state for testing.
-func getAccounting(round uint64) *accounting.State {
-	accountingState := accounting.New()
+func getAccounting(round uint64, cache map[uint64]bool) *accounting.State {
+	accountingState := accounting.New(cache)
 	accountingState.InitRoundParts(round, test.FeeAddr, test.RewardAddr, 0)
 	return accountingState
 }
@@ -107,7 +107,9 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	_, optinMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, types.ZeroAddress)
 	_, payMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
 
-	state := getAccounting(test.Round)
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
 	state.AddTransaction(createAsset)
 	state.AddTransaction(fundMain)
 	state.AddTransaction(closeMain)
@@ -154,7 +156,9 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	_, optinB2 := test.MakeAssetTxnOrPanic(test.Round, assetid + 1, 0, test.AccountB, test.AccountB, types.ZeroAddress)
 
 
-	state := getAccounting(test.Round)
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
 	state.AddTransaction(createAssetFrozen)
 	state.AddTransaction(createAssetNotFrozen)
 	state.AddTransaction(optinB1)
@@ -193,11 +197,14 @@ func TestInitializeFrozenCache(t *testing.T) {
 	db.Exec(`INSERT INTO asset (index, creator_addr, params) values ($1, $2, $3)`, 3, test.AccountA[:], `{}`)
 
 	pdb, err := OpenPostgres(connStr, nil, nil)
+	assert.NoError(t, err)
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
 
-	assert.Len(t, pdb.frozenCache, 3)
-	assert.True(t, pdb.frozenCache[1])
-	assert.False(t, pdb.frozenCache[2])
-	assert.False(t, pdb.frozenCache[3])
+	assert.Len(t, cache, 3)
+	assert.True(t, cache[1])
+	assert.False(t, cache[2])
+	assert.False(t, cache[3])
 }
 
 // TestReCreateAssetHolding checks that the optin value of a defunct
@@ -236,7 +243,9 @@ func TestReCreateAssetHolding(t *testing.T) {
 		_, unfreezeB := test.MakeAssetFreezeOrPanic(round, aid, !testcase.frozen, test.AccountB)
 		_, optoutB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountC, test.AccountD)
 
-		state := getAccounting(round)
+		cache, err := pdb.GetDefaultFrozen()
+		assert.NoError(t, err)
+		state := getAccounting(round, cache)
 		state.AddTransaction(createAssetFrozen)
 		state.AddTransaction(optinB)
 		state.AddTransaction(unfreezeB)
@@ -276,7 +285,9 @@ func TestNoopOptins(t *testing.T) {
 	_, optinB := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
 	_, unfreezeB := test.MakeAssetFreezeOrPanic(test.Round, assetid, false, test.AccountB)
 
-	state := getAccounting(test.Round)
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
 	state.AddTransaction(createAsset)
 	state.AddTransaction(optinB)
 	state.AddTransaction(unfreezeB)
