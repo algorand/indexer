@@ -871,7 +871,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 		}
 		defer uta.Close()
 	}
-	if len(updates.AssetUpdates) > 0 {
+	if len(updates.AssetUpdates) > 0 && len(updates.AssetUpdates[0]) > 0 {
 		any = true
 		// Create new account_asset, or initialize a previously destroyed asset.
 		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, deleted = false`)
@@ -879,44 +879,88 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 			return fmt.Errorf("prepare set account_asset, %v", err)
 		}
 		defer seta.Close()
-		for addr, aulist := range updates.AssetUpdates {
-			for _, au := range aulist {
-				if au.AssetID == debugAsset {
-					db.log.Errorf("%d axfer %s %s", round, b64(addr[:]), obs(au))
-				}
-				if au.Delta.IsInt64() {
-					// easy case
-					delta := au.Delta.Int64()
-					// don't skip delta == 0; mark opt-in
-					_, err = seta.Exec(addr[:], au.AssetID, delta, au.DefaultFrozen, round)
-					if err != nil {
-						return fmt.Errorf("update account asset, %v", err)
+
+		// On asset opt-out attach some extra "apply data" metadata to allow rewinding the asset close if requested.
+		acc, err := tx.Prepare(`WITH aaamount AS (SELECT ($1)::bigint as round, ($2)::bigint as intra, x.amount FROM account_asset x WHERE x.addr = $3 AND x.assetid = $4)
+UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{aca}', to_jsonb(aaamount.amount)) FROM aaamount WHERE ut.round = aaamount.round AND ut.intra = aaamount.intra`)
+		if err != nil {
+			return fmt.Errorf("prepare asset close0, %v", err)
+		}
+		defer acc.Close()
+		// On asset opt-out update the CloseTo account_asset
+		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted)
+SELECT $1, $2, x.amount, $3, $6, false FROM account_asset x WHERE x.addr = $4 AND x.assetid = $5
+ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, deleted = false`)
+		if err != nil {
+			return fmt.Errorf("prepare asset close1, %v", err)
+		}
+		defer acs.Close()
+		// On asset opt-out mark the account_asset as closed with zero balance.
+		acd, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1, deleted = true WHERE addr = $2 AND assetid = $3`)
+		if err != nil {
+			return fmt.Errorf("prepare asset close2, %v", err)
+		}
+		defer acd.Close()
+
+
+		for _, subround := range updates.AssetUpdates {
+			for addr, aulist := range subround {
+				for _, au := range aulist {
+					if au.AssetID == debugAsset {
+						db.log.Errorf("%d axfer %s %s", round, b64(addr[:]), obs(au))
 					}
-				} else {
-					sign := au.Delta.Sign()
-					var mi big.Int
-					var step int64
-					if sign > 0 {
-						mi.SetInt64(math.MaxInt64)
-						step = math.MaxInt64
-					} else if sign < 0 {
-						mi.SetInt64(math.MinInt64)
-						step = math.MinInt64
-					} else {
-						continue
-					}
-					for !au.Delta.IsInt64() {
-						_, err = seta.Exec(addr[:], au.AssetID, step, au.DefaultFrozen, round)
+
+					// Apply deltas
+					if au.Delta.IsInt64() {
+						// easy case
+						delta := au.Delta.Int64()
+						// don't skip delta == 0; mark opt-in
+						_, err = seta.Exec(addr[:], au.AssetID, delta, au.DefaultFrozen, round)
 						if err != nil {
 							return fmt.Errorf("update account asset, %v", err)
 						}
-						au.Delta.Sub(&au.Delta, &mi)
+					} else {
+						sign := au.Delta.Sign()
+						var mi big.Int
+						var step int64
+						if sign > 0 {
+							mi.SetInt64(math.MaxInt64)
+							step = math.MaxInt64
+						} else if sign < 0 {
+							mi.SetInt64(math.MinInt64)
+							step = math.MinInt64
+						} else {
+							continue
+						}
+						for !au.Delta.IsInt64() {
+							_, err = seta.Exec(addr[:], au.AssetID, step, au.DefaultFrozen, round)
+							if err != nil {
+								return fmt.Errorf("update account asset, %v", err)
+							}
+							au.Delta.Sub(&au.Delta, &mi)
+						}
+						sign = au.Delta.Sign()
+						if sign != 0 {
+							_, err = seta.Exec(addr[:], au.AssetID, au.Delta.Int64(), au.DefaultFrozen, round)
+							if err != nil {
+								return fmt.Errorf("update account asset, %v", err)
+							}
+						}
 					}
-					sign = au.Delta.Sign()
-					if sign != 0 {
-						_, err = seta.Exec(addr[:], au.AssetID, au.Delta.Int64(), au.DefaultFrozen, round)
+
+					// Close holding before continuing to next subround.
+					if au.Closed != nil {
+						_, err = acc.Exec(au.Closed.Round, au.Closed.Offset, au.Closed.Sender[:], au.Closed.AssetID)
 						if err != nil {
-							return fmt.Errorf("update account asset, %v", err)
+							return fmt.Errorf("asset close record amount, %v", err)
+						}
+						_, err = acs.Exec(au.Closed.CloseTo[:], au.Closed.AssetID, au.Closed.DefaultFrozen, au.Closed.Sender[:], au.Closed.AssetID, round)
+						if err != nil {
+							return fmt.Errorf("asset close send, %v", err)
+						}
+						_, err = acd.Exec(round, au.Closed.Sender[:], au.Closed.AssetID)
+						if err != nil {
+							return fmt.Errorf("asset close del, %v", err)
 						}
 					}
 				}
@@ -937,47 +981,6 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 			_, err = fr.Exec(fs.Addr[:], fs.AssetID, fs.Frozen, round)
 			if err != nil {
 				return fmt.Errorf("update asset freeze, %v", err)
-			}
-		}
-	}
-	if len(updates.AssetCloses) > 0 {
-		any = true
-		// Attach some extra "apply data" metadata to allow rewinding the asset close if requested.
-		acc, err := tx.Prepare(`WITH aaamount AS (SELECT ($1)::bigint as round, ($2)::bigint as intra, x.amount FROM account_asset x WHERE x.addr = $3 AND x.assetid = $4)
-UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{aca}', to_jsonb(aaamount.amount)) FROM aaamount WHERE ut.round = aaamount.round AND ut.intra = aaamount.intra`)
-		if err != nil {
-			return fmt.Errorf("prepare asset close0, %v", err)
-		}
-		defer acc.Close()
-		// Update the CloseTo account_asset
-		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted)
-SELECT $1, $2, x.amount, $3, $6, false FROM account_asset x WHERE x.addr = $4 AND x.assetid = $5
-ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, deleted = false`)
-		if err != nil {
-			return fmt.Errorf("prepare asset close1, %v", err)
-		}
-		defer acs.Close()
-		// Mark the account_asset as closed with zero balance.
-		acd, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1, deleted = true WHERE addr = $2 AND assetid = $3`)
-		if err != nil {
-			return fmt.Errorf("prepare asset close2, %v", err)
-		}
-		defer acd.Close()
-		for _, ac := range updates.AssetCloses {
-			if ac.AssetID == debugAsset {
-				db.log.Errorf("%d close %s", round, obs(ac))
-			}
-			_, err = acc.Exec(ac.Round, ac.Offset, ac.Sender[:], ac.AssetID)
-			if err != nil {
-				return fmt.Errorf("asset close record amount, %v", err)
-			}
-			_, err = acs.Exec(ac.CloseTo[:], ac.AssetID, ac.DefaultFrozen, ac.Sender[:], ac.AssetID, round)
-			if err != nil {
-				return fmt.Errorf("asset close send, %v", err)
-			}
-			_, err = acd.Exec(round, ac.Sender[:], ac.AssetID)
-			if err != nil {
-				return fmt.Errorf("asset close del, %v", err)
 			}
 		}
 	}
