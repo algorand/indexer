@@ -452,6 +452,7 @@ type AssetUpdate struct {
 	AssetID       uint64
 	Delta         big.Int
 	DefaultFrozen bool
+	Closed        *AssetClose
 }
 
 // FreezeUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
@@ -507,9 +508,20 @@ type RoundUpdates struct {
 
 	AcfgUpdates     []AcfgUpdate
 	TxnAssetUpdates []TxnAssetUpdate
-	AssetUpdates    map[[32]byte][]AssetUpdate
+
+	// AssetUpdates is more complicated than AlgoUpdates because there
+	// are no apply data values to work with in the event of a close.
+	// The way we handle this is by breaking the round into sub-rounds,
+	// which is represented by the overall slice.
+	// Updates should be processed one subround at a time, the updates
+	// within a subround can be processed in order for each addresses
+	// updates, which have already been grouped together in the event
+	// of multiple transactions between two accounts.
+	// The next subround starts when an account close has been detected
+	// Once a subround has been processed, move to the next subround and
+	// apply the updates.
+	AssetUpdates    []map[[32]byte][]AssetUpdate
 	FreezeUpdates   []FreezeUpdate
-	AssetCloses     []AssetClose
 	AssetDestroys   []uint64
 
 	AppGlobalDeltas []AppDelta
@@ -524,8 +536,8 @@ func (ru *RoundUpdates) Clear() {
 	ru.AcfgUpdates = nil
 	ru.TxnAssetUpdates = nil
 	ru.AssetUpdates = nil
+	ru.AssetUpdates = append(ru.AssetUpdates, make(map[[32]byte][]AssetUpdate, 0))
 	ru.FreezeUpdates = nil
-	ru.AssetCloses = nil
 	ru.AssetDestroys = nil
 	ru.AppGlobalDeltas = nil
 	ru.AppLocalDeltas = nil
