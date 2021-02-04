@@ -96,6 +96,8 @@ type IndexerDb struct {
 
 	protoCache map[string]types.ConsensusParams
 
+	frozenCache map[uint64]bool
+
 	migration *migration.Migration
 }
 
@@ -108,6 +110,8 @@ func (db *IndexerDb) init() (err error) {
 	db.GetSpecialAccounts()
 
 	if hasMigration || hasAccounting {
+		db.frozenCache, err = db.GetDefaultFrozen()
+
 		// see postgres_migrations.go
 		return db.runAvailableMigrations(migrationStateJSON)
 	}
@@ -118,6 +122,16 @@ func (db *IndexerDb) init() (err error) {
 		return
 	}
 	err = db.markMigrationsAsDone()
+
+	if err != nil {
+		return
+	}
+
+	db.frozenCache, err = db.GetDefaultFrozen()
+	if err != nil {
+		return
+	}
+
 	return
 }
 
@@ -286,7 +300,7 @@ func (db *IndexerDb) GetAsset(assetid uint64) (asset types.AssetParams, err erro
 
 // GetDefaultFrozen get {assetid:default frozen, ...} for all assets
 func (db *IndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
-	rows, err := db.db.Query(`SELECT index, params -> 'df' FROM asset a`)
+	rows, err := db.db.Query(`SELECT index, coalesce((params ->> 'df')::boolean, false) FROM asset a`)
 	if err != nil {
 		return
 	}
@@ -838,7 +852,11 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 		// Asset Xfer //
 		////////////////
 		// Create new account_asset, initialize a previously destroyed asset, or apply the balance delta.
-		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, deleted = false`)
+		// Setting frozen is complicated for the no-op optin case. It should only be set to default-frozen when the
+		// holding is deleted, otherwise it should be left as the original value.
+		// TODO: This isn't working yet
+		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, frozen = (EXCLUDED.frozen AND account_asset.deleted) OR account_asset.frozen, deleted = false`)
+		//seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, frozen = EXCLUDED.frozen, deleted = false`)
 		if err != nil {
 			return fmt.Errorf("prepare set account_asset, %v", err)
 		}
@@ -890,13 +908,23 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 						db.log.Errorf("%d axfer %s %s", round, b64(addr[:]), obs(au))
 					}
 
+
+					// Update / lookup default frozen
+					var frozen, ok bool
+					if au.Config != nil && au.Config.IsNew {
+						frozen = au.Config.Params.DefaultFrozen
+						db.frozenCache[au.AssetID] = frozen
+					} else if frozen, ok = db.frozenCache[au.AssetID]; !ok {
+						return fmt.Errorf("default-frozen for %d is missing from cache", au.AssetID)
+					}
+
 					// Apply deltas
 					if au.Transfer != nil {
 						if au.Transfer.Delta.IsInt64() {
 							// easy case
 							delta := au.Transfer.Delta.Int64()
 							// don't skip delta == 0; mark opt-in
-							_, err = seta.Exec(addr[:], au.AssetID, delta, au.Transfer.DefaultFrozen, round)
+							_, err = seta.Exec(addr[:], au.AssetID, delta, frozen, round)
 							if err != nil {
 								return fmt.Errorf("update account asset, %v", err)
 							}
@@ -914,7 +942,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 								continue
 							}
 							for !au.Transfer.Delta.IsInt64() {
-								_, err = seta.Exec(addr[:], au.AssetID, step, au.Transfer.DefaultFrozen, round)
+								_, err = seta.Exec(addr[:], au.AssetID, step, frozen, round)
 								if err != nil {
 									return fmt.Errorf("update account asset, %v", err)
 								}
@@ -922,7 +950,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 							}
 							sign = au.Transfer.Delta.Sign()
 							if sign != 0 {
-								_, err = seta.Exec(addr[:], au.AssetID, au.Transfer.Delta.Int64(), au.Transfer.DefaultFrozen, round)
+								_, err = seta.Exec(addr[:], au.AssetID, au.Transfer.Delta.Int64(), frozen, round)
 								if err != nil {
 									return fmt.Errorf("update account asset, %v", err)
 								}
@@ -931,16 +959,16 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 					}
 
 					// Close holding before continuing to next subround.
-					if au.Closed != nil {
-						_, err = acc.Exec(au.Closed.Round, au.Closed.Offset, au.Closed.Sender[:], au.Closed.AssetID)
+					if au.Close != nil {
+						_, err = acc.Exec(au.Close.Round, au.Close.Offset, au.Close.Sender[:], au.AssetID)
 						if err != nil {
 							return fmt.Errorf("asset close record amount, %v", err)
 						}
-						_, err = acs.Exec(au.Closed.CloseTo[:], au.Closed.AssetID, au.Closed.DefaultFrozen, au.Closed.Sender[:], au.Closed.AssetID, round)
+						_, err = acs.Exec(au.Close.CloseTo[:], au.AssetID, frozen, au.Close.Sender[:], au.AssetID, round)
 						if err != nil {
 							return fmt.Errorf("asset close send, %v", err)
 						}
-						_, err = acd.Exec(round, au.Closed.Sender[:], au.Closed.AssetID)
+						_, err = acd.Exec(round, au.Close.Sender[:], au.AssetID)
 						if err != nil {
 							return fmt.Errorf("asset close del, %v", err)
 						}

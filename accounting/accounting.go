@@ -168,7 +168,7 @@ func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, su
 		}
 	}
 
-	au := idb.AssetUpdate{AssetID: assetID, Transfer: &idb.AssetTransfer{DefaultFrozen: accounting.defaultFrozen[assetID]}}
+	au := idb.AssetUpdate{AssetID: assetID, Transfer: &idb.AssetTransfer{/*DefaultFrozen: accounting.defaultFrozen[assetID]*/}}
 	if add != 0 {
 		var xa big.Int
 		xa.SetUint64(add)
@@ -212,11 +212,11 @@ func (accounting *State) configAsset(assetID uint64, isNew bool, creator types.A
 func (accounting *State) closeAsset(from types.Address, assetID uint64, to types.Address, round uint64, offset int) {
 	update := idb.AssetUpdate{
 		AssetID: assetID,
-		Closed: &idb.AssetClose{
+		Close: &idb.AssetClose{
 			CloseTo:       to,
-			AssetID:       assetID,
+			//AssetID:       assetID,
 			Sender:        from,
-			DefaultFrozen: accounting.defaultFrozen[assetID],
+			//DefaultFrozen: accounting.defaultFrozen[assetID],
 			Round:         round,
 			Offset:        uint64(offset),
 		},

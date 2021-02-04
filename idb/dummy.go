@@ -441,10 +441,10 @@ type AccountDataUpdate struct {
 
 // AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AssetUpdate struct {
-	AssetID       uint64
-	Transfer      *AssetTransfer
-	Closed        *AssetClose
-	Config        *AcfgUpdate
+	AssetID  uint64
+	Transfer *AssetTransfer
+	Close    *AssetClose
+	Config   *AcfgUpdate
 }
 
 // AcfgUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
@@ -457,7 +457,6 @@ type AcfgUpdate struct {
 // AssetTransfer is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AssetTransfer struct {
 	Delta         big.Int
-	DefaultFrozen bool
 }
 
 // FreezeUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
@@ -470,11 +469,9 @@ type FreezeUpdate struct {
 // AssetClose is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AssetClose struct {
 	CloseTo       types.Address
-	AssetID       uint64
 	Sender        types.Address
 	Round         uint64
 	Offset        uint64
-	DefaultFrozen bool
 }
 
 // TxnAssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
