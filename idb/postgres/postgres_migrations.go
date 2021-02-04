@@ -371,14 +371,19 @@ func m4RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 		`ALTER TABLE account ADD COLUMN rewards_total bigint NOT NULL DEFAULT 0`,
 
 		// created/closed round
+		`ALTER TABLE account ADD COLUMN deleted boolean DEFAULT NULL`,
 		`ALTER TABLE account ADD COLUMN created_at bigint DEFAULT NULL`,
 		`ALTER TABLE account ADD COLUMN closed_at bigint DEFAULT NULL`,
+		`ALTER TABLE app ADD COLUMN deleted boolean DEFAULT NULL`,
 		`ALTER TABLE app ADD COLUMN created_at bigint DEFAULT NULL`,
 		`ALTER TABLE app ADD COLUMN closed_at bigint DEFAULT NULL`,
+		`ALTER TABLE account_app ADD COLUMN deleted boolean DEFAULT NULL`,
 		`ALTER TABLE account_app ADD COLUMN created_at bigint DEFAULT NULL`,
 		`ALTER TABLE account_app ADD COLUMN closed_at bigint DEFAULT NULL`,
+		`ALTER TABLE account_asset ADD COLUMN deleted boolean DEFAULT NULL`,
 		`ALTER TABLE account_asset ADD COLUMN created_at bigint DEFAULT NULL`,
 		`ALTER TABLE account_asset ADD COLUMN closed_at bigint DEFAULT NULL`,
+		`ALTER TABLE asset ADD COLUMN deleted boolean DEFAULT NULL`,
 		`ALTER TABLE asset ADD COLUMN created_at bigint DEFAULT NULL`,
 		`ALTER TABLE asset ADD COLUMN closed_at bigint DEFAULT NULL`,
 	}
@@ -478,6 +483,7 @@ func m5RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 }
 
 type createClose struct {
+	deleted sql.NullBool
 	created sql.NullInt64
 	closed  sql.NullInt64
 }
@@ -490,12 +496,22 @@ func updateClose(cc *createClose, value uint64) *createClose {
 				Valid: true,
 				Int64: int64(value),
 			},
+			deleted: sql.NullBool{
+				Valid: true,
+				Bool: true,
+			},
 		}
 	}
 
 	if !cc.closed.Valid {
 		cc.closed.Valid = true
 		cc.closed.Int64 = int64(value)
+	}
+
+	// Initialize deleted.
+	if !cc.deleted.Valid {
+		cc.deleted.Valid = true
+		cc.deleted.Bool = true
 	}
 
 	return cc
@@ -509,18 +525,27 @@ func updateCreate(cc *createClose, value uint64) *createClose {
 				Valid: true,
 				Int64: int64(value),
 			},
+			deleted: sql.NullBool{
+				Valid: true,
+				Bool: false,
+			},
 		}
 	}
 
 	cc.created.Valid = true
 	cc.created.Int64 = int64(value)
 
+	if !cc.deleted.Valid {
+		cc.deleted.Valid = true
+		cc.deleted.Bool = false
+	}
+
 	return cc
 }
 
 func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]*createClose) (err error) {
 	for index, round := range m {
-		_, err = stmt.Exec(address, index, round.created, round.closed)
+		_, err = stmt.Exec(address, index, round.created, round.closed, round.deleted)
 		if err != nil {
 			return
 		}
@@ -601,7 +626,17 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 			if accounting.AccountCloseTxn(address, stxn) {
 				result.account.closed.Valid = true
 				result.account.closed.Int64 = int64(txn.Round)
+
+				if !result.account.deleted.Valid {
+					result.account.deleted.Bool = true
+					result.account.deleted.Valid = true
+				}
 			} else {
+				if !result.account.deleted.Valid {
+					result.account.deleted.Bool = false
+					result.account.deleted.Valid = true
+				}
+
 				if stxn.Txn.Sender == address {
 					result.cumulativeRewards += stxn.ApplyData.SenderRewards
 				}
@@ -653,6 +688,8 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 	if numTxn == 0 {
 		result.account.created.Valid = true
 		result.account.created.Int64 = 0
+		result.account.deleted.Valid = true
+		result.account.deleted.Bool = false
 	}
 
 	return result, nil
@@ -718,37 +755,37 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	// 2. setCreateCloseAccount      - set the accounts create/close rounds.
 	// We always set the created_at field because it will never change.
 	// closed_at may already be set by the time the migration runs, or it might need to be cleared out.
-	setCreateCloseAccount, err := tx.Prepare(`UPDATE account SET created_at = $2, closed_at = coalesce(closed_at, $3) WHERE addr = $1`)
+	setCreateCloseAccount, err := tx.Prepare(`UPDATE account SET created_at = $2, closed_at = coalesce(closed_at, $3), deleted = coalesce(deleted, $4) WHERE addr = $1`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}
 	defer setCreateCloseAccount.Close()
 
 	// 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
-	setCreateCloseAsset, err := tx.Prepare(`UPDATE asset SET created_at = $3, closed_at = coalesce(closed_at, $4) WHERE creator_addr = $1 AND index=$2`)
+	setCreateCloseAsset, err := tx.Prepare(`UPDATE asset SET created_at = $3, closed_at = coalesce(closed_at, $4), deleted = coalesce(deleted, $5) WHERE creator_addr = $1 AND index=$2`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close asset prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}
 	defer setCreateCloseAsset.Close()
 
 	// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
-	setCreateCloseAssetHolding, err := tx.Prepare(`INSERT INTO account_asset(addr, assetid, amount, frozen, created_at, closed_at) VALUES ($1, $2, 0, false, $3, $4) ON CONFLICT (addr, assetid) DO UPDATE SET created_at = EXCLUDED.created_at, closed_at = coalesce(account_asset.closed_at, EXCLUDED.closed_at)`)
+	setCreateCloseAssetHolding, err := tx.Prepare(`INSERT INTO account_asset(addr, assetid, amount, frozen, created_at, closed_at, deleted) VALUES ($1, $2, 0, false, $3, $4, $5) ON CONFLICT (addr, assetid) DO UPDATE SET created_at = EXCLUDED.created_at, closed_at = coalesce(account_asset.closed_at, EXCLUDED.closed_at), deleted = coalesce(account_asset.deleted, EXCLUDED.deleted)`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close asset holding prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}
 	defer setCreateCloseAssetHolding.Close()
 
 	// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
-	setCreateCloseApp, err := tx.Prepare(`UPDATE app SET created_at = $3, closed_at = coalesce(closed_at, $4) WHERE creator = $1 AND index=$2`)
+	setCreateCloseApp, err := tx.Prepare(`UPDATE app SET created_at = $3, closed_at = coalesce(closed_at, $4), deleted = coalesce(deleted, $5) WHERE creator = $1 AND index=$2`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close app prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}
 	defer setCreateCloseApp.Close()
 
 	// 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
-	setCreateCloseAppLocal, err := tx.Prepare(`INSERT INTO account_app (addr, app, created_at, closed_at) VALUES ($1, $2, $3, $4) ON CONFLICT (addr, app) DO UPDATE SET created_at = EXCLUDED.created_at, closed_at = coalesce(account_app.closed_at, EXCLUDED.closed_at)`)
+	setCreateCloseAppLocal, err := tx.Prepare(`INSERT INTO account_app (addr, app, created_at, closed_at, deleted) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (addr, app) DO UPDATE SET created_at = EXCLUDED.created_at, closed_at = coalesce(account_app.closed_at, EXCLUDED.closed_at), deleted = coalesce(account_app.deleted, EXCLUDED.deleted)`)
 	if err != nil {
-		return fmt.Errorf("%s: set create close app prepare: %v", rewardsCreateCloseUpdateErr, err)
+		return fmt.Errorf("%s: set create close app local prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}
 	defer setCreateCloseAppLocal.Close()
 
@@ -763,7 +800,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 		}
 
 		// 2. setCreateCloseAccount      - set the accounts create/close rounds.
-		_, err = setCreateCloseAccount.Exec(address[:], result.account.created, result.account.closed)
+		_, err = setCreateCloseAccount.Exec(address[:], result.account.created, result.account.closed, result.account.deleted)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
