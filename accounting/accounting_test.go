@@ -11,7 +11,7 @@ import (
 )
 
 func GetAccounting() *State {
-	accountingState := New()
+	accountingState := New(make(map[uint64]bool))
 	accountingState.InitRoundParts(test.Round, test.FeeAddr, test.RewardAddr, 0)
 	return accountingState
 }
