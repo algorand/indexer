@@ -908,7 +908,6 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 						db.log.Errorf("%d axfer %s %s", round, b64(addr[:]), obs(au))
 					}
 
-
 					// Update / lookup default frozen
 					var frozen, ok bool
 					if au.Config != nil && au.Config.IsNew {
@@ -974,6 +973,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 						}
 					}
 
+					// Asset Config
 					if au.Config != nil {
 						var outparams string
 						if au.Config.IsNew {
