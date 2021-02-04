@@ -534,6 +534,10 @@
             "type": "integer",
             "x-algorand-format": "uint64"
           },
+          "deleted": {
+            "description": "Whether or not this account is currently closed.",
+            "type": "boolean"
+          },
           "participation": {
             "$ref": "#/components/schemas/AccountParticipation"
           },
@@ -639,6 +643,10 @@
             "type": "integer",
             "x-algorand-format": "uint64"
           },
+          "deleted": {
+            "description": "Whether or not this application is currently deleted.",
+            "type": "boolean"
+          },
           "deleted-at-round": {
             "description": "Round when this application was deleted.",
             "type": "integer",
@@ -665,6 +673,10 @@
             "description": "Round when account closed out of the application.",
             "type": "integer",
             "x-algorand-format": "uint64"
+          },
+          "deleted": {
+            "description": "Whether or not the application local state is currently deleted from its account.",
+            "type": "boolean"
           },
           "id": {
             "description": "The application which this local state is for.",
@@ -752,6 +764,10 @@
             "type": "integer",
             "x-algorand-format": "uint64"
           },
+          "deleted": {
+            "description": "Whether or not this asset is currently deleted.",
+            "type": "boolean"
+          },
           "destroyed-at-round": {
             "description": "Round during which this asset was destroyed.",
             "type": "integer",
@@ -786,6 +802,10 @@
           "creator": {
             "description": "Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.",
             "type": "string"
+          },
+          "deleted": {
+            "description": "Whether or not the asset holding is currently deleted from its account.",
+            "type": "boolean"
           },
           "is-frozen": {
             "description": "\\[f\\] whether or not the holding is frozen.",
@@ -1121,6 +1141,10 @@
           "amount": {
             "type": "integer",
             "x-algorand-format": "uint64"
+          },
+          "deleted": {
+            "description": "Whether or not this asset holding is currently deleted from its account.",
+            "type": "boolean"
           },
           "is-frozen": {
             "type": "boolean"
