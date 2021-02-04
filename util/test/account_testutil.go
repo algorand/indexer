@@ -101,7 +101,7 @@ func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, addr types.Addre
 	txn := types.SignedTxnWithAD{
 		SignedTxn: types.SignedTxn{
 			Txn: types.Transaction{
-				Type: "acfg",
+				Type: "afrz",
 				Header: types.Header{
 					Sender:     addr,
 					Fee:        types.MicroAlgos(1000),

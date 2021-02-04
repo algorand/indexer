@@ -854,9 +854,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 		// Create new account_asset, initialize a previously destroyed asset, or apply the balance delta.
 		// Setting frozen is complicated for the no-op optin case. It should only be set to default-frozen when the
 		// holding is deleted, otherwise it should be left as the original value.
-		// TODO: This isn't working yet
-		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, frozen = (EXCLUDED.frozen AND account_asset.deleted) OR account_asset.frozen, deleted = false`)
-		//seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, frozen = EXCLUDED.frozen, deleted = false`)
+		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, frozen = (EXCLUDED.frozen AND account_asset.deleted) OR (account_asset.frozen AND NOT account_asset.deleted), deleted = false`)
 		if err != nil {
 			return fmt.Errorf("prepare set account_asset, %v", err)
 		}
@@ -900,6 +898,15 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			return fmt.Errorf("prepare get asset, %v", err)
 		}
 		defer getacfg.Close()
+
+		//////////////////
+		// Asset Freeze //
+		//////////////////
+		fr, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, 0, $3, $4, false) ON CONFLICT (addr, assetid) DO UPDATE SET frozen = EXCLUDED.frozen, deleted = false`)
+		if err != nil {
+			return fmt.Errorf("prepare asset freeze, %v", err)
+		}
+		defer fr.Close()
 
 		for _, subround := range updates.AssetUpdates {
 			for addr, aulist := range subround {
@@ -998,24 +1005,18 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 							return fmt.Errorf("update asset, %v", err)
 						}
 					}
+
+					// Asset Freeze
+					if au.Freeze != nil {
+						if au.AssetID == debugAsset {
+							db.log.Errorf("%d %s %s", round, b64(addr[:]), obs(au.Freeze))
+						}
+						_, err = fr.Exec(addr[:], au.AssetID, au.Freeze.Frozen, round)
+						if err != nil {
+							return fmt.Errorf("update asset freeze, %v", err)
+						}
+					}
 				}
-			}
-		}
-	}
-	if len(updates.FreezeUpdates) > 0 {
-		any = true
-		fr, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, 0, $3, $4, false) ON CONFLICT (addr, assetid) DO UPDATE SET frozen = EXCLUDED.frozen, deleted = false`)
-		if err != nil {
-			return fmt.Errorf("prepare asset freeze, %v", err)
-		}
-		defer fr.Close()
-		for _, fs := range updates.FreezeUpdates {
-			if fs.AssetID == debugAsset {
-				db.log.Errorf("%d %s %s", round, b64(fs.Addr[:]), obs(fs))
-			}
-			_, err = fr.Exec(fs.Addr[:], fs.AssetID, fs.Frozen, round)
-			if err != nil {
-				return fmt.Errorf("update asset freeze, %v", err)
 			}
 		}
 	}

@@ -188,13 +188,15 @@ func (accounting *State) updateTxnAsset(round uint64, intra int, assetID uint64)
 	accounting.TxnAssetUpdates = append(accounting.TxnAssetUpdates, idb.TxnAssetUpdate{Round: round, Offset: intra, AssetID: assetID})
 }
 
-func (accounting *State) finalizeSubround(addr types.Address, update idb.AssetUpdate) {
+func (accounting *State) addAssetAccounting(addr types.Address, update idb.AssetUpdate, finalizeSubround bool) {
 	// Add the final subround update
 	updatelist := accounting.AssetUpdates[len(accounting.AssetUpdates)-1][addr]
 	accounting.AssetUpdates[len(accounting.AssetUpdates)-1][addr] = append(updatelist, update)
 
 	// Put an empty subround for any subsequent updates.
-	accounting.AssetUpdates = append(accounting.AssetUpdates, make(map[[32]byte][]idb.AssetUpdate))
+	if finalizeSubround {
+		accounting.AssetUpdates = append(accounting.AssetUpdates, make(map[[32]byte][]idb.AssetUpdate))
+	}
 }
 
 func (accounting *State) configAsset(assetID uint64, isNew bool, creator types.Address, params atypes.AssetParams){
@@ -206,7 +208,8 @@ func (accounting *State) configAsset(assetID uint64, isNew bool, creator types.A
 			Params:  params,
 		},
 	}
-	accounting.finalizeSubround(creator, update)
+	// This probably doesn't need to finalize the subround, but it is an uncommon transaction so lets play it safe.
+	accounting.addAssetAccounting(creator, update, true)
 }
 
 func (accounting *State) closeAsset(from types.Address, assetID uint64, to types.Address, round uint64, offset int) {
@@ -221,11 +224,15 @@ func (accounting *State) closeAsset(from types.Address, assetID uint64, to types
 			Offset:        uint64(offset),
 		},
 	}
-	accounting.finalizeSubround(from, update)
+	accounting.addAssetAccounting(from, update, true)
 }
 
 func (accounting *State) freezeAsset(addr types.Address, assetID uint64, frozen bool) {
-	accounting.FreezeUpdates = append(accounting.FreezeUpdates, idb.FreezeUpdate{Addr: addr, AssetID: assetID, Frozen: frozen})
+	update := idb.AssetUpdate{
+		AssetID: assetID,
+		Freeze: &idb.FreezeUpdate{Frozen: frozen},
+	}
+	accounting.addAssetAccounting(addr, update, false)
 }
 
 func (accounting *State) destroyAsset(assetID uint64) {

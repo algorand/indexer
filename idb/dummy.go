@@ -445,6 +445,7 @@ type AssetUpdate struct {
 	Transfer *AssetTransfer
 	Close    *AssetClose
 	Config   *AcfgUpdate
+	Freeze   *FreezeUpdate
 }
 
 // AcfgUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
@@ -461,8 +462,6 @@ type AssetTransfer struct {
 
 // FreezeUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type FreezeUpdate struct {
-	Addr    types.Address
-	AssetID uint64
 	Frozen  bool
 }
 
