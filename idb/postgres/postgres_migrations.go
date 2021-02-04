@@ -23,8 +23,8 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
-// rewardsMigrationIndex is the index of m5RewardsAndDatesPart2.
-const rewardsMigrationIndex = 5
+// rewardsMigrationIndex is the index of m6RewardsAndDatesPart2.
+const rewardsMigrationIndex = 6
 
 func init() {
 	migrations = []migrationStruct{
@@ -32,13 +32,13 @@ func init() {
 		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
 		{m2apps, true, "Update DB Schema for Algorand application support."},
 		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
-		{m4RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
-		{m5RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
-		{m6MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
+		{m4MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
+		{m5RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
+		{m6RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
 	}
 
 	// Verify ensure the constant is pointing to the right index
-	var m5Ptr postgresMigrationFunc = m5RewardsAndDatesPart2
+	var m5Ptr postgresMigrationFunc = m6RewardsAndDatesPart2
 	a2 := fmt.Sprintf("%v", migrations[rewardsMigrationIndex].migrate)
 	a1 := fmt.Sprintf("%v", m5Ptr)
 	if a1 != a2 {
@@ -353,8 +353,8 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 	return -1, nil
 }
 
-// m4RewardsAndDatesPart1 adds the new rewards_total column to the account table.
-func m4RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
+// m5RewardsAndDatesPart1 adds the new rewards_total column to the account table.
+func m5RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	// Cache the round in the migration metastate
 	round, err := db.GetMaxRound()
 	if err != nil {
@@ -414,8 +414,8 @@ func addrToPercent(addr string) float64 {
 	return float64(val) / (32 * 32 * 32) * 100
 }
 
-// m5RewardsAndDatesPart2 computes the cumulative rewards for each account one at a time.
-func m5RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
+// m6RewardsAndDatesPart2 computes the cumulative rewards for each account one at a time.
+func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	db.log.Println("account cumulative rewards migration starting")
 
 	var feeSinkAddr string
@@ -1130,9 +1130,9 @@ func (mtxid *txidFiuxpMigrationContext) readHeaders(minRound, maxRound uint64) (
 
 // Record round at which behavior changed for encoding txn.txn JSON.
 // A future migration should go back and apply new encoding to prior txn rows then delete this row in metastate.
-func m6MarkTxnJSONSplit(db *IndexerDb, state *MigrationState) error {
+func m4MarkTxnJSONSplit(db *IndexerDb, state *MigrationState) error {
 	sqlLines := []string{
-		`INSERT INTO metastate (k,v) SELECT 'm6MarkTxnJSONSplit', m.v FROM metastate m WHERE m.k = 'state'`,
+		`INSERT INTO metastate (k,v) SELECT 'm4MarkTxnJSONSplit', m.v FROM metastate m WHERE m.k = 'state'`,
 	}
 	return sqlMigration(db, state, sqlLines)
 }
