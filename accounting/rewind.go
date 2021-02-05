@@ -145,7 +145,8 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			}
 		case atypes.AssetFreezeTx:
 		default:
-			panic(fmt.Sprintf("unknown txn type %s", stxn.Txn.Type))
+			err = fmt.Errorf("%s[%d,%d]: cannot rewind past txn type %s", account.Address, txnrow.Round, txnrow.Intra, stxn.Txn.Type)
+			return
 		}
 	}
 
