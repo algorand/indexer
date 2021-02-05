@@ -117,12 +117,8 @@ func (db *IndexerDb) init() (err error) {
 	if err != nil {
 		return
 	}
+
 	err = db.markMigrationsAsDone()
-
-	if err != nil {
-		return
-	}
-
 	return
 }
 
@@ -291,7 +287,7 @@ func (db *IndexerDb) GetAsset(assetid uint64) (asset types.AssetParams, err erro
 
 // GetDefaultFrozen get {assetid:default frozen, ...} for all assets, needed by accounting.
 func (db *IndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
-	rows, err := db.db.Query(`SELECT index, coalesce((params ->> 'df')::boolean, false) FROM asset a`)
+	rows, err := db.db.Query(`SELECT index, params -> 'df' FROM asset a WHERE params -> 'df' IS NOT NULL`)
 	if err != nil {
 		return
 	}

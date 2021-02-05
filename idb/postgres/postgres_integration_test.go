@@ -201,10 +201,11 @@ func TestInitializeFrozenCache(t *testing.T) {
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
 
-	assert.Len(t, cache, 3)
+	assert.Len(t, cache, 2)
 	assert.True(t, cache[1])
 	assert.False(t, cache[2])
 	assert.False(t, cache[3])
+	assert.False(t, cache[300000])
 }
 
 // TestReCreateAssetHolding checks that the optin value of a defunct

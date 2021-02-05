@@ -653,12 +653,6 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 			}
 		}
 
-		if txn.AssetID == 82 && stxn.Txn.Sender.String() == "CM333ZN3KMASBRIP7N4QIN7AANVK7EJGNUQCNONGVVKURZIU2GG7XJIZ4Q" && stxn.Txn.Type == sdk_types.ApplicationCallTx {
-		//if txn.AssetID == 82 && stxn.Txn.Sender.String() ==  addressStr {
-			fmt.Println(stxn.Txn.Sender.String())
-			fmt.Println("we have arrived")
-		}
-
 		if accounting.AssetCreateTxn(stxn) {
 			result.asset[txn.AssetID] = updateCreate(result.asset[txn.AssetID], txn.Round)
 		}
