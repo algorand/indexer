@@ -286,20 +286,20 @@ func (db *IndexerDb) GetAsset(assetid uint64) (asset types.AssetParams, err erro
 }
 
 // GetDefaultFrozen get {assetid:default frozen, ...} for all assets, needed by accounting.
+// Because Go map[]bool returns false by default, we actually return only a map of the true elements.
 func (db *IndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
-	rows, err := db.db.Query(`SELECT index, params -> 'df' FROM asset a WHERE params -> 'df' IS NOT NULL`)
+	rows, err := db.db.Query(`SELECT index FROM asset WHERE (params ->> 'df')::boolean`)
 	if err != nil {
 		return
 	}
 	defaultFrozen = make(map[uint64]bool)
 	for rows.Next() {
 		var assetid uint64
-		var frozen bool
-		err = rows.Scan(&assetid, &frozen)
+		err = rows.Scan(&assetid)
 		if err != nil {
 			return
 		}
-		defaultFrozen[assetid] = frozen
+		defaultFrozen[assetid] = true
 	}
 	return
 }
@@ -1838,7 +1838,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				break
 			}
 
-			if len(hamounts) != len(haids) || len(hfrozen) != len(haids) || len(holdingCreated) != len(haids) || len(holdingClosed) != len(haids) || len(holdingDeleted) != len(haids){
+			if len(hamounts) != len(haids) || len(hfrozen) != len(haids) || len(holdingCreated) != len(haids) || len(holdingClosed) != len(haids) || len(holdingDeleted) != len(haids) {
 				err = fmt.Errorf("account asset holding unpacking, all should be %d:  %d amounts, %d frozen, %d created, %d closed, %d deleted",
 					len(haids), len(hamounts), len(hfrozen), len(holdingCreated), len(holdingClosed), len(holdingDeleted))
 				req.out <- idb.AccountRow{Error: err}
