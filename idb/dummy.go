@@ -520,9 +520,9 @@ type RoundUpdates struct {
 	// The next subround starts when an account close has been detected
 	// Once a subround has been processed, move to the next subround and
 	// apply the updates.
-	AssetUpdates    []map[[32]byte][]AssetUpdate
-	FreezeUpdates   []FreezeUpdate
-	AssetDestroys   []uint64
+	AssetUpdates  []map[[32]byte][]AssetUpdate
+	FreezeUpdates []FreezeUpdate
+	AssetDestroys []uint64
 
 	AppGlobalDeltas []AppDelta
 	AppLocalDeltas  []AppDelta
@@ -626,7 +626,7 @@ func b32np(data []byte) string {
 
 // Health is the response object that IndexerDb objects need to return from the Health method.
 type Health struct {
-	Data        *map[string]interface{} `json:"data,omitempty""`
+	Data        *map[string]interface{} `json:"data,omitempty"`
 	Round       uint64                  `json:"round"`
 	IsMigrating bool                    `json:"is-migrating"`
 	DBAvailable bool                    `json:"db-available"`
