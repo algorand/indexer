@@ -3,8 +3,6 @@ package idb
 import (
 	"fmt"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-
 	"github.com/algorand/go-codec/codec"
 )
 
@@ -38,22 +36,12 @@ func stringifyMap(ob map[interface{}]interface{}) map[interface{}]interface{} {
 	return out
 }
 
-// MsgpackToJSON converts a messagepack object into JSON
-func MsgpackToJSON(msgp []byte) (js []byte, err error) {
-	var ob map[interface{}]interface{}
-	err = msgpack.Decode(msgp, &ob)
-	if err != nil {
-		return
-	}
-	return JSONOneLine(Stringify(ob)), nil
-}
-
 // JSONOneLine converts an object into JSON
-func JSONOneLine(obj interface{}) []byte {
+func JSONOneLine(obj interface{}) string {
 	var b []byte
 	enc := codec.NewEncoderBytes(&b, oneLineJSONCodecHandle)
 	enc.MustEncode(obj)
-	return b
+	return string(b)
 }
 
 var oneLineJSONCodecHandle *codec.JsonHandle
