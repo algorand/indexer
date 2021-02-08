@@ -201,7 +201,7 @@ func TestInitializeFrozenCache(t *testing.T) {
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
 
-	assert.Len(t, cache, 2)
+	assert.Len(t, cache, 1)
 	assert.True(t, cache[1])
 	assert.False(t, cache[2])
 	assert.False(t, cache[3])

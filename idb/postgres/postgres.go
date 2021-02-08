@@ -288,7 +288,7 @@ func (db *IndexerDb) GetAsset(assetid uint64) (asset types.AssetParams, err erro
 // GetDefaultFrozen get {assetid:default frozen, ...} for all assets, needed by accounting.
 // Because Go map[]bool returns false by default, we actually return only a map of the true elements.
 func (db *IndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
-	rows, err := db.db.Query(`SELECT index FROM asset WHERE (params ->> 'df')::boolean`)
+	rows, err := db.db.Query(`SELECT index FROM asset WHERE (params ->> 'df')::boolean = true`)
 	if err != nil {
 		return
 	}

@@ -358,7 +358,10 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 			accounting.destroyAsset(assetID)
 		} else {
 			accounting.configAsset(assetID, isNew, stxn.Txn.Sender, stxn.Txn.AssetParams)
-			accounting.defaultFrozen[assetID] = stxn.Txn.AssetParams.DefaultFrozen
+			// Only update the cache when default-frozen = true.
+			if stxn.Txn.AssetParams.DefaultFrozen {
+				accounting.defaultFrozen[assetID] = stxn.Txn.AssetParams.DefaultFrozen
+			}
 			if stxn.Txn.ConfigAsset == 0 {
 				// initial creation, give all initial value to creator
 				if stxn.Txn.AssetParams.Total != 0 {
