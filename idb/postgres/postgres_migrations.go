@@ -275,7 +275,7 @@ func m3acfgFix(db *IndexerDb, state *MigrationState) (err error) {
 // updates asset rows and metastate
 func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64) (next int, err error) {
 	lastlog := time.Now()
-	tx, err := db.db.Begin()
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		db.log.WithError(err).Errorf("acfg fix tx begin")
 		return -1, err
@@ -739,7 +739,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	}
 
 	// Open a postgres transaction and submit results for each account.
-	tx, err := db.db.Begin()
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		return fmt.Errorf("%s: tx begin: %v", rewardsCreateCloseUpdateErr, err)
 	}
@@ -856,7 +856,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 // sqlMigration executes a sql statements as the entire migration.
 func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error {
 	thisMigration := state.NextMigration
-	tx, err := db.db.Begin()
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		db.log.WithError(err).Errorf("migration %d tx err", thisMigration)
 		return err
@@ -1018,7 +1018,7 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 	}
 
 	// do a transaction to update a batch
-	tx, err := db.db.Begin()
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, batch tx err", txidMigrationErrMsg)
 		return err

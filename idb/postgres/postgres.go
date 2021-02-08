@@ -11,6 +11,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -38,6 +39,9 @@ import (
 const stateMetastateKey = "state"
 const migrationMetastateKey = "migration"
 const specialAccountsMetastateKey = "accounts"
+
+// Be a real ACID database
+var serializable = sql.TxOptions{Isolation: sql.LevelSerializable}
 
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
 func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
@@ -171,7 +175,7 @@ func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, ass
 	txnbytes := msgpack.Encode(txn)
 	jsonbytes := stxnToJSON(txn)
 	txid := crypto.TransactionIDString(txn.Txn)
-	tx := []interface{}{round, intra, txtypeenum, assetid, txid[:], txnbytes, jsonbytes}
+	tx := []interface{}{round, intra, txtypeenum, assetid, txid[:], txnbytes, string(jsonbytes)}
 	db.txrows = append(db.txrows, tx)
 	for _, paddr := range participation {
 		seen := false
@@ -185,7 +189,7 @@ func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, ass
 
 // CommitBlock is part of idb.IndexerDB
 func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	tx, err := db.db.BeginTx(context.Background(), nil)
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		return fmt.Errorf("BeginTx %v", err)
 	}
@@ -260,7 +264,7 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 	headerjson := idb.JSONOneLine(block)
 	_, err = tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0).UTC(), rewardslevel, headerjson)
 	if err != nil {
-		return fmt.Errorf("put block_header %v", err)
+		return fmt.Errorf("put block_header %v    %#v", err, err)
 	}
 
 	err = tx.Commit()
@@ -305,7 +309,7 @@ func (db *IndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err erro
 
 // LoadGenesis is part of idb.IndexerDB
 func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
-	tx, err := db.db.Begin()
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		return
 	}
@@ -328,6 +332,12 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 		if err != nil {
 			return fmt.Errorf("error setting genesis account[%d], %v", ai, err)
 		}
+	}
+	var istate importer.ImportState
+	sjs := string(idb.JSONOneLine(istate))
+	_, err = tx.Exec(setMetastateUpsert, stateMetastateKey, sjs)
+	if err != nil {
+		return
 	}
 	err = tx.Commit()
 	db.log.Printf("genesis %d accounts %d microalgos, err=%v", len(genesis.Allocation), total, err)
@@ -749,9 +759,9 @@ func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []i
 }
 
 // CommitRoundAccounting is part of idb.IndexerDB
-func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewardsBase uint64) (err error) {
+func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
 	any := false
-	tx, err := db.db.Begin()
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		return
 	}
@@ -776,12 +786,12 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewa
 
 		for addr, delta := range updates.AlgoUpdates {
 			if !delta.Closed {
-				_, err = upsertalgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards, round)
+				_, err = upsertalgo.Exec(addr[:], delta.Balance, blockPtr.RewardsLevel, delta.Rewards, round)
 				if err != nil {
 					return fmt.Errorf("update algo, %v", err)
 				}
 			} else {
-				_, err = closealgo.Exec(addr[:], delta.Balance, rewardsBase, delta.Rewards, round, round)
+				_, err = closealgo.Exec(addr[:], delta.Balance, blockPtr.RewardsLevel, delta.Rewards, round, round)
 				if err != nil {
 					return fmt.Errorf("close algo, %v", err)
 				}
@@ -1208,7 +1218,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 	}
 	if !any {
-		db.log.Printf("empty round %d", round)
+		db.log.Debugf("empty round %d", round)
 	}
 	var istate importer.ImportState
 	staterow := tx.QueryRow(`SELECT v FROM metastate WHERE k = 'state'`)
@@ -1223,6 +1233,11 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		if err != nil {
 			return
 		}
+	}
+	if istate.AccountRound >= int64(round) {
+		msg := fmt.Sprintf("metastate round = %d while trying to write round %d", istate.AccountRound, round)
+		db.log.Error(msg)
+		return errors.New(msg)
 	}
 	istate.AccountRound = int64(round)
 	sjs := idb.JSONOneLine(istate)
