@@ -9,6 +9,7 @@ import json
 import logging
 import os
 import random
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -44,11 +45,11 @@ def main():
         sourcenet = e2edata and os.path.join(e2edata, 'net')
     if sourcenet and hassuffix(sourcenet, '.tar', '.tar.gz', '.tar.bz2', '.tar.xz'):
         source_is_tar = True
-    tdir = tempfile.TemporaryDirectory()
+    tempdir = tempfile.mkdtemp()
     if not args.keep_temps:
-        atexit.register(tdir.cleanup)
+        atexit.register(shutil.rmtree, tempdir, onerror=logger.error)
     else:
-        logger.info("leaving temp dir %r", tdir.name)
+        logger.info("leaving temp dir %r", tempdir)
     if not (source_is_tar or (sourcenet and os.path.isdir(sourcenet))):
         # fetch test data from S3
         bucket = 'algorand-testdata'
@@ -57,16 +58,16 @@ def main():
         from botocore import UNSIGNED
         s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
         tarname = 'net_done.tar.bz2'
-        tarpath = os.path.join(tdir.name, tarname)
+        tarpath = os.path.join(tempdir, tarname)
         firstFromS3Prefix(s3, bucket, 'indexer/e2e2', tarname, outpath=tarpath)
         source_is_tar = True
         sourcenet = tarpath
-    tempnet = os.path.join(tdir.name, 'net')
+    tempnet = os.path.join(tempdir, 'net')
     if source_is_tar:
-        xrun(['tar', '-C', tdir.name, '-x', '-f', sourcenet])
+        xrun(['tar', '-C', tempdir, '-x', '-f', sourcenet])
     else:
         xrun(['rsync', '-a', sourcenet + '/', tempnet + '/'])
-    blockfiles = glob.glob(os.path.join(tdir.name, 'net', 'Primary', '*', '*.block.sqlite'))
+    blockfiles = glob.glob(os.path.join(tempdir, 'net', 'Primary', '*', '*.block.sqlite'))
     lastblock = countblocks(blockfiles[0])
     #subprocess.run(['find', tempnet, '-type', 'f'])
     xrun(['goal', 'network', 'start', '-r', tempnet])
