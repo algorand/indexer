@@ -51,6 +51,9 @@ type Account struct {
 	// Round during which this account first appeared in a transaction.
 	CreatedAtRound *uint64 `json:"created-at-round,omitempty"`
 
+	// Whether or not this account is currently closed.
+	Deleted *bool `json:"deleted,omitempty"`
+
 	// AccountParticipation describes the parameters used by this account in consensus protocol.
 	Participation *AccountParticipation `json:"participation,omitempty"`
 
@@ -112,6 +115,9 @@ type Application struct {
 	// Round when this application was created.
 	CreatedAtRound *uint64 `json:"created-at-round,omitempty"`
 
+	// Whether or not this application is currently deleted.
+	Deleted *bool `json:"deleted,omitempty"`
+
 	// Round when this application was deleted.
 	DeletedAtRound *uint64 `json:"deleted-at-round,omitempty"`
 
@@ -127,6 +133,9 @@ type ApplicationLocalState struct {
 
 	// Round when account closed out of the application.
 	ClosedOutAtRound *uint64 `json:"closed-out-at-round,omitempty"`
+
+	// Whether or not the application local state is currently deleted from its account.
+	Deleted *bool `json:"deleted,omitempty"`
 
 	// The application which this local state is for.
 	Id uint64 `json:"id"`
@@ -179,6 +188,9 @@ type Asset struct {
 	// Round during which this asset was created.
 	CreatedAtRound *uint64 `json:"created-at-round,omitempty"`
 
+	// Whether or not this asset is currently deleted.
+	Deleted *bool `json:"deleted,omitempty"`
+
 	// Round during which this asset was destroyed.
 	DestroyedAtRound *uint64 `json:"destroyed-at-round,omitempty"`
 
@@ -205,6 +217,9 @@ type AssetHolding struct {
 
 	// Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.
 	Creator string `json:"creator"`
+
+	// Whether or not the asset holding is currently deleted from its account.
+	Deleted *bool `json:"deleted,omitempty"`
 
 	// \[f\] whether or not the holding is frozen.
 	IsFrozen bool `json:"is-frozen"`
@@ -390,9 +405,12 @@ type HealthCheck struct {
 
 // MiniAssetHolding defines model for MiniAssetHolding.
 type MiniAssetHolding struct {
-	Address  string `json:"address"`
-	Amount   uint64 `json:"amount"`
-	IsFrozen bool   `json:"is-frozen"`
+	Address string `json:"address"`
+	Amount  uint64 `json:"amount"`
+
+	// Whether or not this asset holding is currently deleted from its account.
+	Deleted  *bool `json:"deleted,omitempty"`
+	IsFrozen bool  `json:"is-frozen"`
 
 	// Round during which the account opted into the asset.
 	OptedInAtRound *uint64 `json:"opted-in-at-round,omitempty"`
