@@ -53,11 +53,11 @@ func setupPostgres(t *testing.T) (*sql.DB, string, func()) {
 
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.
 func TestMaxRoundOnUninitializedDB(t *testing.T) {
-    _, connStr, shutdownFunc := setupPostgres(t)
-    defer shutdownFunc()
+	_, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
 
-    ///////////
-    // Given // A database that has not yet imported the genesis accounts.
+	///////////
+	// Given // A database that has not yet imported the genesis accounts.
 	///////////
 	db, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
 	assert.NoError(t, err)
@@ -102,7 +102,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, 0)
+	pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, nil)
 
 	//////////
 	// Then // Accounts A, B, C and D have the correct balances.
@@ -132,5 +132,5 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	row = db.QueryRow(`SELECT amount FROM account_asset WHERE account_asset.assetid = $1 AND account_asset.addr = $2`, assetid, test.AccountD[:])
 	err = row.Scan(&resultBalance)
 	assert.NoError(t, err, "checking balance")
-	assert.Equal(t, int(amt) * -2, resultBalance)
+	assert.Equal(t, int(amt)*-2, resultBalance)
 }

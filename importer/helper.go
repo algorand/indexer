@@ -23,7 +23,7 @@ import (
 )
 
 // NewImportHelper builds an ImportHelper
-func NewImportHelper(genesisJSONPath string, numRoundsLimit, blockFileLimite int, l *log.Logger) (*ImportHelper) {
+func NewImportHelper(genesisJSONPath string, numRoundsLimit, blockFileLimite int, l *log.Logger) *ImportHelper {
 	return &ImportHelper{
 		GenesisJSONPath: genesisJSONPath,
 		NumRoundsLimit:  numRoundsLimit,
@@ -92,7 +92,7 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 		h.Log.Infof("%d blocks in %s, %.0f/s, %d txn, %.0f/s", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
 	}
 
-	accountingRounds, txnCount := updateAccounting(db, h.GenesisJSONPath, h.NumRoundsLimit, h.Log)
+	accountingRounds, txnCount := updateAccounting(db, 0, h.GenesisJSONPath, h.NumRoundsLimit, h.Log)
 
 	accountingdone := time.Now()
 	if accountingRounds > 0 {
@@ -220,11 +220,11 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 }
 
 // UpdateAccounting triggers an accounting update.
-func UpdateAccounting(db idb.IndexerDb, genesisJSONPath string, l *log.Logger) (rounds, txnCount int) {
-	return updateAccounting(db, genesisJSONPath, 0, l)
+func UpdateAccounting(db idb.IndexerDb, round uint64, genesisJSONPath string, l *log.Logger) (rounds, txnCount int) {
+	return updateAccounting(db, round, genesisJSONPath, 0, l)
 }
 
-func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit int, l *log.Logger) (rounds, txnCount int) {
+func updateAccounting(db idb.IndexerDb, round uint64, genesisJSONPath string, numRoundsLimit int, l *log.Logger) (rounds, txnCount int) {
 	rounds = 0
 	txnCount = 0
 	stateJSONStr, err := db.GetMetastate("state")
@@ -262,9 +262,8 @@ func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit i
 	for txn := range txns {
 		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)
 		if txn.Round != currentRound {
-			// TODO: commit rounds with no transactions to avoid a special case to update the db metastate.
 			if blockPtr != nil && txnForRound > 0 {
-				err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr.RewardsLevel)
+				err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr)
 				maybeFail(err, l, "failed to commit round accounting")
 			}
 
@@ -299,9 +298,11 @@ func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit i
 	}
 
 	// Commit the final round
-	// TODO: commit rounds with empty paysets to avoid a special case to update the db metastate.
-	if blockPtr != nil && txnForRound > 0 {
-		err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr.RewardsLevel)
+	if (blockPtr != nil && txnForRound > 0) || ((round != 0) && (currentRound < round)) {
+		if currentRound < round {
+			currentRound = round
+		}
+		err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr)
 		maybeFail(err, l, "failed to commit round accounting")
 	}
 
