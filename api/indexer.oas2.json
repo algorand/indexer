@@ -693,6 +693,10 @@
           "type": "string",
           "x-algorand-format": "Address"
         },
+        "deleted": {
+          "description": "Whether or not this account is currently closed.",
+          "type": "boolean"
+        },
         "created-at-round": {
           "description": "Round during which this account first appeared in a transaction.",
            "type": "integer",
@@ -769,6 +773,10 @@
         "id": {
           "description": "The application which this local state is for.",
           "type": "integer"
+        },
+        "deleted": {
+          "description": "Whether or not the application local state is currently deleted from its account.",
+          "type": "boolean"
         },
         "opted-in-at-round": {
           "description": "Round when the account opted into the application.",
@@ -849,6 +857,10 @@
           "description": "\\[appidx\\] application index.",
           "type": "integer"
         },
+        "deleted": {
+          "description": "Whether or not this application is currently deleted.",
+          "type": "boolean"
+        },
         "created-at-round": {
           "description": "Round when this application was created.",
           "type": "integer",
@@ -916,6 +928,10 @@
           "description": "unique asset identifier",
           "type": "integer"
         },
+        "deleted": {
+          "description": "Whether or not this asset is currently deleted.",
+          "type": "boolean"
+        },
         "created-at-round": {
           "description": "Round during which this asset was created.",
            "type": "integer",
@@ -956,6 +972,10 @@
         },
         "is-frozen": {
           "description": "\\[f\\] whether or not the holding is frozen.",
+          "type": "boolean"
+        },
+        "deleted": {
+          "description": "Whether or not the asset holding is currently deleted from its account.",
           "type": "boolean"
         },
         "opted-in-at-round": {
@@ -1244,6 +1264,10 @@
           "x-algorand-format": "uint64"
         },
         "is-frozen": {
+          "type": "boolean"
+        },
+        "deleted": {
+          "description": "Whether or not this asset holding is currently deleted from its account.",
           "type": "boolean"
         },
         "opted-in-at-round": {

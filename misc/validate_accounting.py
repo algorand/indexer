@@ -250,7 +250,8 @@ def deepeq(a, b, path=None, msg=None):
         return True
     return a == b
 
-def remove_at_round_fields(x):
+def remove_indexer_only_fields(x):
+    x.pop('deleted', None)
     x.pop('created-at-round', None)
     x.pop('deleted-at-round', None)
     x.pop('destroyed-at-round', None)
@@ -263,7 +264,7 @@ def remove_at_round_fields(x):
 
 def _dac(x):
     out = dict(x)
-    remove_at_round_fields(out)
+    remove_indexer_only_fields(out)
     return out
 
 def dictifyAssetConfig(acfg):
@@ -271,7 +272,7 @@ def dictifyAssetConfig(acfg):
 
 def _dap(x):
     out = dict(x)
-    remove_at_round_fields(out)
+    remove_indexer_only_fields(out)
     out['params'] = dict(out['params'])
     gs = out['params'].get('global-state')
     if gs:
@@ -290,7 +291,7 @@ def dictifyAppLocal(al):
         kv = ent.get('key-value')
         if kv:
             ent['key-value'] = {x['key']:x['value'] for x in kv}
-        remove_at_round_fields(ent)
+        remove_indexer_only_fields(ent)
         out[appid] = ent
     return out
 
