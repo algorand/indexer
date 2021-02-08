@@ -134,3 +134,4 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	assert.NoError(t, err, "checking balance")
 	assert.Equal(t, int(amt) * -2, resultBalance)
 }
+
