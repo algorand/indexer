@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -185,7 +184,7 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 			}
 		}
 		state.AccountRound = int64(block.Block.Round)
-		stateJSONStr = string(json.Encode(state))
+		stateJSONStr = idb.JSONOneLine(state)
 		err = db.SetMetastate("state", stateJSONStr)
 		if err != nil {
 			logger.WithError(err).Errorf("failed to save import state")
