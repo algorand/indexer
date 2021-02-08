@@ -3,6 +3,7 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"sync"
 	"testing"
 
 	_ "github.com/lib/pq"
@@ -11,7 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/algorand/go-algorand-sdk/types"
+
 	"github.com/algorand/indexer/accounting"
+	itypes "github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util/test"
 )
@@ -102,7 +105,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, nil)
+	pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
 
 	//////////
 	// Then // Accounts A, B, C and D have the correct balances.
@@ -133,4 +136,61 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	err = row.Scan(&resultBalance)
 	assert.NoError(t, err, "checking balance")
 	assert.Equal(t, int(amt)*-2, resultBalance)
+}
+
+// TestMultipleWriters tests that accounting cannot be double committed.
+func TestMultipleWriters(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	amt := uint64(10000)
+
+	///////////
+	// Given // Send amt to AccountA
+	///////////
+	_, payAccountA := test.MakePayTxnRowOrPanic(test.Round, 1000, amt, 0, 0, 0, 0, test.AccountD, test.AccountA, types.ZeroAddress)
+
+	state := getAccounting()
+	state.AddTransaction(payAccountA)
+
+	//////////
+	// When // We attempt commit the round accounting multiple times.
+	//////////
+	start := make(chan struct{})
+	commits := 10
+	errors := make(chan error, commits)
+	var wg sync.WaitGroup
+	for i := 0; i < commits; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<- start
+			errors <- pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+		}()
+	}
+	close(start)
+
+	wg.Wait()
+	close(errors)
+
+	//////////
+	// Then // There should be num-1 errors, and AccountA should only be paid once.
+	//////////
+	errorCount := 0
+	for err := range errors {
+		if err != nil {
+			errorCount++
+		}
+	}
+	assert.Equal(t, commits-1, errorCount)
+
+	// AccountA should contain the final payment.
+	var balance uint64
+	row := db.QueryRow(`SELECT microalgos FROM account WHERE account.addr = $1`, test.AccountA[:])
+	err = row.Scan(&balance)
+	assert.NoError(t, err, "checking balance")
+	assert.Equal(t, amt, balance)
 }
