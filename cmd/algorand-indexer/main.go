@@ -108,6 +108,7 @@ func init() {
 
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(daemonCmd)
+	rootCmd.AddCommand(resetCmd)
 
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "loglevel", "l", "info", "verbosity of logs: [error, warn, info, debug, trace]")
 	rootCmd.PersistentFlags().StringVarP(&logFile, "logfile", "f", "", "file to write logs to, if unset logs are written to standard out")
@@ -138,7 +139,6 @@ func init() {
 		fmt.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
 	}
 
-
 	viper.SetEnvPrefix(config.EnvPrefix)
 	viper.AutomaticEnv()
 }
@@ -155,7 +155,7 @@ func configureLogger() error {
 	if logFile == "-" {
 		logger.SetOutput(os.Stdout)
 	} else if logFile != "" {
-		f, err := os.OpenFile(logFile, os.O_APPEND | os.O_WRONLY | os.O_CREATE, 0755)
+		f, err := os.OpenFile(logFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0755)
 		if err != nil {
 			return err
 		}

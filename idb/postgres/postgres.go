@@ -4,7 +4,7 @@
 package postgres
 
 // import text to contstant setup_postgres_sql
-//go:generate go run ../../cmd/texttosource/main.go postgres setup_postgres.sql
+//go:generate go run ../../cmd/texttosource/main.go postgres setup_postgres.sql reset.sql
 
 import (
 	"bytes"
@@ -118,6 +118,12 @@ func (db *IndexerDb) init() (err error) {
 		return
 	}
 	err = db.markMigrationsAsDone()
+	return
+}
+
+func (db *IndexerDb) Reset() (err error) {
+	// new database, run setup
+	_, err = db.db.Exec(reset_sql)
 	return
 }
 
@@ -901,7 +907,6 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			return fmt.Errorf("prepare asset close2, %v", err)
 		}
 		defer acd.Close()
-
 
 		for _, subround := range updates.AssetUpdates {
 			for addr, aulist := range subround {
@@ -1824,7 +1829,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				break
 			}
 
-			if len(hamounts) != len(haids) || len(hfrozen) != len(haids) || len(holdingCreated) != len(haids) || len(holdingClosed) != len(haids) || len(holdingDeleted) != len(haids){
+			if len(hamounts) != len(haids) || len(hfrozen) != len(haids) || len(holdingCreated) != len(haids) || len(holdingClosed) != len(haids) || len(holdingDeleted) != len(haids) {
 				err = fmt.Errorf("account asset holding unpacking, all should be %d:  %d amounts, %d frozen, %d created, %d closed, %d deleted",
 					len(haids), len(hamounts), len(hfrozen), len(holdingCreated), len(holdingClosed), len(holdingDeleted))
 				req.out <- idb.AccountRow{Error: err}
