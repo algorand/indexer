@@ -62,7 +62,6 @@ def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None, headers=No
     rootparts = urllib.parse.urlparse(rooturl)
     rawurl = list(rootparts)
     accountsurl = list(rootparts)
-    accounts = {}
     query = {}
     if blockround is not None:
         query['round'] = blockround
@@ -74,28 +73,46 @@ def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None, headers=No
             accountsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(accountsurl)
         logger.debug('GET %s', pageurl)
-        for acct in getAccountsPage(pageurl, headers):
-            addr = acct['address']
-            rawaddr = algosdk.encoding.decode_address(addr)
-            accounts[rawaddr] = acct
-    logger.debug('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
-    return accounts
+        yield from getAccountsPage(pageurl, headers)
 
-def getAccountsPage(pageurl, headers=None):
+def indexerAccountFromAddr(rooturl, niceaddr, blockround=None, headers=None):
+    '''return {raw account: {"algo":N, "asset":{}}, ...}'''
+    rootparts = urllib.parse.urlparse(rooturl)
+    rawurl = list(rootparts)
+    accountsurl = list(rootparts)
+    query = {}
+    if blockround is not None:
+        query['round'] = blockround
+    accountsurl[2] = os.path.join(rawurl[2], 'v2', 'accounts', niceaddr)
+    if query:
+        accountsurl[4] = urllib.parse.urlencode(query)
+    pageurl = urllib.parse.urlunparse(accountsurl)
+    logger.debug('GET %s', pageurl)
+    yield from getAccountsPage(pageurl, headers)
+
+def getAccountsPage(pageurl, headers=None, retries=5):
     if headers is None:
         headers = {}
-    try:
-        logger.debug('GET %r', pageurl)
-        response = urllib.request.urlopen(urllib.request.Request(pageurl, headers=headers))
-    except urllib.error.HTTPError as e:
-        logger.error('failed to fetch %r', pageurl)
-        logger.error('msg: %s', e.file.read())
-        raise
-    except Exception as e:
-        logger.error('%r', pageurl, exc_info=True)
-        raise
-    if (response.code != 200) or not response.getheader('Content-Type').startswith('application/json'):
-        raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
+    while True:
+        try:
+            logger.debug('GET %r', pageurl)
+            response = urllib.request.urlopen(urllib.request.Request(pageurl, headers=headers))
+            if (response.code != 200) or not response.getheader('Content-Type').startswith('application/json'):
+                if retries <= 0:
+                    raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
+            else:
+                break
+        except urllib.error.HTTPError as e:
+            logger.error('failed to fetch %r', pageurl)
+            logger.error('msg: %s', e.file.read())
+            if retries <= 0:
+                raise
+        except Exception as e:
+            logger.error('%r', pageurl, exc_info=True)
+            if retries <= 0:
+                raise
+        retries -= 1
+        time.sleep(1)
     ob = json.loads(response.read())
     logger.debug('ob keys %s', ob.keys())
     some = False
@@ -114,16 +131,16 @@ def getAccountsPage(pageurl, headers=None):
 def indexerAccounts(rooturl, blockround=None, addrlist=None, headers=None):
     '''return {raw account: {"algo":N, "asset":{}}, ...}'''
     if addrlist:
-        return indexerAccountsFromAddrs(rooturl, blockround, addrlist, headers)
+        yield from indexerAccountsFromAddrs(rooturl, blockround, addrlist, headers)
     rootparts = urllib.parse.urlparse(rooturl)
     accountsurl = list(rootparts)
     accountsurl[2] = os.path.join(accountsurl[2], 'v2', 'accounts')
     gtaddr = None
     start = time.time()
-    accounts = {}
     query = {'limit':500}
     if blockround is not None:
         query['round'] = blockround
+    count = 0
     while True:
         if gtaddr:
             # set query:
@@ -134,16 +151,15 @@ def indexerAccounts(rooturl, blockround=None, addrlist=None, headers=None):
         some = False
         gtaddr = None
         for acct in getAccountsPage(pageurl, headers):
+            count += 1
             some = True
+            yield acct
             addr = acct['address']
-            rawaddr = algosdk.encoding.decode_address(addr)
-            accounts[rawaddr] = acct
             gtaddr = addr
         if not some:
             break
     dt = time.time() - start
-    logger.debug('loaded %d accounts from %s ?round=%s in %.2f seconds', len(accounts), rooturl, blockround, dt)
-    return accounts
+    logger.debug('loaded %d accounts from %s ?round=%s in %.2f seconds', count, rooturl, blockround, dt)
 
 # generator yielding txns objects
 def indexerAccountTxns(rooturl, addr, minround=None, maxround=None, limit=None, token=None):
@@ -321,125 +337,115 @@ class ccerr:
         self.ok = False
 
 class CheckContext:
-    def __init__(self, accounts, err):
-        # accounts from indexer
-        self.accounts = accounts
+    def __init__(self, err):
         self.err = err
         self.match = 0
         self.neq = 0
         # [(addr, "err text"), ...]
         self.mismatches = []
 
-    def check(self, address, niceaddr, microalgos, assets, acfg, appparams, applocal):
-        # check data from sql or algod vs indexer
-        i2v = self.accounts.pop(address, None)
-        if i2v is None:
-            self.neq += 1
-            self.err.write('{} not in indexer\n'.format(niceaddr))
+    def check(self, indexer_account, algod_account):
+        niceaddr = algod_account['address']
+        address = algosdk.encoding.decode_address(niceaddr)
+        xe = ccerr(self.err)
+
+        microalgos = algod_account['amount-without-pending-rewards']
+        indexerAlgos = indexer_account['amount-without-pending-rewards']
+        if indexerAlgos == microalgos:
+            pass # still ok
         else:
-            xe = ccerr(self.err)
-            indexerAlgos = i2v['amount-without-pending-rewards']
-            if indexerAlgos == microalgos:
-                pass # still ok
+            emsg = 'algod v={} i2 v={}'.format(microalgos, indexerAlgos)
+            if address == reward_addr:
+                emsg += ' Rewards account'
+            elif address == fee_addr:
+                emsg += ' Fee account'
+            xe(emsg)
+        assets = algod_account.get('assets')
+        i2assets = indexer_account.get('assets')
+        if i2assets:
+            if assets:
+                emsg = assetEquality(i2assets, assets)
+                if emsg:
+                    xe('{} {}\n'.format(niceaddr, emsg))
             else:
-                emsg = 'algod v={} i2 v={}'.format(microalgos, indexerAlgos)
-                if address == reward_addr:
-                    emsg += ' Rewards account'
-                elif address == fee_addr:
-                    emsg += ' Fee account'
-                xe(emsg)
-            i2assets = i2v.get('assets')
-            if i2assets:
-                if assets:
-                    emsg = assetEquality(i2assets, assets)
-                    if emsg:
-                        xe('{} {}\n'.format(niceaddr, emsg))
-                else:
-                    allzero = True
-                    nonzero = []
-                    for assetrec in i2assets:
-                        if assetrec.get('amount', 0) != 0:
-                            nonzero.append(assetrec)
-                            allzero = False
-                    if not allzero:
-                        xe('{} indexer has assets but not algod: {!r}\n'.format(niceaddr, nonzero))
-            elif assets:
                 allzero = True
                 nonzero = []
-                for assetrec in assets:
-                    if assetrec.get('amount',0) != 0:
-                        allzero = False
+                for assetrec in i2assets:
+                    if assetrec.get('amount', 0) != 0:
                         nonzero.append(assetrec)
+                        allzero = False
                 if not allzero:
-                    emsg = '{} algod has assets but not indexer: {!r}\n'.format(niceaddr, nonzero)
-                    xe(emsg)
-            i2acfg = i2v.get('created-assets')
-            # filter out deleted entries that indexer is showing to us
+                    xe('{} indexer has assets but not algod: {!r}\n'.format(niceaddr, nonzero))
+        elif assets:
+            allzero = True
+            nonzero = []
+            for assetrec in assets:
+                if assetrec.get('amount',0) != 0:
+                    allzero = False
+                    nonzero.append(assetrec)
+            if not allzero:
+                emsg = '{} algod has assets but not indexer: {!r}\n'.format(niceaddr, nonzero)
+                xe(emsg)
+        acfg = algod_account.get('created-assets')
+        i2acfg = indexer_account.get('created-assets')
+        # filter out deleted entries that indexer is showing to us
+        if i2acfg:
+            i2acfg = list(filter(lambda x: x['params']['total'] is not 0, i2acfg))
+        if acfg:
             if i2acfg:
-                i2acfg = list(filter(lambda x: x['params']['total'] is not 0, i2acfg))
-            if acfg:
-                if i2acfg:
-                    indexerAcfg = dictifyAssetConfig(i2acfg)
-                    algodAcfg = dictifyAssetConfig(acfg)
-                    eqerr = []
-                    if not deepeq(indexerAcfg, algodAcfg, (), eqerr):
-                        xe('{} indexer and algod disagree on acfg, {}\nindexer={}\nalgod={}\n'.format(niceaddr, eqerr, json_pp(i2acfg), json_pp(acfg)))
-                else:
-                    xe('{} algod has acfg but not indexer: {!r}\n'.format(niceaddr, acfg))
-            elif i2acfg:
-                xe('{} indexer has acfg but not algod: {!r}\n'.format(niceaddr, i2acfg))
-            i2apar = i2v.get('created-apps')
-            # filter out deleted entries that indexer is showing to us
-            if i2apar:
-                i2apar = list(filter(lambda x: x['params']['approval-program'] is not None and x['params']['clear-state-program'] is not None, i2apar))
-
-            if appparams:
-                if i2apar:
-                    i2appById = dictifyAppParams(i2apar)
-                    algodAppById = dictifyAppParams(appparams)
-                    eqerr=[]
-                    if not deepeq(i2appById, algodAppById,(),eqerr):
-                        xe('{} indexer and algod disagree on created app, {}\nindexer={}\nalgod={}\n'.format(niceaddr, eqerr, json_pp(i2appById), json_pp(algodAppById)))
-                else:
-                    xe('{} algod has apar but not indexer: {!r}\n'.format(niceaddr, appparams))
-            elif i2apar:
-                xe('{} indexer has apar but not algod: {!r}\n'.format(niceaddr, i2apar))
-            i2applocal = i2v.get('apps-local-state')
-            # filter out deleted entries that indexer is showing to us
-            if i2applocal:
-                i2applocal = list(filter(lambda x: x['schema']['num-byte-slice'] is not 0 or x['schema']['num-uint'] is not 0, i2applocal))
-            if applocal:
-                if i2applocal:
-                    eqerr = []
-                    ald = dictifyAppLocal(applocal)
-                    ild = dictifyAppLocal(i2applocal)
-                    if not deepeq(ald, ild, (), eqerr):
-                        xe('{} indexer and algod disagree on app local, {}\nindexer={}\nalgod={}\n'.format(niceaddr, eqerr, json_pp(i2applocal), json_pp(applocal)))
-                else:
-                    xe('{} algod has app local but not indexer: {!r}'.format(niceaddr, applocal))
-            elif i2applocal:
-                xe('{} indexer has app local but not algod: {!r}'.format(niceaddr, i2applocal))
-
-            if xe.ok:
-                self.match += 1
+                indexerAcfg = dictifyAssetConfig(i2acfg)
+                algodAcfg = dictifyAssetConfig(acfg)
+                eqerr = []
+                if not deepeq(indexerAcfg, algodAcfg, (), eqerr):
+                    xe('{} indexer and algod disagree on acfg, {}\nindexer={}\nalgod={}\n'.format(niceaddr, eqerr, json_pp(i2acfg), json_pp(acfg)))
             else:
-                self.err.write('{} indexer {!r}\n'.format(niceaddr, sorted(i2v.keys())))
-                self.neq += 1
-                self.mismatches.append( (address, '\n'.join(xe.errors)) )
+                xe('{} algod has acfg but not indexer: {!r}\n'.format(niceaddr, acfg))
+        elif i2acfg:
+            xe('{} indexer has acfg but not algod: {!r}\n'.format(niceaddr, i2acfg))
+        appparams = algod_account.get('created-apps')
+        i2apar = indexer_account.get('created-apps')
+        # filter out deleted entries that indexer is showing to us
+        if i2apar:
+            i2apar = list(filter(lambda x: x['params']['approval-program'] is not None and x['params']['clear-state-program'] is not None, i2apar))
+
+        if appparams:
+            if i2apar:
+                i2appById = dictifyAppParams(i2apar)
+                algodAppById = dictifyAppParams(appparams)
+                eqerr=[]
+                if not deepeq(i2appById, algodAppById,(),eqerr):
+                    xe('{} indexer and algod disagree on created app, {}\nindexer={}\nalgod={}\n'.format(niceaddr, eqerr, json_pp(i2appById), json_pp(algodAppById)))
+            else:
+                xe('{} algod has apar but not indexer: {!r}\n'.format(niceaddr, appparams))
+        elif i2apar:
+            xe('{} indexer has apar but not algod: {!r}\n'.format(niceaddr, i2apar))
+        applocal = algod_account.get('apps-local-state')
+        i2applocal = indexer_account.get('apps-local-state')
+        # filter out deleted entries that indexer is showing to us
+        if i2applocal:
+            i2applocal = list(filter(lambda x: x['schema']['num-byte-slice'] is not 0 or x['schema']['num-uint'] is not 0, i2applocal))
+        if applocal:
+            if i2applocal:
+                eqerr = []
+                ald = dictifyAppLocal(applocal)
+                ild = dictifyAppLocal(i2applocal)
+                if not deepeq(ald, ild, (), eqerr):
+                    xe('{} indexer and algod disagree on app local, {}\nindexer={}\nalgod={}\n'.format(niceaddr, eqerr, json_pp(i2applocal), json_pp(applocal)))
+            else:
+                xe('{} algod has app local but not indexer: {!r}'.format(niceaddr, applocal))
+        elif i2applocal:
+            xe('{} indexer has app local but not algod: {!r}'.format(niceaddr, i2applocal))
+
+        # TODO: warn about unchecked fields? pop checked fields and deepeq the rest?
+
+        if xe.ok:
+            self.match += 1
+        else:
+            self.err.write('{} indexer {!r}\n'.format(niceaddr, sorted(indexer_account.keys())))
+            self.neq += 1
+            self.mismatches.append( (address, '\n'.join(xe.errors)) )
 
     def summary(self):
-        for addr, i2v in self.accounts.items():
-            if i2v.get('algo',0) == 0:
-                # we keep records on 0 balance accounts but algod doesn't. okay. ignore that.
-                continue
-            try:
-                niceaddr = algosdk.encoding.encode_address(addr)
-            except:
-                niceaddr = repr(addr)
-            emsg = 'in indexer but not algod, v={}'.format(i2v)
-            self.mismatches.append( (addr, emsg) )
-            self.err.write('{} {}\n'.format(niceaddr, emsg))
-            self.neq +=1
         self.err.write('{} match {} neq\n'.format(self.match, self.neq))
 
 # data/basics/userBalance.go AccountData
@@ -524,33 +530,16 @@ def check_from_algod(args):
     if args.indexer_token:
         indexer_headers = {'X-Indexer-API-Token': token}
 
-    # get a list of all accounts from indexer
-    i2a = indexerAccounts(args.indexer, addrlist=(args.accounts and args.accounts.split(',')), headers=indexer_headers)
-    i2a_checker = CheckContext(i2a, sys.stderr)
-    iloadtime = time.time() - iloadstart
-    logger.info('loaded %d accounts from indexer in %.1f seconds, %.1f a/s', len(i2a), iloadtime, len(i2a)/iloadtime)
-    aloadstart = time.time()
-    rawad = []
-    for address in i2a.keys():
-        niceaddr = algosdk.encoding.encode_address(address)
-        rawad.append(algod.account_info(niceaddr))
-    aloadtime = time.time() - aloadstart
-    logger.info('loaded %d accounts from algod in %.1f seconds, %.1f a/s', len(rawad), aloadtime, len(rawad)/aloadtime)
-    lastlog = time.time()
-    count = 0
-    for ad in rawad:
-        niceaddr = ad['address']
-        # fetch indexer account at round algod got it at
-        na = indexerAccounts(args.indexer, blockround=ad['round'], addrlist=[niceaddr], headers=indexer_headers)
-        i2a.update(na)
-        microalgos = ad['amount-without-pending-rewards']
-        address = algosdk.encoding.decode_address(niceaddr)
-        i2a_checker.check(address, niceaddr, microalgos, ad.get('assets'), ad.get('created-assets'), ad.get('created-apps'), ad.get('apps-local-state'))
-        count += 1
-        now = time.time()
-        if (now - lastlog) > 5:
-            logger.info('%d accounts checked, %d mismatches', count, len(i2a_checker.mismatches))
-            lastlog = now
+    i2a_checker = CheckContext(sys.stderr)
+    # for each account in indexer, get it from algod, and maybe re-get it from indexer at the round algod had
+    for indexer_account in indexerAccounts(args.indexer, addrlist=(args.accounts and args.accounts.split(',')), headers=indexer_headers):
+        niceaddr = indexer_account['address']
+        if niceaddr in (reward_niceaddr, fee_niceaddr):
+            continue
+        algod_account = algod.account_info(niceaddr)
+        if algod_account['round'] != indexer_account['round']:
+            indexer_account = indexerAccountFromAddr(args.indexer, niceaddr, blockround=algod_account['round'], headers=indexer_headers)
+        i2a_checker.check(indexer_account, algod_account)
     return i2a_checker
 
 def main():
