@@ -4,7 +4,7 @@ TRUNCATE account_asset;
 TRUNCATE app;
 TRUNCATE asset;
 TRUNCATE metastate;
-UPDATE txn SET extra = NULL;
+UPDATE txn SET extra = NULL WHERE extra IS NOT NULL;
 
 -- schema changes from various migrations, made re-run safe by 'IF NOT EXISTS'
 ALTER TABLE account ADD COLUMN IF NOT EXISTS rewards_total bigint NOT NULL DEFAULT 0;
