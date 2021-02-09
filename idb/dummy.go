@@ -91,13 +91,18 @@ func (db *dummyIndexerDb) GetSpecialAccounts() (SpecialAccounts, error) {
 	return SpecialAccounts{}, nil
 }
 
+// GetDefaultFrozen is part of idb.IndexerDb
+func (db *dummyIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
+	return make(map[uint64]bool), nil
+}
+
 // YieldTxns is part of idb.IndexerDB
 func (db *dummyIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow {
 	return nil
 }
 
 // CommitRoundAccounting is part of idb.IndexerDB
-func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error) {
+func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
 	return nil
 }
 
@@ -146,25 +151,25 @@ type IndexerFactory interface {
 // TxnRow is metadata relating to one transaction in a transaction query.
 type TxnRow struct {
 	// Round is the round where the transaction was committed.
-	Round     uint64
+	Round uint64
 
 	// Round time  is the block time when the block was confirmed.
 	RoundTime time.Time
 
 	// Intra is the offset into the block where this transaction was placed.
-	Intra     int
+	Intra int
 
 	// TxnBytes is the raw signed transaction with apply data object.
-	TxnBytes  []byte
+	TxnBytes []byte
 
 	// AssetID is the ID of any asset or application created by this transaction.
 	AssetID uint64
 
 	// Extra are some additional fields which might be related to to the transaction.
-	Extra     TxnExtra
+	Extra TxnExtra
 
 	// Error indicates that there was an internal problem processing the expected transaction.
-	Error     error
+	Error error
 }
 
 // Next returns what should be an opaque string to be returned in the next query to resume where a previous limit left off.
@@ -214,11 +219,12 @@ type IndexerDb interface {
 	SetMetastate(key, jsonStrValue string) (err error)
 	GetMaxRound() (round uint64, err error)
 	GetSpecialAccounts() (SpecialAccounts, error)
+	GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error)
 
 	// YieldTxns returns a channel that produces the whole transaction stream after some round forward
 	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow
 
-	CommitRoundAccounting(updates RoundUpdates, round, rewardsBase uint64) (err error)
+	CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error)
 
 	GetBlock(round uint64) (block types.Block, err error)
 
@@ -439,37 +445,39 @@ type AccountDataUpdate struct {
 	VoteKeyDilution uint64
 }
 
+// AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
+type AssetUpdate struct {
+	AssetID       uint64
+	DefaultFrozen bool
+	Transfer *AssetTransfer
+	Close    *AssetClose
+	Config   *AcfgUpdate
+	Freeze   *FreezeUpdate
+}
+
 // AcfgUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AcfgUpdate struct {
-	AssetID uint64
 	IsNew   bool
 	Creator types.Address
 	Params  types.AssetParams
 }
 
-// AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
-type AssetUpdate struct {
-	AssetID       uint64
+// AssetTransfer is used by the accounting and IndexerDb implementations to share modifications in a block.
+type AssetTransfer struct {
 	Delta         big.Int
-	DefaultFrozen bool
-	Closed        *AssetClose
 }
 
 // FreezeUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type FreezeUpdate struct {
-	Addr    types.Address
-	AssetID uint64
 	Frozen  bool
 }
 
 // AssetClose is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AssetClose struct {
 	CloseTo       types.Address
-	AssetID       uint64
 	Sender        types.Address
 	Round         uint64
 	Offset        uint64
-	DefaultFrozen bool
 }
 
 // TxnAssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
@@ -488,13 +496,13 @@ type AlgoUpdate struct {
 	// Closed changes the nature of the Rewards field. Balance and Rewards are normally deltas added to the
 	// microalgos and totalRewards columns, but if an account has been Closed then Rewards becomes a new value
 	// that replaces the old value (always zero by current reward logic)
-	Closed  bool
+	Closed bool
 }
 
 // RoundUpdates is used by the accounting and IndexerDb implementations to share modifications in a block.
 type RoundUpdates struct {
-	AlgoUpdates   map[[32]byte]*AlgoUpdate
-	AccountTypes  map[[32]byte]string
+	AlgoUpdates  map[[32]byte]*AlgoUpdate
+	AccountTypes map[[32]byte]string
 
 	// AccountDataUpdates is explicitly a map so that we can
 	// explicitly set values or have not set values. Instead of
@@ -506,7 +514,6 @@ type RoundUpdates struct {
 	// with a 0 value.
 	AccountDataUpdates map[[32]byte]map[string]interface{}
 
-	AcfgUpdates     []AcfgUpdate
 	TxnAssetUpdates []TxnAssetUpdate
 
 	// AssetUpdates is more complicated than AlgoUpdates because there
@@ -520,9 +527,9 @@ type RoundUpdates struct {
 	// The next subround starts when an account close has been detected
 	// Once a subround has been processed, move to the next subround and
 	// apply the updates.
-	AssetUpdates    []map[[32]byte][]AssetUpdate
-	FreezeUpdates   []FreezeUpdate
-	AssetDestroys   []uint64
+	// AssetConfig transactions also trigger the end of a subround.
+	AssetUpdates  []map[[32]byte][]AssetUpdate
+	AssetDestroys []uint64
 
 	AppGlobalDeltas []AppDelta
 	AppLocalDeltas  []AppDelta
@@ -533,11 +540,9 @@ func (ru *RoundUpdates) Clear() {
 	ru.AlgoUpdates = nil
 	ru.AccountTypes = nil
 	ru.AccountDataUpdates = nil
-	ru.AcfgUpdates = nil
 	ru.TxnAssetUpdates = nil
 	ru.AssetUpdates = nil
 	ru.AssetUpdates = append(ru.AssetUpdates, make(map[[32]byte][]AssetUpdate, 0))
-	ru.FreezeUpdates = nil
 	ru.AssetDestroys = nil
 	ru.AppGlobalDeltas = nil
 	ru.AppLocalDeltas = nil
@@ -626,7 +631,7 @@ func b32np(data []byte) string {
 
 // Health is the response object that IndexerDb objects need to return from the Health method.
 type Health struct {
-	Data        *map[string]interface{} `json:"data,omitempty""`
+	Data        *map[string]interface{} `json:"data,omitempty"`
 	Round       uint64                  `json:"round"`
 	IsMigrating bool                    `json:"is-migrating"`
 	DBAvailable bool                    `json:"db-available"`

@@ -115,13 +115,13 @@ func (_m *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 	return r0
 }
 
-// CommitRoundAccounting provides a mock function with given fields: updates, round, rewardsBase
-func (_m *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, rewardsBase uint64) error {
-	ret := _m.Called(updates, round, rewardsBase)
+// CommitRoundAccounting provides a mock function with given fields: updates, round, blockPtr
+func (_m *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) error {
+	ret := _m.Called(updates, round, blockPtr)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(idb.RoundUpdates, uint64, uint64) error); ok {
-		r0 = rf(updates, round, rewardsBase)
+	if rf, ok := ret.Get(0).(func(idb.RoundUpdates, uint64, *types.Block) error); ok {
+		r0 = rf(updates, round, blockPtr)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -159,6 +159,29 @@ func (_m *IndexerDb) GetBlock(round uint64) (types.Block, error) {
 	var r1 error
 	if rf, ok := ret.Get(1).(func(uint64) error); ok {
 		r1 = rf(round)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetDefaultFrozen provides a mock function with given fields:
+func (_m *IndexerDb) GetDefaultFrozen() (map[uint64]bool, error) {
+	ret := _m.Called()
+
+	var r0 map[uint64]bool
+	if rf, ok := ret.Get(0).(func() map[uint64]bool); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[uint64]bool)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}

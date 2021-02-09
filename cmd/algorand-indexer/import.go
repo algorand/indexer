@@ -24,7 +24,14 @@ var importCmd = &cobra.Command{
 
 		db := globalIndexerDb(nil)
 
+		cache, err := db.GetDefaultFrozen()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to initialize the default frozen cache: %v", err)
+			os.Exit(1)
+		}
+
 		helper := importer.NewImportHelper(
+			cache,
 			genesisJSONPath,
 			numRoundsLimit,
 			blockFileLimit,
