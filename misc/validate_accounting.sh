@@ -206,11 +206,12 @@ while read -r ACCT; do
   # get normalized account details.
   # busy accounts desynchronize regularly as indexer lags behind slightly, so validate in a loop.
   n=0
-  until [ "$n" -eq $MAX_ATTEMPTS ]; do
+  while true; do
     update_account $ACCT
     # break out on success
     [ "$INDEXER_ACCT_NORMALIZED" == "$ALGOD_ACCT_NORMALIZED" ] && break
     ((n++))
+    [ "$n" -ge $MAX_ATTEMPTS ] && break
     sleep 1
   done
 
