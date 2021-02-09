@@ -17,6 +17,7 @@ function help () {
   echo "  --algod_token   -> Algod API token, required if datadir is not available."
   echo "  --indexer       -> Indexer url (with http)."
   echo "  --indexer_token -> Indexer API token. If not used, set to any non empty value."
+  echo "  --retries       -> [optional, default=0] If an error is found this many retry attempts will be made."
 }
 
 MAX_ATTEMPTS=1
@@ -51,6 +52,10 @@ while (( "$#" )); do
       ALGOD_TOKEN="$(cat $1/algod.token)"
       ALGOD_NET="$(cat $1/algod.net)"
       ;;
+    --retries)
+      shift
+      MAX_ATTEMPTS=$((MAX_ATTEMPTS + $1))
+      ;;
     --test)
       TEST=1
       ;;
@@ -78,13 +83,10 @@ function stats {
 }
 
 function print_error_details {
-  printf "\n%-${GUTTER}s : Accounting mismatch for %s\n" "($ERROR_COUNT)" "$ACCT" >&2
-  printf "\nIndexer JSON:\n\n$INDEXER_ACCT_NORMALIZED"                            >&2
-  printf "\nALGOD JSON:\n\n$ALGOD_ACCT_NORMALIZED"                                >&2
-  #printf "\n| Source          | %-15s | %-15s | %-15s | %-15s |\n" "balance" "distributed" "pending" "total"
-  #printf "| --------------- | --------------- | --------------- | --------------- | --------------- |\n"
-  #printf "| %-15s | %-15s | %-15s | %-15s | %-15s |\n" "Indexer" "$INDEXER_BALANCE" "$INDEXER_REWARDS_DIST" $INDEXER_REWARDS_PENDING "$INDEXER_REWARDS*"
-  #printf "| %-15s | %-15s | %-15s | %-15s | %-15s |\n" "Algod" "$ALGOD_BALANCE" "$ALGOD_REWARDS_DIST*" $ALGOD_REWARDS_PENDING "$ALGOD_REWARDS"
+  # TODO: Should we print the non-normalized accounts as well?
+  printf "\n$s: Accounting mismatch for %s\n" "($ERROR_COUNT)" "$ACCT" >&2
+  printf "\nIndexer JSON:\n$INDEXER_ACCT_NORMALIZED"                   >&2
+  printf "\nALGOD JSON:\n\n$ALGOD_ACCT_NORMALIZED"                     >&2
 }
 
 # Fancy jq function to normalize the json coming out of indexer or algod.
@@ -162,16 +164,9 @@ function normalize_json {
 function update_account {
   INDEXER_ACCT=$(curl -s -q "$INDEXER_NET/v2/accounts/$1?pretty" -H "Authorization: Bearer $INDEXER_TOKEN")
   INDEXER_ACCT_NORMALIZED=$(normalize_json "$INDEXER_ACCT")
-  #INDEXER_BALANCE=$(echo ${INDEXER_ACCT} | jq '."account"."amount"')
-  #INDEXER_REWARDS_PENDING=$(echo ${INDEXER_ACCT} | jq '."account"."pending-rewards"')
-  #INDEXER_REWARDS=$((INDEXER_REWARDS_DIST+INDEXER_REWARDS_PENDING))
 
   ALGOD_ACCT=$(curl -s -q -H "Authorization: Bearer $ALGOD_TOKEN" "$ALGOD_NET/v2/accounts/$1?pretty")
   ALGOD_ACCT_NORMALIZED=$(normalize_json "$ALGOD_ACCT")
-  #ALGOD_BALANCE=$(echo ${ALGOD_ACCT} | jq '."amount"')
-  #ALGOD_REWARDS=$(echo "$ALGOD_ACCT" | jq '.rewards')
-  #ALGOD_REWARDS_PENDING=$(echo "$ALGOD_ACCT" | jq '."pending-rewards"')
-  #ALGOD_REWARDS_DIST=$((ALGOD_REWARDS-ALGOD_REWARDS_PENDING))
 }
 
 #####################
@@ -192,43 +187,44 @@ if [ ! -z $TEST ]; then
   echo ""
 fi
 
+# Things to accumulate for final report.
 ACCOUNT_COUNT=0
 ERROR_COUNT=0
 RETRY_COUNT=0
-GUTTER=8 # printf formatting
 
-# Loop through all accounts in SELECTION_QUERY
-while read -r ACCT; do
+# Loop through all accounts from stdin
+# cat with no input copies stdin -> stdout.
+cat | while read -r ACCT; do
+  # print progress
   if [ $(($ACCOUNT_COUNT%50)) -eq 0 ]; then
-      printf "\n%-${GUTTER}d : " "$ACCOUNT_COUNT"
+      printf "\n%-8d : " "$ACCOUNT_COUNT"
   fi
 
-  # get normalized account details.
-  # busy accounts desynchronize regularly as indexer lags behind slightly, so validate in a loop.
+  # get normalized account details, optional retry..
   n=0
   while true; do
     update_account $ACCT
     # break out on success
     [ "$INDEXER_ACCT_NORMALIZED" == "$ALGOD_ACCT_NORMALIZED" ] && break
     ((n++))
+    ((RETRY_COUNT++))
+    # break out on max attempts
     [ "$n" -ge $MAX_ATTEMPTS ] && break
     sleep 1
   done
 
-  if [ "$n" -ne 0 ]; then
-    ((RETRY_COUNT++))
-  fi
-
+  # print errors
   if [ "$INDEXER_ACCT_NORMALIZED" != "$ALGOD_ACCT_NORMALIZED" ] ; then
     ((ERROR_COUNT++))
     print_error_details
   fi
   ((ACCOUNT_COUNT++))
 
+  # print progress
   if [ "$n" -ne 0 ]; then
     printf "X"
   else
     printf "."
   fi
-done < /dev/stdin
+done
 
