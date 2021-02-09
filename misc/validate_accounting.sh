@@ -193,8 +193,7 @@ ERROR_COUNT=0
 RETRY_COUNT=0
 
 # Loop through all accounts from stdin
-# cat with no input copies stdin -> stdout.
-cat | while read -r ACCT; do
+while IFS= read -r ACCT; do
   # print progress
   if [ $(($ACCOUNT_COUNT%50)) -eq 0 ]; then
       printf "\n%-8d : " "$ACCOUNT_COUNT"
