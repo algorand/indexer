@@ -19,21 +19,7 @@ function help () {
   echo "  --indexer_token -> Indexer API token. If not used, set to any non empty value."
 }
 
-
-LIMIT=200000
-
-# All accounts
-#SELECTION_QUERY="select encode(addr,'base64') from account"
-SELECTION_QUERY="select encode(addr,'base64') from account where deleted is not null"
-# Only big accounts
-#SELECTION_QUERY="select encode(addr,'base64') from account WHERE microalgos > 100000000000 limit $LIMIT"
-# Only check accounts with rewards
-#SELECTION_QUERY="select encode(addr,'base64'), rewards_total, microalgos from account where rewards_total > 0 AND created_at != 0 limit $LIMIT"
-# Check all accounts
-#SELECTION_QUERY="select encode(addr,'base64'), rewards_total from account"
-# If run during a migration this query allow accounts with partial rewards to slip in (and they should fail)
-#SELECTION_QUERY="select encode(addr,'base64'), rewards_total from account where rewards_total > 0 limit $LIMIT"
-
+MAX_ATTEMPTS=1
 START_TIME=$SECONDS
 ALGOD_TOKEN=
 ALGOD_NET=
@@ -91,10 +77,10 @@ function stats {
   printf 'Test run duration: %02dh:%02dm:%02ds\n' $(($ELAPSED/3600)) $(($ELAPSED%3600/60)) $(($ELAPSED%60))
 }
 
-function print_details {
-  printf "\n%-${GUTTER}s : Accounting mismatch for %s\n" "($ERROR_COUNT)" "$ACCT"
-  printf "\nIndexer JSON:\n\n$INDEXER_ACCT_NORMALIZED"
-  printf "\nALGOD JSON:\n\n$ALGOD_ACCT_NORMALIZED"
+function print_error_details {
+  printf "\n%-${GUTTER}s : Accounting mismatch for %s\n" "($ERROR_COUNT)" "$ACCT" >&2
+  printf "\nIndexer JSON:\n\n$INDEXER_ACCT_NORMALIZED"                            >&2
+  printf "\nALGOD JSON:\n\n$ALGOD_ACCT_NORMALIZED"                                >&2
   #printf "\n| Source          | %-15s | %-15s | %-15s | %-15s |\n" "balance" "distributed" "pending" "total"
   #printf "| --------------- | --------------- | --------------- | --------------- | --------------- |\n"
   #printf "| %-15s | %-15s | %-15s | %-15s | %-15s |\n" "Indexer" "$INDEXER_BALANCE" "$INDEXER_REWARDS_DIST" $INDEXER_REWARDS_PENDING "$INDEXER_REWARDS*"
@@ -220,7 +206,7 @@ while read -r ACCT; do
   # get normalized account details.
   # busy accounts desynchronize regularly as indexer lags behind slightly, so validate in a loop.
   n=0
-  until [ "$n" -ge 3 ]; do
+  until [ "$n" -eq $MAX_ATTEMPTS ]; do
     update_account $ACCT
     # break out on success
     [ "$INDEXER_ACCT_NORMALIZED" == "$ALGOD_ACCT_NORMALIZED" ] && break
@@ -234,14 +220,12 @@ while read -r ACCT; do
 
   if [ "$INDEXER_ACCT_NORMALIZED" != "$ALGOD_ACCT_NORMALIZED" ] ; then
     ((ERROR_COUNT++))
-    print_details
-    PAD=$(($ACCOUNT_COUNT%50+11))
-    printf "%*s" $PAD
+    print_error_details
   fi
   ((ACCOUNT_COUNT++))
 
   if [ "$n" -ne 0 ]; then
-    printf "$n"
+    printf "X"
   else
     printf "."
   fi

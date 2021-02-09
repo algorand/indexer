@@ -20,7 +20,7 @@ function help () {
 }
 
 #default selection query
-SELECTION_QUERY="select encode(addr,'base64') from account where deleted is not null limit 10"
+SELECTION_QUERY="select encode(addr,'base64') from account where deleted is not null limit 1000"
 
 START_TIME=$SECONDS
 PGUSER=
