@@ -40,7 +40,7 @@ func init() {
 		{m5RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
 		{m6RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
 
-		// Migrations for future release (TODO, note which release)
+		// Migrations for 2.3.2 release
 		{m7StaleClosedAccounts, false, "clear some stale data from closed accounts"},
 		{m8TxnJsonEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
 	}
