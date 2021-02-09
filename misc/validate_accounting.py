@@ -74,11 +74,14 @@ def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None, headers=No
             accountsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(accountsurl)
         logger.debug('GET %s', pageurl)
-        getAccountsPage(pageurl, accounts, headers)
+        for acct in getAccountsPage(pageurl, headers):
+            addr = acct['address']
+            rawaddr = algosdk.encoding.decode_address(addr)
+            accounts[rawaddr] = acct
     logger.debug('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
     return accounts
 
-def getAccountsPage(pageurl, accounts, headers=None):
+def getAccountsPage(pageurl, headers=None):
     if headers is None:
         headers = {}
     try:
@@ -104,13 +107,9 @@ def getAccountsPage(pageurl, accounts, headers=None):
         qa.append(acct)
     for acct in qa:
         batchcount += 1
+        yield acct
         some = True
-        addr = acct['address']
-        rawaddr = algosdk.encoding.decode_address(addr)
-        accounts[rawaddr] = acct
-        gtaddr = addr
     logger.debug('got %d accounts', batchcount)
-    return gtaddr, some
 
 def indexerAccounts(rooturl, blockround=None, addrlist=None, headers=None):
     '''return {raw account: {"algo":N, "asset":{}}, ...}'''
@@ -132,7 +131,14 @@ def indexerAccounts(rooturl, blockround=None, addrlist=None, headers=None):
         if query:
             accountsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(accountsurl)
-        gtaddr, some = getAccountsPage(pageurl, accounts, headers)
+        some = False
+        gtaddr = None
+        for acct in getAccountsPage(pageurl, headers):
+            some = True
+            addr = acct['address']
+            rawaddr = algosdk.encoding.decode_address(addr)
+            accounts[rawaddr] = acct
+            gtaddr = addr
         if not some:
             break
     dt = time.time() - start
@@ -517,12 +523,10 @@ def check_from_algod(args):
     indexer_headers = None
     if args.indexer_token:
         indexer_headers = {'X-Indexer-API-Token': token}
-    if args.indexer:
-        i2a = indexerAccounts(args.indexer, addrlist=(args.accounts and args.accounts.split(',')), headers=indexer_headers)
-        i2a_checker = CheckContext(i2a, sys.stderr)
-    else:
-        logger.warn('no indexer, nothing to do')
-        return None, None
+
+    # get a list of all accounts from indexer
+    i2a = indexerAccounts(args.indexer, addrlist=(args.accounts and args.accounts.split(',')), headers=indexer_headers)
+    i2a_checker = CheckContext(i2a, sys.stderr)
     iloadtime = time.time() - iloadstart
     logger.info('loaded %d accounts from indexer in %.1f seconds, %.1f a/s', len(i2a), iloadtime, len(i2a)/iloadtime)
     aloadstart = time.time()
@@ -571,75 +575,73 @@ def main():
     else:
         logging.basicConfig(level=logging.INFO)
 
+    if not args.indexer:
+        logger.error("need --indexer to specify root url of indexer api")
+        return 1
+    if (not args.algod) and ((not args.algod_net) or (not args.algod_token)):
+        logger.error("need --algod datadir or --algod-net and --algod-token")
+        return 1
     out = sys.stdout
     err = sys.stderr
 
-    i2algosum = 0
-    i2a = None
-    i2a_checker = None
-
-    if args.algod or (args.algod_net and args.algod_token):
-        i2a_checker = check_from_algod(args)
-    else:
-        raise Exception("need to check from running algod")
+    i2a_checker = check_from_algod(args)
     retval = 0
-    if i2a_checker:
-        i2a_checker.summary()
-        logger.info('txns...')
-        mismatches = i2a_checker.mismatches
-        if args.mismatches and len(mismatches) > args.mismatches:
-            mismatches = mismatches[:args.mismatches]
-        for addr, msg in mismatches:
-            niceaddr = algosdk.encoding.encode_address(addr)
-            if addr in (reward_addr, fee_addr):
-                logger.debug('skip %s', niceaddr)
-                # we know accounting for the special addrs is different
+    i2a_checker.summary()
+    logger.info('txns...')
+    mismatches = i2a_checker.mismatches
+    if args.mismatches and len(mismatches) > args.mismatches:
+        mismatches = mismatches[:args.mismatches]
+    for addr, msg in mismatches:
+        niceaddr = algosdk.encoding.encode_address(addr)
+        if addr in (reward_addr, fee_addr):
+            logger.debug('skip %s', niceaddr)
+            # we know accounting for the special addrs is different
+            continue
+        retval = 1
+        xaddr = base64.b16encode(addr).decode().lower()
+        err.write('\n{} \'\\x{}\'\n\t{}\n'.format(niceaddr, xaddr, msg))
+        tcount = 0
+        tmore = 0
+        for txn in indexerAccountTxns(args.indexer, addr, limit=30, token=args.indexer_token):
+            if tcount > 10:
+                tmore += 1
                 continue
-            retval = 1
-            xaddr = base64.b16encode(addr).decode().lower()
-            err.write('\n{} \'\\x{}\'\n\t{}\n'.format(niceaddr, xaddr, msg))
-            tcount = 0
-            tmore = 0
-            for txn in indexerAccountTxns(args.indexer, addr, limit=30, token=args.indexer_token):
-                if tcount > 10:
-                    tmore += 1
-                    continue
-                tcount += 1
-                sender = txn.pop('sender')
-                cround = txn.pop('confirmed-round')
-                intra = txn.pop('intra-round-offset')
-                parts = ['{}:{}'.format(cround, intra), 's={}'.format(sender)]
-                pay = txn.get('payment-transaction', None)
-                if pay:
-                    receiver = pay.pop('receiver', None)
-                    closeto = pay.pop('close-remainder-to', None)
-                else:
-                    receiver = None
-                    closeto = None
-                axfer = txn.get('asset-transfer-transaction', None)
-                if axfer is not None:
-                    asnd = axfer.pop('sender', None)
-                    arcv = axfer.pop('receiver', None)
-                    aclose = axfer.pop('close-to', None)
-                else:
-                    asnd = None
-                    arcv = None
-                    aclose = None
-                if asnd:
-                    parts.append('as={}'.format(asnd))
-                if receiver:
-                    parts.append('r={}'.format(receiver))
-                if closeto:
-                    parts.append('c={}'.format(closeto))
-                if arcv:
-                    parts.append('ar={}'.format(arcv))
-                if aclose:
-                    parts.append('ac={}'.format(aclose))
-                # everything else
-                parts.append(json.dumps(txn))
-                err.write(' '.join(parts) + '\n')
-            if tmore:
-                err.write('... and {} more\n'.format(tmore))
+            tcount += 1
+            sender = txn.pop('sender')
+            cround = txn.pop('confirmed-round')
+            intra = txn.pop('intra-round-offset')
+            parts = ['{}:{}'.format(cround, intra), 's={}'.format(sender)]
+            pay = txn.get('payment-transaction', None)
+            if pay:
+                receiver = pay.pop('receiver', None)
+                closeto = pay.pop('close-remainder-to', None)
+            else:
+                receiver = None
+                closeto = None
+            axfer = txn.get('asset-transfer-transaction', None)
+            if axfer is not None:
+                asnd = axfer.pop('sender', None)
+                arcv = axfer.pop('receiver', None)
+                aclose = axfer.pop('close-to', None)
+            else:
+                asnd = None
+                arcv = None
+                aclose = None
+            if asnd:
+                parts.append('as={}'.format(asnd))
+            if receiver:
+                parts.append('r={}'.format(receiver))
+            if closeto:
+                parts.append('c={}'.format(closeto))
+            if arcv:
+                parts.append('ar={}'.format(arcv))
+            if aclose:
+                parts.append('ac={}'.format(aclose))
+            # everything else
+            parts.append(json.dumps(txn))
+            err.write(' '.join(parts) + '\n')
+        if tmore:
+            err.write('... and {} more\n'.format(tmore))
     return retval
 
 
