@@ -15,6 +15,7 @@ import time
 import urllib.error
 import urllib.request
 import urllib.parse
+import urllib3
 
 import algosdk
 from algosdk.v2client.algod import AlgodClient
@@ -27,6 +28,8 @@ reward_addr = base64.b64decode("/v////////////////////////////////////////8=")
 fee_addr = base64.b64decode("x/zNsljw1BicK/i21o7ml1CGQrCtAB8x/LkYw1S6hZo=")
 reward_niceaddr = algosdk.encoding.encode_address(reward_addr)
 fee_niceaddr = algosdk.encoding.encode_address(fee_addr)
+max_retry_count = 5
+
 
 def getGenesisVars(genesispath):
     with open(genesispath) as fin:
@@ -46,6 +49,7 @@ def getGenesisVars(genesispath):
             fee_addr = algosdk.encoding.decode_address(fees)
             fee_niceaddr = fees
 
+
 def encode_addr(addr):
     if len(addr) == 44:
         addr = base64.b64decode(addr)
@@ -58,13 +62,15 @@ def encode_addr_or_none(addr):
         return None
     return encode_addr(addr)
 
-def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None):
+
+def indexerAccountsFromAddrs(rooturl, token, blockround=None, addrlist=None):
     '''return {raw account: {"algo":N, "asset":{}}, ...}'''
     rootparts = urllib.parse.urlparse(rooturl)
     rawurl = list(rootparts)
     accountsurl = list(rootparts)
     accounts = {}
     query = {}
+    http = urllib3.PoolManager()
     if blockround is not None:
         query['round'] = blockround
     for addr in addrlist:
@@ -75,29 +81,63 @@ def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None):
             accountsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(accountsurl)
         logger.debug('GET %s', pageurl)
-        getAccountsPage(pageurl, accounts)
+        getAccountsPage(http, pageurl, token, accounts)
     logger.debug('loaded %d accounts from %s ?round=%d', len(accounts), rooturl, blockround)
     return accounts
 
-def getAccountsPage(pageurl, accounts):
+
+def getIndexerHeaders(token):
+    # logger.debug("indexer token: '{}'".format(token))
+    return {'x-indexer-api-token': token}
+
+
+def getAccountsPage(http, pageurl, token, accounts, retry_count=0):
+    gtaddr = None
+    some = False
+
+    if retry_count > 0:
+        logger.warning("resetting http connection")
+        http = urllib3.PoolManager()
+
     try:
         logger.debug('GET %r', pageurl)
-        response = urllib.request.urlopen(pageurl)
-    except urllib.error.HTTPError as e:
-        logger.error('failed to fetch %r', pageurl)
-        logger.error('msg: %s', e.file.read())
-        raise
-    except Exception as e:
-        logger.error('%r', pageurl, exc_info=True)
-        raise
-    if (response.code != 200) or not response.getheader('Content-Type').startswith('application/json'):
-        raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
-    ob = json.loads(response.read())
+
+        response = http.request(
+            'GET',
+            pageurl,
+            headers = getIndexerHeaders(token)
+        )
+    except urllib.error.HTTPError | Exception as e:
+        if retry_count < max_retry_count:
+            retry_count += 1
+            logger.warning("error: {}, retry fetching account page, count: {}".format(e, retry_count))
+            time.sleep(1)
+            return getAccountsPage(http, pageurl, token, accounts, retry_count)
+        else:
+            logger.error('failed to fetch %r', pageurl)
+            logger.error('msg: %s', e.file.read())
+            logger.error("skipping")
+            return gtaddr, some
+
+    if (response.status != 200) or not response.getheader('Content-Type').startswith('application/json'):
+        if retry_count < max_retry_count:
+
+            retry_count += 1
+            logger.warning(
+                "http status {}, retry fetching account page, count: {}".format(response.status, retry_count))
+            time.sleep(1)
+            return getAccountsPage(http, pageurl, token, accounts, retry_count)
+        else:
+            logger.error("bad response to {!r}: {}".format(pageurl, response.reason))
+            logger.error("skipping")
+            return gtaddr, some
+
+    ob = json.loads(response.data)
     logger.debug('ob keys %s', ob.keys())
-    some = False
+
     batchcount = 0
-    gtaddr = None
-    qa = ob.get('accounts',[])
+
+    qa = ob.get('accounts', [])
     acct = ob.get('account')
     if acct is not None:
         qa.append(acct)
@@ -111,17 +151,19 @@ def getAccountsPage(pageurl, accounts):
     logger.debug('got %d accounts', batchcount)
     return gtaddr, some
 
-def indexerAccounts(rooturl, blockround=None, addrlist=None):
+
+def indexerAccounts(rooturl, token, blockround=None, addrlist=None):
     '''return {raw account: {"algo":N, "asset":{}}, ...}'''
     if addrlist:
-        return indexerAccountsFromAddrs(rooturl, blockround, addrlist)
+        return indexerAccountsFromAddrs(rooturl, token, blockround, addrlist)
     rootparts = urllib.parse.urlparse(rooturl)
     accountsurl = list(rootparts)
     accountsurl[2] = os.path.join(accountsurl[2], 'v2', 'accounts')
     gtaddr = None
     start = time.time()
     accounts = {}
-    query = {'limit':500}
+    http = urllib3.PoolManager()
+    query = {'limit': 500}
     if blockround is not None:
         query['round'] = blockround
     while True:
@@ -131,20 +173,21 @@ def indexerAccounts(rooturl, blockround=None, addrlist=None):
         if query:
             accountsurl[4] = urllib.parse.urlencode(query)
         pageurl = urllib.parse.urlunparse(accountsurl)
-        gtaddr, some = getAccountsPage(pageurl, accounts)
+        gtaddr, some = getAccountsPage(http, pageurl, token, accounts)
         if not some:
             break
     dt = time.time() - start
     logger.debug('loaded %d accounts from %s ?round=%s in %.2f seconds', len(accounts), rooturl, blockround, dt)
     return accounts
 
+
 # generator yielding txns objects
-def indexerAccountTxns(rooturl, addr, minround=None, maxround=None, limit=None):
+def indexerAccountTxns(http, token, rooturl, addr, minround=None, maxround=None, limit=None):
     niceaddr = algosdk.encoding.encode_address(addr)
     rootparts = urllib.parse.urlparse(rooturl)
     atxnsurl = list(rootparts)
     atxnsurl[2] = os.path.join(atxnsurl[2], 'v2', 'transactions')
-    query = {'limit':1000, 'address':niceaddr}
+    query = {'limit': 1000, 'address': niceaddr}
     if minround is not None:
         query['min-round'] = minround
     if maxround is not None:
@@ -156,7 +199,15 @@ def indexerAccountTxns(rooturl, addr, minround=None, maxround=None, limit=None):
         pageurl = urllib.parse.urlunparse(atxnsurl)
         try:
             logger.debug('GET %s', pageurl)
-            response = urllib.request.urlopen(pageurl)
+
+
+            response = http.request(
+                'GET',
+                pageurl,
+                headers = getIndexerHeaders(token)
+            )
+
+            # response = urllib.request.urlopen(pageurl)
         except urllib.error.HTTPError as e:
             logger.error('failed to fetch %r', pageurl)
             logger.error('msg: %s', e.file.read())
@@ -165,9 +216,10 @@ def indexerAccountTxns(rooturl, addr, minround=None, maxround=None, limit=None):
             logger.error('failed to fetch %r', pageurl)
             logger.error('err %r (%s)', e, type(e))
             raise
-        if (response.code != 200) or (not response.getheader('Content-Type').startswith('application/json')):
-            raise Exception("bad response to {!r}: {} {}, {!r}".format(pageurl, response.code, response.reason, response.getheader('Content-Type')))
-        ob = json.loads(response.read())
+        if (response.status != 200) or (not response.getheader('Content-Type').startswith('application/json')):
+            raise Exception("bad response to {!r}: {} {}, {!r}".format(pageurl, response.status, response.reason,
+                                                                       response.getheader('Content-Type')))
+        ob = json.loads(response.data)
         txns = ob.get('transactions')
         if not txns:
             return
@@ -176,6 +228,7 @@ def indexerAccountTxns(rooturl, addr, minround=None, maxround=None, limit=None):
         if len(txns) < 1000:
             return
         query['rh'] = txns[-1]['r'] - 1
+
 
 def assetEquality(indexer, algod):
     #ta = dict(algod)
@@ -319,6 +372,7 @@ class CheckContext:
         self.mismatches = []
 
     def check(self, address, niceaddr, microalgos, assets, acfg, appparams, applocal):
+        logger.debug("check address: {}".format(address))
         # check data from sql or algod vs indexer
         i2v = self.accounts.pop(address, None)
         if i2v is None:
@@ -364,7 +418,7 @@ class CheckContext:
             i2acfg = i2v.get('created-assets')
             # filter out deleted entries that indexer is showing to us
             if i2acfg:
-                i2acfg = list(filter(lambda x: x['params']['total'] is not 0, i2acfg))
+                i2acfg = list(filter(lambda x: x['params']['total'] != 0, i2acfg))
             if acfg:
                 if i2acfg:
                     indexerAcfg = dictifyAssetConfig(i2acfg)
@@ -395,7 +449,9 @@ class CheckContext:
             i2applocal = i2v.get('apps-local-state')
             # filter out deleted entries that indexer is showing to us
             if i2applocal:
-                i2applocal = list(filter(lambda x: x['schema']['num-byte-slice'] is not 0 or x['schema']['num-uint'] is not 0, i2applocal))
+                i2applocal = list(
+                    filter(lambda x: x['schema']['num-byte-slice'] != 0 or x['schema']['num-uint'] != 0,
+                           i2applocal))
             if applocal:
                 if i2applocal:
                     eqerr = []
@@ -495,7 +551,8 @@ def check_from_sqlite(args):
     for row in cursor:
         tracker_round = row[0]
     if args.indexer:
-        i2a = indexerAccounts(args.indexer, blockround=tracker_round, addrlist=(args.accounts and args.accounts.split(',')))
+        i2a = indexerAccounts(args.indexer, args.indexer_token, blockround = tracker_round,
+                              addrlist = (args.accounts and args.accounts.split(',')))
         i2a_checker = CheckContext(i2a, err)
     else:
         i2a_checker = None
@@ -599,6 +656,21 @@ def token_addr_from_args(args):
         addr = 'http://' + addr
     return token, addr
 
+
+def fetchAccountInfoFromAlgod(algod, niceaddr, rawad, retry_count=0):
+    try:
+        logger.debug("fetching account info for {}".format(niceaddr))
+        rawad.append(algod.account_info(niceaddr))
+    except Exception as e:
+        logger.error("error fetching account: {}".format(niceaddr))
+        if retry_count < max_retry_count:
+            retry_count += 1
+            logger.warning("retrying algod fetch account, attempt: {}".format(retry_count))
+            fetchAccountInfoFromAlgod(algod, niceaddr, rawad, retry_count)
+        else:
+            logger.error("max retry attempts of {} failed for account '{}'".format(max_retry_count, niceaddr))
+
+
 def check_from_algod(args):
     gpath = args.genesis or os.path.join(args.algod, 'genesis.json')
     getGenesisVars(gpath)
@@ -608,7 +680,7 @@ def check_from_algod(args):
     #logger.debug('status %r', status)
     iloadstart = time.time()
     if args.indexer:
-        i2a = indexerAccounts(args.indexer, addrlist=(args.accounts and args.accounts.split(',')))
+        i2a = indexerAccounts(args.indexer, args.indexer_token, addrlist = (args.accounts and args.accounts.split(',')))
         i2a_checker = CheckContext(i2a, sys.stderr)
     else:
         logger.warn('no indexer, nothing to do')
@@ -619,15 +691,17 @@ def check_from_algod(args):
     rawad = []
     for address in i2a.keys():
         niceaddr = algosdk.encoding.encode_address(address)
-        rawad.append(algod.account_info(niceaddr))
+        fetchAccountInfoFromAlgod(algod, niceaddr, rawad)
+
     aloadtime = time.time() - aloadstart
-    logger.info('loaded %d accounts from algod in %.1f seconds, %.1f a/s', len(rawad), aloadtime, len(rawad)/aloadtime)
+    logger.info('loaded %d accounts from algod in %.1f seconds, %.1f a/s', len(rawad), aloadtime,
+                len(rawad) / aloadtime)
     lastlog = time.time()
     count = 0
     for ad in rawad:
         niceaddr = ad['address']
         # fetch indexer account at round algod got it at
-        na = indexerAccounts(args.indexer, blockround=ad['round'], addrlist=[niceaddr])
+        na = indexerAccounts(args.indexer, args.indexer_token, blockround = ad['round'], addrlist = [niceaddr])
         i2a.update(na)
         microalgos = ad['amount-without-pending-rewards']
         address = algosdk.encoding.decode_address(niceaddr)
@@ -642,18 +716,20 @@ def check_from_algod(args):
 def main():
     import argparse
     ap = argparse.ArgumentParser()
-    ap.add_argument('-f', '--dbfile', default=None, help='sqlite3 tracker file from algod')
-    ap.add_argument('-d', '--algod', default=None, help='algorand data dir')
-    ap.add_argument('--algod-net', default=None, help='algod host:port')
-    ap.add_argument('--algod-token', default=None, help='algod token')
-    ap.add_argument('--genesis', default=None, help='path to genesis.json')
-    ap.add_argument('--limit', default=None, type=int, help='debug limit number of accoutns to dump')
-    ap.add_argument('--indexer', default=None, help='URL to indexer to fetch from')
-    ap.add_argument('--asset', default=None, help='filter on accounts possessing asset id')
-    ap.add_argument('--mismatches', default=10, type=int, help='max number of mismatches to show details on (0 for no limit)')
-    ap.add_argument('-q', '--quiet', default=False, action='store_true')
-    ap.add_argument('--verbose', default=False, action='store_true')
-    ap.add_argument('--accounts', help='comma separated list of accounts to test')
+    ap.add_argument('-f', '--dbfile', default = None, help = 'sqlite3 tracker file from algod')
+    ap.add_argument('-d', '--algod', default = None, help = 'algorand data dir')
+    ap.add_argument('--algod-net', default = None, help = 'algod host:port')
+    ap.add_argument('--algod-token', default = None, help = 'algod token')
+    ap.add_argument('--genesis', default = None, help = 'path to genesis.json')
+    ap.add_argument('--limit', default = None, type = int, help = 'debug limit number of accoutns to dump')
+    ap.add_argument('--indexer', default = None, help = 'URL to indexer to fetch from')
+    ap.add_argument('--asset', default = None, help = 'filter on accounts possessing asset id')
+    ap.add_argument('--mismatches', default = 10, type = int,
+                    help = 'max number of mismatches to show details on (0 for no limit)')
+    ap.add_argument('-q', '--quiet', default = False, action = 'store_true')
+    ap.add_argument('--verbose', default = False, action = 'store_true')
+    ap.add_argument('--accounts', help = 'comma separated list of accounts to test')
+    ap.add_argument('--indexer-token', help = 'indexer api key')
     args = ap.parse_args()
 
     if args.verbose:
@@ -692,7 +768,8 @@ def main():
             err.write('\n{} \'\\x{}\'\n\t{}\n'.format(niceaddr, xaddr, msg))
             tcount = 0
             tmore = 0
-            for txn in indexerAccountTxns(args.indexer, addr, limit=30):
+            http = urllib3.PoolManager()
+            for txn in indexerAccountTxns(http, args.indexer_token, args.indexer, addr, limit = 30):
                 if tcount > 10:
                     tmore += 1
                     continue
@@ -737,3 +814,4 @@ def main():
 
 if __name__ == '__main__':
     sys.exit(main())
+
