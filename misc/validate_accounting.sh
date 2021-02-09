@@ -6,10 +6,7 @@
 function help () {
   echo "This script compares account data in Indexer to data in algod."
   echo ""
-  echo "Requires 'psql' command to be available."
-  echo ""
   echo "options:"
-  echo "  --convert_addr  -> Path to the convert_addr utility."
   echo "  --pg_user       -> Postgres username."
   echo "  --pg_pass       -> Postgres password."
   echo "  --pg_url        -> Postgres url (without http)."
@@ -37,14 +34,7 @@ SELECTION_QUERY="select encode(addr,'base64') from account where deleted is not 
 # If run during a migration this query allow accounts with partial rewards to slip in (and they should fail)
 #SELECTION_QUERY="select encode(addr,'base64'), rewards_total from account where rewards_total > 0 limit $LIMIT"
 
-SINGLE_ACCT_QUERY="select rewards_total from account where addr=decode('B64', 'base64')"
-
 START_TIME=$SECONDS
-PGUSER=
-PGPASSWORD=
-PGHOST=
-PGPORT=
-PGDB=
 ALGOD_TOKEN=
 ALGOD_NET=
 INDEXER_NET=
@@ -54,30 +44,6 @@ CONVERT_ADDR=
 
 while (( "$#" )); do
   case "$1" in
-    --convert_addr)
-      shift
-      CONVERT_ADDR="$1"
-      ;;
-    --pg_user)
-      shift
-      PGUSER="$1"
-      ;;
-    --pg_pass)
-      shift
-      PGPASSWORD="$1"
-      ;;
-    --pg_url)
-      shift
-      PGHOST="$1"
-      ;;
-    --pg_port)
-      shift
-      PGPORT="$1"
-      ;;
-    --pg_db)
-      shift
-      PGDB="$1"
-      ;;
     --indexer)
       shift
       INDEXER_NET="$1"
@@ -110,22 +76,10 @@ while (( "$#" )); do
   shift
 done
 
-if [ -z $CONVERT_ADDR ] || [ -z $PGUSER ] || [ -z $PGPASSWORD ] || [ -z $PGPORT ] || [ -z $PGHOST ] || [ -z $PGDB ] || [ -z $INDEXER_NET ] || [ -z $INDEXER_TOKEN ] || [ -z $ALGOD_NET ] || [ -z $ALGOD_TOKEN ]; then
+if [ -z $INDEXER_NET ] || [ -z $INDEXER_TOKEN ] || [ -z $ALGOD_NET ] || [ -z $ALGOD_TOKEN ]; then
   help
   exit
 fi
-
-# Required for psql
-export PGPASSWORD
-
-# $1 - the query to execute
-# $2 - if not empty prints the command before executing it
-function psql_query {
-  if [ ! -z $2 ]; then
-    echo "psql -t -h $PGHOST -d $PGDB -XA -p $PGPORT -U $PGUSER -c \"$1\""
-  fi
-  psql -t -h $PGHOST -d $PGDB -XA -p $PGPORT -U $PGUSER -c "$1"
-}
 
 function stats {
   ELAPSED=$(($SECONDS - $START_TIME))
@@ -223,7 +177,6 @@ function update_account {
   INDEXER_ACCT=$(curl -s -q "$INDEXER_NET/v2/accounts/$1?pretty" -H "Authorization: Bearer $INDEXER_TOKEN")
   INDEXER_ACCT_NORMALIZED=$(normalize_json "$INDEXER_ACCT")
   #INDEXER_BALANCE=$(echo ${INDEXER_ACCT} | jq '."account"."amount"')
-  #INDEXER_REWARDS_DIST=$(psql_query "${SINGLE_ACCT_QUERY/B64/$ACCTB64}")
   #INDEXER_REWARDS_PENDING=$(echo ${INDEXER_ACCT} | jq '."account"."pending-rewards"')
   #INDEXER_REWARDS=$((INDEXER_REWARDS_DIST+INDEXER_REWARDS_PENDING))
 
@@ -244,9 +197,6 @@ trap stats EXIT
 
 # Print connection tests if enabled.
 if [ ! -z $TEST ]; then
-  echo "psql configuration test:"
-  psql_query "select * from metastate" 1
-
   echo -e "\nindexer configuration test:"
   echo -e "~$ "'curl -s -q "$INDEXER_NET/health?pretty" -H "Authorization: Bearer $INDEXER_TOKEN"'
   curl -s -q "$INDEXER_NET/health?pretty" -H "Authorization: Bearer $INDEXER_TOKEN"
@@ -262,12 +212,10 @@ RETRY_COUNT=0
 GUTTER=8 # printf formatting
 
 # Loop through all accounts in SELECTION_QUERY
-while read -r line; do
+while read -r ACCT; do
   if [ $(($ACCOUNT_COUNT%50)) -eq 0 ]; then
       printf "\n%-${GUTTER}d : " "$ACCOUNT_COUNT"
   fi
-
-  ACCT=$($CONVERT_ADDR -addr $line)
 
   # get normalized account details.
   # busy accounts desynchronize regularly as indexer lags behind slightly, so validate in a loop.
@@ -297,5 +245,5 @@ while read -r line; do
   else
     printf "."
   fi
-done < <((psql_query "$SELECTION_QUERY")) # TODO: pass accounts in with a file?
+done < /dev/stdin
 
