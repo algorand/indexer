@@ -9,7 +9,6 @@ import base64
 import json
 import logging
 import os
-import sqlite3
 import sys
 import time
 import urllib.error
@@ -484,105 +483,6 @@ def dmaybe(d, k, v):
         return
     d[k] = v
 
-def check_from_sqlite(args):
-    genesispath = args.genesis or os.path.join(os.path.dirname(os.path.dirname(args.dbfile)), 'genesis.json')
-    getGenesisVars(genesispath)
-    db = sqlite3.connect(args.dbfile)
-    cursor = db.cursor()
-    tracker_round = None
-    cursor.execute("SELECT rnd FROM acctrounds WHERE id = 'acctbase'")
-    err = sys.stderr
-    for row in cursor:
-        tracker_round = row[0]
-    if args.indexer:
-        i2a = indexerAccounts(args.indexer, blockround=tracker_round, addrlist=(args.accounts and args.accounts.split(',')))
-        i2a_checker = CheckContext(i2a, err)
-    else:
-        i2a_checker = None
-    cursor.execute('''SELECT address, data FROM accountbase''')
-    count = 0
-    #match = 0
-    #neq = 0
-    algosum = 0
-    acctset = args.accounts and args.accounts.split(',')
-    for row in cursor:
-        address, data = row
-        niceaddr = algosdk.encoding.encode_address(address)
-        if acctset and niceaddr not in acctset:
-            continue
-        adata = mloads(data)
-        logger.debug('%s algod %r', niceaddr, sorted(adata.keys()))
-        count += 1
-        rewardsbase = adata.get(b'ebase', 0)
-        microalgos = adata[b'algo']
-        algosum += microalgos
-        rawassetholdingmap = adata.get(b'asset')
-        if rawassetholdingmap:
-            assets = []
-            for assetid, rawassetholding in rawassetholdingmap.items():
-                apiholding = {
-                    'asset-id':assetid,
-                    'amount':rawassetholding.get(b'a', 0),
-                    'is-frozen':rawassetholding.get(b'b', False),
-                }
-                assets.append(apiholding)
-        else:
-            assets = None
-        rawAssetParams = adata.get(b'apar')
-        if rawAssetParams:
-            assetp = []
-            for assetid, ap in rawAssetParams.items():
-                params = {
-                    'creator':niceaddr,
-                    'decimals':ap.get(b'dc',0),
-                    'default-frozen':ap.get(b'df',False),
-                    'total':ap.get(b't', 0),
-                }
-                dmaybe(params, 'clawback', encode_addr_or_none(ap.get(b'c')))
-                dmaybe(params, 'freeze', encode_addr_or_none(ap.get(b'f')))
-                dmaybe(params, 'manager', encode_addr_or_none(ap.get(b'm')))
-                dmaybe(params, 'metadata-hash', encode_addr_or_none(ap.get(b'am')))
-                dmaybe(params, 'name', maybedecode(ap.get(b'an')))
-                dmaybe(params, 'reserve', encode_addr_or_none(ap.get(b'r')))
-                dmaybe(params, 'unit-name', maybedecode(ap.get(b'un')))
-                dmaybe(params, 'url', maybedecode(ap.get(b'url')))
-                assetp.append({
-                    'index':assetid,
-                    'params':params
-                })
-        else:
-            assetp = None
-        rawappparams = adata.get(b'appp',{})
-        appparams = []
-        for appid, ap in rawappparams.items():
-            appparams.append({
-                'id':appid,
-                'params':{
-                    'approval-program':maybeb64(ap.get(b'approv')),
-                    'clear-state-program':maybeb64(ap.get(b'clearp')),
-                    'creator':niceaddr,
-                    'global-state':tkvToTkvs(ap.get(b'gs')),
-                    'global-state-schema':schemaDecode(ap.get(b'gsch')),
-                    'local-state-schema':schemaDecode(ap.get(b'lsch')),
-                },
-            })
-        rawapplocal = adata.get(b'appl',{})
-        applocal = []
-        for appid, als in rawapplocal.items():
-            applocal.append({
-                'id':appid,
-                'state':{
-                    'schema':schemaDecode(ap.get(b'hsch')),
-                    'key-value':tkvToTkvs(ap.get(b'tkv')),
-                },
-            })
-        if i2a_checker:
-            # TODO: assets created by this account
-            i2a_checker.check(address, niceaddr, microalgos, assets, assetp, appparams, applocal)
-        if args.limit and count > args.limit:
-            break
-    return i2a_checker
-
 def maybeb64(x):
     if x:
         return base64.b64encode(x).decode()
@@ -642,7 +542,6 @@ def check_from_algod(args):
 def main():
     import argparse
     ap = argparse.ArgumentParser()
-    ap.add_argument('-f', '--dbfile', default=None, help='sqlite3 tracker file from algod')
     ap.add_argument('-d', '--algod', default=None, help='algorand data dir')
     ap.add_argument('--algod-net', default=None, help='algod host:port')
     ap.add_argument('--algod-token', default=None, help='algod token')
@@ -668,12 +567,10 @@ def main():
     i2a = None
     i2a_checker = None
 
-    if args.dbfile:
-        i2a_checker = check_from_sqlite(args)
-    elif args.algod or (args.algod_net and args.algod_token):
+    if args.algod or (args.algod_net and args.algod_token):
         i2a_checker = check_from_algod(args)
     else:
-        raise Exception("need to check from algod sqlite or running algod")
+        raise Exception("need to check from running algod")
     retval = 0
     if i2a_checker:
         i2a_checker.summary()
