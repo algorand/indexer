@@ -3,6 +3,7 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"sync"
 	"testing"
 
 	_ "github.com/lib/pq"
@@ -11,7 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/algorand/go-algorand-sdk/types"
+
 	"github.com/algorand/indexer/accounting"
+	itypes "github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util/test"
 )
@@ -53,11 +56,11 @@ func setupPostgres(t *testing.T) (*sql.DB, string, func()) {
 
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.
 func TestMaxRoundOnUninitializedDB(t *testing.T) {
-    _, connStr, shutdownFunc := setupPostgres(t)
-    defer shutdownFunc()
+	_, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
 
-    ///////////
-    // Given // A database that has not yet imported the genesis accounts.
+	///////////
+	// Given // A database that has not yet imported the genesis accounts.
 	///////////
 	db, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
 	assert.NoError(t, err)
@@ -119,7 +122,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, 0)
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -167,7 +170,7 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, 0)
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -256,7 +259,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 		//////////
 		// When // We commit the round accounting to the database.
 		//////////
-		err = pdb.CommitRoundAccounting(state.RoundUpdates, round, 0)
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, round, &itypes.Block{})
 		assert.NoError(t, err, "failed to commit")
 
 		//////////
@@ -297,7 +300,7 @@ func TestNoopOptins(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, 0)
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -305,5 +308,66 @@ func TestNoopOptins(t *testing.T) {
 	//////////
 	// TODO: This isn't working yet
 	assertAccountAsset(t, db, test.AccountB, assetid, false, 0)
+}
 
+
+
+
+// TestMultipleWriters tests that accounting cannot be double committed.
+func TestMultipleWriters(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	amt := uint64(10000)
+
+	///////////
+	// Given // Send amt to AccountA
+	///////////
+	_, payAccountA := test.MakePayTxnRowOrPanic(test.Round, 1000, amt, 0, 0, 0, 0, test.AccountD, test.AccountA, types.ZeroAddress)
+
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
+	state.AddTransaction(payAccountA)
+
+	//////////
+	// When // We attempt commit the round accounting multiple times.
+	//////////
+	start := make(chan struct{})
+	commits := 10
+	errors := make(chan error, commits)
+	var wg sync.WaitGroup
+	for i := 0; i < commits; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<- start
+			errors <- pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+		}()
+	}
+	close(start)
+
+	wg.Wait()
+	close(errors)
+
+	//////////
+	// Then // There should be num-1 errors, and AccountA should only be paid once.
+	//////////
+	errorCount := 0
+	for err := range errors {
+		if err != nil {
+			errorCount++
+		}
+	}
+	assert.Equal(t, commits-1, errorCount)
+
+	// AccountA should contain the final payment.
+	var balance uint64
+	row := db.QueryRow(`SELECT microalgos FROM account WHERE account.addr = $1`, test.AccountA[:])
+	err = row.Scan(&balance)
+	assert.NoError(t, err, "checking balance")
+	assert.Equal(t, amt, balance)
 }

@@ -115,13 +115,13 @@ func (_m *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 	return r0
 }
 
-// CommitRoundAccounting provides a mock function with given fields: updates, round, rewardsBase
-func (_m *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, rewardsBase uint64) error {
-	ret := _m.Called(updates, round, rewardsBase)
+// CommitRoundAccounting provides a mock function with given fields: updates, round, blockPtr
+func (_m *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) error {
+	ret := _m.Called(updates, round, blockPtr)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(idb.RoundUpdates, uint64, uint64) error); ok {
-		r0 = rf(updates, round, rewardsBase)
+	if rf, ok := ret.Get(0).(func(idb.RoundUpdates, uint64, *types.Block) error); ok {
+		r0 = rf(updates, round, blockPtr)
 	} else {
 		r0 = ret.Error(0)
 	}
