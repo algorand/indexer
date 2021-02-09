@@ -207,7 +207,7 @@ function normalize_json {
               # Indexer adds a space to NotParticipating
               if .key == "status" and .value == "Not Participating" then
                 .value = "NotParticipating"
-              else 
+              else
                 .
               end
             )
@@ -220,25 +220,19 @@ function normalize_json {
 
 # $1 - account address
 function update_account {
-  #echo "curl -s -q \"$INDEXER_NET/v2/accounts/$1?pretty\" -H \"Authorization: Bearer $INDEXER_TOKEN\""
   INDEXER_ACCT=$(curl -s -q "$INDEXER_NET/v2/accounts/$1?pretty" -H "Authorization: Bearer $INDEXER_TOKEN")
   INDEXER_ACCT_NORMALIZED=$(normalize_json "$INDEXER_ACCT")
-  INDEXER_BALANCE=$(echo ${INDEXER_ACCT} | jq '."account"."amount"')
+  #INDEXER_BALANCE=$(echo ${INDEXER_ACCT} | jq '."account"."amount"')
   #INDEXER_REWARDS_DIST=$(psql_query "${SINGLE_ACCT_QUERY/B64/$ACCTB64}")
   #INDEXER_REWARDS_PENDING=$(echo ${INDEXER_ACCT} | jq '."account"."pending-rewards"')
   #INDEXER_REWARDS=$((INDEXER_REWARDS_DIST+INDEXER_REWARDS_PENDING))
 
-  #echo "curl -s -q -H \"Authorization: Bearer $ALGOD_TOKEN\" \"$ALGOD_NET/v2/accounts/$1?pretty\""
   ALGOD_ACCT=$(curl -s -q -H "Authorization: Bearer $ALGOD_TOKEN" "$ALGOD_NET/v2/accounts/$1?pretty")
   ALGOD_ACCT_NORMALIZED=$(normalize_json "$ALGOD_ACCT")
-  ALGOD_BALANCE=$(echo ${ALGOD_ACCT} | jq '."amount"')
+  #ALGOD_BALANCE=$(echo ${ALGOD_ACCT} | jq '."amount"')
   #ALGOD_REWARDS=$(echo "$ALGOD_ACCT" | jq '.rewards')
   #ALGOD_REWARDS_PENDING=$(echo "$ALGOD_ACCT" | jq '."pending-rewards"')
   #ALGOD_REWARDS_DIST=$((ALGOD_REWARDS-ALGOD_REWARDS_PENDING))
-
-
-  #echo -e "\nINDEXER\n$INDEXER_ACCT"
-  #echo -e "\nALGOD\n$ALGOD_ACCT"
 }
 
 #####################
@@ -272,7 +266,7 @@ while read -r line; do
   if [ $(($ACCOUNT_COUNT%50)) -eq 0 ]; then
       printf "\n%-${GUTTER}d : " "$ACCOUNT_COUNT"
   fi
-  
+
   ACCT=$($CONVERT_ADDR -addr $line)
 
   # get normalized account details.
@@ -280,7 +274,7 @@ while read -r line; do
   n=0
   until [ "$n" -ge 3 ]; do
     update_account $ACCT
-    # break out on succes 
+    # break out on success
     [ "$INDEXER_ACCT_NORMALIZED" == "$ALGOD_ACCT_NORMALIZED" ] && break
     ((n++))
     sleep 1
