@@ -3,6 +3,7 @@ package postgres
 import (
 	"database/sql"
 	"fmt"
+	"os/exec"
 	"sync"
 	"testing"
 
@@ -19,6 +20,15 @@ import (
 	"github.com/algorand/indexer/util/test"
 )
 
+var enableDocker = true
+
+func init() {
+	_, err := exec.LookPath("docker")
+	if err != nil {
+		enableDocker = false
+	}
+}
+
 // getAccounting initializes the ac counting state for testing.
 func getAccounting(round uint64, cache map[uint64]bool) *accounting.State {
 	accountingState := accounting.New(cache)
@@ -28,6 +38,9 @@ func getAccounting(round uint64, cache map[uint64]bool) *accounting.State {
 
 // setupPostgres starts a gnomock postgres DB then returns the connection string and a shutdown function.
 func setupPostgres(t *testing.T) (*sql.DB, string, func()) {
+	if !enableDocker {
+		t.Skip("docker not available")
+	}
 	p := postgres.Preset(
 		postgres.WithVersion("12.5"),
 		postgres.WithUser("gnomock", "gnomick"),
