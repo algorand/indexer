@@ -4,7 +4,6 @@
 package postgres
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -42,7 +41,7 @@ func init() {
 
 		// Migrations for 2.3.2 release
 		{m7StaleClosedAccounts, false, "clear some stale data from closed accounts"},
-		{m8TxnJsonEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
+		{m8TxnJSONEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -1171,12 +1170,12 @@ type jsonFixupTxnRow struct {
 	Round    uint64
 	Intra    int
 	TxnBytes []byte
-	Json     []byte
+	JSON     []byte
 
 	Error error
 }
 
-func (db *IndexerDb) yieldJsonFixupTxnsThread(ctx context.Context, rows *sql.Rows, lastRound int64, results chan<- jsonFixupTxnRow) {
+func (db *IndexerDb) yieldJSONFixupTxnsThread(ctx context.Context, rows *sql.Rows, lastRound int64, results chan<- jsonFixupTxnRow) {
 	keepGoing := true
 	for keepGoing {
 		keepGoing = false
@@ -1232,7 +1231,7 @@ func (db *IndexerDb) yieldJsonFixupTxnsThread(ctx context.Context, rows *sql.Row
 			row.Round = rounds[i]
 			row.Intra = intras[i]
 			row.TxnBytes = txnbytess[i]
-			row.Json = txnjsons[i]
+			row.JSON = txnjsons[i]
 			select {
 			case <-ctx.Done():
 				close(results)
@@ -1258,7 +1257,7 @@ const m8ErrPrefix = "m8 txn json fixup"
 // read batches of at least 2 blocks or up to 10000 txns,
 // write a temporary table, UPDATE from temporary table into txn.
 // repeat until all txns consumed.
-func m8TxnJsonEncoding(db *IndexerDb, state *MigrationState) (err error) {
+func m8TxnJSONEncoding(db *IndexerDb, state *MigrationState) (err error) {
 	db.log.Infof("txn json fixup migration starting")
 	row := db.db.QueryRow(`SELECT (v -> 'account_round')::bigint FROM metastate WHERE k = 'm6MarkTxnJSONSplit'`)
 	var lastRound int64
@@ -1285,7 +1284,7 @@ func m8TxnJsonEncoding(db *IndexerDb, state *MigrationState) (err error) {
 		db.log.WithError(err).Errorf("%s, getting txns", m8ErrPrefix)
 	}
 	txns := make(chan jsonFixupTxnRow, 10)
-	go db.yieldJsonFixupTxnsThread(ctx, rows, lastRound, txns)
+	go db.yieldJSONFixupTxnsThread(ctx, rows, lastRound, txns)
 	batch := make([]jsonFixupTxnRow, 15000)
 	txInBatch := 0
 	roundsInBatch := 0
@@ -1298,7 +1297,7 @@ func m8TxnJsonEncoding(db *IndexerDb, state *MigrationState) (err error) {
 		}
 		if txr.Round != prevBatchRound {
 			if txInBatch > 10000 {
-				err = putTxnJsonBatch(db, state, batch[:txInBatch])
+				err = putTxnJSONBatch(db, state, batch[:txInBatch])
 				if err != nil {
 					return
 				}
@@ -1321,7 +1320,7 @@ func m8TxnJsonEncoding(db *IndexerDb, state *MigrationState) (err error) {
 				split--
 			}
 			split++ // now the first txn of the incomplete current round
-			err = putTxnJsonBatch(db, state, batch[:split])
+			err = putTxnJSONBatch(db, state, batch[:split])
 			if err != nil {
 				return
 			}
@@ -1334,7 +1333,7 @@ func m8TxnJsonEncoding(db *IndexerDb, state *MigrationState) (err error) {
 		}
 	}
 	if txInBatch > 0 {
-		err = putTxnJsonBatch(db, state, batch[:txInBatch])
+		err = putTxnJSONBatch(db, state, batch[:txInBatch])
 		if err != nil {
 			return
 		}
@@ -1355,10 +1354,10 @@ func m8TxnJsonEncoding(db *IndexerDb, state *MigrationState) (err error) {
 type jsonFixupUpdateRow struct {
 	round   uint64
 	intra   int
-	txnJson []byte
+	txnJSON string
 }
 
-func putTxnJsonBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnRow) error {
+func putTxnJSONBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnRow) error {
 	minRound := batch[0].Round
 	maxRound := batch[0].Round
 	for _, txr := range batch {
@@ -1395,10 +1394,10 @@ func putTxnJsonBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 			stxn.Txn.GenesisHash = block.GenesisHash
 		}
 		js := stxnToJSON(stxn.SignedTxnWithAD)
-		if !bytes.Equal(js, txr.Json) {
+		if js == string(txr.JSON) {
 			outrows[pos].round = txr.Round
 			outrows[pos].intra = txr.Intra
-			outrows[pos].txnJson = js
+			outrows[pos].txnJSON = js
 			pos++
 		}
 	}
@@ -1442,7 +1441,7 @@ func putTxnJsonBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 	}
 	defer batchadd.Close()
 	for _, tr := range outrows {
-		_, err = batchadd.Exec(tr.round, tr.intra, tr.txnJson)
+		_, err = batchadd.Exec(tr.round, tr.intra, tr.txnJSON)
 		if err != nil {
 			db.log.WithError(err).Errorf("%s, temp row err", m8ErrPrefix)
 			return err
@@ -1478,7 +1477,7 @@ func putTxnJsonBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 	}
 	_, err = db.db.Exec(`DROP TABLE IF EXISTS txjson_fix_batch`)
 	if err != nil {
-		db.log.WithError(err).Errorf("%s, warning, drop temp err")
+		db.log.WithError(err).Errorf("%s, warning, drop temp err", m8ErrPrefix)
 		// we don't actually care; psql should garbage collect the temp table eventually
 	}
 	return nil
