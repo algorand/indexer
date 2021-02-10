@@ -9,6 +9,7 @@ import base64
 import json
 import logging
 import os
+from ssl import SSLContext
 import sys
 import time
 import urllib.error
@@ -27,23 +28,28 @@ fee_addr = base64.b64decode("x/zNsljw1BicK/i21o7ml1CGQrCtAB8x/LkYw1S6hZo=")
 reward_niceaddr = algosdk.encoding.encode_address(reward_addr)
 fee_niceaddr = algosdk.encoding.encode_address(fee_addr)
 
+ssl_no_validate = SSLContext()
+
+def process_genesis(genesis):
+    rwd = genesis.get('rwd')
+    if rwd is not None:
+        global reward_addr
+        global reward_niceaddr
+        logger.debug('reward addr %s', rwd)
+        reward_addr = algosdk.encoding.decode_address(rwd)
+        reward_niceaddr = rwd
+    fees = genesis.get('fees')
+    if fees is not None:
+        global fee_addr
+        global fee_niceaddr
+        logger.debug('fee addr %s', fees)
+        fee_addr = algosdk.encoding.decode_address(fees)
+        fee_niceaddr = fees
+
 def getGenesisVars(genesispath):
     with open(genesispath) as fin:
         genesis = json.load(fin)
-        rwd = genesis.get('rwd')
-        if rwd is not None:
-            global reward_addr
-            global reward_niceaddr
-            logger.debug('reward addr %s', rwd)
-            reward_addr = algosdk.encoding.decode_address(rwd)
-            reward_niceaddr = rwd
-        fees = genesis.get('fees')
-        if fees is not None:
-            global fee_addr
-            global fee_niceaddr
-            logger.debug('fee addr %s', fees)
-            fee_addr = algosdk.encoding.decode_address(fees)
-            fee_niceaddr = fees
+        process_genesis(genesis)
 
 def encode_addr(addr):
     if len(addr) == 44:
@@ -96,7 +102,7 @@ def getAccountsPage(pageurl, headers=None, retries=5):
     while True:
         try:
             logger.debug('GET %r', pageurl)
-            response = urllib.request.urlopen(urllib.request.Request(pageurl, headers=headers))
+            response = urllib.request.urlopen(urllib.request.Request(pageurl, headers=headers), context=ssl_no_validate)
             if (response.code != 200) or not response.getheader('Content-Type').startswith('application/json'):
                 if retries <= 0:
                     raise Exception("bad response to {!r}: {}".format(pageurl, response.reason))
@@ -184,7 +190,7 @@ def indexerAccountTxns(rooturl, addr, minround=None, maxround=None, limit=None, 
         try:
             logger.debug('GET %s', pageurl)
             req = urllib.request.Request(pageurl, headers=headers)
-            response = urllib.request.urlopen(pageurl)
+            response = urllib.request.urlopen(pageurl, context=ssl_no_validate)
         except urllib.error.HTTPError as e:
             logger.error('failed to fetch %r', pageurl)
             logger.error('msg: %s', e.file.read())
@@ -519,10 +525,13 @@ def token_addr_from_args(args):
     return token, addr
 
 def check_from_algod(args):
-    gpath = args.genesis or os.path.join(args.algod, 'genesis.json')
-    getGenesisVars(gpath)
     token, addr = token_addr_from_args(args)
-    algod = AlgodClient(token, addr)
+    algod = AlgodClient(token, addr, ssl_no_validate=True)
+    if args.genesis or args.algod:
+        gpath = args.genesis or os.path.join(args.algod, 'genesis.json')
+        getGenesisVars(gpath)
+    else:
+        process_genesis(algod.algod_request("GET", "/genesis"))
     status = algod.status()
     #logger.debug('status %r', status)
     iloadstart = time.time()
@@ -576,7 +585,6 @@ def main():
     i2a_checker = check_from_algod(args)
     retval = 0
     i2a_checker.summary()
-    logger.info('txns...')
     mismatches = i2a_checker.mismatches
     if args.mismatches and len(mismatches) > args.mismatches:
         mismatches = mismatches[:args.mismatches]
@@ -631,6 +639,8 @@ def main():
             err.write(' '.join(parts) + '\n')
         if tmore:
             err.write('... and {} more\n'.format(tmore))
+    if retval == 0:
+        logger.info('validate_accounting OK')
     return retval
 
 
