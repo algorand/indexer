@@ -658,6 +658,9 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 			account = row.Account
 		}
 
+		// Adjust rewards field to match algod
+		account.Rewards += account.PendingRewards
+
 		accounts = append(accounts, account)
 	}
 
