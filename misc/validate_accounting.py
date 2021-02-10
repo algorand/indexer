@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import queue
+import signal
 from ssl import SSLContext
 import sys
 import threading
@@ -31,6 +32,19 @@ reward_niceaddr = algosdk.encoding.encode_address(reward_addr)
 fee_niceaddr = algosdk.encoding.encode_address(fee_addr)
 
 ssl_no_validate = None
+
+graceful_stop = False
+
+def do_graceful_stop(signum, frame):
+    global graceful_stop
+    if graceful_stop:
+        sys.stderr.write("second signal, quitting\n")
+        os.exit(1)
+    sys.stderr.write("graceful stop...\n")
+    graceful_stop = True
+
+signal.signal(signal.SIGTERM, do_graceful_stop)
+signal.signal(signal.SIGINT, do_graceful_stop)
 
 def process_genesis(genesis):
     rwd = genesis.get('rwd')
@@ -66,7 +80,7 @@ def encode_addr_or_none(addr):
     return encode_addr(addr)
 
 def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None, headers=None):
-    '''return {raw account: {"algo":N, "asset":{}}, ...}'''
+    '''generator yielding account records'''
     rootparts = urllib.parse.urlparse(rooturl)
     rawurl = list(rootparts)
     accountsurl = list(rootparts)
@@ -84,7 +98,7 @@ def indexerAccountsFromAddrs(rooturl, blockround=None, addrlist=None, headers=No
         yield from getAccountsPage(pageurl, headers)
 
 def indexerAccountFromAddr(rooturl, niceaddr, blockround=None, headers=None):
-    '''return {raw account: {"algo":N, "asset":{}}, ...}'''
+    '''return one account record'''
     rootparts = urllib.parse.urlparse(rooturl)
     rawurl = list(rootparts)
     accountsurl = list(rootparts)
@@ -142,14 +156,14 @@ def getAccountsPage(pageurl, headers=None, retries=5):
         some = True
     logger.debug('got %d accounts', batchcount)
 
-def indexerAccounts(rooturl, blockround=None, addrlist=None, headers=None):
+def indexerAccounts(rooturl, blockround=None, addrlist=None, headers=None, gtaddr=None):
     '''return {raw account: {"algo":N, "asset":{}}, ...}'''
     if addrlist:
         yield from indexerAccountsFromAddrs(rooturl, blockround, addrlist, headers)
+        return
     rootparts = urllib.parse.urlparse(rooturl)
     accountsurl = list(rootparts)
     accountsurl[2] = os.path.join(accountsurl[2], 'v2', 'accounts')
-    gtaddr = None
     start = time.time()
     query = {'limit':500}
     if blockround is not None:
@@ -551,6 +565,7 @@ def compare_thread(ia_queue, i2a_checker, algod, indexer, indexer_headers):
         compare(indexer_account, i2a_checker, algod, indexer, indexer_headers)
 
 def check_from_algod(args):
+    global graceful_stop
     token, addr = token_addr_from_args(args)
     algod = AlgodClient(token, addr)
     if args.genesis or args.algod:
@@ -573,17 +588,23 @@ def check_from_algod(args):
         t = threading.Thread(target=compare_thread, args=(ia_queue, i2a_checker, algod, args.indexer, indexer_headers))
         t.start()
         threads.append(t)
-    for indexer_account in indexerAccounts(args.indexer, addrlist=(args.accounts and args.accounts.split(',')), headers=indexer_headers):
+    lastaddr = None
+    for indexer_account in indexerAccounts(args.indexer, addrlist=(args.accounts and args.accounts.split(',')), headers=indexer_headers, gtaddr=args.gtaddr):
+        lastaddr = indexer_account['address']
         ia_queue.put(indexer_account)
+        if graceful_stop:
+            break
         now = time.time()
         if (now - lastlog) > 5:
             with i2a_checker.lock:
-                logger.info('%d match, %d neq', i2a_checker.match, i2a_checker.neq)
+                logger.info('%d match, %d neq, through about %s', i2a_checker.match, i2a_checker.neq, lastaddr)
             lastlog = now
     for t in threads:
         ia_queue.put(None) # signal end
     for t in threads:
         t.join()
+    if graceful_stop:
+        logger.info('last addr %s', lastaddr)
     return i2a_checker
 
 def main():
@@ -603,6 +624,7 @@ def main():
     ap.add_argument('--accounts', help='comma separated list of accounts to test')
     ap.add_argument('--ssl-no-validate', default=False, action='store_true')
     ap.add_argument('--threads', default=4, type=int, help='number of request-compare threads to run')
+    ap.add_argument('--gtaddr', default=None, help='fetch accounts after this addr')
     args = ap.parse_args()
 
     if args.verbose:
