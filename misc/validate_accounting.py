@@ -9,8 +9,10 @@ import base64
 import json
 import logging
 import os
+import queue
 from ssl import SSLContext
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -355,6 +357,7 @@ class CheckContext:
         self.neq = 0
         # [(addr, "err text"), ...]
         self.mismatches = []
+        self.lock = threading.Lock()
 
     def check(self, indexer_account, algod_account):
         niceaddr = algod_account['address']
@@ -366,7 +369,7 @@ class CheckContext:
         if indexerAlgos == microalgos:
             pass # still ok
         else:
-            emsg = 'algod v={} i2 v={}'.format(microalgos, indexerAlgos)
+            emsg = 'algod v={} i2 v={} '.format(microalgos, indexerAlgos)
             if address == reward_addr:
                 emsg += ' Rewards account'
             elif address == fee_addr:
@@ -444,18 +447,19 @@ class CheckContext:
                 if not deepeq(ald, ild, (), eqerr):
                     xe('{} indexer and algod disagree on app local, {}\nindexer={}\nalgod={}\n'.format(niceaddr, eqerr, json_pp(i2applocal), json_pp(applocal)))
             else:
-                xe('{} algod has app local but not indexer: {!r}'.format(niceaddr, applocal))
+                xe('{} algod has app local but not indexer: {!r} '.format(niceaddr, applocal))
         elif i2applocal:
-            xe('{} indexer has app local but not algod: {!r}'.format(niceaddr, i2applocal))
+            xe('{} indexer has app local but not algod: {!r} '.format(niceaddr, i2applocal))
 
         # TODO: warn about unchecked fields? pop checked fields and deepeq the rest?
 
-        if xe.ok:
-            self.match += 1
-        else:
-            self.err.write('{} indexer {!r}\n'.format(niceaddr, sorted(indexer_account.keys())))
-            self.neq += 1
-            self.mismatches.append( (address, '\n'.join(xe.errors)) )
+        with self.lock:
+            if xe.ok:
+                self.match += 1
+            else:
+                self.err.write('{} indexer {!r}\n'.format(niceaddr, sorted(indexer_account.keys())))
+                self.neq += 1
+                self.mismatches.append( (address, '\n'.join(xe.errors)) )
 
     def summary(self):
         self.err.write('{} match {} neq\n'.format(self.match, self.neq))
@@ -530,6 +534,22 @@ def token_addr_from_args(args):
         addr = 'http://' + addr
     return token, addr
 
+def compare(indexer_account, i2a_checker, algod, indexer, indexer_headers):
+    niceaddr = indexer_account['address']
+    if niceaddr in (reward_niceaddr, fee_niceaddr):
+        return
+    algod_account = algod.account_info(niceaddr)
+    if algod_account['round'] != indexer_account['round']:
+        indexer_account = indexerAccountFromAddr(indexer, niceaddr, blockround=algod_account['round'], headers=indexer_headers)
+    i2a_checker.check(indexer_account, algod_account)
+
+def compare_thread(ia_queue, i2a_checker, algod, indexer, indexer_headers):
+    while True:
+        indexer_account = ia_queue.get()
+        if indexer_account is None:
+            return
+        compare(indexer_account, i2a_checker, algod, indexer, indexer_headers)
+
 def check_from_algod(args):
     token, addr = token_addr_from_args(args)
     algod = AlgodClient(token, addr)
@@ -539,7 +559,6 @@ def check_from_algod(args):
     else:
         process_genesis(algod.algod_request("GET", "/genesis"))
     status = algod.status()
-    #logger.debug('status %r', status)
     iloadstart = time.time()
     indexer_headers = None
     if args.indexer_token:
@@ -548,18 +567,23 @@ def check_from_algod(args):
     lastlog = time.time()
     i2a_checker = CheckContext(sys.stderr)
     # for each account in indexer, get it from algod, and maybe re-get it from indexer at the round algod had
+    ia_queue = queue.Queue(maxsize=10)
+    threads = []
+    for i in range(args.threads):
+        t = threading.Thread(target=compare_thread, args=(ia_queue, i2a_checker, algod, args.indexer, indexer_headers))
+        t.start()
+        threads.append(t)
     for indexer_account in indexerAccounts(args.indexer, addrlist=(args.accounts and args.accounts.split(',')), headers=indexer_headers):
-        niceaddr = indexer_account['address']
-        if niceaddr in (reward_niceaddr, fee_niceaddr):
-            continue
-        algod_account = algod.account_info(niceaddr)
-        if algod_account['round'] != indexer_account['round']:
-            indexer_account = indexerAccountFromAddr(args.indexer, niceaddr, blockround=algod_account['round'], headers=indexer_headers)
-        i2a_checker.check(indexer_account, algod_account)
+        ia_queue.put(indexer_account)
         now = time.time()
         if (now - lastlog) > 5:
-            logger.info('%d match, %d neq', i2a_checker.match, i2a_checker.neq)
+            with i2a_checker.lock:
+                logger.info('%d match, %d neq', i2a_checker.match, i2a_checker.neq)
             lastlog = now
+    for t in threads:
+        ia_queue.put(None) # signal end
+    for t in threads:
+        t.join()
     return i2a_checker
 
 def main():
@@ -578,6 +602,7 @@ def main():
     ap.add_argument('--verbose', default=False, action='store_true')
     ap.add_argument('--accounts', help='comma separated list of accounts to test')
     ap.add_argument('--ssl-no-validate', default=False, action='store_true')
+    ap.add_argument('--threads', default=4, type=int, help='number of request-compare threads to run')
     args = ap.parse_args()
 
     if args.verbose:
