@@ -1,17 +1,9 @@
 #!/usr/bin/env bash
-#
-# This script requires the convertToAddress.go tool to be built and provided
-# with the --convert_addr field
 
 function help () {
   echo "This script compares account data in Indexer to data in algod."
   echo ""
   echo "options:"
-  echo "  --pg_user       -> Postgres username."
-  echo "  --pg_pass       -> Postgres password."
-  echo "  --pg_url        -> Postgres url (without http)."
-  echo "  --pg_port       -> Postgres port."
-  echo "  --pg_db         -> Postgres database."
   echo "  --datadir       -> Full path to data directory."
   echo "  --algod         -> Algod url (with http), required if datadir is not available."
   echo "  --algod_token   -> Algod API token, required if datadir is not available."
@@ -27,7 +19,6 @@ ALGOD_NET=
 INDEXER_NET=
 INDEXER_TOKEN=""
 TEST=
-CONVERT_ADDR=
 
 while (( "$#" )); do
   case "$1" in
@@ -127,7 +118,7 @@ function normalize_json {
               .key != "created-at-round" and
               .key != "deleted-at-round" and
               .key != "destroyed-at-round" and
-              .key != "oopted-in-at-roundptin-at-round" and
+              .key != "optin-at-roundptin-at-round" and
               .key != "opted-in-at-round" and
               .key != "opted-out-at-round" and
               .key != "closeout-at-round" and
