@@ -12,6 +12,7 @@ import os
 import queue
 import signal
 from ssl import SSLContext
+import struct
 import sys
 import threading
 import time
@@ -39,7 +40,7 @@ def do_graceful_stop(signum, frame):
     global graceful_stop
     if graceful_stop:
         sys.stderr.write("second signal, quitting\n")
-        os.exit(1)
+        sys.exit(1)
     sys.stderr.write("graceful stop...\n")
     graceful_stop = True
 
@@ -145,7 +146,6 @@ def getAccountsPage(pageurl, headers=None, retries=5):
     logger.debug('ob keys %s', ob.keys())
     some = False
     batchcount = 0
-    gtaddr = None
     qa = ob.get('accounts',[])
     acct = ob.get('account')
     if acct is not None:
@@ -564,6 +564,43 @@ def compare_thread(ia_queue, i2a_checker, algod, indexer, indexer_headers):
             return
         compare(indexer_account, i2a_checker, algod, indexer, indexer_headers)
 
+# decrement by one the big-endian number implicit in a byte string
+# crashes on [0,0,0, ...]
+def bytedec(bs):
+    bs = list(bs)
+    pos = len(bs) - 1
+    while bs[pos] == 0:
+        bs[pos] = 0xff
+        pos -= 1 # carry from previous position
+    bs[pos] -= 1
+    return bytes(bs)
+
+# for --shard a/b return address range (minaddr-1, maxaddr)
+# a in [1..b], e.g. --shard 1/16 .. 16/16
+# may return (None, addr) or (addr, None) for first/last shard
+def shard_bounds(shardspec):
+    a,b = shardspec.split('/')
+    a = int(a)
+    b = int(b)
+    chunk = (2**64) // b
+    if a < 1:
+        a = 1
+    if a > b:
+        a = b
+
+    if a == 1:
+        minsplit = None
+    else:
+        minsplit = struct.pack('>Q', chunk * (a-1))
+        minsplit += bytes([0]*24)
+        minsplit = bytedec(minsplit)
+    if a == b:
+        maxsplit = None
+    else:
+        maxsplit = struct.pack('>Q', chunk * a)
+        maxsplit += bytes([0]*24)
+    return (minsplit, maxsplit)
+
 def check_from_algod(args):
     global graceful_stop
     token, addr = token_addr_from_args(args)
@@ -576,6 +613,12 @@ def check_from_algod(args):
     status = algod.status()
     iloadstart = time.time()
     indexer_headers = None
+    gtaddr = args.gtaddr
+    maxaddr = None
+    if args.shard:
+        minaddr, maxaddr = shard_bounds(args.shard)
+        if minaddr is not None:
+            gtaddr = algosdk.encoding.encode_address(minaddr)
     if args.indexer_token:
         indexer_headers = {'X-Indexer-API-Token': token}
 
@@ -589,8 +632,12 @@ def check_from_algod(args):
         t.start()
         threads.append(t)
     lastaddr = None
-    for indexer_account in indexerAccounts(args.indexer, addrlist=(args.accounts and args.accounts.split(',')), headers=indexer_headers, gtaddr=args.gtaddr):
+    for indexer_account in indexerAccounts(args.indexer, addrlist=(args.accounts and args.accounts.split(',')), headers=indexer_headers, gtaddr=gtaddr):
         lastaddr = indexer_account['address']
+        if maxaddr is not None:
+            la = algosdk.encoding.decode_address(lastaddr)
+            if la > maxaddr:
+                break
         ia_queue.put(indexer_account)
         if graceful_stop:
             break
@@ -625,6 +672,7 @@ def main():
     ap.add_argument('--ssl-no-validate', default=False, action='store_true')
     ap.add_argument('--threads', default=4, type=int, help='number of request-compare threads to run')
     ap.add_argument('--gtaddr', default=None, help='fetch accounts after this addr')
+    ap.add_argument('--shard', default=None, help='a/b for a in [1..b]')
     args = ap.parse_args()
 
     if args.verbose:
@@ -641,6 +689,9 @@ def main():
     if args.ssl_no_validate:
         global ssl_no_validate
         ssl_no_validate = SSLContext() # empty context doesn't validate; use for self-signed certs
+    if args.gtaddr and args.shard:
+        logger.error('--gtaddr and --shard are incompatible')
+        return 1
     out = sys.stdout
     err = sys.stderr
 
