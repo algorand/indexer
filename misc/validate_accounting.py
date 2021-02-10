@@ -28,7 +28,7 @@ fee_addr = base64.b64decode("x/zNsljw1BicK/i21o7ml1CGQrCtAB8x/LkYw1S6hZo=")
 reward_niceaddr = algosdk.encoding.encode_address(reward_addr)
 fee_niceaddr = algosdk.encoding.encode_address(fee_addr)
 
-ssl_no_validate = SSLContext()
+ssl_no_validate = None
 
 def process_genesis(genesis):
     rwd = genesis.get('rwd')
@@ -94,7 +94,13 @@ def indexerAccountFromAddr(rooturl, niceaddr, blockround=None, headers=None):
         accountsurl[4] = urllib.parse.urlencode(query)
     pageurl = urllib.parse.urlunparse(accountsurl)
     logger.debug('GET %s', pageurl)
-    yield from getAccountsPage(pageurl, headers)
+    acct = None
+    for na in getAccountsPage(pageurl, headers):
+        if acct is None:
+            acct = na
+        else:
+            raise Exception('indexerAccountFromAddr should only yield one, got a second')
+    return acct
 
 def getAccountsPage(pageurl, headers=None, retries=5):
     if headers is None:
@@ -396,7 +402,7 @@ class CheckContext:
         i2acfg = indexer_account.get('created-assets')
         # filter out deleted entries that indexer is showing to us
         if i2acfg:
-            i2acfg = list(filter(lambda x: x['params']['total'] is not 0, i2acfg))
+            i2acfg = list(filter(lambda x: x['params']['total'] != 0, i2acfg))
         if acfg:
             if i2acfg:
                 indexerAcfg = dictifyAssetConfig(i2acfg)
@@ -429,7 +435,7 @@ class CheckContext:
         i2applocal = indexer_account.get('apps-local-state')
         # filter out deleted entries that indexer is showing to us
         if i2applocal:
-            i2applocal = list(filter(lambda x: x['schema']['num-byte-slice'] is not 0 or x['schema']['num-uint'] is not 0, i2applocal))
+            i2applocal = list(filter(lambda x: x['schema']['num-byte-slice'] != 0 or x['schema']['num-uint'] != 0, i2applocal))
         if applocal:
             if i2applocal:
                 eqerr = []
@@ -526,7 +532,7 @@ def token_addr_from_args(args):
 
 def check_from_algod(args):
     token, addr = token_addr_from_args(args)
-    algod = AlgodClient(token, addr, ssl_no_validate=True)
+    algod = AlgodClient(token, addr)
     if args.genesis or args.algod:
         gpath = args.genesis or os.path.join(args.algod, 'genesis.json')
         getGenesisVars(gpath)
@@ -539,6 +545,7 @@ def check_from_algod(args):
     if args.indexer_token:
         indexer_headers = {'X-Indexer-API-Token': token}
 
+    lastlog = time.time()
     i2a_checker = CheckContext(sys.stderr)
     # for each account in indexer, get it from algod, and maybe re-get it from indexer at the round algod had
     for indexer_account in indexerAccounts(args.indexer, addrlist=(args.accounts and args.accounts.split(',')), headers=indexer_headers):
@@ -549,6 +556,10 @@ def check_from_algod(args):
         if algod_account['round'] != indexer_account['round']:
             indexer_account = indexerAccountFromAddr(args.indexer, niceaddr, blockround=algod_account['round'], headers=indexer_headers)
         i2a_checker.check(indexer_account, algod_account)
+        now = time.time()
+        if (now - lastlog) > 5:
+            logger.info('%d match, %d neq', i2a_checker.match, i2a_checker.neq)
+            lastlog = now
     return i2a_checker
 
 def main():
@@ -566,6 +577,7 @@ def main():
     ap.add_argument('-q', '--quiet', default=False, action='store_true')
     ap.add_argument('--verbose', default=False, action='store_true')
     ap.add_argument('--accounts', help='comma separated list of accounts to test')
+    ap.add_argument('--ssl-no-validate', default=False, action='store_true')
     args = ap.parse_args()
 
     if args.verbose:
@@ -579,6 +591,9 @@ def main():
     if (not args.algod) and ((not args.algod_net) or (not args.algod_token)):
         logger.error("need --algod datadir or --algod-net and --algod-token")
         return 1
+    if args.ssl_no_validate:
+        global ssl_no_validate
+        ssl_no_validate = SSLContext() # empty context doesn't validate; use for self-signed certs
     out = sys.stdout
     err = sys.stderr
 
