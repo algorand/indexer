@@ -83,16 +83,23 @@ function stats {
 }
 
 function print_error_details {
-  # TODO: Should we print the non-normalized accounts as well?
-  printf "\n$s: Accounting mismatch for %s\n" "($ERROR_COUNT)" "$ACCT" >&2
-  printf "\nIndexer JSON:\n$INDEXER_ACCT_NORMALIZED"                   >&2
-  printf "\nALGOD JSON:\n\n$ALGOD_ACCT_NORMALIZED"                     >&2
+  echo "=========================================="
+  echo "Error #$ERROR_COUNT"                         >&2
+  echo "Account: $ACCT"                              >&2
+  update_account $ACCT true
+  printf "\nNORMALIZED\n"
+  printf "Indexer JSON:\n$INDEXER_ACCT_NORMALIZED\n" >&2
+  printf "ALGOD JSON:\n$ALGOD_ACCT_NORMALIZED\n"     >&2
+
+  printf "\nRAW\n"
+  printf "Indexer JSON:\n$INDEXER_ACCT\n"            >&2
+  printf "ALGOD JSON:\n$ALGOD_ACCT\n"                >&2
 }
 
 # Fancy jq function to normalize the json coming out of indexer or algod.
 # $1 - json data
 function normalize_json {
-  echo "$1" | jq -M\
+  echo "$1" | jq -SM\
     '
     # If there is a top level account field (indexer), use it.
     if .account then .account else . end
@@ -157,11 +164,28 @@ function normalize_json {
           map(select(. != null and . != {} and . != []))
         else
           .
-        end)'
+        end)
+      |
+    if .assets               then .assets             |= sort_by(."asset-id")
+    elif ."apps-local-state" then ."apps-local-state" |= sort_by(.id)
+    elif ."created-apps"     then ."created-apps"     |= sort_by(.id)
+    elif ."created-assets"   then ."created-assets"   |= sort_by(.index)
+    else .
+    end
+        '
 }
 
 # $1 - account address
+# $2 - if set prints curl commands
 function update_account {
+  if [ ! -z $2 ]; then
+    printf "INDEXER CURL: " >&2
+    echo "curl -s -q \"$INDEXER_NET/v2/accounts/$1?pretty\" -H \"Authorization: Bearer $INDEXER_TOKEN\"" >&2
+    printf "ALGOD CURL: " >&2
+    echo "curl -s -q -H \"Authorization: Bearer $ALGOD_TOKEN\" \"$ALGOD_NET/v2/accounts/$1?pretty\""     >&2
+    return
+  fi
+
   INDEXER_ACCT=$(curl -s -q "$INDEXER_NET/v2/accounts/$1?pretty" -H "Authorization: Bearer $INDEXER_TOKEN")
   INDEXER_ACCT_NORMALIZED=$(normalize_json "$INDEXER_ACCT")
 
