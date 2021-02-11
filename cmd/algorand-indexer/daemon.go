@@ -79,7 +79,7 @@ var daemonCmd = &cobra.Command{
 		}
 		if bot != nil {
 			logger.Info("Initializing block import handler.")
-			maxRound, err := db.GetMaxRound()
+			maxRound, err := db.GetMaxRoundLoaded()
 			maybeFail(err, "failed to get max round, %v", err)
 			if maxRound != 0 {
 				bot.SetNextRound(maxRound + 1)
