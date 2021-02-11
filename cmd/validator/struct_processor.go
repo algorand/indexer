@@ -79,7 +79,6 @@ func (gp *StructProcessor) ProcessAddress(addr string, config params) error {
 	if err != nil {
 		return errors.Wrap(err, fmt.Sprintf("unable to lookup algod acct %s", addr))
 	}
-	BZNKXBBXIVZ7GFAXHNC26ERYUD5TQWWV327IU2N4SKG6WLNFGMMCRQEFZE
 
 	if ! equals(indexerAcct, algodAcct) {
 		// report mismatch
