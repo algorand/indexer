@@ -73,9 +73,6 @@ func main() {
 		errorLog.Fatalf("indexer-url parameter is required.")
 	}
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
-
 	var processor Processor
 	switch processorNum {
 	case 0:
@@ -97,7 +94,7 @@ func main() {
 	}
 
 	// This will keep going until the results channel is closed.
-	printResults(config, results, quit)
+	printResults(config, results)
 }
 
 func startWorkers(processor Processor, results chan<- Result) {
@@ -155,11 +152,29 @@ func resultChar(success bool) string {
 	return "X"
 }
 
-func printResults(config Params, results <-chan Result, quit <-chan os.Signal) {
+func printResults(config Params, results <-chan Result) {
 	numResults := 0
 	numErrors := 0
 	numRetries := 0
 	startTime := time.Now()
+
+	stats := func() {
+		endTime := time.Now()
+		// TODO: Print this when the quit signal fires
+		fmt.Printf("\n\nNumber of errors: [%d / %d]\n", numErrors, numResults)
+		fmt.Printf("Retry count: %d\n", numRetries)
+		fmt.Printf("Test duration: %s\n", time.Time{}.Add(endTime.Sub(startTime)).Format("15:04:05"))
+	}
+	defer stats()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt)
+
+	go func() {
+		<- quit
+		stats()
+		os.Exit(1)
+	}()
 
 	for r := range results {
 		if numResults % 100 == 0 {
@@ -184,10 +199,4 @@ func printResults(config Params, results <-chan Result, quit <-chan os.Signal) {
 			}
 		}
 	}
-	endTime := time.Now()
-
-	// TODO: Print this when the quit signal fires
-	fmt.Printf("\n\nNumber of errors: [%d / %d]\n", numErrors, numResults)
-	fmt.Printf("Retry count: %d\n", numRetries)
-	fmt.Printf("Test duration: %s\n", time.Time{}.Add(endTime.Sub(startTime)).Format("15:04:05"))
 }
