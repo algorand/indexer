@@ -395,13 +395,26 @@ func (db *IndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
 	return
 }
 
-// GetMaxRound is part of idb.IndexerDB
-func (db *IndexerDb) GetMaxRound() (round uint64, err error) {
+// GetMaxRoundAccounted is part of idb.IndexerDB
+func (db *IndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
+	//var round uint64
+	row := db.db.QueryRow(`select coalesce((v->>'account_round')::bigint, 0) from metastate where k = 'state'`)
+	err = row.Scan(&round)
+
+	if err == sql.ErrNoRows {
+		err = nil
+		round = 0
+	}
+
+	return
+}
+
+// GetMaxRoundLoaded is part of idb.IndexerDB
+func (db *IndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
 	var nullableRound sql.NullInt64
 	round = 0
 	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
 	err = row.Scan(&nullableRound)
-
 	if err == nil && nullableRound.Valid {
 		round = uint64(nullableRound.Int64)
 	}
@@ -2687,7 +2700,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 
 	data["migration-required"] = migrationRequired
 
-	round, err := db.GetMaxRound()
+	round, err := db.GetMaxRoundAccounted()
 	return idb.Health{
 		Data:        &data,
 		Round:       round,
