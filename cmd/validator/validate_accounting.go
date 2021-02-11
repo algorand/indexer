@@ -146,7 +146,6 @@ func callProcessor(processor Processor, addr string, config Params, results chan
 	} else {
 		results <- result
 	}
-	close(results)
 }
 
 func resultChar(success bool) string {
