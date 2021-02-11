@@ -19,7 +19,7 @@ script:
 - make lint
 - make
 - make integration
-- make test
+- make test -B
 #- ./test/perf.sh "$TEST_CONNECTION_STRING_1" && ./test/perf.sh "$TEST_CONNECTION_STRING_2"
 - make fakepackage
 - docker build -t e2e_tests -f docker/Dockerfile.mule .
