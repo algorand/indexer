@@ -68,13 +68,67 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	//////////
 	// When // We request the max round.
 	//////////
-	round, err := db.GetMaxRound()
+	roundA, err := db.GetMaxRoundAccounted()
+	assert.NoError(t, err)
+	roundL, err := db.GetMaxRoundLoaded()
+	assert.NoError(t, err)
 
 	//////////
 	// Then // There should be no error and we return that there are zero rounds.
 	//////////
+	assert.Equal(t, uint64(0), roundA)
+	assert.Equal(t, uint64(0), roundL)
+}
+
+
+// TestMaxRoundEmptyMetastate makes sure we return 0 when the metastate is empty.
+func TestMaxRoundEmptyMetastate(t *testing.T) {
+	pg, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+	///////////
+	// Given // The database has the metastate set but the account_round is missing.
+	///////////
+	db, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
 	assert.NoError(t, err)
+	pg.Exec(`INSERT INTO metastate (k, v) values ('state', '{}')`)
+
+	//////////
+	// When // We request the max round.
+	//////////
+	round, err := db.GetMaxRoundAccounted()
+	assert.NoError(t, err)
+
+	//////////
+	// Then // There should be no error and we return that there are zero rounds.
+	//////////
 	assert.Equal(t, uint64(0), round)
+}
+
+// TestMaxRound the happy path.
+func TestMaxRound(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+	///////////
+	// Given // The database has the metastate set normally.
+	///////////
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+	db.Exec(`INSERT INTO metastate (k, v) values ($1, $2)`, "state", "{\"account_round\":123454321}")
+	db.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`, 543212345)
+
+	//////////
+	// When // We request the max round.
+	//////////
+	roundA, err := pdb.GetMaxRoundAccounted()
+	assert.NoError(t, err)
+	roundL, err := pdb.GetMaxRoundLoaded()
+	assert.NoError(t, err)
+
+	//////////
+	// Then // There should be no error and we return that there are zero rounds.
+	//////////
+	assert.Equal(t, uint64(123454321), roundA)
+	assert.Equal(t, uint64(543212345), roundL)
 }
 
 func assertAccountAsset(t *testing.T, db *sql.DB, addr types.Address, assetid uint64, frozen bool, amount uint64) {
