@@ -16,13 +16,13 @@ addons:
     - python3-setuptools
     - python3-wheel
 script:
+- echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 - make lint
 - make
 - make integration
 - make test
 #- ./test/perf.sh "$TEST_CONNECTION_STRING_1" && ./test/perf.sh "$TEST_CONNECTION_STRING_2"
 - make fakepackage
-- echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 - docker build -t e2e_tests -f docker/Dockerfile.mule .
 - docker run --rm -t e2e_tests mule/e2e.sh
 env:
