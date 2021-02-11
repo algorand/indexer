@@ -398,13 +398,13 @@ func (db *IndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
 
 // GetMaxRound is part of idb.IndexerDB
 func (db *IndexerDb) GetMaxRound() (round uint64, err error) {
-	var nullableRound sql.NullInt64
-	round = 0
-	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
-	err = row.Scan(&nullableRound)
+	//var round uint64
+	row := db.db.QueryRow(`select coalesce((v->>'account_round')::bigint, 0) from metastate where k = 'state'`)
+	err = row.Scan(&round)
 
-	if err == nil && nullableRound.Valid {
-		round = uint64(nullableRound.Int64)
+	if err == sql.ErrNoRows {
+		err = nil
+		round = 0
 	}
 
 	return
