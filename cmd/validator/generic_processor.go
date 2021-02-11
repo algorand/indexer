@@ -20,7 +20,7 @@ func mustEncode(data interface{}) string {
 	return string(result)
 }
 
-func (gp GenericProcessor) ProcessAddress(addr string, config params) error {
+func (gp GenericProcessor) ProcessAddress(addr string, config Params, result chan<- Result) error {
 	indexerUrl := fmt.Sprintf("%s:/v2/accounts/%s", config.indexerUrl, addr)
 	indexerAcct, err := getResponse(indexerUrl, config.indexerToken)
 	if err != nil {
@@ -41,13 +41,28 @@ func (gp GenericProcessor) ProcessAddress(addr string, config params) error {
 	}
 
 	if !reflect.DeepEqual(indexerNorm, algodNorm) {
-		errorLog.Printf("===================================================================")
-		errorLog.Printf("Account: %s", addr)
-		errorLog.Printf("INDEXER\n%v\n", mustEncode(indexerAcct))
-		errorLog.Printf("ALGOD\n%v\n", mustEncode(algodAcct))
-		errorLog.Printf("INDEXER NORM\n%v\n", mustEncode(indexerNorm))
-		errorLog.Printf("ALGOD NORM\n%v\n", mustEncode(algodNorm))
+		//errorLog.Printf("===================================================================")
+		//errorLog.Printf("Account: %s", addr)
+		//errorLog.Printf("INDEXER\n%v\n", mustEncode(indexerAcct))
+		//errorLog.Printf("ALGOD\n%v\n", mustEncode(algodAcct))
+		//errorLog.Printf("INDEXER NORM\n%v\n", mustEncode(indexerNorm))
+		//errorLog.Printf("ALGOD NORM\n%v\n", mustEncode(algodNorm))
+		result <- Result{
+			Equal:   false,
+			Retries: 0,
+			Details: &ErrorDetails{
+				address: addr,
+				algod:   fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(algodAcct), mustEncode(algodNorm)),
+				indexer:   fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(indexerAcct), mustEncode(indexerNorm)),
+				diff:    nil,
+			},
+		}
+		return nil
 	}
+	result <- Result{
+		Equal:   true,
+	}
+
 	return nil
 }
 

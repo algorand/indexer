@@ -12,7 +12,7 @@ import (
 	"github.com/algorand/indexer/api/generated/v2"
 )
 
-func MakeStructProcessor(config params) *StructProcessor {
+func MakeStructProcessor(config Params) *StructProcessor {
 	return &StructProcessor{
 	}
 }
@@ -68,7 +68,7 @@ func getAccountAlgod(url, token string) (generated.Account, error) {
 	return response, err
 }
 
-func (gp *StructProcessor) ProcessAddress(addr string, config params) error {
+func (gp *StructProcessor) ProcessAddress(addr string, config Params, result chan<- Result) error {
 	indexerUrl := fmt.Sprintf("%s:/v2/accounts/%s", config.indexerUrl, addr)
 	indexerAcct, err := getAccountIndexer(indexerUrl, config.indexerToken)
 	if err != nil {
@@ -80,20 +80,34 @@ func (gp *StructProcessor) ProcessAddress(addr string, config params) error {
 		return errors.Wrap(err, fmt.Sprintf("unable to lookup algod acct %s", addr))
 	}
 
-	if ! equals(indexerAcct, algodAcct) {
-		// report mismatch
-		fmt.Println("MISMATCH!")
+	differences := equals(indexerAcct, algodAcct)
+	if len(differences) > 0 {
+		result <- Result{
+			Equal:   false,
+			Retries: 0,
+			Details: &ErrorDetails{
+				address: addr,
+				algod:   mustEncode(algodAcct),
+				indexer: mustEncode(indexerAcct),
+				diff:    differences,
+			},
+		}
+		return nil
 	}
-
+	result <- Result{Equal: true}
 	return nil
 }
-func equals(indexer, algod generated.Account) bool {
+
+// equals compares the indexer and algod accounts, and returns a slice of differences
+func equals(indexer, algod generated.Account) (differences []string) {
+	//differences := make([]string, 0)
+
 	// Ignore uninitialized accounts from algod
 	if algod.Amount == 0 {
-		return true
+		return
 	}
 	if indexer.Deleted != nil && *indexer.Deleted && algod.Amount == 0 {
-		return true
+		return
 	}
 
 	// Ignored fields:
@@ -102,29 +116,29 @@ func equals(indexer, algod generated.Account) bool {
 	//   SigType
 
 	if algod.Address != indexer.Address {
-		return false
+		differences = append(differences, "account address")
 	}
 	if algod.Amount != indexer.Amount {
-		return false
+		differences = append(differences, "microalgo amount")
 	}
 	if algod.AmountWithoutPendingRewards != indexer.AmountWithoutPendingRewards {
-		return false
+		differences = append(differences, "amount-without-pending-rewards")
 	}
 	if !appSchemaComparePtrEqual(algod.AppsTotalSchema, indexer.AppsTotalSchema) {
-		return false
+		differences = append(differences, "apps-total-schema")
 	}
 	if algod.AuthAddr != indexer.AuthAddr {
-		return false
+		differences = append(differences, "auth-addr")
 	}
 	if algod.PendingRewards != indexer.PendingRewards {
-		return false
+		differences = append(differences, "pending-rewards")
 	}
 	// With and without the pending rewards fix
 	if algod.Rewards != indexer.Rewards && algod.Rewards != indexer.Rewards + indexer.PendingRewards {
-		return false
+		differences = append(differences, "rewards (including adjusted)")
 	}
 	if algod.Status != strings.ReplaceAll(indexer.Status, " ", "") {
-		return false
+		differences = append(differences, "status")
 	}
 
 	////////////
@@ -134,14 +148,14 @@ func equals(indexer, algod generated.Account) bool {
 	indexerAssetCount := len(indexerAssets)
 	// There should be the same number of undeleted indexer assets as algod assets
 	if algod.Assets == nil && indexerAssetCount > 0 || indexerAssetCount != len(*algod.Assets) {
-		return false
+		differences = append(differences, "assets")
 	}
 	if algod.Assets != nil {
 		for _, algodAsset := range *algod.Assets {
 			// Make sure the asset exists in both results
 			indexerAsset, ok := indexerAssets[algodAsset.AssetId]
 			if !ok {
-				return false
+				differences = append(differences, fmt.Sprintf("missing asset %d", algodAsset.AssetId))
 			}
 
 			// Ignored fields:
@@ -152,10 +166,10 @@ func equals(indexer, algod generated.Account) bool {
 			//   OptedOutAtRound
 
 			if algodAsset.Amount != indexerAsset.Amount {
-				return false
+				differences = append(differences, fmt.Sprintf("asset amount %d", algodAsset.AssetId))
 			}
 			if algodAsset.IsFrozen != indexerAsset.IsFrozen {
-				return false
+				differences = append(differences, fmt.Sprintf("asset is-frozen %d", algodAsset.AssetId))
 			}
 		}
 	}
@@ -164,17 +178,17 @@ func equals(indexer, algod generated.Account) bool {
 	// CreatedAssets //
 	///////////////////
 	indexerCreatedAssets := createdAssetLookupMap(indexer.CreatedAssets)
-	indexerCreatedAssetCount := len(indexerAssets)
+	indexerCreatedAssetCount := len(indexerCreatedAssets)
 	// There should be the same number of undeleted indexer created assets as algod assets
 	if algod.CreatedAssets == nil && indexerCreatedAssetCount > 0 || indexerCreatedAssetCount != len(*algod.CreatedAssets) {
-		return false
+		differences = append(differences, "created-assets")
 	}
 	if algod.CreatedAssets != nil {
 		for _, algodCreatedAsset := range *algod.CreatedAssets {
 			// Make sure the asset exists in both results
 			indexerCreatedAsset, ok := indexerCreatedAssets[algodCreatedAsset.Index]
 			if !ok {
-				return false
+				differences = append(differences, fmt.Sprintf("missing created-asset %d", algodCreatedAsset.Index))
 			}
 
 			// Ignored fields:
@@ -184,40 +198,40 @@ func equals(indexer, algod generated.Account) bool {
 			//   DestroyedAtRound
 
 			if !stringPtrEqual(algodCreatedAsset.Params.Freeze, indexerCreatedAsset.Params.Freeze) {
-				return false
+				differences = append(differences, fmt.Sprintf("created-asset freeze-addr %d", algodCreatedAsset.Index))
 			}
 			if !stringPtrEqual(algodCreatedAsset.Params.Clawback, indexerCreatedAsset.Params.Clawback) {
-				return false
+				differences = append(differences, fmt.Sprintf("created-asset clawback-addr %d", algodCreatedAsset.Index))
 			}
 			if !stringPtrEqual(algodCreatedAsset.Params.Manager, indexerCreatedAsset.Params.Manager) {
-				return false
+				differences = append(differences, fmt.Sprintf("created-asset manager-addr %d", algodCreatedAsset.Index))
 			}
 			if !stringPtrEqual(algodCreatedAsset.Params.Reserve, indexerCreatedAsset.Params.Reserve) {
-				return false
+				differences = append(differences, fmt.Sprintf("created-asset reserve-addr %d", algodCreatedAsset.Index))
 			}
 			if !boolPtrEqual(algodCreatedAsset.Params.DefaultFrozen, indexerCreatedAsset.Params.DefaultFrozen) {
-				return false
+				differences = append(differences, fmt.Sprintf("created-asset default-frozen %d", algodCreatedAsset.Index))
 			}
 			if algodCreatedAsset.Params.Creator != indexerCreatedAsset.Params.Creator {
-				return false
+				differences = append(differences, fmt.Sprintf("created-asset creator-addr %d", algodCreatedAsset.Index))
 			}
 			if algodCreatedAsset.Params.Decimals != indexerCreatedAsset.Params.Decimals {
-				return false
+				differences = append(differences, fmt.Sprintf("created-asset decimals %d", algodCreatedAsset.Index))
 			}
 			if algodCreatedAsset.Params.Total != indexerCreatedAsset.Params.Total {
-				return false
+				differences = append(differences, fmt.Sprintf("created-asset total %d", algodCreatedAsset.Index))
 			}
 			if !stringPtrEqual(algodCreatedAsset.Params.Name, indexerCreatedAsset.Params.Name) {
-				return false
+				differences = append(differences, fmt.Sprintf("created-asset name %d", algodCreatedAsset.Index))
 			}
 			if !stringPtrEqual(algodCreatedAsset.Params.UnitName, indexerCreatedAsset.Params.UnitName) {
-				return false
+				differences = append(differences, fmt.Sprintf("created-asset unit-name %d", algodCreatedAsset.Index))
 			}
 			if !stringPtrEqual(algodCreatedAsset.Params.Url, indexerCreatedAsset.Params.Url) {
-				return false
+				differences = append(differences, fmt.Sprintf("created-asset url %d", algodCreatedAsset.Index))
 			}
 			if !bytesPtrEqual(algodCreatedAsset.Params.MetadataHash, indexerCreatedAsset.Params.MetadataHash) {
-				return false
+				differences = append(differences, fmt.Sprintf("created-asset metadata-hash %d", algodCreatedAsset.Index))
 			}
 		}
 	}
@@ -228,22 +242,22 @@ func equals(indexer, algod generated.Account) bool {
 	indexerAppLocalState := appLookupMap(indexer.AppsLocalState)
 	indexerAppLocalStateCount := len(indexerAppLocalState)
 	if algod.AppsLocalState == nil && indexerAppLocalStateCount > 0 || indexerAppLocalStateCount != len(*algod.AppsLocalState) {
-		return false
+		differences = append(differences, "apps-local-state")
 	}
 	if algod.AppsLocalState != nil {
 		for _, algodAppLocalState := range *algod.AppsLocalState {
 			// Make sure the app local state exists in both results
 			indexerAppLocalState, ok := indexerAppLocalState[algodAppLocalState.Id]
 			if !ok {
-				return false
+				differences = append(differences, fmt.Sprintf("missing app-local-state %d", algodAppLocalState.Id))
 			}
 
 			if algodAppLocalState.Schema != indexerAppLocalState.Schema {
-				return false
+				differences = append(differences, fmt.Sprintf("app-local-state schema %d", algodAppLocalState.Id))
 			}
 
 			if !tealKeyValueStoreEqual(algodAppLocalState.KeyValue, indexerAppLocalState.KeyValue) {
-				return false
+				differences = append(differences, fmt.Sprintf("app-local-state key-values %d", algodAppLocalState.Id))
 			}
 		}
 	}
@@ -254,37 +268,37 @@ func equals(indexer, algod generated.Account) bool {
 	indexerCreatedApps := createdAppLookupMap(indexer.CreatedApps)
 	indexerCreatedAppsCount := len(indexerCreatedApps)
 	if algod.CreatedApps == nil && indexerCreatedAppsCount > 0 || indexerCreatedAppsCount != len(*algod.CreatedApps) {
-		return false
+		differences = append(differences, "created-apps")
 	}
 	if algod.CreatedApps != nil {
 		for _, algodCreatedApp := range *algod.CreatedApps {
 			// Make sure the created app exists in both results
 			indexerCreatedApp, ok := indexerCreatedApps[algodCreatedApp.Id]
 			if !ok {
-				return false
+				differences = append(differences, fmt.Sprintf("missing created-app %d", algodCreatedApp.Id))
 			}
 			if !stringPtrEqual(algodCreatedApp.Params.Creator, indexerCreatedApp.Params.Creator) {
-				return false
+				differences = append(differences, fmt.Sprintf("created-app creator %d", algodCreatedApp.Id))
 			}
 			if bytes.Compare(algodCreatedApp.Params.ApprovalProgram, indexerCreatedApp.Params.ApprovalProgram) != 0 {
-				return false
+				differences = append(differences, fmt.Sprintf("created-app approval-program %d", algodCreatedApp.Id))
 			}
 			if bytes.Compare(algodCreatedApp.Params.ClearStateProgram, indexerCreatedApp.Params.ClearStateProgram) != 0 {
-				return false
+				differences = append(differences, fmt.Sprintf("created-app clear-state-program %d", algodCreatedApp.Id))
 			}
 			if !tealKeyValueStoreEqual(algodCreatedApp.Params.GlobalState, indexerCreatedApp.Params.GlobalState) {
-				return false
+				differences = append(differences, fmt.Sprintf("created-app global-state %d", algodCreatedApp.Id))
 			}
 			if !stateSchemePtrEqual(algodCreatedApp.Params.LocalStateSchema, indexerCreatedApp.Params.LocalStateSchema) {
-				return false
+				differences = append(differences, fmt.Sprintf("created-app local-state-schema %d", algodCreatedApp.Id))
 			}
 			if !stateSchemePtrEqual(algodCreatedApp.Params.GlobalStateSchema, indexerCreatedApp.Params.GlobalStateSchema) {
-				return false
+				differences = append(differences, fmt.Sprintf("created-app global-state-schema %d", algodCreatedApp.Id))
 			}
 		}
 	}
 
-	return true
+	return
 }
 
 func appSchemaComparePtrEqual(val1, val2 *generated.ApplicationStateSchema) bool {
