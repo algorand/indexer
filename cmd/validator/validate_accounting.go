@@ -11,10 +11,11 @@ import (
 	"time"
 )
 
+// Params are the program arguments which need to be passed between objects.
 type Params struct {
-	algodUrl     string
+	algodURL     string
 	algodToken   string
-	indexerUrl   string
+	indexerURL   string
 	indexerToken string
 	retries      int
 }
@@ -25,15 +26,17 @@ func init() {
 
 // Processor is the algorithm to fetch and compare data from indexer and algod
 type Processor interface {
-	ProcessAddress(addr string, config Params, result chan<- Result) error
+	ProcessAddress(addr string, config Params) (Result, error)
 }
 
+// Result is the output of ProcessAddress.
 type Result struct {
 	Equal   bool
 	Retries int
 	Details *ErrorDetails
 }
 
+// ErrorDetails are additional details attached to a result in the event of an error.
 type ErrorDetails struct {
 	address string
 	algod   string
@@ -49,15 +52,10 @@ var (
 	processorNum int
 )
 
-const (
-	STRUCT_PROCESSOR = iota
-	GENERIC_PROCESSOR
-)
-
 func main() {
-	flag.StringVar(&config.algodUrl, "algod-url", "", "Algod url.")
+	flag.StringVar(&config.algodURL, "algod-url", "", "Algod url.")
 	flag.StringVar(&config.algodToken, "algod-token", "", "Algod token.")
-	flag.StringVar(&config.indexerUrl, "indexer-url", "", "Indexer url.")
+	flag.StringVar(&config.indexerURL, "indexer-url", "", "Indexer url.")
 	flag.StringVar(&config.indexerToken, "indexer-token", "", "Indexer toke.n")
 	flag.StringVar(&addr, "addr", "", "If provided validate a single address instead of reading Stdin.")
 	flag.IntVar(&config.retries, "retries", 0, "Number of retry attempts when a difference is detected.")
@@ -65,13 +63,13 @@ func main() {
 	flag.IntVar(&processorNum, "processor", 0, "Choose compare algorithm [0 = Struct, 1 = Reflection]")
 	flag.Parse()
 
-	if len(config.algodUrl) == 0 {
+	if len(config.algodURL) == 0 {
 		errorLog.Fatalf("algod-url parameter is required.")
 	}
 	if len(config.algodToken) == 0 {
 		errorLog.Fatalf("algod-token parameter is required.")
 	}
-	if len(config.indexerUrl) == 0 {
+	if len(config.indexerURL) == 0 {
 		errorLog.Fatalf("indexer-url parameter is required.")
 	}
 
@@ -81,7 +79,7 @@ func main() {
 	var processor Processor
 	switch processorNum {
 	case 0:
-		processor = MakeStructProcessor(config)
+		processor = StructProcessor{}
 	case 1:
 		processor = GenericProcessor{}
 	default:
@@ -92,17 +90,17 @@ func main() {
 
 	// Process a single address
 	if len(addr) != 0 {
-		processor.ProcessAddress(addr, config, results)
+		callProcessor(processor, addr, config, results)
 		close(results)
 	} else {
 		go startWorkers(processor, results)
 	}
 
 	// This will keep going until the results channel is closed.
-	printResults(results, quit)
+	printResults(config, results, quit)
 }
 
-func startWorkers(processor Processor, results chan Result) {
+func startWorkers(processor Processor, results chan<- Result) {
 	// Otherwise start the threads and read standard input.
 	var wg sync.WaitGroup
 	work := make(chan string, 1000000)
@@ -113,10 +111,7 @@ func startWorkers(processor Processor, results chan Result) {
 		go func() {
 			defer wg.Done()
 			for addr := range work {
-				err := processor.ProcessAddress(addr, config, results)
-				if err != nil {
-					fmt.Println(err)
-				}
+				callProcessor(processor, addr, config, results)
 			}
 		}()
 	}
@@ -135,6 +130,25 @@ func startWorkers(processor Processor, results chan Result) {
 	close(results)
 }
 
+func callProcessor(processor Processor, addr string, config Params, results chan<- Result) {
+	result, err := processor.ProcessAddress(addr, config)
+	if err != nil {
+		results <- Result{
+			Equal:   false,
+			Retries: 0,
+			Details: &ErrorDetails{
+				address: addr,
+				algod:   "",
+				indexer: "",
+				diff:    []string{ "error from processor", err.Error()},
+			},
+		}
+	} else {
+		results <- result
+	}
+	close(results)
+}
+
 func resultChar(success bool) string {
 	if success {
 		return "."
@@ -142,7 +156,7 @@ func resultChar(success bool) string {
 	return "X"
 }
 
-func printResults(results <-chan Result, quit <-chan os.Signal) {
+func printResults(config Params, results <-chan Result, quit <-chan os.Signal) {
 	numResults := 0
 	numErrors := 0
 	numRetries := 0
@@ -164,6 +178,8 @@ func printResults(results <-chan Result, quit <-chan os.Signal) {
 			errorLog.Printf("Algod Details:\n%s", r.Details.algod)
 			errorLog.Printf("Indexer Details:\n%s", r.Details.indexer)
 			errorLog.Printf("Differences:")
+			errorLog.Printf("Algod curl: \ncurl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.algodToken, config.algodURL, r.Details.address)
+			errorLog.Printf("Indexer curl: \ncurl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.indexerToken, config.indexerURL, r.Details.address)
 			for _, diff := range r.Details.diff {
 				errorLog.Printf("     - %s", diff)
 			}

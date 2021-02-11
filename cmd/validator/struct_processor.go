@@ -12,11 +12,8 @@ import (
 	"github.com/algorand/indexer/api/generated/v2"
 )
 
-func MakeStructProcessor(config Params) *StructProcessor {
-	return &StructProcessor{
-	}
-}
-
+// StructProcessor implements the process function by serializing API responses into structs and comparing the typed
+// objects to each other directly.
 type StructProcessor struct {
 }
 
@@ -68,21 +65,22 @@ func getAccountAlgod(url, token string) (generated.Account, error) {
 	return response, err
 }
 
-func (gp *StructProcessor) ProcessAddress(addr string, config Params, result chan<- Result) error {
-	indexerUrl := fmt.Sprintf("%s:/v2/accounts/%s", config.indexerUrl, addr)
-	indexerAcct, err := getAccountIndexer(indexerUrl, config.indexerToken)
+// ProcessAddress is the entrypoint for the StructProcessor
+func (gp StructProcessor) ProcessAddress(addr string, config Params) (Result, error) {
+	indexerURL := fmt.Sprintf("%s:/v2/accounts/%s", config.indexerURL, addr)
+	indexerAcct, err := getAccountIndexer(indexerURL, config.indexerToken)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("unable to lookup indexer acct %s", addr))
+		return Result{}, errors.Wrap(err, fmt.Sprintf("unable to lookup indexer acct %s", addr))
 	}
-	algodUrl := fmt.Sprintf("%s:/v2/accounts/%s", config.algodUrl, addr)
-	algodAcct, err := getAccountAlgod(algodUrl, config.algodToken)
+	algodURL := fmt.Sprintf("%s:/v2/accounts/%s", config.algodURL, addr)
+	algodAcct, err := getAccountAlgod(algodURL, config.algodToken)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("unable to lookup algod acct %s", addr))
+		return Result{}, errors.Wrap(err, fmt.Sprintf("unable to lookup algod acct %s", addr))
 	}
 
 	differences := equals(indexerAcct, algodAcct)
 	if len(differences) > 0 {
-		result <- Result{
+		return Result{
 			Equal:   false,
 			Retries: 0,
 			Details: &ErrorDetails{
@@ -91,11 +89,9 @@ func (gp *StructProcessor) ProcessAddress(addr string, config Params, result cha
 				indexer: mustEncode(indexerAcct),
 				diff:    differences,
 			},
-		}
-		return nil
+		}, nil
 	}
-	result <- Result{Equal: true}
-	return nil
+	return Result{Equal: true}, nil
 }
 
 // equals compares the indexer and algod accounts, and returns a slice of differences

@@ -9,6 +9,7 @@ import (
 	"sort"
 )
 
+// GenericProcessor implements process address by dynamically normalizing the JSON and ensuring the results are equal.
 type GenericProcessor struct {
 }
 
@@ -20,16 +21,17 @@ func mustEncode(data interface{}) string {
 	return string(result)
 }
 
-func (gp GenericProcessor) ProcessAddress(addr string, config Params, result chan<- Result) error {
-	indexerUrl := fmt.Sprintf("%s:/v2/accounts/%s", config.indexerUrl, addr)
-	indexerAcct, err := getResponse(indexerUrl, config.indexerToken)
+// ProcessAddress is the entrypoint for the GenericProcessor.
+func (gp GenericProcessor) ProcessAddress(addr string, config Params) (Result, error) {
+	indexerURL := fmt.Sprintf("%s:/v2/accounts/%s", config.indexerURL, addr)
+	indexerAcct, err := getResponse(indexerURL, config.indexerToken)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("unable to lookup indexer acct %s", addr))
+		return Result{}, errors.Wrap(err, fmt.Sprintf("unable to lookup indexer acct %s", addr))
 	}
-	algodUrl := fmt.Sprintf("%s:/v2/accounts/%s", config.algodUrl, addr)
-	algodAcct, err := getResponse(algodUrl, config.algodToken)
+	algodURL := fmt.Sprintf("%s:/v2/accounts/%s", config.algodURL, addr)
+	algodAcct, err := getResponse(algodURL, config.algodToken)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("unable to lookup algod acct %s", addr))
+		return Result{}, errors.Wrap(err, fmt.Sprintf("unable to lookup algod acct %s", addr))
 	}
 	indexerNorm, err := normalize(indexerAcct)
 	if err != nil {
@@ -41,13 +43,7 @@ func (gp GenericProcessor) ProcessAddress(addr string, config Params, result cha
 	}
 
 	if !reflect.DeepEqual(indexerNorm, algodNorm) {
-		//errorLog.Printf("===================================================================")
-		//errorLog.Printf("Account: %s", addr)
-		//errorLog.Printf("INDEXER\n%v\n", mustEncode(indexerAcct))
-		//errorLog.Printf("ALGOD\n%v\n", mustEncode(algodAcct))
-		//errorLog.Printf("INDEXER NORM\n%v\n", mustEncode(indexerNorm))
-		//errorLog.Printf("ALGOD NORM\n%v\n", mustEncode(algodNorm))
-		result <- Result{
+		return Result{
 			Equal:   false,
 			Retries: 0,
 			Details: &ErrorDetails{
@@ -56,14 +52,9 @@ func (gp GenericProcessor) ProcessAddress(addr string, config Params, result cha
 				indexer:   fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(indexerAcct), mustEncode(indexerNorm)),
 				diff:    nil,
 			},
-		}
-		return nil
+		}, nil
 	}
-	result <- Result{
-		Equal:   true,
-	}
-
-	return nil
+	return Result{Equal:   true}, nil
 }
 
 
@@ -144,7 +135,7 @@ func isEmpty(val interface{}) (bool, error) {
 		}
 	default:
 		var r = reflect.TypeOf(t)
-		return false, fmt.Errorf("Unknown leaf type:%v\n", r)
+		return false, fmt.Errorf("unknown leaf type:%v", r)
 	}
 
 	return false, nil
