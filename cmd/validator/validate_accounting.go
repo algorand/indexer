@@ -42,10 +42,16 @@ type ErrorDetails struct {
 }
 
 var (
-	errorLog  *log.Logger
-	config    Params
-	addr      string
-	threads   int
+	errorLog     *log.Logger
+	config       Params
+	addr         string
+	threads      int
+	processorNum int
+)
+
+const (
+	STRUCT_PROCESSOR = iota
+	GENERIC_PROCESSOR
 )
 
 func main() {
@@ -56,6 +62,7 @@ func main() {
 	flag.StringVar(&addr, "addr", "", "If provided validate a single address instead of reading Stdin.")
 	flag.IntVar(&config.retries, "retries", 0, "Number of retry attempts when a difference is detected.")
 	flag.IntVar(&threads, "threads", 10, "Number of worker threads to initialize.")
+	flag.IntVar(&processorNum, "processor", 0, "Choose compare algorithm [0 = Struct, 1 = Reflection]")
 	flag.Parse()
 
 	if len(config.algodUrl) == 0 {
@@ -71,8 +78,16 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt)
 
-	//var processor Processor = GenericProcessor{}
-	var processor Processor = MakeStructProcessor(config)
+	var processor Processor
+	switch processorNum {
+	case 0:
+		processor = MakeStructProcessor(config)
+	case 1:
+		processor = GenericProcessor{}
+	default:
+		errorLog.Fatalf("invalid processor selected.")
+	}
+
 	results := make(chan Result, 5000)
 
 	// Process a single address
