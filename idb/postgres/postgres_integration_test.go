@@ -68,13 +68,16 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	//////////
 	// When // We request the max round.
 	//////////
-	round, err := db.GetMaxRound()
+	roundA, err := db.GetMaxRoundAccounted()
+	assert.NoError(t, err)
+	roundL, err := db.GetMaxRoundLoaded()
+	assert.NoError(t, err)
 
 	//////////
 	// Then // There should be no error and we return that there are zero rounds.
 	//////////
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(0), round)
+	assert.Equal(t, uint64(0), roundA)
+	assert.Equal(t, uint64(0), roundL)
 }
 
 
@@ -92,12 +95,12 @@ func TestMaxRoundEmptyMetastate(t *testing.T) {
 	//////////
 	// When // We request the max round.
 	//////////
-	round, err := db.GetMaxRound()
+	round, err := db.GetMaxRoundAccounted()
+	assert.NoError(t, err)
 
 	//////////
 	// Then // There should be no error and we return that there are zero rounds.
 	//////////
-	assert.NoError(t, err)
 	assert.Equal(t, uint64(0), round)
 }
 
@@ -111,17 +114,21 @@ func TestMaxRound(t *testing.T) {
 	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
 	assert.NoError(t, err)
 	db.Exec(`INSERT INTO metastate (k, v) values ($1, $2)`, "state", "{\"account_round\":123454321}")
+	db.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`, 543212345)
 
 	//////////
 	// When // We request the max round.
 	//////////
-	round, err := pdb.GetMaxRound()
+	roundA, err := pdb.GetMaxRoundAccounted()
+	assert.NoError(t, err)
+	roundL, err := pdb.GetMaxRoundLoaded()
+	assert.NoError(t, err)
 
 	//////////
 	// Then // There should be no error and we return that there are zero rounds.
 	//////////
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(123454321), round)
+	assert.Equal(t, uint64(123454321), roundA)
+	assert.Equal(t, uint64(543212345), roundL)
 }
 
 func assertAccountAsset(t *testing.T, db *sql.DB, addr types.Address, assetid uint64, frozen bool, amount uint64) {

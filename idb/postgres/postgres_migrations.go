@@ -358,7 +358,7 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 // m5RewardsAndDatesPart1 adds the new rewards_total column to the account table.
 func m5RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	// Cache the round in the migration metastate
-	round, err := db.GetMaxRound()
+	round, err := db.GetMaxRoundAccounted()
 	if err != nil {
 		db.log.WithError(err).Errorf("%s: problem caching max round: %v", rewardsCreateCloseUpdateErr, err)
 		return err
