@@ -120,10 +120,13 @@ func equals(indexer, algod generated.Account) (differences []string) {
 	if algod.AmountWithoutPendingRewards != indexer.AmountWithoutPendingRewards {
 		differences = append(differences, "amount-without-pending-rewards")
 	}
+	/*
+	// Indexer doesn't support this yet.
 	if !appSchemaComparePtrEqual(algod.AppsTotalSchema, indexer.AppsTotalSchema) {
 		differences = append(differences, "apps-total-schema")
 	}
-	if algod.AuthAddr != indexer.AuthAddr {
+	 */
+	if !stringPtrEqual(algod.AuthAddr, indexer.AuthAddr) {
 		differences = append(differences, "auth-addr")
 	}
 	if algod.PendingRewards != indexer.PendingRewards {
@@ -133,7 +136,7 @@ func equals(indexer, algod generated.Account) (differences []string) {
 	if algod.Rewards != indexer.Rewards && algod.Rewards != indexer.Rewards + indexer.PendingRewards {
 		differences = append(differences, "rewards (including adjusted)")
 	}
-	if algod.Status != strings.ReplaceAll(indexer.Status, " ", "") {
+	if strings.ReplaceAll(algod.Status, " ", "") != indexer.Status {
 		differences = append(differences, "status")
 	}
 

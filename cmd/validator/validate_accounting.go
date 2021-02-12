@@ -132,13 +132,13 @@ func startWorkers(processor Processor, results chan<- Result) {
 func callProcessor(processor Processor, addr string, config Params, results chan<- Result) {
 	for i := 0; true; i++ {
 		result, err := processor.ProcessAddress(addr, config)
-		if err == nil {
-			// Return success immediately
+		if err == nil && (result.Equal || i >= config.retries){
+			// Return when results are equal, or when finished retrying.
 			result.Retries = i
 			results <- result
 			return
-		} else if err != nil && i >= config.retries {
-			// Return errors when the maximum retry count is reached.
+		} else if err != nil {
+			// If there is an error return immediately.
 			results <- Result{
 				Equal:   false,
 				Retries: i,
@@ -157,9 +157,12 @@ func callProcessor(processor Processor, addr string, config Params, results chan
 	}
 }
 
-func resultChar(success bool) string {
-	if success {
+func resultChar(success bool, retries int) string {
+	if success && retries == 0{
 		return "."
+	}
+	if success {
+		return string(retries)
 	}
 	return "X"
 }
@@ -192,7 +195,7 @@ func printResults(config Params, results <-chan Result) {
 		if numResults % 100 == 0 {
 			fmt.Printf("\n%-8d : ", numResults)
 		}
-		fmt.Printf(resultChar(r.Equal))
+		fmt.Printf(resultChar(r.Equal, r.Retries))
 
 		numResults++
 		numRetries+=r.Retries
