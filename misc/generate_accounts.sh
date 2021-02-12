@@ -21,7 +21,7 @@ function help () {
 
 #default selection queries
 SELECTION_QUERY="select encode(addr,'base64') from account where deleted is not null limit 1000"
-SELECTION_QUERY_COPY="COPY (select encode(addr, 'base64') from account limit 1000) TO stdout"
+SELECTION_QUERY_COPY="COPY (select encode(addr, 'base64') from account) TO stdout"
 
 START_TIME=$SECONDS
 PGUSER=
