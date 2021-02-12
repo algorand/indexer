@@ -19,8 +19,9 @@ function help () {
   echo "  --query    -> [optional] Query to use for selecting accounts."
 }
 
-#default selection query
+#default selection queries
 SELECTION_QUERY="select encode(addr,'base64') from account where deleted is not null limit 1000"
+SELECTION_QUERY_COPY="COPY (select encode(addr, 'base64') from account limit 1000) TO stdout"
 
 START_TIME=$SECONDS
 PGUSER=
@@ -59,15 +60,25 @@ while (( "$#" )); do
     --test)
       TEST=1
       ;;
+    --query)
+      shift
+      SELECTION_QUERY="$1"
+      SELECTION_QUERY_COPY="$1"
+      ;;
     -h|--help)
       help
       exit
       ;;
+    *)
+      echo "Unknown argument '$1'"
+      echo ""
+      help
+      exit
   esac
   shift
 done
 
-if [ -z $CONVERT_ADDR ] || [ -z $PGUSER ] || [ -z $PGPASSWORD ] || [ -z $PGPORT ] || [ -z $PGHOST ] || [ -z $PGDB ]; then
+if [ -z $PGUSER ] || [ -z $PGPASSWORD ] || [ -z $PGPORT ] || [ -z $PGHOST ] || [ -z $PGDB ]; then
   help
   exit
 fi
@@ -91,9 +102,15 @@ function psql_query {
 if [ ! -z $TEST ]; then
   echo "psql configuration test:"
   psql_query "select * from metastate" 1
+  psql_query "$SELECTION_QUERY" 1
 fi
 
-while read -r line; do
-  ACCT=$($CONVERT_ADDR -addr $line)
-  echo $ACCT
-done < <((psql_query "$SELECTION_QUERY")) # TODO: pass accounts in with a file?
+# If the converter tool is provided go ahead and convert everything
+if [ ! -z $CONVERT_ADDR ]; then
+  while read -r line; do
+    ACCT=$($CONVERT_ADDR -addr $line)
+    echo $ACCT
+  done < <((psql_query "$SELECTION_QUERY"))
+else
+  psql_query "$SELECTION_QUERY_COPY"
+fi
