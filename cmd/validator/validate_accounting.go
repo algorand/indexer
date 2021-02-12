@@ -2,6 +2,8 @@ package main
 
 import (
 	"bufio"
+	"encoding/base64"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -10,6 +12,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/algorand/go-algorand-sdk/types"
 )
 
 // Params are the program arguments which need to be passed between objects.
@@ -133,8 +137,38 @@ func start(processor Processor, threads int, config Params, results chan<- Resul
 	close(results)
 }
 
+// normalizeAddress accepts an algorand address or base64 encoded address and outputs the algorand address
+func normalizeAddress(addr string) (string, error) {
+	_, err := types.DecodeAddress(addr)
+	if err == nil {
+		return addr, nil
+	}
+
+	addrBytes, err := base64.StdEncoding.DecodeString(addr)
+	if err  == nil {
+		var address types.Address
+		copy(address[:], addrBytes)
+		return address.String(), nil
+	}
+
+	return "", errors.New("unable to decode address")
+}
+
 // callProcessor invokes the processor with a retry mechanism.
-func callProcessor(processor Processor, addr string, config Params, results chan<- Result) {
+func callProcessor(processor Processor, addrInput string, config Params, results chan<- Result) {
+	addr, err := normalizeAddress(addrInput)
+	if err != nil {
+		results <- Result{
+			Equal:   false,
+			Error:   err,
+			Retries: 0,
+			Details: &ErrorDetails{
+				address: addrInput,
+			},
+		}
+		return
+	}
+
 	for i := 0; true; i++ {
 		result, err := processor.ProcessAddress(addr, config)
 		if err == nil && (result.Equal || i >= config.retries){
@@ -148,6 +182,9 @@ func callProcessor(processor Processor, addr string, config Params, results chan
 				Equal:   false,
 				Error:   err,
 				Retries: i,
+				Details: &ErrorDetails{
+					address: addr,
+				},
 			}
 			return
 		}
