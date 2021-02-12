@@ -12,3 +12,7 @@ For example here is how you would run the program with accounts generated from `
 ```
 ~$ ./generate_accounts.sh --pg_user postgres --pg_pass postgres --pg_url localhost --pg_db mainnet_database --pg_port 5432 | ./validator --algod-url http://localhost:4160 --algod-token token_here --indexer-url http://localhost:8980 --threads 4 --retries 5 2> errors.txt
 ```
+
+# Building
+
+Run `go build` from this directory.

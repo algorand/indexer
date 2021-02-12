@@ -213,9 +213,11 @@ func resultsPrinter(config Params, results <-chan Result) {
 
 	stats := func() {
 		endTime := time.Now()
+		duration := endTime.Sub(startTime)
 		fmt.Printf("\n\nNumber of errors: [%d / %d]\n", numErrors, numResults)
 		fmt.Printf("Retry count: %d\n", numRetries)
-		fmt.Printf("Test duration: %s\n", time.Time{}.Add(endTime.Sub(startTime)).Format("15:04:05"))
+		fmt.Printf("Checks per second: %f\n", float64(numResults + numRetries) / duration.Seconds())
+		fmt.Printf("Test duration: %s\n", time.Time{}.Add(duration).Format("15:04:05"))
 	}
 
 	// Print stats at the end when things terminate naturally.
