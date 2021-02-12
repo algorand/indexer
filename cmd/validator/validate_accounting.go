@@ -23,6 +23,7 @@ type Params struct {
 
 func init() {
 	errorLog = log.New(os.Stderr, "", 1)
+	errorLog.SetFlags(0)
 }
 
 // Processor is the algorithm to fetch and compare data from indexer and algod
@@ -188,6 +189,7 @@ func printResults(config Params, results <-chan Result) {
 		if !r.Equal {
 			numErrors++
 			errorLog.Printf("===================================================================")
+			errorLog.Printf("%s", time.Now().Format("2006-01-02 3:4:5 PM"))
 			errorLog.Printf("Account: %s", r.Details.address)
 			errorLog.Printf("Error #: %d", numErrors)
 			errorLog.Printf("Algod Details:\n%s", r.Details.algod)
@@ -196,8 +198,10 @@ func printResults(config Params, results <-chan Result) {
 			for _, diff := range r.Details.diff {
 				errorLog.Printf("     - %s", diff)
 			}
-			errorLog.Printf("Algod curl: \ncurl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.algodToken, config.algodURL, r.Details.address)
-			errorLog.Printf("Indexer curl: \ncurl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.indexerToken, config.indexerURL, r.Details.address)
+			errorLog.Printf("echo 'Algod:'")
+			errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.algodToken, config.algodURL, r.Details.address)
+			errorLog.Printf("echo 'Indexer:'")
+			errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.indexerToken, config.indexerURL, r.Details.address)
 		}
 	}
 }
