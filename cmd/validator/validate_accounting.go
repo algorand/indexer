@@ -130,20 +130,30 @@ func startWorkers(processor Processor, results chan<- Result) {
 }
 
 func callProcessor(processor Processor, addr string, config Params, results chan<- Result) {
-	result, err := processor.ProcessAddress(addr, config)
-	if err != nil {
-		results <- Result{
-			Equal:   false,
-			Retries: 0,
-			Details: &ErrorDetails{
-				address: addr,
-				algod:   "",
-				indexer: "",
-				diff:    []string{ "error from processor", err.Error()},
-			},
+	for i := 0; true; i++ {
+		result, err := processor.ProcessAddress(addr, config)
+		if err == nil {
+			// Return success immediately
+			result.Retries = i
+			results <- result
+			return
+		} else if err != nil && i >= config.retries {
+			// Return errors when the maximum retry count is reached.
+			results <- Result{
+				Equal:   false,
+				Retries: i,
+				Details: &ErrorDetails{
+					address: addr,
+					algod:   "",
+					indexer: "",
+					diff:    []string{"error from processor", err.Error()},
+				},
+			}
+			return
 		}
-	} else {
-		results <- result
+
+		// Wait before trying again in case there is an indexer/algod synchronization issue.
+		time.Sleep(1 * time.Second)
 	}
 }
 
@@ -170,7 +180,7 @@ func printResults(config Params, results <-chan Result) {
 	defer stats()
 
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 
 	go func() {
 		<- quit
