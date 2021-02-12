@@ -105,12 +105,11 @@ func main() {
 	resultsPrinter(config, results)
 }
 
-// start starts a bunch of go routines reading from a work channel, and fills the work channel by reading from os.Stdin.
-// results are returned through the results chanenl.
+// start kicks off a bunch of  go routines to compare addresses, it also creates a work channel to feed the workers and
+// fills the work channel by reading from os.Stdin. Results are returned to the results channel.
 func start(processor Processor, threads int, config Params, results chan<- Result) {
-	// Otherwise start the threads and read standard input.
 	var wg sync.WaitGroup
-	work := make(chan string, 1000000)
+	work := make(chan string, 100 * threads)
 
 	// Start the workers
 	for i := 0; i < threads; i++ {
@@ -123,7 +122,7 @@ func start(processor Processor, threads int, config Params, results chan<- Resul
 		}()
 	}
 
-	// Read work from stdin and pass along to workers
+	// Read addresses from stdin and pass along to workers
 	go func() {
 		scanner := bufio.NewScanner(os.Stdin)
 		for scanner.Scan() {
@@ -132,7 +131,7 @@ func start(processor Processor, threads int, config Params, results chan<- Resul
 		close(work)
 	}()
 
-	// Wait for workers to finish in another goroutine.
+	// Wait for workers to finish then close the results.
 	wg.Wait()
 	close(results)
 }
@@ -214,22 +213,24 @@ func resultsPrinter(config Params, results <-chan Result) {
 
 	stats := func() {
 		endTime := time.Now()
-		// TODO: Print this when the quit signal fires
 		fmt.Printf("\n\nNumber of errors: [%d / %d]\n", numErrors, numResults)
 		fmt.Printf("Retry count: %d\n", numRetries)
 		fmt.Printf("Test duration: %s\n", time.Time{}.Add(endTime.Sub(startTime)).Format("15:04:05"))
 	}
+
+	// Print stats at the end when things terminate naturally.
 	defer stats()
 
+	// Also print stats as the program exists after being interrupted.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
-
 	go func() {
 		<- quit
 		stats()
 		os.Exit(1)
 	}()
 
+	// Process results. Print progress to stdout and log errors to errorLog.
 	for r := range results {
 		if numResults % 100 == 0 {
 			fmt.Printf("\n%-8d : ", numResults)
