@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -168,7 +169,7 @@ func printResults(config Params, results <-chan Result) {
 	defer stats()
 
 	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 	go func() {
 		<- quit
@@ -192,11 +193,11 @@ func printResults(config Params, results <-chan Result) {
 			errorLog.Printf("Algod Details:\n%s", r.Details.algod)
 			errorLog.Printf("Indexer Details:\n%s", r.Details.indexer)
 			errorLog.Printf("Differences:")
-			errorLog.Printf("Algod curl: \ncurl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.algodToken, config.algodURL, r.Details.address)
-			errorLog.Printf("Indexer curl: \ncurl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.indexerToken, config.indexerURL, r.Details.address)
 			for _, diff := range r.Details.diff {
 				errorLog.Printf("     - %s", diff)
 			}
+			errorLog.Printf("Algod curl: \ncurl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.algodToken, config.algodURL, r.Details.address)
+			errorLog.Printf("Indexer curl: \ncurl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.indexerToken, config.indexerURL, r.Details.address)
 		}
 	}
 }
