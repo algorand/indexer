@@ -6,17 +6,19 @@
 
 function help () {
   echo "This script generates a stream of accounts and prints them to stdout."
+  echo "If the convert_addr tool is provided accounts will also be decoded"
+  echo "from base64 to the algorand standard address format."
   echo ""
   echo "Requires 'psql' command to be available."
   echo ""
   echo "options:"
-  echo "  --convert_addr  -> Path to the convert_addr utility."
-  echo "  --pg_user  -> Postgres username."
-  echo "  --pg_pass  -> Postgres password."
-  echo "  --pg_url   -> Postgres url (without http)."
-  echo "  --pg_port  -> Postgres port."
-  echo "  --pg_db    -> Postgres database."
-  echo "  --query    -> [optional] Query to use for selecting accounts."
+  echo "  --convert_addr -> [optional] Path to the convert_addr utility."
+  echo "  --pg_user      -> Postgres username."
+  echo "  --pg_pass      -> Postgres password."
+  echo "  --pg_url       -> Postgres url (without http)."
+  echo "  --pg_port      -> Postgres port."
+  echo "  --pg_db        -> Postgres database."
+  echo "  --query        -> [optional] Query to use for selecting accounts."
 }
 
 #default selection queries
@@ -102,7 +104,6 @@ function psql_query {
 if [ ! -z $TEST ]; then
   echo "psql configuration test:"
   psql_query "select * from metastate" 1
-  psql_query "$SELECTION_QUERY" 1
 fi
 
 # If the converter tool is provided go ahead and convert everything
