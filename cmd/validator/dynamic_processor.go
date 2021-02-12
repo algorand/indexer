@@ -9,8 +9,8 @@ import (
 	"sort"
 )
 
-// GenericProcessor implements process address by dynamically normalizing the JSON and ensuring the results are equal.
-type GenericProcessor struct {
+// DynamicProcessor implements process address by dynamically normalizing the JSON and ensuring the results are equal.
+type DynamicProcessor struct {
 }
 
 func mustEncode(data interface{}) string {
@@ -21,8 +21,8 @@ func mustEncode(data interface{}) string {
 	return string(result)
 }
 
-// ProcessAddress is the entrypoint for the GenericProcessor.
-func (gp GenericProcessor) ProcessAddress(addr string, config Params) (Result, error) {
+// ProcessAddress is the entrypoint for the DynamicProcessor.
+func (gp DynamicProcessor) ProcessAddress(addr string, config Params) (Result, error) {
 	indexerURL := fmt.Sprintf("%s:/v2/accounts/%s", config.indexerURL, addr)
 	indexerAcct, err := getResponse(indexerURL, config.indexerToken)
 	if err != nil {
@@ -218,6 +218,9 @@ func normalizeRecurse(key string, data interface{}) (interface{}, error) {
 
 		// algod seems to look this up on demand, indexers value is the base at the last time the account changed
 		delete(object, "reward-base")
+
+		// indexer doesn't have this field yet.
+		delete(object, "apps-total-schema")
 
 		for key, val := range object {
 			normalized, err := normalizeRecurse(key, val)

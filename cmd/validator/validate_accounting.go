@@ -26,6 +26,8 @@ func init() {
 	errorLog.SetFlags(0)
 }
 
+var errorLog *log.Logger
+
 // Processor is the algorithm to fetch and compare data from indexer and algod
 type Processor interface {
 	ProcessAddress(addr string, config Params) (Result, error)
@@ -34,6 +36,7 @@ type Processor interface {
 // Result is the output of ProcessAddress.
 type Result struct {
 	Equal   bool
+	Error   error
 	Retries int
 	Details *ErrorDetails
 }
@@ -46,15 +49,14 @@ type ErrorDetails struct {
 	diff    []string
 }
 
-var (
-	errorLog     *log.Logger
-	config       Params
-	addr         string
-	threads      int
-	processorNum int
-)
-
 func main() {
+	var (
+		config       Params
+		addr         string
+		threads      int
+		processorNum int
+	)
+
 	flag.StringVar(&config.algodURL, "algod-url", "", "Algod url.")
 	flag.StringVar(&config.algodToken, "algod-token", "", "Algod token.")
 	flag.StringVar(&config.indexerURL, "indexer-url", "", "Indexer url.")
@@ -80,7 +82,7 @@ func main() {
 	case 0:
 		processor = StructProcessor{}
 	case 1:
-		processor = GenericProcessor{}
+		processor = DynamicProcessor{}
 	default:
 		errorLog.Fatalf("invalid processor selected.")
 	}
@@ -92,14 +94,16 @@ func main() {
 		callProcessor(processor, addr, config, results)
 		close(results)
 	} else {
-		go startWorkers(processor, results)
+		go start(processor, threads, config, results)
 	}
 
 	// This will keep going until the results channel is closed.
-	printResults(config, results)
+	resultsPrinter(config, results)
 }
 
-func startWorkers(processor Processor, results chan<- Result) {
+// start starts a bunch of go routines reading from a work channel, and fills the work channel by reading from os.Stdin.
+// results are returned through the results chanenl.
+func start(processor Processor, threads int, config Params, results chan<- Result) {
 	// Otherwise start the threads and read standard input.
 	var wg sync.WaitGroup
 	work := make(chan string, 1000000)
@@ -129,6 +133,7 @@ func startWorkers(processor Processor, results chan<- Result) {
 	close(results)
 }
 
+// callProcessor invokes the processor with a retry mechanism.
 func callProcessor(processor Processor, addr string, config Params, results chan<- Result) {
 	for i := 0; true; i++ {
 		result, err := processor.ProcessAddress(addr, config)
@@ -138,16 +143,11 @@ func callProcessor(processor Processor, addr string, config Params, results chan
 			results <- result
 			return
 		} else if err != nil {
-			// If there is an error return immediately.
+			// If there is an error return immediately and cram the error.
 			results <- Result{
 				Equal:   false,
+				Error:   err,
 				Retries: i,
-				Details: &ErrorDetails{
-					address: addr,
-					algod:   "",
-					indexer: "",
-					diff:    []string{"error from processor", err.Error()},
-				},
 			}
 			return
 		}
@@ -157,17 +157,19 @@ func callProcessor(processor Processor, addr string, config Params, results chan
 	}
 }
 
-func resultChar(success bool, retries int) string {
+// resultRune picks the appropriate rune for the status output.
+func resultRune(success bool, retries int) rune {
 	if success && retries == 0{
-		return "."
+		return '.'
 	}
 	if success {
-		return string(retries)
+		return rune(retries)
 	}
-	return "X"
+	return 'X'
 }
 
-func printResults(config Params, results <-chan Result) {
+// resultsPrinter reads the results channel and prints it to the error log.
+func resultsPrinter(config Params, results <-chan Result) {
 	numResults := 0
 	numErrors := 0
 	numRetries := 0
@@ -195,26 +197,34 @@ func printResults(config Params, results <-chan Result) {
 		if numResults % 100 == 0 {
 			fmt.Printf("\n%-8d : ", numResults)
 		}
-		fmt.Printf(resultChar(r.Equal, r.Retries))
+		fmt.Printf("%c", resultRune(r.Equal, r.Retries))
 
 		numResults++
 		numRetries+=r.Retries
-		if !r.Equal {
-			numErrors++
+		if r.Error != nil || !r.Equal {
 			errorLog.Printf("===================================================================")
 			errorLog.Printf("%s", time.Now().Format("2006-01-02 3:4:5 PM"))
 			errorLog.Printf("Account: %s", r.Details.address)
 			errorLog.Printf("Error #: %d", numErrors)
-			errorLog.Printf("Algod Details:\n%s", r.Details.algod)
-			errorLog.Printf("Indexer Details:\n%s", r.Details.indexer)
-			errorLog.Printf("Differences:")
-			for _, diff := range r.Details.diff {
-				errorLog.Printf("     - %s", diff)
+
+			// Print error message if there is one.
+			if r.Error != nil {
+				errorLog.Printf("Processor error: %v\n", r.Error)
 			}
-			errorLog.Printf("echo 'Algod:'")
-			errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.algodToken, config.algodURL, r.Details.address)
-			errorLog.Printf("echo 'Indexer:'")
-			errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.indexerToken, config.indexerURL, r.Details.address)
+			// Print error details if there are any.
+			if r.Details != nil {
+				numErrors++
+				errorLog.Printf("Algod Details:\n%s", r.Details.algod)
+				errorLog.Printf("Indexer Details:\n%s", r.Details.indexer)
+				errorLog.Printf("Differences:")
+				for _, diff := range r.Details.diff {
+					errorLog.Printf("     - %s", diff)
+				}
+				errorLog.Printf("echo 'Algod:'")
+				errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.algodToken, config.algodURL, r.Details.address)
+				errorLog.Printf("echo 'Indexer:'")
+				errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.indexerToken, config.indexerURL, r.Details.address)
+			}
 		}
 	}
 }
