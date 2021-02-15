@@ -77,7 +77,10 @@ func equals(indexer, algod generated.Account) (differences []string) {
 	}
 	 */
 	if !stringPtrEqual(algod.AuthAddr, indexer.AuthAddr) {
-		differences = append(differences, "auth-addr")
+		// Indexer doesn't remove the auth addr when it is removed.
+		if indexer.AuthAddr == nil || *indexer.AuthAddr != indexer.Address {
+			differences = append(differences, "auth-addr")
+		}
 	}
 	if algod.PendingRewards != indexer.PendingRewards {
 		differences = append(differences, "pending-rewards")

@@ -253,8 +253,11 @@ func resultChar(success bool, retries int) string {
 	if success && retries == 0{
 		return "."
 	}
-	if success {
+	if success && retries > 9 {
 		return fmt.Sprintf("(%d)", retries)
+	}
+	if success {
+		return fmt.Sprintf("%d", retries)
 	}
 	return "X"
 }
