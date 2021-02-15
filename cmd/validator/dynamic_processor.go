@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"net/http"
 	"reflect"
 	"sort"
 )
@@ -22,24 +20,27 @@ func mustEncode(data interface{}) string {
 }
 
 // ProcessAddress is the entrypoint for the DynamicProcessor.
-func (gp DynamicProcessor) ProcessAddress(addr string, config Params) (Result, error) {
-	indexerURL := fmt.Sprintf("%s:/v2/accounts/%s", config.indexerURL, addr)
-	indexerAcct, err := getResponse(indexerURL, config.indexerToken)
+func (gp DynamicProcessor) ProcessAddress(algodData, indexerData []byte) (Result, error) {
+	var indexerAcct map[string]interface{}
+	err := json.Unmarshal(indexerData, &indexerAcct)
 	if err != nil {
-		return Result{}, errors.Wrap(err, fmt.Sprintf("unable to lookup indexer acct %s", addr))
+		return Result{}, fmt.Errorf("unable to parse indexer data: %v", err)
 	}
-	algodURL := fmt.Sprintf("%s:/v2/accounts/%s", config.algodURL, addr)
-	algodAcct, err := getResponse(algodURL, config.algodToken)
+
+	var algodAcct map[string]interface{}
+	err = json.Unmarshal(algodData, &algodAcct)
 	if err != nil {
-		return Result{}, errors.Wrap(err, fmt.Sprintf("unable to lookup algod acct %s", addr))
+		return Result{}, fmt.Errorf("unable to parse algod data: %v", err)
 	}
+
 	indexerNorm, err := normalize(indexerAcct)
 	if err != nil {
-		errorLog.Printf("failed to normalize indexer: %v\n", err)
+		return Result{}, fmt.Errorf("failed to normalize indexer: %v", err)
 	}
+
 	algodNorm, err := normalize(algodAcct)
 	if err != nil {
-		errorLog.Printf("failed to normalize algod: %v\n", err)
+		return Result{}, fmt.Errorf("failed to normalize algod: %v", err)
 	}
 
 	if !reflect.DeepEqual(indexerNorm, algodNorm) {
@@ -47,7 +48,6 @@ func (gp DynamicProcessor) ProcessAddress(addr string, config Params) (Result, e
 			Equal:   false,
 			Retries: 0,
 			Details: &ErrorDetails{
-				address: addr,
 				algod:   fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(algodAcct), mustEncode(algodNorm)),
 				indexer:   fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(indexerAcct), mustEncode(indexerNorm)),
 				diff:    nil,
@@ -56,37 +56,6 @@ func (gp DynamicProcessor) ProcessAddress(addr string, config Params) (Result, e
 	}
 	return Result{Equal:   true}, nil
 }
-
-
-// getResponse queries the url for a response and marshals it into a generic type
-func getResponse(url, token string) (map[string]interface{}, error) {
-	var target map[string]interface{}
-	auth := fmt.Sprintf("Bearer %s", token)
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", auth)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err := resp.Body.Close()
-		if err != nil {
-			errorLog.Fatalf("failed to close body: %v", err)
-		}
-	}()
-
-	err = json.NewDecoder(resp.Body).Decode(&target)
-	if err != nil {
-		return nil, err
-	}
-	return target, nil
-}
-
 
 // isDeleted is a simple helper to check for boolean values
 func isDeleted(val interface{}) (bool, error) {

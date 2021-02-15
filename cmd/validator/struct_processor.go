@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/pkg/errors"
-	"io/ioutil"
-	"net/http"
 	"strings"
 
 	"github.com/algorand/indexer/api/generated/v2"
@@ -17,74 +14,27 @@ import (
 type StructProcessor struct {
 }
 
-func getData(url, token string) ([]byte, error) {
-	auth := fmt.Sprintf("Bearer %s", token)
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", auth)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		err := resp.Body.Close()
-		if err != nil {
-			errorLog.Fatalf("failed to close body: %v", err)
-		}
-	}()
-
-	return ioutil.ReadAll(resp.Body)
-}
-
-func getAccountIndexer(url, token string) (generated.Account, error) {
-	data, err := getData(url, token)
-	if err != nil {
-		return generated.Account{}, err
-	}
-
-	var response generated.AccountResponse
-	err = json.Unmarshal(data, &response)
-	if err != nil {
-		return generated.Account{}, err
-	}
-	return response.Account, nil
-}
-
-func getAccountAlgod(url, token string) (generated.Account, error) {
-	data, err := getData(url, token)
-	if err != nil {
-		return generated.Account{}, err
-	}
-
-	var response generated.Account
-	err = json.Unmarshal(data, &response)
-	return response, err
-}
-
 // ProcessAddress is the entrypoint for the StructProcessor
-func (gp StructProcessor) ProcessAddress(addr string, config Params) (Result, error) {
-	indexerURL := fmt.Sprintf("%s:/v2/accounts/%s", config.indexerURL, addr)
-	indexerAcct, err := getAccountIndexer(indexerURL, config.indexerToken)
+func (gp StructProcessor) ProcessAddress(algodData, indexerData []byte) (Result, error) {
+	var indexerResponse generated.AccountResponse
+	err := json.Unmarshal(indexerData, &indexerResponse)
 	if err != nil {
-		return Result{}, errors.Wrap(err, fmt.Sprintf("unable to lookup indexer acct %s", addr))
+		return Result{}, fmt.Errorf("unable to parse indexer data: %v", err)
 	}
-	algodURL := fmt.Sprintf("%s:/v2/accounts/%s", config.algodURL, addr)
-	algodAcct, err := getAccountAlgod(algodURL, config.algodToken)
+
+	indexerAcct := indexerResponse.Account
+	var algodAcct generated.Account
+	err = json.Unmarshal(algodData, &algodAcct)
 	if err != nil {
-		return Result{}, errors.Wrap(err, fmt.Sprintf("unable to lookup algod acct %s", addr))
+		return Result{}, fmt.Errorf("unable to parse algod data: %v", err)
 	}
 
 	differences := equals(indexerAcct, algodAcct)
 	if len(differences) > 0 {
 		return Result{
-			Equal:   false,
-			Retries: 0,
+			Equal:        false,
+			Retries:      0,
 			Details: &ErrorDetails{
-				address: addr,
 				algod:   mustEncode(algodAcct),
 				indexer: mustEncode(indexerAcct),
 				diff:    differences,
@@ -115,7 +65,7 @@ func equals(indexer, algod generated.Account) (differences []string) {
 		differences = append(differences, "account address")
 	}
 	if algod.Amount != indexer.Amount {
-		differences = append(differences, "microalgo amount")
+		differences = append(differences, fmt.Sprintf("microalgo amount: %d != %d", algod.Amount, indexer.Amount))
 	}
 	if algod.AmountWithoutPendingRewards != indexer.AmountWithoutPendingRewards {
 		differences = append(differences, "amount-without-pending-rewards")
@@ -165,7 +115,7 @@ func equals(indexer, algod generated.Account) (differences []string) {
 			//   OptedOutAtRound
 
 			if algodAsset.Amount != indexerAsset.Amount {
-				differences = append(differences, fmt.Sprintf("asset amount %d", algodAsset.AssetId))
+				differences = append(differences, fmt.Sprintf("asset amount %d: %d != %d", algodAsset.AssetId, algodAsset.Amount, indexerAsset.Amount))
 			}
 			if algodAsset.IsFrozen != indexerAsset.IsFrozen {
 				differences = append(differences, fmt.Sprintf("asset is-frozen %d", algodAsset.AssetId))

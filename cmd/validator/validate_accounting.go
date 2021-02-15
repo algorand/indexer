@@ -3,10 +3,11 @@ package main
 import (
 	"bufio"
 	"encoding/base64"
-	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -23,6 +24,7 @@ type Params struct {
 	indexerURL   string
 	indexerToken string
 	retries      int
+	retryDelayMS int
 }
 
 func init() {
@@ -34,7 +36,7 @@ var errorLog *log.Logger
 
 // Processor is the algorithm to fetch and compare data from indexer and algod
 type Processor interface {
-	ProcessAddress(addr string, config Params) (Result, error)
+	ProcessAddress(indexerData []byte, algodData []byte) (Result, error)
 }
 
 // Result is the output of ProcessAddress.
@@ -59,6 +61,7 @@ func main() {
 		addr         string
 		threads      int
 		processorNum int
+		printCurl     bool
 	)
 
 	flag.StringVar(&config.algodURL, "algod-url", "", "Algod url.")
@@ -66,9 +69,11 @@ func main() {
 	flag.StringVar(&config.indexerURL, "indexer-url", "", "Indexer url.")
 	flag.StringVar(&config.indexerToken, "indexer-token", "", "Indexer toke.n")
 	flag.StringVar(&addr, "addr", "", "If provided validate a single address instead of reading Stdin.")
-	flag.IntVar(&config.retries, "retries", 0, "Number of retry attempts when a difference is detected.")
-	flag.IntVar(&threads, "threads", 10, "Number of worker threads to initialize.")
+	flag.IntVar(&config.retries, "retries", 5, "Number of retry attempts when a difference is detected.")
+	flag.IntVar(&config.retryDelayMS, "retry-delay", 1000, "Time in milliseconds to sleep between retries.")
+	flag.IntVar(&threads, "threads", 4, "Number of worker threads to initialize.")
 	flag.IntVar(&processorNum, "processor", 0, "Choose compare algorithm [0 = Struct, 1 = Reflection]")
+	flag.BoolVar(&printCurl, "print-commands", false, "Print curl commands, including tokens, to query algod and indexer.")
 	flag.Parse()
 
 	if len(config.algodURL) == 0 {
@@ -91,18 +96,21 @@ func main() {
 		errorLog.Fatalf("invalid processor selected.")
 	}
 
-	results := make(chan Result, 5000)
+	results := make(chan Result, 10)
 
-	// Process a single address
-	if len(addr) != 0 {
-		callProcessor(processor, addr, config, results)
-		close(results)
-	} else {
-		go start(processor, threads, config, results)
-	}
+	go func() {
+		if len(addr) != 0 {
+			// Process a single address
+			callProcessor(processor, addr, config, results)
+			close(results)
+		} else {
+			// Process from stdin
+			start(processor, threads, config, results)
+		}
+	}()
 
 	// This will keep going until the results channel is closed.
-	resultsPrinter(config, results)
+	resultsPrinter(config, printCurl, results)
 }
 
 // start kicks off a bunch of  go routines to compare addresses, it also creates a work channel to feed the workers and
@@ -150,36 +158,83 @@ func normalizeAddress(addr string) (string, error) {
 		return address.String(), nil
 	}
 
-	return "", errors.New("unable to decode address")
+	return "", fmt.Errorf("unable to decode address")
+}
+
+// getData from indexer/algod with optional token.
+func getData(url, token string) ([]byte, error) {
+	auth := fmt.Sprintf("Bearer %s", token)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", auth)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err := resp.Body.Close()
+		if err != nil {
+			errorLog.Fatalf("failed to close body: %v", err)
+		}
+	}()
+
+	return ioutil.ReadAll(resp.Body)
+}
+
+func resultError(err error, address string) Result {
+	return Result{
+		Equal:   false,
+		Error:   err,
+		Retries: 0,
+		Details: &ErrorDetails{
+			address: address,
+		},
+	}
 }
 
 // callProcessor invokes the processor with a retry mechanism.
 func callProcessor(processor Processor, addrInput string, config Params, results chan<- Result) {
 	addr, err := normalizeAddress(addrInput)
 	if err != nil {
-		results <- Result{
-			Equal:   false,
-			Error:   err,
-			Retries: 0,
-			Details: &ErrorDetails{
-				address: addrInput,
-			},
-		}
+		results <- resultError(err, addrInput)
 		return
 	}
 
+	// Fetch algod account data outside the retry loop. When the data desynchronizes we'll keep fetching indexer data until it
+	// catches up with the first algod account query.
+	algodData, err := getData(fmt.Sprintf("%s:/v2/accounts/%s", config.algodURL, addr), config.algodToken)
+	if err != nil {
+		results <- resultError(err, addrInput)
+		return
+	}
+
+	// Retry loop.
 	for i := 0; true; i++ {
-		result, err := processor.ProcessAddress(addr, config)
+		indexerData, err := getData(fmt.Sprintf("%s:/v2/accounts/%s", config.indexerURL, addr), config.indexerToken)
+		if err != nil {
+			results <- resultError(err, addrInput)
+			return
+		}
+
+		result, err := processor.ProcessAddress(algodData, indexerData)
+
 		if err == nil && (result.Equal || i >= config.retries){
 			// Return when results are equal, or when finished retrying.
 			result.Retries = i
+			if result.Details != nil {
+				result.Details.address = addr
+			}
 			results <- result
 			return
 		} else if err != nil {
 			// If there is an error return immediately and cram the error.
 			results <- Result{
 				Equal:   false,
-				Error:   err,
+				Error:   fmt.Errorf("error processing account %s: %v", addr, err),
 				Retries: i,
 				Details: &ErrorDetails{
 					address: addr,
@@ -188,24 +243,24 @@ func callProcessor(processor Processor, addrInput string, config Params, results
 			return
 		}
 
-		// Wait before trying again in case there is an indexer/algod synchronization issue.
-		time.Sleep(1 * time.Second)
+		// Wait before trying again to allow indexer to catch up to the algod account data.
+		time.Sleep(time.Duration(config.retryDelayMS) * time.Millisecond)
 	}
 }
 
-// resultRune picks the appropriate rune for the status output.
-func resultRune(success bool, retries int) rune {
+// resultChar picks the appropriate status character for the output.
+func resultChar(success bool, retries int) string {
 	if success && retries == 0{
-		return '.'
+		return "."
 	}
 	if success {
-		return rune(retries)
+		return fmt.Sprintf("(%d)", retries)
 	}
-	return 'X'
+	return "X"
 }
 
 // resultsPrinter reads the results channel and prints it to the error log.
-func resultsPrinter(config Params, results <-chan Result) {
+func resultsPrinter(config Params, printCurl bool, results <-chan Result) {
 	numResults := 0
 	numErrors := 0
 	numRetries := 0
@@ -216,7 +271,7 @@ func resultsPrinter(config Params, results <-chan Result) {
 		duration := endTime.Sub(startTime)
 		fmt.Printf("\n\nNumber of errors: [%d / %d]\n", numErrors, numResults)
 		fmt.Printf("Retry count: %d\n", numRetries)
-		fmt.Printf("Checks per second: %f\n", float64(numResults + numRetries) / duration.Seconds())
+		fmt.Printf("Checks per second: %f\n", float64(numResults + numResults) / duration.Seconds())
 		fmt.Printf("Test duration: %s\n", time.Time{}.Add(duration).Format("15:04:05"))
 	}
 
@@ -237,7 +292,7 @@ func resultsPrinter(config Params, results <-chan Result) {
 		if numResults % 100 == 0 {
 			fmt.Printf("\n%-8d : ", numResults)
 		}
-		fmt.Printf("%c", resultRune(r.Equal, r.Retries))
+		fmt.Printf("%s", resultChar(r.Equal, r.Retries))
 
 		numResults++
 		numRetries+=r.Retries
@@ -260,6 +315,9 @@ func resultsPrinter(config Params, results <-chan Result) {
 				for _, diff := range r.Details.diff {
 					errorLog.Printf("     - %s", diff)
 				}
+			}
+			// Optionally print curl command.
+			if printCurl {
 				errorLog.Printf("echo 'Algod:'")
 				errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.algodToken, config.algodURL, r.Details.address)
 				errorLog.Printf("echo 'Indexer:'")
