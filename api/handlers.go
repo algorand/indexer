@@ -15,7 +15,6 @@ import (
 	"github.com/algorand/indexer/api/generated/common"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
-	indexerTypes "github.com/algorand/indexer/types"
 )
 
 // ServerImplementation implements the handler interface used by the generated route definitions.
@@ -401,7 +400,7 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 // LookupBlock returns the block for a given round number
 // (GET /v2/blocks/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
-	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber, true)
+	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber)
 	if err != nil {
 		return indexerError(ctx, err.Error())
 	}
@@ -574,16 +573,8 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 	return balances, nil
 }
 
-func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, includeTransactions bool) (generated.Block, error) {
-	var blk indexerTypes.Block
-	var transactions []idb.TxnRow
-	var err error
-
-	if includeTransactions {
-		blk, transactions, err = si.db.GetBlock(ctx, round, idb.GetBlockTransactions)
-	} else {
-		blk, transactions, err = si.db.GetBlock(ctx, round)
-	}
+func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (generated.Block, error) {
+	blk, transactions, err := si.db.GetBlock(ctx, round, idb.GetBlockTransactions)
 
 	if err != nil {
 		return generated.Block{}, fmt.Errorf("%s '%d': %v", errLookingUpBlock, round, err)
@@ -627,19 +618,17 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64, in
 		UpgradeVote:       &upgradeVote,
 	}
 
-	if includeTransactions {
-		results := make([]generated.Transaction, 0)
-		for _, txrow := range transactions {
-			tx, err := txnRowToTransaction(txrow)
-			if err != nil {
-				return generated.Block{}, err
-			}
-			results = append(results, tx)
-			txrow.Next()
+	results := make([]generated.Transaction, 0)
+	for _, txrow := range transactions {
+		tx, err := txnRowToTransaction(txrow)
+		if err != nil {
+			return generated.Block{}, err
 		}
-
-		ret.Transactions = &results
+		results = append(results, tx)
+		txrow.Next()
 	}
+
+	ret.Transactions = &results
 	return ret, nil
 }
 
