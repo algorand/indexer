@@ -441,7 +441,7 @@ func TestBlockWithTransactions(t *testing.T) {
 	total := uint64(1000000)
 
 	///////////
-	// Given // A round scenario requiring subround accounting: AccountA is funded, closed, opts back, and funded again.
+	// Given // A block at round test.Round with 5 transactions.
 	///////////
 	tx1, createAsset := test.MakeAssetConfigOrPanic(test.Round, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
 	tx2, fundMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
