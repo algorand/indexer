@@ -96,6 +96,10 @@ var daemonCmd = &cobra.Command{
 			bot.SetContext(ctx)
 			go func() {
 				waitForDBAvailable(db)
+
+				// Initial import if needed.
+				importer.InitialImport(db, genesisJSONPath, logger)
+
 				logger.Info("Starting block importer.")
 				bot.Run()
 				cf()
@@ -175,7 +179,12 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	}
 	_, err := bih.imp.ImportDecodedBlock(block)
 	maybeFail(err, "ImportDecodedBlock %d: %v", block.Block.Round, err)
-	importer.UpdateAccounting(bih.db, bih.cache, uint64(block.Block.Round), genesisJSONPath, logger)
+	round := uint64(block.Block.Round)
+	filter := idb.UpdateFilter{
+		StartRound: round,
+		MaxRound: &round,
+	}
+	importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
 	dt := time.Now().Sub(start)
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
 	bih.round = uint64(block.Block.Round)

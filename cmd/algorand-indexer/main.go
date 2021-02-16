@@ -22,7 +22,7 @@ func maybeFail(err error, errfmt string, params ...interface{}) {
 	if err == nil {
 		return
 	}
-	logger.Errorf(errfmt, params...)
+	logger.WithError(err).Errorf(errfmt, params...)
 	os.Exit(1)
 }
 

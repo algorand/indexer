@@ -96,7 +96,23 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 		h.Log.Infof("%d blocks in %s, %.0f/s, %d txn, %.0f/s", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
 	}
 
-	accountingRounds, txnCount := updateAccounting(db, h.DefaultFrozenCache, 0, h.GenesisJSONPath, h.NumRoundsLimit, h.Log)
+	initialImport := InitialImport(db, h.GenesisJSONPath, h.Log)
+	maybeFail(err, h.Log, "problem getting the max round")
+	filter := idb.UpdateFilter{
+		StartRound: 0,
+	}
+	if h.NumRoundsLimit != 0 {
+		filter.RoundLimit = &h.NumRoundsLimit
+	}
+	if !initialImport {
+		state, err := db.GetImportState()
+		maybeFail(err, h.Log, "problem getting the import state")
+		filter.StartRound = uint64(state.AccountRound)
+	}
+	accountingRounds, txnCount := updateAccounting(db, h.DefaultFrozenCache, filter, h.Log)
+	if initialImport {
+		accountingRounds++
+	}
 
 	accountingdone := time.Now()
 	if accountingRounds > 0 {
@@ -223,16 +239,12 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 	return db.LoadGenesis(genesis)
 }
 
-// UpdateAccounting triggers an accounting update.
-func UpdateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint64, genesisJSONPath string, l *log.Logger) (rounds, txnCount int) {
-	return updateAccounting(db, frozenCache, round, genesisJSONPath, 0, l)
-}
-
-func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint64, genesisJSONPath string, numRoundsLimit int, l *log.Logger) (rounds, txnCount int) {
-	rounds = 0
-	txnCount = 0
+// InitialImport imports the genesis block if needed. Returns true if the initial import occurred.
+func InitialImport(db idb.IndexerDb, genesisJSONPath string, l *log.Logger) bool {
 	state, err := db.GetImportState()
 	maybeFail(err, l, "getting import state, %v", err)
+
+	// Only import on round 0
 	if state.AccountRound == 0 {
 		if genesisJSONPath != "" {
 			l.Infof("loading genesis %s", genesisJSONPath)
@@ -241,20 +253,26 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint6
 			maybeFail(err, l, "%s: %v", genesisJSONPath, err)
 			err = loadGenesis(db, gf)
 			maybeFail(err, l, "%s: could not load genesis json, %v", genesisJSONPath, err)
-			rounds++
-			state.AccountRound = -1
-		} else {
-			l.Errorf("no import state recorded; need --genesis genesis.json file to get started")
-			os.Exit(1)
-			return
+			return true
 		}
-	} else {
-		l.Infof("will start from round >%d", state.AccountRound)
+		l.Errorf("no import state recorded; need --genesis genesis.json file to get started")
+		os.Exit(1)
+		return false
 	}
+	return false
+}
 
+// UpdateAccounting triggers an accounting update.
+func UpdateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.UpdateFilter, l *log.Logger) (rounds, txnCount int) {
+	return updateAccounting(db, frozenCache, filter, l)
+}
+
+func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.UpdateFilter, l *log.Logger) (rounds, txnCount int) {
+	rounds = 0
+	txnCount = 0
 	lastlog := time.Now()
 	act := accounting.New(frozenCache)
-	txns := db.YieldTxns(context.Background(), state.AccountRound)
+	txns := db.YieldTxns(context.Background(), int64(filter.StartRound))
 	currentRound := uint64(0)
 	roundsSeen := 0
 	lastRoundsSeen := roundsSeen
@@ -264,7 +282,7 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint6
 		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)
 		if txn.Round != currentRound {
 			if blockPtr != nil && txnForRound > 0 {
-				err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr)
+				err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr)
 				maybeFail(err, l, "failed to commit round accounting")
 			}
 
@@ -273,14 +291,20 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint6
 			prevRound := currentRound
 			roundsSeen++
 			currentRound = txn.Round
+
+			// Check to see if the max round has been reached after resetting txnForRound.
+			if filter.MaxRound != nil && *filter.MaxRound >= currentRound {
+				break
+			}
+
 			block, err := db.GetBlock(currentRound)
 			maybeFail(err, l, "problem fetching next round (%d)", currentRound)
 			blockPtr = &block
 			act.InitRound(block)
 
 			// Log progress
-			if (numRoundsLimit != 0) && (roundsSeen > numRoundsLimit) {
-				l.Infof("hit rounds limit %d > %d", roundsSeen, numRoundsLimit)
+			if (filter.RoundLimit != nil) && (roundsSeen > *filter.RoundLimit) {
+				l.Infof("hit rounds limit %d > %d", roundsSeen, filter.RoundLimit)
 				break
 			}
 			now := time.Now()
@@ -292,18 +316,15 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint6
 				lastRoundsSeen = roundsSeen
 			}
 		}
-		err = act.AddTransaction(&txn)
+		err := act.AddTransaction(&txn)
 		maybeFail(err, l, "txn accounting r=%d i=%d, %v", txn.Round, txn.Intra, err)
 		txnCount++
 		txnForRound++
 	}
 
 	// Commit the final round
-	if (blockPtr != nil && txnForRound > 0) || ((round != 0) && (currentRound < round)) {
-		if currentRound < round {
-			currentRound = round
-		}
-		err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr)
+	if blockPtr != nil && txnForRound > 0 {
+		err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr)
 		maybeFail(err, l, "failed to commit round accounting")
 	}
 
