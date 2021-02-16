@@ -55,12 +55,6 @@ type ImportState struct {
 	AccountRound int64 `codec:"account_round"`
 }
 
-// ParseImportState decodes a json serialized import state object.
-func ParseImportState(js string) (istate ImportState, err error) {
-	err = json.Decode([]byte(js), &istate)
-	return
-}
-
 // Import is the main ImportHelper function that glues together a directory full of block files and an Importer objects.
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	err := ImportProto(db)
