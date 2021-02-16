@@ -111,19 +111,13 @@ func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round uint
 	return nil
 }
 
-// GetBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetBlock(round uint64) (block types.Block, err error) {
-	err = nil
-	return
-}
-
 // Transactions is part of idb.IndexerDB
 func (db *dummyIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
 	return nil
 }
 
-// BlockWithTransactions is part of idb.IndexerDB
-func (db *dummyIndexerDb) BlockWithTransactions(ctx context.Context, round uint64, tf TransactionFilter) (block types.Block, transactions []TxnRow, err error) {
+// GetBlock is part of idb.IndexerDB
+func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options ...GetBlockOptions) (block types.Block, transactions []TxnRow, err error) {
 	return types.Block{}, nil, nil
 }
 
@@ -237,8 +231,7 @@ type IndexerDb interface {
 
 	CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error)
 
-	GetBlock(round uint64) (block types.Block, err error)
-	BlockWithTransactions(ctx context.Context, round uint64, tf TransactionFilter) (block types.Block, transactions []TxnRow, err error)
+	GetBlock(ctx context.Context, round uint64, options ...GetBlockOptions) (block types.Block, transactions []TxnRow, err error)
 
 	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
@@ -248,6 +241,14 @@ type IndexerDb interface {
 
 	Health() (status Health, err error)
 }
+
+// GetBlockOptions contains the options when requesting to load a block from the database.
+type GetBlockOptions int
+
+const (
+	// GetBlockTransactions request for all the transactions that associated with the block
+	GetBlockTransactions GetBlockOptions = iota
+)
 
 // TransactionFilter.AddressRole bitfield values
 const (

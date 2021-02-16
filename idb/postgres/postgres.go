@@ -1277,18 +1277,6 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	return tx.Commit()
 }
 
-// GetBlock is part of idb.IndexerDB
-func (db *IndexerDb) GetBlock(round uint64) (block types.Block, err error) {
-	row := db.db.QueryRow(`SELECT header FROM block_header WHERE round = $1`, round)
-	var blockheaderjson []byte
-	err = row.Scan(&blockheaderjson)
-	if err != nil {
-		return
-	}
-	err = json.Decode(blockheaderjson, &block)
-	return
-}
-
 func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []interface{}, err error) {
 	// TODO? There are some combinations of tf params that will
 	// yield no results and we could catch that before asking the
@@ -1477,48 +1465,52 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	return
 }
 
-// BlockWithTransactions is part of idb.IndexerDB
-func (db *IndexerDb) BlockWithTransactions(ctx context.Context, round uint64, tf idb.TransactionFilter) (block types.Block, transactions []idb.TxnRow, err error) {
+// GetBlock is part of idb.IndexerDB
+func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options ...idb.GetBlockOptions) (block types.Block, transactions []idb.TxnRow, err error) {
 	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
 	if err != nil {
 		return
 	}
 	defer tx.Commit()
-	row := tx.QueryRow(`SELECT header FROM block_header WHERE round = $1`, round)
+	row := tx.QueryRowContext(ctx, `SELECT header FROM block_header WHERE round = $1`, round)
 	var blockheaderjson []byte
 	err = row.Scan(&blockheaderjson)
 	if err != nil {
 		return
 	}
 	err = json.Decode(blockheaderjson, &block)
-
-	out := make(chan idb.TxnRow, 1)
-	if len(tf.NextToken) > 0 {
-		go db.txnsWithNext(ctx, tf, out)
-		return block, nil, nil
-	}
-	query, whereArgs, err := buildTransactionQuery(tf)
 	if err != nil {
-		err = fmt.Errorf("txn query err %v", err)
-		out <- idb.TxnRow{Error: err}
-		close(out)
-		return types.Block{}, nil, err
-	}
-	rows, err := tx.QueryContext(ctx, query, whereArgs...)
-	if err != nil {
-		err = fmt.Errorf("txn query %#v err %v", query, err)
-		return types.Block{}, nil, err
+		return
 	}
 
-	go db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
+	for _, option := range options {
+		if option == idb.GetBlockTransactions {
+			out := make(chan idb.TxnRow, 1)
+			query, whereArgs, err := buildTransactionQuery(idb.TransactionFilter{Round: &round})
+			if err != nil {
+				err = fmt.Errorf("txn query err %v", err)
+				out <- idb.TxnRow{Error: err}
+				close(out)
+				return types.Block{}, nil, err
+			}
+			rows, err := tx.QueryContext(ctx, query, whereArgs...)
+			if err != nil {
+				err = fmt.Errorf("txn query %#v err %v", query, err)
+				return types.Block{}, nil, err
+			}
 
-	results := make([]idb.TxnRow, 0)
-	for txrow := range out {
-		results = append(results, txrow)
-		txrow.Next()
+			go db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
+
+			results := make([]idb.TxnRow, 0)
+			for txrow := range out {
+				results = append(results, txrow)
+				txrow.Next()
+			}
+			transactions = results
+		}
 	}
 
-	return block, results, nil
+	return block, transactions, nil
 }
 
 // Transactions is part of idb.IndexerDB
@@ -2776,7 +2768,7 @@ func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err err
 	if err != nil || cache == "" {
 		// Initialize specialAccountsMetastateKey
 		var block types.Block
-		block, err = db.GetBlock(0)
+		block, _, err = db.GetBlock(context.Background(), 0)
 		if err != nil {
 			return idb.SpecialAccounts{}, fmt.Errorf("problem looking up special accounts from genesis block: %v", err)
 		}

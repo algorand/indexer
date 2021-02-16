@@ -175,13 +175,13 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 				return
 			}
 			var baseBlock types.Block
-			baseBlock, err = db.GetBlock(txnrow.Round)
+			baseBlock, _, err = db.GetBlock(context.Background(), txnrow.Round)
 			if err != nil {
 				return
 			}
 			prevRewardsBase := baseBlock.RewardsLevel
 			var blockheader types.Block
-			blockheader, err = db.GetBlock(round)
+			blockheader, _, err = db.GetBlock(context.Background(), round)
 			if err != nil {
 				return
 			}

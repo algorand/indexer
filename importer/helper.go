@@ -276,7 +276,7 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint6
 			prevRound := currentRound
 			roundsSeen++
 			currentRound = txn.Round
-			block, err := db.GetBlock(currentRound)
+			block, _, err := db.GetBlock(context.Background(), currentRound)
 			maybeFail(err, l, "problem fetching next round (%d)", currentRound)
 			blockPtr = &block
 			act.InitRound(block)

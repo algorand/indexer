@@ -400,8 +400,7 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 // LookupBlock returns the block for a given round number
 // (GET /v2/blocks/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
-	filter := idb.TransactionFilter{Round: uint64Ptr(roundNumber)}
-	blk, err := si.fetchBlockAndTransactions(ctx.Request().Context(), roundNumber, filter)
+	blk, err := si.fetchBlockAndTransactions(ctx.Request().Context(), roundNumber)
 	if err != nil {
 		return indexerError(ctx, err.Error())
 	}
@@ -574,8 +573,8 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 	return balances, nil
 }
 
-func (si *ServerImplementation) fetchBlockAndTransactions(ctx context.Context, round uint64, filter idb.TransactionFilter) (generated.Block, error) {
-	blk, transactions, err := si.db.BlockWithTransactions(ctx, round, filter)
+func (si *ServerImplementation) fetchBlockAndTransactions(ctx context.Context, round uint64) (generated.Block, error) {
+	blk, transactions, err := si.db.GetBlock(ctx, round, idb.GetBlockTransactions)
 	if err != nil {
 		return generated.Block{}, fmt.Errorf("%s '%d': %v", errLookingUpBlock, round, err)
 	}
@@ -634,7 +633,7 @@ func (si *ServerImplementation) fetchBlockAndTransactions(ctx context.Context, r
 
 // fetchBlock looks up a block and converts it into a generated.Block object
 func (si *ServerImplementation) fetchBlock(round uint64) (generated.Block, error) {
-	blk, err := si.db.GetBlock(round)
+	blk, _, err := si.db.GetBlock(context.Background(), round)
 	if err != nil {
 		return generated.Block{}, fmt.Errorf("%s '%d': %v", errLookingUpBlock, round, err)
 	}
