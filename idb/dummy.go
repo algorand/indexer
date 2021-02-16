@@ -543,9 +543,9 @@ type RoundUpdates struct {
 
 // Clear is used to set a RoundUpdates object back to it's default values.
 func (ru *RoundUpdates) Clear() {
-	ru.AlgoUpdates = nil
-	ru.AccountTypes = nil
-	ru.AccountDataUpdates = nil
+	ru.AlgoUpdates = make(map[[32]byte]*AlgoUpdate)
+	ru.AccountTypes = make(map[[32]byte]string)
+	ru.AccountDataUpdates = make(map[[32]byte]map[string]interface{})
 	ru.TxnAssetUpdates = nil
 	ru.AssetUpdates = nil
 	ru.AssetUpdates = append(ru.AssetUpdates, make(map[[32]byte][]AssetUpdate, 0))
