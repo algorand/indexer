@@ -281,7 +281,7 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) {
 	// Print stats at the end when things terminate naturally.
 	defer stats()
 
-	// Also print stats as the program exists after being interrupted.
+	// Also print stats as the program exits after being interrupted.
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
