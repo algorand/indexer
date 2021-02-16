@@ -71,13 +71,13 @@ func (db *dummyIndexerDb) GetProto(version string) (proto types.ConsensusParams,
 	return
 }
 
-// GetMetastate is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetMetastate(key string) (jsonStrValue string, err error) {
-	return "", nil
+// GetImportState is part of idb.IndexerDB
+func (db *dummyIndexerDb) GetImportState() (is ImportState, err error) {
+	return ImportState{}, nil
 }
 
-// SetMetastate is part of idb.IndexerDB
-func (db *dummyIndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
+// SetImportState is part of idb.IndexerDB
+func (db *dummyIndexerDb) SetImportState(is ImportState) (err error) {
 	return nil
 }
 
@@ -208,7 +208,7 @@ type TxnExtra struct {
 // TODO: sqlite3 impl
 // TODO: cockroachdb impl
 type IndexerDb interface {
-	// The next few functions define the import interface, functions for loading data into the database. StartBlock() through Get/SetMetastate().
+	// The next few functions define the import interface, functions for loading data into the database. StartBlock() through Get/SetImportState().
 	StartBlock() error
 	AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error
 	CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error
@@ -220,8 +220,8 @@ type IndexerDb interface {
 	SetProto(version string, proto types.ConsensusParams) (err error)
 	GetProto(version string) (proto types.ConsensusParams, err error)
 
-	GetMetastate(key string) (jsonStrValue string, err error)
-	SetMetastate(key, jsonStrValue string) (err error)
+	GetImportState() (is ImportState, err error)
+	SetImportState(ImportState) (err error)
 	GetMaxRoundAccounted() (round uint64, err error)
 	GetMaxRoundLoaded() (round uint64, err error)
 	GetSpecialAccounts() (SpecialAccounts, error)
@@ -637,4 +637,9 @@ type Health struct {
 type SpecialAccounts struct {
 	FeeSink     types.Address
 	RewardsPool types.Address
+}
+
+// ImportState is some metadata kept around to help the import helper.
+type ImportState struct {
+	AccountRound int64 `codec:"account_round"`
 }
