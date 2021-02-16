@@ -111,14 +111,14 @@ func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round uint
 	return nil
 }
 
-// Transactions is part of idb.IndexerDB
-func (db *dummyIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
-	return nil
-}
-
 // GetBlock is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options ...GetBlockOptions) (block types.Block, transactions []TxnRow, err error) {
 	return types.Block{}, nil, nil
+}
+
+// Transactions is part of idb.IndexerDB
+func (db *dummyIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
+	return nil
 }
 
 // GetAccounts is part of idb.IndexerDB

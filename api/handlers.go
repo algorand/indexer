@@ -573,6 +573,8 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 	return balances, nil
 }
 
+// fetchBlock looks up a block and converts it into a generated.Block object
+// the method also loads the transactions into the returned block object.
 func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (generated.Block, error) {
 	blk, transactions, err := si.db.GetBlock(ctx, round, idb.GetBlockTransactions)
 
