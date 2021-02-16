@@ -145,25 +145,34 @@ func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	return r0
 }
 
-// GetBlock provides a mock function with given fields: round
-func (_m *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (types.Block, error) {
-	ret := _m.Called(round)
+// GetBlock provides a mock function with given fields: ctx, round, options
+func (_m *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (types.Block, []idb.TxnRow, error) {
+	ret := _m.Called(ctx, round, options)
 
 	var r0 types.Block
-	if rf, ok := ret.Get(0).(func(uint64) types.Block); ok {
-		r0 = rf(round)
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, idb.GetBlockOptions) types.Block); ok {
+		r0 = rf(ctx, round, options)
 	} else {
 		r0 = ret.Get(0).(types.Block)
 	}
 
-	var r1 error
-	if rf, ok := ret.Get(1).(func(uint64) error); ok {
-		r1 = rf(round)
+	var r1 []idb.TxnRow
+	if rf, ok := ret.Get(1).(func(context.Context, uint64, idb.GetBlockOptions) []idb.TxnRow); ok {
+		r1 = rf(ctx, round, options)
 	} else {
-		r1 = ret.Error(1)
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]idb.TxnRow)
+		}
 	}
 
-	return r0, r1
+	var r2 error
+	if rf, ok := ret.Get(2).(func(context.Context, uint64, idb.GetBlockOptions) error); ok {
+		r2 = rf(ctx, round, options)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
 }
 
 // GetDefaultFrozen provides a mock function with given fields:
