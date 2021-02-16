@@ -841,20 +841,6 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 			}
 		}
 	}
-	if len(updates.TxnAssetUpdates) > 0 {
-		any = true
-		uta, err := tx.Prepare(`UPDATE txn SET asset = $1 WHERE round = $2 AND intra = $3`)
-		if err != nil {
-			return fmt.Errorf("prepare update txn.asset, %v", err)
-		}
-		for _, tau := range updates.TxnAssetUpdates {
-			_, err = uta.Exec(tau.AssetID, tau.Round, tau.Offset)
-			if err != nil {
-				return fmt.Errorf("update txn.asset, %v", err)
-			}
-		}
-		defer uta.Close()
-	}
 	if len(updates.AssetUpdates) > 0 && len(updates.AssetUpdates[0]) > 0 {
 		any = true
 

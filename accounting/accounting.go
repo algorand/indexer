@@ -168,10 +168,6 @@ func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, su
 	accounting.addAssetAccounting(addr, au, false)
 }
 
-func (accounting *State) updateTxnAsset(round uint64, intra int, assetID uint64) {
-	accounting.TxnAssetUpdates = append(accounting.TxnAssetUpdates, idb.TxnAssetUpdate{Round: round, Offset: intra, AssetID: assetID})
-}
-
 func (accounting *State) addAssetAccounting(addr types.Address, update idb.AssetUpdate, finalizeSubround bool) {
 	// Add the final subround update
 	updatelist := accounting.AssetUpdates[len(accounting.AssetUpdates)-1][addr]

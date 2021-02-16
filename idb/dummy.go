@@ -486,13 +486,6 @@ type AssetClose struct {
 	Offset        uint64
 }
 
-// TxnAssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
-type TxnAssetUpdate struct {
-	Round   uint64
-	Offset  int
-	AssetID uint64
-}
-
 // AlgoUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 // When the update does not include closing the account, the values are a delta applied to the account.
 // If the update does include closing the account the rewards must be SET directly instead of applying a delta.
@@ -520,8 +513,6 @@ type RoundUpdates struct {
 	// with a 0 value.
 	AccountDataUpdates map[[32]byte]map[string]interface{}
 
-	TxnAssetUpdates []TxnAssetUpdate
-
 	// AssetUpdates is more complicated than AlgoUpdates because there
 	// are no apply data values to work with in the event of a close.
 	// The way we handle this is by breaking the round into sub-rounds,
@@ -546,7 +537,6 @@ func (ru *RoundUpdates) Clear() {
 	ru.AlgoUpdates = make(map[[32]byte]*AlgoUpdate)
 	ru.AccountTypes = make(map[[32]byte]string)
 	ru.AccountDataUpdates = make(map[[32]byte]map[string]interface{})
-	ru.TxnAssetUpdates = nil
 	ru.AssetUpdates = nil
 	ru.AssetUpdates = append(ru.AssetUpdates, make(map[[32]byte][]AssetUpdate, 0))
 	ru.AssetDestroys = nil
