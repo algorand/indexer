@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"sync"
@@ -11,11 +12,12 @@ import (
 	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
-	itypes "github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/idb"
+	itypes "github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -424,4 +426,53 @@ func TestMultipleWriters(t *testing.T) {
 	err = row.Scan(&balance)
 	assert.NoError(t, err, "checking balance")
 	assert.Equal(t, amt, balance)
+}
+
+// TestBlockWithTransactions tests that the block with transactions endpoint works.
+func TestBlockWithTransactions(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	assetid := uint64(2222)
+	amt := uint64(10000)
+	total := uint64(1000000)
+
+	///////////
+	// Given // A round scenario requiring subround accounting: AccountA is funded, closed, opts back, and funded again.
+	///////////
+	tx1, createAsset := test.MakeAssetConfigOrPanic(test.Round, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	tx2, fundMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
+	tx3, closeMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
+	tx4, optinMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, types.ZeroAddress)
+	tx5, payMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
+
+	db.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`, test.Round)
+	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 0, 0, 0, crypto.TransactionID(tx1.Txn), createAsset.TxnBytes, "")
+	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 1, 0, 0, crypto.TransactionID(tx2.Txn), fundMain.TxnBytes, "")
+	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 2, 0, 0, crypto.TransactionID(tx3.Txn), closeMain.TxnBytes, "")
+	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 3, 0, 0, crypto.TransactionID(tx4.Txn), optinMain.TxnBytes, "")
+	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 4, 0, 0, crypto.TransactionID(tx5.Txn), payMain.TxnBytes, "")
+
+	//////////
+	// When // We call GetBlock and Transactions
+	//////////
+	_, blockTxn, err := pdb.GetBlock(context.Background(), test.Round, idb.GetBlockOptions{Transactions: true})
+	assert.NoError(t, err)
+	round := test.Round
+	txnRow := pdb.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
+	transactionsTxn := make([]idb.TxnRow, 0)
+	for row := range txnRow {
+		transactionsTxn = append(transactionsTxn, row)
+	}
+
+	//////////
+	// Then // They should have the same transactions
+	//////////
+	assert.True(t, len(blockTxn) == len(transactionsTxn))
+	for i := 0; i < len(blockTxn); i++ {
+		assert.Equal(t, blockTxn[i].TxnBytes, transactionsTxn[i].TxnBytes)
+	}
 }
