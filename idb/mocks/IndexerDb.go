@@ -146,7 +146,7 @@ func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 }
 
 // GetBlock provides a mock function with given fields: round
-func (_m *IndexerDb) GetBlock(round uint64) (types.Block, error) {
+func (_m *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (types.Block, error) {
 	ret := _m.Called(round)
 
 	var r0 types.Block

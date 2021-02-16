@@ -112,7 +112,7 @@ func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round uint
 }
 
 // GetBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options ...GetBlockOptions) (block types.Block, transactions []TxnRow, err error) {
+func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (block types.Block, transactions []TxnRow, err error) {
 	return types.Block{}, nil, nil
 }
 
@@ -231,7 +231,7 @@ type IndexerDb interface {
 
 	CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error)
 
-	GetBlock(ctx context.Context, round uint64, options ...GetBlockOptions) (block types.Block, transactions []TxnRow, err error)
+	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (block types.Block, transactions []TxnRow, err error)
 
 	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
@@ -243,12 +243,10 @@ type IndexerDb interface {
 }
 
 // GetBlockOptions contains the options when requesting to load a block from the database.
-type GetBlockOptions int
-
-const (
-	// GetBlockTransactions request for all the transactions that associated with the block
-	GetBlockTransactions GetBlockOptions = iota
-)
+type GetBlockOptions struct {
+	// setting Transactions to true suggests requesting to receive the trasnactions themselves from the GetBlock query
+	Transactions bool
+}
 
 // TransactionFilter.AddressRole bitfield values
 const (
