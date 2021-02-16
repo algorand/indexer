@@ -42,6 +42,7 @@ const specialAccountsMetastateKey = "accounts"
 
 // Be a real ACID database
 var serializable = sql.TxOptions{Isolation: sql.LevelSerializable}
+var readonlySerializable = sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: true}
 
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
 func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
@@ -1474,6 +1475,50 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		query += fmt.Sprintf(" LIMIT %d", tf.Limit)
 	}
 	return
+}
+
+// BlockWithTransactions is part of idb.IndexerDB
+func (db *IndexerDb) BlockWithTransactions(ctx context.Context, round uint64, tf idb.TransactionFilter) (block types.Block, transactions []idb.TxnRow, err error) {
+	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	if err != nil {
+		return
+	}
+	defer tx.Commit()
+	row := tx.QueryRow(`SELECT header FROM block_header WHERE round = $1`, round)
+	var blockheaderjson []byte
+	err = row.Scan(&blockheaderjson)
+	if err != nil {
+		return
+	}
+	err = json.Decode(blockheaderjson, &block)
+
+	out := make(chan idb.TxnRow, 1)
+	if len(tf.NextToken) > 0 {
+		go db.txnsWithNext(ctx, tf, out)
+		return block, nil, nil
+	}
+	query, whereArgs, err := buildTransactionQuery(tf)
+	if err != nil {
+		err = fmt.Errorf("txn query err %v", err)
+		out <- idb.TxnRow{Error: err}
+		close(out)
+		return types.Block{}, nil, err
+	}
+	rows, err := tx.QueryContext(ctx, query, whereArgs...)
+	if err != nil {
+		err = fmt.Errorf("txn query %#v err %v", query, err)
+		return types.Block{}, nil, err
+	}
+
+	go db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
+
+	results := make([]idb.TxnRow, 0)
+	for txrow := range out {
+		results = append(results, txrow)
+		txrow.Next()
+	}
+
+	return block, results, nil
 }
 
 // Transactions is part of idb.IndexerDB

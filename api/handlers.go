@@ -400,19 +400,12 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 // LookupBlock returns the block for a given round number
 // (GET /v2/blocks/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
-	blk, err := si.fetchBlock(roundNumber)
+	filter := idb.TransactionFilter{Round: uint64Ptr(roundNumber)}
+	blk, err := si.fetchBlockAndTransactions(ctx.Request().Context(), roundNumber, filter)
 	if err != nil {
 		return indexerError(ctx, err.Error())
 	}
 
-	// Lookup transactions
-	filter := idb.TransactionFilter{Round: uint64Ptr(roundNumber)}
-	txns, _, err := si.fetchTransactions(ctx.Request().Context(), filter)
-	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s for round '%d': %v", errTransactionSearch, roundNumber, err))
-	}
-
-	blk.Transactions = &txns
 	return ctx.JSON(http.StatusOK, generated.BlockResponse(blk))
 }
 
@@ -579,6 +572,64 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 	}
 
 	return balances, nil
+}
+
+func (si *ServerImplementation) fetchBlockAndTransactions(ctx context.Context, round uint64, filter idb.TransactionFilter) (generated.Block, error) {
+	blk, transactions, err := si.db.BlockWithTransactions(ctx, round, filter)
+	if err != nil {
+		return generated.Block{}, fmt.Errorf("%s '%d': %v", errLookingUpBlock, round, err)
+	}
+
+	rewards := generated.BlockRewards{
+		FeeSink:                 blk.FeeSink.String(),
+		RewardsCalculationRound: uint64(blk.RewardsRecalculationRound),
+		RewardsLevel:            blk.RewardsLevel,
+		RewardsPool:             blk.RewardsPool.String(),
+		RewardsRate:             blk.RewardsRate,
+		RewardsResidue:          blk.RewardsResidue,
+	}
+
+	upgradeState := generated.BlockUpgradeState{
+		CurrentProtocol:        string(blk.CurrentProtocol),
+		NextProtocol:           strPtr(string(blk.NextProtocol)),
+		NextProtocolApprovals:  uint64Ptr(blk.NextProtocolApprovals),
+		NextProtocolSwitchOn:   uint64Ptr(uint64(blk.NextProtocolSwitchOn)),
+		NextProtocolVoteBefore: uint64Ptr(uint64(blk.NextProtocolVoteBefore)),
+	}
+
+	upgradeVote := generated.BlockUpgradeVote{
+		UpgradeApprove: boolPtr(blk.UpgradeApprove),
+		UpgradeDelay:   uint64Ptr(uint64(blk.UpgradeDelay)),
+		UpgradePropose: strPtr(string(blk.UpgradePropose)),
+	}
+
+	ret := generated.Block{
+		GenesisHash:       blk.GenesisHash[:],
+		GenesisId:         blk.GenesisID,
+		PreviousBlockHash: blk.Branch[:],
+		Rewards:           &rewards,
+		Round:             uint64(blk.Round),
+		Seed:              blk.Seed[:],
+		Timestamp:         uint64(blk.TimeStamp),
+		Transactions:      nil,
+		TransactionsRoot:  blk.TxnRoot[:],
+		TxnCounter:        uint64Ptr(blk.TxnCounter),
+		UpgradeState:      &upgradeState,
+		UpgradeVote:       &upgradeVote,
+	}
+
+	results := make([]generated.Transaction, 0)
+	for _, txrow := range transactions {
+		tx, err := txnRowToTransaction(txrow)
+		if err != nil {
+			return generated.Block{}, err
+		}
+		results = append(results, tx)
+		txrow.Next()
+	}
+
+	ret.Transactions = &results
+	return ret, nil
 }
 
 // fetchBlock looks up a block and converts it into a generated.Block object
