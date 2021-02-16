@@ -231,10 +231,9 @@ func UpdateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint6
 func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint64, genesisJSONPath string, numRoundsLimit int, l *log.Logger) (rounds, txnCount int) {
 	rounds = 0
 	txnCount = 0
-	stateJSONStr, err := db.GetMetastate("state")
+	state, err := db.GetImportState()
 	maybeFail(err, l, "getting import state, %v", err)
-	var state ImportState
-	if stateJSONStr == "" {
+	if state.AccountRound == 0 {
 		if genesisJSONPath != "" {
 			l.Infof("loading genesis %s", genesisJSONPath)
 			// if we're given no previous state and we're given a genesis file, import it as initial account state
@@ -250,8 +249,6 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint6
 			return
 		}
 	} else {
-		state, err = ParseImportState(stateJSONStr)
-		maybeFail(err, l, "parsing import state, %v", err)
 		l.Infof("will start from round >%d", state.AccountRound)
 	}
 
