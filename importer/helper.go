@@ -288,7 +288,7 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 			currentRound = txn.Round
 
 			// Check to see if the max round has been reached after resetting txnForRound.
-			if filter.MaxRound != nil && *filter.MaxRound >= currentRound {
+			if filter.MaxRound != 0 && currentRound > filter.MaxRound {
 				break
 			}
 

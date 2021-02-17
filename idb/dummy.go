@@ -653,7 +653,7 @@ type UpdateFilter struct {
 	RoundLimit *int
 
 	// MaxRound stop processing after this round
-	MaxRound *uint64
+	MaxRound uint64
 
 	// Address only process transactions which modify this account.
 	Address    *types.Address
