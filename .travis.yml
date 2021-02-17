@@ -8,7 +8,8 @@ services:
 - docker
 install:
 - go get -u golang.org/x/lint/golint
-- pip3 install boto3 markdown2
+- pip3 install -r misc/requirements.txt
+- echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 addons:
   apt:
     packages:
@@ -16,7 +17,6 @@ addons:
     - python3-setuptools
     - python3-wheel
 script:
-- echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
 - make lint
 - make
 - make integration
