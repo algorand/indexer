@@ -11,26 +11,26 @@ type (
 	// Address alias to SDK address.
 	Address = atypes.Address // [32]byte
 	// Digest is a hash value.
-	Digest  = atypes.Digest  // [32]byte
+	Digest = atypes.Digest // [32]byte
 
 	// Seed used by sortition.
-	Seed                     [32]byte
+	Seed [32]byte
 	// Signature cryptographic signature.
-	Signature                [64]byte
+	Signature [64]byte
 	// PublicKey the public encryption key.
-	PublicKey                [32]byte
+	PublicKey [32]byte
 	// OneTimeSignatureVerifier verifies a signature.
 	OneTimeSignatureVerifier [32]byte
 	// VRFVerifier verifies a VRF
-	VRFVerifier              [32]byte
+	VRFVerifier [32]byte
 	// Round identifies a particular round of consensus.
-	Round                    uint64
+	Round uint64
 	// ConsensusVersion identifies the version of the consensus protocol.
-	ConsensusVersion         string
+	ConsensusVersion string
 	// MicroAlgos are the unit of currency on the algorand network.
-	MicroAlgos               uint64
+	MicroAlgos uint64
 	// AssetIndex is used to uniquely identify an asset.
-	AssetIndex               uint64
+	AssetIndex uint64
 
 	// BlockHash represents the hash of a block
 	BlockHash Digest
@@ -250,9 +250,9 @@ type (
 	DeltaAction uint64
 
 	// Transaction alias for the SDK transaction
-	Transaction      = atypes.Transaction
+	Transaction = atypes.Transaction
 	// AssetParams alias for the SDK asset params
-	AssetParams      = atypes.AssetParams
+	AssetParams = atypes.AssetParams
 
 	// EncodedBlockCert is the block encoded along with its certificate.
 	EncodedBlockCert struct {
@@ -602,12 +602,17 @@ type ConsensusParams struct {
 	DownCommitteeSize      uint64
 	DownCommitteeThreshold uint64
 
+	// time for nodes to wait for block proposal headers for period > 0, value should be set to 2 * SmallLambda
+	AgreementFilterTimeout time.Duration
+	// time for nodes to wait for block proposal headers for period = 0, value should be configured to suit best case
+	// critical path
+	AgreementFilterTimeoutPeriod0 time.Duration
+
 	FastRecoveryLambda    time.Duration // time between fast recovery attempts
 	FastPartitionRecovery bool          // set when fast partition recovery is enabled
 
-	// commit to payset using a hash of entire payset,
-	// instead of txid merkle tree
-	PaysetCommitFlat bool
+	// how to commit to the payset: flat or merkle tree
+	PaysetCommit PaysetCommitType
 
 	MaxTimestampIncrement int64 // maximum time between timestamps on successive blocks
 
@@ -675,10 +680,6 @@ type ConsensusParams struct {
 
 	// max decimal precision for assets
 	MaxAssetDecimals uint32
-
-	// whether to use the old buggy Credential.lowestOutput function
-	// TODO(upgrade): Please remove as soon as the upgrade goes through
-	UseBuggyProposalLowestOutput bool
 
 	// SupportRekeying indicates support for account rekeying (the RekeyTo and AuthAddr fields)
 	SupportRekeying bool
@@ -761,7 +762,70 @@ type ConsensusParams struct {
 	// maximum total minimum balance requirement for an account, used
 	// to limit the maximum size of a single balance record
 	MaximumMinimumBalance uint64
+
+	// CompactCertRounds defines the frequency with which compact
+	// certificates are generated.  Every round that is a multiple
+	// of CompactCertRounds, the block header will include a Merkle
+	// commitment to the set of online accounts (that can vote after
+	// another CompactCertRounds rounds), and that block will be signed
+	// (forming a compact certificate) by the voters from the previous
+	// such Merkle tree commitment.  A value of zero means no compact
+	// certificates.
+	CompactCertRounds uint64
+
+	// CompactCertTopVoters is a bound on how many online accounts get to
+	// participate in forming the compact certificate, by including the
+	// top CompactCertTopVoters accounts (by normalized balance) into the
+	// Merkle commitment.
+	CompactCertTopVoters uint64
+
+	// CompactCertVotersLookback is the number of blocks we skip before
+	// publishing a Merkle commitment to the online accounts.  Namely,
+	// if block number N contains a Merkle commitment to the online
+	// accounts (which, incidentally, means N%CompactCertRounds=0),
+	// then the balances reflected in that commitment must come from
+	// block N-CompactCertVotersLookback.  This gives each node some
+	// time (CompactCertVotersLookback blocks worth of time) to
+	// construct this Merkle tree, so as to avoid placing the
+	// construction of this Merkle tree (and obtaining the requisite
+	// accounts and balances) in the critical path.
+	CompactCertVotersLookback uint64
+
+	// CompactCertWeightThreshold specifies the fraction of top voters weight
+	// that must sign the message (block header) for security.  The compact
+	// certificate ensures this threshold holds; however, forming a valid
+	// compact certificate requires a somewhat higher number of signatures,
+	// and the more signatures are collected, the smaller the compact cert
+	// can be.
+	//
+	// This threshold can be thought of as the maximum fraction of
+	// malicious weight that compact certificates defend against.
+	//
+	// The threshold is computed as CompactCertWeightThreshold/(1<<32).
+	CompactCertWeightThreshold uint32
+
+	// CompactCertSecKQ is the security parameter (k+q) for the compact
+	// certificate scheme.
+	CompactCertSecKQ uint64
+
+	// EnableAssetCloseAmount adds an extra field to the ApplyData. The field contains the amount of the remaining
+	// asset that were sent to the close-to address.
+	EnableAssetCloseAmount bool
 }
+
+// PaysetCommitType enumerates possible ways for the block header to commit to
+// the set of transactions in the block.
+type PaysetCommitType int
+
+const (
+	// PaysetCommitUnsupported is the zero value, reflecting the fact
+	// that some early protocols used a Merkle tree to commit to the
+	// transactions in a way that we no longer support.
+	PaysetCommitUnsupported PaysetCommitType = iota
+
+	// PaysetCommitFlat hashes the entire payset array.
+	PaysetCommitFlat
+)
 
 // MergeAssetConfig merges together two asset param objects.
 func MergeAssetConfig(old, new atypes.AssetParams) (out atypes.AssetParams) {
