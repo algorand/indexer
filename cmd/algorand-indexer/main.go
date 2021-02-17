@@ -102,7 +102,9 @@ func globalIndexerDb(opts *idb.IndexerDbOptions) idb.IndexerDb {
 
 func init() {
 	logger = log.New()
-	logger.SetFormatter(&log.JSONFormatter{})
+	logger.SetFormatter(&log.JSONFormatter{
+		DisableHTMLEscape: true,
+	})
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(log.InfoLevel)
 
