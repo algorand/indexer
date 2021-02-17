@@ -3,7 +3,7 @@ go:
 - 1.13.x
 - 1.14.x
 - 1.15.x
-dist: bionic
+dist: focal
 services:
 - docker
 install:
@@ -13,6 +13,7 @@ install:
 addons:
   apt:
     packages:
+    - python3
     - python3-pip
     - python3-setuptools
     - python3-wheel
