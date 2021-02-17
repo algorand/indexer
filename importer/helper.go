@@ -226,8 +226,10 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint6
 	rounds = 0
 	txnCount = 0
 	state, err := db.GetImportState()
+	l.Errorf("Getting import state: %v", err)
 	maybeFail(err, l, "getting import state, %v", err)
-	if state.AccountRound == 0 {
+	if state == nil {
+		state = &idb.ImportState{AccountRound: -1}
 		if genesisJSONPath != "" {
 			l.Infof("loading genesis %s", genesisJSONPath)
 			// if we're given no previous state and we're given a genesis file, import it as initial account state
@@ -236,7 +238,6 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint6
 			err = loadGenesis(db, gf)
 			maybeFail(err, l, "%s: could not load genesis json, %v", genesisJSONPath, err)
 			rounds++
-			state.AccountRound = -1
 		} else {
 			l.Errorf("no import state recorded; need --genesis genesis.json file to get started")
 			os.Exit(1)

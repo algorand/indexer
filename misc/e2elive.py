@@ -93,7 +93,7 @@ def main():
             break
         time.sleep(0.5)
     if not ok:
-        logger.error('could not get indexer health')
+        logger.error('could not get indexer health, or did not reach round={}'.format(lastblock))
         sys.stderr.write(indexerout.dump())
         return 1
     try:

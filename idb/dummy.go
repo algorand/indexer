@@ -72,8 +72,8 @@ func (db *dummyIndexerDb) GetProto(version string) (proto types.ConsensusParams,
 }
 
 // GetImportState is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetImportState() (is ImportState, err error) {
-	return ImportState{}, nil
+func (db *dummyIndexerDb) GetImportState() (is *ImportState, err error) {
+	return nil, nil
 }
 
 // SetImportState is part of idb.IndexerDB
@@ -220,7 +220,7 @@ type IndexerDb interface {
 	SetProto(version string, proto types.ConsensusParams) (err error)
 	GetProto(version string) (proto types.ConsensusParams, err error)
 
-	GetImportState() (is ImportState, err error)
+	GetImportState() (is *ImportState, err error)
 	SetImportState(ImportState) (err error)
 	GetMaxRoundAccounted() (round uint64, err error)
 	GetMaxRoundLoaded() (round uint64, err error)
