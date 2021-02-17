@@ -23,12 +23,13 @@ import (
 )
 
 // NewImportHelper builds an ImportHelper
-func NewImportHelper(genesisJSONPath string, numRoundsLimit, blockFileLimite int, l *log.Logger) *ImportHelper {
+func NewImportHelper(defaultFrozenCache map[uint64]bool, genesisJSONPath string, numRoundsLimit, blockFileLimite int, l *log.Logger) *ImportHelper {
 	return &ImportHelper{
-		GenesisJSONPath: genesisJSONPath,
-		NumRoundsLimit:  numRoundsLimit,
-		BlockFileLimit:  blockFileLimite,
-		Log:             l,
+		DefaultFrozenCache: defaultFrozenCache,
+		GenesisJSONPath:    genesisJSONPath,
+		NumRoundsLimit:     numRoundsLimit,
+		BlockFileLimit:     blockFileLimite,
+		Log:                l,
 	}
 }
 
@@ -42,6 +43,9 @@ type ImportHelper struct {
 
 	// BlockFileLimit is the number of block files to process.
 	BlockFileLimit int
+
+	// DefaultFrozenCache is a persistent cache of default frozen values.
+	DefaultFrozenCache map[uint64]bool
 
 	Log *log.Logger
 }
@@ -92,7 +96,7 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 		h.Log.Infof("%d blocks in %s, %.0f/s, %d txn, %.0f/s", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
 	}
 
-	accountingRounds, txnCount := updateAccounting(db, 0, h.GenesisJSONPath, h.NumRoundsLimit, h.Log)
+	accountingRounds, txnCount := updateAccounting(db, h.DefaultFrozenCache, 0, h.GenesisJSONPath, h.NumRoundsLimit, h.Log)
 
 	accountingdone := time.Now()
 	if accountingRounds > 0 {
@@ -220,11 +224,11 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 }
 
 // UpdateAccounting triggers an accounting update.
-func UpdateAccounting(db idb.IndexerDb, round uint64, genesisJSONPath string, l *log.Logger) (rounds, txnCount int) {
-	return updateAccounting(db, round, genesisJSONPath, 0, l)
+func UpdateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint64, genesisJSONPath string, l *log.Logger) (rounds, txnCount int) {
+	return updateAccounting(db, frozenCache, round, genesisJSONPath, 0, l)
 }
 
-func updateAccounting(db idb.IndexerDb, round uint64, genesisJSONPath string, numRoundsLimit int, l *log.Logger) (rounds, txnCount int) {
+func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint64, genesisJSONPath string, numRoundsLimit int, l *log.Logger) (rounds, txnCount int) {
 	rounds = 0
 	txnCount = 0
 	stateJSONStr, err := db.GetMetastate("state")
@@ -252,7 +256,7 @@ func updateAccounting(db idb.IndexerDb, round uint64, genesisJSONPath string, nu
 	}
 
 	lastlog := time.Now()
-	act := accounting.New()
+	act := accounting.New(frozenCache)
 	txns := db.YieldTxns(context.Background(), state.AccountRound)
 	currentRound := uint64(0)
 	roundsSeen := 0

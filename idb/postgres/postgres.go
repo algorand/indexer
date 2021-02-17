@@ -121,6 +121,7 @@ func (db *IndexerDb) init() (err error) {
 	if err != nil {
 		return
 	}
+
 	err = db.markMigrationsAsDone()
 	return
 }
@@ -294,21 +295,21 @@ func (db *IndexerDb) GetAsset(assetid uint64) (asset types.AssetParams, err erro
 	return
 }
 
-// GetDefaultFrozen get {assetid:default frozen, ...} for all assets
+// GetDefaultFrozen get {assetid:default frozen, ...} for all assets, needed by accounting.
+// Because Go map[]bool returns false by default, we actually return only a map of the true elements.
 func (db *IndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
-	rows, err := db.db.Query(`SELECT index, params -> 'df' FROM asset a`)
+	rows, err := db.db.Query(`SELECT index FROM asset WHERE (params ->> 'df')::boolean = true`)
 	if err != nil {
 		return
 	}
 	defaultFrozen = make(map[uint64]bool)
 	for rows.Next() {
 		var assetid uint64
-		var frozen bool
-		err = rows.Scan(&assetid, &frozen)
+		err = rows.Scan(&assetid)
 		if err != nil {
 			return
 		}
-		defaultFrozen[assetid] = frozen
+		defaultFrozen[assetid] = true
 	}
 	return
 }
@@ -401,13 +402,26 @@ func (db *IndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
 	return
 }
 
-// GetMaxRound is part of idb.IndexerDB
-func (db *IndexerDb) GetMaxRound() (round uint64, err error) {
+// GetMaxRoundAccounted is part of idb.IndexerDB
+func (db *IndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
+	//var round uint64
+	row := db.db.QueryRow(`select coalesce((v->>'account_round')::bigint, 0) from metastate where k = 'state'`)
+	err = row.Scan(&round)
+
+	if err == sql.ErrNoRows {
+		err = nil
+		round = 0
+	}
+
+	return
+}
+
+// GetMaxRoundLoaded is part of idb.IndexerDB
+func (db *IndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
 	var nullableRound sql.NullInt64
 	round = 0
 	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
 	err = row.Scan(&nullableRound)
-
 	if err == nil && nullableRound.Valid {
 		round = uint64(nullableRound.Int64)
 	}
@@ -833,46 +847,6 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 			}
 		}
 	}
-	if len(updates.AcfgUpdates) > 0 {
-		any = true
-		setacfg, err := tx.Prepare(`INSERT INTO asset (index, creator_addr, params, created_at, deleted) VALUES ($1, $2, $3, $4, false) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params, deleted = false`)
-		if err != nil {
-			return fmt.Errorf("prepare set asset, %v", err)
-		}
-		defer setacfg.Close()
-		getacfg, err := tx.Prepare(`SELECT params FROM asset WHERE index = $1`)
-		if err != nil {
-			return fmt.Errorf("prepare get asset, %v", err)
-		}
-		defer getacfg.Close()
-		for _, au := range updates.AcfgUpdates {
-			if au.AssetID == debugAsset {
-				db.log.Errorf("%d acfg %s %s", round, b64(au.Creator[:]), obs(au))
-			}
-			var outparams string
-			if au.IsNew {
-				outparams = idb.JSONOneLine(au.Params)
-			} else {
-				row := getacfg.QueryRow(au.AssetID)
-				var paramjson []byte
-				err = row.Scan(&paramjson)
-				if err != nil {
-					return fmt.Errorf("get acfg %d, %v", au.AssetID, err)
-				}
-				var old atypes.AssetParams
-				err = json.Decode(paramjson, &old)
-				if err != nil {
-					return fmt.Errorf("bad acgf json %d, %v", au.AssetID, err)
-				}
-				np := types.MergeAssetConfig(old, au.Params)
-				outparams = idb.JSONOneLine(np)
-			}
-			_, err = setacfg.Exec(au.AssetID, au.Creator[:], outparams, round)
-			if err != nil {
-				return fmt.Errorf("update asset, %v", err)
-			}
-		}
-	}
 	if len(updates.TxnAssetUpdates) > 0 {
 		any = true
 		uta, err := tx.Prepare(`UPDATE txn SET asset = $1 WHERE round = $2 AND intra = $3`)
@@ -889,13 +863,22 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 	}
 	if len(updates.AssetUpdates) > 0 && len(updates.AssetUpdates[0]) > 0 {
 		any = true
-		// Create new account_asset, or initialize a previously destroyed asset.
-		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, deleted = false`)
+
+		////////////////
+		// Asset Xfer //
+		////////////////
+		// Create new account_asset, initialize a previously destroyed asset, or apply the balance delta.
+		// Setting frozen is complicated for the no-op optin case. It should only be set to default-frozen when the
+		// holding is deleted, otherwise it should be left as the original value.
+		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, frozen = (EXCLUDED.frozen AND account_asset.deleted) OR (account_asset.frozen AND NOT account_asset.deleted), deleted = false`)
 		if err != nil {
 			return fmt.Errorf("prepare set account_asset, %v", err)
 		}
 		defer seta.Close()
 
+		/////////////////
+		// Asset Close //
+		/////////////////
 		// On asset opt-out attach some extra "apply data" metadata to allow rewinding the asset close if requested.
 		acc, err := tx.Prepare(`WITH aaamount AS (SELECT ($1)::bigint as round, ($2)::bigint as intra, x.amount FROM account_asset x WHERE x.addr = $3 AND x.assetid = $4)
 UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{aca}', to_jsonb(aaamount.amount)) FROM aaamount WHERE ut.round = aaamount.round AND ut.intra = aaamount.intra`)
@@ -918,6 +901,29 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 		defer acd.Close()
 
+		//////////////////
+		// Asset Config //
+		//////////////////
+		setacfg, err := tx.Prepare(`INSERT INTO asset (index, creator_addr, params, created_at, deleted) VALUES ($1, $2, $3, $4, false) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params, deleted = false`)
+		if err != nil {
+			return fmt.Errorf("prepare set asset, %v", err)
+		}
+		defer setacfg.Close()
+		getacfg, err := tx.Prepare(`SELECT params FROM asset WHERE index = $1`)
+		if err != nil {
+			return fmt.Errorf("prepare get asset, %v", err)
+		}
+		defer getacfg.Close()
+
+		//////////////////
+		// Asset Freeze //
+		//////////////////
+		fr, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, 0, $3, $4, false) ON CONFLICT (addr, assetid) DO UPDATE SET frozen = EXCLUDED.frozen, deleted = false`)
+		if err != nil {
+			return fmt.Errorf("prepare asset freeze, %v", err)
+		}
+		defer fr.Close()
+
 		for _, subround := range updates.AssetUpdates {
 			for addr, aulist := range subround {
 				for _, au := range aulist {
@@ -926,76 +932,98 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 					}
 
 					// Apply deltas
-					if au.Delta.IsInt64() {
-						// easy case
-						delta := au.Delta.Int64()
-						// don't skip delta == 0; mark opt-in
-						_, err = seta.Exec(addr[:], au.AssetID, delta, au.DefaultFrozen, round)
-						if err != nil {
-							return fmt.Errorf("update account asset, %v", err)
-						}
-					} else {
-						sign := au.Delta.Sign()
-						var mi big.Int
-						var step int64
-						if sign > 0 {
-							mi.SetInt64(math.MaxInt64)
-							step = math.MaxInt64
-						} else if sign < 0 {
-							mi.SetInt64(math.MinInt64)
-							step = math.MinInt64
-						} else {
-							continue
-						}
-						for !au.Delta.IsInt64() {
-							_, err = seta.Exec(addr[:], au.AssetID, step, au.DefaultFrozen, round)
+					if au.Transfer != nil {
+						if au.Transfer.Delta.IsInt64() {
+							// easy case
+							delta := au.Transfer.Delta.Int64()
+							// don't skip delta == 0; mark opt-in
+							_, err = seta.Exec(addr[:], au.AssetID, delta, au.DefaultFrozen, round)
 							if err != nil {
 								return fmt.Errorf("update account asset, %v", err)
 							}
-							au.Delta.Sub(&au.Delta, &mi)
-						}
-						sign = au.Delta.Sign()
-						if sign != 0 {
-							_, err = seta.Exec(addr[:], au.AssetID, au.Delta.Int64(), au.DefaultFrozen, round)
-							if err != nil {
-								return fmt.Errorf("update account asset, %v", err)
+						} else {
+							sign := au.Transfer.Delta.Sign()
+							var mi big.Int
+							var step int64
+							if sign > 0 {
+								mi.SetInt64(math.MaxInt64)
+								step = math.MaxInt64
+							} else if sign < 0 {
+								mi.SetInt64(math.MinInt64)
+								step = math.MinInt64
+							} else {
+								continue
+							}
+							for !au.Transfer.Delta.IsInt64() {
+								_, err = seta.Exec(addr[:], au.AssetID, step, au.DefaultFrozen, round)
+								if err != nil {
+									return fmt.Errorf("update account asset, %v", err)
+								}
+								au.Transfer.Delta.Sub(&au.Transfer.Delta, &mi)
+							}
+							sign = au.Transfer.Delta.Sign()
+							if sign != 0 {
+								_, err = seta.Exec(addr[:], au.AssetID, au.Transfer.Delta.Int64(), au.DefaultFrozen, round)
+								if err != nil {
+									return fmt.Errorf("update account asset, %v", err)
+								}
 							}
 						}
 					}
 
 					// Close holding before continuing to next subround.
-					if au.Closed != nil {
-						_, err = acc.Exec(au.Closed.Round, au.Closed.Offset, au.Closed.Sender[:], au.Closed.AssetID)
+					if au.Close != nil {
+						_, err = acc.Exec(au.Close.Round, au.Close.Offset, au.Close.Sender[:], au.AssetID)
 						if err != nil {
 							return fmt.Errorf("asset close record amount, %v", err)
 						}
-						_, err = acs.Exec(au.Closed.CloseTo[:], au.Closed.AssetID, au.Closed.DefaultFrozen, au.Closed.Sender[:], au.Closed.AssetID, round)
+						_, err = acs.Exec(au.Close.CloseTo[:], au.AssetID, au.DefaultFrozen, au.Close.Sender[:], au.AssetID, round)
 						if err != nil {
 							return fmt.Errorf("asset close send, %v", err)
 						}
-						_, err = acd.Exec(round, au.Closed.Sender[:], au.Closed.AssetID)
+						_, err = acd.Exec(round, au.Close.Sender[:], au.AssetID)
 						if err != nil {
 							return fmt.Errorf("asset close del, %v", err)
 						}
 					}
+
+					// Asset Config
+					if au.Config != nil {
+						var outparams string
+						if au.Config.IsNew {
+							outparams = string(json.Encode(au.Config.Params))
+						} else {
+							row := getacfg.QueryRow(au.AssetID)
+							var paramjson []byte
+							err = row.Scan(&paramjson)
+							if err != nil {
+								return fmt.Errorf("get acfg %d, %v", au.AssetID, err)
+							}
+							var old atypes.AssetParams
+							err = json.Decode(paramjson, &old)
+							if err != nil {
+								return fmt.Errorf("bad acgf json %d, %v", au.AssetID, err)
+							}
+							np := types.MergeAssetConfig(old, au.Config.Params)
+							outparams = string(json.Encode(np))
+						}
+						_, err = setacfg.Exec(au.AssetID, au.Config.Creator[:], outparams, round)
+						if err != nil {
+							return fmt.Errorf("update asset, %v", err)
+						}
+					}
+
+					// Asset Freeze
+					if au.Freeze != nil {
+						if au.AssetID == debugAsset {
+							db.log.Errorf("%d %s %s", round, b64(addr[:]), obs(au.Freeze))
+						}
+						_, err = fr.Exec(addr[:], au.AssetID, au.Freeze.Frozen, round)
+						if err != nil {
+							return fmt.Errorf("update asset freeze, %v", err)
+						}
+					}
 				}
-			}
-		}
-	}
-	if len(updates.FreezeUpdates) > 0 {
-		any = true
-		fr, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, 0, $3, $4, false) ON CONFLICT (addr, assetid) DO UPDATE SET frozen = EXCLUDED.frozen, deleted = false`)
-		if err != nil {
-			return fmt.Errorf("prepare asset freeze, %v", err)
-		}
-		defer fr.Close()
-		for _, fs := range updates.FreezeUpdates {
-			if fs.AssetID == debugAsset {
-				db.log.Errorf("%d %s %s", round, b64(fs.Addr[:]), obs(fs))
-			}
-			_, err = fr.Exec(fs.Addr[:], fs.AssetID, fs.Frozen, round)
-			if err != nil {
-				return fmt.Errorf("update asset freeze, %v", err)
 			}
 		}
 	}
@@ -2693,7 +2721,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 
 	data["migration-required"] = migrationRequired
 
-	round, err := db.GetMaxRound()
+	round, err := db.GetMaxRoundAccounted()
 	return idb.Health{
 		Data:        &data,
 		Round:       round,

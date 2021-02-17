@@ -81,14 +81,24 @@ func (db *dummyIndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
 	return nil
 }
 
-// GetMaxRound is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetMaxRound() (round uint64, err error) {
+// GetMaxRoundAccounted is part of idb.IndexerDB
+func (db *dummyIndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
+	return 0, nil
+}
+
+// GetMaxRoundLoaded is part of idb.IndexerDB
+func (db *dummyIndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
 	return 0, nil
 }
 
 // GetSpecialAccounts is part of idb.IndexerDb
 func (db *dummyIndexerDb) GetSpecialAccounts() (SpecialAccounts, error) {
 	return SpecialAccounts{}, nil
+}
+
+// GetDefaultFrozen is part of idb.IndexerDb
+func (db *dummyIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
+	return make(map[uint64]bool), nil
 }
 
 // YieldTxns is part of idb.IndexerDB
@@ -212,8 +222,10 @@ type IndexerDb interface {
 
 	GetMetastate(key string) (jsonStrValue string, err error)
 	SetMetastate(key, jsonStrValue string) (err error)
-	GetMaxRound() (round uint64, err error)
+	GetMaxRoundAccounted() (round uint64, err error)
+	GetMaxRoundLoaded() (round uint64, err error)
 	GetSpecialAccounts() (SpecialAccounts, error)
+	GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error)
 
 	// YieldTxns returns a channel that produces the whole transaction stream after some round forward
 	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow
@@ -439,37 +451,39 @@ type AccountDataUpdate struct {
 	VoteKeyDilution uint64
 }
 
+// AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
+type AssetUpdate struct {
+	AssetID       uint64
+	DefaultFrozen bool
+	Transfer *AssetTransfer
+	Close    *AssetClose
+	Config   *AcfgUpdate
+	Freeze   *FreezeUpdate
+}
+
 // AcfgUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AcfgUpdate struct {
-	AssetID uint64
 	IsNew   bool
 	Creator types.Address
 	Params  types.AssetParams
 }
 
-// AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
-type AssetUpdate struct {
-	AssetID       uint64
+// AssetTransfer is used by the accounting and IndexerDb implementations to share modifications in a block.
+type AssetTransfer struct {
 	Delta         big.Int
-	DefaultFrozen bool
-	Closed        *AssetClose
 }
 
 // FreezeUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type FreezeUpdate struct {
-	Addr    types.Address
-	AssetID uint64
 	Frozen  bool
 }
 
 // AssetClose is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AssetClose struct {
 	CloseTo       types.Address
-	AssetID       uint64
 	Sender        types.Address
 	Round         uint64
 	Offset        uint64
-	DefaultFrozen bool
 }
 
 // TxnAssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
@@ -506,7 +520,6 @@ type RoundUpdates struct {
 	// with a 0 value.
 	AccountDataUpdates map[[32]byte]map[string]interface{}
 
-	AcfgUpdates     []AcfgUpdate
 	TxnAssetUpdates []TxnAssetUpdate
 
 	// AssetUpdates is more complicated than AlgoUpdates because there
@@ -520,8 +533,8 @@ type RoundUpdates struct {
 	// The next subround starts when an account close has been detected
 	// Once a subround has been processed, move to the next subround and
 	// apply the updates.
+	// AssetConfig transactions also trigger the end of a subround.
 	AssetUpdates  []map[[32]byte][]AssetUpdate
-	FreezeUpdates []FreezeUpdate
 	AssetDestroys []uint64
 
 	AppGlobalDeltas []AppDelta
@@ -533,11 +546,9 @@ func (ru *RoundUpdates) Clear() {
 	ru.AlgoUpdates = nil
 	ru.AccountTypes = nil
 	ru.AccountDataUpdates = nil
-	ru.AcfgUpdates = nil
 	ru.TxnAssetUpdates = nil
 	ru.AssetUpdates = nil
 	ru.AssetUpdates = append(ru.AssetUpdates, make(map[[32]byte][]AssetUpdate, 0))
-	ru.FreezeUpdates = nil
 	ru.AssetDestroys = nil
 	ru.AppGlobalDeltas = nil
 	ru.AppLocalDeltas = nil
