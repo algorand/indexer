@@ -375,7 +375,6 @@ func (db *IndexerDb) GetProto(version string) (proto types.ConsensusParams, err 
 	return
 }
 
-// getMetastate is part of idb.IndexerDB
 func (db *IndexerDb) getMetastate(key string) (jsonStrValue string, err error) {
 	row := db.db.QueryRow(`SELECT v FROM metastate WHERE k = $1`, key)
 	err = row.Scan(&jsonStrValue)
@@ -389,8 +388,6 @@ func (db *IndexerDb) getMetastate(key string) (jsonStrValue string, err error) {
 }
 
 const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
-
-// setMetastate is part of idb.IndexerDB
 func (db *IndexerDb) setMetastate(key, jsonStrValue string) (err error) {
 	_, err = db.db.Exec(setMetastateUpsert, key, jsonStrValue)
 	return
