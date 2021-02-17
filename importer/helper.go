@@ -226,7 +226,6 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint6
 	rounds = 0
 	txnCount = 0
 	state, err := db.GetImportState()
-	l.Errorf("Getting import state: %v", err)
 	maybeFail(err, l, "getting import state, %v", err)
 	if state == nil {
 		state = &idb.ImportState{AccountRound: -1}

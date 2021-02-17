@@ -1279,7 +1279,6 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		return errors.New(msg)
 	}
 	istate.AccountRound = int64(round)
-	db.log.Errorf("!!!!!!!!!!! Setting metastate to %d !!!!!!!!!!!!!!", istate.AccountRound)
 	sjs := idb.JSONOneLine(istate)
 	_, err = tx.Exec(setMetastateUpsert, stateMetastateKey, sjs)
 	if err != nil {
