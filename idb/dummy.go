@@ -81,8 +81,13 @@ func (db *dummyIndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
 	return nil
 }
 
-// GetMaxRound is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetMaxRound() (round uint64, err error) {
+// GetMaxRoundAccounted is part of idb.IndexerDB
+func (db *dummyIndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
+	return 0, nil
+}
+
+// GetMaxRoundLoaded is part of idb.IndexerDB
+func (db *dummyIndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
 	return 0, nil
 }
 
@@ -217,7 +222,8 @@ type IndexerDb interface {
 
 	GetMetastate(key string) (jsonStrValue string, err error)
 	SetMetastate(key, jsonStrValue string) (err error)
-	GetMaxRound() (round uint64, err error)
+	GetMaxRoundAccounted() (round uint64, err error)
+	GetMaxRoundLoaded() (round uint64, err error)
 	GetSpecialAccounts() (SpecialAccounts, error)
 	GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error)
 
