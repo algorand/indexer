@@ -178,9 +178,12 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 		logger.Errorf("received block %d when expecting %d", block.Block.Round, bih.round+1)
 	}
 	_, err := bih.imp.ImportDecodedBlock(block)
-	maybeFail(err, "ImportDecodedBlock %d: %v", block.Block.Round, err)
+	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round)
+	maxRoundAccounted, err := bih.db.GetMaxRoundAccounted()
+	maybeFail(err, "failed to get max round accounted.")
+	// During normal operation StartRound and MaxRound will be the same round.
 	filter := idb.UpdateFilter{
-		StartRound: uint64(block.Block.Round),
+		StartRound: maxRoundAccounted + 1,
 		MaxRound:   uint64(block.Block.Round),
 	}
 	importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
