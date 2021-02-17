@@ -450,11 +450,11 @@ func TestBlockWithTransactions(t *testing.T) {
 	tx5, payMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
 
 	db.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`, test.Round)
-	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 0, 0, 0, crypto.TransactionID(tx1.Txn), createAsset.TxnBytes, "")
-	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 1, 0, 0, crypto.TransactionID(tx2.Txn), fundMain.TxnBytes, "")
-	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 2, 0, 0, crypto.TransactionID(tx3.Txn), closeMain.TxnBytes, "")
-	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 3, 0, 0, crypto.TransactionID(tx4.Txn), optinMain.TxnBytes, "")
-	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 4, 0, 0, crypto.TransactionID(tx5.Txn), payMain.TxnBytes, "")
+	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 0, 0, 0, crypto.TransactionID(tx1.Txn), createAsset.TxnBytes, "{}")
+	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 1, 0, 0, crypto.TransactionID(tx2.Txn), fundMain.TxnBytes, "{}")
+	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 2, 0, 0, crypto.TransactionID(tx3.Txn), closeMain.TxnBytes, "{}")
+	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 3, 0, 0, crypto.TransactionID(tx4.Txn), optinMain.TxnBytes, "{}")
+	db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, 4, 0, 0, crypto.TransactionID(tx5.Txn), payMain.TxnBytes, "{}")
 
 	//////////
 	// When // We call GetBlock and Transactions
@@ -471,7 +471,8 @@ func TestBlockWithTransactions(t *testing.T) {
 	//////////
 	// Then // They should have the same transactions
 	//////////
-	assert.True(t, len(blockTxn) == len(transactionsTxn))
+	assert.Len(t, blockTxn, 5)
+	assert.Len(t, transactionsTxn, 5)
 	for i := 0; i < len(blockTxn); i++ {
 		assert.Equal(t, blockTxn[i].TxnBytes, transactionsTxn[i].TxnBytes)
 	}
