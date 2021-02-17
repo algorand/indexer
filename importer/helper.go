@@ -238,8 +238,9 @@ func InitialImport(db idb.IndexerDb, genesisJSONPath string, l *log.Logger) bool
 	state, err := db.GetImportState()
 	maybeFail(err, l, "getting import state, %v", err)
 
-	// Only import on round 0
-	if state.AccountRound == 0 {
+	// Only import when the state is not found.
+	if state == nil {
+		state = &idb.ImportState{AccountRound: -1}
 		if genesisJSONPath != "" {
 			l.Infof("loading genesis %s", genesisJSONPath)
 			// if we're given no previous state and we're given a genesis file, import it as initial account state

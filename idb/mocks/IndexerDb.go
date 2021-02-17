@@ -190,14 +190,16 @@ func (_m *IndexerDb) GetDefaultFrozen() (map[uint64]bool, error) {
 }
 
 // GetImportState provides a mock function with given fields:
-func (_m *IndexerDb) GetImportState() (idb.ImportState, error) {
+func (_m *IndexerDb) GetImportState() (*idb.ImportState, error) {
 	ret := _m.Called()
 
-	var r0 idb.ImportState
-	if rf, ok := ret.Get(0).(func() idb.ImportState); ok {
+	var r0 *idb.ImportState
+	if rf, ok := ret.Get(0).(func() *idb.ImportState); ok {
 		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(idb.ImportState)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*idb.ImportState)
+		}
 	}
 
 	var r1 error
