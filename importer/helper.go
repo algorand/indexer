@@ -101,7 +101,7 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	if !initialImport {
 		state, err := db.GetImportState()
 		maybeFail(err, h.Log, "problem getting the import state")
-		filter.StartRound = uint64(state.AccountRound)
+		filter.StartRound = uint64(state.AccountRound) + 1
 	}
 	accountingRounds, txnCount := updateAccounting(db, h.DefaultFrozenCache, filter, h.Log)
 	if initialImport {
@@ -267,7 +267,7 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 	txnCount = 0
 	lastlog := time.Now()
 	act := accounting.New(frozenCache)
-	txns := db.YieldTxns(context.Background(), int64(filter.StartRound))
+	txns := db.YieldTxns(context.Background(), int64(filter.StartRound)-1)
 	currentRound := uint64(0)
 	roundsSeen := 0
 	lastRoundsSeen := roundsSeen

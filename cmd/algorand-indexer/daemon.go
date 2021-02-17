@@ -180,7 +180,7 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	_, err := bih.imp.ImportDecodedBlock(block)
 	maybeFail(err, "ImportDecodedBlock %d: %v", block.Block.Round, err)
 	filter := idb.UpdateFilter{
-		StartRound: uint64(block.Block.Round)-1,
+		StartRound: uint64(block.Block.Round),
 		MaxRound:   uint64(block.Block.Round),
 	}
 	importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
