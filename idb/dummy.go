@@ -204,6 +204,8 @@ type TxnExtra struct {
 	LocalReverseDelta  AppReverseDelta `codec:"alr,omitempty"`
 }
 
+// ErrorNotInitialized is used when requesting something that can't be returned
+// because initialization has not been completed.
 var ErrorNotInitialized error = errors.New("accounting not initialized")
 
 // IndexerDb is the interface used to define alternative Indexer backends.
