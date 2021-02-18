@@ -131,7 +131,7 @@ func maybeFail(err error, l *log.Logger, errfmt string, params ...interface{}) {
 	if err == nil {
 		return
 	}
-	l.Errorf(errfmt, params...)
+	l.WithError(err).Errorf(errfmt, params...)
 	os.Exit(1)
 }
 
