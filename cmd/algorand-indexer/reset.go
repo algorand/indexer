@@ -1,21 +1,16 @@
 package main
 
 import (
-	"context"
+	"bufio"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
-	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/config"
-	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/importer"
-	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/idb/postgres"
 )
 
 var resetCmd = &cobra.Command{
@@ -33,12 +28,22 @@ var resetCmd = &cobra.Command{
 		}
 		opts := idb.IndexerDbOptions{}
 		db := globalIndexerDb(&opts)
-		ctx, cf := context.WithCancel(context.Background())
-		defer cf()
-		os.Stdout.Write("Are you sure? [y/N]")
-		var b [1]byte
-		for true {
-
+		os.Stdout.Write([]byte("Are you sure? [y/N] "))
+		scanner := bufio.NewScanner(os.Stdin)
+		if scanner.Scan() {
+			answer := scanner.Text()
+			if len(answer) > 0 && (answer[0] == 'y' || answer[0] == 'Y') {
+				os.Stdout.Write([]byte("Resetting...\n"))
+				time.Sleep(2)
+				pdb := db.(*postgres.IndexerDb)
+				err = pdb.Reset()
+				maybeFail(err, "database reset failed")
+				os.Stdout.Write([]byte("Done. To re-build, re-start algorand-indexer daemon\n"))
+				return
+			}
 		}
+		err = scanner.Err()
+		maybeFail(err, "getting prompt char")
+		os.Stdout.Write([]byte("not resetting\n"))
 	},
 }
