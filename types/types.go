@@ -825,6 +825,9 @@ const (
 
 	// PaysetCommitFlat hashes the entire payset array.
 	PaysetCommitFlat
+
+	// PaysetCommitMerkle uses merklearray to commit to the payset.
+	PaysetCommitMerkle
 )
 
 // MergeAssetConfig merges together two asset param objects.
