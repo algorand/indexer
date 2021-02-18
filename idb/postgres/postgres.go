@@ -421,13 +421,25 @@ func (db *IndexerDb) SetImportState(state idb.ImportState) (err error) {
 
 // GetMaxRoundAccounted is part of idb.IndexerDB
 func (db *IndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
+	var nullableRound sql.NullInt64
+
 	//var round uint64
-	row := db.db.QueryRow(`select coalesce((v->>'account_round')::bigint, 0) from metastate where k = 'state'`)
-	err = row.Scan(&round)
+	row := db.db.QueryRow(`select v->>'account_round' from metastate where k = 'state'`)
+	err = row.Scan(&nullableRound)
 
 	if err == sql.ErrNoRows {
 		err = idb.ErrorNotInitialized
 		round = 0
+	}
+
+	if err != nil {
+		return
+	}
+
+	if nullableRound.Valid {
+		round = uint64(nullableRound.Int64)
+	} else {
+		err = idb.ErrorNotInitialized
 	}
 
 	return
@@ -439,13 +451,17 @@ func (db *IndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
 	round = 0
 	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
 	err = row.Scan(&nullableRound)
-	if err == nil && nullableRound.Valid {
-		round = uint64(nullableRound.Int64)
-	}
-	if !nullableRound.Valid {
+
+	if err == sql.ErrNoRows || !nullableRound.Valid {
 		err = idb.ErrorNotInitialized
+		return
 	}
 
+	if err != nil {
+		return
+	}
+
+	round = uint64(nullableRound.Int64)
 	return
 }
 

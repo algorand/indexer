@@ -83,7 +83,7 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 }
 
 
-// TestMaxRoundEmptyMetastate makes sure we return 0 when the metastate is empty (this should never happen).
+// TestMaxRoundEmptyMetastate makes sure we return 0 when the metastate is empty.
 func TestMaxRoundEmptyMetastate(t *testing.T) {
 	pg, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
@@ -98,11 +98,11 @@ func TestMaxRoundEmptyMetastate(t *testing.T) {
 	// When // We request the max round.
 	//////////
 	round, err := db.GetMaxRoundAccounted()
-	assert.NoError(t, err)
 
 	//////////
-	// Then // There should be no error and we return that there are zero rounds.
+	// Then // The error message should be set.
 	//////////
+	assert.Equal(t, err, idb.ErrorNotInitialized)
 	assert.Equal(t, uint64(0), round)
 }
 

@@ -234,7 +234,7 @@ type IndexerDb interface {
 	GetSpecialAccounts() (SpecialAccounts, error)
 	GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error)
 
-	// YieldTxns returns a channel that produces the whole transaction stream after some round forward
+	// YieldTxns returns a channel that produces the whole transaction stream starting at the specified round
 	YieldTxns(ctx context.Context, firstRound uint64) <-chan TxnRow
 
 	CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error)
