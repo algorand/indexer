@@ -400,19 +400,11 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 // LookupBlock returns the block for a given round number
 // (GET /v2/blocks/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
-	blk, err := si.fetchBlock(roundNumber)
+	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber)
 	if err != nil {
 		return indexerError(ctx, err.Error())
 	}
 
-	// Lookup transactions
-	filter := idb.TransactionFilter{Round: uint64Ptr(roundNumber)}
-	txns, _, err := si.fetchTransactions(ctx.Request().Context(), filter)
-	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s for round '%d': %v", errTransactionSearch, roundNumber, err))
-	}
-
-	blk.Transactions = &txns
 	return ctx.JSON(http.StatusOK, generated.BlockResponse(blk))
 }
 
@@ -582,8 +574,10 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 }
 
 // fetchBlock looks up a block and converts it into a generated.Block object
-func (si *ServerImplementation) fetchBlock(round uint64) (generated.Block, error) {
-	blk, err := si.db.GetBlock(round)
+// the method also loads the transactions into the returned block object.
+func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (generated.Block, error) {
+	blk, transactions, err := si.db.GetBlock(ctx, round, idb.GetBlockOptions{Transactions: true})
+
 	if err != nil {
 		return generated.Block{}, fmt.Errorf("%s '%d': %v", errLookingUpBlock, round, err)
 	}
@@ -626,6 +620,17 @@ func (si *ServerImplementation) fetchBlock(round uint64) (generated.Block, error
 		UpgradeVote:       &upgradeVote,
 	}
 
+	results := make([]generated.Transaction, 0)
+	for _, txrow := range transactions {
+		tx, err := txnRowToTransaction(txrow)
+		if err != nil {
+			return generated.Block{}, err
+		}
+		results = append(results, tx)
+		txrow.Next()
+	}
+
+	ret.Transactions = &results
 	return ret, nil
 }
 
