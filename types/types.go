@@ -229,6 +229,9 @@ type (
 		// Closing amount for transaction.
 		ClosingAmount MicroAlgos `codec:"ca"`
 
+		// Closing amount for asset transaction.
+		AssetClosingAmount uint64 `codec:"aca"`
+
 		// Rewards applied to the Sender, Receiver, and CloseRemainderTo accounts.
 		SenderRewards   MicroAlgos `codec:"rs"`
 		ReceiverRewards MicroAlgos `codec:"rr"`
