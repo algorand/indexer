@@ -829,6 +829,9 @@ type ConsensusParams struct {
 	// EnableAssetCloseAmount adds an extra field to the ApplyData. The field contains the amount of the remaining
 	// asset that were sent to the close-to address.
 	EnableAssetCloseAmount bool
+
+	// InitialRewardsRateCalculation update the initial rewards rate calculation to take the reward pool minimum balance into account
+	InitialRewardsRateCalculation bool
 }
 
 // PaysetCommitType enumerates possible ways for the block header to commit to
