@@ -105,9 +105,9 @@ type IndexerDb struct {
 }
 
 func (db *IndexerDb) init() (err error) {
-	accountingStateJSON, _ := db.GetMetastate(stateMetastateKey)
+	accountingStateJSON, _ := db.getMetastate(stateMetastateKey)
 	hasAccounting := len(accountingStateJSON) > 0
-	migrationStateJSON, _ := db.GetMetastate(migrationMetastateKey)
+	migrationStateJSON, _ := db.getMetastate(migrationMetastateKey)
 	hasMigration := len(migrationStateJSON) > 0
 
 	db.GetSpecialAccounts()
@@ -376,8 +376,7 @@ func (db *IndexerDb) GetProto(version string) (proto types.ConsensusParams, err 
 	return
 }
 
-// GetMetastate is part of idb.IndexerDB
-func (db *IndexerDb) GetMetastate(key string) (jsonStrValue string, err error) {
+func (db *IndexerDb) getMetastate(key string) (jsonStrValue string, err error) {
 	row := db.db.QueryRow(`SELECT v FROM metastate WHERE k = $1`, key)
 	err = row.Scan(&jsonStrValue)
 	if err == sql.ErrNoRows {
@@ -390,11 +389,34 @@ func (db *IndexerDb) GetMetastate(key string) (jsonStrValue string, err error) {
 }
 
 const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
-
-// SetMetastate is part of idb.IndexerDB
-func (db *IndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
+func (db *IndexerDb) setMetastate(key, jsonStrValue string) (err error) {
 	_, err = db.db.Exec(setMetastateUpsert, key, jsonStrValue)
 	return
+}
+
+// GetImportState is part of idb.IndexerDB
+func (db *IndexerDb) GetImportState() (state *idb.ImportState, err error) {
+	var importStateJSON string
+	importStateJSON, err = db.getMetastate(stateMetastateKey)
+	if err == sql.ErrNoRows || importStateJSON == "" {
+		// no previous state, ok
+		err = nil
+		return
+	} else if err != nil {
+		err = fmt.Errorf("unable to get import state: %v", err)
+		return
+	}
+
+	err = json.Decode([]byte(importStateJSON), &state)
+	if err != nil {
+		err = fmt.Errorf("unable to parse import state: %v", err)
+	}
+	return
+}
+
+// SetImportState is part of idb.IndexerDB
+func (db *IndexerDb) SetImportState(state idb.ImportState) (err error) {
+	return db.setMetastate(stateMetastateKey, string(json.Encode(state)))
 }
 
 // GetMaxRoundAccounted is part of idb.IndexerDB
@@ -841,20 +863,6 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 				return fmt.Errorf("update keyreg, %v", err)
 			}
 		}
-	}
-	if len(updates.TxnAssetUpdates) > 0 {
-		any = true
-		uta, err := tx.Prepare(`UPDATE txn SET asset = $1 WHERE round = $2 AND intra = $3`)
-		if err != nil {
-			return fmt.Errorf("prepare update txn.asset, %v", err)
-		}
-		for _, tau := range updates.TxnAssetUpdates {
-			_, err = uta.Exec(tau.AssetID, tau.Round, tau.Offset)
-			if err != nil {
-				return fmt.Errorf("update txn.asset, %v", err)
-			}
-		}
-		defer uta.Close()
 	}
 	if len(updates.AssetUpdates) > 0 && len(updates.AssetUpdates[0]) > 0 {
 		any = true
@@ -2762,7 +2770,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 // GetSpecialAccounts is part of idb.IndexerDB
 func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err error) {
 	var cache string
-	cache, err = db.GetMetastate(specialAccountsMetastateKey)
+	cache, err = db.getMetastate(specialAccountsMetastateKey)
 	if err != nil || cache == "" {
 		// Initialize specialAccountsMetastateKey
 		var block types.Block
@@ -2777,7 +2785,7 @@ func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err err
 		}
 
 		cache := idb.JSONOneLine(accounts)
-		err = db.SetMetastate(specialAccountsMetastateKey, cache)
+		err = db.setMetastate(specialAccountsMetastateKey, cache)
 		if err != nil {
 			return idb.SpecialAccounts{}, fmt.Errorf("problem saving metastate: %v", err)
 		}
