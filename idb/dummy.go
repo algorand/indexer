@@ -112,9 +112,8 @@ func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round uint
 }
 
 // GetBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetBlock(round uint64) (block types.Block, err error) {
-	err = nil
-	return
+func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (block types.Block, transactions []TxnRow, err error) {
+	return types.Block{}, nil, nil
 }
 
 // Transactions is part of idb.IndexerDB
@@ -232,7 +231,7 @@ type IndexerDb interface {
 
 	CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error)
 
-	GetBlock(round uint64) (block types.Block, err error)
+	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (block types.Block, transactions []TxnRow, err error)
 
 	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
@@ -241,6 +240,12 @@ type IndexerDb interface {
 	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow
 
 	Health() (status Health, err error)
+}
+
+// GetBlockOptions contains the options when requesting to load a block from the database.
+type GetBlockOptions struct {
+	// setting Transactions to true suggests requesting to receive the trasnactions themselves from the GetBlock query
+	Transactions bool
 }
 
 // TransactionFilter.AddressRole bitfield values
@@ -455,10 +460,10 @@ type AccountDataUpdate struct {
 type AssetUpdate struct {
 	AssetID       uint64
 	DefaultFrozen bool
-	Transfer *AssetTransfer
-	Close    *AssetClose
-	Config   *AcfgUpdate
-	Freeze   *FreezeUpdate
+	Transfer      *AssetTransfer
+	Close         *AssetClose
+	Config        *AcfgUpdate
+	Freeze        *FreezeUpdate
 }
 
 // AcfgUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
@@ -470,20 +475,20 @@ type AcfgUpdate struct {
 
 // AssetTransfer is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AssetTransfer struct {
-	Delta         big.Int
+	Delta big.Int
 }
 
 // FreezeUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type FreezeUpdate struct {
-	Frozen  bool
+	Frozen bool
 }
 
 // AssetClose is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AssetClose struct {
-	CloseTo       types.Address
-	Sender        types.Address
-	Round         uint64
-	Offset        uint64
+	CloseTo types.Address
+	Sender  types.Address
+	Round   uint64
+	Offset  uint64
 }
 
 // TxnAssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
