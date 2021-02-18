@@ -80,8 +80,10 @@ var daemonCmd = &cobra.Command{
 		if bot != nil {
 			logger.Info("Initializing block import handler.")
 			maxRound, err := db.GetMaxRoundLoaded()
-			maybeFail(err, "failed to get max round, %v", err)
-			if maxRound != 0 {
+			if err == idb.ErrorNotInitialized {
+				bot.SetNextRound(0)
+			} else {
+				maybeFail(err, "failed to get max round, %v", err)
 				bot.SetNextRound(maxRound + 1)
 			}
 			cache, err := db.GetDefaultFrozen()
@@ -180,10 +182,16 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	_, err := bih.imp.ImportDecodedBlock(block)
 	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round)
 	maxRoundAccounted, err := bih.db.GetMaxRoundAccounted()
-	maybeFail(err, "failed to get max round accounted.")
+	// Special case to start at round 0 if things are uninitialized, otherwise start at the first unaccounted round.
+	if err == idb.ErrorNotInitialized {
+		maxRoundAccounted = 0
+	} else {
+		maybeFail(err, "failed to get max round accounted.")
+		maxRoundAccounted++
+	}
 	// During normal operation StartRound and MaxRound will be the same round.
 	filter := idb.UpdateFilter{
-		StartRound: maxRoundAccounted + 1,
+		StartRound: maxRoundAccounted,
 		MaxRound:   uint64(block.Block.Round),
 	}
 	importer.UpdateAccounting(bih.db, bih.cache, filter, logger)

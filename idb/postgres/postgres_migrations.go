@@ -359,7 +359,10 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 func m5RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	// Cache the round in the migration metastate
 	round, err := db.GetMaxRoundAccounted()
-	if err != nil {
+	if err == idb.ErrorNotInitialized {
+		// Shouldn't end up in the migration if this were the case.
+		round = 0
+	} else if err != nil {
 		db.log.WithError(err).Errorf("%s: problem caching max round: %v", rewardsCreateCloseUpdateErr, err)
 		return err
 	}
@@ -901,8 +904,7 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() (err error) {
 	db := mtxid.db
 	state := mtxid.state
 	db.log.Println("txid fixup migration starting")
-	prevRound := state.NextRound - 1
-	txns := db.YieldTxns(context.Background(), prevRound)
+	txns := db.YieldTxns(context.Background(), uint64(state.NextRound))
 	batch := make([]idb.TxnRow, 15000)
 	txInBatch := 0
 	roundsInBatch := 0

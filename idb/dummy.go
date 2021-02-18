@@ -6,6 +6,7 @@ import (
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -72,8 +73,8 @@ func (db *dummyIndexerDb) GetProto(version string) (proto types.ConsensusParams,
 }
 
 // GetImportState is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetImportState() (is *ImportState, err error) {
-	return nil, nil
+func (db *dummyIndexerDb) GetImportState() (is ImportState, err error) {
+	return ImportState{}, nil
 }
 
 // SetImportState is part of idb.IndexerDB
@@ -102,7 +103,7 @@ func (db *dummyIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err
 }
 
 // YieldTxns is part of idb.IndexerDB
-func (db *dummyIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow {
+func (db *dummyIndexerDb) YieldTxns(ctx context.Context, firstRound uint64) <-chan TxnRow {
 	return nil
 }
 
@@ -203,6 +204,8 @@ type TxnExtra struct {
 	LocalReverseDelta  AppReverseDelta `codec:"alr,omitempty"`
 }
 
+var ErrorNotInitialized error = errors.New("accounting not initialized")
+
 // IndexerDb is the interface used to define alternative Indexer backends.
 // TODO: sqlite3 impl
 // TODO: cockroachdb impl
@@ -219,15 +222,18 @@ type IndexerDb interface {
 	SetProto(version string, proto types.ConsensusParams) (err error)
 	GetProto(version string) (proto types.ConsensusParams, err error)
 
-	GetImportState() (is *ImportState, err error)
+	// GetImportState returns ErrorNotInitialized if there is no import state.
+	GetImportState() (is ImportState, err error)
 	SetImportState(ImportState) (err error)
+	// GetMaxRoundAccounted returns ErrorNotInitialized if there are no accounted rounds.
 	GetMaxRoundAccounted() (round uint64, err error)
+	// GetMaxRoundLoaded returns ErrorNotInitialized if there are no loaded rounds.
 	GetMaxRoundLoaded() (round uint64, err error)
 	GetSpecialAccounts() (SpecialAccounts, error)
 	GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error)
 
 	// YieldTxns returns a channel that produces the whole transaction stream after some round forward
-	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow
+	YieldTxns(ctx context.Context, firstRound uint64) <-chan TxnRow
 
 	CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error)
 

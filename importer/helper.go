@@ -90,23 +90,26 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 		h.Log.Infof("%d blocks in %s, %.0f/s, %d txn, %.0f/s", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
 	}
 
-	initialImport := InitialImport(db, h.GenesisJSONPath, h.Log)
-	maybeFail(err, h.Log, "problem getting the max round")
+	state, err := db.GetImportState()
+	var startRound uint64 = 0
+	accountingRounds := 0
+	if err == idb.ErrorNotInitialized {
+		if InitialImport(db, h.GenesisJSONPath, h.Log) {
+			accountingRounds ++
+		}
+	} else {
+		maybeFail(err, h.Log, "problem getting the import state")
+		startRound = uint64(state.AccountRound + 1)
+	}
+
 	filter := idb.UpdateFilter{
-		StartRound: 0,
+		StartRound: startRound,
 	}
 	if h.NumRoundsLimit != 0 {
 		filter.RoundLimit = &h.NumRoundsLimit
 	}
-	if !initialImport {
-		state, err := db.GetImportState()
-		maybeFail(err, h.Log, "problem getting the import state")
-		filter.StartRound = uint64(state.AccountRound) + 1
-	}
-	accountingRounds, txnCount := updateAccounting(db, h.DefaultFrozenCache, filter, h.Log)
-	if initialImport {
-		accountingRounds++
-	}
+	updateRounds, txnCount := updateAccounting(db, h.DefaultFrozenCache, filter, h.Log)
+	accountingRounds += updateRounds
 
 	accountingdone := time.Now()
 	if accountingRounds > 0 {
@@ -236,11 +239,10 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 // InitialImport imports the genesis block if needed. Returns true if the initial import occurred.
 func InitialImport(db idb.IndexerDb, genesisJSONPath string, l *log.Logger) bool {
 	state, err := db.GetImportState()
-	maybeFail(err, l, "getting import state, %v", err)
 
 	// Only import when the state is not found.
-	if state == nil {
-		state = &idb.ImportState{AccountRound: -1}
+	if err == idb.ErrorNotInitialized {
+		state.AccountRound = -1
 		if genesisJSONPath != "" {
 			l.Infof("loading genesis %s", genesisJSONPath)
 			// if we're given no previous state and we're given a genesis file, import it as initial account state
@@ -254,6 +256,7 @@ func InitialImport(db idb.IndexerDb, genesisJSONPath string, l *log.Logger) bool
 		os.Exit(1)
 		return false
 	}
+	maybeFail(err, l, "getting import state, %v", err)
 	return false
 }
 
@@ -267,7 +270,7 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 	txnCount = 0
 	lastlog := time.Now()
 	act := accounting.New(frozenCache)
-	txns := db.YieldTxns(context.Background(), int64(filter.StartRound)-1)
+	txns := db.YieldTxns(context.Background(), filter.StartRound)
 	currentRound := uint64(0)
 	roundsSeen := 0
 	lastRoundsSeen := roundsSeen

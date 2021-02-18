@@ -395,12 +395,12 @@ func (db *IndexerDb) setMetastate(key, jsonStrValue string) (err error) {
 }
 
 // GetImportState is part of idb.IndexerDB
-func (db *IndexerDb) GetImportState() (state *idb.ImportState, err error) {
+func (db *IndexerDb) GetImportState() (state idb.ImportState, err error) {
 	var importStateJSON string
 	importStateJSON, err = db.getMetastate(stateMetastateKey)
 	if err == sql.ErrNoRows || importStateJSON == "" {
 		// no previous state, ok
-		err = nil
+		err = idb.ErrorNotInitialized
 		return
 	} else if err != nil {
 		err = fmt.Errorf("unable to get import state: %v", err)
@@ -426,7 +426,7 @@ func (db *IndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
 	err = row.Scan(&round)
 
 	if err == sql.ErrNoRows {
-		err = nil
+		err = idb.ErrorNotInitialized
 		round = 0
 	}
 
@@ -441,6 +441,9 @@ func (db *IndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
 	err = row.Scan(&nullableRound)
 	if err == nil && nullableRound.Valid {
 		round = uint64(nullableRound.Int64)
+	}
+	if !nullableRound.Valid {
+		err = idb.ErrorNotInitialized
 	}
 
 	return
@@ -550,9 +553,9 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 }
 
 // YieldTxns is part of idb.IndexerDB
-func (db *IndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan idb.TxnRow {
+func (db *IndexerDb) YieldTxns(ctx context.Context, firstRound uint64) <-chan idb.TxnRow {
 	results := make(chan idb.TxnRow, 1)
-	rows, err := db.db.QueryContext(ctx, yieldTxnQuery, prevRound)
+	rows, err := db.db.QueryContext(ctx, yieldTxnQuery, int64(firstRound) - 1)
 	if err != nil {
 		results <- idb.TxnRow{Error: err}
 		close(results)
@@ -2759,6 +2762,13 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 	data["migration-required"] = migrationRequired
 
 	round, err := db.GetMaxRoundAccounted()
+
+	// We'll just have to set the round to 0
+	if err == idb.ErrorNotInitialized {
+		err = nil
+		round = 0
+	}
+
 	return idb.Health{
 		Data:        &data,
 		Round:       round,
