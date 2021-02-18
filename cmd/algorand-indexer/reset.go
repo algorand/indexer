@@ -28,7 +28,12 @@ var resetCmd = &cobra.Command{
 		}
 		opts := idb.IndexerDbOptions{}
 		db := globalIndexerDb(&opts)
-		os.Stdout.Write([]byte("Are you sure? [y/N] "))
+		fmt.Println("Prior to resetting the database make sure no daemons are connected.")
+		fmt.Println("After this command finishes start the daemon again and it will begin to")
+		fmt.Println("re-index the data. This will take hours or days depending on the network")
+		fmt.Println("size. During this time data will be incomplete, similar to the initial import.")
+		
+		fmt.Print("\nAre you sure you would like to reset? [y/N] "))
 		scanner := bufio.NewScanner(os.Stdin)
 		if scanner.Scan() {
 			answer := scanner.Text()
