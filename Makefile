@@ -12,7 +12,7 @@ GOLDFLAGS += -X github.com/algorand/indexer/version.GitDecorateBase64=$(shell gi
 GOLDFLAGS += -X github.com/algorand/indexer/version.ReleaseVersion=$(shell cat .version)
 
 # This is the default target, build the indexer:
-cmd/algorand-indexer/algorand-indexer:	idb/postgres/setup_postgres_sql.go types/protocols_json.go .PHONY
+cmd/algorand-indexer/algorand-indexer:	idb/postgres/setup_postgres_sql.go types/protocols_json.go
 	cd cmd/algorand-indexer && CGO_ENABLED=0 go build -ldflags="${GOLDFLAGS}"
 
 idb/postgres/setup_postgres_sql.go:	idb/postgres/setup_postgres.sql
@@ -25,9 +25,6 @@ idb/mocks/IndexerDb.go:	idb/dummy.go
 	go get github.com/vektra/mockery/.../
 	cd idb && mockery -name=IndexerDb
 
-deploy:
-	mule/deploy.sh
-
 package:
 	rm -rf $(PKG_DIR)
 	mkdir -p $(PKG_DIR)
@@ -39,10 +36,7 @@ fakepackage:
 	mkdir -p $(PKG_DIR)
 	misc/release.py --outdir $(PKG_DIR) --fake-release
 
-sign:
-	mule/sign.sh
-
-test: idb/mocks/IndexerDb.go
+test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 	go test ./...
 
 lint:
@@ -51,14 +45,26 @@ lint:
 fmt:
 	go fmt ./...
 
-integration:
+integration: cmd/algorand-indexer/algorand-indexer
 	mkdir -p test/blockdata
 	mkdir -p test/migrations
 	curl -s https://algorand-testdata.s3.amazonaws.com/indexer/test_blockdata/create_destroy.tar.bz2 -o test/blockdata/create_destroy.tar.bz2
 	test/postgres_migration_test.sh
 	test/postgres_integration_test.sh
 
+e2e: cmd/algorand-indexer/algorand-indexer
+	pip3 install --upgrade pip
+	pip3 install -r misc/requirements.txt
+	docker run -it --rm --name some-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres
+	python3 misc/e2elive.py --connection-string 'host=localhost port=5432 dbname=postgres sslmode=disable user=postgres password=postgres' --indexer-bin cmd/algorand-indexer/algorand-indexer
+
+deploy:
+	mule/deploy.sh
+
+sign:
+	mule/sign.sh
+
 test-package:
 	mule/e2e.sh
 
-.PHONY:
+.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage

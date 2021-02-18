@@ -23,12 +23,13 @@ import (
 )
 
 // NewImportHelper builds an ImportHelper
-func NewImportHelper(genesisJSONPath string, numRoundsLimit, blockFileLimite int, l *log.Logger) (*ImportHelper) {
+func NewImportHelper(defaultFrozenCache map[uint64]bool, genesisJSONPath string, numRoundsLimit, blockFileLimite int, l *log.Logger) *ImportHelper {
 	return &ImportHelper{
-		GenesisJSONPath: genesisJSONPath,
-		NumRoundsLimit:  numRoundsLimit,
-		BlockFileLimit:  blockFileLimite,
-		Log:             l,
+		DefaultFrozenCache: defaultFrozenCache,
+		GenesisJSONPath:    genesisJSONPath,
+		NumRoundsLimit:     numRoundsLimit,
+		BlockFileLimit:     blockFileLimite,
+		Log:                l,
 	}
 }
 
@@ -43,18 +44,15 @@ type ImportHelper struct {
 	// BlockFileLimit is the number of block files to process.
 	BlockFileLimit int
 
+	// DefaultFrozenCache is a persistent cache of default frozen values.
+	DefaultFrozenCache map[uint64]bool
+
 	Log *log.Logger
 }
 
 // ImportState is some metadata kept around to help the import helper.
 type ImportState struct {
 	AccountRound int64 `codec:"account_round"`
-}
-
-// ParseImportState decodes a json serialized import state object.
-func ParseImportState(js string) (istate ImportState, err error) {
-	err = json.Decode([]byte(js), &istate)
-	return
 }
 
 // Import is the main ImportHelper function that glues together a directory full of block files and an Importer objects.
@@ -92,7 +90,7 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 		h.Log.Infof("%d blocks in %s, %.0f/s, %d txn, %.0f/s", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
 	}
 
-	accountingRounds, txnCount := updateAccounting(db, h.GenesisJSONPath, h.NumRoundsLimit, h.Log)
+	accountingRounds, txnCount := updateAccounting(db, h.DefaultFrozenCache, 0, h.GenesisJSONPath, h.NumRoundsLimit, h.Log)
 
 	accountingdone := time.Now()
 	if accountingRounds > 0 {
@@ -117,7 +115,7 @@ func maybeFail(err error, l *log.Logger, errfmt string, params ...interface{}) {
 	if err == nil {
 		return
 	}
-	l.Errorf(errfmt, params...)
+	l.WithError(err).Errorf(errfmt, params...)
 	os.Exit(1)
 }
 
@@ -220,17 +218,17 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 }
 
 // UpdateAccounting triggers an accounting update.
-func UpdateAccounting(db idb.IndexerDb, genesisJSONPath string, l *log.Logger) (rounds, txnCount int) {
-	return updateAccounting(db, genesisJSONPath, 0, l)
+func UpdateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint64, genesisJSONPath string, l *log.Logger) (rounds, txnCount int) {
+	return updateAccounting(db, frozenCache, round, genesisJSONPath, 0, l)
 }
 
-func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit int, l *log.Logger) (rounds, txnCount int) {
+func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint64, genesisJSONPath string, numRoundsLimit int, l *log.Logger) (rounds, txnCount int) {
 	rounds = 0
 	txnCount = 0
-	stateJSONStr, err := db.GetMetastate("state")
+	state, err := db.GetImportState()
 	maybeFail(err, l, "getting import state, %v", err)
-	var state ImportState
-	if stateJSONStr == "" {
+	if state == nil {
+		state = &idb.ImportState{AccountRound: -1}
 		if genesisJSONPath != "" {
 			l.Infof("loading genesis %s", genesisJSONPath)
 			// if we're given no previous state and we're given a genesis file, import it as initial account state
@@ -239,30 +237,42 @@ func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit i
 			err = loadGenesis(db, gf)
 			maybeFail(err, l, "%s: could not load genesis json, %v", genesisJSONPath, err)
 			rounds++
-			state.AccountRound = -1
 		} else {
 			l.Errorf("no import state recorded; need --genesis genesis.json file to get started")
 			os.Exit(1)
 			return
 		}
 	} else {
-		state, err = ParseImportState(stateJSONStr)
-		maybeFail(err, l, "parsing import state, %v", err)
 		l.Infof("will start from round >%d", state.AccountRound)
 	}
 
 	lastlog := time.Now()
-	act := accounting.New(db)
+	act := accounting.New(frozenCache)
 	txns := db.YieldTxns(context.Background(), state.AccountRound)
 	currentRound := uint64(0)
 	roundsSeen := 0
 	lastRoundsSeen := roundsSeen
+	txnForRound := 0
+	var blockPtr *types.Block = nil
 	for txn := range txns {
 		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)
 		if txn.Round != currentRound {
+			if blockPtr != nil && txnForRound > 0 {
+				err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr)
+				maybeFail(err, l, "failed to commit round accounting")
+			}
+
+			// initialize accounting for next round
+			txnForRound = 0
 			prevRound := currentRound
 			roundsSeen++
 			currentRound = txn.Round
+			block, _, err := db.GetBlock(context.Background(), currentRound, idb.GetBlockOptions{})
+			maybeFail(err, l, "problem fetching next round (%d)", currentRound)
+			blockPtr = &block
+			act.InitRound(block)
+
+			// Log progress
 			if (numRoundsLimit != 0) && (roundsSeen > numRoundsLimit) {
 				l.Infof("hit rounds limit %d > %d", roundsSeen, numRoundsLimit)
 				break
@@ -279,9 +289,18 @@ func updateAccounting(db idb.IndexerDb, genesisJSONPath string, numRoundsLimit i
 		err = act.AddTransaction(&txn)
 		maybeFail(err, l, "txn accounting r=%d i=%d, %v", txn.Round, txn.Intra, err)
 		txnCount++
+		txnForRound++
 	}
-	err = act.Close()
-	maybeFail(err, l, "accounting close %v", err)
+
+	// Commit the final round
+	if (blockPtr != nil && txnForRound > 0) || ((round != 0) && (currentRound < round)) {
+		if currentRound < round {
+			currentRound = round
+		}
+		err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr)
+		maybeFail(err, l, "failed to commit round accounting")
+	}
+
 	rounds += roundsSeen
 	if rounds > 0 {
 		l.Infof("accounting updated through round %d", currentRound)

@@ -2,6 +2,7 @@ package accounting
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -14,12 +15,9 @@ import (
 
 // State is used to record accounting changes as a result of processing transactions.
 type State struct {
-	db idb.IndexerDb
-
 	defaultFrozen map[uint64]bool
 
 	currentRound uint64
-	dirty        bool
 
 	idb.RoundUpdates
 
@@ -36,50 +34,25 @@ type State struct {
 }
 
 // New creates a new State object.
-func New(db idb.IndexerDb) *State {
-	return &State{db: db, defaultFrozen: make(map[uint64]bool)}
+func New(defaultFrozenCache map[uint64]bool) *State {
+	result := &State{defaultFrozen: defaultFrozenCache}
+	result.Clear()
+	return result
 }
 
-func (accounting *State) getTxnCounter(round uint64) (txnCounter uint64, err error) {
-	if round != accounting.txnCounterRound {
-		block, err := accounting.db.GetBlock(round)
-		if err != nil {
-			return 0, err
-		}
-		accounting.txnCounter = block.TxnCounter
-		accounting.txnCounterRound = round
-	}
-	return accounting.txnCounter, nil
+// InitRound should be called before each round to initialize the accounting state.
+func (accounting *State) InitRound(block types.Block) error {
+	return accounting.InitRoundParts(uint64(block.Round), block.FeeSink, block.RewardsPool, block.RewardsLevel)
 }
 
-func (accounting *State) initRound(round uint64) error {
-	block, err := accounting.db.GetBlock(round)
-	if err != nil {
-		return err
-	}
-	accounting.feeAddr = block.FeeSink
-	accounting.rewardAddr = block.RewardsPool
-	accounting.rewardsLevel = block.RewardsLevel
+// InitRoundParts are the specific parts from a block needed to initialize accounting. Used for testing, normally you would pass in the block.
+func (accounting *State) InitRoundParts(round uint64, feeSink, rewardsPool atypes.Address, rewardsLevel uint64) error {
+	accounting.RoundUpdates.Clear()
+	accounting.feeAddr = feeSink
+	accounting.rewardAddr = rewardsPool
+	accounting.rewardsLevel = rewardsLevel
 	accounting.currentRound = round
 	return nil
-}
-
-func (accounting *State) commitRound() error {
-	if !accounting.dirty {
-		return nil
-	}
-	err := accounting.db.CommitRoundAccounting(accounting.RoundUpdates, accounting.currentRound, accounting.rewardsLevel)
-	if err != nil {
-		return err
-	}
-	accounting.RoundUpdates.Clear()
-	accounting.dirty = false
-	return nil
-}
-
-// Close is part of the Closer interface.
-func (accounting *State) Close() error {
-	return accounting.commitRound()
 }
 
 var zeroAddr = [32]byte{}
@@ -98,10 +71,6 @@ func bytesAreZero(b []byte) bool {
 }
 
 func (accounting *State) closeAccount(addr types.Address) {
-	if accounting.AlgoUpdates == nil {
-		accounting.AlgoUpdates = make(map[[32]byte]*idb.AlgoUpdate)
-	}
-
 	update, hasKey := accounting.AlgoUpdates[addr]
 
 	if !hasKey {
@@ -113,6 +82,8 @@ func (accounting *State) closeAccount(addr types.Address) {
 		accounting.AlgoUpdates[addr] = update
 		return
 	}
+
+	delete(accounting.AccountDataUpdates, addr)
 
 	// If the key was there, override the rewards by setting to zero.
 	// The balance will be updated with the delta as usual.
@@ -132,10 +103,6 @@ func (accounting *State) updateAlgo(addr types.Address, amount int64) {
 }
 
 func (accounting *State) updateAlgoAndRewards(addr types.Address, amount, rewards int64) {
-	if accounting.AlgoUpdates == nil {
-		accounting.AlgoUpdates = make(map[[32]byte]*idb.AlgoUpdate)
-	}
-
 	update, hasKey := accounting.AlgoUpdates[addr]
 
 	if !hasKey {
@@ -152,16 +119,10 @@ func (accounting *State) updateAlgoAndRewards(addr types.Address, amount, reward
 }
 
 func (accounting *State) updateAccountType(addr types.Address, ktype string) {
-	if accounting.AccountTypes == nil {
-		accounting.AccountTypes = make(map[[32]byte]string)
-	}
 	accounting.AccountTypes[addr] = ktype
 }
 
 func (accounting *State) updateAccountData(addr types.Address, key string, field interface{}) {
-	if accounting.AccountDataUpdates == nil {
-		accounting.AccountDataUpdates = make(map[[32]byte]map[string]interface{})
-	}
 	au, ok := accounting.AccountDataUpdates[addr]
 	if !ok {
 		au = make(map[string]interface{})
@@ -171,60 +132,88 @@ func (accounting *State) updateAccountData(addr types.Address, key string, field
 }
 
 func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, sub uint64) {
-	updatelist := accounting.AssetUpdates[addr]
+	// in-place optimization in case an asset is modified by multiple transactions.
+	// Get update list from final subround. When a subround ends an empty subround is appended
+	// so there is no need to check whether an account has closed.
+	updatelist := accounting.AssetUpdates[len(accounting.AssetUpdates)-1][addr]
 	for i, up := range updatelist {
-		if up.AssetID == assetID {
+		if up.Transfer != nil && up.AssetID == assetID {
 			if add != 0 {
 				var xa big.Int
 				xa.SetUint64(add)
-				up.Delta.Add(&xa, &up.Delta)
+				up.Transfer.Delta.Add(&xa, &up.Transfer.Delta)
 			}
 			if sub != 0 {
 				var xa big.Int
 				xa.SetUint64(sub)
-				up.Delta.Sub(&up.Delta, &xa)
+				up.Transfer.Delta.Sub(&up.Transfer.Delta, &xa)
 			}
 			updatelist[i] = up
 			return
 		}
 	}
-	if accounting.AssetUpdates == nil {
-		accounting.AssetUpdates = make(map[[32]byte][]idb.AssetUpdate)
-	}
 
-	au := idb.AssetUpdate{AssetID: assetID, DefaultFrozen: accounting.defaultFrozen[assetID]}
+	au := idb.AssetUpdate{AssetID: assetID, DefaultFrozen: accounting.defaultFrozen[assetID], Transfer: &idb.AssetTransfer{}}
 	if add != 0 {
 		var xa big.Int
 		xa.SetUint64(add)
-		au.Delta.Add(&au.Delta, &xa)
+		au.Transfer.Delta.Add(&au.Transfer.Delta, &xa)
 	}
 	if sub != 0 {
 		var xa big.Int
 		xa.SetUint64(sub)
-		au.Delta.Sub(&au.Delta, &xa)
+		au.Transfer.Delta.Sub(&au.Transfer.Delta, &xa)
 	}
-	accounting.AssetUpdates[addr] = append(updatelist, au)
+
+	accounting.addAssetAccounting(addr, au, false)
 }
 
-func (accounting *State) updateTxnAsset(round uint64, intra int, assetID uint64) {
-	accounting.TxnAssetUpdates = append(accounting.TxnAssetUpdates, idb.TxnAssetUpdate{Round: round, Offset: intra, AssetID: assetID})
+func (accounting *State) addAssetAccounting(addr types.Address, update idb.AssetUpdate, finalizeSubround bool) {
+	// Add the final subround update
+	updatelist := accounting.AssetUpdates[len(accounting.AssetUpdates)-1][addr]
+	accounting.AssetUpdates[len(accounting.AssetUpdates)-1][addr] = append(updatelist, update)
+
+	// Put an empty subround for any subsequent updates.
+	if finalizeSubround {
+		accounting.AssetUpdates = append(accounting.AssetUpdates, make(map[[32]byte][]idb.AssetUpdate))
+	}
+}
+
+func (accounting *State) configAsset(assetID uint64, isNew bool, creator types.Address, params atypes.AssetParams){
+	update := idb.AssetUpdate{
+		AssetID: assetID,
+		DefaultFrozen: accounting.defaultFrozen[assetID],
+		Config: &idb.AcfgUpdate{
+			IsNew:   isNew,
+			Creator: creator,
+			Params:  params,
+		},
+	}
+	// This probably doesn't need to finalize the subround, but it is an uncommon transaction so lets play it safe.
+	accounting.addAssetAccounting(creator, update, true)
 }
 
 func (accounting *State) closeAsset(from types.Address, assetID uint64, to types.Address, round uint64, offset int) {
-	accounting.AssetCloses = append(
-		accounting.AssetCloses,
-		idb.AssetClose{
+	update := idb.AssetUpdate{
+		AssetID: assetID,
+		DefaultFrozen: accounting.defaultFrozen[assetID],
+		Close: &idb.AssetClose{
 			CloseTo:       to,
-			AssetID:       assetID,
 			Sender:        from,
-			DefaultFrozen: accounting.defaultFrozen[assetID],
 			Round:         round,
 			Offset:        uint64(offset),
 		},
-	)
+	}
+	accounting.addAssetAccounting(from, update, true)
 }
+
 func (accounting *State) freezeAsset(addr types.Address, assetID uint64, frozen bool) {
-	accounting.FreezeUpdates = append(accounting.FreezeUpdates, idb.FreezeUpdate{Addr: addr, AssetID: assetID, Frozen: frozen})
+	update := idb.AssetUpdate{
+		AssetID: assetID,
+		DefaultFrozen: accounting.defaultFrozen[assetID],
+		Freeze: &idb.FreezeUpdate{Frozen: frozen},
+	}
+	accounting.addAssetAccounting(addr, update, false)
 }
 
 func (accounting *State) destroyAsset(assetID uint64) {
@@ -246,6 +235,10 @@ func blankLsig(lsig atypes.LogicSig) bool {
 	return len(lsig.Logic) == 0
 }
 
+// ErrWrongRound is returned when adding a transaction which belongs to a different round
+// than what the State is configured for.
+var ErrWrongRound error = errors.New("wrong round")
+
 // AddTransaction updates the State with the provided idb.TxnRow data.
 func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 	round := txnr.Round
@@ -257,16 +250,8 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		return fmt.Errorf("txn r=%d i=%d failed decode, %v", round, intra, err)
 	}
 	if accounting.currentRound != round {
-		err = accounting.commitRound()
-		if err != nil {
-			return fmt.Errorf("add tx commit round %d, %v", accounting.currentRound, err)
-		}
-		err = accounting.initRound(round)
-		if err != nil {
-			return fmt.Errorf("add tx init round %d, %v", round, err)
-		}
+		return ErrWrongRound
 	}
-	accounting.dirty = true
 
 	var ktype string
 	if !zeroSig(stxn.Sig) {
@@ -352,8 +337,11 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		if AssetDestroyTxn(stxn) {
 			accounting.destroyAsset(assetID)
 		} else {
-			accounting.AcfgUpdates = append(accounting.AcfgUpdates, idb.AcfgUpdate{AssetID: assetID, IsNew: isNew, Creator: stxn.Txn.Sender, Params: stxn.Txn.AssetParams})
-			accounting.defaultFrozen[assetID] = stxn.Txn.AssetParams.DefaultFrozen
+			accounting.configAsset(assetID, isNew, stxn.Txn.Sender, stxn.Txn.AssetParams)
+			// Only update the cache when default-frozen = true.
+			if stxn.Txn.AssetParams.DefaultFrozen {
+				accounting.defaultFrozen[assetID] = stxn.Txn.AssetParams.DefaultFrozen
+			}
 			if stxn.Txn.ConfigAsset == 0 {
 				// initial creation, give all initial value to creator
 				if stxn.Txn.AssetParams.Total != 0 {

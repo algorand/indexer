@@ -23,8 +23,8 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
-// rewardsMigrationIndex is the index of m5RewardsAndDatesPart2.
-const rewardsMigrationIndex = 5
+// rewardsMigrationIndex is the index of m6RewardsAndDatesPart2.
+const rewardsMigrationIndex = 6
 
 func init() {
 	migrations = []migrationStruct{
@@ -32,12 +32,15 @@ func init() {
 		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
 		{m2apps, true, "Update DB Schema for Algorand application support."},
 		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
-		{m4RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
-		{m5RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
+
+		// Migrations for 2.3.1 release
+		{m4MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
+		{m5RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
+		{m6RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
 	}
 
 	// Verify ensure the constant is pointing to the right index
-	var m5Ptr postgresMigrationFunc = m5RewardsAndDatesPart2
+	var m5Ptr postgresMigrationFunc = m6RewardsAndDatesPart2
 	a2 := fmt.Sprintf("%v", migrations[rewardsMigrationIndex].migrate)
 	a1 := fmt.Sprintf("%v", m5Ptr)
 	if a1 != a2 {
@@ -142,12 +145,12 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 	state := MigrationState{
 		NextMigration: len(migrations),
 	}
-	migrationStateJSON := string(json.Encode(state))
-	return db.SetMetastate(migrationMetastateKey, migrationStateJSON)
+	migrationStateJSON := idb.JSONOneLine(state)
+	return db.setMetastate(migrationMetastateKey, migrationStateJSON)
 }
 
 func (db *IndexerDb) getMigrationState() (*MigrationState, error) {
-	migrationStateJSON, err := db.GetMetastate(migrationMetastateKey)
+	migrationStateJSON, err := db.getMetastate(migrationMetastateKey)
 	if err == sql.ErrNoRows {
 		// no previous state, ok
 		return nil, nil
@@ -272,7 +275,7 @@ func m3acfgFix(db *IndexerDb, state *MigrationState) (err error) {
 // updates asset rows and metastate
 func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64) (next int, err error) {
 	lastlog := time.Now()
-	tx, err := db.db.Begin()
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		db.log.WithError(err).Errorf("acfg fix tx begin")
 		return -1, err
@@ -289,7 +292,7 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 		if now.Sub(lastlog) > (5 * time.Second) {
 			db.log.Printf("acfg fix next=%d", aid)
 			state.NextAssetID = aid
-			migrationStateJSON := json.Encode(state)
+			migrationStateJSON := idb.JSONOneLine(state)
 			_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 			if err != nil {
 				db.log.WithError(err).Errorf("acfg fix migration %d meta err", state.NextMigration)
@@ -329,7 +332,7 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 				params = types.MergeAssetConfig(params, stxn.Txn.AssetParams)
 			}
 		}
-		outparams := json.Encode(params)
+		outparams := idb.JSONOneLine(params)
 		_, err = setacfg.Exec(aid, creator[:], outparams)
 		if err != nil {
 			db.log.WithError(err).Errorf("acfg fix asset update")
@@ -338,7 +341,7 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 	}
 	state.NextAssetID = 0
 	state.NextMigration++
-	migrationStateJSON := json.Encode(state)
+	migrationStateJSON := idb.JSONOneLine(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		db.log.WithError(err).Errorf("acfg fix migration %d meta err", state.NextMigration)
@@ -352,10 +355,10 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 	return -1, nil
 }
 
-// m4RewardsAndDatesPart1 adds the new rewards_total column to the account table.
-func m4RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
+// m5RewardsAndDatesPart1 adds the new rewards_total column to the account table.
+func m5RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	// Cache the round in the migration metastate
-	round, err := db.GetMaxRound()
+	round, err := db.GetMaxRoundAccounted()
 	if err != nil {
 		db.log.WithError(err).Errorf("%s: problem caching max round: %v", rewardsCreateCloseUpdateErr, err)
 		return err
@@ -370,14 +373,19 @@ func m4RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 		`ALTER TABLE account ADD COLUMN rewards_total bigint NOT NULL DEFAULT 0`,
 
 		// created/closed round
+		`ALTER TABLE account ADD COLUMN deleted boolean DEFAULT NULL`,
 		`ALTER TABLE account ADD COLUMN created_at bigint DEFAULT NULL`,
 		`ALTER TABLE account ADD COLUMN closed_at bigint DEFAULT NULL`,
+		`ALTER TABLE app ADD COLUMN deleted boolean DEFAULT NULL`,
 		`ALTER TABLE app ADD COLUMN created_at bigint DEFAULT NULL`,
 		`ALTER TABLE app ADD COLUMN closed_at bigint DEFAULT NULL`,
+		`ALTER TABLE account_app ADD COLUMN deleted boolean DEFAULT NULL`,
 		`ALTER TABLE account_app ADD COLUMN created_at bigint DEFAULT NULL`,
 		`ALTER TABLE account_app ADD COLUMN closed_at bigint DEFAULT NULL`,
+		`ALTER TABLE account_asset ADD COLUMN deleted boolean DEFAULT NULL`,
 		`ALTER TABLE account_asset ADD COLUMN created_at bigint DEFAULT NULL`,
 		`ALTER TABLE account_asset ADD COLUMN closed_at bigint DEFAULT NULL`,
+		`ALTER TABLE asset ADD COLUMN deleted boolean DEFAULT NULL`,
 		`ALTER TABLE asset ADD COLUMN created_at bigint DEFAULT NULL`,
 		`ALTER TABLE asset ADD COLUMN closed_at bigint DEFAULT NULL`,
 	}
@@ -408,8 +416,8 @@ func addrToPercent(addr string) float64 {
 	return float64(val) / (32 * 32 * 32) * 100
 }
 
-// m5RewardsAndDatesPart2 computes the cumulative rewards for each account one at a time.
-func m5RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
+// m6RewardsAndDatesPart2 computes the cumulative rewards for each account one at a time.
+func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	db.log.Println("account cumulative rewards migration starting")
 
 	var feeSinkAddr string
@@ -477,6 +485,7 @@ func m5RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 }
 
 type createClose struct {
+	deleted sql.NullBool
 	created sql.NullInt64
 	closed  sql.NullInt64
 }
@@ -489,12 +498,22 @@ func updateClose(cc *createClose, value uint64) *createClose {
 				Valid: true,
 				Int64: int64(value),
 			},
+			deleted: sql.NullBool{
+				Valid: true,
+				Bool:  true,
+			},
 		}
 	}
 
 	if !cc.closed.Valid {
 		cc.closed.Valid = true
 		cc.closed.Int64 = int64(value)
+	}
+
+	// Initialize deleted.
+	if !cc.deleted.Valid {
+		cc.deleted.Valid = true
+		cc.deleted.Bool = true
 	}
 
 	return cc
@@ -508,18 +527,27 @@ func updateCreate(cc *createClose, value uint64) *createClose {
 				Valid: true,
 				Int64: int64(value),
 			},
+			deleted: sql.NullBool{
+				Valid: true,
+				Bool:  false,
+			},
 		}
 	}
 
 	cc.created.Valid = true
 	cc.created.Int64 = int64(value)
 
+	if !cc.deleted.Valid {
+		cc.deleted.Valid = true
+		cc.deleted.Bool = false
+	}
+
 	return cc
 }
 
 func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]*createClose) (err error) {
 	for index, round := range m {
-		_, err = stmt.Exec(address, index, round.created, round.closed)
+		_, err = stmt.Exec(address, index, round.created, round.closed, round.deleted)
 		if err != nil {
 			return
 		}
@@ -547,7 +575,7 @@ func initM5AccountData() *m5AccountData {
 	}
 }
 
-func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData, err error){
+func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData, err error) {
 	for i := 0; i < retries; i++ {
 		// Query transactions for the account
 		txnrows := db.Transactions(context.Background(), idb.TransactionFilter{
@@ -559,7 +587,7 @@ func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, addre
 		results, err = processAccountTransactions(txnrows, addressStr, address)
 		if err != nil {
 			db.log.Errorf("%s: (attempt %d) failed to update %s: %v", rewardsCreateCloseUpdateErr, i+1, addressStr, err)
-			time.Sleep(10*time.Second)
+			time.Sleep(10 * time.Second)
 		} else {
 			return
 		}
@@ -580,7 +608,6 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 		}
 		if len(txn.TxnBytes) == 0 {
 			return nil, fmt.Errorf("%s: processing account %s: found empty TxnBytes (rnd %d, intra %d):  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Round, txn.Intra, err)
-			continue
 		}
 		numTxn++
 
@@ -601,7 +628,17 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 			if accounting.AccountCloseTxn(address, stxn) {
 				result.account.closed.Valid = true
 				result.account.closed.Int64 = int64(txn.Round)
+
+				if !result.account.deleted.Valid {
+					result.account.deleted.Bool = true
+					result.account.deleted.Valid = true
+				}
 			} else {
+				if !result.account.deleted.Valid {
+					result.account.deleted.Bool = false
+					result.account.deleted.Valid = true
+				}
+
 				if stxn.Txn.Sender == address {
 					result.cumulativeRewards += stxn.ApplyData.SenderRewards
 				}
@@ -653,6 +690,8 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 	if numTxn == 0 {
 		result.account.created.Valid = true
 		result.account.created.Int64 = 0
+		result.account.deleted.Valid = true
+		result.account.deleted.Bool = false
 	}
 
 	return result, nil
@@ -692,7 +731,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
-		if dur > 5 * time.Minute {
+		if dur > 5*time.Minute {
 			db.log.Warnf("%s: slowness detected, spent %s migrating %s", rewardsCreateCloseUpdateMessage, dur, addressStr)
 		}
 
@@ -700,7 +739,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	}
 
 	// Open a postgres transaction and submit results for each account.
-	tx, err := db.db.Begin()
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		return fmt.Errorf("%s: tx begin: %v", rewardsCreateCloseUpdateErr, err)
 	}
@@ -718,37 +757,37 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	// 2. setCreateCloseAccount      - set the accounts create/close rounds.
 	// We always set the created_at field because it will never change.
 	// closed_at may already be set by the time the migration runs, or it might need to be cleared out.
-	setCreateCloseAccount, err := tx.Prepare(`UPDATE account SET created_at = $2, closed_at = coalesce(closed_at, $3) WHERE addr = $1`)
+	setCreateCloseAccount, err := tx.Prepare(`UPDATE account SET created_at = $2, closed_at = coalesce(closed_at, $3), deleted = coalesce(deleted, $4) WHERE addr = $1`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}
 	defer setCreateCloseAccount.Close()
 
 	// 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
-	setCreateCloseAsset, err := tx.Prepare(`UPDATE asset SET created_at = $3, closed_at = coalesce(closed_at, $4) WHERE creator_addr = $1 AND index=$2`)
+	setCreateCloseAsset, err := tx.Prepare(`UPDATE asset SET created_at = $3, closed_at = coalesce(closed_at, $4), deleted = coalesce(deleted, $5) WHERE creator_addr = $1 AND index=$2`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close asset prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}
 	defer setCreateCloseAsset.Close()
 
 	// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
-	setCreateCloseAssetHolding, err := tx.Prepare(`INSERT INTO account_asset(addr, assetid, amount, frozen, created_at, closed_at) VALUES ($1, $2, 0, false, $3, $4) ON CONFLICT (addr, assetid) DO UPDATE SET created_at = EXCLUDED.created_at, closed_at = coalesce(account_asset.closed_at, EXCLUDED.closed_at)`)
+	setCreateCloseAssetHolding, err := tx.Prepare(`INSERT INTO account_asset(addr, assetid, amount, frozen, created_at, closed_at, deleted) VALUES ($1, $2, 0, false, $3, $4, $5) ON CONFLICT (addr, assetid) DO UPDATE SET created_at = EXCLUDED.created_at, closed_at = coalesce(account_asset.closed_at, EXCLUDED.closed_at), deleted = coalesce(account_asset.deleted, EXCLUDED.deleted)`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close asset holding prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}
 	defer setCreateCloseAssetHolding.Close()
 
 	// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
-	setCreateCloseApp, err := tx.Prepare(`UPDATE app SET created_at = $3, closed_at = coalesce(closed_at, $4) WHERE creator = $1 AND index=$2`)
+	setCreateCloseApp, err := tx.Prepare(`UPDATE app SET created_at = $3, closed_at = coalesce(closed_at, $4), deleted = coalesce(deleted, $5) WHERE creator = $1 AND index=$2`)
 	if err != nil {
 		return fmt.Errorf("%s: set create close app prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}
 	defer setCreateCloseApp.Close()
 
 	// 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
-	setCreateCloseAppLocal, err := tx.Prepare(`INSERT INTO account_app (addr, app, created_at, closed_at) VALUES ($1, $2, $3, $4) ON CONFLICT (addr, app) DO UPDATE SET created_at = EXCLUDED.created_at, closed_at = coalesce(account_app.closed_at, EXCLUDED.closed_at)`)
+	setCreateCloseAppLocal, err := tx.Prepare(`INSERT INTO account_app (addr, app, created_at, closed_at, deleted) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (addr, app) DO UPDATE SET created_at = EXCLUDED.created_at, closed_at = coalesce(account_app.closed_at, EXCLUDED.closed_at), deleted = coalesce(account_app.deleted, EXCLUDED.deleted)`)
 	if err != nil {
-		return fmt.Errorf("%s: set create close app prepare: %v", rewardsCreateCloseUpdateErr, err)
+		return fmt.Errorf("%s: set create close app local prepare: %v", rewardsCreateCloseUpdateErr, err)
 	}
 	defer setCreateCloseAppLocal.Close()
 
@@ -763,7 +802,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 		}
 
 		// 2. setCreateCloseAccount      - set the accounts create/close rounds.
-		_, err = setCreateCloseAccount.Exec(address[:], result.account.created, result.account.closed)
+		_, err = setCreateCloseAccount.Exec(address[:], result.account.created, result.account.closed, result.account.deleted)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
@@ -799,7 +838,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	} else {
 		state.NextAccount = finalAddress[:]
 	}
-	migrationStateJSON := json.Encode(state)
+	migrationStateJSON := idb.JSONOneLine(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		return fmt.Errorf("%s: failed to update migration checkpoint: %v", rewardsCreateCloseUpdateErr, err)
@@ -817,7 +856,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 // sqlMigration executes a sql statements as the entire migration.
 func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error {
 	thisMigration := state.NextMigration
-	tx, err := db.db.Begin()
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		db.log.WithError(err).Errorf("migration %d tx err", thisMigration)
 		return err
@@ -831,7 +870,7 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 		}
 	}
 	state.NextMigration++
-	migrationStateJSON := json.Encode(state)
+	migrationStateJSON := idb.JSONOneLine(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		db.log.WithError(err).Errorf("migration %d meta err", thisMigration)
@@ -920,8 +959,8 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() (err error) {
 	// all done, mark migration state
 	state.NextMigration++
 	state.NextRound = 0
-	migrationStateJSON := string(json.Encode(state))
-	err = db.SetMetastate(migrationMetastateKey, migrationStateJSON)
+	migrationStateJSON := idb.JSONOneLine(state)
+	err = db.setMetastate(migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, error setting final migration state", txidMigrationErrMsg)
 		return
@@ -979,7 +1018,7 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 	}
 
 	// do a transaction to update a batch
-	tx, err := db.db.Begin()
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, batch tx err", txidMigrationErrMsg)
 		return err
@@ -1041,7 +1080,7 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 		return err
 	}
 	txstate.NextRound = int64(maxRound + 1)
-	migrationStateJSON := json.Encode(txstate)
+	migrationStateJSON := idb.JSONOneLine(txstate)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, set metastate err", txidMigrationErrMsg)
@@ -1089,4 +1128,13 @@ func (mtxid *txidFiuxpMigrationContext) readHeaders(minRound, maxRound uint64) (
 		headers[uint64(round)] = tblock
 	}
 	return headers, nil
+}
+
+// Record round at which behavior changed for encoding txn.txn JSON.
+// A future migration should go back and apply new encoding to prior txn rows then delete this row in metastate.
+func m4MarkTxnJSONSplit(db *IndexerDb, state *MigrationState) error {
+	sqlLines := []string{
+		`INSERT INTO metastate (k,v) SELECT 'm4MarkTxnJSONSplit', m.v FROM metastate m WHERE m.k = 'state'`,
+	}
+	return sqlMigration(db, state, sqlLines)
 }

@@ -145,7 +145,8 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			}
 		case atypes.AssetFreezeTx:
 		default:
-			panic(fmt.Sprintf("unknown txn type %s", stxn.Txn.Type))
+			err = fmt.Errorf("%s[%d,%d]: rewinding past txn type %s is not currently supported", account.Address, txnrow.Round, txnrow.Intra, stxn.Txn.Type)
+			return
 		}
 	}
 
@@ -174,13 +175,13 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 				return
 			}
 			var baseBlock types.Block
-			baseBlock, err = db.GetBlock(txnrow.Round)
+			baseBlock, _, err = db.GetBlock(context.Background(), txnrow.Round, idb.GetBlockOptions{})
 			if err != nil {
 				return
 			}
 			prevRewardsBase := baseBlock.RewardsLevel
 			var blockheader types.Block
-			blockheader, err = db.GetBlock(round)
+			blockheader, _, err = db.GetBlock(context.Background(), round, idb.GetBlockOptions{})
 			if err != nil {
 				return
 			}
