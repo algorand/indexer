@@ -53,10 +53,10 @@ integration: cmd/algorand-indexer/algorand-indexer
 	test/postgres_integration_test.sh
 
 e2e: cmd/algorand-indexer/algorand-indexer
-	pip3 install --upgrade pip
-	pip3 install -r misc/requirements.txt
+	docker kill some-postgres || docker rm some-postgres || true
 	docker run -it --rm --name some-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres
-	python3 misc/e2elive.py --connection-string 'host=localhost port=5432 dbname=postgres sslmode=disable user=postgres password=postgres' --indexer-bin cmd/algorand-indexer/algorand-indexer
+	python3 misc/e2elive.py --connection-string 'host=localhost port=5432 dbname=postgres sslmode=disable user=postgres password=postgres' --indexer-bin cmd/algorand-indexer/algorand-indexer --indexer-port 9890
+	docker kill some-postgres || docker rm some-postgres
 
 deploy:
 	mule/deploy.sh
