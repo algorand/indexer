@@ -87,13 +87,13 @@ def main():
     indexerurl = 'http://localhost:{}/'.format(aiport)
     healthurl = indexerurl + 'health'
     for attempt in range(20):
-        ok = tryhealthurl(healthurl, args.verbose, waitforround=lastblock)
+        (ok, json) = tryhealthurl(healthurl, args.verbose, waitforround=lastblock)
         if ok:
             logger.debug('health round={} OK'.format(lastblock))
             break
         time.sleep(0.5)
     if not ok:
-        logger.error('could not get indexer health, or did not reach round={}'.format(lastblock))
+        logger.error('could not get indexer health, or did not reach round={}\n{}'.format(lastblock, json))
         sys.stderr.write(indexerout.dump())
         return 1
     try:
@@ -126,18 +126,18 @@ def tryhealthurl(healthurl, verbose=False, waitforround=100):
     try:
         response = urllib.request.urlopen(healthurl)
         if response.code != 200:
-            return False
+            return (False, "")
         raw = response.read()
         logger.debug('health %r', raw)
         ob = json.loads(raw)
         rt = ob.get('message')
         if not rt:
-            return False
-        return int(rt) >= waitforround
+            return (False, raw)
+        return (int(rt) >= waitforround, raw)
     except Exception as e:
         if verbose:
             logging.warning('GET %s %s', healthurl, e)
-        return False
+        return (False, "")
 
 class subslurp:
     # asynchronously accumulate stdout or stderr from a subprocess and hold it for debugging if something goes wrong
