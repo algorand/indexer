@@ -127,7 +127,7 @@ type (
 		// CompactCert tracks the state of compact certs, potentially
 		// for multiple types of certs.
 		//msgp:sort protocol.CompactCertType protocol.SortCompactCertType
-		CompactCert map[CompactCertType]CompactCertState `codec:"cc,allocbound=protocol.NumCompactCertTypes"`
+		CompactCert map[CompactCertType]CompactCertState `codec:"cc"`
 	}
 
 	CompactCertType uint64
