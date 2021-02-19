@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	log "github.com/sirupsen/logrus"
 
@@ -185,6 +186,14 @@ func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) (err error) {
 	var block types.EncodedBlockCert
 	err = msgpack.Decode(blockbytes, &block)
 	if err != nil {
+		var generic map[string]interface{}
+		err2 := msgpack.Decode(blockbytes, &generic)
+
+		if err2 == nil {
+			err = fmt.Errorf("unable to decode block (%s): %v", json.Encode(generic), err)
+		} else {
+			err = fmt.Errorf("unable to decode block: %v", err)
+		}
 		return
 	}
 	for _, handler := range bot.blockHandlers {
