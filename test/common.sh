@@ -17,12 +17,18 @@ function print_alert() {
   printf "\n=====\n===== $1\n=====\n"
 }
 
+function print_health() {
+    curl -q -s "$NET/health?pretty"
+}
+
 ##################
 ## Test Helpers ##
 ##################
 
 function fail_and_exit {
   print_alert "Failed test - $1 ($2): $3"
+  echo ""
+  print_health
   exit 1
 }
 
@@ -248,7 +254,7 @@ function wait_for() {
 
   if [ -z $READY ]; then
     echo "Error: timed out waiting for $1."
-    curl -q -s "$NET/health"
+    print_health
     exit 1
   fi
 }
