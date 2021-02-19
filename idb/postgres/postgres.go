@@ -42,6 +42,7 @@ const specialAccountsMetastateKey = "accounts"
 
 // Be a real ACID database
 var serializable = sql.TxOptions{Isolation: sql.LevelSerializable}
+var readonlySerializable = sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: true}
 
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
 func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
@@ -104,9 +105,9 @@ type IndexerDb struct {
 }
 
 func (db *IndexerDb) init() (err error) {
-	accountingStateJSON, _ := db.GetMetastate(stateMetastateKey)
+	accountingStateJSON, _ := db.getMetastate(stateMetastateKey)
 	hasAccounting := len(accountingStateJSON) > 0
-	migrationStateJSON, _ := db.GetMetastate(migrationMetastateKey)
+	migrationStateJSON, _ := db.getMetastate(migrationMetastateKey)
 	hasMigration := len(migrationStateJSON) > 0
 
 	db.GetSpecialAccounts()
@@ -375,8 +376,7 @@ func (db *IndexerDb) GetProto(version string) (proto types.ConsensusParams, err 
 	return
 }
 
-// GetMetastate is part of idb.IndexerDB
-func (db *IndexerDb) GetMetastate(key string) (jsonStrValue string, err error) {
+func (db *IndexerDb) getMetastate(key string) (jsonStrValue string, err error) {
 	row := db.db.QueryRow(`SELECT v FROM metastate WHERE k = $1`, key)
 	err = row.Scan(&jsonStrValue)
 	if err == sql.ErrNoRows {
@@ -389,11 +389,34 @@ func (db *IndexerDb) GetMetastate(key string) (jsonStrValue string, err error) {
 }
 
 const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
-
-// SetMetastate is part of idb.IndexerDB
-func (db *IndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
+func (db *IndexerDb) setMetastate(key, jsonStrValue string) (err error) {
 	_, err = db.db.Exec(setMetastateUpsert, key, jsonStrValue)
 	return
+}
+
+// GetImportState is part of idb.IndexerDB
+func (db *IndexerDb) GetImportState() (state *idb.ImportState, err error) {
+	var importStateJSON string
+	importStateJSON, err = db.getMetastate(stateMetastateKey)
+	if err == sql.ErrNoRows || importStateJSON == "" {
+		// no previous state, ok
+		err = nil
+		return
+	} else if err != nil {
+		err = fmt.Errorf("unable to get import state: %v", err)
+		return
+	}
+
+	err = json.Decode([]byte(importStateJSON), &state)
+	if err != nil {
+		err = fmt.Errorf("unable to parse import state: %v", err)
+	}
+	return
+}
+
+// SetImportState is part of idb.IndexerDB
+func (db *IndexerDb) SetImportState(state idb.ImportState) (err error) {
+	return db.setMetastate(stateMetastateKey, string(json.Encode(state)))
 }
 
 // GetMaxRoundAccounted is part of idb.IndexerDB
@@ -841,20 +864,6 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 			}
 		}
 	}
-	if len(updates.TxnAssetUpdates) > 0 {
-		any = true
-		uta, err := tx.Prepare(`UPDATE txn SET asset = $1 WHERE round = $2 AND intra = $3`)
-		if err != nil {
-			return fmt.Errorf("prepare update txn.asset, %v", err)
-		}
-		for _, tau := range updates.TxnAssetUpdates {
-			_, err = uta.Exec(tau.AssetID, tau.Round, tau.Offset)
-			if err != nil {
-				return fmt.Errorf("update txn.asset, %v", err)
-			}
-		}
-		defer uta.Close()
-	}
 	if len(updates.AssetUpdates) > 0 && len(updates.AssetUpdates[0]) > 0 {
 		any = true
 
@@ -1277,15 +1286,49 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 }
 
 // GetBlock is part of idb.IndexerDB
-func (db *IndexerDb) GetBlock(round uint64) (block types.Block, err error) {
-	row := db.db.QueryRow(`SELECT header FROM block_header WHERE round = $1`, round)
+func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (block types.Block, transactions []idb.TxnRow, err error) {
+	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	if err != nil {
+		return
+	}
+	defer tx.Commit()
+	row := tx.QueryRowContext(ctx, `SELECT header FROM block_header WHERE round = $1`, round)
 	var blockheaderjson []byte
 	err = row.Scan(&blockheaderjson)
 	if err != nil {
 		return
 	}
 	err = json.Decode(blockheaderjson, &block)
-	return
+	if err != nil {
+		return
+	}
+
+	if options.Transactions {
+		out := make(chan idb.TxnRow, 1)
+		query, whereArgs, err := buildTransactionQuery(idb.TransactionFilter{Round: &round})
+		if err != nil {
+			err = fmt.Errorf("txn query err %v", err)
+			out <- idb.TxnRow{Error: err}
+			close(out)
+			return types.Block{}, nil, err
+		}
+		rows, err := tx.QueryContext(ctx, query, whereArgs...)
+		if err != nil {
+			err = fmt.Errorf("txn query %#v err %v", query, err)
+			return types.Block{}, nil, err
+		}
+
+		go db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
+
+		results := make([]idb.TxnRow, 0)
+		for txrow := range out {
+			results = append(results, txrow)
+			txrow.Next()
+		}
+		transactions = results
+	}
+
+	return block, transactions, nil
 }
 
 func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []interface{}, err error) {
@@ -1751,6 +1794,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			)
 		}
 		if err != nil {
+			err = fmt.Errorf("account scan err %v", err)
 			req.out <- idb.AccountRow{Error: err}
 			break
 		}
@@ -1777,6 +1821,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			var ad types.AccountData
 			err = json.Decode(accountDataJSONStr, &ad)
 			if err != nil {
+				err = fmt.Errorf("account decode err (%s) %v", accountDataJSONStr, err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
@@ -1810,6 +1855,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
 			proto, err := db.GetProto(string(req.blockheader.CurrentProtocol))
 			if err != nil {
+				err = fmt.Errorf("get protocol err (%s) %v", req.blockheader.CurrentProtocol, err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
@@ -1829,18 +1875,21 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			var haids []uint64
 			err = json.Decode(holdingAssetids, &haids)
 			if err != nil {
+				err = fmt.Errorf("parsing json holding asset ids err %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var hamounts []uint64
 			err = json.Decode(holdingAmount, &hamounts)
 			if err != nil {
+				err = fmt.Errorf("parsing json holding amounts err %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var hfrozen []bool
 			err = json.Decode(holdingFrozen, &hfrozen)
 			if err != nil {
+				err = fmt.Errorf("parsing json holding frozen err %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
@@ -1903,12 +1952,14 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			var assetids []uint64
 			err = json.Decode(assetParamsIds, &assetids)
 			if err != nil {
+				err = fmt.Errorf("parsing json asset param ids, %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var assetParams []types.AssetParams
 			err = json.Decode(assetParamsStr, &assetParams)
 			if err != nil {
+				err = fmt.Errorf("parsing json asset param string, %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
@@ -2727,11 +2778,11 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 // GetSpecialAccounts is part of idb.IndexerDB
 func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err error) {
 	var cache string
-	cache, err = db.GetMetastate(specialAccountsMetastateKey)
+	cache, err = db.getMetastate(specialAccountsMetastateKey)
 	if err != nil || cache == "" {
 		// Initialize specialAccountsMetastateKey
 		var block types.Block
-		block, err = db.GetBlock(0)
+		block, _, err = db.GetBlock(context.Background(), 0, idb.GetBlockOptions{})
 		if err != nil {
 			return idb.SpecialAccounts{}, fmt.Errorf("problem looking up special accounts from genesis block: %v", err)
 		}
@@ -2742,7 +2793,7 @@ func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err err
 		}
 
 		cache := idb.JSONOneLine(accounts)
-		err = db.SetMetastate(specialAccountsMetastateKey, cache)
+		err = db.setMetastate(specialAccountsMetastateKey, cache)
 		if err != nil {
 			return idb.SpecialAccounts{}, fmt.Errorf("problem saving metastate: %v", err)
 		}
