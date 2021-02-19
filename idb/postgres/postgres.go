@@ -389,6 +389,7 @@ func (db *IndexerDb) getMetastate(key string) (jsonStrValue string, err error) {
 }
 
 const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
+
 func (db *IndexerDb) setMetastate(key, jsonStrValue string) (err error) {
 	_, err = db.db.Exec(setMetastateUpsert, key, jsonStrValue)
 	return
@@ -2413,6 +2414,11 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	if opts.AlgosLessThan != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("a.microalgos < $%d", partNumber))
 		whereArgs = append(whereArgs, opts.AlgosLessThan)
+		partNumber++
+	}
+	if !opts.IncludeDeleted {
+		whereParts = append(whereParts, fmt.Sprintf("a.deleted = $%d", partNumber))
+		whereArgs = append(whereArgs, opts.IncludeDeleted)
 		partNumber++
 	}
 	if len(opts.EqualToAuthAddr) > 0 {

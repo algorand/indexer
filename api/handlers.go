@@ -86,6 +86,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
 		Limit:                1,
+		IncludeDeleted:       *params.IncludeDeleted,
 	}
 
 	accounts, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
@@ -105,6 +106,13 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 	round, err := si.db.GetMaxRoundAccounted()
 	if err != nil {
 		return indexerError(ctx, err.Error())
+	}
+
+	// Check for deleted
+	if accounts[0].Deleted != nil {
+		if *accounts[0].Deleted {
+			return notFound(ctx, fmt.Sprintf("%s: %s", errNoAccountsFound, accountID))
+		}
 	}
 
 	return ctx.JSON(http.StatusOK, generated.AccountResponse{
@@ -665,7 +673,6 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 
 		// match the algod equivalent which includes pending rewards
 		account.Rewards += account.PendingRewards
-
 		accounts = append(accounts, account)
 	}
 

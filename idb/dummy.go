@@ -335,6 +335,9 @@ type AccountQueryOptions struct {
 	IncludeAssetHoldings bool
 	IncludeAssetParams   bool
 
+	// IncludeDeleted indicated whether to include deleted Assets, Applications, etc within the account.
+	IncludeDeleted bool
+
 	Limit uint64
 }
 
