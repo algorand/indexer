@@ -124,6 +124,15 @@ type (
 		// started being supported).
 		TxnCounter uint64 `codec:"tc"`
 
+		// CompactCert tracks the state of compact certs, potentially
+		// for multiple types of certs.
+		//msgp:sort protocol.CompactCertType protocol.SortCompactCertType
+		CompactCert map[CompactCertType]CompactCertState `codec:"cc,allocbound=protocol.NumCompactCertTypes"`
+	}
+
+	CompactCertType uint64
+
+	CompactCertState struct {
 		// CompactCertVoters is the root of a Merkle tree containing the
 		// online accounts that will help sign a compact certificate.  The
 		// Merkle root, and the compact certificate, happen on blocks that
