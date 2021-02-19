@@ -130,8 +130,10 @@ type (
 		CompactCert map[CompactCertType]CompactCertState `codec:"cc"`
 	}
 
+	// CompactCertType identifies a particular configuration of compact certs.
 	CompactCertType uint64
 
+	// CompactCertState tracks the state of compact certificates.
 	CompactCertState struct {
 		// CompactCertVoters is the root of a Merkle tree containing the
 		// online accounts that will help sign a compact certificate.  The
