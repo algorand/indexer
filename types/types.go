@@ -632,6 +632,10 @@ type ConsensusParams struct {
 	FastRecoveryLambda    time.Duration // time between fast recovery attempts
 	FastPartitionRecovery bool          // set when fast partition recovery is enabled
 
+	// commit to payset using a hash of entire payset,
+	// instead of txid merkle tree
+	PaysetCommitFlat bool
+
 	// how to commit to the payset: flat or merkle tree
 	PaysetCommit PaysetCommitType
 
@@ -701,6 +705,10 @@ type ConsensusParams struct {
 
 	// max decimal precision for assets
 	MaxAssetDecimals uint32
+
+	// whether to use the old buggy Credential.lowestOutput function
+	// TODO(upgrade): Please remove as soon as the upgrade goes through
+	UseBuggyProposalLowestOutput bool
 
 	// SupportRekeying indicates support for account rekeying (the RekeyTo and AuthAddr fields)
 	SupportRekeying bool

@@ -1794,6 +1794,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			)
 		}
 		if err != nil {
+			err = fmt.Errorf("account scan err %v", err)
 			req.out <- idb.AccountRow{Error: err}
 			break
 		}
@@ -1820,6 +1821,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			var ad types.AccountData
 			err = json.Decode(accountDataJSONStr, &ad)
 			if err != nil {
+				err = fmt.Errorf("account decode err (%s) %v", accountDataJSONStr, err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
@@ -1853,6 +1855,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
 			proto, err := db.GetProto(string(req.blockheader.CurrentProtocol))
 			if err != nil {
+				err = fmt.Errorf("get protocol err (%s) %v", req.blockheader.CurrentProtocol, err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
@@ -1872,18 +1875,21 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			var haids []uint64
 			err = json.Decode(holdingAssetids, &haids)
 			if err != nil {
+				err = fmt.Errorf("parsing json holding asset ids err %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var hamounts []uint64
 			err = json.Decode(holdingAmount, &hamounts)
 			if err != nil {
+				err = fmt.Errorf("parsing json holding amounts err %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var hfrozen []bool
 			err = json.Decode(holdingFrozen, &hfrozen)
 			if err != nil {
+				err = fmt.Errorf("parsing json holding frozen err %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
@@ -1946,12 +1952,14 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			var assetids []uint64
 			err = json.Decode(assetParamsIds, &assetids)
 			if err != nil {
+				err = fmt.Errorf("parsing json asset param ids, %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var assetParams []types.AssetParams
 			err = json.Decode(assetParamsStr, &assetParams)
 			if err != nil {
+				err = fmt.Errorf("parsing json asset param string, %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
