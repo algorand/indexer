@@ -68,4 +68,4 @@ sign:
 test-package:
 	mule/e2e.sh
 
-.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage
+.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer
