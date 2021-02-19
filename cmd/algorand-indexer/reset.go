@@ -30,25 +30,25 @@ var resetCmd = &cobra.Command{
 		db := globalIndexerDb(&opts)
 		fmt.Println("Prior to resetting the database make sure no daemons are connected.")
 		fmt.Println("After this command finishes start the daemon again and it will begin to")
-		fmt.Println("re-index the data. This will take hours or days depending on the network")
+		fmt.Println("re-index the data. This can take hours or days depending on the network")
 		fmt.Println("size. During this time data will be incomplete, similar to the initial import.")
-		
-		fmt.Print("\nAre you sure you would like to reset? [y/N] "))
+
+		fmt.Print("\nAre you sure you would like to reset? [y/N] ")
 		scanner := bufio.NewScanner(os.Stdin)
 		if scanner.Scan() {
 			answer := scanner.Text()
 			if len(answer) > 0 && (answer[0] == 'y' || answer[0] == 'Y') {
-				os.Stdout.Write([]byte("Resetting...\n"))
+				fmt.Println("Resetting...")
 				time.Sleep(2)
 				pdb := db.(*postgres.IndexerDb)
 				err = pdb.Reset()
 				maybeFail(err, "database reset failed")
-				os.Stdout.Write([]byte("Done. To re-build, re-start algorand-indexer daemon\n"))
+				fmt.Println("Done. To re-build, re-start algorand-indexer daemon")
 				return
 			}
 		}
 		err = scanner.Err()
 		maybeFail(err, "getting prompt char")
-		os.Stdout.Write([]byte("not resetting\n"))
+		fmt.Println("not resetting")
 	},
 }
