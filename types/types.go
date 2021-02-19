@@ -139,18 +139,19 @@ type (
 		// are a multiple of ConsensusParams.CompactCertRounds.  For blocks
 		// that are not a multiple of ConsensusParams.CompactCertRounds,
 		// this value is zero.
-		CompactCertVoters Digest `codec:"ccv"`
+		CompactCertVoters Digest `codec:"v"`
 
 		// CompactCertVotersTotal is the total number of microalgos held by
 		// the accounts in CompactCertVoters (or zero, if the merkle root is
 		// zero).  This is intended for computing the threshold of votes to
 		// expect from CompactCertVoters.
-		CompactCertVotersTotal MicroAlgos `codec:"ccvt"`
+		CompactCertVotersTotal MicroAlgos `codec:"t"`
 
 		// CompactCertNextRound is the next round for which we will accept
 		// a CompactCert transaction.
-		CompactCertNextRound Round `codec:"ccn"`
+		CompactCertNextRound Round `codec:"n"`
 	}
+
 	// RewardsState represents the global parameters controlling the rate
 	// at which accounts accrue rewards.
 	RewardsState struct {
