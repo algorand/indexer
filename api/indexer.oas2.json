@@ -1244,6 +1244,12 @@
         },
         "message": {
           "type": "string"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },

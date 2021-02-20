@@ -2739,6 +2739,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 	migrationRequired := false
 	migrating := false
 	blocking := false
+	errString := ""
 	var data = make(map[string]interface{})
 
 	// If we are not in read-only mode, there will be a migration object.
@@ -2746,7 +2747,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 		state := db.migration.GetStatus()
 
 		if state.Err != nil {
-			data["migration-error"] = state.Err.Error()
+			errString = state.Err.Error()
 		}
 		if state.Status != "" {
 			data["migration-status"] = state.Status
@@ -2772,6 +2773,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 		Round:       round,
 		IsMigrating: migrating,
 		DBAvailable: !blocking,
+		Error:       errString,
 	}, err
 }
 

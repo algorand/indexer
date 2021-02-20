@@ -29,6 +29,9 @@ type Fetcher interface {
 	SetWaitGroup(wg *sync.WaitGroup)
 	SetContext(ctx context.Context)
 	SetNextRound(nextRound uint64)
+
+	// Error returns any error fetcher is currently experiencing.
+	Error() string
 }
 
 // BlockHandler is the handler fetcher uses to process a block.
@@ -52,6 +55,15 @@ type fetcherImpl struct {
 	failingSince time.Time
 
 	log *log.Logger
+
+	err error
+}
+
+func (bot *fetcherImpl) Error() string {
+	if bot.err != nil {
+		return bot.err.Error()
+	}
+	return ""
 }
 
 // Algod is part of the Fetcher interface
@@ -87,12 +99,14 @@ func (bot *fetcherImpl) catchupLoop() {
 
 		blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(context.Background())
 		if err != nil {
+			bot.err = err
 			bot.log.WithError(err).Errorf("catchup block %d", bot.nextRound)
 			return
 		}
 
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
+			bot.err = err
 			bot.log.WithError(err).Errorf("err handling catchup block %d", bot.nextRound)
 			return
 		}
@@ -113,6 +127,7 @@ func (bot *fetcherImpl) followLoop() {
 			}
 			_, err = aclient.StatusAfterBlock(bot.nextRound).Do(context.Background())
 			if err != nil {
+				bot.err = err
 				bot.log.WithError(err).Errorf("r=%d error getting status %d", retries, bot.nextRound)
 				continue
 			}
@@ -120,6 +135,7 @@ func (bot *fetcherImpl) followLoop() {
 			if err == nil {
 				break
 			}
+			bot.err = err
 			bot.log.WithError(err).Errorf("r=%d err getting block %d", retries, bot.nextRound)
 		}
 		if err != nil {
@@ -127,6 +143,7 @@ func (bot *fetcherImpl) followLoop() {
 		}
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
+			bot.err = err
 			bot.log.WithError(err).Errorf("err handling follow block %d", bot.nextRound)
 			break
 		}
@@ -160,6 +177,7 @@ func (bot *fetcherImpl) Run() {
 		time.Sleep(5 * time.Second)
 		err := bot.reclient()
 		if err != nil {
+			bot.err = err
 			bot.log.WithError(err).Errorln("err trying to re-client")
 		} else {
 			bot.log.Infof("reclient happened")
@@ -186,14 +204,16 @@ func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) (err error) {
 	var block types.EncodedBlockCert
 	err = msgpack.Decode(blockbytes, &block)
 	if err != nil {
-		var generic map[string]interface{}
-		err2 := msgpack.Decode(blockbytes, &generic)
-
-		if err2 == nil {
-			err = fmt.Errorf("unable to decode block (%s): %v", json.Encode(generic), err)
-		} else {
-			err = fmt.Errorf("unable to decode block: %v", err)
+		if bot.log.IsLevelEnabled(log.DebugLevel){
+			var generic map[string]interface{}
+			err2 := msgpack.Decode(blockbytes, &generic)
+			if err2 == nil {
+				bot.log.WithError(err).Debug("unable to decode block (%s)", json.Encode(generic))
+			}
 		}
+
+		err = fmt.Errorf("unable to decode block: %v", err)
+		bot.err = err
 		return
 	}
 	for _, handler := range bot.blockHandlers {

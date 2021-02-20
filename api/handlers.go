@@ -28,6 +28,8 @@ type ServerImplementation struct {
 
 	db idb.IndexerDb
 
+	fetcher error
+
 	log *log.Logger
 }
 
@@ -59,9 +61,19 @@ const defaultBalancesLimit = 1000
 // Returns 200 if healthy.
 // (GET /health)
 func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
+	var errors []string
+
 	health, err := si.db.Health()
 	if err != nil {
 		return indexerError(ctx, fmt.Sprintf("problem fetching health: %v", err))
+	}
+
+	if health.Error != "" {
+		errors = append(errors, health.Error)
+	}
+
+	if si.fetcher != nil && si.fetcher.Error() != "" {
+		errors = append(errors, si.fetcher.Error())
 	}
 
 	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
@@ -70,6 +82,7 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 		IsMigrating: health.IsMigrating,
 		DbAvailable: health.DBAvailable,
 		Message:     strconv.FormatUint(health.Round, 10),
+		Errors:       strArrayPtr(errors),
 	})
 }
 
