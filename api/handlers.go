@@ -86,7 +86,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
 		Limit:                1,
-		IncludeDeleted:       *params.IncludeDeleted,
+		IncludeDeleted:       boolOrDefault(params.IncludeDeleted),
 	}
 
 	accounts, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
