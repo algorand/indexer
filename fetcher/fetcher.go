@@ -208,7 +208,7 @@ func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) (err error) {
 			var generic map[string]interface{}
 			err2 := msgpack.Decode(blockbytes, &generic)
 			if err2 == nil {
-				bot.log.WithError(err).Debug("unable to decode block (%s)", json.Encode(generic))
+				bot.log.WithError(err).Debugf("unable to decode block (%s)", json.Encode(generic))
 			}
 		}
 
