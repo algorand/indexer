@@ -54,7 +54,7 @@ function sql_test_timeout {
   MAX_TIME=$MAX_TIME_BEFORE
 }
 
-# SQL Test - query and verify results
+# SQL Test - query and veryify results
 # $1 - test description.
 # $2 - database
 # $3 - query
@@ -112,7 +112,7 @@ function rest_test_timeout {
   MAX_TIME=$MAX_TIME_BEFORE
 }
 
-# CURL Test - query and verify results
+# CURL Test - query and veryify results
 # $1 - test description.
 # $2 - query
 # $3 - expected status code
@@ -598,17 +598,17 @@ function create_delete_tests() {
 
       rest_test "[rest] refuse to return fee_sink" \
       "/v2/accounts/A7NMWS3NT3IUDMLVO26ULGXGIIOUQ3ND2TXSER6EBGRZNOBOUIQXHIBGDE?pretty" \
-      400
+      400 \
       true
 
       rest_test "[rest] refuse to return rewards pool" \
       "/v2/accounts/7777777777777777777777777777777777777777777777777774MSJUVU?pretty" \
-      400
+      400 \
       true
 
       rest_test "[rest] don't include special accounts" \
       "/v2/accounts" \
-      400
+      200 \
       false \
       '7777777777777777777777777777777777777777777777777774MSJUVU' \
       'A7NMWS3NT3IUDMLVO26ULGXGIIOUQ3ND2TXSER6EBGRZNOBOUIQXHIBGDE'
