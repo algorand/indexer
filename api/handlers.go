@@ -108,13 +108,6 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		return indexerError(ctx, err.Error())
 	}
 
-	// Check for deleted
-	if accounts[0].Deleted != nil {
-		if *accounts[0].Deleted {
-			return notFound(ctx, fmt.Sprintf("%s: %s", errNoAccountsFound, accountID))
-		}
-	}
-
 	return ctx.JSON(http.StatusOK, generated.AccountResponse{
 		CurrentRound: round,
 		Account:      accounts[0],

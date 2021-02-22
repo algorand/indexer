@@ -564,6 +564,10 @@ function create_delete_tests() {
       "t|9|15|0"
     rest_test "[rest] account create close create close" \
       "/v2/accounts/6K5F6PWGSFCIZDCUBHVYI4L6JB5GV5ZWXX2C2TMSPBJSY2NZLZGCF2NH5U?pretty" \
+      404 \
+      ''
+    rest_test "[rest] account create close create close" \
+      "/v2/accounts/6K5F6PWGSFCIZDCUBHVYI4L6JB5GV5ZWXX2C2TMSPBJSY2NZLZGCF2NH5U?pretty&include-deleted=true" \
       200 \
       '"deleted": true' \
       '"created-at-round": 9' \
