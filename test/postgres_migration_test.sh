@@ -34,15 +34,18 @@ start_postgres
 ###############
 
 # Rewards tests
+print_alert "Migration Rewards Tests"
 kill_indexer
 initialize_db test1 migrations/cumulative_rewards_dump.txt
 start_indexer test1
-wait_for_ready
+wait_for_migrated
 cumulative_rewards_tests
 
 # Create Delete Tests
+print_alert "Create Delete Tests"
 kill_indexer
 initialize_db test2 migrations/create_delete.2.2.1.txt
 start_indexer test2
+wait_for_migrated
 create_delete_tests test2
 
