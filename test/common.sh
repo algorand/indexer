@@ -186,7 +186,7 @@ function start_indexer_with_connection_string() {
 function start_indexer() {
   if [ ! -z $2 ]; then
     echo "daemon -S $NET -P \"${CONNECTION_STRING/DB_NAME_HERE/$1}\""
-    sleep infinity
+    sleep 10000000000000
   fi
 
   start_indexer_with_connection_string "${CONNECTION_STRING/DB_NAME_HERE/$1}"
@@ -568,4 +568,12 @@ function create_delete_tests() {
       '"deleted": true' \
       '"created-at-round": 9' \
       '"closed-at-round": 15'
+
+      rest_test "[rest] refuse to return fee_sink" \
+      "/v2/accounts/A7NMWS3NT3IUDMLVO26ULGXGIIOUQ3ND2TXSER6EBGRZNOBOUIQXHIBGDE?pretty" \
+      400
+
+      rest_test "[rest] refuse to return rewards pool" \
+      "/v2/accounts/7777777777777777777777777777777777777777777777777774MSJUVU?pretty" \
+      400
 }
