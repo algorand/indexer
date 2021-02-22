@@ -96,6 +96,36 @@ func MakeAssetConfigOrPanic(round, assetid, total, decimals uint64, defaultFroze
 	return &txn, &txnRow
 }
 
+// MakeAssetFreezeOrPanic is a helper to ensure test asset transactions are initialized.
+func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, addr types.Address) (*types.SignedTxnWithAD, *idb.TxnRow) {
+	txn := types.SignedTxnWithAD{
+		SignedTxn: types.SignedTxn{
+			Txn: types.Transaction{
+				Type: "afrz",
+				Header: types.Header{
+					Sender:     addr,
+					Fee:        types.MicroAlgos(1000),
+					FirstValid: types.Round(round),
+					LastValid:  types.Round(round),
+				},
+				AssetFreezeTxnFields: types.AssetFreezeTxnFields{
+					FreezeAccount: addr,
+					FreezeAsset:   types.AssetIndex(assetid),
+					AssetFrozen:   frozen,
+				},
+			},
+		},
+	}
+
+	txnRow := idb.TxnRow{
+		Round:    uint64(txn.Txn.FirstValid),
+		TxnBytes: msgpack.Encode(txn),
+		AssetID:  assetid,
+	}
+
+	return &txn, &txnRow
+}
+
 // MakeAssetTxnOrPanic is a helper to ensure test asset transactions are initialized.
 func MakeAssetTxnOrPanic(round, assetid, amt uint64, sender, receiver, close types.Address) (*types.SignedTxnWithAD, *idb.TxnRow) {
 	txn := types.SignedTxnWithAD{

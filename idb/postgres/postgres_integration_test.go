@@ -1,8 +1,10 @@
 package postgres
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"sync"
 	"testing"
 
 	_ "github.com/lib/pq"
@@ -10,6 +12,7 @@ import (
 	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
@@ -20,7 +23,7 @@ import (
 
 // getAccounting initializes the ac counting state for testing.
 func getAccounting(round uint64, cache map[uint64]bool) *accounting.State {
-	accountingState := accounting.New()
+	accountingState := accounting.New(cache)
 	accountingState.InitRoundParts(round, test.FeeAddr, test.RewardAddr, 0)
 	return accountingState
 }
@@ -162,7 +165,9 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	_, optinMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, types.ZeroAddress)
 	_, payMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
 
-	state := getAccounting(test.Round, nil)
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
 	state.AddTransaction(createAsset)
 	state.AddTransaction(fundMain)
 	state.AddTransaction(closeMain)
@@ -186,5 +191,290 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	assertAccountAsset(t, db, test.AccountC, assetid, false, 9000)
 	// D has the total minus both payments to A
 	assertAccountAsset(t, db, test.AccountD, assetid, false, total - 2 * amt)
+}
+
+// TestDefaultFrozenAndCache checks that values are added to the default frozen cache, and that the cache is used when
+// accounts optin to an asset.
+func TestDefaultFrozenAndCache(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	assetid := uint64(2222)
+	total := uint64(1000000)
+
+	///////////
+	// Given // A new asset with default-frozen = true, and AccountB opting into it.
+	///////////
+	_, createAssetFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid + 1, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, optinB1 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
+	_, optinB2 := test.MakeAssetTxnOrPanic(test.Round, assetid + 1, 0, test.AccountB, test.AccountB, types.ZeroAddress)
+
+
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
+	state.AddTransaction(createAssetFrozen)
+	state.AddTransaction(createAssetNotFrozen)
+	state.AddTransaction(optinB1)
+	state.AddTransaction(optinB2)
+
+	//////////
+	// When // We commit the round accounting to the database.
+	//////////
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	assert.NoError(t, err, "failed to commit")
+
+	//////////
+	// Then // Make sure the accounts have the correct default-frozen after create/optin
+	//////////
+	// default-frozen = true
+	assertAccountAsset(t, db, test.AccountA, assetid, true, total)
+	assertAccountAsset(t, db, test.AccountB, assetid, true, 0)
+
+	// default-frozen = false
+	assertAccountAsset(t, db, test.AccountA, assetid + 1, false, total)
+	assertAccountAsset(t, db, test.AccountB, assetid + 1, false, 0)
+}
+
+// TestInitializeFrozenCache checks that the frozen cache is properly initialized on startup.
+func TestInitializeFrozenCache(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	// Initialize DB by creating one of these things.
+	_, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	// Add some assets
+	db.Exec(`INSERT INTO asset (index, creator_addr, params) values ($1, $2, $3)`, 1, test.AccountA[:], `{"df":true}`)
+	db.Exec(`INSERT INTO asset (index, creator_addr, params) values ($1, $2, $3)`, 2, test.AccountA[:], `{"df":false}`)
+	db.Exec(`INSERT INTO asset (index, creator_addr, params) values ($1, $2, $3)`, 3, test.AccountA[:], `{}`)
+
+	pdb, err := OpenPostgres(connStr, nil, nil)
+	assert.NoError(t, err)
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+
+	assert.Len(t, cache, 1)
+	assert.True(t, cache[1])
+	assert.False(t, cache[2])
+	assert.False(t, cache[3])
+	assert.False(t, cache[300000])
+}
+
+// TestReCreateAssetHolding checks that the optin value of a defunct
+func TestReCreateAssetHolding(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	assetid := uint64(2222)
+	total := uint64(1000000)
+
+	tests := []struct{
+		offset uint64
+		frozen bool
+	}{
+		{
+			offset: 0,
+			frozen: true,
+		},
+		{
+			offset: 1,
+			frozen: false,
+		},
+	}
+
+	for _, testcase := range tests {
+		round := test.Round + testcase.offset
+		aid := assetid + testcase.offset
+		///////////
+		// Given // A new asset with default-frozen, AccountB opts-in and has its frozen state toggled.
+		/////////// Then AccountB opts-out then opts-in again.
+		_, createAssetFrozen := test.MakeAssetConfigOrPanic(round, aid, total, uint64(6), testcase.frozen, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+		_, optinB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
+		_, unfreezeB := test.MakeAssetFreezeOrPanic(round, aid, !testcase.frozen, test.AccountB)
+		_, optoutB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountC, test.AccountD)
+
+		cache, err := pdb.GetDefaultFrozen()
+		assert.NoError(t, err)
+		state := getAccounting(round, cache)
+		state.AddTransaction(createAssetFrozen)
+		state.AddTransaction(optinB)
+		state.AddTransaction(unfreezeB)
+		state.AddTransaction(optoutB)
+		state.AddTransaction(optinB) // reuse optinB
+
+		//////////
+		// When // We commit the round accounting to the database.
+		//////////
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, round, &itypes.Block{})
+		assert.NoError(t, err, "failed to commit")
+
+		//////////
+		// Then // AccountB should have its frozen state set back to the default value
+		//////////
+		assertAccountAsset(t, db, test.AccountB, aid, testcase.frozen, 0)
+	}
+}
+
+// TestMultipleAssetOptins make sure no-op transactions don't reset the default frozen value.
+func TestNoopOptins(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	///////////
+	// Given // An asset with default-frozen = true, AccountB opt's in, is unfrozen, then has a no-op opt-in
+	///////////
+
+	assetid := uint64(2222)
+	// create asst
+	//db.Exec(`INSERT INTO asset (index, creator_addr, params) values ($1, $2, $3)`, assetid, test.AccountA[:], `{"df":true}`)
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, assetid, uint64(1000000), uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	_, optinB := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
+	_, unfreezeB := test.MakeAssetFreezeOrPanic(test.Round, assetid, false, test.AccountB)
+
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
+	state.AddTransaction(createAsset)
+	state.AddTransaction(optinB)
+	state.AddTransaction(unfreezeB)
+	state.AddTransaction(optinB)
+
+	//////////
+	// When // We commit the round accounting to the database.
+	//////////
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	assert.NoError(t, err, "failed to commit")
+
+	//////////
+	// Then // AccountB should have its frozen state set back to the default value
+	//////////
+	// TODO: This isn't working yet
+	assertAccountAsset(t, db, test.AccountB, assetid, false, 0)
+}
+
+
+
+
+// TestMultipleWriters tests that accounting cannot be double committed.
+func TestMultipleWriters(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	amt := uint64(10000)
+
+	///////////
+	// Given // Send amt to AccountA
+	///////////
+	_, payAccountA := test.MakePayTxnRowOrPanic(test.Round, 1000, amt, 0, 0, 0, 0, test.AccountD, test.AccountA, types.ZeroAddress)
+
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
+	state.AddTransaction(payAccountA)
+
+	//////////
+	// When // We attempt commit the round accounting multiple times.
+	//////////
+	start := make(chan struct{})
+	commits := 10
+	errors := make(chan error, commits)
+	var wg sync.WaitGroup
+	for i := 0; i < commits; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<- start
+			errors <- pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+		}()
+	}
+	close(start)
+
+	wg.Wait()
+	close(errors)
+
+	//////////
+	// Then // There should be num-1 errors, and AccountA should only be paid once.
+	//////////
+	errorCount := 0
+	for err := range errors {
+		if err != nil {
+			errorCount++
+		}
+	}
+	assert.Equal(t, commits-1, errorCount)
+
+	// AccountA should contain the final payment.
+	var balance uint64
+	row := db.QueryRow(`SELECT microalgos FROM account WHERE account.addr = $1`, test.AccountA[:])
+	err = row.Scan(&balance)
+	assert.NoError(t, err, "checking balance")
+	assert.Equal(t, amt, balance)
+}
+
+// TestBlockWithTransactions tests that the block with transactions endpoint works.
+func TestBlockWithTransactions(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	assetid := uint64(2222)
+	amt := uint64(10000)
+	total := uint64(1000000)
+
+	///////////
+	// Given // A block at round test.Round with 5 transactions.
+	///////////
+	tx1, row1 := test.MakeAssetConfigOrPanic(test.Round, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	tx2, row2 := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
+	tx3, row3 := test.MakeAssetTxnOrPanic(test.Round, assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
+	tx4, row4 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, types.ZeroAddress)
+	tx5, row5 := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
+	txns := []*types.SignedTxnWithAD{tx1, tx2, tx3, tx4, tx5}
+	txnRows := []*idb.TxnRow{row1, row2, row3, row4, row5}
+
+	db.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`, test.Round)
+	for i := range txns {
+		db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, i, 0, 0, crypto.TransactionID(txns[i].Txn), txnRows[i].TxnBytes, "{}")
+	}
+
+	//////////
+	// When // We call GetBlock and Transactions
+	//////////
+	_, blockTxn, err := pdb.GetBlock(context.Background(), test.Round, idb.GetBlockOptions{Transactions: true})
+	assert.NoError(t, err)
+	round := test.Round
+	txnRow := pdb.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
+	transactionsTxn := make([]idb.TxnRow, 0)
+	for row := range txnRow {
+		transactionsTxn = append(transactionsTxn, row)
+	}
+
+	//////////
+	// Then // They should have the same transactions
+	//////////
+	assert.Len(t, blockTxn, 5)
+	assert.Len(t, transactionsTxn, 5)
+	for i := 0; i < len(blockTxn); i++ {
+		assert.Equal(t, txnRows[i].TxnBytes, blockTxn[i].TxnBytes)
+		assert.Equal(t, txnRows[i].TxnBytes, transactionsTxn[i].TxnBytes)
+	}
 }
 

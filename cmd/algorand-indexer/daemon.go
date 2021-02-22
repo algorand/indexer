@@ -84,9 +84,12 @@ var daemonCmd = &cobra.Command{
 			if maxRound != 0 {
 				bot.SetNextRound(maxRound + 1)
 			}
+			cache, err := db.GetDefaultFrozen()
+			maybeFail(err, "failed to get default frozen cache")
 			bih := blockImporterHandler{
 				imp:   importer.NewDBImporter(db),
 				db:    db,
+				cache: cache,
 				round: maxRound,
 			}
 			bot.AddBlockHandler(&bih)
@@ -161,6 +164,7 @@ func init() {
 type blockImporterHandler struct {
 	imp   importer.Importer
 	db    idb.IndexerDb
+	cache map[uint64]bool
 	round uint64
 }
 
@@ -171,7 +175,7 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	}
 	_, err := bih.imp.ImportDecodedBlock(block)
 	maybeFail(err, "ImportDecodedBlock %d: %v", block.Block.Round, err)
-	importer.UpdateAccounting(bih.db, uint64(block.Block.Round), genesisJSONPath, logger)
+	importer.UpdateAccounting(bih.db, bih.cache, uint64(block.Block.Round), genesisJSONPath, logger)
 	dt := time.Now().Sub(start)
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
 	bih.round = uint64(block.Block.Round)

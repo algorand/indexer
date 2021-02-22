@@ -71,13 +71,13 @@ func (db *dummyIndexerDb) GetProto(version string) (proto types.ConsensusParams,
 	return
 }
 
-// GetMetastate is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetMetastate(key string) (jsonStrValue string, err error) {
-	return "", nil
+// GetImportState is part of idb.IndexerDB
+func (db *dummyIndexerDb) GetImportState() (is *ImportState, err error) {
+	return nil, nil
 }
 
-// SetMetastate is part of idb.IndexerDB
-func (db *dummyIndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
+// SetImportState is part of idb.IndexerDB
+func (db *dummyIndexerDb) SetImportState(is ImportState) (err error) {
 	return nil
 }
 
@@ -96,6 +96,11 @@ func (db *dummyIndexerDb) GetSpecialAccounts() (SpecialAccounts, error) {
 	return SpecialAccounts{}, nil
 }
 
+// GetDefaultFrozen is part of idb.IndexerDb
+func (db *dummyIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
+	return make(map[uint64]bool), nil
+}
+
 // YieldTxns is part of idb.IndexerDB
 func (db *dummyIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow {
 	return nil
@@ -107,9 +112,8 @@ func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round uint
 }
 
 // GetBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetBlock(round uint64) (block types.Block, err error) {
-	err = nil
-	return
+func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (block types.Block, transactions []TxnRow, err error) {
+	return types.Block{}, nil, nil
 }
 
 // Transactions is part of idb.IndexerDB
@@ -203,7 +207,7 @@ type TxnExtra struct {
 // TODO: sqlite3 impl
 // TODO: cockroachdb impl
 type IndexerDb interface {
-	// The next few functions define the import interface, functions for loading data into the database. StartBlock() through Get/SetMetastate().
+	// The next few functions define the import interface, functions for loading data into the database. StartBlock() through Get/SetImportState().
 	StartBlock() error
 	AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error
 	CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error
@@ -215,18 +219,19 @@ type IndexerDb interface {
 	SetProto(version string, proto types.ConsensusParams) (err error)
 	GetProto(version string) (proto types.ConsensusParams, err error)
 
-	GetMetastate(key string) (jsonStrValue string, err error)
-	SetMetastate(key, jsonStrValue string) (err error)
+	GetImportState() (is *ImportState, err error)
+	SetImportState(ImportState) (err error)
 	GetMaxRoundAccounted() (round uint64, err error)
 	GetMaxRoundLoaded() (round uint64, err error)
 	GetSpecialAccounts() (SpecialAccounts, error)
+	GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error)
 
 	// YieldTxns returns a channel that produces the whole transaction stream after some round forward
 	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow
 
 	CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error)
 
-	GetBlock(round uint64) (block types.Block, err error)
+	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (block types.Block, transactions []TxnRow, err error)
 
 	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
@@ -235,6 +240,12 @@ type IndexerDb interface {
 	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow
 
 	Health() (status Health, err error)
+}
+
+// GetBlockOptions contains the options when requesting to load a block from the database.
+type GetBlockOptions struct {
+	// setting Transactions to true suggests requesting to receive the trasnactions themselves from the GetBlock query
+	Transactions bool
 }
 
 // TransactionFilter.AddressRole bitfield values
@@ -445,44 +456,39 @@ type AccountDataUpdate struct {
 	VoteKeyDilution uint64
 }
 
+// AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
+type AssetUpdate struct {
+	AssetID       uint64
+	DefaultFrozen bool
+	Transfer      *AssetTransfer
+	Close         *AssetClose
+	Config        *AcfgUpdate
+	Freeze        *FreezeUpdate
+}
+
 // AcfgUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AcfgUpdate struct {
-	AssetID uint64
 	IsNew   bool
 	Creator types.Address
 	Params  types.AssetParams
 }
 
-// AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
-type AssetUpdate struct {
-	AssetID       uint64
-	Delta         big.Int
-	DefaultFrozen bool
-	Closed        *AssetClose
+// AssetTransfer is used by the accounting and IndexerDb implementations to share modifications in a block.
+type AssetTransfer struct {
+	Delta big.Int
 }
 
 // FreezeUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type FreezeUpdate struct {
-	Addr    types.Address
-	AssetID uint64
-	Frozen  bool
+	Frozen bool
 }
 
 // AssetClose is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AssetClose struct {
-	CloseTo       types.Address
-	AssetID       uint64
-	Sender        types.Address
-	Round         uint64
-	Offset        uint64
-	DefaultFrozen bool
-}
-
-// TxnAssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
-type TxnAssetUpdate struct {
+	CloseTo types.Address
+	Sender  types.Address
 	Round   uint64
-	Offset  int
-	AssetID uint64
+	Offset  uint64
 }
 
 // AlgoUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
@@ -512,9 +518,6 @@ type RoundUpdates struct {
 	// with a 0 value.
 	AccountDataUpdates map[[32]byte]map[string]interface{}
 
-	AcfgUpdates     []AcfgUpdate
-	TxnAssetUpdates []TxnAssetUpdate
-
 	// AssetUpdates is more complicated than AlgoUpdates because there
 	// are no apply data values to work with in the event of a close.
 	// The way we handle this is by breaking the round into sub-rounds,
@@ -526,8 +529,8 @@ type RoundUpdates struct {
 	// The next subround starts when an account close has been detected
 	// Once a subround has been processed, move to the next subround and
 	// apply the updates.
+	// AssetConfig transactions also trigger the end of a subround.
 	AssetUpdates  []map[[32]byte][]AssetUpdate
-	FreezeUpdates []FreezeUpdate
 	AssetDestroys []uint64
 
 	AppGlobalDeltas []AppDelta
@@ -536,14 +539,11 @@ type RoundUpdates struct {
 
 // Clear is used to set a RoundUpdates object back to it's default values.
 func (ru *RoundUpdates) Clear() {
-	ru.AlgoUpdates = nil
-	ru.AccountTypes = nil
-	ru.AccountDataUpdates = nil
-	ru.AcfgUpdates = nil
-	ru.TxnAssetUpdates = nil
+	ru.AlgoUpdates = make(map[[32]byte]*AlgoUpdate)
+	ru.AccountTypes = make(map[[32]byte]string)
+	ru.AccountDataUpdates = make(map[[32]byte]map[string]interface{})
 	ru.AssetUpdates = nil
 	ru.AssetUpdates = append(ru.AssetUpdates, make(map[[32]byte][]AssetUpdate, 0))
-	ru.FreezeUpdates = nil
 	ru.AssetDestroys = nil
 	ru.AppGlobalDeltas = nil
 	ru.AppLocalDeltas = nil
@@ -642,4 +642,9 @@ type Health struct {
 type SpecialAccounts struct {
 	FeeSink     types.Address
 	RewardsPool types.Address
+}
+
+// ImportState is some metadata kept around to help the import helper.
+type ImportState struct {
+	AccountRound int64 `codec:"account_round"`
 }

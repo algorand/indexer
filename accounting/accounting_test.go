@@ -11,7 +11,7 @@ import (
 )
 
 func GetAccounting() *State {
-	accountingState := New()
+	accountingState := New(make(map[uint64]bool))
 	accountingState.InitRoundParts(test.Round, test.FeeAddr, test.RewardAddr, 0)
 	return accountingState
 }
@@ -124,13 +124,13 @@ func TestAssetCloseReopenPay(t *testing.T) {
 
 	// Subround 1 has 1 update (the close)
 	assert.Len(t, state.RoundUpdates.AssetUpdates[0], 1)
-	assert.Equal(t, state.RoundUpdates.AssetUpdates[0][test.AccountA][0].Delta.Int64(), int64(0))
-	assert.NotNil(t, state.RoundUpdates.AssetUpdates[0][test.AccountA][0].Closed)
+	assert.Nil(t, state.RoundUpdates.AssetUpdates[0][test.AccountA][0].Transfer)
+	assert.NotNil(t, state.RoundUpdates.AssetUpdates[0][test.AccountA][0].Close)
 
 	// Subround 2 has 2 updates (debit one account, credit the other)
 	assert.Len(t, state.RoundUpdates.AssetUpdates[1], 2)
-	assert.Equal(t, state.RoundUpdates.AssetUpdates[1][test.AccountA][0].Delta.Int64(), int64(amt))
-	assert.Equal(t, state.RoundUpdates.AssetUpdates[1][test.AccountB][0].Delta.Int64(), int64(amt) * -1)
+	assert.Equal(t, state.RoundUpdates.AssetUpdates[1][test.AccountA][0].Transfer.Delta.Int64(), int64(amt))
+	assert.Equal(t, state.RoundUpdates.AssetUpdates[1][test.AccountB][0].Transfer.Delta.Int64(), int64(amt) * -1)
 }
 
 // TestAssetCloseWithAmount checks that close with an amount creates a delta
@@ -147,8 +147,8 @@ func TestAssetCloseWithAmountReopenPay(t *testing.T) {
 
 	// Subround 1 has 2 updates (one debit, one close)
 	assert.Len(t, state.RoundUpdates.AssetUpdates[0], 2)
-	assert.Equal(t, int64(amt) * -1, state.RoundUpdates.AssetUpdates[0][test.AccountA][0].Delta.Int64())
-	assert.NotNil(t, state.RoundUpdates.AssetUpdates[0][test.AccountA][1].Closed)
+	assert.Equal(t, int64(amt) * -1, state.RoundUpdates.AssetUpdates[0][test.AccountA][0].Transfer.Delta.Int64())
+	assert.NotNil(t, state.RoundUpdates.AssetUpdates[0][test.AccountA][1].Close)
 
 	// Subround 2 is empty
 	assert.Len(t, state.RoundUpdates.AssetUpdates[1], 0)
