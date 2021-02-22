@@ -266,10 +266,11 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 
 // LookupAssetByID looks up a particular asset
 // (GET /v2/assets/{asset-id})
-func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64) error {
+func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64, params generated.LookupAssetByIDParams) error {
 	search := generated.SearchForAssetsParams{
-		AssetId: uint64Ptr(assetID),
-		Limit:   uint64Ptr(1),
+		AssetId:        uint64Ptr(assetID),
+		Limit:          uint64Ptr(1),
+		IncludeDeleted: params.IncludeDeleted,
 	}
 	options, err := assetParamsToAssetQuery(search)
 	if err != nil {
@@ -304,10 +305,11 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 // (GET /v2/assets/{asset-id}/balances)
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID uint64, params generated.LookupAssetBalancesParams) error {
 	query := idb.AssetBalanceQuery{
-		AssetID:  assetID,
-		AmountGT: uintOrDefault(params.CurrencyGreaterThan),
-		AmountLT: uintOrDefault(params.CurrencyLessThan),
-		Limit:    min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
+		AssetID:        assetID,
+		AmountGT:       uintOrDefault(params.CurrencyGreaterThan),
+		AmountLT:       uintOrDefault(params.CurrencyLessThan),
+		IncludeDeleted: boolOrDefault(params.IncludeDeleted),
+		Limit:          min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
 	}
 
 	if params.Next != nil {

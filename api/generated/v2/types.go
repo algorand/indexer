@@ -1087,6 +1087,13 @@ type SearchForAssetsParams struct {
 	AssetId *uint64 `json:"asset-id,omitempty"`
 }
 
+// LookupAssetByIDParams defines parameters for LookupAssetByID.
+type LookupAssetByIDParams struct {
+
+	// Include deleted items
+	IncludeDeleted *bool `json:"include-deleted,omitempty"`
+}
+
 // LookupAssetBalancesParams defines parameters for LookupAssetBalances.
 type LookupAssetBalancesParams struct {
 

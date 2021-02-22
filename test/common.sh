@@ -438,6 +438,11 @@ function create_delete_tests() {
       "t|23|33|135"
     rest_test "[rest - asset]  asset create / destroy" \
       "/v2/assets/135?pretty" \
+      404 \
+      true \
+      ''
+    rest_test "[rest - asset]  asset create / destroy" \
+      "/v2/assets/135?pretty&include-deleted=true" \
       200 \
       true \
       '"deleted": true' \
@@ -548,6 +553,11 @@ function create_delete_tests() {
       "/v2/assets/36/balances?pretty&currency-less-than=100" \
       200 \
       true \
+      '"balances": []'
+    rest_test "[rest] asset optin" \
+      "/v2/assets/36/balances?pretty&currency-less-than=100&include-deleted=true" \
+      200 \
+      true \
       '"deleted": true' \
       '"opted-in-at-round": 16' \
       '"opted-out-at-round": 25'
@@ -557,6 +567,11 @@ function create_delete_tests() {
       "t|25|31|135"
     rest_test "[rest] asset optin" \
       "/v2/assets/135/balances?pretty&currency-less-than=100" \
+      200 \
+      true \
+      '"balances": []'
+    rest_test "[rest] asset optin" \
+      "/v2/assets/135/balances?pretty&currency-less-than=100&include-deleted=true" \
       200 \
       true \
       '"deleted": true' \

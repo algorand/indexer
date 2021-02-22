@@ -2337,6 +2337,14 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "description": "Include deleted items",
+            "in": "query",
+            "name": "include-deleted",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {

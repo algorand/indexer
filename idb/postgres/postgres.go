@@ -2522,6 +2522,9 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) <-chan 
 		whereArgs = append(whereArgs, qs)
 		partNumber++
 	}
+	if !filter.IncludeDeleted {
+		whereParts = append(whereParts, "coalesce(a.deleted, false) = false")
+	}
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
 		query += " WHERE " + whereStr
@@ -2607,6 +2610,9 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 		whereArgs = append(whereArgs, abq.PrevAddress)
 		partNumber++
 	}
+	if !abq.IncludeDeleted {
+		whereParts = append(whereParts, "coalesce(aa.deleted, false) = false")
+	}
 	var rows *sql.Rows
 	var err error
 	query := `SELECT addr, assetid, amount, frozen, created_at, closed_at, deleted FROM account_asset aa`
@@ -2678,6 +2684,9 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 		whereParts = append(whereParts, fmt.Sprintf("index > $%d", partNumber))
 		whereArgs = append(whereArgs, *filter.Next)
 		partNumber++
+	}
+	if filter.IncludeDeleted != nil && !*filter.IncludeDeleted {
+		whereParts = append(whereParts, "coalesce(deleted, false) = false")
 	}
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")

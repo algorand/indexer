@@ -326,6 +326,9 @@
             "name": "asset-id",
             "in": "path",
             "required": true
+          },
+          {
+            "$ref": "#/parameters/include-deleted"
           }
         ],
         "responses": {
