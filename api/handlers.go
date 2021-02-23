@@ -81,6 +81,16 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		return badRequest(ctx, errors[0])
 	}
 
+	// Special accounts non handling
+	isSpecialAccount, err := si.isSpecialAccount(accountID)
+	if err != nil {
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedLoadSpecialAccounts, err))
+	}
+
+	if isSpecialAccount {
+		return badRequest(ctx, errSpecialAccounts)
+	}
+
 	options := idb.AccountQueryOptions{
 		EqualToAddress:       addr[:],
 		IncludeAssetHoldings: true,
@@ -650,6 +660,16 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 			return nil, row.Error
 		}
 
+		// Check if it's a special account, if so, skip. We don't want it in our results.
+		isSpecialAccount, err := si.isSpecialAccount(row.Account.Address)
+		if err != nil {
+			return nil, err
+		}
+
+		if isSpecialAccount {
+			continue
+		}
+
 		// Compute for a given round if requested.
 		var account generated.Account
 		if atRound != nil {
@@ -709,4 +729,19 @@ func max(x, y uint64) uint64 {
 		return x
 	}
 	return y
+}
+
+// isSpecialAccount returns true if addr belongs to a special account, false otherwise.
+// The function returns an error in case it fails to retrieve the special accounts list.
+func (si *ServerImplementation) isSpecialAccount(addr string) (bool, error) {
+	// Special accounts non handling
+	sa, err := si.db.GetSpecialAccounts()
+	if err != nil {
+		return false, err
+	}
+
+	if addr == sa.FeeSink.String() || addr == sa.RewardsPool.String() {
+		return true, nil
+	}
+	return false, nil
 }

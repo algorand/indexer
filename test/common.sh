@@ -394,7 +394,7 @@ function ask () {
 ## Integration tests are sometimes useful to run after a migration as well #
 ############################################################################
 function cumulative_rewards_tests() {
-    rest_test 'Ensure migration updated specific account rewards.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI' 200 '"rewards":80000539878'
+    rest_test 'Ensure migration updated specific account rewards.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI' 200 true '"rewards":80000539878'
     # Rewards / Rewind is now disabled
     #rest_test 'Ensure migration updated specific account rewards @ round = 810.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI?round=810' 200 '"rewards":80000539878'
     #rest_test 'Ensure migration updated specific account rewards @ round = 800.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI?round=800' 200 '"rewards":68000335902'
@@ -402,7 +402,7 @@ function cumulative_rewards_tests() {
     #rest_test 'Ensure migration updated specific account rewards @ round = 100.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI?round=100' 200 '"rewards":7999999996'
 
     # One disabled test...
-    rest_test 'Ensure migration updated specific account rewards @ round = 810.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI?round=810' 200 '"rewards":0'
+    rest_test 'Ensure migration updated specific account rewards @ round = 810.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI?round=810' 200 true '"rewards":0'
 }
 
 # $1 - the DB to query
@@ -674,4 +674,21 @@ function create_delete_tests() {
       '"deleted": true' \
       '"created-at-round": 9' \
       '"closed-at-round": 15'
+
+      rest_test "[rest] refuse to return fee_sink" \
+      "/v2/accounts/A7NMWS3NT3IUDMLVO26ULGXGIIOUQ3ND2TXSER6EBGRZNOBOUIQXHIBGDE?pretty" \
+      400 \
+      true
+
+      rest_test "[rest] refuse to return rewards pool" \
+      "/v2/accounts/7777777777777777777777777777777777777777777777777774MSJUVU?pretty" \
+      400 \
+      true
+
+      rest_test "[rest] don't include special accounts" \
+      "/v2/accounts" \
+      200 \
+      false \
+      '7777777777777777777777777777777777777777777777777774MSJUVU' \
+      'A7NMWS3NT3IUDMLVO26ULGXGIIOUQ3ND2TXSER6EBGRZNOBOUIQXHIBGDE'
 }
