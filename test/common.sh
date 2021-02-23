@@ -8,7 +8,8 @@ CURL_TEMPFILE=curl_out.txt
 PIDFILE=testindexerpidfile
 CONNECTION_STRING="host=localhost user=algorand password=algorand dbname=DB_NAME_HERE port=5434 sslmode=disable"
 MAX_TIME=20
-HALT_ON_FAILURE=1
+# Set to to prevent cleanup so you can look at the DB or run queries.
+HALT_ON_FAILURE=
 
 
 ###################
