@@ -95,7 +95,6 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	assert.Equal(t, uint64(0), roundL)
 }
 
-
 // TestMaxRoundEmptyMetastate makes sure we return 0 when the metastate is empty.
 func TestMaxRoundEmptyMetastate(t *testing.T) {
 	pg, connStr, shutdownFunc := setupPostgres(t)
@@ -487,3 +486,4 @@ func TestBlockWithTransactions(t *testing.T) {
 		assert.Equal(t, txnRows[i].TxnBytes, transactionsTxn[i].TxnBytes)
 	}
 }
+
