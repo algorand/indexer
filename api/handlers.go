@@ -69,11 +69,11 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	}
 
 	if health.Error != "" {
-		errors = append(errors, health.Error)
+		errors = append(errors, fmt.Sprintf("database error: %s", health.Error))
 	}
 
 	if si.fetcher != nil && si.fetcher.Error() != "" {
-		errors = append(errors, si.fetcher.Error())
+		errors = append(errors, fmt.Sprintf("fetcher error: %s", si.fetcher.Error()))
 	}
 
 	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{

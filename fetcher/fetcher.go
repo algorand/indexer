@@ -127,7 +127,6 @@ func (bot *fetcherImpl) followLoop() {
 			}
 			_, err = aclient.StatusAfterBlock(bot.nextRound).Do(context.Background())
 			if err != nil {
-				bot.err = err
 				bot.log.WithError(err).Errorf("r=%d error getting status %d", retries, bot.nextRound)
 				continue
 			}
@@ -135,10 +134,10 @@ func (bot *fetcherImpl) followLoop() {
 			if err == nil {
 				break
 			}
-			bot.err = err
 			bot.log.WithError(err).Errorf("r=%d err getting block %d", retries, bot.nextRound)
 		}
 		if err != nil {
+			bot.err = err
 			return
 		}
 		err = bot.handleBlockBytes(blockbytes)
@@ -147,6 +146,8 @@ func (bot *fetcherImpl) followLoop() {
 			bot.log.WithError(err).Errorf("err handling follow block %d", bot.nextRound)
 			break
 		}
+		// If we successfully handle the block, clear out any transient error which may have occurred.
+		bot.err = nil
 		bot.nextRound++
 		bot.failingSince = time.Time{}
 	}
@@ -172,7 +173,7 @@ func (bot *fetcherImpl) Run() {
 		} else {
 			now := time.Now()
 			dt := now.Sub(bot.failingSince)
-			bot.log.Infof("failing to fetch from algod for %s, (since %s, now %s)", dt.String(), bot.failingSince.String(), now.String())
+			bot.log.Warnf("failing to fetch from algod for %s, (since %s, now %s)", dt.String(), bot.failingSince.String(), now.String())
 		}
 		time.Sleep(5 * time.Second)
 		err := bot.reclient()
@@ -213,7 +214,6 @@ func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) (err error) {
 		}
 
 		err = fmt.Errorf("unable to decode block: %v", err)
-		bot.err = err
 		return
 	}
 	for _, handler := range bot.blockHandlers {
