@@ -424,11 +424,27 @@ function create_delete_tests() {
       "t|13|37|82"
     rest_test "[rest] app create & delete (app-id=82)" \
       "/v2/applications/82?pretty" \
+      404 \
+      true \
+      ''
+    rest_test "[rest] app create & delete (app-id=82)" \
+      "/v2/applications/82?pretty&include-deleted=true" \
       200 \
       true \
       '"deleted": true' \
       '"created-at-round": 13' \
       '"deleted-at-round": 37'
+
+    rest_test "[rest - account/application] account with a deleted application" \
+      "/v2/accounts/XNMIHFHAZ2GE3XUKISNMOYKNFDOJXBJMVHRSXVVVIK3LNMT22ET2TA4N4I?pretty" \
+      200 \
+      false \
+      '"id": 82'
+    rest_test "[rest - account/application] account with a deleted application" \
+      "/v2/accounts/XNMIHFHAZ2GE3XUKISNMOYKNFDOJXBJMVHRSXVVVIK3LNMT22ET2TA4N4I?pretty&include-deleted=true" \
+      200 \
+      true \
+      '"id": 82'
 
     ###############
     # Asset Tests #
@@ -450,19 +466,23 @@ function create_delete_tests() {
       '"destroyed-at-round": 33' \
       '"total": 0'
     rest_test "[rest - account]  asset create / destroy" \
-      "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty" \
+      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty" \
       200 \
       false \
-      '"created-at-round": 23' \
-      '"destroyed-at-round": 33' \
-      '"total": 0'
+      '"asset-id": 135'
     rest_test "[rest - account]  asset create / destroy" \
-      "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty&include-deleted=true" \
+      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty&include-deleted=true" \
       200 \
       true \
-      '"created-at-round": 23' \
-      '"destroyed-at-round": 33' \
-      '"total": 0'
+      '{
+        "amount": 0,
+        "asset-id": 135,
+        "creator": "",
+        "deleted": true,
+        "is-frozen": false,
+        "opted-in-at-round": 25,
+        "opted-out-at-round": 31
+      }'
 
     sql_test "[sql] asset create" $1 \
       "select deleted, created_at, closed_at, index from asset WHERE index=168" \
@@ -481,6 +501,17 @@ function create_delete_tests() {
       '"deleted": false' \
       '"created-at-round": 35' \
       '"total": 1337'
+
+    rest_test "[rest - account asset holding] asset holding optin optout" \
+      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty" \
+      200 \
+      false \
+      '"asset-id": 135'
+    rest_test "[rest - account asset holding] asset holding optin optout" \
+      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty&include-deleted=true" \
+      200 \
+      true \
+      '"asset-id": 135'
 
     ###########################
     # Application Local Tests #
@@ -568,12 +599,16 @@ function create_delete_tests() {
     rest_test "[rest] asset optin" \
       "/v2/assets/135/balances?pretty&currency-less-than=100" \
       200 \
-      true \
-      '"balances": []'
+      false \
+      '"address": "MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U"' \
+      '"opted-in-at-round": 25' \
+      '"opted-out-at-round": 31'
     rest_test "[rest] asset optin" \
       "/v2/assets/135/balances?pretty&currency-less-than=100&include-deleted=true" \
       200 \
       true \
+      false \
+      '"address": "MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U"' \
       '"deleted": true' \
       '"opted-in-at-round": 25' \
       '"opted-out-at-round": 31'

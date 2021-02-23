@@ -1062,6 +1062,13 @@ type SearchForApplicationsParams struct {
 	Next *string `json:"next,omitempty"`
 }
 
+// LookupApplicationByIDParams defines parameters for LookupApplicationByID.
+type LookupApplicationByIDParams struct {
+
+	// Include deleted items
+	IncludeDeleted *bool `json:"include-deleted,omitempty"`
+}
+
 // SearchForAssetsParams defines parameters for SearchForAssets.
 type SearchForAssetsParams struct {
 

@@ -243,10 +243,12 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 
 // LookupApplicationByID returns one application for the requested ID.
 // (GET /v2/applications/{application-id})
-func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationID uint64) error {
-	var params generated.SearchForApplicationsParams
-	params.ApplicationId = &applicationID
-	results := si.db.Applications(ctx.Request().Context(), &params)
+func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationByIDParams) error {
+	p := &generated.SearchForApplicationsParams{
+		ApplicationId:  &applicationID,
+		IncludeDeleted: params.IncludeDeleted,
+	}
+	results := si.db.Applications(ctx.Request().Context(), p)
 	round, err := si.db.GetMaxRoundAccounted()
 	if err != nil {
 		return indexerError(ctx, err.Error())

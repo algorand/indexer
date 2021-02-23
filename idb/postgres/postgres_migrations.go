@@ -656,6 +656,7 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 
 		if accounting.AssetCreateTxn(stxn) {
 			result.asset[txn.AssetID] = updateCreate(result.asset[txn.AssetID], txn.Round)
+			result.assetHolding[txn.AssetID] = updateCreate(result.assetHolding[txn.AssetID], txn.Round)
 		}
 
 		if accounting.AssetDestroyTxn(stxn) {
@@ -666,7 +667,7 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 			result.assetHolding[txn.AssetID] = updateCreate(result.assetHolding[txn.AssetID], txn.Round)
 		}
 
-		if accounting.AssetOptOutTxn(stxn) {
+		if accounting.AssetOptOutTxn(stxn) && stxn.Txn.Sender == address {
 			result.assetHolding[txn.AssetID] = updateClose(result.assetHolding[txn.AssetID], txn.Round)
 		}
 
