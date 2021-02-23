@@ -656,12 +656,12 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 		}
 
 		// Check if it's a special account, if so, skip. We don't want it in our results.
-		ok, err := si.isSpecialAccount(row.Account.Address)
+		isSpecialAccount, err := si.isSpecialAccount(row.Account.Address)
 		if err != nil {
 			return nil, err
 		}
 
-		if ok {
+		if isSpecialAccount {
 			continue
 		}
 
