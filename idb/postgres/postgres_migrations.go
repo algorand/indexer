@@ -420,15 +420,13 @@ func addrToPercent(addr string) float64 {
 func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	db.log.Println("account cumulative rewards migration starting")
 
-	var feeSinkAddr string
-	var rewardsAddr string
+	var specialAccounts []string
 	{
 		accounts, err := db.GetSpecialAccounts()
 		if err != nil {
 			return fmt.Errorf("unable to get special accounts: %v", err)
 		}
-		feeSinkAddr = accounts.FeeSink.String()
-		rewardsAddr = accounts.RewardsPool.String()
+		specialAccounts = []string{accounts.FeeSink.String(), accounts.RewardsPool.String()}
 	}
 
 	options := idb.AccountQueryOptions{}
@@ -452,17 +450,14 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 			return err
 		}
 
-		// Don't update special accounts
-		if feeSinkAddr != acct.Account.Address && rewardsAddr != acct.Account.Address {
-			accounts = append(accounts, acct.Account.Address)
-		}
+		accounts = append(accounts, acct.Account.Address)
 
 		if len(accounts) == batchSize {
 			db.log.Printf("Cumulative rewards migration processing %.2f%% complete. Batch %d up through account %s",
 				addrToPercent(accounts[0]),
 				batchNumber,
 				accounts[len(accounts)-1])
-			err := m5RewardsAndDatesPart2UpdateAccounts(db, state, accounts, false)
+			err := m5RewardsAndDatesPart2UpdateAccounts(db, state, accounts, specialAccounts, false)
 			if err != nil {
 				return err
 			}
@@ -474,7 +469,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	// Get the remainder
 	if len(accounts) > 0 {
 		db.log.Println("Processing final batch of accounts.")
-		err := m5RewardsAndDatesPart2UpdateAccounts(db, state, accounts, true)
+		err := m5RewardsAndDatesPart2UpdateAccounts(db, state, accounts, specialAccounts, true)
 		if err != nil {
 			return err
 		}
@@ -575,7 +570,20 @@ func initM5AccountData() *m5AccountData {
 	}
 }
 
-func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData, err error) {
+func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, address types.Address, nextRound uint64, specialAccounts []string, retries int) (results *m5AccountData, err error) {
+	// Initialize special accounts to deleted = false, created_at = 0
+	for _, v := range specialAccounts {
+		if  v == addressStr {
+			return &m5AccountData{
+				cumulativeRewards: 0,
+				account:           createClose{
+					deleted: sql.NullBool{Bool:  false, Valid: true},
+					created: sql.NullInt64{Int64: 0, Valid: true},
+				},
+			}, nil
+		}
+	}
+
 	for i := 0; i < retries; i++ {
 		// Query transactions for the account
 		txnrows := db.Transactions(context.Background(), idb.TransactionFilter{
@@ -711,7 +719,7 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 // Note: These queries only work if closed_at was reset before the migration is started. That is true
 //       for the initial migration, but if we need to reuse it in the future we'll need to fix the queries
 //       or redo the query.
-func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, accounts []string, finalBatch bool) error {
+func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, accounts []string, specialAccounts []string, finalBatch bool) error {
 	// finalAddress is cached for updating the state at the end.
 	var finalAddress []byte
 
@@ -726,7 +734,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 
 		// Process transactions!
 		start := time.Now()
-		result, err := processAccountTransactionsWithRetry(db, addressStr, address, uint64(state.NextRound), 3)
+		result, err := processAccountTransactionsWithRetry(db, addressStr, address, uint64(state.NextRound), specialAccounts, 3)
 		dur := time.Since(start)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
