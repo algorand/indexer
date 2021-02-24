@@ -1122,6 +1122,12 @@
           "db-available": {
             "type": "boolean"
           },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
           "is-migrating": {
             "type": "boolean"
           },

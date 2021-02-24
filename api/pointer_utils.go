@@ -86,6 +86,13 @@ func boolPtr(x bool) *bool {
 	return &x
 }
 
+func strArrayPtr(x []string) *[]string {
+	if x == nil || len(x) == 0 {
+		return nil
+	}
+	return &x
+}
+
 type genesis struct {
 	genesisHash []byte
 	genesisID   string

@@ -398,6 +398,7 @@ type EvalDeltaKeyValue struct {
 type HealthCheck struct {
 	Data        *map[string]interface{} `json:"data,omitempty"`
 	DbAvailable bool                    `json:"db-available"`
+	Errors      *[]string               `json:"errors,omitempty"`
 	IsMigrating bool                    `json:"is-migrating"`
 	Message     string                  `json:"message"`
 	Round       uint64                  `json:"round"`

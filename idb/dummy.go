@@ -645,6 +645,7 @@ type Health struct {
 	Round       uint64                  `json:"round"`
 	IsMigrating bool                    `json:"is-migrating"`
 	DBAvailable bool                    `json:"db-available"`
+	Error       string                  `json:"error"`
 }
 
 // SpecialAccounts are the accounts which have special accounting rules.
