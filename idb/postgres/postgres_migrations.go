@@ -37,6 +37,8 @@ func init() {
 		{m4MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
 		{m5RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
 		{m6RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
+
+		{m9SpecialAccountCleanup, false, "The initial m6 implementation would miss special accounts."},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -95,6 +97,19 @@ func migrationStateBlocked(state MigrationState) bool {
 // needsMigration returns true if there is an incomplete migration.
 func needsMigration(state MigrationState) bool {
 	return state.NextMigration < len(migrations)
+}
+
+// upsertMigrationState updates the migration state, and optionally increments the next counter.
+func upsertMigrationState(tx *sql.Tx, state *MigrationState, incrementNextMigration bool) (err error) {
+	if incrementNextMigration {
+		state.NextMigration++
+	}
+	migrationStateJSON := idb.JSONOneLine(state)
+	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	if err != nil {
+		return fmt.Errorf("m9 meta error: %v", err)
+	}
+	return
 }
 
 func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
@@ -842,6 +857,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 
 	// Update checkpoint
 	if finalBatch {
+		state.NextMigration++
 		state.NextAccount = nil
 	} else {
 		state.NextAccount = finalAddress[:]
@@ -1145,4 +1161,42 @@ func m4MarkTxnJSONSplit(db *IndexerDb, state *MigrationState) error {
 		`INSERT INTO metastate (k,v) SELECT 'm4MarkTxnJSONSplit', m.v FROM metastate m WHERE m.k = 'state'`,
 	}
 	return sqlMigration(db, state, sqlLines)
+}
+
+func m9SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
+	accounts, err := db.GetSpecialAccounts()
+	if err != nil {
+		return fmt.Errorf("unable to get special accounts: %v", err)
+	}
+
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
+	if err != nil {
+		return fmt.Errorf("failed to begin m9 migration: %v", err)
+	}
+	defer tx.Rollback() // ignored if .Commit() first
+
+	initstmt, err := tx.Prepare(`UPDATE account SET deleted=false, created_at=0 WHERE addr=$1`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare m9 query: %v", err)
+	}
+
+	for _, account := range []string{accounts.FeeSink.String(), accounts.RewardsPool.String()} {
+		address, err := sdk_types.DecodeAddress(account)
+		if err != nil {
+			return fmt.Errorf("failed to decode address: %v", err)
+		}
+		initstmt.Exec(address[:])
+	}
+
+	upsertMigrationState(tx, state, true)
+	if err != nil {
+		return fmt.Errorf("m9 metstate upsert error: %v", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("m9 commit error: %v", err)
+	}
+
+	return nil
 }
