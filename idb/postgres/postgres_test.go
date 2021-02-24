@@ -49,7 +49,7 @@ func TestAllMigrations(t *testing.T) {
 			// There should be an error because I'm not attempting to mock the migration code.
 			//require.Contains(t, err.Error(), fmt.Sprintf("error during migration %d", idx))
 			str := fmt.Sprintf("error during migration %d (%s)", idx, m.description)
-			require.Contains(t, (*h.Data)["migration-error"], str)
+			require.Contains(t, h.Error, str)
 			require.Contains(t, (*h.Data)["migration-status"], str)
 		})
 	}

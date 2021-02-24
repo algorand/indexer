@@ -20,7 +20,7 @@ import (
 var indexerDb idb.IndexerDb
 
 // Serve starts an http server for the indexer API. This call blocks.
-func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, log *log.Logger, tokens []string, developerMode bool) {
+func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError error, log *log.Logger, tokens []string, developerMode bool) {
 	indexerDb = db
 
 	e := echo.New()
@@ -40,6 +40,7 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, log *log.Log
 	api := ServerImplementation{
 		EnableAddressSearchRoundRewind: developerMode,
 		db:                             db,
+		fetcher:                        fetcherError,
 	}
 
 	generated.RegisterHandlers(e, &api, middleware...)

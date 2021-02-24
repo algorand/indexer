@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	log "github.com/sirupsen/logrus"
 
@@ -28,6 +29,9 @@ type Fetcher interface {
 	SetWaitGroup(wg *sync.WaitGroup)
 	SetContext(ctx context.Context)
 	SetNextRound(nextRound uint64)
+
+	// Error returns any error fetcher is currently experiencing.
+	Error() string
 }
 
 // BlockHandler is the handler fetcher uses to process a block.
@@ -51,6 +55,15 @@ type fetcherImpl struct {
 	failingSince time.Time
 
 	log *log.Logger
+
+	err error
+}
+
+func (bot *fetcherImpl) Error() string {
+	if bot.err != nil {
+		return bot.err.Error()
+	}
+	return ""
 }
 
 // Algod is part of the Fetcher interface
@@ -86,12 +99,14 @@ func (bot *fetcherImpl) catchupLoop() {
 
 		blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(context.Background())
 		if err != nil {
+			bot.err = err
 			bot.log.WithError(err).Errorf("catchup block %d", bot.nextRound)
 			return
 		}
 
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
+			bot.err = err
 			bot.log.WithError(err).Errorf("err handling catchup block %d", bot.nextRound)
 			return
 		}
@@ -122,13 +137,17 @@ func (bot *fetcherImpl) followLoop() {
 			bot.log.WithError(err).Errorf("r=%d err getting block %d", retries, bot.nextRound)
 		}
 		if err != nil {
+			bot.err = err
 			return
 		}
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
+			bot.err = err
 			bot.log.WithError(err).Errorf("err handling follow block %d", bot.nextRound)
 			break
 		}
+		// If we successfully handle the block, clear out any transient error which may have occurred.
+		bot.err = nil
 		bot.nextRound++
 		bot.failingSince = time.Time{}
 	}
@@ -154,11 +173,12 @@ func (bot *fetcherImpl) Run() {
 		} else {
 			now := time.Now()
 			dt := now.Sub(bot.failingSince)
-			bot.log.Infof("failing to fetch from algod for %s, (since %s, now %s)", dt.String(), bot.failingSince.String(), now.String())
+			bot.log.Warnf("failing to fetch from algod for %s, (since %s, now %s)", dt.String(), bot.failingSince.String(), now.String())
 		}
 		time.Sleep(5 * time.Second)
 		err := bot.reclient()
 		if err != nil {
+			bot.err = err
 			bot.log.WithError(err).Errorln("err trying to re-client")
 		} else {
 			bot.log.Infof("reclient happened")
@@ -185,6 +205,15 @@ func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) (err error) {
 	var block types.EncodedBlockCert
 	err = msgpack.Decode(blockbytes, &block)
 	if err != nil {
+		if bot.log.IsLevelEnabled(log.DebugLevel){
+			var generic map[string]interface{}
+			err2 := msgpack.Decode(blockbytes, &generic)
+			if err2 == nil {
+				bot.log.WithError(err).Debugf("unable to decode block (%s)", json.Encode(generic))
+			}
+		}
+
+		err = fmt.Errorf("unable to decode block: %v", err)
 		return
 	}
 	for _, handler := range bot.blockHandlers {
