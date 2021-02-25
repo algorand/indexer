@@ -61,7 +61,7 @@ func main() {
 		addr         string
 		threads      int
 		processorNum int
-		printCurl     bool
+		printCurl    bool
 	)
 
 	flag.StringVar(&config.algodURL, "algod-url", "", "Algod url.")
@@ -117,7 +117,7 @@ func main() {
 // fills the work channel by reading from os.Stdin. Results are returned to the results channel.
 func start(processor Processor, threads int, config Params, results chan<- Result) {
 	var wg sync.WaitGroup
-	work := make(chan string, 100 * threads)
+	work := make(chan string, 100*threads)
 
 	// Start the workers
 	for i := 0; i < threads; i++ {
@@ -152,7 +152,7 @@ func normalizeAddress(addr string) (string, error) {
 	}
 
 	addrBytes, err := base64.StdEncoding.DecodeString(addr)
-	if err  == nil {
+	if err == nil {
 		var address types.Address
 		copy(address[:], addrBytes)
 		return address.String(), nil
@@ -222,7 +222,7 @@ func callProcessor(processor Processor, addrInput string, config Params, results
 
 		result, err := processor.ProcessAddress(algodData, indexerData)
 
-		if err == nil && (result.Equal || i >= config.retries){
+		if err == nil && (result.Equal || i >= config.retries) {
 			// Return when results are equal, or when finished retrying.
 			result.Retries = i
 			if result.Details != nil {
@@ -250,7 +250,7 @@ func callProcessor(processor Processor, addrInput string, config Params, results
 
 // resultChar picks the appropriate status character for the output.
 func resultChar(success bool, retries int) string {
-	if success && retries == 0{
+	if success && retries == 0 {
 		return "."
 	}
 	if success && retries > 9 {
@@ -274,7 +274,7 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) {
 		duration := endTime.Sub(startTime)
 		fmt.Printf("\n\nNumber of errors: [%d / %d]\n", numErrors, numResults)
 		fmt.Printf("Retry count: %d\n", numRetries)
-		fmt.Printf("Checks per second: %f\n", float64(numResults + numRetries) / duration.Seconds())
+		fmt.Printf("Checks per second: %f\n", float64(numResults+numRetries)/duration.Seconds())
 		fmt.Printf("Test duration: %s\n", time.Time{}.Add(duration).Format("15:04:05"))
 	}
 
@@ -285,20 +285,20 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
-		<- quit
+		<-quit
 		stats()
 		os.Exit(1)
 	}()
 
 	// Process results. Print progress to stdout and log errors to errorLog.
 	for r := range results {
-		if numResults % 100 == 0 {
+		if numResults%100 == 0 {
 			fmt.Printf("\n%-8d : ", numResults)
 		}
 		fmt.Printf("%s", resultChar(r.Equal, r.Retries))
 
 		numResults++
-		numRetries+=r.Retries
+		numRetries += r.Retries
 		if r.Error != nil || !r.Equal {
 			errorLog.Printf("===================================================================")
 			errorLog.Printf("%s", time.Now().Format("2006-01-02 3:4:5 PM"))
