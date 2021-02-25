@@ -389,6 +389,7 @@ func (db *IndexerDb) getMetastate(key string) (jsonStrValue string, err error) {
 }
 
 const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
+
 func (db *IndexerDb) setMetastate(key, jsonStrValue string) (err error) {
 	_, err = db.db.Exec(setMetastateUpsert, key, jsonStrValue)
 	return

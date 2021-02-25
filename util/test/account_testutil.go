@@ -13,27 +13,27 @@ const Round = uint64(10)
 
 var (
 	// AccountA is a premade account for use in tests.
-    AccountA = DecodeAddressOrPanic("GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY")
-    // AccountB is a premade account for use in tests.
-    AccountB = DecodeAddressOrPanic("N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU")
-    // AccountC is a premade account for use in tests.
-    AccountC = DecodeAddressOrPanic("OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE")
-    // AccountD is a premade account for use in tests.
-    AccountD = DecodeAddressOrPanic("6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI")
-    // FeeAddr is the fee addess to use when creating the state object.
-    FeeAddr = DecodeAddressOrPanic("ZROKLZW4GVOK5WQIF2GUR6LHFVEZBMV56BIQEQD4OTIZL2BPSYYUKFBSHM")
-    // RewardAddr is the fee addess to use when creating the state object.
-    RewardAddr = DecodeAddressOrPanic("4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM")
+	AccountA = DecodeAddressOrPanic("GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY")
+	// AccountB is a premade account for use in tests.
+	AccountB = DecodeAddressOrPanic("N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU")
+	// AccountC is a premade account for use in tests.
+	AccountC = DecodeAddressOrPanic("OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE")
+	// AccountD is a premade account for use in tests.
+	AccountD = DecodeAddressOrPanic("6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI")
+	// FeeAddr is the fee addess to use when creating the state object.
+	FeeAddr = DecodeAddressOrPanic("ZROKLZW4GVOK5WQIF2GUR6LHFVEZBMV56BIQEQD4OTIZL2BPSYYUKFBSHM")
+	// RewardAddr is the fee addess to use when creating the state object.
+	RewardAddr = DecodeAddressOrPanic("4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM")
 
 	// OpenMainStxn is a premade signed transaction which may be useful in tests.
-	OpenMainStxn      *types.SignedTxnWithAD
+	OpenMainStxn *types.SignedTxnWithAD
 	// OpenMain is a premade TxnRow which may be useful in tests.
-	OpenMain          *idb.TxnRow
+	OpenMain *idb.TxnRow
 
 	// CloseMainToBCStxn is a premade signed transaction which may be useful in tests.
 	CloseMainToBCStxn *types.SignedTxnWithAD
 	// CloseMainToBC is a premade TxnRow which may be useful in tests.
-	CloseMainToBC     *idb.TxnRow
+	CloseMainToBC *idb.TxnRow
 )
 
 func init() {
@@ -139,8 +139,8 @@ func MakeAssetTxnOrPanic(round, assetid, amt uint64, sender, receiver, close typ
 					LastValid:  types.Round(round),
 				},
 				AssetTransferTxnFields: types.AssetTransferTxnFields{
-					XferAsset:     types.AssetIndex(assetid),
-					AssetAmount:   amt,
+					XferAsset:   types.AssetIndex(assetid),
+					AssetAmount: amt,
 					//only used for clawback transactions
 					//AssetSender:   types.Address{},
 					AssetReceiver: receiver,
@@ -148,8 +148,7 @@ func MakeAssetTxnOrPanic(round, assetid, amt uint64, sender, receiver, close typ
 				},
 			},
 		},
-		ApplyData: types.ApplyData{
-		},
+		ApplyData: types.ApplyData{},
 	}
 
 	txnRow := idb.TxnRow{
