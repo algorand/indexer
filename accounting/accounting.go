@@ -125,10 +125,19 @@ func (accounting *State) updateAccountType(addr types.Address, ktype string) {
 func (accounting *State) updateAccountData(addr types.Address, key string, field interface{}) {
 	au, ok := accounting.AccountDataUpdates[addr]
 	if !ok {
-		au = make(map[string]interface{})
+		au = make(map[string]idb.AccountDataUpdate)
 		accounting.AccountDataUpdates[addr] = au
 	}
-	au[key] = field
+	au[key] = idb.AccountDataUpdate{true, field}
+}
+
+func (accounting *State) removeAccountData(addr types.Address, key string) {
+	au, ok := accounting.AccountDataUpdates[addr]
+	if !ok {
+		au = make(map[string]idb.AccountDataUpdate)
+		accounting.AccountDataUpdates[addr] = au
+	}
+	au[key] = idb.AccountDataUpdate{false, struct{}{}}
 }
 
 func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, sub uint64) {
@@ -284,7 +293,11 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 	}
 
 	if !stxn.Txn.RekeyTo.IsZero() {
-		accounting.updateAccountData(stxn.Txn.Sender, "spend", stxn.Txn.RekeyTo)
+		if stxn.Txn.RekeyTo == stxn.Txn.Sender {
+			accounting.removeAccountData(stxn.Txn.Sender, "spend")
+		} else {
+			accounting.updateAccountData(stxn.Txn.Sender, "spend", stxn.Txn.RekeyTo)
+		}
 	}
 
 	switch stxn.Txn.Type {

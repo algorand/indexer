@@ -445,17 +445,6 @@ func IndexerDbByName(name, arg string, opts *IndexerDbOptions, log *log.Logger) 
 	return nil, fmt.Errorf("no IndexerDb factory for %s", name)
 }
 
-// AccountDataUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
-type AccountDataUpdate struct {
-	Addr            types.Address
-	Status          int // {Offline:0, Online:1, NotParticipating: 2}
-	VoteID          [32]byte
-	SelectionID     [32]byte
-	VoteFirstValid  uint64
-	VoteLastValid   uint64
-	VoteKeyDilution uint64
-}
-
 // AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AssetUpdate struct {
 	AssetID       uint64
@@ -503,6 +492,11 @@ type AlgoUpdate struct {
 	Closed bool
 }
 
+type AccountDataUpdate struct {
+	Update bool // true if update, false if delete
+	Value interface{} // value to write if `update` is true
+}
+
 // RoundUpdates is used by the accounting and IndexerDb implementations to share modifications in a block.
 type RoundUpdates struct {
 	AlgoUpdates  map[[32]byte]*AlgoUpdate
@@ -516,7 +510,7 @@ type RoundUpdates struct {
 	// zero value. A 0 value may need to be sent to the database
 	// to overlay onto a JSON struct there and replace a value
 	// with a 0 value.
-	AccountDataUpdates map[[32]byte]map[string]interface{}
+	AccountDataUpdates map[[32]byte]map[string]AccountDataUpdate
 
 	// AssetUpdates is more complicated than AlgoUpdates because there
 	// are no apply data values to work with in the event of a close.
@@ -541,7 +535,7 @@ type RoundUpdates struct {
 func (ru *RoundUpdates) Clear() {
 	ru.AlgoUpdates = make(map[[32]byte]*AlgoUpdate)
 	ru.AccountTypes = make(map[[32]byte]string)
-	ru.AccountDataUpdates = make(map[[32]byte]map[string]interface{})
+	ru.AccountDataUpdates = make(map[[32]byte]map[string]AccountDataUpdate)
 	ru.AssetUpdates = nil
 	ru.AssetUpdates = append(ru.AssetUpdates, make(map[[32]byte][]AssetUpdate, 0))
 	ru.AssetDestroys = nil
