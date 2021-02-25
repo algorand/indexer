@@ -575,18 +575,48 @@ func initM5AccountData() *m5AccountData {
 	}
 }
 
+// accountTransactions pages through account transactions to avoid caching the entire result set. Unfortunately, this
+// also prevents us from benefiting from having a cache of the entire result set.
+func accountTransactions(ctx context.Context, db *IndexerDb, address types.Address, finalRound uint64) <-chan idb.TxnRow {
+	out := make(chan idb.TxnRow, 10)
+
+	go func() {
+		defer close(out)
+		token := ""
+		for true {
+			txnrows := db.Transactions(ctx, idb.TransactionFilter{
+				Address:   address[:],
+				MaxRound:  finalRound,
+				Limit:     1,
+				NextToken: token,
+			})
+
+			num := 0
+			for row := range txnrows {
+				num++
+				token = row.Next()
+				out <- row
+			}
+			if num == 0 {
+				return
+			}
+		}
+	}()
+
+	return out
+}
+
 func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData, err error) {
 	for i := 0; i < retries; i++ {
+		ctx, cancel := context.WithCancel(context.Background())
 		// Query transactions for the account
-		txnrows := db.Transactions(context.Background(), idb.TransactionFilter{
-			Address:  address[:],
-			MaxRound: nextRound,
-		})
+		txnrows := accountTransactions(ctx, db, address, nextRound)
 
 		// Process transactions!
 		results, err = processAccountTransactions(txnrows, addressStr, address)
 		if err != nil {
 			db.log.Errorf("%s: (attempt %d) failed to update %s: %v", rewardsCreateCloseUpdateErr, i+1, addressStr, err)
+			cancel()
 			time.Sleep(10 * time.Second)
 		} else {
 			return
