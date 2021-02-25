@@ -2071,8 +2071,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			}
 
 			var apps []AppParams
-			str := string(appParams)
-			fmt.Println(str)
 			err = json.Decode(appParams, &apps)
 			if err != nil {
 				err = fmt.Errorf("parsing json appparams, %v", err)
