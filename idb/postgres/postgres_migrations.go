@@ -738,6 +738,10 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 		accountData[address] = result
 	}
 
+	// Make sure round accounting doesn't interfere with updating these accounts.
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
 	// Open a postgres transaction and submit results for each account.
 	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
