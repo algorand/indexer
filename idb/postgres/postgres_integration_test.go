@@ -379,7 +379,7 @@ func TestMultipleWriters(t *testing.T) {
 	// Given // Send amt to AccountA
 	///////////
 	_, payAccountA := test.MakePayTxnRowOrPanic(test.Round, 1000, amt, 0, 0, 0, 0, test.AccountD,
-																							test.AccountA, types.ZeroAddress, types.ZeroAddress)
+		test.AccountA, types.ZeroAddress, types.ZeroAddress)
 
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -535,15 +535,15 @@ func TestRekeyToItself(t *testing.T) {
 		assert.NoError(t, err, "failed to commit")
 	}
 	{
-		_, txnRow := test.MakePayTxnRowOrPanic(test.Round + 1, 1000, 0, 0, 0, 0, 0, test.AccountA,
+		_, txnRow := test.MakePayTxnRowOrPanic(test.Round+1, 1000, 0, 0, 0, 0, 0, test.AccountA,
 			test.AccountA, types.ZeroAddress, test.AccountA)
 
 		cache, err := pdb.GetDefaultFrozen()
 		assert.NoError(t, err)
-		state := getAccounting(test.Round + 1, cache)
+		state := getAccounting(test.Round+1, cache)
 		state.AddTransaction(txnRow)
 
-		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round + 1, &itypes.Block{})
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round+1, &itypes.Block{})
 		assert.NoError(t, err, "failed to commit")
 	}
 
