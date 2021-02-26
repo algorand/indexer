@@ -42,8 +42,10 @@ type Processor interface {
 
 // Result is the output of ProcessAddress.
 type Result struct {
-	Equal   bool
+	// Error is set if there were errors running the test.
 	Error   error
+
+	Equal   bool
 	Retries int
 	Details *ErrorDetails
 }
@@ -320,6 +322,7 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
 			if r.Error != nil {
 				numErrors++
 				errorLog.Printf("Processor error: %v\n", r.Error)
+				continue
 			}
 			// Print error details if there are any.
 			if r.Details != nil {
