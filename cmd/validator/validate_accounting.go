@@ -313,6 +313,7 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
 		numResults++
 		numRetries += r.Retries
 		if r.Error != nil || !r.Equal {
+			numErrors++
 			errorLog.Printf("===================================================================")
 			errorLog.Printf("%s", time.Now().Format("2006-01-02 3:4:5 PM"))
 			errorLog.Printf("Account: %s", r.Details.address)
@@ -320,12 +321,10 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
 
 			// Print error message if there is one.
 			if r.Error != nil {
-				numErrors++
 				errorLog.Printf("Processor error: %v\n", r.Error)
 			} else {
 				// Print error details if there are any.
 				if r.Details != nil {
-					numErrors++
 					errorLog.Printf("Algod Details:\n%s", r.Details.algod)
 					errorLog.Printf("Indexer Details:\n%s", r.Details.indexer)
 					errorLog.Printf("Differences:")
