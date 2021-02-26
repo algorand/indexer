@@ -495,7 +495,7 @@ type AlgoUpdate struct {
 // AccountDataUpdate encodes an update or remove operation on an account_data json key.
 type AccountDataUpdate struct {
 	Delete bool        // false if update, true if delete
-	Value  interface{} // value to write if `update` is true
+	Value  interface{} // value to write if `Delete` is false
 }
 
 // RoundUpdates is used by the accounting and IndexerDb implementations to share modifications in a block.
