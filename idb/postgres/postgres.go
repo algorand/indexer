@@ -870,12 +870,12 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 
 			for key, acctDataUpdate := range acctDataUpdates {
 				if acctDataUpdate.Delete {
-					set[key] = acctDataUpdate.Value
-				} else {
 					_, err = delad.Exec(key, addr[:])
 					if err != nil {
 						return fmt.Errorf("delete key in account data, %v", err)
 					}
+				} else {
+					set[key] = acctDataUpdate.Value
 				}
 			}
 
