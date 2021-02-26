@@ -17,6 +17,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -102,6 +103,8 @@ type IndexerDb struct {
 	protoCache map[string]types.ConsensusParams
 
 	migration *migration.Migration
+
+	accountingLock sync.Mutex
 }
 
 func (db *IndexerDb) init() (err error) {
@@ -798,6 +801,9 @@ func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []i
 
 // CommitRoundAccounting is part of idb.IndexerDB
 func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
 	any := false
 	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
@@ -2066,8 +2072,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			}
 
 			var apps []AppParams
-			str := string(appParams)
-			fmt.Println(str)
 			err = json.Decode(appParams, &apps)
 			if err != nil {
 				err = fmt.Errorf("parsing json appparams, %v", err)
