@@ -312,34 +312,34 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
 
 		numResults++
 		numRetries += r.Retries
-
-		if r.Error != nil {
-			// Print error message if there is one.
-			numErrors++
-			errorLog.Printf("Processor error: %v\n", r.Error)
-		} else if !r.Equal {
-			// Print error log if they are not equal
+		if r.Error != nil || !r.Equal {
 			errorLog.Printf("===================================================================")
 			errorLog.Printf("%s", time.Now().Format("2006-01-02 3:4:5 PM"))
 			errorLog.Printf("Account: %s", r.Details.address)
 			errorLog.Printf("Error #: %d", numErrors)
 
-			// Print error details if there are any.
-			if r.Details != nil {
+			// Print error message if there is one.
+			if r.Error != nil {
 				numErrors++
-				errorLog.Printf("Algod Details:\n%s", r.Details.algod)
-				errorLog.Printf("Indexer Details:\n%s", r.Details.indexer)
-				errorLog.Printf("Differences:")
-				for _, diff := range r.Details.diff {
-					errorLog.Printf("     - %s", diff)
+				errorLog.Printf("Processor error: %v\n", r.Error)
+			} else {
+				// Print error details if there are any.
+				if r.Details != nil {
+					numErrors++
+					errorLog.Printf("Algod Details:\n%s", r.Details.algod)
+					errorLog.Printf("Indexer Details:\n%s", r.Details.indexer)
+					errorLog.Printf("Differences:")
+					for _, diff := range r.Details.diff {
+						errorLog.Printf("     - %s", diff)
+					}
 				}
-			}
-			// Optionally print curl command.
-			if printCurl {
-				errorLog.Printf("echo 'Algod:'")
-				errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.algodToken, config.algodURL, r.Details.address)
-				errorLog.Printf("echo 'Indexer:'")
-				errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.indexerToken, config.indexerURL, r.Details.address)
+				// Optionally print curl command.
+				if printCurl {
+					errorLog.Printf("echo 'Algod:'")
+					errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.algodToken, config.algodURL, r.Details.address)
+					errorLog.Printf("echo 'Indexer:'")
+					errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.indexerToken, config.indexerURL, r.Details.address)
+				}
 			}
 		}
 	}
