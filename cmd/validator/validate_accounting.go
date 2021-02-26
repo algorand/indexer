@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -163,6 +164,10 @@ func normalizeAddress(addr string) (string, error) {
 
 // getData from indexer/algod with optional token.
 func getData(url, token string) ([]byte, error) {
+	if !strings.HasPrefix(url, "http") {
+		url = fmt.Sprintf("http://%s", url)
+	}
+
 	auth := fmt.Sprintf("Bearer %s", token)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -204,9 +209,12 @@ func callProcessor(processor Processor, addrInput string, config Params, results
 		return
 	}
 
+	algodDataURL := fmt.Sprintf("%s/v2/accounts/%s", config.algodURL, addr)
+	indexerDataURL := fmt.Sprintf("%s/v2/accounts/%s", config.indexerURL, addr)
+
 	// Fetch algod account data outside the retry loop. When the data desynchronizes we'll keep fetching indexer data until it
 	// catches up with the first algod account query.
-	algodData, err := getData(fmt.Sprintf("%s:/v2/accounts/%s", config.algodURL, addr), config.algodToken)
+	algodData, err := getData(algodDataURL, config.algodToken)
 	if err != nil {
 		results <- resultError(err, addrInput)
 		return
@@ -214,7 +222,7 @@ func callProcessor(processor Processor, addrInput string, config Params, results
 
 	// Retry loop.
 	for i := 0; true; i++ {
-		indexerData, err := getData(fmt.Sprintf("%s:/v2/accounts/%s", config.indexerURL, addr), config.indexerToken)
+		indexerData, err := getData(indexerDataURL, config.indexerToken)
 		if err != nil {
 			results <- resultError(err, addrInput)
 			return
