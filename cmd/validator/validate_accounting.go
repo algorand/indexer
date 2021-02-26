@@ -111,7 +111,10 @@ func main() {
 	}()
 
 	// This will keep going until the results channel is closed.
-	resultsPrinter(config, printCurl, results)
+	numErrors := resultsPrinter(config, printCurl, results)
+	if numErrors > 0 {
+		os.Exit(1)
+	}
 }
 
 // start kicks off a bunch of  go routines to compare addresses, it also creates a work channel to feed the workers and
@@ -270,8 +273,8 @@ func resultChar(success bool, retries int) string {
 	return "X"
 }
 
-// resultsPrinter reads the results channel and prints it to the error log.
-func resultsPrinter(config Params, printCurl bool, results <-chan Result) {
+// resultsPrinter reads the results channel and prints it to the error log. Returns the number of errors.
+func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
 	numResults := 0
 	numErrors := 0
 	numRetries := 0
@@ -315,6 +318,7 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) {
 
 			// Print error message if there is one.
 			if r.Error != nil {
+				numErrors++
 				errorLog.Printf("Processor error: %v\n", r.Error)
 			}
 			// Print error details if there are any.
@@ -336,4 +340,6 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) {
 			}
 		}
 	}
+
+	return numErrors
 }
