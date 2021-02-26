@@ -494,7 +494,7 @@ type AlgoUpdate struct {
 
 // AccountDataUpdate encodes an update or remove operation on an account_data json key.
 type AccountDataUpdate struct {
-	Update bool        // true if update, false if delete
+	Delete bool        // false if update, true if delete
 	Value  interface{} // value to write if `update` is true
 }
 

@@ -869,7 +869,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 			set := make(map[string]interface{})
 
 			for key, acctDataUpdate := range acctDataUpdates {
-				if acctDataUpdate.Update {
+				if acctDataUpdate.Delete {
 					set[key] = acctDataUpdate.Value
 				} else {
 					_, err = delad.Exec(key, addr[:])
