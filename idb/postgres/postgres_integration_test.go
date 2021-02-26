@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"sync"
 	"testing"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
@@ -500,7 +500,6 @@ func TestRekeyBasic(t *testing.T) {
 	//////////
 	// Then // Account A is rekeyed to account B
 	//////////
-	// AccountA should contain the final payment.
 	var accountDataStr []byte
 	row := db.QueryRow(`SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
 	err = row.Scan(&accountDataStr)
@@ -559,4 +558,76 @@ func TestRekeyToItself(t *testing.T) {
 	err = json.Decode(accountDataStr, &ad)
 	assert.NoError(t, err, "failed to parse account data json")
 	assert.Equal(t, types.ZeroAddress, ad.SpendingKey)
+}
+
+func TestRekeyThreeTimesInSameRound(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	///////////
+	// Given // Send rekey transaction
+	///////////
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
+
+	{
+		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
+			test.AccountA, types.ZeroAddress, test.AccountB)
+		state.AddTransaction(txnRow)
+	}
+	{
+		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
+			test.AccountA, types.ZeroAddress, types.ZeroAddress)
+		state.AddTransaction(txnRow)
+	}
+	{
+		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
+			test.AccountA, types.ZeroAddress, test.AccountC)
+		state.AddTransaction(txnRow)
+	}
+
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	assert.NoError(t, err, "failed to commit")
+
+	//////////
+	// Then // Account A is rekeyed to account C
+	//////////
+	var accountDataStr []byte
+	row := db.QueryRow(`SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
+	err = row.Scan(&accountDataStr)
+	assert.NoError(t, err, "querying account data")
+
+	var ad itypes.AccountData
+	err = json.Decode(accountDataStr, &ad)
+	assert.NoError(t, err, "failed to parse account data json")
+	assert.Equal(t, test.AccountC, ad.SpendingKey)
+}
+
+func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
+	_, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	///////////
+	// Given // Send rekey transaction
+	///////////
+	_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
+		test.AccountA, types.ZeroAddress, types.ZeroAddress)
+
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
+	state.AddTransaction(txnRow)
+
+	//////////
+	// Then // No error when committing to the DB.
+	//////////
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	assert.NoError(t, err, "failed to commit")
 }
