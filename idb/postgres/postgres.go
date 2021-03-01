@@ -17,6 +17,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -102,6 +103,8 @@ type IndexerDb struct {
 	protoCache map[string]types.ConsensusParams
 
 	migration *migration.Migration
+
+	accountingLock sync.Mutex
 }
 
 func (db *IndexerDb) init() (err error) {
@@ -389,6 +392,7 @@ func (db *IndexerDb) getMetastate(key string) (jsonStrValue string, err error) {
 }
 
 const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
+
 func (db *IndexerDb) setMetastate(key, jsonStrValue string) (err error) {
 	_, err = db.db.Exec(setMetastateUpsert, key, jsonStrValue)
 	return
@@ -797,6 +801,9 @@ func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []i
 
 // CommitRoundAccounting is part of idb.IndexerDB
 func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
 	any := false
 	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
@@ -851,16 +858,37 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 	}
 	if len(updates.AccountDataUpdates) > 0 {
 		any = true
-		setkeyreg, err := tx.Prepare(`UPDATE account SET account_data = coalesce(account_data, '{}'::jsonb) || ($1)::jsonb WHERE addr = $2`)
+
+		setad, err := tx.Prepare(`UPDATE account SET account_data = coalesce(account_data, '{}'::jsonb) || ($1)::jsonb WHERE addr = $2`)
 		if err != nil {
 			return fmt.Errorf("prepare keyreg, %v", err)
 		}
-		defer setkeyreg.Close()
-		for addr, adu := range updates.AccountDataUpdates {
-			jb := idb.JSONOneLine(adu)
-			_, err = setkeyreg.Exec(jb, addr[:])
+		defer setad.Close()
+
+		delad, err := tx.Prepare(`UPDATE account SET account_data = coalesce(account_data, '{}'::jsonb) - $1 WHERE addr = $2`)
+		if err != nil {
+			return fmt.Errorf("prepare keyreg, %v", err)
+		}
+		defer delad.Close()
+
+		for addr, acctDataUpdates := range updates.AccountDataUpdates {
+			set := make(map[string]interface{})
+
+			for key, acctDataUpdate := range acctDataUpdates {
+				if acctDataUpdate.Delete {
+					_, err = delad.Exec(key, addr[:])
+					if err != nil {
+						return fmt.Errorf("delete key in account data, %v", err)
+					}
+				} else {
+					set[key] = acctDataUpdate.Value
+				}
+			}
+
+			jb := idb.JSONOneLine(set)
+			_, err = setad.Exec(jb, addr[:])
 			if err != nil {
-				return fmt.Errorf("update keyreg, %v", err)
+				return fmt.Errorf("update account data, %v", err)
 			}
 		}
 	}
@@ -2065,8 +2093,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			}
 
 			var apps []AppParams
-			str := string(appParams)
-			fmt.Println(str)
 			err = json.Decode(appParams, &apps)
 			if err != nil {
 				err = fmt.Errorf("parsing json appparams, %v", err)
@@ -2739,6 +2765,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 	migrationRequired := false
 	migrating := false
 	blocking := false
+	errString := ""
 	var data = make(map[string]interface{})
 
 	// If we are not in read-only mode, there will be a migration object.
@@ -2746,7 +2773,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 		state := db.migration.GetStatus()
 
 		if state.Err != nil {
-			data["migration-error"] = state.Err.Error()
+			errString = state.Err.Error()
 		}
 		if state.Status != "" {
 			data["migration-status"] = state.Status
@@ -2772,6 +2799,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 		Round:       round,
 		IsMigrating: migrating,
 		DBAvailable: !blocking,
+		Error:       errString,
 	}, err
 }
 
