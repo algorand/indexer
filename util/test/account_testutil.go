@@ -37,9 +37,11 @@ var (
 )
 
 func init() {
-	OpenMainStxn, OpenMain = MakePayTxnRowOrPanic(Round, 1000, 10234, 0, 111, 1111, 0, AccountC, AccountA, types.ZeroAddress)
+	OpenMainStxn, OpenMain = MakePayTxnRowOrPanic(Round, 1000, 10234, 0, 111, 1111, 0, AccountC,
+		AccountA, types.ZeroAddress, types.ZeroAddress)
 	// CloseMainToBCStxn and CloseMainToBC are premade transactions which may be useful in tests.
-	CloseMainToBCStxn, CloseMainToBC = MakePayTxnRowOrPanic(Round, 1000, 1234, 9111, 0, 111, 111, AccountA, AccountC, AccountB)
+	CloseMainToBCStxn, CloseMainToBC = MakePayTxnRowOrPanic(Round, 1000, 1234, 9111, 0, 111, 111,
+		AccountA, AccountC, AccountB, types.ZeroAddress)
 }
 
 // DecodeAddressOrPanic is a helper to ensure addresses are initialized.
@@ -160,7 +162,9 @@ func MakeAssetTxnOrPanic(round, assetid, amt uint64, sender, receiver, close typ
 }
 
 // MakePayTxnRowOrPanic is a helper to ensure test asset transactions are initialized.
-func MakePayTxnRowOrPanic(round, fee, amt, closeAmt, sendRewards, receiveRewards, closeRewards uint64, sender, receiver, close types.Address) (*types.SignedTxnWithAD, *idb.TxnRow) {
+func MakePayTxnRowOrPanic(round, fee, amt, closeAmt, sendRewards, receiveRewards,
+	closeRewards uint64, sender, receiver, close, rekeyTo types.Address) (*types.SignedTxnWithAD,
+	*idb.TxnRow) {
 	txn := types.SignedTxnWithAD{
 		SignedTxn: types.SignedTxn{
 			Txn: types.Transaction{
@@ -170,6 +174,7 @@ func MakePayTxnRowOrPanic(round, fee, amt, closeAmt, sendRewards, receiveRewards
 					Fee:        types.MicroAlgos(fee),
 					FirstValid: types.Round(round),
 					LastValid:  types.Round(round),
+					RekeyTo:    rekeyTo,
 				},
 				PaymentTxnFields: types.PaymentTxnFields{
 					Receiver:         receiver,
