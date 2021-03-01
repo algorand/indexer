@@ -49,12 +49,12 @@ func (gp DynamicProcessor) ProcessAddress(algodData, indexerData []byte) (Result
 			Retries: 0,
 			Details: &ErrorDetails{
 				algod:   fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(algodAcct), mustEncode(algodNorm)),
-				indexer:   fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(indexerAcct), mustEncode(indexerNorm)),
+				indexer: fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(indexerAcct), mustEncode(indexerNorm)),
 				diff:    nil,
 			},
 		}, nil
 	}
-	return Result{Equal:   true}, nil
+	return Result{Equal: true}, nil
 }
 
 // isDeleted is a simple helper to check for boolean values
