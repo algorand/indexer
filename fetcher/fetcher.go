@@ -205,7 +205,7 @@ func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) (err error) {
 	var block types.EncodedBlockCert
 	err = msgpack.Decode(blockbytes, &block)
 	if err != nil {
-		if bot.log.IsLevelEnabled(log.DebugLevel){
+		if bot.log.IsLevelEnabled(log.DebugLevel) {
 			var generic map[string]interface{}
 			err2 := msgpack.Decode(blockbytes, &generic)
 			if err2 == nil {

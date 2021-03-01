@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
@@ -190,7 +191,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	// C has the close-to remainder
 	assertAccountAsset(t, db, test.AccountC, assetid, false, 9000)
 	// D has the total minus both payments to A
-	assertAccountAsset(t, db, test.AccountD, assetid, false, total - 2 * amt)
+	assertAccountAsset(t, db, test.AccountD, assetid, false, total-2*amt)
 }
 
 // TestDefaultFrozenAndCache checks that values are added to the default frozen cache, and that the cache is used when
@@ -209,10 +210,9 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	// Given // A new asset with default-frozen = true, and AccountB opting into it.
 	///////////
 	_, createAssetFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
-	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid + 1, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid+1, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 	_, optinB1 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
-	_, optinB2 := test.MakeAssetTxnOrPanic(test.Round, assetid + 1, 0, test.AccountB, test.AccountB, types.ZeroAddress)
-
+	_, optinB2 := test.MakeAssetTxnOrPanic(test.Round, assetid+1, 0, test.AccountB, test.AccountB, types.ZeroAddress)
 
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -236,8 +236,8 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	assertAccountAsset(t, db, test.AccountB, assetid, true, 0)
 
 	// default-frozen = false
-	assertAccountAsset(t, db, test.AccountA, assetid + 1, false, total)
-	assertAccountAsset(t, db, test.AccountB, assetid + 1, false, 0)
+	assertAccountAsset(t, db, test.AccountA, assetid+1, false, total)
+	assertAccountAsset(t, db, test.AccountB, assetid+1, false, 0)
 }
 
 // TestInitializeFrozenCache checks that the frozen cache is properly initialized on startup.
@@ -277,7 +277,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 	assetid := uint64(2222)
 	total := uint64(1000000)
 
-	tests := []struct{
+	tests := []struct {
 		offset uint64
 		frozen bool
 	}{
@@ -365,9 +365,6 @@ func TestNoopOptins(t *testing.T) {
 	assertAccountAsset(t, db, test.AccountB, assetid, false, 0)
 }
 
-
-
-
 // TestMultipleWriters tests that accounting cannot be double committed.
 func TestMultipleWriters(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
@@ -381,7 +378,8 @@ func TestMultipleWriters(t *testing.T) {
 	///////////
 	// Given // Send amt to AccountA
 	///////////
-	_, payAccountA := test.MakePayTxnRowOrPanic(test.Round, 1000, amt, 0, 0, 0, 0, test.AccountD, test.AccountA, types.ZeroAddress)
+	_, payAccountA := test.MakePayTxnRowOrPanic(test.Round, 1000, amt, 0, 0, 0, 0, test.AccountD,
+		test.AccountA, types.ZeroAddress, types.ZeroAddress)
 
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -399,7 +397,7 @@ func TestMultipleWriters(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			<- start
+			<-start
 			errors <- pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
 		}()
 	}
@@ -478,3 +476,158 @@ func TestBlockWithTransactions(t *testing.T) {
 	}
 }
 
+func TestRekeyBasic(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	///////////
+	// Given // Send rekey transaction
+	///////////
+	_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
+		test.AccountA, types.ZeroAddress, test.AccountB)
+
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
+	state.AddTransaction(txnRow)
+
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	assert.NoError(t, err, "failed to commit")
+
+	//////////
+	// Then // Account A is rekeyed to account B
+	//////////
+	var accountDataStr []byte
+	row := db.QueryRow(`SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
+	err = row.Scan(&accountDataStr)
+	assert.NoError(t, err, "querying account data")
+
+	var ad itypes.AccountData
+	err = json.Decode(accountDataStr, &ad)
+	assert.NoError(t, err, "failed to parse account data json")
+	assert.Equal(t, test.AccountB, ad.SpendingKey)
+}
+
+func TestRekeyToItself(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	///////////
+	// Given // Send rekey transaction
+	///////////
+	{
+		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
+			test.AccountA, types.ZeroAddress, test.AccountB)
+
+		cache, err := pdb.GetDefaultFrozen()
+		assert.NoError(t, err)
+		state := getAccounting(test.Round, cache)
+		state.AddTransaction(txnRow)
+
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+		assert.NoError(t, err, "failed to commit")
+	}
+	{
+		_, txnRow := test.MakePayTxnRowOrPanic(test.Round+1, 1000, 0, 0, 0, 0, 0, test.AccountA,
+			test.AccountA, types.ZeroAddress, test.AccountA)
+
+		cache, err := pdb.GetDefaultFrozen()
+		assert.NoError(t, err)
+		state := getAccounting(test.Round+1, cache)
+		state.AddTransaction(txnRow)
+
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round+1, &itypes.Block{})
+		assert.NoError(t, err, "failed to commit")
+	}
+
+	//////////
+	// Then // Account's A auth-address is not recorded
+	//////////
+	var accountDataStr []byte
+	row := db.QueryRow(`SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
+	err = row.Scan(&accountDataStr)
+	assert.NoError(t, err, "querying account data")
+
+	var ad itypes.AccountData
+	err = json.Decode(accountDataStr, &ad)
+	assert.NoError(t, err, "failed to parse account data json")
+	assert.Equal(t, types.ZeroAddress, ad.SpendingKey)
+}
+
+func TestRekeyThreeTimesInSameRound(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	///////////
+	// Given // Send rekey transaction
+	///////////
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
+
+	{
+		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
+			test.AccountA, types.ZeroAddress, test.AccountB)
+		state.AddTransaction(txnRow)
+	}
+	{
+		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
+			test.AccountA, types.ZeroAddress, types.ZeroAddress)
+		state.AddTransaction(txnRow)
+	}
+	{
+		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
+			test.AccountA, types.ZeroAddress, test.AccountC)
+		state.AddTransaction(txnRow)
+	}
+
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	assert.NoError(t, err, "failed to commit")
+
+	//////////
+	// Then // Account A is rekeyed to account C
+	//////////
+	var accountDataStr []byte
+	row := db.QueryRow(`SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
+	err = row.Scan(&accountDataStr)
+	assert.NoError(t, err, "querying account data")
+
+	var ad itypes.AccountData
+	err = json.Decode(accountDataStr, &ad)
+	assert.NoError(t, err, "failed to parse account data json")
+	assert.Equal(t, test.AccountC, ad.SpendingKey)
+}
+
+func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
+	_, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	///////////
+	// Given // Send rekey transaction
+	///////////
+	_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
+		test.AccountA, types.ZeroAddress, types.ZeroAddress)
+
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
+	state.AddTransaction(txnRow)
+
+	//////////
+	// Then // No error when committing to the DB.
+	//////////
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	assert.NoError(t, err, "failed to commit")
+}

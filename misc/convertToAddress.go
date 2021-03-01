@@ -1,9 +1,9 @@
 package main
 
 import (
+	"encoding/base64"
 	"flag"
 	"fmt"
-	"encoding/base64"
 
 	"github.com/algorand/go-algorand-sdk/types"
 )
