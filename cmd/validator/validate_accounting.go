@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -41,8 +42,10 @@ type Processor interface {
 
 // Result is the output of ProcessAddress.
 type Result struct {
-	Equal   bool
+	// Error is set if there were errors running the test.
 	Error   error
+
+	Equal   bool
 	Retries int
 	Details *ErrorDetails
 }
@@ -110,7 +113,10 @@ func main() {
 	}()
 
 	// This will keep going until the results channel is closed.
-	resultsPrinter(config, printCurl, results)
+	numErrors := resultsPrinter(config, printCurl, results)
+	if numErrors > 0 {
+		os.Exit(1)
+	}
 }
 
 // start kicks off a bunch of  go routines to compare addresses, it also creates a work channel to feed the workers and
@@ -163,6 +169,10 @@ func normalizeAddress(addr string) (string, error) {
 
 // getData from indexer/algod with optional token.
 func getData(url, token string) ([]byte, error) {
+	if !strings.HasPrefix(url, "http") {
+		url = fmt.Sprintf("http://%s", url)
+	}
+
 	auth := fmt.Sprintf("Bearer %s", token)
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -204,9 +214,12 @@ func callProcessor(processor Processor, addrInput string, config Params, results
 		return
 	}
 
+	algodDataURL := fmt.Sprintf("%s/v2/accounts/%s", config.algodURL, addr)
+	indexerDataURL := fmt.Sprintf("%s/v2/accounts/%s", config.indexerURL, addr)
+
 	// Fetch algod account data outside the retry loop. When the data desynchronizes we'll keep fetching indexer data until it
 	// catches up with the first algod account query.
-	algodData, err := getData(fmt.Sprintf("%s:/v2/accounts/%s", config.algodURL, addr), config.algodToken)
+	algodData, err := getData(algodDataURL, config.algodToken)
 	if err != nil {
 		results <- resultError(err, addrInput)
 		return
@@ -214,7 +227,7 @@ func callProcessor(processor Processor, addrInput string, config Params, results
 
 	// Retry loop.
 	for i := 0; true; i++ {
-		indexerData, err := getData(fmt.Sprintf("%s:/v2/accounts/%s", config.indexerURL, addr), config.indexerToken)
+		indexerData, err := getData(indexerDataURL, config.indexerToken)
 		if err != nil {
 			results <- resultError(err, addrInput)
 			return
@@ -262,8 +275,8 @@ func resultChar(success bool, retries int) string {
 	return "X"
 }
 
-// resultsPrinter reads the results channel and prints it to the error log.
-func resultsPrinter(config Params, printCurl bool, results <-chan Result) {
+// resultsPrinter reads the results channel and prints it to the error log. Returns the number of errors.
+func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
 	numResults := 0
 	numErrors := 0
 	numRetries := 0
@@ -300,6 +313,7 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) {
 		numResults++
 		numRetries += r.Retries
 		if r.Error != nil || !r.Equal {
+			numErrors++
 			errorLog.Printf("===================================================================")
 			errorLog.Printf("%s", time.Now().Format("2006-01-02 3:4:5 PM"))
 			errorLog.Printf("Account: %s", r.Details.address)
@@ -308,24 +322,26 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) {
 			// Print error message if there is one.
 			if r.Error != nil {
 				errorLog.Printf("Processor error: %v\n", r.Error)
-			}
-			// Print error details if there are any.
-			if r.Details != nil {
-				numErrors++
-				errorLog.Printf("Algod Details:\n%s", r.Details.algod)
-				errorLog.Printf("Indexer Details:\n%s", r.Details.indexer)
-				errorLog.Printf("Differences:")
-				for _, diff := range r.Details.diff {
-					errorLog.Printf("     - %s", diff)
+			} else {
+				// Print error details if there are any.
+				if r.Details != nil {
+					errorLog.Printf("Algod Details:\n%s", r.Details.algod)
+					errorLog.Printf("Indexer Details:\n%s", r.Details.indexer)
+					errorLog.Printf("Differences:")
+					for _, diff := range r.Details.diff {
+						errorLog.Printf("     - %s", diff)
+					}
 				}
-			}
-			// Optionally print curl command.
-			if printCurl {
-				errorLog.Printf("echo 'Algod:'")
-				errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.algodToken, config.algodURL, r.Details.address)
-				errorLog.Printf("echo 'Indexer:'")
-				errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.indexerToken, config.indexerURL, r.Details.address)
+				// Optionally print curl command.
+				if printCurl {
+					errorLog.Printf("echo 'Algod:'")
+					errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.algodToken, config.algodURL, r.Details.address)
+					errorLog.Printf("echo 'Indexer:'")
+					errorLog.Printf("curl -q -s -H 'Authorization: Bearer %s' '%s/v2/accounts/%s?pretty'", config.indexerToken, config.indexerURL, r.Details.address)
+				}
 			}
 		}
 	}
+
+	return numErrors
 }
