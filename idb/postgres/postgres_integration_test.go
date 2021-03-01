@@ -191,7 +191,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	// C has the close-to remainder
 	assertAccountAsset(t, db, test.AccountC, assetid, false, 9000)
 	// D has the total minus both payments to A
-	assertAccountAsset(t, db, test.AccountD, assetid, false, total - 2 * amt)
+	assertAccountAsset(t, db, test.AccountD, assetid, false, total-2*amt)
 }
 
 // TestDefaultFrozenAndCache checks that values are added to the default frozen cache, and that the cache is used when
@@ -210,10 +210,9 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	// Given // A new asset with default-frozen = true, and AccountB opting into it.
 	///////////
 	_, createAssetFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
-	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid + 1, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid+1, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 	_, optinB1 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
-	_, optinB2 := test.MakeAssetTxnOrPanic(test.Round, assetid + 1, 0, test.AccountB, test.AccountB, types.ZeroAddress)
-
+	_, optinB2 := test.MakeAssetTxnOrPanic(test.Round, assetid+1, 0, test.AccountB, test.AccountB, types.ZeroAddress)
 
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -237,8 +236,8 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	assertAccountAsset(t, db, test.AccountB, assetid, true, 0)
 
 	// default-frozen = false
-	assertAccountAsset(t, db, test.AccountA, assetid + 1, false, total)
-	assertAccountAsset(t, db, test.AccountB, assetid + 1, false, 0)
+	assertAccountAsset(t, db, test.AccountA, assetid+1, false, total)
+	assertAccountAsset(t, db, test.AccountB, assetid+1, false, 0)
 }
 
 // TestInitializeFrozenCache checks that the frozen cache is properly initialized on startup.
@@ -278,7 +277,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 	assetid := uint64(2222)
 	total := uint64(1000000)
 
-	tests := []struct{
+	tests := []struct {
 		offset uint64
 		frozen bool
 	}{
@@ -366,9 +365,6 @@ func TestNoopOptins(t *testing.T) {
 	assertAccountAsset(t, db, test.AccountB, assetid, false, 0)
 }
 
-
-
-
 // TestMultipleWriters tests that accounting cannot be double committed.
 func TestMultipleWriters(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
@@ -400,7 +396,7 @@ func TestMultipleWriters(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			<- start
+			<-start
 			errors <- pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
 		}()
 	}
@@ -515,7 +511,7 @@ func TestAccountHelperQuery(t *testing.T) {
 	//////////
 	// When // searching for accounts we should find some
 	//////////
-	accts, err := accounts(context.Background(), pdb, types.ZeroAddress, 200)
+	accts, err := getAccounts(context.Background(), pdb, types.ZeroAddress, 200)
 	assert.NoError(t, err)
 	num := 0
 	var middleAccount types.Address
@@ -536,7 +532,7 @@ func TestAccountHelperQuery(t *testing.T) {
 	//////////
 	// When // searching for accounts from the half way point
 	//////////
-	accts, err = accounts(context.Background(), pdb, middleAccount, 200)
+	accts, err = getAccounts(context.Background(), pdb, middleAccount, 200)
 	assert.NoError(t, err)
 	num = 0
 	for acct := range accts {

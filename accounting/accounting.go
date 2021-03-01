@@ -179,9 +179,9 @@ func (accounting *State) addAssetAccounting(addr types.Address, update idb.Asset
 	}
 }
 
-func (accounting *State) configAsset(assetID uint64, isNew bool, creator types.Address, params atypes.AssetParams){
+func (accounting *State) configAsset(assetID uint64, isNew bool, creator types.Address, params atypes.AssetParams) {
 	update := idb.AssetUpdate{
-		AssetID: assetID,
+		AssetID:       assetID,
 		DefaultFrozen: accounting.defaultFrozen[assetID],
 		Config: &idb.AcfgUpdate{
 			IsNew:   isNew,
@@ -195,13 +195,13 @@ func (accounting *State) configAsset(assetID uint64, isNew bool, creator types.A
 
 func (accounting *State) closeAsset(from types.Address, assetID uint64, to types.Address, round uint64, offset int) {
 	update := idb.AssetUpdate{
-		AssetID: assetID,
+		AssetID:       assetID,
 		DefaultFrozen: accounting.defaultFrozen[assetID],
 		Close: &idb.AssetClose{
-			CloseTo:       to,
-			Sender:        from,
-			Round:         round,
-			Offset:        uint64(offset),
+			CloseTo: to,
+			Sender:  from,
+			Round:   round,
+			Offset:  uint64(offset),
 		},
 	}
 	accounting.addAssetAccounting(from, update, true)
@@ -209,9 +209,9 @@ func (accounting *State) closeAsset(from types.Address, assetID uint64, to types
 
 func (accounting *State) freezeAsset(addr types.Address, assetID uint64, frozen bool) {
 	update := idb.AssetUpdate{
-		AssetID: assetID,
+		AssetID:       assetID,
 		DefaultFrozen: accounting.defaultFrozen[assetID],
-		Freeze: &idb.FreezeUpdate{Frozen: frozen},
+		Freeze:        &idb.FreezeUpdate{Frozen: frozen},
 	}
 	accounting.addAssetAccounting(addr, update, false)
 }
