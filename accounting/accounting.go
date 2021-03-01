@@ -128,7 +128,7 @@ func (accounting *State) updateAccountData(addr types.Address, key string, field
 		au = make(map[string]idb.AccountDataUpdate)
 		accounting.AccountDataUpdates[addr] = au
 	}
-	au[key] = idb.AccountDataUpdate{false, field}
+	au[key] = idb.AccountDataUpdate{Delete: false, Value: field}
 }
 
 func (accounting *State) removeAccountData(addr types.Address, key string) {
@@ -137,7 +137,7 @@ func (accounting *State) removeAccountData(addr types.Address, key string) {
 		au = make(map[string]idb.AccountDataUpdate)
 		accounting.AccountDataUpdates[addr] = au
 	}
-	au[key] = idb.AccountDataUpdate{true, struct{}{}}
+	au[key] = idb.AccountDataUpdate{Delete: true, Value: struct{}{}}
 }
 
 func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, sub uint64) {
