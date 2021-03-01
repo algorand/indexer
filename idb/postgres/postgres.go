@@ -858,16 +858,37 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 	}
 	if len(updates.AccountDataUpdates) > 0 {
 		any = true
-		setkeyreg, err := tx.Prepare(`UPDATE account SET account_data = coalesce(account_data, '{}'::jsonb) || ($1)::jsonb WHERE addr = $2`)
+
+		setad, err := tx.Prepare(`UPDATE account SET account_data = coalesce(account_data, '{}'::jsonb) || ($1)::jsonb WHERE addr = $2`)
 		if err != nil {
 			return fmt.Errorf("prepare keyreg, %v", err)
 		}
-		defer setkeyreg.Close()
-		for addr, adu := range updates.AccountDataUpdates {
-			jb := idb.JSONOneLine(adu)
-			_, err = setkeyreg.Exec(jb, addr[:])
+		defer setad.Close()
+
+		delad, err := tx.Prepare(`UPDATE account SET account_data = coalesce(account_data, '{}'::jsonb) - $1 WHERE addr = $2`)
+		if err != nil {
+			return fmt.Errorf("prepare keyreg, %v", err)
+		}
+		defer delad.Close()
+
+		for addr, acctDataUpdates := range updates.AccountDataUpdates {
+			set := make(map[string]interface{})
+
+			for key, acctDataUpdate := range acctDataUpdates {
+				if acctDataUpdate.Delete {
+					_, err = delad.Exec(key, addr[:])
+					if err != nil {
+						return fmt.Errorf("delete key in account data, %v", err)
+					}
+				} else {
+					set[key] = acctDataUpdate.Value
+				}
+			}
+
+			jb := idb.JSONOneLine(set)
+			_, err = setad.Exec(jb, addr[:])
 			if err != nil {
-				return fmt.Errorf("update keyreg, %v", err)
+				return fmt.Errorf("update account data, %v", err)
 			}
 		}
 	}
