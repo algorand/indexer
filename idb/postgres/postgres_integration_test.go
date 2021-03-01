@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"crypto/rand"
 	"database/sql"
 	"fmt"
 	"sync"
@@ -478,3 +479,76 @@ func TestBlockWithTransactions(t *testing.T) {
 	}
 }
 
+// TestAccountHelperQuery tests the accounts by address query used in migrations.
+func TestAccountHelperQuery(t *testing.T) {
+	numAccounts := 10000
+	_, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	//pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	//assert.NoError(t, err)
+	pdb, err := OpenPostgres(connStr, nil, nil)
+	assert.NoError(t, err)
+
+	amt := uint64(10000)
+
+	///////////
+	// Given // 10k accounts
+	///////////
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
+
+	for i := 0; i < numAccounts - 1; i++ {
+		a := types.Address{}
+		_, err := rand.Read(a[:])
+		if err != nil {
+			panic(err)
+		}
+		_, txn := test.MakePayTxnRowOrPanic(test.Round, 1000, amt, 0, 0, 0, 0, a, a, types.ZeroAddress)
+		state.AddTransaction(txn)
+	}
+
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	assert.NoError(t, err, "failed to commit")
+
+	//////////
+	// When // searching for accounts we should find some
+	//////////
+	accts, err := accounts(context.Background(), pdb, types.ZeroAddress, 200)
+	assert.NoError(t, err)
+	num := 0
+	var middleAccount types.Address
+	for acct := range accts {
+		num++
+		assert.NoError(t, acct.Error)
+		if num == numAccounts / 2 {
+			middleAccount = acct.Address
+		}
+	}
+
+	//////////
+	// Then // We should find all of them
+	//////////
+	assert.Equal(t, numAccounts, num)
+
+
+	//////////
+	// When // searching for accounts from the half way point
+	//////////
+	accts, err = accounts(context.Background(), pdb, middleAccount, 200)
+	assert.NoError(t, err)
+	num = 0
+	for acct := range accts {
+		num++
+		assert.NoError(t, acct.Error)
+		if num == numAccounts / 2 {
+			middleAccount = acct.Address
+		}
+	}
+
+	//////////
+	// Then // We should only find half as many
+	//////////
+	assert.Equal(t, numAccounts/2, num)
+}

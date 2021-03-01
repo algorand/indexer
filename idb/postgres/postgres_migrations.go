@@ -416,30 +416,92 @@ func addrToPercent(addr string) float64 {
 	return float64(val) / (32 * 32 * 32) * 100
 }
 
+type acct struct {
+	Error   error
+	Address types.Address
+}
+
+func getAccounts(ctx context.Context, db *IndexerDb, after types.Address, batchSize int) (<-chan acct, error) {
+	out := make(chan acct)
+
+	go func() {
+		defer close(out)
+		afterAddr := after
+
+		for true {
+			tx, err := db.db.BeginTx(ctx, &readOnlyTx)
+			if err != nil {
+				out <- acct{
+					Error: fmt.Errorf("failed to begin account query: %v", err),
+				}
+				return
+			}
+
+			rows, err := tx.QueryContext(ctx, `SELECT addr FROM account WHERE addr > $1 ORDER BY addr ASC LIMIT $2`, afterAddr[:], batchSize)
+			if err != nil {
+				out <- acct{
+					Error: fmt.Errorf("failed to account query accounts after %s: %v", afterAddr.String(), err),
+				}
+				return
+			}
+
+			num := 0
+			for rows.Next() {
+				num++
+				bytes := afterAddr[:]
+				err = rows.Scan(&bytes)
+				copy(afterAddr[:], bytes)
+				if err != nil {
+					rows.Close()
+					tx.Commit()
+					out <- acct{
+						Error: fmt.Errorf("failed to scan account: %v", err),
+					}
+					return
+				}
+				out <- acct{
+					Address: afterAddr,
+				}
+			}
+			rows.Close()
+			tx.Commit()
+
+			if num == 0 {
+				return
+			}
+		}
+	}()
+
+	return out, nil
+}
+
 // m6RewardsAndDatesPart2 computes the cumulative rewards for each account one at a time.
 func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	db.log.Println("account cumulative rewards migration starting")
 
-	var feeSinkAddr string
-	var rewardsAddr string
+	var feeSinkAddr types.Address
+	var rewardsAddr types.Address
 	{
-		accounts, err := db.GetSpecialAccounts()
+		specialAccounts, err := db.GetSpecialAccounts()
 		if err != nil {
 			return fmt.Errorf("unable to get special accounts: %v", err)
 		}
-		feeSinkAddr = accounts.FeeSink.String()
-		rewardsAddr = accounts.RewardsPool.String()
+		feeSinkAddr = specialAccounts.FeeSink
+		rewardsAddr = specialAccounts.RewardsPool
 	}
 
-	options := idb.AccountQueryOptions{}
+	var fromAccount types.Address
 	if len(state.NextAccount) != 0 {
 		var address sdk_types.Address
 		copy(address[:], state.NextAccount)
 		db.log.Println("after " + address.String())
-		options.GreaterThanAddress = state.NextAccount[:]
+		copy(fromAccount[:], state.NextAccount[:])
 	}
 
-	accountChan := db.GetAccounts(context.Background(), options)
+	accountChan, err := getAccounts(context.Background(), db, fromAccount, 500)
+	if err != nil {
+		return fmt.Errorf("failed to get accounts: %v", err)
+	}
 
 	batchSize := 500
 	batchNumber := 1
@@ -453,8 +515,8 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 		}
 
 		// Don't update special accounts
-		if feeSinkAddr != acct.Account.Address && rewardsAddr != acct.Account.Address {
-			accounts = append(accounts, acct.Account.Address)
+		if feeSinkAddr != acct.Address && rewardsAddr != acct.Address {
+			accounts = append(accounts, acct.Address.String())
 		}
 
 		if len(accounts) == batchSize {
