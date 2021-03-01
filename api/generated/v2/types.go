@@ -812,8 +812,8 @@ type CurrencyLessThan uint64
 // ExcludeCloseTo defines model for exclude-close-to.
 type ExcludeCloseTo bool
 
-// IncludeDeleted defines model for include-deleted.
-type IncludeDeleted bool
+// IncludeAll defines model for include-all.
+type IncludeAll bool
 
 // Limit defines model for limit.
 type Limit uint64
@@ -971,8 +971,8 @@ type SearchForAccountsParams struct {
 	// Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyGreaterThan *uint64 `json:"currency-greater-than,omitempty"`
 
-	// Include deleted items
-	IncludeDeleted *bool `json:"include-deleted,omitempty"`
+	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
+	IncludeAll *bool `json:"include-all,omitempty"`
 
 	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
@@ -993,8 +993,8 @@ type LookupAccountByIDParams struct {
 	// Include results for the specified round.
 	Round *uint64 `json:"round,omitempty"`
 
-	// Include deleted items
-	IncludeDeleted *bool `json:"include-deleted,omitempty"`
+	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
+	IncludeAll *bool `json:"include-all,omitempty"`
 }
 
 // LookupAccountTransactionsParams defines parameters for LookupAccountTransactions.
@@ -1053,8 +1053,8 @@ type SearchForApplicationsParams struct {
 	// Application ID
 	ApplicationId *uint64 `json:"application-id,omitempty"`
 
-	// Include deleted items
-	IncludeDeleted *bool `json:"include-deleted,omitempty"`
+	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
+	IncludeAll *bool `json:"include-all,omitempty"`
 
 	// Maximum number of results to return.
 	Limit *uint64 `json:"limit,omitempty"`
@@ -1066,15 +1066,15 @@ type SearchForApplicationsParams struct {
 // LookupApplicationByIDParams defines parameters for LookupApplicationByID.
 type LookupApplicationByIDParams struct {
 
-	// Include deleted items
-	IncludeDeleted *bool `json:"include-deleted,omitempty"`
+	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
+	IncludeAll *bool `json:"include-all,omitempty"`
 }
 
 // SearchForAssetsParams defines parameters for SearchForAssets.
 type SearchForAssetsParams struct {
 
-	// Include deleted items
-	IncludeDeleted *bool `json:"include-deleted,omitempty"`
+	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
+	IncludeAll *bool `json:"include-all,omitempty"`
 
 	// Maximum number of results to return.
 	Limit *uint64 `json:"limit,omitempty"`
@@ -1098,15 +1098,15 @@ type SearchForAssetsParams struct {
 // LookupAssetByIDParams defines parameters for LookupAssetByID.
 type LookupAssetByIDParams struct {
 
-	// Include deleted items
-	IncludeDeleted *bool `json:"include-deleted,omitempty"`
+	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
+	IncludeAll *bool `json:"include-all,omitempty"`
 }
 
 // LookupAssetBalancesParams defines parameters for LookupAssetBalances.
 type LookupAssetBalancesParams struct {
 
-	// Include deleted items
-	IncludeDeleted *bool `json:"include-deleted,omitempty"`
+	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
+	IncludeAll *bool `json:"include-all,omitempty"`
 
 	// Maximum number of results to return.
 	Limit *uint64 `json:"limit,omitempty"`

@@ -496,7 +496,7 @@ func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.Assets
 		Name:               strOrDefault(params.Name),
 		Unit:               strOrDefault(params.Unit),
 		Query:              "",
-		IncludeDeleted:     boolOrDefault(params.IncludeDeleted),
+		IncludeDeleted:     boolOrDefault(params.IncludeAll),
 		Limit:              min(uintOrDefaultValue(params.Limit, defaultAssetsLimit), maxAssetsLimit),
 	}
 

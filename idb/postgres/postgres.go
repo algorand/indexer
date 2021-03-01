@@ -2697,7 +2697,7 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 		whereArgs = append(whereArgs, *filter.Next)
 		partNumber++
 	}
-	if filter.IncludeDeleted == nil || !(*filter.IncludeDeleted) {
+	if filter.IncludeAll == nil || !(*filter.IncludeAll) {
 		whereParts = append(whereParts, "coalesce(deleted, false) = false")
 	}
 	if len(whereParts) > 0 {

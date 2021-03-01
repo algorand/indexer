@@ -105,10 +105,10 @@
           "type": "boolean"
         }
       },
-      "include-deleted": {
-        "description": "Include deleted items",
+      "include-all": {
+        "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
         "in": "query",
-        "name": "include-deleted",
+        "name": "include-all",
         "schema": {
           "type": "boolean"
         }
@@ -1782,9 +1782,9 @@
             }
           },
           {
-            "description": "Include deleted items",
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
             "in": "query",
-            "name": "include-deleted",
+            "name": "include-all",
             "schema": {
               "type": "boolean"
             }
@@ -1884,9 +1884,9 @@
             }
           },
           {
-            "description": "Include deleted items",
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
             "in": "query",
-            "name": "include-deleted",
+            "name": "include-all",
             "schema": {
               "type": "boolean"
             }
@@ -2128,9 +2128,9 @@
             }
           },
           {
-            "description": "Include deleted items",
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
             "in": "query",
-            "name": "include-deleted",
+            "name": "include-all",
             "schema": {
               "type": "boolean"
             }
@@ -2203,9 +2203,9 @@
             }
           },
           {
-            "description": "Include deleted items",
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
             "in": "query",
-            "name": "include-deleted",
+            "name": "include-all",
             "schema": {
               "type": "boolean"
             }
@@ -2246,9 +2246,9 @@
         "operationId": "searchForAssets",
         "parameters": [
           {
-            "description": "Include deleted items",
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
             "in": "query",
-            "name": "include-deleted",
+            "name": "include-all",
             "schema": {
               "type": "boolean"
             }
@@ -2353,9 +2353,9 @@
             }
           },
           {
-            "description": "Include deleted items",
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
             "in": "query",
-            "name": "include-deleted",
+            "name": "include-all",
             "schema": {
               "type": "boolean"
             }
@@ -2406,9 +2406,9 @@
         "operationId": "lookupAssetBalances",
         "parameters": [
           {
-            "description": "Include deleted items",
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
             "in": "query",
-            "name": "include-deleted",
+            "name": "include-all",
             "schema": {
               "type": "boolean"
             }

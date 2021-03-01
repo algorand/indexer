@@ -429,7 +429,7 @@ function create_delete_tests() {
       true \
       ''
     rest_test "[rest] app create & delete (app-id=82)" \
-      "/v2/applications/82?pretty&include-deleted=true" \
+      "/v2/applications/82?pretty&include-all=true" \
       200 \
       true \
       '"deleted": true' \
@@ -442,7 +442,7 @@ function create_delete_tests() {
       false \
       '"id": 82'
     rest_test "[rest - account/application] account with a deleted application" \
-      "/v2/accounts/XNMIHFHAZ2GE3XUKISNMOYKNFDOJXBJMVHRSXVVVIK3LNMT22ET2TA4N4I?pretty&include-deleted=true" \
+      "/v2/accounts/XNMIHFHAZ2GE3XUKISNMOYKNFDOJXBJMVHRSXVVVIK3LNMT22ET2TA4N4I?pretty&include-all=true" \
       200 \
       true \
       '"id": 82'
@@ -459,7 +459,7 @@ function create_delete_tests() {
       true \
       ''
     rest_test "[rest - asset]  asset create / destroy" \
-      "/v2/assets/135?pretty&include-deleted=true" \
+      "/v2/assets/135?pretty&include-all=true" \
       200 \
       true \
       '"deleted": true' \
@@ -472,7 +472,7 @@ function create_delete_tests() {
       false \
       '"asset-id": 135'
     rest_test "[rest - account]  asset create / destroy" \
-      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty&include-deleted=true" \
+      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty&include-all=true" \
       200 \
       true \
       '{
@@ -509,7 +509,7 @@ function create_delete_tests() {
       false \
       '"asset-id": 135'
     rest_test "[rest - account asset holding] asset holding optin optout" \
-      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty&include-deleted=true" \
+      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty&include-all=true" \
       200 \
       true \
       '"asset-id": 135'
@@ -540,7 +540,7 @@ function create_delete_tests() {
       '"opted-in-at-round": 15' \
       '"closed-out-at-round": 35'
     rest_test "[rest] app multiple optins first saved (it is also closed)" \
-      "/v2/accounts/CM333ZN3KMASBRIP7N4QIN7AANVK7EJGNUQCNONGVVKURZIU2GG7XJIZ4Q?pretty&include-deleted=true" \
+      "/v2/accounts/CM333ZN3KMASBRIP7N4QIN7AANVK7EJGNUQCNONGVVKURZIU2GG7XJIZ4Q?pretty&include-all=true" \
       200 \
       true \
       '"deleted": true' \
@@ -587,7 +587,7 @@ function create_delete_tests() {
       true \
       '"balances": []'
     rest_test "[rest] asset optin" \
-      "/v2/assets/36/balances?pretty&currency-less-than=100&include-deleted=true" \
+      "/v2/assets/36/balances?pretty&currency-less-than=100&include-all=true" \
       200 \
       true \
       '"deleted": true' \
@@ -605,7 +605,7 @@ function create_delete_tests() {
       '"opted-in-at-round": 25' \
       '"opted-out-at-round": 31'
     rest_test "[rest] asset optin" \
-      "/v2/assets/135/balances?pretty&currency-less-than=100&include-deleted=true" \
+      "/v2/assets/135/balances?pretty&currency-less-than=100&include-all=true" \
       200 \
       true \
       false \
@@ -668,7 +668,7 @@ function create_delete_tests() {
       true \
       ''
     rest_test "[rest] account create close create close" \
-      "/v2/accounts/6K5F6PWGSFCIZDCUBHVYI4L6JB5GV5ZWXX2C2TMSPBJSY2NZLZGCF2NH5U?pretty&include-deleted=true" \
+      "/v2/accounts/6K5F6PWGSFCIZDCUBHVYI4L6JB5GV5ZWXX2C2TMSPBJSY2NZLZGCF2NH5U?pretty&include-all=true" \
       200 \
       true \
       '"deleted": true' \

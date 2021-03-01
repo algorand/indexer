@@ -67,7 +67,7 @@
             "$ref": "#/parameters/currency-greater-than"
           },
           {
-            "$ref": "#/parameters/include-deleted"
+            "$ref": "#/parameters/include-all"
           },
           {
             "$ref": "#/parameters/currency-less-than"
@@ -113,7 +113,7 @@
             "$ref": "#/parameters/round"
           },
           {
-            "$ref": "#/parameters/include-deleted"
+            "$ref": "#/parameters/include-all"
           }
         ],
         "responses": {
@@ -211,7 +211,7 @@
             "$ref": "#/parameters/application-id"
           },
           {
-            "$ref": "#/parameters/include-deleted"
+            "$ref": "#/parameters/include-all"
           },
           {
             "$ref": "#/parameters/limit"
@@ -248,7 +248,7 @@
             "required": true
           },
           {
-            "$ref": "#/parameters/include-deleted"
+            "$ref": "#/parameters/include-all"
           }
         ],
         "responses": {
@@ -273,7 +273,7 @@
         "operationId": "searchForAssets",
         "parameters": [
           {
-            "$ref": "#/parameters/include-deleted"
+            "$ref": "#/parameters/include-all"
           },
           {
             "$ref": "#/parameters/limit"
@@ -331,7 +331,7 @@
             "required": true
           },
           {
-            "$ref": "#/parameters/include-deleted"
+            "$ref": "#/parameters/include-all"
           }
         ],
         "responses": {
@@ -361,7 +361,7 @@
         "operationId": "lookupAssetBalances",
         "parameters": [
           {
-            "$ref": "#/parameters/include-deleted"
+            "$ref": "#/parameters/include-all"
           },
           {
             "$ref": "#/parameters/limit"
@@ -1925,10 +1925,10 @@
       "name": "exclude-close-to",
       "in": "query"
     },
-    "include-deleted": {
+    "include-all": {
       "type": "boolean",
-      "description": "Include deleted items",
-      "name": "include-deleted",
+      "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+      "name": "include-all",
       "in": "query"
     },
     "limit": {

@@ -812,8 +812,8 @@ type CurrencyLessThan uint64
 // ExcludeCloseTo defines model for exclude-close-to.
 type ExcludeCloseTo bool
 
-// IncludeDeleted defines model for include-deleted.
-type IncludeDeleted bool
+// IncludeAll defines model for include-all.
+type IncludeAll bool
 
 // Limit defines model for limit.
 type Limit uint64

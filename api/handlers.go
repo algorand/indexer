@@ -109,7 +109,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
 		Limit:                1,
-		IncludeDeleted:       boolOrDefault(params.IncludeDeleted),
+		IncludeDeleted:       boolOrDefault(params.IncludeAll),
 	}
 
 	accounts, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
@@ -269,7 +269,7 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationByIDParams) error {
 	p := &generated.SearchForApplicationsParams{
 		ApplicationId:  &applicationID,
-		IncludeDeleted: params.IncludeDeleted,
+		IncludeAll: params.IncludeAll,
 	}
 	results := si.db.Applications(ctx.Request().Context(), p)
 	round, err := si.db.GetMaxRoundAccounted()
@@ -295,7 +295,7 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 	search := generated.SearchForAssetsParams{
 		AssetId:        uint64Ptr(assetID),
 		Limit:          uint64Ptr(1),
-		IncludeDeleted: params.IncludeDeleted,
+		IncludeAll: params.IncludeAll,
 	}
 	options, err := assetParamsToAssetQuery(search)
 	if err != nil {
@@ -333,7 +333,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 		AssetID:        assetID,
 		AmountGT:       uintOrDefault(params.CurrencyGreaterThan),
 		AmountLT:       uintOrDefault(params.CurrencyLessThan),
-		IncludeDeleted: boolOrDefault(params.IncludeDeleted),
+		IncludeDeleted: boolOrDefault(params.IncludeAll),
 		Limit:          min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
 	}
 
