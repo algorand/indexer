@@ -486,4 +486,3 @@ func TestBlockWithTransactions(t *testing.T) {
 		assert.Equal(t, txnRows[i].TxnBytes, transactionsTxn[i].TxnBytes)
 	}
 }
-
