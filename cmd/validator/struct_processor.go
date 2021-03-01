@@ -32,8 +32,8 @@ func (gp StructProcessor) ProcessAddress(algodData, indexerData []byte) (Result,
 	differences := equals(indexerAcct, algodAcct)
 	if len(differences) > 0 {
 		return Result{
-			Equal:        false,
-			Retries:      0,
+			Equal:   false,
+			Retries: 0,
 			Details: &ErrorDetails{
 				algod:   mustEncode(algodAcct),
 				indexer: mustEncode(indexerAcct),
@@ -71,11 +71,11 @@ func equals(indexer, algod generated.Account) (differences []string) {
 		differences = append(differences, "amount-without-pending-rewards")
 	}
 	/*
-	// Indexer doesn't support this yet.
-	if !appSchemaComparePtrEqual(algod.AppsTotalSchema, indexer.AppsTotalSchema) {
-		differences = append(differences, "apps-total-schema")
-	}
-	 */
+		// Indexer doesn't support this yet.
+		if !appSchemaComparePtrEqual(algod.AppsTotalSchema, indexer.AppsTotalSchema) {
+			differences = append(differences, "apps-total-schema")
+		}
+	*/
 	if !stringPtrEqual(algod.AuthAddr, indexer.AuthAddr) {
 		// Indexer doesn't remove the auth addr when it is removed.
 		if indexer.AuthAddr == nil || *indexer.AuthAddr != indexer.Address {
@@ -86,7 +86,7 @@ func equals(indexer, algod generated.Account) (differences []string) {
 		differences = append(differences, "pending-rewards")
 	}
 	// With and without the pending rewards fix
-	if algod.Rewards != indexer.Rewards && algod.Rewards != indexer.Rewards + indexer.PendingRewards {
+	if algod.Rewards != indexer.Rewards && algod.Rewards != indexer.Rewards+indexer.PendingRewards {
 		differences = append(differences, "rewards (including adjusted)")
 	}
 	if strings.ReplaceAll(algod.Status, " ", "") != indexer.Status {

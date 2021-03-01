@@ -17,12 +17,18 @@ function print_alert() {
   printf "\n=====\n===== $1\n=====\n"
 }
 
+function print_health() {
+    curl -q -s "$NET/health?pretty"
+}
+
 ##################
 ## Test Helpers ##
 ##################
 
 function fail_and_exit {
   print_alert "Failed test - $1 ($2): $3"
+  echo ""
+  print_health
   exit 1
 }
 
@@ -110,13 +116,16 @@ function rest_test_timeout {
 # $1 - test description.
 # $2 - query
 # $3 - expected status code
-# $4... - substring(s) that should be in the response
+# $4 - match result
+# $5... - substring(s) that should be in the response
 function rest_test {
   local DESCRIPTION=$1
   shift
   local QUERY=$1
   shift
   local EXPECTED_CODE=$1
+  shift
+  local MATCH_RESULT=$1
   shift
   local SUBSTRING
 
@@ -142,8 +151,14 @@ function rest_test {
 
   # Check result substrings
   for SUBSTRING in "$@"; do
-    if [[ "$RES" != *"$SUBSTRING"* ]]; then
-      fail_and_exit "$DESCRIPTION" "$QUERY" "unexpected response. should contain '$SUBSTRING', actual: $RES"
+    if [[ $MATCH_RESULT = true ]]; then
+      if [[ "$RES" != *"$SUBSTRING"* ]]; then
+        fail_and_exit "$DESCRIPTION" "$QUERY" "unexpected response. should contain '$SUBSTRING', actual: $RES"
+      fi
+    else
+      if [[ "$RES" == *"$SUBSTRING"* ]]; then
+        fail_and_exit "$DESCRIPTION" "$QUERY" "unexpected response. should NOT contain '$SUBSTRING', actual: $RES"
+      fi
     fi
   done
 
@@ -180,7 +195,7 @@ function start_indexer_with_connection_string() {
 function start_indexer() {
   if [ ! -z $2 ]; then
     echo "daemon -S $NET -P \"${CONNECTION_STRING/DB_NAME_HERE/$1}\""
-    sleep infinity
+    sleep 10000000000000
   fi
 
   start_indexer_with_connection_string "${CONNECTION_STRING/DB_NAME_HERE/$1}"
@@ -248,7 +263,7 @@ function wait_for() {
 
   if [ -z $READY ]; then
     echo "Error: timed out waiting for $1."
-    curl -q -s "$NET/health"
+    print_health
     exit 1
   fi
 }
@@ -369,7 +384,7 @@ function ask () {
 ## Integration tests are sometimes useful to run after a migration as well #
 ############################################################################
 function cumulative_rewards_tests() {
-    rest_test 'Ensure migration updated specific account rewards.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI' 200 '"rewards":80000539878'
+    rest_test 'Ensure migration updated specific account rewards.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI' 200 true '"rewards":80000539878'
     # Rewards / Rewind is now disabled
     #rest_test 'Ensure migration updated specific account rewards @ round = 810.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI?round=810' 200 '"rewards":80000539878'
     #rest_test 'Ensure migration updated specific account rewards @ round = 800.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI?round=800' 200 '"rewards":68000335902'
@@ -377,7 +392,7 @@ function cumulative_rewards_tests() {
     #rest_test 'Ensure migration updated specific account rewards @ round = 100.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI?round=100' 200 '"rewards":7999999996'
 
     # One disabled test...
-    rest_test 'Ensure migration updated specific account rewards @ round = 810.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI?round=810' 200 '"rewards":0'
+    rest_test 'Ensure migration updated specific account rewards @ round = 810.' '/v2/accounts/FZPGVIFCMHCE2HC2LEDD7IZQLKZVHRV5PENSD26Y2AOS3OWCYMKTY33UXI?round=810' 200 true '"rewards":0'
 }
 
 # $1 - the DB to query
@@ -391,6 +406,7 @@ function create_delete_tests() {
     rest_test "[rest] app create (app-id=203)" \
       "/v2/applications/203?pretty" \
       200 \
+      true \
       '"deleted": false' \
       '"created-at-round": 55'
 
@@ -400,6 +416,7 @@ function create_delete_tests() {
     rest_test "[rest] app create & delete (app-id=82)" \
       "/v2/applications/82?pretty" \
       200 \
+      true \
       '"deleted": true' \
       '"created-at-round": 13' \
       '"deleted-at-round": 37'
@@ -413,6 +430,7 @@ function create_delete_tests() {
     rest_test "[rest - asset]  asset create / destroy" \
       "/v2/assets/135?pretty" \
       200 \
+      true \
       '"deleted": true' \
       '"created-at-round": 23' \
       '"destroyed-at-round": 33' \
@@ -420,6 +438,7 @@ function create_delete_tests() {
     rest_test "[rest - account]  asset create / destroy" \
       "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty" \
       200 \
+      true \
       '"created-at-round": 23' \
       '"destroyed-at-round": 33' \
       '"total": 0'
@@ -430,12 +449,14 @@ function create_delete_tests() {
     rest_test "[rest - asset] asset create" \
       "/v2/assets/168?pretty" \
       200 \
+      true \
       '"deleted": false' \
       '"created-at-round": 35' \
       '"total": 1337'
     rest_test "[rest - account] asset create" \
       "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty" \
       200 \
+      true \
       '"deleted": false' \
       '"created-at-round": 35' \
       '"total": 1337'
@@ -449,6 +470,7 @@ function create_delete_tests() {
     rest_test "[rest] app optin no closeout" \
       "/v2/accounts/VQBQHUC7HG3IGTCG5RKRFK3RJTQN5BGTDQI6N2VLR5U7YFT5VUNVAF57ZU?pretty" \
       200 \
+      true \
       '"deleted": false' \
       '"opted-in-at-round": 13' \
       '"deleted": false' \
@@ -460,6 +482,7 @@ function create_delete_tests() {
     rest_test "[rest] app multiple optins first saved (it is also closed)" \
       "/v2/accounts/CM333ZN3KMASBRIP7N4QIN7AANVK7EJGNUQCNONGVVKURZIU2GG7XJIZ4Q?pretty" \
       200 \
+      true \
       '"deleted": true' \
       '"opted-in-at-round": 15' \
       '"closed-out-at-round": 35'
@@ -470,6 +493,7 @@ function create_delete_tests() {
     rest_test "[rest] app optin/optout/optin should leave last closed_at" \
       "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty" \
       200 \
+      true \
       '"deleted": false' \
       '"opted-in-at-round": 57' \
       '"closed-out-at-round": 59' \
@@ -484,11 +508,13 @@ function create_delete_tests() {
     rest_test "[rest - balances] asset optin" \
       "/v2/assets/27/balances?pretty&currency-less-than=100" \
       200 \
+      true \
       '"deleted": false' \
       '"opted-in-at-round": 13'
     rest_test "[rest - account] asset optin" \
       "/v2/accounts/GBMRMBGRSNPEXKUHDNGVNVCZMBJXVDDVCZ4QIMNIJH4XCSTVBRVYWWVCZA?pretty" \
       200 \
+      true \
       '"deleted": false' \
       '"opted-in-at-round": 13'
 
@@ -498,6 +524,7 @@ function create_delete_tests() {
     rest_test "[rest] asset optin" \
       "/v2/assets/36/balances?pretty&currency-less-than=100" \
       200 \
+      true \
       '"deleted": true' \
       '"opted-in-at-round": 16' \
       '"opted-out-at-round": 25'
@@ -508,6 +535,7 @@ function create_delete_tests() {
     rest_test "[rest] asset optin" \
       "/v2/assets/135/balances?pretty&currency-less-than=100" \
       200 \
+      true \
       '"deleted": true' \
       '"opted-in-at-round": 25' \
       '"opted-out-at-round": 31'
@@ -518,6 +546,7 @@ function create_delete_tests() {
     rest_test "[rest] asset optin" \
       "/v2/assets/168/balances?pretty&currency-less-than=100" \
       200 \
+      true \
       '"deleted": false' \
       '"opted-in-at-round": 37' \
       '"opted-out-at-round": 39'
@@ -531,6 +560,7 @@ function create_delete_tests() {
     rest_test "[rest] genesis account with no transactions" \
       "/v2/accounts/4C633YLLVKBQPNDBPC3N7IKDKSHFCX3WWKHYIC6VAIS2BDE6VQXACGG3BQ?pretty" \
       200 \
+      true \
       '"deleted": false' \
       '"created-at-round": 0'
 
@@ -540,6 +570,7 @@ function create_delete_tests() {
     rest_test "[rest] account created then never closed" \
       "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty" \
       200 \
+      true \
       '"deleted": false' \
       '"created-at-round": 4'
 
@@ -549,6 +580,7 @@ function create_delete_tests() {
     rest_test "[rest] account create close create" \
       "/v2/accounts/FG2RVUYJHWAB3QMABDIBOQT5G2V2OWNBKL5B4HDVS5MIAZ6BPLGR65YW3Y?pretty" \
       200 \
+      true \
       '"deleted": false' \
       '"created-at-round": 17' \
       '"closed-at-round": 19'
@@ -559,7 +591,25 @@ function create_delete_tests() {
     rest_test "[rest] account create close create close" \
       "/v2/accounts/6K5F6PWGSFCIZDCUBHVYI4L6JB5GV5ZWXX2C2TMSPBJSY2NZLZGCF2NH5U?pretty" \
       200 \
+      true \
       '"deleted": true' \
       '"created-at-round": 9' \
       '"closed-at-round": 15'
+
+      rest_test "[rest] refuse to return fee_sink" \
+      "/v2/accounts/A7NMWS3NT3IUDMLVO26ULGXGIIOUQ3ND2TXSER6EBGRZNOBOUIQXHIBGDE?pretty" \
+      400 \
+      true
+
+      rest_test "[rest] refuse to return rewards pool" \
+      "/v2/accounts/7777777777777777777777777777777777777777777777777774MSJUVU?pretty" \
+      400 \
+      true
+
+      rest_test "[rest] don't include special accounts" \
+      "/v2/accounts" \
+      200 \
+      false \
+      '7777777777777777777777777777777777777777777777777774MSJUVU' \
+      'A7NMWS3NT3IUDMLVO26ULGXGIIOUQ3ND2TXSER6EBGRZNOBOUIQXHIBGDE'
 }

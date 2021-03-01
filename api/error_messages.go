@@ -26,6 +26,8 @@ const (
 	errRewindingAccount          = "error while rewinding account"
 	errLookingUpBlock            = "error while looking up block for round"
 	errTransactionSearch         = "error while searching for transaction"
+	errSpecialAccounts           = "indexer doesn't support fee sink and rewards pool accounts, please refer to algod for relevant information"
+	errFailedLoadSpecialAccounts = "failed to retrieve special accounts"
 )
 
 var errUnknownAddressRole string
