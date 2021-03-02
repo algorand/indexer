@@ -745,7 +745,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 
 		// Process transactions!
 		start := time.Now()
-		result, err := processAccountTransactionsWithRetry(db, addressStr, address, uint64(state.NextRound), specialAccounts, 3)
+		result, err := processAccountTransactionsWithRetry(db, addressStr, address, uint64(state.NextRound), 3)
 		dur := time.Since(start)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
