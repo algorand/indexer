@@ -612,4 +612,9 @@ function create_delete_tests() {
       false \
       '7777777777777777777777777777777777777777777777777774MSJUVU' \
       'A7NMWS3NT3IUDMLVO26ULGXGIIOUQ3ND2TXSER6EBGRZNOBOUIQXHIBGDE'
+
+      sql_test "[sql] special accounts should be migrated" $1 \
+      "SELECT deleted,created_at FROM account WHERE addr=decode('B9rLS22e0UGxdXa9RZrmQh1IbaPU7yJHxAmjlrguoiE=','base64') OR addr=decode('//////////////////////////////////////////8=','base64')" \
+      "f|0
+f|0"
 }
