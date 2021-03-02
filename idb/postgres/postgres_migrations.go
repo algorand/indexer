@@ -42,6 +42,7 @@ func init() {
 		// Migrations for 2.3.2 release
 		{m7StaleClosedAccounts, false, "clear some stale data from closed accounts"},
 		{m8TxnJSONEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
+		{m9SpecialAccountCleanup, false, "The initial m6 implementation would miss special accounts."},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -100,6 +101,19 @@ func migrationStateBlocked(state MigrationState) bool {
 // needsMigration returns true if there is an incomplete migration.
 func needsMigration(state MigrationState) bool {
 	return state.NextMigration < len(migrations)
+}
+
+// upsertMigrationState updates the migration state, and optionally increments the next counter.
+func upsertMigrationState(tx *sql.Tx, state *MigrationState, incrementNextMigration bool) (err error) {
+	if incrementNextMigration {
+		state.NextMigration++
+	}
+	migrationStateJSON := idb.JSONOneLine(state)
+	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	if err != nil {
+		return fmt.Errorf("m9 meta error: %v", err)
+	}
+	return
 }
 
 func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
@@ -458,7 +472,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 			return err
 		}
 
-		// Don't update special accounts
+		// Don't update special accounts (m9 fixes this)
 		if feeSinkAddr != acct.Account.Address && rewardsAddr != acct.Account.Address {
 			accounts = append(accounts, acct.Account.Address)
 		}
@@ -845,6 +859,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 
 	// Update checkpoint
 	if finalBatch {
+		state.NextMigration++
 		state.NextAccount = nil
 		state.NextRound = 0
 	} else {
@@ -1486,5 +1501,43 @@ func putTxnJSONBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 		db.log.WithError(err).Errorf("%s, warning, drop temp err", m8ErrPrefix)
 		// we don't actually care; psql should garbage collect the temp table eventually
 	}
+	return nil
+}
+
+func m9SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
+	accounts, err := db.GetSpecialAccounts()
+	if err != nil {
+		return fmt.Errorf("unable to get special accounts: %v", err)
+	}
+
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
+	if err != nil {
+		return fmt.Errorf("failed to begin m9 migration: %v", err)
+	}
+	defer tx.Rollback() // ignored if .Commit() first
+
+	initstmt, err := tx.Prepare(`UPDATE account SET deleted=false, created_at=0 WHERE addr=$1`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare m9 query: %v", err)
+	}
+
+	for _, account := range []string{accounts.FeeSink.String(), accounts.RewardsPool.String()} {
+		address, err := sdk_types.DecodeAddress(account)
+		if err != nil {
+			return fmt.Errorf("failed to decode address: %v", err)
+		}
+		initstmt.Exec(address[:])
+	}
+
+	upsertMigrationState(tx, state, true)
+	if err != nil {
+		return fmt.Errorf("m9 metstate upsert error: %v", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("m9 commit error: %v", err)
+	}
+
 	return nil
 }
