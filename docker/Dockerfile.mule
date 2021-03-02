@@ -1,7 +1,7 @@
 # This Dockerfile is used by Jenkins.
-FROM ubuntu:18.04
+FROM ubuntu:latest
 
-ARG GO_VERSION=1.14
+ARG GO_VERSION=1.15
 ENV DEBIAN_FRONTEND noninteractive
 ENV USER root
 ENV GOROOT=/usr/local/go
