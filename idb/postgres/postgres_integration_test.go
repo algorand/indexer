@@ -653,7 +653,7 @@ func TestAccountHelperQuery(t *testing.T) {
 	assert.NoError(t, err)
 	state := getAccounting(test.Round, cache)
 
-	for i := 0; i < numAccounts - 1; i++ {
+	for i := 0; i < numAccounts-1; i++ {
 		a := types.Address{}
 		_, err := rand.Read(a[:])
 		if err != nil {
@@ -675,7 +675,7 @@ func TestAccountHelperQuery(t *testing.T) {
 	for acct := range accts {
 		num++
 		assert.NoError(t, acct.Error)
-		if num == numAccounts / 2 {
+		if num == numAccounts/2 {
 			middleAccount = acct.Address
 		}
 	}
@@ -684,7 +684,6 @@ func TestAccountHelperQuery(t *testing.T) {
 	// Then // We should find all of them
 	//////////
 	assert.Equal(t, numAccounts, num)
-
 
 	//////////
 	// When // searching for accounts from the half way point
@@ -695,7 +694,7 @@ func TestAccountHelperQuery(t *testing.T) {
 	for acct := range accts {
 		num++
 		assert.NoError(t, acct.Error)
-		if num == numAccounts / 2 {
+		if num == numAccounts/2 {
 			middleAccount = acct.Address
 		}
 	}

@@ -698,6 +698,7 @@ func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, addre
 			cancel()
 			time.Sleep(10 * time.Second)
 		} else {
+			cancel()
 			return
 		}
 	}
