@@ -440,7 +440,7 @@ type acct struct {
 	Address types.Address
 }
 
-func getAccounts(ctx context.Context, db *IndexerDb, after types.Address, batchSize int) (<-chan acct, error) {
+func getAccounts(db *IndexerDb, after types.Address, batchSize int) <-chan acct {
 	out := make(chan acct)
 
 	go func() {
@@ -448,15 +448,8 @@ func getAccounts(ctx context.Context, db *IndexerDb, after types.Address, batchS
 		afterAddr := after
 
 		for true {
-			tx, err := db.db.BeginTx(ctx, &readOnlyTx)
-			if err != nil {
-				out <- acct{
-					Error: fmt.Errorf("failed to begin account query: %v", err),
-				}
-				return
-			}
-
-			rows, err := tx.QueryContext(ctx, `SELECT addr FROM account WHERE addr > $1 ORDER BY addr ASC LIMIT $2`, afterAddr[:], batchSize)
+			buffer := make([]acct, 0)
+			rows, err := db.db.Query(`SELECT addr FROM account WHERE addr > $1 ORDER BY addr ASC LIMIT $2`, afterAddr[:], batchSize)
 			if err != nil {
 				out <- acct{
 					Error: fmt.Errorf("failed to account query accounts after %s: %v", afterAddr.String(), err),
@@ -472,26 +465,65 @@ func getAccounts(ctx context.Context, db *IndexerDb, after types.Address, batchS
 				copy(afterAddr[:], bytes)
 				if err != nil {
 					rows.Close()
-					tx.Commit()
 					out <- acct{
 						Error: fmt.Errorf("failed to scan account: %v", err),
 					}
 					return
 				}
-				out <- acct{
+				buffer = append(buffer, acct{
 					Address: afterAddr,
-				}
+				})
 			}
 			rows.Close()
-			tx.Commit()
 
 			if num == 0 {
 				return
 			}
+
+			for _, a := range buffer {
+				out <- a
+			}
 		}
 	}()
 
-	return out, nil
+	return out
+}
+
+// accountTransactions pages through account transactions to avoid caching the entire result set. Unfortunately, this
+// also prevents us from benefiting from having a cache of the entire result set.
+func accountTransactions(ctx context.Context, db *IndexerDb, address types.Address, finalRound, batchSize uint64) <-chan idb.TxnRow {
+	out := make(chan idb.TxnRow)
+
+	go func() {
+		defer close(out)
+		token := ""
+		for true {
+			buffer := make([]idb.TxnRow, 0)
+			txnrows := db.Transactions(ctx, idb.TransactionFilter{
+				Address:   address[:],
+				MaxRound:  finalRound,
+				Limit:     batchSize,
+				NextToken: token,
+			})
+
+			num := 0
+			for row := range txnrows {
+				buffer = append(buffer, row)
+				num++
+			}
+			if num == 0 {
+				return
+			}
+
+			// Get all results so that the transaction can close
+			for _, row := range buffer {
+				out <- row
+			}
+			token = buffer[len(buffer)-1].Next()
+		}
+	}()
+
+	return out
 }
 
 // m6RewardsAndDatesPart2 computes the cumulative rewards for each account one at a time.
@@ -517,10 +549,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 		copy(fromAccount[:], state.NextAccount[:])
 	}
 
-	accountChan, err := getAccounts(context.Background(), db, fromAccount, 500)
-	if err != nil {
-		return fmt.Errorf("failed to get accounts: %v", err)
-	}
+	accountChan := getAccounts(db, fromAccount, 500)
 
 	batchSize := 500
 	batchNumber := 1
@@ -656,42 +685,11 @@ func initM5AccountData() *m5AccountData {
 	}
 }
 
-// accountTransactions pages through account transactions to avoid caching the entire result set. Unfortunately, this
-// also prevents us from benefiting from having a cache of the entire result set.
-func accountTransactions(ctx context.Context, db *IndexerDb, address types.Address, finalRound uint64) <-chan idb.TxnRow {
-	out := make(chan idb.TxnRow, 10)
-
-	go func() {
-		defer close(out)
-		token := ""
-		for true {
-			txnrows := db.Transactions(ctx, idb.TransactionFilter{
-				Address:   address[:],
-				MaxRound:  finalRound,
-				Limit:     1,
-				NextToken: token,
-			})
-
-			num := 0
-			for row := range txnrows {
-				num++
-				token = row.Next()
-				out <- row
-			}
-			if num == 0 {
-				return
-			}
-		}
-	}()
-
-	return out
-}
-
 func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData, err error) {
 	for i := 0; i < retries; i++ {
 		ctx, cancel := context.WithCancel(context.Background())
 		// Query transactions for the account
-		txnrows := accountTransactions(ctx, db, address, nextRound)
+		txnrows := accountTransactions(ctx, db, address, nextRound, 1000)
 
 		// Process transactions!
 		results, err = processAccountTransactions(txnrows, addressStr, address)
