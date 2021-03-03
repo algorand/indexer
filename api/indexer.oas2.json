@@ -67,6 +67,9 @@
             "$ref": "#/parameters/currency-greater-than"
           },
           {
+            "$ref": "#/parameters/include-all"
+          },
+          {
             "$ref": "#/parameters/currency-less-than"
           },
           {
@@ -108,6 +111,9 @@
           },
           {
             "$ref": "#/parameters/round"
+          },
+          {
+            "$ref": "#/parameters/include-all"
           }
         ],
         "responses": {
@@ -205,6 +211,9 @@
             "$ref": "#/parameters/application-id"
           },
           {
+            "$ref": "#/parameters/include-all"
+          },
+          {
             "$ref": "#/parameters/limit"
           },
           {
@@ -237,6 +246,9 @@
             "name": "application-id",
             "in": "path",
             "required": true
+          },
+          {
+            "$ref": "#/parameters/include-all"
           }
         ],
         "responses": {
@@ -260,6 +272,9 @@
         ],
         "operationId": "searchForAssets",
         "parameters": [
+          {
+            "$ref": "#/parameters/include-all"
+          },
           {
             "$ref": "#/parameters/limit"
           },
@@ -314,6 +329,9 @@
             "name": "asset-id",
             "in": "path",
             "required": true
+          },
+          {
+            "$ref": "#/parameters/include-all"
           }
         ],
         "responses": {
@@ -342,6 +360,9 @@
         ],
         "operationId": "lookupAssetBalances",
         "parameters": [
+          {
+            "$ref": "#/parameters/include-all"
+          },
           {
             "$ref": "#/parameters/limit"
           },
@@ -1902,6 +1923,12 @@
       "type": "boolean",
       "description": "Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.",
       "name": "exclude-close-to",
+      "in": "query"
+    },
+    "include-all": {
+      "type": "boolean",
+      "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+      "name": "include-all",
       "in": "query"
     },
     "limit": {

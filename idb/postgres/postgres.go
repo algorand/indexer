@@ -2441,6 +2441,9 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		whereArgs = append(whereArgs, opts.AlgosLessThan)
 		partNumber++
 	}
+	if !opts.IncludeDeleted {
+		whereParts = append(whereParts, "coalesce(a.deleted, false) = false")
+	}
 	if len(opts.EqualToAuthAddr) > 0 {
 		whereParts = append(whereParts, fmt.Sprintf("decode(a.account_data ->> 'spend', 'base64') = $%d", partNumber))
 		whereArgs = append(whereArgs, opts.EqualToAuthAddr)
@@ -2466,16 +2469,29 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	// TODO: asset holdings and asset params are optional, but practically always used. Either make them actually always on, or make app-global and app-local clauses also optional (they are currently always on).
 	withClauses = append(withClauses, "qaccounts AS ("+query+")")
 	query = "WITH " + strings.Join(withClauses, ", ")
-	if opts.IncludeAssetHoldings {
-		query += `, qaa AS (SELECT xa.addr, json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf, json_agg(aa.created_at) as holding_created_at, json_agg(aa.closed_at) as holding_closed_at, json_agg(aa.deleted) as holding_deleted FROM account_asset aa JOIN qaccounts xa ON aa.addr = xa.addr GROUP BY 1)`
+	if opts.IncludeDeleted {
+		if opts.IncludeAssetHoldings {
+			query += `, qaa AS (SELECT xa.addr, json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf, json_agg(aa.created_at) as holding_created_at, json_agg(aa.closed_at) as holding_closed_at, json_agg(coalesce(aa.deleted, false)) as holding_deleted FROM account_asset aa JOIN qaccounts xa ON aa.addr = xa.addr GROUP BY 1)`
+		}
+		if opts.IncludeAssetParams {
+			query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp, json_agg(ap.created_at) as asset_created_at, json_agg(ap.closed_at) as asset_closed_at, json_agg(ap.deleted) as asset_deleted FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr GROUP BY 1)`
+		}
+		// app
+		query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at, json_agg(app.deleted) as app_deleted FROM app JOIN qaccounts ON qaccounts.addr = app.creator GROUP BY 1)`
+		// app localstate
+		query += `, qls AS (SELECT la.addr, json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls, json_agg(la.created_at) as ls_created_at, json_agg(la.closed_at) as ls_closed_at, json_agg(la.deleted) as ls_deleted FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr GROUP BY 1)`
+	} else {
+		if opts.IncludeAssetHoldings {
+			query += `, qaa AS (SELECT xa.addr, json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf, json_agg(aa.created_at) as holding_created_at, json_agg(aa.closed_at) as holding_closed_at, json_agg(coalesce(aa.deleted, false)) as holding_deleted FROM account_asset aa JOIN qaccounts xa ON aa.addr = xa.addr WHERE coalesce(aa.deleted, false) = false GROUP BY 1)`
+		}
+		if opts.IncludeAssetParams {
+			query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp, json_agg(ap.created_at) as asset_created_at, json_agg(ap.closed_at) as asset_closed_at, json_agg(ap.deleted) as asset_deleted FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr WHERE coalesce(ap.deleted, false) = false GROUP BY 1)`
+		}
+		// app
+		query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at, json_agg(app.deleted) as app_deleted FROM app JOIN qaccounts ON qaccounts.addr = app.creator WHERE coalesce(app.deleted, false) = false GROUP BY 1)`
+		// app localstate
+		query += `, qls AS (SELECT la.addr, json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls, json_agg(la.created_at) as ls_created_at, json_agg(la.closed_at) as ls_closed_at, json_agg(la.deleted) as ls_deleted FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr WHERE coalesce(la.deleted, false) = false GROUP BY 1)`
 	}
-	if opts.IncludeAssetParams {
-		query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp, json_agg(ap.created_at) as asset_created_at, json_agg(ap.closed_at) as asset_closed_at, json_agg(ap.deleted) as asset_deleted FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr GROUP BY 1)`
-	}
-	// app
-	query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at, json_agg(app.deleted) as app_deleted FROM app JOIN qaccounts ON qaccounts.addr = app.creator GROUP BY 1)`
-	// app localstate
-	query += `, qls AS (SELECT la.addr, json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls, json_agg(la.created_at) as ls_created_at, json_agg(la.closed_at) as ls_closed_at, json_agg(la.deleted) as ls_deleted FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr GROUP BY 1)`
 
 	// query results
 	query += ` SELECT za.addr, za.microalgos, za.rewards_total, za.created_at, za.closed_at, za.deleted, za.rewardsbase, za.keytype, za.account_data`
@@ -2535,6 +2551,9 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) <-chan 
 		whereParts = append(whereParts, fmt.Sprintf("(a.params ->> 'un' ILIKE $%d OR a.params ->> 'an' ILIKE $%d)", partNumber, partNumber))
 		whereArgs = append(whereArgs, qs)
 		partNumber++
+	}
+	if !filter.IncludeDeleted {
+		whereParts = append(whereParts, "coalesce(a.deleted, false) = false")
 	}
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
@@ -2621,6 +2640,9 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 		whereArgs = append(whereArgs, abq.PrevAddress)
 		partNumber++
 	}
+	if !abq.IncludeDeleted {
+		whereParts = append(whereParts, "coalesce(aa.deleted, false) = false")
+	}
 	var rows *sql.Rows
 	var err error
 	query := `SELECT addr, assetid, amount, frozen, created_at, closed_at, deleted FROM account_asset aa`
@@ -2677,6 +2699,13 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows
 
 // Applications is part of idb.IndexerDB
 func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan idb.ApplicationRow {
+	out := make(chan idb.ApplicationRow, 1)
+	if filter == nil {
+		out <- idb.ApplicationRow{Error: fmt.Errorf("no arguments provided to application search")}
+		close(out)
+		return out
+	}
+
 	query := `SELECT index, creator, params, created_at, closed_at, deleted FROM app `
 
 	const maxWhereParts = 30
@@ -2693,6 +2722,9 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 		whereArgs = append(whereArgs, *filter.Next)
 		partNumber++
 	}
+	if filter.IncludeAll == nil || !(*filter.IncludeAll) {
+		whereParts = append(whereParts, "coalesce(deleted, false) = false")
+	}
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
 		query += " WHERE " + whereStr
@@ -2701,7 +2733,6 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 	if filter.Limit != nil {
 		query += fmt.Sprintf(" LIMIT %d", *filter.Limit)
 	}
-	out := make(chan idb.ApplicationRow, 1)
 	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
 
 	if err != nil {
