@@ -548,7 +548,6 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 		db.log.Println("after " + address.String())
 		copy(fromAccount[:], state.NextAccount[:])
 	}
-	options.IncludeDeleted = true
 
 	accountChan := getAccounts(db, fromAccount, 500)
 
