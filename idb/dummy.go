@@ -335,6 +335,9 @@ type AccountQueryOptions struct {
 	IncludeAssetHoldings bool
 	IncludeAssetParams   bool
 
+	// IncludeDeleted indicated whether to include deleted Assets, Applications, etc within the account.
+	IncludeDeleted bool
+
 	Limit uint64
 }
 
@@ -359,6 +362,9 @@ type AssetsQuery struct {
 	// (assetname ILIKE '%?%' OR unitname ILIKE '%?%')
 	Query string
 
+	// IncludeDeleted indicated whether to include deleted Assets in the results.
+	IncludeDeleted bool
+
 	Limit uint64
 }
 
@@ -378,6 +384,9 @@ type AssetBalanceQuery struct {
 	AssetID  uint64
 	AmountGT uint64 // only rows > this
 	AmountLT uint64 // only rows < this
+
+	// IncludeDeleted indicated whether to include deleted AssetHoldingss in the results.
+	IncludeDeleted bool
 
 	Limit uint64 // max rows to return
 

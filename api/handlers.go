@@ -109,6 +109,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
 		Limit:                1,
+		IncludeDeleted:       boolOrDefault(params.IncludeAll),
 	}
 
 	accounts, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
@@ -155,6 +156,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		HasAssetID:           uintOrDefault(params.AssetId),
 		HasAppID:             uintOrDefault(params.ApplicationId),
 		EqualToAuthAddr:      spendingAddr[:],
+		IncludeDeleted:       boolOrDefault(params.IncludeAll),
 	}
 
 	// Set GT/LT on Algos or Asset depending on whether or not an assetID was specified
@@ -265,10 +267,12 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 
 // LookupApplicationByID returns one application for the requested ID.
 // (GET /v2/applications/{application-id})
-func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationID uint64) error {
-	var params generated.SearchForApplicationsParams
-	params.ApplicationId = &applicationID
-	results := si.db.Applications(ctx.Request().Context(), &params)
+func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationByIDParams) error {
+	p := &generated.SearchForApplicationsParams{
+		ApplicationId: &applicationID,
+		IncludeAll:    params.IncludeAll,
+	}
+	results := si.db.Applications(ctx.Request().Context(), p)
 	round, err := si.db.GetMaxRoundAccounted()
 	if err != nil {
 		return indexerError(ctx, err.Error())
@@ -288,10 +292,11 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 
 // LookupAssetByID looks up a particular asset
 // (GET /v2/assets/{asset-id})
-func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64) error {
+func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64, params generated.LookupAssetByIDParams) error {
 	search := generated.SearchForAssetsParams{
-		AssetId: uint64Ptr(assetID),
-		Limit:   uint64Ptr(1),
+		AssetId:    uint64Ptr(assetID),
+		Limit:      uint64Ptr(1),
+		IncludeAll: params.IncludeAll,
 	}
 	options, err := assetParamsToAssetQuery(search)
 	if err != nil {
@@ -326,10 +331,11 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 // (GET /v2/assets/{asset-id}/balances)
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID uint64, params generated.LookupAssetBalancesParams) error {
 	query := idb.AssetBalanceQuery{
-		AssetID:  assetID,
-		AmountGT: uintOrDefault(params.CurrencyGreaterThan),
-		AmountLT: uintOrDefault(params.CurrencyLessThan),
-		Limit:    min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
+		AssetID:        assetID,
+		AmountGT:       uintOrDefault(params.CurrencyGreaterThan),
+		AmountLT:       uintOrDefault(params.CurrencyLessThan),
+		IncludeDeleted: boolOrDefault(params.IncludeAll),
+		Limit:          min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
 	}
 
 	if params.Next != nil {
@@ -698,7 +704,6 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 
 		// match the algod equivalent which includes pending rewards
 		account.Rewards += account.PendingRewards
-
 		accounts = append(accounts, account)
 	}
 
