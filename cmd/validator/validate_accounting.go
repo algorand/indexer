@@ -43,7 +43,7 @@ type Processor interface {
 // Result is the output of ProcessAddress.
 type Result struct {
 	// Error is set if there were errors running the test.
-	Error   error
+	Error error
 
 	Equal   bool
 	Retries int

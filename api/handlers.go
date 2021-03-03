@@ -156,6 +156,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		HasAssetID:           uintOrDefault(params.AssetId),
 		HasAppID:             uintOrDefault(params.ApplicationId),
 		EqualToAuthAddr:      spendingAddr[:],
+		IncludeDeleted:       boolOrDefault(params.IncludeAll),
 	}
 
 	// Set GT/LT on Algos or Asset depending on whether or not an assetID was specified
@@ -268,8 +269,8 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 // (GET /v2/applications/{application-id})
 func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationByIDParams) error {
 	p := &generated.SearchForApplicationsParams{
-		ApplicationId:  &applicationID,
-		IncludeAll: params.IncludeAll,
+		ApplicationId: &applicationID,
+		IncludeAll:    params.IncludeAll,
 	}
 	results := si.db.Applications(ctx.Request().Context(), p)
 	round, err := si.db.GetMaxRoundAccounted()
@@ -293,8 +294,8 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 // (GET /v2/assets/{asset-id})
 func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64, params generated.LookupAssetByIDParams) error {
 	search := generated.SearchForAssetsParams{
-		AssetId:        uint64Ptr(assetID),
-		Limit:          uint64Ptr(1),
+		AssetId:    uint64Ptr(assetID),
+		Limit:      uint64Ptr(1),
 		IncludeAll: params.IncludeAll,
 	}
 	options, err := assetParamsToAssetQuery(search)
