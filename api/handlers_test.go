@@ -452,10 +452,11 @@ func TestFetchTransactions(t *testing.T) {
 
 			close(ch)
 			var outCh <-chan idb.TxnRow = ch
-			mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh)
+			var round uint64 = 1
+			mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh, round)
 
 			// Call the function
-			results, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
+			results, _, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
 			assert.NoError(t, err)
 
 			// Automatically print it out when writing the test.

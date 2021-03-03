@@ -54,7 +54,7 @@ func (_m *IndexerDb) AlreadyImported(path string) (bool, error) {
 }
 
 // Applications provides a mock function with given fields: ctx, filter
-func (_m *IndexerDb) Applications(ctx context.Context, filter *generated.SearchForApplicationsParams) <-chan idb.ApplicationRow {
+func (_m *IndexerDb) Applications(ctx context.Context, filter *generated.SearchForApplicationsParams) (<-chan idb.ApplicationRow, uint64) {
 	ret := _m.Called(ctx, filter)
 
 	var r0 <-chan idb.ApplicationRow
@@ -66,11 +66,18 @@ func (_m *IndexerDb) Applications(ctx context.Context, filter *generated.SearchF
 		}
 	}
 
-	return r0
+	var r1 uint64
+	if rf, ok := ret.Get(1).(func(context.Context, *generated.SearchForApplicationsParams) uint64); ok {
+		r1 = rf(ctx, filter)
+	} else {
+		r1 = ret.Get(1).(uint64)
+	}
+
+	return r0, r1
 }
 
 // AssetBalances provides a mock function with given fields: ctx, abq
-func (_m *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuery) <-chan idb.AssetBalanceRow {
+func (_m *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuery) (<-chan idb.AssetBalanceRow, uint64) {
 	ret := _m.Called(ctx, abq)
 
 	var r0 <-chan idb.AssetBalanceRow
@@ -82,11 +89,18 @@ func (_m *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 		}
 	}
 
-	return r0
+	var r1 uint64
+	if rf, ok := ret.Get(1).(func(context.Context, idb.AssetBalanceQuery) uint64); ok {
+		r1 = rf(ctx, abq)
+	} else {
+		r1 = ret.Get(1).(uint64)
+	}
+
+	return r0, r1
 }
 
 // Assets provides a mock function with given fields: ctx, filter
-func (_m *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) <-chan idb.AssetRow {
+func (_m *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan idb.AssetRow, uint64) {
 	ret := _m.Called(ctx, filter)
 
 	var r0 <-chan idb.AssetRow
@@ -98,7 +112,14 @@ func (_m *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) <-chan 
 		}
 	}
 
-	return r0
+	var r1 uint64
+	if rf, ok := ret.Get(1).(func(context.Context, idb.AssetsQuery) uint64); ok {
+		r1 = rf(ctx, filter)
+	} else {
+		r1 = ret.Get(1).(uint64)
+	}
+
+	return r0, r1
 }
 
 // CommitBlock provides a mock function with given fields: round, timestamp, rewardslevel, headerbytes
@@ -130,7 +151,7 @@ func (_m *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 }
 
 // GetAccounts provides a mock function with given fields: ctx, opts
-func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) <-chan idb.AccountRow {
+func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
 	ret := _m.Called(ctx, opts)
 
 	var r0 <-chan idb.AccountRow
@@ -142,7 +163,14 @@ func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		}
 	}
 
-	return r0
+	var r1 uint64
+	if rf, ok := ret.Get(1).(func(context.Context, idb.AccountQueryOptions) uint64); ok {
+		r1 = rf(ctx, opts)
+	} else {
+		r1 = ret.Get(1).(uint64)
+	}
+
+	return r0, r1
 }
 
 // GetBlock provides a mock function with given fields: ctx, round, options
@@ -397,7 +425,7 @@ func (_m *IndexerDb) StartBlock() error {
 }
 
 // Transactions provides a mock function with given fields: ctx, tf
-func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) <-chan idb.TxnRow {
+func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	ret := _m.Called(ctx, tf)
 
 	var r0 <-chan idb.TxnRow
@@ -409,7 +437,14 @@ func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 		}
 	}
 
-	return r0
+	var r1 uint64
+	if rf, ok := ret.Get(1).(func(context.Context, idb.TransactionFilter) uint64); ok {
+		r1 = rf(ctx, tf)
+	} else {
+		r1 = ret.Get(1).(uint64)
+	}
+
+	return r0, r1
 }
 
 // YieldTxns provides a mock function with given fields: ctx, prevRound

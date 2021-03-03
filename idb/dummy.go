@@ -117,28 +117,33 @@ func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options Ge
 }
 
 // Transactions is part of idb.IndexerDB
-func (db *dummyIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
-	return nil
+func (db *dummyIndexerDb) Transactions(ctx context.Context,
+	tf TransactionFilter) (<-chan TxnRow, uint64) {
+	return nil, 0
 }
 
 // GetAccounts is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow {
-	return nil
+func (db *dummyIndexerDb) GetAccounts(ctx context.Context,
+	opts AccountQueryOptions) (<-chan AccountRow, uint64) {
+	return nil, 0
 }
 
 // Assets is part of idb.IndexerDB
-func (db *dummyIndexerDb) Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow {
-	return nil
+func (db *dummyIndexerDb) Assets(ctx context.Context,
+	filter AssetsQuery) (<-chan AssetRow, uint64) {
+	return nil, 0
 }
 
 // AssetBalances is part of idb.IndexerDB
-func (db *dummyIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow {
-	return nil
+func (db *dummyIndexerDb) AssetBalances(ctx context.Context,
+	abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64) {
+	return nil, 0
 }
 
 // Applications is part of idb.IndexerDB
-func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow {
-	return nil
+func (db *dummyIndexerDb) Applications(ctx context.Context,
+	filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64) {
+	return nil, 0
 }
 
 // Health is part of idb.IndexerDB
@@ -233,11 +238,12 @@ type IndexerDb interface {
 
 	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (block types.Block, transactions []TxnRow, err error)
 
-	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
-	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
-	Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow
-	AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow
-	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow
+	Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64)
+	GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64)
+	Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64)
+	AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64)
+	Applications(ctx context.Context,
+		filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64)
 
 	Health() (status Health, err error)
 }

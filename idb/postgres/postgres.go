@@ -423,9 +423,20 @@ func (db *IndexerDb) SetImportState(state idb.ImportState) (err error) {
 	return db.setMetastate(stateMetastateKey, string(json.Encode(state)))
 }
 
+func (db *IndexerDb) getMaxRoundAccountedTx(tx *sql.Tx) (round uint64, err error) {
+	row := tx.QueryRow(`select coalesce((v->>'account_round')::bigint, 0) from metastate where k = 'state'`)
+	err = row.Scan(&round)
+
+	if err == sql.ErrNoRows {
+		err = nil
+		round = 0
+	}
+
+	return
+}
+
 // GetMaxRoundAccounted is part of idb.IndexerDB
 func (db *IndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
-	//var round uint64
 	row := db.db.QueryRow(`select coalesce((v->>'account_round')::bigint, 0) from metastate where k = 'state'`)
 	err = row.Scan(&round)
 
@@ -1548,28 +1559,47 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 }
 
 // Transactions is part of idb.IndexerDB
-func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) <-chan idb.TxnRow {
+func (db *IndexerDb) Transactions(ctx context.Context,
+	tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	out := make(chan idb.TxnRow, 1)
-	if len(tf.NextToken) > 0 {
-		go db.txnsWithNext(ctx, tf, out)
-		return out
+
+	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	if err != nil {
+		out <- idb.TxnRow{Error: err}
+		close(out)
+		return out, 0
 	}
+
+	round, err := db.getMaxRoundAccountedTx(tx)
+	if err != nil {
+		out <- idb.TxnRow{Error: err}
+		close(out)
+		return out, round
+	}
+
+	if len(tf.NextToken) > 0 {
+		go db.txnsWithNext(ctx, tx, tf, out)
+		return out, round
+	}
+
 	query, whereArgs, err := buildTransactionQuery(tf)
 	if err != nil {
 		err = fmt.Errorf("txn query err %v", err)
 		out <- idb.TxnRow{Error: err}
 		close(out)
-		return out
+		return out, 0
 	}
-	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
+
+	rows, err := tx.Query(query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
 		out <- idb.TxnRow{Error: err}
 		close(out)
-		return out
+		return out, round
 	}
+
 	go db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
-	return out
+	return out, round
 }
 
 func (db *IndexerDb) txTransactions(tx *sql.Tx, tf idb.TransactionFilter) <-chan idb.TxnRow {
@@ -1598,7 +1628,8 @@ func (db *IndexerDb) txTransactions(tx *sql.Tx, tf idb.TransactionFilter) <-chan
 	return out
 }
 
-func (db *IndexerDb) txnsWithNext(ctx context.Context, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
+func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.TransactionFilter,
+	out chan<- idb.TxnRow) {
 	nextround, nextintra32, err := idb.DecodeTxnRowNext(tf.NextToken)
 	nextintra := uint64(nextintra32)
 	if err != nil {
@@ -1628,7 +1659,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tf idb.TransactionFilter,
 		close(out)
 		return
 	}
-	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
+	rows, err := tx.Query(query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
 		out <- idb.TxnRow{Error: err}
@@ -1674,7 +1705,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tf idb.TransactionFilter,
 		close(out)
 		return
 	}
-	rows, err = db.db.QueryContext(ctx, query, whereArgs...)
+	rows, err = tx.Query(query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
 		out <- idb.TxnRow{Error: err}
@@ -2299,8 +2330,6 @@ func bytesStr(addr []byte) *string {
 	return out
 }
 
-var readOnlyTx = sql.TxOptions{ReadOnly: true}
-
 type getAccountsRequest struct {
 	ctx         context.Context
 	opts        idb.AccountQueryOptions
@@ -2313,7 +2342,8 @@ type getAccountsRequest struct {
 }
 
 // GetAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) <-chan idb.AccountRow {
+func (db *IndexerDb) GetAccounts(ctx context.Context,
+	opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
 	out := make(chan idb.AccountRow, 1)
 
 	if opts.HasAssetID != 0 {
@@ -2322,49 +2352,47 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetID=%d", opts.AssetGT, opts.AssetLT, opts.HasAssetID)
 		out <- idb.AccountRow{Error: err}
 		close(out)
-		return out
+		return out, 0
 	}
 
 	// Begin transaction so we get everything at one consistent point in time and round of accounting.
-	tx, err := db.db.BeginTx(ctx, &readOnlyTx)
+	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
 	if err != nil {
 		err = fmt.Errorf("account tx err %v", err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
-		return out
+		return out, 0
 	}
 
 	// Get round number through which accounting has been updated
-	row := tx.QueryRow(`SELECT (v -> 'account_round')::bigint as account_round FROM metastate WHERE k = 'state'`)
-	var accountRound uint64
-	err = row.Scan(&accountRound)
+	round, err := db.getMaxRoundAccountedTx(tx)
 	if err != nil {
-		err = fmt.Errorf("account_round err %v", err)
+		err = fmt.Errorf("account round err %v", err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback()
-		return out
+		return out, round
 	}
 
 	// Get block header for that round so we know protocol and rewards info
-	row = tx.QueryRow(`SELECT header FROM block_header WHERE round = $1`, accountRound)
+	row := tx.QueryRow(`SELECT header FROM block_header WHERE round = $1`, round)
 	var headerjson []byte
 	err = row.Scan(&headerjson)
 	if err != nil {
-		err = fmt.Errorf("account round header %d err %v", accountRound, err)
+		err = fmt.Errorf("account round header %d err %v", round, err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback()
-		return out
+		return out, round
 	}
 	var blockheader types.Block
 	err = json.Decode(headerjson, &blockheader)
 	if err != nil {
-		err = fmt.Errorf("account round header %d err %v", accountRound, err)
+		err = fmt.Errorf("account round header %d err %v", round, err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback()
-		return out
+		return out, round
 	}
 
 	// Construct query for fetching accounts...
@@ -2384,10 +2412,10 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback()
-		return out
+		return out, round
 	}
 	go db.yieldAccountsThread(req)
-	return out
+	return out, round
 }
 
 func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query string, whereArgs []interface{}) {
@@ -2515,7 +2543,8 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 }
 
 // Assets is part of idb.IndexerDB
-func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) <-chan idb.AssetRow {
+func (db *IndexerDb) Assets(ctx context.Context,
+	filter idb.AssetsQuery) (<-chan idb.AssetRow, uint64) {
 	query := `SELECT index, creator_addr, params, created_at, closed_at, deleted FROM asset a`
 	const maxWhereParts = 14
 	whereParts := make([]string, 0, maxWhereParts)
@@ -2563,16 +2592,32 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) <-chan 
 	if filter.Limit != 0 {
 		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
 	}
+
 	out := make(chan idb.AssetRow, 1)
-	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
+
+	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	if err != nil {
+		out <- idb.AssetRow{Error: err}
+		close(out)
+		return out, 0
+	}
+
+	round, err := db.getMaxRoundAccountedTx(tx)
+	if err != nil {
+		out <- idb.AssetRow{Error: err}
+		close(out)
+		return out, round
+	}
+
+	rows, err := tx.Query(query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("asset query %#v err %v", query, err)
 		out <- idb.AssetRow{Error: err}
 		close(out)
-		return out
+		return out, round
 	}
 	go db.yieldAssetsThread(ctx, filter, rows, out)
-	return out
+	return out, round
 }
 
 func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQuery, rows *sql.Rows, out chan<- idb.AssetRow) {
@@ -2615,7 +2660,8 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 }
 
 // AssetBalances is part of idb.IndexerDB
-func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuery) <-chan idb.AssetBalanceRow {
+func (db *IndexerDb) AssetBalances(ctx context.Context,
+	abq idb.AssetBalanceQuery) (<-chan idb.AssetBalanceRow, uint64) {
 	const maxWhereParts = 14
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
@@ -2653,15 +2699,31 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	if abq.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d", abq.Limit)
 	}
-	rows, err = db.db.QueryContext(ctx, query, whereArgs...)
+
 	out := make(chan idb.AssetBalanceRow, 1)
+
+	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
-		return out
+		return out, 0
+	}
+
+	round, err := db.getMaxRoundAccountedTx(tx)
+	if err != nil {
+		out <- idb.AssetBalanceRow{Error: err}
+		close(out)
+		return out, round
+	}
+
+	rows, err = tx.Query(query, whereArgs...)
+	if err != nil {
+		out <- idb.AssetBalanceRow{Error: err}
+		close(out)
+		return out, round
 	}
 	go db.yieldAssetBalanceThread(ctx, rows, out)
-	return out
+	return out, round
 }
 
 func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows, out chan<- idb.AssetBalanceRow) {
@@ -2698,12 +2760,12 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows
 }
 
 // Applications is part of idb.IndexerDB
-func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan idb.ApplicationRow {
+func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan idb.ApplicationRow, uint64) {
 	out := make(chan idb.ApplicationRow, 1)
 	if filter == nil {
 		out <- idb.ApplicationRow{Error: fmt.Errorf("no arguments provided to application search")}
 		close(out)
-		return out
+		return out, 0
 	}
 
 	query := `SELECT index, creator, params, created_at, closed_at, deleted FROM app `
@@ -2733,15 +2795,30 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 	if filter.Limit != nil {
 		query += fmt.Sprintf(" LIMIT %d", *filter.Limit)
 	}
-	rows, err := db.db.QueryContext(ctx, query, whereArgs...)
 
+	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
-		return out
+		return out, 0
 	}
+
+	round, err := db.getMaxRoundAccountedTx(tx)
+	if err != nil {
+		out <- idb.ApplicationRow{Error: err}
+		close(out)
+		return out, round
+	}
+
+	rows, err := tx.Query(query, whereArgs...)
+	if err != nil {
+		out <- idb.ApplicationRow{Error: err}
+		close(out)
+		return out, round
+	}
+
 	go db.yieldApplicationsThread(ctx, rows, out)
-	return out
+	return out, round
 }
 
 func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows, out chan idb.ApplicationRow) {

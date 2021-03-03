@@ -89,7 +89,11 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		MinRound: round + 1,
 		MaxRound: account.Round,
 	}
-	txns := db.Transactions(context.Background(), tf)
+	txns, r := db.Transactions(context.Background(), tf)
+	if r < account.Round {
+		err = fmt.Errorf("queried round r: %d < account.Round: %d", r, account.Round)
+		return
+	}
 	txcount := 0
 	for txnrow := range txns {
 		if txnrow.Error != nil {
@@ -163,7 +167,11 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		tf.MaxRound = round
 		tf.MinRound = 0
 		tf.Limit = 1
-		txns = db.Transactions(context.Background(), tf)
+		txns, r = db.Transactions(context.Background(), tf)
+		if r < round {
+			err = fmt.Errorf("queried round r: %d < requested round round: %d", r, round)
+			return
+		}
 		for txnrow := range txns {
 			if txnrow.Error != nil {
 				err = txnrow.Error

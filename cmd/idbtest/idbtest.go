@@ -57,7 +57,7 @@ type roundIntra struct {
 func testTxnPaging(db idb.IndexerDb, q idb.TransactionFilter) {
 	q.Limit = 1000
 	all := make([]roundIntra, 0, q.Limit)
-	rowchan := db.Transactions(context.Background(), q)
+	rowchan, _ := db.Transactions(context.Background(), q)
 	for txnrow := range rowchan {
 		var ri roundIntra
 		ri.Round = txnrow.Round
@@ -72,7 +72,7 @@ func testTxnPaging(db idb.IndexerDb, q idb.TransactionFilter) {
 	any := true
 	for any {
 		any = false
-		rowchan := db.Transactions(context.Background(), q)
+		rowchan, _ := db.Transactions(context.Background(), q)
 		next := ""
 		for txnrow := range rowchan {
 			any = true
@@ -106,7 +106,7 @@ func testTxnPaging(db idb.IndexerDb, q idb.TransactionFilter) {
 }
 
 func printAssetBalanceQuery(db idb.IndexerDb, assetID uint64) {
-	rows := db.AssetBalances(context.Background(), idb.AssetBalanceQuery{AssetID: assetID})
+	rows, _ := db.AssetBalances(context.Background(), idb.AssetBalanceQuery{AssetID: assetID})
 	count := 0
 	for row := range rows {
 		maybeFail(row.Error, "err %v\n", row.Error)
@@ -119,7 +119,9 @@ func printAssetBalanceQuery(db idb.IndexerDb, assetID uint64) {
 }
 
 func getAccount(db idb.IndexerDb, addr []byte) (account models.Account, err error) {
-	for ar := range db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: addr}) {
+	accountchan, _ :=
+		db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: addr})
+	for ar := range accountchan {
 		return ar.Account, ar.Error
 	}
 	return models.Account{}, nil
