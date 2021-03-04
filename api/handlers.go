@@ -645,7 +645,7 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 
 		// Compute for a given round if requested.
 		var account generated.Account
-		if atRound != nil {
+		if (atRound != nil) && (*atRound < row.Account.Round) {
 			acct, err := accounting.AccountAtRound(row.Account, *atRound, si.db)
 			if err != nil {
 				// Ignore the error if this is an account search rewind error

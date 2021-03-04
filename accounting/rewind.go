@@ -55,6 +55,7 @@ var specialAccounts *idb.SpecialAccounts
 
 // AccountAtRound queries the idb.IndexerDb object for transactions and rewinds most fields of the account back to
 // their values at the requested round.
+// `round` must be <= `account.Round`
 func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acct models.Account, err error) {
 	// Make sure special accounts cache has been initialized.
 	if specialAccounts == nil {
