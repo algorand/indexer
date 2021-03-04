@@ -447,9 +447,9 @@ func getAccounts(ctx context.Context, db *IndexerDb, after types.Address, batchS
 	go func() {
 		defer close(out)
 		afterAddr := after
-		buffer := make([]acct, 0)
 
 		for true {
+			buffer := make([]acct, 0)
 			rows, err := db.db.QueryContext(ctx, `SELECT addr FROM account WHERE addr > $1 ORDER BY addr ASC LIMIT $2`, afterAddr[:], batchSize)
 			if err != nil {
 				out <- acct{
@@ -463,7 +463,6 @@ func getAccounts(ctx context.Context, db *IndexerDb, after types.Address, batchS
 				num++
 				bytes := afterAddr[:]
 				err = rows.Scan(&bytes)
-				copy(afterAddr[:], bytes)
 				if err != nil {
 					rows.Close()
 					out <- acct{
@@ -471,6 +470,7 @@ func getAccounts(ctx context.Context, db *IndexerDb, after types.Address, batchS
 					}
 					return
 				}
+				copy(afterAddr[:], bytes)
 				buffer = append(buffer, acct{
 					Address: afterAddr,
 				})
