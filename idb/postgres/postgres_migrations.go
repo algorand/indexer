@@ -440,16 +440,17 @@ type acct struct {
 	Address types.Address
 }
 
-func getAccounts(db *IndexerDb, after types.Address, batchSize int) <-chan acct {
-	out := make(chan acct)
+// out is a buffered channel
+func getAccounts(ctx context.Context, db *IndexerDb, after types.Address, batchSize int) <-chan acct {
+	out := make(chan acct, batchSize)
 
 	go func() {
 		defer close(out)
 		afterAddr := after
+		buffer := make([]acct, 0)
 
 		for true {
-			buffer := make([]acct, 0)
-			rows, err := db.db.Query(`SELECT addr FROM account WHERE addr > $1 ORDER BY addr ASC LIMIT $2`, afterAddr[:], batchSize)
+			rows, err := db.db.QueryContext(ctx, `SELECT addr FROM account WHERE addr > $1 ORDER BY addr ASC LIMIT $2`, afterAddr[:], batchSize)
 			if err != nil {
 				out <- acct{
 					Error: fmt.Errorf("failed to account query accounts after %s: %v", afterAddr.String(), err),
@@ -481,7 +482,14 @@ func getAccounts(db *IndexerDb, after types.Address, batchSize int) <-chan acct 
 			}
 
 			for _, a := range buffer {
-				out <- a
+				select {
+				case <-ctx.Done():
+					for range out {
+					}
+					return
+				default:
+					out <- a
+				}
 			}
 		}
 	}()
@@ -549,7 +557,9 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 		copy(fromAccount[:], state.NextAccount[:])
 	}
 
-	accountChan := getAccounts(db, fromAccount, 500)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	accountChan := getAccounts(ctx, db, fromAccount, 10000)
 
 	batchSize := 500
 	batchNumber := 1
@@ -689,7 +699,7 @@ func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, addre
 	for i := 0; i < retries; i++ {
 		ctx, cancel := context.WithCancel(context.Background())
 		// Query transactions for the account
-		txnrows := accountTransactions(ctx, db, address, nextRound, 1000)
+		txnrows := accountTransactions(ctx, db, address, nextRound, 100000)
 
 		// Process transactions!
 		results, err = processAccountTransactions(txnrows, addressStr, address)
