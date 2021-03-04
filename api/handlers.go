@@ -28,6 +28,8 @@ type ServerImplementation struct {
 
 	db idb.IndexerDb
 
+	fetcher error
+
 	log *log.Logger
 }
 
@@ -59,9 +61,19 @@ const defaultBalancesLimit = 1000
 // Returns 200 if healthy.
 // (GET /health)
 func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
+	var errors []string
+
 	health, err := si.db.Health()
 	if err != nil {
 		return indexerError(ctx, fmt.Sprintf("problem fetching health: %v", err))
+	}
+
+	if health.Error != "" {
+		errors = append(errors, fmt.Sprintf("database error: %s", health.Error))
+	}
+
+	if si.fetcher != nil && si.fetcher.Error() != "" {
+		errors = append(errors, fmt.Sprintf("fetcher error: %s", si.fetcher.Error()))
 	}
 
 	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
@@ -70,6 +82,7 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 		IsMigrating: health.IsMigrating,
 		DbAvailable: health.DBAvailable,
 		Message:     strconv.FormatUint(health.Round, 10),
+		Errors:      strArrayPtr(errors),
 	})
 }
 
@@ -79,6 +92,16 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 	addr, errors := decodeAddress(&accountID, "account-id", make([]string, 0))
 	if len(errors) != 0 {
 		return badRequest(ctx, errors[0])
+	}
+
+	// Special accounts non handling
+	isSpecialAccount, err := si.isSpecialAccount(accountID)
+	if err != nil {
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedLoadSpecialAccounts, err))
+	}
+
+	if isSpecialAccount {
+		return badRequest(ctx, errSpecialAccounts)
 	}
 
 	options := idb.AccountQueryOptions{
@@ -645,6 +668,16 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 			return nil, row.Error
 		}
 
+		// Check if it's a special account, if so, skip. We don't want it in our results.
+		isSpecialAccount, err := si.isSpecialAccount(row.Account.Address)
+		if err != nil {
+			return nil, err
+		}
+
+		if isSpecialAccount {
+			continue
+		}
+
 		// Compute for a given round if requested.
 		var account generated.Account
 		if atRound != nil {
@@ -705,4 +738,19 @@ func max(x, y uint64) uint64 {
 		return x
 	}
 	return y
+}
+
+// isSpecialAccount returns true if addr belongs to a special account, false otherwise.
+// The function returns an error in case it fails to retrieve the special accounts list.
+func (si *ServerImplementation) isSpecialAccount(addr string) (bool, error) {
+	// Special accounts non handling
+	sa, err := si.db.GetSpecialAccounts()
+	if err != nil {
+		return false, err
+	}
+
+	if addr == sa.FeeSink.String() || addr == sa.RewardsPool.String() {
+		return true, nil
+	}
+	return false, nil
 }

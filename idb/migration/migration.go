@@ -12,15 +12,19 @@ import (
 
 // ErrDuplicateID is the error returned when the migration is given duplicate migration IDs.
 var ErrDuplicateID = errors.New("duplicate ID detected")
+
 // ErrUnorderedID is the error returned when the migration is given migrations that aren't ordered correctly.
 var ErrUnorderedID = errors.New("migration IDs must be in ascending order")
 
 // StatusPending is the migration status before the migration has been started.
 const StatusPending = "Migration pending"
+
 // StatusComplete is the migration status after the migration successfully completes.
 const StatusComplete = "Migrations Complete"
+
 // StatusActivePrefix is the migration status prefix for the currently running migration.
 const StatusActivePrefix = "Active migration: "
+
 // StatusErrorPrefix is the status message prefix when there is an error during the migration.
 const StatusErrorPrefix = "error during migration "
 
@@ -50,16 +54,16 @@ type State struct {
 	Time time.Time
 
 	// Err is the last error which occurred during the migration. On an error the migration should halt.
-	Err      error
+	Err error
 
 	// TaskID is the next task that should run, or -1 if all migrations are finished.
 	TaskID int
 
 	// Status is the most recent status message.
-	Status   string
+	Status string
 
 	// Running indicates whether or not a migration is currently running.
-	Running  bool
+	Running bool
 
 	// Blocking indicates that one or more tasks have requested that the DB remain unavailable until they complete.
 	Blocking bool
@@ -112,7 +116,7 @@ func (m *Migration) setTasks(migrationTasks []Task) error {
 // MakeMigration initializes
 func MakeMigration(migrationTasks []Task, logger *log.Logger) (*Migration, error) {
 	m := &Migration{
-		log: logger,
+		log:   logger,
 		tasks: migrationTasks,
 		state: State{
 			Time:     time.Now(),
