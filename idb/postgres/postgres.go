@@ -423,10 +423,18 @@ func (db *IndexerDb) SetImportState(state idb.ImportState) (err error) {
 	return db.setMetastate(stateMetastateKey, string(json.Encode(state)))
 }
 
-func (db *IndexerDb) getMaxRoundAccountedTx(tx *sql.Tx) (round uint64, err error) {
-	row := tx.QueryRow(`select coalesce((v->>'account_round')::bigint, 0) from metastate where k = 'state'`)
-	err = row.Scan(&round)
+// If `tx` is null, make a standalone query.
+func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (round uint64, err error) {
+	query := `select coalesce((v->>'account_round')::bigint, 0) from metastate where k = 'state'`
 
+	var row *sql.Row
+	if tx == nil {
+		row = db.db.QueryRow(query)
+	} else {
+		row = tx.QueryRow(query)
+	}
+
+	err = row.Scan(&round)
 	if err == sql.ErrNoRows {
 		err = nil
 		round = 0
@@ -437,15 +445,7 @@ func (db *IndexerDb) getMaxRoundAccountedTx(tx *sql.Tx) (round uint64, err error
 
 // GetMaxRoundAccounted is part of idb.IndexerDB
 func (db *IndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
-	row := db.db.QueryRow(`select coalesce((v->>'account_round')::bigint, 0) from metastate where k = 'state'`)
-	err = row.Scan(&round)
-
-	if err == sql.ErrNoRows {
-		err = nil
-		round = 0
-	}
-
-	return
+	return db.getMaxRoundAccounted(nil)
 }
 
 // GetMaxRoundLoaded is part of idb.IndexerDB
@@ -1570,7 +1570,7 @@ func (db *IndexerDb) Transactions(ctx context.Context,
 		return out, 0
 	}
 
-	round, err := db.getMaxRoundAccountedTx(tx)
+	round, err := db.getMaxRoundAccounted(tx)
 	if err != nil {
 		out <- idb.TxnRow{Error: err}
 		close(out)
@@ -2365,7 +2365,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context,
 	}
 
 	// Get round number through which accounting has been updated
-	round, err := db.getMaxRoundAccountedTx(tx)
+	round, err := db.getMaxRoundAccounted(tx)
 	if err != nil {
 		err = fmt.Errorf("account round err %v", err)
 		out <- idb.AccountRow{Error: err}
@@ -2602,7 +2602,7 @@ func (db *IndexerDb) Assets(ctx context.Context,
 		return out, 0
 	}
 
-	round, err := db.getMaxRoundAccountedTx(tx)
+	round, err := db.getMaxRoundAccounted(tx)
 	if err != nil {
 		out <- idb.AssetRow{Error: err}
 		close(out)
@@ -2709,7 +2709,7 @@ func (db *IndexerDb) AssetBalances(ctx context.Context,
 		return out, 0
 	}
 
-	round, err := db.getMaxRoundAccountedTx(tx)
+	round, err := db.getMaxRoundAccounted(tx)
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
@@ -2803,7 +2803,7 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 		return out, 0
 	}
 
-	round, err := db.getMaxRoundAccountedTx(tx)
+	round, err := db.getMaxRoundAccounted(tx)
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
