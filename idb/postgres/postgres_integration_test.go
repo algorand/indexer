@@ -668,7 +668,7 @@ func TestAccountHelperQuery(t *testing.T) {
 	//////////
 	// When // searching for accounts we should find some
 	//////////
-	accts := getAccounts(pdb, types.ZeroAddress, 200)
+	accts := getAccounts(context.Background(), pdb, types.ZeroAddress, 200)
 	assert.NoError(t, err)
 	num := 0
 	var middleAccount types.Address
@@ -688,7 +688,7 @@ func TestAccountHelperQuery(t *testing.T) {
 	//////////
 	// When // searching for accounts from the half way point
 	//////////
-	accts = getAccounts(pdb, middleAccount, 200)
+	accts = getAccounts(context.Background(), pdb, middleAccount, 200)
 	assert.NoError(t, err)
 	num = 0
 	for acct := range accts {
