@@ -505,7 +505,11 @@ func accountTransactions(ctx context.Context, db *IndexerDb, address types.Addre
 	go func() {
 		defer close(out)
 		token := ""
+		num := uint64(0)
 		for true {
+			if num > 0 {
+				db.log.Infof("processing many transactions for %s, batch %d: >%d", address.String(), num, batchSize * num)
+			}
 			buffer := make([]idb.TxnRow, 0)
 			txnrows := db.Transactions(ctx, idb.TransactionFilter{
 				Address:   address[:],
@@ -528,6 +532,7 @@ func accountTransactions(ctx context.Context, db *IndexerDb, address types.Addre
 				out <- row
 			}
 			token = buffer[len(buffer)-1].Next()
+			num++
 		}
 	}()
 
