@@ -11,6 +11,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/algorand/workpool"
+
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
@@ -681,6 +683,9 @@ func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]*creat
 }
 
 type m5AccountData struct {
+	err               error
+	address           string
+	addr              types.Address
 	cumulativeRewards types.MicroAlgos
 	account           createClose
 	asset             map[uint64]*createClose
@@ -700,16 +705,16 @@ func initM5AccountData() *m5AccountData {
 	}
 }
 
-func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData, err error) {
+func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData) {
 	for i := 0; i < retries; i++ {
 		ctx, cancel := context.WithCancel(context.Background())
 		// Query transactions for the account
 		txnrows := accountTransactions(ctx, db, address, nextRound, 100000)
 
 		// Process transactions!
-		results, err = processAccountTransactions(txnrows, addressStr, address)
-		if err != nil {
-			db.log.Errorf("%s: (attempt %d) failed to update %s: %v", rewardsCreateCloseUpdateErr, i+1, addressStr, err)
+		results = processAccountTransactions(txnrows, addressStr, address)
+		if results.err != nil {
+			db.log.Errorf("%s: (attempt %d) failed to update %s: %v", rewardsCreateCloseUpdateErr, i+1, addressStr, results.err)
 			cancel()
 			time.Sleep(10 * time.Second)
 		} else {
@@ -721,18 +726,22 @@ func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, addre
 }
 
 // processAccountTransactions contains all the accounting logic to recompute total rewards and create/close rounds.
-func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, address types.Address) (*m5AccountData, error) {
+func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, address types.Address) *m5AccountData {
 	var err error
 	result := initM5AccountData()
+	result.address = addressStr
+	result.addr = address
 	numTxn := 0
 
 	// Loop through transactions
 	for txn := range txnrows {
 		if txn.Error != nil {
-			return nil, fmt.Errorf("%s: processing account %s: found txnrow error:  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Error)
+			result.err = fmt.Errorf("%s: processing account %s: found txnrow error:  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Error)
+			return result
 		}
 		if len(txn.TxnBytes) == 0 {
-			return nil, fmt.Errorf("%s: processing account %s: found empty TxnBytes (rnd %d, intra %d):  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Round, txn.Intra, err)
+			result.err = fmt.Errorf("%s: processing account %s: found empty TxnBytes (rnd %d, intra %d):  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Round, txn.Intra, err)
+			return result
 		}
 		numTxn++
 
@@ -744,7 +753,8 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 		var stxn types.SignedTxnWithAD
 		err = msgpack.Decode(txn.TxnBytes, &stxn)
 		if err != nil {
-			return nil, fmt.Errorf("%s: processing account %s: decoding txn (rnd %d, intra %d):  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Round, txn.Intra, err)
+			result.err = fmt.Errorf("%s: processing account %s: decoding txn (rnd %d, intra %d):  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Round, txn.Intra, err)
+			return result
 		}
 
 		// When the account is closed rewards reset to zero.
@@ -820,7 +830,7 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 		result.account.deleted.Bool = false
 	}
 
-	return result, nil
+	return result
 }
 
 // m5RewardsAndDatesPart2UpdateAccounts loops through the provided accounts and generates a bunch of updates in a
@@ -841,28 +851,72 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	// finalAddress is cached for updating the state at the end.
 	var finalAddress []byte
 
-	// Process transactions for each account.
-	accountData := make(map[types.Address]*m5AccountData, 0)
-	for _, addressStr := range accounts {
-		address, err := sdk_types.DecodeAddress(addressStr)
-		if err != nil {
-			return fmt.Errorf("%s: failed to decode address: %s", rewardsCreateCloseUpdateErr, addressStr)
-		}
-		finalAddress = address[:]
+	work := make(chan string)
+	results := make(chan *m5AccountData)
 
-		// Process transactions!
-		start := time.Now()
-		result, err := processAccountTransactionsWithRetry(db, addressStr, address, uint64(state.NextRound), 3)
-		dur := time.Since(start)
-		if err != nil {
-			return fmt.Errorf("%s: failed to update %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
-		}
-		if dur > 5*time.Minute {
-			db.log.Warnf("%s: slowness detected, spent %s migrating %s", rewardsCreateCloseUpdateMessage, dur, addressStr)
-		}
-
-		accountData[address] = result
+	closer := func() {
+		close(results)
 	}
+	handler := func(abort <-chan struct{}) bool {
+		select {
+		case addressStr, ok := <- work:
+			if !ok {
+				return false
+			}
+			
+			address, err := sdk_types.DecodeAddress(addressStr)
+			if err != nil {
+				results <- &m5AccountData{
+					err: fmt.Errorf("%s: failed to decode address: %s", rewardsCreateCloseUpdateErr, addressStr),
+				}
+				return false
+			}
+
+			// Process transactions!
+			start := time.Now()
+			result := processAccountTransactionsWithRetry(db, addressStr, address, uint64(state.NextRound), 3)
+			dur := time.Since(start)
+			if dur > 5*time.Minute {
+				db.log.Warnf("%s: slowness detected, spent %s migrating %s", rewardsCreateCloseUpdateMessage, dur, addressStr)
+			}
+			if result.err != nil {
+				result.err = fmt.Errorf("%s: failed to update %s: %v", rewardsCreateCloseUpdateErr, addressStr, result.err)
+				results <- result
+				return false
+			}
+			results <- result
+			return true
+		case <-abort:
+			return false
+		}
+	}
+
+	pool := workpool.NewWithClose(10, handler, closer)
+	go pool.Run()
+
+	// Submit work
+	go func() {
+		for i := 0; i < len(accounts); i++ {
+			work <- accounts[i]
+		}
+		close(work)
+	}()
+
+	// Grab results.
+	accountData := make([]*m5AccountData, 0)
+	for  result := range results {
+		if result.err != nil {
+			pool.Cancel()
+			return result.err
+		}
+		accountData = append(accountData, result)
+		finalAddress = result.addr[:]
+	}
+
+	/////////////////////////
+	// Write results to DB //
+	/////////////////////////
+
 
 	// Make sure round accounting doesn't interfere with updating these accounts.
 	db.accountingLock.Lock()
@@ -922,43 +976,41 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	defer setCreateCloseAppLocal.Close()
 
 	// loop through all of the accounts.
-	for address, result := range accountData {
-		addressStr := address.String()
-
+	for _, result := range accountData {
 		// 1. updateTotalRewards            - conditionally update the total rewards if the account wasn't closed during iteration.
-		_, err = updateTotalRewards.Exec(address[:], result.cumulativeRewards, state.NextRound)
+		_, err = updateTotalRewards.Exec(result.addr[:], result.cumulativeRewards, state.NextRound)
 		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with rewards %d: %v", rewardsCreateCloseUpdateErr, addressStr, result.cumulativeRewards, err)
+			return fmt.Errorf("%s: failed to update %s with rewards %d: %v", rewardsCreateCloseUpdateErr, result.address, result.cumulativeRewards, err)
 		}
 
 		// 2. setCreateCloseAccount      - set the accounts create/close rounds.
-		_, err = setCreateCloseAccount.Exec(address[:], result.account.created, result.account.closed, result.account.deleted)
+		_, err = setCreateCloseAccount.Exec(result.addr[:], result.account.created, result.account.closed, result.account.deleted)
 		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+			return fmt.Errorf("%s: failed to update %s with create/close: %v", rewardsCreateCloseUpdateErr, result.address, err)
 		}
 
 		// 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
-		err = executeForEachCreatable(setCreateCloseAsset, address[:], result.asset)
+		err = executeForEachCreatable(setCreateCloseAsset, result.addr[:], result.asset)
 		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with asset create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+			return fmt.Errorf("%s: failed to update %s with asset create/close: %v", rewardsCreateCloseUpdateErr, result.address, err)
 		}
 
 		// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
-		err = executeForEachCreatable(setCreateCloseAssetHolding, address[:], result.assetHolding)
+		err = executeForEachCreatable(setCreateCloseAssetHolding, result.addr[:], result.assetHolding)
 		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with asset holding create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+			return fmt.Errorf("%s: failed to update %s with asset holding create/close: %v", rewardsCreateCloseUpdateErr, result.address, err)
 		}
 
 		// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
-		err = executeForEachCreatable(setCreateCloseApp, address[:], result.app)
+		err = executeForEachCreatable(setCreateCloseApp, result.addr[:], result.app)
 		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with app create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+			return fmt.Errorf("%s: failed to update %s with app create/close: %v", rewardsCreateCloseUpdateErr, result.address, err)
 		}
 
 		// 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
-		err = executeForEachCreatable(setCreateCloseAppLocal, address[:], result.appLocal)
+		err = executeForEachCreatable(setCreateCloseAppLocal, result.addr[:], result.appLocal)
 		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with app local create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+			return fmt.Errorf("%s: failed to update %s with app local create/close: %v", rewardsCreateCloseUpdateErr, result.address, err)
 		}
 	}
 
