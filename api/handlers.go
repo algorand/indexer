@@ -545,6 +545,9 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 		}
 		copy(creator[:], row.Creator[:])
 
+		mdhash := make([]byte, 32)
+		copy(mdhash, row.Params.MetadataHash[:])
+
 		asset := generated.Asset{
 			Index:            row.AssetID,
 			CreatedAtRound:   row.CreatedRound,
@@ -558,7 +561,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 				Total:         row.Params.Total,
 				Decimals:      uint64(row.Params.Decimals),
 				DefaultFrozen: boolPtr(row.Params.DefaultFrozen),
-				MetadataHash:  bytePtr(row.Params.MetadataHash[:]),
+				MetadataHash:  bytePtr(mdhash),
 				Clawback:      strPtr(row.Params.Clawback.String()),
 				Reserve:       strPtr(row.Params.Reserve.String()),
 				Freeze:        strPtr(row.Params.Freeze.String()),
