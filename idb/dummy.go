@@ -233,6 +233,8 @@ type IndexerDb interface {
 
 	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (block types.Block, transactions []TxnRow, err error)
 
+	// The next multiple functions return a channel with results as well as the latest round
+	// accounted.
 	Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64)
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64)
 	Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64)
