@@ -1559,8 +1559,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 }
 
 // Transactions is part of idb.IndexerDB
-func (db *IndexerDb) Transactions(ctx context.Context,
-	tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
+func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	out := make(chan idb.TxnRow, 1)
 
 	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
@@ -1628,8 +1627,7 @@ func (db *IndexerDb) txTransactions(tx *sql.Tx, tf idb.TransactionFilter) <-chan
 	return out
 }
 
-func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.TransactionFilter,
-	out chan<- idb.TxnRow) {
+func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
 	nextround, nextintra32, err := idb.DecodeTxnRowNext(tf.NextToken)
 	nextintra := uint64(nextintra32)
 	if err != nil {
@@ -2342,8 +2340,7 @@ type getAccountsRequest struct {
 }
 
 // GetAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetAccounts(ctx context.Context,
-	opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
+func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
 	out := make(chan idb.AccountRow, 1)
 
 	if opts.HasAssetID != 0 {
@@ -2543,8 +2540,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 }
 
 // Assets is part of idb.IndexerDB
-func (db *IndexerDb) Assets(ctx context.Context,
-	filter idb.AssetsQuery) (<-chan idb.AssetRow, uint64) {
+func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan idb.AssetRow, uint64) {
 	query := `SELECT index, creator_addr, params, created_at, closed_at, deleted FROM asset a`
 	const maxWhereParts = 14
 	whereParts := make([]string, 0, maxWhereParts)
@@ -2660,8 +2656,7 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 }
 
 // AssetBalances is part of idb.IndexerDB
-func (db *IndexerDb) AssetBalances(ctx context.Context,
-	abq idb.AssetBalanceQuery) (<-chan idb.AssetBalanceRow, uint64) {
+func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuery) (<-chan idb.AssetBalanceRow, uint64) {
 	const maxWhereParts = 14
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
