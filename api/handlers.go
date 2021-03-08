@@ -487,7 +487,7 @@ func notFound(ctx echo.Context, err string) error {
 ///////////////////////
 
 // fetchAssets fetches all results and converts them into generated.Asset objects
-func (si *ServerImplementation) fetchAssets(ctx context.Context options idb.AssetsQuery) ([]generated.Asset, uint64, error) {
+func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.AssetsQuery) ([]generated.Asset, uint64, error) {
 	assetchan, round := si.db.Assets(ctx, options)
 	assets := make([]generated.Asset, 0)
 	for row := range assetchan {
