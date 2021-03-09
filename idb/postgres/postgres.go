@@ -183,11 +183,8 @@ func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, ass
 	tx := []interface{}{round, intra, txtypeenum, assetid, txid[:], txnbytes, string(jsonbytes)}
 	db.txrows = append(db.txrows, tx)
 	for _, paddr := range participation {
-		seen := false
-		if !seen {
-			txp := []interface{}{paddr, round, intra}
-			db.txprows = append(db.txprows, txp)
-		}
+		txp := []interface{}{paddr, round, intra}
+		db.txprows = append(db.txprows, txp)
 	}
 	return nil
 }
