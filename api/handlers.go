@@ -487,7 +487,7 @@ func notFound(ctx echo.Context, err string) error {
 ///////////////////////
 
 // fetchAssets fetches all results and converts them into generated.Asset objects
-func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.AssetsQuery) ([]generated.Asset, uint64, error) {
+func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.AssetsQuery) ([]generated.Asset, /*round*/ uint64, error) {
 	assetchan, round := si.db.Assets(ctx, options)
 	assets := make([]generated.Asset, 0)
 	for row := range assetchan {
@@ -529,7 +529,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 
 // fetchAssetBalances fetches all balances from a query and converts them into
 // generated.MiniAssetHolding objects
-func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options idb.AssetBalanceQuery) ([]generated.MiniAssetHolding, uint64, error) {
+func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options idb.AssetBalanceQuery) ([]generated.MiniAssetHolding, /*round*/ uint64, error) {
 	assetbalchan, round := si.db.AssetBalances(ctx, options)
 	balances := make([]generated.MiniAssetHolding, 0)
 	for row := range assetbalchan {
@@ -621,7 +621,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 
 // fetchAccounts queries for accounts and converts them into generated.Account
 // objects, optionally rewinding their value back to a particular round.
-func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.AccountQueryOptions, atRound *uint64) ([]generated.Account, uint64, error) {
+func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.AccountQueryOptions, atRound *uint64) ([]generated.Account, /*round*/ uint64, error) {
 	accountchan, round := si.db.GetAccounts(ctx, options)
 
 	accounts := make([]generated.Account, 0)
@@ -667,7 +667,7 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 }
 
 // fetchTransactions is used to query the backend for transactions, and compute the next token
-func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, uint64, error) {
+func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, /*round*/ uint64, error) {
 	results := make([]generated.Transaction, 0)
 	txchan, round := si.db.Transactions(ctx, filter)
 	nextToken := ""
