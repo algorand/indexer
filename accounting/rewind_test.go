@@ -18,10 +18,10 @@ func TestBasic(t *testing.T) {
 	a[0] = 'a'
 
 	account := models.Account{
-		Address: a.String(),
-		Amount: 100,
+		Address:                     a.String(),
+		Amount:                      100,
 		AmountWithoutPendingRewards: 100,
-		Round: 8,
+		Round:                       8,
 	}
 
 	txnBytes := msgpack.Encode(types.SignedTxnWithAD{
@@ -36,7 +36,7 @@ func TestBasic(t *testing.T) {
 		},
 	})
 	txnRow := idb.TxnRow{
-		Round: 7,
+		Round:    7,
 		TxnBytes: txnBytes,
 	}
 
@@ -74,9 +74,9 @@ func TestStaleTransactions1(t *testing.T) {
 // Test that when idb.Transactions() returns stale data the second time, we return an error.
 func TestStaleTransactions2(t *testing.T) {
 	account := models.Account{
-		Amount: 100,
+		Amount:                      100,
 		AmountWithoutPendingRewards: 100,
-		Round: 8,
+		Round:                       8,
 	}
 
 	txnBytes := msgpack.Encode(types.SignedTxnWithAD{
@@ -87,7 +87,7 @@ func TestStaleTransactions2(t *testing.T) {
 		},
 	})
 	txnRow := idb.TxnRow{
-		Round: 7,
+		Round:    7,
 		TxnBytes: txnBytes,
 	}
 
