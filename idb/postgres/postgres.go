@@ -1570,11 +1570,15 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 	if err != nil {
 		out <- idb.TxnRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
 
 	if len(tf.NextToken) > 0 {
-		go db.txnsWithNext(ctx, tx, tf, out)
+		go func() {
+			db.txnsWithNext(ctx, tx, tf, out)
+			tx.Rollback()
+		}()
 		return out, round
 	}
 
@@ -1583,6 +1587,7 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 		err = fmt.Errorf("txn query err %v", err)
 		out <- idb.TxnRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, 0
 	}
 
@@ -1591,10 +1596,14 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 		err = fmt.Errorf("txn query %#v err %v", query, err)
 		out <- idb.TxnRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
 
-	go db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
+	go func() {
+		db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
+		tx.Rollback()
+	}()
 	return out, round
 }
 
@@ -1765,7 +1774,6 @@ var statusStrings = []string{"Offline", "Online", "NotParticipating"}
 const offlineStatusIdx = 0
 
 func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
-	defer req.tx.Rollback()
 	count := uint64(0)
 	defer func() {
 		end := time.Now()
@@ -2328,7 +2336,6 @@ func bytesStr(addr []byte) *string {
 type getAccountsRequest struct {
 	ctx         context.Context
 	opts        idb.AccountQueryOptions
-	tx          *sql.Tx
 	blockheader types.Block
 	query       string
 	rows        *sql.Rows
@@ -2394,7 +2401,6 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	req := &getAccountsRequest{
 		ctx:         ctx,
 		opts:        opts,
-		tx:          tx,
 		blockheader: blockheader,
 		query:       query,
 		out:         out,
@@ -2408,7 +2414,10 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		tx.Rollback()
 		return out, round
 	}
-	go db.yieldAccountsThread(req)
+	go func() {
+		db.yieldAccountsThread(req)
+		tx.Rollback()
+	}()
 	return out, round
 }
 
@@ -2599,6 +2608,7 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	if err != nil {
 		out <- idb.AssetRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
 
@@ -2607,9 +2617,13 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 		err = fmt.Errorf("asset query %#v err %v", query, err)
 		out <- idb.AssetRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
-	go db.yieldAssetsThread(ctx, filter, rows, out)
+	go func() {
+		db.yieldAssetsThread(ctx, filter, rows, out)
+		tx.Rollback()
+	}()
 	return out, round
 }
 
@@ -2705,6 +2719,7 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
 
@@ -2712,9 +2727,13 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
-	go db.yieldAssetBalanceThread(ctx, rows, out)
+	go func() {
+		db.yieldAssetBalanceThread(ctx, rows, out)
+		tx.Rollback()
+	}()
 	return out, round
 }
 
@@ -2799,6 +2818,7 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
 
@@ -2806,10 +2826,14 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
 
-	go db.yieldApplicationsThread(ctx, rows, out)
+	go func() {
+		db.yieldApplicationsThread(ctx, rows, out)
+		tx.Rollback()
+	}()
 	return out, round
 }
 
