@@ -12,6 +12,7 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
+// ConsistencyError is returned when the database returns inconsistent (stale) results.
 type ConsistencyError struct {
 	msg string
 }
