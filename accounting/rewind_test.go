@@ -1,6 +1,7 @@
 package accounting
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
@@ -57,8 +58,12 @@ func TestBasic(t *testing.T) {
 
 // Test that when idb.Transactions() returns stale data the first time, we return an error.
 func TestStaleTransactions1(t *testing.T) {
+	var a types.Address
+	a[0] = 'a'
+
 	account := models.Account{
-		Round: 8,
+		Address: a.String(),
+		Round:   8,
 	}
 
 	var outCh <-chan idb.TxnRow
@@ -68,12 +73,16 @@ func TestStaleTransactions1(t *testing.T) {
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
 
 	account, err := AccountAtRound(account, 6, db)
-	assert.Error(t, err)
+	assert.True(t, errors.As(err, &ConsistencyError{}), "err: %v", err)
 }
 
 // Test that when idb.Transactions() returns stale data the second time, we return an error.
 func TestStaleTransactions2(t *testing.T) {
+	var a types.Address
+	a[0] = 'a'
+
 	account := models.Account{
+		Address:                     a.String(),
 		Amount:                      100,
 		AmountWithoutPendingRewards: 100,
 		Round:                       8,
@@ -102,5 +111,5 @@ func TestStaleTransactions2(t *testing.T) {
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(5)).Once()
 
 	account, err := AccountAtRound(account, 6, db)
-	assert.Error(t, err)
+	assert.True(t, errors.As(err, &ConsistencyError{}), "err: %v", err)
 }
