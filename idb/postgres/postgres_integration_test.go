@@ -459,7 +459,7 @@ func TestBlockWithTransactions(t *testing.T) {
 	_, blockTxn, err := pdb.GetBlock(context.Background(), test.Round, idb.GetBlockOptions{Transactions: true})
 	assert.NoError(t, err)
 	round := test.Round
-	txnRow := pdb.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
+	txnRow, _ := pdb.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
 	transactionsTxn := make([]idb.TxnRow, 0)
 	for row := range txnRow {
 		transactionsTxn = append(transactionsTxn, row)
