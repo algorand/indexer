@@ -398,6 +398,7 @@ type EvalDeltaKeyValue struct {
 type HealthCheck struct {
 	Data        *map[string]interface{} `json:"data,omitempty"`
 	DbAvailable bool                    `json:"db-available"`
+	Errors      *[]string               `json:"errors,omitempty"`
 	IsMigrating bool                    `json:"is-migrating"`
 	Message     string                  `json:"message"`
 	Round       uint64                  `json:"round"`
@@ -810,6 +811,9 @@ type CurrencyLessThan uint64
 
 // ExcludeCloseTo defines model for exclude-close-to.
 type ExcludeCloseTo bool
+
+// IncludeAll defines model for include-all.
+type IncludeAll bool
 
 // Limit defines model for limit.
 type Limit uint64

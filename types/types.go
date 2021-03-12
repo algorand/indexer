@@ -124,24 +124,36 @@ type (
 		// started being supported).
 		TxnCounter uint64 `codec:"tc"`
 
+		// CompactCert tracks the state of compact certs, potentially
+		// for multiple types of certs.
+		//msgp:sort protocol.CompactCertType protocol.SortCompactCertType
+		CompactCert map[CompactCertType]CompactCertState `codec:"cc"`
+	}
+
+	// CompactCertType identifies a particular configuration of compact certs.
+	CompactCertType uint64
+
+	// CompactCertState tracks the state of compact certificates.
+	CompactCertState struct {
 		// CompactCertVoters is the root of a Merkle tree containing the
 		// online accounts that will help sign a compact certificate.  The
 		// Merkle root, and the compact certificate, happen on blocks that
 		// are a multiple of ConsensusParams.CompactCertRounds.  For blocks
 		// that are not a multiple of ConsensusParams.CompactCertRounds,
 		// this value is zero.
-		CompactCertVoters Digest `codec:"ccv"`
+		CompactCertVoters Digest `codec:"v"`
 
 		// CompactCertVotersTotal is the total number of microalgos held by
 		// the accounts in CompactCertVoters (or zero, if the merkle root is
 		// zero).  This is intended for computing the threshold of votes to
 		// expect from CompactCertVoters.
-		CompactCertVotersTotal MicroAlgos `codec:"ccvt"`
+		CompactCertVotersTotal MicroAlgos `codec:"t"`
 
 		// CompactCertNextRound is the next round for which we will accept
 		// a CompactCert transaction.
-		CompactCertNextRound Round `codec:"ccn"`
+		CompactCertNextRound Round `codec:"n"`
 	}
+
 	// RewardsState represents the global parameters controlling the rate
 	// at which accounts accrue rewards.
 	RewardsState struct {
@@ -228,6 +240,9 @@ type (
 
 		// Closing amount for transaction.
 		ClosingAmount MicroAlgos `codec:"ca"`
+
+		// Closing amount for asset transaction.
+		AssetClosingAmount uint64 `codec:"aca"`
 
 		// Rewards applied to the Sender, Receiver, and CloseRemainderTo accounts.
 		SenderRewards   MicroAlgos `codec:"rs"`
@@ -620,12 +635,21 @@ type ConsensusParams struct {
 	DownCommitteeSize      uint64
 	DownCommitteeThreshold uint64
 
+	// time for nodes to wait for block proposal headers for period > 0, value should be set to 2 * SmallLambda
+	AgreementFilterTimeout time.Duration
+	// time for nodes to wait for block proposal headers for period = 0, value should be configured to suit best case
+	// critical path
+	AgreementFilterTimeoutPeriod0 time.Duration
+
 	FastRecoveryLambda    time.Duration // time between fast recovery attempts
 	FastPartitionRecovery bool          // set when fast partition recovery is enabled
 
 	// commit to payset using a hash of entire payset,
 	// instead of txid merkle tree
 	PaysetCommitFlat bool
+
+	// how to commit to the payset: flat or merkle tree
+	PaysetCommit PaysetCommitType
 
 	MaxTimestampIncrement int64 // maximum time between timestamps on successive blocks
 
@@ -779,7 +803,76 @@ type ConsensusParams struct {
 	// maximum total minimum balance requirement for an account, used
 	// to limit the maximum size of a single balance record
 	MaximumMinimumBalance uint64
+
+	// CompactCertRounds defines the frequency with which compact
+	// certificates are generated.  Every round that is a multiple
+	// of CompactCertRounds, the block header will include a Merkle
+	// commitment to the set of online accounts (that can vote after
+	// another CompactCertRounds rounds), and that block will be signed
+	// (forming a compact certificate) by the voters from the previous
+	// such Merkle tree commitment.  A value of zero means no compact
+	// certificates.
+	CompactCertRounds uint64
+
+	// CompactCertTopVoters is a bound on how many online accounts get to
+	// participate in forming the compact certificate, by including the
+	// top CompactCertTopVoters accounts (by normalized balance) into the
+	// Merkle commitment.
+	CompactCertTopVoters uint64
+
+	// CompactCertVotersLookback is the number of blocks we skip before
+	// publishing a Merkle commitment to the online accounts.  Namely,
+	// if block number N contains a Merkle commitment to the online
+	// accounts (which, incidentally, means N%CompactCertRounds=0),
+	// then the balances reflected in that commitment must come from
+	// block N-CompactCertVotersLookback.  This gives each node some
+	// time (CompactCertVotersLookback blocks worth of time) to
+	// construct this Merkle tree, so as to avoid placing the
+	// construction of this Merkle tree (and obtaining the requisite
+	// accounts and balances) in the critical path.
+	CompactCertVotersLookback uint64
+
+	// CompactCertWeightThreshold specifies the fraction of top voters weight
+	// that must sign the message (block header) for security.  The compact
+	// certificate ensures this threshold holds; however, forming a valid
+	// compact certificate requires a somewhat higher number of signatures,
+	// and the more signatures are collected, the smaller the compact cert
+	// can be.
+	//
+	// This threshold can be thought of as the maximum fraction of
+	// malicious weight that compact certificates defend against.
+	//
+	// The threshold is computed as CompactCertWeightThreshold/(1<<32).
+	CompactCertWeightThreshold uint32
+
+	// CompactCertSecKQ is the security parameter (k+q) for the compact
+	// certificate scheme.
+	CompactCertSecKQ uint64
+
+	// EnableAssetCloseAmount adds an extra field to the ApplyData. The field contains the amount of the remaining
+	// asset that were sent to the close-to address.
+	EnableAssetCloseAmount bool
+
+	// InitialRewardsRateCalculation update the initial rewards rate calculation to take the reward pool minimum balance into account
+	InitialRewardsRateCalculation bool
 }
+
+// PaysetCommitType enumerates possible ways for the block header to commit to
+// the set of transactions in the block.
+type PaysetCommitType int
+
+const (
+	// PaysetCommitUnsupported is the zero value, reflecting the fact
+	// that some early protocols used a Merkle tree to commit to the
+	// transactions in a way that we no longer support.
+	PaysetCommitUnsupported PaysetCommitType = iota
+
+	// PaysetCommitFlat hashes the entire payset array.
+	PaysetCommitFlat
+
+	// PaysetCommitMerkle uses merklearray to commit to the payset.
+	PaysetCommitMerkle
+)
 
 // MergeAssetConfig merges together two asset param objects.
 func MergeAssetConfig(old, new atypes.AssetParams) (out atypes.AssetParams) {

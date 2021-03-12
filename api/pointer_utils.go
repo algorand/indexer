@@ -30,6 +30,13 @@ func strOrDefault(str *string) string {
 	return ""
 }
 
+func boolOrDefault(b *bool) bool {
+	if b != nil {
+		return *b
+	}
+	return false
+}
+
 ////////////////////////////
 // Safe pointer wrappers. //
 ////////////////////////////
@@ -76,6 +83,13 @@ func strPtr(x string) *string {
 }
 
 func boolPtr(x bool) *bool {
+	return &x
+}
+
+func strArrayPtr(x []string) *[]string {
+	if x == nil || len(x) == 0 {
+		return nil
+	}
 	return &x
 }
 

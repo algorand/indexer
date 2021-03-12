@@ -117,28 +117,28 @@ func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options Ge
 }
 
 // Transactions is part of idb.IndexerDB
-func (db *dummyIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
-	return nil
+func (db *dummyIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64) {
+	return nil, 0
 }
 
 // GetAccounts is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow {
-	return nil
+func (db *dummyIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64) {
+	return nil, 0
 }
 
 // Assets is part of idb.IndexerDB
-func (db *dummyIndexerDb) Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow {
-	return nil
+func (db *dummyIndexerDb) Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64) {
+	return nil, 0
 }
 
 // AssetBalances is part of idb.IndexerDB
-func (db *dummyIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow {
-	return nil
+func (db *dummyIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64) {
+	return nil, 0
 }
 
 // Applications is part of idb.IndexerDB
-func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow {
-	return nil
+func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64) {
+	return nil, 0
 }
 
 // Health is part of idb.IndexerDB
@@ -233,11 +233,13 @@ type IndexerDb interface {
 
 	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (block types.Block, transactions []TxnRow, err error)
 
-	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
-	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
-	Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow
-	AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow
-	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow
+	// The next multiple functions return a channel with results as well as the latest round
+	// accounted.
+	Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64)
+	GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64)
+	Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64)
+	AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64)
+	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64)
 
 	Health() (status Health, err error)
 }
@@ -335,6 +337,9 @@ type AccountQueryOptions struct {
 	IncludeAssetHoldings bool
 	IncludeAssetParams   bool
 
+	// IncludeDeleted indicated whether to include deleted Assets, Applications, etc within the account.
+	IncludeDeleted bool
+
 	Limit uint64
 }
 
@@ -359,6 +364,9 @@ type AssetsQuery struct {
 	// (assetname ILIKE '%?%' OR unitname ILIKE '%?%')
 	Query string
 
+	// IncludeDeleted indicated whether to include deleted Assets in the results.
+	IncludeDeleted bool
+
 	Limit uint64
 }
 
@@ -378,6 +386,9 @@ type AssetBalanceQuery struct {
 	AssetID  uint64
 	AmountGT uint64 // only rows > this
 	AmountLT uint64 // only rows < this
+
+	// IncludeDeleted indicated whether to include deleted AssetHoldingss in the results.
+	IncludeDeleted bool
 
 	Limit uint64 // max rows to return
 
@@ -445,17 +456,6 @@ func IndexerDbByName(name, arg string, opts *IndexerDbOptions, log *log.Logger) 
 	return nil, fmt.Errorf("no IndexerDb factory for %s", name)
 }
 
-// AccountDataUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
-type AccountDataUpdate struct {
-	Addr            types.Address
-	Status          int // {Offline:0, Online:1, NotParticipating: 2}
-	VoteID          [32]byte
-	SelectionID     [32]byte
-	VoteFirstValid  uint64
-	VoteLastValid   uint64
-	VoteKeyDilution uint64
-}
-
 // AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
 type AssetUpdate struct {
 	AssetID       uint64
@@ -503,6 +503,12 @@ type AlgoUpdate struct {
 	Closed bool
 }
 
+// AccountDataUpdate encodes an update or remove operation on an account_data json key.
+type AccountDataUpdate struct {
+	Delete bool        // false if update, true if delete
+	Value  interface{} // value to write if `Delete` is false
+}
+
 // RoundUpdates is used by the accounting and IndexerDb implementations to share modifications in a block.
 type RoundUpdates struct {
 	AlgoUpdates  map[[32]byte]*AlgoUpdate
@@ -516,7 +522,7 @@ type RoundUpdates struct {
 	// zero value. A 0 value may need to be sent to the database
 	// to overlay onto a JSON struct there and replace a value
 	// with a 0 value.
-	AccountDataUpdates map[[32]byte]map[string]interface{}
+	AccountDataUpdates map[[32]byte]map[string]AccountDataUpdate
 
 	// AssetUpdates is more complicated than AlgoUpdates because there
 	// are no apply data values to work with in the event of a close.
@@ -541,7 +547,7 @@ type RoundUpdates struct {
 func (ru *RoundUpdates) Clear() {
 	ru.AlgoUpdates = make(map[[32]byte]*AlgoUpdate)
 	ru.AccountTypes = make(map[[32]byte]string)
-	ru.AccountDataUpdates = make(map[[32]byte]map[string]interface{})
+	ru.AccountDataUpdates = make(map[[32]byte]map[string]AccountDataUpdate)
 	ru.AssetUpdates = nil
 	ru.AssetUpdates = append(ru.AssetUpdates, make(map[[32]byte][]AssetUpdate, 0))
 	ru.AssetDestroys = nil
@@ -636,6 +642,7 @@ type Health struct {
 	Round       uint64                  `json:"round"`
 	IsMigrating bool                    `json:"is-migrating"`
 	DBAvailable bool                    `json:"db-available"`
+	Error       string                  `json:"error"`
 }
 
 // SpecialAccounts are the accounts which have special accounting rules.
