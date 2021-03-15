@@ -81,7 +81,7 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (p
 	// e.g. a user named "readonly" is in the connection string
 	readonly := (opts != nil) && opts.ReadOnly
 	if !readonly {
-		err = pdb.init()
+		err = pdb.init(opts)
 	}
 	return
 }
@@ -107,7 +107,7 @@ type IndexerDb struct {
 	accountingLock sync.Mutex
 }
 
-func (db *IndexerDb) init() (err error) {
+func (db *IndexerDb) init(opts *idb.IndexerDbOptions) (err error) {
 	accountingStateJSON, _ := db.getMetastate(stateMetastateKey)
 	hasAccounting := len(accountingStateJSON) > 0
 	migrationStateJSON, _ := db.getMetastate(migrationMetastateKey)
@@ -115,7 +115,7 @@ func (db *IndexerDb) init() (err error) {
 
 	db.GetSpecialAccounts()
 
-	if hasMigration || hasAccounting {
+	if (hasMigration || hasAccounting) && (!opts.NoMigrate) {
 		// see postgres_migrations.go
 		return db.runAvailableMigrations(migrationStateJSON)
 	}

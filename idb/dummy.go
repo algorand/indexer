@@ -444,6 +444,10 @@ func init() {
 // IndexerDbOptions are the options common to all indexer backends.
 type IndexerDbOptions struct {
 	ReadOnly bool
+
+	// NoMigrate indicates to not run any migrations.
+	// Should probably only be used by the `reset` subcommand.
+	NoMigrate bool
 }
 
 // RegisterFactory is used by IndexerDb implementations to register their implementations. This mechanism allows
