@@ -102,6 +102,17 @@ var daemonCmd = &cobra.Command{
 			}()
 		} else {
 			logger.Info("No block importer configured.")
+			waitForDBAvailable(db)
+			accountround, err := db.GetMaxRoundAccounted()
+			maybeFail(err, "could not find max round accounted, %v", err)
+			blockround, err := db.GetMaxRoundLoaded()
+			maybeFail(err, "could not find max block loaded, %v", err)
+			if blockround > accountround {
+				logger.Infof("have block %d and accounting through %d, updating...", blockround, accountround)
+				cache, err := db.GetDefaultFrozen()
+				maybeFail(err, "failed to get default frozen cache")
+				importer.UpdateAccounting(db, cache, blockround, genesisJSONPath, logger)
+			}
 		}
 
 		tokenArray := make([]string, 0)
