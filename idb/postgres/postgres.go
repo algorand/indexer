@@ -115,7 +115,8 @@ func (db *IndexerDb) init(opts *idb.IndexerDbOptions) (err error) {
 
 	db.GetSpecialAccounts()
 
-	if (hasMigration || hasAccounting) && (!opts.NoMigrate) {
+	noMigrate := (opts != nil) && opts.NoMigrate
+	if (hasMigration || hasAccounting) && (!noMigrate) {
 		// see postgres_migrations.go
 		return db.runAvailableMigrations(migrationStateJSON)
 	}

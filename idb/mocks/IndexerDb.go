@@ -382,6 +382,20 @@ func (_m *IndexerDb) MarkImported(path string) error {
 	return r0
 }
 
+// Reset provides a mock function with given fields:
+func (_m *IndexerDb) Reset() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SetImportState provides a mock function with given fields: _a0
 func (_m *IndexerDb) SetImportState(_a0 idb.ImportState) error {
 	ret := _m.Called(_a0)
