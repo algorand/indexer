@@ -133,6 +133,15 @@ func (db *IndexerDb) init() (err error) {
 func (db *IndexerDb) Reset() (err error) {
 	// new database, run setup
 	_, err = db.db.Exec(reset_sql)
+	if err != nil {
+		return fmt.Errorf("db reset failed, %v", err)
+	}
+	for i, cmd := range registerAlterTableSqlLines {
+		_, err = db.db.Exec(reset_sql)
+		if err != nil {
+			return fmt.Errorf("db reset[%d] (%v) failed, %v", i, cmd, err)
+		}
+	}
 	return
 }
 
