@@ -10,7 +10,6 @@ import (
 
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/postgres"
 )
 
 var resetCmd = &cobra.Command{
@@ -39,9 +38,8 @@ var resetCmd = &cobra.Command{
 			answer := scanner.Text()
 			if len(answer) > 0 && (answer[0] == 'y' || answer[0] == 'Y') {
 				fmt.Println("Resetting...")
-				time.Sleep(2)
-				pdb := db.(*postgres.IndexerDb)
-				err = pdb.Reset()
+				time.Sleep(2) // leave some ^C time
+				err = db.Reset()
 				maybeFail(err, "database reset failed")
 				fmt.Println("Done. To re-build, re-start algorand-indexer daemon")
 				return

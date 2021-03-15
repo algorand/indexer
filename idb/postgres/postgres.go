@@ -130,13 +130,14 @@ func (db *IndexerDb) init() (err error) {
 	return
 }
 
+// Reset is part of idb.IndexerDB
 func (db *IndexerDb) Reset() (err error) {
 	// new database, run setup
 	_, err = db.db.Exec(reset_sql)
 	if err != nil {
 		return fmt.Errorf("db reset failed, %v", err)
 	}
-	for i, cmd := range registerAlterTableSqlLines {
+	for i, cmd := range registerAlterTableSQLLines {
 		_, err = db.db.Exec(reset_sql)
 		if err != nil {
 			return fmt.Errorf("db reset[%d] (%v) failed, %v", i, cmd, err)

@@ -1551,11 +1551,11 @@ func m9SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 	return nil
 }
 
-var registerAlterTableSqlLines []string
+var registerAlterTableSQLLines []string
 
 func registerAlterTable(x string) {
 	if strings.Contains(x, "ALTER TABLE") {
-		registerAlterTableSqlLines = append(registerAlterTableSqlLines, x)
+		registerAlterTableSQLLines = append(registerAlterTableSQLLines, x)
 	}
 }
 
@@ -1563,7 +1563,7 @@ func checkForAlterTable(sqlLines []string) {
 	for _, x := range sqlLines {
 		if strings.Contains(x, "ALTER TABLE") {
 			found := false
-			for _, y := range registerAlterTableSqlLines {
+			for _, y := range registerAlterTableSQLLines {
 				if y == x {
 					found = true
 					break
