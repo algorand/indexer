@@ -1367,6 +1367,65 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 	return block, transactions, nil
 }
 
+func Transactions2(db *IndexerDb, address types.Address, maxRound uint64) ([]idb.TxnRow, error) {
+	query := "SELECT round, intra FROM txn_participation WHERE addr = $1 AND round <= $2"
+	rows, err := db.db.Query(query, address[:], maxRound)
+	if err != nil {
+		return []idb.TxnRow{}, err
+	}
+
+	query = "SELECT round, intra, txnbytes, extra, asset FROM txn WHERE (round, intra) IN ("
+	first := true
+	for rows.Next() {
+		var round uint64
+		var intra uint64
+		err = rows.Scan(&round, &intra)
+		if err != nil {
+			return []idb.TxnRow{}, err
+		}
+
+		if first {
+			first = false
+		} else {
+			query += ", "
+		}
+		query += fmt.Sprintf("(%d, %d)", round, intra)
+	}
+	query += ") ORDER BY round DESC, intra DESC"
+	db.log.Println("SQL: " + query)
+
+	// If no rows, do not execute another sql query since sql doesn't like empty lists.
+	if first {
+		return []idb.TxnRow{}, nil
+	}
+
+	rows, err = db.db.Query(query)
+	if err != nil {
+		return []idb.TxnRow{}, err
+	}
+
+	var res []idb.TxnRow
+	for rows.Next() {
+		var extraJSON []byte
+		var row idb.TxnRow
+		err = rows.Scan(&row.Round, &row.Intra, &row.TxnBytes, &extraJSON, &row.AssetID)
+		if err != nil {
+			return []idb.TxnRow{}, err
+		}
+		if len(extraJSON) > 0 {
+			err = json.Decode(extraJSON, &row.Extra)
+			if err != nil {
+				err = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
+				return []idb.TxnRow{}, err
+			}
+		}
+
+		res = append(res, row)
+	}
+
+	return res, nil
+}
+
 func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []interface{}, err error) {
 	// TODO? There are some combinations of tf params that will
 	// yield no results and we could catch that before asking the

@@ -197,7 +197,7 @@ function start_indexer_with_connection_string() {
     -S $NET "$RO" \
     -P "$1" \
     "$RO" \
-    --pidfile $PIDFILE 2>&1 > /dev/null &
+    --pidfile $PIDFILE &
 }
 
 # $1 - postgres dbname

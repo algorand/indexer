@@ -595,41 +595,39 @@ func initM5AccountData() *m5AccountData {
 	}
 }
 
-func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData, err error) {
+func processAccountTransactionsWithRetry(db *IndexerDb, address types.Address, addressStr string, maxRound uint64, retries int) (results *m5AccountData, err error) {
 	for i := 0; i < retries; i++ {
-		// Query transactions for the account
-		txnrows, _ := db.Transactions(context.Background(), idb.TransactionFilter{
-			Address:  address[:],
-			MaxRound: nextRound,
-		})
-
-		// Process transactions!
-		results, err = processAccountTransactions(txnrows, addressStr, address)
-		if err != nil {
-			db.log.Errorf("%s: (attempt %d) failed to update %s: %v", rewardsCreateCloseUpdateErr, i+1, addressStr, err)
+		if i > 0 {
 			time.Sleep(10 * time.Second)
-		} else {
+		}
+		results, err = processAccountTransactions(db, address, addressStr, maxRound)
+		if err == nil {
 			return
 		}
+		db.log.Errorf("%s: (attempt %d) failed to update %s: %v", rewardsCreateCloseUpdateErr, i+1,
+			address.String(), err)
 	}
 	return
 }
 
 // processAccountTransactions contains all the accounting logic to recompute total rewards and create/close rounds.
-func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, address types.Address) (*m5AccountData, error) {
-	var err error
+func processAccountTransactions(db *IndexerDb, address types.Address, addressStr string, maxRound uint64) (*m5AccountData, error) {
 	result := initM5AccountData()
-	numTxn := 0
 
-	// Loop through transactions
-	for txn := range txnrows {
+	// Query transactions for the account
+	txnRows, err := Transactions2(db, address, maxRound)
+	if err != nil {
+		return result, err
+	}
+
+	// Process transactions!
+	for _, txn := range txnRows {
 		if txn.Error != nil {
 			return nil, fmt.Errorf("%s: processing account %s: found txnrow error:  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Error)
 		}
 		if len(txn.TxnBytes) == 0 {
 			return nil, fmt.Errorf("%s: processing account %s: found empty TxnBytes (rnd %d, intra %d):  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Round, txn.Intra, err)
 		}
-		numTxn++
 
 		// Transactions are ordered most recent to oldest, so this makes sure created is set to the oldest transaction.
 		result.account.created.Valid = true
@@ -708,7 +706,7 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 	}
 
 	// Genesis accounts could have this property
-	if numTxn == 0 {
+	if len(txnRows) == 0 {
 		result.account.created.Valid = true
 		result.account.created.Int64 = 0
 		result.account.deleted.Valid = true
@@ -747,7 +745,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 
 		// Process transactions!
 		start := time.Now()
-		result, err := processAccountTransactionsWithRetry(db, addressStr, address, uint64(state.NextRound), 3)
+		result, err := processAccountTransactionsWithRetry(db, address, addressStr, uint64(state.NextRound), 3)
 		dur := time.Since(start)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
