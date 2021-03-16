@@ -1368,38 +1368,9 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 }
 
 func Transactions2(db *IndexerDb, address types.Address, maxRound uint64) ([]idb.TxnRow, error) {
-	query := "SELECT round, intra FROM txn_participation WHERE addr = $1 AND round <= $2"
+	query := "SELECT round, intra, txnbytes, extra, asset FROM txn WHERE (round, intra) IN (SELECT round, intra FROM txn_participation WHERE addr = $1 AND round <= $2) ORDER BY round DESC, intra DESC"
+
 	rows, err := db.db.Query(query, address[:], maxRound)
-	if err != nil {
-		return []idb.TxnRow{}, err
-	}
-
-	query = "SELECT round, intra, txnbytes, extra, asset FROM txn WHERE (round, intra) IN ("
-	first := true
-	for rows.Next() {
-		var round uint64
-		var intra uint64
-		err = rows.Scan(&round, &intra)
-		if err != nil {
-			return []idb.TxnRow{}, err
-		}
-
-		if first {
-			first = false
-		} else {
-			query += ", "
-		}
-		query += fmt.Sprintf("(%d, %d)", round, intra)
-	}
-	query += ") ORDER BY round DESC, intra DESC"
-	db.log.Println("SQL: " + query)
-
-	// If no rows, do not execute another sql query since sql doesn't like empty lists.
-	if first {
-		return []idb.TxnRow{}, nil
-	}
-
-	rows, err = db.db.Query(query)
 	if err != nil {
 		return []idb.TxnRow{}, err
 	}
