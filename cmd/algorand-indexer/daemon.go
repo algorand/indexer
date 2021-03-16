@@ -47,9 +47,6 @@ var daemonCmd = &cobra.Command{
 			algodDataDir = os.Getenv("ALGORAND_DATA")
 		}
 		opts := idb.IndexerDbOptions{}
-		if noAlgod {
-			opts.ReadOnly = true
-		}
 		db := globalIndexerDb(&opts)
 
 		ctx, cf := context.WithCancel(context.Background())
