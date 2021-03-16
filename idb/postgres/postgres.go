@@ -1367,7 +1367,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 	return block, transactions, nil
 }
 
-func Transactions2(db *IndexerDb, address types.Address, maxRound uint64) ([]idb.TxnRow, error) {
+func (db *IndexerDb) Transactions2(address types.Address, maxRound uint64) ([]idb.TxnRow, error) {
 	query := "SELECT round, intra, txnbytes, extra, asset FROM txn WHERE (round, intra) IN (SELECT round, intra FROM txn_participation WHERE addr = $1 AND round <= $2) ORDER BY round DESC, intra DESC"
 
 	rows, err := db.db.Query(query, address[:], maxRound)

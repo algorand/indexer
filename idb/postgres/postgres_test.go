@@ -1,7 +1,12 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+	"os"
 	"testing"
 	"time"
 
@@ -160,4 +165,38 @@ func TestStxnJSONSynthetic(t *testing.T) {
 	stxn.EvalDelta.LocalDeltas[1] = ld
 	js := stxnToJSON(stxn)
 	require.Equal(t, "{\"dt\":{\"gd\":{\"/v7/7wAAESIz\":{\"at\":1,\"bs\":\"/v7/7wAAESIz\"}},\"ld\":{\"1\":{\"/v7/7wAAESIz\":{\"at\":1,\"bs\":\"/v7/7wAAESIz\"}}}}}", string(js))
+}
+
+func TestTransactionsBenchmark(t *testing.T) {
+	opts:= idb.IndexerDbOptions{ReadOnly: true}
+
+	logger := log.New()
+	logger.SetFormatter(&log.JSONFormatter{
+		DisableHTMLEscape: true,
+	})
+	logger.SetOutput(os.Stdout)
+	logger.SetLevel(log.InfoLevel)
+
+	db, err := OpenPostgres("user=postgres password=aa host=localhost database=n0", &opts, logger)
+	assert.NoError(t, err)
+
+	address, err :=
+		sdk_types.DecodeAddress("LSAHUHHFNBWVSQFT55KT7TJBQI7FAMCUIW7SQB6BP626WUSVPK577VGUU4")
+	assert.NoError(t, err)
+	maxRound := uint64(10000000)
+
+	start := time.Now()
+	ch, _ := db.Transactions(context.Background(), idb.TransactionFilter{
+		Address: address[:],
+		MaxRound: maxRound,
+	})
+	for txnRow := range ch {
+		assert.NoError(t, txnRow.Error)
+	}
+	fmt.Printf("Transactions(): elapsed %v\n", time.Since(start))
+
+	start = time.Now()
+	_, err = db.Transactions2(address, maxRound)
+	assert.NoError(t, err)
+	fmt.Printf("Transactions2(): elapsed %v\n", time.Since(start))
 }

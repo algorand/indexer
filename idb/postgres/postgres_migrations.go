@@ -615,7 +615,7 @@ func processAccountTransactions(db *IndexerDb, address types.Address, addressStr
 	result := initM5AccountData()
 
 	// Query transactions for the account
-	txnRows, err := Transactions2(db, address, maxRound)
+	txnRows, err := db.Transactions2(address, maxRound)
 	if err != nil {
 		return result, err
 	}
