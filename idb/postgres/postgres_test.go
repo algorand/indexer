@@ -177,26 +177,48 @@ func TestTransactionsBenchmark(t *testing.T) {
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(log.InfoLevel)
 
-	db, err := OpenPostgres("user=postgres password=aa host=localhost database=n0", &opts, logger)
+	db, err := OpenPostgres("user=postgres password=passwordhere host=tolik-db.cg5xbxramfvy.us-east-2.rds.amazonaws.com port=5432 database=full", &opts, logger)
 	assert.NoError(t, err)
 
-	address, err :=
-		sdk_types.DecodeAddress("LSAHUHHFNBWVSQFT55KT7TJBQI7FAMCUIW7SQB6BP626WUSVPK577VGUU4")
+  addressStr := "GOJAB33HAWQSDMVOCM7HLNLAR6Q4PJURZTD3MK5FOSJEI32JQ4GP4QKBAY"
+	address, err := sdk_types.DecodeAddress(addressStr)
 	assert.NoError(t, err)
-	maxRound := uint64(10000000)
+	maxRound := uint64(12650440)
 
-	start := time.Now()
-	ch, _ := db.Transactions(context.Background(), idb.TransactionFilter{
-		Address: address[:],
-		MaxRound: maxRound,
-	})
-	for txnRow := range ch {
-		assert.NoError(t, txnRow.Error)
-	}
-	fmt.Printf("Transactions(): elapsed %v\n", time.Since(start))
+  fmt.Printf("Testing address %s with max round %d\n", addressStr, maxRound)
 
-	start = time.Now()
-	_, err = db.Transactions2(address, maxRound)
-	assert.NoError(t, err)
-	fmt.Printf("Transactions2(): elapsed %v\n", time.Since(start))
+  {
+    start := time.Now()
+    ch, _ := db.Transactions(context.Background(), idb.TransactionFilter{
+      Address: address[:],
+      MaxRound: maxRound,
+    })
+    num := 0
+    for txnRow := range ch {
+      assert.NoError(t, txnRow.Error)
+      num++
+    }
+    fmt.Printf("Transactions(): elapsed %v num: %d\n", time.Since(start), num)
+  }
+
+  {
+    start := time.Now()
+    txnRows, err := db.Transactions2(address, maxRound)
+    assert.NoError(t, err)
+    fmt.Printf("Transactions2(): elapsed %v len(txnRows): %d\n", time.Since(start), len(txnRows))
+  }
+
+  {
+    start := time.Now()
+    ch, _ := db.Transactions(context.Background(), idb.TransactionFilter{
+      Address: address[:],
+      MaxRound: maxRound,
+    })
+    num := 0
+    for txnRow := range ch {
+      assert.NoError(t, txnRow.Error)
+      num++
+    }
+    fmt.Printf("Transactions(): elapsed %v num: %d\n", time.Since(start), num)
+  }
 }
