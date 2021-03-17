@@ -584,7 +584,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 				return err
 			}
 
-			if batchNumber%1000 == 0 {
+			if batchNumber%100 == 0 {
 				db.log.Printf("m6: written %.2f%% accounts; batch %d, next account %s",
 					float64(100*batchSize*batchNumber)/float64(numAccounts), batchNumber,
 					accountDataArr[0].address)
