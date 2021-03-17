@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
@@ -71,8 +72,8 @@ type MigrationState struct {
 	// NextAssetID used for m3 to checkpoint progress.
 	NextAssetID int64 `json:"assetid,omitempty"`
 
-	// NextAccount used for m5 to checkpoint progress.
-	NextAccount []byte `json:"nextaccount,omitempty"`
+	// LastAccount used for m6 to checkpoint progress.
+	LastAccount []byte `json:"lastaccount,omitempty"`
 
 	// Note: a generic "data" field here could be a good way to deal with this growing over time.
 	//       It would require a mechanism to clear the data field between migrations to avoid using migration data
@@ -420,91 +421,175 @@ func m5RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 const rewardsCreateCloseUpdateMessage = "rewards, create_at, close_at migration error"
 const rewardsCreateCloseUpdateErr = rewardsCreateCloseUpdateMessage + " error"
 
-func b32ToIndex(c byte) int {
-	i := int(c) - 'A'
-	if i < 0 {
-		//b32 skips 0 and 1.
-		return 26 + int(c) - '2'
-	}
-	return i
+type AddressAccountData struct {
+	address     sdk_types.Address
+	accountData *m6AccountData
 }
 
-func addrToPercent(addr string) float64 {
-	if len(addr) < 3 {
-		return 0.0
+func getParticipants(stxn types.SignedTxnWithAD) []sdk_types.Address {
+	res := make([]sdk_types.Address, 0, 6)
+
+	add := func(address types.Address) {
+		if address == sdk_types.ZeroAddress {
+			return
+		}
+		for _, p := range res {
+			if address == p {
+				return
+			}
+		}
+		res = append(res, address)
 	}
 
-	val := b32ToIndex(addr[0])
-	val = (val * 32) + b32ToIndex(addr[1])
-	val = (val * 32) + b32ToIndex(addr[2])
+	add(stxn.Txn.Sender)
+	add(stxn.Txn.Receiver)
+	add(stxn.Txn.CloseRemainderTo)
+	add(stxn.Txn.AssetSender)
+	add(stxn.Txn.AssetReceiver)
+	add(stxn.Txn.AssetCloseTo)
 
-	return float64(val) / (32 * 32 * 32) * 100
+	return res
 }
 
 // m6RewardsAndDatesPart2 computes the cumulative rewards for each account one at a time.
 func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
-	db.log.Println("account cumulative rewards migration starting")
+	db.log.Println("m6 account cumulative rewards migration starting")
 
-	var feeSinkAddr string
-	var rewardsAddr string
-	{
-		accounts, err := db.GetSpecialAccounts()
-		if err != nil {
-			return fmt.Errorf("unable to get special accounts: %v", err)
-		}
-		feeSinkAddr = accounts.FeeSink.String()
-		rewardsAddr = accounts.RewardsPool.String()
+	specialAccounts, err := db.GetSpecialAccounts()
+	if err != nil {
+		return fmt.Errorf("%s: unable to get special accounts: %v", rewardsCreateCloseUpdateErr, err)
 	}
 
+	// Query accounts.
 	options := idb.AccountQueryOptions{}
-	if len(state.NextAccount) != 0 {
+	if len(state.LastAccount) != 0 {
 		var address sdk_types.Address
-		copy(address[:], state.NextAccount)
+		copy(address[:], state.LastAccount)
 		db.log.Println("after " + address.String())
-		options.GreaterThanAddress = state.NextAccount[:]
+		options.GreaterThanAddress = state.LastAccount[:]
 	}
 	options.IncludeDeleted = true
+	accountCh, _ := db.GetAccounts(context.Background(), options)
 
-	accountChan, _ := db.GetAccounts(context.Background(), options)
+	// Loop through all accounts and initialize account data for each.
+	accountDataMap := make(map[sdk_types.Address]*m6AccountData)
+	accountsWithoutTxn := make(map[sdk_types.Address]bool)
+	for accountRow := range accountCh {
+		if accountRow.Error != nil {
+			return fmt.Errorf("%s: problem querying accounts: %v",
+				rewardsCreateCloseUpdateErr, accountRow.Error)
+		}
 
-	batchSize := 500
-	batchNumber := 1
-	// loop through all of the accounts, update them in batches of batchSize.
-	accounts := make([]string, 0, batchSize)
-	for acct := range accountChan {
-		if acct.Error != nil {
-			err := fmt.Errorf("%s: problem querying accounts: %v", rewardsCreateCloseUpdateErr, acct.Error)
-			db.log.Errorln(err.Error())
-			return err
+		address, err := sdk_types.DecodeAddress(accountRow.Account.Address)
+		if err != nil {
+			return fmt.Errorf("%s: failed to decode address %s err: %v",
+				rewardsCreateCloseUpdateErr, accountRow.Account.Address, err)
 		}
 
 		// Don't update special accounts (m9 fixes this)
-		if feeSinkAddr != acct.Account.Address && rewardsAddr != acct.Account.Address {
-			accounts = append(accounts, acct.Account.Address)
-		}
-
-		if len(accounts) == batchSize {
-			db.log.Printf("Cumulative rewards migration processing %.2f%% complete. Batch %d up through account %s",
-				addrToPercent(accounts[0]),
-				batchNumber,
-				accounts[len(accounts)-1])
-			err := m5RewardsAndDatesPart2UpdateAccounts(db, state, accounts, false)
-			if err != nil {
-				return err
-			}
-			accounts = accounts[:0]
-			batchNumber++
+		if address != specialAccounts.FeeSink && address != specialAccounts.RewardsPool {
+			accountDataMap[address] = initM6AccountData()
+			accountsWithoutTxn[address] = true
 		}
 	}
 
-	// Get the remainder
-	if len(accounts) > 0 {
-		db.log.Println("Processing final batch of accounts.")
-		err := m5RewardsAndDatesPart2UpdateAccounts(db, state, accounts, true)
+	query := "SELECT round, intra, txnbytes, asset FROM txn WHERE round <= $1 ORDER BY round DESC, intra DESC"
+	rows, err := db.db.Query(query, state.NextRound)
+	if err != nil {
+		return fmt.Errorf("%s: unable to query transactions: %v", rewardsCreateCloseUpdateErr, err)
+	}
+
+	// Loop through all transactions and compute account data.
+	numRows := 0
+	for rows.Next() {
+		var round uint64
+		var intra uint64
+		var txnBytes []byte
+		var assetId uint64
+		err = rows.Scan(&round, &intra, &txnBytes, &assetId)
 		if err != nil {
-			return err
+			return fmt.Errorf("%s: unable to scan a row: %v", rewardsCreateCloseUpdateErr, err)
 		}
-		accounts = accounts[:0]
+
+		var stxn types.SignedTxnWithAD
+		err = msgpack.Decode(txnBytes, &stxn)
+		if err != nil {
+			return fmt.Errorf("%s: unable to parse txnBytes round: %d intra: %d err: %v",
+				rewardsCreateCloseUpdateErr, round, intra, err)
+		}
+
+		participants := getParticipants(stxn)
+		for _, address := range participants {
+			// Only update accounts that haven't been previously updated and
+			// don't update special accounts (m9 fixes this).
+			if string(address[:]) > string(state.LastAccount) &&
+				address != specialAccounts.RewardsPool && address != specialAccounts.FeeSink {
+				accountData, ok := accountDataMap[address]
+				if !ok {
+					db.log.Errorf("%s: unable to find account %s for transaction round: %d intra: %d",
+						rewardsCreateCloseUpdateErr, address.String(), round, intra)
+				}
+				updateAccountData(address, round, assetId, stxn, accountData)
+				delete(accountsWithoutTxn, address)
+			}
+		}
+
+		numRows++
+
+		if numRows%1000000 == 0 {
+			db.log.Printf("m6: read %d transactions", numRows)
+		}
+	}
+
+	// Set Created, Deleted for accounts with no transactions.
+	// Genesis accounts could have this property.
+	for address, _ := range accountsWithoutTxn {
+		accountData, _ := accountDataMap[address]
+		accountData.account.created.Valid = true
+		accountData.account.created.Int64 = 0
+		accountData.account.deleted.Valid = true
+		accountData.account.deleted.Bool = false
+	}
+
+	// Sort account data by address.
+	accountDataArr := make([]AddressAccountData, 0, len(accountDataMap))
+	for address, accountData := range accountDataMap {
+		accountDataArr = append(accountDataArr, AddressAccountData{address, accountData})
+	}
+	less := func(i int, j int) bool {
+		return string(accountDataArr[i].address[:]) < string(accountDataArr[j].address[:])
+	}
+	sort.Slice(accountDataArr, less)
+
+	// Loop through all of the accounts, update them in batches.
+	numAccounts := len(accountDataArr)
+	batchSize := 1000
+	batchNumber := 0
+	for len(accountDataArr) > 0 {
+		batchNumber++
+
+		if len(accountDataArr) <= batchSize {
+			err = m6RewardsAndDatesPart2UpdateAccounts(db, accountDataArr, true, state)
+			if err != nil {
+				return err
+			}
+
+			accountDataArr = accountDataArr[len(accountDataArr):]
+		} else {
+			batch := accountDataArr[:batchSize]
+			accountDataArr = accountDataArr[batchSize:]
+
+			err = m6RewardsAndDatesPart2UpdateAccounts(db, batch, false, state)
+			if err != nil {
+				return err
+			}
+
+			if batchNumber%1000 == 0 {
+				db.log.Printf("m6: written %.2f%% accounts; batch %d, next account %s",
+					float64(100*batchSize*batchNumber)/float64(numAccounts), batchNumber,
+					accountDataArr[0].address)
+			}
+		}
 	}
 
 	return nil
@@ -581,7 +666,7 @@ func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]*creat
 	return
 }
 
-type m5AccountData struct {
+type m6AccountData struct {
 	cumulativeRewards types.MicroAlgos
 	account           createClose
 	asset             map[uint64]*createClose
@@ -590,8 +675,8 @@ type m5AccountData struct {
 	appLocal          map[uint64]*createClose
 }
 
-func initM5AccountData() *m5AccountData {
-	return &m5AccountData{
+func initM6AccountData() *m6AccountData {
+	return &m6AccountData{
 		cumulativeRewards: 0,
 		account:           createClose{},
 		asset:             make(map[uint64]*createClose),
@@ -601,134 +686,85 @@ func initM5AccountData() *m5AccountData {
 	}
 }
 
-func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData, err error) {
-	for i := 0; i < retries; i++ {
-		// Query transactions for the account
-		txnrows, _ := db.Transactions(context.Background(), idb.TransactionFilter{
-			Address:  address[:],
-			MaxRound: nextRound,
-		})
+// updateAccountData contains all the accounting logic to recompute total rewards and create/close
+// rounds. It modifies `accountData` and need to be called with every transaction from most
+// recent to oldest.
+func updateAccountData(address types.Address, round uint64, assetId uint64, stxn types.SignedTxnWithAD, accountData *m6AccountData) {
+	// Transactions are ordered most recent to oldest, so this makes sure created is set to the
+	// oldest transaction.
+	accountData.account.created.Valid = true
+	accountData.account.created.Int64 = int64(round)
 
-		// Process transactions!
-		results, err = processAccountTransactions(txnrows, addressStr, address)
-		if err != nil {
-			db.log.Errorf("%s: (attempt %d) failed to update %s: %v", rewardsCreateCloseUpdateErr, i+1, addressStr, err)
-			time.Sleep(10 * time.Second)
+	// When the account is closed rewards reset to zero.
+	// Because transactions are newest to oldest, stop accumulating once we see a close.
+	if !accountData.account.closed.Valid {
+		if accounting.AccountCloseTxn(address, stxn) {
+			accountData.account.closed.Valid = true
+			accountData.account.closed.Int64 = int64(round)
+
+			if !accountData.account.deleted.Valid {
+				accountData.account.deleted.Bool = true
+				accountData.account.deleted.Valid = true
+			}
 		} else {
-			return
-		}
-	}
-	return
-}
+			if !accountData.account.deleted.Valid {
+				accountData.account.deleted.Bool = false
+				accountData.account.deleted.Valid = true
+			}
 
-// processAccountTransactions contains all the accounting logic to recompute total rewards and create/close rounds.
-func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, address types.Address) (*m5AccountData, error) {
-	var err error
-	result := initM5AccountData()
-	numTxn := 0
+			if stxn.Txn.Sender == address {
+				accountData.cumulativeRewards += stxn.ApplyData.SenderRewards
+			}
 
-	// Loop through transactions
-	for txn := range txnrows {
-		if txn.Error != nil {
-			return nil, fmt.Errorf("%s: processing account %s: found txnrow error:  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Error)
-		}
-		if len(txn.TxnBytes) == 0 {
-			return nil, fmt.Errorf("%s: processing account %s: found empty TxnBytes (rnd %d, intra %d):  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Round, txn.Intra, err)
-		}
-		numTxn++
+			if stxn.Txn.Receiver == address {
+				accountData.cumulativeRewards += stxn.ApplyData.ReceiverRewards
+			}
 
-		// Transactions are ordered most recent to oldest, so this makes sure created is set to the oldest transaction.
-		result.account.created.Valid = true
-		result.account.created.Int64 = int64(txn.Round)
-
-		// process transactions one at a time
-		var stxn types.SignedTxnWithAD
-		err = msgpack.Decode(txn.TxnBytes, &stxn)
-		if err != nil {
-			return nil, fmt.Errorf("%s: processing account %s: decoding txn (rnd %d, intra %d):  %v", rewardsCreateCloseUpdateErr, addressStr, txn.Round, txn.Intra, err)
-		}
-
-		// When the account is closed rewards reset to zero.
-		// Because transactions are newest to oldest, stop accumulating once we see a close.
-		if !result.account.closed.Valid {
-			if accounting.AccountCloseTxn(address, stxn) {
-				result.account.closed.Valid = true
-				result.account.closed.Int64 = int64(txn.Round)
-
-				if !result.account.deleted.Valid {
-					result.account.deleted.Bool = true
-					result.account.deleted.Valid = true
-				}
-			} else {
-				if !result.account.deleted.Valid {
-					result.account.deleted.Bool = false
-					result.account.deleted.Valid = true
-				}
-
-				if stxn.Txn.Sender == address {
-					result.cumulativeRewards += stxn.ApplyData.SenderRewards
-				}
-
-				if stxn.Txn.Receiver == address {
-					result.cumulativeRewards += stxn.ApplyData.ReceiverRewards
-				}
-
-				if stxn.Txn.CloseRemainderTo == address {
-					result.cumulativeRewards += stxn.ApplyData.CloseRewards
-				}
+			if stxn.Txn.CloseRemainderTo == address {
+				accountData.cumulativeRewards += stxn.ApplyData.CloseRewards
 			}
 		}
-
-		if accounting.AssetCreateTxn(stxn) {
-			result.asset[txn.AssetID] = updateCreate(result.asset[txn.AssetID], txn.Round)
-			result.assetHolding[txn.AssetID] = updateCreate(result.assetHolding[txn.AssetID], txn.Round)
-		}
-
-		if accounting.AssetDestroyTxn(stxn) {
-			result.asset[txn.AssetID] = updateClose(result.asset[txn.AssetID], txn.Round)
-		}
-
-		if accounting.AssetOptInTxn(stxn) {
-			result.assetHolding[txn.AssetID] = updateCreate(result.assetHolding[txn.AssetID], txn.Round)
-		}
-
-		if accounting.AssetOptOutTxn(stxn) && stxn.Txn.Sender == address {
-			result.assetHolding[txn.AssetID] = updateClose(result.assetHolding[txn.AssetID], txn.Round)
-		}
-
-		if accounting.AppCreateTxn(stxn) {
-			result.app[txn.AssetID] = updateCreate(result.app[txn.AssetID], txn.Round)
-		}
-
-		if accounting.AppDestroyTxn(stxn) {
-			result.app[txn.AssetID] = updateClose(result.app[txn.AssetID], txn.Round)
-		}
-
-		if accounting.AppOptInTxn(stxn) {
-			result.appLocal[txn.AssetID] = updateCreate(result.appLocal[txn.AssetID], txn.Round)
-		}
-
-		if accounting.AppOptOutTxn(stxn) {
-			result.appLocal[txn.AssetID] = updateClose(result.appLocal[txn.AssetID], txn.Round)
-		}
 	}
 
-	// Genesis accounts could have this property
-	if numTxn == 0 {
-		result.account.created.Valid = true
-		result.account.created.Int64 = 0
-		result.account.deleted.Valid = true
-		result.account.deleted.Bool = false
+	if accounting.AssetCreateTxn(stxn) {
+		accountData.asset[assetId] = updateCreate(accountData.asset[assetId], round)
+		accountData.assetHolding[assetId] = updateCreate(accountData.assetHolding[assetId], round)
 	}
 
-	return result, nil
+	if accounting.AssetDestroyTxn(stxn) {
+		accountData.asset[assetId] = updateClose(accountData.asset[assetId], round)
+	}
+
+	if accounting.AssetOptInTxn(stxn) {
+		accountData.assetHolding[assetId] = updateCreate(accountData.assetHolding[assetId], round)
+	}
+
+	if accounting.AssetOptOutTxn(stxn) && stxn.Txn.Sender == address {
+		accountData.assetHolding[assetId] = updateClose(accountData.assetHolding[assetId], round)
+	}
+
+	if accounting.AppCreateTxn(stxn) {
+		accountData.app[assetId] = updateCreate(accountData.app[assetId], round)
+	}
+
+	if accounting.AppDestroyTxn(stxn) {
+		accountData.app[assetId] = updateClose(accountData.app[assetId], round)
+	}
+
+	if accounting.AppOptInTxn(stxn) {
+		accountData.appLocal[assetId] = updateCreate(accountData.appLocal[assetId], round)
+	}
+
+	if accounting.AppOptOutTxn(stxn) {
+		accountData.appLocal[assetId] = updateClose(accountData.appLocal[assetId], round)
+	}
 }
 
-// m5RewardsAndDatesPart2UpdateAccounts loops through the provided accounts and generates a bunch of updates in a
+// m6RewardsAndDatesPart2UpdateAccounts loops through the provided accounts and generates a bunch of updates in a
 // single transactional commit. These queries are written so that they can run in the background.
 //
 // For each account we run several queries:
-// 1. updateTotalRewards            - conditionally update the total rewards if the account wasn't closed during iteration.
+// 1. updateTotalRewards         - conditionally update the total rewards if the account wasn't closed during iteration.
 // 2. setCreateCloseAccount      - set the accounts create/close rounds.
 // 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
 // 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
@@ -738,33 +774,7 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 // Note: These queries only work if closed_at was reset before the migration is started. That is true
 //       for the initial migration, but if we need to reuse it in the future we'll need to fix the queries
 //       or redo the query.
-func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, accounts []string, finalBatch bool) error {
-	// finalAddress is cached for updating the state at the end.
-	var finalAddress []byte
-
-	// Process transactions for each account.
-	accountData := make(map[types.Address]*m5AccountData, 0)
-	for _, addressStr := range accounts {
-		address, err := sdk_types.DecodeAddress(addressStr)
-		if err != nil {
-			return fmt.Errorf("%s: failed to decode address: %s", rewardsCreateCloseUpdateErr, addressStr)
-		}
-		finalAddress = address[:]
-
-		// Process transactions!
-		start := time.Now()
-		result, err := processAccountTransactionsWithRetry(db, addressStr, address, uint64(state.NextRound), 3)
-		dur := time.Since(start)
-		if err != nil {
-			return fmt.Errorf("%s: failed to update %s: %v", rewardsCreateCloseUpdateErr, addressStr, err)
-		}
-		if dur > 5*time.Minute {
-			db.log.Warnf("%s: slowness detected, spent %s migrating %s", rewardsCreateCloseUpdateMessage, dur, addressStr)
-		}
-
-		accountData[address] = result
-	}
-
+func m6RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []AddressAccountData, finalBatch bool, state *MigrationState) error {
 	// Make sure round accounting doesn't interfere with updating these accounts.
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
@@ -823,41 +833,41 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	defer setCreateCloseAppLocal.Close()
 
 	// loop through all of the accounts.
-	for address, result := range accountData {
-		addressStr := address.String()
+	for _, ad := range accountData {
+		addressStr := ad.address.String()
 
 		// 1. updateTotalRewards            - conditionally update the total rewards if the account wasn't closed during iteration.
-		_, err = updateTotalRewards.Exec(address[:], result.cumulativeRewards, state.NextRound)
+		_, err = updateTotalRewards.Exec(ad.address[:], ad.accountData.cumulativeRewards, state.NextRound)
 		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with rewards %d: %v", rewardsCreateCloseUpdateErr, addressStr, result.cumulativeRewards, err)
+			return fmt.Errorf("%s: failed to update %s with rewards %d: %v", rewardsCreateCloseUpdateErr, addressStr, ad.accountData.cumulativeRewards, err)
 		}
 
 		// 2. setCreateCloseAccount      - set the accounts create/close rounds.
-		_, err = setCreateCloseAccount.Exec(address[:], result.account.created, result.account.closed, result.account.deleted)
+		_, err = setCreateCloseAccount.Exec(ad.address[:], ad.accountData.account.created, ad.accountData.account.closed, ad.accountData.account.deleted)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
 
 		// 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
-		err = executeForEachCreatable(setCreateCloseAsset, address[:], result.asset)
+		err = executeForEachCreatable(setCreateCloseAsset, ad.address[:], ad.accountData.asset)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with asset create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
 
 		// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
-		err = executeForEachCreatable(setCreateCloseAssetHolding, address[:], result.assetHolding)
+		err = executeForEachCreatable(setCreateCloseAssetHolding, ad.address[:], ad.accountData.assetHolding)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with asset holding create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
 
 		// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
-		err = executeForEachCreatable(setCreateCloseApp, address[:], result.app)
+		err = executeForEachCreatable(setCreateCloseApp, ad.address[:], ad.accountData.app)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with app create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
 
 		// 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
-		err = executeForEachCreatable(setCreateCloseAppLocal, address[:], result.appLocal)
+		err = executeForEachCreatable(setCreateCloseAppLocal, ad.address[:], ad.accountData.appLocal)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with app local create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
@@ -866,10 +876,10 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 	// Update checkpoint
 	if finalBatch {
 		state.NextMigration++
-		state.NextAccount = nil
+		state.LastAccount = nil
 		state.NextRound = 0
 	} else {
-		state.NextAccount = finalAddress[:]
+		state.LastAccount = accountData[len(accountData)-1].address[:]
 	}
 	migrationStateJSON := idb.JSONOneLine(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
