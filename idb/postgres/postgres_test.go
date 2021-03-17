@@ -177,48 +177,67 @@ func TestTransactionsBenchmark(t *testing.T) {
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(log.InfoLevel)
 
-	db, err := OpenPostgres("user=postgres password=passwordhere host=tolik-db.cg5xbxramfvy.us-east-2.rds.amazonaws.com port=5432 database=full", &opts, logger)
+  connString := "user=postgres password=passwordhere host=tolik-db.cg5xbxramfvy.us-east-2.rds.amazonaws.com port=5432 database=full"
+  //connString := "user=postgres password=passwordhere host=will-indexer-db.cg5xbxramfvy.us-east-2.rds.amazonaws.com port=5432 database=will_mainnet"
+	db, err := OpenPostgres(connString, &opts, logger)
 	assert.NoError(t, err)
 
-  addressStr := "GOJAB33HAWQSDMVOCM7HLNLAR6Q4PJURZTD3MK5FOSJEI32JQ4GP4QKBAY"
-	address, err := sdk_types.DecodeAddress(addressStr)
-	assert.NoError(t, err)
+  addressesStr := []string{
+  	"ADARB4REX6Y45HI7QIHSUIF57NHD3RALEHTFAAJLRVC5OEYUUKL3ECW7JM",
+  	"BH37QJIP3TDIGAD6Q4XIIL6FQSOEOYK4TJ4S2DDPNDKJLIKYAYAP5J47IY",
+  	"BMHIVCYCW5EWXZOJVEUU7AZC6SC2GKCUL3EZBONSDTOPMDSZVAY4VI7XAY",
+  	"BVMEUTF37WNEQ6GYCZISRFHGLEMOKT5OCPPTTJXVED6JBSXKF6YJJRZRI4",
+  	"C7RYOGEWDT7HZM3HKPSMU7QGWTRWR3EPOQTJ2OHXGYLARD3X62DNWELS34",
+  }
 	maxRound := uint64(12650440)
 
-  fmt.Printf("Testing address %s with max round %d\n", addressStr, maxRound)
+  fmt.Printf("Connection string: %s\n", connString)
+  fmt.Printf("Testing addresses %+v with max round %d\n", addressesStr, maxRound)
+
+	{
+		start := time.Now()
+		numTxns := 0
+		for _, addressStr := range addressesStr {
+			address, err := sdk_types.DecodeAddress(addressStr)
+			assert.NoError(t, err)
+
+			txnRows, err := db.Transactions2(address, maxRound)
+			numTxns += len(txnRows)
+			assert.NoError(t, err)
+		}
+		fmt.Printf("Transactions2(): elapsed %v numTxns: %d\n", time.Since(start), numTxns)
+	}
 
   {
-    start := time.Now()
-    ch, _ := db.Transactions(context.Background(), idb.TransactionFilter{
-      Address: address[:],
-      MaxRound: maxRound,
-    })
-    num := 0
-    for txnRow := range ch {
-      assert.NoError(t, txnRow.Error)
-      num++
-    }
-    fmt.Printf("Transactions(): elapsed %v num: %d\n", time.Since(start), num)
-  }
+		start := time.Now()
+		numTxns := 0
+		for _, addressStr := range addressesStr {
+			address, err := sdk_types.DecodeAddress(addressStr)
+			assert.NoError(t, err)
 
-  {
-    start := time.Now()
-    txnRows, err := db.Transactions2(address, maxRound)
-    assert.NoError(t, err)
-    fmt.Printf("Transactions2(): elapsed %v len(txnRows): %d\n", time.Since(start), len(txnRows))
-  }
+			ch, _ := db.Transactions(context.Background(), idb.TransactionFilter{
+				Address: address[:],
+				MaxRound: maxRound,
+			})
+			for txnRow := range ch {
+				assert.NoError(t, txnRow.Error)
+				numTxns++
+			}
+		}
+		fmt.Printf("Transactions(): elapsed %v numTxns: %d\n", time.Since(start), numTxns)
+	}
 
-  {
-    start := time.Now()
-    ch, _ := db.Transactions(context.Background(), idb.TransactionFilter{
-      Address: address[:],
-      MaxRound: maxRound,
-    })
-    num := 0
-    for txnRow := range ch {
-      assert.NoError(t, txnRow.Error)
-      num++
-    }
-    fmt.Printf("Transactions(): elapsed %v num: %d\n", time.Since(start), num)
-  }
+	{
+		start := time.Now()
+		numTxns := 0
+		for _, addressStr := range addressesStr {
+			address, err := sdk_types.DecodeAddress(addressStr)
+			assert.NoError(t, err)
+
+			txnRows, err := db.Transactions2(address, maxRound)
+			numTxns += len(txnRows)
+			assert.NoError(t, err)
+		}
+		fmt.Printf("Transactions2(): elapsed %v numTxns: %d\n", time.Since(start), numTxns)
+	}
 }
