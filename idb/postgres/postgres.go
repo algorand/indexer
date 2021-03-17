@@ -1375,7 +1375,7 @@ func (db *IndexerDb) Transactions2(address types.Address, maxRound uint64) ([]id
 		return []idb.TxnRow{}, err
 	}
 
-  start := time.Now()
+	start := time.Now()
 	var res []idb.TxnRow
 	for rows.Next() {
 		var extraJSON []byte
@@ -1394,12 +1394,12 @@ func (db *IndexerDb) Transactions2(address types.Address, maxRound uint64) ([]id
 
 		res = append(res, row)
 
-    if len(res) % 10000 == 0 {
-      n := len(res)
-      elapsed := time.Since(start)
-      rate := float64(n) / float64(elapsed) * float64(time.Second)
-      fmt.Printf("received %d transactions, elapsed %v, rate %f txn/s\n", n, elapsed, rate)
-    }
+		if len(res)%10000 == 0 {
+			n := len(res)
+			elapsed := time.Since(start)
+			rate := float64(n) / float64(elapsed) * float64(time.Second)
+			fmt.Printf("received %d transactions, elapsed %v, rate %f txn/s\n", n, elapsed, rate)
+		}
 	}
 
 	return res, nil

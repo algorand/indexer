@@ -168,7 +168,7 @@ func TestStxnJSONSynthetic(t *testing.T) {
 }
 
 func TestTransactionsBenchmark(t *testing.T) {
-	opts:= idb.IndexerDbOptions{ReadOnly: true}
+	opts := idb.IndexerDbOptions{ReadOnly: true}
 
 	logger := log.New()
 	logger.SetFormatter(&log.JSONFormatter{
@@ -177,22 +177,22 @@ func TestTransactionsBenchmark(t *testing.T) {
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(log.InfoLevel)
 
-  connString := "user=postgres password=passwordhere host=tolik-db.cg5xbxramfvy.us-east-2.rds.amazonaws.com port=5432 database=full"
-  //connString := "user=postgres password=passwordhere host=will-indexer-db.cg5xbxramfvy.us-east-2.rds.amazonaws.com port=5432 database=will_mainnet"
+	connString := "user=postgres password=passwordhere host=tolik-db.cg5xbxramfvy.us-east-2.rds.amazonaws.com port=5432 database=full"
+	//connString := "user=postgres password=passwordhere host=will-indexer-db.cg5xbxramfvy.us-east-2.rds.amazonaws.com port=5432 database=will_mainnet"
 	db, err := OpenPostgres(connString, &opts, logger)
 	assert.NoError(t, err)
 
-  addressesStr := []string{
-  	"ADARB4REX6Y45HI7QIHSUIF57NHD3RALEHTFAAJLRVC5OEYUUKL3ECW7JM",
-  	"BH37QJIP3TDIGAD6Q4XIIL6FQSOEOYK4TJ4S2DDPNDKJLIKYAYAP5J47IY",
-  	"BMHIVCYCW5EWXZOJVEUU7AZC6SC2GKCUL3EZBONSDTOPMDSZVAY4VI7XAY",
-  	"BVMEUTF37WNEQ6GYCZISRFHGLEMOKT5OCPPTTJXVED6JBSXKF6YJJRZRI4",
-  	"C7RYOGEWDT7HZM3HKPSMU7QGWTRWR3EPOQTJ2OHXGYLARD3X62DNWELS34",
-  }
+	addressesStr := []string{
+		"ADARB4REX6Y45HI7QIHSUIF57NHD3RALEHTFAAJLRVC5OEYUUKL3ECW7JM",
+		"BH37QJIP3TDIGAD6Q4XIIL6FQSOEOYK4TJ4S2DDPNDKJLIKYAYAP5J47IY",
+		"BMHIVCYCW5EWXZOJVEUU7AZC6SC2GKCUL3EZBONSDTOPMDSZVAY4VI7XAY",
+		"BVMEUTF37WNEQ6GYCZISRFHGLEMOKT5OCPPTTJXVED6JBSXKF6YJJRZRI4",
+		"C7RYOGEWDT7HZM3HKPSMU7QGWTRWR3EPOQTJ2OHXGYLARD3X62DNWELS34",
+	}
 	maxRound := uint64(12650440)
 
-  fmt.Printf("Connection string: %s\n", connString)
-  fmt.Printf("Testing addresses %+v with max round %d\n", addressesStr, maxRound)
+	fmt.Printf("Connection string: %s\n", connString)
+	fmt.Printf("Testing addresses %+v with max round %d\n", addressesStr, maxRound)
 
 	{
 		start := time.Now()
@@ -208,7 +208,7 @@ func TestTransactionsBenchmark(t *testing.T) {
 		fmt.Printf("Transactions2(): elapsed %v numTxns: %d\n", time.Since(start), numTxns)
 	}
 
-  {
+	{
 		start := time.Now()
 		numTxns := 0
 		for _, addressStr := range addressesStr {
@@ -216,7 +216,7 @@ func TestTransactionsBenchmark(t *testing.T) {
 			assert.NoError(t, err)
 
 			ch, _ := db.Transactions(context.Background(), idb.TransactionFilter{
-				Address: address[:],
+				Address:  address[:],
 				MaxRound: maxRound,
 			})
 			for txnRow := range ch {
