@@ -469,12 +469,15 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 		options.GreaterThanAddress = state.LastAccount[:]
 	}
 	options.IncludeDeleted = true
+
+	db.log.Print("querying accounts")
 	accountCh, _ := db.GetAccounts(context.Background(), options)
 
 	// Loop through all accounts and initialize account data for each.
 	accountDataMap := make(map[sdk_types.Address]*m6AccountData)
 	accountsWithoutTxn := make(map[sdk_types.Address]bool)
 	numRows := 0
+	db.log.Print("started reading accounts")
 	for accountRow := range accountCh {
 		if accountRow.Error != nil {
 			return fmt.Errorf("%s: problem querying accounts: %v",
@@ -501,6 +504,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	}
 	db.log.Print("m6: finished reading accounts")
 
+	db.log.Print("querying transactions")
 	query := "SELECT round, intra, txnbytes, asset FROM txn WHERE round <= $1 ORDER BY round DESC, intra DESC"
 	rows, err := db.db.Query(query, state.NextRound)
 	if err != nil {
@@ -508,6 +512,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	}
 
 	// Loop through all transactions and compute account data.
+	db.log.Print("started reading transactions")
 	numRows = 0
 	for rows.Next() {
 		var round uint64
@@ -571,6 +576,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	sort.Slice(accountDataArr, less)
 
 	// Loop through all accounts, update them in batches.
+	db.log.Print("started updating accounts")
 	numAccounts := len(accountDataArr)
 	batchSize := 1000
 	batchNumber := 0
