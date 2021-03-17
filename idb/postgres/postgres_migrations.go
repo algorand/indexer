@@ -453,7 +453,7 @@ func getParticipants(stxn types.SignedTxnWithAD) []sdk_types.Address {
 
 // m6RewardsAndDatesPart2 computes the cumulative rewards for each account one at a time.
 func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
-	db.log.Println("m6 account cumulative rewards migration starting")
+	db.log.Print("m6 account cumulative rewards migration starting")
 
 	specialAccounts, err := db.GetSpecialAccounts()
 	if err != nil {
@@ -474,6 +474,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	// Loop through all accounts and initialize account data for each.
 	accountDataMap := make(map[sdk_types.Address]*m6AccountData)
 	accountsWithoutTxn := make(map[sdk_types.Address]bool)
+	numRows := 0
 	for accountRow := range accountCh {
 		if accountRow.Error != nil {
 			return fmt.Errorf("%s: problem querying accounts: %v",
@@ -491,6 +492,12 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 			accountDataMap[address] = initM6AccountData()
 			accountsWithoutTxn[address] = true
 		}
+
+		numRows++
+
+		if numRows%100000 == 0 {
+			db.log.Printf("m6: read %d accounts", numRows)
+		}
 	}
 	db.log.Print("m6: finished reading accounts")
 
@@ -501,7 +508,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	}
 
 	// Loop through all transactions and compute account data.
-	numRows := 0
+	numRows = 0
 	for rows.Next() {
 		var round uint64
 		var intra uint64
@@ -537,7 +544,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 
 		numRows++
 
-		if numRows%1000000 == 0 {
+		if numRows%100000 == 0 {
 			db.log.Printf("m6: read %d transactions", numRows)
 		}
 	}
