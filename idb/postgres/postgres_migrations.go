@@ -465,7 +465,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	if len(state.LastAccount) != 0 {
 		var address sdk_types.Address
 		copy(address[:], state.LastAccount)
-		db.log.Println("after " + address.String())
+		db.log.Print("after " + address.String())
 		options.GreaterThanAddress = state.LastAccount[:]
 	}
 	options.IncludeDeleted = true
@@ -492,6 +492,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 			accountsWithoutTxn[address] = true
 		}
 	}
+	db.log.Print("m6: finished reading accounts")
 
 	query := "SELECT round, intra, txnbytes, asset FROM txn WHERE round <= $1 ORDER BY round DESC, intra DESC"
 	rows, err := db.db.Query(query, state.NextRound)
@@ -540,6 +541,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 			db.log.Printf("m6: read %d transactions", numRows)
 		}
 	}
+	db.log.Print("m6: finished reading transactions")
 
 	// Set Created, Deleted for accounts with no transactions.
 	// Genesis accounts could have this property.
@@ -561,7 +563,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	}
 	sort.Slice(accountDataArr, less)
 
-	// Loop through all of the accounts, update them in batches.
+	// Loop through all accounts, update them in batches.
 	numAccounts := len(accountDataArr)
 	batchSize := 1000
 	batchNumber := 0
@@ -591,6 +593,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 			}
 		}
 	}
+	db.log.Print("m6: finished updating accounts")
 
 	return nil
 }
