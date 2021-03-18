@@ -10,7 +10,6 @@ import (
 
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/postgres"
 )
 
 var resetCmd = &cobra.Command{
@@ -26,8 +25,21 @@ var resetCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
 			os.Exit(1)
 		}
-		opts := idb.IndexerDbOptions{}
+		opts := idb.IndexerDbOptions{NoMigrate: true}
 		db := globalIndexerDb(&opts)
+		timeout := time.Now().Add(5 * time.Second)
+		health, err := db.Health()
+		maybeFail(err, "could not get db health, %v", err)
+		for health.IsMigrating || !health.DBAvailable {
+			if time.Now().After(timeout) {
+				fmt.Fprintf(os.Stderr, "timed out waiting for db to be ready\n")
+				os.Exit(1)
+				return
+			}
+			time.Sleep(100 * time.Millisecond)
+			health, err = db.Health()
+			maybeFail(err, "could not get db health, %v", err)
+		}
 		fmt.Println("Prior to resetting the database make sure no daemons are connected.")
 		fmt.Println("After this command finishes start the daemon again and it will begin to")
 		fmt.Println("re-index the data. This can take hours or days depending on the network")
@@ -39,9 +51,8 @@ var resetCmd = &cobra.Command{
 			answer := scanner.Text()
 			if len(answer) > 0 && (answer[0] == 'y' || answer[0] == 'Y') {
 				fmt.Println("Resetting...")
-				time.Sleep(2)
-				pdb := db.(*postgres.IndexerDb)
-				err = pdb.Reset()
+				time.Sleep(2) // leave some ^C time
+				err = db.Reset()
 				maybeFail(err, "database reset failed")
 				fmt.Println("Done. To re-build, re-start algorand-indexer daemon")
 				return

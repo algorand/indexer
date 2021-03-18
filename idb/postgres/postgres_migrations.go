@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
@@ -374,6 +375,34 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 	return -1, nil
 }
 
+var m5sql = []string{
+	// rewards
+	`ALTER TABLE account ADD COLUMN IF NOT EXISTS rewards_total bigint NOT NULL DEFAULT 0`,
+
+	// created/closed round
+	`ALTER TABLE account ADD COLUMN IF NOT EXISTS deleted boolean DEFAULT NULL`,
+	`ALTER TABLE account ADD COLUMN IF NOT EXISTS created_at bigint DEFAULT NULL`,
+	`ALTER TABLE account ADD COLUMN IF NOT EXISTS closed_at bigint DEFAULT NULL`,
+	`ALTER TABLE app ADD COLUMN IF NOT EXISTS deleted boolean DEFAULT NULL`,
+	`ALTER TABLE app ADD COLUMN IF NOT EXISTS created_at bigint DEFAULT NULL`,
+	`ALTER TABLE app ADD COLUMN IF NOT EXISTS closed_at bigint DEFAULT NULL`,
+	`ALTER TABLE account_app ADD COLUMN IF NOT EXISTS deleted boolean DEFAULT NULL`,
+	`ALTER TABLE account_app ADD COLUMN IF NOT EXISTS created_at bigint DEFAULT NULL`,
+	`ALTER TABLE account_app ADD COLUMN IF NOT EXISTS closed_at bigint DEFAULT NULL`,
+	`ALTER TABLE account_asset ADD COLUMN IF NOT EXISTS deleted boolean DEFAULT NULL`,
+	`ALTER TABLE account_asset ADD COLUMN IF NOT EXISTS created_at bigint DEFAULT NULL`,
+	`ALTER TABLE account_asset ADD COLUMN IF NOT EXISTS closed_at bigint DEFAULT NULL`,
+	`ALTER TABLE asset ADD COLUMN IF NOT EXISTS deleted boolean DEFAULT NULL`,
+	`ALTER TABLE asset ADD COLUMN IF NOT EXISTS created_at bigint DEFAULT NULL`,
+	`ALTER TABLE asset ADD COLUMN IF NOT EXISTS closed_at bigint DEFAULT NULL`,
+}
+
+func init() {
+	for _, v := range m5sql {
+		registerAlterTable(v)
+	}
+}
+
 // m5RewardsAndDatesPart1 adds the new rewards_total column to the account table.
 func m5RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	// Cache the round in the migration metastate
@@ -387,28 +416,7 @@ func m5RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	state.NextRound = int64(round)
 
 	// update metastate
-	sqlLines := []string{
-		// rewards
-		`ALTER TABLE account ADD COLUMN rewards_total bigint NOT NULL DEFAULT 0`,
-
-		// created/closed round
-		`ALTER TABLE account ADD COLUMN deleted boolean DEFAULT NULL`,
-		`ALTER TABLE account ADD COLUMN created_at bigint DEFAULT NULL`,
-		`ALTER TABLE account ADD COLUMN closed_at bigint DEFAULT NULL`,
-		`ALTER TABLE app ADD COLUMN deleted boolean DEFAULT NULL`,
-		`ALTER TABLE app ADD COLUMN created_at bigint DEFAULT NULL`,
-		`ALTER TABLE app ADD COLUMN closed_at bigint DEFAULT NULL`,
-		`ALTER TABLE account_app ADD COLUMN deleted boolean DEFAULT NULL`,
-		`ALTER TABLE account_app ADD COLUMN created_at bigint DEFAULT NULL`,
-		`ALTER TABLE account_app ADD COLUMN closed_at bigint DEFAULT NULL`,
-		`ALTER TABLE account_asset ADD COLUMN deleted boolean DEFAULT NULL`,
-		`ALTER TABLE account_asset ADD COLUMN created_at bigint DEFAULT NULL`,
-		`ALTER TABLE account_asset ADD COLUMN closed_at bigint DEFAULT NULL`,
-		`ALTER TABLE asset ADD COLUMN deleted boolean DEFAULT NULL`,
-		`ALTER TABLE asset ADD COLUMN created_at bigint DEFAULT NULL`,
-		`ALTER TABLE asset ADD COLUMN closed_at bigint DEFAULT NULL`,
-	}
-	return sqlMigration(db, state, sqlLines)
+	return sqlMigration(db, state, m5sql)
 }
 
 const rewardsCreateCloseUpdateMessage = "rewards, create_at, close_at migration error"
@@ -457,8 +465,9 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 		db.log.Println("after " + address.String())
 		options.GreaterThanAddress = state.NextAccount[:]
 	}
+	options.IncludeDeleted = true
 
-	accountChan := db.GetAccounts(context.Background(), options)
+	accountChan, _ := db.GetAccounts(context.Background(), options)
 
 	batchSize := 500
 	batchNumber := 1
@@ -597,7 +606,7 @@ func initM5AccountData() *m5AccountData {
 func processAccountTransactionsWithRetry(db *IndexerDb, addressStr string, address types.Address, nextRound uint64, retries int) (results *m5AccountData, err error) {
 	for i := 0; i < retries; i++ {
 		// Query transactions for the account
-		txnrows := db.Transactions(context.Background(), idb.TransactionFilter{
+		txnrows, _ := db.Transactions(context.Background(), idb.TransactionFilter{
 			Address:  address[:],
 			MaxRound: nextRound,
 		})
@@ -674,6 +683,7 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 
 		if accounting.AssetCreateTxn(stxn) {
 			result.asset[txn.AssetID] = updateCreate(result.asset[txn.AssetID], txn.Round)
+			result.assetHolding[txn.AssetID] = updateCreate(result.assetHolding[txn.AssetID], txn.Round)
 		}
 
 		if accounting.AssetDestroyTxn(stxn) {
@@ -684,7 +694,7 @@ func processAccountTransactions(txnrows <-chan idb.TxnRow, addressStr string, ad
 			result.assetHolding[txn.AssetID] = updateCreate(result.assetHolding[txn.AssetID], txn.Round)
 		}
 
-		if accounting.AssetOptOutTxn(stxn) {
+		if accounting.AssetOptOutTxn(stxn) && stxn.Txn.Sender == address {
 			result.assetHolding[txn.AssetID] = updateClose(result.assetHolding[txn.AssetID], txn.Round)
 		}
 
@@ -880,6 +890,7 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 
 // sqlMigration executes a sql statements as the entire migration.
 func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error {
+	checkForAlterTable(sqlLines)
 	thisMigration := state.NextMigration
 	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
@@ -1538,4 +1549,30 @@ func m9SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 	}
 
 	return nil
+}
+
+var registerAlterTableSQLLines []string
+
+func registerAlterTable(x string) {
+	if strings.Contains(x, "ALTER TABLE") {
+		registerAlterTableSQLLines = append(registerAlterTableSQLLines, x)
+	}
+}
+
+func checkForAlterTable(sqlLines []string) {
+	for _, x := range sqlLines {
+		if strings.Contains(x, "ALTER TABLE") {
+			found := false
+			for _, y := range registerAlterTableSQLLines {
+				if y == x {
+					found = true
+					break
+				}
+			}
+			if !found {
+				fmt.Fprintf(os.Stderr, "sql migration line missing from registered ALTER TABLE lines: %v\n", x)
+				panic("unregistered ALTER TABLE line")
+			}
+		}
+	}
 }

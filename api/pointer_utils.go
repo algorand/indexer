@@ -30,6 +30,13 @@ func strOrDefault(str *string) string {
 	return ""
 }
 
+func boolOrDefault(b *bool) bool {
+	if b != nil {
+		return *b
+	}
+	return false
+}
+
 ////////////////////////////
 // Safe pointer wrappers. //
 ////////////////////////////

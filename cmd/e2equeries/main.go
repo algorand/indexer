@@ -48,7 +48,7 @@ func main() {
 	rekeyTxnQuery := idb.TransactionFilter{RekeyTo: &truev, Limit: 1}
 	printTxnQuery(db, rekeyTxnQuery)
 
-	rowchan := db.Transactions(context.Background(), rekeyTxnQuery)
+	rowchan, _ := db.Transactions(context.Background(), rekeyTxnQuery)
 	var rekeyTo atypes.Address
 	for txnrow := range rowchan {
 		maybeFail(txnrow.Error, "err rekey txn %v\n", txnrow.Error)
@@ -62,7 +62,8 @@ func main() {
 
 	// find an asset with > 1 account
 	countByAssetID := make(map[uint64]uint64)
-	for abr := range db.AssetBalances(context.Background(), idb.AssetBalanceQuery{}) {
+	assetchan, _ := db.AssetBalances(context.Background(), idb.AssetBalanceQuery{})
+	for abr := range assetchan {
 		countByAssetID[abr.AssetID] = countByAssetID[abr.AssetID] + 1
 	}
 	var bestid uint64

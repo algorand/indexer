@@ -117,33 +117,37 @@ func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options Ge
 }
 
 // Transactions is part of idb.IndexerDB
-func (db *dummyIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow {
-	return nil
+func (db *dummyIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64) {
+	return nil, 0
 }
 
 // GetAccounts is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow {
-	return nil
+func (db *dummyIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64) {
+	return nil, 0
 }
 
 // Assets is part of idb.IndexerDB
-func (db *dummyIndexerDb) Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow {
-	return nil
+func (db *dummyIndexerDb) Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64) {
+	return nil, 0
 }
 
 // AssetBalances is part of idb.IndexerDB
-func (db *dummyIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow {
-	return nil
+func (db *dummyIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64) {
+	return nil, 0
 }
 
 // Applications is part of idb.IndexerDB
-func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow {
-	return nil
+func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64) {
+	return nil, 0
 }
 
 // Health is part of idb.IndexerDB
 func (db *dummyIndexerDb) Health() (state Health, err error) {
 	return Health{}, nil
+}
+
+func (db *dummyIndexerDb) Reset() (err error) {
+	return nil
 }
 
 // IndexerFactory is used to install an IndexerDb implementation.
@@ -233,13 +237,16 @@ type IndexerDb interface {
 
 	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (block types.Block, transactions []TxnRow, err error)
 
-	Transactions(ctx context.Context, tf TransactionFilter) <-chan TxnRow
-	GetAccounts(ctx context.Context, opts AccountQueryOptions) <-chan AccountRow
-	Assets(ctx context.Context, filter AssetsQuery) <-chan AssetRow
-	AssetBalances(ctx context.Context, abq AssetBalanceQuery) <-chan AssetBalanceRow
-	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan ApplicationRow
+	// The next multiple functions return a channel with results as well as the latest round
+	// accounted.
+	Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64)
+	GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64)
+	Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64)
+	AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64)
+	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64)
 
 	Health() (status Health, err error)
+	Reset() (err error)
 }
 
 // GetBlockOptions contains the options when requesting to load a block from the database.
@@ -335,6 +342,9 @@ type AccountQueryOptions struct {
 	IncludeAssetHoldings bool
 	IncludeAssetParams   bool
 
+	// IncludeDeleted indicated whether to include deleted Assets, Applications, etc within the account.
+	IncludeDeleted bool
+
 	Limit uint64
 }
 
@@ -359,6 +369,9 @@ type AssetsQuery struct {
 	// (assetname ILIKE '%?%' OR unitname ILIKE '%?%')
 	Query string
 
+	// IncludeDeleted indicated whether to include deleted Assets in the results.
+	IncludeDeleted bool
+
 	Limit uint64
 }
 
@@ -378,6 +391,9 @@ type AssetBalanceQuery struct {
 	AssetID  uint64
 	AmountGT uint64 // only rows > this
 	AmountLT uint64 // only rows < this
+
+	// IncludeDeleted indicated whether to include deleted AssetHoldingss in the results.
+	IncludeDeleted bool
 
 	Limit uint64 // max rows to return
 
@@ -428,6 +444,10 @@ func init() {
 // IndexerDbOptions are the options common to all indexer backends.
 type IndexerDbOptions struct {
 	ReadOnly bool
+
+	// NoMigrate indicates to not run any migrations.
+	// Should probably only be used by the `reset` subcommand.
+	NoMigrate bool
 }
 
 // RegisterFactory is used by IndexerDb implementations to register their implementations. This mechanism allows

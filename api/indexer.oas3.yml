@@ -105,6 +105,14 @@
           "type": "boolean"
         }
       },
+      "include-all": {
+        "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+        "in": "query",
+        "name": "include-all",
+        "schema": {
+          "type": "boolean"
+        }
+      },
       "limit": {
         "description": "Maximum number of results to return.",
         "in": "query",
@@ -1774,6 +1782,14 @@
             }
           },
           {
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+            "in": "query",
+            "name": "include-all",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "description": "Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
             "in": "query",
             "name": "currency-less-than",
@@ -1865,6 +1881,14 @@
             "name": "round",
             "schema": {
               "type": "integer"
+            }
+          },
+          {
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+            "in": "query",
+            "name": "include-all",
+            "schema": {
+              "type": "boolean"
             }
           }
         ],
@@ -2104,6 +2128,14 @@
             }
           },
           {
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+            "in": "query",
+            "name": "include-all",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "description": "Maximum number of results to return.",
             "in": "query",
             "name": "limit",
@@ -2169,6 +2201,14 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+            "in": "query",
+            "name": "include-all",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -2205,6 +2245,14 @@
         "description": "Search for assets.",
         "operationId": "searchForAssets",
         "parameters": [
+          {
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+            "in": "query",
+            "name": "include-all",
+            "schema": {
+              "type": "boolean"
+            }
+          },
           {
             "description": "Maximum number of results to return.",
             "in": "query",
@@ -2303,6 +2351,14 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+            "in": "query",
+            "name": "include-all",
+            "schema": {
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -2349,6 +2405,14 @@
         "description": "Lookup the list of accounts who hold this asset ",
         "operationId": "lookupAssetBalances",
         "parameters": [
+          {
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+            "in": "query",
+            "name": "include-all",
+            "schema": {
+              "type": "boolean"
+            }
+          },
           {
             "description": "Maximum number of results to return.",
             "in": "query",

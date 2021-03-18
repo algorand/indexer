@@ -56,7 +56,8 @@ func myStackTrace() {
 // PrintAssetQuery prints information about an asset query.
 func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 	count := uint64(0)
-	for ar := range db.Assets(context.Background(), q) {
+	assetchan, _ := db.Assets(context.Background(), q)
+	for ar := range assetchan {
 		MaybeFail(ar.Error, "asset query %v\n", ar.Error)
 		pjs, err := json.Marshal(ar.Params)
 		MaybeFail(err, "json.Marshal params %v\n", err)
@@ -75,7 +76,7 @@ func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 
 // PrintAccountQuery prints information about an account query.
 func PrintAccountQuery(db idb.IndexerDb, q idb.AccountQueryOptions) {
-	accountchan := db.GetAccounts(context.Background(), q)
+	accountchan, _ := db.GetAccounts(context.Background(), q)
 	count := uint64(0)
 	for ar := range accountchan {
 		MaybeFail(ar.Error, "GetAccounts err %v\n", ar.Error)
@@ -95,7 +96,7 @@ func PrintAccountQuery(db idb.IndexerDb, q idb.AccountQueryOptions) {
 
 // PrintTxnQuery prints information about a transaction query.
 func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
-	rowchan := db.Transactions(context.Background(), q)
+	rowchan, _ := db.Transactions(context.Background(), q)
 	count := uint64(0)
 	for txnrow := range rowchan {
 		MaybeFail(txnrow.Error, "err %v\n", txnrow.Error)

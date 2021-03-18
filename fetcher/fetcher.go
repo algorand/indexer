@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
@@ -26,7 +25,6 @@ type Fetcher interface {
 	Run()
 
 	AddBlockHandler(handler BlockHandler)
-	SetWaitGroup(wg *sync.WaitGroup)
 	SetContext(ctx context.Context)
 	SetNextRound(nextRound uint64)
 
@@ -49,7 +47,6 @@ type fetcherImpl struct {
 	nextRound uint64
 
 	ctx  context.Context
-	wg   *sync.WaitGroup
 	done bool
 
 	failingSince time.Time
@@ -155,9 +152,6 @@ func (bot *fetcherImpl) followLoop() {
 
 // Run is part of the Fetcher interface
 func (bot *fetcherImpl) Run() {
-	if bot.wg != nil {
-		defer bot.wg.Done()
-	}
 	for true {
 		if bot.isDone() {
 			return
@@ -184,11 +178,6 @@ func (bot *fetcherImpl) Run() {
 			bot.log.Infof("reclient happened")
 		}
 	}
-}
-
-// SetWaitGroup is part of the Fetcher interface
-func (bot *fetcherImpl) SetWaitGroup(wg *sync.WaitGroup) {
-	bot.wg = wg
 }
 
 // SetContext is part of the Fetcher interface
