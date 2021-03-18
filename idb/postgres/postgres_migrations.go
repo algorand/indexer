@@ -473,8 +473,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	db.log.Print("querying accounts")
 	accountCh, _ := db.GetAccounts(context.Background(), options)
 
-	// Loop through all accounts and initialize account data for each.
-	accountDataMap := make(map[sdk_types.Address]*m6AccountData)
+	// Read all accounts.
 	accountsWithoutTxn := make(map[sdk_types.Address]bool)
 	numRows := 0
 	db.log.Print("started reading accounts")
@@ -492,13 +491,12 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 
 		// Don't update special accounts (m9 fixes this)
 		if address != specialAccounts.FeeSink && address != specialAccounts.RewardsPool {
-			accountDataMap[address] = initM6AccountData()
 			accountsWithoutTxn[address] = true
 		}
 
 		numRows++
 
-		if numRows%100000 == 0 {
+		if numRows%100000 == 1 {
 			db.log.Printf("m6: read %d accounts", numRows)
 		}
 	}
@@ -513,6 +511,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 
 	// Loop through all transactions and compute account data.
 	db.log.Print("started reading transactions")
+	accountDataMap := make(map[sdk_types.Address]*m6AccountData)
 	numRows = 0
 	for rows.Next() {
 		var round uint64
@@ -539,17 +538,21 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 				address != specialAccounts.RewardsPool && address != specialAccounts.FeeSink {
 				accountData, ok := accountDataMap[address]
 				if !ok {
-					db.log.Errorf("%s: unable to find account %s for transaction round: %d intra: %d",
-						rewardsCreateCloseUpdateErr, address.String(), round, intra)
+					if _, okk := accountsWithoutTxn[address]; !okk {
+						db.log.Errorf("%s: unable to find account %s for transaction round: %d intra: %d",
+							rewardsCreateCloseUpdateErr, address.String(), round, intra)
+					}
+					delete(accountsWithoutTxn, address)
+					accountData = initM6AccountData()
+					accountDataMap[address] = accountData
 				}
 				updateAccountData(address, round, assetId, stxn, accountData)
-				delete(accountsWithoutTxn, address)
 			}
 		}
 
 		numRows++
 
-		if numRows%100000 == 0 {
+		if numRows%1000000 == 1 {
 			db.log.Printf("m6: read %d transactions", numRows)
 		}
 	}
@@ -558,7 +561,9 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	// Set Created, Deleted for accounts with no transactions.
 	// Genesis accounts could have this property.
 	for address, _ := range accountsWithoutTxn {
-		accountData, _ := accountDataMap[address]
+		accountData := initM6AccountData()
+		accountDataMap[address] = accountData
+
 		accountData.account.created.Valid = true
 		accountData.account.created.Int64 = 0
 		accountData.account.deleted.Valid = true
@@ -599,7 +604,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 				return err
 			}
 
-			if batchNumber%100 == 0 {
+			if batchNumber%100 == 1 {
 				db.log.Printf("m6: written %.2f%% accounts; batch %d, next account %s",
 					float64(100*batchSize*batchNumber)/float64(numAccounts), batchNumber,
 					accountDataArr[0].address)
@@ -682,23 +687,38 @@ func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]*creat
 	return
 }
 
+type m6AdditionalAccountData struct {
+	asset        map[uint64]*createClose
+	assetHolding map[uint64]*createClose
+	app          map[uint64]*createClose
+	appLocal     map[uint64]*createClose
+}
+
 type m6AccountData struct {
 	cumulativeRewards types.MicroAlgos
 	account           createClose
-	asset             map[uint64]*createClose
-	assetHolding      map[uint64]*createClose
-	app               map[uint64]*createClose
-	appLocal          map[uint64]*createClose
+	additional        *m6AdditionalAccountData
+}
+
+func initM6AdditionalData() *m6AdditionalAccountData {
+	return &m6AdditionalAccountData{
+		asset:        make(map[uint64]*createClose),
+		assetHolding: make(map[uint64]*createClose),
+		app:          make(map[uint64]*createClose),
+		appLocal:     make(map[uint64]*createClose),
+	}
 }
 
 func initM6AccountData() *m6AccountData {
 	return &m6AccountData{
 		cumulativeRewards: 0,
 		account:           createClose{},
-		asset:             make(map[uint64]*createClose),
-		assetHolding:      make(map[uint64]*createClose),
-		app:               make(map[uint64]*createClose),
-		appLocal:          make(map[uint64]*createClose),
+	}
+}
+
+func maybeInitializeAdditionalAccountData(accountData *m6AccountData) {
+	if accountData.additional == nil {
+		accountData.additional = initM6AdditionalData()
 	}
 }
 
@@ -743,36 +763,51 @@ func updateAccountData(address types.Address, round uint64, assetId uint64, stxn
 	}
 
 	if accounting.AssetCreateTxn(stxn) {
-		accountData.asset[assetId] = updateCreate(accountData.asset[assetId], round)
-		accountData.assetHolding[assetId] = updateCreate(accountData.assetHolding[assetId], round)
+		maybeInitializeAdditionalAccountData(accountData)
+		accountData.additional.asset[assetId] =
+			updateCreate(accountData.additional.asset[assetId], round)
+		accountData.additional.assetHolding[assetId] =
+			updateCreate(accountData.additional.assetHolding[assetId], round)
 	}
 
 	if accounting.AssetDestroyTxn(stxn) {
-		accountData.asset[assetId] = updateClose(accountData.asset[assetId], round)
+		maybeInitializeAdditionalAccountData(accountData)
+		accountData.additional.asset[assetId] =
+			updateClose(accountData.additional.asset[assetId], round)
 	}
 
 	if accounting.AssetOptInTxn(stxn) {
-		accountData.assetHolding[assetId] = updateCreate(accountData.assetHolding[assetId], round)
+		maybeInitializeAdditionalAccountData(accountData)
+		accountData.additional.assetHolding[assetId] =
+			updateCreate(accountData.additional.assetHolding[assetId], round)
 	}
 
 	if accounting.AssetOptOutTxn(stxn) && stxn.Txn.Sender == address {
-		accountData.assetHolding[assetId] = updateClose(accountData.assetHolding[assetId], round)
+		maybeInitializeAdditionalAccountData(accountData)
+		accountData.additional.assetHolding[assetId] =
+			updateClose(accountData.additional.assetHolding[assetId], round)
 	}
 
 	if accounting.AppCreateTxn(stxn) {
-		accountData.app[assetId] = updateCreate(accountData.app[assetId], round)
+		maybeInitializeAdditionalAccountData(accountData)
+		accountData.additional.app[assetId] = updateCreate(accountData.additional.app[assetId], round)
 	}
 
 	if accounting.AppDestroyTxn(stxn) {
-		accountData.app[assetId] = updateClose(accountData.app[assetId], round)
+		maybeInitializeAdditionalAccountData(accountData)
+		accountData.additional.app[assetId] = updateClose(accountData.additional.app[assetId], round)
 	}
 
 	if accounting.AppOptInTxn(stxn) {
-		accountData.appLocal[assetId] = updateCreate(accountData.appLocal[assetId], round)
+		maybeInitializeAdditionalAccountData(accountData)
+		accountData.additional.appLocal[assetId] =
+			updateCreate(accountData.additional.appLocal[assetId], round)
 	}
 
 	if accounting.AppOptOutTxn(stxn) {
-		accountData.appLocal[assetId] = updateClose(accountData.appLocal[assetId], round)
+		maybeInitializeAdditionalAccountData(accountData)
+		accountData.additional.appLocal[assetId] =
+			updateClose(accountData.additional.appLocal[assetId], round)
 	}
 }
 
@@ -864,28 +899,33 @@ func m6RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []AddressAc
 			return fmt.Errorf("%s: failed to update %s with create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
 
-		// 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
-		err = executeForEachCreatable(setCreateCloseAsset, ad.address[:], ad.accountData.asset)
-		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with asset create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
-		}
+		if ad.accountData.additional != nil {
+			// 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
+			err = executeForEachCreatable(setCreateCloseAsset, ad.address[:],
+				ad.accountData.additional.asset)
+			if err != nil {
+				return fmt.Errorf("%s: failed to update %s with asset create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+			}
 
-		// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
-		err = executeForEachCreatable(setCreateCloseAssetHolding, ad.address[:], ad.accountData.assetHolding)
-		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with asset holding create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
-		}
+			// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
+			err = executeForEachCreatable(setCreateCloseAssetHolding, ad.address[:],
+				ad.accountData.additional.assetHolding)
+			if err != nil {
+				return fmt.Errorf("%s: failed to update %s with asset holding create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+			}
 
-		// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
-		err = executeForEachCreatable(setCreateCloseApp, ad.address[:], ad.accountData.app)
-		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with app create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
-		}
+			// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
+			err = executeForEachCreatable(setCreateCloseApp, ad.address[:], ad.accountData.additional.app)
+			if err != nil {
+				return fmt.Errorf("%s: failed to update %s with app create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+			}
 
-		// 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
-		err = executeForEachCreatable(setCreateCloseAppLocal, ad.address[:], ad.accountData.appLocal)
-		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with app local create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+			// 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
+			err = executeForEachCreatable(setCreateCloseAppLocal, ad.address[:],
+				ad.accountData.additional.appLocal)
+			if err != nil {
+				return fmt.Errorf("%s: failed to update %s with app local create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+			}
 		}
 	}
 
