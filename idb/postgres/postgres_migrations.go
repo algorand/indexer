@@ -581,13 +581,33 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	sort.Slice(accountDataArr, less)
 
 	{
-		num := 0
+		numAd := 0
+		numAsset := 0
+		numAssetHolding := 0
+		numApp := 0
+		numAppLocal := 0
 		for _, aad := range accountDataArr {
 			if aad.accountData.additional != nil {
-				num++
+				numAd++
+				if len(aad.accountData.additional.asset) > 0 {
+					numAsset++
+				}
+				if len(aad.accountData.additional.assetHolding) > 0 {
+					numAssetHolding++
+				}
+				if len(aad.accountData.additional.app) > 0 {
+					numApp++
+				}
+				if len(aad.accountData.additional.appLocal) > 0 {
+					numAppLocal++
+				}
 			}
 		}
-		db.log.Printf("%d accounts have additional data", num)
+		db.log.Printf("%d accounts have additional data", numAd)
+		db.log.Printf("%d accounts have additional data: asset", numAsset)
+		db.log.Printf("%d accounts have additional data: asset holding", numAssetHolding)
+		db.log.Printf("%d accounts have additional data: app", numApp)
+		db.log.Printf("%d accounts have additional data: app local", numAppLocal)
 	}
 
 	// Loop through all accounts, update them in batches.
