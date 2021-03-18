@@ -2979,7 +2979,7 @@
     "/v2/transactions/{txid}": {
       "get": {
         "description": "Lookup a single transaction.",
-        "operationId": "lookupTransactions",
+        "operationId": "lookupTransaction",
         "parameters": [
           {
             "in": "path",
