@@ -581,33 +581,18 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	sort.Slice(accountDataArr, less)
 
 	{
-		numAd := 0
-		numAsset := 0
 		numAssetHolding := 0
-		numApp := 0
-		numAppLocal := 0
+		numAd := 0
 		for _, aad := range accountDataArr {
+			if len(aad.accountData.assetHolding) > 0 {
+				numAssetHolding++
+			}
 			if aad.accountData.additional != nil {
 				numAd++
-				if len(aad.accountData.additional.asset) > 0 {
-					numAsset++
-				}
-				if len(aad.accountData.additional.assetHolding) > 0 {
-					numAssetHolding++
-				}
-				if len(aad.accountData.additional.app) > 0 {
-					numApp++
-				}
-				if len(aad.accountData.additional.appLocal) > 0 {
-					numAppLocal++
-				}
 			}
 		}
+		db.log.Printf("%d accounts hold assets", numAssetHolding)
 		db.log.Printf("%d accounts have additional data", numAd)
-		db.log.Printf("%d accounts have additional data: asset", numAsset)
-		db.log.Printf("%d accounts have additional data: asset holding", numAssetHolding)
-		db.log.Printf("%d accounts have additional data: app", numApp)
-		db.log.Printf("%d accounts have additional data: app local", numAppLocal)
 	}
 
 	// Loop through all accounts, update them in batches.
@@ -718,24 +703,24 @@ func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]*creat
 }
 
 type m6AdditionalAccountData struct {
-	asset        map[uint64]*createClose
-	assetHolding map[uint64]*createClose
-	app          map[uint64]*createClose
-	appLocal     map[uint64]*createClose
+	asset    map[uint64]*createClose
+	app      map[uint64]*createClose
+	appLocal map[uint64]*createClose
 }
 
 type m6AccountData struct {
 	cumulativeRewards types.MicroAlgos
 	account           createClose
-	additional        *m6AdditionalAccountData
+	assetHolding      map[uint64]*createClose
+	// Store other maps separately to save space, since most accounts do not use them.
+	additional *m6AdditionalAccountData
 }
 
 func initM6AdditionalData() *m6AdditionalAccountData {
 	return &m6AdditionalAccountData{
-		asset:        make(map[uint64]*createClose),
-		assetHolding: make(map[uint64]*createClose),
-		app:          make(map[uint64]*createClose),
-		appLocal:     make(map[uint64]*createClose),
+		asset:    make(map[uint64]*createClose),
+		app:      make(map[uint64]*createClose),
+		appLocal: make(map[uint64]*createClose),
 	}
 }
 
@@ -743,6 +728,7 @@ func initM6AccountData() *m6AccountData {
 	return &m6AccountData{
 		cumulativeRewards: 0,
 		account:           createClose{},
+		assetHolding:      make(map[uint64]*createClose),
 	}
 }
 
@@ -796,8 +782,7 @@ func updateAccountData(address types.Address, round uint64, assetId uint64, stxn
 		maybeInitializeAdditionalAccountData(accountData)
 		accountData.additional.asset[assetId] =
 			updateCreate(accountData.additional.asset[assetId], round)
-		accountData.additional.assetHolding[assetId] =
-			updateCreate(accountData.additional.assetHolding[assetId], round)
+		accountData.assetHolding[assetId] = updateCreate(accountData.assetHolding[assetId], round)
 	}
 
 	if accounting.AssetDestroyTxn(stxn) {
@@ -807,15 +792,13 @@ func updateAccountData(address types.Address, round uint64, assetId uint64, stxn
 	}
 
 	if accounting.AssetOptInTxn(stxn) {
-		maybeInitializeAdditionalAccountData(accountData)
-		accountData.additional.assetHolding[assetId] =
-			updateCreate(accountData.additional.assetHolding[assetId], round)
+		accountData.assetHolding[assetId] =
+			updateCreate(accountData.assetHolding[assetId], round)
 	}
 
 	if accounting.AssetOptOutTxn(stxn) && stxn.Txn.Sender == address {
-		maybeInitializeAdditionalAccountData(accountData)
-		accountData.additional.assetHolding[assetId] =
-			updateClose(accountData.additional.assetHolding[assetId], round)
+		accountData.assetHolding[assetId] =
+			updateClose(accountData.assetHolding[assetId], round)
 	}
 
 	if accounting.AppCreateTxn(stxn) {
@@ -939,7 +922,7 @@ func m6RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []AddressAc
 
 			// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
 			err = executeForEachCreatable(setCreateCloseAssetHolding, ad.address[:],
-				ad.accountData.additional.assetHolding)
+				ad.accountData.assetHolding)
 			if err != nil {
 				return fmt.Errorf("%s: failed to update %s with asset holding create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 			}
