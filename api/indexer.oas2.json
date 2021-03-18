@@ -508,7 +508,7 @@
         "tags": [
           "lookup"
         ],
-        "operationId": "lookupTransactions",
+        "operationId": "lookupTransaction",
         "parameters": [
           {
             "type": "string",

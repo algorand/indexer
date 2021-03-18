@@ -403,8 +403,8 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 	return ctx.JSON(http.StatusOK, generated.BlockResponse(blk))
 }
 
-// LookupTransactions searches for the requested transaction ID.
-func (si *ServerImplementation) LookupTransactions(ctx echo.Context, txid string) error {
+// LookupTransaction searches for the requested transaction ID.
+func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string) error {
 	filter, err := transactionParamsToTransactionFilter(generated.SearchForTransactionsParams{
 		Txid: strPtr(txid),
 	})
