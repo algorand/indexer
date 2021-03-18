@@ -8,15 +8,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math"
-	"os"
-	"sort"
-	"time"
-
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"math"
+	"os"
+	"sort"
+	"time"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/v2"
@@ -564,10 +563,10 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 		accountData := initM6AccountData()
 		accountDataMap[address] = accountData
 
-		accountData.account.created.Valid = true
-		accountData.account.created.Int64 = 0
-		accountData.account.deleted.Valid = true
-		accountData.account.deleted.Bool = false
+		accountData.account.createdValid = true
+		accountData.account.created = 0
+		accountData.account.deletedValid = true
+		accountData.account.deleted = false
 	}
 
 	// Sort account data by address.
@@ -632,69 +631,52 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 }
 
 type createClose struct {
-	deleted sql.NullBool
-	created sql.NullInt64
-	closed  sql.NullInt64
+	created      uint32
+	closed       uint32
+	deleted      bool
+	createdValid bool
+	closedValid  bool
+	deletedValid bool
 }
 
 // updateClose will only allow the value to be set once.
-func updateClose(cc *createClose, value uint64) *createClose {
-	if cc == nil {
-		return &createClose{
-			closed: sql.NullInt64{
-				Valid: true,
-				Int64: int64(value),
-			},
-			deleted: sql.NullBool{
-				Valid: true,
-				Bool:  true,
-			},
-		}
+func updateClose(value uint64, cc createClose) createClose {
+	res := cc
+
+	if !res.closedValid {
+		res.closedValid = true
+		res.closed = uint32(value)
 	}
 
-	if !cc.closed.Valid {
-		cc.closed.Valid = true
-		cc.closed.Int64 = int64(value)
+	if !res.deletedValid {
+		res.deletedValid = true
+		res.deleted = true
 	}
 
-	// Initialize deleted.
-	if !cc.deleted.Valid {
-		cc.deleted.Valid = true
-		cc.deleted.Bool = true
-	}
-
-	return cc
+	return res
 }
 
 // updateCreate will update the created round.
-func updateCreate(cc *createClose, value uint64) *createClose {
-	if cc == nil {
-		return &createClose{
-			created: sql.NullInt64{
-				Valid: true,
-				Int64: int64(value),
-			},
-			deleted: sql.NullBool{
-				Valid: true,
-				Bool:  false,
-			},
-		}
+func updateCreate(value uint64, cc createClose) createClose {
+	res := cc
+
+	res.createdValid = true
+	res.created = uint32(value)
+
+	if !res.deletedValid {
+		res.deletedValid = true
+		res.deleted = false
 	}
 
-	cc.created.Valid = true
-	cc.created.Int64 = int64(value)
-
-	if !cc.deleted.Valid {
-		cc.deleted.Valid = true
-		cc.deleted.Bool = false
-	}
-
-	return cc
+	return res
 }
 
-func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]*createClose) (err error) {
+func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]createClose) (err error) {
 	for index, round := range m {
-		_, err = stmt.Exec(address, index, round.created, round.closed, round.deleted)
+		deleted := sql.NullBool{round.deleted, round.deletedValid}
+		created := sql.NullInt64{int64(round.created), round.createdValid}
+		closed := sql.NullInt64{int64(round.closed), round.closedValid}
+		_, err = stmt.Exec(address, index, created, closed, deleted)
 		if err != nil {
 			return
 		}
@@ -703,24 +685,24 @@ func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]*creat
 }
 
 type m6AdditionalAccountData struct {
-	asset    map[uint64]*createClose
-	app      map[uint64]*createClose
-	appLocal map[uint64]*createClose
+	asset    map[uint64]createClose
+	app      map[uint64]createClose
+	appLocal map[uint64]createClose
 }
 
 type m6AccountData struct {
 	cumulativeRewards types.MicroAlgos
 	account           createClose
-	assetHolding      map[uint64]*createClose
+	assetHolding      map[uint64]createClose
 	// Store other maps separately to save space, since most accounts do not use them.
 	additional *m6AdditionalAccountData
 }
 
 func initM6AdditionalData() *m6AdditionalAccountData {
 	return &m6AdditionalAccountData{
-		asset:    make(map[uint64]*createClose),
-		app:      make(map[uint64]*createClose),
-		appLocal: make(map[uint64]*createClose),
+		asset:    make(map[uint64]createClose),
+		app:      make(map[uint64]createClose),
+		appLocal: make(map[uint64]createClose),
 	}
 }
 
@@ -728,7 +710,7 @@ func initM6AccountData() *m6AccountData {
 	return &m6AccountData{
 		cumulativeRewards: 0,
 		account:           createClose{},
-		assetHolding:      make(map[uint64]*createClose),
+		assetHolding:      make(map[uint64]createClose),
 	}
 }
 
@@ -744,24 +726,24 @@ func maybeInitializeAdditionalAccountData(accountData *m6AccountData) {
 func updateAccountData(address types.Address, round uint64, assetId uint64, stxn types.SignedTxnWithAD, accountData *m6AccountData) {
 	// Transactions are ordered most recent to oldest, so this makes sure created is set to the
 	// oldest transaction.
-	accountData.account.created.Valid = true
-	accountData.account.created.Int64 = int64(round)
+	accountData.account.createdValid = true
+	accountData.account.created = uint32(round)
 
 	// When the account is closed rewards reset to zero.
 	// Because transactions are newest to oldest, stop accumulating once we see a close.
-	if !accountData.account.closed.Valid {
+	if !accountData.account.closedValid {
 		if accounting.AccountCloseTxn(address, stxn) {
-			accountData.account.closed.Valid = true
-			accountData.account.closed.Int64 = int64(round)
+			accountData.account.closedValid = true
+			accountData.account.closed = uint32(round)
 
-			if !accountData.account.deleted.Valid {
-				accountData.account.deleted.Bool = true
-				accountData.account.deleted.Valid = true
+			if !accountData.account.deletedValid {
+				accountData.account.deletedValid = true
+				accountData.account.deleted = true
 			}
 		} else {
-			if !accountData.account.deleted.Valid {
-				accountData.account.deleted.Bool = false
-				accountData.account.deleted.Valid = true
+			if !accountData.account.deletedValid {
+				accountData.account.deletedValid = true
+				accountData.account.deleted = false
 			}
 
 			if stxn.Txn.Sender == address {
@@ -781,46 +763,45 @@ func updateAccountData(address types.Address, round uint64, assetId uint64, stxn
 	if accounting.AssetCreateTxn(stxn) {
 		maybeInitializeAdditionalAccountData(accountData)
 		accountData.additional.asset[assetId] =
-			updateCreate(accountData.additional.asset[assetId], round)
-		accountData.assetHolding[assetId] = updateCreate(accountData.assetHolding[assetId], round)
+			updateCreate(round, accountData.additional.asset[assetId])
+		accountData.assetHolding[assetId] =
+			updateCreate(round, accountData.assetHolding[assetId])
 	}
 
 	if accounting.AssetDestroyTxn(stxn) {
 		maybeInitializeAdditionalAccountData(accountData)
 		accountData.additional.asset[assetId] =
-			updateClose(accountData.additional.asset[assetId], round)
+			updateClose(round, accountData.additional.asset[assetId])
 	}
 
 	if accounting.AssetOptInTxn(stxn) {
-		accountData.assetHolding[assetId] =
-			updateCreate(accountData.assetHolding[assetId], round)
+		accountData.assetHolding[assetId] = updateCreate(round, accountData.assetHolding[assetId])
 	}
 
 	if accounting.AssetOptOutTxn(stxn) && stxn.Txn.Sender == address {
-		accountData.assetHolding[assetId] =
-			updateClose(accountData.assetHolding[assetId], round)
+		accountData.assetHolding[assetId] = updateClose(round, accountData.assetHolding[assetId])
 	}
 
 	if accounting.AppCreateTxn(stxn) {
 		maybeInitializeAdditionalAccountData(accountData)
-		accountData.additional.app[assetId] = updateCreate(accountData.additional.app[assetId], round)
+		accountData.additional.app[assetId] = updateCreate(round, accountData.additional.app[assetId])
 	}
 
 	if accounting.AppDestroyTxn(stxn) {
 		maybeInitializeAdditionalAccountData(accountData)
-		accountData.additional.app[assetId] = updateClose(accountData.additional.app[assetId], round)
+		accountData.additional.app[assetId] = updateClose(round, accountData.additional.app[assetId])
 	}
 
 	if accounting.AppOptInTxn(stxn) {
 		maybeInitializeAdditionalAccountData(accountData)
 		accountData.additional.appLocal[assetId] =
-			updateCreate(accountData.additional.appLocal[assetId], round)
+			updateCreate(round, accountData.additional.appLocal[assetId])
 	}
 
 	if accounting.AppOptOutTxn(stxn) {
 		maybeInitializeAdditionalAccountData(accountData)
 		accountData.additional.appLocal[assetId] =
-			updateClose(accountData.additional.appLocal[assetId], round)
+			updateClose(round, accountData.additional.appLocal[assetId])
 	}
 }
 
@@ -907,9 +888,16 @@ func m6RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []AddressAc
 		}
 
 		// 2. setCreateCloseAccount      - set the accounts create/close rounds.
-		_, err = setCreateCloseAccount.Exec(ad.address[:], ad.accountData.account.created, ad.accountData.account.closed, ad.accountData.account.deleted)
-		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+		{
+			deleted := sql.NullBool{ad.accountData.account.deleted, ad.accountData.account.deletedValid}
+			created :=
+				sql.NullInt64{int64(ad.accountData.account.created), ad.accountData.account.createdValid}
+			closed :=
+				sql.NullInt64{int64(ad.accountData.account.closed), ad.accountData.account.closedValid}
+			_, err = setCreateCloseAccount.Exec(ad.address[:], created, closed, deleted)
+			if err != nil {
+				return fmt.Errorf("%s: failed to update %s with create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+			}
 		}
 
 		// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
