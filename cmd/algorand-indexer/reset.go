@@ -10,6 +10,11 @@ import (
 
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/importer"
+)
+
+var (
+	andRebuild bool
 )
 
 var resetCmd = &cobra.Command{
@@ -54,7 +59,22 @@ var resetCmd = &cobra.Command{
 				time.Sleep(2) // leave some ^C time
 				err = db.Reset()
 				maybeFail(err, "database reset failed")
-				fmt.Println("Done. To re-build, re-start algorand-indexer daemon")
+				if andRebuild {
+					fmt.Println("Done resetting. Re-building accounting...")
+					accountround, err := db.GetMaxRoundAccounted()
+					maybeFail(err, "could not find max round accounted, %v", err)
+					blockround, err := db.GetMaxRoundLoaded()
+					maybeFail(err, "could not find max block loaded, %v", err)
+					if blockround > accountround {
+						logger.Infof("have block %d and accounting through %d, updating...", blockround, accountround)
+						cache, err := db.GetDefaultFrozen()
+						maybeFail(err, "failed to get default frozen cache")
+						importer.UpdateAccounting(db, cache, blockround, genesisJSONPath, logger)
+					}
+					fmt.Println("Done rebuilding accounting.")
+				} else {
+					fmt.Println("Done. To re-build, re-start algorand-indexer daemon")
+				}
 				return
 			}
 		}
@@ -62,4 +82,8 @@ var resetCmd = &cobra.Command{
 		maybeFail(err, "getting prompt char")
 		fmt.Println("not resetting")
 	},
+}
+
+func init() {
+	resetCmd.Flags().BoolVarP(&andRebuild, "and-rebuild", "", false, "re-run accounting after reset (this could take a while)")
 }

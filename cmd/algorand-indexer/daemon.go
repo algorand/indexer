@@ -46,11 +46,6 @@ var daemonCmd = &cobra.Command{
 		if algodDataDir == "" {
 			algodDataDir = os.Getenv("ALGORAND_DATA")
 		}
-		opts := idb.IndexerDbOptions{}
-		if noAlgod {
-			opts.ReadOnly = true
-		}
-		db := globalIndexerDb(&opts)
 
 		ctx, cf := context.WithCancel(context.Background())
 		defer cf()
@@ -70,6 +65,11 @@ var daemonCmd = &cobra.Command{
 			// no algod was found
 			noAlgod = true
 		}
+		opts := idb.IndexerDbOptions{}
+		if noAlgod {
+			opts.ReadOnly = true
+		}
+		db := globalIndexerDb(&opts)
 		if !noAlgod {
 			// Only do this if we're going to be writing
 			// to the db, to allow for read-only query
@@ -102,17 +102,6 @@ var daemonCmd = &cobra.Command{
 			}()
 		} else {
 			logger.Info("No block importer configured.")
-			waitForDBAvailable(db)
-			accountround, err := db.GetMaxRoundAccounted()
-			maybeFail(err, "could not find max round accounted, %v", err)
-			blockround, err := db.GetMaxRoundLoaded()
-			maybeFail(err, "could not find max block loaded, %v", err)
-			if blockround > accountround {
-				logger.Infof("have block %d and accounting through %d, updating...", blockround, accountround)
-				cache, err := db.GetDefaultFrozen()
-				maybeFail(err, "failed to get default frozen cache")
-				importer.UpdateAccounting(db, cache, blockround, genesisJSONPath, logger)
-			}
 		}
 
 		tokenArray := make([]string, 0)
