@@ -86,4 +86,5 @@ var resetCmd = &cobra.Command{
 
 func init() {
 	resetCmd.Flags().BoolVarP(&andRebuild, "and-rebuild", "", false, "re-run accounting after reset (this could take a while)")
+	resetCmd.Flags().StringVarP(&genesisJSONPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
 }
