@@ -912,19 +912,19 @@ func m6RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []AddressAc
 			return fmt.Errorf("%s: failed to update %s with create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 		}
 
+		// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
+		err = executeForEachCreatable(setCreateCloseAssetHolding, ad.address[:],
+			ad.accountData.assetHolding)
+		if err != nil {
+			return fmt.Errorf("%s: failed to update %s with asset holding create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+		}
+
 		if ad.accountData.additional != nil {
 			// 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
 			err = executeForEachCreatable(setCreateCloseAsset, ad.address[:],
 				ad.accountData.additional.asset)
 			if err != nil {
 				return fmt.Errorf("%s: failed to update %s with asset create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
-			}
-
-			// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
-			err = executeForEachCreatable(setCreateCloseAssetHolding, ad.address[:],
-				ad.accountData.assetHolding)
-			if err != nil {
-				return fmt.Errorf("%s: failed to update %s with asset holding create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 			}
 
 			// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
