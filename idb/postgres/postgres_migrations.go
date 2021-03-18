@@ -474,7 +474,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	accountCh, _ := db.GetAccounts(context.Background(), options)
 
 	// Read all accounts.
-	accountsWithoutTxn := make(map[sdk_types.Address]bool)
+	accountsWithoutTxn := make(map[sdk_types.Address]struct{})
 	numRows := 0
 	db.log.Print("started reading accounts")
 	for accountRow := range accountCh {
@@ -491,7 +491,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 
 		// Don't update special accounts (m9 fixes this)
 		if address != specialAccounts.FeeSink && address != specialAccounts.RewardsPool {
-			accountsWithoutTxn[address] = true
+			accountsWithoutTxn[address] = struct{}{}
 		}
 
 		numRows++
