@@ -25,6 +25,7 @@ var (
 	daemonServerAddr string
 	noAlgod          bool
 	developerMode    bool
+	allowMigration   bool
 	tokenString      string
 )
 
@@ -66,7 +67,7 @@ var daemonCmd = &cobra.Command{
 			noAlgod = true
 		}
 		opts := idb.IndexerDbOptions{}
-		if noAlgod {
+		if noAlgod && !allowMigration {
 			opts.ReadOnly = true
 		}
 		db := globalIndexerDb(&opts)
@@ -154,6 +155,7 @@ func init() {
 	daemonCmd.Flags().BoolVarP(&noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
 	daemonCmd.Flags().StringVarP(&tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
 	daemonCmd.Flags().BoolVarP(&developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
+	daemonCmd.Flags().BoolVarP(&allowMigration, "allow-migration", "", false, "allow migrations to happen even when no algod connected")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
