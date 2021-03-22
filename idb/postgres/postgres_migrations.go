@@ -450,6 +450,7 @@ type TxnId struct {
 	round uint32
 	intra uint32
 }
+
 func txnIdLess(l TxnId, r TxnId) bool {
 	if l.round < r.round {
 		return true
@@ -823,7 +824,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 			}
 
 			numRows++
-			if numRows % 1000000 == 0 {
+			if numRows%1000000 == 0 {
 				db.log.Printf("read %d transactions (pass 1)\n", numRows)
 			}
 		}
