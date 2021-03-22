@@ -841,7 +841,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 
 			numRows++
 			if numRows%1000000 == 0 {
-				db.log.Printf("read %d transactions (pass 1)\n", numRows)
+				db.log.Printf("read %d transactions (pass 1)", numRows)
 			}
 		}
 		db.log.Print("finished reading transactions (pass 1)")
