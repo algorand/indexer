@@ -23,9 +23,8 @@ var resetCmd = &cobra.Command{
 	Long:  "run indexer reset. Serve api on HTTP.",
 	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
-		var err error
 		config.BindFlags(cmd)
-		err = configureLogger()
+		err := configureLogger()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
 			os.Exit(1)
@@ -60,18 +59,17 @@ var resetCmd = &cobra.Command{
 				err = db.Reset()
 				maybeFail(err, "database reset failed")
 				if andRebuild {
-					fmt.Println("Done resetting. Re-building accounting...")
-					accountround, err := db.GetMaxRoundAccounted()
-					maybeFail(err, "could not find max round accounted, %v", err)
 					blockround, err := db.GetMaxRoundLoaded()
 					maybeFail(err, "could not find max block loaded, %v", err)
-					if blockround > accountround {
-						logger.Infof("have block %d and accounting through %d, updating...", blockround, accountround)
+					if blockround > 0 {
+						fmt.Printf("Done resetting. Re-building accounting through block %d...", blockround)
 						cache, err := db.GetDefaultFrozen()
 						maybeFail(err, "failed to get default frozen cache")
 						importer.UpdateAccounting(db, cache, blockround, genesisJSONPath, logger)
+						fmt.Println("Done rebuilding accounting.")
+					} else {
+						fmt.Println("Done. No blocks to rebuild accounting from.")
 					}
-					fmt.Println("Done rebuilding accounting.")
 				} else {
 					fmt.Println("Done. To re-build, re-start algorand-indexer daemon")
 				}
