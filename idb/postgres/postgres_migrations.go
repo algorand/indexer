@@ -446,12 +446,12 @@ func getParticipants(stxn types.SignedTxnWithAD) []sdk_types.Address {
 	return res
 }
 
-type txnId struct {
+type txnID struct {
 	round uint32
 	intra uint32
 }
 
-func txnIdLess(l txnId, r txnId) bool {
+func txnIDLess(l txnID, r txnID) bool {
 	if l.round < r.round {
 		return true
 	}
@@ -504,9 +504,18 @@ func updateCreate(value uint64, cc createClose) createClose {
 
 func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]createClose) (err error) {
 	for index, round := range m {
-		deleted := sql.NullBool{round.deleted, round.deletedValid}
-		created := sql.NullInt64{int64(round.created), round.createdValid}
-		closed := sql.NullInt64{int64(round.closed), round.closedValid}
+		deleted := sql.NullBool{
+			Bool:  round.deleted,
+			Valid: round.deletedValid,
+		}
+		created := sql.NullInt64{
+			Int64: int64(round.created),
+			Valid: round.createdValid,
+		}
+		closed := sql.NullInt64{
+			Int64: int64(round.closed),
+			Valid: round.closedValid,
+		}
 		_, err = stmt.Exec(address, index, created, closed, deleted)
 		if err != nil {
 			return
@@ -554,7 +563,7 @@ func maybeInitializeAdditionalAccountData(accountData *m6AccountData) {
 // updateAccountData contains all the accounting logic to recompute total rewards and create/close
 // rounds. It modifies `accountData` and need to be called with every transaction from most
 // recent to oldest.
-func updateAccountData(address types.Address, round uint64, assetId uint64, stxn types.SignedTxnWithAD, accountData *m6AccountData) {
+func updateAccountData(address types.Address, round uint64, assetID uint64, stxn types.SignedTxnWithAD, accountData *m6AccountData) {
 	// Transactions are ordered most recent to oldest, so this makes sure created is set to the
 	// oldest transaction.
 	accountData.account.createdValid = true
@@ -593,48 +602,48 @@ func updateAccountData(address types.Address, round uint64, assetId uint64, stxn
 
 	if accounting.AssetCreateTxn(stxn) {
 		maybeInitializeAdditionalAccountData(accountData)
-		accountData.additional.asset[assetId] =
-			updateCreate(round, accountData.additional.asset[assetId])
-		accountData.assetHolding[assetId] =
-			updateCreate(round, accountData.assetHolding[assetId])
+		accountData.additional.asset[assetID] =
+			updateCreate(round, accountData.additional.asset[assetID])
+		accountData.assetHolding[assetID] =
+			updateCreate(round, accountData.assetHolding[assetID])
 	}
 
 	if accounting.AssetDestroyTxn(stxn) {
 		maybeInitializeAdditionalAccountData(accountData)
-		accountData.additional.asset[assetId] =
-			updateClose(round, accountData.additional.asset[assetId])
-		accountData.assetHolding[assetId] =
-			updateClose(round, accountData.assetHolding[assetId])
+		accountData.additional.asset[assetID] =
+			updateClose(round, accountData.additional.asset[assetID])
+		accountData.assetHolding[assetID] =
+			updateClose(round, accountData.assetHolding[assetID])
 	}
 
 	if accounting.AssetOptInTxn(stxn) {
-		accountData.assetHolding[assetId] = updateCreate(round, accountData.assetHolding[assetId])
+		accountData.assetHolding[assetID] = updateCreate(round, accountData.assetHolding[assetID])
 	}
 
 	if accounting.AssetOptOutTxn(stxn) && stxn.Txn.Sender == address {
-		accountData.assetHolding[assetId] = updateClose(round, accountData.assetHolding[assetId])
+		accountData.assetHolding[assetID] = updateClose(round, accountData.assetHolding[assetID])
 	}
 
 	if accounting.AppCreateTxn(stxn) {
 		maybeInitializeAdditionalAccountData(accountData)
-		accountData.additional.app[assetId] = updateCreate(round, accountData.additional.app[assetId])
+		accountData.additional.app[assetID] = updateCreate(round, accountData.additional.app[assetID])
 	}
 
 	if accounting.AppDestroyTxn(stxn) {
 		maybeInitializeAdditionalAccountData(accountData)
-		accountData.additional.app[assetId] = updateClose(round, accountData.additional.app[assetId])
+		accountData.additional.app[assetID] = updateClose(round, accountData.additional.app[assetID])
 	}
 
 	if accounting.AppOptInTxn(stxn) {
 		maybeInitializeAdditionalAccountData(accountData)
-		accountData.additional.appLocal[assetId] =
-			updateCreate(round, accountData.additional.appLocal[assetId])
+		accountData.additional.appLocal[assetID] =
+			updateCreate(round, accountData.additional.appLocal[assetID])
 	}
 
 	if accounting.AppOptOutTxn(stxn) {
 		maybeInitializeAdditionalAccountData(accountData)
-		accountData.additional.appLocal[assetId] =
-			updateClose(round, accountData.additional.appLocal[assetId])
+		accountData.additional.appLocal[assetID] =
+			updateClose(round, accountData.additional.appLocal[assetID])
 	}
 }
 
@@ -722,11 +731,18 @@ func m6RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 
 		// 2. setCreateCloseAccount      - set the accounts create/close rounds.
 		{
-			deleted := sql.NullBool{ad.accountData.account.deleted, ad.accountData.account.deletedValid}
-			created :=
-				sql.NullInt64{int64(ad.accountData.account.created), ad.accountData.account.createdValid}
-			closed :=
-				sql.NullInt64{int64(ad.accountData.account.closed), ad.accountData.account.closedValid}
+			deleted := sql.NullBool{
+				Bool:  ad.accountData.account.deleted,
+				Valid: ad.accountData.account.deletedValid,
+			}
+			created := sql.NullInt64{
+				Int64: int64(ad.accountData.account.created),
+				Valid: ad.accountData.account.createdValid,
+			}
+			closed := sql.NullInt64{
+				Int64: int64(ad.accountData.account.closed),
+				Valid: ad.accountData.account.closedValid,
+			}
 			_, err = setCreateCloseAccount.Exec(ad.address[:], created, closed, deleted)
 			if err != nil {
 				return fmt.Errorf("%s: failed to update %s with create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
@@ -782,7 +798,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	}
 
 	// First pass over all transactions in arbitrary order.
-	accountsFirstUsed := make(map[sdk_types.Address]txnId)
+	accountsFirstUsed := make(map[sdk_types.Address]txnID)
 	{
 		db.log.Print("querying transactions (pass 1)")
 		query := "SELECT round, intra, txnbytes FROM txn WHERE round <= $1"
@@ -811,14 +827,14 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 
 			participants := getParticipants(stxn)
 			for _, address := range participants {
-				txnId := txnId{uint32(round), uint32(intra)}
+				txnID := txnID{uint32(round), uint32(intra)}
 
-				storedTxnId, ok := accountsFirstUsed[address]
+				storedTxnID, ok := accountsFirstUsed[address]
 				if !ok {
-					accountsFirstUsed[address] = txnId
+					accountsFirstUsed[address] = txnID
 				} else {
-					if txnIdLess(txnId, storedTxnId) {
-						accountsFirstUsed[address] = txnId
+					if txnIDLess(txnID, storedTxnID) {
+						accountsFirstUsed[address] = txnID
 					}
 				}
 			}
@@ -902,8 +918,8 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 			var round uint64
 			var intra uint64
 			var txnBytes []byte
-			var assetId uint64
-			err = rows.Scan(&round, &intra, &txnBytes, &assetId)
+			var assetID uint64
+			err = rows.Scan(&round, &intra, &txnBytes, &assetID)
 			if err != nil {
 				return fmt.Errorf("%s: unable to scan a row: %v", rewardsCreateCloseUpdateErr, err)
 			}
@@ -925,14 +941,14 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 						accountDataMap[address] = accountData
 					}
 
-					updateAccountData(address, round, assetId, stxn, accountData)
+					updateAccountData(address, round, assetID, stxn, accountData)
 
 					firstUsed, ok := accountsFirstUsed[address]
 					if !ok {
 						return fmt.Errorf("%s: accountFirstUsed does not contain address: %v",
 							rewardsCreateCloseUpdateErr, address)
 					}
-					if (txnId{uint32(round), uint32(intra)}) == firstUsed {
+					if (txnID{uint32(round), uint32(intra)}) == firstUsed {
 						readyAccountData = append(readyAccountData, addressAccountData{address, accountData})
 						delete(accountDataMap, address)
 						delete(accountsFirstUsed, address)
@@ -964,7 +980,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	}
 
 	if len(accountsFirstUsed) > 0 {
-		fmt.Errorf("%s: len(accountsFirstUsed): %d > 0", rewardsCreateCloseUpdateErr, len(accountsFirstUsed))
+		return fmt.Errorf("%s: len(accountsFirstUsed): %d > 0", rewardsCreateCloseUpdateErr, len(accountsFirstUsed))
 	}
 
 	// Update remaining accounts.
@@ -977,8 +993,8 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	// Update migration state.
 	state.NextMigration++
 	state.NextRound = 0
-	migrationStateJson := idb.JSONOneLine(state)
-	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJson)
+	migrationStateJSON := idb.JSONOneLine(state)
+	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		return fmt.Errorf("%s: failed to update migration checkpoint: %v", rewardsCreateCloseUpdateErr, err)
 	}
