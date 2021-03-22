@@ -416,7 +416,7 @@ func m5RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 const rewardsCreateCloseUpdateMessage = "rewards, create_at, close_at migration error"
 const rewardsCreateCloseUpdateErr = rewardsCreateCloseUpdateMessage + " error"
 
-type AddressAccountData struct {
+type addressAccountData struct {
 	address     sdk_types.Address
 	accountData *m6AccountData
 }
@@ -446,12 +446,12 @@ func getParticipants(stxn types.SignedTxnWithAD) []sdk_types.Address {
 	return res
 }
 
-type TxnId struct {
+type txnId struct {
 	round uint32
 	intra uint32
 }
 
-func txnIdLess(l TxnId, r TxnId) bool {
+func txnIdLess(l txnId, r txnId) bool {
 	if l.round < r.round {
 		return true
 	}
@@ -652,7 +652,7 @@ func updateAccountData(address types.Address, round uint64, assetId uint64, stxn
 // Note: These queries only work if closed_at was reset before the migration is started. That is true
 //       for the initial migration, but if we need to reuse it in the future we'll need to fix the queries
 //       or redo the query.
-func m6RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []AddressAccountData, maxRound int64) error {
+func m6RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAccountData, maxRound int64) error {
 	// Make sure round accounting doesn't interfere with updating these accounts.
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
@@ -782,7 +782,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	}
 
 	// First pass over all transactions in arbitrary order.
-	accountsFirstUsed := make(map[sdk_types.Address]TxnId)
+	accountsFirstUsed := make(map[sdk_types.Address]txnId)
 	{
 		db.log.Print("querying transactions (pass 1)")
 		query := "SELECT round, intra, txnbytes FROM txn WHERE round <= $1"
@@ -811,7 +811,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 
 			participants := getParticipants(stxn)
 			for _, address := range participants {
-				txnId := TxnId{uint32(round), uint32(intra)}
+				txnId := txnId{uint32(round), uint32(intra)}
 
 				storedTxnId, ok := accountsFirstUsed[address]
 				if !ok {
@@ -834,7 +834,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	// Set Created, Deleted for accounts with no transactions.
 	// Genesis accounts could have this property.
 	// Query accounts.
-	readyAccountData := []AddressAccountData{}
+	readyAccountData := []addressAccountData{}
 	{
 		options := idb.AccountQueryOptions{}
 		options.IncludeDeleted = true
@@ -867,7 +867,7 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 					accountData.account.deletedValid = true
 					accountData.account.deleted = false
 
-					readyAccountData = append(readyAccountData, AddressAccountData{address, accountData})
+					readyAccountData = append(readyAccountData, addressAccountData{address, accountData})
 				}
 			}
 
@@ -932,8 +932,8 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 						return fmt.Errorf("%s: accountFirstUsed does not contain address: %v",
 							rewardsCreateCloseUpdateErr, address)
 					}
-					if (TxnId{uint32(round), uint32(intra)}) == firstUsed {
-						readyAccountData = append(readyAccountData, AddressAccountData{address, accountData})
+					if (txnId{uint32(round), uint32(intra)}) == firstUsed {
+						readyAccountData = append(readyAccountData, addressAccountData{address, accountData})
 						delete(accountDataMap, address)
 						delete(accountsFirstUsed, address)
 
