@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS account (
   rewards_total bigint NOT NULL,
   deleted bool DEFAULT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL DEFAULT 0, -- round that the account is first used
-  closed_at bigint, -- round that the account is closed, reset to NULL if reopened
+  closed_at bigint, -- round that the account was last closed
   keytype varchar(8), -- sig,msig,lsig
   account_data jsonb -- data.basics.AccountData except AssetParams and Assets and MicroAlgos and RewardsBase
 );
@@ -67,7 +67,7 @@ CREATE TABLE IF NOT EXISTS account_asset (
   frozen boolean NOT NULL,
   deleted bool DEFAULT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL DEFAULT 0, -- round that the asset was added to an account
-  closed_at bigint, -- round that the asset was last removed from the account, reset to NULL if re-opened
+  closed_at bigint, -- round that the asset was last removed from the account
   PRIMARY KEY (addr, assetid)
 );
 
@@ -81,7 +81,7 @@ CREATE TABLE IF NOT EXISTS asset (
   params jsonb NOT NULL, -- data.basics.AssetParams -- TODO index some fields?
   deleted bool DEFAULT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL DEFAULT 0, -- round that the asset was created
-  closed_at bigint -- round that the asset was closed. Cannot be recreated because the index is unique
+  closed_at bigint -- round that the asset was closed; cannot be recreated because the index is unique
 );
 -- TODO: index on creator_addr?
 
@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS app (
   params jsonb,
   deleted bool DEFAULT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL DEFAULT 0, -- round that the asset was created
-  closed_at bigint -- round that the asset was closed. Cannot be recreated because the index is unique
+  closed_at bigint -- round that the app was deleted; cannot be recreated because the index is unique
 );
 
 -- per-account app local state
@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS account_app (
   localstate jsonb,
   deleted bool DEFAULT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL DEFAULT 0, -- round that the app was added to an account
-  closed_at bigint, -- round that the app was last removed from the account, reset to NULL if re-opened
+  closed_at bigint, -- round that the app was last removed from the account
   PRIMARY KEY (addr, app)
 );
 `
