@@ -963,8 +963,9 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 
 							numBatches++
 							if numBatches%100 == 0 {
-								db.log.Printf("m6: written %.2f%% accounts; %d batches",
-									float64(100*numAccountsUpdated)/float64(numAccounts), numBatches)
+								db.log.Printf("m6: written %d (%.2f%%) accounts, %d batches",
+									numAccountsUpdated, float64(100*numAccountsUpdated)/float64(numAccounts),
+									numBatches)
 							}
 						}
 					}
