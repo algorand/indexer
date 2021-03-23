@@ -827,14 +827,17 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 
 			participants := getParticipants(stxn)
 			for _, address := range participants {
-				txnID := txnID{uint32(round), uint32(intra)}
+				// Don't update special accounts (m9 fixes this).
+				if (address != specialAccounts.RewardsPool) && (address != specialAccounts.FeeSink) {
+					txnID := txnID{uint32(round), uint32(intra)}
 
-				storedTxnID, ok := accountsFirstUsed[address]
-				if !ok {
-					accountsFirstUsed[address] = txnID
-				} else {
-					if txnIDLess(txnID, storedTxnID) {
+					storedTxnID, ok := accountsFirstUsed[address]
+					if !ok {
 						accountsFirstUsed[address] = txnID
+					} else {
+						if txnIDLess(txnID, storedTxnID) {
+							accountsFirstUsed[address] = txnID
+						}
 					}
 				}
 			}
