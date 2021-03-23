@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS asset (
   created_at bigint NOT NULL DEFAULT 0, -- round that the asset was created
   closed_at bigint -- round that the asset was closed. Cannot be recreated because the index is unique
 );
--- TODO: index on creator_addr?
+CREATE INDEX IF NOT EXISTS asset_by_creator_addr ON asset ( creator_addr );
 
 -- subsumes ledger/accountdb.go accounttotals and acctrounds
 -- "state":{online, onlinerewardunits, offline, offlinerewardunits, notparticipating, notparticipatingrewardunits, rewardslevel, round bigint}
