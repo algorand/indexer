@@ -300,7 +300,7 @@ func init() {
 		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
 
 		// 2.2.2 hotfix
-		{m4accountIndices, false, "Add indices to make sure account lookups remain fast when there are a lot of apps or assets."},
+		{m4accountIndices, true, "Add indices to make sure account lookups remain fast when there are a lot of apps or assets."},
 	}
 }
 
@@ -558,10 +558,10 @@ func (mtxid *txidFiuxpMigrationContext) readHeaders(minRound, maxRound uint64) (
 
 func m4accountIndices(db *PostgresIndexerDb, state *MigrationState) error {
 	sqlLines := []string{
-		"CREATE INDEX CONCURRENTLY IF NOT EXISTS account_asset_by_addr ON account_asset ( addr )",
-		"CREATE INDEX CONCURRENTLY IF NOT EXISTS asset_by_creator_addr ON asset ( creator_addr )",
-		"CREATE INDEX CONCURRENTLY IF NOT EXISTS app_by_creator ON app ( creator )",
-		"CREATE INDEX CONCURRENTLY IF NOT EXISTS account_app_by_addr ON account_app ( addr )",
+		"CREATE INDEX IF NOT EXISTS account_asset_by_addr ON account_asset ( addr )",
+		"CREATE INDEX IF NOT EXISTS asset_by_creator_addr ON asset ( creator_addr )",
+		"CREATE INDEX IF NOT EXISTS app_by_creator ON app ( creator )",
+		"CREATE INDEX IF NOT EXISTS account_app_by_addr ON account_app ( addr )",
 	}
 	return sqlMigration(db, state, sqlLines)
 }
