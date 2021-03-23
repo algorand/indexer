@@ -561,7 +561,7 @@ func m4accountIndices(db *PostgresIndexerDb, state *MigrationState) error {
 		"CREATE INDEX IF NOT EXISTS account_asset_by_addr ON account_asset ( addr )",
 		"CREATE INDEX IF NOT EXISTS asset_by_creator_addr ON asset ( creator_addr )",
 		"CREATE INDEX IF NOT EXISTS app_by_creator ON app ( creator )",
-		"CREATE INDEX IF NOT EXISTS app_by_addr ON account_app ( addr )",
+		"CREATE INDEX IF NOT EXISTS account_app_by_addr ON account_app ( addr )",
 	}
 	return sqlMigration(db, state, sqlLines)
 }

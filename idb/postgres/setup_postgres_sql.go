@@ -113,5 +113,5 @@ CREATE TABLE IF NOT EXISTS account_app (
 );
 
 -- For account lookup
-CREATE INDEX IF NOT EXISTS app_by_addr ON account_app ( addr );
+CREATE INDEX IF NOT EXISTS account_app_by_addr ON account_app ( addr );
 `
