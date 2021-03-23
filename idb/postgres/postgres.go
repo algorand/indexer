@@ -4,7 +4,7 @@
 package postgres
 
 // import text to contstant setup_postgres_sql
-//go:generate go run ../cmd/texttosource/main.go idb setup_postgres.sql
+//go:generate go run ../../cmd/texttosource/main.go postgres setup_postgres.sql
 
 import (
 	"bytes"
