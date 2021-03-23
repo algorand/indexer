@@ -1,4 +1,4 @@
-// Code generated from source setup_postgres.sql via go generate. DO NOT EDIT.
+// GENERATED CODE from source setup_postgres.sql via go generate
 
 package postgres
 
@@ -51,10 +51,6 @@ CREATE TABLE IF NOT EXISTS account (
   addr bytea primary key,
   microalgos bigint NOT NULL, -- okay because less than 2^54 Algos
   rewardsbase bigint NOT NULL,
-  rewards_total bigint NOT NULL,
-  deleted bool DEFAULT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL DEFAULT 0, -- round that the account is first used
-  closed_at bigint, -- round that the account is closed, reset to NULL if reopened
   keytype varchar(8), -- sig,msig,lsig
   account_data jsonb -- data.basics.AccountData except AssetParams and Assets and MicroAlgos and RewardsBase
 );
@@ -65,9 +61,6 @@ CREATE TABLE IF NOT EXISTS account_asset (
   assetid bigint NOT NULL,
   amount numeric(20) NOT NULL, -- need the full 18446744073709551615
   frozen boolean NOT NULL,
-  deleted bool DEFAULT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL DEFAULT 0, -- round that the asset was added to an account
-  closed_at bigint, -- round that the asset was last removed from the account, reset to NULL if re-opened
   PRIMARY KEY (addr, assetid)
 );
 
@@ -78,10 +71,7 @@ CREATE TABLE IF NOT EXISTS account_asset (
 CREATE TABLE IF NOT EXISTS asset (
   index bigint PRIMARY KEY,
   creator_addr bytea NOT NULL,
-  params jsonb NOT NULL, -- data.basics.AssetParams -- TODO index some fields?
-  deleted bool DEFAULT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL DEFAULT 0, -- round that the asset was created
-  closed_at bigint -- round that the asset was closed. Cannot be recreated because the index is unique
+  params jsonb NOT NULL -- data.basics.AssetParams -- TODO index some fields?
 );
 -- TODO: index on creator_addr?
 
@@ -97,10 +87,7 @@ CREATE TABLE IF NOT EXISTS metastate (
 CREATE TABLE IF NOT EXISTS app (
   index bigint PRIMARY KEY,
   creator bytea, -- account address
-  params jsonb,
-  deleted bool DEFAULT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL DEFAULT 0, -- round that the asset was created
-  closed_at bigint -- round that the asset was closed. Cannot be recreated because the index is unique
+  params jsonb
 );
 
 -- per-account app local state
@@ -108,9 +95,6 @@ CREATE TABLE IF NOT EXISTS account_app (
   addr bytea,
   app bigint,
   localstate jsonb,
-  deleted bool DEFAULT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL DEFAULT 0, -- round that the app was added to an account
-  closed_at bigint, -- round that the app was last removed from the account, reset to NULL if re-opened
   PRIMARY KEY (addr, app)
 );
 `

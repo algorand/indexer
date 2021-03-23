@@ -510,11 +510,6 @@
             "type": "string",
             "x-algorand-format": "Address"
           },
-          "closed-at-round": {
-            "description": "Round during which this account was most recently closed.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
-          },
           "created-apps": {
             "description": "\\[appp\\] parameters of applications created by this account including app global data.\n\nNote: the raw account uses `map[int] -> AppParams` for this type.",
             "items": {
@@ -528,15 +523,6 @@
               "$ref": "#/components/schemas/Asset"
             },
             "type": "array"
-          },
-          "created-at-round": {
-            "description": "Round during which this account first appeared in a transaction.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
-          },
-          "deleted": {
-            "description": "Whether or not this account is currently closed.",
-            "type": "boolean"
           },
           "participation": {
             "$ref": "#/components/schemas/AccountParticipation"
@@ -638,20 +624,6 @@
       "Application": {
         "description": "Application index and its parameters",
         "properties": {
-          "created-at-round": {
-            "description": "Round when this application was created.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
-          },
-          "deleted": {
-            "description": "Whether or not this application is currently deleted.",
-            "type": "boolean"
-          },
-          "deleted-at-round": {
-            "description": "Round when this application was deleted.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
-          },
           "id": {
             "description": "\\[appidx\\] application index.",
             "type": "integer"
@@ -669,26 +641,12 @@
       "ApplicationLocalState": {
         "description": "Stores local state associated with an application.",
         "properties": {
-          "closed-out-at-round": {
-            "description": "Round when account closed out of the application.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
-          },
-          "deleted": {
-            "description": "Whether or not the application local state is currently deleted from its account.",
-            "type": "boolean"
-          },
           "id": {
             "description": "The application which this local state is for.",
             "type": "integer"
           },
           "key-value": {
             "$ref": "#/components/schemas/TealKeyValueStore"
-          },
-          "opted-in-at-round": {
-            "description": "Round when the account opted into the application.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
           },
           "schema": {
             "$ref": "#/components/schemas/ApplicationStateSchema"
@@ -759,20 +717,6 @@
       "Asset": {
         "description": "Specifies both the unique identifier and the parameters for an asset",
         "properties": {
-          "created-at-round": {
-            "description": "Round during which this asset was created.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
-          },
-          "deleted": {
-            "description": "Whether or not this asset is currently deleted.",
-            "type": "boolean"
-          },
-          "destroyed-at-round": {
-            "description": "Round during which this asset was destroyed.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
-          },
           "index": {
             "description": "unique asset identifier",
             "type": "integer"
@@ -803,23 +747,9 @@
             "description": "Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.",
             "type": "string"
           },
-          "deleted": {
-            "description": "Whether or not the asset holding is currently deleted from its account.",
-            "type": "boolean"
-          },
           "is-frozen": {
             "description": "\\[f\\] whether or not the holding is frozen.",
             "type": "boolean"
-          },
-          "opted-in-at-round": {
-            "description": "Round during which the account opted into this asset holding.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
-          },
-          "opted-out-at-round": {
-            "description": "Round during which the account opted out of this asset holding.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
           }
         },
         "required": [
@@ -1142,22 +1072,8 @@
             "type": "integer",
             "x-algorand-format": "uint64"
           },
-          "deleted": {
-            "description": "Whether or not this asset holding is currently deleted from its account.",
-            "type": "boolean"
-          },
           "is-frozen": {
             "type": "boolean"
-          },
-          "opted-in-at-round": {
-            "description": "Round during which the account opted into the asset.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
-          },
-          "opted-out-at-round": {
-            "description": "Round during which the account opted out of the asset.",
-            "type": "integer",
-            "x-algorand-format": "uint64"
           }
         },
         "required": [

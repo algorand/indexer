@@ -3,10 +3,11 @@ package idb
 import (
 	"fmt"
 
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+
 	"github.com/algorand/go-codec/codec"
 )
 
-// Stringify converts an object into something that can be encoded.
 func Stringify(ob interface{}) interface{} {
 	switch v := ob.(type) {
 	case map[interface{}]interface{}:
@@ -36,23 +37,31 @@ func stringifyMap(ob map[interface{}]interface{}) map[interface{}]interface{} {
 	return out
 }
 
-// JSONOneLine converts an object into JSON
-func JSONOneLine(obj interface{}) string {
-	var b []byte
-	enc := codec.NewEncoderBytes(&b, oneLineJSONCodecHandle)
-	enc.MustEncode(obj)
-	return string(b)
+func MsgpackToJson(msgp []byte) (js []byte, err error) {
+	var ob map[interface{}]interface{}
+	err = msgpack.Decode(msgp, &ob)
+	if err != nil {
+		return
+	}
+	return JsonOneLine(Stringify(ob)), nil
 }
 
-var oneLineJSONCodecHandle *codec.JsonHandle
+func JsonOneLine(obj interface{}) []byte {
+	var b []byte
+	enc := codec.NewEncoderBytes(&b, OneLineJsonCodecHandle)
+	enc.MustEncode(obj)
+	return b
+}
+
+var OneLineJsonCodecHandle *codec.JsonHandle
 
 func init() {
-	oneLineJSONCodecHandle = new(codec.JsonHandle)
-	oneLineJSONCodecHandle.ErrorIfNoField = true
-	oneLineJSONCodecHandle.ErrorIfNoArrayExpand = true
-	oneLineJSONCodecHandle.Canonical = true
-	oneLineJSONCodecHandle.RecursiveEmptyCheck = true
-	oneLineJSONCodecHandle.HTMLCharsAsIs = true
-	oneLineJSONCodecHandle.Indent = 0
-	oneLineJSONCodecHandle.MapKeyAsString = true
+	// like github.com/algorand/go-algorand-sdk/encoding/json/json.go but no indent
+	OneLineJsonCodecHandle = new(codec.JsonHandle)
+	OneLineJsonCodecHandle.ErrorIfNoField = true
+	OneLineJsonCodecHandle.ErrorIfNoArrayExpand = true
+	OneLineJsonCodecHandle.Canonical = true
+	OneLineJsonCodecHandle.RecursiveEmptyCheck = true
+	OneLineJsonCodecHandle.Indent = 0
+	OneLineJsonCodecHandle.HTMLCharsAsIs = true
 }

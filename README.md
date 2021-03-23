@@ -137,14 +137,14 @@ The command line arguments always take priority over the config file and environ
 ## configuration file
 Default values are placed in the configuration file. They can be overridden with environment variables and command line arguments.
 
-The configuration file must named **indexer**, **indexer.yml**, or **indexer.yaml**. It must also be in the correct location. Only one configuration file is loaded, the path is searched in the following order:
+The configuration file must named **algorand-indexer**, **algorand-indexer.yml**, or **algorand-indexer.yaml**. It must also be in the correct location. Only one configuration file is loaded, the path is searched in the following order:
 * `./` (current working directory)
 * `$HOME`
 * `$HOME/.algorand-indexer`
 * `$HOME/.config/algorand-indexer`
 * `/etc/algorand-indexer/`
 
-Here is an example **indexer.yml** file:
+Here is an example **algorand-indexer.yml** file:
 ```
 postgres-connection-string: "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
 pidfile: "/var/lib/algorand/algorand-indexer.pid"
@@ -201,10 +201,4 @@ If you wish to run multiple indexers on one server under systemd, see the commen
 # Migrating from Indexer v1
 
 Indexer v1 was built into the algod v1 REST API. It has been removed with the algod v2 REST API, all of the old functionality is now part of this project. The API endpoints, parameters, and response objects have all been modified and extended. Any projects depending on the old endpoints will need to be updated accordingly.
-
-# Building
-
-Indexer is built using an in-house task framework called [`mule`](https://pypi.org/project/mulecli/) (it has since been open-sourced).
-
-Please refer to the [build docs](mule/README.md) in the `mule/` directory.
 

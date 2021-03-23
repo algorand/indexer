@@ -9,7 +9,6 @@ import json
 import logging
 import os
 import random
-import shutil
 import sqlite3
 import subprocess
 import sys
@@ -45,11 +44,11 @@ def main():
         sourcenet = e2edata and os.path.join(e2edata, 'net')
     if sourcenet and hassuffix(sourcenet, '.tar', '.tar.gz', '.tar.bz2', '.tar.xz'):
         source_is_tar = True
-    tempdir = tempfile.mkdtemp()
+    tdir = tempfile.TemporaryDirectory()
     if not args.keep_temps:
-        atexit.register(shutil.rmtree, tempdir, onerror=logger.error)
+        atexit.register(tdir.cleanup)
     else:
-        logger.info("leaving temp dir %r", tempdir)
+        logger.info("leaving temp dir %r", tdir.name)
     if not (source_is_tar or (sourcenet and os.path.isdir(sourcenet))):
         # fetch test data from S3
         bucket = 'algorand-testdata'
@@ -58,16 +57,16 @@ def main():
         from botocore import UNSIGNED
         s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
         tarname = 'net_done.tar.bz2'
-        tarpath = os.path.join(tempdir, tarname)
+        tarpath = os.path.join(tdir.name, tarname)
         firstFromS3Prefix(s3, bucket, 'indexer/e2e2', tarname, outpath=tarpath)
         source_is_tar = True
         sourcenet = tarpath
-    tempnet = os.path.join(tempdir, 'net')
+    tempnet = os.path.join(tdir.name, 'net')
     if source_is_tar:
-        xrun(['tar', '-C', tempdir, '-x', '-f', sourcenet])
+        xrun(['tar', '-C', tdir.name, '-x', '-f', sourcenet])
     else:
         xrun(['rsync', '-a', sourcenet + '/', tempnet + '/'])
-    blockfiles = glob.glob(os.path.join(tempdir, 'net', 'Primary', '*', '*.block.sqlite'))
+    blockfiles = glob.glob(os.path.join(tdir.name, 'net', 'Primary', '*', '*.block.sqlite'))
     lastblock = countblocks(blockfiles[0])
     #subprocess.run(['find', tempnet, '-type', 'f'])
     xrun(['goal', 'network', 'start', '-r', tempnet])
@@ -87,13 +86,12 @@ def main():
     indexerurl = 'http://localhost:{}/'.format(aiport)
     healthurl = indexerurl + 'health'
     for attempt in range(20):
-        (ok, json) = tryhealthurl(healthurl, args.verbose, waitforround=lastblock)
+        ok = tryhealthurl(healthurl, args.verbose, waitforround=lastblock)
         if ok:
-            logger.debug('health round={} OK'.format(lastblock))
             break
         time.sleep(0.5)
     if not ok:
-        logger.error('could not get indexer health, or did not reach round={}\n{}'.format(lastblock, json))
+        logger.error('could not get indexer health')
         sys.stderr.write(indexerout.dump())
         return 1
     try:
@@ -126,18 +124,18 @@ def tryhealthurl(healthurl, verbose=False, waitforround=100):
     try:
         response = urllib.request.urlopen(healthurl)
         if response.code != 200:
-            return (False, "")
+            return False
         raw = response.read()
         logger.debug('health %r', raw)
         ob = json.loads(raw)
         rt = ob.get('message')
         if not rt:
-            return (False, raw)
-        return (int(rt) >= waitforround, raw)
+            return False
+        return int(rt) >= waitforround
     except Exception as e:
         if verbose:
-            logging.warning('GET %s %s', healthurl, e)
-        return (False, "")
+            logging.warning('GET %s %s', healthurl, e, exc_info=True)
+        return False
 
 class subslurp:
     # asynchronously accumulate stdout or stderr from a subprocess and hold it for debugging if something goes wrong

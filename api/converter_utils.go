@@ -59,7 +59,7 @@ func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (u
 
 	lc := strings.ToLower(*role)
 
-	if _, ok := addressRoleEnumMap[lc]; !ok {
+	if _, ok := AddressRoleEnumMap[lc]; !ok {
 		return 0, append(errorArr, fmt.Sprintf("%s: '%s'", errUnknownAddressRole, lc))
 	}
 
@@ -96,27 +96,23 @@ const (
 	addrRoleFreeze   = "freeze-target"
 )
 
-var addressRoleEnumMap = map[string]bool{
+var AddressRoleEnumMap = map[string]bool{
 	addrRoleSender:   true,
 	addrRoleReceiver: true,
 	addrRoleFreeze:   true,
 }
-
-// AddressRoleEnumString is used in error messages to list valid address role values.
 var AddressRoleEnumString string
 
-var sigTypeEnumMap = map[string]int{
+var SigTypeEnumMap = map[string]int{
 	"sig":  1,
 	"msig": 2,
 	"lsig": 3,
 }
-
-// SigTypeEnumString is used in error messages to list valid sig type values.
 var SigTypeEnumString string
 
 func init() {
-	SigTypeEnumString = util.KeysStringInt(sigTypeEnumMap)
-	AddressRoleEnumString = util.KeysStringBool(addressRoleEnumMap)
+	SigTypeEnumString = util.KeysStringInt(SigTypeEnumMap)
+	AddressRoleEnumString = util.KeysStringBool(AddressRoleEnumMap)
 }
 
 func decodeBase64Byte(str *string, field string, errorArr []string) ([]byte, []string) {
@@ -134,7 +130,7 @@ func decodeBase64Byte(str *string, field string, errorArr []string) ([]byte, []s
 func decodeSigType(str *string, errorArr []string) (string, []string) {
 	if str != nil {
 		sigTypeLc := strings.ToLower(*str)
-		if _, ok := sigTypeEnumMap[sigTypeLc]; ok {
+		if _, ok := SigTypeEnumMap[sigTypeLc]; ok {
 			return sigTypeLc, errorArr
 		}
 		return "", append(errorArr, fmt.Sprintf("%s: '%s'", errUnknownSigType, sigTypeLc))
@@ -253,7 +249,7 @@ func stateDeltaToStateDelta(d types.StateDelta) *generated.StateDelta {
 	}
 	var delta generated.StateDelta
 	keys := make([]string, 0)
-	for k := range d {
+	for k, _ := range d {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
@@ -401,7 +397,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	}
 	if len(stxn.ApplyData.EvalDelta.LocalDeltas) > 0 {
 		keys := make([]tuple, 0)
-		for k := range stxn.ApplyData.EvalDelta.LocalDeltas {
+		for k, _ := range stxn.ApplyData.EvalDelta.LocalDeltas {
 			if k == 0 {
 				keys = append(keys, tuple{
 					key:     0,
@@ -461,13 +457,13 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 
 	if stxn.Txn.Type == sdk_types.AssetConfigTx {
 		if txn.AssetConfigTransaction != nil && txn.AssetConfigTransaction.AssetId != nil && *txn.AssetConfigTransaction.AssetId == 0 {
-			txn.CreatedAssetIndex = uint64Ptr(row.AssetID)
+			txn.CreatedAssetIndex = uint64Ptr(row.AssetId)
 		}
 	}
 
 	if stxn.Txn.Type == sdk_types.ApplicationCallTx {
 		if txn.ApplicationTransaction != nil && txn.ApplicationTransaction.ApplicationId == 0 {
-			txn.CreatedApplicationIndex = uint64Ptr(row.AssetID)
+			txn.CreatedApplicationIndex = uint64Ptr(row.AssetId)
 		}
 	}
 
@@ -490,8 +486,8 @@ func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.Assets
 	}
 
 	query := idb.AssetsQuery{
-		AssetID:            uintOrDefault(params.AssetId),
-		AssetIDGreaterThan: assetGreaterThan,
+		AssetId:            uintOrDefault(params.AssetId),
+		AssetIdGreaterThan: assetGreaterThan,
 		Creator:            creator,
 		Name:               strOrDefault(params.Name),
 		Unit:               strOrDefault(params.Unit),
@@ -518,12 +514,12 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	// Integer
 	filter.MaxRound = uintOrDefault(params.MaxRound)
 	filter.MinRound = uintOrDefault(params.MinRound)
-	filter.AssetID = uintOrDefault(params.AssetId)
-	filter.ApplicationID = uintOrDefault(params.ApplicationId)
+	filter.AssetId = uintOrDefault(params.AssetId)
+	filter.ApplicationId = uintOrDefault(params.ApplicationId)
 	filter.Limit = min(uintOrDefaultValue(params.Limit, defaultTransactionsLimit), maxTransactionsLimit)
 
 	// filter Algos or Asset but not both.
-	if filter.AssetID != 0 {
+	if filter.AssetId != 0 {
 		filter.AssetAmountLT = uintOrDefault(params.CurrencyLessThan)
 		filter.AssetAmountGT = uintOrDefault(params.CurrencyGreaterThan)
 	} else {

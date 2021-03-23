@@ -1,35 +1,26 @@
 language: go
 go:
-- 1.14.x
-- 1.15.x
-dist: focal
+  - 1.13.x
+  - 1.14.x
+
+dist: bionic
+
 services:
-- docker
-install:
-- go get -u golang.org/x/lint/golint
-- pip3 install -r misc/requirements.txt
-- if [ -n "$DOCKER_PASSWORD" ]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ; fi
+  - docker
+
 addons:
   apt:
     packages:
-    - python3
-    - python3-pip
-    - python3-setuptools
-    - python3-wheel
-script:
-- make lint
-- make
-- make integration
-- make test
-# e2e tests can't run without installing algod.
-#- make e2e
-#- ./test/perf.sh "$TEST_CONNECTION_STRING_1" && ./test/perf.sh "$TEST_CONNECTION_STRING_2"
-- make fakepackage
-# TODO: Remove mule stuff after getting 'make e2e' to run.
-- docker build -t e2e_tests -f docker/Dockerfile.mule .
-- docker run --rm -t e2e_tests mule/e2e.sh
+      - python3-pip
+      - python3-setuptools
+      - python3-wheel
 
-env:
-  global:
-  - secure: TM7M7vD5G9Ms7Z60xszC0JEhM9Y9UjCd5bZsLvES0KRD5vOBVALnIc3Y2QzaRmVGatd3sAyg2DYAXPOHbvcMVUX+VLoDwkpMLttgLHONqZbYGB9Z8Cqso9y5NZJe7EYy97uVoWjmLehY4b/v8NY9neNZarT7bwBP8OvdT8JFh3iwNL+w9p7mNm7XPdpY8GHAy5TpGsQfv9p5KZAPiAiTj47EPCZLSdWxlxb4jbeynczTgKu8wo3wRCPAgsmFZv0sVJtzo2c9HE/sz2ypMv++3wF8qCzWt174YBBcHkXCsgUpCL9FlTlwy6B2qW8B1oQxylpot7gce2FE5IpqtBm6ry7n+pFKdgCAKnf69WcHSrFGRVrjfIECxjHzMV4eLEfgHKoMOpfuLWLocQVIc38ii/nrT4I6M2qc79qHfbuC/BW9I+bg5d3cVYg9Wgdt94BhNDcS/b4z+pk7eEsCwPBDau8Nteox20pDTFyHYhK4r4c2dp1kqGGmeqLXzSSfqc81Le+5MUTa4Sn0nI8zfl9x4JCeD+bWL9fC/wwxyU2rYS2chWw1hOAH/nXmUkRTBPYXwyCgW7WPDu2Id2k5ghUh+IRgBxv5v3bOPw1BEPInJqbEwCIIJHICb/jnlg34iWwcSYKmk1TDO4vQVT4AFJq5VzxpvgKnOZSfiCGNMESa3kM=
-  - secure: P4HlEYrJ8itstmhK4hDDJojq1zdrv3DzTg7AL9U7FP1qqKq+irIhjRLJGJA3JWyCZfVGIWrf4Ak0LwBwzfBTBA+LZ9HlqfNljrFe3EJzSHd6Ly7RuFYEeslYbDV5BlYv590YivVOB8MzQl5nn6JdqrbKPGKWBvyVLqhL1R87CNvQIA122dVjNz9nqv4G21tOZgx7/PzeUHPSkAImlWg7j3vd2P4IikQr/1vOqnroN1zRXAqMVr3e42wCE0qMeqQ+tFq37Juux2JT9aKZv/wCapwLd1G4FDpbc/wes89dgMp1xGvbpPoltkdP+zbPL0UPdbOGPrW33gVMT4kXkDXZjmHBFyM9xX74gIYcsC+ekzrp9zIRqpXGiCsoW5ZJtjoM4U2fyX427yzceSKDMv7giEEfONnMD1NTYFNpREkrN5zbjMtEi4DgEnNb4e6rVA7CROVXMG8p0WdouM0cvA5j25bE88zW64eqOHtv+hG+RlrROwlM1jKt4CvSlWX5+yaBUdYvl7qCHSP7UlX2JMk0AXGIEfFvO8w4CW3Gyr36DHWedsbU5yawyB/fjX7v9BGAmG1SZThAyf1cwtHN28t4CpoaaCH18spHn+LcrH69ADTFVgsZ5AqULlKCJQCMfa4v5oqaOlmtqSNYTVllXOI+8AqSyHsCYGFPns3RyRfsEhI=
+install:
+  - pip3 install boto3 markdown2
+
+script:
+  - make
+  - go test ./...
+  - make fakepackage
+  - docker build -t e2e_tests -f docker/Dockerfile.mule .
+  - docker run --rm -t e2e_tests mule/e2e.sh

@@ -8,8 +8,8 @@ import (
 	"github.com/algorand/indexer/idb"
 )
 
-// DBUnavailableError is the error returned when a migration is in progress or required.
-var DBUnavailableError = "Indexer DB is not available, try again later."
+// InProgressError is the error returned when a migration is in progress.
+var InProgressError = "Indexer migration in progress, please wait."
 
 // MigrationMiddleware makes sure a 500 error is returned when the IndexerDb has a migration in progress.
 type MigrationMiddleware struct {
@@ -33,8 +33,8 @@ func (mm *MigrationMiddleware) handler(next echo.HandlerFunc) echo.HandlerFunc {
 			return echo.NewHTTPError(http.StatusInternalServerError, "Indexer health error: %s", err.Error())
 		}
 
-		if !h.DBAvailable {
-			return echo.NewHTTPError(http.StatusInternalServerError, DBUnavailableError)
+		if h.IsMigrating {
+			return echo.NewHTTPError(http.StatusInternalServerError, InProgressError)
 		}
 
 		return next(ctx)

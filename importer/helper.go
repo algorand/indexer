@@ -15,50 +15,32 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 )
 
-// NewImportHelper builds an ImportHelper
-func NewImportHelper(defaultFrozenCache map[uint64]bool, genesisJSONPath string, numRoundsLimit, blockFileLimite int, l *log.Logger) *ImportHelper {
-	return &ImportHelper{
-		DefaultFrozenCache: defaultFrozenCache,
-		GenesisJSONPath:    genesisJSONPath,
-		NumRoundsLimit:     numRoundsLimit,
-		BlockFileLimit:     blockFileLimite,
-		Log:                l,
-	}
-}
-
-// ImportHelper glues together a directory full of block files and an Importer objects.
 type ImportHelper struct {
-	// GenesisJSONPath is the location of the genesis file
-	GenesisJSONPath string
+	GenesisJsonPath string
 
-	// NumRoundsLimit is the number of rounds to process, if 0 import continues forever.
 	NumRoundsLimit int
 
-	// BlockFileLimit is the number of block files to process.
 	BlockFileLimit int
-
-	// DefaultFrozenCache is a persistent cache of default frozen values.
-	DefaultFrozenCache map[uint64]bool
-
-	Log *log.Logger
 }
 
-// ImportState is some metadata kept around to help the import helper.
 type ImportState struct {
 	AccountRound int64 `codec:"account_round"`
 }
 
-// Import is the main ImportHelper function that glues together a directory full of block files and an Importer objects.
+func ParseImportState(js string) (istate ImportState, err error) {
+	err = json.Decode([]byte(js), &istate)
+	return
+}
+
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	err := ImportProto(db)
-	maybeFail(err, h.Log, "import proto, %v", err)
+	maybeFail(err, "import proto, %v", err)
 
 	imp := NewDBImporter(db)
 	blocks := 0
@@ -73,13 +55,13 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 				pathsSorted = pathsSorted[:h.BlockFileLimit]
 			}
 			for _, gfname := range pathsSorted {
-				fb, ft := importFile(db, imp, gfname, h.Log)
+				fb, ft := importFile(db, imp, gfname)
 				blocks += fb
 				txCount += ft
 			}
 		} else {
 			// try without passing throug glob
-			fb, ft := importFile(db, imp, fname, h.Log)
+			fb, ft := importFile(db, imp, fname)
 			blocks += fb
 			txCount += ft
 		}
@@ -87,20 +69,20 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	blockdone := time.Now()
 	if blocks > 0 {
 		dt := blockdone.Sub(start)
-		h.Log.Infof("%d blocks in %s, %.0f/s, %d txn, %.0f/s", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
+		fmt.Printf("%d blocks in %s, %.0f/s, %d txn, %.0f/s\n", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
 	}
 
-	accountingRounds, txnCount := updateAccounting(db, h.DefaultFrozenCache, 0, h.GenesisJSONPath, h.NumRoundsLimit, h.Log)
+	accountingRounds, txnCount := updateAccounting(db, h.GenesisJsonPath, h.NumRoundsLimit)
 
 	accountingdone := time.Now()
 	if accountingRounds > 0 {
 		dt := accountingdone.Sub(blockdone)
-		h.Log.Infof("%d rounds accounting in %s, %.1f/s (%d txns, %.1f/s)", accountingRounds, dt.String(), float64(time.Second)*float64(accountingRounds)/float64(dt), txnCount, float64(time.Second)*float64(txnCount)/float64(dt))
+		fmt.Printf("%d rounds accounting in %s, %.1f/s (%d txns, %.1f/s)\n", accountingRounds, dt.String(), float64(time.Second)*float64(accountingRounds)/float64(dt), txnCount, float64(time.Second)*float64(txnCount)/float64(dt))
 	}
 
 	dt := accountingdone.Sub(start)
-	h.Log.Infof(
-		"%d blocks loaded (%.1f/s) and %d rounds accounting in %s, %.1f/s (%d txns, %.1f/s)",
+	fmt.Printf(
+		"%d blocks loaded (%.1f/s) and %d rounds accounting in %s, %.1f/s (%d txns, %.1f/s)\n",
 		blocks,
 		float64(time.Second)*float64(blocks)/float64(dt),
 		accountingRounds,
@@ -111,15 +93,15 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	)
 }
 
-func maybeFail(err error, l *log.Logger, errfmt string, params ...interface{}) {
+func maybeFail(err error, errfmt string, params ...interface{}) {
 	if err == nil {
 		return
 	}
-	l.WithError(err).Errorf(errfmt, params...)
+	fmt.Fprintf(os.Stderr, errfmt, params...)
 	os.Exit(1)
 }
 
-func importTar(imp Importer, tarfile io.Reader, l *log.Logger) (blocks, txCount int, err error) {
+func importTar(imp Importer, tarfile io.Reader) (blocks, txCount int, err error) {
 	lastlog := time.Now()
 	blocks = 0
 	prevBlocks := 0
@@ -150,7 +132,7 @@ func importTar(imp Importer, tarfile io.Reader, l *log.Logger) (blocks, txCount 
 		dt := now.Sub(lastlog)
 		if dt > (5 * time.Second) {
 			dblocks := blocks - prevBlocks
-			l.Infof("loaded from tar %v, %.1f/s", header.Name, ((float64(dblocks) * float64(time.Second)) / float64(dt)))
+			fmt.Printf("loaded from tar %v, %.1f/s\n", header.Name, ((float64(dblocks) * float64(time.Second)) / float64(dt)))
 			lastlog = now
 			prevBlocks = blocks
 		}
@@ -162,44 +144,44 @@ func importTar(imp Importer, tarfile io.Reader, l *log.Logger) (blocks, txCount 
 	return
 }
 
-func importFile(db idb.IndexerDb, imp Importer, fname string, l *log.Logger) (blocks, txCount int) {
+func importFile(db idb.IndexerDb, imp Importer, fname string) (blocks, txCount int) {
 	blocks = 0
 	txCount = 0
 	var btxns int
 	imported, err := db.AlreadyImported(fname)
-	maybeFail(err, l, "%s: %v", fname, err)
+	maybeFail(err, "%s: %v\n", fname, err)
 	if imported {
 		return
 	}
-	l.Infof("importing %s ...", fname)
+	fmt.Printf("importing %s ...\n", fname)
 	if strings.HasSuffix(fname, ".tar") {
 		fin, err := os.Open(fname)
-		maybeFail(err, l, "%s: %v", fname, err)
+		maybeFail(err, "%s: %v\n", fname, err)
 		defer fin.Close()
-		tblocks, btxns, err := importTar(imp, fin, l)
-		maybeFail(err, l, "%s: %v", fname, err)
+		tblocks, btxns, err := importTar(imp, fin)
+		maybeFail(err, "%s: %v\n", fname, err)
 		blocks += tblocks
 		txCount += btxns
 	} else if strings.HasSuffix(fname, ".tar.bz2") {
 		fin, err := os.Open(fname)
-		maybeFail(err, l, "%s: %v", fname, err)
+		maybeFail(err, "%s: %v\n", fname, err)
 		defer fin.Close()
 		bzin := bzip2.NewReader(fin)
-		tblocks, btxns, err := importTar(imp, bzin, l)
-		maybeFail(err, l, "%s: %v", fname, err)
+		tblocks, btxns, err := importTar(imp, bzin)
+		maybeFail(err, "%s: %v\n", fname, err)
 		blocks += tblocks
 		txCount += btxns
 	} else {
 		// assume a standalone block msgpack blob
 		blockbytes, err := ioutil.ReadFile(fname)
-		maybeFail(err, l, "%s: could not read, %v", fname, err)
+		maybeFail(err, "%s: could not read, %v\n", fname, err)
 		btxns, err = imp.ImportBlock(blockbytes)
-		maybeFail(err, l, "%s: could not import, %v", fname, err)
+		maybeFail(err, "%s: could not import, %v\n", fname, err)
 		blocks++
 		txCount += btxns
 	}
 	err = db.MarkImported(fname)
-	maybeFail(err, l, "%s: %v", fname, err)
+	maybeFail(err, "%s: %v\n", fname, err)
 	return
 }
 
@@ -217,100 +199,78 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 	return db.LoadGenesis(genesis)
 }
 
-// UpdateAccounting triggers an accounting update.
-func UpdateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint64, genesisJSONPath string, l *log.Logger) (rounds, txnCount int) {
-	return updateAccounting(db, frozenCache, round, genesisJSONPath, 0, l)
+func UpdateAccounting(db idb.IndexerDb, genesisJsonPath string) (rounds, txnCount int) {
+	return updateAccounting(db, genesisJsonPath, 0)
 }
 
-func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, round uint64, genesisJSONPath string, numRoundsLimit int, l *log.Logger) (rounds, txnCount int) {
+func updateAccounting(db idb.IndexerDb, genesisJsonPath string, numRoundsLimit int) (rounds, txnCount int) {
 	rounds = 0
 	txnCount = 0
-	state, err := db.GetImportState()
-	maybeFail(err, l, "getting import state, %v", err)
-	if state == nil {
-		state = &idb.ImportState{AccountRound: -1}
-		if genesisJSONPath != "" {
-			l.Infof("loading genesis %s", genesisJSONPath)
+	stateJsonStr, err := db.GetMetastate("state")
+	maybeFail(err, "getting import state, %v\n", err)
+	var state ImportState
+	if stateJsonStr == "" {
+		if genesisJsonPath != "" {
+			fmt.Printf("loading genesis %s\n", genesisJsonPath)
 			// if we're given no previous state and we're given a genesis file, import it as initial account state
-			gf, err := os.Open(genesisJSONPath)
-			maybeFail(err, l, "%s: %v", genesisJSONPath, err)
+			gf, err := os.Open(genesisJsonPath)
+			maybeFail(err, "%s: %v\n", genesisJsonPath, err)
 			err = loadGenesis(db, gf)
-			maybeFail(err, l, "%s: could not load genesis json, %v", genesisJSONPath, err)
+			maybeFail(err, "%s: could not load genesis json, %v\n", genesisJsonPath, err)
 			rounds++
+			state.AccountRound = -1
 		} else {
-			l.Errorf("no import state recorded; need --genesis genesis.json file to get started")
+			fmt.Fprintf(os.Stderr, "no import state recorded; need --genesis genesis.json file to get started\n")
 			os.Exit(1)
 			return
 		}
 	} else {
-		l.Infof("will start from round >%d", state.AccountRound)
+		state, err = ParseImportState(stateJsonStr)
+		maybeFail(err, "parsing import state, %v\n", err)
+		fmt.Printf("will start from round >%d\n", state.AccountRound)
 	}
 
 	lastlog := time.Now()
-	act := accounting.New(frozenCache)
+	act := accounting.New(db)
 	txns := db.YieldTxns(context.Background(), state.AccountRound)
 	currentRound := uint64(0)
 	roundsSeen := 0
 	lastRoundsSeen := roundsSeen
-	txnForRound := 0
-	var blockPtr *types.Block = nil
 	for txn := range txns {
-		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)
+		maybeFail(txn.Error, "updateAccounting txn fetch, %v", txn.Error)
 		if txn.Round != currentRound {
-			if blockPtr != nil && txnForRound > 0 {
-				err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr)
-				maybeFail(err, l, "failed to commit round accounting")
-			}
-
-			// initialize accounting for next round
-			txnForRound = 0
 			prevRound := currentRound
 			roundsSeen++
 			currentRound = txn.Round
-			block, _, err := db.GetBlock(context.Background(), currentRound, idb.GetBlockOptions{})
-			maybeFail(err, l, "problem fetching next round (%d)", currentRound)
-			blockPtr = &block
-			act.InitRound(block)
-
-			// Log progress
 			if (numRoundsLimit != 0) && (roundsSeen > numRoundsLimit) {
-				l.Infof("hit rounds limit %d > %d", roundsSeen, numRoundsLimit)
+				fmt.Printf("hit rounds limit %d > %d\n", roundsSeen, numRoundsLimit)
 				break
 			}
 			now := time.Now()
 			dt := now.Sub(lastlog)
 			if dt > (5 * time.Second) {
 				drounds := roundsSeen - lastRoundsSeen
-				l.Infof("accounting through %d, %.1f/s", prevRound, ((float64(drounds) * float64(time.Second)) / float64(dt)))
+				fmt.Printf("accounting through %d, %.1f/s\n", prevRound, ((float64(drounds) * float64(time.Second)) / float64(dt)))
 				lastlog = now
 				lastRoundsSeen = roundsSeen
 			}
 		}
 		err = act.AddTransaction(&txn)
-		maybeFail(err, l, "txn accounting r=%d i=%d, %v", txn.Round, txn.Intra, err)
+		maybeFail(err, "txn accounting r=%d i=%d, %v\n", txn.Round, txn.Intra, err)
 		txnCount++
-		txnForRound++
 	}
-
-	// Commit the final round
-	if (blockPtr != nil && txnForRound > 0) || ((round != 0) && (currentRound < round)) {
-		if currentRound < round {
-			currentRound = round
-		}
-		err = db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr)
-		maybeFail(err, l, "failed to commit round accounting")
-	}
-
+	err = act.Close()
+	maybeFail(err, "accounting close %v\n", err)
 	rounds += roundsSeen
 	if rounds > 0 {
-		l.Infof("accounting updated through round %d", currentRound)
+		fmt.Printf("accounting updated through round %d\n", currentRound)
 	}
 	return
 }
 
 type blockTarPaths []string
 
-// Len is part of sort.Interface
+// sort.Interface
 func (paths *blockTarPaths) Len() int {
 	return len(*paths)
 }
@@ -333,12 +293,12 @@ func pathNameStartInt(x string) int64 {
 	return v
 }
 
-// Less is part of sort.Interface
+// sort.Interface
 func (paths *blockTarPaths) Less(i, j int) bool {
 	return pathNameStartInt((*paths)[i]) < pathNameStartInt((*paths)[j])
 }
 
-// Swap is part of sort.Interface
+// sort.Interface
 func (paths *blockTarPaths) Swap(i, j int) {
 	t := (*paths)[i]
 	(*paths)[i] = (*paths)[j]

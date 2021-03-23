@@ -9,6 +9,8 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-codec/codec"
+
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 )
@@ -16,12 +18,10 @@ import (
 var quiet = false
 var exitValue = 0
 
-// SetQuiet quiet mode of this logging thing.
 func SetQuiet(q bool) {
 	quiet = q
 }
 
-// ExitValue returns the captured exit value.
 func ExitValue() int {
 	return exitValue
 }
@@ -33,7 +33,6 @@ func info(format string, a ...interface{}) {
 	fmt.Printf(format, a...)
 }
 
-// Info is the the only logging level for this thing.
 var Info = info
 
 func infoln(s string) {
@@ -53,7 +52,6 @@ func myStackTrace() {
 	}
 }
 
-// PrintAssetQuery prints information about an asset query.
 func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 	count := uint64(0)
 	for ar := range db.Assets(context.Background(), q) {
@@ -62,7 +60,7 @@ func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 		MaybeFail(err, "json.Marshal params %v\n", err)
 		var creator atypes.Address
 		copy(creator[:], ar.Creator)
-		info("%d %s %s\n", ar.AssetID, creator.String(), pjs)
+		info("%d %s %s\n", ar.AssetId, creator.String(), pjs)
 		count++
 	}
 	info("%d rows\n", count)
@@ -73,7 +71,6 @@ func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 	}
 }
 
-// PrintAccountQuery prints information about an account query.
 func PrintAccountQuery(db idb.IndexerDb, q idb.AccountQueryOptions) {
 	accountchan := db.GetAccounts(context.Background(), q)
 	count := uint64(0)
@@ -93,7 +90,6 @@ func PrintAccountQuery(db idb.IndexerDb, q idb.AccountQueryOptions) {
 	}
 }
 
-// PrintTxnQuery prints information about a transaction query.
 func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 	rowchan := db.Transactions(context.Background(), q)
 	count := uint64(0)
@@ -104,8 +100,7 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 		MaybeFail(err, "decode txnbytes %v\n", err)
 		//tjs, err := json.Marshal(stxn.Txn) // nope, ugly
 		//MaybeFail(err, "err %v\n", err)
-		//tjs := string(JSONOneLine(stxn.Txn))
-		tjs := string(idb.JSONOneLine(stxn.Txn))
+		tjs := string(JsonOneLine(stxn.Txn))
 		info("%d:%d %s sr=%d rr=%d ca=%d cr=%d t=%s\n", txnrow.Round, txnrow.Intra, tjs, stxn.SenderRewards, stxn.ReceiverRewards, stxn.ClosingAmount, stxn.CloseRewards, txnrow.RoundTime.String())
 		count++
 	}
@@ -117,11 +112,29 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 	}
 }
 
-// MaybeFail exits if there was an error.
 func MaybeFail(err error, errfmt string, params ...interface{}) {
 	if err == nil {
 		return
 	}
 	fmt.Fprintf(os.Stderr, errfmt, params...)
 	os.Exit(1)
+}
+
+func JsonOneLine(obj interface{}) []byte {
+	var b []byte
+	enc := codec.NewEncoderBytes(&b, OneLineJsonCodecHandle)
+	enc.MustEncode(obj)
+	return b
+}
+
+var OneLineJsonCodecHandle *codec.JsonHandle
+
+func init() {
+	OneLineJsonCodecHandle = new(codec.JsonHandle)
+	OneLineJsonCodecHandle.ErrorIfNoField = true
+	OneLineJsonCodecHandle.ErrorIfNoArrayExpand = true
+	OneLineJsonCodecHandle.Canonical = true
+	OneLineJsonCodecHandle.RecursiveEmptyCheck = true
+	OneLineJsonCodecHandle.HTMLCharsAsIs = true
+	OneLineJsonCodecHandle.Indent = 0
 }

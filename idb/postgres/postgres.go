@@ -4,14 +4,13 @@
 package postgres
 
 // import text to contstant setup_postgres_sql
-//go:generate go run ../../cmd/texttosource/main.go postgres setup_postgres.sql
+//go:generate go run ../cmd/texttosource/main.go idb setup_postgres.sql
 
 import (
 	"bytes"
 	"context"
 	"database/sql"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -24,8 +23,6 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
-
-	// Load the postgres sql.DB implementation
 	_ "github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 
@@ -36,16 +33,7 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
-const stateMetastateKey = "state"
-const migrationMetastateKey = "migration"
-const specialAccountsMetastateKey = "accounts"
-
-// Be a real ACID database
-var serializable = sql.TxOptions{Isolation: sql.LevelSerializable}
-var readonlySerializable = sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: true}
-
-// OpenPostgres is available for creating test instances of postgres.IndexerDb
-func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
+func OpenPostgres(connection string, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
 	db, err := sql.Open("postgres", connection)
 
 	if err != nil {
@@ -59,22 +47,14 @@ func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger
 		opts.ReadOnly = true
 	}
 
-	return openPostgres(db, opts, log)
+	return openPostgres(db, opts)
 }
 
 // Allow tests to inject a DB
-func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (pdb *IndexerDb, err error) {
-	pdb = &IndexerDb{
-		log:        logger,
+func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions) (pdb *PostgresIndexerDb, err error) {
+	pdb = &PostgresIndexerDb{
 		db:         db,
 		protoCache: make(map[string]types.ConsensusParams, 20),
-	}
-
-	if pdb.log == nil {
-		pdb.log = log.New()
-		pdb.log.SetFormatter(&log.JSONFormatter{})
-		pdb.log.SetOutput(os.Stdout)
-		pdb.log.SetLevel(log.TraceLevel)
 	}
 
 	// e.g. a user named "readonly" is in the connection string
@@ -85,10 +65,7 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (p
 	return
 }
 
-// IndexerDb is an idb.IndexerDB implementation
-type IndexerDb struct {
-	log *log.Logger
-
+type PostgresIndexerDb struct {
 	db *sql.DB
 
 	// state for StartBlock/AddTransaction/CommitBlock
@@ -104,17 +81,15 @@ type IndexerDb struct {
 	migration *migration.Migration
 }
 
-func (db *IndexerDb) init() (err error) {
-	accountingStateJSON, _ := db.getMetastate(stateMetastateKey)
-	hasAccounting := len(accountingStateJSON) > 0
-	migrationStateJSON, _ := db.getMetastate(migrationMetastateKey)
-	hasMigration := len(migrationStateJSON) > 0
-
-	db.GetSpecialAccounts()
+func (db *PostgresIndexerDb) init() (err error) {
+	accountingStateJson, _ := db.GetMetastate("state")
+	hasAccounting := len(accountingStateJson) > 0
+	migrationStateJson, _ := db.GetMetastate(migrationMetastateKey)
+	hasMigration := len(migrationStateJson) > 0
 
 	if hasMigration || hasAccounting {
 		// see postgres_migrations.go
-		return db.runAvailableMigrations(migrationStateJSON)
+		return db.runAvailableMigrations(migrationStateJson)
 	}
 
 	// new database, run setup
@@ -122,62 +97,37 @@ func (db *IndexerDb) init() (err error) {
 	if err != nil {
 		return
 	}
-
 	err = db.markMigrationsAsDone()
 	return
 }
 
-// AlreadyImported is part of idb.IndexerDB
-func (db *IndexerDb) AlreadyImported(path string) (imported bool, err error) {
+func (db *PostgresIndexerDb) AlreadyImported(path string) (imported bool, err error) {
 	row := db.db.QueryRow(`SELECT COUNT(path) FROM imported WHERE path = $1`, path)
 	numpath := 0
 	err = row.Scan(&numpath)
 	return numpath == 1, err
 }
 
-// MarkImported is part of idb.IndexerDB
-func (db *IndexerDb) MarkImported(path string) (err error) {
+func (db *PostgresIndexerDb) MarkImported(path string) (err error) {
 	_, err = db.db.Exec(`INSERT INTO imported (path) VALUES ($1)`, path)
 	return err
 }
 
-// StartBlock is part of idb.IndexerDB
-func (db *IndexerDb) StartBlock() (err error) {
+func (db *PostgresIndexerDb) StartBlock() (err error) {
 	db.txrows = make([][]interface{}, 0, 6000)
 	db.txprows = make([][]interface{}, 0, 10000)
 	return nil
 }
 
-// For App apply data, convert "string" keys which are secretly []byte blobs to their base64 representation so that JSON systems that require strings to be utf8 don't panic.
-func stxnToJSON(txn types.SignedTxnWithAD) string {
-	jt := txn
-	if len(jt.EvalDelta.GlobalDelta) > 0 {
-		gd := make(map[string]types.ValueDelta, len(jt.EvalDelta.GlobalDelta))
-		for k, v := range jt.EvalDelta.GlobalDelta {
-			gd[b64([]byte(k))] = v
-		}
-		jt.EvalDelta.GlobalDelta = gd
-	}
-	if len(jt.EvalDelta.LocalDeltas) > 0 {
-		ldout := make(map[uint64]types.StateDelta, len(jt.EvalDelta.LocalDeltas))
-		for i, ld := range jt.EvalDelta.LocalDeltas {
-			nld := make(map[string]types.ValueDelta, len(ld))
-			for k, v := range ld {
-				nld[b64([]byte(k))] = v
-			}
-			ldout[i] = nld
-		}
-		jt.EvalDelta.LocalDeltas = ldout
-	}
-	return idb.JSONOneLine(jt)
-}
-
-// AddTransaction is part of idb.IndexerDB
-func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
+func (db *PostgresIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
 	txnbytes := msgpack.Encode(txn)
-	jsonbytes := stxnToJSON(txn)
+	var jsonbytes []byte
+	jsonbytes, err := idb.MsgpackToJson(txnbytes)
+	if err != nil {
+		return err
+	}
 	txid := crypto.TransactionIDString(txn.Txn)
-	tx := []interface{}{round, intra, txtypeenum, assetid, txid[:], txnbytes, string(jsonbytes)}
+	tx := []interface{}{round, intra, txtypeenum, assetid, txid[:], txnbytes, jsonbytes}
 	db.txrows = append(db.txrows, tx)
 	for _, paddr := range participation {
 		seen := false
@@ -189,9 +139,8 @@ func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, ass
 	return nil
 }
 
-// CommitBlock is part of idb.IndexerDB
-func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
+func (db *PostgresIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
+	tx, err := db.db.BeginTx(context.Background(), nil)
 	if err != nil {
 		return fmt.Errorf("BeginTx %v", err)
 	}
@@ -209,7 +158,6 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 	}
 	_, err = addtx.Exec()
 	if err != nil {
-		db.log.Errorf("CommitBlock failed: %v (%#v)", err, err)
 		for _, txr := range db.txrows {
 			ntxr := make([]interface{}, len(txr))
 			for i, v := range txr {
@@ -224,7 +172,7 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 					ntxr[i] = v
 				}
 			}
-			db.log.Errorf("txr %#v", ntxr)
+			fmt.Printf("txr %#v\n", ntxr)
 		}
 		return fmt.Errorf("COPY txn Exec() %v", err)
 	}
@@ -243,7 +191,7 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 		if err != nil {
 			//return err
 			for _, er := range db.txprows[:i+1] {
-				db.log.Printf("%s %d %d", base64.StdEncoding.EncodeToString(er[0].([]byte)), er[1], er[2])
+				fmt.Printf("%s %d %d\n", base64.StdEncoding.EncodeToString(er[0].([]byte)), er[1], er[2])
 			}
 			return fmt.Errorf("%v, around txp row %#v", err, txpr)
 		}
@@ -263,10 +211,10 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 	if err != nil {
 		return fmt.Errorf("decode header %v", err)
 	}
-	headerjson := idb.JSONOneLine(block)
-	_, err = tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0).UTC(), rewardslevel, headerjson)
+	headerjson := json.Encode(block)
+	_, err = tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0).UTC(), rewardslevel, string(headerjson))
 	if err != nil {
-		return fmt.Errorf("put block_header %v    %#v", err, err)
+		return fmt.Errorf("put block_header %v", err)
 	}
 
 	err = tx.Commit()
@@ -279,7 +227,7 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 }
 
 // GetAsset return AssetParams about an asset
-func (db *IndexerDb) GetAsset(assetid uint64) (asset types.AssetParams, err error) {
+func (db *PostgresIndexerDb) GetAsset(assetid uint64) (asset types.AssetParams, err error) {
 	row := db.db.QueryRow(`SELECT params FROM asset WHERE index = $1`, assetid)
 	var assetjson string
 	err = row.Scan(&assetjson)
@@ -290,34 +238,33 @@ func (db *IndexerDb) GetAsset(assetid uint64) (asset types.AssetParams, err erro
 	return
 }
 
-// GetDefaultFrozen get {assetid:default frozen, ...} for all assets, needed by accounting.
-// Because Go map[]bool returns false by default, we actually return only a map of the true elements.
-func (db *IndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
-	rows, err := db.db.Query(`SELECT index FROM asset WHERE (params ->> 'df')::boolean = true`)
+// GetDefaultFrozen get {assetid:default frozen, ...} for all assets
+func (db *PostgresIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
+	rows, err := db.db.Query(`SELECT index, params -> 'df' FROM asset a`)
 	if err != nil {
 		return
 	}
 	defaultFrozen = make(map[uint64]bool)
 	for rows.Next() {
 		var assetid uint64
-		err = rows.Scan(&assetid)
+		var frozen bool
+		err = rows.Scan(&assetid, &frozen)
 		if err != nil {
 			return
 		}
-		defaultFrozen[assetid] = true
+		defaultFrozen[assetid] = frozen
 	}
 	return
 }
 
-// LoadGenesis is part of idb.IndexerDB
-func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
+func (db *PostgresIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
+	tx, err := db.db.Begin()
 	if err != nil {
 		return
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 
-	setAccount, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, account_data, rewards_total, created_at, deleted) VALUES ($1, $2, 0, $3, $4, 0, false)`)
+	setAccount, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, account_data) VALUES ($1, $2, 0, $3)`)
 	if err != nil {
 		return
 	}
@@ -329,27 +276,20 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 		if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
 			return fmt.Errorf("genesis account[%d] has unhandled asset", ai)
 		}
-		_, err = setAccount.Exec(addr[:], alloc.State.MicroAlgos, idb.JSONOneLine(alloc.State), 0)
+		_, err = setAccount.Exec(addr[:], alloc.State.MicroAlgos, string(json.Encode(alloc.State)))
 		total += uint64(alloc.State.MicroAlgos)
 		if err != nil {
 			return fmt.Errorf("error setting genesis account[%d], %v", ai, err)
 		}
 	}
-	var istate importer.ImportState
-	sjs := string(idb.JSONOneLine(istate))
-	_, err = tx.Exec(setMetastateUpsert, stateMetastateKey, sjs)
-	if err != nil {
-		return
-	}
 	err = tx.Commit()
-	db.log.Printf("genesis %d accounts %d microalgos, err=%v", len(genesis.Allocation), total, err)
+	fmt.Printf("genesis %d accounts %d microalgos, err=%v\n", len(genesis.Allocation), total, err)
 	return err
 
 }
 
-// SetProto is part of idb.IndexerDB
-func (db *IndexerDb) SetProto(version string, proto types.ConsensusParams) (err error) {
-	pj := idb.JSONOneLine(proto)
+func (db *PostgresIndexerDb) SetProto(version string, proto types.ConsensusParams) (err error) {
+	pj := json.Encode(proto)
 	if err != nil {
 		return err
 	}
@@ -357,8 +297,7 @@ func (db *IndexerDb) SetProto(version string, proto types.ConsensusParams) (err 
 	return err
 }
 
-// GetProto is part of idb.IndexerDB
-func (db *IndexerDb) GetProto(version string) (proto types.ConsensusParams, err error) {
+func (db *PostgresIndexerDb) GetProto(version string) (proto types.ConsensusParams, err error) {
 	proto, hit := db.protoCache[version]
 	if hit {
 		return
@@ -376,7 +315,7 @@ func (db *IndexerDb) GetProto(version string) (proto types.ConsensusParams, err 
 	return
 }
 
-func (db *IndexerDb) getMetastate(key string) (jsonStrValue string, err error) {
+func (db *PostgresIndexerDb) GetMetastate(key string) (jsonStrValue string, err error) {
 	row := db.db.QueryRow(`SELECT v FROM metastate WHERE k = $1`, key)
 	err = row.Scan(&jsonStrValue)
 	if err == sql.ErrNoRows {
@@ -389,60 +328,16 @@ func (db *IndexerDb) getMetastate(key string) (jsonStrValue string, err error) {
 }
 
 const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
-func (db *IndexerDb) setMetastate(key, jsonStrValue string) (err error) {
+
+func (db *PostgresIndexerDb) SetMetastate(key, jsonStrValue string) (err error) {
 	_, err = db.db.Exec(setMetastateUpsert, key, jsonStrValue)
 	return
 }
 
-// GetImportState is part of idb.IndexerDB
-func (db *IndexerDb) GetImportState() (state *idb.ImportState, err error) {
-	var importStateJSON string
-	importStateJSON, err = db.getMetastate(stateMetastateKey)
-	if err == sql.ErrNoRows || importStateJSON == "" {
-		// no previous state, ok
-		err = nil
-		return
-	} else if err != nil {
-		err = fmt.Errorf("unable to get import state: %v", err)
-		return
-	}
-
-	err = json.Decode([]byte(importStateJSON), &state)
-	if err != nil {
-		err = fmt.Errorf("unable to parse import state: %v", err)
-	}
-	return
-}
-
-// SetImportState is part of idb.IndexerDB
-func (db *IndexerDb) SetImportState(state idb.ImportState) (err error) {
-	return db.setMetastate(stateMetastateKey, string(json.Encode(state)))
-}
-
-// GetMaxRoundAccounted is part of idb.IndexerDB
-func (db *IndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
-	//var round uint64
-	row := db.db.QueryRow(`select coalesce((v->>'account_round')::bigint, 0) from metastate where k = 'state'`)
-	err = row.Scan(&round)
-
-	if err == sql.ErrNoRows {
-		err = nil
-		round = 0
-	}
-
-	return
-}
-
-// GetMaxRoundLoaded is part of idb.IndexerDB
-func (db *IndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
-	var nullableRound sql.NullInt64
+func (db *PostgresIndexerDb) GetMaxRound() (round uint64, err error) {
 	round = 0
 	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
-	err = row.Scan(&nullableRound)
-	if err == nil && nullableRound.Valid {
-		round = uint64(nullableRound.Int64)
-	}
-
+	err = row.Scan(&round)
 	return
 }
 
@@ -456,7 +351,7 @@ func init() {
 	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE t.round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
 }
 
-func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- idb.TxnRow) {
+func (db *PostgresIndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- idb.TxnRow) {
 	keepGoing := true
 	for keepGoing {
 		keepGoing = false
@@ -483,16 +378,15 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 				rows.Close()
 				close(results)
 				return
+			} else {
+				rounds[pos] = round
+				intras[pos] = intra
+				txnbytess[pos] = txnbytes
+				extrajsons[pos] = extrajson
+				creatableids[pos] = creatableid
+				roundtimes[pos] = roundtime
+				pos++
 			}
-
-			rounds[pos] = round
-			intras[pos] = intra
-			txnbytess[pos] = txnbytes
-			extrajsons[pos] = extrajson
-			creatableids[pos] = creatableid
-			roundtimes[pos] = roundtime
-			pos++
-
 			keepGoing = true
 		}
 		rows.Close()
@@ -519,7 +413,7 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 			row.RoundTime = roundtimes[i]
 			row.Intra = intras[i]
 			row.TxnBytes = txnbytess[i]
-			row.AssetID = uint64(creatableids[i])
+			row.AssetId = uint64(creatableids[i])
 			if len(extrajsons[i]) > 0 {
 				err := json.Decode(extrajsons[i], &row.Extra)
 				if err != nil {
@@ -549,8 +443,7 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 	close(results)
 }
 
-// YieldTxns is part of idb.IndexerDB
-func (db *IndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan idb.TxnRow {
+func (db *PostgresIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan idb.TxnRow {
 	results := make(chan idb.TxnRow, 1)
 	rows, err := db.db.QueryContext(ctx, yieldTxnQuery, prevRound)
 	if err != nil {
@@ -571,10 +464,10 @@ func b64(addr []byte) string {
 }
 
 func obs(x interface{}) string {
-	return idb.JSONOneLine(x)
+	return string(json.Encode(x))
 }
 
-// StateSchema like go-algorand data/basics/teal.go
+// like go-algorand data/basics/teal.go
 type StateSchema struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
@@ -589,10 +482,7 @@ func (ss *StateSchema) fromBlock(x atypes.StateSchema) {
 	}
 }
 
-// TealType is a teal type
 type TealType uint64
-
-// TealValue is a TealValue
 type TealValue struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
@@ -633,15 +523,11 @@ func (tv TealValue) toModel() models.TealValue {
 	return models.TealValue{}
 }
 
-// TODO: These should probably all be moved to the types package.
-
-// KeyTealValue the KeyTealValue struct.
 type KeyTealValue struct {
 	Key []byte    `codec:"k"`
 	Tv  TealValue `codec:"v"`
 }
 
-// TealKeyValue the teal key value struct
 type TealKeyValue struct {
 	They []KeyTealValue
 }
@@ -680,10 +566,6 @@ func (tkv *TealKeyValue) delete(key []byte) {
 	for i, ktv := range tkv.They {
 		if bytes.Equal(ktv.Key, key) {
 			last := len(tkv.They) - 1
-			if last == 0 {
-				tkv.They = nil
-				return
-			}
 			if i < last {
 				tkv.They[i] = tkv.They[last]
 				tkv.They = tkv.They[:last]
@@ -693,17 +575,14 @@ func (tkv *TealKeyValue) delete(key []byte) {
 	}
 }
 
-// MarshalJSON wraps idb.JSONOneLine
 func (tkv TealKeyValue) MarshalJSON() ([]byte, error) {
-	return []byte(idb.JSONOneLine(tkv.They)), nil
+	return json.Encode(tkv.They), nil
 }
-
-// UnmarshalJSON wraps json.Decode
 func (tkv *TealKeyValue) UnmarshalJSON(data []byte) error {
 	return json.Decode(data, &tkv.They)
 }
 
-// AppParams like go-algorand data/basics/userBalance.go AppParams{}
+// like go-algorand data/basics/userBalance.go AppParams{}
 type AppParams struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
@@ -715,7 +594,7 @@ type AppParams struct {
 	GlobalState TealKeyValue `codec:"gs,allocbound=-"`
 }
 
-// AppLocalState like go-algorand data/basics/userBalance.go AppLocalState{}
+// like go-algorand data/basics/userBalance.go AppLocalState{}
 type AppLocalState struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
@@ -758,7 +637,7 @@ func applyKeyValueDelta(state *TealKeyValue, key []byte, vd types.ValueDelta, re
 	return nil
 }
 
-func (db *IndexerDb) getDirtyAppLocalState(addr []byte, appIndex int64, dirty []inmemAppLocalState, getq *sql.Stmt) (localstate inmemAppLocalState, err error) {
+func (db *PostgresIndexerDb) getDirtyAppLocalState(addr []byte, appIndex int64, dirty []inmemAppLocalState, getq *sql.Stmt) (localstate inmemAppLocalState, err error) {
 	for _, v := range dirty {
 		if v.appIndex == appIndex && bytes.Equal(addr, v.address) {
 			return v, nil
@@ -773,7 +652,7 @@ func (db *IndexerDb) getDirtyAppLocalState(addr []byte, appIndex int64, dirty []
 	} else if err != nil {
 		err = fmt.Errorf("app local get, %v", err)
 		return
-	} else if len(localstatejson) > 0 {
+	} else {
 		err = json.Decode(localstatejson, &localstate.AppLocalState)
 		if err != nil {
 			err = fmt.Errorf("app local get bad json, %v", err)
@@ -795,10 +674,9 @@ func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []i
 	return append(dirty, x)
 }
 
-// CommitRoundAccounting is part of idb.IndexerDB
-func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
+func (db *PostgresIndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round, rewardsBase uint64) (err error) {
 	any := false
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
+	tx, err := db.db.Begin()
 	if err != nil {
 		return
 	}
@@ -807,31 +685,15 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 	if len(updates.AlgoUpdates) > 0 {
 		any = true
 		// account_data json is only used on account creation, otherwise the account data jsonb field is updated from the delta
-		upsertalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewards_total = account.rewards_total + EXCLUDED.rewards_total, deleted = false`)
+		setalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase) VALUES ($1, $2, $3) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase`)
 		if err != nil {
 			return fmt.Errorf("prepare update algo, %v", err)
 		}
-		defer upsertalgo.Close()
-
-		// If the account is closing the cumulative rewards field and closed_at needs to be set directly
-		// Using an upsert because it's technically allowed to create and close an account in the same round.
-		closealgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, created_at, closed_at, deleted) VALUES ($1, $2, $3, $4, $5, $6, true) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewards_total = EXCLUDED.rewards_total, closed_at = EXCLUDED.closed_at, deleted = true, account_data = NULL`)
-		if err != nil {
-			return fmt.Errorf("prepare reset algo, %v", err)
-		}
-		defer closealgo.Close()
-
+		defer setalgo.Close()
 		for addr, delta := range updates.AlgoUpdates {
-			if !delta.Closed {
-				_, err = upsertalgo.Exec(addr[:], delta.Balance, blockPtr.RewardsLevel, delta.Rewards, round)
-				if err != nil {
-					return fmt.Errorf("update algo, %v", err)
-				}
-			} else {
-				_, err = closealgo.Exec(addr[:], delta.Balance, blockPtr.RewardsLevel, delta.Rewards, round, round)
-				if err != nil {
-					return fmt.Errorf("close algo, %v", err)
-				}
+			_, err = setalgo.Exec(addr[:], delta, rewardsBase)
+			if err != nil {
+				return fmt.Errorf("update algo, %v", err)
 			}
 		}
 	}
@@ -857,57 +719,20 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 		}
 		defer setkeyreg.Close()
 		for addr, adu := range updates.AccountDataUpdates {
-			jb := idb.JSONOneLine(adu)
+			jb := json.Encode(adu)
 			_, err = setkeyreg.Exec(jb, addr[:])
 			if err != nil {
 				return fmt.Errorf("update keyreg, %v", err)
 			}
 		}
 	}
-	if len(updates.AssetUpdates) > 0 && len(updates.AssetUpdates[0]) > 0 {
+	if len(updates.AcfgUpdates) > 0 {
+		// TODO: fix according to this comment:
+		// if asset is new, set.
+		// if new config is empty, set empty. -- handled by AssetDestroys
+		// else, update.
 		any = true
-
-		////////////////
-		// Asset Xfer //
-		////////////////
-		// Create new account_asset, initialize a previously destroyed asset, or apply the balance delta.
-		// Setting frozen is complicated for the no-op optin case. It should only be set to default-frozen when the
-		// holding is deleted, otherwise it should be left as the original value.
-		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, frozen = (EXCLUDED.frozen AND account_asset.deleted) OR (account_asset.frozen AND NOT account_asset.deleted), deleted = false`)
-		if err != nil {
-			return fmt.Errorf("prepare set account_asset, %v", err)
-		}
-		defer seta.Close()
-
-		/////////////////
-		// Asset Close //
-		/////////////////
-		// On asset opt-out attach some extra "apply data" metadata to allow rewinding the asset close if requested.
-		acc, err := tx.Prepare(`WITH aaamount AS (SELECT ($1)::bigint as round, ($2)::bigint as intra, x.amount FROM account_asset x WHERE x.addr = $3 AND x.assetid = $4)
-UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{aca}', to_jsonb(aaamount.amount)) FROM aaamount WHERE ut.round = aaamount.round AND ut.intra = aaamount.intra`)
-		if err != nil {
-			return fmt.Errorf("prepare asset close0, %v", err)
-		}
-		defer acc.Close()
-		// On asset opt-out update the CloseTo account_asset
-		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted)
-SELECT $1, $2, x.amount, $3, $6, false FROM account_asset x WHERE x.addr = $4 AND x.assetid = $5
-ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, deleted = false`)
-		if err != nil {
-			return fmt.Errorf("prepare asset close1, %v", err)
-		}
-		defer acs.Close()
-		// On asset opt-out mark the account_asset as closed with zero balance.
-		acd, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1, deleted = true WHERE addr = $2 AND assetid = $3`)
-		if err != nil {
-			return fmt.Errorf("prepare asset close2, %v", err)
-		}
-		defer acd.Close()
-
-		//////////////////
-		// Asset Config //
-		//////////////////
-		setacfg, err := tx.Prepare(`INSERT INTO asset (index, creator_addr, params, created_at, deleted) VALUES ($1, $2, $3, $4, false) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params, deleted = false`)
+		setacfg, err := tx.Prepare(`INSERT INTO asset (index, creator_addr, params) VALUES ($1, $2, $3) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params`)
 		if err != nil {
 			return fmt.Errorf("prepare set asset, %v", err)
 		}
@@ -917,143 +742,176 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			return fmt.Errorf("prepare get asset, %v", err)
 		}
 		defer getacfg.Close()
-
-		//////////////////
-		// Asset Freeze //
-		//////////////////
-		fr, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, 0, $3, $4, false) ON CONFLICT (addr, assetid) DO UPDATE SET frozen = EXCLUDED.frozen, deleted = false`)
-		if err != nil {
-			return fmt.Errorf("prepare asset freeze, %v", err)
+		for _, au := range updates.AcfgUpdates {
+			if au.AssetId == debugAsset {
+				fmt.Fprintf(os.Stderr, "%d acfg %s %s\n", round, b64(au.Creator[:]), obs(au))
+			}
+			var outparams string
+			if au.IsNew {
+				outparams = string(json.Encode(au.Params))
+			} else {
+				row := getacfg.QueryRow(au.AssetId)
+				var paramjson []byte
+				err = row.Scan(&paramjson)
+				if err != nil {
+					return fmt.Errorf("get acfg %d, %v", au.AssetId, err)
+				}
+				var old atypes.AssetParams
+				err = json.Decode(paramjson, &old)
+				if err != nil {
+					return fmt.Errorf("bad acgf json %d, %v", au.AssetId, err)
+				}
+				np := types.MergeAssetConfig(old, au.Params)
+				outparams = string(json.Encode(np))
+			}
+			_, err = setacfg.Exec(au.AssetId, au.Creator[:], outparams)
+			if err != nil {
+				return fmt.Errorf("update asset, %v", err)
+			}
 		}
-		defer fr.Close()
-
-		for _, subround := range updates.AssetUpdates {
-			for addr, aulist := range subround {
-				for _, au := range aulist {
-					if au.AssetID == debugAsset {
-						db.log.Errorf("%d axfer %s %s", round, b64(addr[:]), obs(au))
+	}
+	if len(updates.TxnAssetUpdates) > 0 {
+		any = true
+		uta, err := tx.Prepare(`UPDATE txn SET asset = $1 WHERE round = $2 AND intra = $3`)
+		if err != nil {
+			return fmt.Errorf("prepare update txn.asset, %v", err)
+		}
+		for _, tau := range updates.TxnAssetUpdates {
+			_, err = uta.Exec(tau.AssetId, tau.Round, tau.Offset)
+			if err != nil {
+				return fmt.Errorf("update txn.asset, %v", err)
+			}
+		}
+		defer uta.Close()
+	}
+	if len(updates.AssetUpdates) > 0 {
+		any = true
+		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen) VALUES ($1, $2, $3, $4) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount`)
+		if err != nil {
+			return fmt.Errorf("prepare set account_asset, %v", err)
+		}
+		defer seta.Close()
+		for addr, aulist := range updates.AssetUpdates {
+			for _, au := range aulist {
+				if au.AssetId == debugAsset {
+					fmt.Fprintf(os.Stderr, "%d axfer %s %s\n", round, b64(addr[:]), obs(au))
+				}
+				if au.Delta.IsInt64() {
+					// easy case
+					delta := au.Delta.Int64()
+					// don't skip delta == 0; mark opt-in
+					_, err = seta.Exec(addr[:], au.AssetId, delta, au.DefaultFrozen)
+					if err != nil {
+						return fmt.Errorf("update account asset, %v", err)
 					}
-
-					// Apply deltas
-					if au.Transfer != nil {
-						if au.Transfer.Delta.IsInt64() {
-							// easy case
-							delta := au.Transfer.Delta.Int64()
-							// don't skip delta == 0; mark opt-in
-							_, err = seta.Exec(addr[:], au.AssetID, delta, au.DefaultFrozen, round)
-							if err != nil {
-								return fmt.Errorf("update account asset, %v", err)
-							}
-						} else {
-							sign := au.Transfer.Delta.Sign()
-							var mi big.Int
-							var step int64
-							if sign > 0 {
-								mi.SetInt64(math.MaxInt64)
-								step = math.MaxInt64
-							} else if sign < 0 {
-								mi.SetInt64(math.MinInt64)
-								step = math.MinInt64
-							} else {
-								continue
-							}
-							for !au.Transfer.Delta.IsInt64() {
-								_, err = seta.Exec(addr[:], au.AssetID, step, au.DefaultFrozen, round)
-								if err != nil {
-									return fmt.Errorf("update account asset, %v", err)
-								}
-								au.Transfer.Delta.Sub(&au.Transfer.Delta, &mi)
-							}
-							sign = au.Transfer.Delta.Sign()
-							if sign != 0 {
-								_, err = seta.Exec(addr[:], au.AssetID, au.Transfer.Delta.Int64(), au.DefaultFrozen, round)
-								if err != nil {
-									return fmt.Errorf("update account asset, %v", err)
-								}
-							}
-						}
+				} else {
+					sign := au.Delta.Sign()
+					var mi big.Int
+					var step int64
+					if sign > 0 {
+						mi.SetInt64(math.MaxInt64)
+						step = math.MaxInt64
+					} else if sign < 0 {
+						mi.SetInt64(math.MinInt64)
+						step = math.MinInt64
+					} else {
+						continue
 					}
-
-					// Close holding before continuing to next subround.
-					if au.Close != nil {
-						_, err = acc.Exec(au.Close.Round, au.Close.Offset, au.Close.Sender[:], au.AssetID)
+					for !au.Delta.IsInt64() {
+						_, err = seta.Exec(addr[:], au.AssetId, step, au.DefaultFrozen)
 						if err != nil {
-							return fmt.Errorf("asset close record amount, %v", err)
+							return fmt.Errorf("update account asset, %v", err)
 						}
-						_, err = acs.Exec(au.Close.CloseTo[:], au.AssetID, au.DefaultFrozen, au.Close.Sender[:], au.AssetID, round)
-						if err != nil {
-							return fmt.Errorf("asset close send, %v", err)
-						}
-						_, err = acd.Exec(round, au.Close.Sender[:], au.AssetID)
-						if err != nil {
-							return fmt.Errorf("asset close del, %v", err)
-						}
+						au.Delta.Sub(&au.Delta, &mi)
 					}
-
-					// Asset Config
-					if au.Config != nil {
-						var outparams string
-						if au.Config.IsNew {
-							outparams = string(json.Encode(au.Config.Params))
-						} else {
-							row := getacfg.QueryRow(au.AssetID)
-							var paramjson []byte
-							err = row.Scan(&paramjson)
-							if err != nil {
-								return fmt.Errorf("get acfg %d, %v", au.AssetID, err)
-							}
-							var old atypes.AssetParams
-							err = json.Decode(paramjson, &old)
-							if err != nil {
-								return fmt.Errorf("bad acgf json %d, %v", au.AssetID, err)
-							}
-							np := types.MergeAssetConfig(old, au.Config.Params)
-							outparams = string(json.Encode(np))
-						}
-						_, err = setacfg.Exec(au.AssetID, au.Config.Creator[:], outparams, round)
+					sign = au.Delta.Sign()
+					if sign != 0 {
+						_, err = seta.Exec(addr[:], au.AssetId, au.Delta.Int64(), au.DefaultFrozen)
 						if err != nil {
-							return fmt.Errorf("update asset, %v", err)
-						}
-					}
-
-					// Asset Freeze
-					if au.Freeze != nil {
-						if au.AssetID == debugAsset {
-							db.log.Errorf("%d %s %s", round, b64(addr[:]), obs(au.Freeze))
-						}
-						_, err = fr.Exec(addr[:], au.AssetID, au.Freeze.Frozen, round)
-						if err != nil {
-							return fmt.Errorf("update asset freeze, %v", err)
+							return fmt.Errorf("update account asset, %v", err)
 						}
 					}
 				}
 			}
 		}
 	}
-	if len(updates.AssetDestroys) > 0 {
-		// Note! leaves `asset` and `account_asset` rows present for historical reference, but deletes all holdings from all accounts
+	if len(updates.FreezeUpdates) > 0 {
 		any = true
-		// Update any account_asset holdings which were not previously closed. By now the amount should already be 0.
-		ads, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1, deleted = true WHERE assetid = $2 AND amount != 0`)
+		fr, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen) VALUES ($1, $2, 0, $3) ON CONFLICT (addr, assetid) DO UPDATE SET frozen = EXCLUDED.frozen`)
+		if err != nil {
+			return fmt.Errorf("prepare asset freeze, %v", err)
+		}
+		defer fr.Close()
+		for _, fs := range updates.FreezeUpdates {
+			if fs.AssetId == debugAsset {
+				fmt.Fprintf(os.Stderr, "%d %s %s\n", round, b64(fs.Addr[:]), obs(fs))
+			}
+			_, err = fr.Exec(fs.Addr[:], fs.AssetId, fs.Frozen)
+			if err != nil {
+				return fmt.Errorf("update asset freeze, %v", err)
+			}
+		}
+	}
+	if len(updates.AssetCloses) > 0 {
+		any = true
+		acc, err := tx.Prepare(`WITH aaamount AS (SELECT ($1)::bigint as round, ($2)::bigint as intra, x.amount FROM account_asset x WHERE x.addr = $3 AND x.assetid = $4)
+UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{aca}', to_jsonb(aaamount.amount)) FROM aaamount WHERE ut.round = aaamount.round AND ut.intra = aaamount.intra`)
+		if err != nil {
+			return fmt.Errorf("prepare asset close0, %v", err)
+		}
+		defer acc.Close()
+		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen)
+SELECT $1, $2, x.amount, $3 FROM account_asset x WHERE x.addr = $4 AND x.assetid = $5
+ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount`)
+		if err != nil {
+			return fmt.Errorf("prepare asset close1, %v", err)
+		}
+		defer acs.Close()
+		acd, err := tx.Prepare(`DELETE FROM account_asset WHERE addr = $1 AND assetid = $2`)
+		if err != nil {
+			return fmt.Errorf("prepare asset close2, %v", err)
+		}
+		defer acd.Close()
+		for _, ac := range updates.AssetCloses {
+			if ac.AssetId == debugAsset {
+				fmt.Fprintf(os.Stderr, "%d close %s\n", round, obs(ac))
+			}
+			_, err = acc.Exec(ac.Round, ac.Offset, ac.Sender[:], ac.AssetId)
+			if err != nil {
+				return fmt.Errorf("asset close record amount, %v", err)
+			}
+			_, err = acs.Exec(ac.CloseTo[:], ac.AssetId, ac.DefaultFrozen, ac.Sender[:], ac.AssetId)
+			if err != nil {
+				return fmt.Errorf("asset close send, %v", err)
+			}
+			_, err = acd.Exec(ac.Sender[:], ac.AssetId)
+			if err != nil {
+				return fmt.Errorf("asset close del, %v", err)
+			}
+		}
+	}
+	if len(updates.AssetDestroys) > 0 {
+		any = true
+		// Note! leaves `asset` row present for historical reference, but deletes all holdings from all accounts
+		ads, err := tx.Prepare(`DELETE FROM account_asset WHERE assetid = $1`)
 		if err != nil {
 			return fmt.Errorf("prepare asset destroy, %v", err)
 		}
 		defer ads.Close()
-		// Clear out the parameters and set closed_at
-		aclear, err := tx.Prepare(`UPDATE asset SET params = 'null'::jsonb, closed_at = $1, deleted = true WHERE index = $2`)
+		aclear, err := tx.Prepare(`UPDATE asset SET params = 'null'::jsonb WHERE index = $1`)
 		if err != nil {
 			return fmt.Errorf("prepare asset clear, %v", err)
 		}
 		defer aclear.Close()
-		for _, assetID := range updates.AssetDestroys {
-			if assetID == debugAsset {
-				db.log.Errorf("%d destroy asset %d", round, assetID)
+		for _, assetId := range updates.AssetDestroys {
+			if assetId == debugAsset {
+				fmt.Fprintf(os.Stderr, "%d destroy asset %d\n", round, assetId)
 			}
-			_, err = ads.Exec(round, assetID)
+			_, err = ads.Exec(assetId)
 			if err != nil {
 				return fmt.Errorf("asset destroy, %v", err)
 			}
-			_, err = aclear.Exec(round, assetID)
+			_, err = aclear.Exec(assetId)
 			if err != nil {
 				return fmt.Errorf("asset destroy, %v", err)
 			}
@@ -1061,7 +919,6 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	}
 	if len(updates.AppGlobalDeltas) > 0 {
 		// apps with dirty global state, collection of AppParams as dict
-		destroy := make(map[uint64]bool)
 		dirty := make(map[uint64]AppParams)
 		appCreators := make(map[uint64][]byte)
 		getglobal, err := tx.Prepare(`SELECT params FROM app WHERE index = $1`)
@@ -1090,6 +947,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			}
 			// calculate reverse delta, apply delta to state, save state to dirty
 			reverseDelta := idb.AppReverseDelta{
+
 				OnCompletion: adelta.OnCompletion,
 			}
 			if len(adelta.ApprovalProgram) > 0 {
@@ -1108,13 +966,10 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 					return fmt.Errorf("app delta apply err r=%d i=%d app=%d, %v", adelta.Round, adelta.Intra, adelta.AppIndex, err)
 				}
 			}
-			reverseDeltas = append(reverseDeltas, []interface{}{idb.JSONOneLine(reverseDelta), adelta.Round, adelta.Intra})
+			reverseDeltas = append(reverseDeltas, []interface{}{json.Encode(reverseDelta), adelta.Round, adelta.Intra})
 			if adelta.OnCompletion == atypes.DeleteApplicationOC {
 				// clear content but leave row recording that it existed
 				state = AppParams{}
-				destroy[uint64(adelta.AppIndex)] = true
-			} else {
-				delete(destroy, uint64(adelta.AppIndex))
 			}
 			dirty[uint64(adelta.AppIndex)] = state
 			if adelta.Creator != nil {
@@ -1136,20 +991,15 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			}
 		}
 		// apply dirty global state deltas for the round
-		putglobal, err := tx.Prepare(`INSERT INTO app (index, creator, params, created_at, deleted) VALUES ($1, $2, $3, $4, false) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params, closed_at = coalesce($5, app.closed_at), deleted = $6`)
+		putglobal, err := tx.Prepare(`INSERT INTO app (index, creator, params) VALUES ($1, $2, $3) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params`)
 		if err != nil {
 			return fmt.Errorf("prepare app global put, %v", err)
 		}
 		defer putglobal.Close()
 		for appid, params := range dirty {
-			// Nullable closedAt value
-			closedAt := sql.NullInt64{
-				Int64: int64(round),
-				Valid: destroy[appid],
-			}
 			creator := appCreators[appid]
-			paramjson := idb.JSONOneLine(params)
-			_, err = putglobal.Exec(appid, creator, paramjson, round, closedAt, destroy[appid])
+			paramjson := json.Encode(params)
+			_, err = putglobal.Exec(appid, creator, paramjson)
 			if err != nil {
 				return fmt.Errorf("app global put pj=%v, %v", string(paramjson), err)
 			}
@@ -1174,7 +1024,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		for _, ald := range updates.AppLocalDeltas {
 			if ald.OnCompletion == atypes.CloseOutOC || ald.OnCompletion == atypes.ClearStateOC {
 				droplocals = append(droplocals,
-					[]interface{}{ald.Address, ald.AppIndex, round},
+					[]interface{}{ald.Address, ald.AppIndex},
 				)
 				continue
 			}
@@ -1206,7 +1056,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 				}
 			}
 			dirty = setDirtyAppLocalState(dirty, localstate)
-			reverseDeltas = append(reverseDeltas, []interface{}{idb.JSONOneLine(reverseDelta), ald.Round, ald.Intra})
+			reverseDeltas = append(reverseDeltas, []interface{}{json.Encode(reverseDelta), ald.Round, ald.Intra})
 		}
 
 		// update txns with reverse deltas
@@ -1227,13 +1077,13 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 
 		if len(dirty) > 0 {
 			// apply local state deltas for the round
-			putglobal, err := tx.Prepare(`INSERT INTO account_app (addr, app, localstate, created_at, deleted) VALUES ($1, $2, $3, $4, false) ON CONFLICT (addr, app) DO UPDATE SET localstate = EXCLUDED.localstate, deleted = false`)
+			putglobal, err := tx.Prepare(`INSERT INTO account_app (addr, app, localstate) VALUES ($1, $2, $3) ON CONFLICT (addr, app) DO UPDATE SET localstate = EXCLUDED.localstate`)
 			if err != nil {
 				return fmt.Errorf("prepare app local put, %v", err)
 			}
 			defer putglobal.Close()
 			for _, ld := range dirty {
-				_, err = putglobal.Exec(ld.address, ld.appIndex, idb.JSONOneLine(ld.AppLocalState), round)
+				_, err = putglobal.Exec(ld.address, ld.appIndex, json.Encode(ld.AppLocalState))
 				if err != nil {
 					return fmt.Errorf("app local put, %v", err)
 				}
@@ -1241,7 +1091,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 
 		if len(droplocals) > 0 {
-			droplocal, err := tx.Prepare(`UPDATE account_app SET localstate = NULL, closed_at = $3, deleted = true WHERE addr = $1 AND app = $2`)
+			droplocal, err := tx.Prepare(`DELETE FROM account_app WHERE addr = $1 AND app = $2`)
 			if err != nil {
 				return fmt.Errorf("prepare app local del, %v", err)
 			}
@@ -1255,80 +1105,40 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 	}
 	if !any {
-		db.log.Debugf("empty round %d", round)
+		fmt.Printf("empty round %d\n", round)
 	}
 	var istate importer.ImportState
 	staterow := tx.QueryRow(`SELECT v FROM metastate WHERE k = 'state'`)
-	var stateJSONStr string
-	err = staterow.Scan(&stateJSONStr)
+	var stateJsonStr string
+	err = staterow.Scan(&stateJsonStr)
 	if err == sql.ErrNoRows {
 		// ok
 	} else if err != nil {
 		return
 	} else {
-		err = json.Decode([]byte(stateJSONStr), &istate)
+		err = json.Decode([]byte(stateJsonStr), &istate)
 		if err != nil {
 			return
 		}
 	}
-	if istate.AccountRound >= int64(round) {
-		msg := fmt.Sprintf("metastate round = %d while trying to write round %d", istate.AccountRound, round)
-		db.log.Error(msg)
-		return errors.New(msg)
-	}
 	istate.AccountRound = int64(round)
-	sjs := idb.JSONOneLine(istate)
-	_, err = tx.Exec(setMetastateUpsert, stateMetastateKey, sjs)
+	sjs := string(json.Encode(istate))
+	_, err = tx.Exec(setMetastateUpsert, "state", sjs)
 	if err != nil {
 		return
 	}
 	return tx.Commit()
 }
 
-// GetBlock is part of idb.IndexerDB
-func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (block types.Block, transactions []idb.TxnRow, err error) {
-	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
-	if err != nil {
-		return
-	}
-	defer tx.Commit()
-	row := tx.QueryRowContext(ctx, `SELECT header FROM block_header WHERE round = $1`, round)
+func (db *PostgresIndexerDb) GetBlock(round uint64) (block types.Block, err error) {
+	row := db.db.QueryRow(`SELECT header FROM block_header WHERE round = $1`, round)
 	var blockheaderjson []byte
 	err = row.Scan(&blockheaderjson)
 	if err != nil {
 		return
 	}
 	err = json.Decode(blockheaderjson, &block)
-	if err != nil {
-		return
-	}
-
-	if options.Transactions {
-		out := make(chan idb.TxnRow, 1)
-		query, whereArgs, err := buildTransactionQuery(idb.TransactionFilter{Round: &round})
-		if err != nil {
-			err = fmt.Errorf("txn query err %v", err)
-			out <- idb.TxnRow{Error: err}
-			close(out)
-			return types.Block{}, nil, err
-		}
-		rows, err := tx.QueryContext(ctx, query, whereArgs...)
-		if err != nil {
-			err = fmt.Errorf("txn query %#v err %v", query, err)
-			return types.Block{}, nil, err
-		}
-
-		go db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
-
-		results := make([]idb.TxnRow, 0)
-		for txrow := range out {
-			results = append(results, txrow)
-			txrow.Next()
-		}
-		transactions = results
-	}
-
-	return block, transactions, nil
+	return
 }
 
 func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []interface{}, err error) {
@@ -1407,22 +1217,22 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		whereArgs = append(whereArgs, tf.AfterTime)
 		partNumber++
 	}
-	if tf.AssetID != 0 || tf.ApplicationID != 0 {
-		var creatableID uint64
-		if tf.AssetID != 0 {
-			creatableID = tf.AssetID
-			if tf.ApplicationID != 0 {
-				if tf.AssetID == tf.ApplicationID {
+	if tf.AssetId != 0 || tf.ApplicationId != 0 {
+		var creatableId uint64
+		if tf.AssetId != 0 {
+			creatableId = tf.AssetId
+			if tf.ApplicationId != 0 {
+				if tf.AssetId == tf.ApplicationId {
 					// this is nonsense, but I'll allow it
 				} else {
 					return "", nil, fmt.Errorf("cannot search both assetid and appid")
 				}
 			}
 		} else {
-			creatableID = tf.ApplicationID
+			creatableId = tf.ApplicationId
 		}
 		whereParts = append(whereParts, fmt.Sprintf("t.asset = $%d", partNumber))
-		whereArgs = append(whereArgs, creatableID)
+		whereArgs = append(whereArgs, creatableId)
 		partNumber++
 	}
 	if tf.AssetAmountGT != 0 {
@@ -1519,8 +1329,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	return
 }
 
-// Transactions is part of idb.IndexerDB
-func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) <-chan idb.TxnRow {
+func (db *PostgresIndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) <-chan idb.TxnRow {
 	out := make(chan idb.TxnRow, 1)
 	if len(tf.NextToken) > 0 {
 		go db.txnsWithNext(ctx, tf, out)
@@ -1544,7 +1353,7 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 	return out
 }
 
-func (db *IndexerDb) txTransactions(tx *sql.Tx, tf idb.TransactionFilter) <-chan idb.TxnRow {
+func (db *PostgresIndexerDb) txTransactions(tx *sql.Tx, tf idb.TransactionFilter) <-chan idb.TxnRow {
 	out := make(chan idb.TxnRow, 1)
 	if len(tf.NextToken) > 0 {
 		err := fmt.Errorf("txTransactions incompatible with next")
@@ -1570,7 +1379,7 @@ func (db *IndexerDb) txTransactions(tx *sql.Tx, tf idb.TransactionFilter) <-chan
 	return out
 }
 
-func (db *IndexerDb) txnsWithNext(ctx context.Context, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
+func (db *PostgresIndexerDb) txnsWithNext(ctx context.Context, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
 	nextround, nextintra32, err := idb.DecodeTxnRowNext(tf.NextToken)
 	nextintra := uint64(nextintra32)
 	if err != nil {
@@ -1656,16 +1465,16 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tf idb.TransactionFilter,
 	db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
 }
 
-func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, results chan<- idb.TxnRow, doClose bool, countp *int, errp *error) {
+func (db *PostgresIndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, results chan<- idb.TxnRow, doClose bool, countp *int, errp *error) {
 	count := 0
 	for rows.Next() {
 		var round uint64
 		var asset uint64
 		var intra int
 		var txnbytes []byte
-		var extraJSON []byte
+		var extraJson []byte
 		var roundtime time.Time
-		err := rows.Scan(&round, &intra, &txnbytes, &extraJSON, &asset, &roundtime)
+		err := rows.Scan(&round, &intra, &txnbytes, &extraJson, &asset, &roundtime)
 		var row idb.TxnRow
 		if err != nil {
 			row.Error = err
@@ -1674,9 +1483,9 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, 
 			row.Intra = intra
 			row.TxnBytes = txnbytes
 			row.RoundTime = roundtime
-			row.AssetID = asset
-			if len(extraJSON) > 0 {
-				err = json.Decode(extraJSON, &row.Extra)
+			row.AssetId = asset
+			if len(extraJson) > 0 {
+				err = json.Decode(extraJson, &row.Extra)
 				if err != nil {
 					row.Error = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
 				}
@@ -1710,91 +1519,72 @@ var statusStrings = []string{"Offline", "Online", "NotParticipating"}
 
 const offlineStatusIdx = 0
 
-func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
+func (db *PostgresIndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 	defer req.tx.Rollback()
 	count := uint64(0)
 	defer func() {
 		end := time.Now()
 		dt := end.Sub(req.start)
 		if dt > (1 * time.Second) {
-			db.log.Warnf("long query %fs: %s", dt.Seconds(), req.query)
+			log.Warnf("long query %fs: %s", dt.Seconds(), req.query)
 		}
 	}()
 	for req.rows.Next() {
 		var addr []byte
 		var microalgos uint64
-		var rewardstotal uint64
-		var createdat sql.NullInt64
-		var closedat sql.NullInt64
-		var deleted sql.NullBool
 		var rewardsbase uint64
 		var keytype *string
-		var accountDataJSONStr []byte
+		var accountDataJsonStr []byte
 
 		// below are bytes of json serialization
 
 		// holding* are a triplet of lists that should merge together
-		var holdingAssetids []byte
+		var holdingAssetid []byte
 		var holdingAmount []byte
 		var holdingFrozen []byte
-		var holdingCreatedBytes []byte
-		var holdingClosedBytes []byte
-		var holdingDeletedBytes []byte
 
 		// assetParams* are a pair of lists that should merge together
 		var assetParamsIds []byte
 		var assetParamsStr []byte
-		var assetParamsCreatedBytes []byte
-		var assetParamsClosedBytes []byte
-		var assetParamsDeletedBytes []byte
 
 		// appParam* are a pair of lists that should merge together
 		var appParamIndexes []byte // [appId, ...]
 		var appParams []byte       // [{AppParams}, ...]
-		var appCreatedBytes []byte
-		var appClosedBytes []byte
-		var appDeletedBytes []byte
 
 		// localState* are a pair of lists that should merge together
 		var localStateAppIds []byte // [appId, ...]
 		var localStates []byte      // [{local state}, ...]
-		var localStateCreatedBytes []byte
-		var localStateClosedBytes []byte
-		var localStateDeletedBytes []byte
 
 		var err error
 
-		if req.opts.IncludeAssetHoldings && req.opts.IncludeAssetParams {
-			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes, &holdingDeletedBytes,
-				&assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes, &assetParamsDeletedBytes,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
-			)
-		} else if req.opts.IncludeAssetHoldings {
-			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes, &holdingDeletedBytes,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
-			)
+		if req.opts.IncludeAssetHoldings {
+			if req.opts.IncludeAssetParams {
+				err = req.rows.Scan(
+					&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
+					&holdingAssetid, &holdingAmount, &holdingFrozen,
+					&assetParamsIds, &assetParamsStr,
+					&appParamIndexes, &appParams, &localStateAppIds, &localStates,
+				)
+			} else {
+				err = req.rows.Scan(
+					&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
+					&holdingAssetid, &holdingAmount, &holdingFrozen,
+					&appParamIndexes, &appParams, &localStateAppIds, &localStates,
+				)
+			}
 		} else if req.opts.IncludeAssetParams {
 			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes, &assetParamsDeletedBytes,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
+				&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
+				&assetParamsIds, &assetParamsStr,
+				&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 			)
 		} else {
 			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
+				&addr, &microalgos, &rewardsbase, &keytype, &accountDataJsonStr,
+				&appParamIndexes, &appParams, &localStateAppIds, &localStates,
 			)
 		}
 		if err != nil {
-			err = fmt.Errorf("account scan err %v", err)
 			req.out <- idb.AccountRow{Error: err}
 			break
 		}
@@ -1805,10 +1595,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		account.Address = aaddr.String()
 		account.Round = uint64(req.blockheader.Round)
 		account.AmountWithoutPendingRewards = microalgos
-		account.Rewards = rewardstotal
-		account.CreatedAtRound = nullableInt64Ptr(createdat)
-		account.ClosedAtRound = nullableInt64Ptr(closedat)
-		account.Deleted = nullableBoolPtr(deleted)
 		account.RewardBase = new(uint64)
 		*account.RewardBase = rewardsbase
 		// default to Offline in there have been no keyreg transactions.
@@ -1817,11 +1603,10 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.SigType = keytype
 		}
 
-		if accountDataJSONStr != nil {
+		if accountDataJsonStr != nil {
 			var ad types.AccountData
-			err = json.Decode(accountDataJSONStr, &ad)
+			err = json.Decode(accountDataJsonStr, &ad)
 			if err != nil {
-				err = fmt.Errorf("account decode err (%s) %v", accountDataJSONStr, err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
@@ -1855,7 +1640,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
 			proto, err := db.GetProto(string(req.blockheader.CurrentProtocol))
 			if err != nil {
-				err = fmt.Errorf("get protocol err (%s) %v", req.blockheader.CurrentProtocol, err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
@@ -1871,60 +1655,28 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 
 		const nullarraystr = "[null]"
 
-		if len(holdingAssetids) > 0 && string(holdingAssetids) != nullarraystr {
+		if len(holdingAssetid) > 0 && string(holdingAssetid) != nullarraystr {
 			var haids []uint64
-			err = json.Decode(holdingAssetids, &haids)
+			err = json.Decode(holdingAssetid, &haids)
 			if err != nil {
-				err = fmt.Errorf("parsing json holding asset ids err %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var hamounts []uint64
 			err = json.Decode(holdingAmount, &hamounts)
 			if err != nil {
-				err = fmt.Errorf("parsing json holding amounts err %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var hfrozen []bool
 			err = json.Decode(holdingFrozen, &hfrozen)
 			if err != nil {
-				err = fmt.Errorf("parsing json holding frozen err %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			var holdingCreated []*uint64
-			err = json.Decode(holdingCreatedBytes, &holdingCreated)
-			if err != nil {
-				err = fmt.Errorf("parsing json holding created ids, %v", err)
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
-			var holdingClosed []*uint64
-			err = json.Decode(holdingClosedBytes, &holdingClosed)
-			if err != nil {
-				err = fmt.Errorf("parsing json holding closed ids, %v", err)
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
-			var holdingDeleted []*bool
-			err = json.Decode(holdingDeletedBytes, &holdingDeleted)
-			if err != nil {
-				err = fmt.Errorf("parsing json holding deleted ids, %v", err)
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
-
-			if len(hamounts) != len(haids) || len(hfrozen) != len(haids) || len(holdingCreated) != len(haids) || len(holdingClosed) != len(haids) || len(holdingDeleted) != len(haids) {
-				err = fmt.Errorf("account asset holding unpacking, all should be %d:  %d amounts, %d frozen, %d created, %d closed, %d deleted",
-					len(haids), len(hamounts), len(hfrozen), len(holdingCreated), len(holdingClosed), len(holdingDeleted))
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
-
 			av := make([]models.AssetHolding, 0, len(haids))
 			for i, assetid := range haids {
-				// SQL can result in cross-product duplication when account has both asset holdings and assets created, de-dup here
+				// SQL can result in cross-product duplication when account has bothe asset holdings and assets created, de-dup here
 				dup := false
 				for _, xaid := range haids[:i] {
 					if assetid == xaid {
@@ -1935,14 +1687,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				if dup {
 					continue
 				}
-				tah := models.AssetHolding{
-					Amount:          hamounts[i],
-					IsFrozen:        hfrozen[i],
-					AssetId:         assetid,
-					OptedOutAtRound: holdingClosed[i],
-					OptedInAtRound:  holdingCreated[i],
-					Deleted:         holdingDeleted[i],
-				} // TODO: set Creator to asset creator addr string
+				tah := models.AssetHolding{Amount: hamounts[i], IsFrozen: hfrozen[i], AssetId: assetid} // TODO: set Creator to asset creator addr string
 				av = append(av, tah)
 			}
 			account.Assets = new([]models.AssetHolding)
@@ -1952,49 +1697,18 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			var assetids []uint64
 			err = json.Decode(assetParamsIds, &assetids)
 			if err != nil {
-				err = fmt.Errorf("parsing json asset param ids, %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
 			var assetParams []types.AssetParams
 			err = json.Decode(assetParamsStr, &assetParams)
 			if err != nil {
-				err = fmt.Errorf("parsing json asset param string, %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			var assetCreated []*uint64
-			err = json.Decode(assetParamsCreatedBytes, &assetCreated)
-			if err != nil {
-				err = fmt.Errorf("parsing json asset created ids, %v", err)
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
-			var assetClosed []*uint64
-			err = json.Decode(assetParamsClosedBytes, &assetClosed)
-			if err != nil {
-				err = fmt.Errorf("parsing json asset closed ids, %v", err)
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
-			var assetDeleted []*bool
-			err = json.Decode(assetParamsDeletedBytes, &assetDeleted)
-			if err != nil {
-				err = fmt.Errorf("parsing json asset deleted ids, %v", err)
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
-
-			if len(assetParams) != len(assetids) || len(assetCreated) != len(assetids) || len(assetClosed) != len(assetids) || len(assetDeleted) != len(assetids) {
-				err = fmt.Errorf("account asset unpacking, all should be %d:  %d assetids, %d created, %d closed, %d deleted",
-					len(assetParams), len(assetids), len(assetCreated), len(assetClosed), len(assetDeleted))
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
-
 			cal := make([]models.Asset, 0, len(assetids))
 			for i, assetid := range assetids {
-				// SQL can result in cross-product duplication when account has both asset holdings and assets created, de-dup here
+				// SQL can result in cross-product duplication when account has bothe asset holdings and assets created, de-dup here
 				dup := false
 				for _, xaid := range assetids[:i] {
 					if assetid == xaid {
@@ -2006,12 +1720,12 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					continue
 				}
 				ap := assetParams[i]
-
+				if ap == (types.AssetParams{}) {
+					// remnant of deleted asset
+					continue
+				}
 				tma := models.Asset{
-					Index:            assetid,
-					CreatedAtRound:   assetCreated[i],
-					DestroyedAtRound: assetClosed[i],
-					Deleted:          assetDeleted[i],
+					Index: assetid,
 					Params: models.AssetParams{
 						Creator:       account.Address,
 						Total:         ap.Total,
@@ -2042,39 +1756,15 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			var appCreated []*uint64
-			err = json.Decode(appCreatedBytes, &appCreated)
-			if err != nil {
-				err = fmt.Errorf("parsing json app created ids, %v", err)
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
-			var appClosed []*uint64
-			err = json.Decode(appClosedBytes, &appClosed)
-			if err != nil {
-				err = fmt.Errorf("parsing json app closed ids, %v", err)
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
-			var appDeleted []*bool
-			err = json.Decode(appDeletedBytes, &appDeleted)
-			if err != nil {
-				err = fmt.Errorf("parsing json app deleted flags, %v", err)
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
-
 			var apps []AppParams
-			str := string(appParams)
-			fmt.Println(str)
 			err = json.Decode(appParams, &apps)
 			if err != nil {
 				err = fmt.Errorf("parsing json appparams, %v", err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			if len(appIds) != len(apps) || len(appClosed) != len(apps) || len(appCreated) != len(apps) || len(appDeleted) != len(apps) {
-				err = fmt.Errorf("account app unpacking, all should be %d:  %d appids, %d appClosed, %d appCreated, %d appDeleted", len(apps), len(appIds), len(appClosed), len(appCreated), len(appDeleted))
+			if len(appIds) != len(apps) {
+				err = fmt.Errorf("account app unpacking got %d appids but %d apps", len(appIds), len(apps))
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
@@ -2082,28 +1772,23 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			aout := make([]models.Application, len(appIds))
 			outpos := 0
 			for i, appid := range appIds {
-				aout[outpos].Id = appid
-				aout[outpos].CreatedAtRound = appCreated[i]
-				aout[outpos].DeletedAtRound = appClosed[i]
-				aout[outpos].Deleted = appDeleted[i]
-				aout[outpos].Params.Creator = &account.Address
-
-				// If these are both nil the app was probably deleted, leave out params
-				// some "required" fields will be left in the results.
-				if apps[i].ApprovalProgram != nil || apps[i].ClearStateProgram != nil {
-					aout[outpos].Params.ApprovalProgram = apps[i].ApprovalProgram
-					aout[outpos].Params.ClearStateProgram = apps[i].ClearStateProgram
-					aout[outpos].Params.GlobalState = apps[i].GlobalState.toModel()
-					aout[outpos].Params.GlobalStateSchema = &models.ApplicationStateSchema{
-						NumByteSlice: apps[i].GlobalStateSchema.NumByteSlice,
-						NumUint:      apps[i].GlobalStateSchema.NumUint,
-					}
-					aout[outpos].Params.LocalStateSchema = &models.ApplicationStateSchema{
-						NumByteSlice: apps[i].LocalStateSchema.NumByteSlice,
-						NumUint:      apps[i].LocalStateSchema.NumUint,
-					}
+				if apps[i].ApprovalProgram == nil && apps[i].ClearStateProgram == nil {
+					// app was deleted, but a record remains that it _did_ exist, skip it here
+					continue
 				}
-
+				aout[outpos].Id = appid
+				aout[outpos].Params.ApprovalProgram = apps[i].ApprovalProgram
+				aout[outpos].Params.ClearStateProgram = apps[i].ClearStateProgram
+				aout[outpos].Params.Creator = &account.Address
+				aout[outpos].Params.GlobalState = apps[i].GlobalState.toModel()
+				aout[outpos].Params.GlobalStateSchema = &models.ApplicationStateSchema{
+					NumByteSlice: apps[i].GlobalStateSchema.NumByteSlice,
+					NumUint:      apps[i].GlobalStateSchema.NumUint,
+				}
+				aout[outpos].Params.LocalStateSchema = &models.ApplicationStateSchema{
+					NumByteSlice: apps[i].LocalStateSchema.NumByteSlice,
+					NumUint:      apps[i].LocalStateSchema.NumUint,
+				}
 				outpos++
 			}
 			if outpos != len(aout) {
@@ -2120,27 +1805,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			var appCreated []*uint64
-			err = json.Decode(localStateCreatedBytes, &appCreated)
-			if err != nil {
-				err = fmt.Errorf("parsing json ls created ids, %v", err)
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
-			var appClosed []*uint64
-			err = json.Decode(localStateClosedBytes, &appClosed)
-			if err != nil {
-				err = fmt.Errorf("parsing json ls closed ids, %v", err)
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
-			var appDeleted []*bool
-			err = json.Decode(localStateDeletedBytes, &appDeleted)
-			if err != nil {
-				err = fmt.Errorf("parsing json ls closed ids, %v", err)
-				req.out <- idb.AccountRow{Error: err}
-				break
-			}
 			var ls []AppLocalState
 			err = json.Decode(localStates, &ls)
 			if err != nil {
@@ -2148,18 +1812,14 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			if len(appIds) != len(ls) || len(appClosed) != len(ls) || len(appCreated) != len(ls) || len(appDeleted) != len(ls) {
-				err = fmt.Errorf("account app unpacking, all should be %d:  %d appids, %d appClosed, %d appCreated, %d appDeleted", len(ls), len(appIds), len(appClosed), len(appCreated), len(appDeleted))
+			if len(appIds) != len(ls) {
+				err = fmt.Errorf("account app unpacking got %d appids but %d appls", len(appIds), len(ls))
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-
-			aout := make([]models.ApplicationLocalState, len(ls))
+			aout := make([]models.ApplicationLocalState, len(appIds))
 			for i, appid := range appIds {
 				aout[i].Id = appid
-				aout[i].OptedInAtRound = appCreated[i]
-				aout[i].ClosedOutAtRound = appClosed[i]
-				aout[i].Deleted = appDeleted[i]
 				aout[i].Schema = models.ApplicationStateSchema{
 					NumByteSlice: ls[i].Schema.NumByteSlice,
 					NumUint:      ls[i].Schema.NumUint,
@@ -2169,13 +1829,10 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.AppsLocalState = &aout
 		}
 
-		// Sometimes the migration state effects what data should be returned.
-		db.processAccount(&account)
-
 		select {
 		case req.out <- idb.AccountRow{Account: account}:
 			count++
-			if req.opts.Limit != 0 && count >= req.opts.Limit {
+			if count >= req.opts.Limit {
 				close(req.out)
 				return
 			}
@@ -2185,26 +1842,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 	}
 	close(req.out)
-}
-
-func nullableInt64Ptr(x sql.NullInt64) *uint64 {
-	if !x.Valid {
-		return nil
-	}
-	return uint64Ptr(uint64(x.Int64))
-}
-
-func nullableBoolPtr(x sql.NullBool) *bool {
-	if !x.Valid {
-		return nil
-	}
-	return &x.Bool
-}
-
-func uint64Ptr(x uint64) *uint64 {
-	out := new(uint64)
-	*out = x
-	return out
 }
 
 func boolPtr(x bool) *bool {
@@ -2286,14 +1923,13 @@ type getAccountsRequest struct {
 	start       time.Time
 }
 
-// GetAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) <-chan idb.AccountRow {
+func (db *PostgresIndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) <-chan idb.AccountRow {
 	out := make(chan idb.AccountRow, 1)
 
-	if opts.HasAssetID != 0 {
+	if opts.HasAssetId != 0 {
 		opts.IncludeAssetHoldings = true
 	} else if (opts.AssetGT != 0) || (opts.AssetLT != 0) {
-		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetID=%d", opts.AssetGT, opts.AssetLT, opts.HasAssetID)
+		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetId=%d", opts.AssetGT, opts.AssetLT, opts.HasAssetId)
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		return out
@@ -2364,7 +2000,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	return out
 }
 
-func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query string, whereArgs []interface{}) {
+func (db *PostgresIndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query string, whereArgs []interface{}) {
 	// Construct query for fetching accounts...
 	const maxWhereParts = 14
 	whereParts := make([]string, 0, maxWhereParts)
@@ -2372,9 +2008,9 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	partNumber := 1
 	withClauses := make([]string, 0, maxWhereParts)
 	// filter by has-asset or has-app
-	if opts.HasAssetID != 0 {
+	if opts.HasAssetId != 0 {
 		aq := fmt.Sprintf("SELECT addr FROM account_asset WHERE assetid = $%d", partNumber)
-		whereArgs = append(whereArgs, opts.HasAssetID)
+		whereArgs = append(whereArgs, opts.HasAssetId)
 		partNumber++
 		if opts.AssetGT != 0 {
 			aq += fmt.Sprintf(" AND amount > $%d", partNumber)
@@ -2389,9 +2025,9 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		aq = "qasf AS (" + aq + ")"
 		withClauses = append(withClauses, aq)
 	}
-	if opts.HasAppID != 0 {
+	if opts.HasAppId != 0 {
 		withClauses = append(withClauses, fmt.Sprintf("qapf AS (SELECT addr FROM account_app WHERE app = $%d)", partNumber))
-		whereArgs = append(whereArgs, opts.HasAppID)
+		whereArgs = append(whereArgs, opts.HasAppId)
 		partNumber++
 	}
 	// filters against main account table
@@ -2420,12 +2056,12 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		whereArgs = append(whereArgs, opts.EqualToAuthAddr)
 		partNumber++
 	}
-	query = `SELECT a.addr, a.microalgos, a.rewards_total, a.created_at, a.closed_at, a.deleted, a.rewardsbase, a.keytype, a.account_data FROM account a`
-	if opts.HasAssetID != 0 {
+	query = `SELECT a.addr, a.microalgos, a.rewardsbase, a.keytype, a.account_data FROM account a`
+	if opts.HasAssetId != 0 {
 		// inner join requires match, filtering on presence of asset
 		query += " JOIN qasf ON a.addr = qasf.addr"
 	}
-	if opts.HasAppID != 0 {
+	if opts.HasAppId != 0 {
 		// inner join requires match, filtering on presence of app
 		query += " JOIN qapf ON a.addr = qapf.addr"
 	}
@@ -2441,27 +2077,20 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	withClauses = append(withClauses, "qaccounts AS ("+query+")")
 	query = "WITH " + strings.Join(withClauses, ", ")
 	if opts.IncludeAssetHoldings {
-		query += `, qaa AS (SELECT xa.addr, json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf, json_agg(aa.created_at) as holding_created_at, json_agg(aa.closed_at) as holding_closed_at, json_agg(aa.deleted) as holding_deleted FROM account_asset aa JOIN qaccounts xa ON aa.addr = xa.addr GROUP BY 1)`
+		query += `, qaa AS (SELECT xa.addr, json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf FROM account_asset aa JOIN qaccounts xa ON aa.addr = xa.addr GROUP BY 1)`
 	}
 	if opts.IncludeAssetParams {
-		query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp, json_agg(ap.created_at) as asset_created_at, json_agg(ap.closed_at) as asset_closed_at, json_agg(ap.deleted) as asset_deleted FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr GROUP BY 1)`
+		query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr GROUP BY 1)`
 	}
-	// app
-	query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at, json_agg(app.deleted) as app_deleted FROM app JOIN qaccounts ON qaccounts.addr = app.creator GROUP BY 1)`
-	// app localstate
-	query += `, qls AS (SELECT la.addr, json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls, json_agg(la.created_at) as ls_created_at, json_agg(la.closed_at) as ls_closed_at, json_agg(la.deleted) as ls_deleted FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr GROUP BY 1)`
-
-	// query results
-	query += ` SELECT za.addr, za.microalgos, za.rewards_total, za.created_at, za.closed_at, za.deleted, za.rewardsbase, za.keytype, za.account_data`
+	query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa FROM app JOIN qaccounts ON qaccounts.addr = app.creator GROUP BY 1), qls AS (SELECT la.addr, json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr GROUP BY 1)`
+	query += ` SELECT za.addr, za.microalgos, za.rewardsbase, za.keytype, za.account_data`
 	if opts.IncludeAssetHoldings {
-		query += `, qaa.haid, qaa.hamt, qaa.hf, qaa.holding_created_at, qaa.holding_closed_at, qaa.holding_deleted`
+		query += `, qaa.haid, qaa.hamt, qaa.hf`
 	}
 	if opts.IncludeAssetParams {
-		query += `, qap.paid, qap.pp, qap.asset_created_at, qap.asset_closed_at, qap.asset_deleted`
+		query += `, qap.paid, qap.pp`
 	}
-	query += `, qapp.papps, qapp.ppa, qapp.app_created_at, qapp.app_closed_at, qapp.app_deleted, qls.lsapps, qls.lsls, qls.ls_created_at, qls.ls_closed_at, qls.ls_deleted FROM qaccounts za`
-
-	// join everything together
+	query += `, qapp.papps, qapp.ppa, qls.lsapps, qls.lsls FROM qaccounts za`
 	if opts.IncludeAssetHoldings {
 		query += ` LEFT JOIN qaa ON za.addr = qaa.addr`
 	}
@@ -2472,21 +2101,20 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	return query, whereArgs
 }
 
-// Assets is part of idb.IndexerDB
-func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) <-chan idb.AssetRow {
-	query := `SELECT index, creator_addr, params, created_at, closed_at, deleted FROM asset a`
+func (db *PostgresIndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) <-chan idb.AssetRow {
+	query := `SELECT index, creator_addr, params FROM asset a`
 	const maxWhereParts = 14
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if filter.AssetID != 0 {
+	if filter.AssetId != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("a.index = $%d", partNumber))
-		whereArgs = append(whereArgs, filter.AssetID)
+		whereArgs = append(whereArgs, filter.AssetId)
 		partNumber++
 	}
-	if filter.AssetIDGreaterThan != 0 {
+	if filter.AssetIdGreaterThan != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("a.index > $%d", partNumber))
-		whereArgs = append(whereArgs, filter.AssetIDGreaterThan)
+		whereArgs = append(whereArgs, filter.AssetIdGreaterThan)
 		partNumber++
 	}
 	if filter.Creator != nil {
@@ -2530,34 +2158,28 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) <-chan 
 	return out
 }
 
-func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQuery, rows *sql.Rows, out chan<- idb.AssetRow) {
+func (db *PostgresIndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQuery, rows *sql.Rows, out chan<- idb.AssetRow) {
 	for rows.Next() {
 		var index uint64
-		var creatorAddr []byte
-		var paramsJSONStr []byte
-		var created *uint64
-		var closed *uint64
-		var deleted *bool
+		var creator_addr []byte
+		var paramsJsonStr []byte
 		var err error
 
-		err = rows.Scan(&index, &creatorAddr, &paramsJSONStr, &created, &closed, &deleted)
+		err = rows.Scan(&index, &creator_addr, &paramsJsonStr)
 		if err != nil {
 			out <- idb.AssetRow{Error: err}
 			break
 		}
 		var params types.AssetParams
-		err = json.Decode(paramsJSONStr, &params)
+		err = json.Decode(paramsJsonStr, &params)
 		if err != nil {
 			out <- idb.AssetRow{Error: err}
 			break
 		}
 		rec := idb.AssetRow{
-			AssetID:      index,
-			Creator:      creatorAddr,
-			Params:       params,
-			CreatedRound: created,
-			ClosedRound:  closed,
-			Deleted:      deleted,
+			AssetId: index,
+			Creator: creator_addr,
+			Params:  params,
 		}
 		select {
 		case <-ctx.Done():
@@ -2569,15 +2191,14 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 	close(out)
 }
 
-// AssetBalances is part of idb.IndexerDB
-func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuery) <-chan idb.AssetBalanceRow {
+func (db *PostgresIndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuery) <-chan idb.AssetBalanceRow {
 	const maxWhereParts = 14
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if abq.AssetID != 0 {
+	if abq.AssetId != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("aa.assetid = $%d", partNumber))
-		whereArgs = append(whereArgs, abq.AssetID)
+		whereArgs = append(whereArgs, abq.AssetId)
 		partNumber++
 	}
 	if abq.AmountGT != 0 {
@@ -2597,7 +2218,7 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	}
 	var rows *sql.Rows
 	var err error
-	query := `SELECT addr, assetid, amount, frozen, created_at, closed_at, deleted FROM account_asset aa`
+	query := `SELECT addr, assetid, amount, frozen FROM account_asset aa`
 	if len(whereParts) > 0 {
 		query += " WHERE " + strings.Join(whereParts, " AND ")
 	}
@@ -2616,28 +2237,22 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	return out
 }
 
-func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows, out chan<- idb.AssetBalanceRow) {
+func (db *PostgresIndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows, out chan<- idb.AssetBalanceRow) {
 	for rows.Next() {
 		var addr []byte
-		var assetID uint64
+		var assetId uint64
 		var amount uint64
 		var frozen bool
-		var created *uint64
-		var closed *uint64
-		var deleted *bool
-		err := rows.Scan(&addr, &assetID, &amount, &frozen, &created, &closed, &deleted)
+		err := rows.Scan(&addr, &assetId, &amount, &frozen)
 		if err != nil {
 			out <- idb.AssetBalanceRow{Error: err}
 			break
 		}
 		rec := idb.AssetBalanceRow{
-			Address:      addr,
-			AssetID:      assetID,
-			Amount:       amount,
-			Frozen:       frozen,
-			ClosedRound:  closed,
-			CreatedRound: created,
-			Deleted:      deleted,
+			Address: addr,
+			AssetId: assetId,
+			Amount:  amount,
+			Frozen:  frozen,
 		}
 		select {
 		case <-ctx.Done():
@@ -2649,9 +2264,8 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows
 	close(out)
 }
 
-// Applications is part of idb.IndexerDB
-func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan idb.ApplicationRow {
-	query := `SELECT index, creator, params, created_at, closed_at, deleted FROM app `
+func (db *PostgresIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) <-chan idb.ApplicationRow {
+	query := `SELECT index, creator, params FROM app `
 
 	const maxWhereParts = 30
 	whereParts := make([]string, 0, maxWhereParts)
@@ -2687,24 +2301,18 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 	return out
 }
 
-func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows, out chan idb.ApplicationRow) {
+func (db *PostgresIndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows, out chan idb.ApplicationRow) {
 	for rows.Next() {
-		var index uint64
+		var index int64
 		var creator []byte
 		var paramsjson []byte
-		var created *uint64
-		var closed *uint64
-		var deleted *bool
-		err := rows.Scan(&index, &creator, &paramsjson, &created, &closed, &deleted)
+		err := rows.Scan(&index, &creator, &paramsjson)
 		if err != nil {
 			out <- idb.ApplicationRow{Error: err}
 			break
 		}
 		var rec idb.ApplicationRow
-		rec.Application.Id = index
-		rec.Application.CreatedAtRound = created
-		rec.Application.DeletedAtRound = closed
-		rec.Application.Deleted = deleted
+		rec.Application.Id = uint64(index)
 		var ap AppParams
 		err = json.Decode(paramsjson, &ap)
 		if err != nil {
@@ -2734,17 +2342,16 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows
 	close(out)
 }
 
-// Health is part of idb.IndexerDB
-func (db *IndexerDb) Health() (idb.Health, error) {
-	migrationRequired := false
+func (db *PostgresIndexerDb) Health() (health idb.Health, err error) {
+	var ptr *map[string]interface{}
 	migrating := false
 	blocking := false
-	var data = make(map[string]interface{})
 
 	// If we are not in read-only mode, there will be a migration object.
 	if db.migration != nil {
 		state := db.migration.GetStatus()
 
+		var data = make(map[string]interface{})
 		if state.Err != nil {
 			data["migration-error"] = state.Err.Error()
 		}
@@ -2752,60 +2359,21 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 			data["migration-status"] = state.Status
 		}
 
-		migrationRequired = state.Running
 		migrating = state.Running
 		blocking = state.Blocking
-	} else {
-		data["read-only-node"] = true
-		state, err := db.getMigrationState()
-		if err == nil {
-			blocking = migrationStateBlocked(*state)
-			migrationRequired = needsMigration(*state)
+
+		if len(data) > 0 {
+			ptr = &data
 		}
 	}
 
-	data["migration-required"] = migrationRequired
-
-	round, err := db.GetMaxRoundAccounted()
+	round, err := db.GetMaxRound()
 	return idb.Health{
-		Data:        &data,
+		Data:        ptr,
 		Round:       round,
 		IsMigrating: migrating,
 		DBAvailable: !blocking,
 	}, err
-}
-
-// GetSpecialAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err error) {
-	var cache string
-	cache, err = db.getMetastate(specialAccountsMetastateKey)
-	if err != nil || cache == "" {
-		// Initialize specialAccountsMetastateKey
-		var block types.Block
-		block, _, err = db.GetBlock(context.Background(), 0, idb.GetBlockOptions{})
-		if err != nil {
-			return idb.SpecialAccounts{}, fmt.Errorf("problem looking up special accounts from genesis block: %v", err)
-		}
-
-		accounts = idb.SpecialAccounts{
-			FeeSink:     block.FeeSink,
-			RewardsPool: block.RewardsPool,
-		}
-
-		cache := idb.JSONOneLine(accounts)
-		err = db.setMetastate(specialAccountsMetastateKey, cache)
-		if err != nil {
-			return idb.SpecialAccounts{}, fmt.Errorf("problem saving metastate: %v", err)
-		}
-
-		return
-	}
-
-	err = json.Decode([]byte(cache), &accounts)
-	if err != nil {
-		err = fmt.Errorf("problem decoding cache '%s': %v", cache, err)
-	}
-	return
 }
 
 type postgresFactory struct {
@@ -2814,8 +2382,8 @@ type postgresFactory struct {
 func (df postgresFactory) Name() string {
 	return "postgres"
 }
-func (df postgresFactory) Build(arg string, opts *idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, error) {
-	return OpenPostgres(arg, opts, log)
+func (df postgresFactory) Build(arg string, opts *idb.IndexerDbOptions) (idb.IndexerDb, error) {
+	return OpenPostgres(arg, opts)
 }
 
 func init() {

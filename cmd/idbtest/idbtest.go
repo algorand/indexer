@@ -13,7 +13,6 @@ import (
 	atypes "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
-	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/types"
@@ -41,8 +40,8 @@ func doAssetQueryTests(db idb.IndexerDb) {
 	printAssetQuery(db, idb.AssetsQuery{Query: "us", Limit: 9})
 	printAssetQuery(db, idb.AssetsQuery{Name: "Tether USDt", Limit: 1})
 	printAssetQuery(db, idb.AssetsQuery{Unit: "USDt", Limit: 2})
-	printAssetQuery(db, idb.AssetsQuery{AssetID: 312769, Limit: 1})
-	printAssetQuery(db, idb.AssetsQuery{AssetIDGreaterThan: 312769, Query: "us", Limit: 2})
+	printAssetQuery(db, idb.AssetsQuery{AssetId: 312769, Limit: 1})
+	printAssetQuery(db, idb.AssetsQuery{AssetIdGreaterThan: 312769, Query: "us", Limit: 2})
 	tcreator, err := atypes.DecodeAddress("XIU7HGGAJ3QOTATPDSIIHPFVKMICXKHMOR2FJKHTVLII4FAOA3CYZQDLG4")
 	maybeFail(err, "addr decode, %v\n", err)
 	printAssetQuery(db, idb.AssetsQuery{Creator: tcreator[:], Limit: 1})
@@ -105,24 +104,17 @@ func testTxnPaging(db idb.IndexerDb, q idb.TransactionFilter) {
 	}
 }
 
-func printAssetBalanceQuery(db idb.IndexerDb, assetID uint64) {
-	rows := db.AssetBalances(context.Background(), idb.AssetBalanceQuery{AssetID: assetID})
+func printAssetBalanceQuery(db idb.IndexerDb, assetId uint64) {
+	rows := db.AssetBalances(context.Background(), idb.AssetBalanceQuery{AssetId: assetId})
 	count := 0
 	for row := range rows {
 		maybeFail(row.Error, "err %v\n", row.Error)
 		var addr types.Address
 		copy(addr[:], row.Address)
-		fmt.Printf("%s %d %12d %t\n", addr.String(), row.AssetID, row.Amount, row.Frozen)
+		fmt.Printf("%s %d %12d %t\n", addr.String(), row.AssetId, row.Amount, row.Frozen)
 		count++
 	}
 	fmt.Printf("%d asset balances\n", count)
-}
-
-func getAccount(db idb.IndexerDb, addr []byte) (account models.Account, err error) {
-	for ar := range db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: addr}) {
-		return ar.Account, ar.Error
-	}
-	return models.Account{}, nil
 }
 
 func main() {
@@ -137,12 +129,12 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-	db, err := idb.IndexerDbByName("postgres", pgdb, nil, nil)
+	db, err := idb.IndexerDbByName("postgres", pgdb, nil)
 	maybeFail(err, "open postgres, %v", err)
 
 	if accounttest {
 		printAccountQuery(db, idb.AccountQueryOptions{IncludeAssetHoldings: true, IncludeAssetParams: true, AlgosGreaterThan: 10000000000, Limit: 20})
-		printAccountQuery(db, idb.AccountQueryOptions{HasAssetID: 312769, Limit: 19})
+		printAccountQuery(db, idb.AccountQueryOptions{HasAssetId: 312769, Limit: 19})
 	}
 	if assettest {
 		doAssetQueryTests(db)
@@ -151,7 +143,7 @@ func main() {
 	if false {
 		// account rewind debug
 		xa, _ := atypes.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
-		account, err := getAccount(db, xa[:])
+		account, err := idb.GetAccount(db, xa[:])
 		fmt.Printf("account %s\n", string(ajson.Encode(account)))
 		maybeFail(err, "addr lookup, %v", err)
 		round := uint64(5426258)
@@ -172,7 +164,7 @@ func main() {
 		printTxnQuery(db, idb.TransactionFilter{Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{MinRound: 5000000, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{MaxRound: 100000, Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{AssetID: 604, Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{AssetId: 604, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{TypeEnum: 2, Limit: 2}) // keyreg
 		offset := uint64(3)
 		printTxnQuery(db, idb.TransactionFilter{Offset: &offset, Limit: 2})
@@ -188,8 +180,8 @@ func main() {
 		printTxnQuery(db, idb.TransactionFilter{AssetAmountLT: 100, Limit: 2})
 	}
 
-	//printTxnQuery(db, idb.TransactionFilter{AssetID: 312769, Limit: 30})
-	//printTxnQuery(db, idb.TransactionFilter{Address: xa[:], AssetID: 312769, Limit: 30})
+	//printTxnQuery(db, idb.TransactionFilter{AssetId: 312769, Limit: 30})
+	//printTxnQuery(db, idb.TransactionFilter{Address: xa[:], AssetId: 312769, Limit: 30})
 	//printAssetBalanceQuery(db, 312769)
 
 	if pagingtest {

@@ -26,17 +26,15 @@ func ensureProtos() (err error) {
 	return nil
 }
 
-// UnknownProtocol is an error type used when the protocol isn't known.
 type UnknownProtocol struct {
 	BadVersion string
 }
 
-// Error implemnent error interface
+// implemnent error interface
 func (up UnknownProtocol) Error() string {
 	return fmt.Sprintf("Unknown protocol: %s", up.BadVersion)
 }
 
-// Protocol attempt to retrieve the protocol given a protocol version string.
 func Protocol(version string) (proto ConsensusParams, err error) {
 	err = ensureProtos()
 	if err != nil {
@@ -50,7 +48,6 @@ func Protocol(version string) (proto ConsensusParams, err error) {
 	return
 }
 
-// ForeachProtocol executes a function against each protocol version.
 func ForeachProtocol(f func(version string, proto ConsensusParams) error) (err error) {
 	err = ensureProtos()
 	if err != nil {

@@ -3,15 +3,15 @@ package importer
 import (
 	"bytes"
 	"fmt"
-
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	"github.com/algorand/indexer/util"
+	"strings"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
+
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	"github.com/algorand/indexer/util"
 )
 
-// Importer is used to import blocks into an idb.IndexerDb object.
 type Importer interface {
 	ImportBlock(blockbytes []byte) (txCount int, err error)
 	ImportDecodedBlock(block *types.EncodedBlockCert) (txCount int, err error)
@@ -21,7 +21,6 @@ type dbImporter struct {
 	db idb.IndexerDb
 }
 
-// TypeEnumMap is used to convert type strings into idb types.
 var TypeEnumMap = map[string]int{
 	"pay":    idb.TypeEnumPay,
 	"keyreg": idb.TypeEnumKeyreg,
@@ -31,11 +30,18 @@ var TypeEnumMap = map[string]int{
 	"appl":   idb.TypeEnumApplication,
 }
 
-// TypeEnumString is used for an error message somewhere.
 var TypeEnumString string
 
 func init() {
 	TypeEnumString = util.KeysStringInt(TypeEnumMap)
+}
+
+func keysString(m map[string]bool) string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	return "[" + strings.Join(keys, ", ") + "]"
 }
 
 var zeroAddr = [32]byte{}
@@ -52,7 +58,6 @@ func participate(participants [][]byte, addr []byte) [][]byte {
 	return append(participants, addr)
 }
 
-// ImportBlock processes a block and adds it to the IndexerDb
 func (imp *dbImporter) ImportBlock(blockbytes []byte) (txCount int, err error) {
 	var blockContainer types.EncodedBlockCert
 	err = msgpack.Decode(blockbytes, &blockContainer)
@@ -62,7 +67,6 @@ func (imp *dbImporter) ImportBlock(blockbytes []byte) (txCount int, err error) {
 	return imp.ImportDecodedBlock(&blockContainer)
 }
 
-// ImportBlock processes a block and adds it to the IndexerDb
 func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert) (txCount int, err error) {
 	txCount = 0
 	proto, err := types.Protocol(string(blockContainer.Block.CurrentProtocol))
@@ -129,7 +133,6 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 	return
 }
 
-// NewDBImporter creates a new importer object.
 func NewDBImporter(db idb.IndexerDb) Importer {
 	return &dbImporter{db: db}
 }

@@ -32,7 +32,7 @@ func TestMigrationMiddlewareWaiting(t *testing.T) {
 	handler := MakeMigrationMiddleware(mockIndexer)(success)
 	err := handler(e.NewContext(nil, nil))
 
-	require.Error(t, err, DBUnavailableError, `'IsMigrating' is true, so we should see an DBUnavailableError`)
+	require.Error(t, err, InProgressError, `'IsMigrating' is true, so we should see an InProgressError`)
 }
 
 func TestMigrationMiddlewareDone(t *testing.T) {

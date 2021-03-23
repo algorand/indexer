@@ -11,27 +11,25 @@ import (
 // See the top level Makefile and cmd/algorand-indexer/main.go
 
 var (
-	// Hash Git commit hash. Output of `git log -n 1 --pretty="%H"`
+	// Git commit hash. Output of `git log -n 1 --pretty="%H"`
 	Hash string
 
-	// Dirty "true" or ""
+	// "true" or ""
 	// A release build should have no modified files and no unknown files.
 	Dirty string
 
-	// CompileTime YYYY-mm-ddTHH:MM:SS+ZZZZ
+	// YYYY-mm-ddTHH:MM:SS+ZZZZ
 	CompileTime string
 
-	// GitDecorateBase64 Decorations of latest commit which may include tags. Output of `git log -n 1 --pretty="%D"|base64`
+	// Decorations of latest commit which may include tags. Output of `git log -n 1 --pretty="%D"|base64`
 	GitDecorateBase64 string
 
-	// ReleaseVersion What was in /.version when this was compiled.
+	// What was in /.version when this was compiled.
 	ReleaseVersion string
 )
 
-// UnknownVersion is used when the version is not known.
 const UnknownVersion = "(unknown version)"
 
-// Version the binary version.
 func Version() string {
 	// parse "tag: 1.2.3" out of the result of `git log -n 1 --pretty="%D"|base64`
 	if len(GitDecorateBase64) == 0 {
@@ -54,7 +52,6 @@ func Version() string {
 	return UnknownVersion
 }
 
-// LongVersion the long form of the binary version.
 func LongVersion() string {
 	dirtyStr := ""
 	if (len(Dirty) > 0) && (Dirty != "false") {
