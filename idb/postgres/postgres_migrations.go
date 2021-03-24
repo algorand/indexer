@@ -799,6 +799,7 @@ func getAccountsFirstUsed(db *IndexerDb, maxRound int64, specialAccounts idb.Spe
 		return nil, fmt.Errorf("%s: unable to query transactions (pass 1): %v",
 			rewardsCreateCloseUpdateErr, err)
 	}
+	defer rows.Close()
 
 	numRows := 0
 	db.log.Print("started reading transactions (pass 1)")
@@ -838,6 +839,9 @@ func getAccountsFirstUsed(db *IndexerDb, maxRound int64, specialAccounts idb.Spe
 		if numRows%1000000 == 0 {
 			db.log.Printf("read %d transactions (pass 1)", numRows)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("%s: error scanning rows: %v", rewardsCreateCloseUpdateErr, err)
 	}
 	db.log.Print("finished reading transactions (pass 1)")
 
@@ -909,6 +913,7 @@ func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAc
 	if err != nil {
 		return fmt.Errorf("%s: unable to query transactions: %v", rewardsCreateCloseUpdateErr, err)
 	}
+	defer rows.Close()
 
 	var writeDuration time.Duration = 0
 
@@ -982,6 +987,9 @@ func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAc
 		if numRows%1000000 == 0 {
 			db.log.Printf("m6: read %d transactions (pass 2)", numRows)
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("%s: error scanning rows: %v", rewardsCreateCloseUpdateErr, err)
 	}
 	db.log.Print("m6: finished reading transactions (pass 2)")
 
