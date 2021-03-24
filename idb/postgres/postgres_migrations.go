@@ -898,6 +898,8 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 		db.log.Print("m6: finished reading accounts")
 	}
 
+	var writeDuration time.Duration = 0
+
 	// Query all transactions again.
 	{
 		batchSize := 500
@@ -957,18 +959,22 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 						delete(accountsFirstUsed, address)
 
 						if len(readyAccountData) >= batchSize {
+							start := time.Now()
 							err = m6RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, state.NextRound)
 							if err != nil {
 								return err
 							}
+							writeDuration += time.Since(start)
+
 							numAccountsUpdated += len(readyAccountData)
 							readyAccountData = readyAccountData[:0]
 
 							numBatches++
 							if numBatches%100 == 0 {
-								db.log.Printf("m6: written %d (%.2f%%) accounts, %d batches",
+								db.log.Printf("m6: written %d (%.2f%%) accounts, %d batches; "+
+									"writing has taken %v in total",
 									numAccountsUpdated, float64(100*numAccountsUpdated)/float64(numAccounts),
-									numBatches)
+									numBatches, writeDuration)
 							}
 						}
 					}
