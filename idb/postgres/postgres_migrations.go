@@ -788,6 +788,218 @@ func m6RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 	return nil
 }
 
+func getAccountsFirstUsed(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAccounts) (map[sdk_types.Address]txnID, error) {
+	res := make(map[sdk_types.Address]txnID)
+
+	// Read all transactions in arbitrary order.
+	db.log.Print("querying transactions (pass 1)")
+	query := "SELECT round, intra, txnbytes FROM txn WHERE round <= $1"
+	rows, err := db.db.Query(query, maxRound)
+	if err != nil {
+		return nil, fmt.Errorf("%s: unable to query transactions (pass 1): %v",
+			rewardsCreateCloseUpdateErr, err)
+	}
+
+	numRows := 0
+	db.log.Print("started reading transactions (pass 1)")
+	for rows.Next() {
+		var round uint64
+		var intra uint64
+		var txnBytes []byte
+		err = rows.Scan(&round, &intra, &txnBytes)
+		if err != nil {
+			return nil, fmt.Errorf("%s: unable to scan a row: %v", rewardsCreateCloseUpdateErr, err)
+		}
+
+		var stxn types.SignedTxnWithAD
+		err = msgpack.Decode(txnBytes, &stxn)
+		if err != nil {
+			return nil, fmt.Errorf("%s: unable to scan a row: %v", rewardsCreateCloseUpdateErr, err)
+		}
+
+		participants := getParticipants(stxn)
+		for _, address := range participants {
+			// Don't update special accounts (m9 fixes this).
+			if (address != specialAccounts.RewardsPool) && (address != specialAccounts.FeeSink) {
+				txnID := txnID{uint32(round), uint32(intra)}
+
+				storedTxnID, ok := res[address]
+				if !ok {
+					res[address] = txnID
+				} else {
+					if txnIDLess(txnID, storedTxnID) {
+						res[address] = txnID
+					}
+				}
+			}
+		}
+
+		numRows++
+		if numRows%1000000 == 0 {
+			db.log.Printf("read %d transactions (pass 1)", numRows)
+		}
+	}
+	db.log.Print("finished reading transactions (pass 1)")
+
+	return res, nil
+}
+
+func getAccountsWithoutTxnData(db *IndexerDb, specialAccounts idb.SpecialAccounts, accountsFirstUsed map[sdk_types.Address]txnID) ([]addressAccountData, error) {
+	// Set Created, Deleted for accounts with no transactions.
+	// Genesis accounts could have this property.
+	// Query accounts.
+	res := []addressAccountData{}
+
+	options := idb.AccountQueryOptions{}
+	options.IncludeDeleted = true
+
+	db.log.Print("querying accounts")
+	accountCh, _ := db.GetAccounts(context.Background(), options)
+
+	// Read all accounts.
+	numRows := 0
+	db.log.Print("started reading accounts")
+	for accountRow := range accountCh {
+		if accountRow.Error != nil {
+			return nil, fmt.Errorf("%s: problem querying accounts: %v",
+				rewardsCreateCloseUpdateErr, accountRow.Error)
+		}
+
+		address, err := sdk_types.DecodeAddress(accountRow.Account.Address)
+		if err != nil {
+			return nil, fmt.Errorf("%s: failed to decode address %s err: %v",
+				rewardsCreateCloseUpdateErr, accountRow.Account.Address, err)
+		}
+
+		// Don't update special accounts (m9 fixes this)
+		if (address != specialAccounts.FeeSink) && (address != specialAccounts.RewardsPool) {
+			if _, ok := accountsFirstUsed[address]; !ok {
+				accountData := initM6AccountData()
+
+				accountData.account.createdValid = true
+				accountData.account.created = 0
+				accountData.account.deletedValid = true
+				accountData.account.deleted = false
+
+				res = append(res, addressAccountData{address, accountData})
+			}
+		}
+
+		numRows++
+		if numRows%1000000 == 0 {
+			db.log.Printf("m6: read %d accounts", numRows)
+		}
+	}
+	db.log.Print("m6: finished reading accounts")
+
+	return res, nil
+}
+
+func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAccounts, accountsFirstUsed map[sdk_types.Address]txnID, readyAccountData []addressAccountData) error {
+	// Query all transactions again.
+	batchSize := 500
+
+	accountDataMap := make(map[sdk_types.Address]*m6AccountData)
+	numAccounts := len(accountsFirstUsed)
+	numAccountsUpdated := 0
+
+	db.log.Print("m6: querying transactions (pass 2)")
+	query := "SELECT round, intra, txnbytes, asset FROM txn WHERE round <= $1 ORDER BY round DESC, intra DESC"
+	rows, err := db.db.Query(query, maxRound)
+	if err != nil {
+		return fmt.Errorf("%s: unable to query transactions: %v", rewardsCreateCloseUpdateErr, err)
+	}
+
+	var writeDuration time.Duration = 0
+
+	// Loop through all transactions and compute account data.
+	db.log.Print("m6: started reading transactions (pass 2)")
+	numRows := 0
+	numBatches := 0
+	for rows.Next() {
+		var round uint64
+		var intra uint64
+		var txnBytes []byte
+		var assetID uint64
+		err = rows.Scan(&round, &intra, &txnBytes, &assetID)
+		if err != nil {
+			return fmt.Errorf("%s: unable to scan a row: %v", rewardsCreateCloseUpdateErr, err)
+		}
+
+		var stxn types.SignedTxnWithAD
+		err = msgpack.Decode(txnBytes, &stxn)
+		if err != nil {
+			return fmt.Errorf("%s: unable to parse txnBytes round: %d intra: %d err: %v",
+				rewardsCreateCloseUpdateErr, round, intra, err)
+		}
+
+		participants := getParticipants(stxn)
+		for _, address := range participants {
+			// Don't update special accounts (m9 fixes this).
+			if (address != specialAccounts.RewardsPool) && (address != specialAccounts.FeeSink) {
+				accountData, ok := accountDataMap[address]
+				if !ok {
+					accountData = initM6AccountData()
+					accountDataMap[address] = accountData
+				}
+
+				updateAccountData(address, round, assetID, stxn, accountData)
+
+				firstUsed, ok := accountsFirstUsed[address]
+				if !ok {
+					return fmt.Errorf("%s: accountFirstUsed does not contain address: %v",
+						rewardsCreateCloseUpdateErr, address)
+				}
+				if (txnID{uint32(round), uint32(intra)}) == firstUsed {
+					readyAccountData = append(readyAccountData, addressAccountData{address, accountData})
+					delete(accountDataMap, address)
+					delete(accountsFirstUsed, address)
+
+					if len(readyAccountData) >= batchSize {
+						start := time.Now()
+						err = m6RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, maxRound)
+						if err != nil {
+							return err
+						}
+						writeDuration += time.Since(start)
+
+						numAccountsUpdated += len(readyAccountData)
+						readyAccountData = readyAccountData[:0]
+
+						numBatches++
+						if numBatches%100 == 0 {
+							db.log.Printf("m6: written %d (%.2f%%) accounts, %d batches; "+
+								"writing has taken %v in total",
+								numAccountsUpdated, float64(100*numAccountsUpdated)/float64(numAccounts),
+								numBatches, writeDuration)
+						}
+					}
+				}
+			}
+		}
+
+		numRows++
+		if numRows%1000000 == 0 {
+			db.log.Printf("m6: read %d transactions (pass 2)", numRows)
+		}
+	}
+	db.log.Print("m6: finished reading transactions (pass 2)")
+
+	if len(accountsFirstUsed) > 0 {
+		return fmt.Errorf("%s: len(accountsFirstUsed): %d > 0",
+			rewardsCreateCloseUpdateErr, len(accountsFirstUsed))
+	}
+
+	// Update remaining accounts.
+	err = m6RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, maxRound)
+	if err != nil {
+		return err
+	}
+	db.log.Print("m6: finished updating accounts")
+
+	return nil
+}
+
 // m6RewardsAndDatesPart2 computes the cumulative rewards for each account one at a time.
 func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	db.log.Print("m6 account cumulative rewards migration starting")
@@ -796,209 +1008,19 @@ func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	if err != nil {
 		return fmt.Errorf("%s: unable to get special accounts: %v", rewardsCreateCloseUpdateErr, err)
 	}
-
-	// First pass over all transactions in arbitrary order.
-	accountsFirstUsed := make(map[sdk_types.Address]txnID)
-	{
-		db.log.Print("querying transactions (pass 1)")
-		query := "SELECT round, intra, txnbytes FROM txn WHERE round <= $1"
-		rows, err := db.db.Query(query, state.NextRound)
-		if err != nil {
-			return fmt.Errorf("%s: unable to query transactions (pass 1): %v",
-				rewardsCreateCloseUpdateErr, err)
-		}
-
-		numRows := 0
-		db.log.Print("started reading transactions (pass 1)")
-		for rows.Next() {
-			var round uint64
-			var intra uint64
-			var txnBytes []byte
-			err = rows.Scan(&round, &intra, &txnBytes)
-			if err != nil {
-				return fmt.Errorf("%s: unable to scan a row: %v", rewardsCreateCloseUpdateErr, err)
-			}
-
-			var stxn types.SignedTxnWithAD
-			err = msgpack.Decode(txnBytes, &stxn)
-			if err != nil {
-				return fmt.Errorf("%s: unable to scan a row: %v", rewardsCreateCloseUpdateErr, err)
-			}
-
-			participants := getParticipants(stxn)
-			for _, address := range participants {
-				// Don't update special accounts (m9 fixes this).
-				if (address != specialAccounts.RewardsPool) && (address != specialAccounts.FeeSink) {
-					txnID := txnID{uint32(round), uint32(intra)}
-
-					storedTxnID, ok := accountsFirstUsed[address]
-					if !ok {
-						accountsFirstUsed[address] = txnID
-					} else {
-						if txnIDLess(txnID, storedTxnID) {
-							accountsFirstUsed[address] = txnID
-						}
-					}
-				}
-			}
-
-			numRows++
-			if numRows%1000000 == 0 {
-				db.log.Printf("read %d transactions (pass 1)", numRows)
-			}
-		}
-		db.log.Print("finished reading transactions (pass 1)")
-	}
-
-	// Set Created, Deleted for accounts with no transactions.
-	// Genesis accounts could have this property.
-	// Query accounts.
-	readyAccountData := []addressAccountData{}
-	{
-		options := idb.AccountQueryOptions{}
-		options.IncludeDeleted = true
-
-		db.log.Print("querying accounts")
-		accountCh, _ := db.GetAccounts(context.Background(), options)
-
-		// Read all accounts.
-		numRows := 0
-		db.log.Print("started reading accounts")
-		for accountRow := range accountCh {
-			if accountRow.Error != nil {
-				return fmt.Errorf("%s: problem querying accounts: %v",
-					rewardsCreateCloseUpdateErr, accountRow.Error)
-			}
-
-			address, err := sdk_types.DecodeAddress(accountRow.Account.Address)
-			if err != nil {
-				return fmt.Errorf("%s: failed to decode address %s err: %v",
-					rewardsCreateCloseUpdateErr, accountRow.Account.Address, err)
-			}
-
-			// Don't update special accounts (m9 fixes this)
-			if (address != specialAccounts.FeeSink) && (address != specialAccounts.RewardsPool) {
-				if _, ok := accountsFirstUsed[address]; !ok {
-					accountData := initM6AccountData()
-
-					accountData.account.createdValid = true
-					accountData.account.created = 0
-					accountData.account.deletedValid = true
-					accountData.account.deleted = false
-
-					readyAccountData = append(readyAccountData, addressAccountData{address, accountData})
-				}
-			}
-
-			numRows++
-			if numRows%1000000 == 0 {
-				db.log.Printf("m6: read %d accounts", numRows)
-			}
-		}
-		db.log.Print("m6: finished reading accounts")
-	}
-
-	var writeDuration time.Duration = 0
-
-	// Query all transactions again.
-	{
-		batchSize := 500
-
-		accountDataMap := make(map[sdk_types.Address]*m6AccountData)
-		numAccounts := len(accountsFirstUsed)
-		numAccountsUpdated := 0
-
-		db.log.Print("m6: querying transactions (pass 2)")
-		query := "SELECT round, intra, txnbytes, asset FROM txn WHERE round <= $1 ORDER BY round DESC, intra DESC"
-		rows, err := db.db.Query(query, state.NextRound)
-		if err != nil {
-			return fmt.Errorf("%s: unable to query transactions: %v", rewardsCreateCloseUpdateErr, err)
-		}
-
-		// Loop through all transactions and compute account data.
-		db.log.Print("m6: started reading transactions (pass 2)")
-		numRows := 0
-		numBatches := 0
-		for rows.Next() {
-			var round uint64
-			var intra uint64
-			var txnBytes []byte
-			var assetID uint64
-			err = rows.Scan(&round, &intra, &txnBytes, &assetID)
-			if err != nil {
-				return fmt.Errorf("%s: unable to scan a row: %v", rewardsCreateCloseUpdateErr, err)
-			}
-
-			var stxn types.SignedTxnWithAD
-			err = msgpack.Decode(txnBytes, &stxn)
-			if err != nil {
-				return fmt.Errorf("%s: unable to parse txnBytes round: %d intra: %d err: %v",
-					rewardsCreateCloseUpdateErr, round, intra, err)
-			}
-
-			participants := getParticipants(stxn)
-			for _, address := range participants {
-				// Don't update special accounts (m9 fixes this).
-				if (address != specialAccounts.RewardsPool) && (address != specialAccounts.FeeSink) {
-					accountData, ok := accountDataMap[address]
-					if !ok {
-						accountData = initM6AccountData()
-						accountDataMap[address] = accountData
-					}
-
-					updateAccountData(address, round, assetID, stxn, accountData)
-
-					firstUsed, ok := accountsFirstUsed[address]
-					if !ok {
-						return fmt.Errorf("%s: accountFirstUsed does not contain address: %v",
-							rewardsCreateCloseUpdateErr, address)
-					}
-					if (txnID{uint32(round), uint32(intra)}) == firstUsed {
-						readyAccountData = append(readyAccountData, addressAccountData{address, accountData})
-						delete(accountDataMap, address)
-						delete(accountsFirstUsed, address)
-
-						if len(readyAccountData) >= batchSize {
-							start := time.Now()
-							err = m6RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, state.NextRound)
-							if err != nil {
-								return err
-							}
-							writeDuration += time.Since(start)
-
-							numAccountsUpdated += len(readyAccountData)
-							readyAccountData = readyAccountData[:0]
-
-							numBatches++
-							if numBatches%100 == 0 {
-								db.log.Printf("m6: written %d (%.2f%%) accounts, %d batches; "+
-									"writing has taken %v in total",
-									numAccountsUpdated, float64(100*numAccountsUpdated)/float64(numAccounts),
-									numBatches, writeDuration)
-							}
-						}
-					}
-				}
-			}
-
-			numRows++
-			if numRows%1000000 == 0 {
-				db.log.Printf("m6: read %d transactions (pass 2)", numRows)
-			}
-		}
-		db.log.Print("m6: finished reading transactions (pass 2)")
-	}
-
-	if len(accountsFirstUsed) > 0 {
-		return fmt.Errorf("%s: len(accountsFirstUsed): %d > 0", rewardsCreateCloseUpdateErr, len(accountsFirstUsed))
-	}
-
-	// Update remaining accounts.
-	err = m6RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, state.NextRound)
+	maxRound := state.NextRound
+	accountsFirstUsed, err := getAccountsFirstUsed(db, maxRound, specialAccounts)
 	if err != nil {
 		return err
 	}
-	db.log.Print("m6: finished updating accounts")
+	readyAccountData, err := getAccountsWithoutTxnData(db, specialAccounts, accountsFirstUsed)
+	if err != nil {
+		return err
+	}
+	err = updateAccounts(db, maxRound, specialAccounts, accountsFirstUsed, readyAccountData)
+	if err != nil {
+		return err
+	}
 
 	// Update migration state.
 	state.NextMigration++
