@@ -507,6 +507,14 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 
 			keepGoing = true
 		}
+		if err := rows.Err(); err != nil {
+			var row idb.TxnRow
+			row.Error = err
+			results <- row
+			rows.Close()
+			close(results)
+			return
+		}
 		rows.Close()
 		if pos == 0 {
 			break
@@ -1758,6 +1766,18 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, 
 			count++
 		}
 	}
+	if err := rows.Err(); err != nil {
+		select {
+		case <-ctx.Done():
+		case results <- idb.TxnRow{Error: err}:
+			if err != nil {
+				if errp != nil {
+					*errp = err
+				}
+			}
+			count++
+		}
+	}
 finish:
 	if doClose {
 		close(results)
@@ -2244,6 +2264,10 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			return
 		}
 	}
+	if err := req.rows.Err(); err != nil {
+		err = fmt.Errorf("error reading rows: %v", err)
+		req.out <- idb.AccountRow{Error: err}
+	}
 	close(req.out)
 }
 
@@ -2663,6 +2687,9 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 		case out <- rec:
 		}
 	}
+	if err := rows.Err(); err != nil {
+		out <- idb.AssetRow{Error: err}
+	}
 	close(out)
 }
 
@@ -2766,6 +2793,9 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows
 			return
 		case out <- rec:
 		}
+	}
+	if err := rows.Err(); err != nil {
+		out <- idb.AssetBalanceRow{Error: err}
 	}
 	close(out)
 }
@@ -2880,6 +2910,9 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows
 			NumUint:      ap.LocalStateSchema.NumUint,
 		}
 		out <- rec
+	}
+	if err := rows.Err(); err != nil {
+		out <- idb.ApplicationRow{Error: err}
 	}
 	close(out)
 }
