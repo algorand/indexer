@@ -1161,6 +1161,10 @@ func readHeaders(db *IndexerDb, minRound, maxRound uint64) (map[uint64]types.Blo
 		json.Decode(headerjson, &tblock)
 		headers[uint64(round)] = tblock
 	}
+	if err := rows.Err(); err != nil {
+		db.log.WithError(err).Errorf("%s, error reading rows", txidMigrationErrMsg)
+		return nil, err
+	}
 	return headers, nil
 }
 
@@ -1242,6 +1246,12 @@ func (db *IndexerDb) yieldJSONFixupTxnsThread(ctx context.Context, rows *sql.Row
 			pos++
 
 			keepGoing = true
+		}
+		if err := rows.Err(); err != nil {
+			results <- jsonFixupTxnRow{Error: err}
+			rows.Close()
+			close(results)
+			return
 		}
 		rows.Close()
 		if pos == 0 {
