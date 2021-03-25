@@ -17,6 +17,9 @@ realtime timestamp without time zone NOT NULL,
 rewardslevel bigint NOT NULL,
 header jsonb NOT NULL
 );
+
+-- For looking round by timestamp. We could replace this with a round-to-timestamp algorithm, it should be extremely
+-- efficient since there is such a high correlation between round and time.
 CREATE INDEX IF NOT EXISTS block_header_time ON block_header (realtime);
 
 CREATE TABLE IF NOT EXISTS txn (
@@ -31,6 +34,7 @@ extra jsonb,
 PRIMARY KEY ( round, intra )
 );
 
+-- For transaction lookup
 CREATE INDEX IF NOT EXISTS txn_by_tixid ON txn ( txid );
 
 -- Optional, to make txn queries by asset fast:
@@ -41,6 +45,8 @@ addr bytea NOT NULL,
 round bigint NOT NULL,
 intra smallint NOT NULL
 );
+
+-- For query account transactions
 CREATE UNIQUE INDEX IF NOT EXISTS txn_participation_i ON txn_participation ( addr, round DESC, intra DESC );
 
 -- bookeeping for local file import
@@ -71,6 +77,9 @@ CREATE TABLE IF NOT EXISTS account_asset (
   PRIMARY KEY (addr, assetid)
 );
 
+-- For account lookup
+CREATE INDEX IF NOT EXISTS account_asset_by_addr ON account_asset ( addr );
+
 -- Optional, to make queries of all asset balances fast /v2/assets/<assetid>/balances
 -- CREATE INDEX CONCURRENTLY IF NOT EXISTS account_asset_asset ON account_asset (assetid, addr ASC);
 
@@ -83,7 +92,9 @@ CREATE TABLE IF NOT EXISTS asset (
   created_at bigint NOT NULL DEFAULT 0, -- round that the asset was created
   closed_at bigint -- round that the asset was closed; cannot be recreated because the index is unique
 );
--- TODO: index on creator_addr?
+
+-- For account lookup
+CREATE INDEX IF NOT EXISTS asset_by_creator_addr ON asset ( creator_addr );
 
 -- subsumes ledger/accountdb.go accounttotals and acctrounds
 -- "state":{online, onlinerewardunits, offline, offlinerewardunits, notparticipating, notparticipatingrewardunits, rewardslevel, round bigint}
@@ -103,6 +114,9 @@ CREATE TABLE IF NOT EXISTS app (
   closed_at bigint -- round that the app was deleted; cannot be recreated because the index is unique
 );
 
+-- For account lookup
+CREATE INDEX IF NOT EXISTS app_by_creator ON app ( creator );
+
 -- per-account app local state
 CREATE TABLE IF NOT EXISTS account_app (
   addr bytea,
@@ -110,7 +124,10 @@ CREATE TABLE IF NOT EXISTS account_app (
   localstate jsonb,
   deleted bool DEFAULT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL DEFAULT 0, -- round that the app was added to an account
-  closed_at bigint, -- round that the app was last removed from the account
+  closed_at bigint, -- round that the account_app was last removed from the account
   PRIMARY KEY (addr, app)
 );
+
+-- For account lookup
+CREATE INDEX IF NOT EXISTS account_app_by_addr ON account_app ( addr );
 `

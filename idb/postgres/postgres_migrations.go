@@ -34,6 +34,9 @@ func init() {
 		{m2apps, true, "Update DB Schema for Algorand application support."},
 		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
 
+		// 2.2.2 hotfix
+		{m4accountIndices, true, "Add indices to make sure account lookups remain fast when there are a lot of apps or assets."},
+
 		// Migrations for 2.3.1 release
 		{m4MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
 		{m5RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
@@ -1159,6 +1162,17 @@ func readHeaders(db *IndexerDb, minRound, maxRound uint64) (map[uint64]types.Blo
 		headers[uint64(round)] = tblock
 	}
 	return headers, nil
+}
+
+// This was added during a hotfix
+func m4accountIndices(db *IndexerDb, state *MigrationState) error {
+	sqlLines := []string{
+		"CREATE INDEX IF NOT EXISTS account_asset_by_addr ON account_asset ( addr )",
+		"CREATE INDEX IF NOT EXISTS asset_by_creator_addr ON asset ( creator_addr )",
+		"CREATE INDEX IF NOT EXISTS app_by_creator ON app ( creator )",
+		"CREATE INDEX IF NOT EXISTS account_app_by_addr ON account_app ( addr )",
+	}
+	return sqlMigration(db, state, sqlLines)
 }
 
 // Record round at which behavior changed for encoding txn.txn JSON.
