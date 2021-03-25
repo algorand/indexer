@@ -24,7 +24,7 @@ import (
 )
 
 // rewardsMigrationIndex is the index of m6RewardsAndDatesPart2.
-const rewardsMigrationIndex = 6
+const rewardsMigrationIndex = 7
 
 func init() {
 	migrations = []migrationStruct{
