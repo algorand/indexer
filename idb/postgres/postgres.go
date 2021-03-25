@@ -1767,15 +1767,9 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, 
 		}
 	}
 	if err := rows.Err(); err != nil {
-		select {
-		case <-ctx.Done():
-		case results <- idb.TxnRow{Error: err}:
-			if err != nil {
-				if errp != nil {
-					*errp = err
-				}
-			}
-			count++
+		results <- idb.TxnRow{Error: err}
+		if errp != nil {
+			*errp = err
 		}
 	}
 finish:
