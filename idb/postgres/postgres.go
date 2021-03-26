@@ -1334,7 +1334,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 	if err != nil {
 		return
 	}
-	defer tx.Commit()
+	defer tx.Rollback()
 	row := tx.QueryRowContext(ctx, `SELECT header FROM block_header WHERE round = $1`, round)
 	var blockheaderjson []byte
 	err = row.Scan(&blockheaderjson)
