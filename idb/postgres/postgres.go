@@ -41,9 +41,8 @@ const stateMetastateKey = "state"
 const migrationMetastateKey = "migration"
 const specialAccountsMetastateKey = "accounts"
 
-// Be a real ACID database
-var serializable = sql.TxOptions{Isolation: sql.LevelSerializable}
-var readonlySerializable = sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: true}
+var serializable = sql.TxOptions{Isolation: sql.LevelSerializable} // be a real ACID database
+var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: true}
 
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
 func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
@@ -1331,11 +1330,11 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 
 // GetBlock is part of idb.IndexerDB
 func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (block types.Block, transactions []idb.TxnRow, err error) {
-	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
 	if err != nil {
 		return
 	}
-	defer tx.Commit()
+	defer tx.Rollback()
 	row := tx.QueryRowContext(ctx, `SELECT header FROM block_header WHERE round = $1`, round)
 	var blockheaderjson []byte
 	err = row.Scan(&blockheaderjson)
@@ -1567,7 +1566,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	out := make(chan idb.TxnRow, 1)
 
-	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
 	if err != nil {
 		out <- idb.TxnRow{Error: err}
 		close(out)
@@ -2375,7 +2374,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	}
 
 	// Begin transaction so we get everything at one consistent point in time and round of accounting.
-	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
 	if err != nil {
 		err = fmt.Errorf("account tx err %v", err)
 		out <- idb.AccountRow{Error: err}
@@ -2615,7 +2614,7 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 
 	out := make(chan idb.AssetRow, 1)
 
-	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
 	if err != nil {
 		out <- idb.AssetRow{Error: err}
 		close(out)
@@ -2729,7 +2728,7 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 
 	out := make(chan idb.AssetBalanceRow, 1)
 
-	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
@@ -2831,7 +2830,7 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 		query += fmt.Sprintf(" LIMIT %d", *filter.Limit)
 	}
 
-	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
