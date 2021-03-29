@@ -23,7 +23,7 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
-// rewardsMigrationIndex is the index of m6RewardsAndDatesPart2.
+// rewardsMigrationIndex is the index of m7RewardsAndDatesPart2.
 const rewardsMigrationIndex = 7
 
 func init() {
@@ -38,22 +38,21 @@ func init() {
 		{m4accountIndices, true, "Add indices to make sure account lookups remain fast when there are a lot of apps or assets."},
 
 		// Migrations for 2.3.1 release
-		{m4MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
-		{m5RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
-		{m6RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
+		{m5MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
+		{m6RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
+		{m7RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
 
 		// Migrations for 2.3.2 release
-		{m7StaleClosedAccounts, false, "clear some stale data from closed accounts"},
-		{m8TxnJSONEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
-		{m9SpecialAccountCleanup, false, "The initial m6 implementation would miss special accounts."},
-
+		{m8StaleClosedAccounts, false, "clear some stale data from closed accounts"},
+		{m9TxnJSONEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
+		{m10SpecialAccountCleanup, false, "The initial m7 implementation would miss special accounts."},
 		{m11AssetHoldingFrozen, false, "Fix asset holding freeze states."},
 	}
 
 	// Verify ensure the constant is pointing to the right index
-	var m5Ptr postgresMigrationFunc = m6RewardsAndDatesPart2
+	var m7Ptr postgresMigrationFunc = m7RewardsAndDatesPart2
 	a2 := fmt.Sprintf("%v", migrations[rewardsMigrationIndex].migrate)
-	a1 := fmt.Sprintf("%v", m5Ptr)
+	a1 := fmt.Sprintf("%v", m7Ptr)
 	if a1 != a2 {
 		fmt.Println("Bad constant in postgres_migrations.go")
 		os.Exit(1)
@@ -64,7 +63,7 @@ func init() {
 type MigrationState struct {
 	NextMigration int `json:"next"`
 
-	// NextRound used for m0,m8 to checkpoint progress.
+	// NextRound used for m0,m9 to checkpoint progress.
 	NextRound int64 `json:"round,omitempty"`
 
 	// NextAssetID used for m3 to checkpoint progress.
@@ -113,7 +112,7 @@ func upsertMigrationState(tx *sql.Tx, state *MigrationState, incrementNextMigrat
 	migrationStateJSON := idb.JSONOneLine(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
-		return fmt.Errorf("m9 meta error: %v", err)
+		return fmt.Errorf("m10 meta error: %v", err)
 	}
 	return
 }
@@ -376,8 +375,8 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 	return -1, nil
 }
 
-// m5RewardsAndDatesPart1 adds the new rewards_total column to the account table.
-func m5RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
+// m6RewardsAndDatesPart1 adds the new rewards_total column to the account table.
+func m6RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	// Cache the round in the migration metastate
 	round, err := db.GetMaxRoundAccounted()
 	if err != nil {
@@ -418,7 +417,7 @@ const rewardsCreateCloseUpdateErr = rewardsCreateCloseUpdateMessage + " error"
 
 type addressAccountData struct {
 	address     sdk_types.Address
-	accountData *m6AccountData
+	accountData *m7AccountData
 }
 
 func getParticipants(stxn types.SignedTxnWithAD) []sdk_types.Address {
@@ -524,37 +523,37 @@ func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]create
 	return
 }
 
-type m6AdditionalAccountData struct {
+type m7AdditionalAccountData struct {
 	asset    map[uint64]createClose
 	app      map[uint64]createClose
 	appLocal map[uint64]createClose
 }
 
-type m6AccountData struct {
+type m7AccountData struct {
 	cumulativeRewards types.MicroAlgos
 	account           createClose
 	assetHolding      map[uint64]createClose
 	// Store other maps separately to save space, since most accounts do not use them.
-	additional *m6AdditionalAccountData
+	additional *m7AdditionalAccountData
 }
 
-func initM6AdditionalData() *m6AdditionalAccountData {
-	return &m6AdditionalAccountData{
+func initM6AdditionalData() *m7AdditionalAccountData {
+	return &m7AdditionalAccountData{
 		asset:    make(map[uint64]createClose),
 		app:      make(map[uint64]createClose),
 		appLocal: make(map[uint64]createClose),
 	}
 }
 
-func initM6AccountData() *m6AccountData {
-	return &m6AccountData{
+func initM6AccountData() *m7AccountData {
+	return &m7AccountData{
 		cumulativeRewards: 0,
 		account:           createClose{},
 		assetHolding:      make(map[uint64]createClose),
 	}
 }
 
-func maybeInitializeAdditionalAccountData(accountData *m6AccountData) {
+func maybeInitializeAdditionalAccountData(accountData *m7AccountData) {
 	if accountData.additional == nil {
 		accountData.additional = initM6AdditionalData()
 	}
@@ -563,7 +562,7 @@ func maybeInitializeAdditionalAccountData(accountData *m6AccountData) {
 // updateAccountData contains all the accounting logic to recompute total rewards and create/close
 // rounds. It modifies `accountData` and need to be called with every transaction from most
 // recent to oldest.
-func updateAccountData(address types.Address, round uint64, assetID uint64, stxn types.SignedTxnWithAD, accountData *m6AccountData) {
+func updateAccountData(address types.Address, round uint64, assetID uint64, stxn types.SignedTxnWithAD, accountData *m7AccountData) {
 	// Transactions are ordered most recent to oldest, so this makes sure created is set to the
 	// oldest transaction.
 	accountData.account.createdValid = true
@@ -647,7 +646,7 @@ func updateAccountData(address types.Address, round uint64, assetID uint64, stxn
 	}
 }
 
-// m6RewardsAndDatesPart2UpdateAccounts loops through the provided accounts and generates a bunch of updates in a
+// m7RewardsAndDatesPart2UpdateAccounts loops through the provided accounts and generates a bunch of updates in a
 // single transactional commit. These queries are written so that they can run in the background.
 //
 // For each account we run several queries:
@@ -661,7 +660,7 @@ func updateAccountData(address types.Address, round uint64, assetID uint64, stxn
 // Note: These queries only work if closed_at was reset before the migration is started. That is true
 //       for the initial migration, but if we need to reuse it in the future we'll need to fix the queries
 //       or redo the query.
-func m6RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAccountData, maxRound int64) error {
+func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAccountData, maxRound int64) error {
 	// Make sure round accounting doesn't interfere with updating these accounts.
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
@@ -820,7 +819,7 @@ func getAccountsFirstUsed(db *IndexerDb, maxRound int64, specialAccounts idb.Spe
 
 		participants := getParticipants(stxn)
 		for _, address := range participants {
-			// Don't update special accounts (m9 fixes this).
+			// Don't update special accounts (m10 fixes this).
 			if (address != specialAccounts.RewardsPool) && (address != specialAccounts.FeeSink) {
 				txnID := txnID{uint32(round), uint32(intra)}
 
@@ -875,7 +874,7 @@ func getAccountsWithoutTxnData(db *IndexerDb, specialAccounts idb.SpecialAccount
 				rewardsCreateCloseUpdateErr, accountRow.Account.Address, err)
 		}
 
-		// Don't update special accounts (m9 fixes this)
+		// Don't update special accounts (m10 fixes this)
 		if (address != specialAccounts.FeeSink) && (address != specialAccounts.RewardsPool) {
 			if _, ok := accountsFirstUsed[address]; !ok {
 				accountData := initM6AccountData()
@@ -891,10 +890,10 @@ func getAccountsWithoutTxnData(db *IndexerDb, specialAccounts idb.SpecialAccount
 
 		numRows++
 		if numRows%1000000 == 0 {
-			db.log.Printf("m6: read %d accounts", numRows)
+			db.log.Printf("m7: read %d accounts", numRows)
 		}
 	}
-	db.log.Print("m6: finished reading accounts")
+	db.log.Print("m7: finished reading accounts")
 
 	return res, nil
 }
@@ -903,11 +902,11 @@ func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAc
 	// Query all transactions again.
 	batchSize := 500
 
-	accountDataMap := make(map[sdk_types.Address]*m6AccountData)
+	accountDataMap := make(map[sdk_types.Address]*m7AccountData)
 	numAccounts := len(accountsFirstUsed)
 	numAccountsUpdated := 0
 
-	db.log.Print("m6: querying transactions (pass 2)")
+	db.log.Print("m7: querying transactions (pass 2)")
 	query := "SELECT round, intra, txnbytes, asset FROM txn WHERE round <= $1 ORDER BY round DESC, intra DESC"
 	rows, err := db.db.Query(query, maxRound)
 	if err != nil {
@@ -918,7 +917,7 @@ func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAc
 	var writeDuration time.Duration = 0
 
 	// Loop through all transactions and compute account data.
-	db.log.Print("m6: started reading transactions (pass 2)")
+	db.log.Print("m7: started reading transactions (pass 2)")
 	numRows := 0
 	numBatches := 0
 	for rows.Next() {
@@ -940,7 +939,7 @@ func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAc
 
 		participants := getParticipants(stxn)
 		for _, address := range participants {
-			// Don't update special accounts (m9 fixes this).
+			// Don't update special accounts (m10 fixes this).
 			if (address != specialAccounts.RewardsPool) && (address != specialAccounts.FeeSink) {
 				accountData, ok := accountDataMap[address]
 				if !ok {
@@ -962,7 +961,7 @@ func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAc
 
 					if len(readyAccountData) >= batchSize {
 						start := time.Now()
-						err = m6RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, maxRound)
+						err = m7RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, maxRound)
 						if err != nil {
 							return err
 						}
@@ -973,7 +972,7 @@ func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAc
 
 						numBatches++
 						if numBatches%100 == 0 {
-							db.log.Printf("m6: written %d (%.2f%%) accounts, %d batches; "+
+							db.log.Printf("m7: written %d (%.2f%%) accounts, %d batches; "+
 								"writing has taken %v in total",
 								numAccountsUpdated, float64(100*numAccountsUpdated)/float64(numAccounts),
 								numBatches, writeDuration)
@@ -985,13 +984,13 @@ func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAc
 
 		numRows++
 		if numRows%1000000 == 0 {
-			db.log.Printf("m6: read %d transactions (pass 2)", numRows)
+			db.log.Printf("m7: read %d transactions (pass 2)", numRows)
 		}
 	}
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("%s: error scanning rows: %v", rewardsCreateCloseUpdateErr, err)
 	}
-	db.log.Print("m6: finished reading transactions (pass 2)")
+	db.log.Print("m7: finished reading transactions (pass 2)")
 
 	if len(accountsFirstUsed) > 0 {
 		return fmt.Errorf("%s: len(accountsFirstUsed): %d > 0",
@@ -999,18 +998,18 @@ func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAc
 	}
 
 	// Update remaining accounts.
-	err = m6RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, maxRound)
+	err = m7RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, maxRound)
 	if err != nil {
 		return err
 	}
-	db.log.Print("m6: finished updating accounts")
+	db.log.Print("m7: finished updating accounts")
 
 	return nil
 }
 
-// m6RewardsAndDatesPart2 computes the cumulative rewards for each account one at a time.
-func m6RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
-	db.log.Print("m6 account cumulative rewards migration starting")
+// m7RewardsAndDatesPart2 computes the cumulative rewards for each account one at a time.
+func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
+	db.log.Print("m7 account cumulative rewards migration starting")
 
 	specialAccounts, err := db.GetSpecialAccounts()
 	if err != nil {
@@ -1343,14 +1342,14 @@ func m4accountIndices(db *IndexerDb, state *MigrationState) error {
 
 // Record round at which behavior changed for encoding txn.txn JSON.
 // A future migration should go back and apply new encoding to prior txn rows then delete this row in metastate.
-func m4MarkTxnJSONSplit(db *IndexerDb, state *MigrationState) error {
+func m5MarkTxnJSONSplit(db *IndexerDb, state *MigrationState) error {
 	sqlLines := []string{
-		`INSERT INTO metastate (k,v) SELECT 'm4MarkTxnJSONSplit', m.v FROM metastate m WHERE m.k = 'state'`,
+		`INSERT INTO metastate (k,v) SELECT 'm5MarkTxnJSONSplit', m.v FROM metastate m WHERE m.k = 'state'`,
 	}
 	return sqlMigration(db, state, sqlLines)
 }
 
-func m7StaleClosedAccounts(db *IndexerDb, state *MigrationState) error {
+func m8StaleClosedAccounts(db *IndexerDb, state *MigrationState) error {
 	sqlLines := []string{
 		// remove stale data from closed accounts
 		`UPDATE account SET account_data = NULL WHERE microalgos = 0`,
@@ -1459,27 +1458,27 @@ func (db *IndexerDb) yieldJSONFixupTxnsThread(ctx context.Context, rows *sql.Row
 	close(results)
 }
 
-const m8ErrPrefix = "m8 txn json fixup"
+const m9ErrPrefix = "m9 txn json fixup"
 
 // read batches of at least 2 blocks or up to 10000 txns,
 // write a temporary table, UPDATE from temporary table into txn.
 // repeat until all txns consumed.
-func m8TxnJSONEncoding(db *IndexerDb, state *MigrationState) (err error) {
+func m9TxnJSONEncoding(db *IndexerDb, state *MigrationState) (err error) {
 	db.log.Infof("txn json fixup migration starting")
-	row := db.db.QueryRow(`SELECT (v -> 'account_round')::bigint FROM metastate WHERE k = 'm6MarkTxnJSONSplit'`)
+	row := db.db.QueryRow(`SELECT (v -> 'account_round')::bigint FROM metastate WHERE k = 'm7MarkTxnJSONSplit'`)
 	var lastRound int64
 	err = row.Scan(&lastRound)
 	if err == sql.ErrNoRows {
-		// Indexer may be new after m6, marking it as done without running it, so we don't need to do anything here.
+		// Indexer may be new after m7, marking it as done without running it, so we don't need to do anything here.
 		state.NextMigration++
 		migrationStateJSON := json.Encode(state)
 		_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 		if err != nil {
-			db.log.WithError(err).Errorf("%s, meta err", m8ErrPrefix)
+			db.log.WithError(err).Errorf("%s, meta err", m9ErrPrefix)
 		}
 		return err
 	} else if err != nil {
-		db.log.WithError(err).Errorf("%s, getting m6MarkTxnJSONSplit", m8ErrPrefix)
+		db.log.WithError(err).Errorf("%s, getting m7MarkTxnJSONSplit", m9ErrPrefix)
 		return err
 	}
 
@@ -1488,7 +1487,7 @@ func m8TxnJSONEncoding(db *IndexerDb, state *MigrationState) (err error) {
 	defer cf()
 	rows, err := db.db.QueryContext(ctx, jsonFixupTxnQuery, prevRound, lastRound)
 	if err != nil {
-		db.log.WithError(err).Errorf("%s, getting txns", m8ErrPrefix)
+		db.log.WithError(err).Errorf("%s, getting txns", m9ErrPrefix)
 	}
 	txns := make(chan jsonFixupTxnRow, 10)
 	go db.yieldJSONFixupTxnsThread(ctx, rows, lastRound, txns)
@@ -1498,7 +1497,7 @@ func m8TxnJSONEncoding(db *IndexerDb, state *MigrationState) (err error) {
 	prevBatchRound := uint64(math.MaxUint64)
 	for txr := range txns {
 		if txr.Error != nil {
-			db.log.WithError(txr.Error).Errorf("%s, reading txns", m8ErrPrefix)
+			db.log.WithError(txr.Error).Errorf("%s, reading txns", m9ErrPrefix)
 			err = txr.Error
 			return
 		}
@@ -1551,7 +1550,7 @@ func m8TxnJSONEncoding(db *IndexerDb, state *MigrationState) (err error) {
 	migrationStateJSON := string(json.Encode(state))
 	err = db.setMetastate(migrationMetastateKey, migrationStateJSON)
 	if err != nil {
-		db.log.WithError(err).Errorf("%s, error setting final migration state", m8ErrPrefix)
+		db.log.WithError(err).Errorf("%s, error setting final migration state", m9ErrPrefix)
 		return
 	}
 	db.log.Println("txn json fixup migration finished")
@@ -1585,13 +1584,13 @@ func putTxnJSONBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 		block := headers[txr.Round]
 		proto, err := types.Protocol(string(block.CurrentProtocol))
 		if err != nil {
-			db.log.WithError(err).Errorf("%s, proto", m8ErrPrefix)
+			db.log.WithError(err).Errorf("%s, proto", m9ErrPrefix)
 			return err
 		}
 		var stxn types.SignedTxnInBlock
 		err = msgpack.Decode(txr.TxnBytes, &stxn)
 		if err != nil {
-			db.log.WithError(err).Errorf("%s, txnb msgpack err", m8ErrPrefix)
+			db.log.WithError(err).Errorf("%s, txnb msgpack err", m9ErrPrefix)
 			return err
 		}
 		if stxn.HasGenesisID {
@@ -1615,20 +1614,20 @@ func putTxnJSONBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 	// do a transaction to update a batch
 	tx, err := db.db.Begin()
 	if err != nil {
-		db.log.WithError(err).Errorf("%s, batch tx err", m8ErrPrefix)
+		db.log.WithError(err).Errorf("%s, batch tx err", m9ErrPrefix)
 		return err
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 	// Check that migration state in db is still what we think it is
 	txstate, err := db.getMigrationState()
 	if err != nil {
-		db.log.WithError(err).Errorf("%s, get m state err", m8ErrPrefix)
+		db.log.WithError(err).Errorf("%s, get m state err", m9ErrPrefix)
 		return err
 	} else if state == nil {
 		// no previous state, ok
 	} else {
 		if state.NextMigration != txstate.NextMigration || state.NextRound != txstate.NextRound {
-			return fmt.Errorf("%s, migration state changed when we weren't looking: %v -> %v", m8ErrPrefix, state, txstate)
+			return fmt.Errorf("%s, migration state changed when we weren't looking: %v -> %v", m9ErrPrefix, state, txstate)
 		}
 	}
 
@@ -1636,64 +1635,64 @@ func putTxnJSONBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 	// So, 'create if not exists' and truncate.
 	_, err = tx.Exec(`CREATE TEMP TABLE IF NOT EXISTS txjson_fix_batch (round bigint NOT NULL, intra smallint NOT NULL, txn jsonb NOT NULL, PRIMARY KEY ( round, intra ))`)
 	if err != nil {
-		db.log.WithError(err).Errorf("%s, create temp err", m8ErrPrefix)
+		db.log.WithError(err).Errorf("%s, create temp err", m9ErrPrefix)
 		return err
 	}
 	_, err = tx.Exec(`TRUNCATE TABLE txjson_fix_batch`)
 	if err != nil {
-		db.log.WithError(err).Errorf("%s, truncate temp err", m8ErrPrefix)
+		db.log.WithError(err).Errorf("%s, truncate temp err", m9ErrPrefix)
 		return err
 	}
 	batchadd, err := tx.Prepare(`COPY txjson_fix_batch (round, intra, txn) FROM STDIN`)
 	if err != nil {
-		db.log.WithError(err).Errorf("%s, temp prepare err", m8ErrPrefix)
+		db.log.WithError(err).Errorf("%s, temp prepare err", m9ErrPrefix)
 		return err
 	}
 	defer batchadd.Close()
 	for _, tr := range outrows {
 		_, err = batchadd.Exec(tr.round, tr.intra, tr.txnJSON)
 		if err != nil {
-			db.log.WithError(err).Errorf("%s, temp row err", m8ErrPrefix)
+			db.log.WithError(err).Errorf("%s, temp row err", m9ErrPrefix)
 			return err
 		}
 	}
 	_, err = batchadd.Exec()
 	if err != nil {
-		db.log.WithError(err).Errorf("%s, temp empty row err", m8ErrPrefix)
+		db.log.WithError(err).Errorf("%s, temp empty row err", m9ErrPrefix)
 		return err
 	}
 	err = batchadd.Close()
 	if err != nil {
-		db.log.WithError(err).Errorf("%s, temp add close err", m8ErrPrefix)
+		db.log.WithError(err).Errorf("%s, temp add close err", m9ErrPrefix)
 		return err
 	}
 
 	_, err = tx.Exec(`UPDATE txn SET txn = x.txn FROM txjson_fix_batch x WHERE txn.round = x.round AND txn.intra = x.intra`)
 	if err != nil {
-		db.log.WithError(err).Errorf("%s, update err", m8ErrPrefix)
+		db.log.WithError(err).Errorf("%s, update err", m9ErrPrefix)
 		return err
 	}
 	txstate.NextRound = int64(maxRound + 1)
 	migrationStateJSON := json.Encode(txstate)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
-		db.log.WithError(err).Errorf("%s, set metastate err", m8ErrPrefix)
+		db.log.WithError(err).Errorf("%s, set metastate err", m9ErrPrefix)
 		return err
 	}
 	err = tx.Commit()
 	if err != nil {
-		db.log.WithError(err).Errorf("%s, batch commit err", m8ErrPrefix)
+		db.log.WithError(err).Errorf("%s, batch commit err", m9ErrPrefix)
 		return err
 	}
 	_, err = db.db.Exec(`DROP TABLE IF EXISTS txjson_fix_batch`)
 	if err != nil {
-		db.log.WithError(err).Errorf("%s, warning, drop temp err", m8ErrPrefix)
+		db.log.WithError(err).Errorf("%s, warning, drop temp err", m9ErrPrefix)
 		// we don't actually care; psql should garbage collect the temp table eventually
 	}
 	return nil
 }
 
-func m9SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
+func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 	accounts, err := db.GetSpecialAccounts()
 	if err != nil {
 		return fmt.Errorf("unable to get special accounts: %v", err)
@@ -1704,13 +1703,13 @@ func m9SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 
 	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
-		return fmt.Errorf("failed to begin m9 migration: %v", err)
+		return fmt.Errorf("failed to begin m10 migration: %v", err)
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 
 	initstmt, err := tx.Prepare(`UPDATE account SET deleted=false, created_at=0 WHERE addr=$1`)
 	if err != nil {
-		return fmt.Errorf("failed to prepare m9 query: %v", err)
+		return fmt.Errorf("failed to prepare m10 query: %v", err)
 	}
 
 	for _, account := range []string{accounts.FeeSink.String(), accounts.RewardsPool.String()} {
@@ -1723,12 +1722,12 @@ func m9SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 
 	upsertMigrationState(tx, state, true)
 	if err != nil {
-		return fmt.Errorf("m9 metstate upsert error: %v", err)
+		return fmt.Errorf("m10 metstate upsert error: %v", err)
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return fmt.Errorf("m9 commit error: %v", err)
+		return fmt.Errorf("m10 commit error: %v", err)
 	}
 
 	return nil
