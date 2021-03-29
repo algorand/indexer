@@ -885,6 +885,9 @@ func m5RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, state *MigrationState, 
 
 // sqlMigration executes a sql statements as the entire migration.
 func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error {
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
 	thisMigration := state.NextMigration
 	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
@@ -1447,6 +1450,9 @@ func putTxnJSONBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 		}
 	}
 
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
 	// do a transaction to update a batch
 	tx, err := db.db.Begin()
 	if err != nil {
@@ -1533,6 +1539,9 @@ func m9SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 	if err != nil {
 		return fmt.Errorf("unable to get special accounts: %v", err)
 	}
+
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
 
 	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
