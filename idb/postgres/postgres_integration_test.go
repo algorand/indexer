@@ -232,7 +232,7 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	// Then // Make sure the accounts have the correct default-frozen after create/optin
 	//////////
 	// default-frozen = true
-	assertAccountAsset(t, db, test.AccountA, assetid, true, total)
+	assertAccountAsset(t, db, test.AccountA, assetid, false, total) // the creator ignores default-frozen
 	assertAccountAsset(t, db, test.AccountB, assetid, true, 0)
 
 	// default-frozen = false
