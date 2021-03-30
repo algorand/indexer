@@ -58,7 +58,7 @@ func DecodeAddressOrPanic(addr string) types.Address {
 }
 
 // MakeAssetConfigOrPanic is a helper to ensure test asset config are initialized.
-func MakeAssetConfigOrPanic(round, assetid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr types.Address) (*types.SignedTxnWithAD, *idb.TxnRow) {
+func MakeAssetConfigOrPanic(round, configid, assetid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr types.Address) (*types.SignedTxnWithAD, *idb.TxnRow) {
 	txn := types.SignedTxnWithAD{
 		SignedTxn: types.SignedTxn{
 			Txn: types.Transaction{
@@ -70,7 +70,7 @@ func MakeAssetConfigOrPanic(round, assetid, total, decimals uint64, defaultFroze
 					LastValid:  types.Round(round),
 				},
 				AssetConfigTxnFields: types.AssetConfigTxnFields{
-					ConfigAsset: 0,
+					ConfigAsset: types.AssetIndex(configid),
 					AssetParams: types.AssetParams{
 						Total:         total,
 						Decimals:      uint32(decimals),

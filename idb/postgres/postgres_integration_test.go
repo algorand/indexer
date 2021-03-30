@@ -160,7 +160,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	///////////
 	// Given // A round scenario requiring subround accounting: AccountA is funded, closed, opts back, and funded again.
 	///////////
-	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
 	_, fundMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
 	_, closeMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
 	_, optinMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, types.ZeroAddress)
@@ -209,8 +209,8 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	///////////
 	// Given // A new asset with default-frozen = true, and AccountB opting into it.
 	///////////
-	_, createAssetFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
-	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid+1, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, createAssetFrozen := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, 0, assetid+1, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 	_, optinB1 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
 	_, optinB2 := test.MakeAssetTxnOrPanic(test.Round, assetid+1, 0, test.AccountB, test.AccountB, types.ZeroAddress)
 
@@ -297,7 +297,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 		///////////
 		// Given // A new asset with default-frozen, AccountB opts-in and has its frozen state toggled.
 		/////////// Then AccountB opts-out then opts-in again.
-		_, createAssetFrozen := test.MakeAssetConfigOrPanic(round, aid, total, uint64(6), testcase.frozen, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+		_, createAssetFrozen := test.MakeAssetConfigOrPanic(round, 0, aid, total, uint64(6), testcase.frozen, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 		_, optinB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
 		_, unfreezeB := test.MakeAssetFreezeOrPanic(round, aid, !testcase.frozen, test.AccountB)
 		_, optoutB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountC, test.AccountD)
@@ -340,7 +340,7 @@ func TestNoopOptins(t *testing.T) {
 	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
 	assert.NoError(t, err)
 
-	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, assetid, uint64(1000000), uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, uint64(1000000), uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
 	_, optinB := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
 	_, unfreezeB := test.MakeAssetFreezeOrPanic(test.Round, assetid, false, test.AccountB)
 
@@ -440,7 +440,7 @@ func TestBlockWithTransactions(t *testing.T) {
 	///////////
 	// Given // A block at round test.Round with 5 transactions.
 	///////////
-	tx1, row1 := test.MakeAssetConfigOrPanic(test.Round, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	tx1, row1 := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
 	tx2, row2 := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
 	tx3, row3 := test.MakeAssetTxnOrPanic(test.Round, assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
 	tx4, row4 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, types.ZeroAddress)
@@ -630,4 +630,42 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	//////////
 	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
 	assert.NoError(t, err, "failed to commit")
+}
+
+func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	assetid := uint64(2222)
+	total := uint64(1000000)
+
+	///////////
+	// Given // A new asset with default-frozen = true, and AccountB opting into it.
+	///////////
+	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, modifyAssetToFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, optin := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
+
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
+	state.AddTransaction(createAssetNotFrozen)
+	state.AddTransaction(modifyAssetToFrozen)
+	state.AddTransaction(optin)
+
+	//////////
+	// When // We commit the round accounting to the database.
+	//////////
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	assert.NoError(t, err, "failed to commit")
+
+	//////////
+	// Then // Make sure the accounts have the correct default-frozen after create/optin
+	//////////
+	// default-frozen = true
+	assertAccountAsset(t, db, test.AccountA, assetid, false, total)
+	assertAccountAsset(t, db, test.AccountB, assetid, false, 0)
 }

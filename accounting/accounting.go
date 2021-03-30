@@ -351,11 +351,15 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 			accounting.destroyAsset(assetID)
 		} else {
 			accounting.configAsset(assetID, isNew, stxn.Txn.Sender, stxn.Txn.AssetParams)
-			// Only update the cache when default-frozen = true.
-			if stxn.Txn.AssetParams.DefaultFrozen {
-				accounting.defaultFrozen[assetID] = stxn.Txn.AssetParams.DefaultFrozen
-			}
 			if stxn.Txn.ConfigAsset == 0 {
+				// Only update the cache when default-frozen = true.
+				// DefaultFrozen is immutable, so only update the cache during creation.
+				// It is technically possible to set DefaultFrozen in a transaction, algod will ignore it so indexer
+				// must as well.
+				if stxn.Txn.AssetParams.DefaultFrozen {
+					accounting.defaultFrozen[assetID] = stxn.Txn.AssetParams.DefaultFrozen
+				}
+
 				// initial creation, give all initial value to creator
 				if stxn.Txn.AssetParams.Total != 0 {
 					accounting.updateAsset(stxn.Txn.Sender, assetID, stxn.Txn.AssetParams.Total, 0)
