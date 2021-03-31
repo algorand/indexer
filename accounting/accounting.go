@@ -360,10 +360,10 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 					accounting.defaultFrozen[assetID] = stxn.Txn.AssetParams.DefaultFrozen
 				}
 
-				// Initial creation, give all initial value to creator. Ignore DefaultFrozen.
-				if stxn.Txn.AssetParams.Total != 0 {
-					accounting.updateAsset(stxn.Txn.Sender, assetID, stxn.Txn.AssetParams.Total, 0, false)
-				}
+				// Initial creation, give all initial value to creator.
+				// Ignore DefaultFrozen.
+				// Total = 0 is valid.
+				accounting.updateAsset(stxn.Txn.Sender, assetID, stxn.Txn.AssetParams.Total, 0, false)
 			}
 		}
 	case atypes.AssetTransferTx:

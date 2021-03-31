@@ -153,3 +153,28 @@ func TestAssetCloseWithAmountReopenPay(t *testing.T) {
 	// Subround 2 is empty
 	assert.Len(t, state.RoundUpdates.AssetUpdates[1], 0)
 }
+
+// TestCreateAssetWithTotalZero checks that we can create an asset with total = 0
+func TestCreateAssetWithTotalZero(t *testing.T) {
+	assetid := uint64(2222)
+	total := uint64(0)
+
+	///////////
+	// Given // Empty state.
+	///////////
+	state := GetAccounting()
+
+	//////////
+	// When // We add a create asset transaction with total = 0.
+	//////////
+	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "empty-asset", "empty", "http://empty.com", test.AccountA)
+	state.AddTransaction(createAsset)
+
+	//////////
+	// Then // There should be deltas.
+	//////////
+	// Config + Transfer
+	assert.Len(t, state.RoundUpdates.AssetUpdates, 2)
+	assert.True(t, state.RoundUpdates.AssetUpdates[0][test.AccountA][0].Config.IsNew)
+	assert.Equal(t, state.RoundUpdates.AssetUpdates[1][test.AccountA][0].Transfer.Delta.Int64(), int64(0))
+}

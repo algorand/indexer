@@ -632,6 +632,7 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	assert.NoError(t, err, "failed to commit")
 }
 
+// TestIgnoreDefaultFrozenConfigUpdate the creator asset holding should ignore default-frozen = true.
 func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
@@ -668,4 +669,37 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	// default-frozen = true
 	assertAccountAsset(t, db, test.AccountA, assetid, false, total)
 	assertAccountAsset(t, db, test.AccountB, assetid, false, 0)
+}
+
+// TestZeroTotalAssetCreate tests that the asset holding with total of 0 is created.
+func TestZeroTotalAssetCreate(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	assetid := uint64(2222)
+	total := uint64(0)
+
+	///////////
+	// Given // A new asset with total = 0.
+	///////////
+	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
+	state.AddTransaction(createAsset)
+
+	//////////
+	// When // We commit the round accounting to the database.
+	//////////
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	assert.NoError(t, err, "failed to commit")
+
+	//////////
+	// Then // Make sure the creator has an asset holding with amount = 0.
+	//////////
+	assertAccountAsset(t, db, test.AccountA, assetid, false, 0)
 }
