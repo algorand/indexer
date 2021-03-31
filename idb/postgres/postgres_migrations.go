@@ -537,7 +537,7 @@ type m7AccountData struct {
 	additional *m7AdditionalAccountData
 }
 
-func initM6AdditionalData() *m7AdditionalAccountData {
+func initM7AdditionalData() *m7AdditionalAccountData {
 	return &m7AdditionalAccountData{
 		asset:    make(map[uint64]createClose),
 		app:      make(map[uint64]createClose),
@@ -545,7 +545,7 @@ func initM6AdditionalData() *m7AdditionalAccountData {
 	}
 }
 
-func initM6AccountData() *m7AccountData {
+func initM7AccountData() *m7AccountData {
 	return &m7AccountData{
 		cumulativeRewards: 0,
 		account:           createClose{},
@@ -555,7 +555,7 @@ func initM6AccountData() *m7AccountData {
 
 func maybeInitializeAdditionalAccountData(accountData *m7AccountData) {
 	if accountData.additional == nil {
-		accountData.additional = initM6AdditionalData()
+		accountData.additional = initM7AdditionalData()
 	}
 }
 
@@ -877,7 +877,7 @@ func getAccountsWithoutTxnData(db *IndexerDb, specialAccounts idb.SpecialAccount
 		// Don't update special accounts (m10 fixes this)
 		if (address != specialAccounts.FeeSink) && (address != specialAccounts.RewardsPool) {
 			if _, ok := accountsFirstUsed[address]; !ok {
-				accountData := initM6AccountData()
+				accountData := initM7AccountData()
 
 				accountData.account.createdValid = true
 				accountData.account.created = 0
@@ -943,7 +943,7 @@ func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAc
 			if (address != specialAccounts.RewardsPool) && (address != specialAccounts.FeeSink) {
 				accountData, ok := accountDataMap[address]
 				if !ok {
-					accountData = initM6AccountData()
+					accountData = initM7AccountData()
 					accountDataMap[address] = accountData
 				}
 
