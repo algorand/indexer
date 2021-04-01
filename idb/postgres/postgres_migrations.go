@@ -4,6 +4,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"fmt"
@@ -46,6 +47,8 @@ func init() {
 		{m7StaleClosedAccounts, false, "clear some stale data from closed accounts"},
 		{m8TxnJSONEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
 		{m9SpecialAccountCleanup, false, "The initial m6 implementation would miss special accounts."},
+
+		{m11AssetHoldingFrozen, false, "Fix asset holding freeze states."},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -1571,6 +1574,100 @@ func m9SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 	if err != nil {
 		return fmt.Errorf("m9 commit error: %v", err)
 	}
+
+	return nil
+}
+
+// Helper functions for m11 migration
+
+func updateFrozenState(db *IndexerDb, asset idb.AssetRow, addr types.Address) error {
+	// Semi-blocking migration.
+	// Hold accountingLock for the duration of the Transaction search + account_asset update.
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
+	// Query freeze transactions for this account.
+	txns, _ := db.Transactions(context.Background(), idb.TransactionFilter{
+		Address:  addr[:],
+		TypeEnum: idb.TypeEnumAssetFreeze,
+		Limit:    1,
+	})
+
+	// If there are any freeze transactions then the default has been changed and we can exit early.
+	exitEarly := false
+	for range txns {
+		exitEarly = true
+	}
+	if exitEarly {
+		return nil
+	}
+
+	// If there were no freeze transactions, re-initialize the frozen value.
+	frozen := !bytes.Equal(asset.Creator, addr[:])
+	db.db.Exec(`UPDATE account_asset SET frozen = $1 WHERE assetid = $2 and addr = $3`, frozen, asset.AssetID, addr[:])
+
+	return nil
+}
+
+func getAsset(db *IndexerDb, assetID uint64) (idb.AssetRow, error) {
+	assets, _ := db.Assets(context.Background(), idb.AssetsQuery{AssetID: assetID})
+	num := 0
+	var asset idb.AssetRow
+	for assetRow := range assets {
+		if assetRow.Error != nil {
+			return idb.AssetRow{}, assetRow.Error
+		}
+		asset = assetRow
+		num++
+	}
+
+	if num > 1 {
+		return idb.AssetRow{}, fmt.Errorf("multiple assets returned for asset %d", assetID)
+	}
+
+	if num == 0 {
+		return idb.AssetRow{}, fmt.Errorf("asset %d not found", assetID)
+	}
+
+	return asset, nil
+}
+
+func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
+	defaultFrozenCache, err := db.GetDefaultFrozen()
+	if err != nil {
+		return fmt.Errorf("unable to get default frozen cache: %v", err)
+	}
+
+	// For all assets with default-frozen = true.
+	for assetID := range defaultFrozenCache {
+		asset, err := getAsset(db, assetID)
+		if err != nil {
+			return fmt.Errorf("unable to fetch asset %d: %v", assetID, err)
+		}
+
+		balances, _ := db.AssetBalances(context.Background(), idb.AssetBalanceQuery{AssetID: assetID})
+		for balance := range balances {
+			if balance.Error != nil {
+				return fmt.Errorf("unable to process asset balance for asset %d: %v", assetID, err)
+			}
+
+			var addr types.Address
+			copy(addr[:], balance.Address)
+
+			err := updateFrozenState(db, asset, addr)
+			if balance.Error != nil {
+				return fmt.Errorf("unable to process update frozen state asset %d / address %s: %v", assetID, addr.String(), err)
+			}
+		}
+	}
+
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
+	tx.Rollback()
+	upsertMigrationState(tx, state, true)
+	if err != nil {
+		return fmt.Errorf("m11 metstate upsert error: %v", err)
+	}
+	tx.Commit()
 
 	return nil
 }
