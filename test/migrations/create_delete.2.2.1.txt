@@ -297,7 +297,7 @@ COPY public.asset (index, creator_addr, params) FROM stdin;
 36	\\x2413284dc89dfdc13cc0ed62a0a9644c7bfc5ead5cedd1ab2c2490f991cb88db	{"c": "JBMoTcid/cE8wO1ioKlkTHv8Xq1c7dGrLCSQ+ZHLiNs=", "f": "JBMoTcid/cE8wO1ioKlkTHv8Xq1c7dGrLCSQ+ZHLiNs=", "m": "JBMoTcid/cE8wO1ioKlkTHv8Xq1c7dGrLCSQ+ZHLiNs=", "r": "JBMoTcid/cE8wO1ioKlkTHv8Xq1c7dGrLCSQ+ZHLiNs=", "t": 1000000000000, "an": "bogocoin", "un": "bogo"}
 56	\\x5ee40c5ec935dd5f67d203e5f1e90cb9a97e2c24f41346cd197094b072a98f40	{"c": "XuQMXsk13V9n0gPl8ekMual+LCT0E0bNGXCUsHKpj0A=", "f": "XuQMXsk13V9n0gPl8ekMual+LCT0E0bNGXCUsHKpj0A=", "m": "XuQMXsk13V9n0gPl8ekMual+LCT0E0bNGXCUsHKpj0A=", "r": "XuQMXsk13V9n0gPl8ekMual+LCT0E0bNGXCUsHKpj0A=", "t": 10000, "an": "spanish coin", "dc": 19, "un": "doubloon"}
 135	\\x1e82599ba6769f412f1a772e8adbf6040ee6f06bbf63daf1db666d2b0d416e32	null
-168	\\x1e82599ba6769f412f1a772e8adbf6040ee6f06bbf63daf1db666d2b0d416e32	{"c": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "f": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "m": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "r": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "t": 1337, "an": "cdcoin", "un": "cdc"}
+168	\\x1e82599ba6769f412f1a772e8adbf6040ee6f06bbf63daf1db666d2b0d416e32	{"c": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "df": true, "f": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "m": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "r": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "t": 1337, "an": "cdcoin", "un": "cdc"}
 \.
 
 

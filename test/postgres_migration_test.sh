@@ -54,6 +54,21 @@ function omnibus_migration_tests() {
       '7|{}|7' 
 }
 
+# $1 - the DB to query
+function default_frozen_migration_tests() {
+    rest_test "[rest - default-frozen] creator is not frozen" \
+      "/v2/assets/168/balances?pretty&currency-greater-than=1" \
+      200 \
+      true \
+      '"is-frozen": false'
+
+    rest_test "[rest - default-frozen] opt-in is frozen" \
+      "/v2/assets/168/balances?pretty&currency-less-than=1" \
+      200 \
+      true \
+      '"is-frozen": true'
+}
+
 ###############
 ## RUN TESTS ##
 ###############
@@ -74,4 +89,5 @@ start_indexer test2
 wait_for_migrated
 create_delete_tests test2
 omnibus_migration_tests test2
+default_frozen_migration_tests test2
 
