@@ -705,6 +705,38 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 	assertAccountAsset(t, db, test.AccountA, assetid, false, 0)
 }
 
+func assertAssetDates(t *testing.T, db *sql.DB, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
+	row := db.QueryRow(
+		"SELECT deleted, created_at, closed_at FROM asset WHERE index = $1", int64(assetID))
+
+	var retDeleted sql.NullBool
+	var retCreatedAt sql.NullInt64
+	var retClosedAt sql.NullInt64
+	err := row.Scan(&retDeleted, &retCreatedAt, &retClosedAt)
+	assert.NoError(t, err)
+
+	assert.Equal(t, deleted, retDeleted)
+	assert.Equal(t, createdAt, retCreatedAt)
+	assert.Equal(t, closedAt, retClosedAt)
+}
+
+func assertAssetHoldingDates(t *testing.T, db *sql.DB, address types.Address, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
+	row := db.QueryRow(
+		"SELECT deleted, created_at, closed_at FROM account_asset WHERE " +
+		"addr = $1 AND assetid = $2",
+		address[:], assetID)
+
+	var retDeleted sql.NullBool
+	var retCreatedAt sql.NullInt64
+	var retClosedAt sql.NullInt64
+	err := row.Scan(&retDeleted, &retCreatedAt, &retClosedAt)
+	assert.NoError(t, err)
+
+	assert.Equal(t, deleted, retDeleted)
+	assert.Equal(t, createdAt, retCreatedAt)
+	assert.Equal(t, closedAt, retClosedAt)
+}
+
 func TestDestroyAssetBasic(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
@@ -742,39 +774,16 @@ func TestDestroyAssetBasic(t *testing.T) {
 	}
 
 	// Check that the asset is deleted.
-	{
-		row := db.QueryRow(
-			"SELECT deleted, created_at, closed_at FROM asset WHERE index = $1", int64(assetID))
-
-		var deleted sql.NullBool
-		var createdAt sql.NullInt64
-		var closedAt sql.NullInt64
-		err := row.Scan(&deleted, &createdAt, &closedAt)
-		assert.NoError(t, err)
-
-		assert.Equal(t, sql.NullBool{Valid: true, Bool: true}, deleted)
-		assert.Equal(t, sql.NullInt64{Valid: true, Int64: int64(test.Round)}, createdAt)
-		assert.Equal(t, sql.NullInt64{Valid: true, Int64: int64(test.Round + 1)}, closedAt)
-	}
+	assertAssetDates(t, db, assetID,
+		sql.NullBool{Valid: true, Bool: true},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round + 1)})
 
 	// Check that the account's asset holding is deleted.
-	{
-		row := db.QueryRow(
-			"SELECT assetid, deleted, created_at, closed_at FROM account_asset WHERE addr = $1",
-			test.AccountA[:])
-
-		var id int64
-		var deleted sql.NullBool
-		var createdAt sql.NullInt64
-		var closedAt sql.NullInt64
-		err := row.Scan(&id, &deleted, &createdAt, &closedAt)
-		assert.NoError(t, err)
-
-		assert.Equal(t, assetID, uint64(id))
-		assert.Equal(t, sql.NullBool{Valid: true, Bool: true}, deleted)
-		assert.Equal(t, sql.NullInt64{Valid: true, Int64: int64(test.Round)}, createdAt)
-		assert.Equal(t, sql.NullInt64{Valid: true, Int64: int64(test.Round + 1)}, closedAt)
-	}
+	assertAssetHoldingDates(t, db, test.AccountA, assetID,
+		sql.NullBool{Valid: true, Bool: true},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round + 1)})
 }
 
 func TestDestroyAssetZeroSupply(t *testing.T) {
@@ -812,35 +821,16 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 	assert.NoError(t, err, "failed to commit")
 
 	// Check that the asset is deleted.
-	{
-		row := db.QueryRow(
-			"SELECT deleted, closed_at FROM asset WHERE index = $1", int64(assetID))
-
-		var deleted sql.NullBool
-		var closedAt sql.NullInt64
-		err := row.Scan(&deleted, &closedAt)
-		assert.NoError(t, err)
-
-		assert.Equal(t, sql.NullBool{Valid: true, Bool: true}, deleted)
-		assert.Equal(t, sql.NullInt64{Valid: true, Int64: int64(test.Round)}, closedAt)
-	}
+	assertAssetDates(t, db, assetID,
+		sql.NullBool{Valid: true, Bool: true},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)})
 
 	// Check that the account's asset holding is deleted.
-	{
-		row := db.QueryRow(
-			"SELECT assetid, deleted, closed_at FROM account_asset WHERE addr = $1",
-			test.AccountA[:])
-
-		var id int64
-		var deleted sql.NullBool
-		var closedAt sql.NullInt64
-		err := row.Scan(&id, &deleted, &closedAt)
-		assert.NoError(t, err)
-
-		assert.Equal(t, assetID, uint64(id))
-		assert.Equal(t, sql.NullBool{Valid: true, Bool: true}, deleted)
-		assert.Equal(t, sql.NullInt64{Valid: true, Int64: int64(test.Round)}, closedAt)
-	}
+	assertAssetHoldingDates(t, db, test.AccountA, assetID,
+		sql.NullBool{Valid: true, Bool: true},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)})
 }
 
 func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
@@ -903,38 +893,16 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 	assert.NoError(t, err, "failed to commit")
 
 	// Check that the creator's asset holding is deleted.
-	{
-		row := db.QueryRow(
-			"SELECT assetid, deleted, closed_at FROM account_asset WHERE addr = $1",
-			test.AccountA[:])
-
-		var id int64
-		var deleted sql.NullBool
-		var closedAt sql.NullInt64
-		err := row.Scan(&id, &deleted, &closedAt)
-		assert.NoError(t, err)
-
-		assert.Equal(t, assetID, uint64(id))
-		assert.Equal(t, sql.NullBool{Valid: true, Bool: true}, deleted)
-		assert.Equal(t, sql.NullInt64{Valid: true, Int64: int64(test.Round)}, closedAt)
-	}
+	assertAssetHoldingDates(t, db, test.AccountA, assetID,
+		sql.NullBool{Valid: true, Bool: true},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)})
 
 	// Check that other account's asset holding was not deleted.
-	{
-		row := db.QueryRow(
-			"SELECT assetid, deleted, closed_at FROM account_asset WHERE addr = $1",
-			test.AccountC[:])
-
-		var id int64
-		var deleted sql.NullBool
-		var closedAt sql.NullInt64
-		err := row.Scan(&id, &deleted, &closedAt)
-		assert.NoError(t, err)
-
-		assert.Equal(t, assetID, uint64(id))
-		assert.Equal(t, sql.NullBool{Valid: true, Bool: false}, deleted)
-		assert.False(t, closedAt.Valid)
-	}
+	assertAssetHoldingDates(t, db, test.AccountC, assetID,
+		sql.NullBool{Valid: true, Bool: false},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)},
+		sql.NullInt64{Valid: false, Int64: 0})
 
 	// Check that the manager does not have an asset holding.
 	{
