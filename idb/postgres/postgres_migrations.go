@@ -48,7 +48,7 @@ func init() {
 		{m8TxnJSONEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
 		{m9SpecialAccountCleanup, false, "The initial m6 implementation would miss special accounts."},
 
-		{ m11AssetHoldingFrozen, false, "Fix asset holding freeze states."},
+		{m11AssetHoldingFrozen, false, "Fix asset holding freeze states."},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -1588,9 +1588,9 @@ func updateFrozenState(db *IndexerDb, asset idb.AssetRow, addr types.Address) er
 
 	// Query freeze transactions for this account.
 	txns, _ := db.Transactions(context.Background(), idb.TransactionFilter{
-		Address: addr[:],
+		Address:  addr[:],
 		TypeEnum: idb.TypeEnumAssetFreeze,
-		Limit: 1,
+		Limit:    1,
 	})
 
 	// If there are any freeze transactions then the default has been changed and we can exit early.
@@ -1603,7 +1603,7 @@ func updateFrozenState(db *IndexerDb, asset idb.AssetRow, addr types.Address) er
 	}
 
 	// If there were no freeze transactions, re-initialize the frozen value.
-	frozen := ! bytes.Equal(asset.Creator, addr[:])
+	frozen := !bytes.Equal(asset.Creator, addr[:])
 	db.db.Exec(`UPDATE account_asset SET frozen = $1 WHERE assetid = $2 and addr = $3`, frozen, asset.AssetID, addr[:])
 
 	return nil
@@ -1639,7 +1639,7 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 	}
 
 	// For all assets with default-frozen = true.
-	for assetID, _ := range defaultFrozenCache {
+	for assetID := range defaultFrozenCache {
 		asset, err := getAsset(db, assetID)
 		if err != nil {
 			return fmt.Errorf("unable to fetch asset %d: %v", assetID, err)
