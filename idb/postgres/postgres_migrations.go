@@ -470,7 +470,7 @@ type createClose struct {
 }
 
 // updateClose will only allow the value to be set once.
-func updateClose(value uint64, cc createClose) createClose {
+func updateClose(value uint32, cc createClose) createClose {
 	res := cc
 
 	if !res.closedValid {
@@ -487,7 +487,7 @@ func updateClose(value uint64, cc createClose) createClose {
 }
 
 // updateCreate will update the created round.
-func updateCreate(value uint64, cc createClose) createClose {
+func updateCreate(value uint32, cc createClose) createClose {
 	res := cc
 
 	res.createdValid = true
@@ -501,47 +501,53 @@ func updateCreate(value uint64, cc createClose) createClose {
 	return res
 }
 
-func executeForEachCreatable(stmt *sql.Stmt, address []byte, m map[uint64]createClose) (err error) {
-	for index, round := range m {
-		deleted := sql.NullBool{
-			Bool:  round.deleted,
-			Valid: round.deletedValid,
-		}
-		created := sql.NullInt64{
-			Int64: int64(round.created),
-			Valid: round.createdValid,
-		}
-		closed := sql.NullInt64{
-			Int64: int64(round.closed),
-			Valid: round.closedValid,
-		}
-		_, err = stmt.Exec(address, index, created, closed, deleted)
+func executeCreatableCC(stmt *sql.Stmt, address sdk_types.Address, index uint32, cc createClose) error {
+	deleted := sql.NullBool{
+		Bool:  cc.deleted,
+		Valid: cc.deletedValid,
+	}
+	created := sql.NullInt64{
+		Int64: int64(cc.created),
+		Valid: cc.createdValid,
+	}
+	closed := sql.NullInt64{
+		Int64: int64(cc.closed),
+		Valid: cc.closedValid,
+	}
+	_, err := stmt.Exec(address[:], index, created, closed, deleted)
+	return err
+}
+
+func executeForEachCreatable(stmt *sql.Stmt, address sdk_types.Address, m map[uint32]createClose) error {
+	for index, cc := range m {
+		err := executeCreatableCC(stmt, address, index, cc)
 		if err != nil {
-			return
+			return err
 		}
 	}
-	return
+	return nil
 }
 
 type m7AdditionalAccountData struct {
-	asset    map[uint64]createClose
-	app      map[uint64]createClose
-	appLocal map[uint64]createClose
+	// Asset dates are stored separately.
+	asset    map[uint32]struct{}
+	app      map[uint32]createClose
+	appLocal map[uint32]createClose
 }
 
 type m7AccountData struct {
 	cumulativeRewards types.MicroAlgos
 	account           createClose
-	assetHolding      map[uint64]createClose
+	assetHolding      map[uint32]createClose
 	// Store other maps separately to save space, since most accounts do not use them.
 	additional *m7AdditionalAccountData
 }
 
 func initM7AdditionalData() *m7AdditionalAccountData {
 	return &m7AdditionalAccountData{
-		asset:    make(map[uint64]createClose),
-		app:      make(map[uint64]createClose),
-		appLocal: make(map[uint64]createClose),
+		asset:    make(map[uint32]struct{}),
+		app:      make(map[uint32]createClose),
+		appLocal: make(map[uint32]createClose),
 	}
 }
 
@@ -549,7 +555,7 @@ func initM7AccountData() *m7AccountData {
 	return &m7AccountData{
 		cumulativeRewards: 0,
 		account:           createClose{},
-		assetHolding:      make(map[uint64]createClose),
+		assetHolding:      make(map[uint32]createClose),
 	}
 }
 
@@ -562,7 +568,7 @@ func maybeInitializeAdditionalAccountData(accountData *m7AccountData) {
 // updateAccountData contains all the accounting logic to recompute total rewards and create/close
 // rounds. It modifies `accountData` and need to be called with every transaction from most
 // recent to oldest.
-func updateAccountData(address types.Address, round uint64, assetID uint64, stxn types.SignedTxnWithAD, accountData *m7AccountData) {
+func updateAccountData(address types.Address, round uint32, assetID uint32, stxn types.SignedTxnWithAD, accountData *m7AccountData, assetDataMap *map[uint32]createClose) {
 	// Transactions are ordered most recent to oldest, so this makes sure created is set to the
 	// oldest transaction.
 	accountData.account.createdValid = true
@@ -601,25 +607,21 @@ func updateAccountData(address types.Address, round uint64, assetID uint64, stxn
 
 	if accounting.AssetCreateTxn(stxn) {
 		maybeInitializeAdditionalAccountData(accountData)
-		accountData.additional.asset[assetID] =
-			updateCreate(round, accountData.additional.asset[assetID])
-		accountData.assetHolding[assetID] =
-			updateCreate(round, accountData.assetHolding[assetID])
+		cc := updateCreate(round, (*assetDataMap)[assetID])
+		(*assetDataMap)[assetID] = cc
+		accountData.additional.asset[assetID] = struct{}{}
+		accountData.assetHolding[assetID] = cc
 	}
 
 	if accounting.AssetDestroyTxn(stxn) {
-		maybeInitializeAdditionalAccountData(accountData)
-		accountData.additional.asset[assetID] =
-			updateClose(round, accountData.additional.asset[assetID])
-		accountData.assetHolding[assetID] =
-			updateClose(round, accountData.assetHolding[assetID])
+		(*assetDataMap)[assetID] = updateClose(round, (*assetDataMap)[assetID])
 	}
 
 	if accounting.AssetOptInTxn(stxn) {
 		accountData.assetHolding[assetID] = updateCreate(round, accountData.assetHolding[assetID])
 	}
 
-	if accounting.AssetOptOutTxn(stxn) && stxn.Txn.Sender == address {
+	if accounting.AssetOptOutTxn(stxn) && (stxn.Txn.Sender == address) {
 		accountData.assetHolding[assetID] = updateClose(round, accountData.assetHolding[assetID])
 	}
 
@@ -660,7 +662,7 @@ func updateAccountData(address types.Address, round uint64, assetID uint64, stxn
 // Note: These queries only work if closed_at was reset before the migration is started. That is true
 //       for the initial migration, but if we need to reuse it in the future we'll need to fix the queries
 //       or redo the query.
-func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAccountData, maxRound int64) error {
+func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAccountData, maxRound uint32, assetDataMap *map[uint32]createClose) error {
 	// Make sure round accounting doesn't interfere with updating these accounts.
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
@@ -749,7 +751,7 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 		}
 
 		// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
-		err = executeForEachCreatable(setCreateCloseAssetHolding, ad.address[:],
+		err = executeForEachCreatable(setCreateCloseAssetHolding, ad.address,
 			ad.accountData.assetHolding)
 		if err != nil {
 			return fmt.Errorf("%s: failed to update %s with asset holding create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
@@ -757,20 +759,28 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 
 		if ad.accountData.additional != nil {
 			// 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
-			err = executeForEachCreatable(setCreateCloseAsset, ad.address[:],
-				ad.accountData.additional.asset)
-			if err != nil {
-				return fmt.Errorf("%s: failed to update %s with asset create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+			for index := range ad.accountData.additional.asset {
+				cc, ok := (*assetDataMap)[index]
+				if !ok {
+					return fmt.Errorf("%s: asset index %d created by %s is not in assetDataMap",
+						rewardsCreateCloseUpdateErr, index, addressStr)
+				}
+				err := executeCreatableCC(setCreateCloseAsset, ad.address, index, cc)
+				if err != nil {
+					return fmt.Errorf("%s: failed to update %s with asset index %d create/close: %v",
+						rewardsCreateCloseUpdateErr, addressStr, index, err)
+				}
+				delete(*assetDataMap, index)
 			}
 
 			// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
-			err = executeForEachCreatable(setCreateCloseApp, ad.address[:], ad.accountData.additional.app)
+			err = executeForEachCreatable(setCreateCloseApp, ad.address, ad.accountData.additional.app)
 			if err != nil {
 				return fmt.Errorf("%s: failed to update %s with app create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
 			}
 
 			// 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
-			err = executeForEachCreatable(setCreateCloseAppLocal, ad.address[:],
+			err = executeForEachCreatable(setCreateCloseAppLocal, ad.address,
 				ad.accountData.additional.appLocal)
 			if err != nil {
 				return fmt.Errorf("%s: failed to update %s with app local create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
@@ -787,7 +797,7 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 	return nil
 }
 
-func getAccountsFirstUsed(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAccounts) (map[sdk_types.Address]txnID, error) {
+func getAccountsFirstUsed(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialAccounts) (map[sdk_types.Address]txnID, error) {
 	res := make(map[sdk_types.Address]txnID)
 
 	// Read all transactions in arbitrary order.
@@ -803,8 +813,8 @@ func getAccountsFirstUsed(db *IndexerDb, maxRound int64, specialAccounts idb.Spe
 	numRows := 0
 	db.log.Print("started reading transactions (pass 1)")
 	for rows.Next() {
-		var round uint64
-		var intra uint64
+		var round uint32
+		var intra uint32
 		var txnBytes []byte
 		err = rows.Scan(&round, &intra, &txnBytes)
 		if err != nil {
@@ -821,7 +831,7 @@ func getAccountsFirstUsed(db *IndexerDb, maxRound int64, specialAccounts idb.Spe
 		for _, address := range participants {
 			// Don't update special accounts (m10 fixes this).
 			if (address != specialAccounts.RewardsPool) && (address != specialAccounts.FeeSink) {
-				txnID := txnID{uint32(round), uint32(intra)}
+				txnID := txnID{round, intra}
 
 				storedTxnID, ok := res[address]
 				if !ok {
@@ -898,11 +908,13 @@ func getAccountsWithoutTxnData(db *IndexerDb, specialAccounts idb.SpecialAccount
 	return res, nil
 }
 
-func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAccounts, accountsFirstUsed map[sdk_types.Address]txnID, readyAccountData []addressAccountData) error {
+func updateAccounts(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialAccounts, accountsFirstUsed map[sdk_types.Address]txnID, readyAccountData []addressAccountData) error {
 	// Query all transactions again.
 	batchSize := 500
 
 	accountDataMap := make(map[sdk_types.Address]*m7AccountData)
+	assetDataMap := make(map[uint32]createClose)
+
 	numAccounts := len(accountsFirstUsed)
 	numAccountsUpdated := 0
 
@@ -921,10 +933,10 @@ func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAc
 	numRows := 0
 	numBatches := 0
 	for rows.Next() {
-		var round uint64
-		var intra uint64
+		var round uint32
+		var intra uint32
 		var txnBytes []byte
-		var assetID uint64
+		var assetID uint32
 		err = rows.Scan(&round, &intra, &txnBytes, &assetID)
 		if err != nil {
 			return fmt.Errorf("%s: unable to scan a row: %v", rewardsCreateCloseUpdateErr, err)
@@ -947,7 +959,7 @@ func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAc
 					accountDataMap[address] = accountData
 				}
 
-				updateAccountData(address, round, assetID, stxn, accountData)
+				updateAccountData(address, round, assetID, stxn, accountData, &assetDataMap)
 
 				firstUsed, ok := accountsFirstUsed[address]
 				if !ok {
@@ -961,7 +973,10 @@ func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAc
 
 					if len(readyAccountData) >= batchSize {
 						start := time.Now()
-						err = m7RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, maxRound)
+						// Write account data to the database. This function also removes any assets
+						// from `assetDataMap` that are not needed anymore.
+						err = m7RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, maxRound,
+							&assetDataMap)
 						if err != nil {
 							return err
 						}
@@ -992,16 +1007,21 @@ func updateAccounts(db *IndexerDb, maxRound int64, specialAccounts idb.SpecialAc
 	}
 	db.log.Print("m7: finished reading transactions (pass 2)")
 
+	// Update remaining accounts.
+	err = m7RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, maxRound, &assetDataMap)
+	if err != nil {
+		return err
+	}
+
 	if len(accountsFirstUsed) > 0 {
 		return fmt.Errorf("%s: len(accountsFirstUsed): %d > 0",
 			rewardsCreateCloseUpdateErr, len(accountsFirstUsed))
 	}
-
-	// Update remaining accounts.
-	err = m7RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, maxRound)
-	if err != nil {
-		return err
+	if len(assetDataMap) > 0 {
+		return fmt.Errorf("%s: len(assetDataMap): %d > 0",
+			rewardsCreateCloseUpdateErr, len(assetDataMap))
 	}
+
 	db.log.Print("m7: finished updating accounts")
 
 	return nil
@@ -1015,7 +1035,7 @@ func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	if err != nil {
 		return fmt.Errorf("%s: unable to get special accounts: %v", rewardsCreateCloseUpdateErr, err)
 	}
-	maxRound := state.NextRound
+	maxRound := uint32(state.NextRound)
 	accountsFirstUsed, err := getAccountsFirstUsed(db, maxRound, specialAccounts)
 	if err != nil {
 		return err
