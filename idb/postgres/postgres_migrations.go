@@ -49,6 +49,7 @@ func init() {
 		{m9SpecialAccountCleanup, false, "The initial m6 implementation would miss special accounts."},
 
 		{m11AssetHoldingFrozen, false, "Fix asset holding freeze states."},
+		{m12FixGenesisAccount, false, "Fix NonParticipating account that was closed and reopened."},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -1670,4 +1671,11 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 	tx.Commit()
 
 	return nil
+}
+
+func m12FixGenesisAccount(db *IndexerDb, state *MigrationState) error {
+	sqlLines := []string{
+		`UPDATE account set account_data = null where addr = decode('cZ/lK6oTDz4ZxIXTxa2p+Pz/IP9le2z0l+ZsAR3/6gc=', 'base64')`,
+	}
+	return sqlMigration(db, state, sqlLines)
 }
