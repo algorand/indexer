@@ -380,7 +380,7 @@ func m6RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	// Cache the round in the migration metastate
 	round, err := db.GetMaxRoundAccounted()
 	if err != nil {
-		db.log.WithError(err).Errorf("%s: problem caching max round: %v", rewardsCreateCloseUpdateErr, err)
+		db.log.WithError(err).Errorf("m6: problem caching max round: %v", err)
 		return err
 	}
 
@@ -411,9 +411,6 @@ func m6RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	}
 	return sqlMigration(db, state, sqlLines)
 }
-
-const rewardsCreateCloseUpdateMessage = "rewards, create_at, close_at migration error"
-const rewardsCreateCloseUpdateErr = rewardsCreateCloseUpdateMessage + " error"
 
 type addressAccountData struct {
 	address     sdk_types.Address
@@ -670,7 +667,7 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 	// Open a postgres transaction and submit results for each account.
 	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
-		return fmt.Errorf("%s: tx begin: %v", rewardsCreateCloseUpdateErr, err)
+		return fmt.Errorf("m7: tx begin: %v", err)
 	}
 	defer tx.Rollback() // ignored if .Commit() first
 
@@ -679,7 +676,7 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 	// We only set rewards_total when closed_at was set before that round.
 	updateTotalRewards, err := tx.Prepare(`UPDATE account SET rewards_total = coalesce(rewards_total, 0) + $2 WHERE addr = $1 AND coalesce(closed_at, 0) < $3`)
 	if err != nil {
-		return fmt.Errorf("%s: set rewards prepare: %v", rewardsCreateCloseUpdateErr, err)
+		return fmt.Errorf("m7: set rewards prepare: %v", err)
 	}
 	defer updateTotalRewards.Close()
 
@@ -688,35 +685,35 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 	// closed_at may already be set by the time the migration runs, or it might need to be cleared out.
 	setCreateCloseAccount, err := tx.Prepare(`UPDATE account SET created_at = $2, closed_at = coalesce(closed_at, $3), deleted = coalesce(deleted, $4) WHERE addr = $1`)
 	if err != nil {
-		return fmt.Errorf("%s: set create close prepare: %v", rewardsCreateCloseUpdateErr, err)
+		return fmt.Errorf("m7: set create close prepare: %v", err)
 	}
 	defer setCreateCloseAccount.Close()
 
 	// 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
 	setCreateCloseAsset, err := tx.Prepare(`UPDATE asset SET created_at = $3, closed_at = coalesce(closed_at, $4), deleted = coalesce(deleted, $5) WHERE creator_addr = $1 AND index=$2`)
 	if err != nil {
-		return fmt.Errorf("%s: set create close asset prepare: %v", rewardsCreateCloseUpdateErr, err)
+		return fmt.Errorf("m7: set create close asset prepare: %v", err)
 	}
 	defer setCreateCloseAsset.Close()
 
 	// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
 	setCreateCloseAssetHolding, err := tx.Prepare(`INSERT INTO account_asset(addr, assetid, amount, frozen, created_at, closed_at, deleted) VALUES ($1, $2, 0, false, $3, $4, $5) ON CONFLICT (addr, assetid) DO UPDATE SET created_at = EXCLUDED.created_at, closed_at = coalesce(account_asset.closed_at, EXCLUDED.closed_at), deleted = coalesce(account_asset.deleted, EXCLUDED.deleted)`)
 	if err != nil {
-		return fmt.Errorf("%s: set create close asset holding prepare: %v", rewardsCreateCloseUpdateErr, err)
+		return fmt.Errorf("m7: set create close asset holding prepare: %v", err)
 	}
 	defer setCreateCloseAssetHolding.Close()
 
 	// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
 	setCreateCloseApp, err := tx.Prepare(`UPDATE app SET created_at = $3, closed_at = coalesce(closed_at, $4), deleted = coalesce(deleted, $5) WHERE creator = $1 AND index=$2`)
 	if err != nil {
-		return fmt.Errorf("%s: set create close app prepare: %v", rewardsCreateCloseUpdateErr, err)
+		return fmt.Errorf("m7: set create close app prepare: %v", err)
 	}
 	defer setCreateCloseApp.Close()
 
 	// 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
 	setCreateCloseAppLocal, err := tx.Prepare(`INSERT INTO account_app (addr, app, created_at, closed_at, deleted) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (addr, app) DO UPDATE SET created_at = EXCLUDED.created_at, closed_at = coalesce(account_app.closed_at, EXCLUDED.closed_at), deleted = coalesce(account_app.deleted, EXCLUDED.deleted)`)
 	if err != nil {
-		return fmt.Errorf("%s: set create close app local prepare: %v", rewardsCreateCloseUpdateErr, err)
+		return fmt.Errorf("m7: set create close app local prepare: %v", err)
 	}
 	defer setCreateCloseAppLocal.Close()
 
@@ -727,7 +724,8 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 		// 1. updateTotalRewards            - conditionally update the total rewards if the account wasn't closed during iteration.
 		_, err = updateTotalRewards.Exec(ad.address[:], ad.accountData.cumulativeRewards, maxRound)
 		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with rewards %d: %v", rewardsCreateCloseUpdateErr, addressStr, ad.accountData.cumulativeRewards, err)
+			return fmt.Errorf("m7: failed to update %s with rewards %d: %v",
+				addressStr, ad.accountData.cumulativeRewards, err)
 		}
 
 		// 2. setCreateCloseAccount      - set the accounts create/close rounds.
@@ -746,7 +744,7 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 			}
 			_, err = setCreateCloseAccount.Exec(ad.address[:], created, closed, deleted)
 			if err != nil {
-				return fmt.Errorf("%s: failed to update %s with create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+				return fmt.Errorf("m7: failed to update %s with create/close: %v", addressStr, err)
 			}
 		}
 
@@ -754,7 +752,8 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 		err = executeForEachCreatable(setCreateCloseAssetHolding, ad.address,
 			ad.accountData.assetHolding)
 		if err != nil {
-			return fmt.Errorf("%s: failed to update %s with asset holding create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+			return fmt.Errorf("m7: failed to update %s with asset holding create/close: %v",
+				addressStr, err)
 		}
 
 		if ad.accountData.additional != nil {
@@ -762,13 +761,13 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 			for index := range ad.accountData.additional.asset {
 				cc, ok := (*assetDataMap)[index]
 				if !ok {
-					return fmt.Errorf("%s: asset index %d created by %s is not in assetDataMap",
-						rewardsCreateCloseUpdateErr, index, addressStr)
+					return fmt.Errorf("m7: asset index %d created by %s is not in assetDataMap",
+						index, addressStr)
 				}
 				err := executeCreatableCC(setCreateCloseAsset, ad.address, index, cc)
 				if err != nil {
-					return fmt.Errorf("%s: failed to update %s with asset index %d create/close: %v",
-						rewardsCreateCloseUpdateErr, addressStr, index, err)
+					return fmt.Errorf("m7: failed to update %s with asset index %d create/close: %v",
+						addressStr, index, err)
 				}
 				delete(*assetDataMap, index)
 			}
@@ -776,14 +775,15 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 			// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
 			err = executeForEachCreatable(setCreateCloseApp, ad.address, ad.accountData.additional.app)
 			if err != nil {
-				return fmt.Errorf("%s: failed to update %s with app create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+				return fmt.Errorf("m7: failed to update %s with app create/close: %v", addressStr, err)
 			}
 
 			// 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
 			err = executeForEachCreatable(setCreateCloseAppLocal, ad.address,
 				ad.accountData.additional.appLocal)
 			if err != nil {
-				return fmt.Errorf("%s: failed to update %s with app local create/close: %v", rewardsCreateCloseUpdateErr, addressStr, err)
+				return fmt.Errorf("m7: failed to update %s with app local create/close: %v",
+					addressStr, err)
 			}
 		}
 	}
@@ -791,7 +791,7 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 	// Commit transactions.
 	err = tx.Commit()
 	if err != nil {
-		return fmt.Errorf("%s: failed to commit changes: %v", rewardsCreateCloseUpdateErr, err)
+		return fmt.Errorf("m7: failed to commit changes: %v", err)
 	}
 
 	return nil
@@ -805,8 +805,7 @@ func getAccountsFirstUsed(db *IndexerDb, maxRound uint32, specialAccounts idb.Sp
 	query := "SELECT round, intra, txnbytes FROM txn WHERE round <= $1"
 	rows, err := db.db.Query(query, maxRound)
 	if err != nil {
-		return nil, fmt.Errorf("%s: unable to query transactions (pass 1): %v",
-			rewardsCreateCloseUpdateErr, err)
+		return nil, fmt.Errorf("m7: unable to query transactions (pass 1): %v", err)
 	}
 	defer rows.Close()
 
@@ -818,13 +817,13 @@ func getAccountsFirstUsed(db *IndexerDb, maxRound uint32, specialAccounts idb.Sp
 		var txnBytes []byte
 		err = rows.Scan(&round, &intra, &txnBytes)
 		if err != nil {
-			return nil, fmt.Errorf("%s: unable to scan a row: %v", rewardsCreateCloseUpdateErr, err)
+			return nil, fmt.Errorf("m7: unable to scan a row: %v", err)
 		}
 
 		var stxn types.SignedTxnWithAD
 		err = msgpack.Decode(txnBytes, &stxn)
 		if err != nil {
-			return nil, fmt.Errorf("%s: unable to scan a row: %v", rewardsCreateCloseUpdateErr, err)
+			return nil, fmt.Errorf("m7: unable to scan a row: %v", err)
 		}
 
 		participants := getParticipants(stxn)
@@ -850,7 +849,7 @@ func getAccountsFirstUsed(db *IndexerDb, maxRound uint32, specialAccounts idb.Sp
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("%s: error scanning rows: %v", rewardsCreateCloseUpdateErr, err)
+		return nil, fmt.Errorf("m7: error scanning rows: %v", err)
 	}
 	db.log.Print("finished reading transactions (pass 1)")
 
@@ -874,14 +873,13 @@ func getAccountsWithoutTxnData(db *IndexerDb, specialAccounts idb.SpecialAccount
 	db.log.Print("started reading accounts")
 	for accountRow := range accountCh {
 		if accountRow.Error != nil {
-			return nil, fmt.Errorf("%s: problem querying accounts: %v",
-				rewardsCreateCloseUpdateErr, accountRow.Error)
+			return nil, fmt.Errorf("m7: problem querying accounts: %v", accountRow.Error)
 		}
 
 		address, err := sdk_types.DecodeAddress(accountRow.Account.Address)
 		if err != nil {
-			return nil, fmt.Errorf("%s: failed to decode address %s err: %v",
-				rewardsCreateCloseUpdateErr, accountRow.Account.Address, err)
+			return nil, fmt.Errorf("m7: failed to decode address %s err: %v",
+				accountRow.Account.Address, err)
 		}
 
 		// Don't update special accounts (m10 fixes this)
@@ -922,7 +920,7 @@ func updateAccounts(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialA
 	query := "SELECT round, intra, txnbytes, asset FROM txn WHERE round <= $1 ORDER BY round DESC, intra DESC"
 	rows, err := db.db.Query(query, maxRound)
 	if err != nil {
-		return fmt.Errorf("%s: unable to query transactions: %v", rewardsCreateCloseUpdateErr, err)
+		return fmt.Errorf("m7: unable to query transactions: %v", err)
 	}
 	defer rows.Close()
 
@@ -939,14 +937,14 @@ func updateAccounts(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialA
 		var assetID uint32
 		err = rows.Scan(&round, &intra, &txnBytes, &assetID)
 		if err != nil {
-			return fmt.Errorf("%s: unable to scan a row: %v", rewardsCreateCloseUpdateErr, err)
+			return fmt.Errorf("m7: unable to scan a row: %v", err)
 		}
 
 		var stxn types.SignedTxnWithAD
 		err = msgpack.Decode(txnBytes, &stxn)
 		if err != nil {
-			return fmt.Errorf("%s: unable to parse txnBytes round: %d intra: %d err: %v",
-				rewardsCreateCloseUpdateErr, round, intra, err)
+			return fmt.Errorf("m7: unable to parse txnBytes round: %d intra: %d err: %v",
+				round, intra, err)
 		}
 
 		participants := getParticipants(stxn)
@@ -963,8 +961,7 @@ func updateAccounts(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialA
 
 				firstUsed, ok := accountsFirstUsed[address]
 				if !ok {
-					return fmt.Errorf("%s: accountFirstUsed does not contain address: %v",
-						rewardsCreateCloseUpdateErr, address)
+					return fmt.Errorf("m7: accountFirstUsed does not contain address: %v", address)
 				}
 				if (txnID{uint32(round), uint32(intra)}) == firstUsed {
 					readyAccountData = append(readyAccountData, addressAccountData{address, accountData})
@@ -1003,7 +1000,7 @@ func updateAccounts(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialA
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return fmt.Errorf("%s: error scanning rows: %v", rewardsCreateCloseUpdateErr, err)
+		return fmt.Errorf("m7: error scanning rows: %v", err)
 	}
 	db.log.Print("m7: finished reading transactions (pass 2)")
 
@@ -1014,12 +1011,10 @@ func updateAccounts(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialA
 	}
 
 	if len(accountsFirstUsed) > 0 {
-		return fmt.Errorf("%s: len(accountsFirstUsed): %d > 0",
-			rewardsCreateCloseUpdateErr, len(accountsFirstUsed))
+		return fmt.Errorf("m7: len(accountsFirstUsed): %d > 0", len(accountsFirstUsed))
 	}
 	if len(assetDataMap) > 0 {
-		return fmt.Errorf("%s: len(assetDataMap): %d > 0",
-			rewardsCreateCloseUpdateErr, len(assetDataMap))
+		return fmt.Errorf("m7: len(assetDataMap): %d > 0", len(assetDataMap))
 	}
 
 	db.log.Print("m7: finished updating accounts")
@@ -1033,7 +1028,7 @@ func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 
 	specialAccounts, err := db.GetSpecialAccounts()
 	if err != nil {
-		return fmt.Errorf("%s: unable to get special accounts: %v", rewardsCreateCloseUpdateErr, err)
+		return fmt.Errorf("m7: unable to get special accounts: %v", err)
 	}
 	maxRound := uint32(state.NextRound)
 	accountsFirstUsed, err := getAccountsFirstUsed(db, maxRound, specialAccounts)
@@ -1055,7 +1050,7 @@ func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	migrationStateJSON := idb.JSONOneLine(state)
 	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
-		return fmt.Errorf("%s: failed to update migration checkpoint: %v", rewardsCreateCloseUpdateErr, err)
+		return fmt.Errorf("m7: failed to update migration checkpoint: %v", err)
 	}
 
 	return nil
