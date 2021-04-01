@@ -8,13 +8,14 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"math"
+	"os"
+	"time"
+
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
-	"math"
-	"os"
-	"time"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/v2"
