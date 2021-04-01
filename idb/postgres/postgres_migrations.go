@@ -1582,7 +1582,7 @@ func m9SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 
 func updateFrozenState(db *IndexerDb, asset idb.AssetRow, addr types.Address) error {
 	// Semi-blocking migration.
-	// Hole accountingLock for the duration of the Transaction search + account_asset update.
+	// Hold accountingLock for the duration of the Transaction search + account_asset update.
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
