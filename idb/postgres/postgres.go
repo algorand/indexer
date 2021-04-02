@@ -1077,7 +1077,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		// Note! leaves `asset` and `account_asset` rows present for historical reference, but deletes all holdings from all accounts
 		any = true
 		// Update any account_asset holdings which were not previously closed. By now the amount should already be 0.
-		ads, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1, deleted = true WHERE assetid = $2 AND amount != 0`)
+		ads, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1, deleted = true WHERE addr = (SELECT creator_addr FROM asset WHERE index = $2) AND assetid = $2`)
 		if err != nil {
 			return fmt.Errorf("prepare asset destroy, %v", err)
 		}
