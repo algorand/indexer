@@ -608,6 +608,9 @@ func updateAccountData(address types.Address, round uint32, assetID uint32, stxn
 		cc := updateCreate(round, assetDataMap[assetID])
 		assetDataMap[assetID] = cc
 		accountData.additional.asset[assetID] = struct{}{}
+		// Special handling of asset holding since creating and deleting an asset also creates and
+		// deletes an asset holding for the creator, but a different manager address can delete an
+		// asset.
 		accountData.assetHolding[assetID] = cc
 	}
 
@@ -857,9 +860,9 @@ func getAccountsFirstUsed(db *IndexerDb, maxRound uint32, specialAccounts idb.Sp
 	return res, nil
 }
 
+// Set Created, Deleted for accounts with no transactions.
+// Genesis accounts could have this property.
 func getAccountsWithoutTxnData(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialAccounts, accountsFirstUsed map[sdk_types.Address]txnID) ([]addressAccountData, error) {
-	// Set Created, Deleted for accounts with no transactions.
-	// Genesis accounts could have this property.
 	// Query accounts.
 	res := []addressAccountData{}
 
@@ -1029,20 +1032,31 @@ func updateAccounts(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialA
 func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	db.log.Print("m7 account cumulative rewards migration starting")
 
+	// Get special accounts, so that we can ignore them throughout the migration. A later migration
+	// handles them.
 	specialAccounts, err := db.GetSpecialAccounts()
 	if err != nil {
 		return fmt.Errorf("m7: unable to get special accounts: %v", err)
 	}
 	maxRound := uint32(state.NextRound)
+	// Get the transaction id that created each account. This function simple loops over all
+	// transactions from rounds <= `maxRound` in arbitrary order.
 	accountsFirstUsed, err := getAccountsFirstUsed(db, maxRound, specialAccounts)
 	if err != nil {
 		return err
 	}
+	// Get account data for accounts without transactions such as genesis accounts.
+	// This function reads the `account` table but only considers accounts created before or at
+	// `maxRound`.
 	readyAccountData, err := getAccountsWithoutTxnData(
 		db, maxRound, specialAccounts, accountsFirstUsed)
 	if err != nil {
 		return err
 	}
+	// Finally, read all accounts from most recent to oldest, update rewards and create/close dates,
+	// and write this account data to the database. To save memory, this function removes account's
+	// data as soon as we reach the transaction that created this account at which point older
+	// transactions cannot update its state. It writes account data to the database in batches.
 	err = updateAccounts(db, maxRound, specialAccounts, accountsFirstUsed, readyAccountData)
 	if err != nil {
 		return err
