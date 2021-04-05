@@ -857,7 +857,7 @@ func getAccountsFirstUsed(db *IndexerDb, maxRound uint32, specialAccounts idb.Sp
 	return res, nil
 }
 
-func getAccountsWithoutTxnData(db *IndexerDb, specialAccounts idb.SpecialAccounts, accountsFirstUsed map[sdk_types.Address]txnID) ([]addressAccountData, error) {
+func getAccountsWithoutTxnData(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialAccounts, accountsFirstUsed map[sdk_types.Address]txnID) ([]addressAccountData, error) {
 	// Set Created, Deleted for accounts with no transactions.
 	// Genesis accounts could have this property.
 	// Query accounts.
@@ -877,29 +877,32 @@ func getAccountsWithoutTxnData(db *IndexerDb, specialAccounts idb.SpecialAccount
 			return nil, fmt.Errorf("m7: problem querying accounts: %v", accountRow.Error)
 		}
 
-		address, err := sdk_types.DecodeAddress(accountRow.Account.Address)
-		if err != nil {
-			return nil, fmt.Errorf("m7: failed to decode address %s err: %v",
-				accountRow.Account.Address, err)
-		}
-
-		// Don't update special accounts (m10 fixes this)
-		if (address != specialAccounts.FeeSink) && (address != specialAccounts.RewardsPool) {
-			if _, ok := accountsFirstUsed[address]; !ok {
-				accountData := initM7AccountData()
-
-				accountData.account.createdValid = true
-				accountData.account.created = 0
-				accountData.account.deletedValid = true
-				accountData.account.deleted = false
-
-				res = append(res, addressAccountData{address, accountData})
+		if (accountRow.Account.CreatedAtRound == nil) ||
+			(*accountRow.Account.CreatedAtRound <= uint64(maxRound)) {
+			address, err := sdk_types.DecodeAddress(accountRow.Account.Address)
+			if err != nil {
+				return nil, fmt.Errorf("m7: failed to decode address %s err: %v",
+					accountRow.Account.Address, err)
 			}
-		}
 
-		numRows++
-		if numRows%1000000 == 0 {
-			db.log.Printf("m7: read %d accounts", numRows)
+			// Don't update special accounts (m10 fixes this)
+			if (address != specialAccounts.FeeSink) && (address != specialAccounts.RewardsPool) {
+				if _, ok := accountsFirstUsed[address]; !ok {
+					accountData := initM7AccountData()
+
+					accountData.account.createdValid = true
+					accountData.account.created = 0
+					accountData.account.deletedValid = true
+					accountData.account.deleted = false
+
+					res = append(res, addressAccountData{address, accountData})
+				}
+			}
+
+			numRows++
+			if numRows%1000000 == 0 {
+				db.log.Printf("m7: read %d accounts", numRows)
+			}
 		}
 	}
 	db.log.Print("m7: finished reading accounts")
@@ -1035,7 +1038,8 @@ func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	if err != nil {
 		return err
 	}
-	readyAccountData, err := getAccountsWithoutTxnData(db, specialAccounts, accountsFirstUsed)
+	readyAccountData, err := getAccountsWithoutTxnData(
+		db, maxRound, specialAccounts, accountsFirstUsed)
 	if err != nil {
 		return err
 	}
