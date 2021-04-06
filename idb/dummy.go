@@ -149,7 +149,7 @@ func (db *dummyIndexerDb) Health() (state Health, err error) {
 // IndexerFactory is used to install an IndexerDb implementation.
 type IndexerFactory interface {
 	Name() string
-	Build(arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error)
+	Build(arg string, opts IndexerDbOptions, log *log.Logger) (IndexerDb, error)
 }
 
 // TxnRow is metadata relating to one transaction in a transaction query.
@@ -424,7 +424,7 @@ func (df dummyFactory) Name() string {
 }
 
 // Build is part of the IndexerFactory interface.
-func (df dummyFactory) Build(arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
+func (df dummyFactory) Build(arg string, opts IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
 	return &dummyIndexerDb{log: log}, nil
 }
 
@@ -436,9 +436,15 @@ func init() {
 	RegisterFactory("dummy", &dummyFactory{})
 }
 
+// MigrationOptions are the options common to all indexer backends.
+type MigrationOptions struct {
+	ForceM7 bool
+}
+
 // IndexerDbOptions are the options common to all indexer backends.
 type IndexerDbOptions struct {
-	ReadOnly bool
+	ReadOnly         bool
+	MigrationOptions MigrationOptions
 }
 
 // RegisterFactory is used by IndexerDb implementations to register their implementations. This mechanism allows
@@ -449,7 +455,7 @@ func RegisterFactory(name string, factory IndexerFactory) {
 }
 
 // IndexerDbByName is used to construct an IndexerDb object by name.
-func IndexerDbByName(name, arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
+func IndexerDbByName(name, arg string, opts IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
 	if val, ok := indexerFactories[name]; ok {
 		return val.Build(arg, opts, log)
 	}

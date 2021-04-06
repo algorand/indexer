@@ -26,6 +26,7 @@ var (
 	noAlgod          bool
 	developerMode    bool
 	tokenString      string
+	forceM7          bool
 )
 
 var daemonCmd = &cobra.Command{
@@ -46,11 +47,12 @@ var daemonCmd = &cobra.Command{
 		if algodDataDir == "" {
 			algodDataDir = os.Getenv("ALGORAND_DATA")
 		}
-		opts := idb.IndexerDbOptions{}
+		migrationOpts := idb.MigrationOptions{ForceM7: forceM7}
+		opts := idb.IndexerDbOptions{MigrationOptions: migrationOpts}
 		if noAlgod {
 			opts.ReadOnly = true
 		}
-		db := globalIndexerDb(&opts)
+		db := globalIndexerDb(opts)
 
 		ctx, cf := context.WithCancel(context.Background())
 		defer cf()
@@ -154,6 +156,8 @@ func init() {
 	daemonCmd.Flags().BoolVarP(&noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
 	daemonCmd.Flags().StringVarP(&tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
 	daemonCmd.Flags().BoolVarP(&developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
+	daemonCmd.Flags().BoolVar(&forceM7, "force-m7", false,
+		"force running migration 7 (rewards and create/close dates)")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")

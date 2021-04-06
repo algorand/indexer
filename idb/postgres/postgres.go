@@ -45,7 +45,7 @@ var serializable = sql.TxOptions{Isolation: sql.LevelSerializable} // be a real 
 var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: true}
 
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
-func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
+func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
 	db, err := sql.Open("postgres", connection)
 
 	if err != nil {
@@ -53,9 +53,6 @@ func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger
 	}
 
 	if strings.Contains(connection, "readonly") {
-		if opts == nil {
-			opts = &idb.IndexerDbOptions{}
-		}
 		opts.ReadOnly = true
 	}
 
@@ -63,8 +60,9 @@ func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger
 }
 
 // Allow tests to inject a DB
-func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (pdb *IndexerDb, err error) {
+func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (pdb *IndexerDb, err error) {
 	pdb = &IndexerDb{
+		opts:       opts,
 		log:        logger,
 		db:         db,
 		protoCache: make(map[string]types.ConsensusParams, 20),
@@ -78,8 +76,7 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (p
 	}
 
 	// e.g. a user named "readonly" is in the connection string
-	readonly := (opts != nil) && opts.ReadOnly
-	if !readonly {
+	if !opts.ReadOnly {
 		err = pdb.init()
 	}
 	return
@@ -87,7 +84,8 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (p
 
 // IndexerDb is an idb.IndexerDB implementation
 type IndexerDb struct {
-	log *log.Logger
+	opts idb.IndexerDbOptions
+	log  *log.Logger
 
 	db *sql.DB
 
@@ -2992,7 +2990,7 @@ type postgresFactory struct {
 func (df postgresFactory) Name() string {
 	return "postgres"
 }
-func (df postgresFactory) Build(arg string, opts *idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, error) {
+func (df postgresFactory) Build(arg string, opts idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, error) {
 	return OpenPostgres(arg, opts, log)
 }
 

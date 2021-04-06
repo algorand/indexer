@@ -84,7 +84,7 @@ var (
 	logger         *log.Logger
 )
 
-func globalIndexerDb(opts *idb.IndexerDbOptions) idb.IndexerDb {
+func globalIndexerDb(opts idb.IndexerDbOptions) idb.IndexerDb {
 	if db == nil {
 		if postgresAddr != "" {
 			var err error

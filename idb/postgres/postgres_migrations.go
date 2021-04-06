@@ -821,6 +821,26 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 	return nil
 }
 
+func warnUser(db *IndexerDb, maxRound uint32) error {
+	query := "SELECT COUNT(*) FROM account WHERE (created_at IS NULL) OR (created_at <= $1)"
+	row := db.db.QueryRow(query, maxRound)
+
+	var count uint64
+	err := row.Scan(&count)
+	if err != nil {
+		return fmt.Errorf("m7: unable to query the number of rows: %v", err)
+	}
+
+	if count > 10000000/3*4 {
+		db.log.Print("the migration m7 is likely to use more than 4GB of RAM")
+		if !db.opts.MigrationOptions.ForceM7 {
+			return fmt.Errorf("m7: pass --force-m7 flag to force the migration")
+		}
+	}
+
+	return nil
+}
+
 func getAccountsFirstUsed(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialAccounts) (map[sdk_types.Address]txnID, error) {
 	res := make(map[sdk_types.Address]txnID)
 
@@ -1056,13 +1076,19 @@ func updateAccounts(db *IndexerDb, specialAccounts idb.SpecialAccounts, accounts
 func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	db.log.Print("m7 account cumulative rewards migration starting")
 
+	maxRound := uint32(state.NextRound)
+
+	// Get the number of accounts to potentially warn the user about high memory usage.
+	err := warnUser(db, maxRound)
+	if err != nil {
+		return err
+	}
 	// Get special accounts, so that we can ignore them throughout the migration. A later migration
 	// handles them.
 	specialAccounts, err := db.GetSpecialAccounts()
 	if err != nil {
 		return fmt.Errorf("m7: unable to get special accounts: %v", err)
 	}
-	maxRound := uint32(state.NextRound)
 	// Get the transaction id that created each account. This function simple loops over all
 	// transactions from rounds <= `maxRound` in arbitrary order.
 	accountsFirstUsed, err := getAccountsFirstUsed(db, maxRound, specialAccounts)

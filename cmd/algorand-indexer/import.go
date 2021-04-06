@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/algorand/indexer/config"
+	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 )
 
@@ -22,7 +23,7 @@ var importCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		db := globalIndexerDb(nil)
+		db := globalIndexerDb(idb.IndexerDbOptions{})
 
 		cache, err := db.GetDefaultFrozen()
 		if err != nil {
