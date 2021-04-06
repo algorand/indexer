@@ -70,6 +70,10 @@ type MigrationState struct {
 	// NextAssetID used for m3 to checkpoint progress.
 	NextAssetID int64 `json:"assetid,omitempty"`
 
+	// The following two are used for m7 to save progress.
+	PointerRound *int64 `json:"pointerRound,omitempty"`
+	PointerIntra *int64 `json:"pointerIntra,omitempty"`
+
 	// Note: a generic "data" field here could be a good way to deal with this growing over time.
 	//       It would require a mechanism to clear the data field between migrations to avoid using migration data
 	//       from the previous migration.
@@ -663,7 +667,10 @@ func updateAccountData(address types.Address, round uint32, assetID uint32, stxn
 // Note: These queries only work if closed_at was reset before the migration is started. That is true
 //       for the initial migration, but if we need to reuse it in the future we'll need to fix the queries
 //       or redo the query.
-func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAccountData, maxRound uint32, assetDataMap map[uint32]createClose) error {
+//
+// This function also deletes unnecessary elements from `assetDataMap`. `txnId` is the new
+// committed "pointer" in the transactions sequence.
+func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAccountData, assetDataMap map[uint32]createClose, txnID txnID, state *MigrationState) error {
 	// Make sure round accounting doesn't interfere with updating these accounts.
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
@@ -726,7 +733,8 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 		addressStr := ad.address.String()
 
 		// 1. updateTotalRewards            - conditionally update the total rewards if the account wasn't closed during iteration.
-		_, err = updateTotalRewards.Exec(ad.address[:], ad.accountData.cumulativeRewards, maxRound)
+		_, err = updateTotalRewards.Exec(
+			ad.address[:], ad.accountData.cumulativeRewards, state.NextRound)
 		if err != nil {
 			return fmt.Errorf("m7: failed to update %s with rewards %d: %v",
 				addressStr, ad.accountData.cumulativeRewards, err)
@@ -790,6 +798,18 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 					addressStr, err)
 			}
 		}
+	}
+
+	{
+		round := int64(txnID.round)
+		intra := int64(txnID.intra)
+		state.PointerRound = &round
+		state.PointerIntra = &intra
+	}
+	migrationStateJSON := idb.JSONOneLine(state)
+	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	if err != nil {
+		return fmt.Errorf("m7: failed to update migration checkpoint: %v", err)
 	}
 
 	// Commit transactions.
@@ -913,7 +933,7 @@ func getAccountsWithoutTxnData(db *IndexerDb, maxRound uint32, specialAccounts i
 	return res, nil
 }
 
-func updateAccounts(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialAccounts, accountsFirstUsed map[sdk_types.Address]txnID, readyAccountData []addressAccountData) error {
+func updateAccounts(db *IndexerDb, specialAccounts idb.SpecialAccounts, accountsFirstUsed map[sdk_types.Address]txnID, readyAccountData []addressAccountData, state *MigrationState) error {
 	// Query all transactions again.
 	batchSize := 500
 
@@ -925,7 +945,7 @@ func updateAccounts(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialA
 
 	db.log.Print("m7: querying transactions (pass 2)")
 	query := "SELECT round, intra, txnbytes, asset FROM txn WHERE round <= $1 ORDER BY round DESC, intra DESC"
-	rows, err := db.db.Query(query, maxRound)
+	rows, err := db.db.Query(query, state.NextRound)
 	if err != nil {
 		return fmt.Errorf("m7: unable to query transactions: %v", err)
 	}
@@ -971,29 +991,33 @@ func updateAccounts(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialA
 					return fmt.Errorf("m7: accountFirstUsed does not contain address: %v", address)
 				}
 				if (txnID{uint32(round), uint32(intra)}) == firstUsed {
-					readyAccountData = append(readyAccountData, addressAccountData{address, accountData})
 					delete(accountDataMap, address)
 					delete(accountsFirstUsed, address)
 
-					if len(readyAccountData) >= batchSize {
-						start := time.Now()
-						// Write account data to the database. This function also removes any assets
-						// from `assetDataMap` that are not needed anymore.
-						err = m7RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, maxRound, assetDataMap)
-						if err != nil {
-							return err
-						}
-						writeDuration += time.Since(start)
+					if (state.PointerRound == nil) ||
+						txnIDLess(firstUsed, txnID{uint32(*state.PointerRound), uint32(*state.PointerIntra)}) {
+						readyAccountData = append(readyAccountData, addressAccountData{address, accountData})
+						if len(readyAccountData) >= batchSize {
+							start := time.Now()
+							// Write account data to the database. This function also removes any assets
+							// from `assetDataMap` that are not needed anymore.
+							err = m7RewardsAndDatesPart2UpdateAccounts(
+								db, readyAccountData, assetDataMap, firstUsed, state)
+							if err != nil {
+								return err
+							}
+							writeDuration += time.Since(start)
 
-						numAccountsUpdated += len(readyAccountData)
-						readyAccountData = readyAccountData[:0]
+							numAccountsUpdated += len(readyAccountData)
+							readyAccountData = readyAccountData[:0]
 
-						numBatches++
-						if numBatches%100 == 0 {
-							db.log.Printf("m7: written %d (%.2f%%) accounts, %d batches; "+
-								"writing has taken %v in total",
-								numAccountsUpdated, float64(100*numAccountsUpdated)/float64(numAccounts),
-								numBatches, writeDuration)
+							numBatches++
+							if numBatches%100 == 0 {
+								db.log.Printf("m7: written %d (%.2f%%) accounts, %d batches; "+
+									"writing has taken %v in total",
+									numAccountsUpdated, float64(100*numAccountsUpdated)/float64(numAccounts),
+									numBatches, writeDuration)
+							}
 						}
 					}
 				}
@@ -1011,7 +1035,7 @@ func updateAccounts(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialA
 	db.log.Print("m7: finished reading transactions (pass 2)")
 
 	// Update remaining accounts.
-	err = m7RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, maxRound, assetDataMap)
+	err = m7RewardsAndDatesPart2UpdateAccounts(db, readyAccountData, assetDataMap, txnID{0, 0}, state)
 	if err != nil {
 		return err
 	}
@@ -1057,7 +1081,7 @@ func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	// and write this account data to the database. To save memory, this function removes account's
 	// data as soon as we reach the transaction that created this account at which point older
 	// transactions cannot update its state. It writes account data to the database in batches.
-	err = updateAccounts(db, maxRound, specialAccounts, accountsFirstUsed, readyAccountData)
+	err = updateAccounts(db, specialAccounts, accountsFirstUsed, readyAccountData, state)
 	if err != nil {
 		return err
 	}
@@ -1065,10 +1089,12 @@ func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	// Update migration state.
 	state.NextMigration++
 	state.NextRound = 0
+	state.PointerRound = nil
+	state.PointerIntra = nil
 	migrationStateJSON := idb.JSONOneLine(state)
 	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
-		return fmt.Errorf("m7: failed to update migration checkpoint: %v", err)
+		return fmt.Errorf("m7: failed to write final migration state: %v", err)
 	}
 
 	return nil
