@@ -1794,20 +1794,22 @@ func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 
 // Helper functions for m11 migration
 
-func updateFrozenState(db *IndexerDb, asset idb.AssetRow, addr types.Address) error {
+func updateFrozenState(db *IndexerDb, assetID uint64, creator, holder types.Address) error {
 	// Semi-blocking migration.
 	// Hold accountingLock for the duration of the Transaction search + account_asset update.
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
-	// Query freeze transactions for this account.
+	// Query for transactions which changed the freeze state for this accounts asset holding.
 	txns, _ := db.Transactions(context.Background(), idb.TransactionFilter{
-		Address:  addr[:],
-		TypeEnum: idb.TypeEnumAssetFreeze,
-		Limit:    1,
+		Address:     holder[:],
+		TypeEnum:    idb.TypeEnumAssetFreeze,
+		Limit:       1,
+		AssetID:     assetID,
+		AddressRole: idb.AddressRoleFreeze,
 	})
 
-	// If there are any freeze transactions then the default has been changed and we can exit early.
+	// If there are any freeze transactions then the default no longer applies.
 	exitEarly := false
 	for range txns {
 		exitEarly = true
@@ -1817,8 +1819,8 @@ func updateFrozenState(db *IndexerDb, asset idb.AssetRow, addr types.Address) er
 	}
 
 	// If there were no freeze transactions, re-initialize the frozen value.
-	frozen := !bytes.Equal(asset.Creator, addr[:])
-	db.db.Exec(`UPDATE account_asset SET frozen = $1 WHERE assetid = $2 and addr = $3`, frozen, asset.AssetID, addr[:])
+	frozen := !bytes.Equal(creator[:], holder[:])
+	db.db.Exec(`UPDATE account_asset SET frozen = $1 WHERE assetid = $2 and addr = $3`, frozen, assetID, holder[:])
 
 	return nil
 }
@@ -1858,6 +1860,8 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 		if err != nil {
 			return fmt.Errorf("unable to fetch asset %d: %v", assetID, err)
 		}
+		var creator types.Address
+		copy(creator[:], asset.Creator)
 
 		balances, _ := db.AssetBalances(context.Background(), idb.AssetBalanceQuery{AssetID: assetID})
 		for balance := range balances {
@@ -1865,12 +1869,12 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 				return fmt.Errorf("unable to process asset balance for asset %d: %v", assetID, err)
 			}
 
-			var addr types.Address
-			copy(addr[:], balance.Address)
+			var holder types.Address
+			copy(holder[:], balance.Address)
 
-			err := updateFrozenState(db, asset, addr)
+			err := updateFrozenState(db, assetID, creator, holder)
 			if balance.Error != nil {
-				return fmt.Errorf("unable to process update frozen state asset %d / address %s: %v", assetID, addr.String(), err)
+				return fmt.Errorf("unable to process update frozen state asset %d / address %s: %v", assetID, holder.String(), err)
 			}
 		}
 	}
