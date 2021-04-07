@@ -832,10 +832,12 @@ func warnUser(db *IndexerDb, maxRound uint32) error {
 	}
 
 	if count > 10000000/3*4 {
-		db.log.Print("the migration m7 is likely to use more than 4GB of RAM")
+		db.log.Print("The current migration (m7) is likely to use more than 4GB of RAM.")
 
 		envVar := "FORCEM7"
 		if _, ok := os.LookupEnv(envVar); !ok {
+			db.log.Printf("To avoid overuse the process has stopped automatically. "+
+				"To force start the migration, please set the environment variable %s to TRUE.", envVar)
 			return fmt.Errorf("m7: set %s environment variable to force the migration", envVar)
 		}
 	}
