@@ -821,6 +821,32 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 	return nil
 }
 
+func warnUser(db *IndexerDb, maxRound uint32) error {
+	query := "SELECT COUNT(*) FROM account WHERE (created_at IS NULL) OR (created_at <= $1)"
+	row := db.db.QueryRow(query, maxRound)
+
+	var count uint64
+	err := row.Scan(&count)
+	if err != nil {
+		return fmt.Errorf("m7: unable to query the number of rows: %v", err)
+	}
+
+	// This many accounts need about 4GB of memory.
+	threshold := 10000000/3*4
+	if count > uint64(threshold) {
+		db.log.Print("The current migration (m7) is likely to use more than 4GB of RAM.")
+
+		envVar := "FORCEM7"
+		if _, ok := os.LookupEnv(envVar); !ok {
+			db.log.Printf("To avoid overuse the process has stopped automatically. "+
+				"To force start the migration, please set the environment variable %s to TRUE.", envVar)
+			return fmt.Errorf("m7: set %s environment variable to force the migration", envVar)
+		}
+	}
+
+	return nil
+}
+
 func getAccountsFirstUsed(db *IndexerDb, maxRound uint32, specialAccounts idb.SpecialAccounts) (map[sdk_types.Address]txnID, error) {
 	res := make(map[sdk_types.Address]txnID)
 
@@ -1056,13 +1082,19 @@ func updateAccounts(db *IndexerDb, specialAccounts idb.SpecialAccounts, accounts
 func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	db.log.Print("m7 account cumulative rewards migration starting")
 
+	maxRound := uint32(state.NextRound)
+
+	// Get the number of accounts to potentially warn the user about high memory usage.
+	err := warnUser(db, maxRound)
+	if err != nil {
+		return err
+	}
 	// Get special accounts, so that we can ignore them throughout the migration. A later migration
 	// handles them.
 	specialAccounts, err := db.GetSpecialAccounts()
 	if err != nil {
 		return fmt.Errorf("m7: unable to get special accounts: %v", err)
 	}
-	maxRound := uint32(state.NextRound)
 	// Get the transaction id that created each account. This function simple loops over all
 	// transactions from rounds <= `maxRound` in arbitrary order.
 	accountsFirstUsed, err := getAccountsFirstUsed(db, maxRound, specialAccounts)
