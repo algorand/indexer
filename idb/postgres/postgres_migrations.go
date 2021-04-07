@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"math"
 	"os"
@@ -1824,33 +1825,49 @@ func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 	return nil
 }
 
-// Helper functions for m11 migration
+// Search for the freeze accounts freeze transactions.
+// The Transaction filter doesn't support searching on multiple addresses.
+// $1 = freeze account - we have to assume that the freeze account has not been changed, the query does not perform well otherwise.
+// $2 = the holder account
+// $3 = assetID
+// $4 = round limit
+var freezeTransactionsQuery = `select count(*) from txn_participation p JOIN txn t ON t.round = p.round AND p.intra = t.intra 
+WHERE p.addr = $1 
+AND (t.txn -> 'txn' ->> 'fadd' = $2) 
+AND t.asset = $3
+AND p.round > $4
+LIMIT 1`
 
-func updateFrozenState(db *IndexerDb, asset idb.AssetRow, addr types.Address) error {
+// Helper functions for m11 migration
+func updateFrozenState(db *IndexerDb, assetID uint64, closedAt *uint64, creator, freeze, holder types.Address) error {
 	// Semi-blocking migration.
 	// Hold accountingLock for the duration of the Transaction search + account_asset update.
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
-	// Query freeze transactions for this account.
-	txns, _ := db.Transactions(context.Background(), idb.TransactionFilter{
-		Address:  addr[:],
-		TypeEnum: idb.TypeEnumAssetFreeze,
-		Limit:    1,
-	})
-
-	// If there are any freeze transactions then the default has been changed and we can exit early.
-	exitEarly := false
-	for range txns {
-		exitEarly = true
+	minRound := uint64(0)
+	if closedAt != nil {
+		minRound = *closedAt
 	}
-	if exitEarly {
+
+	holderb64 := base64.StdEncoding.EncodeToString(holder[:])
+	row := db.db.QueryRow(freezeTransactionsQuery, freeze[:], holderb64, assetID, minRound)
+	var found uint64
+	err := row.Scan(&found)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
+
+	// If there are any freeze transactions then the default no longer applies.
+	// Exit early if the asset was frozen
+	if found != 0 {
 		return nil
 	}
 
+
 	// If there were no freeze transactions, re-initialize the frozen value.
-	frozen := !bytes.Equal(asset.Creator, addr[:])
-	db.db.Exec(`UPDATE account_asset SET frozen = $1 WHERE assetid = $2 and addr = $3`, frozen, asset.AssetID, addr[:])
+	frozen := !bytes.Equal(creator[:], holder[:])
+	db.db.Exec(`UPDATE account_asset SET frozen = $1 WHERE assetid = $2 and addr = $3`, frozen, assetID, holder[:])
 
 	return nil
 }
@@ -1890,6 +1907,8 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 		if err != nil {
 			return fmt.Errorf("unable to fetch asset %d: %v", assetID, err)
 		}
+		var creator types.Address
+		copy(creator[:], asset.Creator)
 
 		balances, _ := db.AssetBalances(context.Background(), idb.AssetBalanceQuery{AssetID: assetID})
 		for balance := range balances {
@@ -1897,12 +1916,12 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 				return fmt.Errorf("unable to process asset balance for asset %d: %v", assetID, err)
 			}
 
-			var addr types.Address
-			copy(addr[:], balance.Address)
+			var holder types.Address
+			copy(holder[:], balance.Address)
 
-			err := updateFrozenState(db, asset, addr)
+			err := updateFrozenState(db, assetID, balance.ClosedRound, creator, asset.Params.Freeze, holder)
 			if balance.Error != nil {
-				return fmt.Errorf("unable to process update frozen state asset %d / address %s: %v", assetID, addr.String(), err)
+				return fmt.Errorf("unable to process update frozen state asset %d / address %s: %v", assetID, holder.String(), err)
 			}
 		}
 	}
