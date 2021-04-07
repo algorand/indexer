@@ -163,21 +163,21 @@ func MakeAssetTxnOrPanic(round, assetid, amt uint64, sender, receiver, close typ
 
 // MakeAssetDestroyTxn makes a transaction that destroys an asset.
 func MakeAssetDestroyTxn(round uint64, assetID uint64) (*types.SignedTxnWithAD, *idb.TxnRow) {
-	txn := types.SignedTxnWithAD {
-		SignedTxn: types.SignedTxn {
-			Txn: types.Transaction {
+	txn := types.SignedTxnWithAD{
+		SignedTxn: types.SignedTxn{
+			Txn: types.Transaction{
 				Type: "acfg",
-				AssetConfigTxnFields: types.AssetConfigTxnFields {
+				AssetConfigTxnFields: types.AssetConfigTxnFields{
 					ConfigAsset: types.AssetIndex(assetID),
 				},
 			},
 		},
 	}
 
-	txnRow := idb.TxnRow {
-		Round: round,
+	txnRow := idb.TxnRow{
+		Round:    round,
 		TxnBytes: msgpack.Encode(txn),
-		AssetID: assetID,
+		AssetID:  assetID,
 	}
 
 	return &txn, &txnRow

@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
@@ -722,8 +722,8 @@ func assertAssetDates(t *testing.T, db *sql.DB, assetID uint64, deleted sql.Null
 
 func assertAssetHoldingDates(t *testing.T, db *sql.DB, address types.Address, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
 	row := db.QueryRow(
-		"SELECT deleted, created_at, closed_at FROM account_asset WHERE " +
-		"addr = $1 AND assetid = $2",
+		"SELECT deleted, created_at, closed_at FROM account_asset WHERE "+
+			"addr = $1 AND assetid = $2",
 		address[:], assetID)
 
 	var retDeleted sql.NullBool
@@ -763,13 +763,13 @@ func TestDestroyAssetBasic(t *testing.T) {
 	}
 	// Destroy an asset.
 	{
-		_, txnRow := test.MakeAssetDestroyTxn(test.Round + 1, assetID)
+		_, txnRow := test.MakeAssetDestroyTxn(test.Round+1, assetID)
 
-		state := getAccounting(test.Round + 1, cache)
+		state := getAccounting(test.Round+1, cache)
 		err := state.AddTransaction(txnRow)
 		assert.NoError(t, err)
 
-		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round + 1, &itypes.Block{})
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round+1, &itypes.Block{})
 		assert.NoError(t, err, "failed to commit")
 	}
 
@@ -855,14 +855,14 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 				Txn: types.Transaction{
 					Type: "acfg",
 					Header: types.Header{
-						Sender:     test.AccountA,
+						Sender: test.AccountA,
 					},
 					AssetConfigTxnFields: types.AssetConfigTxnFields{
 						AssetParams: types.AssetParams{
-							Manager:       test.AccountB,
-							Reserve:       test.AccountB,
-							Freeze:        test.AccountB,
-							Clawback:      test.AccountB,
+							Manager:  test.AccountB,
+							Reserve:  test.AccountB,
+							Freeze:   test.AccountB,
+							Clawback: test.AccountB,
 						},
 					},
 				},
