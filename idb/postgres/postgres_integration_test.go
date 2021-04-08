@@ -947,7 +947,7 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 
 	// Create a block with freeze txn
 	freeze, _ := test.MakeAssetFreezeOrPanic(test.Round, 1234, true, test.AccountA, test.AccountB)
-	block := test.MakeBlockForTxns(freeze)
+	block := test.MakeBlockForTxns(test.Round, freeze)
 
 	//////////
 	// When // We import the block.

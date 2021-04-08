@@ -36,6 +36,9 @@ var (
 	CloseMainToBCStxn *sdk_types.SignedTxnWithAD
 	// CloseMainToBC is a premade TxnRow which may be useful in tests.
 	CloseMainToBC *idb.TxnRow
+
+	// Proto is a fake protocol version.
+	Proto = "future"
 )
 
 func init() {
@@ -223,8 +226,44 @@ func MakePayTxnRowOrPanic(round, fee, amt, closeAmt, sendRewards, receiveRewards
 	return &txn, &txnRow
 }
 
+// MakeSimpleKeyregOnlineTxn creates a fake key registration transaction.
+func MakeSimpleKeyregOnlineTxn(round uint64, sender sdk_types.Address) (*sdk_types.SignedTxnWithAD, *idb.TxnRow) {
+	var votePK sdk_types.VotePK
+	votePK[0] = 1
+
+	var selectionPK sdk_types.VRFPK
+	selectionPK[0] = 2
+
+	txn := sdk_types.SignedTxnWithAD{
+		SignedTxn: sdk_types.SignedTxn{
+			Txn: sdk_types.Transaction{
+				Type: "keyreg",
+				Header: sdk_types.Header{
+					Sender:     sender,
+					FirstValid: sdk_types.Round(round),
+					LastValid:  sdk_types.Round(round),
+				},
+				KeyregTxnFields: sdk_types.KeyregTxnFields{
+					VotePK:          votePK,
+					SelectionPK:     selectionPK,
+					VoteFirst:       sdk_types.Round(round),
+					VoteLast:        sdk_types.Round(round),
+					VoteKeyDilution: 1,
+				},
+			},
+		},
+	}
+
+	txnRow := idb.TxnRow{
+		Round:    uint64(txn.Txn.FirstValid),
+		TxnBytes: msgpack.Encode(txn),
+	}
+
+	return &txn, &txnRow
+}
+
 // MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
-func MakeBlockForTxns(inputs ...*sdk_types.SignedTxnWithAD) types.EncodedBlockCert {
+func MakeBlockForTxns(round uint64, inputs ...*sdk_types.SignedTxnWithAD) types.EncodedBlockCert {
 	var txns []types.SignedTxnInBlock
 
 	for _, txn := range inputs {
@@ -238,7 +277,8 @@ func MakeBlockForTxns(inputs ...*sdk_types.SignedTxnWithAD) types.EncodedBlockCe
 	return types.EncodedBlockCert{
 		Block: types.Block{
 			BlockHeader: types.BlockHeader{
-				UpgradeState: types.UpgradeState{CurrentProtocol: "future"},
+				Round:        types.Round(round),
+				UpgradeState: types.UpgradeState{CurrentProtocol: types.ConsensusVersion(Proto)},
 			},
 			Payset: txns,
 		},

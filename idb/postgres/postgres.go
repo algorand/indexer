@@ -1392,7 +1392,10 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 			return types.Block{}, nil, err
 		}
 
-		go db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
+		go func() {
+			db.yieldTxnsThreadSimple(ctx, rows, out, nil, nil)
+			close(out)
+		}()
 
 		results := make([]idb.TxnRow, 0)
 		for txrow := range out {
@@ -1593,6 +1596,30 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	return
 }
 
+// This function blocks. `tx` must be non-nil.
+func (db *IndexerDb) yieldTxns(ctx context.Context, tx *sql.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
+	if len(tf.NextToken) > 0 {
+		db.txnsWithNext(ctx, tx, tf, out)
+		return
+	}
+
+	query, whereArgs, err := buildTransactionQuery(tf)
+	if err != nil {
+		err = fmt.Errorf("txn query err %v", err)
+		out <- idb.TxnRow{Error: err}
+		return
+	}
+
+	rows, err := tx.Query(query, whereArgs...)
+	if err != nil {
+		err = fmt.Errorf("txn query %#v err %v", query, err)
+		out <- idb.TxnRow{Error: err}
+		return
+	}
+
+	db.yieldTxnsThreadSimple(ctx, rows, out, nil, nil)
+}
+
 // Transactions is part of idb.IndexerDB
 func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	out := make(chan idb.TxnRow, 1)
@@ -1608,40 +1635,14 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 	if err != nil {
 		out <- idb.TxnRow{Error: err}
 		close(out)
-		tx.Rollback()
-		return out, round
-	}
-
-	if len(tf.NextToken) > 0 {
-		go func() {
-			db.txnsWithNext(ctx, tx, tf, out)
-			tx.Rollback()
-		}()
-		return out, round
-	}
-
-	query, whereArgs, err := buildTransactionQuery(tf)
-	if err != nil {
-		err = fmt.Errorf("txn query err %v", err)
-		out <- idb.TxnRow{Error: err}
-		close(out)
-		tx.Rollback()
-		return out, 0
-	}
-
-	rows, err := tx.Query(query, whereArgs...)
-	if err != nil {
-		err = fmt.Errorf("txn query %#v err %v", query, err)
-		out <- idb.TxnRow{Error: err}
-		close(out)
-		tx.Rollback()
 		return out, round
 	}
 
 	go func() {
-		db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
-		tx.Rollback()
+		db.yieldTxns(ctx, tx, tf, out)
+		close(out)
 	}()
+
 	return out, round
 }
 
@@ -1667,16 +1668,20 @@ func (db *IndexerDb) txTransactions(tx *sql.Tx, tf idb.TransactionFilter) <-chan
 		close(out)
 		return out
 	}
-	go db.yieldTxnsThreadSimple(context.Background(), rows, out, true, nil, nil)
+	go func() {
+		db.yieldTxnsThreadSimple(context.Background(), rows, out, nil, nil)
+		close(out)
+	}()
 	return out
 }
 
+// This function blocks. `tx` must be non-nil.
 func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
 	nextround, nextintra32, err := idb.DecodeTxnRowNext(tf.NextToken)
 	nextintra := uint64(nextintra32)
 	if err != nil {
 		out <- idb.TxnRow{Error: err}
-		close(out)
+		return
 	}
 	origRound := tf.Round
 	origOLT := tf.OffsetLT
@@ -1684,7 +1689,6 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.Transa
 	if tf.Address != nil {
 		// (round,intra) descending into the past
 		if nextround == 0 && nextintra == 0 {
-			close(out)
 			return
 		}
 		tf.Round = &nextround
@@ -1698,30 +1702,25 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.Transa
 	if err != nil {
 		err = fmt.Errorf("txn query err %v", err)
 		out <- idb.TxnRow{Error: err}
-		close(out)
 		return
 	}
 	rows, err := tx.Query(query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
 		out <- idb.TxnRow{Error: err}
-		close(out)
 		return
 	}
 	count := int(0)
-	db.yieldTxnsThreadSimple(ctx, rows, out, false, &count, &err)
+	db.yieldTxnsThreadSimple(ctx, rows, out, &count, &err)
 	if err != nil {
-		close(out)
 		return
 	}
 	if uint64(count) >= tf.Limit {
-		close(out)
 		return
 	}
 	tf.Limit -= uint64(count)
 	select {
 	case <-ctx.Done():
-		close(out)
 		return
 	default:
 	}
@@ -1731,7 +1730,6 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.Transa
 		tf.OffsetLT = origOLT
 		if nextround == 0 {
 			// NO second query
-			close(out)
 			return
 		}
 		tf.MaxRound = nextround - 1
@@ -1744,20 +1742,18 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.Transa
 	if err != nil {
 		err = fmt.Errorf("txn query err %v", err)
 		out <- idb.TxnRow{Error: err}
-		close(out)
 		return
 	}
 	rows, err = tx.Query(query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
 		out <- idb.TxnRow{Error: err}
-		close(out)
 		return
 	}
-	db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
+	db.yieldTxnsThreadSimple(ctx, rows, out, nil, nil)
 }
 
-func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, results chan<- idb.TxnRow, doClose bool, countp *int, errp *error) {
+func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, results chan<- idb.TxnRow, countp *int, errp *error) {
 	count := 0
 	for rows.Next() {
 		var round uint64
@@ -1803,9 +1799,6 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, 
 		}
 	}
 finish:
-	if doClose {
-		close(results)
-	}
 	if countp != nil {
 		*countp = count
 	}

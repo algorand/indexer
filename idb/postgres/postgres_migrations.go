@@ -50,9 +50,9 @@ func init() {
 		{m10SpecialAccountCleanup, false, "The initial m7 implementation would miss special accounts."},
 		{m11AssetHoldingFrozen, false, "Fix asset holding freeze states."},
 
-		// Migrations for _._._ release
-
+		// Migrations for a next release
 		{FixFreezeLookupMigration, false, "Fix search by asset freeze address."},
+		{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -2034,4 +2034,171 @@ func FixFreezeLookupMigration(db *IndexerDb, state *MigrationState) error {
 
 	// Update migration state
 	return upsertMigrationState(db, state, true)
+}
+
+type account struct {
+	address  sdk_types.Address
+	closedAt uint64 // the round when the account was last closed
+}
+
+func getAccounts(db *sql.DB) ([]account, error) {
+	query := "SELECT addr, closed_at FROM account WHERE closed_at IS NOT NULL AND deleted = false " +
+		"AND account_data IS NOT NULL"
+	rows, err := db.Query(query)
+	if err != nil {
+		return []account{}, err
+	}
+	defer rows.Close()
+
+	var res []account
+
+	for rows.Next() {
+		var addrBytes []byte
+		var closedAt sql.NullInt64
+
+		err = rows.Scan(&addrBytes, &closedAt)
+		if err != nil {
+			return []account{}, err
+		}
+
+		var addr sdk_types.Address
+		copy(addr[:], addrBytes)
+		res = append(res, account{addr, uint64(closedAt.Int64)})
+	}
+	if err := rows.Err(); err != nil {
+		return []account{}, err
+	}
+
+	return res, nil
+}
+
+func fixAuthAddr(db *IndexerDb, account account) error {
+	f := func(ctx context.Context, tx *sql.Tx) error {
+		defer tx.Rollback()
+
+		rowsCh := make(chan idb.TxnRow)
+
+		// This will not work properly if the account was closed and reopened in the same round
+		// but that's unlikely to happen.
+		trueValue := true
+		tf := idb.TransactionFilter{
+			Address:     account.address[:],
+			AddressRole: idb.AddressRoleSender,
+			RekeyTo:     &trueValue,
+			MinRound:    account.closedAt,
+			Limit:       1,
+		}
+		go func() {
+			db.yieldTxns(ctx, tx, tf, rowsCh)
+			close(rowsCh)
+		}()
+
+		found := false
+		for txnRow := range rowsCh {
+			if txnRow.Error != nil {
+				return txnRow.Error
+			}
+			found = true
+		}
+
+		if found {
+			return nil
+		}
+
+		// No results. Delete the key.
+		db.log.Printf("clearing auth addr for account %s", account.address.String())
+
+		query := "UPDATE account SET account_data = account_data - 'spend' WHERE addr = $1"
+		_, err := tx.Exec(query, account.address[:])
+		if err != nil {
+			return err
+		}
+
+		return tx.Commit()
+	}
+
+	return db.txWithRetry(context.Background(), serializable, f)
+}
+
+func fixKeyreg(db *IndexerDb, account account) error {
+	f := func(ctx context.Context, tx *sql.Tx) error {
+		defer tx.Rollback()
+
+		rowsCh := make(chan idb.TxnRow)
+
+		tf := idb.TransactionFilter{
+			Address:     account.address[:],
+			AddressRole: idb.AddressRoleSender,
+			MinRound:    account.closedAt,
+			TypeEnum:    idb.TypeEnumKeyreg,
+			Limit:       1,
+		}
+		go func() {
+			db.yieldTxns(ctx, tx, tf, rowsCh)
+			close(rowsCh)
+		}()
+
+		found := false
+		for txnRow := range rowsCh {
+			if txnRow.Error != nil {
+				return txnRow.Error
+			}
+			found = true
+		}
+
+		if found {
+			return nil
+		}
+
+		// No results. Delete keyreg fields.
+		db.log.Printf("clearing keyreg fields for account %s", account.address.String())
+
+		query := "UPDATE account SET account_data = account_data - 'vote' - 'sel' - 'onl' - " +
+			"'voteFst' - 'voteLst' - 'voteKD' WHERE addr = $1"
+		_, err := tx.Exec(query, account.address[:])
+		if err != nil {
+			return err
+		}
+
+		return tx.Commit()
+	}
+
+	return db.txWithRetry(context.Background(), serializable, f)
+}
+
+// ClearAccountDataMigration clears account data for accounts that have been closed.
+func ClearAccountDataMigration(db *IndexerDb, state *MigrationState) error {
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
+	// Clear account_data column for deleted accounts.
+	query := "UPDATE account SET account_data = NULL WHERE deleted = true;"
+	if _, err := db.db.Exec(query); err != nil {
+		return fmt.Errorf("error clearing deleted accounts: %v", err)
+	}
+
+	// Clear account data for some reopened accounts.
+	accounts, err := getAccounts(db.db)
+	if err != nil {
+		return fmt.Errorf("error getting accounts: %v", err)
+	}
+	db.log.Printf("checking %d accounts that are reopened and have account data", len(accounts))
+
+	for _, account := range accounts {
+		if err := fixAuthAddr(db, account); err != nil {
+			return fmt.Errorf("error clearing auth addr: %v", err)
+		}
+		if err := fixKeyreg(db, account); err != nil {
+			return fmt.Errorf("error clearing keyreg fields: %v", err)
+		}
+	}
+
+	state.NextMigration++
+	migrationStateJSON := idb.JSONOneLine(state)
+	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	if err != nil {
+		return fmt.Errorf("metastate upsert error: %v", err)
+	}
+
+	return nil
 }
