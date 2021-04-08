@@ -42,7 +42,7 @@ const migrationMetastateKey = "migration"
 const specialAccountsMetastateKey = "accounts"
 
 var serializable = sql.TxOptions{Isolation: sql.LevelSerializable} // be a real ACID database
-var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: true}
+var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}
 
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
 func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
