@@ -46,6 +46,9 @@ lint:
 fmt:
 	go fmt ./...
 
+fmt-check:
+	[ -z `go fmt ./...` ]
+
 integration: cmd/algorand-indexer/algorand-indexer
 	mkdir -p test/blockdata
 	mkdir -p test/migrations
