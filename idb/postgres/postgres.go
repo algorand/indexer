@@ -50,6 +50,9 @@ func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger
 	if err != nil {
 		return nil, err
 	}
+	if err != nil {
+		return nil, err
+	}
 
 	if strings.Contains(connection, "readonly") {
 		if opts == nil {
