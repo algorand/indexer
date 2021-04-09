@@ -47,7 +47,6 @@ var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelRepeatableRead, R
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
 func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
 	db, err := sql.Open("postgres", connection)
-
 	if err != nil {
 		return nil, err
 	}
