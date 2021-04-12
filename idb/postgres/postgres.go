@@ -27,7 +27,7 @@ import (
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	// Load the postgres sql.DB implementation
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -104,6 +104,28 @@ type IndexerDb struct {
 	migration *migration.Migration
 
 	accountingLock sync.Mutex
+}
+
+// A helper function that retries the function `f` in case the database transaction in it
+// fails due to a serialization error. `f` must return an error which contains the error returned
+// by sql.Tx.Commit(). The easiest way is to just return the result of sql.Tx.Commit().
+func (db *IndexerDb) txnWithRetry(f func() error) error {
+	count := 0
+	for {
+		err := f()
+
+		// If not serialization error.
+		var pqerr *pq.Error
+		if !errors.As(err, &pqerr) || (pqerr.Code != "40001") {
+			if count > 0 {
+				db.log.Printf("transaction was retried %d times", count)
+			}
+			return err
+		}
+
+		count++
+		db.log.Printf("retrying transaction, count: %d", count)
+	}
 }
 
 func (db *IndexerDb) init(opts *idb.IndexerDbOptions) (err error) {
@@ -200,8 +222,7 @@ func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, ass
 	return nil
 }
 
-// CommitBlock is part of idb.IndexerDB
-func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
+func (db *IndexerDb) commitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
 	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
 		return fmt.Errorf("BeginTx %v", err)
@@ -280,12 +301,19 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 		return fmt.Errorf("put block_header %v    %#v", err, err)
 	}
 
-	err = tx.Commit()
+	return tx.Commit()
+}
+
+// CommitBlock is part of idb.IndexerDB
+func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
+	f := func() error {
+		return db.commitBlock(round, timestamp, rewardslevel, headerbytes)
+	}
+	err := db.txnWithRetry(f)
+
 	db.txrows = nil
 	db.txprows = nil
-	if err != nil {
-		return fmt.Errorf("on commit, %v", err)
-	}
+
 	return err
 }
 
@@ -844,8 +872,7 @@ func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []i
 	return append(dirty, x)
 }
 
-// CommitRoundAccounting is part of idb.IndexerDB
-func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
+func (db *IndexerDb) commitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
@@ -1356,6 +1383,14 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		return
 	}
 	return tx.Commit()
+}
+
+// CommitRoundAccounting is part of idb.IndexerDB
+func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) error {
+	f := func() (err error) {
+		return db.commitRoundAccounting(updates, round, blockPtr)
+	}
+	return db.txnWithRetry(f)
 }
 
 // GetBlock is part of idb.IndexerDB
