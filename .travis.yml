@@ -17,7 +17,7 @@ addons:
     - python3-setuptools
     - python3-wheel
 script:
-- make fmt-check
+- test -z `go fmt ./...`
 - make lint
 - make
 - make integration
