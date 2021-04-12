@@ -2,6 +2,7 @@ package accounting
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	atypes "github.com/algorand/go-algorand-sdk/types"
@@ -10,6 +11,15 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 )
+
+// ConsistencyError is returned when the database returns inconsistent (stale) results.
+type ConsistencyError struct {
+	msg string
+}
+
+func (e ConsistencyError) Error() string {
+	return e.msg
+}
 
 func assetUpdate(account *models.Account, assetid uint64, add, sub uint64) {
 	if account.Assets == nil {
@@ -35,18 +45,65 @@ func assetUpdate(account *models.Account, assetid uint64, add, sub uint64) {
 	*account.Assets = assets
 }
 
+// SpecialAccountRewindError indicates that an attempt was made to rewind one of the special accounts.
+type SpecialAccountRewindError struct {
+	account string
+}
+
+// MakeSpecialAccountRewindError helper to initialize a SpecialAccountRewindError.
+func MakeSpecialAccountRewindError(account string) *SpecialAccountRewindError {
+	return &SpecialAccountRewindError{account: account}
+}
+
+// Error is part of the error interface.
+func (sare *SpecialAccountRewindError) Error() string {
+	return fmt.Sprintf("unable to rewind the %s", sare.account)
+}
+
+var specialAccounts *idb.SpecialAccounts
+
+// AccountAtRound queries the idb.IndexerDb object for transactions and rewinds most fields of the account back to
+// their values at the requested round.
+// `round` must be <= `account.Round`
 func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acct models.Account, err error) {
+	// Make sure special accounts cache has been initialized.
+	if specialAccounts == nil {
+		var accounts idb.SpecialAccounts
+		accounts, err = db.GetSpecialAccounts()
+		if err != nil {
+			return models.Account{}, fmt.Errorf("unable to get special accounts: %v", err)
+		}
+		specialAccounts = &accounts
+	}
+
 	acct = account
-	addr, err := atypes.DecodeAddress(account.Address)
+	var addr types.Address
+	addr, err = atypes.DecodeAddress(account.Address)
 	if err != nil {
 		return
 	}
+
+	// ensure that the don't attempt to rewind a special account.
+	if specialAccounts.FeeSink == addr {
+		err = MakeSpecialAccountRewindError("FeeSink")
+		return
+	}
+	if specialAccounts.RewardsPool == addr {
+		err = MakeSpecialAccountRewindError("RewardsPool")
+		return
+	}
+
+	// Get transactions and rewind account.
 	tf := idb.TransactionFilter{
 		Address:  addr[:],
 		MinRound: round + 1,
 		MaxRound: account.Round,
 	}
-	txns := db.Transactions(context.Background(), tf)
+	txns, r := db.Transactions(context.Background(), tf)
+	if r < account.Round {
+		err = ConsistencyError{fmt.Sprintf("queried round r: %d < account.Round: %d", r, account.Round)}
+		return
+	}
 	txcount := 0
 	for txnrow := range txns {
 		if txnrow.Error != nil {
@@ -62,6 +119,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		if addr == stxn.Txn.Sender {
 			acct.AmountWithoutPendingRewards += uint64(stxn.Txn.Fee)
 			acct.AmountWithoutPendingRewards -= uint64(stxn.SenderRewards)
+			acct.Rewards -= uint64(stxn.SenderRewards)
 		}
 		switch stxn.Txn.Type {
 		case atypes.PaymentTx:
@@ -71,22 +129,23 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			if addr == stxn.Txn.Receiver {
 				acct.AmountWithoutPendingRewards -= uint64(stxn.Txn.Amount)
 				acct.AmountWithoutPendingRewards -= uint64(stxn.ReceiverRewards)
+				acct.Rewards -= uint64(stxn.ReceiverRewards)
 			}
 			if addr == stxn.Txn.CloseRemainderTo {
 				// unwind receiving a close-to
 				acct.AmountWithoutPendingRewards -= uint64(stxn.ClosingAmount)
 				acct.AmountWithoutPendingRewards -= uint64(stxn.CloseRewards)
+				acct.Rewards -= uint64(stxn.CloseRewards)
 			} else if !stxn.Txn.CloseRemainderTo.IsZero() {
 				// unwind sending a close-to
 				acct.AmountWithoutPendingRewards += uint64(stxn.ClosingAmount)
-				acct.AmountWithoutPendingRewards += uint64(stxn.CloseRewards)
 			}
 		case atypes.KeyRegistrationTx:
 			// TODO: keyreg does not rewind. workaround: query for txns on an account with typeenum=2 to find previous values it was set to.
 		case atypes.AssetConfigTx:
 			if stxn.Txn.ConfigAsset == 0 {
 				// create asset, unwind the application of the value
-				assetUpdate(&acct, txnrow.AssetId, 0, stxn.Txn.AssetParams.Total)
+				assetUpdate(&acct, txnrow.AssetID, 0, stxn.Txn.AssetParams.Total)
 			}
 		case atypes.AssetTransferTx:
 			if addr == stxn.Txn.AssetSender || addr == stxn.Txn.Sender {
@@ -100,7 +159,8 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			}
 		case atypes.AssetFreezeTx:
 		default:
-			panic("unknown txn type")
+			err = fmt.Errorf("%s[%d,%d]: rewinding past txn type %s is not currently supported", account.Address, txnrow.Round, txnrow.Intra, stxn.Txn.Type)
+			return
 		}
 	}
 
@@ -117,7 +177,12 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		tf.MaxRound = round
 		tf.MinRound = 0
 		tf.Limit = 1
-		txns = db.Transactions(context.Background(), tf)
+		txns, r = db.Transactions(context.Background(), tf)
+		if r < round {
+			err = ConsistencyError{
+				fmt.Sprintf("queried round r: %d < requested round round: %d", r, round)}
+			return
+		}
 		for txnrow := range txns {
 			if txnrow.Error != nil {
 				err = txnrow.Error
@@ -129,13 +194,13 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 				return
 			}
 			var baseBlock types.Block
-			baseBlock, err = db.GetBlock(txnrow.Round)
+			baseBlock, _, err = db.GetBlock(context.Background(), txnrow.Round, idb.GetBlockOptions{})
 			if err != nil {
 				return
 			}
 			prevRewardsBase := baseBlock.RewardsLevel
 			var blockheader types.Block
-			blockheader, err = db.GetBlock(round)
+			blockheader, _, err = db.GetBlock(context.Background(), round, idb.GetBlockOptions{})
 			if err != nil {
 				return
 			}
@@ -158,5 +223,12 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 	}
 
 	acct.Round = round
+
+	// Due to accounts being closed and re-opened, we cannot always rewind Rewards. So clear it out.
+	acct.Rewards = 0
+
+	// TODO: Clear out the closed-at field as well. Like Rewards we cannot know this value for all accounts.
+	//acct.ClosedAt = 0
+
 	return
 }

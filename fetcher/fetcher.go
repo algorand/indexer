@@ -4,18 +4,20 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/algorand/indexer/types"
 )
 
+// Fetcher is used to query algod for new blocks.
 type Fetcher interface {
 	Algod() *algod.Client
 
@@ -23,11 +25,14 @@ type Fetcher interface {
 	Run()
 
 	AddBlockHandler(handler BlockHandler)
-	SetWaitGroup(wg *sync.WaitGroup)
 	SetContext(ctx context.Context)
 	SetNextRound(nextRound uint64)
+
+	// Error returns any error fetcher is currently experiencing.
+	Error() string
 }
 
+// BlockHandler is the handler fetcher uses to process a block.
 type BlockHandler interface {
 	HandleBlock(block *types.EncodedBlockCert)
 }
@@ -42,10 +47,20 @@ type fetcherImpl struct {
 	nextRound uint64
 
 	ctx  context.Context
-	wg   *sync.WaitGroup
 	done bool
 
 	failingSince time.Time
+
+	log *log.Logger
+
+	err error
+}
+
+func (bot *fetcherImpl) Error() string {
+	if bot.err != nil {
+		return bot.err.Error()
+	}
+	return ""
 }
 
 // Algod is part of the Fetcher interface
@@ -81,13 +96,15 @@ func (bot *fetcherImpl) catchupLoop() {
 
 		blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(context.Background())
 		if err != nil {
-			log.Printf("catchup block %d, err %v\n", bot.nextRound, err)
+			bot.err = err
+			bot.log.WithError(err).Errorf("catchup block %d", bot.nextRound)
 			return
 		}
 
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
-			log.Printf("err handling catchup block %d, %v\n", bot.nextRound, err)
+			bot.err = err
+			bot.log.WithError(err).Errorf("err handling catchup block %d", bot.nextRound)
 			return
 		}
 		bot.nextRound++
@@ -107,32 +124,34 @@ func (bot *fetcherImpl) followLoop() {
 			}
 			_, err = aclient.StatusAfterBlock(bot.nextRound).Do(context.Background())
 			if err != nil {
-				log.Printf("r=%d error getting status %d, %v\n", retries, bot.nextRound, err)
+				bot.log.WithError(err).Errorf("r=%d error getting status %d", retries, bot.nextRound)
 				continue
 			}
 			blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(context.Background())
 			if err == nil {
 				break
 			}
-			log.Printf("r=%d err getting block %d, %v\n", retries, bot.nextRound, err)
+			bot.log.WithError(err).Errorf("r=%d err getting block %d", retries, bot.nextRound)
 		}
 		if err != nil {
+			bot.err = err
 			return
 		}
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
-			log.Printf("err handling follow block %d, %v\n", bot.nextRound, err)
+			bot.err = err
+			bot.log.WithError(err).Errorf("err handling follow block %d", bot.nextRound)
 			break
 		}
+		// If we successfully handle the block, clear out any transient error which may have occurred.
+		bot.err = nil
 		bot.nextRound++
 		bot.failingSince = time.Time{}
 	}
 }
 
+// Run is part of the Fetcher interface
 func (bot *fetcherImpl) Run() {
-	if bot.wg != nil {
-		defer bot.wg.Done()
-	}
 	for true {
 		if bot.isDone() {
 			return
@@ -148,26 +167,25 @@ func (bot *fetcherImpl) Run() {
 		} else {
 			now := time.Now()
 			dt := now.Sub(bot.failingSince)
-			log.Printf("failing to fetch from algod for %s, (since %s, now %s)\n", dt.String(), bot.failingSince.String(), now.String())
+			bot.log.Warnf("failing to fetch from algod for %s, (since %s, now %s)", dt.String(), bot.failingSince.String(), now.String())
 		}
 		time.Sleep(5 * time.Second)
 		err := bot.reclient()
 		if err != nil {
-			log.Printf("err trying to re-client, %v\n", err)
+			bot.err = err
+			bot.log.WithError(err).Errorln("err trying to re-client")
 		} else {
-			log.Print("reclient happened")
+			bot.log.Infof("reclient happened")
 		}
 	}
 }
 
-func (bot *fetcherImpl) SetWaitGroup(wg *sync.WaitGroup) {
-	bot.wg = wg
-}
-
+// SetContext is part of the Fetcher interface
 func (bot *fetcherImpl) SetContext(ctx context.Context) {
 	bot.ctx = ctx
 }
 
+// SetNextRound is part of the Fetcher interface
 func (bot *fetcherImpl) SetNextRound(nextRound uint64) {
 	bot.nextRound = nextRound
 }
@@ -176,6 +194,15 @@ func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) (err error) {
 	var block types.EncodedBlockCert
 	err = msgpack.Decode(blockbytes, &block)
 	if err != nil {
+		if bot.log.IsLevelEnabled(log.DebugLevel) {
+			var generic map[string]interface{}
+			err2 := msgpack.Decode(blockbytes, &generic)
+			if err2 == nil {
+				bot.log.WithError(err).Debugf("unable to decode block (%s)", json.Encode(generic))
+			}
+		}
+
+		err = fmt.Errorf("unable to decode block: %v", err)
 		return
 	}
 	for _, handler := range bot.blockHandlers {
@@ -184,6 +211,7 @@ func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) (err error) {
 	return
 }
 
+// AddBlockHandler is part of the Fetcher interface
 func (bot *fetcherImpl) AddBlockHandler(handler BlockHandler) {
 	if bot.blockHandlers == nil {
 		x := make([]BlockHandler, 1, 10)
@@ -199,8 +227,9 @@ func (bot *fetcherImpl) AddBlockHandler(handler BlockHandler) {
 	bot.blockHandlers = append(bot.blockHandlers, handler)
 }
 
-func ForDataDir(path string) (bot Fetcher, err error) {
-	boti := &fetcherImpl{algorandData: path}
+// ForDataDir initializes Fetcher to read data from the data directory.
+func ForDataDir(path string, log *log.Logger) (bot Fetcher, err error) {
+	boti := &fetcherImpl{algorandData: path, log: log}
 	err = boti.reclient()
 	if err == nil {
 		bot = boti
@@ -208,7 +237,8 @@ func ForDataDir(path string) (bot Fetcher, err error) {
 	return
 }
 
-func ForNetAndToken(netaddr, token string) (bot Fetcher, err error) {
+// ForNetAndToken initializes Fetch to read data from an algod REST endpoint.
+func ForNetAndToken(netaddr, token string, log *log.Logger) (bot Fetcher, err error) {
 	var client *algod.Client
 	if !strings.HasPrefix(netaddr, "http") {
 		netaddr = "http://" + netaddr
@@ -217,7 +247,7 @@ func ForNetAndToken(netaddr, token string) (bot Fetcher, err error) {
 	if err != nil {
 		return
 	}
-	bot = &fetcherImpl{aclient: client}
+	bot = &fetcherImpl{aclient: client, log: log}
 	return
 }
 

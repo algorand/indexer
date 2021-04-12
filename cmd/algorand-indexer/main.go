@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	//"github.com/spf13/cobra/doc" // TODO: enable cobra doc generation
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
 	"github.com/algorand/indexer/config"
@@ -21,7 +22,7 @@ func maybeFail(err error, errfmt string, params ...interface{}) {
 	if err == nil {
 		return
 	}
-	fmt.Fprintf(os.Stderr, errfmt, params...)
+	logger.Errorf(errfmt, params...)
 	os.Exit(1)
 }
 
@@ -42,18 +43,18 @@ var rootCmd = &cobra.Command{
 		}
 		if pidFilePath != "" {
 			fout, err := os.Create(pidFilePath)
-			maybeFail(err, "%s: could not create pid file, %v\n", pidFilePath, err)
+			maybeFail(err, "%s: could not create pid file, %v", pidFilePath, err)
 			_, err = fmt.Fprintf(fout, "%d", os.Getpid())
-			maybeFail(err, "%s: could not write pid file, %v\n", pidFilePath, err)
+			maybeFail(err, "%s: could not write pid file, %v", pidFilePath, err)
 			err = fout.Close()
-			maybeFail(err, "%s: could not close pid file, %v\n", pidFilePath, err)
+			maybeFail(err, "%s: could not close pid file, %v", pidFilePath, err)
 		}
 		if cpuProfile != "" {
 			var err error
 			profFile, err = os.Create(cpuProfile)
-			maybeFail(err, "%s: create, %v\n", cpuProfile, err)
+			maybeFail(err, "%s: create, %v", cpuProfile, err)
 			err = pprof.StartCPUProfile(profFile)
-			maybeFail(err, "%s: start pprof, %v\n", cpuProfile, err)
+			maybeFail(err, "%s: start pprof, %v", cpuProfile, err)
 		}
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
@@ -64,7 +65,7 @@ var rootCmd = &cobra.Command{
 		if pidFilePath != "" {
 			err := os.Remove(pidFilePath)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%s: could not remove pid file, %v\n", pidFilePath, err)
+				logger.WithError(err).Errorf("%s: could not remove pid file", pidFilePath)
 			}
 		}
 	},
@@ -78,18 +79,21 @@ var (
 	pidFilePath    string
 	db             idb.IndexerDb
 	profFile       io.WriteCloser
+	logLevel       string
+	logFile        string
+	logger         *log.Logger
 )
 
 func globalIndexerDb(opts *idb.IndexerDbOptions) idb.IndexerDb {
 	if db == nil {
 		if postgresAddr != "" {
 			var err error
-			db, err = idb.IndexerDbByName("postgres", postgresAddr, opts)
-			maybeFail(err, "could not init db, %v\n", err)
+			db, err = idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
+			maybeFail(err, "could not init db, %v", err)
 		} else if dummyIndexerDb {
 			db = idb.DummyIndexerDb()
 		} else {
-			fmt.Fprintf(os.Stderr, "no import db set\n")
+			logger.Errorf("no import db set")
 			os.Exit(1)
 		}
 	}
@@ -97,9 +101,18 @@ func globalIndexerDb(opts *idb.IndexerDbOptions) idb.IndexerDb {
 }
 
 func init() {
+	logger = log.New()
+	logger.SetFormatter(&log.JSONFormatter{
+		DisableHTMLEscape: true,
+	})
+	logger.SetOutput(os.Stdout)
+	logger.SetLevel(log.InfoLevel)
+
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(daemonCmd)
 
+	rootCmd.PersistentFlags().StringVarP(&logLevel, "loglevel", "l", "info", "verbosity of logs: [error, warn, info, debug, trace]")
+	rootCmd.PersistentFlags().StringVarP(&logFile, "logfile", "f", "", "file to write logs to, if unset logs are written to standard out")
 	rootCmd.PersistentFlags().StringVarP(&postgresAddr, "postgres", "P", "", "connection string for postgres database")
 	rootCmd.PersistentFlags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")
 	rootCmd.PersistentFlags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
@@ -118,21 +131,44 @@ func init() {
 
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found; the error message indicates locations where we look
-			fmt.Println(err.Error())
+			// Config file not found, not an error since it may be set on the CLI.
 		} else {
-			fmt.Fprintf(os.Stderr, "Invalid configuration: %v\n", err)
+			fmt.Fprintf(os.Stderr, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
 			os.Exit(1)
 		}
+	} else {
+		fmt.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
 	}
 
 	viper.SetEnvPrefix(config.EnvPrefix)
 	viper.AutomaticEnv()
 }
 
+func configureLogger() error {
+	if logLevel != "" {
+		level, err := log.ParseLevel(logLevel)
+		if err != nil {
+			return err
+		}
+		logger.SetLevel(level)
+	}
+
+	if logFile == "-" {
+		logger.SetOutput(os.Stdout)
+	} else if logFile != "" {
+		f, err := os.OpenFile(logFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0755)
+		if err != nil {
+			return err
+		}
+		logger.SetOutput(f)
+	}
+
+	return nil
+}
+
 func main() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Println(err)
+		logger.WithError(err).Error("an error occurred running indexer")
 		os.Exit(1)
 	}
 }

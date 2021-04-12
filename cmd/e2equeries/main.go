@@ -42,13 +42,13 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-	db, err := idb.IndexerDbByName("postgres", pgdb, &idb.IndexerDbOptions{ReadOnly: true})
+	db, err := idb.IndexerDbByName("postgres", pgdb, &idb.IndexerDbOptions{ReadOnly: true}, nil)
 	maybeFail(err, "open postgres, %v", err)
 
 	rekeyTxnQuery := idb.TransactionFilter{RekeyTo: &truev, Limit: 1}
 	printTxnQuery(db, rekeyTxnQuery)
 
-	rowchan := db.Transactions(context.Background(), rekeyTxnQuery)
+	rowchan, _ := db.Transactions(context.Background(), rekeyTxnQuery)
 	var rekeyTo atypes.Address
 	for txnrow := range rowchan {
 		maybeFail(txnrow.Error, "err rekey txn %v\n", txnrow.Error)
@@ -62,8 +62,9 @@ func main() {
 
 	// find an asset with > 1 account
 	countByAssetID := make(map[uint64]uint64)
-	for abr := range db.AssetBalances(context.Background(), idb.AssetBalanceQuery{}) {
-		countByAssetID[abr.AssetId] = countByAssetID[abr.AssetId] + 1
+	assetchan, _ := db.AssetBalances(context.Background(), idb.AssetBalanceQuery{})
+	for abr := range assetchan {
+		countByAssetID[abr.AssetID] = countByAssetID[abr.AssetID] + 1
 	}
 	var bestid uint64
 	var bestcount uint64 = 0
@@ -74,7 +75,7 @@ func main() {
 		}
 	}
 	if bestcount != 0 {
-		printAccountQuery(db, idb.AccountQueryOptions{HasAssetId: bestid, Limit: bestcount})
+		printAccountQuery(db, idb.AccountQueryOptions{HasAssetID: bestid, Limit: bestcount})
 	}
 
 	dt := time.Now().Sub(start)

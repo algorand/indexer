@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -36,7 +34,14 @@ var daemonCmd = &cobra.Command{
 	Long:  "run indexer daemon. Serve api on HTTP.",
 	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
+		var err error
+
 		config.BindFlags(cmd)
+		err = configureLogger()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
+			os.Exit(1)
+		}
 
 		if algodDataDir == "" {
 			algodDataDir = os.Getenv("ALGORAND_DATA")
@@ -50,18 +55,17 @@ var daemonCmd = &cobra.Command{
 		ctx, cf := context.WithCancel(context.Background())
 		defer cf()
 		var bot fetcher.Fetcher
-		var err error
 		if noAlgod {
-			fmt.Fprint(os.Stderr, "algod block following disabled\n")
+			logger.Info("algod block following disabled")
 		} else if algodAddr != "" && algodToken != "" {
-			bot, err = fetcher.ForNetAndToken(algodAddr, algodToken)
-			maybeFail(err, "fetcher setup, %v\n", err)
+			bot, err = fetcher.ForNetAndToken(algodAddr, algodToken, logger)
+			maybeFail(err, "fetcher setup, %v", err)
 		} else if algodDataDir != "" {
-			if genesisJsonPath == "" {
-				genesisJsonPath = filepath.Join(algodDataDir, "genesis.json")
+			if genesisJSONPath == "" {
+				genesisJSONPath = filepath.Join(algodDataDir, "genesis.json")
 			}
-			bot, err = fetcher.ForDataDir(algodDataDir)
-			maybeFail(err, "fetcher setup, %v\n", err)
+			bot, err = fetcher.ForDataDir(algodDataDir, logger)
+			maybeFail(err, "fetcher setup, %v", err)
 		} else {
 			// no algod was found
 			noAlgod = true
@@ -71,24 +75,33 @@ var daemonCmd = &cobra.Command{
 			// to the db, to allow for read-only query
 			// servers that hit the db backend.
 			err := importer.ImportProto(db)
-			maybeFail(err, "import proto, %v\n", err)
+			maybeFail(err, "import proto, %v", err)
 		}
 		if bot != nil {
-			maxRound, err := db.GetMaxRound()
-			if err == nil {
+			logger.Info("Initializing block import handler.")
+			maxRound, err := db.GetMaxRoundLoaded()
+			maybeFail(err, "failed to get max round, %v", err)
+			if maxRound != 0 {
 				bot.SetNextRound(maxRound + 1)
 			}
+			cache, err := db.GetDefaultFrozen()
+			maybeFail(err, "failed to get default frozen cache")
 			bih := blockImporterHandler{
 				imp:   importer.NewDBImporter(db),
 				db:    db,
+				cache: cache,
 				round: maxRound,
 			}
 			bot.AddBlockHandler(&bih)
 			bot.SetContext(ctx)
 			go func() {
+				waitForDBAvailable(db)
+				logger.Info("Starting block importer.")
 				bot.Run()
 				cf()
 			}()
+		} else {
+			logger.Info("No block importer configured.")
 		}
 
 		tokenArray := make([]string, 0)
@@ -98,19 +111,45 @@ var daemonCmd = &cobra.Command{
 
 		// TODO: trap SIGTERM and call cf() to exit gracefully
 		fmt.Printf("serving on %s\n", daemonServerAddr)
-		api.Serve(ctx, daemonServerAddr, db, log.StandardLogger(), tokenArray, developerMode)
+		logger.Infof("serving on %s", daemonServerAddr)
+		api.Serve(ctx, daemonServerAddr, db, bot, logger, tokenArray, developerMode)
 	},
 }
 
-func init() {
-	log.SetFormatter(&log.JSONFormatter{})
-	log.SetOutput(os.Stdout)
-	log.SetLevel(log.InfoLevel)
+// waitForDBAvailable wait for the IndexerDb to report that it is available.
+func waitForDBAvailable(db idb.IndexerDb) {
+	statusInterval := 5 * time.Minute
+	checkInterval := 5 * time.Second
+	var now time.Time
+	nextStatusTime := time.Now()
+	for true {
+		now = time.Now()
+		health, err := db.Health()
+		if err != nil {
+			logger.WithError(err).Errorf("Problem fetching database health.")
+			os.Exit(1)
+		}
 
+		// Exit function when the database is available
+		if health.DBAvailable {
+			return
+		}
+
+		// Log status periodically
+		if nextStatusTime.Sub(now) <= 0 {
+			logger.Info("Block importer waiting for database to become available.")
+			nextStatusTime = nextStatusTime.Add(statusInterval)
+		}
+
+		time.Sleep(checkInterval)
+	}
+}
+
+func init() {
 	daemonCmd.Flags().StringVarP(&algodDataDir, "algod", "d", "", "path to algod data dir, or $ALGORAND_DATA")
 	daemonCmd.Flags().StringVarP(&algodAddr, "algod-net", "", "", "host:port of algod")
 	daemonCmd.Flags().StringVarP(&algodToken, "algod-token", "", "", "api access token for algod")
-	daemonCmd.Flags().StringVarP(&genesisJsonPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
+	daemonCmd.Flags().StringVarP(&genesisJSONPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
 	daemonCmd.Flags().StringVarP(&daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
 	daemonCmd.Flags().BoolVarP(&noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
 	daemonCmd.Flags().StringVarP(&tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
@@ -125,35 +164,19 @@ func init() {
 type blockImporterHandler struct {
 	imp   importer.Importer
 	db    idb.IndexerDb
+	cache map[uint64]bool
 	round uint64
 }
 
 func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	start := time.Now()
 	if uint64(block.Block.Round) != bih.round+1 {
-		fmt.Fprintf(os.Stderr, "received block %d when expecting %d\n", block.Block.Round, bih.round+1)
+		logger.Errorf("received block %d when expecting %d", block.Block.Round, bih.round+1)
 	}
-	bih.imp.ImportDecodedBlock(block)
-	importer.UpdateAccounting(bih.db, genesisJsonPath)
+	_, err := bih.imp.ImportDecodedBlock(block)
+	maybeFail(err, "ImportDecodedBlock %d: %v", block.Block.Round, err)
+	importer.UpdateAccounting(bih.db, bih.cache, uint64(block.Block.Round), genesisJSONPath, logger)
 	dt := time.Now().Sub(start)
-	if len(block.Block.Payset) == 0 {
-		// accounting won't have updated the round state, so we do it here
-		stateJsonStr, err := db.GetMetastate("state")
-		var state importer.ImportState
-		if err == nil && stateJsonStr != "" {
-			state, err = importer.ParseImportState(stateJsonStr)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "error parsing import state, %v\n", err)
-				panic("error parsing import state in bih")
-			}
-		}
-		state.AccountRound = int64(block.Block.Round)
-		stateJsonStr = string(json.Encode(state))
-		err = db.SetMetastate("state", stateJsonStr)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to save import state, %v\n", err)
-		}
-	}
-	fmt.Printf("round r=%d (%d txn) imported in %s\n", block.Block.Round, len(block.Block.Payset), dt.String())
+	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
 	bih.round = uint64(block.Block.Round)
 }

@@ -67,6 +67,9 @@
             "$ref": "#/parameters/currency-greater-than"
           },
           {
+            "$ref": "#/parameters/include-all"
+          },
+          {
             "$ref": "#/parameters/currency-less-than"
           },
           {
@@ -108,6 +111,9 @@
           },
           {
             "$ref": "#/parameters/round"
+          },
+          {
+            "$ref": "#/parameters/include-all"
           }
         ],
         "responses": {
@@ -205,6 +211,9 @@
             "$ref": "#/parameters/application-id"
           },
           {
+            "$ref": "#/parameters/include-all"
+          },
+          {
             "$ref": "#/parameters/limit"
           },
           {
@@ -237,6 +246,9 @@
             "name": "application-id",
             "in": "path",
             "required": true
+          },
+          {
+            "$ref": "#/parameters/include-all"
           }
         ],
         "responses": {
@@ -260,6 +272,9 @@
         ],
         "operationId": "searchForAssets",
         "parameters": [
+          {
+            "$ref": "#/parameters/include-all"
+          },
           {
             "$ref": "#/parameters/limit"
           },
@@ -314,6 +329,9 @@
             "name": "asset-id",
             "in": "path",
             "required": true
+          },
+          {
+            "$ref": "#/parameters/include-all"
           }
         ],
         "responses": {
@@ -342,6 +360,9 @@
         ],
         "operationId": "lookupAssetBalances",
         "parameters": [
+          {
+            "$ref": "#/parameters/include-all"
+          },
           {
             "$ref": "#/parameters/limit"
           },
@@ -487,7 +508,7 @@
         "tags": [
           "lookup"
         ],
-        "operationId": "lookupTransactions",
+        "operationId": "lookupTransaction",
         "parameters": [
           {
             "type": "string",
@@ -692,6 +713,20 @@
           "description": "\\[spend\\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.",
           "type": "string",
           "x-algorand-format": "Address"
+        },
+        "deleted": {
+          "description": "Whether or not this account is currently closed.",
+          "type": "boolean"
+        },
+        "created-at-round": {
+          "description": "Round during which this account first appeared in a transaction.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
+        },
+        "closed-at-round": {
+          "description": "Round during which this account was most recently closed.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
         }
       }
     },
@@ -759,6 +794,20 @@
         "id": {
           "description": "The application which this local state is for.",
           "type": "integer"
+        },
+        "deleted": {
+          "description": "Whether or not the application local state is currently deleted from its account.",
+          "type": "boolean"
+        },
+        "opted-in-at-round": {
+          "description": "Round when the account opted into the application.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "closed-out-at-round": {
+          "description": "Round when account closed out of the application.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
         },
         "schema": {
           "description": "\\[hsch\\] schema.",
@@ -829,6 +878,20 @@
           "description": "\\[appidx\\] application index.",
           "type": "integer"
         },
+        "deleted": {
+          "description": "Whether or not this application is currently deleted.",
+          "type": "boolean"
+        },
+        "created-at-round": {
+          "description": "Round when this application was created.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "deleted-at-round": {
+          "description": "Round when this application was deleted.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
         "params": {
           "description": "\\[appparams\\] application parameters.",
           "$ref": "#/definitions/ApplicationParams"
@@ -886,6 +949,20 @@
           "description": "unique asset identifier",
           "type": "integer"
         },
+        "deleted": {
+          "description": "Whether or not this asset is currently deleted.",
+          "type": "boolean"
+        },
+        "created-at-round": {
+          "description": "Round during which this asset was created.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
+        },
+        "destroyed-at-round": {
+          "description": "Round during which this asset was destroyed.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
+        },
         "params": {
           "$ref": "#/definitions/AssetParams"
         }
@@ -917,6 +994,20 @@
         "is-frozen": {
           "description": "\\[f\\] whether or not the holding is frozen.",
           "type": "boolean"
+        },
+        "deleted": {
+          "description": "Whether or not the asset holding is currently deleted from its account.",
+          "type": "boolean"
+        },
+        "opted-in-at-round": {
+          "description": "Round during which the account opted into this asset holding.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
+        },
+        "opted-out-at-round": {
+          "description": "Round during which the account opted out of this asset holding.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
         }
       }
     },
@@ -1174,6 +1265,12 @@
         },
         "message": {
           "type": "string"
+        },
+        "errors": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },
@@ -1195,6 +1292,20 @@
         },
         "is-frozen": {
           "type": "boolean"
+        },
+        "deleted": {
+          "description": "Whether or not this asset holding is currently deleted from its account.",
+          "type": "boolean"
+        },
+        "opted-in-at-round": {
+          "description": "Round during which the account opted into the asset.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
+        },
+        "opted-out-at-round": {
+          "description": "Round during which the account opted out of the asset.",
+           "type": "integer",
+           "x-algorand-format": "uint64"
         }
       }
     },
@@ -1435,11 +1546,6 @@
             "appl"
           ],
           "x-algorand-format": "tx-type-enum"
-        },
-        "auth-addr": {
-          "description": "\\[sgnr\\] The address used to sign the transaction. This is used for rekeyed accounts to indicate that the sender address did not sign the transaction.",
-          "type": "string",
-          "x-algorand-format": "Address"
         },
         "local-state-delta": {
           "description": "\\[ld\\] Local state key/value changes for the application being executed by this transaction.",
@@ -1812,6 +1918,12 @@
       "type": "boolean",
       "description": "Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.",
       "name": "exclude-close-to",
+      "in": "query"
+    },
+    "include-all": {
+      "type": "boolean",
+      "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+      "name": "include-all",
       "in": "query"
     },
     "limit": {

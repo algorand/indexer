@@ -29,7 +29,7 @@ func main() {
 		}
 		varname := strings.ReplaceAll(fname, ".", "_")
 		bodyConstant := "`" + strings.ReplaceAll(string(data), "`", "\\u0060") + "`"
-		_, err = fmt.Fprintf(fout, `// GENERATED CODE from source %s via go generate
+		_, err = fmt.Fprintf(fout, `// Code generated from source %s via go generate. DO NOT EDIT.
 
 package %s
 

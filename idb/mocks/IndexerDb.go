@@ -54,7 +54,7 @@ func (_m *IndexerDb) AlreadyImported(path string) (bool, error) {
 }
 
 // Applications provides a mock function with given fields: ctx, filter
-func (_m *IndexerDb) Applications(ctx context.Context, filter *generated.SearchForApplicationsParams) <-chan idb.ApplicationRow {
+func (_m *IndexerDb) Applications(ctx context.Context, filter *generated.SearchForApplicationsParams) (<-chan idb.ApplicationRow, uint64) {
 	ret := _m.Called(ctx, filter)
 
 	var r0 <-chan idb.ApplicationRow
@@ -66,11 +66,18 @@ func (_m *IndexerDb) Applications(ctx context.Context, filter *generated.SearchF
 		}
 	}
 
-	return r0
+	var r1 uint64
+	if rf, ok := ret.Get(1).(func(context.Context, *generated.SearchForApplicationsParams) uint64); ok {
+		r1 = rf(ctx, filter)
+	} else {
+		r1 = ret.Get(1).(uint64)
+	}
+
+	return r0, r1
 }
 
 // AssetBalances provides a mock function with given fields: ctx, abq
-func (_m *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuery) <-chan idb.AssetBalanceRow {
+func (_m *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuery) (<-chan idb.AssetBalanceRow, uint64) {
 	ret := _m.Called(ctx, abq)
 
 	var r0 <-chan idb.AssetBalanceRow
@@ -82,11 +89,18 @@ func (_m *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 		}
 	}
 
-	return r0
+	var r1 uint64
+	if rf, ok := ret.Get(1).(func(context.Context, idb.AssetBalanceQuery) uint64); ok {
+		r1 = rf(ctx, abq)
+	} else {
+		r1 = ret.Get(1).(uint64)
+	}
+
+	return r0, r1
 }
 
 // Assets provides a mock function with given fields: ctx, filter
-func (_m *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) <-chan idb.AssetRow {
+func (_m *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan idb.AssetRow, uint64) {
 	ret := _m.Called(ctx, filter)
 
 	var r0 <-chan idb.AssetRow
@@ -98,7 +112,14 @@ func (_m *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) <-chan 
 		}
 	}
 
-	return r0
+	var r1 uint64
+	if rf, ok := ret.Get(1).(func(context.Context, idb.AssetsQuery) uint64); ok {
+		r1 = rf(ctx, filter)
+	} else {
+		r1 = ret.Get(1).(uint64)
+	}
+
+	return r0, r1
 }
 
 // CommitBlock provides a mock function with given fields: round, timestamp, rewardslevel, headerbytes
@@ -115,13 +136,13 @@ func (_m *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 	return r0
 }
 
-// CommitRoundAccounting provides a mock function with given fields: updates, round, rewardsBase
-func (_m *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, rewardsBase uint64) error {
-	ret := _m.Called(updates, round, rewardsBase)
+// CommitRoundAccounting provides a mock function with given fields: updates, round, blockPtr
+func (_m *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) error {
+	ret := _m.Called(updates, round, blockPtr)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(idb.RoundUpdates, uint64, uint64) error); ok {
-		r0 = rf(updates, round, rewardsBase)
+	if rf, ok := ret.Get(0).(func(idb.RoundUpdates, uint64, *types.Block) error); ok {
+		r0 = rf(updates, round, blockPtr)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -130,7 +151,7 @@ func (_m *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 }
 
 // GetAccounts provides a mock function with given fields: ctx, opts
-func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) <-chan idb.AccountRow {
+func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
 	ret := _m.Called(ctx, opts)
 
 	var r0 <-chan idb.AccountRow
@@ -142,23 +163,62 @@ func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		}
 	}
 
-	return r0
+	var r1 uint64
+	if rf, ok := ret.Get(1).(func(context.Context, idb.AccountQueryOptions) uint64); ok {
+		r1 = rf(ctx, opts)
+	} else {
+		r1 = ret.Get(1).(uint64)
+	}
+
+	return r0, r1
 }
 
-// GetBlock provides a mock function with given fields: round
-func (_m *IndexerDb) GetBlock(round uint64) (types.Block, error) {
-	ret := _m.Called(round)
+// GetBlock provides a mock function with given fields: ctx, round, options
+func (_m *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (types.Block, []idb.TxnRow, error) {
+	ret := _m.Called(ctx, round, options)
 
 	var r0 types.Block
-	if rf, ok := ret.Get(0).(func(uint64) types.Block); ok {
-		r0 = rf(round)
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, idb.GetBlockOptions) types.Block); ok {
+		r0 = rf(ctx, round, options)
 	} else {
 		r0 = ret.Get(0).(types.Block)
 	}
 
+	var r1 []idb.TxnRow
+	if rf, ok := ret.Get(1).(func(context.Context, uint64, idb.GetBlockOptions) []idb.TxnRow); ok {
+		r1 = rf(ctx, round, options)
+	} else {
+		if ret.Get(1) != nil {
+			r1 = ret.Get(1).([]idb.TxnRow)
+		}
+	}
+
+	var r2 error
+	if rf, ok := ret.Get(2).(func(context.Context, uint64, idb.GetBlockOptions) error); ok {
+		r2 = rf(ctx, round, options)
+	} else {
+		r2 = ret.Error(2)
+	}
+
+	return r0, r1, r2
+}
+
+// GetDefaultFrozen provides a mock function with given fields:
+func (_m *IndexerDb) GetDefaultFrozen() (map[uint64]bool, error) {
+	ret := _m.Called()
+
+	var r0 map[uint64]bool
+	if rf, ok := ret.Get(0).(func() map[uint64]bool); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[uint64]bool)
+		}
+	}
+
 	var r1 error
-	if rf, ok := ret.Get(1).(func(uint64) error); ok {
-		r1 = rf(round)
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -166,8 +226,31 @@ func (_m *IndexerDb) GetBlock(round uint64) (types.Block, error) {
 	return r0, r1
 }
 
-// GetMaxRound provides a mock function with given fields:
-func (_m *IndexerDb) GetMaxRound() (uint64, error) {
+// GetImportState provides a mock function with given fields:
+func (_m *IndexerDb) GetImportState() (*idb.ImportState, error) {
+	ret := _m.Called()
+
+	var r0 *idb.ImportState
+	if rf, ok := ret.Get(0).(func() *idb.ImportState); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*idb.ImportState)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetMaxRoundAccounted provides a mock function with given fields:
+func (_m *IndexerDb) GetMaxRoundAccounted() (uint64, error) {
 	ret := _m.Called()
 
 	var r0 uint64
@@ -187,20 +270,20 @@ func (_m *IndexerDb) GetMaxRound() (uint64, error) {
 	return r0, r1
 }
 
-// GetMetastate provides a mock function with given fields: key
-func (_m *IndexerDb) GetMetastate(key string) (string, error) {
-	ret := _m.Called(key)
+// GetMaxRoundLoaded provides a mock function with given fields:
+func (_m *IndexerDb) GetMaxRoundLoaded() (uint64, error) {
+	ret := _m.Called()
 
-	var r0 string
-	if rf, ok := ret.Get(0).(func(string) string); ok {
-		r0 = rf(key)
+	var r0 uint64
+	if rf, ok := ret.Get(0).(func() uint64); ok {
+		r0 = rf()
 	} else {
-		r0 = ret.Get(0).(string)
+		r0 = ret.Get(0).(uint64)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(key)
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -222,6 +305,27 @@ func (_m *IndexerDb) GetProto(version string) (types.ConsensusParams, error) {
 	var r1 error
 	if rf, ok := ret.Get(1).(func(string) error); ok {
 		r1 = rf(version)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetSpecialAccounts provides a mock function with given fields:
+func (_m *IndexerDb) GetSpecialAccounts() (idb.SpecialAccounts, error) {
+	ret := _m.Called()
+
+	var r0 idb.SpecialAccounts
+	if rf, ok := ret.Get(0).(func() idb.SpecialAccounts); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(idb.SpecialAccounts)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -278,13 +382,13 @@ func (_m *IndexerDb) MarkImported(path string) error {
 	return r0
 }
 
-// SetMetastate provides a mock function with given fields: key, jsonStrValue
-func (_m *IndexerDb) SetMetastate(key string, jsonStrValue string) error {
-	ret := _m.Called(key, jsonStrValue)
+// SetImportState provides a mock function with given fields: _a0
+func (_m *IndexerDb) SetImportState(_a0 idb.ImportState) error {
+	ret := _m.Called(_a0)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, string) error); ok {
-		r0 = rf(key, jsonStrValue)
+	if rf, ok := ret.Get(0).(func(idb.ImportState) error); ok {
+		r0 = rf(_a0)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -321,7 +425,7 @@ func (_m *IndexerDb) StartBlock() error {
 }
 
 // Transactions provides a mock function with given fields: ctx, tf
-func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) <-chan idb.TxnRow {
+func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	ret := _m.Called(ctx, tf)
 
 	var r0 <-chan idb.TxnRow
@@ -333,7 +437,14 @@ func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 		}
 	}
 
-	return r0
+	var r1 uint64
+	if rf, ok := ret.Get(1).(func(context.Context, idb.TransactionFilter) uint64); ok {
+		r1 = rf(ctx, tf)
+	} else {
+		r1 = ret.Get(1).(uint64)
+	}
+
+	return r0, r1
 }
 
 // YieldTxns provides a mock function with given fields: ctx, prevRound

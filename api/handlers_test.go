@@ -46,7 +46,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		{
 			"Int field",
 			generated.SearchForTransactionsParams{AssetId: uint64Ptr(1234)},
-			idb.TransactionFilter{AssetId: 1234, Limit: defaultTransactionsLimit},
+			idb.TransactionFilter{AssetID: 1234, Limit: defaultTransactionsLimit},
 			nil,
 		},
 		{
@@ -111,7 +111,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				Round:             nil,
 				MinRound:          2,
 				MaxRound:          3,
-				AssetId:           4,
+				AssetID:           4,
 				BeforeTime:        time.Date(2021, 1, 1, 1, 0, 0, 0, time.FixedZone("UTC", 0)),
 				AfterTime:         time.Date(2022, 2, 2, 2, 0, 0, 0, time.FixedZone("UTC", 0)),
 				AlgosGT:           0,
@@ -125,7 +125,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				Offset:            nil,
 				OffsetLT:          nil,
 				OffsetGT:          nil,
-				ApplicationId:     7,
+				ApplicationID:     7,
 			},
 			nil,
 		},
@@ -202,7 +202,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		{
 			name:          "Searching by application-id",
 			params:        generated.SearchForTransactionsParams{ApplicationId: uint64Ptr(1234)},
-			filter:        idb.TransactionFilter{ApplicationId: 1234, Limit: defaultTransactionsLimit},
+			filter:        idb.TransactionFilter{ApplicationID: 1234, Limit: defaultTransactionsLimit},
 			errorContains: nil,
 		},
 	}
@@ -441,7 +441,7 @@ func TestFetchTransactions(t *testing.T) {
 					Intra:     2,
 					RoundTime: roundTime,
 					TxnBytes:  bytes,
-					AssetId:   test.created,
+					AssetID:   test.created,
 					Extra: idb.TxnExtra{
 						AssetCloseAmount: 0,
 					},
@@ -452,10 +452,11 @@ func TestFetchTransactions(t *testing.T) {
 
 			close(ch)
 			var outCh <-chan idb.TxnRow = ch
-			mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh)
+			var round uint64 = 1
+			mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh, round)
 
 			// Call the function
-			results, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
+			results, _, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
 			assert.NoError(t, err)
 
 			// Automatically print it out when writing the test.

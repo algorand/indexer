@@ -99,7 +99,7 @@ def link(sourcepath, destpath):
         os.remove(destpath)
     os.link(sourcepath, destpath)
 
-_tagpat = re.compile(r'tag:\s+([^,\n]+)')
+_tagpat = re.compile(r'tag:\s+([^,]+)')
 
 def compile_version_opts(release_version=None, allow_mismatch=False):
     result = subprocess.run(['git', 'log', '-n', '1', '--pretty=%H %D'], stdout=subprocess.PIPE)
