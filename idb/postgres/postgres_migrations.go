@@ -833,7 +833,7 @@ func warnUser(db *IndexerDb, maxRound uint32) error {
 	}
 
 	// This many accounts need about 4GB of memory.
-	threshold := 10000000/3*4
+	threshold := 10000000 / 3 * 4
 	if count > uint64(threshold) {
 		db.log.Print("The current migration (m7) is likely to use more than 4GB of RAM.")
 
@@ -1863,7 +1863,6 @@ func updateFrozenState(db *IndexerDb, assetID uint64, closedAt *uint64, creator,
 	if found != 0 {
 		return nil
 	}
-
 
 	// If there were no freeze transactions, re-initialize the frozen value.
 	frozen := !bytes.Equal(creator[:], holder[:])
