@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"math/rand"
 	"os"
 	"strings"
 	"sync"
@@ -87,9 +86,6 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (p
 }
 
 func txnWithRetry(f func() error) error {
-	maxDelay := time.Minute
-	delay := time.Millisecond
-
 	for {
 		err := f()
 
@@ -97,15 +93,6 @@ func txnWithRetry(f func() error) error {
 		var pqerr *pq.Error
 		if !errors.As(err, &pqerr) || (pqerr.Code != "40001") {
 			return err
-		}
-
-		fmt.Println("retrying transaction")
-		// Randomize delay to avoid conflicts.
-		time.Sleep(time.Duration(rand.Int63n(int64(delay))))
-
-		delay *= 2
-		if delay > maxDelay {
-			maxDelay = delay
 		}
 	}
 }
