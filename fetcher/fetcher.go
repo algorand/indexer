@@ -267,11 +267,6 @@ func (bot *fetcherImpl) reclient() (err error) {
 	return
 }
 
-func algodUpdated(datadir string) (lastmod time.Time, err error) {
-	netpath, tokenpath := algodPaths(datadir)
-	return algodStat(netpath, tokenpath)
-}
-
 func algodPaths(datadir string) (netpath, tokenpath string) {
 	netpath = filepath.Join(datadir, "algod.net")
 	tokenpath = filepath.Join(datadir, "algod.token")
