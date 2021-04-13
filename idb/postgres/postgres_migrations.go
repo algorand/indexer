@@ -117,10 +117,7 @@ func upsertMigrationState(tx *sql.Tx, state *MigrationState, incrementNextMigrat
 	}
 	migrationStateJSON := idb.JSONOneLine(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
-	if err != nil {
-		return fmt.Errorf("m10 meta error: %v", err)
-	}
-	return
+	return err
 }
 
 func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
@@ -1814,7 +1811,7 @@ func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 
 	upsertMigrationState(tx, state, true)
 	if err != nil {
-		return fmt.Errorf("m10 metstate upsert error: %v", err)
+		return fmt.Errorf("m10 metastate upsert error: %v", err)
 	}
 
 	err = tx.Commit()
@@ -1925,13 +1922,12 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 		}
 	}
 
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
-	tx.Rollback()
-	upsertMigrationState(tx, state, true)
+	state.NextMigration++
+	migrationStateJSON := idb.JSONOneLine(state)
+	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
-		return fmt.Errorf("m11 metstate upsert error: %v", err)
+		return fmt.Errorf("m11 metastate upsert error: %v", err)
 	}
-	tx.Commit()
 
 	return nil
 }
