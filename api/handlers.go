@@ -627,6 +627,11 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.AccountQueryOptions, atRound *uint64) ([]generated.Account, uint64 /*round*/, error) {
 	accountchan, round := si.db.GetAccounts(ctx, options)
 
+	if (atRound != nil) && (*atRound > round) {
+		return nil, round, fmt.Errorf(
+			"%s: the requested round %d > the current round %d", errRewindingAccount, *atRound, round)
+	}
+
 	accounts := make([]generated.Account, 0)
 	for row := range accountchan {
 		if row.Error != nil {
@@ -645,7 +650,7 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 
 		// Compute for a given round if requested.
 		var account generated.Account
-		if (atRound != nil) && (*atRound < row.Account.Round) {
+		if atRound != nil {
 			acct, err := accounting.AccountAtRound(row.Account, *atRound, si.db)
 			if err != nil {
 				// Ignore the error if this is an account search rewind error
