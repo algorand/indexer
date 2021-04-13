@@ -110,6 +110,19 @@ func needsMigration(state MigrationState) bool {
 	return state.NextMigration < len(migrations)
 }
 
+// upsertMigrationState updates the migration state, and optionally increments the next counter.
+func upsertMigrationState(tx *sql.Tx, state *MigrationState, incrementNextMigration bool) (err error) {
+	if incrementNextMigration {
+		state.NextMigration++
+	}
+	migrationStateJSON := idb.JSONOneLine(state)
+	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	if err != nil {
+		return fmt.Errorf("m10 meta error: %v", err)
+	}
+	return
+}
+
 func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
 	var state MigrationState
 	if len(migrationStateJSON) > 0 {
@@ -641,7 +654,28 @@ func updateAccountData(address types.Address, round uint32, assetID uint32, stxn
 	}
 }
 
-func m7RewardsAndDatesPart2TryUpdateAccounts(db *IndexerDb, accountData []addressAccountData, assetDataMap map[uint32]createClose, txnID txnID, state *MigrationState) error {
+// m7RewardsAndDatesPart2UpdateAccounts loops through the provided accounts and generates a bunch of updates in a
+// single transactional commit. These queries are written so that they can run in the background.
+//
+// For each account we run several queries:
+// 1. updateTotalRewards         - conditionally update the total rewards if the account wasn't closed during iteration.
+// 2. setCreateCloseAccount      - set the accounts create/close rounds.
+// 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
+// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
+// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
+// 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
+//
+// Note: These queries only work if closed_at was reset before the migration is started. That is true
+//       for the initial migration, but if we need to reuse it in the future we'll need to fix the queries
+//       or redo the query.
+//
+// This function also deletes unnecessary elements from `assetDataMap`. `txnId` is the new
+// committed "pointer" in the transactions sequence.
+func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAccountData, assetDataMap map[uint32]createClose, txnID txnID, state *MigrationState) error {
+	// Make sure round accounting doesn't interfere with updating these accounts.
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
 	// Open a postgres transaction and submit results for each account.
 	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
@@ -748,6 +782,7 @@ func m7RewardsAndDatesPart2TryUpdateAccounts(db *IndexerDb, accountData []addres
 					return fmt.Errorf("m7: failed to update %s with asset index %d create/close: %v",
 						addressStr, index, err)
 				}
+				delete(assetDataMap, index)
 			}
 
 			// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
@@ -778,42 +813,13 @@ func m7RewardsAndDatesPart2TryUpdateAccounts(db *IndexerDb, accountData []addres
 		return fmt.Errorf("m7: failed to update migration checkpoint: %v", err)
 	}
 
-	return tx.Commit()
-}
-
-// m7RewardsAndDatesPart2UpdateAccounts loops through the provided accounts and generates a bunch of updates in a
-// single transactional commit. These queries are written so that they can run in the background.
-//
-// For each account we run several queries:
-// 1. updateTotalRewards         - conditionally update the total rewards if the account wasn't closed during iteration.
-// 2. setCreateCloseAccount      - set the accounts create/close rounds.
-// 3. setCreateCloseAsset        - set the accounts created assets create/close rounds.
-// 4. setCreateCloseAssetHolding - (upsert) set the accounts asset holding create/close rounds.
-// 5. setCreateCloseApp          - set the accounts created apps create/close rounds.
-// 6. setCreateCloseAppLocal     - (upsert) set the accounts local apps create/close rounds.
-//
-// Note: These queries only work if closed_at was reset before the migration is started. That is true
-//       for the initial migration, but if we need to reuse it in the future we'll need to fix the queries
-//       or redo the query.
-//
-// This function also deletes unnecessary elements from `assetDataMap`. `txnId` is the new
-// committed "pointer" in the transactions sequence.
-func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAccountData, assetDataMap map[uint32]createClose, txnID txnID, state *MigrationState) error {
-	f := func() error {
-		return m7RewardsAndDatesPart2TryUpdateAccounts(db, accountData, assetDataMap, txnID, state)
-	}
-	err := txnWithRetry(f)
-
-	// Delete assets that are no longer needed.
-	for _, ad := range accountData {
-		if ad.accountData.additional != nil {
-			for index := range ad.accountData.additional.asset {
-				delete(assetDataMap, index)
-			}
-		}
+	// Commit transactions.
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("m7: failed to commit changes: %v", err)
 	}
 
-	return err
+	return nil
 }
 
 func warnUser(db *IndexerDb, maxRound uint32) error {
@@ -1129,32 +1135,37 @@ func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 
 // sqlMigration executes a sql statements as the entire migration.
 func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error {
-	thisMigration := state.NextMigration
-	state.NextMigration++
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
 
-	f := func() error {
-		tx, err := db.db.BeginTx(context.Background(), &serializable)
-		if err != nil {
-			db.log.WithError(err).Errorf("migration %d tx err", thisMigration)
-			return err
-		}
-		defer tx.Rollback() // ignored if .Commit() first
-		for i, cmd := range sqlLines {
-			_, err = tx.Exec(cmd)
-			if err != nil {
-				db.log.WithError(err).Errorf("migration %d sql[%d] err", thisMigration, i)
-				return err
-			}
-		}
-		migrationStateJSON := idb.JSONOneLine(state)
-		_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
-		if err != nil {
-			db.log.WithError(err).Errorf("migration %d meta err", thisMigration)
-			return err
-		}
-		return tx.Commit()
+	thisMigration := state.NextMigration
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
+	if err != nil {
+		db.log.WithError(err).Errorf("migration %d tx err", thisMigration)
+		return err
 	}
-	return txnWithRetry(f)
+	defer tx.Rollback() // ignored if .Commit() first
+	for i, cmd := range sqlLines {
+		_, err = tx.Exec(cmd)
+		if err != nil {
+			db.log.WithError(err).Errorf("migration %d sql[%d] err", thisMigration, i)
+			return err
+		}
+	}
+	state.NextMigration++
+	migrationStateJSON := idb.JSONOneLine(state)
+	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	if err != nil {
+		db.log.WithError(err).Errorf("migration %d meta err", thisMigration)
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		db.log.WithError(err).Errorf("migration %d commit err", thisMigration)
+		return err
+	}
+	db.log.Printf("migration %d done", thisMigration)
+	return nil
 }
 
 const txidMigrationErrMsg = "ERROR migrating txns for txid, stopped, will retry on next indexer startup"
@@ -1689,87 +1700,87 @@ func putTxnJSONBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 		}
 	}
 
-	f := func() error {
-		// do a transaction to update a batch
-		tx, err := db.db.Begin()
-		if err != nil {
-			db.log.WithError(err).Errorf("%s, batch tx err", m9ErrPrefix)
-			return err
-		}
-		defer tx.Rollback() // ignored if .Commit() first
-		// Check that migration state in db is still what we think it is
-		txstate, err := db.getMigrationState()
-		if err != nil {
-			db.log.WithError(err).Errorf("%s, get m state err", m9ErrPrefix)
-			return err
-		} else if state == nil {
-			// no previous state, ok
-		} else {
-			if state.NextMigration != txstate.NextMigration || state.NextRound != txstate.NextRound {
-				return fmt.Errorf("%s, migration state changed when we weren't looking: %v -> %v", m9ErrPrefix, state, txstate)
-			}
-		}
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
 
-		// _sometimes_ the temp table exists from the previous cycle.
-		// So, 'create if not exists' and truncate.
-		_, err = tx.Exec(`CREATE TEMP TABLE IF NOT EXISTS txjson_fix_batch (round bigint NOT NULL, intra smallint NOT NULL, txn jsonb NOT NULL, PRIMARY KEY ( round, intra ))`)
-		if err != nil {
-			db.log.WithError(err).Errorf("%s, create temp err", m9ErrPrefix)
-			return err
-		}
-		_, err = tx.Exec(`TRUNCATE TABLE txjson_fix_batch`)
-		if err != nil {
-			db.log.WithError(err).Errorf("%s, truncate temp err", m9ErrPrefix)
-			return err
-		}
-		batchadd, err := tx.Prepare(`COPY txjson_fix_batch (round, intra, txn) FROM STDIN`)
-		if err != nil {
-			db.log.WithError(err).Errorf("%s, temp prepare err", m9ErrPrefix)
-			return err
-		}
-		defer batchadd.Close()
-		for _, tr := range outrows {
-			_, err = batchadd.Exec(tr.round, tr.intra, tr.txnJSON)
-			if err != nil {
-				db.log.WithError(err).Errorf("%s, temp row err", m9ErrPrefix)
-				return err
-			}
-		}
-		_, err = batchadd.Exec()
-		if err != nil {
-			db.log.WithError(err).Errorf("%s, temp empty row err", m9ErrPrefix)
-			return err
-		}
-		err = batchadd.Close()
-		if err != nil {
-			db.log.WithError(err).Errorf("%s, temp add close err", m9ErrPrefix)
-			return err
-		}
-
-		_, err = tx.Exec(`UPDATE txn SET txn = x.txn FROM txjson_fix_batch x WHERE txn.round = x.round AND txn.intra = x.intra`)
-		if err != nil {
-			db.log.WithError(err).Errorf("%s, update err", m9ErrPrefix)
-			return err
-		}
-		txstate.NextRound = int64(maxRound + 1)
-		migrationStateJSON := json.Encode(txstate)
-		_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
-		if err != nil {
-			db.log.WithError(err).Errorf("%s, set metastate err", m9ErrPrefix)
-			return err
-		}
-		return tx.Commit()
+	// do a transaction to update a batch
+	tx, err := db.db.Begin()
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, batch tx err", m9ErrPrefix)
+		return err
 	}
-	if err := txnWithRetry(f); err != nil {
+	defer tx.Rollback() // ignored if .Commit() first
+	// Check that migration state in db is still what we think it is
+	txstate, err := db.getMigrationState()
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, get m state err", m9ErrPrefix)
+		return err
+	} else if state == nil {
+		// no previous state, ok
+	} else {
+		if state.NextMigration != txstate.NextMigration || state.NextRound != txstate.NextRound {
+			return fmt.Errorf("%s, migration state changed when we weren't looking: %v -> %v", m9ErrPrefix, state, txstate)
+		}
+	}
+
+	// _sometimes_ the temp table exists from the previous cycle.
+	// So, 'create if not exists' and truncate.
+	_, err = tx.Exec(`CREATE TEMP TABLE IF NOT EXISTS txjson_fix_batch (round bigint NOT NULL, intra smallint NOT NULL, txn jsonb NOT NULL, PRIMARY KEY ( round, intra ))`)
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, create temp err", m9ErrPrefix)
+		return err
+	}
+	_, err = tx.Exec(`TRUNCATE TABLE txjson_fix_batch`)
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, truncate temp err", m9ErrPrefix)
+		return err
+	}
+	batchadd, err := tx.Prepare(`COPY txjson_fix_batch (round, intra, txn) FROM STDIN`)
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, temp prepare err", m9ErrPrefix)
+		return err
+	}
+	defer batchadd.Close()
+	for _, tr := range outrows {
+		_, err = batchadd.Exec(tr.round, tr.intra, tr.txnJSON)
+		if err != nil {
+			db.log.WithError(err).Errorf("%s, temp row err", m9ErrPrefix)
+			return err
+		}
+	}
+	_, err = batchadd.Exec()
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, temp empty row err", m9ErrPrefix)
+		return err
+	}
+	err = batchadd.Close()
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, temp add close err", m9ErrPrefix)
 		return err
 	}
 
+	_, err = tx.Exec(`UPDATE txn SET txn = x.txn FROM txjson_fix_batch x WHERE txn.round = x.round AND txn.intra = x.intra`)
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, update err", m9ErrPrefix)
+		return err
+	}
+	txstate.NextRound = int64(maxRound + 1)
+	migrationStateJSON := json.Encode(txstate)
+	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, set metastate err", m9ErrPrefix)
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		db.log.WithError(err).Errorf("%s, batch commit err", m9ErrPrefix)
+		return err
+	}
 	_, err = db.db.Exec(`DROP TABLE IF EXISTS txjson_fix_batch`)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, warning, drop temp err", m9ErrPrefix)
 		// we don't actually care; psql should garbage collect the temp table eventually
 	}
-
 	return nil
 }
 
@@ -1779,37 +1790,39 @@ func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 		return fmt.Errorf("unable to get special accounts: %v", err)
 	}
 
-	state.NextMigration++
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
 
-	f := func() error {
-		tx, err := db.db.BeginTx(context.Background(), &serializable)
-		if err != nil {
-			return fmt.Errorf("failed to begin m10 migration: %v", err)
-		}
-		defer tx.Rollback() // ignored if .Commit() first
-
-		initstmt, err := tx.Prepare(`UPDATE account SET deleted=false, created_at=0 WHERE addr=$1`)
-		if err != nil {
-			return fmt.Errorf("failed to prepare m10 query: %v", err)
-		}
-
-		for _, account := range []string{accounts.FeeSink.String(), accounts.RewardsPool.String()} {
-			address, err := sdk_types.DecodeAddress(account)
-			if err != nil {
-				return fmt.Errorf("failed to decode address: %v", err)
-			}
-			initstmt.Exec(address[:])
-		}
-
-		migrationStateJSON := idb.JSONOneLine(state)
-		_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
-		if err != nil {
-			return fmt.Errorf("m10 metastate upsert error: %v", err)
-		}
-
-		return tx.Commit()
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
+	if err != nil {
+		return fmt.Errorf("failed to begin m10 migration: %v", err)
 	}
-	return txnWithRetry(f)
+	defer tx.Rollback() // ignored if .Commit() first
+
+	initstmt, err := tx.Prepare(`UPDATE account SET deleted=false, created_at=0 WHERE addr=$1`)
+	if err != nil {
+		return fmt.Errorf("failed to prepare m10 query: %v", err)
+	}
+
+	for _, account := range []string{accounts.FeeSink.String(), accounts.RewardsPool.String()} {
+		address, err := sdk_types.DecodeAddress(account)
+		if err != nil {
+			return fmt.Errorf("failed to decode address: %v", err)
+		}
+		initstmt.Exec(address[:])
+	}
+
+	upsertMigrationState(tx, state, true)
+	if err != nil {
+		return fmt.Errorf("m10 metstate upsert error: %v", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("m10 commit error: %v", err)
+	}
+
+	return nil
 }
 
 // Search for the freeze accounts freeze transactions.
@@ -1827,6 +1840,11 @@ LIMIT 1`
 
 // Helper functions for m11 migration
 func updateFrozenState(db *IndexerDb, assetID uint64, closedAt *uint64, creator, freeze, holder types.Address) error {
+	// Semi-blocking migration.
+	// Hold accountingLock for the duration of the Transaction search + account_asset update.
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
 	minRound := uint64(0)
 	if closedAt != nil {
 		minRound = *closedAt
@@ -1907,12 +1925,13 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 		}
 	}
 
-	state.NextMigration++
-	migrationStateJSON := idb.JSONOneLine(state)
-	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	tx, err := db.db.BeginTx(context.Background(), &serializable)
+	tx.Rollback()
+	upsertMigrationState(tx, state, true)
 	if err != nil {
-		return fmt.Errorf("m11 metastate upsert error: %v", err)
+		return fmt.Errorf("m11 metstate upsert error: %v", err)
 	}
+	tx.Commit()
 
 	return nil
 }

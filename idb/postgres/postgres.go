@@ -17,6 +17,7 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -113,6 +114,8 @@ type IndexerDb struct {
 	protoCache map[string]types.ConsensusParams
 
 	migration *migration.Migration
+
+	accountingLock sync.Mutex
 }
 
 func (db *IndexerDb) init() (err error) {
