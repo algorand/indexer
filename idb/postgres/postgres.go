@@ -836,6 +836,9 @@ func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []i
 }
 
 func (db *IndexerDb) commitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
 	any := false
 	tx, err := db.db.BeginTx(context.Background(), &serializable)
 	if err != nil {
