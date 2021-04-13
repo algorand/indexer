@@ -19,6 +19,7 @@ import (
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/importer"
 	itypes "github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util/test"
 )
@@ -300,7 +301,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 		/////////// Then AccountB opts-out then opts-in again.
 		_, createAssetFrozen := test.MakeAssetConfigOrPanic(round, 0, aid, total, uint64(6), testcase.frozen, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 		_, optinB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
-		_, unfreezeB := test.MakeAssetFreezeOrPanic(round, aid, !testcase.frozen, test.AccountB)
+		_, unfreezeB := test.MakeAssetFreezeOrPanic(round, aid, !testcase.frozen, test.AccountB, test.AccountB)
 		_, optoutB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountC, test.AccountD)
 
 		cache, err := pdb.GetDefaultFrozen()
@@ -343,7 +344,7 @@ func TestNoopOptins(t *testing.T) {
 
 	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, uint64(1000000), uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
 	_, optinB := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
-	_, unfreezeB := test.MakeAssetFreezeOrPanic(test.Round, assetid, false, test.AccountB)
+	_, unfreezeB := test.MakeAssetFreezeOrPanic(test.Round, assetid, false, test.AccountB, test.AccountB)
 
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -906,12 +907,65 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 
 	// Check that the manager does not have an asset holding.
 	{
-		row := db.QueryRow("SELECT COUNT(*) FROM account_asset WHERE addr = $1", test.AccountB[:])
-
-		var count int64
-		err := row.Scan(&count)
-		assert.NoError(t, err)
-
-		assert.Equal(t, int64(0), count)
+		count := queryCount(db, "SELECT COUNT(*) FROM account_asset WHERE addr = $1", test.AccountB[:])
+		assert.Equal(t, 0, count)
 	}
+}
+
+// Test that block import adds the freeze/sender accounts to txn_participation.
+func TestAssetFreezeTxnParticipation(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+	pdb, _ := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	blockImporter := importer.NewDBImporter(pdb)
+
+	///////////
+	// Given // A block containing an asset freeze txn
+	///////////
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	// Create a block with freeze txn
+	freeze, _ := test.MakeAssetFreezeOrPanic(test.Round, 1234, true, test.AccountA, test.AccountB)
+	block := itypes.EncodedBlockCert{
+		Block:       itypes.Block{
+			BlockHeader: itypes.BlockHeader{
+				UpgradeState: itypes.UpgradeState{CurrentProtocol: "future"},
+			},
+			Payset:      []itypes.SignedTxnInBlock{
+				{
+					SignedTxnWithAD: itypes.SignedTxnWithAD{ SignedTxn: freeze.SignedTxn },
+					HasGenesisID:    true,
+					HasGenesisHash:  true,
+				},
+			},
+		},
+		Certificate: itypes.Certificate{},
+	}
+
+	//////////
+	// When // We commit the round accounting to the database.
+	//////////
+	txnCount, err := blockImporter.ImportDecodedBlock(&block)
+	assert.NoError(t, err, "failed to commit")
+	assert.Equal(t, 1, txnCount)
+
+	//////////
+	// Then // Both accounts should have an entry in the txn_participation table.
+	//////////
+	acctACount := queryCount(db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", test.AccountA[:])
+	acctBCount := queryCount(db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", test.AccountB[:])
+	assert.Equal(t, 1, acctACount)
+	assert.Equal(t, 1, acctBCount)
+}
+
+func queryCount(db *sql.DB, queryString string, args ...interface{}) int {
+	row := db.QueryRow(queryString, args...)
+
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		return -1
+	}
+	return count
 }
