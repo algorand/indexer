@@ -85,6 +85,9 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (p
 	return
 }
 
+// A helper function that retries the function `f` in case the database transaction in it
+// fails due to a serialization error. `f` must return an error which contains the error returned
+// by sql.Tx.Commit(). The easiest way is to just return the result of sql.Tx.Commit().
 func txnWithRetry(f func() error) error {
 	for {
 		err := f()
