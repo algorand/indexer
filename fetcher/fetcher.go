@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
@@ -53,10 +54,14 @@ type fetcherImpl struct {
 
 	log *log.Logger
 
-	err error
+	err   error // protected by `errmu`
+	errmu sync.Mutex
 }
 
 func (bot *fetcherImpl) Error() string {
+	bot.errmu.Lock()
+	defer bot.errmu.Unlock()
+
 	if bot.err != nil {
 		return bot.err.Error()
 	}
@@ -84,6 +89,12 @@ func (bot *fetcherImpl) isDone() bool {
 	}
 }
 
+func (bot *fetcherImpl) setError(err error) {
+	bot.errmu.Lock()
+	bot.err = err
+	bot.errmu.Unlock()
+}
+
 // fetch the next block by round number until we find one missing (because it doesn't exist yet)
 func (bot *fetcherImpl) catchupLoop() {
 	var err error
@@ -96,14 +107,14 @@ func (bot *fetcherImpl) catchupLoop() {
 
 		blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(context.Background())
 		if err != nil {
-			bot.err = err
+			bot.setError(err)
 			bot.log.WithError(err).Errorf("catchup block %d", bot.nextRound)
 			return
 		}
 
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
-			bot.err = err
+			bot.setError(err)
 			bot.log.WithError(err).Errorf("err handling catchup block %d", bot.nextRound)
 			return
 		}
@@ -134,17 +145,17 @@ func (bot *fetcherImpl) followLoop() {
 			bot.log.WithError(err).Errorf("r=%d err getting block %d", retries, bot.nextRound)
 		}
 		if err != nil {
-			bot.err = err
+			bot.setError(err)
 			return
 		}
 		err = bot.handleBlockBytes(blockbytes)
 		if err != nil {
-			bot.err = err
+			bot.setError(err)
 			bot.log.WithError(err).Errorf("err handling follow block %d", bot.nextRound)
 			break
 		}
 		// If we successfully handle the block, clear out any transient error which may have occurred.
-		bot.err = nil
+		bot.setError(nil)
 		bot.nextRound++
 		bot.failingSince = time.Time{}
 	}
@@ -172,7 +183,7 @@ func (bot *fetcherImpl) Run() {
 		time.Sleep(5 * time.Second)
 		err := bot.reclient()
 		if err != nil {
-			bot.err = err
+			bot.setError(err)
 			bot.log.WithError(err).Errorln("err trying to re-client")
 		} else {
 			bot.log.Infof("reclient happened")
