@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestM12Migration_AssetFreezeTxnParticipation(t *testing.T) {
+func TestMigration_FixFreezeLookupMigration(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 	pdb, err := OpenPostgres(connStr, nil, nil)
@@ -37,7 +37,7 @@ func TestM12Migration_AssetFreezeTxnParticipation(t *testing.T) {
 	// When // We truncate the txn_participation table and run our migration
 	//////////
 	db.Exec("TRUNCATE txn_participation")
-	m12FixFreezeLookup(pdb, &MigrationState{NextMigration: 12})
+	FixFreezeLookupMigration(pdb, &MigrationState{NextMigration: 12})
 
 	//////////
 	// Then // The sender is still deleted, but the freeze addr should be back.

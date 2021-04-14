@@ -49,7 +49,10 @@ func init() {
 		{m9TxnJSONEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
 		{m10SpecialAccountCleanup, false, "The initial m7 implementation would miss special accounts."},
 		{m11AssetHoldingFrozen, false, "Fix asset holding freeze states."},
-		{m12FixFreezeLookup, false, "Fix search by asset freeze address."},
+
+		// Next release migrations
+
+		{FixFreezeLookupMigration, false, "Fix search by asset freeze address."},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -1987,25 +1990,25 @@ func updateBatch(db *IndexerDb, updateQuery string, data [][]interface{}) error 
 	return tx.Commit()
 }
 
-func m12FixFreezeLookup(db *IndexerDb, state *MigrationState) error {
+func FixFreezeLookupMigration(db *IndexerDb, state *MigrationState) error {
 	updateQuery := "INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
 	query := "select decode(txn.txn->'txn'->>'fadd','base64'),round,intra from txn where typeenum = 5 AND txn.txn->'txn'->'snd' != txn.txn->'txn'->'fadd'"
 	rows, err := db.db.Query(query)
 	if err != nil {
-		return fmt.Errorf("m12: unable to query transactions: %v", err)
+		return fmt.Errorf("unable to query transactions: %v", err)
 	}
 	defer rows.Close()
 
 	txprows := make([][]interface{}, 0)
 
 	// Loop through all transactions and compute account data.
-	db.log.Print("m12: loop though all freeze transactions")
+	db.log.Print("loop though all freeze transactions")
 	for rows.Next() {
 		var addr []byte
 		var round, intra uint64
 		err = rows.Scan(&addr, &round, &intra)
 		if err != nil {
-			return fmt.Errorf("m12: error scanning row: %v", err)
+			return fmt.Errorf("error scanning row: %v", err)
 		}
 
 		txprows = append(txprows, []interface{}{addr, round, intra})
@@ -2013,7 +2016,7 @@ func m12FixFreezeLookup(db *IndexerDb, state *MigrationState) error {
 		if len(txprows) > 5000 {
 			err = updateBatch(db, updateQuery, txprows)
 			if err != nil {
-				return fmt.Errorf("m12: updating batch: %v", err)
+				return fmt.Errorf("updating batch: %v", err)
 			}
 			txprows = txprows[:0]
 		}
@@ -2023,11 +2026,11 @@ func m12FixFreezeLookup(db *IndexerDb, state *MigrationState) error {
 	if len(txprows) >0 {
 		err = updateBatch(db, updateQuery, txprows)
 		if err != nil {
-			return fmt.Errorf("m12: updating batch: %v", err)
+			return fmt.Errorf("updating batch: %v", err)
 		}
 	}
 
 	// Update migration state
-	defer db.log.Print("m12: finished reading freeze transactions")
+	defer db.log.Print("finished reading freeze transactions")
 	return upsertMigrationState(db, nil, state, true)
 }
