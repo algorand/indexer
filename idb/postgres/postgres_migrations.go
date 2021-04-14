@@ -140,7 +140,7 @@ func upsertMigrationState(db *IndexerDb, txIn *sql.Tx, state *MigrationState, in
 	migrationStateJSON := idb.JSONOneLine(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
-		return fmt.Errorf("m10 meta error: %v", err)
+		return fmt.Errorf("upsert migration state error: %v", err)
 	}
 
 	if tx != txIn {
