@@ -1987,6 +1987,7 @@ func updateBatch(db *IndexerDb, updateQuery string, data [][]interface{}) error 
 	return tx.Commit()
 }
 
+// FixFreezeLookupMigration is a migration to add txn_participation entries for freeze address in freeze transactions.
 func FixFreezeLookupMigration(db *IndexerDb, state *MigrationState) error {
 	updateQuery := "INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
 	query := "select decode(txn.txn->'txn'->>'fadd','base64'),round,intra from txn where typeenum = 5 AND txn.txn->'txn'->'snd' != txn.txn->'txn'->'fadd'"
@@ -2020,7 +2021,7 @@ func FixFreezeLookupMigration(db *IndexerDb, state *MigrationState) error {
 	}
 
 	// Commit any leftovers
-	if len(txprows) >0 {
+	if len(txprows) > 0 {
 		err = updateBatch(db, updateQuery, txprows)
 		if err != nil {
 			return fmt.Errorf("updating batch: %v", err)

@@ -223,23 +223,24 @@ func MakePayTxnRowOrPanic(round, fee, amt, closeAmt, sendRewards, receiveRewards
 	return &txn, &txnRow
 }
 
+// MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
 func MakeBlockForTxns(inputs ...*types.SignedTxnWithAD) types2.EncodedBlockCert {
 	var txns []types2.SignedTxnInBlock
 
 	for _, txn := range inputs {
 		txns = append(txns, types2.SignedTxnInBlock{
-			SignedTxnWithAD: types2.SignedTxnWithAD{ SignedTxn: txn.SignedTxn },
+			SignedTxnWithAD: types2.SignedTxnWithAD{SignedTxn: txn.SignedTxn},
 			HasGenesisID:    true,
-				HasGenesisHash:  true,
+			HasGenesisHash:  true,
 		})
 	}
 
 	return types2.EncodedBlockCert{
-		Block:       types2.Block{
+		Block: types2.Block{
 			BlockHeader: types2.BlockHeader{
 				UpgradeState: types2.UpgradeState{CurrentProtocol: "future"},
 			},
-			Payset:      txns,
+			Payset: txns,
 		},
 		Certificate: types2.Certificate{},
 	}
