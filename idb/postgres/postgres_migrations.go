@@ -1952,7 +1952,7 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 		}
 	}
 
-	upsertMigrationState(nil, tx, state, true)
+	upsertMigrationState(db, nil, state, true)
 	if err != nil {
 		return fmt.Errorf("m11 metastate upsert error: %v", err)
 	}
