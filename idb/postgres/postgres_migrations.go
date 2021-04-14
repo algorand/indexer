@@ -1988,9 +1988,9 @@ func updateBatch(db *IndexerDb, updateQuery string, data [][]interface{}) error 
 }
 
 func m12FixFreezeLookup(db *IndexerDb, state *MigrationState) error {
-	updateQuery := "COPY txn_participation (addr, round, intra) FROM STDIN ON CONFLICT DO NOTHING"
-	query := "select txn.txn->'txn'->'fadd',round,intra from txn where typeenum = 5 AND txn.txn->'txn'->'snd' != txn.txn->'txn'->'fadd'"
-	rows, err := db.db.Query(query, state.NextRound)
+	updateQuery := "INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
+	query := "select decode(txn.txn->'txn'->>'fadd','base64'),round,intra from txn where typeenum = 5 AND txn.txn->'txn'->'snd' != txn.txn->'txn'->'fadd'"
+	rows, err := db.db.Query(query)
 	if err != nil {
 		return fmt.Errorf("m12: unable to query transactions: %v", err)
 	}
@@ -2001,15 +2001,14 @@ func m12FixFreezeLookup(db *IndexerDb, state *MigrationState) error {
 	// Loop through all transactions and compute account data.
 	db.log.Print("m12: loop though all freeze transactions")
 	for rows.Next() {
-		var freezeAddress string
+		var addr []byte
 		var round, intra uint64
-		err = rows.Scan(&freezeAddress, &round, &intra)
+		err = rows.Scan(&addr, &round, &intra)
 		if err != nil {
 			return fmt.Errorf("m12: error scanning row: %v", err)
 		}
 
-		// Save the row
-		txprows = append(txprows, []interface{}{freezeAddress, round, intra})
+		txprows = append(txprows, []interface{}{addr, round, intra})
 
 		if len(txprows) > 5000 {
 			err = updateBatch(db, updateQuery, txprows)

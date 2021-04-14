@@ -59,6 +59,18 @@ func setupPostgres(t *testing.T) (*sql.DB, string, func()) {
 	return db, connStr, shutdownFunc
 }
 
+// Helper to execute a COUNT(*) query and return the result, or -1 on an error.
+func queryCount(db *sql.DB, queryString string, args ...interface{}) int {
+	row := db.QueryRow(queryString, args...)
+
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		return -1
+	}
+	return count
+}
+
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.
 func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
@@ -927,27 +939,13 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 
 	// Create a block with freeze txn
 	freeze, _ := test.MakeAssetFreezeOrPanic(test.Round, 1234, true, test.AccountA, test.AccountB)
-	block := itypes.EncodedBlockCert{
-		Block:       itypes.Block{
-			BlockHeader: itypes.BlockHeader{
-				UpgradeState: itypes.UpgradeState{CurrentProtocol: "future"},
-			},
-			Payset:      []itypes.SignedTxnInBlock{
-				{
-					SignedTxnWithAD: itypes.SignedTxnWithAD{ SignedTxn: freeze.SignedTxn },
-					HasGenesisID:    true,
-					HasGenesisHash:  true,
-				},
-			},
-		},
-		Certificate: itypes.Certificate{},
-	}
+	block := test.MakeBlockForTxns(freeze)
 
 	//////////
-	// When // We commit the round accounting to the database.
+	// When // We import the block.
 	//////////
 	txnCount, err := blockImporter.ImportDecodedBlock(&block)
-	assert.NoError(t, err, "failed to commit")
+	assert.NoError(t, err, "failed to import")
 	assert.Equal(t, 1, txnCount)
 
 	//////////
@@ -957,15 +955,4 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	acctBCount := queryCount(db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", test.AccountB[:])
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
-}
-
-func queryCount(db *sql.DB, queryString string, args ...interface{}) int {
-	row := db.QueryRow(queryString, args...)
-
-	var count int
-	err := row.Scan(&count)
-	if err != nil {
-		return -1
-	}
-	return count
 }
