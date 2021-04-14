@@ -147,7 +147,7 @@ func upsertMigrationState(db *IndexerDb, txIn *sql.Tx, state *MigrationState, in
 		return tx.Commit()
 	}
 
-	return
+	return err
 }
 
 func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
@@ -1841,7 +1841,7 @@ func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 
 	upsertMigrationState(nil, tx, state, true)
 	if err != nil {
-		return fmt.Errorf("m10 metstate upsert error: %v", err)
+		return fmt.Errorf("m10 metastate upsert error: %v", err)
 	}
 
 	err = tx.Commit()
@@ -1952,13 +1952,10 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 		}
 	}
 
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
-	tx.Rollback()
 	upsertMigrationState(nil, tx, state, true)
 	if err != nil {
-		return fmt.Errorf("m11 metstate upsert error: %v", err)
+		return fmt.Errorf("m11 metastate upsert error: %v", err)
 	}
-	tx.Commit()
 
 	return nil
 }
