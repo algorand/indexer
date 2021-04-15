@@ -41,9 +41,8 @@ const stateMetastateKey = "state"
 const migrationMetastateKey = "migration"
 const specialAccountsMetastateKey = "accounts"
 
-// Be a real ACID database
-var serializable = sql.TxOptions{Isolation: sql.LevelSerializable}
-var readonlySerializable = sql.TxOptions{Isolation: sql.LevelSerializable, ReadOnly: true}
+var serializable = sql.TxOptions{Isolation: sql.LevelSerializable} // be a real ACID database
+var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}
 
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
 func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
@@ -530,6 +529,14 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 
 			keepGoing = true
 		}
+		if err := rows.Err(); err != nil {
+			var row idb.TxnRow
+			row.Error = err
+			results <- row
+			rows.Close()
+			close(results)
+			return
+		}
 		rows.Close()
 		if pos == 0 {
 			break
@@ -950,7 +957,7 @@ UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{aca}', to
 		defer acc.Close()
 		// On asset opt-out update the CloseTo account_asset
 		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted)
-SELECT $1, $2, x.amount, $3, $6, false FROM account_asset x WHERE x.addr = $4 AND x.assetid = $5
+SELECT $1, $2, x.amount, $3, $6, false FROM account_asset x WHERE x.addr = $4 AND x.assetid = $5 AND x.amount <> 0
 ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, deleted = false`)
 		if err != nil {
 			return fmt.Errorf("prepare asset close1, %v", err)
@@ -1093,7 +1100,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		// Note! leaves `asset` and `account_asset` rows present for historical reference, but deletes all holdings from all accounts
 		any = true
 		// Update any account_asset holdings which were not previously closed. By now the amount should already be 0.
-		ads, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1, deleted = true WHERE assetid = $2 AND amount != 0`)
+		ads, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1, deleted = true WHERE addr = (SELECT creator_addr FROM asset WHERE index = $2) AND assetid = $2`)
 		if err != nil {
 			return fmt.Errorf("prepare asset destroy, %v", err)
 		}
@@ -1346,11 +1353,11 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 
 // GetBlock is part of idb.IndexerDB
 func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (block types.Block, transactions []idb.TxnRow, err error) {
-	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
 	if err != nil {
 		return
 	}
-	defer tx.Commit()
+	defer tx.Rollback()
 	row := tx.QueryRowContext(ctx, `SELECT header FROM block_header WHERE round = $1`, round)
 	var blockheaderjson []byte
 	err = row.Scan(&blockheaderjson)
@@ -1582,7 +1589,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	out := make(chan idb.TxnRow, 1)
 
-	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
 	if err != nil {
 		out <- idb.TxnRow{Error: err}
 		close(out)
@@ -1593,11 +1600,15 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 	if err != nil {
 		out <- idb.TxnRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
 
 	if len(tf.NextToken) > 0 {
-		go db.txnsWithNext(ctx, tx, tf, out)
+		go func() {
+			db.txnsWithNext(ctx, tx, tf, out)
+			tx.Rollback()
+		}()
 		return out, round
 	}
 
@@ -1606,6 +1617,7 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 		err = fmt.Errorf("txn query err %v", err)
 		out <- idb.TxnRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, 0
 	}
 
@@ -1614,10 +1626,14 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 		err = fmt.Errorf("txn query %#v err %v", query, err)
 		out <- idb.TxnRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
 
-	go db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
+	go func() {
+		db.yieldTxnsThreadSimple(ctx, rows, out, true, nil, nil)
+		tx.Rollback()
+	}()
 	return out, round
 }
 
@@ -1772,6 +1788,12 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, 
 			count++
 		}
 	}
+	if err := rows.Err(); err != nil {
+		results <- idb.TxnRow{Error: err}
+		if errp != nil {
+			*errp = err
+		}
+	}
 finish:
 	if doClose {
 		close(results)
@@ -1788,7 +1810,6 @@ var statusStrings = []string{"Offline", "Online", "NotParticipating"}
 const offlineStatusIdx = 0
 
 func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
-	defer req.tx.Rollback()
 	count := uint64(0)
 	defer func() {
 		end := time.Now()
@@ -2259,6 +2280,10 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			return
 		}
 	}
+	if err := req.rows.Err(); err != nil {
+		err = fmt.Errorf("error reading rows: %v", err)
+		req.out <- idb.AccountRow{Error: err}
+	}
 	close(req.out)
 }
 
@@ -2351,7 +2376,6 @@ func bytesStr(addr []byte) *string {
 type getAccountsRequest struct {
 	ctx         context.Context
 	opts        idb.AccountQueryOptions
-	tx          *sql.Tx
 	blockheader types.Block
 	query       string
 	rows        *sql.Rows
@@ -2373,7 +2397,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	}
 
 	// Begin transaction so we get everything at one consistent point in time and round of accounting.
-	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
 	if err != nil {
 		err = fmt.Errorf("account tx err %v", err)
 		out <- idb.AccountRow{Error: err}
@@ -2417,7 +2441,6 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	req := &getAccountsRequest{
 		ctx:         ctx,
 		opts:        opts,
-		tx:          tx,
 		blockheader: blockheader,
 		query:       query,
 		out:         out,
@@ -2431,7 +2454,10 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		tx.Rollback()
 		return out, round
 	}
-	go db.yieldAccountsThread(req)
+	go func() {
+		db.yieldAccountsThread(req)
+		tx.Rollback()
+	}()
 	return out, round
 }
 
@@ -2611,7 +2637,7 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 
 	out := make(chan idb.AssetRow, 1)
 
-	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
 	if err != nil {
 		out <- idb.AssetRow{Error: err}
 		close(out)
@@ -2622,6 +2648,7 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	if err != nil {
 		out <- idb.AssetRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
 
@@ -2630,9 +2657,13 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 		err = fmt.Errorf("asset query %#v err %v", query, err)
 		out <- idb.AssetRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
-	go db.yieldAssetsThread(ctx, filter, rows, out)
+	go func() {
+		db.yieldAssetsThread(ctx, filter, rows, out)
+		tx.Rollback()
+	}()
 	return out, round
 }
 
@@ -2671,6 +2702,9 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			return
 		case out <- rec:
 		}
+	}
+	if err := rows.Err(); err != nil {
+		out <- idb.AssetRow{Error: err}
 	}
 	close(out)
 }
@@ -2717,7 +2751,7 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 
 	out := make(chan idb.AssetBalanceRow, 1)
 
-	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
@@ -2728,6 +2762,7 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
 
@@ -2735,9 +2770,13 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
-	go db.yieldAssetBalanceThread(ctx, rows, out)
+	go func() {
+		db.yieldAssetBalanceThread(ctx, rows, out)
+		tx.Rollback()
+	}()
 	return out, round
 }
 
@@ -2770,6 +2809,9 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows
 			return
 		case out <- rec:
 		}
+	}
+	if err := rows.Err(); err != nil {
+		out <- idb.AssetBalanceRow{Error: err}
 	}
 	close(out)
 }
@@ -2811,7 +2853,7 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 		query += fmt.Sprintf(" LIMIT %d", *filter.Limit)
 	}
 
-	tx, err := db.db.BeginTx(ctx, &readonlySerializable)
+	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
@@ -2822,6 +2864,7 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
 
@@ -2829,10 +2872,14 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
+		tx.Rollback()
 		return out, round
 	}
 
-	go db.yieldApplicationsThread(ctx, rows, out)
+	go func() {
+		db.yieldApplicationsThread(ctx, rows, out)
+		tx.Rollback()
+	}()
 	return out, round
 }
 
@@ -2879,6 +2926,9 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows
 			NumUint:      ap.LocalStateSchema.NumUint,
 		}
 		out <- rec
+	}
+	if err := rows.Err(); err != nil {
+		out <- idb.ApplicationRow{Error: err}
 	}
 	close(out)
 }
