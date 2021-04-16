@@ -13,6 +13,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 	testutil "github.com/algorand/indexer/util/test"
 )
 
@@ -22,7 +23,7 @@ var (
 	truev = true
 )
 
-var maybeFail = testutil.MaybeFail
+var maybeFail = util.MaybeFail
 var printAccountQuery = testutil.PrintAccountQuery
 var printTxnQuery = testutil.PrintTxnQuery
 

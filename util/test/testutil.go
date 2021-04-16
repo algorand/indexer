@@ -11,6 +11,7 @@ import (
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 )
 
 var quiet = false
@@ -58,9 +59,9 @@ func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 	count := uint64(0)
 	assetchan, _ := db.Assets(context.Background(), q)
 	for ar := range assetchan {
-		MaybeFail(ar.Error, "asset query %v\n", ar.Error)
+		util.MaybeFail(ar.Error, "asset query %v\n", ar.Error)
 		pjs, err := json.Marshal(ar.Params)
-		MaybeFail(err, "json.Marshal params %v\n", err)
+		util.MaybeFail(err, "json.Marshal params %v\n", err)
 		var creator sdk_types.Address
 		copy(creator[:], ar.Creator)
 		info("%d %s %s\n", ar.AssetID, creator.String(), pjs)
@@ -79,9 +80,9 @@ func PrintAccountQuery(db idb.IndexerDb, q idb.AccountQueryOptions) {
 	accountchan, _ := db.GetAccounts(context.Background(), q)
 	count := uint64(0)
 	for ar := range accountchan {
-		MaybeFail(ar.Error, "GetAccounts err %v\n", ar.Error)
+		util.MaybeFail(ar.Error, "GetAccounts err %v\n", ar.Error)
 		jb, err := json.Marshal(ar.Account)
-		MaybeFail(err, "err %v\n", err)
+		util.MaybeFail(err, "err %v\n", err)
 		infoln(string(jb))
 		//fmt.Printf("%#v\n", ar.Account)
 		count++
@@ -99,10 +100,10 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 	rowchan, _ := db.Transactions(context.Background(), q)
 	count := uint64(0)
 	for txnrow := range rowchan {
-		MaybeFail(txnrow.Error, "err %v\n", txnrow.Error)
+		util.MaybeFail(txnrow.Error, "err %v\n", txnrow.Error)
 		var stxn types.SignedTxnWithAD
 		err := msgpack.Decode(txnrow.TxnBytes, &stxn)
-		MaybeFail(err, "decode txnbytes %v\n", err)
+		util.MaybeFail(err, "decode txnbytes %v\n", err)
 		//tjs, err := json.Marshal(stxn.Txn) // nope, ugly
 		//MaybeFail(err, "err %v\n", err)
 		//tjs := string(JSONOneLine(stxn.Txn))
@@ -118,11 +119,3 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 	}
 }
 
-// MaybeFail exits if there was an error.
-func MaybeFail(err error, errfmt string, params ...interface{}) {
-	if err == nil {
-		return
-	}
-	fmt.Fprintf(os.Stderr, errfmt, params...)
-	os.Exit(1)
-}
