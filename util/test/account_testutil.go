@@ -101,19 +101,19 @@ func MakeAssetConfigOrPanic(round, configid, assetid, total, decimals uint64, de
 }
 
 // MakeAssetFreezeOrPanic create an asset freeze/unfreeze transaction.
-func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, sender, freezeAccount atypes.Address) (*atypes.SignedTxnWithAD, *idb.TxnRow) {
+func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, send, fadd atypes.Address) (*atypes.SignedTxnWithAD, *idb.TxnRow) {
 	txn := atypes.SignedTxnWithAD{
 		SignedTxn: atypes.SignedTxn{
 			Txn: atypes.Transaction{
 				Type: "afrz",
 				Header: atypes.Header{
-					Sender:     sender,
+					Sender:     send,
 					Fee:        atypes.MicroAlgos(1000),
 					FirstValid: atypes.Round(round),
 					LastValid:  atypes.Round(round),
 				},
 				AssetFreezeTxnFields: atypes.AssetFreezeTxnFields{
-					FreezeAccount: freezeAccount,
+					FreezeAccount: fadd,
 					FreezeAsset:   atypes.AssetIndex(assetid),
 					AssetFrozen:   frozen,
 				},
@@ -131,28 +131,28 @@ func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, sender, freezeAc
 }
 
 // MakeAssetTxnOrPanic creates an asset transfer transaction.
-func MakeAssetTxnOrPanic(round, assetid, amt uint64, sender, receiver, close types.Address) (*types.SignedTxnWithAD, *idb.TxnRow) {
-	txn := types.SignedTxnWithAD{
-		SignedTxn: types.SignedTxn{
-			Txn: types.Transaction{
+func MakeAssetTxnOrPanic(round, assetid, amt uint64, sender, receiver, close atypes.Address) (*atypes.SignedTxnWithAD, *idb.TxnRow) {
+	txn := atypes.SignedTxnWithAD{
+		SignedTxn: atypes.SignedTxn{
+			Txn: atypes.Transaction{
 				Type: "axfer",
-				Header: types.Header{
+				Header: atypes.Header{
 					Sender:     sender,
-					Fee:        types.MicroAlgos(1000),
-					FirstValid: types.Round(round),
-					LastValid:  types.Round(round),
+					Fee:        atypes.MicroAlgos(1000),
+					FirstValid: atypes.Round(round),
+					LastValid:  atypes.Round(round),
 				},
-				AssetTransferTxnFields: types.AssetTransferTxnFields{
-					XferAsset:   types.AssetIndex(assetid),
+				AssetTransferTxnFields: atypes.AssetTransferTxnFields{
+					XferAsset:   atypes.AssetIndex(assetid),
 					AssetAmount: amt,
 					//only used for clawback transactions
-					//AssetSender:   types.Address{},
+					//AssetSender:   atypes.Address{},
 					AssetReceiver: receiver,
 					AssetCloseTo:  close,
 				},
 			},
 		},
-		ApplyData: types.ApplyData{},
+		ApplyData: atypes.ApplyData{},
 	}
 
 	txnRow := idb.TxnRow{
@@ -164,13 +164,13 @@ func MakeAssetTxnOrPanic(round, assetid, amt uint64, sender, receiver, close typ
 }
 
 // MakeAssetDestroyTxn makes a transaction that destroys an asset.
-func MakeAssetDestroyTxn(round uint64, assetID uint64) (*types.SignedTxnWithAD, *idb.TxnRow) {
-	txn := types.SignedTxnWithAD{
-		SignedTxn: types.SignedTxn{
-			Txn: types.Transaction{
+func MakeAssetDestroyTxn(round uint64, assetID uint64) (*atypes.SignedTxnWithAD, *idb.TxnRow) {
+	txn := atypes.SignedTxnWithAD{
+		SignedTxn: atypes.SignedTxn{
+			Txn: atypes.Transaction{
 				Type: "acfg",
-				AssetConfigTxnFields: types.AssetConfigTxnFields{
-					ConfigAsset: types.AssetIndex(assetID),
+				AssetConfigTxnFields: atypes.AssetConfigTxnFields{
+					ConfigAsset: atypes.AssetIndex(assetID),
 				},
 			},
 		},
@@ -187,31 +187,31 @@ func MakeAssetDestroyTxn(round uint64, assetID uint64) (*types.SignedTxnWithAD, 
 
 // MakePayTxnRowOrPanic creates an algo transfer transaction.
 func MakePayTxnRowOrPanic(round, fee, amt, closeAmt, sendRewards, receiveRewards,
-	closeRewards uint64, sender, receiver, close, rekeyTo types.Address) (*types.SignedTxnWithAD,
+	closeRewards uint64, sender, receiver, close, rekeyTo atypes.Address) (*atypes.SignedTxnWithAD,
 	*idb.TxnRow) {
-	txn := types.SignedTxnWithAD{
-		SignedTxn: types.SignedTxn{
-			Txn: types.Transaction{
+	txn := atypes.SignedTxnWithAD{
+		SignedTxn: atypes.SignedTxn{
+			Txn: atypes.Transaction{
 				Type: "pay",
-				Header: types.Header{
+				Header: atypes.Header{
 					Sender:     sender,
-					Fee:        types.MicroAlgos(fee),
-					FirstValid: types.Round(round),
-					LastValid:  types.Round(round),
+					Fee:        atypes.MicroAlgos(fee),
+					FirstValid: atypes.Round(round),
+					LastValid:  atypes.Round(round),
 					RekeyTo:    rekeyTo,
 				},
-				PaymentTxnFields: types.PaymentTxnFields{
+				PaymentTxnFields: atypes.PaymentTxnFields{
 					Receiver:         receiver,
-					Amount:           types.MicroAlgos(amt),
+					Amount:           atypes.MicroAlgos(amt),
 					CloseRemainderTo: close,
 				},
 			},
 		},
-		ApplyData: types.ApplyData{
-			ClosingAmount:   types.MicroAlgos(closeAmt),
-			SenderRewards:   types.MicroAlgos(sendRewards),
-			ReceiverRewards: types.MicroAlgos(receiveRewards),
-			CloseRewards:    types.MicroAlgos(closeRewards),
+		ApplyData: atypes.ApplyData{
+			ClosingAmount:   atypes.MicroAlgos(closeAmt),
+			SenderRewards:   atypes.MicroAlgos(sendRewards),
+			ReceiverRewards: atypes.MicroAlgos(receiveRewards),
+			CloseRewards:    atypes.MicroAlgos(closeRewards),
 		},
 	}
 
@@ -224,7 +224,7 @@ func MakePayTxnRowOrPanic(round, fee, amt, closeAmt, sendRewards, receiveRewards
 }
 
 // MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
-func MakeBlockForTxns(inputs ...*types.SignedTxnWithAD) types.EncodedBlockCert {
+func MakeBlockForTxns(inputs ...*atypes.SignedTxnWithAD) types.EncodedBlockCert {
 	var txns []types.SignedTxnInBlock
 
 	for _, txn := range inputs {
