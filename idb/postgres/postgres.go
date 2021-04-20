@@ -85,21 +85,6 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (p
 	return
 }
 
-// A helper function that retries the function `f` in case the database transaction in it
-// fails due to a serialization error. `f` must return an error which contains the error returned
-// by sql.Tx.Commit(). The easiest way is to just return the result of sql.Tx.Commit().
-func txnWithRetry(f func() error) error {
-	for {
-		err := f()
-
-		// If not serialization error.
-		var pqerr *pq.Error
-		if !errors.As(err, &pqerr) || (pqerr.Code != "40001") {
-			return err
-		}
-	}
-}
-
 // IndexerDb is an idb.IndexerDB implementation
 type IndexerDb struct {
 	log *log.Logger
@@ -119,6 +104,28 @@ type IndexerDb struct {
 	migration *migration.Migration
 
 	accountingLock sync.Mutex
+}
+
+// A helper function that retries the function `f` in case the database transaction in it
+// fails due to a serialization error. `f` must return an error which contains the error returned
+// by sql.Tx.Commit(). The easiest way is to just return the result of sql.Tx.Commit().
+func (db *IndexerDb) txnWithRetry(f func() error) error {
+	count := 0
+	for {
+		err := f()
+
+		// If not serialization error.
+		var pqerr *pq.Error
+		if !errors.As(err, &pqerr) || (pqerr.Code != "40001") {
+			if count > 0 {
+				db.log.Printf("transaction was retried %d times", count)
+			}
+			return err
+		}
+
+		count++
+		db.log.Printf("retrying transaction, count: %d", count)
+	}
 }
 
 func (db *IndexerDb) init() (err error) {
@@ -290,7 +297,7 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 	f := func() error {
 		return db.commitBlock(round, timestamp, rewardslevel, headerbytes)
 	}
-	err := txnWithRetry(f)
+	err := db.txnWithRetry(f)
 
 	db.txrows = nil
 	db.txprows = nil
@@ -1353,7 +1360,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 	f := func() (err error) {
 		return db.commitRoundAccounting(updates, round, blockPtr)
 	}
-	return txnWithRetry(f)
+	return db.txnWithRetry(f)
 }
 
 // GetBlock is part of idb.IndexerDB
