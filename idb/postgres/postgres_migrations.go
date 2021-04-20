@@ -115,11 +115,11 @@ func needsMigration(state MigrationState) bool {
 }
 
 // upsertMigrationState updates the migration state, and optionally increments the next counter.
-// Exactly one of if db or tx should be nil.
 // If no tx is provided the query will be executed directly without a transaction.
+// Exactly one of db or tx should be nil.
 func upsertMigrationState(db *IndexerDb, tx *sql.Tx, state *MigrationState, incrementNextMigration bool) (err error) {
 	if db != nil && tx != nil {
-		return fmt.Errorf("do not provide both db and txIn")
+		return fmt.Errorf("exactly one of db or tx should be nil")
 	}
 
 	if incrementNextMigration {
