@@ -50,7 +50,7 @@ func init() {
 		{m10SpecialAccountCleanup, false, "The initial m7 implementation would miss special accounts."},
 		{m11AssetHoldingFrozen, false, "Fix asset holding freeze states."},
 
-		// Next release migrations
+		// Migrations for _._._ release
 
 		{FixFreezeLookupMigration, false, "Fix search by asset freeze address."},
 	}

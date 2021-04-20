@@ -4,10 +4,10 @@ import (
 	"fmt"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	"github.com/algorand/go-algorand-sdk/types"
+	atypes "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/idb"
-	sdk_types "github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/types"
 )
 
 // Round is the round used in pre-made transactions.
@@ -28,31 +28,31 @@ var (
 	RewardAddr = DecodeAddressOrPanic("4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM")
 
 	// OpenMainStxn is a premade signed transaction which may be useful in tests.
-	OpenMainStxn *types.SignedTxnWithAD
+	OpenMainStxn *atypes.SignedTxnWithAD
 	// OpenMain is a premade TxnRow which may be useful in tests.
 	OpenMain *idb.TxnRow
 
 	// CloseMainToBCStxn is a premade signed transaction which may be useful in tests.
-	CloseMainToBCStxn *types.SignedTxnWithAD
+	CloseMainToBCStxn *atypes.SignedTxnWithAD
 	// CloseMainToBC is a premade TxnRow which may be useful in tests.
 	CloseMainToBC *idb.TxnRow
 )
 
 func init() {
 	OpenMainStxn, OpenMain = MakePayTxnRowOrPanic(Round, 1000, 10234, 0, 111, 1111, 0, AccountC,
-		AccountA, types.ZeroAddress, types.ZeroAddress)
+		AccountA, atypes.ZeroAddress, atypes.ZeroAddress)
 	// CloseMainToBCStxn and CloseMainToBC are premade transactions which may be useful in tests.
 	CloseMainToBCStxn, CloseMainToBC = MakePayTxnRowOrPanic(Round, 1000, 1234, 9111, 0, 111, 111,
-		AccountA, AccountC, AccountB, types.ZeroAddress)
+		AccountA, AccountC, AccountB, atypes.ZeroAddress)
 }
 
 // DecodeAddressOrPanic is a helper to ensure addresses are initialized.
-func DecodeAddressOrPanic(addr string) types.Address {
+func DecodeAddressOrPanic(addr string) atypes.Address {
 	if addr == "" {
-		return types.ZeroAddress
+		return atypes.ZeroAddress
 	}
 
-	result, err := types.DecodeAddress(addr)
+	result, err := atypes.DecodeAddress(addr)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to decode address: '%s'", addr))
 	}
@@ -60,20 +60,20 @@ func DecodeAddressOrPanic(addr string) types.Address {
 }
 
 // MakeAssetConfigOrPanic is a helper to ensure test asset config are initialized.
-func MakeAssetConfigOrPanic(round, configid, assetid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr types.Address) (*types.SignedTxnWithAD, *idb.TxnRow) {
-	txn := types.SignedTxnWithAD{
-		SignedTxn: types.SignedTxn{
-			Txn: types.Transaction{
+func MakeAssetConfigOrPanic(round, configid, assetid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr atypes.Address) (*atypes.SignedTxnWithAD, *idb.TxnRow) {
+	txn := atypes.SignedTxnWithAD{
+		SignedTxn: atypes.SignedTxn{
+			Txn: atypes.Transaction{
 				Type: "acfg",
-				Header: types.Header{
+				Header: atypes.Header{
 					Sender:     addr,
-					Fee:        types.MicroAlgos(1000),
-					FirstValid: types.Round(round),
-					LastValid:  types.Round(round),
+					Fee:        atypes.MicroAlgos(1000),
+					FirstValid: atypes.Round(round),
+					LastValid:  atypes.Round(round),
 				},
-				AssetConfigTxnFields: types.AssetConfigTxnFields{
-					ConfigAsset: types.AssetIndex(configid),
-					AssetParams: types.AssetParams{
+				AssetConfigTxnFields: atypes.AssetConfigTxnFields{
+					ConfigAsset: atypes.AssetIndex(configid),
+					AssetParams: atypes.AssetParams{
 						Total:         total,
 						Decimals:      uint32(decimals),
 						DefaultFrozen: defaultFrozen,
@@ -101,20 +101,20 @@ func MakeAssetConfigOrPanic(round, configid, assetid, total, decimals uint64, de
 }
 
 // MakeAssetFreezeOrPanic create an asset freeze/unfreeze transaction.
-func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, sender, freezeAccount types.Address) (*types.SignedTxnWithAD, *idb.TxnRow) {
-	txn := types.SignedTxnWithAD{
-		SignedTxn: types.SignedTxn{
-			Txn: types.Transaction{
+func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, sender, freezeAccount atypes.Address) (*atypes.SignedTxnWithAD, *idb.TxnRow) {
+	txn := atypes.SignedTxnWithAD{
+		SignedTxn: atypes.SignedTxn{
+			Txn: atypes.Transaction{
 				Type: "afrz",
-				Header: types.Header{
+				Header: atypes.Header{
 					Sender:     sender,
-					Fee:        types.MicroAlgos(1000),
-					FirstValid: types.Round(round),
-					LastValid:  types.Round(round),
+					Fee:        atypes.MicroAlgos(1000),
+					FirstValid: atypes.Round(round),
+					LastValid:  atypes.Round(round),
 				},
-				AssetFreezeTxnFields: types.AssetFreezeTxnFields{
+				AssetFreezeTxnFields: atypes.AssetFreezeTxnFields{
 					FreezeAccount: freezeAccount,
-					FreezeAsset:   types.AssetIndex(assetid),
+					FreezeAsset:   atypes.AssetIndex(assetid),
 					AssetFrozen:   frozen,
 				},
 			},
@@ -224,24 +224,24 @@ func MakePayTxnRowOrPanic(round, fee, amt, closeAmt, sendRewards, receiveRewards
 }
 
 // MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
-func MakeBlockForTxns(inputs ...*types.SignedTxnWithAD) sdk_types.EncodedBlockCert {
-	var txns []sdk_types.SignedTxnInBlock
+func MakeBlockForTxns(inputs ...*types.SignedTxnWithAD) types.EncodedBlockCert {
+	var txns []types.SignedTxnInBlock
 
 	for _, txn := range inputs {
-		txns = append(txns, sdk_types.SignedTxnInBlock{
-			SignedTxnWithAD: sdk_types.SignedTxnWithAD{SignedTxn: txn.SignedTxn},
+		txns = append(txns, types.SignedTxnInBlock{
+			SignedTxnWithAD: types.SignedTxnWithAD{SignedTxn: txn.SignedTxn},
 			HasGenesisID:    true,
 			HasGenesisHash:  true,
 		})
 	}
 
-	return sdk_types.EncodedBlockCert{
-		Block: sdk_types.Block{
-			BlockHeader: sdk_types.BlockHeader{
-				UpgradeState: sdk_types.UpgradeState{CurrentProtocol: "future"},
+	return types.EncodedBlockCert{
+		Block: types.Block{
+			BlockHeader: types.BlockHeader{
+				UpgradeState: types.UpgradeState{CurrentProtocol: "future"},
 			},
 			Payset: txns,
 		},
-		Certificate: sdk_types.Certificate{},
+		Certificate: types.Certificate{},
 	}
 }
