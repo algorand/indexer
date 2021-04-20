@@ -7,7 +7,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/idb"
-	types2 "github.com/algorand/indexer/types"
+	sdk_types "github.com/algorand/indexer/types"
 )
 
 // Round is the round used in pre-made transactions.
@@ -101,19 +101,19 @@ func MakeAssetConfigOrPanic(round, configid, assetid, total, decimals uint64, de
 }
 
 // MakeAssetFreezeOrPanic create an asset freeze/unfreeze transaction.
-func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, send, fadd types.Address) (*types.SignedTxnWithAD, *idb.TxnRow) {
+func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, sender, freezeAccount types.Address) (*types.SignedTxnWithAD, *idb.TxnRow) {
 	txn := types.SignedTxnWithAD{
 		SignedTxn: types.SignedTxn{
 			Txn: types.Transaction{
 				Type: "afrz",
 				Header: types.Header{
-					Sender:     send,
+					Sender:     sender,
 					Fee:        types.MicroAlgos(1000),
 					FirstValid: types.Round(round),
 					LastValid:  types.Round(round),
 				},
 				AssetFreezeTxnFields: types.AssetFreezeTxnFields{
-					FreezeAccount: fadd,
+					FreezeAccount: freezeAccount,
 					FreezeAsset:   types.AssetIndex(assetid),
 					AssetFrozen:   frozen,
 				},
@@ -224,24 +224,24 @@ func MakePayTxnRowOrPanic(round, fee, amt, closeAmt, sendRewards, receiveRewards
 }
 
 // MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
-func MakeBlockForTxns(inputs ...*types.SignedTxnWithAD) types2.EncodedBlockCert {
-	var txns []types2.SignedTxnInBlock
+func MakeBlockForTxns(inputs ...*types.SignedTxnWithAD) sdk_types.EncodedBlockCert {
+	var txns []sdk_types.SignedTxnInBlock
 
 	for _, txn := range inputs {
-		txns = append(txns, types2.SignedTxnInBlock{
-			SignedTxnWithAD: types2.SignedTxnWithAD{SignedTxn: txn.SignedTxn},
+		txns = append(txns, sdk_types.SignedTxnInBlock{
+			SignedTxnWithAD: sdk_types.SignedTxnWithAD{SignedTxn: txn.SignedTxn},
 			HasGenesisID:    true,
 			HasGenesisHash:  true,
 		})
 	}
 
-	return types2.EncodedBlockCert{
-		Block: types2.Block{
-			BlockHeader: types2.BlockHeader{
-				UpgradeState: types2.UpgradeState{CurrentProtocol: "future"},
+	return sdk_types.EncodedBlockCert{
+		Block: sdk_types.Block{
+			BlockHeader: sdk_types.BlockHeader{
+				UpgradeState: sdk_types.UpgradeState{CurrentProtocol: "future"},
 			},
 			Payset: txns,
 		},
-		Certificate: types2.Certificate{},
+		Certificate: sdk_types.Certificate{},
 	}
 }

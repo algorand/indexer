@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestMigration_FixFreezeLookupMigration(t *testing.T) {
+func TestFixFreezeLookupMigration(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 	pdb, err := OpenPostgres(connStr, nil, nil)
@@ -42,8 +42,8 @@ func TestMigration_FixFreezeLookupMigration(t *testing.T) {
 	//////////
 	// Then // The sender is still deleted, but the freeze addr should be back.
 	//////////
-	senderCount := queryCount(db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", sender[:])
-	faddrCount := queryCount(db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", faddr[:])
+	senderCount := queryInt(db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", sender[:])
+	faddrCount := queryInt(db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", faddr[:])
 	assert.Equal(t, 0, senderCount)
 	assert.Equal(t, 1, faddrCount)
 }

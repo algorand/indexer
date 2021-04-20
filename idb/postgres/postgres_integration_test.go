@@ -59,8 +59,8 @@ func setupPostgres(t *testing.T) (*sql.DB, string, func()) {
 	return db, connStr, shutdownFunc
 }
 
-// Helper to execute a COUNT(*) query and return the result, or -1 on an error.
-func queryCount(db *sql.DB, queryString string, args ...interface{}) int {
+// Helper to execute a query returning an integer, for example COUNT(*). Returns -1 on an error.
+func queryInt(db *sql.DB, queryString string, args ...interface{}) int {
 	row := db.QueryRow(queryString, args...)
 
 	var count int
@@ -919,7 +919,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 
 	// Check that the manager does not have an asset holding.
 	{
-		count := queryCount(db, "SELECT COUNT(*) FROM account_asset WHERE addr = $1", test.AccountB[:])
+		count := queryInt(db, "SELECT COUNT(*) FROM account_asset WHERE addr = $1", test.AccountB[:])
 		assert.Equal(t, 0, count)
 	}
 }
@@ -951,8 +951,8 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	//////////
 	// Then // Both accounts should have an entry in the txn_participation table.
 	//////////
-	acctACount := queryCount(db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", test.AccountA[:])
-	acctBCount := queryCount(db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", test.AccountB[:])
+	acctACount := queryInt(db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", test.AccountA[:])
+	acctBCount := queryInt(db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", test.AccountB[:])
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
 }

@@ -115,36 +115,22 @@ func needsMigration(state MigrationState) bool {
 }
 
 // upsertMigrationState updates the migration state, and optionally increments the next counter.
-// if txIn is nil, a transaction will be created and committed with the acocunting lock.
-func upsertMigrationState(db *IndexerDb, txIn *sql.Tx, state *MigrationState, incrementNextMigration bool) (err error) {
-	if db != nil && txIn != nil {
+// Exactly one of if db or tx should be nil.
+// If no tx is provided the query will be executed directly without a transaction.
+func upsertMigrationState(db *IndexerDb, tx *sql.Tx, state *MigrationState, incrementNextMigration bool) (err error) {
+	if db != nil && tx != nil {
 		return fmt.Errorf("do not provide both db and txIn")
-	}
-
-	var tx = txIn
-
-	if tx == nil {
-		db.accountingLock.Lock()
-		defer db.accountingLock.Unlock()
-
-		tx, err = db.db.Begin()
-		defer tx.Rollback()
-		if err != nil {
-			return err
-		}
 	}
 
 	if incrementNextMigration {
 		state.NextMigration++
 	}
 	migrationStateJSON := idb.JSONOneLine(state)
-	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
-	if err != nil {
-		return fmt.Errorf("upsert migration state error: %v", err)
-	}
 
-	if tx != txIn {
-		return tx.Commit()
+	if tx != nil {
+		_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	} else {
+		_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	}
 
 	return err
@@ -1989,8 +1975,9 @@ func updateBatch(db *IndexerDb, updateQuery string, data [][]interface{}) error 
 
 // FixFreezeLookupMigration is a migration to add txn_participation entries for freeze address in freeze transactions.
 func FixFreezeLookupMigration(db *IndexerDb, state *MigrationState) error {
+	// Technically with this query no transactions are needed, and the accounting state doesn't need to be locked.
 	updateQuery := "INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
-	query := "select decode(txn.txn->'txn'->>'fadd','base64'),round,intra from txn where typeenum = 5 AND txn.txn->'txn'->'snd' != txn.txn->'txn'->'fadd'"
+	query := fmt.Sprintf("select decode(txn.txn->'txn'->>'fadd','base64'),round,intra from txn where typeenum = %d AND txn.txn->'txn'->'snd' != txn.txn->'txn'->'fadd'", idb.TypeEnumAssetFreeze)
 	rows, err := db.db.Query(query)
 	if err != nil {
 		return fmt.Errorf("unable to query transactions: %v", err)
@@ -2000,7 +1987,7 @@ func FixFreezeLookupMigration(db *IndexerDb, state *MigrationState) error {
 	txprows := make([][]interface{}, 0)
 
 	// Loop through all transactions and compute account data.
-	db.log.Print("loop though all freeze transactions")
+	db.log.Print("loop through all freeze transactions")
 	for rows.Next() {
 		var addr []byte
 		var round, intra uint64
@@ -2020,6 +2007,10 @@ func FixFreezeLookupMigration(db *IndexerDb, state *MigrationState) error {
 		}
 	}
 
+	if rows.Err() != nil {
+		return fmt.Errorf("error while processing freeze transactions: %v", rows.Err())
+	}
+
 	// Commit any leftovers
 	if len(txprows) > 0 {
 		err = updateBatch(db, updateQuery, txprows)
@@ -2029,6 +2020,5 @@ func FixFreezeLookupMigration(db *IndexerDb, state *MigrationState) error {
 	}
 
 	// Update migration state
-	defer db.log.Print("finished reading freeze transactions")
 	return upsertMigrationState(db, nil, state, true)
 }
