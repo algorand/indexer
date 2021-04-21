@@ -101,19 +101,19 @@ func MakeAssetConfigOrPanic(round, configid, assetid, total, decimals uint64, de
 }
 
 // MakeAssetFreezeOrPanic create an asset freeze/unfreeze transaction.
-func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, send, fadd atypes.Address) (*atypes.SignedTxnWithAD, *idb.TxnRow) {
+func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, sender, freezeAccount atypes.Address) (*atypes.SignedTxnWithAD, *idb.TxnRow) {
 	txn := atypes.SignedTxnWithAD{
 		SignedTxn: atypes.SignedTxn{
 			Txn: atypes.Transaction{
 				Type: "afrz",
 				Header: atypes.Header{
-					Sender:     send,
+					Sender:     sender,
 					Fee:        atypes.MicroAlgos(1000),
 					FirstValid: atypes.Round(round),
 					LastValid:  atypes.Round(round),
 				},
 				AssetFreezeTxnFields: atypes.AssetFreezeTxnFields{
-					FreezeAccount: fadd,
+					FreezeAccount: freezeAccount,
 					FreezeAsset:   atypes.AssetIndex(assetid),
 					AssetFrozen:   frozen,
 				},
