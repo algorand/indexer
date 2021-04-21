@@ -420,10 +420,13 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		d := make([]generated.AccountStateDelta, 0)
 		for _, k := range keys {
 			v := stxn.ApplyData.EvalDelta.LocalDeltas[k.key]
-			d = append(d, generated.AccountStateDelta{
-				Address: k.address.String(),
-				Delta:   *(stateDeltaToStateDelta(v)),
-			})
+			delta := stateDeltaToStateDelta(v)
+			if delta != nil {
+				d = append(d, generated.AccountStateDelta{
+					Address: k.address.String(),
+					Delta:   *delta,
+				})
+			}
 		}
 		localStateDelta = &d
 	}
@@ -496,6 +499,7 @@ func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.Assets
 		Name:               strOrDefault(params.Name),
 		Unit:               strOrDefault(params.Unit),
 		Query:              "",
+		IncludeDeleted:     boolOrDefault(params.IncludeAll),
 		Limit:              min(uintOrDefaultValue(params.Limit, defaultAssetsLimit), maxAssetsLimit),
 	}
 

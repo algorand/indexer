@@ -14,6 +14,7 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
@@ -160,7 +161,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	///////////
 	// Given // A round scenario requiring subround accounting: AccountA is funded, closed, opts back, and funded again.
 	///////////
-	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
 	_, fundMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
 	_, closeMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
 	_, optinMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, types.ZeroAddress)
@@ -209,8 +210,8 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	///////////
 	// Given // A new asset with default-frozen = true, and AccountB opting into it.
 	///////////
-	_, createAssetFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
-	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid+1, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, createAssetFrozen := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, 0, assetid+1, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 	_, optinB1 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
 	_, optinB2 := test.MakeAssetTxnOrPanic(test.Round, assetid+1, 0, test.AccountB, test.AccountB, types.ZeroAddress)
 
@@ -232,7 +233,7 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	// Then // Make sure the accounts have the correct default-frozen after create/optin
 	//////////
 	// default-frozen = true
-	assertAccountAsset(t, db, test.AccountA, assetid, true, total)
+	assertAccountAsset(t, db, test.AccountA, assetid, false, total) // the creator ignores default-frozen
 	assertAccountAsset(t, db, test.AccountB, assetid, true, 0)
 
 	// default-frozen = false
@@ -297,7 +298,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 		///////////
 		// Given // A new asset with default-frozen, AccountB opts-in and has its frozen state toggled.
 		/////////// Then AccountB opts-out then opts-in again.
-		_, createAssetFrozen := test.MakeAssetConfigOrPanic(round, aid, total, uint64(6), testcase.frozen, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+		_, createAssetFrozen := test.MakeAssetConfigOrPanic(round, 0, aid, total, uint64(6), testcase.frozen, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 		_, optinB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
 		_, unfreezeB := test.MakeAssetFreezeOrPanic(round, aid, !testcase.frozen, test.AccountB)
 		_, optoutB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountC, test.AccountD)
@@ -340,7 +341,7 @@ func TestNoopOptins(t *testing.T) {
 	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
 	assert.NoError(t, err)
 
-	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, assetid, uint64(1000000), uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, uint64(1000000), uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
 	_, optinB := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
 	_, unfreezeB := test.MakeAssetFreezeOrPanic(test.Round, assetid, false, test.AccountB)
 
@@ -440,7 +441,7 @@ func TestBlockWithTransactions(t *testing.T) {
 	///////////
 	// Given // A block at round test.Round with 5 transactions.
 	///////////
-	tx1, row1 := test.MakeAssetConfigOrPanic(test.Round, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	tx1, row1 := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
 	tx2, row2 := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
 	tx3, row3 := test.MakeAssetTxnOrPanic(test.Round, assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
 	tx4, row4 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, types.ZeroAddress)
@@ -459,7 +460,7 @@ func TestBlockWithTransactions(t *testing.T) {
 	_, blockTxn, err := pdb.GetBlock(context.Background(), test.Round, idb.GetBlockOptions{Transactions: true})
 	assert.NoError(t, err)
 	round := test.Round
-	txnRow := pdb.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
+	txnRow, _ := pdb.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
 	transactionsTxn := make([]idb.TxnRow, 0)
 	for row := range txnRow {
 		transactionsTxn = append(transactionsTxn, row)
@@ -630,4 +631,287 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	//////////
 	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
 	assert.NoError(t, err, "failed to commit")
+}
+
+// TestIgnoreDefaultFrozenConfigUpdate the creator asset holding should ignore default-frozen = true.
+func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	assetid := uint64(2222)
+	total := uint64(1000000)
+
+	///////////
+	// Given // A new asset with default-frozen = true, and AccountB opting into it.
+	///////////
+	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, modifyAssetToFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, optin := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
+
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
+	state.AddTransaction(createAssetNotFrozen)
+	state.AddTransaction(modifyAssetToFrozen)
+	state.AddTransaction(optin)
+
+	//////////
+	// When // We commit the round accounting to the database.
+	//////////
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	assert.NoError(t, err, "failed to commit")
+
+	//////////
+	// Then // Make sure the accounts have the correct default-frozen after create/optin
+	//////////
+	// default-frozen = true
+	assertAccountAsset(t, db, test.AccountA, assetid, false, total)
+	assertAccountAsset(t, db, test.AccountB, assetid, false, 0)
+}
+
+// TestZeroTotalAssetCreate tests that the asset holding with total of 0 is created.
+func TestZeroTotalAssetCreate(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	assetid := uint64(2222)
+	total := uint64(0)
+
+	///////////
+	// Given // A new asset with total = 0.
+	///////////
+	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+	state := getAccounting(test.Round, cache)
+	state.AddTransaction(createAsset)
+
+	//////////
+	// When // We commit the round accounting to the database.
+	//////////
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	assert.NoError(t, err, "failed to commit")
+
+	//////////
+	// Then // Make sure the creator has an asset holding with amount = 0.
+	//////////
+	assertAccountAsset(t, db, test.AccountA, assetid, false, 0)
+}
+
+func assertAssetDates(t *testing.T, db *sql.DB, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
+	row := db.QueryRow(
+		"SELECT deleted, created_at, closed_at FROM asset WHERE index = $1", int64(assetID))
+
+	var retDeleted sql.NullBool
+	var retCreatedAt sql.NullInt64
+	var retClosedAt sql.NullInt64
+	err := row.Scan(&retDeleted, &retCreatedAt, &retClosedAt)
+	assert.NoError(t, err)
+
+	assert.Equal(t, deleted, retDeleted)
+	assert.Equal(t, createdAt, retCreatedAt)
+	assert.Equal(t, closedAt, retClosedAt)
+}
+
+func assertAssetHoldingDates(t *testing.T, db *sql.DB, address types.Address, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
+	row := db.QueryRow(
+		"SELECT deleted, created_at, closed_at FROM account_asset WHERE "+
+			"addr = $1 AND assetid = $2",
+		address[:], assetID)
+
+	var retDeleted sql.NullBool
+	var retCreatedAt sql.NullInt64
+	var retClosedAt sql.NullInt64
+	err := row.Scan(&retDeleted, &retCreatedAt, &retClosedAt)
+	assert.NoError(t, err)
+
+	assert.Equal(t, deleted, retDeleted)
+	assert.Equal(t, createdAt, retCreatedAt)
+	assert.Equal(t, closedAt, retClosedAt)
+}
+
+func TestDestroyAssetBasic(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+
+	assetID := uint64(3)
+
+	// Create an asset.
+	{
+		_, txnRow := test.MakeAssetConfigOrPanic(test.Round, 0, assetID, 4, 0, false, "uu", "aa", "",
+			test.AccountA)
+
+		state := getAccounting(test.Round, cache)
+		err := state.AddTransaction(txnRow)
+		assert.NoError(t, err)
+
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+		assert.NoError(t, err, "failed to commit")
+	}
+	// Destroy an asset.
+	{
+		_, txnRow := test.MakeAssetDestroyTxn(test.Round+1, assetID)
+
+		state := getAccounting(test.Round+1, cache)
+		err := state.AddTransaction(txnRow)
+		assert.NoError(t, err)
+
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round+1, &itypes.Block{})
+		assert.NoError(t, err, "failed to commit")
+	}
+
+	// Check that the asset is deleted.
+	assertAssetDates(t, db, assetID,
+		sql.NullBool{Valid: true, Bool: true},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round + 1)})
+
+	// Check that the account's asset holding is deleted.
+	assertAssetHoldingDates(t, db, test.AccountA, assetID,
+		sql.NullBool{Valid: true, Bool: true},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round + 1)})
+}
+
+func TestDestroyAssetZeroSupply(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+
+	assetID := uint64(3)
+
+	state := getAccounting(test.Round, cache)
+
+	// Create an asset.
+	{
+		// Set total supply to 0.
+		_, txnRow := test.MakeAssetConfigOrPanic(test.Round, 0, assetID, 0, 0, false, "uu", "aa", "",
+			test.AccountA)
+
+		err := state.AddTransaction(txnRow)
+		assert.NoError(t, err)
+	}
+	// Destroy an asset.
+	{
+		_, txnRow := test.MakeAssetDestroyTxn(test.Round, assetID)
+
+		err := state.AddTransaction(txnRow)
+		assert.NoError(t, err)
+	}
+
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	assert.NoError(t, err, "failed to commit")
+
+	// Check that the asset is deleted.
+	assertAssetDates(t, db, assetID,
+		sql.NullBool{Valid: true, Bool: true},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)})
+
+	// Check that the account's asset holding is deleted.
+	assertAssetHoldingDates(t, db, test.AccountA, assetID,
+		sql.NullBool{Valid: true, Bool: true},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)})
+}
+
+func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	cache, err := pdb.GetDefaultFrozen()
+	assert.NoError(t, err)
+
+	assetID := uint64(3)
+
+	state := getAccounting(test.Round, cache)
+
+	// Create an asset.
+	{
+		// Create a transaction where all special addresses are different from creator's address.
+		txn := types.SignedTxnWithAD{
+			SignedTxn: types.SignedTxn{
+				Txn: types.Transaction{
+					Type: "acfg",
+					Header: types.Header{
+						Sender: test.AccountA,
+					},
+					AssetConfigTxnFields: types.AssetConfigTxnFields{
+						AssetParams: types.AssetParams{
+							Manager:  test.AccountB,
+							Reserve:  test.AccountB,
+							Freeze:   test.AccountB,
+							Clawback: test.AccountB,
+						},
+					},
+				},
+			},
+		}
+		txnRow := idb.TxnRow{
+			Round:    uint64(test.Round),
+			TxnBytes: msgpack.Encode(txn),
+			AssetID:  assetID,
+		}
+
+		err := state.AddTransaction(&txnRow)
+		assert.NoError(t, err)
+	}
+	// Another account opts in.
+	{
+		_, txnRow := test.MakeAssetTxnOrPanic(test.Round, assetID, 0, test.AccountC,
+			test.AccountC, types.ZeroAddress)
+		state.AddTransaction(txnRow)
+	}
+	// Destroy an asset.
+	{
+		_, txnRow := test.MakeAssetDestroyTxn(test.Round, assetID)
+		state.AddTransaction(txnRow)
+	}
+
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	assert.NoError(t, err, "failed to commit")
+
+	// Check that the creator's asset holding is deleted.
+	assertAssetHoldingDates(t, db, test.AccountA, assetID,
+		sql.NullBool{Valid: true, Bool: true},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)})
+
+	// Check that other account's asset holding was not deleted.
+	assertAssetHoldingDates(t, db, test.AccountC, assetID,
+		sql.NullBool{Valid: true, Bool: false},
+		sql.NullInt64{Valid: true, Int64: int64(test.Round)},
+		sql.NullInt64{Valid: false, Int64: 0})
+
+	// Check that the manager does not have an asset holding.
+	{
+		row := db.QueryRow("SELECT COUNT(*) FROM account_asset WHERE addr = $1", test.AccountB[:])
+
+		var count int64
+		err := row.Scan(&count)
+		assert.NoError(t, err)
+
+		assert.Equal(t, int64(0), count)
+	}
 }

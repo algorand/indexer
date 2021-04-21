@@ -205,7 +205,7 @@ COPY public.account (addr, microalgos, rewardsbase, keytype, account_data) FROM 
 \\x41d3f0e6b7bade22bd265e19289e8755f7a22043c3a25516f6c1687f0c614b0d	999998995000	0	sig	\N
 \\xfd9dcc2d68ee8eec4bb4d20b462ccc3b1bf5341302ffa33f0d91676e8c7258e5	99998099	1	sig	\N
 \\xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff	124999997000108	1	\N	{"onl": 2, "algo": 125000000000000}
-\\x99ae83642e9b54b5d1bcdd818e7e10492d0c93c517bdf55da2e6a88e2373caaa	0	0	lsig	\N
+\\x99ae83642e9b54b5d1bcdd818e7e10492d0c93c517bdf55da2e6a88e2373caaa	0	0	lsig	{"spend": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa="}
 \\xbb588394e0ce8c4dde8a449ac7614d28dc9b852ca9e32bd6b542b6b6b27ad127	999700987699	1	sig	\N
 \\x97c2a04fbbfad7fcd6cb0d9b9da08f6c17d09fc95d36ed3d901b2575bc1f983b	9999001	0	sig	{"spend": "dsNcTJifkQ9/hv6SyMJjLqKdjFY7m6O8D6xowx1jA90="}
 \\x0586cb203a92ad10ab64d62a5943f8fec53718b7018fcfdafe29873bff3e5dad	999899996766	0	sig	\N
@@ -243,7 +243,7 @@ COPY public.account (addr, microalgos, rewardsbase, keytype, account_data) FROM 
 COPY public.account_app (addr, app, localstate) FROM stdin;
 \\xc77f815292c37f0426e772daa6c8c04ae01cae8b4f6481b64252409bf71289d6	85	{"tkv": [{"k": "dFg=", "v": {"tt": 2, "ui": 1}}, {"k": "Zno=", "v": {"tt": 2, "ui": 1}}, {"k": "bWI=", "v": {"tt": 2, "ui": 10000000}}, {"k": "Ymw=", "v": {"tt": 2}}], "hsch": {"nui": 7}}
 \\xac0303d05f39b6834c46ec5512ab714ce0de84d31c11e6eaab8f69fc167dad1b	85	{"tkv": [{"k": "Y1g=", "v": {"tt": 2, "ui": 1}}], "hsch": {"nui": 7}}
-\\x645e8054d2d3852f51de50bd8cef9cec3431306c89bceaab3526107593c14346	203	{"hsch": {"nbs": 1, "nui": 1}}
+\\x645e8054d2d3852f51de50bd8cef9cec3431306c89bceaab3526107593c14346	203	{"tkv": [], "hsch": {"nbs": 1, "nui": 1}}
 \\xfd9dcc2d68ee8eec4bb4d20b462ccc3b1bf5341302ffa33f0d91676e8c7258e5	85	{"tkv": [{"k": "Ymw=", "v": {"tt": 2, "ui": 958}}, {"k": "bWI=", "v": {"tt": 2, "ui": 10000000}}, {"k": "dGw=", "v": {"tt": 2, "ui": 1}}, {"k": "dGc=", "v": {"tt": 2, "ui": 1}}], "hsch": {"nui": 7}}
 \\xfa8ea46f28745893691e6b9aea20ebcbeb1d27d5de186f206751c75578d14df1	85	{"tkv": [{"k": "Y1g=", "v": {"tt": 2}}, {"k": "bWI=", "v": {"tt": 2, "ui": 10000000}}, {"k": "dGw=", "v": {"tt": 2, "ui": 1}}, {"k": "dGc=", "v": {"tt": 2, "ui": 2}}, {"k": "Ymw=", "v": {"tt": 2, "ui": 42}}], "hsch": {"nui": 7}}
 \.
@@ -270,7 +270,7 @@ COPY public.account_asset (addr, assetid, amount, frozen) FROM stdin;
 
 COPY public.app (index, creator, params) FROM stdin;
 42	\\x4d652a6e749a82e92b3dccac3bca287bd148a978262aadcb87bc796b61428a07	{"gsch": {"nui": 2}, "approv": "AiABASI=", "clearp": "AiABASI="}
-24	\\x0045916e42c31c54dc4c1243ccb30582e36d70161bbb2d835c5b1f1bcbc3b68d	{}
+24	\\x0045916e42c31c54dc4c1243ccb30582e36d70161bbb2d835c5b1f1bcbc3b68d	{"gs": []}
 31	\\x5ee40c5ec935dd5f67d203e5f1e90cb9a97e2c24f41346cd197094b072a98f40	{"gsch": {"nui": 2}, "approv": "AiABASI=", "clearp": "AiABASI="}
 30	\\xfa618596e9ec1dab317046dddf66287fc052a766002009b5ba069a22cdaa72a2	{}
 32	\\xe53ddc7e01679712c8be6b14f89f22aa9634020c13bdc989124b804eecc5e3f1	{}
@@ -297,7 +297,7 @@ COPY public.asset (index, creator_addr, params) FROM stdin;
 36	\\x2413284dc89dfdc13cc0ed62a0a9644c7bfc5ead5cedd1ab2c2490f991cb88db	{"c": "JBMoTcid/cE8wO1ioKlkTHv8Xq1c7dGrLCSQ+ZHLiNs=", "f": "JBMoTcid/cE8wO1ioKlkTHv8Xq1c7dGrLCSQ+ZHLiNs=", "m": "JBMoTcid/cE8wO1ioKlkTHv8Xq1c7dGrLCSQ+ZHLiNs=", "r": "JBMoTcid/cE8wO1ioKlkTHv8Xq1c7dGrLCSQ+ZHLiNs=", "t": 1000000000000, "an": "bogocoin", "un": "bogo"}
 56	\\x5ee40c5ec935dd5f67d203e5f1e90cb9a97e2c24f41346cd197094b072a98f40	{"c": "XuQMXsk13V9n0gPl8ekMual+LCT0E0bNGXCUsHKpj0A=", "f": "XuQMXsk13V9n0gPl8ekMual+LCT0E0bNGXCUsHKpj0A=", "m": "XuQMXsk13V9n0gPl8ekMual+LCT0E0bNGXCUsHKpj0A=", "r": "XuQMXsk13V9n0gPl8ekMual+LCT0E0bNGXCUsHKpj0A=", "t": 10000, "an": "spanish coin", "dc": 19, "un": "doubloon"}
 135	\\x1e82599ba6769f412f1a772e8adbf6040ee6f06bbf63daf1db666d2b0d416e32	null
-168	\\x1e82599ba6769f412f1a772e8adbf6040ee6f06bbf63daf1db666d2b0d416e32	{"c": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "f": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "m": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "r": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "t": 1337, "an": "cdcoin", "un": "cdc"}
+168	\\x1e82599ba6769f412f1a772e8adbf6040ee6f06bbf63daf1db666d2b0d416e32	{"c": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "df": true, "f": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "m": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "r": "HoJZm6Z2n0EvGncuitv2BA7m8Gu/Y9rx22ZtKw1BbjI=", "t": 1337, "an": "cdcoin", "un": "cdc"}
 \.
 
 

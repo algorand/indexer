@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"testing"
 	"time"
 
@@ -452,10 +453,11 @@ func TestFetchTransactions(t *testing.T) {
 
 			close(ch)
 			var outCh <-chan idb.TxnRow = ch
-			mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh)
+			var round uint64 = 1
+			mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh, round)
 
 			// Call the function
-			results, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
+			results, _, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
 			assert.NoError(t, err)
 
 			// Automatically print it out when writing the test.
@@ -481,4 +483,22 @@ func TestFetchTransactions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
+	ch := make(chan idb.AccountRow)
+	close(ch)
+	var outCh <-chan idb.AccountRow = ch
+
+	db := &mocks.IndexerDb{}
+	db.On("GetAccounts", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
+
+	si := ServerImplementation{
+		EnableAddressSearchRoundRewind: true,
+		db:                             db,
+	}
+	atRound := uint64(8)
+	_, _, err := si.fetchAccounts(context.Background(), idb.AccountQueryOptions{}, &atRound)
+	assert.Error(t, err)
+	assert.True(t, strings.HasPrefix(err.Error(), errRewindingAccount), err.Error())
 }

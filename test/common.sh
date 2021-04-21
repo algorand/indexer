@@ -8,6 +8,8 @@ CURL_TEMPFILE=curl_out.txt
 PIDFILE=testindexerpidfile
 CONNECTION_STRING="host=localhost user=algorand password=algorand dbname=DB_NAME_HERE port=5434 sslmode=disable"
 MAX_TIME=20
+# Set to to prevent cleanup so you can look at the DB or run queries.
+HALT_ON_FAILURE=
 
 
 ###################
@@ -24,11 +26,18 @@ function print_health() {
 ##################
 ## Test Helpers ##
 ##################
+function sleep_forever {
+  # sleep infinity doesn't work on mac...
+  sleep 1000000000000000
+}
 
 function fail_and_exit {
   print_alert "Failed test - $1 ($2): $3"
   echo ""
   print_health
+  if [ ! -z $HALT_ON_FAILURE ]; then
+    sleep_forever
+  fi
   exit 1
 }
 
@@ -102,8 +111,9 @@ function base_curl() {
 # $1 - max runtime in seconds, default value = 20
 # $2 - test description.
 # $3 - query
-# $4 - expected status code
-# $5... - substring that should be in the response
+# $4 - match result
+# $5 - expected status code
+# $6... - substring that should be in the response
 function rest_test_timeout {
   local MAX_TIME_BEFORE=MAX_TIME
   MAX_TIME=$1
@@ -195,7 +205,7 @@ function start_indexer_with_connection_string() {
 function start_indexer() {
   if [ ! -z $2 ]; then
     echo "daemon -S $NET -P \"${CONNECTION_STRING/DB_NAME_HERE/$1}\""
-    sleep 10000000000000
+    sleep_forever
   fi
 
   start_indexer_with_connection_string "${CONNECTION_STRING/DB_NAME_HERE/$1}"
@@ -218,7 +228,7 @@ function start_indexer_with_blocks() {
 
   if [ ! -z $3 ]; then
     echo "Start args 'import -P \"${CONNECTION_STRING/DB_NAME_HERE/$1}\" --genesis \"$TEMPDIR/algod/genesis.json\" $TEMPDIR/blocktars/*'"
-    sleep infinity
+    sleep_forever
   fi
   ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer import \
     -P "${CONNECTION_STRING/DB_NAME_HERE/$1}" \
@@ -415,11 +425,27 @@ function create_delete_tests() {
       "t|13|37|82"
     rest_test "[rest] app create & delete (app-id=82)" \
       "/v2/applications/82?pretty" \
+      404 \
+      true \
+      ''
+    rest_test "[rest] app create & delete (app-id=82)" \
+      "/v2/applications/82?pretty&include-all=true" \
       200 \
       true \
       '"deleted": true' \
       '"created-at-round": 13' \
       '"deleted-at-round": 37'
+
+    rest_test "[rest - account/application] account with a deleted application" \
+      "/v2/accounts/XNMIHFHAZ2GE3XUKISNMOYKNFDOJXBJMVHRSXVVVIK3LNMT22ET2TA4N4I?pretty" \
+      200 \
+      false \
+      '"id": 82'
+    rest_test "[rest - account/application] account with a deleted application" \
+      "/v2/accounts/XNMIHFHAZ2GE3XUKISNMOYKNFDOJXBJMVHRSXVVVIK3LNMT22ET2TA4N4I?pretty&include-all=true" \
+      200 \
+      true \
+      '"id": 82'
 
     ###############
     # Asset Tests #
@@ -429,6 +455,11 @@ function create_delete_tests() {
       "t|23|33|135"
     rest_test "[rest - asset]  asset create / destroy" \
       "/v2/assets/135?pretty" \
+      404 \
+      true \
+      ''
+    rest_test "[rest - asset]  asset create / destroy" \
+      "/v2/assets/135?pretty&include-all=true" \
       200 \
       true \
       '"deleted": true' \
@@ -436,12 +467,23 @@ function create_delete_tests() {
       '"destroyed-at-round": 33' \
       '"total": 0'
     rest_test "[rest - account]  asset create / destroy" \
-      "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty" \
+      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty" \
+      200 \
+      false \
+      '"asset-id": 135'
+    rest_test "[rest - account]  asset create / destroy" \
+      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty&include-all=true" \
       200 \
       true \
-      '"created-at-round": 23' \
-      '"destroyed-at-round": 33' \
-      '"total": 0'
+      '{
+        "amount": 0,
+        "asset-id": 135,
+        "creator": "",
+        "deleted": true,
+        "is-frozen": false,
+        "opted-in-at-round": 25,
+        "opted-out-at-round": 31
+      }'
 
     sql_test "[sql] asset create" $1 \
       "select deleted, created_at, closed_at, index from asset WHERE index=168" \
@@ -460,6 +502,17 @@ function create_delete_tests() {
       '"deleted": false' \
       '"created-at-round": 35' \
       '"total": 1337'
+
+    rest_test "[rest - account asset holding] asset holding optin optout" \
+      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty" \
+      200 \
+      false \
+      '"asset-id": 135'
+    rest_test "[rest - account asset holding] asset holding optin optout" \
+      "/v2/accounts/MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U?pretty&include-all=true" \
+      200 \
+      true \
+      '"asset-id": 135'
 
     ###########################
     # Application Local Tests #
@@ -481,6 +534,13 @@ function create_delete_tests() {
       "t|15|35|82"
     rest_test "[rest] app multiple optins first saved (it is also closed)" \
       "/v2/accounts/CM333ZN3KMASBRIP7N4QIN7AANVK7EJGNUQCNONGVVKURZIU2GG7XJIZ4Q?pretty" \
+      200 \
+      false \
+      '"deleted": true' \
+      '"opted-in-at-round": 15' \
+      '"closed-out-at-round": 35'
+    rest_test "[rest] app multiple optins first saved (it is also closed)" \
+      "/v2/accounts/CM333ZN3KMASBRIP7N4QIN7AANVK7EJGNUQCNONGVVKURZIU2GG7XJIZ4Q?pretty&include-all=true" \
       200 \
       true \
       '"deleted": true' \
@@ -525,6 +585,11 @@ function create_delete_tests() {
       "/v2/assets/36/balances?pretty&currency-less-than=100" \
       200 \
       true \
+      '"balances": []'
+    rest_test "[rest] asset optin" \
+      "/v2/assets/36/balances?pretty&currency-less-than=100&include-all=true" \
+      200 \
+      true \
       '"deleted": true' \
       '"opted-in-at-round": 16' \
       '"opted-out-at-round": 25'
@@ -535,7 +600,16 @@ function create_delete_tests() {
     rest_test "[rest] asset optin" \
       "/v2/assets/135/balances?pretty&currency-less-than=100" \
       200 \
+      false \
+      '"address": "MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U"' \
+      '"opted-in-at-round": 25' \
+      '"opted-out-at-round": 31'
+    rest_test "[rest] asset optin" \
+      "/v2/assets/135/balances?pretty&currency-less-than=100&include-all=true" \
+      200 \
       true \
+      false \
+      '"address": "MRPIAVGS2OCS6UO6KC6YZ3445Q2DCMDMRG6OVKZVEYIHLE6BINDCIJ6J7U"' \
       '"deleted": true' \
       '"opted-in-at-round": 25' \
       '"opted-out-at-round": 31'
@@ -590,6 +664,11 @@ function create_delete_tests() {
       "t|9|15|0"
     rest_test "[rest] account create close create close" \
       "/v2/accounts/6K5F6PWGSFCIZDCUBHVYI4L6JB5GV5ZWXX2C2TMSPBJSY2NZLZGCF2NH5U?pretty" \
+      404 \
+      true \
+      ''
+    rest_test "[rest] account create close create close" \
+      "/v2/accounts/6K5F6PWGSFCIZDCUBHVYI4L6JB5GV5ZWXX2C2TMSPBJSY2NZLZGCF2NH5U?pretty&include-all=true" \
       200 \
       true \
       '"deleted": true' \
@@ -612,4 +691,9 @@ function create_delete_tests() {
       false \
       '7777777777777777777777777777777777777777777777777774MSJUVU' \
       'A7NMWS3NT3IUDMLVO26ULGXGIIOUQ3ND2TXSER6EBGRZNOBOUIQXHIBGDE'
+
+      sql_test "[sql] special accounts should be migrated" $1 \
+      "SELECT deleted,created_at FROM account WHERE addr=decode('B9rLS22e0UGxdXa9RZrmQh1IbaPU7yJHxAmjlrguoiE=','base64') OR addr=decode('//////////////////////////////////////////8=','base64')" \
+      "f|0
+f|0"
 }

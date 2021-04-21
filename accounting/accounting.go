@@ -128,7 +128,7 @@ func (accounting *State) updateAccountData(addr types.Address, key string, field
 		au = make(map[string]idb.AccountDataUpdate)
 		accounting.AccountDataUpdates[addr] = au
 	}
-	au[key] = idb.AccountDataUpdate{false, field}
+	au[key] = idb.AccountDataUpdate{Delete: false, Value: field}
 }
 
 func (accounting *State) removeAccountData(addr types.Address, key string) {
@@ -137,10 +137,10 @@ func (accounting *State) removeAccountData(addr types.Address, key string) {
 		au = make(map[string]idb.AccountDataUpdate)
 		accounting.AccountDataUpdates[addr] = au
 	}
-	au[key] = idb.AccountDataUpdate{true, struct{}{}}
+	au[key] = idb.AccountDataUpdate{Delete: true, Value: struct{}{}}
 }
 
-func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, sub uint64) {
+func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, sub uint64, frozen bool) {
 	// in-place optimization in case an asset is modified by multiple transactions.
 	// Get update list from final subround. When a subround ends an empty subround is appended
 	// so there is no need to check whether an account has closed.
@@ -162,7 +162,7 @@ func (accounting *State) updateAsset(addr types.Address, assetID uint64, add, su
 		}
 	}
 
-	au := idb.AssetUpdate{AssetID: assetID, DefaultFrozen: accounting.defaultFrozen[assetID], Transfer: &idb.AssetTransfer{}}
+	au := idb.AssetUpdate{AssetID: assetID, DefaultFrozen: frozen, Transfer: &idb.AssetTransfer{}}
 	if add != 0 {
 		var xa big.Int
 		xa.SetUint64(add)
@@ -351,32 +351,38 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 			accounting.destroyAsset(assetID)
 		} else {
 			accounting.configAsset(assetID, isNew, stxn.Txn.Sender, stxn.Txn.AssetParams)
-			// Only update the cache when default-frozen = true.
-			if stxn.Txn.AssetParams.DefaultFrozen {
-				accounting.defaultFrozen[assetID] = stxn.Txn.AssetParams.DefaultFrozen
-			}
 			if stxn.Txn.ConfigAsset == 0 {
-				// initial creation, give all initial value to creator
-				if stxn.Txn.AssetParams.Total != 0 {
-					accounting.updateAsset(stxn.Txn.Sender, assetID, stxn.Txn.AssetParams.Total, 0)
+				// Only update the cache when default-frozen = true.
+				// DefaultFrozen is immutable, so only update the cache during creation.
+				// It is technically possible to set DefaultFrozen in a transaction, algod will ignore it so indexer
+				// must as well.
+				if stxn.Txn.AssetParams.DefaultFrozen {
+					accounting.defaultFrozen[assetID] = stxn.Txn.AssetParams.DefaultFrozen
 				}
+
+				// Initial creation, give all initial value to creator.
+				// Ignore DefaultFrozen.
+				// Total = 0 is valid.
+				accounting.updateAsset(stxn.Txn.Sender, assetID, stxn.Txn.AssetParams.Total, 0, false)
 			}
 		}
 	case atypes.AssetTransferTx:
+		assetID := uint64(stxn.Txn.XferAsset)
+		defaultFrozen := accounting.defaultFrozen[assetID]
 		sender := stxn.Txn.AssetSender // clawback
 		if sender.IsZero() {
 			sender = stxn.Txn.Sender
 		}
 		if stxn.Txn.AssetAmount != 0 {
-			accounting.updateAsset(sender, uint64(stxn.Txn.XferAsset), 0, stxn.Txn.AssetAmount)
-			accounting.updateAsset(stxn.Txn.AssetReceiver, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetAmount, 0)
+			accounting.updateAsset(sender, assetID, 0, stxn.Txn.AssetAmount, defaultFrozen)
+			accounting.updateAsset(stxn.Txn.AssetReceiver, assetID, stxn.Txn.AssetAmount, 0, defaultFrozen)
 		}
 		if AssetOptInTxn(stxn) {
 			// mark receivable accounts with the send-self-zero txn
-			accounting.updateAsset(stxn.Txn.AssetReceiver, uint64(stxn.Txn.XferAsset), 0, 0)
+			accounting.updateAsset(stxn.Txn.AssetReceiver, assetID, 0, 0, defaultFrozen)
 		}
 		if AssetOptOutTxn(stxn) {
-			accounting.closeAsset(sender, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetCloseTo, round, intra)
+			accounting.closeAsset(sender, assetID, stxn.Txn.AssetCloseTo, round, intra)
 		}
 	case atypes.AssetFreezeTx:
 		accounting.freezeAsset(stxn.Txn.FreezeAccount, uint64(stxn.Txn.FreezeAsset), stxn.Txn.AssetFrozen)

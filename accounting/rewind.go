@@ -12,6 +12,15 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
+// ConsistencyError is returned when the database returns inconsistent (stale) results.
+type ConsistencyError struct {
+	msg string
+}
+
+func (e ConsistencyError) Error() string {
+	return e.msg
+}
+
 func assetUpdate(account *models.Account, assetid uint64, add, sub uint64) {
 	if account.Assets == nil {
 		account.Assets = new([]models.AssetHolding)
@@ -55,6 +64,7 @@ var specialAccounts *idb.SpecialAccounts
 
 // AccountAtRound queries the idb.IndexerDb object for transactions and rewinds most fields of the account back to
 // their values at the requested round.
+// `round` must be <= `account.Round`
 func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acct models.Account, err error) {
 	// Make sure special accounts cache has been initialized.
 	if specialAccounts == nil {
@@ -89,7 +99,11 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		MinRound: round + 1,
 		MaxRound: account.Round,
 	}
-	txns := db.Transactions(context.Background(), tf)
+	txns, r := db.Transactions(context.Background(), tf)
+	if r < account.Round {
+		err = ConsistencyError{fmt.Sprintf("queried round r: %d < account.Round: %d", r, account.Round)}
+		return
+	}
 	txcount := 0
 	for txnrow := range txns {
 		if txnrow.Error != nil {
@@ -163,7 +177,12 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		tf.MaxRound = round
 		tf.MinRound = 0
 		tf.Limit = 1
-		txns = db.Transactions(context.Background(), tf)
+		txns, r = db.Transactions(context.Background(), tf)
+		if r < round {
+			err = ConsistencyError{
+				fmt.Sprintf("queried round r: %d < requested round round: %d", r, round)}
+			return
+		}
 		for txnrow := range txns {
 			if txnrow.Error != nil {
 				err = txnrow.Error
