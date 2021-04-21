@@ -2,11 +2,11 @@
 
 package postgres
 
-const reset_sql = `TRUNCATE account;
-TRUNCATE account_app;
-TRUNCATE account_asset;
-TRUNCATE app;
-TRUNCATE asset;
-TRUNCATE metastate;
+const reset_sql = `DROP TABLE IF EXISTS account;
+DROP TABLE IF EXISTS account_app;
+DROP TABLE IF EXISTS account_asset;
+DROP TABLE IF EXISTS app;
+DROP TABLE IF EXISTS asset;
+DROP TABLE IF EXISTS metastate;
 UPDATE txn SET extra = NULL WHERE extra IS NOT NULL;
 `

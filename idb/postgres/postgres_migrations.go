@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
@@ -379,34 +378,6 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 	return -1, nil
 }
 
-var m6sql = []string{
-	// rewards
-	`ALTER TABLE account ADD COLUMN IF NOT EXISTS rewards_total bigint NOT NULL DEFAULT 0`,
-
-	// created/closed round
-	`ALTER TABLE account ADD COLUMN IF NOT EXISTS deleted boolean DEFAULT NULL`,
-	`ALTER TABLE account ADD COLUMN IF NOT EXISTS created_at bigint DEFAULT NULL`,
-	`ALTER TABLE account ADD COLUMN IF NOT EXISTS closed_at bigint DEFAULT NULL`,
-	`ALTER TABLE app ADD COLUMN IF NOT EXISTS deleted boolean DEFAULT NULL`,
-	`ALTER TABLE app ADD COLUMN IF NOT EXISTS created_at bigint DEFAULT NULL`,
-	`ALTER TABLE app ADD COLUMN IF NOT EXISTS closed_at bigint DEFAULT NULL`,
-	`ALTER TABLE account_app ADD COLUMN IF NOT EXISTS deleted boolean DEFAULT NULL`,
-	`ALTER TABLE account_app ADD COLUMN IF NOT EXISTS created_at bigint DEFAULT NULL`,
-	`ALTER TABLE account_app ADD COLUMN IF NOT EXISTS closed_at bigint DEFAULT NULL`,
-	`ALTER TABLE account_asset ADD COLUMN IF NOT EXISTS deleted boolean DEFAULT NULL`,
-	`ALTER TABLE account_asset ADD COLUMN IF NOT EXISTS created_at bigint DEFAULT NULL`,
-	`ALTER TABLE account_asset ADD COLUMN IF NOT EXISTS closed_at bigint DEFAULT NULL`,
-	`ALTER TABLE asset ADD COLUMN IF NOT EXISTS deleted boolean DEFAULT NULL`,
-	`ALTER TABLE asset ADD COLUMN IF NOT EXISTS created_at bigint DEFAULT NULL`,
-	`ALTER TABLE asset ADD COLUMN IF NOT EXISTS closed_at bigint DEFAULT NULL`,
-}
-
-func init() {
-	for _, v := range m6sql {
-		registerAlterTable(v)
-	}
-}
-
 // m6RewardsAndDatesPart1 adds the new rewards_total column to the account table.
 func m6RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	// Cache the round in the migration metastate
@@ -420,7 +391,28 @@ func m6RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	state.NextRound = int64(round)
 
 	// update metastate
-	return sqlMigration(db, state, m6sql)
+	sqlLines := []string{
+		// rewards
+		`ALTER TABLE account ADD COLUMN rewards_total bigint NOT NULL DEFAULT 0`,
+
+		// created/closed round
+		`ALTER TABLE account ADD COLUMN deleted boolean DEFAULT NULL`,
+		`ALTER TABLE account ADD COLUMN created_at bigint DEFAULT NULL`,
+		`ALTER TABLE account ADD COLUMN closed_at bigint DEFAULT NULL`,
+		`ALTER TABLE app ADD COLUMN deleted boolean DEFAULT NULL`,
+		`ALTER TABLE app ADD COLUMN created_at bigint DEFAULT NULL`,
+		`ALTER TABLE app ADD COLUMN closed_at bigint DEFAULT NULL`,
+		`ALTER TABLE account_app ADD COLUMN deleted boolean DEFAULT NULL`,
+		`ALTER TABLE account_app ADD COLUMN created_at bigint DEFAULT NULL`,
+		`ALTER TABLE account_app ADD COLUMN closed_at bigint DEFAULT NULL`,
+		`ALTER TABLE account_asset ADD COLUMN deleted boolean DEFAULT NULL`,
+		`ALTER TABLE account_asset ADD COLUMN created_at bigint DEFAULT NULL`,
+		`ALTER TABLE account_asset ADD COLUMN closed_at bigint DEFAULT NULL`,
+		`ALTER TABLE asset ADD COLUMN deleted boolean DEFAULT NULL`,
+		`ALTER TABLE asset ADD COLUMN created_at bigint DEFAULT NULL`,
+		`ALTER TABLE asset ADD COLUMN closed_at bigint DEFAULT NULL`,
+	}
+	return sqlMigration(db, state, sqlLines)
 }
 
 type addressAccountData struct {
@@ -1140,8 +1132,6 @@ func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 
 // sqlMigration executes a sql statements as the entire migration.
 func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error {
-	checkForAlterTable(sqlLines)
-
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
@@ -1940,30 +1930,4 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 	}
 
 	return nil
-}
-
-var registerAlterTableSQLLines []string
-
-func registerAlterTable(x string) {
-	if strings.Contains(x, "ALTER TABLE") {
-		registerAlterTableSQLLines = append(registerAlterTableSQLLines, x)
-	}
-}
-
-func checkForAlterTable(sqlLines []string) {
-	for _, x := range sqlLines {
-		if strings.Contains(x, "ALTER TABLE") {
-			found := false
-			for _, y := range registerAlterTableSQLLines {
-				if y == x {
-					found = true
-					break
-				}
-			}
-			if !found {
-				fmt.Fprintf(os.Stderr, "sql migration line missing from registered ALTER TABLE lines: %v\n", x)
-				panic("unregistered ALTER TABLE line")
-			}
-		}
-	}
 }

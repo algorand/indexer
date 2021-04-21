@@ -138,17 +138,6 @@ func (db *IndexerDb) Reset() (err error) {
 		return fmt.Errorf("db reset failed, %v", err)
 	}
 	db.log.Debugf("reset.sql done")
-	for i, cmd := range registerAlterTableSQLLines {
-		_, err = db.db.Exec(cmd)
-		if err != nil {
-			return fmt.Errorf("db reset[%d] (%v) failed, %v", i, cmd, err)
-		}
-		shortstatement := cmd
-		if len(shortstatement) > 40 {
-			shortstatement = shortstatement[:40]
-		}
-		db.log.Debugf("alter[%d] %s", i, shortstatement)
-	}
 	return
 }
 
