@@ -78,6 +78,7 @@ var (
 	cpuProfile     string
 	pidFilePath    string
 	db             idb.IndexerDb
+	dbOpts         idb.IndexerDbOptions
 	profFile       io.WriteCloser
 	logLevel       string
 	logFile        string
@@ -85,6 +86,10 @@ var (
 )
 
 func globalIndexerDb(opts *idb.IndexerDbOptions) idb.IndexerDb {
+	if dbOpts != *opts {
+		// db.Close() // TODO: add Close() to interface?
+		db = nil
+	}
 	if db == nil {
 		if postgresAddr != "" {
 			var err error
@@ -96,6 +101,7 @@ func globalIndexerDb(opts *idb.IndexerDbOptions) idb.IndexerDb {
 			logger.Errorf("no import db set")
 			os.Exit(1)
 		}
+		dbOpts = *opts
 	}
 	return db
 }

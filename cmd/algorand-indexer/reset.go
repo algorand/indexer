@@ -63,6 +63,8 @@ var resetCmd = &cobra.Command{
 					maybeFail(err, "could not find max block loaded, %v", err)
 					if blockround > 0 {
 						fmt.Printf("Done resetting. Re-building accounting through block %d...", blockround)
+						opts.NoMigrate = false
+						db = globalIndexerDb(&opts)
 						cache, err := db.GetDefaultFrozen()
 						maybeFail(err, "failed to get default frozen cache")
 						importer.UpdateAccounting(db, cache, blockround, genesisJSONPath, logger)
