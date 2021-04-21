@@ -77,31 +77,22 @@ var (
 	doVersion      bool
 	cpuProfile     string
 	pidFilePath    string
-	db             idb.IndexerDb
-	dbOpts         idb.IndexerDbOptions
 	profFile       io.WriteCloser
 	logLevel       string
 	logFile        string
 	logger         *log.Logger
 )
 
-func globalIndexerDb(opts *idb.IndexerDbOptions) idb.IndexerDb {
-	if dbOpts != *opts {
-		// db.Close() // TODO: add Close() to interface?
-		db = nil
-	}
-	if db == nil {
-		if postgresAddr != "" {
-			var err error
-			db, err = idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
-			maybeFail(err, "could not init db, %v", err)
-		} else if dummyIndexerDb {
-			db = idb.DummyIndexerDb()
-		} else {
-			logger.Errorf("no import db set")
-			os.Exit(1)
-		}
-		dbOpts = *opts
+func indexerDbFromFlags(opts *idb.IndexerDbOptions) (db idb.IndexerDb) {
+	if postgresAddr != "" {
+		var err error
+		db, err = idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
+		maybeFail(err, "could not init db, %v", err)
+	} else if dummyIndexerDb {
+		db = idb.DummyIndexerDb()
+	} else {
+		logger.Errorf("no import db set")
+		os.Exit(1)
 	}
 	return db
 }

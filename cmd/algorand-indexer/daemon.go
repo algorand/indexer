@@ -70,7 +70,7 @@ var daemonCmd = &cobra.Command{
 		if noAlgod && !allowMigration {
 			opts.ReadOnly = true
 		}
-		db := globalIndexerDb(&opts)
+		db := indexerDbFromFlags(&opts)
 		if !noAlgod {
 			// Only do this if we're going to be writing
 			// to the db, to allow for read-only query
