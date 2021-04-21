@@ -589,7 +589,7 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 // YieldTxns is part of idb.IndexerDB
 func (db *IndexerDb) YieldTxns(ctx context.Context, firstRound uint64) <-chan idb.TxnRow {
 	results := make(chan idb.TxnRow, 1)
-	rows, err := db.db.QueryContext(ctx, yieldTxnQuery, int64(firstRound) - 1)
+	rows, err := db.db.QueryContext(ctx, yieldTxnQuery, int64(firstRound)-1)
 	if err != nil {
 		results <- idb.TxnRow{Error: err}
 		close(results)

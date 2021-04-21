@@ -676,5 +676,5 @@ type UpdateFilter struct {
 	MaxRound uint64
 
 	// Address only process transactions which modify this account.
-	Address    *types.Address
+	Address *types.Address
 }

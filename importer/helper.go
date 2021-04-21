@@ -95,7 +95,7 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	accountingRounds := 0
 	if err == idb.ErrorNotInitialized {
 		if InitialImport(db, h.GenesisJSONPath, h.Log) {
-			accountingRounds ++
+			accountingRounds++
 		}
 	} else {
 		maybeFail(err, h.Log, "problem getting the import state")
