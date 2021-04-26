@@ -229,7 +229,6 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 
 // InitialImport imports the genesis block if needed. Returns true if the initial import occurred.
 func InitialImport(db idb.IndexerDb, genesisJSONPath string, client *algod.Client, l *log.Logger) bool {
-	log.Infof("Initial import. Client is null:  %t", client == nil)
 	_, err := db.GetImportState()
 
 	// Exit immediately or crash if we don't see ErrorNotInitialized.
