@@ -68,7 +68,10 @@ var resetCmd = &cobra.Command{
 						db = indexerDbFromFlags(&opts)
 						cache, err := db.GetDefaultFrozen()
 						maybeFail(err, "failed to get default frozen cache")
-						importer.UpdateAccounting(db, cache, blockround, genesisJSONPath, logger)
+						filter := idb.UpdateFilter{
+							MaxRound: blockround,
+						}
+						importer.UpdateAccounting(db, cache, filter, logger)
 						fmt.Println("Done rebuilding accounting.")
 					} else {
 						fmt.Println("Done. No blocks to rebuild accounting from.")
