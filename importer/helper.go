@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	log "github.com/sirupsen/logrus"
 
@@ -94,7 +95,7 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	var startRound uint64 = 0
 	accountingRounds := 0
 	if err == idb.ErrorNotInitialized {
-		if InitialImport(db, h.GenesisJSONPath, h.Log) {
+		if InitialImport(db, h.GenesisJSONPath, nil, h.Log) {
 			accountingRounds++
 		}
 	} else {
@@ -237,21 +238,45 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 }
 
 // InitialImport imports the genesis block if needed. Returns true if the initial import occurred.
-func InitialImport(db idb.IndexerDb, genesisJSONPath string, l *log.Logger) bool {
+func InitialImport(db idb.IndexerDb, genesisJSONPath string, client *algod.Client, l *log.Logger) bool {
 	state, err := db.GetImportState()
 
 	// Only import when the state is not found.
 	if err == idb.ErrorNotInitialized {
 		state.AccountRound = -1
+
+		// Get genesis file from file or algod.
+		var genesisString string
 		if genesisJSONPath != "" {
-			l.Infof("loading genesis %s", genesisJSONPath)
+			l.Infof("loading genesis file %s", genesisJSONPath)
 			// if we're given no previous state and we're given a genesis file, import it as initial account state
 			gf, err := os.Open(genesisJSONPath)
-			maybeFail(err, l, "%s: %v", genesisJSONPath, err)
+			if err == nil {
+				gfBytes, err := ioutil.ReadAll(gf)
+				if err == nil {
+					genesisString = string(gfBytes)
+				}
+			}
+			//maybeFail(err, l, "%s: %v", genesisJSONPath, err)
+		}
+		if client != nil && genesisString == "" {
+			l.Infof("fetching genesis from algod")
+			genesisString, err = client.GetGenesis().Do(context.Background())
+			//maybeFail(err, l, "failed to fetch genesis from algod: %v", err)
+		}
+
+		if genesisString == "" {
+			l.Error("Failed to get genesis data.")
+			os.Exit(1)
+		}
+
+		gf := strings.NewReader(genesisString)
+		if gf != nil {
 			err = loadGenesis(db, gf)
 			maybeFail(err, l, "%s: could not load genesis json, %v", genesisJSONPath, err)
 			return true
 		}
+
 		l.Errorf("no import state recorded; need --genesis genesis.json file to get started")
 		os.Exit(1)
 		return false

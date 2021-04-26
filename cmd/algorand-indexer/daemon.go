@@ -101,7 +101,7 @@ var daemonCmd = &cobra.Command{
 				waitForDBAvailable(db)
 
 				// Initial import if needed.
-				importer.InitialImport(db, genesisJSONPath, logger)
+				importer.InitialImport(db, genesisJSONPath, bot.Algod(), logger)
 
 				logger.Info("Starting block importer.")
 				bot.Run()
