@@ -271,6 +271,7 @@ func InitialImport(db idb.IndexerDb, genesisJSONPath string, client *algod.Clien
 		l.Infof("fetching genesis from algod")
 		genesisString, err = client.GetGenesis().Do(context.Background())
 		maybeFail(err, l, "failed to fetch genesis from algod: %v", err)
+		l.Infoln(genesisString)
 	}
 
 	if genesisString == "" {
