@@ -20,7 +20,7 @@ var (
 var resetCmd = &cobra.Command{
 	Use:   "reset",
 	Short: "run indexer reset",
-	Long:  "run indexer reset. Serve api on HTTP.",
+	Long:  "run indexer reset. This will delete a lot of data. With --and-rebuild it will be rebuilt now, otherwise algorand-indexer daemon will try to rebuild when next it runs. This is mostly a tool for developers and people who are really really sure they want to do this.",
 	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
 		config.BindFlags(cmd)
