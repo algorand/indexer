@@ -191,7 +191,11 @@ function suppress() {
 # $2 - if set, puts in read-only mode
 function start_indexer_with_connection_string() {
   if [ ! -z $2 ]; then
+    # strictly read-only
     RO="--no-algod"
+  else
+    # we may start up from canned data, but need to update for the current running binary.
+    RO="--allow-migration"
   fi
   ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer daemon \
     -S $NET "$RO" \

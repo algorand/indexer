@@ -1830,9 +1830,9 @@ func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 // $2 = the holder account
 // $3 = assetID
 // $4 = round limit
-var freezeTransactionsQuery = `select count(*) from txn_participation p JOIN txn t ON t.round = p.round AND p.intra = t.intra 
-WHERE p.addr = $1 
-AND (t.txn -> 'txn' ->> 'fadd' = $2) 
+var freezeTransactionsQuery = `select count(*) from txn_participation p JOIN txn t ON t.round = p.round AND p.intra = t.intra
+WHERE p.addr = $1
+AND (t.txn -> 'txn' ->> 'fadd' = $2)
 AND t.asset = $3
 AND p.round > $4
 LIMIT 1`

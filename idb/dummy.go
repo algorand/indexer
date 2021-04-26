@@ -147,6 +147,10 @@ func (db *dummyIndexerDb) Health() (state Health, err error) {
 	return Health{}, nil
 }
 
+func (db *dummyIndexerDb) Reset() (err error) {
+	return nil
+}
+
 // IndexerFactory is used to install an IndexerDb implementation.
 type IndexerFactory interface {
 	Name() string
@@ -250,6 +254,7 @@ type IndexerDb interface {
 	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64)
 
 	Health() (status Health, err error)
+	Reset() (err error)
 }
 
 // GetBlockOptions contains the options when requesting to load a block from the database.
@@ -447,6 +452,10 @@ func init() {
 // IndexerDbOptions are the options common to all indexer backends.
 type IndexerDbOptions struct {
 	ReadOnly bool
+
+	// NoMigrate indicates to not run any migrations.
+	// Should probably only be used by the `reset` subcommand.
+	NoMigrate bool
 }
 
 // RegisterFactory is used by IndexerDb implementations to register their implementations. This mechanism allows

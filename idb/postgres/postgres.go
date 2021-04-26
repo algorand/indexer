@@ -4,7 +4,7 @@
 package postgres
 
 // import text to contstant setup_postgres_sql
-//go:generate go run ../../cmd/texttosource/main.go postgres setup_postgres.sql
+//go:generate go run ../../cmd/texttosource/main.go postgres setup_postgres.sql reset.sql
 
 import (
 	"bytes"
@@ -80,7 +80,7 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (p
 	// e.g. a user named "readonly" is in the connection string
 	readonly := (opts != nil) && opts.ReadOnly
 	if !readonly {
-		err = pdb.init()
+		err = pdb.init(opts)
 	}
 	return
 }
@@ -106,7 +106,7 @@ type IndexerDb struct {
 	accountingLock sync.Mutex
 }
 
-func (db *IndexerDb) init() (err error) {
+func (db *IndexerDb) init(opts *idb.IndexerDbOptions) (err error) {
 	accountingStateJSON, _ := db.getMetastate(stateMetastateKey)
 	hasAccounting := len(accountingStateJSON) > 0
 	migrationStateJSON, _ := db.getMetastate(migrationMetastateKey)
@@ -114,7 +114,8 @@ func (db *IndexerDb) init() (err error) {
 
 	db.GetSpecialAccounts()
 
-	if hasMigration || hasAccounting {
+	noMigrate := (opts != nil) && opts.NoMigrate
+	if (hasMigration || hasAccounting) && (!noMigrate) {
 		// see postgres_migrations.go
 		return db.runAvailableMigrations(migrationStateJSON)
 	}
@@ -126,6 +127,17 @@ func (db *IndexerDb) init() (err error) {
 	}
 
 	err = db.markMigrationsAsDone()
+	return
+}
+
+// Reset is part of idb.IndexerDB
+func (db *IndexerDb) Reset() (err error) {
+	// new database, run setup
+	_, err = db.db.Exec(reset_sql)
+	if err != nil {
+		return fmt.Errorf("db reset failed, %v", err)
+	}
+	db.log.Debugf("reset.sql done")
 	return
 }
 
