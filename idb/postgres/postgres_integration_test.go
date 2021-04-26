@@ -11,6 +11,7 @@ import (
 	"github.com/orlangure/gnomock"
 	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
@@ -72,14 +73,14 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	//////////
 	// When // We request the max round.
 	//////////
-	roundA, err := db.GetMaxRoundAccounted()
-	assert.NoError(t, err)
-	roundL, err := db.GetMaxRoundLoaded()
-	assert.NoError(t, err)
+	roundA, errA := db.GetMaxRoundAccounted()
+	roundL, errL := db.GetMaxRoundLoaded()
 
 	//////////
-	// Then // There should be no error and we return that there are zero rounds.
+	// Then // The error message should be set.
 	//////////
+	assert.Equal(t, errA, idb.ErrorNotInitialized)
+	assert.Equal(t, errL, idb.ErrorNotInitialized)
 	assert.Equal(t, uint64(0), roundA)
 	assert.Equal(t, uint64(0), roundL)
 }
@@ -99,11 +100,11 @@ func TestMaxRoundEmptyMetastate(t *testing.T) {
 	// When // We request the max round.
 	//////////
 	round, err := db.GetMaxRoundAccounted()
-	assert.NoError(t, err)
 
 	//////////
-	// Then // There should be no error and we return that there are zero rounds.
+	// Then // The error message should be set.
 	//////////
+	assert.Equal(t, err, idb.ErrorNotInitialized)
 	assert.Equal(t, uint64(0), round)
 }
 
@@ -428,6 +429,8 @@ func TestMultipleWriters(t *testing.T) {
 
 // TestBlockWithTransactions tests that the block with transactions endpoint works.
 func TestBlockWithTransactions(t *testing.T) {
+	var err error
+
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
@@ -449,20 +452,25 @@ func TestBlockWithTransactions(t *testing.T) {
 	txns := []*types.SignedTxnWithAD{tx1, tx2, tx3, tx4, tx5}
 	txnRows := []*idb.TxnRow{row1, row2, row3, row4, row5}
 
-	db.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`, test.Round)
+	_, err = db.Exec(`INSERT INTO metastate (k, v) values ($1, $2)`, "state", `{"account_round": 11}`)
+	require.NoError(t, err)
+	_, err = db.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`, test.Round)
+	require.NoError(t, err)
 	for i := range txns {
-		db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, i, 0, 0, crypto.TransactionID(txns[i].Txn), txnRows[i].TxnBytes, "{}")
+		_, err = db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, i, 0, 0, crypto.TransactionID(txns[i].Txn), txnRows[i].TxnBytes, "{}")
+		require.NoError(t, err)
 	}
 
 	//////////
 	// When // We call GetBlock and Transactions
 	//////////
 	_, blockTxn, err := pdb.GetBlock(context.Background(), test.Round, idb.GetBlockOptions{Transactions: true})
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	round := test.Round
 	txnRow, _ := pdb.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
 	transactionsTxn := make([]idb.TxnRow, 0)
 	for row := range txnRow {
+		require.NoError(t, row.Error)
 		transactionsTxn = append(transactionsTxn, row)
 	}
 

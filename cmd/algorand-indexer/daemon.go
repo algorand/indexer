@@ -80,8 +80,10 @@ var daemonCmd = &cobra.Command{
 		if bot != nil {
 			logger.Info("Initializing block import handler.")
 			maxRound, err := db.GetMaxRoundLoaded()
-			maybeFail(err, "failed to get max round, %v", err)
-			if maxRound != 0 {
+			if err == idb.ErrorNotInitialized {
+				bot.SetNextRound(0)
+			} else {
+				maybeFail(err, "failed to get max round, %v", err)
 				bot.SetNextRound(maxRound + 1)
 			}
 			cache, err := db.GetDefaultFrozen()
@@ -96,6 +98,10 @@ var daemonCmd = &cobra.Command{
 			bot.SetContext(ctx)
 			go func() {
 				waitForDBAvailable(db)
+
+				// Initial import if needed.
+				importer.InitialImport(db, genesisJSONPath, logger)
+
 				logger.Info("Starting block importer.")
 				bot.Run()
 				cf()
@@ -174,8 +180,22 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 		logger.Errorf("received block %d when expecting %d", block.Block.Round, bih.round+1)
 	}
 	_, err := bih.imp.ImportDecodedBlock(block)
-	maybeFail(err, "ImportDecodedBlock %d: %v", block.Block.Round, err)
-	importer.UpdateAccounting(bih.db, bih.cache, uint64(block.Block.Round), genesisJSONPath, logger)
+	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round)
+	maxRoundAccounted, err := bih.db.GetMaxRoundAccounted()
+	var nextUnaccountedRound uint64
+	// Special case to start at round 0 if things are uninitialized, otherwise start at the first unaccounted round.
+	if err == idb.ErrorNotInitialized {
+		nextUnaccountedRound = 0
+	} else {
+		maybeFail(err, "failed to get max round accounted.")
+		nextUnaccountedRound = maxRoundAccounted + 1
+	}
+	// During normal operation StartRound and MaxRound will be the same round.
+	filter := idb.UpdateFilter{
+		StartRound: nextUnaccountedRound,
+		MaxRound:   uint64(block.Block.Round),
+	}
+	importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
 	dt := time.Now().Sub(start)
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
 	bih.round = uint64(block.Block.Round)
