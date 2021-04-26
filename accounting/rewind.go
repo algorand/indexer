@@ -12,15 +12,6 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
-// ConsistencyError is returned when the database returns inconsistent (stale) results.
-type ConsistencyError struct {
-	msg string
-}
-
-func (e ConsistencyError) Error() string {
-	return e.msg
-}
-
 func assetUpdate(account *models.Account, assetid uint64, add, sub uint64) {
 	if account.Assets == nil {
 		account.Assets = new([]models.AssetHolding)
@@ -101,7 +92,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 	}
 	txns, r := db.Transactions(context.Background(), tf)
 	if r < account.Round {
-		err = ConsistencyError{fmt.Sprintf("queried round r: %d < account.Round: %d", r, account.Round)}
+		err = types.MakeConsistencyError(fmt.Sprintf("queried round r: %d < account.Round: %d", r, account.Round))
 		return
 	}
 	txcount := 0
@@ -179,8 +170,8 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		tf.Limit = 1
 		txns, r = db.Transactions(context.Background(), tf)
 		if r < round {
-			err = ConsistencyError{
-				fmt.Sprintf("queried round r: %d < requested round round: %d", r, round)}
+			err = types.MakeConsistencyError(
+				fmt.Sprintf("queried round r: %d < requested round round: %d", r, round))
 			return
 		}
 		for txnrow := range txns {

@@ -446,11 +446,15 @@ func (db *IndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
 	return db.getMaxRoundAccounted(nil)
 }
 
-// GetMaxRoundLoaded is part of idb.IndexerDB
-func (db *IndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
+func (db *IndexerDb) getMaxRoundLoaded(tx *sql.Tx) (round uint64, err error) {
+	var row *sql.Row
+	if tx == nil {
+		row = db.db.QueryRow(`SELECT max(round) FROM block_header`)
+	} else {
+		row = tx.QueryRow(`SELECT max(round) FROM block_header`)
+	}
+
 	var nullableRound sql.NullInt64
-	round = 0
-	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
 	err = row.Scan(&nullableRound)
 
 	if err == sql.ErrNoRows || !nullableRound.Valid {
@@ -464,6 +468,11 @@ func (db *IndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
 
 	round = uint64(nullableRound.Int64)
 	return
+}
+
+// GetMaxRoundLoaded is part of idb.IndexerDB
+func (db *IndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
+	return db.getMaxRoundLoaded(nil)
 }
 
 // Break the read query so that PostgreSQL doesn't get bogged down
@@ -1663,6 +1672,18 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.Transa
 	nextintra := uint64(nextintra32)
 	if err != nil {
 		out <- idb.TxnRow{Error: err}
+		return
+	}
+	maxRoundLoaded, err := db.getMaxRoundLoaded(tx)
+	if err != nil {
+		out <- idb.TxnRow{Error: err}
+		return
+	}
+	if maxRoundLoaded < nextround {
+		out <- idb.TxnRow{Error: types.MakeConsistencyError(fmt.Sprintf(
+			"next token is (%d, %d) but max loaded round number is %d; "+
+				"the request should be retried",
+			nextround, nextintra, maxRoundLoaded))}
 		return
 	}
 	origRound := tf.Round
