@@ -8,7 +8,7 @@ import (
 	"runtime"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	atypes "github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
 )
@@ -61,7 +61,7 @@ func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 		MaybeFail(ar.Error, "asset query %v\n", ar.Error)
 		pjs, err := json.Marshal(ar.Params)
 		MaybeFail(err, "json.Marshal params %v\n", err)
-		var creator atypes.Address
+		var creator sdk_types.Address
 		copy(creator[:], ar.Creator)
 		info("%d %s %s\n", ar.AssetID, creator.String(), pjs)
 		count++

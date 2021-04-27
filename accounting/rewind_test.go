@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	"github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -15,7 +15,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	var a types.Address
+	var a sdk_types.Address
 	a[0] = 'a'
 
 	account := models.Account{
@@ -25,11 +25,11 @@ func TestBasic(t *testing.T) {
 		Round:                       8,
 	}
 
-	txnBytes := msgpack.Encode(types.SignedTxnWithAD{
-		SignedTxn: types.SignedTxn{
-			Txn: types.Transaction{
-				Type: types.PaymentTx,
-				PaymentTxnFields: types.PaymentTxnFields{
+	txnBytes := msgpack.Encode(sdk_types.SignedTxnWithAD{
+		SignedTxn: sdk_types.SignedTxn{
+			Txn: sdk_types.Transaction{
+				Type: sdk_types.PaymentTx,
+				PaymentTxnFields: sdk_types.PaymentTxnFields{
 					Receiver: a,
 					Amount:   2,
 				},
@@ -58,7 +58,7 @@ func TestBasic(t *testing.T) {
 
 // Test that when idb.Transactions() returns stale data the first time, we return an error.
 func TestStaleTransactions1(t *testing.T) {
-	var a types.Address
+	var a sdk_types.Address
 	a[0] = 'a'
 
 	account := models.Account{
@@ -78,7 +78,7 @@ func TestStaleTransactions1(t *testing.T) {
 
 // Test that when idb.Transactions() returns stale data the second time, we return an error.
 func TestStaleTransactions2(t *testing.T) {
-	var a types.Address
+	var a sdk_types.Address
 	a[0] = 'a'
 
 	account := models.Account{
@@ -88,10 +88,10 @@ func TestStaleTransactions2(t *testing.T) {
 		Round:                       8,
 	}
 
-	txnBytes := msgpack.Encode(types.SignedTxnWithAD{
-		SignedTxn: types.SignedTxn{
-			Txn: types.Transaction{
-				Type: types.PaymentTx,
+	txnBytes := msgpack.Encode(sdk_types.SignedTxnWithAD{
+		SignedTxn: sdk_types.SignedTxn{
+			Txn: sdk_types.Transaction{
+				Type: sdk_types.PaymentTx,
 			},
 		},
 	})
