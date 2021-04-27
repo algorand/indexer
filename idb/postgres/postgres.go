@@ -45,7 +45,7 @@ var serializable = sql.TxOptions{Isolation: sql.LevelSerializable} // be a real 
 var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}
 
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
-func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
+func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
 	db, err := sql.Open("postgres", connection)
 
 	if err != nil {
@@ -53,9 +53,6 @@ func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger
 	}
 
 	if strings.Contains(connection, "readonly") {
-		if opts == nil {
-			opts = &idb.IndexerDbOptions{}
-		}
 		opts.ReadOnly = true
 	}
 
@@ -63,7 +60,7 @@ func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger
 }
 
 // Allow tests to inject a DB
-func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (pdb *IndexerDb, err error) {
+func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (pdb *IndexerDb, err error) {
 	pdb = &IndexerDb{
 		log:        logger,
 		db:         db,
@@ -78,7 +75,7 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (p
 	}
 
 	// e.g. a user named "readonly" is in the connection string
-	readonly := (opts != nil) && opts.ReadOnly
+	readonly := opts.ReadOnly
 	if !readonly {
 		err = pdb.init(opts)
 	}
@@ -136,7 +133,7 @@ func (db *IndexerDb) txWithRetry(ctx context.Context, opts sql.TxOptions, f func
 	}
 }
 
-func (db *IndexerDb) init(opts *idb.IndexerDbOptions) (err error) {
+func (db *IndexerDb) init(opts idb.IndexerDbOptions) (err error) {
 	accountingStateJSON, _ := db.getMetastate(stateMetastateKey)
 	hasAccounting := len(accountingStateJSON) > 0
 	migrationStateJSON, _ := db.getMetastate(migrationMetastateKey)
@@ -144,7 +141,7 @@ func (db *IndexerDb) init(opts *idb.IndexerDbOptions) (err error) {
 
 	db.GetSpecialAccounts()
 
-	noMigrate := (opts != nil) && opts.NoMigrate
+	noMigrate := opts.NoMigrate
 	if (hasMigration || hasAccounting) && (!noMigrate) {
 		// see postgres_migrations.go
 		return db.runAvailableMigrations(migrationStateJSON)
@@ -3071,7 +3068,7 @@ type postgresFactory struct {
 func (df postgresFactory) Name() string {
 	return "postgres"
 }
-func (df postgresFactory) Build(arg string, opts *idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, error) {
+func (df postgresFactory) Build(arg string, opts idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, error) {
 	return OpenPostgres(arg, opts, log)
 }
 

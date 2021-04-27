@@ -30,7 +30,7 @@ var resetCmd = &cobra.Command{
 			os.Exit(1)
 		}
 		opts := idb.IndexerDbOptions{NoMigrate: true}
-		db := indexerDbFromFlags(&opts)
+		db := indexerDbFromFlags(opts)
 		timeout := time.Now().Add(5 * time.Second)
 		health, err := db.Health()
 		maybeFail(err, "could not get db health, %v", err)
@@ -65,7 +65,7 @@ var resetCmd = &cobra.Command{
 						fmt.Printf("Done resetting. Re-building accounting through block %d...", blockround)
 						opts.NoMigrate = false
 						// db.Close() // TODO: add Close() to IndxerDb interface?
-						db = indexerDbFromFlags(&opts)
+						db = indexerDbFromFlags(opts)
 						cache, err := db.GetDefaultFrozen()
 						maybeFail(err, "failed to get default frozen cache")
 						filter := idb.UpdateFilter{
