@@ -75,8 +75,7 @@ func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (pd
 	}
 
 	// e.g. a user named "readonly" is in the connection string
-	readonly := opts.ReadOnly
-	if !readonly {
+	if !opts.ReadOnly {
 		err = pdb.init(opts)
 	}
 	return
@@ -141,8 +140,7 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (err error) {
 
 	db.GetSpecialAccounts()
 
-	noMigrate := opts.NoMigrate
-	if (hasMigration || hasAccounting) && (!noMigrate) {
+	if (hasMigration || hasAccounting) && !opts.NoMigrate {
 		// see postgres_migrations.go
 		return db.runAvailableMigrations(migrationStateJSON)
 	}
