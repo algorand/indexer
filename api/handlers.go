@@ -9,7 +9,7 @@ import (
 	"github.com/labstack/echo/v4"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/common"
@@ -163,7 +163,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 	}
 
 	if params.Next != nil {
-		addr, err := types.DecodeAddress(*params.Next)
+		addr, err := sdk_types.DecodeAddress(*params.Next)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, errUnableToParseNext)
 		}
@@ -315,7 +315,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 	}
 
 	if params.Next != nil {
-		addr, err := types.DecodeAddress(*params.Next)
+		addr, err := sdk_types.DecodeAddress(*params.Next)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, errUnableToParseNext)
 		}
@@ -495,7 +495,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 			return nil, round, row.Error
 		}
 
-		creator := types.Address{}
+		creator := sdk_types.Address{}
 		if len(row.Creator) != len(creator) {
 			return nil, round, fmt.Errorf(errInvalidCreatorAddress)
 		}
@@ -540,7 +540,7 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 			return nil, round, row.Error
 		}
 
-		addr := types.Address{}
+		addr := sdk_types.Address{}
 		if len(row.Address) != len(addr) {
 			return nil, round, fmt.Errorf(errInvalidCreatorAddress)
 		}

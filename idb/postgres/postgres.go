@@ -24,7 +24,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	atypes "github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	// Load the postgres sql.DB implementation
 	_ "github.com/lib/pq"
@@ -336,7 +336,7 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 
 	total := uint64(0)
 	for ai, alloc := range genesis.Allocation {
-		addr, err := atypes.DecodeAddress(alloc.Address)
+		addr, err := sdk_types.DecodeAddress(alloc.Address)
 		if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
 			return fmt.Errorf("genesis account[%d] has unhandled asset", ai)
 		}
@@ -631,7 +631,7 @@ type StateSchema struct {
 	NumByteSlice uint64 `codec:"nbs"`
 }
 
-func (ss *StateSchema) fromBlock(x atypes.StateSchema) {
+func (ss *StateSchema) fromBlock(x sdk_types.StateSchema) {
 	if x.NumUint != 0 || x.NumByteSlice != 0 {
 		ss.NumUint = x.NumUint
 		ss.NumByteSlice = x.NumByteSlice
@@ -1075,7 +1075,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 							if err != nil {
 								return fmt.Errorf("get acfg %d, %v", au.AssetID, err)
 							}
-							var old atypes.AssetParams
+							var old sdk_types.AssetParams
 							err = json.Decode(paramjson, &old)
 							if err != nil {
 								return fmt.Errorf("bad acgf json %d, %v", au.AssetID, err)
@@ -1182,7 +1182,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 				}
 			}
 			reverseDeltas = append(reverseDeltas, []interface{}{idb.JSONOneLine(reverseDelta), adelta.Round, adelta.Intra})
-			if adelta.OnCompletion == atypes.DeleteApplicationOC {
+			if adelta.OnCompletion == sdk_types.DeleteApplicationOC {
 				// clear content but leave row recording that it existed
 				state = AppParams{}
 				destroy[uint64(adelta.AppIndex)] = true
@@ -1245,7 +1245,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 
 		for _, ald := range updates.AppLocalDeltas {
-			if ald.OnCompletion == atypes.CloseOutOC || ald.OnCompletion == atypes.ClearStateOC {
+			if ald.OnCompletion == sdk_types.CloseOutOC || ald.OnCompletion == sdk_types.ClearStateOC {
 				droplocals = append(droplocals,
 					[]interface{}{ald.Address, ald.AppIndex, round},
 				)
@@ -1255,7 +1255,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			if err != nil {
 				return err
 			}
-			if ald.OnCompletion == atypes.OptInOC {
+			if ald.OnCompletion == sdk_types.OptInOC {
 				row := getapp.QueryRow(ald.AppIndex)
 				var paramsjson []byte
 				err = row.Scan(&paramsjson)
@@ -1905,7 +1905,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		var account models.Account
-		var aaddr atypes.Address
+		var aaddr sdk_types.Address
 		copy(aaddr[:], addr)
 		account.Address = aaddr.String()
 		account.Round = uint64(req.blockheader.Round)
@@ -1948,7 +1948,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			}
 
 			if !ad.SpendingKey.IsZero() {
-				var spendingkey atypes.Address
+				var spendingkey sdk_types.Address
 				copy(spendingkey[:], ad.SpendingKey[:])
 				account.AuthAddr = stringPtr(spendingkey.String())
 			}
@@ -2919,7 +2919,7 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows
 		rec.Application.Params.ClearStateProgram = ap.ClearStateProgram
 		rec.Application.Params.Creator = new(string)
 
-		var aaddr atypes.Address
+		var aaddr sdk_types.Address
 		copy(aaddr[:], creator)
 		rec.Application.Params.Creator = new(string)
 		*(rec.Application.Params.Creator) = aaddr.String()
