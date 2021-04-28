@@ -855,6 +855,9 @@ type ConsensusParams struct {
 
 	// InitialRewardsRateCalculation update the initial rewards rate calculation to take the reward pool minimum balance into account
 	InitialRewardsRateCalculation bool
+
+	// NoEmptyLocalDeltas updates how ApplyDelta.EvalDelta.LocalDeltas are stored
+	NoEmptyLocalDeltas bool
 }
 
 // PaysetCommitType enumerates possible ways for the block header to commit to
