@@ -1046,6 +1046,13 @@ func updateAccounts(db *IndexerDb, specialAccounts idb.SpecialAccounts, accounts
 									numBatches, writeDuration)
 							}
 						}
+					} else {
+						// Delete assets created by `address`.
+						if accountData.additional != nil {
+							for assetID := range accountData.additional.asset {
+								delete(assetDataMap, assetID)
+							}
+						}
 					}
 				}
 			}
@@ -1083,40 +1090,43 @@ func updateAccounts(db *IndexerDb, specialAccounts idb.SpecialAccounts, accounts
 func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	db.log.Print("m7 account cumulative rewards migration starting")
 
-	maxRound := uint32(state.NextRound)
+	// Skip the work if all accounts have previously been updated.
+	if (state.PointerRound == nil) || (*state.PointerRound != 0) || (*state.PointerIntra != 0) {
+		maxRound := uint32(state.NextRound)
 
-	// Get the number of accounts to potentially warn the user about high memory usage.
-	err := warnUser(db, maxRound)
-	if err != nil {
-		return err
-	}
-	// Get special accounts, so that we can ignore them throughout the migration. A later migration
-	// handles them.
-	specialAccounts, err := db.GetSpecialAccounts()
-	if err != nil {
-		return fmt.Errorf("m7: unable to get special accounts: %v", err)
-	}
-	// Get the transaction id that created each account. This function simple loops over all
-	// transactions from rounds <= `maxRound` in arbitrary order.
-	accountsFirstUsed, err := getAccountsFirstUsed(db, maxRound, specialAccounts)
-	if err != nil {
-		return err
-	}
-	// Get account data for accounts without transactions such as genesis accounts.
-	// This function reads the `account` table but only considers accounts created before or at
-	// `maxRound`.
-	readyAccountData, err := getAccountsWithoutTxnData(
-		db, maxRound, specialAccounts, accountsFirstUsed)
-	if err != nil {
-		return err
-	}
-	// Finally, read all accounts from most recent to oldest, update rewards and create/close dates,
-	// and write this account data to the database. To save memory, this function removes account's
-	// data as soon as we reach the transaction that created this account at which point older
-	// transactions cannot update its state. It writes account data to the database in batches.
-	err = updateAccounts(db, specialAccounts, accountsFirstUsed, readyAccountData, state)
-	if err != nil {
-		return err
+		// Get the number of accounts to potentially warn the user about high memory usage.
+		err := warnUser(db, maxRound)
+		if err != nil {
+			return err
+		}
+		// Get special accounts, so that we can ignore them throughout the migration. A later migration
+		// handles them.
+		specialAccounts, err := db.GetSpecialAccounts()
+		if err != nil {
+			return fmt.Errorf("m7: unable to get special accounts: %v", err)
+		}
+		// Get the transaction id that created each account. This function simple loops over all
+		// transactions from rounds <= `maxRound` in arbitrary order.
+		accountsFirstUsed, err := getAccountsFirstUsed(db, maxRound, specialAccounts)
+		if err != nil {
+			return err
+		}
+		// Get account data for accounts without transactions such as genesis accounts.
+		// This function reads the `account` table but only considers accounts created before or at
+		// `maxRound`.
+		readyAccountData, err := getAccountsWithoutTxnData(
+			db, maxRound, specialAccounts, accountsFirstUsed)
+		if err != nil {
+			return err
+		}
+		// Finally, read all accounts from most recent to oldest, update rewards and create/close dates,
+		// and write this account data to the database. To save memory, this function removes account's
+		// data as soon as we reach the transaction that created this account at which point older
+		// transactions cannot update its state. It writes account data to the database in batches.
+		err = updateAccounts(db, specialAccounts, accountsFirstUsed, readyAccountData, state)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Update migration state.
@@ -1125,7 +1135,7 @@ func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	state.PointerRound = nil
 	state.PointerIntra = nil
 	migrationStateJSON := idb.JSONOneLine(state)
-	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	_, err := db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		return fmt.Errorf("m7: failed to write final migration state: %v", err)
 	}
