@@ -114,24 +114,25 @@ func needsMigration(state MigrationState) bool {
 	return state.NextMigration < len(migrations)
 }
 
-// upsertMigrationState updates the migration state, and optionally increments the next counter.
-// If no tx is provided the query will be executed directly without a transaction.
-// Exactly one of db or tx should be nil.
-func upsertMigrationState(db *IndexerDb, tx *sql.Tx, state *MigrationState, incrementNextMigration bool) (err error) {
-	if db != nil && tx != nil {
-		return fmt.Errorf("exactly one of db or tx should be nil")
-	}
-
+// upsertMigrationStateTx updates the migration state, and optionally increments the next counter with an existing
+// transaction.
+func upsertMigrationStateTx(tx *sql.Tx, state *MigrationState, incrementNextMigration bool) (err error) {
 	if incrementNextMigration {
 		state.NextMigration++
 	}
 	migrationStateJSON := idb.JSONOneLine(state)
+	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 
-	if tx != nil {
-		_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
-	} else {
-		_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	return err
+}
+
+// upsertMigrationState updates the migration state, and optionally increments the next counter.
+func upsertMigrationState(db *IndexerDb, state *MigrationState, incrementNextMigration bool) (err error) {
+	if incrementNextMigration {
+		state.NextMigration++
 	}
+	migrationStateJSON := idb.JSONOneLine(state)
+	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 
 	return err
 }
@@ -1825,7 +1826,7 @@ func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 		initstmt.Exec(address[:])
 	}
 
-	upsertMigrationState(nil, tx, state, true)
+	upsertMigrationStateTx(tx, state, true)
 	if err != nil {
 		return fmt.Errorf("m10 metastate upsert error: %v", err)
 	}
@@ -1938,7 +1939,7 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 		}
 	}
 
-	upsertMigrationState(db, nil, state, true)
+	upsertMigrationState(db, state, true)
 	if err != nil {
 		return fmt.Errorf("m11 metastate upsert error: %v", err)
 	}
@@ -2020,5 +2021,5 @@ func FixFreezeLookupMigration(db *IndexerDb, state *MigrationState) error {
 	}
 
 	// Update migration state
-	return upsertMigrationState(db, nil, state, true)
+	return upsertMigrationState(db, state, true)
 }
