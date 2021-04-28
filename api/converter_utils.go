@@ -420,10 +420,13 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		d := make([]generated.AccountStateDelta, 0)
 		for _, k := range keys {
 			v := stxn.ApplyData.EvalDelta.LocalDeltas[k.key]
-			d = append(d, generated.AccountStateDelta{
-				Address: k.address.String(),
-				Delta:   *(stateDeltaToStateDelta(v)),
-			})
+			delta := stateDeltaToStateDelta(v)
+			if delta != nil {
+				d = append(d, generated.AccountStateDelta{
+					Address: k.address.String(),
+					Delta:   *delta,
+				})
+			}
 		}
 		localStateDelta = &d
 	}

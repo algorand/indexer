@@ -22,7 +22,7 @@ func maybeFail(err error, errfmt string, params ...interface{}) {
 	if err == nil {
 		return
 	}
-	logger.Errorf(errfmt, params...)
+	logger.WithError(err).Errorf(errfmt, params...)
 	os.Exit(1)
 }
 
@@ -77,25 +77,22 @@ var (
 	doVersion      bool
 	cpuProfile     string
 	pidFilePath    string
-	db             idb.IndexerDb
 	profFile       io.WriteCloser
 	logLevel       string
 	logFile        string
 	logger         *log.Logger
 )
 
-func globalIndexerDb(opts *idb.IndexerDbOptions) idb.IndexerDb {
-	if db == nil {
-		if postgresAddr != "" {
-			var err error
-			db, err = idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
-			maybeFail(err, "could not init db, %v", err)
-		} else if dummyIndexerDb {
-			db = idb.DummyIndexerDb()
-		} else {
-			logger.Errorf("no import db set")
-			os.Exit(1)
-		}
+func indexerDbFromFlags(opts *idb.IndexerDbOptions) (db idb.IndexerDb) {
+	if postgresAddr != "" {
+		var err error
+		db, err = idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
+		maybeFail(err, "could not init db, %v", err)
+	} else if dummyIndexerDb {
+		db = idb.DummyIndexerDb()
+	} else {
+		logger.Errorf("no import db set")
+		os.Exit(1)
 	}
 	return db
 }
@@ -110,6 +107,8 @@ func init() {
 
 	rootCmd.AddCommand(importCmd)
 	rootCmd.AddCommand(daemonCmd)
+	rootCmd.AddCommand(resetCmd)
+	resetCmd.Hidden = true
 
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "loglevel", "l", "info", "verbosity of logs: [error, warn, info, debug, trace]")
 	rootCmd.PersistentFlags().StringVarP(&logFile, "logfile", "f", "", "file to write logs to, if unset logs are written to standard out")

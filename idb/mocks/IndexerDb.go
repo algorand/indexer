@@ -227,16 +227,14 @@ func (_m *IndexerDb) GetDefaultFrozen() (map[uint64]bool, error) {
 }
 
 // GetImportState provides a mock function with given fields:
-func (_m *IndexerDb) GetImportState() (*idb.ImportState, error) {
+func (_m *IndexerDb) GetImportState() (idb.ImportState, error) {
 	ret := _m.Called()
 
-	var r0 *idb.ImportState
-	if rf, ok := ret.Get(0).(func() *idb.ImportState); ok {
+	var r0 idb.ImportState
+	if rf, ok := ret.Get(0).(func() idb.ImportState); ok {
 		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*idb.ImportState)
-		}
+		r0 = ret.Get(0).(idb.ImportState)
 	}
 
 	var r1 error
@@ -382,6 +380,20 @@ func (_m *IndexerDb) MarkImported(path string) error {
 	return r0
 }
 
+// Reset provides a mock function with given fields:
+func (_m *IndexerDb) Reset() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // SetImportState provides a mock function with given fields: _a0
 func (_m *IndexerDb) SetImportState(_a0 idb.ImportState) error {
 	ret := _m.Called(_a0)
@@ -447,13 +459,13 @@ func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 	return r0, r1
 }
 
-// YieldTxns provides a mock function with given fields: ctx, prevRound
-func (_m *IndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan idb.TxnRow {
-	ret := _m.Called(ctx, prevRound)
+// YieldTxns provides a mock function with given fields: ctx, firstRound
+func (_m *IndexerDb) YieldTxns(ctx context.Context, firstRound uint64) <-chan idb.TxnRow {
+	ret := _m.Called(ctx, firstRound)
 
 	var r0 <-chan idb.TxnRow
-	if rf, ok := ret.Get(0).(func(context.Context, int64) <-chan idb.TxnRow); ok {
-		r0 = rf(ctx, prevRound)
+	if rf, ok := ret.Get(0).(func(context.Context, uint64) <-chan idb.TxnRow); ok {
+		r0 = rf(ctx, firstRound)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(<-chan idb.TxnRow)

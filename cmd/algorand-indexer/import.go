@@ -22,7 +22,7 @@ var importCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
-		db := globalIndexerDb(nil)
+		db := indexerDbFromFlags(nil)
 
 		cache, err := db.GetDefaultFrozen()
 		if err != nil {

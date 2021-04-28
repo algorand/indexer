@@ -399,7 +399,10 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 func m6RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	// Cache the round in the migration metastate
 	round, err := db.GetMaxRoundAccounted()
-	if err != nil {
+	if err == idb.ErrorNotInitialized {
+		// Shouldn't end up in the migration if this were the case.
+		round = 0
+	} else if err != nil {
 		db.log.WithError(err).Errorf("m6: problem caching max round: %v", err)
 		return err
 	}
@@ -1198,8 +1201,7 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() (err error) {
 	db := mtxid.db
 	state := mtxid.state
 	db.log.Println("txid fixup migration starting")
-	prevRound := state.NextRound - 1
-	txns := db.YieldTxns(context.Background(), prevRound)
+	txns := db.YieldTxns(context.Background(), uint64(state.NextRound))
 	batch := make([]idb.TxnRow, 15000)
 	txInBatch := 0
 	roundsInBatch := 0
@@ -1845,9 +1847,9 @@ func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 // $2 = the holder account
 // $3 = assetID
 // $4 = round limit
-var freezeTransactionsQuery = `select count(*) from txn_participation p JOIN txn t ON t.round = p.round AND p.intra = t.intra 
-WHERE p.addr = $1 
-AND (t.txn -> 'txn' ->> 'fadd' = $2) 
+var freezeTransactionsQuery = `select count(*) from txn_participation p JOIN txn t ON t.round = p.round AND p.intra = t.intra
+WHERE p.addr = $1
+AND (t.txn -> 'txn' ->> 'fadd' = $2)
 AND t.asset = $3
 AND p.round > $4
 LIMIT 1`

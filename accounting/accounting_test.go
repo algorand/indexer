@@ -3,7 +3,7 @@ package accounting
 import (
 	"testing"
 
-	"github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/algorand/indexer/idb"
@@ -22,19 +22,19 @@ func assertUpdates(t *testing.T, update *idb.AlgoUpdate, closed bool, balance, r
 	assert.Equal(t, rewards, update.Rewards)
 }
 
-func getSenderAmounts(txn *types.SignedTxnWithAD) (balance, rewards int64) {
+func getSenderAmounts(txn *sdk_types.SignedTxnWithAD) (balance, rewards int64) {
 	balance = -int64(txn.Txn.Amount) + -int64(txn.Txn.Fee) + -int64(txn.ClosingAmount) + int64(txn.SenderRewards)
 	rewards = int64(txn.SenderRewards)
 	return
 }
 
-func getReceiverAmounts(txn *types.SignedTxnWithAD) (balance, rewards int64) {
+func getReceiverAmounts(txn *sdk_types.SignedTxnWithAD) (balance, rewards int64) {
 	balance = int64(txn.Txn.Amount) + int64(txn.ReceiverRewards)
 	rewards = int64(txn.ReceiverRewards)
 	return
 }
 
-func getCloseAmounts(txn *types.SignedTxnWithAD) (balance, rewards int64) {
+func getCloseAmounts(txn *sdk_types.SignedTxnWithAD) (balance, rewards int64) {
 	balance = int64(txn.ClosingAmount) + int64(txn.CloseRewards)
 	rewards = int64(txn.CloseRewards)
 	return
@@ -111,8 +111,8 @@ func TestAssetCloseReopenPay(t *testing.T) {
 	assetid := uint64(22222)
 	amt := uint64(10000)
 	_, closeMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountB, test.AccountB)
-	_, optinMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, types.ZeroAddress)
-	_, payMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountB, test.AccountA, types.ZeroAddress)
+	_, optinMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, sdk_types.ZeroAddress)
+	_, payMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountB, test.AccountA, sdk_types.ZeroAddress)
 
 	state := GetAccounting()
 	state.AddTransaction(closeMain)

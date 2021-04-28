@@ -4,7 +4,7 @@
 package postgres
 
 // import text to contstant setup_postgres_sql
-//go:generate go run ../../cmd/texttosource/main.go postgres setup_postgres.sql
+//go:generate go run ../../cmd/texttosource/main.go postgres setup_postgres.sql reset.sql
 
 import (
 	"bytes"
@@ -24,7 +24,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	atypes "github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	// Load the postgres sql.DB implementation
 	_ "github.com/lib/pq"
@@ -80,7 +80,7 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (p
 	// e.g. a user named "readonly" is in the connection string
 	readonly := (opts != nil) && opts.ReadOnly
 	if !readonly {
-		err = pdb.init()
+		err = pdb.init(opts)
 	}
 	return
 }
@@ -106,7 +106,7 @@ type IndexerDb struct {
 	accountingLock sync.Mutex
 }
 
-func (db *IndexerDb) init() (err error) {
+func (db *IndexerDb) init(opts *idb.IndexerDbOptions) (err error) {
 	accountingStateJSON, _ := db.getMetastate(stateMetastateKey)
 	hasAccounting := len(accountingStateJSON) > 0
 	migrationStateJSON, _ := db.getMetastate(migrationMetastateKey)
@@ -114,7 +114,8 @@ func (db *IndexerDb) init() (err error) {
 
 	db.GetSpecialAccounts()
 
-	if hasMigration || hasAccounting {
+	noMigrate := (opts != nil) && opts.NoMigrate
+	if (hasMigration || hasAccounting) && (!noMigrate) {
 		// see postgres_migrations.go
 		return db.runAvailableMigrations(migrationStateJSON)
 	}
@@ -126,6 +127,17 @@ func (db *IndexerDb) init() (err error) {
 	}
 
 	err = db.markMigrationsAsDone()
+	return
+}
+
+// Reset is part of idb.IndexerDB
+func (db *IndexerDb) Reset() (err error) {
+	// new database, run setup
+	_, err = db.db.Exec(reset_sql)
+	if err != nil {
+		return fmt.Errorf("db reset failed, %v", err)
+	}
+	db.log.Debugf("reset.sql done")
 	return
 }
 
@@ -324,7 +336,7 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 
 	total := uint64(0)
 	for ai, alloc := range genesis.Allocation {
-		addr, err := atypes.DecodeAddress(alloc.Address)
+		addr, err := sdk_types.DecodeAddress(alloc.Address)
 		if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
 			return fmt.Errorf("genesis account[%d] has unhandled asset", ai)
 		}
@@ -395,12 +407,12 @@ func (db *IndexerDb) setMetastate(key, jsonStrValue string) (err error) {
 }
 
 // GetImportState is part of idb.IndexerDB
-func (db *IndexerDb) GetImportState() (state *idb.ImportState, err error) {
+func (db *IndexerDb) GetImportState() (state idb.ImportState, err error) {
 	var importStateJSON string
 	importStateJSON, err = db.getMetastate(stateMetastateKey)
 	if err == sql.ErrNoRows || importStateJSON == "" {
 		// no previous state, ok
-		err = nil
+		err = idb.ErrorNotInitialized
 		return
 	} else if err != nil {
 		err = fmt.Errorf("unable to get import state: %v", err)
@@ -421,7 +433,7 @@ func (db *IndexerDb) SetImportState(state idb.ImportState) (err error) {
 
 // If `tx` is null, make a standalone query.
 func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (round uint64, err error) {
-	query := `select coalesce((v->>'account_round')::bigint, 0) from metastate where k = 'state'`
+	query := `select v->>'account_round' from metastate where k = 'state'`
 
 	var row *sql.Row
 	if tx == nil {
@@ -430,10 +442,21 @@ func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (round uint64, err error) 
 		row = tx.QueryRow(query)
 	}
 
-	err = row.Scan(&round)
+	var nullableRound sql.NullInt64
+	err = row.Scan(&nullableRound)
 	if err == sql.ErrNoRows {
-		err = nil
+		err = idb.ErrorNotInitialized
 		round = 0
+	}
+
+	if err != nil {
+		return
+	}
+
+	if nullableRound.Valid {
+		round = uint64(nullableRound.Int64)
+	} else {
+		err = idb.ErrorNotInitialized
 	}
 
 	return
@@ -450,10 +473,17 @@ func (db *IndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
 	round = 0
 	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
 	err = row.Scan(&nullableRound)
-	if err == nil && nullableRound.Valid {
-		round = uint64(nullableRound.Int64)
+
+	if err == sql.ErrNoRows || !nullableRound.Valid {
+		err = idb.ErrorNotInitialized
+		return
 	}
 
+	if err != nil {
+		return
+	}
+
+	round = uint64(nullableRound.Int64)
 	return
 }
 
@@ -569,9 +599,9 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 }
 
 // YieldTxns is part of idb.IndexerDB
-func (db *IndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan idb.TxnRow {
+func (db *IndexerDb) YieldTxns(ctx context.Context, firstRound uint64) <-chan idb.TxnRow {
 	results := make(chan idb.TxnRow, 1)
-	rows, err := db.db.QueryContext(ctx, yieldTxnQuery, prevRound)
+	rows, err := db.db.QueryContext(ctx, yieldTxnQuery, int64(firstRound)-1)
 	if err != nil {
 		results <- idb.TxnRow{Error: err}
 		close(results)
@@ -601,7 +631,7 @@ type StateSchema struct {
 	NumByteSlice uint64 `codec:"nbs"`
 }
 
-func (ss *StateSchema) fromBlock(x atypes.StateSchema) {
+func (ss *StateSchema) fromBlock(x sdk_types.StateSchema) {
 	if x.NumUint != 0 || x.NumByteSlice != 0 {
 		ss.NumUint = x.NumUint
 		ss.NumByteSlice = x.NumByteSlice
@@ -1045,7 +1075,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 							if err != nil {
 								return fmt.Errorf("get acfg %d, %v", au.AssetID, err)
 							}
-							var old atypes.AssetParams
+							var old sdk_types.AssetParams
 							err = json.Decode(paramjson, &old)
 							if err != nil {
 								return fmt.Errorf("bad acgf json %d, %v", au.AssetID, err)
@@ -1152,7 +1182,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 				}
 			}
 			reverseDeltas = append(reverseDeltas, []interface{}{idb.JSONOneLine(reverseDelta), adelta.Round, adelta.Intra})
-			if adelta.OnCompletion == atypes.DeleteApplicationOC {
+			if adelta.OnCompletion == sdk_types.DeleteApplicationOC {
 				// clear content but leave row recording that it existed
 				state = AppParams{}
 				destroy[uint64(adelta.AppIndex)] = true
@@ -1215,7 +1245,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 
 		for _, ald := range updates.AppLocalDeltas {
-			if ald.OnCompletion == atypes.CloseOutOC || ald.OnCompletion == atypes.ClearStateOC {
+			if ald.OnCompletion == sdk_types.CloseOutOC || ald.OnCompletion == sdk_types.ClearStateOC {
 				droplocals = append(droplocals,
 					[]interface{}{ald.Address, ald.AppIndex, round},
 				)
@@ -1225,7 +1255,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			if err != nil {
 				return err
 			}
-			if ald.OnCompletion == atypes.OptInOC {
+			if ald.OnCompletion == sdk_types.OptInOC {
 				row := getapp.QueryRow(ald.AppIndex)
 				var paramsjson []byte
 				err = row.Scan(&paramsjson)
@@ -1875,7 +1905,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		var account models.Account
-		var aaddr atypes.Address
+		var aaddr sdk_types.Address
 		copy(aaddr[:], addr)
 		account.Address = aaddr.String()
 		account.Round = uint64(req.blockheader.Round)
@@ -1918,7 +1948,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			}
 
 			if !ad.SpendingKey.IsZero() {
-				var spendingkey atypes.Address
+				var spendingkey sdk_types.Address
 				copy(spendingkey[:], ad.SpendingKey[:])
 				account.AuthAddr = stringPtr(spendingkey.String())
 			}
@@ -2889,7 +2919,7 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows
 		rec.Application.Params.ClearStateProgram = ap.ClearStateProgram
 		rec.Application.Params.Creator = new(string)
 
-		var aaddr atypes.Address
+		var aaddr sdk_types.Address
 		copy(aaddr[:], creator)
 		rec.Application.Params.Creator = new(string)
 		*(rec.Application.Params.Creator) = aaddr.String()
@@ -2944,6 +2974,13 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 	data["migration-required"] = migrationRequired
 
 	round, err := db.GetMaxRoundAccounted()
+
+	// We'll just have to set the round to 0
+	if err == idb.ErrorNotInitialized {
+		err = nil
+		round = 0
+	}
+
 	return idb.Health{
 		Data:        &data,
 		Round:       round,

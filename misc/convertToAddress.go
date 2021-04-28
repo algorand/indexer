@@ -5,7 +5,7 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 )
 
 func main() {
@@ -16,7 +16,7 @@ func main() {
 	addrBytes, err := base64.StdEncoding.DecodeString(addrInput)
 	if err != nil {
 		// Failed to base64 decode, try algorand.
-		a, err := types.DecodeAddress(addrInput)
+		a, err := sdk_types.DecodeAddress(addrInput)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -24,7 +24,7 @@ func main() {
 		fmt.Println(base64.StdEncoding.EncodeToString(a[:]))
 		return
 	}
-	var addr types.Address
+	var addr sdk_types.Address
 	copy(addr[:], addrBytes)
 	fmt.Println(addr.String())
 }
