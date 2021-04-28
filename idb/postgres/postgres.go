@@ -107,12 +107,20 @@ type IndexerDb struct {
 }
 
 // A helper function that retries the function `f` in case the database transaction in it
-// fails due to a serialization error. `f` must return an error which contains the error returned
-// by sql.Tx.Commit(). The easiest way is to just return the result of sql.Tx.Commit().
-func (db *IndexerDb) txnWithRetry(f func() error) error {
+// fails due to a serialization error. `f` is provided context `ctx` and a transaction created
+// using this context and `opts`. `f` takes ownership of the transaction and must either call
+// sql.Tx.Rollback() or sql.Tx.Commit(). In the second case, `f` must return an error which
+// contains the error returned by sql.Tx.Commit(). The easiest way is to just return the result
+// of sql.Tx.Commit().
+func (db *IndexerDb) txnWithRetry(ctx context.Context, opts sql.TxOptions, f func(context.Context, *sql.Tx) error) error {
 	count := 0
 	for {
-		err := f()
+		tx, err := db.db.BeginTx(ctx, &opts)
+		if err != nil {
+			return err
+		}
+
+		err = f(ctx, tx)
 
 		// If not serialization error.
 		var pqerr *pq.Error
@@ -222,12 +230,9 @@ func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, ass
 	return nil
 }
 
-func (db *IndexerDb) commitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
-	if err != nil {
-		return fmt.Errorf("BeginTx %v", err)
-	}
+func (db *IndexerDb) commitBlock(tx *sql.Tx, round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
 	defer tx.Rollback() // ignored if already committed
+
 	addtx, err := tx.Prepare(`COPY txn (round, intra, typeenum, asset, txid, txnbytes, txn) FROM STDIN`)
 	if err != nil {
 		return fmt.Errorf("COPY txn %v", err)
@@ -306,15 +311,18 @@ func (db *IndexerDb) commitBlock(round uint64, timestamp int64, rewardslevel uin
 
 // CommitBlock is part of idb.IndexerDB
 func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	f := func() error {
-		return db.commitBlock(round, timestamp, rewardslevel, headerbytes)
+	f := func(ctx context.Context, tx *sql.Tx) error {
+		return db.commitBlock(tx, round, timestamp, rewardslevel, headerbytes)
 	}
-	err := db.txnWithRetry(f)
+	err := db.txnWithRetry(context.Background(), serializable, f)
 
 	db.txrows = nil
 	db.txprows = nil
 
-	return err
+	if err != nil {
+		return fmt.Errorf("CommitBlock(): %v", err)
+	}
+	return nil
 }
 
 // GetAsset return AssetParams about an asset
@@ -872,17 +880,13 @@ func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []i
 	return append(dirty, x)
 }
 
-func (db *IndexerDb) commitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
+func (db *IndexerDb) commitRoundAccounting(tx *sql.Tx, updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
+	defer tx.Rollback() // ignored if .Commit() first
+
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
 	any := false
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
-	if err != nil {
-		return
-	}
-	defer tx.Rollback() // ignored if .Commit() first
-
 	if len(updates.AlgoUpdates) > 0 {
 		any = true
 		// account_data json is only used on account creation, otherwise the account data jsonb field is updated from the delta
@@ -1387,10 +1391,13 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 
 // CommitRoundAccounting is part of idb.IndexerDB
 func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) error {
-	f := func() (err error) {
-		return db.commitRoundAccounting(updates, round, blockPtr)
+	f := func(ctx context.Context, tx *sql.Tx) (err error) {
+		return db.commitRoundAccounting(tx, updates, round, blockPtr)
 	}
-	return db.txnWithRetry(f)
+	if err := db.txnWithRetry(context.Background(), serializable, f); err != nil {
+		return fmt.Errorf("CommitRoundAccounting(): %v", err)
+	}
+	return nil
 }
 
 // GetBlock is part of idb.IndexerDB
