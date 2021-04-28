@@ -112,7 +112,7 @@ type IndexerDb struct {
 // sql.Tx.Rollback() or sql.Tx.Commit(). In the second case, `f` must return an error which
 // contains the error returned by sql.Tx.Commit(). The easiest way is to just return the result
 // of sql.Tx.Commit().
-func (db *IndexerDb) txnWithRetry(ctx context.Context, opts sql.TxOptions, f func(context.Context, *sql.Tx) error) error {
+func (db *IndexerDb) txWithRetry(ctx context.Context, opts sql.TxOptions, f func(context.Context, *sql.Tx) error) error {
 	count := 0
 	for {
 		tx, err := db.db.BeginTx(ctx, &opts)
@@ -314,7 +314,7 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		return db.commitBlock(tx, round, timestamp, rewardslevel, headerbytes)
 	}
-	err := db.txnWithRetry(context.Background(), serializable, f)
+	err := db.txWithRetry(context.Background(), serializable, f)
 
 	db.txrows = nil
 	db.txprows = nil
@@ -1394,7 +1394,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 	f := func(ctx context.Context, tx *sql.Tx) (err error) {
 		return db.commitRoundAccounting(tx, updates, round, blockPtr)
 	}
-	if err := db.txnWithRetry(context.Background(), serializable, f); err != nil {
+	if err := db.txWithRetry(context.Background(), serializable, f); err != nil {
 		return fmt.Errorf("CommitRoundAccounting(): %v", err)
 	}
 	return nil
