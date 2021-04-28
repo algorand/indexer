@@ -16,7 +16,7 @@ import (
 
 var configFile string
 var port uint
-var gen *generator.Generator
+var gen generator.Generator
 
 const configFileName = "block_generator_config"
 
@@ -40,9 +40,9 @@ func initializeConfigFile() error {
 		}
 
 		return viper.ReadConfig(f)
-	} else {
-		return viper.ReadInConfig()
 	}
+
+	return viper.ReadInConfig()
 }
 
 func main() {
@@ -57,7 +57,7 @@ func main() {
 		Protocol:                     "future",
 		NumGenesisAccounts:           10,
 		GenesisAccountInitialBalance: 1000000000,
-		GenesisID:					  "blockgen-test",
+		GenesisID:                    "blockgen-test",
 		GenesisHash:                  [32]byte{},
 	})
 
@@ -111,7 +111,7 @@ func parseBlock(path string) (uint64, error) {
 				return 0, fmt.Errorf("no block in path")
 			}
 		}
-		result = (uint64(10) * result) + uint64(int(path[i]) - '0')
+		result = (uint64(10) * result) + uint64(int(path[i])-'0')
 	}
 	return result, nil
 }

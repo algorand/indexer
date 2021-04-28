@@ -118,4 +118,3 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 		exitValue = 1
 	}
 }
-
