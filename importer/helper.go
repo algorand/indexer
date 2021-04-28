@@ -249,37 +249,35 @@ func InitialImport(db idb.IndexerDb, genesisJSONPath string, client *algod.Clien
 	}
 
 	// Import genesis file from file or algod.
-
-	// Get genesis from file or algod.
-	var genesisString string
+	//var genesisString string
+	var genesisReader io.Reader
 
 	// Attempt to read file.
 	if genesisJSONPath != "" {
 		l.Infof("loading genesis file %s", genesisJSONPath)
-		gf, err := os.Open(genesisJSONPath)
-		if err == nil {
-			gfBytes, err := ioutil.ReadAll(gf)
-			if err == nil {
-				genesisString = string(gfBytes)
-			}
+		genesisReader, err = os.Open(genesisJSONPath)
+		if err != nil {
+			genesisReader = nil
 		}
-		//maybeFail(err, l, "%s: %v", genesisJSONPath, err)
 	}
 
 	// If we still don't have it but we have a client, ask algod.
-	if client != nil && genesisString == "" {
+	if client != nil && genesisReader == nil {
 		l.Infof("fetching genesis from algod")
-		genesisString, err = client.GetGenesis().Do(context.Background())
-		maybeFail(err, l, "failed to fetch genesis from algod: %v", err)
-		l.Infoln(genesisString)
+		genesisString, err := client.GetGenesis().Do(context.Background())
+		if err != nil {
+			genesisReader = nil
+		} else {
+			genesisReader = strings.NewReader(genesisString)
+		}
 	}
 
-	if genesisString == "" {
+	if genesisReader == nil {
 		l.Error("Failed to get genesis data.")
 		os.Exit(1)
 	}
 
-	err = loadGenesis(db, strings.NewReader(genesisString))
+	err = loadGenesis(db, genesisReader)
 	maybeFail(err, l, "%s: could not load genesis json, %v", genesisJSONPath, err)
 	return true
 }
