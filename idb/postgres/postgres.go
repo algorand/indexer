@@ -946,7 +946,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 		// Create new account_asset, initialize a previously destroyed asset, or apply the balance delta.
 		// Setting frozen is complicated for the no-op optin case. It should only be set to default-frozen when the
 		// holding is deleted, otherwise it should be left as the original value.
-		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, frozen = (EXCLUDED.frozen AND account_asset.deleted) OR (account_asset.frozen AND NOT account_asset.deleted), deleted = false`)
+		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, frozen = (EXCLUDED.frozen AND coalesce(account_asset.deleted, false)) OR (account_asset.frozen AND NOT coalesce(account_asset.deleted, false)), deleted = false`)
 		if err != nil {
 			return fmt.Errorf("prepare set account_asset, %v", err)
 		}
