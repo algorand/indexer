@@ -6,9 +6,11 @@ import (
 	"io"
 	"math/rand"
 
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/indexer/types"
 
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 )
 
 type GenerationConfig struct {
@@ -23,15 +25,8 @@ type GenerationConfig struct {
 }
 
 func MakeGenerator(config GenerationConfig) *Generator {
-	feeSink := [32]byte{}
-	feeSink[31] = 1
-	rewardsPool := [32]byte{}
-	rewardsPool[31] = 2
-
 	gen := &Generator{
 		config:                    config,
-		feeSink:                   feeSink,
-		rewardsPool:               rewardsPool,
 		prevBlockHash:             "",
 		round:                     0,
 		txnCounter:                0,
@@ -41,6 +36,9 @@ func MakeGenerator(config GenerationConfig) *Generator {
 		rewardsRate:               0,
 		rewardsRecalculationRound: 0,
 	}
+
+	gen.feeSink[31] = 1
+	gen.rewardsPool[31] = 2
 
 	gen.initializeAccounting()
 
@@ -72,8 +70,8 @@ type Generator struct {
 	//genesisHash		[32]byte
 
 	// Rewards stuff
-	feeSink                   [32]byte
-	rewardsPool               [32]byte
+	feeSink                   types.Address
+	rewardsPool               types.Address
 	rewardsLevel              uint64
 	rewardsResidue            uint64
 	rewardsRate               uint64
@@ -87,30 +85,35 @@ type Generator struct {
 	numAssets   uint64
 }
 
-type SimpleBlock struct {
-	RewardsLevel              uint64                `codec:"earn"`
-	FeeSink                   [32]byte              `codec:"fees""`
-	RewardsResidue            uint64                `codec:"frac"`
-	GenesisID                 string                `codec:"gen"`
-	GenesisHash               [32]byte              `codec:"gh"`
-	PrevBlockHash             string                `codec:"prev"`
-	CurrentProtocol           string                `codec:"proto"`
-	RewardsRate               uint64                `codec:"rate"`
-	Round                     uint64                `codec:"rnd"`
-	RewardsRecalculationRound uint64                `codec:"rwcalr"`
-	RewardsPool               [32]byte              `codec:"rwd"`
-	Seed                      [32]byte              `codec:"seed"`
-	TxnCounter                uint64                `codec:"tc"`
-	TimeStamp                 int64                 `codec:"ts"`
-	TxnRoot                   [32]byte              `codec:"txn"`
-	Payset                    []sdk_types.SignedTxn `codec:"txns"` // Hopefully msgpack works if you embed other msgpack objects, may need to adjust this part.
-}
-
 func (g *Generator) WriteGenesis(output io.Writer) {
+	var allocations []types.GenesisAllocation
 
+	for i := uint64(0); i < g.config.NumGenesisAccounts ; i++ {
+		var addr types.Address
+		data := indexToAccount(i)
+		copy(addr[:], data[:])
+		allocations = append(allocations, types.GenesisAllocation{
+			Address: addr.String(),
+			State:   types.AccountData{
+				MicroAlgos:         types.MicroAlgos(g.config.GenesisAccountInitialBalance),
+			},
+		})
+	}
+
+	gen := types.Genesis{
+		SchemaID:    "v1",
+		Network:     "generated-network",
+		Proto:       "future",
+		Allocation:  allocations,
+		RewardsPool: g.rewardsPool.String(),
+		FeeSink:     g.feeSink.String(),
+		Timestamp:   g.timestamp,
+	}
+
+	output.Write(json.Encode(gen))
 }
 
-func (g *Generator) generateTransaction(round uint64, intra uint64) (sdk_types.SignedTxn, error) {
+func (g *Generator) generateTransaction(round uint64, intra uint64) (types.SignedTxnWithAD, error) {
 	// TODO: Distribute transactions according to configuration
 	return g.generatePaymentTxn(round, intra)
 }
@@ -118,39 +121,51 @@ func (g *Generator) generateTransaction(round uint64, intra uint64) (sdk_types.S
 // WriteBlock generates a block full of new transactions and writes it to the writer.
 func (g *Generator) WriteBlock(output io.Writer) {
 	// Generate the transactions
-	transactions := make([]sdk_types.SignedTxn, 0, g.config.TxnPerBlock)
+
+	transactions := make([]types.SignedTxnInBlock, 0, g.config.TxnPerBlock)
 	for i := uint64(0); i < g.config.TxnPerBlock; i++ {
 		txn, err := g.generateTransaction(g.round, i)
+		stxnib := types.SignedTxnInBlock{
+			SignedTxnWithAD: txn,
+			HasGenesisID:    true,
+			HasGenesisHash:  true,
+		}
 		if err != nil {
 			panic(fmt.Sprintf("failed to generate transaction: %v\n", err))
 		}
-		transactions = append(transactions, txn)
+		transactions = append(transactions, stxnib)
 	}
 
-	block := SimpleBlock{
-		// Special accounts
-		RewardsPool:               g.rewardsPool,
-		FeeSink:                   [32]byte{0x01},
+	block := types.Block{
+		BlockHeader: types.BlockHeader{
+			Round:        types.Round(g.round),
+			Branch:       g.config.GenesisHash,
+			Seed:         types.Seed{},
+			TxnRoot:      types.Digest{},
+			TimeStamp:    g.timestamp,
+			GenesisID:    g.config.GenesisID,
+			GenesisHash:  g.config.GenesisHash,
+			RewardsState: types.RewardsState{
+				FeeSink:                   g.feeSink,
+				RewardsPool:               g.rewardsPool,
+				RewardsLevel:              0,
+				RewardsRate:               0,
+				RewardsResidue:            0,
+				RewardsRecalculationRound: 0,
+			},
+			UpgradeState: types.UpgradeState{
+				CurrentProtocol: "future",
+			},
+			//UpgradeVote:  types.UpgradeVote{},
+			TxnCounter:   g.txnCounter,
+			CompactCert:  nil,
+		},
+		Payset:      types.Payset(transactions),
+	}
 
-		// Rewards
-		RewardsLevel:              0,
-		RewardsResidue:            0,
-		RewardsRate:               0,
-		RewardsRecalculationRound: 0,
-
-		// Bookkeeping
-		Round:                     g.round,
-		GenesisID:                 g.config.GenesisID,
-		GenesisHash:               g.config.GenesisHash,
-		PrevBlockHash:             "prev-block",
-		CurrentProtocol:           g.config.Protocol,
-		TimeStamp:                 g.timestamp,
-
-		// Transactions
-		TxnCounter:                g.txnCounter,
-		Seed:                      [32]byte{},
-		TxnRoot:                   [32]byte{},
-		Payset:                    transactions,
+	cert := types.EncodedBlockCert{
+		Block:       block,
+		Certificate: types.Certificate{},
 	}
 
 	g.txnCounter += g.config.TxnPerBlock
@@ -158,7 +173,7 @@ func (g *Generator) WriteBlock(output io.Writer) {
 	g.round      += 1
 
 	fmt.Println(g.txnCounter)
-	output.Write(msgpack.Encode(block))
+	output.Write(msgpack.Encode(cert))
 }
 
 func indexToAccount(i uint64) (result [32]byte) {
@@ -180,7 +195,7 @@ func (g *Generator) initializeAccounting() {
 }
 
 // generatePaymentTxn creates a new payment transaction.
-func (g *Generator) generatePaymentTxn(round uint64, intra uint64) (sdk_types.SignedTxn, error) {
+func (g *Generator) generatePaymentTxn(round uint64, intra uint64) (types.SignedTxnWithAD, error) {
 	var receiveIndex uint64
 	if g.numPayments % g.config.NewAccountFrequency == 0 {
 		g.balances = append(g.balances, 0)
@@ -243,5 +258,10 @@ func (g *Generator) generatePaymentTxn(round uint64, intra uint64) (sdk_types.Si
 		fmt.Println("Failed to generate a random signature")
 	}
 	 */
-	return stxn, nil
+
+	withAd := types.SignedTxnWithAD{
+		SignedTxn: stxn,
+		ApplyData: types.ApplyData{},
+	}
+	return withAd, nil
 }

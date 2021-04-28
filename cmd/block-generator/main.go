@@ -52,7 +52,7 @@ func main() {
 
 	// Pass everything from the configuration into the generator.
 	gen = generator.MakeGenerator(generator.GenerationConfig{
-		TxnPerBlock:                  5000,
+		TxnPerBlock:                  15000,
 		NewAccountFrequency:          100,
 		Protocol:                     "future",
 		NumGenesisAccounts:           10,
