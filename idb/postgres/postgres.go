@@ -27,7 +27,7 @@ import (
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	// Load the postgres sql.DB implementation
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -104,6 +104,36 @@ type IndexerDb struct {
 	migration *migration.Migration
 
 	accountingLock sync.Mutex
+}
+
+// A helper function that retries the function `f` in case the database transaction in it
+// fails due to a serialization error. `f` is provided context `ctx` and a transaction created
+// using this context and `opts`. `f` takes ownership of the transaction and must either call
+// sql.Tx.Rollback() or sql.Tx.Commit(). In the second case, `f` must return an error which
+// contains the error returned by sql.Tx.Commit(). The easiest way is to just return the result
+// of sql.Tx.Commit().
+func (db *IndexerDb) txWithRetry(ctx context.Context, opts sql.TxOptions, f func(context.Context, *sql.Tx) error) error {
+	count := 0
+	for {
+		tx, err := db.db.BeginTx(ctx, &opts)
+		if err != nil {
+			return err
+		}
+
+		err = f(ctx, tx)
+
+		// If not serialization error.
+		var pqerr *pq.Error
+		if !errors.As(err, &pqerr) || (pqerr.Code != "40001") {
+			if count > 0 {
+				db.log.Printf("transaction was retried %d times", count)
+			}
+			return err
+		}
+
+		count++
+		db.log.Printf("retrying transaction, count: %d", count)
+	}
 }
 
 func (db *IndexerDb) init(opts *idb.IndexerDbOptions) (err error) {
@@ -200,13 +230,9 @@ func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, ass
 	return nil
 }
 
-// CommitBlock is part of idb.IndexerDB
-func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
-	if err != nil {
-		return fmt.Errorf("BeginTx %v", err)
-	}
+func (db *IndexerDb) commitBlock(tx *sql.Tx, round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
 	defer tx.Rollback() // ignored if already committed
+
 	addtx, err := tx.Prepare(`COPY txn (round, intra, typeenum, asset, txid, txnbytes, txn) FROM STDIN`)
 	if err != nil {
 		return fmt.Errorf("COPY txn %v", err)
@@ -280,13 +306,23 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 		return fmt.Errorf("put block_header %v    %#v", err, err)
 	}
 
-	err = tx.Commit()
+	return tx.Commit()
+}
+
+// CommitBlock is part of idb.IndexerDB
+func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
+	f := func(ctx context.Context, tx *sql.Tx) error {
+		return db.commitBlock(tx, round, timestamp, rewardslevel, headerbytes)
+	}
+	err := db.txWithRetry(context.Background(), serializable, f)
+
 	db.txrows = nil
 	db.txprows = nil
+
 	if err != nil {
-		return fmt.Errorf("on commit, %v", err)
+		return fmt.Errorf("CommitBlock(): %v", err)
 	}
-	return err
+	return nil
 }
 
 // GetAsset return AssetParams about an asset
@@ -844,18 +880,13 @@ func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []i
 	return append(dirty, x)
 }
 
-// CommitRoundAccounting is part of idb.IndexerDB
-func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
+func (db *IndexerDb) commitRoundAccounting(tx *sql.Tx, updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
+	defer tx.Rollback() // ignored if .Commit() first
+
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
 	any := false
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
-	if err != nil {
-		return
-	}
-	defer tx.Rollback() // ignored if .Commit() first
-
 	if len(updates.AlgoUpdates) > 0 {
 		any = true
 		// account_data json is only used on account creation, otherwise the account data jsonb field is updated from the delta
@@ -1356,6 +1387,17 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		return
 	}
 	return tx.Commit()
+}
+
+// CommitRoundAccounting is part of idb.IndexerDB
+func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) error {
+	f := func(ctx context.Context, tx *sql.Tx) (err error) {
+		return db.commitRoundAccounting(tx, updates, round, blockPtr)
+	}
+	if err := db.txWithRetry(context.Background(), serializable, f); err != nil {
+		return fmt.Errorf("CommitRoundAccounting(): %v", err)
+	}
+	return nil
 }
 
 // GetBlock is part of idb.IndexerDB
