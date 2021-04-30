@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -57,9 +56,6 @@ var daemonCmd = &cobra.Command{
 			bot, err = fetcher.ForNetAndToken(algodAddr, algodToken, logger)
 			maybeFail(err, "fetcher setup, %v", err)
 		} else if algodDataDir != "" {
-			if genesisJSONPath == "" {
-				genesisJSONPath = filepath.Join(algodDataDir, "genesis.json")
-			}
 			bot, err = fetcher.ForDataDir(algodDataDir, logger)
 			maybeFail(err, "fetcher setup, %v", err)
 		} else {
