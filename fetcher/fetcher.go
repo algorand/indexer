@@ -201,9 +201,9 @@ func (bot *fetcherImpl) SetNextRound(nextRound uint64) {
 	bot.nextRound = nextRound
 }
 
-func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) (err error) {
+func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) error {
 	var block types.EncodedBlockCert
-	err = msgpack.Decode(blockbytes, &block)
+	err := msgpack.Decode(blockbytes, &block)
 	if err != nil {
 		if bot.log.IsLevelEnabled(log.DebugLevel) {
 			var generic map[string]interface{}
@@ -213,13 +213,18 @@ func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) (err error) {
 			}
 		}
 
-		err = fmt.Errorf("unable to decode block: %v", err)
-		return
+		return fmt.Errorf("unable to decode block: %v", err)
 	}
+
+	if block.Block.Round != types.Round(bot.nextRound) {
+		return fmt.Errorf("expected round %d but got %d", bot.nextRound, block.Block.Round)
+	}
+
 	for _, handler := range bot.blockHandlers {
 		handler.HandleBlock(&block)
 	}
-	return
+
+	return nil
 }
 
 // AddBlockHandler is part of the Fetcher interface
