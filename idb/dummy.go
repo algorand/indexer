@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	atypes "github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -154,7 +154,7 @@ func (db *dummyIndexerDb) Reset() (err error) {
 // IndexerFactory is used to install an IndexerDb implementation.
 type IndexerFactory interface {
 	Name() string
-	Build(arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error)
+	Build(arg string, opts IndexerDbOptions, log *log.Logger) (IndexerDb, error)
 }
 
 // TxnRow is metadata relating to one transaction in a transaction query.
@@ -437,7 +437,7 @@ func (df dummyFactory) Name() string {
 }
 
 // Build is part of the IndexerFactory interface.
-func (df dummyFactory) Build(arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
+func (df dummyFactory) Build(arg string, opts IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
 	return &dummyIndexerDb{log: log}, nil
 }
 
@@ -466,7 +466,7 @@ func RegisterFactory(name string, factory IndexerFactory) {
 }
 
 // IndexerDbByName is used to construct an IndexerDb object by name.
-func IndexerDbByName(name, arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
+func IndexerDbByName(name, arg string, opts IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
 	if val, ok := indexerFactories[name]; ok {
 		return val.Build(arg, opts, log)
 	}
@@ -581,13 +581,13 @@ type AppDelta struct {
 	AddrIndex    uint64 // 0=Sender, otherwise stxn.Txn.Accounts[i-1]
 	Creator      []byte
 	Delta        types.StateDelta
-	OnCompletion atypes.OnCompletion
+	OnCompletion sdk_types.OnCompletion
 
 	// AppParams settings coppied from Txn, only for AppGlobalDeltas
-	ApprovalProgram   []byte             `codec:"approv"`
-	ClearStateProgram []byte             `codec:"clearp"`
-	LocalStateSchema  atypes.StateSchema `codec:"lsch"`
-	GlobalStateSchema atypes.StateSchema `codec:"gsch"`
+	ApprovalProgram   []byte                `codec:"approv"`
+	ClearStateProgram []byte                `codec:"clearp"`
+	LocalStateSchema  sdk_types.StateSchema `codec:"lsch"`
+	GlobalStateSchema sdk_types.StateSchema `codec:"gsch"`
 }
 
 // String is part of the Stringer interface.
@@ -629,12 +629,12 @@ type StateDelta struct {
 
 // AppReverseDelta extra data attached to transactions relating to applications
 type AppReverseDelta struct {
-	Delta             []StateDelta        `codec:"d,omitempty"`
-	OnCompletion      atypes.OnCompletion `codec:"oc,omitempty"`
-	ApprovalProgram   []byte              `codec:"approv,omitempty"`
-	ClearStateProgram []byte              `codec:"clearp,omitempty"`
-	LocalStateSchema  atypes.StateSchema  `codec:"lsch,omitempty"`
-	GlobalStateSchema atypes.StateSchema  `codec:"gsch,omitempty"`
+	Delta             []StateDelta           `codec:"d,omitempty"`
+	OnCompletion      sdk_types.OnCompletion `codec:"oc,omitempty"`
+	ApprovalProgram   []byte                 `codec:"approv,omitempty"`
+	ClearStateProgram []byte                 `codec:"clearp,omitempty"`
+	LocalStateSchema  sdk_types.StateSchema  `codec:"lsch,omitempty"`
+	GlobalStateSchema sdk_types.StateSchema  `codec:"gsch,omitempty"`
 }
 
 // SetDelta adds delta values to the AppReverseDelta object.

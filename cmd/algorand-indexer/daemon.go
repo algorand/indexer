@@ -66,7 +66,7 @@ var daemonCmd = &cobra.Command{
 		if noAlgod && !allowMigration {
 			opts.ReadOnly = true
 		}
-		db := indexerDbFromFlags(&opts)
+		db := indexerDbFromFlags(opts)
 		if !noAlgod {
 			// Only do this if we're going to be writing
 			// to the db, to allow for read-only query
@@ -89,7 +89,6 @@ var daemonCmd = &cobra.Command{
 				imp:   importer.NewDBImporter(db),
 				db:    db,
 				cache: cache,
-				round: maxRound,
 			}
 			bot.AddBlockHandler(&bih)
 			bot.SetContext(ctx)
@@ -169,14 +168,10 @@ type blockImporterHandler struct {
 	imp   importer.Importer
 	db    idb.IndexerDb
 	cache map[uint64]bool
-	round uint64
 }
 
 func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	start := time.Now()
-	if uint64(block.Block.Round) != bih.round+1 {
-		logger.Errorf("received block %d when expecting %d", block.Block.Round, bih.round+1)
-	}
 	_, err := bih.imp.ImportDecodedBlock(block)
 	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round)
 	maxRoundAccounted, err := bih.db.GetMaxRoundAccounted()
@@ -196,5 +191,4 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
 	dt := time.Now().Sub(start)
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
-	bih.round = uint64(block.Block.Round)
 }

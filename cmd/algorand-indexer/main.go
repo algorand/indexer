@@ -83,7 +83,7 @@ var (
 	logger         *log.Logger
 )
 
-func indexerDbFromFlags(opts *idb.IndexerDbOptions) (db idb.IndexerDb) {
+func indexerDbFromFlags(opts idb.IndexerDbOptions) (db idb.IndexerDb) {
 	if postgresAddr != "" {
 		var err error
 		db, err = idb.IndexerDbByName("postgres", postgresAddr, opts, logger)

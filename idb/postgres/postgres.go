@@ -24,10 +24,10 @@ import (
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	atypes "github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	// Load the postgres sql.DB implementation
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -45,7 +45,7 @@ var serializable = sql.TxOptions{Isolation: sql.LevelSerializable} // be a real 
 var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}
 
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
-func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
+func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
 	db, err := sql.Open("postgres", connection)
 
 	if err != nil {
@@ -53,9 +53,6 @@ func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger
 	}
 
 	if strings.Contains(connection, "readonly") {
-		if opts == nil {
-			opts = &idb.IndexerDbOptions{}
-		}
 		opts.ReadOnly = true
 	}
 
@@ -63,7 +60,7 @@ func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger
 }
 
 // Allow tests to inject a DB
-func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (pdb *IndexerDb, err error) {
+func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (pdb *IndexerDb, err error) {
 	pdb = &IndexerDb{
 		log:        logger,
 		db:         db,
@@ -78,8 +75,7 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (p
 	}
 
 	// e.g. a user named "readonly" is in the connection string
-	readonly := (opts != nil) && opts.ReadOnly
-	if !readonly {
+	if !opts.ReadOnly {
 		err = pdb.init(opts)
 		if err != nil {
 			return nil, fmt.Errorf("initializing postgres: %v", err)
@@ -109,7 +105,37 @@ type IndexerDb struct {
 	accountingLock sync.Mutex
 }
 
-func (db *IndexerDb) init(opts *idb.IndexerDbOptions) (err error) {
+// A helper function that retries the function `f` in case the database transaction in it
+// fails due to a serialization error. `f` is provided context `ctx` and a transaction created
+// using this context and `opts`. `f` takes ownership of the transaction and must either call
+// sql.Tx.Rollback() or sql.Tx.Commit(). In the second case, `f` must return an error which
+// contains the error returned by sql.Tx.Commit(). The easiest way is to just return the result
+// of sql.Tx.Commit().
+func (db *IndexerDb) txWithRetry(ctx context.Context, opts sql.TxOptions, f func(context.Context, *sql.Tx) error) error {
+	count := 0
+	for {
+		tx, err := db.db.BeginTx(ctx, &opts)
+		if err != nil {
+			return err
+		}
+
+		err = f(ctx, tx)
+
+		// If not serialization error.
+		var pqerr *pq.Error
+		if !errors.As(err, &pqerr) || (pqerr.Code != "40001") {
+			if count > 0 {
+				db.log.Printf("transaction was retried %d times", count)
+			}
+			return err
+		}
+
+		count++
+		db.log.Printf("retrying transaction, count: %d", count)
+	}
+}
+
+func (db *IndexerDb) init(opts idb.IndexerDbOptions) (err error) {
 	accountingStateJSON, _ := db.getMetastate(stateMetastateKey)
 	hasAccounting := len(accountingStateJSON) > 0
 	migrationStateJSON, _ := db.getMetastate(migrationMetastateKey)
@@ -117,8 +143,7 @@ func (db *IndexerDb) init(opts *idb.IndexerDbOptions) (err error) {
 
 	db.GetSpecialAccounts()
 
-	noMigrate := (opts != nil) && opts.NoMigrate
-	if (hasMigration || hasAccounting) && (!noMigrate) {
+	if (hasMigration || hasAccounting) && !opts.NoMigrate {
 		// see postgres_migrations.go
 		return db.runAvailableMigrations(migrationStateJSON)
 	}
@@ -207,13 +232,9 @@ func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, ass
 	return nil
 }
 
-// CommitBlock is part of idb.IndexerDB
-func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
-	if err != nil {
-		return fmt.Errorf("BeginTx %v", err)
-	}
+func (db *IndexerDb) commitBlock(tx *sql.Tx, round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
 	defer tx.Rollback() // ignored if already committed
+
 	addtx, err := tx.Prepare(`COPY txn (round, intra, typeenum, asset, txid, txnbytes, txn) FROM STDIN`)
 	if err != nil {
 		return fmt.Errorf("COPY txn %v", err)
@@ -287,13 +308,23 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 		return fmt.Errorf("put block_header %v    %#v", err, err)
 	}
 
-	err = tx.Commit()
+	return tx.Commit()
+}
+
+// CommitBlock is part of idb.IndexerDB
+func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
+	f := func(ctx context.Context, tx *sql.Tx) error {
+		return db.commitBlock(tx, round, timestamp, rewardslevel, headerbytes)
+	}
+	err := db.txWithRetry(context.Background(), serializable, f)
+
 	db.txrows = nil
 	db.txprows = nil
+
 	if err != nil {
-		return fmt.Errorf("on commit, %v", err)
+		return fmt.Errorf("CommitBlock(): %v", err)
 	}
-	return err
+	return nil
 }
 
 // GetAsset return AssetParams about an asset
@@ -343,7 +374,7 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 
 	total := uint64(0)
 	for ai, alloc := range genesis.Allocation {
-		addr, err := atypes.DecodeAddress(alloc.Address)
+		addr, err := sdk_types.DecodeAddress(alloc.Address)
 		if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
 			return fmt.Errorf("genesis account[%d] has unhandled asset", ai)
 		}
@@ -638,7 +669,7 @@ type StateSchema struct {
 	NumByteSlice uint64 `codec:"nbs"`
 }
 
-func (ss *StateSchema) fromBlock(x atypes.StateSchema) {
+func (ss *StateSchema) fromBlock(x sdk_types.StateSchema) {
 	if x.NumUint != 0 || x.NumByteSlice != 0 {
 		ss.NumUint = x.NumUint
 		ss.NumByteSlice = x.NumByteSlice
@@ -851,18 +882,13 @@ func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []i
 	return append(dirty, x)
 }
 
-// CommitRoundAccounting is part of idb.IndexerDB
-func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
+func (db *IndexerDb) commitRoundAccounting(tx *sql.Tx, updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
+	defer tx.Rollback() // ignored if .Commit() first
+
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
 	any := false
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
-	if err != nil {
-		return
-	}
-	defer tx.Rollback() // ignored if .Commit() first
-
 	if len(updates.AlgoUpdates) > 0 {
 		any = true
 		// account_data json is only used on account creation, otherwise the account data jsonb field is updated from the delta
@@ -953,7 +979,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 		// Create new account_asset, initialize a previously destroyed asset, or apply the balance delta.
 		// Setting frozen is complicated for the no-op optin case. It should only be set to default-frozen when the
 		// holding is deleted, otherwise it should be left as the original value.
-		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, frozen = (EXCLUDED.frozen AND account_asset.deleted) OR (account_asset.frozen AND NOT account_asset.deleted), deleted = false`)
+		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, frozen = (EXCLUDED.frozen AND coalesce(account_asset.deleted, false)) OR (account_asset.frozen AND NOT coalesce(account_asset.deleted, false)), deleted = false`)
 		if err != nil {
 			return fmt.Errorf("prepare set account_asset, %v", err)
 		}
@@ -1082,7 +1108,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 							if err != nil {
 								return fmt.Errorf("get acfg %d, %v", au.AssetID, err)
 							}
-							var old atypes.AssetParams
+							var old sdk_types.AssetParams
 							err = json.Decode(paramjson, &old)
 							if err != nil {
 								return fmt.Errorf("bad acgf json %d, %v", au.AssetID, err)
@@ -1189,7 +1215,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 				}
 			}
 			reverseDeltas = append(reverseDeltas, []interface{}{idb.JSONOneLine(reverseDelta), adelta.Round, adelta.Intra})
-			if adelta.OnCompletion == atypes.DeleteApplicationOC {
+			if adelta.OnCompletion == sdk_types.DeleteApplicationOC {
 				// clear content but leave row recording that it existed
 				state = AppParams{}
 				destroy[uint64(adelta.AppIndex)] = true
@@ -1252,7 +1278,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		}
 
 		for _, ald := range updates.AppLocalDeltas {
-			if ald.OnCompletion == atypes.CloseOutOC || ald.OnCompletion == atypes.ClearStateOC {
+			if ald.OnCompletion == sdk_types.CloseOutOC || ald.OnCompletion == sdk_types.ClearStateOC {
 				droplocals = append(droplocals,
 					[]interface{}{ald.Address, ald.AppIndex, round},
 				)
@@ -1262,7 +1288,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			if err != nil {
 				return err
 			}
-			if ald.OnCompletion == atypes.OptInOC {
+			if ald.OnCompletion == sdk_types.OptInOC {
 				row := getapp.QueryRow(ald.AppIndex)
 				var paramsjson []byte
 				err = row.Scan(&paramsjson)
@@ -1365,6 +1391,17 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	return tx.Commit()
 }
 
+// CommitRoundAccounting is part of idb.IndexerDB
+func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) error {
+	f := func(ctx context.Context, tx *sql.Tx) (err error) {
+		return db.commitRoundAccounting(tx, updates, round, blockPtr)
+	}
+	if err := db.txWithRetry(context.Background(), serializable, f); err != nil {
+		return fmt.Errorf("CommitRoundAccounting(): %v", err)
+	}
+	return nil
+}
+
 // GetBlock is part of idb.IndexerDB
 func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (block types.Block, transactions []idb.TxnRow, err error) {
 	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
@@ -1458,7 +1495,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 				partNumber++
 			}
 			if tf.AddressRole&idb.AddressRoleFreeze != 0 {
-				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'afrz' = $%d", partNumber))
+				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'fadd' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}
@@ -1912,7 +1949,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		var account models.Account
-		var aaddr atypes.Address
+		var aaddr sdk_types.Address
 		copy(aaddr[:], addr)
 		account.Address = aaddr.String()
 		account.Round = uint64(req.blockheader.Round)
@@ -1955,7 +1992,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			}
 
 			if !ad.SpendingKey.IsZero() {
-				var spendingkey atypes.Address
+				var spendingkey sdk_types.Address
 				copy(spendingkey[:], ad.SpendingKey[:])
 				account.AuthAddr = stringPtr(spendingkey.String())
 			}
@@ -2926,7 +2963,7 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows
 		rec.Application.Params.ClearStateProgram = ap.ClearStateProgram
 		rec.Application.Params.Creator = new(string)
 
-		var aaddr atypes.Address
+		var aaddr sdk_types.Address
 		copy(aaddr[:], creator)
 		rec.Application.Params.Creator = new(string)
 		*(rec.Application.Params.Creator) = aaddr.String()
@@ -3036,7 +3073,7 @@ type postgresFactory struct {
 func (df postgresFactory) Name() string {
 	return "postgres"
 }
-func (df postgresFactory) Build(arg string, opts *idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, error) {
+func (df postgresFactory) Build(arg string, opts idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, error) {
 	return OpenPostgres(arg, opts, log)
 }
 

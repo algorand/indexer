@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	atypes "github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/idb"
 	_ "github.com/algorand/indexer/idb/postgres"
@@ -42,14 +42,14 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-	db, err := idb.IndexerDbByName("postgres", pgdb, &idb.IndexerDbOptions{ReadOnly: true}, nil)
+	db, err := idb.IndexerDbByName("postgres", pgdb, idb.IndexerDbOptions{ReadOnly: true}, nil)
 	maybeFail(err, "open postgres, %v", err)
 
 	rekeyTxnQuery := idb.TransactionFilter{RekeyTo: &truev, Limit: 1}
 	printTxnQuery(db, rekeyTxnQuery)
 
 	rowchan, _ := db.Transactions(context.Background(), rekeyTxnQuery)
-	var rekeyTo atypes.Address
+	var rekeyTo sdk_types.Address
 	for txnrow := range rowchan {
 		maybeFail(txnrow.Error, "err rekey txn %v\n", txnrow.Error)
 		var stxn types.SignedTxnWithAD

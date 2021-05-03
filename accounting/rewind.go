@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	atypes "github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	models "github.com/algorand/indexer/api/generated/v2"
 
 	"github.com/algorand/indexer/idb"
@@ -78,7 +78,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 
 	acct = account
 	var addr types.Address
-	addr, err = atypes.DecodeAddress(account.Address)
+	addr, err = sdk_types.DecodeAddress(account.Address)
 	if err != nil {
 		return
 	}
@@ -122,7 +122,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			acct.Rewards -= uint64(stxn.SenderRewards)
 		}
 		switch stxn.Txn.Type {
-		case atypes.PaymentTx:
+		case sdk_types.PaymentTx:
 			if addr == stxn.Txn.Sender {
 				acct.AmountWithoutPendingRewards += uint64(stxn.Txn.Amount)
 			}
@@ -140,14 +140,14 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 				// unwind sending a close-to
 				acct.AmountWithoutPendingRewards += uint64(stxn.ClosingAmount)
 			}
-		case atypes.KeyRegistrationTx:
+		case sdk_types.KeyRegistrationTx:
 			// TODO: keyreg does not rewind. workaround: query for txns on an account with typeenum=2 to find previous values it was set to.
-		case atypes.AssetConfigTx:
+		case sdk_types.AssetConfigTx:
 			if stxn.Txn.ConfigAsset == 0 {
 				// create asset, unwind the application of the value
 				assetUpdate(&acct, txnrow.AssetID, 0, stxn.Txn.AssetParams.Total)
 			}
-		case atypes.AssetTransferTx:
+		case sdk_types.AssetTransferTx:
 			if addr == stxn.Txn.AssetSender || addr == stxn.Txn.Sender {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetAmount+txnrow.Extra.AssetCloseAmount, 0)
 			}
@@ -157,7 +157,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			if addr == stxn.Txn.AssetCloseTo {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), 0, txnrow.Extra.AssetCloseAmount)
 			}
-		case atypes.AssetFreezeTx:
+		case sdk_types.AssetFreezeTx:
 		default:
 			err = fmt.Errorf("%s[%d,%d]: rewinding past txn type %s is not currently supported", account.Address, txnrow.Round, txnrow.Intra, stxn.Txn.Type)
 			return

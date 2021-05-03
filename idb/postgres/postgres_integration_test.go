@@ -16,11 +16,12 @@ import (
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	"github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
-	itypes "github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/importer"
+	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -59,6 +60,18 @@ func setupPostgres(t *testing.T) (*sql.DB, string, func()) {
 	return db, connStr, shutdownFunc
 }
 
+// Helper to execute a query returning an integer, for example COUNT(*). Returns -1 on an error.
+func queryInt(db *sql.DB, queryString string, args ...interface{}) int {
+	row := db.QueryRow(queryString, args...)
+
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		return -1
+	}
+	return count
+}
+
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.
 func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
@@ -67,7 +80,7 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	///////////
 	// Given // A database that has not yet imported the genesis accounts.
 	///////////
-	db, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	db, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	//////////
@@ -92,7 +105,7 @@ func TestMaxRoundEmptyMetastate(t *testing.T) {
 	///////////
 	// Given // The database has the metastate set but the account_round is missing.
 	///////////
-	db, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	db, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	pg.Exec(`INSERT INTO metastate (k, v) values ('state', '{}')`)
 
@@ -115,7 +128,7 @@ func TestMaxRound(t *testing.T) {
 	///////////
 	// Given // The database has the metastate set normally.
 	///////////
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	db.Exec(`INSERT INTO metastate (k, v) values ($1, $2)`, "state", "{\"account_round\":123454321}")
 	db.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`, 543212345)
@@ -135,7 +148,7 @@ func TestMaxRound(t *testing.T) {
 	assert.Equal(t, uint64(543212345), roundL)
 }
 
-func assertAccountAsset(t *testing.T, db *sql.DB, addr types.Address, assetid uint64, frozen bool, amount uint64) {
+func assertAccountAsset(t *testing.T, db *sql.DB, addr sdk_types.Address, assetid uint64, frozen bool, amount uint64) {
 	var row *sql.Row
 	var f bool
 	var a uint64
@@ -152,7 +165,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	assetid := uint64(2222)
@@ -163,10 +176,10 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	// Given // A round scenario requiring subround accounting: AccountA is funded, closed, opts back, and funded again.
 	///////////
 	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
-	_, fundMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
+	_, fundMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, sdk_types.ZeroAddress)
 	_, closeMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
-	_, optinMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, types.ZeroAddress)
-	_, payMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
+	_, optinMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, sdk_types.ZeroAddress)
+	_, payMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, sdk_types.ZeroAddress)
 
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -180,7 +193,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -202,7 +215,7 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	assetid := uint64(2222)
@@ -213,8 +226,8 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	///////////
 	_, createAssetFrozen := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, 0, assetid+1, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
-	_, optinB1 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
-	_, optinB2 := test.MakeAssetTxnOrPanic(test.Round, assetid+1, 0, test.AccountB, test.AccountB, types.ZeroAddress)
+	_, optinB1 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, sdk_types.ZeroAddress)
+	_, optinB2 := test.MakeAssetTxnOrPanic(test.Round, assetid+1, 0, test.AccountB, test.AccountB, sdk_types.ZeroAddress)
 
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -227,7 +240,7 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -248,7 +261,7 @@ func TestInitializeFrozenCache(t *testing.T) {
 	defer shutdownFunc()
 
 	// Initialize DB by creating one of these things.
-	_, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	_, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	// Add some assets
@@ -256,7 +269,7 @@ func TestInitializeFrozenCache(t *testing.T) {
 	db.Exec(`INSERT INTO asset (index, creator_addr, params) values ($1, $2, $3)`, 2, test.AccountA[:], `{"df":false}`)
 	db.Exec(`INSERT INTO asset (index, creator_addr, params) values ($1, $2, $3)`, 3, test.AccountA[:], `{}`)
 
-	pdb, err := OpenPostgres(connStr, nil, nil)
+	pdb, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -273,7 +286,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	assetid := uint64(2222)
@@ -300,8 +313,8 @@ func TestReCreateAssetHolding(t *testing.T) {
 		// Given // A new asset with default-frozen, AccountB opts-in and has its frozen state toggled.
 		/////////// Then AccountB opts-out then opts-in again.
 		_, createAssetFrozen := test.MakeAssetConfigOrPanic(round, 0, aid, total, uint64(6), testcase.frozen, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
-		_, optinB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
-		_, unfreezeB := test.MakeAssetFreezeOrPanic(round, aid, !testcase.frozen, test.AccountB)
+		_, optinB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountB, sdk_types.ZeroAddress)
+		_, unfreezeB := test.MakeAssetFreezeOrPanic(round, aid, !testcase.frozen, test.AccountB, test.AccountB)
 		_, optoutB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountC, test.AccountD)
 
 		cache, err := pdb.GetDefaultFrozen()
@@ -316,7 +329,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 		//////////
 		// When // We commit the round accounting to the database.
 		//////////
-		err = pdb.CommitRoundAccounting(state.RoundUpdates, round, &itypes.Block{})
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, round, &types.Block{})
 		assert.NoError(t, err, "failed to commit")
 
 		//////////
@@ -339,12 +352,12 @@ func TestNoopOptins(t *testing.T) {
 	// create asst
 	//db.Exec(`INSERT INTO asset (index, creator_addr, params) values ($1, $2, $3)`, assetid, test.AccountA[:], `{"df":true}`)
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, uint64(1000000), uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
-	_, optinB := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
-	_, unfreezeB := test.MakeAssetFreezeOrPanic(test.Round, assetid, false, test.AccountB)
+	_, optinB := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, sdk_types.ZeroAddress)
+	_, unfreezeB := test.MakeAssetFreezeOrPanic(test.Round, assetid, false, test.AccountB, test.AccountB)
 
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -357,7 +370,7 @@ func TestNoopOptins(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -372,7 +385,7 @@ func TestMultipleWriters(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	amt := uint64(10000)
@@ -381,7 +394,7 @@ func TestMultipleWriters(t *testing.T) {
 	// Given // Send amt to AccountA
 	///////////
 	_, payAccountA := test.MakePayTxnRowOrPanic(test.Round, 1000, amt, 0, 0, 0, 0, test.AccountD,
-		test.AccountA, types.ZeroAddress, types.ZeroAddress)
+		test.AccountA, sdk_types.ZeroAddress, sdk_types.ZeroAddress)
 
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -400,7 +413,7 @@ func TestMultipleWriters(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			errors <- pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+			errors <- pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
 		}()
 	}
 	close(start)
@@ -434,7 +447,7 @@ func TestBlockWithTransactions(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	assetid := uint64(2222)
@@ -445,11 +458,11 @@ func TestBlockWithTransactions(t *testing.T) {
 	// Given // A block at round test.Round with 5 transactions.
 	///////////
 	tx1, row1 := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
-	tx2, row2 := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
+	tx2, row2 := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, sdk_types.ZeroAddress)
 	tx3, row3 := test.MakeAssetTxnOrPanic(test.Round, assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
-	tx4, row4 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, types.ZeroAddress)
-	tx5, row5 := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, types.ZeroAddress)
-	txns := []*types.SignedTxnWithAD{tx1, tx2, tx3, tx4, tx5}
+	tx4, row4 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, sdk_types.ZeroAddress)
+	tx5, row5 := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, sdk_types.ZeroAddress)
+	txns := []*sdk_types.SignedTxnWithAD{tx1, tx2, tx3, tx4, tx5}
 	txnRows := []*idb.TxnRow{row1, row2, row3, row4, row5}
 
 	_, err = db.Exec(`INSERT INTO metastate (k, v) values ($1, $2)`, "state", `{"account_round": 11}`)
@@ -489,21 +502,21 @@ func TestRekeyBasic(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	///////////
 	// Given // Send rekey transaction
 	///////////
 	_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
-		test.AccountA, types.ZeroAddress, test.AccountB)
+		test.AccountA, sdk_types.ZeroAddress, test.AccountB)
 
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
 	state := getAccounting(test.Round, cache)
 	state.AddTransaction(txnRow)
 
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -514,7 +527,7 @@ func TestRekeyBasic(t *testing.T) {
 	err = row.Scan(&accountDataStr)
 	assert.NoError(t, err, "querying account data")
 
-	var ad itypes.AccountData
+	var ad types.AccountData
 	err = json.Decode(accountDataStr, &ad)
 	assert.NoError(t, err, "failed to parse account data json")
 	assert.Equal(t, test.AccountB, ad.SpendingKey)
@@ -524,7 +537,7 @@ func TestRekeyToItself(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	///////////
@@ -532,26 +545,26 @@ func TestRekeyToItself(t *testing.T) {
 	///////////
 	{
 		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
-			test.AccountA, types.ZeroAddress, test.AccountB)
+			test.AccountA, sdk_types.ZeroAddress, test.AccountB)
 
 		cache, err := pdb.GetDefaultFrozen()
 		assert.NoError(t, err)
 		state := getAccounting(test.Round, cache)
 		state.AddTransaction(txnRow)
 
-		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
 		assert.NoError(t, err, "failed to commit")
 	}
 	{
 		_, txnRow := test.MakePayTxnRowOrPanic(test.Round+1, 1000, 0, 0, 0, 0, 0, test.AccountA,
-			test.AccountA, types.ZeroAddress, test.AccountA)
+			test.AccountA, sdk_types.ZeroAddress, test.AccountA)
 
 		cache, err := pdb.GetDefaultFrozen()
 		assert.NoError(t, err)
 		state := getAccounting(test.Round+1, cache)
 		state.AddTransaction(txnRow)
 
-		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round+1, &itypes.Block{})
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round+1, &types.Block{})
 		assert.NoError(t, err, "failed to commit")
 	}
 
@@ -563,17 +576,17 @@ func TestRekeyToItself(t *testing.T) {
 	err = row.Scan(&accountDataStr)
 	assert.NoError(t, err, "querying account data")
 
-	var ad itypes.AccountData
+	var ad types.AccountData
 	err = json.Decode(accountDataStr, &ad)
 	assert.NoError(t, err, "failed to parse account data json")
-	assert.Equal(t, types.ZeroAddress, ad.SpendingKey)
+	assert.Equal(t, sdk_types.ZeroAddress, ad.SpendingKey)
 }
 
 func TestRekeyThreeTimesInSameRound(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	///////////
@@ -585,21 +598,21 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 
 	{
 		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
-			test.AccountA, types.ZeroAddress, test.AccountB)
+			test.AccountA, sdk_types.ZeroAddress, test.AccountB)
 		state.AddTransaction(txnRow)
 	}
 	{
 		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
-			test.AccountA, types.ZeroAddress, types.ZeroAddress)
+			test.AccountA, sdk_types.ZeroAddress, sdk_types.ZeroAddress)
 		state.AddTransaction(txnRow)
 	}
 	{
 		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
-			test.AccountA, types.ZeroAddress, test.AccountC)
+			test.AccountA, sdk_types.ZeroAddress, test.AccountC)
 		state.AddTransaction(txnRow)
 	}
 
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -610,7 +623,7 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 	err = row.Scan(&accountDataStr)
 	assert.NoError(t, err, "querying account data")
 
-	var ad itypes.AccountData
+	var ad types.AccountData
 	err = json.Decode(accountDataStr, &ad)
 	assert.NoError(t, err, "failed to parse account data json")
 	assert.Equal(t, test.AccountC, ad.SpendingKey)
@@ -620,14 +633,14 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	///////////
 	// Given // Send rekey transaction
 	///////////
 	_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
-		test.AccountA, types.ZeroAddress, types.ZeroAddress)
+		test.AccountA, sdk_types.ZeroAddress, sdk_types.ZeroAddress)
 
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -637,7 +650,7 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	//////////
 	// Then // No error when committing to the DB.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
 	assert.NoError(t, err, "failed to commit")
 }
 
@@ -646,7 +659,7 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	assetid := uint64(2222)
@@ -657,7 +670,7 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	///////////
 	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 	_, modifyAssetToFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
-	_, optin := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, types.ZeroAddress)
+	_, optin := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, sdk_types.ZeroAddress)
 
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -669,7 +682,7 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -685,7 +698,7 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	assetid := uint64(2222)
@@ -704,7 +717,7 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -728,7 +741,7 @@ func assertAssetDates(t *testing.T, db *sql.DB, assetID uint64, deleted sql.Null
 	assert.Equal(t, closedAt, retClosedAt)
 }
 
-func assertAssetHoldingDates(t *testing.T, db *sql.DB, address types.Address, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
+func assertAssetHoldingDates(t *testing.T, db *sql.DB, address sdk_types.Address, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
 	row := db.QueryRow(
 		"SELECT deleted, created_at, closed_at FROM account_asset WHERE "+
 			"addr = $1 AND assetid = $2",
@@ -749,7 +762,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	cache, err := pdb.GetDefaultFrozen()
@@ -766,7 +779,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 		err := state.AddTransaction(txnRow)
 		assert.NoError(t, err)
 
-		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
 		assert.NoError(t, err, "failed to commit")
 	}
 	// Destroy an asset.
@@ -777,7 +790,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 		err := state.AddTransaction(txnRow)
 		assert.NoError(t, err)
 
-		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round+1, &itypes.Block{})
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round+1, &types.Block{})
 		assert.NoError(t, err, "failed to commit")
 	}
 
@@ -798,7 +811,7 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	cache, err := pdb.GetDefaultFrozen()
@@ -825,7 +838,7 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
 	assert.NoError(t, err, "failed to commit")
 
 	// Check that the asset is deleted.
@@ -845,7 +858,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	cache, err := pdb.GetDefaultFrozen()
@@ -858,15 +871,15 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 	// Create an asset.
 	{
 		// Create a transaction where all special addresses are different from creator's address.
-		txn := types.SignedTxnWithAD{
-			SignedTxn: types.SignedTxn{
-				Txn: types.Transaction{
+		txn := sdk_types.SignedTxnWithAD{
+			SignedTxn: sdk_types.SignedTxn{
+				Txn: sdk_types.Transaction{
 					Type: "acfg",
-					Header: types.Header{
+					Header: sdk_types.Header{
 						Sender: test.AccountA,
 					},
-					AssetConfigTxnFields: types.AssetConfigTxnFields{
-						AssetParams: types.AssetParams{
+					AssetConfigTxnFields: sdk_types.AssetConfigTxnFields{
+						AssetParams: sdk_types.AssetParams{
 							Manager:  test.AccountB,
 							Reserve:  test.AccountB,
 							Freeze:   test.AccountB,
@@ -888,7 +901,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 	// Another account opts in.
 	{
 		_, txnRow := test.MakeAssetTxnOrPanic(test.Round, assetID, 0, test.AccountC,
-			test.AccountC, types.ZeroAddress)
+			test.AccountC, sdk_types.ZeroAddress)
 		state.AddTransaction(txnRow)
 	}
 	// Destroy an asset.
@@ -897,7 +910,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 		state.AddTransaction(txnRow)
 	}
 
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &itypes.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
 	assert.NoError(t, err, "failed to commit")
 
 	// Check that the creator's asset holding is deleted.
@@ -914,12 +927,40 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 
 	// Check that the manager does not have an asset holding.
 	{
-		row := db.QueryRow("SELECT COUNT(*) FROM account_asset WHERE addr = $1", test.AccountB[:])
-
-		var count int64
-		err := row.Scan(&count)
-		assert.NoError(t, err)
-
-		assert.Equal(t, int64(0), count)
+		count := queryInt(db, "SELECT COUNT(*) FROM account_asset WHERE addr = $1", test.AccountB[:])
+		assert.Equal(t, 0, count)
 	}
+}
+
+// Test that block import adds the freeze/sender accounts to txn_participation.
+func TestAssetFreezeTxnParticipation(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+	pdb, _ := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	blockImporter := importer.NewDBImporter(pdb)
+
+	///////////
+	// Given // A block containing an asset freeze txn
+	///////////
+	pdb, err := idb.IndexerDbByName("postgres", connStr, nil, nil)
+	assert.NoError(t, err)
+
+	// Create a block with freeze txn
+	freeze, _ := test.MakeAssetFreezeOrPanic(test.Round, 1234, true, test.AccountA, test.AccountB)
+	block := test.MakeBlockForTxns(freeze)
+
+	//////////
+	// When // We import the block.
+	//////////
+	txnCount, err := blockImporter.ImportDecodedBlock(&block)
+	assert.NoError(t, err, "failed to import")
+	assert.Equal(t, 1, txnCount)
+
+	//////////
+	// Then // Both accounts should have an entry in the txn_participation table.
+	//////////
+	acctACount := queryInt(db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", test.AccountA[:])
+	acctBCount := queryInt(db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", test.AccountB[:])
+	assert.Equal(t, 1, acctACount)
+	assert.Equal(t, 1, acctBCount)
 }
