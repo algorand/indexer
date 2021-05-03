@@ -2,10 +2,12 @@ package test
 
 import (
 	"fmt"
+
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/types"
 )
 
 // Round is the round used in pre-made transactions.
@@ -99,19 +101,19 @@ func MakeAssetConfigOrPanic(round, configid, assetid, total, decimals uint64, de
 }
 
 // MakeAssetFreezeOrPanic create an asset freeze/unfreeze transaction.
-func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, addr sdk_types.Address) (*sdk_types.SignedTxnWithAD, *idb.TxnRow) {
+func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, sender, freezeAccount sdk_types.Address) (*sdk_types.SignedTxnWithAD, *idb.TxnRow) {
 	txn := sdk_types.SignedTxnWithAD{
 		SignedTxn: sdk_types.SignedTxn{
 			Txn: sdk_types.Transaction{
 				Type: "afrz",
 				Header: sdk_types.Header{
-					Sender:     addr,
+					Sender:     sender,
 					Fee:        sdk_types.MicroAlgos(1000),
 					FirstValid: sdk_types.Round(round),
 					LastValid:  sdk_types.Round(round),
 				},
 				AssetFreezeTxnFields: sdk_types.AssetFreezeTxnFields{
-					FreezeAccount: addr,
+					FreezeAccount: freezeAccount,
 					FreezeAsset:   sdk_types.AssetIndex(assetid),
 					AssetFrozen:   frozen,
 				},
@@ -219,4 +221,27 @@ func MakePayTxnRowOrPanic(round, fee, amt, closeAmt, sendRewards, receiveRewards
 	}
 
 	return &txn, &txnRow
+}
+
+// MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
+func MakeBlockForTxns(inputs ...*sdk_types.SignedTxnWithAD) types.EncodedBlockCert {
+	var txns []types.SignedTxnInBlock
+
+	for _, txn := range inputs {
+		txns = append(txns, types.SignedTxnInBlock{
+			SignedTxnWithAD: types.SignedTxnWithAD{SignedTxn: txn.SignedTxn},
+			HasGenesisID:    true,
+			HasGenesisHash:  true,
+		})
+	}
+
+	return types.EncodedBlockCert{
+		Block: types.Block{
+			BlockHeader: types.BlockHeader{
+				UpgradeState: types.UpgradeState{CurrentProtocol: "future"},
+			},
+			Payset: txns,
+		},
+		Certificate: types.Certificate{},
+	}
 }

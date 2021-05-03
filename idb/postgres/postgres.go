@@ -1488,7 +1488,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 				partNumber++
 			}
 			if tf.AddressRole&idb.AddressRoleFreeze != 0 {
-				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'afrz' = $%d", partNumber))
+				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'fadd' = $%d", partNumber))
 				whereArgs = append(whereArgs, addrBase64)
 				partNumber++
 			}

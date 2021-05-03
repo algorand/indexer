@@ -113,6 +113,7 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		participants = participate(participants, stxn.Txn.AssetSender[:])
 		participants = participate(participants, stxn.Txn.AssetReceiver[:])
 		participants = participate(participants, stxn.Txn.AssetCloseTo[:])
+		participants = participate(participants, stxn.Txn.FreezeAccount[:])
 		err = imp.db.AddTransaction(round, intra, txtypeenum, assetid, stxnad, participants)
 		if err != nil {
 			return txCount, fmt.Errorf("error importing txn r=%d i=%d, %v", round, intra, err)

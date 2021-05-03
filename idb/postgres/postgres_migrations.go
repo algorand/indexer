@@ -49,6 +49,10 @@ func init() {
 		{m9TxnJSONEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
 		{m10SpecialAccountCleanup, false, "The initial m7 implementation would miss special accounts."},
 		{m11AssetHoldingFrozen, false, "Fix asset holding freeze states."},
+
+		// Migrations for _._._ release
+
+		{FixFreezeLookupMigration, false, "Fix search by asset freeze address."},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -110,13 +114,26 @@ func needsMigration(state MigrationState) bool {
 	return state.NextMigration < len(migrations)
 }
 
-// upsertMigrationState updates the migration state, and optionally increments the next counter.
-func upsertMigrationState(tx *sql.Tx, state *MigrationState, incrementNextMigration bool) (err error) {
+// upsertMigrationStateTx updates the migration state, and optionally increments the next counter with an existing
+// transaction.
+func upsertMigrationStateTx(tx *sql.Tx, state *MigrationState, incrementNextMigration bool) (err error) {
 	if incrementNextMigration {
 		state.NextMigration++
 	}
 	migrationStateJSON := idb.JSONOneLine(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+
+	return err
+}
+
+// upsertMigrationState updates the migration state, and optionally increments the next counter.
+func upsertMigrationState(db *IndexerDb, state *MigrationState, incrementNextMigration bool) (err error) {
+	if incrementNextMigration {
+		state.NextMigration++
+	}
+	migrationStateJSON := idb.JSONOneLine(state)
+	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+
 	return err
 }
 
@@ -1119,7 +1136,7 @@ func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 		if err != nil {
 			return err
 		}
-		// Finally, read all accounts from most recent to oldest, update rewards and create/close dates,
+		// Finally, read all transactions from most recent to oldest, update rewards and create/close dates,
 		// and write this account data to the database. To save memory, this function removes account's
 		// data as soon as we reach the transaction that created this account at which point older
 		// transactions cannot update its state. It writes account data to the database in batches.
@@ -1821,7 +1838,7 @@ func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 		initstmt.Exec(address[:])
 	}
 
-	upsertMigrationState(tx, state, true)
+	upsertMigrationStateTx(tx, state, true)
 	if err != nil {
 		return fmt.Errorf("m10 metastate upsert error: %v", err)
 	}
@@ -1934,12 +1951,87 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 		}
 	}
 
-	state.NextMigration++
-	migrationStateJSON := idb.JSONOneLine(state)
-	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	upsertMigrationState(db, state, true)
 	if err != nil {
 		return fmt.Errorf("m11 metastate upsert error: %v", err)
 	}
 
 	return nil
+}
+
+// Reusable update batch function. Provide a query and an array of argument arrays to pass  to that query.
+func updateBatch(db *IndexerDb, updateQuery string, data [][]interface{}) error {
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
+	tx, err := db.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() // ignored if .Commit() first
+
+	update, err := tx.Prepare(updateQuery)
+	if err != nil {
+		return fmt.Errorf("error preparing update query: %v", err)
+	}
+	defer update.Close()
+
+	for _, txpr := range data {
+		_, err = update.Exec(txpr...)
+		if err != nil {
+			return fmt.Errorf("problem updating row (%v): %v", txpr, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// FixFreezeLookupMigration is a migration to add txn_participation entries for freeze address in freeze transactions.
+func FixFreezeLookupMigration(db *IndexerDb, state *MigrationState) error {
+	// Technically with this query no transactions are needed, and the accounting state doesn't need to be locked.
+	updateQuery := "INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
+	query := fmt.Sprintf("select decode(txn.txn->'txn'->>'fadd','base64'),round,intra from txn where typeenum = %d AND txn.txn->'txn'->'snd' != txn.txn->'txn'->'fadd'", idb.TypeEnumAssetFreeze)
+	rows, err := db.db.Query(query)
+	if err != nil {
+		return fmt.Errorf("unable to query transactions: %v", err)
+	}
+	defer rows.Close()
+
+	txprows := make([][]interface{}, 0)
+
+	// Loop through all transactions and compute account data.
+	db.log.Print("loop through all freeze transactions")
+	for rows.Next() {
+		var addr []byte
+		var round, intra uint64
+		err = rows.Scan(&addr, &round, &intra)
+		if err != nil {
+			return fmt.Errorf("error scanning row: %v", err)
+		}
+
+		txprows = append(txprows, []interface{}{addr, round, intra})
+
+		if len(txprows) > 5000 {
+			err = updateBatch(db, updateQuery, txprows)
+			if err != nil {
+				return fmt.Errorf("updating batch: %v", err)
+			}
+			txprows = txprows[:0]
+		}
+	}
+
+	if rows.Err() != nil {
+		return fmt.Errorf("error while processing freeze transactions: %v", rows.Err())
+	}
+
+	// Commit any leftovers
+	if len(txprows) > 0 {
+		err = updateBatch(db, updateQuery, txprows)
+		if err != nil {
+			return fmt.Errorf("updating batch: %v", err)
+		}
+	}
+
+	// Update migration state
+	return upsertMigrationState(db, state, true)
 }
