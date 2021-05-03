@@ -110,15 +110,9 @@ type IndexerDb struct {
 }
 
 func (db *IndexerDb) init(opts *idb.IndexerDbOptions) (err error) {
-	accountingStateJSON, err := db.getMetastate(stateMetastateKey)
-	if err != nil {
-		return fmt.Errorf("unable to fetch state: %v", err)
-	}
+	accountingStateJSON, _ := db.getMetastate(stateMetastateKey)
 	hasAccounting := len(accountingStateJSON) > 0
-	migrationStateJSON, err := db.getMetastate(migrationMetastateKey)
-	if err != nil {
-		return fmt.Errorf("unable to fetch migration state: %v", err)
-	}
+	migrationStateJSON, _ := db.getMetastate(migrationMetastateKey)
 	hasMigration := len(migrationStateJSON) > 0
 
 	db.GetSpecialAccounts()
