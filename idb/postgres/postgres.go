@@ -49,7 +49,7 @@ func OpenPostgres(connection string, opts *idb.IndexerDbOptions, log *log.Logger
 	db, err := sql.Open("postgres", connection)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("connecting to postgres: %v", err)
 	}
 
 	if strings.Contains(connection, "readonly") {
@@ -81,6 +81,9 @@ func openPostgres(db *sql.DB, opts *idb.IndexerDbOptions, logger *log.Logger) (p
 	readonly := (opts != nil) && opts.ReadOnly
 	if !readonly {
 		err = pdb.init(opts)
+		if err != nil {
+			return nil, fmt.Errorf("initializing postgres: %v", err)
+		}
 	}
 	return
 }
