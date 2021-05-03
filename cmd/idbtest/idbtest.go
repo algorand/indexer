@@ -143,7 +143,7 @@ func main() {
 	maybeFail(err, "open postgres, %v", err)
 
 	if accounttest {
-		printAccountQuery(db, idb.AccountQueryOptions{IncludeAssetHoldings: true, IncludeAssetParams: true, AlgosGreaterThan: 10000000000, Limit: 20})
+		printAccountQuery(db, idb.AccountQueryOptions{IncludeAssetHoldings: true, IncludeAssetParams: true, AlgosGreaterThan: uint64Ptr(10000000000), Limit: 20})
 		printAccountQuery(db, idb.AccountQueryOptions{HasAssetID: 312769, Limit: 19})
 	}
 	if assettest {
@@ -180,14 +180,14 @@ func main() {
 		printTxnQuery(db, idb.TransactionFilter{Offset: &offset, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{SigType: "lsig", Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{NotePrefix: []byte("a"), Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{AlgosGT: 10000000, Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{EffectiveAmountGt: 10000000, Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{EffectiveAmountLt: 1000000, Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{AlgosGT: uint64Ptr(10000000), Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{EffectiveAmountGt: uint64Ptr(10000000), Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{EffectiveAmountLt: uint64Ptr(1000000), Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{Address: xa[:], Limit: 6})
 		printTxnQuery(db, idb.TransactionFilter{Address: xa[:], AddressRole: idb.AddressRoleSender, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{Address: xa[:], AddressRole: idb.AddressRoleReceiver, Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{AssetAmountGT: 99, Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{AssetAmountLT: 100, Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{AssetAmountGT: uint64Ptr(99), Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{AssetAmountLT: uint64Ptr(100), Limit: 2})
 	}
 
 	//printTxnQuery(db, idb.TransactionFilter{AssetID: 312769, Limit: 30})
@@ -198,7 +198,7 @@ func main() {
 		xa, _ := sdk_types.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
 		testTxnPaging(db, idb.TransactionFilter{Address: xa[:]})
 		testTxnPaging(db, idb.TransactionFilter{TypeEnum: 2})
-		testTxnPaging(db, idb.TransactionFilter{AlgosGT: 1})
+		testTxnPaging(db, idb.TransactionFilter{AlgosGT: uint64Ptr(1)})
 	}
 
 	dt := time.Now().Sub(start)
@@ -209,4 +209,8 @@ func main() {
 		fmt.Printf("wat ERROR %s\n", dt.String())
 	}
 	os.Exit(exitValue)
+}
+
+func uint64Ptr(x uint64) *uint64 {
+	return &x
 }

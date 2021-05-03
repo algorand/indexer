@@ -528,11 +528,11 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 
 	// filter Algos or Asset but not both.
 	if filter.AssetID != 0 {
-		filter.AssetAmountLT = uintOrDefault(params.CurrencyLessThan)
-		filter.AssetAmountGT = uintOrDefault(params.CurrencyGreaterThan)
+		filter.AssetAmountLT = params.CurrencyLessThan
+		filter.AssetAmountGT = params.CurrencyGreaterThan
 	} else {
-		filter.AlgosLT = uintOrDefault(params.CurrencyLessThan)
-		filter.AlgosGT = uintOrDefault(params.CurrencyGreaterThan)
+		filter.AlgosLT = params.CurrencyLessThan
+		filter.AlgosGT = params.CurrencyGreaterThan
 	}
 	filter.Round = params.Round
 
