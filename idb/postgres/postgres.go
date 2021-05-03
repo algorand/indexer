@@ -110,9 +110,15 @@ type IndexerDb struct {
 }
 
 func (db *IndexerDb) init(opts *idb.IndexerDbOptions) (err error) {
-	accountingStateJSON, _ := db.getMetastate(stateMetastateKey)
+	accountingStateJSON, err := db.getMetastate(stateMetastateKey)
+	if err != nil {
+		return fmt.Errorf("unable to fetch state: %v", err)
+	}
 	hasAccounting := len(accountingStateJSON) > 0
-	migrationStateJSON, _ := db.getMetastate(migrationMetastateKey)
+	migrationStateJSON, err := db.getMetastate(migrationMetastateKey)
+	if err != nil {
+		return fmt.Errorf("unable to fetch migration state: %v", err)
+	}
 	hasMigration := len(migrationStateJSON) > 0
 
 	db.GetSpecialAccounts()
@@ -126,11 +132,15 @@ func (db *IndexerDb) init(opts *idb.IndexerDbOptions) (err error) {
 	// new database, run setup
 	_, err = db.db.Exec(setup_postgres_sql)
 	if err != nil {
-		return
+		return fmt.Errorf("unable to setup postgres: %v", err)
 	}
 
 	err = db.markMigrationsAsDone()
-	return
+	if err != nil {
+		return fmt.Errorf("unable to confirm migration: %v", err)
+	}
+
+	return nil
 }
 
 // Reset is part of idb.IndexerDB
