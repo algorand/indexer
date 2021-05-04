@@ -251,19 +251,19 @@ func InitialImport(db idb.IndexerDb, genesisJSONPath string, client *algod.Clien
 	// Import genesis file from file or algod.
 	var genesisReader io.Reader
 
-	// Read file if specified.
 	if genesisJSONPath != "" {
+		// Read file if specified.
 		l.Infof("loading genesis file %s", genesisJSONPath)
 		genesisReader, err = os.Open(genesisJSONPath)
 		maybeFail(err, l, "unable to read genesis file %s", genesisJSONPath)
-	}
-
-	// Fallback to asking algod for genesis if file is not specified.
-	if client != nil && genesisReader == nil {
+	} else if client != nil {
+		// Fallback to asking algod for genesis if file is not specified.
 		l.Infof("fetching genesis from algod")
 		genesisString, err := client.GetGenesis().Do(context.Background())
 		maybeFail(err, l, "unable to fetch genesis from algod")
 		genesisReader = strings.NewReader(genesisString)
+	} else {
+		l.Fatal("Neither genesis file path or algod client provided for initial import.")
 	}
 
 	err = loadGenesis(db, genesisReader)
