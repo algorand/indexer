@@ -155,11 +155,11 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 
 	// Set GT/LT on Algos or Asset depending on whether or not an assetID was specified
 	if options.HasAssetID == 0 {
-		options.AlgosGreaterThan = uintOrDefault(params.CurrencyGreaterThan)
-		options.AlgosLessThan = uintOrDefault(params.CurrencyLessThan)
+		options.AlgosGreaterThan = params.CurrencyGreaterThan
+		options.AlgosLessThan = params.CurrencyLessThan
 	} else {
-		options.AssetGT = uintOrDefault(params.CurrencyGreaterThan)
-		options.AssetLT = uintOrDefault(params.CurrencyLessThan)
+		options.AssetGT = params.CurrencyGreaterThan
+		options.AssetLT = params.CurrencyLessThan
 	}
 
 	if params.Next != nil {
@@ -308,8 +308,8 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID uint64, params generated.LookupAssetBalancesParams) error {
 	query := idb.AssetBalanceQuery{
 		AssetID:        assetID,
-		AmountGT:       uintOrDefault(params.CurrencyGreaterThan),
-		AmountLT:       uintOrDefault(params.CurrencyLessThan),
+		AmountGT:       params.CurrencyGreaterThan,
+		AmountLT:       params.CurrencyLessThan,
 		IncludeDeleted: boolOrDefault(params.IncludeAll),
 		Limit:          min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
 	}

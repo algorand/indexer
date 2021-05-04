@@ -280,18 +280,18 @@ type TransactionFilter struct {
 	OffsetGT   *uint64 // nil for no filter
 	SigType    string  // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
-	AlgosGT    uint64 // implictly filters on "pay" txns for Algos > this. This will be a slightly faster query than EffectiveAmountGt.
-	AlgosLT    uint64
+	AlgosGT    *uint64 // implictly filters on "pay" txns for Algos > this. This will be a slightly faster query than EffectiveAmountGT.
+	AlgosLT    *uint64
 	RekeyTo    *bool // nil for no filter
 
 	AssetID       uint64 // filter transactions relevant to an asset
-	AssetAmountGT uint64
-	AssetAmountLT uint64
+	AssetAmountGT *uint64
+	AssetAmountLT *uint64
 
 	ApplicationID uint64 // filter transactions relevant to an application
 
-	EffectiveAmountGt uint64 // Algo: Amount + CloseAmount > x
-	EffectiveAmountLt uint64 // Algo: Amount + CloseAmount < x
+	EffectiveAmountGT *uint64 // Algo: Amount + CloseAmount > x
+	EffectiveAmountLT *uint64 // Algo: Amount + CloseAmount < x
 
 	// pointer to last returned object of previous query
 	NextToken string
@@ -308,16 +308,16 @@ type AccountQueryOptions struct {
 	EqualToAuthAddr []byte
 
 	// Filter on accounts with current balance greater than x
-	AlgosGreaterThan uint64
+	AlgosGreaterThan *uint64
 	// Filter on accounts with current balance less than x.
-	AlgosLessThan uint64
+	AlgosLessThan *uint64
 
 	// HasAssetID, AssetGT, and AssetLT are implemented in Go code
 	// after data has returned from Postgres and thus are slightly
 	// less efficient. They will turn on IncludeAssetHoldings.
 	HasAssetID uint64
-	AssetGT    uint64
-	AssetLT    uint64
+	AssetGT    *uint64
+	AssetLT    *uint64
 
 	HasAppID uint64
 
@@ -371,8 +371,8 @@ type AssetRow struct {
 // AssetBalanceQuery is a parameter object with all of the asset balance filter options.
 type AssetBalanceQuery struct {
 	AssetID  uint64
-	AmountGT uint64 // only rows > this
-	AmountLT uint64 // only rows < this
+	AmountGT *uint64 // only rows > this
+	AmountLT *uint64 // only rows < this
 
 	// IncludeDeleted indicated whether to include deleted AssetHoldingss in the results.
 	IncludeDeleted bool
