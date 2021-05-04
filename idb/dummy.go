@@ -46,16 +46,6 @@ func (db *dummyIndexerDb) CommitBlock(round uint64, timestamp int64, rewardsleve
 	return nil
 }
 
-// AlreadyImported is part of idb.IndexerDB
-func (db *dummyIndexerDb) AlreadyImported(path string) (imported bool, err error) {
-	return false, nil
-}
-
-// MarkImported is part of idb.IndexerDB
-func (db *dummyIndexerDb) MarkImported(path string) (err error) {
-	return nil
-}
-
 // LoadGenesis is part of idb.IndexerDB
 func (db *dummyIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	return nil
@@ -220,9 +210,6 @@ type IndexerDb interface {
 	StartBlock() error
 	AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error
 	CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error
-
-	AlreadyImported(path string) (imported bool, err error)
-	MarkImported(path string) (err error)
 
 	LoadGenesis(genesis types.Genesis) (err error)
 	SetProto(version string, proto types.ConsensusParams) (err error)

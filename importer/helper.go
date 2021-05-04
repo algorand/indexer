@@ -185,11 +185,6 @@ func importFile(db idb.IndexerDb, imp Importer, fname string, l *log.Logger) (bl
 	blocks = 0
 	txCount = 0
 	var btxns int
-	imported, err := db.AlreadyImported(fname)
-	maybeFail(err, l, "%s: %v", fname, err)
-	if imported {
-		return
-	}
 	l.Infof("importing %s ...", fname)
 	if strings.HasSuffix(fname, ".tar") {
 		fin, err := os.Open(fname)
@@ -217,8 +212,6 @@ func importFile(db idb.IndexerDb, imp Importer, fname string, l *log.Logger) (bl
 		blocks++
 		txCount += btxns
 	}
-	err = db.MarkImported(fname)
-	maybeFail(err, l, "%s: %v", fname, err)
 	return
 }
 
