@@ -166,20 +166,6 @@ func (db *IndexerDb) Reset() (err error) {
 	return
 }
 
-// AlreadyImported is part of idb.IndexerDB
-func (db *IndexerDb) AlreadyImported(path string) (imported bool, err error) {
-	row := db.db.QueryRow(`SELECT COUNT(path) FROM imported WHERE path = $1`, path)
-	numpath := 0
-	err = row.Scan(&numpath)
-	return numpath == 1, err
-}
-
-// MarkImported is part of idb.IndexerDB
-func (db *IndexerDb) MarkImported(path string) (err error) {
-	_, err = db.db.Exec(`INSERT INTO imported (path) VALUES ($1)`, path)
-	return err
-}
-
 // StartBlock is part of idb.IndexerDB
 func (db *IndexerDb) StartBlock() (err error) {
 	db.txrows = make([][]interface{}, 0, 6000)

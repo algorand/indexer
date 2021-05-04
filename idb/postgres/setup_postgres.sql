@@ -45,9 +45,6 @@ intra smallint NOT NULL
 -- For query account transactions
 CREATE UNIQUE INDEX IF NOT EXISTS txn_participation_i ON txn_participation ( addr, round DESC, intra DESC );
 
--- bookeeping for local file import
-CREATE TABLE IF NOT EXISTS imported (path text);
-
 -- expand data.basics.AccountData
 CREATE TABLE IF NOT EXISTS account (
   addr bytea primary key,

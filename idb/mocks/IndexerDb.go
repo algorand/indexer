@@ -32,27 +32,6 @@ func (_m *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, ass
 	return r0
 }
 
-// AlreadyImported provides a mock function with given fields: path
-func (_m *IndexerDb) AlreadyImported(path string) (bool, error) {
-	ret := _m.Called(path)
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func(string) bool); ok {
-		r0 = rf(path)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(path)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // Applications provides a mock function with given fields: ctx, filter
 func (_m *IndexerDb) Applications(ctx context.Context, filter *generated.SearchForApplicationsParams) (<-chan idb.ApplicationRow, uint64) {
 	ret := _m.Called(ctx, filter)
@@ -359,20 +338,6 @@ func (_m *IndexerDb) LoadGenesis(genesis types.Genesis) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(types.Genesis) error); ok {
 		r0 = rf(genesis)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// MarkImported provides a mock function with given fields: path
-func (_m *IndexerDb) MarkImported(path string) error {
-	ret := _m.Called(path)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(path)
 	} else {
 		r0 = ret.Error(0)
 	}
