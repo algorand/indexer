@@ -41,9 +41,6 @@ func setupDb(t *testing.T) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
 	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
-	err = db.SetProto(test.Proto, types.ConsensusParams{})
-	assert.NoError(t, err)
-
 	return db, shutdownFunc
 }
 
