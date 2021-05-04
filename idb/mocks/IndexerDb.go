@@ -268,27 +268,6 @@ func (_m *IndexerDb) GetMaxRoundLoaded() (uint64, error) {
 	return r0, r1
 }
 
-// GetProto provides a mock function with given fields: version
-func (_m *IndexerDb) GetProto(version string) (types.ConsensusParams, error) {
-	ret := _m.Called(version)
-
-	var r0 types.ConsensusParams
-	if rf, ok := ret.Get(0).(func(string) types.ConsensusParams); ok {
-		r0 = rf(version)
-	} else {
-		r0 = ret.Get(0).(types.ConsensusParams)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(version)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetSpecialAccounts provides a mock function with given fields:
 func (_m *IndexerDb) GetSpecialAccounts() (idb.SpecialAccounts, error) {
 	ret := _m.Called()
@@ -366,20 +345,6 @@ func (_m *IndexerDb) SetImportState(_a0 idb.ImportState) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(idb.ImportState) error); ok {
 		r0 = rf(_a0)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// SetProto provides a mock function with given fields: version, proto
-func (_m *IndexerDb) SetProto(version string, proto types.ConsensusParams) error {
-	ret := _m.Called(version, proto)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(string, types.ConsensusParams) error); ok {
-		r0 = rf(version, proto)
 	} else {
 		r0 = ret.Error(0)
 	}

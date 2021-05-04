@@ -134,15 +134,3 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 func NewDBImporter(db idb.IndexerDb) Importer {
 	return &dbImporter{db: db}
 }
-
-// ImportProto writes compiled-in protocol information to the database
-func ImportProto(db idb.IndexerDb) (err error) {
-	types.ForeachProtocol(func(version string, proto types.ConsensusParams) (err error) {
-		err = db.SetProto(version, proto)
-		if err != nil {
-			return fmt.Errorf("db set proto %s, %v", version, err)
-		}
-		return nil
-	})
-	return nil
-}

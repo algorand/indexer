@@ -49,18 +49,3 @@ func Protocol(version string) (proto ConsensusParams, err error) {
 	}
 	return
 }
-
-// ForeachProtocol executes a function against each protocol version.
-func ForeachProtocol(f func(version string, proto ConsensusParams) error) (err error) {
-	err = ensureProtos()
-	if err != nil {
-		return
-	}
-	for version, proto := range protocols {
-		err = f(version, proto)
-		if err != nil {
-			return
-		}
-	}
-	return nil
-}

@@ -67,13 +67,6 @@ var daemonCmd = &cobra.Command{
 			opts.ReadOnly = true
 		}
 		db := indexerDbFromFlags(opts)
-		if !noAlgod {
-			// Only do this if we're going to be writing
-			// to the db, to allow for read-only query
-			// servers that hit the db backend.
-			err := importer.ImportProto(db)
-			maybeFail(err, "import proto, %v", err)
-		}
 		if bot != nil {
 			logger.Info("Initializing block import handler.")
 			maxRound, err := db.GetMaxRoundLoaded()
