@@ -61,17 +61,6 @@ func (db *dummyIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	return nil
 }
 
-// SetProto is part of idb.IndexerDB
-func (db *dummyIndexerDb) SetProto(version string, proto types.ConsensusParams) (err error) {
-	return nil
-}
-
-// GetProto is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetProto(version string) (proto types.ConsensusParams, err error) {
-	err = nil
-	return
-}
-
 // GetImportState is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetImportState() (is ImportState, err error) {
 	return ImportState{}, nil
@@ -225,8 +214,6 @@ type IndexerDb interface {
 	MarkImported(path string) (err error)
 
 	LoadGenesis(genesis types.Genesis) (err error)
-	SetProto(version string, proto types.ConsensusParams) (err error)
-	GetProto(version string) (proto types.ConsensusParams, err error)
 
 	// GetImportState returns ErrorNotInitialized if there is no import state.
 	GetImportState() (is ImportState, err error)
