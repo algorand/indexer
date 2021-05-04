@@ -1537,12 +1537,12 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	}
 	if tf.AssetAmountGT != nil {
 		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::bigint > $%d", partNumber))
-		whereArgs = append(whereArgs, tf.AssetAmountGT)
+		whereArgs = append(whereArgs, *tf.AssetAmountGT)
 		partNumber++
 	}
 	if tf.AssetAmountLT != nil {
 		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::bigint < $%d", partNumber))
-		whereArgs = append(whereArgs, tf.AssetAmountLT)
+		whereArgs = append(whereArgs, *tf.AssetAmountLT)
 		partNumber++
 	}
 	if tf.TypeEnum != 0 {
@@ -1587,12 +1587,12 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	}
 	if tf.AlgosGT != nil {
 		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint > $%d", partNumber))
-		whereArgs = append(whereArgs, tf.AlgosGT)
+		whereArgs = append(whereArgs, *tf.AlgosGT)
 		partNumber++
 	}
 	if tf.AlgosLT != nil {
 		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'amt')::bigint < $%d", partNumber))
-		whereArgs = append(whereArgs, tf.AlgosLT)
+		whereArgs = append(whereArgs, *tf.AlgosLT)
 		partNumber++
 	}
 	if tf.EffectiveAmountGt != nil {
@@ -2434,7 +2434,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	if opts.HasAssetID != 0 {
 		opts.IncludeAssetHoldings = true
 	} else if (opts.AssetGT != nil) || (opts.AssetLT != nil) {
-		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetID=%d", opts.AssetGT, opts.AssetLT, opts.HasAssetID)
+		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetID=%d", *opts.AssetGT, *opts.AssetLT, opts.HasAssetID)
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		return out, 0
@@ -2519,12 +2519,12 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		partNumber++
 		if opts.AssetGT != nil {
 			aq += fmt.Sprintf(" AND amount > $%d", partNumber)
-			whereArgs = append(whereArgs, opts.AssetGT)
+			whereArgs = append(whereArgs, *opts.AssetGT)
 			partNumber++
 		}
 		if opts.AssetLT != nil {
 			aq += fmt.Sprintf(" AND amount < $%d", partNumber)
-			whereArgs = append(whereArgs, opts.AssetLT)
+			whereArgs = append(whereArgs, *opts.AssetLT)
 			partNumber++
 		}
 		aq = "qasf AS (" + aq + ")"
@@ -2548,12 +2548,12 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	}
 	if opts.AlgosGreaterThan != nil {
 		whereParts = append(whereParts, fmt.Sprintf("a.microalgos > $%d", partNumber))
-		whereArgs = append(whereArgs, opts.AlgosGreaterThan)
+		whereArgs = append(whereArgs, *opts.AlgosGreaterThan)
 		partNumber++
 	}
 	if opts.AlgosLessThan != nil {
 		whereParts = append(whereParts, fmt.Sprintf("a.microalgos < $%d", partNumber))
-		whereArgs = append(whereArgs, opts.AlgosLessThan)
+		whereArgs = append(whereArgs, *opts.AlgosLessThan)
 		partNumber++
 	}
 	if !opts.IncludeDeleted {
@@ -2766,12 +2766,12 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	}
 	if abq.AmountGT != nil {
 		whereParts = append(whereParts, fmt.Sprintf("aa.amount > $%d", partNumber))
-		whereArgs = append(whereArgs, abq.AmountGT)
+		whereArgs = append(whereArgs, *abq.AmountGT)
 		partNumber++
 	}
 	if abq.AmountLT != nil {
 		whereParts = append(whereParts, fmt.Sprintf("aa.amount < $%d", partNumber))
-		whereArgs = append(whereArgs, abq.AmountLT)
+		whereArgs = append(whereArgs, *abq.AmountLT)
 		partNumber++
 	}
 	if len(abq.PrevAddress) != 0 {
