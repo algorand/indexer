@@ -29,7 +29,7 @@ func maybeFail(err error, errfmt string, params ...interface{}) {
 var rootCmd = &cobra.Command{
 	Use:   "indexer",
 	Short: "Algorand Indexer",
-	Long:  `indexer imports blocks from an algod node or from local files into an SQL database for querying. indexer is a daemon that can serve queries from that database.`,
+	Long:  `Indexer imports blocks from an algod node into an SQL database for querying. It is a daemon that can serve queries from that database.`,
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		//If no arguments passed, we should fallback to help
@@ -106,6 +106,7 @@ func init() {
 	logger.SetLevel(log.InfoLevel)
 
 	rootCmd.AddCommand(importCmd)
+	importCmd.Hidden = true
 	rootCmd.AddCommand(daemonCmd)
 	rootCmd.AddCommand(resetCmd)
 	resetCmd.Hidden = true
