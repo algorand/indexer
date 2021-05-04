@@ -3,7 +3,7 @@
 
 package postgres
 
-// import text to contstant setup_postgres_sql
+// import text to constants setup_postgres_sql reset_sql
 //go:generate go run ../../cmd/texttosource/main.go postgres setup_postgres.sql reset.sql
 
 import (
@@ -3029,18 +3029,4 @@ func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err err
 		err = fmt.Errorf("problem decoding cache '%s': %v", cache, err)
 	}
 	return
-}
-
-type postgresFactory struct {
-}
-
-func (df postgresFactory) Name() string {
-	return "postgres"
-}
-func (df postgresFactory) Build(arg string, opts idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, error) {
-	return OpenPostgres(arg, opts, log)
-}
-
-func init() {
-	idb.RegisterFactory("postgres", &postgresFactory{})
 }
