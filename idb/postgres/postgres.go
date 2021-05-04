@@ -49,7 +49,7 @@ func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger)
 	db, err := sql.Open("postgres", connection)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("connecting to postgres: %v", err)
 	}
 
 	if strings.Contains(connection, "readonly") {
@@ -77,6 +77,9 @@ func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (pd
 	// e.g. a user named "readonly" is in the connection string
 	if !opts.ReadOnly {
 		err = pdb.init(opts)
+		if err != nil {
+			return nil, fmt.Errorf("initializing postgres: %v", err)
+		}
 	}
 	return
 }
@@ -148,11 +151,15 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (err error) {
 	// new database, run setup
 	_, err = db.db.Exec(setup_postgres_sql)
 	if err != nil {
-		return
+		return fmt.Errorf("unable to setup postgres: %v", err)
 	}
 
 	err = db.markMigrationsAsDone()
-	return
+	if err != nil {
+		return fmt.Errorf("unable to confirm migration: %v", err)
+	}
+
+	return nil
 }
 
 // Reset is part of idb.IndexerDB

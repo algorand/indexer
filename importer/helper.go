@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	log "github.com/sirupsen/logrus"
 
@@ -94,7 +95,7 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	var startRound uint64 = 0
 	accountingRounds := 0
 	if err == idb.ErrorNotInitialized {
-		if InitialImport(db, h.GenesisJSONPath, h.Log) {
+		if InitialImport(db, h.GenesisJSONPath, nil, h.Log) {
 			accountingRounds++
 		}
 	} else {
@@ -230,27 +231,37 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 }
 
 // InitialImport imports the genesis block if needed. Returns true if the initial import occurred.
-func InitialImport(db idb.IndexerDb, genesisJSONPath string, l *log.Logger) bool {
-	state, err := db.GetImportState()
+func InitialImport(db idb.IndexerDb, genesisJSONPath string, client *algod.Client, l *log.Logger) bool {
+	log.Infof("Initial import. Client is null:  %t", client == nil)
+	_, err := db.GetImportState()
 
-	// Only import when the state is not found.
-	if err == idb.ErrorNotInitialized {
-		state.AccountRound = -1
-		if genesisJSONPath != "" {
-			l.Infof("loading genesis %s", genesisJSONPath)
-			// if we're given no previous state and we're given a genesis file, import it as initial account state
-			gf, err := os.Open(genesisJSONPath)
-			maybeFail(err, l, "%s: %v", genesisJSONPath, err)
-			err = loadGenesis(db, gf)
-			maybeFail(err, l, "%s: could not load genesis json, %v", genesisJSONPath, err)
-			return true
-		}
-		l.Errorf("no import state recorded; need --genesis genesis.json file to get started")
-		os.Exit(1)
+	// Exit immediately or crash if we don't see ErrorNotInitialized.
+	if err != idb.ErrorNotInitialized {
+		maybeFail(err, l, "getting import state, %v", err)
 		return false
 	}
-	maybeFail(err, l, "getting import state, %v", err)
-	return false
+
+	// Import genesis file from file or algod.
+	var genesisReader io.Reader
+
+	if genesisJSONPath != "" {
+		// Read file if specified.
+		l.Infof("loading genesis file %s", genesisJSONPath)
+		genesisReader, err = os.Open(genesisJSONPath)
+		maybeFail(err, l, "unable to read genesis file %s", genesisJSONPath)
+	} else if client != nil {
+		// Fallback to asking algod for genesis if file is not specified.
+		l.Infof("fetching genesis from algod")
+		genesisString, err := client.GetGenesis().Do(context.Background())
+		maybeFail(err, l, "unable to fetch genesis from algod")
+		genesisReader = strings.NewReader(genesisString)
+	} else {
+		l.Fatal("Neither genesis file path or algod client provided for initial import.")
+	}
+
+	err = loadGenesis(db, genesisReader)
+	maybeFail(err, l, "%s: could not load genesis json, %v", genesisJSONPath, err)
+	return true
 }
 
 // UpdateAccounting triggers an accounting update.
