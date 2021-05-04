@@ -1595,14 +1595,14 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		whereArgs = append(whereArgs, *tf.AlgosLT)
 		partNumber++
 	}
-	if tf.EffectiveAmountGt != nil {
+	if tf.EffectiveAmountGT != nil {
 		whereParts = append(whereParts, fmt.Sprintf("((t.txn -> 'ca')::bigint + (t.txn -> 'txn' -> 'amt')::bigint) > $%d", partNumber))
-		whereArgs = append(whereArgs, tf.EffectiveAmountGt)
+		whereArgs = append(whereArgs, *tf.EffectiveAmountGT)
 		partNumber++
 	}
-	if tf.EffectiveAmountLt != nil {
+	if tf.EffectiveAmountLT != nil {
 		whereParts = append(whereParts, fmt.Sprintf("((t.txn -> 'ca')::bigint + (t.txn -> 'txn' -> 'amt')::bigint) < $%d", partNumber))
-		whereArgs = append(whereArgs, tf.EffectiveAmountLt)
+		whereArgs = append(whereArgs, *tf.EffectiveAmountLT)
 		partNumber++
 	}
 	if tf.RekeyTo != nil && (*tf.RekeyTo) {
@@ -2345,6 +2345,13 @@ func nullableBoolPtr(x sql.NullBool) *bool {
 	return &x.Bool
 }
 
+func uintOrDefault(x *uint64) uint64 {
+	if x != nil {
+		return *x
+	}
+	return 0
+}
+
 func uint64Ptr(x uint64) *uint64 {
 	out := new(uint64)
 	*out = x
@@ -2434,7 +2441,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	if opts.HasAssetID != 0 {
 		opts.IncludeAssetHoldings = true
 	} else if (opts.AssetGT != nil) || (opts.AssetLT != nil) {
-		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetID=%d", *opts.AssetGT, *opts.AssetLT, opts.HasAssetID)
+		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetID=%d", uintOrDefault(opts.AssetGT), uintOrDefault(opts.AssetLT), opts.HasAssetID)
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		return out, 0

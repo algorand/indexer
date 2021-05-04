@@ -306,7 +306,7 @@ type TransactionFilter struct {
 	OffsetGT   *uint64 // nil for no filter
 	SigType    string  // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
-	AlgosGT    *uint64 // implictly filters on "pay" txns for Algos > this. This will be a slightly faster query than EffectiveAmountGt.
+	AlgosGT    *uint64 // implictly filters on "pay" txns for Algos > this. This will be a slightly faster query than EffectiveAmountGT.
 	AlgosLT    *uint64
 	RekeyTo    *bool // nil for no filter
 
@@ -316,8 +316,8 @@ type TransactionFilter struct {
 
 	ApplicationID uint64 // filter transactions relevant to an application
 
-	EffectiveAmountGt *uint64 // Algo: Amount + CloseAmount > x
-	EffectiveAmountLt *uint64 // Algo: Amount + CloseAmount < x
+	EffectiveAmountGT *uint64 // Algo: Amount + CloseAmount > x
+	EffectiveAmountLT *uint64 // Algo: Amount + CloseAmount < x
 
 	// pointer to last returned object of previous query
 	NextToken string
