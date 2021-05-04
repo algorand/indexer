@@ -389,35 +389,6 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 
 }
 
-// SetProto is part of idb.IndexerDB
-func (db *IndexerDb) SetProto(version string, proto types.ConsensusParams) (err error) {
-	pj := idb.JSONOneLine(proto)
-	if err != nil {
-		return err
-	}
-	_, err = db.db.Exec(`INSERT INTO protocol (version, proto) VALUES ($1, $2) ON CONFLICT (version) DO UPDATE SET proto = EXCLUDED.proto`, version, pj)
-	return err
-}
-
-// GetProto is part of idb.IndexerDB
-func (db *IndexerDb) GetProto(version string) (proto types.ConsensusParams, err error) {
-	proto, hit := db.protoCache[version]
-	if hit {
-		return
-	}
-	row := db.db.QueryRow(`SELECT proto FROM protocol WHERE version = $1`, version)
-	var protostr string
-	err = row.Scan(&protostr)
-	if err != nil {
-		return
-	}
-	err = json.Decode([]byte(protostr), &proto)
-	if err == nil {
-		db.protoCache[version] = proto
-	}
-	return
-}
-
 func (db *IndexerDb) getMetastate(key string) (jsonStrValue string, err error) {
 	row := db.db.QueryRow(`SELECT v FROM metastate WHERE k = $1`, key)
 	err = row.Scan(&jsonStrValue)
@@ -1995,7 +1966,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.PendingRewards = 0
 		} else {
 			// TODO: pending rewards calculation doesn't belong in database layer (this is just the most covenient place which has all the data)
-			proto, err := db.GetProto(string(req.blockheader.CurrentProtocol))
+			proto, err := types.Protocol(string(req.blockheader.CurrentProtocol))
 			if err != nil {
 				err = fmt.Errorf("get protocol err (%s) %v", req.blockheader.CurrentProtocol, err)
 				req.out <- idb.AccountRow{Error: err}

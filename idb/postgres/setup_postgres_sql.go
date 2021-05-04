@@ -6,11 +6,6 @@ const setup_postgres_sql = `-- This file is setup_postgres.sql which gets compil
 --
 -- TODO? replace all 'addr bytea' with 'addr_id bigint' and a mapping table? makes addrs an 8 byte int that fits in a register instead of a 32 byte string
 
-CREATE TABLE IF NOT EXISTS protocol (
-  version text PRIMARY KEY,
-  proto jsonb
-);
-
 CREATE TABLE IF NOT EXISTS block_header (
 round bigint PRIMARY KEY,
 realtime timestamp without time zone NOT NULL,

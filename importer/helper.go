@@ -57,9 +57,6 @@ type ImportState struct {
 
 // Import is the main ImportHelper function that glues together a directory full of block files and an Importer objects.
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
-	err := ImportProto(db)
-	maybeFail(err, h.Log, "import proto, %v", err)
-
 	imp := NewDBImporter(db)
 	blocks := 0
 	txCount := 0

@@ -205,7 +205,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 				return
 			}
 			var proto types.ConsensusParams
-			proto, err = db.GetProto(string(blockheader.CurrentProtocol))
+			proto, err = types.Protocol(string(blockheader.CurrentProtocol))
 			if err != nil {
 				return
 			}
