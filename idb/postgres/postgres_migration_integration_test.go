@@ -6,6 +6,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/util/test"
 	"github.com/stretchr/testify/assert"
@@ -14,7 +15,7 @@ import (
 func TestFixFreezeLookupMigration(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	pdb, err := OpenPostgres(connStr, nil, nil)
+	pdb, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	blockImporter := importer.NewDBImporter(pdb)
 
