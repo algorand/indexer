@@ -2168,9 +2168,6 @@ func fixKeyreg(db *IndexerDb, account account) error {
 
 // ClearAccountDataMigration clears account data for accounts that have been closed.
 func ClearAccountDataMigration(db *IndexerDb, state *MigrationState) error {
-	db.accountingLock.Lock()
-	defer db.accountingLock.Unlock()
-
 	// Clear account_data column for deleted accounts.
 	query := "UPDATE account SET account_data = NULL WHERE deleted = true;"
 	if _, err := db.db.Exec(query); err != nil {
