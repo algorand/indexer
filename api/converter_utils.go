@@ -292,7 +292,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	switch stxn.Txn.Type {
 	case sdk_types.PaymentTx:
 		p := generated.TransactionPayment{
-			CloseAmount:      uint64Ptr(row.Extra.AssetCloseAmount),
+			CloseAmount:      uint64Ptr(uint64(stxn.ApplyData.ClosingAmount)),
 			CloseRemainderTo: addrPtr(stxn.Txn.CloseRemainderTo),
 			Receiver:         stxn.Txn.Receiver.String(),
 			Amount:           uint64(stxn.Txn.Amount),
