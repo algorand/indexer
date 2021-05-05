@@ -2073,6 +2073,9 @@ func getAccounts(db *sql.DB) ([]account, error) {
 }
 
 func fixAuthAddr(db *IndexerDb, account account) error {
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		defer tx.Rollback()
 
@@ -2121,6 +2124,9 @@ func fixAuthAddr(db *IndexerDb, account account) error {
 }
 
 func fixKeyreg(db *IndexerDb, account account) error {
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		defer tx.Rollback()
 
