@@ -18,14 +18,12 @@ func main() {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %v\n", fname, err)
 			os.Exit(1)
-			return
 		}
 		outname := strings.ReplaceAll(fname, ".", "_") + ".go"
 		fout, err := os.Create(outname)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "%s: %v\n", outname, err)
 			os.Exit(1)
-			return
 		}
 		varname := strings.ReplaceAll(fname, ".", "_")
 		bodyConstant := "`" + strings.ReplaceAll(string(data), "`", "\\u0060") + "`"
@@ -35,5 +33,9 @@ package %s
 
 const %s = %s
 `, fname, packageName, varname, bodyConstant)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to write to %s: %v\n", outname, err)
+			os.Exit(1)
+		}
 	}
 }

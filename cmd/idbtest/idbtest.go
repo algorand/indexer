@@ -16,7 +16,6 @@ import (
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	_ "github.com/algorand/indexer/idb/postgres"
-	"github.com/algorand/indexer/types"
 	testutil "github.com/algorand/indexer/util/test"
 )
 
@@ -103,19 +102,6 @@ func testTxnPaging(db idb.IndexerDb, q idb.TransactionFilter) {
 	if exitValue == 0 {
 		info("ok fetching %d entries over %d pages\n", len(all), page)
 	}
-}
-
-func printAssetBalanceQuery(db idb.IndexerDb, assetID uint64) {
-	rows, _ := db.AssetBalances(context.Background(), idb.AssetBalanceQuery{AssetID: assetID})
-	count := 0
-	for row := range rows {
-		maybeFail(row.Error, "err %v\n", row.Error)
-		var addr types.Address
-		copy(addr[:], row.Address)
-		fmt.Printf("%s %d %12d %t\n", addr.String(), row.AssetID, row.Amount, row.Frozen)
-		count++
-	}
-	fmt.Printf("%d asset balances\n", count)
 }
 
 func getAccount(db idb.IndexerDb, addr []byte) (account models.Account, err error) {

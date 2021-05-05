@@ -14,7 +14,6 @@ import (
 
 var errSuccess = errors.New("unexpected success")
 var e = echo.New()
-var testAPIHeader = "API-Header-Whatever"
 
 // success is the "next" handler, it is only called when a request is allowed to continue
 func success(ctx echo.Context) error {

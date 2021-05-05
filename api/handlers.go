@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
-	log "github.com/sirupsen/logrus"
 
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
@@ -29,8 +28,6 @@ type ServerImplementation struct {
 	db idb.IndexerDb
 
 	fetcher error
-
-	log *log.Logger
 }
 
 /////////////////////
@@ -697,13 +694,6 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 
 func min(x, y uint64) uint64 {
 	if x < y {
-		return x
-	}
-	return y
-}
-
-func max(x, y uint64) uint64 {
-	if x > y {
 		return x
 	}
 	return y

@@ -936,14 +936,13 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 func TestAssetFreezeTxnParticipation(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	pdb, _ := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+	assert.NoError(t, err)
 	blockImporter := importer.NewDBImporter(pdb)
 
 	///////////
 	// Given // A block containing an asset freeze txn
 	///////////
-	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
 	// Create a block with freeze txn
 	freeze, _ := test.MakeAssetFreezeOrPanic(test.Round, 1234, true, test.AccountA, test.AccountB)
