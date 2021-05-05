@@ -64,7 +64,6 @@ func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (pd
 	pdb = &IndexerDb{
 		log:        logger,
 		db:         db,
-		protoCache: make(map[string]types.ConsensusParams, 20),
 	}
 
 	if pdb.log == nil {
@@ -97,8 +96,6 @@ type IndexerDb struct {
 
 	txrows  [][]interface{}
 	txprows [][]interface{}
-
-	protoCache map[string]types.ConsensusParams
 
 	migration *migration.Migration
 
