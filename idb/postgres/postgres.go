@@ -62,8 +62,8 @@ func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger)
 // Allow tests to inject a DB
 func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (pdb *IndexerDb, err error) {
 	pdb = &IndexerDb{
-		log:        logger,
-		db:         db,
+		log: logger,
+		db:  db,
 	}
 
 	if pdb.log == nil {
