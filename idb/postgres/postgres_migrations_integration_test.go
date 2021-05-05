@@ -2,71 +2,17 @@ package postgres
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
-	"github.com/orlangure/gnomock"
-	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
-	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util/test"
 )
-
-func setupDb(t *testing.T) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
-	p := postgres.Preset(
-		postgres.WithVersion("12.5"),
-		postgres.WithUser("gnomock", "gnomick"),
-		postgres.WithDatabase("mydb"),
-	)
-	container, err := gnomock.Start(p)
-	assert.NoError(t, err, "Error starting gnomock")
-
-	shutdownFunc := func() {
-		err = gnomock.Stop(container)
-		assert.NoError(t, err, "Error stoping gnomock")
-	}
-
-	connStr := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s  dbname=%s sslmode=disable",
-		container.Host, container.DefaultPort(),
-		"gnomock", "gnomick", "mydb")
-
-	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
-
-	return db, shutdownFunc
-}
-
-func importTxns(t *testing.T, db *IndexerDb, round uint64, txns ...*sdk_types.SignedTxnWithAD) {
-	block := test.MakeBlockForTxns(round, txns...)
-
-	_, err := importer.NewDBImporter(db).ImportDecodedBlock(&block)
-	assert.NoError(t, err)
-}
-
-func accountTxns(t *testing.T, db *IndexerDb, round uint64, txns ...*idb.TxnRow) {
-	cache, err := db.GetDefaultFrozen()
-	assert.NoError(t, err)
-
-	state := accounting.New(cache)
-	err = state.InitRoundParts(round, test.FeeAddr, test.RewardAddr, 0)
-	assert.NoError(t, err)
-
-	for _, txn := range txns {
-		err := state.AddTransaction(txn)
-		assert.NoError(t, err)
-	}
-
-	err = db.CommitRoundAccounting(state.RoundUpdates, round, &types.Block{})
-	assert.NoError(t, err)
-}
 
 func nextMigrationNum(t *testing.T, db *IndexerDb) int {
 	j, err := db.getMetastate(migrationMetastateKey)
@@ -82,7 +28,7 @@ func nextMigrationNum(t *testing.T, db *IndexerDb) int {
 }
 
 func TestFixFreezeLookupMigration(t *testing.T) {
-	db, shutdownFunc := setupDb(t)
+	db, shutdownFunc := setupIdb(t)
 	defer shutdownFunc()
 
 	var sender types.Address
@@ -114,7 +60,7 @@ func TestFixFreezeLookupMigration(t *testing.T) {
 
 // Test that ClearAccountDataMigration() clears account data for closed accounts.
 func TestClearAccountDataMigrationClosedAccounts(t *testing.T) {
-	db, shutdownFunc := setupDb(t)
+	db, shutdownFunc := setupIdb(t)
 	defer shutdownFunc()
 
 	// Rekey account A.
@@ -153,7 +99,7 @@ func TestClearAccountDataMigrationClosedAccounts(t *testing.T) {
 
 // Test that ClearAccountDataMigration() clears account data that was set before account was closed.
 func TestClearAccountDataMigrationClearsReopenedAccounts(t *testing.T) {
-	db, shutdownFunc := setupDb(t)
+	db, shutdownFunc := setupIdb(t)
 	defer shutdownFunc()
 
 	// Create account A.
@@ -219,7 +165,7 @@ func TestClearAccountDataMigrationClearsReopenedAccounts(t *testing.T) {
 // Test that ClearAccountDataMigration() does not clear account data because is was updated after
 // account was closed.
 func TestClearAccountDataMigrationDoesNotClear(t *testing.T) {
-	db, shutdownFunc := setupDb(t)
+	db, shutdownFunc := setupIdb(t)
 	defer shutdownFunc()
 
 	// Create account A.
@@ -277,7 +223,7 @@ func TestClearAccountDataMigrationDoesNotClear(t *testing.T) {
 
 // Test that ClearAccountDataMigration() increments the next migration number.
 func TestClearAccountDataMigrationIncMigrationNum(t *testing.T) {
-	db, shutdownFunc := setupDb(t)
+	db, shutdownFunc := setupIdb(t)
 	defer shutdownFunc()
 
 	// Run migration.

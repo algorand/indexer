@@ -3,13 +3,10 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"sync"
 	"testing"
 
 	_ "github.com/lib/pq"
-	"github.com/orlangure/gnomock"
-	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -30,46 +27,6 @@ func getAccounting(round uint64, cache map[uint64]bool) *accounting.State {
 	accountingState := accounting.New(cache)
 	accountingState.InitRoundParts(round, test.FeeAddr, test.RewardAddr, 0)
 	return accountingState
-}
-
-// setupPostgres starts a gnomock postgres DB then returns the connection string and a shutdown function.
-func setupPostgres(t *testing.T) (*sql.DB, string, func()) {
-	p := postgres.Preset(
-		postgres.WithVersion("12.5"),
-		postgres.WithUser("gnomock", "gnomick"),
-		postgres.WithDatabase("mydb"),
-		// 'IndexerDbByName' does this if necessary, so not needed here.
-		//postgres.WithQueriesFile("setup_postgres.sql"),
-	)
-	container, err := gnomock.Start(p)
-	assert.NoError(t, err, "Error starting gnomock")
-
-	shutdownFunc := func() {
-		err = gnomock.Stop(container)
-		assert.NoError(t, err, "Error stoping gnomock")
-	}
-
-	connStr := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s  dbname=%s sslmode=disable",
-		container.Host, container.DefaultPort(),
-		"gnomock", "gnomick", "mydb",
-	)
-
-	db, err := sql.Open("postgres", connStr)
-	assert.NoError(t, err, "Error opening pg connection")
-	return db, connStr, shutdownFunc
-}
-
-// Helper to execute a query returning an integer, for example COUNT(*). Returns -1 on an error.
-func queryInt(db *sql.DB, queryString string, args ...interface{}) int {
-	row := db.QueryRow(queryString, args...)
-
-	var count int
-	err := row.Scan(&count)
-	if err != nil {
-		return -1
-	}
-	return count
 }
 
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.
