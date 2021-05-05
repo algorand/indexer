@@ -159,17 +159,6 @@ func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err erro
 		nextMigration++
 	}
 
-	if len(tasks) > 0 {
-		// Add a task to mark migrations as done instead of using a channel.
-		tasks = append(tasks, migration.Task{
-			MigrationID: 9999999,
-			Handler: func() error {
-				return db.markMigrationsAsDone()
-			},
-			Description: "Mark migrations done",
-		})
-	}
-
 	db.migration, err = migration.MakeMigration(tasks, db.log)
 	if err != nil {
 		return err
@@ -178,15 +167,6 @@ func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err erro
 	go db.migration.RunMigrations()
 
 	return nil
-}
-
-// after setting up a new database, mark state as if all migrations had been done
-func (db *IndexerDb) markMigrationsAsDone() (err error) {
-	state := MigrationState{
-		NextMigration: len(migrations),
-	}
-	migrationStateJSON := idb.JSONOneLine(state)
-	return db.setMetastate(migrationMetastateKey, migrationStateJSON)
 }
 
 func (db *IndexerDb) getMigrationState() (*MigrationState, error) {

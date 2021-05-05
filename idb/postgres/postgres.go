@@ -154,7 +154,12 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (err error) {
 		return fmt.Errorf("unable to setup postgres: %v", err)
 	}
 
-	err = db.markMigrationsAsDone()
+	// Set migration state.
+	state := MigrationState{
+		NextMigration: len(migrations),
+	}
+	migrationStateJSON = idb.JSONOneLine(state)
+	err = db.setMetastate(migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		return fmt.Errorf("unable to confirm migration: %v", err)
 	}
