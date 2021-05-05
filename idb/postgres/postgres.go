@@ -517,7 +517,6 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 				row.Error = err
 				results <- row
 				rows.Close()
-				close(results)
 				return
 			}
 
@@ -536,7 +535,6 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 			row.Error = err
 			results <- row
 			rows.Close()
-			close(results)
 			return
 		}
 		rows.Close()
@@ -569,13 +567,11 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 				if err != nil {
 					row.Error = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
 					results <- row
-					close(results)
 					return
 				}
 			}
 			select {
 			case <-ctx.Done():
-				close(results)
 				return
 			case results <- row:
 			}
@@ -590,7 +586,6 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 			}
 		}
 	}
-	close(results)
 }
 
 // YieldTxns is part of idb.IndexerDB
@@ -602,7 +597,10 @@ func (db *IndexerDb) YieldTxns(ctx context.Context, firstRound uint64) <-chan id
 		close(results)
 		return results
 	}
-	go db.yieldTxnsThread(ctx, rows, results)
+	go func() {
+		db.yieldTxnsThread(ctx, rows, results)
+		close(results)
+	}()
 	return results
 }
 
@@ -2273,11 +2271,9 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		case req.out <- idb.AccountRow{Account: account}:
 			count++
 			if req.opts.Limit != 0 && count >= req.opts.Limit {
-				close(req.out)
 				return
 			}
 		case <-req.ctx.Done():
-			close(req.out)
 			return
 		}
 	}
@@ -2285,7 +2281,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		err = fmt.Errorf("error reading rows: %v", err)
 		req.out <- idb.AccountRow{Error: err}
 	}
-	close(req.out)
 }
 
 func nullableInt64Ptr(x sql.NullInt64) *uint64 {
@@ -2464,6 +2459,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	}
 	go func() {
 		db.yieldAccountsThread(req)
+		close(req.out)
 		tx.Rollback()
 	}()
 	return out, round
@@ -2670,6 +2666,7 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	}
 	go func() {
 		db.yieldAssetsThread(ctx, filter, rows, out)
+		close(out)
 		tx.Rollback()
 	}()
 	return out, round
@@ -2706,7 +2703,6 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 		}
 		select {
 		case <-ctx.Done():
-			close(out)
 			return
 		case out <- rec:
 		}
@@ -2714,7 +2710,6 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 	if err := rows.Err(); err != nil {
 		out <- idb.AssetRow{Error: err}
 	}
-	close(out)
 }
 
 // AssetBalances is part of idb.IndexerDB
@@ -2783,6 +2778,7 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	}
 	go func() {
 		db.yieldAssetBalanceThread(ctx, rows, out)
+		close(out)
 		tx.Rollback()
 	}()
 	return out, round
@@ -2813,7 +2809,6 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows
 		}
 		select {
 		case <-ctx.Done():
-			close(out)
 			return
 		case out <- rec:
 		}
@@ -2821,7 +2816,6 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows
 	if err := rows.Err(); err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 	}
-	close(out)
 }
 
 // Applications is part of idb.IndexerDB
@@ -2886,6 +2880,7 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 
 	go func() {
 		db.yieldApplicationsThread(ctx, rows, out)
+		close(out)
 		tx.Rollback()
 	}()
 	return out, round
@@ -2938,7 +2933,6 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows
 	if err := rows.Err(); err != nil {
 		out <- idb.ApplicationRow{Error: err}
 	}
-	close(out)
 }
 
 // Health is part of idb.IndexerDB
