@@ -26,16 +26,8 @@ var importCmd = &cobra.Command{
 		db, availableCh := indexerDbFromFlags(idb.IndexerDbOptions{})
 		<-availableCh
 
-		cache, err := db.GetDefaultFrozen()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to initialize the default frozen cache: %v", err)
-			os.Exit(1)
-		}
-
 		helper := importer.NewImportHelper(
-			cache,
 			genesisJSONPath,
-			numRoundsLimit,
 			blockFileLimit,
 			logger)
 
@@ -45,12 +37,10 @@ var importCmd = &cobra.Command{
 
 var (
 	genesisJSONPath string
-	numRoundsLimit  int
 	blockFileLimit  int
 )
 
 func init() {
 	importCmd.Flags().StringVarP(&genesisJSONPath, "genesis", "g", "", "path to genesis.json")
-	importCmd.Flags().IntVarP(&numRoundsLimit, "num-rounds-limit", "", 0, "number of rounds to process")
 	importCmd.Flags().IntVarP(&blockFileLimit, "block-file-limit", "", 0, "number of block files to process (for debugging)")
 }

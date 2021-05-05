@@ -21,13 +21,13 @@ type IndexerDb struct {
 	mock.Mock
 }
 
-// AddTransaction provides a mock function with given fields: round, intra, txtypeenum, assetid, txn, participation
-func (_m *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn transactions.SignedTxnWithAD, participation [][]byte) error {
-	ret := _m.Called(round, intra, txtypeenum, assetid, txn, participation)
+// AddBlock provides a mock function with given fields: block
+func (_m *IndexerDb) AddBlock(block *bookkeeping.Block) error {
+	ret := _m.Called(block)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(uint64, int, int, uint64, transactions.SignedTxnWithAD, [][]byte) error); ok {
-		r0 = rf(round, intra, txtypeenum, assetid, txn, participation)
+	if rf, ok := ret.Get(0).(func(*bookkeeping.Block) error); ok {
+		r0 = rf(block)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -104,34 +104,6 @@ func (_m *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	return r0, r1
 }
 
-// CommitBlock provides a mock function with given fields: round, timestamp, rewardslevel, headerbytes
-func (_m *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	ret := _m.Called(round, timestamp, rewardslevel, headerbytes)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(uint64, int64, uint64, []byte) error); ok {
-		r0 = rf(round, timestamp, rewardslevel, headerbytes)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// CommitRoundAccounting provides a mock function with given fields: updates, round, blockHeader
-func (_m *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockHeader *bookkeeping.BlockHeader) error {
-	ret := _m.Called(updates, round, blockHeader)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(idb.RoundUpdates, uint64, *bookkeeping.BlockHeader) error); ok {
-		r0 = rf(updates, round, blockHeader)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // GetAccounts provides a mock function with given fields: ctx, opts
 func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
 	ret := _m.Called(ctx, opts)
@@ -185,52 +157,8 @@ func (_m *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 	return r0, r1, r2
 }
 
-// GetDefaultFrozen provides a mock function with given fields:
-func (_m *IndexerDb) GetDefaultFrozen() (map[uint64]bool, error) {
-	ret := _m.Called()
-
-	var r0 map[uint64]bool
-	if rf, ok := ret.Get(0).(func() map[uint64]bool); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[uint64]bool)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetNextRoundToAccount provides a mock function with given fields:
 func (_m *IndexerDb) GetNextRoundToAccount() (uint64, error) {
-	ret := _m.Called()
-
-	var r0 uint64
-	if rf, ok := ret.Get(0).(func() uint64); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(uint64)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetNextRoundToLoad provides a mock function with given fields:
-func (_m *IndexerDb) GetNextRoundToLoad() (uint64, error) {
 	ret := _m.Called()
 
 	var r0 uint64
@@ -306,20 +234,6 @@ func (_m *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 	return r0
 }
 
-// StartBlock provides a mock function with given fields:
-func (_m *IndexerDb) StartBlock() error {
-	ret := _m.Called()
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // Transactions provides a mock function with given fields: ctx, tf
 func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	ret := _m.Called(ctx, tf)
@@ -341,20 +255,4 @@ func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 	}
 
 	return r0, r1
-}
-
-// YieldTxns provides a mock function with given fields: ctx, firstRound
-func (_m *IndexerDb) YieldTxns(ctx context.Context, firstRound uint64) <-chan idb.TxnRow {
-	ret := _m.Called(ctx, firstRound)
-
-	var r0 <-chan idb.TxnRow
-	if rf, ok := ret.Get(0).(func(context.Context, uint64) <-chan idb.TxnRow); ok {
-		r0 = rf(ctx, firstRound)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(<-chan idb.TxnRow)
-		}
-	}
-
-	return r0
 }

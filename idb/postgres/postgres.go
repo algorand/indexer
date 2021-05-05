@@ -7,24 +7,21 @@ package postgres
 //go:generate go run ../../cmd/texttosource/main.go postgres setup_postgres.sql reset.sql
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
-	"math"
-	"math/big"
 	"os"
 	"strings"
 	"sync"
 	"time"
-	"unicode/utf8"
 
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-algorand/ledger"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 
 	// Load the postgres sql.DB implementation
 	"github.com/lib/pq"
@@ -34,6 +31,8 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
+	ledger_for_evaluator "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
+	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util"
 )
 
@@ -109,14 +108,8 @@ type IndexerDb struct {
 	readonly bool
 	log      *log.Logger
 
-	db *sql.DB
-
-	// state for StartBlock/AddTransaction/CommitBlock
-	txrows  [][]interface{}
-	txprows [][]interface{}
-
-	migration *migration.Migration
-
+	db             *sql.DB
+	migration      *migration.Migration
 	accountingLock sync.Mutex
 }
 
@@ -194,139 +187,85 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations()
 }
 
-// StartBlock is part of idb.IndexerDB
-func (db *IndexerDb) StartBlock() (err error) {
-	db.txrows = make([][]interface{}, 0, 6000)
-	db.txprows = make([][]interface{}, 0, 10000)
-	return nil
-}
+// AddBlock is part of idb.IndexerDb.
+func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
+	db.log.Printf("adding block %d", block.Round())
 
-// AddTransaction is part of idb.IndexerDB
-func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn transactions.SignedTxnWithAD, participation [][]byte) error {
-	txnbytes := protocol.Encode(&txn)
-	jsonbytes := encoding.EncodeSignedTxnWithAD(txn)
-	txid := txn.Txn.ID().String()
-	tx := []interface{}{round, intra, txtypeenum, assetid, txid, txnbytes, string(jsonbytes)}
-	db.txrows = append(db.txrows, tx)
-	for _, paddr := range participation {
-		txp := []interface{}{paddr, round, intra}
-		db.txprows = append(db.txprows, txp)
-	}
-	return nil
-}
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
 
-func (db *IndexerDb) commitBlock(tx *sql.Tx, round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	defer tx.Rollback() // ignored if already committed
-
-	addtx, err := tx.Prepare(`COPY txn (round, intra, typeenum, asset, txid, txnbytes, txn) FROM STDIN`)
-	if err != nil {
-		return fmt.Errorf("COPY txn %v", err)
-	}
-	defer addtx.Close()
-	for _, txr := range db.txrows {
-		_, err = addtx.Exec(txr...)
-		if err != nil {
-			return fmt.Errorf("COPY txn Exec %v", err)
-		}
-	}
-	_, err = addtx.Exec()
-	if err != nil {
-		db.log.Errorf("CommitBlock failed: %v (%#v)", err, err)
-		for _, txr := range db.txrows {
-			ntxr := make([]interface{}, len(txr))
-			for i, v := range txr {
-				switch tv := v.(type) {
-				case []byte:
-					if utf8.Valid(tv) {
-						ntxr[i] = string(tv)
-					} else {
-						ntxr[i] = v
-					}
-				default:
-					ntxr[i] = v
-				}
-			}
-			db.log.Errorf("txr %#v", ntxr)
-		}
-		return fmt.Errorf("COPY txn Exec() %v", err)
-	}
-	err = addtx.Close()
-	if err != nil {
-		return fmt.Errorf("COPY txn Close %v", err)
-	}
-
-	addtxpart, err := tx.Prepare(`COPY txn_participation (addr, round, intra) FROM STDIN`)
-	if err != nil {
-		return fmt.Errorf("COPY txn part %v", err)
-	}
-	defer addtxpart.Close()
-	for i, txpr := range db.txprows {
-		_, err = addtxpart.Exec(txpr...)
-		if err != nil {
-			//return err
-			for _, er := range db.txprows[:i+1] {
-				db.log.Printf("%s %d %d", encoding.Base64(er[0].([]byte)), er[1], er[2])
-			}
-			return fmt.Errorf("%v, around txp row %#v", err, txpr)
-		}
-	}
-
-	_, err = addtxpart.Exec()
-	if err != nil {
-		return fmt.Errorf("during addtxp empty exec %v", err)
-	}
-	err = addtxpart.Close()
-	if err != nil {
-		return fmt.Errorf("during addtxp close %v", err)
-	}
-
-	var blockHeader bookkeeping.BlockHeader
-	err = protocol.Decode(headerbytes, &blockHeader)
-	if err != nil {
-		return fmt.Errorf("decode header %v", err)
-	}
-	headerjson := encoding.EncodeBlockHeader(blockHeader)
-	_, err = tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0).UTC(), rewardslevel, headerjson)
-	if err != nil {
-		return fmt.Errorf("put block_header %v    %#v", err, err)
-	}
-
-	return tx.Commit()
-}
-
-// CommitBlock is part of idb.IndexerDB
-func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
 	f := func(ctx context.Context, tx *sql.Tx) error {
-		return db.commitBlock(tx, round, timestamp, rewardslevel, headerbytes)
-	}
-	err := db.txWithRetry(context.Background(), serializable, f)
+		defer tx.Rollback()
 
-	db.txrows = nil
-	db.txprows = nil
-
-	if err != nil {
-		return fmt.Errorf("CommitBlock(): %v", err)
-	}
-	return nil
-}
-
-// GetDefaultFrozen get {assetid:default frozen, ...} for all assets, needed by accounting.
-// Because Go map[]bool returns false by default, we actually return only a map of the true elements.
-func (db *IndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
-	rows, err := db.db.Query(`SELECT index FROM asset WHERE (params ->> 'df')::boolean = true`)
-	if err != nil {
-		return
-	}
-	defaultFrozen = make(map[uint64]bool)
-	for rows.Next() {
-		var assetid uint64
-		err = rows.Scan(&assetid)
+		// Check and increment next round counter.
+		importstate, err := db.getImportState(tx)
 		if err != nil {
-			return
+			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		defaultFrozen[assetid] = true
+		if importstate.NextRoundToAccount == nil {
+			return fmt.Errorf("AddBlock() import state not initialized")
+		}
+		if block.Round() != basics.Round(*importstate.NextRoundToAccount) {
+			return fmt.Errorf(
+				"AddBlock() adding block round %d but next round to account is %d",
+				block.Round(), *importstate.NextRoundToAccount)
+		}
+		*importstate.NextRoundToAccount++
+		err = db.setImportState(tx, importstate)
+		if err != nil {
+			return fmt.Errorf("AddBlock() err: %w", err)
+		}
+
+		writer, err := writer.MakeWriter(tx)
+		if err != nil {
+			return fmt.Errorf("AddBlock() err: %w", err)
+		}
+		defer writer.Close()
+
+		if block.Round() == basics.Round(0) {
+			// Block 0 is special, we cannot run the evaluator on it.
+			// It contains no transactions, so just write the header.
+			err := writer.AddBlock(block, nil, ledgercore.StateDelta{})
+			if err != nil {
+				return fmt.Errorf("AddBlock() err: %w", err)
+			}
+		} else {
+			specialAddresses := transactions.SpecialAddresses{
+				FeeSink:     block.FeeSink,
+				RewardsPool: block.RewardsPool,
+			}
+			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+				tx, block.GenesisHash(), specialAddresses)
+			if err != nil {
+				return fmt.Errorf("AddBlock() err: %w", err)
+			}
+
+			proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
+			if !ok {
+				return fmt.Errorf(
+					"AddBlock() cannot find proto version %s", block.BlockHeader.CurrentProtocol)
+			}
+			proto.EnableAssetCloseAmount = true
+
+			delta, modifiedTxns, err := ledger.Eval(ledgerForEval, block, proto)
+			if err != nil {
+				return fmt.Errorf("AddBlock() eval err: %w", err)
+			}
+
+			err = writer.AddBlock(block, modifiedTxns, delta)
+			if err != nil {
+				return fmt.Errorf("AddBlock() err: %w", err)
+			}
+		}
+
+		err = tx.Commit()
+		if err != nil {
+			return fmt.Errorf("AddBlock() tx commit err: %w", err)
+		}
+
+		return nil
 	}
-	return
+	return db.txWithRetry(context.Background(), serializable, f)
 }
 
 // LoadGenesis is part of idb.IndexerDB
@@ -472,743 +411,6 @@ func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (uint64, error) {
 		round--
 	}
 	return round, nil
-}
-
-// GetNextRoundToLoad is part of idb.IndexerDB
-func (db *IndexerDb) GetNextRoundToLoad() (uint64, error) {
-	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
-
-	var nullableRound sql.NullInt64
-	err := row.Scan(&nullableRound)
-	if err == sql.ErrNoRows {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, err
-	}
-
-	if !nullableRound.Valid {
-		return 0, nil
-	}
-	return uint64(nullableRound.Int64 + 1), nil
-}
-
-// Break the read query so that PostgreSQL doesn't get bogged down
-// tracking transactional changes to tables.
-const txnQueryBatchSize = 20000
-
-var yieldTxnQuery string
-
-func init() {
-	yieldTxnQuery = fmt.Sprintf(`SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, b.realtime FROM txn t JOIN block_header b ON t.round = b.round WHERE t.round > $1 ORDER BY round, intra LIMIT %d`, txnQueryBatchSize)
-}
-
-func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- idb.TxnRow) {
-	defer rows.Close()
-
-	keepGoing := true
-	for keepGoing {
-		keepGoing = false
-		rounds := make([]uint64, txnQueryBatchSize)
-		intras := make([]int, txnQueryBatchSize)
-		txnbytess := make([][]byte, txnQueryBatchSize)
-		extrajsons := make([][]byte, txnQueryBatchSize)
-		creatableids := make([]int64, txnQueryBatchSize)
-		roundtimes := make([]time.Time, txnQueryBatchSize)
-		pos := 0
-		// read from db
-		for rows.Next() {
-			var round uint64
-			var intra int
-			var txnbytes []byte
-			var extrajson []byte
-			var creatableid int64
-			var roundtime time.Time
-			err := rows.Scan(&round, &intra, &txnbytes, &extrajson, &creatableid, &roundtime)
-			if err != nil {
-				var row idb.TxnRow
-				row.Error = err
-				results <- row
-				return
-			}
-
-			rounds[pos] = round
-			intras[pos] = intra
-			txnbytess[pos] = txnbytes
-			extrajsons[pos] = extrajson
-			creatableids[pos] = creatableid
-			roundtimes[pos] = roundtime
-			pos++
-
-			keepGoing = true
-		}
-		if err := rows.Err(); err != nil {
-			var row idb.TxnRow
-			row.Error = err
-			results <- row
-			return
-		}
-		if pos == 0 {
-			break
-		}
-		if pos == txnQueryBatchSize {
-			// figure out last whole round we got
-			lastpos := pos - 1
-			lastround := rounds[lastpos]
-			lastpos--
-			for lastpos >= 0 && rounds[lastpos] == lastround {
-				lastpos--
-			}
-			if lastpos == 0 {
-				panic("unwound whole fetch!")
-			}
-			pos = lastpos + 1
-		}
-		// yield to chan
-		for i := 0; i < pos; i++ {
-			var row idb.TxnRow
-			row.Round = rounds[i]
-			row.RoundTime = roundtimes[i]
-			row.Intra = intras[i]
-			row.TxnBytes = txnbytess[i]
-			row.AssetID = uint64(creatableids[i])
-			if len(extrajsons[i]) > 0 {
-				err := encoding.DecodeJSON(extrajsons[i], &row.Extra)
-				if err != nil {
-					row.Error = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
-					results <- row
-					return
-				}
-			}
-			select {
-			case <-ctx.Done():
-				return
-			case results <- row:
-			}
-		}
-		if keepGoing {
-			var err error
-			prevRound := rounds[pos-1]
-			rows, err = db.db.QueryContext(ctx, yieldTxnQuery, prevRound)
-			if err != nil {
-				results <- idb.TxnRow{Error: err}
-				break
-			}
-		}
-	}
-}
-
-// YieldTxns is part of idb.IndexerDB
-func (db *IndexerDb) YieldTxns(ctx context.Context, firstRound uint64) <-chan idb.TxnRow {
-	results := make(chan idb.TxnRow, 1)
-	rows, err := db.db.QueryContext(ctx, yieldTxnQuery, int64(firstRound)-1)
-	if err != nil {
-		results <- idb.TxnRow{Error: err}
-		close(results)
-		return results
-	}
-	go func() {
-		db.yieldTxnsThread(ctx, rows, results)
-		close(results)
-	}()
-	return results
-}
-
-// TODO: maybe make a flag to set this, but in case of bug set this to
-// debug any asset that isn't working out right:
-var debugAsset uint64 = 0
-
-func obs(x interface{}) string {
-	return string(encoding.EncodeJSON(x))
-}
-
-func setFromValueDelta(vd basics.ValueDelta, tv *basics.TealValue) error {
-	switch vd.Action {
-	case basics.SetUintAction:
-		tv.Type = basics.TealUintType
-		tv.Uint = vd.Uint
-	case basics.SetBytesAction:
-		tv.Type = basics.TealBytesType
-		tv.Bytes = vd.Bytes
-	default:
-		return fmt.Errorf("could not apply ValueDelta %v", vd)
-	}
-	return nil
-}
-
-type inmemAppLocalState struct {
-	basics.AppLocalState
-
-	address  []byte
-	appIndex int64
-}
-
-// Build a reverse delta and apply the delta to the TealKeyValue state.
-func applyKeyValueDelta(state *basics.TealKeyValue, key []byte, vd basics.ValueDelta) (err error) {
-	if *state == nil {
-		*state = make(map[string]basics.TealValue)
-	}
-
-	newValue := (*state)[string(key)]
-	switch vd.Action {
-	case basics.SetUintAction, basics.SetBytesAction:
-		setFromValueDelta(vd, &newValue)
-		(*state)[string(key)] = newValue
-	case basics.DeleteAction:
-		delete(*state, string(key))
-	default:
-		return fmt.Errorf("unknown action action=%d, delta=%v", vd.Action, vd)
-	}
-	return nil
-}
-
-func updateStateSchemaFromBlock(x basics.StateSchema, ss *basics.StateSchema) {
-	if x.NumUint != 0 || x.NumByteSlice != 0 {
-		ss.NumUint = x.NumUint
-		ss.NumByteSlice = x.NumByteSlice
-	}
-}
-
-func (db *IndexerDb) getDirtyAppLocalState(addr []byte, appIndex int64, dirty []inmemAppLocalState, getq *sql.Stmt) (localstate inmemAppLocalState, err error) {
-	for _, v := range dirty {
-		if v.appIndex == appIndex && bytes.Equal(addr, v.address) {
-			return v, nil
-		}
-	}
-	var localstatejson []byte
-	row := getq.QueryRow(addr, appIndex)
-	err = row.Scan(&localstatejson)
-	if err == sql.ErrNoRows {
-		// ok, no prior data, empty state
-		err = nil
-	} else if err != nil {
-		err = fmt.Errorf("app local get, %v", err)
-		return
-	} else if len(localstatejson) > 0 {
-		localstate.AppLocalState, err = encoding.DecodeAppLocalState(localstatejson)
-		if err != nil {
-			err = fmt.Errorf("app local get bad json, %v", err)
-		}
-	}
-	localstate.address = addr
-	localstate.appIndex = appIndex
-	return
-}
-
-// overwrite or append
-func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []inmemAppLocalState {
-	for i, v := range dirty {
-		if v.appIndex == x.appIndex && bytes.Equal(v.address, x.address) {
-			dirty[i] = x
-			return dirty
-		}
-	}
-	return append(dirty, x)
-}
-
-// MergeAssetConfig merges together two asset param objects.
-func MergeAssetConfig(old, new basics.AssetParams) (out basics.AssetParams) {
-	// if asset is new, set.
-	// if new config is empty, set empty.
-	// else, update.
-	if old == (basics.AssetParams{}) {
-		out = new
-	} else if new == (basics.AssetParams{}) {
-		out = old
-	} else {
-		out = old
-		if !old.Manager.IsZero() {
-			out.Manager = new.Manager
-		}
-		if !old.Reserve.IsZero() {
-			out.Reserve = new.Reserve
-		}
-		if !old.Freeze.IsZero() {
-			out.Freeze = new.Freeze
-		}
-		if !old.Clawback.IsZero() {
-			out.Clawback = new.Clawback
-		}
-		// no other fields get updated. See:
-		// go-algorand/data/transactions/asset.go
-	}
-	return
-}
-
-func (db *IndexerDb) commitRoundAccounting(tx *sql.Tx, updates idb.RoundUpdates, round uint64, blockHeader *bookkeeping.BlockHeader) (err error) {
-	defer tx.Rollback() // ignored if .Commit() first
-
-	db.accountingLock.Lock()
-	defer db.accountingLock.Unlock()
-
-	any := false
-	if len(updates.AlgoUpdates) > 0 {
-		any = true
-		// account_data json is only used on account creation, otherwise the account data jsonb field is updated from the delta
-		upsertalgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewards_total = account.rewards_total + EXCLUDED.rewards_total, deleted = false`)
-		if err != nil {
-			return fmt.Errorf("prepare update algo, %v", err)
-		}
-		defer upsertalgo.Close()
-
-		// If the account is closing the cumulative rewards field and closed_at needs to be set directly
-		// Using an upsert because it's technically allowed to create and close an account in the same round.
-		closealgo, err := tx.Prepare(`INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, created_at, closed_at, deleted) VALUES ($1, $2, $3, $4, $5, $6, true) ON CONFLICT (addr) DO UPDATE SET microalgos = account.microalgos + EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase, rewards_total = EXCLUDED.rewards_total, closed_at = EXCLUDED.closed_at, deleted = true, account_data = NULL`)
-		if err != nil {
-			return fmt.Errorf("prepare reset algo, %v", err)
-		}
-		defer closealgo.Close()
-
-		for addr, delta := range updates.AlgoUpdates {
-			if !delta.Closed {
-				_, err = upsertalgo.Exec(addr[:], delta.Balance, blockHeader.RewardsLevel, delta.Rewards, round)
-				if err != nil {
-					return fmt.Errorf("update algo, %v", err)
-				}
-			} else {
-				_, err = closealgo.Exec(addr[:], delta.Balance, blockHeader.RewardsLevel, delta.Rewards, round, round)
-				if err != nil {
-					return fmt.Errorf("close algo, %v", err)
-				}
-			}
-		}
-	}
-	if len(updates.AccountTypes) > 0 {
-		any = true
-		setat, err := tx.Prepare(`UPDATE account SET keytype = $1 WHERE addr = $2`)
-		if err != nil {
-			return fmt.Errorf("prepare update account type, %v", err)
-		}
-		defer setat.Close()
-		for addr, kt := range updates.AccountTypes {
-			_, err = setat.Exec(kt, addr[:])
-			if err != nil {
-				return fmt.Errorf("update account type, %v", err)
-			}
-		}
-	}
-	if len(updates.AccountDataUpdates) > 0 {
-		any = true
-
-		setad, err := tx.Prepare(`UPDATE account SET account_data = coalesce(account_data, '{}'::jsonb) || ($1)::jsonb WHERE addr = $2`)
-		if err != nil {
-			return fmt.Errorf("prepare keyreg, %v", err)
-		}
-		defer setad.Close()
-
-		delad, err := tx.Prepare(`UPDATE account SET account_data = coalesce(account_data, '{}'::jsonb) - $1 WHERE addr = $2`)
-		if err != nil {
-			return fmt.Errorf("prepare keyreg, %v", err)
-		}
-		defer delad.Close()
-
-		for addr, acctDataUpdates := range updates.AccountDataUpdates {
-			set := make(map[string]interface{})
-
-			for key, acctDataUpdate := range acctDataUpdates {
-				if acctDataUpdate.Delete {
-					_, err = delad.Exec(key, addr[:])
-					if err != nil {
-						return fmt.Errorf("delete key in account data, %v", err)
-					}
-				} else {
-					set[key] = acctDataUpdate.Value
-				}
-			}
-
-			jb := encoding.EncodeJSON(set)
-			_, err = setad.Exec(jb, addr[:])
-			if err != nil {
-				return fmt.Errorf("update account data, %v", err)
-			}
-		}
-	}
-	if len(updates.AssetUpdates) > 0 && len(updates.AssetUpdates[0]) > 0 {
-		any = true
-
-		////////////////
-		// Asset Xfer //
-		////////////////
-		// Create new account_asset, initialize a previously destroyed asset, or apply the balance delta.
-		// Setting frozen is complicated for the no-op optin case. It should only be set to default-frozen when the
-		// holding is deleted, otherwise it should be left as the original value.
-		seta, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, $3, $4, $5, false) ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, frozen = (EXCLUDED.frozen AND coalesce(account_asset.deleted, false)) OR (account_asset.frozen AND NOT coalesce(account_asset.deleted, false)), deleted = false`)
-		if err != nil {
-			return fmt.Errorf("prepare set account_asset, %v", err)
-		}
-		defer seta.Close()
-
-		/////////////////
-		// Asset Close //
-		/////////////////
-		// On asset opt-out attach some extra "apply data" metadata to allow rewinding the asset close if requested.
-		acc, err := tx.Prepare(`WITH aaamount AS (SELECT ($1)::bigint as round, ($2)::bigint as intra, x.amount FROM account_asset x WHERE x.addr = $3 AND x.assetid = $4)
-UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{aca}', to_jsonb(aaamount.amount)) FROM aaamount WHERE ut.round = aaamount.round AND ut.intra = aaamount.intra`)
-		if err != nil {
-			return fmt.Errorf("prepare asset close0, %v", err)
-		}
-		defer acc.Close()
-		// On asset opt-out update the CloseTo account_asset
-		acs, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted)
-SELECT $1, $2, x.amount, $3, $6, false FROM account_asset x WHERE x.addr = $4 AND x.assetid = $5 AND x.amount <> 0
-ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUDED.amount, deleted = false`)
-		if err != nil {
-			return fmt.Errorf("prepare asset close1, %v", err)
-		}
-		defer acs.Close()
-		// On asset opt-out mark the account_asset as closed with zero balance.
-		acd, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1, deleted = true WHERE addr = $2 AND assetid = $3`)
-		if err != nil {
-			return fmt.Errorf("prepare asset close2, %v", err)
-		}
-		defer acd.Close()
-
-		//////////////////
-		// Asset Config //
-		//////////////////
-		setacfg, err := tx.Prepare(`INSERT INTO asset (index, creator_addr, params, created_at, deleted) VALUES ($1, $2, $3, $4, false) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params, deleted = false`)
-		if err != nil {
-			return fmt.Errorf("prepare set asset, %v", err)
-		}
-		defer setacfg.Close()
-		getacfg, err := tx.Prepare(`SELECT params FROM asset WHERE index = $1`)
-		if err != nil {
-			return fmt.Errorf("prepare get asset, %v", err)
-		}
-		defer getacfg.Close()
-
-		//////////////////
-		// Asset Freeze //
-		//////////////////
-		fr, err := tx.Prepare(`INSERT INTO account_asset (addr, assetid, amount, frozen, created_at, deleted) VALUES ($1, $2, 0, $3, $4, false) ON CONFLICT (addr, assetid) DO UPDATE SET frozen = EXCLUDED.frozen, deleted = false`)
-		if err != nil {
-			return fmt.Errorf("prepare asset freeze, %v", err)
-		}
-		defer fr.Close()
-
-		for _, subround := range updates.AssetUpdates {
-			for addr, aulist := range subround {
-				for _, au := range aulist {
-					if au.AssetID == debugAsset {
-						db.log.Errorf("%d axfer %s %s", round, encoding.Base64(addr[:]), obs(au))
-					}
-
-					// Apply deltas
-					if au.Transfer != nil {
-						if au.Transfer.Delta.IsInt64() {
-							// easy case
-							delta := au.Transfer.Delta.Int64()
-							// don't skip delta == 0; mark opt-in
-							_, err = seta.Exec(addr[:], au.AssetID, delta, au.DefaultFrozen, round)
-							if err != nil {
-								return fmt.Errorf("update account asset, %v", err)
-							}
-						} else {
-							sign := au.Transfer.Delta.Sign()
-							var mi big.Int
-							var step int64
-							if sign > 0 {
-								mi.SetInt64(math.MaxInt64)
-								step = math.MaxInt64
-							} else if sign < 0 {
-								mi.SetInt64(math.MinInt64)
-								step = math.MinInt64
-							} else {
-								continue
-							}
-							for !au.Transfer.Delta.IsInt64() {
-								_, err = seta.Exec(addr[:], au.AssetID, step, au.DefaultFrozen, round)
-								if err != nil {
-									return fmt.Errorf("update account asset, %v", err)
-								}
-								au.Transfer.Delta.Sub(&au.Transfer.Delta, &mi)
-							}
-							sign = au.Transfer.Delta.Sign()
-							if sign != 0 {
-								_, err = seta.Exec(addr[:], au.AssetID, au.Transfer.Delta.Int64(), au.DefaultFrozen, round)
-								if err != nil {
-									return fmt.Errorf("update account asset, %v", err)
-								}
-							}
-						}
-					}
-
-					// Close holding before continuing to next subround.
-					if au.Close != nil {
-						_, err = acc.Exec(au.Close.Round, au.Close.Offset, au.Close.Sender[:], au.AssetID)
-						if err != nil {
-							return fmt.Errorf("asset close record amount, %v", err)
-						}
-						_, err = acs.Exec(au.Close.CloseTo[:], au.AssetID, au.DefaultFrozen, au.Close.Sender[:], au.AssetID, round)
-						if err != nil {
-							return fmt.Errorf("asset close send, %v", err)
-						}
-						_, err = acd.Exec(round, au.Close.Sender[:], au.AssetID)
-						if err != nil {
-							return fmt.Errorf("asset close del, %v", err)
-						}
-					}
-
-					// Asset Config
-					if au.Config != nil {
-						var params basics.AssetParams
-						if au.Config.IsNew {
-							params = au.Config.Params
-						} else {
-							row := getacfg.QueryRow(au.AssetID)
-							var paramjson []byte
-							err = row.Scan(&paramjson)
-							if err != nil {
-								return fmt.Errorf("get acfg %d, %v", au.AssetID, err)
-							}
-							params, err = encoding.DecodeAssetParams(paramjson)
-							if err != nil {
-								return fmt.Errorf("bad acgf json %d, %v", au.AssetID, err)
-							}
-							params = MergeAssetConfig(params, au.Config.Params)
-						}
-						outparams := encoding.EncodeAssetParams(params)
-						_, err = setacfg.Exec(au.AssetID, au.Config.Creator[:], outparams, round)
-						if err != nil {
-							return fmt.Errorf("update asset, %v", err)
-						}
-					}
-
-					// Asset Freeze
-					if au.Freeze != nil {
-						if au.AssetID == debugAsset {
-							db.log.Errorf("%d %s %s", round, encoding.Base64(addr[:]), obs(au.Freeze))
-						}
-						_, err = fr.Exec(addr[:], au.AssetID, au.Freeze.Frozen, round)
-						if err != nil {
-							return fmt.Errorf("update asset freeze, %v", err)
-						}
-					}
-				}
-			}
-		}
-	}
-	if len(updates.AssetDestroys) > 0 {
-		// Note! leaves `asset` and `account_asset` rows present for historical reference, but deletes all holdings from all accounts
-		any = true
-		// Update any account_asset holdings which were not previously closed. By now the amount should already be 0.
-		ads, err := tx.Prepare(`UPDATE account_asset SET amount = 0, closed_at = $1, deleted = true WHERE addr = (SELECT creator_addr FROM asset WHERE index = $2) AND assetid = $2`)
-		if err != nil {
-			return fmt.Errorf("prepare asset destroy, %v", err)
-		}
-		defer ads.Close()
-		// Clear out the parameters and set closed_at
-		aclear, err := tx.Prepare(`UPDATE asset SET params = 'null'::jsonb, closed_at = $1, deleted = true WHERE index = $2`)
-		if err != nil {
-			return fmt.Errorf("prepare asset clear, %v", err)
-		}
-		defer aclear.Close()
-		for _, assetID := range updates.AssetDestroys {
-			if assetID == debugAsset {
-				db.log.Errorf("%d destroy asset %d", round, assetID)
-			}
-			_, err = ads.Exec(round, assetID)
-			if err != nil {
-				return fmt.Errorf("asset destroy, %v", err)
-			}
-			_, err = aclear.Exec(round, assetID)
-			if err != nil {
-				return fmt.Errorf("asset destroy, %v", err)
-			}
-		}
-	}
-	if len(updates.AppGlobalDeltas) > 0 {
-		// apps with dirty global state, collection of AppParams as dict
-		destroy := make(map[uint64]bool)
-		dirty := make(map[uint64]basics.AppParams)
-		appCreators := make(map[uint64][]byte)
-		getglobal, err := tx.Prepare(`SELECT params FROM app WHERE index = $1`)
-		if err != nil {
-			return fmt.Errorf("prepare app global get, %v", err)
-		}
-		defer getglobal.Close()
-		for _, adelta := range updates.AppGlobalDeltas {
-			state, ok := dirty[uint64(adelta.AppIndex)]
-			if !ok {
-				row := getglobal.QueryRow(adelta.AppIndex)
-				var paramsjson []byte
-				err = row.Scan(&paramsjson)
-				if err == sql.ErrNoRows {
-					// no prior data, empty state
-				} else if err != nil {
-					return fmt.Errorf("app[%d] global get, %v", adelta.AppIndex, err)
-				} else {
-					state, err = encoding.DecodeAppParams(paramsjson)
-					if err != nil {
-						return fmt.Errorf("app[%d] global get json, %v", adelta.AppIndex, err)
-					}
-				}
-			}
-			// apply delta to state, save state to dirty
-			if len(adelta.ApprovalProgram) > 0 {
-				state.ApprovalProgram = adelta.ApprovalProgram
-			}
-			if len(adelta.ClearStateProgram) > 0 {
-				state.ClearStateProgram = adelta.ClearStateProgram
-			}
-			updateStateSchemaFromBlock(adelta.GlobalStateSchema, &state.GlobalStateSchema)
-			updateStateSchemaFromBlock(adelta.LocalStateSchema, &state.LocalStateSchema)
-			for key, vd := range adelta.Delta {
-				err = applyKeyValueDelta(&state.GlobalState, []byte(key), vd)
-				if err != nil {
-					return fmt.Errorf("app delta apply err r=%d i=%d app=%d, %v", adelta.Round, adelta.Intra, adelta.AppIndex, err)
-				}
-			}
-			state.ExtraProgramPages = adelta.ExtraProgramPages
-
-			if adelta.OnCompletion == transactions.DeleteApplicationOC {
-				// clear content but leave row recording that it existed
-				state = basics.AppParams{}
-				destroy[uint64(adelta.AppIndex)] = true
-			} else {
-				delete(destroy, uint64(adelta.AppIndex))
-			}
-			dirty[uint64(adelta.AppIndex)] = state
-			if adelta.Creator != nil {
-				appCreators[uint64(adelta.AppIndex)] = adelta.Creator
-			}
-		}
-
-		// apply dirty global state deltas for the round
-		putglobal, err := tx.Prepare(`INSERT INTO app (index, creator, params, created_at, deleted) VALUES ($1, $2, $3, $4, false) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params, closed_at = coalesce($5, app.closed_at), deleted = $6`)
-		if err != nil {
-			return fmt.Errorf("prepare app global put, %v", err)
-		}
-		defer putglobal.Close()
-		for appid, params := range dirty {
-			// Nullable closedAt value
-			closedAt := sql.NullInt64{
-				Int64: int64(round),
-				Valid: destroy[appid],
-			}
-			creator := appCreators[appid]
-			paramjson := encoding.EncodeAppParams(params)
-			_, err = putglobal.Exec(appid, creator, paramjson, round, closedAt, destroy[appid])
-			if err != nil {
-				return fmt.Errorf("app global put pj=%v, %v", string(paramjson), err)
-			}
-		}
-	}
-	if len(updates.AppLocalDeltas) > 0 {
-		dirty := make([]inmemAppLocalState, 0, len(updates.AppLocalDeltas))
-		getlocal, err := tx.Prepare(`SELECT localstate FROM account_app WHERE addr = $1 AND app = $2`)
-		if err != nil {
-			return fmt.Errorf("prepare app local get, %v", err)
-		}
-		defer getlocal.Close()
-		var droplocals [][]interface{}
-
-		getapp, err := tx.Prepare(`SELECT params FROM app WHERE index = $1`)
-		if err != nil {
-			return fmt.Errorf("prepare app get (l), %v", err)
-		}
-
-		for _, ald := range updates.AppLocalDeltas {
-			if ald.OnCompletion == transactions.CloseOutOC || ald.OnCompletion == transactions.ClearStateOC {
-				droplocals = append(droplocals,
-					[]interface{}{ald.Address, ald.AppIndex, round},
-				)
-				continue
-			}
-			localstate, err := db.getDirtyAppLocalState(ald.Address, ald.AppIndex, dirty, getlocal)
-			if err != nil {
-				return err
-			}
-			if ald.OnCompletion == transactions.OptInOC {
-				row := getapp.QueryRow(ald.AppIndex)
-				var paramsjson []byte
-				err = row.Scan(&paramsjson)
-				if err != nil {
-					return fmt.Errorf("app get (l), %v", err)
-				}
-				var app basics.AppParams
-				app, err = encoding.DecodeAppParams(paramsjson)
-				if err != nil {
-					return fmt.Errorf("app[%d] get json (l), %v", ald.AppIndex, err)
-				}
-				localstate.Schema = app.LocalStateSchema
-			}
-
-			for key, vd := range ald.Delta {
-				err = applyKeyValueDelta(&localstate.KeyValue, []byte(key), vd)
-				if err != nil {
-					return err
-				}
-			}
-			dirty = setDirtyAppLocalState(dirty, localstate)
-		}
-
-		if len(dirty) > 0 {
-			// apply local state deltas for the round
-			putglobal, err := tx.Prepare(`INSERT INTO account_app (addr, app, localstate, created_at, deleted) VALUES ($1, $2, $3, $4, false) ON CONFLICT (addr, app) DO UPDATE SET localstate = EXCLUDED.localstate, deleted = false`)
-			if err != nil {
-				return fmt.Errorf("prepare app local put, %v", err)
-			}
-			defer putglobal.Close()
-			for _, ld := range dirty {
-				_, err = putglobal.Exec(ld.address, ld.appIndex, encoding.EncodeAppLocalState(ld.AppLocalState), round)
-				if err != nil {
-					return fmt.Errorf("app local put, %v", err)
-				}
-			}
-		}
-
-		if len(droplocals) > 0 {
-			droplocal, err := tx.Prepare(`UPDATE account_app SET localstate = NULL, closed_at = $3, deleted = true WHERE addr = $1 AND app = $2`)
-			if err != nil {
-				return fmt.Errorf("prepare app local del, %v", err)
-			}
-			defer droplocal.Close()
-			for _, dl := range droplocals {
-				_, err = droplocal.Exec(dl...)
-				if err != nil {
-					return fmt.Errorf("app local del, %v", err)
-				}
-			}
-		}
-	}
-	if !any {
-		db.log.Debugf("empty round %d", round)
-	}
-
-	importstate, err := db.getImportState(tx)
-	if err != nil {
-		return err
-	}
-
-	if importstate.NextRoundToAccount == nil {
-		return fmt.Errorf("importstate.AccountRound is nil")
-	}
-
-	if uint64(*importstate.NextRoundToAccount) > round {
-		return fmt.Errorf(
-			"next round to account is %d while trying to write round %d",
-			*importstate.NextRoundToAccount, round)
-	}
-
-	*importstate.NextRoundToAccount = round + 1
-	err = db.setImportState(tx, importstate)
-	if err != nil {
-		return
-	}
-
-	return tx.Commit()
-}
-
-// CommitRoundAccounting is part of idb.IndexerDB
-func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockHeader *bookkeeping.BlockHeader) error {
-	f := func(ctx context.Context, tx *sql.Tx) (err error) {
-		return db.commitRoundAccounting(tx, updates, round, blockHeader)
-	}
-	if err := db.txWithRetry(context.Background(), serializable, f); err != nil {
-		return fmt.Errorf("CommitRoundAccounting(): %v", err)
-	}
-	return nil
 }
 
 // GetBlock is part of idb.IndexerDB
@@ -2865,31 +2067,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 func (db *IndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error) {
 	cache, err := db.getMetastate(nil, specialAccountsMetastateKey)
 	if err != nil {
-		if err != idb.ErrorNotInitialized {
-			return transactions.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
-		}
-
-		// Initialize specialAccountsMetastateKey
-		blockHeader, _, err := db.GetBlock(context.Background(), 0, idb.GetBlockOptions{})
-		if err != nil {
-			err = fmt.Errorf(
-				"GetSpecialAccounts() problem looking up special accounts from genesis "+
-					"block, err: %w", err)
-			return transactions.SpecialAddresses{}, err
-		}
-
-		accounts := transactions.SpecialAddresses{
-			FeeSink:     blockHeader.FeeSink,
-			RewardsPool: blockHeader.RewardsPool,
-		}
-
-		cache := encoding.EncodeSpecialAddresses(accounts)
-		err = db.setMetastate(nil, specialAccountsMetastateKey, string(cache))
-		if err != nil {
-			return transactions.SpecialAddresses{}, fmt.Errorf("problem saving metastate: %v", err)
-		}
-
-		return accounts, nil
+		return transactions.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
 	}
 
 	accounts, err := encoding.DecodeSpecialAddresses([]byte(cache))
