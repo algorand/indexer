@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/config"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
 	models "github.com/algorand/indexer/api/generated/v2"
 
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/types"
 )
 
 // ConsistencyError is returned when the database returns inconsistent (stale) results.
@@ -60,7 +62,7 @@ func (sare *SpecialAccountRewindError) Error() string {
 	return fmt.Sprintf("unable to rewind the %s", sare.account)
 }
 
-var specialAccounts *idb.SpecialAccounts
+var specialAccounts *transactions.SpecialAddresses
 
 // AccountAtRound queries the idb.IndexerDb object for transactions and rewinds most fields of the account back to
 // their values at the requested round.
@@ -68,7 +70,7 @@ var specialAccounts *idb.SpecialAccounts
 func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acct models.Account, err error) {
 	// Make sure special accounts cache has been initialized.
 	if specialAccounts == nil {
-		var accounts idb.SpecialAccounts
+		var accounts transactions.SpecialAddresses
 		accounts, err = db.GetSpecialAccounts()
 		if err != nil {
 			return models.Account{}, fmt.Errorf("unable to get special accounts: %v", err)
@@ -77,18 +79,18 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 	}
 
 	acct = account
-	var addr types.Address
-	addr, err = sdk_types.DecodeAddress(account.Address)
+	var addr basics.Address
+	addr, err = basics.UnmarshalChecksumAddress(account.Address)
 	if err != nil {
 		return
 	}
 
 	// ensure that the don't attempt to rewind a special account.
-	if specialAccounts.FeeSink == addr {
+	if basics.Address(specialAccounts.FeeSink) == addr {
 		err = MakeSpecialAccountRewindError("FeeSink")
 		return
 	}
-	if specialAccounts.RewardsPool == addr {
+	if basics.Address(specialAccounts.RewardsPool) == addr {
 		err = MakeSpecialAccountRewindError("RewardsPool")
 		return
 	}
@@ -111,53 +113,53 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			return
 		}
 		txcount++
-		var stxn types.SignedTxnWithAD
-		err = msgpack.Decode(txnrow.TxnBytes, &stxn)
+		var stxn transactions.SignedTxnWithAD
+		err = protocol.Decode(txnrow.TxnBytes, &stxn)
 		if err != nil {
 			return
 		}
-		if addr == stxn.Txn.Sender {
-			acct.AmountWithoutPendingRewards += uint64(stxn.Txn.Fee)
-			acct.AmountWithoutPendingRewards -= uint64(stxn.SenderRewards)
-			acct.Rewards -= uint64(stxn.SenderRewards)
+		if addr == basics.Address(stxn.Txn.Sender) {
+			acct.AmountWithoutPendingRewards += stxn.Txn.Fee.Raw
+			acct.AmountWithoutPendingRewards -= stxn.SenderRewards.Raw
+			acct.Rewards -= stxn.SenderRewards.Raw
 		}
-		switch stxn.Txn.Type {
-		case sdk_types.PaymentTx:
-			if addr == stxn.Txn.Sender {
-				acct.AmountWithoutPendingRewards += uint64(stxn.Txn.Amount)
+		switch protocol.TxType(stxn.Txn.Type) {
+		case protocol.PaymentTx:
+			if addr == basics.Address(stxn.Txn.Sender) {
+				acct.AmountWithoutPendingRewards += stxn.Txn.Amount.Raw
 			}
-			if addr == stxn.Txn.Receiver {
-				acct.AmountWithoutPendingRewards -= uint64(stxn.Txn.Amount)
-				acct.AmountWithoutPendingRewards -= uint64(stxn.ReceiverRewards)
-				acct.Rewards -= uint64(stxn.ReceiverRewards)
+			if addr == basics.Address(stxn.Txn.Receiver) {
+				acct.AmountWithoutPendingRewards -= stxn.Txn.Amount.Raw
+				acct.AmountWithoutPendingRewards -= stxn.ReceiverRewards.Raw
+				acct.Rewards -= stxn.ReceiverRewards.Raw
 			}
-			if addr == stxn.Txn.CloseRemainderTo {
+			if addr == basics.Address(stxn.Txn.CloseRemainderTo) {
 				// unwind receiving a close-to
-				acct.AmountWithoutPendingRewards -= uint64(stxn.ClosingAmount)
-				acct.AmountWithoutPendingRewards -= uint64(stxn.CloseRewards)
-				acct.Rewards -= uint64(stxn.CloseRewards)
+				acct.AmountWithoutPendingRewards -= stxn.ClosingAmount.Raw
+				acct.AmountWithoutPendingRewards -= stxn.CloseRewards.Raw
+				acct.Rewards -= stxn.CloseRewards.Raw
 			} else if !stxn.Txn.CloseRemainderTo.IsZero() {
 				// unwind sending a close-to
-				acct.AmountWithoutPendingRewards += uint64(stxn.ClosingAmount)
+				acct.AmountWithoutPendingRewards += stxn.ClosingAmount.Raw
 			}
-		case sdk_types.KeyRegistrationTx:
+		case protocol.KeyRegistrationTx:
 			// TODO: keyreg does not rewind. workaround: query for txns on an account with typeenum=2 to find previous values it was set to.
-		case sdk_types.AssetConfigTx:
+		case protocol.AssetConfigTx:
 			if stxn.Txn.ConfigAsset == 0 {
 				// create asset, unwind the application of the value
 				assetUpdate(&acct, txnrow.AssetID, 0, stxn.Txn.AssetParams.Total)
 			}
-		case sdk_types.AssetTransferTx:
-			if addr == stxn.Txn.AssetSender || addr == stxn.Txn.Sender {
+		case protocol.AssetTransferTx:
+			if addr == basics.Address(stxn.Txn.AssetSender) || addr == basics.Address(stxn.Txn.Sender) {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), stxn.Txn.AssetAmount+txnrow.Extra.AssetCloseAmount, 0)
 			}
-			if addr == stxn.Txn.AssetReceiver {
+			if addr == basics.Address(stxn.Txn.AssetReceiver) {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), 0, stxn.Txn.AssetAmount)
 			}
-			if addr == stxn.Txn.AssetCloseTo {
+			if addr == basics.Address(stxn.Txn.AssetCloseTo) {
 				assetUpdate(&acct, uint64(stxn.Txn.XferAsset), 0, txnrow.Extra.AssetCloseAmount)
 			}
-		case sdk_types.AssetFreezeTx:
+		case protocol.AssetFreezeTx:
 		default:
 			err = fmt.Errorf("%s[%d,%d]: rewinding past txn type %s is not currently supported", account.Address, txnrow.Round, txnrow.Intra, stxn.Txn.Type)
 			return
@@ -188,25 +190,24 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 				err = txnrow.Error
 				return
 			}
-			var stxn types.SignedTxnWithAD
-			err = msgpack.Decode(txnrow.TxnBytes, &stxn)
+			var stxn transactions.SignedTxnWithAD
+			err = protocol.Decode(txnrow.TxnBytes, &stxn)
 			if err != nil {
 				return
 			}
-			var baseBlockHeader types.BlockHeader
+			var baseBlockHeader bookkeeping.BlockHeader
 			baseBlockHeader, _, err = db.GetBlock(context.Background(), txnrow.Round, idb.GetBlockOptions{})
 			if err != nil {
 				return
 			}
 			prevRewardsBase := baseBlockHeader.RewardsLevel
-			var blockheader types.BlockHeader
+			var blockheader bookkeeping.BlockHeader
 			blockheader, _, err = db.GetBlock(context.Background(), round, idb.GetBlockOptions{})
 			if err != nil {
 				return
 			}
-			var proto types.ConsensusParams
-			proto, err = types.Protocol(string(blockheader.CurrentProtocol))
-			if err != nil {
+			proto, ok := config.Consensus[blockheader.CurrentProtocol]
+			if !ok {
 				return
 			}
 			rewardsUnits := acct.AmountWithoutPendingRewards / proto.RewardUnit

@@ -4,11 +4,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/algorand/indexer/types"
 )
 
 func TestEncodeSignedTxnWithAD(t *testing.T) {
@@ -28,10 +29,10 @@ func TestEncodeSignedTxnWithAD(t *testing.T) {
 		},
 	}
 
-	var stxn types.SignedTxnWithAD
+	var stxn transactions.SignedTxnWithAD
 	for i, mt := range testTxns {
 		t.Run(fmt.Sprintf("i=%d", i), func(t *testing.T) {
-			msgpack.Decode(mt.msgpack, &stxn)
+			protocol.Decode(mt.msgpack, &stxn)
 			js := EncodeSignedTxnWithAD(stxn)
 			require.Equal(t, mt.json, string(js))
 		})
@@ -41,17 +42,17 @@ func TestEncodeSignedTxnWithAD(t *testing.T) {
 func TestEncodeSignedTxnWithADSynthetic(t *testing.T) {
 	nonutf8b := []byte{254, 254, 255, 239, 0, 0, 17, 34, 51}
 	nonutf8 := string(nonutf8b)
-	var stxn types.SignedTxnWithAD
-	stxn.EvalDelta.GlobalDelta = make(map[string]types.ValueDelta)
-	stxn.EvalDelta.GlobalDelta[nonutf8] = types.ValueDelta{
-		Action: types.SetBytesAction,
-		Bytes:  nonutf8b,
+	var stxn transactions.SignedTxnWithAD
+	stxn.EvalDelta.GlobalDelta = make(map[string]basics.ValueDelta)
+	stxn.EvalDelta.GlobalDelta[nonutf8] = basics.ValueDelta{
+		Action: basics.SetBytesAction,
+		Bytes:  string(nonutf8b),
 	}
-	stxn.EvalDelta.LocalDeltas = make(map[uint64]types.StateDelta, 1)
-	ld := make(map[string]types.ValueDelta)
-	ld[nonutf8] = types.ValueDelta{
-		Action: types.SetBytesAction,
-		Bytes:  nonutf8b,
+	stxn.EvalDelta.LocalDeltas = make(map[uint64]basics.StateDelta, 1)
+	ld := make(map[string]basics.ValueDelta)
+	ld[nonutf8] = basics.ValueDelta{
+		Action: basics.SetBytesAction,
+		Bytes:  string(nonutf8b),
 	}
 	stxn.EvalDelta.LocalDeltas[1] = ld
 	js := EncodeSignedTxnWithAD(stxn)
@@ -60,21 +61,16 @@ func TestEncodeSignedTxnWithADSynthetic(t *testing.T) {
 
 // Test that encoding to JSON and decoding results in the same object.
 func TestJSONEncoding(t *testing.T) {
-	type Y struct {
-		Num int
-	}
 	type T struct {
-		Num    uint64
-		Str    string
-		Bytes  []byte
-		Object Y
+		Num   uint64
+		Str   string
+		Bytes []byte
 	}
 
 	x := T{
-		Num:    1,
-		Str:    "abc",
-		Bytes:  []byte{4, 5, 6},
-		Object: Y{Num: 7},
+		Num:   1,
+		Str:   "abc",
+		Bytes: []byte{4, 5, 6},
 	}
 	buf := EncodeJSON(x)
 
@@ -83,4 +79,260 @@ func TestJSONEncoding(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, x, xx)
+}
+
+// Test that encoding of AppLocalState is as expected and that decoding results in the
+// same object.
+func TestBlockHeaderEncoding(t *testing.T) {
+	i := byte(0)
+	newaddr := func() basics.Address {
+		i++
+		var address basics.Address
+		address[0] = i
+		return address
+	}
+
+	var branch bookkeeping.BlockHash
+	branch[0] = 5
+
+	header := bookkeeping.BlockHeader{
+		Round:  3,
+		Branch: branch,
+		RewardsState: bookkeeping.RewardsState{
+			FeeSink:     newaddr(),
+			RewardsPool: newaddr(),
+		},
+	}
+
+	buf := EncodeBlockHeader(header)
+
+	expectedString := `{"fees":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","prev":"BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rnd":3,"rwd":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
+	assert.Equal(t, expectedString, string(buf))
+
+	headerNew, err := DecodeBlockHeader(buf)
+	require.NoError(t, err)
+	assert.Equal(t, header, headerNew)
+}
+
+// Test that encoding of AssetParams is as expected and that decoding results in the
+// same object.
+func TestAssetParamsEncoding(t *testing.T) {
+	i := byte(0)
+	newaddr := func() basics.Address {
+		i++
+		var address basics.Address
+		address[0] = i
+		return address
+	}
+
+	params := basics.AssetParams{
+		Total:    99999,
+		URL:      "https://my.asset",
+		Manager:  newaddr(),
+		Reserve:  newaddr(),
+		Freeze:   newaddr(),
+		Clawback: newaddr(),
+	}
+
+	buf := EncodeAssetParams(params)
+
+	expectedString := `{"au":"https://my.asset","c":"BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","f":"AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","m":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","r":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","t":99999}`
+	assert.Equal(t, expectedString, string(buf))
+
+	paramsNew, err := DecodeAssetParams(buf)
+	require.NoError(t, err)
+	assert.Equal(t, params, paramsNew)
+}
+
+// Test that the encoding of byteArray in JSON is as expected and that decoding results in
+// the same object.
+func TestByteArrayEncoding(t *testing.T) {
+	type T struct {
+		ByteArray byteArray
+		Map       map[byteArray]int
+	}
+	x := T{
+		ByteArray: byteArray{string([]byte{0xff})}, // try a non-utf8 key
+		Map: map[byteArray]int{
+			{string([]byte{0xff})}: 3,
+		},
+	}
+	buf := EncodeJSON(x)
+
+	expectedString := `{"ByteArray":"/w==","Map":{"/w==":3}}`
+	assert.Equal(t, expectedString, string(buf))
+
+	var xx T
+	err := DecodeJSON(buf, &xx)
+	require.NoError(t, err)
+	assert.Equal(t, x, xx)
+}
+
+// Test that the encoding of SignedTxnWithAD is as expected and that decoding results in
+// the same object.
+func TestSignedTxnWithADEncoding(t *testing.T) {
+	i := byte(0)
+	newaddr := func() basics.Address {
+		i++
+		var address basics.Address
+		address[0] = i
+		return address
+	}
+
+	stxn := transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Header: transactions.Header{
+					Sender:  newaddr(),
+					RekeyTo: newaddr(),
+				},
+				PaymentTxnFields: transactions.PaymentTxnFields{
+					Receiver:         newaddr(),
+					CloseRemainderTo: newaddr(),
+				},
+				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
+					AssetParams: basics.AssetParams{
+						Manager:  newaddr(),
+						Reserve:  newaddr(),
+						Freeze:   newaddr(),
+						Clawback: newaddr(),
+					},
+				},
+				AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+					AssetSender:   newaddr(),
+					AssetReceiver: newaddr(),
+					AssetCloseTo:  newaddr(),
+				},
+				AssetFreezeTxnFields: transactions.AssetFreezeTxnFields{
+					FreezeAccount: newaddr(),
+				},
+				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+					Accounts: []basics.Address{newaddr(), newaddr()},
+				},
+			},
+			AuthAddr: newaddr(),
+		},
+		ApplyData: transactions.ApplyData{
+			EvalDelta: basics.EvalDelta{
+				GlobalDelta: map[string]basics.ValueDelta{
+					"abc": {
+						Action: 44,
+						Bytes:  "xyz",
+						Uint:   33,
+					},
+				},
+				LocalDeltas: map[uint64]basics.StateDelta{
+					2: map[string]basics.ValueDelta{
+						"bcd": {
+							Action: 55,
+							Bytes:  "yzx",
+							Uint:   66,
+						},
+					},
+				},
+			},
+		},
+	}
+	buf := EncodeSignedTxnWithAD(stxn)
+
+	expectedString := `{"dt":{"gd":{"YWJj":{"at":44,"bs":"eHl6","ui":33}},"ld":{"2":{"YmNk":{"at":55,"bs":"eXp4","ui":66}}}},"sgnr":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","txn":{"aclose":"CwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","apar":{"c":"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","f":"BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","m":"BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","r":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="},"apat":["DQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="],"arcv":"CgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","asnd":"CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","close":"BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","fadd":"DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rcv":"AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rekey":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","snd":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}}`
+	assert.Equal(t, expectedString, string(buf))
+
+	newStxn, err := DecodeSignedTxnWithAD(buf)
+	require.NoError(t, err)
+
+	assert.Equal(t, stxn, newStxn)
+}
+
+// Test that encoding of AccountData is as expected and that decoding results in the
+// same object.
+func TestAccountDataEncoding(t *testing.T) {
+	var addr basics.Address
+	addr[0] = 3
+
+	ad := basics.AccountData{
+		MicroAlgos: basics.MicroAlgos{Raw: 22},
+		AuthAddr:   addr,
+	}
+
+	buf := EncodeAccountData(ad)
+
+	expectedString := `{"algo":22,"spend":"AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
+	assert.Equal(t, expectedString, string(buf))
+
+	adNew, err := DecodeAccountData(buf)
+	require.NoError(t, err)
+	assert.Equal(t, ad, adNew)
+}
+
+// Test that encoding of AppLocalState is as expected and that decoding results in the
+// same object.
+func TestAppLocalStateEncoding(t *testing.T) {
+	state := basics.AppLocalState{
+		Schema: basics.StateSchema{
+			NumUint: 2,
+		},
+		KeyValue: map[string]basics.TealValue{
+			string([]byte{0xff}): { // try a non-utf8 key
+				Type: 3,
+			},
+		},
+	}
+
+	buf := EncodeAppLocalState(state)
+
+	expectedString := `{"hsch":{"nui":2},"tkv":{"They":[{"k":"/w==","v":{"tt":3}}]}}`
+	assert.Equal(t, expectedString, string(buf))
+
+	stateNew, err := DecodeAppLocalState(buf)
+	require.NoError(t, err)
+	assert.Equal(t, state, stateNew)
+}
+
+// Test that encoding of AppLocalState is as expected and that decoding results in the
+// same object.
+func TestAppParamsEncoding(t *testing.T) {
+	params := basics.AppParams{
+		ApprovalProgram: []byte{0xff}, // try a non-utf8 key
+		GlobalState: map[string]basics.TealValue{
+			string([]byte{0xff}): { // try a non-utf8 key
+				Type: 3,
+			},
+		},
+	}
+
+	buf := EncodeAppParams(params)
+
+	expectedString := `{"approv":"/w==","gs":{"They":[{"k":"/w==","v":{"tt":3}}]}}`
+	assert.Equal(t, expectedString, string(buf))
+
+	paramsNew, err := DecodeAppParams(buf)
+	require.NoError(t, err)
+	assert.Equal(t, params, paramsNew)
+}
+
+// Test that encoding of AppLocalState is as expected and that decoding results in the
+// same object.
+func TestSpecialAddressesEncoding(t *testing.T) {
+	i := byte(0)
+	newaddr := func() basics.Address {
+		i++
+		var address basics.Address
+		address[0] = i
+		return address
+	}
+
+	special := transactions.SpecialAddresses{
+		FeeSink:     newaddr(),
+		RewardsPool: newaddr(),
+	}
+
+	buf := EncodeSpecialAddresses(special)
+
+	expectedString := `{"FeeSink":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","RewardsPool":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
+	assert.Equal(t, expectedString, string(buf))
+
+	specialNew, err := DecodeSpecialAddresses(buf)
+	require.NoError(t, err)
+	assert.Equal(t, special, specialNew)
 }

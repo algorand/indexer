@@ -3,7 +3,7 @@ package api
 import (
 	"time"
 
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/basics"
 )
 
 ////////////////////////////////
@@ -59,7 +59,9 @@ func bytePtr(x []byte) *[]byte {
 	// Don't return if it's all zero.
 	for _, v := range x {
 		if v != 0 {
-			return &x
+			xx := make([]byte, len(x))
+			copy(xx, x)
+			return &xx
 		}
 	}
 
@@ -73,7 +75,7 @@ func timePtr(x time.Time) *time.Time {
 	return &x
 }
 
-func addrPtr(x sdk_types.Address) *string {
+func addrPtr(x basics.Address) *string {
 	if x.IsZero() {
 		return nil
 	}

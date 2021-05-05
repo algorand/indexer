@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/algorand/go-algorand/rpcs"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -16,7 +17,6 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
-	"github.com/algorand/indexer/types"
 )
 
 var (
@@ -83,18 +83,11 @@ var daemonCmd = &cobra.Command{
 		if bot != nil {
 			logger.Info("Initializing block import handler.")
 
-			nextRound, err := db.GetNextRoundToLoad()
+			nextRound, err := db.GetNextRoundToAccount()
 			maybeFail(err, "failed to get next round, %v", err)
 			bot.SetNextRound(nextRound)
 
-			cache, err := db.GetDefaultFrozen()
-			maybeFail(err, "failed to get default frozen cache")
-
-			bih := blockImporterHandler{
-				imp:   importer.NewDBImporter(db),
-				db:    db,
-				cache: cache,
-			}
+			bih := blockImporterHandler{imp: importer.NewImporter(db)}
 			bot.AddBlockHandler(&bih)
 			bot.SetContext(ctx)
 
@@ -188,25 +181,16 @@ func makeOptions() (options api.ExtraOptions) {
 }
 
 type blockImporterHandler struct {
-	imp   importer.Importer
-	db    idb.IndexerDb
-	cache map[uint64]bool
+	imp importer.Importer
 }
 
-func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
+func (bih *blockImporterHandler) HandleBlock(block *rpcs.EncodedBlockCert) {
 	start := time.Now()
-	_, err := bih.imp.ImportDecodedBlock(block)
-	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round)
-	startRound, err := bih.db.GetNextRoundToAccount()
-	maybeFail(err, "failed to get next round to account")
-	// During normal operation StartRound and MaxRound will be the same round.
-	filter := idb.UpdateFilter{
-		StartRound: startRound,
-		MaxRound:   uint64(block.Block.Round),
-	}
-	importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
-	dt := time.Now().Sub(start)
+	err := bih.imp.ImportBlock(block)
+	maybeFail(err, "Adding block %d to database failed", block.Block.Round())
+	dt := time.Since(start)
+
 	// record metric
 	importTimeHistogramSeconds.Observe(dt.Seconds())
-	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
+	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())
 }

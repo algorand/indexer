@@ -7,10 +7,11 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
+
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
 )
 
@@ -62,7 +63,7 @@ func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 		util.MaybeFail(ar.Error, "asset query %v\n", ar.Error)
 		pjs, err := json.Marshal(ar.Params)
 		util.MaybeFail(err, "json.Marshal params %v\n", err)
-		var creator sdk_types.Address
+		var creator basics.Address
 		copy(creator[:], ar.Creator)
 		info("%d %s %s\n", ar.AssetID, creator.String(), pjs)
 		count++
@@ -101,13 +102,10 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 	count := uint64(0)
 	for txnrow := range rowchan {
 		util.MaybeFail(txnrow.Error, "err %v\n", txnrow.Error)
-		var stxn types.SignedTxnWithAD
-		err := msgpack.Decode(txnrow.TxnBytes, &stxn)
+		var stxn transactions.SignedTxnWithAD
+		err := protocol.Decode(txnrow.TxnBytes, &stxn)
 		util.MaybeFail(err, "decode txnbytes %v\n", err)
-		//tjs, err := json.Marshal(stxn.Txn) // nope, ugly
-		//MaybeFail(err, "err %v\n", err)
-		//tjs := string(JSONOneLine(stxn.Txn))
-		tjs := string(util.JSONOneLine(stxn.Txn))
+		tjs := util.JSONOneLine(stxn.Txn)
 		info("%d:%d %s sr=%d rr=%d ca=%d cr=%d t=%s\n", txnrow.Round, txnrow.Intra, tjs, stxn.SenderRewards, stxn.ReceiverRewards, stxn.ClosingAmount, stxn.CloseRewards, txnrow.RoundTime.String())
 		count++
 	}

@@ -86,30 +86,3 @@ func TestNoMigrationsNeeded(t *testing.T) {
 
 	require.Equal(t, (*h.Data)["migration-status"], "Migrations Complete")
 }
-
-func TestTealKeyValue(t *testing.T) {
-	a := require.New(t)
-
-	k1 := []byte("key1")
-	k2 := []byte("key2")
-
-	var tkv TealKeyValue
-	_, ok := tkv.get(k1)
-	a.False(ok)
-
-	tkv.put(k1, TealValue{})
-	_, ok = tkv.get(k1)
-	a.True(ok)
-
-	tkv.put(k2, TealValue{})
-	_, ok = tkv.get(k2)
-	a.True(ok)
-
-	tkv.delete(k1)
-	_, ok = tkv.get(k1)
-	a.False(ok)
-
-	tkv.delete(k2)
-	_, ok = tkv.get(k2)
-	a.False(ok)
-}

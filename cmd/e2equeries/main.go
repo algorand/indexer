@@ -7,12 +7,12 @@ import (
 	"os"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
 
 	"github.com/algorand/indexer/idb"
 	_ "github.com/algorand/indexer/idb/postgres"
-	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
 	testutil "github.com/algorand/indexer/util/test"
 )
@@ -41,11 +41,11 @@ func main() {
 	printTxnQuery(db, rekeyTxnQuery)
 
 	rowchan, _ := db.Transactions(context.Background(), rekeyTxnQuery)
-	var rekeyTo sdk_types.Address
+	var rekeyTo basics.Address
 	for txnrow := range rowchan {
 		maybeFail(txnrow.Error, "err rekey txn %v\n", txnrow.Error)
-		var stxn types.SignedTxnWithAD
-		err := msgpack.Decode(txnrow.TxnBytes, &stxn)
+		var stxn transactions.SignedTxnWithAD
+		err := protocol.Decode(txnrow.TxnBytes, &stxn)
 		maybeFail(err, "decode txnbytes %v\n", err)
 		rekeyTo = stxn.Txn.RekeyTo
 	}
