@@ -22,7 +22,7 @@ const configFileName = "block_generator_config"
 
 func init() {
 	rand.Seed(12345)
-	flag.StringVar(&configFile, "config", "", "Override default config file.")
+	flag.StringVar(&configFile, "config", "", fmt.Sprintf("Override default config file from '%s'.", configFileName))
 	flag.UintVar(&port, "port", 4010, "Port to start the server at.")
 
 	viper.SetConfigName(configFileName)
@@ -31,10 +31,8 @@ func init() {
 }
 
 func initializeConfigFile() error {
-	var err error
 	if len(configFile) > 0 {
-		var f *os.File
-		f, err = os.Open(configFile)
+		f, err := os.Open(configFile)
 		if err != nil {
 			return err
 		}
@@ -61,12 +59,11 @@ func main() {
 		GenesisHash:                  [32]byte{},
 	})
 
-	portStr := fmt.Sprintf(":%d", port)
-
 	http.HandleFunc("/", help)
 	http.HandleFunc("/v2/blocks/", handleBlock)
 	http.HandleFunc("/genesis", handleGenesis)
 
+	portStr := fmt.Sprintf(":%d", port)
 	fmt.Printf("Starting server at %s\n", portStr)
 	http.ListenAndServe(portStr, nil)
 }
@@ -81,19 +78,19 @@ func handleGenesis(w http.ResponseWriter, r *http.Request) {
 
 func handleBlock(w http.ResponseWriter, r *http.Request) {
 	// The generator doesn't actually care about the block...
-	//block, err := parseBlock(r.URL.Path)
-	//if err != nil {
-	//	fmt.Fprintf(w, err.Error())
-	//	return
-	//}
+	round, err := parseRound(r.URL.Path)
+	if err != nil {
+		fmt.Fprintf(w, err.Error())
+		return
+	}
 
-	gen.WriteBlock(w)
+	gen.WriteBlock(w, round)
 }
 
 const blockQueryPrefix = "/v2/blocks/"
 const blockQueryBlockIdx = len(blockQueryPrefix)
 
-func parseBlock(path string) (uint64, error) {
+func parseRound(path string) (uint64, error) {
 	if !strings.HasPrefix(path, blockQueryPrefix) {
 		return 0, fmt.Errorf("not a blocks query: %s", path)
 	}

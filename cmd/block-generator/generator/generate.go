@@ -6,15 +6,16 @@ import (
 	"io"
 	"math/rand"
 
-	"github.com/algorand/indexer/types"
-
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
+
+	"github.com/algorand/indexer/types"
 )
 
 // GenerationConfig defines the tunable parameters for block generation.
 type GenerationConfig struct {
+	// Block generation features
 	TxnPerBlock         uint64
 	NewAccountFrequency uint64
 
@@ -49,23 +50,17 @@ func MakeGenerator(config GenerationConfig) Generator {
 
 // Generator is the interface needed to generate blocks.
 type Generator interface {
-	WriteBlock(output io.Writer)
+	WriteBlock(output io.Writer, round uint64)
 	WriteGenesis(output io.Writer)
 }
 
 type generator struct {
 	config GenerationConfig
 
-	// Block generation features
-	//txnPerBlock uint64
-
 	// payment transaction metadata
-	//newAccountFrequency uint64
 	numPayments uint64
 
-	// Also included in numAccounts, but needed for generateGenesis
-	//numGenesisAccounts           uint64
-	//genesisAccountInitialBalance uint64
+	// Number of algorand accounts
 	numAccounts uint64
 
 	// Blockchain stuff
@@ -97,9 +92,7 @@ func (g *generator) WriteGenesis(output io.Writer) {
 	var allocations []types.GenesisAllocation
 
 	for i := uint64(0); i < g.config.NumGenesisAccounts; i++ {
-		var addr types.Address
-		data := indexToAccount(i)
-		copy(addr[:], data[:])
+		addr := indexToAccount(i)
 		allocations = append(allocations, types.GenesisAllocation{
 			Address: addr.String(),
 			State: types.AccountData{
@@ -127,9 +120,8 @@ func (g *generator) generateTransaction(round uint64, intra uint64) (types.Signe
 }
 
 // WriteBlock generates a block full of new transactions and writes it to the writer.
-func (g *generator) WriteBlock(output io.Writer) {
+func (g *generator) WriteBlock(output io.Writer, round uint64) {
 	// Generate the transactions
-
 	transactions := make([]types.SignedTxnInBlock, 0, g.config.TxnPerBlock)
 	for i := uint64(0); i < g.config.TxnPerBlock; i++ {
 		txn, err := g.generateTransaction(g.round, i)
@@ -184,8 +176,8 @@ func (g *generator) WriteBlock(output io.Writer) {
 	output.Write(msgpack.Encode(cert))
 }
 
-func indexToAccount(i uint64) (result [32]byte) {
-	binary.LittleEndian.PutUint64(result[:], i)
+func indexToAccount(i uint64) (addr sdk_types.Address) {
+	binary.LittleEndian.PutUint64(addr[:], i)
 	return
 }
 
@@ -218,12 +210,13 @@ func (g *generator) generatePaymentTxn(round uint64, intra uint64) (types.Signed
 	receiver := indexToAccount(receiveIndex)
 
 	amount := g.balances[sendIndex] / 2
+
+	if g.balances[sendIndex] < amount {
+		panic(fmt.Sprintf("the balance would fall below zero for idx %d, payment number %d", sendIndex, g.numPayments))
+	}
+
 	g.balances[sendIndex] -= amount
 	g.balances[receiveIndex] += amount
-
-	if g.balances[sendIndex] < 0 {
-		panic(fmt.Sprintf("the balance fell below zero for idx %d", sendIndex))
-	}
 
 	g.numPayments++
 	txn := sdk_types.Transaction{
@@ -261,10 +254,11 @@ func (g *generator) generatePaymentTxn(round uint64, intra uint64) (types.Signed
 	}
 	stxn.Sig[32] = 50
 	/*
-		_, err := rand.Read(stxn.Sig[:])
-		if err != nil {
-			fmt.Println("Failed to generate a random signature")
-		}
+	// Would it be useful to generate a random signature?
+	_, err := rand.Read(stxn.Sig[:])
+	if err != nil {
+		fmt.Println("Failed to generate a random signature")
+	}
 	*/
 
 	withAd := types.SignedTxnWithAD{

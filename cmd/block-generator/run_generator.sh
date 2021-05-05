@@ -7,8 +7,10 @@ POSTGRES_PORT=15432
 POSTGRES_DATABASE=generator_db
 
 function start_postgres() {
-   # Start postgres container...
-   docker run \
+  docker rm -f $POSTGRES_CONTAINER > /dev/null 2>&1 || true
+
+  # Start postgres container...
+  docker run \
      -d \
      --name $POSTGRES_CONTAINER \
      -e POSTGRES_USER=algorand \
@@ -37,8 +39,9 @@ make
 echo "Starting postgres container."
 start_postgres
 echo "Starting block generator (see generator.log)"
-./cmd/block-generator/block-generator -port 11111 -config cmd/block-generator/config.yml > generator.log 2>&1 &
+./cmd/block-generator/block-generator -port 11111 -config cmd/block-generator/config.yml 2>&1 > generator.log &
 GENERATOR_PID=$!
+echo "Starting indexer"
 ./cmd/algorand-indexer/algorand-indexer daemon \
               -S localhost:8980 \
               --algod-net localhost:11111 \
