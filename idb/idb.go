@@ -13,128 +13,10 @@ import (
 	"time"
 
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
-	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/types"
 )
-
-// DummyIndexerDb is a mock implementation of IndexerDb
-func DummyIndexerDb() IndexerDb {
-	return &dummyIndexerDb{}
-}
-
-type dummyIndexerDb struct {
-	log *log.Logger
-}
-
-// StartBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) StartBlock() (err error) {
-	db.log.Printf("StartBlock")
-	return nil
-}
-
-// AddTransaction is part of idb.IndexerDB
-func (db *dummyIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
-	db.log.Printf("\ttxn %d %d %d %d", round, intra, txtypeenum, assetid)
-	return nil
-}
-
-// CommitBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	db.log.Printf("CommitBlock %d %d %d header bytes", round, timestamp, len(headerbytes))
-	return nil
-}
-
-// LoadGenesis is part of idb.IndexerDB
-func (db *dummyIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
-	return nil
-}
-
-// GetImportState is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetImportState() (is ImportState, err error) {
-	return ImportState{}, nil
-}
-
-// SetImportState is part of idb.IndexerDB
-func (db *dummyIndexerDb) SetImportState(is ImportState) (err error) {
-	return nil
-}
-
-// GetMaxRoundAccounted is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
-	return 0, nil
-}
-
-// GetMaxRoundLoaded is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
-	return 0, nil
-}
-
-// GetSpecialAccounts is part of idb.IndexerDb
-func (db *dummyIndexerDb) GetSpecialAccounts() (SpecialAccounts, error) {
-	return SpecialAccounts{}, nil
-}
-
-// GetDefaultFrozen is part of idb.IndexerDb
-func (db *dummyIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
-	return make(map[uint64]bool), nil
-}
-
-// YieldTxns is part of idb.IndexerDB
-func (db *dummyIndexerDb) YieldTxns(ctx context.Context, firstRound uint64) <-chan TxnRow {
-	return nil
-}
-
-// CommitRoundAccounting is part of idb.IndexerDB
-func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
-	return nil
-}
-
-// GetBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (block types.Block, transactions []TxnRow, err error) {
-	return types.Block{}, nil, nil
-}
-
-// Transactions is part of idb.IndexerDB
-func (db *dummyIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64) {
-	return nil, 0
-}
-
-// GetAccounts is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64) {
-	return nil, 0
-}
-
-// Assets is part of idb.IndexerDB
-func (db *dummyIndexerDb) Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64) {
-	return nil, 0
-}
-
-// AssetBalances is part of idb.IndexerDB
-func (db *dummyIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64) {
-	return nil, 0
-}
-
-// Applications is part of idb.IndexerDB
-func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64) {
-	return nil, 0
-}
-
-// Health is part of idb.IndexerDB
-func (db *dummyIndexerDb) Health() (state Health, err error) {
-	return Health{}, nil
-}
-
-func (db *dummyIndexerDb) Reset() (err error) {
-	return nil
-}
-
-// IndexerFactory is used to install an IndexerDb implementation.
-type IndexerFactory interface {
-	Name() string
-	Build(arg string, opts IndexerDbOptions, log *log.Logger) (IndexerDb, error)
-}
 
 // TxnRow is metadata relating to one transaction in a transaction query.
 type TxnRow struct {
@@ -402,27 +284,6 @@ type ApplicationRow struct {
 	Error       error
 }
 
-type dummyFactory struct {
-}
-
-// Name is part of the IndexerFactory interface.
-func (df dummyFactory) Name() string {
-	return "dummy"
-}
-
-// Build is part of the IndexerFactory interface.
-func (df dummyFactory) Build(arg string, opts IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
-	return &dummyIndexerDb{log: log}, nil
-}
-
-// This layer of indirection allows for different db integrations to be compiled in or compiled out by `go build --tags ...`
-var indexerFactories map[string]IndexerFactory
-
-func init() {
-	indexerFactories = make(map[string]IndexerFactory)
-	RegisterFactory("dummy", &dummyFactory{})
-}
-
 // IndexerDbOptions are the options common to all indexer backends.
 type IndexerDbOptions struct {
 	ReadOnly bool
@@ -430,21 +291,6 @@ type IndexerDbOptions struct {
 	// NoMigrate indicates to not run any migrations.
 	// Should probably only be used by the `reset` subcommand.
 	NoMigrate bool
-}
-
-// RegisterFactory is used by IndexerDb implementations to register their implementations. This mechanism allows
-// for loose coupling between the configuration and the implementation. It is extremely similar to the way sql.DB
-// driver's are configured and used.
-func RegisterFactory(name string, factory IndexerFactory) {
-	indexerFactories[name] = factory
-}
-
-// IndexerDbByName is used to construct an IndexerDb object by name.
-func IndexerDbByName(name, arg string, opts IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
-	if val, ok := indexerFactories[name]; ok {
-		return val.Build(arg, opts, log)
-	}
-	return nil, fmt.Errorf("no IndexerDb factory for %s", name)
 }
 
 // AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.

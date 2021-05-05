@@ -14,6 +14,7 @@ import (
 
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/dummy"
 	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/version"
 )
@@ -89,7 +90,7 @@ func indexerDbFromFlags(opts idb.IndexerDbOptions) (db idb.IndexerDb) {
 		db, err = idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
 		maybeFail(err, "could not init db, %v", err)
 	} else if dummyIndexerDb {
-		db = idb.DummyIndexerDb()
+		db = dummy.IndexerDb()
 	} else {
 		logger.Errorf("no import db set")
 		os.Exit(1)
