@@ -62,9 +62,8 @@ func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger)
 // Allow tests to inject a DB
 func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (pdb *IndexerDb, err error) {
 	pdb = &IndexerDb{
-		log:        logger,
-		db:         db,
-		protoCache: make(map[string]types.ConsensusParams, 20),
+		log: logger,
+		db:  db,
 	}
 
 	if pdb.log == nil {
@@ -97,8 +96,6 @@ type IndexerDb struct {
 
 	txrows  [][]interface{}
 	txprows [][]interface{}
-
-	protoCache map[string]types.ConsensusParams
 
 	migration *migration.Migration
 
