@@ -16,13 +16,8 @@ import (
 	"github.com/algorand/indexer/idb"
 )
 
-// TODO: Get rid of this global
-var indexerDb idb.IndexerDb
-
 // Serve starts an http server for the indexer API. This call blocks.
 func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError error, log *log.Logger, tokens []string, developerMode bool) {
-	indexerDb = db
-
 	e := echo.New()
 	e.HideBanner = true
 

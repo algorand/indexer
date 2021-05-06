@@ -1,7 +1,6 @@
 package accounting
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
@@ -26,10 +25,6 @@ type State struct {
 
 	rewardsLevel uint64
 
-	// number of txns at the end of the previous block
-	txnCounter      uint64
-	txnCounterRound uint64
-
 	accountTypes accountTypeCache
 }
 
@@ -53,12 +48,6 @@ func (accounting *State) InitRoundParts(round uint64, feeSink, rewardsPool sdk_t
 	accounting.rewardsLevel = rewardsLevel
 	accounting.currentRound = round
 	return nil
-}
-
-var zeroAddr = [32]byte{}
-
-func addrIsZero(a types.Address) bool {
-	return bytes.Equal(a[:], zeroAddr[:])
 }
 
 func bytesAreZero(b []byte) bool {

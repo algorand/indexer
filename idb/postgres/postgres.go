@@ -90,10 +90,6 @@ type IndexerDb struct {
 	db *sql.DB
 
 	// state for StartBlock/AddTransaction/CommitBlock
-	tx        *sql.Tx
-	addtx     *sql.Stmt
-	addtxpart *sql.Stmt
-
 	txrows  [][]interface{}
 	txprows [][]interface{}
 
@@ -310,18 +306,6 @@ func (db *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 	return nil
 }
 
-// GetAsset return AssetParams about an asset
-func (db *IndexerDb) GetAsset(assetid uint64) (asset types.AssetParams, err error) {
-	row := db.db.QueryRow(`SELECT params FROM asset WHERE index = $1`, assetid)
-	var assetjson string
-	err = row.Scan(&assetjson)
-	if err != nil {
-		return
-	}
-	err = json.Decode([]byte(assetjson), &asset)
-	return
-}
-
 // GetDefaultFrozen get {assetid:default frozen, ...} for all assets, needed by accounting.
 // Because Go map[]bool returns false by default, we actually return only a map of the true elements.
 func (db *IndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
@@ -358,6 +342,9 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	total := uint64(0)
 	for ai, alloc := range genesis.Allocation {
 		addr, err := sdk_types.DecodeAddress(alloc.Address)
+		if err != nil {
+			return nil
+		}
 		if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
 			return fmt.Errorf("genesis account[%d] has unhandled asset", ai)
 		}
@@ -1808,8 +1795,6 @@ finish:
 	}
 }
 
-const maxAccountsLimit = 1000
-
 var statusStrings = []string{"Offline", "Online", "NotParticipating"}
 
 const offlineStatusIdx = 0
@@ -2353,8 +2338,6 @@ func baPtr(x []byte) *[]byte {
 	return out
 }
 
-var emptyString = ""
-
 func allZero(x []byte) bool {
 	for _, v := range x {
 		if v != 0 {
@@ -2370,18 +2353,6 @@ func addrStr(addr types.Address) *string {
 	}
 	out := new(string)
 	*out = addr.String()
-	return out
-}
-
-func bytesStr(addr []byte) *string {
-	if len(addr) == 0 {
-		return nil
-	}
-	if allZero(addr) {
-		return nil
-	}
-	out := new(string)
-	*out = b64(addr)
 	return out
 }
 

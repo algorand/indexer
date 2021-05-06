@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"flag"
 	"fmt"
 	"os"
@@ -26,14 +25,6 @@ var (
 var maybeFail = testutil.MaybeFail
 var printAccountQuery = testutil.PrintAccountQuery
 var printTxnQuery = testutil.PrintTxnQuery
-
-func b64(x string) []byte {
-	v, err := base64.StdEncoding.DecodeString(x)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
 
 func main() {
 	start := time.Now()

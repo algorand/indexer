@@ -92,8 +92,3 @@ func strArrayPtr(x []string) *[]string {
 	}
 	return &x
 }
-
-type genesis struct {
-	genesisHash []byte
-	genesisID   string
-}
