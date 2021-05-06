@@ -254,11 +254,11 @@ func (g *generator) generatePaymentTxn(round uint64, intra uint64) (types.Signed
 	}
 	stxn.Sig[32] = 50
 	/*
-	// Would it be useful to generate a random signature?
-	_, err := rand.Read(stxn.Sig[:])
-	if err != nil {
-		fmt.Println("Failed to generate a random signature")
-	}
+		// Would it be useful to generate a random signature?
+		_, err := rand.Read(stxn.Sig[:])
+		if err != nil {
+			fmt.Println("Failed to generate a random signature")
+		}
 	*/
 
 	withAd := types.SignedTxnWithAD{
