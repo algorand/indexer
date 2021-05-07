@@ -498,9 +498,6 @@ type UpdateFilter struct {
 	// StartRound only include transactions confirmed at this round or later.
 	StartRound uint64
 
-	// RoundLimit only process this many rounds of transactions.
-	RoundLimit *int
-
 	// MaxRound stop processing after this round
 	MaxRound uint64
 

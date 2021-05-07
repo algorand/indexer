@@ -24,12 +24,10 @@ import (
 )
 
 // NewImportHelper builds an ImportHelper
-func NewImportHelper(defaultFrozenCache map[uint64]bool, genesisJSONPath string, numRoundsLimit, blockFileLimite int, l *log.Logger) *ImportHelper {
+func NewImportHelper(defaultFrozenCache map[uint64]bool, genesisJSONPath string, l *log.Logger) *ImportHelper {
 	return &ImportHelper{
 		DefaultFrozenCache: defaultFrozenCache,
 		GenesisJSONPath:    genesisJSONPath,
-		NumRoundsLimit:     numRoundsLimit,
-		BlockFileLimit:     blockFileLimite,
 		Log:                l,
 	}
 }
@@ -38,12 +36,6 @@ func NewImportHelper(defaultFrozenCache map[uint64]bool, genesisJSONPath string,
 type ImportHelper struct {
 	// GenesisJSONPath is the location of the genesis file
 	GenesisJSONPath string
-
-	// NumRoundsLimit is the number of rounds to process, if 0 import continues forever.
-	NumRoundsLimit int
-
-	// BlockFileLimit is the number of block files to process.
-	BlockFileLimit int
 
 	// DefaultFrozenCache is a persistent cache of default frozen values.
 	DefaultFrozenCache map[uint64]bool
@@ -67,9 +59,6 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 		if err == nil {
 			pathsSorted := blockTarPaths(matches)
 			sort.Sort(&pathsSorted)
-			if h.BlockFileLimit != 0 && len(pathsSorted) > h.BlockFileLimit {
-				pathsSorted = pathsSorted[:h.BlockFileLimit]
-			}
 			for _, gfname := range pathsSorted {
 				fb, ft := importFile(db, imp, gfname, h.Log)
 				blocks += fb
@@ -102,9 +91,6 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 
 	filter := idb.UpdateFilter{
 		StartRound: startRound,
-	}
-	if h.NumRoundsLimit != 0 {
-		filter.RoundLimit = &h.NumRoundsLimit
 	}
 	updateRounds, txnCount := updateAccounting(db, h.DefaultFrozenCache, filter, h.Log)
 	accountingRounds += updateRounds
@@ -302,10 +288,6 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 			act.InitRound(block)
 
 			// Log progress
-			if (filter.RoundLimit != nil) && (roundsSeen > *filter.RoundLimit) {
-				l.Infof("hit rounds limit %d > %d", roundsSeen, filter.RoundLimit)
-				break
-			}
 			now := time.Now()
 			dt := now.Sub(lastlog)
 			if dt > (5 * time.Second) {
