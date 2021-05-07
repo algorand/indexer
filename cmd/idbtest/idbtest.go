@@ -16,6 +16,7 @@ import (
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	_ "github.com/algorand/indexer/idb/postgres"
+	"github.com/algorand/indexer/util"
 	testutil "github.com/algorand/indexer/util/test"
 )
 
@@ -30,7 +31,7 @@ var (
 
 var exitValue = 0
 
-var maybeFail = testutil.MaybeFail
+var maybeFail = util.MaybeFail
 var printAssetQuery func(db idb.IndexerDb, q idb.AssetsQuery) = testutil.PrintAssetQuery
 var printAccountQuery = testutil.PrintAccountQuery
 var printTxnQuery = testutil.PrintTxnQuery

@@ -55,8 +55,6 @@ github.com/PuerkitoBio/purell v1.0.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbt
 github.com/PuerkitoBio/urlesc v0.0.0-20160726150825-5bd2802263f2/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
-github.com/algorand/go-algorand-sdk v1.6.0 h1:0xl694OAz611CNuZ88l510DPvzTPH4D1dJX+KNNB428=
-github.com/algorand/go-algorand-sdk v1.6.0/go.mod h1:U12d8fTN/CyKPR1HObrt51ITxb6OgXxpGCH743Ds2GQ=
 github.com/algorand/go-algorand-sdk v1.7.0 h1:eRg9UQy7FndRE5nTgniDpbyjTvP2FUKX4/0e8NdXn/E=
 github.com/algorand/go-algorand-sdk v1.7.0/go.mod h1:U12d8fTN/CyKPR1HObrt51ITxb6OgXxpGCH743Ds2GQ=
 github.com/algorand/go-codec v1.1.7 h1:6nvCh2nfgnfkaoVHKQyk2wxyl2GQBAlI7IkbqbB/e4s=
