@@ -139,7 +139,7 @@ func (g *generator) WriteBlock(output io.Writer, _ uint64) {
 	block := types.Block{
 		BlockHeader: types.BlockHeader{
 			Round:       types.Round(g.round),
-			Branch:      [32]byte{},
+			Branch:      types.BlockHash{},
 			Seed:        types.Seed{},
 			TxnRoot:     types.Digest{},
 			TimeStamp:   g.timestamp,
