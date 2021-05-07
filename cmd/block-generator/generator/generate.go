@@ -209,12 +209,11 @@ func (g *generator) generatePaymentTxn(round uint64, intra uint64) (types.Signed
 	sender := indexToAccount(sendIndex)
 	receiver := indexToAccount(receiveIndex)
 
-	amount := g.balances[sendIndex] / 2
-
-	if g.balances[sendIndex] < amount {
-		panic(fmt.Sprintf("the balance would fall below zero for idx %d, payment number %d", sendIndex, g.numPayments))
+	if g.balances[sendIndex] < 2 {
+		panic(fmt.Sprintf("the sender account does not have two microalgos to rub together. idx %d, payment number %d", sendIndex, g.numPayments))
 	}
 
+	amount := g.balances[sendIndex] / 2
 	g.balances[sendIndex] -= amount
 	g.balances[receiveIndex] += amount
 
