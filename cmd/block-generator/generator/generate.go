@@ -23,7 +23,7 @@ type GenerationConfig struct {
 	NumGenesisAccounts           uint64
 	GenesisAccountInitialBalance uint64
 	GenesisID                    string
-	GenesisHash                  [32]byte
+	GenesisHash                  sdk_types.Digest
 }
 
 // MakeGenerator initializes the Generator object.
