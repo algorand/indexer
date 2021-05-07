@@ -120,7 +120,7 @@ func (g *generator) generateTransaction(round uint64, intra uint64) (types.Signe
 }
 
 // WriteBlock generates a block full of new transactions and writes it to the writer.
-func (g *generator) WriteBlock(output io.Writer, round uint64) {
+func (g *generator) WriteBlock(output io.Writer, _ uint64) {
 	// Generate the transactions
 	transactions := make([]types.SignedTxnInBlock, 0, g.config.TxnPerBlock)
 	for i := uint64(0); i < g.config.TxnPerBlock; i++ {

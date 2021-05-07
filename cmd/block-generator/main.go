@@ -107,6 +107,7 @@ func parseRound(path string) (uint64, error) {
 			if i == blockQueryBlockIdx {
 				return 0, fmt.Errorf("no block in path")
 			}
+			break
 		}
 		result = (uint64(10) * result) + uint64(int(path[i])-'0')
 	}
