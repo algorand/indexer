@@ -1,5 +1,10 @@
 # Build artifacts
 cmd/algorand-indexer/algorand-indexer
+cmd/block-generator/block-generator
+cmd/e2equeries/e2equeries
+cmd/idbtest/idbtest
+cmd/texttosource/texttosource
+cmd/validator/validator
 api/.3tmp.json
 tmp/
 
