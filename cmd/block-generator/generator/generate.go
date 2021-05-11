@@ -9,13 +9,32 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	"github.com/algorand/go-algorand-sdk/future"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 )
 
 const (
 	consensusTime int64 = 4500
+)
+
+var outOfRangeError = fmt.Errorf("selection is out of weighted range")
+
+const (
+	// Generator types
+	paymentTx = "pay"
+	assetTx   = "acfg"
+	//keyRegistrationTx = "keyreg"
+	//applicationCallTx = "appl"
+
+	// Asset Tx Types
+	assetCreate = "create"
+	assetOptin = "optin"
+	assetXfer = "xfer"
+	assetClose = "close"
+	assetDestroy = "destroy"
 )
 
 // GenerationConfig defines the tunable parameters for block generation.
@@ -78,6 +97,7 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 		rewardsResidue:            0,
 		rewardsRate:               0,
 		rewardsRecalculationRound: 0,
+		assetBalances:             make(map[uint64][]assetHolding),
 	}
 
 	gen.feeSink[31] = 1
@@ -124,8 +144,17 @@ type generator struct {
 	// The account is based on the index into the balances array.
 	balances []uint64
 
-	assetBalances map[uint32][]uint64
+	// Assets to asset holder balances.
+	assetBalances map[uint64][]assetHolding
 	numAssets     uint64
+
+	transactionWeights []float32
+	assetTxWeights []float32
+}
+
+type assetHolding struct {
+	acctIndex uint64
+	balance   uint64
 }
 
 func (g *generator) WriteGenesis(output io.Writer) {
@@ -154,9 +183,55 @@ func (g *generator) WriteGenesis(output io.Writer) {
 	output.Write(json.Encode(gen))
 }
 
-func (g *generator) generateTransaction(round uint64, intra uint64) (types.SignedTxnWithAD, error) {
-	// TODO: Distribute transactions according to configuration
-	return g.generatePaymentTxn(round, intra)
+func weightedSelection(weights []float32, options []interface{}) (selection interface{}, err error) {
+	if len(weights) != len(options) {
+		err = fmt.Errorf("number of weights must equal number of options: %d != %d", len(weights), len(options))
+		return
+	}
+
+	selectionNumber := rand.Float32()
+	total := float32(0)
+	for i := 0; i < len(weights); i++ {
+		if selectionNumber - total < weights[i] {
+			selection = options[i]
+			return
+		}
+		total += weights[i]
+	}
+
+	err = outOfRangeError
+	return
+}
+
+func getTransactionOptions() []interface{} {
+	return []interface{}{paymentTx, assetTx}
+}
+
+func (g *generator) generateTransaction(sp sdk_types.SuggestedParams, round uint64, intra uint64) (types.SignedTxnInBlock, error) {
+	if len(g.transactionWeights) == 0 {
+		g.transactionWeights = append(g.transactionWeights, g.config.PaymentTransactionFraction)
+		g.transactionWeights = append(g.transactionWeights, g.config.AssetTransactionFraction)
+	}
+
+	selection, err := weightedSelection(g.transactionWeights, getTransactionOptions())
+	if err != nil {
+		if err == outOfRangeError {
+			// Default type
+			selection = paymentTx
+			err = nil
+		} else {
+			return types.SignedTxnInBlock{}, err
+		}
+	}
+
+	switch selection {
+	case paymentTx:
+		return g.generatePaymentTxn(sp, round, intra)
+	case assetTx:
+		return g.generateAssetTxn(sp, round, intra)
+	default:
+		return types.SignedTxnInBlock{}, fmt.Errorf("no generator available for %s", selection)
+	}
 }
 
 // WriteBlock generates a block full of new transactions and writes it to the writer.
@@ -166,19 +241,17 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 	}
 
 	// Generate the transactions
+	sp := g.getSuggestedParams(round)
 	transactions := make([]types.SignedTxnInBlock, 0, g.config.TxnPerBlock)
 	for i := uint64(0); i < g.config.TxnPerBlock; i++ {
-		txn, err := g.generateTransaction(g.round, i)
-		stxnib := types.SignedTxnInBlock{
-			SignedTxnWithAD: txn,
-			HasGenesisID:    true,
-			HasGenesisHash:  true,
-		}
+		txn, err := g.generateTransaction(sp, g.round, i)
 		if err != nil {
 			panic(fmt.Sprintf("failed to generate transaction: %v\n", err))
 		}
-		transactions = append(transactions, stxnib)
+		transactions = append(transactions, txn)
 	}
+
+	g.txnCounter += g.config.TxnPerBlock
 
 	block := types.Block{
 		BlockHeader: types.BlockHeader{
@@ -212,7 +285,6 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 		Certificate: types.Certificate{},
 	}
 
-	g.txnCounter += g.config.TxnPerBlock
 	g.timestamp += consensusTime
 	g.round++
 
@@ -239,7 +311,7 @@ func (g *generator) initializeAccounting() {
 }
 
 // convert wraps the transaction as needed for including in the block.
-func convert(txn sdk_types.Transaction, ad types.ApplyData) types.SignedTxnWithAD {
+func convert(txn sdk_types.Transaction, ad types.ApplyData) types.SignedTxnInBlock {
 	stxn := sdk_types.SignedTxn{
 		Sig:      sdk_types.Signature{},
 		Msig:     sdk_types.MultisigSig{},
@@ -257,12 +329,30 @@ func convert(txn sdk_types.Transaction, ad types.ApplyData) types.SignedTxnWithA
 		ApplyData: ad,
 	}
 
-	return withAd
+	stxnib := types.SignedTxnInBlock{
+		SignedTxnWithAD: withAd,
+		HasGenesisID:    true,
+		HasGenesisHash:  true,
+	}
+	return stxnib
+}
+
+func (g *generator) getSuggestedParams(round uint64) sdk_types.SuggestedParams {
+	return sdk_types.SuggestedParams{
+		Fee:              1000,
+		GenesisID:        g.genesisID,
+		GenesisHash:      g.genesisHash[:],
+		FirstRoundValid:  sdk_types.Round(round),
+		LastRoundValid:   sdk_types.Round(round + 1000),
+		ConsensusVersion: "",
+		FlatFee:          true,
+		MinFee:           1000,
+	}
 }
 
 // generatePaymentTxn creates a new payment transaction. The sender is always a genesis account, the receiver is random,
 // or a new account.
-func (g *generator) generatePaymentTxn(round uint64, intra uint64) (types.SignedTxnWithAD, error) {
+func (g *generator) generatePaymentTxn(sp sdk_types.SuggestedParams, round uint64, intra uint64) (types.SignedTxnInBlock, error) {
 	var receiveIndex uint64
 	if g.numPayments%uint64(100*g.config.PaymentNewAccountFraction) == 0 {
 		g.balances = append(g.balances, 0)
@@ -290,35 +380,75 @@ func (g *generator) generatePaymentTxn(round uint64, intra uint64) (types.Signed
 	g.balances[receiveIndex] += amount
 
 	g.numPayments++
-	txn := sdk_types.Transaction{
-		Type: "pay",
-		Header: sdk_types.Header{
-			Sender:      sender,
-			Fee:         sdk_types.MicroAlgos(fee),
-			FirstValid:  sdk_types.Round(round),
-			LastValid:   sdk_types.Round(round + 1000),
-			Note:        nil,
-			GenesisID:   g.genesisID,
-			GenesisHash: g.genesisHash,
-			Group:       sdk_types.Digest{},
-			Lease:       [32]byte{},
-			RekeyTo:     sdk_types.Address{},
-		},
-		KeyregTxnFields: sdk_types.KeyregTxnFields{},
-		PaymentTxnFields: sdk_types.PaymentTxnFields{
-			Receiver:         receiver,
-			Amount:           sdk_types.MicroAlgos(amount),
-			CloseRemainderTo: sdk_types.Address{},
-		},
-		AssetConfigTxnFields:   sdk_types.AssetConfigTxnFields{},
-		AssetTransferTxnFields: sdk_types.AssetTransferTxnFields{},
-		AssetFreezeTxnFields:   sdk_types.AssetFreezeTxnFields{},
-		ApplicationFields:      sdk_types.ApplicationFields{},
-	}
 
+	// TODO: Unnecessary serialize/deserialize of addresses.
+	// Easy to optimize by creating the struct ourselves if needed.
+	txn, err := future.MakePaymentTxn(sender.String(), receiver.String(), amount, nil, "", sp)
+	util.MaybeFail(err, "unable to make transaction")
 	return convert(txn, types.ApplyData{}), nil
 }
 
-func (g *generator) generateAssetTxn(round uint64, intra uint64) (types.SignedTxnWithAD, error) {
-	return convert(sdk_types.Transaction{}, types.ApplyData{}), nil
+func getAssetTxOptions() []interface{} {
+	return []interface{}{assetCreate, assetDestroy, assetOptin, assetXfer, assetClose}
+}
+
+func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams, round uint64, intra uint64) (types.SignedTxnInBlock, error) {
+	if len(g.assetTxWeights) == 0 {
+		g.assetTxWeights = append(g.assetTxWeights, g.config.AssetCreateFraction)
+		g.assetTxWeights = append(g.assetTxWeights, g.config.AssetDestroyFraction)
+		g.assetTxWeights = append(g.assetTxWeights, g.config.AssetOptinFraction)
+		g.assetTxWeights = append(g.assetTxWeights, g.config.AssetXferFraction)
+		g.assetTxWeights = append(g.assetTxWeights, g.config.AssetCloseFraction)
+	}
+
+	selection, err := weightedSelection(g.assetTxWeights, getAssetTxOptions())
+	if err != nil {
+		if err == outOfRangeError {
+			// Default type
+			selection = assetXfer
+			err = nil
+		} else {
+			return types.SignedTxnInBlock{}, err
+		}
+	}
+
+	// If there are no assets the next operation needs to be a create.
+	if g.numAssets == 0 {
+		selection = assetCreate
+	}
+
+	var txn sdk_types.Transaction
+	switch selection {
+	case assetCreate:
+		senderIdx := g.numAssets % g.numAccounts
+		senderAcct := indexToAccount(senderIdx)
+		senderAcctStr := senderAcct.String()
+		g.numAssets++
+
+		total := uint64(1000000000000000)
+		assetID := g.txnCounter + intra + 1
+		assetName := fmt.Sprintf("asset #%d", assetID)
+		txn, err = future.MakeAssetCreateTxn(senderAcctStr, nil, sp, total, 0, false, senderAcctStr, senderAcctStr, senderAcctStr, senderAcctStr, "tokens", assetName, "https://algorand.com", "metadata!")
+
+		// Compute asset ID and initialize holdings
+		holdings := []assetHolding{{acctIndex: senderIdx, balance: total}}
+		g.assetBalances[assetID] = holdings
+	case assetDestroy:
+		// select random asset and delete it.
+	case assetOptin:
+		// select a random asset and a random account to optin
+	case assetXfer:
+		// select a random asset.
+		// send from creator (holder[0]) to another random holder (same address is valid)
+	case assetClose:
+		// select a random asset to close out
+	default:
+	}
+
+	if txn.Type == "" {
+		fmt.Println("Empty asset transaction.")
+		os.Exit(1)
+	}
+
+	return convert(txn, types.ApplyData{}), nil
 }
