@@ -4,10 +4,10 @@ genesis_account_balance: 100000000
 tx_per_block: 5000
 
 # transaction distribution
-tx_distribution_asset: 1.0
+tx_asset_fraction: 1.0
 
 # asset config
-asset_create_rate: 0.001
-asset_optin_rate: 0.50
-asset_close_rate: 0.40
-asset_xfer_rate: 0.099
+asset_create_fraction: 0.001
+asset_optin_fraction: 0.50
+asset_close_fraction: 0.40
+asset_xfer_fraction: 0.099
