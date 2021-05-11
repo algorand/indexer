@@ -25,21 +25,6 @@ idb/mocks/IndexerDb.go:	idb/idb.go
 	go get github.com/vektra/mockery/.../
 	cd idb && mockery -name=IndexerDb
 
-cmd/block-generator/block-generator:
-	cd cmd/block-generator && go build
-
-cmd/e2equeries/e2equeries:
-	cd cmd/e2equeries && go build
-
-cmd/idbtest/idbtest:
-	cd cmd/idbtest && go build
-
-cmd/texttosource/texttosource:
-	cd cmd/texttosource && go build
-
-cmd/validator/validator:
-	cd cmd/validator && go build
-
 # check that all packages (except tests) compile
 check:
 	go build ./...
@@ -87,4 +72,4 @@ sign:
 test-package:
 	mule/e2e.sh
 
-.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go cmd/block-generator/block-generator cmd/e2equeries/e2equeries cmd/idbtest/idbtest cmd/texttosource/texttosource cmd/validator/validator
+.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go
