@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	consensusTime int64 = 4500
+	consensusTimeMilli int64 = 4500
 )
 
 // GenerationConfig defines the tunable parameters for block generation.
@@ -213,7 +213,7 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 	}
 
 	g.txnCounter += g.config.TxnPerBlock
-	g.timestamp += consensusTime
+	g.timestamp += consensusTimeMilli
 	g.round++
 
 	fmt.Println(g.txnCounter)
