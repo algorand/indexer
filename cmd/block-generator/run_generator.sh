@@ -39,7 +39,7 @@ make
 echo "Starting postgres container."
 start_postgres
 echo "Starting block generator (see generator.log)"
-./cmd/block-generator/block-generator -port 11111 -config cmd/block-generator/config.yml 2>&1 > generator.log &
+./cmd/block-generator/block-generator -port 11111 -config cmd/block-generator/test_config.yml &
 GENERATOR_PID=$!
 echo "Starting indexer"
 ./cmd/algorand-indexer/algorand-indexer daemon \

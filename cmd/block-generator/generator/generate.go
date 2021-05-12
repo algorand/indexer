@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"os"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
@@ -13,23 +14,62 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
+const (
+	consensusTimeMilli int64 = 4500
+)
+
 // GenerationConfig defines the tunable parameters for block generation.
 type GenerationConfig struct {
-	// Block generation features
-	TxnPerBlock         uint64
-	NewAccountFrequency uint64
+	Name                         string `mapstructure:"name"`
+	NumGenesisAccounts           uint64 `mapstructure:"genesis_accounts"`
+	GenesisAccountInitialBalance uint64 `mapstructure:"genesis_account_balance"`
 
-	Protocol                     string
-	NumGenesisAccounts           uint64
-	GenesisAccountInitialBalance uint64
-	GenesisID                    string
-	GenesisHash                  sdk_types.Digest
+	// Block generation
+	TxnPerBlock uint64 `mapstructure:"tx_per_block"`
+
+	// TX Distribution
+	PaymentTransactionFraction float32 `mapstructure:"tx_pay_fraction"`
+	AssetTransactionFraction   float32 `mapstructure:"tx_asset_fraction"`
+
+	// Payment configuration
+	PaymentNewAccountFraction float32 `mapstructure:"pay_acct_create_fraction"`
+	PaymentTransferFraction   float32 `mapstructure:"pay_xfer_fraction"`
+
+	// Asset configuration
+	AssetCreateFraction  float32 `mapstructure:"asset_create_fraction"`
+	AssetDestroyFraction float32 `mapstructure:"asset_destroy_fraction"`
+	AssetOptinFraction   float32 `mapstructure:"asset_optin_fraction"`
+	AssetCloseFraction   float32 `mapstructure:"asset_close_fraction"`
+	AssetXferFraction    float32 `mapstructure:"asset_xfer_fraction"`
+}
+
+func sumIsCloseToOne(numbers ...float32) bool {
+	var sum float32
+	for _, num := range numbers {
+		sum += num
+	}
+	return sum > 0.99 && sum < 1.01
 }
 
 // MakeGenerator initializes the Generator object.
-func MakeGenerator(config GenerationConfig) Generator {
+func MakeGenerator(config GenerationConfig) (Generator, error) {
+	if !sumIsCloseToOne(config.PaymentTransactionFraction, config.AssetTransactionFraction) {
+		return nil, fmt.Errorf("transaction distribution ratios should equal 1")
+	}
+
+	if !sumIsCloseToOne(config.PaymentNewAccountFraction, config.PaymentTransferFraction) {
+		return nil, fmt.Errorf("payment configuration ratios should equal 1")
+	}
+
+	if !sumIsCloseToOne(config.AssetCreateFraction, config.AssetOptinFraction, config.AssetCloseFraction, config.AssetXferFraction) {
+		return nil, fmt.Errorf("asset configuration ratios should equal 1")
+	}
+
 	gen := &generator{
 		config:                    config,
+		protocol:                  "future",
+		genesisHash:               [32]byte{},
+		genesisID:                 "blockgen-test",
 		prevBlockHash:             "",
 		round:                     0,
 		txnCounter:                0,
@@ -45,7 +85,7 @@ func MakeGenerator(config GenerationConfig) Generator {
 
 	gen.initializeAccounting()
 
-	return gen
+	return gen, nil
 }
 
 // Generator is the interface needed to generate blocks.
@@ -63,14 +103,14 @@ type generator struct {
 	// Number of algorand accounts
 	numAccounts uint64
 
-	// Blockchain stuff
+	// Block stuff
 	round         uint64
 	txnCounter    uint64
 	prevBlockHash string
-	//currentProtocol string
-	timestamp int64
-	//genesisID       string
-	//genesisHash		[32]byte
+	timestamp     int64
+	protocol      types.ConsensusVersion
+	genesisID     string
+	genesisHash   sdk_types.Digest
 
 	// Rewards stuff
 	feeSink                   types.Address
@@ -104,7 +144,7 @@ func (g *generator) WriteGenesis(output io.Writer) {
 	gen := types.Genesis{
 		SchemaID:    "v1",
 		Network:     "generated-network",
-		Proto:       "future",
+		Proto:       g.protocol,
 		Allocation:  allocations,
 		RewardsPool: g.rewardsPool.String(),
 		FeeSink:     g.feeSink.String(),
@@ -120,7 +160,11 @@ func (g *generator) generateTransaction(round uint64, intra uint64) (types.Signe
 }
 
 // WriteBlock generates a block full of new transactions and writes it to the writer.
-func (g *generator) WriteBlock(output io.Writer, _ uint64) {
+func (g *generator) WriteBlock(output io.Writer, round uint64) {
+	if round != g.round {
+		fmt.Printf("Generator only supports sequential block access. Expected %d but received request for %d.", g.round, round)
+	}
+
 	// Generate the transactions
 	transactions := make([]types.SignedTxnInBlock, 0, g.config.TxnPerBlock)
 	for i := uint64(0); i < g.config.TxnPerBlock; i++ {
@@ -143,8 +187,8 @@ func (g *generator) WriteBlock(output io.Writer, _ uint64) {
 			Seed:        types.Seed{},
 			TxnRoot:     types.Digest{},
 			TimeStamp:   g.timestamp,
-			GenesisID:   g.config.GenesisID,
-			GenesisHash: g.config.GenesisHash,
+			GenesisID:   g.genesisID,
+			GenesisHash: g.genesisHash,
 			RewardsState: types.RewardsState{
 				FeeSink:                   g.feeSink,
 				RewardsPool:               g.rewardsPool,
@@ -154,9 +198,9 @@ func (g *generator) WriteBlock(output io.Writer, _ uint64) {
 				RewardsRecalculationRound: 0,
 			},
 			UpgradeState: types.UpgradeState{
-				CurrentProtocol: "future",
+				CurrentProtocol: g.protocol,
 			},
-			//UpgradeVote:  types.UpgradeVote{},
+			UpgradeVote: types.UpgradeVote{},
 			TxnCounter:  g.txnCounter,
 			CompactCert: nil,
 		},
@@ -169,7 +213,7 @@ func (g *generator) WriteBlock(output io.Writer, _ uint64) {
 	}
 
 	g.txnCounter += g.config.TxnPerBlock
-	g.timestamp += 4500
+	g.timestamp += consensusTimeMilli
 	g.round++
 
 	fmt.Println(g.txnCounter)
@@ -194,56 +238,8 @@ func (g *generator) initializeAccounting() {
 	}
 }
 
-// generatePaymentTxn creates a new payment transaction.
-func (g *generator) generatePaymentTxn(round uint64, intra uint64) (types.SignedTxnWithAD, error) {
-	var receiveIndex uint64
-	if g.numPayments%g.config.NewAccountFrequency == 0 {
-		g.balances = append(g.balances, 0)
-		g.numAccounts++
-		receiveIndex = g.numAccounts - 1
-	} else {
-		receiveIndex = rand.Uint64() % g.numAccounts
-	}
-
-	sendIndex := g.numPayments % g.numAccounts
-	sender := indexToAccount(sendIndex)
-	receiver := indexToAccount(receiveIndex)
-
-	if g.balances[sendIndex] < 2 {
-		panic(fmt.Sprintf("the sender account does not have two microalgos to rub together. idx %d, payment number %d", sendIndex, g.numPayments))
-	}
-
-	amount := g.balances[sendIndex] / 2
-	g.balances[sendIndex] -= amount
-	g.balances[receiveIndex] += amount
-
-	g.numPayments++
-	txn := sdk_types.Transaction{
-		Type: "pay",
-		Header: sdk_types.Header{
-			Sender:     sender,
-			Fee:        1000,
-			FirstValid: sdk_types.Round(round),
-			LastValid:  sdk_types.Round(round + 1000),
-			//Note:        nil,
-			GenesisID:   g.config.GenesisID,
-			GenesisHash: g.config.GenesisHash,
-			//Group:       sdk_types.Digest{},
-			//Lease:       [32]byte{},
-			//RekeyTo:     sdk_types.Address{},
-		},
-		//KeyregTxnFields:        sdk_types.KeyregTxnFields{},
-		PaymentTxnFields: sdk_types.PaymentTxnFields{
-			Receiver: receiver,
-			Amount:   sdk_types.MicroAlgos(amount),
-			//CloseRemainderTo: sdk_types.Address{},
-		},
-		//AssetConfigTxnFields:   sdk_types.AssetConfigTxnFields{},
-		//AssetTransferTxnFields: sdk_types.AssetTransferTxnFields{},
-		//AssetFreezeTxnFields:   sdk_types.AssetFreezeTxnFields{},
-		//ApplicationFields:      sdk_types.ApplicationFields{},
-	}
-
+// convert wraps the transaction as needed for including in the block.
+func convert(txn sdk_types.Transaction, ad types.ApplyData) types.SignedTxnWithAD {
 	stxn := sdk_types.SignedTxn{
 		Sig:      sdk_types.Signature{},
 		Msig:     sdk_types.MultisigSig{},
@@ -251,18 +247,78 @@ func (g *generator) generatePaymentTxn(round uint64, intra uint64) (types.Signed
 		Txn:      txn,
 		AuthAddr: sdk_types.Address{},
 	}
+
+	// TODO: Would it be useful to generate a random signature?
 	stxn.Sig[32] = 50
-	/*
-		// Would it be useful to generate a random signature?
-		_, err := rand.Read(stxn.Sig[:])
-		if err != nil {
-			fmt.Println("Failed to generate a random signature")
-		}
-	*/
 
 	withAd := types.SignedTxnWithAD{
 		SignedTxn: stxn,
-		ApplyData: types.ApplyData{},
+		// TODO: Add close-amount to apply data
+		ApplyData: ad,
 	}
-	return withAd, nil
+
+	return withAd
+}
+
+// generatePaymentTxn creates a new payment transaction. The sender is always a genesis account, the receiver is random,
+// or a new account.
+func (g *generator) generatePaymentTxn(round uint64, intra uint64) (types.SignedTxnWithAD, error) {
+	var receiveIndex uint64
+	if g.numPayments%uint64(100*g.config.PaymentNewAccountFraction) == 0 {
+		g.balances = append(g.balances, 0)
+		g.numAccounts++
+		receiveIndex = g.numAccounts - 1
+	} else {
+		receiveIndex = rand.Uint64() % g.numAccounts
+	}
+
+	// Always send from a genesis account.
+	sendIndex := g.numPayments % g.config.NumGenesisAccounts
+
+	sender := indexToAccount(sendIndex)
+	receiver := indexToAccount(receiveIndex)
+
+	amount := uint64(10000000)
+	fee := uint64(1000)
+	if g.balances[sendIndex] < 2 {
+		fmt.Printf(fmt.Sprintf("\n\nthe sender account does not enough algos for the transfer. idx %d, payment number %d\n\n", sendIndex, g.numPayments))
+		os.Exit(1)
+	}
+
+	g.balances[sendIndex] -= amount
+	g.balances[sendIndex] -= fee
+	g.balances[receiveIndex] += amount
+
+	g.numPayments++
+	txn := sdk_types.Transaction{
+		Type: "pay",
+		Header: sdk_types.Header{
+			Sender:      sender,
+			Fee:         sdk_types.MicroAlgos(fee),
+			FirstValid:  sdk_types.Round(round),
+			LastValid:   sdk_types.Round(round + 1000),
+			Note:        nil,
+			GenesisID:   g.genesisID,
+			GenesisHash: g.genesisHash,
+			Group:       sdk_types.Digest{},
+			Lease:       [32]byte{},
+			RekeyTo:     sdk_types.Address{},
+		},
+		KeyregTxnFields: sdk_types.KeyregTxnFields{},
+		PaymentTxnFields: sdk_types.PaymentTxnFields{
+			Receiver:         receiver,
+			Amount:           sdk_types.MicroAlgos(amount),
+			CloseRemainderTo: sdk_types.Address{},
+		},
+		AssetConfigTxnFields:   sdk_types.AssetConfigTxnFields{},
+		AssetTransferTxnFields: sdk_types.AssetTransferTxnFields{},
+		AssetFreezeTxnFields:   sdk_types.AssetFreezeTxnFields{},
+		ApplicationFields:      sdk_types.ApplicationFields{},
+	}
+
+	return convert(txn, types.ApplyData{}), nil
+}
+
+func (g *generator) generateAssetTxn(round uint64, intra uint64) (types.SignedTxnWithAD, error) {
+	return convert(sdk_types.Transaction{}, types.ApplyData{}), nil
 }

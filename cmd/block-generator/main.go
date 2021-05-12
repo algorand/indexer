@@ -30,34 +30,39 @@ func init() {
 	viper.AddConfigPath(".")
 }
 
-func initializeConfigFile() error {
+func initializeConfigFile() (config generator.GenerationConfig, err error) {
 	if len(configFile) > 0 {
-		f, err := os.Open(configFile)
+		var f *os.File
+		f, err = os.Open(configFile)
 		if err != nil {
-			return err
+			return
 		}
 
-		return viper.ReadConfig(f)
+		err = viper.ReadConfig(f)
+	} else {
+		err = viper.ReadInConfig()
 	}
 
-	return viper.ReadInConfig()
+	// Problem reading config
+	if err != nil {
+		return
+	}
+
+	err = viper.Unmarshal(&config)
+	return
 }
 
 func main() {
 	flag.Parse()
 
-	util.MaybeFail(initializeConfigFile(), "problem loading config file. Use '-config' or create a config file.")
+	config, err := initializeConfigFile()
+	util.MaybeFail(err, "problem loading config file. Use '-config' or create a config file.")
 
-	// Pass everything from the configuration into the generator.
-	gen = generator.MakeGenerator(generator.GenerationConfig{
-		TxnPerBlock:                  15000,
-		NewAccountFrequency:          100,
-		Protocol:                     "future",
-		NumGenesisAccounts:           10,
-		GenesisAccountInitialBalance: 1000000000,
-		GenesisID:                    "blockgen-test",
-		GenesisHash:                  [32]byte{},
-	})
+	gen, err = generator.MakeGenerator(config)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to create generator: %v", err)
+		os.Exit(1)
+	}
 
 	http.HandleFunc("/", help)
 	http.HandleFunc("/v2/blocks/", handleBlock)
