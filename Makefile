@@ -25,6 +25,10 @@ idb/mocks/IndexerDb.go:	idb/idb.go
 	go get github.com/vektra/mockery/.../
 	cd idb && mockery -name=IndexerDb
 
+# check that all packages (except tests) compile
+check:
+	go build ./...
+
 package:
 	rm -rf $(PKG_DIR)
 	mkdir -p $(PKG_DIR)
