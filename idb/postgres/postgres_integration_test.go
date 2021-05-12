@@ -150,7 +150,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -197,7 +197,7 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -286,7 +286,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 		//////////
 		// When // We commit the round accounting to the database.
 		//////////
-		err = pdb.CommitRoundAccounting(state.RoundUpdates, round, &types.Block{})
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, round, &types.BlockHeader{})
 		assert.NoError(t, err, "failed to commit")
 
 		//////////
@@ -327,7 +327,7 @@ func TestNoopOptins(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -370,7 +370,7 @@ func TestMultipleWriters(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			<-start
-			errors <- pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
+			errors <- pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
 		}()
 	}
 	close(start)
@@ -473,7 +473,7 @@ func TestRekeyBasic(t *testing.T) {
 	state := getAccounting(test.Round, cache)
 	state.AddTransaction(txnRow)
 
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -509,7 +509,7 @@ func TestRekeyToItself(t *testing.T) {
 		state := getAccounting(test.Round, cache)
 		state.AddTransaction(txnRow)
 
-		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
 		assert.NoError(t, err, "failed to commit")
 	}
 	{
@@ -521,7 +521,7 @@ func TestRekeyToItself(t *testing.T) {
 		state := getAccounting(test.Round+1, cache)
 		state.AddTransaction(txnRow)
 
-		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round+1, &types.Block{})
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round+1, &types.BlockHeader{})
 		assert.NoError(t, err, "failed to commit")
 	}
 
@@ -569,7 +569,7 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 		state.AddTransaction(txnRow)
 	}
 
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -607,7 +607,7 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	//////////
 	// Then // No error when committing to the DB.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 }
 
@@ -639,7 +639,7 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -674,7 +674,7 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -736,7 +736,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 		err := state.AddTransaction(txnRow)
 		assert.NoError(t, err)
 
-		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
 		assert.NoError(t, err, "failed to commit")
 	}
 	// Destroy an asset.
@@ -747,7 +747,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 		err := state.AddTransaction(txnRow)
 		assert.NoError(t, err)
 
-		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round+1, &types.Block{})
+		err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round+1, &types.BlockHeader{})
 		assert.NoError(t, err, "failed to commit")
 	}
 
@@ -795,7 +795,7 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	// Check that the asset is deleted.
@@ -867,7 +867,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 		state.AddTransaction(txnRow)
 	}
 
-	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.Block{})
+	err = pdb.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	// Check that the creator's asset holding is deleted.
