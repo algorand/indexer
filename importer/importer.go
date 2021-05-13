@@ -120,9 +120,7 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		}
 		txCount++
 	}
-	blockHeader := block
-	blockHeader.Payset = nil
-	blockheaderBytes := msgpack.Encode(blockHeader)
+	blockheaderBytes := msgpack.Encode(block.BlockHeader)
 	err = imp.db.CommitBlock(round, block.TimeStamp, block.RewardsLevel, blockheaderBytes)
 	if err != nil {
 		return txCount, fmt.Errorf("error committing block, %v", err)
