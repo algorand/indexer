@@ -30,10 +30,10 @@ const (
 	//applicationCallTx = "appl"
 
 	// Asset Tx Types
-	assetCreate = "create"
-	assetOptin = "optin"
-	assetXfer = "xfer"
-	assetClose = "close"
+	assetCreate  = "create"
+	assetOptin   = "optin"
+	assetXfer    = "xfer"
+	assetClose   = "close"
 	assetDestroy = "destroy"
 )
 
@@ -97,7 +97,6 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 		rewardsResidue:            0,
 		rewardsRate:               0,
 		rewardsRecalculationRound: 0,
-		assetBalances:             make(map[uint64][]assetHolding),
 	}
 
 	gen.feeSink[31] = 1
@@ -145,11 +144,16 @@ type generator struct {
 	balances []uint64
 
 	// Assets to asset holder balances.
-	assetBalances map[uint64][]assetHolding
-	numAssets     uint64
+	assets []asset
 
 	transactionWeights []float32
-	assetTxWeights []float32
+	assetTxWeights     []float32
+}
+
+type asset struct {
+	assetID  uint64
+	creator  uint64
+	holdings []assetHolding
 }
 
 type assetHolding struct {
@@ -392,29 +396,46 @@ func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams, round uint64,
 		}
 	}
 
+	numAssets := uint64(len(g.assets))
 	// If there are no assets the next operation needs to be a create.
-	if g.numAssets == 0 {
+	if numAssets == 0 {
 		selection = assetCreate
 	}
 
 	var txn sdk_types.Transaction
 	switch selection {
 	case assetCreate:
-		senderIdx := g.numAssets % g.numAccounts
+		senderIdx := numAssets % g.numAccounts
 		senderAcct := indexToAccount(senderIdx)
 		senderAcctStr := senderAcct.String()
-		g.numAssets++
 
 		total := uint64(1000000000000000)
 		assetID := g.txnCounter + intra + 1
 		assetName := fmt.Sprintf("asset #%d", assetID)
 		txn, err = future.MakeAssetCreateTxn(senderAcctStr, nil, sp, total, 0, false, senderAcctStr, senderAcctStr, senderAcctStr, senderAcctStr, "tokens", assetName, "https://algorand.com", "metadata!")
+		util.MaybeFail(err, "unable to make asset create transaction")
 
 		// Compute asset ID and initialize holdings
-		holdings := []assetHolding{{acctIndex: senderIdx, balance: total}}
-		g.assetBalances[assetID] = holdings
+		a := asset{
+			assetID:  assetID,
+			creator:  senderIdx,
+			holdings: []assetHolding{{acctIndex: senderIdx, balance: total}},
+		}
+
+		g.assets = append(g.assets, a)
 	case assetDestroy:
 		// select random asset and delete it.
+		assetIndex := rand.Uint64() % numAssets
+		asset := g.assets[assetIndex]
+		creator := indexToAccount(asset.creator)
+		creatorString := creator.String()
+
+		txn, err = future.MakeAssetDestroyTxn(creatorString, nil, sp, assetIndex)
+		util.MaybeFail(err, "unable to make asset destroy transaction")
+
+		// Remove asset by swapping the element to delete then trimming the last
+		g.assets[numAssets-1], g.assets[assetIndex] = g.assets[assetIndex], g.assets[numAssets-1]
+		g.assets = g.assets[:numAssets-1]
 	case assetOptin:
 		// select a random asset and a random account to optin
 	case assetXfer:

@@ -17,7 +17,7 @@ func weightedSelectionInternal(selectionNumber float32, weights []float32, optio
 
 	total := float32(0)
 	for i := 0; i < len(weights); i++ {
-		if selectionNumber - total <= weights[i] {
+		if selectionNumber-total <= weights[i] {
 			selection = options[i]
 			return
 		}
@@ -27,4 +27,3 @@ func weightedSelectionInternal(selectionNumber float32, weights []float32, optio
 	err = outOfRangeError
 	return
 }
-

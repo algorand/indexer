@@ -12,33 +12,33 @@ func TestWeightedSelectionInternal(t *testing.T) {
 	weights := []float32{0.10, 0.30, 0.60}
 	options := []interface{}{"10", "30", "60"}
 
-	testcases := []struct{
+	testcases := []struct {
 		selectionNum float32
-		expected interface{}
-	} {
+		expected     interface{}
+	}{
 		{
 			selectionNum: 0.0,
-			expected: options[0],
+			expected:     options[0],
 		},
 		{
 			selectionNum: 0.10,
-			expected: options[0],
+			expected:     options[0],
 		},
 		{
 			selectionNum: 0.101,
-			expected: options[1],
+			expected:     options[1],
 		},
 		{
 			selectionNum: 0.4,
-			expected: options[1],
+			expected:     options[1],
 		},
 		{
 			selectionNum: 0.401,
-			expected: options[2],
+			expected:     options[2],
 		},
 		{
 			selectionNum: 1.0,
-			expected: options[2],
+			expected:     options[2],
 		},
 	}
 
@@ -57,7 +57,7 @@ func TestWeightedSelection(t *testing.T) {
 	options := []interface{}{"10", "30", "60"}
 	selections := make(map[interface{}]int)
 
-	for i:=0; i < 100; i++ {
+	for i := 0; i < 100; i++ {
 		selected, err := weightedSelection(weights, options)
 		require.NoError(t, err)
 		selections[selected] += 1
@@ -71,7 +71,7 @@ func TestWeightedSelectionOutOfRange(t *testing.T) {
 	weights := []float32{0.1}
 	options := []interface{}{"1"}
 
-	for i:=0; i < 10000; i++ {
+	for i := 0; i < 10000; i++ {
 		_, err := weightedSelection(weights, options)
 		if err != nil {
 			require.Errorf(t, err, outOfRangeError.Error())
