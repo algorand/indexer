@@ -144,7 +144,7 @@ type generator struct {
 	balances []uint64
 
 	// Assets to asset holder balances.
-	assets []assetData
+	assets []*assetData
 
 	transactionWeights []float32
 	assetTxWeights     []float32
@@ -154,6 +154,7 @@ type assetData struct {
 	assetID  uint64
 	creator  uint64
 	holdings []assetHolding
+	holders  map[uint64]bool
 }
 
 type assetHolding struct {
@@ -376,9 +377,15 @@ func getAssetTxOptions() []interface{} {
 	return []interface{}{assetCreate, assetDestroy, assetOptin, assetXfer, assetClose}
 }
 
-func (g *generator) createAssetTxn(txType interface{}, sp sdk_types.SuggestedParams, intra uint64) (senderIndex uint64, txn types.Transaction) {
+func (g *generator) generateAssetTxnInternal(txType interface{}, sp sdk_types.SuggestedParams, intra uint64) (txn types.Transaction) {
+	// If there are no assets the next operation needs to be a create.
+	if len(g.assets) == 0 {
+		txType = assetCreate
+	}
+
 	var err error
 	numAssets := uint64(len(g.assets))
+	var senderIndex uint64
 
 	switch txType {
 	case assetCreate:
@@ -397,9 +404,10 @@ func (g *generator) createAssetTxn(txType interface{}, sp sdk_types.SuggestedPar
 			assetID:  assetID,
 			creator:  senderIndex,
 			holdings: []assetHolding{{acctIndex: senderIndex, balance: total}},
+			holders: map[uint64]bool{senderIndex: true},
 		}
 
-		g.assets = append(g.assets, a)
+		g.assets = append(g.assets, &a)
 	case assetDestroy:
 		// select random asset and delete it.
 		assetIndex := rand.Uint64() % numAssets
@@ -419,7 +427,17 @@ func (g *generator) createAssetTxn(txType interface{}, sp sdk_types.SuggestedPar
 		assetIndex := rand.Uint64() % numAssets
 		asset := g.assets[assetIndex]
 
-		senderIndex = rand.Uint64() % g.numAccounts
+		// If every account holds the asset, close instead of optin
+		if uint64(len(asset.holdings)) == g.numAccounts {
+			return g.generateAssetTxnInternal(assetClose, sp, intra)
+		}
+
+		// look for an account that does not hold the asset
+		exists := true
+		for exists {
+			senderIndex = rand.Uint64() % g.numAccounts
+			exists = asset.holders[senderIndex]
+		}
 		account := indexToAccount(senderIndex)
 		accountString := account.String()
 
@@ -430,11 +448,17 @@ func (g *generator) createAssetTxn(txType interface{}, sp sdk_types.SuggestedPar
 			acctIndex: senderIndex,
 			balance:   0,
 		})
+		asset.holders[senderIndex] = true
 	case assetXfer:
 		// select a random asset.
 		// send from creator (holder[0]) to another random holder (same address is valid)
 		assetIndex := rand.Uint64() % numAssets
 		asset := g.assets[assetIndex]
+
+		// If there aren't enough assets to close one, optin an account instead
+		if len(asset.holdings) == 1 {
+			return g.generateAssetTxnInternal(assetOptin, sp, intra)
+		}
 
 		senderIndex = asset.holdings[0].acctIndex
 		senderString := indexToAccount(senderIndex).String()
@@ -460,14 +484,15 @@ func (g *generator) createAssetTxn(txType interface{}, sp sdk_types.SuggestedPar
 
 		// If there aren't enough assets to close one, optin an account instead
 		if len(asset.holdings) == 1 {
-			return g.createAssetTxn(assetOptin, sp, intra)
+			return g.generateAssetTxnInternal(assetOptin, sp, intra)
 		}
 
 		closeIndex := ((rand.Uint64() - uint64(1)) % uint64(len(asset.holdings))) + uint64(1)
 		senderIndex = asset.holdings[closeIndex].acctIndex
 		senderString := indexToAccount(senderIndex).String()
 
-		closeToAcct:= indexToAccount(asset.holdings[0].acctIndex)
+		closeToAcctIndex := asset.holdings[0].acctIndex
+		closeToAcct:= indexToAccount(closeToAcctIndex)
 		closeToAcctString := closeToAcct.String()
 
 		txn, err = future.MakeAssetTransferTxn(senderString, closeToAcctString, 0, nil, sp, closeToAcctString, asset.assetID)
@@ -479,8 +504,16 @@ func (g *generator) createAssetTxn(txType interface{}, sp sdk_types.SuggestedPar
 		numHoldings := len(asset.holdings)
 		asset.holdings[numHoldings-1], asset.holdings[closeIndex] = asset.holdings[closeIndex], asset.holdings[numHoldings-1]
 		asset.holdings = asset.holdings[:numHoldings-1]
+		delete(asset.holders, senderIndex)
 	default:
 	}
+
+	if indexToAccount(senderIndex) != txn.Sender {
+		fmt.Printf("failed to properly set sender index.")
+		os.Exit(1)
+	}
+
+	g.balances[senderIndex] -= uint64(txn.Fee)
 	return
 }
 
@@ -504,14 +537,7 @@ func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams, _ uint64, int
 		}
 	}
 
-	// If there are no assets the next operation needs to be a create.
-	if len(g.assets) == 0 {
-		selection = assetCreate
-	}
-
-	senderIndex, txn := g.createAssetTxn(selection, sp, intra)
-
-	g.balances[senderIndex] -= uint64(txn.Fee)
+	txn := g.generateAssetTxnInternal(selection, sp, intra)
 
 	if txn.Type == "" {
 		fmt.Println("Empty asset transaction.")
