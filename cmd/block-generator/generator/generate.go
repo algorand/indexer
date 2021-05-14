@@ -80,7 +80,7 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 		return nil, fmt.Errorf("payment configuration ratios should equal 1")
 	}
 
-	if !sumIsCloseToOne(config.AssetCreateFraction, config.AssetOptinFraction, config.AssetCloseFraction, config.AssetXferFraction) {
+	if !sumIsCloseToOne(config.AssetCreateFraction, config.AssetDestroyFraction, config.AssetOptinFraction, config.AssetCloseFraction, config.AssetXferFraction) {
 		return nil, fmt.Errorf("asset configuration ratios should equal 1")
 	}
 
@@ -336,7 +336,7 @@ func (g *generator) getSuggestedParams(round uint64) sdk_types.SuggestedParams {
 
 // generatePaymentTxn creates a new payment transaction. The sender is always a genesis account, the receiver is random,
 // or a new account.
-func (g *generator) generatePaymentTxn(sp sdk_types.SuggestedParams, round uint64, intra uint64) (types.SignedTxnInBlock, error) {
+func (g *generator) generatePaymentTxn(sp sdk_types.SuggestedParams, _ uint64, _ uint64) (types.SignedTxnInBlock, error) {
 	var receiveIndex uint64
 	if g.numPayments%uint64(100*g.config.PaymentNewAccountFraction) == 0 {
 		g.balances = append(g.balances, 0)
@@ -376,7 +376,7 @@ func getAssetTxOptions() []interface{} {
 	return []interface{}{assetCreate, assetDestroy, assetOptin, assetXfer, assetClose}
 }
 
-func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams, round uint64, intra uint64) (types.SignedTxnInBlock, error) {
+func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams, _ uint64, intra uint64) (types.SignedTxnInBlock, error) {
 	if len(g.assetTxWeights) == 0 {
 		g.assetTxWeights = append(g.assetTxWeights, g.config.AssetCreateFraction)
 		g.assetTxWeights = append(g.assetTxWeights, g.config.AssetDestroyFraction)
