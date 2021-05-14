@@ -144,13 +144,13 @@ type generator struct {
 	balances []uint64
 
 	// Assets to asset holder balances.
-	assets []asset
+	assets []assetData
 
 	transactionWeights []float32
 	assetTxWeights     []float32
 }
 
-type asset struct {
+type assetData struct {
 	assetID  uint64
 	creator  uint64
 	holdings []assetHolding
@@ -376,6 +376,114 @@ func getAssetTxOptions() []interface{} {
 	return []interface{}{assetCreate, assetDestroy, assetOptin, assetXfer, assetClose}
 }
 
+func (g *generator) createAssetTxn(txType interface{}, sp sdk_types.SuggestedParams, intra uint64) (senderIndex uint64, txn types.Transaction) {
+	var err error
+	numAssets := uint64(len(g.assets))
+
+	switch txType {
+	case assetCreate:
+		senderIndex = numAssets % g.numAccounts
+		senderAcct := indexToAccount(senderIndex)
+		senderAcctStr := senderAcct.String()
+
+		total := uint64(1000000000000000)
+		assetID := g.txnCounter + intra + 1
+		assetName := fmt.Sprintf("asset #%d", assetID)
+		txn, err = future.MakeAssetCreateTxn(senderAcctStr, nil, sp, total, 0, false, senderAcctStr, senderAcctStr, senderAcctStr, senderAcctStr, "tokens", assetName, "https://algorand.com", "metadata!")
+		util.MaybeFail(err, "unable to make asset create transaction")
+
+		// Compute asset ID and initialize holdings
+		a := assetData{
+			assetID:  assetID,
+			creator:  senderIndex,
+			holdings: []assetHolding{{acctIndex: senderIndex, balance: total}},
+		}
+
+		g.assets = append(g.assets, a)
+	case assetDestroy:
+		// select random asset and delete it.
+		assetIndex := rand.Uint64() % numAssets
+		asset := g.assets[assetIndex]
+		senderIndex = asset.creator
+		creator := indexToAccount(senderIndex)
+		creatorString := creator.String()
+
+		txn, err = future.MakeAssetDestroyTxn(creatorString, nil, sp, asset.assetID)
+		util.MaybeFail(err, "unable to make asset destroy transaction")
+
+		// Remove asset by swapping the element to delete then trimming the last
+		g.assets[numAssets-1], g.assets[assetIndex] = g.assets[assetIndex], g.assets[numAssets-1]
+		g.assets = g.assets[:numAssets-1]
+	case assetOptin:
+		// select a random asset and a random account to optin
+		assetIndex := rand.Uint64() % numAssets
+		asset := g.assets[assetIndex]
+
+		senderIndex = rand.Uint64() % g.numAccounts
+		account := indexToAccount(senderIndex)
+		accountString := account.String()
+
+		txn, err = future.MakeAssetAcceptanceTxn(accountString, nil, sp, asset.assetID)
+		util.MaybeFail(err, "unable to make asset destroy transaction")
+
+		asset.holdings = append(asset.holdings, assetHolding{
+			acctIndex: senderIndex,
+			balance:   0,
+		})
+	case assetXfer:
+		// select a random asset.
+		// send from creator (holder[0]) to another random holder (same address is valid)
+		assetIndex := rand.Uint64() % numAssets
+		asset := g.assets[assetIndex]
+
+		senderIndex = asset.holdings[0].acctIndex
+		senderString := indexToAccount(senderIndex).String()
+
+		receiverIndex := ((rand.Uint64() - uint64(1)) % uint64(len(asset.holdings))) + uint64(1)
+		receiver := indexToAccount(asset.holdings[receiverIndex].acctIndex)
+		receiverString := receiver.String()
+
+		txn, err = future.MakeAssetTransferTxn(senderString, receiverString, 10, nil, sp, "", asset.assetID)
+		util.MaybeFail(err, "unable to make asset destroy transaction")
+
+		if asset.holdings[0].balance < 10 {
+			fmt.Printf(fmt.Sprintf("\n\ncreator doesn't have enough funds for asset %d\n\n", asset.assetID))
+			os.Exit(1)
+		}
+
+		asset.holdings[0].balance -= 10
+		asset.holdings[receiverIndex].balance += 10
+	case assetClose:
+		// select a holder of a random asset to close out
+		assetIndex := rand.Uint64() % numAssets
+		asset := g.assets[assetIndex]
+
+		// If there aren't enough assets to close one, optin an account instead
+		if len(asset.holdings) == 1 {
+			return g.createAssetTxn(assetOptin, sp, intra)
+		}
+
+		closeIndex := ((rand.Uint64() - uint64(1)) % uint64(len(asset.holdings))) + uint64(1)
+		senderIndex = asset.holdings[closeIndex].acctIndex
+		senderString := indexToAccount(senderIndex).String()
+
+		closeToAcct:= indexToAccount(asset.holdings[0].acctIndex)
+		closeToAcctString := closeToAcct.String()
+
+		txn, err = future.MakeAssetTransferTxn(senderString, closeToAcctString, 0, nil, sp, closeToAcctString, asset.assetID)
+		util.MaybeFail(err, "unable to make asset destroy transaction")
+
+		asset.holdings[0].balance += asset.holdings[closeIndex].balance
+
+		// Remove asset by swapping the element to delete then trimming the last
+		numHoldings := len(asset.holdings)
+		asset.holdings[numHoldings-1], asset.holdings[closeIndex] = asset.holdings[closeIndex], asset.holdings[numHoldings-1]
+		asset.holdings = asset.holdings[:numHoldings-1]
+	default:
+	}
+	return
+}
+
 func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams, _ uint64, intra uint64) (types.SignedTxnInBlock, error) {
 	if len(g.assetTxWeights) == 0 {
 		g.assetTxWeights = append(g.assetTxWeights, g.config.AssetCreateFraction)
@@ -396,55 +504,14 @@ func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams, _ uint64, int
 		}
 	}
 
-	numAssets := uint64(len(g.assets))
 	// If there are no assets the next operation needs to be a create.
-	if numAssets == 0 {
+	if len(g.assets) == 0 {
 		selection = assetCreate
 	}
 
-	var txn sdk_types.Transaction
-	switch selection {
-	case assetCreate:
-		senderIdx := numAssets % g.numAccounts
-		senderAcct := indexToAccount(senderIdx)
-		senderAcctStr := senderAcct.String()
+	senderIndex, txn := g.createAssetTxn(selection, sp, intra)
 
-		total := uint64(1000000000000000)
-		assetID := g.txnCounter + intra + 1
-		assetName := fmt.Sprintf("asset #%d", assetID)
-		txn, err = future.MakeAssetCreateTxn(senderAcctStr, nil, sp, total, 0, false, senderAcctStr, senderAcctStr, senderAcctStr, senderAcctStr, "tokens", assetName, "https://algorand.com", "metadata!")
-		util.MaybeFail(err, "unable to make asset create transaction")
-
-		// Compute asset ID and initialize holdings
-		a := asset{
-			assetID:  assetID,
-			creator:  senderIdx,
-			holdings: []assetHolding{{acctIndex: senderIdx, balance: total}},
-		}
-
-		g.assets = append(g.assets, a)
-	case assetDestroy:
-		// select random asset and delete it.
-		assetIndex := rand.Uint64() % numAssets
-		asset := g.assets[assetIndex]
-		creator := indexToAccount(asset.creator)
-		creatorString := creator.String()
-
-		txn, err = future.MakeAssetDestroyTxn(creatorString, nil, sp, assetIndex)
-		util.MaybeFail(err, "unable to make asset destroy transaction")
-
-		// Remove asset by swapping the element to delete then trimming the last
-		g.assets[numAssets-1], g.assets[assetIndex] = g.assets[assetIndex], g.assets[numAssets-1]
-		g.assets = g.assets[:numAssets-1]
-	case assetOptin:
-		// select a random asset and a random account to optin
-	case assetXfer:
-		// select a random asset.
-		// send from creator (holder[0]) to another random holder (same address is valid)
-	case assetClose:
-		// select a random asset to close out
-	default:
-	}
+	g.balances[senderIndex] -= uint64(txn.Fee)
 
 	if txn.Type == "" {
 		fmt.Println("Empty asset transaction.")
