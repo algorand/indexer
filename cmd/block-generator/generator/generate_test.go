@@ -111,3 +111,14 @@ func TestAssetTransfer(t *testing.T) {
 	g.generateAssetTxnInternal(assetXfer, sp, 0)
 	require.Greater(t, g.assets[0].holdings[1].balance, uint64(0))
 }
+
+func TestAssetDestroy(t *testing.T) {
+	g := makePrivateGenerator(t)
+	sp := g.getSuggestedParams(0)
+	g.generateAssetTxnInternal(assetCreate, sp, 0)
+	require.Len(t, g.assets, 1)
+
+	txn := g.generateAssetTxnInternal(assetDestroy, sp, 0)
+	require.Equal(t, types.AssetConfigTx, txn.Type)
+	require.Len(t, g.assets, 0)
+}
