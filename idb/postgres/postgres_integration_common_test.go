@@ -72,7 +72,7 @@ func accountTxns(t *testing.T, db *IndexerDb, round uint64, txns ...*idb.TxnRow)
 		assert.NoError(t, err)
 	}
 
-	err = db.CommitRoundAccounting(state.RoundUpdates, round, &types.Block{})
+	err = db.CommitRoundAccounting(state.RoundUpdates, round, &types.BlockHeader{})
 	assert.NoError(t, err)
 }
 

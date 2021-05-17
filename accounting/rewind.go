@@ -193,13 +193,13 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			if err != nil {
 				return
 			}
-			var baseBlock types.Block
-			baseBlock, _, err = db.GetBlock(context.Background(), txnrow.Round, idb.GetBlockOptions{})
+			var baseBlockHeader types.BlockHeader
+			baseBlockHeader, _, err = db.GetBlock(context.Background(), txnrow.Round, idb.GetBlockOptions{})
 			if err != nil {
 				return
 			}
-			prevRewardsBase := baseBlock.RewardsLevel
-			var blockheader types.Block
+			prevRewardsBase := baseBlockHeader.RewardsLevel
+			var blockheader types.BlockHeader
 			blockheader, _, err = db.GetBlock(context.Background(), round, idb.GetBlockOptions{})
 			if err != nil {
 				return
