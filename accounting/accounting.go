@@ -36,8 +36,8 @@ func New(defaultFrozenCache map[uint64]bool) *State {
 }
 
 // InitRound should be called before each round to initialize the accounting state.
-func (accounting *State) InitRound(block types.Block) error {
-	return accounting.InitRoundParts(uint64(block.Round), block.FeeSink, block.RewardsPool, block.RewardsLevel)
+func (accounting *State) InitRound(blockHeader *types.BlockHeader) error {
+	return accounting.InitRoundParts(uint64(blockHeader.Round), blockHeader.FeeSink, blockHeader.RewardsPool, blockHeader.RewardsLevel)
 }
 
 // InitRoundParts are the specific parts from a block needed to initialize accounting. Used for testing, normally you would pass in the block.

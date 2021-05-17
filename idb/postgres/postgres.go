@@ -276,12 +276,12 @@ func (db *IndexerDb) commitBlock(tx *sql.Tx, round uint64, timestamp int64, rewa
 		return fmt.Errorf("during addtxp close %v", err)
 	}
 
-	var block types.Block
-	err = msgpack.Decode(headerbytes, &block)
+	var blockHeader types.BlockHeader
+	err = msgpack.Decode(headerbytes, &blockHeader)
 	if err != nil {
 		return fmt.Errorf("decode header %v", err)
 	}
-	headerjson := idb.JSONOneLine(block)
+	headerjson := idb.JSONOneLine(blockHeader)
 	_, err = tx.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`, round, time.Unix(timestamp, 0).UTC(), rewardslevel, headerjson)
 	if err != nil {
 		return fmt.Errorf("put block_header %v    %#v", err, err)
@@ -821,7 +821,7 @@ func setDirtyAppLocalState(dirty []inmemAppLocalState, x inmemAppLocalState) []i
 	return append(dirty, x)
 }
 
-func (db *IndexerDb) commitRoundAccounting(tx *sql.Tx, updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
+func (db *IndexerDb) commitRoundAccounting(tx *sql.Tx, updates idb.RoundUpdates, round uint64, blockHeader *types.BlockHeader) (err error) {
 	defer tx.Rollback() // ignored if .Commit() first
 
 	db.accountingLock.Lock()
@@ -847,12 +847,12 @@ func (db *IndexerDb) commitRoundAccounting(tx *sql.Tx, updates idb.RoundUpdates,
 
 		for addr, delta := range updates.AlgoUpdates {
 			if !delta.Closed {
-				_, err = upsertalgo.Exec(addr[:], delta.Balance, blockPtr.RewardsLevel, delta.Rewards, round)
+				_, err = upsertalgo.Exec(addr[:], delta.Balance, blockHeader.RewardsLevel, delta.Rewards, round)
 				if err != nil {
 					return fmt.Errorf("update algo, %v", err)
 				}
 			} else {
-				_, err = closealgo.Exec(addr[:], delta.Balance, blockPtr.RewardsLevel, delta.Rewards, round, round)
+				_, err = closealgo.Exec(addr[:], delta.Balance, blockHeader.RewardsLevel, delta.Rewards, round, round)
 				if err != nil {
 					return fmt.Errorf("close algo, %v", err)
 				}
@@ -1331,9 +1331,9 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 }
 
 // CommitRoundAccounting is part of idb.IndexerDB
-func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) error {
+func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockHeader *types.BlockHeader) error {
 	f := func(ctx context.Context, tx *sql.Tx) (err error) {
-		return db.commitRoundAccounting(tx, updates, round, blockPtr)
+		return db.commitRoundAccounting(tx, updates, round, blockHeader)
 	}
 	if err := db.txWithRetry(context.Background(), serializable, f); err != nil {
 		return fmt.Errorf("CommitRoundAccounting(): %v", err)
@@ -1342,7 +1342,7 @@ func (db *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint6
 }
 
 // GetBlock is part of idb.IndexerDB
-func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (block types.Block, transactions []idb.TxnRow, err error) {
+func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader types.BlockHeader, transactions []idb.TxnRow, err error) {
 	tx, err := db.db.BeginTx(ctx, &readonlyRepeatableRead)
 	if err != nil {
 		return
@@ -1354,7 +1354,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 	if err != nil {
 		return
 	}
-	err = json.Decode(blockheaderjson, &block)
+	err = json.Decode(blockheaderjson, &blockHeader)
 	if err != nil {
 		return
 	}
@@ -1366,12 +1366,12 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 			err = fmt.Errorf("txn query err %v", err)
 			out <- idb.TxnRow{Error: err}
 			close(out)
-			return types.Block{}, nil, err
+			return types.BlockHeader{}, nil, err
 		}
 		rows, err := tx.QueryContext(ctx, query, whereArgs...)
 		if err != nil {
 			err = fmt.Errorf("txn query %#v err %v", query, err)
-			return types.Block{}, nil, err
+			return types.BlockHeader{}, nil, err
 		}
 
 		go func() {
@@ -1387,7 +1387,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 		transactions = results
 	}
 
-	return block, transactions, nil
+	return blockHeader, transactions, nil
 }
 
 func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []interface{}, err error) {
@@ -2347,7 +2347,7 @@ func addrStr(addr types.Address) *string {
 type getAccountsRequest struct {
 	ctx         context.Context
 	opts        idb.AccountQueryOptions
-	blockheader types.Block
+	blockheader types.BlockHeader
 	query       string
 	rows        *sql.Rows
 	out         chan idb.AccountRow
@@ -2397,7 +2397,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		tx.Rollback()
 		return out, round
 	}
-	var blockheader types.Block
+	var blockheader types.BlockHeader
 	err = json.Decode(headerjson, &blockheader)
 	if err != nil {
 		err = fmt.Errorf("account round header %d err %v", round, err)
@@ -2959,15 +2959,15 @@ func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err err
 	cache, err = db.getMetastate(specialAccountsMetastateKey)
 	if err != nil || cache == "" {
 		// Initialize specialAccountsMetastateKey
-		var block types.Block
-		block, _, err = db.GetBlock(context.Background(), 0, idb.GetBlockOptions{})
+		var blockHeader types.BlockHeader
+		blockHeader, _, err = db.GetBlock(context.Background(), 0, idb.GetBlockOptions{})
 		if err != nil {
 			return idb.SpecialAccounts{}, fmt.Errorf("problem looking up special accounts from genesis block: %v", err)
 		}
 
 		accounts = idb.SpecialAccounts{
-			FeeSink:     block.FeeSink,
-			RewardsPool: block.RewardsPool,
+			FeeSink:     blockHeader.FeeSink,
+			RewardsPool: blockHeader.RewardsPool,
 		}
 
 		cache := idb.JSONOneLine(accounts)

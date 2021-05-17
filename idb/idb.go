@@ -97,9 +97,9 @@ type IndexerDb interface {
 	// YieldTxns returns a channel that produces the whole transaction stream starting at the specified round
 	YieldTxns(ctx context.Context, firstRound uint64) <-chan TxnRow
 
-	CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error)
+	CommitRoundAccounting(updates RoundUpdates, round uint64, blockHeader *types.BlockHeader) (err error)
 
-	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (block types.Block, transactions []TxnRow, err error)
+	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (blockHeader types.BlockHeader, transactions []TxnRow, err error)
 
 	// The next multiple functions return a channel with results as well as the latest round
 	// accounted.

@@ -39,6 +39,10 @@ const (
 	assetTotal = uint64(100000000000000000)
 )
 
+const (
+	consensusTimeMilli int64 = 4500
+)
+
 // GenerationConfig defines the tunable parameters for block generation.
 type GenerationConfig struct {
 	Name                         string `mapstructure:"name"`
@@ -272,7 +276,7 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 		Certificate: types.Certificate{},
 	}
 
-	g.timestamp += consensusTime
+	g.timestamp += consensusTimeMilli
 	g.round++
 
 	fmt.Println(g.txnCounter)
