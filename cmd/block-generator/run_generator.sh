@@ -5,6 +5,8 @@
 POSTGRES_CONTAINER=generator-test-container
 POSTGRES_PORT=15432
 POSTGRES_DATABASE=generator_db
+CONFIG=${1:-"$(dirname $0)/test_config.yml"}
+echo $CONFIG
 
 function start_postgres() {
   docker rm -f $POSTGRES_CONTAINER > /dev/null 2>&1 || true
@@ -18,7 +20,7 @@ function start_postgres() {
      -e PGPASSWORD=algorand \
      -p $POSTGRES_PORT:5432 \
      postgres
- 
+
    sleep 5
 
   docker exec -it $POSTGRES_CONTAINER psql -Ualgorand -c "create database $POSTGRES_DATABASE"
@@ -33,16 +35,17 @@ trap shutdown EXIT
 
 echo "Building generator."
 go build
-pushd ../.. > /dev/null
+pushd $(dirname "$0")/../.. > /dev/null
 echo "Building indexer."
 make
+popd
 echo "Starting postgres container."
 start_postgres
 echo "Starting block generator (see generator.log)"
-./cmd/block-generator/block-generator -port 11111 -config cmd/block-generator/test_config.yml &
+$(dirname "$0")/block-generator -port 11111 -config "${CONFIG}" &
 GENERATOR_PID=$!
 echo "Starting indexer"
-./cmd/algorand-indexer/algorand-indexer daemon \
+$(dirname "$0")/../../cmd/algorand-indexer/algorand-indexer daemon \
               -S localhost:8980 \
               --algod-net localhost:11111 \
               --algod-token security-is-our-number-one-priority \
