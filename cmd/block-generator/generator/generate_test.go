@@ -10,7 +10,7 @@ import (
 
 func makePrivateGenerator(t *testing.T) *generator {
 	publicGenerator, err := MakeGenerator(GenerationConfig{
-		NumGenesisAccounts: 10,
+		NumGenesisAccounts:           10,
 		GenesisAccountInitialBalance: 10000000000000000000,
 		PaymentTransactionFraction:   1.0,
 		PaymentNewAccountFraction:    1.0,
@@ -82,8 +82,8 @@ func TestAssetOptinEveryAccountOverride(t *testing.T) {
 	txn = g.generateAssetTxnInternal(assetOptin, sp, 0)
 	require.Equal(t, types.AssetTransferTx, txn.Type)
 	require.Len(t, g.assets, 1)
-	require.Len(t, g.assets[0].holdings, int(g.numAccounts - 1))
-	require.Len(t, g.assets[0].holders, int(g.numAccounts - 1))
+	require.Len(t, g.assets[0].holdings, int(g.numAccounts-1))
+	require.Len(t, g.assets[0].holders, int(g.numAccounts-1))
 }
 
 func TestAssetDestroyWithHoldingsOverride(t *testing.T) {

@@ -60,7 +60,7 @@ func TestWeightedSelection(t *testing.T) {
 	for i := 0; i < 100; i++ {
 		selected, err := weightedSelection(weights, options)
 		require.NoError(t, err)
-		selections[selected] += 1
+		selections[selected]++
 	}
 
 	assert.Less(t, selections[options[0]], selections[options[1]])
@@ -74,7 +74,7 @@ func TestWeightedSelectionOutOfRange(t *testing.T) {
 	for i := 0; i < 10000; i++ {
 		_, err := weightedSelection(weights, options)
 		if err != nil {
-			require.Errorf(t, err, outOfRangeError.Error())
+			require.Errorf(t, err, errOutOfRange.Error())
 			return
 		}
 	}

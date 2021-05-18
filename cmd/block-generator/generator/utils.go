@@ -24,6 +24,6 @@ func weightedSelectionInternal(selectionNumber float32, weights []float32, optio
 		total += weights[i]
 	}
 
-	err = outOfRangeError
+	err = errOutOfRange
 	return
 }

@@ -20,7 +20,7 @@ const (
 	consensusTime int64 = 4500
 )
 
-var outOfRangeError = fmt.Errorf("selection is out of weighted range")
+var errOutOfRange = fmt.Errorf("selection is out of weighted range")
 
 const (
 	// Generator types
@@ -206,7 +206,7 @@ func (g *generator) generateTransaction(sp sdk_types.SuggestedParams, round uint
 
 	selection, err := weightedSelection(g.transactionWeights, getTransactionOptions())
 	if err != nil {
-		if err == outOfRangeError {
+		if err == errOutOfRange {
 			// Default type
 			selection = paymentTx
 			err = nil
@@ -413,7 +413,7 @@ func (g *generator) generateAssetTxnInternalHint(txType interface{}, sp sdk_type
 			assetID:  assetID,
 			creator:  senderIndex,
 			holdings: []assetHolding{{acctIndex: senderIndex, balance: total}},
-			holders: map[uint64]bool{senderIndex: true},
+			holders:  map[uint64]bool{senderIndex: true},
 		}
 
 		g.assets = append(g.assets, &a)
@@ -543,7 +543,7 @@ func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams, _ uint64, int
 
 	selection, err := weightedSelection(g.assetTxWeights, getAssetTxOptions())
 	if err != nil {
-		if err == outOfRangeError {
+		if err == errOutOfRange {
 			// Default type
 			selection = assetXfer
 			err = nil
