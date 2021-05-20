@@ -16,10 +16,6 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
-const (
-	consensusTime int64 = 4500
-)
-
 var errOutOfRange = fmt.Errorf("selection is out of weighted range")
 
 const (
@@ -110,6 +106,30 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 
 	gen.initializeAccounting()
 
+	for _, val := range getTransactionOptions() {
+		switch val {
+		case paymentTx:
+			gen.transactionWeights = append(gen.transactionWeights, config.PaymentTransactionFraction)
+		case assetTx:
+			gen.transactionWeights = append(gen.transactionWeights, config.AssetTransactionFraction)
+		}
+	}
+
+	for _, val := range getAssetTxOptions() {
+		switch val {
+		case assetCreate:
+			gen.assetTxWeights = append(gen.assetTxWeights, config.AssetCreateFraction)
+		case assetDestroy:
+			gen.assetTxWeights = append(gen.assetTxWeights, config.AssetDestroyFraction)
+		case assetOptin:
+			gen.assetTxWeights = append(gen.assetTxWeights, config.AssetOptinFraction)
+		case assetXfer:
+			gen.assetTxWeights = append(gen.assetTxWeights, config.AssetXferFraction)
+		case assetClose:
+			gen.assetTxWeights = append(gen.assetTxWeights, config.AssetCloseFraction)
+		}
+	}
+
 	return gen, nil
 }
 
@@ -149,7 +169,7 @@ type generator struct {
 	// The account is based on the index into the balances array.
 	balances []uint64
 
-	// Assets to asset holder balances.
+	// Asset data.
 	assets []*assetData
 
 	transactionWeights []float32
@@ -157,10 +177,12 @@ type generator struct {
 }
 
 type assetData struct {
-	assetID  uint64
-	creator  uint64
+	assetID uint64
+	creator uint64
+	// Holding at index 0 is the creator.
 	holdings []assetHolding
-	holders  map[uint64]bool
+	// Set of holders in the holdings array for easy reference.
+	holders map[uint64]bool
 }
 
 type assetHolding struct {
@@ -199,20 +221,9 @@ func getTransactionOptions() []interface{} {
 }
 
 func (g *generator) generateTransaction(sp sdk_types.SuggestedParams, round uint64, intra uint64) (types.SignedTxnInBlock, error) {
-	if len(g.transactionWeights) == 0 {
-		g.transactionWeights = append(g.transactionWeights, g.config.PaymentTransactionFraction)
-		g.transactionWeights = append(g.transactionWeights, g.config.AssetTransactionFraction)
-	}
-
-	selection, err := weightedSelection(g.transactionWeights, getTransactionOptions())
+	selection, err := weightedSelection(g.transactionWeights, getTransactionOptions(), paymentTx)
 	if err != nil {
-		if err == errOutOfRange {
-			// Default type
-			selection = paymentTx
-			err = nil
-		} else {
-			return types.SignedTxnInBlock{}, err
-		}
+		return types.SignedTxnInBlock{}, err
 	}
 
 	switch selection {
@@ -343,7 +354,7 @@ func (g *generator) getSuggestedParams(round uint64) sdk_types.SuggestedParams {
 
 // generatePaymentTxn creates a new payment transaction. The sender is always a genesis account, the receiver is random,
 // or a new account.
-func (g *generator) generatePaymentTxn(sp sdk_types.SuggestedParams, _ uint64, _ uint64) (types.SignedTxnInBlock, error) {
+func (g *generator) generatePaymentTxn(sp sdk_types.SuggestedParams /*round*/, _ uint64 /*intra*/, _ uint64) (types.SignedTxnInBlock, error) {
 	var receiveIndex uint64
 	if g.numPayments%uint64(100*g.config.PaymentNewAccountFraction) == 0 {
 		g.balances = append(g.balances, 0)
@@ -441,8 +452,8 @@ func (g *generator) generateAssetTxnInternalHint(txType interface{}, sp sdk_type
 			txn, err = future.MakeAssetDestroyTxn(creatorString, nil, sp, asset.assetID)
 			util.MaybeFail(err, "unable to make asset destroy transaction")
 
-			// Remove asset by swapping the element to delete then trimming the last
-			g.assets[numAssets-1], g.assets[assetIndex] = g.assets[assetIndex], g.assets[numAssets-1]
+			// Remove asset by moving the last element to the deleted index then trimming the slice.
+			g.assets[assetIndex] = g.assets[numAssets-1]
 			g.assets = g.assets[:numAssets-1]
 		case assetOptin:
 			// select a random account from asset to optin
@@ -484,16 +495,22 @@ func (g *generator) generateAssetTxnInternalHint(txType interface{}, sp sdk_type
 			receiver := indexToAccount(asset.holdings[receiverIndex].acctIndex)
 			receiverString := receiver.String()
 
-			txn, err = future.MakeAssetTransferTxn(senderString, receiverString, 10, nil, sp, "", asset.assetID)
+			amount := uint64(10)
+
+			txn, err = future.MakeAssetTransferTxn(senderString, receiverString, amount, nil, sp, "", asset.assetID)
 			util.MaybeFail(err, "unable to make asset destroy transaction")
 
-			if asset.holdings[0].balance < 10 {
+			if asset.holdings[0].balance < amount {
 				fmt.Printf(fmt.Sprintf("\n\ncreator doesn't have enough funds for asset %d\n\n", asset.assetID))
 				os.Exit(1)
 			}
+			if g.balances[asset.holdings[0].acctIndex] < uint64(sp.Fee) {
+				fmt.Printf(fmt.Sprintf("\n\ncreator doesn't have enough funds for transaction %d\n\n", asset.assetID))
+				os.Exit(1)
+			}
 
-			asset.holdings[0].balance -= 10
-			asset.holdings[receiverIndex].balance += 10
+			asset.holdings[0].balance -= amount
+			asset.holdings[receiverIndex].balance += amount
 		case assetClose:
 			// select a holder of a random asset to close out
 			// If there aren't enough assets to close one, optin an account instead
@@ -515,8 +532,8 @@ func (g *generator) generateAssetTxnInternalHint(txType interface{}, sp sdk_type
 
 			asset.holdings[0].balance += asset.holdings[closeIndex].balance
 
-			// Remove asset by swapping the element to delete then trimming the last
-			asset.holdings[numHoldings-1], asset.holdings[closeIndex] = asset.holdings[closeIndex], asset.holdings[numHoldings-1]
+			// Remove asset by moving the last element to the deleted index then trimming the slice.
+			asset.holdings[closeIndex] = asset.holdings[numHoldings-1]
 			asset.holdings = asset.holdings[:numHoldings-1]
 			delete(asset.holders, senderIndex)
 		default:
@@ -532,24 +549,10 @@ func (g *generator) generateAssetTxnInternalHint(txType interface{}, sp sdk_type
 	return
 }
 
-func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams, _ uint64, intra uint64) (types.SignedTxnInBlock, error) {
-	if len(g.assetTxWeights) == 0 {
-		g.assetTxWeights = append(g.assetTxWeights, g.config.AssetCreateFraction)
-		g.assetTxWeights = append(g.assetTxWeights, g.config.AssetDestroyFraction)
-		g.assetTxWeights = append(g.assetTxWeights, g.config.AssetOptinFraction)
-		g.assetTxWeights = append(g.assetTxWeights, g.config.AssetXferFraction)
-		g.assetTxWeights = append(g.assetTxWeights, g.config.AssetCloseFraction)
-	}
-
-	selection, err := weightedSelection(g.assetTxWeights, getAssetTxOptions())
+func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams /*round*/, _ uint64, intra uint64) (types.SignedTxnInBlock, error) {
+	selection, err := weightedSelection(g.assetTxWeights, getAssetTxOptions(), assetXfer)
 	if err != nil {
-		if err == errOutOfRange {
-			// Default type
-			selection = assetXfer
-			err = nil
-		} else {
-			return types.SignedTxnInBlock{}, err
-		}
+		return types.SignedTxnInBlock{}, err
 	}
 
 	txn := g.generateAssetTxnInternal(selection, sp, intra)

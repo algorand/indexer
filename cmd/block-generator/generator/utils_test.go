@@ -21,23 +21,23 @@ func TestWeightedSelectionInternal(t *testing.T) {
 			expected:     options[0],
 		},
 		{
-			selectionNum: 0.10,
+			selectionNum: 0.099,
 			expected:     options[0],
 		},
 		{
-			selectionNum: 0.101,
+			selectionNum: 0.1,
+			expected:     options[1],
+		},
+		{
+			selectionNum: 0.399,
 			expected:     options[1],
 		},
 		{
 			selectionNum: 0.4,
-			expected:     options[1],
-		},
-		{
-			selectionNum: 0.401,
 			expected:     options[2],
 		},
 		{
-			selectionNum: 1.0,
+			selectionNum: 0.999,
 			expected:     options[2],
 		},
 	}
@@ -45,7 +45,7 @@ func TestWeightedSelectionInternal(t *testing.T) {
 	for _, test := range testcases {
 		name := fmt.Sprintf("selectionNum %f - expected %v", test.selectionNum, test.expected)
 		t.Run(name, func(t *testing.T) {
-			actual, err := weightedSelectionInternal(test.selectionNum, weights, options)
+			actual, err := weightedSelectionInternal(test.selectionNum, weights, options, nil)
 			require.NoError(t, err)
 			require.Equal(t, test.expected, actual)
 		})
@@ -58,7 +58,7 @@ func TestWeightedSelection(t *testing.T) {
 	selections := make(map[interface{}]int)
 
 	for i := 0; i < 100; i++ {
-		selected, err := weightedSelection(weights, options)
+		selected, err := weightedSelection(weights, options, nil)
 		require.NoError(t, err)
 		selections[selected]++
 	}
@@ -70,11 +70,12 @@ func TestWeightedSelection(t *testing.T) {
 func TestWeightedSelectionOutOfRange(t *testing.T) {
 	weights := []float32{0.1}
 	options := []interface{}{"1"}
+	defaultOption := "DEFAULT!"
 
 	for i := 0; i < 10000; i++ {
-		_, err := weightedSelection(weights, options)
-		if err != nil {
-			require.Errorf(t, err, errOutOfRange.Error())
+		selection, err := weightedSelection(weights, options, defaultOption)
+		require.NoError(t, err)
+		if selection == defaultOption {
 			return
 		}
 	}
