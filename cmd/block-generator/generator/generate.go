@@ -165,11 +165,12 @@ type generator struct {
 	rewardsRate               uint64
 	rewardsRecalculationRound uint64
 
-	// balances To avoid crypto and reduce storage, accounts are faked.
+	// balances for all accounts. To avoid crypto and reduce storage, accounts are faked.
 	// The account is based on the index into the balances array.
 	balances []uint64
 
-	// Asset data.
+	// assets is a minimal representation of the asset holdings, it doesn't
+	// include the frozen state.
 	assets []*assetData
 
 	transactionWeights []float32
