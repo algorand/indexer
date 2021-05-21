@@ -34,8 +34,9 @@ function shutdown() {
 trap shutdown EXIT
 
 echo "Building generator."
+pushd $(dirname "$0") > /dev/null
 go build
-pushd $(dirname "$0")/../.. > /dev/null
+cd ../.. > /dev/null
 echo "Building indexer."
 make
 popd

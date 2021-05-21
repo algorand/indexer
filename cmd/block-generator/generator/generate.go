@@ -6,6 +6,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"time"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
@@ -18,19 +19,24 @@ import (
 
 var errOutOfRange = fmt.Errorf("selection is out of weighted range")
 
-const (
-	// Generator types
-	paymentTx = "pay"
-	assetTx   = "acfg"
-	//keyRegistrationTx = "keyreg"
-	//applicationCallTx = "appl"
+type txID string
 
-	// Asset Tx Types
-	assetCreate  = "create"
-	assetOptin   = "optin"
-	assetXfer    = "xfer"
-	assetClose   = "close"
-	assetDestroy = "destroy"
+const (
+	genesis txID = "genesis"
+
+	// Payment Tx IDs
+	paymentTx txID = "pay"
+	paymentAcctCreateTx txID = "pay_create"
+	assetTx   txID = "asset"
+	//keyRegistrationTx txID = "keyreg"
+	//applicationCallTx txID = "appl"
+
+	// Asset Tx IDs
+	assetCreate  txID = "asset_create"
+	assetOptin   txID = "asset_optin"
+	assetXfer    txID = "asset_xfer"
+	assetClose   txID = "asset_close"
+	assetDestroy txID = "asset_destroy"
 
 	assetTotal = uint64(100000000000000000)
 )
@@ -54,7 +60,7 @@ type GenerationConfig struct {
 
 	// Payment configuration
 	PaymentNewAccountFraction float32 `mapstructure:"pay_acct_create_fraction"`
-	PaymentTransferFraction   float32 `mapstructure:"pay_xfer_fraction"`
+	PaymentFraction           float32 `mapstructure:"pay_xfer_fraction"`
 
 	// Asset configuration
 	AssetCreateFraction  float32 `mapstructure:"asset_create_fraction"`
@@ -78,7 +84,7 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 		return nil, fmt.Errorf("transaction distribution ratios should equal 1")
 	}
 
-	if !sumIsCloseToOne(config.PaymentNewAccountFraction, config.PaymentTransferFraction) {
+	if !sumIsCloseToOne(config.PaymentNewAccountFraction, config.PaymentFraction) {
 		return nil, fmt.Errorf("payment configuration ratios should equal 1")
 	}
 
@@ -99,6 +105,7 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 		rewardsResidue:            0,
 		rewardsRate:               0,
 		rewardsRecalculationRound: 0,
+		reportData:                make(map[txID]txData),
 	}
 
 	gen.feeSink[31] = 1
@@ -112,6 +119,15 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 			gen.transactionWeights = append(gen.transactionWeights, config.PaymentTransactionFraction)
 		case assetTx:
 			gen.transactionWeights = append(gen.transactionWeights, config.AssetTransactionFraction)
+		}
+	}
+
+	for _, val := range getPaymentTxOptions() {
+		switch val {
+		case paymentTx:
+			gen.payTxWeights = append(gen.payTxWeights, config.PaymentFraction)
+		case paymentAcctCreateTx:
+			gen.payTxWeights = append(gen.payTxWeights, config.PaymentNewAccountFraction)
 		}
 	}
 
@@ -135,8 +151,9 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 
 // Generator is the interface needed to generate blocks.
 type Generator interface {
-	WriteBlock(output io.Writer, round uint64)
+	WriteReport(output io.Writer)
 	WriteGenesis(output io.Writer)
+	WriteBlock(output io.Writer, round uint64)
 }
 
 type generator struct {
@@ -174,7 +191,11 @@ type generator struct {
 	assets []*assetData
 
 	transactionWeights []float32
+	payTxWeights       []float32
 	assetTxWeights     []float32
+
+	// Reporting information from transaction type to data
+	reportData map[txID]txData
 }
 
 type assetData struct {
@@ -191,7 +212,33 @@ type assetHolding struct {
 	balance   uint64
 }
 
+type txData struct {
+	GenerationTimeMilli time.Duration  `json:"generation_time_milli"`
+	GenerationCount     uint64         `json:"num_generated"`
+}
+
+func track(id txID) (txID, time.Time) {
+	return id, time.Now()
+}
+func (g *generator) recordData(id txID, start time.Time) {
+	data := g.reportData[id]
+	data.GenerationCount++
+	data.GenerationTimeMilli += time.Since(start)
+	g.reportData[id] = data
+}
+
+func (g *generator) WriteReport(output io.Writer) {
+	data := json.Encode(g.reportData)
+	var err error
+	if err != nil {
+		fmt.Fprintf(output, "Problem indenting data: %v", err)
+	} else {
+		output.Write(data)
+	}
+}
+
 func (g *generator) WriteGenesis(output io.Writer) {
+	defer g.recordData(track(genesis))
 	var allocations []types.GenesisAllocation
 
 	for i := uint64(0); i < g.config.NumGenesisAccounts; i++ {
@@ -353,16 +400,28 @@ func (g *generator) getSuggestedParams(round uint64) sdk_types.SuggestedParams {
 	}
 }
 
+func getPaymentTxOptions() []interface{} {
+	return []interface{}{paymentTx, paymentAcctCreateTx}
+}
+
 // generatePaymentTxn creates a new payment transaction. The sender is always a genesis account, the receiver is random,
 // or a new account.
 func (g *generator) generatePaymentTxn(sp sdk_types.SuggestedParams, _ uint64 /*round*/, _ uint64 /*intra*/) (types.SignedTxnInBlock, error) {
+	selection, err := weightedSelection(g.payTxWeights, getPaymentTxOptions(), paymentTx)
+	if err != nil {
+		return types.SignedTxnInBlock{}, err
+	}
+
+	defer g.recordData(track(selection.(txID)))
+
 	var receiveIndex uint64
-	if g.numPayments%uint64(100*g.config.PaymentNewAccountFraction) == 0 {
+	switch (selection) {
+	case paymentTx:
+		receiveIndex = rand.Uint64() % g.numAccounts
+	case paymentAcctCreateTx:
 		g.balances = append(g.balances, 0)
 		g.numAccounts++
 		receiveIndex = g.numAccounts - 1
-	} else {
-		receiveIndex = rand.Uint64() % g.numAccounts
 	}
 
 	// Always send from a genesis account.
@@ -394,21 +453,22 @@ func getAssetTxOptions() []interface{} {
 	return []interface{}{assetCreate, assetDestroy, assetOptin, assetXfer, assetClose}
 }
 
-func (g *generator) generateAssetTxnInternal(txType interface{}, sp sdk_types.SuggestedParams, intra uint64) (txn types.Transaction) {
+func (g *generator) generateAssetTxnInternal(txType txID, sp sdk_types.SuggestedParams, intra uint64) (actual txID, txn types.Transaction) {
 	return g.generateAssetTxnInternalHint(txType, sp, intra, 0, nil)
 }
 
-func (g *generator) generateAssetTxnInternalHint(txType interface{}, sp sdk_types.SuggestedParams, intra uint64, hintIndex uint64, hint *assetData) (txn types.Transaction) {
+func (g *generator) generateAssetTxnInternalHint(txType txID, sp sdk_types.SuggestedParams, intra uint64, hintIndex uint64, hint *assetData) (actual txID, txn types.Transaction) {
+	actual = txType
 	// If there are no assets the next operation needs to be a create.
 	if len(g.assets) == 0 {
-		txType = assetCreate
+		actual = assetCreate
 	}
 
 	var err error
 	numAssets := uint64(len(g.assets))
 	var senderIndex uint64
 
-	if txType == assetCreate {
+	if actual == assetCreate {
 		senderIndex = numAssets % g.numAccounts
 		senderAcct := indexToAccount(senderIndex)
 		senderAcctStr := senderAcct.String()
@@ -436,7 +496,7 @@ func (g *generator) generateAssetTxnInternalHint(txType interface{}, sp sdk_type
 			asset = hint
 		}
 
-		switch txType {
+		switch actual {
 		case assetDestroy:
 			// delete asset
 
@@ -555,12 +615,14 @@ func (g *generator) generateAssetTxnInternalHint(txType interface{}, sp sdk_type
 }
 
 func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams, _ uint64 /*round*/, intra uint64) (types.SignedTxnInBlock, error) {
+	start := time.Now()
 	selection, err := weightedSelection(g.assetTxWeights, getAssetTxOptions(), assetXfer)
 	if err != nil {
 		return types.SignedTxnInBlock{}, err
 	}
 
-	txn := g.generateAssetTxnInternal(selection, sp, intra)
+	actual, txn := g.generateAssetTxnInternal(selection.(txID), sp, intra)
+	defer g.recordData(actual, start)
 
 	if txn.Type == "" {
 		fmt.Println("Empty asset transaction.")
