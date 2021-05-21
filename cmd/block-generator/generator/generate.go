@@ -355,7 +355,7 @@ func (g *generator) getSuggestedParams(round uint64) sdk_types.SuggestedParams {
 
 // generatePaymentTxn creates a new payment transaction. The sender is always a genesis account, the receiver is random,
 // or a new account.
-func (g *generator) generatePaymentTxn(sp sdk_types.SuggestedParams /*round*/, _ uint64 /*intra*/, _ uint64) (types.SignedTxnInBlock, error) {
+func (g *generator) generatePaymentTxn(sp sdk_types.SuggestedParams, _ uint64 /*round*/, _ uint64 /*intra*/) (types.SignedTxnInBlock, error) {
 	var receiveIndex uint64
 	if g.numPayments%uint64(100*g.config.PaymentNewAccountFraction) == 0 {
 		g.balances = append(g.balances, 0)
@@ -550,7 +550,7 @@ func (g *generator) generateAssetTxnInternalHint(txType interface{}, sp sdk_type
 	return
 }
 
-func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams /*round*/, _ uint64, intra uint64) (types.SignedTxnInBlock, error) {
+func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams, _ uint64 /*round*/, intra uint64) (types.SignedTxnInBlock, error) {
 	selection, err := weightedSelection(g.assetTxWeights, getAssetTxOptions(), assetXfer)
 	if err != nil {
 		return types.SignedTxnInBlock{}, err
