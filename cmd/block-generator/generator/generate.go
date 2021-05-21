@@ -25,9 +25,9 @@ const (
 	genesis txID = "genesis"
 
 	// Payment Tx IDs
-	paymentTx txID = "pay"
+	paymentTx           txID = "pay"
 	paymentAcctCreateTx txID = "pay_create"
-	assetTx   txID = "asset"
+	assetTx             txID = "asset"
 	//keyRegistrationTx txID = "keyreg"
 	//applicationCallTx txID = "appl"
 
@@ -213,8 +213,8 @@ type assetHolding struct {
 }
 
 type txData struct {
-	GenerationTimeMilli time.Duration  `json:"generation_time_milli"`
-	GenerationCount     uint64         `json:"num_generated"`
+	GenerationTimeMilli time.Duration `json:"generation_time_milli"`
+	GenerationCount     uint64        `json:"num_generated"`
 }
 
 func track(id txID) (txID, time.Time) {
@@ -415,7 +415,7 @@ func (g *generator) generatePaymentTxn(sp sdk_types.SuggestedParams, _ uint64 /*
 	defer g.recordData(track(selection.(txID)))
 
 	var receiveIndex uint64
-	switch (selection) {
+	switch selection {
 	case paymentTx:
 		receiveIndex = rand.Uint64() % g.numAccounts
 	case paymentAcctCreateTx:
