@@ -371,10 +371,10 @@ func (g *generator) generatePaymentTxn(sp sdk_types.SuggestedParams, _ uint64 /*
 	sender := indexToAccount(sendIndex)
 	receiver := indexToAccount(receiveIndex)
 
-	amount := uint64(10000000)
+	amount := uint64(1000)
 	fee := uint64(1000)
 	if g.balances[sendIndex] < (amount + fee) {
-		fmt.Printf(fmt.Sprintf("\n\nthe sender account does not enough algos for the transfer. idx %d, payment number %d\n\n", sendIndex, g.numPayments))
+		fmt.Printf(fmt.Sprintf("\n\nthe sender account does not have enough algos for the transfer. idx %d, payment number %d\n\n", sendIndex, g.numPayments))
 		os.Exit(1)
 	}
 
@@ -545,8 +545,9 @@ func (g *generator) generateAssetTxnInternalHint(txType interface{}, sp sdk_type
 		os.Exit(1)
 	}
 
+	txn.Fee = 1000
 	if g.balances[senderIndex] < uint64(txn.Fee) {
-		fmt.Printf(fmt.Sprintf("\n\nthe sender account does not enough algos for the transfer. idx %d, payment number %d\n\n", senderIndex, g.numPayments))
+		fmt.Printf(fmt.Sprintf("\n\nthe sender account does not have enough algos for the transfer. idx %d, payment number %d\n\n", senderIndex, g.numPayments))
 		os.Exit(1)
 	}
 	g.balances[senderIndex] -= uint64(txn.Fee)
