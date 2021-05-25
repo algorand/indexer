@@ -16,6 +16,7 @@ import (
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 )
 
 // TxnRow is metadata relating to one transaction in a transaction query.
@@ -422,7 +423,7 @@ func (ad AppDelta) String() string {
 	}
 	ds := ""
 	if ad.Delta != nil {
-		ds = string(JSONOneLine(ad.Delta))
+		ds = string(util.JSONOneLine(ad.Delta))
 	}
 	parts = append(parts, fmt.Sprintf("ai=%d oc=%v d=%s", ad.AddrIndex, ad.OnCompletion, ds))
 	if len(ad.ApprovalProgram) > 0 {

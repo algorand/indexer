@@ -6,10 +6,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util/test"
 )
@@ -21,7 +21,7 @@ func nextMigrationNum(t *testing.T, db *IndexerDb) int {
 	assert.True(t, len(j) > 0)
 
 	var state MigrationState
-	err = json.Decode([]byte(j), &state)
+	err = encoding.DecodeJSON([]byte(j), &state)
 	assert.NoError(t, err)
 
 	return state.NextMigration
