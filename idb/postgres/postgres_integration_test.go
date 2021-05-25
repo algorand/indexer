@@ -11,12 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
-	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util/test"
@@ -485,7 +485,7 @@ func TestRekeyBasic(t *testing.T) {
 	assert.NoError(t, err, "querying account data")
 
 	var ad types.AccountData
-	err = json.Decode(accountDataStr, &ad)
+	err = encoding.DecodeJSON(accountDataStr, &ad)
 	assert.NoError(t, err, "failed to parse account data json")
 	assert.Equal(t, test.AccountB, ad.SpendingKey)
 }
@@ -534,7 +534,7 @@ func TestRekeyToItself(t *testing.T) {
 	assert.NoError(t, err, "querying account data")
 
 	var ad types.AccountData
-	err = json.Decode(accountDataStr, &ad)
+	err = encoding.DecodeJSON(accountDataStr, &ad)
 	assert.NoError(t, err, "failed to parse account data json")
 	assert.Equal(t, sdk_types.ZeroAddress, ad.SpendingKey)
 }
@@ -581,7 +581,7 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 	assert.NoError(t, err, "querying account data")
 
 	var ad types.AccountData
-	err = json.Decode(accountDataStr, &ad)
+	err = encoding.DecodeJSON(accountDataStr, &ad)
 	assert.NoError(t, err, "failed to parse account data json")
 	assert.Equal(t, test.AccountC, ad.SpendingKey)
 }
