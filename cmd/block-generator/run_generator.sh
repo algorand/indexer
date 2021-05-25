@@ -2,6 +2,8 @@
 
 # Demonstrate how to run the generator and connect it to indexer.
 
+set -e
+
 POSTGRES_CONTAINER=generator-test-container
 POSTGRES_PORT=15432
 POSTGRES_DATABASE=generator_db
