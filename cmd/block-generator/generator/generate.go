@@ -19,24 +19,24 @@ import (
 
 var errOutOfRange = fmt.Errorf("selection is out of weighted range")
 
-type txID string
+type txTypeID string
 
 const (
-	genesis txID = "genesis"
+	genesis txTypeID = "genesis"
 
 	// Payment Tx IDs
-	paymentTx           txID = "pay"
-	paymentAcctCreateTx txID = "pay_create"
-	assetTx             txID = "asset"
-	//keyRegistrationTx txID = "keyreg"
-	//applicationCallTx txID = "appl"
+	paymentTx           txTypeID = "pay"
+	paymentAcctCreateTx txTypeID = "pay_create"
+	assetTx             txTypeID = "asset"
+	//keyRegistrationTx txTypeID = "keyreg"
+	//applicationCallTx txTypeID = "appl"
 
 	// Asset Tx IDs
-	assetCreate  txID = "asset_create"
-	assetOptin   txID = "asset_optin"
-	assetXfer    txID = "asset_xfer"
-	assetClose   txID = "asset_close"
-	assetDestroy txID = "asset_destroy"
+	assetCreate  txTypeID = "asset_create"
+	assetOptin   txTypeID = "asset_optin"
+	assetXfer    txTypeID = "asset_xfer"
+	assetClose   txTypeID = "asset_close"
+	assetDestroy txTypeID = "asset_destroy"
 
 	assetTotal = uint64(100000000000000000)
 )
@@ -105,7 +105,7 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 		rewardsResidue:            0,
 		rewardsRate:               0,
 		rewardsRecalculationRound: 0,
-		reportData:                make(map[txID]txData),
+		reportData:                make(map[txTypeID]txData),
 	}
 
 	gen.feeSink[31] = 1
@@ -195,7 +195,7 @@ type generator struct {
 	assetTxWeights     []float32
 
 	// Reporting information from transaction type to data
-	reportData map[txID]txData
+	reportData map[txTypeID]txData
 }
 
 type assetData struct {
@@ -217,10 +217,10 @@ type txData struct {
 	GenerationCount     uint64        `json:"num_generated"`
 }
 
-func track(id txID) (txID, time.Time) {
+func track(id txTypeID) (txTypeID, time.Time) {
 	return id, time.Now()
 }
-func (g *generator) recordData(id txID, start time.Time) {
+func (g *generator) recordData(id txTypeID, start time.Time) {
 	data := g.reportData[id]
 	data.GenerationCount++
 	data.GenerationTimeMilli += time.Since(start)
@@ -412,7 +412,7 @@ func (g *generator) generatePaymentTxn(sp sdk_types.SuggestedParams, _ uint64 /*
 		return types.SignedTxnInBlock{}, err
 	}
 
-	defer g.recordData(track(selection.(txID)))
+	defer g.recordData(track(selection.(txTypeID)))
 
 	var receiveIndex uint64
 	switch selection {
@@ -453,11 +453,11 @@ func getAssetTxOptions() []interface{} {
 	return []interface{}{assetCreate, assetDestroy, assetOptin, assetXfer, assetClose}
 }
 
-func (g *generator) generateAssetTxnInternal(txType txID, sp sdk_types.SuggestedParams, intra uint64) (actual txID, txn types.Transaction) {
+func (g *generator) generateAssetTxnInternal(txType txTypeID, sp sdk_types.SuggestedParams, intra uint64) (actual txTypeID, txn types.Transaction) {
 	return g.generateAssetTxnInternalHint(txType, sp, intra, 0, nil)
 }
 
-func (g *generator) generateAssetTxnInternalHint(txType txID, sp sdk_types.SuggestedParams, intra uint64, hintIndex uint64, hint *assetData) (actual txID, txn types.Transaction) {
+func (g *generator) generateAssetTxnInternalHint(txType txTypeID, sp sdk_types.SuggestedParams, intra uint64, hintIndex uint64, hint *assetData) (actual txTypeID, txn types.Transaction) {
 	actual = txType
 	// If there are no assets the next operation needs to be a create.
 	if len(g.assets) == 0 {
@@ -621,7 +621,7 @@ func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams, _ uint64 /*ro
 		return types.SignedTxnInBlock{}, err
 	}
 
-	actual, txn := g.generateAssetTxnInternal(selection.(txID), sp, intra)
+	actual, txn := g.generateAssetTxnInternal(selection.(txTypeID), sp, intra)
 	defer g.recordData(actual, start)
 
 	if txn.Type == "" {

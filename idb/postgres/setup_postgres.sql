@@ -18,9 +18,9 @@ round bigint NOT NULL,
 intra smallint NOT NULL,
 typeenum smallint NOT NULL,
 asset bigint NOT NULL, -- 0=Algos, otherwise AssetIndex
-txid bytea NOT NULL, -- base32 of [32]byte hash + [4]byte checksum
-txnbytes bytea NOT NULL,
-txn jsonb NOT NULL,
+txid bytea NOT NULL, -- base32 of [32]byte hash
+txnbytes bytea NOT NULL, -- msgpack encoding of signed txn with apply data
+txn jsonb NOT NULL, -- json encoding of signed txn with apply data
 extra jsonb,
 PRIMARY KEY ( round, intra )
 );
