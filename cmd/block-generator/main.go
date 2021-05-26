@@ -67,6 +67,7 @@ func main() {
 	http.HandleFunc("/", help)
 	http.HandleFunc("/v2/blocks/", handleBlock)
 	http.HandleFunc("/genesis", handleGenesis)
+	http.HandleFunc("/report", handleReport)
 
 	portStr := fmt.Sprintf(":%d", port)
 	fmt.Printf("Starting server at %s\n", portStr)
@@ -75,6 +76,10 @@ func main() {
 
 func help(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Use /v2/blocks/:blocknum: to get a block.")
+}
+
+func handleReport(w http.ResponseWriter, r *http.Request) {
+	gen.WriteReport(w)
 }
 
 func handleGenesis(w http.ResponseWriter, r *http.Request) {

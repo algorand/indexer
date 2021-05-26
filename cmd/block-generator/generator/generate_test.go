@@ -25,7 +25,8 @@ func TestAssetXferNoAssetsOverride(t *testing.T) {
 	sp := g.getSuggestedParams(0)
 
 	// First asset transaction must create.
-	txn := g.generateAssetTxnInternal(assetXfer, sp, 0)
+	actual, txn := g.generateAssetTxnInternal(assetXfer, sp, 0)
+	require.Equal(t, assetCreate, actual)
 	require.Equal(t, types.AssetConfigTx, txn.Type)
 	require.Len(t, g.assets, 1)
 	require.Len(t, g.assets[0].holdings, 1)
@@ -38,7 +39,8 @@ func TestAssetXferOneHolderOverride(t *testing.T) {
 	g.generateAssetTxnInternal(assetCreate, sp, 0)
 
 	// Transfer converted to optin if there is only 1 holder.
-	txn := g.generateAssetTxnInternal(assetXfer, sp, 0)
+	actual, txn := g.generateAssetTxnInternal(assetXfer, sp, 0)
+	require.Equal(t, assetOptin, actual)
 	require.Equal(t, types.AssetTransferTx, txn.Type)
 	require.Len(t, g.assets, 1)
 	// A new holding is created, indicating the optin
@@ -52,7 +54,8 @@ func TestAssetCloseCreatorOverride(t *testing.T) {
 	g.generateAssetTxnInternal(assetCreate, sp, 0)
 
 	// Instead of closing the creator, optin a new account
-	txn := g.generateAssetTxnInternal(assetClose, sp, 0)
+	actual, txn := g.generateAssetTxnInternal(assetClose, sp, 0)
+	require.Equal(t, assetOptin, actual)
 	require.Equal(t, types.AssetTransferTx, txn.Type)
 	require.Len(t, g.assets, 1)
 	// A new holding is created, indicating the optin
@@ -67,8 +70,10 @@ func TestAssetOptinEveryAccountOverride(t *testing.T) {
 
 	// Opt all the accounts in, this also verifies that no account is opted in twice
 	var txn types.Transaction
+	var actual txTypeID
 	for i := 2; uint64(i) <= g.numAccounts; i++ {
-		txn = g.generateAssetTxnInternal(assetOptin, sp, 0)
+		actual, txn = g.generateAssetTxnInternal(assetOptin, sp, 0)
+		require.Equal(t, assetOptin, actual)
 		require.Equal(t, types.AssetTransferTx, txn.Type)
 		require.Len(t, g.assets, 1)
 		require.Len(t, g.assets[0].holdings, i)
@@ -79,7 +84,8 @@ func TestAssetOptinEveryAccountOverride(t *testing.T) {
 	require.Equal(t, g.numAccounts, uint64(len(g.assets[0].holdings)))
 
 	// The next optin closes instead
-	txn = g.generateAssetTxnInternal(assetOptin, sp, 0)
+	actual, txn = g.generateAssetTxnInternal(assetOptin, sp, 0)
+	require.Equal(t, assetClose, actual)
 	require.Equal(t, types.AssetTransferTx, txn.Type)
 	require.Len(t, g.assets, 1)
 	require.Len(t, g.assets[0].holdings, int(g.numAccounts-1))
@@ -95,7 +101,8 @@ func TestAssetDestroyWithHoldingsOverride(t *testing.T) {
 	require.Len(t, g.assets[0].holdings, 2)
 	require.Len(t, g.assets[0].holders, 2)
 
-	txn := g.generateAssetTxnInternal(assetDestroy, sp, 0)
+	actual, txn := g.generateAssetTxnInternal(assetDestroy, sp, 0)
+	require.Equal(t, assetClose, actual)
 	require.Equal(t, types.AssetTransferTx, txn.Type)
 	require.Len(t, g.assets, 1)
 	require.Len(t, g.assets[0].holdings, 1)
@@ -118,7 +125,8 @@ func TestAssetDestroy(t *testing.T) {
 	g.generateAssetTxnInternal(assetCreate, sp, 0)
 	require.Len(t, g.assets, 1)
 
-	txn := g.generateAssetTxnInternal(assetDestroy, sp, 0)
+	actual, txn := g.generateAssetTxnInternal(assetDestroy, sp, 0)
+	require.Equal(t, assetDestroy, actual)
 	require.Equal(t, types.AssetConfigTx, txn.Type)
 	require.Len(t, g.assets, 0)
 }

@@ -2,6 +2,8 @@
 
 # Demonstrate how to run the generator and connect it to indexer.
 
+set -e
+
 POSTGRES_CONTAINER=generator-test-container
 POSTGRES_PORT=15432
 POSTGRES_DATABASE=generator_db
@@ -34,8 +36,9 @@ function shutdown() {
 trap shutdown EXIT
 
 echo "Building generator."
+pushd $(dirname "$0") > /dev/null
 go build
-pushd $(dirname "$0")/../.. > /dev/null
+cd ../.. > /dev/null
 echo "Building indexer."
 make
 popd
