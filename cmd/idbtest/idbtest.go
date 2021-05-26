@@ -10,13 +10,13 @@ import (
 	"time"
 
 	ajson "github.com/algorand/go-algorand-sdk/encoding/json"
-	atypes "github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	_ "github.com/algorand/indexer/idb/postgres"
-	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 	testutil "github.com/algorand/indexer/util/test"
 )
 
@@ -31,7 +31,7 @@ var (
 
 var exitValue = 0
 
-var maybeFail = testutil.MaybeFail
+var maybeFail = util.MaybeFail
 var printAssetQuery func(db idb.IndexerDb, q idb.AssetsQuery) = testutil.PrintAssetQuery
 var printAccountQuery = testutil.PrintAccountQuery
 var printTxnQuery = testutil.PrintTxnQuery
@@ -43,7 +43,7 @@ func doAssetQueryTests(db idb.IndexerDb) {
 	printAssetQuery(db, idb.AssetsQuery{Unit: "USDt", Limit: 2})
 	printAssetQuery(db, idb.AssetsQuery{AssetID: 312769, Limit: 1})
 	printAssetQuery(db, idb.AssetsQuery{AssetIDGreaterThan: 312769, Query: "us", Limit: 2})
-	tcreator, err := atypes.DecodeAddress("XIU7HGGAJ3QOTATPDSIIHPFVKMICXKHMOR2FJKHTVLII4FAOA3CYZQDLG4")
+	tcreator, err := sdk_types.DecodeAddress("XIU7HGGAJ3QOTATPDSIIHPFVKMICXKHMOR2FJKHTVLII4FAOA3CYZQDLG4")
 	maybeFail(err, "addr decode, %v\n", err)
 	printAssetQuery(db, idb.AssetsQuery{Creator: tcreator[:], Limit: 1})
 }
@@ -105,19 +105,6 @@ func testTxnPaging(db idb.IndexerDb, q idb.TransactionFilter) {
 	}
 }
 
-func printAssetBalanceQuery(db idb.IndexerDb, assetID uint64) {
-	rows, _ := db.AssetBalances(context.Background(), idb.AssetBalanceQuery{AssetID: assetID})
-	count := 0
-	for row := range rows {
-		maybeFail(row.Error, "err %v\n", row.Error)
-		var addr types.Address
-		copy(addr[:], row.Address)
-		fmt.Printf("%s %d %12d %t\n", addr.String(), row.AssetID, row.Amount, row.Frozen)
-		count++
-	}
-	fmt.Printf("%d asset balances\n", count)
-}
-
 func getAccount(db idb.IndexerDb, addr []byte) (account models.Account, err error) {
 	accountchan, _ :=
 		db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: addr})
@@ -139,11 +126,11 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-	db, err := idb.IndexerDbByName("postgres", pgdb, nil, nil)
+	db, err := idb.IndexerDbByName("postgres", pgdb, idb.IndexerDbOptions{}, nil)
 	maybeFail(err, "open postgres, %v", err)
 
 	if accounttest {
-		printAccountQuery(db, idb.AccountQueryOptions{IncludeAssetHoldings: true, IncludeAssetParams: true, AlgosGreaterThan: 10000000000, Limit: 20})
+		printAccountQuery(db, idb.AccountQueryOptions{IncludeAssetHoldings: true, IncludeAssetParams: true, AlgosGreaterThan: uint64Ptr(10000000000), Limit: 20})
 		printAccountQuery(db, idb.AccountQueryOptions{HasAssetID: 312769, Limit: 19})
 	}
 	if assettest {
@@ -152,7 +139,7 @@ func main() {
 
 	if false {
 		// account rewind debug
-		xa, _ := atypes.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
+		xa, _ := sdk_types.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
 		account, err := getAccount(db, xa[:])
 		fmt.Printf("account %s\n", string(ajson.Encode(account)))
 		maybeFail(err, "addr lookup, %v", err)
@@ -170,7 +157,7 @@ func main() {
 
 	if txntest {
 		// txn query tests
-		xa, _ := atypes.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
+		xa, _ := sdk_types.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
 		printTxnQuery(db, idb.TransactionFilter{Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{MinRound: 5000000, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{MaxRound: 100000, Limit: 2})
@@ -180,14 +167,14 @@ func main() {
 		printTxnQuery(db, idb.TransactionFilter{Offset: &offset, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{SigType: "lsig", Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{NotePrefix: []byte("a"), Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{AlgosGT: 10000000, Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{EffectiveAmountGt: 10000000, Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{EffectiveAmountLt: 1000000, Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{AlgosGT: uint64Ptr(10000000), Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{EffectiveAmountGT: uint64Ptr(10000000), Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{EffectiveAmountLT: uint64Ptr(1000000), Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{Address: xa[:], Limit: 6})
 		printTxnQuery(db, idb.TransactionFilter{Address: xa[:], AddressRole: idb.AddressRoleSender, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{Address: xa[:], AddressRole: idb.AddressRoleReceiver, Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{AssetAmountGT: 99, Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{AssetAmountLT: 100, Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{AssetAmountGT: uint64Ptr(99), Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{AssetAmountLT: uint64Ptr(100), Limit: 2})
 	}
 
 	//printTxnQuery(db, idb.TransactionFilter{AssetID: 312769, Limit: 30})
@@ -195,10 +182,10 @@ func main() {
 	//printAssetBalanceQuery(db, 312769)
 
 	if pagingtest {
-		xa, _ := atypes.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
+		xa, _ := sdk_types.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
 		testTxnPaging(db, idb.TransactionFilter{Address: xa[:]})
 		testTxnPaging(db, idb.TransactionFilter{TypeEnum: 2})
-		testTxnPaging(db, idb.TransactionFilter{AlgosGT: 1})
+		testTxnPaging(db, idb.TransactionFilter{AlgosGT: uint64Ptr(1)})
 	}
 
 	dt := time.Now().Sub(start)
@@ -209,4 +196,8 @@ func main() {
 		fmt.Printf("wat ERROR %s\n", dt.String())
 	}
 	os.Exit(exitValue)
+}
+
+func uint64Ptr(x uint64) *uint64 {
+	return &x
 }

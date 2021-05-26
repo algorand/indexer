@@ -1,13 +1,12 @@
 package accounting
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	atypes "github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
@@ -26,10 +25,6 @@ type State struct {
 
 	rewardsLevel uint64
 
-	// number of txns at the end of the previous block
-	txnCounter      uint64
-	txnCounterRound uint64
-
 	accountTypes accountTypeCache
 }
 
@@ -46,19 +41,13 @@ func (accounting *State) InitRound(block types.Block) error {
 }
 
 // InitRoundParts are the specific parts from a block needed to initialize accounting. Used for testing, normally you would pass in the block.
-func (accounting *State) InitRoundParts(round uint64, feeSink, rewardsPool atypes.Address, rewardsLevel uint64) error {
+func (accounting *State) InitRoundParts(round uint64, feeSink, rewardsPool sdk_types.Address, rewardsLevel uint64) error {
 	accounting.RoundUpdates.Clear()
 	accounting.feeAddr = feeSink
 	accounting.rewardAddr = rewardsPool
 	accounting.rewardsLevel = rewardsLevel
 	accounting.currentRound = round
 	return nil
-}
-
-var zeroAddr = [32]byte{}
-
-func addrIsZero(a types.Address) bool {
-	return bytes.Equal(a[:], zeroAddr[:])
 }
 
 func bytesAreZero(b []byte) bool {
@@ -188,7 +177,7 @@ func (accounting *State) addAssetAccounting(addr types.Address, update idb.Asset
 	}
 }
 
-func (accounting *State) configAsset(assetID uint64, isNew bool, creator types.Address, params atypes.AssetParams) {
+func (accounting *State) configAsset(assetID uint64, isNew bool, creator types.Address, params sdk_types.AssetParams) {
 	update := idb.AssetUpdate{
 		AssetID:       assetID,
 		DefaultFrozen: accounting.defaultFrozen[assetID],
@@ -230,7 +219,7 @@ func (accounting *State) destroyAsset(assetID uint64) {
 }
 
 // TODO: move to go-algorand-sdk as Signature.IsZero()
-func zeroSig(sig atypes.Signature) bool {
+func zeroSig(sig sdk_types.Signature) bool {
 	for _, b := range sig {
 		if b != 0 {
 			return false
@@ -240,7 +229,7 @@ func zeroSig(sig atypes.Signature) bool {
 }
 
 // TODO: move to go-algorand-sdk as LogicSig.Blank()
-func blankLsig(lsig atypes.LogicSig) bool {
+func blankLsig(lsig sdk_types.LogicSig) bool {
 	return len(lsig.Logic) == 0
 }
 
@@ -301,7 +290,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 	}
 
 	switch stxn.Txn.Type {
-	case atypes.PaymentTx:
+	case sdk_types.PaymentTx:
 		amount := int64(stxn.Txn.Amount)
 		if amount != 0 {
 			accounting.updateAlgo(stxn.Txn.Sender, -amount)
@@ -322,7 +311,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		if AccountCloseTxn(stxn.Txn.Sender, stxn) {
 			accounting.closeAccount(stxn.Txn.Sender)
 		}
-	case atypes.KeyRegistrationTx:
+	case sdk_types.KeyRegistrationTx:
 		// see https://github.com/algorand/go-algorand/blob/master/data/transactions/keyreg.go
 		accounting.updateAccountData(stxn.Txn.Sender, "vote", stxn.Txn.VotePK)
 		accounting.updateAccountData(stxn.Txn.Sender, "sel", stxn.Txn.SelectionPK)
@@ -341,7 +330,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 			accounting.updateAccountData(stxn.Txn.Sender, "voteLst", uint64(stxn.Txn.VoteLast))
 			accounting.updateAccountData(stxn.Txn.Sender, "voteKD", stxn.Txn.VoteKeyDilution)
 		}
-	case atypes.AssetConfigTx:
+	case sdk_types.AssetConfigTx:
 		assetID := uint64(stxn.Txn.ConfigAsset)
 		isNew := AssetCreateTxn(stxn)
 		if isNew {
@@ -366,7 +355,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 				accounting.updateAsset(stxn.Txn.Sender, assetID, stxn.Txn.AssetParams.Total, 0, false)
 			}
 		}
-	case atypes.AssetTransferTx:
+	case sdk_types.AssetTransferTx:
 		assetID := uint64(stxn.Txn.XferAsset)
 		defaultFrozen := accounting.defaultFrozen[assetID]
 		sender := stxn.Txn.AssetSender // clawback
@@ -384,10 +373,10 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		if AssetOptOutTxn(stxn) {
 			accounting.closeAsset(sender, assetID, stxn.Txn.AssetCloseTo, round, intra)
 		}
-	case atypes.AssetFreezeTx:
+	case sdk_types.AssetFreezeTx:
 		accounting.freezeAsset(stxn.Txn.FreezeAccount, uint64(stxn.Txn.FreezeAsset), stxn.Txn.AssetFrozen)
-	case atypes.ApplicationCallTx:
-		hasGlobal := (len(stxn.EvalDelta.GlobalDelta) > 0) || (len(stxn.Txn.ApprovalProgram) > 0) || (len(stxn.Txn.ClearStateProgram) > 0) || stxn.Txn.OnCompletion == atypes.DeleteApplicationOC
+	case sdk_types.ApplicationCallTx:
+		hasGlobal := (len(stxn.EvalDelta.GlobalDelta) > 0) || (len(stxn.Txn.ApprovalProgram) > 0) || (len(stxn.Txn.ClearStateProgram) > 0) || stxn.Txn.OnCompletion == sdk_types.DeleteApplicationOC
 		appid := uint64(stxn.Txn.ApplicationID)
 		if appid == 0 {
 			// creation
@@ -437,7 +426,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 			)
 		}
 		// if there's no other content change, but a state change of opt-in/close-out/clear-state, record that
-		if len(stxn.EvalDelta.LocalDeltas) == 0 && (stxn.Txn.OnCompletion == atypes.OptInOC || stxn.Txn.OnCompletion == atypes.CloseOutOC || stxn.Txn.OnCompletion == atypes.ClearStateOC) {
+		if len(stxn.EvalDelta.LocalDeltas) == 0 && (stxn.Txn.OnCompletion == sdk_types.OptInOC || stxn.Txn.OnCompletion == sdk_types.CloseOutOC || stxn.Txn.OnCompletion == sdk_types.ClearStateOC) {
 			accounting.AppLocalDeltas = append(
 				accounting.AppLocalDeltas,
 				idb.AppDelta{

@@ -9,6 +9,7 @@ import (
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,7 +34,7 @@ func TestAllMigrations(t *testing.T) {
 			})
 
 			// This automatically runs migrations
-			pdb, err := openPostgres(db, &idb.IndexerDbOptions{
+			pdb, err := openPostgres(db, idb.IndexerDbOptions{
 				ReadOnly: false,
 			}, nil)
 			require.NoError(t, err)
@@ -74,9 +75,10 @@ func TestNoMigrationsNeeded(t *testing.T) {
 	})
 
 	// This automatically runs migraions
-	pdb, err := openPostgres(db, &idb.IndexerDbOptions{
+	pdb, err := openPostgres(db, idb.IndexerDbOptions{
 		ReadOnly: false,
 	}, nil)
+	assert.NoError(t, err)
 
 	// Just need a moment for the go routine to get started
 	time.Sleep(100 * time.Millisecond)

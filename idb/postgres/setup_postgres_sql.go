@@ -6,11 +6,6 @@ const setup_postgres_sql = `-- This file is setup_postgres.sql which gets compil
 --
 -- TODO? replace all 'addr bytea' with 'addr_id bigint' and a mapping table? makes addrs an 8 byte int that fits in a register instead of a 32 byte string
 
-CREATE TABLE IF NOT EXISTS protocol (
-  version text PRIMARY KEY,
-  proto jsonb
-);
-
 CREATE TABLE IF NOT EXISTS block_header (
 round bigint PRIMARY KEY,
 realtime timestamp without time zone NOT NULL,
@@ -48,9 +43,6 @@ intra smallint NOT NULL
 
 -- For query account transactions
 CREATE UNIQUE INDEX IF NOT EXISTS txn_participation_i ON txn_participation ( addr, round DESC, intra DESC );
-
--- bookeeping for local file import
-CREATE TABLE IF NOT EXISTS imported (path text);
 
 -- expand data.basics.AccountData
 CREATE TABLE IF NOT EXISTS account (

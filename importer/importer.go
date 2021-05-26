@@ -113,6 +113,7 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		participants = participate(participants, stxn.Txn.AssetSender[:])
 		participants = participate(participants, stxn.Txn.AssetReceiver[:])
 		participants = participate(participants, stxn.Txn.AssetCloseTo[:])
+		participants = participate(participants, stxn.Txn.FreezeAccount[:])
 		err = imp.db.AddTransaction(round, intra, txtypeenum, assetid, stxnad, participants)
 		if err != nil {
 			return txCount, fmt.Errorf("error importing txn r=%d i=%d, %v", round, intra, err)
@@ -132,16 +133,4 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 // NewDBImporter creates a new importer object.
 func NewDBImporter(db idb.IndexerDb) Importer {
 	return &dbImporter{db: db}
-}
-
-// ImportProto writes compiled-in protocol information to the database
-func ImportProto(db idb.IndexerDb) (err error) {
-	types.ForeachProtocol(func(version string, proto types.ConsensusParams) (err error) {
-		err = db.SetProto(version, proto)
-		if err != nil {
-			return fmt.Errorf("db set proto %s, %v", version, err)
-		}
-		return nil
-	})
-	return nil
 }

@@ -3,7 +3,7 @@ package api
 import (
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 )
 
 ////////////////////////////////
@@ -66,7 +66,7 @@ func timePtr(x time.Time) *time.Time {
 	return &x
 }
 
-func addrPtr(x types.Address) *string {
+func addrPtr(x sdk_types.Address) *string {
 	if x.IsZero() {
 		return nil
 	}
@@ -91,9 +91,4 @@ func strArrayPtr(x []string) *[]string {
 		return nil
 	}
 	return &x
-}
-
-type genesis struct {
-	genesisHash []byte
-	genesisID   string
 }

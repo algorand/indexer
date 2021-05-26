@@ -6,151 +6,17 @@ import (
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
 	"time"
 
-	atypes "github.com/algorand/go-algorand-sdk/types"
-	log "github.com/sirupsen/logrus"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/types"
 )
-
-// DummyIndexerDb is a mock implementation of IndexerDb
-func DummyIndexerDb() IndexerDb {
-	return &dummyIndexerDb{}
-}
-
-type dummyIndexerDb struct {
-	log *log.Logger
-}
-
-// StartBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) StartBlock() (err error) {
-	db.log.Printf("StartBlock")
-	return nil
-}
-
-// AddTransaction is part of idb.IndexerDB
-func (db *dummyIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
-	db.log.Printf("\ttxn %d %d %d %d", round, intra, txtypeenum, assetid)
-	return nil
-}
-
-// CommitBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	db.log.Printf("CommitBlock %d %d %d header bytes", round, timestamp, len(headerbytes))
-	return nil
-}
-
-// AlreadyImported is part of idb.IndexerDB
-func (db *dummyIndexerDb) AlreadyImported(path string) (imported bool, err error) {
-	return false, nil
-}
-
-// MarkImported is part of idb.IndexerDB
-func (db *dummyIndexerDb) MarkImported(path string) (err error) {
-	return nil
-}
-
-// LoadGenesis is part of idb.IndexerDB
-func (db *dummyIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
-	return nil
-}
-
-// SetProto is part of idb.IndexerDB
-func (db *dummyIndexerDb) SetProto(version string, proto types.ConsensusParams) (err error) {
-	return nil
-}
-
-// GetProto is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetProto(version string) (proto types.ConsensusParams, err error) {
-	err = nil
-	return
-}
-
-// GetImportState is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetImportState() (is *ImportState, err error) {
-	return nil, nil
-}
-
-// SetImportState is part of idb.IndexerDB
-func (db *dummyIndexerDb) SetImportState(is ImportState) (err error) {
-	return nil
-}
-
-// GetMaxRoundAccounted is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
-	return 0, nil
-}
-
-// GetMaxRoundLoaded is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
-	return 0, nil
-}
-
-// GetSpecialAccounts is part of idb.IndexerDb
-func (db *dummyIndexerDb) GetSpecialAccounts() (SpecialAccounts, error) {
-	return SpecialAccounts{}, nil
-}
-
-// GetDefaultFrozen is part of idb.IndexerDb
-func (db *dummyIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
-	return make(map[uint64]bool), nil
-}
-
-// YieldTxns is part of idb.IndexerDB
-func (db *dummyIndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow {
-	return nil
-}
-
-// CommitRoundAccounting is part of idb.IndexerDB
-func (db *dummyIndexerDb) CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
-	return nil
-}
-
-// GetBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (block types.Block, transactions []TxnRow, err error) {
-	return types.Block{}, nil, nil
-}
-
-// Transactions is part of idb.IndexerDB
-func (db *dummyIndexerDb) Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64) {
-	return nil, 0
-}
-
-// GetAccounts is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64) {
-	return nil, 0
-}
-
-// Assets is part of idb.IndexerDB
-func (db *dummyIndexerDb) Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64) {
-	return nil, 0
-}
-
-// AssetBalances is part of idb.IndexerDB
-func (db *dummyIndexerDb) AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64) {
-	return nil, 0
-}
-
-// Applications is part of idb.IndexerDB
-func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64) {
-	return nil, 0
-}
-
-// Health is part of idb.IndexerDB
-func (db *dummyIndexerDb) Health() (state Health, err error) {
-	return Health{}, nil
-}
-
-// IndexerFactory is used to install an IndexerDb implementation.
-type IndexerFactory interface {
-	Name() string
-	Build(arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error)
-}
 
 // TxnRow is metadata relating to one transaction in a transaction query.
 type TxnRow struct {
@@ -203,6 +69,10 @@ type TxnExtra struct {
 	LocalReverseDelta  AppReverseDelta `codec:"alr,omitempty"`
 }
 
+// ErrorNotInitialized is used when requesting something that can't be returned
+// because initialization has not been completed.
+var ErrorNotInitialized error = errors.New("accounting not initialized")
+
 // IndexerDb is the interface used to define alternative Indexer backends.
 // TODO: sqlite3 impl
 // TODO: cockroachdb impl
@@ -212,22 +82,20 @@ type IndexerDb interface {
 	AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error
 	CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error
 
-	AlreadyImported(path string) (imported bool, err error)
-	MarkImported(path string) (err error)
-
 	LoadGenesis(genesis types.Genesis) (err error)
-	SetProto(version string, proto types.ConsensusParams) (err error)
-	GetProto(version string) (proto types.ConsensusParams, err error)
 
-	GetImportState() (is *ImportState, err error)
+	// GetImportState returns ErrorNotInitialized if there is no import state.
+	GetImportState() (is ImportState, err error)
 	SetImportState(ImportState) (err error)
+	// GetMaxRoundAccounted returns ErrorNotInitialized if there are no accounted rounds.
 	GetMaxRoundAccounted() (round uint64, err error)
+	// GetMaxRoundLoaded returns ErrorNotInitialized if there are no loaded rounds.
 	GetMaxRoundLoaded() (round uint64, err error)
 	GetSpecialAccounts() (SpecialAccounts, error)
 	GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error)
 
-	// YieldTxns returns a channel that produces the whole transaction stream after some round forward
-	YieldTxns(ctx context.Context, prevRound int64) <-chan TxnRow
+	// YieldTxns returns a channel that produces the whole transaction stream starting at the specified round
+	YieldTxns(ctx context.Context, firstRound uint64) <-chan TxnRow
 
 	CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error)
 
@@ -242,6 +110,7 @@ type IndexerDb interface {
 	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64)
 
 	Health() (status Health, err error)
+	Reset() (err error)
 }
 
 // GetBlockOptions contains the options when requesting to load a block from the database.
@@ -293,18 +162,18 @@ type TransactionFilter struct {
 	OffsetGT   *uint64 // nil for no filter
 	SigType    string  // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
-	AlgosGT    uint64 // implictly filters on "pay" txns for Algos > this. This will be a slightly faster query than EffectiveAmountGt.
-	AlgosLT    uint64
+	AlgosGT    *uint64 // implictly filters on "pay" txns for Algos > this. This will be a slightly faster query than EffectiveAmountGT.
+	AlgosLT    *uint64
 	RekeyTo    *bool // nil for no filter
 
 	AssetID       uint64 // filter transactions relevant to an asset
-	AssetAmountGT uint64
-	AssetAmountLT uint64
+	AssetAmountGT *uint64
+	AssetAmountLT *uint64
 
 	ApplicationID uint64 // filter transactions relevant to an application
 
-	EffectiveAmountGt uint64 // Algo: Amount + CloseAmount > x
-	EffectiveAmountLt uint64 // Algo: Amount + CloseAmount < x
+	EffectiveAmountGT *uint64 // Algo: Amount + CloseAmount > x
+	EffectiveAmountLT *uint64 // Algo: Amount + CloseAmount < x
 
 	// pointer to last returned object of previous query
 	NextToken string
@@ -321,16 +190,16 @@ type AccountQueryOptions struct {
 	EqualToAuthAddr []byte
 
 	// Filter on accounts with current balance greater than x
-	AlgosGreaterThan uint64
+	AlgosGreaterThan *uint64
 	// Filter on accounts with current balance less than x.
-	AlgosLessThan uint64
+	AlgosLessThan *uint64
 
 	// HasAssetID, AssetGT, and AssetLT are implemented in Go code
 	// after data has returned from Postgres and thus are slightly
 	// less efficient. They will turn on IncludeAssetHoldings.
 	HasAssetID uint64
-	AssetGT    uint64
-	AssetLT    uint64
+	AssetGT    *uint64
+	AssetLT    *uint64
 
 	HasAppID uint64
 
@@ -384,8 +253,8 @@ type AssetRow struct {
 // AssetBalanceQuery is a parameter object with all of the asset balance filter options.
 type AssetBalanceQuery struct {
 	AssetID  uint64
-	AmountGT uint64 // only rows > this
-	AmountLT uint64 // only rows < this
+	AmountGT *uint64 // only rows > this
+	AmountLT *uint64 // only rows < this
 
 	// IncludeDeleted indicated whether to include deleted AssetHoldingss in the results.
 	IncludeDeleted bool
@@ -415,45 +284,13 @@ type ApplicationRow struct {
 	Error       error
 }
 
-type dummyFactory struct {
-}
-
-// Name is part of the IndexerFactory interface.
-func (df dummyFactory) Name() string {
-	return "dummy"
-}
-
-// Build is part of the IndexerFactory interface.
-func (df dummyFactory) Build(arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
-	return &dummyIndexerDb{log: log}, nil
-}
-
-// This layer of indirection allows for different db integrations to be compiled in or compiled out by `go build --tags ...`
-var indexerFactories map[string]IndexerFactory
-
-func init() {
-	indexerFactories = make(map[string]IndexerFactory)
-	RegisterFactory("dummy", &dummyFactory{})
-}
-
 // IndexerDbOptions are the options common to all indexer backends.
 type IndexerDbOptions struct {
 	ReadOnly bool
-}
 
-// RegisterFactory is used by IndexerDb implementations to register their implementations. This mechanism allows
-// for loose coupling between the configuration and the implementation. It is extremely similar to the way sql.DB
-// driver's are configured and used.
-func RegisterFactory(name string, factory IndexerFactory) {
-	indexerFactories[name] = factory
-}
-
-// IndexerDbByName is used to construct an IndexerDb object by name.
-func IndexerDbByName(name, arg string, opts *IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
-	if val, ok := indexerFactories[name]; ok {
-		return val.Build(arg, opts, log)
-	}
-	return nil, fmt.Errorf("no IndexerDb factory for %s", name)
+	// NoMigrate indicates to not run any migrations.
+	// Should probably only be used by the `reset` subcommand.
+	NoMigrate bool
 }
 
 // AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.
@@ -564,13 +401,13 @@ type AppDelta struct {
 	AddrIndex    uint64 // 0=Sender, otherwise stxn.Txn.Accounts[i-1]
 	Creator      []byte
 	Delta        types.StateDelta
-	OnCompletion atypes.OnCompletion
+	OnCompletion sdk_types.OnCompletion
 
 	// AppParams settings coppied from Txn, only for AppGlobalDeltas
-	ApprovalProgram   []byte             `codec:"approv"`
-	ClearStateProgram []byte             `codec:"clearp"`
-	LocalStateSchema  atypes.StateSchema `codec:"lsch"`
-	GlobalStateSchema atypes.StateSchema `codec:"gsch"`
+	ApprovalProgram   []byte                `codec:"approv"`
+	ClearStateProgram []byte                `codec:"clearp"`
+	LocalStateSchema  sdk_types.StateSchema `codec:"lsch"`
+	GlobalStateSchema sdk_types.StateSchema `codec:"gsch"`
 }
 
 // String is part of the Stringer interface.
@@ -612,12 +449,12 @@ type StateDelta struct {
 
 // AppReverseDelta extra data attached to transactions relating to applications
 type AppReverseDelta struct {
-	Delta             []StateDelta        `codec:"d,omitempty"`
-	OnCompletion      atypes.OnCompletion `codec:"oc,omitempty"`
-	ApprovalProgram   []byte              `codec:"approv,omitempty"`
-	ClearStateProgram []byte              `codec:"clearp,omitempty"`
-	LocalStateSchema  atypes.StateSchema  `codec:"lsch,omitempty"`
-	GlobalStateSchema atypes.StateSchema  `codec:"gsch,omitempty"`
+	Delta             []StateDelta           `codec:"d,omitempty"`
+	OnCompletion      sdk_types.OnCompletion `codec:"oc,omitempty"`
+	ApprovalProgram   []byte                 `codec:"approv,omitempty"`
+	ClearStateProgram []byte                 `codec:"clearp,omitempty"`
+	LocalStateSchema  sdk_types.StateSchema  `codec:"lsch,omitempty"`
+	GlobalStateSchema sdk_types.StateSchema  `codec:"gsch,omitempty"`
 }
 
 // SetDelta adds delta values to the AppReverseDelta object.
@@ -654,4 +491,19 @@ type SpecialAccounts struct {
 // ImportState is some metadata kept around to help the import helper.
 type ImportState struct {
 	AccountRound int64 `codec:"account_round"`
+}
+
+// UpdateFilter is used by some functions to filter how an update is done.
+type UpdateFilter struct {
+	// StartRound only include transactions confirmed at this round or later.
+	StartRound uint64
+
+	// RoundLimit only process this many rounds of transactions.
+	RoundLimit *int
+
+	// MaxRound stop processing after this round
+	MaxRound uint64
+
+	// Address only process transactions which modify this account.
+	Address *types.Address
 }

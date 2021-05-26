@@ -14,6 +14,7 @@ import (
 
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/dummy"
 	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/version"
 )
@@ -22,14 +23,14 @@ func maybeFail(err error, errfmt string, params ...interface{}) {
 	if err == nil {
 		return
 	}
-	logger.Errorf(errfmt, params...)
+	logger.WithError(err).Errorf(errfmt, params...)
 	os.Exit(1)
 }
 
 var rootCmd = &cobra.Command{
 	Use:   "indexer",
 	Short: "Algorand Indexer",
-	Long:  `indexer imports blocks from an algod node or from local files into an SQL database for querying. indexer is a daemon that can serve queries from that database.`,
+	Long:  `Indexer imports blocks from an algod node into an SQL database for querying. It is a daemon that can serve queries from that database.`,
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		//If no arguments passed, we should fallback to help
@@ -77,25 +78,22 @@ var (
 	doVersion      bool
 	cpuProfile     string
 	pidFilePath    string
-	db             idb.IndexerDb
 	profFile       io.WriteCloser
 	logLevel       string
 	logFile        string
 	logger         *log.Logger
 )
 
-func globalIndexerDb(opts *idb.IndexerDbOptions) idb.IndexerDb {
-	if db == nil {
-		if postgresAddr != "" {
-			var err error
-			db, err = idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
-			maybeFail(err, "could not init db, %v", err)
-		} else if dummyIndexerDb {
-			db = idb.DummyIndexerDb()
-		} else {
-			logger.Errorf("no import db set")
-			os.Exit(1)
-		}
+func indexerDbFromFlags(opts idb.IndexerDbOptions) (db idb.IndexerDb) {
+	if postgresAddr != "" {
+		var err error
+		db, err = idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
+		maybeFail(err, "could not init db, %v", err)
+	} else if dummyIndexerDb {
+		db = dummy.IndexerDb()
+	} else {
+		logger.Errorf("no import db set")
+		os.Exit(1)
 	}
 	return db
 }
@@ -109,7 +107,10 @@ func init() {
 	logger.SetLevel(log.InfoLevel)
 
 	rootCmd.AddCommand(importCmd)
+	importCmd.Hidden = true
 	rootCmd.AddCommand(daemonCmd)
+	rootCmd.AddCommand(resetCmd)
+	resetCmd.Hidden = true
 
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "loglevel", "l", "info", "verbosity of logs: [error, warn, info, debug, trace]")
 	rootCmd.PersistentFlags().StringVarP(&logFile, "logfile", "f", "", "file to write logs to, if unset logs are written to standard out")

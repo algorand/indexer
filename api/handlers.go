@@ -7,9 +7,8 @@ import (
 	"strconv"
 
 	"github.com/labstack/echo/v4"
-	log "github.com/sirupsen/logrus"
 
-	"github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/common"
@@ -29,8 +28,6 @@ type ServerImplementation struct {
 	db idb.IndexerDb
 
 	fetcher error
-
-	log *log.Logger
 }
 
 /////////////////////
@@ -155,15 +152,15 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 
 	// Set GT/LT on Algos or Asset depending on whether or not an assetID was specified
 	if options.HasAssetID == 0 {
-		options.AlgosGreaterThan = uintOrDefault(params.CurrencyGreaterThan)
-		options.AlgosLessThan = uintOrDefault(params.CurrencyLessThan)
+		options.AlgosGreaterThan = params.CurrencyGreaterThan
+		options.AlgosLessThan = params.CurrencyLessThan
 	} else {
-		options.AssetGT = uintOrDefault(params.CurrencyGreaterThan)
-		options.AssetLT = uintOrDefault(params.CurrencyLessThan)
+		options.AssetGT = params.CurrencyGreaterThan
+		options.AssetLT = params.CurrencyLessThan
 	}
 
 	if params.Next != nil {
-		addr, err := types.DecodeAddress(*params.Next)
+		addr, err := sdk_types.DecodeAddress(*params.Next)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, errUnableToParseNext)
 		}
@@ -308,14 +305,14 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID uint64, params generated.LookupAssetBalancesParams) error {
 	query := idb.AssetBalanceQuery{
 		AssetID:        assetID,
-		AmountGT:       uintOrDefault(params.CurrencyGreaterThan),
-		AmountLT:       uintOrDefault(params.CurrencyLessThan),
+		AmountGT:       params.CurrencyGreaterThan,
+		AmountLT:       params.CurrencyLessThan,
 		IncludeDeleted: boolOrDefault(params.IncludeAll),
 		Limit:          min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
 	}
 
 	if params.Next != nil {
-		addr, err := types.DecodeAddress(*params.Next)
+		addr, err := sdk_types.DecodeAddress(*params.Next)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, errUnableToParseNext)
 		}
@@ -495,7 +492,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 			return nil, round, row.Error
 		}
 
-		creator := types.Address{}
+		creator := sdk_types.Address{}
 		if len(row.Creator) != len(creator) {
 			return nil, round, fmt.Errorf(errInvalidCreatorAddress)
 		}
@@ -540,7 +537,7 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 			return nil, round, row.Error
 		}
 
-		addr := types.Address{}
+		addr := sdk_types.Address{}
 		if len(row.Address) != len(addr) {
 			return nil, round, fmt.Errorf(errInvalidCreatorAddress)
 		}
@@ -627,6 +624,11 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.AccountQueryOptions, atRound *uint64) ([]generated.Account, uint64 /*round*/, error) {
 	accountchan, round := si.db.GetAccounts(ctx, options)
 
+	if (atRound != nil) && (*atRound > round) {
+		return nil, round, fmt.Errorf(
+			"%s: the requested round %d > the current round %d", errRewindingAccount, *atRound, round)
+	}
+
 	accounts := make([]generated.Account, 0)
 	for row := range accountchan {
 		if row.Error != nil {
@@ -645,7 +647,7 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 
 		// Compute for a given round if requested.
 		var account generated.Account
-		if (atRound != nil) && (*atRound < row.Account.Round) {
+		if atRound != nil {
 			acct, err := accounting.AccountAtRound(row.Account, *atRound, si.db)
 			if err != nil {
 				// Ignore the error if this is an account search rewind error
@@ -692,13 +694,6 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 
 func min(x, y uint64) uint64 {
 	if x < y {
-		return x
-	}
-	return y
-}
-
-func max(x, y uint64) uint64 {
-	if x > y {
 		return x
 	}
 	return y

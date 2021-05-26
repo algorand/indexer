@@ -2,18 +2,18 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"flag"
 	"fmt"
 	"os"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	atypes "github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/idb"
 	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 	testutil "github.com/algorand/indexer/util/test"
 )
 
@@ -23,17 +23,9 @@ var (
 	truev = true
 )
 
-var maybeFail = testutil.MaybeFail
+var maybeFail = util.MaybeFail
 var printAccountQuery = testutil.PrintAccountQuery
 var printTxnQuery = testutil.PrintTxnQuery
-
-func b64(x string) []byte {
-	v, err := base64.StdEncoding.DecodeString(x)
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
 
 func main() {
 	start := time.Now()
@@ -42,14 +34,14 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-	db, err := idb.IndexerDbByName("postgres", pgdb, &idb.IndexerDbOptions{ReadOnly: true}, nil)
+	db, err := idb.IndexerDbByName("postgres", pgdb, idb.IndexerDbOptions{ReadOnly: true}, nil)
 	maybeFail(err, "open postgres, %v", err)
 
 	rekeyTxnQuery := idb.TransactionFilter{RekeyTo: &truev, Limit: 1}
 	printTxnQuery(db, rekeyTxnQuery)
 
 	rowchan, _ := db.Transactions(context.Background(), rekeyTxnQuery)
-	var rekeyTo atypes.Address
+	var rekeyTo sdk_types.Address
 	for txnrow := range rowchan {
 		maybeFail(txnrow.Error, "err rekey txn %v\n", txnrow.Error)
 		var stxn types.SignedTxnWithAD

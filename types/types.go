@@ -4,14 +4,14 @@ package types
 import (
 	"time"
 
-	atypes "github.com/algorand/go-algorand-sdk/types"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 )
 
 type (
 	// Address alias to SDK address.
-	Address = atypes.Address // [32]byte
+	Address = sdk_types.Address // [32]byte
 	// Digest is a hash value.
-	Digest = atypes.Digest // [32]byte
+	Digest = sdk_types.Digest // [32]byte
 
 	// Seed used by sortition.
 	Seed [32]byte
@@ -230,7 +230,7 @@ type (
 	SignedTxnWithAD struct {
 		_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-		atypes.SignedTxn
+		sdk_types.SignedTxn
 		ApplyData
 	}
 
@@ -283,9 +283,9 @@ type (
 	DeltaAction uint64
 
 	// Transaction alias for the SDK transaction
-	Transaction = atypes.Transaction
+	Transaction = sdk_types.Transaction
 	// AssetParams alias for the SDK asset params
-	AssetParams = atypes.AssetParams
+	AssetParams = sdk_types.AssetParams
 
 	// EncodedBlockCert is the block encoded along with its certificate.
 	EncodedBlockCert struct {
@@ -878,13 +878,13 @@ const (
 )
 
 // MergeAssetConfig merges together two asset param objects.
-func MergeAssetConfig(old, new atypes.AssetParams) (out atypes.AssetParams) {
+func MergeAssetConfig(old, new sdk_types.AssetParams) (out sdk_types.AssetParams) {
 	// if asset is new, set.
 	// if new config is empty, set empty.
 	// else, update.
-	if old == (atypes.AssetParams{}) {
+	if old == (sdk_types.AssetParams{}) {
 		out = new
-	} else if new == (atypes.AssetParams{}) {
+	} else if new == (sdk_types.AssetParams{}) {
 		out = new
 	} else {
 		out = old

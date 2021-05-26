@@ -49,6 +49,10 @@ func init() {
 		{m9TxnJSONEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
 		{m10SpecialAccountCleanup, false, "The initial m7 implementation would miss special accounts."},
 		{m11AssetHoldingFrozen, false, "Fix asset holding freeze states."},
+
+		// Migrations for a next release
+		{FixFreezeLookupMigration, false, "Fix search by asset freeze address."},
+		{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -110,17 +114,27 @@ func needsMigration(state MigrationState) bool {
 	return state.NextMigration < len(migrations)
 }
 
-// upsertMigrationState updates the migration state, and optionally increments the next counter.
-func upsertMigrationState(tx *sql.Tx, state *MigrationState, incrementNextMigration bool) (err error) {
+// upsertMigrationStateTx updates the migration state, and optionally increments the next counter with an existing
+// transaction.
+func upsertMigrationStateTx(tx *sql.Tx, state *MigrationState, incrementNextMigration bool) (err error) {
 	if incrementNextMigration {
 		state.NextMigration++
 	}
 	migrationStateJSON := idb.JSONOneLine(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
-	if err != nil {
-		return fmt.Errorf("m10 meta error: %v", err)
+
+	return err
+}
+
+// upsertMigrationState updates the migration state, and optionally increments the next counter.
+func upsertMigrationState(db *IndexerDb, state *MigrationState, incrementNextMigration bool) (err error) {
+	if incrementNextMigration {
+		state.NextMigration++
 	}
-	return
+	migrationStateJSON := idb.JSONOneLine(state)
+	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+
+	return err
 }
 
 func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
@@ -385,7 +399,10 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 func m6RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	// Cache the round in the migration metastate
 	round, err := db.GetMaxRoundAccounted()
-	if err != nil {
+	if err == idb.ErrorNotInitialized {
+		// Shouldn't end up in the migration if this were the case.
+		round = 0
+	} else if err != nil {
 		db.log.WithError(err).Errorf("m6: problem caching max round: %v", err)
 		return err
 	}
@@ -833,7 +850,7 @@ func warnUser(db *IndexerDb, maxRound uint32) error {
 	}
 
 	// This many accounts need about 4GB of memory.
-	threshold := 10000000/3*4
+	threshold := 10000000 / 3 * 4
 	if count > uint64(threshold) {
 		db.log.Print("The current migration (m7) is likely to use more than 4GB of RAM.")
 
@@ -1119,7 +1136,7 @@ func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 		if err != nil {
 			return err
 		}
-		// Finally, read all accounts from most recent to oldest, update rewards and create/close dates,
+		// Finally, read all transactions from most recent to oldest, update rewards and create/close dates,
 		// and write this account data to the database. To save memory, this function removes account's
 		// data as soon as we reach the transaction that created this account at which point older
 		// transactions cannot update its state. It writes account data to the database in batches.
@@ -1194,8 +1211,7 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() (err error) {
 	db := mtxid.db
 	state := mtxid.state
 	db.log.Println("txid fixup migration starting")
-	prevRound := state.NextRound - 1
-	txns := db.YieldTxns(context.Background(), prevRound)
+	txns := db.YieldTxns(context.Background(), uint64(state.NextRound))
 	batch := make([]idb.TxnRow, 15000)
 	txInBatch := 0
 	roundsInBatch := 0
@@ -1822,9 +1838,9 @@ func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 		initstmt.Exec(address[:])
 	}
 
-	upsertMigrationState(tx, state, true)
+	upsertMigrationStateTx(tx, state, true)
 	if err != nil {
-		return fmt.Errorf("m10 metstate upsert error: %v", err)
+		return fmt.Errorf("m10 metastate upsert error: %v", err)
 	}
 
 	err = tx.Commit()
@@ -1841,9 +1857,9 @@ func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 // $2 = the holder account
 // $3 = assetID
 // $4 = round limit
-var freezeTransactionsQuery = `select count(*) from txn_participation p JOIN txn t ON t.round = p.round AND p.intra = t.intra 
-WHERE p.addr = $1 
-AND (t.txn -> 'txn' ->> 'fadd' = $2) 
+var freezeTransactionsQuery = `select count(*) from txn_participation p JOIN txn t ON t.round = p.round AND p.intra = t.intra
+WHERE p.addr = $1
+AND (t.txn -> 'txn' ->> 'fadd' = $2)
 AND t.asset = $3
 AND p.round > $4
 LIMIT 1`
@@ -1873,7 +1889,6 @@ func updateFrozenState(db *IndexerDb, assetID uint64, closedAt *uint64, creator,
 	if found != 0 {
 		return nil
 	}
-
 
 	// If there were no freeze transactions, re-initialize the frozen value.
 	frozen := !bytes.Equal(creator[:], holder[:])
@@ -1936,13 +1951,257 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 		}
 	}
 
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
-	tx.Rollback()
-	upsertMigrationState(tx, state, true)
+	upsertMigrationState(db, state, true)
 	if err != nil {
-		return fmt.Errorf("m11 metstate upsert error: %v", err)
+		return fmt.Errorf("m11 metastate upsert error: %v", err)
 	}
-	tx.Commit()
+
+	return nil
+}
+
+// Reusable update batch function. Provide a query and an array of argument arrays to pass  to that query.
+func updateBatch(db *IndexerDb, updateQuery string, data [][]interface{}) error {
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
+	tx, err := db.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback() // ignored if .Commit() first
+
+	update, err := tx.Prepare(updateQuery)
+	if err != nil {
+		return fmt.Errorf("error preparing update query: %v", err)
+	}
+	defer update.Close()
+
+	for _, txpr := range data {
+		_, err = update.Exec(txpr...)
+		if err != nil {
+			return fmt.Errorf("problem updating row (%v): %v", txpr, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// FixFreezeLookupMigration is a migration to add txn_participation entries for freeze address in freeze transactions.
+func FixFreezeLookupMigration(db *IndexerDb, state *MigrationState) error {
+	// Technically with this query no transactions are needed, and the accounting state doesn't need to be locked.
+	updateQuery := "INSERT INTO txn_participation (addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING"
+	query := fmt.Sprintf("select decode(txn.txn->'txn'->>'fadd','base64'),round,intra from txn where typeenum = %d AND txn.txn->'txn'->'snd' != txn.txn->'txn'->'fadd'", idb.TypeEnumAssetFreeze)
+	rows, err := db.db.Query(query)
+	if err != nil {
+		return fmt.Errorf("unable to query transactions: %v", err)
+	}
+	defer rows.Close()
+
+	txprows := make([][]interface{}, 0)
+
+	// Loop through all transactions and compute account data.
+	db.log.Print("loop through all freeze transactions")
+	for rows.Next() {
+		var addr []byte
+		var round, intra uint64
+		err = rows.Scan(&addr, &round, &intra)
+		if err != nil {
+			return fmt.Errorf("error scanning row: %v", err)
+		}
+
+		txprows = append(txprows, []interface{}{addr, round, intra})
+
+		if len(txprows) > 5000 {
+			err = updateBatch(db, updateQuery, txprows)
+			if err != nil {
+				return fmt.Errorf("updating batch: %v", err)
+			}
+			txprows = txprows[:0]
+		}
+	}
+
+	if rows.Err() != nil {
+		return fmt.Errorf("error while processing freeze transactions: %v", rows.Err())
+	}
+
+	// Commit any leftovers
+	if len(txprows) > 0 {
+		err = updateBatch(db, updateQuery, txprows)
+		if err != nil {
+			return fmt.Errorf("updating batch: %v", err)
+		}
+	}
+
+	// Update migration state
+	return upsertMigrationState(db, state, true)
+}
+
+type account struct {
+	address  sdk_types.Address
+	closedAt uint64 // the round when the account was last closed
+}
+
+func getAccounts(db *sql.DB) ([]account, error) {
+	query := "SELECT addr, closed_at FROM account WHERE closed_at IS NOT NULL AND deleted = false " +
+		"AND account_data IS NOT NULL"
+	rows, err := db.Query(query)
+	if err != nil {
+		return []account{}, err
+	}
+	defer rows.Close()
+
+	var res []account
+
+	for rows.Next() {
+		var addrBytes []byte
+		var closedAt sql.NullInt64
+
+		err = rows.Scan(&addrBytes, &closedAt)
+		if err != nil {
+			return []account{}, err
+		}
+
+		var addr sdk_types.Address
+		copy(addr[:], addrBytes)
+		res = append(res, account{addr, uint64(closedAt.Int64)})
+	}
+	if err := rows.Err(); err != nil {
+		return []account{}, err
+	}
+
+	return res, nil
+}
+
+func fixAuthAddr(db *IndexerDb, account account) error {
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
+	f := func(ctx context.Context, tx *sql.Tx) error {
+		defer tx.Rollback()
+
+		rowsCh := make(chan idb.TxnRow)
+
+		// This will not work properly if the account was closed and reopened in the same round
+		// but that's unlikely to happen.
+		trueValue := true
+		tf := idb.TransactionFilter{
+			Address:     account.address[:],
+			AddressRole: idb.AddressRoleSender,
+			RekeyTo:     &trueValue,
+			MinRound:    account.closedAt,
+			Limit:       1,
+		}
+		go func() {
+			db.yieldTxns(ctx, tx, tf, rowsCh)
+			close(rowsCh)
+		}()
+
+		found := false
+		for txnRow := range rowsCh {
+			if txnRow.Error != nil {
+				return txnRow.Error
+			}
+			found = true
+		}
+
+		if found {
+			return nil
+		}
+
+		// No results. Delete the key.
+		db.log.Printf("clearing auth addr for account %s", account.address.String())
+
+		query := "UPDATE account SET account_data = account_data - 'spend' WHERE addr = $1"
+		_, err := tx.Exec(query, account.address[:])
+		if err != nil {
+			return err
+		}
+
+		return tx.Commit()
+	}
+
+	return db.txWithRetry(context.Background(), serializable, f)
+}
+
+func fixKeyreg(db *IndexerDb, account account) error {
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
+	f := func(ctx context.Context, tx *sql.Tx) error {
+		defer tx.Rollback()
+
+		rowsCh := make(chan idb.TxnRow)
+
+		tf := idb.TransactionFilter{
+			Address:     account.address[:],
+			AddressRole: idb.AddressRoleSender,
+			MinRound:    account.closedAt,
+			TypeEnum:    idb.TypeEnumKeyreg,
+			Limit:       1,
+		}
+		go func() {
+			db.yieldTxns(ctx, tx, tf, rowsCh)
+			close(rowsCh)
+		}()
+
+		found := false
+		for txnRow := range rowsCh {
+			if txnRow.Error != nil {
+				return txnRow.Error
+			}
+			found = true
+		}
+
+		if found {
+			return nil
+		}
+
+		// No results. Delete keyreg fields.
+		db.log.Printf("clearing keyreg fields for account %s", account.address.String())
+
+		query := "UPDATE account SET account_data = account_data - 'vote' - 'sel' - 'onl' - " +
+			"'voteFst' - 'voteLst' - 'voteKD' WHERE addr = $1"
+		_, err := tx.Exec(query, account.address[:])
+		if err != nil {
+			return err
+		}
+
+		return tx.Commit()
+	}
+
+	return db.txWithRetry(context.Background(), serializable, f)
+}
+
+// ClearAccountDataMigration clears account data for accounts that have been closed.
+func ClearAccountDataMigration(db *IndexerDb, state *MigrationState) error {
+	// Clear account_data column for deleted accounts.
+	query := "UPDATE account SET account_data = NULL WHERE deleted = true;"
+	if _, err := db.db.Exec(query); err != nil {
+		return fmt.Errorf("error clearing deleted accounts: %v", err)
+	}
+
+	// Clear account data for some reopened accounts.
+	accounts, err := getAccounts(db.db)
+	if err != nil {
+		return fmt.Errorf("error getting accounts: %v", err)
+	}
+	db.log.Printf("checking %d accounts that are reopened and have account data", len(accounts))
+
+	for _, account := range accounts {
+		if err := fixAuthAddr(db, account); err != nil {
+			return fmt.Errorf("error clearing auth addr: %v", err)
+		}
+		if err := fixKeyreg(db, account); err != nil {
+			return fmt.Errorf("error clearing keyreg fields: %v", err)
+		}
+	}
+
+	state.NextMigration++
+	migrationStateJSON := idb.JSONOneLine(state)
+	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	if err != nil {
+		return fmt.Errorf("metastate upsert error: %v", err)
+	}
 
 	return nil
 }

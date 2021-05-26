@@ -32,27 +32,6 @@ func (_m *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, ass
 	return r0
 }
 
-// AlreadyImported provides a mock function with given fields: path
-func (_m *IndexerDb) AlreadyImported(path string) (bool, error) {
-	ret := _m.Called(path)
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func(string) bool); ok {
-		r0 = rf(path)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(path)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // Applications provides a mock function with given fields: ctx, filter
 func (_m *IndexerDb) Applications(ctx context.Context, filter *generated.SearchForApplicationsParams) (<-chan idb.ApplicationRow, uint64) {
 	ret := _m.Called(ctx, filter)
@@ -227,16 +206,14 @@ func (_m *IndexerDb) GetDefaultFrozen() (map[uint64]bool, error) {
 }
 
 // GetImportState provides a mock function with given fields:
-func (_m *IndexerDb) GetImportState() (*idb.ImportState, error) {
+func (_m *IndexerDb) GetImportState() (idb.ImportState, error) {
 	ret := _m.Called()
 
-	var r0 *idb.ImportState
-	if rf, ok := ret.Get(0).(func() *idb.ImportState); ok {
+	var r0 idb.ImportState
+	if rf, ok := ret.Get(0).(func() idb.ImportState); ok {
 		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*idb.ImportState)
-		}
+		r0 = ret.Get(0).(idb.ImportState)
 	}
 
 	var r1 error
@@ -284,27 +261,6 @@ func (_m *IndexerDb) GetMaxRoundLoaded() (uint64, error) {
 	var r1 error
 	if rf, ok := ret.Get(1).(func() error); ok {
 		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetProto provides a mock function with given fields: version
-func (_m *IndexerDb) GetProto(version string) (types.ConsensusParams, error) {
-	ret := _m.Called(version)
-
-	var r0 types.ConsensusParams
-	if rf, ok := ret.Get(0).(func(string) types.ConsensusParams); ok {
-		r0 = rf(version)
-	} else {
-		r0 = ret.Get(0).(types.ConsensusParams)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(version)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -368,13 +324,13 @@ func (_m *IndexerDb) LoadGenesis(genesis types.Genesis) error {
 	return r0
 }
 
-// MarkImported provides a mock function with given fields: path
-func (_m *IndexerDb) MarkImported(path string) error {
-	ret := _m.Called(path)
+// Reset provides a mock function with given fields:
+func (_m *IndexerDb) Reset() error {
+	ret := _m.Called()
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string) error); ok {
-		r0 = rf(path)
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -389,20 +345,6 @@ func (_m *IndexerDb) SetImportState(_a0 idb.ImportState) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(idb.ImportState) error); ok {
 		r0 = rf(_a0)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// SetProto provides a mock function with given fields: version, proto
-func (_m *IndexerDb) SetProto(version string, proto types.ConsensusParams) error {
-	ret := _m.Called(version, proto)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(string, types.ConsensusParams) error); ok {
-		r0 = rf(version, proto)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -447,13 +389,13 @@ func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 	return r0, r1
 }
 
-// YieldTxns provides a mock function with given fields: ctx, prevRound
-func (_m *IndexerDb) YieldTxns(ctx context.Context, prevRound int64) <-chan idb.TxnRow {
-	ret := _m.Called(ctx, prevRound)
+// YieldTxns provides a mock function with given fields: ctx, firstRound
+func (_m *IndexerDb) YieldTxns(ctx context.Context, firstRound uint64) <-chan idb.TxnRow {
+	ret := _m.Called(ctx, firstRound)
 
 	var r0 <-chan idb.TxnRow
-	if rf, ok := ret.Get(0).(func(context.Context, int64) <-chan idb.TxnRow); ok {
-		r0 = rf(ctx, prevRound)
+	if rf, ok := ret.Get(0).(func(context.Context, uint64) <-chan idb.TxnRow); ok {
+		r0 = rf(ctx, firstRound)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(<-chan idb.TxnRow)

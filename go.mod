@@ -3,7 +3,7 @@ module github.com/algorand/indexer
 go 1.13
 
 require (
-	github.com/algorand/go-algorand-sdk v1.5.1
+	github.com/algorand/go-algorand-sdk v1.7.0
 	github.com/algorand/go-codec/codec v1.1.7
 	github.com/algorand/oapi-codegen v1.3.5-algorand5
 	github.com/getkin/kin-openapi v0.19.0

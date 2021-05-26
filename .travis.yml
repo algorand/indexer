@@ -17,8 +17,9 @@ addons:
     - python3-setuptools
     - python3-wheel
 script:
+- test -z `go fmt ./...`
 - make lint
-- make
+- make check
 - make integration
 - make test
 # e2e tests can't run without installing algod.

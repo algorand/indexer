@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"strings"
 	"testing"
 	"time"
 
@@ -114,12 +115,12 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				AssetID:           4,
 				BeforeTime:        time.Date(2021, 1, 1, 1, 0, 0, 0, time.FixedZone("UTC", 0)),
 				AfterTime:         time.Date(2022, 2, 2, 2, 0, 0, 0, time.FixedZone("UTC", 0)),
-				AlgosGT:           0,
-				AlgosLT:           0,
-				AssetAmountGT:     5,
-				AssetAmountLT:     6,
-				EffectiveAmountGt: 0,
-				EffectiveAmountLt: 0,
+				AlgosGT:           nil,
+				AlgosLT:           nil,
+				AssetAmountGT:     uint64Ptr(5),
+				AssetAmountLT:     uint64Ptr(6),
+				EffectiveAmountGT: nil,
+				EffectiveAmountLT: nil,
 				Address:           []byte{197, 204, 27, 84, 42, 255, 184, 163, 97, 247, 241, 26, 128, 13, 87, 125, 150, 22, 131, 63, 100, 238, 60, 209, 121, 177, 156, 23, 106, 222, 64, 35},
 				AddressRole:       9,
 				Offset:            nil,
@@ -196,7 +197,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		{
 			name:          "Currency to Algos when no asset-id",
 			params:        generated.SearchForTransactionsParams{CurrencyGreaterThan: uint64Ptr(10), CurrencyLessThan: uint64Ptr(20)},
-			filter:        idb.TransactionFilter{AlgosGT: 10, AlgosLT: 20, Limit: defaultTransactionsLimit},
+			filter:        idb.TransactionFilter{AlgosGT: uint64Ptr(10), AlgosLT: uint64Ptr(20), Limit: defaultTransactionsLimit},
 			errorContains: nil,
 		},
 		{
@@ -425,7 +426,6 @@ func TestFetchTransactions(t *testing.T) {
 			// Setup the mocked responses
 
 			mockIndexer := &mocks.IndexerDb{}
-			indexerDb = mockIndexer
 			si := ServerImplementation{
 				EnableAddressSearchRoundRewind: true,
 				db:                             mockIndexer,
@@ -482,4 +482,22 @@ func TestFetchTransactions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
+	ch := make(chan idb.AccountRow)
+	close(ch)
+	var outCh <-chan idb.AccountRow = ch
+
+	db := &mocks.IndexerDb{}
+	db.On("GetAccounts", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
+
+	si := ServerImplementation{
+		EnableAddressSearchRoundRewind: true,
+		db:                             db,
+	}
+	atRound := uint64(8)
+	_, _, err := si.fetchAccounts(context.Background(), idb.AccountQueryOptions{}, &atRound)
+	assert.Error(t, err)
+	assert.True(t, strings.HasPrefix(err.Error(), errRewindingAccount), err.Error())
 }
