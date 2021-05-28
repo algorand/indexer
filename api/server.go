@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	//"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	log "github.com/sirupsen/logrus"
@@ -16,10 +17,20 @@ import (
 	"github.com/algorand/indexer/idb"
 )
 
+
+
 // Serve starts an http server for the indexer API. This call blocks.
 func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError error, log *log.Logger, tokens []string, developerMode bool) {
 	e := echo.New()
 	e.HideBanner = true
+
+	// TODO: Request mapper to:
+	// - include query params, /v2/transactions?tx-type=pay from "/v2/transactions" -> "/v2/transactions?tx-type"
+
+	var metrics []*middlewares.Metric
+	//metrics = append(metrics, middlewares.ReqDurByURL)
+	p := middlewares.NewPrometheus("indexer", nil, metrics)
+	p.Use(e)
 
 	e.Use(middlewares.MakeLogger(log))
 	e.Use(middleware.CORS())
