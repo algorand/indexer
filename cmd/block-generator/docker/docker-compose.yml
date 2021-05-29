@@ -55,5 +55,12 @@ services:
     volumes:
       - ./grafana.ini:/etc/grafana/ours.ini
       - ./grafana_prometheus_datasource.yml:/etc/grafana/provisioning/datasources/prometheus.yml
+      # Modify the dashboard with the web interface. Once finished export the
+      # JSON from the share menu (from the dashboard page), convert the JSON to 
+      # YAML, and update this YAML file.
+      #
+      # This didn't work, maybe because the metrics don't exist when initialized?
+      # The dashboard can be imported manually.
+      #- ./grafana_indexer_dashboard.yml:/etc/grafana/provisioning/dashboards/indexer.yml
 
 
