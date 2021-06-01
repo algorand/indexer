@@ -6,9 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	// TODO: Switch to echo-contrib when it has a release >0.9.0
-	// https://github.com/labstack/echo-contrib/issues/54
-	//"github.com/labstack/echo-contrib/prometheus"
+	"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	log "github.com/sirupsen/logrus"
@@ -24,8 +22,7 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 	e := echo.New()
 	e.HideBanner = true
 
-	// TODO: Switch to echo-contrib when it has a release >0.9.0
-	p := middlewares.NewPrometheus("indexer", nil, nil)
+	p := prometheus.NewPrometheus("indexer", nil, nil)
 	p.RequestCounterURLLabelMappingFunc = middlewares.PrometheusPathMapper
 	p.Use(e)
 
