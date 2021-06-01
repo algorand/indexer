@@ -31,13 +31,13 @@
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
-        "h": 8,
+        "h": 9,
         "w": 12,
         "x": 0,
         "y": 0
       },
       "hiddenSeries": false,
-      "id": 6,
+      "id": 2,
       "legend": {
         "avg": false,
         "current": false,
@@ -65,7 +65,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "histogram_quantile(0.95, sum(rate(indexer_response_size_bytes_bucket[5m])) by (le,url))",
+          "expr": "histogram_quantile(0.95, sum(rate(indexer_request_duration_seconds_bucket[5m])) by (le, url))",
           "interval": "",
           "legendFormat": "",
           "queryType": "randomWalk",
@@ -76,7 +76,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Response Size Byes By URL",
+      "title": "Query Duration By URL",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -128,7 +128,102 @@
       "gridPos": {
         "h": 8,
         "w": 12,
-        "x": 0,
+        "x": 12,
+        "y": 0
+      },
+      "hiddenSeries": false,
+      "id": 8,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.5.7",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "rate(indexer_daemon_import_time_sec_sum[5m])\n/\nrate(indexer_daemon_import_time_sec_count[5m])",
+          "interval": "",
+          "legendFormat": "",
+          "queryType": "randomWalk",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Block Import Time",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "IndexerPrometheus",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
         "y": 8
       },
       "hiddenSeries": false,
@@ -221,13 +316,13 @@
       "fill": 1,
       "fillGradient": 0,
       "gridPos": {
-        "h": 9,
+        "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 9
       },
       "hiddenSeries": false,
-      "id": 2,
+      "id": 10,
       "legend": {
         "avg": false,
         "current": false,
@@ -255,7 +350,7 @@
       "targets": [
         {
           "exemplar": true,
-          "expr": "histogram_quantile(0.95, sum(rate(indexer_request_duration_seconds_bucket[5m])) by (le, url))",
+          "expr": "histogram_quantile(0.95, sum(rate(indexer_request_duration_seconds_bucket[5m])) by (le))",
           "interval": "",
           "legendFormat": "",
           "queryType": "randomWalk",
@@ -266,7 +361,102 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Query Duration By URL",
+      "title": "All Queries",
+      "tooltip": {
+        "shared": true,
+        "sort": 0,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "IndexerPrometheus",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 16
+      },
+      "hiddenSeries": false,
+      "id": 6,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "nullPointMode": "null",
+      "options": {
+        "alertThreshold": true
+      },
+      "percentage": false,
+      "pluginVersion": "7.5.7",
+      "pointradius": 2,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": false,
+      "steppedLine": false,
+      "targets": [
+        {
+          "exemplar": true,
+          "expr": "histogram_quantile(0.95, sum(rate(indexer_response_size_bytes_bucket[5m])) by (le,url))",
+          "interval": "",
+          "legendFormat": "",
+          "queryType": "randomWalk",
+          "refId": "A"
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Response Size Byes By URL",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -311,12 +501,12 @@
     "list": []
   },
   "time": {
-    "from": "now-30m",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Indexer Dashboard",
   "uid": "6o3puqqGz",
-  "version": 1
+  "version": 2
 }
