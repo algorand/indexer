@@ -19,8 +19,6 @@ import (
 	"github.com/algorand/indexer/idb"
 )
 
-
-
 // Serve starts an http server for the indexer API. This call blocks.
 func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError error, log *log.Logger, tokens []string, developerMode bool) {
 	e := echo.New()
