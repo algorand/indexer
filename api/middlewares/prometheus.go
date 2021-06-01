@@ -1,7 +1,7 @@
-package middlewares
-
+// This is copy/pasted from the unreleased echo-contrib master branch.
 /*
 Package prometheus provides middleware to add Prometheus metrics.
+
 Example:
 ```
 package main
@@ -14,24 +14,26 @@ func main() {
     // Enable metrics middleware
     p := prometheus.NewPrometheus("echo", nil)
     p.Use(e)
+
     e.Logger.Fatal(e.Start(":1323"))
 }
 ```
 */
+package middlewares
 
 import (
-"bytes"
-"net/http"
-"os"
-"strconv"
-"time"
+	"bytes"
+	"net/http"
+	"os"
+	"strconv"
+	"time"
 
-"github.com/labstack/echo/v4"
-"github.com/labstack/echo/v4/middleware"
-"github.com/labstack/gommon/log"
-"github.com/prometheus/client_golang/prometheus"
-"github.com/prometheus/client_golang/prometheus/promhttp"
-"github.com/prometheus/common/expfmt"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"github.com/labstack/gommon/log"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/common/expfmt"
 )
 
 var defaultMetricPath = "/metrics"
@@ -43,26 +45,9 @@ var defaultSubsystem = "echo"
 var reqCnt = &Metric{
 	ID:          "reqCnt",
 	Name:        "requests_total",
-	Description: "How many HTTP requests processed, partitioned by url, status code and HTTP method.",
+	Description: "How many HTTP requests processed, partitioned by status code and HTTP method.",
 	Type:        "counter_vec",
 	Args:        []string{"code", "method", "host", "url"}}
-
-/*
-var ReqDurByURL = &Metric{
-	ID:          "reqCnt",
-	Name:        "requests_duration_seconds_by_url",
-	Description: "The HTTP requests latencies in seconds, partitioned by url, status code and HTTP method.",
-	Type:        "histogram_vec",
-	Args:        []string{"code", "method", "host", "url"}}
-*/
-
-// ReqDurByURL can be provided as a custom metric to include per-url duration histograms.
-var ReqDurByURL = &Metric{
-	ID:          "reqDurByURL",
-	Name:        "request_duration_seconds_by_url",
-	Description: "The HTTP requests latencies in seconds, partitioned by url, status code and HTTP method.",
-	Args:        []string{"code", "method", "url"},
-	Type:        "histogram_vec"}
 
 var reqDur = &Metric{
 	ID:          "reqDur",
@@ -97,6 +82,7 @@ RequestCounterURLLabelMappingFunc is a function which can be supplied to the mid
 the cardinality of the request counter's "url" label, which might be required in some contexts.
 For instance, if for a "/customer/:name" route you don't want to generate a time series for every
 possible customer name, you could use this function:
+
 func(c echo.Context) string {
 	url := c.Request.URL.Path
 	for _, p := range c.Params {
@@ -107,6 +93,7 @@ func(c echo.Context) string {
 	}
 	return url
 }
+
 which would map "/customer/alice" and "/customer/bob" to their template "/customer/:name".
 */
 type RequestCounterURLLabelMappingFunc func(c echo.Context) string
@@ -125,7 +112,6 @@ type Metric struct {
 // Prometheus contains the metrics gathered by the instance and its path
 type Prometheus struct {
 	reqCnt               *prometheus.CounterVec
-	reqDurByURL          *prometheus.HistogramVec
 	reqDur, reqSz, resSz *prometheus.HistogramVec
 	router               *echo.Echo
 	listenAddress        string
@@ -355,8 +341,6 @@ func (p *Prometheus) registerMetrics(subsystem string) {
 		switch metricDef {
 		case reqCnt:
 			p.reqCnt = metric.(*prometheus.CounterVec)
-		case ReqDurByURL:
-			p.reqDurByURL = metric.(*prometheus.HistogramVec)
 		case reqDur:
 			p.reqDur = metric.(*prometheus.HistogramVec)
 		case resSz:
@@ -398,9 +382,6 @@ func (p *Prometheus) HandlerFunc(next echo.HandlerFunc) echo.HandlerFunc {
 		resSz := float64(c.Response().Size)
 
 		p.reqDur.WithLabelValues(status, c.Request().Method, url).Observe(elapsed)
-		if p.reqDurByURL != nil {
-			p.reqDurByURL.WithLabelValues(status, c.Request().Method, c.Request().Host, url).Observe(elapsed)
-		}
 
 		if len(p.URLLabelFromContext) > 0 {
 			u := c.Get(p.URLLabelFromContext)

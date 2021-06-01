@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	// TODO: Switch to echo-contrib when it has a release >0.9.0
+	// https://github.com/labstack/echo-contrib/issues/54
 	//"github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -24,12 +26,9 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 	e := echo.New()
 	e.HideBanner = true
 
-	// TODO: Request mapper to:
-	// - include query params, /v2/transactions?tx-type=pay from "/v2/transactions" -> "/v2/transactions?tx-type"
-
-	var metrics []*middlewares.Metric
-	//metrics = append(metrics, middlewares.ReqDurByURL)
-	p := middlewares.NewPrometheus("indexer", nil, metrics)
+	// TODO: Switch to echo-contrib when it has a release >0.9.0
+	p := middlewares.NewPrometheus("indexer", nil, nil)
+	p.RequestCounterURLLabelMappingFunc = middlewares.PrometheusPathMapper
 	p.Use(e)
 
 	e.Use(middlewares.MakeLogger(log))

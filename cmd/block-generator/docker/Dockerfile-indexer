@@ -4,14 +4,15 @@ FROM golang:1.13.12-alpine
 RUN mkdir /work
 WORKDIR /work
 ADD . ./
-RUN go build ./...
+WORKDIR /work/cmd/algorand-indexer
+RUN go build
 
 # The sleep is to wait until postgres starts
 CMD ["/bin/sh", "-c", "\
   echo $ALGOD_NET && \
   echo $CONNECTION_STRING &&\
   sleep 10 && \
-  ./cmd/algorand-indexer/algorand-indexer daemon \
+  ./algorand-indexer daemon \
     --server \":${PORT}\" \
     -P \"${CONNECTION_STRING}\" \
     --algod-net \"${ALGOD_NET}\" \
