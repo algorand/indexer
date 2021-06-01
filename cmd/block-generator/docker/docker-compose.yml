@@ -30,7 +30,7 @@ services:
     image: "postgres:13-alpine"
     container_name: "indexer-postgres"
     ports:
-      - 5433:5432
+      - 5555:5432
     environment:
       POSTGRES_USER: algorand
       POSTGRES_PASSWORD: algorand
