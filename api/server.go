@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/labstack/echo-contrib/prometheus"
+	echo_contrib "github.com/labstack/echo-contrib/prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	log "github.com/sirupsen/logrus"
@@ -38,12 +38,14 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 	e.HideBanner = true
 
 	if options.MetricsEndpoint {
-		p := prometheus.NewPrometheus("indexer", nil, nil)
+		p := echo_contrib.NewPrometheus("indexer", nil, nil)
 		if options.MetricsEndpointVerbose {
 			p.RequestCounterURLLabelMappingFunc = middlewares.PrometheusPathMapperVerbose
 		} else {
 			p.RequestCounterURLLabelMappingFunc = middlewares.PrometheusPathMapper404Sink
 		}
+		// This call installs the prometheus metrics collection middleware and
+		// the "/metrics" handler.
 		p.Use(e)
 	}
 
