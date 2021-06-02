@@ -26,6 +26,7 @@ var (
 	noAlgod          bool
 	developerMode    bool
 	allowMigration   bool
+	disableMetrics   bool
 	tokenString      string
 )
 
@@ -116,7 +117,13 @@ var daemonCmd = &cobra.Command{
 		// TODO: trap SIGTERM and call cf() to exit gracefully
 		fmt.Printf("serving on %s\n", daemonServerAddr)
 		logger.Infof("serving on %s", daemonServerAddr)
-		api.Serve(ctx, daemonServerAddr, db, bot, logger, tokenArray, developerMode)
+
+		options := api.ExtraOptions{
+			Tokens:          tokenArray,
+			DeveloperMode:   developerMode,
+			MetricsEndpoint: !disableMetrics,
+		}
+		api.Serve(ctx, daemonServerAddr, db, bot, logger, options)
 	},
 }
 
@@ -159,6 +166,7 @@ func init() {
 	daemonCmd.Flags().StringVarP(&tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
 	daemonCmd.Flags().BoolVarP(&developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
 	daemonCmd.Flags().BoolVarP(&allowMigration, "allow-migration", "", false, "allow migrations to happen even when no algod connected")
+	daemonCmd.Flags().BoolVarP(&disableMetrics, "disable-metrics", "", false, "set flag to disable the /metrics endpoint.")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")

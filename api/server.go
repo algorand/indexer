@@ -17,14 +17,28 @@ import (
 	"github.com/algorand/indexer/idb"
 )
 
+// ExtraOptions are options which change the behavior or the HTTP server.
+type ExtraOptions struct {
+	// Tokens are the access tokens which can access the API.
+	Tokens []string
+
+	// DeveloperMode turns on features like AddressSearchRoundRewind
+	DeveloperMode bool
+
+	// MetricsEndpoint turns on the /metrics endpoint for prometheus metrics.
+	MetricsEndpoint bool
+}
+
 // Serve starts an http server for the indexer API. This call blocks.
-func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError error, log *log.Logger, tokens []string, developerMode bool) {
+func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError error, log *log.Logger, options ExtraOptions) {
 	e := echo.New()
 	e.HideBanner = true
 
-	p := prometheus.NewPrometheus("indexer", nil, nil)
-	p.RequestCounterURLLabelMappingFunc = middlewares.PrometheusPathMapper
-	p.Use(e)
+	if options.MetricsEndpoint {
+		p := prometheus.NewPrometheus("indexer", nil, nil)
+		p.RequestCounterURLLabelMappingFunc = middlewares.PrometheusPathMapper
+		p.Use(e)
+	}
 
 	e.Use(middlewares.MakeLogger(log))
 	e.Use(middleware.CORS())
@@ -33,12 +47,12 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 
 	middleware = append(middleware, middlewares.MakeMigrationMiddleware(db))
 
-	if len(tokens) > 0 {
-		middleware = append(middleware, middlewares.MakeAuth("X-Indexer-API-Token", tokens))
+	if len(options.Tokens) > 0 {
+		middleware = append(middleware, middlewares.MakeAuth("X-Indexer-API-Token", options.Tokens))
 	}
 
 	api := ServerImplementation{
-		EnableAddressSearchRoundRewind: developerMode,
+		EnableAddressSearchRoundRewind: options.DeveloperMode,
 		db:                             db,
 		fetcher:                        fetcherError,
 	}

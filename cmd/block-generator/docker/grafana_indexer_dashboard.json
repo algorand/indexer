@@ -456,7 +456,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Response Size Byes By URL",
+      "title": "Response Size Bytes By URL",
       "tooltip": {
         "shared": true,
         "sort": 0,
