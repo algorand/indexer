@@ -110,7 +110,14 @@ When `--token your-token` is provided, an authentication header is required. For
 
 ## Metrics
 
-The `/metrics` endpoint reports [prometheus](https://prometheus.io/) formatted metrics. These can be disabled with the `--disable-metrics` flag.
+The `/metrics` endpoint is configured with the `--metrics-mode` option and configures if and how [prometheus](https://prometheus.io/) formatted metrics are generated.
+
+There are different settings:
+| Setting | Description |
+| ------- | ----------- |
+| ON      | Metrics for each REST endpoint in addition to application metrics. |
+| OFF     | No metrics endpoint. |
+| VERBOSE | Separate metrics for each combination of query parameters. This option should be used with caution, there are many combinations of query parameters which could cause extra memory load depending on usage patterns. |
 
 # Settings
 
@@ -128,7 +135,7 @@ Settings can be provided from the command line, a configuration file, or an envi
 | no-algod                 |         | no-algod                   | INDEXER_NO_ALGOD                   |
 | token                    | t       | api-token                  | INDEXER_API_TOKEN                  |
 | dev-mode                 |         | dev-mode                   | INDEXER_DEV_MODE                   |
-| disable-metrics          |         | disable-metrics            | INDEXER_DISABLE_METRICS            |
+| metrics-mode             |         | metrics-mode               | INDEXER_METRICS_MODE               |
 
 ## command line
 

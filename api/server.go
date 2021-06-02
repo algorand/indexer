@@ -27,6 +27,9 @@ type ExtraOptions struct {
 
 	// MetricsEndpoint turns on the /metrics endpoint for prometheus metrics.
 	MetricsEndpoint bool
+
+	// MetricsEndpointVerbose generates separate histograms based on query parameters on the /metrics endpoint.
+	MetricsEndpointVerbose bool
 }
 
 // Serve starts an http server for the indexer API. This call blocks.
@@ -36,7 +39,11 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 
 	if options.MetricsEndpoint {
 		p := prometheus.NewPrometheus("indexer", nil, nil)
-		p.RequestCounterURLLabelMappingFunc = middlewares.PrometheusPathMapper
+		if options.MetricsEndpointVerbose {
+			p.RequestCounterURLLabelMappingFunc = middlewares.PrometheusPathMapperVerbose
+		} else {
+			p.RequestCounterURLLabelMappingFunc = middlewares.PrometheusPathMapper404Sink
+		}
 		p.Use(e)
 	}
 

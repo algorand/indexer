@@ -15,5 +15,6 @@ CMD ["/bin/sh", "-c", "\
   ./algorand-indexer daemon \
     --server \":${PORT}\" \
     -P \"${CONNECTION_STRING}\" \
+    --metrics-mode VERBOSE \
     --algod-net \"${ALGOD_NET}\" \
     --algod-token this-is-secure"]
