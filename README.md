@@ -108,6 +108,10 @@ When `--token your-token` is provided, an authentication header is required. For
 ~$ curl localhost:8980/transactions -H "X-Indexer-API-Token: your-token"
 ```
 
+## Metrics
+
+The `/metrics` endpoint reports [prometheus](https://prometheus.io/) formatted metrics. These can be disabled with the `--disable-metrics` flag.
+
 # Settings
 
 Settings can be provided from the command line, a configuration file, or an environment variable
@@ -124,6 +128,7 @@ Settings can be provided from the command line, a configuration file, or an envi
 | no-algod                 |         | no-algod                   | INDEXER_NO_ALGOD                   |
 | token                    | t       | api-token                  | INDEXER_API_TOKEN                  |
 | dev-mode                 |         | dev-mode                   | INDEXER_DEV_MODE                   |
+| disable-metrics          |         | disable-metrics            | INDEXER_DISABLE_METRICS            |
 
 ## command line
 
