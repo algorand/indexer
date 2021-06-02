@@ -171,7 +171,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Block Import Time",
+      "title": "Block Import Time (seconds)",
       "tooltip": {
         "shared": true,
         "sort": 0,
