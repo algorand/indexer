@@ -7,6 +7,7 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// PrometheusPathMapper404Sink if the status is 404, truncate the path to ensure no personal data is leaked.
 func PrometheusPathMapper404Sink(c echo.Context) string {
 	// It is easy to include private data in invalid endpoint URLs, so don't include them.
 	// For example "/v2/accounts/<addr>/" should not have the trailing slash.
@@ -17,7 +18,7 @@ func PrometheusPathMapper404Sink(c echo.Context) string {
 	return c.Path()
 }
 
-// PrometheusPathMapper adds query parameters to the path and ensures no personal data is leaked in 404 reporting.
+// PrometheusPathMapperVerbose adds query parameters to the path in addition to the PrometheusPathMapper404Sink.
 func PrometheusPathMapperVerbose(c echo.Context) string {
 	if PrometheusPathMapper404Sink(c) == "" {
 		return ""
