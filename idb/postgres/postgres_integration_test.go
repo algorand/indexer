@@ -222,9 +222,18 @@ func TestInitializeFrozenCache(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Add some assets
-	db.Exec(`INSERT INTO asset (index, creator_addr, params) values ($1, $2, $3)`, 1, test.AccountA[:], `{"df":true}`)
-	db.Exec(`INSERT INTO asset (index, creator_addr, params) values ($1, $2, $3)`, 2, test.AccountA[:], `{"df":false}`)
-	db.Exec(`INSERT INTO asset (index, creator_addr, params) values ($1, $2, $3)`, 3, test.AccountA[:], `{}`)
+	_, err = db.Exec(
+		`INSERT INTO asset (index, creator_addr, params, deleted) values ($1, $2, $3, false)`,
+		1, test.AccountA[:], `{"df":true}`)
+	require.NoError(t, err)
+	_, err = db.Exec(
+		`INSERT INTO asset (index, creator_addr, params, deleted) values ($1, $2, $3, false)`,
+		2, test.AccountA[:], `{"df":false}`)
+	require.NoError(t, err)
+	_, err = db.Exec(
+		`INSERT INTO asset (index, creator_addr, params, deleted) values ($1, $2, $3, false)`,
+		3, test.AccountA[:], `{}`)
+	require.NoError(t, err)
 
 	pdb, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
