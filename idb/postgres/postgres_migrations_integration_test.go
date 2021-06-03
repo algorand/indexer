@@ -237,12 +237,26 @@ func TestClearAccountDataMigrationIncMigrationNum(t *testing.T) {
 	assert.Equal(t, 14, newNum)
 }
 
-func TestMakeDeletedNotNull(t *testing.T) {
+func TestMakeDeletedNotNullMigration(t *testing.T) {
 	db, shutdownFunc := setupIdb(t)
 	defer shutdownFunc()
 
-	var address sdk_types.Address
+	// Make deleted columns nullable.
 	queries := []string{
+		"ALTER TABLE account ALTER COLUMN deleted DROP NOT NULL",
+		"ALTER TABLE account_asset ALTER COLUMN deleted DROP NOT NULL",
+		"ALTER TABLE asset ALTER COLUMN deleted DROP NOT NULL",
+		"ALTER TABLE app ALTER COLUMN deleted DROP NOT NULL",
+		"ALTER TABLE account_app ALTER COLUMN deleted DROP NOT NULL",
+	}
+	for _, query := range queries {
+		_, err := db.db.Exec(query)
+		require.NoError(t, err)
+	}
+
+	// Insert data.
+	var address sdk_types.Address
+	queries = []string{
 		"INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, deleted) " +
 			"VALUES ($1, 0, 0, 0, NULL)",
 		"INSERT INTO account_asset (addr, assetid, amount, frozen, deleted) " +
@@ -264,10 +278,12 @@ func TestMakeDeletedNotNull(t *testing.T) {
 	err := MakeDeletedNotNullMigration(db, &state)
 	require.NoError(t, err)
 
+	// Check that next migration number is incremented.
 	assert.Equal(t, 99, state.NextMigration)
 	newNum := nextMigrationNum(t, db)
 	assert.Equal(t, 99, newNum)
 
+	// Check that deleted columns are set to false.
 	queries = []string{
 		"SELECT deleted FROM account WHERE addr = $1",
 		"SELECT deleted FROM account_asset WHERE addr = $1",

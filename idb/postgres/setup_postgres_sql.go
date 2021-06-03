@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS account (
   microalgos bigint NOT NULL, -- okay because less than 2^54 Algos
   rewardsbase bigint NOT NULL,
   rewards_total bigint NOT NULL,
-  deleted bool DEFAULT NULL, -- whether or not it is currently deleted
+  deleted bool NOT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL DEFAULT 0, -- round that the account is first used
   closed_at bigint, -- round that the account was last closed
   keytype varchar(8), -- sig,msig,lsig
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS account_asset (
   assetid bigint NOT NULL,
   amount numeric(20) NOT NULL, -- need the full 18446744073709551615
   frozen boolean NOT NULL,
-  deleted bool DEFAULT NULL, -- whether or not it is currently deleted
+  deleted bool NOT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL DEFAULT 0, -- round that the asset was added to an account
   closed_at bigint, -- round that the asset was last removed from the account
   PRIMARY KEY (addr, assetid)
@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS asset (
   index bigint PRIMARY KEY,
   creator_addr bytea NOT NULL,
   params jsonb NOT NULL, -- data.basics.AssetParams -- TODO index some fields?
-  deleted bool DEFAULT NULL, -- whether or not it is currently deleted
+  deleted bool NOT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL DEFAULT 0, -- round that the asset was created
   closed_at bigint -- round that the asset was closed; cannot be recreated because the index is unique
 );
@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS app (
   index bigint PRIMARY KEY,
   creator bytea, -- account address
   params jsonb,
-  deleted bool DEFAULT NULL, -- whether or not it is currently deleted
+  deleted bool NOT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL DEFAULT 0, -- round that the asset was created
   closed_at bigint -- round that the app was deleted; cannot be recreated because the index is unique
 );
@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS account_app (
   addr bytea,
   app bigint,
   localstate jsonb,
-  deleted bool DEFAULT NULL, -- whether or not it is currently deleted
+  deleted bool NOT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL DEFAULT 0, -- round that the app was added to an account
   closed_at bigint, -- round that the account_app was last removed from the account
   PRIMARY KEY (addr, app)
