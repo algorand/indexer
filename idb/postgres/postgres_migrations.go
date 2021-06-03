@@ -52,6 +52,7 @@ func init() {
 		// Migrations for a next release
 		{FixFreezeLookupMigration, false, "Fix search by asset freeze address."},
 		{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
+		{MakeDeletedNotNullMigration, false, "make all \"deleted\" columns NOT NULL"},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -2203,4 +2204,33 @@ func ClearAccountDataMigration(db *IndexerDb, state *MigrationState) error {
 	}
 
 	return nil
+}
+
+// MakeDeletedNotNullMigration makes "deleted" columns NOT NULL in tables
+// account, account_asset, asset, app, account_app.
+func MakeDeletedNotNullMigration(db *IndexerDb, state *MigrationState) error {
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
+	queries := []string{
+		"UPDATE account SET deleted = false WHERE deleted is NULL",
+		"ALTER TABLE account ALTER COLUMN deleted SET NOT NULL",
+		"UPDATE account_asset SET deleted = false WHERE deleted is NULL",
+		"ALTER TABLE account_asset ALTER COLUMN deleted SET NOT NULL",
+		"UPDATE asset SET deleted = false WHERE deleted is NULL",
+		"ALTER TABLE asset ALTER COLUMN deleted SET NOT NULL",
+		"UPDATE app SET deleted = false WHERE deleted is NULL",
+		"ALTER TABLE app ALTER COLUMN deleted SET NOT NULL",
+		"UPDATE account_app SET deleted = false WHERE deleted is NULL",
+		"ALTER TABLE account_app ALTER COLUMN deleted SET NOT NULL",
+	}
+
+	for _, query := range queries {
+		_, err := db.db.Exec(query)
+		if err != nil {
+			return fmt.Errorf("query: \"%s\" err: %w", query, err)
+		}
+	}
+
+	return upsertMigrationState(db, state, true)
 }
