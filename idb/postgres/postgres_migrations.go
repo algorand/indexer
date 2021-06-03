@@ -2209,9 +2209,6 @@ func ClearAccountDataMigration(db *IndexerDb, state *MigrationState) error {
 // MakeDeletedNotNullMigration makes "deleted" columns NOT NULL in tables
 // account, account_asset, asset, app, account_app.
 func MakeDeletedNotNullMigration(db *IndexerDb, state *MigrationState) error {
-	db.accountingLock.Lock()
-	defer db.accountingLock.Unlock()
-
 	queries := []string{
 		"UPDATE account SET deleted = false WHERE deleted is NULL",
 		"ALTER TABLE account ALTER COLUMN deleted SET NOT NULL",
@@ -2224,13 +2221,5 @@ func MakeDeletedNotNullMigration(db *IndexerDb, state *MigrationState) error {
 		"UPDATE account_app SET deleted = false WHERE deleted is NULL",
 		"ALTER TABLE account_app ALTER COLUMN deleted SET NOT NULL",
 	}
-
-	for _, query := range queries {
-		_, err := db.db.Exec(query)
-		if err != nil {
-			return fmt.Errorf("query: \"%s\" err: %w", query, err)
-		}
-	}
-
-	return upsertMigrationState(db, state, true)
+	return sqlMigration(db, state, queries)
 }
