@@ -1168,6 +1168,8 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 	state.NextMigration++
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
+		defer tx.Rollback()
+
 		for _, cmd := range sqlLines {
 			_, err := tx.Exec(cmd)
 			if err != nil {
