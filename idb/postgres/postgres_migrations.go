@@ -1164,8 +1164,8 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
-	thisMigration := state.NextMigration
-	state.NextMigration++
+	nextState := *state
+	nextState.NextMigration++
 
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		defer tx.Rollback()
@@ -1174,21 +1174,22 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 			_, err := tx.Exec(cmd)
 			if err != nil {
 				return fmt.Errorf(
-					"migration %d exec cmd: \"%s\" err: %w", thisMigration, cmd, err)
+					"migration %d exec cmd: \"%s\" err: %w", state.NextMigration, cmd, err)
 			}
 		}
-		migrationStateJSON := encoding.EncodeJSON(state)
+		migrationStateJSON := encoding.EncodeJSON(nextState)
 		_, err := tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 		if err != nil {
-			return fmt.Errorf("migration %d exec metastate err: %w", thisMigration, err)
+			return fmt.Errorf("migration %d exec metastate err: %w", state.NextMigration, err)
 		}
 		return tx.Commit()
 	}
 	err := db.txWithRetry(context.Background(), serializable, f)
 	if err != nil {
-		return fmt.Errorf("migration %d commit err: %w", thisMigration, err)
+		return fmt.Errorf("migration %d commit err: %w", state.NextMigration, err)
 	}
 
+	*state = nextState
 	return nil
 }
 
