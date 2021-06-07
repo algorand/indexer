@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"sync"
 	"testing"
 
@@ -919,4 +920,105 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	acctBCount := queryInt(db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", test.AccountB[:])
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
+}
+
+func TestTransactionPagingBasic(t *testing.T) {
+	db, shutdownFunc := setupIdb(t)
+	defer shutdownFunc()
+
+	{
+		stxn, txnRow := test.MakePayTxnRowOrPanic(
+			test.Round, 0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, sdk_types.ZeroAddress,
+			sdk_types.ZeroAddress)
+		importTxns(t, db, test.Round, stxn)
+		accountTxns(t, db, test.Round, txnRow) // needed to initialize accounting
+	}
+	{
+		stxn, _ := test.MakePayTxnRowOrPanic(
+			test.Round+1, 0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, sdk_types.ZeroAddress,
+			sdk_types.ZeroAddress)
+		importTxns(t, db, test.Round+1, stxn)
+	}
+
+	tf := idb.TransactionFilter{
+		Limit: 1,
+	}
+	txnRows, _ := db.Transactions(context.Background(), tf)
+	{
+		txnRow, ok := <-txnRows
+		assert.True(t, ok)
+		assert.NoError(t, txnRow.Error)
+		assert.Equal(t, test.Round, txnRow.Round)
+		tf.NextToken = txnRow.Next()
+
+		txnRow, ok = <-txnRows
+		assert.False(t, ok)
+	}
+
+	txnRows, _ = db.Transactions(context.Background(), tf)
+	{
+		txnRow, ok := <-txnRows
+		assert.True(t, ok)
+		assert.NoError(t, txnRow.Error)
+		assert.Equal(t, test.Round+1, txnRow.Round)
+		tf.NextToken = txnRow.Next()
+
+		txnRow, ok = <-txnRows
+		assert.False(t, ok)
+	}
+
+	txnRows, _ = db.Transactions(context.Background(), tf)
+	{
+		_, ok := <-txnRows
+		assert.False(t, ok)
+	}
+}
+
+func TestTransactionPagingConsistencyError(t *testing.T) {
+	db, shutdownFunc := setupIdb(t)
+	defer shutdownFunc()
+
+	{
+		stxn, txnRow := test.MakePayTxnRowOrPanic(
+			test.Round, 0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, sdk_types.ZeroAddress,
+			sdk_types.ZeroAddress)
+		importTxns(t, db, test.Round, stxn)
+		accountTxns(t, db, test.Round, txnRow) // needed to initialize accounting
+	}
+	{
+		stxn0, _ := test.MakePayTxnRowOrPanic(
+			test.Round+1, 0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, sdk_types.ZeroAddress,
+			sdk_types.ZeroAddress)
+		stxn1, _ := test.MakePayTxnRowOrPanic(
+			test.Round+1, 0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, sdk_types.ZeroAddress,
+			sdk_types.ZeroAddress)
+		importTxns(t, db, test.Round+1, stxn0, stxn1)
+	}
+
+	tf := idb.TransactionFilter{
+		MinRound: test.Round + 1,
+		Limit:    1,
+	}
+	txnRows, _ := db.Transactions(context.Background(), tf)
+	{
+		txnRow, ok := <-txnRows
+		assert.True(t, ok)
+		assert.NoError(t, txnRow.Error)
+		assert.Equal(t, test.Round+1, txnRow.Round)
+		tf.NextToken = txnRow.Next()
+
+		txnRow, ok = <-txnRows
+		assert.False(t, ok)
+	}
+
+	// Delete last block.
+	db.db.Exec("DELETE FROM block_header WHERE round = $1", test.Round+1)
+
+	txnRows, _ = db.Transactions(context.Background(), tf)
+	{
+		txnRow, ok := <-txnRows
+		assert.True(t, ok)
+		assert.True(
+			t, errors.As(txnRow.Error, &types.ConsistencyError{}), "txnRow.Error: %v", txnRow.Error)
+	}
 }

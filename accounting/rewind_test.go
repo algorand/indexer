@@ -12,6 +12,7 @@ import (
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/mocks"
+	"github.com/algorand/indexer/types"
 )
 
 func TestBasic(t *testing.T) {
@@ -73,7 +74,7 @@ func TestStaleTransactions1(t *testing.T) {
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
 
 	account, err := AccountAtRound(account, 6, db)
-	assert.True(t, errors.As(err, &ConsistencyError{}), "err: %v", err)
+	assert.True(t, errors.As(err, &types.ConsistencyError{}), "err: %v", err)
 }
 
 // Test that when idb.Transactions() returns stale data the second time, we return an error.
@@ -111,5 +112,5 @@ func TestStaleTransactions2(t *testing.T) {
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(5)).Once()
 
 	account, err := AccountAtRound(account, 6, db)
-	assert.True(t, errors.As(err, &ConsistencyError{}), "err: %v", err)
+	assert.True(t, errors.As(err, &types.ConsistencyError{}), "err: %v", err)
 }
