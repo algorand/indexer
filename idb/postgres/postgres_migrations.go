@@ -1164,33 +1164,32 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
-	thisMigration := state.NextMigration
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
-	if err != nil {
-		db.log.WithError(err).Errorf("migration %d tx err", thisMigration)
-		return err
-	}
-	defer tx.Rollback() // ignored if .Commit() first
-	for i, cmd := range sqlLines {
-		_, err = tx.Exec(cmd)
-		if err != nil {
-			db.log.WithError(err).Errorf("migration %d sql[%d] err", thisMigration, i)
-			return err
+	nextState := *state
+	nextState.NextMigration++
+
+	f := func(ctx context.Context, tx *sql.Tx) error {
+		defer tx.Rollback()
+
+		for _, cmd := range sqlLines {
+			_, err := tx.Exec(cmd)
+			if err != nil {
+				return fmt.Errorf(
+					"migration %d exec cmd: \"%s\" err: %w", state.NextMigration, cmd, err)
+			}
 		}
+		migrationStateJSON := encoding.EncodeJSON(nextState)
+		_, err := tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+		if err != nil {
+			return fmt.Errorf("migration %d exec metastate err: %w", state.NextMigration, err)
+		}
+		return tx.Commit()
 	}
-	state.NextMigration++
-	migrationStateJSON := encoding.EncodeJSON(state)
-	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	err := db.txWithRetry(context.Background(), serializable, f)
 	if err != nil {
-		db.log.WithError(err).Errorf("migration %d meta err", thisMigration)
-		return err
+		return fmt.Errorf("migration %d commit err: %w", state.NextMigration, err)
 	}
-	err = tx.Commit()
-	if err != nil {
-		db.log.WithError(err).Errorf("migration %d commit err", thisMigration)
-		return err
-	}
-	db.log.Printf("migration %d done", thisMigration)
+
+	*state = nextState
 	return nil
 }
 
