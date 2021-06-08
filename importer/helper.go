@@ -88,16 +88,14 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 		h.Log.Infof("%d blocks in %s, %.0f/s, %d txn, %.0f/s", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
 	}
 
-	state, err := db.GetImportState()
 	var startRound uint64 = 0
-	accountingRounds := 0
+
+	lastRound, err := db.GetMaxRoundAccounted()
 	if err == idb.ErrorNotInitialized {
-		if InitialImport(db, h.GenesisJSONPath, nil, h.Log) {
-			accountingRounds++
-		}
+		InitialImport(db, h.GenesisJSONPath, nil, h.Log)
 	} else {
 		maybeFail(err, h.Log, "problem getting the import state")
-		startRound = uint64(state.AccountRound + 1)
+		startRound = lastRound + 1
 	}
 
 	filter := idb.UpdateFilter{
@@ -106,8 +104,7 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	if h.NumRoundsLimit != 0 {
 		filter.RoundLimit = &h.NumRoundsLimit
 	}
-	updateRounds, txnCount := updateAccounting(db, h.DefaultFrozenCache, filter, h.Log)
-	accountingRounds += updateRounds
+	accountingRounds, txnCount := updateAccounting(db, h.DefaultFrozenCache, filter, h.Log)
 
 	accountingdone := time.Now()
 	if accountingRounds > 0 {
@@ -229,7 +226,7 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 
 // InitialImport imports the genesis block if needed. Returns true if the initial import occurred.
 func InitialImport(db idb.IndexerDb, genesisJSONPath string, client *algod.Client, l *log.Logger) bool {
-	_, err := db.GetImportState()
+	_, err := db.GetMaxRoundAccounted()
 
 	// Exit immediately or crash if we don't see ErrorNotInitialized.
 	if err != idb.ErrorNotInitialized {

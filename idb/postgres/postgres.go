@@ -360,26 +360,6 @@ func (db *IndexerDb) setMetastate(key, jsonStrValue string) (err error) {
 	return
 }
 
-// GetImportState is part of idb.IndexerDB
-func (db *IndexerDb) GetImportState() (state idb.ImportState, err error) {
-	var importStateJSON string
-	importStateJSON, err = db.getMetastate(stateMetastateKey)
-	if err == sql.ErrNoRows || importStateJSON == "" {
-		// no previous state, ok
-		err = idb.ErrorNotInitialized
-		return
-	} else if err != nil {
-		err = fmt.Errorf("unable to get import state: %v", err)
-		return
-	}
-
-	err = encoding.DecodeJSON([]byte(importStateJSON), &state)
-	if err != nil {
-		err = fmt.Errorf("unable to parse import state: %v", err)
-	}
-	return
-}
-
 // SetImportState is part of idb.IndexerDB
 func (db *IndexerDb) SetImportState(state idb.ImportState) (err error) {
 	return db.setMetastate(stateMetastateKey, string(encoding.EncodeJSON(state)))

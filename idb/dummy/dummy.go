@@ -42,11 +42,6 @@ func (db *dummyIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	return nil
 }
 
-// GetImportState is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetImportState() (is idb.ImportState, err error) {
-	return idb.ImportState{}, nil
-}
-
 // SetImportState is part of idb.IndexerDB
 func (db *dummyIndexerDb) SetImportState(is idb.ImportState) (err error) {
 	return nil
