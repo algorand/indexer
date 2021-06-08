@@ -51,11 +51,6 @@ type ImportHelper struct {
 	Log *log.Logger
 }
 
-// ImportState is some metadata kept around to help the import helper.
-type ImportState struct {
-	AccountRound int64 `codec:"account_round"`
-}
-
 // Import is the main ImportHelper function that glues together a directory full of block files and an Importer objects.
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	imp := NewDBImporter(db)

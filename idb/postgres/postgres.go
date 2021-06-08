@@ -32,9 +32,13 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
 )
+
+type importState struct {
+	// Max round number that has been accounted.
+	AccountRound int64 `codec:"account_round"`
+}
 
 const stateMetastateKey = "state"
 const migrationMetastateKey = "migration"
@@ -329,16 +333,15 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 			return fmt.Errorf("error setting genesis account[%d], %v", ai, err)
 		}
 	}
-	var istate importer.ImportState
-	sjs := string(encoding.EncodeJSON(istate))
-	_, err = tx.Exec(setMetastateUpsert, stateMetastateKey, sjs)
+	var importState importState
+	_, err = tx.Exec(
+		setMetastateUpsert, stateMetastateKey, encoding.EncodeJSON(importState))
 	if err != nil {
 		return
 	}
 	err = tx.Commit()
 	db.log.Printf("genesis %d accounts %d microalgos, err=%v", len(genesis.Allocation), total, err)
 	return err
-
 }
 
 func (db *IndexerDb) getMetastate(key string) (jsonStrValue string, err error) {
@@ -1273,7 +1276,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	if !any {
 		db.log.Debugf("empty round %d", round)
 	}
-	var istate importer.ImportState
+	var importState importState
 	staterow := tx.QueryRow(`SELECT v FROM metastate WHERE k = 'state'`)
 	var stateJSONStr string
 	err = staterow.Scan(&stateJSONStr)
@@ -1282,19 +1285,21 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	} else if err != nil {
 		return
 	} else {
-		err = encoding.DecodeJSON([]byte(stateJSONStr), &istate)
+		err = encoding.DecodeJSON([]byte(stateJSONStr), &importState)
 		if err != nil {
 			return
 		}
 	}
-	if istate.AccountRound >= int64(round) {
-		msg := fmt.Sprintf("metastate round = %d while trying to write round %d", istate.AccountRound, round)
+	if importState.AccountRound >= int64(round) {
+		msg := fmt.Sprintf(
+			"metastate round = %d while trying to write round %d",
+			importState.AccountRound, round)
 		db.log.Error(msg)
 		return errors.New(msg)
 	}
-	istate.AccountRound = int64(round)
-	sjs := encoding.EncodeJSON(istate)
-	_, err = tx.Exec(setMetastateUpsert, stateMetastateKey, sjs)
+	importState.AccountRound = int64(round)
+	_, err = tx.Exec(
+		setMetastateUpsert, stateMetastateKey, encoding.EncodeJSON(importState))
 	if err != nil {
 		return
 	}
