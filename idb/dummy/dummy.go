@@ -47,11 +47,6 @@ func (db *dummyIndexerDb) GetImportState() (is idb.ImportState, err error) {
 	return idb.ImportState{}, nil
 }
 
-// SetImportState is part of idb.IndexerDB
-func (db *dummyIndexerDb) SetImportState(is idb.ImportState) (err error) {
-	return nil
-}
-
 // GetMaxRoundAccounted is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
 	return 0, nil

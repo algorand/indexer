@@ -338,20 +338,6 @@ func (_m *IndexerDb) Reset() error {
 	return r0
 }
 
-// SetImportState provides a mock function with given fields: _a0
-func (_m *IndexerDb) SetImportState(_a0 idb.ImportState) error {
-	ret := _m.Called(_a0)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(idb.ImportState) error); ok {
-		r0 = rf(_a0)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // StartBlock provides a mock function with given fields:
 func (_m *IndexerDb) StartBlock() error {
 	ret := _m.Called()

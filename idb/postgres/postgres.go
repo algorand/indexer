@@ -380,11 +380,6 @@ func (db *IndexerDb) GetImportState() (state idb.ImportState, err error) {
 	return
 }
 
-// SetImportState is part of idb.IndexerDB
-func (db *IndexerDb) SetImportState(state idb.ImportState) (err error) {
-	return db.setMetastate(stateMetastateKey, string(encoding.EncodeJSON(state)))
-}
-
 // If `tx` is null, make a standalone query.
 func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (round uint64, err error) {
 	query := `select v->>'account_round' from metastate where k = 'state'`
