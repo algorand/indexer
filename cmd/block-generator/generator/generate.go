@@ -293,12 +293,15 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 	// Generate the transactions
 	sp := g.getSuggestedParams(round)
 	transactions := make([]types.SignedTxnInBlock, 0, g.config.TxnPerBlock)
-	for i := uint64(0); i < g.config.TxnPerBlock; i++ {
-		txn, err := g.generateTransaction(sp, g.round, i)
-		if err != nil {
-			panic(fmt.Sprintf("failed to generate transaction: %v\n", err))
+	// Do not put transactions in round 0
+	if round != 0 {
+		for i := uint64(0); i < g.config.TxnPerBlock; i++ {
+			txn, err := g.generateTransaction(sp, g.round, i)
+			if err != nil {
+				panic(fmt.Sprintf("failed to generate transaction: %v\n", err))
+			}
+			transactions = append(transactions, txn)
 		}
-		transactions = append(transactions, txn)
 	}
 
 	g.txnCounter += g.config.TxnPerBlock
