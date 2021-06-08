@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
@@ -234,4 +235,70 @@ func TestClearAccountDataMigrationIncMigrationNum(t *testing.T) {
 	assert.Equal(t, 14, state.NextMigration)
 	newNum := nextMigrationNum(t, db)
 	assert.Equal(t, 14, newNum)
+}
+
+func TestMakeDeletedNotNullMigration(t *testing.T) {
+	db, shutdownFunc := setupIdb(t)
+	defer shutdownFunc()
+
+	// Make deleted columns nullable.
+	queries := []string{
+		"ALTER TABLE account ALTER COLUMN deleted DROP NOT NULL",
+		"ALTER TABLE account_asset ALTER COLUMN deleted DROP NOT NULL",
+		"ALTER TABLE asset ALTER COLUMN deleted DROP NOT NULL",
+		"ALTER TABLE app ALTER COLUMN deleted DROP NOT NULL",
+		"ALTER TABLE account_app ALTER COLUMN deleted DROP NOT NULL",
+	}
+	for _, query := range queries {
+		_, err := db.db.Exec(query)
+		require.NoError(t, err)
+	}
+
+	// Insert data.
+	var address sdk_types.Address
+	queries = []string{
+		"INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, deleted) " +
+			"VALUES ($1, 0, 0, 0, NULL)",
+		"INSERT INTO account_asset (addr, assetid, amount, frozen, deleted) " +
+			"VALUES ($1, 0, 0, false, NULL)",
+		"INSERT INTO asset (index, creator_addr, params, deleted) " +
+			"VALUES (0, $1, '{}', NULL)",
+		"INSERT INTO app (index, creator, params, deleted) " +
+			"VALUES (0, $1, '{}', NULL)",
+		"INSERT INTO account_app (addr, app, deleted) " +
+			"VALUES ($1, 0, NULL)",
+	}
+	for _, query := range queries {
+		_, err := db.db.Exec(query, address[:])
+		require.NoError(t, err)
+	}
+
+	// Run migration.
+	state := MigrationState{NextMigration: 98}
+	err := MakeDeletedNotNullMigration(db, &state)
+	require.NoError(t, err)
+
+	// Check that next migration number is incremented.
+	assert.Equal(t, 99, state.NextMigration)
+	newNum := nextMigrationNum(t, db)
+	assert.Equal(t, 99, newNum)
+
+	// Check that deleted columns are set to false.
+	queries = []string{
+		"SELECT deleted FROM account WHERE addr = $1",
+		"SELECT deleted FROM account_asset WHERE addr = $1",
+		"SELECT deleted FROM asset WHERE creator_addr = $1",
+		"SELECT deleted FROM app WHERE creator = $1",
+		"SELECT deleted FROM account_app WHERE addr = $1",
+	}
+	for _, query := range queries {
+		row := db.db.QueryRow(query, address[:])
+
+		var deleted *bool
+		err := row.Scan(&deleted)
+		require.NoError(t, err)
+
+		require.NotNil(t, deleted)
+		assert.Equal(t, false, *deleted)
+	}
 }
