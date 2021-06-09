@@ -42,11 +42,6 @@ func (db *dummyIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	return nil
 }
 
-// SetImportState is part of idb.IndexerDB
-func (db *dummyIndexerDb) SetImportState(is idb.ImportState) (err error) {
-	return nil
-}
-
 // GetMaxRoundAccounted is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
 	return 0, nil

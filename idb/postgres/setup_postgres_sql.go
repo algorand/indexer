@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS account (
   created_at bigint NOT NULL DEFAULT 0, -- round that the account is first used
   closed_at bigint, -- round that the account was last closed
   keytype varchar(8), -- sig,msig,lsig
-  account_data jsonb -- data.basics.AccountData except AssetParams and Assets and MicroAlgos and RewardsBase
+  account_data jsonb -- trimmed AccountData that only contains auth addr and keyreg info
 );
 
 -- data.basics.AccountData Assets[asset id] AssetHolding{}

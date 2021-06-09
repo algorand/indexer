@@ -32,3 +32,5 @@ __pycache__
 .tar_tmp
 *.deb
 *.tar.bz2
+
+coverage.txt
