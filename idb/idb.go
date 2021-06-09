@@ -486,11 +486,6 @@ type SpecialAccounts struct {
 	RewardsPool types.Address
 }
 
-// ImportState is some metadata kept around to help the import helper.
-type ImportState struct {
-	AccountRound int64 `codec:"account_round"`
-}
-
 // UpdateFilter is used by some functions to filter how an update is done.
 type UpdateFilter struct {
 	// StartRound only include transactions confirmed at this round or later.
