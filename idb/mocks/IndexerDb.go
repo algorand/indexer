@@ -205,27 +205,6 @@ func (_m *IndexerDb) GetDefaultFrozen() (map[uint64]bool, error) {
 	return r0, r1
 }
 
-// GetImportState provides a mock function with given fields:
-func (_m *IndexerDb) GetImportState() (idb.ImportState, error) {
-	ret := _m.Called()
-
-	var r0 idb.ImportState
-	if rf, ok := ret.Get(0).(func() idb.ImportState); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(idb.ImportState)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetMaxRoundAccounted provides a mock function with given fields:
 func (_m *IndexerDb) GetMaxRoundAccounted() (uint64, error) {
 	ret := _m.Called()

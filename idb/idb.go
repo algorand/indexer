@@ -85,8 +85,6 @@ type IndexerDb interface {
 
 	LoadGenesis(genesis types.Genesis) (err error)
 
-	// GetImportState returns ErrorNotInitialized if there is no import state.
-	GetImportState() (is ImportState, err error)
 	// GetMaxRoundAccounted returns ErrorNotInitialized if there are no accounted rounds.
 	GetMaxRoundAccounted() (round uint64, err error)
 	// GetMaxRoundLoaded returns ErrorNotInitialized if there are no loaded rounds.
