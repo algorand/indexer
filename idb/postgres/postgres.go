@@ -35,6 +35,11 @@ import (
 	"github.com/algorand/indexer/types"
 )
 
+type importState struct {
+	// Last accounted round.
+	AccountRound int64 `codec:"account_round"`
+}
+
 const stateMetastateKey = "state"
 const migrationMetastateKey = "migration"
 const specialAccountsMetastateKey = "accounts"
@@ -328,7 +333,7 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 			return fmt.Errorf("error setting genesis account[%d], %v", ai, err)
 		}
 	}
-	var importState idb.ImportState
+	var importState importState
 	_, err = tx.Exec(
 		setMetastateUpsert, stateMetastateKey, encoding.EncodeJSON(importState))
 	if err != nil {
@@ -1246,7 +1251,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	if !any {
 		db.log.Debugf("empty round %d", round)
 	}
-	var importState idb.ImportState
+	var importState importState
 	staterow := tx.QueryRow(`SELECT v FROM metastate WHERE k = 'state'`)
 	var stateJSONStr string
 	err = staterow.Scan(&stateJSONStr)
