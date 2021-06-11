@@ -45,11 +45,12 @@ popd
 echo "Starting postgres container."
 start_postgres
 echo "Starting block generator (see generator.log)"
-$(dirname "$0")/block-generator -port 11111 -config "${CONFIG}" &
+$(dirname "$0")/block-generator daemon --port 11111 --config "${CONFIG}" &
 GENERATOR_PID=$!
 echo "Starting indexer"
 $(dirname "$0")/../../cmd/algorand-indexer/algorand-indexer daemon \
               -S localhost:8980 \
               --algod-net localhost:11111 \
               --algod-token security-is-our-number-one-priority \
+              --metrics-mode VERBOSE \
               -P "host=localhost user=algorand password=algorand dbname=generator_db port=15432 sslmode=disable"

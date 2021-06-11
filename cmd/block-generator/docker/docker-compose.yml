@@ -13,6 +13,7 @@ services:
     volumes:
       # Override generator config file.
       - ../scenarios/config.mixed.jumbo.yml:/config/config.yml
+        #- ../scenarios/config.payment.small.yml:/config/config.yml
 
   indexer:
     container_name: "indexer"
