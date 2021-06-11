@@ -34,4 +34,3 @@ func init() {
 
 	rootCmd.AddCommand(daemonCmd)
 }
-
