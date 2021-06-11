@@ -18,8 +18,8 @@ const configFileName = "block_generator_config"
 func init() {
 	rand.Seed(12345)
 
-	rootCmd.Flags().StringVarP(&configFile, "config", "c", configFileName, fmt.Sprintf("Override default config file from '%s'.", configFileName))
-	rootCmd.Flags().Uint64VarP(&port, "port", "p", 4010, "Port to start the server at.")
+	daemonCmd.Flags().StringVarP(&configFile, "config", "c", configFileName, fmt.Sprintf("Override default config file from '%s'.", configFileName))
+	daemonCmd.Flags().Uint64VarP(&port, "port", "p", 4010, "Port to start the server at.")
 
 	rootCmd.AddCommand(daemonCmd)
 
