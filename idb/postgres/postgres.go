@@ -399,24 +399,23 @@ func (db *IndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
 	return db.getMaxRoundAccounted(nil)
 }
 
-// GetMaxRoundLoaded is part of idb.IndexerDB
-func (db *IndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
-	var nullableRound sql.NullInt64
-	round = 0
+// GetNextRoundToLoad is part of idb.IndexerDB
+func (db *IndexerDb) GetNextRoundToLoad() (uint64, error) {
 	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
-	err = row.Scan(&nullableRound)
 
-	if err == sql.ErrNoRows || !nullableRound.Valid {
-		err = idb.ErrorNotInitialized
-		return
+	var nullableRound sql.NullInt64
+	err := row.Scan(&nullableRound)
+	if err == sql.ErrNoRows {
+		return 0, nil
 	}
-
 	if err != nil {
-		return
+		return 0, err
 	}
 
-	round = uint64(nullableRound.Int64)
-	return
+	if !nullableRound.Valid {
+		return 0, nil
+	}
+	return uint64(nullableRound.Int64), nil
 }
 
 // Break the read query so that PostgreSQL doesn't get bogged down

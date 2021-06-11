@@ -47,8 +47,8 @@ func (db *dummyIndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
 	return 0, nil
 }
 
-// GetMaxRoundLoaded is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
+// GetNextRoundToLoad is part of idb.IndexerDB
+func (db *dummyIndexerDb) GetNextRoundToLoad() (round uint64, err error) {
 	return 0, nil
 }
 

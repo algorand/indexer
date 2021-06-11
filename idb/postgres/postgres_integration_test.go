@@ -44,14 +44,15 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	// When // We request the max round.
 	//////////
 	roundA, errA := db.GetMaxRoundAccounted()
-	roundL, errL := db.GetMaxRoundLoaded()
+	roundL, errL := db.GetNextRoundToLoad()
 
 	//////////
 	// Then // The error message should be set.
 	//////////
 	assert.Equal(t, errA, idb.ErrorNotInitialized)
-	assert.Equal(t, errL, idb.ErrorNotInitialized)
 	assert.Equal(t, uint64(0), roundA)
+
+	require.NoError(t, errL)
 	assert.Equal(t, uint64(0), roundL)
 }
 
@@ -95,14 +96,14 @@ func TestMaxRound(t *testing.T) {
 	//////////
 	roundA, err := pdb.GetMaxRoundAccounted()
 	assert.NoError(t, err)
-	roundL, err := pdb.GetMaxRoundLoaded()
+	roundL, err := pdb.GetNextRoundToLoad()
 	assert.NoError(t, err)
 
 	//////////
 	// Then // There should be no error and we return that there are zero rounds.
 	//////////
 	assert.Equal(t, uint64(123454321), roundA)
-	assert.Equal(t, uint64(543212345), roundL)
+	assert.Equal(t, uint64(543212346), roundL)
 }
 
 func assertAccountAsset(t *testing.T, db *sql.DB, addr sdk_types.Address, assetid uint64, frozen bool, amount uint64) {
