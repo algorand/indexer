@@ -28,7 +28,7 @@ func init() {
 }
 
 var daemonCmd = &cobra.Command{
-	Use: "daemon",
+	Use:   "daemon",
 	Short: "Start the generator daemon in standalone mode.",
 	Run: func(cmd *cobra.Command, args []string) {
 		generator.StartServer(configFile, port)

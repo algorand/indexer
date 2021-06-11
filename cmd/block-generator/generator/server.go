@@ -29,6 +29,7 @@ func initializeConfigFile(configFile string) (config GenerationConfig, err error
 	return
 }
 
+// StartServer configures http handlers then runs ListanAndServe.
 func StartServer(configFile string, port uint64) {
 	config, err := initializeConfigFile(configFile)
 	util.MaybeFail(err, "problem loading config file. Use '--config' or create a config file.")
@@ -54,13 +55,13 @@ func help(w http.ResponseWriter, r *http.Request) {
 }
 
 func getReportHandler(gen Generator) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r * http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		gen.WriteReport(w)
 	}
 }
 
 func getGenesisHandler(gen Generator) func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r * http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		gen.WriteGenesis(w)
 	}
 }
