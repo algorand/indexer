@@ -1255,15 +1255,12 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	staterow := tx.QueryRow(`SELECT v FROM metastate WHERE k = 'state'`)
 	var stateJSONStr string
 	err = staterow.Scan(&stateJSONStr)
-	if err == sql.ErrNoRows {
-		// ok
-	} else if err != nil {
+	if err != nil {
 		return
-	} else {
-		err = encoding.DecodeJSON([]byte(stateJSONStr), &importState)
-		if err != nil {
-			return
-		}
+	}
+	err = encoding.DecodeJSON([]byte(stateJSONStr), &importState)
+	if err != nil {
+		return
 	}
 	if importState.AccountRound >= int64(round) {
 		msg := fmt.Sprintf(

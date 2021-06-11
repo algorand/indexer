@@ -125,6 +125,9 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
+	err = pdb.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
+
 	assetid := uint64(2222)
 	amt := uint64(10000)
 	total := uint64(1000000)
@@ -174,6 +177,9 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
+
+	err = pdb.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
 
 	assetid := uint64(2222)
 	total := uint64(1000000)
@@ -255,6 +261,9 @@ func TestReCreateAssetHolding(t *testing.T) {
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
+	err = pdb.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
+
 	assetid := uint64(2222)
 	total := uint64(1000000)
 
@@ -321,6 +330,9 @@ func TestNoopOptins(t *testing.T) {
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
+	err = pdb.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
+
 	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, uint64(1000000), uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
 	_, optinB := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, sdk_types.ZeroAddress)
 	_, unfreezeB := test.MakeAssetFreezeOrPanic(test.Round, assetid, false, test.AccountB, test.AccountB)
@@ -354,18 +366,21 @@ func TestMultipleWriters(t *testing.T) {
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
+	err = pdb.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
+
 	amt := uint64(10000)
 
 	///////////
-	// Given // Send amt to AccountA
+	// Given // Send amt to AccountE
 	///////////
-	_, payAccountA := test.MakePayTxnRowOrPanic(test.Round, 1000, amt, 0, 0, 0, 0, test.AccountD,
-		test.AccountA, sdk_types.ZeroAddress, sdk_types.ZeroAddress)
+	_, payAccountE := test.MakePayTxnRowOrPanic(test.Round, 1000, amt, 0, 0, 0, 0, test.AccountD,
+		test.AccountE, sdk_types.ZeroAddress, sdk_types.ZeroAddress)
 
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
 	state := getAccounting(test.Round, cache)
-	state.AddTransaction(payAccountA)
+	state.AddTransaction(payAccountE)
 
 	//////////
 	// When // We attempt commit the round accounting multiple times.
@@ -398,9 +413,9 @@ func TestMultipleWriters(t *testing.T) {
 	}
 	assert.Equal(t, commits-1, errorCount)
 
-	// AccountA should contain the final payment.
+	// AccountE should contain the final payment.
 	var balance uint64
-	row := db.QueryRow(`SELECT microalgos FROM account WHERE account.addr = $1`, test.AccountA[:])
+	row := db.QueryRow(`SELECT microalgos FROM account WHERE account.addr = $1`, test.AccountE[:])
 	err = row.Scan(&balance)
 	assert.NoError(t, err, "checking balance")
 	assert.Equal(t, amt, balance)
@@ -471,6 +486,9 @@ func TestRekeyBasic(t *testing.T) {
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
+	err = pdb.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
+
 	///////////
 	// Given // Send rekey transaction
 	///////////
@@ -505,6 +523,9 @@ func TestRekeyToItself(t *testing.T) {
 
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
+
+	err = pdb.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
 
 	///////////
 	// Given // Send rekey transaction
@@ -555,6 +576,9 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
+	err = pdb.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
+
 	///////////
 	// Given // Send rekey transaction
 	///////////
@@ -602,6 +626,9 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
+	err = pdb.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
+
 	///////////
 	// Given // Send rekey transaction
 	///////////
@@ -627,6 +654,9 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
+
+	err = pdb.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
 
 	assetid := uint64(2222)
 	total := uint64(1000000)
@@ -666,6 +696,9 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
+
+	err = pdb.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
 
 	assetid := uint64(2222)
 	total := uint64(0)
@@ -731,6 +764,9 @@ func TestDestroyAssetBasic(t *testing.T) {
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
+	err = pdb.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
+
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
 
@@ -780,6 +816,9 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
+	err = pdb.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
+
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
 
@@ -826,6 +865,9 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
+
+	err = pdb.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
 
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
