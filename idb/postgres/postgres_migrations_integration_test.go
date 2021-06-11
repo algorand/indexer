@@ -16,7 +16,7 @@ import (
 )
 
 func nextMigrationNum(t *testing.T, db *IndexerDb) int {
-	j, err := db.getMetastate(migrationMetastateKey)
+	j, err := db.getMetastate(nil, migrationMetastateKey)
 	assert.NoError(t, err)
 
 	assert.True(t, len(j) > 0)

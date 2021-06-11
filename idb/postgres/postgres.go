@@ -37,7 +37,7 @@ import (
 
 type importState struct {
 	// Last accounted round.
-	AccountRound int64 `codec:"account_round"`
+	AccountRound *int64 `codec:"account_round"`
 }
 
 const stateMetastateKey = "state"
@@ -132,9 +132,9 @@ func (db *IndexerDb) txWithRetry(ctx context.Context, opts sql.TxOptions, f func
 }
 
 func (db *IndexerDb) init(opts idb.IndexerDbOptions) (err error) {
-	accountingStateJSON, _ := db.getMetastate(stateMetastateKey)
+	accountingStateJSON, _ := db.getMetastate(nil, stateMetastateKey)
 	hasAccounting := len(accountingStateJSON) > 0
-	migrationStateJSON, _ := db.getMetastate(migrationMetastateKey)
+	migrationStateJSON, _ := db.getMetastate(nil, migrationMetastateKey)
 	hasMigration := len(migrationStateJSON) > 0
 
 	db.GetSpecialAccounts()
@@ -333,19 +333,32 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 			return fmt.Errorf("error setting genesis account[%d], %v", ai, err)
 		}
 	}
-	var importState importState
-	_, err = tx.Exec(
-		setMetastateUpsert, stateMetastateKey, encoding.EncodeJSON(importState))
+
+	round := int64(0)
+	importstate := importState{
+		AccountRound: &round,
+	}
+	err = db.setImportState(nil, importstate)
 	if err != nil {
 		return
 	}
+
 	err = tx.Commit()
 	db.log.Printf("genesis %d accounts %d microalgos, err=%v", len(genesis.Allocation), total, err)
 	return err
 }
 
-func (db *IndexerDb) getMetastate(key string) (jsonStrValue string, err error) {
-	row := db.db.QueryRow(`SELECT v FROM metastate WHERE k = $1`, key)
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) getMetastate(tx *sql.Tx, key string) (jsonStrValue string, err error) {
+	query := `SELECT v FROM metastate WHERE k = $1`
+
+	var row *sql.Row
+	if tx == nil {
+		row = db.db.QueryRow(query, key)
+	} else {
+		row = tx.QueryRow(query, key)
+	}
+
 	err = row.Scan(&jsonStrValue)
 	if err == sql.ErrNoRows {
 		err = nil
@@ -358,43 +371,65 @@ func (db *IndexerDb) getMetastate(key string) (jsonStrValue string, err error) {
 
 const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
 
-func (db *IndexerDb) setMetastate(key, jsonStrValue string) (err error) {
-	_, err = db.db.Exec(setMetastateUpsert, key, jsonStrValue)
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) setMetastate(tx *sql.Tx, key, jsonStrValue string) (err error) {
+	if tx == nil {
+		_, err = db.db.Exec(setMetastateUpsert, key, jsonStrValue)
+	} else {
+		_, err = tx.Exec(setMetastateUpsert, key, jsonStrValue)
+	}
 	return
 }
 
-// If `tx` is null, make a standalone query.
-func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (round uint64, err error) {
-	query := `select v->>'account_round' from metastate where k = 'state'`
-
-	var row *sql.Row
-	if tx == nil {
-		row = db.db.QueryRow(query)
-	} else {
-		row = tx.QueryRow(query)
-	}
-
-	var nullableRound sql.NullInt64
-	err = row.Scan(&nullableRound)
+// Returns idb.ErrorNotInitialized if uninitialized.
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) getImportState(tx *sql.Tx) (importState, error) {
+	importStateJSON, err := db.getMetastate(tx, stateMetastateKey)
 	if err == sql.ErrNoRows {
-		err = idb.ErrorNotInitialized
-		round = 0
+		return importState{}, idb.ErrorNotInitialized
 	}
-
 	if err != nil {
-		return
+		return importState{}, fmt.Errorf("unable to get import state err: %w", err)
 	}
 
-	if nullableRound.Valid {
-		round = uint64(nullableRound.Int64)
-	} else {
-		err = idb.ErrorNotInitialized
+	if importStateJSON == "" {
+		return importState{}, idb.ErrorNotInitialized
 	}
 
-	return
+	var state importState
+	err = encoding.DecodeJSON([]byte(importStateJSON), &state)
+	if err != nil {
+		return importState{},
+			fmt.Errorf("unable to parse import state v: \"%s\" err: %w", importStateJSON, err)
+	}
+
+	return state, nil
+}
+
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) setImportState(tx *sql.Tx, state importState) error {
+	return db.setMetastate(tx, stateMetastateKey, string(encoding.EncodeJSON(state)))
+}
+
+// Returns idb.ErrorNotInitialized if uninitialized.
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (uint64, error) {
+	state, err := db.getImportState(tx)
+	if err == idb.ErrorNotInitialized {
+		return 0, err
+	}
+	if err != nil {
+		return 0, fmt.Errorf("getNextRoundToAccount() err: %w", err)
+	}
+
+	if state.AccountRound == nil {
+		return 0, idb.ErrorNotInitialized
+	}
+	return uint64(*state.AccountRound), nil
 }
 
 // GetMaxRoundAccounted is part of idb.IndexerDB
+// Returns idb.ErrorNotInitialized if uninitialized.
 func (db *IndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
 	return db.getMaxRoundAccounted(nil)
 }
@@ -1251,30 +1286,27 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 	if !any {
 		db.log.Debugf("empty round %d", round)
 	}
-	var importState importState
-	staterow := tx.QueryRow(`SELECT v FROM metastate WHERE k = 'state'`)
-	var stateJSONStr string
-	err = staterow.Scan(&stateJSONStr)
+
+	maxRoundAccounted, err := db.getMaxRoundAccounted(tx)
 	if err != nil {
-		return
+		return err
 	}
-	err = encoding.DecodeJSON([]byte(stateJSONStr), &importState)
-	if err != nil {
-		return
-	}
-	if importState.AccountRound >= int64(round) {
-		msg := fmt.Sprintf(
+
+	if maxRoundAccounted >= round {
+		return fmt.Errorf(
 			"metastate round = %d while trying to write round %d",
-			importState.AccountRound, round)
-		db.log.Error(msg)
-		return errors.New(msg)
+			maxRoundAccounted, round)
 	}
-	importState.AccountRound = int64(round)
-	_, err = tx.Exec(
-		setMetastateUpsert, stateMetastateKey, encoding.EncodeJSON(importState))
+
+	newMaxRoundAccounted := int64(round)
+	importstate := importState{
+		AccountRound: &newMaxRoundAccounted,
+	}
+	err = db.setImportState(tx, importstate)
 	if err != nil {
 		return
 	}
+
 	return tx.Commit()
 }
 
@@ -2904,7 +2936,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 // GetSpecialAccounts is part of idb.IndexerDB
 func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err error) {
 	var cache string
-	cache, err = db.getMetastate(specialAccountsMetastateKey)
+	cache, err = db.getMetastate(nil, specialAccountsMetastateKey)
 	if err != nil || cache == "" {
 		// Initialize specialAccountsMetastateKey
 		var blockHeader types.BlockHeader
@@ -2919,7 +2951,7 @@ func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err err
 		}
 
 		cache := encoding.EncodeJSON(accounts)
-		err = db.setMetastate(specialAccountsMetastateKey, string(cache))
+		err = db.setMetastate(nil, specialAccountsMetastateKey, string(cache))
 		if err != nil {
 			return idb.SpecialAccounts{}, fmt.Errorf("problem saving metastate: %v", err)
 		}
