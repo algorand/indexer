@@ -43,10 +43,13 @@ func setupPostgres(t *testing.T) (*sql.DB, string, func()) {
 	return db, connStr, shutdownFunc
 }
 
-func setupIdb(t *testing.T) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
+func setupIdb(t *testing.T, genesis types.Genesis) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 
 	idb, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	assert.NoError(t, err)
+
+	err = idb.LoadGenesis(genesis)
 	assert.NoError(t, err)
 
 	return idb, shutdownFunc
