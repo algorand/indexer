@@ -64,6 +64,9 @@ func TestClearAccountDataMigrationClosedAccounts(t *testing.T) {
 	db, shutdownFunc := setupIdb(t)
 	defer shutdownFunc()
 
+	err := db.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
+
 	// Rekey account A.
 	{
 		stxn, txnRow := test.MakePayTxnRowOrPanic(
@@ -82,7 +85,7 @@ func TestClearAccountDataMigrationClosedAccounts(t *testing.T) {
 	}
 
 	// Run migration.
-	err := ClearAccountDataMigration(db, &MigrationState{})
+	err = ClearAccountDataMigration(db, &MigrationState{})
 	assert.NoError(t, err)
 
 	// Check that account A has no account data.
@@ -102,6 +105,9 @@ func TestClearAccountDataMigrationClosedAccounts(t *testing.T) {
 func TestClearAccountDataMigrationClearsReopenedAccounts(t *testing.T) {
 	db, shutdownFunc := setupIdb(t)
 	defer shutdownFunc()
+
+	err := db.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
 
 	// Create account A.
 	{
@@ -147,7 +153,7 @@ func TestClearAccountDataMigrationClearsReopenedAccounts(t *testing.T) {
 	}
 
 	// Run migration.
-	err := ClearAccountDataMigration(db, &MigrationState{})
+	err = ClearAccountDataMigration(db, &MigrationState{})
 	assert.NoError(t, err)
 
 	// Check that account A is offline and has no account data.
@@ -168,6 +174,9 @@ func TestClearAccountDataMigrationClearsReopenedAccounts(t *testing.T) {
 func TestClearAccountDataMigrationDoesNotClear(t *testing.T) {
 	db, shutdownFunc := setupIdb(t)
 	defer shutdownFunc()
+
+	err := db.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
 
 	// Create account A.
 	{
@@ -205,7 +214,7 @@ func TestClearAccountDataMigrationDoesNotClear(t *testing.T) {
 	}
 
 	// Run migration.
-	err := ClearAccountDataMigration(db, &MigrationState{})
+	err = ClearAccountDataMigration(db, &MigrationState{})
 	assert.NoError(t, err)
 
 	// Check that account A is online and has auth addr and keyreg data.
@@ -227,9 +236,12 @@ func TestClearAccountDataMigrationIncMigrationNum(t *testing.T) {
 	db, shutdownFunc := setupIdb(t)
 	defer shutdownFunc()
 
+	err := db.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
+
 	// Run migration.
 	state := MigrationState{NextMigration: 13}
-	err := ClearAccountDataMigration(db, &state)
+	err = ClearAccountDataMigration(db, &state)
 	assert.NoError(t, err)
 
 	assert.Equal(t, 14, state.NextMigration)

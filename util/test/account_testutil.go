@@ -22,6 +22,8 @@ var (
 	AccountC = DecodeAddressOrPanic("OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE")
 	// AccountD is a premade account for use in tests.
 	AccountD = DecodeAddressOrPanic("6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI")
+	// AccountE is a premade account for use in tests.
+	AccountE = DecodeAddressOrPanic("QYE3RIRIIUS4VRZ4WYR7E5R6WBHTQXUY7F62C7U77SSRAXUSFTSRQPXPPU")
 	// FeeAddr is the fee addess to use when creating the state object.
 	FeeAddr = DecodeAddressOrPanic("ZROKLZW4GVOK5WQIF2GUR6LHFVEZBMV56BIQEQD4OTIZL2BPSYYUKFBSHM")
 	// RewardAddr is the fee addess to use when creating the state object.
@@ -283,5 +285,42 @@ func MakeBlockForTxns(round uint64, inputs ...*sdk_types.SignedTxnWithAD) types.
 			Payset: txns,
 		},
 		Certificate: types.Certificate{},
+	}
+}
+
+// MakeGenesis creates a sample genesis info.
+func MakeGenesis() types.Genesis {
+	return types.Genesis{
+		SchemaID: "main",
+		Network:  "mynet",
+		Proto:    types.ConsensusVersion(Proto),
+		Allocation: []types.GenesisAllocation{
+			{
+				Address: AccountA.String(),
+				State: types.AccountData{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+			{
+				Address: AccountB.String(),
+				State: types.AccountData{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+			{
+				Address: AccountC.String(),
+				State: types.AccountData{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+			{
+				Address: AccountD.String(),
+				State: types.AccountData{
+					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				},
+			},
+		},
+		RewardsPool: RewardAddr.String(),
+		FeeSink:     FeeAddr.String(),
 	}
 }
