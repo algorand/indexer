@@ -23,6 +23,20 @@ func makePrivateGenerator(t *testing.T) *generator {
 	return publicGenerator.(*generator)
 }
 
+func TestPaymentAcctCreate(t *testing.T) {
+	g := makePrivateGenerator(t)
+	sp := g.getSuggestedParams(1)
+	g.generatePaymentTxnInternal(paymentAcctCreateTx, sp, 0, 0)
+	require.Len(t, g.balances, int(g.config.NumGenesisAccounts+1))
+}
+
+func TestPaymentTransfer(t *testing.T) {
+	g := makePrivateGenerator(t)
+	sp := g.getSuggestedParams(1)
+	g.generatePaymentTxnInternal(paymentTx, sp, 0, 0)
+	require.Len(t, g.balances, int(g.config.NumGenesisAccounts))
+}
+
 func TestAssetXferNoAssetsOverride(t *testing.T) {
 	g := makePrivateGenerator(t)
 	sp := g.getSuggestedParams(1)

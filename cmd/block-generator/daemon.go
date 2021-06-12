@@ -4,10 +4,8 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
 	"github.com/algorand/indexer/cmd/block-generator/generator"
+	"github.com/spf13/cobra"
 )
 
 const configFileName = "block_generator_config"
@@ -28,9 +26,6 @@ func init() {
 
 	daemonCmd.Flags().StringVarP(&configFile, "config", "c", configFileName, fmt.Sprintf("Override default config file from '%s'.", configFileName))
 	daemonCmd.Flags().Uint64VarP(&port, "port", "p", 4010, "Port to start the server at.")
-
-	viper.SetConfigType("yaml")
-	viper.AddConfigPath(".")
 
 	rootCmd.AddCommand(daemonCmd)
 }

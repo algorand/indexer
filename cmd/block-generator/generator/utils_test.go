@@ -8,6 +8,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestWeightedSelectionInternalBadInput(t *testing.T) {
+	weights := []float32{0.10, 0.30}
+	options := []interface{}{"10"}
+	_, err := weightedSelectionInternal(0, weights, options, nil)
+	require.EqualError(t, err, "number of weights must equal number of options: 2 != 1")
+}
+
 func TestWeightedSelectionInternal(t *testing.T) {
 	weights := []float32{0.10, 0.30, 0.60}
 	options := []interface{}{"10", "30", "60"}

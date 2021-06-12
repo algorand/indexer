@@ -18,6 +18,8 @@ func initializeConfigFile(configFile string) (config GenerationConfig, err error
 		return
 	}
 
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
 	err = viper.ReadConfig(f)
 
 	// Problem reading config
