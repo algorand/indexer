@@ -82,15 +82,14 @@ var daemonCmd = &cobra.Command{
 		db := indexerDbFromFlags(opts)
 		if bot != nil {
 			logger.Info("Initializing block import handler.")
-			maxRound, err := db.GetMaxRoundLoaded()
-			if err == idb.ErrorNotInitialized {
-				bot.SetNextRound(0)
-			} else {
-				maybeFail(err, "failed to get max round, %v", err)
-				bot.SetNextRound(maxRound + 1)
-			}
+
+			nextRound, err := db.GetNextRoundToLoad()
+			maybeFail(err, "failed to get next round, %v", err)
+			bot.SetNextRound(nextRound)
+
 			cache, err := db.GetDefaultFrozen()
 			maybeFail(err, "failed to get default frozen cache")
+
 			bih := blockImporterHandler{
 				imp:   importer.NewDBImporter(db),
 				db:    db,
@@ -98,6 +97,7 @@ var daemonCmd = &cobra.Command{
 			}
 			bot.AddBlockHandler(&bih)
 			bot.SetContext(ctx)
+
 			go func() {
 				waitForDBAvailable(db)
 

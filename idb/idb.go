@@ -87,8 +87,7 @@ type IndexerDb interface {
 
 	// GetMaxRoundAccounted returns ErrorNotInitialized if there are no accounted rounds.
 	GetMaxRoundAccounted() (round uint64, err error)
-	// GetMaxRoundLoaded returns ErrorNotInitialized if there are no loaded rounds.
-	GetMaxRoundLoaded() (round uint64, err error)
+	GetNextRoundToLoad() (round uint64, err error)
 	GetSpecialAccounts() (SpecialAccounts, error)
 	GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error)
 

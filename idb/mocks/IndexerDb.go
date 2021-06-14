@@ -226,8 +226,8 @@ func (_m *IndexerDb) GetMaxRoundAccounted() (uint64, error) {
 	return r0, r1
 }
 
-// GetMaxRoundLoaded provides a mock function with given fields:
-func (_m *IndexerDb) GetMaxRoundLoaded() (uint64, error) {
+// GetNextRoundToLoad provides a mock function with given fields:
+func (_m *IndexerDb) GetNextRoundToLoad() (uint64, error) {
 	ret := _m.Called()
 
 	var r0 uint64
