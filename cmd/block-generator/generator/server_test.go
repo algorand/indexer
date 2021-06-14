@@ -75,7 +75,9 @@ func TestParseRound(t *testing.T) {
 		t.Run(testcase.name, func(t *testing.T) {
 			round, err := parseRound(testcase.url)
 			if len(testcase.err) == 0 {
-				require.NoError(t, err, fmt.Sprintf("Unexpected error parsing '%s', expected round '%d' received error: %v", testcase.url, testcase.expectedRound, err))
+				msg := fmt.Sprintf("Unexpected error parsing '%s', expected round '%d' received error: %v",
+					testcase.url, testcase.expectedRound, err)
+				require.NoError(t, err, msg)
 				assert.Equal(t, testcase.expectedRound, round)
 			} else {
 				require.Error(t, err, fmt.Sprintf("Expected an error containing: %s", testcase.err))

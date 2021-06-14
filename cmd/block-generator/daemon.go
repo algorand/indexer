@@ -24,7 +24,7 @@ func init() {
 		},
 	}
 
-	daemonCmd.Flags().StringVarP(&configFile, "config", "c", configFileName, fmt.Sprintf("Override default config file from '%s'.", configFileName))
+	daemonCmd.Flags().StringVarP(&configFile, "config", "c", configFileName, fmt.Sprintf("Override default config file (%s).", configFileName))
 	daemonCmd.Flags().Uint64VarP(&port, "port", "p", 4010, "Port to start the server at.")
 
 	rootCmd.AddCommand(daemonCmd)
