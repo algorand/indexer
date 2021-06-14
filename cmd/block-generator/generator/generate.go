@@ -409,13 +409,16 @@ func getPaymentTxOptions() []interface{} {
 
 // generatePaymentTxn creates a new payment transaction. The sender is always a genesis account, the receiver is random,
 // or a new account.
-func (g *generator) generatePaymentTxn(sp sdk_types.SuggestedParams, _ uint64 /*round*/, _ uint64 /*intra*/) (types.SignedTxnInBlock, error) {
+func (g *generator) generatePaymentTxn(sp sdk_types.SuggestedParams, round uint64, intra uint64) (types.SignedTxnInBlock, error) {
 	selection, err := weightedSelection(g.payTxWeights, getPaymentTxOptions(), paymentTx)
 	if err != nil {
 		return types.SignedTxnInBlock{}, err
 	}
+	return g.generatePaymentTxnInternal(selection.(txTypeID), sp, round, intra)
+}
 
-	defer g.recordData(track(selection.(txTypeID)))
+func (g *generator) generatePaymentTxnInternal(selection txTypeID, sp sdk_types.SuggestedParams, _ uint64 /*round*/, _ uint64 /*intra*/) (types.SignedTxnInBlock, error) {
+	defer g.recordData(track(selection))
 
 	var receiveIndex uint64
 	switch selection {

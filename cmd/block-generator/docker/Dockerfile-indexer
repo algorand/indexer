@@ -11,7 +11,7 @@ RUN go build
 CMD ["/bin/sh", "-c", "\
   echo $ALGOD_NET && \
   echo $CONNECTION_STRING &&\
-  sleep 10 && \
+  sleep 5 && \
   ./algorand-indexer daemon \
     --server \":${PORT}\" \
     -P \"${CONNECTION_STRING}\" \
