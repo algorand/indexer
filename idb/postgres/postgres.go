@@ -415,7 +415,7 @@ func (db *IndexerDb) GetNextRoundToLoad() (uint64, error) {
 	if !nullableRound.Valid {
 		return 0, nil
 	}
-	return uint64(nullableRound.Int64), nil
+	return uint64(nullableRound.Int64 + 1), nil
 }
 
 // Break the read query so that PostgreSQL doesn't get bogged down
