@@ -186,11 +186,11 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 		NextMigration: len(migrations),
 	}
 	migrationStateJSON := encoding.EncodeJSON(state)
-	return db.setMetastate(migrationMetastateKey, string(migrationStateJSON))
+	return db.setMetastate(nil, migrationMetastateKey, string(migrationStateJSON))
 }
 
 func (db *IndexerDb) getMigrationState() (*MigrationState, error) {
-	migrationStateJSON, err := db.getMetastate(migrationMetastateKey)
+	migrationStateJSON, err := db.getMetastate(nil, migrationMetastateKey)
 	if err == sql.ErrNoRows {
 		// no previous state, ok
 		return nil, nil
@@ -1268,7 +1268,7 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() (err error) {
 	state.NextMigration++
 	state.NextRound = 0
 	migrationStateJSON := encoding.EncodeJSON(state)
-	err = db.setMetastate(migrationMetastateKey, string(migrationStateJSON))
+	err = db.setMetastate(nil, migrationMetastateKey, string(migrationStateJSON))
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, error setting final migration state", txidMigrationErrMsg)
 		return
@@ -1665,7 +1665,7 @@ func m9TxnJSONEncoding(db *IndexerDb, state *MigrationState) (err error) {
 	state.NextMigration++
 	state.NextRound = 0
 	migrationStateJSON := string(encoding.EncodeJSON(state))
-	err = db.setMetastate(migrationMetastateKey, migrationStateJSON)
+	err = db.setMetastate(nil, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, error setting final migration state", m9ErrPrefix)
 		return
