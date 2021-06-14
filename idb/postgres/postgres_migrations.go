@@ -53,6 +53,7 @@ func init() {
 		{FixFreezeLookupMigration, false, "Fix search by asset freeze address."},
 		{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
 		{MakeDeletedNotNullMigration, false, "make all \"deleted\" columns NOT NULL"},
+		{MaxRoundAccountedMigration, false, "change import state format"},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -114,27 +115,22 @@ func needsMigration(state MigrationState) bool {
 	return state.NextMigration < len(migrations)
 }
 
-// upsertMigrationStateTx updates the migration state, and optionally increments the next counter with an existing
-// transaction.
-func upsertMigrationStateTx(tx *sql.Tx, state *MigrationState, incrementNextMigration bool) (err error) {
+// upsertMigrationState updates the migration state, and optionally increments
+// the next counter with an existing transaction.
+// If `tx` is nil, use a normal query.
+func upsertMigrationState(db *IndexerDb, tx *sql.Tx, state *MigrationState, incrementNextMigration bool) (err error) {
 	if incrementNextMigration {
 		state.NextMigration++
 	}
 	migrationStateJSON := encoding.EncodeJSON(state)
-	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 
-	return err
-}
-
-// upsertMigrationState updates the migration state, and optionally increments the next counter.
-func upsertMigrationState(db *IndexerDb, state *MigrationState, incrementNextMigration bool) (err error) {
-	if incrementNextMigration {
-		state.NextMigration++
+	if tx == nil {
+		_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	} else {
+		_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	}
-	migrationStateJSON := encoding.EncodeJSON(state)
-	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 
-	return err
+	return
 }
 
 func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
@@ -398,13 +394,15 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 // m6RewardsAndDatesPart1 adds the new rewards_total column to the account table.
 func m6RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
 	// Cache the round in the migration metastate
-	round, err := db.GetMaxRoundAccounted()
+	round, err := db.GetNextRoundToAccount()
 	if err == idb.ErrorNotInitialized {
 		// Shouldn't end up in the migration if this were the case.
 		round = 0
 	} else if err != nil {
 		db.log.WithError(err).Errorf("m6: problem caching max round: %v", err)
 		return err
+	} else if round > 0 {
+		round--
 	}
 
 	// state is updated in the DB when calling 'sqlMigration'
@@ -1178,8 +1176,7 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 					"migration %d exec cmd: \"%s\" err: %w", state.NextMigration, cmd, err)
 			}
 		}
-		migrationStateJSON := encoding.EncodeJSON(nextState)
-		_, err := tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+		err := upsertMigrationState(db, tx, &nextState, false)
 		if err != nil {
 			return fmt.Errorf("migration %d exec metastate err: %w", state.NextMigration, err)
 		}
@@ -1837,7 +1834,7 @@ func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
 		initstmt.Exec(address[:])
 	}
 
-	upsertMigrationStateTx(tx, state, true)
+	upsertMigrationState(db, tx, state, true)
 	if err != nil {
 		return fmt.Errorf("m10 metastate upsert error: %v", err)
 	}
@@ -1950,7 +1947,7 @@ func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
 		}
 	}
 
-	upsertMigrationState(db, state, true)
+	upsertMigrationState(db, nil, state, true)
 	if err != nil {
 		return fmt.Errorf("m11 metastate upsert error: %v", err)
 	}
@@ -2032,7 +2029,7 @@ func FixFreezeLookupMigration(db *IndexerDb, state *MigrationState) error {
 	}
 
 	// Update migration state
-	return upsertMigrationState(db, state, true)
+	return upsertMigrationState(db, nil, state, true)
 }
 
 type account struct {
@@ -2221,4 +2218,50 @@ func MakeDeletedNotNullMigration(db *IndexerDb, state *MigrationState) error {
 		"ALTER TABLE account_app ALTER COLUMN deleted SET NOT NULL",
 	}
 	return sqlMigration(db, state, queries)
+}
+
+// MaxRoundAccountedMigration converts the import state.
+func MaxRoundAccountedMigration(db *IndexerDb, migrationState *MigrationState) error {
+	db.accountingLock.Lock()
+	defer db.accountingLock.Unlock()
+
+	nextMigrationState := *migrationState
+	nextMigrationState.NextMigration++
+
+	f := func(ctx context.Context, tx *sql.Tx) error {
+		defer tx.Rollback()
+
+		nextRound, err := db.getNextRoundToAccount(tx)
+		if err == idb.ErrorNotInitialized {
+			// Leave uninitialized.
+			db.log.Printf("Import state is not initialized, leaving unchanged.")
+		} else if err != nil {
+			return err
+		} else {
+			importstate := importState{
+				NextRoundToAccount: &nextRound,
+			}
+
+			db.log.Printf("Setting import state to %s", encoding.EncodeJSON(importstate))
+
+			err = db.setImportState(tx, importstate)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = upsertMigrationState(db, tx, &nextMigrationState, false)
+		if err != nil {
+			return err
+		}
+
+		return tx.Commit()
+	}
+	err := db.txWithRetry(context.Background(), serializable, f)
+	if err != nil {
+		return err
+	}
+
+	*migrationState = nextMigrationState
+	return nil
 }

@@ -42,8 +42,8 @@ func (db *dummyIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	return nil
 }
 
-// GetMaxRoundAccounted is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
+// GetNextRoundToAccount is part of idb.IndexerDB
+func (db *dummyIndexerDb) GetNextRoundToAccount() (round uint64, err error) {
 	return 0, nil
 }
 

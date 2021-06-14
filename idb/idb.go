@@ -85,8 +85,8 @@ type IndexerDb interface {
 
 	LoadGenesis(genesis types.Genesis) (err error)
 
-	// GetMaxRoundAccounted returns ErrorNotInitialized if there are no accounted rounds.
-	GetMaxRoundAccounted() (round uint64, err error)
+	// GetNextRoundToAccount returns ErrorNotInitialized if genesis is not loaded.
+	GetNextRoundToAccount() (round uint64, err error)
 	GetNextRoundToLoad() (round uint64, err error)
 	GetSpecialAccounts() (SpecialAccounts, error)
 	GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error)
@@ -98,8 +98,8 @@ type IndexerDb interface {
 
 	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (blockHeader types.BlockHeader, transactions []TxnRow, err error)
 
-	// The next multiple functions return a channel with results as well as the latest round
-	// accounted.
+	// The next multiple functions return a channel with results as well as the next round
+	// to account.
 	Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64)
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64)
 	Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64)
@@ -472,11 +472,11 @@ func b32np(data []byte) string {
 
 // Health is the response object that IndexerDb objects need to return from the Health method.
 type Health struct {
-	Data        *map[string]interface{} `json:"data,omitempty"`
-	Round       uint64                  `json:"round"`
-	IsMigrating bool                    `json:"is-migrating"`
-	DBAvailable bool                    `json:"db-available"`
-	Error       string                  `json:"error"`
+	Data               *map[string]interface{}
+	NextRoundToAccount uint64
+	IsMigrating        bool
+	DBAvailable        bool
+	Error              string
 }
 
 // SpecialAccounts are the accounts which have special accounting rules.

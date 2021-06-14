@@ -490,7 +490,7 @@ func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 	var outCh <-chan idb.AccountRow = ch
 
 	db := &mocks.IndexerDb{}
-	db.On("GetAccounts", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
+	db.On("GetAccounts", mock.Anything, mock.Anything).Return(outCh, uint64(8)).Once()
 
 	si := ServerImplementation{
 		EnableAddressSearchRoundRewind: true,

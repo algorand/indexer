@@ -83,14 +83,12 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 		h.Log.Infof("%d blocks in %s, %.0f/s, %d txn, %.0f/s", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
 	}
 
-	var startRound uint64 = 0
-
-	lastRound, err := db.GetMaxRoundAccounted()
+	startRound, err := db.GetNextRoundToAccount()
 	if err == idb.ErrorNotInitialized {
 		InitialImport(db, h.GenesisJSONPath, nil, h.Log)
+		startRound = 0
 	} else {
 		maybeFail(err, h.Log, "problem getting the import state")
-		startRound = lastRound + 1
 	}
 
 	filter := idb.UpdateFilter{
@@ -221,7 +219,7 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 
 // InitialImport imports the genesis block if needed. Returns true if the initial import occurred.
 func InitialImport(db idb.IndexerDb, genesisJSONPath string, client *algod.Client, l *log.Logger) bool {
-	_, err := db.GetMaxRoundAccounted()
+	_, err := db.GetNextRoundToAccount()
 
 	// Exit immediately or crash if we don't see ErrorNotInitialized.
 	if err != idb.ErrorNotInitialized {
