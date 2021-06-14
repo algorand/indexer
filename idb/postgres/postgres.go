@@ -1287,21 +1287,22 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		db.log.Debugf("empty round %d", round)
 	}
 
-	maxRoundAccounted, err := db.getMaxRoundAccounted(tx)
+	importstate, err := db.getImportState(tx)
 	if err != nil {
 		return err
 	}
 
-	if maxRoundAccounted >= round {
-		return fmt.Errorf(
-			"metastate round = %d while trying to write round %d",
-			maxRoundAccounted, round)
+	if importstate.AccountRound == nil {
+		return fmt.Errorf("importstate.AccountRound is nil")
 	}
 
-	newMaxRoundAccounted := int64(round)
-	importstate := importState{
-		AccountRound: &newMaxRoundAccounted,
+	if uint64(*importstate.AccountRound) >= round {
+		return fmt.Errorf(
+			"metastate round = %d while trying to write round %d",
+			*importstate.AccountRound, round)
 	}
+
+	*importstate.AccountRound = int64(round)
 	err = db.setImportState(tx, importstate)
 	if err != nil {
 		return
