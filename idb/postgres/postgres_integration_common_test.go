@@ -51,7 +51,7 @@ func setupIdb(t *testing.T, genesis types.Genesis) (*IndexerDb /*db*/, func() /*
 	require.NoError(t, err)
 
 	err = idb.LoadGenesis(genesis)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	return idb, shutdownFunc
 }
