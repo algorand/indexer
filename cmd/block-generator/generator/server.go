@@ -12,8 +12,7 @@ import (
 )
 
 func initializeConfigFile(configFile string) (config GenerationConfig, err error) {
-	var f *os.File
-	f, err = os.Open(configFile)
+	f, err := os.Open(configFile)
 	if err != nil {
 		return
 	}

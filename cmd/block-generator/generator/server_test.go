@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -15,6 +16,14 @@ func TestInitConfigFile(t *testing.T) {
 	require.Equal(t, uint64(10), config.NumGenesisAccounts)
 	require.Equal(t, float32(0.25), config.AssetCloseFraction)
 	require.Equal(t, float32(0.0), config.AssetDestroyFraction)
+}
+
+func TestInitConfigFileNotExist(t *testing.T) {
+	_, err := initializeConfigFile("this_is_not_a_config_file")
+
+	if _, ok := err.(*os.PathError); !ok {
+		require.Fail(t, "This should generate a path error")
+	}
 }
 
 func TestParseRound(t *testing.T) {
