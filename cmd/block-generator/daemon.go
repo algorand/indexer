@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math/rand"
 
 	"github.com/algorand/indexer/cmd/block-generator/generator"
@@ -24,8 +23,10 @@ func init() {
 		},
 	}
 
-	daemonCmd.Flags().StringVarP(&configFile, "config", "c", configFileName, fmt.Sprintf("Override default config file (%s).", configFileName))
+	daemonCmd.Flags().StringVarP(&configFile, "config", "c", "", "Specify the block configuration yaml file.")
 	daemonCmd.Flags().Uint64VarP(&port, "port", "p", 4010, "Port to start the server at.")
+
+	daemonCmd.MarkFlagRequired("config")
 
 	rootCmd.AddCommand(daemonCmd)
 }
