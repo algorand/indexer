@@ -2,10 +2,11 @@ package generator
 
 import (
 	"fmt"
-	"github.com/spf13/viper"
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/spf13/viper"
 
 	"github.com/algorand/indexer/util"
 )
@@ -30,7 +31,7 @@ func initializeConfigFile(configFile string) (config GenerationConfig, err error
 }
 
 // StartServer configures http handlers then runs ListanAndServe. Returns the http server and a done channel.
-func StartServer(configFile string, port int) (*http.Server, <- chan struct{}){
+func StartServer(configFile string, port uint64) (*http.Server, <- chan struct{}){
 	config, err := initializeConfigFile(configFile)
 	util.MaybeFail(err, "problem loading config file. Use '--config' or create a config file.")
 

@@ -341,7 +341,6 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 	g.timestamp += consensusTimeMilli
 	g.round++
 
-	fmt.Println(g.txnCounter)
 	output.Write(msgpack.Encode(cert))
 }
 
