@@ -2,11 +2,10 @@ package generator
 
 import (
 	"fmt"
+	"github.com/spf13/viper"
 	"net/http"
 	"os"
 	"strings"
-
-	"github.com/spf13/viper"
 
 	"github.com/algorand/indexer/util"
 )
@@ -30,8 +29,8 @@ func initializeConfigFile(configFile string) (config GenerationConfig, err error
 	return
 }
 
-// StartServer configures http handlers then runs ListanAndServe.
-func StartServer(configFile string, port uint64) {
+// StartServer configures http handlers then runs ListanAndServe. Returns the http server and a done channel.
+func StartServer(configFile string, port int) (*http.Server, <- chan struct{}){
 	config, err := initializeConfigFile(configFile)
 	util.MaybeFail(err, "problem loading config file. Use '--config' or create a config file.")
 
@@ -47,8 +46,19 @@ func StartServer(configFile string, port uint64) {
 	http.HandleFunc("/report", getReportHandler(gen))
 
 	portStr := fmt.Sprintf(":%d", port)
-	fmt.Printf("Starting server at %s\n", portStr)
-	http.ListenAndServe(portStr, nil)
+	srv := &http.Server{Addr: portStr}
+	done := make(chan struct{})
+	go func() {
+		defer close(done) // let main know we are done cleaning up
+
+		// always returns error. ErrServerClosed on graceful close
+		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+			// unexpected error. port in use?
+			fmt.Errorf("ListenAndServe()\n: %v", err)
+		}
+	}()
+
+	return srv, done
 }
 
 func help(w http.ResponseWriter, r *http.Request) {

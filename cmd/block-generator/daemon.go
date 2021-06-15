@@ -1,10 +1,9 @@
 package main
 
 import (
-	"math/rand"
-
 	"github.com/algorand/indexer/cmd/block-generator/generator"
 	"github.com/spf13/cobra"
+	"math/rand"
 )
 
 const configFileName = "block_generator_config"
@@ -19,7 +18,8 @@ func init() {
 		Use:   "daemon",
 		Short: "Start the generator daemon in standalone mode.",
 		Run: func(cmd *cobra.Command, args []string) {
-			generator.StartServer(configFile, port)
+			_, done := generator.StartServer(configFile, int(port))
+			<- done
 		},
 	}
 
