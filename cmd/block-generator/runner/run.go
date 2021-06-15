@@ -33,11 +33,17 @@ type RunnerArgs struct {
 
 // Run is a public helper run the tests.
 func Run(args RunnerArgs) error {
-	stat, err := os.Stat(args.Path)
+	pathStat, err := os.Stat(args.Path)
 	util.MaybeFail(err, "Unable to check path.")
 
+	reportDirStat, err := os.Stat(args.ReportDirectory)
+	util.MaybeFail(err, "Unable to check report directory.")
+	if !reportDirStat.IsDir() {
+		return fmt.Errorf("report directory '%s' is not a directory", args.ReportDirectory)
+	}
+
 	// Batch mode
-	if stat.IsDir() {
+	if pathStat.IsDir() {
 		return filepath.Walk(args.Path, func(path string, info os.FileInfo, err error) error {
 			runnerArgs := args
 			runnerArgs.Path = path
@@ -49,6 +55,38 @@ func Run(args RunnerArgs) error {
 	return args.run()
 }
 
+func (r *RunnerArgs) run() error {
+	port := uint64(11112)
+
+	// Start services
+	generatorShutdownFunc := startGenerator(r.Path, port)
+	indexerShutdownFunc, err := startIndexer(r.IndexerBinary, port, r.IndexerPort, r.PostgresConnectionString)
+	if err != nil {
+		return fmt.Errorf("failed to start indexer: %w", err)
+	}
+
+	// Run the test, collecting results.
+	r.runTest()
+
+	// Shutdown generator.
+	if err := generatorShutdownFunc(); err != nil {
+		return err
+	}
+
+	// Shutdown indexer
+	if err := indexerShutdownFunc(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *RunnerArgs) runTest() error {
+	time.Sleep(r.RunDuration)
+	return nil
+}
+
+// startGenerator starts the generator server.
 func startGenerator(configFile string, port uint64) func() error {
 	// Start generator.
 	server, done := generator.StartServer(configFile, port)
@@ -69,6 +107,8 @@ func startGenerator(configFile string, port uint64) func() error {
 	}
 }
 
+// startIndexer resets the postgres database and executes the indexer binary. It performs some simple verification to
+// ensure that the service has started properly.
 func startIndexer(indexerBinary string, algodPort uint64, indexerPort uint64, postgresConnectionString string) (func() error, error) {
 	{
 		db, err := sql.Open("postgres", postgresConnectionString)
@@ -101,6 +141,8 @@ func startIndexer(indexerBinary string, algodPort uint64, indexerPort uint64, po
 		return nil, fmt.Errorf("failure calling Start(): %w", err)
 	}
 
+	// Ensure that the health endpoint can be queried.
+	// The service should start very quickly because the DB is empty.
 	time.Sleep(250 * time.Millisecond)
 	resp, err := http.Get(fmt.Sprintf("http://%s/health", indexerNet))
 	if err != nil {
@@ -118,33 +160,4 @@ func startIndexer(indexerBinary string, algodPort uint64, indexerPort uint64, po
 		// Clear postgres DB
 		return nil
 	}, nil
-}
-
-func (r *RunnerArgs) run() error {
-	port := uint64(11112)
-
-	// Start services
-	generatorShutdownFunc := startGenerator(r.Path, port)
-	indexerShutdownFunc, err := startIndexer(r.IndexerBinary, port, r.IndexerPort, r.PostgresConnectionString)
-	if err != nil {
-		return fmt.Errorf("failed to start indexer: %w", err)
-	}
-
-	time.Sleep(r.RunDuration)
-
-	// Collect results
-
-	// Shutdown generator.
-	if err := generatorShutdownFunc(); err != nil {
-		return err
-	}
-
-	// Shutdown indexer
-	if err := indexerShutdownFunc(); err != nil {
-		return err
-	}
-
-	// Delete DB
-
-	return nil
 }
