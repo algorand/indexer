@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	// Load the postgres sql.DB implementation
@@ -45,8 +47,13 @@ func Run(args RunnerArgs) error {
 	// Batch mode
 	if pathStat.IsDir() {
 		return filepath.Walk(args.Path, func(path string, info os.FileInfo, err error) error {
+			// Ignore the directory
+			if info.IsDir() {
+				return nil
+			}
 			runnerArgs := args
 			runnerArgs.Path = path
+			fmt.Printf("Running test for configuration '%s'\n", path)
 			return runnerArgs.run()
 		})
 	}
@@ -81,8 +88,27 @@ func (r *RunnerArgs) run() error {
 	return nil
 }
 
+// Run the test for 'RunDuration', collect metrics and write them to the 'ReportDirectory'
 func (r *RunnerArgs) runTest() error {
-	time.Sleep(r.RunDuration)
+
+	configFile := filepath.Base(r.Path)
+	reportFile := fmt.Sprintf("%s.report", strings.TrimSuffix(configFile, filepath.Ext(configFile)))
+	reportPath := path.Join(r.ReportDirectory, reportFile)
+
+	f, err := os.Create(reportPath)
+	if err != nil {
+		return fmt.Errorf("unable to create report: %w", err)
+	}
+	defer f.Close()
+
+	start := time.Now()
+	for time.Since(start) < r.RunDuration {
+		time.Sleep(r.RunDuration / 20)
+		f.WriteString("Written\n")
+	}
+	f.WriteString("Done\n")
+
+
 	return nil
 }
 
@@ -93,7 +119,7 @@ func startGenerator(configFile string, port uint64) func() error {
 
 	return func() error {
 		if err := server.Shutdown(context.Background()); err != nil {
-			panic(err) // failure/timeout shutting down the server gracefully
+			return fmt.Errorf("failed during generator graceful shutdown: %w", err)
 		}
 
 		// Wait for graceful shutdown or crash.

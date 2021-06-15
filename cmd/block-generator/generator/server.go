@@ -37,17 +37,22 @@ func StartServer(configFile string, port uint64) (*http.Server, <- chan struct{}
 
 	gen, err := MakeGenerator(config)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create generator: %v", err)
+		fmt.Fprintf(os.Stderr, "Failed to make generator with config file '%s': %v", configFile, err)
 		os.Exit(1)
 	}
 
-	http.HandleFunc("/", help)
-	http.HandleFunc("/v2/blocks/", getBlockHandler(gen))
-	http.HandleFunc("/genesis", getGenesisHandler(gen))
-	http.HandleFunc("/report", getReportHandler(gen))
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", help)
+	mux.HandleFunc("/v2/blocks/", getBlockHandler(gen))
+	mux.HandleFunc("/genesis", getGenesisHandler(gen))
+	mux.HandleFunc("/report", getReportHandler(gen))
 
 	portStr := fmt.Sprintf(":%d", port)
-	srv := &http.Server{Addr: portStr}
+	srv := &http.Server{
+		Addr: portStr,
+		Handler: mux,
+	}
+
 	done := make(chan struct{})
 	go func() {
 		defer close(done) // let main know we are done cleaning up
