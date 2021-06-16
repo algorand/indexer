@@ -135,7 +135,7 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 		if metric == "genesis" {
 			continue
 		}
-		str := fmt.Sprintf("transaction_count_%s:%d\n", metric, entry.GenerationCount)
+		str := fmt.Sprintf("transaction_%s_total:%d\n", metric, entry.GenerationCount)
 		if _, err := report.WriteString(str); err != nil {
 			return fmt.Errorf("unable to write transaction_count metric: %w", err)
 		}
@@ -164,20 +164,20 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 
 		msg := fmt.Sprintf("%s:%f\n", key, rate)
 		if _, err := out.WriteString(msg); err != nil {
-			return fmt.Errorf("unable to write metric '%s': %w", "starting_rate", err)
+			return fmt.Errorf("unable to write metric '%s': %w", key, err)
 		}
 		return nil
 	}
 
 	// Record a rate from one of the first data points.
 	if len(collector.Data) > 5 {
-		if err := record(2, "starting_rate", report); err != nil {
+		if err := record(2, "starting_block_import_duration_average_seconds", report); err != nil {
 			return err
 		}
 	}
 
 	// Also record the final one.
-	if err := record(uint64(len(collector.Data)-1), "total_rate", report); err != nil {
+	if err := record(uint64(len(collector.Data)-1), "final_import_duration_average_second", report); err != nil {
 		return err
 	}
 
@@ -239,7 +239,7 @@ func startIndexer(indexerBinary string, algodNet string, indexerNet string, post
 
 	// Ensure that the health endpoint can be queried.
 	// The service should start very quickly because the DB is empty.
-	time.Sleep(250 * time.Millisecond)
+	time.Sleep(5 * time.Second)
 	resp, err := http.Get(fmt.Sprintf("http://%s/health", indexerNet))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "stdout:\n%s\n", stdout.String())
