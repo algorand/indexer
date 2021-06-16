@@ -42,7 +42,7 @@ func init() {
 	runnerCmd.Flags().StringVarP(&indexerBinary, "indexer-binary", "i", "", "Path to indexer binary.")
 	runnerCmd.Flags().Uint64VarP(&indexerPort, "indexer-port", "p", 4010, "Port to start the server at. This is useful if you have a prometheus server for collecting additional data.")
 	runnerCmd.Flags().StringVarP(&postgresConnectionString, "postgres-connection-string", "c", "", "Postgres connection string.")
-	runnerCmd.Flags().DurationVarP(&runDuration, "test-duration", "d", 5 * time.Minute, "Duration to use for each scenario.")
+	runnerCmd.Flags().DurationVarP(&runDuration, "test-duration", "d", 5*time.Minute, "Duration to use for each scenario.")
 	runnerCmd.Flags().StringVarP(&reportDirectory, "report-directory", "r", "", "Location to place test reports.")
 
 	runnerCmd.MarkFlagRequired("scenario")

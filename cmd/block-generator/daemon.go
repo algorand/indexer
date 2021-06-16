@@ -21,7 +21,7 @@ func init() {
 		Run: func(cmd *cobra.Command, args []string) {
 			addr := fmt.Sprintf(":%d", port)
 			_, done := generator.StartServer(configFile, addr)
-			<- done
+			<-done
 		},
 	}
 

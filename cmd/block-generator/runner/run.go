@@ -4,13 +4,14 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,12 +25,12 @@ import (
 // Args are all the things needed to run a performance test.
 type Args struct {
 	// Path is a directory when passed to RunBatch, otherwise a file path.
-	Path string
-	IndexerBinary string
-	IndexerPort uint64
+	Path                     string
+	IndexerBinary            string
+	IndexerPort              uint64
 	PostgresConnectionString string
-	RunDuration time.Duration
-	ReportDirectory string
+	RunDuration              time.Duration
+	ReportDirectory          string
 
 	indexerPort uint64
 }
@@ -45,7 +46,7 @@ func Run(args Args) error {
 	if !os.IsNotExist(err) {
 		return fmt.Errorf("report directory '%s' already exists", args.ReportDirectory)
 	}
-	os.Mkdir(args.ReportDirectory, os.ModeDir | os.ModePerm)
+	os.Mkdir(args.ReportDirectory, os.ModeDir|os.ModePerm)
 
 	// Batch mode
 	if pathStat.IsDir() {
@@ -92,52 +93,93 @@ func (r *Args) run() error {
 }
 
 // Run the test for 'RunDuration', collect metrics and write them to the 'ReportDirectory'
-func (r *Args) runTest(indexerUrl string, generatorUrl string) error {
+func (r *Args) runTest(indexerURL string, generatorURL string) error {
+	collector := &MetricsCollector{MetricsURL: fmt.Sprintf("http://%s/metrics", indexerURL)}
+
 	baseName := filepath.Base(r.Path)
 	baseNameNoExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
 	reportPath := path.Join(r.ReportDirectory, fmt.Sprintf("%s.report", baseNameNoExt))
-	reportGenPath := path.Join(r.ReportDirectory, fmt.Sprintf("%s.gen", baseNameNoExt))
 
-	indexerReport, err := os.Create(reportPath)
+	report, err := os.Create(reportPath)
 	if err != nil {
 		return fmt.Errorf("unable to create report: %w", err)
 	}
-	defer indexerReport.Close()
+	defer report.Close()
 
-	genReport, err := os.Create(reportGenPath)
-	if err != nil {
-		return fmt.Errorf("unable to create report: %w", err)
-	}
-	defer genReport.Close()
-
-	// Run for r.RunDuration -- TODO: sample metrics several times
+	// Run for r.RunDuration
 	start := time.Now()
 	for time.Since(start) < r.RunDuration {
-		time.Sleep(r.RunDuration / 20)
+		time.Sleep(r.RunDuration / 10)
+		if err := collector.Collect("indexer_daemon_import_time_sec"); err != nil {
+			return fmt.Errorf("problem collecting metrics: %w", err)
+		}
+	}
+	if err := collector.Collect("indexer_daemon_import_time_sec"); err != nil {
+		return fmt.Errorf("problem collecting metrics: %w", err)
 	}
 
 	// Collect results.
 
-	// Indexer metrics
-	resp1, err := http.Get(fmt.Sprintf("http://%s/metrics", indexerUrl))
+	// Generator report
+	resp, err := http.Get(fmt.Sprintf("http://%s/report", generatorURL))
 	if err != nil {
 		return fmt.Errorf("the process failed to start properly, health endpoint query failed")
 	}
-	defer resp1.Body.Close()
-	_, err = io.Copy(indexerReport, resp1.Body)
-	if err != nil {
-		return fmt.Errorf("failed to write indexer report file: %w", err)
+	defer resp.Body.Close()
+	type GeneratorReport map[string]generator.TxData
+	var generatorReport GeneratorReport
+	if err := json.NewDecoder(resp.Body).Decode(&generatorReport); err != nil {
+		return fmt.Errorf("problem decoding generator report: %w", err)
+	}
+	for metric, entry := range generatorReport {
+		// Skip this one
+		if metric == "genesis" {
+			continue
+		}
+		str := fmt.Sprintf("transaction_count_%s:%d\n", metric, entry.GenerationCount)
+		if _, err := report.WriteString(str); err != nil {
+			return fmt.Errorf("unable to write transaction_count metric: %w", err)
+		}
 	}
 
-	// Generator report
-	resp2, err := http.Get(fmt.Sprintf("http://%s/report", generatorUrl))
-	if err != nil {
-		return fmt.Errorf("the process failed to start properly, health endpoint query failed")
+	// Helper to record the import rate.
+	record := func(idx uint64, key string, out *os.File) error {
+		d := collector.Data[2].Data
+		sum := 0.0
+		count := 0.0
+
+		for _, metric := range d {
+			if strings.HasPrefix(metric, "indexer_daemon_import_time_sec_sum") {
+				val := strings.Split(metric, " ")[1]
+				sum, err = strconv.ParseFloat(val, 64)
+			}
+			if strings.HasPrefix(metric, "indexer_daemon_import_time_sec_count") {
+				val := strings.Split(metric, " ")[1]
+				count, err = strconv.ParseFloat(val, 64)
+			}
+			if err != nil {
+				return fmt.Errorf("unable to parse metric '%s': %w", metric, err)
+			}
+		}
+		rate := sum / count
+
+		msg := fmt.Sprintf("%s:%f\n", key, rate)
+		if _, err := out.WriteString(msg); err != nil {
+			return fmt.Errorf("unable to write metric '%s': %w", "starting_rate", err)
+		}
+		return nil
 	}
-	defer resp2.Body.Close()
-	_, err = io.Copy(genReport, resp2.Body)
-	if err != nil {
-		return fmt.Errorf("failed to write indexer report file: %w", err)
+
+	// Record a rate from one of the first data points.
+	if len(collector.Data) > 5 {
+		if err := record(2, "starting_rate", report); err != nil {
+			return err
+		}
+	}
+
+	// Also record the final one.
+	if err := record(uint64(len(collector.Data) - 1), "total_rate", report); err != nil {
+		return err
 	}
 
 	return nil
@@ -155,10 +197,10 @@ func startGenerator(configFile string, addr string) func() error {
 
 		// Wait for graceful shutdown or crash.
 		select {
-		case <- done:
+		case <-done:
 			// continue
 			return nil
-		case <- time.After(10 * time.Second):
+		case <-time.After(10 * time.Second):
 			return fmt.Errorf("failed to gracefully shutdown generator")
 		}
 	}

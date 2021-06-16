@@ -105,7 +105,7 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 		rewardsResidue:            0,
 		rewardsRate:               0,
 		rewardsRecalculationRound: 0,
-		reportData:                make(map[txTypeID]txData),
+		reportData:                make(map[txTypeID]TxData),
 	}
 
 	gen.feeSink[31] = 1
@@ -195,7 +195,7 @@ type generator struct {
 	assetTxWeights     []float32
 
 	// Reporting information from transaction type to data
-	reportData map[txTypeID]txData
+	reportData map[txTypeID]TxData
 }
 
 type assetData struct {
@@ -212,7 +212,7 @@ type assetHolding struct {
 	balance   uint64
 }
 
-type txData struct {
+type TxData struct {
 	GenerationTimeMilli time.Duration `json:"generation_time_milli"`
 	GenerationCount     uint64        `json:"num_generated"`
 }
