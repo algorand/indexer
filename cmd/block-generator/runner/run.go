@@ -39,16 +39,14 @@ type Args struct {
 // The test will run against the generator configuration file specified by 'args.Path'.
 // If 'args.Path' is a directory it should contain generator configuration files, a test will run using each file.
 func Run(args Args) error {
-	pathStat, err := os.Stat(args.Path)
-	util.MaybeFail(err, "Unable to check path.")
-
-	_, err = os.Stat(args.ReportDirectory)
-	if !os.IsNotExist(err) {
+	if _, err := os.Stat(args.ReportDirectory); !os.IsNotExist(err) {
 		return fmt.Errorf("report directory '%s' already exists", args.ReportDirectory)
 	}
 	os.Mkdir(args.ReportDirectory, os.ModeDir|os.ModePerm)
 
 	// Batch mode
+	pathStat, err := os.Stat(args.Path)
+	util.MaybeFail(err, "Unable to check path.")
 	if pathStat.IsDir() {
 		return filepath.Walk(args.Path, func(path string, info os.FileInfo, err error) error {
 			// Ignore the directory
@@ -92,6 +90,34 @@ func (r *Args) run() error {
 	return nil
 }
 
+// Helper to record the import rate.
+func recordDataToFile(entry Entry, key string, out *os.File) error {
+	sum := 0.0
+	count := 0.0
+
+	for _, metric := range entry.Data {
+		var err error
+		if strings.HasPrefix(metric, "indexer_daemon_import_time_sec_sum") {
+			val := strings.Split(metric, " ")[1]
+			sum, err = strconv.ParseFloat(val, 64)
+		}
+		if strings.HasPrefix(metric, "indexer_daemon_import_time_sec_count") {
+			val := strings.Split(metric, " ")[1]
+			count, err = strconv.ParseFloat(val, 64)
+		}
+		if err != nil {
+			return fmt.Errorf("unable to parse metric '%s': %w", metric, err)
+		}
+	}
+	rate := sum / count
+
+	msg := fmt.Sprintf("%s:%f\n", key, rate)
+	if _, err := out.WriteString(msg); err != nil {
+		return fmt.Errorf("unable to write metric '%s': %w", key, err)
+	}
+	return nil
+}
+
 // Run the test for 'RunDuration', collect metrics and write them to the 'ReportDirectory'
 func (r *Args) runTest(indexerURL string, generatorURL string) error {
 	collector := &MetricsCollector{MetricsURL: fmt.Sprintf("http://%s/metrics", indexerURL)}
@@ -119,8 +145,11 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 	}
 
 	// Collect results.
+	durationStr := fmt.Sprintf("test_duration_seconds:%d\n", uint64(r.RunDuration.Seconds()))
+	if _, err := report.WriteString(durationStr); err != nil {
+		return fmt.Errorf("unable to write duration metric: %w", err)
+	}
 
-	// Generator report
 	resp, err := http.Get(fmt.Sprintf("http://%s/report", generatorURL))
 	if err != nil {
 		return fmt.Errorf("the process failed to start properly, health endpoint query failed")
@@ -141,43 +170,15 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 		}
 	}
 
-	// Helper to record the import rate.
-	record := func(idx uint64, key string, out *os.File) error {
-		d := collector.Data[idx].Data
-		sum := 0.0
-		count := 0.0
-
-		for _, metric := range d {
-			if strings.HasPrefix(metric, "indexer_daemon_import_time_sec_sum") {
-				val := strings.Split(metric, " ")[1]
-				sum, err = strconv.ParseFloat(val, 64)
-			}
-			if strings.HasPrefix(metric, "indexer_daemon_import_time_sec_count") {
-				val := strings.Split(metric, " ")[1]
-				count, err = strconv.ParseFloat(val, 64)
-			}
-			if err != nil {
-				return fmt.Errorf("unable to parse metric '%s': %w", metric, err)
-			}
-		}
-		rate := sum / count
-
-		msg := fmt.Sprintf("%s:%f\n", key, rate)
-		if _, err := out.WriteString(msg); err != nil {
-			return fmt.Errorf("unable to write metric '%s': %w", key, err)
-		}
-		return nil
-	}
-
 	// Record a rate from one of the first data points.
 	if len(collector.Data) > 5 {
-		if err := record(2, "starting_block_import_duration_average_seconds", report); err != nil {
+		if err := recordDataToFile(collector.Data[2], "starting_block_import_duration_average_seconds", report); err != nil {
 			return err
 		}
 	}
 
 	// Also record the final one.
-	if err := record(uint64(len(collector.Data)-1), "final_import_duration_average_second", report); err != nil {
+	if err := recordDataToFile(collector.Data[len(collector.Data)-1], "final_import_duration_average_second", report); err != nil {
 		return err
 	}
 
