@@ -394,6 +394,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 				ClearStateProgram: stxn.Txn.ClearStateProgram,
 				LocalStateSchema:  stxn.Txn.LocalStateSchema,
 				GlobalStateSchema: stxn.Txn.GlobalStateSchema,
+				ExtraProgramPages: stxn.Txn.ExtraProgramPages,
 			}
 			if stxn.Txn.ApplicationID == 0 {
 				// app creation

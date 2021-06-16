@@ -656,6 +656,10 @@
           "description": "\\[tsch\\] stores the sum of all of the local schemas and global schemas in this account.\n\nNote: the raw account uses `StateSchema` for this type.",
           "$ref": "#/definitions/ApplicationStateSchema"
         },
+        "apps-total-extra-pages": {
+          "description": "\\[teap\\] the sum of all extra application program pages for this account.",
+          "type": "integer"
+        },
         "assets": {
           "description": "\\[asset\\] assets held by this account.\n\nNote the raw object uses `map[int] -\u003e AssetHolding` for this type.",
           "type": "array",
@@ -934,6 +938,10 @@
         "global-state": {
           "description": "[\\gs\\] global schema",
           "$ref": "#/definitions/TealKeyValueStore"
+        },
+        "extra-program-pages": {
+          "description": "\\[epp\\] the amount of extra program pages available to this app.",
+          "type": "integer"
         }
       }
     },
@@ -1625,6 +1633,10 @@
           "type": "string",
           "format": "byte",
           "x-algorand-format": "TEALProgram"
+        },
+        "extra-program-pages": {
+          "description": "\\[epp\\] specifies the additional app program len requested in pages.",
+          "type": "integer"
         }
       }
     },
