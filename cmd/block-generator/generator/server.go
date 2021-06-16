@@ -31,7 +31,7 @@ func initializeConfigFile(configFile string) (config GenerationConfig, err error
 }
 
 // StartServer configures http handlers then runs ListanAndServe. Returns the http server and a done channel.
-func StartServer(configFile string, port uint64) (*http.Server, <- chan struct{}){
+func StartServer(configFile string, addr string) (*http.Server, <- chan struct{}){
 	config, err := initializeConfigFile(configFile)
 	util.MaybeFail(err, "problem loading config file. Use '--config' or create a config file.")
 
@@ -47,9 +47,8 @@ func StartServer(configFile string, port uint64) (*http.Server, <- chan struct{}
 	mux.HandleFunc("/genesis", getGenesisHandler(gen))
 	mux.HandleFunc("/report", getReportHandler(gen))
 
-	portStr := fmt.Sprintf(":%d", port)
 	srv := &http.Server{
-		Addr: portStr,
+		Addr: addr,
 		Handler: mux,
 	}
 

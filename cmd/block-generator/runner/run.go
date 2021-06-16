@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/exec"
@@ -20,8 +21,8 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
-// RunnerArgs are all the things needed to run a performance test.
-type RunnerArgs struct {
+// Args are all the things needed to run a performance test.
+type Args struct {
 	// Path is a directory when passed to RunBatch, otherwise a file path.
 	Path string
 	IndexerBinary string
@@ -34,15 +35,17 @@ type RunnerArgs struct {
 }
 
 // Run is a public helper run the tests.
-func Run(args RunnerArgs) error {
+// The test will run against the generator configuration file specified by 'args.Path'.
+// If 'args.Path' is a directory it should contain generator configuration files, a test will run using each file.
+func Run(args Args) error {
 	pathStat, err := os.Stat(args.Path)
 	util.MaybeFail(err, "Unable to check path.")
 
-	reportDirStat, err := os.Stat(args.ReportDirectory)
-	util.MaybeFail(err, "Unable to check report directory.")
-	if !reportDirStat.IsDir() {
-		return fmt.Errorf("report directory '%s' is not a directory", args.ReportDirectory)
+	_, err = os.Stat(args.ReportDirectory)
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("report directory '%s' already exists", args.ReportDirectory)
 	}
+	os.Mkdir(args.ReportDirectory, os.ModeDir | os.ModePerm)
 
 	// Batch mode
 	if pathStat.IsDir() {
@@ -62,18 +65,18 @@ func Run(args RunnerArgs) error {
 	return args.run()
 }
 
-func (r *RunnerArgs) run() error {
-	port := uint64(11112)
-
+func (r *Args) run() error {
 	// Start services
-	generatorShutdownFunc := startGenerator(r.Path, port)
-	indexerShutdownFunc, err := startIndexer(r.IndexerBinary, port, r.IndexerPort, r.PostgresConnectionString)
+	algodNet := fmt.Sprintf("localhost:%d", 11112)
+	indexerNet := fmt.Sprintf("localhost:%d", r.IndexerPort)
+	generatorShutdownFunc := startGenerator(r.Path, algodNet)
+	indexerShutdownFunc, err := startIndexer(r.IndexerBinary, algodNet, indexerNet, r.PostgresConnectionString)
 	if err != nil {
 		return fmt.Errorf("failed to start indexer: %w", err)
 	}
 
 	// Run the test, collecting results.
-	r.runTest()
+	r.runTest(indexerNet, algodNet)
 
 	// Shutdown generator.
 	if err := generatorShutdownFunc(); err != nil {
@@ -89,33 +92,61 @@ func (r *RunnerArgs) run() error {
 }
 
 // Run the test for 'RunDuration', collect metrics and write them to the 'ReportDirectory'
-func (r *RunnerArgs) runTest() error {
+func (r *Args) runTest(indexerUrl string, generatorUrl string) error {
+	baseName := filepath.Base(r.Path)
+	baseNameNoExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
+	reportPath := path.Join(r.ReportDirectory, fmt.Sprintf("%s.report", baseNameNoExt))
+	reportGenPath := path.Join(r.ReportDirectory, fmt.Sprintf("%s.gen", baseNameNoExt))
 
-	configFile := filepath.Base(r.Path)
-	reportFile := fmt.Sprintf("%s.report", strings.TrimSuffix(configFile, filepath.Ext(configFile)))
-	reportPath := path.Join(r.ReportDirectory, reportFile)
-
-	f, err := os.Create(reportPath)
+	indexerReport, err := os.Create(reportPath)
 	if err != nil {
 		return fmt.Errorf("unable to create report: %w", err)
 	}
-	defer f.Close()
+	defer indexerReport.Close()
 
+	genReport, err := os.Create(reportGenPath)
+	if err != nil {
+		return fmt.Errorf("unable to create report: %w", err)
+	}
+	defer genReport.Close()
+
+	// Run for r.RunDuration -- TODO: sample metrics several times
 	start := time.Now()
 	for time.Since(start) < r.RunDuration {
 		time.Sleep(r.RunDuration / 20)
-		f.WriteString("Written\n")
 	}
-	f.WriteString("Done\n")
 
+	// Collect results.
+
+	// Indexer metrics
+	resp1, err := http.Get(fmt.Sprintf("http://%s/metrics", indexerUrl))
+	if err != nil {
+		return fmt.Errorf("the process failed to start properly, health endpoint query failed")
+	}
+	defer resp1.Body.Close()
+	_, err = io.Copy(indexerReport, resp1.Body)
+	if err != nil {
+		return fmt.Errorf("failed to write indexer report file: %w", err)
+	}
+
+	// Generator report
+	resp2, err := http.Get(fmt.Sprintf("http://%s/report", generatorUrl))
+	if err != nil {
+		return fmt.Errorf("the process failed to start properly, health endpoint query failed")
+	}
+	defer resp2.Body.Close()
+	_, err = io.Copy(genReport, resp2.Body)
+	if err != nil {
+		return fmt.Errorf("failed to write indexer report file: %w", err)
+	}
 
 	return nil
 }
 
 // startGenerator starts the generator server.
-func startGenerator(configFile string, port uint64) func() error {
+func startGenerator(configFile string, addr string) func() error {
 	// Start generator.
-	server, done := generator.StartServer(configFile, port)
+	server, done := generator.StartServer(configFile, addr)
 
 	return func() error {
 		if err := server.Shutdown(context.Background()); err != nil {
@@ -135,7 +166,7 @@ func startGenerator(configFile string, port uint64) func() error {
 
 // startIndexer resets the postgres database and executes the indexer binary. It performs some simple verification to
 // ensure that the service has started properly.
-func startIndexer(indexerBinary string, algodPort uint64, indexerPort uint64, postgresConnectionString string) (func() error, error) {
+func startIndexer(indexerBinary string, algodNet string, indexerNet string, postgresConnectionString string) (func() error, error) {
 	{
 		db, err := sql.Open("postgres", postgresConnectionString)
 		if err != nil {
@@ -147,8 +178,6 @@ func startIndexer(indexerBinary string, algodPort uint64, indexerPort uint64, po
 
 	time.Sleep(250 * time.Millisecond)
 
-	algodNet := fmt.Sprintf("localhost:%d", algodPort)
-	indexerNet := fmt.Sprintf("localhost:%d", indexerPort)
 	cmd := exec.Command(
 		indexerBinary,
 		"daemon",

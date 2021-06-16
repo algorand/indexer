@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math/rand"
 
 	"github.com/spf13/cobra"
@@ -18,7 +19,8 @@ func init() {
 		Use:   "daemon",
 		Short: "Start the generator daemon in standalone mode.",
 		Run: func(cmd *cobra.Command, args []string) {
-			_, done := generator.StartServer(configFile, port)
+			addr := fmt.Sprintf(":%d", port)
+			_, done := generator.StartServer(configFile, addr)
 			<- done
 		},
 	}

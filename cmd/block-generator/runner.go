@@ -24,7 +24,7 @@ func init() {
 		Use:   "runner",
 		Short: "Run test suite and collect results.",
 		Run: func(cmd *cobra.Command, args []string) {
-			runnerArgs := runner.RunnerArgs{
+			runnerArgs := runner.Args{
 				Path:                     scenarioDir,
 				IndexerBinary:            indexerBinary,
 				IndexerPort:              indexerPort,
