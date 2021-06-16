@@ -19,24 +19,25 @@ import (
 
 var errOutOfRange = fmt.Errorf("selection is out of weighted range")
 
-type txTypeID string
+// TxTypeID is the transaction type.
+type TxTypeID string
 
 const (
-	genesis txTypeID = "genesis"
+	genesis TxTypeID = "genesis"
 
 	// Payment Tx IDs
-	paymentTx           txTypeID = "pay"
-	paymentAcctCreateTx txTypeID = "pay_create"
-	assetTx             txTypeID = "asset"
-	//keyRegistrationTx txTypeID = "keyreg"
-	//applicationCallTx txTypeID = "appl"
+	paymentTx           TxTypeID = "pay"
+	paymentAcctCreateTx TxTypeID = "pay_create"
+	assetTx             TxTypeID = "asset"
+	//keyRegistrationTx TxTypeID = "keyreg"
+	//applicationCallTx TxTypeID = "appl"
 
 	// Asset Tx IDs
-	assetCreate  txTypeID = "asset_create"
-	assetOptin   txTypeID = "asset_optin"
-	assetXfer    txTypeID = "asset_xfer"
-	assetClose   txTypeID = "asset_close"
-	assetDestroy txTypeID = "asset_destroy"
+	assetCreate  TxTypeID = "asset_create"
+	assetOptin   TxTypeID = "asset_optin"
+	assetXfer    TxTypeID = "asset_xfer"
+	assetClose   TxTypeID = "asset_close"
+	assetDestroy TxTypeID = "asset_destroy"
 
 	assetTotal = uint64(100000000000000000)
 )
@@ -105,7 +106,7 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 		rewardsResidue:            0,
 		rewardsRate:               0,
 		rewardsRecalculationRound: 0,
-		reportData:                make(map[txTypeID]TxData),
+		reportData:                make(map[TxTypeID]TxData),
 	}
 
 	gen.feeSink[31] = 1
@@ -195,7 +196,7 @@ type generator struct {
 	assetTxWeights     []float32
 
 	// Reporting information from transaction type to data
-	reportData map[txTypeID]TxData
+	reportData Report
 }
 
 type assetData struct {
@@ -212,15 +213,19 @@ type assetHolding struct {
 	balance   uint64
 }
 
+// Report is the generation report.
+type Report map[TxTypeID]TxData
+
+// TxData is the generator report data.
 type TxData struct {
 	GenerationTimeMilli time.Duration `json:"generation_time_milli"`
 	GenerationCount     uint64        `json:"num_generated"`
 }
 
-func track(id txTypeID) (txTypeID, time.Time) {
+func track(id TxTypeID) (TxTypeID, time.Time) {
 	return id, time.Now()
 }
-func (g *generator) recordData(id txTypeID, start time.Time) {
+func (g *generator) recordData(id TxTypeID, start time.Time) {
 	data := g.reportData[id]
 	data.GenerationCount++
 	data.GenerationTimeMilli += time.Since(start)
@@ -413,10 +418,10 @@ func (g *generator) generatePaymentTxn(sp sdk_types.SuggestedParams, round uint6
 	if err != nil {
 		return types.SignedTxnInBlock{}, err
 	}
-	return g.generatePaymentTxnInternal(selection.(txTypeID), sp, round, intra)
+	return g.generatePaymentTxnInternal(selection.(TxTypeID), sp, round, intra)
 }
 
-func (g *generator) generatePaymentTxnInternal(selection txTypeID, sp sdk_types.SuggestedParams, _ uint64 /*round*/, _ uint64 /*intra*/) (types.SignedTxnInBlock, error) {
+func (g *generator) generatePaymentTxnInternal(selection TxTypeID, sp sdk_types.SuggestedParams, _ uint64 /*round*/, _ uint64 /*intra*/) (types.SignedTxnInBlock, error) {
 	defer g.recordData(track(selection))
 
 	var receiveIndex uint64
@@ -459,11 +464,11 @@ func getAssetTxOptions() []interface{} {
 	return []interface{}{assetCreate, assetDestroy, assetOptin, assetXfer, assetClose}
 }
 
-func (g *generator) generateAssetTxnInternal(txType txTypeID, sp sdk_types.SuggestedParams, intra uint64) (actual txTypeID, txn types.Transaction) {
+func (g *generator) generateAssetTxnInternal(txType TxTypeID, sp sdk_types.SuggestedParams, intra uint64) (actual TxTypeID, txn types.Transaction) {
 	return g.generateAssetTxnInternalHint(txType, sp, intra, 0, nil)
 }
 
-func (g *generator) generateAssetTxnInternalHint(txType txTypeID, sp sdk_types.SuggestedParams, intra uint64, hintIndex uint64, hint *assetData) (actual txTypeID, txn types.Transaction) {
+func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, sp sdk_types.SuggestedParams, intra uint64, hintIndex uint64, hint *assetData) (actual TxTypeID, txn types.Transaction) {
 	actual = txType
 	// If there are no assets the next operation needs to be a create.
 	if len(g.assets) == 0 {
@@ -627,7 +632,7 @@ func (g *generator) generateAssetTxn(sp sdk_types.SuggestedParams, _ uint64 /*ro
 		return types.SignedTxnInBlock{}, err
 	}
 
-	actual, txn := g.generateAssetTxnInternal(selection.(txTypeID), sp, intra)
+	actual, txn := g.generateAssetTxnInternal(selection.(TxTypeID), sp, intra)
 	defer g.recordData(actual, start)
 
 	if txn.Type == "" {

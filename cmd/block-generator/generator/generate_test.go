@@ -87,7 +87,7 @@ func TestAssetOptinEveryAccountOverride(t *testing.T) {
 
 	// Opt all the accounts in, this also verifies that no account is opted in twice
 	var txn sdk_types.Transaction
-	var actual txTypeID
+	var actual TxTypeID
 	for i := 2; uint64(i) <= g.numAccounts; i++ {
 		actual, txn = g.generateAssetTxnInternal(assetOptin, sp, 0)
 		require.Equal(t, assetOptin, actual)

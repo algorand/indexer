@@ -126,8 +126,7 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 		return fmt.Errorf("the process failed to start properly, health endpoint query failed")
 	}
 	defer resp.Body.Close()
-	type GeneratorReport map[string]generator.TxData
-	var generatorReport GeneratorReport
+	var generatorReport generator.Report
 	if err := json.NewDecoder(resp.Body).Decode(&generatorReport); err != nil {
 		return fmt.Errorf("problem decoding generator report: %w", err)
 	}
@@ -144,7 +143,7 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 
 	// Helper to record the import rate.
 	record := func(idx uint64, key string, out *os.File) error {
-		d := collector.Data[2].Data
+		d := collector.Data[idx].Data
 		sum := 0.0
 		count := 0.0
 
@@ -178,7 +177,7 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 	}
 
 	// Also record the final one.
-	if err := record(uint64(len(collector.Data) - 1), "total_rate", report); err != nil {
+	if err := record(uint64(len(collector.Data)-1), "total_rate", report); err != nil {
 		return err
 	}
 
