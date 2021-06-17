@@ -24,14 +24,14 @@ type Entry struct {
 
 // Collect fetches the metrics.
 func (r *MetricsCollector) Collect(prefix string) error {
-	metricsStr, err := r.getMetrics(prefix)
+	metrics, err := r.getMetrics(prefix)
 	if err != nil {
 		return err
 	}
 
-	if len(metricsStr) > 0 {
+	if len(metrics) > 0 {
 		entry := Entry{Timestamp: time.Now()}
-		for _, str := range metricsStr {
+		for _, str := range metrics {
 			entry.Data = append(entry.Data, str)
 		}
 		r.Data = append(r.Data, entry)

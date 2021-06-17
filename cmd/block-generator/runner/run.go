@@ -19,7 +19,6 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/algorand/indexer/cmd/block-generator/generator"
-	"github.com/algorand/indexer/util"
 )
 
 // Args are all the things needed to run a performance test.
@@ -31,37 +30,27 @@ type Args struct {
 	PostgresConnectionString string
 	RunDuration              time.Duration
 	ReportDirectory          string
-
-	indexerPort uint64
 }
 
-// Run is a public helper run the tests.
+// Run is a public helper to run the tests.
 // The test will run against the generator configuration file specified by 'args.Path'.
 // If 'args.Path' is a directory it should contain generator configuration files, a test will run using each file.
 func Run(args Args) error {
-	if _, err := os.Stat(args.ReportDirectory); !os.IsNotExist(err) {
+	if _, err := os.Stat(args.ReportDirectory); os.IsExist(err) {
 		return fmt.Errorf("report directory '%s' already exists", args.ReportDirectory)
 	}
 	os.Mkdir(args.ReportDirectory, os.ModeDir|os.ModePerm)
 
-	// Batch mode
-	pathStat, err := os.Stat(args.Path)
-	util.MaybeFail(err, "Unable to check path.")
-	if pathStat.IsDir() {
-		return filepath.Walk(args.Path, func(path string, info os.FileInfo, err error) error {
-			// Ignore the directory
-			if info.IsDir() {
-				return nil
-			}
-			runnerArgs := args
-			runnerArgs.Path = path
-			fmt.Printf("Running test for configuration '%s'\n", path)
-			return runnerArgs.run()
-		})
-	}
-
-	// Single file mode
-	return args.run()
+	return filepath.Walk(args.Path, func(path string, info os.FileInfo, err error) error {
+		// Ignore the directory
+		if info.IsDir() {
+			return nil
+		}
+		runnerArgs := args
+		runnerArgs.Path = path
+		fmt.Printf("Running test for configuration '%s'\n", path)
+		return runnerArgs.run()
+	})
 }
 
 func (r *Args) run() error {
@@ -75,7 +64,9 @@ func (r *Args) run() error {
 	}
 
 	// Run the test, collecting results.
-	r.runTest(indexerNet, algodNet)
+	if err := r.runTest(indexerNet, algodNet); err != nil {
+		return err
+	}
 
 	// Shutdown generator.
 	if err := generatorShutdownFunc(); err != nil {
@@ -100,8 +91,7 @@ func recordDataToFile(entry Entry, key string, out *os.File) error {
 		if strings.HasPrefix(metric, "indexer_daemon_import_time_sec_sum") {
 			val := strings.Split(metric, " ")[1]
 			sum, err = strconv.ParseFloat(val, 64)
-		}
-		if strings.HasPrefix(metric, "indexer_daemon_import_time_sec_count") {
+		} else if strings.HasPrefix(metric, "indexer_daemon_import_time_sec_count") {
 			val := strings.Split(metric, " ")[1]
 			count, err = strconv.ParseFloat(val, 64)
 		}
@@ -152,7 +142,7 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 
 	resp, err := http.Get(fmt.Sprintf("http://%s/report", generatorURL))
 	if err != nil {
-		return fmt.Errorf("the process failed to start properly, health endpoint query failed")
+		return fmt.Errorf("generator report query failed")
 	}
 	defer resp.Body.Close()
 	var generatorReport generator.Report
@@ -178,7 +168,7 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 	}
 
 	// Also record the final one.
-	if err := recordDataToFile(collector.Data[len(collector.Data)-1], "final_import_duration_average_second", report); err != nil {
+	if err := recordDataToFile(collector.Data[len(collector.Data)-1], "final_import_duration_average_seconds", report); err != nil {
 		return err
 	}
 
@@ -214,11 +204,13 @@ func startIndexer(indexerBinary string, algodNet string, indexerNet string, post
 		if err != nil {
 			return nil, fmt.Errorf("postgres connection string did not work: %w", err)
 		}
-		db.Exec(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`)
-		db.Close()
+		if _, err := db.Exec(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`); err != nil {
+			return nil, fmt.Errorf("unable to reset postgres DB: %w", err)
+		}
+		if err := db.Close(); err != nil {
+			return nil, fmt.Errorf("unable to close database handle: %w", err)
+		}
 	}
-
-	time.Sleep(250 * time.Millisecond)
 
 	cmd := exec.Command(
 		indexerBinary,
@@ -254,7 +246,6 @@ func startIndexer(indexerBinary string, algodNet string, indexerNet string, post
 			return fmt.Errorf("failed to kill indexer process: %w", err)
 		}
 
-		// Clear postgres DB
 		return nil
 	}, nil
 }
