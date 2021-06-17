@@ -456,7 +456,7 @@ type AppReverseDelta struct {
 	ClearStateProgram []byte                 `codec:"clearp,omitempty"`
 	LocalStateSchema  sdk_types.StateSchema  `codec:"lsch,omitempty"`
 	GlobalStateSchema sdk_types.StateSchema  `codec:"gsch,omitempty"`
-	ExtraProgramPages uint32                 `codec:"epp"`
+	ExtraProgramPages uint32                 `codec:"epp,omitempty"`
 }
 
 // SetDelta adds delta values to the AppReverseDelta object.

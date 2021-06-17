@@ -451,6 +451,15 @@ function create_delete_tests() {
       true \
       '"id": 82'
 
+    rest_test "[rest - account/application] account with application" \
+      "/v2/accounts/D2BFTG5GO2PUCLY2O4XIVW7WAQHON4DLX5R5V4O3MZWSWDKBNYZJYKHVBQ?pretty" \
+      200 \
+      true \
+      '"apps-total-schema": {
+      "num-byte-slice": 1,
+      "num-uint": 1
+    }'
+
     ###############
     # Asset Tests #
     ###############

@@ -2166,7 +2166,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						NumUint:      apps[i].LocalStateSchema.NumUint,
 					}
 				}
-				if !*aout[outpos].Deleted {
+				if aout[outpos].Deleted == nil || !*aout[outpos].Deleted {
 					totalSchema.NumByteSlice += apps[i].GlobalStateSchema.NumByteSlice
 					totalSchema.NumUint += apps[i].GlobalStateSchema.NumUint
 					totalExtraPages += uint64(apps[i].ExtraProgramPages)
@@ -2237,7 +2237,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					NumUint:      ls[i].Schema.NumUint,
 				}
 				aout[i].KeyValue = ls[i].KeyValue.toModel()
-				if !*aout[i].Deleted {
+				if aout[i].Deleted == nil || !*aout[i].Deleted {
 					totalSchema.NumByteSlice += ls[i].Schema.NumByteSlice
 					totalSchema.NumUint += ls[i].Schema.NumUint
 				}
