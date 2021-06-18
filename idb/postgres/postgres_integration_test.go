@@ -890,3 +890,58 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
 }
+
+func TestAppExtraPages(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	cache, err := db.GetDefaultFrozen()
+	require.NoError(t, err)
+
+	assetID := uint64(3)
+
+	state := getAccounting(test.Round, cache)
+
+	// Create an app.
+	{
+		// Create a transaction with ExtraProgramPages field set to 1
+		txn := sdk_types.SignedTxnWithAD{
+			SignedTxn: sdk_types.SignedTxn{
+				Txn: sdk_types.Transaction{
+					Type: "appl",
+					Header: sdk_types.Header{
+						Sender: test.AccountA,
+					},
+					ApplicationFields: sdk_types.ApplicationFields{
+						ApplicationCallTxnFields: sdk_types.ApplicationCallTxnFields{
+							ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+							ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+							ExtraProgramPages: 1,
+						},
+					},
+				},
+			},
+		}
+		txnRow := idb.TxnRow{
+			Round:    uint64(test.Round),
+			TxnBytes: msgpack.Encode(txn),
+			AssetID:  assetID,
+		}
+
+		err := state.AddTransaction(&txnRow)
+		require.NoError(t, err)
+	}
+
+	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+	require.NoError(t, err, "failed to commit")
+
+	row := db.db.QueryRow("SELECT params FROM app WHERE creator = $1", test.AccountA[:])
+
+	var paramsStr []byte
+	err = row.Scan(&paramsStr)
+	require.NoError(t, err)
+
+	var ap AppParams
+	err = encoding.DecodeJSON(paramsStr, &ap)
+	require.Equal(t, uint32(1), ap.ExtraProgramPages)
+}
