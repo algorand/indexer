@@ -1137,7 +1137,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 					return fmt.Errorf("app delta apply err r=%d i=%d app=%d, %v", adelta.Round, adelta.Intra, adelta.AppIndex, err)
 				}
 			}
-			reverseDelta.ExtraProgramPages = adelta.ExtraProgramPages
+			reverseDelta.ExtraProgramPages = state.ExtraProgramPages
 			state.ExtraProgramPages = adelta.ExtraProgramPages
 
 			reverseDeltas = append(reverseDeltas, []interface{}{encoding.EncodeJSON(reverseDelta), adelta.Round, adelta.Intra})
