@@ -32,7 +32,7 @@ func (r *MetricsCollector) Collect(prefix string) error {
 	if len(metrics) > 0 {
 		entry := Entry{
 			Timestamp: time.Now(),
-			Data: metrics,
+			Data:      metrics,
 		}
 		r.Data = append(r.Data, entry)
 	}
