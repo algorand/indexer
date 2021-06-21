@@ -1137,6 +1137,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 					return fmt.Errorf("app delta apply err r=%d i=%d app=%d, %v", adelta.Round, adelta.Intra, adelta.AppIndex, err)
 				}
 			}
+			reverseDelta.ExtraProgramPages = adelta.ExtraProgramPages
 			state.ExtraProgramPages = adelta.ExtraProgramPages
 
 			reverseDeltas = append(reverseDeltas, []interface{}{encoding.EncodeJSON(reverseDelta), adelta.Round, adelta.Intra})
@@ -2246,7 +2247,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.AppsLocalState = &aout
 		}
 
-		if totalSchema.NumByteSlice != 0 || totalSchema.NumUint != 0 {
+		if totalSchema != (models.ApplicationStateSchema{}) {
 			account.AppsTotalSchema = &totalSchema
 		}
 

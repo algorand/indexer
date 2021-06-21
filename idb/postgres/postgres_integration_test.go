@@ -15,6 +15,7 @@ import (
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
+	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/importer"
@@ -930,18 +931,49 @@ func TestAppExtraPages(t *testing.T) {
 
 		err := state.AddTransaction(&txnRow)
 		require.NoError(t, err)
+
+		block := test.MakeBlockForTxns(test.Round, &txn)
+		blockImporter := importer.NewDBImporter(db)
+		txnCount, err := blockImporter.ImportDecodedBlock(&block)
+		require.NoError(t, err, "failed to import")
+		require.Equal(t, 1, txnCount)
 	}
 
 	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
 	require.NoError(t, err, "failed to commit")
 
-	row := db.db.QueryRow("SELECT params FROM app WHERE creator = $1", test.AccountA[:])
+	row := db.db.QueryRow("SELECT index, params FROM app WHERE creator = $1", test.AccountA[:])
 
+	var index uint64
 	var paramsStr []byte
-	err = row.Scan(&paramsStr)
+	err = row.Scan(&index, &paramsStr)
 	require.NoError(t, err)
+	require.NotZero(t, index)
 
 	var ap AppParams
 	err = encoding.DecodeJSON(paramsStr, &ap)
 	require.Equal(t, uint32(1), ap.ExtraProgramPages)
+
+	var filter generated.SearchForApplicationsParams
+	var aidx uint64 = uint64(index)
+	filter.ApplicationId = &aidx
+	appRows, _ := db.Applications(context.Background(), &filter)
+	num := 0
+	for row := range appRows {
+		require.NoError(t, row.Error)
+		num++
+		require.NotNil(t, row.Application.Params.ExtraProgramPages, "we should have this field")
+		require.Equal(t, uint64(1), *row.Application.Params.ExtraProgramPages)
+	}
+	require.Equal(t, 1, num)
+
+	rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:]})
+	num = 0
+	for row := range rows {
+		require.NoError(t, row.Error)
+		num++
+		require.NotNil(t, row.Account.AppsTotalExtraPages, "we should have this field")
+		require.Equal(t, uint64(1), *row.Account.AppsTotalExtraPages)
+	}
+	require.Equal(t, 1, num)
 }
