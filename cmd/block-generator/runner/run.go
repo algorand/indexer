@@ -135,7 +135,9 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 	}
 
 	// Collect results.
-	durationStr := fmt.Sprintf("test_duration_seconds:%d\n", uint64(r.RunDuration.Seconds()))
+	durationStr := fmt.Sprintf("test_duration_seconds:%d\ntest_duration_actual_seconds:%f\n",
+		uint64(r.RunDuration.Seconds()),
+		time.Since(start).Seconds())
 	if _, err := report.WriteString(durationStr); err != nil {
 		return fmt.Errorf("unable to write duration metric: %w", err)
 	}
