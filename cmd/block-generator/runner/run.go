@@ -36,7 +36,7 @@ type Args struct {
 // The test will run against the generator configuration file specified by 'args.Path'.
 // If 'args.Path' is a directory it should contain generator configuration files, a test will run using each file.
 func Run(args Args) error {
-	if _, err := os.Stat(args.ReportDirectory); os.IsExist(err) {
+	if _, err := os.Stat(args.ReportDirectory); !os.IsNotExist(err) {
 		return fmt.Errorf("report directory '%s' already exists", args.ReportDirectory)
 	}
 	os.Mkdir(args.ReportDirectory, os.ModeDir|os.ModePerm)

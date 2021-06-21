@@ -30,9 +30,9 @@ func (r *MetricsCollector) Collect(prefix string) error {
 	}
 
 	if len(metrics) > 0 {
-		entry := Entry{Timestamp: time.Now()}
-		for _, str := range metrics {
-			entry.Data = append(entry.Data, str)
+		entry := Entry{
+			Timestamp: time.Now(),
+			Data: metrics,
 		}
 		r.Data = append(r.Data, entry)
 	}
