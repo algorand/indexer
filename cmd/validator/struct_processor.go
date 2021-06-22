@@ -70,12 +70,12 @@ func equals(indexer, algod generated.Account) (differences []string) {
 	if algod.AmountWithoutPendingRewards != indexer.AmountWithoutPendingRewards {
 		differences = append(differences, "amount-without-pending-rewards")
 	}
-	/*
-		// Indexer doesn't support this yet.
-		if !appSchemaComparePtrEqual(algod.AppsTotalSchema, indexer.AppsTotalSchema) {
-			differences = append(differences, "apps-total-schema")
-		}
-	*/
+	if !appSchemaComparePtrEqual(algod.AppsTotalSchema, indexer.AppsTotalSchema) {
+		differences = append(differences, "apps-total-schema")
+	}
+	if !uint64PtrEqual(algod.AppsTotalExtraPages, indexer.AppsTotalExtraPages) {
+		differences = append(differences, "apps-total-extra-pages")
+	}
 	if !stringPtrEqual(algod.AuthAddr, indexer.AuthAddr) {
 		// Indexer doesn't remove the auth addr when it is removed.
 		if indexer.AuthAddr == nil || *indexer.AuthAddr != indexer.Address {
@@ -246,6 +246,9 @@ func equals(indexer, algod generated.Account) (differences []string) {
 			}
 			if !stateSchemePtrEqual(algodCreatedApp.Params.GlobalStateSchema, indexerCreatedApp.Params.GlobalStateSchema) {
 				differences = append(differences, fmt.Sprintf("created-app global-state-schema %d", algodCreatedApp.Id))
+			}
+			if !uint64PtrEqual(algodCreatedApp.Params.ExtraProgramPages, indexerCreatedApp.Params.ExtraProgramPages) {
+				differences = append(differences, fmt.Sprintf("created-app extra-pages %d", algodCreatedApp.Id))
 			}
 		}
 	}

@@ -382,7 +382,8 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 				NumByteSlice: stxn.Txn.LocalStateSchema.NumByteSlice,
 				NumUint:      stxn.Txn.LocalStateSchema.NumUint,
 			},
-			OnCompletion: onCompletionToTransactionOnCompletion(stxn.Txn.OnCompletion),
+			OnCompletion:      onCompletionToTransactionOnCompletion(stxn.Txn.OnCompletion),
+			ExtraProgramPages: uint64PtrOrNil(uint64(stxn.Txn.ExtraProgramPages)),
 		}
 
 		application = &a

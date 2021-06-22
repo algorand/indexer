@@ -44,6 +44,13 @@ func uint64Ptr(x uint64) *uint64 {
 	return &x
 }
 
+func uint64PtrOrNil(x uint64) *uint64 {
+	if x == 0 {
+		return nil
+	}
+	return &x
+}
+
 func bytePtr(x []byte) *[]byte {
 	if len(x) == 0 {
 		return nil

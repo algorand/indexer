@@ -15,6 +15,7 @@ import (
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
+	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/importer"
@@ -889,4 +890,90 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	acctBCount := queryInt(db.db, "SELECT COUNT(*) FROM txn_participation WHERE addr = $1", test.AccountB[:])
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
+}
+
+func TestAppExtraPages(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	cache, err := db.GetDefaultFrozen()
+	require.NoError(t, err)
+
+	assetID := uint64(3)
+
+	state := getAccounting(test.Round, cache)
+
+	// Create an app.
+	{
+		// Create a transaction with ExtraProgramPages field set to 1
+		txn := sdk_types.SignedTxnWithAD{
+			SignedTxn: sdk_types.SignedTxn{
+				Txn: sdk_types.Transaction{
+					Type: "appl",
+					Header: sdk_types.Header{
+						Sender: test.AccountA,
+					},
+					ApplicationFields: sdk_types.ApplicationFields{
+						ApplicationCallTxnFields: sdk_types.ApplicationCallTxnFields{
+							ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+							ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+							ExtraProgramPages: 1,
+						},
+					},
+				},
+			},
+		}
+		txnRow := idb.TxnRow{
+			Round:    uint64(test.Round),
+			TxnBytes: msgpack.Encode(txn),
+			AssetID:  assetID,
+		}
+
+		err := state.AddTransaction(&txnRow)
+		require.NoError(t, err)
+
+		block := test.MakeBlockForTxns(test.Round, &txn)
+		blockImporter := importer.NewDBImporter(db)
+		txnCount, err := blockImporter.ImportDecodedBlock(&block)
+		require.NoError(t, err, "failed to import")
+		require.Equal(t, 1, txnCount)
+	}
+
+	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+	require.NoError(t, err, "failed to commit")
+
+	row := db.db.QueryRow("SELECT index, params FROM app WHERE creator = $1", test.AccountA[:])
+
+	var index uint64
+	var paramsStr []byte
+	err = row.Scan(&index, &paramsStr)
+	require.NoError(t, err)
+	require.NotZero(t, index)
+
+	var ap AppParams
+	err = encoding.DecodeJSON(paramsStr, &ap)
+	require.Equal(t, uint32(1), ap.ExtraProgramPages)
+
+	var filter generated.SearchForApplicationsParams
+	var aidx uint64 = uint64(index)
+	filter.ApplicationId = &aidx
+	appRows, _ := db.Applications(context.Background(), &filter)
+	num := 0
+	for row := range appRows {
+		require.NoError(t, row.Error)
+		num++
+		require.NotNil(t, row.Application.Params.ExtraProgramPages, "we should have this field")
+		require.Equal(t, uint64(1), *row.Application.Params.ExtraProgramPages)
+	}
+	require.Equal(t, 1, num)
+
+	rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:]})
+	num = 0
+	for row := range rows {
+		require.NoError(t, row.Error)
+		num++
+		require.NotNil(t, row.Account.AppsTotalExtraPages, "we should have this field")
+		require.Equal(t, uint64(1), *row.Account.AppsTotalExtraPages)
+	}
+	require.Equal(t, 1, num)
 }

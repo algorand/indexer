@@ -720,6 +720,7 @@ type AppParams struct {
 	ClearStateProgram []byte      `codec:"clearp"`
 	LocalStateSchema  StateSchema `codec:"lsch"`
 	GlobalStateSchema StateSchema `codec:"gsch"`
+	ExtraProgramPages uint32      `codec:"epp"`
 
 	GlobalState TealKeyValue `codec:"gs,allocbound=-"`
 }
@@ -1136,6 +1137,9 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 					return fmt.Errorf("app delta apply err r=%d i=%d app=%d, %v", adelta.Round, adelta.Intra, adelta.AppIndex, err)
 				}
 			}
+			reverseDelta.ExtraProgramPages = state.ExtraProgramPages
+			state.ExtraProgramPages = adelta.ExtraProgramPages
+
 			reverseDeltas = append(reverseDeltas, []interface{}{encoding.EncodeJSON(reverseDelta), adelta.Round, adelta.Intra})
 			if adelta.OnCompletion == sdk_types.DeleteApplicationOC {
 				// clear content but leave row recording that it existed
@@ -2092,6 +2096,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			*account.CreatedAssets = cal
 		}
 
+		var totalSchema models.ApplicationStateSchema
+
 		if len(appParamIndexes) > 0 {
 			// apps owned by this account
 			var appIds []uint64
@@ -2136,6 +2142,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				break
 			}
 
+			var totalExtraPages uint64
 			aout := make([]models.Application, len(appIds))
 			outpos := 0
 			for i, appid := range appIds {
@@ -2160,6 +2167,11 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						NumUint:      apps[i].LocalStateSchema.NumUint,
 					}
 				}
+				if aout[outpos].Deleted == nil || !*aout[outpos].Deleted {
+					totalSchema.NumByteSlice += apps[i].GlobalStateSchema.NumByteSlice
+					totalSchema.NumUint += apps[i].GlobalStateSchema.NumUint
+					totalExtraPages += uint64(apps[i].ExtraProgramPages)
+				}
 
 				outpos++
 			}
@@ -2167,6 +2179,10 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				aout = aout[:outpos]
 			}
 			account.CreatedApps = &aout
+
+			if totalExtraPages != 0 {
+				account.AppsTotalExtraPages = &totalExtraPages
+			}
 		}
 
 		if len(localStateAppIds) > 0 {
@@ -2222,8 +2238,17 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					NumUint:      ls[i].Schema.NumUint,
 				}
 				aout[i].KeyValue = ls[i].KeyValue.toModel()
+				if aout[i].Deleted == nil || !*aout[i].Deleted {
+					totalSchema.NumByteSlice += ls[i].Schema.NumByteSlice
+					totalSchema.NumUint += ls[i].Schema.NumUint
+				}
+
 			}
 			account.AppsLocalState = &aout
+		}
+
+		if totalSchema != (models.ApplicationStateSchema{}) {
+			account.AppsTotalSchema = &totalSchema
 		}
 
 		// Sometimes the migration state effects what data should be returned.
@@ -2876,6 +2901,12 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows
 			NumByteSlice: ap.LocalStateSchema.NumByteSlice,
 			NumUint:      ap.LocalStateSchema.NumUint,
 		}
+
+		if ap.ExtraProgramPages != 0 {
+			rec.Application.Params.ExtraProgramPages = new(uint64)
+			*rec.Application.Params.ExtraProgramPages = uint64(ap.ExtraProgramPages)
+		}
+
 		out <- rec
 	}
 	if err := rows.Err(); err != nil {
