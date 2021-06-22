@@ -9,16 +9,16 @@
 #
 # usage:
 #    #!/usr/bin/env bash
-#    rm -rf ve3    
-#    export GOALGORAND="${GOPATH}/src/github.com/algorand/go-algorand"    
-#    export E2EDATA="${HOME}/algorand/indexer/e2edata"    
-#    export BUILD_BLOCK_ARCHIVE="yes please"    
-#    rm -rf "$E2EDATA"    
-#    mkdir -p "$E2EDATA"    
-#    python3 -m venv ve3    
-#    ve3/bin/pip install py-algorand-sdk    
-#    . ve3/bin/activate    
-#    ./misc/buildtestdata.sh    
+#    rm -rf ve3
+#    export GOALGORAND="${GOPATH}/src/github.com/algorand/go-algorand"
+#    export E2EDATA="${HOME}/algorand/indexer/e2edata"
+#    export BUILD_BLOCK_ARCHIVE="yes please"
+#    rm -rf "$E2EDATA"
+#    mkdir -p "$E2EDATA"
+#    python3 -m venv ve3
+#    ve3/bin/pip install py-algorand-sdk
+#    . ve3/bin/activate
+#    ./misc/buildtestdata.sh
 
 set -x
 set -e
@@ -39,7 +39,7 @@ export ALGOSMALLLAMBDAMSEC=1000
 
 rm -rf "${E2EDATA}"
 mkdir -p "${E2EDATA}"
-(cd "${GOALGORAND}/test/scripts" && TEMPDIR="${E2EDATA}" python3 e2e_client_runner.py --keep-temps e2e_subs/*.sh)
+(cd "${GOALGORAND}" && TEMPDIR="${E2EDATA}" python3 test/scripts/e2e_client_runner.py --keep-temps test/scripts/e2e_subs/*.sh)
 
 (cd "${E2EDATA}" && tar -j -c -f net_done.tar.bz2 --exclude node.log --exclude agreement.cdv net)
 

@@ -107,7 +107,7 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 		//tjs, err := json.Marshal(stxn.Txn) // nope, ugly
 		//MaybeFail(err, "err %v\n", err)
 		//tjs := string(JSONOneLine(stxn.Txn))
-		tjs := string(idb.JSONOneLine(stxn.Txn))
+		tjs := string(util.JSONOneLine(stxn.Txn))
 		info("%d:%d %s sr=%d rr=%d ca=%d cr=%d t=%s\n", txnrow.Round, txnrow.Intra, tjs, stxn.SenderRewards, stxn.ReceiverRewards, stxn.ClosingAmount, stxn.CloseRewards, txnrow.RoundTime.String())
 		count++
 	}

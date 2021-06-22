@@ -24,6 +24,9 @@ type Account struct {
 	// Note the raw object uses `map[int] -> AppLocalState` for this type.
 	AppsLocalState *[]ApplicationLocalState `json:"apps-local-state,omitempty"`
 
+	// \[teap\] the sum of all extra application program pages for this account.
+	AppsTotalExtraPages *uint64 `json:"apps-total-extra-pages,omitempty"`
+
 	// Specifies maximums on the number of each type that may be stored.
 	AppsTotalSchema *ApplicationStateSchema `json:"apps-total-schema,omitempty"`
 
@@ -161,6 +164,9 @@ type ApplicationParams struct {
 
 	// The address that created this application. This is the address where the parameters and global state for this application can be found.
 	Creator *string `json:"creator,omitempty"`
+
+	// \[epp\] the amount of extra program pages available to this app.
+	ExtraProgramPages *uint64 `json:"extra-program-pages,omitempty"`
 
 	// Represents a key-value store for use in an application.
 	GlobalState *TealKeyValueStore `json:"global-state,omitempty"`
@@ -491,7 +497,7 @@ type Transaction struct {
 	// data/transactions/asset.go : AssetTransferTxnFields
 	AssetTransferTransaction *TransactionAssetTransfer `json:"asset-transfer-transaction,omitempty"`
 
-	// \[sgnr\] The address used to sign the transaction. This is used for rekeyed accounts to indicate that the sender address did not sign the transaction.
+	// \[sgnr\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth addr is equal to the accounts auth addr.
 	AuthAddr *string `json:"auth-addr,omitempty"`
 
 	// \[rc\] rewards applied to close-remainder-to account.
@@ -604,6 +610,9 @@ type TransactionApplication struct {
 
 	// \[apsu\] Logic executed for application transactions with on-completion set to "clear". It can read and write global state for the application, as well as account-specific local state. Clear state programs cannot reject the transaction.
 	ClearStateProgram *[]byte `json:"clear-state-program,omitempty"`
+
+	// \[epp\] specifies the additional app program len requested in pages.
+	ExtraProgramPages *uint64 `json:"extra-program-pages,omitempty"`
 
 	// \[apfa\] Lists the applications in addition to the application-id whose global states may be accessed by this application's approval-program and clear-state-program. The access is read-only.
 	ForeignApps *[]uint64 `json:"foreign-apps,omitempty"`

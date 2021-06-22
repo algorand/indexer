@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -25,8 +27,17 @@ var (
 	noAlgod          bool
 	developerMode    bool
 	allowMigration   bool
+	metricsMode      string
 	tokenString      string
 )
+
+// importTimeHistogramSeconds is used to record the block import time metric.
+var importTimeHistogramSeconds = prometheus.NewSummary(
+	prometheus.SummaryOpts{
+		Subsystem: "indexer_daemon",
+		Name:      "import_time_sec",
+		Help:      "Block import and processing time in seconds.",
+	})
 
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
@@ -34,8 +45,10 @@ var daemonCmd = &cobra.Command{
 	Long:  "run indexer daemon. Serve api on HTTP.",
 	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
-		var err error
+		// register metric with global prometheus metrics handler
+		prometheus.Register(importTimeHistogramSeconds)
 
+		var err error
 		config.BindFlags(cmd)
 		err = configureLogger()
 		if err != nil {
@@ -69,15 +82,14 @@ var daemonCmd = &cobra.Command{
 		db := indexerDbFromFlags(opts)
 		if bot != nil {
 			logger.Info("Initializing block import handler.")
-			maxRound, err := db.GetMaxRoundLoaded()
-			if err == idb.ErrorNotInitialized {
-				bot.SetNextRound(0)
-			} else {
-				maybeFail(err, "failed to get max round, %v", err)
-				bot.SetNextRound(maxRound + 1)
-			}
+
+			nextRound, err := db.GetNextRoundToLoad()
+			maybeFail(err, "failed to get next round, %v", err)
+			bot.SetNextRound(nextRound)
+
 			cache, err := db.GetDefaultFrozen()
 			maybeFail(err, "failed to get default frozen cache")
+
 			bih := blockImporterHandler{
 				imp:   importer.NewDBImporter(db),
 				db:    db,
@@ -85,6 +97,7 @@ var daemonCmd = &cobra.Command{
 			}
 			bot.AddBlockHandler(&bih)
 			bot.SetContext(ctx)
+
 			go func() {
 				waitForDBAvailable(db)
 
@@ -99,15 +112,10 @@ var daemonCmd = &cobra.Command{
 			logger.Info("No block importer configured.")
 		}
 
-		tokenArray := make([]string, 0)
-		if tokenString != "" {
-			tokenArray = append(tokenArray, tokenString)
-		}
-
 		// TODO: trap SIGTERM and call cf() to exit gracefully
 		fmt.Printf("serving on %s\n", daemonServerAddr)
 		logger.Infof("serving on %s", daemonServerAddr)
-		api.Serve(ctx, daemonServerAddr, db, bot, logger, tokenArray, developerMode)
+		api.Serve(ctx, daemonServerAddr, db, bot, logger, makeOptions())
 	},
 }
 
@@ -150,11 +158,33 @@ func init() {
 	daemonCmd.Flags().StringVarP(&tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
 	daemonCmd.Flags().BoolVarP(&developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
 	daemonCmd.Flags().BoolVarP(&allowMigration, "allow-migration", "", false, "allow migrations to happen even when no algod connected")
+	daemonCmd.Flags().StringVarP(&metricsMode, "metrics-mode", "", "OFF", "configure the /metrics endpoint to [ON, OFF, VERBOSE]")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
 	viper.RegisterAlias("server", "server-address")
 	viper.RegisterAlias("token", "api-token")
+}
+
+// makeOptions converts CLI options to server options
+func makeOptions() (options api.ExtraOptions) {
+	options.DeveloperMode = developerMode
+	if tokenString != "" {
+		options.Tokens = append(options.Tokens, tokenString)
+	}
+	switch strings.ToUpper(metricsMode) {
+	case "OFF":
+		options.MetricsEndpoint = false
+		options.MetricsEndpointVerbose = false
+	case "ON":
+		options.MetricsEndpoint = true
+		options.MetricsEndpointVerbose = false
+	case "VERBOSE":
+		options.MetricsEndpoint = true
+		options.MetricsEndpointVerbose = true
+
+	}
+	return
 }
 
 type blockImporterHandler struct {
@@ -183,5 +213,7 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	}
 	importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
 	dt := time.Now().Sub(start)
+	// record metric
+	importTimeHistogramSeconds.Observe(dt.Seconds())
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
 }

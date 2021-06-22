@@ -42,23 +42,13 @@ func (db *dummyIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	return nil
 }
 
-// GetImportState is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetImportState() (is idb.ImportState, err error) {
-	return idb.ImportState{}, nil
-}
-
-// SetImportState is part of idb.IndexerDB
-func (db *dummyIndexerDb) SetImportState(is idb.ImportState) (err error) {
-	return nil
-}
-
 // GetMaxRoundAccounted is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
 	return 0, nil
 }
 
-// GetMaxRoundLoaded is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetMaxRoundLoaded() (round uint64, err error) {
+// GetNextRoundToLoad is part of idb.IndexerDB
+func (db *dummyIndexerDb) GetNextRoundToLoad() (round uint64, err error) {
 	return 0, nil
 }
 
@@ -78,13 +68,13 @@ func (db *dummyIndexerDb) YieldTxns(ctx context.Context, firstRound uint64) <-ch
 }
 
 // CommitRoundAccounting is part of idb.IndexerDB
-func (db *dummyIndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) (err error) {
+func (db *dummyIndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockHeader *types.BlockHeader) (err error) {
 	return nil
 }
 
 // GetBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (block types.Block, transactions []idb.TxnRow, err error) {
-	return types.Block{}, nil, nil
+func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader types.BlockHeader, transactions []idb.TxnRow, err error) {
+	return types.BlockHeader{}, nil, nil
 }
 
 // Transactions is part of idb.IndexerDB

@@ -41,7 +41,8 @@ fakepackage:
 	misc/release.py --outdir $(PKG_DIR) --fake-release
 
 test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
-	go test ./...
+	go test ./... -coverprofile=coverage.txt -covermode=atomic
+
 
 lint:
 	golint -set_exit_status ./...

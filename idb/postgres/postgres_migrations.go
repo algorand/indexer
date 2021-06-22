@@ -7,14 +7,12 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/base64"
 	"fmt"
 	"math"
 	"os"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
-	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
@@ -22,6 +20,7 @@ import (
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
+	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/types"
 )
 
@@ -53,6 +52,7 @@ func init() {
 		// Migrations for a next release
 		{FixFreezeLookupMigration, false, "Fix search by asset freeze address."},
 		{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
+		{MakeDeletedNotNullMigration, false, "make all \"deleted\" columns NOT NULL"},
 	}
 
 	// Verify ensure the constant is pointing to the right index
@@ -120,7 +120,7 @@ func upsertMigrationStateTx(tx *sql.Tx, state *MigrationState, incrementNextMigr
 	if incrementNextMigration {
 		state.NextMigration++
 	}
-	migrationStateJSON := idb.JSONOneLine(state)
+	migrationStateJSON := encoding.EncodeJSON(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 
 	return err
@@ -131,7 +131,7 @@ func upsertMigrationState(db *IndexerDb, state *MigrationState, incrementNextMig
 	if incrementNextMigration {
 		state.NextMigration++
 	}
-	migrationStateJSON := idb.JSONOneLine(state)
+	migrationStateJSON := encoding.EncodeJSON(state)
 	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 
 	return err
@@ -140,7 +140,7 @@ func upsertMigrationState(db *IndexerDb, state *MigrationState, incrementNextMig
 func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
 	var state MigrationState
 	if len(migrationStateJSON) > 0 {
-		err = json.Decode([]byte(migrationStateJSON), &state)
+		err = encoding.DecodeJSON([]byte(migrationStateJSON), &state)
 		if err != nil {
 			return fmt.Errorf("(%s) bad metastate migration json, %v", migrationStateJSON, err)
 		}
@@ -185,12 +185,12 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 	state := MigrationState{
 		NextMigration: len(migrations),
 	}
-	migrationStateJSON := idb.JSONOneLine(state)
-	return db.setMetastate(migrationMetastateKey, migrationStateJSON)
+	migrationStateJSON := encoding.EncodeJSON(state)
+	return db.setMetastate(nil, migrationMetastateKey, string(migrationStateJSON))
 }
 
 func (db *IndexerDb) getMigrationState() (*MigrationState, error) {
-	migrationStateJSON, err := db.getMetastate(migrationMetastateKey)
+	migrationStateJSON, err := db.getMetastate(nil, migrationMetastateKey)
 	if err == sql.ErrNoRows {
 		// no previous state, ok
 		return nil, nil
@@ -198,7 +198,7 @@ func (db *IndexerDb) getMigrationState() (*MigrationState, error) {
 		return nil, fmt.Errorf("%s, get m state err", txidMigrationErrMsg)
 	}
 	var txstate MigrationState
-	err = json.Decode([]byte(migrationStateJSON), &txstate)
+	err = encoding.DecodeJSON([]byte(migrationStateJSON), &txstate)
 	if err != nil {
 		return nil, fmt.Errorf("%s, migration json err", txidMigrationErrMsg)
 	}
@@ -332,7 +332,7 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 		if now.Sub(lastlog) > (5 * time.Second) {
 			db.log.Printf("acfg fix next=%d", aid)
 			state.NextAssetID = aid
-			migrationStateJSON := idb.JSONOneLine(state)
+			migrationStateJSON := encoding.EncodeJSON(state)
 			_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 			if err != nil {
 				db.log.WithError(err).Errorf("acfg fix migration %d meta err", state.NextMigration)
@@ -372,7 +372,7 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 				params = types.MergeAssetConfig(params, stxn.Txn.AssetParams)
 			}
 		}
-		outparams := idb.JSONOneLine(params)
+		outparams := encoding.EncodeJSON(params)
 		_, err = setacfg.Exec(aid, creator[:], outparams)
 		if err != nil {
 			db.log.WithError(err).Errorf("acfg fix asset update")
@@ -381,7 +381,7 @@ func m3acfgFixAsyncInner(db *IndexerDb, state *MigrationState, assetIds []int64)
 	}
 	state.NextAssetID = 0
 	state.NextMigration++
-	migrationStateJSON := idb.JSONOneLine(state)
+	migrationStateJSON := encoding.EncodeJSON(state)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		db.log.WithError(err).Errorf("acfg fix migration %d meta err", state.NextMigration)
@@ -824,7 +824,7 @@ func m7RewardsAndDatesPart2UpdateAccounts(db *IndexerDb, accountData []addressAc
 		state.PointerRound = &round
 		state.PointerIntra = &intra
 	}
-	migrationStateJSON := idb.JSONOneLine(state)
+	migrationStateJSON := encoding.EncodeJSON(state)
 	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		return fmt.Errorf("m7: failed to update migration checkpoint: %v", err)
@@ -1151,7 +1151,7 @@ func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
 	state.NextRound = 0
 	state.PointerRound = nil
 	state.PointerIntra = nil
-	migrationStateJSON := idb.JSONOneLine(state)
+	migrationStateJSON := encoding.EncodeJSON(state)
 	_, err := db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		return fmt.Errorf("m7: failed to write final migration state: %v", err)
@@ -1165,33 +1165,32 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
-	thisMigration := state.NextMigration
-	tx, err := db.db.BeginTx(context.Background(), &serializable)
-	if err != nil {
-		db.log.WithError(err).Errorf("migration %d tx err", thisMigration)
-		return err
-	}
-	defer tx.Rollback() // ignored if .Commit() first
-	for i, cmd := range sqlLines {
-		_, err = tx.Exec(cmd)
-		if err != nil {
-			db.log.WithError(err).Errorf("migration %d sql[%d] err", thisMigration, i)
-			return err
+	nextState := *state
+	nextState.NextMigration++
+
+	f := func(ctx context.Context, tx *sql.Tx) error {
+		defer tx.Rollback()
+
+		for _, cmd := range sqlLines {
+			_, err := tx.Exec(cmd)
+			if err != nil {
+				return fmt.Errorf(
+					"migration %d exec cmd: \"%s\" err: %w", state.NextMigration, cmd, err)
+			}
 		}
+		migrationStateJSON := encoding.EncodeJSON(nextState)
+		_, err := tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+		if err != nil {
+			return fmt.Errorf("migration %d exec metastate err: %w", state.NextMigration, err)
+		}
+		return tx.Commit()
 	}
-	state.NextMigration++
-	migrationStateJSON := idb.JSONOneLine(state)
-	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+	err := db.txWithRetry(context.Background(), serializable, f)
 	if err != nil {
-		db.log.WithError(err).Errorf("migration %d meta err", thisMigration)
-		return err
+		return fmt.Errorf("migration %d commit err: %w", state.NextMigration, err)
 	}
-	err = tx.Commit()
-	if err != nil {
-		db.log.WithError(err).Errorf("migration %d commit err", thisMigration)
-		return err
-	}
-	db.log.Printf("migration %d done", thisMigration)
+
+	*state = nextState
 	return nil
 }
 
@@ -1268,8 +1267,8 @@ func (mtxid *txidFiuxpMigrationContext) asyncTxidFixup() (err error) {
 	// all done, mark migration state
 	state.NextMigration++
 	state.NextRound = 0
-	migrationStateJSON := idb.JSONOneLine(state)
-	err = db.setMetastate(migrationMetastateKey, migrationStateJSON)
+	migrationStateJSON := encoding.EncodeJSON(state)
+	err = db.setMetastate(nil, migrationMetastateKey, string(migrationStateJSON))
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, error setting final migration state", txidMigrationErrMsg)
 		return
@@ -1389,7 +1388,7 @@ func (mtxid *txidFiuxpMigrationContext) putTxidFixupBatch(batch []idb.TxnRow) er
 		return err
 	}
 	txstate.NextRound = int64(maxRound + 1)
-	migrationStateJSON := idb.JSONOneLine(txstate)
+	migrationStateJSON := encoding.EncodeJSON(txstate)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, set metastate err", txidMigrationErrMsg)
@@ -1437,7 +1436,7 @@ func readHeaders(db *IndexerDb, minRound, maxRound uint64) (map[uint64]types.Blo
 			return nil, err
 		}
 		var tblock types.Block
-		json.Decode(headerjson, &tblock)
+		encoding.DecodeJSON(headerjson, &tblock)
 		headers[uint64(round)] = tblock
 	}
 	if err := rows.Err(); err != nil {
@@ -1589,7 +1588,7 @@ func m9TxnJSONEncoding(db *IndexerDb, state *MigrationState) (err error) {
 	if err == sql.ErrNoRows {
 		// Indexer may be new after m7, marking it as done without running it, so we don't need to do anything here.
 		state.NextMigration++
-		migrationStateJSON := json.Encode(state)
+		migrationStateJSON := encoding.EncodeJSON(state)
 		_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 		if err != nil {
 			db.log.WithError(err).Errorf("%s, meta err", m9ErrPrefix)
@@ -1665,8 +1664,8 @@ func m9TxnJSONEncoding(db *IndexerDb, state *MigrationState) (err error) {
 	// all done, mark migration state
 	state.NextMigration++
 	state.NextRound = 0
-	migrationStateJSON := string(json.Encode(state))
-	err = db.setMetastate(migrationMetastateKey, migrationStateJSON)
+	migrationStateJSON := string(encoding.EncodeJSON(state))
+	err = db.setMetastate(nil, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, error setting final migration state", m9ErrPrefix)
 		return
@@ -1717,7 +1716,7 @@ func putTxnJSONBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 		if stxn.HasGenesisHash || proto.RequireGenesisHash {
 			stxn.Txn.GenesisHash = block.GenesisHash
 		}
-		js := stxnToJSON(stxn.SignedTxnWithAD)
+		js := string(encoding.EncodeSignedTxnWithAD(stxn.SignedTxnWithAD))
 		if js == string(txr.JSON) {
 			outrows[pos].round = txr.Round
 			outrows[pos].intra = txr.Intra
@@ -1791,7 +1790,7 @@ func putTxnJSONBatch(db *IndexerDb, state *MigrationState, batch []jsonFixupTxnR
 		return err
 	}
 	txstate.NextRound = int64(maxRound + 1)
-	migrationStateJSON := json.Encode(txstate)
+	migrationStateJSON := encoding.EncodeJSON(txstate)
 	_, err = tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		db.log.WithError(err).Errorf("%s, set metastate err", m9ErrPrefix)
@@ -1876,7 +1875,7 @@ func updateFrozenState(db *IndexerDb, assetID uint64, closedAt *uint64, creator,
 		minRound = *closedAt
 	}
 
-	holderb64 := base64.StdEncoding.EncodeToString(holder[:])
+	holderb64 := encoding.Base64(holder[:])
 	row := db.db.QueryRow(freezeTransactionsQuery, freeze[:], holderb64, assetID, minRound)
 	var found uint64
 	err := row.Scan(&found)
@@ -2197,11 +2196,29 @@ func ClearAccountDataMigration(db *IndexerDb, state *MigrationState) error {
 	}
 
 	state.NextMigration++
-	migrationStateJSON := idb.JSONOneLine(state)
+	migrationStateJSON := encoding.EncodeJSON(state)
 	_, err = db.db.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
 	if err != nil {
 		return fmt.Errorf("metastate upsert error: %v", err)
 	}
 
 	return nil
+}
+
+// MakeDeletedNotNullMigration makes "deleted" columns NOT NULL in tables
+// account, account_asset, asset, app, account_app.
+func MakeDeletedNotNullMigration(db *IndexerDb, state *MigrationState) error {
+	queries := []string{
+		"UPDATE account SET deleted = false WHERE deleted is NULL",
+		"ALTER TABLE account ALTER COLUMN deleted SET NOT NULL",
+		"UPDATE account_asset SET deleted = false WHERE deleted is NULL",
+		"ALTER TABLE account_asset ALTER COLUMN deleted SET NOT NULL",
+		"UPDATE asset SET deleted = false WHERE deleted is NULL",
+		"ALTER TABLE asset ALTER COLUMN deleted SET NOT NULL",
+		"UPDATE app SET deleted = false WHERE deleted is NULL",
+		"ALTER TABLE app ALTER COLUMN deleted SET NOT NULL",
+		"UPDATE account_app SET deleted = false WHERE deleted is NULL",
+		"ALTER TABLE account_app ALTER COLUMN deleted SET NOT NULL",
+	}
+	return sqlMigration(db, state, queries)
 }

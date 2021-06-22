@@ -115,13 +115,13 @@ func (_m *IndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uin
 	return r0
 }
 
-// CommitRoundAccounting provides a mock function with given fields: updates, round, blockPtr
-func (_m *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockPtr *types.Block) error {
-	ret := _m.Called(updates, round, blockPtr)
+// CommitRoundAccounting provides a mock function with given fields: updates, round, blockHeader
+func (_m *IndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockHeader *types.BlockHeader) error {
+	ret := _m.Called(updates, round, blockHeader)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(idb.RoundUpdates, uint64, *types.Block) error); ok {
-		r0 = rf(updates, round, blockPtr)
+	if rf, ok := ret.Get(0).(func(idb.RoundUpdates, uint64, *types.BlockHeader) error); ok {
+		r0 = rf(updates, round, blockHeader)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -153,14 +153,14 @@ func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 }
 
 // GetBlock provides a mock function with given fields: ctx, round, options
-func (_m *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (types.Block, []idb.TxnRow, error) {
+func (_m *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (types.BlockHeader, []idb.TxnRow, error) {
 	ret := _m.Called(ctx, round, options)
 
-	var r0 types.Block
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, idb.GetBlockOptions) types.Block); ok {
+	var r0 types.BlockHeader
+	if rf, ok := ret.Get(0).(func(context.Context, uint64, idb.GetBlockOptions) types.BlockHeader); ok {
 		r0 = rf(ctx, round, options)
 	} else {
-		r0 = ret.Get(0).(types.Block)
+		r0 = ret.Get(0).(types.BlockHeader)
 	}
 
 	var r1 []idb.TxnRow
@@ -205,27 +205,6 @@ func (_m *IndexerDb) GetDefaultFrozen() (map[uint64]bool, error) {
 	return r0, r1
 }
 
-// GetImportState provides a mock function with given fields:
-func (_m *IndexerDb) GetImportState() (idb.ImportState, error) {
-	ret := _m.Called()
-
-	var r0 idb.ImportState
-	if rf, ok := ret.Get(0).(func() idb.ImportState); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(idb.ImportState)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetMaxRoundAccounted provides a mock function with given fields:
 func (_m *IndexerDb) GetMaxRoundAccounted() (uint64, error) {
 	ret := _m.Called()
@@ -247,8 +226,8 @@ func (_m *IndexerDb) GetMaxRoundAccounted() (uint64, error) {
 	return r0, r1
 }
 
-// GetMaxRoundLoaded provides a mock function with given fields:
-func (_m *IndexerDb) GetMaxRoundLoaded() (uint64, error) {
+// GetNextRoundToLoad provides a mock function with given fields:
+func (_m *IndexerDb) GetNextRoundToLoad() (uint64, error) {
 	ret := _m.Called()
 
 	var r0 uint64
@@ -331,20 +310,6 @@ func (_m *IndexerDb) Reset() error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func() error); ok {
 		r0 = rf()
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// SetImportState provides a mock function with given fields: _a0
-func (_m *IndexerDb) SetImportState(_a0 idb.ImportState) error {
-	ret := _m.Called(_a0)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(idb.ImportState) error); ok {
-		r0 = rf(_a0)
 	} else {
 		r0 = ret.Error(0)
 	}

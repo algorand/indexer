@@ -561,46 +561,47 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 // fetchBlock looks up a block and converts it into a generated.Block object
 // the method also loads the transactions into the returned block object.
 func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (generated.Block, error) {
-	blk, transactions, err := si.db.GetBlock(ctx, round, idb.GetBlockOptions{Transactions: true})
+	blockHeader, transactions, err :=
+		si.db.GetBlock(ctx, round, idb.GetBlockOptions{Transactions: true})
 
 	if err != nil {
 		return generated.Block{}, fmt.Errorf("%s '%d': %v", errLookingUpBlock, round, err)
 	}
 
 	rewards := generated.BlockRewards{
-		FeeSink:                 blk.FeeSink.String(),
-		RewardsCalculationRound: uint64(blk.RewardsRecalculationRound),
-		RewardsLevel:            blk.RewardsLevel,
-		RewardsPool:             blk.RewardsPool.String(),
-		RewardsRate:             blk.RewardsRate,
-		RewardsResidue:          blk.RewardsResidue,
+		FeeSink:                 blockHeader.FeeSink.String(),
+		RewardsCalculationRound: uint64(blockHeader.RewardsRecalculationRound),
+		RewardsLevel:            blockHeader.RewardsLevel,
+		RewardsPool:             blockHeader.RewardsPool.String(),
+		RewardsRate:             blockHeader.RewardsRate,
+		RewardsResidue:          blockHeader.RewardsResidue,
 	}
 
 	upgradeState := generated.BlockUpgradeState{
-		CurrentProtocol:        string(blk.CurrentProtocol),
-		NextProtocol:           strPtr(string(blk.NextProtocol)),
-		NextProtocolApprovals:  uint64Ptr(blk.NextProtocolApprovals),
-		NextProtocolSwitchOn:   uint64Ptr(uint64(blk.NextProtocolSwitchOn)),
-		NextProtocolVoteBefore: uint64Ptr(uint64(blk.NextProtocolVoteBefore)),
+		CurrentProtocol:        string(blockHeader.CurrentProtocol),
+		NextProtocol:           strPtr(string(blockHeader.NextProtocol)),
+		NextProtocolApprovals:  uint64Ptr(blockHeader.NextProtocolApprovals),
+		NextProtocolSwitchOn:   uint64Ptr(uint64(blockHeader.NextProtocolSwitchOn)),
+		NextProtocolVoteBefore: uint64Ptr(uint64(blockHeader.NextProtocolVoteBefore)),
 	}
 
 	upgradeVote := generated.BlockUpgradeVote{
-		UpgradeApprove: boolPtr(blk.UpgradeApprove),
-		UpgradeDelay:   uint64Ptr(uint64(blk.UpgradeDelay)),
-		UpgradePropose: strPtr(string(blk.UpgradePropose)),
+		UpgradeApprove: boolPtr(blockHeader.UpgradeApprove),
+		UpgradeDelay:   uint64Ptr(uint64(blockHeader.UpgradeDelay)),
+		UpgradePropose: strPtr(string(blockHeader.UpgradePropose)),
 	}
 
 	ret := generated.Block{
-		GenesisHash:       blk.GenesisHash[:],
-		GenesisId:         blk.GenesisID,
-		PreviousBlockHash: blk.Branch[:],
+		GenesisHash:       blockHeader.GenesisHash[:],
+		GenesisId:         blockHeader.GenesisID,
+		PreviousBlockHash: blockHeader.Branch[:],
 		Rewards:           &rewards,
-		Round:             uint64(blk.Round),
-		Seed:              blk.Seed[:],
-		Timestamp:         uint64(blk.TimeStamp),
+		Round:             uint64(blockHeader.Round),
+		Seed:              blockHeader.Seed[:],
+		Timestamp:         uint64(blockHeader.TimeStamp),
 		Transactions:      nil,
-		TransactionsRoot:  blk.TxnRoot[:],
-		TxnCounter:        uint64Ptr(blk.TxnCounter),
+		TransactionsRoot:  blockHeader.TxnRoot[:],
+		TxnCounter:        uint64Ptr(blockHeader.TxnCounter),
 		UpgradeState:      &upgradeState,
 		UpgradeVote:       &upgradeVote,
 	}

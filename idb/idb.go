@@ -16,6 +16,7 @@ import (
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 )
 
 // TxnRow is metadata relating to one transaction in a transaction query.
@@ -84,22 +85,18 @@ type IndexerDb interface {
 
 	LoadGenesis(genesis types.Genesis) (err error)
 
-	// GetImportState returns ErrorNotInitialized if there is no import state.
-	GetImportState() (is ImportState, err error)
-	SetImportState(ImportState) (err error)
 	// GetMaxRoundAccounted returns ErrorNotInitialized if there are no accounted rounds.
 	GetMaxRoundAccounted() (round uint64, err error)
-	// GetMaxRoundLoaded returns ErrorNotInitialized if there are no loaded rounds.
-	GetMaxRoundLoaded() (round uint64, err error)
+	GetNextRoundToLoad() (round uint64, err error)
 	GetSpecialAccounts() (SpecialAccounts, error)
 	GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error)
 
 	// YieldTxns returns a channel that produces the whole transaction stream starting at the specified round
 	YieldTxns(ctx context.Context, firstRound uint64) <-chan TxnRow
 
-	CommitRoundAccounting(updates RoundUpdates, round uint64, blockPtr *types.Block) (err error)
+	CommitRoundAccounting(updates RoundUpdates, round uint64, blockHeader *types.BlockHeader) (err error)
 
-	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (block types.Block, transactions []TxnRow, err error)
+	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (blockHeader types.BlockHeader, transactions []TxnRow, err error)
 
 	// The next multiple functions return a channel with results as well as the latest round
 	// accounted.
@@ -408,6 +405,7 @@ type AppDelta struct {
 	ClearStateProgram []byte                `codec:"clearp"`
 	LocalStateSchema  sdk_types.StateSchema `codec:"lsch"`
 	GlobalStateSchema sdk_types.StateSchema `codec:"gsch"`
+	ExtraProgramPages uint32                `codec:"epp"`
 }
 
 // String is part of the Stringer interface.
@@ -422,7 +420,7 @@ func (ad AppDelta) String() string {
 	}
 	ds := ""
 	if ad.Delta != nil {
-		ds = string(JSONOneLine(ad.Delta))
+		ds = string(util.JSONOneLine(ad.Delta))
 	}
 	parts = append(parts, fmt.Sprintf("ai=%d oc=%v d=%s", ad.AddrIndex, ad.OnCompletion, ds))
 	if len(ad.ApprovalProgram) > 0 {
@@ -436,6 +434,9 @@ func (ad AppDelta) String() string {
 	}
 	if ad.LocalStateSchema.NumByteSlice != 0 || ad.LocalStateSchema.NumUint != 0 {
 		parts = append(parts, fmt.Sprintf("lss(b=%d, i=%d)", ad.LocalStateSchema.NumByteSlice, ad.LocalStateSchema.NumUint))
+	}
+	if ad.ExtraProgramPages != 0 {
+		parts = append(parts, fmt.Sprintf("epp=%d", ad.ExtraProgramPages))
 	}
 
 	return strings.Join(parts, " ")
@@ -455,6 +456,7 @@ type AppReverseDelta struct {
 	ClearStateProgram []byte                 `codec:"clearp,omitempty"`
 	LocalStateSchema  sdk_types.StateSchema  `codec:"lsch,omitempty"`
 	GlobalStateSchema sdk_types.StateSchema  `codec:"gsch,omitempty"`
+	ExtraProgramPages uint32                 `codec:"epp,omitempty"`
 }
 
 // SetDelta adds delta values to the AppReverseDelta object.
@@ -486,11 +488,6 @@ type Health struct {
 type SpecialAccounts struct {
 	FeeSink     types.Address
 	RewardsPool types.Address
-}
-
-// ImportState is some metadata kept around to help the import helper.
-type ImportState struct {
-	AccountRound int64 `codec:"account_round"`
 }
 
 // UpdateFilter is used by some functions to filter how an update is done.

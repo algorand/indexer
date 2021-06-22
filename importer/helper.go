@@ -51,11 +51,6 @@ type ImportHelper struct {
 	Log *log.Logger
 }
 
-// ImportState is some metadata kept around to help the import helper.
-type ImportState struct {
-	AccountRound int64 `codec:"account_round"`
-}
-
 // Import is the main ImportHelper function that glues together a directory full of block files and an Importer objects.
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	imp := NewDBImporter(db)
@@ -88,16 +83,14 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 		h.Log.Infof("%d blocks in %s, %.0f/s, %d txn, %.0f/s", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
 	}
 
-	state, err := db.GetImportState()
 	var startRound uint64 = 0
-	accountingRounds := 0
+
+	lastRound, err := db.GetMaxRoundAccounted()
 	if err == idb.ErrorNotInitialized {
-		if InitialImport(db, h.GenesisJSONPath, nil, h.Log) {
-			accountingRounds++
-		}
+		InitialImport(db, h.GenesisJSONPath, nil, h.Log)
 	} else {
 		maybeFail(err, h.Log, "problem getting the import state")
-		startRound = uint64(state.AccountRound + 1)
+		startRound = lastRound + 1
 	}
 
 	filter := idb.UpdateFilter{
@@ -106,8 +99,7 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	if h.NumRoundsLimit != 0 {
 		filter.RoundLimit = &h.NumRoundsLimit
 	}
-	updateRounds, txnCount := updateAccounting(db, h.DefaultFrozenCache, filter, h.Log)
-	accountingRounds += updateRounds
+	accountingRounds, txnCount := updateAccounting(db, h.DefaultFrozenCache, filter, h.Log)
 
 	accountingdone := time.Now()
 	if accountingRounds > 0 {
@@ -229,7 +221,7 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 
 // InitialImport imports the genesis block if needed. Returns true if the initial import occurred.
 func InitialImport(db idb.IndexerDb, genesisJSONPath string, client *algod.Client, l *log.Logger) bool {
-	_, err := db.GetImportState()
+	_, err := db.GetMaxRoundAccounted()
 
 	// Exit immediately or crash if we don't see ErrorNotInitialized.
 	if err != idb.ErrorNotInitialized {
@@ -275,12 +267,12 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 	roundsSeen := 0
 	lastRoundsSeen := roundsSeen
 	txnForRound := 0
-	var blockPtr *types.Block = nil
+	var blockHeaderPtr *types.BlockHeader = nil
 	for txn := range txns {
 		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)
 		if txn.Round != currentRound {
-			if blockPtr != nil && txnForRound > 0 {
-				err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr)
+			if blockHeaderPtr != nil && txnForRound > 0 {
+				err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockHeaderPtr)
 				maybeFail(err, l, "failed to commit round accounting")
 			}
 
@@ -295,10 +287,10 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 				break
 			}
 
-			block, _, err := db.GetBlock(context.Background(), currentRound, idb.GetBlockOptions{})
+			blockHeader, _, err := db.GetBlock(context.Background(), currentRound, idb.GetBlockOptions{})
 			maybeFail(err, l, "problem fetching next round (%d)", currentRound)
-			blockPtr = &block
-			act.InitRound(block)
+			blockHeaderPtr = &blockHeader
+			act.InitRound(blockHeaderPtr)
 
 			// Log progress
 			if (filter.RoundLimit != nil) && (roundsSeen > *filter.RoundLimit) {
@@ -321,8 +313,8 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 	}
 
 	// Commit the final round
-	if blockPtr != nil && txnForRound > 0 {
-		err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockPtr)
+	if blockHeaderPtr != nil && txnForRound > 0 {
+		err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockHeaderPtr)
 		maybeFail(err, l, "failed to commit round accounting")
 	}
 

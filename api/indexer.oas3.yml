@@ -503,6 +503,10 @@
             },
             "type": "array"
           },
+          "apps-total-extra-pages": {
+            "description": "\\[teap\\] the sum of all extra application program pages for this account.",
+            "type": "integer"
+          },
           "apps-total-schema": {
             "$ref": "#/components/schemas/ApplicationStateSchema"
           },
@@ -729,6 +733,10 @@
             "description": "The address that created this application. This is the address where the parameters and global state for this application can be found.",
             "type": "string",
             "x-algorand-format": "Address"
+          },
+          "extra-program-pages": {
+            "description": "\\[epp\\] the amount of extra program pages available to this app.",
+            "type": "integer"
           },
           "global-state": {
             "$ref": "#/components/schemas/TealKeyValueStore"
@@ -1283,7 +1291,7 @@
             "$ref": "#/components/schemas/TransactionAssetTransfer"
           },
           "auth-addr": {
-            "description": "\\[sgnr\\] The address used to sign the transaction. This is used for rekeyed accounts to indicate that the sender address did not sign the transaction.",
+            "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth addr is equal to the accounts auth addr.",
             "type": "string",
             "x-algorand-format": "Address"
           },
@@ -1455,6 +1463,10 @@
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string",
             "x-algorand-format": "TEALProgram"
+          },
+          "extra-program-pages": {
+            "description": "\\[epp\\] specifies the additional app program len requested in pages.",
+            "type": "integer"
           },
           "foreign-apps": {
             "description": "\\[apfa\\] Lists the applications in addition to the application-id whose global states may be accessed by this application's approval-program and clear-state-program. The access is read-only.",
