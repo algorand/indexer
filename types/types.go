@@ -588,7 +588,7 @@ type ConsensusParams struct {
 	// DefaultKeyDilution specifies the granularity of top-level ephemeral
 	// keys. KeyDilution is the number of second-level keys in each batch,
 	// signed by a top-level "batch" key.  The default value can be
-	// overriden in the account state.
+	// overridden in the account state.
 	DefaultKeyDilution uint64
 
 	// MinBalance specifies the minimum balance that can appear in
@@ -601,6 +601,11 @@ type ConsensusParams struct {
 	// A minimum fee is necessary to prevent DoS. In some sense this is
 	// a way of making the spender subsidize the cost of storing this transaction.
 	MinTxnFee uint64
+
+	// EnableFeePooling specifies that the sum of the fees in a
+	// group must exceed one MinTxnFee per Txn, rather than check that
+	// each Txn has a MinFee.
+	EnableFeePooling bool
 
 	// RewardUnit specifies the number of MicroAlgos corresponding to one reward
 	// unit.
@@ -643,10 +648,6 @@ type ConsensusParams struct {
 
 	FastRecoveryLambda    time.Duration // time between fast recovery attempts
 	FastPartitionRecovery bool          // set when fast partition recovery is enabled
-
-	// commit to payset using a hash of entire payset,
-	// instead of txid merkle tree
-	PaysetCommitFlat bool
 
 	// how to commit to the payset: flat or merkle tree
 	PaysetCommit PaysetCommitType
@@ -718,10 +719,6 @@ type ConsensusParams struct {
 	// max decimal precision for assets
 	MaxAssetDecimals uint32
 
-	// whether to use the old buggy Credential.lowestOutput function
-	// TODO(upgrade): Please remove as soon as the upgrade goes through
-	UseBuggyProposalLowestOutput bool
-
 	// SupportRekeying indicates support for account rekeying (the RekeyTo and AuthAddr fields)
 	SupportRekeying bool
 
@@ -734,9 +731,18 @@ type ConsensusParams struct {
 	// max sum([len(arg) for arg in txn.ApplicationArgs])
 	MaxAppTotalArgLen int
 
-	// maximum length of application approval program or clear state
-	// program in bytes
+	// maximum byte len of application approval program or clear state
+	// When MaxExtraAppProgramPages > 0, this is the size of those pages.
+	// So two "extra pages" would mean 3*MaxAppProgramLen bytes are available.
 	MaxAppProgramLen int
+
+	// maximum total length of an application's programs (approval + clear state)
+	// When MaxExtraAppProgramPages > 0, this is the size of those pages.
+	// So two "extra pages" would mean 3*MaxAppTotalProgramLen bytes are available.
+	MaxAppTotalProgramLen int
+
+	// extra length for application program in pages. A page is MaxAppProgramLen bytes
+	MaxExtraAppProgramPages int
 
 	// maximum number of accounts in the ApplicationCall Accounts field.
 	// this determines, in part, the maximum number of balance records
@@ -753,6 +759,10 @@ type ConsensusParams struct {
 	// be read in the transaction
 	MaxAppTxnForeignAssets int
 
+	// maximum number of "foreign references" (accounts, asa, app)
+	// that can be attached to a single app call.
+	MaxAppTotalTxnReferences int
+
 	// maximum cost of application approval program or clear state program
 	MaxAppProgramCost int
 
@@ -763,6 +773,9 @@ type ConsensusParams struct {
 	// maximum length of a bytes value used in an application's global or
 	// local key/value store
 	MaxAppBytesValueLen int
+
+	// maximum sum of the lengths of the key and value of one app state entry
+	MaxAppSumKeyValueLens int
 
 	// maximum number of applications a single account can create and store
 	// AppParams for at once
@@ -853,11 +866,20 @@ type ConsensusParams struct {
 	// asset that were sent to the close-to address.
 	EnableAssetCloseAmount bool
 
-	// InitialRewardsRateCalculation update the initial rewards rate calculation to take the reward pool minimum balance into account
+	// update the initial rewards rate calculation to take the reward pool minimum balance into account
 	InitialRewardsRateCalculation bool
 
 	// NoEmptyLocalDeltas updates how ApplyDelta.EvalDelta.LocalDeltas are stored
 	NoEmptyLocalDeltas bool
+
+	// EnableKeyregCoherencyCheck enable the following extra checks on key registration transactions:
+	// 1. checking that [VotePK/SelectionPK/VoteKeyDilution] are all set or all clear.
+	// 2. checking that the VoteFirst is less or equal to VoteLast.
+	// 3. checking that in the case of going offline, both the VoteFirst and VoteLast are clear.
+	// 4. checking that in the case of going online the VoteLast is non-zero and greater then the current network round.
+	// 5. checking that in the case of going online the VoteFirst is less or equal to the LastValid+1.
+	// 6. checking that in the case of going online the VoteFirst is less or equal to the next network round.
+	EnableKeyregCoherencyCheck bool
 }
 
 // PaysetCommitType enumerates possible ways for the block header to commit to
