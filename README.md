@@ -7,7 +7,6 @@ The Indexer is a standalone service that reads committed blocks from the Algoran
 
 * [go 1.13](https://golang.org/dl/)
 * [Postgres 11](https://www.postgresql.org/download/)
-* IF you need to build using [`mule`](https://pypi.org/project/mulecli/), ensure that you're using [Python](https://www.python.org/downloads/) 3.5 or above. Consider using [pyenv](https://github.com/pyenv/pyenv) to keep multiple Python versions installed at once. <sup>[Additional requirements for pip installations](https://packaging.python.org/tutorials/installing-packages/#requirements-for-installing-packages)</sup>
 
 # Quickstart
 
@@ -220,4 +219,3 @@ Indexer v1 was built into the algod v1 REST API. It has been removed with the al
 Indexer is built using an in-house task framework called [`mule`](https://pypi.org/project/mulecli/) (it has since been open-sourced).
 
 Please refer to the [build docs](mule/README.md) in the `mule/` directory.
-
