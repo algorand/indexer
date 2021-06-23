@@ -30,8 +30,8 @@ func initializeConfigFile(configFile string) (config GenerationConfig, err error
 	return
 }
 
-// StartServer configures http handlers then runs ListanAndServe. Returns the http server and a done channel.
-func StartServer(configFile string, addr string) (*http.Server, <-chan struct{}) {
+// MakeServer configures http handlers. Returns the http server.
+func MakeServer(configFile string, addr string) *http.Server {
 	config, err := initializeConfigFile(configFile)
 	util.MaybeFail(err, "problem loading config file. Use '--config' or create a config file.")
 
@@ -44,22 +44,10 @@ func StartServer(configFile string, addr string) (*http.Server, <-chan struct{})
 	mux.HandleFunc("/genesis", getGenesisHandler(gen))
 	mux.HandleFunc("/report", getReportHandler(gen))
 
-	srv := &http.Server{
+	return &http.Server{
 		Addr:    addr,
 		Handler: mux,
 	}
-
-	done := make(chan struct{})
-	go func() {
-		defer close(done) // let main know we are done cleaning up
-
-		// always returns error. ErrServerClosed on graceful close
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-			util.MaybeFail(err, "ListenAndServe() failure to start with config file '%s'", configFile)
-		}
-	}()
-
-	return srv, done
 }
 
 func help(w http.ResponseWriter, r *http.Request) {

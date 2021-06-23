@@ -19,6 +19,7 @@ import (
 	_ "github.com/lib/pq"
 
 	"github.com/algorand/indexer/cmd/block-generator/generator"
+	"github.com/algorand/indexer/util"
 )
 
 // Args are all the things needed to run a performance test.
@@ -180,21 +181,22 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 // startGenerator starts the generator server.
 func startGenerator(configFile string, addr string) func() error {
 	// Start generator.
-	server, done := generator.StartServer(configFile, addr)
+	server := generator.MakeServer(configFile, addr)
+
+	// Start the server
+	go func() {
+		// always returns error. ErrServerClosed on graceful close
+		if err := server.ListenAndServe(); err != http.ErrServerClosed {
+			util.MaybeFail(err, "ListenAndServe() failure to start with config file '%s'", configFile)
+		}
+	}()
 
 	return func() error {
+		// Shutdown blocks until the server has stopped.
 		if err := server.Shutdown(context.Background()); err != nil {
 			return fmt.Errorf("failed during generator graceful shutdown: %w", err)
 		}
-
-		// Wait for graceful shutdown or crash.
-		select {
-		case <-done:
-			// continue
-			return nil
-		case <-time.After(10 * time.Second):
-			return fmt.Errorf("failed to gracefully shutdown generator")
-		}
+		return nil
 	}
 }
 
