@@ -977,3 +977,49 @@ func TestAppExtraPages(t *testing.T) {
 	}
 	require.Equal(t, 1, num)
 }
+
+func assertKeytype(t *testing.T, db *IndexerDb, address sdk_types.Address, keytype *string) {
+	opts := idb.AccountQueryOptions{
+		EqualToAddress: address[:],
+	}
+	rowsCh, _ := db.GetAccounts(context.Background(), opts)
+
+	row, ok := <-rowsCh
+	require.True(t, ok)
+	require.NoError(t, row.Error)
+	assert.Equal(t, keytype, row.Account.SigType)
+}
+
+func TestKeytypeBasic(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	// Make an empty block so `GetAccounts()` does not fail.
+	importTxns(t, db, test.Round)
+	accountTxns(t, db, test.Round)
+	assertKeytype(t, db, test.AccountA, nil)
+
+	{
+		txn, txnRow := test.MakePayTxnRowOrPanic(
+			test.Round+1, 0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA,
+			sdk_types.ZeroAddress, sdk_types.ZeroAddress)
+		txn.Sig[0] = 3
+		txnRow.TxnBytes = msgpack.Encode(txn)
+		importTxns(t, db, test.Round+1, txn)
+		accountTxns(t, db, test.Round+1, txnRow)
+		keytype := "sig"
+		assertKeytype(t, db, test.AccountA, &keytype)
+	}
+
+	{
+		txn, txnRow := test.MakePayTxnRowOrPanic(
+			test.Round+2, 0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA,
+			sdk_types.ZeroAddress, sdk_types.ZeroAddress)
+		txn.Msig.Subsigs = append(txn.Msig.Subsigs, sdk_types.MultisigSubsig{})
+		txnRow.TxnBytes = msgpack.Encode(txn)
+		importTxns(t, db, test.Round+2, txn)
+		accountTxns(t, db, test.Round+2, txnRow)
+		keytype := "msig"
+		assertKeytype(t, db, test.AccountA, &keytype)
+	}
+}
