@@ -1051,7 +1051,7 @@ func TestLargeAssetAmount(t *testing.T) {
 
 	{
 		opts := idb.AccountQueryOptions{
-			EqualToAddress: test.AccountA[:],
+			EqualToAddress:       test.AccountA[:],
 			IncludeAssetHoldings: true,
 		}
 		rowsCh, _ := db.GetAccounts(context.Background(), opts)
