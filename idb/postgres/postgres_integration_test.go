@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"math"
 	"sync"
 	"testing"
 
@@ -1021,5 +1022,45 @@ func TestKeytypeBasic(t *testing.T) {
 		accountTxns(t, db, test.Round+2, txnRow)
 		keytype := "msig"
 		assertKeytype(t, db, test.AccountA, &keytype)
+	}
+}
+
+// Test that asset amount >= 2^63 is handled correctly. Due to the specifics of
+// postgres it might be a problem.
+func TestLargeAssetAmount(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	assetid := uint64(1)
+	txn, txnRow := test.MakeAssetConfigOrPanic(
+		test.Round, 0, assetid, math.MaxUint64, 0, false, "mc", "mycoin", "", test.AccountA)
+	importTxns(t, db, test.Round, txn)
+	accountTxns(t, db, test.Round, txnRow)
+
+	{
+		opts := idb.AssetBalanceQuery{
+			AssetID: assetid,
+		}
+		rowsCh, _ := db.AssetBalances(context.Background(), opts)
+
+		row, ok := <-rowsCh
+		require.True(t, ok)
+		require.NoError(t, row.Error)
+		assert.Equal(t, uint64(math.MaxUint64), row.Amount)
+	}
+
+	{
+		opts := idb.AccountQueryOptions{
+			EqualToAddress:       test.AccountA[:],
+			IncludeAssetHoldings: true,
+		}
+		rowsCh, _ := db.GetAccounts(context.Background(), opts)
+
+		row, ok := <-rowsCh
+		require.True(t, ok)
+		require.NoError(t, row.Error)
+		require.NotNil(t, row.Account.Assets)
+		require.Equal(t, 1, len(*row.Account.Assets))
+		assert.Equal(t, uint64(math.MaxUint64), (*row.Account.Assets)[0].Amount)
 	}
 }
