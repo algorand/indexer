@@ -3,11 +3,14 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"math"
 	"sync"
 	"testing"
 
 	_ "github.com/lib/pq"
+	"github.com/orlangure/gnomock"
+	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -1102,4 +1105,154 @@ func TestOpenDbAgain(t *testing.T) {
 
 	_, err = OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
+}
+
+func blockHeaderRounds(t *testing.T, db *IndexerDb) []uint64 {
+	query := "SELECT round FROM block_header ORDER BY round"
+	rows, err := db.db.Query(query)
+	require.NoError(t, err)
+
+	res := make([]uint64, 0)
+	for rows.Next() {
+		var round uint64
+		err = rows.Scan(&round)
+		require.NoError(t, err)
+		res = append(res, round)
+	}
+	require.NoError(t, rows.Err())
+
+	return res
+}
+
+// Read all block headers and their transactions.
+func readBlocks(t *testing.T, db *IndexerDb) {
+	rounds := blockHeaderRounds(t, db)
+	assert.Greater(t, len(rounds), 1)
+
+	for _, round := range rounds {
+		opts := idb.GetBlockOptions{
+			Transactions: true,
+		}
+		_, _, err := db.GetBlock(context.Background(), round, opts)
+		require.NoError(t, err)
+	}
+}
+
+// Read all transactions.
+func readTransactions(t *testing.T, db *IndexerDb) {
+	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+	count := 0
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		count++
+	}
+	assert.Greater(t, count, 0)
+}
+
+// Read all accounts including local and global state for assets and apps.
+func readAccounts(t *testing.T, db *IndexerDb) {
+	opts := idb.AccountQueryOptions{
+		IncludeAssetHoldings: true,
+		IncludeAssetParams: true,
+		IncludeDeleted: true,
+	}
+	rowsCh, _ := db.GetAccounts(context.Background(), opts)
+
+	count := 0
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		count++
+	}
+
+	assert.Greater(t, count, 1)
+}
+
+// Read all asset params.
+func readAssetParams(t *testing.T, db *IndexerDb) {
+	opts := idb.AssetsQuery{
+		IncludeDeleted: true,
+	}
+	rowsCh, _ := db.Assets(context.Background(), opts)
+
+	count := 0
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		count++
+	}
+
+	assert.Greater(t, count, 1)
+}
+
+// Read all asset holdings.
+func readAssetHoldings(t *testing.T, db *IndexerDb) {
+	opts := idb.AssetBalanceQuery{
+		IncludeDeleted: true,
+	}
+	rowsCh, _ := db.AssetBalances(context.Background(), opts)
+
+	count := 0
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		count++
+	}
+
+	assert.Greater(t, count, 1)
+}
+
+// Read all app params.
+func readAppParams(t *testing.T, db *IndexerDb) {
+	yes := true
+	opts := generated.SearchForApplicationsParams{
+		IncludeAll: &yes,
+	}
+	rowsCh, _ := db.Applications(context.Background(), &opts)
+
+	count := 0
+	for row := range rowsCh {
+		require.NoError(t, row.Error)
+		count++
+	}
+
+	assert.Greater(t, count, 1)
+}
+
+// Imports an indexer database from a file, and runs various IndexerDb query functions.
+// To generate a new test database, follow the instruction in the script at
+// test/make_test_db.sh.
+func TestDbCompatibility(t *testing.T) {
+	p := postgres.Preset(
+		postgres.WithVersion("12.5"),
+		postgres.WithUser("gnomock", "gnomick"),
+		postgres.WithDatabase("mydb"),
+		postgres.WithQueriesFile("test.sql"),
+	)
+	container, err := gnomock.Start(p)
+	require.NoError(t, err, "Error starting gnomock")
+
+	defer func() {
+		err = gnomock.Stop(container)
+		require.NoError(t, err, "Error stoping gnomock")
+	}()
+
+	connStr := fmt.Sprintf(
+		"host=%s port=%d user=%s password=%s  dbname=%s sslmode=disable",
+		container.Host, container.DefaultPort(),
+		"gnomock", "gnomick", "mydb",
+	)
+	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	require.NoError(t, err)
+
+	round, err := db.GetNextRoundToAccount()
+	require.NoError(t, err)
+	assert.Greater(t, round, uint64(0))
+
+	_, err = db.GetSpecialAccounts()
+	require.NoError(t, err)
+
+	readBlocks(t, db)
+	readTransactions(t, db)
+	readAccounts(t, db)
+	readAssetParams(t, db)
+	readAssetHoldings(t, db)
+	readAppParams(t, db)
 }
