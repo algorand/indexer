@@ -11,8 +11,10 @@ import (
 )
 
 func TestAllMigrations(t *testing.T) {
-	for idx, m := range migrations {
-		t.Run(fmt.Sprintf("Test migration %d", idx), func(t *testing.T) {
+	for index, m := range migrations {
+		migrationNum := firstAvailableMigration + index
+
+		t.Run(fmt.Sprintf("Test migration %d", migrationNum), func(t *testing.T) {
 			db := MakeMockDB([]*MockStmt{
 				// "state"
 				MakeMockStmt(
@@ -26,7 +28,7 @@ func TestAllMigrations(t *testing.T) {
 					1,
 					[]string{"v"},
 					[][]interface{}{
-						{fmt.Sprintf(`{"next": %d}`, idx)},
+						{fmt.Sprintf(`{"next": %d}`, migrationNum)},
 					}),
 			})
 
@@ -46,7 +48,7 @@ func TestAllMigrations(t *testing.T) {
 
 			// There should be an error because I'm not attempting to mock the migration code.
 			//require.Contains(t, err.Error(), fmt.Sprintf("error during migration %d", idx))
-			str := fmt.Sprintf("error during migration %d (%s)", idx, m.description)
+			str := fmt.Sprintf("error during migration %d (%s)", migrationNum, m.description)
 			require.Contains(t, h.Error, str)
 			require.Contains(t, (*h.Data)["migration-status"], str)
 		})
@@ -67,7 +69,7 @@ func TestNoMigrationsNeeded(t *testing.T) {
 			1,
 			[]string{"v"},
 			[][]interface{}{
-				{fmt.Sprintf(`{"next": %d}`, len(migrations)+1)},
+				{fmt.Sprintf(`{"next": %d}`, firstAvailableMigration+len(migrations)+1)},
 			}),
 	})
 

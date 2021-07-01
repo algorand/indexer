@@ -53,9 +53,7 @@ fmt:
 
 integration: cmd/algorand-indexer/algorand-indexer
 	mkdir -p test/blockdata
-	mkdir -p test/migrations
 	curl -s https://algorand-testdata.s3.amazonaws.com/indexer/test_blockdata/create_destroy.tar.bz2 -o test/blockdata/create_destroy.tar.bz2
-	test/postgres_migration_test.sh
 	test/postgres_integration_test.sh
 
 e2e: cmd/algorand-indexer/algorand-indexer
