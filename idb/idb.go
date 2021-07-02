@@ -85,9 +85,11 @@ type IndexerDb interface {
 
 	LoadGenesis(genesis types.Genesis) (err error)
 
-	// GetMaxRoundAccounted returns ErrorNotInitialized if there are no accounted rounds.
-	GetMaxRoundAccounted() (round uint64, err error)
-	GetNextRoundToLoad() (round uint64, err error)
+	// GetNextRoundToAccount returns ErrorNotInitialized if genesis is not loaded.
+	GetNextRoundToAccount() (uint64, error)
+	// GetMaxRoundAccounted returns ErrorNotInitialized if genesis is not loaded.
+	GetMaxRoundAccounted() (uint64, error)
+	GetNextRoundToLoad() (uint64, error)
 	GetSpecialAccounts() (SpecialAccounts, error)
 	GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error)
 

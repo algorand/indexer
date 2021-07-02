@@ -36,47 +36,36 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	///////////
-	// Given // A database that has not yet imported the genesis accounts.
-	///////////
 	db, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
-	//////////
-	// When // We request the max round.
-	//////////
-	roundA, errA := db.GetMaxRoundAccounted()
-	roundL, errL := db.GetNextRoundToLoad()
+	round, err := db.GetNextRoundToAccount()
+	assert.Equal(t, err, idb.ErrorNotInitialized)
+	assert.Equal(t, uint64(0), round)
 
-	//////////
-	// Then // The error message should be set.
-	//////////
-	assert.Equal(t, errA, idb.ErrorNotInitialized)
-	assert.Equal(t, uint64(0), roundA)
+	round, err = db.GetMaxRoundAccounted()
+	assert.Equal(t, err, idb.ErrorNotInitialized)
+	assert.Equal(t, uint64(0), round)
 
-	require.NoError(t, errL)
-	assert.Equal(t, uint64(0), roundL)
+	round, err = db.GetNextRoundToLoad()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0), round)
 }
 
 // TestMaxRoundEmptyMetastate makes sure we return 0 when the metastate is empty.
 func TestMaxRoundEmptyMetastate(t *testing.T) {
 	pg, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	///////////
-	// Given // The database has the metastate set but the account_round is missing.
-	///////////
+
 	db, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	pg.Exec(`INSERT INTO metastate (k, v) values ('state', '{}')`)
 
-	//////////
-	// When // We request the max round.
-	//////////
-	round, err := db.GetMaxRoundAccounted()
+	round, err := db.GetNextRoundToAccount()
+	assert.Equal(t, err, idb.ErrorNotInitialized)
+	assert.Equal(t, uint64(0), round)
 
-	//////////
-	// Then // The error message should be set.
-	//////////
+	round, err = db.GetMaxRoundAccounted()
 	assert.Equal(t, err, idb.ErrorNotInitialized)
 	assert.Equal(t, uint64(0), round)
 }
@@ -85,27 +74,49 @@ func TestMaxRoundEmptyMetastate(t *testing.T) {
 func TestMaxRound(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	///////////
-	// Given // The database has the metastate set normally.
-	///////////
+
 	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
-	db.Exec(`INSERT INTO metastate (k, v) values ($1, $2)`, "state", "{\"account_round\":123454321}")
-	db.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`, 543212345)
+	db.Exec(
+		`INSERT INTO metastate (k, v) values ($1, $2)`,
+		"state",
+		`{"next_account_round":123454322}`)
+	db.Exec(
+		`INSERT INTO block_header (round, realtime, rewardslevel, header) `+
+			`VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`,
+		543212345)
 
-	//////////
-	// When // We request the max round.
-	//////////
-	roundA, err := pdb.GetMaxRoundAccounted()
-	assert.NoError(t, err)
-	roundL, err := pdb.GetNextRoundToLoad()
-	assert.NoError(t, err)
+	round, err := pdb.GetNextRoundToAccount()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(123454322), round)
 
-	//////////
-	// Then // There should be no error and we return that there are zero rounds.
-	//////////
-	assert.Equal(t, uint64(123454321), roundA)
-	assert.Equal(t, uint64(543212346), roundL)
+	round, err = pdb.GetMaxRoundAccounted()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(123454321), round)
+
+	round, err = pdb.GetNextRoundToLoad()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(543212346), round)
+}
+
+func TestAccountedRoundNextRound0(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+	assert.NoError(t, err)
+	db.Exec(
+		`INSERT INTO metastate (k, v) values ($1, $2)`,
+		"state",
+		`{"next_account_round":0}`)
+
+	round, err := pdb.GetNextRoundToAccount()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0), round)
+
+	round, err = pdb.GetMaxRoundAccounted()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0), round)
 }
 
 func assertAccountAsset(t *testing.T, db *sql.DB, addr sdk_types.Address, assetid uint64, frozen bool, amount uint64) {
@@ -421,7 +432,9 @@ func TestBlockWithTransactions(t *testing.T) {
 	txns := []*sdk_types.SignedTxnWithAD{tx1, tx2, tx3, tx4, tx5}
 	txnRows := []*idb.TxnRow{row1, row2, row3, row4, row5}
 
-	_, err = db.Exec(`INSERT INTO metastate (k, v) values ($1, $2)`, "state", `{"account_round": 11}`)
+	_, err = db.Exec(
+		`INSERT INTO metastate (k, v) values ($1, $2)`, "state",
+		`{"next_account_round": 12}`)
 	require.NoError(t, err)
 	_, err = db.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`, test.Round)
 	require.NoError(t, err)

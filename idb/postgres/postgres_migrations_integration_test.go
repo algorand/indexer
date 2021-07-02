@@ -302,3 +302,86 @@ func TestMakeDeletedNotNullMigration(t *testing.T) {
 		assert.Equal(t, false, *deleted)
 	}
 }
+
+func TestMaxRoundAccountedMigrationAccountRound0(t *testing.T) {
+	_, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	assert.NoError(t, err)
+
+	round := int64(0)
+	importstate := importState{
+		AccountRound: &round,
+	}
+	err = db.setImportState(nil, importstate)
+	require.NoError(t, err)
+
+	migrationState := MigrationState{NextMigration: 4}
+	err = MaxRoundAccountedMigration(db, &migrationState)
+	require.NoError(t, err)
+
+	importstate, err = db.getImportState(nil)
+	require.NoError(t, err)
+
+	nextRound := uint64(0)
+	importstateExpected := importState{
+		NextRoundToAccount: &nextRound,
+	}
+	assert.Equal(t, importstateExpected, importstate)
+
+	// Check the next migration number.
+	assert.Equal(t, 5, migrationState.NextMigration)
+	newNum := nextMigrationNum(t, db)
+	assert.Equal(t, 5, newNum)
+}
+
+func TestMaxRoundAccountedMigrationAccountRoundPositive(t *testing.T) {
+	_, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	assert.NoError(t, err)
+
+	round := int64(2)
+	importstate := importState{
+		AccountRound: &round,
+	}
+	err = db.setImportState(nil, importstate)
+	require.NoError(t, err)
+
+	migrationState := MigrationState{NextMigration: 4}
+	err = MaxRoundAccountedMigration(db, &migrationState)
+	require.NoError(t, err)
+
+	importstate, err = db.getImportState(nil)
+	require.NoError(t, err)
+
+	nextRound := uint64(3)
+	importstateExpected := importState{
+		NextRoundToAccount: &nextRound,
+	}
+	assert.Equal(t, importstateExpected, importstate)
+
+	// Check the next migration number.
+	assert.Equal(t, 5, migrationState.NextMigration)
+	newNum := nextMigrationNum(t, db)
+	assert.Equal(t, 5, newNum)
+}
+
+func TestMaxRoundAccountedMigrationUninitialized(t *testing.T) {
+	_, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	assert.NoError(t, err)
+
+	migrationState := MigrationState{NextMigration: 4}
+	err = MaxRoundAccountedMigration(db, &migrationState)
+	require.NoError(t, err)
+
+	_, err = db.getImportState(nil)
+	assert.Equal(t, idb.ErrorNotInitialized, err)
+
+	// Check the next migration number.
+	assert.Equal(t, 5, migrationState.NextMigration)
+	newNum := nextMigrationNum(t, db)
+	assert.Equal(t, 5, newNum)
+}

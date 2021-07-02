@@ -36,8 +36,10 @@ import (
 )
 
 type importState struct {
-	// Last accounted round.
+	// DEPRECATED. Last accounted round.
 	AccountRound *int64 `codec:"account_round"`
+	// Next round to account.
+	NextRoundToAccount *uint64 `codec:"next_account_round"`
 }
 
 const stateMetastateKey = "state"
@@ -334,9 +336,9 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 		}
 	}
 
-	round := int64(0)
+	nextRound := uint64(0)
 	importstate := importState{
-		AccountRound: &round,
+		NextRoundToAccount: &nextRound,
 	}
 	err = db.setImportState(nil, importstate)
 	if err != nil {
@@ -411,9 +413,9 @@ func (db *IndexerDb) setImportState(tx *sql.Tx, state importState) error {
 	return db.setMetastate(tx, stateMetastateKey, string(encoding.EncodeJSON(state)))
 }
 
-// Returns idb.ErrorNotInitialized if uninitialized.
+// Returns ErrorNotInitialized if genesis is not loaded.
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (uint64, error) {
+func (db *IndexerDb) getNextRoundToAccount(tx *sql.Tx) (uint64, error) {
 	state, err := db.getImportState(tx)
 	if err == idb.ErrorNotInitialized {
 		return 0, err
@@ -422,14 +424,34 @@ func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (uint64, error) {
 		return 0, fmt.Errorf("getNextRoundToAccount() err: %w", err)
 	}
 
-	if state.AccountRound == nil {
+	if state.NextRoundToAccount == nil {
 		return 0, idb.ErrorNotInitialized
 	}
-	return uint64(*state.AccountRound), nil
+	return *state.NextRoundToAccount, nil
+}
+
+// GetNextRoundToAccount is part of idb.IndexerDB
+// Returns ErrorNotInitialized if genesis is not loaded.
+func (db *IndexerDb) GetNextRoundToAccount() (uint64, error) {
+	return db.getNextRoundToAccount(nil)
+}
+
+// Returns ErrorNotInitialized if genesis is not loaded.
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (uint64, error) {
+	round, err := db.getNextRoundToAccount(tx)
+	if err != nil {
+		return 0, err
+	}
+
+	if round > 0 {
+		round--
+	}
+	return round, nil
 }
 
 // GetMaxRoundAccounted is part of idb.IndexerDB
-// Returns idb.ErrorNotInitialized if uninitialized.
+// Returns ErrorNotInitialized if genesis is not loaded.
 func (db *IndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
 	return db.getMaxRoundAccounted(nil)
 }
@@ -1294,17 +1316,17 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 		return err
 	}
 
-	if importstate.AccountRound == nil {
+	if importstate.NextRoundToAccount == nil {
 		return fmt.Errorf("importstate.AccountRound is nil")
 	}
 
-	if uint64(*importstate.AccountRound) >= round {
+	if uint64(*importstate.NextRoundToAccount) > round {
 		return fmt.Errorf(
-			"metastate round = %d while trying to write round %d",
-			*importstate.AccountRound, round)
+			"next round to account is %d while trying to write round %d",
+			*importstate.NextRoundToAccount, round)
 	}
 
-	*importstate.AccountRound = int64(round)
+	*importstate.NextRoundToAccount = round + 1
 	err = db.setImportState(tx, importstate)
 	if err != nil {
 		return
