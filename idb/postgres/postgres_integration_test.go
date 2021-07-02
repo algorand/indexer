@@ -36,14 +36,14 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	db, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	round, err := db.GetNextRoundToAccount()
 	assert.Equal(t, err, idb.ErrorNotInitialized)
 	assert.Equal(t, uint64(0), round)
 
-	round, err = db.GetMaxRoundAccounted()
+	round, err = db.getMaxRoundAccounted(nil)
 	assert.Equal(t, err, idb.ErrorNotInitialized)
 	assert.Equal(t, uint64(0), round)
 
@@ -57,7 +57,7 @@ func TestMaxRoundEmptyMetastate(t *testing.T) {
 	pg, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	db, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	pg.Exec(`INSERT INTO metastate (k, v) values ('state', '{}')`)
 
@@ -65,7 +65,7 @@ func TestMaxRoundEmptyMetastate(t *testing.T) {
 	assert.Equal(t, err, idb.ErrorNotInitialized)
 	assert.Equal(t, uint64(0), round)
 
-	round, err = db.GetMaxRoundAccounted()
+	round, err = db.getMaxRoundAccounted(nil)
 	assert.Equal(t, err, idb.ErrorNotInitialized)
 	assert.Equal(t, uint64(0), round)
 }
@@ -75,7 +75,7 @@ func TestMaxRound(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+	pdb, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	db.Exec(
 		`INSERT INTO metastate (k, v) values ($1, $2)`,
@@ -90,7 +90,7 @@ func TestMaxRound(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(123454322), round)
 
-	round, err = pdb.GetMaxRoundAccounted()
+	round, err = pdb.getMaxRoundAccounted(nil)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(123454321), round)
 
@@ -103,7 +103,7 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+	pdb, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	db.Exec(
 		`INSERT INTO metastate (k, v) values ($1, $2)`,
@@ -114,7 +114,7 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), round)
 
-	round, err = pdb.GetMaxRoundAccounted()
+	round, err = pdb.getMaxRoundAccounted(nil)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), round)
 }

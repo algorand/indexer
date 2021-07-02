@@ -450,12 +450,6 @@ func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (uint64, error) {
 	return round, nil
 }
 
-// GetMaxRoundAccounted is part of idb.IndexerDB
-// Returns ErrorNotInitialized if genesis is not loaded.
-func (db *IndexerDb) GetMaxRoundAccounted() (round uint64, err error) {
-	return db.getMaxRoundAccounted(nil)
-}
-
 // GetNextRoundToLoad is part of idb.IndexerDB
 func (db *IndexerDb) GetNextRoundToLoad() (uint64, error) {
 	row := db.db.QueryRow(`SELECT max(round) FROM block_header`)
@@ -2975,7 +2969,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 
 	data["migration-required"] = migrationRequired
 
-	round, err := db.GetMaxRoundAccounted()
+	round, err := db.getMaxRoundAccounted(nil)
 
 	// We'll just have to set the round to 0
 	if err == idb.ErrorNotInitialized {
