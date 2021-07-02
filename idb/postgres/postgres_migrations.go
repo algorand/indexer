@@ -16,6 +16,8 @@ import (
 )
 
 func init() {
+	// To deprecate old migrations change the functions to return a `unsupportedMigrationErrorMsg` error.
+	// Make sure you set the blocking flag to true to avoid possible consistency issues during startup.
 	migrations = []migrationStruct{
 		// function, blocking, description
 		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
