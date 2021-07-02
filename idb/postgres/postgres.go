@@ -464,7 +464,7 @@ func init() {
 }
 
 func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- idb.TxnRow) {
-  defer rows.Close()
+	defer rows.Close()
 
 	keepGoing := true
 	for keepGoing {
