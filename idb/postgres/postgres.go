@@ -464,6 +464,8 @@ func init() {
 }
 
 func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, results chan<- idb.TxnRow) {
+	defer rows.Close()
+
 	keepGoing := true
 	for keepGoing {
 		keepGoing = false
@@ -487,7 +489,6 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 				var row idb.TxnRow
 				row.Error = err
 				results <- row
-				rows.Close()
 				return
 			}
 
@@ -505,10 +506,8 @@ func (db *IndexerDb) yieldTxnsThread(ctx context.Context, rows *sql.Rows, result
 			var row idb.TxnRow
 			row.Error = err
 			results <- row
-			rows.Close()
 			return
 		}
-		rows.Close()
 		if pos == 0 {
 			break
 		}
@@ -1599,6 +1598,7 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 
 	round, err := db.getMaxRoundAccounted(tx)
 	if err != nil {
+		tx.Rollback()
 		out <- idb.TxnRow{Error: err}
 		close(out)
 		return out, round
@@ -1606,6 +1606,7 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 
 	go func() {
 		db.yieldTxns(ctx, tx, tf, out)
+		tx.Rollback()
 		close(out)
 	}()
 
@@ -1720,6 +1721,8 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.Transa
 }
 
 func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows *sql.Rows, results chan<- idb.TxnRow, countp *int, errp *error) {
+	defer rows.Close()
+
 	count := 0
 	for rows.Next() {
 		var round uint64
@@ -1777,6 +1780,8 @@ const offlineStatusIdx = 0
 func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 	count := uint64(0)
 	defer func() {
+		req.rows.Close()
+
 		end := time.Now()
 		dt := end.Sub(req.start)
 		if dt > (1 * time.Second) {
@@ -2646,6 +2651,8 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 }
 
 func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQuery, rows *sql.Rows, out chan<- idb.AssetRow) {
+	defer rows.Close()
+
 	for rows.Next() {
 		var index uint64
 		var creatorAddr []byte
@@ -2714,8 +2721,6 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	if !abq.IncludeDeleted {
 		whereParts = append(whereParts, "coalesce(aa.deleted, false) = false")
 	}
-	var rows *sql.Rows
-	var err error
 	query := `SELECT addr, assetid, amount, frozen, created_at, closed_at, deleted FROM account_asset aa`
 	if len(whereParts) > 0 {
 		query += " WHERE " + strings.Join(whereParts, " AND ")
@@ -2742,7 +2747,7 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 		return out, round
 	}
 
-	rows, err = tx.Query(query, whereArgs...)
+	rows, err := tx.Query(query, whereArgs...)
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
@@ -2758,6 +2763,8 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 }
 
 func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows *sql.Rows, out chan<- idb.AssetBalanceRow) {
+	defer rows.Close()
+
 	for rows.Next() {
 		var addr []byte
 		var assetID uint64
@@ -2860,6 +2867,8 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 }
 
 func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows *sql.Rows, out chan idb.ApplicationRow) {
+	defer rows.Close()
+
 	for rows.Next() {
 		var index uint64
 		var creator []byte
