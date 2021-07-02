@@ -86,7 +86,7 @@ func wrapPostgresHandler(handler postgresMigrationFunc, db *IndexerDb, state *Mi
 
 // migrationStateBlocked returns true if a migration is required for running in read only mode.
 func migrationStateBlocked(state MigrationState) bool {
-	for i := 0; i < len(migrations); i++ {
+	for i := state.NextMigration; i < len(migrations); i++ {
 		if migrations[i].blocking {
 			return true
 		}
