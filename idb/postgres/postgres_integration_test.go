@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"math"
-	"strings"
 	"sync"
 	"testing"
 
@@ -1066,26 +1065,6 @@ func TestLargeAssetAmount(t *testing.T) {
 	}
 }
 
-// Test that opening a postgres database when next migration is lower than the first
-// available migration returns an error.
-func TestInitializationOutdatedDatabase(t *testing.T) {
-	db, connStr, shutdownFunc := setupPostgres(t)
-	defer shutdownFunc()
-
-	_, err := db.Exec(setup_postgres_sql)
-	require.NoError(t, err)
-
-	state := MigrationState{
-		NextMigration: firstAvailableMigration - 1,
-	}
-	_, err = db.Exec(
-		setMetastateUpsert, migrationMetastateKey, encoding.EncodeJSON(state))
-	require.NoError(t, err)
-
-	_, err = OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.True(t, strings.Contains(err.Error(), "Please create a new database"))
-}
-
 // Test that initializing a new database sets the correct migration number.
 func TestInitializationNewDatabase(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
@@ -1097,5 +1076,5 @@ func TestInitializationNewDatabase(t *testing.T) {
 	state, err := db.getMigrationState()
 	require.NoError(t, err)
 
-	assert.Equal(t, firstAvailableMigration+len(migrations), state.NextMigration)
+	assert.Equal(t, len(migrations), state.NextMigration)
 }

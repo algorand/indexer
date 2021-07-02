@@ -15,10 +15,28 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 )
 
-const firstAvailableMigration = 12
-
 func init() {
 	migrations = []migrationStruct{
+		// function, blocking, description
+		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
+		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
+		{m2apps, true, "Update DB Schema for Algorand application support."},
+		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
+
+		// 2.2.2 hotfix
+		{m4accountIndices, true, "Add indices to make sure account lookups remain fast when there are a lot of apps or assets."},
+
+		// Migrations for 2.3.1 release
+		{m5MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
+		{m6RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
+		{m7RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
+
+		// Migrations for 2.3.2 release
+		{m8StaleClosedAccounts, false, "clear some stale data from closed accounts"},
+		{m9TxnJSONEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
+		{m10SpecialAccountCleanup, false, "The initial m7 implementation would miss special accounts."},
+		{m11AssetHoldingFrozen, true, "Fix asset holding freeze states."},
+
 		{FixFreezeLookupMigration, false, "Fix search by asset freeze address."},
 		{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
 		{MakeDeletedNotNullMigration, false, "make all \"deleted\" columns NOT NULL"},
@@ -66,23 +84,17 @@ func wrapPostgresHandler(handler postgresMigrationFunc, db *IndexerDb, state *Mi
 
 // migrationStateBlocked returns true if a migration is required for running in read only mode.
 func migrationStateBlocked(state MigrationState) bool {
-	index := 0
-	if state.NextMigration >= firstAvailableMigration {
-		index = state.NextMigration - firstAvailableMigration
-	}
-
-	for index < len(migrations) {
-		if migrations[index].blocking {
+	for i := 0; i < len(migrations); i++ {
+		if migrations[i].blocking {
 			return true
 		}
-		index++
 	}
 	return false
 }
 
 // needsMigration returns true if there is an incomplete migration.
 func needsMigration(state MigrationState) bool {
-	return state.NextMigration < firstAvailableMigration+len(migrations)
+	return state.NextMigration < len(migrations)
 }
 
 // upsertMigrationStateTx updates the migration state, and optionally increments the next counter with an existing
@@ -117,24 +129,17 @@ func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err erro
 		}
 	}
 
-	if state.NextMigration < firstAvailableMigration {
-		return fmt.Errorf(
-			"The database is outdated: next migration is %d but the first available "+
-				"migration is %d. Please create a new database.",
-			state.NextMigration, firstAvailableMigration)
-	}
-
 	// Make migration tasks
-	index := state.NextMigration - firstAvailableMigration
+	nextMigration := state.NextMigration
 	tasks := make([]migration.Task, 0)
-	for index < len(migrations) {
+	for nextMigration < len(migrations) {
 		tasks = append(tasks, migration.Task{
-			Handler:       wrapPostgresHandler(migrations[index].migrate, db, &state),
-			MigrationID:   index + firstAvailableMigration,
-			Description:   migrations[index].description,
-			DBUnavailable: migrations[index].blocking,
+			Handler:       wrapPostgresHandler(migrations[nextMigration].migrate, db, &state),
+			MigrationID:   nextMigration,
+			Description:   migrations[nextMigration].description,
+			DBUnavailable: migrations[nextMigration].blocking,
 		})
-		index++
+		nextMigration++
 	}
 
 	if len(tasks) > 0 {
@@ -161,7 +166,7 @@ func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err erro
 // after setting up a new database, mark state as if all migrations had been done
 func (db *IndexerDb) markMigrationsAsDone() (err error) {
 	state := MigrationState{
-		NextMigration: firstAvailableMigration + len(migrations),
+		NextMigration: len(migrations),
 	}
 	migrationStateJSON := encoding.EncodeJSON(state)
 	return db.setMetastate(nil, migrationMetastateKey, string(migrationStateJSON))
@@ -215,6 +220,56 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 
 	*state = nextState
 	return nil
+}
+
+const unsupportedMigrationErrorMsg = "unsupported migration: please downgrade to %s to run this migration"
+
+func m0fixupTxid(db *IndexerDb, state *MigrationState) error {
+	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
+}
+
+func m1fixupBlockTime(db *IndexerDb, state *MigrationState) error {
+	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
+}
+
+func m2apps(db *IndexerDb, state *MigrationState) error {
+	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
+}
+
+func m3acfgFix(db *IndexerDb, state *MigrationState) (err error) {
+	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
+}
+
+func m4accountIndices(db *IndexerDb, state *MigrationState) error {
+	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
+}
+
+func m5MarkTxnJSONSplit(db *IndexerDb, state *MigrationState) error {
+	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
+}
+
+func m6RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
+	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
+}
+
+func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
+	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
+}
+
+func m8StaleClosedAccounts(db *IndexerDb, state *MigrationState) error {
+	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
+}
+
+func m9TxnJSONEncoding(db *IndexerDb, state *MigrationState) (err error) {
+	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
+}
+
+func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
+	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
+}
+
+func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
+	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
 }
 
 // Reusable update batch function. Provide a query and an array of argument arrays to pass  to that query.
