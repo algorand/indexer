@@ -1064,3 +1064,17 @@ func TestLargeAssetAmount(t *testing.T) {
 		assert.Equal(t, uint64(math.MaxUint64), (*row.Account.Assets)[0].Amount)
 	}
 }
+
+// Test that initializing a new database sets the correct migration number.
+func TestInitializationNewDatabase(t *testing.T) {
+	_, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	require.NoError(t, err)
+
+	state, err := db.getMigrationState()
+	require.NoError(t, err)
+
+	assert.Equal(t, len(migrations), state.NextMigration)
+}
