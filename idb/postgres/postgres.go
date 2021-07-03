@@ -133,48 +133,48 @@ func (db *IndexerDb) txWithRetry(ctx context.Context, opts sql.TxOptions, f func
 	}
 }
 
+func (db *IndexerDb) isSetup() (bool, error) {
+	query := `SELECT tablename FROM pg_catalog.pg_tables WHERE tablename = 'metastate'`
+	row := db.db.QueryRow(query)
+
+	var tmp string
+	err := row.Scan(&tmp)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("isSetup() err: %w", err)
+	}
+	return true, nil
+}
+
 func (db *IndexerDb) init(opts idb.IndexerDbOptions) error {
-	hasAccounting := false
-	_, err := db.getImportState(nil)
+	setup, err := db.isSetup()
 	if err != nil {
-		if err != idb.ErrorNotInitialized {
-			return fmt.Errorf("init() err: %w", err)
+		return fmt.Errorf("init() err: %w", err)
+	}
+
+	if !setup {
+		// new database, run setup
+		_, err = db.db.Exec(setup_postgres_sql)
+		if err != nil {
+			return fmt.Errorf("unable to setup postgres: %v", err)
 		}
-	} else {
-		hasAccounting = true
-	}
 
-	hasMigration := false
-	migrationState, err := db.getMigrationState()
-	if err != nil {
-		if err != idb.ErrorNotInitialized {
-			return fmt.Errorf("init() err: %w", err)
+		err = db.markMigrationsAsDone()
+		if err != nil {
+			return fmt.Errorf("unable to confirm migration: %v", err)
 		}
-	} else {
-		hasMigration = true
+
+		return nil
 	}
 
-	db.GetSpecialAccounts()
-
-	if hasMigration || hasAccounting {
-		if !opts.NoMigrate {
-			// see postgres_migrations.go
-			return db.runAvailableMigrations(migrationState)
-		}
+	if opts.NoMigrate {
+		return nil
 	}
 
-	// new database, run setup
-	_, err = db.db.Exec(setup_postgres_sql)
-	if err != nil {
-		return fmt.Errorf("unable to setup postgres: %v", err)
-	}
-
-	err = db.markMigrationsAsDone()
-	if err != nil {
-		return fmt.Errorf("unable to confirm migration: %v", err)
-	}
-
-	return nil
+	// see postgres_migrations.go
+	return db.runAvailableMigrations()
 }
 
 // Reset is part of idb.IndexerDB
@@ -367,6 +367,7 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	return err
 }
 
+// Returns `idb.ErrorNotInitialized` if uninitialized.
 // If `tx` is nil, use a normal query.
 func (db *IndexerDb) getMetastate(tx *sql.Tx, key string) (string, error) {
 	query := `SELECT v FROM metastate WHERE k = $1`
@@ -380,6 +381,9 @@ func (db *IndexerDb) getMetastate(tx *sql.Tx, key string) (string, error) {
 
 	var value string
 	err := row.Scan(&value)
+	if err == sql.ErrNoRows {
+		return "", idb.ErrorNotInitialized
+	}
 	if err != nil {
 		return "", fmt.Errorf("getMetastate() err: %w", err)
 	}
@@ -403,7 +407,7 @@ func (db *IndexerDb) setMetastate(tx *sql.Tx, key, jsonStrValue string) (err err
 // If `tx` is nil, use a normal query.
 func (db *IndexerDb) getImportState(tx *sql.Tx) (importState, error) {
 	importStateJSON, err := db.getMetastate(tx, stateMetastateKey)
-	if err == sql.ErrNoRows {
+	if err == idb.ErrorNotInitialized {
 		return importState{}, idb.ErrorNotInitialized
 	}
 	if err != nil {
@@ -2993,18 +2997,23 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 }
 
 // GetSpecialAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err error) {
-	var cache string
-	cache, err = db.getMetastate(nil, specialAccountsMetastateKey)
-	if err != nil || cache == "" {
-		// Initialize specialAccountsMetastateKey
-		var blockHeader types.BlockHeader
-		blockHeader, _, err = db.GetBlock(context.Background(), 0, idb.GetBlockOptions{})
-		if err != nil {
-			return idb.SpecialAccounts{}, fmt.Errorf("problem looking up special accounts from genesis block: %v", err)
+func (db *IndexerDb) GetSpecialAccounts() (idb.SpecialAccounts, error) {
+	cache, err := db.getMetastate(nil, specialAccountsMetastateKey)
+	if err != nil {
+		if err != idb.ErrorNotInitialized {
+			return idb.SpecialAccounts{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
 		}
 
-		accounts = idb.SpecialAccounts{
+		// Initialize specialAccountsMetastateKey
+		blockHeader, _, err := db.GetBlock(context.Background(), 0, idb.GetBlockOptions{})
+		if err != nil {
+			err = fmt.Errorf(
+				"GetSpecialAccounts() problem looking up special accounts from genesis "+
+					"block, err: %w", err)
+			return idb.SpecialAccounts{}, err
+		}
+
+		accounts := idb.SpecialAccounts{
 			FeeSink:     blockHeader.FeeSink,
 			RewardsPool: blockHeader.RewardsPool,
 		}
@@ -3015,12 +3024,16 @@ func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err err
 			return idb.SpecialAccounts{}, fmt.Errorf("problem saving metastate: %v", err)
 		}
 
-		return
+		return accounts, nil
 	}
 
+	var accounts idb.SpecialAccounts
 	err = encoding.DecodeJSON([]byte(cache), &accounts)
 	if err != nil {
-		err = fmt.Errorf("problem decoding cache '%s': %v", cache, err)
+		err = fmt.Errorf(
+			"GetSpecialAccounts() problem decoding, cache: '%s' err: %w", cache, err)
+		return idb.SpecialAccounts{}, err
 	}
-	return
+
+	return accounts, nil
 }
