@@ -133,17 +133,34 @@ func (db *IndexerDb) txWithRetry(ctx context.Context, opts sql.TxOptions, f func
 	}
 }
 
-func (db *IndexerDb) init(opts idb.IndexerDbOptions) (err error) {
-	accountingStateJSON, _ := db.getMetastate(nil, stateMetastateKey)
-	hasAccounting := len(accountingStateJSON) > 0
-	migrationStateJSON, _ := db.getMetastate(nil, migrationMetastateKey)
-	hasMigration := len(migrationStateJSON) > 0
+func (db *IndexerDb) init(opts idb.IndexerDbOptions) error {
+	hasAccounting := false
+	_, err := db.getImportState(nil)
+	if err != nil {
+		if err != idb.ErrorNotInitialized {
+			return fmt.Errorf("init() err: %w", err)
+		}
+	} else {
+		hasAccounting = true
+	}
+
+	hasMigration := false
+	migrationState, err := db.getMigrationState()
+	if err != nil {
+		if err != idb.ErrorNotInitialized {
+			return fmt.Errorf("init() err: %w", err)
+		}
+	} else {
+		hasMigration = true
+	}
 
 	db.GetSpecialAccounts()
 
-	if (hasMigration || hasAccounting) && !opts.NoMigrate {
-		// see postgres_migrations.go
-		return db.runAvailableMigrations(migrationStateJSON)
+	if hasMigration || hasAccounting {
+		if !opts.NoMigrate {
+			// see postgres_migrations.go
+			return db.runAvailableMigrations(migrationState)
+		}
 	}
 
 	// new database, run setup
@@ -351,7 +368,7 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 }
 
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) getMetastate(tx *sql.Tx, key string) (jsonStrValue string, err error) {
+func (db *IndexerDb) getMetastate(tx *sql.Tx, key string) (string, error) {
 	query := `SELECT v FROM metastate WHERE k = $1`
 
 	var row *sql.Row
@@ -361,14 +378,13 @@ func (db *IndexerDb) getMetastate(tx *sql.Tx, key string) (jsonStrValue string, 
 		row = tx.QueryRow(query, key)
 	}
 
-	err = row.Scan(&jsonStrValue)
-	if err == sql.ErrNoRows {
-		err = nil
-	}
+	var value string
+	err := row.Scan(&value)
 	if err != nil {
-		jsonStrValue = ""
+		return "", fmt.Errorf("getMetastate() err: %w", err)
 	}
-	return
+
+	return value, nil
 }
 
 const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
