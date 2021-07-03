@@ -284,10 +284,6 @@ type ApplicationRow struct {
 // IndexerDbOptions are the options common to all indexer backends.
 type IndexerDbOptions struct {
 	ReadOnly bool
-
-	// NoMigrate indicates to not run any migrations.
-	// Should probably only be used by the `reset` subcommand.
-	NoMigrate bool
 }
 
 // AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.

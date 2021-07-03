@@ -29,7 +29,7 @@ var resetCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
 			os.Exit(1)
 		}
-		opts := idb.IndexerDbOptions{NoMigrate: true}
+		opts := idb.IndexerDbOptions{ReadOnly: true}
 		db := indexerDbFromFlags(opts)
 		timeout := time.Now().Add(5 * time.Second)
 		health, err := db.Health()
@@ -66,7 +66,7 @@ var resetCmd = &cobra.Command{
 						fmt.Printf(
 							"Done resetting. Re-building accounting through block %d...",
 							nextRound-1)
-						opts.NoMigrate = false
+						opts.ReadOnly = false
 						// db.Close() // TODO: add Close() to IndxerDb interface?
 						db = indexerDbFromFlags(opts)
 						cache, err := db.GetDefaultFrozen()

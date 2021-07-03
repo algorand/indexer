@@ -169,10 +169,6 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) error {
 		return nil
 	}
 
-	if opts.NoMigrate {
-		return nil
-	}
-
 	// see postgres_migrations.go
 	return db.runAvailableMigrations()
 }
