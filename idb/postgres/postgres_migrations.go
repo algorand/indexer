@@ -122,15 +122,7 @@ func upsertMigrationState(db *IndexerDb, state *MigrationState, incrementNextMig
 	return err
 }
 
-func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
-	var state MigrationState
-	if len(migrationStateJSON) > 0 {
-		err = encoding.DecodeJSON([]byte(migrationStateJSON), &state)
-		if err != nil {
-			return fmt.Errorf("(%s) bad metastate migration json, %v", migrationStateJSON, err)
-		}
-	}
-
+func (db *IndexerDb) runAvailableMigrations(state MigrationState) (err error) {
 	// Make migration tasks
 	nextMigration := state.NextMigration
 	tasks := make([]migration.Task, 0)
@@ -174,11 +166,11 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 	return db.setMetastate(nil, migrationMetastateKey, string(migrationStateJSON))
 }
 
+// Returns `idb.ErrorNotInitialized` if uninitialized.
 func (db *IndexerDb) getMigrationState() (*MigrationState, error) {
 	migrationStateJSON, err := db.getMetastate(nil, migrationMetastateKey)
 	if err == sql.ErrNoRows {
-		// no previous state, ok
-		return nil, nil
+		return nil, idb.ErrorNotInitialized
 	} else if err != nil {
 		return nil, fmt.Errorf("getMigrationState() get state err: %w", err)
 	}
