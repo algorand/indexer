@@ -2949,10 +2949,12 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 		blocking = state.Blocking
 	} else {
 		state, err := db.getMigrationState()
-		if err == nil {
-			blocking = migrationStateBlocked(*state)
-			migrationRequired = needsMigration(*state)
+		if err != nil {
+			return idb.Health{}, err
 		}
+
+		blocking = migrationStateBlocked(state)
+		migrationRequired = needsMigration(state)
 	}
 
 	data["migration-required"] = migrationRequired

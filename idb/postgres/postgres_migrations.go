@@ -174,20 +174,19 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 	return db.setMetastate(nil, migrationMetastateKey, string(migrationStateJSON))
 }
 
-func (db *IndexerDb) getMigrationState() (*MigrationState, error) {
+func (db *IndexerDb) getMigrationState() (MigrationState, error) {
 	migrationStateJSON, err := db.getMetastate(nil, migrationMetastateKey)
-	if err == sql.ErrNoRows {
-		// no previous state, ok
-		return nil, nil
-	} else if err != nil {
-		return nil, fmt.Errorf("getMigrationState() get state err: %w", err)
-	}
-	var txstate MigrationState
-	err = encoding.DecodeJSON([]byte(migrationStateJSON), &txstate)
 	if err != nil {
-		return nil, fmt.Errorf("getMigrationState() decode state err: %w", err)
+		return MigrationState{}, fmt.Errorf("getMigrationState() get state err: %w", err)
 	}
-	return &txstate, nil
+
+	var state MigrationState
+	err = encoding.DecodeJSON([]byte(migrationStateJSON), &state)
+	if err != nil {
+		return MigrationState{}, fmt.Errorf("getMigrationState() decode state err: %w", err)
+	}
+
+	return state, nil
 }
 
 // sqlMigration executes a sql statements as the entire migration.
