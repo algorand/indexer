@@ -65,8 +65,9 @@ func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger)
 // Allow tests to inject a DB
 func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (pdb *IndexerDb, err error) {
 	pdb = &IndexerDb{
-		log: logger,
-		db:  db,
+		readonly: opts.ReadOnly,
+		log:      logger,
+		db:       db,
 	}
 
 	if pdb.log == nil {
@@ -88,7 +89,8 @@ func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (pd
 
 // IndexerDb is an idb.IndexerDB implementation
 type IndexerDb struct {
-	log *log.Logger
+	readonly bool
+	log      *log.Logger
 
 	db *sql.DB
 
@@ -2928,7 +2930,10 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 	errString := ""
 	var data = make(map[string]interface{})
 
-	// If we are not in read-only mode, there will be a migration object.
+	if db.readonly {
+		data["read-only-mode"] = true
+	}
+
 	if db.migration != nil {
 		state := db.migration.GetStatus()
 
@@ -2943,7 +2948,6 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 		migrating = state.Running
 		blocking = state.Blocking
 	} else {
-		data["read-only-node"] = true
 		state, err := db.getMigrationState()
 		if err == nil {
 			blocking = migrationStateBlocked(*state)
