@@ -31,19 +31,6 @@ var resetCmd = &cobra.Command{
 		}
 		opts := idb.IndexerDbOptions{ReadOnly: true}
 		db := indexerDbFromFlags(opts)
-		timeout := time.Now().Add(5 * time.Second)
-		health, err := db.Health()
-		maybeFail(err, "could not get db health, %v", err)
-		for health.IsMigrating || !health.DBAvailable {
-			if time.Now().After(timeout) {
-				fmt.Fprintf(os.Stderr, "timed out waiting for db to be ready\n")
-				os.Exit(1)
-				return
-			}
-			time.Sleep(100 * time.Millisecond)
-			health, err = db.Health()
-			maybeFail(err, "could not get db health, %v", err)
-		}
 		fmt.Println("Prior to resetting the database make sure no daemons are connected.")
 		fmt.Println("After this command finishes start the daemon again and it will begin to")
 		fmt.Println("re-index the data. This can take hours or days depending on the network")
