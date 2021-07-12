@@ -2,6 +2,7 @@ package encoding
 
 import (
 	"encoding/base64"
+	"strings"
 
 	"github.com/algorand/go-codec/codec"
 
@@ -53,7 +54,52 @@ func convertEvalDelta(evalDelta types.EvalDelta) types.EvalDelta {
 	return evalDelta
 }
 
+func desanitizeNull(str string) string {
+	if str != "" {
+		return strings.ReplaceAll(str, "\\u0000", "\x00")
+	}
+	return str
+}
+
+// SanitizeNullForQuery converts a string into something postgres can store in a jsonb column.
+func SanitizeNullForQuery(str string) string {
+	if str != "" {
+		result := strings.ReplaceAll(str, "\x00", "\\u0000")
+		if len(result) != len(str) {
+			// Escape the escapes if this is going to be used in a query.
+			return strings.ReplaceAll(result, "\\", "\\\\")
+		}
+	}
+	return str
+}
+
+// sanitizeNull converts a string into something postgres can store in a jsonb column.
+func sanitizeNull(str string) string {
+	if str != "" {
+		return strings.ReplaceAll(str, "\x00", "\\u0000")
+	}
+	return str
+}
+
+// SanitizeParams sanitizes all AssetParams that need it.
+func SanitizeParams(params types.AssetParams) types.AssetParams {
+	params.AssetName = sanitizeNull(params.AssetName)
+	params.UnitName = sanitizeNull(params.UnitName)
+	params.URL = sanitizeNull(params.URL)
+	return params
+}
+
+// DesanitizeParams desanitizes all AssetParams that need it.
+func DesanitizeParams(params types.AssetParams) types.AssetParams {
+	params.AssetName = desanitizeNull(params.AssetName)
+	params.UnitName = desanitizeNull(params.UnitName)
+	params.URL = desanitizeNull(params.URL)
+	return params
+}
+
 func convertSignedTxnWithAD(stxn types.SignedTxnWithAD) types.SignedTxnWithAD {
+	stxn.Txn.AssetParams = SanitizeParams(stxn.Txn.AssetParams)
+
 	stxn.EvalDelta = convertEvalDelta(stxn.EvalDelta)
 	return stxn
 }

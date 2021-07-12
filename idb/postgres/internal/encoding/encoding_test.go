@@ -84,3 +84,46 @@ func TestJSONEncoding(t *testing.T) {
 
 	assert.Equal(t, x, xx)
 }
+
+func TestSanitizeNull(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+		query    string
+	}{
+		{
+			name:     "simple",
+			input:    "nothing-to-do",
+			expected: "nothing-to-do",
+			query:    "nothing-to-do",
+		},
+		{
+			name:     "weird",
+			input:    "no/th/ing-to-do",
+			expected: "no/th/ing-to-do",
+			query:    "no/th/ing-to-do",
+		},
+		{
+			name:     "weirder",
+			input:    "no\thing\\-to-do",
+			expected: "no\thing\\-to-do",
+			query:    "no\thing\\-to-do",
+		},
+		{
+			name:     "embedded null",
+			input:    "has >\000< null",
+			expected: "has >\\u0000< null",
+			query:    "has >\\\\u0000< null",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name+" sanitizeNull", func(t *testing.T) {
+			assert.Equal(t, test.expected, sanitizeNull(test.input))
+		})
+		t.Run(test.name+" SanitizeNullForQuery", func(t *testing.T) {
+			assert.Equal(t, test.query, SanitizeNullForQuery(test.input))
+		})
+	}
+}

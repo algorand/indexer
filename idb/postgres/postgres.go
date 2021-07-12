@@ -1024,7 +1024,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 					if au.Config != nil {
 						var outparams []byte
 						if au.Config.IsNew {
-							outparams = encoding.EncodeJSON(au.Config.Params)
+							outparams = encoding.EncodeJSON(encoding.SanitizeParams(au.Config.Params))
 						} else {
 							row := getacfg.QueryRow(au.AssetID)
 							var paramjson []byte
@@ -2075,7 +2075,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				if dup {
 					continue
 				}
-				ap := assetParams[i]
+				ap := encoding.DesanitizeParams(assetParams[i])
 
 				tma := models.Asset{
 					Index:            assetid,
@@ -2589,6 +2589,7 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 		partNumber++
 	}
 	if filter.Name != "" {
+		filter.Name = encoding.SanitizeNullForQuery(filter.Name)
 		whereParts = append(whereParts, fmt.Sprintf("a.params ->> 'an' ILIKE $%d", partNumber))
 		whereArgs = append(whereArgs, "%"+filter.Name+"%")
 		partNumber++
@@ -2672,6 +2673,7 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			out <- idb.AssetRow{Error: err}
 			break
 		}
+		params = encoding.DesanitizeParams(params)
 		rec := idb.AssetRow{
 			AssetID:      index,
 			Creator:      creatorAddr,
