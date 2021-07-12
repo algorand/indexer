@@ -131,5 +131,8 @@ func TestSanitizeNull(t *testing.T) {
 		t.Run(test.name+" SanitizeNullForQuery", func(t *testing.T) {
 			assert.Equal(t, test.query, SanitizeNullForQuery(test.input))
 		})
+		t.Run(test.name+" Desanitize", func(t *testing.T) {
+			assert.Equal(t, test.input, desanitizeNull(test.expected))
+		})
 	}
 }
