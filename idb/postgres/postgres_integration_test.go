@@ -47,9 +47,23 @@ func TestEmbeddedNullString(t *testing.T) {
 	importTxns(t, db, test.Round, txn)
 	accountTxns(t, db, test.Round, txnRow)
 
-	// Test 2: search for asset
-	assets, _ := db.Assets(context.Background(), idb.AssetsQuery{Name: nameWithNull})
+	// Test 2: search for weird asset with no results
+	assets, _ := db.Assets(context.Background(), idb.AssetsQuery{Name: "No\001Issu\\es"})
 	num := 0
+	for asset := range assets {
+		require.NoError(t, asset.Error)
+		num++
+	}
+	assets, _ = db.Assets(context.Background(), idb.AssetsQuery{Name: "No\000Issu\\es"})
+	for asset := range assets {
+		require.NoError(t, asset.Error)
+		num++
+	}
+	require.Equal(t, 0, num)
+
+	// Test 3: search for asset with results serialized properly
+	assets, _ = db.Assets(context.Background(), idb.AssetsQuery{Name: nameWithNull})
+	num = 0
 	var creator types.Address
 	for asset := range assets {
 		require.NoError(t, asset.Error)
@@ -61,7 +75,7 @@ func TestEmbeddedNullString(t *testing.T) {
 	}
 	require.Equal(t, 1, num)
 
-	// Test 3: serialize transaction with weird asset
+	// Test 4: serialize transaction with weird asset
 	transactions, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 	num = 0
 	for tx := range transactions {
@@ -75,7 +89,7 @@ func TestEmbeddedNullString(t *testing.T) {
 	}
 	require.Equal(t, 1, num)
 
-	// Test 4: serialize account with weird asset
+	// Test 5: serialize account with weird asset
 	accounts, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: creator[:], IncludeAssetParams: true})
 	num = 0
 	for acct := range accounts {

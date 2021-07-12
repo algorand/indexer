@@ -55,30 +55,17 @@ func convertEvalDelta(evalDelta types.EvalDelta) types.EvalDelta {
 }
 
 func desanitizeNull(str string) string {
-	if str != "" {
-		return strings.ReplaceAll(str, "\\u0000", "\x00")
-	}
-	return str
+	return strings.ReplaceAll(str, `\u0000`, "\x00")
 }
 
 // SanitizeNullForQuery converts a string into something postgres can store in a jsonb column.
 func SanitizeNullForQuery(str string) string {
-	if str != "" {
-		result := strings.ReplaceAll(str, "\x00", "\\u0000")
-		if len(result) != len(str) {
-			// Escape the escapes if this is going to be used in a query.
-			return strings.ReplaceAll(result, "\\", "\\\\")
-		}
-	}
-	return str
+	return strings.ReplaceAll(str, "\x00", `\\u0000`)
 }
 
 // sanitizeNull converts a string into something postgres can store in a jsonb column.
 func sanitizeNull(str string) string {
-	if str != "" {
-		return strings.ReplaceAll(str, "\x00", "\\u0000")
-	}
-	return str
+	return strings.ReplaceAll(str, "\x00", `\u0000`)
 }
 
 // SanitizeParams sanitizes all AssetParams that need it.
