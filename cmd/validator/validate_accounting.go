@@ -43,7 +43,8 @@ type Processor interface {
 // Result is the output of ProcessAddress.
 type Result struct {
 	// Error is set if there were errors running the test.
-	Error error
+	Error     error
+	SameRound bool
 
 	Equal   bool
 	Retries int
@@ -235,7 +236,7 @@ func callProcessor(processor Processor, addrInput string, config Params, results
 
 		result, err := processor.ProcessAddress(algodData, indexerData)
 
-		if err == nil && (result.Equal || i >= config.retries) {
+		if err == nil && (result.Equal || result.SameRound || i >= config.retries) {
 			// Return when results are equal, or when finished retrying.
 			result.Retries = i
 			if result.Details != nil {
@@ -318,6 +319,8 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
 			errorLog.Printf("%s", time.Now().Format("2006-01-02 3:4:5 PM"))
 			errorLog.Printf("Account: %s", r.Details.address)
 			errorLog.Printf("Error #: %d", numErrors)
+			errorLog.Printf("Retries: %d", r.Retries)
+			errorLog.Printf("Rounds Match: %t", r.SameRound)
 
 			// Print error message if there is one.
 			if r.Error != nil {
