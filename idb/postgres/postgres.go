@@ -139,7 +139,8 @@ func (db *IndexerDb) isSetup() (bool, error) {
 	query := `SELECT 0 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'metastate'`
 	row := db.db.QueryRow(query)
 
-	err := row.Scan()
+	var tmp int
+	err := row.Scan(&tmp)
 	if err == sql.ErrNoRows {
 		return false, nil
 	}

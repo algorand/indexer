@@ -1091,3 +1091,15 @@ func TestInitializationNewDatabase(t *testing.T) {
 
 	assert.Equal(t, len(migrations), state.NextMigration)
 }
+
+// Test that opening the database the second time (after initializing) is successful.
+func TestOpenDbAgain(t *testing.T) {
+	_, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	_, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	require.NoError(t, err)
+
+	_, err = OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	require.NoError(t, err)
+}
