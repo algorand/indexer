@@ -3,6 +3,7 @@ package encoding
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/algorand/go-codec/codec"
@@ -57,7 +58,8 @@ func convertEvalDelta(evalDelta types.EvalDelta) types.EvalDelta {
 
 // SanitizeNullForQuery converts a string for putting into a SELECT ... WHERE
 func SanitizeNullForQuery(str string) string {
-	return EscapeNulls(str) // TODO: does Postgres query need double-escaping?
+	// lib/pq sadly fails to properly handle escaping string args!?
+	return strings.ReplaceAll(EscapeNulls(str), "\\", "\\\\")
 }
 
 // SanitizeParams sanitizes all AssetParams that need it.

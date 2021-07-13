@@ -2589,9 +2589,9 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 		partNumber++
 	}
 	if filter.Name != "" {
-		filter.Name = encoding.SanitizeNullForQuery(filter.Name)
+		queryName := encoding.SanitizeNullForQuery(filter.Name)
 		whereParts = append(whereParts, fmt.Sprintf("a.params ->> 'an' ILIKE $%d", partNumber))
-		whereArgs = append(whereArgs, "%"+filter.Name+"%")
+		whereArgs = append(whereArgs, "%"+queryName+"%")
 		partNumber++
 	}
 	if filter.Unit != "" {

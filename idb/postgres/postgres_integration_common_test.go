@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"database/sql"
+	"flag"
 	"fmt"
 	"testing"
 
@@ -17,8 +18,22 @@ import (
 	"github.com/algorand/indexer/util/test"
 )
 
+var testpg = flag.String("test-pg", "", "postgres connection string")
+
 // setupPostgres starts a gnomock postgres DB then returns the connection string and a shutdown function.
 func setupPostgres(t *testing.T) (*sql.DB, string, func()) {
+	if testpg != nil && *testpg != "" {
+		// use non-docker Postgresql
+		shutdownFunc := func() {
+			// nothing to do, psql db setup/teardown is external
+		}
+		connStr := *testpg
+		db, err := sql.Open("postgres", connStr)
+		require.NoError(t, err, "Error opening pg connection")
+
+		return db, connStr, shutdownFunc
+	}
+
 	p := postgres.Preset(
 		postgres.WithVersion("12.5"),
 		postgres.WithUser("gnomock", "gnomick"),
