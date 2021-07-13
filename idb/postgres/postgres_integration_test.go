@@ -39,7 +39,10 @@ func TestEmbeddedNullString(t *testing.T) {
 	assetID := uint64(1)
 	nameWithNull := "my\000coin"
 	unitWithNull := "m\000c"
-	urlWithNull := "http://its\000happening.com"
+	urlWithNull := "https://its\000happening.com"
+	encodedNameWithNull := encoding.EncodeString("my\000coin")
+	encodedUnitWithNull := encoding.EncodeString("m\000c")
+	encodedUrlWithNull := encoding.EncodeString("https://its\000happening.com")
 	txn, txnRow := test.MakeAssetConfigOrPanic(
 		test.Round, 0, assetID, math.MaxUint64, 0, false, unitWithNull, nameWithNull, urlWithNull, test.AccountA)
 
@@ -64,22 +67,33 @@ func TestEmbeddedNullString(t *testing.T) {
 	// Test 3: search for asset with results serialized properly
 	assets, _ = db.Assets(context.Background(), idb.AssetsQuery{Name: nameWithNull})
 	num = 0
-	var creator types.Address
 	for asset := range assets {
 		require.NoError(t, asset.Error)
-		require.Equal(t, nameWithNull, asset.Params.AssetName)
-		require.Equal(t, unitWithNull, asset.Params.UnitName)
-		require.Equal(t, urlWithNull, asset.Params.URL)
-		copy(creator[:], asset.Creator[:])
+		require.Equal(t, encodedNameWithNull, asset.Params.AssetName)
+		require.Equal(t, encodedUnitWithNull, asset.Params.UnitName)
+		require.Equal(t, encodedUrlWithNull, asset.Params.URL)
 		num++
 	}
 	require.Equal(t, 1, num)
 
-	// Test 4: serialize transaction with weird asset
+	// Test 4: search for asset using the escaped encoding name.
+	assets, _ = db.Assets(context.Background(), idb.AssetsQuery{Name: encoding.EncodeStringForQuery(nameWithNull)})
+	num = 0
+	for asset := range assets {
+		require.NoError(t, asset.Error)
+		require.Equal(t, encodedNameWithNull, asset.Params.AssetName)
+		require.Equal(t, encodedUnitWithNull, asset.Params.UnitName)
+		require.Equal(t, encodedUrlWithNull, asset.Params.URL)
+		num++
+	}
+	require.Equal(t, 1, num)
+
+	// Test 5: serialize transaction with weird asset
 	transactions, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 	num = 0
 	for tx := range transactions {
 		require.NoError(t, tx.Error)
+		// Note: These are created from the TxnBytes, so they have the exact name with embedded null.
 		var txn sdk_types.SignedTxn
 		require.NoError(t, msgpack.Decode(tx.TxnBytes, &txn))
 		require.Equal(t, nameWithNull, txn.Txn.AssetParams.AssetName)
@@ -89,16 +103,16 @@ func TestEmbeddedNullString(t *testing.T) {
 	}
 	require.Equal(t, 1, num)
 
-	// Test 5: serialize account with weird asset
-	accounts, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: creator[:], IncludeAssetParams: true})
+	// Test 6: serialize account with weird asset
+	accounts, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAssetParams: true})
 	num = 0
 	for acct := range accounts {
 		require.NoError(t, acct.Error)
 		require.NotNil(t, acct.Account.CreatedAssets)
 		require.Len(t, *acct.Account.CreatedAssets, 1)
-		require.Equal(t, nameWithNull, *((*acct.Account.CreatedAssets)[0].Params.Name))
-		require.Equal(t, unitWithNull, *((*acct.Account.CreatedAssets)[0].Params.UnitName))
-		require.Equal(t, urlWithNull, *((*acct.Account.CreatedAssets)[0].Params.Url))
+		require.Equal(t, encodedNameWithNull, *((*acct.Account.CreatedAssets)[0].Params.Name))
+		require.Equal(t, encodedUnitWithNull, *((*acct.Account.CreatedAssets)[0].Params.UnitName))
+		require.Equal(t, encodedUrlWithNull, *((*acct.Account.CreatedAssets)[0].Params.Url))
 		num++
 	}
 	require.Equal(t, 1, num)

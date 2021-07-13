@@ -54,39 +54,37 @@ func convertEvalDelta(evalDelta types.EvalDelta) types.EvalDelta {
 	return evalDelta
 }
 
-func desanitizeNull(str string) string {
-	return strings.ReplaceAll(str, `\u0000`, "\x00")
-}
-
-// SanitizeNullForQuery converts a string into something postgres can store in a jsonb column.
-func SanitizeNullForQuery(str string) string {
+// EncodeStringForQuery converts a string into something postgres can use to query a jsonb column.
+func EncodeStringForQuery(str string) string {
 	return strings.ReplaceAll(str, "\x00", `\\u0000`)
 }
 
-// sanitizeNull converts a string into something postgres can store in a jsonb column.
-func sanitizeNull(str string) string {
+// EncodeString converts a string into something postgres can store in a jsonb column.
+func EncodeString(str string) string {
 	return strings.ReplaceAll(str, "\x00", `\u0000`)
 }
 
-// SanitizeParams sanitizes all AssetParams that need it.
-func SanitizeParams(params types.AssetParams) types.AssetParams {
-	params.AssetName = sanitizeNull(params.AssetName)
-	params.UnitName = sanitizeNull(params.UnitName)
-	params.URL = sanitizeNull(params.URL)
-	return params
-}
-
-// DesanitizeParams desanitizes all AssetParams that need it.
-func DesanitizeParams(params types.AssetParams) types.AssetParams {
-	params.AssetName = desanitizeNull(params.AssetName)
-	params.UnitName = desanitizeNull(params.UnitName)
-	params.URL = desanitizeNull(params.URL)
+// EncodeAssetParams sanitizes all AssetParams that need it.
+// The AssetParams encoding policy needs to take into account that algod accepts
+// any user defined string that go accepts. The notable part here is that postgres
+// does not allow the null character:
+//                            https://www.postgresql.org/docs/11/datatype-json.html
+// Our policy is a uni-directional encoding. If the AssetParam object contains
+// any zero byte characters, they are converted to `\\u0000`. When the AssetParams
+// are returned by '/v2/assets' or '/v2/accounts', the response contains the
+// encoded string instead of a zero byte.
+//
+// Note that '/v2/transactions' returns the raw transaction bytes, so this
+// endpoint returns the correct string complete with zero bytes.
+func EncodeAssetParams(params types.AssetParams) types.AssetParams {
+	params.AssetName = EncodeString(params.AssetName)
+	params.UnitName = EncodeString(params.UnitName)
+	params.URL = EncodeString(params.URL)
 	return params
 }
 
 func convertSignedTxnWithAD(stxn types.SignedTxnWithAD) types.SignedTxnWithAD {
-	stxn.Txn.AssetParams = SanitizeParams(stxn.Txn.AssetParams)
-
+	stxn.Txn.AssetParams = EncodeAssetParams(stxn.Txn.AssetParams)
 	stxn.EvalDelta = convertEvalDelta(stxn.EvalDelta)
 	return stxn
 }
