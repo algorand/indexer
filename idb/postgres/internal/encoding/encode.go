@@ -120,7 +120,7 @@ func EscapeNulls(x string) string {
 		case '\\':
 			newlen += 2
 		default:
-			newlen += 1
+			newlen++
 		}
 		i += csize
 
