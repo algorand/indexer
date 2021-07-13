@@ -14,12 +14,12 @@ func TestAllMigrations(t *testing.T) {
 	for idx, m := range migrations {
 		t.Run(fmt.Sprintf("Test migration %d", idx), func(t *testing.T) {
 			db := MakeMockDB([]*MockStmt{
-				// pg_catalog.pg_tables
+				// INFORMATION_SCHEMA.TABLES
 				MakeMockStmt(
 					0,
-					[]string{"tablename"},
+					[]string{"columnname"},
 					[][]interface{}{
-						{"metastate"},
+						{0},
 					}),
 				// migration state
 				MakeMockStmt(
@@ -55,12 +55,12 @@ func TestAllMigrations(t *testing.T) {
 
 func TestNoMigrationsNeeded(t *testing.T) {
 	db := MakeMockDB([]*MockStmt{
-		// pg_catalog.pg_tables
+		// INFORMATION_SCHEMA.TABLES
 		MakeMockStmt(
 			0,
-			[]string{"tablename"},
+			[]string{"columnname"},
 			[][]interface{}{
-				{"metastate"},
+				{0},
 			}),
 		// migration state
 		MakeMockStmt(
