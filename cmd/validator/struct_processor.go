@@ -32,8 +32,9 @@ func (gp StructProcessor) ProcessAddress(algodData, indexerData []byte) (Result,
 	differences := equals(indexerAcct, algodAcct)
 	if len(differences) > 0 {
 		return Result{
-			Equal:   false,
-			Retries: 0,
+			Equal:     false,
+			SameRound: indexerAcct.Round == algodAcct.Round,
+			Retries:   0,
 			Details: &ErrorDetails{
 				algod:   mustEncode(algodAcct),
 				indexer: mustEncode(indexerAcct),
