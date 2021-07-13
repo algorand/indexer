@@ -197,18 +197,11 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	start := time.Now()
 	_, err := bih.imp.ImportDecodedBlock(block)
 	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round)
-	maxRoundAccounted, err := bih.db.GetMaxRoundAccounted()
-	var nextUnaccountedRound uint64
-	// Special case to start at round 0 if things are uninitialized, otherwise start at the first unaccounted round.
-	if err == idb.ErrorNotInitialized {
-		nextUnaccountedRound = 0
-	} else {
-		maybeFail(err, "failed to get max round accounted.")
-		nextUnaccountedRound = maxRoundAccounted + 1
-	}
+	startRound, err := bih.db.GetNextRoundToAccount()
+	maybeFail(err, "failed to get next round to account")
 	// During normal operation StartRound and MaxRound will be the same round.
 	filter := idb.UpdateFilter{
-		StartRound: nextUnaccountedRound,
+		StartRound: startRound,
 		MaxRound:   uint64(block.Block.Round),
 	}
 	importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
