@@ -136,11 +136,10 @@ func (db *IndexerDb) txWithRetry(ctx context.Context, opts sql.TxOptions, f func
 }
 
 func (db *IndexerDb) isSetup() (bool, error) {
-	query := `SELECT tablename FROM pg_catalog.pg_tables WHERE tablename = 'metastate'`
+	query := `SELECT 0 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'metastate'`
 	row := db.db.QueryRow(query)
 
-	var tmp string
-	err := row.Scan(&tmp)
+	err := row.Scan()
 	if err == sql.ErrNoRows {
 		return false, nil
 	}
