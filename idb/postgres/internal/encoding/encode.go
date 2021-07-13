@@ -65,6 +65,7 @@ func SanitizeNullForQuery(str string) string {
 
 // sanitizeNull converts a string into something postgres can store in a jsonb column.
 func sanitizeNull(str string) string {
+	str = strings.ReplaceAll(str, "\\", "\\\\")
 	return strings.ReplaceAll(str, "\x00", `\u0000`)
 }
 
@@ -105,4 +106,97 @@ func init() {
 	jsonCodecHandle.HTMLCharsAsIs = true
 	jsonCodecHandle.Indent = 0
 	jsonCodecHandle.MapKeyAsString = true
+}
+
+func EscapeNulls(x string) string {
+	newlen := 0
+	for _, c := range x {
+		switch c {
+		case 0:
+			newlen += 6 // \u0000
+		case '\\':
+			newlen += 2
+		default:
+			newlen += 1
+		}
+	}
+	if len(x) == newlen {
+		return x
+	}
+	xb := []byte(x)
+	const escapenull = "\\u0000"
+	out := make([]byte, newlen)
+	start := 0
+	outpos := 0
+	for i, c := range x {
+		switch c {
+		case 0:
+			copy(out[outpos:], xb[start:i])
+			outpos += i - start
+			start = i + 1
+			copy(out[outpos:], escapenull)
+			outpos += 6
+		case '\\':
+			copy(out[outpos:], xb[start:i])
+			outpos += i - start
+			start = i + 1
+			out[outpos] = '\\'
+			outpos++
+			out[outpos] = '\\'
+			outpos++
+		default:
+		}
+	}
+	if start < len(xb) {
+		copy(out[outpos:], xb[start:])
+	}
+	return string(out)
+}
+
+func UnescapeNulls(x string) string {
+	newlen := len(x)
+	start := 0
+	for i, c := range x {
+		if i < start {
+			continue
+		}
+		if c == '\\' {
+			if x[i+1:i+6] == "u0000" {
+				start = i + 6
+				newlen -= 5
+			} else if x[i+1] == '\\' {
+				start = i + 2
+				newlen--
+			}
+		}
+	}
+	if newlen == len(x) {
+		return x
+	}
+	xb := []byte(x)
+	out := make([]byte, newlen)
+	start = 0
+	outpos := 0
+	for i, c := range x {
+		if i < start {
+			continue
+		}
+		if c == '\\' {
+			if x[i+1:i+6] == "u0000" {
+				copy(out[outpos:], xb[start:i])
+				outpos += i - start
+				start = i + 6
+				out[outpos] = 0
+				outpos++
+			} else if x[i+1] == '\\' {
+				copy(out[outpos:], xb[start:i+1])
+				outpos += i + 1 - start
+				start = i + 2
+			}
+		}
+	}
+	if start < len(xb) {
+		copy(out[outpos:], xb[start:])
+	}
+	return string(out)
 }

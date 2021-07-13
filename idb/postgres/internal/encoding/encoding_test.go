@@ -122,6 +122,12 @@ func TestSanitizeNull(t *testing.T) {
 			expected: `has >\u0000< nu\ll`,
 			query:    `has >\\u0000< nu\ll`,
 		},
+		{
+			name:     "already escaped null",
+			input:    "has >\\u0000< nu\\ll",
+			expected: `has >\u0000< nu\ll`,
+			query:    `has >\u0000< nu\ll`,
+		},
 	}
 
 	for _, test := range tests {
