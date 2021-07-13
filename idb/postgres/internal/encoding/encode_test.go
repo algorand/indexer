@@ -11,10 +11,10 @@ func TestEscapeNulls(t *testing.T) {
 		input    string
 		expected string
 	}{
-		{"aoeu", "aoeu"},
-		{"ao\x00eu", "ao\\u0000eu"},
-		{"ao\\u0000eu", "ao\\\\u0000eu"},
-		{"ao\xc0 eu", "ao\\u00c0 eu"}, // invalid utf8 \xc0\x20
+		{"aoeu", "aoeu"},                 // no change
+		{"ao\x00eu", "ao\\u0000eu"},      // zero byte
+		{"ao\\u0000eu", "ao\\\\u0000eu"}, // \ -> \\
+		{"ao\xc0 eu", "ao\\u00c0 eu"},    // invalid utf8 \xc0\x20
 	}
 
 	for _, tc := range tests {
