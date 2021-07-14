@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"math"
 	"sync"
 	"testing"
@@ -29,6 +30,93 @@ func getAccounting(round uint64, cache map[uint64]bool) *accounting.State {
 	accountingState := accounting.New(cache)
 	accountingState.InitRoundParts(round, test.FeeAddr, test.RewardAddr, 0)
 	return accountingState
+}
+
+// TestEmbeddedNullString make sure we're able to import cheeky assets.
+func TestNonDisplayableUTF8(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	assetID := uint64(1)
+	name := "my\000coin"
+	unit := "💩"
+	url := "https://its\x0chappening.com"
+	encodedName := base64.StdEncoding.EncodeToString([]byte(name))
+	encodedUnit := unit
+	encodedUrl := base64.StdEncoding.EncodeToString([]byte(url))
+	txn, txnRow := test.MakeAssetConfigOrPanic(
+		test.Round, 0, assetID, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
+
+	// Test 1: import/accounting should work.
+	importTxns(t, db, test.Round, txn)
+	accountTxns(t, db, test.Round, txnRow)
+
+	// Test 2: search for weird asset with no results
+	assets, _ := db.Assets(context.Background(), idb.AssetsQuery{Name: "No\001Issu\\es"})
+	num := 0
+	for asset := range assets {
+		require.NoError(t, asset.Error)
+		num++
+	}
+	assets, _ = db.Assets(context.Background(), idb.AssetsQuery{Name: "No\000Issu\\es"})
+	for asset := range assets {
+		require.NoError(t, asset.Error)
+		num++
+	}
+	require.Equal(t, 0, num)
+
+	// Test 3: search for asset with results serialized properly
+	assets, _ = db.Assets(context.Background(), idb.AssetsQuery{Name: name})
+	num = 0
+	for asset := range assets {
+		require.NoError(t, asset.Error)
+		require.Equal(t, encodedName, asset.Params.AssetName)
+		require.Equal(t, encodedUnit, asset.Params.UnitName)
+		require.Equal(t, encodedUrl, asset.Params.URL)
+		num++
+	}
+	require.Equal(t, 1, num)
+
+	// Test 4: search for asset using the escaped encoding name.
+	assets, _ = db.Assets(context.Background(), idb.AssetsQuery{Name: encoding.ConvertStringForQuery(name)})
+	num = 0
+	for asset := range assets {
+		require.NoError(t, asset.Error)
+		require.Equal(t, encodedName, asset.Params.AssetName)
+		require.Equal(t, encodedUnit, asset.Params.UnitName)
+		require.Equal(t, encodedUrl, asset.Params.URL)
+		num++
+	}
+	require.Equal(t, 1, num)
+
+	// Test 5: serialize transaction with weird asset
+	transactions, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+	num = 0
+	for tx := range transactions {
+		require.NoError(t, tx.Error)
+		// Note: These are created from the TxnBytes, so they have the exact name with embedded null.
+		var txn sdk_types.SignedTxn
+		require.NoError(t, msgpack.Decode(tx.TxnBytes, &txn))
+		require.Equal(t, name, txn.Txn.AssetParams.AssetName)
+		require.Equal(t, unit, txn.Txn.AssetParams.UnitName)
+		require.Equal(t, url, txn.Txn.AssetParams.URL)
+		num++
+	}
+	require.Equal(t, 1, num)
+
+	// Test 6: serialize account with weird asset
+	accounts, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAssetParams: true})
+	num = 0
+	for acct := range accounts {
+		require.NoError(t, acct.Error)
+		require.NotNil(t, acct.Account.CreatedAssets)
+		require.Len(t, *acct.Account.CreatedAssets, 1)
+		require.Equal(t, encodedName, *((*acct.Account.CreatedAssets)[0].Params.Name))
+		require.Equal(t, encodedUnit, *((*acct.Account.CreatedAssets)[0].Params.UnitName))
+		require.Equal(t, encodedUrl, *((*acct.Account.CreatedAssets)[0].Params.Url))
+		num++
+	}
+	require.Equal(t, 1, num)
 }
 
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.

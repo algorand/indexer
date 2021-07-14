@@ -69,6 +69,8 @@ Indexer works by fetching blocks one at a time, processing the block data, and l
 
 As of April 2020, storing all the raw blocks is about 100 GB and the PostgreSQL database of transactions and accounts is about 1 GB. Much of that size difference is the Indexer ignoring cryptographic signature data; relying on `algod` to validate blocks. Dropping that, the Indexer can focus on the 'what happened' details of transactions and accounts.
 
+Postgres should be configured to use UTF-8 encoding.
+
 There are two primary modes of operation:
 * [Database updater](#database-updater)
 * [Read only](#read-only)

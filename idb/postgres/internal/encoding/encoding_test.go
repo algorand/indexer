@@ -84,3 +84,97 @@ func TestJSONEncoding(t *testing.T) {
 
 	assert.Equal(t, x, xx)
 }
+
+func TestSanitizeNull(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+		query    string
+	}{
+		{
+			name:     "simple",
+			input:    "nothing-to-do",
+			expected: "nothing-to-do",
+			query:    "nothing-to-do",
+		},
+		{
+			name:     "weird but valid",
+			input:    "no/th/ing-to-do",
+			expected: "no/th/ing-to-do",
+			query:    "no/th/ing-to-do",
+		},
+		{
+			name:     "more strange characters",
+			input:    "ăѣ𝔠ծềſģȟᎥ𝒋ǩľḿꞑȯ𝘱𝑞𝗋𝘴ȶ𝞄𝜈ψ𝒙𝘆𝚣1234567890!@#$%^&*()-_=+[{]};:'\",<.>/?",
+			expected: "ăѣ𝔠ծềſģȟᎥ𝒋ǩľḿꞑȯ𝘱𝑞𝗋𝘴ȶ𝞄𝜈ψ𝒙𝘆𝚣1234567890!@#$%^&*()-_=+[{]};:'\",<.>/?",
+			query:    "ăѣ𝔠ծềſģȟᎥ𝒋ǩľḿꞑȯ𝘱𝑞𝗋𝘴ȶ𝞄𝜈ψ𝒙𝘆𝚣1234567890!@#$%^&*()-_=+[{]};:'\",<.>/?",
+		},
+		{
+			name:     "emoji are required",
+			input:    "🧙💍➡🌋",
+			expected: "🧙💍➡🌋",
+			query:    "🧙💍➡🌋",
+		},
+		{
+			name:     "embedded null",
+			input:    "has >\000< null",
+			expected: "has >\\u0000< null",
+			query:    "has >\\\\u0000< null",
+		},
+		{
+			name:     "embedded null and slashes",
+			input:    "has >\000< nu\\ll",
+			expected: "has >\\u0000< nu\\\\ll",
+			query:    "has >\\\\u0000< nu\\\\\\\\ll",
+		},
+		{
+			name:     "invalid utf8",
+			input:    "\x8c",
+			expected: "\\u008c",
+			query:    "\\\\u008c",
+		},
+		{
+			name:     "invalid utf8 in the middle",
+			input:    "in the middle \x8c somewhere",
+			expected: "in the middle \\u008c somewhere",
+			query:    "in the middle \\\\u008c somewhere",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name+" ConvertString", func(t *testing.T) {
+			assert.Equal(t, test.expected, ConvertString(test.input))
+		})
+		t.Run(test.name+" ConvertStringForQuery", func(t *testing.T) {
+			assert.Equal(t, test.query, ConvertStringForQuery(test.input))
+		})
+		t.Run(test.name+" Unescape", func(t *testing.T) {
+			assert.Equal(t, test.input, UnescapeNulls(test.expected))
+		})
+	}
+}
+
+func TestEscapeNulls(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"aoeu", "aoeu"},                 // no change
+		{"ao\x00eu", "ao\\u0000eu"},      // zero byte
+		{"ao\\u0000eu", "ao\\\\u0000eu"}, // \ -> \\
+		{"ao\xc0 eu", "ao\\u00c0 eu"},    // invalid utf8 \xc0\x20
+		{"ăѣ𝔠ծềſģȟᎥ𝒋ǩľḿꞑȯ𝘱𝑞𝗋𝘴ȶ𝞄𝜈ψ𝒙𝘆𝚣1234567890!@#$%^&*()-_=+[{]};:'\",<.>/?", "ăѣ𝔠ծềſģȟᎥ𝒋ǩľḿꞑȯ𝘱𝑞𝗋𝘴ȶ𝞄𝜈ψ𝒙𝘆𝚣1234567890!@#$%^&*()-_=+[{]};:'\",<.>/?"},
+		{"🧙💍➡🌋", "🧙💍➡🌋"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			actual := EscapeNulls(tc.input)
+			assert.Equal(t, tc.expected, actual, "forward")
+			restore := UnescapeNulls(tc.expected)
+			assert.Equal(t, tc.input, restore, "reverse")
+		})
+	}
+}
+
