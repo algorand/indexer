@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/idb"
@@ -303,6 +304,10 @@ func TestMakeDeletedNotNullMigration(t *testing.T) {
 	}
 }
 
+type oldImportState struct {
+	AccountRound *int64 `codec:"account_round"`
+}
+
 func TestMaxRoundAccountedMigrationAccountRound0(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
@@ -310,17 +315,17 @@ func TestMaxRoundAccountedMigrationAccountRound0(t *testing.T) {
 	assert.NoError(t, err)
 
 	round := int64(0)
-	importstate := importState{
+	old := oldImportState{
 		AccountRound: &round,
 	}
-	err = db.setImportState(nil, importstate)
+	err = db.setMetastate(nil, stateMetastateKey, string(json.Encode(old)))
 	require.NoError(t, err)
 
 	migrationState := MigrationState{NextMigration: 4}
 	err = MaxRoundAccountedMigration(db, &migrationState)
 	require.NoError(t, err)
 
-	importstate, err = db.getImportState(nil)
+	importstate, err := db.getImportState(nil)
 	require.NoError(t, err)
 
 	nextRound := uint64(0)
@@ -342,17 +347,17 @@ func TestMaxRoundAccountedMigrationAccountRoundPositive(t *testing.T) {
 	assert.NoError(t, err)
 
 	round := int64(2)
-	importstate := importState{
+	old := oldImportState{
 		AccountRound: &round,
 	}
-	err = db.setImportState(nil, importstate)
+	err = db.setMetastate(nil, stateMetastateKey, string(json.Encode(old)))
 	require.NoError(t, err)
 
 	migrationState := MigrationState{NextMigration: 4}
 	err = MaxRoundAccountedMigration(db, &migrationState)
 	require.NoError(t, err)
 
-	importstate, err = db.getImportState(nil)
+	importstate, err := db.getImportState(nil)
 	require.NoError(t, err)
 
 	nextRound := uint64(3)
