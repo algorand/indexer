@@ -64,7 +64,6 @@ func ConvertStringForQuery(str string) string {
 func ConvertString(str string) string {
 	strBytes := []byte(str)
 	i := 0
-	num := 0
 	// Check each rune to see if base64 encoding is needed
 	for i < len(strBytes) {
 		c, csize := utf8.DecodeRune(strBytes[i:])
@@ -74,7 +73,6 @@ func ConvertString(str string) string {
 		if !unicode.IsPrint(c) {
 			break
 		}
-		num++
 		i += csize
 	}
 
