@@ -126,13 +126,13 @@ func TestSanitizeNull(t *testing.T) {
 			name:     "embedded null",
 			input:    "has >\000< null",
 			expected: "aGFzID4APCBudWxs",
-			query: "aGFzID4APCBudWxs",
+			query:    "aGFzID4APCBudWxs",
 		},
 		{
 			name:     "embedded null and slashes",
 			input:    "has >\000< nu\\ll",
 			expected: "aGFzID4APCBudVxsbA==",
-			query: "aGFzID4APCBudVxsbA==",
+			query:    "aGFzID4APCBudVxsbA==",
 		},
 		{
 			name:     "invalid utf8",
