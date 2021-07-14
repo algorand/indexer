@@ -135,31 +135,44 @@ func (db *IndexerDb) txWithRetry(ctx context.Context, opts sql.TxOptions, f func
 	}
 }
 
-func (db *IndexerDb) init(opts idb.IndexerDbOptions) (err error) {
-	accountingStateJSON, _ := db.getMetastate(nil, stateMetastateKey)
-	hasAccounting := len(accountingStateJSON) > 0
-	migrationStateJSON, _ := db.getMetastate(nil, migrationMetastateKey)
-	hasMigration := len(migrationStateJSON) > 0
+func (db *IndexerDb) isSetup() (bool, error) {
+	query := `SELECT 0 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'metastate'`
+	row := db.db.QueryRow(query)
 
-	db.GetSpecialAccounts()
-
-	if (hasMigration || hasAccounting) && !opts.NoMigrate {
-		// see postgres_migrations.go
-		return db.runAvailableMigrations(migrationStateJSON)
+	var tmp int
+	err := row.Scan(&tmp)
+	if err == sql.ErrNoRows {
+		return false, nil
 	}
-
-	// new database, run setup
-	_, err = db.db.Exec(setup_postgres_sql)
 	if err != nil {
-		return fmt.Errorf("unable to setup postgres: %v", err)
+		return false, fmt.Errorf("isSetup() err: %w", err)
 	}
+	return true, nil
+}
 
-	err = db.markMigrationsAsDone()
+func (db *IndexerDb) init(opts idb.IndexerDbOptions) error {
+	setup, err := db.isSetup()
 	if err != nil {
-		return fmt.Errorf("unable to confirm migration: %v", err)
+		return fmt.Errorf("init() err: %w", err)
 	}
 
-	return nil
+	if !setup {
+		// new database, run setup
+		_, err = db.db.Exec(setup_postgres_sql)
+		if err != nil {
+			return fmt.Errorf("unable to setup postgres: %v", err)
+		}
+
+		err = db.markMigrationsAsDone()
+		if err != nil {
+			return fmt.Errorf("unable to confirm migration: %v", err)
+		}
+
+		return nil
+	}
+
+	// see postgres_migrations.go
+	return db.runAvailableMigrations()
 }
 
 // Reset is part of idb.IndexerDB
@@ -352,8 +365,9 @@ func (db *IndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
 	return err
 }
 
+// Returns `idb.ErrorNotInitialized` if uninitialized.
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) getMetastate(tx *sql.Tx, key string) (jsonStrValue string, err error) {
+func (db *IndexerDb) getMetastate(tx *sql.Tx, key string) (string, error) {
 	query := `SELECT v FROM metastate WHERE k = $1`
 
 	var row *sql.Row
@@ -363,14 +377,16 @@ func (db *IndexerDb) getMetastate(tx *sql.Tx, key string) (jsonStrValue string, 
 		row = tx.QueryRow(query, key)
 	}
 
-	err = row.Scan(&jsonStrValue)
+	var value string
+	err := row.Scan(&value)
 	if err == sql.ErrNoRows {
-		err = nil
+		return "", idb.ErrorNotInitialized
 	}
 	if err != nil {
-		jsonStrValue = ""
+		return "", fmt.Errorf("getMetastate() err: %w", err)
 	}
-	return
+
+	return value, nil
 }
 
 const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
@@ -389,7 +405,7 @@ func (db *IndexerDb) setMetastate(tx *sql.Tx, key, jsonStrValue string) (err err
 // If `tx` is nil, use a normal query.
 func (db *IndexerDb) getImportState(tx *sql.Tx) (importState, error) {
 	importStateJSON, err := db.getMetastate(tx, stateMetastateKey)
-	if err == sql.ErrNoRows {
+	if err == idb.ErrorNotInitialized {
 		return importState{}, idb.ErrorNotInitialized
 	}
 	if err != nil {
@@ -2965,10 +2981,12 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 		blocking = state.Blocking
 	} else {
 		state, err := db.getMigrationState()
-		if err == nil {
-			blocking = migrationStateBlocked(*state)
-			migrationRequired = needsMigration(*state)
+		if err != nil {
+			return idb.Health{}, err
 		}
+
+		blocking = migrationStateBlocked(state)
+		migrationRequired = needsMigration(state)
 	}
 
 	data["migration-required"] = migrationRequired
@@ -2991,18 +3009,23 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 }
 
 // GetSpecialAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err error) {
-	var cache string
-	cache, err = db.getMetastate(nil, specialAccountsMetastateKey)
-	if err != nil || cache == "" {
-		// Initialize specialAccountsMetastateKey
-		var blockHeader types.BlockHeader
-		blockHeader, _, err = db.GetBlock(context.Background(), 0, idb.GetBlockOptions{})
-		if err != nil {
-			return idb.SpecialAccounts{}, fmt.Errorf("problem looking up special accounts from genesis block: %v", err)
+func (db *IndexerDb) GetSpecialAccounts() (idb.SpecialAccounts, error) {
+	cache, err := db.getMetastate(nil, specialAccountsMetastateKey)
+	if err != nil {
+		if err != idb.ErrorNotInitialized {
+			return idb.SpecialAccounts{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
 		}
 
-		accounts = idb.SpecialAccounts{
+		// Initialize specialAccountsMetastateKey
+		blockHeader, _, err := db.GetBlock(context.Background(), 0, idb.GetBlockOptions{})
+		if err != nil {
+			err = fmt.Errorf(
+				"GetSpecialAccounts() problem looking up special accounts from genesis "+
+					"block, err: %w", err)
+			return idb.SpecialAccounts{}, err
+		}
+
+		accounts := idb.SpecialAccounts{
 			FeeSink:     blockHeader.FeeSink,
 			RewardsPool: blockHeader.RewardsPool,
 		}
@@ -3013,12 +3036,16 @@ func (db *IndexerDb) GetSpecialAccounts() (accounts idb.SpecialAccounts, err err
 			return idb.SpecialAccounts{}, fmt.Errorf("problem saving metastate: %v", err)
 		}
 
-		return
+		return accounts, nil
 	}
 
+	var accounts idb.SpecialAccounts
 	err = encoding.DecodeJSON([]byte(cache), &accounts)
 	if err != nil {
-		err = fmt.Errorf("problem decoding cache '%s': %v", cache, err)
+		err = fmt.Errorf(
+			"GetSpecialAccounts() problem decoding, cache: '%s' err: %w", cache, err)
+		return idb.SpecialAccounts{}, err
 	}
-	return
+
+	return accounts, nil
 }

@@ -29,21 +29,8 @@ var resetCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
 			os.Exit(1)
 		}
-		opts := idb.IndexerDbOptions{NoMigrate: true}
+		opts := idb.IndexerDbOptions{ReadOnly: true}
 		db := indexerDbFromFlags(opts)
-		timeout := time.Now().Add(5 * time.Second)
-		health, err := db.Health()
-		maybeFail(err, "could not get db health, %v", err)
-		for health.IsMigrating || !health.DBAvailable {
-			if time.Now().After(timeout) {
-				fmt.Fprintf(os.Stderr, "timed out waiting for db to be ready\n")
-				os.Exit(1)
-				return
-			}
-			time.Sleep(100 * time.Millisecond)
-			health, err = db.Health()
-			maybeFail(err, "could not get db health, %v", err)
-		}
 		fmt.Println("Prior to resetting the database make sure no daemons are connected.")
 		fmt.Println("After this command finishes start the daemon again and it will begin to")
 		fmt.Println("re-index the data. This can take hours or days depending on the network")
@@ -66,7 +53,7 @@ var resetCmd = &cobra.Command{
 						fmt.Printf(
 							"Done resetting. Re-building accounting through block %d...",
 							nextRound-1)
-						opts.NoMigrate = false
+						opts.ReadOnly = false
 						// db.Close() // TODO: add Close() to IndxerDb interface?
 						db = indexerDbFromFlags(opts)
 						cache, err := db.GetDefaultFrozen()

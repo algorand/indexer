@@ -112,13 +112,12 @@ func upsertMigrationState(db *IndexerDb, tx *sql.Tx, state *MigrationState, incr
 	return db.setMetastate(tx, migrationMetastateKey, string(migrationStateJSON))
 }
 
-func (db *IndexerDb) runAvailableMigrations(migrationStateJSON string) (err error) {
-	var state MigrationState
-	if len(migrationStateJSON) > 0 {
-		err = encoding.DecodeJSON([]byte(migrationStateJSON), &state)
-		if err != nil {
-			return fmt.Errorf("(%s) bad metastate migration json, %v", migrationStateJSON, err)
-		}
+func (db *IndexerDb) runAvailableMigrations() (err error) {
+	state, err := db.getMigrationState()
+	if err == idb.ErrorNotInitialized {
+		state = MigrationState{}
+	} else if err != nil {
+		return fmt.Errorf("runAvailableMigrations() err: %w", err)
 	}
 
 	// Make migration tasks
@@ -164,20 +163,22 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 	return db.setMetastate(nil, migrationMetastateKey, string(migrationStateJSON))
 }
 
-func (db *IndexerDb) getMigrationState() (*MigrationState, error) {
+// Returns `idb.ErrorNotInitialized` if uninitialized.
+func (db *IndexerDb) getMigrationState() (MigrationState, error) {
 	migrationStateJSON, err := db.getMetastate(nil, migrationMetastateKey)
-	if err == sql.ErrNoRows {
-		// no previous state, ok
-		return nil, nil
+	if err == idb.ErrorNotInitialized {
+		return MigrationState{}, idb.ErrorNotInitialized
 	} else if err != nil {
-		return nil, fmt.Errorf("getMigrationState() get state err: %w", err)
+		return MigrationState{}, fmt.Errorf("getMigrationState() get state err: %w", err)
 	}
-	var txstate MigrationState
-	err = encoding.DecodeJSON([]byte(migrationStateJSON), &txstate)
+
+	var state MigrationState
+	err = encoding.DecodeJSON([]byte(migrationStateJSON), &state)
 	if err != nil {
-		return nil, fmt.Errorf("getMigrationState() decode state err: %w", err)
+		return MigrationState{}, fmt.Errorf("getMigrationState() decode state err: %w", err)
 	}
-	return &txstate, nil
+
+	return state, nil
 }
 
 // sqlMigration executes a sql statements as the entire migration.

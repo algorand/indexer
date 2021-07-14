@@ -14,14 +14,14 @@ func TestAllMigrations(t *testing.T) {
 	for idx, m := range migrations {
 		t.Run(fmt.Sprintf("Test migration %d", idx), func(t *testing.T) {
 			db := MakeMockDB([]*MockStmt{
-				// "state"
+				// INFORMATION_SCHEMA.TABLES
 				MakeMockStmt(
-					1,
-					[]string{"v"},
+					0,
+					[]string{"columnname"},
 					[][]interface{}{
-						{`{"account_round": 9000000}`},
+						{0},
 					}),
-				// "migration"
+				// migration state
 				MakeMockStmt(
 					1,
 					[]string{"v"},
@@ -55,19 +55,19 @@ func TestAllMigrations(t *testing.T) {
 
 func TestNoMigrationsNeeded(t *testing.T) {
 	db := MakeMockDB([]*MockStmt{
-		// "state"
+		// INFORMATION_SCHEMA.TABLES
 		MakeMockStmt(
-			1,
-			[]string{"v"},
+			0,
+			[]string{"columnname"},
 			[][]interface{}{
-				{`{"account_round": 9000000}`},
+				{0},
 			}),
-		// "migration"
+		// migration state
 		MakeMockStmt(
 			1,
 			[]string{"v"},
 			[][]interface{}{
-				{fmt.Sprintf(`{"next": %d}`, len(migrations)+1)},
+				{fmt.Sprintf(`{"next": %d}`, len(migrations))},
 			}),
 	})
 
