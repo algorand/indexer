@@ -36,8 +36,6 @@ import (
 )
 
 type importState struct {
-	// DEPRECATED. Last accounted round.
-	AccountRound *int64 `codec:"account_round"`
 	// Next round to account.
 	NextRoundToAccount *uint64 `codec:"next_account_round"`
 }

@@ -541,22 +541,32 @@ func MaxRoundAccountedMigration(db *IndexerDb, migrationState *MigrationState) e
 	f := func(ctx context.Context, tx *sql.Tx) error {
 		defer tx.Rollback()
 
-		importstate, err := db.getImportState(tx)
+		j, err := db.getMetastate(tx, stateMetastateKey)
 		if err == idb.ErrorNotInitialized {
 			// Leave uninitialized.
 			db.log.Printf("Import state is not initialized, leaving unchanged.")
 		} else if err != nil {
 			return err
 		} else {
-			if importstate.AccountRound == nil {
+			type oldImportState struct {
+				AccountRound *int64 `codec:"account_round"`
+			}
+			var old oldImportState
+			err = encoding.DecodeJSON([]byte(j), &old)
+			if err != nil {
+				return err
+			}
+
+			if old.AccountRound == nil {
 				db.log.Printf("Account round is not set, leaving unchanged.")
 			} else {
 				nextRound := uint64(0)
-				if *importstate.AccountRound > 0 {
-					nextRound = uint64(*importstate.AccountRound + 1)
+				if *old.AccountRound > 0 {
+					nextRound = uint64(*old.AccountRound + 1)
 				}
-				importstate.NextRoundToAccount = &nextRound
-				importstate.AccountRound = nil
+				importstate := importState{
+					NextRoundToAccount: &nextRound,
+				}
 
 				db.log.Printf("Setting import state to %s", encoding.EncodeJSON(importstate))
 
