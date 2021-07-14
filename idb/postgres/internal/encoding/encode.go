@@ -2,7 +2,8 @@ package encoding
 
 import (
 	"encoding/base64"
-	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/algorand/go-codec/codec"
 
@@ -54,17 +55,36 @@ func convertEvalDelta(evalDelta types.EvalDelta) types.EvalDelta {
 	return evalDelta
 }
 
-// EncodeStringForQuery converts a string into something postgres can use to query a jsonb column.
-func EncodeStringForQuery(str string) string {
-	return strings.ReplaceAll(str, "\x00", `\\u0000`)
+// ConvertStringForQuery converts a string into something postgres can use to query a jsonb column.
+func ConvertStringForQuery(str string) string {
+	return ConvertString(str)
 }
 
-// EncodeString converts a string into something postgres can store in a jsonb column.
-func EncodeString(str string) string {
-	return strings.ReplaceAll(str, "\x00", `\u0000`)
+// ConvertString converts a string into something postgres can store in a jsonb column.
+func ConvertString(str string) string {
+	strBytes := []byte(str)
+	i := 0
+	num := 0
+	// Check each rune to see if base64 encoding is needed
+	for i < len(strBytes) {
+		c, csize := utf8.DecodeRune(strBytes[i:])
+		if c == utf8.RuneError {
+			break
+		}
+		if !unicode.IsPrint(c) {
+			break
+		}
+		num++
+		i += csize
+	}
+
+	if i != len(strBytes) {
+		return base64.StdEncoding.EncodeToString(strBytes)
+	}
+	return str
 }
 
-// EncodeAssetParams sanitizes all AssetParams that need it.
+// ConvertAssetParams sanitizes all AssetParams that need it.
 // The AssetParams encoding policy needs to take into account that algod accepts
 // any user defined string that go accepts. The notable part here is that postgres
 // does not allow the null character:
@@ -76,15 +96,15 @@ func EncodeString(str string) string {
 //
 // Note that '/v2/transactions' returns the raw transaction bytes, so this
 // endpoint returns the correct string complete with zero bytes.
-func EncodeAssetParams(params types.AssetParams) types.AssetParams {
-	params.AssetName = EncodeString(params.AssetName)
-	params.UnitName = EncodeString(params.UnitName)
-	params.URL = EncodeString(params.URL)
+func ConvertAssetParams(params types.AssetParams) types.AssetParams {
+	params.AssetName = ConvertString(params.AssetName)
+	params.UnitName = ConvertString(params.UnitName)
+	params.URL = ConvertString(params.URL)
 	return params
 }
 
 func convertSignedTxnWithAD(stxn types.SignedTxnWithAD) types.SignedTxnWithAD {
-	stxn.Txn.AssetParams = EncodeAssetParams(stxn.Txn.AssetParams)
+	stxn.Txn.AssetParams = ConvertAssetParams(stxn.Txn.AssetParams)
 	stxn.EvalDelta = convertEvalDelta(stxn.EvalDelta)
 	return stxn
 }

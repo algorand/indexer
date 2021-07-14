@@ -99,37 +99,61 @@ func TestSanitizeNull(t *testing.T) {
 			query:    "nothing-to-do",
 		},
 		{
-			name:     "weird",
+			name:     "weird but valid",
 			input:    "no/th/ing-to-do",
 			expected: "no/th/ing-to-do",
 			query:    "no/th/ing-to-do",
 		},
 		{
-			name:     "weirder",
-			input:    "no\thing\\-to-do",
-			expected: "no\thing\\-to-do",
-			query:    "no\thing\\-to-do",
+			name:     "more strange characters",
+			input:    "ăѣ𝔠ծềſģȟᎥ𝒋ǩľḿꞑȯ𝘱𝑞𝗋𝘴ȶ𝞄𝜈ψ𝒙𝘆𝚣1234567890!@#$%^&*()-_=+[{]};:'\",<.>/?",
+			expected: "ăѣ𝔠ծềſģȟᎥ𝒋ǩľḿꞑȯ𝘱𝑞𝗋𝘴ȶ𝞄𝜈ψ𝒙𝘆𝚣1234567890!@#$%^&*()-_=+[{]};:'\",<.>/?",
+			query:    "ăѣ𝔠ծềſģȟᎥ𝒋ǩľḿꞑȯ𝘱𝑞𝗋𝘴ȶ𝞄𝜈ψ𝒙𝘆𝚣1234567890!@#$%^&*()-_=+[{]};:'\",<.>/?",
+		},
+		{
+			name:     "emoji are required",
+			input:    "🧙💍➡🌋",
+			expected: "🧙💍➡🌋",
+			query:    "🧙💍➡🌋",
+		},
+		{
+			name:     "tabs are not allowed",
+			input:    "only\tspace",
+			expected: "b25seQlzcGFjZQ==",
+			query:    "b25seQlzcGFjZQ==",
 		},
 		{
 			name:     "embedded null",
 			input:    "has >\000< null",
-			expected: "has >\\u0000< null",
-			query:    "has >\\\\u0000< null",
+			expected: "aGFzID4APCBudWxs",
+			query: "aGFzID4APCBudWxs",
 		},
 		{
 			name:     "embedded null and slashes",
 			input:    "has >\000< nu\\ll",
-			expected: `has >\u0000< nu\ll`,
-			query:    `has >\\u0000< nu\ll`,
+			expected: "aGFzID4APCBudVxsbA==",
+			query: "aGFzID4APCBudVxsbA==",
+		},
+		{
+			name:     "invalid utf8",
+			input:    "\x8c",
+			expected: "jA==",
+			query:    "jA==",
+		},
+		{
+			name:     "invalid utf8 in the middle",
+			input:    "in the middle \x8c somewhere",
+			expected: "aW4gdGhlIG1pZGRsZSCMIHNvbWV3aGVyZQ==",
+			query:    "aW4gdGhlIG1pZGRsZSCMIHNvbWV3aGVyZQ==",
 		},
 	}
 
 	for _, test := range tests {
-		t.Run(test.name+" sanitizeNull", func(t *testing.T) {
-			assert.Equal(t, test.expected, EncodeString(test.input))
+		t.Run(test.name+" ConvertString", func(t *testing.T) {
+			assert.Equal(t, test.expected, ConvertString(test.input))
 		})
-		t.Run(test.name+" EncodeStringForQuery", func(t *testing.T) {
-			assert.Equal(t, test.query, EncodeStringForQuery(test.input))
+		t.Run(test.name+" ConvertStringForQuery", func(t *testing.T) {
+			assert.Equal(t, test.query, ConvertStringForQuery(test.input))
 		})
 	}
 }

@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"math"
 	"sync"
 	"testing"
@@ -32,19 +33,19 @@ func getAccounting(round uint64, cache map[uint64]bool) *accounting.State {
 }
 
 // TestEmbeddedNullString make sure we're able to import cheeky assets.
-func TestEmbeddedNullString(t *testing.T) {
+func TestNonDisplayableUTF8(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
 	assetID := uint64(1)
-	nameWithNull := "my\000coin"
-	unitWithNull := "m\000c"
-	urlWithNull := "https://its\000happening.com"
-	encodedNameWithNull := encoding.EncodeString("my\000coin")
-	encodedUnitWithNull := encoding.EncodeString("m\000c")
-	encodedUrlWithNull := encoding.EncodeString("https://its\000happening.com")
+	name := "my\000coin"
+	unit := "💩"
+	url := "https://its\x0chappening.com"
+	encodedName := base64.StdEncoding.EncodeToString([]byte(name))
+	encodedUnit := unit
+	encodedUrl := base64.StdEncoding.EncodeToString([]byte(url))
 	txn, txnRow := test.MakeAssetConfigOrPanic(
-		test.Round, 0, assetID, math.MaxUint64, 0, false, unitWithNull, nameWithNull, urlWithNull, test.AccountA)
+		test.Round, 0, assetID, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
 
 	// Test 1: import/accounting should work.
 	importTxns(t, db, test.Round, txn)
@@ -65,25 +66,25 @@ func TestEmbeddedNullString(t *testing.T) {
 	require.Equal(t, 0, num)
 
 	// Test 3: search for asset with results serialized properly
-	assets, _ = db.Assets(context.Background(), idb.AssetsQuery{Name: nameWithNull})
+	assets, _ = db.Assets(context.Background(), idb.AssetsQuery{Name: name})
 	num = 0
 	for asset := range assets {
 		require.NoError(t, asset.Error)
-		require.Equal(t, encodedNameWithNull, asset.Params.AssetName)
-		require.Equal(t, encodedUnitWithNull, asset.Params.UnitName)
-		require.Equal(t, encodedUrlWithNull, asset.Params.URL)
+		require.Equal(t, encodedName, asset.Params.AssetName)
+		require.Equal(t, encodedUnit, asset.Params.UnitName)
+		require.Equal(t, encodedUrl, asset.Params.URL)
 		num++
 	}
 	require.Equal(t, 1, num)
 
 	// Test 4: search for asset using the escaped encoding name.
-	assets, _ = db.Assets(context.Background(), idb.AssetsQuery{Name: encoding.EncodeStringForQuery(nameWithNull)})
+	assets, _ = db.Assets(context.Background(), idb.AssetsQuery{Name: encoding.ConvertStringForQuery(name)})
 	num = 0
 	for asset := range assets {
 		require.NoError(t, asset.Error)
-		require.Equal(t, encodedNameWithNull, asset.Params.AssetName)
-		require.Equal(t, encodedUnitWithNull, asset.Params.UnitName)
-		require.Equal(t, encodedUrlWithNull, asset.Params.URL)
+		require.Equal(t, encodedName, asset.Params.AssetName)
+		require.Equal(t, encodedUnit, asset.Params.UnitName)
+		require.Equal(t, encodedUrl, asset.Params.URL)
 		num++
 	}
 	require.Equal(t, 1, num)
@@ -96,9 +97,9 @@ func TestEmbeddedNullString(t *testing.T) {
 		// Note: These are created from the TxnBytes, so they have the exact name with embedded null.
 		var txn sdk_types.SignedTxn
 		require.NoError(t, msgpack.Decode(tx.TxnBytes, &txn))
-		require.Equal(t, nameWithNull, txn.Txn.AssetParams.AssetName)
-		require.Equal(t, unitWithNull, txn.Txn.AssetParams.UnitName)
-		require.Equal(t, urlWithNull, txn.Txn.AssetParams.URL)
+		require.Equal(t, name, txn.Txn.AssetParams.AssetName)
+		require.Equal(t, unit, txn.Txn.AssetParams.UnitName)
+		require.Equal(t, url, txn.Txn.AssetParams.URL)
 		num++
 	}
 	require.Equal(t, 1, num)
@@ -110,9 +111,9 @@ func TestEmbeddedNullString(t *testing.T) {
 		require.NoError(t, acct.Error)
 		require.NotNil(t, acct.Account.CreatedAssets)
 		require.Len(t, *acct.Account.CreatedAssets, 1)
-		require.Equal(t, encodedNameWithNull, *((*acct.Account.CreatedAssets)[0].Params.Name))
-		require.Equal(t, encodedUnitWithNull, *((*acct.Account.CreatedAssets)[0].Params.UnitName))
-		require.Equal(t, encodedUrlWithNull, *((*acct.Account.CreatedAssets)[0].Params.Url))
+		require.Equal(t, encodedName, *((*acct.Account.CreatedAssets)[0].Params.Name))
+		require.Equal(t, encodedUnit, *((*acct.Account.CreatedAssets)[0].Params.UnitName))
+		require.Equal(t, encodedUrl, *((*acct.Account.CreatedAssets)[0].Params.Url))
 		num++
 	}
 	require.Equal(t, 1, num)
