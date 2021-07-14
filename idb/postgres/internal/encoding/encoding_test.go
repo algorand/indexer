@@ -117,34 +117,28 @@ func TestSanitizeNull(t *testing.T) {
 			query:    "🧙💍➡🌋",
 		},
 		{
-			name:     "tabs are not allowed",
-			input:    "only\tspace",
-			expected: "b25seQlzcGFjZQ==",
-			query:    "b25seQlzcGFjZQ==",
-		},
-		{
 			name:     "embedded null",
 			input:    "has >\000< null",
-			expected: "aGFzID4APCBudWxs",
-			query:    "aGFzID4APCBudWxs",
+			expected: "has >\\u0000< null",
+			query:    "has >\\\\u0000< null",
 		},
 		{
 			name:     "embedded null and slashes",
 			input:    "has >\000< nu\\ll",
-			expected: "aGFzID4APCBudVxsbA==",
-			query:    "aGFzID4APCBudVxsbA==",
+			expected: "has >\\u0000< nu\\\\ll",
+			query:    "has >\\\\u0000< nu\\\\\\\\ll",
 		},
 		{
 			name:     "invalid utf8",
 			input:    "\x8c",
-			expected: "jA==",
-			query:    "jA==",
+			expected: "\\u008c",
+			query:    "\\\\u008c",
 		},
 		{
 			name:     "invalid utf8 in the middle",
 			input:    "in the middle \x8c somewhere",
-			expected: "aW4gdGhlIG1pZGRsZSCMIHNvbWV3aGVyZQ==",
-			query:    "aW4gdGhlIG1pZGRsZSCMIHNvbWV3aGVyZQ==",
+			expected: "in the middle \\u008c somewhere",
+			query:    "in the middle \\\\u008c somewhere",
 		},
 	}
 
@@ -154,6 +148,9 @@ func TestSanitizeNull(t *testing.T) {
 		})
 		t.Run(test.name+" ConvertStringForQuery", func(t *testing.T) {
 			assert.Equal(t, test.query, ConvertStringForQuery(test.input))
+		})
+		t.Run(test.name+" Unescape", func(t *testing.T) {
+			assert.Equal(t, test.input, UnescapeNulls(test.expected))
 		})
 	}
 }
@@ -167,6 +164,8 @@ func TestEscapeNulls(t *testing.T) {
 		{"ao\x00eu", "ao\\u0000eu"},      // zero byte
 		{"ao\\u0000eu", "ao\\\\u0000eu"}, // \ -> \\
 		{"ao\xc0 eu", "ao\\u00c0 eu"},    // invalid utf8 \xc0\x20
+		{"ăѣ𝔠ծềſģȟᎥ𝒋ǩľḿꞑȯ𝘱𝑞𝗋𝘴ȶ𝞄𝜈ψ𝒙𝘆𝚣1234567890!@#$%^&*()-_=+[{]};:'\",<.>/?", "ăѣ𝔠ծềſģȟᎥ𝒋ǩľḿꞑȯ𝘱𝑞𝗋𝘴ȶ𝞄𝜈ψ𝒙𝘆𝚣1234567890!@#$%^&*()-_=+[{]};:'\",<.>/?"},
+		{"🧙💍➡🌋", "🧙💍➡🌋"},
 	}
 
 	for _, tc := range tests {

@@ -145,7 +145,7 @@ func EscapeNulls(x string) string {
 		case '\\':
 			newlen += 2
 		default:
-			newlen++
+			newlen+= csize
 		}
 		i += csize
 
