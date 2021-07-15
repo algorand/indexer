@@ -1153,8 +1153,8 @@ func readTransactions(t *testing.T, db *IndexerDb) {
 func readAccounts(t *testing.T, db *IndexerDb) {
 	opts := idb.AccountQueryOptions{
 		IncludeAssetHoldings: true,
-		IncludeAssetParams: true,
-		IncludeDeleted: true,
+		IncludeAssetParams:   true,
+		IncludeDeleted:       true,
 	}
 	rowsCh, _ := db.GetAccounts(context.Background(), opts)
 
