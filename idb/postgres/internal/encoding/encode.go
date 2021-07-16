@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/algorand/go-codec/codec"
@@ -127,47 +128,48 @@ func EncodeSignedTxnWithAD(stxn types.SignedTxnWithAD) []byte {
 	return EncodeJSON(convertSignedTxnWithAD(stxn))
 }
 
+func nothingToEscape(x string) bool {
+	strBytes := []byte(x)
+	i := 0
+	// Check each rune to see if base64 encoding is needed
+	for i < len(strBytes) {
+		c, csize := utf8.DecodeRune(strBytes[i:])
+		if c == utf8.RuneError {
+			return false
+		}
+		if !unicode.IsPrint(c) {
+			return false
+		}
+		if c == '\\' {
+			return false
+		}
+		i += csize
+	}
+	return true
+}
+
 func EscapeNulls(x string) string {
+	if nothingToEscape(x) {
+		return x
+	}
+
 	xb := []byte(x)
-	newlen := 0
+
+	escapenull := []byte("\\u0000")
+	var out strings.Builder
+	var runehex = [6]byte{'\\', 'u', '0', '0'}
+	start := 0
+	outpos := 0
 	i := 0
 	for i < len(xb) {
 		c, csize := utf8.DecodeRune(xb[i:])
 		if c == utf8.RuneError {
-			newlen += 6 * csize // \uxxxx
-			i += csize
-			continue
-		}
-		// TODO: unicode.IsPrint(c) ?
-		switch c {
-		case 0:
-			newlen += 6 // \u0000
-		case '\\':
-			newlen += 2
-		default:
-			newlen+= csize
-		}
-		i += csize
-
-	}
-	if len(x) == newlen {
-		return x
-	}
-	const escapenull = "\\u0000"
-	out := make([]byte, newlen)
-	var runehex = [6]byte{'\\', 'u', '0', '0'}
-	start := 0
-	outpos := 0
-	i = 0
-	for i < len(xb) {
-		c, csize := utf8.DecodeRune(xb[i:])
-		if c == utf8.RuneError {
-			copy(out[outpos:], xb[start:i])
+			out.Write(xb[start:i])
 			outpos += i - start
 			start = i + csize
 			for xi := i; xi < start; xi++ {
 				hex.Encode(runehex[4:], xb[xi:xi+1])
-				copy(out[outpos:], runehex[:])
+				out.Write(runehex[:])
 				outpos += 6
 			}
 			i += csize
@@ -175,27 +177,25 @@ func EscapeNulls(x string) string {
 		}
 		switch c {
 		case 0:
-			copy(out[outpos:], xb[start:i])
+			out.Write(xb[start:i])
 			outpos += i - start
 			start = i + 1
-			copy(out[outpos:], escapenull)
+			out.Write(escapenull)
 			outpos += 6
 		case '\\':
-			copy(out[outpos:], xb[start:i])
+			out.Write(xb[start:i])
 			outpos += i - start
 			start = i + 1
-			out[outpos] = '\\'
-			outpos++
-			out[outpos] = '\\'
-			outpos++
+			out.Write([]byte("\\\\"))
+			outpos+=2
 		default:
 		}
 		i += csize
 	}
 	if start < len(xb) {
-		copy(out[outpos:], xb[start:])
+		out.Write(xb[start:])
 	}
-	return string(out)
+	return out.String()
 }
 
 // UnescapeNulls is the inverse function of EscapeNulls.

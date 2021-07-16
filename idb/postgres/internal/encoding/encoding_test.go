@@ -3,6 +3,8 @@ package encoding
 import (
 	"fmt"
 	"testing"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/stretchr/testify/assert"
@@ -140,9 +142,38 @@ func TestSanitizeNull(t *testing.T) {
 			expected: "in the middle \\u008c somewhere",
 			query:    "in the middle \\\\u008c somewhere",
 		},
+		{
+			name:     "invalid utf8 in the middle",
+			input:    "in the middle \x8c somewhere",
+			expected: "in the middle \\u008c somewhere",
+			query:    "in the middle \\\\u008c somewhere",
+		},
+		{
+			name:     "Extended utf8 that is valid",
+			input:    "\U00100000",
+			expected: "\U00100000",
+			query:    "\U00100000",
+		},
+		{
+			name:     "Extended utf8 that is invalid",
+			input:    " 00 \x11\x00\x00",
+			expected: "",
+			query:    "\u0011\\\\u0000",
+		},
 	}
 
+
 	for _, test := range tests {
+		t.Run(test.name+" Is valid", func(t *testing.T) {
+			for _, c := range test.input {
+				if !unicode.IsPrint(c) {
+					assert.Fail(t, fmt.Sprintf("Non printable input: %s", test.input))
+				}
+				if c == utf8.RuneError {
+					assert.Fail(t, "rune error is not printable")
+				}
+			}
+		})
 		t.Run(test.name+" ConvertString", func(t *testing.T) {
 			assert.Equal(t, test.expected, ConvertString(test.input))
 		})
@@ -166,6 +197,8 @@ func TestEscapeNulls(t *testing.T) {
 		{"ao\xc0 eu", "ao\\u00c0 eu"},    // invalid utf8 \xc0\x20
 		{"ăѣ𝔠ծềſģȟᎥ𝒋ǩľḿꞑȯ𝘱𝑞𝗋𝘴ȶ𝞄𝜈ψ𝒙𝘆𝚣1234567890!@#$%^&*()-_=+[{]};:'\",<.>/?", "ăѣ𝔠ծềſģȟᎥ𝒋ǩľḿꞑȯ𝘱𝑞𝗋𝘴ȶ𝞄𝜈ψ𝒙𝘆𝚣1234567890!@#$%^&*()-_=+[{]};:'\",<.>/?"},
 		{"🧙💍➡🌋", "🧙💍➡🌋"},
+		{"\U00100000", ""},
+		{"\u0011\u0000", ""},
 	}
 
 	for _, tc := range tests {
