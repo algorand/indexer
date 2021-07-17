@@ -8,7 +8,7 @@ apt-get install -y gnupg2 curl software-properties-common
 
 # Run this at this stage rather than in Dockerfile.mule to make sure we always have the latest algod. The other packages are more cacheable.
 curl https://releases.algorand.com/key.pub | apt-key add -
-add-apt-repository "deb https://releases.algorand.com/deb/ stable main"
+add-apt-repository "deb https://releases.algorand.com/deb/ nightly main"
 apt-get update
 apt-get install -y algorand
 
