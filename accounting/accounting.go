@@ -184,7 +184,7 @@ func (accounting *State) configAsset(assetID uint64, isNew bool, creator types.A
 		Config: &idb.AcfgUpdate{
 			IsNew:   isNew,
 			Creator: creator,
-			Params:  types.AssetParamsWithExtra{
+			Params: types.AssetParamsWithExtra{
 				AssetParams:    params,
 				UnitNameBytes:  []byte(params.UnitName),
 				AssetNameBytes: []byte(params.AssetName),

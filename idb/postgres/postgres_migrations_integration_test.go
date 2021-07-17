@@ -512,7 +512,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 				require.Len(t, *acct.Account.CreatedAssets, 1)
 
 				asset := (*acct.Account.CreatedAssets)[0]
-				if  testcase.ExpectedAssetName == "" {
+				if testcase.ExpectedAssetName == "" {
 					require.Nil(t, asset.Params.Name)
 				}
 				requireNilOrEqual(t, testcase.ExpectedAssetName, asset.Params.Name)
