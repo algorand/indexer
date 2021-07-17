@@ -2108,6 +2108,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					continue
 				}
 				ap := assetParams[i]
+				ap.ComputeBytesIfMissing()
 
 				tma := models.Asset{
 					Index:            assetid,
@@ -2714,6 +2715,7 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			out <- idb.AssetRow{Error: err}
 			break
 		}
+		params.ComputeBytesIfMissing()
 		rec := idb.AssetRow{
 			AssetID:      index,
 			Creator:      creatorAddr,
