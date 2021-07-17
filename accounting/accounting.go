@@ -184,7 +184,12 @@ func (accounting *State) configAsset(assetID uint64, isNew bool, creator types.A
 		Config: &idb.AcfgUpdate{
 			IsNew:   isNew,
 			Creator: creator,
-			Params:  params,
+			Params:  types.AssetParamsWithExtra{
+				AssetParams:    params,
+				UnitNameBytes:  []byte(params.UnitName),
+				AssetNameBytes: []byte(params.AssetName),
+				URLBytes:       []byte(params.URL),
+			},
 		},
 	}
 	// This probably doesn't need to finalize the subround, but it is an uncommon transaction so lets play it safe.

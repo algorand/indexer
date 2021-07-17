@@ -240,7 +240,7 @@ type AssetsQuery struct {
 type AssetRow struct {
 	AssetID      uint64
 	Creator      []byte
-	Params       types.AssetParams
+	Params       types.AssetParamsWithExtra
 	Error        error
 	CreatedRound *uint64
 	ClosedRound  *uint64
@@ -300,7 +300,7 @@ type AssetUpdate struct {
 type AcfgUpdate struct {
 	IsNew   bool
 	Creator types.Address
-	Params  types.AssetParams
+	Params  types.AssetParamsWithExtra
 }
 
 // AssetTransfer is used by the accounting and IndexerDb implementations to share modifications in a block.

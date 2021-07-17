@@ -1052,9 +1052,9 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 
 					// Asset Config
 					if au.Config != nil {
-						var outparams []byte
+						var params types.AssetParamsWithExtra
 						if au.Config.IsNew {
-							outparams = encoding.EncodeJSON(au.Config.Params)
+							params = au.Config.Params
 						} else {
 							row := getacfg.QueryRow(au.AssetID)
 							var paramjson []byte
@@ -1062,14 +1062,16 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 							if err != nil {
 								return fmt.Errorf("get acfg %d, %v", au.AssetID, err)
 							}
-							var old sdk_types.AssetParams
+							var old types.AssetParamsWithExtra
 							err = encoding.DecodeJSON(paramjson, &old)
 							if err != nil {
 								return fmt.Errorf("bad acgf json %d, %v", au.AssetID, err)
 							}
-							np := types.MergeAssetConfig(old, au.Config.Params)
-							outparams = encoding.EncodeJSON(np)
+							new := au.Config.Params
+							params = types.MergeAssetConfig(old, new)
 						}
+						params.AssetParams = encoding.ConvertAssetParams(params.AssetParams)
+						outparams := encoding.EncodeJSON(params)
 						_, err = setacfg.Exec(au.AssetID, au.Config.Creator[:], outparams, round)
 						if err != nil {
 							return fmt.Errorf("update asset, %v", err)
@@ -2056,7 +2058,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			var assetParams []types.AssetParams
+			var assetParams []types.AssetParamsWithExtra
 			err = encoding.DecodeJSON(assetParamsStr, &assetParams)
 			if err != nil {
 				err = fmt.Errorf("parsing json asset param string, %v", err)
@@ -2117,9 +2119,12 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						Total:         ap.Total,
 						Decimals:      uint64(ap.Decimals),
 						DefaultFrozen: boolPtr(ap.DefaultFrozen),
-						UnitName:      stringPtr(ap.UnitName),
-						Name:          stringPtr(ap.AssetName),
-						Url:           stringPtr(ap.URL),
+						UnitName:      stringPtr(ap.AssetParams.UnitName),
+						UnitNameB64:   baPtr(ap.UnitNameBytes),
+						Name:          stringPtr(ap.AssetParams.AssetName),
+						NameB64:       baPtr(ap.AssetNameBytes),
+						Url:           stringPtr(ap.AssetParams.URL),
+						UrlB64:        baPtr(ap.URLBytes),
 						MetadataHash:  baPtr(ap.MetadataHash[:]),
 						Manager:       addrStr(ap.Manager),
 						Reserve:       addrStr(ap.Reserve),
@@ -2696,7 +2701,7 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			out <- idb.AssetRow{Error: err}
 			break
 		}
-		var params types.AssetParams
+		var params types.AssetParamsWithExtra
 		err = encoding.DecodeJSON(paramsJSONStr, &params)
 		if err != nil {
 			out <- idb.AssetRow{Error: err}

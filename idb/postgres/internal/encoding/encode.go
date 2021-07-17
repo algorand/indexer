@@ -2,6 +2,9 @@ package encoding
 
 import (
 	"encoding/base64"
+	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/algorand/go-codec/codec"
 
@@ -16,6 +19,28 @@ func EncodeJSON(obj interface{}) []byte {
 	enc := codec.NewEncoderBytes(&buf, jsonCodecHandle)
 	enc.MustEncode(obj)
 	return buf
+}
+
+// printableUTF8OrEmpty checks to see if the entire string is a UTF8 printable string.
+// If this is the case, the string is returned as is. Otherwise, the empty string is returned.
+func printableUTF8OrEmpty(in string) string {
+	// iterate throughout all the characters in the string to see if they are all printable.
+	// when range iterating on go strings, go decode each element as a utf8 rune.
+	for _, c := range in {
+		// is this a printable character, or invalid rune ?
+		if c == utf8.RuneError || !unicode.IsPrint(c) {
+			return ""
+		}
+	}
+	return in
+}
+
+// ConvertAssetParams sanitizes asset param string fields before encoding to JSON bytes.
+func ConvertAssetParams(ap types.AssetParams) types.AssetParams {
+	ap.AssetName = printableUTF8OrEmpty(ap.AssetName)
+	ap.UnitName = printableUTF8OrEmpty(ap.UnitName)
+	ap.URL = printableUTF8OrEmpty(ap.URL)
+	return ap
 }
 
 // Base64 encodes a byte array to a base64 string.
@@ -60,6 +85,11 @@ func convertSignedTxnWithAD(stxn types.SignedTxnWithAD) types.SignedTxnWithAD {
 
 // EncodeSignedTxnWithAD returns a json string where all byte arrays are base64 encoded.
 func EncodeSignedTxnWithAD(stxn types.SignedTxnWithAD) []byte {
+	ap := stxn.Txn.AssetParams
+	ap.AssetName = strings.ReplaceAll(ap.AssetName, "\000", "")
+	ap.UnitName = strings.ReplaceAll(ap.UnitName, "\000", "")
+	ap.URL = strings.ReplaceAll(ap.URL, "\000", "")
+	stxn.Txn.AssetParams = ap
 	return EncodeJSON(convertSignedTxnWithAD(stxn))
 }
 

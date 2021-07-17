@@ -906,15 +906,22 @@ const (
 	PaysetCommitMerkle
 )
 
+type AssetParamsWithExtra struct {
+	sdk_types.AssetParams
+	UnitNameBytes  []byte `codec:"un64"`
+	AssetNameBytes []byte `codec:"an64"`
+	URLBytes       []byte `codec:"au64"`
+}
+
 // MergeAssetConfig merges together two asset param objects.
-func MergeAssetConfig(old, new sdk_types.AssetParams) (out sdk_types.AssetParams) {
+func MergeAssetConfig(old, new AssetParamsWithExtra) (out AssetParamsWithExtra) {
 	// if asset is new, set.
 	// if new config is empty, set empty.
 	// else, update.
-	if old == (sdk_types.AssetParams{}) {
+	if old.AssetParams.IsZero() {
 		out = new
-	} else if new == (sdk_types.AssetParams{}) {
-		out = new
+	} else if new.AssetParams.IsZero() {
+		out = old
 	} else {
 		out = old
 		if !old.Manager.IsZero() {
