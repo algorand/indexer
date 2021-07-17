@@ -36,10 +36,21 @@ func printableUTF8OrEmpty(in string) string {
 }
 
 // ConvertAssetParams sanitizes asset param string fields before encoding to JSON bytes.
-func ConvertAssetParams(ap types.AssetParams) types.AssetParams {
+func ConvertAssetParams(ap types.AssetParamsWithExtra) types.AssetParamsWithExtra {
 	ap.AssetName = printableUTF8OrEmpty(ap.AssetName)
 	ap.UnitName = printableUTF8OrEmpty(ap.UnitName)
 	ap.URL = printableUTF8OrEmpty(ap.URL)
+	// If the string is printable, don't store the encoded version.
+	// This is a nice optimization, and required for backwards compatibility.
+	if len(ap.AssetName) > 0 {
+		ap.AssetNameBytes = nil
+	}
+	if len(ap.UnitName) > 0 {
+		ap.UnitNameBytes = nil
+	}
+	if len(ap.URL) > 0 {
+		ap.URLBytes = nil
+	}
 	return ap
 }
 

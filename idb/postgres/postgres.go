@@ -1070,7 +1070,7 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 							new := au.Config.Params
 							params = types.MergeAssetConfig(old, new)
 						}
-						params.AssetParams = encoding.ConvertAssetParams(params.AssetParams)
+						params = encoding.ConvertAssetParams(params)
 						outparams := encoding.EncodeJSON(params)
 						_, err = setacfg.Exec(au.AssetID, au.Config.Creator[:], outparams, round)
 						if err != nil {
@@ -2120,11 +2120,11 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						Decimals:      uint64(ap.Decimals),
 						DefaultFrozen: boolPtr(ap.DefaultFrozen),
 						UnitName:      stringPtr(ap.AssetParams.UnitName),
-						UnitNameB64:   baPtr(ap.UnitNameBytes),
+						UnitNameB64:   baPtrOrDefault(ap.UnitNameBytes, []byte(ap.AssetParams.UnitName)),
 						Name:          stringPtr(ap.AssetParams.AssetName),
-						NameB64:       baPtr(ap.AssetNameBytes),
+						NameB64:       baPtrOrDefault(ap.AssetNameBytes, []byte(ap.AssetParams.AssetName)),
 						Url:           stringPtr(ap.AssetParams.URL),
-						UrlB64:        baPtr(ap.URLBytes),
+						UrlB64:        baPtrOrDefault(ap.URLBytes, []byte(ap.AssetParams.URL)),
 						MetadataHash:  baPtr(ap.MetadataHash[:]),
 						Manager:       addrStr(ap.Manager),
 						Reserve:       addrStr(ap.Reserve),
@@ -2349,6 +2349,13 @@ func stringPtr(x string) *string {
 	out := new(string)
 	*out = x
 	return out
+}
+
+func baPtrOrDefault(x []byte, def []byte) *[]byte {
+	if x == nil || len(x) == 0 {
+		return baPtr(def)
+	}
+	return baPtr(x)
 }
 
 func baPtr(x []byte) *[]byte {
