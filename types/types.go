@@ -906,6 +906,7 @@ const (
 	PaysetCommitMerkle
 )
 
+// AssetParamsWithExtra adds byte arrays to store non UTF8 asset strings.
 type AssetParamsWithExtra struct {
 	sdk_types.AssetParams
 	UnitNameBytes  []byte `codec:"un64"`
@@ -913,6 +914,7 @@ type AssetParamsWithExtra struct {
 	URLBytes       []byte `codec:"au64"`
 }
 
+// ComputeBytesIfMissing fills in the asset byte arrays with UTF8 data if needed.
 func (ap *AssetParamsWithExtra) ComputeBytesIfMissing() {
 	if len(ap.AssetName) > 0 {
 		ap.AssetNameBytes = []byte(ap.AssetName)
