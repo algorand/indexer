@@ -59,7 +59,9 @@ func bytePtr(x []byte) *[]byte {
 	// Don't return if it's all zero.
 	for _, v := range x {
 		if v != 0 {
-			return &x
+			xx := make([]byte, len(x))
+			copy(xx, x)
+			return &xx
 		}
 	}
 
