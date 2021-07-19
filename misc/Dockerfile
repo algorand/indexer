@@ -1,4 +1,4 @@
-FROM golang:1.15.4
+FROM golang:1.14.7
 
 # Misc dependencies
 ENV HOME /opt    
