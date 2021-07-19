@@ -238,7 +238,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 
 	ktype, err := idb.SignatureType(&stxn.SignedTxn)
 	if err != nil {
-		return err
+		ktype = ""
 	}
 
 	var isNew bool
