@@ -236,7 +236,11 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		return ErrWrongRound
 	}
 
-	ktype := idb.SignatureType(&stxn.SignedTxn)
+	ktype, err := idb.SignatureType(&stxn.SignedTxn)
+	if err != nil {
+		return err
+	}
+
 	var isNew bool
 	isNew, err = accounting.accountTypes.set(stxn.Txn.Sender, string(ktype))
 	if err != nil {

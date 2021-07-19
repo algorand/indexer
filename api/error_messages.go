@@ -39,5 +39,5 @@ func init() {
 	errUnknownAddressRole = fmt.Sprintf("unknown address role [valid roles: %s]", AddressRoleEnumString)
 	errUnknownTxType = fmt.Sprintf("unknown tx-type [valid types: %s]", importer.TypeEnumString)
 	errUnknownSigType = fmt.Sprintf(
-		"unknown sig-type [valid types: %s, %s, %s]", idb.Sig, idb.Msig, idb.Lsig)
+		"unknown sig-type [valid types: %s]", idb.SigTypeEnumString)
 }
