@@ -105,17 +105,7 @@ var addressRoleEnumMap = map[string]bool{
 // AddressRoleEnumString is used in error messages to list valid address role values.
 var AddressRoleEnumString string
 
-var sigTypeEnumMap = map[string]int{
-	"sig":  1,
-	"msig": 2,
-	"lsig": 3,
-}
-
-// SigTypeEnumString is used in error messages to list valid sig type values.
-var SigTypeEnumString string
-
 func init() {
-	SigTypeEnumString = util.KeysStringInt(sigTypeEnumMap)
 	AddressRoleEnumString = util.KeysStringBool(addressRoleEnumMap)
 }
 
@@ -131,11 +121,12 @@ func decodeBase64Byte(str *string, field string, errorArr []string) ([]byte, []s
 }
 
 // decodeSigType validates the input string and dereferences it if present, or appends an error to errorArr
-func decodeSigType(str *string, errorArr []string) (string, []string) {
+func decodeSigType(str *string, errorArr []string) (idb.SigType, []string) {
 	if str != nil {
 		sigTypeLc := strings.ToLower(*str)
-		if _, ok := sigTypeEnumMap[sigTypeLc]; ok {
-			return sigTypeLc, errorArr
+		sigtype := idb.SigType(*str)
+		if idb.IsSigTypeValid(sigtype) {
+			return sigtype, errorArr
 		}
 		return "", append(errorArr, fmt.Sprintf("%s: '%s'", errUnknownSigType, sigTypeLc))
 	}
