@@ -2373,9 +2373,10 @@ func baPtr(x []byte) *[]byte {
 	if allzero {
 		return nil
 	}
-	out := new([]byte)
-	*out = x
-	return out
+
+	xx := make([]byte, len(x))
+	copy(xx, x)
+	return &xx
 }
 
 func allZero(x []byte) bool {
