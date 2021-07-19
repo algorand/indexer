@@ -17,8 +17,9 @@ ENV PATH="/opt/algorand/bin:${PATH}"
 # Setup files for test
 run mkdir -p /opt/go/indexer
 COPY . /opt/go/indexer
+COPY cmd/algorand-indexer/algorand-indexer /opt/go/indexer/indexerbin
 WORKDIR /opt/go/indexer
 RUN pip3 install -r misc/requirements.txt
 
 # Run test script
-ENTRYPOINT ["/bin/bash", "-c", "sleep 5 && python3 misc/e2elive.py --connection-string \"$CONNECTION_STRING\" --indexer-bin cmd/algorand-indexer/algorand-indexer --indexer-port 9890"]
+ENTRYPOINT ["/bin/bash", "-c", "sleep 5 && python3 misc/e2elive.py --connection-string \"$CONNECTION_STRING\" --indexer-bin ./indexerbin --indexer-port 9890"]
