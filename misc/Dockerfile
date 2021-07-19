@@ -3,7 +3,7 @@ FROM golang:1.15.4
 # Misc dependencies
 ENV HOME /opt    
 ENV DEBIAN_FRONTEND noninteractive    
-RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutils python3 python3-pip
+RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutils python3 python3-pip make
 
 # Install algod nightly binaries to the path
 RUN mkdir -p /opt/algorand/{bin,data}
@@ -18,6 +18,8 @@ ENV PATH="/opt/algorand/bin:${PATH}"
 run mkdir -p /opt/go/indexer
 COPY . /opt/go/indexer
 WORKDIR /opt/go/indexer
+RUN rm /opt/go/indexer/cmd/algorand-indexer/algorand-indexer
+RUN make
 RUN pip3 install -r misc/requirements.txt
 
 # Run test script
