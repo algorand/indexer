@@ -25,6 +25,7 @@ script:
 #- ./test/perf.sh "$TEST_CONNECTION_STRING_1" && ./test/perf.sh "$TEST_CONNECTION_STRING_2"
 - make fakepackage
 # e2elive.py runs with the docker-compose file in misc
+- echo "Running docker-compose with image: '$GO_IMAGE'"
 - cd misc && docker-compose build && docker-compose up --exit-code-from e2e
 
 after_success:
