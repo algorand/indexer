@@ -2,12 +2,13 @@ package encoding
 
 import (
 	"encoding/base64"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
-	"github.com/algorand/go-codec/codec"
-	"github.com/algorand/indexer/util"
 	"strings"
 
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-codec/codec"
+
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 )
 
 var jsonCodecHandle *codec.JsonHandle
@@ -23,9 +24,9 @@ func EncodeJSON(obj interface{}) []byte {
 // AssetParamsWithExtra adds byte arrays to store non UTF8 asset strings.
 type AssetParamsWithExtra struct {
 	sdk_types.AssetParams
-	UnitNameBytes  []byte `codec:"un64"`
-	AssetNameBytes []byte `codec:"an64"`
-	URLBytes       []byte `codec:"au64"`
+	UnitNameBytes  []byte `codec:"un64,omitempty"`
+	AssetNameBytes []byte `codec:"an64,omitempty"`
+	URLBytes       []byte `codec:"au64,omitempty"`
 }
 
 // ComputeMissing fills in any missing fields.

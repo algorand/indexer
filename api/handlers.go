@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/indexer/util"
 	"net/http"
 	"strconv"
 
@@ -15,6 +14,7 @@ import (
 	"github.com/algorand/indexer/api/generated/common"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/util"
 )
 
 // ServerImplementation implements the handler interface used by the generated route definitions.
