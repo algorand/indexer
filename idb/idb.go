@@ -116,17 +116,6 @@ type GetBlockOptions struct {
 	Transactions bool
 }
 
-// TransactionFilter.AddressRole bitfield values
-const (
-	AddressRoleSender           = 0x01
-	AddressRoleReceiver         = 0x02
-	AddressRoleCloseRemainderTo = 0x04
-	AddressRoleAssetSender      = 0x08
-	AddressRoleAssetReceiver    = 0x10
-	AddressRoleAssetCloseTo     = 0x20
-	AddressRoleFreeze           = 0x40
-)
-
 // TransactionFilter.TypeEnum and also AddTransaction(,,txtypeenum,,,)
 const (
 	TypeEnumPay           = 1
@@ -145,7 +134,7 @@ type TransactionFilter struct {
 	// setting a MaxRound to get results before.
 	Address []byte
 
-	AddressRole uint64 // 0=Any, otherwise AddressRole* bitfields above
+	AddressRole AddressRole // 0=Any, otherwise bitfields as defined in address_role.go
 
 	MinRound   uint64
 	MaxRound   uint64
@@ -157,7 +146,7 @@ type TransactionFilter struct {
 	Offset     *uint64 // nil for no filter
 	OffsetLT   *uint64 // nil for no filter
 	OffsetGT   *uint64 // nil for no filter
-	SigType    string  // ["", "sig", "msig", "lsig"]
+	SigType    SigType // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
 	AlgosGT    *uint64 // implictly filters on "pay" txns for Algos > this. This will be a slightly faster query than EffectiveAmountGT.
 	AlgosLT    *uint64
