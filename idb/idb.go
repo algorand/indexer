@@ -116,16 +116,6 @@ type GetBlockOptions struct {
 	Transactions bool
 }
 
-// TransactionFilter.TypeEnum and also AddTransaction(,,txtypeenum,,,)
-const (
-	TypeEnumPay           = 1
-	TypeEnumKeyreg        = 2
-	TypeEnumAssetConfig   = 3
-	TypeEnumAssetTransfer = 4
-	TypeEnumAssetFreeze   = 5
-	TypeEnumApplication   = 6
-)
-
 // TransactionFilter is a parameter object with all the transaction filter options.
 type TransactionFilter struct {
 	// Address filtering transactions for one Address will
@@ -140,7 +130,7 @@ type TransactionFilter struct {
 	MaxRound   uint64
 	AfterTime  time.Time
 	BeforeTime time.Time
-	TypeEnum   int // ["","pay","keyreg","acfg","axfer","afrz"]
+	TypeEnum   TxnTypeEnum // ["","pay","keyreg","acfg","axfer","afrz"]
 	Txid       string
 	Round      *uint64 // nil for no filter
 	Offset     *uint64 // nil for no filter
