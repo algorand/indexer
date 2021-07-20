@@ -2106,7 +2106,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					continue
 				}
 				ap := assetParams[i]
-				//ap.ComputeMissing()
+				ap.ComputeMissing()
 
 				tma := models.Asset{
 					Index:            assetid,
