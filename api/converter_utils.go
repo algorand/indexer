@@ -17,7 +17,6 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
-	"github.com/algorand/indexer/util"
 )
 
 //////////////////////////////////////////////////////////////////////
@@ -51,7 +50,7 @@ func decodeAddress(str *string, field string, errorArr []string) ([]byte, []stri
 }
 
 // decodeAddress converts the role information into a bitmask, or appends an error to errorArr
-func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (uint64, []string) {
+func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (idb.AddressRole, []string) {
 	// If the string is nil, return early.
 	if role == nil {
 		return 0, errorArr
@@ -75,7 +74,7 @@ func decodeAddressRole(role *string, excludeCloseTo *bool, errorArr []string) (u
 	// Receiver + closeTo flags if excludeCloseTo is missing/disabled
 	if lc == addrRoleReceiver && !exclude {
 		mask := idb.AddressRoleReceiver | idb.AddressRoleAssetReceiver | idb.AddressRoleCloseRemainderTo | idb.AddressRoleAssetCloseTo
-		return uint64(mask), errorArr
+		return mask, errorArr
 	}
 
 	// closeTo must have been true to get here
@@ -100,13 +99,6 @@ var addressRoleEnumMap = map[string]bool{
 	addrRoleSender:   true,
 	addrRoleReceiver: true,
 	addrRoleFreeze:   true,
-}
-
-// AddressRoleEnumString is used in error messages to list valid address role values.
-var AddressRoleEnumString string
-
-func init() {
-	AddressRoleEnumString = util.KeysStringBool(addressRoleEnumMap)
 }
 
 func decodeBase64Byte(str *string, field string, errorArr []string) ([]byte, []string) {
