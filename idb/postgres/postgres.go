@@ -2119,11 +2119,11 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						Decimals:      uint64(ap.Decimals),
 						DefaultFrozen: boolPtr(ap.DefaultFrozen),
 						UnitName:      stringPtr(util.PrintableUTF8OrEmpty(ap.UnitName)),
-						UnitNameB64:   baPtrOrDefault(ap.UnitNameBytes, []byte(ap.UnitName)),
+						UnitNameB64:   baPtr([]byte(ap.UnitName)),
 						Name:          stringPtr(util.PrintableUTF8OrEmpty(ap.AssetName)),
-						NameB64:       baPtrOrDefault(ap.AssetNameBytes, []byte(ap.AssetName)),
+						NameB64:       baPtr([]byte(ap.AssetName)),
 						Url:           stringPtr(util.PrintableUTF8OrEmpty(ap.URL)),
-						UrlB64:        baPtrOrDefault(ap.URLBytes, []byte(ap.URL)),
+						UrlB64:        baPtr([]byte(ap.URL)),
 						MetadataHash:  baPtr(ap.MetadataHash[:]),
 						Manager:       addrStr(ap.Manager),
 						Reserve:       addrStr(ap.Reserve),
@@ -2348,13 +2348,6 @@ func stringPtr(x string) *string {
 	out := new(string)
 	*out = x
 	return out
-}
-
-func baPtrOrDefault(x []byte, def []byte) *[]byte {
-	if x == nil || len(x) == 0 {
-		return baPtr(def)
-	}
-	return baPtr(x)
 }
 
 func baPtr(x []byte) *[]byte {
