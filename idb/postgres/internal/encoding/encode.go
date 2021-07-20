@@ -2,11 +2,10 @@ package encoding
 
 import (
 	"encoding/base64"
-	"strings"
-	"unicode"
-	"unicode/utf8"
-
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-codec/codec"
+	"github.com/algorand/indexer/util"
+	"strings"
 
 	"github.com/algorand/indexer/types"
 )
@@ -21,37 +20,60 @@ func EncodeJSON(obj interface{}) []byte {
 	return buf
 }
 
-// printableUTF8OrEmpty checks to see if the entire string is a UTF8 printable string.
-// If this is the case, the string is returned as is. Otherwise, the empty string is returned.
-func printableUTF8OrEmpty(in string) string {
-	// iterate throughout all the characters in the string to see if they are all printable.
-	// when range iterating on go strings, go decode each element as a utf8 rune.
-	for _, c := range in {
-		// is this a printable character, or invalid rune ?
-		if c == utf8.RuneError || !unicode.IsPrint(c) {
-			return ""
-		}
+// AssetParamsWithExtra adds byte arrays to store non UTF8 asset strings.
+type AssetParamsWithExtra struct {
+	sdk_types.AssetParams
+	UnitNameBytes  []byte `codec:"un64"`
+	AssetNameBytes []byte `codec:"an64"`
+	URLBytes       []byte `codec:"au64"`
+}
+
+// ComputeMissing fills in any missing fields.
+func (ap *AssetParamsWithExtra) ComputeMissing() {
+	if len(ap.AssetName) > 0 {
+		ap.AssetNameBytes = []byte(ap.AssetName)
+	} else if len(ap.AssetNameBytes) > 0 {
+		ap.AssetName = string(ap.AssetNameBytes)
 	}
-	return in
+
+	if len(ap.UnitName) > 0 {
+		ap.UnitNameBytes = []byte(ap.UnitName)
+	} else if len(ap.UnitNameBytes) > 0 {
+		ap.UnitName = string(ap.UnitNameBytes)
+	}
+
+	if len(ap.URL) > 0 {
+		ap.URLBytes = []byte(ap.URL)
+	} else if len(ap.URLBytes) > 0 {
+		ap.URL = string(ap.URLBytes)
+	}
 }
 
 // ConvertAssetParams sanitizes asset param string fields before encoding to JSON bytes.
-func ConvertAssetParams(ap types.AssetParamsWithExtra) types.AssetParamsWithExtra {
-	ap.AssetName = printableUTF8OrEmpty(ap.AssetName)
-	ap.UnitName = printableUTF8OrEmpty(ap.UnitName)
-	ap.URL = printableUTF8OrEmpty(ap.URL)
+func ConvertAssetParams(ap types.AssetParams) AssetParamsWithExtra {
+	ret := AssetParamsWithExtra{
+		AssetParams:    ap,
+		AssetNameBytes: []byte(ap.AssetName),
+		UnitNameBytes: []byte(ap.UnitName),
+		URLBytes: []byte(ap.URL),
+	}
+
+	ret.AssetName = util.PrintableUTF8OrEmpty(ap.AssetName)
+	ret.UnitName = util.PrintableUTF8OrEmpty(ap.UnitName)
+	ret.URL = util.PrintableUTF8OrEmpty(ap.URL)
+
 	// If the string is printable, don't store the encoded version.
 	// This is a nice optimization, and required for backwards compatibility.
-	if len(ap.AssetName) > 0 {
-		ap.AssetNameBytes = nil
+	if len(ret.AssetName) > 0 {
+		ret.AssetNameBytes = nil
 	}
-	if len(ap.UnitName) > 0 {
-		ap.UnitNameBytes = nil
+	if len(ret.UnitName) > 0 {
+		ret.UnitNameBytes = nil
 	}
-	if len(ap.URL) > 0 {
-		ap.URLBytes = nil
+	if len(ret.URL) > 0 {
+		ret.URLBytes = nil
 	}
-	return ap
+	return ret
 }
 
 // Base64 encodes a byte array to a base64 string.

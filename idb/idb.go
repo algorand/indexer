@@ -300,7 +300,7 @@ type AssetUpdate struct {
 type AcfgUpdate struct {
 	IsNew   bool
 	Creator types.Address
-	Params  types.AssetParamsWithExtra
+	Params  types.AssetParams
 }
 
 // AssetTransfer is used by the accounting and IndexerDb implementations to share modifications in a block.

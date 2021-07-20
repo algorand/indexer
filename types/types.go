@@ -906,39 +906,18 @@ const (
 	PaysetCommitMerkle
 )
 
-// AssetParamsWithExtra adds byte arrays to store non UTF8 asset strings.
-type AssetParamsWithExtra struct {
-	sdk_types.AssetParams
-	UnitNameBytes  []byte `codec:"un64"`
-	AssetNameBytes []byte `codec:"an64"`
-	URLBytes       []byte `codec:"au64"`
-}
-
-// ComputeBytesIfMissing fills in the asset byte arrays with UTF8 data if needed.
-func (ap *AssetParamsWithExtra) ComputeBytesIfMissing() {
-	if len(ap.AssetName) > 0 {
-		ap.AssetNameBytes = []byte(ap.AssetName)
-	}
-	if len(ap.UnitName) > 0 {
-		ap.UnitNameBytes = []byte(ap.UnitName)
-	}
-	if len(ap.URL) > 0 {
-		ap.URLBytes = []byte(ap.URL)
-	}
-}
-
 // MergeAssetConfig merges together two asset param objects.
-func MergeAssetConfig(old, new AssetParamsWithExtra) (out AssetParamsWithExtra) {
+func MergeAssetConfig(old, new AssetParams) (out AssetParams) {
 	// if asset is new, set.
 	// if new config is empty, set empty.
 	// else, update.
-	if old.AssetParams.IsZero() {
+	if old.IsZero() {
 		out = new
-	} else if new.AssetParams.IsZero() {
+	} else if new.IsZero() {
 		out = old
 	} else {
 		out = old
-		if !old.Manager.IsZero() {
+		if !old.IsZero() {
 			out.Manager = new.Manager
 		}
 		if !old.Reserve.IsZero() {

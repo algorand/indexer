@@ -714,13 +714,39 @@ f|0"
       "/v2/transactions/TV5RPJFA6YT2APADUOYKIEL3NFAXSVB5J4JO6TSG7BHK4Z5OJKSA?pretty" \
       200 \
       true \
-      '"decimals": 0,' \
-      '"default-frozen": false,' \
-      '"name": "bogocoin",' \
-      '"name-b64": "Ym9nb2NvaW4=",' \
-      '"reserve": "EQJSQTOITX64CPGA5VRKBKLEJR57YXVNLTW5DKZMESIPTEOLRDNWQIJCGU",' \
-      '"total": 1000000000000,' \
-      '"unit-name": "bogo",' \
+      '"decimals": 0' \
+      '"default-frozen": false' \
+      '"name": "bogocoin"' \
+      '"name-b64": "Ym9nb2NvaW4="' \
+      '"reserve": "EQJSQTOITX64CPGA5VRKBKLEJR57YXVNLTW5DKZMESIPTEOLRDNWQIJCGU"' \
+      '"total": 1000000000000' \
+      '"unit-name": "bogo"' \
+      '"unit-name-b64": "Ym9nbw=="' \
+      '"created-asset-index": 36'
+
+      rest_test "[rest] b64 asset fields are serialized" \
+      "/v2/assets/36?pretty" \
+      200 \
+      true \
+      '"decimals": 0' \
+      '"default-frozen": false' \
+      '"name": "bogocoin"' \
+      '"name-b64": "Ym9nb2NvaW4="' \
+      '"reserve": "EQJSQTOITX64CPGA5VRKBKLEJR57YXVNLTW5DKZMESIPTEOLRDNWQIJCGU"' \
+      '"total": 1000000000000' \
+      '"unit-name": "bogo"' \
       '"unit-name-b64": "Ym9nbw=="'
 
+      rest_test "[rest] b64 account fields are serialized" \
+      "/v2/accounts/EQJSQTOITX64CPGA5VRKBKLEJR57YXVNLTW5DKZMESIPTEOLRDNWQIJCGU?pretty" \
+      200 \
+      true \
+      '"decimals": 0' \
+      '"default-frozen": false' \
+      '"name": "bogocoin"' \
+      '"name-b64": "Ym9nb2NvaW4="' \
+      '"reserve": "EQJSQTOITX64CPGA5VRKBKLEJR57YXVNLTW5DKZMESIPTEOLRDNWQIJCGU"' \
+      '"total": 1000000000000' \
+      '"unit-name": "bogo"' \
+      '"unit-name-b64": "Ym9nbw=="'
 }

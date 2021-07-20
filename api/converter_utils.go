@@ -317,13 +317,13 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 			Freeze:        addrPtr(stxn.Txn.AssetParams.Freeze),
 			Manager:       addrPtr(stxn.Txn.AssetParams.Manager),
 			MetadataHash:  bytePtr(stxn.Txn.AssetParams.MetadataHash[:]),
-			Name:          strPtr(stxn.Txn.AssetParams.AssetName),
+			Name:          strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.AssetName)),
 			NameB64:       bytePtr([]byte(stxn.Txn.AssetParams.AssetName)),
 			Reserve:       addrPtr(stxn.Txn.AssetParams.Reserve),
 			Total:         stxn.Txn.AssetParams.Total,
-			UnitName:      strPtr(stxn.Txn.AssetParams.UnitName),
+			UnitName:      strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.UnitName)),
 			UnitNameB64:   bytePtr([]byte(stxn.Txn.AssetParams.UnitName)),
-			Url:           strPtr(stxn.Txn.AssetParams.URL),
+			Url:           strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.URL)),
 			UrlB64:        bytePtr([]byte(stxn.Txn.AssetParams.URL)),
 		}
 		config := generated.TransactionAssetConfig{
