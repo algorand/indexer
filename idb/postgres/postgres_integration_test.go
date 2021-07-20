@@ -1190,12 +1190,9 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			num := 0
 			for asset := range assets {
 				require.NoError(t, asset.Error)
-				requireNilOrEqual(t, testcase.ExpectedAssetName, asset.Params.Name)
-				requireNilOrEqual(t, testcase.ExpectedAssetUnit, asset.Params.UnitName)
-				requireNilOrEqual(t, testcase.ExpectedAssetURL, asset.Params.Url)
-				require.Equal(t, []byte(name), *asset.Params.NameB64)
-				require.Equal(t, []byte(unit), *asset.Params.UnitNameB64)
-				require.Equal(t, []byte(url), *asset.Params.UrlB64)
+				require.Equal(t, name, asset.Params.AssetName)
+				require.Equal(t, unit, asset.Params.UnitName)
+				require.Equal(t, url, asset.Params.URL)
 				num++
 			}
 			require.Equal(t, 1, num)
@@ -1249,10 +1246,6 @@ func TestReconfigAsset(t *testing.T) {
 	name := "algo"
 	url := "https://algorand.com"
 
-	expectedUnit := ""
-	expectedName := "algo"
-	expectedURL := "https://algorand.com"
-
 	assetID := uint64(1)
 	txn, txnRow := test.MakeAssetConfigOrPanic(
 		test.Round, 0, assetID, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
@@ -1294,18 +1287,15 @@ func TestReconfigAsset(t *testing.T) {
 	num := 0
 	for asset := range assets {
 		require.NoError(t, asset.Error)
-		requireNilOrEqual(t, expectedName, asset.Params.Name)
-		requireNilOrEqual(t, expectedUnit, asset.Params.UnitName)
-		requireNilOrEqual(t, expectedURL, asset.Params.Url)
-		require.Equal(t, []byte(name), *asset.Params.NameB64)
-		require.Equal(t, []byte(unit), *asset.Params.UnitNameB64)
-		require.Equal(t, []byte(url), *asset.Params.UrlB64)
+		require.Equal(t, name, asset.Params.AssetName)
+		require.Equal(t, unit, asset.Params.UnitName)
+		require.Equal(t, url, asset.Params.URL)
 
-		require.Nil(t, asset.Params.Manager, "Manager should have been cleared.")
-		require.Nil(t, asset.Params.Reserve, "Reserve should have been cleared.")
+		require.Equal(t, sdk_types.ZeroAddress, asset.Params.Manager, "Manager should have been cleared.")
+		require.Equal(t, sdk_types.ZeroAddress, asset.Params.Reserve, "Reserve should have been cleared.")
 		// These were updated
-		require.Equal(t, test.AccountB.String(), *asset.Params.Freeze)
-		require.Equal(t, test.AccountC.String(), *asset.Params.Clawback)
+		require.Equal(t, test.AccountB, asset.Params.Freeze)
+		require.Equal(t, test.AccountC, asset.Params.Clawback)
 		num++
 	}
 	require.Equal(t, 1, num)

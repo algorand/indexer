@@ -493,12 +493,34 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 			return nil, round, row.Error
 		}
 
+		creator := sdk_types.Address{}
+		if len(row.Creator) != len(creator) {
+			return nil, round, fmt.Errorf(errInvalidCreatorAddress)
+		}
+		copy(creator[:], row.Creator[:])
+
+		mdhash := make([]byte, 32)
+		copy(mdhash, row.Params.MetadataHash[:])
+
 		asset := generated.Asset{
 			Index:            row.AssetID,
 			CreatedAtRound:   row.CreatedRound,
 			DestroyedAtRound: row.ClosedRound,
 			Deleted:          row.Deleted,
-			Params:           row.Params,
+			Params:           generated.AssetParams{
+				Creator:       creator.String(),
+				Name:          strPtr(row.Params.AssetName),
+				UnitName:      strPtr(row.Params.UnitName),
+				Url:           strPtr(row.Params.URL),
+				Total:         row.Params.Total,
+				Decimals:      uint64(row.Params.Decimals),
+				DefaultFrozen: boolPtr(row.Params.DefaultFrozen),
+				MetadataHash:  bytePtr(mdhash),
+				Clawback:      strPtr(row.Params.Clawback.String()),
+				Reserve:       strPtr(row.Params.Reserve.String()),
+				Freeze:        strPtr(row.Params.Freeze.String()),
+				Manager:       strPtr(row.Params.Manager.String()),
+			},
 		}
 
 		// In case the DB layer filled the name with non-printable utf8
