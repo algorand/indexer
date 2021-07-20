@@ -6,6 +6,7 @@ services:
     build:
       context: .
       dockerfile: ./docker/Dockerfile
+      GO_IMAGE: "${GO_IMAGE}"
     ports:
       - 8980:8980
     restart: unless-stopped

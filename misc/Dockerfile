@@ -1,4 +1,5 @@
-FROM golang:1.14.7
+ARG GO_IMAGE=golang:1.14.7
+FROM $GO_IMAGE
 
 # Misc dependencies
 ENV HOME /opt    
