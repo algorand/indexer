@@ -1053,9 +1053,9 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 
 					// Asset Config
 					if au.Config != nil {
-						var params encoding.AssetParamsWithExtra
+						var params sdk_types.AssetParams
 						if au.Config.IsNew {
-							params = encoding.ConvertAssetParams(au.Config.Params)
+							params = au.Config.Params
 						} else {
 							row := getacfg.QueryRow(au.AssetID)
 							var paramjson []byte
@@ -1063,13 +1063,13 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 							if err != nil {
 								return fmt.Errorf("get acfg %d, %v", au.AssetID, err)
 							}
-							err = encoding.DecodeJSON(paramjson, &params)
+							params, err = encoding.DecodeAssetParams(paramjson)
 							if err != nil {
 								return fmt.Errorf("bad acgf json %d, %v", au.AssetID, err)
 							}
-							params.AssetParams = types.MergeAssetConfig(params.AssetParams, au.Config.Params)
+							params = types.MergeAssetConfig(params, au.Config.Params)
 						}
-						outparams := encoding.EncodeJSON(params)
+						outparams := encoding.EncodeAssetParams(params)
 						_, err = setacfg.Exec(au.AssetID, au.Config.Creator[:], outparams, round)
 						if err != nil {
 							return fmt.Errorf("update asset, %v", err)
@@ -2056,8 +2056,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			var assetParams []encoding.AssetParamsWithExtra
-			err = encoding.DecodeJSON(assetParamsStr, &assetParams)
+			assetParams, err := encoding.DecodeAssetParamsArray(assetParamsStr)
 			if err != nil {
 				err = fmt.Errorf("parsing json asset param string, %v", err)
 				req.out <- idb.AccountRow{Error: err}
@@ -2106,7 +2105,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					continue
 				}
 				ap := assetParams[i]
-				ap.ComputeMissing()
 
 				tma := models.Asset{
 					Index:            assetid,
@@ -2701,14 +2699,11 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			out <- idb.AssetRow{Error: err}
 			break
 		}
-		var params encoding.AssetParamsWithExtra
-		err = encoding.DecodeJSON(paramsJSONStr, &params)
+		params, err := encoding.DecodeAssetParams(paramsJSONStr)
 		if err != nil {
 			out <- idb.AssetRow{Error: err}
 			break
 		}
-		params.ComputeMissing()
-		ap := params.AssetParams
 		var creator types.Address
 		copy(creator[:], creatorAddr)
 		rec := idb.AssetRow{
@@ -2716,20 +2711,20 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			Creator: creatorAddr,
 			Params: models.AssetParams{
 				Creator:       creator.String(),
-				Total:         ap.Total,
-				Decimals:      uint64(ap.Decimals),
-				DefaultFrozen: boolPtr(ap.DefaultFrozen),
-				UnitName:      stringPtr(util.PrintableUTF8OrEmpty(ap.UnitName)),
-				UnitNameB64:   baPtr([]byte(ap.UnitName)),
-				Name:          stringPtr(util.PrintableUTF8OrEmpty(ap.AssetName)),
-				NameB64:       baPtr([]byte(ap.AssetName)),
-				Url:           stringPtr(util.PrintableUTF8OrEmpty(ap.URL)),
-				UrlB64:        baPtr([]byte(ap.URL)),
-				MetadataHash:  baPtr(ap.MetadataHash[:]),
-				Manager:       addrStr(ap.Manager),
-				Reserve:       addrStr(ap.Reserve),
-				Freeze:        addrStr(ap.Freeze),
-				Clawback:      addrStr(ap.Clawback),
+				Total:         params.Total,
+				Decimals:      uint64(params.Decimals),
+				DefaultFrozen: boolPtr(params.DefaultFrozen),
+				UnitName:      stringPtr(util.PrintableUTF8OrEmpty(params.UnitName)),
+				UnitNameB64:   baPtr([]byte(params.UnitName)),
+				Name:          stringPtr(util.PrintableUTF8OrEmpty(params.AssetName)),
+				NameB64:       baPtr([]byte(params.AssetName)),
+				Url:           stringPtr(util.PrintableUTF8OrEmpty(params.URL)),
+				UrlB64:        baPtr([]byte(params.URL)),
+				MetadataHash:  baPtr(params.MetadataHash[:]),
+				Manager:       addrStr(params.Manager),
+				Reserve:       addrStr(params.Reserve),
+				Freeze:        addrStr(params.Freeze),
+				Clawback:      addrStr(params.Clawback),
 			},
 			CreatedRound: created,
 			ClosedRound:  closed,

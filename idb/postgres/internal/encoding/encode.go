@@ -21,47 +21,17 @@ func EncodeJSON(obj interface{}) []byte {
 	return buf
 }
 
-// AssetParamsWithExtra adds byte arrays to store non UTF8 asset strings.
-type AssetParamsWithExtra struct {
-	sdk_types.AssetParams
-	UnitNameBytes  []byte `codec:"un64,omitempty"`
-	AssetNameBytes []byte `codec:"an64,omitempty"`
-	URLBytes       []byte `codec:"au64,omitempty"`
-}
-
-// ComputeMissing fills in any missing fields.
-func (ap *AssetParamsWithExtra) ComputeMissing() {
-	if len(ap.AssetName) > 0 {
-		ap.AssetNameBytes = []byte(ap.AssetName)
-	} else if len(ap.AssetNameBytes) > 0 {
-		ap.AssetName = string(ap.AssetNameBytes)
+func convertAssetParams(params sdk_types.AssetParams) assetParams {
+	ret := assetParams{
+		AssetParams:      params,
+		AssetNameBytes: []byte(params.AssetName),
+		UnitNameBytes:  []byte(params.UnitName),
+		URLBytes:       []byte(params.URL),
 	}
 
-	if len(ap.UnitName) > 0 {
-		ap.UnitNameBytes = []byte(ap.UnitName)
-	} else if len(ap.UnitNameBytes) > 0 {
-		ap.UnitName = string(ap.UnitNameBytes)
-	}
-
-	if len(ap.URL) > 0 {
-		ap.URLBytes = []byte(ap.URL)
-	} else if len(ap.URLBytes) > 0 {
-		ap.URL = string(ap.URLBytes)
-	}
-}
-
-// ConvertAssetParams sanitizes asset param string fields before encoding to JSON bytes.
-func ConvertAssetParams(ap types.AssetParams) AssetParamsWithExtra {
-	ret := AssetParamsWithExtra{
-		AssetParams:    ap,
-		AssetNameBytes: []byte(ap.AssetName),
-		UnitNameBytes:  []byte(ap.UnitName),
-		URLBytes:       []byte(ap.URL),
-	}
-
-	ret.AssetName = util.PrintableUTF8OrEmpty(ap.AssetName)
-	ret.UnitName = util.PrintableUTF8OrEmpty(ap.UnitName)
-	ret.URL = util.PrintableUTF8OrEmpty(ap.URL)
+	ret.AssetName = util.PrintableUTF8OrEmpty(params.AssetName)
+	ret.UnitName = util.PrintableUTF8OrEmpty(params.UnitName)
+	ret.URL = util.PrintableUTF8OrEmpty(params.URL)
 
 	// If the string is printable, don't store the encoded version.
 	// This is a nice optimization, and required for backwards compatibility.
@@ -74,7 +44,13 @@ func ConvertAssetParams(ap types.AssetParams) AssetParamsWithExtra {
 	if len(ret.URL) > 0 {
 		ret.URLBytes = nil
 	}
+
 	return ret
+}
+
+// EncodeAssetParams returns a json string where all byte arrays are base64 encoded.
+func EncodeAssetParams(params sdk_types.AssetParams) []byte {
+	return EncodeJSON(convertAssetParams(params))
 }
 
 // Base64 encodes a byte array to a base64 string.
