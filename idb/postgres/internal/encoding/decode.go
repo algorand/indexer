@@ -2,6 +2,7 @@ package encoding
 
 import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/indexer/types"
 
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 )
@@ -32,6 +33,29 @@ func DecodeAssetParams(data []byte) (sdk_types.AssetParams, error) {
 	}
 
 	return unconvertAssetParams(params), nil
+}
+
+
+func unconvertTransaction(txn transaction) types.Transaction {
+	res := txn.Transaction
+	res.AssetParams = unconvertAssetParams(txn.AssetParamsOverride)
+	return res
+}
+
+func unconvertSignedTxnWithAD(stxn signedTxnWithAD) types.SignedTxnWithAD {
+	res := stxn.SignedTxnWithAD
+	res.Txn = unconvertTransaction(stxn.TxnOverride)
+	return res
+}
+
+func DecodeSignedTxnWithAD(data []byte) (types.SignedTxnWithAD, error) {
+	var stxn signedTxnWithAD
+	err := DecodeJSON(data, &stxn)
+	if err != nil {
+		return types.SignedTxnWithAD{}, err
+	}
+
+	return unconvertSignedTxnWithAD(stxn), nil
 }
 
 func unconvertAssetParamsArray(paramsArr []assetParams) []sdk_types.AssetParams {

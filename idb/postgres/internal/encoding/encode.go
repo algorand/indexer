@@ -88,9 +88,19 @@ func convertEvalDelta(evalDelta types.EvalDelta) types.EvalDelta {
 	return evalDelta
 }
 
-func convertSignedTxnWithAD(stxn types.SignedTxnWithAD) types.SignedTxnWithAD {
+func convertTransaction(txn types.Transaction) transaction {
+	return transaction{
+		Transaction:              txn,
+		AssetParamsOverride:      convertAssetParams(txn.AssetParams),
+	}
+}
+
+func convertSignedTxnWithAD(stxn types.SignedTxnWithAD) signedTxnWithAD {
 	stxn.EvalDelta = convertEvalDelta(stxn.EvalDelta)
-	return stxn
+	return signedTxnWithAD{
+		SignedTxnWithAD: stxn,
+		TxnOverride:     convertTransaction(stxn.Txn),
+	}
 }
 
 // EncodeSignedTxnWithAD returns a json string where all byte arrays are base64 encoded.
