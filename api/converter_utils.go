@@ -17,6 +17,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 )
 
 //////////////////////////////////////////////////////////////////////
