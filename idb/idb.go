@@ -240,7 +240,7 @@ type AssetsQuery struct {
 type AssetRow struct {
 	AssetID      uint64
 	Creator      []byte
-	Params       types.AssetParamsWithExtra
+	Params       models.AssetParams
 	Error        error
 	CreatedRound *uint64
 	ClosedRound  *uint64

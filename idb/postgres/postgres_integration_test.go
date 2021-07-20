@@ -1104,6 +1104,15 @@ func TestOpenDbAgain(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func requireNilOrEqual(t *testing.T, expected string, actual *string) {
+	if expected == "" {
+		require.Nil(t, actual)
+	} else {
+		require.NotNil(t, actual)
+		require.Equal(t, expected, *actual)
+	}
+}
+
 // TestEmbeddedNullString make sure we're able to import cheeky assets.
 func TestNonDisplayableUTF8(t *testing.T) {
 	tests := []struct {
@@ -1181,9 +1190,12 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			num := 0
 			for asset := range assets {
 				require.NoError(t, asset.Error)
-				require.Equal(t, name, asset.Params.AssetName)
-				require.Equal(t, unit, asset.Params.UnitName)
-				require.Equal(t, url, asset.Params.URL)
+				requireNilOrEqual(t, testcase.ExpectedAssetName, asset.Params.Name)
+				requireNilOrEqual(t, testcase.ExpectedAssetUnit, asset.Params.UnitName)
+				requireNilOrEqual(t, testcase.ExpectedAssetURL, asset.Params.Url)
+				require.Equal(t, []byte(name), *asset.Params.NameB64)
+				require.Equal(t, []byte(unit), *asset.Params.UnitNameB64)
+				require.Equal(t, []byte(url), *asset.Params.UrlB64)
 				num++
 			}
 			require.Equal(t, 1, num)
@@ -1203,14 +1215,6 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			}
 			require.Equal(t, 1, num)
 
-			requireNilOrEqual := func(t *testing.T, expected string, actual *string) {
-				if expected == "" {
-					require.Nil(t, actual)
-				} else {
-					require.NotNil(t, actual)
-					require.Equal(t, expected, *actual)
-				}
-			}
 			// Test 4: account results should have the correct asset
 			accounts, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAssetParams: true})
 			num = 0
@@ -1244,6 +1248,10 @@ func TestReconfigAsset(t *testing.T) {
 	unit := "co\000in"
 	name := "algo"
 	url := "https://algorand.com"
+
+	expectedUnit := ""
+	expectedName := "algo"
+	expectedUrl := "https://algorand.com"
 
 	assetID := uint64(1)
 	txn, txnRow := test.MakeAssetConfigOrPanic(
@@ -1286,16 +1294,18 @@ func TestReconfigAsset(t *testing.T) {
 	num := 0
 	for asset := range assets {
 		require.NoError(t, asset.Error)
-		require.Equal(t, []byte(name), asset.Params.AssetName)
-		require.Equal(t, []byte(unit), asset.Params.UnitName)
-		require.Equal(t, []byte(url), asset.Params.URL)
+		requireNilOrEqual(t, expectedName, asset.Params.Name)
+		requireNilOrEqual(t, expectedUnit, asset.Params.UnitName)
+		requireNilOrEqual(t, expectedUrl, asset.Params.Url)
+		require.Equal(t, []byte(name), *asset.Params.NameB64)
+		require.Equal(t, []byte(unit), *asset.Params.UnitNameB64)
+		require.Equal(t, []byte(url), *asset.Params.UrlB64)
 
-		// These were cleared out
-		require.Equal(t, sdk_types.ZeroAddress, asset.Params.Manager)
-		require.Equal(t, sdk_types.ZeroAddress, asset.Params.Reserve)
+		require.Nil(t, asset.Params.Manager, "Manager should have been cleared.")
+		require.Nil(t, asset.Params.Reserve, "Reserve should have been cleared.")
 		// These were updated
-		require.Equal(t, test.AccountB, asset.Params.Freeze)
-		require.Equal(t, test.AccountC, asset.Params.Clawback)
+		require.Equal(t, test.AccountB.String(), *asset.Params.Freeze)
+		require.Equal(t, test.AccountC.String(), *asset.Params.Clawback)
 		num++
 	}
 	require.Equal(t, 1, num)

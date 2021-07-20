@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"fmt"
+	"github.com/algorand/indexer/util"
 	"net/http"
 	"strconv"
 
@@ -492,37 +493,26 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 			return nil, round, row.Error
 		}
 
-		creator := sdk_types.Address{}
-		if len(row.Creator) != len(creator) {
-			return nil, round, fmt.Errorf(errInvalidCreatorAddress)
-		}
-		copy(creator[:], row.Creator[:])
-
-		mdhash := make([]byte, 32)
-		copy(mdhash, row.Params.MetadataHash[:])
-
 		asset := generated.Asset{
 			Index:            row.AssetID,
 			CreatedAtRound:   row.CreatedRound,
 			DestroyedAtRound: row.ClosedRound,
 			Deleted:          row.Deleted,
-			Params: generated.AssetParams{
-				Creator:       creator.String(),
-				Name:          strPtr(row.Params.AssetName),
-				NameB64:       bytePtr([]byte(row.Params.AssetName)),
-				UnitName:      strPtr(row.Params.UnitName),
-				UnitNameB64:   bytePtr([]byte(row.Params.UnitName)),
-				Url:           strPtr(row.Params.URL),
-				UrlB64:        bytePtr([]byte(row.Params.URL)),
-				Total:         row.Params.Total,
-				Decimals:      uint64(row.Params.Decimals),
-				DefaultFrozen: boolPtr(row.Params.DefaultFrozen),
-				MetadataHash:  bytePtr(mdhash),
-				Clawback:      strPtr(row.Params.Clawback.String()),
-				Reserve:       strPtr(row.Params.Reserve.String()),
-				Freeze:        strPtr(row.Params.Freeze.String()),
-				Manager:       strPtr(row.Params.Manager.String()),
-			},
+			Params:           row.Params,
+		}
+
+		// In case the DB layer filled the name with non-printable utf8
+		if asset.Params.Name != nil {
+			name := util.PrintableUTF8OrEmpty(*asset.Params.Name)
+			asset.Params.Name = &name
+		}
+		if asset.Params.UnitName != nil {
+			unit := util.PrintableUTF8OrEmpty(*asset.Params.UnitName)
+			asset.Params.UnitName = &unit
+		}
+		if asset.Params.Url != nil {
+			url := util.PrintableUTF8OrEmpty(*asset.Params.Url)
+			asset.Params.Url = &url
 		}
 
 		assets = append(assets, asset)

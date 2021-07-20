@@ -2715,12 +2715,31 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			break
 		}
 		params.ComputeMissing()
+		ap := params.AssetParams
+		var creator types.Address
+		copy(creator[:], creatorAddr)
 		rec := idb.AssetRow{
 			AssetID:      index,
 			Creator:      creatorAddr,
-			Params:       params.AssetParams,
-			CreatedRound: created,
-			ClosedRound:  closed,
+			Params:       models.AssetParams{
+				Creator:       creator.String(),
+				Total:         ap.Total,
+				Decimals:      uint64(ap.Decimals),
+				DefaultFrozen: boolPtr(ap.DefaultFrozen),
+				UnitName:      stringPtr(util.PrintableUTF8OrEmpty(ap.UnitName)),
+				UnitNameB64:   baPtr([]byte(ap.UnitName)),
+				Name:          stringPtr(util.PrintableUTF8OrEmpty(ap.AssetName)),
+				NameB64:       baPtr([]byte(ap.AssetName)),
+				Url:           stringPtr(util.PrintableUTF8OrEmpty(ap.URL)),
+				UrlB64:        baPtr([]byte(ap.URL)),
+				MetadataHash:  baPtr(ap.MetadataHash[:]),
+				Manager:       addrStr(ap.Manager),
+				Reserve:       addrStr(ap.Reserve),
+				Freeze:        addrStr(ap.Freeze),
+				Clawback:      addrStr(ap.Clawback),
+			},
+			CreatedRound:  created,
+			ClosedRound:   closed,
 			Deleted:      deleted,
 		}
 		select {
