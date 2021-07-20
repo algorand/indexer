@@ -1113,7 +1113,7 @@ func requireNilOrEqual(t *testing.T, expected string, actual *string) {
 	}
 }
 
-// TestEmbeddedNullString make sure we're able to import cheeky assets.
+// TestNonDisplayableUTF8 make sure we're able to import cheeky assets.
 func TestNonDisplayableUTF8(t *testing.T) {
 	tests := []struct {
 		Name              string
@@ -1240,7 +1240,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 	}
 }
 
-// TestReconfigAsset
+// TestReconfigAsset make sure we properly handle asset param merges.
 func TestReconfigAsset(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
