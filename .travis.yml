@@ -32,8 +32,7 @@ after_success:
 
 env:
   jobs:
-  - GO_VERSION=$(go version | cut -d' ' -f 3 | cut -d'.' -f 1,2)
-  - GO_IMAGE=golang:${GO_VERSION:2}-stretch
+  - GO_VERSION=$(go version | cut -d' ' -f 3 | cut -d'.' -f 1,2) GO_IMAGE=golang:${GO_VERSION:2}
 
   global:
   - secure: TM7M7vD5G9Ms7Z60xszC0JEhM9Y9UjCd5bZsLvES0KRD5vOBVALnIc3Y2QzaRmVGatd3sAyg2DYAXPOHbvcMVUX+VLoDwkpMLttgLHONqZbYGB9Z8Cqso9y5NZJe7EYy97uVoWjmLehY4b/v8NY9neNZarT7bwBP8OvdT8JFh3iwNL+w9p7mNm7XPdpY8GHAy5TpGsQfv9p5KZAPiAiTj47EPCZLSdWxlxb4jbeynczTgKu8wo3wRCPAgsmFZv0sVJtzo2c9HE/sz2ypMv++3wF8qCzWt174YBBcHkXCsgUpCL9FlTlwy6B2qW8B1oQxylpot7gce2FE5IpqtBm6ry7n+pFKdgCAKnf69WcHSrFGRVrjfIECxjHzMV4eLEfgHKoMOpfuLWLocQVIc38ii/nrT4I6M2qc79qHfbuC/BW9I+bg5d3cVYg9Wgdt94BhNDcS/b4z+pk7eEsCwPBDau8Nteox20pDTFyHYhK4r4c2dp1kqGGmeqLXzSSfqc81Le+5MUTa4Sn0nI8zfl9x4JCeD+bWL9fC/wwxyU2rYS2chWw1hOAH/nXmUkRTBPYXwyCgW7WPDu2Id2k5ghUh+IRgBxv5v3bOPw1BEPInJqbEwCIIJHICb/jnlg34iWwcSYKmk1TDO4vQVT4AFJq5VzxpvgKnOZSfiCGNMESa3kM=
