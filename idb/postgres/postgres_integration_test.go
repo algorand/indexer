@@ -1251,7 +1251,7 @@ func TestReconfigAsset(t *testing.T) {
 
 	expectedUnit := ""
 	expectedName := "algo"
-	expectedUrl := "https://algorand.com"
+	expectedURL := "https://algorand.com"
 
 	assetID := uint64(1)
 	txn, txnRow := test.MakeAssetConfigOrPanic(
@@ -1264,14 +1264,14 @@ func TestReconfigAsset(t *testing.T) {
 				Header: sdk_types.Header{
 					Sender:     test.AccountA,
 					Fee:        sdk_types.MicroAlgos(1000),
-					FirstValid: sdk_types.Round(test.Round+1),
-					LastValid:  sdk_types.Round(test.Round+1),
+					FirstValid: sdk_types.Round(test.Round + 1),
+					LastValid:  sdk_types.Round(test.Round + 1),
 				},
 				AssetConfigTxnFields: sdk_types.AssetConfigTxnFields{
 					ConfigAsset: sdk_types.AssetIndex(assetID),
 					AssetParams: sdk_types.AssetParams{
-						Freeze:        test.AccountB,
-						Clawback:      test.AccountC,
+						Freeze:   test.AccountB,
+						Clawback: test.AccountC,
 					},
 				},
 			},
@@ -1296,7 +1296,7 @@ func TestReconfigAsset(t *testing.T) {
 		require.NoError(t, asset.Error)
 		requireNilOrEqual(t, expectedName, asset.Params.Name)
 		requireNilOrEqual(t, expectedUnit, asset.Params.UnitName)
-		requireNilOrEqual(t, expectedUrl, asset.Params.Url)
+		requireNilOrEqual(t, expectedURL, asset.Params.Url)
 		require.Equal(t, []byte(name), *asset.Params.NameB64)
 		require.Equal(t, []byte(unit), *asset.Params.UnitNameB64)
 		require.Equal(t, []byte(url), *asset.Params.UrlB64)

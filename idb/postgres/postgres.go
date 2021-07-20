@@ -2712,9 +2712,9 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 		var creator types.Address
 		copy(creator[:], creatorAddr)
 		rec := idb.AssetRow{
-			AssetID:      index,
-			Creator:      creatorAddr,
-			Params:       models.AssetParams{
+			AssetID: index,
+			Creator: creatorAddr,
+			Params: models.AssetParams{
 				Creator:       creator.String(),
 				Total:         ap.Total,
 				Decimals:      uint64(ap.Decimals),
@@ -2731,8 +2731,8 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 				Freeze:        addrStr(ap.Freeze),
 				Clawback:      addrStr(ap.Clawback),
 			},
-			CreatedRound:  created,
-			ClosedRound:   closed,
+			CreatedRound: created,
+			ClosedRound:  closed,
 			Deleted:      deleted,
 		}
 		select {

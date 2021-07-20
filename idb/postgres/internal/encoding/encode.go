@@ -54,8 +54,8 @@ func ConvertAssetParams(ap types.AssetParams) AssetParamsWithExtra {
 	ret := AssetParamsWithExtra{
 		AssetParams:    ap,
 		AssetNameBytes: []byte(ap.AssetName),
-		UnitNameBytes: []byte(ap.UnitName),
-		URLBytes: []byte(ap.URL),
+		UnitNameBytes:  []byte(ap.UnitName),
+		URLBytes:       []byte(ap.URL),
 	}
 
 	ret.AssetName = util.PrintableUTF8OrEmpty(ap.AssetName)
