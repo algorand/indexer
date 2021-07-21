@@ -2,6 +2,7 @@ package encoding
 
 import (
 	"encoding/base64"
+
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-codec/codec"
 

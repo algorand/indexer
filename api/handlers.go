@@ -509,9 +509,9 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 			Deleted:          row.Deleted,
 			Params: generated.AssetParams{
 				Creator:       creator.String(),
-				Name:          strPtr(row.Params.AssetName),
-				UnitName:      strPtr(row.Params.UnitName),
-				Url:           strPtr(row.Params.URL),
+				Name:          strPtr(util.PrintableUTF8OrEmpty(row.Params.AssetName)),
+				UnitName:      strPtr(util.PrintableUTF8OrEmpty(row.Params.UnitName)),
+				Url:           strPtr(util.PrintableUTF8OrEmpty(row.Params.URL)),
 				NameB64:       bytePtr([]byte(row.Params.AssetName)),
 				UnitNameB64:   bytePtr([]byte(row.Params.UnitName)),
 				UrlB64:        bytePtr([]byte(row.Params.URL)),
