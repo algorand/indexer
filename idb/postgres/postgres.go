@@ -1645,35 +1645,6 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 	return out, round
 }
 
-func (db *IndexerDb) txTransactions(tx *sql.Tx, tf idb.TransactionFilter) <-chan idb.TxnRow {
-	out := make(chan idb.TxnRow, 1)
-	if len(tf.NextToken) > 0 {
-		err := fmt.Errorf("txTransactions incompatible with next")
-		out <- idb.TxnRow{Error: err}
-		close(out)
-		return out
-	}
-	query, whereArgs, err := buildTransactionQuery(tf)
-	if err != nil {
-		err = fmt.Errorf("txn query err %v", err)
-		out <- idb.TxnRow{Error: err}
-		close(out)
-		return out
-	}
-	rows, err := tx.Query(query, whereArgs...)
-	if err != nil {
-		err = fmt.Errorf("txn query %#v err %v", query, err)
-		out <- idb.TxnRow{Error: err}
-		close(out)
-		return out
-	}
-	go func() {
-		db.yieldTxnsThreadSimple(context.Background(), rows, out, nil, nil)
-		close(out)
-	}()
-	return out
-}
-
 // This function blocks. `tx` must be non-nil.
 func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
 	nextround, nextintra32, err := idb.DecodeTxnRowNext(tf.NextToken)
