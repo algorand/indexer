@@ -2707,9 +2707,9 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 		var creator types.Address
 		copy(creator[:], creatorAddr)
 		rec := idb.AssetRow{
-			AssetID: index,
-			Creator: creatorAddr,
-			Params:   params,
+			AssetID:      index,
+			Creator:      creatorAddr,
+			Params:       params,
 			CreatedRound: created,
 			ClosedRound:  closed,
 			Deleted:      deleted,

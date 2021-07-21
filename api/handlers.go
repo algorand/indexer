@@ -507,7 +507,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 			CreatedAtRound:   row.CreatedRound,
 			DestroyedAtRound: row.ClosedRound,
 			Deleted:          row.Deleted,
-			Params:           generated.AssetParams{
+			Params: generated.AssetParams{
 				Creator:       creator.String(),
 				Name:          strPtr(row.Params.AssetName),
 				UnitName:      strPtr(row.Params.UnitName),

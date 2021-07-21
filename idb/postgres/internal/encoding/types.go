@@ -15,10 +15,10 @@ type assetParams struct {
 
 type transaction struct {
 	types.Transaction
-	AssetParamsOverride      assetParams     `codec:"apar,omitempty"`
+	AssetParamsOverride assetParams `codec:"apar,omitempty"`
 }
 
 type signedTxnWithAD struct {
 	types.SignedTxnWithAD
-	TxnOverride       transaction   `codec:"txn,omitempty"`
+	TxnOverride transaction `codec:"txn,omitempty"`
 }

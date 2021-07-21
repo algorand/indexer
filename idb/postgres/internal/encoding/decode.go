@@ -35,7 +35,6 @@ func DecodeAssetParams(data []byte) (sdk_types.AssetParams, error) {
 	return unconvertAssetParams(params), nil
 }
 
-
 func unconvertTransaction(txn transaction) types.Transaction {
 	res := txn.Transaction
 	res.AssetParams = unconvertAssetParams(txn.AssetParamsOverride)
@@ -48,6 +47,7 @@ func unconvertSignedTxnWithAD(stxn signedTxnWithAD) types.SignedTxnWithAD {
 	return res
 }
 
+// DecodeSignedTxnWithAD converts the postgres signedTxnWithAD object into SignedTxnWithAD.
 func DecodeSignedTxnWithAD(data []byte) (types.SignedTxnWithAD, error) {
 	var stxn signedTxnWithAD
 	err := DecodeJSON(data, &stxn)

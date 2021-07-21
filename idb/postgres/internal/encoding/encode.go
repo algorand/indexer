@@ -23,7 +23,7 @@ func EncodeJSON(obj interface{}) []byte {
 
 func convertAssetParams(params sdk_types.AssetParams) assetParams {
 	ret := assetParams{
-		AssetParams:      params,
+		AssetParams:    params,
 		AssetNameBytes: []byte(params.AssetName),
 		UnitNameBytes:  []byte(params.UnitName),
 		URLBytes:       []byte(params.URL),
@@ -90,8 +90,8 @@ func convertEvalDelta(evalDelta types.EvalDelta) types.EvalDelta {
 
 func convertTransaction(txn types.Transaction) transaction {
 	return transaction{
-		Transaction:              txn,
-		AssetParamsOverride:      convertAssetParams(txn.AssetParams),
+		Transaction:         txn,
+		AssetParamsOverride: convertAssetParams(txn.AssetParams),
 	}
 }
 
