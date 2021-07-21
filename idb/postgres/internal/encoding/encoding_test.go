@@ -87,6 +87,59 @@ func TestJSONEncoding(t *testing.T) {
 	assert.Equal(t, x, xx)
 }
 
+// Test that encoding of Transaction is as expected and that decoding results in the same object.
+func TestTransactionEncoding(t *testing.T) {
+	i := byte(0)
+	newaddr := func() types.Address {
+		i++
+		var address types.Address
+		address[0] = i
+		return address
+	}
+
+	tests := []struct {
+		name     string
+		params   types.SignedTxnWithAD
+		expected string
+	}{
+		{
+			name: "simple",
+			params: types.SignedTxnWithAD{
+				SignedTxn: sdk_types.SignedTxn{
+					Txn: types.Transaction{
+						AssetConfigTxnFields: sdk_types.AssetConfigTxnFields{
+							AssetParams: sdk_types.AssetParams{
+								Total:     99999,
+								AssetName: "\r",
+								UnitName:  "💰",
+								URL:       "https://my.\000asset",
+								Manager:   newaddr(),
+								Reserve:   newaddr(),
+								Freeze:    newaddr(),
+								Clawback:  newaddr(),
+							},
+						},
+					},
+				},
+			},
+			expected: `{"txn":{"apar":{"an64":"DQ==","au64":"aHR0cHM6Ly9teS4AYXNzZXQ=","c":"BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","f":"AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","m":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","r":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","t":99999,"un":"💰"}}}`,
+		},
+	}
+
+	for _, testcase := range tests {
+		testcase := testcase
+		t.Run(testcase.name, func(t *testing.T) {
+			t.Parallel()
+			buf := EncodeSignedTxnWithAD(testcase.params)
+			assert.Equal(t, testcase.expected, string(buf))
+
+			paramsNew, err := DecodeAssetParams(buf)
+			require.NoError(t, err)
+			assert.Equal(t, testcase.params, paramsNew)
+		})
+	}
+}
+
 // Test that encoding of AssetParams is as expected and that decoding results in the
 // same object.
 func TestAssetParamsEncoding(t *testing.T) {

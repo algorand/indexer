@@ -2,8 +2,6 @@ package encoding
 
 import (
 	"encoding/base64"
-	"strings"
-
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-codec/codec"
 
@@ -105,11 +103,6 @@ func convertSignedTxnWithAD(stxn types.SignedTxnWithAD) signedTxnWithAD {
 
 // EncodeSignedTxnWithAD returns a json string where all byte arrays are base64 encoded.
 func EncodeSignedTxnWithAD(stxn types.SignedTxnWithAD) []byte {
-	ap := stxn.Txn.AssetParams
-	ap.AssetName = strings.ReplaceAll(ap.AssetName, "\000", "")
-	ap.UnitName = strings.ReplaceAll(ap.UnitName, "\000", "")
-	ap.URL = strings.ReplaceAll(ap.URL, "\000", "")
-	stxn.Txn.AssetParams = ap
 	return EncodeJSON(convertSignedTxnWithAD(stxn))
 }
 
