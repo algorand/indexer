@@ -106,7 +106,3 @@ func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.Searc
 func (db *dummyIndexerDb) Health() (state idb.Health, err error) {
 	return idb.Health{}, nil
 }
-
-func (db *dummyIndexerDb) Reset() (err error) {
-	return nil
-}

@@ -303,20 +303,6 @@ func (_m *IndexerDb) LoadGenesis(genesis types.Genesis) error {
 	return r0
 }
 
-// Reset provides a mock function with given fields:
-func (_m *IndexerDb) Reset() error {
-	ret := _m.Called()
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // StartBlock provides a mock function with given fields:
 func (_m *IndexerDb) StartBlock() error {
 	ret := _m.Called()
