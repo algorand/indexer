@@ -173,17 +173,6 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) error {
 	return db.runAvailableMigrations()
 }
 
-// Reset is part of idb.IndexerDB
-func (db *IndexerDb) Reset() (err error) {
-	// new database, run setup
-	_, err = db.db.Exec(reset_sql)
-	if err != nil {
-		return fmt.Errorf("db reset failed, %v", err)
-	}
-	db.log.Debugf("reset.sql done")
-	return
-}
-
 // StartBlock is part of idb.IndexerDB
 func (db *IndexerDb) StartBlock() (err error) {
 	db.txrows = make([][]interface{}, 0, 6000)

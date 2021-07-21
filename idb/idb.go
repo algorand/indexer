@@ -107,7 +107,6 @@ type IndexerDb interface {
 	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64)
 
 	Health() (status Health, err error)
-	Reset() (err error)
 }
 
 // GetBlockOptions contains the options when requesting to load a block from the database.
