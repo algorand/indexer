@@ -917,7 +917,7 @@ func MergeAssetConfig(old, new AssetParams) (out AssetParams) {
 		out = old
 	} else {
 		out = old
-		if !old.IsZero() {
+		if !old.Manager.IsZero() {
 			out.Manager = new.Manager
 		}
 		if !old.Reserve.IsZero() {
