@@ -133,7 +133,7 @@ func TestTransactionEncoding(t *testing.T) {
 			buf := EncodeSignedTxnWithAD(testcase.params)
 			assert.Equal(t, testcase.expected, string(buf))
 
-			paramsNew, err := DecodeAssetParams(buf)
+			paramsNew, err := DecodeSignedTxnWithAD(buf)
 			require.NoError(t, err)
 			assert.Equal(t, testcase.params, paramsNew)
 		})
