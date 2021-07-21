@@ -41,6 +41,7 @@ func init() {
 		{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
 		{MakeDeletedNotNullMigration, false, "make all \"deleted\" columns NOT NULL"},
 		{MaxRoundAccountedMigration, true, "change import state format"},
+		{DeleteReverseAppDeltasMigration, true, "delete reverse app deltas"},
 	}
 }
 
@@ -333,4 +334,10 @@ func MaxRoundAccountedMigration(db *IndexerDb, migrationState *MigrationState) e
 
 	*migrationState = nextMigrationState
 	return nil
+}
+
+// DeleteReverseAppDeltasMigration deletes reverse app deltas from the `txn` table.
+func DeleteReverseAppDeltasMigration(db *IndexerDb, migrationState *MigrationState) error {
+	query := "UPDATE txn SET extra = extra - 'agr' - 'alr'"
+	return sqlMigration(db, migrationState, []string{query})
 }

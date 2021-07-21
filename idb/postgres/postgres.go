@@ -781,21 +781,8 @@ type inmemAppLocalState struct {
 }
 
 // Build a reverse delta and apply the delta to the TealKeyValue state.
-func applyKeyValueDelta(state *TealKeyValue, key []byte, vd types.ValueDelta, reverseDelta *idb.AppReverseDelta) (err error) {
-	oldValue, ok := state.get(key)
-	if ok {
-		switch oldValue.Type {
-		case TealUintType:
-			reverseDelta.SetDelta(key, types.ValueDelta{Action: types.SetUintAction, Uint: oldValue.Uint})
-		case TealBytesType:
-			reverseDelta.SetDelta(key, types.ValueDelta{Action: types.SetBytesAction, Bytes: oldValue.Bytes})
-		default:
-			return fmt.Errorf("old value key=%s ov.T=%T ov=%v", key, oldValue, oldValue)
-		}
-	} else {
-		reverseDelta.SetDelta(key, types.ValueDelta{Action: types.DeleteAction})
-	}
-	newValue := oldValue
+func applyKeyValueDelta(state *TealKeyValue, key []byte, vd types.ValueDelta) (err error) {
+	newValue, _ := state.get(key)
 	switch vd.Action {
 	case types.SetUintAction, types.SetBytesAction:
 		newValue.setFromValueDelta(vd)
@@ -1137,8 +1124,6 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			return fmt.Errorf("prepare app global get, %v", err)
 		}
 		defer getglobal.Close()
-		// reverseDeltas for txnupglobal below: [][json, round, intra]
-		reverseDeltas := make([][]interface{}, 0, len(updates.AppGlobalDeltas))
 		for _, adelta := range updates.AppGlobalDeltas {
 			state, ok := dirty[uint64(adelta.AppIndex)]
 			if !ok {
@@ -1156,30 +1141,23 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 					}
 				}
 			}
-			// calculate reverse delta, apply delta to state, save state to dirty
-			reverseDelta := idb.AppReverseDelta{
-				OnCompletion: adelta.OnCompletion,
-			}
+			// apply delta to state, save state to dirty
 			if len(adelta.ApprovalProgram) > 0 {
-				reverseDelta.ApprovalProgram = state.ApprovalProgram
 				state.ApprovalProgram = adelta.ApprovalProgram
 			}
 			if len(adelta.ClearStateProgram) > 0 {
-				reverseDelta.ClearStateProgram = state.ClearStateProgram
 				state.ClearStateProgram = adelta.ClearStateProgram
 			}
 			state.GlobalStateSchema.fromBlock(adelta.GlobalStateSchema)
 			state.LocalStateSchema.fromBlock(adelta.LocalStateSchema)
 			for key, vd := range adelta.Delta {
-				err = applyKeyValueDelta(&state.GlobalState, []byte(key), vd, &reverseDelta)
+				err = applyKeyValueDelta(&state.GlobalState, []byte(key), vd)
 				if err != nil {
 					return fmt.Errorf("app delta apply err r=%d i=%d app=%d, %v", adelta.Round, adelta.Intra, adelta.AppIndex, err)
 				}
 			}
-			reverseDelta.ExtraProgramPages = state.ExtraProgramPages
 			state.ExtraProgramPages = adelta.ExtraProgramPages
 
-			reverseDeltas = append(reverseDeltas, []interface{}{encoding.EncodeJSON(reverseDelta), adelta.Round, adelta.Intra})
 			if adelta.OnCompletion == sdk_types.DeleteApplicationOC {
 				// clear content but leave row recording that it existed
 				state = AppParams{}
@@ -1193,19 +1171,6 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			}
 		}
 
-		// update txns with reverse deltas
-		// "agr" is "app global reverse"
-		txnupglobal, err := tx.Prepare(`UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{agr}', $1) WHERE ut.round = $2 AND ut.intra = $3`)
-		if err != nil {
-			return fmt.Errorf("prepare app global txn up, %v", err)
-		}
-		defer txnupglobal.Close()
-		for _, rd := range reverseDeltas {
-			_, err = txnupglobal.Exec(rd...)
-			if err != nil {
-				return fmt.Errorf("app global txn up, r=%d i=%d, %#v, %v", rd[1], rd[2], string(rd[0].([]byte)), err)
-			}
-		}
 		// apply dirty global state deltas for the round
 		putglobal, err := tx.Prepare(`INSERT INTO app (index, creator, params, created_at, deleted) VALUES ($1, $2, $3, $4, false) ON CONFLICT (index) DO UPDATE SET params = EXCLUDED.params, closed_at = coalesce($5, app.closed_at), deleted = $6`)
 		if err != nil {
@@ -1233,8 +1198,6 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 			return fmt.Errorf("prepare app local get, %v", err)
 		}
 		defer getlocal.Close()
-		// reverseDeltas for txnuplocal below: [][json, round, intra]
-		reverseDeltas := make([][]interface{}, 0, len(updates.AppLocalDeltas))
 		var droplocals [][]interface{}
 
 		getapp, err := tx.Prepare(`SELECT params FROM app WHERE index = $1`)
@@ -1268,32 +1231,13 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 				localstate.Schema = app.LocalStateSchema
 			}
 
-			var reverseDelta idb.AppReverseDelta
-
 			for key, vd := range ald.Delta {
-				err = applyKeyValueDelta(&localstate.KeyValue, []byte(key), vd, &reverseDelta)
+				err = applyKeyValueDelta(&localstate.KeyValue, []byte(key), vd)
 				if err != nil {
 					return err
 				}
 			}
 			dirty = setDirtyAppLocalState(dirty, localstate)
-			reverseDeltas = append(reverseDeltas, []interface{}{encoding.EncodeJSON(reverseDelta), ald.Round, ald.Intra})
-		}
-
-		// update txns with reverse deltas
-		// "alr" is "app local reverse"
-		if len(reverseDeltas) > 0 {
-			txnuplocal, err := tx.Prepare(`UPDATE txn ut SET extra = jsonb_set(coalesce(ut.extra, '{}'::jsonb), '{alr}', $1) WHERE ut.round = $2 AND ut.intra = $3`)
-			if err != nil {
-				return fmt.Errorf("prepare app local txn up, %v", err)
-			}
-			defer txnuplocal.Close()
-			for _, rd := range reverseDeltas {
-				_, err = txnuplocal.Exec(rd...)
-				if err != nil {
-					return fmt.Errorf("app local txn up, r=%d i=%d %v", rd[1], rd[2], err)
-				}
-			}
 		}
 
 		if len(dirty) > 0 {
