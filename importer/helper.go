@@ -21,6 +21,7 @@ import (
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util/metrics"
 )
 
 // NewImportHelper builds an ImportHelper
@@ -259,6 +260,7 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 	rounds = 0
 	txnCount = 0
 	lastlog := time.Now()
+	roundStart := lastlog
 	act := accounting.New(frozenCache)
 	txns := db.YieldTxns(context.Background(), filter.StartRound)
 	currentRound := uint64(0)
@@ -266,13 +268,30 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 	lastRoundsSeen := roundsSeen
 	txnForRound := 0
 	var blockHeaderPtr *types.BlockHeader = nil
-	for txn := range txns {
-		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)
-		if txn.Round != currentRound {
-			if blockHeaderPtr != nil && txnForRound > 0 {
+
+	commit := func() {
+		if blockHeaderPtr != nil {
+			// Don't commit if there were no transactions.
+			if txnForRound > 0 {
 				err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockHeaderPtr)
 				maybeFail(err, l, "failed to commit round accounting")
 			}
+
+			// record metric
+			now := time.Now()
+			dt := now.Sub(roundStart)
+			roundStart = now
+			metrics.ImportTimeHistogramSeconds.Observe(dt.Seconds())
+			metrics.ImportTimeCounter.Add(float64(dt.Milliseconds()))
+			metrics.ImportedTransactionsHistogram.Observe(float64(txnForRound))
+			metrics.ImportedTransactionsCounter.Add(float64(txnForRound))
+		}
+	}
+	for txn := range txns {
+		fmt.Println("processing a transaction")
+		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)
+		if txn.Round != currentRound {
+			commit()
 
 			// initialize accounting for next round
 			txnForRound = 0
@@ -311,10 +330,7 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 	}
 
 	// Commit the final round
-	if blockHeaderPtr != nil && txnForRound > 0 {
-		err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockHeaderPtr)
-		maybeFail(err, l, "failed to commit round accounting")
-	}
+	commit()
 
 	rounds += roundsSeen
 	if rounds > 0 {

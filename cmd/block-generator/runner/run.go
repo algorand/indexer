@@ -20,6 +20,7 @@ import (
 
 	"github.com/algorand/indexer/cmd/block-generator/generator"
 	"github.com/algorand/indexer/util"
+	"github.com/algorand/indexer/util/metrics"
 )
 
 // Args are all the things needed to run a performance test.
@@ -82,30 +83,84 @@ func (r *Args) run() error {
 	return nil
 }
 
-// Helper to record the import rate.
-func recordDataToFile(entry Entry, key string, out *os.File) error {
+type metricPair struct {
+	key        string
+	nameSuffix string
+	isInt      bool
+}
+
+// Helper to record metrics. Supports rates (sum/count) and counters.
+func recordDataToFile(entry Entry, prefix string, out *os.File) error {
+	mPair := make([]metricPair, 0)
+	mPair = append(mPair, metricPair{
+		key: fmt.Sprintf("%s_%s", prefix, "starting_average_import_duration_seconds"),
+		nameSuffix: metrics.ImportTimeHistogramName,
+	})
+	mPair = append(mPair, metricPair{
+		key: fmt.Sprintf("%s_%s", prefix, "starting_cumulative_import_duration_milliseconds"),
+		nameSuffix: metrics.ImportTimeCounterName,
+		isInt: true,
+	})
+	mPair = append(mPair, metricPair{
+		key: fmt.Sprintf("%s_%s", prefix, "starting_average_imported_tx_per_seconds"),
+		nameSuffix: metrics.ImportedTransactionsHistogramName,
+	})
+	mPair = append(mPair, metricPair{
+		key: fmt.Sprintf("%s_%s", prefix, "starting_cumulative_imported_tx"),
+		nameSuffix: metrics.ImportedTransactionsCounterName,
+		isInt: true,
+	})
+
+	for _, pair := range mPair {
+		err := recordMetricToFile(entry, pair, out)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func recordMetricToFile(entry Entry, pair metricPair, out *os.File) error {
+	isRate := false
+	total := 0.0
 	sum := 0.0
 	count := 0.0
-
 	for _, metric := range entry.Data {
 		var err error
-		if strings.HasPrefix(metric, "indexer_daemon_import_time_sec_sum") {
+		if strings.Contains(metric, fmt.Sprintf("%s_sum", pair.nameSuffix)) {
+			isRate = true
 			val := strings.Split(metric, " ")[1]
 			sum, err = strconv.ParseFloat(val, 64)
-		} else if strings.HasPrefix(metric, "indexer_daemon_import_time_sec_count") {
+		} else if strings.Contains(metric, fmt.Sprintf("%s_count", pair.nameSuffix)) {
+			isRate = true
 			val := strings.Split(metric, " ")[1]
 			count, err = strconv.ParseFloat(val, 64)
+		} else if strings.Contains(metric, fmt.Sprintf("%s", pair.nameSuffix)) {
+			val := strings.Split(metric, " ")[1]
+			total, err = strconv.ParseFloat(val, 64)
 		}
 		if err != nil {
 			return fmt.Errorf("unable to parse metric '%s': %w", metric, err)
 		}
 	}
-	rate := sum / count
 
-	msg := fmt.Sprintf("%s:%f\n", key, rate)
-	if _, err := out.WriteString(msg); err != nil {
-		return fmt.Errorf("unable to write metric '%s': %w", key, err)
+	var msg string
+	if isRate {
+		rate := sum / count
+		msg = fmt.Sprintf("%s:%.2f\n", pair.key, rate)
+	} else {
+		if pair.isInt {
+			msg = fmt.Sprintf("%s:%d\n", pair.key, uint64(total))
+		} else {
+			msg = fmt.Sprintf("%s:%.2f\n", pair.key, total)
+		}
 	}
+
+	if _, err := out.WriteString(msg); err != nil {
+		return fmt.Errorf("unable to write metric '%s': %w", pair.key, err)
+	}
+
 	return nil
 }
 
@@ -123,15 +178,22 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 	}
 	defer report.Close()
 
+	substrings := make([]string, 0)
+	substrings = append(substrings, metrics.ImportTimeHistogramName)
+	substrings = append(substrings, metrics.ImportTimeCounterName)
+	substrings = append(substrings, metrics.ImportedTransactionsHistogramName)
+	substrings = append(substrings, metrics.ImportedTransactionsCounterName)
+
 	// Run for r.RunDuration
 	start := time.Now()
 	for time.Since(start) < r.RunDuration {
 		time.Sleep(r.RunDuration / 10)
-		if err := collector.Collect("indexer_daemon_import_time_sec"); err != nil {
+
+		if err := collector.Collect(substrings...); err != nil {
 			return fmt.Errorf("problem collecting metrics: %w", err)
 		}
 	}
-	if err := collector.Collect("indexer_daemon_import_time_sec"); err != nil {
+	if err := collector.Collect(substrings...); err != nil {
 		return fmt.Errorf("problem collecting metrics: %w", err)
 	}
 
@@ -165,13 +227,14 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 
 	// Record a rate from one of the first data points.
 	if len(collector.Data) > 5 {
-		if err := recordDataToFile(collector.Data[2], "starting_block_import_duration_average_seconds", report); err != nil {
+		if err := recordDataToFile(collector.Data[2], "starting",  report); err != nil {
 			return err
 		}
 	}
 
 	// Also record the final one.
-	if err := recordDataToFile(collector.Data[len(collector.Data)-1], "final_import_duration_average_seconds", report); err != nil {
+	//if err := recordDataToFile(collector.Data[len(collector.Data)-1], mPair, report); err != nil {
+	if err := recordDataToFile(collector.Data[2], "final",  report); err != nil {
 		return err
 	}
 

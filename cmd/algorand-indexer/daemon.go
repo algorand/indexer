@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -31,23 +30,12 @@ var (
 	tokenString      string
 )
 
-// importTimeHistogramSeconds is used to record the block import time metric.
-var importTimeHistogramSeconds = prometheus.NewSummary(
-	prometheus.SummaryOpts{
-		Subsystem: "indexer_daemon",
-		Name:      "import_time_sec",
-		Help:      "Block import and processing time in seconds.",
-	})
-
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "run indexer daemon",
 	Long:  "run indexer daemon. Serve api on HTTP.",
 	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
-		// register metric with global prometheus metrics handler
-		prometheus.Register(importTimeHistogramSeconds)
-
 		var err error
 		config.BindFlags(cmd)
 		err = configureLogger()
@@ -206,7 +194,6 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	}
 	importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
 	dt := time.Now().Sub(start)
-	// record metric
-	importTimeHistogramSeconds.Observe(dt.Seconds())
+
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/dummy"
 	_ "github.com/algorand/indexer/idb/postgres"
+	"github.com/algorand/indexer/util/metrics"
 	"github.com/algorand/indexer/version"
 )
 
@@ -141,6 +142,9 @@ func init() {
 
 	viper.SetEnvPrefix(config.EnvPrefix)
 	viper.AutomaticEnv()
+
+	// Register metrics with the global prometheus handler.
+	metrics.RegisterPrometheusMetrics()
 }
 
 func configureLogger() error {
