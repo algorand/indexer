@@ -64,7 +64,7 @@ func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
 
 // TxnExtra is some additional metadata needed for a transaction.
 type TxnExtra struct {
-	AssetCloseAmount uint64 `codec:"aca,omitempty"`
+	AssetCloseAmount   uint64      `codec:"aca,omitempty"`
 	GlobalReverseDelta interface{} `codec:"agr,omitempty"` // deprecated
 	LocalReverseDelta  interface{} `codec:"alr,omitempty"` // deprecated
 }
