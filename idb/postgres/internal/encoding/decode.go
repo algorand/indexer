@@ -1,9 +1,9 @@
 package encoding
 
 import (
-	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/indexer/types"
 
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 )
 
