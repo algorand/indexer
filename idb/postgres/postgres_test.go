@@ -31,7 +31,7 @@ func TestAllMigrations(t *testing.T) {
 			})
 
 			// This automatically runs migrations
-			pdb, err := openPostgres(db, idb.IndexerDbOptions{
+			pdb, _, err := openPostgres(db, idb.IndexerDbOptions{
 				ReadOnly: false,
 			}, nil)
 			require.NoError(t, err)
@@ -72,7 +72,7 @@ func TestNoMigrationsNeeded(t *testing.T) {
 	})
 
 	// This automatically runs migraions
-	pdb, err := openPostgres(db, idb.IndexerDbOptions{
+	pdb, _, err := openPostgres(db, idb.IndexerDbOptions{
 		ReadOnly: false,
 	}, nil)
 	assert.NoError(t, err)

@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -288,7 +289,7 @@ func TestSuccessfulMigration(t *testing.T) {
 			start := time.Now()
 			migChan := make(chan struct{})
 			go func() {
-				migration.RunMigrations()
+				migration.runMigrations(make(chan struct{}))
 				migChan <- struct{}{}
 			}()
 
@@ -327,5 +328,107 @@ func TestSuccessfulMigration(t *testing.T) {
 			// When the migration is complete, it better not be Running!
 			require.False(t, running)
 		})
+	}
+}
+
+// TestAvailabilityChannelCloses tests that the migration object closes the availability
+// channel when blocking migrations finish. If it is not the case, this test will deadlock
+// (and timeout).
+func TestAvailabilityChannelCloses(t *testing.T) {
+	// Migration 2 reads on this channel.
+	migrationTwoChannel := make(chan struct{})
+
+	tasks := []Task{
+		{
+			MigrationID: 1,
+			Handler: func() error {
+				return nil
+			},
+			DBUnavailable: true,
+		},
+		{
+			MigrationID: 2,
+			Handler: func() error {
+				<-migrationTwoChannel
+				return nil
+			},
+		},
+	}
+
+	m, err := MakeMigration(tasks, nil)
+	require.NoError(t, err)
+
+	availableCh := m.RunMigrations()
+	_, ok := <-availableCh
+	assert.False(t, ok)
+
+	// This will block until migration 1 reads from the channel.
+	migrationTwoChannel <- struct{}{}
+}
+
+// TestAvailabilityChannelClosesNoMigrations tests that the migration object closes
+// the availability channel when last migration, which is blocking, finishes.
+// If it is not the case, this test will deadlock (and timeout).
+func TestAvailabilityChannelClosesNoMigrations(t *testing.T) {
+	tasks := []Task{
+		{
+			MigrationID: 1,
+			Handler: func() error {
+				return nil
+			},
+			DBUnavailable: true,
+		},
+	}
+
+	m, err := MakeMigration(tasks, nil)
+	require.NoError(t, err)
+
+	availableCh := m.RunMigrations()
+	_, ok := <-availableCh
+	assert.False(t, ok)
+}
+
+// TestAvailabilityChannelClosesBlockingMigrationLast tests that the migration object
+// closes when there are no migrations. If it is not the case, this test will
+// deadlock (and timeout).
+func TestAvailabilityChannelClosesBlockingMigrationLast(t *testing.T) {
+	m, err := MakeMigration([]Task{}, nil)
+	require.NoError(t, err)
+
+	availableCh := m.RunMigrations()
+	_, ok := <-availableCh
+	assert.False(t, ok)
+}
+
+// TestAvailabilityChannelDoesNotCloseEarly tests that the migration object closes the availability
+// channel only after all blocking migrations are run.
+func TestAvailabilityChannelDoesNotCloseEarly(t *testing.T) {
+	tasks := []Task{
+		{
+			MigrationID: 1,
+			Handler: func() error {
+				return nil
+			},
+		},
+		{
+			MigrationID: 2,
+			Handler: func() error {
+				time.Sleep(10 * time.Millisecond)
+				return nil
+			},
+			DBUnavailable: true,
+		},
+	}
+
+	m, err := MakeMigration(tasks, nil)
+	require.NoError(t, err)
+
+	availableCh := m.RunMigrations()
+
+	time.Sleep(5 * time.Millisecond)
+	select {
+	case <-availableCh:
+		assert.Fail(t, "availability channel closed before migrations finish running")
+	default:
 	}
 }

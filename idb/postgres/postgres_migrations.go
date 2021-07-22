@@ -102,12 +102,14 @@ func upsertMigrationState(db *IndexerDb, tx *sql.Tx, state *MigrationState) erro
 	return db.setMetastate(tx, migrationMetastateKey, string(migrationStateJSON))
 }
 
-func (db *IndexerDb) runAvailableMigrations() (err error) {
+// Returns an error object and a channel that gets closed when blocking migrations
+// finish running successfully.
+func (db *IndexerDb) runAvailableMigrations() (chan struct{}, error) {
 	state, err := db.getMigrationState()
 	if err == idb.ErrorNotInitialized {
 		state = MigrationState{}
 	} else if err != nil {
-		return fmt.Errorf("runAvailableMigrations() err: %w", err)
+		return nil, fmt.Errorf("runAvailableMigrations() err: %w", err)
 	}
 
 	// Make migration tasks
@@ -136,12 +138,11 @@ func (db *IndexerDb) runAvailableMigrations() (err error) {
 
 	db.migration, err = migration.MakeMigration(tasks, db.log)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	go db.migration.RunMigrations()
-
-	return nil
+	ch := db.migration.RunMigrations()
+	return ch, nil
 }
 
 // after setting up a new database, mark state as if all migrations had been done

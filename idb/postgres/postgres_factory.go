@@ -13,7 +13,7 @@ func (df postgresFactory) Name() string {
 	return "postgres"
 }
 
-func (df postgresFactory) Build(arg string, opts idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, error) {
+func (df postgresFactory) Build(arg string, opts idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, chan struct{}, error) {
 	return OpenPostgres(arg, opts, log)
 }
 

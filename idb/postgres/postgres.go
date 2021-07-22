@@ -49,11 +49,13 @@ var serializable = sql.TxOptions{Isolation: sql.LevelSerializable} // be a real 
 var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}
 
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
-func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (pdb *IndexerDb, err error) {
+// Returns an error object and a channel that gets closed when blocking migrations
+// finish running successfully.
+func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (*IndexerDb, chan struct{}, error) {
 	db, err := sql.Open("postgres", connection)
 
 	if err != nil {
-		return nil, fmt.Errorf("connecting to postgres: %v", err)
+		return nil, nil, fmt.Errorf("connecting to postgres: %v", err)
 	}
 
 	if strings.Contains(connection, "readonly") {
@@ -64,28 +66,41 @@ func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger)
 }
 
 // Allow tests to inject a DB
-func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (pdb *IndexerDb, err error) {
-	pdb = &IndexerDb{
+func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (*IndexerDb, chan struct{}, error) {
+	idb := &IndexerDb{
 		readonly: opts.ReadOnly,
 		log:      logger,
 		db:       db,
 	}
 
-	if pdb.log == nil {
-		pdb.log = log.New()
-		pdb.log.SetFormatter(&log.JSONFormatter{})
-		pdb.log.SetOutput(os.Stdout)
-		pdb.log.SetLevel(log.TraceLevel)
+	if idb.log == nil {
+		idb.log = log.New()
+		idb.log.SetFormatter(&log.JSONFormatter{})
+		idb.log.SetOutput(os.Stdout)
+		idb.log.SetLevel(log.TraceLevel)
 	}
 
+	var ch chan struct{}
 	// e.g. a user named "readonly" is in the connection string
 	if !opts.ReadOnly {
-		err = pdb.init(opts)
+		var err error
+		ch, err = idb.init(opts)
 		if err != nil {
-			return nil, fmt.Errorf("initializing postgres: %v", err)
+			return nil, nil, fmt.Errorf("initializing postgres: %v", err)
+		}
+	} else {
+		migrationState, err := idb.getMigrationState()
+		if err != nil {
+			return nil, nil, fmt.Errorf("openPostgres() err: %w", err)
+		}
+
+		ch = make(chan struct{})
+		if !migrationStateBlocked(migrationState) {
+			close(ch)
 		}
 	}
-	return
+
+	return idb, ch, nil
 }
 
 // IndexerDb is an idb.IndexerDB implementation
@@ -149,29 +164,34 @@ func (db *IndexerDb) isSetup() (bool, error) {
 	return true, nil
 }
 
-func (db *IndexerDb) init(opts idb.IndexerDbOptions) error {
+// Returns an error object and a channel that gets closed when blocking migrations
+// finish running successfully.
+func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	setup, err := db.isSetup()
 	if err != nil {
-		return fmt.Errorf("init() err: %w", err)
+		return nil, fmt.Errorf("init() err: %w", err)
 	}
 
 	if !setup {
 		// new database, run setup
 		_, err = db.db.Exec(setup_postgres_sql)
 		if err != nil {
-			return fmt.Errorf("unable to setup postgres: %v", err)
+			return nil, fmt.Errorf("unable to setup postgres: %v", err)
 		}
 
 		err = db.markMigrationsAsDone()
 		if err != nil {
-			return fmt.Errorf("unable to confirm migration: %v", err)
+			return nil, fmt.Errorf("unable to confirm migration: %v", err)
 		}
 
-		return nil
+		ch := make(chan struct{})
+		close(ch)
+		return ch, nil
 	}
 
 	// see postgres_migrations.go
-	return db.runAvailableMigrations()
+	ch, err := db.runAvailableMigrations()
+	return ch, err
 }
 
 // StartBlock is part of idb.IndexerDB
