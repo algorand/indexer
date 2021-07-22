@@ -107,7 +107,6 @@ type IndexerDb interface {
 	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64)
 
 	Health() (status Health, err error)
-	Reset() (err error)
 }
 
 // GetBlockOptions contains the options when requesting to load a block from the database.
@@ -115,16 +114,6 @@ type GetBlockOptions struct {
 	// setting Transactions to true suggests requesting to receive the trasnactions themselves from the GetBlock query
 	Transactions bool
 }
-
-// TransactionFilter.TypeEnum and also AddTransaction(,,txtypeenum,,,)
-const (
-	TypeEnumPay           = 1
-	TypeEnumKeyreg        = 2
-	TypeEnumAssetConfig   = 3
-	TypeEnumAssetTransfer = 4
-	TypeEnumAssetFreeze   = 5
-	TypeEnumApplication   = 6
-)
 
 // TransactionFilter is a parameter object with all the transaction filter options.
 type TransactionFilter struct {
@@ -140,7 +129,7 @@ type TransactionFilter struct {
 	MaxRound   uint64
 	AfterTime  time.Time
 	BeforeTime time.Time
-	TypeEnum   int // ["","pay","keyreg","acfg","axfer","afrz"]
+	TypeEnum   TxnTypeEnum // ["","pay","keyreg","acfg","axfer","afrz"]
 	Txid       string
 	Round      *uint64 // nil for no filter
 	Offset     *uint64 // nil for no filter

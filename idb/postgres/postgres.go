@@ -174,17 +174,6 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) error {
 	return db.runAvailableMigrations()
 }
 
-// Reset is part of idb.IndexerDB
-func (db *IndexerDb) Reset() (err error) {
-	// new database, run setup
-	_, err = db.db.Exec(reset_sql)
-	if err != nil {
-		return fmt.Errorf("db reset failed, %v", err)
-	}
-	db.log.Debugf("reset.sql done")
-	return
-}
-
 // StartBlock is part of idb.IndexerDB
 func (db *IndexerDb) StartBlock() (err error) {
 	db.txrows = make([][]interface{}, 0, 6000)
@@ -1643,35 +1632,6 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 	}()
 
 	return out, round
-}
-
-func (db *IndexerDb) txTransactions(tx *sql.Tx, tf idb.TransactionFilter) <-chan idb.TxnRow {
-	out := make(chan idb.TxnRow, 1)
-	if len(tf.NextToken) > 0 {
-		err := fmt.Errorf("txTransactions incompatible with next")
-		out <- idb.TxnRow{Error: err}
-		close(out)
-		return out
-	}
-	query, whereArgs, err := buildTransactionQuery(tf)
-	if err != nil {
-		err = fmt.Errorf("txn query err %v", err)
-		out <- idb.TxnRow{Error: err}
-		close(out)
-		return out
-	}
-	rows, err := tx.Query(query, whereArgs...)
-	if err != nil {
-		err = fmt.Errorf("txn query %#v err %v", query, err)
-		out <- idb.TxnRow{Error: err}
-		close(out)
-		return out
-	}
-	go func() {
-		db.yieldTxnsThreadSimple(context.Background(), rows, out, nil, nil)
-		close(out)
-	}()
-	return out
 }
 
 // This function blocks. `tx` must be non-nil.

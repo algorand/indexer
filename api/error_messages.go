@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/util"
 )
 
@@ -39,7 +38,8 @@ var errUnknownSigType string
 func init() {
 	errUnknownAddressRole = fmt.Sprintf(
 		"unknown address role [valid roles: %s]", util.KeysStringBool(addressRoleEnumMap))
-	errUnknownTxType = fmt.Sprintf("unknown tx-type [valid types: %s]", importer.TypeEnumString)
+	errUnknownTxType = fmt.Sprintf(
+		"unknown tx-type [valid types: %s]", idb.TxnTypeEnumString)
 	errUnknownSigType = fmt.Sprintf(
 		"unknown sig-type [valid types: %s]", idb.SigTypeEnumString)
 }

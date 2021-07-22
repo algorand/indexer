@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	"github.com/algorand/indexer/util"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
@@ -19,23 +18,6 @@ type Importer interface {
 
 type dbImporter struct {
 	db idb.IndexerDb
-}
-
-// TypeEnumMap is used to convert type strings into idb types.
-var TypeEnumMap = map[string]int{
-	"pay":    idb.TypeEnumPay,
-	"keyreg": idb.TypeEnumKeyreg,
-	"acfg":   idb.TypeEnumAssetConfig,
-	"axfer":  idb.TypeEnumAssetTransfer,
-	"afrz":   idb.TypeEnumAssetFreeze,
-	"appl":   idb.TypeEnumApplication,
-}
-
-// TypeEnumString is used for an error message somewhere.
-var TypeEnumString string
-
-func init() {
-	TypeEnumString = util.KeysStringInt(TypeEnumMap)
 }
 
 var zeroAddr = [32]byte{}
@@ -77,10 +59,10 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 	round := uint64(block.Round)
 	for intra := range block.Payset {
 		stxn := &block.Payset[intra]
-		txtype := string(stxn.Txn.Type)
-		txtypeenum, ok := TypeEnumMap[txtype]
+		txtypeenum, ok := idb.GetTypeEnum(stxn.Txn.Type)
 		if !ok {
-			return txCount, fmt.Errorf("%d:%d unknown txn type %v", round, intra, txtype)
+			return txCount,
+				fmt.Errorf("%d:%d unknown txn type %v", round, intra, stxn.Txn.Type)
 		}
 		assetid := uint64(0)
 		switch txtypeenum {
@@ -114,7 +96,8 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		participants = participate(participants, stxn.Txn.AssetReceiver[:])
 		participants = participate(participants, stxn.Txn.AssetCloseTo[:])
 		participants = participate(participants, stxn.Txn.FreezeAccount[:])
-		err = imp.db.AddTransaction(round, intra, txtypeenum, assetid, stxnad, participants)
+		err = imp.db.AddTransaction(
+			round, intra, int(txtypeenum), assetid, stxnad, participants)
 		if err != nil {
 			return txCount, fmt.Errorf("error importing txn r=%d i=%d, %v", round, intra, err)
 		}
