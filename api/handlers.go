@@ -14,6 +14,7 @@ import (
 	"github.com/algorand/indexer/api/generated/common"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/util"
 )
 
 // ServerImplementation implements the handler interface used by the generated route definitions.
@@ -508,9 +509,12 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 			Deleted:          row.Deleted,
 			Params: generated.AssetParams{
 				Creator:       creator.String(),
-				Name:          strPtr(row.Params.AssetName),
-				UnitName:      strPtr(row.Params.UnitName),
-				Url:           strPtr(row.Params.URL),
+				Name:          strPtr(util.PrintableUTF8OrEmpty(row.Params.AssetName)),
+				UnitName:      strPtr(util.PrintableUTF8OrEmpty(row.Params.UnitName)),
+				Url:           strPtr(util.PrintableUTF8OrEmpty(row.Params.URL)),
+				NameB64:       bytePtr([]byte(row.Params.AssetName)),
+				UnitNameB64:   bytePtr([]byte(row.Params.UnitName)),
+				UrlB64:        bytePtr([]byte(row.Params.URL)),
 				Total:         row.Params.Total,
 				Decimals:      uint64(row.Params.Decimals),
 				DefaultFrozen: boolPtr(row.Params.DefaultFrozen),
@@ -520,6 +524,20 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 				Freeze:        strPtr(row.Params.Freeze.String()),
 				Manager:       strPtr(row.Params.Manager.String()),
 			},
+		}
+
+		// In case the DB layer filled the name with non-printable utf8
+		if asset.Params.Name != nil {
+			name := util.PrintableUTF8OrEmpty(*asset.Params.Name)
+			asset.Params.Name = &name
+		}
+		if asset.Params.UnitName != nil {
+			unit := util.PrintableUTF8OrEmpty(*asset.Params.UnitName)
+			asset.Params.UnitName = &unit
+		}
+		if asset.Params.Url != nil {
+			url := util.PrintableUTF8OrEmpty(*asset.Params.Url)
+			asset.Params.Url = &url
 		}
 
 		assets = append(assets, asset)

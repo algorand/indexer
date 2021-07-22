@@ -907,14 +907,14 @@ const (
 )
 
 // MergeAssetConfig merges together two asset param objects.
-func MergeAssetConfig(old, new sdk_types.AssetParams) (out sdk_types.AssetParams) {
+func MergeAssetConfig(old, new AssetParams) (out AssetParams) {
 	// if asset is new, set.
 	// if new config is empty, set empty.
 	// else, update.
-	if old == (sdk_types.AssetParams{}) {
+	if old.IsZero() {
 		out = new
-	} else if new == (sdk_types.AssetParams{}) {
-		out = new
+	} else if new.IsZero() {
+		out = old
 	} else {
 		out = old
 		if !old.Manager.IsZero() {

@@ -33,6 +33,7 @@ import (
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 )
 
 type importState struct {
@@ -1041,9 +1042,9 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 
 					// Asset Config
 					if au.Config != nil {
-						var outparams []byte
+						var params sdk_types.AssetParams
 						if au.Config.IsNew {
-							outparams = encoding.EncodeJSON(au.Config.Params)
+							params = au.Config.Params
 						} else {
 							row := getacfg.QueryRow(au.AssetID)
 							var paramjson []byte
@@ -1051,14 +1052,13 @@ ON CONFLICT (addr, assetid) DO UPDATE SET amount = account_asset.amount + EXCLUD
 							if err != nil {
 								return fmt.Errorf("get acfg %d, %v", au.AssetID, err)
 							}
-							var old sdk_types.AssetParams
-							err = encoding.DecodeJSON(paramjson, &old)
+							params, err = encoding.DecodeAssetParams(paramjson)
 							if err != nil {
 								return fmt.Errorf("bad acgf json %d, %v", au.AssetID, err)
 							}
-							np := types.MergeAssetConfig(old, au.Config.Params)
-							outparams = encoding.EncodeJSON(np)
+							params = types.MergeAssetConfig(params, au.Config.Params)
 						}
+						outparams := encoding.EncodeAssetParams(params)
 						_, err = setacfg.Exec(au.AssetID, au.Config.Creator[:], outparams, round)
 						if err != nil {
 							return fmt.Errorf("update asset, %v", err)
@@ -2016,8 +2016,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			var assetParams []types.AssetParams
-			err = encoding.DecodeJSON(assetParamsStr, &assetParams)
+			assetParams, err := encoding.DecodeAssetParamsArray(assetParamsStr)
 			if err != nil {
 				err = fmt.Errorf("parsing json asset param string, %v", err)
 				req.out <- idb.AccountRow{Error: err}
@@ -2077,9 +2076,12 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						Total:         ap.Total,
 						Decimals:      uint64(ap.Decimals),
 						DefaultFrozen: boolPtr(ap.DefaultFrozen),
-						UnitName:      stringPtr(ap.UnitName),
-						Name:          stringPtr(ap.AssetName),
-						Url:           stringPtr(ap.URL),
+						UnitName:      stringPtr(util.PrintableUTF8OrEmpty(ap.UnitName)),
+						UnitNameB64:   baPtr([]byte(ap.UnitName)),
+						Name:          stringPtr(util.PrintableUTF8OrEmpty(ap.AssetName)),
+						NameB64:       baPtr([]byte(ap.AssetName)),
+						Url:           stringPtr(util.PrintableUTF8OrEmpty(ap.URL)),
+						UrlB64:        baPtr([]byte(ap.URL)),
 						MetadataHash:  baPtr(ap.MetadataHash[:]),
 						Manager:       addrStr(ap.Manager),
 						Reserve:       addrStr(ap.Reserve),
@@ -2657,12 +2659,13 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			out <- idb.AssetRow{Error: err}
 			break
 		}
-		var params types.AssetParams
-		err = encoding.DecodeJSON(paramsJSONStr, &params)
+		params, err := encoding.DecodeAssetParams(paramsJSONStr)
 		if err != nil {
 			out <- idb.AssetRow{Error: err}
 			break
 		}
+		var creator types.Address
+		copy(creator[:], creatorAddr)
 		rec := idb.AssetRow{
 			AssetID:      index,
 			Creator:      creatorAddr,

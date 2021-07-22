@@ -3,9 +3,11 @@ package encoding
 import (
 	"encoding/base64"
 
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-codec/codec"
 
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util"
 )
 
 var jsonCodecHandle *codec.JsonHandle
@@ -16,6 +18,38 @@ func EncodeJSON(obj interface{}) []byte {
 	enc := codec.NewEncoderBytes(&buf, jsonCodecHandle)
 	enc.MustEncode(obj)
 	return buf
+}
+
+func convertAssetParams(params sdk_types.AssetParams) assetParams {
+	ret := assetParams{
+		AssetParams:    params,
+		AssetNameBytes: []byte(params.AssetName),
+		UnitNameBytes:  []byte(params.UnitName),
+		URLBytes:       []byte(params.URL),
+	}
+
+	ret.AssetName = util.PrintableUTF8OrEmpty(params.AssetName)
+	ret.UnitName = util.PrintableUTF8OrEmpty(params.UnitName)
+	ret.URL = util.PrintableUTF8OrEmpty(params.URL)
+
+	// If the string is printable, don't store the encoded version.
+	// This is a nice optimization, and required for backwards compatibility.
+	if len(ret.AssetName) > 0 {
+		ret.AssetNameBytes = nil
+	}
+	if len(ret.UnitName) > 0 {
+		ret.UnitNameBytes = nil
+	}
+	if len(ret.URL) > 0 {
+		ret.URLBytes = nil
+	}
+
+	return ret
+}
+
+// EncodeAssetParams returns a json string where all byte arrays are base64 encoded.
+func EncodeAssetParams(params sdk_types.AssetParams) []byte {
+	return EncodeJSON(convertAssetParams(params))
 }
 
 // Base64 encodes a byte array to a base64 string.
@@ -53,9 +87,19 @@ func convertEvalDelta(evalDelta types.EvalDelta) types.EvalDelta {
 	return evalDelta
 }
 
-func convertSignedTxnWithAD(stxn types.SignedTxnWithAD) types.SignedTxnWithAD {
+func convertTransaction(txn types.Transaction) transaction {
+	return transaction{
+		Transaction:         txn,
+		AssetParamsOverride: convertAssetParams(txn.AssetParams),
+	}
+}
+
+func convertSignedTxnWithAD(stxn types.SignedTxnWithAD) signedTxnWithAD {
 	stxn.EvalDelta = convertEvalDelta(stxn.EvalDelta)
-	return stxn
+	return signedTxnWithAD{
+		SignedTxnWithAD: stxn,
+		TxnOverride:     convertTransaction(stxn.Txn),
+	}
 }
 
 // EncodeSignedTxnWithAD returns a json string where all byte arrays are base64 encoded.

@@ -1,7 +1,7 @@
 SRCPATH		:= $(shell pwd)
 VERSION		:= $(shell $(SRCPATH)/mule/scripts/compute_build_number.sh)
 OS_TYPE		:= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
-ARCH		:= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
+ARCH			:= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
 PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(VERSION)
 
 # TODO: ensure any additions here are mirrored in misc/release.py
@@ -10,6 +10,9 @@ GOLDFLAGS += -X github.com/algorand/indexer/version.Dirty=$(if $(filter $(strip 
 GOLDFLAGS += -X github.com/algorand/indexer/version.CompileTime=$(shell date -u +%Y-%m-%dT%H:%M:%S%z)
 GOLDFLAGS += -X github.com/algorand/indexer/version.GitDecorateBase64=$(shell git log -n 1 --pretty="%D"|base64|tr -d ' \n')
 GOLDFLAGS += -X github.com/algorand/indexer/version.ReleaseVersion=$(shell cat .version)
+
+# Used for e2e test
+export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 
 # This is the default target, build the indexer:
 cmd/algorand-indexer/algorand-indexer:	idb/postgres/setup_postgres_sql.go idb/postgres/reset_sql.go types/protocols_json.go
@@ -57,10 +60,7 @@ integration: cmd/algorand-indexer/algorand-indexer
 	test/postgres_integration_test.sh
 
 e2e: cmd/algorand-indexer/algorand-indexer
-	docker kill some-postgres || docker rm some-postgres || true
-	docker run -it --rm --name some-postgres -e POSTGRES_PASSWORD=postgres -p 5432:5432 -d postgres
-	python3 misc/e2elive.py --connection-string 'host=localhost port=5432 dbname=postgres sslmode=disable user=postgres password=postgres' --indexer-bin cmd/algorand-indexer/algorand-indexer --indexer-port 9890
-	docker kill some-postgres || docker rm some-postgres
+	cd misc && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e
 
 deploy:
 	mule/deploy.sh
