@@ -233,8 +233,7 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 	}
 
 	// Also record the final one.
-	//if err := recordDataToFile(collector.Data[len(collector.Data)-1], mPair, report); err != nil {
-	if err := recordDataToFile(collector.Data[2], "final",  report); err != nil {
+	if err := recordDataToFile(collector.Data[len(collector.Data)-1], "final",  report); err != nil {
 		return err
 	}
 
