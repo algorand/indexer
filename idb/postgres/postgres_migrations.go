@@ -41,7 +41,7 @@ func init() {
 		{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
 		{MakeDeletedNotNullMigration, false, "make all \"deleted\" columns NOT NULL"},
 		{MaxRoundAccountedMigration, true, "change import state format"},
-		{DeleteReverseAppDeltasMigration, true, "delete reverse app deltas"},
+		{DeleteReverseAppDeltasMigration, false, "delete reverse app deltas"},
 	}
 }
 
