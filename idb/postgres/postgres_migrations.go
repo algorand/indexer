@@ -338,6 +338,30 @@ func MaxRoundAccountedMigration(db *IndexerDb, migrationState *MigrationState) e
 
 // DeleteReverseAppDeltasMigration deletes reverse app deltas from the `txn` table.
 func DeleteReverseAppDeltasMigration(db *IndexerDb, migrationState *MigrationState) error {
-	query := "UPDATE txn SET extra = extra - 'agr' - 'alr'"
-	return sqlMigration(db, migrationState, []string{query})
+	const batchSize uint64 = 1000
+
+	migrationState.NextMigration++
+
+	row := db.db.QueryRow(`SELECT max(round) FROM txn`)
+	var maxRound sql.NullInt64
+	err := row.Scan(&maxRound)
+	if err != nil {
+		return err
+	}
+
+	if !maxRound.Valid {
+		db.log.Print("no transactions found")
+		return upsertMigrationState(db, nil, migrationState)
+	}
+
+	query :=
+		"UPDATE txn SET extra = extra - 'agr' - 'alr' WHERE round >= $1 AND round < $2"
+	for i := uint64(0); i <= uint64(maxRound.Int64); i += batchSize {
+		_, err = db.db.Exec(query, i, i+batchSize)
+		if err != nil {
+			return err
+		}
+	}
+
+	return upsertMigrationState(db, nil, migrationState)
 }
