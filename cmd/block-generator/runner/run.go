@@ -277,13 +277,13 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 
 	// Record a rate from one of the first data points.
 	if len(collector.Data) > 5 {
-		if err := recordDataToFile(collector.Data[2], "starting",  report); err != nil {
+		if err := recordDataToFile(collector.Data[2], "starting", report); err != nil {
 			return err
 		}
 	}
 
 	// Also record the final one.
-	if err := recordDataToFile(collector.Data[len(collector.Data)-1], "final",  report); err != nil {
+	if err := recordDataToFile(collector.Data[len(collector.Data)-1], "final", report); err != nil {
 		return err
 	}
 

@@ -2,6 +2,8 @@ package metrics
 
 import "github.com/prometheus/client_golang/prometheus"
 
+// RegisterPrometheusMetrics register all prometheus metrics with the global
+// metrics handler.
 func RegisterPrometheusMetrics() {
 	prometheus.Register(BlockImportTimeHistogramSeconds)
 	prometheus.Register(CumulativeImportTimeCounter)
@@ -11,10 +13,16 @@ func RegisterPrometheusMetrics() {
 }
 
 const (
+
+	// ImportTimePerBlockHistogramName metric name.
 	ImportTimePerBlockHistogramName = "average_import_time_sec"
+	// ImportTimeCounterName metric name.
 	ImportTimeCounterName = "cumulative_import_time_sec"
+	// TransactionsPerBlockHistogramName metric name.
 	TransactionsPerBlockHistogramName = "average_imported_tx_per_block"
+	// ImportedTransactionsCounterName metric name.
 	ImportedTransactionsCounterName = "cumulative_imported_tx"
+	// CurrentRoundGaugeName metric name.
 	CurrentRoundGaugeName = "current_round"
 )
 
