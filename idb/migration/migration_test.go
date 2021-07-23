@@ -424,11 +424,9 @@ func TestAvailabilityChannelDoesNotCloseEarly(t *testing.T) {
 	require.NoError(t, err)
 
 	availableCh := m.RunMigrations()
-
-	time.Sleep(5 * time.Millisecond)
 	select {
 	case <-availableCh:
 		assert.Fail(t, "availability channel closed before migrations finish running")
-	default:
+	case <-time.After(5 * time.Millisecond):
 	}
 }

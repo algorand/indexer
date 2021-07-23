@@ -82,13 +82,7 @@ func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (*I
 
 	var ch chan struct{}
 	// e.g. a user named "readonly" is in the connection string
-	if !opts.ReadOnly {
-		var err error
-		ch, err = idb.init(opts)
-		if err != nil {
-			return nil, nil, fmt.Errorf("initializing postgres: %v", err)
-		}
-	} else {
+	if opts.ReadOnly {
 		migrationState, err := idb.getMigrationState()
 		if err != nil {
 			return nil, nil, fmt.Errorf("openPostgres() err: %w", err)
@@ -97,6 +91,12 @@ func openPostgres(db *sql.DB, opts idb.IndexerDbOptions, logger *log.Logger) (*I
 		ch = make(chan struct{})
 		if !migrationStateBlocked(migrationState) {
 			close(ch)
+		}
+	} else {
+		var err error
+		ch, err = idb.init(opts)
+		if err != nil {
+			return nil, nil, fmt.Errorf("initializing postgres: %v", err)
 		}
 	}
 
@@ -190,8 +190,7 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	}
 
 	// see postgres_migrations.go
-	ch, err := db.runAvailableMigrations()
-	return ch, err
+	return db.runAvailableMigrations()
 }
 
 // StartBlock is part of idb.IndexerDB
