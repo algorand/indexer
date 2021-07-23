@@ -337,6 +337,9 @@ func TestSuccessfulMigration(t *testing.T) {
 func TestAvailabilityChannelCloses(t *testing.T) {
 	// Migration 2 reads on this channel.
 	migrationTwoChannel := make(chan struct{})
+	defer func() {
+		migrationTwoChannel <- struct{}{}
+	}()
 
 	tasks := []Task{
 		{
@@ -361,9 +364,6 @@ func TestAvailabilityChannelCloses(t *testing.T) {
 	availableCh := m.RunMigrations()
 	_, ok := <-availableCh
 	assert.False(t, ok)
-
-	// This will block until migration 1 reads from the channel.
-	migrationTwoChannel <- struct{}{}
 }
 
 // TestAvailabilityChannelClosesNoMigrations tests that the migration object closes
