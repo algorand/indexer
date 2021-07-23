@@ -281,10 +281,11 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 			now := time.Now()
 			dt := now.Sub(roundStart)
 			roundStart = now
-			metrics.ImportTimeHistogramSeconds.Observe(dt.Seconds())
-			metrics.ImportTimeCounter.Add(float64(dt.Milliseconds()))
-			metrics.ImportedTransactionsHistogram.Observe(float64(txnForRound))
-			metrics.ImportedTransactionsCounter.Add(float64(txnForRound))
+			metrics.BlockImportTimeHistogramSeconds.Observe(dt.Seconds())
+			metrics.CumulativeImportTimeCounter.Add(dt.Seconds())
+			metrics.ImportedTransactionsPerBlockHistogram.Observe(float64(txnForRound))
+			metrics.CumulativeTransactionsCounter.Add(float64(txnForRound))
+			metrics.CurrentRoundGauge.Set(float64(currentRound))
 		}
 	}
 	for txn := range txns {

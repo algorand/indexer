@@ -3,46 +3,59 @@ package metrics
 import "github.com/prometheus/client_golang/prometheus"
 
 func RegisterPrometheusMetrics() {
-	prometheus.Register(ImportTimeHistogramSeconds)
-	prometheus.Register(ImportTimeCounter)
-	prometheus.Register(ImportedTransactionsCounter)
-	prometheus.Register(ImportedTransactionsHistogram)
+	prometheus.Register(BlockImportTimeHistogramSeconds)
+	prometheus.Register(CumulativeImportTimeCounter)
+	prometheus.Register(CumulativeTransactionsCounter)
+	prometheus.Register(ImportedTransactionsPerBlockHistogram)
+	prometheus.Register(CurrentRoundGauge)
 }
 
-const ImportTimeHistogramName = "import_time_sec"
-const ImportTimeCounterName = "cumulative_import_time_milli_sec"
-const ImportedTransactionsHistogramName = "imported_tx_per_sec"
-const ImportedTransactionsCounterName = "cumulative_imported_tx"
+const (
+	ImportTimePerBlockHistogramName = "average_import_time_sec"
+	ImportTimeCounterName = "cumulative_import_time_sec"
+	TransactionsPerBlockHistogramName = "average_imported_tx_per_block"
+	ImportedTransactionsCounterName = "cumulative_imported_tx"
+	CurrentRoundGaugeName = "current_round"
+)
 
-// ImportTimeHistogramSeconds average block import duration in seconds.
-var ImportTimeHistogramSeconds = prometheus.NewSummary(
-	prometheus.SummaryOpts{
-		Subsystem: "indexer_daemon",
-		Name:      ImportTimeHistogramName,
-		Help:      "Block import and processing time in seconds.",
-	})
+var (
+	// BlockImportTimeHistogramSeconds average block import duration in seconds.
+	BlockImportTimeHistogramSeconds = prometheus.NewSummary(
+		prometheus.SummaryOpts{
+			Subsystem: "indexer_daemon",
+			Name:      ImportTimePerBlockHistogramName,
+			Help:      "Block import and processing time in seconds.",
+		})
 
-// ImportTimeCounter total time spent importing blocks since indexer was launched.
-var ImportTimeCounter = prometheus.NewCounter(
-	prometheus.CounterOpts{
-		Subsystem: "indexer_daemon",
-		Name:      ImportTimeCounterName,
-		Help:      "Total time spent importing blocks in milli seconds.",
-	})
+	// CumulativeImportTimeCounter total time spent importing blocks since indexer was launched.
+	CumulativeImportTimeCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Subsystem: "indexer_daemon",
+			Name:      ImportTimeCounterName,
+			Help:      "Total time spent importing blocks in seconds.",
+		})
 
-// ImportedTransactionsHistogram average number of transactions per block.
-var ImportedTransactionsHistogram = prometheus.NewSummary(
-	prometheus.SummaryOpts{
-		Subsystem: "indexer_daemon",
-		Name:      ImportedTransactionsHistogramName,
-		Help:      "Block import and processing time in seconds.",
-	})
+	// ImportedTransactionsPerBlockHistogram average number of transactions per block.
+	ImportedTransactionsPerBlockHistogram = prometheus.NewSummary(
+		prometheus.SummaryOpts{
+			Subsystem: "indexer_daemon",
+			Name:      TransactionsPerBlockHistogramName,
+			Help:      "Transactions per block.",
+		})
 
-// ImportedTransactionsCounter total number of transactions imported since indexer was launched.
-var ImportedTransactionsCounter = prometheus.NewCounter(
-	prometheus.CounterOpts{
-		Subsystem: "indexer_daemon",
-		Name:      ImportedTransactionsCounterName,
-		Help:      "Total transactions imported.",
-	})
+	// CumulativeTransactionsCounter total number of transactions imported since indexer was launched.
+	CumulativeTransactionsCounter = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Subsystem: "indexer_daemon",
+			Name:      ImportedTransactionsCounterName,
+			Help:      "Cumulative transactions imported.",
+		})
 
+	// CurrentRoundGauge current processed round.
+	CurrentRoundGauge = prometheus.NewGauge(
+		prometheus.GaugeOpts{
+			Subsystem: "indexer_daemon",
+			Name:      CurrentRoundGaugeName,
+			Help:      "The most recent round indexer has imported.",
+		})
+)

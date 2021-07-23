@@ -83,85 +83,134 @@ func (r *Args) run() error {
 	return nil
 }
 
-type metricPair struct {
-	key        string
-	nameSuffix string
-	isInt      bool
-}
+type metricType int
+
+const (
+	rate metricType = iota
+	intTotal
+	floatTotal
+)
 
 // Helper to record metrics. Supports rates (sum/count) and counters.
 func recordDataToFile(entry Entry, prefix string, out *os.File) error {
-	mPair := make([]metricPair, 0)
-	mPair = append(mPair, metricPair{
-		key: fmt.Sprintf("%s_%s", prefix, "starting_average_import_duration_seconds"),
-		nameSuffix: metrics.ImportTimeHistogramName,
-	})
-	mPair = append(mPair, metricPair{
-		key: fmt.Sprintf("%s_%s", prefix, "starting_cumulative_import_duration_milliseconds"),
-		nameSuffix: metrics.ImportTimeCounterName,
-		isInt: true,
-	})
-	mPair = append(mPair, metricPair{
-		key: fmt.Sprintf("%s_%s", prefix, "starting_average_imported_tx_per_seconds"),
-		nameSuffix: metrics.ImportedTransactionsHistogramName,
-	})
-	mPair = append(mPair, metricPair{
-		key: fmt.Sprintf("%s_%s", prefix, "starting_cumulative_imported_tx"),
-		nameSuffix: metrics.ImportedTransactionsCounterName,
-		isInt: true,
-	})
+	// Forward collected metrics to file
+	key := fmt.Sprintf("%s_%s", prefix, "average_import_time_sec")
+	name := metrics.ImportTimePerBlockHistogramName
+	if err := recordMetricToFile(entry, out, key, name, rate); err != nil {
+		return err
+	}
 
-	for _, pair := range mPair {
-		err := recordMetricToFile(entry, pair, out)
-		if err != nil {
-			return err
-		}
+	name = metrics.ImportTimeCounterName
+	key = fmt.Sprintf("%s_%s", prefix, name)
+	if err := recordMetricToFile(entry, out, key, name, floatTotal); err != nil {
+		return err
+	}
+
+	name = metrics.TransactionsPerBlockHistogramName
+	key = fmt.Sprintf("%s_%s", prefix, name)
+	if err := recordMetricToFile(entry, out, key, name, rate); err != nil {
+		return err
+	}
+
+	name = metrics.ImportedTransactionsCounterName
+	key = fmt.Sprintf("%s_%s", prefix, name)
+	if err := recordMetricToFile(entry, out, key, name, intTotal); err != nil {
+		return err
+	}
+
+	name = metrics.CurrentRoundGaugeName
+	key = fmt.Sprintf("%s_%s", prefix, name)
+	if err := recordMetricToFile(entry, out, key, name, intTotal); err != nil {
+		return err
+	}
+
+	// Calculate import transactions per second.
+	totalTxn, err := getMetric(entry, metrics.ImportedTransactionsCounterName, intTotal)
+	if err != nil {
+		return err
+	}
+
+	importTimeS, err := getMetric(entry, metrics.ImportTimeCounterName, intTotal)
+	if err != nil {
+		return err
+	}
+	tps := totalTxn / importTimeS
+	tpsKey := "overal_transactions_per_second"
+	msg := fmt.Sprintf("%s_%s:%.2f\n", prefix, tpsKey, tps)
+	if _, err := out.WriteString(msg); err != nil {
+		return fmt.Errorf("unable to write metric '%s': %w", tpsKey, err)
 	}
 
 	return nil
 }
 
-func recordMetricToFile(entry Entry, pair metricPair, out *os.File) error {
-	isRate := false
-	total := 0.0
-	sum := 0.0
-	count := 0.0
-	for _, metric := range entry.Data {
-		var err error
-		if strings.Contains(metric, fmt.Sprintf("%s_sum", pair.nameSuffix)) {
-			isRate = true
-			val := strings.Split(metric, " ")[1]
-			sum, err = strconv.ParseFloat(val, 64)
-		} else if strings.Contains(metric, fmt.Sprintf("%s_count", pair.nameSuffix)) {
-			isRate = true
-			val := strings.Split(metric, " ")[1]
-			count, err = strconv.ParseFloat(val, 64)
-		} else if strings.Contains(metric, fmt.Sprintf("%s", pair.nameSuffix)) {
-			val := strings.Split(metric, " ")[1]
-			total, err = strconv.ParseFloat(val, 64)
-		}
-		if err != nil {
-			return fmt.Errorf("unable to parse metric '%s': %w", metric, err)
-		}
+func recordMetricToFile(entry Entry, out *os.File, outputKey, metricSuffix string, t metricType) error {
+	value, err := getMetric(entry, metricSuffix, t)
+	if err != nil {
+		return err
 	}
 
 	var msg string
-	if isRate {
-		rate := sum / count
-		msg = fmt.Sprintf("%s:%.2f\n", pair.key, rate)
+	if t == intTotal {
+		msg = fmt.Sprintf("%s:%d\n", outputKey, uint64(value))
 	} else {
-		if pair.isInt {
-			msg = fmt.Sprintf("%s:%d\n", pair.key, uint64(total))
-		} else {
-			msg = fmt.Sprintf("%s:%.2f\n", pair.key, total)
-		}
+		msg = fmt.Sprintf("%s:%.2f\n", outputKey, value)
 	}
 
 	if _, err := out.WriteString(msg); err != nil {
-		return fmt.Errorf("unable to write metric '%s': %w", pair.key, err)
+		return fmt.Errorf("unable to write metric '%s': %w", outputKey, err)
 	}
 
 	return nil
+}
+
+func getMetric(entry Entry, suffix string, t metricType) (float64, error) {
+	total := 0.0
+	sum := 0.0
+	count := 0.0
+	hasSum := false
+	hasCount := false
+
+	for _, metric := range entry.Data {
+		var err error
+
+		if strings.Contains(metric, suffix) {
+			split := strings.Split(metric, " ")
+			if len(split) != 2 {
+				return 0.0, fmt.Errorf("unknown metric format, expected 'key value' received: %s", metric)
+			}
+			switch t {
+			case rate:
+				if strings.HasSuffix(split[0], "_sum") {
+					sum, err = strconv.ParseFloat(split[1], 64)
+					hasSum = true
+				} else if strings.HasSuffix(split[0], "_count") {
+					count, err = strconv.ParseFloat(split[1], 64)
+					hasCount = true
+				}
+
+				if err != nil {
+					return 0.0, fmt.Errorf("unable to parse metric '%s': %w", metric, err)
+				}
+
+				if hasSum && hasCount {
+					return sum / count, nil
+				}
+
+			case intTotal:
+				fallthrough
+			case floatTotal:
+				total, err = strconv.ParseFloat(split[1], 64)
+				if err != nil {
+					return 0.0, fmt.Errorf("unable to parse metric '%s': %w", metric, err)
+				}
+				return total, err
+			}
+
+		}
+	}
+
+	return 0.0, fmt.Errorf("metric not found: %s", suffix)
 }
 
 // Run the test for 'RunDuration', collect metrics and write them to the 'ReportDirectory'
@@ -179,10 +228,11 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 	defer report.Close()
 
 	substrings := make([]string, 0)
-	substrings = append(substrings, metrics.ImportTimeHistogramName)
+	substrings = append(substrings, metrics.ImportTimePerBlockHistogramName)
 	substrings = append(substrings, metrics.ImportTimeCounterName)
-	substrings = append(substrings, metrics.ImportedTransactionsHistogramName)
+	substrings = append(substrings, metrics.TransactionsPerBlockHistogramName)
 	substrings = append(substrings, metrics.ImportedTransactionsCounterName)
+	substrings = append(substrings, metrics.CurrentRoundGaugeName)
 
 	// Run for r.RunDuration
 	start := time.Now()
