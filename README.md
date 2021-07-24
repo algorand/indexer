@@ -67,8 +67,6 @@ The most common usage of the Indexer is expecting to be getting validated blocks
 
 Indexer works by fetching blocks one at a time, processing the block data, and loading it into a traditional database. There is a database abstraction layer to support different database implementations. In normal operation, the service will run as a daemon and always requires access to a database.
 
-As of April 2020, storing all the raw blocks is about 100 GB and the PostgreSQL database of transactions and accounts is about 1 GB. Much of that size difference is the Indexer ignoring cryptographic signature data; relying on `algod` to validate blocks. Dropping that, the Indexer can focus on the 'what happened' details of transactions and accounts.
-
 There are two primary modes of operation:
 * [Database updater](#database-updater)
 * [Read only](#read-only)
