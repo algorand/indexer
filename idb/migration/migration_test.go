@@ -332,8 +332,7 @@ func TestSuccessfulMigration(t *testing.T) {
 }
 
 // TestAvailabilityChannelCloses tests that the migration object closes the availability
-// channel when blocking migrations finish. If it is not the case, this test will deadlock
-// (and timeout).
+// channel when blocking migrations finish.
 func TestAvailabilityChannelCloses(t *testing.T) {
 	// Migration 2 reads on this channel.
 	migrationTwoChannel := make(chan struct{})
@@ -362,8 +361,12 @@ func TestAvailabilityChannelCloses(t *testing.T) {
 	require.NoError(t, err)
 
 	availableCh := m.RunMigrations()
-	_, ok := <-availableCh
-	assert.False(t, ok)
+	select {
+	case _, ok := <-availableCh:
+		assert.False(t, ok)
+	case <-time.After(10 * time.Millisecond):
+		assert.Fail(t, "channel must be closed")
+	}
 }
 
 // TestAvailabilityChannelClosesNoMigrations tests that the migration object closes
@@ -384,8 +387,12 @@ func TestAvailabilityChannelClosesNoMigrations(t *testing.T) {
 	require.NoError(t, err)
 
 	availableCh := m.RunMigrations()
-	_, ok := <-availableCh
-	assert.False(t, ok)
+	select {
+	case _, ok := <-availableCh:
+		assert.False(t, ok)
+	case <-time.After(10 * time.Millisecond):
+		assert.Fail(t, "channel must be closed")
+	}
 }
 
 // TestAvailabilityChannelClosesBlockingMigrationLast tests that the migration object
@@ -396,8 +403,12 @@ func TestAvailabilityChannelClosesBlockingMigrationLast(t *testing.T) {
 	require.NoError(t, err)
 
 	availableCh := m.RunMigrations()
-	_, ok := <-availableCh
-	assert.False(t, ok)
+	select {
+	case _, ok := <-availableCh:
+		assert.False(t, ok)
+	case <-time.After(10 * time.Millisecond):
+		assert.Fail(t, "channel must be closed")
+	}
 }
 
 // TestAvailabilityChannelDoesNotCloseEarly tests that the migration object closes the availability
