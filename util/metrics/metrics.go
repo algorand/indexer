@@ -25,18 +25,19 @@ const (
 	CurrentRoundGaugeName         = "current_round"
 )
 
+// AllMetricNames is a reference for all the custom metric names.
+var AllMetricNames = []string{
+	BlockImportTimeName,
+	CumulativeImportTimeName,
+	BlockUploadTimeName,
+	CumulativeBlockUploadTimeName,
+	ImportedTxnsPerBlockName,
+	CumulativeTxnsName,
+	CurrentRoundGaugeName,
+}
+
 // Initialize the prometheus objects.
 var (
-	// AllMetricNames is a reference for all the custom metric names.
-	AllMetricNames = []string{
-		BlockImportTimeName,
-		CumulativeImportTimeName,
-		BlockUploadTimeName,
-		CumulativeBlockUploadTimeName,
-		ImportedTxnsPerBlockName,
-		CumulativeTxnsName,
-		CurrentRoundGaugeName}
-
 	BlockImportTimeSeconds = prometheus.NewSummary(
 		prometheus.SummaryOpts{
 			Subsystem: "indexer_daemon",
