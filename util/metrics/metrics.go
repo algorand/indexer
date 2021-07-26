@@ -25,6 +25,7 @@ const (
 	CurrentRoundGaugeName         = "current_round"
 )
 
+// Initialize the prometheus objects.
 var (
 	// AllMetricNames is a reference for all the custom metric names.
 	AllMetricNames = []string{
@@ -36,7 +37,6 @@ var (
 		CumulativeTxnsName,
 		CurrentRoundGaugeName}
 
-	// BlockImportTimeSeconds average block import duration in seconds.
 	BlockImportTimeSeconds = prometheus.NewSummary(
 		prometheus.SummaryOpts{
 			Subsystem: "indexer_daemon",
@@ -44,7 +44,6 @@ var (
 			Help:      "Total block upload and processing time in seconds.",
 		})
 
-	// CumulativeImportTime total time spent importing blocks since indexer was launched.
 	CumulativeImportTime = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Subsystem: "indexer_daemon",
@@ -52,7 +51,6 @@ var (
 			Help:      "Total time in seconds spent uploading and processing blocks.",
 		})
 
-	// BlockUploadTime average block upload duration in seconds.
 	BlockUploadTime = prometheus.NewSummary(
 		prometheus.SummaryOpts{
 			Subsystem: "indexer_daemon",
@@ -60,7 +58,6 @@ var (
 			Help:      "Block upload time in seconds.",
 		})
 
-	// CumulativeBlockUploadTime total time spent importing blocks since indexer was launched.
 	CumulativeBlockUploadTime = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Subsystem: "indexer_daemon",
@@ -68,7 +65,6 @@ var (
 			Help:      "Total time in seconds spent uploading blocks.",
 		})
 
-	// ImportedTxnsPerBlock average number of transactions per block.
 	ImportedTxnsPerBlock = prometheus.NewSummary(
 		prometheus.SummaryOpts{
 			Subsystem: "indexer_daemon",
@@ -76,7 +72,6 @@ var (
 			Help:      "Transactions per block.",
 		})
 
-	// CumulativeTxns total number of transactions imported since indexer was launched.
 	CumulativeTxns = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Subsystem: "indexer_daemon",
@@ -84,7 +79,6 @@ var (
 			Help:      "Cumulative transactions imported.",
 		})
 
-	// CurrentRoundGauge current processed round.
 	CurrentRoundGauge = prometheus.NewGauge(
 		prometheus.GaugeOpts{
 			Subsystem: "indexer_daemon",
