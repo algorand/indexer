@@ -278,7 +278,6 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 	}
 
 	for txn := range txns {
-		fmt.Println("processing a transaction")
 		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)
 		if txn.Round != currentRound {
 			commit()
