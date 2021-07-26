@@ -371,7 +371,6 @@ func TestAvailabilityChannelCloses(t *testing.T) {
 
 // TestAvailabilityChannelClosesNoMigrations tests that the migration object closes
 // the availability channel when last migration, which is blocking, finishes.
-// If it is not the case, this test will deadlock (and timeout).
 func TestAvailabilityChannelClosesNoMigrations(t *testing.T) {
 	tasks := []Task{
 		{
@@ -396,8 +395,7 @@ func TestAvailabilityChannelClosesNoMigrations(t *testing.T) {
 }
 
 // TestAvailabilityChannelClosesBlockingMigrationLast tests that the migration object
-// closes when there are no migrations. If it is not the case, this test will
-// deadlock (and timeout).
+// closes when there are no migrations.
 func TestAvailabilityChannelClosesBlockingMigrationLast(t *testing.T) {
 	m, err := MakeMigration([]Task{}, nil)
 	require.NoError(t, err)
