@@ -16,6 +16,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util/metrics"
 )
 
 var (
@@ -185,6 +186,9 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	start := time.Now()
 	_, err := bih.imp.ImportDecodedBlock(block)
 	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round)
+	dtUpload := time.Now().Sub(start)
+	metrics.BlockUploadTime.Observe(dtUpload.Seconds())
+	metrics.CumulativeBlockUploadTime.Add(dtUpload.Seconds())
 	startRound, err := bih.db.GetNextRoundToAccount()
 	maybeFail(err, "failed to get next round to account")
 	// During normal operation StartRound and MaxRound will be the same round.
@@ -192,8 +196,17 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 		StartRound: startRound,
 		MaxRound:   uint64(block.Block.Round),
 	}
-	importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
+	rounds, txns := importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
 	dt := time.Now().Sub(start)
+
+	// Ignore calls that update >1 round (sneaky migration) and round 0
+	if rounds <= 1 && startRound != 0 {
+		metrics.BlockImportTimeSeconds.Observe(dt.Seconds())
+		metrics.CumulativeImportTime.Add(dt.Seconds())
+		metrics.ImportedTxnsPerBlock.Observe(float64(txns))
+		metrics.CumulativeTxns.Add(float64(txns))
+		metrics.CurrentRoundGauge.Set(float64(startRound))
+	}
 
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
 }

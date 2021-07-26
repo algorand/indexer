@@ -21,7 +21,6 @@ import (
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
-	"github.com/algorand/indexer/util/metrics"
 )
 
 // NewImportHelper builds an ImportHelper
@@ -260,7 +259,6 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 	rounds = 0
 	txnCount = 0
 	lastlog := time.Now()
-	roundStart := lastlog
 	act := accounting.New(frozenCache)
 	txns := db.YieldTxns(context.Background(), filter.StartRound)
 	currentRound := uint64(0)
@@ -276,18 +274,9 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 				err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockHeaderPtr)
 				maybeFail(err, l, "failed to commit round accounting")
 			}
-
-			// record metric
-			now := time.Now()
-			dt := now.Sub(roundStart)
-			roundStart = now
-			metrics.BlockImportTimeHistogramSeconds.Observe(dt.Seconds())
-			metrics.CumulativeImportTimeCounter.Add(dt.Seconds())
-			metrics.ImportedTransactionsPerBlockHistogram.Observe(float64(txnForRound))
-			metrics.CumulativeTransactionsCounter.Add(float64(txnForRound))
-			metrics.CurrentRoundGauge.Set(float64(currentRound))
 		}
 	}
+
 	for txn := range txns {
 		fmt.Println("processing a transaction")
 		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)

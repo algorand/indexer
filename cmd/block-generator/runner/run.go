@@ -93,44 +93,43 @@ const (
 
 // Helper to record metrics. Supports rates (sum/count) and counters.
 func recordDataToFile(entry Entry, prefix string, out *os.File) error {
-	// Forward collected metrics to file
-	key := fmt.Sprintf("%s_%s", prefix, "average_import_time_sec")
-	name := metrics.ImportTimePerBlockHistogramName
-	if err := recordMetricToFile(entry, out, key, name, rate); err != nil {
-		return err
+	num := 0
+	var writeErrors strings.Builder
+	var writeErr error
+	record := func(name string, t metricType) {
+		key := fmt.Sprintf("%s_%s", prefix, name)
+		if err := recordMetricToFile(entry, out, key, name, t); err != nil {
+			writeErr = err
+			if writeErrors.Len() > 0 {
+				writeErrors.WriteString(", ")
+			}
+			writeErrors.WriteString(name)
+		}
+		num++
 	}
 
-	name = metrics.ImportTimeCounterName
-	key = fmt.Sprintf("%s_%s", prefix, name)
-	if err := recordMetricToFile(entry, out, key, name, floatTotal); err != nil {
-		return err
-	}
+	record(metrics.BlockImportTimeName, rate)
+	record(metrics.CumulativeImportTimeName, floatTotal)
+	record(metrics.ImportedTxnsPerBlockName, rate)
+	record(metrics.CumulativeTxnsName, intTotal)
+	record(metrics.CurrentRoundGaugeName, intTotal)
+	record(metrics.BlockUploadTimeName, rate)
+	record(metrics.CumulativeBlockUploadTimeName, floatTotal)
 
-	name = metrics.TransactionsPerBlockHistogramName
-	key = fmt.Sprintf("%s_%s", prefix, name)
-	if err := recordMetricToFile(entry, out, key, name, rate); err != nil {
-		return err
+	if writeErrors.Len() > 0 {
+		return fmt.Errorf("error writing metrics (%s): %w", writeErrors.String(), writeErr)
 	}
-
-	name = metrics.ImportedTransactionsCounterName
-	key = fmt.Sprintf("%s_%s", prefix, name)
-	if err := recordMetricToFile(entry, out, key, name, intTotal); err != nil {
-		return err
-	}
-
-	name = metrics.CurrentRoundGaugeName
-	key = fmt.Sprintf("%s_%s", prefix, name)
-	if err := recordMetricToFile(entry, out, key, name, intTotal); err != nil {
-		return err
+	if num != len(metrics.AllMetricNames) {
+		return fmt.Errorf("only %d of %d metrics written", num, len(metrics.AllMetricNames))
 	}
 
 	// Calculate import transactions per second.
-	totalTxn, err := getMetric(entry, metrics.ImportedTransactionsCounterName, intTotal)
+	totalTxn, err := getMetric(entry, metrics.CumulativeTxnsName, intTotal)
 	if err != nil {
 		return err
 	}
 
-	importTimeS, err := getMetric(entry, metrics.ImportTimeCounterName, intTotal)
+	importTimeS, err := getMetric(entry, metrics.CumulativeImportTimeName, intTotal)
 	if err != nil {
 		return err
 	}
@@ -227,23 +226,16 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 	}
 	defer report.Close()
 
-	substrings := make([]string, 0)
-	substrings = append(substrings, metrics.ImportTimePerBlockHistogramName)
-	substrings = append(substrings, metrics.ImportTimeCounterName)
-	substrings = append(substrings, metrics.TransactionsPerBlockHistogramName)
-	substrings = append(substrings, metrics.ImportedTransactionsCounterName)
-	substrings = append(substrings, metrics.CurrentRoundGaugeName)
-
 	// Run for r.RunDuration
 	start := time.Now()
 	for time.Since(start) < r.RunDuration {
 		time.Sleep(r.RunDuration / 10)
 
-		if err := collector.Collect(substrings...); err != nil {
+		if err := collector.Collect(metrics.AllMetricNames...); err != nil {
 			return fmt.Errorf("problem collecting metrics: %w", err)
 		}
 	}
-	if err := collector.Collect(substrings...); err != nil {
+	if err := collector.Collect(metrics.AllMetricNames...); err != nil {
 		return fmt.Errorf("problem collecting metrics: %w", err)
 	}
 

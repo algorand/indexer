@@ -5,57 +5,82 @@ import "github.com/prometheus/client_golang/prometheus"
 // RegisterPrometheusMetrics register all prometheus metrics with the global
 // metrics handler.
 func RegisterPrometheusMetrics() {
-	prometheus.Register(BlockImportTimeHistogramSeconds)
-	prometheus.Register(CumulativeImportTimeCounter)
-	prometheus.Register(CumulativeTransactionsCounter)
-	prometheus.Register(ImportedTransactionsPerBlockHistogram)
+	prometheus.Register(BlockImportTimeSeconds)
+	prometheus.Register(CumulativeImportTime)
+	prometheus.Register(CumulativeTxns)
+	prometheus.Register(ImportedTxnsPerBlock)
 	prometheus.Register(CurrentRoundGauge)
+	prometheus.Register(CumulativeBlockUploadTime)
+	prometheus.Register(BlockUploadTime)
 }
 
+// Prometheus metric names broken out for reuse.
 const (
-
-	// ImportTimePerBlockHistogramName metric name.
-	ImportTimePerBlockHistogramName = "average_import_time_sec"
-	// ImportTimeCounterName metric name.
-	ImportTimeCounterName = "cumulative_import_time_sec"
-	// TransactionsPerBlockHistogramName metric name.
-	TransactionsPerBlockHistogramName = "average_imported_tx_per_block"
-	// ImportedTransactionsCounterName metric name.
-	ImportedTransactionsCounterName = "cumulative_imported_tx"
-	// CurrentRoundGaugeName metric name.
-	CurrentRoundGaugeName = "current_round"
+	BlockImportTimeName           = "average_import_time_sec"
+	CumulativeImportTimeName      = "cumulative_import_time_sec"
+	BlockUploadTimeName           = "average_block_upload_time_sec"
+	CumulativeBlockUploadTimeName = "cumulative_block_upload_time_sec"
+	ImportedTxnsPerBlockName      = "average_imported_tx_per_block"
+	CumulativeTxnsName            = "cumulative_imported_tx"
+	CurrentRoundGaugeName         = "current_round"
 )
 
 var (
-	// BlockImportTimeHistogramSeconds average block import duration in seconds.
-	BlockImportTimeHistogramSeconds = prometheus.NewSummary(
+	// AllMetricNames is a reference for all the custom metric names.
+	AllMetricNames = []string{
+		BlockImportTimeName,
+		CumulativeImportTimeName,
+		BlockUploadTimeName,
+		CumulativeBlockUploadTimeName,
+		ImportedTxnsPerBlockName,
+		CumulativeTxnsName,
+		CurrentRoundGaugeName}
+
+	// BlockImportTimeSeconds average block import duration in seconds.
+	BlockImportTimeSeconds = prometheus.NewSummary(
 		prometheus.SummaryOpts{
 			Subsystem: "indexer_daemon",
-			Name:      ImportTimePerBlockHistogramName,
-			Help:      "Block import and processing time in seconds.",
+			Name:      BlockImportTimeName,
+			Help:      "Total block upload and processing time in seconds.",
 		})
 
-	// CumulativeImportTimeCounter total time spent importing blocks since indexer was launched.
-	CumulativeImportTimeCounter = prometheus.NewCounter(
+	// CumulativeImportTime total time spent importing blocks since indexer was launched.
+	CumulativeImportTime = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Subsystem: "indexer_daemon",
-			Name:      ImportTimeCounterName,
-			Help:      "Total time spent importing blocks in seconds.",
+			Name:      CumulativeImportTimeName,
+			Help:      "Total time in seconds spent uploading and processing blocks.",
 		})
 
-	// ImportedTransactionsPerBlockHistogram average number of transactions per block.
-	ImportedTransactionsPerBlockHistogram = prometheus.NewSummary(
+	// BlockUploadTime average block upload duration in seconds.
+	BlockUploadTime = prometheus.NewSummary(
 		prometheus.SummaryOpts{
 			Subsystem: "indexer_daemon",
-			Name:      TransactionsPerBlockHistogramName,
+			Name:      BlockUploadTimeName,
+			Help:      "Block upload time in seconds.",
+		})
+
+	// CumulativeBlockUploadTime total time spent importing blocks since indexer was launched.
+	CumulativeBlockUploadTime = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Subsystem: "indexer_daemon",
+			Name:      CumulativeBlockUploadTimeName,
+			Help:      "Total time in seconds spent uploading blocks.",
+		})
+
+	// ImportedTxnsPerBlock average number of transactions per block.
+	ImportedTxnsPerBlock = prometheus.NewSummary(
+		prometheus.SummaryOpts{
+			Subsystem: "indexer_daemon",
+			Name:      ImportedTxnsPerBlockName,
 			Help:      "Transactions per block.",
 		})
 
-	// CumulativeTransactionsCounter total number of transactions imported since indexer was launched.
-	CumulativeTransactionsCounter = prometheus.NewCounter(
+	// CumulativeTxns total number of transactions imported since indexer was launched.
+	CumulativeTxns = prometheus.NewCounter(
 		prometheus.CounterOpts{
 			Subsystem: "indexer_daemon",
-			Name:      ImportedTransactionsCounterName,
+			Name:      CumulativeTxnsName,
 			Help:      "Cumulative transactions imported.",
 		})
 
