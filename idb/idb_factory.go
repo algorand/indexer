@@ -9,7 +9,7 @@ import (
 // IndexerDbFactory is used to install an IndexerDb implementation.
 type IndexerDbFactory interface {
 	Name() string
-	Build(arg string, opts IndexerDbOptions, log *log.Logger) (IndexerDb, error)
+	Build(arg string, opts IndexerDbOptions, log *log.Logger) (IndexerDb, chan struct{}, error)
 }
 
 // This layer of indirection allows for different db integrations to be compiled in or compiled out by `go build --tags ...`
@@ -23,11 +23,13 @@ func RegisterFactory(name string, factory IndexerDbFactory) {
 }
 
 // IndexerDbByName is used to construct an IndexerDb object by name.
-func IndexerDbByName(name, arg string, opts IndexerDbOptions, log *log.Logger) (IndexerDb, error) {
+// Returns an IndexerDb object, an availability channel that closes when the database
+// becomes available, and an error object.
+func IndexerDbByName(name, arg string, opts IndexerDbOptions, log *log.Logger) (IndexerDb, chan struct{}, error) {
 	if val, ok := indexerFactories[name]; ok {
 		return val.Build(arg, opts, log)
 	}
-	return nil, fmt.Errorf("no IndexerDb factory for %s", name)
+	return nil, nil, fmt.Errorf("no IndexerDb factory for %s", name)
 }
 
 func init() {

@@ -36,7 +36,7 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	round, err := db.GetNextRoundToAccount()
@@ -57,7 +57,7 @@ func TestMaxRoundEmptyMetastate(t *testing.T) {
 	pg, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	pg.Exec(`INSERT INTO metastate (k, v) values ('state', '{}')`)
 
@@ -75,7 +75,7 @@ func TestMaxRound(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	db.Exec(
 		`INSERT INTO metastate (k, v) values ($1, $2)`,
@@ -103,7 +103,7 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	db.Exec(
 		`INSERT INTO metastate (k, v) values ($1, $2)`,
@@ -226,7 +226,7 @@ func TestInitializeFrozenCache(t *testing.T) {
 	defer shutdownFunc()
 
 	// Initialize DB by creating one of these things.
-	_, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+	_, _, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	// Add some assets
@@ -243,7 +243,7 @@ func TestInitializeFrozenCache(t *testing.T) {
 		3, test.AccountA[:], `{}`)
 	require.NoError(t, err)
 
-	pdb, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -414,7 +414,7 @@ func TestBlockWithTransactions(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+	pdb, _, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	assetid := uint64(2222)
@@ -1078,13 +1078,17 @@ func TestLargeAssetAmount(t *testing.T) {
 	}
 }
 
-// Test that initializing a new database sets the correct migration number.
+// Test that initializing a new database sets the correct migration number and
+// that the database is available.
 func TestInitializationNewDatabase(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	db, availableCh, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
+
+	_, ok := <-availableCh
+	assert.False(t, ok)
 
 	state, err := db.getMigrationState()
 	require.NoError(t, err)
@@ -1097,10 +1101,10 @@ func TestOpenDbAgain(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	_, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	_, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 
-	_, err = OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	_, _, err = OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 }
 
