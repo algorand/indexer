@@ -183,6 +183,15 @@ func equals(indexer, algod generated.Account) (differences []string) {
 			if !stringPtrEqual(algodCreatedAsset.Params.Url, indexerCreatedAsset.Params.Url) {
 				differences = append(differences, fmt.Sprintf("created-asset url %d", algodCreatedAsset.Index))
 			}
+			if !bytesPtrEqual(algodCreatedAsset.Params.NameB64, indexerCreatedAsset.Params.NameB64) {
+				differences = append(differences, fmt.Sprintf("created-asset name-b64 %d", algodCreatedAsset.Index))
+			}
+			if !bytesPtrEqual(algodCreatedAsset.Params.UnitNameB64, indexerCreatedAsset.Params.UnitNameB64) {
+				differences = append(differences, fmt.Sprintf("created-asset unit-name-b64 %d", algodCreatedAsset.Index))
+			}
+			if !bytesPtrEqual(algodCreatedAsset.Params.UrlB64, indexerCreatedAsset.Params.UrlB64) {
+				differences = append(differences, fmt.Sprintf("created-asset url-b64 %d", algodCreatedAsset.Index))
+			}
 			if !bytesPtrEqual(algodCreatedAsset.Params.MetadataHash, indexerCreatedAsset.Params.MetadataHash) {
 				differences = append(differences, fmt.Sprintf("created-asset metadata-hash %d", algodCreatedAsset.Index))
 			}
