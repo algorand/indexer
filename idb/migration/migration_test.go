@@ -412,6 +412,11 @@ func TestAvailabilityChannelClosesBlockingMigrationLast(t *testing.T) {
 // TestAvailabilityChannelDoesNotCloseEarly tests that the migration object closes the availability
 // channel only after all blocking migrations are run.
 func TestAvailabilityChannelDoesNotCloseEarly(t *testing.T) {
+	migrationTwoChannel := make(chan struct{})
+	defer func() {
+		migrationTwoChannel <- struct{}{}
+	}()
+
 	tasks := []Task{
 		{
 			MigrationID: 1,
@@ -422,7 +427,7 @@ func TestAvailabilityChannelDoesNotCloseEarly(t *testing.T) {
 		{
 			MigrationID: 2,
 			Handler: func() error {
-				time.Sleep(10 * time.Millisecond)
+				<-migrationTwoChannel
 				return nil
 			},
 			DBUnavailable: true,
