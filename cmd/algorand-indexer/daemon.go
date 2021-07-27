@@ -188,7 +188,6 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round)
 	dtUpload := time.Now().Sub(start)
 	metrics.BlockUploadTime.Observe(dtUpload.Seconds())
-	metrics.CumulativeBlockUploadTime.Add(dtUpload.Seconds())
 	startRound, err := bih.db.GetNextRoundToAccount()
 	maybeFail(err, "failed to get next round to account")
 	// During normal operation StartRound and MaxRound will be the same round.
@@ -202,10 +201,8 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	// Ignore calls that update >1 round (sneaky migration) and round 0
 	if rounds <= 1 && startRound != 0 {
 		metrics.BlockImportTimeSeconds.Observe(dt.Seconds())
-		metrics.CumulativeImportTime.Add(dt.Seconds())
 		metrics.ImportedTxnsPerBlock.Observe(float64(txns))
-		metrics.CumulativeTxns.Add(float64(txns))
-		metrics.CurrentRoundGauge.Set(float64(startRound))
+		metrics.ImportedRoundGauge.Set(float64(startRound))
 	}
 
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())

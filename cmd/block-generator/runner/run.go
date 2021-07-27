@@ -96,8 +96,8 @@ func recordDataToFile(entry Entry, prefix string, out *os.File) error {
 	num := 0
 	var writeErrors strings.Builder
 	var writeErr error
-	record := func(name string, t metricType) {
-		key := fmt.Sprintf("%s_%s", prefix, name)
+	record := func(prefix2, name string, t metricType) {
+		key := fmt.Sprintf("%s%s_%s", prefix, prefix2, name)
 		if err := recordMetricToFile(entry, out, key, name, t); err != nil {
 			writeErr = err
 			if writeErrors.Len() > 0 {
@@ -108,33 +108,30 @@ func recordDataToFile(entry Entry, prefix string, out *os.File) error {
 		num++
 	}
 
-	record(metrics.BlockImportTimeName, rate)
-	record(metrics.CumulativeImportTimeName, floatTotal)
-	record(metrics.ImportedTxnsPerBlockName, rate)
-	record(metrics.CumulativeTxnsName, intTotal)
-	record(metrics.CurrentRoundGaugeName, intTotal)
-	record(metrics.BlockUploadTimeName, rate)
-	record(metrics.CumulativeBlockUploadTimeName, floatTotal)
+	record("_average", metrics.BlockImportTimeName, rate)
+	record("_cumulative", metrics.BlockImportTimeName, floatTotal)
+	record("_average", metrics.ImportedTxnsPerBlockName, rate)
+	record("_cumulative", metrics.ImportedTxnsPerBlockName, intTotal)
+	record("_average", metrics.BlockUploadTimeName, rate)
+	record("_cumulative", metrics.BlockUploadTimeName, floatTotal)
+	record("", metrics.ImportedRoundGaugeName, intTotal)
 
 	if writeErrors.Len() > 0 {
 		return fmt.Errorf("error writing metrics (%s): %w", writeErrors.String(), writeErr)
 	}
-	if num != len(metrics.AllMetricNames) {
-		return fmt.Errorf("only %d of %d metrics written", num, len(metrics.AllMetricNames))
-	}
 
 	// Calculate import transactions per second.
-	totalTxn, err := getMetric(entry, metrics.CumulativeTxnsName, intTotal)
+	totalTxn, err := getMetric(entry, metrics.ImportedTxnsPerBlockName, intTotal)
 	if err != nil {
 		return err
 	}
 
-	importTimeS, err := getMetric(entry, metrics.CumulativeImportTimeName, intTotal)
+	importTimeS, err := getMetric(entry, metrics.BlockImportTimeName, intTotal)
 	if err != nil {
 		return err
 	}
 	tps := totalTxn / importTimeS
-	tpsKey := "overal_transactions_per_second"
+	tpsKey := "overall_transactions_per_second"
 	msg := fmt.Sprintf("%s_%s:%.2f\n", prefix, tpsKey, tps)
 	if _, err := out.WriteString(msg); err != nil {
 		return fmt.Errorf("unable to write metric '%s': %w", tpsKey, err)
@@ -169,6 +166,7 @@ func getMetric(entry Entry, suffix string, t metricType) (float64, error) {
 	count := 0.0
 	hasSum := false
 	hasCount := false
+	hasTotal := false
 
 	for _, metric := range entry.Data {
 		var err error
@@ -178,34 +176,34 @@ func getMetric(entry Entry, suffix string, t metricType) (float64, error) {
 			if len(split) != 2 {
 				return 0.0, fmt.Errorf("unknown metric format, expected 'key value' received: %s", metric)
 			}
-			switch t {
-			case rate:
-				if strings.HasSuffix(split[0], "_sum") {
-					sum, err = strconv.ParseFloat(split[1], 64)
-					hasSum = true
-				} else if strings.HasSuffix(split[0], "_count") {
-					count, err = strconv.ParseFloat(split[1], 64)
-					hasCount = true
-				}
 
-				if err != nil {
-					return 0.0, fmt.Errorf("unable to parse metric '%s': %w", metric, err)
-				}
-
-				if hasSum && hasCount {
-					return sum / count, nil
-				}
-
-			case intTotal:
-				fallthrough
-			case floatTotal:
+			// Check for _sum / _count for summary (rate) metrics.
+			// Otherwise grab the total value.
+			if strings.HasSuffix(split[0], "_sum") {
+				sum, err = strconv.ParseFloat(split[1], 64)
+				hasSum = true
+			} else if strings.HasSuffix(split[0], "_count") {
+				count, err = strconv.ParseFloat(split[1], 64)
+				hasCount = true
+			} else if strings.HasSuffix(split[0], suffix) {
 				total, err = strconv.ParseFloat(split[1], 64)
-				if err != nil {
-					return 0.0, fmt.Errorf("unable to parse metric '%s': %w", metric, err)
-				}
-				return total, err
+				hasTotal = true
 			}
 
+			if err != nil {
+				return 0.0, fmt.Errorf("unable to parse metric '%s': %w", metric, err)
+			}
+
+			if t == rate && hasSum && hasCount {
+				return sum / count, nil
+			} else if t != rate {
+				if hasSum {
+					return sum, nil
+				}
+				if hasTotal {
+					return total, nil
+				}
+			}
 		}
 	}
 
@@ -269,7 +267,7 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 
 	// Record a rate from one of the first data points.
 	if len(collector.Data) > 5 {
-		if err := recordDataToFile(collector.Data[2], "starting", report); err != nil {
+		if err := recordDataToFile(collector.Data[2], "early", report); err != nil {
 			return err
 		}
 	}
