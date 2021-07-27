@@ -121,12 +121,12 @@ func recordDataToFile(entry Entry, prefix string, out *os.File) error {
 	}
 
 	// Calculate import transactions per second.
-	totalTxn, err := getMetric(entry, metrics.ImportedTxnsPerBlockName, intTotal)
+	totalTxn, err := getMetric(entry, metrics.ImportedTxnsPerBlockName, false)
 	if err != nil {
 		return err
 	}
 
-	importTimeS, err := getMetric(entry, metrics.BlockImportTimeName, intTotal)
+	importTimeS, err := getMetric(entry, metrics.BlockImportTimeName, false)
 	if err != nil {
 		return err
 	}
@@ -141,7 +141,7 @@ func recordDataToFile(entry Entry, prefix string, out *os.File) error {
 }
 
 func recordMetricToFile(entry Entry, outputKey, metricSuffix string, t metricType, out *os.File) error {
-	value, err := getMetric(entry, metricSuffix, t)
+	value, err := getMetric(entry, metricSuffix, t == rate)
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func recordMetricToFile(entry Entry, outputKey, metricSuffix string, t metricTyp
 	return nil
 }
 
-func getMetric(entry Entry, suffix string, t metricType) (float64, error) {
+func getMetric(entry Entry, suffix string, rateMetric bool) (float64, error) {
 	total := 0.0
 	sum := 0.0
 	count := 0.0
@@ -177,7 +177,7 @@ func getMetric(entry Entry, suffix string, t metricType) (float64, error) {
 				return 0.0, fmt.Errorf("unknown metric format, expected 'key value' received: %s", metric)
 			}
 
-			// Check for _sum / _count for summary (rate) metrics.
+			// Check for _sum / _count for summary (rateMetric) metrics.
 			// Otherwise grab the total value.
 			if strings.HasSuffix(split[0], "_sum") {
 				sum, err = strconv.ParseFloat(split[1], 64)
@@ -194,9 +194,9 @@ func getMetric(entry Entry, suffix string, t metricType) (float64, error) {
 				return 0.0, fmt.Errorf("unable to parse metric '%s': %w", metric, err)
 			}
 
-			if t == rate && hasSum && hasCount {
+			if rateMetric && hasSum && hasCount {
 				return sum / count, nil
-			} else if t != rate {
+			} else if rateMetric {
 				if hasSum {
 					return sum, nil
 				}
