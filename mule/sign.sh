@@ -7,7 +7,7 @@ echo
 date "+build_indexer begin SIGN stage %Y%m%d_%H%M%S"
 echo
 
-ARCH=$(./mule/scripts/archtype.sh)
+ARCH=${ARCH:-(./mule/scripts/archtype.sh)}
 OS_TYPE=${OS_TYPE:-$(./mule/scripts/ostype.sh)}
 VERSION=$(./mule/scripts/compute_build_number.sh)
 PKG_DIR="./tmp/node_pkgs/$OS_TYPE/$ARCH/$VERSION"
