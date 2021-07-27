@@ -92,7 +92,7 @@ const (
 )
 
 // Helper to record metrics. Supports rates (sum/count) and counters.
-func recordDataToFile(entry Entry, prefix string, out *os.File) error {
+func recordDataToFile(start time.Time, entry Entry, prefix string, out *os.File) error {
 	num := 0
 	var writeErrors strings.Builder
 	var writeErr error
@@ -131,10 +131,17 @@ func recordDataToFile(entry Entry, prefix string, out *os.File) error {
 		return err
 	}
 	tps := totalTxn / importTimeS
-	tpsKey := "overall_transactions_per_second"
-	msg := fmt.Sprintf("%s_%s:%.2f\n", prefix, tpsKey, tps)
+	key := "overall_transactions_per_second"
+	msg := fmt.Sprintf("%s_%s:%.2f\n", prefix, key, tps)
 	if _, err := out.WriteString(msg); err != nil {
-		return fmt.Errorf("unable to write metric '%s': %w", tpsKey, err)
+		return fmt.Errorf("unable to write metric '%s': %w", key, err)
+	}
+
+	// Uptime
+	key = "uptime_seconds"
+	msg = fmt.Sprintf("%s_%s:%.2f\n", prefix, key, time.Since(start).Seconds())
+	if _, err := out.WriteString(msg); err != nil {
+		return fmt.Errorf("unable to write metric '%s': %w", key, err)
 	}
 
 	return nil
@@ -267,13 +274,13 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 
 	// Record a rate from one of the first data points.
 	if len(collector.Data) > 5 {
-		if err := recordDataToFile(collector.Data[2], "early", report); err != nil {
+		if err := recordDataToFile(start, collector.Data[2], "early", report); err != nil {
 			return err
 		}
 	}
 
 	// Also record the final one.
-	if err := recordDataToFile(collector.Data[len(collector.Data)-1], "final", report); err != nil {
+	if err := recordDataToFile(start, collector.Data[len(collector.Data)-1], "final", report); err != nil {
 		return err
 	}
 
