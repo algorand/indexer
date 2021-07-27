@@ -98,7 +98,7 @@ func recordDataToFile(entry Entry, prefix string, out *os.File) error {
 	var writeErr error
 	record := func(prefix2, name string, t metricType) {
 		key := fmt.Sprintf("%s%s_%s", prefix, prefix2, name)
-		if err := recordMetricToFile(entry, out, key, name, t); err != nil {
+		if err := recordMetricToFile(entry, key, name, t, out); err != nil {
 			writeErr = err
 			if writeErrors.Len() > 0 {
 				writeErrors.WriteString(", ")
@@ -140,7 +140,7 @@ func recordDataToFile(entry Entry, prefix string, out *os.File) error {
 	return nil
 }
 
-func recordMetricToFile(entry Entry, out *os.File, outputKey, metricSuffix string, t metricType) error {
+func recordMetricToFile(entry Entry, outputKey, metricSuffix string, t metricType, out *os.File) error {
 	value, err := getMetric(entry, metricSuffix, t)
 	if err != nil {
 		return err

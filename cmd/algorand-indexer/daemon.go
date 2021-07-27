@@ -187,7 +187,7 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	_, err := bih.imp.ImportDecodedBlock(block)
 	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round)
 	dtUpload := time.Now().Sub(start)
-	metrics.BlockUploadTime.Observe(dtUpload.Seconds())
+	metrics.BlockUploadTimeSeconds.Observe(dtUpload.Seconds())
 	startRound, err := bih.db.GetNextRoundToAccount()
 	maybeFail(err, "failed to get next round to account")
 	// During normal operation StartRound and MaxRound will be the same round.

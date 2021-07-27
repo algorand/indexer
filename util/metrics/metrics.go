@@ -8,7 +8,7 @@ func RegisterPrometheusMetrics() {
 	prometheus.Register(BlockImportTimeSeconds)
 	prometheus.Register(ImportedTxnsPerBlock)
 	prometheus.Register(ImportedRoundGauge)
-	prometheus.Register(BlockUploadTime)
+	prometheus.Register(BlockUploadTimeSeconds)
 }
 
 // Prometheus metric names broken out for reuse.
@@ -36,7 +36,7 @@ var (
 			Help:      "Total block upload and processing time in seconds.",
 		})
 
-	BlockUploadTime = prometheus.NewSummary(
+	BlockUploadTimeSeconds = prometheus.NewSummary(
 		prometheus.SummaryOpts{
 			Subsystem: "indexer_daemon",
 			Name:      BlockUploadTimeName,

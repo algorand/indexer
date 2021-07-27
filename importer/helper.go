@@ -268,12 +268,10 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 	var blockHeaderPtr *types.BlockHeader = nil
 
 	commit := func() {
-		if blockHeaderPtr != nil {
-			// Don't commit if there were no transactions.
-			if txnForRound > 0 {
-				err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockHeaderPtr)
-				maybeFail(err, l, "failed to commit round accounting")
-			}
+		// Don't commit if there were no transactions.
+		if blockHeaderPtr != nil && txnForRound > 0 {
+			err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockHeaderPtr)
+			maybeFail(err, l, "failed to commit round accounting")
 		}
 	}
 
