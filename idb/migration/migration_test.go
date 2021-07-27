@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -288,7 +289,7 @@ func TestSuccessfulMigration(t *testing.T) {
 			start := time.Now()
 			migChan := make(chan struct{})
 			go func() {
-				migration.RunMigrations()
+				migration.runMigrations(make(chan struct{}))
 				migChan <- struct{}{}
 			}()
 
@@ -327,5 +328,119 @@ func TestSuccessfulMigration(t *testing.T) {
 			// When the migration is complete, it better not be Running!
 			require.False(t, running)
 		})
+	}
+}
+
+// TestAvailabilityChannelCloses tests that the migration object closes the availability
+// channel when blocking migrations finish.
+func TestAvailabilityChannelCloses(t *testing.T) {
+	// Migration 2 reads on this channel.
+	migrationTwoChannel := make(chan struct{})
+	defer func() {
+		migrationTwoChannel <- struct{}{}
+	}()
+
+	tasks := []Task{
+		{
+			MigrationID: 1,
+			Handler: func() error {
+				return nil
+			},
+			DBUnavailable: true,
+		},
+		{
+			MigrationID: 2,
+			Handler: func() error {
+				<-migrationTwoChannel
+				return nil
+			},
+		},
+	}
+
+	m, err := MakeMigration(tasks, nil)
+	require.NoError(t, err)
+
+	availableCh := m.RunMigrations()
+	select {
+	case _, ok := <-availableCh:
+		assert.False(t, ok)
+	case <-time.After(10 * time.Millisecond):
+		assert.Fail(t, "channel must be closed")
+	}
+}
+
+// TestAvailabilityChannelClosesNoMigrations tests that the migration object closes
+// the availability channel when last migration, which is blocking, finishes.
+func TestAvailabilityChannelClosesNoMigrations(t *testing.T) {
+	tasks := []Task{
+		{
+			MigrationID: 1,
+			Handler: func() error {
+				return nil
+			},
+			DBUnavailable: true,
+		},
+	}
+
+	m, err := MakeMigration(tasks, nil)
+	require.NoError(t, err)
+
+	availableCh := m.RunMigrations()
+	select {
+	case _, ok := <-availableCh:
+		assert.False(t, ok)
+	case <-time.After(10 * time.Millisecond):
+		assert.Fail(t, "channel must be closed")
+	}
+}
+
+// TestAvailabilityChannelClosesBlockingMigrationLast tests that the migration object
+// closes when there are no migrations.
+func TestAvailabilityChannelClosesBlockingMigrationLast(t *testing.T) {
+	m, err := MakeMigration([]Task{}, nil)
+	require.NoError(t, err)
+
+	availableCh := m.RunMigrations()
+	select {
+	case _, ok := <-availableCh:
+		assert.False(t, ok)
+	case <-time.After(10 * time.Millisecond):
+		assert.Fail(t, "channel must be closed")
+	}
+}
+
+// TestAvailabilityChannelDoesNotCloseEarly tests that the migration object closes the availability
+// channel only after all blocking migrations are run.
+func TestAvailabilityChannelDoesNotCloseEarly(t *testing.T) {
+	migrationTwoChannel := make(chan struct{})
+	defer func() {
+		migrationTwoChannel <- struct{}{}
+	}()
+
+	tasks := []Task{
+		{
+			MigrationID: 1,
+			Handler: func() error {
+				return nil
+			},
+		},
+		{
+			MigrationID: 2,
+			Handler: func() error {
+				<-migrationTwoChannel
+				return nil
+			},
+			DBUnavailable: true,
+		},
+	}
+
+	m, err := MakeMigration(tasks, nil)
+	require.NoError(t, err)
+
+	availableCh := m.RunMigrations()
+	select {
+	case <-availableCh:
+		assert.Fail(t, "availability channel closed before migrations finish running")
+	case <-time.After(5 * time.Millisecond):
 	}
 }

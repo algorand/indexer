@@ -32,7 +32,7 @@ type oldImportState struct {
 func TestMaxRoundAccountedMigrationAccountRound0(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	round := int64(0)
@@ -64,7 +64,7 @@ func TestMaxRoundAccountedMigrationAccountRound0(t *testing.T) {
 func TestMaxRoundAccountedMigrationAccountRoundPositive(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	round := int64(2)
@@ -96,7 +96,7 @@ func TestMaxRoundAccountedMigrationAccountRoundPositive(t *testing.T) {
 func TestMaxRoundAccountedMigrationUninitialized(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	migrationState := MigrationState{NextMigration: 4}

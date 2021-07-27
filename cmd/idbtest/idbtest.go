@@ -126,8 +126,10 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-	db, err := idb.IndexerDbByName("postgres", pgdb, idb.IndexerDbOptions{}, nil)
+	db, availableCh, err :=
+		idb.IndexerDbByName("postgres", pgdb, idb.IndexerDbOptions{}, nil)
 	maybeFail(err, "open postgres, %v", err)
+	<-availableCh
 
 	if accounttest {
 		printAccountQuery(db, idb.AccountQueryOptions{IncludeAssetHoldings: true, IncludeAssetParams: true, AlgosGreaterThan: uint64Ptr(10000000000), Limit: 20})

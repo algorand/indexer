@@ -186,22 +186,23 @@ func (m *Migration) update(err error, status string, running bool, blocking bool
 	}
 }
 
-// RunMigrations runs all tasks which have been loaded into the migration. It will update the status accordingly as the
-// migration runs. This call will block execution until it completes and should be run in a go routine if that is not
-// expected.
-func (m *Migration) RunMigrations() {
+// This function always blocks. Closes `ch` when blocking migrations finish
+// running successfully.
+func (m *Migration) runMigrations(ch chan struct{}) {
 	m.log.Printf("Running %d migrations.", len(m.tasks))
+
 	blocking := true
 	for _, task := range m.tasks {
-		if task.MigrationID > m.blockUntil {
+		if blocking && (task.MigrationID > m.blockUntil) {
 			blocking = false
+			close(ch)
 		}
 
 		m.update(nil, StatusActivePrefix+task.Description, true, blocking, task.MigrationID)
-		err := task.Handler()
 
+		err := task.Handler()
 		if err != nil {
-			err := fmt.Errorf("%s%d (%s): %v", StatusErrorPrefix, task.MigrationID, task.Description, err)
+			err := fmt.Errorf("%s%d (%s): %w", StatusErrorPrefix, task.MigrationID, task.Description, err)
 			m.log.WithError(err).Errorf("Migration failed")
 			// If a migration failed, mark that the migration is blocking and terminate.
 			blocking = true
@@ -211,6 +212,19 @@ func (m *Migration) RunMigrations() {
 	}
 
 	m.update(nil, StatusComplete, false, false, -1)
+	if blocking {
+		close(ch)
+	}
 	m.log.Println("Migration finished successfully.")
 	return
+}
+
+// RunMigrations runs all tasks which have been loaded into the migration.
+// It will update the status accordingly as the migration runs.
+// RunMigrations immediately returns a channel which gets closed as soon as the last
+// blocking migration finishes running.
+func (m *Migration) RunMigrations() chan struct{} {
+	res := make(chan struct{})
+	go m.runMigrations(res)
+	return res
 }
