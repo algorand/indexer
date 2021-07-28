@@ -93,7 +93,6 @@ const (
 
 // Helper to record metrics. Supports rates (sum/count) and counters.
 func recordDataToFile(start time.Time, entry Entry, prefix string, out *os.File) error {
-	num := 0
 	var writeErrors strings.Builder
 	var writeErr error
 	record := func(prefix2, name string, t metricType) {
@@ -105,7 +104,6 @@ func recordDataToFile(start time.Time, entry Entry, prefix string, out *os.File)
 			}
 			writeErrors.WriteString(name)
 		}
-		num++
 	}
 
 	record("_average", metrics.BlockImportTimeName, rate)
@@ -214,7 +212,7 @@ func getMetric(entry Entry, suffix string, rateMetric bool) (float64, error) {
 		}
 	}
 
-	return 0.0, fmt.Errorf("metric not found: %s", suffix)
+	return 0.0, fmt.Errorf("metric incomplete or not found: %s", suffix)
 }
 
 // Run the test for 'RunDuration', collect metrics and write them to the 'ReportDirectory'
