@@ -20,6 +20,7 @@ import (
 
 	"github.com/algorand/indexer/cmd/block-generator/generator"
 	"github.com/algorand/indexer/util"
+	"github.com/algorand/indexer/util/metrics"
 )
 
 // Args are all the things needed to run a performance test.
@@ -82,31 +83,136 @@ func (r *Args) run() error {
 	return nil
 }
 
-// Helper to record the import rate.
-func recordDataToFile(entry Entry, key string, out *os.File) error {
-	sum := 0.0
-	count := 0.0
+type metricType int
 
-	for _, metric := range entry.Data {
-		var err error
-		if strings.HasPrefix(metric, "indexer_daemon_import_time_sec_sum") {
-			val := strings.Split(metric, " ")[1]
-			sum, err = strconv.ParseFloat(val, 64)
-		} else if strings.HasPrefix(metric, "indexer_daemon_import_time_sec_count") {
-			val := strings.Split(metric, " ")[1]
-			count, err = strconv.ParseFloat(val, 64)
-		}
-		if err != nil {
-			return fmt.Errorf("unable to parse metric '%s': %w", metric, err)
+const (
+	rate metricType = iota
+	intTotal
+	floatTotal
+)
+
+// Helper to record metrics. Supports rates (sum/count) and counters.
+func recordDataToFile(start time.Time, entry Entry, prefix string, out *os.File) error {
+	var writeErrors strings.Builder
+	var writeErr error
+	record := func(prefix2, name string, t metricType) {
+		key := fmt.Sprintf("%s%s_%s", prefix, prefix2, name)
+		if err := recordMetricToFile(entry, key, name, t, out); err != nil {
+			writeErr = err
+			if writeErrors.Len() > 0 {
+				writeErrors.WriteString(", ")
+			}
+			writeErrors.WriteString(name)
 		}
 	}
-	rate := sum / count
 
-	msg := fmt.Sprintf("%s:%f\n", key, rate)
+	record("_average", metrics.BlockImportTimeName, rate)
+	record("_cumulative", metrics.BlockImportTimeName, floatTotal)
+	record("_average", metrics.ImportedTxnsPerBlockName, rate)
+	record("_cumulative", metrics.ImportedTxnsPerBlockName, intTotal)
+	record("_average", metrics.BlockUploadTimeName, rate)
+	record("_cumulative", metrics.BlockUploadTimeName, floatTotal)
+	record("", metrics.ImportedRoundGaugeName, intTotal)
+
+	if writeErrors.Len() > 0 {
+		return fmt.Errorf("error writing metrics (%s): %w", writeErrors.String(), writeErr)
+	}
+
+	// Calculate import transactions per second.
+	totalTxn, err := getMetric(entry, metrics.ImportedTxnsPerBlockName, false)
+	if err != nil {
+		return err
+	}
+
+	importTimeS, err := getMetric(entry, metrics.BlockImportTimeName, false)
+	if err != nil {
+		return err
+	}
+	tps := totalTxn / importTimeS
+	key := "overall_transactions_per_second"
+	msg := fmt.Sprintf("%s_%s:%.2f\n", prefix, key, tps)
 	if _, err := out.WriteString(msg); err != nil {
 		return fmt.Errorf("unable to write metric '%s': %w", key, err)
 	}
+
+	// Uptime
+	key = "uptime_seconds"
+	msg = fmt.Sprintf("%s_%s:%.2f\n", prefix, key, time.Since(start).Seconds())
+	if _, err := out.WriteString(msg); err != nil {
+		return fmt.Errorf("unable to write metric '%s': %w", key, err)
+	}
+
 	return nil
+}
+
+func recordMetricToFile(entry Entry, outputKey, metricSuffix string, t metricType, out *os.File) error {
+	value, err := getMetric(entry, metricSuffix, t == rate)
+	if err != nil {
+		return err
+	}
+
+	var msg string
+	if t == intTotal {
+		msg = fmt.Sprintf("%s:%d\n", outputKey, uint64(value))
+	} else {
+		msg = fmt.Sprintf("%s:%.2f\n", outputKey, value)
+	}
+
+	if _, err := out.WriteString(msg); err != nil {
+		return fmt.Errorf("unable to write metric '%s': %w", outputKey, err)
+	}
+
+	return nil
+}
+
+func getMetric(entry Entry, suffix string, rateMetric bool) (float64, error) {
+	total := 0.0
+	sum := 0.0
+	count := 0.0
+	hasSum := false
+	hasCount := false
+	hasTotal := false
+
+	for _, metric := range entry.Data {
+		var err error
+
+		if strings.Contains(metric, suffix) {
+			split := strings.Split(metric, " ")
+			if len(split) != 2 {
+				return 0.0, fmt.Errorf("unknown metric format, expected 'key value' received: %s", metric)
+			}
+
+			// Check for _sum / _count for summary (rateMetric) metrics.
+			// Otherwise grab the total value.
+			if strings.HasSuffix(split[0], "_sum") {
+				sum, err = strconv.ParseFloat(split[1], 64)
+				hasSum = true
+			} else if strings.HasSuffix(split[0], "_count") {
+				count, err = strconv.ParseFloat(split[1], 64)
+				hasCount = true
+			} else if strings.HasSuffix(split[0], suffix) {
+				total, err = strconv.ParseFloat(split[1], 64)
+				hasTotal = true
+			}
+
+			if err != nil {
+				return 0.0, fmt.Errorf("unable to parse metric '%s': %w", metric, err)
+			}
+
+			if rateMetric && hasSum && hasCount {
+				return sum / count, nil
+			} else if !rateMetric {
+				if hasSum {
+					return sum, nil
+				}
+				if hasTotal {
+					return total, nil
+				}
+			}
+		}
+	}
+
+	return 0.0, fmt.Errorf("metric incomplete or not found: %s", suffix)
 }
 
 // Run the test for 'RunDuration', collect metrics and write them to the 'ReportDirectory'
@@ -127,11 +233,12 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 	start := time.Now()
 	for time.Since(start) < r.RunDuration {
 		time.Sleep(r.RunDuration / 10)
-		if err := collector.Collect("indexer_daemon_import_time_sec"); err != nil {
+
+		if err := collector.Collect(metrics.AllMetricNames...); err != nil {
 			return fmt.Errorf("problem collecting metrics: %w", err)
 		}
 	}
-	if err := collector.Collect("indexer_daemon_import_time_sec"); err != nil {
+	if err := collector.Collect(metrics.AllMetricNames...); err != nil {
 		return fmt.Errorf("problem collecting metrics: %w", err)
 	}
 
@@ -165,13 +272,13 @@ func (r *Args) runTest(indexerURL string, generatorURL string) error {
 
 	// Record a rate from one of the first data points.
 	if len(collector.Data) > 5 {
-		if err := recordDataToFile(collector.Data[2], "starting_block_import_duration_average_seconds", report); err != nil {
+		if err := recordDataToFile(start, collector.Data[2], "early", report); err != nil {
 			return err
 		}
 	}
 
 	// Also record the final one.
-	if err := recordDataToFile(collector.Data[len(collector.Data)-1], "final_import_duration_average_seconds", report); err != nil {
+	if err := recordDataToFile(start, collector.Data[len(collector.Data)-1], "final", report); err != nil {
 		return err
 	}
 

@@ -266,13 +266,19 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 	lastRoundsSeen := roundsSeen
 	txnForRound := 0
 	var blockHeaderPtr *types.BlockHeader = nil
+
+	commit := func() {
+		// Don't commit if there were no transactions.
+		if blockHeaderPtr != nil && txnForRound > 0 {
+			err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockHeaderPtr)
+			maybeFail(err, l, "failed to commit round accounting")
+		}
+	}
+
 	for txn := range txns {
 		maybeFail(txn.Error, l, "updateAccounting txn fetch, %v", txn.Error)
 		if txn.Round != currentRound {
-			if blockHeaderPtr != nil && txnForRound > 0 {
-				err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockHeaderPtr)
-				maybeFail(err, l, "failed to commit round accounting")
-			}
+			commit()
 
 			// initialize accounting for next round
 			txnForRound = 0
@@ -311,10 +317,7 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 	}
 
 	// Commit the final round
-	if blockHeaderPtr != nil && txnForRound > 0 {
-		err := db.CommitRoundAccounting(act.RoundUpdates, currentRound, blockHeaderPtr)
-		maybeFail(err, l, "failed to commit round accounting")
-	}
+	commit()
 
 	rounds += roundsSeen
 	if rounds > 0 {

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -17,6 +16,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util/metrics"
 )
 
 var (
@@ -31,23 +31,12 @@ var (
 	tokenString      string
 )
 
-// importTimeHistogramSeconds is used to record the block import time metric.
-var importTimeHistogramSeconds = prometheus.NewSummary(
-	prometheus.SummaryOpts{
-		Subsystem: "indexer_daemon",
-		Name:      "import_time_sec",
-		Help:      "Block import and processing time in seconds.",
-	})
-
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "run indexer daemon",
 	Long:  "run indexer daemon. Serve api on HTTP.",
 	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
-		// register metric with global prometheus metrics handler
-		prometheus.Register(importTimeHistogramSeconds)
-
 		var err error
 		config.BindFlags(cmd)
 		err = configureLogger()
@@ -169,6 +158,7 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	start := time.Now()
 	_, err := bih.imp.ImportDecodedBlock(block)
 	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round)
+	metrics.BlockUploadTimeSeconds.Observe(time.Since(start).Seconds())
 	startRound, err := bih.db.GetNextRoundToAccount()
 	maybeFail(err, "failed to get next round to account")
 	// During normal operation StartRound and MaxRound will be the same round.
@@ -176,9 +166,15 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 		StartRound: startRound,
 		MaxRound:   uint64(block.Block.Round),
 	}
-	importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
-	dt := time.Now().Sub(start)
-	// record metric
-	importTimeHistogramSeconds.Observe(dt.Seconds())
+	rounds, txns := importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
+	dt := time.Since(start)
+
+	// Ignore calls that update >1 round (sneaky migration) and round 0 (which is empty)
+	if rounds <= 1 && startRound != 0 {
+		metrics.BlockImportTimeSeconds.Observe(dt.Seconds())
+		metrics.ImportedTxnsPerBlock.Observe(float64(txns))
+		metrics.ImportedRoundGauge.Set(float64(startRound))
+	}
+
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
 }
