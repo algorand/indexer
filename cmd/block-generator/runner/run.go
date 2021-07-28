@@ -203,7 +203,7 @@ func getMetric(entry Entry, suffix string, rateMetric bool) (float64, error) {
 
 			if rateMetric && hasSum && hasCount {
 				return sum / count, nil
-			} else if rateMetric {
+			} else if !rateMetric {
 				if hasSum {
 					return sum, nil
 				}
