@@ -205,8 +205,8 @@ func (_m *IndexerDb) GetDefaultFrozen() (map[uint64]bool, error) {
 	return r0, r1
 }
 
-// GetMaxRoundAccounted provides a mock function with given fields:
-func (_m *IndexerDb) GetMaxRoundAccounted() (uint64, error) {
+// GetNextRoundToAccount provides a mock function with given fields:
+func (_m *IndexerDb) GetNextRoundToAccount() (uint64, error) {
 	ret := _m.Called()
 
 	var r0 uint64
@@ -296,20 +296,6 @@ func (_m *IndexerDb) LoadGenesis(genesis types.Genesis) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(types.Genesis) error); ok {
 		r0 = rf(genesis)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// Reset provides a mock function with given fields:
-func (_m *IndexerDb) Reset() error {
-	ret := _m.Called()
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func() error); ok {
-		r0 = rf()
 	} else {
 		r0 = ret.Error(0)
 	}

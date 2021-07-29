@@ -47,7 +47,7 @@ func setupPostgres(t *testing.T) (*sql.DB, string, func()) {
 func setupIdb(t *testing.T, genesis types.Genesis) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 
-	idb, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	idb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 
 	err = idb.LoadGenesis(genesis)

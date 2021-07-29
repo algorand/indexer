@@ -22,13 +22,10 @@ script:
 - make check
 - make integration
 - make test
-# e2e tests can't run without installing algod.
-#- make e2e
 #- ./test/perf.sh "$TEST_CONNECTION_STRING_1" && ./test/perf.sh "$TEST_CONNECTION_STRING_2"
 - make fakepackage
-# TODO: Remove mule stuff after getting 'make e2e' to run.
-- docker build -t e2e_tests -f docker/Dockerfile.mule .
-- docker run --rm -t e2e_tests mule/e2e.sh
+# e2elive.py runs with the docker-compose file in misc
+- make e2e
 
 after_success:
   - scripts/upload_coverage.sh || true

@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"math"
 	"sync"
 	"testing"
 
@@ -35,47 +36,36 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	///////////
-	// Given // A database that has not yet imported the genesis accounts.
-	///////////
-	db, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
-	//////////
-	// When // We request the max round.
-	//////////
-	roundA, errA := db.GetMaxRoundAccounted()
-	roundL, errL := db.GetNextRoundToLoad()
+	round, err := db.GetNextRoundToAccount()
+	assert.Equal(t, err, idb.ErrorNotInitialized)
+	assert.Equal(t, uint64(0), round)
 
-	//////////
-	// Then // The error message should be set.
-	//////////
-	assert.Equal(t, errA, idb.ErrorNotInitialized)
-	assert.Equal(t, uint64(0), roundA)
+	round, err = db.getMaxRoundAccounted(nil)
+	assert.Equal(t, err, idb.ErrorNotInitialized)
+	assert.Equal(t, uint64(0), round)
 
-	require.NoError(t, errL)
-	assert.Equal(t, uint64(0), roundL)
+	round, err = db.GetNextRoundToLoad()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0), round)
 }
 
 // TestMaxRoundEmptyMetastate makes sure we return 0 when the metastate is empty.
 func TestMaxRoundEmptyMetastate(t *testing.T) {
 	pg, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	///////////
-	// Given // The database has the metastate set but the account_round is missing.
-	///////////
-	db, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+
+	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	pg.Exec(`INSERT INTO metastate (k, v) values ('state', '{}')`)
 
-	//////////
-	// When // We request the max round.
-	//////////
-	round, err := db.GetMaxRoundAccounted()
+	round, err := db.GetNextRoundToAccount()
+	assert.Equal(t, err, idb.ErrorNotInitialized)
+	assert.Equal(t, uint64(0), round)
 
-	//////////
-	// Then // The error message should be set.
-	//////////
+	round, err = db.getMaxRoundAccounted(nil)
 	assert.Equal(t, err, idb.ErrorNotInitialized)
 	assert.Equal(t, uint64(0), round)
 }
@@ -84,27 +74,49 @@ func TestMaxRoundEmptyMetastate(t *testing.T) {
 func TestMaxRound(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	///////////
-	// Given // The database has the metastate set normally.
-	///////////
-	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
-	db.Exec(`INSERT INTO metastate (k, v) values ($1, $2)`, "state", "{\"account_round\":123454321}")
-	db.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`, 543212345)
 
-	//////////
-	// When // We request the max round.
-	//////////
-	roundA, err := pdb.GetMaxRoundAccounted()
+	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
-	roundL, err := pdb.GetNextRoundToLoad()
-	assert.NoError(t, err)
+	db.Exec(
+		`INSERT INTO metastate (k, v) values ($1, $2)`,
+		"state",
+		`{"next_account_round":123454322}`)
+	db.Exec(
+		`INSERT INTO block_header (round, realtime, rewardslevel, header) `+
+			`VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`,
+		543212345)
 
-	//////////
-	// Then // There should be no error and we return that there are zero rounds.
-	//////////
-	assert.Equal(t, uint64(123454321), roundA)
-	assert.Equal(t, uint64(543212346), roundL)
+	round, err := pdb.GetNextRoundToAccount()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(123454322), round)
+
+	round, err = pdb.getMaxRoundAccounted(nil)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(123454321), round)
+
+	round, err = pdb.GetNextRoundToLoad()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(543212346), round)
+}
+
+func TestAccountedRoundNextRound0(t *testing.T) {
+	db, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	assert.NoError(t, err)
+	db.Exec(
+		`INSERT INTO metastate (k, v) values ($1, $2)`,
+		"state",
+		`{"next_account_round":0}`)
+
+	round, err := pdb.GetNextRoundToAccount()
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0), round)
+
+	round, err = pdb.getMaxRoundAccounted(nil)
+	require.NoError(t, err)
+	assert.Equal(t, uint64(0), round)
 }
 
 func assertAccountAsset(t *testing.T, db *sql.DB, addr sdk_types.Address, assetid uint64, frozen bool, amount uint64) {
@@ -214,7 +226,7 @@ func TestInitializeFrozenCache(t *testing.T) {
 	defer shutdownFunc()
 
 	// Initialize DB by creating one of these things.
-	_, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+	_, _, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	// Add some assets
@@ -231,7 +243,7 @@ func TestInitializeFrozenCache(t *testing.T) {
 		3, test.AccountA[:], `{}`)
 	require.NoError(t, err)
 
-	pdb, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	cache, err := pdb.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -402,7 +414,7 @@ func TestBlockWithTransactions(t *testing.T) {
 	db, connStr, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
+	pdb, _, err := idb.IndexerDbByName("postgres", connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 
 	assetid := uint64(2222)
@@ -420,7 +432,9 @@ func TestBlockWithTransactions(t *testing.T) {
 	txns := []*sdk_types.SignedTxnWithAD{tx1, tx2, tx3, tx4, tx5}
 	txnRows := []*idb.TxnRow{row1, row2, row3, row4, row5}
 
-	_, err = db.Exec(`INSERT INTO metastate (k, v) values ($1, $2)`, "state", `{"account_round": 11}`)
+	_, err = db.Exec(
+		`INSERT INTO metastate (k, v) values ($1, $2)`, "state",
+		`{"next_account_round": 12}`)
 	require.NoError(t, err)
 	_, err = db.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`, test.Round)
 	require.NoError(t, err)
@@ -974,6 +988,319 @@ func TestAppExtraPages(t *testing.T) {
 		num++
 		require.NotNil(t, row.Account.AppsTotalExtraPages, "we should have this field")
 		require.Equal(t, uint64(1), *row.Account.AppsTotalExtraPages)
+	}
+	require.Equal(t, 1, num)
+}
+
+func assertKeytype(t *testing.T, db *IndexerDb, address sdk_types.Address, keytype *string) {
+	opts := idb.AccountQueryOptions{
+		EqualToAddress: address[:],
+	}
+	rowsCh, _ := db.GetAccounts(context.Background(), opts)
+
+	row, ok := <-rowsCh
+	require.True(t, ok)
+	require.NoError(t, row.Error)
+	assert.Equal(t, keytype, row.Account.SigType)
+}
+
+func TestKeytypeBasic(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	// Make an empty block so `GetAccounts()` does not fail.
+	importTxns(t, db, test.Round)
+	accountTxns(t, db, test.Round)
+	assertKeytype(t, db, test.AccountA, nil)
+
+	{
+		txn, txnRow := test.MakePayTxnRowOrPanic(
+			test.Round+1, 0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA,
+			sdk_types.ZeroAddress, sdk_types.ZeroAddress)
+		txn.Sig[0] = 3
+		txnRow.TxnBytes = msgpack.Encode(txn)
+		importTxns(t, db, test.Round+1, txn)
+		accountTxns(t, db, test.Round+1, txnRow)
+		keytype := "sig"
+		assertKeytype(t, db, test.AccountA, &keytype)
+	}
+
+	{
+		txn, txnRow := test.MakePayTxnRowOrPanic(
+			test.Round+2, 0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA,
+			sdk_types.ZeroAddress, sdk_types.ZeroAddress)
+		txn.Msig.Subsigs = append(txn.Msig.Subsigs, sdk_types.MultisigSubsig{})
+		txnRow.TxnBytes = msgpack.Encode(txn)
+		importTxns(t, db, test.Round+2, txn)
+		accountTxns(t, db, test.Round+2, txnRow)
+		keytype := "msig"
+		assertKeytype(t, db, test.AccountA, &keytype)
+	}
+}
+
+// Test that asset amount >= 2^63 is handled correctly. Due to the specifics of
+// postgres it might be a problem.
+func TestLargeAssetAmount(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	assetid := uint64(1)
+	txn, txnRow := test.MakeAssetConfigOrPanic(
+		test.Round, 0, assetid, math.MaxUint64, 0, false, "mc", "mycoin", "", test.AccountA)
+	importTxns(t, db, test.Round, txn)
+	accountTxns(t, db, test.Round, txnRow)
+
+	{
+		opts := idb.AssetBalanceQuery{
+			AssetID: assetid,
+		}
+		rowsCh, _ := db.AssetBalances(context.Background(), opts)
+
+		row, ok := <-rowsCh
+		require.True(t, ok)
+		require.NoError(t, row.Error)
+		assert.Equal(t, uint64(math.MaxUint64), row.Amount)
+	}
+
+	{
+		opts := idb.AccountQueryOptions{
+			EqualToAddress:       test.AccountA[:],
+			IncludeAssetHoldings: true,
+		}
+		rowsCh, _ := db.GetAccounts(context.Background(), opts)
+
+		row, ok := <-rowsCh
+		require.True(t, ok)
+		require.NoError(t, row.Error)
+		require.NotNil(t, row.Account.Assets)
+		require.Equal(t, 1, len(*row.Account.Assets))
+		assert.Equal(t, uint64(math.MaxUint64), (*row.Account.Assets)[0].Amount)
+	}
+}
+
+// Test that initializing a new database sets the correct migration number and
+// that the database is available.
+func TestInitializationNewDatabase(t *testing.T) {
+	_, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	db, availableCh, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	require.NoError(t, err)
+
+	_, ok := <-availableCh
+	assert.False(t, ok)
+
+	state, err := db.getMigrationState()
+	require.NoError(t, err)
+
+	assert.Equal(t, len(migrations), state.NextMigration)
+}
+
+// Test that opening the database the second time (after initializing) is successful.
+func TestOpenDbAgain(t *testing.T) {
+	_, connStr, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	_, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	require.NoError(t, err)
+
+	_, _, err = OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	require.NoError(t, err)
+}
+
+func requireNilOrEqual(t *testing.T, expected string, actual *string) {
+	if expected == "" {
+		require.Nil(t, actual)
+	} else {
+		require.NotNil(t, actual)
+		require.Equal(t, expected, *actual)
+	}
+}
+
+// TestNonDisplayableUTF8 make sure we're able to import cheeky assets.
+func TestNonDisplayableUTF8(t *testing.T) {
+	tests := []struct {
+		Name              string
+		AssetName         string
+		AssetUnit         string
+		AssetURL          string
+		ExpectedAssetName string
+		ExpectedAssetUnit string
+		ExpectedAssetURL  string
+	}{
+		{
+			Name:              "Normal",
+			AssetName:         "asset-name",
+			AssetUnit:         "au",
+			AssetURL:          "https://algorand.com",
+			ExpectedAssetName: "asset-name",
+			ExpectedAssetUnit: "au",
+			ExpectedAssetURL:  "https://algorand.com",
+		},
+		{
+			Name:              "Embedded Null",
+			AssetName:         "asset\000name",
+			AssetUnit:         "a\000u",
+			AssetURL:          "https:\000//algorand.com",
+			ExpectedAssetName: "",
+			ExpectedAssetUnit: "",
+			ExpectedAssetURL:  "",
+		},
+		{
+			Name:              "Invalid UTF8",
+			AssetName:         "asset\x8cname",
+			AssetUnit:         "a\x8cu",
+			AssetURL:          "https:\x8c//algorand.com",
+			ExpectedAssetName: "",
+			ExpectedAssetUnit: "",
+			ExpectedAssetURL:  "",
+		},
+		{
+			Name:              "Emoji",
+			AssetName:         "💩",
+			AssetUnit:         "💰",
+			AssetURL:          "🌐",
+			ExpectedAssetName: "💩",
+			ExpectedAssetUnit: "💰",
+			ExpectedAssetURL:  "🌐",
+		},
+	}
+
+	assetID := uint64(1)
+	round := test.Round
+	var creator types.Address
+
+	for _, testcase := range tests {
+		testcase := testcase
+		name := testcase.AssetName
+		unit := testcase.AssetUnit
+		url := testcase.AssetURL
+		creator[0] = byte(assetID)
+
+		t.Run(testcase.Name, func(t *testing.T) {
+			t.Parallel()
+			db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+			defer shutdownFunc()
+
+			txn, txnRow := test.MakeAssetConfigOrPanic(
+				round, 0, assetID, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
+
+			// Test 1: import/accounting should work.
+			importTxns(t, db, round, txn)
+			accountTxns(t, db, round, txnRow)
+
+			// Test 2: asset results properly serialized
+			assets, _ := db.Assets(context.Background(), idb.AssetsQuery{AssetID: assetID})
+			num := 0
+			for asset := range assets {
+				require.NoError(t, asset.Error)
+				require.Equal(t, name, asset.Params.AssetName)
+				require.Equal(t, unit, asset.Params.UnitName)
+				require.Equal(t, url, asset.Params.URL)
+				num++
+			}
+			require.Equal(t, 1, num)
+
+			// Test 3: transaction results properly serialized
+			transactions, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+			num = 0
+			for tx := range transactions {
+				require.NoError(t, tx.Error)
+				// Note: These are created from the TxnBytes, so they have the exact name with embedded null.
+				var txn sdk_types.SignedTxn
+				require.NoError(t, msgpack.Decode(tx.TxnBytes, &txn))
+				require.Equal(t, name, txn.Txn.AssetParams.AssetName)
+				require.Equal(t, unit, txn.Txn.AssetParams.UnitName)
+				require.Equal(t, url, txn.Txn.AssetParams.URL)
+				num++
+			}
+			require.Equal(t, 1, num)
+
+			// Test 4: account results should have the correct asset
+			accounts, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAssetParams: true})
+			num = 0
+			for acct := range accounts {
+				require.NoError(t, acct.Error)
+				require.NotNil(t, acct.Account.CreatedAssets)
+				require.Len(t, *acct.Account.CreatedAssets, 1)
+
+				asset := (*acct.Account.CreatedAssets)[0]
+				if testcase.ExpectedAssetName == "" {
+					require.Nil(t, asset.Params.Name)
+				}
+				requireNilOrEqual(t, testcase.ExpectedAssetName, asset.Params.Name)
+				requireNilOrEqual(t, testcase.ExpectedAssetUnit, asset.Params.UnitName)
+				requireNilOrEqual(t, testcase.ExpectedAssetURL, asset.Params.Url)
+				require.Equal(t, []byte(name), *asset.Params.NameB64)
+				require.Equal(t, []byte(unit), *asset.Params.UnitNameB64)
+				require.Equal(t, []byte(url), *asset.Params.UrlB64)
+				num++
+			}
+			require.Equal(t, 1, num)
+		})
+	}
+}
+
+// TestReconfigAsset make sure we properly handle asset param merges.
+func TestReconfigAsset(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	unit := "co\000in"
+	name := "algo"
+	url := "https://algorand.com"
+
+	assetID := uint64(1)
+	txn, txnRow := test.MakeAssetConfigOrPanic(
+		test.Round, 0, assetID, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
+
+	txn2 := sdk_types.SignedTxnWithAD{
+		SignedTxn: sdk_types.SignedTxn{
+			Txn: sdk_types.Transaction{
+				Type: "acfg",
+				Header: sdk_types.Header{
+					Sender:     test.AccountA,
+					Fee:        sdk_types.MicroAlgos(1000),
+					FirstValid: sdk_types.Round(test.Round + 1),
+					LastValid:  sdk_types.Round(test.Round + 1),
+				},
+				AssetConfigTxnFields: sdk_types.AssetConfigTxnFields{
+					ConfigAsset: sdk_types.AssetIndex(assetID),
+					AssetParams: sdk_types.AssetParams{
+						Freeze:   test.AccountB,
+						Clawback: test.AccountC,
+					},
+				},
+			},
+		},
+	}
+
+	txnRow2 := idb.TxnRow{
+		Round:    uint64(txn2.Txn.FirstValid),
+		TxnBytes: msgpack.Encode(txn2),
+		AssetID:  assetID,
+	}
+
+	importTxns(t, db, test.Round, txn)
+	accountTxns(t, db, test.Round, txnRow)
+	importTxns(t, db, test.Round+1, &txn2)
+	accountTxns(t, db, test.Round+1, &txnRow2)
+
+	// Test 2: asset results properly serialized
+	assets, _ := db.Assets(context.Background(), idb.AssetsQuery{AssetID: assetID})
+	num := 0
+	for asset := range assets {
+		require.NoError(t, asset.Error)
+		require.Equal(t, name, asset.Params.AssetName)
+		require.Equal(t, unit, asset.Params.UnitName)
+		require.Equal(t, url, asset.Params.URL)
+
+		require.Equal(t, sdk_types.ZeroAddress, asset.Params.Manager, "Manager should have been cleared.")
+		require.Equal(t, sdk_types.ZeroAddress, asset.Params.Reserve, "Reserve should have been cleared.")
+		// These were updated
+		require.Equal(t, test.AccountB, asset.Params.Freeze)
+		require.Equal(t, test.AccountC, asset.Params.Clawback)
+		num++
 	}
 	require.Equal(t, 1, num)
 }

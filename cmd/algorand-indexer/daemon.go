@@ -79,30 +79,31 @@ var daemonCmd = &cobra.Command{
 		if noAlgod && !allowMigration {
 			opts.ReadOnly = true
 		}
-		db := indexerDbFromFlags(opts)
+		db, availableCh := indexerDbFromFlags(opts)
 		if bot != nil {
-			logger.Info("Initializing block import handler.")
-
-			nextRound, err := db.GetNextRoundToLoad()
-			maybeFail(err, "failed to get next round, %v", err)
-			bot.SetNextRound(nextRound)
-
-			cache, err := db.GetDefaultFrozen()
-			maybeFail(err, "failed to get default frozen cache")
-
-			bih := blockImporterHandler{
-				imp:   importer.NewDBImporter(db),
-				db:    db,
-				cache: cache,
-			}
-			bot.AddBlockHandler(&bih)
-			bot.SetContext(ctx)
-
 			go func() {
-				waitForDBAvailable(db)
+				// Wait until the database is available.
+				<-availableCh
 
 				// Initial import if needed.
 				importer.InitialImport(db, genesisJSONPath, bot.Algod(), logger)
+
+				logger.Info("Initializing block import handler.")
+
+				nextRound, err := db.GetNextRoundToLoad()
+				maybeFail(err, "failed to get next round, %v", err)
+				bot.SetNextRound(nextRound)
+
+				cache, err := db.GetDefaultFrozen()
+				maybeFail(err, "failed to get default frozen cache")
+
+				bih := blockImporterHandler{
+					imp:   importer.NewDBImporter(db),
+					db:    db,
+					cache: cache,
+				}
+				bot.AddBlockHandler(&bih)
+				bot.SetContext(ctx)
 
 				logger.Info("Starting block importer.")
 				bot.Run()
@@ -117,35 +118,6 @@ var daemonCmd = &cobra.Command{
 		logger.Infof("serving on %s", daemonServerAddr)
 		api.Serve(ctx, daemonServerAddr, db, bot, logger, makeOptions())
 	},
-}
-
-// waitForDBAvailable wait for the IndexerDb to report that it is available.
-func waitForDBAvailable(db idb.IndexerDb) {
-	statusInterval := 5 * time.Minute
-	checkInterval := 5 * time.Second
-	var now time.Time
-	nextStatusTime := time.Now()
-	for true {
-		now = time.Now()
-		health, err := db.Health()
-		if err != nil {
-			logger.WithError(err).Errorf("Problem fetching database health.")
-			os.Exit(1)
-		}
-
-		// Exit function when the database is available
-		if health.DBAvailable {
-			return
-		}
-
-		// Log status periodically
-		if nextStatusTime.Sub(now) <= 0 {
-			logger.Info("Block importer waiting for database to become available.")
-			nextStatusTime = nextStatusTime.Add(statusInterval)
-		}
-
-		time.Sleep(checkInterval)
-	}
 }
 
 func init() {
@@ -197,18 +169,11 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 	start := time.Now()
 	_, err := bih.imp.ImportDecodedBlock(block)
 	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round)
-	maxRoundAccounted, err := bih.db.GetMaxRoundAccounted()
-	var nextUnaccountedRound uint64
-	// Special case to start at round 0 if things are uninitialized, otherwise start at the first unaccounted round.
-	if err == idb.ErrorNotInitialized {
-		nextUnaccountedRound = 0
-	} else {
-		maybeFail(err, "failed to get max round accounted.")
-		nextUnaccountedRound = maxRoundAccounted + 1
-	}
+	startRound, err := bih.db.GetNextRoundToAccount()
+	maybeFail(err, "failed to get next round to account")
 	// During normal operation StartRound and MaxRound will be the same round.
 	filter := idb.UpdateFilter{
-		StartRound: nextUnaccountedRound,
+		StartRound: startRound,
 		MaxRound:   uint64(block.Block.Round),
 	}
 	importer.UpdateAccounting(bih.db, bih.cache, filter, logger)

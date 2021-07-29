@@ -14,14 +14,14 @@ func TestAllMigrations(t *testing.T) {
 	for idx, m := range migrations {
 		t.Run(fmt.Sprintf("Test migration %d", idx), func(t *testing.T) {
 			db := MakeMockDB([]*MockStmt{
-				// "state"
+				// INFORMATION_SCHEMA.TABLES
 				MakeMockStmt(
-					1,
-					[]string{"v"},
+					0,
+					[]string{"columnname"},
 					[][]interface{}{
-						{`{"account_round": 9000000}`},
+						{0},
 					}),
-				// "migration"
+				// migration state
 				MakeMockStmt(
 					1,
 					[]string{"v"},
@@ -31,7 +31,7 @@ func TestAllMigrations(t *testing.T) {
 			})
 
 			// This automatically runs migrations
-			pdb, err := openPostgres(db, idb.IndexerDbOptions{
+			pdb, _, err := openPostgres(db, idb.IndexerDbOptions{
 				ReadOnly: false,
 			}, nil)
 			require.NoError(t, err)
@@ -55,24 +55,24 @@ func TestAllMigrations(t *testing.T) {
 
 func TestNoMigrationsNeeded(t *testing.T) {
 	db := MakeMockDB([]*MockStmt{
-		// "state"
+		// INFORMATION_SCHEMA.TABLES
 		MakeMockStmt(
-			1,
-			[]string{"v"},
+			0,
+			[]string{"columnname"},
 			[][]interface{}{
-				{`{"account_round": 9000000}`},
+				{0},
 			}),
-		// "migration"
+		// migration state
 		MakeMockStmt(
 			1,
 			[]string{"v"},
 			[][]interface{}{
-				{fmt.Sprintf(`{"next": %d}`, len(migrations)+1)},
+				{fmt.Sprintf(`{"next": %d}`, len(migrations))},
 			}),
 	})
 
 	// This automatically runs migraions
-	pdb, err := openPostgres(db, idb.IndexerDbOptions{
+	pdb, _, err := openPostgres(db, idb.IndexerDbOptions{
 		ReadOnly: false,
 	}, nil)
 	assert.NoError(t, err)

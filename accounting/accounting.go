@@ -218,21 +218,6 @@ func (accounting *State) destroyAsset(assetID uint64) {
 	accounting.AssetDestroys = append(accounting.AssetDestroys, assetID)
 }
 
-// TODO: move to go-algorand-sdk as Signature.IsZero()
-func zeroSig(sig sdk_types.Signature) bool {
-	for _, b := range sig {
-		if b != 0 {
-			return false
-		}
-	}
-	return true
-}
-
-// TODO: move to go-algorand-sdk as LogicSig.Blank()
-func blankLsig(lsig sdk_types.LogicSig) bool {
-	return len(lsig.Logic) == 0
-}
-
 // ErrWrongRound is returned when adding a transaction which belongs to a different round
 // than what the State is configured for.
 var ErrWrongRound error = errors.New("wrong round")
@@ -251,27 +236,18 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 		return ErrWrongRound
 	}
 
-	var ktype string
-	if !zeroSig(stxn.Sig) {
-		ktype = "sig"
-	} else if !stxn.Msig.Blank() {
-		ktype = "msig"
-	} else if !blankLsig(stxn.Lsig) {
-		if !zeroSig(stxn.Lsig.Sig) {
-			ktype = "sig"
-		} else if !stxn.Lsig.Msig.Blank() {
-			ktype = "msig"
-		} else {
-			ktype = "lsig"
-		}
+	ktype, err := idb.SignatureType(&stxn.SignedTxn)
+	if err != nil {
+		ktype = ""
 	}
+
 	var isNew bool
-	isNew, err = accounting.accountTypes.set(stxn.Txn.Sender, ktype)
+	isNew, err = accounting.accountTypes.set(stxn.Txn.Sender, string(ktype))
 	if err != nil {
 		return fmt.Errorf("error in account type, %v", err)
 	}
 	if isNew {
-		accounting.updateAccountType(stxn.Txn.Sender, ktype)
+		accounting.updateAccountType(stxn.Txn.Sender, string(ktype))
 	}
 
 	accounting.updateAlgo(stxn.Txn.Sender, -int64(stxn.Txn.Fee))

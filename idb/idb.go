@@ -85,9 +85,9 @@ type IndexerDb interface {
 
 	LoadGenesis(genesis types.Genesis) (err error)
 
-	// GetMaxRoundAccounted returns ErrorNotInitialized if there are no accounted rounds.
-	GetMaxRoundAccounted() (round uint64, err error)
-	GetNextRoundToLoad() (round uint64, err error)
+	// GetNextRoundToAccount returns ErrorNotInitialized if genesis is not loaded.
+	GetNextRoundToAccount() (uint64, error)
+	GetNextRoundToLoad() (uint64, error)
 	GetSpecialAccounts() (SpecialAccounts, error)
 	GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error)
 
@@ -107,7 +107,6 @@ type IndexerDb interface {
 	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64)
 
 	Health() (status Health, err error)
-	Reset() (err error)
 }
 
 // GetBlockOptions contains the options when requesting to load a block from the database.
@@ -115,27 +114,6 @@ type GetBlockOptions struct {
 	// setting Transactions to true suggests requesting to receive the trasnactions themselves from the GetBlock query
 	Transactions bool
 }
-
-// TransactionFilter.AddressRole bitfield values
-const (
-	AddressRoleSender           = 0x01
-	AddressRoleReceiver         = 0x02
-	AddressRoleCloseRemainderTo = 0x04
-	AddressRoleAssetSender      = 0x08
-	AddressRoleAssetReceiver    = 0x10
-	AddressRoleAssetCloseTo     = 0x20
-	AddressRoleFreeze           = 0x40
-)
-
-// TransactionFilter.TypeEnum and also AddTransaction(,,txtypeenum,,,)
-const (
-	TypeEnumPay           = 1
-	TypeEnumKeyreg        = 2
-	TypeEnumAssetConfig   = 3
-	TypeEnumAssetTransfer = 4
-	TypeEnumAssetFreeze   = 5
-	TypeEnumApplication   = 6
-)
 
 // TransactionFilter is a parameter object with all the transaction filter options.
 type TransactionFilter struct {
@@ -145,19 +123,19 @@ type TransactionFilter struct {
 	// setting a MaxRound to get results before.
 	Address []byte
 
-	AddressRole uint64 // 0=Any, otherwise AddressRole* bitfields above
+	AddressRole AddressRole // 0=Any, otherwise bitfields as defined in address_role.go
 
 	MinRound   uint64
 	MaxRound   uint64
 	AfterTime  time.Time
 	BeforeTime time.Time
-	TypeEnum   int // ["","pay","keyreg","acfg","axfer","afrz"]
+	TypeEnum   TxnTypeEnum // ["","pay","keyreg","acfg","axfer","afrz"]
 	Txid       string
 	Round      *uint64 // nil for no filter
 	Offset     *uint64 // nil for no filter
 	OffsetLT   *uint64 // nil for no filter
 	OffsetGT   *uint64 // nil for no filter
-	SigType    string  // ["", "sig", "msig", "lsig"]
+	SigType    SigType // ["", "sig", "msig", "lsig"]
 	NotePrefix []byte
 	AlgosGT    *uint64 // implictly filters on "pay" txns for Algos > this. This will be a slightly faster query than EffectiveAmountGT.
 	AlgosLT    *uint64
@@ -240,7 +218,7 @@ type AssetsQuery struct {
 type AssetRow struct {
 	AssetID      uint64
 	Creator      []byte
-	Params       types.AssetParams
+	Params       sdk_types.AssetParams
 	Error        error
 	CreatedRound *uint64
 	ClosedRound  *uint64
@@ -284,10 +262,6 @@ type ApplicationRow struct {
 // IndexerDbOptions are the options common to all indexer backends.
 type IndexerDbOptions struct {
 	ReadOnly bool
-
-	// NoMigrate indicates to not run any migrations.
-	// Should probably only be used by the `reset` subcommand.
-	NoMigrate bool
 }
 
 // AssetUpdate is used by the accounting and IndexerDb implementations to share modifications in a block.

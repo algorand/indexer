@@ -84,18 +84,18 @@ var (
 	logger         *log.Logger
 )
 
-func indexerDbFromFlags(opts idb.IndexerDbOptions) (db idb.IndexerDb) {
+func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}) {
 	if postgresAddr != "" {
-		var err error
-		db, err = idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
+		db, ch, err := idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
 		maybeFail(err, "could not init db, %v", err)
-	} else if dummyIndexerDb {
-		db = dummy.IndexerDb()
-	} else {
-		logger.Errorf("no import db set")
-		os.Exit(1)
+		return db, ch
 	}
-	return db
+	if dummyIndexerDb {
+		return dummy.IndexerDb(), nil
+	}
+	logger.Errorf("no import db set")
+	os.Exit(1)
+	return nil, nil
 }
 
 func init() {
@@ -109,8 +109,6 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Hidden = true
 	rootCmd.AddCommand(daemonCmd)
-	rootCmd.AddCommand(resetCmd)
-	resetCmd.Hidden = true
 
 	rootCmd.PersistentFlags().StringVarP(&logLevel, "loglevel", "l", "info", "verbosity of logs: [error, warn, info, debug, trace]")
 	rootCmd.PersistentFlags().StringVarP(&logFile, "logfile", "f", "", "file to write logs to, if unset logs are written to standard out")

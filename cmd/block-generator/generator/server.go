@@ -30,25 +30,24 @@ func initializeConfigFile(configFile string) (config GenerationConfig, err error
 	return
 }
 
-// StartServer configures http handlers then runs ListanAndServe.
-func StartServer(configFile string, port uint64) {
+// MakeServer configures http handlers. Returns the http server.
+func MakeServer(configFile string, addr string) *http.Server {
 	config, err := initializeConfigFile(configFile)
 	util.MaybeFail(err, "problem loading config file. Use '--config' or create a config file.")
 
 	gen, err := MakeGenerator(config)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to create generator: %v", err)
-		os.Exit(1)
+	util.MaybeFail(err, "Failed to make generator with config file '%s'", configFile)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", help)
+	mux.HandleFunc("/v2/blocks/", getBlockHandler(gen))
+	mux.HandleFunc("/genesis", getGenesisHandler(gen))
+	mux.HandleFunc("/report", getReportHandler(gen))
+
+	return &http.Server{
+		Addr:    addr,
+		Handler: mux,
 	}
-
-	http.HandleFunc("/", help)
-	http.HandleFunc("/v2/blocks/", getBlockHandler(gen))
-	http.HandleFunc("/genesis", getGenesisHandler(gen))
-	http.HandleFunc("/report", getReportHandler(gen))
-
-	portStr := fmt.Sprintf(":%d", port)
-	fmt.Printf("Starting server at %s\n", portStr)
-	http.ListenAndServe(portStr, nil)
 }
 
 func help(w http.ResponseWriter, r *http.Request) {

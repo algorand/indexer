@@ -4,17 +4,24 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/algorand/go-codec/codec"
 )
 
-// KeysStringInt returns all of the keys in the map joined by a comma.
-func KeysStringInt(m map[string]int) string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
+// PrintableUTF8OrEmpty checks to see if the entire string is a UTF8 printable string.
+// If this is the case, the string is returned as is. Otherwise, the empty string is returned.
+func PrintableUTF8OrEmpty(in string) string {
+	// iterate throughout all the characters in the string to see if they are all printable.
+	// when range iterating on go strings, go decode each element as a utf8 rune.
+	for _, c := range in {
+		// is this a printable character, or invalid rune ?
+		if c == utf8.RuneError || !unicode.IsPrint(c) {
+			return ""
+		}
 	}
-	return strings.Join(keys, ", ")
+	return in
 }
 
 // KeysStringBool returns all of the keys in the map joined by a comma.
