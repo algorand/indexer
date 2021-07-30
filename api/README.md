@@ -5,7 +5,7 @@ We are using a documentation driven process.
 The API is defined using [OpenAPI v2](https://swagger.io/specification/v2/) in **indexer.oas2.yml**.
 
 ## Updating REST API
-You need to have our fork of **oapi-codegen** installed:
+You need to have our fork of **oapi-codegen** installed. From outside any go projects run the following command:
 ```
 GO111MODULE=on go get -u github.com/algorand/oapi-codegen/...@v1.3.5-algorand5
 ```
