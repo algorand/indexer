@@ -24,6 +24,6 @@ indexer.oas3.yml:	.3tmp.json
 
 oapi-codegen:	.PHONY
 	# This weirdness is to workaround incompatible dependencies in our go.mod
-	cd $(mktemp -d) && go mod init tempmod && GO111MODULE=on go get -u "github.com/algorand/oapi-codegen/...@v1.3.5-algorand5"
+	cd /tmp && GO111MODULE=on go get "github.com/algorand/oapi-codegen/cmd/oapi-codegen@v1.3.5-algorand5"
 
 .PHONY:
