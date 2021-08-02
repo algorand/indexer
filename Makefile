@@ -43,7 +43,7 @@ idb/mocks/IndexerDb.go:	idb/idb.go
 	cd idb && mockery -name=IndexerDb
 
 # check that all packages (except tests) compile
-check:
+check: go-algorand
 	go build ./...
 
 package:
