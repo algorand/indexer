@@ -4,6 +4,9 @@ OS_TYPE		?= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
 ARCH			?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
 PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(VERSION)
 
+GO_ALGORAND_REPO := github.com/algorand/go-algorand@v0.0.0-20210731012338-8835bfdd24ed
+GO_ALGORAND_CACHE_PATH := $(shell go env GOPATH)/pkg/mod/${GO_ALGORAND_REPO}
+
 # TODO: ensure any additions here are mirrored in misc/release.py
 GOLDFLAGS += -X github.com/algorand/indexer/version.Hash=$(shell git log -n 1 --pretty="%H")
 GOLDFLAGS += -X github.com/algorand/indexer/version.Dirty=$(if $(filter $(strip $(shell git status --porcelain|wc -c)), "0"),,true)
@@ -15,8 +18,19 @@ GOLDFLAGS += -X github.com/algorand/indexer/version.ReleaseVersion=$(shell cat .
 export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 
 # This is the default target, build the indexer:
-cmd/algorand-indexer/algorand-indexer:	idb/postgres/setup_postgres_sql.go idb/postgres/reset_sql.go types/protocols_json.go
-	cd cmd/algorand-indexer && CGO_ENABLED=0 go build -ldflags="${GOLDFLAGS}"
+cmd/algorand-indexer/algorand-indexer: idb/postgres/setup_postgres_sql.go idb/postgres/reset_sql.go types/protocols_json.go go-algorand
+	cd cmd/algorand-indexer && go build -ldflags="${GOLDFLAGS}"
+
+go-algorand-dl:
+	@if test -d ${GO_ALGORAND_CACHE_PATH}; then \
+		echo "go-algorand is already downloaded"; \
+	else \
+		echo "downloading go-algorand"; \
+		go get -d ${GO_ALGORAND_REPO}; \
+	fi
+
+go-algorand: go-algorand-dl
+	cd ${GO_ALGORAND_CACHE_PATH} && chmod +x `find -name *.sh` && chmod -R +w . && make
 
 idb/postgres/setup_postgres_sql.go idb/postgres/reset_sql.go:	idb/postgres/setup_postgres.sql idb/postgres/reset.sql
 	cd idb/postgres && go generate
@@ -71,4 +85,4 @@ sign:
 test-package:
 	mule/e2e.sh
 
-.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go
+.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand go-algorand-dl
