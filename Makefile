@@ -30,7 +30,7 @@ go-algorand-dl:
 	fi
 
 go-algorand: go-algorand-dl
-	cd ${GO_ALGORAND_CACHE_PATH} && chmod +x `find -name *.sh` && chmod -R +w . && make
+	cd ${GO_ALGORAND_CACHE_PATH} && chmod +x `find -name *.sh` && chmod -R +w . && scripts/travis/before_build.sh
 
 idb/postgres/setup_postgres_sql.go idb/postgres/reset_sql.go:	idb/postgres/setup_postgres.sql idb/postgres/reset.sql
 	cd idb/postgres && go generate
