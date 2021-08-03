@@ -16,6 +16,7 @@ addons:
     - python3-pip
     - python3-setuptools
     - python3-wheel
+    - libboost-all-dev
 script:
 - test -z `go fmt ./...`
 - make lint
