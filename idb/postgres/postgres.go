@@ -20,6 +20,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	ccc "github.com/algorand/go-algorand/crypto"
+
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
@@ -52,6 +54,9 @@ var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelRepeatableRead, R
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
 func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (*IndexerDb, chan struct{}, error) {
+	var tmp ccc.PublicKey
+	tmp[0] = 1
+
 	db, err := sql.Open("postgres", connection)
 
 	if err != nil {
