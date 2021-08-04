@@ -138,7 +138,6 @@ def compile_version_opts(release_version=None, allow_mismatch=False):
 
 def compile(goos=None, goarch=None, ldflags=None):
     env = dict(os.environ)
-    env['CGO_ENABLED'] = '0'
     if goos is not None:
         env['GOOS'] = goos
     if goarch is not None:
