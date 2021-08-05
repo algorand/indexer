@@ -50,7 +50,7 @@ fakepackage: go-algorand
 test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 	go test ./... -coverprofile=coverage.txt -covermode=atomic
 
-lint:
+lint: go-algorand
 	golint -set_exit_status ./...
 	go vet ./...
 
