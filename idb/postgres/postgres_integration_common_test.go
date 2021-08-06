@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"testing"
 
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/orlangure/gnomock"
 	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/require"
@@ -14,7 +15,6 @@ import (
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
-	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -61,7 +61,7 @@ func setupPostgres(t *testing.T) (*sql.DB, string, func()) {
 	return db, connStr, shutdownFunc
 }
 
-func setupIdb(t *testing.T, genesis types.Genesis) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
+func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
 	_, connStr, shutdownFunc := setupPostgres(t)
 
 	idb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -73,10 +73,11 @@ func setupIdb(t *testing.T, genesis types.Genesis) (*IndexerDb /*db*/, func() /*
 	return idb, shutdownFunc
 }
 
-func importTxns(t *testing.T, db *IndexerDb, round uint64, txns ...*sdk_types.SignedTxnWithAD) {
-	block := test.MakeBlockForTxns(round, txns...)
+func importTxns(t *testing.T, db *IndexerDb, round uint64, txns ...*transactions.SignedTxnWithAD) {
+	block, err := test.MakeBlockForTxns(round, txns...)
+	require.NoError(t, err)
 
-	_, err := importer.NewDBImporter(db).ImportDecodedBlock(&block)
+	_, err = importer.NewDBImporter(db).ImportDecodedBlock(&block)
 	require.NoError(t, err)
 }
 
@@ -93,7 +94,7 @@ func accountTxns(t *testing.T, db *IndexerDb, round uint64, txns ...*idb.TxnRow)
 		require.NoError(t, err)
 	}
 
-	err = db.CommitRoundAccounting(state.RoundUpdates, round, &types.BlockHeader{})
+	err = db.CommitRoundAccounting(state.RoundUpdates, round, &bookkeeping.BlockHeader{})
 	require.NoError(t, err)
 }
 

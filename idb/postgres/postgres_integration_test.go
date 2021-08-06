@@ -7,20 +7,20 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/algorand/go-algorand-sdk/crypto"
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/importer"
-	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -119,7 +119,7 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 	assert.Equal(t, uint64(0), round)
 }
 
-func assertAccountAsset(t *testing.T, db *sql.DB, addr sdk_types.Address, assetid uint64, frozen bool, amount uint64) {
+func assertAccountAsset(t *testing.T, db *sql.DB, addr basics.Address, assetid uint64, frozen bool, amount uint64) {
 	var row *sql.Row
 	var f bool
 	var a uint64
@@ -144,10 +144,10 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	// Given // A round scenario requiring subround accounting: AccountA is funded, closed, opts back, and funded again.
 	///////////
 	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
-	_, fundMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, sdk_types.ZeroAddress)
+	_, fundMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 	_, closeMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
-	_, optinMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, sdk_types.ZeroAddress)
-	_, payMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, sdk_types.ZeroAddress)
+	_, optinMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, basics.Address{})
+	_, payMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 
 	cache, err := db.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -161,7 +161,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &bookkeeping.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -191,8 +191,8 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	///////////
 	_, createAssetFrozen := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, 0, assetid+1, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
-	_, optinB1 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, sdk_types.ZeroAddress)
-	_, optinB2 := test.MakeAssetTxnOrPanic(test.Round, assetid+1, 0, test.AccountB, test.AccountB, sdk_types.ZeroAddress)
+	_, optinB1 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, basics.Address{})
+	_, optinB2 := test.MakeAssetTxnOrPanic(test.Round, assetid+1, 0, test.AccountB, test.AccountB, basics.Address{})
 
 	cache, err := db.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -205,7 +205,7 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &bookkeeping.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -284,7 +284,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 		// Given // A new asset with default-frozen, AccountB opts-in and has its frozen state toggled.
 		/////////// Then AccountB opts-out then opts-in again.
 		_, createAssetFrozen := test.MakeAssetConfigOrPanic(round, 0, aid, total, uint64(6), testcase.frozen, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
-		_, optinB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountB, sdk_types.ZeroAddress)
+		_, optinB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountB, basics.Address{})
 		_, unfreezeB := test.MakeAssetFreezeOrPanic(round, aid, !testcase.frozen, test.AccountB, test.AccountB)
 		_, optoutB := test.MakeAssetTxnOrPanic(round, aid, 0, test.AccountB, test.AccountC, test.AccountD)
 
@@ -300,7 +300,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 		//////////
 		// When // We commit the round accounting to the database.
 		//////////
-		err = db.CommitRoundAccounting(state.RoundUpdates, round, &types.BlockHeader{})
+		err = db.CommitRoundAccounting(state.RoundUpdates, round, &bookkeeping.BlockHeader{})
 		assert.NoError(t, err, "failed to commit")
 
 		//////////
@@ -324,7 +324,7 @@ func TestNoopOptins(t *testing.T) {
 	//db.Exec(`INSERT INTO asset (index, creator_addr, params) values ($1, $2, $3)`, assetid, test.AccountA[:], `{"df":true}`)
 
 	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, uint64(1000000), uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
-	_, optinB := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, sdk_types.ZeroAddress)
+	_, optinB := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, basics.Address{})
 	_, unfreezeB := test.MakeAssetFreezeOrPanic(test.Round, assetid, false, test.AccountB, test.AccountB)
 
 	cache, err := db.GetDefaultFrozen()
@@ -338,7 +338,7 @@ func TestNoopOptins(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &bookkeeping.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -359,7 +359,7 @@ func TestMultipleWriters(t *testing.T) {
 	// Given // Send amt to AccountE
 	///////////
 	_, payAccountE := test.MakePayTxnRowOrPanic(test.Round, 1000, amt, 0, 0, 0, 0, test.AccountD,
-		test.AccountE, sdk_types.ZeroAddress, sdk_types.ZeroAddress)
+		test.AccountE, basics.Address{}, basics.Address{})
 
 	cache, err := db.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -379,7 +379,7 @@ func TestMultipleWriters(t *testing.T) {
 			defer wg.Done()
 			<-start
 			errors <- db.CommitRoundAccounting(
-				state.RoundUpdates, test.Round, &types.BlockHeader{})
+				state.RoundUpdates, test.Round, &bookkeeping.BlockHeader{})
 		}()
 	}
 	close(start)
@@ -407,7 +407,6 @@ func TestMultipleWriters(t *testing.T) {
 }
 
 // TestBlockWithTransactions tests that the block with transactions endpoint works.
-// TestBlockWithTransactions tests that the block with transactions endpoint works.
 func TestBlockWithTransactions(t *testing.T) {
 	var err error
 
@@ -425,11 +424,11 @@ func TestBlockWithTransactions(t *testing.T) {
 	// Given // A block at round test.Round with 5 transactions.
 	///////////
 	tx1, row1 := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
-	tx2, row2 := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, sdk_types.ZeroAddress)
+	tx2, row2 := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 	tx3, row3 := test.MakeAssetTxnOrPanic(test.Round, assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
-	tx4, row4 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, sdk_types.ZeroAddress)
-	tx5, row5 := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, sdk_types.ZeroAddress)
-	txns := []*sdk_types.SignedTxnWithAD{tx1, tx2, tx3, tx4, tx5}
+	tx4, row4 := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, basics.Address{})
+	tx5, row5 := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountD, test.AccountA, basics.Address{})
+	txns := []*transactions.SignedTxnWithAD{tx1, tx2, tx3, tx4, tx5}
 	txnRows := []*idb.TxnRow{row1, row2, row3, row4, row5}
 
 	_, err = db.Exec(
@@ -439,7 +438,8 @@ func TestBlockWithTransactions(t *testing.T) {
 	_, err = db.Exec(`INSERT INTO block_header (round, realtime, rewardslevel, header) VALUES ($1, NOW(), 0, '{}') ON CONFLICT DO NOTHING`, test.Round)
 	require.NoError(t, err)
 	for i := range txns {
-		_, err = db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, i, 0, 0, crypto.TransactionID(txns[i].Txn), txnRows[i].TxnBytes, "{}")
+		id := txns[i].Txn.ID()
+		_, err = db.Exec(`INSERT INTO txn (round, intra, typeenum, asset, txid, txnbytes, txn) VALUES ($1, $2, $3, $4, $5, $6, $7)`, test.Round, i, 0, 0, id[:], txnRows[i].TxnBytes, "{}")
 		require.NoError(t, err)
 	}
 
@@ -475,14 +475,14 @@ func TestRekeyBasic(t *testing.T) {
 	// Given // Send rekey transaction
 	///////////
 	_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
-		test.AccountA, sdk_types.ZeroAddress, test.AccountB)
+		test.AccountA, basics.Address{}, test.AccountB)
 
 	cache, err := db.GetDefaultFrozen()
 	assert.NoError(t, err)
 	state := getAccounting(test.Round, cache)
 	state.AddTransaction(txnRow)
 
-	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &bookkeeping.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -493,10 +493,9 @@ func TestRekeyBasic(t *testing.T) {
 	err = row.Scan(&accountDataStr)
 	assert.NoError(t, err, "querying account data")
 
-	var ad types.AccountData
-	err = encoding.DecodeJSON(accountDataStr, &ad)
+	ad, err := encoding.DecodeAccountData(accountDataStr)
 	assert.NoError(t, err, "failed to parse account data json")
-	assert.Equal(t, test.AccountB, ad.SpendingKey)
+	assert.Equal(t, test.AccountB, ad.AuthAddr)
 }
 
 func TestRekeyToItself(t *testing.T) {
@@ -508,19 +507,19 @@ func TestRekeyToItself(t *testing.T) {
 	///////////
 	{
 		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
-			test.AccountA, sdk_types.ZeroAddress, test.AccountB)
+			test.AccountA, basics.Address{}, test.AccountB)
 
 		cache, err := db.GetDefaultFrozen()
 		assert.NoError(t, err)
 		state := getAccounting(test.Round, cache)
 		state.AddTransaction(txnRow)
 
-		err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+		err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &bookkeeping.BlockHeader{})
 		assert.NoError(t, err, "failed to commit")
 	}
 	{
 		_, txnRow := test.MakePayTxnRowOrPanic(test.Round+1, 1000, 0, 0, 0, 0, 0, test.AccountA,
-			test.AccountA, sdk_types.ZeroAddress, test.AccountA)
+			test.AccountA, basics.Address{}, test.AccountA)
 
 		cache, err := db.GetDefaultFrozen()
 		assert.NoError(t, err)
@@ -528,7 +527,7 @@ func TestRekeyToItself(t *testing.T) {
 		state.AddTransaction(txnRow)
 
 		err = db.CommitRoundAccounting(
-			state.RoundUpdates, test.Round+1, &types.BlockHeader{})
+			state.RoundUpdates, test.Round+1, &bookkeeping.BlockHeader{})
 		assert.NoError(t, err, "failed to commit")
 	}
 
@@ -540,10 +539,9 @@ func TestRekeyToItself(t *testing.T) {
 	err := row.Scan(&accountDataStr)
 	assert.NoError(t, err, "querying account data")
 
-	var ad types.AccountData
-	err = encoding.DecodeJSON(accountDataStr, &ad)
+	ad, err := encoding.DecodeAccountData(accountDataStr)
 	assert.NoError(t, err, "failed to parse account data json")
-	assert.Equal(t, sdk_types.ZeroAddress, ad.SpendingKey)
+	assert.Equal(t, basics.Address{}, ad.AuthAddr)
 }
 
 func TestRekeyThreeTimesInSameRound(t *testing.T) {
@@ -559,21 +557,21 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 
 	{
 		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
-			test.AccountA, sdk_types.ZeroAddress, test.AccountB)
+			test.AccountA, basics.Address{}, test.AccountB)
 		state.AddTransaction(txnRow)
 	}
 	{
 		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
-			test.AccountA, sdk_types.ZeroAddress, sdk_types.ZeroAddress)
+			test.AccountA, basics.Address{}, basics.Address{})
 		state.AddTransaction(txnRow)
 	}
 	{
 		_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
-			test.AccountA, sdk_types.ZeroAddress, test.AccountC)
+			test.AccountA, basics.Address{}, test.AccountC)
 		state.AddTransaction(txnRow)
 	}
 
-	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &bookkeeping.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -584,10 +582,9 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 	err = row.Scan(&accountDataStr)
 	assert.NoError(t, err, "querying account data")
 
-	var ad types.AccountData
-	err = encoding.DecodeJSON(accountDataStr, &ad)
+	ad, err := encoding.DecodeAccountData(accountDataStr)
 	assert.NoError(t, err, "failed to parse account data json")
-	assert.Equal(t, test.AccountC, ad.SpendingKey)
+	assert.Equal(t, test.AccountC, ad.AuthAddr)
 }
 
 func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
@@ -598,7 +595,7 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	// Given // Send rekey transaction
 	///////////
 	_, txnRow := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountA,
-		test.AccountA, sdk_types.ZeroAddress, sdk_types.ZeroAddress)
+		test.AccountA, basics.Address{}, basics.Address{})
 
 	cache, err := db.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -608,7 +605,7 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	//////////
 	// Then // No error when committing to the DB.
 	//////////
-	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &bookkeeping.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 }
 
@@ -625,7 +622,7 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	///////////
 	_, createAssetNotFrozen := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 	_, modifyAssetToFrozen := test.MakeAssetConfigOrPanic(test.Round, assetid, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
-	_, optin := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, sdk_types.ZeroAddress)
+	_, optin := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountB, test.AccountB, basics.Address{})
 
 	cache, err := db.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -637,7 +634,7 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &bookkeeping.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -669,7 +666,7 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &bookkeeping.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	//////////
@@ -693,7 +690,7 @@ func assertAssetDates(t *testing.T, db *sql.DB, assetID uint64, deleted sql.Null
 	assert.Equal(t, closedAt, retClosedAt)
 }
 
-func assertAssetHoldingDates(t *testing.T, db *sql.DB, address sdk_types.Address, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
+func assertAssetHoldingDates(t *testing.T, db *sql.DB, address basics.Address, assetID uint64, deleted sql.NullBool, createdAt sql.NullInt64, closedAt sql.NullInt64) {
 	row := db.QueryRow(
 		"SELECT deleted, created_at, closed_at FROM account_asset WHERE "+
 			"addr = $1 AND assetid = $2",
@@ -728,7 +725,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 		err := state.AddTransaction(txnRow)
 		assert.NoError(t, err)
 
-		err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+		err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &bookkeeping.BlockHeader{})
 		assert.NoError(t, err, "failed to commit")
 	}
 	// Destroy an asset.
@@ -739,7 +736,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 		err := state.AddTransaction(txnRow)
 		assert.NoError(t, err)
 
-		err = db.CommitRoundAccounting(state.RoundUpdates, test.Round+1, &types.BlockHeader{})
+		err = db.CommitRoundAccounting(state.RoundUpdates, test.Round+1, &bookkeeping.BlockHeader{})
 		assert.NoError(t, err, "failed to commit")
 	}
 
@@ -784,7 +781,7 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 		assert.NoError(t, err)
 	}
 
-	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &bookkeeping.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	// Check that the asset is deleted.
@@ -814,15 +811,15 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 	// Create an asset.
 	{
 		// Create a transaction where all special addresses are different from creator's address.
-		txn := sdk_types.SignedTxnWithAD{
-			SignedTxn: sdk_types.SignedTxn{
-				Txn: sdk_types.Transaction{
+		txn := transactions.SignedTxnWithAD{
+			SignedTxn: transactions.SignedTxn{
+				Txn: transactions.Transaction{
 					Type: "acfg",
-					Header: sdk_types.Header{
+					Header: transactions.Header{
 						Sender: test.AccountA,
 					},
-					AssetConfigTxnFields: sdk_types.AssetConfigTxnFields{
-						AssetParams: sdk_types.AssetParams{
+					AssetConfigTxnFields: transactions.AssetConfigTxnFields{
+						AssetParams: basics.AssetParams{
 							Manager:  test.AccountB,
 							Reserve:  test.AccountB,
 							Freeze:   test.AccountB,
@@ -834,7 +831,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 		}
 		txnRow := idb.TxnRow{
 			Round:    uint64(test.Round),
-			TxnBytes: msgpack.Encode(txn),
+			TxnBytes: protocol.Encode(&txn),
 			AssetID:  assetID,
 		}
 
@@ -844,7 +841,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 	// Another account opts in.
 	{
 		_, txnRow := test.MakeAssetTxnOrPanic(test.Round, assetID, 0, test.AccountC,
-			test.AccountC, sdk_types.ZeroAddress)
+			test.AccountC, basics.Address{})
 		state.AddTransaction(txnRow)
 	}
 	// Destroy an asset.
@@ -853,7 +850,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 		state.AddTransaction(txnRow)
 	}
 
-	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &bookkeeping.BlockHeader{})
 	assert.NoError(t, err, "failed to commit")
 
 	// Check that the creator's asset holding is deleted.
@@ -888,7 +885,8 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 
 	// Create a block with freeze txn
 	freeze, _ := test.MakeAssetFreezeOrPanic(test.Round, 1234, true, test.AccountA, test.AccountB)
-	block := test.MakeBlockForTxns(test.Round, freeze)
+	block, err := test.MakeBlockForTxns(test.Round, freeze)
+	require.NoError(t, err)
 
 	//////////
 	// When // We import the block.
@@ -920,40 +918,40 @@ func TestAppExtraPages(t *testing.T) {
 	// Create an app.
 	{
 		// Create a transaction with ExtraProgramPages field set to 1
-		txn := sdk_types.SignedTxnWithAD{
-			SignedTxn: sdk_types.SignedTxn{
-				Txn: sdk_types.Transaction{
+		txn := transactions.SignedTxnWithAD{
+			SignedTxn: transactions.SignedTxn{
+				Txn: transactions.Transaction{
 					Type: "appl",
-					Header: sdk_types.Header{
-						Sender: test.AccountA,
+					Header: transactions.Header{
+						Sender:      test.AccountA,
+						GenesisHash: test.GenesisHash,
 					},
-					ApplicationFields: sdk_types.ApplicationFields{
-						ApplicationCallTxnFields: sdk_types.ApplicationCallTxnFields{
-							ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-							ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-							ExtraProgramPages: 1,
-						},
+					ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+						ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+						ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+						ExtraProgramPages: 1,
 					},
 				},
 			},
 		}
 		txnRow := idb.TxnRow{
 			Round:    uint64(test.Round),
-			TxnBytes: msgpack.Encode(txn),
+			TxnBytes: protocol.Encode(&txn),
 			AssetID:  assetID,
 		}
 
 		err := state.AddTransaction(&txnRow)
 		require.NoError(t, err)
 
-		block := test.MakeBlockForTxns(test.Round, &txn)
+		block, err := test.MakeBlockForTxns(test.Round, &txn)
+		require.NoError(t, err)
 		blockImporter := importer.NewDBImporter(db)
 		txnCount, err := blockImporter.ImportDecodedBlock(&block)
 		require.NoError(t, err, "failed to import")
 		require.Equal(t, 1, txnCount)
 	}
 
-	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &types.BlockHeader{})
+	err = db.CommitRoundAccounting(state.RoundUpdates, test.Round, &bookkeeping.BlockHeader{})
 	require.NoError(t, err, "failed to commit")
 
 	row := db.db.QueryRow("SELECT index, params FROM app WHERE creator = $1", test.AccountA[:])
@@ -964,7 +962,7 @@ func TestAppExtraPages(t *testing.T) {
 	require.NoError(t, err)
 	require.NotZero(t, index)
 
-	var ap AppParams
+	var ap basics.AppParams
 	err = encoding.DecodeJSON(paramsStr, &ap)
 	require.Equal(t, uint32(1), ap.ExtraProgramPages)
 
@@ -992,7 +990,7 @@ func TestAppExtraPages(t *testing.T) {
 	require.Equal(t, 1, num)
 }
 
-func assertKeytype(t *testing.T, db *IndexerDb, address sdk_types.Address, keytype *string) {
+func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype *string) {
 	opts := idb.AccountQueryOptions{
 		EqualToAddress: address[:],
 	}
@@ -1016,9 +1014,9 @@ func TestKeytypeBasic(t *testing.T) {
 	{
 		txn, txnRow := test.MakePayTxnRowOrPanic(
 			test.Round+1, 0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA,
-			sdk_types.ZeroAddress, sdk_types.ZeroAddress)
+			basics.Address{}, basics.Address{})
 		txn.Sig[0] = 3
-		txnRow.TxnBytes = msgpack.Encode(txn)
+		txnRow.TxnBytes = protocol.Encode(txn)
 		importTxns(t, db, test.Round+1, txn)
 		accountTxns(t, db, test.Round+1, txnRow)
 		keytype := "sig"
@@ -1028,9 +1026,9 @@ func TestKeytypeBasic(t *testing.T) {
 	{
 		txn, txnRow := test.MakePayTxnRowOrPanic(
 			test.Round+2, 0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA,
-			sdk_types.ZeroAddress, sdk_types.ZeroAddress)
-		txn.Msig.Subsigs = append(txn.Msig.Subsigs, sdk_types.MultisigSubsig{})
-		txnRow.TxnBytes = msgpack.Encode(txn)
+			basics.Address{}, basics.Address{})
+		txn.Msig.Subsigs = append(txn.Msig.Subsigs, crypto.MultisigSubsig{})
+		txnRow.TxnBytes = protocol.Encode(txn)
 		importTxns(t, db, test.Round+2, txn)
 		accountTxns(t, db, test.Round+2, txnRow)
 		keytype := "msig"
@@ -1168,7 +1166,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 
 	assetID := uint64(1)
 	round := test.Round
-	var creator types.Address
+	var creator basics.Address
 
 	for _, testcase := range tests {
 		testcase := testcase
@@ -1202,13 +1200,13 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			require.Equal(t, 1, num)
 
 			// Test 3: transaction results properly serialized
-			transactions, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 			num = 0
-			for tx := range transactions {
+			for tx := range txnRows {
 				require.NoError(t, tx.Error)
 				// Note: These are created from the TxnBytes, so they have the exact name with embedded null.
-				var txn sdk_types.SignedTxn
-				require.NoError(t, msgpack.Decode(tx.TxnBytes, &txn))
+				var txn transactions.SignedTxn
+				require.NoError(t, protocol.Decode(tx.TxnBytes, &txn))
 				require.Equal(t, name, txn.Txn.AssetParams.AssetName)
 				require.Equal(t, unit, txn.Txn.AssetParams.UnitName)
 				require.Equal(t, url, txn.Txn.AssetParams.URL)
@@ -1254,19 +1252,20 @@ func TestReconfigAsset(t *testing.T) {
 	txn, txnRow := test.MakeAssetConfigOrPanic(
 		test.Round, 0, assetID, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
 
-	txn2 := sdk_types.SignedTxnWithAD{
-		SignedTxn: sdk_types.SignedTxn{
-			Txn: sdk_types.Transaction{
+	txn2 := transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
 				Type: "acfg",
-				Header: sdk_types.Header{
-					Sender:     test.AccountA,
-					Fee:        sdk_types.MicroAlgos(1000),
-					FirstValid: sdk_types.Round(test.Round + 1),
-					LastValid:  sdk_types.Round(test.Round + 1),
+				Header: transactions.Header{
+					Sender:      test.AccountA,
+					Fee:         basics.MicroAlgos{Raw: 1000},
+					FirstValid:  basics.Round(test.Round + 1),
+					LastValid:   basics.Round(test.Round + 1),
+					GenesisHash: test.GenesisHash,
 				},
-				AssetConfigTxnFields: sdk_types.AssetConfigTxnFields{
-					ConfigAsset: sdk_types.AssetIndex(assetID),
-					AssetParams: sdk_types.AssetParams{
+				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
+					ConfigAsset: basics.AssetIndex(assetID),
+					AssetParams: basics.AssetParams{
 						Freeze:   test.AccountB,
 						Clawback: test.AccountC,
 					},
@@ -1277,7 +1276,7 @@ func TestReconfigAsset(t *testing.T) {
 
 	txnRow2 := idb.TxnRow{
 		Round:    uint64(txn2.Txn.FirstValid),
-		TxnBytes: msgpack.Encode(txn2),
+		TxnBytes: protocol.Encode(&txn2),
 		AssetID:  assetID,
 	}
 
@@ -1295,8 +1294,8 @@ func TestReconfigAsset(t *testing.T) {
 		require.Equal(t, unit, asset.Params.UnitName)
 		require.Equal(t, url, asset.Params.URL)
 
-		require.Equal(t, sdk_types.ZeroAddress, asset.Params.Manager, "Manager should have been cleared.")
-		require.Equal(t, sdk_types.ZeroAddress, asset.Params.Reserve, "Reserve should have been cleared.")
+		require.Equal(t, basics.Address{}, asset.Params.Manager, "Manager should have been cleared.")
+		require.Equal(t, basics.Address{}, asset.Params.Reserve, "Reserve should have been cleared.")
 		// These were updated
 		require.Equal(t, test.AccountB, asset.Params.Freeze)
 		require.Equal(t, test.AccountC, asset.Params.Clawback)

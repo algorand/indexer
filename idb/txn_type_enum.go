@@ -3,7 +3,7 @@ package idb
 import (
 	"strings"
 
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/protocol"
 )
 
 // TxnTypeEnum describes the type of a transaction. It is stored in the database
@@ -42,7 +42,7 @@ func makeTypeEnumString() string {
 var TxnTypeEnumString = makeTypeEnumString()
 
 // GetTypeEnum returns the enum for the given transaction type string.
-func GetTypeEnum(t sdk_types.TxType) (TxnTypeEnum, bool /*ok*/) {
+func GetTypeEnum(t protocol.TxType) (TxnTypeEnum, bool /*ok*/) {
 	e, ok := typeEnumMap[string(t)]
 	return e, ok
 }
