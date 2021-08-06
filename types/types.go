@@ -887,6 +887,9 @@ type ConsensusParams struct {
 	// 5. checking that in the case of going online the VoteFirst is less or equal to the LastValid+1.
 	// 6. checking that in the case of going online the VoteFirst is less or equal to the next network round.
 	EnableKeyregCoherencyCheck bool
+
+	// EnableExtraPagesOnAppUpdate allows apps to use extra pages on update
+	EnableExtraPagesOnAppUpdate bool
 }
 
 // PaysetCommitType enumerates possible ways for the block header to commit to
