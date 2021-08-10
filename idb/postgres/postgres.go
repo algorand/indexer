@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
-	"encoding/base32"
 	"errors"
 	"fmt"
 	"math"
@@ -206,9 +205,8 @@ func (db *IndexerDb) StartBlock() (err error) {
 func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn transactions.SignedTxnWithAD, participation [][]byte) error {
 	txnbytes := protocol.Encode(&txn)
 	jsonbytes := encoding.EncodeSignedTxnWithAD(txn)
-	txid := txn.Txn.ID()
-	txidStr := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(txid[:])
-	tx := []interface{}{round, intra, txtypeenum, assetid, txidStr[:], txnbytes, string(jsonbytes)}
+	txid := txn.Txn.ID().String()
+	tx := []interface{}{round, intra, txtypeenum, assetid, txid, txnbytes, string(jsonbytes)}
 	db.txrows = append(db.txrows, tx)
 	for _, paddr := range participation {
 		txp := []interface{}{paddr, round, intra}
@@ -651,7 +649,7 @@ func applyKeyValueDelta(state *basics.TealKeyValue, key []byte, vd basics.ValueD
 		*state = make(map[string]basics.TealValue)
 	}
 
-	newValue, _ := (*state)[string(key)]
+	newValue := (*state)[string(key)]
 	switch vd.Action {
 	case basics.SetUintAction, basics.SetBytesAction:
 		setFromValueDelta(vd, &newValue)

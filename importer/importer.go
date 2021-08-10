@@ -55,45 +55,44 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *rpcs.EncodedBlockCert)
 	block := blockContainer.Block
 	round := uint64(block.Round())
 	for intra := range block.Payset {
-		stxnib := block.Payset[intra]
-		txtypeenum, ok := idb.GetTypeEnum(stxnib.Txn.Type)
+		stxn, ad, err := block.BlockHeader.DecodeSignedTxn(block.Payset[intra])
+		if err != nil {
+			return txCount, fmt.Errorf("error decoding signed txn in block err: %w", err)
+		}
+		txtypeenum, ok := idb.GetTypeEnum(stxn.Txn.Type)
 		if !ok {
 			return txCount,
-				fmt.Errorf("%d:%d unknown txn type %v", round, intra, stxnib.Txn.Type)
+				fmt.Errorf("%d:%d unknown txn type %v", round, intra, stxn.Txn.Type)
 		}
 		assetid := uint64(0)
 		switch txtypeenum {
 		case 3:
-			assetid = uint64(stxnib.Txn.ConfigAsset)
+			assetid = uint64(stxn.Txn.ConfigAsset)
 			if assetid == 0 {
 				assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 			}
 		case 4:
-			assetid = uint64(stxnib.Txn.XferAsset)
+			assetid = uint64(stxn.Txn.XferAsset)
 		case 5:
-			assetid = uint64(stxnib.Txn.FreezeAsset)
+			assetid = uint64(stxn.Txn.FreezeAsset)
 		case 6:
-			assetid = uint64(stxnib.Txn.ApplicationID)
+			assetid = uint64(stxn.Txn.ApplicationID)
 			if assetid == 0 {
 				assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 			}
-		}
-		stxn, ad, err := block.BlockHeader.DecodeSignedTxn(stxnib)
-		if err != nil {
-			return txCount, fmt.Errorf("error decoding signed txn in block err: %w", err)
 		}
 		stxnad := transactions.SignedTxnWithAD{
 			SignedTxn: stxn,
 			ApplyData: ad,
 		}
 		participants := make([][]byte, 0, 10)
-		participants = participate(participants, stxnib.Txn.Sender[:])
-		participants = participate(participants, stxnib.Txn.Receiver[:])
-		participants = participate(participants, stxnib.Txn.CloseRemainderTo[:])
-		participants = participate(participants, stxnib.Txn.AssetSender[:])
-		participants = participate(participants, stxnib.Txn.AssetReceiver[:])
-		participants = participate(participants, stxnib.Txn.AssetCloseTo[:])
-		participants = participate(participants, stxnib.Txn.FreezeAccount[:])
+		participants = participate(participants, stxn.Txn.Sender[:])
+		participants = participate(participants, stxn.Txn.Receiver[:])
+		participants = participate(participants, stxn.Txn.CloseRemainderTo[:])
+		participants = participate(participants, stxn.Txn.AssetSender[:])
+		participants = participate(participants, stxn.Txn.AssetReceiver[:])
+		participants = participate(participants, stxn.Txn.AssetCloseTo[:])
+		participants = participate(participants, stxn.Txn.FreezeAccount[:])
 		err = imp.db.AddTransaction(
 			round, intra, int(txtypeenum), assetid, stxnad, participants)
 		if err != nil {

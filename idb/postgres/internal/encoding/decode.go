@@ -104,11 +104,9 @@ func unconvertStateDelta(delta stateDelta) basics.StateDelta {
 	}
 
 	res := make(map[string]basics.ValueDelta, len(delta))
-
 	for k, v := range delta {
 		res[k.data] = unconvertValueDelta(v)
 	}
-
 	return res
 }
 
@@ -118,11 +116,9 @@ func unconvertLocalDeltas(deltas map[uint64]stateDelta) map[uint64]basics.StateD
 	}
 
 	res := make(map[uint64]basics.StateDelta, len(deltas))
-
 	for i, delta := range deltas {
 		res[i] = unconvertStateDelta(delta)
 	}
-
 	return res
 }
 
@@ -298,7 +294,7 @@ func unconvertSpecialAddresses(special specialAddresses) transactions.SpecialAdd
 	return res
 }
 
-// DecodeSpecialAddresses decodes special address (sink and rewards pool) from json.
+// DecodeSpecialAddresses decodes special addresses (sink and rewards pool) from json.
 func DecodeSpecialAddresses(data []byte) (transactions.SpecialAddresses, error) {
 	var special specialAddresses
 	err := DecodeJSON(data, &special)

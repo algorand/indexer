@@ -61,16 +61,21 @@ func TestEncodeSignedTxnWithADSynthetic(t *testing.T) {
 
 // Test that encoding to JSON and decoding results in the same object.
 func TestJSONEncoding(t *testing.T) {
+	type Y struct {
+		Num int
+	}
 	type T struct {
-		Num   uint64
-		Str   string
-		Bytes []byte
+		Num    uint64
+		Str    string
+		Bytes  []byte
+		Object Y
 	}
 
 	x := T{
-		Num:   1,
-		Str:   "abc",
-		Bytes: []byte{4, 5, 6},
+		Num:    1,
+		Str:    "abc",
+		Bytes:  []byte{4, 5, 6},
+		Object: Y{Num: 7},
 	}
 	buf := EncodeJSON(x)
 

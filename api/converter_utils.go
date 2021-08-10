@@ -173,25 +173,8 @@ func msigToTransactionMsig(msig crypto.MultisigSig) *generated.TransactionSignat
 	return &ret
 }
 
-// TODO: Replace with lsig.Blank() when that gets merged into go-algorand-sdk
-func isBlank(lsig transactions.LogicSig) bool {
-	if lsig.Args != nil {
-		return false
-	}
-	if len(lsig.Logic) != 0 {
-		return false
-	}
-	if !lsig.Msig.Blank() {
-		return false
-	}
-	if lsig.Sig != (crypto.Signature{}) {
-		return false
-	}
-	return true
-}
-
 func lsigToTransactionLsig(lsig transactions.LogicSig) *generated.TransactionSignatureLogicsig {
-	if isBlank(lsig) {
+	if lsig.Blank() {
 		return nil
 	}
 
