@@ -42,9 +42,9 @@ var (
 	CloseMainToBC *idb.TxnRow
 
 	// GenesisHash is a genesis hash used in tests.
-	GenesisHash crypto.Digest
+	GenesisHash = crypto.Digest{77}
 	// Signature is a signature for transactions used in tests.
-	Signature crypto.Signature
+	Signature = crypto.Signature{88}
 
 	// Proto is a fake protocol version.
 	Proto = protocol.ConsensusFuture
@@ -56,9 +56,6 @@ func init() {
 	// CloseMainToBCStxn and CloseMainToBC are premade transactions which may be useful in tests.
 	CloseMainToBCStxn, CloseMainToBC = MakePayTxnRowOrPanic(Round, 1000, 1234, 9111, 0, 111, 111,
 		AccountA, AccountC, AccountB, basics.Address{})
-
-	GenesisHash[0] = 77
-	Signature[0] = 88
 }
 
 // DecodeAddressOrPanic is a helper to ensure addresses are initialized.
