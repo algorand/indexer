@@ -255,7 +255,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 	accounting.updateAlgo(stxn.Txn.Sender, -int64(stxn.Txn.Fee.Raw))
 	accounting.updateAlgo(accounting.feeAddr, int64(stxn.Txn.Fee.Raw))
 
-	if stxn.SenderRewards != (basics.MicroAlgos{}) {
+	if !stxn.SenderRewards.IsZero() {
 		accounting.updateRewards(accounting.rewardAddr, stxn.Txn.Sender, stxn.SenderRewards)
 	}
 
@@ -275,14 +275,14 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 			accounting.updateAlgo(stxn.Txn.Sender, -amount)
 			accounting.updateAlgo(stxn.Txn.Receiver, amount)
 		}
-		if stxn.ClosingAmount != (basics.MicroAlgos{}) {
+		if !stxn.ClosingAmount.IsZero() {
 			accounting.updateAlgo(stxn.Txn.Sender, -int64(stxn.ClosingAmount.Raw))
 			accounting.updateAlgo(stxn.Txn.CloseRemainderTo, int64(stxn.ClosingAmount.Raw))
 		}
-		if stxn.ReceiverRewards != (basics.MicroAlgos{}) {
+		if !stxn.ReceiverRewards.IsZero() {
 			accounting.updateRewards(accounting.rewardAddr, stxn.Txn.Receiver, stxn.ReceiverRewards)
 		}
-		if stxn.CloseRewards != (basics.MicroAlgos{}) {
+		if !stxn.CloseRewards.IsZero() {
 			accounting.updateRewards(accounting.rewardAddr, stxn.Txn.CloseRemainderTo, stxn.CloseRewards)
 		}
 
