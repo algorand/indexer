@@ -6,8 +6,6 @@ import (
 	"github.com/algorand/go-algorand/protocol"
 )
 
-// TODO: Move these to the SDK as helpers on the transaction type
-
 // AccountCloseTxn returns whether the transaction closed the given account.
 func AccountCloseTxn(addr basics.Address, stxn transactions.SignedTxnWithAD) bool {
 	if stxn.Txn.Type != protocol.PaymentTx {
@@ -45,7 +43,7 @@ func AssetOptOutTxn(stxn transactions.SignedTxnWithAD) bool {
 	if stxn.Txn.Type != protocol.AssetTransferTx {
 		return false
 	}
-	return stxn.Txn.AssetCloseTo != (basics.Address{})
+	return !stxn.Txn.AssetCloseTo.IsZero()
 }
 
 // AppCreateTxn returns whether the transaction created an application.
