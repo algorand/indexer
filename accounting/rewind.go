@@ -119,28 +119,28 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			return
 		}
 		if addr == stxn.Txn.Sender {
-			acct.AmountWithoutPendingRewards += uint64(stxn.Txn.Fee.Raw)
-			acct.AmountWithoutPendingRewards -= uint64(stxn.SenderRewards.Raw)
-			acct.Rewards -= uint64(stxn.SenderRewards.Raw)
+			acct.AmountWithoutPendingRewards += stxn.Txn.Fee.ToUint64()
+			acct.AmountWithoutPendingRewards -= stxn.SenderRewards.ToUint64()
+			acct.Rewards -= stxn.SenderRewards.ToUint64()
 		}
 		switch stxn.Txn.Type {
 		case protocol.PaymentTx:
 			if addr == stxn.Txn.Sender {
-				acct.AmountWithoutPendingRewards += uint64(stxn.Txn.Amount.Raw)
+				acct.AmountWithoutPendingRewards += stxn.Txn.Amount.ToUint64()
 			}
 			if addr == stxn.Txn.Receiver {
-				acct.AmountWithoutPendingRewards -= uint64(stxn.Txn.Amount.Raw)
-				acct.AmountWithoutPendingRewards -= uint64(stxn.ReceiverRewards.Raw)
-				acct.Rewards -= uint64(stxn.ReceiverRewards.Raw)
+				acct.AmountWithoutPendingRewards -= stxn.Txn.Amount.ToUint64()
+				acct.AmountWithoutPendingRewards -= stxn.ReceiverRewards.ToUint64()
+				acct.Rewards -= stxn.ReceiverRewards.ToUint64()
 			}
 			if addr == stxn.Txn.CloseRemainderTo {
 				// unwind receiving a close-to
-				acct.AmountWithoutPendingRewards -= uint64(stxn.ClosingAmount.Raw)
-				acct.AmountWithoutPendingRewards -= uint64(stxn.CloseRewards.Raw)
-				acct.Rewards -= uint64(stxn.CloseRewards.Raw)
+				acct.AmountWithoutPendingRewards -= stxn.ClosingAmount.ToUint64()
+				acct.AmountWithoutPendingRewards -= stxn.CloseRewards.ToUint64()
+				acct.Rewards -= stxn.CloseRewards.ToUint64()
 			} else if !stxn.Txn.CloseRemainderTo.IsZero() {
 				// unwind sending a close-to
-				acct.AmountWithoutPendingRewards += uint64(stxn.ClosingAmount.Raw)
+				acct.AmountWithoutPendingRewards += stxn.ClosingAmount.ToUint64()
 			}
 		case protocol.KeyRegistrationTx:
 			// TODO: keyreg does not rewind. workaround: query for txns on an account with typeenum=2 to find previous values it was set to.
@@ -211,7 +211,8 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 				err = fmt.Errorf("protocol %s not found", blockheader.CurrentProtocol)
 				return
 			}
-			rewardsUnits := acct.AmountWithoutPendingRewards / proto.RewardUnit
+			rewardsUnits :=
+				basics.MicroAlgos{Raw: acct.AmountWithoutPendingRewards}.RewardUnits(proto)
 			rewardsDelta := blockheader.RewardsLevel - prevRewardsBase
 			acct.PendingRewards = rewardsDelta * rewardsUnits
 			acct.Amount = acct.PendingRewards + acct.AmountWithoutPendingRewards
