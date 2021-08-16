@@ -1,7 +1,7 @@
 FROM golang:alpine
 
 # Dependencies
-RUN apk add --update make
+RUN apk add --update make bash libtool git python3
 
 # Install test data
 COPY docker/testdata.tar.bz2 /tmp/testdata.tar.bz2
