@@ -22,6 +22,9 @@ go-algorand:
 	git submodule update --init && cd third_party/go-algorand && \
 		make crypto/libs/`scripts/ostype.sh`/`scripts/archtype.sh`/lib/libsodium.a
 
+idb/postgres/setup_postgres_sql.go:	idb/postgres/setup_postgres.sql
+	cd idb/postgres && go generate
+
 idb/mocks/IndexerDb.go:	idb/idb.go
 	go get github.com/vektra/mockery/.../
 	cd idb && mockery -name=IndexerDb
