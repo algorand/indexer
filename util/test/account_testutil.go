@@ -51,10 +51,10 @@ var (
 )
 
 func init() {
-	OpenMainStxn, OpenMain = MakePayTxnRowOrPanic(Round, 1000, 10234, 0, 111, 1111, 0, AccountC,
+	OpenMainStxn, OpenMain = MakePaymentTxn(Round, 1000, 10234, 0, 111, 1111, 0, AccountC,
 		AccountA, basics.Address{}, basics.Address{})
 	// CloseMainToBCStxn and CloseMainToBC are premade transactions which may be useful in tests.
-	CloseMainToBCStxn, CloseMainToBC = MakePayTxnRowOrPanic(Round, 1000, 1234, 9111, 0, 111, 111,
+	CloseMainToBCStxn, CloseMainToBC = MakePaymentTxn(Round, 1000, 1234, 9111, 0, 111, 111,
 		AccountA, AccountC, AccountB, basics.Address{})
 }
 
@@ -71,8 +71,8 @@ func DecodeAddressOrPanic(addr string) basics.Address {
 	return result
 }
 
-// MakeAssetConfigOrPanic is a helper to ensure test asset config are initialized.
-func MakeAssetConfigOrPanic(round, configid, assetid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr basics.Address) (*transactions.SignedTxnWithAD, *idb.TxnRow) {
+// MakeCreateAssetTxn is a helper to ensure test asset config are initialized.
+func MakeCreateAssetTxn(round, configid, assetid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr basics.Address) (*transactions.SignedTxnWithAD, *idb.TxnRow) {
 	txn := transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -113,8 +113,8 @@ func MakeAssetConfigOrPanic(round, configid, assetid, total, decimals uint64, de
 	return &txn, &txnRow
 }
 
-// MakeAssetFreezeOrPanic create an asset freeze/unfreeze transaction.
-func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, sender, freezeAccount basics.Address) (*transactions.SignedTxnWithAD, *idb.TxnRow) {
+// MakeAssetFreezeTxn create an asset freeze/unfreeze transaction.
+func MakeAssetFreezeTxn(round, assetid uint64, frozen bool, sender, freezeAccount basics.Address) (*transactions.SignedTxnWithAD, *idb.TxnRow) {
 	txn := transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -144,8 +144,8 @@ func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, sender, freezeAc
 	return &txn, &txnRow
 }
 
-// MakeAssetTxnOrPanic creates an asset transfer transaction.
-func MakeAssetTxnOrPanic(round, assetid, amt uint64, sender, receiver, close basics.Address) (*transactions.SignedTxnWithAD, *idb.TxnRow) {
+// MakeAssetTransferTxn creates an asset transfer transaction.
+func MakeAssetTransferTxn(round, assetid, amt uint64, sender, receiver, close basics.Address) (*transactions.SignedTxnWithAD, *idb.TxnRow) {
 	txn := transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -203,10 +203,9 @@ func MakeAssetDestroyTxn(round uint64, assetID uint64) (*transactions.SignedTxnW
 	return &txn, &txnRow
 }
 
-// MakePayTxnRowOrPanic creates an algo transfer transaction.
-func MakePayTxnRowOrPanic(round, fee, amt, closeAmt, sendRewards, receiveRewards,
-	closeRewards uint64, sender, receiver, close, rekeyTo basics.Address) (*transactions.SignedTxnWithAD,
-	*idb.TxnRow) {
+// MakePaymentTxn creates an algo transfer transaction.
+func MakePaymentTxn(round, fee, amt, closeAmt, sendRewards, receiveRewards,
+	closeRewards uint64, sender, receiver, close, rekeyTo basics.Address) (*transactions.SignedTxnWithAD, *idb.TxnRow) {
 	txn := transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
