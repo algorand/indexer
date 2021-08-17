@@ -168,7 +168,7 @@ func TestCreateAssetWithTotalZero(t *testing.T) {
 	//////////
 	// When // We add a create asset transaction with total = 0.
 	//////////
-	_, createAsset := test.MakeCreateAssetTxn(test.Round, 0, assetid, total, uint64(6), false, "empty-asset", "empty", "http://empty.com", test.AccountA)
+	_, createAsset := test.MakeConfigAssetTxn(test.Round, 0, assetid, total, uint64(6), false, "empty-asset", "empty", "http://empty.com", test.AccountA)
 	state.AddTransaction(createAsset)
 
 	//////////

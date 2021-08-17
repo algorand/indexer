@@ -143,7 +143,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	///////////
 	// Given // A round scenario requiring subround accounting: AccountA is funded, closed, opts back, and funded again.
 	///////////
-	_, createAsset := test.MakeCreateAssetTxn(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	_, createAsset := test.MakeConfigAssetTxn(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
 	_, fundMain := test.MakeAssetTransferTxn(test.Round, assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 	_, closeMain := test.MakeAssetTransferTxn(test.Round, assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
 	_, optinMain := test.MakeAssetTransferTxn(test.Round, assetid, 0, test.AccountA, test.AccountA, basics.Address{})
@@ -189,8 +189,8 @@ func TestDefaultFrozenAndCache(t *testing.T) {
 	///////////
 	// Given // A new asset with default-frozen = true, and AccountB opting into it.
 	///////////
-	_, createAssetFrozen := test.MakeCreateAssetTxn(test.Round, 0, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
-	_, createAssetNotFrozen := test.MakeCreateAssetTxn(test.Round, 0, assetid+1, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, createAssetFrozen := test.MakeConfigAssetTxn(test.Round, 0, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, createAssetNotFrozen := test.MakeConfigAssetTxn(test.Round, 0, assetid+1, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 	_, optinB1 := test.MakeAssetTransferTxn(test.Round, assetid, 0, test.AccountB, test.AccountB, basics.Address{})
 	_, optinB2 := test.MakeAssetTransferTxn(test.Round, assetid+1, 0, test.AccountB, test.AccountB, basics.Address{})
 
@@ -283,7 +283,7 @@ func TestReCreateAssetHolding(t *testing.T) {
 		///////////
 		// Given // A new asset with default-frozen, AccountB opts-in and has its frozen state toggled.
 		/////////// Then AccountB opts-out then opts-in again.
-		_, createAssetFrozen := test.MakeCreateAssetTxn(round, 0, aid, total, uint64(6), testcase.frozen, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+		_, createAssetFrozen := test.MakeConfigAssetTxn(round, 0, aid, total, uint64(6), testcase.frozen, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 		_, optinB := test.MakeAssetTransferTxn(round, aid, 0, test.AccountB, test.AccountB, basics.Address{})
 		_, unfreezeB := test.MakeAssetFreezeTxn(round, aid, !testcase.frozen, test.AccountB, test.AccountB)
 		_, optoutB := test.MakeAssetTransferTxn(round, aid, 0, test.AccountB, test.AccountC, test.AccountD)
@@ -323,7 +323,7 @@ func TestNoopOptins(t *testing.T) {
 	// create asst
 	//db.Exec(`INSERT INTO asset (index, creator_addr, params) values ($1, $2, $3)`, assetid, test.AccountA[:], `{"df":true}`)
 
-	_, createAsset := test.MakeCreateAssetTxn(test.Round, 0, assetid, uint64(1000000), uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	_, createAsset := test.MakeConfigAssetTxn(test.Round, 0, assetid, uint64(1000000), uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
 	_, optinB := test.MakeAssetTransferTxn(test.Round, assetid, 0, test.AccountB, test.AccountB, basics.Address{})
 	_, unfreezeB := test.MakeAssetFreezeTxn(test.Round, assetid, false, test.AccountB, test.AccountB)
 
@@ -423,7 +423,7 @@ func TestBlockWithTransactions(t *testing.T) {
 	///////////
 	// Given // A block at round test.Round with 5 transactions.
 	///////////
-	tx1, row1 := test.MakeCreateAssetTxn(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	tx1, row1 := test.MakeConfigAssetTxn(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
 	tx2, row2 := test.MakeAssetTransferTxn(test.Round, assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 	tx3, row3 := test.MakeAssetTransferTxn(test.Round, assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
 	tx4, row4 := test.MakeAssetTransferTxn(test.Round, assetid, 0, test.AccountA, test.AccountA, basics.Address{})
@@ -620,8 +620,8 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	///////////
 	// Given // A new asset with default-frozen = true, and AccountB opting into it.
 	///////////
-	_, createAssetNotFrozen := test.MakeCreateAssetTxn(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
-	_, modifyAssetToFrozen := test.MakeCreateAssetTxn(test.Round, assetid, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, createAssetNotFrozen := test.MakeConfigAssetTxn(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, modifyAssetToFrozen := test.MakeConfigAssetTxn(test.Round, assetid, assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 	_, optin := test.MakeAssetTransferTxn(test.Round, assetid, 0, test.AccountB, test.AccountB, basics.Address{})
 
 	cache, err := db.GetDefaultFrozen()
@@ -656,7 +656,7 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 	///////////
 	// Given // A new asset with total = 0.
 	///////////
-	_, createAsset := test.MakeCreateAssetTxn(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	_, createAsset := test.MakeConfigAssetTxn(test.Round, 0, assetid, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
 
 	cache, err := db.GetDefaultFrozen()
 	assert.NoError(t, err)
@@ -718,7 +718,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 
 	// Create an asset.
 	{
-		_, txnRow := test.MakeCreateAssetTxn(test.Round, 0, assetID, 4, 0, false, "uu", "aa", "",
+		_, txnRow := test.MakeConfigAssetTxn(test.Round, 0, assetID, 4, 0, false, "uu", "aa", "",
 			test.AccountA)
 
 		state := getAccounting(test.Round, cache)
@@ -767,7 +767,7 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 	// Create an asset.
 	{
 		// Set total supply to 0.
-		_, txnRow := test.MakeCreateAssetTxn(test.Round, 0, assetID, 0, 0, false, "uu", "aa", "",
+		_, txnRow := test.MakeConfigAssetTxn(test.Round, 0, assetID, 0, 0, false, "uu", "aa", "",
 			test.AccountA)
 
 		err := state.AddTransaction(txnRow)
@@ -1043,7 +1043,7 @@ func TestLargeAssetAmount(t *testing.T) {
 	defer shutdownFunc()
 
 	assetid := uint64(1)
-	txn, txnRow := test.MakeCreateAssetTxn(
+	txn, txnRow := test.MakeConfigAssetTxn(
 		test.Round, 0, assetid, math.MaxUint64, 0, false, "mc", "mycoin", "", test.AccountA)
 	importTxns(t, db, test.Round, txn)
 	accountTxns(t, db, test.Round, txnRow)
@@ -1180,7 +1180,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			db, shutdownFunc := setupIdb(t, test.MakeGenesis())
 			defer shutdownFunc()
 
-			txn, txnRow := test.MakeCreateAssetTxn(
+			txn, txnRow := test.MakeConfigAssetTxn(
 				round, 0, assetID, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
 
 			// Test 1: import/accounting should work.
@@ -1249,7 +1249,7 @@ func TestReconfigAsset(t *testing.T) {
 	url := "https://algorand.com"
 
 	assetID := uint64(1)
-	txn, txnRow := test.MakeCreateAssetTxn(
+	txn, txnRow := test.MakeConfigAssetTxn(
 		test.Round, 0, assetID, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
 
 	txn2 := transactions.SignedTxnWithAD{
