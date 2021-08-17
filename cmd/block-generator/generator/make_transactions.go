@@ -6,19 +6,21 @@ import (
 	"github.com/algorand/go-algorand/protocol"
 )
 
-func (g *generator) makeTxnHeader(sender basics.Address) transactions.Header {
+func (g *generator) makeTxnHeader(sender basics.Address, round uint64) transactions.Header {
 	return transactions.Header{
 		Sender:      sender,
 		Fee:         basics.MicroAlgos{Raw: fee},
+		FirstValid: basics.Round(round),
+		LastValid: basics.Round(round + 1000),
 		GenesisID:   g.genesisID,
 		GenesisHash: g.genesisHash,
 	}
 }
 
-func (g *generator) makePaymentTxn(sender basics.Address, receiver basics.Address, amount uint64, closeRemainderTo basics.Address) transactions.Transaction {
+func (g *generator) makePaymentTxn(header transactions.Header, receiver basics.Address, amount uint64, closeRemainderTo basics.Address) transactions.Transaction {
 	return transactions.Transaction{
 		Type:   protocol.PaymentTx,
-		Header: g.makeTxnHeader(sender),
+		Header: header,
 		PaymentTxnFields: transactions.PaymentTxnFields{
 			Receiver:         receiver,
 			Amount:           basics.MicroAlgos{Raw: amount},
@@ -27,10 +29,10 @@ func (g *generator) makePaymentTxn(sender basics.Address, receiver basics.Addres
 	}
 }
 
-func (g *generator) makeAssetCreateTxn(sender basics.Address, total uint64, defaultFrozen bool, assetName string) transactions.Transaction {
+func (g *generator) makeAssetCreateTxn(header transactions.Header, total uint64, defaultFrozen bool, assetName string) transactions.Transaction {
 	return transactions.Transaction{
 		Type:   protocol.AssetConfigTx,
-		Header: g.makeTxnHeader(sender),
+		Header: header,
 		AssetConfigTxnFields: transactions.AssetConfigTxnFields{
 			AssetParams: basics.AssetParams{
 				Total:         total,
@@ -40,30 +42,30 @@ func (g *generator) makeAssetCreateTxn(sender basics.Address, total uint64, defa
 	}
 }
 
-func (g *generator) makeAssetDestroyTxn(sender basics.Address, index uint64) transactions.Transaction {
+func (g *generator) makeAssetDestroyTxn(header transactions.Header, index uint64) transactions.Transaction {
 	return transactions.Transaction{
 		Type:   protocol.AssetConfigTx,
-		Header: g.makeTxnHeader(sender),
+		Header: header,
 		AssetConfigTxnFields: transactions.AssetConfigTxnFields{
 			ConfigAsset: basics.AssetIndex(index),
 		},
 	}
 }
 
-func (g *generator) makeAssetTransferTxn(sender basics.Address, receiver basics.Address, amount uint64, closeAssetsTo basics.Address, index uint64) transactions.Transaction {
+func (g *generator) makeAssetTransferTxn(header transactions.Header, receiver basics.Address, amount uint64, closeAssetsTo basics.Address, index uint64) transactions.Transaction {
 	return transactions.Transaction{
 		Type:   protocol.AssetTransferTx,
-		Header: g.makeTxnHeader(sender),
+		Header: header,
 		AssetTransferTxnFields: transactions.AssetTransferTxnFields{
 			XferAsset:     basics.AssetIndex(index),
 			AssetAmount:   amount,
-			AssetSender:   sender,
+			AssetSender:   header.Sender,
 			AssetReceiver: receiver,
 			AssetCloseTo:  closeAssetsTo,
 		},
 	}
 }
 
-func (g *generator) makeAssetAcceptanceTxn(account basics.Address, index uint64) transactions.Transaction {
-	return g.makeAssetTransferTxn(account, account, 0, basics.Address{}, index)
+func (g *generator) makeAssetAcceptanceTxn(header transactions.Header, index uint64) transactions.Transaction {
+	return g.makeAssetTransferTxn(header, header.Sender, 0, basics.Address{}, index)
 }

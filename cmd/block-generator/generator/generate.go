@@ -409,7 +409,7 @@ func (g *generator) generatePaymentTxn(round uint64, intra uint64) (transactions
 	return g.generatePaymentTxnInternal(selection.(TxTypeID), round, intra)
 }
 
-func (g *generator) generatePaymentTxnInternal(selection TxTypeID, _ uint64 /*round*/, _ uint64 /*intra*/) (transactions.SignedTxnInBlock, error) {
+func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64, _ uint64 /*intra*/) (transactions.SignedTxnInBlock, error) {
 	defer g.recordData(track(selection))
 
 	var receiveIndex uint64
@@ -441,7 +441,8 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, _ uint64 /*ro
 
 	g.numPayments++
 
-	txn := g.makePaymentTxn(sender, receiver, amount, basics.Address{})
+	txn := g.makePaymentTxn(
+		g.makeTxnHeader(sender, round), receiver, amount, basics.Address{})
 	return convert(txn, transactions.ApplyData{}), nil
 }
 
@@ -449,11 +450,11 @@ func getAssetTxOptions() []interface{} {
 	return []interface{}{assetCreate, assetDestroy, assetOptin, assetXfer, assetClose}
 }
 
-func (g *generator) generateAssetTxnInternal(txType TxTypeID, intra uint64) (actual TxTypeID, txn transactions.Transaction) {
-	return g.generateAssetTxnInternalHint(txType, intra, 0, nil)
+func (g *generator) generateAssetTxnInternal(txType TxTypeID, round uint64, intra uint64) (actual TxTypeID, txn transactions.Transaction) {
+	return g.generateAssetTxnInternalHint(txType, round, intra, 0, nil)
 }
 
-func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, intra uint64, hintIndex uint64, hint *assetData) (actual TxTypeID, txn transactions.Transaction) {
+func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, intra uint64, hintIndex uint64, hint *assetData) (actual TxTypeID, txn transactions.Transaction) {
 	actual = txType
 	// If there are no assets the next operation needs to be a create.
 	if len(g.assets) == 0 {
@@ -470,7 +471,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, intra uint64, 
 		total := assetTotal
 		assetID := g.txnCounter + intra + 1
 		assetName := fmt.Sprintf("asset #%d", assetID)
-		txn = g.makeAssetCreateTxn(senderAcct, total, false, assetName)
+		txn = g.makeAssetCreateTxn(g.makeTxnHeader(senderAcct, round), total, false, assetName)
 
 		// Compute asset ID and initialize holdings
 		a := assetData{
@@ -495,12 +496,12 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, intra uint64, 
 
 			// If the creator doesn't have all of them, close instead
 			if asset.holdings[0].balance != assetTotal {
-				return g.generateAssetTxnInternalHint(assetClose, intra, assetIndex, asset)
+				return g.generateAssetTxnInternalHint(assetClose, round, intra, assetIndex, asset)
 			}
 
 			senderIndex = asset.creator
 			creator := indexToAccount(senderIndex)
-			txn = g.makeAssetDestroyTxn(creator, asset.assetID)
+			txn = g.makeAssetDestroyTxn(g.makeTxnHeader(creator, round), asset.assetID)
 
 			// Remove asset by moving the last element to the deleted index then trimming the slice.
 			g.assets[assetIndex] = g.assets[numAssets-1]
@@ -510,7 +511,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, intra uint64, 
 
 			// If every account holds the asset, close instead of optin
 			if uint64(len(asset.holdings)) == g.numAccounts {
-				return g.generateAssetTxnInternalHint(assetClose, intra, assetIndex, asset)
+				return g.generateAssetTxnInternalHint(assetClose, round, intra, assetIndex, asset)
 			}
 
 			// look for an account that does not hold the asset
@@ -520,7 +521,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, intra uint64, 
 				exists = asset.holders[senderIndex]
 			}
 			account := indexToAccount(senderIndex)
-			txn = g.makeAssetAcceptanceTxn(account, asset.assetID)
+			txn = g.makeAssetAcceptanceTxn(g.makeTxnHeader(account, round), asset.assetID)
 
 			asset.holdings = append(asset.holdings, assetHolding{
 				acctIndex: senderIndex,
@@ -532,7 +533,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, intra uint64, 
 
 			// If there aren't enough assets to close one, optin an account instead
 			if len(asset.holdings) == 1 {
-				return g.generateAssetTxnInternalHint(assetOptin, intra, assetIndex, asset)
+				return g.generateAssetTxnInternalHint(assetOptin, round, intra, assetIndex, asset)
 			}
 
 			senderIndex = asset.holdings[0].acctIndex
@@ -544,7 +545,8 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, intra uint64, 
 			amount := uint64(10)
 
 			txn = g.makeAssetTransferTxn(
-				sender, receiver, amount, basics.Address{}, asset.assetID)
+				g.makeTxnHeader(sender, round), receiver, amount, basics.Address{},
+				asset.assetID)
 
 			if asset.holdings[0].balance < amount {
 				fmt.Printf(fmt.Sprintf("\n\ncreator doesn't have enough funds for asset %d\n\n", asset.assetID))
@@ -561,7 +563,8 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, intra uint64, 
 			// select a holder of a random asset to close out
 			// If there aren't enough assets to close one, optin an account instead
 			if len(asset.holdings) == 1 {
-				return g.generateAssetTxnInternalHint(assetOptin, intra, assetIndex, asset)
+				return g.generateAssetTxnInternalHint(
+					assetOptin, round, intra, assetIndex, asset)
 			}
 
 			numHoldings := uint64(len(asset.holdings))
@@ -572,7 +575,8 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, intra uint64, 
 			closeToAcctIndex := asset.holdings[0].acctIndex
 			closeToAcct := indexToAccount(closeToAcctIndex)
 
-			txn = g.makeAssetTransferTxn(sender, closeToAcct, 0, closeToAcct, asset.assetID)
+			txn = g.makeAssetTransferTxn(
+				g.makeTxnHeader(sender, round), closeToAcct, 0, closeToAcct, asset.assetID)
 
 			asset.holdings[0].balance += asset.holdings[closeIndex].balance
 
@@ -597,14 +601,14 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, intra uint64, 
 	return
 }
 
-func (g *generator) generateAssetTxn(_ uint64 /*round*/, intra uint64) (transactions.SignedTxnInBlock, error) {
+func (g *generator) generateAssetTxn(round uint64, intra uint64) (transactions.SignedTxnInBlock, error) {
 	start := time.Now()
 	selection, err := weightedSelection(g.assetTxWeights, getAssetTxOptions(), assetXfer)
 	if err != nil {
 		return transactions.SignedTxnInBlock{}, err
 	}
 
-	actual, txn := g.generateAssetTxnInternal(selection.(TxTypeID), intra)
+	actual, txn := g.generateAssetTxnInternal(selection.(TxTypeID), round, intra)
 	defer g.recordData(actual, start)
 
 	if txn.Type == "" {
