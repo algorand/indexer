@@ -111,9 +111,9 @@ func TestCloseOpen(t *testing.T) {
 func TestAssetCloseReopenPay(t *testing.T) {
 	assetid := uint64(22222)
 	amt := uint64(10000)
-	_, closeMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountB, test.AccountB)
-	_, optinMain := test.MakeAssetTxnOrPanic(test.Round, assetid, 0, test.AccountA, test.AccountA, basics.Address{})
-	_, payMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountB, test.AccountA, basics.Address{})
+	_, closeMain := test.MakeAssetTransferTxn(test.Round, assetid, 0, test.AccountA, test.AccountB, test.AccountB)
+	_, optinMain := test.MakeAssetTransferTxn(test.Round, assetid, 0, test.AccountA, test.AccountA, basics.Address{})
+	_, payMain := test.MakeAssetTransferTxn(test.Round, assetid, amt, test.AccountB, test.AccountA, basics.Address{})
 
 	state := GetAccounting()
 	state.AddTransaction(closeMain)
@@ -138,7 +138,7 @@ func TestAssetCloseReopenPay(t *testing.T) {
 func TestAssetCloseWithAmountReopenPay(t *testing.T) {
 	assetid := uint64(22222)
 	amt := uint64(10000)
-	_, closeMain := test.MakeAssetTxnOrPanic(test.Round, assetid, amt, test.AccountA, test.AccountB, test.AccountB)
+	_, closeMain := test.MakeAssetTransferTxn(test.Round, assetid, amt, test.AccountA, test.AccountB, test.AccountB)
 
 	state := GetAccounting()
 	state.AddTransaction(closeMain)
@@ -168,7 +168,7 @@ func TestCreateAssetWithTotalZero(t *testing.T) {
 	//////////
 	// When // We add a create asset transaction with total = 0.
 	//////////
-	_, createAsset := test.MakeAssetConfigOrPanic(test.Round, 0, assetid, total, uint64(6), false, "empty-asset", "empty", "http://empty.com", test.AccountA)
+	_, createAsset := test.MakeConfigAssetTxn(test.Round, 0, assetid, total, uint64(6), false, "empty-asset", "empty", "http://empty.com", test.AccountA)
 	state.AddTransaction(createAsset)
 
 	//////////
