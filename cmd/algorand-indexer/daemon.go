@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/algorand/go-algorand/rpcs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
-	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util/metrics"
 )
 
@@ -154,17 +154,17 @@ type blockImporterHandler struct {
 	cache map[uint64]bool
 }
 
-func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
+func (bih *blockImporterHandler) HandleBlock(block *rpcs.EncodedBlockCert) {
 	start := time.Now()
 	_, err := bih.imp.ImportDecodedBlock(block)
-	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round)
+	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round())
 	metrics.BlockUploadTimeSeconds.Observe(time.Since(start).Seconds())
 	startRound, err := bih.db.GetNextRoundToAccount()
 	maybeFail(err, "failed to get next round to account")
 	// During normal operation StartRound and MaxRound will be the same round.
 	filter := idb.UpdateFilter{
 		StartRound: startRound,
-		MaxRound:   uint64(block.Block.Round),
+		MaxRound:   uint64(block.Block.Round()),
 	}
 	rounds, txns := importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
 	dt := time.Since(start)
@@ -176,5 +176,5 @@ func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
 		metrics.ImportedRoundGauge.Set(float64(startRound))
 	}
 
-	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
+	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())
 }

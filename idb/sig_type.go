@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/transactions"
 )
 
 // SigType is signature type.
@@ -41,29 +41,16 @@ func IsSigTypeValid(sigtype SigType) bool {
 	return ok
 }
 
-func isZeroSig(sig sdk_types.Signature) bool {
-	for _, b := range sig {
-		if b != 0 {
-			return false
-		}
-	}
-	return true
-}
-
-func blankLsig(lsig sdk_types.LogicSig) bool {
-	return len(lsig.Logic) == 0
-}
-
 // SignatureType returns the signature type of the given signed transaction.
-func SignatureType(stxn *sdk_types.SignedTxn) (SigType, error) {
-	if !isZeroSig(stxn.Sig) {
+func SignatureType(stxn *transactions.SignedTxn) (SigType, error) {
+	if !stxn.Sig.Blank() {
 		return Sig, nil
 	}
 	if !stxn.Msig.Blank() {
 		return Msig, nil
 	}
-	if !blankLsig(stxn.Lsig) {
-		if !isZeroSig(stxn.Lsig.Sig) {
+	if !stxn.Lsig.Blank() {
+		if !stxn.Lsig.Sig.Blank() {
 			return Sig, nil
 		}
 		if !stxn.Lsig.Msig.Blank() {

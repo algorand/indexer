@@ -15,12 +15,12 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
-	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/protocol"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/types"
 )
 
 // NewImportHelper builds an ImportHelper
@@ -204,12 +204,12 @@ func importFile(db idb.IndexerDb, imp Importer, fname string, l *log.Logger) (bl
 }
 
 func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
-	var genesis types.Genesis
+	var genesis bookkeeping.Genesis
 	gbytes, err := ioutil.ReadAll(in)
 	if err != nil {
 		return fmt.Errorf("error reading genesis, %v", err)
 	}
-	err = json.Decode(gbytes, &genesis)
+	err = protocol.DecodeJSON(gbytes, &genesis)
 	if err != nil {
 		return fmt.Errorf("error decoding genesis, %v", err)
 	}
@@ -265,7 +265,7 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 	roundsSeen := 0
 	lastRoundsSeen := roundsSeen
 	txnForRound := 0
-	var blockHeaderPtr *types.BlockHeader = nil
+	var blockHeaderPtr *bookkeeping.BlockHeader = nil
 
 	commit := func() {
 		// Don't commit if there were no transactions.

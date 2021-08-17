@@ -3,11 +3,13 @@ package test
 import (
 	"fmt"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
-
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/types"
 )
 
 // Round is the round used in pre-made transactions.
@@ -30,34 +32,39 @@ var (
 	RewardAddr = DecodeAddressOrPanic("4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM")
 
 	// OpenMainStxn is a premade signed transaction which may be useful in tests.
-	OpenMainStxn *sdk_types.SignedTxnWithAD
+	OpenMainStxn *transactions.SignedTxnWithAD
 	// OpenMain is a premade TxnRow which may be useful in tests.
 	OpenMain *idb.TxnRow
 
 	// CloseMainToBCStxn is a premade signed transaction which may be useful in tests.
-	CloseMainToBCStxn *sdk_types.SignedTxnWithAD
+	CloseMainToBCStxn *transactions.SignedTxnWithAD
 	// CloseMainToBC is a premade TxnRow which may be useful in tests.
 	CloseMainToBC *idb.TxnRow
 
+	// GenesisHash is a genesis hash used in tests.
+	GenesisHash = crypto.Digest{77}
+	// Signature is a signature for transactions used in tests.
+	Signature = crypto.Signature{88}
+
 	// Proto is a fake protocol version.
-	Proto = "future"
+	Proto = protocol.ConsensusFuture
 )
 
 func init() {
 	OpenMainStxn, OpenMain = MakePayTxnRowOrPanic(Round, 1000, 10234, 0, 111, 1111, 0, AccountC,
-		AccountA, sdk_types.ZeroAddress, sdk_types.ZeroAddress)
+		AccountA, basics.Address{}, basics.Address{})
 	// CloseMainToBCStxn and CloseMainToBC are premade transactions which may be useful in tests.
 	CloseMainToBCStxn, CloseMainToBC = MakePayTxnRowOrPanic(Round, 1000, 1234, 9111, 0, 111, 111,
-		AccountA, AccountC, AccountB, sdk_types.ZeroAddress)
+		AccountA, AccountC, AccountB, basics.Address{})
 }
 
 // DecodeAddressOrPanic is a helper to ensure addresses are initialized.
-func DecodeAddressOrPanic(addr string) sdk_types.Address {
+func DecodeAddressOrPanic(addr string) basics.Address {
 	if addr == "" {
-		return sdk_types.ZeroAddress
+		return basics.Address{}
 	}
 
-	result, err := sdk_types.DecodeAddress(addr)
+	result, err := basics.UnmarshalChecksumAddress(addr)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to decode address: '%s'", addr))
 	}
@@ -65,20 +72,21 @@ func DecodeAddressOrPanic(addr string) sdk_types.Address {
 }
 
 // MakeAssetConfigOrPanic is a helper to ensure test asset config are initialized.
-func MakeAssetConfigOrPanic(round, configid, assetid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr sdk_types.Address) (*sdk_types.SignedTxnWithAD, *idb.TxnRow) {
-	txn := sdk_types.SignedTxnWithAD{
-		SignedTxn: sdk_types.SignedTxn{
-			Txn: sdk_types.Transaction{
+func MakeAssetConfigOrPanic(round, configid, assetid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr basics.Address) (*transactions.SignedTxnWithAD, *idb.TxnRow) {
+	txn := transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
 				Type: "acfg",
-				Header: sdk_types.Header{
-					Sender:     addr,
-					Fee:        sdk_types.MicroAlgos(1000),
-					FirstValid: sdk_types.Round(round),
-					LastValid:  sdk_types.Round(round),
+				Header: transactions.Header{
+					Sender:      addr,
+					Fee:         basics.MicroAlgos{Raw: 1000},
+					FirstValid:  basics.Round(round),
+					LastValid:   basics.Round(round),
+					GenesisHash: GenesisHash,
 				},
-				AssetConfigTxnFields: sdk_types.AssetConfigTxnFields{
-					ConfigAsset: sdk_types.AssetIndex(configid),
-					AssetParams: sdk_types.AssetParams{
+				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
+					ConfigAsset: basics.AssetIndex(configid),
+					AssetParams: basics.AssetParams{
 						Total:         total,
 						Decimals:      uint32(decimals),
 						DefaultFrozen: defaultFrozen,
@@ -98,7 +106,7 @@ func MakeAssetConfigOrPanic(round, configid, assetid, total, decimals uint64, de
 
 	txnRow := idb.TxnRow{
 		Round:    uint64(txn.Txn.FirstValid),
-		TxnBytes: msgpack.Encode(txn),
+		TxnBytes: protocol.Encode(&txn),
 		AssetID:  assetid,
 	}
 
@@ -106,20 +114,21 @@ func MakeAssetConfigOrPanic(round, configid, assetid, total, decimals uint64, de
 }
 
 // MakeAssetFreezeOrPanic create an asset freeze/unfreeze transaction.
-func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, sender, freezeAccount sdk_types.Address) (*sdk_types.SignedTxnWithAD, *idb.TxnRow) {
-	txn := sdk_types.SignedTxnWithAD{
-		SignedTxn: sdk_types.SignedTxn{
-			Txn: sdk_types.Transaction{
+func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, sender, freezeAccount basics.Address) (*transactions.SignedTxnWithAD, *idb.TxnRow) {
+	txn := transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
 				Type: "afrz",
-				Header: sdk_types.Header{
-					Sender:     sender,
-					Fee:        sdk_types.MicroAlgos(1000),
-					FirstValid: sdk_types.Round(round),
-					LastValid:  sdk_types.Round(round),
+				Header: transactions.Header{
+					Sender:      sender,
+					Fee:         basics.MicroAlgos{Raw: 1000},
+					FirstValid:  basics.Round(round),
+					LastValid:   basics.Round(round),
+					GenesisHash: GenesisHash,
 				},
-				AssetFreezeTxnFields: sdk_types.AssetFreezeTxnFields{
+				AssetFreezeTxnFields: transactions.AssetFreezeTxnFields{
 					FreezeAccount: freezeAccount,
-					FreezeAsset:   sdk_types.AssetIndex(assetid),
+					FreezeAsset:   basics.AssetIndex(assetid),
 					AssetFrozen:   frozen,
 				},
 			},
@@ -128,7 +137,7 @@ func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, sender, freezeAc
 
 	txnRow := idb.TxnRow{
 		Round:    uint64(txn.Txn.FirstValid),
-		TxnBytes: msgpack.Encode(txn),
+		TxnBytes: protocol.Encode(&txn),
 		AssetID:  assetid,
 	}
 
@@ -136,46 +145,50 @@ func MakeAssetFreezeOrPanic(round, assetid uint64, frozen bool, sender, freezeAc
 }
 
 // MakeAssetTxnOrPanic creates an asset transfer transaction.
-func MakeAssetTxnOrPanic(round, assetid, amt uint64, sender, receiver, close sdk_types.Address) (*sdk_types.SignedTxnWithAD, *idb.TxnRow) {
-	txn := sdk_types.SignedTxnWithAD{
-		SignedTxn: sdk_types.SignedTxn{
-			Txn: sdk_types.Transaction{
+func MakeAssetTxnOrPanic(round, assetid, amt uint64, sender, receiver, close basics.Address) (*transactions.SignedTxnWithAD, *idb.TxnRow) {
+	txn := transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
 				Type: "axfer",
-				Header: sdk_types.Header{
-					Sender:     sender,
-					Fee:        sdk_types.MicroAlgos(1000),
-					FirstValid: sdk_types.Round(round),
-					LastValid:  sdk_types.Round(round),
+				Header: transactions.Header{
+					Sender:      sender,
+					Fee:         basics.MicroAlgos{Raw: 1000},
+					FirstValid:  basics.Round(round),
+					LastValid:   basics.Round(round),
+					GenesisHash: GenesisHash,
 				},
-				AssetTransferTxnFields: sdk_types.AssetTransferTxnFields{
-					XferAsset:   sdk_types.AssetIndex(assetid),
+				AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+					XferAsset:   basics.AssetIndex(assetid),
 					AssetAmount: amt,
 					//only used for clawback transactions
-					//AssetSender:   sdk_types.Address{},
+					//AssetSender:   basics.Address{},
 					AssetReceiver: receiver,
 					AssetCloseTo:  close,
 				},
 			},
 		},
-		ApplyData: sdk_types.ApplyData{},
+		ApplyData: transactions.ApplyData{},
 	}
 
 	txnRow := idb.TxnRow{
 		Round:    uint64(txn.Txn.FirstValid),
-		TxnBytes: msgpack.Encode(txn),
+		TxnBytes: protocol.Encode(&txn),
 	}
 
 	return &txn, &txnRow
 }
 
 // MakeAssetDestroyTxn makes a transaction that destroys an asset.
-func MakeAssetDestroyTxn(round uint64, assetID uint64) (*sdk_types.SignedTxnWithAD, *idb.TxnRow) {
-	txn := sdk_types.SignedTxnWithAD{
-		SignedTxn: sdk_types.SignedTxn{
-			Txn: sdk_types.Transaction{
+func MakeAssetDestroyTxn(round uint64, assetID uint64) (*transactions.SignedTxnWithAD, *idb.TxnRow) {
+	txn := transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
 				Type: "acfg",
-				AssetConfigTxnFields: sdk_types.AssetConfigTxnFields{
-					ConfigAsset: sdk_types.AssetIndex(assetID),
+				Header: transactions.Header{
+					GenesisHash: GenesisHash,
+				},
+				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
+					ConfigAsset: basics.AssetIndex(assetID),
 				},
 			},
 		},
@@ -183,7 +196,7 @@ func MakeAssetDestroyTxn(round uint64, assetID uint64) (*sdk_types.SignedTxnWith
 
 	txnRow := idb.TxnRow{
 		Round:    round,
-		TxnBytes: msgpack.Encode(txn),
+		TxnBytes: protocol.Encode(&txn),
 		AssetID:  assetID,
 	}
 
@@ -192,64 +205,66 @@ func MakeAssetDestroyTxn(round uint64, assetID uint64) (*sdk_types.SignedTxnWith
 
 // MakePayTxnRowOrPanic creates an algo transfer transaction.
 func MakePayTxnRowOrPanic(round, fee, amt, closeAmt, sendRewards, receiveRewards,
-	closeRewards uint64, sender, receiver, close, rekeyTo sdk_types.Address) (*sdk_types.SignedTxnWithAD,
+	closeRewards uint64, sender, receiver, close, rekeyTo basics.Address) (*transactions.SignedTxnWithAD,
 	*idb.TxnRow) {
-	txn := sdk_types.SignedTxnWithAD{
-		SignedTxn: sdk_types.SignedTxn{
-			Txn: sdk_types.Transaction{
+	txn := transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
 				Type: "pay",
-				Header: sdk_types.Header{
-					Sender:     sender,
-					Fee:        sdk_types.MicroAlgos(fee),
-					FirstValid: sdk_types.Round(round),
-					LastValid:  sdk_types.Round(round),
-					RekeyTo:    rekeyTo,
+				Header: transactions.Header{
+					Sender:      sender,
+					Fee:         basics.MicroAlgos{Raw: 1000},
+					FirstValid:  basics.Round(round),
+					LastValid:   basics.Round(round),
+					RekeyTo:     rekeyTo,
+					GenesisHash: GenesisHash,
 				},
-				PaymentTxnFields: sdk_types.PaymentTxnFields{
+				PaymentTxnFields: transactions.PaymentTxnFields{
 					Receiver:         receiver,
-					Amount:           sdk_types.MicroAlgos(amt),
+					Amount:           basics.MicroAlgos{Raw: amt},
 					CloseRemainderTo: close,
 				},
 			},
 		},
-		ApplyData: sdk_types.ApplyData{
-			ClosingAmount:   sdk_types.MicroAlgos(closeAmt),
-			SenderRewards:   sdk_types.MicroAlgos(sendRewards),
-			ReceiverRewards: sdk_types.MicroAlgos(receiveRewards),
-			CloseRewards:    sdk_types.MicroAlgos(closeRewards),
+		ApplyData: transactions.ApplyData{
+			ClosingAmount:   basics.MicroAlgos{Raw: closeAmt},
+			SenderRewards:   basics.MicroAlgos{Raw: sendRewards},
+			ReceiverRewards: basics.MicroAlgos{Raw: receiveRewards},
+			CloseRewards:    basics.MicroAlgos{Raw: closeRewards},
 		},
 	}
 
 	txnRow := idb.TxnRow{
 		Round:    uint64(txn.Txn.FirstValid),
-		TxnBytes: msgpack.Encode(txn),
+		TxnBytes: protocol.Encode(&txn),
 	}
 
 	return &txn, &txnRow
 }
 
 // MakeSimpleKeyregOnlineTxn creates a fake key registration transaction.
-func MakeSimpleKeyregOnlineTxn(round uint64, sender sdk_types.Address) (*sdk_types.SignedTxnWithAD, *idb.TxnRow) {
-	var votePK sdk_types.VotePK
+func MakeSimpleKeyregOnlineTxn(round uint64, sender basics.Address) (*transactions.SignedTxnWithAD, *idb.TxnRow) {
+	var votePK crypto.OneTimeSignatureVerifier
 	votePK[0] = 1
 
-	var selectionPK sdk_types.VRFPK
+	var selectionPK crypto.VRFVerifier
 	selectionPK[0] = 2
 
-	txn := sdk_types.SignedTxnWithAD{
-		SignedTxn: sdk_types.SignedTxn{
-			Txn: sdk_types.Transaction{
+	txn := transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
 				Type: "keyreg",
-				Header: sdk_types.Header{
-					Sender:     sender,
-					FirstValid: sdk_types.Round(round),
-					LastValid:  sdk_types.Round(round),
+				Header: transactions.Header{
+					Sender:      sender,
+					FirstValid:  basics.Round(round),
+					LastValid:   basics.Round(round),
+					GenesisHash: GenesisHash,
 				},
-				KeyregTxnFields: sdk_types.KeyregTxnFields{
+				KeyregTxnFields: transactions.KeyregTxnFields{
 					VotePK:          votePK,
 					SelectionPK:     selectionPK,
-					VoteFirst:       sdk_types.Round(round),
-					VoteLast:        sdk_types.Round(round),
+					VoteFirst:       basics.Round(round),
+					VoteLast:        basics.Round(round),
 					VoteKeyDilution: 1,
 				},
 			},
@@ -258,65 +273,69 @@ func MakeSimpleKeyregOnlineTxn(round uint64, sender sdk_types.Address) (*sdk_typ
 
 	txnRow := idb.TxnRow{
 		Round:    uint64(txn.Txn.FirstValid),
-		TxnBytes: msgpack.Encode(txn),
+		TxnBytes: protocol.Encode(&txn),
 	}
 
 	return &txn, &txnRow
 }
 
 // MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
-func MakeBlockForTxns(round uint64, inputs ...*sdk_types.SignedTxnWithAD) types.EncodedBlockCert {
-	var txns []types.SignedTxnInBlock
-
-	for _, txn := range inputs {
-		txns = append(txns, types.SignedTxnInBlock{
-			SignedTxnWithAD: types.SignedTxnWithAD{SignedTxn: txn.SignedTxn},
-			HasGenesisID:    true,
-			HasGenesisHash:  true,
-		})
-	}
-
-	return types.EncodedBlockCert{
-		Block: types.Block{
-			BlockHeader: types.BlockHeader{
-				Round:        types.Round(round),
-				UpgradeState: types.UpgradeState{CurrentProtocol: types.ConsensusVersion(Proto)},
+func MakeBlockForTxns(round uint64, inputs ...*transactions.SignedTxnWithAD) (rpcs.EncodedBlockCert, error) {
+	res := rpcs.EncodedBlockCert{
+		Block: bookkeeping.Block{
+			BlockHeader: bookkeeping.BlockHeader{
+				Round:       basics.Round(round),
+				GenesisID:   MakeGenesis().ID(),
+				GenesisHash: GenesisHash,
+				RewardsState: bookkeeping.RewardsState{
+					FeeSink:     FeeAddr,
+					RewardsPool: RewardAddr,
+				},
+				UpgradeState: bookkeeping.UpgradeState{CurrentProtocol: Proto},
 			},
-			Payset: txns,
 		},
-		Certificate: types.Certificate{},
 	}
+
+	for _, stxnad := range inputs {
+		stxnib, err := res.Block.EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
+		if err != nil {
+			return rpcs.EncodedBlockCert{}, err
+		}
+		res.Block.Payset = append(res.Block.Payset, stxnib)
+	}
+
+	return res, nil
 }
 
 // MakeGenesis creates a sample genesis info.
-func MakeGenesis() types.Genesis {
-	return types.Genesis{
+func MakeGenesis() bookkeeping.Genesis {
+	return bookkeeping.Genesis{
 		SchemaID: "main",
 		Network:  "mynet",
-		Proto:    types.ConsensusVersion(Proto),
-		Allocation: []types.GenesisAllocation{
+		Proto:    Proto,
+		Allocation: []bookkeeping.GenesisAllocation{
 			{
 				Address: AccountA.String(),
-				State: types.AccountData{
-					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				State: basics.AccountData{
+					MicroAlgos: basics.MicroAlgos{Raw: 1000 * 1000 * 1000 * 1000},
 				},
 			},
 			{
 				Address: AccountB.String(),
-				State: types.AccountData{
-					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				State: basics.AccountData{
+					MicroAlgos: basics.MicroAlgos{Raw: 1000 * 1000 * 1000 * 1000},
 				},
 			},
 			{
 				Address: AccountC.String(),
-				State: types.AccountData{
-					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				State: basics.AccountData{
+					MicroAlgos: basics.MicroAlgos{Raw: 1000 * 1000 * 1000 * 1000},
 				},
 			},
 			{
 				Address: AccountD.String(),
-				State: types.AccountData{
-					MicroAlgos: 1000 * 1000 * 1000 * 1000,
+				State: basics.AccountData{
+					MicroAlgos: basics.MicroAlgos{Raw: 1000 * 1000 * 1000 * 1000},
 				},
 			},
 		},

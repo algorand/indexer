@@ -4,16 +4,17 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/types"
 )
 
 // Importer is used to import blocks into an idb.IndexerDb object.
 type Importer interface {
 	ImportBlock(blockbytes []byte) (txCount int, err error)
-	ImportDecodedBlock(block *types.EncodedBlockCert) (txCount int, err error)
+	ImportDecodedBlock(block *rpcs.EncodedBlockCert) (txCount int, err error)
 }
 
 type dbImporter struct {
@@ -36,8 +37,8 @@ func participate(participants [][]byte, addr []byte) [][]byte {
 
 // ImportBlock processes a block and adds it to the IndexerDb
 func (imp *dbImporter) ImportBlock(blockbytes []byte) (txCount int, err error) {
-	var blockContainer types.EncodedBlockCert
-	err = msgpack.Decode(blockbytes, &blockContainer)
+	var blockContainer rpcs.EncodedBlockCert
+	err = protocol.Decode(blockbytes, &blockContainer)
 	if err != nil {
 		return txCount, fmt.Errorf("error decoding blockbytes, %v", err)
 	}
@@ -45,20 +46,19 @@ func (imp *dbImporter) ImportBlock(blockbytes []byte) (txCount int, err error) {
 }
 
 // ImportBlock processes a block and adds it to the IndexerDb
-func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert) (txCount int, err error) {
+func (imp *dbImporter) ImportDecodedBlock(blockContainer *rpcs.EncodedBlockCert) (txCount int, err error) {
 	txCount = 0
-	proto, err := types.Protocol(string(blockContainer.Block.CurrentProtocol))
-	if err != nil {
-		return txCount, fmt.Errorf("block %d, %v", blockContainer.Block.Round, err)
-	}
 	err = imp.db.StartBlock()
 	if err != nil {
 		return txCount, fmt.Errorf("error starting block, %v", err)
 	}
 	block := blockContainer.Block
-	round := uint64(block.Round)
+	round := uint64(block.Round())
 	for intra := range block.Payset {
-		stxn := &block.Payset[intra]
+		stxn, ad, err := block.BlockHeader.DecodeSignedTxn(block.Payset[intra])
+		if err != nil {
+			return txCount, fmt.Errorf("error decoding signed txn in block err: %w", err)
+		}
 		txtypeenum, ok := idb.GetTypeEnum(stxn.Txn.Type)
 		if !ok {
 			return txCount,
@@ -81,13 +81,10 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 				assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 			}
 		}
-		if stxn.HasGenesisID {
-			stxn.Txn.GenesisID = block.GenesisID
+		stxnad := transactions.SignedTxnWithAD{
+			SignedTxn: stxn,
+			ApplyData: ad,
 		}
-		if stxn.HasGenesisHash || proto.RequireGenesisHash {
-			stxn.Txn.GenesisHash = block.GenesisHash
-		}
-		stxnad := stxn.SignedTxnWithAD
 		participants := make([][]byte, 0, 10)
 		participants = participate(participants, stxn.Txn.Sender[:])
 		participants = participate(participants, stxn.Txn.Receiver[:])
@@ -103,7 +100,7 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		}
 		txCount++
 	}
-	blockheaderBytes := msgpack.Encode(block.BlockHeader)
+	blockheaderBytes := protocol.Encode(&block.BlockHeader)
 	err = imp.db.CommitBlock(round, block.TimeStamp, block.RewardsLevel, blockheaderBytes)
 	if err != nil {
 		return txCount, fmt.Errorf("error committing block, %v", err)

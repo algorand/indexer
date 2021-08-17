@@ -6,8 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
-
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 )
@@ -39,7 +37,7 @@ func TestMaxRoundAccountedMigrationAccountRound0(t *testing.T) {
 	old := oldImportState{
 		AccountRound: &round,
 	}
-	err = db.setMetastate(nil, stateMetastateKey, string(json.Encode(old)))
+	err = db.setMetastate(nil, stateMetastateKey, string(encoding.EncodeJSON(old)))
 	require.NoError(t, err)
 
 	migrationState := MigrationState{NextMigration: 4}
@@ -71,7 +69,7 @@ func TestMaxRoundAccountedMigrationAccountRoundPositive(t *testing.T) {
 	old := oldImportState{
 		AccountRound: &round,
 	}
-	err = db.setMetastate(nil, stateMetastateKey, string(json.Encode(old)))
+	err = db.setMetastate(nil, stateMetastateKey, string(encoding.EncodeJSON(old)))
 	require.NoError(t, err)
 
 	migrationState := MigrationState{NextMigration: 4}
