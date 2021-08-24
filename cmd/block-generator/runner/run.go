@@ -31,6 +31,7 @@ type Args struct {
 	IndexerPort              uint64
 	PostgresConnectionString string
 	RunDuration              time.Duration
+	LogLevel                 string
 	ReportDirectory          string
 }
 
@@ -56,17 +57,23 @@ func Run(args Args) error {
 }
 
 func (r *Args) run() error {
+	baseName := filepath.Base(r.Path)
+	baseNameNoExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
+	reportfile := path.Join(r.ReportDirectory, fmt.Sprintf("%s.report", baseNameNoExt))
+	logfile := path.Join(r.ReportDirectory, fmt.Sprintf("%s.indexer-log", baseNameNoExt))
+
 	// Start services
 	algodNet := fmt.Sprintf("localhost:%d", 11112)
 	indexerNet := fmt.Sprintf("localhost:%d", r.IndexerPort)
 	generatorShutdownFunc := startGenerator(r.Path, algodNet)
-	indexerShutdownFunc, err := startIndexer(r.IndexerBinary, algodNet, indexerNet, r.PostgresConnectionString)
+
+	indexerShutdownFunc, err := startIndexer(logfile, r.LogLevel, r.IndexerBinary, algodNet, indexerNet, r.PostgresConnectionString)
 	if err != nil {
 		return fmt.Errorf("failed to start indexer: %w", err)
 	}
 
 	// Run the test, collecting results.
-	if err := r.runTest(indexerNet, algodNet); err != nil {
+	if err := r.runTest(reportfile, indexerNet, algodNet); err != nil {
 		return err
 	}
 
@@ -216,14 +223,10 @@ func getMetric(entry Entry, suffix string, rateMetric bool) (float64, error) {
 }
 
 // Run the test for 'RunDuration', collect metrics and write them to the 'ReportDirectory'
-func (r *Args) runTest(indexerURL string, generatorURL string) error {
+func (r *Args) runTest(reportfile string, indexerURL string, generatorURL string) error {
 	collector := &MetricsCollector{MetricsURL: fmt.Sprintf("http://%s/metrics", indexerURL)}
 
-	baseName := filepath.Base(r.Path)
-	baseNameNoExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
-	reportPath := path.Join(r.ReportDirectory, fmt.Sprintf("%s.report", baseNameNoExt))
-
-	report, err := os.Create(reportPath)
+	report, err := os.Create(reportfile)
 	if err != nil {
 		return fmt.Errorf("unable to create report: %w", err)
 	}
@@ -309,7 +312,7 @@ func startGenerator(configFile string, addr string) func() error {
 
 // startIndexer resets the postgres database and executes the indexer binary. It performs some simple verification to
 // ensure that the service has started properly.
-func startIndexer(indexerBinary string, algodNet string, indexerNet string, postgresConnectionString string) (func() error, error) {
+func startIndexer(logfile string, loglevel string, indexerBinary string, algodNet string, indexerNet string, postgresConnectionString string) (func() error, error) {
 	{
 		db, err := sql.Open("postgres", postgresConnectionString)
 		if err != nil {
@@ -330,7 +333,9 @@ func startIndexer(indexerBinary string, algodNet string, indexerNet string, post
 		"--algod-token", "secure-token-here",
 		"--metrics-mode", "VERBOSE",
 		"--postgres", postgresConnectionString,
-		"--server", indexerNet)
+		"--server", indexerNet,
+		"--logfile", logfile,
+		"--loglevel", loglevel)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer

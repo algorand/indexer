@@ -113,6 +113,7 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 
 	gen.feeSink[31] = 1
 	gen.rewardsPool[31] = 2
+	gen.genesisHash[31] = 3
 
 	gen.initializeAccounting()
 
@@ -275,10 +276,10 @@ func getTransactionOptions() []interface{} {
 	return []interface{}{paymentTx, assetTx}
 }
 
-func (g *generator) generateTransaction(round uint64, intra uint64) (transactions.SignedTxnInBlock, error) {
+func (g *generator) generateTransaction(round uint64, intra uint64) (transactions.SignedTxn, transactions.ApplyData, error) {
 	selection, err := weightedSelection(g.transactionWeights, getTransactionOptions(), paymentTx)
 	if err != nil {
-		return transactions.SignedTxnInBlock{}, err
+		return transactions.SignedTxn{}, transactions.ApplyData{}, err
 	}
 
 	switch selection {
@@ -287,7 +288,7 @@ func (g *generator) generateTransaction(round uint64, intra uint64) (transaction
 	case assetTx:
 		return g.generateAssetTxn(round, intra)
 	default:
-		return transactions.SignedTxnInBlock{}, fmt.Errorf("no generator available for %s", selection)
+		return transactions.SignedTxn{}, transactions.ApplyData{}, fmt.Errorf("no generator available for %s", selection)
 	}
 }
 
@@ -297,46 +298,53 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 		fmt.Printf("Generator only supports sequential block access. Expected %d but received request for %d.", g.round, round)
 	}
 
+	header := bookkeeping.BlockHeader{
+		Round:       basics.Round(g.round),
+		Branch:      bookkeeping.BlockHash{},
+		Seed:        committee.Seed{},
+		TxnRoot:     crypto.Digest{},
+		TimeStamp:   g.timestamp,
+		GenesisID:   g.genesisID,
+		GenesisHash: g.genesisHash,
+		RewardsState: bookkeeping.RewardsState{
+			FeeSink:                   g.feeSink,
+			RewardsPool:               g.rewardsPool,
+			RewardsLevel:              0,
+			RewardsRate:               0,
+			RewardsResidue:            0,
+			RewardsRecalculationRound: 0,
+		},
+		UpgradeState: bookkeeping.UpgradeState{
+			CurrentProtocol: g.protocol,
+		},
+		UpgradeVote: bookkeeping.UpgradeVote{},
+		TxnCounter:  g.txnCounter,
+		CompactCert: nil,
+	}
+
 	// Generate the transactions
 	transactions := make([]transactions.SignedTxnInBlock, 0, g.config.TxnPerBlock)
+
 	// Do not put transactions in round 0
 	if round != 0 {
 		for i := uint64(0); i < g.config.TxnPerBlock; i++ {
-			txn, err := g.generateTransaction(g.round, i)
+			txn, ad, err := g.generateTransaction(g.round, i)
 			if err != nil {
 				panic(fmt.Sprintf("failed to generate transaction: %v\n", err))
 			}
-			transactions = append(transactions, txn)
+			stib, err := header.EncodeSignedTxn(txn, ad)
+			if err != nil {
+				panic(fmt.Sprintf("failed to encode transaction: %v\n", err))
+			}
+			transactions = append(transactions, stib)
 		}
 	}
 
 	g.txnCounter += g.config.TxnPerBlock
 
 	block := bookkeeping.Block{
-		BlockHeader: bookkeeping.BlockHeader{
-			Round:       basics.Round(g.round),
-			Branch:      bookkeeping.BlockHash{},
-			Seed:        committee.Seed{},
-			TxnRoot:     crypto.Digest{},
-			TimeStamp:   g.timestamp,
-			GenesisID:   g.genesisID,
-			GenesisHash: g.genesisHash,
-			RewardsState: bookkeeping.RewardsState{
-				FeeSink:                   g.feeSink,
-				RewardsPool:               g.rewardsPool,
-				RewardsLevel:              0,
-				RewardsRate:               0,
-				RewardsResidue:            0,
-				RewardsRecalculationRound: 0,
-			},
-			UpgradeState: bookkeeping.UpgradeState{
-				CurrentProtocol: g.protocol,
-			},
-			UpgradeVote: bookkeeping.UpgradeVote{},
-			TxnCounter:  g.txnCounter,
-			CompactCert: nil,
-		},
-		Payset: transactions,
+		BlockHeader: header,
+		Payset:      transactions,
 	}
 
 	cert := rpcs.EncodedBlockCert{
@@ -368,8 +376,7 @@ func (g *generator) initializeAccounting() {
 	}
 }
 
-// convert wraps the transaction as needed for including in the block.
-func convert(txn transactions.Transaction, ad transactions.ApplyData) transactions.SignedTxnInBlock {
+func signTxn(txn transactions.Transaction) transactions.SignedTxn {
 	stxn := transactions.SignedTxn{
 		Sig:      crypto.Signature{},
 		Msig:     crypto.MultisigSig{},
@@ -381,18 +388,7 @@ func convert(txn transactions.Transaction, ad transactions.ApplyData) transactio
 	// TODO: Would it be useful to generate a random signature?
 	stxn.Sig[32] = 50
 
-	withAd := transactions.SignedTxnWithAD{
-		SignedTxn: stxn,
-		// TODO: Add close-amount to apply data
-		ApplyData: ad,
-	}
-
-	stxnib := transactions.SignedTxnInBlock{
-		SignedTxnWithAD: withAd,
-		HasGenesisID:    true,
-		HasGenesisHash:  true,
-	}
-	return stxnib
+	return stxn
 }
 
 func getPaymentTxOptions() []interface{} {
@@ -401,15 +397,15 @@ func getPaymentTxOptions() []interface{} {
 
 // generatePaymentTxn creates a new payment transaction. The sender is always a genesis account, the receiver is random,
 // or a new account.
-func (g *generator) generatePaymentTxn(round uint64, intra uint64) (transactions.SignedTxnInBlock, error) {
+func (g *generator) generatePaymentTxn(round uint64, intra uint64) (transactions.SignedTxn, transactions.ApplyData, error) {
 	selection, err := weightedSelection(g.payTxWeights, getPaymentTxOptions(), paymentTx)
 	if err != nil {
-		return transactions.SignedTxnInBlock{}, err
+		return transactions.SignedTxn{}, transactions.ApplyData{}, err
 	}
 	return g.generatePaymentTxnInternal(selection.(TxTypeID), round, intra)
 }
 
-func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64, _ uint64 /*intra*/) (transactions.SignedTxnInBlock, error) {
+func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64, _ uint64 /*intra*/) (transactions.SignedTxn, transactions.ApplyData, error) {
 	defer g.recordData(track(selection))
 
 	var receiveIndex uint64
@@ -441,9 +437,8 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 
 	g.numPayments++
 
-	txn := g.makePaymentTxn(
-		g.makeTxnHeader(sender, round), receiver, amount, basics.Address{})
-	return convert(txn, transactions.ApplyData{}), nil
+	txn := g.makePaymentTxn(g.makeTxnHeader(sender, round), receiver, amount, basics.Address{})
+	return signTxn(txn), transactions.ApplyData{}, nil
 }
 
 func getAssetTxOptions() []interface{} {
@@ -601,11 +596,11 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 	return
 }
 
-func (g *generator) generateAssetTxn(round uint64, intra uint64) (transactions.SignedTxnInBlock, error) {
+func (g *generator) generateAssetTxn(round uint64, intra uint64) (transactions.SignedTxn, transactions.ApplyData, error) {
 	start := time.Now()
 	selection, err := weightedSelection(g.assetTxWeights, getAssetTxOptions(), assetXfer)
 	if err != nil {
-		return transactions.SignedTxnInBlock{}, err
+		return transactions.SignedTxn{}, transactions.ApplyData{}, err
 	}
 
 	actual, txn := g.generateAssetTxnInternal(selection.(TxTypeID), round, intra)
@@ -616,5 +611,5 @@ func (g *generator) generateAssetTxn(round uint64, intra uint64) (transactions.S
 		os.Exit(1)
 	}
 
-	return convert(txn, transactions.ApplyData{}), nil
+	return signTxn(txn), transactions.ApplyData{}, nil
 }

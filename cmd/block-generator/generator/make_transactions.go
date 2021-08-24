@@ -59,7 +59,6 @@ func (g *generator) makeAssetTransferTxn(header transactions.Header, receiver ba
 		AssetTransferTxnFields: transactions.AssetTransferTxnFields{
 			XferAsset:     basics.AssetIndex(index),
 			AssetAmount:   amount,
-			AssetSender:   header.Sender,
 			AssetReceiver: receiver,
 			AssetCloseTo:  closeAssetsTo,
 		},
