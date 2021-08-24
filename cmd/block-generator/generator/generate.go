@@ -344,7 +344,7 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 
 	block := bookkeeping.Block{
 		BlockHeader: header,
-		Payset: transactions,
+		Payset:      transactions,
 	}
 
 	cert := rpcs.EncodedBlockCert{
@@ -376,19 +376,7 @@ func (g *generator) initializeAccounting() {
 	}
 }
 
-func wrapSigned(txn transactions.Transaction) transactions.SignedTxn {
-	return transactions.SignedTxn{
-		Sig:      crypto.Signature{},
-		Msig:     crypto.MultisigSig{},
-		Lsig:     transactions.LogicSig{},
-		Txn:      txn,
-		AuthAddr: basics.Address{},
-	}
-}
-
-// convert wraps the transaction as needed for including in the block.
-// TODO: Replace this with a call on the block header "header.EncodeSignedTxn(txn, ad)"
-func convert(txn transactions.Transaction, ad transactions.ApplyData) transactions.SignedTxnInBlock {
+func signTxn(txn transactions.Transaction) transactions.SignedTxn {
 	stxn := transactions.SignedTxn{
 		Sig:      crypto.Signature{},
 		Msig:     crypto.MultisigSig{},
@@ -400,17 +388,7 @@ func convert(txn transactions.Transaction, ad transactions.ApplyData) transactio
 	// TODO: Would it be useful to generate a random signature?
 	stxn.Sig[32] = 50
 
-	withAd := transactions.SignedTxnWithAD{
-		SignedTxn: stxn,
-		// TODO: Add close-amount to apply data
-		ApplyData: ad,
-	}
-
-	stxnib := transactions.SignedTxnInBlock{
-		SignedTxnWithAD: withAd,
-		HasGenesisID:    true,
-	}
-	return stxnib
+	return stxn
 }
 
 func getPaymentTxOptions() []interface{} {
@@ -460,7 +438,7 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 	g.numPayments++
 
 	txn := g.makePaymentTxn(g.makeTxnHeader(sender, round), receiver, amount, basics.Address{})
-	return wrapSigned(txn), transactions.ApplyData{}, nil
+	return signTxn(txn), transactions.ApplyData{}, nil
 }
 
 func getAssetTxOptions() []interface{} {
@@ -633,5 +611,5 @@ func (g *generator) generateAssetTxn(round uint64, intra uint64) (transactions.S
 		os.Exit(1)
 	}
 
-	return wrapSigned(txn), transactions.ApplyData{}, nil
+	return signTxn(txn), transactions.ApplyData{}, nil
 }
