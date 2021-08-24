@@ -20,7 +20,7 @@ make_hashes () {
 
     for ext in ${EXTENSIONS[*]}
     do
-        HASHFILE="hashes_${VERSION}_${ext}"
+        HASHFILE="hashes_${OS_TYPE}_${ARCH}_${VERSION}_${ext}"
         {
             md5sum *"$VERSION"*."$ext" ;
             shasum -a 256 *"$VERSION"*."$ext" ;
