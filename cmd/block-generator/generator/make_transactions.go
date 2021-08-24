@@ -12,8 +12,6 @@ func (g *generator) makeTxnHeader(sender basics.Address, round uint64) transacti
 		Fee:         basics.MicroAlgos{Raw: fee},
 		FirstValid:  basics.Round(round),
 		LastValid:   basics.Round(round + 1000),
-		GenesisID:   g.genesisID,
-		GenesisHash: g.genesisHash,
 	}
 }
 
@@ -59,7 +57,6 @@ func (g *generator) makeAssetTransferTxn(header transactions.Header, receiver ba
 		AssetTransferTxnFields: transactions.AssetTransferTxnFields{
 			XferAsset:     basics.AssetIndex(index),
 			AssetAmount:   amount,
-			AssetSender:   header.Sender,
 			AssetReceiver: receiver,
 			AssetCloseTo:  closeAssetsTo,
 		},

@@ -113,6 +113,7 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 
 	gen.feeSink[31] = 1
 	gen.rewardsPool[31] = 2
+	gen.genesisHash[31] = 3
 
 	gen.initializeAccounting()
 
@@ -390,7 +391,6 @@ func convert(txn transactions.Transaction, ad transactions.ApplyData) transactio
 	stxnib := transactions.SignedTxnInBlock{
 		SignedTxnWithAD: withAd,
 		HasGenesisID:    true,
-		HasGenesisHash:  true,
 	}
 	return stxnib
 }
