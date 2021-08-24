@@ -20,15 +20,17 @@ make_hashes () {
 
     for ext in ${EXTENSIONS[*]}
     do
-        HASHFILE="hashes_${OS_TYPE}_${ARCH}_${VERSION}_${ext}"
-        {
-            md5sum *"$VERSION"*."$ext" ;
-            shasum -a 256 *"$VERSION"*."$ext" ;
-            shasum -a 512 *"$VERSION"*."$ext" ;
-        } >> "$HASHFILE"
+        if ls *"$VERSION"*."$ext"; then
+            HASHFILE="hashes_${OS_TYPE}_${ARCH}_${VERSION}_${ext}"
+            {
+                md5sum *"$VERSION"*."$ext" ;
+                shasum -a 256 *"$VERSION"*."$ext" ;
+                shasum -a 512 *"$VERSION"*."$ext" ;
+            } >> "$HASHFILE"
 
-        gpg -u "$SIGNING_KEY_ADDR" --detach-sign "$HASHFILE"
-        gpg -u "$SIGNING_KEY_ADDR" --clearsign "$HASHFILE"
+            gpg -u "$SIGNING_KEY_ADDR" --detach-sign "$HASHFILE"
+            gpg -u "$SIGNING_KEY_ADDR" --clearsign "$HASHFILE"
+        fi
     done
 }
 
