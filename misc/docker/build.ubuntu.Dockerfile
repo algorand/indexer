@@ -2,7 +2,6 @@ ARG ARCH
 FROM indexer-builder:${ARCH}
 
 ENV DEBIAN_FRONTEND="noninteractive"
-ENV USER="root"
 
 RUN apt update && \
     apt install -y software-properties-common python3-pip && \

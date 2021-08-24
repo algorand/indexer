@@ -204,7 +204,7 @@ def build_tar(goos, goarch, version, outdir):
     ti.mode = 0o444
     ti.type = tarfile.REGTYPE
     ti.uid = os.getuid()
-    ti.uname = os.getenv('USER')
+    ti.uname = os.getenv('USER') or ''
     ti.gid = os.getgid()
     ti.gname = groupname(os.getgid())
     uhtml = usage_html().encode('utf-8')

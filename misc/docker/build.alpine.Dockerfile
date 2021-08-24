@@ -1,8 +1,6 @@
 ARG ARCH
 FROM indexer-builder:${ARCH}
 
-ENV USER="root"
-
 RUN apk update && \
     apk add --update \
     py3-pip \
