@@ -10,3 +10,7 @@ RUN apt update && \
     update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1 && \
     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1 && \
     python -m pip install markdown2
+
+RUN useradd -ms /bin/bash indexer && \
+    chown -R /go
+USER indexer
