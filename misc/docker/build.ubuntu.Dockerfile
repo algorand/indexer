@@ -10,4 +10,4 @@ RUN apt update && \
     apt install -y python3.9 python3.9-distutils && \
     update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1 && \
     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1 && \
-    python -m pip install markdown2
+    python -m pip install markdown2 awscli
