@@ -12,5 +12,5 @@ RUN apt update && \
     python -m pip install markdown2
 
 RUN useradd -ms /bin/bash indexer && \
-    chown -R /go
+    chown -R indexer /go
 USER indexer
