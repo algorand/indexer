@@ -2,6 +2,7 @@ ARG ARCH
 FROM indexer-builder:${ARCH}
 
 ENV DEBIAN_FRONTEND="noninteractive"
+ENV USER="root"
 
 RUN apt update && \
     apt install -y software-properties-common python3-pip && \
@@ -10,7 +11,3 @@ RUN apt update && \
     update-alternatives --install /usr/bin/python python /usr/bin/python3.9 1 && \
     update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1 && \
     python -m pip install markdown2
-
-RUN useradd -ms /bin/bash indexer && \
-    chown -R indexer /go
-USER indexer
