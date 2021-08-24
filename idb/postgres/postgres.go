@@ -1,4 +1,5 @@
 // You can build without postgres by `go build --tags nopostgres` but it's on by default
+//go:build !nopostgres
 // +build !nopostgres
 
 package postgres
@@ -291,7 +292,8 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) (err error) {
 			return fmt.Errorf("genesis account[%d] has unhandled asset", ai)
 		}
 		_, err = setAccount.Exec(
-			addr[:], alloc.State.MicroAlgos.Raw, encoding.EncodeAccountData(alloc.State), 0)
+			addr[:], alloc.State.MicroAlgos.Raw,
+			encoding.EncodeTrimmedAccountData(encoding.TrimAccountData(alloc.State)), 0)
 		if err != nil {
 			return fmt.Errorf("error setting genesis account[%d], %v", ai, err)
 		}
@@ -977,7 +979,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 
 		if accountDataJSONStr != nil {
 			var ad basics.AccountData
-			ad, err = encoding.DecodeAccountData(accountDataJSONStr)
+			ad, err = encoding.DecodeTrimmedAccountData(accountDataJSONStr)
 			if err != nil {
 				err = fmt.Errorf("account decode err (%s) %v", accountDataJSONStr, err)
 				req.out <- idb.AccountRow{Error: err}

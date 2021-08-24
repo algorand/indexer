@@ -77,7 +77,7 @@ type signedTxnWithAD struct {
 	EvalDeltaOverride evalDelta     `codec:"dt"`
 }
 
-type accountData struct {
+type trimmedAccountData struct {
 	basics.AccountData
 	AuthAddrOverride crypto.Digest `codec:"spend"`
 }

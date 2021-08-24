@@ -412,7 +412,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	assert.Nil(t, closedAt)
 	assert.Nil(t, keytype)
 	{
-		accountDataRead, err := encoding.DecodeAccountData(accountData)
+		accountDataRead, err := encoding.DecodeTrimmedAccountData(accountData)
 		require.NoError(t, err)
 
 		assert.Equal(t, expectedAccountData.Status, accountDataRead.Status)

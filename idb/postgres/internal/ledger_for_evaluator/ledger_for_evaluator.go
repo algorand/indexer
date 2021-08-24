@@ -1,7 +1,8 @@
-package postgres
+package ledgerforevaluator
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/algorand/go-algorand/config"
@@ -28,8 +29,8 @@ const appParamsQuery = "SELECT index, params FROM app WHERE creator = $1 AND NOT
 const appLocalStatesQuery = "SELECT app, localstate FROM account_app " +
 	"WHERE addr = $1 AND NOT deleted"
 
-// LedgerForEvaluator implements the ledgerForEvaluator interface from go-algorand and
-// is used for accounting.
+// LedgerForEvaluator implements the ledgerForEvaluator interface from
+// go-algorand ledger/eval.go and is used for accounting.
 type LedgerForEvaluator struct {
 	tx          *sql.Tx
 	genesisHash crypto.Digest
@@ -136,7 +137,7 @@ func (l LedgerForEvaluator) BlockHdr(round basics.Round) (bookkeeping.BlockHeade
 // CheckDup is part of go-algorand's ledgerForEvaluator interface.
 func (l LedgerForEvaluator) CheckDup(config.ConsensusParams, basics.Round, basics.Round, basics.Round, transactions.Txid, ledger.TxLease) error {
 	// This function is not used by evaluator.
-	return nil
+	return errors.New("CheckDup() not implemented")
 }
 
 func (l *LedgerForEvaluator) readAccountTable(address basics.Address) (basics.AccountData, bool /*exists*/, error) {
@@ -157,7 +158,7 @@ func (l *LedgerForEvaluator) readAccountTable(address basics.Address) (basics.Ac
 
 	res := basics.AccountData{}
 	if accountData != nil {
-		res, err = encoding.DecodeAccountData(accountData)
+		res, err = encoding.DecodeTrimmedAccountData(accountData)
 		if err != nil {
 			return basics.AccountData{}, false,
 				fmt.Errorf("readAccountTable() decode account data err: %w", err)
@@ -376,7 +377,7 @@ func (l LedgerForEvaluator) GenesisHash() crypto.Digest {
 // Totals is part of go-algorand's ledgerForEvaluator interface.
 func (l LedgerForEvaluator) Totals(round basics.Round) (ledgercore.AccountTotals, error) {
 	// The evaluator uses totals only for recomputing the rewards pool balance. Indexer
-	// does not currently compute the this balance, and we can returns an empty struct
+	// does not currently compute this balance, and we can return an empty struct
 	// here.
 	return ledgercore.AccountTotals{}, nil
 }
@@ -384,5 +385,5 @@ func (l LedgerForEvaluator) Totals(round basics.Round) (ledgercore.AccountTotals
 // CompactCertVoters is part of go-algorand's ledgerForEvaluator interface.
 func (l LedgerForEvaluator) CompactCertVoters(basics.Round) (*ledger.VotersForRound, error) {
 	// This function is not used by evaluator.
-	return nil, nil
+	return nil, errors.New("CompactCertVoters() not implemented")
 }

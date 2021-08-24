@@ -87,7 +87,7 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	_, err = db.db.Exec(
 		query, test.AccountB[:], accountDataFull.MicroAlgos.Raw, accountDataFull.RewardsBase,
 		accountDataFull.RewardedMicroAlgos.Raw,
-		encoding.EncodeAccountData(accountDataWritten))
+		encoding.EncodeTrimmedAccountData(accountDataWritten))
 	require.NoError(t, err)
 
 	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
@@ -121,7 +121,7 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 		MicroAlgos: basics.MicroAlgos{Raw: 5},
 	}
 	_, err = db.db.Exec(
-		query, test.AccountB[:], encoding.EncodeAccountData(accountData))
+		query, test.AccountB[:], encoding.EncodeTrimmedAccountData(accountData))
 	require.NoError(t, err)
 
 	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
