@@ -38,10 +38,12 @@ make_sigs () {
     # Start clean.
     rm -f ./*.sig
 
-    for item in ./*
-    do
-        gpg -u "$SIGNING_KEY_ADDR" --detach-sign "$item"
-    done
+    if ls ./*; then
+        for item in ./*
+        do
+            gpg -u "$SIGNING_KEY_ADDR" --detach-sign "$item"
+        done
+    fi
 }
 
 pushd "$PKG_DIR"
