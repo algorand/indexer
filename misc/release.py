@@ -209,7 +209,7 @@ def build_tar(goos, goarch, version, outdir):
     ti.gname = groupname(os.getgid())
     uhtml = usage_html().encode('utf-8')
     ti.size=len(uhtml)
-    print(uhtml, ti)
+    print(ti.get_info())
     tf.addfile(ti, io.BytesIO(uhtml))
     tf.close()
     return tarname
