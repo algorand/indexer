@@ -32,31 +32,27 @@ if [[ ! "$ARCH" =~ ^(amd64|arm|arm64)$ ]]; then
     usage 2
 fi
 
-export GOALGORAND_DOCKERFILE_PATH="${SCRIPT_PATH}/../third_party/go-algorand/docker/build/cicd.ubuntu.Dockerfile"
-export INDEXER_DOCKERFILE_PATH="${SCRIPT_PATH}/../misc/docker/build.ubuntu.Dockerfile"
+export DOCKERFILE_PATH="${SCRIPT_PATH}/../misc/docker/build.ubuntu.Dockerfile"
 export DOCKER_ARCH='amd64'
+export GOARCH='amd64'
 
 if [ "${ARCH}" == 'arm' ]; then
-    GOALGORAND_DOCKERFILE_PATH="${SCRIPT_PATH}/../third_party/go-algorand/docker/build/cicd.alpine.Dockerfile"
-    INDEXER_DOCKERFILE_PATH="${SCRIPT_PATH}/../misc/docker/build.alpine.Dockerfile"
-    DOCKER_ARCH='arm32v6'
+    export DOCKER_ARCH='arm32v7'
+    export GOARCH='armv6l'
 elif [ "${ARCH}" == 'arm64' ]; then
-    DOCKER_ARCH='arm64v8'
+    export DOCKER_ARCH='arm64v8'
+    export GOARCH='arm64'
 fi
 
 git submodule update --init
 export BUILD_IMAGE=indexer-builder:${DOCKER_ARCH}
 export GOLANG_VERSION=$(${SCRIPT_PATH}/../third_party/go-algorand/scripts/get_golang_version.sh)
-export VERSION=$(cat ${SCRIPT_PATH}/../.version)
 
 docker build -t "${BUILD_IMAGE}" \
-    -f ${GOALGORAND_DOCKERFILE_PATH} \
     --build-arg ARCH="${DOCKER_ARCH}" \
+    --build-arg GOARCH="${GOARCH}" \
     --build-arg GOLANG_VERSION=${GOLANG_VERSION} \
-    third_party/go-algorand
-docker build -t "${BUILD_IMAGE}" \
-    --build-arg ARCH="${DOCKER_ARCH}" \
-    - < ${INDEXER_DOCKERFILE_PATH}
+    - < ${DOCKERFILE_PATH}
 docker run ${DOCKER_RUN_OPTS} \
     -v `pwd`:/go/src/github.com/algorand/indexer \
     --workdir /go/src/github.com/algorand/indexer \
