@@ -1,3 +1,3 @@
-@Library('go-algorand-ci@brice/indexerPipeline') _
+@Library('go-algorand-ci') _
 
 indexerCI()
