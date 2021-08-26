@@ -199,12 +199,12 @@ def build_tar(goos, goarch, version, outdir):
             continue
         for fname in files:
             tf.add(os.path.join(source_path, fname), os.path.join(rootdir, tar_path, fname))
-    ti = tarfile.TarInfo(os.path.join(rootdir, "usage.html"))
+    ti = tarfile.TarInfo(name=os.path.join(rootdir, "usage.html"))
     ti.mtime = time.time()
     ti.mode = 0o444
     ti.type = tarfile.REGTYPE
     ti.uid = os.getuid()
-    ti.uname = os.getenv('USER')
+    ti.uname = os.getenv('USER') or ''
     ti.gid = os.getgid()
     ti.gname = groupname(os.getgid())
     uhtml = usage_html().encode('utf-8')
