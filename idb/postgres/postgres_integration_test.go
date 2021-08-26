@@ -1178,7 +1178,13 @@ func TestAddBlockGenesis(t *testing.T) {
 // TestAddBlockAssetCloseAmountInTxnExtra tests that we set the correct asset close
 // amount in `txn.extra` column.
 func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	// Use an old version of consensus parameters that have AssetCloseAmount = false.
+	genesis := test.MakeGenesis()
+	genesis.Proto = protocol.ConsensusV24
+	block := test.MakeGenesisBlock()
+	block.UpgradeState.CurrentProtocol = protocol.ConsensusV24
+
+	db, shutdownFunc := setupIdb(t, genesis, block)
 	defer shutdownFunc()
 
 	assetid := uint64(1)
@@ -1195,7 +1201,7 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 		assetid, 30, test.AccountB, test.AccountA, test.AccountC)
 
 	block, err := test.MakeBlockForTxns(
-		test.MakeGenesisBlock().BlockHeader, &createAsset, &optinB, &transferAB,
+		block.BlockHeader, &createAsset, &optinB, &transferAB,
 		&optinC, &closeB)
 	require.NoError(t, err)
 
