@@ -7,7 +7,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -21,8 +20,6 @@ import (
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 
-	"github.com/jackc/pgconn"
-	"github.com/jackc/pgerrcode"
 	// Load the postgres sql.DB implementation.
 	_ "github.com/jackc/pgx/v4/stdlib"
 	log "github.com/sirupsen/logrus"
@@ -33,6 +30,7 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	ledger_for_evaluator "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
+	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util"
 )
@@ -41,10 +39,6 @@ type importState struct {
 	// Next round to account.
 	NextRoundToAccount *uint64 `codec:"next_account_round"`
 }
-
-const stateMetastateKey = "state"
-const migrationMetastateKey = "migration"
-const specialAccountsMetastateKey = "accounts"
 
 var serializable = sql.TxOptions{Isolation: sql.LevelSerializable} // be a real ACID database
 var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}
@@ -114,34 +108,14 @@ type IndexerDb struct {
 	accountingLock sync.Mutex
 }
 
-// A helper function that retries the function `f` in case the database transaction in it
-// fails due to a serialization error. `f` is provided context `ctx` and a transaction created
-// using this context and `opts`. `f` takes ownership of the transaction and must either call
-// sql.Tx.Rollback() or sql.Tx.Commit(). In the second case, `f` must return an error which
-// contains the error returned by sql.Tx.Commit(). The easiest way is to just return the result
-// of sql.Tx.Commit().
+// txWithRetry is a helper function that retries the function `f` in case the database
+// transaction in it fails due to a serialization error. `f` is provided context `ctx`
+// and a transaction created using this context and `opts`. `f` takes ownership of the
+// transaction and must either call sql.Tx.Rollback() or sql.Tx.Commit(). In the second
+// case, `f` must return an error which contains the error returned by sql.Tx.Commit().
+// The easiest way is to just return the result of sql.Tx.Commit().
 func (db *IndexerDb) txWithRetry(ctx context.Context, opts sql.TxOptions, f func(context.Context, *sql.Tx) error) error {
-	count := 0
-	for {
-		tx, err := db.db.BeginTx(ctx, &opts)
-		if err != nil {
-			return err
-		}
-
-		err = f(ctx, tx)
-
-		// If not serialization error.
-		var pgerr *pgconn.PgError
-		if !errors.As(err, &pgerr) || (pgerr.Code != pgerrcode.SerializationFailure) {
-			if count > 0 {
-				db.log.Printf("transaction was retried %d times", count)
-			}
-			return err
-		}
-
-		count++
-		db.log.Printf("retrying transaction, count: %d", count)
-	}
+	return pgutil.TxWithRetry(ctx, db.db, opts, f, db.log)
 }
 
 func (db *IndexerDb) isSetup() (bool, error) {
@@ -315,25 +289,7 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) (err error) {
 // Returns `idb.ErrorNotInitialized` if uninitialized.
 // If `tx` is nil, use a normal query.
 func (db *IndexerDb) getMetastate(tx *sql.Tx, key string) (string, error) {
-	query := `SELECT v FROM metastate WHERE k = $1`
-
-	var row *sql.Row
-	if tx == nil {
-		row = db.db.QueryRow(query, key)
-	} else {
-		row = tx.QueryRow(query, key)
-	}
-
-	var value string
-	err := row.Scan(&value)
-	if err == sql.ErrNoRows {
-		return "", idb.ErrorNotInitialized
-	}
-	if err != nil {
-		return "", fmt.Errorf("getMetastate() err: %w", err)
-	}
-
-	return value, nil
+	return pgutil.GetMetastate(db.db, tx, key)
 }
 
 const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
@@ -351,7 +307,7 @@ func (db *IndexerDb) setMetastate(tx *sql.Tx, key, jsonStrValue string) (err err
 // Returns idb.ErrorNotInitialized if uninitialized.
 // If `tx` is nil, use a normal query.
 func (db *IndexerDb) getImportState(tx *sql.Tx) (importState, error) {
-	importStateJSON, err := db.getMetastate(tx, stateMetastateKey)
+	importStateJSON, err := db.getMetastate(tx, schema.StateMetastateKey)
 	if err == idb.ErrorNotInitialized {
 		return importState{}, idb.ErrorNotInitialized
 	}
@@ -375,7 +331,8 @@ func (db *IndexerDb) getImportState(tx *sql.Tx) (importState, error) {
 
 // If `tx` is nil, use a normal query.
 func (db *IndexerDb) setImportState(tx *sql.Tx, state importState) error {
-	return db.setMetastate(tx, stateMetastateKey, string(encoding.EncodeJSON(state)))
+	return db.setMetastate(
+		tx, schema.StateMetastateKey, string(encoding.EncodeJSON(state)))
 }
 
 // Returns ErrorNotInitialized if genesis is not loaded.
@@ -2067,7 +2024,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 
 // GetSpecialAccounts is part of idb.IndexerDB
 func (db *IndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error) {
-	cache, err := db.getMetastate(nil, specialAccountsMetastateKey)
+	cache, err := db.getMetastate(nil, schema.SpecialAccountsMetastateKey)
 	if err != nil {
 		return transactions.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
 	}

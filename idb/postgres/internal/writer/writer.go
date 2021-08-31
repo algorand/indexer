@@ -14,13 +14,15 @@ import (
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
+	"github.com/algorand/indexer/idb/postgres/internal/schema"
 )
 
 const addBlockHeaderQuery = `INSERT INTO block_header
 	(round, realtime, rewardslevel, header)
 	VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`
-const setSpecialAccountsQuery = `INSERT INTO metastate (k, v)
-	VALUES ('accounts', $1) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
+const setSpecialAccountsQuery = `INSERT INTO metastate (k, v) VALUES ('` +
+	schema.SpecialAccountsMetastateKey +
+	`', $1) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
 const addTxnQuery = `INSERT INTO txn
 	(round, intra, typeenum, asset, txid, txnbytes, txn, extra)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING`
