@@ -20,21 +20,8 @@ func IndexerDb() idb.IndexerDb {
 	return &dummyIndexerDb{}
 }
 
-// StartBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) StartBlock() (err error) {
-	db.log.Printf("StartBlock")
-	return nil
-}
-
-// AddTransaction is part of idb.IndexerDB
-func (db *dummyIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn transactions.SignedTxnWithAD, participation [][]byte) error {
-	db.log.Printf("\ttxn %d %d %d %d", round, intra, txtypeenum, assetid)
-	return nil
-}
-
-// CommitBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	db.log.Printf("CommitBlock %d %d %d header bytes", round, timestamp, len(headerbytes))
+func (db *dummyIndexerDb) AddBlock(block *bookkeeping.Block) error {
+	db.log.Printf("AddBlock")
 	return nil
 }
 
@@ -56,21 +43,6 @@ func (db *dummyIndexerDb) GetNextRoundToLoad() (uint64, error) {
 // GetSpecialAccounts is part of idb.IndexerDb
 func (db *dummyIndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error) {
 	return transactions.SpecialAddresses{}, nil
-}
-
-// GetDefaultFrozen is part of idb.IndexerDb
-func (db *dummyIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
-	return make(map[uint64]bool), nil
-}
-
-// YieldTxns is part of idb.IndexerDB
-func (db *dummyIndexerDb) YieldTxns(ctx context.Context, firstRound uint64) <-chan idb.TxnRow {
-	return nil
-}
-
-// CommitRoundAccounting is part of idb.IndexerDB
-func (db *dummyIndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockHeader *bookkeeping.BlockHeader) (err error) {
-	return nil
 }
 
 // GetBlock is part of idb.IndexerDB

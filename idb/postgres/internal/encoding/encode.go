@@ -158,16 +158,32 @@ func EncodeSignedTxnWithAD(stxn transactions.SignedTxnWithAD) []byte {
 	return EncodeJSON(convertSignedTxnWithAD(stxn))
 }
 
-func convertAccountData(ad basics.AccountData) accountData {
-	return accountData{
+// TrimAccountData deletes various information from account data that we do not write to
+// `account.account_data`.
+func TrimAccountData(ad basics.AccountData) basics.AccountData {
+	ad.MicroAlgos = basics.MicroAlgos{}
+	ad.RewardsBase = 0
+	ad.RewardedMicroAlgos = basics.MicroAlgos{}
+	ad.AssetParams = nil
+	ad.Assets = nil
+	ad.AppLocalStates = nil
+	ad.AppParams = nil
+	ad.TotalAppSchema = basics.StateSchema{}
+	ad.TotalExtraAppPages = 0
+
+	return ad
+}
+
+func convertTrimmedAccountData(ad basics.AccountData) trimmedAccountData {
+	return trimmedAccountData{
 		AccountData:      ad,
 		AuthAddrOverride: crypto.Digest(ad.AuthAddr),
 	}
 }
 
-// EncodeAccountData encodes account data into json.
-func EncodeAccountData(ad basics.AccountData) []byte {
-	return EncodeJSON(convertAccountData(ad))
+// EncodeTrimmedAccountData encodes account data into json.
+func EncodeTrimmedAccountData(ad basics.AccountData) []byte {
+	return EncodeJSON(convertTrimmedAccountData(ad))
 }
 
 func convertTealValue(tv basics.TealValue) tealValue {

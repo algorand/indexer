@@ -148,21 +148,21 @@ func DecodeSignedTxnWithAD(data []byte) (transactions.SignedTxnWithAD, error) {
 	return unconvertSignedTxnWithAD(stxn), nil
 }
 
-func unconvertAccountData(ad accountData) basics.AccountData {
+func unconvertTrimmedAccountData(ad trimmedAccountData) basics.AccountData {
 	res := ad.AccountData
 	res.AuthAddr = basics.Address(ad.AuthAddrOverride)
 	return res
 }
 
-// DecodeAccountData decodes account data from json.
-func DecodeAccountData(data []byte) (basics.AccountData, error) {
-	var ado accountData // ado - account data with override
+// DecodeTrimmedAccountData decodes account data from json.
+func DecodeTrimmedAccountData(data []byte) (basics.AccountData, error) {
+	var ado trimmedAccountData // ado - account data with override
 	err := DecodeJSON(data, &ado)
 	if err != nil {
 		return basics.AccountData{}, err
 	}
 
-	return unconvertAccountData(ado), nil
+	return unconvertTrimmedAccountData(ado), nil
 }
 
 func unconvertTealValue(tv tealValue) basics.TealValue {

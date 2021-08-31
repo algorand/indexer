@@ -79,18 +79,11 @@ var daemonCmd = &cobra.Command{
 
 				logger.Info("Initializing block import handler.")
 
-				nextRound, err := db.GetNextRoundToLoad()
+				nextRound, err := db.GetNextRoundToAccount()
 				maybeFail(err, "failed to get next round, %v", err)
 				bot.SetNextRound(nextRound)
 
-				cache, err := db.GetDefaultFrozen()
-				maybeFail(err, "failed to get default frozen cache")
-
-				bih := blockImporterHandler{
-					imp:   importer.NewDBImporter(db),
-					db:    db,
-					cache: cache,
-				}
+				bih := blockImporterHandler{imp: importer.NewImporter(db)}
 				bot.AddBlockHandler(&bih)
 				bot.SetContext(ctx)
 
@@ -149,31 +142,20 @@ func makeOptions() (options api.ExtraOptions) {
 }
 
 type blockImporterHandler struct {
-	imp   importer.Importer
-	db    idb.IndexerDb
-	cache map[uint64]bool
+	imp importer.Importer
 }
 
 func (bih *blockImporterHandler) HandleBlock(block *rpcs.EncodedBlockCert) {
 	start := time.Now()
-	_, err := bih.imp.ImportDecodedBlock(block)
-	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round())
-	metrics.BlockUploadTimeSeconds.Observe(time.Since(start).Seconds())
-	startRound, err := bih.db.GetNextRoundToAccount()
-	maybeFail(err, "failed to get next round to account")
-	// During normal operation StartRound and MaxRound will be the same round.
-	filter := idb.UpdateFilter{
-		StartRound: startRound,
-		MaxRound:   uint64(block.Block.Round()),
-	}
-	rounds, txns := importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
+	err := bih.imp.ImportBlock(block)
+	maybeFail(err, "adding block %d to database failed", block.Block.Round())
 	dt := time.Since(start)
 
-	// Ignore calls that update >1 round (sneaky migration) and round 0 (which is empty)
-	if rounds <= 1 && startRound != 0 {
+	// Ignore round 0 (which is empty).
+	if block.Block.Round() > 0 {
 		metrics.BlockImportTimeSeconds.Observe(dt.Seconds())
-		metrics.ImportedTxnsPerBlock.Observe(float64(txns))
-		metrics.ImportedRoundGauge.Set(float64(startRound))
+		metrics.ImportedTxnsPerBlock.Observe(float64(len(block.Block.Payset)))
+		metrics.ImportedRoundGauge.Set(float64(block.Block.Round()))
 	}
 
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())

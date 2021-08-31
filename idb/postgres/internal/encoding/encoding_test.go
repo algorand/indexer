@@ -341,12 +341,12 @@ func TestAccountDataEncoding(t *testing.T) {
 		AuthAddr:   addr,
 	}
 
-	buf := EncodeAccountData(ad)
+	buf := EncodeTrimmedAccountData(ad)
 
 	expectedString := `{"algo":22,"spend":"AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
 	assert.Equal(t, expectedString, string(buf))
 
-	adNew, err := DecodeAccountData(buf)
+	adNew, err := DecodeTrimmedAccountData(buf)
 	require.NoError(t, err)
 	assert.Equal(t, ad, adNew)
 }
