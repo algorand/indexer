@@ -4,9 +4,6 @@
 
 package postgres
 
-// import text to constants setup_postgres_sql reset_sql
-//go:generate go run ../../cmd/texttosource/main.go postgres setup_postgres.sql reset.sql
-
 import (
 	"context"
 	"database/sql"
@@ -33,6 +30,7 @@ import (
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	ledger_for_evaluator "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
+	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util"
 )
@@ -169,7 +167,7 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 
 	if !setup {
 		// new database, run setup
-		_, err = db.db.Exec(setup_postgres_sql)
+		_, err = db.db.Exec(schema.SetupPostgresSql)
 		if err != nil {
 			return nil, fmt.Errorf("unable to setup postgres: %v", err)
 		}

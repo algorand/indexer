@@ -1,8 +1,8 @@
 // Code generated from source setup_postgres.sql via go generate. DO NOT EDIT.
 
-package postgres
+package schema
 
-const setup_postgres_sql = `-- This file is setup_postgres.sql which gets compiled into go source using a go:generate statement in postgres.go
+const SetupPostgresSql = `-- This file is setup_postgres.sql which gets compiled into go source using a go:generate statement in postgres.go
 --
 -- TODO? replace all 'addr bytea' with 'addr_id bigint' and a mapping table? makes addrs an 8 byte int that fits in a register instead of a 32 byte string
 
