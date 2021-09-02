@@ -295,11 +295,23 @@ func (g *generator) generateTransaction(round uint64, intra uint64) (transaction
 	}
 }
 
+func (g *generator) txnForRound(round uint64) uint64 {
+	// There are no transactions in the 0th round
+	if round == 0 {
+		return 0
+	} else {
+		return g.config.TxnPerBlock
+	}
+}
+
 // WriteBlock generates a block full of new transactions and writes it to the writer.
 func (g *generator) WriteBlock(output io.Writer, round uint64) {
 	if round != g.round {
 		fmt.Printf("Generator only supports sequential block access. Expected %d but received request for %d.", g.round, round)
 	}
+
+	numTxnForBlock := g.txnForRound(round)
+	g.txnCounter += numTxnForBlock
 
 	header := bookkeeping.BlockHeader{
 		Round:       basics.Round(g.round),
@@ -321,29 +333,28 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 			CurrentProtocol: g.protocol,
 		},
 		UpgradeVote: bookkeeping.UpgradeVote{},
+		TxnCounter: g.txnCounter,
 		CompactCert: nil,
 	}
 
 	// Generate the transactions
-	transactions := make([]transactions.SignedTxnInBlock, 0, g.config.TxnPerBlock)
+	transactions := make([]transactions.SignedTxnInBlock, 0, numTxnForBlock)
 
-	// Do not put transactions in round 0
-	if round != 0 {
-		for i := uint64(0); i < g.config.TxnPerBlock; i++ {
-			txn, ad, err := g.generateTransaction(g.round, i)
-			if err != nil {
-				panic(fmt.Sprintf("failed to generate transaction: %v\n", err))
-			}
-			stib, err := header.EncodeSignedTxn(txn, ad)
-			if err != nil {
-				panic(fmt.Sprintf("failed to encode transaction: %v\n", err))
-			}
-			transactions = append(transactions, stib)
+	for i := uint64(0); i < numTxnForBlock; i++ {
+		txn, ad, err := g.generateTransaction(g.round, i)
+		if err != nil {
+			panic(fmt.Sprintf("failed to generate transaction: %v\n", err))
 		}
+		stib, err := header.EncodeSignedTxn(txn, ad)
+		if err != nil {
+			panic(fmt.Sprintf("failed to encode transaction: %v\n", err))
+		}
+		transactions = append(transactions, stib)
 	}
 
-	g.txnCounter += uint64(len(transactions))
-	header.TxnCounter = g.txnCounter
+	if numTxnForBlock != uint64(len(transactions)) {
+		panic("Unexpected number of transactions.")
+	}
 
 	cert := rpcs.EncodedBlockCert{
 		Block: bookkeeping.Block{
@@ -473,7 +484,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 		senderAcct := indexToAccount(senderIndex)
 
 		total := assetTotal
-		assetID := g.txnCounter + intra + 1
+		assetID := g.txnCounter - g.txnForRound(round) + intra + 1
 		assetName := fmt.Sprintf("asset #%d", assetID)
 		txn = g.makeAssetCreateTxn(g.makeTxnHeader(senderAcct, round), total, false, assetName)
 
