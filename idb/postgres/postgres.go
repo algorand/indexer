@@ -21,8 +21,10 @@ import (
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 
-	// Load the postgres sql.DB implementation
-	"github.com/lib/pq"
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgerrcode"
+	// Load the postgres sql.DB implementation.
+	_ "github.com/jackc/pgx/v4/stdlib"
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -51,7 +53,7 @@ var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelRepeatableRead, R
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
 func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (*IndexerDb, chan struct{}, error) {
-	db, err := sql.Open("postgres", connection)
+	db, err := sql.Open("pgx", connection)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("connecting to postgres: %v", err)
@@ -129,8 +131,8 @@ func (db *IndexerDb) txWithRetry(ctx context.Context, opts sql.TxOptions, f func
 		err = f(ctx, tx)
 
 		// If not serialization error.
-		var pqerr *pq.Error
-		if !errors.As(err, &pqerr) || (pqerr.Code != "40001") {
+		var pgerr *pgconn.PgError
+		if !errors.As(err, &pgerr) || (pgerr.Code != pgerrcode.SerializationFailure) {
 			if count > 0 {
 				db.log.Printf("transaction was retried %d times", count)
 			}
