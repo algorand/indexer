@@ -37,6 +37,7 @@ func (g *generator) makeAssetCreateTxn(header transactions.Header, total uint64,
 			AssetParams: basics.AssetParams{
 				Total:         total,
 				DefaultFrozen: defaultFrozen,
+				AssetName:     assetName,
 			},
 		},
 	}

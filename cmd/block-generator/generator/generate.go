@@ -193,6 +193,9 @@ type generator struct {
 	// assets is a minimal representation of the asset holdings, it doesn't
 	// include the frozen state.
 	assets []*assetData
+	// pendingAssets is used to hold newly created assets so that they are not used before
+	// being created.
+	pendingAssets []*assetData
 
 	transactionWeights []float32
 	payTxWeights       []float32
@@ -318,7 +321,6 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 			CurrentProtocol: g.protocol,
 		},
 		UpgradeVote: bookkeeping.UpgradeVote{},
-		TxnCounter:  g.txnCounter,
 		CompactCert: nil,
 	}
 
@@ -340,22 +342,28 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 		}
 	}
 
-	g.txnCounter += g.config.TxnPerBlock
-
-	block := bookkeeping.Block{
-		BlockHeader: header,
-		Payset:      transactions,
-	}
+	g.txnCounter += uint64(len(transactions))
+	header.TxnCounter = g.txnCounter
 
 	cert := rpcs.EncodedBlockCert{
-		Block:       block,
+		Block: bookkeeping.Block{
+			BlockHeader: header,
+			Payset:      transactions,
+		},
 		Certificate: agreement.Certificate{},
 	}
 
 	g.timestamp += consensusTimeMilli
 	g.round++
 
-	output.Write(protocol.Encode(&cert))
+	_, err := output.Write(protocol.Encode(&cert))
+	if err != nil {
+		panic(fmt.Sprintf("Failed to write certified block."))
+	}
+
+	// Apply pending assets...
+	g.assets = append(g.assets, g.pendingAssets...)
+	g.pendingAssets = nil
 }
 
 func indexToAccount(i uint64) (addr basics.Address) {
@@ -460,7 +468,8 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 	var senderIndex uint64
 
 	if actual == assetCreate {
-		senderIndex = g.numPayments % g.config.NumGenesisAccounts
+		numAssets = uint64(len(g.assets)) + uint64(len(g.pendingAssets))
+		senderIndex = numAssets % g.config.NumGenesisAccounts
 		senderAcct := indexToAccount(senderIndex)
 
 		total := assetTotal
@@ -476,7 +485,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 			holders:  map[uint64]bool{senderIndex: true},
 		}
 
-		g.assets = append(g.assets, &a)
+		g.pendingAssets = append(g.pendingAssets, &a)
 	} else {
 		assetIndex := rand.Uint64() % numAssets
 		asset := g.assets[assetIndex]
