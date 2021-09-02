@@ -69,6 +69,9 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 	generated.RegisterHandlers(e, &api, middleware...)
 	common.RegisterHandlers(e, &api)
 
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	getctx := func(l net.Listener) context.Context {
 		return ctx
 	}
