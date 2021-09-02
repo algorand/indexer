@@ -299,9 +299,8 @@ func (g *generator) txnForRound(round uint64) uint64 {
 	// There are no transactions in the 0th round
 	if round == 0 {
 		return 0
-	} else {
-		return g.config.TxnPerBlock
 	}
+	return g.config.TxnPerBlock
 }
 
 // WriteBlock generates a block full of new transactions and writes it to the writer.
@@ -333,7 +332,7 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 			CurrentProtocol: g.protocol,
 		},
 		UpgradeVote: bookkeeping.UpgradeVote{},
-		TxnCounter: g.txnCounter,
+		TxnCounter:  g.txnCounter,
 		CompactCert: nil,
 	}
 
