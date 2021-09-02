@@ -31,6 +31,7 @@ type Args struct {
 	IndexerBinary            string
 	IndexerPort              uint64
 	PostgresConnectionString string
+	CPUProfilePath           string
 	RunDuration              time.Duration
 	LogLevel                 string
 	ReportDirectory          string
@@ -68,7 +69,7 @@ func (r *Args) run() error {
 	indexerNet := fmt.Sprintf("localhost:%d", r.IndexerPort)
 	generatorShutdownFunc := startGenerator(r.Path, algodNet)
 
-	indexerShutdownFunc, err := startIndexer(logfile, r.LogLevel, r.IndexerBinary, algodNet, indexerNet, r.PostgresConnectionString)
+	indexerShutdownFunc, err := startIndexer(logfile, r.LogLevel, r.IndexerBinary, algodNet, indexerNet, r.PostgresConnectionString, r.CPUProfilePath)
 	if err != nil {
 		return fmt.Errorf("failed to start indexer: %w", err)
 	}
@@ -313,7 +314,7 @@ func startGenerator(configFile string, addr string) func() error {
 
 // startIndexer resets the postgres database and executes the indexer binary. It performs some simple verification to
 // ensure that the service has started properly.
-func startIndexer(logfile string, loglevel string, indexerBinary string, algodNet string, indexerNet string, postgresConnectionString string) (func() error, error) {
+func startIndexer(logfile string, loglevel string, indexerBinary string, algodNet string, indexerNet string, postgresConnectionString string, cpuprofile string) (func() error, error) {
 	{
 		db, err := sql.Open("postgres", postgresConnectionString)
 		if err != nil {
@@ -336,7 +337,8 @@ func startIndexer(logfile string, loglevel string, indexerBinary string, algodNe
 		"--postgres", postgresConnectionString,
 		"--server", indexerNet,
 		"--logfile", logfile,
-		"--loglevel", loglevel)
+		"--loglevel", loglevel,
+		"--cpuprofile", cpuprofile)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
