@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	// Load the postgres sql.DB implementation
@@ -358,7 +359,7 @@ func startIndexer(logfile string, loglevel string, indexerBinary string, algodNe
 	resp.Body.Close()
 
 	return func() error {
-		if err := cmd.Process.Kill(); err != nil {
+		if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
 			return fmt.Errorf("failed to kill indexer process: %w", err)
 		}
 

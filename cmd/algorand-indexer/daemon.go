@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/algorand/go-algorand/rpcs"
@@ -51,6 +53,16 @@ var daemonCmd = &cobra.Command{
 
 		ctx, cf := context.WithCancel(context.Background())
 		defer cf()
+		{
+			cancelCh := make(chan os.Signal, 1)
+			signal.Notify(cancelCh, syscall.SIGTERM, syscall.SIGINT)
+			go func() {
+				<-cancelCh
+				logger.Println("Stopping Indexer.")
+				cf()
+			}()
+		}
+
 		var bot fetcher.Fetcher
 		if noAlgod {
 			logger.Info("algod block following disabled")
@@ -95,7 +107,6 @@ var daemonCmd = &cobra.Command{
 			logger.Info("No block importer configured.")
 		}
 
-		// TODO: trap SIGTERM and call cf() to exit gracefully
 		fmt.Printf("serving on %s\n", daemonServerAddr)
 		logger.Infof("serving on %s", daemonServerAddr)
 		api.Serve(ctx, daemonServerAddr, db, bot, logger, makeOptions())

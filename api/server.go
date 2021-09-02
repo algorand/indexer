@@ -69,9 +69,6 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 	generated.RegisterHandlers(e, &api, middleware...)
 	common.RegisterHandlers(e, &api)
 
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	getctx := func(l net.Listener) context.Context {
 		return ctx
 	}
@@ -83,5 +80,15 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 		BaseContext:    getctx,
 	}
 
-	log.Fatal(e.StartServer(s))
+	go func() {
+		log.Fatal(e.StartServer(s))
+	}()
+
+	<-ctx.Done()
+	// Allow one second for graceful shutdown.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := e.Shutdown(ctx); err != nil {
+		log.Fatal(err)
+	}
 }
