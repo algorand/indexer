@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	// Load the postgres sql.DB implementation
-	_ "github.com/lib/pq"
+	// Load the postgres sql.DB implementation.
+	_ "github.com/jackc/pgx/v4/stdlib"
 
 	"github.com/algorand/indexer/cmd/block-generator/generator"
 	"github.com/algorand/indexer/util"
@@ -314,7 +314,7 @@ func startGenerator(configFile string, addr string) func() error {
 // ensure that the service has started properly.
 func startIndexer(logfile string, loglevel string, indexerBinary string, algodNet string, indexerNet string, postgresConnectionString string) (func() error, error) {
 	{
-		db, err := sql.Open("postgres", postgresConnectionString)
+		db, err := sql.Open("pgx", postgresConnectionString)
 		if err != nil {
 			return nil, fmt.Errorf("postgres connection string did not work: %w", err)
 		}
