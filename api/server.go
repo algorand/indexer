@@ -83,5 +83,15 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 		BaseContext:    getctx,
 	}
 
-	log.Fatal(e.StartServer(s))
+	go func() {
+		log.Fatal(e.StartServer(s))
+	}()
+
+	<-ctx.Done()
+	// Allow one second for graceful shutdown.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := e.Shutdown(ctx); err != nil {
+		log.Fatal(err)
+	}
 }
