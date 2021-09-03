@@ -13,6 +13,7 @@ import (
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/jackc/pgx/v4"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 )
@@ -54,14 +55,18 @@ type LedgerForEvaluator struct {
 	// a fake amount.
 	// TODO: remove.
 	specialAddresses transactions.SpecialAddresses
+	log              *log.Logger
+	// Value is nil if account was looked up but not found.
+	preloadedAccountData map[basics.Address]*basics.AccountData
 }
 
 // MakeLedgerForEvaluator creates a LedgerForEvaluator object.
-func MakeLedgerForEvaluator(tx pgx.Tx, genesisHash crypto.Digest, specialAddresses transactions.SpecialAddresses) (LedgerForEvaluator, error) {
+func MakeLedgerForEvaluator(tx pgx.Tx, genesisHash crypto.Digest, specialAddresses transactions.SpecialAddresses, log *log.Logger) (LedgerForEvaluator, error) {
 	l := LedgerForEvaluator{
 		tx:               tx,
 		genesisHash:      genesisHash,
 		specialAddresses: specialAddresses,
+		log:              log,
 	}
 
 	for name, query := range statements {
@@ -106,9 +111,12 @@ func (l LedgerForEvaluator) CheckDup(config.ConsensusParams, basics.Round, basic
 	return errors.New("CheckDup() not implemented")
 }
 
-func (l *LedgerForEvaluator) readAccountTable(address basics.Address) (basics.AccountData, bool /*exists*/, error) {
-	row := l.tx.QueryRow(context.Background(), accountStmtName, address[:])
+func (l *LedgerForEvaluator) isSpecialAddress(address basics.Address) bool {
+	return (address == l.specialAddresses.FeeSink) ||
+		(address == l.specialAddresses.RewardsPool)
+}
 
+func (l *LedgerForEvaluator) parseAccountTable(address basics.Address, row pgx.Row) (basics.AccountData, bool /*exists*/, error) {
 	var microalgos uint64
 	var rewardsbase uint64
 	var rewardsTotal uint64
@@ -138,12 +146,7 @@ func (l *LedgerForEvaluator) readAccountTable(address basics.Address) (basics.Ac
 	return res, true, nil
 }
 
-func (l *LedgerForEvaluator) readAccountAssetTable(address basics.Address) (map[basics.AssetIndex]basics.AssetHolding, error) {
-	rows, err := l.tx.Query(context.Background(), assetHoldingsStmtName, address[:])
-	if err != nil {
-		return nil, fmt.Errorf("readAccountAssetTable() query err: %w", err)
-	}
-
+func (l *LedgerForEvaluator) parseAccountAssetTable(address basics.Address, rows pgx.Rows) (map[basics.AssetIndex]basics.AssetHolding, error) {
 	res := make(map[basics.AssetIndex]basics.AssetHolding)
 
 	var assetid uint64
@@ -151,7 +154,7 @@ func (l *LedgerForEvaluator) readAccountAssetTable(address basics.Address) (map[
 	var frozen bool
 
 	for rows.Next() {
-		err = rows.Scan(&assetid, &amount, &frozen)
+		err := rows.Scan(&assetid, &amount, &frozen)
 		if err != nil {
 			return nil, fmt.Errorf("readAccountAssetTable() scan row err: %w", err)
 		}
@@ -162,7 +165,7 @@ func (l *LedgerForEvaluator) readAccountAssetTable(address basics.Address) (map[
 		}
 	}
 
-	err = rows.Err()
+	err := rows.Err()
 	if err != nil {
 		return nil, fmt.Errorf("readAccountAssetTable() scan end err: %w", err)
 	}
@@ -170,19 +173,14 @@ func (l *LedgerForEvaluator) readAccountAssetTable(address basics.Address) (map[
 	return res, nil
 }
 
-func (l *LedgerForEvaluator) readAssetTable(address basics.Address) (map[basics.AssetIndex]basics.AssetParams, error) {
-	rows, err := l.tx.Query(context.Background(), assetParamsStmtName, address[:])
-	if err != nil {
-		return nil, fmt.Errorf("readAssetTable() query err: %w", err)
-	}
-
+func (l *LedgerForEvaluator) parseAssetTable(address basics.Address, rows pgx.Rows) (map[basics.AssetIndex]basics.AssetParams, error) {
 	res := make(map[basics.AssetIndex]basics.AssetParams)
 
 	var index uint64
 	var params []byte
 
 	for rows.Next() {
-		err = rows.Scan(&index, &params)
+		err := rows.Scan(&index, &params)
 		if err != nil {
 			return nil, fmt.Errorf("readAssetTable() scan row err: %w", err)
 		}
@@ -193,7 +191,7 @@ func (l *LedgerForEvaluator) readAssetTable(address basics.Address) (map[basics.
 		}
 	}
 
-	err = rows.Err()
+	err := rows.Err()
 	if err != nil {
 		return nil, fmt.Errorf("readAssetTable() scan end err: %w", err)
 	}
@@ -201,19 +199,14 @@ func (l *LedgerForEvaluator) readAssetTable(address basics.Address) (map[basics.
 	return res, nil
 }
 
-func (l *LedgerForEvaluator) readAppTable(address basics.Address) (map[basics.AppIndex]basics.AppParams, error) {
-	rows, err := l.tx.Query(context.Background(), appParamsStmtName, address[:])
-	if err != nil {
-		return nil, fmt.Errorf("readAppTable() query err: %w", err)
-	}
-
+func (l *LedgerForEvaluator) parseAppTable(address basics.Address, rows pgx.Rows) (map[basics.AppIndex]basics.AppParams, error) {
 	res := make(map[basics.AppIndex]basics.AppParams)
 
 	var index uint64
 	var params []byte
 
 	for rows.Next() {
-		err = rows.Scan(&index, &params)
+		err := rows.Scan(&index, &params)
 		if err != nil {
 			return nil, fmt.Errorf("readAppTable() scan row err: %w", err)
 		}
@@ -224,7 +217,7 @@ func (l *LedgerForEvaluator) readAppTable(address basics.Address) (map[basics.Ap
 		}
 	}
 
-	err = rows.Err()
+	err := rows.Err()
 	if err != nil {
 		return nil, fmt.Errorf("readAppTable() scan end err: %w", err)
 	}
@@ -232,19 +225,14 @@ func (l *LedgerForEvaluator) readAppTable(address basics.Address) (map[basics.Ap
 	return res, nil
 }
 
-func (l *LedgerForEvaluator) readAccountAppTable(address basics.Address) (map[basics.AppIndex]basics.AppLocalState, error) {
-	rows, err := l.tx.Query(context.Background(), appLocalStatesStmtName, address[:])
-	if err != nil {
-		return nil, fmt.Errorf("readAccountAppTable() query err: %w", err)
-	}
-
+func (l *LedgerForEvaluator) parseAccountAppTable(address basics.Address, rows pgx.Rows) (map[basics.AppIndex]basics.AppLocalState, error) {
 	res := make(map[basics.AppIndex]basics.AppLocalState)
 
 	var app uint64
 	var localstate []byte
 
 	for rows.Next() {
-		err = rows.Scan(&app, &localstate)
+		err := rows.Scan(&app, &localstate)
 		if err != nil {
 			return nil, fmt.Errorf("readAccountAppTable() scan row err: %w", err)
 		}
@@ -255,7 +243,7 @@ func (l *LedgerForEvaluator) readAccountAppTable(address basics.Address) (map[ba
 		}
 	}
 
-	err = rows.Err()
+	err := rows.Err()
 	if err != nil {
 		return nil, fmt.Errorf("readAccountAppTable() scan end err: %w", err)
 	}
@@ -263,12 +251,160 @@ func (l *LedgerForEvaluator) readAccountAppTable(address basics.Address) (map[ba
 	return res, nil
 }
 
+// Load rows from the account table for the given addresses. nil is stored for those
+// accounts that were not found. Uses batching.
+func (l *LedgerForEvaluator) loadAccountTable(addresses map[basics.Address]struct{}) (map[basics.Address]*basics.AccountData, error) {
+	addressesArr := make([]basics.Address, 0, len(addresses))
+	for address := range addresses {
+		if !l.isSpecialAddress(address) {
+			addressesArr = append(addressesArr, address)
+		}
+	}
+
+	var batch pgx.Batch
+	for i := range addressesArr {
+		batch.Queue(accountStmtName, addressesArr[i][:])
+	}
+
+	results := l.tx.SendBatch(context.Background(), &batch)
+	res := make(map[basics.Address]*basics.AccountData, len(addresses))
+	for _, address := range addressesArr {
+		row := results.QueryRow()
+
+		accountData := new(basics.AccountData)
+		var exists bool
+		var err error
+
+		*accountData, exists, err = l.parseAccountTable(address, row)
+		if err != nil {
+			return nil, fmt.Errorf("loadAccountTable() err: %w", err)
+		}
+
+		if exists {
+			res[address] = accountData
+		} else {
+			res[address] = nil
+		}
+	}
+
+	err := results.Close()
+	if err != nil {
+		return nil, fmt.Errorf("loadAccountTable() close results err: %w", err)
+	}
+
+	return res, nil
+}
+
+// Load all creatables for the non-nil account data from the provided map into that
+// account data. Uses batching.
+func (l *LedgerForEvaluator) loadCreatables(accountDataMap *map[basics.Address]*basics.AccountData) error {
+	var batch pgx.Batch
+
+	existingAddresses := make([]basics.Address, 0, len(*accountDataMap))
+	for address, accountData := range *accountDataMap {
+		if accountData != nil {
+			existingAddresses = append(existingAddresses, address)
+		}
+	}
+
+	for i := range existingAddresses {
+		batch.Queue(assetHoldingsStmtName, existingAddresses[i][:])
+	}
+	for i := range existingAddresses {
+		batch.Queue(assetParamsStmtName, existingAddresses[i][:])
+	}
+	for i := range existingAddresses {
+		batch.Queue(appParamsStmtName, existingAddresses[i][:])
+	}
+	for i := range existingAddresses {
+		batch.Queue(appLocalStatesStmtName, existingAddresses[i][:])
+	}
+
+	results := l.tx.SendBatch(context.Background(), &batch)
+
+	for _, address := range existingAddresses {
+		rows, err := results.Query()
+		if err != nil {
+			return fmt.Errorf("loadCreatables() query asset holdings err: %w", err)
+		}
+		(*accountDataMap)[address].Assets, err = l.parseAccountAssetTable(address, rows)
+		if err != nil {
+			return fmt.Errorf("loadCreatables() err: %w", err)
+		}
+	}
+	for _, address := range existingAddresses {
+		rows, err := results.Query()
+		if err != nil {
+			return fmt.Errorf("loadCreatables() query asset params err: %w", err)
+		}
+		(*accountDataMap)[address].AssetParams, err = l.parseAssetTable(address, rows)
+		if err != nil {
+			return fmt.Errorf("loadCreatables() err: %w", err)
+		}
+	}
+	for _, address := range existingAddresses {
+		rows, err := results.Query()
+		if err != nil {
+			return fmt.Errorf("loadCreatables() query app params err: %w", err)
+		}
+		(*accountDataMap)[address].AppParams, err = l.parseAppTable(address, rows)
+		if err != nil {
+			return fmt.Errorf("loadCreatables() err: %w", err)
+		}
+	}
+	for _, address := range existingAddresses {
+		rows, err := results.Query()
+		if err != nil {
+			return fmt.Errorf("loadCreatables() query app local states err: %w", err)
+		}
+		(*accountDataMap)[address].AppLocalStates, err =
+			l.parseAccountAppTable(address, rows)
+		if err != nil {
+			return fmt.Errorf("loadCreatables() err: %w", err)
+		}
+	}
+
+	err := results.Close()
+	if err != nil {
+		return fmt.Errorf("loadCreatables() close results err: %w", err)
+	}
+
+	return nil
+}
+
+// Return a map with all accounts for the given addresses, with nil for those accounts
+// that do not exist.
+func (l *LedgerForEvaluator) loadAccounts(addresses map[basics.Address]struct{}) (map[basics.Address]*basics.AccountData, error) {
+	res, err := l.loadAccountTable(addresses)
+	if err != nil {
+		return nil, fmt.Errorf("PreloadAccounts() err: %w", err)
+	}
+
+	err = l.loadCreatables(&res)
+	if err != nil {
+		return nil, fmt.Errorf("PreloadAccounts() err: %w", err)
+	}
+
+	return res, nil
+}
+
+// PreloadAccounts loads the account data for the given addresses and stores them
+// in the internal cache.
+func (l *LedgerForEvaluator) PreloadAccounts(addresses map[basics.Address]struct{}) error {
+	accountData, err := l.loadAccounts(addresses)
+	if err != nil {
+		return err
+	}
+
+	l.preloadedAccountData = accountData
+	return nil
+}
+
 // LookupWithoutRewards is part of go-algorand's ledgerForEvaluator interface.
 func (l LedgerForEvaluator) LookupWithoutRewards(round basics.Round, address basics.Address) (basics.AccountData, basics.Round, error) {
 	// The balance of a special address must pass the minimum balance check in
 	// go-algorand's evaluator, so return a sufficiently large balance.
-	if (address == l.specialAddresses.FeeSink) ||
-		(address == l.specialAddresses.RewardsPool) {
+	if l.isSpecialAddress(address) {
 		var balance uint64 = 1000 * 1000 * 1000 * 1000 * 1000
 		accountData := basics.AccountData{
 			MicroAlgos: basics.MicroAlgos{Raw: balance},
@@ -276,35 +412,24 @@ func (l LedgerForEvaluator) LookupWithoutRewards(round basics.Round, address bas
 		return accountData, round, nil
 	}
 
-	accountData, exists, err := l.readAccountTable(address)
+	if accountData, ok := l.preloadedAccountData[address]; ok {
+		if accountData == nil {
+			return basics.AccountData{}, round, nil
+		}
+		return *accountData, round, nil
+	}
+
+	// Account was not preloaded.
+	accountDataMap, err := l.loadAccounts(map[basics.Address]struct{}{address: {}})
 	if err != nil {
 		return basics.AccountData{}, basics.Round(0), err
 	}
-	if !exists {
+	accountData := accountDataMap[address]
+
+	if accountData == nil {
 		return basics.AccountData{}, round, nil
 	}
-
-	accountData.Assets, err = l.readAccountAssetTable(address)
-	if err != nil {
-		return basics.AccountData{}, basics.Round(0), err
-	}
-
-	accountData.AssetParams, err = l.readAssetTable(address)
-	if err != nil {
-		return basics.AccountData{}, basics.Round(0), err
-	}
-
-	accountData.AppParams, err = l.readAppTable(address)
-	if err != nil {
-		return basics.AccountData{}, basics.Round(0), err
-	}
-
-	accountData.AppLocalStates, err = l.readAccountAppTable(address)
-	if err != nil {
-		return basics.AccountData{}, basics.Round(0), err
-	}
-
-	return accountData, round, nil
+	return *accountData, round, nil
 }
 
 // GetCreatorForRound is part of go-algorand's ledgerForEvaluator interface.

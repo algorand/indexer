@@ -51,7 +51,7 @@ func TestLedgerForEvaluatorBlockHdr(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, header.GenesisHash, transactions.SpecialAddresses{})
+		tx, header.GenesisHash, transactions.SpecialAddresses{}, nil)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -105,7 +105,7 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, crypto.Digest{}, transactions.SpecialAddresses{}, nil)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -138,7 +138,7 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, crypto.Digest{}, transactions.SpecialAddresses{}, nil)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -194,7 +194,7 @@ func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, crypto.Digest{}, transactions.SpecialAddresses{}, nil)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -232,7 +232,7 @@ func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, crypto.Digest{}, transactions.SpecialAddresses{}, nil)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -295,7 +295,7 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, crypto.Digest{}, transactions.SpecialAddresses{}, nil)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -364,7 +364,7 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, crypto.Digest{}, transactions.SpecialAddresses{}, nil)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -431,7 +431,7 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, crypto.Digest{}, transactions.SpecialAddresses{}, nil)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -465,7 +465,7 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, crypto.Digest{}, transactions.SpecialAddresses{}, nil)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -492,7 +492,7 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, crypto.Digest{}, transactions.SpecialAddresses{}, nil)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -518,7 +518,7 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, crypto.Digest{}, transactions.SpecialAddresses{}, nil)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -545,7 +545,7 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, crypto.Digest{}, transactions.SpecialAddresses{}, nil)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -569,7 +569,7 @@ func TestLedgerForEvaluatorSpecialAddresses(t *testing.T) {
 		RewardsPool: test.RewardAddr,
 	}
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, test.GenesisHash, specialAddresses)
+		tx, test.GenesisHash, specialAddresses, nil)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -595,7 +595,7 @@ func TestLedgerForEvaluatorGenesisHash(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, test.GenesisHash, transactions.SpecialAddresses{})
+		tx, test.GenesisHash, transactions.SpecialAddresses{}, nil)
 	require.NoError(t, err)
 	defer l.Close()
 
