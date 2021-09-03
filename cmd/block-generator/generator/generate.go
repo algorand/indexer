@@ -384,7 +384,8 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 }
 
 func indexToAccount(i uint64) (addr basics.Address) {
-	binary.LittleEndian.PutUint64(addr[:], i)
+	// Make sure we don't generate a zero address by adding 1 to i
+	binary.LittleEndian.PutUint64(addr[:], i + 1)
 	return
 }
 
