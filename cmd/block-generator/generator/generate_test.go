@@ -53,7 +53,6 @@ func TestAssetXferOneHolderOverride(t *testing.T) {
 	g.generateAssetTxnInternal(assetCreate, 1, 0)
 	g.finishRound(1)
 
-
 	// Transfer converted to optin if there is only 1 holder.
 	actual, txn := g.generateAssetTxnInternal(assetXfer, 2, 0)
 	require.Equal(t, assetOptin, actual)

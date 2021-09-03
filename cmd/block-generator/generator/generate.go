@@ -304,7 +304,7 @@ func (g *generator) txnForRound(round uint64) uint64 {
 }
 
 // finishRound tells the generator it can apply any pending state.
-func (g * generator) finishRound(txnCount uint64) {
+func (g *generator) finishRound(txnCount uint64) {
 	g.txnCounter += txnCount
 
 	g.timestamp += consensusTimeMilli
@@ -350,7 +350,6 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 	// Generate the transactions
 	transactions := make([]transactions.SignedTxnInBlock, 0, numTxnForBlock)
 
-
 	for i := uint64(0); i < numTxnForBlock; i++ {
 		txn, ad, err := g.generateTransaction(g.round, i)
 		if err != nil {
@@ -385,7 +384,7 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 
 func indexToAccount(i uint64) (addr basics.Address) {
 	// Make sure we don't generate a zero address by adding 1 to i
-	binary.LittleEndian.PutUint64(addr[:], i + 1)
+	binary.LittleEndian.PutUint64(addr[:], i+1)
 	return
 }
 

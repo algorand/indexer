@@ -10,7 +10,7 @@ import (
 
 func (g *generator) makeTxnHeader(sender basics.Address, round, intra uint64) transactions.Header {
 	note := make([]byte, 8)
-	binary.LittleEndian.PutUint64(note, uint64(g.txnCounter + intra))
+	binary.LittleEndian.PutUint64(note, uint64(g.txnCounter+intra))
 
 	return transactions.Header{
 		Sender:      sender,
