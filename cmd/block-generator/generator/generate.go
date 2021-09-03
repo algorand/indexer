@@ -303,6 +303,18 @@ func (g *generator) txnForRound(round uint64) uint64 {
 	return g.config.TxnPerBlock
 }
 
+// finishRound tells the generator it can apply any pending state.
+func (g * generator) finishRound(txnCount uint64) {
+	g.txnCounter += txnCount
+
+	g.timestamp += consensusTimeMilli
+	g.round++
+
+	// Apply pending assets...
+	g.assets = append(g.assets, g.pendingAssets...)
+	g.pendingAssets = nil
+}
+
 // WriteBlock generates a block full of new transactions and writes it to the writer.
 func (g *generator) WriteBlock(output io.Writer, round uint64) {
 	if round != g.round {
@@ -310,7 +322,6 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 	}
 
 	numTxnForBlock := g.txnForRound(round)
-	g.txnCounter += numTxnForBlock
 
 	header := bookkeeping.BlockHeader{
 		Round:       basics.Round(g.round),
@@ -332,12 +343,13 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 			CurrentProtocol: g.protocol,
 		},
 		UpgradeVote: bookkeeping.UpgradeVote{},
-		TxnCounter:  g.txnCounter,
+		TxnCounter:  g.txnCounter + numTxnForBlock,
 		CompactCert: nil,
 	}
 
 	// Generate the transactions
 	transactions := make([]transactions.SignedTxnInBlock, 0, numTxnForBlock)
+
 
 	for i := uint64(0); i < numTxnForBlock; i++ {
 		txn, ad, err := g.generateTransaction(g.round, i)
@@ -363,17 +375,12 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 		Certificate: agreement.Certificate{},
 	}
 
-	g.timestamp += consensusTimeMilli
-	g.round++
-
 	_, err := output.Write(protocol.Encode(&cert))
 	if err != nil {
 		panic(fmt.Sprintf("Failed to write certified block."))
 	}
 
-	// Apply pending assets...
-	g.assets = append(g.assets, g.pendingAssets...)
-	g.pendingAssets = nil
+	g.finishRound(numTxnForBlock)
 }
 
 func indexToAccount(i uint64) (addr basics.Address) {
@@ -423,7 +430,7 @@ func (g *generator) generatePaymentTxn(round uint64, intra uint64) (transactions
 	return g.generatePaymentTxnInternal(selection.(TxTypeID), round, intra)
 }
 
-func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64, _ uint64 /*intra*/) (transactions.SignedTxn, transactions.ApplyData, error) {
+func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64, intra uint64) (transactions.SignedTxn, transactions.ApplyData, error) {
 	defer g.recordData(track(selection))
 
 	var receiveIndex uint64
@@ -455,7 +462,7 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 
 	g.numPayments++
 
-	txn := g.makePaymentTxn(g.makeTxnHeader(sender, round), receiver, amount, basics.Address{})
+	txn := g.makePaymentTxn(g.makeTxnHeader(sender, round, intra), receiver, amount, basics.Address{})
 	return signTxn(txn), transactions.ApplyData{}, nil
 }
 
@@ -483,9 +490,9 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 		senderAcct := indexToAccount(senderIndex)
 
 		total := assetTotal
-		assetID := g.txnCounter - g.txnForRound(round) + intra + 1
+		assetID := g.txnCounter + intra + 1
 		assetName := fmt.Sprintf("asset #%d", assetID)
-		txn = g.makeAssetCreateTxn(g.makeTxnHeader(senderAcct, round), total, false, assetName)
+		txn = g.makeAssetCreateTxn(g.makeTxnHeader(senderAcct, round, intra), total, false, assetName)
 
 		// Compute asset ID and initialize holdings
 		a := assetData{
@@ -515,7 +522,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 
 			senderIndex = asset.creator
 			creator := indexToAccount(senderIndex)
-			txn = g.makeAssetDestroyTxn(g.makeTxnHeader(creator, round), asset.assetID)
+			txn = g.makeAssetDestroyTxn(g.makeTxnHeader(creator, round, intra), asset.assetID)
 
 			// Remove asset by moving the last element to the deleted index then trimming the slice.
 			g.assets[assetIndex] = g.assets[numAssets-1]
@@ -535,7 +542,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 				exists = asset.holders[senderIndex]
 			}
 			account := indexToAccount(senderIndex)
-			txn = g.makeAssetAcceptanceTxn(g.makeTxnHeader(account, round), asset.assetID)
+			txn = g.makeAssetAcceptanceTxn(g.makeTxnHeader(account, round, intra), asset.assetID)
 
 			asset.holdings = append(asset.holdings, assetHolding{
 				acctIndex: senderIndex,
@@ -558,9 +565,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 
 			amount := uint64(10)
 
-			txn = g.makeAssetTransferTxn(
-				g.makeTxnHeader(sender, round), receiver, amount, basics.Address{},
-				asset.assetID)
+			txn = g.makeAssetTransferTxn(g.makeTxnHeader(sender, round, intra), receiver, amount, basics.Address{}, asset.assetID)
 
 			if asset.holdings[0].balance < amount {
 				fmt.Printf(fmt.Sprintf("\n\ncreator doesn't have enough funds for asset %d\n\n", asset.assetID))
@@ -590,7 +595,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 			closeToAcct := indexToAccount(closeToAcctIndex)
 
 			txn = g.makeAssetTransferTxn(
-				g.makeTxnHeader(sender, round), closeToAcct, 0, closeToAcct, asset.assetID)
+				g.makeTxnHeader(sender, round, intra), closeToAcct, 0, closeToAcct, asset.assetID)
 
 			asset.holdings[0].balance += asset.holdings[closeIndex].balance
 
