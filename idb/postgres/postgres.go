@@ -303,7 +303,7 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) (err error) {
 	importstate := importState{
 		NextRoundToAccount: &nextRound,
 	}
-	err = db.setImportState(nil, importstate)
+	err = db.setImportState(tx, importstate)
 	if err != nil {
 		return
 	}
