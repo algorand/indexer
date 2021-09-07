@@ -35,6 +35,7 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util"
+	"github.com/algorand/indexer/util/metrics"
 )
 
 type importState struct {
@@ -248,10 +249,12 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			}
 			proto.EnableAssetCloseAmount = true
 
+			start := time.Now()
 			delta, modifiedTxns, err := ledger.Eval(ledgerForEval, block, proto)
 			if err != nil {
 				return fmt.Errorf("AddBlock() eval err: %w", err)
 			}
+			metrics.PostgresEvalTimeSeconds.Observe(time.Since(start).Seconds())
 
 			err = writer.AddBlock(block, modifiedTxns, delta)
 			if err != nil {
