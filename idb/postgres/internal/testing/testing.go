@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"testing"
 
+	// Load the postgres sql.DB implementation.
+	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/orlangure/gnomock"
 	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/require"
