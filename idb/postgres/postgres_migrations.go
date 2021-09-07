@@ -12,6 +12,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
+	"github.com/algorand/indexer/idb/postgres/internal/schema"
 )
 
 func init() {
@@ -100,7 +101,7 @@ func needsMigration(state MigrationState) bool {
 // If `tx` is nil, use a normal query.
 func upsertMigrationState(db *IndexerDb, tx *sql.Tx, state *MigrationState) error {
 	migrationStateJSON := encoding.EncodeJSON(state)
-	return db.setMetastate(tx, migrationMetastateKey, string(migrationStateJSON))
+	return db.setMetastate(tx, schema.MigrationMetastateKey, string(migrationStateJSON))
 }
 
 // Returns an error object and a channel that gets closed when blocking migrations
@@ -152,12 +153,12 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 		NextMigration: len(migrations),
 	}
 	migrationStateJSON := encoding.EncodeJSON(state)
-	return db.setMetastate(nil, migrationMetastateKey, string(migrationStateJSON))
+	return db.setMetastate(nil, schema.MigrationMetastateKey, string(migrationStateJSON))
 }
 
 // Returns `idb.ErrorNotInitialized` if uninitialized.
 func (db *IndexerDb) getMigrationState() (MigrationState, error) {
-	migrationStateJSON, err := db.getMetastate(nil, migrationMetastateKey)
+	migrationStateJSON, err := db.getMetastate(nil, schema.MigrationMetastateKey)
 	if err == idb.ErrorNotInitialized {
 		return MigrationState{}, idb.ErrorNotInitialized
 	} else if err != nil {
@@ -192,7 +193,8 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 			}
 		}
 		migrationStateJSON := encoding.EncodeJSON(nextState)
-		_, err := tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+		_, err := tx.Exec(
+			setMetastateUpsert, schema.MigrationMetastateKey, migrationStateJSON)
 		if err != nil {
 			return fmt.Errorf("migration %d exec metastate err: %w", state.NextMigration, err)
 		}

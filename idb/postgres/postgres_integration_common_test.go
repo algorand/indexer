@@ -2,63 +2,17 @@ package postgres
 
 import (
 	"database/sql"
-	"flag"
-	"fmt"
 	"testing"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/orlangure/gnomock"
-	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/idb"
+	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 )
 
-var testpg = flag.String("test-pg", "", "postgres connection string")
-
-// setupPostgres starts a gnomock postgres DB then returns the connection string and a shutdown function.
-func setupPostgres(t *testing.T) (*sql.DB, string, func()) {
-	if testpg != nil && *testpg != "" {
-		// TODO: Drop schema?
-
-		// use non-docker Postgresql
-		shutdownFunc := func() {
-			// nothing to do, psql db setup/teardown is external
-		}
-		connStr := *testpg
-		db, err := sql.Open("postgres", connStr)
-		require.NoError(t, err, "Error opening pg connection")
-
-		return db, connStr, shutdownFunc
-	}
-
-	p := postgres.Preset(
-		postgres.WithVersion("12.5"),
-		postgres.WithUser("gnomock", "gnomick"),
-		postgres.WithDatabase("mydb"),
-	)
-	container, err := gnomock.Start(p)
-	require.NoError(t, err, "Error starting gnomock")
-
-	shutdownFunc := func() {
-		err = gnomock.Stop(container)
-		require.NoError(t, err, "Error stoping gnomock")
-	}
-
-	connStr := fmt.Sprintf(
-		"host=%s port=%d user=%s password=%s  dbname=%s sslmode=disable",
-		container.Host, container.DefaultPort(),
-		"gnomock", "gnomick", "mydb",
-	)
-
-	db, err := sql.Open("postgres", connStr)
-	require.NoError(t, err, "Error opening pg connection")
-
-	return db, connStr, shutdownFunc
-}
-
 func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
 	idb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
