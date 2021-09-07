@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/idb"
-	pgtest "github.com/algorand/indexer/idb/postgres/internal/test_util"
+	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 )
 
 func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {

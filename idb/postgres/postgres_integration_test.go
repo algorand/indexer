@@ -17,7 +17,7 @@ import (
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	pgtest "github.com/algorand/indexer/idb/postgres/internal/test_util"
+	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	"github.com/algorand/indexer/util/test"
 )
 

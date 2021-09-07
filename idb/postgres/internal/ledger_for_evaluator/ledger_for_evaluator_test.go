@@ -16,7 +16,7 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	ledger_for_evaluator "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
-	pgtest "github.com/algorand/indexer/idb/postgres/internal/test_util"
+	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	"github.com/algorand/indexer/util/test"
 )
 
