@@ -252,6 +252,7 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			if err != nil {
 				return fmt.Errorf("AddBlock() eval err: %w", err)
 			}
+			ledgerForEval.Close()
 
 			err = writer.AddBlock(block, modifiedTxns, delta)
 			if err != nil {
