@@ -33,7 +33,7 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	assert.Equal(t, err, idb.ErrorNotInitialized)
 	assert.Equal(t, uint64(0), round)
 
-	round, err = db.getMaxRoundAccounted(nil)
+	round, err = db.getMaxRoundAccounted(context.Background(), nil)
 	assert.Equal(t, err, idb.ErrorNotInitialized)
 	assert.Equal(t, uint64(0), round)
 }
@@ -51,7 +51,7 @@ func TestMaxRoundEmptyMetastate(t *testing.T) {
 	assert.Equal(t, err, idb.ErrorNotInitialized)
 	assert.Equal(t, uint64(0), round)
 
-	round, err = db.getMaxRoundAccounted(nil)
+	round, err = db.getMaxRoundAccounted(context.Background(), nil)
 	assert.Equal(t, err, idb.ErrorNotInitialized)
 	assert.Equal(t, uint64(0), round)
 }
@@ -72,7 +72,7 @@ func TestMaxRound(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(123454322), round)
 
-	round, err = pdb.getMaxRoundAccounted(nil)
+	round, err = pdb.getMaxRoundAccounted(context.Background(), nil)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(123454321), round)
 }
@@ -92,7 +92,7 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), round)
 
-	round, err = pdb.getMaxRoundAccounted(nil)
+	round, err = pdb.getMaxRoundAccounted(context.Background(), nil)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), round)
 }
