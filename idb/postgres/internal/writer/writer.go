@@ -226,7 +226,7 @@ func transactionAssetID(block *bookkeeping.Block, intra uint64, typeenum idb.Txn
 	case idb.TypeEnumAssetConfig:
 		assetid = uint64(txn.ConfigAsset)
 		if assetid == 0 {
-			assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
+			assetid = block.TxnCounter - uint64(len(block.Payset)) + intra + 1
 		}
 	case idb.TypeEnumAssetTransfer:
 		assetid = uint64(txn.XferAsset)
@@ -235,7 +235,7 @@ func transactionAssetID(block *bookkeeping.Block, intra uint64, typeenum idb.Txn
 	case idb.TypeEnumApplication:
 		assetid = uint64(txn.ApplicationID)
 		if assetid == 0 {
-			assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
+			assetid = block.TxnCounter - uint64(len(block.Payset)) + intra + 1
 		}
 	}
 
