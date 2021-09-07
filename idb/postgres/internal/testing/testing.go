@@ -24,8 +24,8 @@ func SetupPostgres(t *testing.T) (*sql.DB, string, func()) {
 		}
 		connStr := *testpg
 
-		db, err := sql.Open("postgres", connStr)
-		require.NoError(t, err, "Error opening pg connection")
+		db, err := sql.Open("pgx", connStr)
+		require.NoError(t, err, "Error opening postgres connection")
 
 		_, err = db.Exec(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`)
 		require.NoError(t, err)
@@ -52,8 +52,8 @@ func SetupPostgres(t *testing.T) (*sql.DB, string, func()) {
 		"gnomock", "gnomick", "mydb",
 	)
 
-	db, err := sql.Open("postgres", connStr)
-	require.NoError(t, err, "Error opening pg connection")
+	db, err := sql.Open("pgx", connStr)
+	require.NoError(t, err, "Error opening postgres connection")
 
 	return db, connStr, shutdownFunc
 }
