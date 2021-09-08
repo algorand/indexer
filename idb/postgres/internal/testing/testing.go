@@ -11,21 +11,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var testpg = flag.String("test-pg", "", "postgres connection string")
+var testpg = flag.String(
+	"test-pg", "", "postgres connection string; resets the database")
 
 // SetupPostgres starts a gnomock postgres DB then returns the database object,
 // the connection string and a shutdown function.
 func SetupPostgres(t *testing.T) (*sql.DB, string, func()) {
 	if testpg != nil && *testpg != "" {
-		// TODO: Drop schema?
-
 		// use non-docker Postgresql
 		shutdownFunc := func() {
 			// nothing to do, psql db setup/teardown is external
 		}
 		connStr := *testpg
+
 		db, err := sql.Open("postgres", connStr)
 		require.NoError(t, err, "Error opening pg connection")
+
+		_, err = db.Exec(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`)
+		require.NoError(t, err)
 
 		return db, connStr, shutdownFunc
 	}
