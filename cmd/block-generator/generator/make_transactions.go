@@ -1,12 +1,17 @@
 package generator
 
 import (
+	"encoding/binary"
+
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
 )
 
-func (g *generator) makeTxnHeader(sender basics.Address, round uint64) transactions.Header {
+func (g *generator) makeTxnHeader(sender basics.Address, round, intra uint64) transactions.Header {
+	note := make([]byte, 8)
+	binary.LittleEndian.PutUint64(note, uint64(g.txnCounter+intra))
+
 	return transactions.Header{
 		Sender:      sender,
 		Fee:         basics.MicroAlgos{Raw: fee},
@@ -14,6 +19,7 @@ func (g *generator) makeTxnHeader(sender basics.Address, round uint64) transacti
 		LastValid:   basics.Round(round + 1000),
 		GenesisID:   g.genesisID,
 		GenesisHash: g.genesisHash,
+		Note:        note,
 	}
 }
 
@@ -37,6 +43,11 @@ func (g *generator) makeAssetCreateTxn(header transactions.Header, total uint64,
 			AssetParams: basics.AssetParams{
 				Total:         total,
 				DefaultFrozen: defaultFrozen,
+				AssetName:     assetName,
+				Manager:       header.Sender,
+				Freeze:        header.Sender,
+				Clawback:      header.Sender,
+				Reserve:       header.Sender,
 			},
 		},
 	}

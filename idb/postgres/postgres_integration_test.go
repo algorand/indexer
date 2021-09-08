@@ -17,12 +17,13 @@ import (
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
+	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	"github.com/algorand/indexer/util/test"
 )
 
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.
 func TestMaxRoundOnUninitializedDB(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -39,7 +40,7 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 
 // TestMaxRoundEmptyMetastate makes sure we return 0 when the metastate is empty.
 func TestMaxRoundEmptyMetastate(t *testing.T) {
-	pg, connStr, shutdownFunc := setupPostgres(t)
+	pg, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -57,7 +58,7 @@ func TestMaxRoundEmptyMetastate(t *testing.T) {
 
 // TestMaxRound the happy path.
 func TestMaxRound(t *testing.T) {
-	db, connStr, shutdownFunc := setupPostgres(t)
+	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -77,7 +78,7 @@ func TestMaxRound(t *testing.T) {
 }
 
 func TestAccountedRoundNextRound0(t *testing.T) {
-	db, connStr, shutdownFunc := setupPostgres(t)
+	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -892,7 +893,7 @@ func TestLargeAssetAmount(t *testing.T) {
 // Test that initializing a new database sets the correct migration number and
 // that the database is available.
 func TestInitializationNewDatabase(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	db, availableCh, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -909,7 +910,7 @@ func TestInitializationNewDatabase(t *testing.T) {
 
 // Test that opening the database the second time (after initializing) is successful.
 func TestOpenDbAgain(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	_, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -1227,7 +1228,7 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 }
 
 func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)

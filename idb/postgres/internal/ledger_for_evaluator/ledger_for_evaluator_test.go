@@ -1,7 +1,8 @@
-package postgres
+package ledgerforevaluator_test
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 
 	"github.com/algorand/go-algorand/crypto"
@@ -12,17 +13,27 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	ledger_for_evaluator "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
+	"github.com/algorand/indexer/idb/postgres/internal/schema"
+	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	"github.com/algorand/indexer/util/test"
 )
 
+var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}
+
+func setupPostgres(t *testing.T) (*sql.DB, func()) {
+	db, _, shutdownFunc := pgtest.SetupPostgres(t)
+
+	_, err := db.Exec(schema.SetupPostgresSql)
+	require.NoError(t, err)
+
+	return db, shutdownFunc
+}
+
 func TestLedgerForEvaluatorBlockHdr(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
 	query :=
 		"INSERT INTO block_header (round, realtime, rewardslevel, header) " +
@@ -32,10 +43,10 @@ func TestLedgerForEvaluatorBlockHdr(t *testing.T) {
 			FeeSink: test.FeeAddr,
 		},
 	}
-	_, err = db.db.Exec(query, encoding.EncodeBlockHeader(header))
+	_, err := db.Exec(query, encoding.EncodeBlockHeader(header))
 	require.NoError(t, err)
 
-	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
 	require.NoError(t, err)
 	defer tx.Rollback()
 
@@ -51,10 +62,8 @@ func TestLedgerForEvaluatorBlockHdr(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
 	query :=
 		"INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, deleted, " +
@@ -84,13 +93,13 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	accountDataFull.AppLocalStates = make(map[basics.AppIndex]basics.AppLocalState)
 	accountDataFull.AppParams = make(map[basics.AppIndex]basics.AppParams)
 
-	_, err = db.db.Exec(
+	_, err := db.Exec(
 		query, test.AccountB[:], accountDataFull.MicroAlgos.Raw, accountDataFull.RewardsBase,
 		accountDataFull.RewardedMicroAlgos.Raw,
 		encoding.EncodeTrimmedAccountData(accountDataWritten))
 	require.NoError(t, err)
 
-	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
 	require.NoError(t, err)
 	defer tx.Rollback()
 
@@ -107,10 +116,8 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
 	query :=
 		"INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, deleted, " +
@@ -120,11 +127,11 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 	accountData := basics.AccountData{
 		MicroAlgos: basics.MicroAlgos{Raw: 5},
 	}
-	_, err = db.db.Exec(
+	_, err := db.Exec(
 		query, test.AccountB[:], encoding.EncodeTrimmedAccountData(accountData))
 	require.NoError(t, err)
 
-	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
 	require.NoError(t, err)
 	defer tx.Rollback()
 
@@ -141,10 +148,8 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
 	query :=
 		"INSERT INTO account " +
@@ -158,10 +163,10 @@ func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
 		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
 		AppParams:      make(map[basics.AppIndex]basics.AppParams),
 	}
-	_, err = db.db.Exec(query, test.AccountA[:], accountDataFull.MicroAlgos.Raw)
+	_, err := db.Exec(query, test.AccountA[:], accountDataFull.MicroAlgos.Raw)
 	require.NoError(t, err)
 
-	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
 	require.NoError(t, err)
 	defer tx.Rollback()
 
@@ -177,31 +182,29 @@ func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
 	query :=
 		"INSERT INTO account " +
 			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
 			"VALUES ($1, 0, 0, 0, false, 0)"
-	_, err = db.db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
 	query =
 		"INSERT INTO account_asset (addr, assetid, amount, frozen, deleted, created_at) " +
 			"VALUES ($1, $2, $3, $4, $5, 0)"
-	_, err = db.db.Exec(query, test.AccountA[:], 1, 2, false, false)
+	_, err = db.Exec(query, test.AccountA[:], 1, 2, false, false)
 	require.NoError(t, err)
-	_, err = db.db.Exec(query, test.AccountA[:], 3, 4, true, false)
+	_, err = db.Exec(query, test.AccountA[:], 3, 4, true, false)
 	require.NoError(t, err)
-	_, err = db.db.Exec(query, test.AccountA[:], 5, 6, true, true) // deleted
+	_, err = db.Exec(query, test.AccountA[:], 5, 6, true, true) // deleted
 	require.NoError(t, err)
-	_, err = db.db.Exec(query, test.AccountB[:], 5, 6, true, false) // wrong account
+	_, err = db.Exec(query, test.AccountB[:], 5, 6, true, false) // wrong account
 	require.NoError(t, err)
 
-	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
 	require.NoError(t, err)
 	defer tx.Rollback()
 
@@ -232,41 +235,39 @@ func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAssetTable(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
 	query :=
 		"INSERT INTO account " +
 			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
 			"VALUES ($1, 0, 0, 0, false, 0)"
-	_, err = db.db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
 	query =
 		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
 			"VALUES ($1, $2, $3, $4, 0)"
 
-	_, err = db.db.Exec(
+	_, err = db.Exec(
 		query, 1, test.AccountA[:],
 		encoding.EncodeAssetParams(basics.AssetParams{Manager: test.AccountB}),
 		false)
 	require.NoError(t, err)
 
-	_, err = db.db.Exec(
+	_, err = db.Exec(
 		query, 2, test.AccountA[:],
 		encoding.EncodeAssetParams(basics.AssetParams{Manager: test.AccountC}),
 		false)
 	require.NoError(t, err)
 
-	_, err = db.db.Exec(query, 3, test.AccountA[:], "{}", true) // deleted
+	_, err = db.Exec(query, 3, test.AccountA[:], "{}", true) // deleted
 	require.NoError(t, err)
 
-	_, err = db.db.Exec(query, 4, test.AccountD[:], "{}", false) // wrong account
+	_, err = db.Exec(query, 4, test.AccountD[:], "{}", false) // wrong account
 	require.NoError(t, err)
 
-	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
 	require.NoError(t, err)
 	defer tx.Rollback()
 
@@ -295,16 +296,14 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAppTable(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
 	query :=
 		"INSERT INTO account " +
 			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
 			"VALUES ($1, 0, 0, 0, false, 0)"
-	_, err = db.db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
 	query =
@@ -316,24 +315,24 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 			string([]byte{0xff}): {}, // try a non-utf8 string
 		},
 	}
-	_, err = db.db.Exec(
+	_, err = db.Exec(
 		query, 1, test.AccountA[:], encoding.EncodeAppParams(params1), false)
 	require.NoError(t, err)
 
 	params2 := basics.AppParams{
 		ApprovalProgram: []byte{1, 2, 3},
 	}
-	_, err = db.db.Exec(
+	_, err = db.Exec(
 		query, 2, test.AccountA[:], encoding.EncodeAppParams(params2), false)
 	require.NoError(t, err)
 
-	_, err = db.db.Exec(query, 3, test.AccountA[:], "{}", true) // deteled
+	_, err = db.Exec(query, 3, test.AccountA[:], "{}", true) // deteled
 	require.NoError(t, err)
 
-	_, err = db.db.Exec(query, 4, test.AccountB[:], "{}", false) // wrong account
+	_, err = db.Exec(query, 4, test.AccountB[:], "{}", false) // wrong account
 	require.NoError(t, err)
 
-	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
 	require.NoError(t, err)
 	defer tx.Rollback()
 
@@ -358,16 +357,14 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
 	query :=
 		"INSERT INTO account " +
 			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
 			"VALUES ($1, 0, 0, 0, false, 0)"
-	_, err = db.db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
 	query =
@@ -379,7 +376,7 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 			string([]byte{0xff}): {}, // try a non-utf8 string
 		},
 	}
-	_, err = db.db.Exec(
+	_, err = db.Exec(
 		query, test.AccountA[:], 1, encoding.EncodeAppLocalState(params1), false)
 	require.NoError(t, err)
 
@@ -388,17 +385,17 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 			"abc": {},
 		},
 	}
-	_, err = db.db.Exec(
+	_, err = db.Exec(
 		query, test.AccountA[:], 2, encoding.EncodeAppLocalState(params2), false)
 	require.NoError(t, err)
 
-	_, err = db.db.Exec(query, test.AccountA[:], 3, "{}", true) // deteled
+	_, err = db.Exec(query, test.AccountA[:], 3, "{}", true) // deteled
 	require.NoError(t, err)
 
-	_, err = db.db.Exec(query, test.AccountB[:], 4, "{}", false) // wrong account
+	_, err = db.Exec(query, test.AccountB[:], 4, "{}", false) // wrong account
 	require.NoError(t, err)
 
-	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
 	require.NoError(t, err)
 	defer tx.Rollback()
 
@@ -423,18 +420,16 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
 	query :=
 		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
 			"VALUES (2, $1, '{}', false, 0)"
-	_, err = db.db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
-	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
 	require.NoError(t, err)
 	defer tx.Rollback()
 
@@ -452,18 +447,16 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
 	query :=
 		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
 			"VALUES (2, $1, '{}', true, 0)"
-	_, err = db.db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
-	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
 	require.NoError(t, err)
 	defer tx.Rollback()
 
@@ -480,18 +473,16 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
 	query :=
 		"INSERT INTO app (index, creator, params, deleted, created_at) " +
 			"VALUES (2, $1, '{}', false, 0)"
-	_, err = db.db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
-	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
 	require.NoError(t, err)
 	defer tx.Rollback()
 
@@ -509,18 +500,16 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
 	query :=
 		"INSERT INTO app (index, creator, params, deleted, created_at) " +
 			"VALUES (2, $1, '{}', true, 0)"
-	_, err = db.db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(query, test.AccountA[:])
 	require.NoError(t, err)
 
-	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
 	require.NoError(t, err)
 	defer tx.Rollback()
 
@@ -537,12 +526,10 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorSpecialAddresses(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
-	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
 	require.NoError(t, err)
 	defer tx.Rollback()
 
@@ -569,12 +556,10 @@ func TestLedgerForEvaluatorSpecialAddresses(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorGenesisHash(t *testing.T) {
-	_, connStr, shutdownFunc := setupPostgres(t)
+	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
 
-	tx, err := db.db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
 	require.NoError(t, err)
 	defer tx.Rollback()
 
