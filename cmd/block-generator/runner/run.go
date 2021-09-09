@@ -37,6 +37,7 @@ type Args struct {
 	RunDuration              time.Duration
 	LogLevel                 string
 	ReportDirectory          string
+	ClearReportDir           bool
 }
 
 // Run is a public helper to run the tests.
@@ -44,7 +45,12 @@ type Args struct {
 // If 'args.Path' is a directory it should contain generator configuration files, a test will run using each file.
 func Run(args Args) error {
 	if _, err := os.Stat(args.ReportDirectory); !os.IsNotExist(err) {
-		return fmt.Errorf("report directory '%s' already exists", args.ReportDirectory)
+		if args.ClearReportDir {
+			fmt.Printf("Resetting existing report directory '%s'\n", args.ReportDirectory)
+			os.RemoveAll(args.ReportDirectory)
+		} else {
+			return fmt.Errorf("report directory '%s' already exists", args.ReportDirectory)
+		}
 	}
 	os.Mkdir(args.ReportDirectory, os.ModeDir|os.ModePerm)
 
@@ -341,7 +347,13 @@ func runValidator(report *os.File, gen generator.Generator, algodURL, indexerURL
 	//       validator report to a file.
 	// Set flag if there is an invalid result.
 	validatorResult := true
+	var good, bad int
 	for r := range results {
+		if r.Equal {
+			good++
+		} else {
+			bad++
+		}
 		if !r.Equal && validatorResult {
 			validatorResult = false
 		}

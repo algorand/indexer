@@ -162,7 +162,6 @@ type Generator interface {
 	WriteBlock(output io.Writer, round uint64) error
 	WriteAccount(output io.Writer, accountString string) error
 	Accounts() <-chan basics.Address
-	Freeze()
 }
 
 type generator struct {
@@ -215,7 +214,7 @@ type assetData struct {
 	creator uint64
 	name string
 	// Holding at index 0 is the creator.
-	holdings []assetHolding
+	holdings []*assetHolding
 	// Set of holders in the holdings array for easy reference.
 	holders map[uint64]*assetHolding
 }
@@ -511,7 +510,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 			name:     assetName,
 			assetID:  assetID,
 			creator:  senderIndex,
-			holdings: []assetHolding{holding},
+			holdings: []*assetHolding{&holding},
 			holders:  map[uint64]*assetHolding{senderIndex: &holding},
 		}
 
@@ -561,7 +560,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 				acctIndex: senderIndex,
 				balance:   0,
 			}
-			asset.holdings = append(asset.holdings, holding)
+			asset.holdings = append(asset.holdings, &holding)
 			asset.holders[senderIndex] = &holding
 		case assetXfer:
 			// send from creator (holder[0]) to another random holder (same address is valid)
@@ -574,8 +573,8 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 			senderIndex = asset.holdings[0].acctIndex
 			sender := indexToAccount(senderIndex)
 
-			receiverIndex := (rand.Uint64() % (uint64(len(asset.holdings)) - uint64(1))) + uint64(1)
-			receiver := indexToAccount(asset.holdings[receiverIndex].acctIndex)
+			receiverArrayIndex := (rand.Uint64() % (uint64(len(asset.holdings)) - uint64(1))) + uint64(1)
+			receiver := indexToAccount(asset.holdings[receiverArrayIndex].acctIndex)
 
 			amount := uint64(10)
 
@@ -591,7 +590,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 			}
 
 			asset.holdings[0].balance -= amount
-			asset.holdings[receiverIndex].balance += amount
+			asset.holdings[receiverArrayIndex].balance += amount
 		case assetClose:
 			// select a holder of a random asset to close out
 			// If there aren't enough assets to close one, optin an account instead
@@ -729,7 +728,4 @@ func (g *generator) Accounts() <-chan basics.Address {
 		}
 	}()
 	return results
-}
-func (g *generator) Freeze() {
-
 }
