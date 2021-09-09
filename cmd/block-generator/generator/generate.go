@@ -2,6 +2,7 @@ package generator
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -212,10 +213,11 @@ type generator struct {
 type assetData struct {
 	assetID uint64
 	creator uint64
+	name string
 	// Holding at index 0 is the creator.
 	holdings []assetHolding
 	// Set of holders in the holdings array for easy reference.
-	holders map[uint64]bool
+	holders map[uint64]*assetHolding
 }
 
 type assetHolding struct {
@@ -501,11 +503,16 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 		txn = g.makeAssetCreateTxn(g.makeTxnHeader(senderAcct, round, intra), total, false, assetName)
 
 		// Compute asset ID and initialize holdings
+		holding := assetHolding{
+			acctIndex: senderIndex,
+			balance: total,
+		}
 		a := assetData{
+			name:     assetName,
 			assetID:  assetID,
 			creator:  senderIndex,
-			holdings: []assetHolding{{acctIndex: senderIndex, balance: total}},
-			holders:  map[uint64]bool{senderIndex: true},
+			holdings: []assetHolding{holding},
+			holders:  map[uint64]*assetHolding{senderIndex: &holding},
 		}
 
 		g.pendingAssets = append(g.pendingAssets, &a)
@@ -545,16 +552,17 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 			exists := true
 			for exists {
 				senderIndex = rand.Uint64() % g.numAccounts
-				exists = asset.holders[senderIndex]
+				exists = asset.holders[senderIndex] != nil
 			}
 			account := indexToAccount(senderIndex)
 			txn = g.makeAssetAcceptanceTxn(g.makeTxnHeader(account, round, intra), asset.assetID)
 
-			asset.holdings = append(asset.holdings, assetHolding{
+			holding := assetHolding{
 				acctIndex: senderIndex,
 				balance:   0,
-			})
-			asset.holders[senderIndex] = true
+			}
+			asset.holdings = append(asset.holdings, holding)
+			asset.holders[senderIndex] = &holding
 		case assetXfer:
 			// send from creator (holder[0]) to another random holder (same address is valid)
 
@@ -650,8 +658,44 @@ func (g *generator) WriteAccount(output io.Writer, accountString string) error {
 		return fmt.Errorf("failed to unmarshal address: %w", err)
 	}
 
-	// TODO: assets
 	idx := accountToIndex(addr)
+
+	// Asset Holdings
+	assets := make([]generated.AssetHolding, 0)
+	createdAssets := make([]generated.Asset, 0)
+	for _, a := range g.assets {
+		// holdings
+		if holding := a.holders[idx]; holding != nil {
+			assets = append(assets, generated.AssetHolding{
+				Amount:   holding.balance,
+				AssetId:  a.assetID,
+				Creator:  indexToAccount(a.creator).String(),
+				IsFrozen: false,
+			})
+		}
+		// creator
+		if len(a.holdings) > 0 && a.holdings[0].acctIndex == idx {
+			nameBytes := []byte(a.name)
+			asset := generated.Asset{
+				Index:  a.assetID,
+				Params: generated.AssetParams{
+					Creator:       accountString,
+					Decimals:      0,
+					Clawback:      &accountString,
+					Freeze:        &accountString,
+					Manager:       &accountString,
+					Reserve:       &accountString,
+					Name:          &a.name,
+					NameB64:       &nameBytes,
+					Total:         assetTotal,
+				},
+			}
+			asset.Params.DefaultFrozen = new(bool)
+			*(asset.Params.DefaultFrozen) = false
+			createdAssets = append(createdAssets, asset)
+		}
+	}
+
 	data := generated.Account{
 		Address:                     accountString,
 		Amount:                      g.balances[idx],
@@ -659,10 +703,10 @@ func (g *generator) WriteAccount(output io.Writer, accountString string) error {
 		AppsLocalState:              nil,
 		AppsTotalExtraPages:         nil,
 		AppsTotalSchema:             nil,
-		Assets:                      nil,
+		Assets:                      &assets,
 		AuthAddr:                    nil,
 		CreatedApps:                 nil,
-		CreatedAssets:               nil,
+		CreatedAssets:               &createdAssets,
 		Participation:               nil,
 		PendingRewards:              0,
 		RewardBase:                  nil,
@@ -672,13 +716,12 @@ func (g *generator) WriteAccount(output io.Writer, accountString string) error {
 		Status:                      "Offline",
 	}
 
-	_, err = output.Write(protocol.EncodeJSON(data))
-	return err
+	return json.NewEncoder(output).Encode(data)
 }
 
 // Accounts is used in the runner to generate a list of addresses.
 func (g *generator) Accounts() <-chan basics.Address {
-	results := make(chan basics.Address)
+	results := make(chan basics.Address, 10)
 	go func() {
 		defer close(results)
 		for i := uint64(0); i < g.numAccounts; i++ {
