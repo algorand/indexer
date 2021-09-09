@@ -706,6 +706,11 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.Transa
 		return
 	}
 	tf.Limit -= uint64(count)
+	select {
+	case <-ctx.Done():
+		return
+	default:
+	}
 	tf.Round = origRound
 	if tf.Address != nil {
 		// (round,intra) descending into the past
