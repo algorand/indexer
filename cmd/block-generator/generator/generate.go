@@ -10,6 +10,7 @@ import (
 
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/daemon/algod/api/server/v2/generated"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/committee"
@@ -155,9 +156,12 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 
 // Generator is the interface needed to generate blocks.
 type Generator interface {
-	WriteReport(output io.Writer)
-	WriteGenesis(output io.Writer)
-	WriteBlock(output io.Writer, round uint64)
+	WriteReport(output io.Writer) error
+	WriteGenesis(output io.Writer) error
+	WriteBlock(output io.Writer, round uint64) error
+	WriteAccount(output io.Writer, accountString string) error
+	Accounts() <-chan basics.Address
+	Freeze()
 }
 
 type generator struct {
@@ -238,17 +242,12 @@ func (g *generator) recordData(id TxTypeID, start time.Time) {
 	g.reportData[id] = data
 }
 
-func (g *generator) WriteReport(output io.Writer) {
-	data := protocol.EncodeJSON(g.reportData)
-	var err error
-	if err != nil {
-		fmt.Fprintf(output, "Problem indenting data: %v", err)
-	} else {
-		output.Write(data)
-	}
+func (g *generator) WriteReport(output io.Writer) error {
+	_, err := output.Write(protocol.EncodeJSON(g.reportData))
+	return err
 }
 
-func (g *generator) WriteGenesis(output io.Writer) {
+func (g *generator) WriteGenesis(output io.Writer) error {
 	defer g.recordData(track(genesis))
 	var allocations []bookkeeping.GenesisAllocation
 
@@ -272,7 +271,8 @@ func (g *generator) WriteGenesis(output io.Writer) {
 		Timestamp:   g.timestamp,
 	}
 
-	output.Write(protocol.EncodeJSON(gen))
+	_, err := output.Write(protocol.EncodeJSON(gen))
+	return err
 }
 
 func getTransactionOptions() []interface{} {
@@ -316,7 +316,7 @@ func (g *generator) finishRound(txnCount uint64) {
 }
 
 // WriteBlock generates a block full of new transactions and writes it to the writer.
-func (g *generator) WriteBlock(output io.Writer, round uint64) {
+func (g *generator) WriteBlock(output io.Writer, round uint64) error {
 	if round != g.round {
 		fmt.Printf("Generator only supports sequential block access. Expected %d but received request for %d.", g.round, round)
 	}
@@ -376,16 +376,22 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 
 	_, err := output.Write(protocol.Encode(&cert))
 	if err != nil {
-		panic(fmt.Sprintf("Failed to write certified block."))
+		return err
 	}
 
 	g.finishRound(numTxnForBlock)
+	return nil
 }
 
 func indexToAccount(i uint64) (addr basics.Address) {
 	// Make sure we don't generate a zero address by adding 1 to i
 	binary.LittleEndian.PutUint64(addr[:], i+1)
 	return
+}
+
+func accountToIndex(a basics.Address) (addr uint64) {
+	// Make sure we don't generate a zero address by adding 1 to i
+	return binary.LittleEndian.Uint64(a[:]) - 1
 }
 
 // initializeAccounting creates the genesis accounts.
@@ -636,4 +642,51 @@ func (g *generator) generateAssetTxn(round uint64, intra uint64) (transactions.S
 	}
 
 	return signTxn(txn), transactions.ApplyData{}, nil
+}
+
+func (g *generator) WriteAccount(output io.Writer, accountString string) error {
+	addr, err := basics.UnmarshalChecksumAddress(accountString)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal address: %w", err)
+	}
+
+	// TODO: assets
+	idx := accountToIndex(addr)
+	data := generated.Account{
+		Address:                     accountString,
+		Amount:                      g.balances[idx],
+		AmountWithoutPendingRewards: g.balances[idx],
+		AppsLocalState:              nil,
+		AppsTotalExtraPages:         nil,
+		AppsTotalSchema:             nil,
+		Assets:                      nil,
+		AuthAddr:                    nil,
+		CreatedApps:                 nil,
+		CreatedAssets:               nil,
+		Participation:               nil,
+		PendingRewards:              0,
+		RewardBase:                  nil,
+		Rewards:                     0,
+		Round:                       g.round,
+		SigType:                     nil,
+		Status:                      "Offline",
+	}
+
+	_, err = output.Write(protocol.EncodeJSON(data))
+	return err
+}
+
+// Accounts is used in the runner to generate a list of addresses.
+func (g *generator) Accounts() <-chan basics.Address {
+	results := make(chan basics.Address)
+	go func() {
+		defer close(results)
+		for i := uint64(0); i < g.numAccounts; i++ {
+			results <- indexToAccount(i)
+		}
+	}()
+	return results
+}
+func (g *generator) Freeze() {
+
 }

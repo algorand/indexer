@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"bytes"
@@ -36,9 +36,9 @@ func (gp StructProcessor) ProcessAddress(algodData, indexerData []byte) (Result,
 			SameRound: indexerAcct.Round == algodAcct.Round,
 			Retries:   0,
 			Details: &ErrorDetails{
-				algod:   mustEncode(algodAcct),
-				indexer: mustEncode(indexerAcct),
-				diff:    differences,
+				Algod:   mustEncode(algodAcct),
+				Indexer: mustEncode(indexerAcct),
+				Diff:    differences,
 			},
 		}, nil
 	}
@@ -100,7 +100,7 @@ func equals(indexer, algod generated.Account) (differences []string) {
 	indexerAssets := assetLookupMap(indexer.Assets)
 	indexerAssetCount := len(indexerAssets)
 	// There should be the same number of undeleted indexer assets as algod assets
-	if algod.Assets == nil && indexerAssetCount > 0 || indexerAssetCount != len(*algod.Assets) {
+	if algod.Assets != nil && indexerAssetCount != len(*algod.Assets) || algod.Assets == nil && indexerAssetCount != 0 {
 		differences = append(differences, "assets")
 	}
 	if algod.Assets != nil {
@@ -133,7 +133,7 @@ func equals(indexer, algod generated.Account) (differences []string) {
 	indexerCreatedAssets := createdAssetLookupMap(indexer.CreatedAssets)
 	indexerCreatedAssetCount := len(indexerCreatedAssets)
 	// There should be the same number of undeleted indexer created assets as algod assets
-	if algod.CreatedAssets == nil && indexerCreatedAssetCount > 0 || indexerCreatedAssetCount != len(*algod.CreatedAssets) {
+	if algod.CreatedAssets != nil && indexerCreatedAssetCount != len(*algod.CreatedAssets) || algod.CreatedAssets == nil && indexerCreatedAssetCount != 0{
 		differences = append(differences, "created-assets")
 	}
 	if algod.CreatedAssets != nil {
@@ -203,7 +203,7 @@ func equals(indexer, algod generated.Account) (differences []string) {
 	////////////////////
 	indexerAppLocalState := appLookupMap(indexer.AppsLocalState)
 	indexerAppLocalStateCount := len(indexerAppLocalState)
-	if algod.AppsLocalState == nil && indexerAppLocalStateCount > 0 || indexerAppLocalStateCount != len(*algod.AppsLocalState) {
+	if algod.AppsLocalState != nil && indexerAppLocalStateCount != len(*algod.AppsLocalState) || algod.AppsLocalState == nil && indexerAppLocalStateCount != 0 {
 		differences = append(differences, "apps-local-state")
 	}
 	if algod.AppsLocalState != nil {
@@ -229,7 +229,7 @@ func equals(indexer, algod generated.Account) (differences []string) {
 	/////////////////
 	indexerCreatedApps := createdAppLookupMap(indexer.CreatedApps)
 	indexerCreatedAppsCount := len(indexerCreatedApps)
-	if algod.CreatedApps == nil && indexerCreatedAppsCount > 0 || indexerCreatedAppsCount != len(*algod.CreatedApps) {
+	if algod.CreatedApps != nil && indexerCreatedAppsCount != len(*algod.CreatedApps) ||  algod.CreatedApps == nil && indexerCreatedAppsCount != 0{
 		differences = append(differences, "created-apps")
 	}
 	if algod.CreatedApps != nil {

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	_ "github.com/jackc/pgx/v4/stdlib"
 
 	"github.com/algorand/indexer/cmd/block-generator/generator"
+	validator "github.com/algorand/indexer/cmd/validator/core"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
 )
@@ -64,19 +66,44 @@ func (r *Args) run() error {
 	reportfile := path.Join(r.ReportDirectory, fmt.Sprintf("%s.report", baseNameNoExt))
 	logfile := path.Join(r.ReportDirectory, fmt.Sprintf("%s.indexer-log", baseNameNoExt))
 
+	// This middleware allows us to lock the block endpoint
+	var freezeMutex sync.Mutex
+	blockMiddleware := func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			freezeMutex.Lock()
+			defer freezeMutex.Unlock()
+			next.ServeHTTP(w, r)
+		})
+	}
 	// Start services
 	algodNet := fmt.Sprintf("localhost:%d", 11112)
 	indexerNet := fmt.Sprintf("localhost:%d", r.IndexerPort)
-	generatorShutdownFunc := startGenerator(r.Path, algodNet)
+	generatorShutdownFunc, generator := startGenerator(r.Path, algodNet, blockMiddleware)
 
 	indexerShutdownFunc, err := startIndexer(logfile, r.LogLevel, r.IndexerBinary, algodNet, indexerNet, r.PostgresConnectionString, r.CPUProfilePath)
 	if err != nil {
 		return fmt.Errorf("failed to start indexer: %w", err)
 	}
 
+	// Create the report file
+	report, err := os.Create(reportfile)
+	if err != nil {
+		return fmt.Errorf("unable to create report: %w", err)
+	}
+	defer report.Close()
+
+
 	// Run the test, collecting results.
-	if err := r.runTest(reportfile, indexerNet, algodNet); err != nil {
+	if err := r.runTest(report, indexerNet, algodNet); err != nil {
 		return err
+	}
+
+	// Freeze blocks
+	freezeMutex.Lock()
+
+	// Run validator
+	if err = runValidator(report, generator, algodNet, indexerNet); err != nil {
+		return fmt.Errorf("problem running validator: %w", err)
 	}
 
 	// Shutdown generator.
@@ -227,14 +254,8 @@ func getMetric(entry Entry, suffix string, rateMetric bool) (float64, error) {
 }
 
 // Run the test for 'RunDuration', collect metrics and write them to the 'ReportDirectory'
-func (r *Args) runTest(reportfile string, indexerURL string, generatorURL string) error {
+func (r *Args) runTest(report *os.File, indexerURL string, generatorURL string) error {
 	collector := &MetricsCollector{MetricsURL: fmt.Sprintf("http://%s/metrics", indexerURL)}
-
-	report, err := os.Create(reportfile)
-	if err != nil {
-		return fmt.Errorf("unable to create report: %w", err)
-	}
-	defer report.Close()
 
 	// Run for r.RunDuration
 	start := time.Now()
@@ -263,7 +284,7 @@ func (r *Args) runTest(reportfile string, indexerURL string, generatorURL string
 	}
 	defer resp.Body.Close()
 	var generatorReport generator.Report
-	if err := json.NewDecoder(resp.Body).Decode(&generatorReport); err != nil {
+	if err = json.NewDecoder(resp.Body).Decode(&generatorReport); err != nil {
 		return fmt.Errorf("problem decoding generator report: %w", err)
 	}
 	for metric, entry := range generatorReport {
@@ -272,30 +293,71 @@ func (r *Args) runTest(reportfile string, indexerURL string, generatorURL string
 			continue
 		}
 		str := fmt.Sprintf("transaction_%s_total:%d\n", metric, entry.GenerationCount)
-		if _, err := report.WriteString(str); err != nil {
+		if _, err = report.WriteString(str); err != nil {
 			return fmt.Errorf("unable to write transaction_count metric: %w", err)
 		}
 	}
 
 	// Record a rate from one of the first data points.
 	if len(collector.Data) > 5 {
-		if err := recordDataToFile(start, collector.Data[2], "early", report); err != nil {
+		if err = recordDataToFile(start, collector.Data[2], "early", report); err != nil {
 			return err
 		}
 	}
 
-	// Also record the final one.
-	if err := recordDataToFile(start, collector.Data[len(collector.Data)-1], "final", report); err != nil {
+	// Also record the final metrics.
+	if err = recordDataToFile(start, collector.Data[len(collector.Data)-1], "final", report); err != nil {
 		return err
 	}
 
 	return nil
 }
 
+func runValidator(report *os.File, gen generator.Generator, algodURL, indexerURL string) error {
+	work := make(chan string)
+
+	// Write all accounts to the work channel
+	go func() {
+		defer close(work)
+		for addr := range gen.Accounts() {
+			work <- addr.String()
+		}
+		fmt.Println("done writing work.")
+	}()
+
+	params := validator.Params{
+		AlgodURL:     algodURL,
+		AlgodToken:   "na",
+		IndexerURL:   indexerURL,
+		IndexerToken: "na",
+		Retries:      1,
+		RetryDelayMS: 100,
+	}
+	results := make(chan validator.Result)
+
+	go validator.Start(work, validator.Default, 5, params, results)
+
+	// TODO: If we do start having frequent bad results, we could write the
+	//       validator report to a file.
+	// Set flag if there is an invalid result.
+	validatorResult := true
+	for r := range results {
+		if !r.Equal && validatorResult {
+			validatorResult = false
+		}
+	}
+
+	// Write validator result at the very end.
+	if _, err := report.WriteString(fmt.Sprintf("validator_successful:%t\n", validatorResult)); err != nil {
+		return fmt.Errorf("unable to write validator result: %w", err)
+	}
+	return nil
+}
+
 // startGenerator starts the generator server.
-func startGenerator(configFile string, addr string) func() error {
+func startGenerator(configFile string, addr string, blockMiddleware func(http.Handler) http.Handler) (func() error, generator.Generator) {
 	// Start generator.
-	server := generator.MakeServer(configFile, addr)
+	server, generator := generator.MakeServerWithMiddleware(configFile, addr, blockMiddleware)
 
 	// Start the server
 	go func() {
@@ -311,7 +373,7 @@ func startGenerator(configFile string, addr string) func() error {
 			return fmt.Errorf("failed during generator graceful shutdown: %w", err)
 		}
 		return nil
-	}
+	}, generator
 }
 
 // startIndexer resets the postgres database and executes the indexer binary. It performs some simple verification to

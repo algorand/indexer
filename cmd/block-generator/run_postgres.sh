@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 
-# Demonstrate how to run the block-generator runner.
+# This script is useful if you want to launch the runner
+# in a debugger. Simply start this script and run with:
+# ./block-generator runner \
+#       -d 5s \
+#       -i ./../algorand-indexer/algorand-indexer \
+#       -c "host=localhost user=algorand password=algorand dbname=algorand port=15432 sslmode=disable" \
+#       -r results \
+#       -s scenarios/config.payment.small.yml
 
 set -e
 
@@ -34,22 +41,9 @@ function shutdown() {
 
 trap shutdown EXIT
 
-rm -rf OUTPUT_RUN_RUNNER_TEST > /dev/null 2>&1
-echo "Building generator."
 pushd $(dirname "$0") > /dev/null
-go build
-cd ../.. > /dev/null
-echo "Building indexer."
-make
-popd
-echo "Starting postgres container."
+echo "Starting postgres container at: \n\t\"host=localhost user=algorand password=algorand dbname=algorand port=15432\""
 start_postgres
-echo "Starting test runner"
-$(dirname "$0")/block-generator runner \
-	--indexer-binary ../algorand-indexer/algorand-indexer \
-	--report-directory OUTPUT_RUN_RUNNER_TEST \
-	--test-duration 30s \
-	--log-level trace \
-	--postgres-connection-string "host=localhost user=algorand password=algorand dbname=generator_db port=15432 sslmode=disable" \
-	--scenario test_config.yml \
-	#--scenario ${CONFIG} \
+echo "Sleeping, use Ctrl-C to end test."
+sleep 1000000000000000
+
