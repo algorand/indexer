@@ -32,7 +32,7 @@ func init() {
 	runnerCmd.Flags().StringVarP(&runnerArgs.ReportDirectory, "report-directory", "r", "", "Location to place test reports.")
 	runnerCmd.Flags().StringVarP(&runnerArgs.LogLevel, "log-level", "l", "error", "LogLevel to use when starting Indexer. [error, warn, info, debug, trace]")
 	runnerCmd.Flags().StringVarP(&runnerArgs.CPUProfilePath, "cpuprofile", "", "", "Path where Indexer writes its CPU profile.")
-	runnerCmd.Flags().BoolVarP(&runnerArgs.ClearReportDir, "reset", "", false, "If set any existing report directory will be deleted before running tests.")
+	runnerCmd.Flags().BoolVarP(&runnerArgs.ResetReportDir, "reset", "", false, "If set any existing report directory will be deleted before running tests.")
 
 	runnerCmd.MarkFlagRequired("scenario")
 	runnerCmd.MarkFlagRequired("indexer-binary")

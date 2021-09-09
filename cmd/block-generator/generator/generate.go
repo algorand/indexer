@@ -212,7 +212,7 @@ type generator struct {
 type assetData struct {
 	assetID uint64
 	creator uint64
-	name string
+	name    string
 	// Holding at index 0 is the creator.
 	holdings []*assetHolding
 	// Set of holders in the holdings array for easy reference.
@@ -504,7 +504,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 		// Compute asset ID and initialize holdings
 		holding := assetHolding{
 			acctIndex: senderIndex,
-			balance: total,
+			balance:   total,
 		}
 		a := assetData{
 			name:     assetName,
@@ -676,17 +676,17 @@ func (g *generator) WriteAccount(output io.Writer, accountString string) error {
 		if len(a.holdings) > 0 && a.holdings[0].acctIndex == idx {
 			nameBytes := []byte(a.name)
 			asset := generated.Asset{
-				Index:  a.assetID,
+				Index: a.assetID,
 				Params: generated.AssetParams{
-					Creator:       accountString,
-					Decimals:      0,
-					Clawback:      &accountString,
-					Freeze:        &accountString,
-					Manager:       &accountString,
-					Reserve:       &accountString,
-					Name:          &a.name,
-					NameB64:       &nameBytes,
-					Total:         assetTotal,
+					Creator:  accountString,
+					Decimals: 0,
+					Clawback: &accountString,
+					Freeze:   &accountString,
+					Manager:  &accountString,
+					Reserve:  &accountString,
+					Name:     &a.name,
+					NameB64:  &nameBytes,
+					Total:    assetTotal,
 				},
 			}
 			asset.Params.DefaultFrozen = new(bool)

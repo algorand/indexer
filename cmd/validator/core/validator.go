@@ -15,7 +15,7 @@ import (
 
 // Params are the program arguments which need to be passed between objects.
 type Params struct {
-	AlgodURL   string
+	AlgodURL     string
 	AlgodToken   string
 	IndexerURL   string
 	IndexerToken string
@@ -28,6 +28,7 @@ func init() {
 	ErrorLog.SetFlags(0)
 }
 
+// ErrorLog is used while the validator is running.
 var ErrorLog *log.Logger
 
 // Processor is the algorithm to fetch and compare data from indexer and algod
@@ -54,13 +55,17 @@ type ErrorDetails struct {
 	Diff    []string
 }
 
+// ProcessorID is used to select which processor to use for validation.
 type ProcessorID int
+
+// ProcessorIDs
 const (
 	Struct ProcessorID = iota
 	Dynamic
+	Default = Struct
 )
-const Default = Struct
 
+// MakeProcessor initializes the Processor from a ProcessorID
 func MakeProcessor(id ProcessorID) (Processor, error) {
 	switch id {
 	case Struct:
@@ -72,6 +77,7 @@ func MakeProcessor(id ProcessorID) (Processor, error) {
 	}
 }
 
+// Start runs the validator with data from work and puts results in results.
 func Start(work <-chan string, processorID ProcessorID, threads int, config Params, results chan<- Result) {
 	defer close(results)
 
@@ -207,4 +213,3 @@ func resultError(err error, address string) Result {
 		},
 	}
 }
-

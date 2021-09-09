@@ -37,7 +37,7 @@ type Args struct {
 	RunDuration              time.Duration
 	LogLevel                 string
 	ReportDirectory          string
-	ClearReportDir           bool
+	ResetReportDir           bool
 }
 
 // Run is a public helper to run the tests.
@@ -45,7 +45,7 @@ type Args struct {
 // If 'args.Path' is a directory it should contain generator configuration files, a test will run using each file.
 func Run(args Args) error {
 	if _, err := os.Stat(args.ReportDirectory); !os.IsNotExist(err) {
-		if args.ClearReportDir {
+		if args.ResetReportDir {
 			fmt.Printf("Resetting existing report directory '%s'\n", args.ReportDirectory)
 			os.RemoveAll(args.ReportDirectory)
 		} else {
@@ -97,7 +97,6 @@ func (r *Args) run() error {
 		return fmt.Errorf("unable to create report: %w", err)
 	}
 	defer report.Close()
-
 
 	// Run the test, collecting results.
 	if err := r.runTest(report, indexerNet, algodNet); err != nil {
