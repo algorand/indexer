@@ -38,6 +38,7 @@ type Args struct {
 	LogLevel                 string
 	ReportDirectory          string
 	ResetReportDir           bool
+	RunValidation            bool
 }
 
 // Run is a public helper to run the tests.
@@ -103,12 +104,15 @@ func (r *Args) run() error {
 		return err
 	}
 
-	// Freeze blocks
-	freezeMutex.Lock()
+	// Optionally run the validator
+	if r.RunValidation {
+		// Freeze blocks to avoid data races.
+		freezeMutex.Lock()
 
-	// Run validator
-	if err = runValidator(report, generator, algodNet, indexerNet); err != nil {
-		return fmt.Errorf("problem running validator: %w", err)
+		// Run validator
+		if err = runValidator(report, generator, algodNet, indexerNet); err != nil {
+			return fmt.Errorf("problem running validator: %w", err)
+		}
 	}
 
 	// Shutdown generator.
