@@ -110,13 +110,13 @@ type IndexerDb struct {
 }
 
 // txWithRetry is a helper function that retries the function `f` in case the database
-// transaction in it fails due to a serialization error. `f` is provided context `ctx`
-// and a transaction created using this context and `opts`. `f` takes ownership of the
+// transaction in it fails due to a serialization error. `f` is provided
+// a transaction created using `opts`. `f` takes ownership of the
 // transaction and must either call sql.Tx.Rollback() or sql.Tx.Commit(). In the second
 // case, `f` must return an error which contains the error returned by sql.Tx.Commit().
 // The easiest way is to just return the result of sql.Tx.Commit().
-func (db *IndexerDb) txWithRetry(ctx context.Context, opts sql.TxOptions, f func(context.Context, *sql.Tx) error) error {
-	return pgutil.TxWithRetry(ctx, db.db, opts, f, db.log)
+func (db *IndexerDb) txWithRetry(opts sql.TxOptions, f func(*sql.Tx) error) error {
+	return pgutil.TxWithRetry(db.db, opts, f, db.log)
 }
 
 func (db *IndexerDb) isSetup() (bool, error) {
@@ -170,11 +170,11 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
-	f := func(ctx context.Context, tx *sql.Tx) error {
+	f := func(tx *sql.Tx) error {
 		defer tx.Rollback()
 
 		// Check and increment next round counter.
-		importstate, err := db.getImportState(tx)
+		importstate, err := db.getImportState(context.Background(), tx)
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
@@ -244,7 +244,7 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 
 		return nil
 	}
-	return db.txWithRetry(context.Background(), serializable, f)
+	return db.txWithRetry(serializable, f)
 }
 
 // LoadGenesis is part of idb.IndexerDB
@@ -292,8 +292,8 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) (err error) {
 
 // Returns `idb.ErrorNotInitialized` if uninitialized.
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) getMetastate(tx *sql.Tx, key string) (string, error) {
-	return pgutil.GetMetastate(db.db, tx, key)
+func (db *IndexerDb) getMetastate(ctx context.Context, tx *sql.Tx, key string) (string, error) {
+	return pgutil.GetMetastate(ctx, db.db, tx, key)
 }
 
 const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
@@ -310,8 +310,8 @@ func (db *IndexerDb) setMetastate(tx *sql.Tx, key, jsonStrValue string) (err err
 
 // Returns idb.ErrorNotInitialized if uninitialized.
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) getImportState(tx *sql.Tx) (importState, error) {
-	importStateJSON, err := db.getMetastate(tx, schema.StateMetastateKey)
+func (db *IndexerDb) getImportState(ctx context.Context, tx *sql.Tx) (importState, error) {
+	importStateJSON, err := db.getMetastate(ctx, tx, schema.StateMetastateKey)
 	if err == idb.ErrorNotInitialized {
 		return importState{}, idb.ErrorNotInitialized
 	}
@@ -341,8 +341,8 @@ func (db *IndexerDb) setImportState(tx *sql.Tx, state importState) error {
 
 // Returns ErrorNotInitialized if genesis is not loaded.
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) getNextRoundToAccount(tx *sql.Tx) (uint64, error) {
-	state, err := db.getImportState(tx)
+func (db *IndexerDb) getNextRoundToAccount(ctx context.Context, tx *sql.Tx) (uint64, error) {
+	state, err := db.getImportState(ctx, tx)
 	if err == idb.ErrorNotInitialized {
 		return 0, err
 	}
@@ -359,13 +359,13 @@ func (db *IndexerDb) getNextRoundToAccount(tx *sql.Tx) (uint64, error) {
 // GetNextRoundToAccount is part of idb.IndexerDB
 // Returns ErrorNotInitialized if genesis is not loaded.
 func (db *IndexerDb) GetNextRoundToAccount() (uint64, error) {
-	return db.getNextRoundToAccount(nil)
+	return db.getNextRoundToAccount(context.Background(), nil)
 }
 
 // Returns ErrorNotInitialized if genesis is not loaded.
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) getMaxRoundAccounted(tx *sql.Tx) (uint64, error) {
-	round, err := db.getNextRoundToAccount(tx)
+func (db *IndexerDb) getMaxRoundAccounted(ctx context.Context, tx *sql.Tx) (uint64, error) {
+	round, err := db.getNextRoundToAccount(ctx, tx)
 	if err != nil {
 		return 0, err
 	}
@@ -627,7 +627,7 @@ func (db *IndexerDb) yieldTxns(ctx context.Context, tx *sql.Tx, tf idb.Transacti
 		return
 	}
 
-	rows, err := tx.Query(query, whereArgs...)
+	rows, err := tx.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
 		out <- idb.TxnRow{Error: err}
@@ -648,7 +648,7 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 		return out, 0
 	}
 
-	round, err := db.getMaxRoundAccounted(tx)
+	round, err := db.getMaxRoundAccounted(ctx, tx)
 	if err != nil {
 		tx.Rollback()
 		out <- idb.TxnRow{Error: err}
@@ -694,7 +694,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.Transa
 		out <- idb.TxnRow{Error: err}
 		return
 	}
-	rows, err := tx.Query(query, whereArgs...)
+	rows, err := tx.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
 		out <- idb.TxnRow{Error: err}
@@ -734,7 +734,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx *sql.Tx, tf idb.Transa
 		out <- idb.TxnRow{Error: err}
 		return
 	}
-	rows, err = tx.Query(query, whereArgs...)
+	rows, err = tx.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("txn query %#v err %v", query, err)
 		out <- idb.TxnRow{Error: err}
@@ -1437,7 +1437,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	}
 
 	// Get round number through which accounting has been updated
-	round, err := db.getMaxRoundAccounted(tx)
+	round, err := db.getMaxRoundAccounted(ctx, tx)
 	if err != nil {
 		err = fmt.Errorf("account round err %v", err)
 		out <- idb.AccountRow{Error: err}
@@ -1476,7 +1476,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		out:         out,
 		start:       time.Now(),
 	}
-	req.rows, err = tx.Query(query, whereArgs...)
+	req.rows, err = tx.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("account query %#v err %v", query, err)
 		out <- idb.AccountRow{Error: err}
@@ -1675,7 +1675,7 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 		return out, 0
 	}
 
-	round, err := db.getMaxRoundAccounted(tx)
+	round, err := db.getMaxRoundAccounted(ctx, tx)
 	if err != nil {
 		out <- idb.AssetRow{Error: err}
 		close(out)
@@ -1683,7 +1683,7 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 		return out, round
 	}
 
-	rows, err := tx.Query(query, whereArgs...)
+	rows, err := tx.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		err = fmt.Errorf("asset query %#v err %v", query, err)
 		out <- idb.AssetRow{Error: err}
@@ -1789,7 +1789,7 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 		return out, 0
 	}
 
-	round, err := db.getMaxRoundAccounted(tx)
+	round, err := db.getMaxRoundAccounted(ctx, tx)
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
@@ -1797,7 +1797,7 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 		return out, round
 	}
 
-	rows, err := tx.Query(query, whereArgs...)
+	rows, err := tx.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
@@ -1892,7 +1892,7 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 		return out, 0
 	}
 
-	round, err := db.getMaxRoundAccounted(tx)
+	round, err := db.getMaxRoundAccounted(ctx, tx)
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
@@ -1900,7 +1900,7 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 		return out, round
 	}
 
-	rows, err := tx.Query(query, whereArgs...)
+	rows, err := tx.QueryContext(ctx, query, whereArgs...)
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
@@ -2009,7 +2009,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 
 	data["migration-required"] = migrationRequired
 
-	round, err := db.getMaxRoundAccounted(nil)
+	round, err := db.getMaxRoundAccounted(context.Background(), nil)
 
 	// We'll just have to set the round to 0
 	if err == idb.ErrorNotInitialized {
@@ -2028,7 +2028,8 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 
 // GetSpecialAccounts is part of idb.IndexerDB
 func (db *IndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error) {
-	cache, err := db.getMetastate(nil, schema.SpecialAccountsMetastateKey)
+	cache, err := db.getMetastate(
+		context.Background(), nil, schema.SpecialAccountsMetastateKey)
 	if err != nil {
 		return transactions.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
 	}

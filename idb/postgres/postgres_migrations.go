@@ -158,7 +158,7 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 
 // Returns `idb.ErrorNotInitialized` if uninitialized.
 func (db *IndexerDb) getMigrationState() (MigrationState, error) {
-	migrationStateJSON, err := db.getMetastate(nil, schema.MigrationMetastateKey)
+	migrationStateJSON, err := db.getMetastate(context.Background(), nil, schema.MigrationMetastateKey)
 	if err == idb.ErrorNotInitialized {
 		return MigrationState{}, idb.ErrorNotInitialized
 	} else if err != nil {
@@ -182,7 +182,7 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 	nextState := *state
 	nextState.NextMigration++
 
-	f := func(ctx context.Context, tx *sql.Tx) error {
+	f := func(tx *sql.Tx) error {
 		defer tx.Rollback()
 
 		for _, cmd := range sqlLines {
@@ -200,7 +200,7 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 		}
 		return tx.Commit()
 	}
-	err := db.txWithRetry(context.Background(), serializable, f)
+	err := db.txWithRetry(serializable, f)
 	if err != nil {
 		return fmt.Errorf("migration %d commit err: %w", state.NextMigration, err)
 	}
