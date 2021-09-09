@@ -327,7 +327,6 @@ func runValidator(report *os.File, gen generator.Generator, algodURL, indexerURL
 		for addr := range gen.Accounts() {
 			work <- addr.String()
 		}
-		fmt.Println("done writing work.")
 	}()
 
 	params := validator.Params{
@@ -335,8 +334,12 @@ func runValidator(report *os.File, gen generator.Generator, algodURL, indexerURL
 		AlgodToken:   "na",
 		IndexerURL:   indexerURL,
 		IndexerToken: "na",
-		Retries:      1,
-		RetryDelayMS: 100,
+		// The generous retry configuration here is because we can specify
+		// arbitrary over-sized blocks. Maybe they take a long time to process.
+		// Because the generator is paused this should only be needed for the
+		// first batch of validations.
+		Retries:      200,
+		RetryDelayMS: 1000,
 	}
 	results := make(chan validator.Result)
 
@@ -346,13 +349,7 @@ func runValidator(report *os.File, gen generator.Generator, algodURL, indexerURL
 	//       validator report to a file.
 	// Set flag if there is an invalid result.
 	validatorResult := true
-	var good, bad int
 	for r := range results {
-		if r.Equal {
-			good++
-		} else {
-			bad++
-		}
 		if !r.Equal && validatorResult {
 			validatorResult = false
 		}
