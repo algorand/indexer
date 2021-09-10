@@ -68,7 +68,7 @@ func help(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "Use /v2/blocks/:blocknum: to get a block.")
 }
 
-func writeResponse(w http.ResponseWriter, err error) {
+func maybeWriteError(w http.ResponseWriter, err error) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -77,13 +77,13 @@ func writeResponse(w http.ResponseWriter, err error) {
 
 func getReportHandler(gen Generator) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeResponse(w, gen.WriteReport(w))
+		maybeWriteError(w, gen.WriteReport(w))
 	}
 }
 
 func getGenesisHandler(gen Generator) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		writeResponse(w, gen.WriteGenesis(w))
+		maybeWriteError(w, gen.WriteGenesis(w))
 	}
 }
 
@@ -92,11 +92,11 @@ func getBlockHandler(gen Generator) func(w http.ResponseWriter, r *http.Request)
 		// The generator doesn't actually care about the block...
 		round, err := parseRound(r.URL.Path)
 		if err != nil {
-			fmt.Fprintf(w, err.Error())
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		writeResponse(w, gen.WriteBlock(w, round))
+		maybeWriteError(w, gen.WriteBlock(w, round))
 	}
 }
 
@@ -105,11 +105,11 @@ func getAccountHandler(gen Generator) func(w http.ResponseWriter, r *http.Reques
 		// The generator doesn't actually care about the block...
 		account, err := parseAccount(r.URL.Path)
 		if err != nil {
-			fmt.Fprintf(w, err.Error())
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		writeResponse(w, gen.WriteAccount(w, account))
+		maybeWriteError(w, gen.WriteAccount(w, account))
 	}
 }
 

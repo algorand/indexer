@@ -48,7 +48,9 @@ func Run(args Args) error {
 	if _, err := os.Stat(args.ReportDirectory); !os.IsNotExist(err) {
 		if args.ResetReportDir {
 			fmt.Printf("Resetting existing report directory '%s'\n", args.ReportDirectory)
-			os.RemoveAll(args.ReportDirectory)
+			if err := os.RemoveAll(args.ReportDirectory); err != nil {
+				return fmt.Errorf("failed to reset report directory: %w", err)
+			}
 		} else {
 			return fmt.Errorf("report directory '%s' already exists", args.ReportDirectory)
 		}
