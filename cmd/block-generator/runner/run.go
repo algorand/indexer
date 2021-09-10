@@ -112,7 +112,7 @@ func (r *Args) run() error {
 		freezeMutex.Lock()
 
 		// Run validator
-		err = runValidator(report, generator, algodNet, indexerNet);
+		err = runValidator(report, generator, algodNet, indexerNet)
 		freezeMutex.Unlock()
 		if err != nil {
 			return fmt.Errorf("problem running validator: %w", err)
