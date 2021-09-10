@@ -57,6 +57,7 @@ func Run(args Args) error {
 	}
 	os.Mkdir(args.ReportDirectory, os.ModeDir|os.ModePerm)
 
+	defer fmt.Println("Done running tests!")
 	return filepath.Walk(args.Path, func(path string, info os.FileInfo, err error) error {
 		// Ignore the directory
 		if info.IsDir() {
@@ -354,13 +355,17 @@ func runValidator(report *os.File, gen generator.Generator, algodURL, indexerURL
 	//       validator report to a file.
 	// Set flag if there is an invalid result.
 	validatorResult := true
+	start := time.Now()
 	for r := range results {
 		if !r.Equal && validatorResult {
 			validatorResult = false
 		}
 	}
 
-	// Write validator result at the very end.
+	// Write validator results.
+	if _, err := report.WriteString(fmt.Sprintf("validator_duration_seconds:%d\n", time.Since(start).Seconds())); err != nil {
+		return fmt.Errorf("unable to write validator result: %w", err)
+	}
 	if _, err := report.WriteString(fmt.Sprintf("validator_successful:%t\n", validatorResult)); err != nil {
 		return fmt.Errorf("unable to write validator result: %w", err)
 	}
