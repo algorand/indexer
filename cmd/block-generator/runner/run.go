@@ -363,7 +363,7 @@ func runValidator(report *os.File, gen generator.Generator, algodURL, indexerURL
 	}
 
 	// Write validator results.
-	if _, err := report.WriteString(fmt.Sprintf("validator_duration_seconds:%d\n", time.Since(start).Seconds())); err != nil {
+	if _, err := report.WriteString(fmt.Sprintf("validator_duration_seconds:%.2f\n", time.Since(start).Seconds())); err != nil {
 		return fmt.Errorf("unable to write validator result: %w", err)
 	}
 	if _, err := report.WriteString(fmt.Sprintf("validator_successful:%t\n", validatorResult)); err != nil {
