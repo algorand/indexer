@@ -162,8 +162,7 @@ func recordDataToFile(start time.Time, entry Entry, prefix string, out *os.File)
 	record("_cumulative", metrics.PostgresEvalName, floatTotal)
 	record("", metrics.ImportedRoundGaugeName, intTotal)
 
-	// Allow missing eval time metric
-	if len(writeErrors) > 2 {
+	if len(writeErrors) > 0 {
 		return fmt.Errorf("error writing metrics (%s): %w", strings.Join(writeErrors, ", "), writeErr)
 	}
 
