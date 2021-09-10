@@ -108,10 +108,11 @@ func (r *Args) run() error {
 	if r.RunValidation {
 		// Freeze blocks to avoid data races.
 		freezeMutex.Lock()
-		defer freezeMutex.Unlock()
 
 		// Run validator
-		if err = runValidator(report, generator, algodNet, indexerNet); err != nil {
+		err = runValidator(report, generator, algodNet, indexerNet);
+		freezeMutex.Unlock()
+		if err != nil {
 			return fmt.Errorf("problem running validator: %w", err)
 		}
 	}
