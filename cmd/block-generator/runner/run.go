@@ -139,16 +139,13 @@ const (
 
 // Helper to record metrics. Supports rates (sum/count) and counters.
 func recordDataToFile(start time.Time, entry Entry, prefix string, out *os.File) error {
-	var writeErrors strings.Builder
+	var writeErrors []string
 	var writeErr error
 	record := func(prefix2, name string, t metricType) {
 		key := fmt.Sprintf("%s%s_%s", prefix, prefix2, name)
 		if err := recordMetricToFile(entry, key, name, t, out); err != nil {
 			writeErr = err
-			if writeErrors.Len() > 0 {
-				writeErrors.WriteString(", ")
-			}
-			writeErrors.WriteString(name)
+			writeErrors = append(writeErrors, name)
 		}
 	}
 
@@ -163,8 +160,8 @@ func recordDataToFile(start time.Time, entry Entry, prefix string, out *os.File)
 	record("", metrics.ImportedRoundGaugeName, intTotal)
 
 	// Allow missing eval time metric
-	if writeErrors.Len() > 2 {
-		return fmt.Errorf("error writing metrics (%s): %w", writeErrors.String(), writeErr)
+	if len(writeErrors) > 2 {
+		return fmt.Errorf("error writing metrics (%s): %w", strings.Join(writeErrors, ", "), writeErr)
 	}
 
 	// Calculate import transactions per second.
