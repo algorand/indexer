@@ -1,13 +1,12 @@
 package testing
 
 import (
-	"database/sql"
+	"context"
 	"flag"
 	"fmt"
 	"testing"
 
-	// Load the postgres sql.DB implementation.
-	_ "github.com/jackc/pgx/v4/stdlib"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/orlangure/gnomock"
 	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/require"
@@ -18,7 +17,7 @@ var testpg = flag.String(
 
 // SetupPostgres starts a gnomock postgres DB then returns the database object,
 // the connection string and a shutdown function.
-func SetupPostgres(t *testing.T) (*sql.DB, string, func()) {
+func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
 	if testpg != nil && *testpg != "" {
 		// use non-docker Postgresql
 		shutdownFunc := func() {
@@ -26,10 +25,11 @@ func SetupPostgres(t *testing.T) (*sql.DB, string, func()) {
 		}
 		connStr := *testpg
 
-		db, err := sql.Open("pgx", connStr)
+		db, err := pgxpool.Connect(context.Background(), connStr)
 		require.NoError(t, err, "Error opening postgres connection")
 
-		_, err = db.Exec(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`)
+		_, err = db.Exec(
+			context.Background(), `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`)
 		require.NoError(t, err)
 
 		return db, connStr, shutdownFunc
@@ -54,7 +54,7 @@ func SetupPostgres(t *testing.T) (*sql.DB, string, func()) {
 		"gnomock", "gnomick", "mydb",
 	)
 
-	db, err := sql.Open("pgx", connStr)
+	db, err := pgxpool.Connect(context.Background(), connStr)
 	require.NoError(t, err, "Error opening postgres connection")
 
 	return db, connStr, shutdownFunc

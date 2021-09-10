@@ -2,14 +2,14 @@ package ledgerforevaluator_test
 
 import (
 	"context"
-	"database/sql"
 	"testing"
 
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
-
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -20,12 +20,12 @@ import (
 	"github.com/algorand/indexer/util/test"
 )
 
-var readonlyRepeatableRead = sql.TxOptions{Isolation: sql.LevelRepeatableRead, ReadOnly: true}
+var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
 
-func setupPostgres(t *testing.T) (*sql.DB, func()) {
+func setupPostgres(t *testing.T) (*pgxpool.Pool, func()) {
 	db, _, shutdownFunc := pgtest.SetupPostgres(t)
 
-	_, err := db.Exec(schema.SetupPostgresSql)
+	_, err := db.Exec(context.Background(), schema.SetupPostgresSql)
 	require.NoError(t, err)
 
 	return db, shutdownFunc
@@ -43,12 +43,12 @@ func TestLedgerForEvaluatorBlockHdr(t *testing.T) {
 			FeeSink: test.FeeAddr,
 		},
 	}
-	_, err := db.Exec(query, encoding.EncodeBlockHeader(header))
+	_, err := db.Exec(context.Background(), query, encoding.EncodeBlockHeader(header))
 	require.NoError(t, err)
 
-	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 		tx, header.GenesisHash, transactions.SpecialAddresses{})
@@ -94,14 +94,15 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	accountDataFull.AppParams = make(map[basics.AppIndex]basics.AppParams)
 
 	_, err := db.Exec(
+		context.Background(),
 		query, test.AccountB[:], accountDataFull.MicroAlgos.Raw, accountDataFull.RewardsBase,
 		accountDataFull.RewardedMicroAlgos.Raw,
 		encoding.EncodeTrimmedAccountData(accountDataWritten))
 	require.NoError(t, err)
 
-	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 		tx, crypto.Digest{}, transactions.SpecialAddresses{})
@@ -128,12 +129,13 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 		MicroAlgos: basics.MicroAlgos{Raw: 5},
 	}
 	_, err := db.Exec(
-		query, test.AccountB[:], encoding.EncodeTrimmedAccountData(accountData))
+		context.Background(), query, test.AccountB[:],
+		encoding.EncodeTrimmedAccountData(accountData))
 	require.NoError(t, err)
 
-	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 		tx, crypto.Digest{}, transactions.SpecialAddresses{})
@@ -163,12 +165,13 @@ func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
 		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
 		AppParams:      make(map[basics.AppIndex]basics.AppParams),
 	}
-	_, err := db.Exec(query, test.AccountA[:], accountDataFull.MicroAlgos.Raw)
+	_, err := db.Exec(
+		context.Background(), query, test.AccountA[:], accountDataFull.MicroAlgos.Raw)
 	require.NoError(t, err)
 
-	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 		tx, crypto.Digest{}, transactions.SpecialAddresses{})
@@ -189,24 +192,24 @@ func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 		"INSERT INTO account " +
 			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
 			"VALUES ($1, 0, 0, 0, false, 0)"
-	_, err := db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA[:])
 	require.NoError(t, err)
 
 	query =
 		"INSERT INTO account_asset (addr, assetid, amount, frozen, deleted, created_at) " +
 			"VALUES ($1, $2, $3, $4, $5, 0)"
-	_, err = db.Exec(query, test.AccountA[:], 1, 2, false, false)
+	_, err = db.Exec(context.Background(), query, test.AccountA[:], 1, 2, false, false)
 	require.NoError(t, err)
-	_, err = db.Exec(query, test.AccountA[:], 3, 4, true, false)
+	_, err = db.Exec(context.Background(), query, test.AccountA[:], 3, 4, true, false)
 	require.NoError(t, err)
-	_, err = db.Exec(query, test.AccountA[:], 5, 6, true, true) // deleted
+	_, err = db.Exec(context.Background(), query, test.AccountA[:], 5, 6, true, true) // deleted
 	require.NoError(t, err)
-	_, err = db.Exec(query, test.AccountB[:], 5, 6, true, false) // wrong account
+	_, err = db.Exec(context.Background(), query, test.AccountB[:], 5, 6, true, false) // wrong account
 	require.NoError(t, err)
 
-	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 		tx, crypto.Digest{}, transactions.SpecialAddresses{})
@@ -242,7 +245,7 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 		"INSERT INTO account " +
 			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
 			"VALUES ($1, 0, 0, 0, false, 0)"
-	_, err := db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA[:])
 	require.NoError(t, err)
 
 	query =
@@ -250,26 +253,26 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 			"VALUES ($1, $2, $3, $4, 0)"
 
 	_, err = db.Exec(
-		query, 1, test.AccountA[:],
+		context.Background(), query, 1, test.AccountA[:],
 		encoding.EncodeAssetParams(basics.AssetParams{Manager: test.AccountB}),
 		false)
 	require.NoError(t, err)
 
 	_, err = db.Exec(
-		query, 2, test.AccountA[:],
+		context.Background(), query, 2, test.AccountA[:],
 		encoding.EncodeAssetParams(basics.AssetParams{Manager: test.AccountC}),
 		false)
 	require.NoError(t, err)
 
-	_, err = db.Exec(query, 3, test.AccountA[:], "{}", true) // deleted
+	_, err = db.Exec(context.Background(), query, 3, test.AccountA[:], "{}", true) // deleted
 	require.NoError(t, err)
 
-	_, err = db.Exec(query, 4, test.AccountD[:], "{}", false) // wrong account
+	_, err = db.Exec(context.Background(), query, 4, test.AccountD[:], "{}", false) // wrong account
 	require.NoError(t, err)
 
-	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 		tx, crypto.Digest{}, transactions.SpecialAddresses{})
@@ -303,7 +306,7 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 		"INSERT INTO account " +
 			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
 			"VALUES ($1, 0, 0, 0, false, 0)"
-	_, err := db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA[:])
 	require.NoError(t, err)
 
 	query =
@@ -316,25 +319,29 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 		},
 	}
 	_, err = db.Exec(
-		query, 1, test.AccountA[:], encoding.EncodeAppParams(params1), false)
+		context.Background(), query, 1, test.AccountA[:],
+		encoding.EncodeAppParams(params1), false)
 	require.NoError(t, err)
 
 	params2 := basics.AppParams{
 		ApprovalProgram: []byte{1, 2, 3},
 	}
 	_, err = db.Exec(
-		query, 2, test.AccountA[:], encoding.EncodeAppParams(params2), false)
+		context.Background(), query, 2, test.AccountA[:],
+		encoding.EncodeAppParams(params2), false)
 	require.NoError(t, err)
 
-	_, err = db.Exec(query, 3, test.AccountA[:], "{}", true) // deteled
+	_, err = db.Exec(
+		context.Background(), query, 3, test.AccountA[:], "{}", true) // deteled
 	require.NoError(t, err)
 
-	_, err = db.Exec(query, 4, test.AccountB[:], "{}", false) // wrong account
+	_, err = db.Exec(
+		context.Background(), query, 4, test.AccountB[:], "{}", false) // wrong account
 	require.NoError(t, err)
 
-	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 		tx, crypto.Digest{}, transactions.SpecialAddresses{})
@@ -364,7 +371,7 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 		"INSERT INTO account " +
 			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
 			"VALUES ($1, 0, 0, 0, false, 0)"
-	_, err := db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA[:])
 	require.NoError(t, err)
 
 	query =
@@ -377,7 +384,8 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 		},
 	}
 	_, err = db.Exec(
-		query, test.AccountA[:], 1, encoding.EncodeAppLocalState(params1), false)
+		context.Background(), query, test.AccountA[:], 1,
+		encoding.EncodeAppLocalState(params1), false)
 	require.NoError(t, err)
 
 	params2 := basics.AppLocalState{
@@ -386,18 +394,21 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 		},
 	}
 	_, err = db.Exec(
-		query, test.AccountA[:], 2, encoding.EncodeAppLocalState(params2), false)
+		context.Background(), query, test.AccountA[:], 2,
+		encoding.EncodeAppLocalState(params2), false)
 	require.NoError(t, err)
 
-	_, err = db.Exec(query, test.AccountA[:], 3, "{}", true) // deteled
+	_, err = db.Exec(
+		context.Background(), query, test.AccountA[:], 3, "{}", true) // deteled
 	require.NoError(t, err)
 
-	_, err = db.Exec(query, test.AccountB[:], 4, "{}", false) // wrong account
+	_, err = db.Exec(
+		context.Background(), query, test.AccountB[:], 4, "{}", false) // wrong account
 	require.NoError(t, err)
 
-	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 		tx, crypto.Digest{}, transactions.SpecialAddresses{})
@@ -426,12 +437,12 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 	query :=
 		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
 			"VALUES (2, $1, '{}', false, 0)"
-	_, err := db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA[:])
 	require.NoError(t, err)
 
-	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 		tx, crypto.Digest{}, transactions.SpecialAddresses{})
@@ -453,12 +464,12 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	query :=
 		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
 			"VALUES (2, $1, '{}', true, 0)"
-	_, err := db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA[:])
 	require.NoError(t, err)
 
-	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 		tx, crypto.Digest{}, transactions.SpecialAddresses{})
@@ -479,12 +490,12 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 	query :=
 		"INSERT INTO app (index, creator, params, deleted, created_at) " +
 			"VALUES (2, $1, '{}', false, 0)"
-	_, err := db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA[:])
 	require.NoError(t, err)
 
-	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 		tx, crypto.Digest{}, transactions.SpecialAddresses{})
@@ -506,12 +517,12 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	query :=
 		"INSERT INTO app (index, creator, params, deleted, created_at) " +
 			"VALUES (2, $1, '{}', true, 0)"
-	_, err := db.Exec(query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA[:])
 	require.NoError(t, err)
 
-	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 		tx, crypto.Digest{}, transactions.SpecialAddresses{})
@@ -529,9 +540,9 @@ func TestLedgerForEvaluatorSpecialAddresses(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer tx.Rollback(context.Background())
 
 	specialAddresses := transactions.SpecialAddresses{
 		FeeSink:     test.FeeAddr,
@@ -559,9 +570,9 @@ func TestLedgerForEvaluatorGenesisHash(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	tx, err := db.BeginTx(context.Background(), &readonlyRepeatableRead)
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
-	defer tx.Rollback()
+	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 		tx, test.GenesisHash, transactions.SpecialAddresses{})

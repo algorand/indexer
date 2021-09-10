@@ -1,7 +1,7 @@
 package ledgerforevaluator
 
 import (
-	"database/sql"
+	"context"
 	"errors"
 	"fmt"
 
@@ -12,93 +12,64 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/jackc/pgx/v4"
+
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 )
 
-const blockHeaderQuery = "SELECT header FROM block_header WHERE round = $1"
-const assetCreatorQuery = "SELECT creator_addr FROM asset " +
-	"WHERE index = $1 AND NOT deleted"
-const appCreatorQuery = "SELECT creator FROM app WHERE index = $1 AND NOT deleted"
-const accountQuery = "SELECT microalgos, rewardsbase, rewards_total, account_data " +
-	"FROM account WHERE addr = $1 AND NOT deleted"
-const assetHoldingsQuery = "SELECT assetid, amount, frozen FROM account_asset " +
-	"WHERE addr = $1 AND NOT deleted"
-const assetParamsQuery = "SELECT index, params FROM asset " +
-	"WHERE creator_addr = $1 AND NOT deleted"
-const appParamsQuery = "SELECT index, params FROM app WHERE creator = $1 AND NOT deleted"
-const appLocalStatesQuery = "SELECT app, localstate FROM account_app " +
-	"WHERE addr = $1 AND NOT deleted"
+const (
+	blockHeaderStmtName    = "block_header"
+	assetCreatorStmtName   = "asset_creator"
+	appCreatorStmtName     = "app_creator"
+	accountStmtName        = "account"
+	assetHoldingsStmtName  = "asset_holdings"
+	assetParamsStmtName    = "asset_params"
+	appParamsStmtName      = "app_params"
+	appLocalStatesStmtName = "app_local_states"
+)
+
+var statements = map[string]string{
+	blockHeaderStmtName: "SELECT header FROM block_header WHERE round = $1",
+	assetCreatorStmtName: "SELECT creator_addr FROM asset " +
+		"WHERE index = $1 AND NOT deleted",
+	appCreatorStmtName: "SELECT creator FROM app WHERE index = $1 AND NOT deleted",
+	accountStmtName: "SELECT microalgos, rewardsbase, rewards_total, account_data " +
+		"FROM account WHERE addr = $1 AND NOT deleted",
+	assetHoldingsStmtName: "SELECT assetid, amount, frozen FROM account_asset " +
+		"WHERE addr = $1 AND NOT deleted",
+	assetParamsStmtName: "SELECT index, params FROM asset " +
+		"WHERE creator_addr = $1 AND NOT deleted",
+	appParamsStmtName: "SELECT index, params FROM app WHERE creator = $1 AND NOT deleted",
+	appLocalStatesStmtName: "SELECT app, localstate FROM account_app " +
+		"WHERE addr = $1 AND NOT deleted",
+}
 
 // LedgerForEvaluator implements the ledgerForEvaluator interface from
 // go-algorand ledger/eval.go and is used for accounting.
 type LedgerForEvaluator struct {
-	tx          *sql.Tx
+	tx          pgx.Tx
 	genesisHash crypto.Digest
 	// Indexer currently does not store the balances of special account, but
 	// go-algorand's eval checks that they satisfy the minimum balance. We thus return
 	// a fake amount.
 	// TODO: remove.
 	specialAddresses transactions.SpecialAddresses
-
-	blockHeaderStmt    *sql.Stmt
-	assetCreatorStmt   *sql.Stmt
-	appCreatorStmt     *sql.Stmt
-	accountStmt        *sql.Stmt
-	assetHoldingsStmt  *sql.Stmt
-	assetParamsStmt    *sql.Stmt
-	appParamsStmt      *sql.Stmt
-	appLocalStatesStmt *sql.Stmt
 }
 
 // MakeLedgerForEvaluator creates a LedgerForEvaluator object.
-func MakeLedgerForEvaluator(tx *sql.Tx, genesisHash crypto.Digest, specialAddresses transactions.SpecialAddresses) (LedgerForEvaluator, error) {
+func MakeLedgerForEvaluator(tx pgx.Tx, genesisHash crypto.Digest, specialAddresses transactions.SpecialAddresses) (LedgerForEvaluator, error) {
 	l := LedgerForEvaluator{
 		tx:               tx,
 		genesisHash:      genesisHash,
 		specialAddresses: specialAddresses,
 	}
 
-	var err error
-
-	l.blockHeaderStmt, err = tx.Prepare(blockHeaderQuery)
-	if err != nil {
-		return LedgerForEvaluator{},
-			fmt.Errorf("MakeLedgerForEvaluator(): prepare block header stmt err: %w", err)
-	}
-	l.assetCreatorStmt, err = tx.Prepare(assetCreatorQuery)
-	if err != nil {
-		return LedgerForEvaluator{},
-			fmt.Errorf("MakeLedgerForEvaluator(): prepare asset creator stmt err: %w", err)
-	}
-	l.appCreatorStmt, err = tx.Prepare(appCreatorQuery)
-	if err != nil {
-		return LedgerForEvaluator{},
-			fmt.Errorf("MakeLedgerForEvaluator(): prepare app creator stmt err: %w", err)
-	}
-	l.accountStmt, err = tx.Prepare(accountQuery)
-	if err != nil {
-		return LedgerForEvaluator{},
-			fmt.Errorf("MakeLedgerForEvaluator(): prepare account stmt err: %w", err)
-	}
-	l.assetHoldingsStmt, err = tx.Prepare(assetHoldingsQuery)
-	if err != nil {
-		return LedgerForEvaluator{},
-			fmt.Errorf("MakeLedgerForEvaluator(): prepare asset holdings stmt err: %w", err)
-	}
-	l.assetParamsStmt, err = tx.Prepare(assetParamsQuery)
-	if err != nil {
-		return LedgerForEvaluator{},
-			fmt.Errorf("MakeLedgerForEvaluator(): prepare asset params stmt err: %w", err)
-	}
-	l.appParamsStmt, err = tx.Prepare(appParamsQuery)
-	if err != nil {
-		return LedgerForEvaluator{},
-			fmt.Errorf("MakeLedgerForEvaluator(): prepare app params stmt err: %w", err)
-	}
-	l.appLocalStatesStmt, err = tx.Prepare(appLocalStatesQuery)
-	if err != nil {
-		return LedgerForEvaluator{},
-			fmt.Errorf("MakeLedgerForEvaluator(): prepare app local states stmt err: %w", err)
+	for name, query := range statements {
+		_, err := tx.Prepare(context.Background(), name, query)
+		if err != nil {
+			return LedgerForEvaluator{},
+				fmt.Errorf("MakeLedgerForEvaluator() prepare statement err: %w", err)
+		}
 	}
 
 	return l, nil
@@ -106,19 +77,14 @@ func MakeLedgerForEvaluator(tx *sql.Tx, genesisHash crypto.Digest, specialAddres
 
 // Close shuts down LedgerForEvaluator.
 func (l *LedgerForEvaluator) Close() {
-	l.blockHeaderStmt.Close()
-	l.assetCreatorStmt.Close()
-	l.appCreatorStmt.Close()
-	l.accountStmt.Close()
-	l.assetHoldingsStmt.Close()
-	l.assetParamsStmt.Close()
-	l.appParamsStmt.Close()
-	l.appLocalStatesStmt.Close()
+	for name := range statements {
+		l.tx.Conn().Deallocate(context.Background(), name)
+	}
 }
 
 // BlockHdr is part of go-algorand's ledgerForEvaluator interface.
 func (l LedgerForEvaluator) BlockHdr(round basics.Round) (bookkeeping.BlockHeader, error) {
-	row := l.blockHeaderStmt.QueryRow(uint64(round))
+	row := l.tx.QueryRow(context.Background(), blockHeaderStmtName, uint64(round))
 
 	var header []byte
 	err := row.Scan(&header)
@@ -141,7 +107,7 @@ func (l LedgerForEvaluator) CheckDup(config.ConsensusParams, basics.Round, basic
 }
 
 func (l *LedgerForEvaluator) readAccountTable(address basics.Address) (basics.AccountData, bool /*exists*/, error) {
-	row := l.accountStmt.QueryRow(address[:])
+	row := l.tx.QueryRow(context.Background(), accountStmtName, address[:])
 
 	var microalgos uint64
 	var rewardsbase uint64
@@ -149,7 +115,7 @@ func (l *LedgerForEvaluator) readAccountTable(address basics.Address) (basics.Ac
 	var accountData []byte
 
 	err := row.Scan(&microalgos, &rewardsbase, &rewardsTotal, &accountData)
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return basics.AccountData{}, false, nil
 	}
 	if err != nil {
@@ -173,7 +139,7 @@ func (l *LedgerForEvaluator) readAccountTable(address basics.Address) (basics.Ac
 }
 
 func (l *LedgerForEvaluator) readAccountAssetTable(address basics.Address) (map[basics.AssetIndex]basics.AssetHolding, error) {
-	rows, err := l.assetHoldingsStmt.Query(address[:])
+	rows, err := l.tx.Query(context.Background(), assetHoldingsStmtName, address[:])
 	if err != nil {
 		return nil, fmt.Errorf("readAccountAssetTable() query err: %w", err)
 	}
@@ -205,7 +171,7 @@ func (l *LedgerForEvaluator) readAccountAssetTable(address basics.Address) (map[
 }
 
 func (l *LedgerForEvaluator) readAssetTable(address basics.Address) (map[basics.AssetIndex]basics.AssetParams, error) {
-	rows, err := l.assetParamsStmt.Query(address[:])
+	rows, err := l.tx.Query(context.Background(), assetParamsStmtName, address[:])
 	if err != nil {
 		return nil, fmt.Errorf("readAssetTable() query err: %w", err)
 	}
@@ -236,7 +202,7 @@ func (l *LedgerForEvaluator) readAssetTable(address basics.Address) (map[basics.
 }
 
 func (l *LedgerForEvaluator) readAppTable(address basics.Address) (map[basics.AppIndex]basics.AppParams, error) {
-	rows, err := l.appParamsStmt.Query(address[:])
+	rows, err := l.tx.Query(context.Background(), appParamsStmtName, address[:])
 	if err != nil {
 		return nil, fmt.Errorf("readAppTable() query err: %w", err)
 	}
@@ -267,7 +233,7 @@ func (l *LedgerForEvaluator) readAppTable(address basics.Address) (map[basics.Ap
 }
 
 func (l *LedgerForEvaluator) readAccountAppTable(address basics.Address) (map[basics.AppIndex]basics.AppLocalState, error) {
-	rows, err := l.appLocalStatesStmt.Query(address[:])
+	rows, err := l.tx.Query(context.Background(), appLocalStatesStmtName, address[:])
 	if err != nil {
 		return nil, fmt.Errorf("readAccountAppTable() query err: %w", err)
 	}
@@ -343,20 +309,20 @@ func (l LedgerForEvaluator) LookupWithoutRewards(round basics.Round, address bas
 
 // GetCreatorForRound is part of go-algorand's ledgerForEvaluator interface.
 func (l LedgerForEvaluator) GetCreatorForRound(_ basics.Round, cindex basics.CreatableIndex, ctype basics.CreatableType) (basics.Address, bool, error) {
-	var row *sql.Row
+	var row pgx.Row
 
 	switch ctype {
 	case basics.AssetCreatable:
-		row = l.assetCreatorStmt.QueryRow(uint64(cindex))
+		row = l.tx.QueryRow(context.Background(), assetCreatorStmtName, uint64(cindex))
 	case basics.AppCreatable:
-		row = l.appCreatorStmt.QueryRow(uint64(cindex))
+		row = l.tx.QueryRow(context.Background(), appCreatorStmtName, uint64(cindex))
 	default:
 		panic("unknown creatable type")
 	}
 
 	var buf []byte
 	err := row.Scan(&buf)
-	if err == sql.ErrNoRows {
+	if err == pgx.ErrNoRows {
 		return basics.Address{}, false, nil
 	}
 	if err != nil {

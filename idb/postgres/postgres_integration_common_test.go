@@ -1,10 +1,11 @@
 package postgres
 
 import (
-	"database/sql"
+	"context"
 	"testing"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/idb"
@@ -27,8 +28,8 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeepin
 }
 
 // Helper to execute a query returning an integer, for example COUNT(*). Returns -1 on an error.
-func queryInt(db *sql.DB, queryString string, args ...interface{}) int {
-	row := db.QueryRow(queryString, args...)
+func queryInt(db *pgxpool.Pool, queryString string, args ...interface{}) int {
+	row := db.QueryRow(context.Background(), queryString, args...)
 
 	var count int
 	err := row.Scan(&count)

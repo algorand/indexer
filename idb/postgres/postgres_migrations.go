@@ -6,8 +6,9 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
@@ -99,7 +100,7 @@ func needsMigration(state MigrationState) bool {
 // upsertMigrationState updates the migration state, and optionally increments
 // the next counter with an existing transaction.
 // If `tx` is nil, use a normal query.
-func upsertMigrationState(db *IndexerDb, tx *sql.Tx, state *MigrationState) error {
+func upsertMigrationState(db *IndexerDb, tx pgx.Tx, state *MigrationState) error {
 	migrationStateJSON := encoding.EncodeJSON(state)
 	return db.setMetastate(tx, schema.MigrationMetastateKey, string(migrationStateJSON))
 }
@@ -182,11 +183,11 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 	nextState := *state
 	nextState.NextMigration++
 
-	f := func(tx *sql.Tx) error {
-		defer tx.Rollback()
+	f := func(tx pgx.Tx) error {
+		defer tx.Rollback(context.Background())
 
 		for _, cmd := range sqlLines {
-			_, err := tx.Exec(cmd)
+			_, err := tx.Exec(context.Background(), cmd)
 			if err != nil {
 				return fmt.Errorf(
 					"migration %d exec cmd: \"%s\" err: %w", state.NextMigration, cmd, err)
@@ -194,11 +195,12 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 		}
 		migrationStateJSON := encoding.EncodeJSON(nextState)
 		_, err := tx.Exec(
-			setMetastateUpsert, schema.MigrationMetastateKey, migrationStateJSON)
+			context.Background(), setMetastateUpsert, schema.MigrationMetastateKey,
+			migrationStateJSON)
 		if err != nil {
 			return fmt.Errorf("migration %d exec metastate err: %w", state.NextMigration, err)
 		}
-		return tx.Commit()
+		return tx.Commit(context.Background())
 	}
 	err := db.txWithRetry(serializable, f)
 	if err != nil {

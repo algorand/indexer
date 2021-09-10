@@ -1,7 +1,7 @@
 package writer
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -11,170 +11,108 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 )
 
-const addBlockHeaderQuery = `INSERT INTO block_header
-	(round, realtime, rewardslevel, header)
-	VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`
-const setSpecialAccountsQuery = `INSERT INTO metastate (k, v) VALUES ('` +
-	schema.SpecialAccountsMetastateKey +
-	`', $1) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
-const addTxnQuery = `INSERT INTO txn
-	(round, intra, typeenum, asset, txid, txnbytes, txn, extra)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING`
-const addTxnParticipantQuery = `INSERT INTO txn_participation
-	(addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`
-const upsertAssetQuery = `INSERT INTO asset
-	(index, creator_addr, params, deleted, created_at)
-	VALUES($1, $2, $3, FALSE, $4) ON CONFLICT (index) DO UPDATE SET
-	creator_addr = EXCLUDED.creator_addr, params = EXCLUDED.params, deleted = FALSE`
-const upsertAccountAssetQuery = `INSERT INTO account_asset
-	(addr, assetid, amount, frozen, deleted, created_at)
-	VALUES($1, $2, $3, $4, FALSE, $5) ON CONFLICT (addr, assetid) DO UPDATE SET
-	amount = EXCLUDED.amount, frozen = EXCLUDED.frozen, deleted = FALSE`
-const upsertAppQuery = `INSERT INTO app
-	(index, creator, params, deleted, created_at)
-	VALUES($1, $2, $3, FALSE, $4) ON CONFLICT (index) DO UPDATE SET
-	creator = EXCLUDED.creator, params = EXCLUDED.params, deleted = FALSE`
-const upsertAccountAppQuery = `INSERT INTO account_app
-	(addr, app, localstate, deleted, created_at)
-	VALUES($1, $2, $3, FALSE, $4) ON CONFLICT (addr, app) DO UPDATE SET
-	localstate = EXCLUDED.localstate, deleted = FALSE`
-const deleteAccountQuery = `INSERT INTO account
-	(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, closed_at)
-	VALUES($1, 0, 0, 0, TRUE, $2, $2) ON CONFLICT (addr) DO UPDATE SET
-	microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
-	rewards_total = EXCLUDED.rewards_total, deleted = TRUE,
-	closed_at = EXCLUDED.closed_at, account_data = EXCLUDED.account_data`
-const upsertAccountQuery = `INSERT INTO account
-	(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
-	VALUES($1, $2, $3, $4, FALSE, $5, $6) ON CONFLICT (addr) DO UPDATE SET
-	microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
-	rewards_total = EXCLUDED.rewards_total, deleted = FALSE,
-	account_data = EXCLUDED.account_data`
-const deleteAssetQuery = `INSERT INTO asset
-	(index, creator_addr, params, deleted, created_at, closed_at)
-	VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (index) DO UPDATE SET
-	creator_addr = EXCLUDED.creator_addr, params = EXCLUDED.params, deleted = TRUE,
-	closed_at = EXCLUDED.closed_at`
-const deleteAccountAssetQuery = `INSERT INTO account_asset
-	(addr, assetid, amount, frozen, deleted, created_at, closed_at)
-	VALUES($1, $2, 0, false, TRUE, $3, $3) ON CONFLICT (addr, assetid) DO UPDATE SET
-	amount = EXCLUDED.amount, deleted = TRUE, closed_at = EXCLUDED.closed_at`
-const deleteAppQuery = `INSERT INTO app
-	(index, creator, params, deleted, created_at, closed_at)
-	VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (index) DO UPDATE SET
-	creator = EXCLUDED.creator, params = EXCLUDED.params, deleted = TRUE,
-	closed_at = EXCLUDED.closed_at`
-const deleteAccountAppQuery = `INSERT INTO account_app
-	(addr, app, localstate, deleted, created_at, closed_at)
-	VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (addr, app) DO UPDATE SET
-	localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at`
-const updateAccountKeyTypeQuery = `UPDATE account SET keytype = $1 WHERE addr = $2`
+const (
+	addBlockHeaderStmtName       = "add_block_header"
+	setSpecialAccountsStmtName   = "set_special_accounts"
+	addTxnStmtName               = "add_txn"
+	addTxnParticipantStmtName    = "add_txn_participant"
+	upsertAssetStmtName          = "upsert_asset"
+	upsertAccountAssetStmtName   = "upsert_account_asset"
+	upsertAppStmtName            = "upsert_app"
+	upsertAccountAppStmtName     = "upsert_account_app"
+	deleteAccountStmtName        = "delete_account"
+	upsertAccountStmtName        = "upsert_account"
+	deleteAssetStmtName          = "delete_asset"
+	deleteAccountAssetStmtName   = "delete_account_asset"
+	deleteAppStmtName            = "delete_app"
+	deleteAccountAppStmtName     = "delete_account_app"
+	updateAccountKeyTypeStmtName = "update_account_key_type"
+)
+
+var statements = map[string]string{
+	addBlockHeaderStmtName: `INSERT INTO block_header
+		(round, realtime, rewardslevel, header)
+		VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+	setSpecialAccountsStmtName: `INSERT INTO metastate (k, v) VALUES ('` +
+		schema.SpecialAccountsMetastateKey +
+		`', $1) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`,
+	addTxnStmtName: `INSERT INTO txn
+		(round, intra, typeenum, asset, txid, txnbytes, txn, extra)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING`,
+	addTxnParticipantStmtName: `INSERT INTO txn_participation
+		(addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+	upsertAssetStmtName: `INSERT INTO asset
+		(index, creator_addr, params, deleted, created_at)
+		VALUES($1, $2, $3, FALSE, $4) ON CONFLICT (index) DO UPDATE SET
+		creator_addr = EXCLUDED.creator_addr, params = EXCLUDED.params, deleted = FALSE`,
+	upsertAccountAssetStmtName: `INSERT INTO account_asset
+		(addr, assetid, amount, frozen, deleted, created_at)
+		VALUES($1, $2, $3, $4, FALSE, $5) ON CONFLICT (addr, assetid) DO UPDATE SET
+		amount = EXCLUDED.amount, frozen = EXCLUDED.frozen, deleted = FALSE`,
+	upsertAppStmtName: `INSERT INTO app
+		(index, creator, params, deleted, created_at)
+		VALUES($1, $2, $3, FALSE, $4) ON CONFLICT (index) DO UPDATE SET
+		creator = EXCLUDED.creator, params = EXCLUDED.params, deleted = FALSE`,
+	upsertAccountAppStmtName: `INSERT INTO account_app
+		(addr, app, localstate, deleted, created_at)
+		VALUES($1, $2, $3, FALSE, $4) ON CONFLICT (addr, app) DO UPDATE SET
+		localstate = EXCLUDED.localstate, deleted = FALSE`,
+	deleteAccountStmtName: `INSERT INTO account
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, closed_at)
+		VALUES($1, 0, 0, 0, TRUE, $2, $2) ON CONFLICT (addr) DO UPDATE SET
+		microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
+		rewards_total = EXCLUDED.rewards_total, deleted = TRUE,
+		closed_at = EXCLUDED.closed_at, account_data = EXCLUDED.account_data`,
+	upsertAccountStmtName: `INSERT INTO account
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
+		VALUES($1, $2, $3, $4, FALSE, $5, $6) ON CONFLICT (addr) DO UPDATE SET
+		microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
+		rewards_total = EXCLUDED.rewards_total, deleted = FALSE,
+		account_data = EXCLUDED.account_data`,
+	deleteAssetStmtName: `INSERT INTO asset
+		(index, creator_addr, params, deleted, created_at, closed_at)
+		VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (index) DO UPDATE SET
+		creator_addr = EXCLUDED.creator_addr, params = EXCLUDED.params, deleted = TRUE,
+		closed_at = EXCLUDED.closed_at`,
+	deleteAccountAssetStmtName: `INSERT INTO account_asset
+		(addr, assetid, amount, frozen, deleted, created_at, closed_at)
+		VALUES($1, $2, 0, false, TRUE, $3, $3) ON CONFLICT (addr, assetid) DO UPDATE SET
+		amount = EXCLUDED.amount, deleted = TRUE, closed_at = EXCLUDED.closed_at`,
+	deleteAppStmtName: `INSERT INTO app
+		(index, creator, params, deleted, created_at, closed_at)
+		VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (index) DO UPDATE SET
+		creator = EXCLUDED.creator, params = EXCLUDED.params, deleted = TRUE,
+		closed_at = EXCLUDED.closed_at`,
+	deleteAccountAppStmtName: `INSERT INTO account_app
+		(addr, app, localstate, deleted, created_at, closed_at)
+		VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (addr, app) DO UPDATE SET
+		localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at`,
+	updateAccountKeyTypeStmtName: `UPDATE account SET keytype = $1 WHERE addr = $2`,
+}
 
 // Writer is responsible for writing blocks and accounting state deltas to the database.
 type Writer struct {
-	tx *sql.Tx
-
-	addBlockHeaderStmt       *sql.Stmt
-	setSpecialAccountsStmt   *sql.Stmt
-	addTxnStmt               *sql.Stmt
-	addTxnParticipantStmt    *sql.Stmt
-	upsertAssetStmt          *sql.Stmt
-	upsertAccountAssetStmt   *sql.Stmt
-	upsertAppStmt            *sql.Stmt
-	upsertAccountAppStmt     *sql.Stmt
-	deleteAccountStmt        *sql.Stmt
-	upsertAccountStmt        *sql.Stmt
-	deleteAssetStmt          *sql.Stmt
-	deleteAccountAssetStmt   *sql.Stmt
-	deleteAppStmt            *sql.Stmt
-	deleteAccountAppStmt     *sql.Stmt
-	updateAccountKeyTypeStmt *sql.Stmt
+	tx pgx.Tx
 }
 
 // MakeWriter creates a Writer object.
-func MakeWriter(tx *sql.Tx) (Writer, error) {
+func MakeWriter(tx pgx.Tx) (Writer, error) {
 	w := Writer{
 		tx: tx,
 	}
 
-	var err error
-
-	w.addBlockHeaderStmt, err = tx.Prepare(addBlockHeaderQuery)
-	if err != nil {
-		return Writer{},
-			fmt.Errorf("MakeWriter(): prepare add block header stmt err: %w", err)
-	}
-	w.setSpecialAccountsStmt, err = tx.Prepare(setSpecialAccountsQuery)
-	if err != nil {
-		return Writer{},
-			fmt.Errorf("MakeWriter(): prepare set special accounts stmt err: %w", err)
-	}
-	w.addTxnStmt, err = tx.Prepare(addTxnQuery)
-	if err != nil {
-		return Writer{},
-			fmt.Errorf("MakeWriter(): prepare add txn stmt err: %w", err)
-	}
-	w.addTxnParticipantStmt, err = tx.Prepare(addTxnParticipantQuery)
-	if err != nil {
-		return Writer{},
-			fmt.Errorf("MakeWriter(): prepare add txn participant stmt err: %w", err)
-	}
-	w.upsertAssetStmt, err = tx.Prepare(upsertAssetQuery)
-	if err != nil {
-		return Writer{}, fmt.Errorf("MakeWriter(): prepare update asset stmt err: %w", err)
-	}
-	w.upsertAccountAssetStmt, err = tx.Prepare(upsertAccountAssetQuery)
-	if err != nil {
-		return Writer{},
-			fmt.Errorf("MakeWriter(): prepare update account asset stmt err: %w", err)
-	}
-	w.upsertAppStmt, err = tx.Prepare(upsertAppQuery)
-	if err != nil {
-		return Writer{}, fmt.Errorf("MakeWriter(): prepare update app stmt err: %w", err)
-	}
-	w.upsertAccountAppStmt, err = tx.Prepare(upsertAccountAppQuery)
-	if err != nil {
-		return Writer{},
-			fmt.Errorf("MakeWriter(): prepare update account app stmt err: %w", err)
-	}
-	w.deleteAccountStmt, err = tx.Prepare(deleteAccountQuery)
-	if err != nil {
-		return Writer{},
-			fmt.Errorf("MakeWriter(): prepare delete account stmt err: %w", err)
-	}
-	w.upsertAccountStmt, err = tx.Prepare(upsertAccountQuery)
-	if err != nil {
-		return Writer{},
-			fmt.Errorf("MakeWriter(): prepare update account stmt err: %w", err)
-	}
-	w.deleteAssetStmt, err = tx.Prepare(deleteAssetQuery)
-	if err != nil {
-		return Writer{}, fmt.Errorf("MakeWriter(): prepare delete asset stmt err: %w", err)
-	}
-	w.deleteAccountAssetStmt, err = tx.Prepare(deleteAccountAssetQuery)
-	if err != nil {
-		return Writer{},
-			fmt.Errorf("MakeWriter(): prepare delete account asset stmt err: %w", err)
-	}
-	w.deleteAppStmt, err = tx.Prepare(deleteAppQuery)
-	if err != nil {
-		return Writer{}, fmt.Errorf("MakeWriter(): prepare delete app stmt err: %w", err)
-	}
-	w.deleteAccountAppStmt, err = tx.Prepare(deleteAccountAppQuery)
-	if err != nil {
-		return Writer{},
-			fmt.Errorf("MakeWriter(): prepare delete account app stmt err: %w", err)
-	}
-	w.updateAccountKeyTypeStmt, err = tx.Prepare(updateAccountKeyTypeQuery)
-	if err != nil {
-		return Writer{},
-			fmt.Errorf("MakeWriter(): prepare update account sig type stmt err: %w", err)
+	for name, query := range statements {
+		_, err := tx.Prepare(context.Background(), name, query)
+		if err != nil {
+			return Writer{}, fmt.Errorf("MakeWriter() prepare statement err: %w", err)
+		}
 	}
 
 	return w, nil
@@ -182,25 +120,14 @@ func MakeWriter(tx *sql.Tx) (Writer, error) {
 
 // Close shuts down Writer.
 func (w *Writer) Close() {
-	w.addBlockHeaderStmt.Close()
-	w.setSpecialAccountsStmt.Close()
-	w.addTxnStmt.Close()
-	w.addTxnParticipantStmt.Close()
-	w.upsertAssetStmt.Close()
-	w.upsertAccountAssetStmt.Close()
-	w.upsertAppStmt.Close()
-	w.upsertAccountAppStmt.Close()
-	w.deleteAccountStmt.Close()
-	w.upsertAccountStmt.Close()
-	w.deleteAssetStmt.Close()
-	w.deleteAccountAssetStmt.Close()
-	w.deleteAppStmt.Close()
-	w.deleteAccountAppStmt.Close()
-	w.updateAccountKeyTypeStmt.Close()
+	for name := range statements {
+		w.tx.Conn().Deallocate(context.Background(), name)
+	}
 }
 
 func (w *Writer) addBlockHeader(blockHeader *bookkeeping.BlockHeader) error {
-	_, err := w.addBlockHeaderStmt.Exec(
+	_, err := w.tx.Exec(
+		context.Background(), addBlockHeaderStmtName,
 		uint64(blockHeader.Round), time.Unix(blockHeader.TimeStamp, 0).UTC(),
 		blockHeader.RewardsLevel, encoding.EncodeBlockHeader(*blockHeader))
 	if err != nil {
@@ -211,7 +138,7 @@ func (w *Writer) addBlockHeader(blockHeader *bookkeeping.BlockHeader) error {
 
 func (w *Writer) setSpecialAccounts(addresses transactions.SpecialAddresses) error {
 	j := encoding.EncodeSpecialAddresses(addresses)
-	_, err := w.setSpecialAccountsStmt.Exec(j)
+	_, err := w.tx.Exec(context.Background(), setSpecialAccountsStmtName, j)
 	if err != nil {
 		return fmt.Errorf("setSpecialAccounts() err: %w", err)
 	}
@@ -267,7 +194,8 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 		extra := idb.TxnExtra{
 			AssetCloseAmount: modifiedTxns[i].ApplyData.AssetClosingAmount,
 		}
-		_, err = w.addTxnStmt.Exec(
+		_, err = w.tx.Exec(
+			context.Background(), addTxnStmtName,
 			uint64(block.Round()), i, int(typeenum), assetid, id,
 			protocol.Encode(&stxnad),
 			encoding.EncodeSignedTxnWithAD(stxnad),
@@ -311,7 +239,9 @@ func (w *Writer) addTransactionParticipation(block *bookkeeping.Block) error {
 		participants := getTransactionParticipants(stxnad.Txn)
 
 		for _, addr := range participants {
-			_, err := w.addTxnParticipantStmt.Exec(addr[:], uint64(block.Round()), i)
+			_, err := w.tx.Exec(
+				context.Background(), addTxnParticipantStmtName, addr[:],
+				uint64(block.Round()), i)
 			if err != nil {
 				return fmt.Errorf("addTransactionParticipation() exec err: %w", err)
 			}
@@ -324,7 +254,8 @@ func (w *Writer) addTransactionParticipation(block *bookkeeping.Block) error {
 func (w *Writer) writeAccountData(round basics.Round, address basics.Address, accountData basics.AccountData) error {
 	// Update `asset` table.
 	for assetid, params := range accountData.AssetParams {
-		_, err := w.upsertAssetStmt.Exec(
+		_, err := w.tx.Exec(
+			context.Background(), upsertAssetStmtName,
 			uint64(assetid), address[:], encoding.EncodeAssetParams(params), uint64(round))
 		if err != nil {
 			return fmt.Errorf("writeAccountData() exec update asset err: %w", err)
@@ -333,7 +264,8 @@ func (w *Writer) writeAccountData(round basics.Round, address basics.Address, ac
 
 	// Update `account_asset` table.
 	for assetid, holding := range accountData.Assets {
-		_, err := w.upsertAccountAssetStmt.Exec(
+		_, err := w.tx.Exec(
+			context.Background(), upsertAccountAssetStmtName,
 			address[:], uint64(assetid), strconv.FormatUint(holding.Amount, 10),
 			holding.Frozen, uint64(round))
 		if err != nil {
@@ -343,7 +275,8 @@ func (w *Writer) writeAccountData(round basics.Round, address basics.Address, ac
 
 	// Update `app` table.
 	for appid, params := range accountData.AppParams {
-		_, err := w.upsertAppStmt.Exec(
+		_, err := w.tx.Exec(
+			context.Background(), upsertAppStmtName,
 			uint64(appid), address[:], encoding.EncodeAppParams(params), uint64(round))
 		if err != nil {
 			return fmt.Errorf("writeAccountData() exec update app err: %w", err)
@@ -352,7 +285,8 @@ func (w *Writer) writeAccountData(round basics.Round, address basics.Address, ac
 
 	// Update `account_app` table.
 	for appid, state := range accountData.AppLocalStates {
-		_, err := w.upsertAccountAppStmt.Exec(
+		_, err := w.tx.Exec(
+			context.Background(), upsertAccountAppStmtName,
 			address[:], uint64(appid), encoding.EncodeAppLocalState(state), uint64(round))
 		if err != nil {
 			return fmt.Errorf("writeAccountData() exec update account app err: %w", err)
@@ -362,7 +296,9 @@ func (w *Writer) writeAccountData(round basics.Round, address basics.Address, ac
 	// Update `account` table.
 	if accountData.IsZero() {
 		// Delete account.
-		_, err := w.deleteAccountStmt.Exec(address[:], uint64(round))
+		_, err := w.tx.Exec(
+			context.Background(), deleteAccountStmtName,
+			address[:], uint64(round))
 		if err != nil {
 			return fmt.Errorf("writeAccountData() exec delete account err: %w", err)
 		}
@@ -370,7 +306,8 @@ func (w *Writer) writeAccountData(round basics.Round, address basics.Address, ac
 		// Update account.
 		accountDataJSON :=
 			encoding.EncodeTrimmedAccountData(encoding.TrimAccountData(accountData))
-		_, err := w.upsertAccountStmt.Exec(
+		_, err := w.tx.Exec(
+			context.Background(), upsertAccountStmtName,
 			address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
 			accountData.RewardedMicroAlgos.Raw, uint64(round), accountDataJSON)
 		if err != nil {
@@ -405,14 +342,16 @@ func (w *Writer) writeDeletedCreatables(round basics.Round, creatables map[basic
 		// If deleted.
 		if !creatable.Created {
 			if creatable.Ctype == basics.AssetCreatable {
-				_, err := w.deleteAssetStmt.Exec(
+				_, err := w.tx.Exec(
+					context.Background(), deleteAssetStmtName,
 					uint64(index), creatable.Creator[:], uint64(round))
 				if err != nil {
 					return fmt.Errorf(
 						"writeDeletedCreatables() exec delete asset err: %w", err)
 				}
 			} else {
-				_, err := w.deleteAppStmt.Exec(
+				_, err := w.tx.Exec(
+					context.Background(), deleteAppStmtName,
 					uint64(index), creatable.Creator[:], uint64(round))
 				if err != nil {
 					return fmt.Errorf(
@@ -428,7 +367,8 @@ func (w *Writer) writeDeletedCreatables(round basics.Round, creatables map[basic
 func (w *Writer) writeDeletedAssetHoldings(round basics.Round, modifiedAssetHoldings map[ledgercore.AccountAsset]bool) error {
 	for aa, created := range modifiedAssetHoldings {
 		if !created {
-			_, err := w.deleteAccountAssetStmt.Exec(
+			_, err := w.tx.Exec(
+				context.Background(), deleteAccountAssetStmtName,
 				aa.Address[:], uint64(aa.Asset), uint64(round))
 			if err != nil {
 				return fmt.Errorf(
@@ -443,7 +383,9 @@ func (w *Writer) writeDeletedAssetHoldings(round basics.Round, modifiedAssetHold
 func (w *Writer) writeDeletedAppLocalStates(round basics.Round, modifiedAppLocalStates map[ledgercore.AccountApp]bool) error {
 	for aa, created := range modifiedAppLocalStates {
 		if !created {
-			_, err := w.deleteAccountAppStmt.Exec(aa.Address[:], uint64(aa.App), uint64(round))
+			_, err := w.tx.Exec(
+				context.Background(), deleteAccountAppStmtName,
+				aa.Address[:], uint64(aa.App), uint64(round))
 			if err != nil {
 				return fmt.Errorf(
 					"writeDeletedAppLocalStates() exec delete account app err: %w", err)
@@ -485,12 +427,16 @@ func (w *Writer) updateAccountSigType(payset []transactions.SignedTxnInBlock) er
 			if err != nil {
 				return fmt.Errorf("updateAccountSigType() err: %w", err)
 			}
-			_, err = w.updateAccountKeyTypeStmt.Exec(sigtype, stxnib.Txn.Sender[:])
+			_, err = w.tx.Exec(
+				context.Background(), updateAccountKeyTypeStmtName,
+				sigtype, stxnib.Txn.Sender[:])
 			if err != nil {
 				return fmt.Errorf("updateAccountSigType() set sigtype err: %w", err)
 			}
 		} else {
-			_, err := w.updateAccountKeyTypeStmt.Exec(nil, stxnib.Txn.Sender[:])
+			_, err := w.tx.Exec(
+				context.Background(), updateAccountKeyTypeStmtName,
+				nil, stxnib.Txn.Sender[:])
 			if err != nil {
 				return fmt.Errorf("updateAccountSigType() reset sigtype err: %w", err)
 			}

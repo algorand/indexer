@@ -3,7 +3,6 @@ package runner
 import (
 	"bytes"
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -16,8 +15,7 @@ import (
 	"syscall"
 	"time"
 
-	// Load the postgres sql.DB implementation.
-	_ "github.com/jackc/pgx/v4/stdlib"
+	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/indexer/cmd/block-generator/generator"
 	"github.com/algorand/indexer/util"
@@ -318,14 +316,15 @@ func startGenerator(configFile string, addr string) func() error {
 // ensure that the service has started properly.
 func startIndexer(logfile string, loglevel string, indexerBinary string, algodNet string, indexerNet string, postgresConnectionString string, cpuprofile string) (func() error, error) {
 	{
-		db, err := sql.Open("pgx", postgresConnectionString)
+		conn, err := pgx.Connect(context.Background(), postgresConnectionString)
 		if err != nil {
 			return nil, fmt.Errorf("postgres connection string did not work: %w", err)
 		}
-		if _, err := db.Exec(`DROP SCHEMA public CASCADE; CREATE SCHEMA public;`); err != nil {
+		query := `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`
+		if _, err := conn.Exec(context.Background(), query); err != nil {
 			return nil, fmt.Errorf("unable to reset postgres DB: %w", err)
 		}
-		if err := db.Close(); err != nil {
+		if err := conn.Close(context.Background()); err != nil {
 			return nil, fmt.Errorf("unable to close database handle: %w", err)
 		}
 	}
