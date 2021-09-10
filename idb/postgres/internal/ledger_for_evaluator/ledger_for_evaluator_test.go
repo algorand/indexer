@@ -10,7 +10,6 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
