@@ -377,12 +377,12 @@ func (l *LedgerForEvaluator) loadCreatables(accountDataMap *map[basics.Address]*
 func (l *LedgerForEvaluator) loadAccounts(addresses map[basics.Address]struct{}) (map[basics.Address]*basics.AccountData, error) {
 	res, err := l.loadAccountTable(addresses)
 	if err != nil {
-		return nil, fmt.Errorf("PreloadAccounts() err: %w", err)
+		return nil, fmt.Errorf("loadAccounts() err: %w", err)
 	}
 
 	err = l.loadCreatables(&res)
 	if err != nil {
-		return nil, fmt.Errorf("PreloadAccounts() err: %w", err)
+		return nil, fmt.Errorf("loadAccounts() err: %w", err)
 	}
 
 	return res, nil
