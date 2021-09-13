@@ -2,7 +2,7 @@ module github.com/algorand/indexer
 
 go 1.13
 
-replace github.com/algorand/go-algorand => ../go-algorand
+replace github.com/algorand/go-algorand => ./third_party/go-algorand
 
 require (
 	github.com/algorand/go-algorand v0.0.0-20210803210013-358a2e1609c9
