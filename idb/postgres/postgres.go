@@ -216,17 +216,17 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 
+			err = ledgerForEval.PreloadAccounts(ledger.GetBlockAddresses(block))
+			if err != nil {
+				return fmt.Errorf("AddBlock() err: %w", err)
+			}
+
 			proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
 			if !ok {
 				return fmt.Errorf(
 					"AddBlock() cannot find proto version %s", block.BlockHeader.CurrentProtocol)
 			}
 			proto.EnableAssetCloseAmount = true
-
-			err = ledgerForEval.PreloadAccounts(ledger.GetBlockAddresses(block, proto))
-			if err != nil {
-				return fmt.Errorf("AddBlock() err: %w", err)
-			}
 
 			start := time.Now()
 			delta, modifiedTxns, err := ledger.Eval(ledgerForEval, block, proto)
