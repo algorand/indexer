@@ -13,7 +13,6 @@ import (
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/jackc/pgx/v4"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 )
@@ -55,18 +54,16 @@ type LedgerForEvaluator struct {
 	// a fake amount.
 	// TODO: remove.
 	specialAddresses transactions.SpecialAddresses
-	log              *log.Logger
 	// Value is nil if account was looked up but not found.
 	preloadedAccountData map[basics.Address]*basics.AccountData
 }
 
 // MakeLedgerForEvaluator creates a LedgerForEvaluator object.
-func MakeLedgerForEvaluator(tx pgx.Tx, genesisHash crypto.Digest, specialAddresses transactions.SpecialAddresses, log *log.Logger) (LedgerForEvaluator, error) {
+func MakeLedgerForEvaluator(tx pgx.Tx, genesisHash crypto.Digest, specialAddresses transactions.SpecialAddresses) (LedgerForEvaluator, error) {
 	l := LedgerForEvaluator{
 		tx:               tx,
 		genesisHash:      genesisHash,
 		specialAddresses: specialAddresses,
-		log:              log,
 	}
 
 	for name, query := range statements {
