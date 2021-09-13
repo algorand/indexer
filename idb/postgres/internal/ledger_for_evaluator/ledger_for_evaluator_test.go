@@ -149,7 +149,7 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 	assert.Equal(t, basics.AccountData{}, accountDataRet)
 }
 
-func TestLedgerForEvaluatorAccountTableMissing(t *testing.T) {
+func TestLedgerForEvaluatorAccountTableMissingAccount(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
