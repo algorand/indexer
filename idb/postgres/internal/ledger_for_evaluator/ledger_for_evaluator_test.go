@@ -104,16 +104,24 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
-	require.NoError(t, err)
-	defer l.Close()
+	checkFunc := func(preload bool) {
+		l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+			tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		require.NoError(t, err)
 
-	accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
-	require.NoError(t, err)
+		if preload {
+			l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
+		}
 
-	assert.Equal(t, basics.Round(7), round)
-	assert.Equal(t, accountDataFull, accountDataRet)
+		accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
+		require.NoError(t, err)
+		l.Close()
+
+		assert.Equal(t, basics.Round(7), round)
+		assert.Equal(t, accountDataFull, accountDataRet)
+	}
+	checkFunc(false)
+	checkFunc(true)
 }
 
 func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
@@ -137,16 +145,24 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
-	require.NoError(t, err)
-	defer l.Close()
+	checkFunc := func(preload bool) {
+		l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+			tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		require.NoError(t, err)
 
-	accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
-	require.NoError(t, err)
+		if preload {
+			l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
+		}
 
-	assert.Equal(t, basics.Round(7), round)
-	assert.Equal(t, basics.AccountData{}, accountDataRet)
+		accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
+		require.NoError(t, err)
+		l.Close()
+
+		assert.Equal(t, basics.Round(7), round)
+		assert.Equal(t, basics.AccountData{}, accountDataRet)
+	}
+	checkFunc(false)
+	checkFunc(true)
 }
 
 func TestLedgerForEvaluatorAccountTableMissingAccount(t *testing.T) {
@@ -157,16 +173,24 @@ func TestLedgerForEvaluatorAccountTableMissingAccount(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
-	require.NoError(t, err)
-	defer l.Close()
+	checkFunc := func(preload bool) {
+		l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+			tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		require.NoError(t, err)
 
-	accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
-	require.NoError(t, err)
+		if preload {
+			l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
+		}
 
-	assert.Equal(t, basics.Round(7), round)
-	assert.Equal(t, basics.AccountData{}, accountDataRet)
+		accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
+		require.NoError(t, err)
+		l.Close()
+
+		assert.Equal(t, basics.Round(7), round)
+		assert.Equal(t, basics.AccountData{}, accountDataRet)
+	}
+	checkFunc(false)
+	checkFunc(true)
 }
 
 func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
