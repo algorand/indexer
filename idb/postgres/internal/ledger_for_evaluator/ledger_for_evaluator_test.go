@@ -474,6 +474,99 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 	assert.Equal(t, accountDataExpected, accountDataRet)
 }
 
+// Tests that queuying and reading from a batch is in the same order.
+func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
+	db, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	addAccountQuery :=
+		"INSERT INTO account " +
+			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
+			"VALUES ($1, 0, 0, 0, false, 0)"
+	addAccountAssetQuery :=
+		"INSERT INTO account_asset (addr, assetid, amount, frozen, deleted, created_at) " +
+			"VALUES ($1, $2, 0, false, false, 0)"
+	addAssetQuery :=
+		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
+			"VALUES ($1, $2, '{}', false, 0)"
+	addAppQuery :=
+		"INSERT INTO app (index, creator, params, deleted, created_at) " +
+			"VALUES ($1, $2, '{}', false, 0)"
+	addAccountAppQuery :=
+		"INSERT INTO account_app (addr, app, localstate, deleted, created_at) " +
+			"VALUES ($1, $2, '{}', false, 0)"
+
+	addresses := []basics.Address{
+		test.AccountA, test.AccountB, test.AccountC, test.AccountD, test.AccountE}
+	seq := []int{4, 9, 3, 6, 5, 1}
+
+	for i, address := range addresses {
+		_, err := db.Exec(context.Background(), addAccountQuery, address[:])
+		require.NoError(t, err)
+
+		// Insert all types of creatables. Note that no creatable id is ever repeated.
+		for j := range seq {
+			_, err = db.Exec(
+				context.Background(), addAccountAssetQuery, address[:], i + 10*j + 100)
+			require.NoError(t, err)
+
+			_, err = db.Exec(
+				context.Background(), addAssetQuery, i + 10*j + 200, address[:])
+			require.NoError(t, err)
+
+			_, err = db.Exec(
+				context.Background(), addAppQuery, i + 10*j + 300, address[:])
+			require.NoError(t, err)
+
+			_, err = db.Exec(
+				context.Background(), addAccountAppQuery, address[:], i + 10*j + 400)
+			require.NoError(t, err)
+		}
+	}
+
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
+	require.NoError(t, err)
+	defer tx.Rollback(context.Background())
+
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+	require.NoError(t, err)
+	defer l.Close()
+
+	{
+		addressesMap := make(map[basics.Address]struct{})
+		for _, address := range addresses {
+			addressesMap[address] = struct{}{}
+		}
+		err := l.PreloadAccounts(addressesMap)
+		require.NoError(t, err)
+	}
+
+	for i, address := range addresses {
+		accountData, _, err := l.LookupWithoutRewards(0, address)
+		require.NoError(t, err)
+
+		assert.Equal(t, len(seq), len(accountData.Assets))
+		assert.Equal(t, len(seq), len(accountData.AssetParams))
+		assert.Equal(t, len(seq), len(accountData.AppParams))
+		assert.Equal(t, len(seq), len(accountData.AppLocalStates))
+
+		for j := range seq {
+			_, ok := accountData.Assets[basics.AssetIndex(i + 10*j + 100)]
+			assert.True(t, ok)
+
+			_, ok = accountData.AssetParams[basics.AssetIndex(i + 10*j + 200)]
+			assert.True(t, ok)
+
+			_, ok = accountData.AppParams[basics.AppIndex(i + 10*j + 300)]
+			assert.True(t, ok)
+
+			_, ok = accountData.AppLocalStates[basics.AppIndex(i + 10*j + 400)]
+			assert.True(t, ok)
+		}
+	}
+}
+
 func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
