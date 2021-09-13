@@ -110,7 +110,8 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		if preload {
-			l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
+			err := l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
+			require.NoError(t, err)
 		}
 
 		accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
@@ -151,7 +152,8 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 		require.NoError(t, err)
 
 		if preload {
-			l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
+			err := l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
+			require.NoError(t, err)
 		}
 
 		accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
@@ -179,7 +181,8 @@ func TestLedgerForEvaluatorAccountTableMissingAccount(t *testing.T) {
 		require.NoError(t, err)
 
 		if preload {
-			l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
+			err := l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
+			require.NoError(t, err)
 		}
 
 		accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
@@ -507,19 +510,19 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 		// Insert all types of creatables. Note that no creatable id is ever repeated.
 		for j := range seq {
 			_, err = db.Exec(
-				context.Background(), addAccountAssetQuery, address[:], i + 10*j + 100)
+				context.Background(), addAccountAssetQuery, address[:], i+10*j+100)
 			require.NoError(t, err)
 
 			_, err = db.Exec(
-				context.Background(), addAssetQuery, i + 10*j + 200, address[:])
+				context.Background(), addAssetQuery, i+10*j+200, address[:])
 			require.NoError(t, err)
 
 			_, err = db.Exec(
-				context.Background(), addAppQuery, i + 10*j + 300, address[:])
+				context.Background(), addAppQuery, i+10*j+300, address[:])
 			require.NoError(t, err)
 
 			_, err = db.Exec(
-				context.Background(), addAccountAppQuery, address[:], i + 10*j + 400)
+				context.Background(), addAccountAppQuery, address[:], i+10*j+400)
 			require.NoError(t, err)
 		}
 	}
@@ -552,16 +555,16 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 		assert.Equal(t, len(seq), len(accountData.AppLocalStates))
 
 		for j := range seq {
-			_, ok := accountData.Assets[basics.AssetIndex(i + 10*j + 100)]
+			_, ok := accountData.Assets[basics.AssetIndex(i+10*j+100)]
 			assert.True(t, ok)
 
-			_, ok = accountData.AssetParams[basics.AssetIndex(i + 10*j + 200)]
+			_, ok = accountData.AssetParams[basics.AssetIndex(i+10*j+200)]
 			assert.True(t, ok)
 
-			_, ok = accountData.AppParams[basics.AppIndex(i + 10*j + 300)]
+			_, ok = accountData.AppParams[basics.AppIndex(i+10*j+300)]
 			assert.True(t, ok)
 
-			_, ok = accountData.AppLocalStates[basics.AppIndex(i + 10*j + 400)]
+			_, ok = accountData.AppLocalStates[basics.AppIndex(i+10*j+400)]
 			assert.True(t, ok)
 		}
 	}

@@ -124,7 +124,7 @@ func (l *LedgerForEvaluator) parseAccountTable(address basics.Address, row pgx.R
 		return basics.AccountData{}, false, nil
 	}
 	if err != nil {
-		return basics.AccountData{}, false, fmt.Errorf("readAccountTable() scan row err: %w", err)
+		return basics.AccountData{}, false, fmt.Errorf("parseAccountTable() scan row err: %w", err)
 	}
 
 	res := basics.AccountData{}
@@ -132,7 +132,7 @@ func (l *LedgerForEvaluator) parseAccountTable(address basics.Address, row pgx.R
 		res, err = encoding.DecodeTrimmedAccountData(accountData)
 		if err != nil {
 			return basics.AccountData{}, false,
-				fmt.Errorf("readAccountTable() decode account data err: %w", err)
+				fmt.Errorf("parseAccountTable() decode account data err: %w", err)
 		}
 	}
 
@@ -153,7 +153,7 @@ func (l *LedgerForEvaluator) parseAccountAssetTable(address basics.Address, rows
 	for rows.Next() {
 		err := rows.Scan(&assetid, &amount, &frozen)
 		if err != nil {
-			return nil, fmt.Errorf("readAccountAssetTable() scan row err: %w", err)
+			return nil, fmt.Errorf("parseAccountAssetTable() scan row err: %w", err)
 		}
 
 		res[basics.AssetIndex(assetid)] = basics.AssetHolding{
@@ -164,7 +164,7 @@ func (l *LedgerForEvaluator) parseAccountAssetTable(address basics.Address, rows
 
 	err := rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("readAccountAssetTable() scan end err: %w", err)
+		return nil, fmt.Errorf("parseAccountAssetTable() scan end err: %w", err)
 	}
 
 	return res, nil
@@ -179,18 +179,18 @@ func (l *LedgerForEvaluator) parseAssetTable(address basics.Address, rows pgx.Ro
 	for rows.Next() {
 		err := rows.Scan(&index, &params)
 		if err != nil {
-			return nil, fmt.Errorf("readAssetTable() scan row err: %w", err)
+			return nil, fmt.Errorf("parseAssetTable() scan row err: %w", err)
 		}
 
 		res[basics.AssetIndex(index)], err = encoding.DecodeAssetParams(params)
 		if err != nil {
-			return nil, fmt.Errorf("readAssetTable() decode params err: %w", err)
+			return nil, fmt.Errorf("parseAssetTable() decode params err: %w", err)
 		}
 	}
 
 	err := rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("readAssetTable() scan end err: %w", err)
+		return nil, fmt.Errorf("parseAssetTable() scan end err: %w", err)
 	}
 
 	return res, nil
@@ -205,18 +205,18 @@ func (l *LedgerForEvaluator) parseAppTable(address basics.Address, rows pgx.Rows
 	for rows.Next() {
 		err := rows.Scan(&index, &params)
 		if err != nil {
-			return nil, fmt.Errorf("readAppTable() scan row err: %w", err)
+			return nil, fmt.Errorf("parseAppTable() scan row err: %w", err)
 		}
 
 		res[basics.AppIndex(index)], err = encoding.DecodeAppParams(params)
 		if err != nil {
-			return nil, fmt.Errorf("readAppTable() decode params err: %w", err)
+			return nil, fmt.Errorf("parseAppTable() decode params err: %w", err)
 		}
 	}
 
 	err := rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("readAppTable() scan end err: %w", err)
+		return nil, fmt.Errorf("parseAppTable() scan end err: %w", err)
 	}
 
 	return res, nil
@@ -231,18 +231,18 @@ func (l *LedgerForEvaluator) parseAccountAppTable(address basics.Address, rows p
 	for rows.Next() {
 		err := rows.Scan(&app, &localstate)
 		if err != nil {
-			return nil, fmt.Errorf("readAccountAppTable() scan row err: %w", err)
+			return nil, fmt.Errorf("parseAccountAppTable() scan row err: %w", err)
 		}
 
 		res[basics.AppIndex(app)], err = encoding.DecodeAppLocalState(localstate)
 		if err != nil {
-			return nil, fmt.Errorf("readAccountAppTable() decode local state err: %w", err)
+			return nil, fmt.Errorf("parseAccountAppTable() decode local state err: %w", err)
 		}
 	}
 
 	err := rows.Err()
 	if err != nil {
-		return nil, fmt.Errorf("readAccountAppTable() scan end err: %w", err)
+		return nil, fmt.Errorf("parseAccountAppTable() scan end err: %w", err)
 	}
 
 	return res, nil
