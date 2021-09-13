@@ -149,6 +149,26 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 	assert.Equal(t, basics.AccountData{}, accountDataRet)
 }
 
+func TestLedgerForEvaluatorAccountTableMissingAccount(t *testing.T) {
+	db, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
+	require.NoError(t, err)
+	defer tx.Rollback(context.Background())
+
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+	require.NoError(t, err)
+	defer l.Close()
+
+	accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
+	require.NoError(t, err)
+
+	assert.Equal(t, basics.Round(7), round)
+	assert.Equal(t, basics.AccountData{}, accountDataRet)
+}
+
 func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
