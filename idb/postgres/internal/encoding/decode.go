@@ -122,7 +122,7 @@ func unconvertLocalDeltas(deltas map[uint64]stateDelta) map[uint64]basics.StateD
 	return res
 }
 
-func unconvertEvalDelta(delta evalDelta) basics.EvalDelta {
+func unconvertEvalDelta(delta evalDelta) transactions.EvalDelta {
 	res := delta.EvalDelta
 	res.GlobalDelta = unconvertStateDelta(delta.GlobalDeltaOverride)
 	res.LocalDeltas = unconvertLocalDeltas(delta.LocalDeltasOverride)

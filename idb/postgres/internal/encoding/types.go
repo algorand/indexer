@@ -65,7 +65,7 @@ func (ba *byteArray) UnmarshalText(text []byte) error {
 type stateDelta map[byteArray]valueDelta
 
 type evalDelta struct {
-	basics.EvalDelta
+	transactions.EvalDelta
 	GlobalDeltaOverride stateDelta            `codec:"gd"`
 	LocalDeltasOverride map[uint64]stateDelta `codec:"ld"`
 }
