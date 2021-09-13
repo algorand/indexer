@@ -136,7 +136,7 @@ func convertLocalDeltas(deltas map[uint64]basics.StateDelta) map[uint64]stateDel
 	return res
 }
 
-func convertEvalDelta(delta basics.EvalDelta) evalDelta {
+func convertEvalDelta(delta transactions.EvalDelta) evalDelta {
 	return evalDelta{
 		EvalDelta:           delta,
 		GlobalDeltaOverride: convertStateDelta(delta.GlobalDelta),

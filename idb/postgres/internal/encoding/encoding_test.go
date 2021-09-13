@@ -299,7 +299,7 @@ func TestSignedTxnWithADEncoding(t *testing.T) {
 			AuthAddr: newaddr(),
 		},
 		ApplyData: transactions.ApplyData{
-			EvalDelta: basics.EvalDelta{
+			EvalDelta: transactions.EvalDelta{
 				GlobalDelta: map[string]basics.ValueDelta{
 					"abc": {
 						Action: 44,
