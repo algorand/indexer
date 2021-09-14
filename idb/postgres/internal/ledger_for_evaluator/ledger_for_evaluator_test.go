@@ -477,7 +477,8 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 	assert.Equal(t, accountDataExpected, accountDataRet)
 }
 
-// Tests that queuying and reading from a batch is in the same order.
+// Tests that queuing and reading from a batch when using PreloadAccounts()
+// is in the same order.
 func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
@@ -536,6 +537,7 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	require.NoError(t, err)
 	defer l.Close()
 
+	// Preload accounts so that batching is actually used.
 	{
 		addressesMap := make(map[basics.Address]struct{})
 		for _, address := range addresses {

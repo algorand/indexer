@@ -225,6 +225,7 @@ func getTransactionParticipants(txn transactions.Transaction) []basics.Address {
 
 func addTransactionParticipation(block *bookkeeping.Block, batch *pgx.Batch) error {
 	for i, stxnad := range block.Payset {
+		// TODO: replace with a function from go-algorand.
 		participants := getTransactionParticipants(stxnad.Txn)
 
 		for j := range participants {
