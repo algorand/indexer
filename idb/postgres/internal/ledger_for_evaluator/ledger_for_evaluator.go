@@ -326,7 +326,7 @@ func (l LedgerForEvaluator) GetCreatorForRound(_ basics.Round, cindex basics.Cre
 		return basics.Address{}, false, nil
 	}
 	if err != nil {
-		return basics.Address{}, false, nil
+		return basics.Address{}, false, fmt.Errorf("GetCreatorForRound() err: %w", err)
 	}
 
 	var address basics.Address
