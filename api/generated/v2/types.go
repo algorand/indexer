@@ -563,6 +563,9 @@ type Transaction struct {
 	// \[ld\] Local state key/value changes for the application being executed by this transaction.
 	LocalStateDelta *[]AccountStateDelta `json:"local-state-delta,omitempty"`
 
+	// \[lg\] Logs for the application being executed by this transaction.
+	Logs *[][]byte `json:"logs,omitempty"`
+
 	// \[note\] Free form data.
 	Note *[]byte `json:"note,omitempty"`
 

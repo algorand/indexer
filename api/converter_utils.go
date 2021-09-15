@@ -401,6 +401,15 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		localStateDelta = &d
 	}
 
+	var logs *[][]byte
+	if len(stxn.ApplyData.EvalDelta.Logs) > 0 {
+		l := make([][]byte, 0, len(stxn.ApplyData.EvalDelta.Logs))
+		for _, v := range stxn.ApplyData.EvalDelta.Logs {
+			l = append(l, []byte(v))
+		}
+		logs = &l
+	}
+
 	txn := generated.Transaction{
 		ApplicationTransaction:   application,
 		AssetConfigTransaction:   assetConfig,
@@ -430,6 +439,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		RekeyTo:                  addrPtr(stxn.Txn.RekeyTo),
 		GlobalStateDelta:         stateDeltaToStateDelta(stxn.EvalDelta.GlobalDelta),
 		LocalStateDelta:          localStateDelta,
+		Logs:                     logs,
 	}
 
 	if stxn.Txn.Type == protocol.AssetConfigTx {

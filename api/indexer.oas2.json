@@ -1580,6 +1580,14 @@
         "global-state-delta": {
           "description": "\\[gd\\] Global state key/value changes for the application being executed by this transaction.",
           "$ref": "#/definitions/StateDelta"
+        },
+        "logs": {
+          "description": "\\[lg\\] Logs for the application being executed by this transaction.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
         }
       }
     },

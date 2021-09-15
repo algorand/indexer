@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/mocks"
@@ -419,6 +421,30 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/app_foreign_assets.response"),
 			},
 		},
+		{
+			name: "Application with logs",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_logs.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_logs.response"),
+			},
+		},
+	}
+
+	// use for the brach below and createTxn helper func to add a new test case
+	var addNewTest = false
+	if addNewTest {
+		tests = tests[:0]
+		tests = append(tests, struct {
+			name     string
+			txnBytes [][]byte
+			response []generated.Transaction
+			created  uint64
+		}{
+			name:     "Application with logs",
+			txnBytes: [][]byte{createTxn(t, "test_resources/app_call_logs.txn")},
+		})
 	}
 
 	for _, test := range tests {
@@ -469,6 +495,18 @@ func TestFetchTransactions(t *testing.T) {
 					fmt.Printf("%s\n", str)
 				}
 				fmt.Println("-------------------")
+				fmt.Printf(`Add the code below as a new entry into 'tests' array and update file names:
+		{
+			name: "%s",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/REPLACEME.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/REPLACEME.response"),
+			},
+		},
+`, test.name)
+				fmt.Println("-------------------")
 			}
 
 			// Verify the results
@@ -500,4 +538,28 @@ func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 	_, _, err := si.fetchAccounts(context.Background(), idb.AccountQueryOptions{}, &atRound)
 	assert.Error(t, err)
 	assert.True(t, strings.HasPrefix(err.Error(), errRewindingAccount), err.Error())
+}
+
+// createTxn allows saving msgp-encoded canonical object to a file in order to add more test data
+func createTxn(t *testing.T, target string) []byte {
+	stxnad := transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: protocol.ApplicationCallTx,
+				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+					ApplicationID: 444,
+				},
+			},
+		},
+		ApplyData: transactions.ApplyData{
+			EvalDelta: transactions.EvalDelta{
+				Logs: []string{"one", "\x01\x02", string([]byte{0, 10, 20})},
+			},
+		},
+	}
+
+	data := msgpack.Encode(stxnad)
+	err := ioutil.WriteFile(target, data, 0644)
+	assert.NoError(t, err)
+	return data
 }
