@@ -2,11 +2,8 @@ package ledgerforevaluator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
-	"github.com/algorand/go-algorand/config"
-	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -44,26 +41,24 @@ var statements = map[string]string{
 		"WHERE addr = $1 AND NOT deleted",
 }
 
-// LedgerForEvaluator implements the ledgerForEvaluator interface from
+// LedgerForEvaluator implements the indexerLedgerForEval interface from
 // go-algorand ledger/eval.go and is used for accounting.
 type LedgerForEvaluator struct {
-	tx          pgx.Tx
-	genesisHash crypto.Digest
+	tx pgx.Tx
 	// Indexer currently does not store the balances of special account, but
 	// go-algorand's eval checks that they satisfy the minimum balance. We thus return
 	// a fake amount.
 	// TODO: remove.
 	specialAddresses transactions.SpecialAddresses
-	// Value is nil if account was looked up but not found.
-	preloadedAccountData map[basics.Address]*basics.AccountData
+	latestRound      basics.Round
 }
 
 // MakeLedgerForEvaluator creates a LedgerForEvaluator object.
-func MakeLedgerForEvaluator(tx pgx.Tx, genesisHash crypto.Digest, specialAddresses transactions.SpecialAddresses) (LedgerForEvaluator, error) {
+func MakeLedgerForEvaluator(tx pgx.Tx, specialAddresses transactions.SpecialAddresses, latestRound basics.Round) (LedgerForEvaluator, error) {
 	l := LedgerForEvaluator{
 		tx:               tx,
-		genesisHash:      genesisHash,
 		specialAddresses: specialAddresses,
+		latestRound:      latestRound,
 	}
 
 	for name, query := range statements {
@@ -84,9 +79,9 @@ func (l *LedgerForEvaluator) Close() {
 	}
 }
 
-// BlockHdr is part of go-algorand's ledgerForEvaluator interface.
-func (l LedgerForEvaluator) BlockHdr(round basics.Round) (bookkeeping.BlockHeader, error) {
-	row := l.tx.QueryRow(context.Background(), blockHeaderStmtName, uint64(round))
+// LatestBlockHdr is part of go-algorand's indexerLedgerForEval interface.
+func (l LedgerForEvaluator) LatestBlockHdr() (bookkeeping.BlockHeader, error) {
+	row := l.tx.QueryRow(context.Background(), blockHeaderStmtName, uint64(l.latestRound))
 
 	var header []byte
 	err := row.Scan(&header)
@@ -100,12 +95,6 @@ func (l LedgerForEvaluator) BlockHdr(round basics.Round) (bookkeeping.BlockHeade
 	}
 
 	return res, nil
-}
-
-// CheckDup is part of go-algorand's ledgerForEvaluator interface.
-func (l LedgerForEvaluator) CheckDup(config.ConsensusParams, basics.Round, basics.Round, basics.Round, transactions.Txid, ledger.TxLease) error {
-	// This function is not used by evaluator.
-	return errors.New("CheckDup() not implemented")
 }
 
 func (l *LedgerForEvaluator) isSpecialAddress(address basics.Address) bool {
@@ -252,8 +241,8 @@ func (l *LedgerForEvaluator) parseAccountAppTable(rows pgx.Rows) (map[basics.App
 	return res, nil
 }
 
-// Load rows from the account table for the given addresses. nil is stored for those
-// accounts that were not found. Uses batching.
+// Load rows from the account table for the given addresses except the special accounts.
+// nil is stored for those accounts that were not found. Uses batching.
 func (l *LedgerForEvaluator) loadAccountTable(addresses map[basics.Address]struct{}) (map[basics.Address]*basics.AccountData, error) {
 	addressesArr := make([]basics.Address, 0, len(addresses))
 	for address := range addresses {
@@ -375,9 +364,8 @@ func (l *LedgerForEvaluator) loadCreatables(accountDataMap *map[basics.Address]*
 	return nil
 }
 
-// Return a map with all accounts for the given addresses, with nil for those accounts
-// that do not exist.
-func (l *LedgerForEvaluator) loadAccounts(addresses map[basics.Address]struct{}) (map[basics.Address]*basics.AccountData, error) {
+// LookupWithoutRewards is part of go-algorand's indexerLedgerForEval interface.
+func (l LedgerForEvaluator) LookupWithoutRewards(addresses map[basics.Address]struct{}) (map[basics.Address]*basics.AccountData, error) {
 	res, err := l.loadAccountTable(addresses)
 	if err != nil {
 		return nil, fmt.Errorf("loadAccounts() err: %w", err)
@@ -388,73 +376,31 @@ func (l *LedgerForEvaluator) loadAccounts(addresses map[basics.Address]struct{})
 		return nil, fmt.Errorf("loadAccounts() err: %w", err)
 	}
 
+	// Add special accounts if needed.
+	for address := range addresses {
+		if l.isSpecialAddress(address) {
+			// The balance of a special address must pass the minimum balance check in
+			// go-algorand's evaluator, so return a sufficiently large balance.
+			var balance uint64 = 1000 * 1000 * 1000 * 1000 * 1000
+			accountData := new(basics.AccountData)
+			*accountData = basics.AccountData{
+				MicroAlgos: basics.MicroAlgos{Raw: balance},
+			}
+			res[address] = accountData
+		}
+	}
+
 	return res, nil
 }
 
-// PreloadAccounts loads the account data for the given addresses and stores them
-// in the internal cache.
-func (l *LedgerForEvaluator) PreloadAccounts(addresses map[basics.Address]struct{}) error {
-	accountData, err := l.loadAccounts(addresses)
-	if err != nil {
-		return err
-	}
-
-	l.preloadedAccountData = accountData
-	return nil
-}
-
-// LookupWithoutRewards is part of go-algorand's ledgerForEvaluator interface.
-func (l LedgerForEvaluator) LookupWithoutRewards(round basics.Round, address basics.Address) (basics.AccountData, basics.Round, error) {
-	// The balance of a special address must pass the minimum balance check in
-	// go-algorand's evaluator, so return a sufficiently large balance.
-	if l.isSpecialAddress(address) {
-		var balance uint64 = 1000 * 1000 * 1000 * 1000 * 1000
-		accountData := basics.AccountData{
-			MicroAlgos: basics.MicroAlgos{Raw: balance},
-		}
-		return accountData, round, nil
-	}
-
-	if accountData, ok := l.preloadedAccountData[address]; ok {
-		if accountData == nil {
-			return basics.AccountData{}, round, nil
-		}
-		return *accountData, round, nil
-	}
-
-	// Account was not preloaded.
-	accountDataMap, err := l.loadAccounts(map[basics.Address]struct{}{address: {}})
-	if err != nil {
-		return basics.AccountData{}, basics.Round(0), err
-	}
-	accountData := accountDataMap[address]
-
-	if accountData == nil {
-		return basics.AccountData{}, round, nil
-	}
-	return *accountData, round, nil
-}
-
-// GetCreatorForRound is part of go-algorand's ledgerForEvaluator interface.
-func (l LedgerForEvaluator) GetCreatorForRound(_ basics.Round, cindex basics.CreatableIndex, ctype basics.CreatableType) (basics.Address, bool, error) {
-	var row pgx.Row
-
-	switch ctype {
-	case basics.AssetCreatable:
-		row = l.tx.QueryRow(context.Background(), assetCreatorStmtName, uint64(cindex))
-	case basics.AppCreatable:
-		row = l.tx.QueryRow(context.Background(), appCreatorStmtName, uint64(cindex))
-	default:
-		panic("unknown creatable type")
-	}
-
+func (l *LedgerForEvaluator) parseAddress(row pgx.Row) (basics.Address, bool /*exists*/, error) {
 	var buf []byte
 	err := row.Scan(&buf)
 	if err == pgx.ErrNoRows {
 		return basics.Address{}, false, nil
 	}
 	if err != nil {
-		return basics.Address{}, false, fmt.Errorf("GetCreatorForRound() err: %w", err)
+		return basics.Address{}, false, fmt.Errorf("parseAddress() err: %w", err)
 	}
 
 	var address basics.Address
@@ -463,21 +409,68 @@ func (l LedgerForEvaluator) GetCreatorForRound(_ basics.Round, cindex basics.Cre
 	return address, true, nil
 }
 
-// GenesisHash is part of go-algorand's ledgerForEvaluator interface.
-func (l LedgerForEvaluator) GenesisHash() crypto.Digest {
-	return l.genesisHash
+// GetAssetCreator is part of go-algorand's indexerLedgerForEval interface.
+func (l LedgerForEvaluator) GetAssetCreator(indices map[basics.AssetIndex]struct{}) (map[basics.AssetIndex]ledger.FoundAddress, error) {
+	indicesArr := make([]basics.AssetIndex, 0, len(indices))
+	for index := range indices {
+		indicesArr = append(indicesArr, index)
+	}
+
+	var batch pgx.Batch
+	for _, index := range indicesArr {
+		batch.Queue(assetCreatorStmtName, uint64(index))
+	}
+
+	results := l.tx.SendBatch(context.Background(), &batch)
+	res := make(map[basics.AssetIndex]ledger.FoundAddress, len(indices))
+	for _, index := range indicesArr {
+		row := results.QueryRow()
+
+		address, exists, err := l.parseAddress(row)
+		if err != nil {
+			return nil, fmt.Errorf("GetAssetCreator() err: %w", err)
+		}
+
+		res[index] = ledger.FoundAddress{Address: address, Exists: exists}
+	}
+	results.Close()
+
+	return res, nil
 }
 
-// Totals is part of go-algorand's ledgerForEvaluator interface.
-func (l LedgerForEvaluator) Totals(round basics.Round) (ledgercore.AccountTotals, error) {
+// GetAppCreator is part of go-algorand's indexerLedgerForEval interface.
+func (l LedgerForEvaluator) GetAppCreator(indices map[basics.AppIndex]struct{}) (map[basics.AppIndex]ledger.FoundAddress, error) {
+	indicesArr := make([]basics.AppIndex, 0, len(indices))
+	for index := range indices {
+		indicesArr = append(indicesArr, index)
+	}
+
+	var batch pgx.Batch
+	for _, index := range indicesArr {
+		batch.Queue(appCreatorStmtName, uint64(index))
+	}
+
+	results := l.tx.SendBatch(context.Background(), &batch)
+	res := make(map[basics.AppIndex]ledger.FoundAddress, len(indices))
+	for _, index := range indicesArr {
+		row := results.QueryRow()
+
+		address, exists, err := l.parseAddress(row)
+		if err != nil {
+			return nil, fmt.Errorf("GetAppCreator() err: %w", err)
+		}
+
+		res[index] = ledger.FoundAddress{Address: address, Exists: exists}
+	}
+	results.Close()
+
+	return res, nil
+}
+
+// Totals is part of go-algorand's indexerLedgerForEval interface.
+func (l LedgerForEvaluator) Totals() (ledgercore.AccountTotals, error) {
 	// The evaluator uses totals only for recomputing the rewards pool balance. Indexer
 	// does not currently compute this balance, and we can return an empty struct
 	// here.
 	return ledgercore.AccountTotals{}, nil
-}
-
-// CompactCertVoters is part of go-algorand's ledgerForEvaluator interface.
-func (l LedgerForEvaluator) CompactCertVoters(basics.Round) (*ledger.VotersForRound, error) {
-	// This function is not used by evaluator.
-	return nil, errors.New("CompactCertVoters() not implemented")
 }
