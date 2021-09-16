@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"encoding/json"
@@ -14,7 +14,7 @@ type DynamicProcessor struct {
 func mustEncode(data interface{}) string {
 	result, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
-		errorLog.Fatalf("failed to encode data: %v", err)
+		ErrorLog.Fatalf("failed to encode data: %v", err)
 	}
 	return string(result)
 }
@@ -48,9 +48,9 @@ func (gp DynamicProcessor) ProcessAddress(algodData, indexerData []byte) (Result
 			Equal:   false,
 			Retries: 0,
 			Details: &ErrorDetails{
-				algod:   fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(algodAcct), mustEncode(algodNorm)),
-				indexer: fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(indexerAcct), mustEncode(indexerNorm)),
-				diff:    nil,
+				Algod:   fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(algodAcct), mustEncode(algodNorm)),
+				Indexer: fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(indexerAcct), mustEncode(indexerNorm)),
+				Diff:    nil,
 			},
 		}, nil
 	}

@@ -20,7 +20,7 @@ func init() {
 		Short: "Start the generator daemon in standalone mode.",
 		Run: func(cmd *cobra.Command, args []string) {
 			addr := fmt.Sprintf(":%d", port)
-			srv := generator.MakeServer(configFile, addr)
+			srv, _ := generator.MakeServer(configFile, addr)
 			srv.ListenAndServe()
 		},
 	}

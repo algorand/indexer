@@ -176,3 +176,11 @@ func TestWriteRound(t *testing.T) {
 	protocol.Decode(data, &block)
 	require.Len(t, block.Block.Payset, int(g.config.TxnPerBlock))
 }
+
+func TestIndexToAccountAndAccountToIndex(t *testing.T) {
+	for i := uint64(0); i < uint64(100000); i++ {
+		acct := indexToAccount(i)
+		result := accountToIndex(acct)
+		require.Equal(t, i, result)
+	}
+}

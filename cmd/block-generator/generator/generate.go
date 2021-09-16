@@ -2,6 +2,7 @@ package generator
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/daemon/algod/api/server/v2/generated"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/committee"
@@ -155,9 +157,11 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 
 // Generator is the interface needed to generate blocks.
 type Generator interface {
-	WriteReport(output io.Writer)
-	WriteGenesis(output io.Writer)
-	WriteBlock(output io.Writer, round uint64)
+	WriteReport(output io.Writer) error
+	WriteGenesis(output io.Writer) error
+	WriteBlock(output io.Writer, round uint64) error
+	WriteAccount(output io.Writer, accountString string) error
+	Accounts() <-chan basics.Address
 }
 
 type generator struct {
@@ -208,10 +212,11 @@ type generator struct {
 type assetData struct {
 	assetID uint64
 	creator uint64
+	name    string
 	// Holding at index 0 is the creator.
-	holdings []assetHolding
+	holdings []*assetHolding
 	// Set of holders in the holdings array for easy reference.
-	holders map[uint64]bool
+	holders map[uint64]*assetHolding
 }
 
 type assetHolding struct {
@@ -238,17 +243,12 @@ func (g *generator) recordData(id TxTypeID, start time.Time) {
 	g.reportData[id] = data
 }
 
-func (g *generator) WriteReport(output io.Writer) {
-	data := protocol.EncodeJSON(g.reportData)
-	var err error
-	if err != nil {
-		fmt.Fprintf(output, "Problem indenting data: %v", err)
-	} else {
-		output.Write(data)
-	}
+func (g *generator) WriteReport(output io.Writer) error {
+	_, err := output.Write(protocol.EncodeJSON(g.reportData))
+	return err
 }
 
-func (g *generator) WriteGenesis(output io.Writer) {
+func (g *generator) WriteGenesis(output io.Writer) error {
 	defer g.recordData(track(genesis))
 	var allocations []bookkeeping.GenesisAllocation
 
@@ -272,7 +272,8 @@ func (g *generator) WriteGenesis(output io.Writer) {
 		Timestamp:   g.timestamp,
 	}
 
-	output.Write(protocol.EncodeJSON(gen))
+	_, err := output.Write(protocol.EncodeJSON(gen))
+	return err
 }
 
 func getTransactionOptions() []interface{} {
@@ -316,7 +317,7 @@ func (g *generator) finishRound(txnCount uint64) {
 }
 
 // WriteBlock generates a block full of new transactions and writes it to the writer.
-func (g *generator) WriteBlock(output io.Writer, round uint64) {
+func (g *generator) WriteBlock(output io.Writer, round uint64) error {
 	if round != g.round {
 		fmt.Printf("Generator only supports sequential block access. Expected %d but received request for %d.", g.round, round)
 	}
@@ -376,16 +377,22 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) {
 
 	_, err := output.Write(protocol.Encode(&cert))
 	if err != nil {
-		panic(fmt.Sprintf("Failed to write certified block."))
+		return err
 	}
 
 	g.finishRound(numTxnForBlock)
+	return nil
 }
 
 func indexToAccount(i uint64) (addr basics.Address) {
 	// Make sure we don't generate a zero address by adding 1 to i
 	binary.LittleEndian.PutUint64(addr[:], i+1)
 	return
+}
+
+func accountToIndex(a basics.Address) (addr uint64) {
+	// Make sure we don't generate a zero address by adding 1 to i
+	return binary.LittleEndian.Uint64(a[:]) - 1
 }
 
 // initializeAccounting creates the genesis accounts.
@@ -495,11 +502,16 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 		txn = g.makeAssetCreateTxn(g.makeTxnHeader(senderAcct, round, intra), total, false, assetName)
 
 		// Compute asset ID and initialize holdings
+		holding := assetHolding{
+			acctIndex: senderIndex,
+			balance:   total,
+		}
 		a := assetData{
+			name:     assetName,
 			assetID:  assetID,
 			creator:  senderIndex,
-			holdings: []assetHolding{{acctIndex: senderIndex, balance: total}},
-			holders:  map[uint64]bool{senderIndex: true},
+			holdings: []*assetHolding{&holding},
+			holders:  map[uint64]*assetHolding{senderIndex: &holding},
 		}
 
 		g.pendingAssets = append(g.pendingAssets, &a)
@@ -539,16 +551,17 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 			exists := true
 			for exists {
 				senderIndex = rand.Uint64() % g.numAccounts
-				exists = asset.holders[senderIndex]
+				exists = asset.holders[senderIndex] != nil
 			}
 			account := indexToAccount(senderIndex)
 			txn = g.makeAssetAcceptanceTxn(g.makeTxnHeader(account, round, intra), asset.assetID)
 
-			asset.holdings = append(asset.holdings, assetHolding{
+			holding := assetHolding{
 				acctIndex: senderIndex,
 				balance:   0,
-			})
-			asset.holders[senderIndex] = true
+			}
+			asset.holdings = append(asset.holdings, &holding)
+			asset.holders[senderIndex] = &holding
 		case assetXfer:
 			// send from creator (holder[0]) to another random holder (same address is valid)
 
@@ -560,8 +573,8 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 			senderIndex = asset.holdings[0].acctIndex
 			sender := indexToAccount(senderIndex)
 
-			receiverIndex := (rand.Uint64() % (uint64(len(asset.holdings)) - uint64(1))) + uint64(1)
-			receiver := indexToAccount(asset.holdings[receiverIndex].acctIndex)
+			receiverArrayIndex := (rand.Uint64() % (uint64(len(asset.holdings)) - uint64(1))) + uint64(1)
+			receiver := indexToAccount(asset.holdings[receiverArrayIndex].acctIndex)
 
 			amount := uint64(10)
 
@@ -577,7 +590,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 			}
 
 			asset.holdings[0].balance -= amount
-			asset.holdings[receiverIndex].balance += amount
+			asset.holdings[receiverArrayIndex].balance += amount
 		case assetClose:
 			// select a holder of a random asset to close out
 			// If there aren't enough assets to close one, optin an account instead
@@ -636,4 +649,83 @@ func (g *generator) generateAssetTxn(round uint64, intra uint64) (transactions.S
 	}
 
 	return signTxn(txn), transactions.ApplyData{}, nil
+}
+
+func (g *generator) WriteAccount(output io.Writer, accountString string) error {
+	addr, err := basics.UnmarshalChecksumAddress(accountString)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshal address: %w", err)
+	}
+
+	idx := accountToIndex(addr)
+
+	// Asset Holdings
+	assets := make([]generated.AssetHolding, 0)
+	createdAssets := make([]generated.Asset, 0)
+	for _, a := range g.assets {
+		// holdings
+		if holding := a.holders[idx]; holding != nil {
+			assets = append(assets, generated.AssetHolding{
+				Amount:   holding.balance,
+				AssetId:  a.assetID,
+				Creator:  indexToAccount(a.creator).String(),
+				IsFrozen: false,
+			})
+		}
+		// creator
+		if len(a.holdings) > 0 && a.holdings[0].acctIndex == idx {
+			nameBytes := []byte(a.name)
+			asset := generated.Asset{
+				Index: a.assetID,
+				Params: generated.AssetParams{
+					Creator:  accountString,
+					Decimals: 0,
+					Clawback: &accountString,
+					Freeze:   &accountString,
+					Manager:  &accountString,
+					Reserve:  &accountString,
+					Name:     &a.name,
+					NameB64:  &nameBytes,
+					Total:    assetTotal,
+				},
+			}
+			asset.Params.DefaultFrozen = new(bool)
+			*(asset.Params.DefaultFrozen) = false
+			createdAssets = append(createdAssets, asset)
+		}
+	}
+
+	data := generated.Account{
+		Address:                     accountString,
+		Amount:                      g.balances[idx],
+		AmountWithoutPendingRewards: g.balances[idx],
+		AppsLocalState:              nil,
+		AppsTotalExtraPages:         nil,
+		AppsTotalSchema:             nil,
+		Assets:                      &assets,
+		AuthAddr:                    nil,
+		CreatedApps:                 nil,
+		CreatedAssets:               &createdAssets,
+		Participation:               nil,
+		PendingRewards:              0,
+		RewardBase:                  nil,
+		Rewards:                     0,
+		Round:                       g.round,
+		SigType:                     nil,
+		Status:                      "Offline",
+	}
+
+	return json.NewEncoder(output).Encode(data)
+}
+
+// Accounts is used in the runner to generate a list of addresses.
+func (g *generator) Accounts() <-chan basics.Address {
+	results := make(chan basics.Address, 10)
+	go func() {
+		defer close(results)
+		for i := uint64(0); i < g.numAccounts; i++ {
+			results <- indexToAccount(i)
+		}
+	}()
+	return results
 }
