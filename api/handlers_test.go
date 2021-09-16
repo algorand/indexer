@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -618,4 +621,64 @@ func createTxn(t *testing.T, target string) []byte {
 	err = ioutil.WriteFile(target, data, 0644)
 	assert.NoError(t, err)
 	return data
+}
+
+func TestLookupApplicationLogsByID(t *testing.T) {
+	mockIndexer := &mocks.IndexerDb{}
+	si := ServerImplementation{
+		EnableAddressSearchRoundRewind: true,
+		db:                             mockIndexer,
+	}
+
+	txnBytes := loadResourceFileOrPanic("test_resources/app_call_logs.txn")
+	var stxn transactions.SignedTxnWithAD
+	err := protocol.Decode(txnBytes, &stxn)
+	assert.NoError(t, err)
+
+	roundTime := time.Now()
+	ch := make(chan idb.TxnRow, 1)
+	ch <- idb.TxnRow{
+		Round:     1,
+		Intra:     2,
+		RoundTime: roundTime,
+		TxnBytes:  txnBytes,
+		AssetID:   0,
+		Extra: idb.TxnExtra{
+			AssetCloseAmount: 0,
+		},
+		Error: nil,
+	}
+
+	close(ch)
+	var outCh <-chan idb.TxnRow = ch
+	var round uint64 = 1
+	mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh, round)
+
+	appIdx := stxn.Txn.ApplicationID
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/v2/applications/:appIdx/logs")
+	c.SetParamNames("appIdx")
+	c.SetParamValues(fmt.Sprintf("%d", appIdx))
+
+	params := generated.LookupApplicationLogsByIDParams{}
+	err = si.LookupApplicationLogsByID(c, 444, params)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response generated.ApplicationLogsResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
+
+	assert.Equal(t, uint64(appIdx), response.ApplicationId)
+	assert.NotNil(t, response.LogData)
+	ld := *response.LogData
+	assert.Equal(t, 1, len(ld))
+	assert.Equal(t, stxn.Txn.ID().String(), ld[0].Txid)
+	assert.Equal(t, len(stxn.ApplyData.EvalDelta.Logs), len(ld[0].Logs))
+	for i, log := range ld[0].Logs {
+		assert.Equal(t, []byte(stxn.ApplyData.EvalDelta.Logs[i]), log)
+	}
 }

@@ -311,9 +311,10 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 	}
 
 	response := generated.ApplicationLogsResponse{
-		CurrentRound: round,
-		NextToken:    strPtr(next),
-		LogData:      logDataResult,
+		ApplicationId: applicationID,
+		CurrentRound:  round,
+		NextToken:     strPtr(next),
+		LogData:       logDataResult,
 	}
 
 	return ctx.JSON(http.StatusOK, response)
