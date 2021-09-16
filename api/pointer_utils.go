@@ -96,7 +96,7 @@ func boolPtr(x bool) *bool {
 }
 
 func strArrayPtr(x []string) *[]string {
-	if x == nil || len(x) == 0 {
+	if len(x) == 0 {
 		return nil
 	}
 	return &x

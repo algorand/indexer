@@ -20,8 +20,6 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 )
 
-var errOutOfRange = fmt.Errorf("selection is out of weighted range")
-
 // TxTypeID is the transaction type.
 type TxTypeID string
 
@@ -229,8 +227,8 @@ type Report map[TxTypeID]TxData
 
 // TxData is the generator report data.
 type TxData struct {
-	GenerationTimeMilli time.Duration `json:"generation_time_milli"`
-	GenerationCount     uint64        `json:"num_generated"`
+	GenerationTime  time.Duration `json:"generation_time_milli"`
+	GenerationCount uint64        `json:"num_generated"`
 }
 
 func track(id TxTypeID) (TxTypeID, time.Time) {
@@ -239,7 +237,7 @@ func track(id TxTypeID) (TxTypeID, time.Time) {
 func (g *generator) recordData(id TxTypeID, start time.Time) {
 	data := g.reportData[id]
 	data.GenerationCount++
-	data.GenerationTimeMilli += time.Since(start)
+	data.GenerationTime += time.Since(start)
 	g.reportData[id] = data
 }
 
@@ -460,7 +458,7 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 	fee := uint64(1000)
 	total := amount + fee
 	if g.balances[sendIndex] < total {
-		fmt.Printf(fmt.Sprintf("\n\nthe sender account does not have enough algos for the transfer. idx %d, payment number %d\n\n", sendIndex, g.numPayments))
+		fmt.Printf("\n\nthe sender account does not have enough algos for the transfer. idx %d, payment number %d\n\n", sendIndex, g.numPayments)
 		os.Exit(1)
 	}
 
@@ -581,11 +579,11 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 			txn = g.makeAssetTransferTxn(g.makeTxnHeader(sender, round, intra), receiver, amount, basics.Address{}, asset.assetID)
 
 			if asset.holdings[0].balance < amount {
-				fmt.Printf(fmt.Sprintf("\n\ncreator doesn't have enough funds for asset %d\n\n", asset.assetID))
+				fmt.Printf("\n\ncreator doesn't have enough funds for asset %d\n\n", asset.assetID)
 				os.Exit(1)
 			}
 			if g.balances[asset.holdings[0].acctIndex] < fee {
-				fmt.Printf(fmt.Sprintf("\n\ncreator doesn't have enough funds for transaction %d\n\n", asset.assetID))
+				fmt.Printf("\n\ncreator doesn't have enough funds for transaction %d\n\n", asset.assetID)
 				os.Exit(1)
 			}
 
@@ -626,7 +624,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 	}
 
 	if g.balances[senderIndex] < txn.Fee.ToUint64() {
-		fmt.Printf(fmt.Sprintf("\n\nthe sender account does not have enough algos for the transfer. idx %d, asset transaction type %v, num %d\n\n", senderIndex, actual, g.reportData[actual].GenerationCount))
+		fmt.Printf("\n\nthe sender account does not have enough algos for the transfer. idx %d, asset transaction type %v, num %d\n\n", senderIndex, actual, g.reportData[actual].GenerationCount)
 		os.Exit(1)
 	}
 	g.balances[senderIndex] -= txn.Fee.ToUint64()

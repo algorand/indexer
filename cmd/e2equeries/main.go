@@ -71,7 +71,7 @@ func main() {
 		printAccountQuery(db, idb.AccountQueryOptions{HasAssetID: bestid, Limit: bestcount})
 	}
 
-	dt := time.Now().Sub(start)
+	dt := time.Since(start)
 	exitValue := testutil.ExitValue()
 	if exitValue == 0 {
 		fmt.Printf("wat OK %s\n", dt.String())

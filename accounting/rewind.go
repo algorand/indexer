@@ -185,7 +185,8 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 				fmt.Sprintf("queried round r: %d < requested round round: %d", r, round)}
 			return
 		}
-		for txnrow := range txns {
+		txnrow, ok := <-txns
+		if ok {
 			if txnrow.Error != nil {
 				err = txnrow.Error
 				return
@@ -217,12 +218,11 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			acct.PendingRewards = rewardsDelta * rewardsUnits
 			acct.Amount = acct.PendingRewards + acct.AmountWithoutPendingRewards
 			acct.Round = round
-			return
+		} else {
+			// There were no prior transactions, it must have been empty before, zero out things
+			acct.PendingRewards = 0
+			acct.Amount = acct.AmountWithoutPendingRewards
 		}
-
-		// There were no prior transactions, it must have been empty before, zero out things
-		acct.PendingRewards = 0
-		acct.Amount = acct.AmountWithoutPendingRewards
 	}
 
 	acct.Round = round

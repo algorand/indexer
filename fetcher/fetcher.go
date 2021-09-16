@@ -99,7 +99,7 @@ func (bot *fetcherImpl) catchupLoop() {
 	var err error
 	var blockbytes []byte
 	aclient := bot.Algod()
-	for true {
+	for {
 		if bot.isDone() {
 			return
 		}
@@ -127,7 +127,7 @@ func (bot *fetcherImpl) followLoop() {
 	var err error
 	var blockbytes []byte
 	aclient := bot.Algod()
-	for true {
+	for {
 		for retries := 0; retries < 3; retries++ {
 			if bot.isDone() {
 				return
@@ -162,7 +162,7 @@ func (bot *fetcherImpl) followLoop() {
 
 // Run is part of the Fetcher interface
 func (bot *fetcherImpl) Run() {
-	for true {
+	for {
 		if bot.isDone() {
 			return
 		}

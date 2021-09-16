@@ -242,10 +242,10 @@ func equals(indexer, algod generated.Account) (differences []string) {
 			if !stringPtrEqual(algodCreatedApp.Params.Creator, indexerCreatedApp.Params.Creator) {
 				differences = append(differences, fmt.Sprintf("created-app creator %d", algodCreatedApp.Id))
 			}
-			if bytes.Compare(algodCreatedApp.Params.ApprovalProgram, indexerCreatedApp.Params.ApprovalProgram) != 0 {
+			if !bytes.Equal(algodCreatedApp.Params.ApprovalProgram, indexerCreatedApp.Params.ApprovalProgram) {
 				differences = append(differences, fmt.Sprintf("created-app approval-program %d", algodCreatedApp.Id))
 			}
-			if bytes.Compare(algodCreatedApp.Params.ClearStateProgram, indexerCreatedApp.Params.ClearStateProgram) != 0 {
+			if !bytes.Equal(algodCreatedApp.Params.ClearStateProgram, indexerCreatedApp.Params.ClearStateProgram) {
 				differences = append(differences, fmt.Sprintf("created-app clear-state-program %d", algodCreatedApp.Id))
 			}
 			if !tealKeyValueStoreEqual(algodCreatedApp.Params.GlobalState, indexerCreatedApp.Params.GlobalState) {
@@ -321,7 +321,7 @@ func bytesPtrEqual(val1, val2 *[]uint8) bool {
 		return false
 	}
 
-	return bytes.Compare(*val1, *val2) == 0
+	return bytes.Equal(*val1, *val2)
 }
 
 func boolPtrEqual(val1, val2 *bool) bool {

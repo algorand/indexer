@@ -100,6 +100,7 @@ func needsMigration(state MigrationState) bool {
 // upsertMigrationState updates the migration state, and optionally increments
 // the next counter with an existing transaction.
 // If `tx` is nil, use a normal query.
+//lint:ignore U1000 this function might be used in a future migration
 func upsertMigrationState(db *IndexerDb, tx pgx.Tx, state *MigrationState) error {
 	migrationStateJSON := encoding.EncodeJSON(state)
 	return db.setMetastate(tx, schema.MigrationMetastateKey, string(migrationStateJSON))
@@ -176,6 +177,7 @@ func (db *IndexerDb) getMigrationState() (MigrationState, error) {
 }
 
 // sqlMigration executes a sql statements as the entire migration.
+//lint:ignore U1000 this function might be used in a future migration
 func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error {
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
