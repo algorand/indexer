@@ -240,12 +240,7 @@ func (g *generator) recordData(id TxTypeID, start time.Time) {
 
 func (g *generator) WriteReport(output io.Writer) {
 	data := protocol.EncodeJSON(g.reportData)
-	var err error
-	if err != nil {
-		fmt.Fprintf(output, "Problem indenting data: %v", err)
-	} else {
-		output.Write(data)
-	}
+	output.Write(data)
 }
 
 func (g *generator) WriteGenesis(output io.Writer) {
