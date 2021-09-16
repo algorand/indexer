@@ -258,14 +258,15 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 	out := generated.ApplicationResponse{
 		CurrentRound: round,
 	}
-	for result := range results {
-		if result.Error != nil {
-			return indexerError(ctx, result.Error.Error())
-		}
-		out.Application = &result.Application
-		return ctx.JSON(http.StatusOK, out)
+	result, ok := <-results
+	if !ok {
+		return ctx.JSON(http.StatusNotFound, out)
 	}
-	return ctx.JSON(http.StatusNotFound, out)
+	if result.Error != nil {
+		return indexerError(ctx, result.Error.Error())
+	}
+	out.Application = &result.Application
+	return ctx.JSON(http.StatusOK, out)
 }
 
 // LookupAssetByID looks up a particular asset

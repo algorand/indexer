@@ -41,7 +41,7 @@ func Version() string {
 	if err != nil {
 		return fmt.Sprintf("compiled with bad GitDecorateBase64, %s", err.Error())
 	}
-	tre := regexp.MustCompile("tag:\\s+([^,]+)")
+	tre := regexp.MustCompile(`tag:\s+([^,]+)`)
 	m := tre.FindAllStringSubmatch(string(b), -1)
 	if m == nil {
 		return UnknownVersion

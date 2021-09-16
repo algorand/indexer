@@ -782,6 +782,7 @@ func TestAppExtraPages(t *testing.T) {
 
 	var ap basics.AppParams
 	err = encoding.DecodeJSON(paramsStr, &ap)
+	require.NoError(t, err)
 	require.Equal(t, uint32(1), ap.ExtraProgramPages)
 
 	var filter generated.SearchForApplicationsParams
@@ -864,6 +865,7 @@ func TestLargeAssetAmount(t *testing.T) {
 	txn := test.MakeConfigAssetTxn(
 		0, math.MaxUint64, 0, false, "mc", "mycoin", "", test.AccountA)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
+	require.NoError(t, err)
 
 	err = db.AddBlock(&block)
 	require.NoError(t, err)

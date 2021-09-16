@@ -598,7 +598,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		partNumber++
 	}
 	if tf.RekeyTo != nil && (*tf.RekeyTo) {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'rekey') IS NOT NULL"))
+		whereParts = append(whereParts, "(t.txn -> 'txn' -> 'rekey') IS NOT NULL")
 	}
 	query = "SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	if joinParticipation {
@@ -1375,7 +1375,7 @@ func stringPtr(x string) *string {
 }
 
 func baPtr(x []byte) *[]byte {
-	if x == nil || len(x) == 0 {
+	if len(x) == 0 {
 		return nil
 	}
 	allzero := true

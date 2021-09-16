@@ -47,7 +47,7 @@ func TestParseRound(t *testing.T) {
 		},
 		{
 			name:          "invalid prefix",
-			url:           fmt.Sprintf("/v2/wrong/prefix/1"),
+			url:           "/v2/wrong/prefix/1",
 			expectedRound: 0,
 			err:           "not a blocks query",
 		},

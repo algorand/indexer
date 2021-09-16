@@ -20,28 +20,12 @@ var fastSuccessTask2 = makeTask(0*time.Second, nil, 2, false, "fast success")
 var fastSuccessTask3 = makeTask(0*time.Second, nil, 3, false, "fast success")
 
 var fastErrorTask1 = makeTask(0*time.Second, errMigration, 1, false, "fast error")
-var fastErrorTask2 = makeTask(0*time.Second, errMigration, 2, false, "fast error")
-var fastErrorTask3 = makeTask(0*time.Second, errMigration, 3, false, "fast error")
 
-var slowErrorTask1 = makeTask(1*time.Second, errMigration, 1, false, "slow error")
-var slowErrorTask2 = makeTask(1*time.Second, errMigration, 2, false, "slow error")
 var slowErrorTask3 = makeTask(1*time.Second, errMigration, 3, false, "slow error")
 
 var slowSuccessBlockingTask1 = makeTask(1*time.Second, nil, 1, true, "blocking slow success")
 var slowSuccessBlockingTask2 = makeTask(1*time.Second, nil, 2, true, "blocking slow success")
 var slowSuccessBlockingTask3 = makeTask(1*time.Second, nil, 3, true, "blocking slow success")
-
-var fastSuccessBlockingTask1 = makeTask(0*time.Second, nil, 1, true, "blocking fast success")
-var fastSuccessBlockingTask2 = makeTask(0*time.Second, nil, 2, true, "blocking fast success")
-var fastSuccessBlockingTask3 = makeTask(0*time.Second, nil, 3, true, "blocking fast success")
-
-var fastErrorBlockingTask1 = makeTask(0*time.Second, errMigration, 1, true, "blocking fast error")
-var fastErrorBlockingTask2 = makeTask(0*time.Second, errMigration, 2, true, "blocking fast error")
-var fastErrorBlockingTask3 = makeTask(0*time.Second, errMigration, 3, true, "blocking fast error")
-
-var slowErrorBlockingTask1 = makeTask(1*time.Second, errMigration, 1, true, "blocking slow error")
-var slowErrorBlockingTask2 = makeTask(1*time.Second, errMigration, 2, true, "blocking slow error")
-var slowErrorBlockingTask3 = makeTask(1*time.Second, errMigration, 3, true, "blocking slow error")
 
 type testTask struct {
 	id          int
