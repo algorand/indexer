@@ -113,7 +113,7 @@ func (l *LedgerForEvaluator) isSpecialAddress(address basics.Address) bool {
 		(address == l.specialAddresses.RewardsPool)
 }
 
-func (l *LedgerForEvaluator) parseAccountTable(address basics.Address, row pgx.Row) (basics.AccountData, bool /*exists*/, error) {
+func (l *LedgerForEvaluator) parseAccountTable(row pgx.Row) (basics.AccountData, bool /*exists*/, error) {
 	var microalgos uint64
 	var rewardsbase uint64
 	var rewardsTotal uint64
@@ -143,7 +143,7 @@ func (l *LedgerForEvaluator) parseAccountTable(address basics.Address, row pgx.R
 	return res, true, nil
 }
 
-func (l *LedgerForEvaluator) parseAccountAssetTable(address basics.Address, rows pgx.Rows) (map[basics.AssetIndex]basics.AssetHolding, error) {
+func (l *LedgerForEvaluator) parseAccountAssetTable(rows pgx.Rows) (map[basics.AssetIndex]basics.AssetHolding, error) {
 	res := make(map[basics.AssetIndex]basics.AssetHolding)
 
 	var assetid uint64
@@ -170,7 +170,7 @@ func (l *LedgerForEvaluator) parseAccountAssetTable(address basics.Address, rows
 	return res, nil
 }
 
-func (l *LedgerForEvaluator) parseAssetTable(address basics.Address, rows pgx.Rows) (map[basics.AssetIndex]basics.AssetParams, error) {
+func (l *LedgerForEvaluator) parseAssetTable(rows pgx.Rows) (map[basics.AssetIndex]basics.AssetParams, error) {
 	res := make(map[basics.AssetIndex]basics.AssetParams)
 
 	var index uint64
@@ -196,7 +196,7 @@ func (l *LedgerForEvaluator) parseAssetTable(address basics.Address, rows pgx.Ro
 	return res, nil
 }
 
-func (l *LedgerForEvaluator) parseAppTable(address basics.Address, rows pgx.Rows) (map[basics.AppIndex]basics.AppParams, error) {
+func (l *LedgerForEvaluator) parseAppTable(rows pgx.Rows) (map[basics.AppIndex]basics.AppParams, error) {
 	res := make(map[basics.AppIndex]basics.AppParams)
 
 	var index uint64
@@ -222,7 +222,7 @@ func (l *LedgerForEvaluator) parseAppTable(address basics.Address, rows pgx.Rows
 	return res, nil
 }
 
-func (l *LedgerForEvaluator) parseAccountAppTable(address basics.Address, rows pgx.Rows) (map[basics.AppIndex]basics.AppLocalState, error) {
+func (l *LedgerForEvaluator) parseAccountAppTable(rows pgx.Rows) (map[basics.AppIndex]basics.AppLocalState, error) {
 	res := make(map[basics.AppIndex]basics.AppLocalState)
 
 	var app uint64
@@ -272,7 +272,7 @@ func (l *LedgerForEvaluator) loadAccountTable(addresses map[basics.Address]struc
 		var exists bool
 		var err error
 
-		*accountData, exists, err = l.parseAccountTable(address, row)
+		*accountData, exists, err = l.parseAccountTable(row)
 		if err != nil {
 			return nil, fmt.Errorf("loadAccountTable() err: %w", err)
 		}
@@ -324,7 +324,7 @@ func (l *LedgerForEvaluator) loadCreatables(accountDataMap *map[basics.Address]*
 		if err != nil {
 			return fmt.Errorf("loadCreatables() query asset holdings err: %w", err)
 		}
-		(*accountDataMap)[address].Assets, err = l.parseAccountAssetTable(address, rows)
+		(*accountDataMap)[address].Assets, err = l.parseAccountAssetTable(rows)
 		if err != nil {
 			return fmt.Errorf("loadCreatables() err: %w", err)
 		}
@@ -334,7 +334,7 @@ func (l *LedgerForEvaluator) loadCreatables(accountDataMap *map[basics.Address]*
 		if err != nil {
 			return fmt.Errorf("loadCreatables() query asset params err: %w", err)
 		}
-		(*accountDataMap)[address].AssetParams, err = l.parseAssetTable(address, rows)
+		(*accountDataMap)[address].AssetParams, err = l.parseAssetTable(rows)
 		if err != nil {
 			return fmt.Errorf("loadCreatables() err: %w", err)
 		}
@@ -344,7 +344,7 @@ func (l *LedgerForEvaluator) loadCreatables(accountDataMap *map[basics.Address]*
 		if err != nil {
 			return fmt.Errorf("loadCreatables() query app params err: %w", err)
 		}
-		(*accountDataMap)[address].AppParams, err = l.parseAppTable(address, rows)
+		(*accountDataMap)[address].AppParams, err = l.parseAppTable(rows)
 		if err != nil {
 			return fmt.Errorf("loadCreatables() err: %w", err)
 		}
@@ -354,8 +354,7 @@ func (l *LedgerForEvaluator) loadCreatables(accountDataMap *map[basics.Address]*
 		if err != nil {
 			return fmt.Errorf("loadCreatables() query app local states err: %w", err)
 		}
-		(*accountDataMap)[address].AppLocalStates, err =
-			l.parseAccountAppTable(address, rows)
+		(*accountDataMap)[address].AppLocalStates, err = l.parseAccountAppTable(rows)
 		if err != nil {
 			return fmt.Errorf("loadCreatables() err: %w", err)
 		}
