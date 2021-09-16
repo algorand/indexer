@@ -258,6 +258,52 @@
         }
       }
     },
+    "/v2/applications/{application-id}/logs": {
+      "get": {
+        "description": "Lookup application logs.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "lookup"
+        ],
+        "operationId": "lookupApplicationLogsByID",
+        "parameters": [
+          {
+            "type": "integer",
+            "name": "application-id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/next"
+          },
+          {
+            "$ref": "#/parameters/txid"
+          },
+          {
+            "$ref": "#/parameters/min-round"
+          },
+          {
+            "$ref": "#/parameters/max-round"
+          },
+          {
+            "$ref": "#/parameters/sender-address"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ApplicationLogsResponse"
+          }
+        }
+      }
+    },
     "/v2/assets": {
       "get": {
         "description": "Search for assets.",
@@ -942,6 +988,28 @@
         "extra-program-pages": {
           "description": "\\[epp\\] the amount of extra program pages available to this app.",
           "type": "integer"
+        }
+      }
+    },
+    "ApplicationLogData": {
+      "description": "Stores the global information associated with an application.",
+      "type": "object",
+      "required": [
+        "txid",
+        "logs"
+      ],
+      "properties": {
+        "txid": {
+          "description": "Transaction ID",
+          "type": "string"
+        },
+        "logs": {
+          "description": "\\[lg\\] Logs for the application being executed by the transaction.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
         }
       }
     },
@@ -2018,6 +2086,13 @@
       "in": "path",
       "required": true
     },
+    "sender-address": {
+      "type": "string",
+      "x-algorand-format": "Address",
+      "description": "Only include transactions with this sender address.",
+      "name": "sender-address",
+      "in": "query"
+    },
     "sig-type": {
       "enum": [
         "sig",
@@ -2169,6 +2244,36 @@
           "next-token": {
             "description": "Used for pagination, when making another request provide this token with the next parameter.",
             "type": "string"
+          }
+        }
+      }
+    },
+    "ApplicationLogsResponse": {
+      "description": "(empty)",
+      "schema": {
+        "type": "object",
+        "required": [
+          "application-id",
+          "current-round"
+        ],
+        "properties": {
+          "application-id": {
+            "description": "\\[appidx\\] application index.",
+            "type": "integer"
+          },
+          "current-round": {
+            "description": "Round at which the results were computed.",
+            "type": "integer"
+          },
+          "next-token": {
+            "description": "Used for pagination, when making another request provide this token with the next parameter.",
+            "type": "string"
+          },
+          "log-data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/ApplicationLogData"
+            }
           }
         }
       }

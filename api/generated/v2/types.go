@@ -153,6 +153,16 @@ type ApplicationLocalState struct {
 	Schema ApplicationStateSchema `json:"schema"`
 }
 
+// ApplicationLogData defines model for ApplicationLogData.
+type ApplicationLogData struct {
+
+	// \[lg\] Logs for the application being executed by the transaction.
+	Logs [][]byte `json:"logs"`
+
+	// Transaction ID
+	Txid string `json:"txid"`
+}
+
 // ApplicationParams defines model for ApplicationParams.
 type ApplicationParams struct {
 
@@ -863,6 +873,9 @@ type Round uint64
 // RoundNumber defines model for round-number.
 type RoundNumber uint64
 
+// SenderAddress defines model for sender-address.
+type SenderAddress string
+
 // SigType defines model for sig-type.
 type SigType string
 
@@ -891,6 +904,20 @@ type AccountsResponse struct {
 
 	// Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
+}
+
+// ApplicationLogsResponse defines model for ApplicationLogsResponse.
+type ApplicationLogsResponse struct {
+
+	// \[appidx\] application index.
+	ApplicationId uint64 `json:"application-id"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64                `json:"current-round"`
+	LogData      *[]ApplicationLogData `json:"log-data,omitempty"`
 
 	// Used for pagination, when making another request provide this token with the next parameter.
 	NextToken *string `json:"next-token,omitempty"`
@@ -1092,6 +1119,28 @@ type LookupApplicationByIDParams struct {
 
 	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
 	IncludeAll *bool `json:"include-all,omitempty"`
+}
+
+// LookupApplicationLogsByIDParams defines parameters for LookupApplicationLogsByID.
+type LookupApplicationLogsByIDParams struct {
+
+	// Maximum number of results to return.
+	Limit *uint64 `json:"limit,omitempty"`
+
+	// The next page of results. Use the next token provided by the previous results.
+	Next *string `json:"next,omitempty"`
+
+	// Lookup the specific transaction by ID.
+	Txid *string `json:"txid,omitempty"`
+
+	// Include results at or after the specified min-round.
+	MinRound *uint64 `json:"min-round,omitempty"`
+
+	// Include results at or before the specified max-round.
+	MaxRound *uint64 `json:"max-round,omitempty"`
+
+	// Only include transactions with this sender address.
+	SenderAddress *string `json:"sender-address,omitempty"`
 }
 
 // SearchForAssetsParams defines parameters for SearchForAssets.

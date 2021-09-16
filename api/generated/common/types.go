@@ -153,6 +153,16 @@ type ApplicationLocalState struct {
 	Schema ApplicationStateSchema `json:"schema"`
 }
 
+// ApplicationLogData defines model for ApplicationLogData.
+type ApplicationLogData struct {
+
+	// \[lg\] Logs for the application being executed by the transaction.
+	Logs [][]byte `json:"logs"`
+
+	// Transaction ID
+	Txid string `json:"txid"`
+}
+
 // ApplicationParams defines model for ApplicationParams.
 type ApplicationParams struct {
 
@@ -863,6 +873,9 @@ type Round uint64
 // RoundNumber defines model for round-number.
 type RoundNumber uint64
 
+// SenderAddress defines model for sender-address.
+type SenderAddress string
+
 // SigType defines model for sig-type.
 type SigType string
 
@@ -891,6 +904,20 @@ type AccountsResponse struct {
 
 	// Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
+}
+
+// ApplicationLogsResponse defines model for ApplicationLogsResponse.
+type ApplicationLogsResponse struct {
+
+	// \[appidx\] application index.
+	ApplicationId uint64 `json:"application-id"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64                `json:"current-round"`
+	LogData      *[]ApplicationLogData `json:"log-data,omitempty"`
 
 	// Used for pagination, when making another request provide this token with the next parameter.
 	NextToken *string `json:"next-token,omitempty"`
