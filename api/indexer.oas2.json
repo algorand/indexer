@@ -1588,6 +1588,13 @@
             "type": "string",
             "format": "byte"
           }
+        },
+        "inner-txns": {
+          "description": "Inner transactions produced by application execution.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/Transaction"
+          }
         }
       }
     },

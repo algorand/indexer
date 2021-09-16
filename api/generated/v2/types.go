@@ -545,6 +545,9 @@ type Transaction struct {
 	// Transaction ID
 	Id string `json:"id"`
 
+	// Inner transactions produced by application execution.
+	InnerTxns *[]Transaction `json:"inner-txns,omitempty"`
+
 	// Offset into the round where this transaction was confirmed.
 	IntraRoundOffset *uint64 `json:"intra-round-offset,omitempty"`
 

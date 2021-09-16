@@ -1364,6 +1364,13 @@
             "description": "Transaction ID",
             "type": "string"
           },
+          "inner-txns": {
+            "description": "Inner transactions produced by application execution.",
+            "items": {
+              "$ref": "#/components/schemas/Transaction"
+            },
+            "type": "array"
+          },
           "intra-round-offset": {
             "description": "Offset into the round where this transaction was confirmed.",
             "type": "integer"

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/indexer/api/generated/v2"
@@ -430,6 +431,15 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/app_call_logs.response"),
 			},
 		},
+		{
+			name: "Application with inner txns",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_inner.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_inner.response"),
+			},
+		},
 	}
 
 	// use for the brach below and createTxn helper func to add a new test case
@@ -443,7 +453,7 @@ func TestFetchTransactions(t *testing.T) {
 			created  uint64
 		}{
 			name:     "Application with logs",
-			txnBytes: [][]byte{createTxn(t, "test_resources/app_call_logs.txn")},
+			txnBytes: [][]byte{createTxn(t, "test_resources/app_call_inner.txn")},
 		})
 	}
 
@@ -516,6 +526,11 @@ func TestFetchTransactions(t *testing.T) {
 				// This is set in the mock above, so override it in the expected value.
 				expected.RoundTime = &roundTime64
 				fmt.Println(roundTime64)
+				if expected.InnerTxns != nil {
+					for j := range *expected.InnerTxns {
+						(*expected.InnerTxns)[j].RoundTime = &roundTime64
+					}
+				}
 				assert.EqualValues(t, expected, actual)
 			}
 		})
@@ -542,6 +557,11 @@ func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 
 // createTxn allows saving msgp-encoded canonical object to a file in order to add more test data
 func createTxn(t *testing.T, target string) []byte {
+	addr1, err := basics.UnmarshalChecksumAddress("PT4K5LK4KYIQYYRAYPAZIEF47NVEQRDX3CPYWJVH25LKO2METIRBKRHRAE")
+	assert.Error(t, err)
+	addr2, err := basics.UnmarshalChecksumAddress("PIJRXIH5EJF7HT43AZQOQBPEZUTTCJCZ3E5U3QHLE33YP2ZHGXP7O7WN3U")
+	assert.Error(t, err)
+
 	stxnad := transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -553,13 +573,49 @@ func createTxn(t *testing.T, target string) []byte {
 		},
 		ApplyData: transactions.ApplyData{
 			EvalDelta: transactions.EvalDelta{
-				Logs: []string{"one", "\x01\x02", string([]byte{0, 10, 20})},
+				InnerTxns: []transactions.SignedTxnWithAD{
+					{},
+					{
+						SignedTxn: transactions.SignedTxn{
+							Txn: transactions.Transaction{
+								Type: protocol.PaymentTx,
+								Header: transactions.Header{
+									Sender:     addr1,
+									Fee:        basics.MicroAlgos{Raw: 987},
+									FirstValid: 2,
+								},
+								PaymentTxnFields: transactions.PaymentTxnFields{
+									Amount:   basics.MicroAlgos{Raw: 1234567890},
+									Receiver: addr2,
+								},
+							},
+						},
+					},
+					{
+						SignedTxn: transactions.SignedTxn{
+							Txn: transactions.Transaction{
+								Type: protocol.AssetTransferTx,
+								Header: transactions.Header{
+									Sender:     addr1,
+									Fee:        basics.MicroAlgos{Raw: 654},
+									FirstValid: 3,
+								},
+								AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+									XferAsset:     11,
+									AssetAmount:   222,
+									AssetSender:   addr1,
+									AssetReceiver: addr2,
+								},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
 
 	data := msgpack.Encode(stxnad)
-	err := ioutil.WriteFile(target, data, 0644)
+	err = ioutil.WriteFile(target, data, 0644)
 	assert.NoError(t, err)
 	return data
 }
