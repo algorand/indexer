@@ -446,10 +446,13 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		itxns := make([]generated.TransactionBase, 0, len(stxn.ApplyData.EvalDelta.InnerTxns))
 		for _, t := range stxn.ApplyData.EvalDelta.InnerTxns {
 			extra2 := extra
-			// TODO: fix txn counter/number calculation and use ApplyData.ConfigAsset/ApplicationID
-			extra2.Intra = 0
-			extra2.AssetID = 0
-			// end TODO
+			if t.Txn.Type == protocol.ApplicationCallTx {
+				extra2.AssetID = uint64(t.ApplyData.ApplicationID)
+			} else if t.Txn.Type == protocol.AssetConfigTx {
+				extra2.AssetID = uint64(t.ApplyData.ConfigAsset)
+			} else {
+				extra2.AssetID = 0
+			}
 
 			itxn, err := signedTxnWithAdToTransaction(&t, extra2)
 			if err != nil {

@@ -141,13 +141,20 @@ func setSpecialAccounts(addresses transactions.SpecialAddresses, batch *pgx.Batc
 // (0 if not an asset or app transaction).
 func transactionAssetID(block *bookkeeping.Block, intra uint64, typeenum idb.TxnTypeEnum) uint64 {
 	assetid := uint64(0)
+	stxnad := block.Payset[intra]
 	txn := block.Payset[intra].Txn
 
 	switch typeenum {
 	case idb.TypeEnumAssetConfig:
 		assetid = uint64(txn.ConfigAsset)
 		if assetid == 0 {
-			assetid = block.TxnCounter - uint64(len(block.Payset)) + intra + 1
+			if stxnad.ApplyData.ConfigAsset != 0 {
+				assetid = uint64(stxnad.ApplyData.ConfigAsset)
+			} else {
+				// pre v30 transactions do not have ApplyData.ConfigAsset or InnerTxns
+				// so txn counter + payset pos calculation is OK
+				assetid = block.TxnCounter - uint64(len(block.Payset)) + intra + 1
+			}
 		}
 	case idb.TypeEnumAssetTransfer:
 		assetid = uint64(txn.XferAsset)
@@ -156,7 +163,13 @@ func transactionAssetID(block *bookkeeping.Block, intra uint64, typeenum idb.Txn
 	case idb.TypeEnumApplication:
 		assetid = uint64(txn.ApplicationID)
 		if assetid == 0 {
-			assetid = block.TxnCounter - uint64(len(block.Payset)) + intra + 1
+			if stxnad.ApplyData.ApplicationID != 0 {
+				assetid = uint64(stxnad.ApplyData.ApplicationID)
+			} else {
+				// pre v30 transactions do not have ApplyData.ApplicationID or InnerTxns
+				// so txn counter + payset pos calculation is OK
+				assetid = block.TxnCounter - uint64(len(block.Payset)) + intra + 1
+			}
 		}
 	}
 
