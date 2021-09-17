@@ -77,8 +77,8 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 	}
 	s := &http.Server{
 		Addr:           serveAddr,
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
+		ReadTimeout:    59 * time.Second,
+		WriteTimeout:   59 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 		BaseContext:    getctx,
 	}
