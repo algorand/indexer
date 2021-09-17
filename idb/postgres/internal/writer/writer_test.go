@@ -1293,57 +1293,6 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	assert.Equal(t, block.Round(), basics.Round(closedAt))
 }
 
-// Check that adding same block twice does not result in an error.
-func TestWriterAddBlockTwice(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
-	defer shutdownFunc()
-
-	block := bookkeeping.Block{
-		BlockHeader: bookkeeping.BlockHeader{
-			Round:       basics.Round(2),
-			TimeStamp:   333,
-			GenesisID:   test.MakeGenesis().ID(),
-			GenesisHash: test.GenesisHash,
-			RewardsState: bookkeeping.RewardsState{
-				RewardsLevel: 111111,
-			},
-			UpgradeState: bookkeeping.UpgradeState{
-				CurrentProtocol: test.Proto,
-			},
-		},
-		Payset: make(transactions.Payset, 2),
-	}
-
-	stxnad0 := test.MakePaymentTxn(
-		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-		basics.Address{})
-	var err error
-	block.Payset[0], err = block.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
-	require.NoError(t, err)
-
-	stxnad1 := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
-	block.Payset[1], err = block.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
-	require.NoError(t, err)
-
-	f := func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-		require.NoError(t, err)
-
-		w.Close()
-		return nil
-	}
-
-	err = pgutil.TxWithRetry(db, serializable, f, nil)
-	require.NoError(t, err)
-
-	err = pgutil.TxWithRetry(db, serializable, f, nil)
-	require.NoError(t, err)
-}
-
 func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
