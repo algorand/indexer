@@ -197,22 +197,7 @@ func addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.Signe
 	return nil
 }
 
-// getTransactionParticipants returns referenced addresses from the txn and all inner txns
-func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Address {
-	res := make([]basics.Address, 0, 7*(1+len(stxnad.ApplyData.EvalDelta.InnerTxns)))
-
-	add := func(address basics.Address) {
-		if address.IsZero() {
-			return
-		}
-		for _, p := range res {
-			if address == p {
-				return
-			}
-		}
-		res = append(res, address)
-	}
-
+func getTransactionParticipantsImpl(stxnad transactions.SignedTxnWithAD, add func(address basics.Address)) {
 	txn := stxnad.Txn
 
 	add(txn.Sender)
@@ -224,11 +209,52 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Ad
 	add(txn.FreezeAccount)
 
 	for _, inner := range stxnad.ApplyData.EvalDelta.InnerTxns {
-		innerRes := getTransactionParticipants(inner)
-		res = append(res, innerRes...)
+		getTransactionParticipantsImpl(inner, add)
+	}
+}
+
+// getTransactionParticipants returns referenced addresses from the txn and all inner txns
+func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) (res []basics.Address) {
+	const acctsPerTxn = 7
+	var add func(address basics.Address)
+
+	if len(stxnad.ApplyData.EvalDelta.InnerTxns) == 0 {
+		// if no inner transactions then adding into a slice with in-place de-duplication
+		res = make([]basics.Address, 0, acctsPerTxn)
+		add = func(address basics.Address) {
+			if address.IsZero() {
+				return
+			}
+			for _, p := range res {
+				if address == p {
+					return
+				}
+			}
+			res = append(res, address)
+		}
+	} else {
+		// inner transactions might have inner transactions might have inner...
+		// so the resultant slice is created after collecting all the data from nested transactions.
+		// this is probably a bit slower than the default case due to two mem allocs and additional iterations
+		size := acctsPerTxn * (1 + len(stxnad.ApplyData.EvalDelta.InnerTxns)) // approx
+		participants := make(map[basics.Address]bool, size)
+		add = func(address basics.Address) {
+			if address.IsZero() {
+				return
+			}
+			participants[address] = true
+		}
+		defer func() {
+			res = make([]basics.Address, 0, len(participants))
+			for addr := range participants {
+				res = append(res, addr)
+			}
+		}()
 	}
 
-	return res
+	getTransactionParticipantsImpl(stxnad, add)
+
+	return
 }
 
 func addTransactionParticipation(block *bookkeeping.Block, batch *pgx.Batch) error {

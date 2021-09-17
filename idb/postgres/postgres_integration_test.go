@@ -766,6 +766,22 @@ func TestInnerTxnParticipation(t *testing.T) {
 				},
 			},
 		},
+		// also add a fake second-level ApplyData to ensure the recursive part works
+		ApplyData: transactions.ApplyData{
+			EvalDelta: transactions.EvalDelta{
+				InnerTxns: []transactions.SignedTxnWithAD{{
+					SignedTxn: transactions.SignedTxn{
+						Txn: transactions.Transaction{
+							Type: protocol.AssetTransferTx,
+							AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+								AssetReceiver: test.AccountC,
+								AssetAmount:   456,
+							},
+						},
+					},
+				}},
+			},
+		},
 	}}
 
 	block, err := test.MakeBlockForTxns(
@@ -789,8 +805,10 @@ func TestInnerTxnParticipation(t *testing.T) {
 			"intra = $3"
 	acctACount := queryInt(db.db, query, test.AccountA[:], round, intra)
 	acctBCount := queryInt(db.db, query, test.AccountB[:], round, intra)
+	acctCCount := queryInt(db.db, query, test.AccountC[:], round, intra)
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
+	assert.Equal(t, 1, acctCCount)
 }
 
 func TestAppExtraPages(t *testing.T) {
