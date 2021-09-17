@@ -17,6 +17,8 @@ import (
 	"github.com/algorand/indexer/idb"
 )
 
+const DefaultTimeout = 59 * time.Second
+
 // ExtraOptions are options which change the behavior or the HTTP server.
 type ExtraOptions struct {
 	// Tokens are the access tokens which can access the API.
@@ -51,6 +53,10 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 
 	e.Use(middlewares.MakeLogger(log))
 	e.Use(middleware.CORS())
+	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+		ErrorMessage:               `{"message":"Request Timeout"}`,
+		Timeout:                    DefaultTimeout,
+	}))
 
 	middleware := make([]echo.MiddlewareFunc, 0)
 
