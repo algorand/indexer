@@ -741,6 +741,58 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	assert.Equal(t, 1, acctBCount)
 }
 
+// Test that block import adds accounts from inner txns to txn_participation.
+func TestInnerTxnParticipation(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing an app call txn with inners
+	///////////
+
+	createApp := test.MakeCreateAppTxn(test.AccountA)
+
+	// In order to simplify the test,
+	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
+	// fake ApplyData to have inner txn
+	// otherwise it requires funding the app account and other special setup
+	createApp.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: protocol.PaymentTx,
+				PaymentTxnFields: transactions.PaymentTxnFields{
+					Receiver: test.AccountB,
+					Amount:   basics.MicroAlgos{Raw: 123},
+				},
+			},
+		},
+	}}
+
+	block, err := test.MakeBlockForTxns(
+		test.MakeGenesisBlock().BlockHeader, &createApp)
+	require.NoError(t, err)
+
+	//////////
+	// When // We import the block.
+	//////////
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	//////////
+	// Then // Both accounts should have an entry in the txn_participation table.
+	//////////
+	round := uint64(1)
+	intra := uint64(0) // the only one txn in the block
+
+	query :=
+		"SELECT COUNT(*) FROM txn_participation WHERE addr = $1 AND round = $2 AND " +
+			"intra = $3"
+	acctACount := queryInt(db.db, query, test.AccountA[:], round, intra)
+	acctBCount := queryInt(db.db, query, test.AccountB[:], round, intra)
+	assert.Equal(t, 1, acctACount)
+	assert.Equal(t, 1, acctBCount)
+}
+
 func TestAppExtraPages(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()

@@ -197,8 +197,9 @@ func addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.Signe
 	return nil
 }
 
-func getTransactionParticipants(txn transactions.Transaction) []basics.Address {
-	res := make([]basics.Address, 0, 7)
+// getTransactionParticipants returns referenced addresses from the txn and all inner txns
+func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Address {
+	res := make([]basics.Address, 0, 7*(1+len(stxnad.ApplyData.EvalDelta.InnerTxns)))
 
 	add := func(address basics.Address) {
 		if address.IsZero() {
@@ -212,6 +213,8 @@ func getTransactionParticipants(txn transactions.Transaction) []basics.Address {
 		res = append(res, address)
 	}
 
+	txn := stxnad.Txn
+
 	add(txn.Sender)
 	add(txn.Receiver)
 	add(txn.CloseRemainderTo)
@@ -220,13 +223,18 @@ func getTransactionParticipants(txn transactions.Transaction) []basics.Address {
 	add(txn.AssetCloseTo)
 	add(txn.FreezeAccount)
 
+	for _, inner := range stxnad.ApplyData.EvalDelta.InnerTxns {
+		innerRes := getTransactionParticipants(inner)
+		res = append(res, innerRes...)
+	}
+
 	return res
 }
 
 func addTransactionParticipation(block *bookkeeping.Block, batch *pgx.Batch) error {
 	for i, stxnad := range block.Payset {
 		// TODO: replace with a function from go-algorand.
-		participants := getTransactionParticipants(stxnad.Txn)
+		participants := getTransactionParticipants(stxnad.SignedTxnWithAD)
 
 		for j := range participants {
 			batch.Queue(addTxnParticipantStmtName, participants[j][:], uint64(block.Round()), i)
