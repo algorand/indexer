@@ -162,7 +162,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 	if params.Next != nil {
 		addr, err := basics.UnmarshalChecksumAddress(*params.Next)
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, errUnableToParseNext)
+			return badRequest(ctx, errUnableToParseNext)
 		}
 		options.GreaterThanAddress = addr[:]
 	}
@@ -366,14 +366,14 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 	if params.Next != nil {
 		addr, err := basics.UnmarshalChecksumAddress(*params.Next)
 		if err != nil {
-			ctx.JSON(http.StatusBadRequest, errUnableToParseNext)
+			return badRequest(ctx, errUnableToParseNext)
 		}
 		query.PrevAddress = addr[:]
 	}
 
 	balances, round, err := si.fetchAssetBalances(ctx.Request().Context(), query)
 	if err != nil {
-		indexerError(ctx, err.Error())
+		return indexerError(ctx, err.Error())
 	}
 
 	var next *string

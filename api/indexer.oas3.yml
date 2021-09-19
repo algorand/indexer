@@ -460,6 +460,16 @@
         },
         "description": "(empty)"
       },
+      "ErrorResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/Error"
+            }
+          }
+        },
+        "description": "Response for errors"
+      },
       "HealthCheckResponse": {
         "content": {
           "application/json": {
@@ -1151,7 +1161,7 @@
         },
         "type": "object"
       },
-      "ErrorResponse": {
+      "Error": {
         "description": "An error response with optional data field.",
         "properties": {
           "data": {
@@ -1965,6 +1975,26 @@
               }
             },
             "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2026,6 +2056,36 @@
               }
             },
             "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2218,6 +2278,26 @@
               }
             },
             "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2293,6 +2373,26 @@
               }
             },
             "description": "(empty)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2344,6 +2444,26 @@
               }
             },
             "description": "(empty)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2548,6 +2668,26 @@
               }
             },
             "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2601,14 +2741,35 @@
             },
             "description": "(empty)"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
           "404": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
-            }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2708,6 +2869,16 @@
               }
             },
             "description": "(empty)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2922,6 +3093,16 @@
               }
             },
             "description": "(empty)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2954,6 +3135,26 @@
               }
             },
             "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -3177,14 +3378,25 @@
             },
             "description": "(empty)"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
           "500": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
-            }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -3230,23 +3442,35 @@
             },
             "description": "(empty)"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
           "404": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
-            }
+            },
+            "description": "Response for errors"
           },
           "500": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "$ref": "#/components/schemas/Error"
                 }
               }
-            }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
