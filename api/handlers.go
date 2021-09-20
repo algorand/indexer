@@ -269,6 +269,57 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 	return ctx.JSON(http.StatusOK, out)
 }
 
+// LookupApplicationLogsByID returns one application logs
+// (GET /v2/applications/{application-id}/logs)
+func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationLogsByIDParams) error {
+	searchParams := generated.SearchForTransactionsParams{
+		AssetId:       nil,
+		ApplicationId: uint64Ptr(applicationID),
+		Limit:         params.Limit,
+		Next:          params.Next,
+		Txid:          params.Txid,
+		MinRound:      params.MinRound,
+		MaxRound:      params.MaxRound,
+		Address:       params.SenderAddress,
+		AddressRole:   strPtr(addrRoleSender),
+	}
+
+	filter, err := transactionParamsToTransactionFilter(searchParams)
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	// Fetch the transactions
+	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
+	if err != nil {
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errTransactionSearch, err))
+	}
+
+	var logData []generated.ApplicationLogData
+	for _, txn := range txns {
+		if txn.Logs != nil && len(*txn.Logs) > 0 {
+			logData = append(logData, generated.ApplicationLogData{
+				Txid: txn.Id,
+				Logs: *txn.Logs,
+			})
+		}
+	}
+
+	var logDataResult *[]generated.ApplicationLogData
+	if len(logData) > 0 {
+		logDataResult = &logData
+	}
+
+	response := generated.ApplicationLogsResponse{
+		ApplicationId: applicationID,
+		CurrentRound:  round,
+		NextToken:     strPtr(next),
+		LogData:       logDataResult,
+	}
+
+	return ctx.JSON(http.StatusOK, response)
+}
+
 // LookupAssetByID looks up a particular asset
 // (GET /v2/assets/{asset-id})
 func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64, params generated.LookupAssetByIDParams) error {
