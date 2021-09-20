@@ -259,172 +259,172 @@ func TestFetchTransactions(t *testing.T) {
 		response []generated.Transaction
 		created  uint64
 	}{
-		// {
-		// 	name: "Payment",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/payment.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/payment.response"),
-		// 	},
-		// },
-		// {
-		// 	name: "Key Registration",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/keyreg.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/keyreg.response"),
-		// 	},
-		// },
-		// {
-		// 	name: "Asset Configuration",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/asset_config.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/asset_config.response"),
-		// 	},
-		// 	created: 100,
-		// },
-		// {
-		// 	name: "Asset Transfer",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/asset_transfer.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/asset_transfer.response"),
-		// 	},
-		// },
-		// {
-		// 	name: "Asset Freeze",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/asset_freeze.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/asset_freeze.response"),
-		// 	},
-		// },
-		// {
-		// 	name: "Multisig Transaction",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/multisig.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/multisig.response"),
-		// 	},
-		// },
-		// {
-		// 	name: "Rekey Transaction",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/rekey.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/rekey.response"),
-		// 	},
-		// },
-		// {
-		// 	name: "Application Call (1)",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/app_call_1.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/app_call_1.response"),
-		// 	},
-		// 	created: 10,
-		// },
-		// {
-		// 	name: "Application Call (2)",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/app_call_2.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/app_call_2.response"),
-		// 	},
-		// 	created: 10,
-		// },
-		// {
-		// 	name: "Application Call (3)",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/app_call_3.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/app_call_3.response"),
-		// 	},
-		// 	created: 10,
-		// },
-		// {
-		// 	name: "Application Clear",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/app_clear.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/app_clear.response"),
-		// 	},
-		// },
-		// {
-		// 	name: "Application Close",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/app_close.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/app_close.response"),
-		// 	},
-		// },
-		// {
-		// 	name: "Application Update",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/app_update.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/app_update.response"),
-		// 	},
-		// },
-		// {
-		// 	name: "Application Delete",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/app_delete.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/app_delete.response"),
-		// 	},
-		// },
-		// {
-		// 	name: "Application Non ASCII Key",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/app_nonascii.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/app_nonascii.response"),
-		// 	},
-		// },
-		// {
-		// 	name: "Application Optin",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/app_optin.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/app_optin.response"),
-		// 	},
-		// },
-		// {
-		// 	name: "Application With Foreign App",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/app_foreign.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/app_foreign.response"),
-		// 	},
-		// },
-		// {
-		// 	name: "Application With Foreign Assets",
-		// 	txnBytes: [][]byte{
-		// 		loadResourceFileOrPanic("test_resources/app_foreign_assets.txn"),
-		// 	},
-		// 	response: []generated.Transaction{
-		// 		loadTransactionFromFile("test_resources/app_foreign_assets.response"),
-		// 	},
-		// },
+		{
+			name: "Payment",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/payment.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/payment.response"),
+			},
+		},
+		{
+			name: "Key Registration",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/keyreg.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/keyreg.response"),
+			},
+		},
+		{
+			name: "Asset Configuration",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/asset_config.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/asset_config.response"),
+			},
+			created: 100,
+		},
+		{
+			name: "Asset Transfer",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/asset_transfer.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/asset_transfer.response"),
+			},
+		},
+		{
+			name: "Asset Freeze",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/asset_freeze.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/asset_freeze.response"),
+			},
+		},
+		{
+			name: "Multisig Transaction",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/multisig.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/multisig.response"),
+			},
+		},
+		{
+			name: "Rekey Transaction",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/rekey.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/rekey.response"),
+			},
+		},
+		{
+			name: "Application Call (1)",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_1.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_1.response"),
+			},
+			created: 10,
+		},
+		{
+			name: "Application Call (2)",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_2.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_2.response"),
+			},
+			created: 10,
+		},
+		{
+			name: "Application Call (3)",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_3.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_3.response"),
+			},
+			created: 10,
+		},
+		{
+			name: "Application Clear",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_clear.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_clear.response"),
+			},
+		},
+		{
+			name: "Application Close",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_close.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_close.response"),
+			},
+		},
+		{
+			name: "Application Update",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_update.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_update.response"),
+			},
+		},
+		{
+			name: "Application Delete",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_delete.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_delete.response"),
+			},
+		},
+		{
+			name: "Application Non ASCII Key",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_nonascii.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_nonascii.response"),
+			},
+		},
+		{
+			name: "Application Optin",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_optin.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_optin.response"),
+			},
+		},
+		{
+			name: "Application With Foreign App",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_foreign.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_foreign.response"),
+			},
+		},
+		{
+			name: "Application With Foreign Assets",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_foreign_assets.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_foreign_assets.response"),
+			},
+		},
 		{
 			name: "Application with logs",
 			txnBytes: [][]byte{
