@@ -245,27 +245,29 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) (res []basi
 			}
 			res = append(res, address)
 		}
-	} else {
-		// inner transactions might have inner transactions might have inner...
-		// so the resultant slice is created after collecting all the data from nested transactions.
-		// this is probably a bit slower than the default case due to two mem allocs and additional iterations
-		size := acctsPerTxn * (1 + len(stxnad.ApplyData.EvalDelta.InnerTxns)) // approx
-		participants := make(map[basics.Address]struct{}, size)
-		add = func(address basics.Address) {
-			if address.IsZero() {
-				return
-			}
-			participants[address] = struct{}{}
+
+		getTransactionParticipantsImpl(stxnad, add)
+		return
+	}
+
+	// inner transactions might have inner transactions might have inner...
+	// so the resultant slice is created after collecting all the data from nested transactions.
+	// this is probably a bit slower than the default case due to two mem allocs and additional iterations
+	size := acctsPerTxn * (1 + len(stxnad.ApplyData.EvalDelta.InnerTxns)) // approx
+	participants := make(map[basics.Address]struct{}, size)
+	add = func(address basics.Address) {
+		if address.IsZero() {
+			return
 		}
-		defer func() {
-			res = make([]basics.Address, 0, len(participants))
-			for addr := range participants {
-				res = append(res, addr)
-			}
-		}()
+		participants[address] = struct{}{}
 	}
 
 	getTransactionParticipantsImpl(stxnad, add)
+
+	res = make([]basics.Address, 0, len(participants))
+	for addr := range participants {
+		res = append(res, addr)
+	}
 
 	return
 }
