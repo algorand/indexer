@@ -265,10 +265,26 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		AssetCloseAmount: row.Extra.AssetCloseAmount,
 	}
 
-	return signedTxnWithAdToTransaction(&stxn, extra)
+	txb, err := signedTxnWithAdToTransaction(&stxn, extra)
+	if err != nil {
+		return generated.Transaction{}, err
+	}
+
+	sig := generated.TransactionSignature{
+		Logicsig: lsigToTransactionLsig(stxn.Lsig),
+		Multisig: msigToTransactionMsig(stxn.Msig),
+		Sig:      sigToTransactionSig(stxn.Sig),
+	}
+
+	result := generated.Transaction{
+		TransactionBase: txb,
+		Id:              stxn.Txn.ID().String(),
+		Signature:       sig,
+	}
+	return result, nil
 }
 
-func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowData) (generated.Transaction, error) {
+func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowData) (generated.TransactionBase, error) {
 	var payment *generated.TransactionPayment
 	var keyreg *generated.TransactionKeyreg
 	var assetConfig *generated.TransactionAssetConfig
@@ -379,12 +395,6 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		application = &a
 	}
 
-	sig := generated.TransactionSignature{
-		Logicsig: lsigToTransactionLsig(stxn.Lsig),
-		Multisig: msigToTransactionMsig(stxn.Msig),
-		Sig:      sigToTransactionSig(stxn.Sig),
-	}
-
 	var localStateDelta *[]generated.AccountStateDelta
 	type tuple struct {
 		key     uint64
@@ -431,9 +441,9 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		logs = &l
 	}
 
-	var inners *[]generated.Transaction
+	var inners *[]generated.TransactionBase
 	if len(stxn.ApplyData.EvalDelta.InnerTxns) > 0 {
-		itxns := make([]generated.Transaction, 0, len(stxn.ApplyData.EvalDelta.InnerTxns))
+		itxns := make([]generated.TransactionBase, 0, len(stxn.ApplyData.EvalDelta.InnerTxns))
 		for _, t := range stxn.ApplyData.EvalDelta.InnerTxns {
 			extra2 := extra
 			// TODO: fix txn counter/number calculation and use ApplyData.ConfigAsset/ApplicationID
@@ -443,7 +453,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 
 			itxn, err := signedTxnWithAdToTransaction(&t, extra2)
 			if err != nil {
-				return generated.Transaction{}, err
+				return generated.TransactionBase{}, err
 			}
 			itxns = append(itxns, itxn)
 		}
@@ -451,7 +461,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		inners = &itxns
 	}
 
-	txn := generated.Transaction{
+	txn := generated.TransactionBase{
 		ApplicationTransaction:   application,
 		AssetConfigTransaction:   assetConfig,
 		AssetFreezeTransaction:   assetFreeze,
@@ -475,8 +485,6 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		CloseRewards:             uint64Ptr(stxn.CloseRewards.Raw),
 		SenderRewards:            uint64Ptr(stxn.SenderRewards.Raw),
 		TxType:                   string(stxn.Txn.Type),
-		Signature:                sig,
-		Id:                       stxn.Txn.ID().String(),
 		RekeyTo:                  addrPtr(stxn.Txn.RekeyTo),
 		GlobalStateDelta:         stateDeltaToStateDelta(stxn.EvalDelta.GlobalDelta),
 		LocalStateDelta:          localStateDelta,

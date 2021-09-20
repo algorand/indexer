@@ -1495,15 +1495,37 @@
     },
     "Transaction": {
       "description": "Contains all fields common to all transactions and serves as an envelope to all transactions type.\n\nDefinition:\ndata/transactions/signedtxn.go : SignedTxn\ndata/transactions/transaction.go : Transaction\n",
+      "allOf": [
+        {
+          "$ref":"#/definitions/TransactionBase"
+        },
+        {
+          "type": "object",
+          "required": [
+            "id",
+            "signature"
+          ],
+          "properties": {
+            "id": {
+              "description": "Transaction ID",
+              "type": "string"
+            },
+            "signature": {
+              "$ref": "#/definitions/TransactionSignature"
+            }
+          }
+        }
+      ]
+    },
+    "TransactionBase": {
+      "description": "Contains all fields common to all transactions and serves as an envelope to all transactions type including inner transactions. Does not have id and signatures.",
       "type": "object",
       "required": [
         "tx-type",
-        "id",
         "sender",
         "fee",
         "first-valid",
-        "last-valid",
-        "signature"
+        "last-valid"
       ],
       "mutually-exclusive": [
         "application-transaction",
@@ -1573,10 +1595,6 @@
           "type": "string",
           "format": "byte"
         },
-        "id": {
-          "description": "Transaction ID",
-          "type": "string"
-        },
         "intra-round-offset": {
           "description": "Offset into the round where this transaction was confirmed.",
           "type": "integer"
@@ -1622,9 +1640,6 @@
           "description": "\\[rs\\] rewards applied to sender account.",
           "type": "integer"
         },
-        "signature": {
-          "$ref": "#/definitions/TransactionSignature"
-        },
         "tx-type": {
           "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction",
           "type": "string",
@@ -1661,7 +1676,7 @@
           "description": "Inner transactions produced by application execution.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/Transaction"
+            "$ref": "#/definitions/TransactionBase"
           }
         }
       }
