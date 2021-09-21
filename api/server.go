@@ -17,6 +17,15 @@ import (
 	"github.com/algorand/indexer/idb"
 )
 
+const (
+	// ReadTimeout covers the time from when the connection is accepted to when the request body is fully read
+	ReadTimeout = 5 * time.Second
+	//WriteTimeout normally covers the time from the end of the request header read to the end of the response write
+	WriteTimeout = 59 * time.Second
+	// HandlerTimeout defines how long the handlers are given before the context times out.
+	HandlerTimeout = WriteTimeout - time.Second
+)
+
 // ExtraOptions are options which change the behavior or the HTTP server.
 type ExtraOptions struct {
 	// Tokens are the access tokens which can access the API.
@@ -36,6 +45,12 @@ type ExtraOptions struct {
 func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError error, log *log.Logger, options ExtraOptions) {
 	e := echo.New()
 	e.HideBanner = true
+
+	// To ensure everything uses the correct context this must be specified first.
+	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+		ErrorMessage: `{"message":"Request Timeout"}`,
+		Timeout:      HandlerTimeout,
+	}))
 
 	if options.MetricsEndpoint {
 		p := echo_contrib.NewPrometheus("indexer", nil, nil)
@@ -77,8 +92,8 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 	}
 	s := &http.Server{
 		Addr:           serveAddr,
-		ReadTimeout:    59 * time.Second,
-		WriteTimeout:   59 * time.Second,
+		ReadTimeout:    ReadTimeout,
+		WriteTimeout:   WriteTimeout,
 		MaxHeaderBytes: 1 << 20,
 		BaseContext:    getctx,
 	}
