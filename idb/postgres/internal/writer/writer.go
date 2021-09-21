@@ -227,14 +227,13 @@ func getTransactionParticipantsImpl(stxnad transactions.SignedTxnWithAD, add fun
 }
 
 // getTransactionParticipants returns referenced addresses from the txn and all inner txns
-func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) (res []basics.Address) {
+func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Address {
 	const acctsPerTxn = 7
-	var add func(address basics.Address)
 
 	if len(stxnad.ApplyData.EvalDelta.InnerTxns) == 0 {
 		// if no inner transactions then adding into a slice with in-place de-duplication
-		res = make([]basics.Address, 0, acctsPerTxn)
-		add = func(address basics.Address) {
+		res := make([]basics.Address, 0, acctsPerTxn)
+		add := func(address basics.Address) {
 			if address.IsZero() {
 				return
 			}
@@ -247,7 +246,7 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) (res []basi
 		}
 
 		getTransactionParticipantsImpl(stxnad, add)
-		return
+		return res
 	}
 
 	// inner transactions might have inner transactions might have inner...
@@ -255,7 +254,7 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) (res []basi
 	// this is probably a bit slower than the default case due to two mem allocs and additional iterations
 	size := acctsPerTxn * (1 + len(stxnad.ApplyData.EvalDelta.InnerTxns)) // approx
 	participants := make(map[basics.Address]struct{}, size)
-	add = func(address basics.Address) {
+	add := func(address basics.Address) {
 		if address.IsZero() {
 			return
 		}
@@ -264,12 +263,12 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) (res []basi
 
 	getTransactionParticipantsImpl(stxnad, add)
 
-	res = make([]basics.Address, 0, len(participants))
+	res := make([]basics.Address, 0, len(participants))
 	for addr := range participants {
 		res = append(res, addr)
 	}
 
-	return
+	return res
 }
 
 func addTransactionParticipation(block *bookkeeping.Block, batch *pgx.Batch) error {

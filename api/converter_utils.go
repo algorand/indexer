@@ -453,6 +453,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 			} else {
 				extra2.AssetID = 0
 			}
+			extra2.AssetCloseAmount = t.ApplyData.AssetClosingAmount
 
 			itxn, err := signedTxnWithAdToTransaction(&t, extra2)
 			if err != nil {
