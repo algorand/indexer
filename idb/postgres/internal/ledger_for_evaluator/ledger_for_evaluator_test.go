@@ -532,8 +532,12 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
+	specialAddresses := transactions.SpecialAddresses{
+		FeeSink:     test.FeeAddr,
+		RewardsPool: test.RewardAddr,
+	}
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, crypto.Digest{}, specialAddresses)
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -543,6 +547,10 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 		for _, address := range addresses {
 			addressesMap[address] = struct{}{}
 		}
+		// Add special accounts.
+		addressesMap[test.FeeAddr] = struct{}{}
+		addressesMap[test.RewardAddr] = struct{}{}
+
 		err := l.PreloadAccounts(addressesMap)
 		require.NoError(t, err)
 	}
@@ -569,6 +577,15 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 			_, ok = accountData.AppLocalStates[basics.AppIndex(i+10*j+400)]
 			assert.True(t, ok)
 		}
+	}
+
+	// Read special accounts.
+	for _, address := range []basics.Address{test.FeeAddr, test.RewardAddr} {
+		accountData, _, err := l.LookupWithoutRewards(0, address)
+		require.NoError(t, err)
+
+		expected := basics.MicroAlgos{Raw: 1000 * 1000 * 1000 * 1000 * 1000}
+		assert.Equal(t, expected, accountData.MicroAlgos)
 	}
 }
 
