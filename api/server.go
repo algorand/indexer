@@ -26,7 +26,6 @@ const (
 	HandlerTimeout = 58 * time.Second
 )
 
-
 // ExtraOptions are options which change the behavior or the HTTP server.
 type ExtraOptions struct {
 	// Tokens are the access tokens which can access the API.
@@ -49,8 +48,8 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 
 	// To ensure everything uses the correct context this must be specified first.
 	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
-		ErrorMessage:               `{"message":"Request Timeout"}`,
-		Timeout:                    HandlerTimeout,
+		ErrorMessage: `{"message":"Request Timeout"}`,
+		Timeout:      HandlerTimeout,
 	}))
 
 	if options.MetricsEndpoint {
