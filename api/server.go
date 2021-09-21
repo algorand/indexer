@@ -23,7 +23,7 @@ const (
 	//WriteTimeout normally covers the time from the end of the request header read to the end of the response write
 	WriteTimeout = 59 * time.Second
 	// HandlerTimeout defines how long the handlers are given before the context times out.
-	HandlerTimeout = 58 * time.Second
+	HandlerTimeout = WriteTimeout - time.Second
 )
 
 // ExtraOptions are options which change the behavior or the HTTP server.
