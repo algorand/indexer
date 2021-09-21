@@ -299,7 +299,7 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 	for _, txn := range txns {
 		if txn.Logs != nil && len(*txn.Logs) > 0 {
 			logData = append(logData, generated.ApplicationLogData{
-				Txid: txn.Id,
+				Txid: *txn.Id,
 				Logs: *txn.Logs,
 			})
 		}

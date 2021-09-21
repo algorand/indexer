@@ -1361,28 +1361,171 @@
         "type": "object"
       },
       "Transaction": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/TransactionBase"
+        "description": "Contains all fields common to all transactions and serves as an envelope to all transactions type. Represents both regular and inner transactions.\n\nDefinition:\ndata/transactions/signedtxn.go : SignedTxn\ndata/transactions/transaction.go : Transaction\n",
+        "properties": {
+          "application-transaction": {
+            "$ref": "#/components/schemas/TransactionApplication"
           },
-          {
-            "properties": {
-              "id": {
-                "description": "Transaction ID",
-                "type": "string"
-              },
-              "signature": {
-                "$ref": "#/components/schemas/TransactionSignature"
-              }
+          "asset-config-transaction": {
+            "$ref": "#/components/schemas/TransactionAssetConfig"
+          },
+          "asset-freeze-transaction": {
+            "$ref": "#/components/schemas/TransactionAssetFreeze"
+          },
+          "asset-transfer-transaction": {
+            "$ref": "#/components/schemas/TransactionAssetTransfer"
+          },
+          "auth-addr": {
+            "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth addr is equal to the accounts auth addr.",
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "close-rewards": {
+            "description": "\\[rc\\] rewards applied to close-remainder-to account.",
+            "type": "integer"
+          },
+          "closing-amount": {
+            "description": "\\[ca\\] closing amount for transaction.",
+            "type": "integer"
+          },
+          "confirmed-round": {
+            "description": "Round when the transaction was confirmed.",
+            "type": "integer"
+          },
+          "created-application-index": {
+            "description": "Specifies an application index (ID) if an application was created with this transaction.",
+            "type": "integer"
+          },
+          "created-asset-index": {
+            "description": "Specifies an asset index (ID) if an asset was created with this transaction.",
+            "type": "integer"
+          },
+          "fee": {
+            "description": "\\[fee\\] Transaction fee.",
+            "type": "integer"
+          },
+          "first-valid": {
+            "description": "\\[fv\\] First valid round for this transaction.",
+            "type": "integer"
+          },
+          "genesis-hash": {
+            "description": "\\[gh\\] Hash of genesis block.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "genesis-id": {
+            "description": "\\[gen\\] genesis block ID.",
+            "type": "string"
+          },
+          "global-state-delta": {
+            "$ref": "#/components/schemas/StateDelta"
+          },
+          "group": {
+            "description": "\\[grp\\] Base64 encoded byte array of a sha512/256 digest. When present indicates that this transaction is part of a transaction group and the value is the sha512/256 hash of the transactions in that group.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "id": {
+            "description": "Transaction ID",
+            "type": "string"
+          },
+          "inner-txns": {
+            "description": "Inner transactions produced by application execution.",
+            "items": {
+              "$ref": "#/components/schemas/Transaction"
             },
-            "required": [
-              "id",
-              "signature"
+            "type": "array"
+          },
+          "intra-round-offset": {
+            "description": "Offset into the round where this transaction was confirmed.",
+            "type": "integer"
+          },
+          "keyreg-transaction": {
+            "$ref": "#/components/schemas/TransactionKeyreg"
+          },
+          "last-valid": {
+            "description": "\\[lv\\] Last valid round for this transaction.",
+            "type": "integer"
+          },
+          "lease": {
+            "description": "\\[lx\\] Base64 encoded 32-byte array. Lease enforces mutual exclusion of transactions.  If this field is nonzero, then once the transaction is confirmed, it acquires the lease identified by the (Sender, Lease) pair of the transaction until the LastValid round passes.  While this transaction possesses the lease, no other transaction specifying this lease can be confirmed.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "local-state-delta": {
+            "description": "\\[ld\\] Local state key/value changes for the application being executed by this transaction.",
+            "items": {
+              "$ref": "#/components/schemas/AccountStateDelta"
+            },
+            "type": "array"
+          },
+          "logs": {
+            "description": "\\[lg\\] Logs for the application being executed by this transaction.",
+            "items": {
+              "format": "byte",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "note": {
+            "description": "\\[note\\] Free form data.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "payment-transaction": {
+            "$ref": "#/components/schemas/TransactionPayment"
+          },
+          "receiver-rewards": {
+            "description": "\\[rr\\] rewards applied to receiver account.",
+            "type": "integer"
+          },
+          "rekey-to": {
+            "description": "\\[rekey\\] when included in a valid transaction, the accounts auth addr will be updated with this value and future signatures must be signed with the key represented by this address.",
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "round-time": {
+            "description": "Time when the block this transaction is in was confirmed.",
+            "type": "integer"
+          },
+          "sender": {
+            "description": "\\[snd\\] Sender's address.",
+            "type": "string"
+          },
+          "sender-rewards": {
+            "description": "\\[rs\\] rewards applied to sender account.",
+            "type": "integer"
+          },
+          "signature": {
+            "$ref": "#/components/schemas/TransactionSignature"
+          },
+          "tx-type": {
+            "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction",
+            "enum": [
+              "pay",
+              "keyreg",
+              "acfg",
+              "axfer",
+              "afrz",
+              "appl"
             ],
-            "type": "object"
+            "type": "string",
+            "x-algorand-format": "tx-type-enum"
           }
+        },
+        "required": [
+          "fee",
+          "first-valid",
+          "last-valid",
+          "sender",
+          "tx-type"
         ],
-        "description": "Contains all fields common to all transactions and serves as an envelope to all transactions type.\n\nDefinition:\ndata/transactions/signedtxn.go : SignedTxn\ndata/transactions/transaction.go : Transaction\n"
+        "type": "object"
       },
       "TransactionApplication": {
         "description": "Fields for application transactions.\n\nDefinition:\ndata/transactions/application.go : ApplicationCallTxnFields",
@@ -1524,166 +1667,6 @@
           "amount",
           "asset-id",
           "receiver"
-        ],
-        "type": "object"
-      },
-      "TransactionBase": {
-        "description": "Contains all fields common to all transactions and serves as an envelope to all transactions type including inner transactions. Does not have id and signatures.",
-        "properties": {
-          "application-transaction": {
-            "$ref": "#/components/schemas/TransactionApplication"
-          },
-          "asset-config-transaction": {
-            "$ref": "#/components/schemas/TransactionAssetConfig"
-          },
-          "asset-freeze-transaction": {
-            "$ref": "#/components/schemas/TransactionAssetFreeze"
-          },
-          "asset-transfer-transaction": {
-            "$ref": "#/components/schemas/TransactionAssetTransfer"
-          },
-          "auth-addr": {
-            "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth addr is equal to the accounts auth addr.",
-            "type": "string",
-            "x-algorand-format": "Address"
-          },
-          "close-rewards": {
-            "description": "\\[rc\\] rewards applied to close-remainder-to account.",
-            "type": "integer"
-          },
-          "closing-amount": {
-            "description": "\\[ca\\] closing amount for transaction.",
-            "type": "integer"
-          },
-          "confirmed-round": {
-            "description": "Round when the transaction was confirmed.",
-            "type": "integer"
-          },
-          "created-application-index": {
-            "description": "Specifies an application index (ID) if an application was created with this transaction.",
-            "type": "integer"
-          },
-          "created-asset-index": {
-            "description": "Specifies an asset index (ID) if an asset was created with this transaction.",
-            "type": "integer"
-          },
-          "fee": {
-            "description": "\\[fee\\] Transaction fee.",
-            "type": "integer"
-          },
-          "first-valid": {
-            "description": "\\[fv\\] First valid round for this transaction.",
-            "type": "integer"
-          },
-          "genesis-hash": {
-            "description": "\\[gh\\] Hash of genesis block.",
-            "format": "byte",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": "string"
-          },
-          "genesis-id": {
-            "description": "\\[gen\\] genesis block ID.",
-            "type": "string"
-          },
-          "global-state-delta": {
-            "$ref": "#/components/schemas/StateDelta"
-          },
-          "group": {
-            "description": "\\[grp\\] Base64 encoded byte array of a sha512/256 digest. When present indicates that this transaction is part of a transaction group and the value is the sha512/256 hash of the transactions in that group.",
-            "format": "byte",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": "string"
-          },
-          "inner-txns": {
-            "description": "Inner transactions produced by application execution.",
-            "items": {
-              "$ref": "#/components/schemas/TransactionBase"
-            },
-            "type": "array"
-          },
-          "intra-round-offset": {
-            "description": "Offset into the round where this transaction was confirmed.",
-            "type": "integer"
-          },
-          "keyreg-transaction": {
-            "$ref": "#/components/schemas/TransactionKeyreg"
-          },
-          "last-valid": {
-            "description": "\\[lv\\] Last valid round for this transaction.",
-            "type": "integer"
-          },
-          "lease": {
-            "description": "\\[lx\\] Base64 encoded 32-byte array. Lease enforces mutual exclusion of transactions.  If this field is nonzero, then once the transaction is confirmed, it acquires the lease identified by the (Sender, Lease) pair of the transaction until the LastValid round passes.  While this transaction possesses the lease, no other transaction specifying this lease can be confirmed.",
-            "format": "byte",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": "string"
-          },
-          "local-state-delta": {
-            "description": "\\[ld\\] Local state key/value changes for the application being executed by this transaction.",
-            "items": {
-              "$ref": "#/components/schemas/AccountStateDelta"
-            },
-            "type": "array"
-          },
-          "logs": {
-            "description": "\\[lg\\] Logs for the application being executed by this transaction.",
-            "items": {
-              "format": "byte",
-              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "note": {
-            "description": "\\[note\\] Free form data.",
-            "format": "byte",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": "string"
-          },
-          "payment-transaction": {
-            "$ref": "#/components/schemas/TransactionPayment"
-          },
-          "receiver-rewards": {
-            "description": "\\[rr\\] rewards applied to receiver account.",
-            "type": "integer"
-          },
-          "rekey-to": {
-            "description": "\\[rekey\\] when included in a valid transaction, the accounts auth addr will be updated with this value and future signatures must be signed with the key represented by this address.",
-            "type": "string",
-            "x-algorand-format": "Address"
-          },
-          "round-time": {
-            "description": "Time when the block this transaction is in was confirmed.",
-            "type": "integer"
-          },
-          "sender": {
-            "description": "\\[snd\\] Sender's address.",
-            "type": "string"
-          },
-          "sender-rewards": {
-            "description": "\\[rs\\] rewards applied to sender account.",
-            "type": "integer"
-          },
-          "tx-type": {
-            "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction",
-            "enum": [
-              "pay",
-              "keyreg",
-              "acfg",
-              "axfer",
-              "afrz",
-              "appl"
-            ],
-            "type": "string",
-            "x-algorand-format": "tx-type-enum"
-          }
-        },
-        "required": [
-          "fee",
-          "first-valid",
-          "last-valid",
-          "sender",
-          "tx-type"
         ],
         "type": "object"
       },
