@@ -479,7 +479,7 @@
             "$ref": "#/responses/AssetBalancesResponse"
           },
           "400": {
-            "$ref": "#/responses/AssetBalancesResponse"
+            "$ref": "#/responses/ErrorResponse"
           },
           "500": {
             "$ref": "#/responses/ErrorResponse"
