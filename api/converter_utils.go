@@ -265,7 +265,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		AssetCloseAmount: row.Extra.AssetCloseAmount,
 	}
 
-	txb, err := signedTxnWithAdToTransaction(&stxn, extra)
+	txn, err := signedTxnWithAdToTransaction(&stxn, extra)
 	if err != nil {
 		return generated.Transaction{}, err
 	}
@@ -275,16 +275,15 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		Multisig: msigToTransactionMsig(stxn.Msig),
 		Sig:      sigToTransactionSig(stxn.Sig),
 	}
+	txid := stxn.Txn.ID().String()
 
-	result := generated.Transaction{
-		TransactionBase: txb,
-		Id:              stxn.Txn.ID().String(),
-		Signature:       sig,
-	}
-	return result, nil
+	txn.Id = &txid
+	txn.Signature = &sig
+
+	return txn, nil
 }
 
-func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowData) (generated.TransactionBase, error) {
+func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowData) (generated.Transaction, error) {
 	var payment *generated.TransactionPayment
 	var keyreg *generated.TransactionKeyreg
 	var assetConfig *generated.TransactionAssetConfig
@@ -441,19 +440,23 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		logs = &l
 	}
 
-	var inners *[]generated.TransactionBase
+	var inners *[]generated.Transaction
 	if len(stxn.ApplyData.EvalDelta.InnerTxns) > 0 {
-		itxns := make([]generated.TransactionBase, 0, len(stxn.ApplyData.EvalDelta.InnerTxns))
+		itxns := make([]generated.Transaction, 0, len(stxn.ApplyData.EvalDelta.InnerTxns))
 		for _, t := range stxn.ApplyData.EvalDelta.InnerTxns {
 			extra2 := extra
-			// TODO: fix txn counter/number calculation and use ApplyData.ConfigAsset/ApplicationID
-			extra2.Intra = 0
-			extra2.AssetID = 0
-			// end TODO
+			if t.Txn.Type == protocol.ApplicationCallTx {
+				extra2.AssetID = uint64(t.ApplyData.ApplicationID)
+			} else if t.Txn.Type == protocol.AssetConfigTx {
+				extra2.AssetID = uint64(t.ApplyData.ConfigAsset)
+			} else {
+				extra2.AssetID = 0
+			}
+			extra2.AssetCloseAmount = t.ApplyData.AssetClosingAmount
 
 			itxn, err := signedTxnWithAdToTransaction(&t, extra2)
 			if err != nil {
-				return generated.TransactionBase{}, err
+				return generated.Transaction{}, err
 			}
 			itxns = append(itxns, itxn)
 		}
@@ -461,7 +464,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		inners = &itxns
 	}
 
-	txn := generated.TransactionBase{
+	txn := generated.Transaction{
 		ApplicationTransaction:   application,
 		AssetConfigTransaction:   assetConfig,
 		AssetFreezeTransaction:   assetFreeze,

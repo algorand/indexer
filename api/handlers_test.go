@@ -443,6 +443,15 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/app_call_inner.response"),
 			},
 		},
+		{
+			name: "Application inner asset create",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_inner_acfg.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_inner_acfg.response"),
+			},
+		},
 	}
 
 	// use for the brach below and createTxn helper func to add a new test case
@@ -455,8 +464,8 @@ func TestFetchTransactions(t *testing.T) {
 			response []generated.Transaction
 			created  uint64
 		}{
-			name:     "Application with logs",
-			txnBytes: [][]byte{createTxn(t, "test_resources/app_call_inner.txn")},
+			name:     "Application inner asset create",
+			txnBytes: [][]byte{createTxn(t, "test_resources/app_call_inner_acfg.txn")},
 		})
 	}
 
@@ -569,6 +578,9 @@ func createTxn(t *testing.T, target string) []byte {
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
 				Type: protocol.ApplicationCallTx,
+				Header: transactions.Header{
+					Sender: addr1,
+				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApplicationID: 444,
 				},
@@ -577,39 +589,24 @@ func createTxn(t *testing.T, target string) []byte {
 		ApplyData: transactions.ApplyData{
 			EvalDelta: transactions.EvalDelta{
 				InnerTxns: []transactions.SignedTxnWithAD{
-					{},
 					{
 						SignedTxn: transactions.SignedTxn{
 							Txn: transactions.Transaction{
-								Type: protocol.PaymentTx,
+								Type: protocol.AssetConfigTx,
 								Header: transactions.Header{
-									Sender:     addr1,
-									Fee:        basics.MicroAlgos{Raw: 987},
-									FirstValid: 2,
-								},
-								PaymentTxnFields: transactions.PaymentTxnFields{
-									Amount:   basics.MicroAlgos{Raw: 1234567890},
-									Receiver: addr2,
-								},
-							},
-						},
-					},
-					{
-						SignedTxn: transactions.SignedTxn{
-							Txn: transactions.Transaction{
-								Type: protocol.AssetTransferTx,
-								Header: transactions.Header{
-									Sender:     addr1,
+									Sender:     addr2,
 									Fee:        basics.MicroAlgos{Raw: 654},
 									FirstValid: 3,
 								},
-								AssetTransferTxnFields: transactions.AssetTransferTxnFields{
-									XferAsset:     11,
-									AssetAmount:   222,
-									AssetSender:   addr1,
-									AssetReceiver: addr2,
+								AssetConfigTxnFields: transactions.AssetConfigTxnFields{
+									AssetParams: basics.AssetParams{
+										URL: "http://example.com",
+									},
 								},
 							},
+						},
+						ApplyData: transactions.ApplyData{
+							ConfigAsset: 555,
 						},
 					},
 				},
