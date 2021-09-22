@@ -3,11 +3,12 @@ package dummy
 import (
 	"context"
 
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/data/transactions"
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/types"
 )
 
 type dummyIndexerDb struct {
@@ -19,26 +20,13 @@ func IndexerDb() idb.IndexerDb {
 	return &dummyIndexerDb{}
 }
 
-// StartBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) StartBlock() (err error) {
-	db.log.Printf("StartBlock")
-	return nil
-}
-
-// AddTransaction is part of idb.IndexerDB
-func (db *dummyIndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, assetid uint64, txn types.SignedTxnWithAD, participation [][]byte) error {
-	db.log.Printf("\ttxn %d %d %d %d", round, intra, txtypeenum, assetid)
-	return nil
-}
-
-// CommitBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) CommitBlock(round uint64, timestamp int64, rewardslevel uint64, headerbytes []byte) error {
-	db.log.Printf("CommitBlock %d %d %d header bytes", round, timestamp, len(headerbytes))
+func (db *dummyIndexerDb) AddBlock(block *bookkeeping.Block) error {
+	db.log.Printf("AddBlock")
 	return nil
 }
 
 // LoadGenesis is part of idb.IndexerDB
-func (db *dummyIndexerDb) LoadGenesis(genesis types.Genesis) (err error) {
+func (db *dummyIndexerDb) LoadGenesis(genesis bookkeeping.Genesis) (err error) {
 	return nil
 }
 
@@ -53,28 +41,13 @@ func (db *dummyIndexerDb) GetNextRoundToLoad() (uint64, error) {
 }
 
 // GetSpecialAccounts is part of idb.IndexerDb
-func (db *dummyIndexerDb) GetSpecialAccounts() (idb.SpecialAccounts, error) {
-	return idb.SpecialAccounts{}, nil
-}
-
-// GetDefaultFrozen is part of idb.IndexerDb
-func (db *dummyIndexerDb) GetDefaultFrozen() (defaultFrozen map[uint64]bool, err error) {
-	return make(map[uint64]bool), nil
-}
-
-// YieldTxns is part of idb.IndexerDB
-func (db *dummyIndexerDb) YieldTxns(ctx context.Context, firstRound uint64) <-chan idb.TxnRow {
-	return nil
-}
-
-// CommitRoundAccounting is part of idb.IndexerDB
-func (db *dummyIndexerDb) CommitRoundAccounting(updates idb.RoundUpdates, round uint64, blockHeader *types.BlockHeader) (err error) {
-	return nil
+func (db *dummyIndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error) {
+	return transactions.SpecialAddresses{}, nil
 }
 
 // GetBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader types.BlockHeader, transactions []idb.TxnRow, err error) {
-	return types.BlockHeader{}, nil, nil
+func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []idb.TxnRow, err error) {
+	return bookkeeping.BlockHeader{}, nil, nil
 }
 
 // Transactions is part of idb.IndexerDB

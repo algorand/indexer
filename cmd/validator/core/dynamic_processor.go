@@ -1,4 +1,4 @@
-package main
+package core
 
 import (
 	"encoding/json"
@@ -14,7 +14,7 @@ type DynamicProcessor struct {
 func mustEncode(data interface{}) string {
 	result, err := json.MarshalIndent(data, "", "    ")
 	if err != nil {
-		errorLog.Fatalf("failed to encode data: %v", err)
+		ErrorLog.Fatalf("failed to encode data: %v", err)
 	}
 	return string(result)
 }
@@ -48,9 +48,9 @@ func (gp DynamicProcessor) ProcessAddress(algodData, indexerData []byte) (Result
 			Equal:   false,
 			Retries: 0,
 			Details: &ErrorDetails{
-				algod:   fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(algodAcct), mustEncode(algodNorm)),
-				indexer: fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(indexerAcct), mustEncode(indexerNorm)),
-				diff:    nil,
+				Algod:   fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(algodAcct), mustEncode(algodNorm)),
+				Indexer: fmt.Sprintf("RawJson\n%s\nNormalizedJson\n%s\n", mustEncode(indexerAcct), mustEncode(indexerNorm)),
+				Diff:    nil,
 			},
 		}, nil
 	}
@@ -59,9 +59,9 @@ func (gp DynamicProcessor) ProcessAddress(algodData, indexerData []byte) (Result
 
 // isDeleted is a simple helper to check for boolean values
 func isDeleted(val interface{}) (bool, error) {
-	switch val.(type) {
+	switch val := val.(type) {
 	case bool:
-		return val.(bool), nil
+		return val, nil
 	default:
 		return false, fmt.Errorf("unable to parse value as boolean (%v)", val)
 	}
@@ -143,10 +143,10 @@ func normalizeRecurse(key string, data interface{}) (interface{}, error) {
 	result := data
 
 	// If the data is a complex type, recursively normalize result
-	switch data.(type) {
+	switch data := data.(type) {
 	case map[string]interface{}:
 		// Handle objects.
-		object := data.(map[string]interface{})
+		object := data
 
 		if deletedVal, ok := object["deleted"]; ok {
 			deleted, err := isDeleted(deletedVal)
@@ -209,7 +209,7 @@ func normalizeRecurse(key string, data interface{}) (interface{}, error) {
 	case []interface{}:
 		// Normalize each element of array
 		resultArray := make([]interface{}, 0)
-		for _, arrVal := range data.([]interface{}) {
+		for _, arrVal := range data {
 			normalized, err := normalizeRecurse("", arrVal)
 			if err != nil {
 				return nil, err

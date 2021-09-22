@@ -11,11 +11,10 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
-	"github.com/algorand/go-algorand-sdk/encoding/json"
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-algorand/rpcs"
 	log "github.com/sirupsen/logrus"
-
-	"github.com/algorand/indexer/types"
 )
 
 // Fetcher is used to query algod for new blocks.
@@ -35,7 +34,7 @@ type Fetcher interface {
 
 // BlockHandler is the handler fetcher uses to process a block.
 type BlockHandler interface {
-	HandleBlock(block *types.EncodedBlockCert)
+	HandleBlock(block *rpcs.EncodedBlockCert)
 }
 
 type fetcherImpl struct {
@@ -100,7 +99,7 @@ func (bot *fetcherImpl) catchupLoop() {
 	var err error
 	var blockbytes []byte
 	aclient := bot.Algod()
-	for true {
+	for {
 		if bot.isDone() {
 			return
 		}
@@ -128,7 +127,7 @@ func (bot *fetcherImpl) followLoop() {
 	var err error
 	var blockbytes []byte
 	aclient := bot.Algod()
-	for true {
+	for {
 		for retries := 0; retries < 3; retries++ {
 			if bot.isDone() {
 				return
@@ -163,7 +162,7 @@ func (bot *fetcherImpl) followLoop() {
 
 // Run is part of the Fetcher interface
 func (bot *fetcherImpl) Run() {
-	for true {
+	for {
 		if bot.isDone() {
 			return
 		}
@@ -202,22 +201,14 @@ func (bot *fetcherImpl) SetNextRound(nextRound uint64) {
 }
 
 func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) error {
-	var block types.EncodedBlockCert
-	err := msgpack.Decode(blockbytes, &block)
+	var block rpcs.EncodedBlockCert
+	err := protocol.Decode(blockbytes, &block)
 	if err != nil {
-		if bot.log.IsLevelEnabled(log.DebugLevel) {
-			var generic map[string]interface{}
-			err2 := msgpack.Decode(blockbytes, &generic)
-			if err2 == nil {
-				bot.log.WithError(err).Debugf("unable to decode block (%s)", json.Encode(generic))
-			}
-		}
-
 		return fmt.Errorf("unable to decode block: %v", err)
 	}
 
-	if block.Block.Round != types.Round(bot.nextRound) {
-		return fmt.Errorf("expected round %d but got %d", bot.nextRound, block.Block.Round)
+	if block.Block.Round() != basics.Round(bot.nextRound) {
+		return fmt.Errorf("expected round %d but got %d", bot.nextRound, block.Block.Round())
 	}
 
 	for _, handler := range bot.blockHandlers {

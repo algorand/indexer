@@ -3,10 +3,12 @@ package encoding
 import (
 	"encoding/base64"
 
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-codec/codec"
 
-	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util"
 )
 
@@ -20,12 +22,35 @@ func EncodeJSON(obj interface{}) []byte {
 	return buf
 }
 
-func convertAssetParams(params sdk_types.AssetParams) assetParams {
+// Base64 encodes a byte array to a base64 string.
+func Base64(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data)
+}
+
+func convertBlockHeader(header bookkeeping.BlockHeader) blockHeader {
+	return blockHeader{
+		BlockHeader:         header,
+		BranchOverride:      crypto.Digest(header.Branch),
+		FeeSinkOverride:     crypto.Digest(header.FeeSink),
+		RewardsPoolOverride: crypto.Digest(header.RewardsPool),
+	}
+}
+
+// EncodeBlockHeader encodes block header into json.
+func EncodeBlockHeader(header bookkeeping.BlockHeader) []byte {
+	return EncodeJSON(convertBlockHeader(header))
+}
+
+func convertAssetParams(params basics.AssetParams) assetParams {
 	ret := assetParams{
-		AssetParams:    params,
-		AssetNameBytes: []byte(params.AssetName),
-		UnitNameBytes:  []byte(params.UnitName),
-		URLBytes:       []byte(params.URL),
+		AssetParams:      params,
+		ManagerOverride:  crypto.Digest(params.Manager),
+		ReserveOverride:  crypto.Digest(params.Reserve),
+		FreezeOverride:   crypto.Digest(params.Freeze),
+		ClawbackOverride: crypto.Digest(params.Clawback),
+		AssetNameBytes:   []byte(params.AssetName),
+		UnitNameBytes:    []byte(params.UnitName),
+		URLBytes:         []byte(params.URL),
 	}
 
 	ret.AssetName = util.PrintableUTF8OrEmpty(params.AssetName)
@@ -47,64 +72,178 @@ func convertAssetParams(params sdk_types.AssetParams) assetParams {
 	return ret
 }
 
-// EncodeAssetParams returns a json string where all byte arrays are base64 encoded.
-func EncodeAssetParams(params sdk_types.AssetParams) []byte {
+// EncodeAssetParams encodes asset params into json.
+func EncodeAssetParams(params basics.AssetParams) []byte {
 	return EncodeJSON(convertAssetParams(params))
 }
 
-// Base64 encodes a byte array to a base64 string.
-func Base64(data []byte) string {
-	return base64.StdEncoding.EncodeToString(data)
-}
-
-func convertStateDelta(delta types.StateDelta) types.StateDelta {
-	if delta == nil {
+func convertAccounts(accounts []basics.Address) []crypto.Digest {
+	if accounts == nil {
 		return nil
 	}
 
-	res := make(map[string]types.ValueDelta, len(delta))
-	for k, v := range delta {
-		res[Base64([]byte(k))] = v
+	res := make([]crypto.Digest, 0, len(accounts))
+	for _, address := range accounts {
+		res = append(res, crypto.Digest(address))
 	}
 	return res
 }
 
-func convertLocalDeltas(deltas map[uint64]types.StateDelta) map[uint64]types.StateDelta {
+func convertTransaction(txn transactions.Transaction) transaction {
+	return transaction{
+		Transaction:              txn,
+		SenderOverride:           crypto.Digest(txn.Sender),
+		RekeyToOverride:          crypto.Digest(txn.RekeyTo),
+		ReceiverOverride:         crypto.Digest(txn.Receiver),
+		AssetParamsOverride:      convertAssetParams(txn.AssetParams),
+		CloseRemainderToOverride: crypto.Digest(txn.CloseRemainderTo),
+		AssetSenderOverride:      crypto.Digest(txn.AssetSender),
+		AssetReceiverOverride:    crypto.Digest(txn.AssetReceiver),
+		AssetCloseToOverride:     crypto.Digest(txn.AssetCloseTo),
+		FreezeAccountOverride:    crypto.Digest(txn.FreezeAccount),
+		AccountsOverride:         convertAccounts(txn.Accounts),
+	}
+}
+
+func convertValueDelta(delta basics.ValueDelta) valueDelta {
+	return valueDelta{
+		ValueDelta:    delta,
+		BytesOverride: []byte(delta.Bytes),
+	}
+}
+
+func convertStateDelta(delta basics.StateDelta) stateDelta {
+	if delta == nil {
+		return nil
+	}
+
+	res := make(map[byteArray]valueDelta, len(delta))
+	for k, v := range delta {
+		res[byteArray{k}] = convertValueDelta(v)
+	}
+	return res
+}
+
+func convertLocalDeltas(deltas map[uint64]basics.StateDelta) map[uint64]stateDelta {
 	if deltas == nil {
 		return nil
 	}
 
-	res := make(map[uint64]types.StateDelta, len(deltas))
+	res := make(map[uint64]stateDelta, len(deltas))
 	for i, delta := range deltas {
 		res[i] = convertStateDelta(delta)
 	}
 	return res
 }
 
-func convertEvalDelta(evalDelta types.EvalDelta) types.EvalDelta {
-	evalDelta.GlobalDelta = convertStateDelta(evalDelta.GlobalDelta)
-	evalDelta.LocalDeltas = convertLocalDeltas(evalDelta.LocalDeltas)
-	return evalDelta
-}
-
-func convertTransaction(txn types.Transaction) transaction {
-	return transaction{
-		Transaction:         txn,
-		AssetParamsOverride: convertAssetParams(txn.AssetParams),
+func convertEvalDelta(delta transactions.EvalDelta) evalDelta {
+	return evalDelta{
+		EvalDelta:           delta,
+		GlobalDeltaOverride: convertStateDelta(delta.GlobalDelta),
+		LocalDeltasOverride: convertLocalDeltas(delta.LocalDeltas),
 	}
 }
 
-func convertSignedTxnWithAD(stxn types.SignedTxnWithAD) signedTxnWithAD {
-	stxn.EvalDelta = convertEvalDelta(stxn.EvalDelta)
+func convertSignedTxnWithAD(stxn transactions.SignedTxnWithAD) signedTxnWithAD {
 	return signedTxnWithAD{
-		SignedTxnWithAD: stxn,
-		TxnOverride:     convertTransaction(stxn.Txn),
+		SignedTxnWithAD:   stxn,
+		TxnOverride:       convertTransaction(stxn.Txn),
+		AuthAddrOverride:  crypto.Digest(stxn.AuthAddr),
+		EvalDeltaOverride: convertEvalDelta(stxn.EvalDelta),
 	}
 }
 
-// EncodeSignedTxnWithAD returns a json string where all byte arrays are base64 encoded.
-func EncodeSignedTxnWithAD(stxn types.SignedTxnWithAD) []byte {
+// EncodeSignedTxnWithAD encodes signed transaction with apply data into json.
+func EncodeSignedTxnWithAD(stxn transactions.SignedTxnWithAD) []byte {
 	return EncodeJSON(convertSignedTxnWithAD(stxn))
+}
+
+// TrimAccountData deletes various information from account data that we do not write to
+// `account.account_data`.
+func TrimAccountData(ad basics.AccountData) basics.AccountData {
+	ad.MicroAlgos = basics.MicroAlgos{}
+	ad.RewardsBase = 0
+	ad.RewardedMicroAlgos = basics.MicroAlgos{}
+	ad.AssetParams = nil
+	ad.Assets = nil
+	ad.AppLocalStates = nil
+	ad.AppParams = nil
+	ad.TotalAppSchema = basics.StateSchema{}
+	ad.TotalExtraAppPages = 0
+
+	return ad
+}
+
+func convertTrimmedAccountData(ad basics.AccountData) trimmedAccountData {
+	return trimmedAccountData{
+		AccountData:      ad,
+		AuthAddrOverride: crypto.Digest(ad.AuthAddr),
+	}
+}
+
+// EncodeTrimmedAccountData encodes account data into json.
+func EncodeTrimmedAccountData(ad basics.AccountData) []byte {
+	return EncodeJSON(convertTrimmedAccountData(ad))
+}
+
+func convertTealValue(tv basics.TealValue) tealValue {
+	return tealValue{
+		TealValue:     tv,
+		BytesOverride: []byte(tv.Bytes),
+	}
+}
+
+func convertTealKeyValue(tkv basics.TealKeyValue) tealKeyValue {
+	if tkv == nil {
+		return nil
+	}
+
+	res := make([]keyTealValue, 0, len(tkv))
+	for k, tv := range tkv {
+		ktv := keyTealValue{
+			Key: []byte(k),
+			Tv:  convertTealValue(tv),
+		}
+		res = append(res, ktv)
+	}
+	return res
+}
+
+func convertAppLocalState(state basics.AppLocalState) appLocalState {
+	return appLocalState{
+		AppLocalState:    state,
+		KeyValueOverride: convertTealKeyValue(state.KeyValue),
+	}
+}
+
+// EncodeAppLocalState encodes local application state into json.
+func EncodeAppLocalState(state basics.AppLocalState) []byte {
+	return EncodeJSON(convertAppLocalState(state))
+}
+
+func convertAppParams(params basics.AppParams) appParams {
+	return appParams{
+		AppParams:           params,
+		GlobalStateOverride: convertTealKeyValue(params.GlobalState),
+	}
+}
+
+// EncodeAppParams encodes application params into json.
+func EncodeAppParams(params basics.AppParams) []byte {
+	return EncodeJSON(convertAppParams(params))
+}
+
+func convertSpecialAddresses(special transactions.SpecialAddresses) specialAddresses {
+	return specialAddresses{
+		SpecialAddresses:    special,
+		FeeSinkOverride:     crypto.Digest(special.FeeSink),
+		RewardsPoolOverride: crypto.Digest(special.RewardsPool),
+	}
+}
+
+// EncodeSpecialAddresses encodes special addresses (sink and rewards pool) into json.
+func EncodeSpecialAddresses(special transactions.SpecialAddresses) []byte {
+	return EncodeJSON(convertSpecialAddresses(special))
 }
 
 func init() {

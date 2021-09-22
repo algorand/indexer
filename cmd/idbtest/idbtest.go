@@ -190,7 +190,7 @@ func main() {
 		testTxnPaging(db, idb.TransactionFilter{AlgosGT: uint64Ptr(1)})
 	}
 
-	dt := time.Now().Sub(start)
+	dt := time.Since(start)
 	exitValue += testutil.ExitValue()
 	if exitValue == 0 {
 		fmt.Printf("wat OK %s\n", dt.String())

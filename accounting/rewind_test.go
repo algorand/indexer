@@ -4,8 +4,9 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -15,7 +16,7 @@ import (
 )
 
 func TestBasic(t *testing.T) {
-	var a sdk_types.Address
+	var a basics.Address
 	a[0] = 'a'
 
 	account := models.Account{
@@ -25,13 +26,13 @@ func TestBasic(t *testing.T) {
 		Round:                       8,
 	}
 
-	txnBytes := msgpack.Encode(sdk_types.SignedTxnWithAD{
-		SignedTxn: sdk_types.SignedTxn{
-			Txn: sdk_types.Transaction{
-				Type: sdk_types.PaymentTx,
-				PaymentTxnFields: sdk_types.PaymentTxnFields{
+	txnBytes := protocol.Encode(&transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: protocol.PaymentTx,
+				PaymentTxnFields: transactions.PaymentTxnFields{
 					Receiver: a,
-					Amount:   2,
+					Amount:   basics.MicroAlgos{Raw: 2},
 				},
 			},
 		},
@@ -47,7 +48,7 @@ func TestBasic(t *testing.T) {
 	var outCh <-chan idb.TxnRow = ch
 
 	db := &mocks.IndexerDb{}
-	db.On("GetSpecialAccounts").Return(idb.SpecialAccounts{}, nil)
+	db.On("GetSpecialAccounts").Return(transactions.SpecialAddresses{}, nil)
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(8))
 
 	account, err := AccountAtRound(account, 6, db)
@@ -58,7 +59,7 @@ func TestBasic(t *testing.T) {
 
 // Test that when idb.Transactions() returns stale data the first time, we return an error.
 func TestStaleTransactions1(t *testing.T) {
-	var a sdk_types.Address
+	var a basics.Address
 	a[0] = 'a'
 
 	account := models.Account{
@@ -69,7 +70,7 @@ func TestStaleTransactions1(t *testing.T) {
 	var outCh <-chan idb.TxnRow
 
 	db := &mocks.IndexerDb{}
-	db.On("GetSpecialAccounts").Return(idb.SpecialAccounts{}, nil)
+	db.On("GetSpecialAccounts").Return(transactions.SpecialAddresses{}, nil)
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
 
 	account, err := AccountAtRound(account, 6, db)
@@ -78,7 +79,7 @@ func TestStaleTransactions1(t *testing.T) {
 
 // Test that when idb.Transactions() returns stale data the second time, we return an error.
 func TestStaleTransactions2(t *testing.T) {
-	var a sdk_types.Address
+	var a basics.Address
 	a[0] = 'a'
 
 	account := models.Account{
@@ -88,10 +89,10 @@ func TestStaleTransactions2(t *testing.T) {
 		Round:                       8,
 	}
 
-	txnBytes := msgpack.Encode(sdk_types.SignedTxnWithAD{
-		SignedTxn: sdk_types.SignedTxn{
-			Txn: sdk_types.Transaction{
-				Type: sdk_types.PaymentTx,
+	txnBytes := protocol.Encode(&transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: protocol.PaymentTx,
 			},
 		},
 	})
@@ -106,7 +107,7 @@ func TestStaleTransactions2(t *testing.T) {
 	var outCh <-chan idb.TxnRow = ch
 
 	db := &mocks.IndexerDb{}
-	db.On("GetSpecialAccounts").Return(idb.SpecialAccounts{}, nil)
+	db.On("GetSpecialAccounts").Return(transactions.SpecialAddresses{}, nil)
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(8)).Once()
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(5)).Once()
 

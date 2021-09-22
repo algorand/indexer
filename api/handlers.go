@@ -6,9 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/algorand/go-algorand/data/basics"
 	"github.com/labstack/echo/v4"
-
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/common"
@@ -161,7 +160,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 	}
 
 	if params.Next != nil {
-		addr, err := sdk_types.DecodeAddress(*params.Next)
+		addr, err := basics.UnmarshalChecksumAddress(*params.Next)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, errUnableToParseNext)
 		}
@@ -259,14 +258,66 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 	out := generated.ApplicationResponse{
 		CurrentRound: round,
 	}
-	for result := range results {
-		if result.Error != nil {
-			return indexerError(ctx, result.Error.Error())
-		}
-		out.Application = &result.Application
-		return ctx.JSON(http.StatusOK, out)
+	result, ok := <-results
+	if !ok {
+		return ctx.JSON(http.StatusNotFound, out)
 	}
-	return ctx.JSON(http.StatusNotFound, out)
+	if result.Error != nil {
+		return indexerError(ctx, result.Error.Error())
+	}
+	out.Application = &result.Application
+	return ctx.JSON(http.StatusOK, out)
+}
+
+// LookupApplicationLogsByID returns one application logs
+// (GET /v2/applications/{application-id}/logs)
+func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationLogsByIDParams) error {
+	searchParams := generated.SearchForTransactionsParams{
+		AssetId:       nil,
+		ApplicationId: uint64Ptr(applicationID),
+		Limit:         params.Limit,
+		Next:          params.Next,
+		Txid:          params.Txid,
+		MinRound:      params.MinRound,
+		MaxRound:      params.MaxRound,
+		Address:       params.SenderAddress,
+		AddressRole:   strPtr(addrRoleSender),
+	}
+
+	filter, err := transactionParamsToTransactionFilter(searchParams)
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	// Fetch the transactions
+	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
+	if err != nil {
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errTransactionSearch, err))
+	}
+
+	var logData []generated.ApplicationLogData
+	for _, txn := range txns {
+		if txn.Logs != nil && len(*txn.Logs) > 0 {
+			logData = append(logData, generated.ApplicationLogData{
+				Txid: *txn.Id,
+				Logs: *txn.Logs,
+			})
+		}
+	}
+
+	var logDataResult *[]generated.ApplicationLogData
+	if len(logData) > 0 {
+		logDataResult = &logData
+	}
+
+	response := generated.ApplicationLogsResponse{
+		ApplicationId: applicationID,
+		CurrentRound:  round,
+		NextToken:     strPtr(next),
+		LogData:       logDataResult,
+	}
+
+	return ctx.JSON(http.StatusOK, response)
 }
 
 // LookupAssetByID looks up a particular asset
@@ -313,7 +364,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 	}
 
 	if params.Next != nil {
-		addr, err := sdk_types.DecodeAddress(*params.Next)
+		addr, err := basics.UnmarshalChecksumAddress(*params.Next)
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, errUnableToParseNext)
 		}
@@ -493,7 +544,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 			return nil, round, row.Error
 		}
 
-		creator := sdk_types.Address{}
+		creator := basics.Address{}
 		if len(row.Creator) != len(creator) {
 			return nil, round, fmt.Errorf(errInvalidCreatorAddress)
 		}
@@ -555,7 +606,7 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 			return nil, round, row.Error
 		}
 
-		addr := sdk_types.Address{}
+		addr := basics.Address{}
 		if len(row.Address) != len(addr) {
 			return nil, round, fmt.Errorf(errInvalidCreatorAddress)
 		}

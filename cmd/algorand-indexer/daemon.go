@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/algorand/go-algorand/rpcs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -16,7 +18,7 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
-	"github.com/algorand/indexer/types"
+	"github.com/algorand/indexer/util/metrics"
 )
 
 var (
@@ -29,15 +31,9 @@ var (
 	allowMigration   bool
 	metricsMode      string
 	tokenString      string
+	writeTimeout     time.Duration
+	readTimeout      time.Duration
 )
-
-// importTimeHistogramSeconds is used to record the block import time metric.
-var importTimeHistogramSeconds = prometheus.NewSummary(
-	prometheus.SummaryOpts{
-		Subsystem: "indexer_daemon",
-		Name:      "import_time_sec",
-		Help:      "Block import and processing time in seconds.",
-	})
 
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
@@ -45,9 +41,6 @@ var daemonCmd = &cobra.Command{
 	Long:  "run indexer daemon. Serve api on HTTP.",
 	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
-		// register metric with global prometheus metrics handler
-		prometheus.Register(importTimeHistogramSeconds)
-
 		var err error
 		config.BindFlags(cmd)
 		err = configureLogger()
@@ -62,6 +55,16 @@ var daemonCmd = &cobra.Command{
 
 		ctx, cf := context.WithCancel(context.Background())
 		defer cf()
+		{
+			cancelCh := make(chan os.Signal, 1)
+			signal.Notify(cancelCh, syscall.SIGTERM, syscall.SIGINT)
+			go func() {
+				<-cancelCh
+				logger.Println("Stopping Indexer.")
+				cf()
+			}()
+		}
+
 		var bot fetcher.Fetcher
 		if noAlgod {
 			logger.Info("algod block following disabled")
@@ -90,18 +93,11 @@ var daemonCmd = &cobra.Command{
 
 				logger.Info("Initializing block import handler.")
 
-				nextRound, err := db.GetNextRoundToLoad()
+				nextRound, err := db.GetNextRoundToAccount()
 				maybeFail(err, "failed to get next round, %v", err)
 				bot.SetNextRound(nextRound)
 
-				cache, err := db.GetDefaultFrozen()
-				maybeFail(err, "failed to get default frozen cache")
-
-				bih := blockImporterHandler{
-					imp:   importer.NewDBImporter(db),
-					db:    db,
-					cache: cache,
-				}
+				bih := blockImporterHandler{imp: importer.NewImporter(db)}
 				bot.AddBlockHandler(&bih)
 				bot.SetContext(ctx)
 
@@ -113,7 +109,6 @@ var daemonCmd = &cobra.Command{
 			logger.Info("No block importer configured.")
 		}
 
-		// TODO: trap SIGTERM and call cf() to exit gracefully
 		fmt.Printf("serving on %s\n", daemonServerAddr)
 		logger.Infof("serving on %s", daemonServerAddr)
 		api.Serve(ctx, daemonServerAddr, db, bot, logger, makeOptions())
@@ -131,6 +126,8 @@ func init() {
 	daemonCmd.Flags().BoolVarP(&developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
 	daemonCmd.Flags().BoolVarP(&allowMigration, "allow-migration", "", false, "allow migrations to happen even when no algod connected")
 	daemonCmd.Flags().StringVarP(&metricsMode, "metrics-mode", "", "OFF", "configure the /metrics endpoint to [ON, OFF, VERBOSE]")
+	daemonCmd.Flags().DurationVarP(&writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
+	daemonCmd.Flags().DurationVarP(&readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
@@ -156,29 +153,28 @@ func makeOptions() (options api.ExtraOptions) {
 		options.MetricsEndpointVerbose = true
 
 	}
+	options.WriteTimeout = writeTimeout
+	options.ReadTimeout = readTimeout
+
 	return
 }
 
 type blockImporterHandler struct {
-	imp   importer.Importer
-	db    idb.IndexerDb
-	cache map[uint64]bool
+	imp importer.Importer
 }
 
-func (bih *blockImporterHandler) HandleBlock(block *types.EncodedBlockCert) {
+func (bih *blockImporterHandler) HandleBlock(block *rpcs.EncodedBlockCert) {
 	start := time.Now()
-	_, err := bih.imp.ImportDecodedBlock(block)
-	maybeFail(err, "ImportDecodedBlock %d", block.Block.Round)
-	startRound, err := bih.db.GetNextRoundToAccount()
-	maybeFail(err, "failed to get next round to account")
-	// During normal operation StartRound and MaxRound will be the same round.
-	filter := idb.UpdateFilter{
-		StartRound: startRound,
-		MaxRound:   uint64(block.Block.Round),
+	err := bih.imp.ImportBlock(block)
+	maybeFail(err, "adding block %d to database failed", block.Block.Round())
+	dt := time.Since(start)
+
+	// Ignore round 0 (which is empty).
+	if block.Block.Round() > 0 {
+		metrics.BlockImportTimeSeconds.Observe(dt.Seconds())
+		metrics.ImportedTxnsPerBlock.Observe(float64(len(block.Block.Payset)))
+		metrics.ImportedRoundGauge.Set(float64(block.Block.Round()))
 	}
-	importer.UpdateAccounting(bih.db, bih.cache, filter, logger)
-	dt := time.Now().Sub(start)
-	// record metric
-	importTimeHistogramSeconds.Observe(dt.Seconds())
-	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round, len(block.Block.Payset), dt.String())
+
+	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())
 }

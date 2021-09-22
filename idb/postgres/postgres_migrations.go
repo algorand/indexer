@@ -1,16 +1,19 @@
 // You can build without postgres by `go build --tags nopostgres` but it's on by default
+//go:build !nopostgres
 // +build !nopostgres
 
 package postgres
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
+
+	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
+	"github.com/algorand/indexer/idb/postgres/internal/schema"
 )
 
 func init() {
@@ -97,9 +100,10 @@ func needsMigration(state MigrationState) bool {
 // upsertMigrationState updates the migration state, and optionally increments
 // the next counter with an existing transaction.
 // If `tx` is nil, use a normal query.
-func upsertMigrationState(db *IndexerDb, tx *sql.Tx, state *MigrationState) error {
+//lint:ignore U1000 this function might be used in a future migration
+func upsertMigrationState(db *IndexerDb, tx pgx.Tx, state *MigrationState) error {
 	migrationStateJSON := encoding.EncodeJSON(state)
-	return db.setMetastate(tx, migrationMetastateKey, string(migrationStateJSON))
+	return db.setMetastate(tx, schema.MigrationMetastateKey, string(migrationStateJSON))
 }
 
 // Returns an error object and a channel that gets closed when blocking migrations
@@ -151,12 +155,12 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 		NextMigration: len(migrations),
 	}
 	migrationStateJSON := encoding.EncodeJSON(state)
-	return db.setMetastate(nil, migrationMetastateKey, string(migrationStateJSON))
+	return db.setMetastate(nil, schema.MigrationMetastateKey, string(migrationStateJSON))
 }
 
 // Returns `idb.ErrorNotInitialized` if uninitialized.
 func (db *IndexerDb) getMigrationState() (MigrationState, error) {
-	migrationStateJSON, err := db.getMetastate(nil, migrationMetastateKey)
+	migrationStateJSON, err := db.getMetastate(context.Background(), nil, schema.MigrationMetastateKey)
 	if err == idb.ErrorNotInitialized {
 		return MigrationState{}, idb.ErrorNotInitialized
 	} else if err != nil {
@@ -173,6 +177,7 @@ func (db *IndexerDb) getMigrationState() (MigrationState, error) {
 }
 
 // sqlMigration executes a sql statements as the entire migration.
+//lint:ignore U1000 this function might be used in a future migration
 func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error {
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
@@ -180,24 +185,26 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 	nextState := *state
 	nextState.NextMigration++
 
-	f := func(ctx context.Context, tx *sql.Tx) error {
-		defer tx.Rollback()
+	f := func(tx pgx.Tx) error {
+		defer tx.Rollback(context.Background())
 
 		for _, cmd := range sqlLines {
-			_, err := tx.Exec(cmd)
+			_, err := tx.Exec(context.Background(), cmd)
 			if err != nil {
 				return fmt.Errorf(
 					"migration %d exec cmd: \"%s\" err: %w", state.NextMigration, cmd, err)
 			}
 		}
 		migrationStateJSON := encoding.EncodeJSON(nextState)
-		_, err := tx.Exec(setMetastateUpsert, migrationMetastateKey, migrationStateJSON)
+		_, err := tx.Exec(
+			context.Background(), setMetastateUpsert, schema.MigrationMetastateKey,
+			migrationStateJSON)
 		if err != nil {
 			return fmt.Errorf("migration %d exec metastate err: %w", state.NextMigration, err)
 		}
-		return tx.Commit()
+		return tx.Commit(context.Background())
 	}
-	err := db.txWithRetry(context.Background(), serializable, f)
+	err := db.txWithRetry(serializable, f)
 	if err != nil {
 		return fmt.Errorf("migration %d commit err: %w", state.NextMigration, err)
 	}
@@ -274,63 +281,5 @@ func MakeDeletedNotNullMigration(db *IndexerDb, state *MigrationState) error {
 
 // MaxRoundAccountedMigration converts the import state.
 func MaxRoundAccountedMigration(db *IndexerDb, migrationState *MigrationState) error {
-	db.accountingLock.Lock()
-	defer db.accountingLock.Unlock()
-
-	nextMigrationState := *migrationState
-	nextMigrationState.NextMigration++
-
-	f := func(ctx context.Context, tx *sql.Tx) error {
-		defer tx.Rollback()
-
-		j, err := db.getMetastate(tx, stateMetastateKey)
-		if err == idb.ErrorNotInitialized {
-			// Leave uninitialized.
-			db.log.Printf("Import state is not initialized, leaving unchanged.")
-		} else if err != nil {
-			return err
-		} else {
-			type oldImportState struct {
-				AccountRound *int64 `codec:"account_round"`
-			}
-			var old oldImportState
-			err = encoding.DecodeJSON([]byte(j), &old)
-			if err != nil {
-				return err
-			}
-
-			if old.AccountRound == nil {
-				db.log.Printf("Account round is not set, leaving unchanged.")
-			} else {
-				nextRound := uint64(0)
-				if *old.AccountRound > 0 {
-					nextRound = uint64(*old.AccountRound + 1)
-				}
-				importstate := importState{
-					NextRoundToAccount: &nextRound,
-				}
-
-				db.log.Printf("Setting import state to %s", encoding.EncodeJSON(importstate))
-
-				err = db.setImportState(tx, importstate)
-				if err != nil {
-					return err
-				}
-			}
-		}
-
-		err = upsertMigrationState(db, tx, &nextMigrationState)
-		if err != nil {
-			return err
-		}
-
-		return tx.Commit()
-	}
-	err := db.txWithRetry(context.Background(), serializable, f)
-	if err != nil {
-		return err
-	}
-
-	*migrationState = nextMigrationState
-	return nil
+	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.6.1")
 }

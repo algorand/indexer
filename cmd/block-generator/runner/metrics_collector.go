@@ -23,8 +23,8 @@ type Entry struct {
 }
 
 // Collect fetches the metrics.
-func (r *MetricsCollector) Collect(prefix string) error {
-	metrics, err := r.getMetrics(prefix)
+func (r *MetricsCollector) Collect(substrings ...string) error {
+	metrics, err := r.getMetrics(substrings...)
 	if err != nil {
 		return err
 	}
@@ -40,7 +40,7 @@ func (r *MetricsCollector) Collect(prefix string) error {
 	return nil
 }
 
-func (r MetricsCollector) getMetrics(prefix string) (result []string, err error) {
+func (r MetricsCollector) getMetrics(substrings ...string) (result []string, err error) {
 	resp, err := http.Get(r.MetricsURL)
 	if err != nil {
 		err = fmt.Errorf("unable to read metrics url '%s'", r.MetricsURL)
@@ -56,8 +56,11 @@ func (r MetricsCollector) getMetrics(prefix string) (result []string, err error)
 			continue
 		}
 
-		if strings.HasPrefix(str, prefix) {
-			result = append(result, str)
+		for _, substring := range substrings {
+			if strings.Contains(str, substring) {
+				result = append(result, str)
+				break
+			}
 		}
 	}
 

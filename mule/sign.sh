@@ -7,7 +7,7 @@ echo
 date "+build_indexer begin SIGN stage %Y%m%d_%H%M%S"
 echo
 
-ARCH=${ARCH:-(./mule/scripts/archtype.sh)}
+ARCH=${ARCH:-$(./mule/scripts/archtype.sh)}
 OS_TYPE=${OS_TYPE:-$(./mule/scripts/ostype.sh)}
 VERSION=$(./mule/scripts/compute_build_number.sh)
 PKG_DIR="./tmp/node_pkgs/$OS_TYPE/$ARCH/$VERSION"
@@ -20,15 +20,17 @@ make_hashes () {
 
     for ext in ${EXTENSIONS[*]}
     do
-        HASHFILE="hashes_${VERSION}_${ext}"
-        {
-            md5sum *"$VERSION"*."$ext" ;
-            shasum -a 256 *"$VERSION"*."$ext" ;
-            shasum -a 512 *"$VERSION"*."$ext" ;
-        } >> "$HASHFILE"
+        if ls *"$VERSION"*."$ext"; then
+            HASHFILE="hashes_${OS_TYPE}_${ARCH}_${VERSION}_${ext}"
+            {
+                md5sum *"$VERSION"*."$ext" ;
+                shasum -a 256 *"$VERSION"*."$ext" ;
+                shasum -a 512 *"$VERSION"*."$ext" ;
+            } >> "$HASHFILE"
 
-        gpg -u "$SIGNING_KEY_ADDR" --detach-sign "$HASHFILE"
-        gpg -u "$SIGNING_KEY_ADDR" --clearsign "$HASHFILE"
+            gpg -u "$SIGNING_KEY_ADDR" --detach-sign "$HASHFILE"
+            gpg -u "$SIGNING_KEY_ADDR" --clearsign "$HASHFILE"
+        fi
     done
 }
 
@@ -36,10 +38,12 @@ make_sigs () {
     # Start clean.
     rm -f ./*.sig
 
-    for item in ./*
-    do
-        gpg -u "$SIGNING_KEY_ADDR" --detach-sign "$item"
-    done
+    if ls ./*; then
+        for item in ./*
+        do
+            gpg -u "$SIGNING_KEY_ADDR" --detach-sign "$item"
+        done
+    fi
 }
 
 pushd "$PKG_DIR"

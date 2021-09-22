@@ -216,7 +216,6 @@ func (m *Migration) runMigrations(ch chan struct{}) {
 		close(ch)
 	}
 	m.log.Println("Migration finished successfully.")
-	return
 }
 
 // RunMigrations runs all tasks which have been loaded into the migration.
