@@ -17,15 +17,6 @@ import (
 	"github.com/algorand/indexer/idb"
 )
 
-const (
-	// ReadTimeout covers the time from when the connection is accepted to when the request body is fully read
-	ReadTimeout = 5 * time.Second
-	//WriteTimeout normally covers the time from the end of the request header read to the end of the response write
-	WriteTimeout = 59 * time.Second
-	// HandlerTimeout defines how long the handlers are given before the context times out.
-	HandlerTimeout = WriteTimeout - time.Second
-)
-
 // ExtraOptions are options which change the behavior or the HTTP server.
 type ExtraOptions struct {
 	// Tokens are the access tokens which can access the API.
@@ -39,6 +30,23 @@ type ExtraOptions struct {
 
 	// MetricsEndpointVerbose generates separate histograms based on query parameters on the /metrics endpoint.
 	MetricsEndpointVerbose bool
+
+	// Maximum amount of time to wait before timing out writes to a response. Note that handler timeout is computed
+	//off of this.
+	WriteTimeout time.Duration
+
+	// ReadTimeout is the maximum duration for reading the entire request, including the body.
+	ReadTimeout time.Duration
+}
+
+func (e ExtraOptions) handlerTimeout() time.Duration {
+	// Basically, if write timeout is 2 seconds or greater, subtract a second.
+	// If less, subtract 10% as a safety valve.
+	if e.WriteTimeout >= 2*time.Second {
+		return e.WriteTimeout - time.Second
+	}
+
+	return e.WriteTimeout - time.Duration(0.1*float64(e.WriteTimeout))
 }
 
 // Serve starts an http server for the indexer API. This call blocks.
@@ -49,7 +57,7 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 	// To ensure everything uses the correct context this must be specified first.
 	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
 		ErrorMessage: `{"message":"Request Timeout"}`,
-		Timeout:      HandlerTimeout,
+		Timeout:      options.handlerTimeout(),
 	}))
 
 	if options.MetricsEndpoint {
@@ -92,8 +100,8 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 	}
 	s := &http.Server{
 		Addr:           serveAddr,
-		ReadTimeout:    ReadTimeout,
-		WriteTimeout:   WriteTimeout,
+		ReadTimeout:    options.ReadTimeout,
+		WriteTimeout:   options.WriteTimeout,
 		MaxHeaderBytes: 1 << 20,
 		BaseContext:    getctx,
 	}
