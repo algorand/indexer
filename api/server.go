@@ -42,10 +42,10 @@ type ExtraOptions struct {
 func (e ExtraOptions) handlerTimeout() time.Duration {
 	// Basically, if write timeout is 2 seconds or greater, subtract a second.
 	// If less, subtract 10% as a safety valve.
-	if e.WriteTimeout >= 2 * time.Second {
+	if e.WriteTimeout >= 2*time.Second {
 		return e.WriteTimeout - time.Second
 	} else {
-		return e.WriteTimeout - time.Duration(0.1 * float64(e.WriteTimeout))
+		return e.WriteTimeout - time.Duration(0.1*float64(e.WriteTimeout))
 	}
 }
 
