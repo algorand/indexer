@@ -31,6 +31,8 @@ var (
 	allowMigration   bool
 	metricsMode      string
 	tokenString      string
+	writeTimeout 	 time.Duration
+	readTimeout 	 time.Duration
 )
 
 var daemonCmd = &cobra.Command{
@@ -124,6 +126,8 @@ func init() {
 	daemonCmd.Flags().BoolVarP(&developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
 	daemonCmd.Flags().BoolVarP(&allowMigration, "allow-migration", "", false, "allow migrations to happen even when no algod connected")
 	daemonCmd.Flags().StringVarP(&metricsMode, "metrics-mode", "", "OFF", "configure the /metrics endpoint to [ON, OFF, VERBOSE]")
+	daemonCmd.Flags().DurationVarP(&writeTimeout, "write-timeout", "", 30 * time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
+	daemonCmd.Flags().DurationVarP(&readTimeout, "read-timeout", "", 5 * time.Second, "set the maximum duration for reading the entire request")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
@@ -149,6 +153,9 @@ func makeOptions() (options api.ExtraOptions) {
 		options.MetricsEndpointVerbose = true
 
 	}
+	options.WriteTimeout = writeTimeout
+	options.ReadTimeout = readTimeout
+
 	return
 }
 
