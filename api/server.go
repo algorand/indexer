@@ -44,9 +44,9 @@ func (e ExtraOptions) handlerTimeout() time.Duration {
 	// If less, subtract 10% as a safety valve.
 	if e.WriteTimeout >= 2*time.Second {
 		return e.WriteTimeout - time.Second
-	} else {
-		return e.WriteTimeout - time.Duration(0.1*float64(e.WriteTimeout))
 	}
+
+	return e.WriteTimeout - time.Duration(0.1*float64(e.WriteTimeout))
 }
 
 // Serve starts an http server for the indexer API. This call blocks.
