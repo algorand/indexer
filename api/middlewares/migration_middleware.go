@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -30,7 +31,7 @@ func (mm *MigrationMiddleware) handler(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(ctx echo.Context) error {
 		h, err := mm.idb.Health()
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, "Indexer health error: %s", err.Error())
+			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Indexer health error: %s", err))
 		}
 
 		if !h.DBAvailable {
