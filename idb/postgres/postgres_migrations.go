@@ -44,6 +44,9 @@ func init() {
 		{disabled("2.5.0"), false, "clear account data for accounts that have been closed"},
 		{disabled("2.5.0"), false, "make all \"deleted\" columns NOT NULL"},
 		{disabled("2.6.1"), true, "change import state format"},
+
+		// Migrations after 2.7.0 release
+		{InnerTransactionChanges, true, "Change txnbytes/txid column constraint to drop NOT NULL."},
 	}
 }
 
@@ -220,4 +223,11 @@ func disabled(version string) func(db *IndexerDb, migrationState *MigrationState
 	return func(_ *IndexerDb, _ *MigrationState) error {
 		return fmt.Errorf(unsupportedMigrationErrorMsg, version)
 	}
+}
+
+// InnerTransactionChanges Change txnbytes/txid column constraint to drop NOT NULL.
+func InnerTransactionChanges(db * IndexerDb, migrationState *MigrationState) error {
+	return sqlMigration(db, migrationState, []string{
+		`ALTER TABLE txn MODIFY COLUMN txnbytes drop NOT NULL, MODIFY COLUMN txid drop NOT NULL`,
+	})
 }

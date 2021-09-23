@@ -2,6 +2,7 @@ package writer_test
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -1361,17 +1362,31 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 
 	txns, err := txnQuery(db, "SELECT * FROM txn ORDER BY intra")
 	require.NoError(t, err)
-	require.Len(t, txns, 2)
+	require.Len(t, txns, 4)
 
 	// Verify that intra is correctly assigned
-	require.Equal(t, 0, txns[0].intra, "Intra should be 0.")
-	require.Equal(t, 3, txns[1].intra, "Intra should be 3.")
+	for i, tx := range txns {
+		require.Equal(t, i, tx.intra, "Intra should be assigned 0 - 3.")
+	}
 
 	// Verify correct order of transaction types.
-	require.Equal(t, idb.TypeEnumApplication, txns[0].typeenum)
-	require.Equal(t, idb.TypeEnumAssetConfig, txns[1].typeenum)
+	require.Equal(t, idb.TypeEnumApplication,   txns[0].typeenum)
+	require.Equal(t, idb.TypeEnumPay,           txns[1].typeenum)
+	require.Equal(t, idb.TypeEnumAssetTransfer, txns[2].typeenum)
+	require.Equal(t, idb.TypeEnumAssetConfig,   txns[3].typeenum)
+
+	// Verify special properties of inner transactions.
+	expectedExtra := fmt.Sprintf(`{"root-txid": "%s"}`, txns[0].txid)
+	// Inner pay
+	require.Len(t, txns[1].txnbytes, 0)
+	require.Equal(t, "", txns[1].txid)
+	require.Equal(t, expectedExtra, txns[1].extra)
+	// Inner xfer
+	require.Len(t, txns[2].txnbytes, 0)
+	require.Equal(t, "", txns[2].txid)
+	require.Equal(t, expectedExtra, txns[2].extra)
 
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
-	require.Equal(t, 4, txns[1].asset, "intra == 3 -> AssetID = 4")
+	require.Equal(t, 4, txns[3].asset, "intra == 3 -> AssetID = 4")
 }

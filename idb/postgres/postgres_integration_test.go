@@ -750,39 +750,11 @@ func TestInnerTxnParticipation(t *testing.T) {
 	// Given // A block containing an app call txn with inners
 	///////////
 
-	createApp := test.MakeCreateAppTxn(test.AccountA)
-
 	// In order to simplify the test,
 	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
 	// fake ApplyData to have inner txn
 	// otherwise it requires funding the app account and other special setup
-	createApp.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: protocol.PaymentTx,
-				PaymentTxnFields: transactions.PaymentTxnFields{
-					Receiver: test.AccountB,
-					Amount:   basics.MicroAlgos{Raw: 123},
-				},
-			},
-		},
-		// also add a fake second-level ApplyData to ensure the recursive part works
-		ApplyData: transactions.ApplyData{
-			EvalDelta: transactions.EvalDelta{
-				InnerTxns: []transactions.SignedTxnWithAD{{
-					SignedTxn: transactions.SignedTxn{
-						Txn: transactions.Transaction{
-							Type: protocol.AssetTransferTx,
-							AssetTransferTxnFields: transactions.AssetTransferTxnFields{
-								AssetReceiver: test.AccountC,
-								AssetAmount:   456,
-							},
-						},
-					},
-				}},
-			},
-		},
-	}}
+	createApp := test.MakeAppCallWithInner(test.AccountA, test.AccountB, test.AccountC)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createApp)

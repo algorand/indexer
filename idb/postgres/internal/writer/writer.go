@@ -139,6 +139,8 @@ func setSpecialAccounts(addresses transactions.SpecialAddresses, batch *pgx.Batc
 
 // Get the ID of the creatable referenced in the given transaction
 // (0 if not an asset or app transaction).
+// TODO: MaxInnerTransactions can be overridden to ensure we have ApplyData.{ApplicationID/ConfigAsset}
+//       With that intra / block would not be required in this function.
 func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *bookkeeping.Block) uint64 {
 	assetid := uint64(0)
 
@@ -172,12 +174,35 @@ func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *b
 	return assetid
 }
 
-func countTxns(stxnad transactions.SignedTxnWithAD) uint64 {
-	num := uint64(1)
-	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
-		num += countTxns(itxn)
+func addIntraTransactions(block *bookkeeping.Block, intra uint64, stxnad transactions.SignedTxnWithAD, rootTxid string, batch *pgx.Batch) (uint64, error) {
+	txn := &stxnad.Txn
+	typeenum, ok := idb.GetTypeEnum(txn.Type)
+	if !ok {
+		return 0, fmt.Errorf("addIntraTransactions() get type enum")
 	}
-	return num
+	assetid := transactionAssetID(stxnad, 0, nil)
+	extra := idb.TxnExtra{
+		AssetCloseAmount: stxnad.ApplyData.AssetClosingAmount,
+		RootTxid:         rootTxid,
+	}
+	batch.Queue(
+		addTxnStmtName,
+		uint64(block.Round()), intra, int(typeenum), assetid,
+		nil, // inner transactions do not have a txid.
+		nil, // txn bytes are only in the parent.
+		encoding.EncodeSignedTxnWithAD(stxnad),
+		encoding.EncodeJSON(extra))
+
+	final := intra + 1
+	var err error
+	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
+		final, err = addIntraTransactions(block, final, itxn, rootTxid, batch)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return final, nil
 }
 
 // Add transactions from `block` to the database. `modifiedTxns` contains enhanced
@@ -201,6 +226,7 @@ func addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.Signe
 		}
 		assetid := transactionAssetID(stxnad, intra, block)
 		id := txn.ID().String()
+
 		extra := idb.TxnExtra{
 			AssetCloseAmount: modifiedTxns[idx].ApplyData.AssetClosingAmount,
 		}
@@ -211,7 +237,13 @@ func addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.Signe
 			encoding.EncodeSignedTxnWithAD(stxnad),
 			encoding.EncodeJSON(extra))
 
-		intra += countTxns(modifiedTxns[idx].SignedTxnWithAD)
+		intra++
+		for _, itxn := range modifiedTxns[idx].ApplyData.EvalDelta.InnerTxns {
+			intra, err = addIntraTransactions(block, intra, itxn, id, batch)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -286,6 +318,9 @@ func addTransactionParticipation(block *bookkeeping.Block, batch *pgx.Batch) err
 		for j := range participants {
 			batch.Queue(addTxnParticipantStmtName, participants[j][:], uint64(block.Round()), i)
 		}
+
+		// TODO: iterate the inner transactions and add their participation as well
+		//       does this live in the modified txns?
 	}
 
 	return nil
