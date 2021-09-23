@@ -37,6 +37,44 @@ func setupPostgres(t *testing.T) (*pgxpool.Pool, func()) {
 	return db, shutdownFunc
 }
 
+// makeTx is a helper to simplify calling TxWithRetry
+func makeTx(db *pgxpool.Pool, f func(tx pgx.Tx) error) error {
+	return pgutil.TxWithRetry(db, serializable, f, nil)
+}
+
+type txnRow struct {
+	round int
+	intra int
+	typeenum idb.TxnTypeEnum
+	asset int
+	txid string
+	txnbytes []byte
+	txn []byte
+	extra string
+}
+
+// getTransactions is a test helper for checking the txn table.
+func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
+	results := make([]txnRow, 0)
+	rows, err := db.Query(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var result txnRow
+		var txid []byte
+		err = rows.Scan(&result.round, &result.intra, &result.typeenum,
+			&result.asset, &txid, &result.txnbytes, &result.txn,
+			&result.extra)
+		if err != nil {
+			return nil, err
+		}
+		result.txid = string(txid)
+		results = append(results, result)
+	}
+	return results, nil
+}
+
 func TestWriterBlockHeaderTableBasic(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
@@ -139,7 +177,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 		block.BlockHeader.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 	require.NoError(t, err)
 
-	stxnad1 := test.MakeConfigAssetTxn(
+	stxnad1 := test.MakeAssetConfigTxn(
 		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
 	block.Payset[1], err =
 		block.BlockHeader.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
@@ -295,7 +333,7 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 	block.Payset[0], err = block.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 	require.NoError(t, err)
 
-	stxnad1 := test.MakeConfigAssetTxn(
+	stxnad1 := test.MakeAssetConfigTxn(
 		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
 	block.Payset[1], err = block.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
 	require.NoError(t, err)
@@ -1272,7 +1310,7 @@ func TestWriterAddBlockTwice(t *testing.T) {
 	block.Payset[0], err = block.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 	require.NoError(t, err)
 
-	stxnad1 := test.MakeConfigAssetTxn(
+	stxnad1 := test.MakeAssetConfigTxn(
 		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
 	block.Payset[1], err = block.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
 	require.NoError(t, err)
@@ -1293,4 +1331,46 @@ func TestWriterAddBlockTwice(t *testing.T) {
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
+}
+
+func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
+	db, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	// App call with inner txns, should be intra 0, 1, 2
+	appCall := test.MakeAppCallWithInner(test.AccountA, test.AccountB, test.AccountC)
+
+	// Asset create call, should have intra = 3
+	assetCreate := test.MakeAssetConfigTxn(
+		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall, &assetCreate)
+	require.NoError(t, err)
+
+	err = makeTx(db, func(tx pgx.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+		defer w.Close()
+
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		require.NoError(t, err)
+
+		return tx.Commit(context.Background())
+	})
+
+	txns, err := txnQuery(db, "SELECT * FROM txn ORDER BY intra")
+	require.NoError(t, err)
+	require.Len(t, txns, 2)
+
+	// Verify that intra is correctly assigned
+	require.Equal(t, 0, txns[0].intra, "Intra should be assigned 0 - 3.")
+	require.Equal(t, 3, txns[1].intra, "Intra should be assigned 0 - 3.")
+
+	// Verify correct order of transaction types.
+	require.Equal(t, idb.TypeEnumApplication,   txns[0].typeenum)
+	require.Equal(t, idb.TypeEnumAssetConfig,   txns[1].typeenum)
+
+	// Verify correct App and Asset IDs
+	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
+	require.Equal(t, 4, txns[1].asset, "intra == 3 -> ApplicationID = 4")
 }
