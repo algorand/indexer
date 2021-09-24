@@ -152,25 +152,19 @@ func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
 		{
 			name: "small balance",
 			data: basics.AccountData{
-				MicroAlgos:         basics.MicroAlgos{Raw: 1},
-				RewardsBase:        3,
-				RewardedMicroAlgos: basics.MicroAlgos{Raw: 4},
+				MicroAlgos: basics.MicroAlgos{Raw: 1},
 			},
 		},
 		{
 			name: "max balance",
 			data: basics.AccountData{
-				MicroAlgos:         basics.MicroAlgos{Raw: math.MaxInt64},
-				RewardsBase:        3,
-				RewardedMicroAlgos: basics.MicroAlgos{Raw: 4},
+				MicroAlgos: basics.MicroAlgos{Raw: math.MaxInt64},
 			},
 		},
 		{
 			name: "over max balance",
 			data: basics.AccountData{
-				MicroAlgos:         basics.MicroAlgos{Raw: math.MaxUint64},
-				RewardsBase:        3,
-				RewardedMicroAlgos: basics.MicroAlgos{Raw: 4},
+				MicroAlgos: basics.MicroAlgos{Raw: math.MaxUint64},
 			},
 			err: fmt.Sprintf("%d is greater than maximum value for Int8", uint64(math.MaxUint64)),
 		},
@@ -178,9 +172,7 @@ func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
 			name:    "deleted",
 			deleted: true,
 			data: basics.AccountData{
-				MicroAlgos:         basics.MicroAlgos{Raw: math.MaxInt64},
-				RewardsBase:        3,
-				RewardedMicroAlgos: basics.MicroAlgos{Raw: 4},
+				MicroAlgos: basics.MicroAlgos{Raw: math.MaxInt64},
 			},
 		},
 	}
