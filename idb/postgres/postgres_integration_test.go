@@ -754,7 +754,9 @@ func TestInnerTxnParticipation(t *testing.T) {
 	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
 	// fake ApplyData to have inner txn
 	// otherwise it requires funding the app account and other special setup
-	createApp := test.MakeAppCallWithInner(test.AccountA, test.AccountB, test.AccountC)
+	var appAddr basics.Address
+	appAddr[1] = 99
+	createApp := test.MakeAppCallWithInner(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createApp)
@@ -778,9 +780,11 @@ func TestInnerTxnParticipation(t *testing.T) {
 	acctACount := queryInt(db.db, query, test.AccountA[:], round, intra)
 	acctBCount := queryInt(db.db, query, test.AccountB[:], round, intra)
 	acctCCount := queryInt(db.db, query, test.AccountC[:], round, intra)
+	acctAppCount := queryInt(db.db, query, appAddr, round, intra)
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
 	assert.Equal(t, 1, acctCCount)
+	assert.Equal(t, -1, acctAppCount, "inner txn sender is not indexed")
 }
 
 func TestAppExtraPages(t *testing.T) {

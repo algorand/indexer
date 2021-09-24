@@ -1339,7 +1339,9 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	defer shutdownFunc()
 
 	// App call with inner txns, should be intra 0, 1, 2
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, test.AccountB, test.AccountC)
+	var appAddr basics.Address
+	appAddr[1] = 99
+	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
 	// Asset create call, should have intra = 3
 	assetCreate := test.MakeAssetConfigTxn(
