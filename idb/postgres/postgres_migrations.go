@@ -21,29 +21,29 @@ func init() {
 	// Make sure you set the blocking flag to true to avoid possible consistency issues during startup.
 	migrations = []migrationStruct{
 		// function, blocking, description
-		{m0fixupTxid, false, "Recompute the txid with corrected algorithm."},
-		{m1fixupBlockTime, true, "Adjust block time to UTC timezone."},
-		{m2apps, true, "Update DB Schema for Algorand application support."},
-		{m3acfgFix, false, "Recompute asset configurations with corrected merge function."},
+		{disabled("2.5.0"), false, "Recompute the txid with corrected algorithm."},
+		{disabled("2.5.0"), true, "Adjust block time to UTC timezone."},
+		{disabled("2.5.0"), true, "Update DB Schema for Algorand application support."},
+		{disabled("2.5.0"), false, "Recompute asset configurations with corrected merge function."},
 
 		// 2.2.2 hotfix
-		{m4accountIndices, true, "Add indices to make sure account lookups remain fast when there are a lot of apps or assets."},
+		{disabled("2.5.0"), true, "Add indices to make sure account lookups remain fast when there are a lot of apps or assets."},
 
 		// Migrations for 2.3.1 release
-		{m5MarkTxnJSONSplit, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
-		{m6RewardsAndDatesPart1, true, "Update DB Schema for cumulative account reward support and creation dates."},
-		{m7RewardsAndDatesPart2, false, "Compute cumulative account rewards for all accounts."},
+		{disabled("2.5.0"), true, "record round at which txn json recording changes, for future migration to fixup prior records"},
+		{disabled("2.5.0"), true, "Update DB Schema for cumulative account reward support and creation dates."},
+		{disabled("2.5.0"), false, "Compute cumulative account rewards for all accounts."},
 
 		// Migrations for 2.3.2 release
-		{m8StaleClosedAccounts, false, "clear some stale data from closed accounts"},
-		{m9TxnJSONEncoding, false, "some txn JSON encodings need app keys base64 encoded"},
-		{m10SpecialAccountCleanup, false, "The initial m7 implementation would miss special accounts."},
-		{m11AssetHoldingFrozen, true, "Fix asset holding freeze states."},
+		{disabled("2.5.0"), false, "clear some stale data from closed accounts"},
+		{disabled("2.5.0"), false, "some txn JSON encodings need app keys base64 encoded"},
+		{disabled("2.5.0"), false, "The initial m7 implementation would miss special accounts."},
+		{disabled("2.5.0"), true, "Fix asset holding freeze states."},
 
-		{FixFreezeLookupMigration, false, "Fix search by asset freeze address."},
-		{ClearAccountDataMigration, false, "clear account data for accounts that have been closed"},
-		{MakeDeletedNotNullMigration, false, "make all \"deleted\" columns NOT NULL"},
-		{MaxRoundAccountedMigration, true, "change import state format"},
+		{disabled("2.5.0"), false, "Fix search by asset freeze address."},
+		{disabled("2.5.0"), false, "clear account data for accounts that have been closed"},
+		{disabled("2.5.1"), false, "make all \"deleted\" columns NOT NULL"},
+		{disabled("2.6.1"), true, "change import state format"},
 	}
 }
 
@@ -215,71 +215,9 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 
 const unsupportedMigrationErrorMsg = "unsupported migration: please downgrade to %s to run this migration"
 
-func m0fixupTxid(db *IndexerDb, state *MigrationState) error {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-func m1fixupBlockTime(db *IndexerDb, state *MigrationState) error {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-func m2apps(db *IndexerDb, state *MigrationState) error {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-func m3acfgFix(db *IndexerDb, state *MigrationState) (err error) {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-func m4accountIndices(db *IndexerDb, state *MigrationState) error {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-func m5MarkTxnJSONSplit(db *IndexerDb, state *MigrationState) error {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-func m6RewardsAndDatesPart1(db *IndexerDb, state *MigrationState) error {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-func m7RewardsAndDatesPart2(db *IndexerDb, state *MigrationState) error {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-func m8StaleClosedAccounts(db *IndexerDb, state *MigrationState) error {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-func m9TxnJSONEncoding(db *IndexerDb, state *MigrationState) (err error) {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-func m10SpecialAccountCleanup(db *IndexerDb, state *MigrationState) error {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-func m11AssetHoldingFrozen(db *IndexerDb, state *MigrationState) error {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-// FixFreezeLookupMigration is a migration to add txn_participation entries for freeze address in freeze transactions.
-func FixFreezeLookupMigration(db *IndexerDb, state *MigrationState) error {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-// ClearAccountDataMigration clears account data for accounts that have been closed.
-func ClearAccountDataMigration(db *IndexerDb, state *MigrationState) error {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-// MakeDeletedNotNullMigration makes "deleted" columns NOT NULL in tables
-// account, account_asset, asset, app, account_app.
-func MakeDeletedNotNullMigration(db *IndexerDb, state *MigrationState) error {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.5.0")
-}
-
-// MaxRoundAccountedMigration converts the import state.
-func MaxRoundAccountedMigration(db *IndexerDb, migrationState *MigrationState) error {
-	return fmt.Errorf(unsupportedMigrationErrorMsg, "2.6.1")
+// disabled creates a simple migration handler for unsupported migrations.
+func disabled(version string) func(db *IndexerDb, migrationState *MigrationState) error {
+	return func(_ *IndexerDb, _ *MigrationState) error {
+		return fmt.Errorf(unsupportedMigrationErrorMsg, version)
+	}
 }
