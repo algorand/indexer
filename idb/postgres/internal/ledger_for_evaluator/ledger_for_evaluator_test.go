@@ -143,43 +143,43 @@ func insertAccountData(db *pgxpool.Pool, account basics.Address, createdat uint6
 // TestLedgerForEvaluatorAccountTableBasicSingleAccount a table driven single account test.
 func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
 	tests := []struct {
-		name string
+		name      string
 		createdAt uint64
-		deleted bool
-		data basics.AccountData
-		err  string
+		deleted   bool
+		data      basics.AccountData
+		err       string
 	}{
 		{
 			name: "small balance",
 			data: basics.AccountData{
-					MicroAlgos: basics.MicroAlgos{ Raw: 1},
-					RewardsBase: 3,
-					RewardedMicroAlgos: basics.MicroAlgos{Raw: 4},
+				MicroAlgos:         basics.MicroAlgos{Raw: 1},
+				RewardsBase:        3,
+				RewardedMicroAlgos: basics.MicroAlgos{Raw: 4},
 			},
 		},
 		{
 			name: "max balance",
 			data: basics.AccountData{
-				MicroAlgos: basics.MicroAlgos{ Raw: math.MaxInt64},
-				RewardsBase: 3,
+				MicroAlgos:         basics.MicroAlgos{Raw: math.MaxInt64},
+				RewardsBase:        3,
 				RewardedMicroAlgos: basics.MicroAlgos{Raw: 4},
 			},
 		},
 		{
 			name: "over max balance",
 			data: basics.AccountData{
-				MicroAlgos: basics.MicroAlgos{ Raw: math.MaxUint64},
-				RewardsBase: 3,
+				MicroAlgos:         basics.MicroAlgos{Raw: math.MaxUint64},
+				RewardsBase:        3,
 				RewardedMicroAlgos: basics.MicroAlgos{Raw: 4},
 			},
 			err: fmt.Sprintf("%d is greater than maximum value for Int8", uint64(math.MaxUint64)),
 		},
 		{
-			name: "deleted",
+			name:    "deleted",
 			deleted: true,
 			data: basics.AccountData{
-				MicroAlgos: basics.MicroAlgos{ Raw: math.MaxInt64},
-				RewardsBase: 3,
+				MicroAlgos:         basics.MicroAlgos{Raw: math.MaxInt64},
+				RewardsBase:        3,
 				RewardedMicroAlgos: basics.MicroAlgos{Raw: 4},
 			},
 		},
