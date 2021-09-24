@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -121,7 +119,6 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		if addr == stxn.Txn.Sender {
 			acct.AmountWithoutPendingRewards += stxn.Txn.Fee.ToUint64()
 			acct.AmountWithoutPendingRewards -= stxn.SenderRewards.ToUint64()
-			acct.Rewards -= stxn.SenderRewards.ToUint64()
 		}
 		switch stxn.Txn.Type {
 		case protocol.PaymentTx:
@@ -131,13 +128,11 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			if addr == stxn.Txn.Receiver {
 				acct.AmountWithoutPendingRewards -= stxn.Txn.Amount.ToUint64()
 				acct.AmountWithoutPendingRewards -= stxn.ReceiverRewards.ToUint64()
-				acct.Rewards -= stxn.ReceiverRewards.ToUint64()
 			}
 			if addr == stxn.Txn.CloseRemainderTo {
 				// unwind receiving a close-to
 				acct.AmountWithoutPendingRewards -= stxn.ClosingAmount.ToUint64()
 				acct.AmountWithoutPendingRewards -= stxn.CloseRewards.ToUint64()
-				acct.Rewards -= stxn.CloseRewards.ToUint64()
 			} else if !stxn.Txn.CloseRemainderTo.IsZero() {
 				// unwind sending a close-to
 				acct.AmountWithoutPendingRewards += stxn.ClosingAmount.ToUint64()
@@ -166,69 +161,14 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		}
 	}
 
-	if txcount > 0 {
-		// If we found any txns above, we need to find one
-		// more so we can know what the previous RewardsBase
-		// of the account was so we can get the accurate
-		// pending rewards at the target round.
-		//
-		// (If there weren't any txns above, the recorded
-		// RewardsBase is current from whatever previous txn
-		// happened to this account.)
-
-		tf.MaxRound = round
-		tf.MinRound = 0
-		tf.Limit = 1
-		txns, r = db.Transactions(context.Background(), tf)
-		if r < round {
-			err = ConsistencyError{
-				fmt.Sprintf("queried round r: %d < requested round round: %d", r, round)}
-			return
-		}
-		txnrow, ok := <-txns
-		if ok {
-			if txnrow.Error != nil {
-				err = txnrow.Error
-				return
-			}
-			var stxn transactions.SignedTxnWithAD
-			err = protocol.Decode(txnrow.TxnBytes, &stxn)
-			if err != nil {
-				return
-			}
-			var baseBlockHeader bookkeeping.BlockHeader
-			baseBlockHeader, _, err = db.GetBlock(context.Background(), txnrow.Round, idb.GetBlockOptions{})
-			if err != nil {
-				return
-			}
-			prevRewardsBase := baseBlockHeader.RewardsLevel
-			var blockheader bookkeeping.BlockHeader
-			blockheader, _, err = db.GetBlock(context.Background(), round, idb.GetBlockOptions{})
-			if err != nil {
-				return
-			}
-			proto, ok := config.Consensus[blockheader.CurrentProtocol]
-			if !ok {
-				err = fmt.Errorf("protocol %s not found", blockheader.CurrentProtocol)
-				return
-			}
-			rewardsUnits :=
-				basics.MicroAlgos{Raw: acct.AmountWithoutPendingRewards}.RewardUnits(proto)
-			rewardsDelta := blockheader.RewardsLevel - prevRewardsBase
-			acct.PendingRewards = rewardsDelta * rewardsUnits
-			acct.Amount = acct.PendingRewards + acct.AmountWithoutPendingRewards
-			acct.Round = round
-		} else {
-			// There were no prior transactions, it must have been empty before, zero out things
-			acct.PendingRewards = 0
-			acct.Amount = acct.AmountWithoutPendingRewards
-		}
-	}
-
 	acct.Round = round
 
 	// Due to accounts being closed and re-opened, we cannot always rewind Rewards. So clear it out.
 	acct.Rewards = 0
+
+	// Computing pending rewards is not supported.
+	acct.PendingRewards = 0
+	acct.Amount = acct.AmountWithoutPendingRewards
 
 	// TODO: Clear out the closed-at field as well. Like Rewards we cannot know this value for all accounts.
 	//acct.ClosedAt = 0
