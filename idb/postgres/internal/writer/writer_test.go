@@ -1372,5 +1372,5 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
-	require.Equal(t, 4, txns[1].asset, "intra == 3 -> ApplicationID = 4")
+	require.Equal(t, 4, txns[1].asset, "intra == 3 -> AssetID = 4")
 }
