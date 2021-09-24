@@ -42,7 +42,7 @@ func init() {
 
 		{disabled("2.5.0"), false, "Fix search by asset freeze address."},
 		{disabled("2.5.0"), false, "clear account data for accounts that have been closed"},
-		{disabled("2.5.1"), false, "make all \"deleted\" columns NOT NULL"},
+		{disabled("2.5.0"), false, "make all \"deleted\" columns NOT NULL"},
 		{disabled("2.6.1"), true, "change import state format"},
 	}
 }
