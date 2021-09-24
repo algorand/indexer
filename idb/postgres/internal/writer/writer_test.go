@@ -43,14 +43,14 @@ func makeTx(db *pgxpool.Pool, f func(tx pgx.Tx) error) error {
 }
 
 type txnRow struct {
-	round int
-	intra int
+	round    int
+	intra    int
 	typeenum idb.TxnTypeEnum
-	asset int
-	txid string
+	asset    int
+	txid     string
 	txnbytes []byte
-	txn []byte
-	extra string
+	txn      []byte
+	extra    string
 }
 
 // getTransactions is a test helper for checking the txn table.
@@ -1367,8 +1367,8 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	require.Equal(t, 3, txns[1].intra, "Intra should be assigned 0 - 3.")
 
 	// Verify correct order of transaction types.
-	require.Equal(t, idb.TypeEnumApplication,   txns[0].typeenum)
-	require.Equal(t, idb.TypeEnumAssetConfig,   txns[1].typeenum)
+	require.Equal(t, idb.TypeEnumApplication, txns[0].typeenum)
+	require.Equal(t, idb.TypeEnumAssetConfig, txns[1].typeenum)
 
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
