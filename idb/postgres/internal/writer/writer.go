@@ -174,11 +174,11 @@ func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *b
 	return assetid
 }
 
-func addIntraTransactions(block *bookkeeping.Block, intra uint64, stxnad transactions.SignedTxnWithAD, rootTxid string, batch *pgx.Batch) (uint64, error) {
+func addInnerTransactions(block *bookkeeping.Block, intra uint64, stxnad transactions.SignedTxnWithAD, rootTxid string, batch *pgx.Batch) (uint64, error) {
 	txn := &stxnad.Txn
 	typeenum, ok := idb.GetTypeEnum(txn.Type)
 	if !ok {
-		return 0, fmt.Errorf("addIntraTransactions() get type enum")
+		return 0, fmt.Errorf("addInnerTransactions() get type enum")
 	}
 	assetid := transactionAssetID(stxnad, 0, nil)
 	extra := idb.TxnExtra{
@@ -190,13 +190,13 @@ func addIntraTransactions(block *bookkeeping.Block, intra uint64, stxnad transac
 		uint64(block.Round()), intra, int(typeenum), assetid,
 		nil, // inner transactions do not have a txid.
 		nil, // txn bytes are only in the parent.
-		encoding.EncodeSignedTxnWithAD(stxnad),
+		encoding.EncodeInnerSignedTxnWithAD(stxnad),
 		encoding.EncodeJSON(extra))
 
 	final := intra + 1
 	var err error
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
-		final, err = addIntraTransactions(block, final, itxn, rootTxid, batch)
+		final, err = addInnerTransactions(block, final, itxn, rootTxid, batch)
 		if err != nil {
 			return 0, err
 		}
@@ -239,7 +239,7 @@ func addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.Signe
 
 		intra++
 		for _, itxn := range modifiedTxns[idx].ApplyData.EvalDelta.InnerTxns {
-			intra, err = addIntraTransactions(block, intra, itxn, id, batch)
+			intra, err = addInnerTransactions(block, intra, itxn, id, batch)
 			if err != nil {
 				return err
 			}

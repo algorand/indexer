@@ -153,9 +153,19 @@ func convertSignedTxnWithAD(stxn transactions.SignedTxnWithAD) signedTxnWithAD {
 	}
 }
 
+func convertInnerSignedTxnWithAD(stxn transactions.SignedTxnWithAD) signedTxnWithAD {
+	stxn.ApplyData.EvalDelta.InnerTxns = nil
+	return convertSignedTxnWithAD(stxn)
+}
+
 // EncodeSignedTxnWithAD encodes signed transaction with apply data into json.
 func EncodeSignedTxnWithAD(stxn transactions.SignedTxnWithAD) []byte {
 	return EncodeJSON(convertSignedTxnWithAD(stxn))
+}
+
+// EncodeInnerSignedTxnWithAD encodes signed transaction with apply data into json.
+func EncodeInnerSignedTxnWithAD(stxn transactions.SignedTxnWithAD) []byte {
+	return EncodeJSON(convertInnerSignedTxnWithAD(stxn))
 }
 
 // TrimAccountData deletes various information from account data that we do not write to
