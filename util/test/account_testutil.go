@@ -48,8 +48,8 @@ func DecodeAddressOrPanic(addr string) basics.Address {
 	return result
 }
 
-// MakeConfigAssetTxn is a helper to ensure test asset config are initialized.
-func MakeConfigAssetTxn(configid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr basics.Address) transactions.SignedTxnWithAD {
+// MakeAssetConfigTxn is a helper to ensure test asset config are initialized.
+func MakeAssetConfigTxn(configid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -288,6 +288,49 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 			Sig: Signature,
 		},
 	}
+}
+
+// MakeAppCallWithInnerTxn creates an app call with 3 levels of transactions:
+// root txn: application create
+// app call inner txn: payment
+// payment inner txn: asset xfer
+func MakeAppCallWithInnerTxn(assetSender, paymentReceiver, assetReceiver basics.Address) transactions.SignedTxnWithAD {
+	createApp := MakeCreateAppTxn(assetSender)
+
+	// In order to simplify the test,
+	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
+	// fake ApplyData to have inner txn
+	// otherwise it requires funding the app account and other special setup
+	createApp.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{{
+		SignedTxn: transactions.SignedTxn{
+			// TODO: does the root header apply to each inner tx?
+			Txn: transactions.Transaction{
+				Type: protocol.PaymentTx,
+				PaymentTxnFields: transactions.PaymentTxnFields{
+					Receiver: paymentReceiver,
+					Amount:   basics.MicroAlgos{Raw: 123},
+				},
+			},
+		},
+		// also add a fake second-level ApplyData to ensure the recursive part works
+		ApplyData: transactions.ApplyData{
+			EvalDelta: transactions.EvalDelta{
+				InnerTxns: []transactions.SignedTxnWithAD{{
+					SignedTxn: transactions.SignedTxn{
+						Txn: transactions.Transaction{
+							Type: protocol.AssetTransferTx,
+							AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+								AssetReceiver: assetReceiver,
+								AssetAmount:   456,
+							},
+						},
+					},
+				}},
+			},
+		},
+	}}
+
+	return createApp
 }
 
 // MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
