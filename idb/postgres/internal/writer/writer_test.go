@@ -53,9 +53,9 @@ type txnRow struct {
 	extra    string
 }
 
-// getTransactions is a test helper for checking the txn table.
+// txnQuery is a test helper for checking the txn table.
 func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
-	results := make([]txnRow, 0)
+	var results []txnRow
 	rows, err := db.Query(context.Background(), query)
 	if err != nil {
 		return nil, err
@@ -72,7 +72,7 @@ func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
 		result.txid = string(txid)
 		results = append(results, result)
 	}
-	return results, nil
+	return results, rows.Err()
 }
 
 func TestWriterBlockHeaderTableBasic(t *testing.T) {
@@ -1338,7 +1338,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	defer shutdownFunc()
 
 	// App call with inner txns, should be intra 0, 1, 2
-	appCall := test.MakeAppCallWithInner(test.AccountA, test.AccountB, test.AccountC)
+	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, test.AccountB, test.AccountC)
 
 	// Asset create call, should have intra = 3
 	assetCreate := test.MakeAssetConfigTxn(
@@ -1357,14 +1357,15 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 
 		return tx.Commit(context.Background())
 	})
+	require.NoError(t, err)
 
 	txns, err := txnQuery(db, "SELECT * FROM txn ORDER BY intra")
 	require.NoError(t, err)
 	require.Len(t, txns, 2)
 
 	// Verify that intra is correctly assigned
-	require.Equal(t, 0, txns[0].intra, "Intra should be assigned 0 - 3.")
-	require.Equal(t, 3, txns[1].intra, "Intra should be assigned 0 - 3.")
+	require.Equal(t, 0, txns[0].intra, "Intra should be 0.")
+	require.Equal(t, 3, txns[1].intra, "Intra should be 3.")
 
 	// Verify correct order of transaction types.
 	require.Equal(t, idb.TypeEnumApplication, txns[0].typeenum)

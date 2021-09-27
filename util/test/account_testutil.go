@@ -290,12 +290,11 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 	}
 }
 
-// MakeAppCallWithInner creates an app call with 3 levels of transactions:
+// MakeAppCallWithInnerTxn creates an app call with 3 levels of transactions:
 // root txn: application create
 // app call inner txn: payment
 // payment inner txn: asset xfer
-func MakeAppCallWithInner(assetSender, paymentReceiver, assetReceiver basics.Address) transactions.SignedTxnWithAD {
-
+func MakeAppCallWithInnerTxn(assetSender, paymentReceiver, assetReceiver basics.Address) transactions.SignedTxnWithAD {
 	createApp := MakeCreateAppTxn(assetSender)
 
 	// In order to simplify the test,

@@ -172,10 +172,10 @@ func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *b
 	return assetid
 }
 
-func countInner(stxnad transactions.SignedTxnWithAD) uint64 {
+func countTxns(stxnad transactions.SignedTxnWithAD) uint64 {
 	num := uint64(1)
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
-		num += countInner(itxn)
+		num += countTxns(itxn)
 	}
 	return num
 }
@@ -211,10 +211,7 @@ func addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.Signe
 			encoding.EncodeSignedTxnWithAD(stxnad),
 			encoding.EncodeJSON(extra))
 
-		intra++
-		for _, itxn := range modifiedTxns[idx].ApplyData.EvalDelta.InnerTxns {
-			intra += countInner(itxn)
-		}
+		intra += countTxns(modifiedTxns[idx].SignedTxnWithAD)
 	}
 
 	return nil
