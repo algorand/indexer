@@ -110,6 +110,7 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 		l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 			tx, crypto.Digest{}, transactions.SpecialAddresses{})
 		require.NoError(t, err)
+		defer l.Close()
 
 		if preload {
 			err := l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
@@ -118,7 +119,6 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 
 		accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
 		require.NoError(t, err)
-		l.Close()
 
 		assert.Equal(t, basics.Round(7), round)
 		assert.Equal(t, accountDataFull, accountDataRet)
@@ -229,6 +229,7 @@ func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
 					return
 				}
 				require.NoError(t, err)
+				defer l.Close()
 
 				if preload {
 					err := l.PreloadAccounts(map[basics.Address]struct{}{addr: {}})
@@ -243,7 +244,6 @@ func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
 					return
 				}
 				require.NoError(t, err)
-				l.Close()
 
 				assert.Equal(t, basics.Round(7), round)
 				// should be no result if deleted
@@ -284,6 +284,7 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 		l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 			tx, crypto.Digest{}, transactions.SpecialAddresses{})
 		require.NoError(t, err)
+		defer l.Close()
 
 		if preload {
 			err := l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
@@ -292,7 +293,6 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 
 		accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
 		require.NoError(t, err)
-		l.Close()
 
 		assert.Equal(t, basics.Round(7), round)
 		assert.Equal(t, basics.AccountData{}, accountDataRet)
@@ -313,6 +313,7 @@ func TestLedgerForEvaluatorAccountTableMissingAccount(t *testing.T) {
 		l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
 			tx, crypto.Digest{}, transactions.SpecialAddresses{})
 		require.NoError(t, err)
+		defer l.Close()
 
 		if preload {
 			err := l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
@@ -321,7 +322,6 @@ func TestLedgerForEvaluatorAccountTableMissingAccount(t *testing.T) {
 
 		accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
 		require.NoError(t, err)
-		l.Close()
 
 		assert.Equal(t, basics.Round(7), round)
 		assert.Equal(t, basics.AccountData{}, accountDataRet)

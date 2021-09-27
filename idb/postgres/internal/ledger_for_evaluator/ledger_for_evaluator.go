@@ -144,6 +144,7 @@ func (l *LedgerForEvaluator) parseAccountTable(row pgx.Row) (basics.AccountData,
 }
 
 func (l *LedgerForEvaluator) parseAccountAssetTable(rows pgx.Rows) (map[basics.AssetIndex]basics.AssetHolding, error) {
+	defer rows.Close()
 	res := make(map[basics.AssetIndex]basics.AssetHolding)
 
 	var assetid uint64
@@ -171,6 +172,7 @@ func (l *LedgerForEvaluator) parseAccountAssetTable(rows pgx.Rows) (map[basics.A
 }
 
 func (l *LedgerForEvaluator) parseAssetTable(rows pgx.Rows) (map[basics.AssetIndex]basics.AssetParams, error) {
+	defer rows.Close()
 	res := make(map[basics.AssetIndex]basics.AssetParams)
 
 	var index uint64
@@ -197,6 +199,7 @@ func (l *LedgerForEvaluator) parseAssetTable(rows pgx.Rows) (map[basics.AssetInd
 }
 
 func (l *LedgerForEvaluator) parseAppTable(rows pgx.Rows) (map[basics.AppIndex]basics.AppParams, error) {
+	defer rows.Close()
 	res := make(map[basics.AppIndex]basics.AppParams)
 
 	var index uint64
@@ -223,6 +226,7 @@ func (l *LedgerForEvaluator) parseAppTable(rows pgx.Rows) (map[basics.AppIndex]b
 }
 
 func (l *LedgerForEvaluator) parseAccountAppTable(rows pgx.Rows) (map[basics.AppIndex]basics.AppLocalState, error) {
+	defer rows.Close()
 	res := make(map[basics.AppIndex]basics.AppLocalState)
 
 	var app uint64
@@ -264,6 +268,8 @@ func (l *LedgerForEvaluator) loadAccountTable(addresses map[basics.Address]struc
 	}
 
 	results := l.tx.SendBatch(context.Background(), &batch)
+	defer results.Close()
+
 	res := make(map[basics.Address]*basics.AccountData, len(addresses))
 	for _, address := range addressesArr {
 		row := results.QueryRow()
@@ -318,6 +324,7 @@ func (l *LedgerForEvaluator) loadCreatables(accountDataMap *map[basics.Address]*
 	}
 
 	results := l.tx.SendBatch(context.Background(), &batch)
+	defer results.Close()
 
 	for _, address := range existingAddresses {
 		rows, err := results.Query()
