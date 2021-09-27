@@ -60,6 +60,7 @@ func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var result txnRow
 		var txid []byte
@@ -198,6 +199,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 
 	rows, err := db.Query(context.Background(), "SELECT * FROM txn ORDER BY intra")
 	require.NoError(t, err)
+	defer rows.Close()
 
 	var round uint64
 	var intra uint64
@@ -284,6 +286,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	rows, err := db.Query(
 		context.Background(), "SELECT txn, extra FROM txn ORDER BY intra")
 	require.NoError(t, err)
+	defer rows.Close()
 
 	var txn []byte
 	var extra []byte
@@ -354,6 +357,7 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 	rows, err := db.Query(
 		context.Background(), "SELECT * FROM txn_participation ORDER BY round, intra, addr")
 	require.NoError(t, err)
+	defer rows.Close()
 
 	var addr []byte
 	var round uint64
@@ -430,6 +434,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 
 	rows, err := db.Query(context.Background(), "SELECT * FROM account")
 	require.NoError(t, err)
+	defer rows.Close()
 
 	var addr []byte
 	var microalgos uint64
@@ -484,6 +489,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 
 	rows, err = db.Query(context.Background(), "SELECT * FROM account")
 	require.NoError(t, err)
+	defer rows.Close()
 
 	require.True(t, rows.Next())
 	err = rows.Scan(
@@ -532,6 +538,7 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 
 	rows, err := db.Query(context.Background(), "SELECT * FROM account")
 	require.NoError(t, err)
+	defer rows.Close()
 
 	var addr []byte
 	var microalgos uint64
@@ -670,6 +677,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 
 	rows, err := db.Query(context.Background(), "SELECT * FROM account_asset")
 	require.NoError(t, err)
+	defer rows.Close()
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&addr, &assetid, &amount, &frozen, &deleted, &createdAt, &closedAt)
@@ -701,6 +709,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 
 	rows, err = db.Query(context.Background(), "SELECT * FROM account_asset")
 	require.NoError(t, err)
+	defer rows.Close()
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&addr, &assetid, &amount, &frozen, &deleted, &createdAt, &closedAt)
@@ -802,11 +811,8 @@ func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
 
 	var amount uint64
 
-	rows, err := db.Query(context.Background(), "SELECT amount FROM account_asset")
-	require.NoError(t, err)
-
-	require.True(t, rows.Next())
-	err = rows.Scan(&amount)
+	row := db.QueryRow(context.Background(), "SELECT amount FROM account_asset")
+	err = row.Scan(&amount)
 	require.NoError(t, err)
 	assert.Equal(t, assetHolding.Amount, amount)
 }
@@ -854,6 +860,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 
 	rows, err := db.Query(context.Background(), "SELECT * FROM asset")
 	require.NoError(t, err)
+	defer rows.Close()
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&index, &creatorAddr, &params, &deleted, &createdAt, &closedAt)
@@ -892,6 +899,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 
 	rows, err = db.Query(context.Background(), "SELECT * FROM asset")
 	require.NoError(t, err)
+	defer rows.Close()
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&index, &creatorAddr, &params, &deleted, &createdAt, &closedAt)
@@ -1015,6 +1023,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 
 	rows, err := db.Query(context.Background(), "SELECT * FROM app")
 	require.NoError(t, err)
+	defer rows.Close()
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&index, &creator, &params, &deleted, &createdAt, &closedAt)
@@ -1053,6 +1062,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 
 	rows, err = db.Query(context.Background(), "SELECT * FROM app")
 	require.NoError(t, err)
+	defer rows.Close()
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&index, &creator, &params, &deleted, &createdAt, &closedAt)
@@ -1176,6 +1186,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 
 	rows, err := db.Query(context.Background(), "SELECT * FROM account_app")
 	require.NoError(t, err)
+	defer rows.Close()
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&addr, &app, &localstate, &deleted, &createdAt, &closedAt)
@@ -1210,6 +1221,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 
 	rows, err = db.Query(context.Background(), "SELECT * FROM account_app")
 	require.NoError(t, err)
+	defer rows.Close()
 
 	require.True(t, rows.Next())
 	err = rows.Scan(&addr, &app, &localstate, &deleted, &createdAt, &closedAt)
