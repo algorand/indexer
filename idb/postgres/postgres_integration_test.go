@@ -756,7 +756,7 @@ func TestInnerTxnParticipation(t *testing.T) {
 	// otherwise it requires funding the app account and other special setup
 	var appAddr basics.Address
 	appAddr[1] = 99
-	createApp := test.MakeAppCallWithInner(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+	createApp := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createApp)

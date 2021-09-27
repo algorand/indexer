@@ -49,7 +49,7 @@ func TestEncodeSignedTxnWithAD(t *testing.T) {
 }
 
 func TestEncodeInnerSignedTxnWithAD(t *testing.T) {
-	stxn := test.MakeAppCallWithInner(test.AccountA, test.AccountA, test.AccountA, test.AccountA, test.AccountA)
+	stxn := test.MakeAppCallWithInnerTxn(test.AccountA, test.AccountA, test.AccountA, test.AccountA, test.AccountA)
 	expectedRoot := `{"sig":"WAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","txn":{"apap":"AiABASI=","apsu":"AiABASI=","gh":"TQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","snd":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","type":"appl"}}`
 	expectedInner1 := `{"txn":{"amt":123,"rcv":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","snd":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","type":"pay"}}`
 	expectedInner2 := `{"txn":{"aamt":456,"arcv":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","snd":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","type":"axfer"}}`
