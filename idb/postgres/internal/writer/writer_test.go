@@ -1372,10 +1372,10 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	}
 
 	// Verify correct order of transaction types.
-	require.Equal(t, idb.TypeEnumApplication,   txns[0].typeenum)
-	require.Equal(t, idb.TypeEnumPay,           txns[1].typeenum)
+	require.Equal(t, idb.TypeEnumApplication, txns[0].typeenum)
+	require.Equal(t, idb.TypeEnumPay, txns[1].typeenum)
 	require.Equal(t, idb.TypeEnumAssetTransfer, txns[2].typeenum)
-	require.Equal(t, idb.TypeEnumAssetConfig,   txns[3].typeenum)
+	require.Equal(t, idb.TypeEnumAssetConfig, txns[3].typeenum)
 
 	// Verify special properties of inner transactions.
 	expectedExtra := fmt.Sprintf(`{"root-txid": "%s"}`, txns[0].txid)

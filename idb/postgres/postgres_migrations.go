@@ -226,7 +226,7 @@ func disabled(version string) func(db *IndexerDb, migrationState *MigrationState
 }
 
 // InnerTransactionChanges Change txnbytes/txid column constraint to drop NOT NULL.
-func InnerTransactionChanges(db * IndexerDb, migrationState *MigrationState) error {
+func InnerTransactionChanges(db *IndexerDb, migrationState *MigrationState) error {
 	return sqlMigration(db, migrationState, []string{
 		`ALTER TABLE txn MODIFY COLUMN txnbytes drop NOT NULL, MODIFY COLUMN txid drop NOT NULL`,
 	})
