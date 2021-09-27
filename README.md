@@ -214,6 +214,11 @@ If you wish to run multiple indexers on one server under systemd, see the commen
 
 Indexer v1 was built into the algod v1 REST API. It has been removed with the algod v2 REST API, all of the old functionality is now part of this project. The API endpoints, parameters, and response objects have all been modified and extended. Any projects depending on the old endpoints will need to be updated accordingly.
 
+# Unique Database Configurations 
+
+Load balancing: 
+If indexer is deployed in an environment such that the database is seating behind a load balancer and multiple transaction queries are initiated, it is unclear whether these queries will be handled by a master instance or a non-master instance. Due to the ambiguity behind the handler, users will need to retry their query to ensure that they are not retrieving stale data.
+
 # Building
 
 Indexer is built using an in-house task framework called [`mule`](https://pypi.org/project/mulecli/) (it has since been open-sourced).
