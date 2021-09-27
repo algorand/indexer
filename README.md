@@ -217,7 +217,7 @@ Indexer v1 was built into the algod v1 REST API. It has been removed with the al
 # Unique Database Configurations 
 
 Load balancing: 
-If indexer is deployed in an environment such that the database is sitting behind a load balancer and multiple transaction queries are initiated, it is unclear whether these queries will be handled by a master instance or a non-master instance. Due to the ambiguity behind the handler, users will need to retry their query to ensure that they are not retrieving stale data.
+If indexer is deployed with a clustered database using multiple readers behind a load balancer, query discrepancies are possible due to database replication lag. Users should check the `current-round` response field and be prepared to retry queries when stale data is detected.
 
 # Building
 
