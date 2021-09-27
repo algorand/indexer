@@ -2,6 +2,8 @@ package ledgerforevaluator_test
 
 import (
 	"context"
+	"fmt"
+	"math"
 	"testing"
 
 	"github.com/algorand/go-algorand/crypto"
@@ -123,6 +125,138 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	}
 	checkFunc(false)
 	checkFunc(true)
+}
+
+func insertAccountData(db *pgxpool.Pool, account basics.Address, createdat uint64, deleted bool, data basics.AccountData) error {
+	// This could be 'upsertAccountStmtName'
+	query :=
+		"INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, deleted, " +
+			"created_at, account_data) " +
+			"VALUES ($1, $2, $3, $4, $5, $6, $7)"
+	_, err := db.Exec(
+		context.Background(), query,
+		account[:], data.MicroAlgos.Raw, data.RewardsBase, data.RewardedMicroAlgos.Raw, deleted, createdat,
+		encoding.EncodeTrimmedAccountData(data))
+	return err
+}
+
+// TestLedgerForEvaluatorAccountTableBasicSingleAccount a table driven single account test.
+func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
+	tests := []struct {
+		name      string
+		createdAt uint64
+		deleted   bool
+		data      basics.AccountData
+		err       string
+	}{
+		{
+			name: "small balance",
+			data: basics.AccountData{
+				MicroAlgos: basics.MicroAlgos{Raw: 1},
+			},
+		},
+		{
+			name: "max balance",
+			data: basics.AccountData{
+				MicroAlgos: basics.MicroAlgos{Raw: math.MaxInt64},
+			},
+		},
+		{
+			name: "over max balance",
+			data: basics.AccountData{
+				MicroAlgos: basics.MicroAlgos{Raw: math.MaxUint64},
+			},
+			err: fmt.Sprintf("%d is greater than maximum value for Int8", uint64(math.MaxUint64)),
+		},
+		{
+			name:    "deleted",
+			deleted: true,
+			data: basics.AccountData{
+				MicroAlgos: basics.MicroAlgos{Raw: math.MaxInt64},
+			},
+		},
+	}
+
+	db, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	for i, testcase := range tests {
+		tc := testcase
+		var addr basics.Address
+		addr[0] = byte(i + 1)
+		t.Run(tc.name, func(t *testing.T) {
+			// when returns true, exit test
+			checkError := func(err error) bool {
+				if err != nil && tc.err != "" {
+					require.Contains(t, err.Error(), tc.err)
+					return true
+				}
+				require.NoError(t, err)
+				return false
+			}
+			// Add empty maps
+			if tc.data.AssetParams == nil {
+				tc.data.AssetParams = make(map[basics.AssetIndex]basics.AssetParams)
+			}
+			if tc.data.Assets == nil {
+				tc.data.Assets = make(map[basics.AssetIndex]basics.AssetHolding)
+			}
+			if tc.data.AppLocalStates == nil {
+				tc.data.AppLocalStates = make(map[basics.AppIndex]basics.AppLocalState)
+			}
+			if tc.data.AppParams == nil {
+				tc.data.AppParams = make(map[basics.AppIndex]basics.AppParams)
+			}
+
+			err := insertAccountData(db, addr, tc.createdAt, tc.deleted, tc.data)
+			if checkError(err) {
+				return
+			}
+
+			require.NoError(t, err)
+
+			tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
+			if checkError(err) {
+				return
+			}
+			require.NoError(t, err)
+			defer tx.Rollback(context.Background())
+
+			checkFunc := func(preload bool) {
+				l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+					tx, crypto.Digest{}, transactions.SpecialAddresses{})
+				if checkError(err) {
+					return
+				}
+				require.NoError(t, err)
+
+				if preload {
+					err := l.PreloadAccounts(map[basics.Address]struct{}{addr: {}})
+					if checkError(err) {
+						return
+					}
+					require.NoError(t, err)
+				}
+
+				accountDataRet, round, err := l.LookupWithoutRewards(7, addr)
+				if checkError(err) {
+					return
+				}
+				require.NoError(t, err)
+				l.Close()
+
+				assert.Equal(t, basics.Round(7), round)
+				// should be no result if deleted
+				if tc.deleted {
+					assert.Equal(t, basics.AccountData{}, accountDataRet)
+				} else {
+					assert.Equal(t, tc.data, accountDataRet)
+				}
+			}
+			checkFunc(false)
+			checkFunc(true)
+		})
+	}
 }
 
 func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
