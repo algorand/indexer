@@ -208,16 +208,17 @@ sudo systemctl start algorand-indexer
 ```
 
 If you wish to run multiple indexers on one server under systemd, see the comments in `/lib/systemd/system/algorand-indexer@.service` or [misc/systemd/algorand-indexer@.service](misc/systemd/algorand-indexer@.service)
-<!-- USAGE_END_MARKER_LINE -->
-
-# Migrating from Indexer v1
-
-Indexer v1 was built into the algod v1 REST API. It has been removed with the algod v2 REST API, all of the old functionality is now part of this project. The API endpoints, parameters, and response objects have all been modified and extended. Any projects depending on the old endpoints will need to be updated accordingly.
 
 # Unique Database Configurations 
 
 Load balancing: 
 If indexer is deployed with a clustered database using multiple readers behind a load balancer, query discrepancies are possible due to database replication lag. Users should check the `current-round` response field and be prepared to retry queries when stale data is detected.
+
+<!-- USAGE_END_MARKER_LINE -->
+
+# Migrating from Indexer v1
+
+Indexer v1 was built into the algod v1 REST API. It has been removed with the algod v2 REST API, all of the old functionality is now part of this project. The API endpoints, parameters, and response objects have all been modified and extended. Any projects depending on the old endpoints will need to be updated accordingly.
 
 # Building
 
