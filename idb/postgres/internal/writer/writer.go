@@ -244,7 +244,7 @@ func addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.Signe
 	return nil
 }
 
-func getTransactionParticipantsImpl(stxnad transactions.SignedTxnWithAD, add func(address basics.Address)) {
+func getTransactionParticipantsImpl(stxnad transactions.SignedTxnWithAD, includeInner bool, add func(address basics.Address)) {
 	txn := stxnad.Txn
 
 	add(txn.Sender)
@@ -255,16 +255,18 @@ func getTransactionParticipantsImpl(stxnad transactions.SignedTxnWithAD, add fun
 	add(txn.AssetCloseTo)
 	add(txn.FreezeAccount)
 
-	for _, inner := range stxnad.ApplyData.EvalDelta.InnerTxns {
-		getTransactionParticipantsImpl(inner, add)
+	if includeInner {
+		for _, inner := range stxnad.ApplyData.EvalDelta.InnerTxns {
+			getTransactionParticipantsImpl(inner, includeInner, add)
+		}
 	}
 }
 
 // getTransactionParticipants returns referenced addresses from the txn and all inner txns
-func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Address {
+func getTransactionParticipants(stxnad transactions.SignedTxnWithAD, includeInner bool) []basics.Address {
 	const acctsPerTxn = 7
 
-	if len(stxnad.ApplyData.EvalDelta.InnerTxns) == 0 {
+	if includeInner && len(stxnad.ApplyData.EvalDelta.InnerTxns) == 0 {
 		// if no inner transactions then adding into a slice with in-place de-duplication
 		res := make([]basics.Address, 0, acctsPerTxn)
 		add := func(address basics.Address) {
@@ -279,14 +281,17 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Ad
 			res = append(res, address)
 		}
 
-		getTransactionParticipantsImpl(stxnad, add)
+		getTransactionParticipantsImpl(stxnad, includeInner, add)
 		return res
 	}
 
 	// inner transactions might have inner transactions might have inner...
 	// so the resultant slice is created after collecting all the data from nested transactions.
 	// this is probably a bit slower than the default case due to two mem allocs and additional iterations
-	size := acctsPerTxn * (1 + len(stxnad.ApplyData.EvalDelta.InnerTxns)) // approx
+	size := acctsPerTxn
+	if includeInner {
+		size *= 1 + len(stxnad.ApplyData.EvalDelta.InnerTxns) // approx
+	}
 	participants := make(map[basics.Address]struct{}, size)
 	add := func(address basics.Address) {
 		if address.IsZero() {
@@ -295,7 +300,7 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Ad
 		participants[address] = struct{}{}
 	}
 
-	getTransactionParticipantsImpl(stxnad, add)
+	getTransactionParticipantsImpl(stxnad, includeInner, add)
 
 	res := make([]basics.Address, 0, len(participants))
 	for addr := range participants {
@@ -305,20 +310,34 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Ad
 	return res
 }
 
-func addTransactionParticipation(block *bookkeeping.Block, batch *pgx.Batch) error {
-	for i, stxnad := range block.Payset {
-		// TODO: replace with a function from go-algorand.
-		participants := getTransactionParticipants(stxnad.SignedTxnWithAD)
+func addInnerTransactionParticipation(stxnad transactions.SignedTxnWithAD, round, intra uint64, batch *pgx.Batch) uint64 {
+	finalIntra := intra
+	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
+		// Only search inner transactions by direct participation.
+		// TODO: Does this apply to inner app calls as well?
+		participants := getTransactionParticipants(itxn, false)
 
 		for j := range participants {
-			batch.Queue(addTxnParticipantStmtName, participants[j][:], uint64(block.Round()), i)
+			batch.Queue(addTxnParticipantStmtName, participants[j][:], round, finalIntra)
 		}
 
-		// TODO: iterate the inner transactions and add their participation as well
-		//       does this live in the modified txns?
+		finalIntra = addInnerTransactionParticipation(itxn, round, finalIntra + 1, batch)
 	}
+	return finalIntra
+}
 
-	return nil
+func addTransactionParticipation(block *bookkeeping.Block, batch *pgx.Batch) {
+	intra := uint64(0)
+	for _, stxnib := range block.Payset {
+		// TODO: replace with a function from go-algorand.
+		participants := getTransactionParticipants(stxnib.SignedTxnWithAD, true)
+
+		for j := range participants {
+			batch.Queue(addTxnParticipantStmtName, participants[j][:], uint64(block.Round()), intra)
+		}
+
+		intra = addInnerTransactionParticipation(stxnib.SignedTxnWithAD, uint64(block.Round()), intra + 1, batch)
+	}
 }
 
 func writeAccountData(round basics.Round, address basics.Address, accountData basics.AccountData, batch *pgx.Batch) {
@@ -457,10 +476,7 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
 	}
-	err = addTransactionParticipation(block, &batch)
-	if err != nil {
-		return fmt.Errorf("AddBlock() err: %w", err)
-	}
+	addTransactionParticipation(block, &batch)
 	writeStateDelta(block.Round(), delta, specialAddresses, &batch)
 	err = updateAccountSigType(block.Payset, &batch)
 	if err != nil {

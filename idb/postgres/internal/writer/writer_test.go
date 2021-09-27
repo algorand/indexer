@@ -50,7 +50,7 @@ type txnRow struct {
 	asset    int
 	txid     string
 	txnbytes []byte
-	txn      []byte
+	json     string
 	extra    string
 }
 
@@ -61,16 +61,45 @@ func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 	for rows.Next() {
 		var result txnRow
 		var txid []byte
+		var json []byte
 		err = rows.Scan(&result.round, &result.intra, &result.typeenum,
-			&result.asset, &txid, &result.txnbytes, &result.txn,
+			&result.asset, &txid, &result.txnbytes, &json,
 			&result.extra)
 		if err != nil {
 			return nil, err
 		}
 		result.txid = string(txid)
+		result.json = string(json)
+		results = append(results, result)
+	}
+	return results, rows.Err()
+}
+
+type txnParticipation struct {
+	addr  basics.Address
+	round int
+	intra int
+}
+
+func txnParticipationQuery(db *pgxpool.Pool, query string) ([]txnParticipation, error) {
+	var results []txnParticipation
+	rows, err := db.Query(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var result txnParticipation
+		var addr []byte
+		err = rows.Scan(&addr, &result.round, &result.intra)
+		if err != nil {
+			return nil, err
+		}
+		copy(result.addr[:], addr)
 		results = append(results, result)
 	}
 	return results, rows.Err()
@@ -352,37 +381,24 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
 
-	rows, err := db.Query(
-		context.Background(), "SELECT * FROM txn_participation ORDER BY round, intra, addr")
-	require.NoError(t, err)
+	results, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
+	assert.NoError(t, err)
+	assert.Len(t, results, 3)
 
-	var addr []byte
-	var round uint64
-	var intra uint64
+	// check address
+	assert.Equal(t, test.AccountA, results[0].addr)
+	assert.Equal(t, test.AccountB, results[1].addr)
+	assert.Equal(t, test.AccountC, results[2].addr)
 
-	require.True(t, rows.Next())
-	err = rows.Scan(&addr, &round, &intra)
-	require.NoError(t, err)
-	assert.Equal(t, test.AccountA[:], addr)
-	assert.Equal(t, uint64(2), round)
-	assert.Equal(t, uint64(0), intra)
+	// check round
+	assert.Equal(t, 2, results[0].round)
+	assert.Equal(t, 2, results[1].round)
+	assert.Equal(t, 2, results[2].round)
 
-	require.True(t, rows.Next())
-	err = rows.Scan(&addr, &round, &intra)
-	require.NoError(t, err)
-	assert.Equal(t, test.AccountB[:], addr)
-	assert.Equal(t, uint64(2), round)
-	assert.Equal(t, uint64(0), intra)
-
-	require.True(t, rows.Next())
-	err = rows.Scan(&addr, &round, &intra)
-	require.NoError(t, err)
-	assert.Equal(t, test.AccountC[:], addr)
-	assert.Equal(t, uint64(2), round)
-	assert.Equal(t, uint64(1), intra)
-
-	assert.False(t, rows.Next())
-	assert.NoError(t, rows.Err())
+	// check intra
+	assert.Equal(t, 0, results[0].intra)
+	assert.Equal(t, 0, results[1].intra)
+	assert.Equal(t, 1, results[2].intra)
 }
 
 // Create a new account and then delete it.
@@ -1345,7 +1361,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 
 	// Asset create call, should have intra = 3
 	assetCreate := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
+		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountD)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall, &assetCreate)
 	require.NoError(t, err)
@@ -1391,4 +1407,67 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
 	require.Equal(t, 4, txns[3].asset, "intra == 3 -> AssetID = 4")
+
+	// Verify txn participation
+	txnPart, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
+	require.NoError(t, err)
+
+	expectedParticipation := []txnParticipation {
+		// Top-level appl transaction + inner transactions
+		{
+			addr: appAddr,
+			round: 1,
+			intra: 0,
+		},
+		{
+			addr: test.AccountA,
+			round: 1,
+			intra: 0,
+		},
+		{
+			addr: test.AccountB,
+			round: 1,
+			intra: 0,
+		},
+		{
+			addr: test.AccountC,
+			round: 1,
+			intra: 0,
+		},
+		// Inner pay transaction
+		{
+			addr: appAddr,
+			round: 1,
+			intra: 1,
+		},
+		{
+			addr: test.AccountB,
+			round: 1,
+			intra: 1,
+		},
+		// Inner xfer transaction
+		{
+			addr: appAddr,
+			round: 1,
+			intra: 2,
+		},
+		{
+			addr: test.AccountC,
+			round: 1,
+			intra: 2,
+		},
+		// acfg after appl
+		{
+			addr: test.AccountD,
+			round: 1,
+			intra: 3,
+		},
+	}
+
+	require.Len(t, txnPart, len(expectedParticipation))
+	for i := 0; i < len(txnPart); i++ {
+		require.Equal(t, expectedParticipation[i].addr, txnPart[i].addr)
+		require.Equal(t, expectedParticipation[i].round, txnPart[i].round)
+		require.Equal(t, expectedParticipation[i].intra, txnPart[i].intra)
+	}
 }
