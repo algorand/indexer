@@ -174,29 +174,30 @@ func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *b
 	return assetid
 }
 
-func addInnerTransactions(block *bookkeeping.Block, intra uint64, stxnad transactions.SignedTxnWithAD, rootTxid string, batch *pgx.Batch) (uint64, error) {
-	txn := &stxnad.Txn
-	typeenum, ok := idb.GetTypeEnum(txn.Type)
-	if !ok {
-		return 0, fmt.Errorf("addInnerTransactions() get type enum")
-	}
-	assetid := transactionAssetID(stxnad, 0, nil)
-	extra := idb.TxnExtra{
-		AssetCloseAmount: stxnad.ApplyData.AssetClosingAmount,
-		RootTxid:         rootTxid,
-	}
-	batch.Queue(
-		addTxnStmtName,
-		uint64(block.Round()), intra, int(typeenum), assetid,
-		nil, // inner transactions do not have a txid.
-		nil, // txn bytes are only in the parent.
-		encoding.EncodeInnerSignedTxnWithAD(stxnad),
-		encoding.EncodeJSON(extra))
-
-	final := intra + 1
+func addInnerTransactions(stxnad transactions.SignedTxnWithAD, block *bookkeeping.Block, intra uint64, rootTxid string, batch *pgx.Batch) (uint64, error) {
+	final := intra
 	var err error
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
-		final, err = addInnerTransactions(block, final, itxn, rootTxid, batch)
+		txn := &itxn.Txn
+		typeenum, ok := idb.GetTypeEnum(txn.Type)
+		if !ok {
+			return 0, fmt.Errorf("addInnerTransactions() get type enum")
+		}
+		assetid := transactionAssetID(itxn, 0, nil)
+		extra := idb.TxnExtra{
+			AssetCloseAmount: itxn.ApplyData.AssetClosingAmount,
+			RootTxid:         rootTxid,
+		}
+		batch.Queue(
+			addTxnStmtName,
+			uint64(block.Round()), intra, int(typeenum), assetid,
+			nil, // inner transactions do not have a txid.
+			nil, // txn bytes are only in the parent.
+			encoding.EncodeInnerSignedTxnWithAD(itxn),
+			encoding.EncodeJSON(extra))
+
+		// Recurse at end for preorder traversal
+		final, err = addInnerTransactions(itxn, block, final + 1, rootTxid, batch)
 		if err != nil {
 			return 0, err
 		}
@@ -237,13 +238,7 @@ func addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.Signe
 			encoding.EncodeSignedTxnWithAD(stxnad),
 			encoding.EncodeJSON(extra))
 
-		intra++
-		for _, itxn := range modifiedTxns[idx].ApplyData.EvalDelta.InnerTxns {
-			intra, err = addInnerTransactions(block, intra, itxn, id, batch)
-			if err != nil {
-				return err
-			}
-		}
+		intra, err = addInnerTransactions(modifiedTxns[idx].SignedTxnWithAD, block, intra + 1, id, batch)
 	}
 
 	return nil
