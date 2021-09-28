@@ -170,9 +170,8 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
+	// `f` borrows `tx`.
 	f := func(tx pgx.Tx) error {
-		defer tx.Rollback(context.Background())
-
 		// Check and increment next round counter.
 		importstate, err := db.getImportState(context.Background(), tx)
 		if err != nil {
@@ -242,6 +241,18 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			}
 		}
 
+		return nil
+	}
+	// `ff` takes ownership of `tx`. We split functionality in two functions,
+	// `f` and `ff`, so that we can easily free the database resources once and only once
+	// using defer before committing the database transaction.
+	ff := func(tx pgx.Tx) error {
+		err := f(tx)
+		if err != nil {
+			tx.Rollback(context.Background())
+			return err
+		}
+
 		err = tx.Commit(context.Background())
 		if err != nil {
 			return fmt.Errorf("AddBlock() tx commit err: %w", err)
@@ -249,53 +260,68 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 
 		return nil
 	}
-	return db.txWithRetry(serializable, f)
+	return db.txWithRetry(serializable, ff)
 }
 
 // LoadGenesis is part of idb.IndexerDB
-func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) (err error) {
-	tx, err := db.db.BeginTx(context.Background(), serializable)
-	if err != nil {
-		return
-	}
-	defer tx.Rollback(context.Background()) // ignored if .Commit() first
-
-	setAccountStatementName := "set_account"
-	query := `INSERT INTO account (addr, microalgos, rewardsbase, account_data, rewards_total, created_at, deleted) VALUES ($1, $2, 0, $3, $4, 0, false)`
-	_, err = tx.Prepare(context.Background(), setAccountStatementName, query)
-	if err != nil {
-		return
-	}
-	defer tx.Conn().Deallocate(context.Background(), setAccountStatementName)
-
-	for ai, alloc := range genesis.Allocation {
-		addr, err := basics.UnmarshalChecksumAddress(alloc.Address)
+func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
+	// `f` borrows `tx`.
+	f := func(tx pgx.Tx) error {
+		setAccountStatementName := "set_account"
+		query := `INSERT INTO account (addr, microalgos, rewardsbase, account_data, rewards_total, created_at, deleted) VALUES ($1, $2, 0, $3, $4, 0, false)`
+		_, err := tx.Prepare(context.Background(), setAccountStatementName, query)
 		if err != nil {
-			return nil
+			return fmt.Errorf("LoadGenesis() prepare tx err: %w", err)
 		}
-		if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
-			return fmt.Errorf("genesis account[%d] has unhandled asset", ai)
+		defer tx.Conn().Deallocate(context.Background(), setAccountStatementName)
+
+		for ai, alloc := range genesis.Allocation {
+			addr, err := basics.UnmarshalChecksumAddress(alloc.Address)
+			if err != nil {
+				return fmt.Errorf("LoadGenesis() decode address err: %w", err)
+			}
+			if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
+				return fmt.Errorf("LoadGenesis() genesis account[%d] has unhandled asset", ai)
+			}
+			_, err = tx.Exec(
+				context.Background(), setAccountStatementName,
+				addr[:], alloc.State.MicroAlgos.Raw,
+				encoding.EncodeTrimmedAccountData(encoding.TrimAccountData(alloc.State)), 0)
+			if err != nil {
+				return fmt.Errorf("LoadGenesis() error setting genesis account[%d], %w", ai, err)
+			}
 		}
-		_, err = tx.Exec(
-			context.Background(), setAccountStatementName,
-			addr[:], alloc.State.MicroAlgos.Raw,
-			encoding.EncodeTrimmedAccountData(encoding.TrimAccountData(alloc.State)), 0)
+
+		nextRound := uint64(0)
+		importstate := importState{
+			NextRoundToAccount: &nextRound,
+		}
+		err = db.setImportState(tx, importstate)
 		if err != nil {
-			return fmt.Errorf("error setting genesis account[%d], %v", ai, err)
+			return fmt.Errorf("LoadGenesis() err: %w", err)
 		}
+
+		return nil
+	}
+	// `ff` takes ownership of `tx`. We split functionality in two functions,
+	// `f` and `ff`, so that we can easily free the database resources once and only once
+	// using defer before committing the database transaction.
+	ff := func(tx pgx.Tx) error {
+		err := f(tx)
+		if err != nil {
+			tx.Rollback(context.Background())
+			return err
+		}
+
+		err = tx.Commit(context.Background())
+		if err != nil {
+			return fmt.Errorf("LoadGenesis() commit tx err: %w", err)
+		}
+
+		return nil
 	}
 
-	nextRound := uint64(0)
-	importstate := importState{
-		NextRoundToAccount: &nextRound,
-	}
-	err = db.setImportState(tx, importstate)
-	if err != nil {
-		return
-	}
-
-	err = tx.Commit(context.Background())
-	return err
+	return db.txWithRetry(serializable, ff)
 }
 
 // Returns `idb.ErrorNotInitialized` if uninitialized.
