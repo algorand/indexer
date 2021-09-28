@@ -215,6 +215,7 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
+			defer ledgerForEval.Close()
 
 			err = ledgerForEval.PreloadAccounts(ledger.GetBlockAddresses(block))
 			if err != nil {
@@ -234,7 +235,6 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 				return fmt.Errorf("AddBlock() eval err: %w", err)
 			}
 			metrics.PostgresEvalTimeSeconds.Observe(time.Since(start).Seconds())
-			ledgerForEval.Close()
 
 			err = writer.AddBlock(block, modifiedTxns, delta)
 			if err != nil {
@@ -425,7 +425,6 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 		results := make([]idb.TxnRow, 0)
 		for txrow := range out {
 			results = append(results, txrow)
-			txrow.Next()
 		}
 		transactions = results
 	}

@@ -486,9 +486,11 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 	}
 
 	results := w.tx.SendBatch(context.Background(), &batch)
+	// Clean the results off the connection's queue. Without this, weird things happen.
 	for i := 0; i < batch.Len(); i++ {
 		_, err := results.Exec()
 		if err != nil {
+			results.Close()
 			return fmt.Errorf("AddBlock() exec err: %w", err)
 		}
 	}
