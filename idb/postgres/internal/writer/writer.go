@@ -139,8 +139,11 @@ func setSpecialAccounts(addresses transactions.SpecialAddresses, batch *pgx.Batc
 
 // Get the ID of the creatable referenced in the given transaction
 // (0 if not an asset or app transaction).
-// TODO: MaxInnerTransactions can be overridden to ensure we have ApplyData.{ApplicationID/ConfigAsset}
-//       With that intra / block would not be required in this function.
+// Note: ConsensusParams.MaxInnerTransactions could be overridden to force
+//       generating ApplyData.{ApplicationID/ConfigAsset}. This function does
+//       other things too, so it is not clear we should use it. The only
+//       real benefit is that it would slightly simplify this function by
+//       allowing us to leave out the intra / block parameters.
 func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *bookkeeping.Block) uint64 {
 	assetid := uint64(0)
 
@@ -314,7 +317,7 @@ func addInnerTransactionParticipation(stxnad transactions.SignedTxnWithAD, round
 	finalIntra := intra
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
 		// Only search inner transactions by direct participation.
-		// TODO: Does this apply to inner app calls as well?
+		// TODO: Should inner app calls be surfaced by their participants?
 		participants := getTransactionParticipants(itxn, false)
 
 		for j := range participants {
@@ -329,7 +332,6 @@ func addInnerTransactionParticipation(stxnad transactions.SignedTxnWithAD, round
 func addTransactionParticipation(block *bookkeeping.Block, batch *pgx.Batch) {
 	intra := uint64(0)
 	for _, stxnib := range block.Payset {
-		// TODO: replace with a function from go-algorand.
 		participants := getTransactionParticipants(stxnib.SignedTxnWithAD, true)
 
 		for j := range participants {
