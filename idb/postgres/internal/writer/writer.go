@@ -200,7 +200,7 @@ func addInnerTransactions(stxnad transactions.SignedTxnWithAD, block *bookkeepin
 			encoding.EncodeJSON(extra))
 
 		// Recurse at end for preorder traversal
-		final, err = addInnerTransactions(itxn, block, final + 1, rootTxid, batch)
+		final, err = addInnerTransactions(itxn, block, final+1, rootTxid, batch)
 		if err != nil {
 			return 0, err
 		}
@@ -241,7 +241,7 @@ func addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.Signe
 			encoding.EncodeSignedTxnWithAD(stxnad),
 			encoding.EncodeJSON(extra))
 
-		intra, err = addInnerTransactions(modifiedTxns[idx].SignedTxnWithAD, block, intra + 1, id, batch)
+		intra, err = addInnerTransactions(modifiedTxns[idx].SignedTxnWithAD, block, intra+1, id, batch)
 	}
 
 	return nil
@@ -324,7 +324,7 @@ func addInnerTransactionParticipation(stxnad transactions.SignedTxnWithAD, round
 			batch.Queue(addTxnParticipantStmtName, participants[j][:], round, finalIntra)
 		}
 
-		finalIntra = addInnerTransactionParticipation(itxn, round, finalIntra + 1, batch)
+		finalIntra = addInnerTransactionParticipation(itxn, round, finalIntra+1, batch)
 	}
 	return finalIntra
 }
@@ -338,7 +338,7 @@ func addTransactionParticipation(block *bookkeeping.Block, batch *pgx.Batch) {
 			batch.Queue(addTxnParticipantStmtName, participants[j][:], uint64(block.Round()), intra)
 		}
 
-		intra = addInnerTransactionParticipation(stxnib.SignedTxnWithAD, uint64(block.Round()), intra + 1, batch)
+		intra = addInnerTransactionParticipation(stxnib.SignedTxnWithAD, uint64(block.Round()), intra+1, batch)
 	}
 }
 

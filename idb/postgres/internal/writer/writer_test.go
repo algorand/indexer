@@ -385,7 +385,6 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 
 	results, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
 	assert.NoError(t, err)
- 	defer rows.Close()
 	assert.Len(t, results, 3)
 
 	// check address
@@ -1423,53 +1422,53 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	txnPart, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
 	require.NoError(t, err)
 
-	expectedParticipation := []txnParticipation {
+	expectedParticipation := []txnParticipation{
 		// Top-level appl transaction + inner transactions
 		{
-			addr: appAddr,
+			addr:  appAddr,
 			round: 1,
 			intra: 0,
 		},
 		{
-			addr: test.AccountA,
+			addr:  test.AccountA,
 			round: 1,
 			intra: 0,
 		},
 		{
-			addr: test.AccountB,
+			addr:  test.AccountB,
 			round: 1,
 			intra: 0,
 		},
 		{
-			addr: test.AccountC,
+			addr:  test.AccountC,
 			round: 1,
 			intra: 0,
 		},
 		// Inner pay transaction
 		{
-			addr: appAddr,
+			addr:  appAddr,
 			round: 1,
 			intra: 1,
 		},
 		{
-			addr: test.AccountB,
+			addr:  test.AccountB,
 			round: 1,
 			intra: 1,
 		},
 		// Inner xfer transaction
 		{
-			addr: appAddr,
+			addr:  appAddr,
 			round: 1,
 			intra: 2,
 		},
 		{
-			addr: test.AccountC,
+			addr:  test.AccountC,
 			round: 1,
 			intra: 2,
 		},
 		// acfg after appl
 		{
-			addr: test.AccountD,
+			addr:  test.AccountD,
 			round: 1,
 			intra: 3,
 		},
