@@ -111,10 +111,10 @@ type IndexerDb struct {
 
 // txWithRetry is a helper function that retries the function `f` in case the database
 // transaction in it fails due to a serialization error. `f` is provided
-// a transaction created using `opts`. `f` must either return an error or
-// call sql.Tx.Commit(). In the second case, `f` must return an error which contains the
+// a transaction created using `opts`. `f` should either return an error or
+// call sql.Tx.Commit(). In the second case, `f` should return an error that contains the
 // error returned by sql.Tx.Commit(). The easiest way is to just return the result of
-// sql.Tx.Commit().
+// sql.Tx.Commit(). If sql.Tx.Commit() is not called, results are rolled back.
 func (db *IndexerDb) txWithRetry(opts pgx.TxOptions, f func(pgx.Tx) error) error {
 	return pgutil.TxWithRetry(db.db, opts, f, db.log)
 }
