@@ -111,10 +111,10 @@ type IndexerDb struct {
 
 // txWithRetry is a helper function that retries the function `f` in case the database
 // transaction in it fails due to a serialization error. `f` is provided
-// a transaction created using `opts`. `f` takes ownership of the
-// transaction and must either call sql.Tx.Rollback() or sql.Tx.Commit(). In the second
-// case, `f` must return an error which contains the error returned by sql.Tx.Commit().
-// The easiest way is to just return the result of sql.Tx.Commit().
+// a transaction created using `opts`. `f` must either return an error or
+// call sql.Tx.Commit(). In the second case, `f` must return an error which contains the
+// error returned by sql.Tx.Commit(). The easiest way is to just return the result of
+// sql.Tx.Commit().
 func (db *IndexerDb) txWithRetry(opts pgx.TxOptions, f func(pgx.Tx) error) error {
 	return pgutil.TxWithRetry(db.db, opts, f, db.log)
 }
@@ -170,7 +170,6 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
-	// `f` borrows `tx`.
 	f := func(tx pgx.Tx) error {
 		// Check and increment next round counter.
 		importstate, err := db.getImportState(context.Background(), tx)
@@ -243,13 +242,12 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 
 		return nil
 	}
-	// `ff` takes ownership of `tx`. We split functionality in two functions,
-	// `f` and `ff`, so that we can easily free the database resources once and only once
-	// using defer before committing the database transaction.
+	// We split functionality in two functions, `f` and `ff`, so that we can easily free
+	// the database resources once and only once using defer before committing the database
+	// transaction.
 	ff := func(tx pgx.Tx) error {
 		err := f(tx)
 		if err != nil {
-			tx.Rollback(context.Background())
 			return err
 		}
 
@@ -265,7 +263,6 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 
 // LoadGenesis is part of idb.IndexerDB
 func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
-	// `f` borrows `tx`.
 	f := func(tx pgx.Tx) error {
 		setAccountStatementName := "set_account"
 		query := `INSERT INTO account (addr, microalgos, rewardsbase, account_data, rewards_total, created_at, deleted) VALUES ($1, $2, 0, $3, $4, 0, false)`
@@ -303,9 +300,9 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 
 		return nil
 	}
-	// `ff` takes ownership of `tx`. We split functionality in two functions,
-	// `f` and `ff`, so that we can easily free the database resources once and only once
-	// using defer before committing the database transaction.
+	// We split functionality in two functions, `f` and `ff`, so that we can easily free
+	// the database resources once and only once using defer before committing the database
+	// transaction.
 	ff := func(tx pgx.Tx) error {
 		err := f(tx)
 		if err != nil {
