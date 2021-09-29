@@ -200,7 +200,7 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 		if err != nil {
 			return fmt.Errorf("migration %d exec metastate err: %w", state.NextMigration, err)
 		}
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := db.txWithRetry(serializable, f)
 	if err != nil {

@@ -111,10 +111,9 @@ type IndexerDb struct {
 
 // txWithRetry is a helper function that retries the function `f` in case the database
 // transaction in it fails due to a serialization error. `f` is provided
-// a transaction created using `opts`. `f` should either return an error or
-// call sql.Tx.Commit(). In the second case, `f` should return an error that contains the
-// error returned by sql.Tx.Commit(). The easiest way is to just return the result of
-// sql.Tx.Commit(). If sql.Tx.Commit() is not called, results are rolled back.
+// a transaction created using `opts`. `f` should either return an error in which case
+// the transaction is rolled back and `TxWithRetry` terminates, or nil in which case
+// the transaction attempts to be committed.
 func (db *IndexerDb) txWithRetry(opts pgx.TxOptions, f func(pgx.Tx) error) error {
 	return pgutil.TxWithRetry(db.db, opts, f, db.log)
 }
@@ -242,23 +241,12 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 
 		return nil
 	}
-	// We split functionality in two functions, `f` and `ff`, so that we can easily free
-	// the database resources once and only once using defer before committing the database
-	// transaction.
-	ff := func(tx pgx.Tx) error {
-		err := f(tx)
-		if err != nil {
-			return err
-		}
-
-		err = tx.Commit(context.Background())
-		if err != nil {
-			return fmt.Errorf("AddBlock() tx commit err: %w", err)
-		}
-
-		return nil
+	err := db.txWithRetry(serializable, f)
+	if err != nil {
+		return fmt.Errorf("AddBlock() err: %w", err)
 	}
-	return db.txWithRetry(serializable, ff)
+
+	return nil
 }
 
 // LoadGenesis is part of idb.IndexerDB
@@ -300,25 +288,12 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 
 		return nil
 	}
-	// We split functionality in two functions, `f` and `ff`, so that we can easily free
-	// the database resources once and only once using defer before committing the database
-	// transaction.
-	ff := func(tx pgx.Tx) error {
-		err := f(tx)
-		if err != nil {
-			tx.Rollback(context.Background())
-			return err
-		}
-
-		err = tx.Commit(context.Background())
-		if err != nil {
-			return fmt.Errorf("LoadGenesis() commit tx err: %w", err)
-		}
-
-		return nil
+	err := db.txWithRetry(serializable, f)
+	if err != nil {
+		return fmt.Errorf("LoadGenesis() err: %w", err)
 	}
 
-	return db.txWithRetry(serializable, ff)
+	return nil
 }
 
 // Returns `idb.ErrorNotInitialized` if uninitialized.

@@ -123,7 +123,7 @@ func TestWriteReadAccountData(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := db.txWithRetry(serializable, f)
 	require.NoError(t, err)

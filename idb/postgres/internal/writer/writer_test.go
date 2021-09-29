@@ -93,7 +93,7 @@ func TestWriterBlockHeaderTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -131,7 +131,7 @@ func TestWriterSpecialAccounts(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -192,7 +192,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -278,7 +278,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -349,7 +349,7 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -427,7 +427,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -531,7 +531,7 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -607,7 +607,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -662,7 +662,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -751,7 +751,7 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -804,7 +804,7 @@ func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -846,7 +846,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -948,7 +948,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1009,7 +1009,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1111,7 +1111,7 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1172,7 +1172,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1266,7 +1266,7 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1335,7 +1335,7 @@ func TestWriterAddBlockTwice(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
@@ -1367,7 +1367,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	})
 	require.NoError(t, err)
 
