@@ -177,6 +177,9 @@ func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *b
 	return assetid
 }
 
+// addInnerTransactions traverses the inner transaction tree and adds them to
+// the transaction table. It performs a preorder traversal to correctly compute
+// the intra round offset, the offset for the next transaction is returned.
 func addInnerTransactions(stxnad transactions.SignedTxnWithAD, block *bookkeeping.Block, intra uint64, rootTxid string, batch *pgx.Batch) (uint64, error) {
 	final := intra
 	var err error
@@ -242,6 +245,9 @@ func addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.Signe
 			encoding.EncodeJSON(extra))
 
 		intra, err = addInnerTransactions(modifiedTxns[idx].SignedTxnWithAD, block, intra+1, id, batch)
+		if err != nil {
+			return fmt.Errorf("addTransactions() adding inner: %w", err)
+		}
 	}
 
 	return nil
@@ -269,7 +275,7 @@ func getTransactionParticipantsImpl(stxnad transactions.SignedTxnWithAD, include
 func getTransactionParticipants(stxnad transactions.SignedTxnWithAD, includeInner bool) []basics.Address {
 	const acctsPerTxn = 7
 
-	if includeInner && len(stxnad.ApplyData.EvalDelta.InnerTxns) == 0 {
+	if !includeInner || len(stxnad.ApplyData.EvalDelta.InnerTxns) == 0 {
 		// if no inner transactions then adding into a slice with in-place de-duplication
 		res := make([]basics.Address, 0, acctsPerTxn)
 		add := func(address basics.Address) {
@@ -291,10 +297,7 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD, includeInne
 	// inner transactions might have inner transactions might have inner...
 	// so the resultant slice is created after collecting all the data from nested transactions.
 	// this is probably a bit slower than the default case due to two mem allocs and additional iterations
-	size := acctsPerTxn
-	if includeInner {
-		size *= 1 + len(stxnad.ApplyData.EvalDelta.InnerTxns) // approx
-	}
+	size := acctsPerTxn * (1 + len(stxnad.ApplyData.EvalDelta.InnerTxns)) // approx
 	participants := make(map[basics.Address]struct{}, size)
 	add := func(address basics.Address) {
 		if address.IsZero() {
@@ -313,6 +316,10 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD, includeInne
 	return res
 }
 
+// addInnerTransactionParticipation traverses the inner transaction tree and
+// adds txn participation records for each. It performs a preorder traversal
+// to correctly compute the intra round offset, the offset for the next
+// transaction is returned.
 func addInnerTransactionParticipation(stxnad transactions.SignedTxnWithAD, round, intra uint64, batch *pgx.Batch) uint64 {
 	finalIntra := intra
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
