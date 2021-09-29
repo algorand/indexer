@@ -88,11 +88,11 @@ func TestWriterBlockHeaderTableBasic(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
@@ -126,11 +126,11 @@ func TestWriterSpecialAccounts(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
@@ -187,11 +187,11 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
@@ -273,11 +273,11 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
@@ -344,11 +344,11 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
@@ -422,11 +422,11 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
@@ -526,11 +526,11 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
@@ -602,11 +602,11 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
@@ -657,11 +657,11 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
@@ -746,11 +746,11 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
@@ -799,11 +799,11 @@ func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
@@ -841,11 +841,11 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
@@ -943,11 +943,11 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
@@ -1004,11 +1004,11 @@ func TestWriterAppTableBasic(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
@@ -1106,11 +1106,11 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
@@ -1167,11 +1167,11 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
@@ -1261,11 +1261,11 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, delta)
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
@@ -1330,11 +1330,11 @@ func TestWriterAddBlockTwice(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	}
 
@@ -1362,11 +1362,11 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	err = makeTx(db, func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
+		w.Close()
 		return tx.Commit(context.Background())
 	})
 	require.NoError(t, err)

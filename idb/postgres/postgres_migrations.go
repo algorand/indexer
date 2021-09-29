@@ -186,8 +186,6 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 	nextState.NextMigration++
 
 	f := func(tx pgx.Tx) error {
-		defer tx.Rollback(context.Background())
-
 		for _, cmd := range sqlLines {
 			_, err := tx.Exec(context.Background(), cmd)
 			if err != nil {
