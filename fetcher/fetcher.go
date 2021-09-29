@@ -100,12 +100,11 @@ func (bot *fetcherImpl) setError(err error) {
 
 func (bot *fetcherImpl) processQueue() {
 	for {
-		select {
-		case <-bot.ctx.Done():
+		block, ok := <-bot.blockQueue
+		if !ok {
 			return
-		case block := <-bot.blockQueue:
-			bot.handleBlock(block)
 		}
+		bot.handleBlock(block)
 	}
 }
 
@@ -190,6 +189,7 @@ func (bot *fetcherImpl) followLoop() {
 func (bot *fetcherImpl) Run() {
 	// In theory a buffer of size one should be enough, but let's make it bigger.
 	bot.blockQueue = make(chan *rpcs.EncodedBlockCert, 5)
+	defer close(bot.blockQueue)
 	go bot.processQueue()
 
 	for {
