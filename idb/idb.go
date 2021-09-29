@@ -61,7 +61,7 @@ func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
 // TxnExtra is some additional metadata needed for a transaction.
 type TxnExtra struct {
 	AssetCloseAmount uint64 `codec:"aca,omitempty"`
-	RootTxid         string `codec:"root-txid,omitempty"`
+	RootIntra        uint64 `codec:"root-intra,omitempty"`
 }
 
 // ErrorNotInitialized is used when requesting something that can't be returned

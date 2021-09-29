@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"math"
 	"sync"
 	"testing"
@@ -10,7 +11,9 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -20,6 +23,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
+	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -1487,4 +1491,77 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	assert.Equal(t, uint64(1), *localState.OptedInAtRound)
 	require.NotNil(t, localState.ClosedOutAtRound)
 	assert.Equal(t, uint64(1), *localState.ClosedOutAtRound)
+}
+
+// TestSearchForInnerTransactionReturnsRootTransaction checks that the parent
+// transaction with nested inner transactions are returned when
+func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
+	// Given: A DB with one transaction containing inner transactions [app -> pay -> xfer]
+	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+	indexer := setupIdbWithConnectionString(t, connStr, test.MakeGenesis(), test.MakeGenesisBlock())
+
+	var appAddr basics.Address
+	appAddr[1] = 99
+	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	require.NoError(t, err)
+
+	err = pgutil.TxWithRetry(db, serializable, func(tx pgx.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+		defer w.Close()
+
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		require.NoError(t, err)
+
+		return tx.Commit(context.Background())
+	}, nil)
+	require.NoError(t, err)
+
+	tests := []struct{
+		name string
+		filter idb.TransactionFilter
+	} {
+		{
+			name: "match on root",
+			filter: idb.TransactionFilter{ Address: appAddr[:], TypeEnum: idb.TypeEnumApplication },
+		},
+		{
+			name: "match on inner",
+			filter: idb.TransactionFilter{ Address: appAddr[:], TypeEnum: idb.TypeEnumPay },
+		},
+		{
+			name: "match on inner-inner",
+			filter: idb.TransactionFilter{ Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer },
+		},
+		{
+			name: "match all",
+			filter: idb.TransactionFilter{ Address: appAddr[:] },
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			// When: searching for a transaction that matches part of the transaction.
+			results, _ := indexer.Transactions(context.Background(), tc.filter)
+
+			// Then: only the root transaction should be returned.
+			num := 0
+			for result := range results {
+				num++
+				require.NoError(t, result.Error)
+				if result.TxnBytes != nil {
+					var stxn transactions.SignedTxnWithAD
+					err := protocol.Decode(result.TxnBytes, &stxn)
+					require.NoError(t, err)
+				} else {
+					fmt.Printf("nil txn bytes...")
+				}
+			}
+			require.Equal(t, 1, num, "we only expect one result.")
+		})
+	}
 }
