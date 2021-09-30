@@ -19,14 +19,14 @@ func (gp StructProcessor) ProcessAddress(algodData, indexerData []byte) (Result,
 	var indexerResponse generated.AccountResponse
 	err := json.Unmarshal(indexerData, &indexerResponse)
 	if err != nil {
-		return Result{}, fmt.Errorf("unable to parse indexer data: %v", err)
+		return Result{}, fmt.Errorf("unable to parse indexer data ('%s'): %v", string(indexerData), err)
 	}
 
 	indexerAcct := indexerResponse.Account
 	var algodAcct generated.Account
 	err = json.Unmarshal(algodData, &algodAcct)
 	if err != nil {
-		return Result{}, fmt.Errorf("unable to parse algod data: %v", err)
+		return Result{}, fmt.Errorf("unable to parse algod data ('%s'): %v", string(algodData), err)
 	}
 
 	differences := equals(indexerAcct, algodAcct)
