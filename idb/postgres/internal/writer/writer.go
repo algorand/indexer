@@ -194,12 +194,15 @@ func addInnerTransactions(stxnad *transactions.SignedTxnWithAD, block *bookkeepi
 			AssetCloseAmount: itxn.ApplyData.AssetClosingAmount,
 			RootTxid:         rootTxid,
 		}
+
+		txnNoInner := *stxnad
+		txnNoInner.EvalDelta.InnerTxns = nil
 		batch.Queue(
 			addTxnStmtName,
 			uint64(block.Round()), intra, int(typeenum), assetid,
 			nil, // inner transactions do not have a txid.
 			nil, // txn bytes are only in the parent.
-			encoding.EncodeInnerSignedTxnWithAD(itxn),
+			encoding.EncodeSignedTxnWithAD(txnNoInner),
 			encoding.EncodeJSON(extra))
 
 		// Recurse at end for preorder traversal

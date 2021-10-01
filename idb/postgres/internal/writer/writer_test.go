@@ -1409,10 +1409,13 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	require.Len(t, txns[1].txnbytes, 0)
 	require.Equal(t, "", txns[1].txid)
 	require.Equal(t, expectedExtra, txns[1].extra)
+	require.NotContains(t, txns[1].json, "itx", "The inner transactions should be pruned.")
+
 	// Inner xfer
 	require.Len(t, txns[2].txnbytes, 0)
 	require.Equal(t, "", txns[2].txid)
 	require.Equal(t, expectedExtra, txns[2].extra)
+	require.NotContains(t, txns[2].json, "itx", "The inner transactions should be pruned.")
 
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")

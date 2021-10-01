@@ -158,18 +158,6 @@ func EncodeSignedTxnWithAD(stxn transactions.SignedTxnWithAD) []byte {
 	return EncodeJSON(convertSignedTxnWithAD(stxn))
 }
 
-func convertInnerSignedTxnWithAD(stxn transactions.SignedTxnWithAD) signedTxnWithAD {
-	stxn.ApplyData.EvalDelta.InnerTxns = nil
-	return convertSignedTxnWithAD(stxn)
-}
-
-// EncodeInnerSignedTxnWithAD encodes signed transaction with apply data into json.
-// When encoding an inner transaction any further nested inner transactions are
-// removed. To reconstruct the full object the root transaction must be fetched.
-func EncodeInnerSignedTxnWithAD(stxn transactions.SignedTxnWithAD) []byte {
-	return EncodeJSON(convertInnerSignedTxnWithAD(stxn))
-}
-
 // TrimAccountData deletes various information from account data that we do not write to
 // `account.account_data`.
 func TrimAccountData(ad basics.AccountData) basics.AccountData {
