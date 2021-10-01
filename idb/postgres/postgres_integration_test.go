@@ -818,6 +818,7 @@ func TestAppExtraPages(t *testing.T) {
 	// Create an app.
 
 	// Create a transaction with ExtraProgramPages field set to 1
+	const extraPages = 1
 	txn := transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -829,7 +830,7 @@ func TestAppExtraPages(t *testing.T) {
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
 					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-					ExtraProgramPages: 1,
+					ExtraProgramPages: extraPages,
 				},
 			},
 			Sig: test.Signature,
@@ -870,13 +871,21 @@ func TestAppExtraPages(t *testing.T) {
 
 	rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:]})
 	num = 0
+	var createdApps *[]generated.Application
 	for row := range rows {
 		require.NoError(t, row.Error)
 		num++
 		require.NotNil(t, row.Account.AppsTotalExtraPages, "we should have this field")
 		require.Equal(t, uint64(1), *row.Account.AppsTotalExtraPages)
+		createdApps = row.Account.CreatedApps
 	}
 	require.Equal(t, 1, num)
+
+	require.NotNil(t, createdApps)
+	require.Equal(t, 1, len(*createdApps))
+	app := (*createdApps)[0]
+	require.NotNil(t, app.Params.ExtraProgramPages)
+	require.Equal(t, uint64(extraPages), *app.Params.ExtraProgramPages)
 }
 
 func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype *string) {

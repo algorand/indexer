@@ -1255,6 +1255,10 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						NumByteSlice: apps[i].LocalStateSchema.NumByteSlice,
 						NumUint:      apps[i].LocalStateSchema.NumUint,
 					}
+					if apps[i].ExtraProgramPages > 0 {
+						epp := uint64(apps[i].ExtraProgramPages)
+						aout[outpos].Params.ExtraProgramPages = &epp
+					}
 				}
 				if aout[outpos].Deleted == nil || !*aout[outpos].Deleted {
 					totalSchema.NumByteSlice += apps[i].GlobalStateSchema.NumByteSlice
