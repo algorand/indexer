@@ -117,6 +117,8 @@ func (bot *fetcherImpl) catchupLoop() {
 			bot.log.WithError(err).Errorf("err handling catchup block %d", bot.nextRound)
 			return
 		}
+		// If we successfully handle the block, clear out any transient error which may have occurred.
+		bot.setError(nil)
 		bot.nextRound++
 		bot.failingSince = time.Time{}
 	}
