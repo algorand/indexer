@@ -14,6 +14,7 @@ import (
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
+	"github.com/algorand/indexer/idb/postgres/internal/types"
 )
 
 func init() {
@@ -47,23 +48,8 @@ func init() {
 	}
 }
 
-// MigrationState is metadata used by the postgres migrations.
-type MigrationState struct {
-	NextMigration int `json:"next"`
-
-	// The following are deprecated.
-	NextRound    int64  `json:"round,omitempty"`
-	NextAssetID  int64  `json:"assetid,omitempty"`
-	PointerRound *int64 `json:"pointerRound,omitempty"`
-	PointerIntra *int64 `json:"pointerIntra,omitempty"`
-
-	// Note: a generic "data" field here could be a good way to deal with this growing over time.
-	//       It would require a mechanism to clear the data field between migrations to avoid using migration data
-	//       from the previous migration.
-}
-
 // A migration function should take care of writing back to metastate migration row
-type postgresMigrationFunc func(*IndexerDb, *MigrationState) error
+type postgresMigrationFunc func(*IndexerDb, *types.MigrationState) error
 
 type migrationStruct struct {
 	migrate postgresMigrationFunc
@@ -76,14 +62,14 @@ type migrationStruct struct {
 
 var migrations []migrationStruct
 
-func wrapPostgresHandler(handler postgresMigrationFunc, db *IndexerDb, state *MigrationState) migration.Handler {
+func wrapPostgresHandler(handler postgresMigrationFunc, db *IndexerDb, state *types.MigrationState) migration.Handler {
 	return func() error {
 		return handler(db, state)
 	}
 }
 
 // migrationStateBlocked returns true if a migration is required for running in read only mode.
-func migrationStateBlocked(state MigrationState) bool {
+func migrationStateBlocked(state types.MigrationState) bool {
 	for i := state.NextMigration; i < len(migrations); i++ {
 		if migrations[i].blocking {
 			return true
@@ -93,7 +79,7 @@ func migrationStateBlocked(state MigrationState) bool {
 }
 
 // needsMigration returns true if there is an incomplete migration.
-func needsMigration(state MigrationState) bool {
+func needsMigration(state types.MigrationState) bool {
 	return state.NextMigration < len(migrations)
 }
 
@@ -101,8 +87,8 @@ func needsMigration(state MigrationState) bool {
 // the next counter with an existing transaction.
 // If `tx` is nil, use a normal query.
 //lint:ignore U1000 this function might be used in a future migration
-func upsertMigrationState(db *IndexerDb, tx pgx.Tx, state *MigrationState) error {
-	migrationStateJSON := encoding.EncodeJSON(state)
+func upsertMigrationState(db *IndexerDb, tx pgx.Tx, state *types.MigrationState) error {
+	migrationStateJSON := encoding.EncodeMigrationState(state)
 	return db.setMetastate(tx, schema.MigrationMetastateKey, string(migrationStateJSON))
 }
 
@@ -111,7 +97,7 @@ func upsertMigrationState(db *IndexerDb, tx pgx.Tx, state *MigrationState) error
 func (db *IndexerDb) runAvailableMigrations() (chan struct{}, error) {
 	state, err := db.getMigrationState()
 	if err == idb.ErrorNotInitialized {
-		state = MigrationState{}
+		state = types.MigrationState{}
 	} else if err != nil {
 		return nil, fmt.Errorf("runAvailableMigrations() err: %w", err)
 	}
@@ -151,26 +137,25 @@ func (db *IndexerDb) runAvailableMigrations() (chan struct{}, error) {
 
 // after setting up a new database, mark state as if all migrations had been done
 func (db *IndexerDb) markMigrationsAsDone() (err error) {
-	state := MigrationState{
+	state := types.MigrationState{
 		NextMigration: len(migrations),
 	}
-	migrationStateJSON := encoding.EncodeJSON(state)
+	migrationStateJSON := encoding.EncodeMigrationState(&state)
 	return db.setMetastate(nil, schema.MigrationMetastateKey, string(migrationStateJSON))
 }
 
 // Returns `idb.ErrorNotInitialized` if uninitialized.
-func (db *IndexerDb) getMigrationState() (MigrationState, error) {
+func (db *IndexerDb) getMigrationState() (types.MigrationState, error) {
 	migrationStateJSON, err := db.getMetastate(context.Background(), nil, schema.MigrationMetastateKey)
 	if err == idb.ErrorNotInitialized {
-		return MigrationState{}, idb.ErrorNotInitialized
+		return types.MigrationState{}, idb.ErrorNotInitialized
 	} else if err != nil {
-		return MigrationState{}, fmt.Errorf("getMigrationState() get state err: %w", err)
+		return types.MigrationState{}, fmt.Errorf("getMigrationState() get state err: %w", err)
 	}
 
-	var state MigrationState
-	err = encoding.DecodeJSON([]byte(migrationStateJSON), &state)
+	state, err := encoding.DecodeMigrationState([]byte(migrationStateJSON))
 	if err != nil {
-		return MigrationState{}, fmt.Errorf("getMigrationState() decode state err: %w", err)
+		return types.MigrationState{}, fmt.Errorf("getMigrationState() decode state err: %w", err)
 	}
 
 	return state, nil
@@ -178,7 +163,7 @@ func (db *IndexerDb) getMigrationState() (MigrationState, error) {
 
 // sqlMigration executes a sql statements as the entire migration.
 //lint:ignore U1000 this function might be used in a future migration
-func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error {
+func sqlMigration(db *IndexerDb, state *types.MigrationState, sqlLines []string) error {
 	db.accountingLock.Lock()
 	defer db.accountingLock.Unlock()
 
@@ -193,7 +178,7 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 					"migration %d exec cmd: \"%s\" err: %w", state.NextMigration, cmd, err)
 			}
 		}
-		migrationStateJSON := encoding.EncodeJSON(nextState)
+		migrationStateJSON := encoding.EncodeMigrationState(&nextState)
 		_, err := tx.Exec(
 			context.Background(), setMetastateUpsert, schema.MigrationMetastateKey,
 			migrationStateJSON)
@@ -214,8 +199,8 @@ func sqlMigration(db *IndexerDb, state *MigrationState, sqlLines []string) error
 const unsupportedMigrationErrorMsg = "unsupported migration: please downgrade to %s to run this migration"
 
 // disabled creates a simple migration handler for unsupported migrations.
-func disabled(version string) func(db *IndexerDb, migrationState *MigrationState) error {
-	return func(_ *IndexerDb, _ *MigrationState) error {
+func disabled(version string) func(db *IndexerDb, migrationState *types.MigrationState) error {
+	return func(_ *IndexerDb, _ *types.MigrationState) error {
 		return fmt.Errorf(unsupportedMigrationErrorMsg, version)
 	}
 }

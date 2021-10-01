@@ -302,8 +302,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	{
 		expected := idb.TxnExtra{AssetCloseAmount: 3}
 
-		var actual idb.TxnExtra
-		err := encoding.DecodeJSON(extra, &actual)
+		actual, err := encoding.DecodeTxnExtra(extra)
 		require.NoError(t, err)
 
 		assert.Equal(t, expected, actual)
