@@ -195,6 +195,8 @@ func addInnerTransactions(stxnad *transactions.SignedTxnWithAD, block *bookkeepi
 			RootTxid:         rootTxid,
 		}
 
+		// When encoding an inner transaction we remove any further nested inner transactions.
+		// To reconstruct a full object the root transaction must be fetched.
 		txnNoInner := *stxnad
 		txnNoInner.EvalDelta.InnerTxns = nil
 		batch.Queue(
