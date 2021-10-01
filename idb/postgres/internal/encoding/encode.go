@@ -9,13 +9,15 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-codec/codec"
 
+	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/postgres/internal/types"
 	"github.com/algorand/indexer/util"
 )
 
 var jsonCodecHandle *codec.JsonHandle
 
-// EncodeJSON converts an object into JSON
-func EncodeJSON(obj interface{}) []byte {
+// encodeJSON converts an object into JSON
+func encodeJSON(obj interface{}) []byte {
 	var buf []byte
 	enc := codec.NewEncoderBytes(&buf, jsonCodecHandle)
 	enc.MustEncode(obj)
@@ -38,7 +40,7 @@ func convertBlockHeader(header bookkeeping.BlockHeader) blockHeader {
 
 // EncodeBlockHeader encodes block header into json.
 func EncodeBlockHeader(header bookkeeping.BlockHeader) []byte {
-	return EncodeJSON(convertBlockHeader(header))
+	return encodeJSON(convertBlockHeader(header))
 }
 
 func convertAssetParams(params basics.AssetParams) assetParams {
@@ -74,7 +76,7 @@ func convertAssetParams(params basics.AssetParams) assetParams {
 
 // EncodeAssetParams encodes asset params into json.
 func EncodeAssetParams(params basics.AssetParams) []byte {
-	return EncodeJSON(convertAssetParams(params))
+	return encodeJSON(convertAssetParams(params))
 }
 
 func convertAccounts(accounts []basics.Address) []crypto.Digest {
@@ -155,7 +157,7 @@ func convertSignedTxnWithAD(stxn transactions.SignedTxnWithAD) signedTxnWithAD {
 
 // EncodeSignedTxnWithAD encodes signed transaction with apply data into json.
 func EncodeSignedTxnWithAD(stxn transactions.SignedTxnWithAD) []byte {
-	return EncodeJSON(convertSignedTxnWithAD(stxn))
+	return encodeJSON(convertSignedTxnWithAD(stxn))
 }
 
 // TrimAccountData deletes various information from account data that we do not write to
@@ -183,7 +185,7 @@ func convertTrimmedAccountData(ad basics.AccountData) trimmedAccountData {
 
 // EncodeTrimmedAccountData encodes account data into json.
 func EncodeTrimmedAccountData(ad basics.AccountData) []byte {
-	return EncodeJSON(convertTrimmedAccountData(ad))
+	return encodeJSON(convertTrimmedAccountData(ad))
 }
 
 func convertTealValue(tv basics.TealValue) tealValue {
@@ -218,7 +220,7 @@ func convertAppLocalState(state basics.AppLocalState) appLocalState {
 
 // EncodeAppLocalState encodes local application state into json.
 func EncodeAppLocalState(state basics.AppLocalState) []byte {
-	return EncodeJSON(convertAppLocalState(state))
+	return encodeJSON(convertAppLocalState(state))
 }
 
 func convertAppParams(params basics.AppParams) appParams {
@@ -230,7 +232,7 @@ func convertAppParams(params basics.AppParams) appParams {
 
 // EncodeAppParams encodes application params into json.
 func EncodeAppParams(params basics.AppParams) []byte {
-	return EncodeJSON(convertAppParams(params))
+	return encodeJSON(convertAppParams(params))
 }
 
 func convertSpecialAddresses(special transactions.SpecialAddresses) specialAddresses {
@@ -243,7 +245,22 @@ func convertSpecialAddresses(special transactions.SpecialAddresses) specialAddre
 
 // EncodeSpecialAddresses encodes special addresses (sink and rewards pool) into json.
 func EncodeSpecialAddresses(special transactions.SpecialAddresses) []byte {
-	return EncodeJSON(convertSpecialAddresses(special))
+	return encodeJSON(convertSpecialAddresses(special))
+}
+
+// EncodeTxnExtra encodes transaction extra info into json.
+func EncodeTxnExtra(extra *idb.TxnExtra) []byte {
+	return encodeJSON(extra)
+}
+
+// EncodeImportState encodes import state into json.
+func EncodeImportState(state *types.ImportState) []byte {
+	return encodeJSON(state)
+}
+
+// EncodeMigrationState encodes migration state into json.
+func EncodeMigrationState(state *types.MigrationState) []byte {
+	return encodeJSON(state)
 }
 
 func init() {

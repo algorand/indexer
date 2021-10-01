@@ -851,8 +851,7 @@ func TestAppExtraPages(t *testing.T) {
 	require.NoError(t, err)
 	require.NotZero(t, index)
 
-	var ap basics.AppParams
-	err = encoding.DecodeJSON(paramsStr, &ap)
+	ap, err := encoding.DecodeAppParams(paramsStr)
 	require.NoError(t, err)
 	require.Equal(t, uint32(1), ap.ExtraProgramPages)
 

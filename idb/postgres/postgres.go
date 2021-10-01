@@ -30,16 +30,12 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	ledger_for_evaluator "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
+	"github.com/algorand/indexer/idb/postgres/internal/types"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
 )
-
-type importState struct {
-	// Next round to account.
-	NextRoundToAccount *uint64 `codec:"next_account_round"`
-}
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
 var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
@@ -184,7 +180,7 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 				block.Round(), *importstate.NextRoundToAccount)
 		}
 		*importstate.NextRoundToAccount++
-		err = db.setImportState(tx, importstate)
+		err = db.setImportState(tx, &importstate)
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
@@ -278,10 +274,10 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 		}
 
 		nextRound := uint64(0)
-		importstate := importState{
+		importstate := types.ImportState{
 			NextRoundToAccount: &nextRound,
 		}
-		err = db.setImportState(tx, importstate)
+		err = db.setImportState(tx, &importstate)
 		if err != nil {
 			return fmt.Errorf("LoadGenesis() err: %w", err)
 		}
@@ -316,23 +312,22 @@ func (db *IndexerDb) setMetastate(tx pgx.Tx, key, jsonStrValue string) (err erro
 
 // Returns idb.ErrorNotInitialized if uninitialized.
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) getImportState(ctx context.Context, tx pgx.Tx) (importState, error) {
+func (db *IndexerDb) getImportState(ctx context.Context, tx pgx.Tx) (types.ImportState, error) {
 	importStateJSON, err := db.getMetastate(ctx, tx, schema.StateMetastateKey)
 	if err == idb.ErrorNotInitialized {
-		return importState{}, idb.ErrorNotInitialized
+		return types.ImportState{}, idb.ErrorNotInitialized
 	}
 	if err != nil {
-		return importState{}, fmt.Errorf("unable to get import state err: %w", err)
+		return types.ImportState{}, fmt.Errorf("unable to get import state err: %w", err)
 	}
 
 	if importStateJSON == "" {
-		return importState{}, idb.ErrorNotInitialized
+		return types.ImportState{}, idb.ErrorNotInitialized
 	}
 
-	var state importState
-	err = encoding.DecodeJSON([]byte(importStateJSON), &state)
+	state, err := encoding.DecodeImportState([]byte(importStateJSON))
 	if err != nil {
-		return importState{},
+		return types.ImportState{},
 			fmt.Errorf("unable to parse import state v: \"%s\" err: %w", importStateJSON, err)
 	}
 
@@ -340,9 +335,9 @@ func (db *IndexerDb) getImportState(ctx context.Context, tx pgx.Tx) (importState
 }
 
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) setImportState(tx pgx.Tx, state importState) error {
+func (db *IndexerDb) setImportState(tx pgx.Tx, state *types.ImportState) error {
 	return db.setMetastate(
-		tx, schema.StateMetastateKey, string(encoding.EncodeJSON(state)))
+		tx, schema.StateMetastateKey, string(encoding.EncodeImportState(state)))
 }
 
 // Returns ErrorNotInitialized if genesis is not loaded.
@@ -770,7 +765,7 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, r
 			row.RoundTime = roundtime
 			row.AssetID = asset
 			if len(extraJSON) > 0 {
-				err = encoding.DecodeJSON(extraJSON, &row.Extra)
+				row.Extra, err = encoding.DecodeTxnExtra(extraJSON)
 				if err != nil {
 					row.Error = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
 				}

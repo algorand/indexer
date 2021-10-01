@@ -209,7 +209,7 @@ func addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.Signe
 			uint64(block.Round()), intra, int(typeenum), assetid, id,
 			protocol.Encode(&stxnad),
 			encoding.EncodeSignedTxnWithAD(stxnad),
-			encoding.EncodeJSON(extra))
+			encoding.EncodeTxnExtra(&extra))
 
 		intra += countTxns(modifiedTxns[idx].SignedTxnWithAD)
 	}
