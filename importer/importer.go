@@ -44,6 +44,24 @@ func (imp *dbImporter) ImportBlock(blockbytes []byte) (txCount int, err error) {
 	return imp.ImportDecodedBlock(&blockContainer)
 }
 
+func countInnerAndAddParticipation(stxns []types.SignedTxnWithAD, participants [][]byte) (int, [][]byte) {
+	num := 0
+	for _, stxn := range stxns {
+		participants = participate(participants, stxn.Txn.Sender[:])
+		participants = participate(participants, stxn.Txn.Receiver[:])
+		participants = participate(participants, stxn.Txn.CloseRemainderTo[:])
+		participants = participate(participants, stxn.Txn.AssetSender[:])
+		participants = participate(participants, stxn.Txn.AssetReceiver[:])
+		participants = participate(participants, stxn.Txn.AssetCloseTo[:])
+		participants = participate(participants, stxn.Txn.FreezeAccount[:])
+		num++
+		var tempNum int
+		tempNum, participants = countInnerAndAddParticipation(stxn.EvalDelta.InnerTxns, participants)
+		num += tempNum
+	}
+	return num, participants
+}
+
 // ImportBlock processes a block and adds it to the IndexerDb
 func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert) (txCount int, err error) {
 	txCount = 0
@@ -57,8 +75,9 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 	}
 	block := blockContainer.Block
 	round := uint64(block.Round)
-	for intra := range block.Payset {
-		stxn := &block.Payset[intra]
+	intra := 0
+	for i := range block.Payset {
+		stxn := &block.Payset[i]
 		txtypeenum, ok := idb.GetTypeEnum(stxn.Txn.Type)
 		if !ok {
 			return txCount,
@@ -69,6 +88,9 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		case 3:
 			assetid = uint64(stxn.Txn.ConfigAsset)
 			if assetid == 0 {
+				assetid = uint64(stxn.ApplyData.ConfigAsset)
+			}
+			if assetid == 0 {
 				assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 			}
 		case 4:
@@ -77,6 +99,9 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 			assetid = uint64(stxn.Txn.FreezeAsset)
 		case 6:
 			assetid = uint64(stxn.Txn.ApplicationID)
+			if assetid == 0 {
+				assetid = uint64(stxn.ApplyData.ApplicationID)
+			}
 			if assetid == 0 {
 				assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 			}
@@ -96,11 +121,17 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		participants = participate(participants, stxn.Txn.AssetReceiver[:])
 		participants = participate(participants, stxn.Txn.AssetCloseTo[:])
 		participants = participate(participants, stxn.Txn.FreezeAccount[:])
+
+		// Increment intra to allow upgrading directly to 2.7.2
+		var innerCount int
+		innerCount, participants = countInnerAndAddParticipation(stxn.EvalDelta.InnerTxns, participants)
 		err = imp.db.AddTransaction(
 			round, intra, int(txtypeenum), assetid, stxnad, participants)
 		if err != nil {
 			return txCount, fmt.Errorf("error importing txn r=%d i=%d, %v", round, intra, err)
 		}
+
+		intra += 1 + innerCount
 		txCount++
 	}
 	blockheaderBytes := msgpack.Encode(block.BlockHeader)

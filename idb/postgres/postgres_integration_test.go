@@ -1313,3 +1313,78 @@ func TestReconfigAsset(t *testing.T) {
 	}
 	require.Equal(t, 1, num)
 }
+
+// Test that block import adds accounts from inner txns to txn_participation.
+func TestInnerTxnParticipation(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing an app call txn with inners
+	///////////
+	createApp, _ := test.MakeCreateAppTxn(test.Round, test.AccountA)
+	// The pay txn should verify intra increments for inner transactions.
+	pay, _ := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountC,
+		test.AccountA, sdk_types.ZeroAddress, test.AccountB)
+
+	block := test.MakeBlockForTxns(test.Round, createApp, pay)
+
+	// Add directly to the block to avoid converting sdk_types.ApplyData and types.ApplyData
+	block.Block.Payset[0].ApplyData.EvalDelta.InnerTxns = []types.SignedTxnWithAD{{
+		SignedTxn: sdk_types.SignedTxn{
+			Txn: sdk_types.Transaction{
+				Type: sdk_types.PaymentTx,
+				PaymentTxnFields: sdk_types.PaymentTxnFields{
+					Receiver: test.AccountB,
+					Amount:   sdk_types.MicroAlgos(123),
+				},
+			},
+		},
+		// also add a fake second-level ApplyData to ensure the recursive part works
+		ApplyData: types.ApplyData{
+			EvalDelta: types.EvalDelta{
+				InnerTxns: []types.SignedTxnWithAD{{
+					SignedTxn: sdk_types.SignedTxn{
+						Txn: sdk_types.Transaction{
+							Type: sdk_types.AssetTransferTx,
+							AssetTransferTxnFields: sdk_types.AssetTransferTxnFields{
+								AssetReceiver: test.AccountC,
+								AssetAmount:   456,
+							},
+						},
+					},
+				}},
+			},
+		},
+	}}
+
+	//////////
+	// When // We import the transaction.
+	//////////
+	_, err := importer.NewDBImporter(db).ImportDecodedBlock(&block)
+	require.NoError(t, err)
+
+	//////////
+	// Then // Both accounts should have an entry in the txn_participation table.
+	//////////
+	query :=
+		"SELECT COUNT(*) FROM txn_participation WHERE addr = $1 AND round = $2 AND " +
+			"intra = $3"
+
+	// B and C are the inner transactions, added to the root transaction
+	acctACount := queryInt(db.db, query, test.AccountA[:], test.Round, 0)
+	acctBCount := queryInt(db.db, query, test.AccountB[:], test.Round, 0)
+	acctCCount := queryInt(db.db, query, test.AccountC[:], test.Round, 0)
+	assert.Equal(t, 1, acctACount)
+	assert.Equal(t, 1, acctBCount)
+	assert.Equal(t, 1, acctCCount)
+
+	// The normal payment transaction also uses A, B and C offset by the inner
+	// transactions to intra 3
+	acctACount = queryInt(db.db, query, test.AccountA[:], test.Round, 3)
+	acctBCount = queryInt(db.db, query, test.AccountB[:], test.Round, 3)
+	acctCCount = queryInt(db.db, query, test.AccountC[:], test.Round, 3)
+	assert.Equal(t, 1, acctACount)
+	assert.Equal(t, 0, acctBCount, "there is a bug, we don't add the rekey address.")
+	assert.Equal(t, 1, acctCCount)
+}
