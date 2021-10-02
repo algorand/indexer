@@ -31,6 +31,8 @@ type (
 	MicroAlgos uint64
 	// AssetIndex is used to uniquely identify an asset.
 	AssetIndex uint64
+	// AppIndex is used to uniquely identify an application.
+	AppIndex uint64
 
 	// BlockHash represents the hash of a block
 	BlockHash Digest
@@ -249,6 +251,12 @@ type (
 		ReceiverRewards MicroAlgos `codec:"rr"`
 		CloseRewards    MicroAlgos `codec:"rc"`
 		EvalDelta       EvalDelta  `codec:"dt"`
+
+		// If asa or app is being created, the id used. Else 0.
+		// Names chosen to match naming the corresponding txn.
+		// These are populated on when MaxInnerTransactions > 0 (TEAL 5)
+		ConfigAsset   AssetIndex `codec:"caid"`
+		ApplicationID AppIndex   `codec:"apid"`
 	}
 
 	// EvalDelta stores StateDeltas for an application's global key/value store, as
@@ -261,7 +269,14 @@ type (
 
 		// When decoding EvalDeltas, the integer key represents an offset into
 		// [txn.Sender, txn.Accounts[0], txn.Accounts[1], ...]
-		LocalDeltas map[uint64]StateDelta `codec:"ld,allocbound=config.MaxEvalDeltaAccounts"`
+		LocalDeltas map[uint64]StateDelta `codec:"ld"`
+
+		Logs []string `codec:"lg"`
+
+		// Intentionally, temporarily wrong - need to decide how to
+		// allocbound properly when structure is recursive.  Even a bound
+		// of 2 would allow arbitrarily large object if deep.
+		InnerTxns []SignedTxnWithAD `codec:"itx"`
 	}
 
 	// StateDelta is a map from key/value store keys to ValueDeltas, indicating
@@ -614,6 +629,11 @@ type ConsensusParams struct {
 	// each Txn has a MinFee.
 	EnableFeePooling bool
 
+	// EnableAppCostPooling specifies that the sum of fees for application calls
+	// in a group is checked against the sum of the budget for application calls,
+	// rather than check each individual app call is within the budget.
+	EnableAppCostPooling bool
+
 	// RewardUnit specifies the number of MicroAlgos corresponding to one reward
 	// unit.
 	//
@@ -783,6 +803,9 @@ type ConsensusParams struct {
 
 	// maximum sum of the lengths of the key and value of one app state entry
 	MaxAppSumKeyValueLens int
+
+	// maximum number of inner transactions that can be created by an app call
+	MaxInnerTransactions int
 
 	// maximum number of applications a single account can create and store
 	// AppParams for at once
