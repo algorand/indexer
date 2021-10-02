@@ -596,7 +596,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if tf.RekeyTo != nil && (*tf.RekeyTo) {
 		whereParts = append(whereParts, "(t.txn -> 'txn' -> 'rekey') IS NOT NULL")
 	}
-	query = "SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	query = "SELECT t.round, t.intra, t.txnbytes, coalesce(root.txnbytes, t.txnbytes), t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round JOIN txn root ON t.round = root.round AND t.extra->>'root-intra' = root.intra::text"
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
