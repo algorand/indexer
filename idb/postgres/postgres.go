@@ -1431,6 +1431,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	whereArgs = make([]interface{}, 0, maxWhereParts)
 	joinParticipation := false
 	partNumber := 1
+
 	if tf.Address != nil {
 		whereParts = append(whereParts, fmt.Sprintf("p.addr = $%d", partNumber))
 		whereArgs = append(whereArgs, tf.Address)
@@ -1478,6 +1479,10 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		}
 		joinParticipation = true
 	}
+
+	// Exclude inner transactions.
+	whereParts = append(whereParts, "t.txid != ''")
+
 	if tf.MinRound != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("t.round >= $%d", partNumber))
 		whereArgs = append(whereArgs, tf.MinRound)
@@ -1593,10 +1598,9 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
-	query += " WHERE t.txid != '' "
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
-		query += whereStr
+		query += " WHERE " + whereStr
 	}
 	if joinParticipation {
 		// this should match the index on txn_particpation
