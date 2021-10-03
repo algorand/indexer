@@ -1564,3 +1564,95 @@ func TestInnerTxnPaymentCreatesAccount(t *testing.T) {
 		queryInt(db.db, `SELECT COUNT(*) FROM account WHERE addr=$1 AND created_at=$2 AND microalgos=$3`,
 			test.AccountE[:], test.Round, amount))
 }
+
+func TestMultipleInnerTxn(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing an app call txn with inners
+	///////////
+	createApp, _ := test.MakeCreateAppTxn(test.Round, test.AccountA)
+	pay, _ := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountC,
+		test.AccountA, sdk_types.ZeroAddress, sdk_types.ZeroAddress)
+
+	block := test.MakeBlockForTxns(test.Round, createApp, pay)
+
+	amount1 := uint64(1000)
+	amount2 := uint64(2000)
+	var receiver1 types.Address
+	receiver1[1] = 1
+	var receiver2 types.Address
+	receiver2[2] = 2
+	// Add directly to the block to avoid converting sdk_types.ApplyData and types.ApplyData
+	block.Block.Payset[0].ApplyData.EvalDelta.InnerTxns = []types.SignedTxnWithAD{
+		{
+			SignedTxn: sdk_types.SignedTxn{
+				Txn: sdk_types.Transaction{
+					Type: sdk_types.PaymentTx,
+					Header: sdk_types.Header{
+						Sender: test.AccountB,
+					},
+					PaymentTxnFields: sdk_types.PaymentTxnFields{
+						Receiver: receiver1,
+						Amount:   sdk_types.MicroAlgos(amount1),
+					},
+				},
+			},
+		},
+		{
+			SignedTxn: sdk_types.SignedTxn{
+				Txn: sdk_types.Transaction{
+					Type: sdk_types.PaymentTx,
+					Header: sdk_types.Header{
+						Sender: test.AccountB,
+					},
+					PaymentTxnFields: sdk_types.PaymentTxnFields{
+						Receiver: receiver2,
+						Amount:   sdk_types.MicroAlgos(amount2),
+					},
+				},
+			},
+		},
+	}
+
+	//////////
+	// When // We import the transaction.
+	//////////
+	_, err := importer.NewDBImporter(db).ImportDecodedBlock(&block)
+	require.NoError(t, err)
+	importer.UpdateAccounting(db, map[uint64]bool{}, idb.UpdateFilter{StartRound: test.Round - 1, MaxRound: test.Round}, log.New())
+
+	//////////
+	// Then // The txn_participation table is correct, an asset was created, and the inner txn is not returned.
+	//////////
+	query :=
+		"SELECT COUNT(*) FROM txn_participation WHERE addr = $1 AND round = $2 AND " +
+			"intra = $3"
+
+	// B is in the inner transactions, added to the root transaction
+	acctACount := queryInt(db.db, query, test.AccountA[:], test.Round, 0)
+	acctBCount := queryInt(db.db, query, test.AccountB[:], test.Round, 0)
+	acctR1Count := queryInt(db.db, query, receiver1[:], test.Round, 0)
+	acctR2Count := queryInt(db.db, query, receiver2[:], test.Round, 0)
+	assert.Equal(t, 1, acctACount)
+	assert.Equal(t, 1, acctBCount)
+	assert.Equal(t, 1, acctR1Count)
+	assert.Equal(t, 1, acctR2Count)
+
+	// The normal payment transaction also uses A, B and C offset by the inner
+	acctACount = queryInt(db.db, query, test.AccountA[:], test.Round, 3)
+	acctCCount := queryInt(db.db, query, test.AccountC[:], test.Round, 3)
+	assert.Equal(t, 1, acctACount)
+	assert.Equal(t, 1, acctCCount)
+
+	// inner txn 1 should pay receiver1 1000
+	assert.Equal(t, 1, queryInt(db.db,
+		`SELECT COUNT(*) FROM account WHERE addr=$1 AND microalgos=$2`,
+		receiver1[:], amount1))
+
+	// inner txn 2 should pay receiver2 2000
+	assert.Equal(t, 1, queryInt(db.db,
+		`SELECT COUNT(*) FROM account WHERE addr=$1 AND microalgos=$2`,
+		receiver2[:], amount2))
+}

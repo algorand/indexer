@@ -45,15 +45,18 @@ func (imp *dbImporter) ImportBlock(blockbytes []byte) (txCount int, err error) {
 }
 
 func countInnerAndAddParticipation(stxns []types.SignedTxnWithAD, participants [][]byte) (int, [][]byte) {
+	copyAddr := func(addr types.Address) []byte {
+		return append([]byte(nil), addr[:]...)
+	}
 	num := 0
 	for _, stxn := range stxns {
-		participants = participate(participants, stxn.Txn.Sender[:])
-		participants = participate(participants, stxn.Txn.Receiver[:])
-		participants = participate(participants, stxn.Txn.CloseRemainderTo[:])
-		participants = participate(participants, stxn.Txn.AssetSender[:])
-		participants = participate(participants, stxn.Txn.AssetReceiver[:])
-		participants = participate(participants, stxn.Txn.AssetCloseTo[:])
-		participants = participate(participants, stxn.Txn.FreezeAccount[:])
+		participants = participate(participants, copyAddr(stxn.Txn.Sender))
+		participants = participate(participants, copyAddr(stxn.Txn.Receiver))
+		participants = participate(participants, copyAddr(stxn.Txn.CloseRemainderTo))
+		participants = participate(participants, copyAddr(stxn.Txn.AssetSender))
+		participants = participate(participants, copyAddr(stxn.Txn.AssetReceiver))
+		participants = participate(participants, copyAddr(stxn.Txn.AssetCloseTo))
+		participants = participate(participants, copyAddr(stxn.Txn.FreezeAccount))
 		num++
 		var tempNum int
 		tempNum, participants = countInnerAndAddParticipation(stxn.EvalDelta.InnerTxns, participants)
@@ -136,12 +139,10 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 			return txCount, fmt.Errorf("error importing txn r=%d i=%d, %v", round, intra, err)
 		}
 
-		// Add up to 1 inner transaction.
-		if len(stxnad.EvalDelta.InnerTxns) != 0 {
-			innerTxn := stxn.ApplyData.EvalDelta.InnerTxns[0]
-
-			// Basic AVM 1.0 support only. No recursion just a single inner transaction.
-			if len(stxn.ApplyData.EvalDelta.InnerTxns) > 1 || innerTxn.EvalDelta.InnerTxns != nil {
+		// Add one level of inner transaction.
+		for _, innerTxn := range stxn.ApplyData.EvalDelta.InnerTxns {
+			// Basic AVM 1.0 support only.
+			if len(innerTxn.ApplyData.EvalDelta.InnerTxns) != 0 {
 				return txCount, fmt.Errorf("error importing txn r=%d i=%d, only one layer of inner transactions is supported", round, intra)
 			}
 
@@ -151,12 +152,6 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 					fmt.Errorf("%d:%d unknown txn type %v", round, intra, innerTxn.Txn.Type)
 			}
 			assetid := getAssetID(txtypeenum, &innerTxn)
-			if stxn.HasGenesisID {
-				stxn.Txn.GenesisID = block.GenesisID
-			}
-			if stxn.HasGenesisHash || proto.RequireGenesisHash {
-				stxn.Txn.GenesisHash = block.GenesisHash
-			}
 
 			err = imp.db.AddTransaction(
 				round, intra, int(txtypeenum), assetid, innerTxn, nil)
