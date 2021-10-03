@@ -153,6 +153,16 @@ type ApplicationLocalState struct {
 	Schema ApplicationStateSchema `json:"schema"`
 }
 
+// ApplicationLogData defines model for ApplicationLogData.
+type ApplicationLogData struct {
+
+	// \[lg\] Logs for the application being executed by the transaction.
+	Logs [][]byte `json:"logs"`
+
+	// Transaction ID
+	Txid string `json:"txid"`
+}
+
 // ApplicationParams defines model for ApplicationParams.
 type ApplicationParams struct {
 
@@ -543,7 +553,10 @@ type Transaction struct {
 	Group *[]byte `json:"group,omitempty"`
 
 	// Transaction ID
-	Id string `json:"id"`
+	Id *string `json:"id,omitempty"`
+
+	// Inner transactions produced by application execution.
+	InnerTxns *[]Transaction `json:"inner-txns,omitempty"`
 
 	// Offset into the round where this transaction was confirmed.
 	IntraRoundOffset *uint64 `json:"intra-round-offset,omitempty"`
@@ -562,6 +575,9 @@ type Transaction struct {
 
 	// \[ld\] Local state key/value changes for the application being executed by this transaction.
 	LocalStateDelta *[]AccountStateDelta `json:"local-state-delta,omitempty"`
+
+	// \[lg\] Logs for the application being executed by this transaction.
+	Logs *[][]byte `json:"logs,omitempty"`
 
 	// \[note\] Free form data.
 	Note *[]byte `json:"note,omitempty"`
@@ -588,7 +604,7 @@ type Transaction struct {
 	SenderRewards *uint64 `json:"sender-rewards,omitempty"`
 
 	// Validation signature associated with some data. Only one of the signatures should be provided.
-	Signature TransactionSignature `json:"signature"`
+	Signature *TransactionSignature `json:"signature,omitempty"`
 
 	// \[type\] Indicates what type of transaction this is. Different types have different fields.
 	//
@@ -857,6 +873,9 @@ type Round uint64
 // RoundNumber defines model for round-number.
 type RoundNumber uint64
 
+// SenderAddress defines model for sender-address.
+type SenderAddress string
+
 // SigType defines model for sig-type.
 type SigType string
 
@@ -885,6 +904,20 @@ type AccountsResponse struct {
 
 	// Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
+}
+
+// ApplicationLogsResponse defines model for ApplicationLogsResponse.
+type ApplicationLogsResponse struct {
+
+	// \[appidx\] application index.
+	ApplicationId uint64 `json:"application-id"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64                `json:"current-round"`
+	LogData      *[]ApplicationLogData `json:"log-data,omitempty"`
 
 	// Used for pagination, when making another request provide this token with the next parameter.
 	NextToken *string `json:"next-token,omitempty"`
@@ -955,7 +988,7 @@ type TransactionResponse struct {
 	// Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`
 
-	// Contains all fields common to all transactions and serves as an envelope to all transactions type.
+	// Contains all fields common to all transactions and serves as an envelope to all transactions type. Represents both regular and inner transactions.
 	//
 	// Definition:
 	// data/transactions/signedtxn.go : SignedTxn

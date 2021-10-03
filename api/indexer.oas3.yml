@@ -180,6 +180,16 @@
           "type": "integer"
         }
       },
+      "sender-address": {
+        "description": "Only include transactions with this sender address.",
+        "in": "query",
+        "name": "sender-address",
+        "schema": {
+          "type": "string",
+          "x-algorand-format": "Address"
+        },
+        "x-algorand-format": "Address"
+      },
       "sig-type": {
         "description": "SigType filters just results using the specified type of signature:\n* sig - Standard\n* msig - MultiSig\n* lsig - LogicSig",
         "in": "query",
@@ -263,6 +273,40 @@
               },
               "required": [
                 "accounts",
+                "current-round"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "description": "(empty)"
+      },
+      "ApplicationLogsResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "application-id": {
+                  "description": "\\[appidx\\] application index.",
+                  "type": "integer"
+                },
+                "current-round": {
+                  "description": "Round at which the results were computed.",
+                  "type": "integer"
+                },
+                "log-data": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApplicationLogData"
+                  },
+                  "type": "array"
+                },
+                "next-token": {
+                  "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "application-id",
                 "current-round"
               ],
               "type": "object"
@@ -709,6 +753,29 @@
         "required": [
           "id",
           "schema"
+        ],
+        "type": "object"
+      },
+      "ApplicationLogData": {
+        "description": "Stores the global information associated with an application.",
+        "properties": {
+          "logs": {
+            "description": "\\[lg\\] Logs for the application being executed by the transaction.",
+            "items": {
+              "format": "byte",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "txid": {
+            "description": "Transaction ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "logs",
+          "txid"
         ],
         "type": "object"
       },
@@ -1294,7 +1361,7 @@
         "type": "object"
       },
       "Transaction": {
-        "description": "Contains all fields common to all transactions and serves as an envelope to all transactions type.\n\nDefinition:\ndata/transactions/signedtxn.go : SignedTxn\ndata/transactions/transaction.go : Transaction\n",
+        "description": "Contains all fields common to all transactions and serves as an envelope to all transactions type. Represents both regular and inner transactions.\n\nDefinition:\ndata/transactions/signedtxn.go : SignedTxn\ndata/transactions/transaction.go : Transaction\n",
         "properties": {
           "application-transaction": {
             "$ref": "#/components/schemas/TransactionApplication"
@@ -1364,6 +1431,13 @@
             "description": "Transaction ID",
             "type": "string"
           },
+          "inner-txns": {
+            "description": "Inner transactions produced by application execution.",
+            "items": {
+              "$ref": "#/components/schemas/Transaction"
+            },
+            "type": "array"
+          },
           "intra-round-offset": {
             "description": "Offset into the round where this transaction was confirmed.",
             "type": "integer"
@@ -1385,6 +1459,15 @@
             "description": "\\[ld\\] Local state key/value changes for the application being executed by this transaction.",
             "items": {
               "$ref": "#/components/schemas/AccountStateDelta"
+            },
+            "type": "array"
+          },
+          "logs": {
+            "description": "\\[lg\\] Logs for the application being executed by this transaction.",
+            "items": {
+              "format": "byte",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": "string"
             },
             "type": "array"
           },
@@ -1438,10 +1521,8 @@
         "required": [
           "fee",
           "first-valid",
-          "id",
           "last-valid",
           "sender",
-          "signature",
           "tx-type"
         ],
         "type": "object"
@@ -2256,6 +2337,111 @@
                     }
                   },
                   "required": [
+                    "current-round"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "(empty)"
+          }
+        },
+        "tags": [
+          "lookup"
+        ]
+      }
+    },
+    "/v2/applications/{application-id}/logs": {
+      "get": {
+        "description": "Lookup application logs.",
+        "operationId": "lookupApplicationLogsByID",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "application-id",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Maximum number of results to return.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page of results. Use the next token provided by the previous results.",
+            "in": "query",
+            "name": "next",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Lookup the specific transaction by ID.",
+            "in": "query",
+            "name": "txid",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Include results at or after the specified min-round.",
+            "in": "query",
+            "name": "min-round",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include results at or before the specified max-round.",
+            "in": "query",
+            "name": "max-round",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Only include transactions with this sender address.",
+            "in": "query",
+            "name": "sender-address",
+            "schema": {
+              "type": "string",
+              "x-algorand-format": "Address"
+            },
+            "x-algorand-format": "Address"
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "application-id": {
+                      "description": "\\[appidx\\] application index.",
+                      "type": "integer"
+                    },
+                    "current-round": {
+                      "description": "Round at which the results were computed.",
+                      "type": "integer"
+                    },
+                    "log-data": {
+                      "items": {
+                        "$ref": "#/components/schemas/ApplicationLogData"
+                      },
+                      "type": "array"
+                    },
+                    "next-token": {
+                      "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "application-id",
                     "current-round"
                   ],
                   "type": "object"

@@ -6,10 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/crypto"
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
@@ -17,6 +22,7 @@ import (
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/mocks"
+	"github.com/algorand/indexer/types"
 )
 
 func TestTransactionParamToTransactionFilter(t *testing.T) {
@@ -419,6 +425,49 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/app_foreign_assets.response"),
 			},
 		},
+		{
+			name: "Application with logs",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_logs.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_logs.response"),
+			},
+		},
+		{
+			name: "Application with inner txns",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_inner.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_inner.response"),
+			},
+		},
+		{
+			name: "Application inner asset create",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/app_call_inner_acfg.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/app_call_inner_acfg.response"),
+			},
+		},
+	}
+
+	// use for the brach below and createTxn helper func to add a new test case
+	var addNewTest = false
+	if addNewTest {
+		tests = tests[:0]
+		tests = append(tests, struct {
+			name     string
+			txnBytes [][]byte
+			response []generated.Transaction
+			created  uint64
+		}{
+			name:     "Application inner asset create",
+			txnBytes: [][]byte{createTxn(t, "test_resources/app_call_inner_acfg.txn")},
+		})
+
 	}
 
 	for _, test := range tests {
@@ -469,6 +518,18 @@ func TestFetchTransactions(t *testing.T) {
 					fmt.Printf("%s\n", str)
 				}
 				fmt.Println("-------------------")
+				fmt.Printf(`Add the code below as a new entry into 'tests' array and update file names:
+		{
+			name: "%s",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/REPLACEME.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/REPLACEME.response"),
+			},
+		},
+`, test.name)
+				fmt.Println("-------------------")
 			}
 
 			// Verify the results
@@ -478,6 +539,11 @@ func TestFetchTransactions(t *testing.T) {
 				// This is set in the mock above, so override it in the expected value.
 				expected.RoundTime = &roundTime64
 				fmt.Println(roundTime64)
+				if expected.InnerTxns != nil {
+					for j := range *expected.InnerTxns {
+						(*expected.InnerTxns)[j].RoundTime = &roundTime64
+					}
+				}
 				assert.EqualValues(t, expected, actual)
 			}
 		})
@@ -500,4 +566,119 @@ func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 	_, _, err := si.fetchAccounts(context.Background(), idb.AccountQueryOptions{}, &atRound)
 	assert.Error(t, err)
 	assert.True(t, strings.HasPrefix(err.Error(), errRewindingAccount), err.Error())
+}
+
+// createTxn allows saving msgp-encoded canonical object to a file in order to add more test data
+func createTxn(t *testing.T, target string) []byte {
+	addr1, err := sdk_types.DecodeAddress("PT4K5LK4KYIQYYRAYPAZIEF47NVEQRDX3CPYWJVH25LKO2METIRBKRHRAE")
+	assert.Error(t, err)
+	addr2, err := sdk_types.DecodeAddress("PIJRXIH5EJF7HT43AZQOQBPEZUTTCJCZ3E5U3QHLE33YP2ZHGXP7O7WN3U")
+	assert.Error(t, err)
+
+	stxnad := types.SignedTxnWithAD{
+		SignedTxn: sdk_types.SignedTxn{
+			Txn: sdk_types.Transaction{
+				Type: sdk_types.ApplicationCallTx,
+				Header: sdk_types.Header{
+					Sender: addr1,
+				},
+				ApplicationFields: sdk_types.ApplicationFields{
+					ApplicationCallTxnFields: sdk_types.ApplicationCallTxnFields{
+						ApplicationID: 444,
+					},
+				},
+			},
+		},
+		ApplyData: types.ApplyData{
+			EvalDelta: types.EvalDelta{
+				InnerTxns: []types.SignedTxnWithAD{
+					{
+						SignedTxn: sdk_types.SignedTxn{
+							Txn: types.Transaction{
+								Type: sdk_types.AssetConfigTx,
+								Header: sdk_types.Header{
+									Sender:     addr2,
+									Fee:        654,
+									FirstValid: 3,
+								},
+								AssetConfigTxnFields: sdk_types.AssetConfigTxnFields{
+									AssetParams: sdk_types.AssetParams{
+										URL: "http://example.com",
+									},
+								},
+							},
+						},
+						ApplyData: types.ApplyData{
+							ConfigAsset: 555,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	data := msgpack.Encode(stxnad)
+	err = ioutil.WriteFile(target, data, 0644)
+	assert.NoError(t, err)
+	return data
+}
+
+func TestLookupApplicationLogsByID(t *testing.T) {
+	mockIndexer := &mocks.IndexerDb{}
+	si := ServerImplementation{
+		EnableAddressSearchRoundRewind: true,
+		db:                             mockIndexer,
+	}
+
+	txnBytes := loadResourceFileOrPanic("test_resources/app_call_logs.txn")
+	var stxn types.SignedTxnWithAD
+	err := msgpack.Decode(txnBytes, &stxn)
+	assert.NoError(t, err)
+
+	roundTime := time.Now()
+	ch := make(chan idb.TxnRow, 1)
+	ch <- idb.TxnRow{
+		Round:     1,
+		Intra:     2,
+		RoundTime: roundTime,
+		TxnBytes:  txnBytes,
+		AssetID:   0,
+		Extra: idb.TxnExtra{
+			AssetCloseAmount: 0,
+		},
+		Error: nil,
+	}
+
+	close(ch)
+	var outCh <-chan idb.TxnRow = ch
+	var round uint64 = 1
+	mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh, round)
+
+	appIdx := stxn.Txn.ApplicationID
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/v2/applications/:appIdx/logs")
+	c.SetParamNames("appIdx")
+	c.SetParamValues(fmt.Sprintf("%d", appIdx))
+
+	params := generated.LookupApplicationLogsByIDParams{}
+	err = si.LookupApplicationLogsByID(c, 444, params)
+	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var response generated.ApplicationLogsResponse
+	err = json.Unmarshal(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
+
+	assert.Equal(t, uint64(appIdx), response.ApplicationId)
+	assert.NotNil(t, response.LogData)
+	ld := *response.LogData
+	assert.Equal(t, 1, len(ld))
+	assert.Equal(t, crypto.TransactionIDString(stxn.Txn), ld[0].Txid)
+	assert.Equal(t, len(stxn.ApplyData.EvalDelta.Logs), len(ld[0].Logs))
+	for i, log := range ld[0].Logs {
+		assert.Equal(t, []byte(stxn.ApplyData.EvalDelta.Logs[i]), log)
+	}
 }
