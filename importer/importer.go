@@ -76,13 +76,8 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 	block := blockContainer.Block
 	round := uint64(block.Round)
 	intra := 0
-	for i := range block.Payset {
-		stxn := &block.Payset[i]
-		txtypeenum, ok := idb.GetTypeEnum(stxn.Txn.Type)
-		if !ok {
-			return txCount,
-				fmt.Errorf("%d:%d unknown txn type %v", round, intra, stxn.Txn.Type)
-		}
+
+	getAssetID := func(txtypeenum idb.TxnTypeEnum, stxn *types.SignedTxnWithAD) uint64 {
 		assetid := uint64(0)
 		switch txtypeenum {
 		case 3:
@@ -106,6 +101,17 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 				assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 			}
 		}
+		return assetid
+	}
+
+	for i := range block.Payset {
+		stxn := &block.Payset[i]
+		txtypeenum, ok := idb.GetTypeEnum(stxn.Txn.Type)
+		if !ok {
+			return txCount,
+				fmt.Errorf("%d:%d unknown txn type %v", round, intra, stxn.Txn.Type)
+		}
+		assetid := getAssetID(txtypeenum, &stxn.SignedTxnWithAD)
 		if stxn.HasGenesisID {
 			stxn.Txn.GenesisID = block.GenesisID
 		}
@@ -122,16 +128,46 @@ func (imp *dbImporter) ImportDecodedBlock(blockContainer *types.EncodedBlockCert
 		participants = participate(participants, stxn.Txn.AssetCloseTo[:])
 		participants = participate(participants, stxn.Txn.FreezeAccount[:])
 
-		// Increment intra to allow upgrading directly to 2.7.2
-		var innerCount int
-		innerCount, participants = countInnerAndAddParticipation(stxn.EvalDelta.InnerTxns, participants)
+		_, participants = countInnerAndAddParticipation(stxn.EvalDelta.InnerTxns, participants)
 		err = imp.db.AddTransaction(
 			round, intra, int(txtypeenum), assetid, stxnad, participants)
+		intra++
 		if err != nil {
 			return txCount, fmt.Errorf("error importing txn r=%d i=%d, %v", round, intra, err)
 		}
 
-		intra += 1 + innerCount
+		// Add up to 1 inner transaction.
+		if len(stxnad.EvalDelta.InnerTxns) != 0 {
+			innerTxn := stxn.ApplyData.EvalDelta.InnerTxns[0]
+
+			// Basic AVM 1.0 support only. No recursion just a single inner transaction.
+			if len(stxn.ApplyData.EvalDelta.InnerTxns) > 1 || innerTxn.EvalDelta.InnerTxns != nil {
+				return txCount, fmt.Errorf("error importing txn r=%d i=%d, only one layer of inner transactions is supported", round, intra)
+			}
+
+			txtypeenum, ok := idb.GetTypeEnum(innerTxn.Txn.Type)
+			if !ok {
+				return txCount,
+					fmt.Errorf("%d:%d unknown txn type %v", round, intra, innerTxn.Txn.Type)
+			}
+			assetid := getAssetID(txtypeenum, &innerTxn)
+			if stxn.HasGenesisID {
+				stxn.Txn.GenesisID = block.GenesisID
+			}
+			if stxn.HasGenesisHash || proto.RequireGenesisHash {
+				stxn.Txn.GenesisHash = block.GenesisHash
+			}
+
+			err = imp.db.AddTransaction(
+				round, intra, int(txtypeenum), assetid, innerTxn, nil)
+			if err != nil {
+				return txCount, fmt.Errorf("error importing txn r=%d i=%d, %v", round, intra, err)
+			}
+
+			// Incrementing intra for the inner txn allow upgrading directly to 2.7.2
+			intra++
+		}
+
 		txCount++
 	}
 	blockheaderBytes := msgpack.Encode(block.BlockHeader)

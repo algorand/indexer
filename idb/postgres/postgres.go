@@ -205,6 +205,15 @@ func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, ass
 	txnbytes := msgpack.Encode(txn)
 	jsonbytes := encoding.EncodeSignedTxnWithAD(txn)
 	txid := crypto.TransactionIDString(txn.Txn)
+
+	// NOTE: If we upgrade from this version, clearing out the txnbytes will be required.
+
+	// an empty txid is used to ID inner transactions later
+	// no need to prune nested inner transactions, this only supports 1 level.
+	if participation == nil {
+		txid = ""
+	}
+
 	tx := []interface{}{round, intra, txtypeenum, assetid, txid[:], txnbytes, string(jsonbytes)}
 	db.txrows = append(db.txrows, tx)
 	for _, paddr := range participation {
@@ -1584,9 +1593,10 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
+	query += " WHERE t.txid != '' "
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
-		query += " WHERE " + whereStr
+		query += whereStr
 	}
 	if joinParticipation {
 		// this should match the index on txn_particpation
