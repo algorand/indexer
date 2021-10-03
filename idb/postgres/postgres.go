@@ -2513,8 +2513,8 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		whereParts = append(whereParts, "coalesce(a.deleted, false) = false")
 	}
 	if len(opts.EqualToAuthAddr) > 0 {
-		whereParts = append(whereParts, fmt.Sprintf("decode(a.account_data ->> 'spend', 'base64') = $%d", partNumber))
-		whereArgs = append(whereArgs, opts.EqualToAuthAddr)
+		whereParts = append(whereParts, fmt.Sprintf("a.account_data ->> 'spend' = $%d", partNumber))
+		whereArgs = append(whereArgs, encoding.Base64(opts.EqualToAuthAddr))
 		partNumber++
 	}
 	query = `SELECT a.addr, a.microalgos, a.rewards_total, a.created_at, a.closed_at, a.deleted, a.rewardsbase, a.keytype, a.account_data FROM account a`
