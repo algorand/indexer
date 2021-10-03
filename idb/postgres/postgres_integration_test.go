@@ -1519,3 +1519,48 @@ func TestInnerTxnAssetCreate(t *testing.T) {
 	}
 	assert.Equal(t, 1, num)
 }
+
+// Test that payment to a new address creates the account.
+// TODO: could test deleting an account as well.
+func TestInnerTxnPaymentCreatesAccount(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing an app call txn with inners
+	///////////
+	createApp, _ := test.MakeCreateAppTxn(test.Round, test.AccountA)
+
+	block := test.MakeBlockForTxns(test.Round, createApp)
+
+	amount := 1234
+	// Add directly to the block to avoid converting sdk_types.ApplyData and types.ApplyData
+	block.Block.Payset[0].ApplyData.EvalDelta.InnerTxns = []types.SignedTxnWithAD{{
+		SignedTxn: sdk_types.SignedTxn{
+			Txn: sdk_types.Transaction{
+				Type: sdk_types.PaymentTx,
+				Header: sdk_types.Header{
+					Sender: test.AccountA,
+				},
+				PaymentTxnFields: sdk_types.PaymentTxnFields{
+					Receiver: test.AccountE,
+					Amount:   sdk_types.MicroAlgos(amount),
+				},
+			},
+		},
+	}}
+
+	//////////
+	// When // We import the transaction.
+	//////////
+	_, err := importer.NewDBImporter(db).ImportDecodedBlock(&block)
+	require.NoError(t, err)
+	importer.UpdateAccounting(db, map[uint64]bool{}, idb.UpdateFilter{StartRound: test.Round - 1, MaxRound: test.Round}, log.New())
+
+	//////////
+	// Then // AccountE was created and holds amount
+	//////////
+	assert.Equal(t, 1,
+		queryInt(db.db, `SELECT COUNT(*) FROM account WHERE addr=$1 AND created_at=$2 AND microalgos=$3`,
+			test.AccountE[:], test.Round, amount))
+}
