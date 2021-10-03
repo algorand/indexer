@@ -30,12 +30,35 @@ type ExtraOptions struct {
 
 	// MetricsEndpointVerbose generates separate histograms based on query parameters on the /metrics endpoint.
 	MetricsEndpointVerbose bool
+
+	// Maximum amount of time to wait before timing out writes to a response. Note that handler timeout is computed
+	//off of this.
+	WriteTimeout time.Duration
+
+	// ReadTimeout is the maximum duration for reading the entire request, including the body.
+	ReadTimeout time.Duration
+}
+
+func (e ExtraOptions) handlerTimeout() time.Duration {
+	// Basically, if write timeout is 2 seconds or greater, subtract a second.
+	// If less, subtract 10% as a safety valve.
+	if e.WriteTimeout >= 2*time.Second {
+		return e.WriteTimeout - time.Second
+	}
+
+	return e.WriteTimeout - time.Duration(0.1*float64(e.WriteTimeout))
 }
 
 // Serve starts an http server for the indexer API. This call blocks.
 func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError error, log *log.Logger, options ExtraOptions) {
 	e := echo.New()
 	e.HideBanner = true
+
+	// To ensure everything uses the correct context this must be specified first.
+	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
+		ErrorMessage: `{"message":"Request Timeout"}`,
+		Timeout:      options.handlerTimeout(),
+	}))
 
 	if options.MetricsEndpoint {
 		p := echo_contrib.NewPrometheus("indexer", nil, nil)
@@ -77,8 +100,8 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 	}
 	s := &http.Server{
 		Addr:           serveAddr,
-		ReadTimeout:    59 * time.Second,
-		WriteTimeout:   59 * time.Second,
+		ReadTimeout:    options.ReadTimeout,
+		WriteTimeout:   options.WriteTimeout,
 		MaxHeaderBytes: 1 << 20,
 		BaseContext:    getctx,
 	}
