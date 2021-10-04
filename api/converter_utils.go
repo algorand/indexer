@@ -254,6 +254,15 @@ func stateDeltaToStateDelta(d types.StateDelta) *generated.StateDelta {
 	return &delta
 }
 
+// rowData is a subset of fields of idb.TxnRow
+type rowData struct {
+	Round            uint64
+	RoundTime        int64
+	Intra            int
+	AssetID          uint64
+	AssetCloseAmount uint64
+}
+
 func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Error != nil {
 		return generated.Transaction{}, row.Error
@@ -265,6 +274,33 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		return generated.Transaction{}, fmt.Errorf("%s: %s", errUnableToDecodeTransaction, err.Error())
 	}
 
+	extra := rowData{
+		Round:            row.Round,
+		RoundTime:        row.RoundTime.Unix(),
+		Intra:            row.Intra,
+		AssetID:          row.AssetID,
+		AssetCloseAmount: row.Extra.AssetCloseAmount,
+	}
+
+	txn, err := signedTxnWithAdToTransaction(&stxn, extra)
+	if err != nil {
+		return generated.Transaction{}, err
+	}
+
+	sig := generated.TransactionSignature{
+		Logicsig: lsigToTransactionLsig(stxn.Lsig),
+		Multisig: msigToTransactionMsig(stxn.Msig),
+		Sig:      sigToTransactionSig(stxn.Sig),
+	}
+	txid := crypto.TransactionIDString(stxn.Txn)
+
+	txn.Id = &txid
+	txn.Signature = &sig
+
+	return txn, nil
+}
+
+func signedTxnWithAdToTransaction(stxn *types.SignedTxnWithAD, extra rowData) (generated.Transaction, error) {
 	var payment *generated.TransactionPayment
 	var keyreg *generated.TransactionKeyreg
 	var assetConfig *generated.TransactionAssetConfig
@@ -321,7 +357,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 			CloseTo:     addrPtr(stxn.Txn.AssetCloseTo),
 			Receiver:    stxn.Txn.AssetReceiver.String(),
 			Sender:      addrPtr(stxn.Txn.AssetSender),
-			CloseAmount: uint64Ptr(row.Extra.AssetCloseAmount),
+			CloseAmount: uint64Ptr(extra.AssetCloseAmount),
 		}
 		assetTransfer = &t
 	case sdk_types.AssetFreezeTx:
@@ -375,12 +411,6 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		application = &a
 	}
 
-	sig := generated.TransactionSignature{
-		Logicsig: lsigToTransactionLsig(stxn.Lsig),
-		Multisig: msigToTransactionMsig(stxn.Msig),
-		Sig:      sigToTransactionSig(stxn.Sig),
-	}
-
 	var localStateDelta *[]generated.AccountStateDelta
 	type tuple struct {
 		key     uint64
@@ -418,6 +448,39 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		localStateDelta = &d
 	}
 
+	var logs *[][]byte
+	if len(stxn.ApplyData.EvalDelta.Logs) > 0 {
+		l := make([][]byte, 0, len(stxn.ApplyData.EvalDelta.Logs))
+		for _, v := range stxn.ApplyData.EvalDelta.Logs {
+			l = append(l, []byte(v))
+		}
+		logs = &l
+	}
+
+	var inners *[]generated.Transaction
+	if len(stxn.ApplyData.EvalDelta.InnerTxns) > 0 {
+		itxns := make([]generated.Transaction, 0, len(stxn.ApplyData.EvalDelta.InnerTxns))
+		for _, t := range stxn.ApplyData.EvalDelta.InnerTxns {
+			extra2 := extra
+			if t.Txn.Type == sdk_types.ApplicationCallTx {
+				extra2.AssetID = uint64(t.ApplyData.ApplicationID)
+			} else if t.Txn.Type == sdk_types.AssetConfigTx {
+				extra2.AssetID = uint64(t.ApplyData.ConfigAsset)
+			} else {
+				extra2.AssetID = 0
+			}
+			extra2.AssetCloseAmount = t.ApplyData.AssetClosingAmount
+
+			itxn, err := signedTxnWithAdToTransaction(&t, extra2)
+			if err != nil {
+				return generated.Transaction{}, err
+			}
+			itxns = append(itxns, itxn)
+		}
+
+		inners = &itxns
+	}
+
 	txn := generated.Transaction{
 		ApplicationTransaction:   application,
 		AssetConfigTransaction:   assetConfig,
@@ -426,9 +489,9 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		PaymentTransaction:       payment,
 		KeyregTransaction:        keyreg,
 		ClosingAmount:            uint64Ptr(uint64(stxn.ClosingAmount)),
-		ConfirmedRound:           uint64Ptr(row.Round),
-		IntraRoundOffset:         uint64Ptr(uint64(row.Intra)),
-		RoundTime:                uint64Ptr(uint64(row.RoundTime.Unix())),
+		ConfirmedRound:           uint64Ptr(extra.Round),
+		IntraRoundOffset:         uint64Ptr(uint64(extra.Intra)),
+		RoundTime:                uint64Ptr(uint64(extra.RoundTime)),
 		Fee:                      uint64(stxn.Txn.Fee),
 		FirstValid:               uint64(stxn.Txn.FirstValid),
 		GenesisHash:              bytePtr(stxn.SignedTxn.Txn.GenesisHash[:]),
@@ -442,22 +505,22 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		CloseRewards:             uint64Ptr(uint64(stxn.CloseRewards)),
 		SenderRewards:            uint64Ptr(uint64(stxn.SenderRewards)),
 		TxType:                   string(stxn.Txn.Type),
-		Signature:                sig,
-		Id:                       crypto.TransactionIDString(stxn.Txn),
 		RekeyTo:                  addrPtr(stxn.Txn.RekeyTo),
 		GlobalStateDelta:         stateDeltaToStateDelta(stxn.EvalDelta.GlobalDelta),
 		LocalStateDelta:          localStateDelta,
+		Logs:                     logs,
+		InnerTxns:                inners,
 	}
 
 	if stxn.Txn.Type == sdk_types.AssetConfigTx {
 		if txn.AssetConfigTransaction != nil && txn.AssetConfigTransaction.AssetId != nil && *txn.AssetConfigTransaction.AssetId == 0 {
-			txn.CreatedAssetIndex = uint64Ptr(row.AssetID)
+			txn.CreatedAssetIndex = uint64Ptr(extra.AssetID)
 		}
 	}
 
 	if stxn.Txn.Type == sdk_types.ApplicationCallTx {
 		if txn.ApplicationTransaction != nil && txn.ApplicationTransaction.ApplicationId == 0 {
-			txn.CreatedApplicationIndex = uint64Ptr(row.AssetID)
+			txn.CreatedApplicationIndex = uint64Ptr(extra.AssetID)
 		}
 	}
 
