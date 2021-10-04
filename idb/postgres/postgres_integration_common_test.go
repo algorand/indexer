@@ -87,6 +87,7 @@ func queryInt(db *sql.DB, queryString string, args ...interface{}) int {
 	var count int
 	err := row.Scan(&count)
 	if err != nil {
+		fmt.Println(err.Error())
 		return -1
 	}
 	return count

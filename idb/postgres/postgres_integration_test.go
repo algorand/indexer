@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"math"
 	"sync"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/v2"
@@ -1312,4 +1314,345 @@ func TestReconfigAsset(t *testing.T) {
 		num++
 	}
 	require.Equal(t, 1, num)
+}
+
+// Make sure an error is generated if we leave this in place when AVM 1.1 is released.
+// In other words, this only supports a single inner transaction.
+func TestOnlyOneInnerTxnAllowed(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing an app call txn with inners
+	///////////
+	createApp, _ := test.MakeCreateAppTxn(test.Round, test.AccountA)
+	// The pay txn should verify intra increments for inner transactions.
+	pay, _ := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountC,
+		test.AccountA, sdk_types.ZeroAddress, test.AccountB)
+
+	block := test.MakeBlockForTxns(test.Round, createApp, pay)
+
+	// Add directly to the block to avoid converting sdk_types.ApplyData and types.ApplyData
+	block.Block.Payset[0].ApplyData.EvalDelta.InnerTxns = []types.SignedTxnWithAD{{
+		SignedTxn: sdk_types.SignedTxn{
+			Txn: sdk_types.Transaction{
+				Type: sdk_types.PaymentTx,
+				PaymentTxnFields: sdk_types.PaymentTxnFields{
+					Receiver: test.AccountB,
+					Amount:   sdk_types.MicroAlgos(123),
+				},
+			},
+		},
+		// also add a fake second-level ApplyData to ensure the recursive part works
+		ApplyData: types.ApplyData{
+			EvalDelta: types.EvalDelta{
+				InnerTxns: []types.SignedTxnWithAD{{
+					SignedTxn: sdk_types.SignedTxn{
+						Txn: sdk_types.Transaction{
+							Type: sdk_types.AssetTransferTx,
+							AssetTransferTxnFields: sdk_types.AssetTransferTxnFields{
+								AssetReceiver: test.AccountC,
+								AssetAmount:   456,
+							},
+						},
+					},
+				}},
+			},
+		},
+	}}
+
+	//////////
+	// When // We import the transaction.
+	//////////
+	_, err := importer.NewDBImporter(db).ImportDecodedBlock(&block)
+
+	//////////
+	// When // An error is generated because this isn't supported.
+	//////////
+	require.Error(t, err, "error importing txn r=10 i=1, only one layer of inner transactions is supported")
+}
+
+// Test that block import adds accounts from inner txns to txn_participation.
+// This also tests that the intra is correctly incremented for inner transactions.
+func TestInnerTxnParticipation(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing an app call txn with inners
+	///////////
+	createApp, _ := test.MakeCreateAppTxn(test.Round, test.AccountA)
+	// The pay txn should verify intra increments for inner transactions.
+	pay, _ := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountC,
+		test.AccountA, sdk_types.ZeroAddress, test.AccountB)
+
+	block := test.MakeBlockForTxns(test.Round, createApp, pay)
+
+	// Add directly to the block to avoid converting sdk_types.ApplyData and types.ApplyData
+	block.Block.Payset[0].ApplyData.EvalDelta.InnerTxns = []types.SignedTxnWithAD{{
+		SignedTxn: sdk_types.SignedTxn{
+			Txn: sdk_types.Transaction{
+				Type: sdk_types.PaymentTx,
+				PaymentTxnFields: sdk_types.PaymentTxnFields{
+					Receiver: test.AccountB,
+					Amount:   sdk_types.MicroAlgos(123),
+				},
+			},
+		},
+	}}
+
+	//////////
+	// When // We import the transaction.
+	//////////
+	_, err := importer.NewDBImporter(db).ImportDecodedBlock(&block)
+	require.NoError(t, err)
+	importer.UpdateAccounting(db, map[uint64]bool{}, idb.UpdateFilter{StartRound: test.Round - 1, MaxRound: test.Round}, log.New())
+
+	//////////
+	// Then // Both accounts should have an entry in the txn_participation table, and correct intra for the next txn.
+	//////////
+	query :=
+		"SELECT COUNT(*) FROM txn_participation WHERE addr = $1 AND round = $2 AND " +
+			"intra = $3"
+
+	// B and C are the inner transactions, added to the root transaction
+	acctACount := queryInt(db.db, query, test.AccountA[:], test.Round, 0)
+	acctBCount := queryInt(db.db, query, test.AccountB[:], test.Round, 0)
+	assert.Equal(t, 1, acctACount)
+	assert.Equal(t, 1, acctBCount)
+
+	// The normal payment transaction also uses A, B and C offset by the inner
+	acctACount = queryInt(db.db, query, test.AccountA[:], test.Round, 2)
+	acctBCount = queryInt(db.db, query, test.AccountB[:], test.Round, 2)
+	assert.Equal(t, 1, acctACount)
+	assert.Equal(t, 0, acctBCount, "there is a bug, we don't add the rekey address.")
+}
+
+// Test creating an asset with an inner transaction.
+// TODO: test creating an inner application?
+func TestInnerTxnAssetCreate(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing an app call txn with inners
+	///////////
+	assetID := uint64(1234567)
+	createApp, _ := test.MakeCreateAppTxn(test.Round, test.AccountA)
+
+	block := test.MakeBlockForTxns(test.Round, createApp)
+
+	total := uint64(1000)
+	// Add directly to the block to avoid converting sdk_types.ApplyData and types.ApplyData
+	block.Block.Payset[0].ApplyData.EvalDelta.InnerTxns = []types.SignedTxnWithAD{{
+		SignedTxn: sdk_types.SignedTxn{
+			Txn: sdk_types.Transaction{
+				Type: "acfg",
+				Header: sdk_types.Header{
+					Sender: test.AccountB,
+				},
+				AssetConfigTxnFields: sdk_types.AssetConfigTxnFields{
+					ConfigAsset: 0,
+					AssetParams: sdk_types.AssetParams{
+						Total:         total,
+						Decimals:      uint32(3),
+						DefaultFrozen: false,
+						UnitName:      "coin",
+						AssetName:     "inner-coin",
+						URL:           "https://inner-transaction-coin.com",
+						MetadataHash:  [32]byte{},
+						Manager:       test.AccountE,
+						Reserve:       test.AccountE,
+						Freeze:        test.AccountE,
+						Clawback:      test.AccountE,
+					},
+				},
+			},
+		},
+		ApplyData: types.ApplyData{ConfigAsset: types.AssetIndex(assetID)},
+	}}
+
+	//////////
+	// When // We import the transaction.
+	//////////
+	_, err := importer.NewDBImporter(db).ImportDecodedBlock(&block)
+	require.NoError(t, err)
+	importer.UpdateAccounting(db, map[uint64]bool{}, idb.UpdateFilter{StartRound: test.Round - 1, MaxRound: test.Round}, log.New())
+
+	//////////
+	// Then // The txn_participation table is correct, an asset was created, and the inner txn is not returned.
+	//////////
+	query :=
+		"SELECT COUNT(*) FROM txn_participation WHERE addr = $1 AND round = $2 AND " +
+			"intra = $3"
+
+	// B is in the inner transactions, added to the root transaction
+	acctACount := queryInt(db.db, query, test.AccountA[:], test.Round, 0)
+	acctBCount := queryInt(db.db, query, test.AccountB[:], test.Round, 0)
+	acctECount := queryInt(db.db, query, test.AccountE[:], test.Round, 0)
+	assert.Equal(t, 1, acctACount)
+	assert.Equal(t, 1, acctBCount)
+	assert.Equal(t, 0, acctECount, "there is a bug, we don't add the param addresses")
+
+	fmt.Println(test.AccountB.String())
+	// The asset should be created by AccountB.
+	assert.Equal(t, 1, queryInt(db.db,
+		`SELECT COUNT(*) FROM asset WHERE creator_addr=$1 AND index=$2 AND created_at=$3`,
+		test.AccountB[:], assetID, test.Round))
+
+	// The sender should also hold the asset
+	assert.Equal(t, 1, queryInt(db.db,
+		`SELECT COUNT(*) FROM account_asset WHERE addr=$1 AND assetid=$2 AND amount=$3 AND created_at=$4`,
+		test.AccountB[:], assetID, total, test.Round))
+
+	// Inner transactions must be ignored in results
+	rows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+	num := 0
+	for txn := range rows {
+		num++
+		var tx types.SignedTxnWithAD
+		require.NoError(t, msgpack.Decode(txn.TxnBytes, &tx))
+
+		// The one transaction we should find is the root 'appl' transaction with a single inner transaction.
+		assert.Equal(t, tx.Txn.Type, sdk_types.ApplicationCallTx)
+		assert.Len(t, tx.ApplyData.EvalDelta.InnerTxns, 1)
+	}
+	assert.Equal(t, 1, num)
+}
+
+// Test that payment to a new address creates the account.
+// TODO: could test deleting an account as well.
+func TestInnerTxnPaymentCreatesAccount(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing an app call txn with inners
+	///////////
+	createApp, _ := test.MakeCreateAppTxn(test.Round, test.AccountA)
+
+	block := test.MakeBlockForTxns(test.Round, createApp)
+
+	amount := 1234
+	// Add directly to the block to avoid converting sdk_types.ApplyData and types.ApplyData
+	block.Block.Payset[0].ApplyData.EvalDelta.InnerTxns = []types.SignedTxnWithAD{{
+		SignedTxn: sdk_types.SignedTxn{
+			Txn: sdk_types.Transaction{
+				Type: sdk_types.PaymentTx,
+				Header: sdk_types.Header{
+					Sender: test.AccountA,
+				},
+				PaymentTxnFields: sdk_types.PaymentTxnFields{
+					Receiver: test.AccountE,
+					Amount:   sdk_types.MicroAlgos(amount),
+				},
+			},
+		},
+	}}
+
+	//////////
+	// When // We import the transaction.
+	//////////
+	_, err := importer.NewDBImporter(db).ImportDecodedBlock(&block)
+	require.NoError(t, err)
+	importer.UpdateAccounting(db, map[uint64]bool{}, idb.UpdateFilter{StartRound: test.Round - 1, MaxRound: test.Round}, log.New())
+
+	//////////
+	// Then // AccountE was created and holds amount
+	//////////
+	assert.Equal(t, 1,
+		queryInt(db.db, `SELECT COUNT(*) FROM account WHERE addr=$1 AND created_at=$2 AND microalgos=$3`,
+			test.AccountE[:], test.Round, amount))
+}
+
+func TestMultipleInnerTxn(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing an app call txn with inners
+	///////////
+	createApp, _ := test.MakeCreateAppTxn(test.Round, test.AccountA)
+	pay, _ := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountC,
+		test.AccountA, sdk_types.ZeroAddress, sdk_types.ZeroAddress)
+
+	block := test.MakeBlockForTxns(test.Round, createApp, pay)
+
+	amount1 := uint64(1000)
+	amount2 := uint64(2000)
+	var receiver1 types.Address
+	receiver1[1] = 1
+	var receiver2 types.Address
+	receiver2[2] = 2
+	// Add directly to the block to avoid converting sdk_types.ApplyData and types.ApplyData
+	block.Block.Payset[0].ApplyData.EvalDelta.InnerTxns = []types.SignedTxnWithAD{
+		{
+			SignedTxn: sdk_types.SignedTxn{
+				Txn: sdk_types.Transaction{
+					Type: sdk_types.PaymentTx,
+					Header: sdk_types.Header{
+						Sender: test.AccountB,
+					},
+					PaymentTxnFields: sdk_types.PaymentTxnFields{
+						Receiver: receiver1,
+						Amount:   sdk_types.MicroAlgos(amount1),
+					},
+				},
+			},
+		},
+		{
+			SignedTxn: sdk_types.SignedTxn{
+				Txn: sdk_types.Transaction{
+					Type: sdk_types.PaymentTx,
+					Header: sdk_types.Header{
+						Sender: test.AccountB,
+					},
+					PaymentTxnFields: sdk_types.PaymentTxnFields{
+						Receiver: receiver2,
+						Amount:   sdk_types.MicroAlgos(amount2),
+					},
+				},
+			},
+		},
+	}
+
+	//////////
+	// When // We import the transaction.
+	//////////
+	_, err := importer.NewDBImporter(db).ImportDecodedBlock(&block)
+	require.NoError(t, err)
+	importer.UpdateAccounting(db, map[uint64]bool{}, idb.UpdateFilter{StartRound: test.Round - 1, MaxRound: test.Round}, log.New())
+
+	//////////
+	// Then // The txn_participation table is correct, an asset was created, and the inner txn is not returned.
+	//////////
+	query :=
+		"SELECT COUNT(*) FROM txn_participation WHERE addr = $1 AND round = $2 AND " +
+			"intra = $3"
+
+	// B is in the inner transactions, added to the root transaction
+	acctACount := queryInt(db.db, query, test.AccountA[:], test.Round, 0)
+	acctBCount := queryInt(db.db, query, test.AccountB[:], test.Round, 0)
+	acctR1Count := queryInt(db.db, query, receiver1[:], test.Round, 0)
+	acctR2Count := queryInt(db.db, query, receiver2[:], test.Round, 0)
+	assert.Equal(t, 1, acctACount)
+	assert.Equal(t, 1, acctBCount)
+	assert.Equal(t, 1, acctR1Count)
+	assert.Equal(t, 1, acctR2Count)
+
+	// The normal payment transaction also uses A, B and C offset by the inner
+	acctACount = queryInt(db.db, query, test.AccountA[:], test.Round, 3)
+	acctCCount := queryInt(db.db, query, test.AccountC[:], test.Round, 3)
+	assert.Equal(t, 1, acctACount)
+	assert.Equal(t, 1, acctCCount)
+
+	// inner txn 1 should pay receiver1 1000
+	assert.Equal(t, 1, queryInt(db.db,
+		`SELECT COUNT(*) FROM account WHERE addr=$1 AND microalgos=$2`,
+		receiver1[:], amount1))
+
+	// inner txn 2 should pay receiver2 2000
+	assert.Equal(t, 1, queryInt(db.db,
+		`SELECT COUNT(*) FROM account WHERE addr=$1 AND microalgos=$2`,
+		receiver2[:], amount2))
 }

@@ -205,6 +205,15 @@ func (db *IndexerDb) AddTransaction(round uint64, intra int, txtypeenum int, ass
 	txnbytes := msgpack.Encode(txn)
 	jsonbytes := encoding.EncodeSignedTxnWithAD(txn)
 	txid := crypto.TransactionIDString(txn.Txn)
+
+	// NOTE: If we upgrade from this version, clearing out the txnbytes will be required.
+
+	// an empty txid is used to ID inner transactions later
+	// no need to prune nested inner transactions, this only supports 1 level.
+	if participation == nil {
+		txid = ""
+	}
+
 	tx := []interface{}{round, intra, txtypeenum, assetid, txid[:], txnbytes, string(jsonbytes)}
 	db.txrows = append(db.txrows, tx)
 	for _, paddr := range participation {
@@ -1422,6 +1431,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	whereArgs = make([]interface{}, 0, maxWhereParts)
 	joinParticipation := false
 	partNumber := 1
+
 	if tf.Address != nil {
 		whereParts = append(whereParts, fmt.Sprintf("p.addr = $%d", partNumber))
 		whereArgs = append(whereArgs, tf.Address)
@@ -1469,6 +1479,10 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		}
 		joinParticipation = true
 	}
+
+	// Exclude inner transactions.
+	whereParts = append(whereParts, "t.txid != ''")
+
 	if tf.MinRound != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("t.round >= $%d", partNumber))
 		whereArgs = append(whereArgs, tf.MinRound)

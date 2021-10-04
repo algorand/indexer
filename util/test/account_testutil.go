@@ -264,6 +264,37 @@ func MakeSimpleKeyregOnlineTxn(round uint64, sender sdk_types.Address) (*sdk_typ
 	return &txn, &txnRow
 }
 
+// MakeCreateAppTxn makes a transaction that creates a simple application.
+func MakeCreateAppTxn(round uint64, sender types.Address) (*sdk_types.SignedTxnWithAD, *idb.TxnRow) {
+
+	// Create a transaction with ExtraProgramPages field set to 1
+	txn := sdk_types.SignedTxnWithAD{
+		SignedTxn: sdk_types.SignedTxn{
+			Txn: sdk_types.Transaction{
+				Type: "appl",
+				Header: sdk_types.Header{
+					Sender:     sender,
+					FirstValid: sdk_types.Round(round),
+					LastValid:  sdk_types.Round(round),
+				},
+				ApplicationFields: sdk_types.ApplicationFields{
+					ApplicationCallTxnFields: sdk_types.ApplicationCallTxnFields{
+						ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+						ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					},
+				},
+			},
+		},
+	}
+
+	txnRow := idb.TxnRow{
+		Round:    uint64(txn.Txn.FirstValid),
+		TxnBytes: msgpack.Encode(txn),
+	}
+
+	return &txn, &txnRow
+}
+
 // MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
 func MakeBlockForTxns(round uint64, inputs ...*sdk_types.SignedTxnWithAD) types.EncodedBlockCert {
 	var txns []types.SignedTxnInBlock
@@ -281,6 +312,7 @@ func MakeBlockForTxns(round uint64, inputs ...*sdk_types.SignedTxnWithAD) types.
 			BlockHeader: types.BlockHeader{
 				Round:        types.Round(round),
 				UpgradeState: types.UpgradeState{CurrentProtocol: types.ConsensusVersion(Proto)},
+				TxnCounter:   100,
 			},
 			Payset: txns,
 		},
