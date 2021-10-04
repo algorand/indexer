@@ -6,6 +6,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v4"
@@ -45,6 +46,7 @@ func init() {
 		{disabled("2.5.0"), false, "clear account data for accounts that have been closed"},
 		{disabled("2.5.0"), false, "make all \"deleted\" columns NOT NULL"},
 		{disabled("2.6.1"), true, "change import state format"},
+		{upgradeNotSupported, true, "notify the user that upgrade is not supported"},
 	}
 }
 
@@ -203,4 +205,8 @@ func disabled(version string) func(db *IndexerDb, migrationState *types.Migratio
 	return func(_ *IndexerDb, _ *types.MigrationState) error {
 		return fmt.Errorf(unsupportedMigrationErrorMsg, version)
 	}
+}
+
+func upgradeNotSupported(db *IndexerDb, migrationState *types.MigrationState) error {
+	return errors.New("upgrading to Indexer 2.7 is not supported; create a new database")
 }
