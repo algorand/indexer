@@ -42,8 +42,8 @@ func TestApplicationHander(t *testing.T) {
 	// Given // A block containing an app call txn with ExtraProgramPages
 	///////////
 
-	const extraPages = 1
-	const expectedAppIdx = 1
+	const expectedAppIdx = 1 // must be 1 since this is the first txn
+	const extraPages = 2
 	txn := transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -59,6 +59,9 @@ func TestApplicationHander(t *testing.T) {
 				},
 			},
 			Sig: test.Signature,
+		},
+		ApplyData: transactions.ApplyData{
+			ApplicationID: expectedAppIdx,
 		},
 	}
 
