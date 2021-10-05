@@ -23,29 +23,29 @@ func init() {
 	// Make sure you set the blocking flag to true to avoid possible consistency issues during startup.
 	migrations = []migrationStruct{
 		// function, blocking, description
-		{disabled("2.5.0"), false, "Recompute the txid with corrected algorithm."},
-		{disabled("2.5.0"), true, "Adjust block time to UTC timezone."},
-		{disabled("2.5.0"), true, "Update DB Schema for Algorand application support."},
-		{disabled("2.5.0"), false, "Recompute asset configurations with corrected merge function."},
+		{upgradeNotSupported, false, "Recompute the txid with corrected algorithm."},
+		{upgradeNotSupported, true, "Adjust block time to UTC timezone."},
+		{upgradeNotSupported, true, "Update DB Schema for Algorand application support."},
+		{upgradeNotSupported, false, "Recompute asset configurations with corrected merge function."},
 
 		// 2.2.2 hotfix
-		{disabled("2.5.0"), true, "Add indices to make sure account lookups remain fast when there are a lot of apps or assets."},
+		{upgradeNotSupported, true, "Add indices to make sure account lookups remain fast when there are a lot of apps or assets."},
 
 		// Migrations for 2.3.1 release
-		{disabled("2.5.0"), true, "record round at which txn json recording changes, for future migration to fixup prior records"},
-		{disabled("2.5.0"), true, "Update DB Schema for cumulative account reward support and creation dates."},
-		{disabled("2.5.0"), false, "Compute cumulative account rewards for all accounts."},
+		{upgradeNotSupported, true, "record round at which txn json recording changes, for future migration to fixup prior records"},
+		{upgradeNotSupported, true, "Update DB Schema for cumulative account reward support and creation dates."},
+		{upgradeNotSupported, false, "Compute cumulative account rewards for all accounts."},
 
 		// Migrations for 2.3.2 release
-		{disabled("2.5.0"), false, "clear some stale data from closed accounts"},
-		{disabled("2.5.0"), false, "some txn JSON encodings need app keys base64 encoded"},
-		{disabled("2.5.0"), false, "The initial m7 implementation would miss special accounts."},
-		{disabled("2.5.0"), true, "Fix asset holding freeze states."},
+		{upgradeNotSupported, false, "clear some stale data from closed accounts"},
+		{upgradeNotSupported, false, "some txn JSON encodings need app keys base64 encoded"},
+		{upgradeNotSupported, false, "The initial m7 implementation would miss special accounts."},
+		{upgradeNotSupported, true, "Fix asset holding freeze states."},
 
-		{disabled("2.5.0"), false, "Fix search by asset freeze address."},
-		{disabled("2.5.0"), false, "clear account data for accounts that have been closed"},
-		{disabled("2.5.0"), false, "make all \"deleted\" columns NOT NULL"},
-		{disabled("2.6.1"), true, "change import state format"},
+		{upgradeNotSupported, false, "Fix search by asset freeze address."},
+		{upgradeNotSupported, false, "clear account data for accounts that have been closed"},
+		{upgradeNotSupported, false, "make all \"deleted\" columns NOT NULL"},
+		{upgradeNotSupported, true, "change import state format"},
 		{upgradeNotSupported, true, "notify the user that upgrade is not supported"},
 	}
 }
@@ -201,6 +201,7 @@ func sqlMigration(db *IndexerDb, state *types.MigrationState, sqlLines []string)
 const unsupportedMigrationErrorMsg = "unsupported migration: please downgrade to %s to run this migration"
 
 // disabled creates a simple migration handler for unsupported migrations.
+//lint:ignore U1000 this function might be used in the future
 func disabled(version string) func(db *IndexerDb, migrationState *types.MigrationState) error {
 	return func(_ *IndexerDb, _ *types.MigrationState) error {
 		return fmt.Errorf(unsupportedMigrationErrorMsg, version)
