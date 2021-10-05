@@ -37,13 +37,13 @@ func decodeDigest(str *string, field string, errorArr []string) (string, []strin
 }
 
 // decodeAddress returns the byte representation of the input string, or appends an error to errorArr
-func decodeAddress(str *string, field string, errorArr []string) ([]byte, []string) {
+func decodeAddress(str *string, field string, errorArr []string) (*basics.Address, []string) {
 	if str != nil {
 		addr, err := basics.UnmarshalChecksumAddress(*str)
 		if err != nil {
 			return nil, append(errorArr, fmt.Sprintf("%s '%s': %v", errUnableToParseAddress, field, err))
 		}
-		return addr[:], errorArr
+		return &addr, errorArr
 	}
 	// Pass through
 	return nil, errorArr

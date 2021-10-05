@@ -103,7 +103,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 	}
 
 	options := idb.AccountQueryOptions{
-		EqualToAddress:       addr[:],
+		EqualToAddress:       addr,
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
 		Limit:                1,
@@ -147,7 +147,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		Limit:                min(uintOrDefaultValue(params.Limit, defaultAccountsLimit), maxAccountsLimit),
 		HasAssetID:           uintOrDefault(params.AssetId),
 		HasAppID:             uintOrDefault(params.ApplicationId),
-		EqualToAuthAddr:      spendingAddr[:],
+		EqualToAuthAddr:      spendingAddr,
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
 	}
 
@@ -165,7 +165,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, errUnableToParseNext)
 		}
-		options.GreaterThanAddress = addr[:]
+		options.GreaterThanAddress = &addr
 	}
 
 	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
@@ -369,7 +369,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 		if err != nil {
 			ctx.JSON(http.StatusBadRequest, errUnableToParseNext)
 		}
-		query.PrevAddress = addr[:]
+		query.PrevAddress = &addr
 	}
 
 	balances, round, err := si.fetchAssetBalances(ctx.Request().Context(), query)

@@ -3,40 +3,19 @@ package encoding
 import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 )
 
-type blockHeader struct {
-	bookkeeping.BlockHeader
-	BranchOverride      crypto.Digest `codec:"prev"`
-	FeeSinkOverride     crypto.Digest `codec:"fees"`
-	RewardsPoolOverride crypto.Digest `codec:"rwd"`
-}
-
 type assetParams struct {
 	basics.AssetParams
-	UnitNameBytes    []byte        `codec:"un64"`
-	AssetNameBytes   []byte        `codec:"an64"`
-	URLBytes         []byte        `codec:"au64"`
-	ManagerOverride  crypto.Digest `codec:"m"`
-	ReserveOverride  crypto.Digest `codec:"r"`
-	FreezeOverride   crypto.Digest `codec:"f"`
-	ClawbackOverride crypto.Digest `codec:"c"`
+	UnitNameBytes  []byte `codec:"un64"`
+	AssetNameBytes []byte `codec:"an64"`
+	URLBytes       []byte `codec:"au64"`
 }
 
 type transaction struct {
 	transactions.Transaction
-	SenderOverride           crypto.Digest   `codec:"snd"`
-	RekeyToOverride          crypto.Digest   `codec:"rekey"`
-	ReceiverOverride         crypto.Digest   `codec:"rcv"`
-	CloseRemainderToOverride crypto.Digest   `codec:"close"`
-	AssetParamsOverride      assetParams     `codec:"apar"`
-	AssetSenderOverride      crypto.Digest   `codec:"asnd"`
-	AssetReceiverOverride    crypto.Digest   `codec:"arcv"`
-	AssetCloseToOverride     crypto.Digest   `codec:"aclose"`
-	FreezeAccountOverride    crypto.Digest   `codec:"fadd"`
-	AccountsOverride         []crypto.Digest `codec:"apat"`
+	AssetParamsOverride assetParams `codec:"apar"`
 }
 
 type valueDelta struct {
@@ -77,11 +56,6 @@ type signedTxnWithAD struct {
 	EvalDeltaOverride evalDelta     `codec:"dt"`
 }
 
-type trimmedAccountData struct {
-	basics.AccountData
-	AuthAddrOverride crypto.Digest `codec:"spend"`
-}
-
 type tealValue struct {
 	basics.TealValue
 	BytesOverride []byte `codec:"tb"`
@@ -102,10 +76,4 @@ type appLocalState struct {
 type appParams struct {
 	basics.AppParams
 	GlobalStateOverride tealKeyValue `codec:"gs"`
-}
-
-type specialAddresses struct {
-	transactions.SpecialAddresses
-	FeeSinkOverride     crypto.Digest `codec:"FeeSink"`
-	RewardsPoolOverride crypto.Digest `codec:"RewardsPool"`
 }

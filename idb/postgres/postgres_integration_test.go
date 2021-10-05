@@ -826,7 +826,7 @@ func TestAppExtraPages(t *testing.T) {
 	}
 	require.Equal(t, 1, num)
 
-	rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:]})
+	rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: &test.AccountA})
 	num = 0
 	var createdApps *[]generated.Application
 	for row := range rows {
@@ -847,7 +847,7 @@ func TestAppExtraPages(t *testing.T) {
 
 func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype *string) {
 	opts := idb.AccountQueryOptions{
-		EqualToAddress: address[:],
+		EqualToAddress: &address,
 	}
 	rowsCh, _ := db.GetAccounts(context.Background(), opts)
 
@@ -920,7 +920,7 @@ func TestLargeAssetAmount(t *testing.T) {
 
 	{
 		opts := idb.AccountQueryOptions{
-			EqualToAddress:       test.AccountA[:],
+			EqualToAddress:       &test.AccountA,
 			IncludeAssetHoldings: true,
 		}
 		rowsCh, _ := db.GetAccounts(context.Background(), opts)
@@ -1071,7 +1071,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			require.Equal(t, 1, num)
 
 			// Test 4: account results should have the correct asset
-			accounts, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAssetParams: true})
+			accounts, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: &test.AccountA, IncludeAssetParams: true})
 			num = 0
 			for acct := range accounts {
 				require.NoError(t, acct.Error)
@@ -1327,7 +1327,7 @@ func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
 	require.NoError(t, err)
 
 	opts := idb.AccountQueryOptions{
-		EqualToAddress: test.AccountE[:],
+		EqualToAddress: &test.AccountE,
 		IncludeDeleted: true,
 	}
 	rowsCh, _ := db.GetAccounts(context.Background(), opts)
@@ -1450,7 +1450,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	require.NoError(t, err)
 
 	opts := idb.AccountQueryOptions{
-		EqualToAddress: test.AccountB[:],
+		EqualToAddress: &test.AccountB,
 		IncludeDeleted: true,
 	}
 	rowsCh, _ := db.GetAccounts(context.Background(), opts)

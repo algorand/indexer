@@ -429,44 +429,44 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	partNumber := 1
 	if tf.Address != nil {
 		whereParts = append(whereParts, fmt.Sprintf("p.addr = $%d", partNumber))
-		whereArgs = append(whereArgs, tf.Address)
+		whereArgs = append(whereArgs, tf.Address[:])
 		partNumber++
 		if tf.AddressRole != 0 {
-			addrBase64 := encoding.Base64(tf.Address)
+			addrStr := tf.Address.String()
 			roleparts := make([]string, 0, 8)
 			if tf.AddressRole&idb.AddressRoleSender != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'snd' = $%d", partNumber))
-				whereArgs = append(whereArgs, addrBase64)
+				whereArgs = append(whereArgs, addrStr)
 				partNumber++
 			}
 			if tf.AddressRole&idb.AddressRoleReceiver != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'rcv' = $%d", partNumber))
-				whereArgs = append(whereArgs, addrBase64)
+				whereArgs = append(whereArgs, addrStr)
 				partNumber++
 			}
 			if tf.AddressRole&idb.AddressRoleCloseRemainderTo != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'close' = $%d", partNumber))
-				whereArgs = append(whereArgs, addrBase64)
+				whereArgs = append(whereArgs, addrStr)
 				partNumber++
 			}
 			if tf.AddressRole&idb.AddressRoleAssetSender != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'asnd' = $%d", partNumber))
-				whereArgs = append(whereArgs, addrBase64)
+				whereArgs = append(whereArgs, addrStr)
 				partNumber++
 			}
 			if tf.AddressRole&idb.AddressRoleAssetReceiver != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'arcv' = $%d", partNumber))
-				whereArgs = append(whereArgs, addrBase64)
+				whereArgs = append(whereArgs, addrStr)
 				partNumber++
 			}
 			if tf.AddressRole&idb.AddressRoleAssetCloseTo != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'aclose' = $%d", partNumber))
-				whereArgs = append(whereArgs, addrBase64)
+				whereArgs = append(whereArgs, addrStr)
 				partNumber++
 			}
 			if tf.AddressRole&idb.AddressRoleFreeze != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'fadd' = $%d", partNumber))
-				whereArgs = append(whereArgs, addrBase64)
+				whereArgs = append(whereArgs, addrStr)
 				partNumber++
 			}
 			rolepart := strings.Join(roleparts, " OR ")
@@ -1520,14 +1520,14 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		partNumber++
 	}
 	// filters against main account table
-	if len(opts.GreaterThanAddress) > 0 {
+	if opts.GreaterThanAddress != nil {
 		whereParts = append(whereParts, fmt.Sprintf("a.addr > $%d", partNumber))
-		whereArgs = append(whereArgs, opts.GreaterThanAddress)
+		whereArgs = append(whereArgs, opts.GreaterThanAddress[:])
 		partNumber++
 	}
-	if len(opts.EqualToAddress) > 0 {
+	if opts.EqualToAddress != nil {
 		whereParts = append(whereParts, fmt.Sprintf("a.addr = $%d", partNumber))
-		whereArgs = append(whereArgs, opts.EqualToAddress)
+		whereArgs = append(whereArgs, opts.EqualToAddress[:])
 		partNumber++
 	}
 	if opts.AlgosGreaterThan != nil {
@@ -1543,9 +1543,9 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	if !opts.IncludeDeleted {
 		whereParts = append(whereParts, "coalesce(a.deleted, false) = false")
 	}
-	if len(opts.EqualToAuthAddr) > 0 {
+	if opts.EqualToAuthAddr != nil {
 		whereParts = append(whereParts, fmt.Sprintf("a.account_data ->> 'spend' = $%d", partNumber))
-		whereArgs = append(whereArgs, encoding.Base64(opts.EqualToAuthAddr))
+		whereArgs = append(whereArgs, opts.EqualToAuthAddr.String())
 		partNumber++
 	}
 	query = `SELECT a.addr, a.microalgos, a.rewards_total, a.created_at, a.closed_at, a.deleted, a.rewardsbase, a.keytype, a.account_data FROM account a`
@@ -1632,7 +1632,7 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	}
 	if filter.Creator != nil {
 		whereParts = append(whereParts, fmt.Sprintf("a.creator_addr = $%d", partNumber))
-		whereArgs = append(whereArgs, filter.Creator)
+		whereArgs = append(whereArgs, filter.Creator[:])
 		partNumber++
 	}
 	if filter.Name != "" {
@@ -1760,9 +1760,9 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 		whereArgs = append(whereArgs, *abq.AmountLT)
 		partNumber++
 	}
-	if len(abq.PrevAddress) != 0 {
+	if abq.PrevAddress != nil {
 		whereParts = append(whereParts, fmt.Sprintf("aa.addr > $%d", partNumber))
-		whereArgs = append(whereArgs, abq.PrevAddress)
+		whereArgs = append(whereArgs, abq.PrevAddress[:])
 		partNumber++
 	}
 	if !abq.IncludeDeleted {

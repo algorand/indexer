@@ -3,7 +3,6 @@ package encoding
 import (
 	"encoding/base64"
 
-	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -20,23 +19,15 @@ func decodeBase64(data string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(data)
 }
 
-func unconvertBlockHeader(header blockHeader) bookkeeping.BlockHeader {
-	res := header.BlockHeader
-	res.Branch = bookkeeping.BlockHash(header.BranchOverride)
-	res.FeeSink = basics.Address(header.FeeSinkOverride)
-	res.RewardsPool = basics.Address(header.RewardsPoolOverride)
-	return res
-}
-
 // DecodeBlockHeader decodes block header from json.
 func DecodeBlockHeader(data []byte) (bookkeeping.BlockHeader, error) {
-	var header blockHeader
-	err := DecodeJSON(data, &header)
+	var res bookkeeping.BlockHeader
+	err := DecodeJSON(data, &res)
 	if err != nil {
 		return bookkeeping.BlockHeader{}, err
 	}
 
-	return unconvertBlockHeader(header), nil
+	return res, nil
 }
 
 func unconvertAssetParams(params assetParams) basics.AssetParams {
@@ -50,10 +41,6 @@ func unconvertAssetParams(params assetParams) basics.AssetParams {
 	if len(res.URL) == 0 {
 		res.URL = string(params.URLBytes)
 	}
-	res.Manager = basics.Address(params.ManagerOverride)
-	res.Reserve = basics.Address(params.ReserveOverride)
-	res.Freeze = basics.Address(params.FreezeOverride)
-	res.Clawback = basics.Address(params.ClawbackOverride)
 	return res
 }
 
@@ -68,30 +55,9 @@ func DecodeAssetParams(data []byte) (basics.AssetParams, error) {
 	return unconvertAssetParams(params), nil
 }
 
-func unconvertAccounts(accounts []crypto.Digest) []basics.Address {
-	if accounts == nil {
-		return nil
-	}
-
-	res := make([]basics.Address, 0, len(accounts))
-	for _, address := range accounts {
-		res = append(res, basics.Address(address))
-	}
-	return res
-}
-
 func unconvertTransaction(txn transaction) transactions.Transaction {
 	res := txn.Transaction
-	res.Sender = basics.Address(txn.SenderOverride)
-	res.RekeyTo = basics.Address(txn.RekeyToOverride)
-	res.Receiver = basics.Address(txn.ReceiverOverride)
-	res.CloseRemainderTo = basics.Address(txn.CloseRemainderToOverride)
 	res.AssetParams = unconvertAssetParams(txn.AssetParamsOverride)
-	res.AssetSender = basics.Address(txn.AssetSenderOverride)
-	res.AssetReceiver = basics.Address(txn.AssetReceiverOverride)
-	res.AssetCloseTo = basics.Address(txn.AssetCloseToOverride)
-	res.FreezeAccount = basics.Address(txn.FreezeAccountOverride)
-	res.Accounts = unconvertAccounts(txn.AccountsOverride)
 	return res
 }
 
@@ -151,21 +117,15 @@ func DecodeSignedTxnWithAD(data []byte) (transactions.SignedTxnWithAD, error) {
 	return unconvertSignedTxnWithAD(stxn), nil
 }
 
-func unconvertTrimmedAccountData(ad trimmedAccountData) basics.AccountData {
-	res := ad.AccountData
-	res.AuthAddr = basics.Address(ad.AuthAddrOverride)
-	return res
-}
-
-// DecodeTrimmedAccountData decodes account data from json.
+// DecodeTrimmedAccountData decodes trimmed account data from json.
 func DecodeTrimmedAccountData(data []byte) (basics.AccountData, error) {
-	var ado trimmedAccountData // ado - account data with override
-	err := DecodeJSON(data, &ado)
+	var res basics.AccountData
+	err := DecodeJSON(data, &res)
 	if err != nil {
 		return basics.AccountData{}, err
 	}
 
-	return unconvertTrimmedAccountData(ado), nil
+	return res, nil
 }
 
 func unconvertTealValue(tv tealValue) basics.TealValue {
@@ -290,22 +250,15 @@ func DecodeAppLocalStateArray(data []byte) ([]basics.AppLocalState, error) {
 	return unconvertAppLocalStateArray(array), nil
 }
 
-func unconvertSpecialAddresses(special specialAddresses) transactions.SpecialAddresses {
-	res := special.SpecialAddresses
-	res.FeeSink = basics.Address(special.FeeSinkOverride)
-	res.RewardsPool = basics.Address(special.RewardsPoolOverride)
-	return res
-}
-
 // DecodeSpecialAddresses decodes special addresses (sink and rewards pool) from json.
 func DecodeSpecialAddresses(data []byte) (transactions.SpecialAddresses, error) {
-	var special specialAddresses
-	err := DecodeJSON(data, &special)
+	var res transactions.SpecialAddresses
+	err := DecodeJSON(data, &res)
 	if err != nil {
 		return transactions.SpecialAddresses{}, err
 	}
 
-	return unconvertSpecialAddresses(special), nil
+	return res, nil
 }
 
 // DecodeTxnExtra decodes transaction extra info from json.

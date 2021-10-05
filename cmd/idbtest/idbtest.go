@@ -10,7 +10,7 @@ import (
 	"time"
 
 	ajson "github.com/algorand/go-algorand-sdk/encoding/json"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand/data/basics"
 
 	"github.com/algorand/indexer/accounting"
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -43,9 +43,9 @@ func doAssetQueryTests(db idb.IndexerDb) {
 	printAssetQuery(db, idb.AssetsQuery{Unit: "USDt", Limit: 2})
 	printAssetQuery(db, idb.AssetsQuery{AssetID: 312769, Limit: 1})
 	printAssetQuery(db, idb.AssetsQuery{AssetIDGreaterThan: 312769, Query: "us", Limit: 2})
-	tcreator, err := sdk_types.DecodeAddress("XIU7HGGAJ3QOTATPDSIIHPFVKMICXKHMOR2FJKHTVLII4FAOA3CYZQDLG4")
+	tcreator, err := basics.UnmarshalChecksumAddress("XIU7HGGAJ3QOTATPDSIIHPFVKMICXKHMOR2FJKHTVLII4FAOA3CYZQDLG4")
 	maybeFail(err, "addr decode, %v\n", err)
-	printAssetQuery(db, idb.AssetsQuery{Creator: tcreator[:], Limit: 1})
+	printAssetQuery(db, idb.AssetsQuery{Creator: &tcreator, Limit: 1})
 }
 
 // like TxnRow
@@ -105,9 +105,9 @@ func testTxnPaging(db idb.IndexerDb, q idb.TransactionFilter) {
 	}
 }
 
-func getAccount(db idb.IndexerDb, addr []byte) (account models.Account, err error) {
+func getAccount(db idb.IndexerDb, addr basics.Address) (account models.Account, err error) {
 	accountchan, _ :=
-		db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: addr})
+		db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: &addr})
 	for ar := range accountchan {
 		return ar.Account, ar.Error
 	}
@@ -141,13 +141,13 @@ func main() {
 
 	if false {
 		// account rewind debug
-		xa, _ := sdk_types.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
-		account, err := getAccount(db, xa[:])
+		xa, _ := basics.UnmarshalChecksumAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
+		account, err := getAccount(db, xa)
 		fmt.Printf("account %s\n", string(ajson.Encode(account)))
 		maybeFail(err, "addr lookup, %v", err)
 		round := uint64(5426258)
 		tf := idb.TransactionFilter{
-			Address:  xa[:],
+			Address:  &xa,
 			MinRound: round - 100,
 			MaxRound: account.Round,
 		}
@@ -159,7 +159,7 @@ func main() {
 
 	if txntest {
 		// txn query tests
-		xa, _ := sdk_types.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
+		xa, _ := basics.UnmarshalChecksumAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
 		printTxnQuery(db, idb.TransactionFilter{Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{MinRound: 5000000, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{MaxRound: 100000, Limit: 2})
@@ -172,9 +172,9 @@ func main() {
 		printTxnQuery(db, idb.TransactionFilter{AlgosGT: uint64Ptr(10000000), Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{EffectiveAmountGT: uint64Ptr(10000000), Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{EffectiveAmountLT: uint64Ptr(1000000), Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{Address: xa[:], Limit: 6})
-		printTxnQuery(db, idb.TransactionFilter{Address: xa[:], AddressRole: idb.AddressRoleSender, Limit: 2})
-		printTxnQuery(db, idb.TransactionFilter{Address: xa[:], AddressRole: idb.AddressRoleReceiver, Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{Address: &xa, Limit: 6})
+		printTxnQuery(db, idb.TransactionFilter{Address: &xa, AddressRole: idb.AddressRoleSender, Limit: 2})
+		printTxnQuery(db, idb.TransactionFilter{Address: &xa, AddressRole: idb.AddressRoleReceiver, Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{AssetAmountGT: uint64Ptr(99), Limit: 2})
 		printTxnQuery(db, idb.TransactionFilter{AssetAmountLT: uint64Ptr(100), Limit: 2})
 	}
@@ -184,8 +184,8 @@ func main() {
 	//printAssetBalanceQuery(db, 312769)
 
 	if pagingtest {
-		xa, _ := sdk_types.DecodeAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
-		testTxnPaging(db, idb.TransactionFilter{Address: xa[:]})
+		xa, _ := basics.UnmarshalChecksumAddress("QRP4AJLQXHJ42VJ5PSGAH53IVVACYCI6ZDRJMF4JPRFY5VKSYKFWKKMFVU")
+		testTxnPaging(db, idb.TransactionFilter{Address: &xa})
 		testTxnPaging(db, idb.TransactionFilter{TypeEnum: 2})
 		testTxnPaging(db, idb.TransactionFilter{AlgosGT: uint64Ptr(1)})
 	}

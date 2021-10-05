@@ -95,7 +95,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 
 	// Get transactions and rewind account.
 	tf := idb.TransactionFilter{
-		Address:  addr[:],
+		Address:  &addr,
 		MinRound: round + 1,
 		MaxRound: account.Round,
 	}

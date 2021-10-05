@@ -29,30 +29,17 @@ func Base64(data []byte) string {
 	return base64.StdEncoding.EncodeToString(data)
 }
 
-func convertBlockHeader(header bookkeeping.BlockHeader) blockHeader {
-	return blockHeader{
-		BlockHeader:         header,
-		BranchOverride:      crypto.Digest(header.Branch),
-		FeeSinkOverride:     crypto.Digest(header.FeeSink),
-		RewardsPoolOverride: crypto.Digest(header.RewardsPool),
-	}
-}
-
 // EncodeBlockHeader encodes block header into json.
 func EncodeBlockHeader(header bookkeeping.BlockHeader) []byte {
-	return encodeJSON(convertBlockHeader(header))
+	return encodeJSON(header)
 }
 
 func convertAssetParams(params basics.AssetParams) assetParams {
 	ret := assetParams{
-		AssetParams:      params,
-		ManagerOverride:  crypto.Digest(params.Manager),
-		ReserveOverride:  crypto.Digest(params.Reserve),
-		FreezeOverride:   crypto.Digest(params.Freeze),
-		ClawbackOverride: crypto.Digest(params.Clawback),
-		AssetNameBytes:   []byte(params.AssetName),
-		UnitNameBytes:    []byte(params.UnitName),
-		URLBytes:         []byte(params.URL),
+		AssetParams:    params,
+		AssetNameBytes: []byte(params.AssetName),
+		UnitNameBytes:  []byte(params.UnitName),
+		URLBytes:       []byte(params.URL),
 	}
 
 	ret.AssetName = util.PrintableUTF8OrEmpty(params.AssetName)
@@ -79,31 +66,10 @@ func EncodeAssetParams(params basics.AssetParams) []byte {
 	return encodeJSON(convertAssetParams(params))
 }
 
-func convertAccounts(accounts []basics.Address) []crypto.Digest {
-	if accounts == nil {
-		return nil
-	}
-
-	res := make([]crypto.Digest, 0, len(accounts))
-	for _, address := range accounts {
-		res = append(res, crypto.Digest(address))
-	}
-	return res
-}
-
 func convertTransaction(txn transactions.Transaction) transaction {
 	return transaction{
-		Transaction:              txn,
-		SenderOverride:           crypto.Digest(txn.Sender),
-		RekeyToOverride:          crypto.Digest(txn.RekeyTo),
-		ReceiverOverride:         crypto.Digest(txn.Receiver),
-		AssetParamsOverride:      convertAssetParams(txn.AssetParams),
-		CloseRemainderToOverride: crypto.Digest(txn.CloseRemainderTo),
-		AssetSenderOverride:      crypto.Digest(txn.AssetSender),
-		AssetReceiverOverride:    crypto.Digest(txn.AssetReceiver),
-		AssetCloseToOverride:     crypto.Digest(txn.AssetCloseTo),
-		FreezeAccountOverride:    crypto.Digest(txn.FreezeAccount),
-		AccountsOverride:         convertAccounts(txn.Accounts),
+		Transaction:         txn,
+		AssetParamsOverride: convertAssetParams(txn.AssetParams),
 	}
 }
 
@@ -174,16 +140,9 @@ func TrimAccountData(ad basics.AccountData) basics.AccountData {
 	return ad
 }
 
-func convertTrimmedAccountData(ad basics.AccountData) trimmedAccountData {
-	return trimmedAccountData{
-		AccountData:      ad,
-		AuthAddrOverride: crypto.Digest(ad.AuthAddr),
-	}
-}
-
-// EncodeTrimmedAccountData encodes account data into json.
+// EncodeTrimmedAccountData encodes trimmed account data into json.
 func EncodeTrimmedAccountData(ad basics.AccountData) []byte {
-	return encodeJSON(convertTrimmedAccountData(ad))
+	return encodeJSON(ad)
 }
 
 func convertTealValue(tv basics.TealValue) tealValue {
@@ -233,17 +192,9 @@ func EncodeAppParams(params basics.AppParams) []byte {
 	return encodeJSON(convertAppParams(params))
 }
 
-func convertSpecialAddresses(special transactions.SpecialAddresses) specialAddresses {
-	return specialAddresses{
-		SpecialAddresses:    special,
-		FeeSinkOverride:     crypto.Digest(special.FeeSink),
-		RewardsPoolOverride: crypto.Digest(special.RewardsPool),
-	}
-}
-
 // EncodeSpecialAddresses encodes special addresses (sink and rewards pool) into json.
 func EncodeSpecialAddresses(special transactions.SpecialAddresses) []byte {
-	return encodeJSON(convertSpecialAddresses(special))
+	return encodeJSON(special)
 }
 
 // EncodeTxnExtra encodes transaction extra info into json.

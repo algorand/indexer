@@ -56,7 +56,7 @@ func main() {
 	foundRekey := false
 	for _, rekeyTo := range rekeyedAuthAddrs {
 		// TODO: refactor? this is like PrintAccountQuery but without setting the global error.
-		accountchan, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAuthAddr: rekeyTo[:], Limit: 1})
+		accountchan, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAuthAddr: &rekeyTo, Limit: 1})
 		count := uint64(0)
 		for ar := range accountchan {
 			util.MaybeFail(ar.Error, "GetAccounts err %v\n", ar.Error)
@@ -68,7 +68,7 @@ func main() {
 	}
 	if !foundRekey {
 		// this will report the error in a handy way
-		printAccountQuery(db, idb.AccountQueryOptions{EqualToAuthAddr: rekeyedAuthAddrs[0][:], Limit: 1})
+		printAccountQuery(db, idb.AccountQueryOptions{EqualToAuthAddr: &rekeyedAuthAddrs[0], Limit: 1})
 	}
 
 	// find an asset with > 1 account

@@ -109,7 +109,7 @@ type TransactionFilter struct {
 	// return transactions newest-first proceding into the
 	// past. Paging through such results can be achieved by
 	// setting a MaxRound to get results before.
-	Address []byte
+	Address *basics.Address
 
 	AddressRole AddressRole // 0=Any, otherwise bitfields as defined in address_role.go
 
@@ -146,11 +146,11 @@ type TransactionFilter struct {
 
 // AccountQueryOptions is a parameter object with all of the account filter options.
 type AccountQueryOptions struct {
-	GreaterThanAddress []byte // for paging results
-	EqualToAddress     []byte // return exactly this one account
+	GreaterThanAddress *basics.Address // for paging results
+	EqualToAddress     *basics.Address // return exactly this one account
 
 	// return any accounts with this auth addr
-	EqualToAuthAddr []byte
+	EqualToAuthAddr *basics.Address
 
 	// Filter on accounts with current balance greater than x
 	AlgosGreaterThan *uint64
@@ -186,7 +186,7 @@ type AssetsQuery struct {
 	AssetID            uint64
 	AssetIDGreaterThan uint64
 
-	Creator []byte
+	Creator *basics.Address
 
 	// Name is a case insensitive substring comparison of the asset name
 	Name string
@@ -226,7 +226,7 @@ type AssetBalanceQuery struct {
 
 	// PrevAddress for paging, the last item from the previous
 	// query (items returned in address order)
-	PrevAddress []byte
+	PrevAddress *basics.Address
 }
 
 // AssetBalanceRow is metadata relating to one asset balance in an asset balance query.

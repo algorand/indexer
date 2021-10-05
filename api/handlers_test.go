@@ -127,7 +127,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				AssetAmountLT:     uint64Ptr(6),
 				EffectiveAmountGT: nil,
 				EffectiveAmountLT: nil,
-				Address:           []byte{197, 204, 27, 84, 42, 255, 184, 163, 97, 247, 241, 26, 128, 13, 87, 125, 150, 22, 131, 63, 100, 238, 60, 209, 121, 177, 156, 23, 106, 222, 64, 35},
+				Address:           &basics.Address{197, 204, 27, 84, 42, 255, 184, 163, 97, 247, 241, 26, 128, 13, 87, 125, 150, 22, 131, 63, 100, 238, 60, 209, 121, 177, 156, 23, 106, 222, 64, 35},
 				AddressRole:       9,
 				Offset:            nil,
 				OffsetLT:          nil,
