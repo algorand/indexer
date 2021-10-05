@@ -279,7 +279,7 @@ func getTransactionParticipantsImpl(stxnad *transactions.SignedTxnWithAD, includ
 }
 
 // getTransactionParticipants returns referenced addresses from the txn and all inner txns
-func getTransactionParticipants(stxnad transactions.SignedTxnWithAD, includeInner bool) []basics.Address {
+func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInner bool) []basics.Address {
 	const acctsPerTxn = 7
 
 	if !includeInner || len(stxnad.ApplyData.EvalDelta.InnerTxns) == 0 {
@@ -297,7 +297,7 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD, includeInne
 			res = append(res, address)
 		}
 
-		getTransactionParticipantsImpl(&stxnad, includeInner, add)
+		getTransactionParticipantsImpl(stxnad, includeInner, add)
 		return res
 	}
 
@@ -313,7 +313,7 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD, includeInne
 		participants[address] = struct{}{}
 	}
 
-	getTransactionParticipantsImpl(&stxnad, includeInner, add)
+	getTransactionParticipantsImpl(stxnad, includeInner, add)
 
 	res := make([]basics.Address, 0, len(participants))
 	for addr := range participants {
@@ -332,7 +332,7 @@ func addInnerTransactionParticipation(stxnad *transactions.SignedTxnWithAD, roun
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
 		// Only search inner transactions by direct participation.
 		// TODO: Should inner app calls be surfaced by their participants?
-		participants := getTransactionParticipants(itxn, false)
+		participants := getTransactionParticipants(&itxn, false)
 
 		for j := range participants {
 			rows = append(rows, []interface{}{participants[j][:], round, next})
@@ -349,7 +349,7 @@ func (w *Writer) addTransactionParticipation(block *bookkeeping.Block) error {
 	next := uint64(0)
 
 	for _, stxnib := range block.Payset {
-		participants := getTransactionParticipants(stxnib.SignedTxnWithAD, true)
+		participants := getTransactionParticipants(&stxnib.SignedTxnWithAD, true)
 
 		for j := range participants {
 			rows = append(rows, []interface{}{participants[j][:], uint64(block.Round()), next})
