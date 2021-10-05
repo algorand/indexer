@@ -89,13 +89,18 @@ func needsMigration(state types.MigrationState) bool {
 //lint:ignore U1000 this function might be used in a future migration
 func upsertMigrationState(db *IndexerDb, tx pgx.Tx, state *types.MigrationState) error {
 	migrationStateJSON := encoding.EncodeMigrationState(state)
-	return db.setMetastate(tx, schema.MigrationMetastateKey, string(migrationStateJSON))
+	err := db.setMetastate(tx, schema.MigrationMetastateKey, string(migrationStateJSON))
+	if err != nil {
+		return fmt.Errorf("upsertMigrationState() err: %w", err)
+	}
+
+	return nil
 }
 
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
 func (db *IndexerDb) runAvailableMigrations() (chan struct{}, error) {
-	state, err := db.getMigrationState()
+	state, err := db.getMigrationState(nil)
 	if err == idb.ErrorNotInitialized {
 		state = types.MigrationState{}
 	} else if err != nil {
@@ -145,8 +150,10 @@ func (db *IndexerDb) markMigrationsAsDone() (err error) {
 }
 
 // Returns `idb.ErrorNotInitialized` if uninitialized.
-func (db *IndexerDb) getMigrationState() (types.MigrationState, error) {
-	migrationStateJSON, err := db.getMetastate(context.Background(), nil, schema.MigrationMetastateKey)
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) getMigrationState(tx pgx.Tx) (types.MigrationState, error) {
+	migrationStateJSON, err := db.getMetastate(
+		context.Background(), tx, schema.MigrationMetastateKey)
 	if err == idb.ErrorNotInitialized {
 		return types.MigrationState{}, idb.ErrorNotInitialized
 	} else if err != nil {
