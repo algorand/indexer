@@ -8,6 +8,9 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
+
+	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/postgres/internal/types"
 )
 
 // DecodeJSON is a function that decodes json.
@@ -303,4 +306,37 @@ func DecodeSpecialAddresses(data []byte) (transactions.SpecialAddresses, error) 
 	}
 
 	return unconvertSpecialAddresses(special), nil
+}
+
+// DecodeTxnExtra decodes transaction extra info from json.
+func DecodeTxnExtra(data []byte) (idb.TxnExtra, error) {
+	var extra idb.TxnExtra
+	err := DecodeJSON(data, &extra)
+	if err != nil {
+		return idb.TxnExtra{}, err
+	}
+
+	return extra, nil
+}
+
+// DecodeImportState decodes import state from json.
+func DecodeImportState(data []byte) (types.ImportState, error) {
+	var state types.ImportState
+	err := DecodeJSON(data, &state)
+	if err != nil {
+		return types.ImportState{}, err
+	}
+
+	return state, nil
+}
+
+// DecodeMigrationState decodes migration state from json.
+func DecodeMigrationState(data []byte) (types.MigrationState, error) {
+	var state types.MigrationState
+	err := DecodeJSON(data, &state)
+	if err != nil {
+		return types.MigrationState{}, err
+	}
+
+	return state, nil
 }

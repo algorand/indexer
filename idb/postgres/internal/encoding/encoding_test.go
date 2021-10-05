@@ -106,7 +106,7 @@ func TestJSONEncoding(t *testing.T) {
 		Bytes:  []byte{4, 5, 6},
 		Object: Y{Num: 7},
 	}
-	buf := EncodeJSON(x)
+	buf := encodeJSON(x)
 
 	var xx T
 	err := DecodeJSON(buf, &xx)
@@ -272,7 +272,7 @@ func TestByteArrayEncoding(t *testing.T) {
 			{string([]byte{0xff})}: 3,
 		},
 	}
-	buf := EncodeJSON(x)
+	buf := encodeJSON(x)
 
 	expectedString := `{"ByteArray":"/w==","Map":{"/w==":3}}`
 	assert.Equal(t, expectedString, string(buf))

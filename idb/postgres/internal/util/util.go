@@ -16,27 +16,34 @@ import (
 
 // TxWithRetry is a helper function that retries the function `f` in case the database
 // transaction in it fails due to a serialization error. `f` is provided
-// a transaction created using `opts`. `f` takes ownership of the
-// transaction and must either call sql.Tx.Rollback() or sql.Tx.Commit(). In the second
-// case, `f` must return an error which contains the error returned by sql.Tx.Commit().
-// The easiest way is to just return the result of sql.Tx.Commit().
+// a transaction created using `opts`. `f` should either return an error in which case
+// the transaction is rolled back and `TxWithRetry` terminates, or nil in which case
+// the transaction attempts to be committed.
 func TxWithRetry(db *pgxpool.Pool, opts pgx.TxOptions, f func(pgx.Tx) error, log *log.Logger) error {
 	count := 0
 	for {
 		tx, err := db.BeginTx(context.Background(), opts)
 		if err != nil {
-			return err
+			return fmt.Errorf("TxWithRetry() begin tx err: %w", err)
 		}
 
 		err = f(tx)
+		if err != nil {
+			tx.Rollback(context.Background())
+			return fmt.Errorf("TxWithRetry() err: %w", err)
+		}
 
+		err = tx.Commit(context.Background())
+		if err == nil {
+			return nil
+		}
 		// If not serialization error.
 		var pgerr *pgconn.PgError
 		if !errors.As(err, &pgerr) || (pgerr.Code != pgerrcode.SerializationFailure) {
 			if (count > 0) && (log != nil) {
 				log.Printf("transaction was retried %d times", count)
 			}
-			return err
+			return fmt.Errorf("TxWithRetry() commit tx err: %w", err)
 		}
 
 		count++

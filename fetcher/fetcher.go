@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	log "github.com/sirupsen/logrus"
@@ -55,6 +54,11 @@ type fetcherImpl struct {
 
 	err   error // protected by `errmu`
 	errmu sync.Mutex
+
+	// To improve performance, we fetch new blocks and call the block handler concurrently.
+	// This queue contains the blocks that have been fetched but haven't been given to
+	// the handler.
+	blockQueue chan *rpcs.EncodedBlockCert
 }
 
 func (bot *fetcherImpl) Error() string {
@@ -94,6 +98,27 @@ func (bot *fetcherImpl) setError(err error) {
 	bot.errmu.Unlock()
 }
 
+func (bot *fetcherImpl) processQueue() {
+	for {
+		block, ok := <-bot.blockQueue
+		if !ok {
+			return
+		}
+		bot.handleBlock(block)
+	}
+}
+
+func (bot *fetcherImpl) enqueueBlock(blockbytes []byte) error {
+	block := new(rpcs.EncodedBlockCert)
+	err := protocol.Decode(blockbytes, block)
+	if err != nil {
+		return nil
+	}
+
+	bot.blockQueue <- block
+	return nil
+}
+
 // fetch the next block by round number until we find one missing (because it doesn't exist yet)
 func (bot *fetcherImpl) catchupLoop() {
 	var err error
@@ -111,12 +136,14 @@ func (bot *fetcherImpl) catchupLoop() {
 			return
 		}
 
-		err = bot.handleBlockBytes(blockbytes)
+		err = bot.enqueueBlock(blockbytes)
 		if err != nil {
 			bot.setError(err)
-			bot.log.WithError(err).Errorf("err handling catchup block %d", bot.nextRound)
+			bot.log.WithError(err).Errorf("error enqueuing catchup block %d", bot.nextRound)
 			return
 		}
+		// If we successfully handle the block, clear out any transient error which may have occurred.
+		bot.setError(nil)
 		bot.nextRound++
 		bot.failingSince = time.Time{}
 	}
@@ -147,13 +174,13 @@ func (bot *fetcherImpl) followLoop() {
 			bot.setError(err)
 			return
 		}
-		err = bot.handleBlockBytes(blockbytes)
+		err = bot.enqueueBlock(blockbytes)
 		if err != nil {
 			bot.setError(err)
-			bot.log.WithError(err).Errorf("err handling follow block %d", bot.nextRound)
+			bot.log.WithError(err).Errorf("error enqueuing follow block %d", bot.nextRound)
 			break
 		}
-		// If we successfully handle the block, clear out any transient error which may have occurred.
+		// Clear out any transient error which may have occurred.
 		bot.setError(nil)
 		bot.nextRound++
 		bot.failingSince = time.Time{}
@@ -162,6 +189,11 @@ func (bot *fetcherImpl) followLoop() {
 
 // Run is part of the Fetcher interface
 func (bot *fetcherImpl) Run() {
+	// In theory a buffer of size one should be enough, but let's make it bigger.
+	bot.blockQueue = make(chan *rpcs.EncodedBlockCert, 5)
+	defer close(bot.blockQueue)
+	go bot.processQueue()
+
 	for {
 		if bot.isDone() {
 			return
@@ -200,22 +232,10 @@ func (bot *fetcherImpl) SetNextRound(nextRound uint64) {
 	bot.nextRound = nextRound
 }
 
-func (bot *fetcherImpl) handleBlockBytes(blockbytes []byte) error {
-	var block rpcs.EncodedBlockCert
-	err := protocol.Decode(blockbytes, &block)
-	if err != nil {
-		return fmt.Errorf("unable to decode block: %v", err)
-	}
-
-	if block.Block.Round() != basics.Round(bot.nextRound) {
-		return fmt.Errorf("expected round %d but got %d", bot.nextRound, block.Block.Round())
-	}
-
+func (bot *fetcherImpl) handleBlock(block *rpcs.EncodedBlockCert) {
 	for _, handler := range bot.blockHandlers {
-		handler.HandleBlock(&block)
+		handler.HandleBlock(block)
 	}
-
-	return nil
 }
 
 // AddBlockHandler is part of the Fetcher interface
