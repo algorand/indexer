@@ -3,8 +3,6 @@ package encoding
 import (
 	"testing"
 
-	"github.com/algorand/indexer/util/test"
-
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -65,7 +63,7 @@ func TestEncodeSignedTxnWithADSynthetic(t *testing.T) {
 	}
 	stxn.EvalDelta.LocalDeltas[1] = ld
 	js := EncodeSignedTxnWithAD(stxn)
-	require.Equal(t, "{\"dt\":{\"gd\":{\"/v7/7wAAESIz\":{\"at\":1,\"bs\":\"/v7/7wAAESIz\"}},\"ld\":{\"1\":{\"/v7/7wAAESIz\":{\"at\":1,\"bs\":\"/v7/7wAAESIz\"}}}}}", string(js))
+	require.Equal(t, `{"dt":{"gd":{"/v7/7wAAESIz":{"at":1,"bs":"/v7/7wAAESIz"}},"ld":{"1":{"/v7/7wAAESIz":{"at":1,"bs":"/v7/7wAAESIz"}}}}}`, string(js))
 }
 
 // Test that encoding to JSON and decoding results in the same object.
