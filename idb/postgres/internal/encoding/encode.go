@@ -170,8 +170,6 @@ func TrimAccountData(ad basics.AccountData) basics.AccountData {
 	ad.Assets = nil
 	ad.AppLocalStates = nil
 	ad.AppParams = nil
-	ad.TotalAppSchema = basics.StateSchema{}
-	ad.TotalExtraAppPages = 0
 
 	return ad
 }
