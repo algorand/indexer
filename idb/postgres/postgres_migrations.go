@@ -209,5 +209,6 @@ func disabled(version string) func(db *IndexerDb, migrationState *types.Migratio
 }
 
 func upgradeNotSupported(db *IndexerDb, migrationState *types.MigrationState) error {
-	return errors.New("upgrading to Indexer 2.7 is not supported; create a new database")
+	return errors.New(
+		"upgrading from this version is not supported; create a new database")
 }
