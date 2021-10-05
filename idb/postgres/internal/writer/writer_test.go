@@ -50,7 +50,7 @@ type txnRow struct {
 	asset    int
 	txid     string
 	txnbytes []byte
-	json     string
+	txn      string
 	extra    string
 }
 
@@ -73,27 +73,27 @@ func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
 			return nil, err
 		}
 		result.txid = string(txid)
-		result.json = string(json)
+		result.txn = string(json)
 		results = append(results, result)
 	}
 	return results, rows.Err()
 }
 
-type txnParticipation struct {
+type txnParticipationRow struct {
 	addr  basics.Address
 	round int
 	intra int
 }
 
-func txnParticipationQuery(db *pgxpool.Pool, query string) ([]txnParticipation, error) {
-	var results []txnParticipation
+func txnParticipationQuery(db *pgxpool.Pool, query string) ([]txnParticipationRow, error) {
+	var results []txnParticipationRow
 	rows, err := db.Query(context.Background(), query)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var result txnParticipation
+		var result txnParticipationRow
 		var addr []byte
 		err = rows.Scan(&addr, &result.round, &result.intra)
 		if err != nil {
@@ -384,22 +384,30 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 
 	results, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
 	assert.NoError(t, err)
-	assert.Len(t, results, 3)
 
-	// check address
-	assert.Equal(t, test.AccountA, results[0].addr)
-	assert.Equal(t, test.AccountB, results[1].addr)
-	assert.Equal(t, test.AccountC, results[2].addr)
+	expected := []txnParticipationRow{
+		{
+			addr: test.AccountA,
+			round: 2,
+			intra: 0,
+		},
+		{
+			addr: test.AccountB,
+			round: 2,
+			intra: 0,
+		},
+		{
+			addr: test.AccountC,
+			round: 2,
+			intra: 1,
+		},
+	}
 
-	// check round
-	assert.Equal(t, 2, results[0].round)
-	assert.Equal(t, 2, results[1].round)
-	assert.Equal(t, 2, results[2].round)
-
-	// check intra
-	assert.Equal(t, 0, results[0].intra)
-	assert.Equal(t, 0, results[1].intra)
-	assert.Equal(t, 1, results[2].intra)
+	// Verify expected participation
+	assert.Len(t, results, len(expected))
+	for i := range results {
+		assert.Equal(t, expected[i], results[i])
+	}
 }
 
 // Create a new account and then delete it.
@@ -1357,13 +1365,13 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	require.Len(t, txns[1].txnbytes, 0)
 	require.Equal(t, "", txns[1].txid)
 	require.Equal(t, expectedExtra, txns[1].extra)
-	require.NotContains(t, txns[1].json, "itx", "The inner transactions should be pruned.")
+	require.NotContains(t, txns[1].txn, "itx", "The inner transactions should be pruned.")
 
 	// Inner xfer
 	require.Len(t, txns[2].txnbytes, 0)
 	require.Equal(t, "", txns[2].txid)
 	require.Equal(t, expectedExtra, txns[2].extra)
-	require.NotContains(t, txns[2].json, "itx", "The inner transactions should be pruned.")
+	require.NotContains(t, txns[2].txn, "itx", "The inner transactions should be pruned.")
 
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
@@ -1373,7 +1381,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	txnPart, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
 	require.NoError(t, err)
 
-	expectedParticipation := []txnParticipation{
+	expectedParticipation := []txnParticipationRow{
 		// Top-level appl transaction + inner transactions
 		{
 			addr:  appAddr,
@@ -1427,8 +1435,6 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 
 	require.Len(t, txnPart, len(expectedParticipation))
 	for i := 0; i < len(txnPart); i++ {
-		require.Equal(t, expectedParticipation[i].addr, txnPart[i].addr)
-		require.Equal(t, expectedParticipation[i].round, txnPart[i].round)
-		require.Equal(t, expectedParticipation[i].intra, txnPart[i].intra)
+		require.Equal(t, expectedParticipation[i], txnPart[i])
 	}
 }

@@ -48,26 +48,6 @@ func TestEncodeSignedTxnWithAD(t *testing.T) {
 	}
 }
 
-func TestEncodeInnerSignedTxnWithAD(t *testing.T) {
-	stxn := test.MakeAppCallWithInnerTxn(test.AccountA, test.AccountA, test.AccountA, test.AccountA, test.AccountA)
-
-	root := stxn
-	root.EvalDelta.InnerTxns = nil
-	expectedRoot := `{"sig":"WAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","txn":{"apap":"AiABASI=","apsu":"AiABASI=","gh":"TQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","snd":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","type":"appl"}}`
-
-	inner1 := stxn.EvalDelta.InnerTxns[0]
-	inner1.EvalDelta.InnerTxns = nil
-	expectedInner1 := `{"txn":{"amt":123,"rcv":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","snd":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","type":"pay"}}`
-
-	inner2 := stxn.EvalDelta.InnerTxns[0].EvalDelta.InnerTxns[0]
-	inner2.EvalDelta.InnerTxns = nil
-	expectedInner2 := `{"txn":{"aamt":456,"arcv":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","snd":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","type":"axfer"}}`
-
-	require.Equal(t, expectedRoot, string(EncodeSignedTxnWithAD(root)), "We shouldn't call this on a root txn, but if we did... no inner transactions.")
-	require.Equal(t, expectedInner1, string(EncodeSignedTxnWithAD(inner1)))
-	require.Equal(t, expectedInner2, string(EncodeSignedTxnWithAD(inner2)))
-}
-
 func TestEncodeSignedTxnWithADSynthetic(t *testing.T) {
 	nonutf8b := []byte{254, 254, 255, 239, 0, 0, 17, 34, 51}
 	nonutf8 := string(nonutf8b)

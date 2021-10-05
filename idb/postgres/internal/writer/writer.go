@@ -260,7 +260,7 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 	return nil
 }
 
-func getTransactionParticipantsImpl(stxnad transactions.SignedTxnWithAD, includeInner bool, add func(address basics.Address)) {
+func getTransactionParticipantsImpl(stxnad *transactions.SignedTxnWithAD, includeInner bool, add func(address basics.Address)) {
 	txn := stxnad.Txn
 
 	add(txn.Sender)
@@ -273,7 +273,7 @@ func getTransactionParticipantsImpl(stxnad transactions.SignedTxnWithAD, include
 
 	if includeInner {
 		for _, inner := range stxnad.ApplyData.EvalDelta.InnerTxns {
-			getTransactionParticipantsImpl(inner, includeInner, add)
+			getTransactionParticipantsImpl(&inner, includeInner, add)
 		}
 	}
 }
@@ -297,7 +297,7 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD, includeInne
 			res = append(res, address)
 		}
 
-		getTransactionParticipantsImpl(stxnad, includeInner, add)
+		getTransactionParticipantsImpl(&stxnad, includeInner, add)
 		return res
 	}
 
@@ -313,7 +313,7 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD, includeInne
 		participants[address] = struct{}{}
 	}
 
-	getTransactionParticipantsImpl(stxnad, includeInner, add)
+	getTransactionParticipantsImpl(&stxnad, includeInner, add)
 
 	res := make([]basics.Address, 0, len(participants))
 	for addr := range participants {
