@@ -387,17 +387,17 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 
 	expected := []txnParticipationRow{
 		{
-			addr: test.AccountA,
+			addr:  test.AccountA,
 			round: 2,
 			intra: 0,
 		},
 		{
-			addr: test.AccountB,
+			addr:  test.AccountB,
 			round: 2,
 			intra: 0,
 		},
 		{
-			addr: test.AccountC,
+			addr:  test.AccountC,
 			round: 2,
 			intra: 1,
 		},
