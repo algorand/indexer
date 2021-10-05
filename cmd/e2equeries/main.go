@@ -44,14 +44,12 @@ func main() {
 
 	var rekeyedAuthAddrs []basics.Address
 	rowchan, _ := db.Transactions(context.Background(), rekeyTxnQuery)
-	//var rekeyTo basics.Address
 	for txnrow := range rowchan {
 		maybeFail(txnrow.Error, "err rekey txn %v\n", txnrow.Error)
 		var stxn transactions.SignedTxnWithAD
 		err := protocol.Decode(txnrow.TxnBytes, &stxn)
 		maybeFail(err, "decode txnbytes %v\n", err)
 		rekeyedAuthAddrs = append(rekeyedAuthAddrs, stxn.Txn.RekeyTo)
-		//rekeyTo = stxn.Txn.RekeyTo
 	}
 
 	// some rekeys get rekeyed back; some rekeyed accounts get deleted, just want to find at least one
