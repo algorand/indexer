@@ -32,29 +32,11 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	assert.NoError(t, err)
 
 	round, err := db.GetNextRoundToAccount()
-	assert.Equal(t, err, idb.ErrorNotInitialized)
+	assert.Equal(t, idb.ErrorNotInitialized, err)
 	assert.Equal(t, uint64(0), round)
 
 	round, err = db.getMaxRoundAccounted(context.Background(), nil)
-	assert.Equal(t, err, idb.ErrorNotInitialized)
-	assert.Equal(t, uint64(0), round)
-}
-
-// TestMaxRoundEmptyMetastate makes sure we return 0 when the metastate is empty.
-func TestMaxRoundEmptyMetastate(t *testing.T) {
-	pg, connStr, shutdownFunc := pgtest.SetupPostgres(t)
-	defer shutdownFunc()
-
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
-	pg.Exec(context.Background(), `INSERT INTO metastate (k, v) values ('state', '{}')`)
-
-	round, err := db.GetNextRoundToAccount()
-	assert.Equal(t, err, idb.ErrorNotInitialized)
-	assert.Equal(t, uint64(0), round)
-
-	round, err = db.getMaxRoundAccounted(context.Background(), nil)
-	assert.Equal(t, err, idb.ErrorNotInitialized)
+	assert.Equal(t, idb.ErrorNotInitialized, err)
 	assert.Equal(t, uint64(0), round)
 }
 
