@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -445,6 +446,9 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 // (GET /v2/blocks/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
 	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber)
+	if errors.Unwrap(err) == idb.ErrorBlockNotFound {
+		return notFound(ctx, err.Error())
+	}
 	if err != nil {
 		return indexerError(ctx, err.Error())
 	}
@@ -634,7 +638,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 		si.db.GetBlock(ctx, round, idb.GetBlockOptions{Transactions: true})
 
 	if err != nil {
-		return generated.Block{}, fmt.Errorf("%s '%d': %v", errLookingUpBlock, round, err)
+		return generated.Block{}, fmt.Errorf("%s '%d': %w", errLookingUpBlock, round, err)
 	}
 
 	rewards := generated.BlockRewards{
