@@ -294,8 +294,8 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 // root txn: application create
 // app call inner txn: payment
 // payment inner txn: asset xfer
-func MakeAppCallWithInnerTxn(assetSender, paymentReceiver, assetReceiver basics.Address) transactions.SignedTxnWithAD {
-	createApp := MakeCreateAppTxn(assetSender)
+func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSender, assetReceiver basics.Address) transactions.SignedTxnWithAD {
+	createApp := MakeCreateAppTxn(appSender)
 
 	// In order to simplify the test,
 	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
@@ -303,9 +303,11 @@ func MakeAppCallWithInnerTxn(assetSender, paymentReceiver, assetReceiver basics.
 	// otherwise it requires funding the app account and other special setup
 	createApp.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{{
 		SignedTxn: transactions.SignedTxn{
-			// TODO: does the root header apply to each inner tx?
 			Txn: transactions.Transaction{
 				Type: protocol.PaymentTx,
+				Header: transactions.Header{
+					Sender: paymentSender,
+				},
 				PaymentTxnFields: transactions.PaymentTxnFields{
 					Receiver: paymentReceiver,
 					Amount:   basics.MicroAlgos{Raw: 123},
@@ -319,6 +321,9 @@ func MakeAppCallWithInnerTxn(assetSender, paymentReceiver, assetReceiver basics.
 					SignedTxn: transactions.SignedTxn{
 						Txn: transactions.Transaction{
 							Type: protocol.AssetTransferTx,
+							Header: transactions.Header{
+								Sender: assetSender,
+							},
 							AssetTransferTxnFields: transactions.AssetTransferTxnFields{
 								AssetReceiver: assetReceiver,
 								AssetAmount:   456,

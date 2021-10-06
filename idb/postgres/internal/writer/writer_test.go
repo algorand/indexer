@@ -2,6 +2,7 @@ package writer_test
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -49,7 +50,7 @@ type txnRow struct {
 	asset    int
 	txid     string
 	txnbytes []byte
-	txn      []byte
+	txn      string
 	extra    string
 }
 
@@ -64,13 +65,41 @@ func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
 	for rows.Next() {
 		var result txnRow
 		var txid []byte
+		var json []byte
 		err = rows.Scan(&result.round, &result.intra, &result.typeenum,
-			&result.asset, &txid, &result.txnbytes, &result.txn,
+			&result.asset, &txid, &result.txnbytes, &json,
 			&result.extra)
 		if err != nil {
 			return nil, err
 		}
 		result.txid = string(txid)
+		result.txn = string(json)
+		results = append(results, result)
+	}
+	return results, rows.Err()
+}
+
+type txnParticipationRow struct {
+	addr  basics.Address
+	round int
+	intra int
+}
+
+func txnParticipationQuery(db *pgxpool.Pool, query string) ([]txnParticipationRow, error) {
+	var results []txnParticipationRow
+	rows, err := db.Query(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var result txnParticipationRow
+		var addr []byte
+		err = rows.Scan(&addr, &result.round, &result.intra)
+		if err != nil {
+			return nil, err
+		}
+		copy(result.addr[:], addr)
 		results = append(results, result)
 	}
 	return results, rows.Err()
@@ -353,38 +382,32 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
 
-	rows, err := db.Query(
-		context.Background(), "SELECT * FROM txn_participation ORDER BY round, intra, addr")
-	require.NoError(t, err)
-	defer rows.Close()
+	results, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
+	assert.NoError(t, err)
 
-	var addr []byte
-	var round uint64
-	var intra uint64
+	expected := []txnParticipationRow{
+		{
+			addr:  test.AccountA,
+			round: 2,
+			intra: 0,
+		},
+		{
+			addr:  test.AccountB,
+			round: 2,
+			intra: 0,
+		},
+		{
+			addr:  test.AccountC,
+			round: 2,
+			intra: 1,
+		},
+	}
 
-	require.True(t, rows.Next())
-	err = rows.Scan(&addr, &round, &intra)
-	require.NoError(t, err)
-	assert.Equal(t, test.AccountA[:], addr)
-	assert.Equal(t, uint64(2), round)
-	assert.Equal(t, uint64(0), intra)
-
-	require.True(t, rows.Next())
-	err = rows.Scan(&addr, &round, &intra)
-	require.NoError(t, err)
-	assert.Equal(t, test.AccountB[:], addr)
-	assert.Equal(t, uint64(2), round)
-	assert.Equal(t, uint64(0), intra)
-
-	require.True(t, rows.Next())
-	err = rows.Scan(&addr, &round, &intra)
-	require.NoError(t, err)
-	assert.Equal(t, test.AccountC[:], addr)
-	assert.Equal(t, uint64(2), round)
-	assert.Equal(t, uint64(1), intra)
-
-	assert.False(t, rows.Next())
-	assert.NoError(t, rows.Err())
+	// Verify expected participation
+	assert.Len(t, results, len(expected))
+	for i := range results {
+		assert.Equal(t, expected[i], results[i])
+	}
 }
 
 // Create a new account and then delete it.
@@ -1298,11 +1321,13 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	defer shutdownFunc()
 
 	// App call with inner txns, should be intra 0, 1, 2
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, test.AccountB, test.AccountC)
+	var appAddr basics.Address
+	appAddr[1] = 99
+	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
 	// Asset create call, should have intra = 3
 	assetCreate := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
+		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountD)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall, &assetCreate)
 	require.NoError(t, err)
@@ -1321,17 +1346,95 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 
 	txns, err := txnQuery(db, "SELECT * FROM txn ORDER BY intra")
 	require.NoError(t, err)
-	require.Len(t, txns, 2)
+	require.Len(t, txns, 4)
 
 	// Verify that intra is correctly assigned
-	require.Equal(t, 0, txns[0].intra, "Intra should be 0.")
-	require.Equal(t, 3, txns[1].intra, "Intra should be 3.")
+	for i, tx := range txns {
+		require.Equal(t, i, tx.intra, "Intra should be assigned 0 - 3.")
+	}
 
 	// Verify correct order of transaction types.
 	require.Equal(t, idb.TypeEnumApplication, txns[0].typeenum)
-	require.Equal(t, idb.TypeEnumAssetConfig, txns[1].typeenum)
+	require.Equal(t, idb.TypeEnumPay, txns[1].typeenum)
+	require.Equal(t, idb.TypeEnumAssetTransfer, txns[2].typeenum)
+	require.Equal(t, idb.TypeEnumAssetConfig, txns[3].typeenum)
+
+	// Verify special properties of inner transactions.
+	expectedExtra := fmt.Sprintf(`{"root-txid": "%s"}`, txns[0].txid)
+	// Inner pay
+	require.Len(t, txns[1].txnbytes, 0)
+	require.Equal(t, "", txns[1].txid)
+	require.Equal(t, expectedExtra, txns[1].extra)
+	require.NotContains(t, txns[1].txn, "itx", "The inner transactions should be pruned.")
+
+	// Inner xfer
+	require.Len(t, txns[2].txnbytes, 0)
+	require.Equal(t, "", txns[2].txid)
+	require.Equal(t, expectedExtra, txns[2].extra)
+	require.NotContains(t, txns[2].txn, "itx", "The inner transactions should be pruned.")
 
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
-	require.Equal(t, 4, txns[1].asset, "intra == 3 -> AssetID = 4")
+	require.Equal(t, 4, txns[3].asset, "intra == 3 -> AssetID = 4")
+
+	// Verify txn participation
+	txnPart, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
+	require.NoError(t, err)
+
+	expectedParticipation := []txnParticipationRow{
+		// Top-level appl transaction + inner transactions
+		{
+			addr:  appAddr,
+			round: 1,
+			intra: 0,
+		},
+		{
+			addr:  test.AccountA,
+			round: 1,
+			intra: 0,
+		},
+		{
+			addr:  test.AccountB,
+			round: 1,
+			intra: 0,
+		},
+		{
+			addr:  test.AccountC,
+			round: 1,
+			intra: 0,
+		},
+		// Inner pay transaction
+		{
+			addr:  appAddr,
+			round: 1,
+			intra: 1,
+		},
+		{
+			addr:  test.AccountB,
+			round: 1,
+			intra: 1,
+		},
+		// Inner xfer transaction
+		{
+			addr:  appAddr,
+			round: 1,
+			intra: 2,
+		},
+		{
+			addr:  test.AccountC,
+			round: 1,
+			intra: 2,
+		},
+		// acfg after appl
+		{
+			addr:  test.AccountD,
+			round: 1,
+			intra: 3,
+		},
+	}
+
+	require.Len(t, txnPart, len(expectedParticipation))
+	for i := 0; i < len(txnPart); i++ {
+		require.Equal(t, expectedParticipation[i], txnPart[i])
+	}
 }

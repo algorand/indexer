@@ -750,39 +750,13 @@ func TestInnerTxnParticipation(t *testing.T) {
 	// Given // A block containing an app call txn with inners
 	///////////
 
-	createApp := test.MakeCreateAppTxn(test.AccountA)
-
 	// In order to simplify the test,
 	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
 	// fake ApplyData to have inner txn
 	// otherwise it requires funding the app account and other special setup
-	createApp.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: protocol.PaymentTx,
-				PaymentTxnFields: transactions.PaymentTxnFields{
-					Receiver: test.AccountB,
-					Amount:   basics.MicroAlgos{Raw: 123},
-				},
-			},
-		},
-		// also add a fake second-level ApplyData to ensure the recursive part works
-		ApplyData: transactions.ApplyData{
-			EvalDelta: transactions.EvalDelta{
-				InnerTxns: []transactions.SignedTxnWithAD{{
-					SignedTxn: transactions.SignedTxn{
-						Txn: transactions.Transaction{
-							Type: protocol.AssetTransferTx,
-							AssetTransferTxnFields: transactions.AssetTransferTxnFields{
-								AssetReceiver: test.AccountC,
-								AssetAmount:   456,
-							},
-						},
-					},
-				}},
-			},
-		},
-	}}
+	var appAddr basics.Address
+	appAddr[1] = 99
+	createApp := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createApp)
@@ -806,9 +780,11 @@ func TestInnerTxnParticipation(t *testing.T) {
 	acctACount := queryInt(db.db, query, test.AccountA[:], round, intra)
 	acctBCount := queryInt(db.db, query, test.AccountB[:], round, intra)
 	acctCCount := queryInt(db.db, query, test.AccountC[:], round, intra)
+	acctAppCount := queryInt(db.db, query, appAddr, round, intra)
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
 	assert.Equal(t, 1, acctCCount)
+	assert.Equal(t, -1, acctAppCount, "inner txn sender is not indexed")
 }
 
 func TestAppExtraPages(t *testing.T) {

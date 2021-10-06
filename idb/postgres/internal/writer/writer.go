@@ -132,6 +132,11 @@ func setSpecialAccounts(addresses transactions.SpecialAddresses, batch *pgx.Batc
 
 // Get the ID of the creatable referenced in the given transaction
 // (0 if not an asset or app transaction).
+// Note: ConsensusParams.MaxInnerTransactions could be overridden to force
+//       generating ApplyData.{ApplicationID/ConfigAsset}. This function does
+//       other things too, so it is not clear we should use it. The only
+//       real benefit is that it would slightly simplify this function by
+//       allowing us to leave out the intra / block parameters.
 func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *bookkeeping.Block) uint64 {
 	assetid := uint64(0)
 
@@ -165,12 +170,43 @@ func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *b
 	return assetid
 }
 
-func countTxns(stxnad transactions.SignedTxnWithAD) uint64 {
-	num := uint64(1)
+// addInnerTransactions traverses the inner transaction tree and adds them to
+// the transaction table. It performs a preorder traversal to correctly compute
+// the intra round offset, the offset for the next transaction is returned.
+func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, block *bookkeeping.Block, intra uint64, rootTxid string, rows [][]interface{}) (uint64, [][]interface{}, error) {
+	next := intra
+	var err error
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
-		num += countTxns(itxn)
+		txn := &itxn.Txn
+		typeenum, ok := idb.GetTypeEnum(txn.Type)
+		if !ok {
+			return 0, nil, fmt.Errorf("addInnerTransactions() get type enum")
+		}
+		assetid := transactionAssetID(itxn, 0, nil)
+		extra := idb.TxnExtra{
+			AssetCloseAmount: itxn.ApplyData.AssetClosingAmount,
+			RootTxid:         rootTxid,
+		}
+
+		// When encoding an inner transaction we remove any further nested inner transactions.
+		// To reconstruct a full object the root transaction must be fetched.
+		txnNoInner := *stxnad
+		txnNoInner.EvalDelta.InnerTxns = nil
+		rows = append(rows, []interface{}{
+			uint64(block.Round()), intra, int(typeenum), assetid,
+			nil, // inner transactions do not have a txid.
+			nil, // txn bytes are only in the parent.
+			encoding.EncodeSignedTxnWithAD(txnNoInner),
+			encoding.EncodeTxnExtra(&extra)})
+
+		// Recurse at end for preorder traversal
+		next, rows, err = w.addInnerTransactions(&itxn, block, next+1, rootTxid, rows)
+		if err != nil {
+			return 0, nil, err
+		}
 	}
-	return num
+
+	return next, rows, nil
 }
 
 // Add transactions from `block` to the database. `modifiedTxns` contains enhanced
@@ -196,6 +232,7 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 		}
 		assetid := transactionAssetID(stxnad, intra, block)
 		id := txn.ID().String()
+
 		extra := idb.TxnExtra{
 			AssetCloseAmount: modifiedTxns[idx].ApplyData.AssetClosingAmount,
 		}
@@ -205,7 +242,10 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 			encoding.EncodeSignedTxnWithAD(stxnad),
 			encoding.EncodeTxnExtra(&extra)})
 
-		intra += countTxns(modifiedTxns[idx].SignedTxnWithAD)
+		intra, rows, err = w.addInnerTransactions(&stib.SignedTxnWithAD, block, intra+1, id, rows)
+		if err != nil {
+			return fmt.Errorf("addTransactions() adding inner: %w", err)
+		}
 	}
 
 	_, err := w.tx.CopyFrom(
@@ -220,7 +260,7 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 	return nil
 }
 
-func getTransactionParticipantsImpl(stxnad transactions.SignedTxnWithAD, add func(address basics.Address)) {
+func getTransactionParticipantsImpl(stxnad *transactions.SignedTxnWithAD, includeInner bool, add func(address basics.Address)) {
 	txn := stxnad.Txn
 
 	add(txn.Sender)
@@ -231,16 +271,18 @@ func getTransactionParticipantsImpl(stxnad transactions.SignedTxnWithAD, add fun
 	add(txn.AssetCloseTo)
 	add(txn.FreezeAccount)
 
-	for _, inner := range stxnad.ApplyData.EvalDelta.InnerTxns {
-		getTransactionParticipantsImpl(inner, add)
+	if includeInner {
+		for _, inner := range stxnad.ApplyData.EvalDelta.InnerTxns {
+			getTransactionParticipantsImpl(&inner, includeInner, add)
+		}
 	}
 }
 
 // getTransactionParticipants returns referenced addresses from the txn and all inner txns
-func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Address {
+func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInner bool) []basics.Address {
 	const acctsPerTxn = 7
 
-	if len(stxnad.ApplyData.EvalDelta.InnerTxns) == 0 {
+	if !includeInner || len(stxnad.ApplyData.EvalDelta.InnerTxns) == 0 {
 		// if no inner transactions then adding into a slice with in-place de-duplication
 		res := make([]basics.Address, 0, acctsPerTxn)
 		add := func(address basics.Address) {
@@ -255,7 +297,7 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Ad
 			res = append(res, address)
 		}
 
-		getTransactionParticipantsImpl(stxnad, add)
+		getTransactionParticipantsImpl(stxnad, includeInner, add)
 		return res
 	}
 
@@ -271,7 +313,7 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Ad
 		participants[address] = struct{}{}
 	}
 
-	getTransactionParticipantsImpl(stxnad, add)
+	getTransactionParticipantsImpl(stxnad, includeInner, add)
 
 	res := make([]basics.Address, 0, len(participants))
 	for addr := range participants {
@@ -281,16 +323,39 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Ad
 	return res
 }
 
-func (w *Writer) addTransactionParticipation(block *bookkeeping.Block) error {
-	var rows [][]interface{}
-
-	for i, stxnad := range block.Payset {
-		// TODO: replace with a function from go-algorand.
-		participants := getTransactionParticipants(stxnad.SignedTxnWithAD)
+// addInnerTransactionParticipation traverses the inner transaction tree and
+// adds txn participation records for each. It performs a preorder traversal
+// to correctly compute the intra round offset, the offset for the next
+// transaction is returned.
+func addInnerTransactionParticipation(stxnad *transactions.SignedTxnWithAD, round, intra uint64, rows [][]interface{}) (uint64, [][]interface{}) {
+	next := intra
+	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
+		// Only search inner transactions by direct participation.
+		// TODO: Should inner app calls be surfaced by their participants?
+		participants := getTransactionParticipants(&itxn, false)
 
 		for j := range participants {
-			rows = append(rows, []interface{}{participants[j][:], uint64(block.Round()), i})
+			rows = append(rows, []interface{}{participants[j][:], round, next})
 		}
+
+		next, rows = addInnerTransactionParticipation(&itxn, round, next+1, rows)
+	}
+	return next, rows
+
+}
+
+func (w *Writer) addTransactionParticipation(block *bookkeeping.Block) error {
+	var rows [][]interface{}
+	next := uint64(0)
+
+	for _, stxnib := range block.Payset {
+		participants := getTransactionParticipants(&stxnib.SignedTxnWithAD, true)
+
+		for j := range participants {
+			rows = append(rows, []interface{}{participants[j][:], uint64(block.Round()), next})
+		}
+
+		next, rows = addInnerTransactionParticipation(&stxnib.SignedTxnWithAD, uint64(block.Round()), next+1, rows)
 	}
 
 	_, err := w.tx.CopyFrom(
