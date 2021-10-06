@@ -38,20 +38,38 @@ func main() {
 	maybeFail(err, "open postgres, %v", err)
 	<-availableCh
 
-	rekeyTxnQuery := idb.TransactionFilter{RekeyTo: &truev, Limit: 1}
+	// TODO: this is fragile, I don't need to hit exactly 4 here; just more than 1, less than 100. Refactor PrintTxnQuery ?
+	rekeyTxnQuery := idb.TransactionFilter{RekeyTo: &truev, Limit: 4}
 	printTxnQuery(db, rekeyTxnQuery)
 
+	var rekeyedAuthAddrs []basics.Address
 	rowchan, _ := db.Transactions(context.Background(), rekeyTxnQuery)
-	var rekeyTo basics.Address
 	for txnrow := range rowchan {
 		maybeFail(txnrow.Error, "err rekey txn %v\n", txnrow.Error)
 		var stxn transactions.SignedTxnWithAD
 		err := protocol.Decode(txnrow.TxnBytes, &stxn)
 		maybeFail(err, "decode txnbytes %v\n", err)
-		rekeyTo = stxn.Txn.RekeyTo
+		rekeyedAuthAddrs = append(rekeyedAuthAddrs, stxn.Txn.RekeyTo)
 	}
 
-	printAccountQuery(db, idb.AccountQueryOptions{EqualToAuthAddr: rekeyTo[:], Limit: 1})
+	// some rekeys get rekeyed back; some rekeyed accounts get deleted, just want to find at least one
+	foundRekey := false
+	for _, rekeyTo := range rekeyedAuthAddrs {
+		// TODO: refactor? this is like PrintAccountQuery but without setting the global error.
+		accountchan, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAuthAddr: rekeyTo[:], Limit: 1})
+		count := uint64(0)
+		for ar := range accountchan {
+			util.MaybeFail(ar.Error, "GetAccounts err %v\n", ar.Error)
+			count++
+		}
+		if count == 1 {
+			foundRekey = true
+		}
+	}
+	if !foundRekey {
+		// this will report the error in a handy way
+		printAccountQuery(db, idb.AccountQueryOptions{EqualToAuthAddr: rekeyedAuthAddrs[0][:], Limit: 1})
+	}
 
 	// find an asset with > 1 account
 	countByAssetID := make(map[uint64]uint64)
