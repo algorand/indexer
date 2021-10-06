@@ -501,10 +501,27 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 		return indexerError(ctx, fmt.Sprintf("%s: %v", errTransactionSearch, err))
 	}
 
+	// filter out duplicates
+	idMap := make(map[string]struct{})
+	results := make([]generated.Transaction, 0, len(txns))
+	for _, txn := range txns {
+		// Do not return inner transactions.
+		if txn.Id == nil {
+			continue
+		}
+
+		// The root txn has already been added.
+		if _, ok := idMap[*txn.Id]; ok {
+			continue
+		}
+		idMap[*txn.Id] = struct{}{}
+		results = append(results, txn)
+	}
+
 	response := generated.TransactionsResponse{
 		CurrentRound: round,
 		NextToken:    strPtr(next),
-		Transactions: txns,
+		Transactions: results,
 	}
 
 	return ctx.JSON(http.StatusOK, response)

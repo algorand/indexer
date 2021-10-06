@@ -596,10 +596,14 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if tf.RekeyTo != nil && (*tf.RekeyTo) {
 		whereParts = append(whereParts, "(t.txn -> 'txn' -> 'rekey') IS NOT NULL")
 	}
-	query = "SELECT t.round, t.intra, t.txnbytes, coalesce(root.txnbytes, t.txnbytes), t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round JOIN txn root ON t.round = root.round AND t.extra->>'root-intra' = root.intra::text"
+	query = "SELECT t.round, t.intra, t.txnbytes, root.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
+
+	// join in the root transaction
+	query += " LEFT OUTER JOIN txn root ON t.round = root.round AND t.extra->>'root-intra' = root.intra::text"
+
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
 		query += " WHERE " + whereStr
@@ -756,9 +760,10 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, r
 		var asset uint64
 		var intra int
 		var txnbytes []byte
+		var roottxnbytes []byte
 		var extraJSON []byte
 		var roundtime time.Time
-		err := rows.Scan(&round, &intra, &txnbytes, &extraJSON, &asset, &roundtime)
+		err := rows.Scan(&round, &intra, &txnbytes, &roottxnbytes, &extraJSON, &asset, &roundtime)
 		var row idb.TxnRow
 		if err != nil {
 			row.Error = err
@@ -766,6 +771,7 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, r
 			row.Round = round
 			row.Intra = intra
 			row.TxnBytes = txnbytes
+			row.RootTxnBytes = roottxnbytes
 			row.RoundTime = roundtime
 			row.AssetID = asset
 			if len(extraJSON) > 0 {

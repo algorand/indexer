@@ -1511,34 +1511,35 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	err = pgutil.TxWithRetry(db, serializable, func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
+		//defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
-		return tx.Commit(context.Background())
+		//return tx.Commit(context.Background())
+		return nil
 	}, nil)
 	require.NoError(t, err)
 
-	tests := []struct{
-		name string
+	tests := []struct {
+		name   string
 		filter idb.TransactionFilter
-	} {
+	}{
 		{
-			name: "match on root",
-			filter: idb.TransactionFilter{ Address: appAddr[:], TypeEnum: idb.TypeEnumApplication },
+			name:   "match on root",
+			filter: idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication},
 		},
 		{
-			name: "match on inner",
-			filter: idb.TransactionFilter{ Address: appAddr[:], TypeEnum: idb.TypeEnumPay },
+			name:   "match on inner",
+			filter: idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay},
 		},
 		{
-			name: "match on inner-inner",
-			filter: idb.TransactionFilter{ Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer },
+			name:   "match on inner-inner",
+			filter: idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer},
 		},
 		{
-			name: "match all",
-			filter: idb.TransactionFilter{ Address: appAddr[:] },
+			name:   "match all",
+			filter: idb.TransactionFilter{Address: appAddr[:]},
 		},
 	}
 
