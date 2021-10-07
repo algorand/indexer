@@ -251,8 +251,16 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		return generated.Transaction{}, row.Error
 	}
 
+	var bytes []byte
+	if row.TxnBytes != nil {
+		bytes = row.TxnBytes
+	} else if row.RootTxnBytes != nil {
+		bytes = row.RootTxnBytes
+	} else {
+		return generated.Transaction{}, fmt.Errorf("%d:%d transaction bytes missing", row.Round, row.Intra)
+	}
 	var stxn transactions.SignedTxnWithAD
-	err := protocol.Decode(row.TxnBytes, &stxn)
+	err := protocol.Decode(bytes, &stxn)
 	if err != nil {
 		return generated.Transaction{}, fmt.Errorf("%s: %s", errUnableToDecodeTransaction, err.Error())
 	}

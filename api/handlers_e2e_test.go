@@ -10,8 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
@@ -129,4 +131,82 @@ func TestBlockNotFound(t *testing.T) {
 	//////////
 	require.Equal(t, http.StatusNotFound, rec.Code)
 	require.Equal(t, "{\"message\":\"error while looking up block for round '100': block not found\"}\n", rec.Body.String())
+}
+
+func TestInnerTxnDeduplication(t *testing.T) {
+	var appAddr basics.Address
+	appAddr[1] = 99
+	appAddrStr := appAddr.String()
+
+	pay := "pay"
+	axfer := "axfer"
+	testcases := []struct {
+		name    string
+		matches int
+		filter  generated.SearchForTransactionsParams
+	}{
+		{
+			name:   "match on root",
+			matches: 1,
+			filter: generated.SearchForTransactionsParams{Address: &appAddrStr, TxType: &pay},
+		},
+		{
+			name:   "match on inner",
+			matches: 1,
+			filter: generated.SearchForTransactionsParams{Address: &appAddrStr, TxType: &pay},
+		},
+		{
+			name:   "match on inner-inner",
+			matches: 1,
+			filter: generated.SearchForTransactionsParams{Address: &appAddrStr, TxType: &axfer},
+		},
+		{
+			name:   "match all",
+			matches: 3,
+			filter: generated.SearchForTransactionsParams{Address: &appAddrStr},
+		},
+	}
+
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // a DB with some inner txns in it.
+	///////////
+
+	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+	expectedID := appCall.Txn.ID().String()
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err, "failed to commit")
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			//////////
+			// When // we run a query that matches the Root Txn and Inner Txns
+			//////////
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetPath("/v2/transactions/")
+
+			api := &ServerImplementation{db: db}
+			err = api.SearchForTransactions(c, tc.filter)
+			require.NoError(t, err)
+
+			//////////
+			// Then // The only result is the root transaction.
+			//////////
+			require.Equal(t, http.StatusOK, rec.Code)
+			var response generated.TransactionsResponse
+			json.Decode(rec.Body.Bytes(), &response)
+
+			require.Len(t, response.Transactions, 1)
+			require.Equal(t, expectedID, *(response.Transactions[0].Id))
+		})
+	}
 }

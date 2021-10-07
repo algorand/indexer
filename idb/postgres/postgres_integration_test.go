@@ -1495,29 +1495,8 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 // TestSearchForInnerTransactionReturnsRootTransaction checks that the parent
 // transaction with nested inner transactions are returned when
 func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
-	// Given: A DB with one transaction containing inner transactions [app -> pay -> xfer]
-	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
-	defer shutdownFunc()
-	indexer := setupIdbWithConnectionString(t, connStr, test.MakeGenesis(), test.MakeGenesisBlock())
-
 	var appAddr basics.Address
 	appAddr[1] = 99
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
-
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
-	require.NoError(t, err)
-	rootTxid := appCall.Txn.ID()
-
-	err = pgutil.TxWithRetry(db, serializable, func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-		require.NoError(t, err)
-
-		return nil
-	}, nil)
-	require.NoError(t, err)
 
 	tests := []struct {
 		name    string
@@ -1545,6 +1524,28 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 			filter: idb.TransactionFilter{Address: appAddr[:]},
 		},
 	}
+
+	// Given: A DB with one transaction containing inner transactions [app -> pay -> xfer]
+	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+	indexer := setupIdbWithConnectionString(t, connStr, test.MakeGenesis(), test.MakeGenesisBlock())
+
+	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	require.NoError(t, err)
+	rootTxid := appCall.Txn.ID()
+
+	err = pgutil.TxWithRetry(db, serializable, func(tx pgx.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		require.NoError(t, err)
+
+		return nil
+	}, nil)
+	require.NoError(t, err)
 
 	for _, tc := range tests {
 		tc := tc
