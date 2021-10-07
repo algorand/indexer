@@ -100,3 +100,33 @@ func TestApplicationHander(t *testing.T) {
 	require.NotNil(t, response.Application.Params.ExtraProgramPages)
 	require.Equal(t, uint64(extraPages), *response.Application.Params.ExtraProgramPages)
 }
+
+func TestBlockNotFound(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // An empty database.
+	///////////
+
+	//////////
+	// When // We query for a non-existent block.
+	//////////
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/v2/blocks/:round-number")
+	c.SetParamNames("round-number")
+	c.SetParamValues(strconv.Itoa(100))
+
+	api := &ServerImplementation{db: db}
+	err := api.LookupBlock(c, 100)
+	require.NoError(t, err)
+
+	//////////
+	// Then // A 404 gets returned.
+	//////////
+	require.Equal(t, http.StatusNotFound, rec.Code)
+	require.Equal(t, "{\"message\":\"error while looking up block for round '100': block not found\"}\n", rec.Body.String())
+}

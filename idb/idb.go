@@ -68,6 +68,9 @@ type TxnExtra struct {
 // because initialization has not been completed.
 var ErrorNotInitialized error = errors.New("accounting not initialized")
 
+// ErrorBlockNotFound is used when requesting a block that isn't in the DB.
+var ErrorBlockNotFound = errors.New("block not found")
+
 // IndexerDb is the interface used to define alternative Indexer backends.
 // TODO: sqlite3 impl
 // TODO: cockroachdb impl

@@ -387,6 +387,10 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 	row := tx.QueryRow(ctx, `SELECT header FROM block_header WHERE round = $1`, round)
 	var blockheaderjson []byte
 	err = row.Scan(&blockheaderjson)
+	if err == pgx.ErrNoRows {
+		err = idb.ErrorBlockNotFound
+		return
+	}
 	if err != nil {
 		return
 	}
