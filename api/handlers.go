@@ -495,6 +495,16 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 		return badRequest(ctx, err.Error())
 	}
 
+	// Used for filtering duplicates after getting results.
+	rootTxnDedupeMap := make(map[string]struct{})
+	if filter.NextToken != "" {
+		_, _, txid, err := idb.DecodeTxnRowNext(filter.NextToken)
+		if err != nil {
+			badRequest(ctx, "bad next token")
+		}
+		rootTxnDedupeMap[txid] = struct{}{}
+	}
+
 	// Fetch the transactions
 	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
@@ -502,7 +512,6 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 	}
 
 	// filter out duplicates
-	idMap := make(map[string]struct{})
 	results := make([]generated.Transaction, 0, len(txns))
 	for _, txn := range txns {
 		// Do not return inner transactions.
@@ -511,10 +520,10 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 		}
 
 		// The root txn has already been added.
-		if _, ok := idMap[*txn.Id]; ok {
+		if _, ok := rootTxnDedupeMap[*txn.Id]; ok {
 			continue
 		}
-		idMap[*txn.Id] = struct{}{}
+		rootTxnDedupeMap[*txn.Id] = struct{}{}
 		results = append(results, txn)
 	}
 
@@ -767,16 +776,17 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 	results := make([]generated.Transaction, 0)
 	txchan, round := si.db.Transactions(ctx, filter)
 	nextToken := ""
-	for txrow := range txchan {
+	var txrow idb.TxnRow
+	for txrow = range txchan {
 		tx, err := txnRowToTransaction(txrow)
 		if err != nil {
 			return nil, "", round, err
 		}
 		results = append(results, tx)
-		nextToken = txrow.Next()
 	}
 
-	return results, nextToken, round, nil
+	nextToken, err := txrow.Next()
+	return results, nextToken, round, err
 }
 
 //////////////////////

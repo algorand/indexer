@@ -675,7 +675,8 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 
 // This function blocks. `tx` must be non-nil.
 func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
-	nextround, nextintra32, err := idb.DecodeTxnRowNext(tf.NextToken)
+	// TODO: Use txid to deduplicate next resultset
+	nextround, nextintra32, _, err := idb.DecodeTxnRowNext(tf.NextToken)
 	nextintra := uint64(nextintra32)
 	if err != nil {
 		out <- idb.TxnRow{Error: err}

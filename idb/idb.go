@@ -2,11 +2,14 @@ package idb
 
 import (
 	"context"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"time"
 
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -42,22 +45,41 @@ type TxnRow struct {
 }
 
 // Next returns what should be an opaque string to be returned in the next query to resume where a previous limit left off.
-func (tr TxnRow) Next() string {
-	var b [12]byte
-	binary.LittleEndian.PutUint64(b[:8], tr.Round)
-	binary.LittleEndian.PutUint32(b[8:], uint32(tr.Intra))
-	return base64.URLEncoding.EncodeToString(b[:])
+func (tr TxnRow) Next() (string, error) {
+	var b [12+crypto.DigestSize]byte
+	binary.LittleEndian.PutUint64(b[crypto.DigestSize:40], tr.Round)
+	binary.LittleEndian.PutUint32(b[40:], uint32(tr.Intra))
+
+	data, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(tr.Extra.RootTxid) //.Decode(b[:32], []byte(tr.Extra.RootTxid))
+	if err != nil {
+		return "", fmt.Errorf("Next() err: %w", err)
+	}
+	if len(data) != 0 {
+		if len(data) != crypto.DigestSize{
+			return "", fmt.Errorf("Next() unexpected txid size")
+		}
+		copy(b[:crypto.DigestSize], data)
+	}
+
+	return base64.URLEncoding.EncodeToString(b[:]), nil
 }
 
 // DecodeTxnRowNext unpacks opaque string returned from TxnRow.Next()
-func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
-	var b []byte
-	b, err = base64.URLEncoding.DecodeString(s)
+func DecodeTxnRowNext(s string) (round uint64, intra uint32, rootTxid string, err error) {
+	var bytes []byte
+	bytes, err = base64.URLEncoding.DecodeString(s)
 	if err != nil {
 		return
 	}
-	round = binary.LittleEndian.Uint64(b[:8])
-	intra = binary.LittleEndian.Uint32(b[8:])
+
+	for _, b := range bytes[:32] {
+		if b != 0 {
+			rootTxid = base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(bytes[:32])
+			continue
+		}
+	}
+	round = binary.LittleEndian.Uint64(bytes[32:40])
+	intra = binary.LittleEndian.Uint32(bytes[40:])
 	return
 }
 
@@ -66,6 +88,7 @@ type TxnExtra struct {
 	AssetCloseAmount uint64 `codec:"aca,omitempty"`
 	// RootIntra is a string to allow distinguishing between 0 and empty.
 	RootIntra string `codec:"root-intra,omitempty"`
+	RootTxid string `codec:"root-txid,omitempty"`
 }
 
 // ErrorNotInitialized is used when requesting something that can't be returned

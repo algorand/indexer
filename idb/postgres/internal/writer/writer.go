@@ -186,6 +186,7 @@ func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, bloc
 		extra := idb.TxnExtra{
 			AssetCloseAmount: itxn.ApplyData.AssetClosingAmount,
 			RootIntra:        fmt.Sprintf("%d", rootIntra),
+			RootTxid:         rootTxid,
 		}
 
 		// When encoding an inner transaction we remove any further nested inner transactions.
