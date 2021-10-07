@@ -3,7 +3,6 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"math"
 	"sync"
 	"testing"
@@ -1558,14 +1557,19 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 			for result := range results {
 				num++
 				require.NoError(t, result.Error)
+				var stxn transactions.SignedTxnWithAD
+
+				// Get Txn or RootTxn
 				if result.TxnBytes != nil {
-					var stxn transactions.SignedTxnWithAD
-					err := protocol.Decode(result.TxnBytes, &stxn)
-					require.NoError(t, err)
-					require.Equal(t, rootTxid, stxn.Txn.ID())
-				} else {
-					fmt.Printf("nil txn bytes...")
+					err = protocol.Decode(result.TxnBytes, &stxn)
 				}
+				if result.RootTxnBytes != nil {
+					err = protocol.Decode(result.RootTxnBytes, &stxn)
+				}
+
+				// Make sure the root txn is returned.
+				require.NoError(t, err)
+				require.Equal(t, rootTxid, stxn.Txn.ID())
 			}
 
 			// There can be multiple matches because deduplication happens in REST API.
