@@ -1507,38 +1507,42 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
+	rootTxid := appCall.Txn.ID()
 
 	err = pgutil.TxWithRetry(db, serializable, func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		//defer w.Close()
 
 		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
 		require.NoError(t, err)
 
-		//return tx.Commit(context.Background())
 		return nil
 	}, nil)
 	require.NoError(t, err)
 
 	tests := []struct {
-		name   string
-		filter idb.TransactionFilter
+		name    string
+		matches int
+		filter  idb.TransactionFilter
 	}{
 		{
 			name:   "match on root",
+			matches: 1,
 			filter: idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication},
 		},
 		{
 			name:   "match on inner",
+			matches: 1,
 			filter: idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay},
 		},
 		{
 			name:   "match on inner-inner",
+			matches: 1,
 			filter: idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer},
 		},
 		{
 			name:   "match all",
+			matches: 3,
 			filter: idb.TransactionFilter{Address: appAddr[:]},
 		},
 	}
@@ -1558,11 +1562,14 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 					var stxn transactions.SignedTxnWithAD
 					err := protocol.Decode(result.TxnBytes, &stxn)
 					require.NoError(t, err)
+					require.Equal(t, rootTxid, stxn.Txn.ID())
 				} else {
 					fmt.Printf("nil txn bytes...")
 				}
 			}
-			require.Equal(t, 1, num, "we only expect one result.")
+
+			// There can be multiple matches because deduplication happens in REST API.
+			require.Equal(t, tc.matches, num)
 		})
 	}
 }
