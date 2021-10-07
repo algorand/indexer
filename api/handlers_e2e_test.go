@@ -142,27 +142,22 @@ func TestInnerTxnDeduplication(t *testing.T) {
 	axfer := "axfer"
 	testcases := []struct {
 		name    string
-		matches int
 		filter  generated.SearchForTransactionsParams
 	}{
 		{
 			name:   "match on root",
-			matches: 1,
 			filter: generated.SearchForTransactionsParams{Address: &appAddrStr, TxType: &pay},
 		},
 		{
 			name:   "match on inner",
-			matches: 1,
 			filter: generated.SearchForTransactionsParams{Address: &appAddrStr, TxType: &pay},
 		},
 		{
 			name:   "match on inner-inner",
-			matches: 1,
 			filter: generated.SearchForTransactionsParams{Address: &appAddrStr, TxType: &axfer},
 		},
 		{
 			name:   "match all",
-			matches: 3,
 			filter: generated.SearchForTransactionsParams{Address: &appAddrStr},
 		},
 	}
@@ -186,7 +181,7 @@ func TestInnerTxnDeduplication(t *testing.T) {
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			//////////
-			// When // we run a query that matches the Root Txn and Inner Txns
+			// When // we run a query that matches the Root Txn and/or Inner Txns
 			//////////
 			e := echo.New()
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -209,4 +204,66 @@ func TestInnerTxnDeduplication(t *testing.T) {
 			require.Equal(t, expectedID, *(response.Transactions[0].Id))
 		})
 	}
+}
+
+func TestPagingRootTxnDeduplication(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // a DB with some inner txns in it.
+	///////////
+
+	var appAddr basics.Address
+	appAddr[1] = 99
+	appAddrStr := appAddr.String()
+	pay := "pay"
+
+	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+	expectedID := appCall.Txn.ID().String()
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err, "failed to commit")
+
+	//////////
+	// When // we match the first inner transaction and page to the next.
+	//////////
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec1 := httptest.NewRecorder()
+	c := e.NewContext(req, rec1)
+	c.SetPath("/v2/transactions/")
+
+	// First page
+	api := &ServerImplementation{db: db}
+	filter := generated.SearchForTransactionsParams{Address: &appAddrStr, TxType: &pay, Limit: uint64Ptr(1)}
+	err = api.SearchForTransactions(c, filter)
+	require.NoError(t, err)
+
+	require.Equal(t, http.StatusOK, rec1.Code)
+	var response generated.TransactionsResponse
+	json.Decode(rec1.Body.Bytes(), &response)
+	require.Len(t, response.Transactions, 1)
+	require.Equal(t, expectedID, *(response.Transactions[0].Id))
+
+	// Second page, using "NextToken"
+	req = httptest.NewRequest(http.MethodGet, "/", nil)
+	rec2 := httptest.NewRecorder()
+	c = e.NewContext(req, rec2)
+	c.SetPath("/v2/transactions/")
+
+	filter2 := generated.SearchForTransactionsParams{Address: &appAddrStr, TxType: &pay, Next: response.NextToken }
+	err = api.SearchForTransactions(c, filter2)
+	require.NoError(t, err)
+
+	//////////
+	// Then // The only result is the root transaction.
+	//////////
+	require.Equal(t, http.StatusOK, rec2.Code)
+	json.Decode(rec2.Body.Bytes(), &response)
+
+	require.Len(t, response.Transactions, 0)
 }
