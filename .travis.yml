@@ -18,16 +18,14 @@ addons:
     - python3-wheel
     - libboost-all-dev
 
-before_script:
-  # Start single postgres DB in docker for unit tests.
-  - docker run -d --name some-postgres -p 5555:5432 -e POSTGRES_PASSWORD=algorand -e POSTGRES_USER=algorand -e POSTGRES_DB=algorand postgres
-
 script:
+# Start single postgres DB in docker for unit tests.
+- docker run -d --name some-postgres -p 5555:5432 -e POSTGRES_PASSWORD=algorand -e POSTGRES_USER=algorand -e POSTGRES_DB=algorand postgres
+- make test
 - test -z `go fmt ./...`
 - make lint
 - make check
 - make integration
-- make test
 #- ./test/perf.sh "$TEST_CONNECTION_STRING_1" && ./test/perf.sh "$TEST_CONNECTION_STRING_2"
 - make fakepackage
 # e2elive.py runs with the docker-compose file in misc
