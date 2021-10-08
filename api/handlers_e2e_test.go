@@ -251,7 +251,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	json.Decode(rec1.Body.Bytes(), &response)
 	require.Len(t, response.Transactions, 1)
 	require.Equal(t, expectedID, *(response.Transactions[0].Id))
-	pageOneNextToken := response.NextToken
+	pageOneNextToken := *response.NextToken
 
 	// Second page, using "NextToken" from first page.
 	req = httptest.NewRequest(http.MethodGet, "/", nil)
@@ -261,7 +261,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 
 	filter2 := generated.SearchForTransactionsParams{
 		Address: &appAddrStr,
-		Next:    pageOneNextToken,
+		Next:    &pageOneNextToken,
 	}
 	// In the debugger I see the internal call returning the inner tx + root tx
 	err = api.SearchForTransactions(c, filter2)
@@ -275,5 +275,5 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 
 	require.Len(t, response.Transactions, 0)
 	// The fact that NextToken changes indicates that the search results were different.
-	require.NotEqual(t, pageOneNextToken, response.NextToken)
+	require.NotEqual(t, pageOneNextToken, *response.NextToken)
 }
