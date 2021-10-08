@@ -11,7 +11,7 @@ install:
 - if [ -n "$DOCKER_PASSWORD" ]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ; fi
 addons:
   addons:
-    postgresql: "11"
+    postgresql: "12"
   apt:
     packages:
     - python3
@@ -19,8 +19,8 @@ addons:
     - python3-setuptools
     - python3-wheel
     - libboost-all-dev
-    - postgresql-11
-    - postgresql-client-11
+    - postgresql-12
+    - postgresql-client-12
 
 before_script:
   - psql -c 'create database algorand;' -U postgres
