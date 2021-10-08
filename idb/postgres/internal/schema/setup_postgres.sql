@@ -32,7 +32,7 @@ CREATE INDEX IF NOT EXISTS txn_by_tixid ON txn ( txid );
 -- CREATE INDEX CONCURRENTLY IF NOT EXISTS txn_asset ON txn (asset, round, intra);
 
 CREATE TABLE IF NOT EXISTS txn_participation (
-addr bytea NOT NULL,
+addr char(58) NOT NULL, -- human readable address representation
 round bigint NOT NULL,
 intra integer NOT NULL
 );
@@ -42,7 +42,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS txn_participation_i ON txn_participation ( add
 
 -- expand data.basics.AccountData
 CREATE TABLE IF NOT EXISTS account (
-  addr bytea primary key,
+  addr char(58) primary key, -- human readable address representation
   microalgos bigint NOT NULL, -- okay because less than 2^54 Algos
   rewardsbase bigint NOT NULL,
   rewards_total bigint NOT NULL,
@@ -50,12 +50,12 @@ CREATE TABLE IF NOT EXISTS account (
   created_at bigint NOT NULL, -- round that the account is first used
   closed_at bigint, -- round that the account was last closed
   keytype varchar(8), -- sig, msig, lsig, or null if unknown
-  account_data jsonb NOT NULL -- trimmed AccountData that excludes the fields above and the four creatable maps
+  account_data jsonb -- trimmed AccountData that excludes the fields above and the four creatable maps
 );
 
 -- data.basics.AccountData Assets[asset id] AssetHolding{}
 CREATE TABLE IF NOT EXISTS account_asset (
-  addr bytea NOT NULL, -- [32]byte
+  addr char(58) NOT NULL, -- human readable address representation
   assetid bigint NOT NULL,
   amount numeric(20) NOT NULL, -- need the full 18446744073709551615
   frozen boolean NOT NULL,
@@ -74,7 +74,7 @@ CREATE INDEX IF NOT EXISTS account_asset_by_addr ON account_asset ( addr );
 -- data.basics.AccountData AssetParams[index] AssetParams{}
 CREATE TABLE IF NOT EXISTS asset (
   index bigint PRIMARY KEY,
-  creator_addr bytea NOT NULL,
+  creator_addr char(58) NOT NULL, -- human readable address representation
   params jsonb NOT NULL, -- data.basics.AssetParams -- TODO index some fields?
   deleted bool NOT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL, -- round that the asset was created
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS metastate (
 -- roughly go-algorand/data/basics/userBalance.go AppParams
 CREATE TABLE IF NOT EXISTS app (
   index bigint PRIMARY KEY,
-  creator bytea NOT NULL, -- account address
+  creator char(58) NOT NULL, -- human readable address representation
   params jsonb NOT NULL,
   deleted bool NOT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL, -- round that the asset was created
@@ -107,7 +107,7 @@ CREATE INDEX IF NOT EXISTS app_by_creator ON app ( creator );
 
 -- per-account app local state
 CREATE TABLE IF NOT EXISTS account_app (
-  addr bytea,
+  addr char(58), -- human readable address representation
   app bigint,
   localstate jsonb NOT NULL,
   deleted bool NOT NULL, -- whether or not it is currently deleted

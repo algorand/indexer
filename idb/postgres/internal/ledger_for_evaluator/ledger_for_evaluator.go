@@ -264,7 +264,7 @@ func (l *LedgerForEvaluator) loadAccountTable(addresses map[basics.Address]struc
 
 	var batch pgx.Batch
 	for i := range addressesArr {
-		batch.Queue(accountStmtName, addressesArr[i][:])
+		batch.Queue(accountStmtName, addressesArr[i].String())
 	}
 
 	results := l.tx.SendBatch(context.Background(), &batch)
@@ -311,16 +311,16 @@ func (l *LedgerForEvaluator) loadCreatables(accountDataMap *map[basics.Address]*
 	}
 
 	for i := range existingAddresses {
-		batch.Queue(assetHoldingsStmtName, existingAddresses[i][:])
+		batch.Queue(assetHoldingsStmtName, existingAddresses[i].String())
 	}
 	for i := range existingAddresses {
-		batch.Queue(assetParamsStmtName, existingAddresses[i][:])
+		batch.Queue(assetParamsStmtName, existingAddresses[i].String())
 	}
 	for i := range existingAddresses {
-		batch.Queue(appParamsStmtName, existingAddresses[i][:])
+		batch.Queue(appParamsStmtName, existingAddresses[i].String())
 	}
 	for i := range existingAddresses {
-		batch.Queue(appLocalStatesStmtName, existingAddresses[i][:])
+		batch.Queue(appLocalStatesStmtName, existingAddresses[i].String())
 	}
 
 	results := l.tx.SendBatch(context.Background(), &batch)
@@ -448,7 +448,7 @@ func (l LedgerForEvaluator) GetCreatorForRound(_ basics.Round, cindex basics.Cre
 		panic("unknown creatable type")
 	}
 
-	var buf []byte
+	var buf string
 	err := row.Scan(&buf)
 	if err == pgx.ErrNoRows {
 		return basics.Address{}, false, nil
@@ -457,8 +457,11 @@ func (l LedgerForEvaluator) GetCreatorForRound(_ basics.Round, cindex basics.Cre
 		return basics.Address{}, false, fmt.Errorf("GetCreatorForRound() err: %w", err)
 	}
 
-	var address basics.Address
-	copy(address[:], buf)
+	address, err := basics.UnmarshalChecksumAddress(buf)
+	if err != nil {
+		return basics.Address{}, false,
+			fmt.Errorf("GetCreatorForRound() decode address err: %w", err)
+	}
 
 	return address, true, nil
 }

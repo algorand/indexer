@@ -334,8 +334,8 @@ func addInnerTransactionParticipation(stxnad *transactions.SignedTxnWithAD, roun
 		// TODO: Should inner app calls be surfaced by their participants?
 		participants := getTransactionParticipants(&itxn, false)
 
-		for j := range participants {
-			rows = append(rows, []interface{}{participants[j][:], round, next})
+		for _, address := range participants {
+			rows = append(rows, []interface{}{address.String(), round, next})
 		}
 
 		next, rows = addInnerTransactionParticipation(&itxn, round, next+1, rows)
@@ -351,8 +351,8 @@ func (w *Writer) addTransactionParticipation(block *bookkeeping.Block) error {
 	for _, stxnib := range block.Payset {
 		participants := getTransactionParticipants(&stxnib.SignedTxnWithAD, true)
 
-		for j := range participants {
-			rows = append(rows, []interface{}{participants[j][:], uint64(block.Round()), next})
+		for _, address := range participants {
+			rows = append(rows, []interface{}{address.String(), uint64(block.Round()), next})
 		}
 
 		next, rows = addInnerTransactionParticipation(&stxnib.SignedTxnWithAD, uint64(block.Round()), next+1, rows)
@@ -375,14 +375,14 @@ func writeAccountData(round basics.Round, address basics.Address, accountData ba
 	for assetid, params := range accountData.AssetParams {
 		batch.Queue(
 			upsertAssetStmtName,
-			uint64(assetid), address[:], encoding.EncodeAssetParams(params), uint64(round))
+			uint64(assetid), address.String(), encoding.EncodeAssetParams(params), uint64(round))
 	}
 
 	// Update `account_asset` table.
 	for assetid, holding := range accountData.Assets {
 		batch.Queue(
 			upsertAccountAssetStmtName,
-			address[:], uint64(assetid), strconv.FormatUint(holding.Amount, 10),
+			address.String(), uint64(assetid), strconv.FormatUint(holding.Amount, 10),
 			holding.Frozen, uint64(round))
 	}
 
@@ -390,27 +390,27 @@ func writeAccountData(round basics.Round, address basics.Address, accountData ba
 	for appid, params := range accountData.AppParams {
 		batch.Queue(
 			upsertAppStmtName,
-			uint64(appid), address[:], encoding.EncodeAppParams(params), uint64(round))
+			uint64(appid), address.String(), encoding.EncodeAppParams(params), uint64(round))
 	}
 
 	// Update `account_app` table.
 	for appid, state := range accountData.AppLocalStates {
 		batch.Queue(
 			upsertAccountAppStmtName,
-			address[:], uint64(appid), encoding.EncodeAppLocalState(state), uint64(round))
+			address.String(), uint64(appid), encoding.EncodeAppLocalState(state), uint64(round))
 	}
 
 	// Update `account` table.
 	if accountData.IsZero() {
 		// Delete account.
-		batch.Queue(deleteAccountStmtName, address[:], uint64(round))
+		batch.Queue(deleteAccountStmtName, address.String(), uint64(round))
 	} else {
 		// Update account.
 		accountDataJSON :=
 			encoding.EncodeTrimmedAccountData(encoding.TrimAccountData(accountData))
 		batch.Queue(
 			upsertAccountStmtName,
-			address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
+			address.String(), accountData.MicroAlgos.Raw, accountData.RewardsBase,
 			accountData.RewardedMicroAlgos.Raw, uint64(round), accountDataJSON)
 	}
 }
@@ -437,9 +437,9 @@ func writeDeletedCreatables(round basics.Round, creatables map[basics.CreatableI
 			*creator = creatable.Creator
 
 			if creatable.Ctype == basics.AssetCreatable {
-				batch.Queue(deleteAssetStmtName, uint64(index), creator[:], uint64(round))
+				batch.Queue(deleteAssetStmtName, uint64(index), creator.String(), uint64(round))
 			} else {
-				batch.Queue(deleteAppStmtName, uint64(index), creator[:], uint64(round))
+				batch.Queue(deleteAppStmtName, uint64(index), creator.String(), uint64(round))
 			}
 		}
 	}
@@ -452,7 +452,7 @@ func writeDeletedAssetHoldings(round basics.Round, modifiedAssetHoldings map[led
 			*address = aa.Address
 
 			batch.Queue(
-				deleteAccountAssetStmtName, address[:], uint64(aa.Asset), uint64(round))
+				deleteAccountAssetStmtName, address.String(), uint64(aa.Asset), uint64(round))
 		}
 	}
 }
@@ -463,7 +463,7 @@ func writeDeletedAppLocalStates(round basics.Round, modifiedAppLocalStates map[l
 			address := new(basics.Address)
 			*address = aa.Address
 
-			batch.Queue(deleteAccountAppStmtName, address[:], uint64(aa.App), uint64(round))
+			batch.Queue(deleteAccountAppStmtName, address.String(), uint64(aa.App), uint64(round))
 		}
 	}
 }
@@ -482,9 +482,9 @@ func updateAccountSigType(payset []transactions.SignedTxnInBlock, batch *pgx.Bat
 			if err != nil {
 				return fmt.Errorf("updateAccountSigType() err: %w", err)
 			}
-			batch.Queue(updateAccountKeyTypeStmtName, sigtype, payset[i].Txn.Sender[:])
+			batch.Queue(updateAccountKeyTypeStmtName, sigtype, payset[i].Txn.Sender.String())
 		} else {
-			batch.Queue(updateAccountKeyTypeStmtName, nil, payset[i].Txn.Sender[:])
+			batch.Queue(updateAccountKeyTypeStmtName, nil, payset[i].Txn.Sender.String())
 		}
 	}
 

@@ -97,8 +97,8 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 
 	_, err := db.Exec(
 		context.Background(),
-		query, test.AccountB[:], accountDataFull.MicroAlgos.Raw, accountDataFull.RewardsBase,
-		accountDataFull.RewardedMicroAlgos.Raw,
+		query, test.AccountB.String(), accountDataFull.MicroAlgos.Raw,
+		accountDataFull.RewardsBase, accountDataFull.RewardedMicroAlgos.Raw,
 		encoding.EncodeTrimmedAccountData(accountDataWritten))
 	require.NoError(t, err)
 
@@ -135,8 +135,8 @@ func insertAccountData(db *pgxpool.Pool, account basics.Address, createdat uint6
 			"VALUES ($1, $2, $3, $4, $5, $6, $7)"
 	_, err := db.Exec(
 		context.Background(), query,
-		account[:], data.MicroAlgos.Raw, data.RewardsBase, data.RewardedMicroAlgos.Raw, deleted, createdat,
-		encoding.EncodeTrimmedAccountData(data))
+		account.String(), data.MicroAlgos.Raw, data.RewardsBase, data.RewardedMicroAlgos.Raw,
+		deleted, createdat, encoding.EncodeTrimmedAccountData(data))
 	return err
 }
 
@@ -272,7 +272,7 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 		MicroAlgos: basics.MicroAlgos{Raw: 5},
 	}
 	_, err := db.Exec(
-		context.Background(), query, test.AccountB[:],
+		context.Background(), query, test.AccountB.String(),
 		encoding.EncodeTrimmedAccountData(accountData))
 	require.NoError(t, err)
 
@@ -347,7 +347,7 @@ func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
 		AppParams:      make(map[basics.AppIndex]basics.AppParams),
 	}
 	_, err := db.Exec(
-		context.Background(), query, test.AccountA[:], accountDataFull.MicroAlgos.Raw)
+		context.Background(), query, test.AccountA.String(), accountDataFull.MicroAlgos.Raw)
 	require.NoError(t, err)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
@@ -373,19 +373,19 @@ func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 		"INSERT INTO account " +
 			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
 			"VALUES ($1, 0, 0, 0, false, 0)"
-	_, err := db.Exec(context.Background(), query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA.String())
 	require.NoError(t, err)
 
 	query =
 		"INSERT INTO account_asset (addr, assetid, amount, frozen, deleted, created_at) " +
 			"VALUES ($1, $2, $3, $4, $5, 0)"
-	_, err = db.Exec(context.Background(), query, test.AccountA[:], 1, 2, false, false)
+	_, err = db.Exec(context.Background(), query, test.AccountA.String(), 1, 2, false, false)
 	require.NoError(t, err)
-	_, err = db.Exec(context.Background(), query, test.AccountA[:], 3, 4, true, false)
+	_, err = db.Exec(context.Background(), query, test.AccountA.String(), 3, 4, true, false)
 	require.NoError(t, err)
-	_, err = db.Exec(context.Background(), query, test.AccountA[:], 5, 6, true, true) // deleted
+	_, err = db.Exec(context.Background(), query, test.AccountA.String(), 5, 6, true, true) // deleted
 	require.NoError(t, err)
-	_, err = db.Exec(context.Background(), query, test.AccountB[:], 5, 6, true, false) // wrong account
+	_, err = db.Exec(context.Background(), query, test.AccountB.String(), 5, 6, true, false) // wrong account
 	require.NoError(t, err)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
@@ -426,7 +426,7 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 		"INSERT INTO account " +
 			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
 			"VALUES ($1, 0, 0, 0, false, 0)"
-	_, err := db.Exec(context.Background(), query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA.String())
 	require.NoError(t, err)
 
 	query =
@@ -434,21 +434,23 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 			"VALUES ($1, $2, $3, $4, 0)"
 
 	_, err = db.Exec(
-		context.Background(), query, 1, test.AccountA[:],
+		context.Background(), query, 1, test.AccountA.String(),
 		encoding.EncodeAssetParams(basics.AssetParams{Manager: test.AccountB}),
 		false)
 	require.NoError(t, err)
 
 	_, err = db.Exec(
-		context.Background(), query, 2, test.AccountA[:],
+		context.Background(), query, 2, test.AccountA.String(),
 		encoding.EncodeAssetParams(basics.AssetParams{Manager: test.AccountC}),
 		false)
 	require.NoError(t, err)
 
-	_, err = db.Exec(context.Background(), query, 3, test.AccountA[:], "{}", true) // deleted
+	_, err = db.Exec(
+		context.Background(), query, 3, test.AccountA.String(), "{}", true) // deleted
 	require.NoError(t, err)
 
-	_, err = db.Exec(context.Background(), query, 4, test.AccountD[:], "{}", false) // wrong account
+	_, err = db.Exec(
+		context.Background(), query, 4, test.AccountD.String(), "{}", false) // wrong account
 	require.NoError(t, err)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
@@ -487,7 +489,7 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 		"INSERT INTO account " +
 			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
 			"VALUES ($1, 0, 0, 0, false, 0)"
-	_, err := db.Exec(context.Background(), query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA.String())
 	require.NoError(t, err)
 
 	query =
@@ -500,7 +502,7 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 		},
 	}
 	_, err = db.Exec(
-		context.Background(), query, 1, test.AccountA[:],
+		context.Background(), query, 1, test.AccountA.String(),
 		encoding.EncodeAppParams(params1), false)
 	require.NoError(t, err)
 
@@ -508,16 +510,16 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 		ApprovalProgram: []byte{1, 2, 3},
 	}
 	_, err = db.Exec(
-		context.Background(), query, 2, test.AccountA[:],
+		context.Background(), query, 2, test.AccountA.String(),
 		encoding.EncodeAppParams(params2), false)
 	require.NoError(t, err)
 
 	_, err = db.Exec(
-		context.Background(), query, 3, test.AccountA[:], "{}", true) // deteled
+		context.Background(), query, 3, test.AccountA.String(), "{}", true) // deteled
 	require.NoError(t, err)
 
 	_, err = db.Exec(
-		context.Background(), query, 4, test.AccountB[:], "{}", false) // wrong account
+		context.Background(), query, 4, test.AccountB.String(), "{}", false) // wrong account
 	require.NoError(t, err)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
@@ -552,7 +554,7 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 		"INSERT INTO account " +
 			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
 			"VALUES ($1, 0, 0, 0, false, 0)"
-	_, err := db.Exec(context.Background(), query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA.String())
 	require.NoError(t, err)
 
 	query =
@@ -565,7 +567,7 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 		},
 	}
 	_, err = db.Exec(
-		context.Background(), query, test.AccountA[:], 1,
+		context.Background(), query, test.AccountA.String(), 1,
 		encoding.EncodeAppLocalState(params1), false)
 	require.NoError(t, err)
 
@@ -575,16 +577,16 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 		},
 	}
 	_, err = db.Exec(
-		context.Background(), query, test.AccountA[:], 2,
+		context.Background(), query, test.AccountA.String(), 2,
 		encoding.EncodeAppLocalState(params2), false)
 	require.NoError(t, err)
 
 	_, err = db.Exec(
-		context.Background(), query, test.AccountA[:], 3, "{}", true) // deteled
+		context.Background(), query, test.AccountA.String(), 3, "{}", true) // deteled
 	require.NoError(t, err)
 
 	_, err = db.Exec(
-		context.Background(), query, test.AccountB[:], 4, "{}", false) // wrong account
+		context.Background(), query, test.AccountB.String(), 4, "{}", false) // wrong account
 	require.NoError(t, err)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
@@ -639,25 +641,25 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	seq := []int{4, 9, 3, 6, 5, 1}
 
 	for i, address := range addresses {
-		_, err := db.Exec(context.Background(), addAccountQuery, address[:])
+		_, err := db.Exec(context.Background(), addAccountQuery, address.String())
 		require.NoError(t, err)
 
 		// Insert all types of creatables. Note that no creatable id is ever repeated.
 		for j := range seq {
 			_, err = db.Exec(
-				context.Background(), addAccountAssetQuery, address[:], i+10*j+100)
+				context.Background(), addAccountAssetQuery, address.String(), i+10*j+100)
 			require.NoError(t, err)
 
 			_, err = db.Exec(
-				context.Background(), addAssetQuery, i+10*j+200, address[:])
+				context.Background(), addAssetQuery, i+10*j+200, address.String())
 			require.NoError(t, err)
 
 			_, err = db.Exec(
-				context.Background(), addAppQuery, i+10*j+300, address[:])
+				context.Background(), addAppQuery, i+10*j+300, address.String())
 			require.NoError(t, err)
 
 			_, err = db.Exec(
-				context.Background(), addAccountAppQuery, address[:], i+10*j+400)
+				context.Background(), addAccountAppQuery, address.String(), i+10*j+400)
 			require.NoError(t, err)
 		}
 	}
@@ -730,7 +732,7 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 	query :=
 		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
 			"VALUES (2, $1, '{}', false, 0)"
-	_, err := db.Exec(context.Background(), query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA.String())
 	require.NoError(t, err)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
@@ -757,7 +759,7 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	query :=
 		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
 			"VALUES (2, $1, '{}', true, 0)"
-	_, err := db.Exec(context.Background(), query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA.String())
 	require.NoError(t, err)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
@@ -783,7 +785,7 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 	query :=
 		"INSERT INTO app (index, creator, params, deleted, created_at) " +
 			"VALUES (2, $1, '{}', false, 0)"
-	_, err := db.Exec(context.Background(), query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA.String())
 	require.NoError(t, err)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
@@ -810,7 +812,7 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	query :=
 		"INSERT INTO app (index, creator, params, deleted, created_at) " +
 			"VALUES (2, $1, '{}', true, 0)"
-	_, err := db.Exec(context.Background(), query, test.AccountA[:])
+	_, err := db.Exec(context.Background(), query, test.AccountA.String())
 	require.NoError(t, err)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)

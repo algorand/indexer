@@ -88,7 +88,7 @@ func assertAccountAsset(t *testing.T, db *pgxpool.Pool, addr basics.Address, ass
 	var f bool
 	var a uint64
 
-	row = db.QueryRow(context.Background(), `SELECT frozen, amount FROM account_asset as a WHERE a.addr = $1 AND assetid = $2`, addr[:], assetid)
+	row = db.QueryRow(context.Background(), `SELECT frozen, amount FROM account_asset as a WHERE a.addr = $1 AND assetid = $2`, addr.String(), assetid)
 	err := row.Scan(&f, &a)
 	assert.NoError(t, err, "failed looking up AccountA.")
 	assert.Equal(t, frozen, f)
@@ -270,7 +270,7 @@ func TestMultipleWriters(t *testing.T) {
 
 	// AccountE should contain the final payment.
 	var balance uint64
-	row := db.db.QueryRow(context.Background(), `SELECT microalgos FROM account WHERE account.addr = $1`, test.AccountE[:])
+	row := db.db.QueryRow(context.Background(), `SELECT microalgos FROM account WHERE account.addr = $1`, test.AccountE.String())
 	err = row.Scan(&balance)
 	assert.NoError(t, err, "checking balance")
 	assert.Equal(t, amt, balance)
@@ -356,7 +356,7 @@ func TestRekeyBasic(t *testing.T) {
 	// Then // Account A is rekeyed to account B
 	//////////
 	var accountDataStr []byte
-	row := db.db.QueryRow(context.Background(), `SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
+	row := db.db.QueryRow(context.Background(), `SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA.String())
 	err = row.Scan(&accountDataStr)
 	assert.NoError(t, err, "querying account data")
 
@@ -393,7 +393,7 @@ func TestRekeyToItself(t *testing.T) {
 	// Then // Account's A auth-address is not recorded
 	//////////
 	var accountDataStr []byte
-	row := db.db.QueryRow(context.Background(), `SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
+	row := db.db.QueryRow(context.Background(), `SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA.String())
 	err = row.Scan(&accountDataStr)
 	assert.NoError(t, err, "querying account data")
 
@@ -428,7 +428,7 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 	// Then // Account A is rekeyed to account C
 	//////////
 	var accountDataStr []byte
-	row := db.db.QueryRow(context.Background(), `SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA[:])
+	row := db.db.QueryRow(context.Background(), `SELECT account_data FROM account WHERE account.addr = $1`, test.AccountA.String())
 	err = row.Scan(&accountDataStr)
 	assert.NoError(t, err, "querying account data")
 
@@ -545,7 +545,7 @@ func assertAssetHoldingDates(t *testing.T, db *pgxpool.Pool, address basics.Addr
 		context.Background(),
 		"SELECT deleted, created_at, closed_at FROM account_asset WHERE "+
 			"addr = $1 AND assetid = $2",
-		address[:], assetID)
+		address.String(), assetID)
 
 	var retDeleted sql.NullBool
 	var retCreatedAt sql.NullInt64
@@ -676,7 +676,7 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 
 	// Check that the manager does not have an asset holding.
 	count := queryInt(
-		db.db, "SELECT COUNT(*) FROM account_asset WHERE addr = $1", test.AccountB[:])
+		db.db, "SELECT COUNT(*) FROM account_asset WHERE addr = $1", test.AccountB.String())
 	assert.Equal(t, 0, count)
 }
 
@@ -717,8 +717,8 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	query :=
 		"SELECT COUNT(*) FROM txn_participation WHERE addr = $1 AND round = $2 AND " +
 			"intra = $3"
-	acctACount := queryInt(db.db, query, test.AccountA[:], round, intra)
-	acctBCount := queryInt(db.db, query, test.AccountB[:], round, intra)
+	acctACount := queryInt(db.db, query, test.AccountA.String(), round, intra)
+	acctBCount := queryInt(db.db, query, test.AccountB.String(), round, intra)
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
 }
@@ -759,14 +759,14 @@ func TestInnerTxnParticipation(t *testing.T) {
 	query :=
 		"SELECT COUNT(*) FROM txn_participation WHERE addr = $1 AND round = $2 AND " +
 			"intra = $3"
-	acctACount := queryInt(db.db, query, test.AccountA[:], round, intra)
-	acctBCount := queryInt(db.db, query, test.AccountB[:], round, intra)
-	acctCCount := queryInt(db.db, query, test.AccountC[:], round, intra)
-	acctAppCount := queryInt(db.db, query, appAddr, round, intra)
+	acctACount := queryInt(db.db, query, test.AccountA.String(), round, intra)
+	acctBCount := queryInt(db.db, query, test.AccountB.String(), round, intra)
+	acctCCount := queryInt(db.db, query, test.AccountC.String(), round, intra)
+	acctAppCount := queryInt(db.db, query, appAddr.String(), round, intra)
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
 	assert.Equal(t, 1, acctCCount)
-	assert.Equal(t, -1, acctAppCount, "inner txn sender is not indexed")
+	assert.Equal(t, 1, acctAppCount)
 }
 
 func TestAppExtraPages(t *testing.T) {
@@ -801,7 +801,7 @@ func TestAppExtraPages(t *testing.T) {
 	err = db.AddBlock(&block)
 	require.NoError(t, err, "failed to commit")
 
-	row := db.db.QueryRow(context.Background(), "SELECT index, params FROM app WHERE creator = $1", test.AccountA[:])
+	row := db.db.QueryRow(context.Background(), "SELECT index, params FROM app WHERE creator = $1", test.AccountA.String())
 
 	var index uint64
 	var paramsStr []byte

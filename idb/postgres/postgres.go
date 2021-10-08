@@ -263,7 +263,7 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 			}
 			_, err = tx.Exec(
 				context.Background(), setAccountStatementName,
-				addr[:], alloc.State.MicroAlgos.Raw,
+				addr.String(), alloc.State.MicroAlgos.Raw,
 				encoding.EncodeTrimmedAccountData(encoding.TrimAccountData(alloc.State)), 0)
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() error setting genesis account[%d], %w", ai, err)
@@ -428,11 +428,11 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	joinParticipation := false
 	partNumber := 1
 	if tf.Address != nil {
+		addrStr := tf.Address.String()
 		whereParts = append(whereParts, fmt.Sprintf("p.addr = $%d", partNumber))
-		whereArgs = append(whereArgs, tf.Address[:])
+		whereArgs = append(whereArgs, addrStr)
 		partNumber++
 		if tf.AddressRole != 0 {
-			addrStr := tf.Address.String()
 			roleparts := make([]string, 0, 8)
 			if tf.AddressRole&idb.AddressRoleSender != 0 {
 				roleparts = append(roleparts, fmt.Sprintf("t.txn -> 'txn' ->> 'snd' = $%d", partNumber))
@@ -835,7 +835,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 	}()
 	for req.rows.Next() {
-		var addr []byte
+		var addr string
 		var microalgos uint64
 		var rewardstotal uint64
 		var createdat sql.NullInt64
@@ -914,8 +914,12 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		var account models.Account
-		var aaddr basics.Address
-		copy(aaddr[:], addr)
+		aaddr, err := basics.UnmarshalChecksumAddress(addr)
+		if err != nil {
+			err = fmt.Errorf("address decode err %w", err)
+			req.out <- idb.AccountRow{Error: err}
+			break
+		}
 		account.Address = aaddr.String()
 		account.Round = uint64(req.blockheader.Round)
 		account.AmountWithoutPendingRewards = microalgos
@@ -1522,12 +1526,12 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	// filters against main account table
 	if opts.GreaterThanAddress != nil {
 		whereParts = append(whereParts, fmt.Sprintf("a.addr > $%d", partNumber))
-		whereArgs = append(whereArgs, opts.GreaterThanAddress[:])
+		whereArgs = append(whereArgs, opts.GreaterThanAddress.String())
 		partNumber++
 	}
 	if opts.EqualToAddress != nil {
 		whereParts = append(whereParts, fmt.Sprintf("a.addr = $%d", partNumber))
-		whereArgs = append(whereArgs, opts.EqualToAddress[:])
+		whereArgs = append(whereArgs, opts.EqualToAddress.String())
 		partNumber++
 	}
 	if opts.AlgosGreaterThan != nil {
@@ -1632,7 +1636,7 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	}
 	if filter.Creator != nil {
 		whereParts = append(whereParts, fmt.Sprintf("a.creator_addr = $%d", partNumber))
-		whereArgs = append(whereArgs, filter.Creator[:])
+		whereArgs = append(whereArgs, filter.Creator.String())
 		partNumber++
 	}
 	if filter.Name != "" {
@@ -1701,7 +1705,7 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 
 	for rows.Next() {
 		var index uint64
-		var creatorAddr []byte
+		var creatorAddr string
 		var paramsJSONStr []byte
 		var created *uint64
 		var closed *uint64
@@ -1718,11 +1722,14 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			out <- idb.AssetRow{Error: err}
 			break
 		}
-		var creator basics.Address
-		copy(creator[:], creatorAddr)
+		creator, err := basics.UnmarshalChecksumAddress(creatorAddr)
+		if err != nil {
+			out <- idb.AssetRow{Error: err}
+			break
+		}
 		rec := idb.AssetRow{
 			AssetID:      index,
-			Creator:      creatorAddr,
+			Creator:      creator[:],
 			Params:       params,
 			CreatedRound: created,
 			ClosedRound:  closed,
@@ -1762,7 +1769,7 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	}
 	if abq.PrevAddress != nil {
 		whereParts = append(whereParts, fmt.Sprintf("aa.addr > $%d", partNumber))
-		whereArgs = append(whereArgs, abq.PrevAddress[:])
+		whereArgs = append(whereArgs, abq.PrevAddress.String())
 		partNumber++
 	}
 	if !abq.IncludeDeleted {
@@ -1813,7 +1820,7 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows pgx.Rows,
 	defer rows.Close()
 
 	for rows.Next() {
-		var addr []byte
+		var addr string
 		var assetID uint64
 		var amount uint64
 		var frozen bool
@@ -1825,8 +1832,13 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows pgx.Rows,
 			out <- idb.AssetBalanceRow{Error: err}
 			break
 		}
+		address, err := basics.UnmarshalChecksumAddress(addr)
+		if err != nil {
+			out <- idb.AssetBalanceRow{Error: err}
+			break
+		}
 		rec := idb.AssetBalanceRow{
-			Address:      addr,
+			Address:      address[:],
 			AssetID:      assetID,
 			Amount:       amount,
 			Frozen:       frozen,
@@ -1918,7 +1930,7 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows pgx.Rows,
 
 	for rows.Next() {
 		var index uint64
-		var creator []byte
+		var creator string
 		var paramsjson []byte
 		var created *uint64
 		var closed *uint64
@@ -1943,10 +1955,8 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows pgx.Rows,
 		rec.Application.Params.ClearStateProgram = ap.ClearStateProgram
 		rec.Application.Params.Creator = new(string)
 
-		var aaddr basics.Address
-		copy(aaddr[:], creator)
 		rec.Application.Params.Creator = new(string)
-		*(rec.Application.Params.Creator) = aaddr.String()
+		*(rec.Application.Params.Creator) = creator
 		rec.Application.Params.GlobalState = tealKeyValueToModel(ap.GlobalState)
 		rec.Application.Params.GlobalStateSchema = &models.ApplicationStateSchema{
 			NumByteSlice: ap.GlobalStateSchema.NumByteSlice,
