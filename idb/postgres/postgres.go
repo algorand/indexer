@@ -675,7 +675,9 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 
 // This function blocks. `tx` must be non-nil.
 func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
-	// TODO: Use txid to deduplicate next resultset
+	// TODO: Use txid to deduplicate next resultset at the query level?
+
+	// Check for remainder of round from previous page.
 	nextround, nextintra32, _, err := idb.DecodeTxnRowNext(tf.NextToken)
 	nextintra := uint64(nextintra32)
 	if err != nil {
@@ -709,11 +711,15 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 		out <- idb.TxnRow{Error: err}
 		return
 	}
-	count := int(0)
+
+	count := 0
 	db.yieldTxnsThreadSimple(ctx, rows, out, &count, &err)
 	if err != nil {
 		return
 	}
+
+	// If we haven't reached the limit, restore the original filter and
+	// re-run the original search with new Min/Max round and reduced limit.
 	if uint64(count) >= tf.Limit {
 		return
 	}
@@ -727,11 +733,12 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 	if tf.Address != nil {
 		// (round,intra) descending into the past
 		tf.OffsetLT = origOLT
-		if nextround == 0 {
+		tf.MaxRound = nextround - 1
+
+		if tf.MaxRound == 0 {
 			// NO second query
 			return
 		}
-		tf.MaxRound = nextround - 1
 	} else {
 		// (round,intra) ascending into the future
 		tf.OffsetGT = origOGT

@@ -217,7 +217,6 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	var appAddr basics.Address
 	appAddr[1] = 99
 	appAddrStr := appAddr.String()
-	pay := "pay"
 
 	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 	expectedID := appCall.Txn.ID().String()
@@ -237,9 +236,10 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	c := e.NewContext(req, rec1)
 	c.SetPath("/v2/transactions/")
 
-	// First page
+	// Get first page with limit 1.
+	// Address filter causes results to return newest to oldest.
 	api := &ServerImplementation{db: db}
-	filter := generated.SearchForTransactionsParams{Address: &appAddrStr, TxType: &pay, Limit: uint64Ptr(1)}
+	filter := generated.SearchForTransactionsParams{Address: &appAddrStr, Limit: uint64Ptr(1)}
 	err = api.SearchForTransactions(c, filter)
 	require.NoError(t, err)
 
@@ -248,22 +248,29 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	json.Decode(rec1.Body.Bytes(), &response)
 	require.Len(t, response.Transactions, 1)
 	require.Equal(t, expectedID, *(response.Transactions[0].Id))
+	pageOneNextToken := response.NextToken
 
-	// Second page, using "NextToken"
+	// Second page, using "NextToken" from first page.
 	req = httptest.NewRequest(http.MethodGet, "/", nil)
 	rec2 := httptest.NewRecorder()
 	c = e.NewContext(req, rec2)
 	c.SetPath("/v2/transactions/")
 
-	filter2 := generated.SearchForTransactionsParams{Address: &appAddrStr, TxType: &pay, Next: response.NextToken }
+	filter2 := generated.SearchForTransactionsParams{
+		Address: &appAddrStr,
+		Next: pageOneNextToken,
+	}
+	// In the debugger I see the internal call returning the inner tx + root tx
 	err = api.SearchForTransactions(c, filter2)
 	require.NoError(t, err)
 
 	//////////
-	// Then // The only result is the root transaction.
+	// Then // There are no new results on the next page.
 	//////////
 	require.Equal(t, http.StatusOK, rec2.Code)
 	json.Decode(rec2.Body.Bytes(), &response)
 
 	require.Len(t, response.Transactions, 0)
+	// The fact that NextToken changes indicates that the search results were different.
+	require.NotEqual(t, pageOneNextToken, response.NextToken)
 }
