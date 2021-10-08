@@ -50,7 +50,8 @@ func (tr TxnRow) Next() (string, error) {
 	binary.LittleEndian.PutUint64(b[crypto.DigestSize:40], tr.Round)
 	binary.LittleEndian.PutUint32(b[40:], uint32(tr.Intra))
 
-	data, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(tr.Extra.RootTxid) //.Decode(b[:32], []byte(tr.Extra.RootTxid))
+	// avoid in-place decoding to prevent bounds overwrite. Could optimize with DecodeLen.
+	data, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(tr.Extra.RootTxid)
 	if err != nil {
 		return "", fmt.Errorf("Next() err: %w", err)
 	}

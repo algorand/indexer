@@ -133,7 +133,9 @@ func TestBlockNotFound(t *testing.T) {
 	require.Equal(t, "{\"message\":\"error while looking up block for round '100': block not found\"}\n", rec.Body.String())
 }
 
-func TestInnerTxnDeduplication(t *testing.T) {
+// TestInnerTxn runs queries that return one or more root/inner transactions,
+// and verifies that only a single root transaction is returned.
+func TestInnerTxn(t *testing.T) {
 	var appAddr basics.Address
 	appAddr[1] = 99
 	appAddrStr := appAddr.String()
@@ -168,7 +170,6 @@ func TestInnerTxnDeduplication(t *testing.T) {
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-
 	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 	expectedID := appCall.Txn.ID().String()
 
@@ -206,6 +207,9 @@ func TestInnerTxnDeduplication(t *testing.T) {
 	}
 }
 
+// TestPagingRootTxnDeduplication checks that paging in the middle of an inner
+// transaction group does not allow the root transaction to be returned on both
+// pages.
 func TestPagingRootTxnDeduplication(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()
@@ -213,7 +217,6 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-
 	var appAddr basics.Address
 	appAddr[1] = 99
 	appAddrStr := appAddr.String()

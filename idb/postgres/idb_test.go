@@ -35,7 +35,7 @@ func TestTxnRowNext(t *testing.T) {
 			name: "txid illegal base32",
 			round: 1_234_567_890,
 			intra: 500,
-			txid: "S4T444EJOSHVZIN2EMWLFP6UYBTLDZZYTS2ZE3Q6GYUD53KZ5YUQ==",
+			txid: "S4T444EJOSHVZIN2EMWLFP6UYBTLDZ=YTS2ZE3Q6GYUD53KZ5YUQ",
 			encodeError: "illegal base32 data",
 		},
 		{

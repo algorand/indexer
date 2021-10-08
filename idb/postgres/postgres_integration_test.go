@@ -12,7 +12,6 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
-	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -23,6 +22,7 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
+	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util/test"
 )
 
