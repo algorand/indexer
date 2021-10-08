@@ -23,7 +23,7 @@ addons:
     - postgresql-client-12
 
 before_script:
-  - psql -c 'create database algorand;' -U postgres
+  - psql -h localhost -p $PGPORT -U $PGUSER -c 'create database algorand;'
 
 script:
 - test -z `go fmt ./...`
