@@ -1713,8 +1713,6 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			out <- idb.AssetRow{Error: err}
 			break
 		}
-		var creator basics.Address
-		copy(creator[:], creatorAddr)
 		rec := idb.AssetRow{
 			AssetID:      index,
 			Creator:      creatorAddr,
