@@ -20,7 +20,7 @@ addons:
 
 before_script:
   # Start single postgres DB in docker for unit tests.
-  - docker run --name some-postgres -p 5432:5432 -e POSTGRES_PASSWORD=algorand -e POSTGRES_USER=algorand -e POSTGRES_DB=algorand postgres
+  - docker run --name some-postgres -p 5555:5432 -e POSTGRES_PASSWORD=algorand -e POSTGRES_USER=algorand -e POSTGRES_DB=algorand postgres
 
 script:
 - test -z `go fmt ./...`
