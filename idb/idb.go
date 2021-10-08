@@ -46,7 +46,7 @@ type TxnRow struct {
 
 // Next returns what should be an opaque string to be returned in the next query to resume where a previous limit left off.
 func (tr TxnRow) Next() (string, error) {
-	var b [12+crypto.DigestSize]byte
+	var b [12 + crypto.DigestSize]byte
 	binary.LittleEndian.PutUint64(b[crypto.DigestSize:40], tr.Round)
 	binary.LittleEndian.PutUint32(b[40:], uint32(tr.Intra))
 
@@ -56,7 +56,7 @@ func (tr TxnRow) Next() (string, error) {
 		return "", fmt.Errorf("Next() err: %w", err)
 	}
 	if len(data) != 0 {
-		if len(data) != crypto.DigestSize{
+		if len(data) != crypto.DigestSize {
 			return "", fmt.Errorf("Next() unexpected txid size")
 		}
 		copy(b[:crypto.DigestSize], data)
@@ -89,7 +89,7 @@ type TxnExtra struct {
 	AssetCloseAmount uint64 `codec:"aca,omitempty"`
 	// RootIntra is a string to allow distinguishing between 0 and empty.
 	RootIntra string `codec:"root-intra,omitempty"`
-	RootTxid string `codec:"root-txid,omitempty"`
+	RootTxid  string `codec:"root-txid,omitempty"`
 }
 
 // ErrorNotInitialized is used when requesting something that can't be returned

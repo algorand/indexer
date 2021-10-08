@@ -8,48 +8,48 @@ import (
 )
 
 func TestTxnRowNext(t *testing.T) {
-	testcases := []struct{
-		name string
-		round uint64
-		intra uint32
-		txid string
+	testcases := []struct {
+		name        string
+		round       uint64
+		intra       uint32
+		txid        string
 		encodeError string
-	} {
+	}{
 		{
-			name: "simple 1",
+			name:  "simple 1",
 			round: 0,
 			intra: 0,
 		},
 		{
-			name: "simple 2",
+			name:  "simple 2",
 			round: 1_234_567_890,
 			intra: 500,
 		},
 		{
-			name: "txid 1",
+			name:  "txid 1",
 			round: 1_234_567_890,
 			intra: 500,
-			txid: "S4T444EJOSHVZIN2EMWLFP6UYBTLDZZYTS2ZE3Q6GYUD53KZ5YUQ",
+			txid:  "S4T444EJOSHVZIN2EMWLFP6UYBTLDZZYTS2ZE3Q6GYUD53KZ5YUQ",
 		},
 		{
-			name: "txid illegal base32",
-			round: 1_234_567_890,
-			intra: 500,
-			txid: "S4T444EJOSHVZIN2EMWLFP6UYBTLDZ=YTS2ZE3Q6GYUD53KZ5YUQ",
+			name:        "txid illegal base32",
+			round:       1_234_567_890,
+			intra:       500,
+			txid:        "S4T444EJOSHVZIN2EMWLFP6UYBTLDZ=YTS2ZE3Q6GYUD53KZ5YUQ",
 			encodeError: "illegal base32 data",
 		},
 		{
-			name: "txid wrong size",
-			round: 1_234_567_890,
-			intra: 500,
-			txid: "BAFYBEICZSSCDSBS7FFQZ55ASQDF3SMV6KLCW3GOFSZVWLYARCI47BGF354",
+			name:        "txid wrong size",
+			round:       1_234_567_890,
+			intra:       500,
+			txid:        "BAFYBEICZSSCDSBS7FFQZ55ASQDF3SMV6KLCW3GOFSZVWLYARCI47BGF354",
 			encodeError: "unexpected txid size",
 		},
 	}
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			txnrow := idb.TxnRow {
+			txnrow := idb.TxnRow{
 				Round: tc.round,
 				Intra: int(tc.intra),
 				Extra: idb.TxnExtra{RootTxid: tc.txid},
@@ -58,9 +58,8 @@ func TestTxnRowNext(t *testing.T) {
 			if tc.encodeError != "" {
 				assert.Contains(t, err.Error(), tc.encodeError)
 				return
-			} else {
-				require.NoError(t, err)
 			}
+			require.NoError(t, err)
 
 			round, intra, txid, err := idb.DecodeTxnRowNext(nextStr)
 			require.NoError(t, err)

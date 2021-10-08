@@ -143,8 +143,8 @@ func TestInnerTxn(t *testing.T) {
 	pay := "pay"
 	axfer := "axfer"
 	testcases := []struct {
-		name    string
-		filter  generated.SearchForTransactionsParams
+		name   string
+		filter generated.SearchForTransactionsParams
 	}{
 		{
 			name:   "match on root",
@@ -261,7 +261,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 
 	filter2 := generated.SearchForTransactionsParams{
 		Address: &appAddrStr,
-		Next: pageOneNextToken,
+		Next:    pageOneNextToken,
 	}
 	// In the debugger I see the internal call returning the inner tx + root tx
 	err = api.SearchForTransactions(c, filter2)

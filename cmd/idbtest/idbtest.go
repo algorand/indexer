@@ -74,6 +74,7 @@ func testTxnPaging(db idb.IndexerDb, q idb.TransactionFilter) {
 		any = false
 		rowchan, _ := db.Transactions(context.Background(), q)
 		next := ""
+		var err error
 		for txnrow := range rowchan {
 			any = true
 			ri := all[pos]
@@ -91,7 +92,8 @@ func testTxnPaging(db idb.IndexerDb, q idb.TransactionFilter) {
 				any = false // get out
 				break
 			}
-			next = txnrow.Next()
+			next, err = txnrow.Next()
+			maybeFail(err, "bad txnrow.Next(), %v", err)
 		}
 		q.NextToken = next
 		page++
