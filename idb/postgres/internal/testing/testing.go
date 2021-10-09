@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -28,20 +29,40 @@ func init() {
 // the connection string and a shutdown function.
 func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
 	if testpg != "" {
+		newDBName := strings.ToLower(t.Name())
 		// use non-docker Postgresql
-		shutdownFunc := func() {
-			// nothing to do, psql db setup/teardown is external
-		}
 		connStr := testpg
 
 		db, err := pgxpool.Connect(context.Background(), connStr)
 		require.NoError(t, err, "Error opening postgres connection")
 
 		_, err = db.Exec(
-			context.Background(), `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`)
+			context.Background(), fmt.Sprintf(`CREATE DATABASE %s;`, newDBName))
+		//_, err = db.Exec(
+		//	context.Background(), `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`)
 		require.NoError(t, err)
 
-		return db, connStr, shutdownFunc
+		var connStrPartsNew []string
+		parts := strings.Split(connStr, " ")
+		for _, part := range parts {
+			if strings.HasPrefix(part, "dbname") {
+				connStrPartsNew = append(connStrPartsNew, fmt.Sprintf("dbname=%s", newDBName))
+			} else {
+				connStrPartsNew = append(connStrPartsNew, part)
+			}
+		}
+
+		dbNew, err := pgxpool.Connect(context.Background(), strings.Join(connStrPartsNew, " "))
+		require.NoError(t, err, "Error opening postgres connection to new database")
+
+		shutdownFunc := func() {
+			// nothing to do, psql db setup/teardown is external
+			_, err = db.Exec(
+				context.Background(), fmt.Sprintf(`DROP DATABASE %s`, newDBName))
+			db.Close()
+			dbNew.Close()
+		}
+		return dbNew, connStr, shutdownFunc
 	}
 
 	p := postgres.Preset(
