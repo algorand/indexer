@@ -145,7 +145,7 @@ func (l *LedgerForEvaluator) parseAccountTable(row pgx.Row) (basics.AccountData,
 
 func (l *LedgerForEvaluator) parseAccountAssetTable(rows pgx.Rows) (map[basics.AssetIndex]basics.AssetHolding, error) {
 	defer rows.Close()
-	res := make(map[basics.AssetIndex]basics.AssetHolding)
+	var res map[basics.AssetIndex]basics.AssetHolding
 
 	var assetid uint64
 	var amount uint64
@@ -157,6 +157,9 @@ func (l *LedgerForEvaluator) parseAccountAssetTable(rows pgx.Rows) (map[basics.A
 			return nil, fmt.Errorf("parseAccountAssetTable() scan row err: %w", err)
 		}
 
+		if res == nil {
+			res = make(map[basics.AssetIndex]basics.AssetHolding)
+		}
 		res[basics.AssetIndex(assetid)] = basics.AssetHolding{
 			Amount: amount,
 			Frozen: frozen,
@@ -173,7 +176,7 @@ func (l *LedgerForEvaluator) parseAccountAssetTable(rows pgx.Rows) (map[basics.A
 
 func (l *LedgerForEvaluator) parseAssetTable(rows pgx.Rows) (map[basics.AssetIndex]basics.AssetParams, error) {
 	defer rows.Close()
-	res := make(map[basics.AssetIndex]basics.AssetParams)
+	var res map[basics.AssetIndex]basics.AssetParams
 
 	var index uint64
 	var params []byte
@@ -184,6 +187,9 @@ func (l *LedgerForEvaluator) parseAssetTable(rows pgx.Rows) (map[basics.AssetInd
 			return nil, fmt.Errorf("parseAssetTable() scan row err: %w", err)
 		}
 
+		if res == nil {
+			res = make(map[basics.AssetIndex]basics.AssetParams)
+		}
 		res[basics.AssetIndex(index)], err = encoding.DecodeAssetParams(params)
 		if err != nil {
 			return nil, fmt.Errorf("parseAssetTable() decode params err: %w", err)
@@ -200,7 +206,7 @@ func (l *LedgerForEvaluator) parseAssetTable(rows pgx.Rows) (map[basics.AssetInd
 
 func (l *LedgerForEvaluator) parseAppTable(rows pgx.Rows) (map[basics.AppIndex]basics.AppParams, error) {
 	defer rows.Close()
-	res := make(map[basics.AppIndex]basics.AppParams)
+	var res map[basics.AppIndex]basics.AppParams
 
 	var index uint64
 	var params []byte
@@ -211,6 +217,9 @@ func (l *LedgerForEvaluator) parseAppTable(rows pgx.Rows) (map[basics.AppIndex]b
 			return nil, fmt.Errorf("parseAppTable() scan row err: %w", err)
 		}
 
+		if res == nil {
+			res = make(map[basics.AppIndex]basics.AppParams)
+		}
 		res[basics.AppIndex(index)], err = encoding.DecodeAppParams(params)
 		if err != nil {
 			return nil, fmt.Errorf("parseAppTable() decode params err: %w", err)
@@ -227,7 +236,7 @@ func (l *LedgerForEvaluator) parseAppTable(rows pgx.Rows) (map[basics.AppIndex]b
 
 func (l *LedgerForEvaluator) parseAccountAppTable(rows pgx.Rows) (map[basics.AppIndex]basics.AppLocalState, error) {
 	defer rows.Close()
-	res := make(map[basics.AppIndex]basics.AppLocalState)
+	var res map[basics.AppIndex]basics.AppLocalState
 
 	var app uint64
 	var localstate []byte
@@ -238,6 +247,9 @@ func (l *LedgerForEvaluator) parseAccountAppTable(rows pgx.Rows) (map[basics.App
 			return nil, fmt.Errorf("parseAccountAppTable() scan row err: %w", err)
 		}
 
+		if res == nil {
+			res = make(map[basics.AppIndex]basics.AppLocalState)
+		}
 		res[basics.AppIndex(app)], err = encoding.DecodeAppLocalState(localstate)
 		if err != nil {
 			return nil, fmt.Errorf("parseAccountAppTable() decode local state err: %w", err)
