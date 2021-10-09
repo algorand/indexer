@@ -94,12 +94,12 @@ func txnParticipationQuery(db *pgxpool.Pool, query string) ([]txnParticipationRo
 	defer rows.Close()
 	for rows.Next() {
 		var result txnParticipationRow
-		var buf string
+		var buf []byte
 		err = rows.Scan(&buf, &result.round, &result.intra)
 		if err != nil {
 			return nil, err
 		}
-		result.addr, err = basics.UnmarshalChecksumAddress(buf)
+		result.addr, err = basics.UnmarshalChecksumAddress(string(buf))
 		if err != nil {
 			return nil, err
 		}
@@ -461,7 +461,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	require.NoError(t, err)
 	defer rows.Close()
 
-	var addr string
+	var addr []byte
 	var microalgos uint64
 	var rewardsbase uint64
 	var rewardsTotal uint64
@@ -477,7 +477,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 		&keytype, &accountData)
 	require.NoError(t, err)
 
-	assert.Equal(t, test.AccountA.String(), addr)
+	assert.Equal(t, test.AccountA.String(), string(addr))
 	_, expectedAccountData := delta.Accts.GetByIdx(0)
 	assert.Equal(t, expectedAccountData.MicroAlgos, basics.MicroAlgos{Raw: microalgos})
 	assert.Equal(t, expectedAccountData.RewardsBase, rewardsbase)
@@ -522,7 +522,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 		&keytype, &accountData)
 	require.NoError(t, err)
 
-	assert.Equal(t, test.AccountA.String(), addr)
+	assert.Equal(t, test.AccountA.String(), string(addr))
 	assert.Equal(t, uint64(0), microalgos)
 	assert.Equal(t, uint64(0), rewardsbase)
 	assert.Equal(t, uint64(0), rewardsTotal)
@@ -565,7 +565,7 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 	require.NoError(t, err)
 	defer rows.Close()
 
-	var addr string
+	var addr []byte
 	var microalgos uint64
 	var rewardsbase uint64
 	var rewardsTotal uint64
@@ -581,7 +581,7 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 		&keytype, &accountData)
 	require.NoError(t, err)
 
-	assert.Equal(t, test.AccountA.String(), addr)
+	assert.Equal(t, test.AccountA.String(), string(addr))
 	assert.Equal(t, uint64(0), microalgos)
 	assert.Equal(t, uint64(0), rewardsbase)
 	assert.Equal(t, uint64(0), rewardsTotal)
@@ -692,7 +692,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
 
-	var addr string
+	var addr []byte
 	var assetid uint64
 	var amount uint64
 	var frozen bool
@@ -708,7 +708,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	err = rows.Scan(&addr, &assetid, &amount, &frozen, &deleted, &createdAt, &closedAt)
 	require.NoError(t, err)
 
-	assert.Equal(t, test.AccountA.String(), addr)
+	assert.Equal(t, test.AccountA.String(), string(addr))
 	assert.Equal(t, assetID, basics.AssetIndex(assetid))
 	assert.Equal(t, assetHolding.Amount, amount)
 	assert.Equal(t, assetHolding.Frozen, frozen)
@@ -740,7 +740,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	err = rows.Scan(&addr, &assetid, &amount, &frozen, &deleted, &createdAt, &closedAt)
 	require.NoError(t, err)
 
-	assert.Equal(t, test.AccountA.String(), addr)
+	assert.Equal(t, test.AccountA.String(), string(addr))
 	assert.Equal(t, assetID, basics.AssetIndex(assetid))
 	assert.Equal(t, uint64(0), amount)
 	assert.Equal(t, assetHolding.Frozen, frozen)
@@ -781,7 +781,7 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
 
-	var addr string
+	var addr []byte
 	var assetid uint64
 	var amount uint64
 	var frozen bool
@@ -793,7 +793,7 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 	err = row.Scan(&addr, &assetid, &amount, &frozen, &deleted, &createdAt, &closedAt)
 	require.NoError(t, err)
 
-	assert.Equal(t, test.AccountA.String(), addr)
+	assert.Equal(t, test.AccountA.String(), string(addr))
 	assert.Equal(t, assetID, basics.AssetIndex(assetid))
 	assert.Equal(t, uint64(0), amount)
 	assert.False(t, frozen)
@@ -877,7 +877,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	var index uint64
-	var creatorAddr string
+	var creatorAddr []byte
 	var params []byte
 	var deleted bool
 	var createdAt uint64
@@ -892,7 +892,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, assetID, basics.AssetIndex(index))
-	assert.Equal(t, test.AccountA.String(), creatorAddr)
+	assert.Equal(t, test.AccountA.String(), string(creatorAddr))
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
@@ -931,7 +931,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, assetID, basics.AssetIndex(index))
-	assert.Equal(t, test.AccountA.String(), creatorAddr)
+	assert.Equal(t, test.AccountA.String(), string(creatorAddr))
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
@@ -979,7 +979,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 	require.NoError(t, err)
 
 	var index uint64
-	var creatorAddr string
+	var creatorAddr []byte
 	var params []byte
 	var deleted bool
 	var createdAt uint64
@@ -990,7 +990,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, assetID, basics.AssetIndex(index))
-	assert.Equal(t, test.AccountA.String(), creatorAddr)
+	assert.Equal(t, test.AccountA.String(), string(creatorAddr))
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
@@ -1040,7 +1040,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	var index uint64
-	var creator string
+	var creator []byte
 	var params []byte
 	var deleted bool
 	var createdAt uint64
@@ -1055,7 +1055,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, appID, basics.AppIndex(index))
-	assert.Equal(t, test.AccountA.String(), creator)
+	assert.Equal(t, test.AccountA.String(), string(creator))
 	{
 		paramsRead, err := encoding.DecodeAppParams(params)
 		require.NoError(t, err)
@@ -1094,7 +1094,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, appID, basics.AppIndex(index))
-	assert.Equal(t, test.AccountA.String(), creator)
+	assert.Equal(t, test.AccountA.String(), string(creator))
 	{
 		paramsRead, err := encoding.DecodeAppParams(params)
 		require.NoError(t, err)
@@ -1142,7 +1142,7 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 	require.NoError(t, err)
 
 	var index uint64
-	var creator string
+	var creator []byte
 	var params []byte
 	var deleted bool
 	var createdAt uint64
@@ -1154,7 +1154,7 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, appID, basics.AppIndex(index))
-	assert.Equal(t, test.AccountA.String(), creator)
+	assert.Equal(t, test.AccountA.String(), string(creator))
 	{
 		paramsRead, err := encoding.DecodeAppParams(params)
 		require.NoError(t, err)
@@ -1202,7 +1202,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
 
-	var addr string
+	var addr []byte
 	var app uint64
 	var localstate []byte
 	var deleted bool
@@ -1217,7 +1217,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	err = rows.Scan(&addr, &app, &localstate, &deleted, &createdAt, &closedAt)
 	require.NoError(t, err)
 
-	assert.Equal(t, test.AccountA.String(), addr)
+	assert.Equal(t, test.AccountA.String(), string(addr))
 	assert.Equal(t, appID, basics.AppIndex(app))
 	{
 		appLocalStateRead, err := encoding.DecodeAppLocalState(localstate)
@@ -1252,7 +1252,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	err = rows.Scan(&addr, &app, &localstate, &deleted, &createdAt, &closedAt)
 	require.NoError(t, err)
 
-	assert.Equal(t, test.AccountA.String(), addr)
+	assert.Equal(t, test.AccountA.String(), string(addr))
 	assert.Equal(t, appID, basics.AppIndex(app))
 	{
 		appLocalStateRead, err := encoding.DecodeAppLocalState(localstate)
@@ -1296,7 +1296,7 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
 
-	var addr string
+	var addr []byte
 	var app uint64
 	var localstate []byte
 	var deleted bool
@@ -1307,7 +1307,7 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	err = row.Scan(&addr, &app, &localstate, &deleted, &createdAt, &closedAt)
 	require.NoError(t, err)
 
-	assert.Equal(t, test.AccountA.String(), addr)
+	assert.Equal(t, test.AccountA.String(), string(addr))
 	assert.Equal(t, appID, basics.AppIndex(app))
 	{
 		appLocalStateRead, err := encoding.DecodeAppLocalState(localstate)

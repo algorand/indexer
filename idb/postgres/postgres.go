@@ -835,7 +835,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 	}()
 	for req.rows.Next() {
-		var addr string
+		var addr []byte
 		var microalgos uint64
 		var rewardstotal uint64
 		var createdat sql.NullInt64
@@ -914,7 +914,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		var account models.Account
-		aaddr, err := basics.UnmarshalChecksumAddress(addr)
+		aaddr, err := basics.UnmarshalChecksumAddress(string(addr))
 		if err != nil {
 			err = fmt.Errorf("address decode err %w", err)
 			req.out <- idb.AccountRow{Error: err}
@@ -1705,7 +1705,7 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 
 	for rows.Next() {
 		var index uint64
-		var creatorAddr string
+		var creatorAddr []byte
 		var paramsJSONStr []byte
 		var created *uint64
 		var closed *uint64
@@ -1722,7 +1722,7 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			out <- idb.AssetRow{Error: err}
 			break
 		}
-		creator, err := basics.UnmarshalChecksumAddress(creatorAddr)
+		creator, err := basics.UnmarshalChecksumAddress(string(creatorAddr))
 		if err != nil {
 			out <- idb.AssetRow{Error: err}
 			break
@@ -1820,7 +1820,7 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows pgx.Rows,
 	defer rows.Close()
 
 	for rows.Next() {
-		var addr string
+		var addr []byte
 		var assetID uint64
 		var amount uint64
 		var frozen bool
@@ -1832,7 +1832,7 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows pgx.Rows,
 			out <- idb.AssetBalanceRow{Error: err}
 			break
 		}
-		address, err := basics.UnmarshalChecksumAddress(addr)
+		address, err := basics.UnmarshalChecksumAddress(string(addr))
 		if err != nil {
 			out <- idb.AssetBalanceRow{Error: err}
 			break
@@ -1930,7 +1930,7 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows pgx.Rows,
 
 	for rows.Next() {
 		var index uint64
-		var creator string
+		var creator []byte
 		var paramsjson []byte
 		var created *uint64
 		var closed *uint64
@@ -1956,7 +1956,7 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows pgx.Rows,
 		rec.Application.Params.Creator = new(string)
 
 		rec.Application.Params.Creator = new(string)
-		*(rec.Application.Params.Creator) = creator
+		*(rec.Application.Params.Creator) = string(creator)
 		rec.Application.Params.GlobalState = tealKeyValueToModel(ap.GlobalState)
 		rec.Application.Params.GlobalStateSchema = &models.ApplicationStateSchema{
 			NumByteSlice: ap.GlobalStateSchema.NumByteSlice,

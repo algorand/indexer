@@ -448,7 +448,7 @@ func (l LedgerForEvaluator) GetCreatorForRound(_ basics.Round, cindex basics.Cre
 		panic("unknown creatable type")
 	}
 
-	var buf string
+	var buf []byte
 	err := row.Scan(&buf)
 	if err == pgx.ErrNoRows {
 		return basics.Address{}, false, nil
@@ -457,7 +457,7 @@ func (l LedgerForEvaluator) GetCreatorForRound(_ basics.Round, cindex basics.Cre
 		return basics.Address{}, false, fmt.Errorf("GetCreatorForRound() err: %w", err)
 	}
 
-	address, err := basics.UnmarshalChecksumAddress(buf)
+	address, err := basics.UnmarshalChecksumAddress(string(buf))
 	if err != nil {
 		return basics.Address{}, false,
 			fmt.Errorf("GetCreatorForRound() decode address err: %w", err)
