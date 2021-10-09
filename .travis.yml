@@ -21,7 +21,7 @@ addons:
 script:
 # Start single postgres DB in docker for unit tests.
 - docker run -d --name some-postgres -p 5555:5432 -e POSTGRES_PASSWORD=pgpass -e POSTGRES_USER=pguser -e POSTGRES_DB=mydb postgres
-- go test -p 1 ./...
+- make test
 - test -z `go fmt ./...`
 - make lint
 - make check
