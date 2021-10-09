@@ -110,7 +110,13 @@ func (r *Args) run() error {
 		// Freeze blocks to avoid data races.
 		freezeMutex.Lock()
 
+		// Let Indexer process the last block.
+		dur := 30 * time.Second
+		fmt.Printf("Sleeping for %v\n", dur)
+		time.Sleep(dur)
+
 		// Run validator
+		fmt.Println("Running validator")
 		err = runValidator(report, generator, algodNet, indexerNet)
 		freezeMutex.Unlock()
 		if err != nil {
@@ -338,11 +344,7 @@ func runValidator(report *os.File, gen generator.Generator, algodURL, indexerURL
 		AlgodToken:   "na",
 		IndexerURL:   indexerURL,
 		IndexerToken: "na",
-		// The generous retry configuration here is because we can specify
-		// arbitrary over-sized blocks. Maybe they take a long time to process.
-		// Because the generator is paused this should only be needed for the
-		// first batch of validations.
-		Retries:      200,
+		Retries:      0,
 		RetryDelayMS: 1000,
 	}
 	results := make(chan validator.Result)
