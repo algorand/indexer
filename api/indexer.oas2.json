@@ -594,6 +594,9 @@
           "200": {
             "$ref": "#/responses/BlockResponse"
           },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
           "500": {
             "$ref": "#/responses/ErrorResponse"
           }

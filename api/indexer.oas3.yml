@@ -3156,6 +3156,16 @@
             },
             "description": "(empty)"
           },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
           "500": {
             "content": {
               "application/json": {
