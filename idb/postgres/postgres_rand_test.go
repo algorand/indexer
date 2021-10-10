@@ -118,12 +118,12 @@ func TestWriteReadAccountData(t *testing.T) {
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
-		defer w.Close()
 
 		err = w.AddBlock(&bookkeeping.Block{}, transactions.Payset{}, delta)
 		require.NoError(t, err)
 
-		return tx.Commit(context.Background())
+		w.Close()
+		return nil
 	}
 	err := db.txWithRetry(serializable, f)
 	require.NoError(t, err)
@@ -135,6 +135,7 @@ func TestWriteReadAccountData(t *testing.T) {
 	l, err := ledgerforevaluator.MakeLedgerForEvaluator(
 		tx, crypto.Digest{}, transactions.SpecialAddresses{})
 	require.NoError(t, err)
+	defer l.Close()
 
 	// Load all accounts in a batch.
 	err = l.PreloadAccounts(addresses)

@@ -22,8 +22,8 @@ round bigint NOT NULL,
 intra smallint NOT NULL,
 typeenum smallint NOT NULL,
 asset bigint NOT NULL, -- 0=Algos, otherwise AssetIndex
-txid bytea NOT NULL, -- base32 of [32]byte hash
-txnbytes bytea NOT NULL, -- msgpack encoding of signed txn with apply data
+txid bytea, -- base32 of [32]byte hash, or NULL for inner transactions.
+txnbytes bytea, -- msgpack encoding of signed txn with apply data, or NULL for inner transactions.
 txn jsonb NOT NULL, -- json encoding of signed txn with apply data
 extra jsonb,
 PRIMARY KEY ( round, intra )
@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS account (
   created_at bigint NOT NULL DEFAULT 0, -- round that the account is first used
   closed_at bigint, -- round that the account was last closed
   keytype varchar(8), -- sig,msig,lsig
-  account_data jsonb -- trimmed AccountData that only contains auth addr and keyreg info
+  account_data jsonb -- trimmed AccountData that excludes the fields above and the four creatable maps
 );
 
 -- data.basics.AccountData Assets[asset id] AssetHolding{}
