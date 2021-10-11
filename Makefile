@@ -10,23 +10,17 @@ ifeq ($(ARCH), amd64)
 ifeq (,$(wildcard /etc/centos-release))
 EXTLDFLAGS  += -static
 endif
-GOTAGSLIST  += osusergo netgo static_build
-GOBUILDMODE := -buildmode pie
 endif
 ifeq ($(ARCH), arm)
 ifneq ("$(wildcard /etc/alpine-release)","")
 EXTLDFLAGS  += -static
-GOTAGSLIST  += osusergo netgo static_build
-GOBUILDMODE := -buildmode pie
 endif
 endif
 endif
 ifneq (, $(findstring MINGW,$(OS_TYPE)))
 EXTLDFLAGS := -static -static-libstdc++ -static-libgcc
-export GOBUILDMODE := -buildmode=exe
 endif
 
-GOTAGS := --tags "$(GOTAGSLIST)"
 
 # TODO: ensure any additions here are mirrored in misc/release.py
 GOLDFLAGS += -X github.com/algorand/indexer/version.Hash=$(shell git log -n 1 --pretty="%H")
@@ -41,7 +35,7 @@ export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 
 # This is the default target, build the indexer:
 cmd/algorand-indexer/algorand-indexer: idb/postgres/internal/schema/setup_postgres_sql.go go-algorand
-	cd cmd/algorand-indexer && go build $(GOTAGS) -ldflags="${GOLDFLAGS}"
+	cd cmd/algorand-indexer && go build -ldflags="${GOLDFLAGS}"
 
 go-algorand:
 	git submodule update --init && cd third_party/go-algorand && \
@@ -56,7 +50,7 @@ idb/mocks/IndexerDb.go:	idb/idb.go
 
 # check that all packages (except tests) compile
 check: go-algorand
-	go build $(GOLDFLAGS) $(GOTAGS) $(GOBUILDMODE) ./...
+	go build ./...
 
 package: go-algorand
 	rm -rf $(PKG_DIR)
@@ -70,14 +64,14 @@ fakepackage: go-algorand
 	misc/release.py --host-only --outdir $(PKG_DIR) --fake-release
 
 test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
-	go test build $(GOTAGS) $(GOBUILDMODE)  ./... -coverprofile=coverage.txt -covermode=atomic
+	go test ./... -coverprofile=coverage.txt -covermode=atomic
 
 lint: go-algorand
 	golint -set_exit_status ./...
-	go vet $(GOTAGS) ./...
+	go vet ./...
 
 fmt:
-	go fmt $(GOTAGS) ./...
+	go fmt ./...
 
 integration: cmd/algorand-indexer/algorand-indexer
 	mkdir -p test/blockdata
