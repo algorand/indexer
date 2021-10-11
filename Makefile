@@ -4,7 +4,7 @@ OS_TYPE		?= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
 ARCH		?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
 PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(VERSION)
 
-ifeq ($(UNAME), Linux)
+ifeq ($(OS_TYPE), Linux)
 EXTLDFLAGS := -static -static-libstdc++ -static-libgcc
 ifeq ($(ARCH), amd64)
 ifeq (,$(wildcard /etc/centos-release))
@@ -17,7 +17,7 @@ EXTLDFLAGS  += -static
 endif
 endif
 endif
-ifneq (, $(findstring MINGW,$(UNAME)))
+ifneq (, $(findstring MINGW,$(OS_TYPE)))
 EXTLDFLAGS := -static -static-libstdc++ -static-libgcc
 endif
 
