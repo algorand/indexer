@@ -60,14 +60,16 @@ func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
 
 // TxnExtra is some additional metadata needed for a transaction.
 type TxnExtra struct {
-	AssetCloseAmount   uint64      `codec:"aca,omitempty"`
-	GlobalReverseDelta interface{} `codec:"agr,omitempty"` // deprecated
-	LocalReverseDelta  interface{} `codec:"alr,omitempty"` // deprecated
+	AssetCloseAmount uint64 `codec:"aca,omitempty"`
+	RootTxid         string `codec:"root-txid,omitempty"`
 }
 
 // ErrorNotInitialized is used when requesting something that can't be returned
 // because initialization has not been completed.
 var ErrorNotInitialized error = errors.New("accounting not initialized")
+
+// ErrorBlockNotFound is used when requesting a block that isn't in the DB.
+var ErrorBlockNotFound = errors.New("block not found")
 
 // IndexerDb is the interface used to define alternative Indexer backends.
 // TODO: sqlite3 impl

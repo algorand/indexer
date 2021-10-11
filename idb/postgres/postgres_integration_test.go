@@ -32,29 +32,11 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	assert.NoError(t, err)
 
 	round, err := db.GetNextRoundToAccount()
-	assert.Equal(t, err, idb.ErrorNotInitialized)
+	assert.Equal(t, idb.ErrorNotInitialized, err)
 	assert.Equal(t, uint64(0), round)
 
 	round, err = db.getMaxRoundAccounted(context.Background(), nil)
-	assert.Equal(t, err, idb.ErrorNotInitialized)
-	assert.Equal(t, uint64(0), round)
-}
-
-// TestMaxRoundEmptyMetastate makes sure we return 0 when the metastate is empty.
-func TestMaxRoundEmptyMetastate(t *testing.T) {
-	pg, connStr, shutdownFunc := pgtest.SetupPostgres(t)
-	defer shutdownFunc()
-
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
-	pg.Exec(context.Background(), `INSERT INTO metastate (k, v) values ('state', '{}')`)
-
-	round, err := db.GetNextRoundToAccount()
-	assert.Equal(t, err, idb.ErrorNotInitialized)
-	assert.Equal(t, uint64(0), round)
-
-	round, err = db.getMaxRoundAccounted(context.Background(), nil)
-	assert.Equal(t, err, idb.ErrorNotInitialized)
+	assert.Equal(t, idb.ErrorNotInitialized, err)
 	assert.Equal(t, uint64(0), round)
 }
 
@@ -750,39 +732,13 @@ func TestInnerTxnParticipation(t *testing.T) {
 	// Given // A block containing an app call txn with inners
 	///////////
 
-	createApp := test.MakeCreateAppTxn(test.AccountA)
-
 	// In order to simplify the test,
 	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
 	// fake ApplyData to have inner txn
 	// otherwise it requires funding the app account and other special setup
-	createApp.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: protocol.PaymentTx,
-				PaymentTxnFields: transactions.PaymentTxnFields{
-					Receiver: test.AccountB,
-					Amount:   basics.MicroAlgos{Raw: 123},
-				},
-			},
-		},
-		// also add a fake second-level ApplyData to ensure the recursive part works
-		ApplyData: transactions.ApplyData{
-			EvalDelta: transactions.EvalDelta{
-				InnerTxns: []transactions.SignedTxnWithAD{{
-					SignedTxn: transactions.SignedTxn{
-						Txn: transactions.Transaction{
-							Type: protocol.AssetTransferTx,
-							AssetTransferTxnFields: transactions.AssetTransferTxnFields{
-								AssetReceiver: test.AccountC,
-								AssetAmount:   456,
-							},
-						},
-					},
-				}},
-			},
-		},
-	}}
+	var appAddr basics.Address
+	appAddr[1] = 99
+	createApp := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createApp)
@@ -806,9 +762,11 @@ func TestInnerTxnParticipation(t *testing.T) {
 	acctACount := queryInt(db.db, query, test.AccountA[:], round, intra)
 	acctBCount := queryInt(db.db, query, test.AccountB[:], round, intra)
 	acctCCount := queryInt(db.db, query, test.AccountC[:], round, intra)
+	acctAppCount := queryInt(db.db, query, appAddr, round, intra)
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
 	assert.Equal(t, 1, acctCCount)
+	assert.Equal(t, -1, acctAppCount, "inner txn sender is not indexed")
 }
 
 func TestAppExtraPages(t *testing.T) {
@@ -818,6 +776,7 @@ func TestAppExtraPages(t *testing.T) {
 	// Create an app.
 
 	// Create a transaction with ExtraProgramPages field set to 1
+	const extraPages = 1
 	txn := transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -829,7 +788,7 @@ func TestAppExtraPages(t *testing.T) {
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
 					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-					ExtraProgramPages: 1,
+					ExtraProgramPages: extraPages,
 				},
 			},
 			Sig: test.Signature,
@@ -850,8 +809,7 @@ func TestAppExtraPages(t *testing.T) {
 	require.NoError(t, err)
 	require.NotZero(t, index)
 
-	var ap basics.AppParams
-	err = encoding.DecodeJSON(paramsStr, &ap)
+	ap, err := encoding.DecodeAppParams(paramsStr)
 	require.NoError(t, err)
 	require.Equal(t, uint32(1), ap.ExtraProgramPages)
 
@@ -870,13 +828,21 @@ func TestAppExtraPages(t *testing.T) {
 
 	rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:]})
 	num = 0
+	var createdApps *[]generated.Application
 	for row := range rows {
 		require.NoError(t, row.Error)
 		num++
 		require.NotNil(t, row.Account.AppsTotalExtraPages, "we should have this field")
 		require.Equal(t, uint64(1), *row.Account.AppsTotalExtraPages)
+		createdApps = row.Account.CreatedApps
 	}
 	require.Equal(t, 1, num)
+
+	require.NotNil(t, createdApps)
+	require.Equal(t, 1, len(*createdApps))
+	app := (*createdApps)[0]
+	require.NotNil(t, app.Params.ExtraProgramPages)
+	require.Equal(t, uint64(extraPages), *app.Params.ExtraProgramPages)
 }
 
 func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype *string) {
@@ -980,7 +946,7 @@ func TestInitializationNewDatabase(t *testing.T) {
 	_, ok := <-availableCh
 	assert.False(t, ok)
 
-	state, err := db.getMigrationState()
+	state, err := db.getMigrationState(nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, len(migrations), state.NextMigration)
