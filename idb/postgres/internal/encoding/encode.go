@@ -88,13 +88,13 @@ func stripNull(logs []string) []string {
 	}
 	res := make([]string, len(logs))
 	for i, log := range logs {
-		log = strings.ReplaceAll(log, "\x00", "")
-		res[i] = Base64([]byte(log))
+		res[i] = strings.ReplaceAll(log, "\x00", "")
 	}
 	return res
 }
 
 func convertEvalDelta(evalDelta types.EvalDelta) types.EvalDelta {
+
 	evalDelta.Logs = stripNull(evalDelta.Logs)
 	evalDelta.GlobalDelta = convertStateDelta(evalDelta.GlobalDelta)
 	evalDelta.LocalDeltas = convertLocalDeltas(evalDelta.LocalDeltas)
