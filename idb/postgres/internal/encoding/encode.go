@@ -81,7 +81,20 @@ func convertLocalDeltas(deltas map[uint64]types.StateDelta) map[uint64]types.Sta
 	return res
 }
 
+func convertLogs(logs []string) []string {
+	if logs == nil {
+		return nil
+	}
+	res := make([]string, len(logs))
+	for i, log := range logs {
+		res[i] = Base64([]byte(log))
+	}
+	return res
+}
+
 func convertEvalDelta(evalDelta types.EvalDelta) types.EvalDelta {
+	evalDelta.B64Logs = convertLogs(evalDelta.Logs)
+	evalDelta.Logs = nil
 	evalDelta.GlobalDelta = convertStateDelta(evalDelta.GlobalDelta)
 	evalDelta.LocalDeltas = convertLocalDeltas(evalDelta.LocalDeltas)
 	return evalDelta

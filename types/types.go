@@ -273,6 +273,8 @@ type (
 
 		Logs []string `codec:"lg"`
 
+		B64Logs []string `codec:"b64lg"`
+
 		// Intentionally, temporarily wrong - need to decide how to
 		// allocbound properly when structure is recursive.  Even a bound
 		// of 2 would allow arbitrarily large object if deep.
