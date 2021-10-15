@@ -94,7 +94,6 @@ func stripNull(logs []string) []string {
 }
 
 func convertEvalDelta(evalDelta types.EvalDelta) types.EvalDelta {
-
 	evalDelta.Logs = stripNull(evalDelta.Logs)
 	evalDelta.GlobalDelta = convertStateDelta(evalDelta.GlobalDelta)
 	evalDelta.LocalDeltas = convertLocalDeltas(evalDelta.LocalDeltas)
