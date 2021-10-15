@@ -2,6 +2,8 @@ package encoding
 
 import (
 	"encoding/base64"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
@@ -138,7 +140,34 @@ func convertLocalDeltas(deltas map[uint64]basics.StateDelta) map[uint64]stateDel
 	return res
 }
 
+// printableUTF8OrEmpty checks to see if the entire string is a UTF8 printable string.
+// If this is the case, the string is returned as is. Otherwise, the empty string is returned.
+func printableUTF8OrEmpty(logString string) string {
+	// iterate throughout all the characters in the string to see if they are all printable.
+	// when range iterating on go strings, go decode each element as a utf8 rune.
+	for _, c := range logString {
+		// is this a printable character, or invalid rune ?
+		if c == utf8.RuneError || !unicode.IsPrint(c) {
+			return ""
+		}
+	}
+	return logString
+}
+
+func removeNonUTF8Chars(logs []string) []string {
+	if logs == nil {
+		return nil
+	}
+	res := make([]string, len(logs))
+	for i, log := range logs {
+		res[i] = printableUTF8OrEmpty(log)
+	}
+	return res
+}
+
 func convertEvalDelta(delta transactions.EvalDelta) evalDelta {
+	// Hotfix for removing non UTF-8 characters in logs
+	delta.Logs = removeNonUTF8Chars(delta.Logs)
 	return evalDelta{
 		EvalDelta:           delta,
 		GlobalDeltaOverride: convertStateDelta(delta.GlobalDelta),
