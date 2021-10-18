@@ -90,10 +90,6 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	accountDataFull.MicroAlgos = basics.MicroAlgos{Raw: 2}
 	accountDataFull.RewardsBase = 3
 	accountDataFull.RewardedMicroAlgos = basics.MicroAlgos{Raw: 4}
-	accountDataFull.AssetParams = make(map[basics.AssetIndex]basics.AssetParams)
-	accountDataFull.Assets = make(map[basics.AssetIndex]basics.AssetHolding)
-	accountDataFull.AppLocalStates = make(map[basics.AppIndex]basics.AppLocalState)
-	accountDataFull.AppParams = make(map[basics.AppIndex]basics.AppParams)
 
 	_, err := db.Exec(
 		context.Background(),
@@ -193,19 +189,6 @@ func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
 				}
 				require.NoError(t, err)
 				return false
-			}
-			// Add empty maps
-			if tc.data.AssetParams == nil {
-				tc.data.AssetParams = make(map[basics.AssetIndex]basics.AssetParams)
-			}
-			if tc.data.Assets == nil {
-				tc.data.Assets = make(map[basics.AssetIndex]basics.AssetHolding)
-			}
-			if tc.data.AppLocalStates == nil {
-				tc.data.AppLocalStates = make(map[basics.AppIndex]basics.AppLocalState)
-			}
-			if tc.data.AppParams == nil {
-				tc.data.AppParams = make(map[basics.AppIndex]basics.AppParams)
 			}
 
 			err := insertAccountData(db, addr, tc.createdAt, tc.deleted, tc.data)
@@ -340,11 +323,7 @@ func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
 			"VALUES ($1, $2, 0, 0, false, 0)"
 
 	accountDataFull := basics.AccountData{
-		MicroAlgos:     basics.MicroAlgos{Raw: 2},
-		AssetParams:    make(map[basics.AssetIndex]basics.AssetParams),
-		Assets:         make(map[basics.AssetIndex]basics.AssetHolding),
-		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
-		AppParams:      make(map[basics.AppIndex]basics.AppParams),
+		MicroAlgos: basics.MicroAlgos{Raw: 2},
 	}
 	_, err := db.Exec(
 		context.Background(), query, test.AccountA[:], accountDataFull.MicroAlgos.Raw)
@@ -401,7 +380,6 @@ func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 	require.NoError(t, err)
 
 	accountDataExpected := basics.AccountData{
-		AssetParams: make(map[basics.AssetIndex]basics.AssetParams),
 		Assets: map[basics.AssetIndex]basics.AssetHolding{
 			1: {
 				Amount: 2,
@@ -412,8 +390,6 @@ func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 				Frozen: true,
 			},
 		},
-		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
-		AppParams:      make(map[basics.AppIndex]basics.AppParams),
 	}
 	assert.Equal(t, accountDataExpected, accountDataRet)
 }
@@ -472,9 +448,6 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 				Manager: test.AccountC,
 			},
 		},
-		Assets:         make(map[basics.AssetIndex]basics.AssetHolding),
-		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
-		AppParams:      make(map[basics.AppIndex]basics.AppParams),
 	}
 	assert.Equal(t, accountDataExpected, accountDataRet)
 }
@@ -533,9 +506,6 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 	require.NoError(t, err)
 
 	accountDataExpected := basics.AccountData{
-		AssetParams:    make(map[basics.AssetIndex]basics.AssetParams),
-		Assets:         make(map[basics.AssetIndex]basics.AssetHolding),
-		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
 		AppParams: map[basics.AppIndex]basics.AppParams{
 			1: params1,
 			2: params2,
@@ -600,13 +570,10 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 	require.NoError(t, err)
 
 	accountDataExpected := basics.AccountData{
-		AssetParams: make(map[basics.AssetIndex]basics.AssetParams),
-		Assets:      make(map[basics.AssetIndex]basics.AssetHolding),
 		AppLocalStates: map[basics.AppIndex]basics.AppLocalState{
 			1: params1,
 			2: params2,
 		},
-		AppParams: make(map[basics.AppIndex]basics.AppParams),
 	}
 	assert.Equal(t, accountDataExpected, accountDataRet)
 }
