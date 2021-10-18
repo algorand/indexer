@@ -201,16 +201,11 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 				RewardsPool: block.RewardsPool,
 			}
 			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-				tx, block.GenesisHash(), specialAddresses)
+				tx, specialAddresses, block.Round()-1)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 			defer ledgerForEval.Close()
-
-			err = ledgerForEval.PreloadAccounts(ledger.GetBlockAddresses(block))
-			if err != nil {
-				return fmt.Errorf("AddBlock() err: %w", err)
-			}
 
 			proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
 			if !ok {
@@ -220,7 +215,7 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			proto.EnableAssetCloseAmount = true
 
 			start := time.Now()
-			delta, modifiedTxns, err := ledger.Eval(ledgerForEval, block, proto)
+			delta, modifiedTxns, err := ledger.EvalForIndexer(ledgerForEval, block, proto)
 			if err != nil {
 				return fmt.Errorf("AddBlock() eval err: %w", err)
 			}
