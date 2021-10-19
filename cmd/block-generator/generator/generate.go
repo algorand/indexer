@@ -708,7 +708,7 @@ func (g *generator) WriteAccount(output io.Writer, accountString string) error {
 		PendingRewards:              0,
 		RewardBase:                  nil,
 		Rewards:                     0,
-		Round:                       g.round,
+		Round:                       g.round - 1,
 		SigType:                     nil,
 		Status:                      "Offline",
 	}
