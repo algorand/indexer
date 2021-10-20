@@ -24,7 +24,7 @@ commands:
       - run: git submodule update --init
       - run: |
           apt update
-          apt -y install python3 python3-pip python3-setuptools python3-wheel build-essential libboost-all-dev
+          apt -y install python3 python3-pip python3-setuptools python3-wheel build-essential libboost-all-dev libffi-dev
           go get -u golang.org/x/lint/golint
           pip3 install -r misc/requirements.txt
           # Install Docker
