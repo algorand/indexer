@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS account (
   created_at bigint NOT NULL, -- round that the account is first used
   closed_at bigint, -- round that the account was last closed
   keytype varchar(8), -- sig, msig, lsig, or null if unknown
-  account_data jsonb NOT NULL -- trimmed AccountData that excludes the fields above and the four creatable maps; "null" iff account is deleted
+  account_data jsonb NOT NULL -- trimmed AccountData that excludes the fields above and the four creatable maps; SQL 'NOT NULL' is held though the json string will be "null" iff account is deleted
 );
 
 -- data.basics.AccountData Assets[asset id] AssetHolding{}
@@ -75,7 +75,7 @@ CREATE INDEX IF NOT EXISTS account_asset_by_addr ON account_asset ( addr );
 CREATE TABLE IF NOT EXISTS asset (
   index bigint PRIMARY KEY,
   creator_addr bytea NOT NULL,
-  params jsonb NOT NULL, -- data.basics.AssetParams; "null" iff asset is deleted
+  params jsonb NOT NULL, -- data.basics.AssetParams; json string "null" iff asset is deleted
   deleted bool NOT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL, -- round that the asset was created
   closed_at bigint -- round that the asset was closed; cannot be recreated because the index is unique
@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS metastate (
 CREATE TABLE IF NOT EXISTS app (
   index bigint PRIMARY KEY,
   creator bytea NOT NULL, -- account address
-  params jsonb NOT NULL, -- "null" iff app is deleted
+  params jsonb NOT NULL, -- json string "null" iff app is deleted
   deleted bool NOT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL, -- round that the asset was created
   closed_at bigint -- round that the app was deleted; cannot be recreated because the index is unique
@@ -109,7 +109,7 @@ CREATE INDEX IF NOT EXISTS app_by_creator ON app ( creator );
 CREATE TABLE IF NOT EXISTS account_app (
   addr bytea,
   app bigint,
-  localstate jsonb NOT NULL, -- "null" iff deleted from the account
+  localstate jsonb NOT NULL, -- json string "null" iff deleted from the account
   deleted bool NOT NULL, -- whether or not it is currently deleted
   created_at bigint NOT NULL, -- round that the app was added to an account
   closed_at bigint, -- round that the account_app was last removed from the account
