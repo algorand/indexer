@@ -27,7 +27,7 @@ commands:
           
           # Install go
           wget -c https://golang.org/dl/go1.14.7.linux-amd64.tar.gz
-          sudo rm -rf /usr/local/go && tar -C /usr/local -xzf go1.14.7.linux-amd64.tar.gz
+          sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.14.7.linux-amd64.tar.gz
           export PATH=$PATH:/usr/local/go/bin
           
           # Install python and dependencies
