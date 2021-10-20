@@ -87,8 +87,13 @@ func DecodeTxnRowNext(s string) (round uint64, intra uint32, rootTxid string, er
 // TxnExtra is some additional metadata needed for a transaction.
 type TxnExtra struct {
 	AssetCloseAmount uint64 `codec:"aca,omitempty"`
-	// RootIntra is a string to allow distinguishing between 0 and empty.
+	// RootIntra is set on inner transactions. Combined with the confirmation
+	// round it can be used to lookup the root transaction.
+	// The type is string to allow distinguishing between 0 and empty.
 	RootIntra string `codec:"root-intra,omitempty"`
+	// RootTxid is set on inner transactions. It is a convenience for the
+	// future. If we decide to return inner transactions we'll want to include
+	// the root txid.
 	RootTxid  string `codec:"root-txid,omitempty"`
 }
 

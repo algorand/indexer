@@ -733,12 +733,13 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 	if tf.Address != nil {
 		// (round,intra) descending into the past
 		tf.OffsetLT = origOLT
-		tf.MaxRound = nextround - 1
 
-		if tf.MaxRound == 0 {
+		if nextround <= 1 {
 			// NO second query
 			return
 		}
+
+		tf.MaxRound = nextround - 1
 	} else {
 		// (round,intra) ascending into the future
 		tf.OffsetGT = origOGT
