@@ -150,12 +150,25 @@ func convertLogs(logs []string) [][]byte {
 	return res
 }
 
+func convertInnerTxns(innerTxns []transactions.SignedTxnWithAD) []signedTxnWithAD {
+	if innerTxns == nil {
+		return nil
+	}
+
+	res := make([]signedTxnWithAD, len(innerTxns))
+	for i, innerTxn := range innerTxns {
+		res[i] = convertSignedTxnWithAD(innerTxn)
+	}
+	return res
+}
+
 func convertEvalDelta(delta transactions.EvalDelta) evalDelta {
 	return evalDelta{
 		EvalDelta:           delta,
 		GlobalDeltaOverride: convertStateDelta(delta.GlobalDelta),
 		LocalDeltasOverride: convertLocalDeltas(delta.LocalDeltas),
 		LogsOverride:        convertLogs(delta.Logs),
+		InnerTxnsOverride:   convertInnerTxns(delta.InnerTxns),
 	}
 }
 

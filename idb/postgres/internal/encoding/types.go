@@ -69,6 +69,7 @@ type evalDelta struct {
 	GlobalDeltaOverride stateDelta            `codec:"gd"`
 	LocalDeltasOverride map[uint64]stateDelta `codec:"ld"`
 	LogsOverride        [][]byte              `codec:"lg"`
+	InnerTxnsOverride   []signedTxnWithAD     `codec:"itx"`
 }
 
 type signedTxnWithAD struct {
