@@ -11,7 +11,6 @@ jobs:
     docker:
       - image: golang:1.14.7
     steps:
-      - checkout
       - prep
       - run_tests
       - upload_coverage
@@ -20,6 +19,9 @@ commands:
   prep:
     description: prepare machine for next steps
     steps:
+      - checkout
+      - run: git submodule sync
+      - run: git submodule update --init
       - run: |
           apt update
           apt -y install python3 python3-pip python3-setuptools python3-wheel libboost-all-dev
