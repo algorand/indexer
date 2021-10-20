@@ -8,8 +8,8 @@ workflows:
 
 jobs:
   main:
-    docker:
-      - image: golang:1.14.7
+    machine:
+      image: ubuntu-2004:202010-01
     steps:
       - prep
       - run_tests
@@ -23,17 +23,26 @@ commands:
       - run: git submodule sync
       - run: git submodule update --init
       - run: |
-          apt update
-          apt -y install python3 python3-pip python3-setuptools python3-wheel build-essential libboost-all-dev libffi-dev
+          sudo apt update
+          
+          # Install go
+          wget -c https://golang.org/dl/go1.14.7.linux-amd64.tar.gz
+          sudo rm -rf /usr/local/go && tar -C /usr/local -xzf go1.14.7.linux-amd64.tar.gz
+          export PATH=$PATH:/usr/local/go/bin
+          
+          # Install python and dependencies
+          sudo apt -y install python3 python3-pip python3-setuptools python3-wheel libboost-all-dev libffi-dev
           go get -u golang.org/x/lint/golint
           pip3 install -r misc/requirements.txt
+
           # Install Docker
-          apt -y install apt-transport-https ca-certificates curl gnupg lsb-release
+          sudo apt -y remove docker docker-engine docker.io containerd runc
+          sudo apt -y install apt-transport-https ca-certificates curl gnupg lsb-release
           curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
           echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-          $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
-          apt update
-          apt -y install docker-ce docker-ce-cli containerd.io
+          $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+          sudo apt update
+          sudo apt -y install docker-ce docker-ce-cli containerd.io
           if [ -n "$DOCKER_PASSWORD" ]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ; fi
 
 
@@ -42,6 +51,7 @@ commands:
   run_tests:
     steps:
       - run: |
+          export PATH=$PATH:/usr/local/go/bin
           test -z `go fmt ./...`
           make lint
           make check
