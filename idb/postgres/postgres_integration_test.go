@@ -751,7 +751,7 @@ func TestInnerTxnParticipation(t *testing.T) {
 	require.NoError(t, err)
 
 	//////////
-	// Then // Both accounts should have an entry in the txn_participation table.
+	// Then // All accounts should have an entry in the txn_participation table.
 	//////////
 	round := uint64(1)
 	intra := uint64(0) // the only one txn in the block
@@ -762,11 +762,11 @@ func TestInnerTxnParticipation(t *testing.T) {
 	acctACount := queryInt(db.db, query, test.AccountA[:], round, intra)
 	acctBCount := queryInt(db.db, query, test.AccountB[:], round, intra)
 	acctCCount := queryInt(db.db, query, test.AccountC[:], round, intra)
-	acctAppCount := queryInt(db.db, query, appAddr, round, intra)
+	acctAppCount := queryInt(db.db, query, appAddr[:], round, intra)
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
 	assert.Equal(t, 1, acctCCount)
-	assert.Equal(t, -1, acctAppCount, "inner txn sender is not indexed")
+	assert.Equal(t, 1, acctAppCount)
 }
 
 func TestAppExtraPages(t *testing.T) {
