@@ -171,15 +171,12 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		if importstate.NextRoundToAccount == nil {
-			return fmt.Errorf("AddBlock() import state not initialized")
-		}
-		if block.Round() != basics.Round(*importstate.NextRoundToAccount) {
+		if block.Round() != basics.Round(importstate.NextRoundToAccount) {
 			return fmt.Errorf(
 				"AddBlock() adding block round %d but next round to account is %d",
-				block.Round(), *importstate.NextRoundToAccount)
+				block.Round(), importstate.NextRoundToAccount)
 		}
-		*importstate.NextRoundToAccount++
+		importstate.NextRoundToAccount++
 		err = db.setImportState(tx, &importstate)
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
@@ -204,16 +201,11 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 				RewardsPool: block.RewardsPool,
 			}
 			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-				tx, block.GenesisHash(), specialAddresses)
+				tx, specialAddresses, block.Round()-1)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 			defer ledgerForEval.Close()
-
-			err = ledgerForEval.PreloadAccounts(ledger.GetBlockAddresses(block))
-			if err != nil {
-				return fmt.Errorf("AddBlock() err: %w", err)
-			}
 
 			proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
 			if !ok {
@@ -223,7 +215,7 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			proto.EnableAssetCloseAmount = true
 
 			start := time.Now()
-			delta, modifiedTxns, err := ledger.Eval(ledgerForEval, block, proto)
+			delta, modifiedTxns, err := ledger.EvalForIndexer(ledgerForEval, block, proto)
 			if err != nil {
 				return fmt.Errorf("AddBlock() eval err: %w", err)
 			}
@@ -273,9 +265,8 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 			}
 		}
 
-		nextRound := uint64(0)
 		importstate := types.ImportState{
-			NextRoundToAccount: &nextRound,
+			NextRoundToAccount: 0,
 		}
 		err = db.setImportState(tx, &importstate)
 		if err != nil {
@@ -321,10 +312,6 @@ func (db *IndexerDb) getImportState(ctx context.Context, tx pgx.Tx) (types.Impor
 		return types.ImportState{}, fmt.Errorf("unable to get import state err: %w", err)
 	}
 
-	if importStateJSON == "" {
-		return types.ImportState{}, idb.ErrorNotInitialized
-	}
-
 	state, err := encoding.DecodeImportState([]byte(importStateJSON))
 	if err != nil {
 		return types.ImportState{},
@@ -351,10 +338,7 @@ func (db *IndexerDb) getNextRoundToAccount(ctx context.Context, tx pgx.Tx) (uint
 		return 0, fmt.Errorf("getNextRoundToAccount() err: %w", err)
 	}
 
-	if state.NextRoundToAccount == nil {
-		return 0, idb.ErrorNotInitialized
-	}
-	return *state.NextRoundToAccount, nil
+	return state.NextRoundToAccount, nil
 }
 
 // GetNextRoundToAccount is part of idb.IndexerDB

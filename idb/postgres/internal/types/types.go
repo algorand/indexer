@@ -2,8 +2,7 @@ package types
 
 // ImportState encodes an import round counter.
 type ImportState struct {
-	// Next round to account.
-	NextRoundToAccount *uint64 `codec:"next_account_round"`
+	NextRoundToAccount uint64 `codec:"next_account_round"`
 }
 
 // MigrationState is metadata used by the postgres migrations.

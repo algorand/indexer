@@ -10,6 +10,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/assert"
@@ -33,7 +34,7 @@ func setupPostgres(t *testing.T) (*pgxpool.Pool, func()) {
 	return db, shutdownFunc
 }
 
-func TestLedgerForEvaluatorBlockHdr(t *testing.T) {
+func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
@@ -53,11 +54,11 @@ func TestLedgerForEvaluatorBlockHdr(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, header.GenesisHash, transactions.SpecialAddresses{})
+		tx, transactions.SpecialAddresses{}, basics.Round(2))
 	require.NoError(t, err)
 	defer l.Close()
 
-	ret, err := l.BlockHdr(basics.Round(2))
+	ret, err := l.LatestBlockHdr()
 	require.NoError(t, err)
 
 	assert.Equal(t, header, ret)
@@ -90,10 +91,6 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	accountDataFull.MicroAlgos = basics.MicroAlgos{Raw: 2}
 	accountDataFull.RewardsBase = 3
 	accountDataFull.RewardedMicroAlgos = basics.MicroAlgos{Raw: 4}
-	accountDataFull.AssetParams = make(map[basics.AssetIndex]basics.AssetParams)
-	accountDataFull.Assets = make(map[basics.AssetIndex]basics.AssetHolding)
-	accountDataFull.AppLocalStates = make(map[basics.AppIndex]basics.AppLocalState)
-	accountDataFull.AppParams = make(map[basics.AppIndex]basics.AppParams)
 
 	_, err := db.Exec(
 		context.Background(),
@@ -106,25 +103,19 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	checkFunc := func(preload bool) {
-		l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-			tx, crypto.Digest{}, transactions.SpecialAddresses{})
-		require.NoError(t, err)
-		defer l.Close()
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, transactions.SpecialAddresses{}, basics.Round(0))
+	require.NoError(t, err)
+	defer l.Close()
 
-		if preload {
-			err := l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
-			require.NoError(t, err)
-		}
+	ret, err :=
+		l.LookupWithoutRewards(map[basics.Address]struct{}{test.AccountB: {}})
+	require.NoError(t, err)
 
-		accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
-		require.NoError(t, err)
+	accountDataRet := ret[test.AccountB]
 
-		assert.Equal(t, basics.Round(7), round)
-		assert.Equal(t, accountDataFull, accountDataRet)
-	}
-	checkFunc(false)
-	checkFunc(true)
+	require.NotNil(t, accountDataRet)
+	assert.Equal(t, accountDataFull, *accountDataRet)
 }
 
 func insertAccountData(db *pgxpool.Pool, account basics.Address, createdat uint64, deleted bool, data basics.AccountData) error {
@@ -194,19 +185,6 @@ func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
 				require.NoError(t, err)
 				return false
 			}
-			// Add empty maps
-			if tc.data.AssetParams == nil {
-				tc.data.AssetParams = make(map[basics.AssetIndex]basics.AssetParams)
-			}
-			if tc.data.Assets == nil {
-				tc.data.Assets = make(map[basics.AssetIndex]basics.AssetHolding)
-			}
-			if tc.data.AppLocalStates == nil {
-				tc.data.AppLocalStates = make(map[basics.AppIndex]basics.AppLocalState)
-			}
-			if tc.data.AppParams == nil {
-				tc.data.AppParams = make(map[basics.AppIndex]basics.AppParams)
-			}
 
 			err := insertAccountData(db, addr, tc.createdAt, tc.deleted, tc.data)
 			if checkError(err) {
@@ -222,39 +200,29 @@ func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
 			require.NoError(t, err)
 			defer tx.Rollback(context.Background())
 
-			checkFunc := func(preload bool) {
-				l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-					tx, crypto.Digest{}, transactions.SpecialAddresses{})
-				if checkError(err) {
-					return
-				}
-				require.NoError(t, err)
-				defer l.Close()
-
-				if preload {
-					err := l.PreloadAccounts(map[basics.Address]struct{}{addr: {}})
-					if checkError(err) {
-						return
-					}
-					require.NoError(t, err)
-				}
-
-				accountDataRet, round, err := l.LookupWithoutRewards(7, addr)
-				if checkError(err) {
-					return
-				}
-				require.NoError(t, err)
-
-				assert.Equal(t, basics.Round(7), round)
-				// should be no result if deleted
-				if tc.deleted {
-					assert.Equal(t, basics.AccountData{}, accountDataRet)
-				} else {
-					assert.Equal(t, tc.data, accountDataRet)
-				}
+			l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+				tx, transactions.SpecialAddresses{}, basics.Round(0))
+			if checkError(err) {
+				return
 			}
-			checkFunc(false)
-			checkFunc(true)
+			require.NoError(t, err)
+			defer l.Close()
+
+			ret, err := l.LookupWithoutRewards(map[basics.Address]struct{}{addr: {}})
+			if checkError(err) {
+				return
+			}
+			require.NoError(t, err)
+
+			accountDataRet, ok := ret[addr]
+			require.True(t, ok)
+
+			// should be no result if deleted
+			if tc.deleted {
+				assert.Nil(t, accountDataRet)
+			} else {
+				assert.Equal(t, &tc.data, accountDataRet)
+			}
 		})
 	}
 }
@@ -280,25 +248,17 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	checkFunc := func(preload bool) {
-		l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-			tx, crypto.Digest{}, transactions.SpecialAddresses{})
-		require.NoError(t, err)
-		defer l.Close()
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, transactions.SpecialAddresses{}, basics.Round(0))
+	require.NoError(t, err)
+	defer l.Close()
 
-		if preload {
-			err := l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
-			require.NoError(t, err)
-		}
+	ret, err :=
+		l.LookupWithoutRewards(map[basics.Address]struct{}{test.AccountB: {}})
+	require.NoError(t, err)
 
-		accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
-		require.NoError(t, err)
-
-		assert.Equal(t, basics.Round(7), round)
-		assert.Equal(t, basics.AccountData{}, accountDataRet)
-	}
-	checkFunc(false)
-	checkFunc(true)
+	accountDataRet := ret[test.AccountB]
+	assert.Nil(t, accountDataRet)
 }
 
 func TestLedgerForEvaluatorAccountTableMissingAccount(t *testing.T) {
@@ -309,25 +269,17 @@ func TestLedgerForEvaluatorAccountTableMissingAccount(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	checkFunc := func(preload bool) {
-		l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-			tx, crypto.Digest{}, transactions.SpecialAddresses{})
-		require.NoError(t, err)
-		defer l.Close()
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, transactions.SpecialAddresses{}, basics.Round(0))
+	require.NoError(t, err)
+	defer l.Close()
 
-		if preload {
-			err := l.PreloadAccounts(map[basics.Address]struct{}{test.AccountB: {}})
-			require.NoError(t, err)
-		}
+	ret, err :=
+		l.LookupWithoutRewards(map[basics.Address]struct{}{test.AccountB: {}})
+	require.NoError(t, err)
 
-		accountDataRet, round, err := l.LookupWithoutRewards(7, test.AccountB)
-		require.NoError(t, err)
-
-		assert.Equal(t, basics.Round(7), round)
-		assert.Equal(t, basics.AccountData{}, accountDataRet)
-	}
-	checkFunc(false)
-	checkFunc(true)
+	accountDataRet := ret[test.AccountB]
+	assert.Nil(t, accountDataRet)
 }
 
 func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
@@ -340,11 +292,7 @@ func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
 			"VALUES ($1, $2, 0, 0, false, 0)"
 
 	accountDataFull := basics.AccountData{
-		MicroAlgos:     basics.MicroAlgos{Raw: 2},
-		AssetParams:    make(map[basics.AssetIndex]basics.AssetParams),
-		Assets:         make(map[basics.AssetIndex]basics.AssetHolding),
-		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
-		AppParams:      make(map[basics.AppIndex]basics.AppParams),
+		MicroAlgos: basics.MicroAlgos{Raw: 2},
 	}
 	_, err := db.Exec(
 		context.Background(), query, test.AccountA[:], accountDataFull.MicroAlgos.Raw)
@@ -355,14 +303,17 @@ func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, transactions.SpecialAddresses{}, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
-	accountDataRet, _, err := l.LookupWithoutRewards(0, test.AccountA)
+	ret, err :=
+		l.LookupWithoutRewards(map[basics.Address]struct{}{test.AccountA: {}})
 	require.NoError(t, err)
 
-	assert.Equal(t, accountDataFull, accountDataRet)
+	accountDataRet := ret[test.AccountA]
+	require.NotNil(t, accountDataRet)
+	assert.Equal(t, accountDataFull, *accountDataRet)
 }
 
 func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
@@ -393,15 +344,18 @@ func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, transactions.SpecialAddresses{}, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
-	accountDataRet, _, err := l.LookupWithoutRewards(0, test.AccountA)
+	ret, err :=
+		l.LookupWithoutRewards(map[basics.Address]struct{}{test.AccountA: {}})
 	require.NoError(t, err)
 
+	accountDataRet := ret[test.AccountA]
+	require.NotNil(t, accountDataRet)
+
 	accountDataExpected := basics.AccountData{
-		AssetParams: make(map[basics.AssetIndex]basics.AssetParams),
 		Assets: map[basics.AssetIndex]basics.AssetHolding{
 			1: {
 				Amount: 2,
@@ -412,10 +366,8 @@ func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 				Frozen: true,
 			},
 		},
-		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
-		AppParams:      make(map[basics.AppIndex]basics.AppParams),
 	}
-	assert.Equal(t, accountDataExpected, accountDataRet)
+	assert.Equal(t, accountDataExpected, *accountDataRet)
 }
 
 func TestLedgerForEvaluatorAssetTable(t *testing.T) {
@@ -456,12 +408,16 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, transactions.SpecialAddresses{}, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
-	accountDataRet, _, err := l.LookupWithoutRewards(0, test.AccountA)
+	ret, err :=
+		l.LookupWithoutRewards(map[basics.Address]struct{}{test.AccountA: {}})
 	require.NoError(t, err)
+
+	accountDataRet := ret[test.AccountA]
+	require.NotNil(t, accountDataRet)
 
 	accountDataExpected := basics.AccountData{
 		AssetParams: map[basics.AssetIndex]basics.AssetParams{
@@ -472,11 +428,8 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 				Manager: test.AccountC,
 			},
 		},
-		Assets:         make(map[basics.AssetIndex]basics.AssetHolding),
-		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
-		AppParams:      make(map[basics.AppIndex]basics.AppParams),
 	}
-	assert.Equal(t, accountDataExpected, accountDataRet)
+	assert.Equal(t, accountDataExpected, *accountDataRet)
 }
 
 func TestLedgerForEvaluatorAppTable(t *testing.T) {
@@ -525,23 +478,24 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, transactions.SpecialAddresses{}, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
-	accountDataRet, _, err := l.LookupWithoutRewards(0, test.AccountA)
+	ret, err :=
+		l.LookupWithoutRewards(map[basics.Address]struct{}{test.AccountA: {}})
 	require.NoError(t, err)
 
+	accountDataRet := ret[test.AccountA]
+	require.NotNil(t, accountDataRet)
+
 	accountDataExpected := basics.AccountData{
-		AssetParams:    make(map[basics.AssetIndex]basics.AssetParams),
-		Assets:         make(map[basics.AssetIndex]basics.AssetHolding),
-		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
 		AppParams: map[basics.AppIndex]basics.AppParams{
 			1: params1,
 			2: params2,
 		},
 	}
-	assert.Equal(t, accountDataExpected, accountDataRet)
+	assert.Equal(t, accountDataExpected, *accountDataRet)
 }
 
 func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
@@ -592,23 +546,24 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, transactions.SpecialAddresses{}, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
-	accountDataRet, _, err := l.LookupWithoutRewards(0, test.AccountA)
+	ret, err :=
+		l.LookupWithoutRewards(map[basics.Address]struct{}{test.AccountA: {}})
 	require.NoError(t, err)
 
+	accountDataRet := ret[test.AccountA]
+	require.NotNil(t, accountDataRet)
+
 	accountDataExpected := basics.AccountData{
-		AssetParams: make(map[basics.AssetIndex]basics.AssetParams),
-		Assets:      make(map[basics.AssetIndex]basics.AssetHolding),
 		AppLocalStates: map[basics.AppIndex]basics.AppLocalState{
 			1: params1,
 			2: params2,
 		},
-		AppParams: make(map[basics.AppIndex]basics.AppParams),
 	}
-	assert.Equal(t, accountDataExpected, accountDataRet)
+	assert.Equal(t, accountDataExpected, *accountDataRet)
 }
 
 // Tests that queuing and reading from a batch when using PreloadAccounts()
@@ -671,27 +626,23 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 		RewardsPool: test.RewardAddr,
 	}
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, specialAddresses)
+		tx, specialAddresses, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
-	// Preload accounts so that batching is actually used.
-	{
-		addressesMap := make(map[basics.Address]struct{})
-		for _, address := range addresses {
-			addressesMap[address] = struct{}{}
-		}
-		// Add special accounts.
-		addressesMap[test.FeeAddr] = struct{}{}
-		addressesMap[test.RewardAddr] = struct{}{}
-
-		err := l.PreloadAccounts(addressesMap)
-		require.NoError(t, err)
+	addressesMap := make(map[basics.Address]struct{})
+	for _, address := range addresses {
+		addressesMap[address] = struct{}{}
 	}
+	addressesMap[test.FeeAddr] = struct{}{}
+	addressesMap[test.RewardAddr] = struct{}{}
+
+	ret, err := l.LookupWithoutRewards(addressesMap)
+	require.NoError(t, err)
 
 	for i, address := range addresses {
-		accountData, _, err := l.LookupWithoutRewards(0, address)
-		require.NoError(t, err)
+		accountData, _ := ret[address]
+		require.NotNil(t, accountData)
 
 		assert.Equal(t, len(seq), len(accountData.Assets))
 		assert.Equal(t, len(seq), len(accountData.AssetParams))
@@ -715,8 +666,8 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 
 	// Read special accounts.
 	for _, address := range []basics.Address{test.FeeAddr, test.RewardAddr} {
-		accountData, _, err := l.LookupWithoutRewards(0, address)
-		require.NoError(t, err)
+		accountData, _ := ret[address]
+		require.NotNil(t, accountData)
 
 		expected := basics.MicroAlgos{Raw: 1000 * 1000 * 1000 * 1000 * 1000}
 		assert.Equal(t, expected, accountData.MicroAlgos)
@@ -738,16 +689,22 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, transactions.SpecialAddresses{}, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
-	address, ok, err := l.GetCreatorForRound(
-		basics.Round(0), basics.CreatableIndex(2), basics.AssetCreatable)
+	ret, err := l.GetAssetCreator(
+		map[basics.AssetIndex]struct{}{basics.AssetIndex(2): {}})
 	require.NoError(t, err)
 
-	assert.True(t, ok)
-	assert.Equal(t, test.AccountA, address)
+	foundAddress, ok := ret[basics.AssetIndex(2)]
+	require.True(t, ok)
+
+	expected := ledger.FoundAddress{
+		Address: test.AccountA,
+		Exists:  true,
+	}
+	assert.Equal(t, expected, foundAddress)
 }
 
 func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
@@ -765,15 +722,75 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, transactions.SpecialAddresses{}, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
-	_, ok, err := l.GetCreatorForRound(
-		basics.Round(0), basics.CreatableIndex(2), basics.AssetCreatable)
+	ret, err := l.GetAssetCreator(
+		map[basics.AssetIndex]struct{}{basics.AssetIndex(2): {}})
 	require.NoError(t, err)
 
-	assert.False(t, ok)
+	foundAddress, ok := ret[basics.AssetIndex(2)]
+	require.True(t, ok)
+
+	assert.False(t, foundAddress.Exists)
+}
+
+func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
+	db, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	creatorsMap := map[basics.AssetIndex]basics.Address{
+		1: test.AccountA,
+		2: test.AccountB,
+		3: test.AccountC,
+		4: test.AccountD,
+		5: test.AccountE,
+	}
+
+	query :=
+		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
+			"VALUES ($1, $2, '{}', false, 0)"
+	for index, address := range creatorsMap {
+		_, err := db.Exec(context.Background(), query, index, address[:])
+		require.NoError(t, err)
+	}
+
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
+	require.NoError(t, err)
+	defer tx.Rollback(context.Background())
+
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, transactions.SpecialAddresses{}, basics.Round(0))
+	require.NoError(t, err)
+	defer l.Close()
+
+	indices := map[basics.AssetIndex]struct{}{
+		1: {}, 2: {}, 3: {}, 4: {}, 5: {}, 6: {}, 7: {}, 8: {}}
+	ret, err := l.GetAssetCreator(indices)
+	require.NoError(t, err)
+
+	assert.Equal(t, len(indices), len(ret))
+	for i := 1; i <= 5; i++ {
+		index := basics.AssetIndex(i)
+
+		foundAddress, ok := ret[index]
+		require.True(t, ok)
+
+		expected := ledger.FoundAddress{
+			Address: creatorsMap[index],
+			Exists:  true,
+		}
+		assert.Equal(t, expected, foundAddress)
+	}
+	for i := 6; i <= 8; i++ {
+		index := basics.AssetIndex(i)
+
+		foundAddress, ok := ret[index]
+		require.True(t, ok)
+
+		assert.False(t, foundAddress.Exists)
+	}
 }
 
 func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
@@ -791,16 +808,22 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, transactions.SpecialAddresses{}, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
-	address, ok, err := l.GetCreatorForRound(
-		basics.Round(0), basics.CreatableIndex(2), basics.AppCreatable)
+	ret, err := l.GetAppCreator(
+		map[basics.AppIndex]struct{}{basics.AppIndex(2): {}})
 	require.NoError(t, err)
 
-	assert.True(t, ok)
-	assert.Equal(t, test.AccountA, address)
+	foundAddress, ok := ret[basics.AppIndex(2)]
+	require.True(t, ok)
+
+	expected := ledger.FoundAddress{
+		Address: test.AccountA,
+		Exists:  true,
+	}
+	assert.Equal(t, expected, foundAddress)
 }
 
 func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
@@ -818,15 +841,75 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+		tx, transactions.SpecialAddresses{}, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
-	_, ok, err := l.GetCreatorForRound(
-		basics.Round(0), basics.CreatableIndex(2), basics.AppCreatable)
+	ret, err := l.GetAppCreator(
+		map[basics.AppIndex]struct{}{basics.AppIndex(2): {}})
 	require.NoError(t, err)
 
-	assert.False(t, ok)
+	foundAddress, ok := ret[basics.AppIndex(2)]
+	require.True(t, ok)
+
+	assert.False(t, foundAddress.Exists)
+}
+
+func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
+	db, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	creatorsMap := map[basics.AppIndex]basics.Address{
+		1: test.AccountA,
+		2: test.AccountB,
+		3: test.AccountC,
+		4: test.AccountD,
+		5: test.AccountE,
+	}
+
+	query :=
+		"INSERT INTO app (index, creator, params, deleted, created_at) " +
+			"VALUES ($1, $2, '{}', false, 0)"
+	for index, address := range creatorsMap {
+		_, err := db.Exec(context.Background(), query, index, address[:])
+		require.NoError(t, err)
+	}
+
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
+	require.NoError(t, err)
+	defer tx.Rollback(context.Background())
+
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
+		tx, transactions.SpecialAddresses{}, basics.Round(0))
+	require.NoError(t, err)
+	defer l.Close()
+
+	indices := map[basics.AppIndex]struct{}{
+		1: {}, 2: {}, 3: {}, 4: {}, 5: {}, 6: {}, 7: {}, 8: {}}
+	ret, err := l.GetAppCreator(indices)
+	require.NoError(t, err)
+
+	assert.Equal(t, len(indices), len(ret))
+	for i := 1; i <= 5; i++ {
+		index := basics.AppIndex(i)
+
+		foundAddress, ok := ret[index]
+		require.True(t, ok)
+
+		expected := ledger.FoundAddress{
+			Address: creatorsMap[index],
+			Exists:  true,
+		}
+		assert.Equal(t, expected, foundAddress)
+	}
+	for i := 6; i <= 8; i++ {
+		index := basics.AppIndex(i)
+
+		foundAddress, ok := ret[index]
+		require.True(t, ok)
+
+		assert.False(t, foundAddress.Exists)
+	}
 }
 
 func TestLedgerForEvaluatorSpecialAddresses(t *testing.T) {
@@ -842,36 +925,19 @@ func TestLedgerForEvaluatorSpecialAddresses(t *testing.T) {
 		RewardsPool: test.RewardAddr,
 	}
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, test.GenesisHash, specialAddresses)
+		tx, specialAddresses, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
 	amount := basics.MicroAlgos{Raw: 1000 * 1000 * 1000 * 1000 * 1000}
 
-	accountData, round, err := l.LookupWithoutRewards(basics.Round(5), test.FeeAddr)
+	addressesMap := map[basics.Address]struct{}{test.FeeAddr: {}, test.RewardAddr: {}}
+	ret, err := l.LookupWithoutRewards(addressesMap)
 	require.NoError(t, err)
-	assert.Equal(t, amount, accountData.MicroAlgos)
-	assert.Equal(t, basics.Round(5), round)
 
-	accountData, round, err = l.LookupWithoutRewards(basics.Round(5), test.RewardAddr)
-	require.NoError(t, err)
-	assert.Equal(t, amount, accountData.MicroAlgos)
-	assert.Equal(t, basics.Round(5), round)
-}
-
-func TestLedgerForEvaluatorGenesisHash(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
-	defer shutdownFunc()
-
-	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
-	require.NoError(t, err)
-	defer tx.Rollback(context.Background())
-
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, test.GenesisHash, transactions.SpecialAddresses{})
-	require.NoError(t, err)
-	defer l.Close()
-
-	genesisHash := l.GenesisHash()
-	assert.Equal(t, test.GenesisHash, genesisHash)
+	for address := range addressesMap {
+		accountDataRet := ret[address]
+		require.NotNil(t, accountDataRet)
+		assert.Equal(t, amount, accountDataRet.MicroAlgos)
+	}
 }

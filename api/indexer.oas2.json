@@ -751,7 +751,7 @@
           "type": "string"
         },
         "sig-type": {
-          "description": "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig",
+          "description": "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown",
           "type": "string",
           "enum": [
             "sig",
