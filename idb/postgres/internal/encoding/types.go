@@ -68,6 +68,7 @@ type evalDelta struct {
 	transactions.EvalDelta
 	GlobalDeltaOverride stateDelta            `codec:"gd"`
 	LocalDeltasOverride map[uint64]stateDelta `codec:"ld"`
+	LogsOverride        [][]byte              `codec:"lg"`
 }
 
 type signedTxnWithAD struct {
