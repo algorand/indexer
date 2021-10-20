@@ -6,12 +6,12 @@ import (
 
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
+	"github.com/algorand/indexer/idb/postgres/internal/schema"
 )
 
 const (
@@ -23,6 +23,7 @@ const (
 	assetParamsStmtName    = "asset_params"
 	appParamsStmtName      = "app_params"
 	appLocalStatesStmtName = "app_local_states"
+	accountTotalsStmtName  = "account_totals"
 )
 
 var statements = map[string]string{
@@ -39,26 +40,22 @@ var statements = map[string]string{
 	appParamsStmtName: "SELECT index, params FROM app WHERE creator = $1 AND NOT deleted",
 	appLocalStatesStmtName: "SELECT app, localstate FROM account_app " +
 		"WHERE addr = $1 AND NOT deleted",
+	accountTotalsStmtName: `SELECT v FROM metastate WHERE k = '` +
+		schema.AccountTotals + `'`,
 }
 
 // LedgerForEvaluator implements the indexerLedgerForEval interface from
 // go-algorand ledger/eval.go and is used for accounting.
 type LedgerForEvaluator struct {
-	tx pgx.Tx
-	// Indexer currently does not store the balances of special account, but
-	// go-algorand's eval checks that they satisfy the minimum balance. We thus return
-	// a fake amount.
-	// TODO: remove.
-	specialAddresses transactions.SpecialAddresses
-	latestRound      basics.Round
+	tx          pgx.Tx
+	latestRound basics.Round
 }
 
 // MakeLedgerForEvaluator creates a LedgerForEvaluator object.
-func MakeLedgerForEvaluator(tx pgx.Tx, specialAddresses transactions.SpecialAddresses, latestRound basics.Round) (LedgerForEvaluator, error) {
+func MakeLedgerForEvaluator(tx pgx.Tx, latestRound basics.Round) (LedgerForEvaluator, error) {
 	l := LedgerForEvaluator{
-		tx:               tx,
-		specialAddresses: specialAddresses,
-		latestRound:      latestRound,
+		tx:          tx,
+		latestRound: latestRound,
 	}
 
 	for name, query := range statements {
@@ -95,11 +92,6 @@ func (l LedgerForEvaluator) LatestBlockHdr() (bookkeeping.BlockHeader, error) {
 	}
 
 	return res, nil
-}
-
-func (l *LedgerForEvaluator) isSpecialAddress(address basics.Address) bool {
-	return (address == l.specialAddresses.FeeSink) ||
-		(address == l.specialAddresses.RewardsPool)
 }
 
 func (l *LedgerForEvaluator) parseAccountTable(row pgx.Row) (basics.AccountData, bool /*exists*/, error) {
@@ -258,9 +250,7 @@ func (l *LedgerForEvaluator) parseAccountAppTable(rows pgx.Rows) (map[basics.App
 func (l *LedgerForEvaluator) loadAccountTable(addresses map[basics.Address]struct{}) (map[basics.Address]*basics.AccountData, error) {
 	addressesArr := make([]basics.Address, 0, len(addresses))
 	for address := range addresses {
-		if !l.isSpecialAddress(address) {
-			addressesArr = append(addressesArr, address)
-		}
+		addressesArr = append(addressesArr, address)
 	}
 
 	var batch pgx.Batch
@@ -388,20 +378,6 @@ func (l LedgerForEvaluator) LookupWithoutRewards(addresses map[basics.Address]st
 		return nil, fmt.Errorf("loadAccounts() err: %w", err)
 	}
 
-	// Add special accounts if needed.
-	for address := range addresses {
-		if l.isSpecialAddress(address) {
-			// The balance of a special address must pass the minimum balance check in
-			// go-algorand's evaluator, so return a sufficiently large balance.
-			var balance uint64 = 1000 * 1000 * 1000 * 1000 * 1000
-			accountData := new(basics.AccountData)
-			*accountData = basics.AccountData{
-				MicroAlgos: basics.MicroAlgos{Raw: balance},
-			}
-			res[address] = accountData
-		}
-	}
-
 	return res, nil
 }
 
@@ -481,8 +457,18 @@ func (l LedgerForEvaluator) GetAppCreator(indices map[basics.AppIndex]struct{}) 
 
 // LatestTotals is part of go-algorand's indexerLedgerForEval interface.
 func (l LedgerForEvaluator) LatestTotals() (ledgercore.AccountTotals, error) {
-	// The evaluator uses totals only for recomputing the rewards pool balance. Indexer
-	// does not currently compute this balance, and we can return an empty struct
-	// here.
-	return ledgercore.AccountTotals{}, nil
+	row := l.tx.QueryRow(context.Background(), accountTotalsStmtName)
+
+	var json string
+	err := row.Scan(&json)
+	if err != nil {
+		return ledgercore.AccountTotals{}, fmt.Errorf("LatestTotals() scan err: %w", err)
+	}
+
+	totals, err := encoding.DecodeAccountTotals([]byte(json))
+	if err != nil {
+		return ledgercore.AccountTotals{}, fmt.Errorf("LatestTotals() decode err: %w", err)
+	}
+
+	return totals, nil
 }

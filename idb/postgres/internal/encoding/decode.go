@@ -7,6 +7,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 
 	"github.com/algorand/indexer/idb"
@@ -365,4 +366,15 @@ func DecodeMigrationState(data []byte) (types.MigrationState, error) {
 	}
 
 	return state, nil
+}
+
+// DecodeAccountTotals decodes account totals from json.
+func DecodeAccountTotals(data []byte) (ledgercore.AccountTotals, error) {
+	var res ledgercore.AccountTotals
+	err := DecodeJSON(data, &res)
+	if err != nil {
+		return ledgercore.AccountTotals{}, err
+	}
+
+	return res, nil
 }

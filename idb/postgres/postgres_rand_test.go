@@ -130,8 +130,7 @@ func TestWriteReadAccountData(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledgerforevaluator.MakeLedgerForEvaluator(
-		tx, transactions.SpecialAddresses{}, basics.Round(0))
+	l, err := ledgerforevaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
