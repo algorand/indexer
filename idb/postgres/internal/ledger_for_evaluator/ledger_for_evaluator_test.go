@@ -68,10 +68,9 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	query :=
-		"INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, deleted, " +
-			"created_at, account_data) " +
-			"VALUES ($1, $2, $3, $4, false, 0, $5)"
+	query := `INSERT INTO account
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
+		VALUES ($1, $2, $3, $4, false, 0, $5)`
 
 	var voteID crypto.OneTimeSignatureVerifier
 	voteID[0] = 2
@@ -282,48 +281,13 @@ func TestLedgerForEvaluatorAccountTableMissingAccount(t *testing.T) {
 	assert.Nil(t, accountDataRet)
 }
 
-func TestLedgerForEvaluatorAccountTableNullAccountData(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
-	defer shutdownFunc()
-
-	query :=
-		"INSERT INTO account " +
-			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
-			"VALUES ($1, $2, 0, 0, false, 0)"
-
-	accountDataFull := basics.AccountData{
-		MicroAlgos: basics.MicroAlgos{Raw: 2},
-	}
-	_, err := db.Exec(
-		context.Background(), query, test.AccountA[:], accountDataFull.MicroAlgos.Raw)
-	require.NoError(t, err)
-
-	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
-	require.NoError(t, err)
-	defer tx.Rollback(context.Background())
-
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-		tx, transactions.SpecialAddresses{}, basics.Round(0))
-	require.NoError(t, err)
-	defer l.Close()
-
-	ret, err :=
-		l.LookupWithoutRewards(map[basics.Address]struct{}{test.AccountA: {}})
-	require.NoError(t, err)
-
-	accountDataRet := ret[test.AccountA]
-	require.NotNil(t, accountDataRet)
-	assert.Equal(t, accountDataFull, *accountDataRet)
-}
-
 func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	query :=
-		"INSERT INTO account " +
-			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
-			"VALUES ($1, 0, 0, 0, false, 0)"
+	query := `INSERT INTO account
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
+		VALUES ($1, 0, 0, 0, false, 0, 'null'::jsonb)`
 	_, err := db.Exec(context.Background(), query, test.AccountA[:])
 	require.NoError(t, err)
 
@@ -374,10 +338,9 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	query :=
-		"INSERT INTO account " +
-			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
-			"VALUES ($1, 0, 0, 0, false, 0)"
+	query := `INSERT INTO account
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
+		VALUES ($1, 0, 0, 0, false, 0, 'null'::jsonb)`
 	_, err := db.Exec(context.Background(), query, test.AccountA[:])
 	require.NoError(t, err)
 
@@ -436,10 +399,9 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	query :=
-		"INSERT INTO account " +
-			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
-			"VALUES ($1, 0, 0, 0, false, 0)"
+	query := `INSERT INTO account
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
+		VALUES ($1, 0, 0, 0, false, 0, 'null'::jsonb)`
 	_, err := db.Exec(context.Background(), query, test.AccountA[:])
 	require.NoError(t, err)
 
@@ -502,10 +464,9 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	query :=
-		"INSERT INTO account " +
-			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
-			"VALUES ($1, 0, 0, 0, false, 0)"
+	query := `INSERT INTO account
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
+		VALUES ($1, 0, 0, 0, false, 0, 'null'::jsonb)`
 	_, err := db.Exec(context.Background(), query, test.AccountA[:])
 	require.NoError(t, err)
 
@@ -572,10 +533,9 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	addAccountQuery :=
-		"INSERT INTO account " +
-			"(addr, microalgos, rewardsbase, rewards_total, deleted, created_at) " +
-			"VALUES ($1, 0, 0, 0, false, 0)"
+	addAccountQuery := `INSERT INTO account
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
+		VALUES ($1, 0, 0, 0, false, 0, 'null'::jsonb)`
 	addAccountAssetQuery :=
 		"INSERT INTO account_asset (addr, assetid, amount, frozen, deleted, created_at) " +
 			"VALUES ($1, $2, 0, false, false, 0)"

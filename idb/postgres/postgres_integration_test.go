@@ -754,7 +754,7 @@ func TestInnerTxnParticipation(t *testing.T) {
 	require.NoError(t, err)
 
 	//////////
-	// Then // Both accounts should have an entry in the txn_participation table.
+	// Then // All accounts should have an entry in the txn_participation table.
 	//////////
 	round := uint64(1)
 	intra := uint64(0) // the only one txn in the block
@@ -765,11 +765,11 @@ func TestInnerTxnParticipation(t *testing.T) {
 	acctACount := queryInt(db.db, query, test.AccountA[:], round, intra)
 	acctBCount := queryInt(db.db, query, test.AccountB[:], round, intra)
 	acctCCount := queryInt(db.db, query, test.AccountC[:], round, intra)
-	acctAppCount := queryInt(db.db, query, appAddr, round, intra)
+	acctAppCount := queryInt(db.db, query, appAddr[:], round, intra)
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
 	assert.Equal(t, 1, acctCCount)
-	assert.Equal(t, -1, acctAppCount, "inner txn sender is not indexed")
+	assert.Equal(t, 1, acctAppCount)
 }
 
 func TestAppExtraPages(t *testing.T) {
@@ -1557,6 +1557,61 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 
 			// There can be multiple matches because deduplication happens in REST API.
 			require.Equal(t, tc.matches, num)
+		})
+	}
+}
+
+// TestNonUTF8Logs makes sure we're able to import cheeky logs.
+func TestNonUTF8Logs(t *testing.T) {
+	tests := []struct {
+		Name string
+		Logs []string
+	}{
+		{
+			Name: "Normal",
+			Logs: []string{"Test log1", "Test log2", "Test log3"},
+		},
+		{
+			Name: "Embedded Null",
+			Logs: []string{"\000", "\x00\x00\x00\x00\x00\x00\x00\x00", string([]byte{00, 00})},
+		},
+		{
+			Name: "Invalid UTF8",
+			Logs: []string{"\x8c", "\xff", "\xf8"},
+		},
+		{
+			Name: "Emoji",
+			Logs: []string{"💩", "💰", "🌐"},
+		},
+	}
+
+	for _, testcase := range tests {
+		testcase := testcase
+
+		t.Run(testcase.Name, func(t *testing.T) {
+			db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+			defer shutdownFunc()
+
+			createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+			createAppTxn.ApplyData.EvalDelta = transactions.EvalDelta{
+				Logs: testcase.Logs,
+			}
+
+			block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAppTxn)
+			require.NoError(t, err)
+
+			// Test 1: import/accounting should work.
+			err = db.AddBlock(&block)
+			require.NoError(t, err)
+
+			// Test 2: transaction results properly serialized
+			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+			for row := range txnRows {
+				require.NoError(t, row.Error)
+				var txn transactions.SignedTxnWithAD
+				require.NoError(t, protocol.Decode(row.TxnBytes, &txn))
+				require.Equal(t, testcase.Logs, txn.ApplyData.EvalDelta.Logs)
+			}
 		})
 	}
 }

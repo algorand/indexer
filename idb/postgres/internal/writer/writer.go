@@ -58,8 +58,9 @@ var statements = map[string]string{
 		VALUES($1, $2, $3, FALSE, $4) ON CONFLICT (addr, app) DO UPDATE SET
 		localstate = EXCLUDED.localstate, deleted = FALSE`,
 	deleteAccountStmtName: `INSERT INTO account
-		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, closed_at)
-		VALUES($1, 0, 0, 0, TRUE, $2, $2) ON CONFLICT (addr) DO UPDATE SET
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, closed_at,
+			account_data)
+		VALUES($1, 0, 0, 0, TRUE, $2, $2, 'null'::jsonb) ON CONFLICT (addr) DO UPDATE SET
 		microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
 		rewards_total = EXCLUDED.rewards_total, deleted = TRUE,
 		closed_at = EXCLUDED.closed_at, account_data = EXCLUDED.account_data`,

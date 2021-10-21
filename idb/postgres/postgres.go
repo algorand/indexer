@@ -158,6 +158,47 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations()
 }
 
+// Add addresses referenced in `txn` to `out`.
+func getTxnAddresses(txn *transactions.Transaction, out map[basics.Address]struct{}) {
+	out[txn.Sender] = struct{}{}
+	out[txn.Receiver] = struct{}{}
+	out[txn.CloseRemainderTo] = struct{}{}
+	out[txn.AssetSender] = struct{}{}
+	out[txn.AssetReceiver] = struct{}{}
+	out[txn.AssetCloseTo] = struct{}{}
+	out[txn.FreezeAccount] = struct{}{}
+	for _, address := range txn.ApplicationCallTxnFields.Accounts {
+		out[address] = struct{}{}
+	}
+}
+
+// Returns all addresses referenced in `block`.
+func getBlockAddresses(block *bookkeeping.Block) map[basics.Address]struct{} {
+	// Reserve a reasonable memory size for the map.
+	res := make(map[basics.Address]struct{}, len(block.Payset)+2)
+
+	res[block.FeeSink] = struct{}{}
+	res[block.RewardsPool] = struct{}{}
+	for _, stib := range block.Payset {
+		getTxnAddresses(&stib.Txn, res)
+	}
+
+	return res
+}
+
+func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
+	accountDataMap, err := l.LookupWithoutRewards(getBlockAddresses(block))
+	if err != nil {
+		return ledger.EvalForIndexerResources{},
+			fmt.Errorf("prepareEvalResources() err: %w", err)
+	}
+
+	res := ledger.EvalForIndexerResources{
+		Accounts: accountDataMap,
+	}
+	return res, nil
+}
+
 // AddBlock is part of idb.IndexerDb.
 func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 	db.log.Printf("adding block %d", block.Round())
@@ -214,8 +255,14 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			}
 			proto.EnableAssetCloseAmount = true
 
+			resources, err := prepareEvalResources(&ledgerForEval, block)
+			if err != nil {
+				return fmt.Errorf("AddBlock() eval err: %w", err)
+			}
+
 			start := time.Now()
-			delta, modifiedTxns, err := ledger.EvalForIndexer(ledgerForEval, block, proto)
+			delta, modifiedTxns, err :=
+				ledger.EvalForIndexer(ledgerForEval, block, proto, resources)
 			if err != nil {
 				return fmt.Errorf("AddBlock() eval err: %w", err)
 			}
@@ -1728,8 +1775,6 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			out <- idb.AssetRow{Error: err}
 			break
 		}
-		var creator basics.Address
-		copy(creator[:], creatorAddr)
 		rec := idb.AssetRow{
 			AssetID:      index,
 			Creator:      creatorAddr,
