@@ -19,6 +19,7 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/go-algorand/protocol"
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -177,15 +178,73 @@ func getBlockAddresses(block *bookkeeping.Block) map[basics.Address]struct{} {
 }
 
 func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
-	accountDataMap, err := l.LookupWithoutRewards(getBlockAddresses(block))
+	addresses := getBlockAddresses(block)
+	assets := make(map[basics.AssetIndex]struct{})
+	apps := make(map[basics.AppIndex]struct{})
+
+	for _, stib := range block.Payset {
+		switch stib.Txn.Type {
+		case protocol.AssetConfigTx:
+			if stib.Txn.ConfigAsset != 0 {
+				assets[stib.Txn.ConfigAsset] = struct{}{}
+			}
+		case protocol.AssetTransferTx:
+			if stib.Txn.XferAsset != 0 {
+				assets[stib.Txn.XferAsset] = struct{}{}
+			}
+		case protocol.AssetFreezeTx:
+			if stib.Txn.FreezeAsset != 0 {
+				assets[stib.Txn.FreezeAsset] = struct{}{}
+			}
+		case protocol.ApplicationCallTx:
+			if stib.Txn.ApplicationID != 0 {
+				apps[stib.Txn.ApplicationID] = struct{}{}
+			}
+		}
+	}
+
+	var res ledger.EvalForIndexerResources
+
+	assetCreators, err := l.GetAssetCreator(assets)
+	if err != nil {
+		return ledger.EvalForIndexerResources{},
+			fmt.Errorf("prepareEvalResources() err: %w", err)
+	}
+	for index, foundAddress := range assetCreators {
+		creatable := ledger.Creatable{
+			Index: basics.CreatableIndex(index),
+			Type:  basics.AssetCreatable,
+		}
+		res.Creators[creatable] = foundAddress
+
+		if foundAddress.Exists {
+			addresses[foundAddress.Address] = struct{}{}
+		}
+	}
+
+	appCreators, err := l.GetAppCreator(apps)
+	if err != nil {
+		return ledger.EvalForIndexerResources{},
+			fmt.Errorf("prepareEvalResources() err: %w", err)
+	}
+	for index, foundAddress := range appCreators {
+		creatable := ledger.Creatable{
+			Index: basics.CreatableIndex(index),
+			Type:  basics.AppCreatable,
+		}
+		res.Creators[creatable] = foundAddress
+
+		if foundAddress.Exists {
+			addresses[foundAddress.Address] = struct{}{}
+		}
+	}
+
+	res.Accounts, err = l.LookupWithoutRewards(addresses)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
 			fmt.Errorf("prepareEvalResources() err: %w", err)
 	}
 
-	res := ledger.EvalForIndexerResources{
-		Accounts: accountDataMap,
-	}
 	return res, nil
 }
 
