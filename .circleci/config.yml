@@ -100,5 +100,5 @@ commands:
           name: Upload Coverage Reports
           no_output_timeout: 10m
           command: |
-            scripts/travis/upload_coverage.sh || true
+            scripts/upload_coverage.sh || true
     
