@@ -20,45 +20,78 @@ commands:
     description: prepare machine for next steps
     steps:
       - checkout
-      - run: git submodule sync
-      - run: git submodule update --init
-      - run: |
-          sudo apt update
-          
-          # Install go
-          wget -c https://golang.org/dl/go1.14.7.linux-amd64.tar.gz
-          sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.14.7.linux-amd64.tar.gz
-          export PATH=$PATH:/usr/local/go/bin
-          
-          # Install python and dependencies
-          sudo apt -y install python3 python3-pip python3-setuptools python3-wheel libboost-all-dev libffi-dev
-          go get -u golang.org/x/lint/golint
-          pip3 install -r misc/requirements.txt
 
-          # Install Docker
-          sudo apt -y remove docker docker-engine docker.io containerd runc
-          sudo apt -y install apt-transport-https ca-certificates curl gnupg lsb-release
-          curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-          echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-          $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-          sudo apt update
-          sudo apt -y install docker-ce docker-ce-cli containerd.io
-          if [ -n "$DOCKER_PASSWORD" ]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ; fi
+      - run:
+          name: sync submodules (go-algorand)
+          command: |
+            git submodule sync
+            git submodule update --init
 
+      - run:
+          name: Install golang
+          command: |
+            sudo apt update
+            wget -c https://golang.org/dl/go1.14.7.linux-amd64.tar.gz
+            sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.14.7.linux-amd64.tar.gz
+            export PATH=$PATH:/usr/local/go/bin
 
+      - run:
+          name: Install python and dependencies
+          command: |
+            export PATH=$PATH:/usr/local/go/bin
+            sudo apt -y install python3 python3-pip python3-setuptools python3-wheel libboost-all-dev libffi-dev
+            go get -u golang.org/x/lint/golint
+            pip3 install -r misc/requirements.txt
 
+      - run:
+          name: Install Docker
+          command: |
+            sudo apt -y remove docker docker-engine docker.io containerd runc
+            sudo apt -y install apt-transport-https ca-certificates curl gnupg lsb-release
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+            $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            sudo apt update
+            sudo apt -y install docker-ce docker-ce-cli containerd.io
+            if [ -n "$DOCKER_PASSWORD" ]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ; fi
 
   run_tests:
     steps:
-      - run: |
-          export PATH=$PATH:/usr/local/go/bin
-          test -z `go fmt ./...`
-          make lint
-          make check
-          make integration
-          make test
-          make fakepackage
-          make e2e
+      - run:
+          name: "test -z `go fmt ./...`"
+          command: |
+            export PATH=$PATH:/usr/local/go/bin
+            test -z `go fmt ./...`
+      - run:
+          name: "make lint"
+          command: |
+            export PATH=$PATH:/usr/local/go/bin
+            make lint
+      - run:
+          name: "make check"
+          command: |
+            export PATH=$PATH:/usr/local/go/bin
+            make check
+      - run:
+          name: "make integration"
+          command: |
+            export PATH=$PATH:/usr/local/go/bin
+            make integration
+      - run:
+          name: "make test"
+          command: |
+            export PATH=$PATH:/usr/local/go/bin
+            make test
+      - run:
+          name: "make fakepackage"
+          command: |
+            export PATH=$PATH:/usr/local/go/bin
+            make fakepackage
+      - run:
+          name: "make e2e"
+          command: |
+            export PATH=$PATH:/usr/local/go/bin
+            make e2e
 
   upload_coverage:
     description: Collect coverage reports and upload them
