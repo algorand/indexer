@@ -338,15 +338,6 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 	return createApp
 }
 
-// MakeLogTxn creates an app and initializes its logs with a message.
-func MakeLogTxn(appSender basics.Address, logs []string) transactions.SignedTxnWithAD {
-	createApp := MakeCreateAppTxn(appSender)
-	createApp.ApplyData.EvalDelta = transactions.EvalDelta{
-		Logs: logs,
-	}
-	return createApp
-}
-
 // MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
 func MakeBlockForTxns(prevHeader bookkeeping.BlockHeader, inputs ...*transactions.SignedTxnWithAD) (bookkeeping.Block, error) {
 	res := bookkeeping.MakeBlock(prevHeader)
