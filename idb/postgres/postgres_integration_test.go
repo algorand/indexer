@@ -1502,9 +1502,12 @@ func TestNonUTF8Logs(t *testing.T) {
 			db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 			defer shutdownFunc()
 
-			txn := test.MakeLogTxn(
-				test.AccountA, testcase.Logs)
-			block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
+			createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+			createAppTxn.ApplyData.EvalDelta = transactions.EvalDelta{
+				Logs: testcase.Logs,
+			}
+
+			block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAppTxn)
 			require.NoError(t, err)
 
 			// Test 1: import/accounting should work.

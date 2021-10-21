@@ -136,6 +136,7 @@ func unconvertLogs(logs [][]byte) []string {
 	}
 	return res
 }
+
 func unconvertInnerTxns(innerTxns []signedTxnWithAD) []transactions.SignedTxnWithAD {
 	if innerTxns == nil {
 		return nil
