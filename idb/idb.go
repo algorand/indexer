@@ -94,7 +94,7 @@ type TxnExtra struct {
 	// RootTxid is set on inner transactions. It is a convenience for the
 	// future. If we decide to return inner transactions we'll want to include
 	// the root txid.
-	RootTxid  string `codec:"root-txid,omitempty"`
+	RootTxid string `codec:"root-txid,omitempty"`
 }
 
 // ErrorNotInitialized is used when requesting something that can't be returned
