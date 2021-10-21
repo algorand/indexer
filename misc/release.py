@@ -101,7 +101,7 @@ def link(sourcepath, destpath):
 
 _tagpat = re.compile(r'tag:\s+([^,\n]+)')
 
-def compile_version_opts(hostos, release_version=None, allow_mismatch=False):
+def compile_version_opts(release_version=None, allow_mismatch=False):
     result = subprocess.run(['git', 'log', '-n', '1', '--pretty=%H %D'], stdout=subprocess.PIPE)
     result.check_returncode()
     so = result.stdout.decode()
@@ -132,8 +132,6 @@ def compile_version_opts(hostos, release_version=None, allow_mismatch=False):
     ldflags += ' -X github.com/algorand/indexer/version.GitDecorateBase64={}'.format(base64.b64encode(desc.encode()).decode())
     if release_version:
         ldflags += ' -X github.com/algorand/indexer/version.ReleaseVersion={}'.format(release_version)
-    if hostos == 'linux':
-        ldflags += ' -extldflags "-static -static-libstdc++ -static-libgcc"'
     logger.debug('Hash=%r Dirty=%r CompileTime=%r decorate=%r ReleaseVersion=%r', githash, dirty, now, desc, release_version)
     logger.debug('%s', ldflags)
     return ldflags
@@ -247,7 +245,7 @@ def main():
         logger.info('will only run %s %s', hostos, hostarch)
     with open('.version') as fin:
         version = fin.read().strip()
-    ldflags = compile_version_opts(hostos, version, allow_mismatch=args.fake_release)
+    ldflags = compile_version_opts(version, allow_mismatch=args.fake_release)
     for goos, goarch, debarch in osArchArch:
         if args.host_only and (goos != hostos or goarch != hostarch):
             logger.debug('skip %s %s', goos, goarch)

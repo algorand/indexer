@@ -4,31 +4,12 @@ OS_TYPE		?= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
 ARCH			?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
 PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(VERSION)
 
-ifeq ($(OS_TYPE), linux)
-EXTLDFLAGS := -static-libstdc++ -static-libgcc
-ifeq ($(ARCH), amd64)
-ifeq (,$(wildcard /etc/centos-release))
-EXTLDFLAGS  += -static
-endif
-endif
-ifeq ($(ARCH), arm)
-ifneq ("$(wildcard /etc/alpine-release)","")
-EXTLDFLAGS  += -static
-endif
-endif
-endif
-ifneq (, $(findstring MINGW,$(OS_TYPE)))
-EXTLDFLAGS := -static -static-libstdc++ -static-libgcc
-endif
-
-
 # TODO: ensure any additions here are mirrored in misc/release.py
 GOLDFLAGS += -X github.com/algorand/indexer/version.Hash=$(shell git log -n 1 --pretty="%H")
 GOLDFLAGS += -X github.com/algorand/indexer/version.Dirty=$(if $(filter $(strip $(shell git status --porcelain|wc -c)), "0"),,true)
 GOLDFLAGS += -X github.com/algorand/indexer/version.CompileTime=$(shell date -u +%Y-%m-%dT%H:%M:%S%z)
 GOLDFLAGS += -X github.com/algorand/indexer/version.GitDecorateBase64=$(shell git log -n 1 --pretty="%D"|base64|tr -d ' \n')
 GOLDFLAGS += -X github.com/algorand/indexer/version.ReleaseVersion=$(shell cat .version)
-GOLDFLAGS += -extldflags \"$(EXTLDFLAGS)\"
 
 # Used for e2e test
 export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
