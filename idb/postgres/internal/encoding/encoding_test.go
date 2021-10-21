@@ -62,31 +62,8 @@ func TestEncodeSignedTxnWithADSynthetic(t *testing.T) {
 		Bytes:  string(nonutf8b),
 	}
 	stxn.EvalDelta.LocalDeltas[1] = ld
-	stxn.EvalDelta.Logs = []string{nonutf8}
-
-	// Test Inner transaction Logs encoding
-	stxn.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{{
-		ApplyData: transactions.ApplyData{
-			EvalDelta: transactions.EvalDelta{
-				GlobalDelta: map[string]basics.ValueDelta{
-					nonutf8: {
-						Action: basics.SetBytesAction,
-						Bytes:  string(nonutf8b),
-					},
-				},
-				LocalDeltas: map[uint64]basics.StateDelta{
-					1: {nonutf8: {
-						Action: basics.SetBytesAction,
-						Bytes:  string(nonutf8b),
-					}},
-				},
-				Logs: []string{nonutf8},
-			},
-		},
-	}}
-
 	js := EncodeSignedTxnWithAD(stxn)
-	require.Equal(t, `{"dt":{"gd":{"/v7/7wAAESIz":{"at":1,"bs":"/v7/7wAAESIz"}},"itx":[{"dt":{"gd":{"/v7/7wAAESIz":{"at":1,"bs":"/v7/7wAAESIz"}},"ld":{"1":{"/v7/7wAAESIz":{"at":1,"bs":"/v7/7wAAESIz"}}},"lg":["/v7/7wAAESIz"]}}],"ld":{"1":{"/v7/7wAAESIz":{"at":1,"bs":"/v7/7wAAESIz"}}},"lg":["/v7/7wAAESIz"]}}`, string(js))
+	require.Equal(t, `{"dt":{"gd":{"/v7/7wAAESIz":{"at":1,"bs":"/v7/7wAAESIz"}},"ld":{"1":{"/v7/7wAAESIz":{"at":1,"bs":"/v7/7wAAESIz"}}}}}`, string(js))
 }
 
 // Test that encoding to JSON and decoding results in the same object.
@@ -346,12 +323,35 @@ func TestSignedTxnWithADEncoding(t *testing.T) {
 						},
 					},
 				},
+				Logs: []string{
+					"xyz",
+					"\000",
+				},
+				InnerTxns: []transactions.SignedTxnWithAD{{
+					ApplyData: transactions.ApplyData{
+						EvalDelta: transactions.EvalDelta{
+							GlobalDelta: map[string]basics.ValueDelta{
+								"xyz": {
+									Action: basics.SetBytesAction,
+									Bytes:  string("xyz"),
+								},
+							},
+							LocalDeltas: map[uint64]basics.StateDelta{
+								1: {"xyz": {
+									Action: basics.SetBytesAction,
+									Bytes:  string("xyz"),
+								}},
+							},
+							Logs: []string{"xyz"},
+						},
+					},
+				}},
 			},
 		},
 	}
 	buf := EncodeSignedTxnWithAD(stxn)
 
-	expectedString := `{"dt":{"gd":{"YWJj":{"at":44,"bs":"eHl6","ui":33}},"ld":{"2":{"YmNk":{"at":55,"bs":"eXp4","ui":66}}}},"sgnr":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","txn":{"aclose":"CwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","apar":{"c":"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","f":"BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","m":"BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","r":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="},"apat":["DQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="],"arcv":"CgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","asnd":"CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","close":"BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","fadd":"DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rcv":"AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rekey":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","snd":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}}`
+	expectedString := `{"dt":{"gd":{"YWJj":{"at":44,"bs":"eHl6","ui":33}},"itx":[{"dt":{"gd":{"eHl6":{"at":1,"bs":"eHl6"}},"ld":{"1":{"eHl6":{"at":1,"bs":"eHl6"}}},"lg":["eHl6"]}}],"ld":{"2":{"YmNk":{"at":55,"bs":"eXp4","ui":66}}},"lg":["eHl6","AA=="]},"sgnr":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","txn":{"aclose":"CwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","apar":{"c":"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","f":"BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","m":"BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","r":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="},"apat":["DQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="],"arcv":"CgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","asnd":"CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","close":"BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","fadd":"DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rcv":"AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rekey":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","snd":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}}`
 	assert.Equal(t, expectedString, string(buf))
 
 	newStxn, err := DecodeSignedTxnWithAD(buf)
