@@ -1470,3 +1470,58 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	require.NotNil(t, localState.ClosedOutAtRound)
 	assert.Equal(t, uint64(1), *localState.ClosedOutAtRound)
 }
+
+// TestNonUTF8Logs makes sure we're able to import cheeky logs.
+func TestNonUTF8Logs(t *testing.T) {
+	tests := []struct {
+		Name string
+		Logs []string
+	}{
+		{
+			Name: "Normal",
+			Logs: []string{"Test log1", "Test log2", "Test log3"},
+		},
+		{
+			Name: "Embedded Null",
+			Logs: []string{"\000", "\x00\x00\x00\x00\x00\x00\x00\x00", string([]byte{00, 00})},
+		},
+		{
+			Name: "Invalid UTF8",
+			Logs: []string{"\x8c", "\xff", "\xf8"},
+		},
+		{
+			Name: "Emoji",
+			Logs: []string{"💩", "💰", "🌐"},
+		},
+	}
+
+	for _, testcase := range tests {
+		testcase := testcase
+
+		t.Run(testcase.Name, func(t *testing.T) {
+			db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+			defer shutdownFunc()
+
+			createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+			createAppTxn.ApplyData.EvalDelta = transactions.EvalDelta{
+				Logs: testcase.Logs,
+			}
+
+			block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAppTxn)
+			require.NoError(t, err)
+
+			// Test 1: import/accounting should work.
+			err = db.AddBlock(&block)
+			require.NoError(t, err)
+
+			// Test 2: transaction results properly serialized
+			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+			for row := range txnRows {
+				require.NoError(t, row.Error)
+				var txn transactions.SignedTxnWithAD
+				require.NoError(t, protocol.Decode(row.TxnBytes, &txn))
+				require.Equal(t, testcase.Logs, txn.ApplyData.EvalDelta.Logs)
+			}
+		})
+	}
+}
