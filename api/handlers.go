@@ -495,42 +495,16 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 		return badRequest(ctx, err.Error())
 	}
 
-	// Used for filtering duplicates after getting results.
-	rootTxnDedupeMap := make(map[string]struct{})
-	if filter.NextToken != "" {
-		_, _, txid, err := idb.DecodeTxnRowNext(filter.NextToken)
-		if err != nil {
-			badRequest(ctx, "bad next token")
-		}
-		rootTxnDedupeMap[txid] = struct{}{}
-	}
-
 	// Fetch the transactions
 	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
 		return indexerError(ctx, fmt.Sprintf("%s: %v", errTransactionSearch, err))
 	}
 
-	// filter out duplicates
-	results := make([]generated.Transaction, 0, len(txns))
-	for _, txn := range txns {
-		// Do not return inner transactions.
-		if txn.Id == nil {
-			continue
-		}
-
-		// The root txn has already been added.
-		if _, ok := rootTxnDedupeMap[*txn.Id]; ok {
-			continue
-		}
-		rootTxnDedupeMap[*txn.Id] = struct{}{}
-		results = append(results, txn)
-	}
-
 	response := generated.TransactionsResponse{
 		CurrentRound: round,
 		NextToken:    strPtr(next),
-		Transactions: results,
+		Transactions: txns,
 	}
 
 	return ctx.JSON(http.StatusOK, response)
@@ -773,6 +747,16 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 
 // fetchTransactions is used to query the backend for transactions, and compute the next token
 func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, uint64 /*round*/, error) {
+	// Used for filtering duplicates after getting results.
+	rootTxnDedupeMap := make(map[string]struct{})
+	if filter.NextToken != "" {
+		_, _, txid, err := idb.DecodeTxnRowNext(filter.NextToken)
+		if err != nil {
+			return nil, "", 0, fmt.Errorf("bad next token")
+		}
+		rootTxnDedupeMap[txid] = struct{}{}
+	}
+
 	results := make([]generated.Transaction, 0)
 	txchan, round := si.db.Transactions(ctx, filter)
 	nextToken := ""
@@ -782,10 +766,23 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 		if err != nil {
 			return nil, "", round, err
 		}
+
+		// Do not return inner transactions.
+		if tx.Id == nil {
+			continue
+		}
+
+		// The root txn has already been added.
+		if _, ok := rootTxnDedupeMap[*tx.Id]; ok {
+			continue
+		}
+
+		rootTxnDedupeMap[*tx.Id] = struct{}{}
 		results = append(results, tx)
 	}
 
 	nextToken, err := txrow.Next()
+
 	return results, nextToken, round, err
 }
 
