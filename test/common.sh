@@ -688,28 +688,6 @@ function create_delete_tests() {
       '"created-at-round": 9' \
       '"closed-at-round": 15'
 
-      rest_test "[rest] refuse to return fee_sink" \
-      "/v2/accounts/A7NMWS3NT3IUDMLVO26ULGXGIIOUQ3ND2TXSER6EBGRZNOBOUIQXHIBGDE?pretty" \
-      400 \
-      true
-
-      rest_test "[rest] refuse to return rewards pool" \
-      "/v2/accounts/7777777777777777777777777777777777777777777777777774MSJUVU?pretty" \
-      400 \
-      true
-
-      rest_test "[rest] don't include special accounts" \
-      "/v2/accounts" \
-      200 \
-      false \
-      '7777777777777777777777777777777777777777777777777774MSJUVU' \
-      'A7NMWS3NT3IUDMLVO26ULGXGIIOUQ3ND2TXSER6EBGRZNOBOUIQXHIBGDE'
-
-      sql_test "[sql] special accounts should be migrated" $1 \
-      "SELECT deleted,created_at FROM account WHERE addr=decode('B9rLS22e0UGxdXa9RZrmQh1IbaPU7yJHxAmjlrguoiE=','base64') OR addr=decode('//////////////////////////////////////////8=','base64')" \
-      "f|0
-f|0"
-
       rest_test "[rest] b64 transaction fields are serialized" \
       "/v2/transactions/TV5RPJFA6YT2APADUOYKIEL3NFAXSVB5J4JO6TSG7BHK4Z5OJKSA?pretty" \
       200 \
