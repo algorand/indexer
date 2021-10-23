@@ -88,8 +88,8 @@ CREATE TABLE IF NOT EXISTS asset (
 -- For account lookup
 CREATE INDEX IF NOT EXISTS asset_by_creator_addr ON asset ( creator_addr );
 
--- subsumes ledger/accountdb.go accounttotals and acctrounds
--- "state":{online, onlinerewardunits, offline, offlinerewardunits, notparticipating, notparticipatingrewardunits, rewardslevel, round bigint}
+-- Includes indexer import state, migration state, special accounts (fee sink and
+-- rewards pool) and account totals.
 CREATE TABLE IF NOT EXISTS metastate (
   k text primary key,
   v jsonb

@@ -368,6 +368,14 @@ func MakeGenesis() bookkeeping.Genesis {
 		Proto:    Proto,
 		Allocation: []bookkeeping.GenesisAllocation{
 			{
+				Address: RewardAddr.String(),
+				Comment: "RewardsPool",
+				State: basics.AccountData{
+					MicroAlgos: basics.MicroAlgos{Raw: 100000}, // minimum balance
+					Status:     basics.NotParticipating,
+				},
+			},
+			{
 				Address: AccountA.String(),
 				State: basics.AccountData{
 					MicroAlgos: basics.MicroAlgos{Raw: 1000 * 1000 * 1000 * 1000},

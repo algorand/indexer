@@ -19,6 +19,7 @@ import (
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
+	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	"github.com/algorand/indexer/util/test"
 )
@@ -1274,9 +1275,10 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	db.LoadGenesis(test.MakeGenesis())
+	err = db.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
 
 	round, err := db.GetNextRoundToAccount()
 	require.NoError(t, err)
@@ -1524,4 +1526,24 @@ func TestNonUTF8Logs(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Test that LoadGenesis writes account totals.
+func TestLoadGenesisAccountTotals(t *testing.T) {
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	require.NoError(t, err)
+
+	err = db.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
+
+	json, err := db.getMetastate(context.Background(), nil, schema.AccountTotals)
+	require.NoError(t, err)
+
+	ret, err := encoding.DecodeAccountTotals([]byte(json))
+	require.NoError(t, err)
+
+	assert.Equal(
+		t, basics.MicroAlgos{Raw: 4 * 1000 * 1000 * 1000 * 1000}, ret.Offline.Money)
 }

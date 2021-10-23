@@ -187,10 +187,9 @@ func sqlMigration(db *IndexerDb, state *types.MigrationState, sqlLines []string)
 					"migration %d exec cmd: \"%s\" err: %w", state.NextMigration, cmd, err)
 			}
 		}
-		migrationStateJSON := encoding.EncodeMigrationState(&nextState)
-		_, err := tx.Exec(
-			context.Background(), setMetastateUpsert, schema.MigrationMetastateKey,
-			migrationStateJSON)
+		err := db.setMetastate(
+			tx, schema.MigrationMetastateKey,
+			string(encoding.EncodeMigrationState(&nextState)))
 		if err != nil {
 			return fmt.Errorf("migration %d exec metastate err: %w", state.NextMigration, err)
 		}
