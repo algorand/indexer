@@ -203,7 +203,10 @@ func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *boo
 		}
 	}
 
-	var res ledger.EvalForIndexerResources
+	res := ledger.EvalForIndexerResources{
+		Accounts: nil,
+		Creators: make(map[ledger.Creatable]ledger.FoundAddress),
+	}
 
 	assetCreators, err := l.GetAssetCreator(assets)
 	if err != nil {
