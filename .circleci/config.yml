@@ -59,7 +59,6 @@ commands:
 
   run_tests:
     steps:
-      - run: go version
       - run: test -z `go fmt ./...`
       - run: make lint
       - run: make check
