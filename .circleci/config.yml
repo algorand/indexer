@@ -2,58 +2,23 @@ version: 2.1
 
 orbs:
   go: circleci/go@1.7.0
-  # docker: circleci/docker@1.7.0
-  # python: circleci/python@1.1.0
 
 parameters:
   ubuntu_image:
     type: string
     default: "ubuntu-2004:202107-02"
-  # build_dir:
-  #   type: string
-  #   default: "/opt/cibuild"
-  # result_path:
-  #   type: string
-  #   default: "/tmp/build_test_results"
 
 workflows:
   version: 2
   "circleci_build_and_test":
     jobs:
-      # - prepare_environment
-      # - install_go:
-      #     name: install_go_<< matrix.go_version >>
-      #     requires:
-      #       - prepare_environment
-      #     matrix: &go-version-matrix
-      #       parameters:
-      #         go_version: ["1.14", "1.15"]
       - test:
           name: test_with_go_<< matrix.go_version >>
-          # requires:
-            # - prepare_environment
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.14.7", "1.15.15"]
 
 jobs:
-  # prepare_environment:
-  #   machine:
-  #     image: << pipeline.parameters.ubuntu_image >> 
-  #   steps:
-  #     - docker/install-docker-tools
-  #     - prep
-
-  # install_go:
-  #   machine:
-  #     image: ubuntu-2004:202010-01
-  #   parameters:
-  #     go_version:
-  #       type: string
-  #   steps:
-  #     - install_go:
-  #         go_version: << parameters.go_version >>
-  
   test:
     machine:
       image: << pipeline.parameters.ubuntu_image >> 
@@ -61,7 +26,6 @@ jobs:
       go_version:
         type: string
     steps:
-      # - docker/install-docker-tools
       - go/install:
           version: << parameters.go_version >>
       - prep
@@ -104,28 +68,6 @@ commands:
             sudo apt update
             sudo apt -y install docker-ce docker-ce-cli containerd.io
             if [ -n "$DOCKER_PASSWORD" ]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ; fi
-
-  # install_go:
-  #   description: Install correct go version and other go dependencies
-  #   parameters:
-  #     go_version:
-  #       type: string
-  #   steps:
-  #     - attach_workspace:
-  #         at: << pipeline.parameters.build_dir >>
-  #     - run:
-  #         name: Install golang and golint
-  #         command: |
-  #           sudo apt update
-  #           wget -c https://golang.org/dl/go<< parameters.go_version >>.linux-amd64.tar.gz
-  #           sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go<< parameters.go_version >>.linux-amd64.tar.gz
-  #           export PATH=$PATH:/usr/local/go/bin
-  #           go get -u golang.org/x/lint/golint
-  #     - persist_to_workspace:
-  #         root: << parameters.result_path >>
-  #         paths:
-  #           - << parameters.result_subdir >>
-
 
   run_tests:
     steps:
