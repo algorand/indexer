@@ -65,6 +65,7 @@ commands:
 
   run_tests:
     steps:
+      - run: export PATH=$PATH:/usr/local/go/bin
       - run: test -z `go fmt ./...`
       - run: make lint
       - run: make check
