@@ -62,10 +62,11 @@ commands:
             sudo apt update
             sudo apt -y install docker-ce docker-ce-cli containerd.io
             if [ -n "$DOCKER_PASSWORD" ]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ; fi
+      
+      - run: echo 'export PATH=$PATH:/usr/local/go/bin' >> $BASH_ENV
 
   run_tests:
     steps:
-      - run: export PATH=$PATH:/usr/local/go/bin
       - run: test -z `go fmt ./...`
       - run: make lint
       - run: make check
