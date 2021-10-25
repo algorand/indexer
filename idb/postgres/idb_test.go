@@ -65,7 +65,7 @@ func TestTxnRowNext(t *testing.T) {
 			name:      "root txn decode error",
 			ascending: true,
 			txnRow: idb.TxnRow{
-				RootTxnBytes: nil,
+				RootTxnBytes: []byte{},
 				Extra:        idb.TxnExtra{RootIntra: "50"},
 				Intra:        51,
 				Round:        1_234_567_890,
@@ -73,10 +73,21 @@ func TestTxnRowNext(t *testing.T) {
 			errMsg: "could not decode root transaction",
 		},
 		{
-			name:      "root intra decode error",
+			name:      "root txn decode error 2",
 			ascending: true,
 			txnRow: idb.TxnRow{
 				RootTxnBytes: nil,
+				Extra:        idb.TxnExtra{RootIntra: "50"},
+				Intra:        51,
+				Round:        1_234_567_890,
+			},
+			errMsg: "was not given transaction bytes",
+		},
+		{
+			name:      "root intra decode error",
+			ascending: true,
+			txnRow: idb.TxnRow{
+				RootTxnBytes: []byte{},
 				Extra:        idb.TxnExtra{RootIntra: "not a number"},
 				Intra:        51,
 				Round:        1_234_567_890,

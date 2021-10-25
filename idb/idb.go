@@ -55,10 +55,10 @@ func countInner(stxn *transactions.SignedTxnWithAD) int {
 
 // Next returns what should be an opaque string to be used with the next query to resume where a previous limit left off.
 func (tr TxnRow) Next(ascending bool) (string, error) {
+	var err error
 	var b [12]byte
 	binary.LittleEndian.PutUint64(b[:8], tr.Round)
 
-	var err error
 	intra := tr.Intra
 	if tr.Extra.RootIntra != "" {
 		// initialize for descending order, the root intra.
@@ -66,18 +66,30 @@ func (tr TxnRow) Next(ascending bool) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("Next() could not parse root intra: %w", err)
 		}
-
-		// when ascending add the count of inner transactions.
-		if ascending {
-			var stxn transactions.SignedTxnWithAD
-			err = protocol.Decode(tr.RootTxnBytes, &stxn)
-			if err != nil {
-				return "", fmt.Errorf("Next() could not decode root transaction: %w", err)
-			}
-
-			intra += countInner(&stxn)
-		}
 	}
+
+	// when ascending add the count of inner transactions.
+	if ascending {
+		var bytes []byte
+		if tr.TxnBytes != nil {
+			bytes = tr.TxnBytes
+		} else {
+			bytes = tr.RootTxnBytes
+		}
+
+		if bytes == nil {
+			return "", fmt.Errorf("Next() was not given transaction bytes")
+		}
+
+		var stxn transactions.SignedTxnWithAD
+		err = protocol.Decode(bytes, &stxn)
+		if err != nil {
+			return "", fmt.Errorf("Next() could not decode root transaction: %w", err)
+		}
+
+		intra += countInner(&stxn)
+	}
+
 	binary.LittleEndian.PutUint32(b[8:], uint32(intra))
 	return base64.URLEncoding.EncodeToString(b[:]), nil
 }

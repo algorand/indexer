@@ -230,50 +230,69 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	err = db.AddBlock(&block)
 	require.NoError(t, err, "failed to commit")
 
-	//////////
-	// When // we match the first inner transaction and page to the next.
-	//////////
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec1 := httptest.NewRecorder()
-	c := e.NewContext(req, rec1)
-	c.SetPath("/v2/transactions/")
-
-	// Get first page with limit 1.
-	// Address filter causes results to return newest to oldest.
-	api := &ServerImplementation{db: db}
-	filter := generated.SearchForTransactionsParams{Address: &appAddrStr, Limit: uint64Ptr(1)}
-	err = api.SearchForTransactions(c, filter)
-	require.NoError(t, err)
-
-	require.Equal(t, http.StatusOK, rec1.Code)
-	var response generated.TransactionsResponse
-	json.Decode(rec1.Body.Bytes(), &response)
-	require.Len(t, response.Transactions, 1)
-	require.Equal(t, expectedID, *(response.Transactions[0].Id))
-	pageOneNextToken := *response.NextToken
-
-	// Second page, using "NextToken" from first page.
-	req = httptest.NewRequest(http.MethodGet, "/", nil)
-	rec2 := httptest.NewRecorder()
-	c = e.NewContext(req, rec2)
-	c.SetPath("/v2/transactions/")
-
-	filter2 := generated.SearchForTransactionsParams{
-		Address: &appAddrStr,
-		Next:    &pageOneNextToken,
+	testcases := []struct {
+		name   string
+		params generated.SearchForTransactionsParams
+	}{
+		{
+			name:   "descending transaction search, middle of inner txns",
+			params: generated.SearchForTransactionsParams{Address: &appAddrStr, Limit: uint64Ptr(1)},
+		},
+		{
+			name:   "ascending transaction search, middle of inner txns",
+			params: generated.SearchForTransactionsParams{Limit: uint64Ptr(2)},
+		},
+		{
+			name:   "ascending transaction search, match root skip over inner txns",
+			params: generated.SearchForTransactionsParams{Limit: uint64Ptr(1)},
+		},
 	}
-	// In the debugger I see the internal call returning the inner tx + root tx
-	err = api.SearchForTransactions(c, filter2)
-	require.NoError(t, err)
 
-	//////////
-	// Then // There are no new results on the next page.
-	//////////
-	require.Equal(t, http.StatusOK, rec2.Code)
-	json.Decode(rec2.Body.Bytes(), &response)
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			//////////
+			// When // we match the first inner transaction and page to the next.
+			//////////
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec1 := httptest.NewRecorder()
+			c := e.NewContext(req, rec1)
+			c.SetPath("/v2/transactions/")
 
-	require.Len(t, response.Transactions, 0)
-	// The fact that NextToken changes indicates that the search results were different.
-	require.NotEqual(t, pageOneNextToken, *response.NextToken)
+			// Get first page with limit 1.
+			// Address filter causes results to return newest to oldest.
+			api := &ServerImplementation{db: db}
+			err = api.SearchForTransactions(c, tc.params)
+			require.NoError(t, err)
+
+			require.Equal(t, http.StatusOK, rec1.Code)
+			var response generated.TransactionsResponse
+			json.Decode(rec1.Body.Bytes(), &response)
+			require.Len(t, response.Transactions, 1)
+			require.Equal(t, expectedID, *(response.Transactions[0].Id))
+			pageOneNextToken := *response.NextToken
+
+			// Second page, using "NextToken" from first page.
+			req = httptest.NewRequest(http.MethodGet, "/", nil)
+			rec2 := httptest.NewRecorder()
+			c = e.NewContext(req, rec2)
+			c.SetPath("/v2/transactions/")
+
+			// Set the next token
+			tc.params.Next = &pageOneNextToken
+			// In the debugger I see the internal call returning the inner tx + root tx
+			err = api.SearchForTransactions(c, tc.params)
+			require.NoError(t, err)
+
+			//////////
+			// Then // There are no new results on the next page.
+			//////////
+			require.Equal(t, http.StatusOK, rec2.Code)
+			json.Decode(rec2.Body.Bytes(), &response)
+
+			require.Len(t, response.Transactions, 0)
+			// The fact that NextToken changes indicates that the search results were different.
+			require.NotEqual(t, pageOneNextToken, *response.NextToken)
+		})
+	}
 }
