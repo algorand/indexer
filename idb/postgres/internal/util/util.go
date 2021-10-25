@@ -71,8 +71,26 @@ func GetMetastate(ctx context.Context, db *pgxpool.Pool, tx pgx.Tx, key string) 
 		return "", idb.ErrorNotInitialized
 	}
 	if err != nil {
-		return "", fmt.Errorf("getMetastate() err: %w", err)
+		return "", fmt.Errorf("GetMetastate() err: %w", err)
 	}
 
 	return value, nil
+}
+
+// SetMetastate sets metastate. If `tx` is nil, it uses a normal query.
+func SetMetastate(db *pgxpool.Pool, tx pgx.Tx, key, jsonStrValue string) error {
+	const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2)
+		ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
+
+	var err error
+	if tx == nil {
+		_, err = db.Exec(context.Background(), setMetastateUpsert, key, jsonStrValue)
+	} else {
+		_, err = tx.Exec(context.Background(), setMetastateUpsert, key, jsonStrValue)
+	}
+	if err != nil {
+		return fmt.Errorf("SetMetastate() err: %w", err)
+	}
+
+	return nil
 }

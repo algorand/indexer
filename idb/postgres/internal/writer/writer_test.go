@@ -1454,3 +1454,97 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 		require.Equal(t, expectedParticipation[i], txnPart[i])
 	}
 }
+
+func TestWriterAccountTotals(t *testing.T) {
+	db, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	// Set empty account totals.
+	err := pgutil.SetMetastate(db, nil, schema.AccountTotals, "{}")
+	require.NoError(t, err)
+
+	block := test.MakeGenesisBlock()
+
+	accountTotals := ledgercore.AccountTotals{
+		Online: ledgercore.AlgoCount{
+			Money: basics.MicroAlgos{Raw: 33},
+		},
+	}
+
+	f := func(tx pgx.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{Totals: accountTotals})
+		require.NoError(t, err)
+
+		w.Close()
+		return nil
+	}
+	err = pgutil.TxWithRetry(db, serializable, f, nil)
+	require.NoError(t, err)
+
+	j, err := pgutil.GetMetastate(
+		context.Background(), db, nil, schema.AccountTotals)
+	require.NoError(t, err)
+	accountTotalsRead, err := encoding.DecodeAccountTotals([]byte(j))
+	require.NoError(t, err)
+
+	assert.Equal(t, accountTotals, accountTotalsRead)
+}
+
+func TestWriterAddBlock0(t *testing.T) {
+	db, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	block := test.MakeGenesisBlock()
+
+	f := func(tx pgx.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		require.NoError(t, err)
+
+		w.Close()
+		return nil
+	}
+	err := pgutil.TxWithRetry(db, serializable, f, nil)
+	require.NoError(t, err)
+
+	// Test that the block header was written correctly.
+	{
+		row := db.QueryRow(context.Background(), "SELECT * FROM block_header")
+		var round uint64
+		var realtime time.Time
+		var rewardslevel uint64
+		var header []byte
+		err = row.Scan(&round, &realtime, &rewardslevel, &header)
+		require.NoError(t, err)
+
+		assert.Equal(t, block.BlockHeader.Round, basics.Round(round))
+		{
+			expected := time.Unix(block.BlockHeader.TimeStamp, 0).UTC()
+			assert.True(t, expected.Equal(realtime))
+		}
+		assert.Equal(t, block.BlockHeader.RewardsLevel, rewardslevel)
+		headerRead, err := encoding.DecodeBlockHeader(header)
+		require.NoError(t, err)
+		assert.Equal(t, block.BlockHeader, headerRead)
+	}
+
+	// Test that the special addresses were written to the metastate.
+	{
+		j, err := pgutil.GetMetastate(
+			context.Background(), db, nil, schema.SpecialAccountsMetastateKey)
+		require.NoError(t, err)
+		accounts, err := encoding.DecodeSpecialAddresses([]byte(j))
+		require.NoError(t, err)
+
+		expected := transactions.SpecialAddresses{
+			FeeSink:     test.FeeAddr,
+			RewardsPool: test.RewardAddr,
+		}
+		assert.Equal(t, expected, accounts)
+	}
+}

@@ -231,18 +231,12 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 
 		if block.Round() == basics.Round(0) {
 			// Block 0 is special, we cannot run the evaluator on it.
-			// It contains no transactions, so just write the header.
-			err := writer.AddBlock(block, nil, ledgercore.StateDelta{})
+			err := writer.AddBlock0(block)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 		} else {
-			specialAddresses := transactions.SpecialAddresses{
-				FeeSink:     block.FeeSink,
-				RewardsPool: block.RewardsPool,
-			}
-			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-				tx, specialAddresses, block.Round()-1)
+			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, block.Round()-1)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
@@ -295,6 +289,12 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 		}
 		defer tx.Conn().Deallocate(context.Background(), setAccountStatementName)
 
+		proto, ok := config.Consensus[genesis.Proto]
+		if !ok {
+			return fmt.Errorf("LoadGenesis() consensus version %s not found", genesis.Proto)
+		}
+		var ot basics.OverflowTracker
+		var totals ledgercore.AccountTotals
 		for ai, alloc := range genesis.Allocation {
 			addr, err := basics.UnmarshalChecksumAddress(alloc.Address)
 			if err != nil {
@@ -310,6 +310,14 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() error setting genesis account[%d], %w", ai, err)
 			}
+
+			totals.AddAccount(proto, alloc.State, &ot)
+		}
+
+		err = db.setMetastate(
+			tx, schema.AccountTotals, string(encoding.EncodeAccountTotals(&totals)))
+		if err != nil {
+			return fmt.Errorf("LoadGenesis() err: %w", err)
 		}
 
 		importstate := types.ImportState{
@@ -336,16 +344,9 @@ func (db *IndexerDb) getMetastate(ctx context.Context, tx pgx.Tx, key string) (s
 	return pgutil.GetMetastate(ctx, db.db, tx, key)
 }
 
-const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
-
 // If `tx` is nil, use a normal query.
 func (db *IndexerDb) setMetastate(tx pgx.Tx, key, jsonStrValue string) (err error) {
-	if tx == nil {
-		_, err = db.db.Exec(context.Background(), setMetastateUpsert, key, jsonStrValue)
-	} else {
-		_, err = tx.Exec(context.Background(), setMetastateUpsert, key, jsonStrValue)
-	}
-	return
+	return pgutil.SetMetastate(db.db, tx, key, jsonStrValue)
 }
 
 // Returns idb.ErrorNotInitialized if uninitialized.
