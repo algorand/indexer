@@ -28,7 +28,7 @@ type TxnRow struct {
 	// Intra is the offset into the block where this transaction was placed.
 	Intra int
 
-	// TxnBytes is the raw signed transaction with apply data object.
+	// TxnBytes is the raw signed transaction with apply data object, only used when the root txn is being returned.
 	TxnBytes []byte
 
 	// RootTxnBytes the root transaction raw signed transaction with apply data object, only inner transactions have this.

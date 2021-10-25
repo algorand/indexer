@@ -1,4 +1,4 @@
-package postgres
+package idb_test
 
 import (
 	"testing"

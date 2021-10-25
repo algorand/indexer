@@ -758,6 +758,7 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 		return results, "", round, nil
 	}
 
+	// The sort order depends on whether the address filter is used.
 	nextToken, err := txrow.Next(filter.Address == nil)
 
 	return results, nextToken, round, err
