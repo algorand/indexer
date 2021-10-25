@@ -393,8 +393,8 @@ type BlockUpgradeVote struct {
 	UpgradePropose *string `json:"upgrade-propose,omitempty"`
 }
 
-// ErrorResponse defines model for ErrorResponse.
-type ErrorResponse struct {
+// Error defines model for Error.
+type Error struct {
 	Data    *map[string]interface{} `json:"data,omitempty"`
 	Message string                  `json:"message"`
 }
@@ -979,6 +979,9 @@ type AssetsResponse struct {
 
 // BlockResponse defines model for BlockResponse.
 type BlockResponse Block
+
+// ErrorResponse defines model for ErrorResponse.
+type ErrorResponse Error
 
 // HealthCheckResponse defines model for HealthCheckResponse.
 type HealthCheckResponse HealthCheck
