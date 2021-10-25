@@ -709,7 +709,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 	// TODO: Use txid to deduplicate next resultset at the query level?
 
 	// Check for remainder of round from previous page.
-	nextround, nextintra32, _, err := idb.DecodeTxnRowNext(tf.NextToken)
+	nextround, nextintra32, err := idb.DecodeTxnRowNext(tf.NextToken)
 	nextintra := uint64(nextintra32)
 	if err != nil {
 		out <- idb.TxnRow{Error: err}

@@ -686,7 +686,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 			return generated.Block{}, err
 		}
 		results = append(results, tx)
-		txrow.Next()
+		txrow.Next(false)
 	}
 
 	ret.Transactions = &results
@@ -749,13 +749,6 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, uint64 /*round*/, error) {
 	// Used for filtering duplicates after getting results.
 	rootTxnDedupeMap := make(map[string]struct{})
-	if filter.NextToken != "" {
-		_, _, txid, err := idb.DecodeTxnRowNext(filter.NextToken)
-		if err != nil {
-			return nil, "", 0, fmt.Errorf("bad next token")
-		}
-		rootTxnDedupeMap[txid] = struct{}{}
-	}
 
 	results := make([]generated.Transaction, 0)
 	txchan, round := si.db.Transactions(ctx, filter)
@@ -781,7 +774,7 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 		results = append(results, tx)
 	}
 
-	nextToken, err := txrow.Next()
+	nextToken, err := txrow.Next(filter.Address == nil)
 
 	return results, nextToken, round, err
 }

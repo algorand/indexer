@@ -2,17 +2,17 @@ package idb
 
 import (
 	"context"
-	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
-	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 )
@@ -44,43 +44,53 @@ type TxnRow struct {
 	Error error
 }
 
-// Next returns what should be an opaque string to be returned in the next query to resume where a previous limit left off.
-func (tr TxnRow) Next() (string, error) {
-	var b [12 + crypto.DigestSize]byte
-	binary.LittleEndian.PutUint64(b[crypto.DigestSize:40], tr.Round)
-	binary.LittleEndian.PutUint32(b[40:], uint32(tr.Intra))
-
-	// avoid in-place decoding to prevent bounds overwrite. Could optimize with DecodeLen.
-	data, err := base32.StdEncoding.WithPadding(base32.NoPadding).DecodeString(tr.Extra.RootTxid)
-	if err != nil {
-		return "", fmt.Errorf("Next() err: %w", err)
+func countInner(stxn *transactions.SignedTxnWithAD) int {
+	num := 0
+	for _, itxn := range stxn.ApplyData.EvalDelta.InnerTxns {
+		num++
+		num += countInner(&itxn)
 	}
-	if len(data) != 0 {
-		if len(data) != crypto.DigestSize {
-			return "", fmt.Errorf("Next() unexpected txid size")
+	return num
+}
+
+// Next returns what should be an opaque string to be used with the next query to resume where a previous limit left off.
+func (tr TxnRow) Next(ascending bool) (string, error) {
+	var b [12]byte
+	binary.LittleEndian.PutUint64(b[:8], tr.Round)
+
+	var err error
+	intra := tr.Intra
+	if tr.Extra.RootIntra != "" {
+		// initialize for descending order, the root intra.
+		intra, err = strconv.Atoi(tr.Extra.RootIntra)
+		if err != nil {
+			return "", fmt.Errorf("Next() could not parse root intra: %w", err)
 		}
-		copy(b[:crypto.DigestSize], data)
-	}
 
+		// when ascending add the count of inner transactions.
+		if ascending {
+			var stxn transactions.SignedTxnWithAD
+			err = protocol.Decode(tr.RootTxnBytes, &stxn)
+			if err != nil {
+				return "", fmt.Errorf("Next() could not decode root transaction: %w", err)
+			}
+
+			intra += countInner(&stxn)
+		}
+	}
+	binary.LittleEndian.PutUint32(b[8:], uint32(intra))
 	return base64.URLEncoding.EncodeToString(b[:]), nil
 }
 
 // DecodeTxnRowNext unpacks opaque string returned from TxnRow.Next()
-func DecodeTxnRowNext(s string) (round uint64, intra uint32, rootTxid string, err error) {
-	var bytes []byte
-	bytes, err = base64.URLEncoding.DecodeString(s)
+func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
+	var b []byte
+	b, err = base64.URLEncoding.DecodeString(s)
 	if err != nil {
 		return
 	}
-
-	for _, b := range bytes[:32] {
-		if b != 0 {
-			rootTxid = base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(bytes[:32])
-			continue
-		}
-	}
-	round = binary.LittleEndian.Uint64(bytes[32:40])
-	intra = binary.LittleEndian.Uint32(bytes[40:])
+	round = binary.LittleEndian.Uint64(b[:8])
+	intra = binary.LittleEndian.Uint32(b[8:])
 	return
 }
 

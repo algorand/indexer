@@ -92,7 +92,7 @@ func testTxnPaging(db idb.IndexerDb, q idb.TransactionFilter) {
 				any = false // get out
 				break
 			}
-			next, err = txnrow.Next()
+			next, err = txnrow.Next(q.Address == nil)
 			maybeFail(err, "bad txnrow.Next(), %v", err)
 		}
 		q.NextToken = next
