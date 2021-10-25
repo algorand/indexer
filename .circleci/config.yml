@@ -2,7 +2,7 @@ version: 2.1
 
 orbs:
   go: circleci/go@1.7.0
-  docker: circleci/docker@1.7.0
+  # docker: circleci/docker@1.7.0
   # python: circleci/python@1.1.0
 
 parameters:
@@ -61,7 +61,7 @@ jobs:
       go_version:
         type: string
     steps:
-      - docker/install-docker-tools
+      # - docker/install-docker-tools
       - go/install:
           version: << parameters.go_version >>
       - prep
@@ -92,17 +92,17 @@ commands:
             export PATH=$PATH:/usr/local/go/bin
             go get -u golang.org/x/lint/golint
 
-      # - run:
-      #     name: Install Docker
-      #     command: |
-      #       sudo apt -y remove docker docker-engine docker.io containerd runc
-      #       sudo apt -y install apt-transport-https ca-certificates curl gnupg lsb-release
-      #       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-      #       echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-      #       $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-      #       sudo apt update
-      #       sudo apt -y install docker-ce docker-ce-cli containerd.io
-      #       if [ -n "$DOCKER_PASSWORD" ]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ; fi
+      - run:
+          name: Install Docker
+          command: |
+            sudo apt -y remove docker docker-engine docker.io containerd runc
+            sudo apt -y install apt-transport-https ca-certificates curl gnupg lsb-release
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+            $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            sudo apt update
+            sudo apt -y install docker-ce docker-ce-cli containerd.io
+            if [ -n "$DOCKER_PASSWORD" ]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ; fi
 
   # install_go:
   #   description: Install correct go version and other go dependencies
