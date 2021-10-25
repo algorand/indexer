@@ -57,20 +57,9 @@ commands:
           name: Install golint
           command: go get -u golang.org/x/lint/golint
 
-      # - run:
-      #     name: Install Docker
-      #     command: |
-      #       sudo apt -y remove docker docker-engine docker.io containerd runc
-      #       sudo apt -y install apt-transport-https ca-certificates curl gnupg lsb-release
-      #       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-      #       echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-      #       $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-      #       sudo apt update
-      #       sudo apt -y install docker-ce docker-ce-cli containerd.io
-      #       if [ -n "$DOCKER_PASSWORD" ]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ; fi
-
   run_tests:
     steps:
+      - run: go version
       - run: test -z `go fmt ./...`
       - run: make lint
       - run: make check
