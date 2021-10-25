@@ -32,6 +32,7 @@ const (
 	deleteAppStmtName            = "delete_app"
 	deleteAccountAppStmtName     = "delete_account_app"
 	updateAccountKeyTypeStmtName = "update_account_key_type"
+	updateAccountTotalsStmtName  = "update_account_totals"
 )
 
 var statements = map[string]string{
@@ -89,6 +90,8 @@ var statements = map[string]string{
 		VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (addr, app) DO UPDATE SET
 		localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at`,
 	updateAccountKeyTypeStmtName: `UPDATE account SET keytype = $1 WHERE addr = $2`,
+	updateAccountTotalsStmtName: `UPDATE metastate SET v = $1 WHERE k = '` +
+		schema.AccountTotals + `'`,
 }
 
 // Writer is responsible for writing blocks and accounting state deltas to the database.
@@ -416,17 +419,11 @@ func writeAccountData(round basics.Round, address basics.Address, accountData ba
 	}
 }
 
-func writeAccountDeltas(round basics.Round, deltas ledgercore.AccountDeltas, specialAddresses transactions.SpecialAddresses, batch *pgx.Batch) {
+func writeAccountDeltas(round basics.Round, deltas ledgercore.AccountDeltas, batch *pgx.Batch) {
 	// Update `account` table.
 	for i := 0; i < deltas.Len(); i++ {
 		address, accountData := deltas.GetByIdx(i)
-
-		// Indexer currently doesn't support special accounts.
-		// TODO: remove this check.
-		if (address != specialAddresses.FeeSink) &&
-			(address != specialAddresses.RewardsPool) {
-			writeAccountData(round, address, accountData, batch)
-		}
+		writeAccountData(round, address, accountData, batch)
 	}
 }
 
@@ -469,11 +466,12 @@ func writeDeletedAppLocalStates(round basics.Round, modifiedAppLocalStates map[l
 	}
 }
 
-func writeStateDelta(round basics.Round, delta ledgercore.StateDelta, specialAddresses transactions.SpecialAddresses, batch *pgx.Batch) {
-	writeAccountDeltas(round, delta.Accts, specialAddresses, batch)
+func writeStateDelta(round basics.Round, delta ledgercore.StateDelta, batch *pgx.Batch) {
+	writeAccountDeltas(round, delta.Accts, batch)
 	writeDeletedCreatables(round, delta.Creatables, batch)
 	writeDeletedAssetHoldings(round, delta.ModifiedAssetHoldings, batch)
 	writeDeletedAppLocalStates(round, delta.ModifiedAppLocalStates, batch)
+	batch.Queue(updateAccountTotalsStmtName, encoding.EncodeAccountTotals(&delta.Totals))
 }
 
 func updateAccountSigType(payset []transactions.SignedTxnInBlock, batch *pgx.Batch) error {
@@ -492,6 +490,34 @@ func updateAccountSigType(payset []transactions.SignedTxnInBlock, batch *pgx.Bat
 	return nil
 }
 
+// AddBlock0 writes block 0 to the database.
+func (w *Writer) AddBlock0(block *bookkeeping.Block) error {
+	var batch pgx.Batch
+
+	addBlockHeader(&block.BlockHeader, &batch)
+	specialAddresses := transactions.SpecialAddresses{
+		FeeSink:     block.FeeSink,
+		RewardsPool: block.RewardsPool,
+	}
+	setSpecialAccounts(specialAddresses, &batch)
+
+	results := w.tx.SendBatch(context.Background(), &batch)
+	// Clean the results off the connection's queue. Without this, weird things happen.
+	for i := 0; i < batch.Len(); i++ {
+		_, err := results.Exec()
+		if err != nil {
+			results.Close()
+			return fmt.Errorf("AddBlock() exec err: %w", err)
+		}
+	}
+	err := results.Close()
+	if err != nil {
+		return fmt.Errorf("AddBlock() close results err: %w", err)
+	}
+
+	return nil
+}
+
 // AddBlock writes the block and accounting state deltas to the database.
 func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, delta ledgercore.StateDelta) error {
 	err := w.addTransactions(block, modifiedTxns)
@@ -505,14 +531,13 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 
 	var batch pgx.Batch
 
+	addBlockHeader(&block.BlockHeader, &batch)
 	specialAddresses := transactions.SpecialAddresses{
 		FeeSink:     block.FeeSink,
 		RewardsPool: block.RewardsPool,
 	}
-
-	addBlockHeader(&block.BlockHeader, &batch)
 	setSpecialAccounts(specialAddresses, &batch)
-	writeStateDelta(block.Round(), delta, specialAddresses, &batch)
+	writeStateDelta(block.Round(), delta, &batch)
 	err = updateAccountSigType(block.Payset, &batch)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)
