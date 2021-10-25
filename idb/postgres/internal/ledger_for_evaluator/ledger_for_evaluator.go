@@ -479,8 +479,8 @@ func (l LedgerForEvaluator) GetAppCreator(indices map[basics.AppIndex]struct{}) 
 	return res, nil
 }
 
-// Totals is part of go-algorand's indexerLedgerForEval interface.
-func (l LedgerForEvaluator) Totals() (ledgercore.AccountTotals, error) {
+// LatestTotals is part of go-algorand's indexerLedgerForEval interface.
+func (l LedgerForEvaluator) LatestTotals() (ledgercore.AccountTotals, error) {
 	// The evaluator uses totals only for recomputing the rewards pool balance. Indexer
 	// does not currently compute this balance, and we can return an empty struct
 	// here.

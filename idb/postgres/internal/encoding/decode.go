@@ -125,10 +125,36 @@ func unconvertLocalDeltas(deltas map[uint64]stateDelta) map[uint64]basics.StateD
 	return res
 }
 
+func unconvertLogs(logs [][]byte) []string {
+	if logs == nil {
+		return nil
+	}
+
+	res := make([]string, len(logs))
+	for i, log := range logs {
+		res[i] = string(log)
+	}
+	return res
+}
+
+func unconvertInnerTxns(innerTxns []signedTxnWithAD) []transactions.SignedTxnWithAD {
+	if innerTxns == nil {
+		return nil
+	}
+
+	res := make([]transactions.SignedTxnWithAD, len(innerTxns))
+	for i, innerTxn := range innerTxns {
+		res[i] = unconvertSignedTxnWithAD(innerTxn)
+	}
+	return res
+}
+
 func unconvertEvalDelta(delta evalDelta) transactions.EvalDelta {
 	res := delta.EvalDelta
 	res.GlobalDelta = unconvertStateDelta(delta.GlobalDeltaOverride)
 	res.LocalDeltas = unconvertLocalDeltas(delta.LocalDeltasOverride)
+	res.Logs = unconvertLogs(delta.LogsOverride)
+	res.InnerTxns = unconvertInnerTxns(delta.InnerTxnsOverride)
 	return res
 }
 
