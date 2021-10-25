@@ -5,4 +5,5 @@ const (
 	StateMetastateKey           = "state"
 	MigrationMetastateKey       = "migration"
 	SpecialAccountsMetastateKey = "accounts"
+	AccountTotals               = "totals"
 )

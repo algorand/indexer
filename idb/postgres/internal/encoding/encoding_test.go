@@ -1,11 +1,13 @@
 package encoding
 
 import (
+	"math/rand"
 	"testing"
 
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,7 +34,7 @@ func TestEncodeSignedTxnWithAD(t *testing.T) {
 		{
 			"app call with inner transactions",
 			[]byte{0x83, 0xa2, 0x64, 0x74, 0x81, 0xa3, 0x69, 0x74, 0x78, 0x91, 0x82, 0xa2, 0x64, 0x74, 0x81, 0xa3, 0x69, 0x74, 0x78, 0x91, 0x81, 0xa3, 0x74, 0x78, 0x6e, 0x84, 0xa4, 0x61, 0x61, 0x6d, 0x74, 0xcd, 0x1, 0xc8, 0xa4, 0x61, 0x72, 0x63, 0x76, 0xc4, 0x20, 0x32, 0x63, 0xff, 0x43, 0xce, 0xbb, 0x73, 0xa1, 0x61, 0x15, 0x11, 0x44, 0x39, 0xa6, 0x21, 0x0, 0x23, 0xe9, 0xe0, 0x89, 0x49, 0x1a, 0x44, 0x23, 0x66, 0xd5, 0x36, 0x93, 0xf7, 0x9e, 0x93, 0xc3, 0xa3, 0x73, 0x6e, 0x64, 0xc4, 0x20, 0x32, 0x63, 0xff, 0x43, 0xce, 0xbb, 0x73, 0xa1, 0x61, 0x15, 0x11, 0x44, 0x39, 0xa6, 0x21, 0x0, 0x23, 0xe9, 0xe0, 0x89, 0x49, 0x1a, 0x44, 0x23, 0x66, 0xd5, 0x36, 0x93, 0xf7, 0x9e, 0x93, 0xc3, 0xa4, 0x74, 0x79, 0x70, 0x65, 0xa5, 0x61, 0x78, 0x66, 0x65, 0x72, 0xa3, 0x74, 0x78, 0x6e, 0x84, 0xa3, 0x61, 0x6d, 0x74, 0x7b, 0xa3, 0x72, 0x63, 0x76, 0xc4, 0x20, 0x32, 0x63, 0xff, 0x43, 0xce, 0xbb, 0x73, 0xa1, 0x61, 0x15, 0x11, 0x44, 0x39, 0xa6, 0x21, 0x0, 0x23, 0xe9, 0xe0, 0x89, 0x49, 0x1a, 0x44, 0x23, 0x66, 0xd5, 0x36, 0x93, 0xf7, 0x9e, 0x93, 0xc3, 0xa3, 0x73, 0x6e, 0x64, 0xc4, 0x20, 0x32, 0x63, 0xff, 0x43, 0xce, 0xbb, 0x73, 0xa1, 0x61, 0x15, 0x11, 0x44, 0x39, 0xa6, 0x21, 0x0, 0x23, 0xe9, 0xe0, 0x89, 0x49, 0x1a, 0x44, 0x23, 0x66, 0xd5, 0x36, 0x93, 0xf7, 0x9e, 0x93, 0xc3, 0xa4, 0x74, 0x79, 0x70, 0x65, 0xa3, 0x70, 0x61, 0x79, 0xa3, 0x73, 0x69, 0x67, 0xc4, 0x40, 0x58, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa3, 0x74, 0x78, 0x6e, 0x85, 0xa4, 0x61, 0x70, 0x61, 0x70, 0xc4, 0x5, 0x2, 0x20, 0x1, 0x1, 0x22, 0xa4, 0x61, 0x70, 0x73, 0x75, 0xc4, 0x5, 0x2, 0x20, 0x1, 0x1, 0x22, 0xa2, 0x67, 0x68, 0xc4, 0x20, 0x4d, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0xa3, 0x73, 0x6e, 0x64, 0xc4, 0x20, 0x32, 0x63, 0xff, 0x43, 0xce, 0xbb, 0x73, 0xa1, 0x61, 0x15, 0x11, 0x44, 0x39, 0xa6, 0x21, 0x0, 0x23, 0xe9, 0xe0, 0x89, 0x49, 0x1a, 0x44, 0x23, 0x66, 0xd5, 0x36, 0x93, 0xf7, 0x9e, 0x93, 0xc3, 0xa4, 0x74, 0x79, 0x70, 0x65, 0xa4, 0x61, 0x70, 0x70, 0x6c},
-			`{"dt":{"gd":{"/v7/7wAAESIz":{"at":1,"bs":"eHh4"},"Z2ti":{"at":1,"bs":"dGVzdA=="},"Z2tp":{"at":2,"ui":100}},"itx":[{"dt":{"itx":[{"txn":{"aamt":456,"arcv":"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY","snd":"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY","type":"axfer"}}]},"txn":{"amt":123,"rcv":"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY","snd":"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY","type":"pay"}}],"ld":{"0":{"bGti":{"at":1,"bs":"YW5vdGhlcnRlc3Q="},"bGtp":{"at":2,"ui":200}}}},"sig":"WAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","txn":{"apaa":["Zmlyc3Q="],"apan":1,"apap":"AiABASI=","apgs":{"nbs":1},"apid":35,"apsu":"AiABASI=","fee":1000,"fv":7,"gh":"TQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","lv":1007,"note":"yYMFXyBFj5g=","snd":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","type":"appl"}}`,
+			`{"dt":{"gd":{"/v7/7wAAESIz":{"at":1,"bs":"eHh4"},"Z2ti":{"at":1,"bs":"dGVzdA=="},"Z2tp":{"at":2,"ui":100}},"itx":[{"dt":{"itx":[{"txn":{"aamt":456,"arcv":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","snd":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","type":"axfer"}}]},"txn":{"amt":123,"rcv":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","snd":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","type":"pay"}}],"ld":{"0":{"bGti":{"at":1,"bs":"YW5vdGhlcnRlc3Q="},"bGtp":{"at":2,"ui":200}}}},"sig":"WAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","txn":{"apaa":["Zmlyc3Q="],"apan":1,"apap":"AiABASI=","apgs":{"nbs":1},"apid":35,"apsu":"AiABASI=","fee":1000,"fv":7,"gh":"TQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","lv":1007,"note":"yYMFXyBFj5g=","snd":"MmP/Q867c6FhFRFEOaYhACPp4IlJGkQjZtU2k/eek8M=","type":"appl"}}`,
 		},
 	}
 
@@ -323,12 +325,35 @@ func TestSignedTxnWithADEncoding(t *testing.T) {
 						},
 					},
 				},
+				Logs: []string{
+					"xyz",
+					"\000",
+				},
+				InnerTxns: []transactions.SignedTxnWithAD{{
+					ApplyData: transactions.ApplyData{
+						EvalDelta: transactions.EvalDelta{
+							GlobalDelta: map[string]basics.ValueDelta{
+								"xyz": {
+									Action: basics.SetBytesAction,
+									Bytes:  string("xyz"),
+								},
+							},
+							LocalDeltas: map[uint64]basics.StateDelta{
+								1: {"xyz": {
+									Action: basics.SetBytesAction,
+									Bytes:  string("xyz"),
+								}},
+							},
+							Logs: []string{"xyz"},
+						},
+					},
+				}},
 			},
 		},
 	}
 	buf := EncodeSignedTxnWithAD(stxn)
 
-	expectedString := `{"dt":{"gd":{"YWJj":{"at":44,"bs":"eHl6","ui":33}},"ld":{"2":{"YmNk":{"at":55,"bs":"eXp4","ui":66}}}},"sgnr":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","txn":{"aclose":"CwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","apar":{"c":"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","f":"BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","m":"BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","r":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="},"apat":["DQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="],"arcv":"CgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","asnd":"CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","close":"BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","fadd":"DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rcv":"AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rekey":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","snd":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}}`
+	expectedString := `{"dt":{"gd":{"YWJj":{"at":44,"bs":"eHl6","ui":33}},"itx":[{"dt":{"gd":{"eHl6":{"at":1,"bs":"eHl6"}},"ld":{"1":{"eHl6":{"at":1,"bs":"eHl6"}}},"lg":["eHl6"]}}],"ld":{"2":{"YmNk":{"at":55,"bs":"eXp4","ui":66}}},"lg":["eHl6","AA=="]},"sgnr":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","txn":{"aclose":"CwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","apar":{"c":"CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","f":"BwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","m":"BQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","r":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="},"apat":["DQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="],"arcv":"CgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","asnd":"CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","close":"BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","fadd":"DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rcv":"AwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","rekey":"AgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","snd":"AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}}`
 	assert.Equal(t, expectedString, string(buf))
 
 	newStxn, err := DecodeSignedTxnWithAD(buf)
@@ -428,4 +453,33 @@ func TestSpecialAddressesEncoding(t *testing.T) {
 	specialNew, err := DecodeSpecialAddresses(buf)
 	require.NoError(t, err)
 	assert.Equal(t, special, specialNew)
+}
+
+// Test that encoding of AccountTotals is as expected and that decoding results in the
+// same object.
+func TestAccountTotalsEncoding(t *testing.T) {
+	totals := ledgercore.AccountTotals{
+		Online: ledgercore.AlgoCount{
+			Money:       basics.MicroAlgos{Raw: rand.Uint64()},
+			RewardUnits: rand.Uint64(),
+		},
+		Offline: ledgercore.AlgoCount{
+			Money:       basics.MicroAlgos{Raw: rand.Uint64()},
+			RewardUnits: rand.Uint64(),
+		},
+		NotParticipating: ledgercore.AlgoCount{
+			Money:       basics.MicroAlgos{Raw: rand.Uint64()},
+			RewardUnits: rand.Uint64(),
+		},
+		RewardsLevel: rand.Uint64(),
+	}
+
+	buf := EncodeAccountTotals(&totals)
+
+	expectedString := `{"notpart":{"mon":3916589616287113937,"rwd":6334824724549167320},"offline":{"mon":15352856648520921629,"rwd":13260572831089785859},"online":{"mon":5577006791947779410,"rwd":8674665223082153551},"rwdlvl":9828766684487745566}`
+	assert.Equal(t, expectedString, string(buf))
+
+	totalsNew, err := DecodeAccountTotals(buf)
+	require.NoError(t, err)
+	assert.Equal(t, totals, totalsNew)
 }

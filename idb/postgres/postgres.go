@@ -158,6 +158,47 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations()
 }
 
+// Add addresses referenced in `txn` to `out`.
+func getTxnAddresses(txn *transactions.Transaction, out map[basics.Address]struct{}) {
+	out[txn.Sender] = struct{}{}
+	out[txn.Receiver] = struct{}{}
+	out[txn.CloseRemainderTo] = struct{}{}
+	out[txn.AssetSender] = struct{}{}
+	out[txn.AssetReceiver] = struct{}{}
+	out[txn.AssetCloseTo] = struct{}{}
+	out[txn.FreezeAccount] = struct{}{}
+	for _, address := range txn.ApplicationCallTxnFields.Accounts {
+		out[address] = struct{}{}
+	}
+}
+
+// Returns all addresses referenced in `block`.
+func getBlockAddresses(block *bookkeeping.Block) map[basics.Address]struct{} {
+	// Reserve a reasonable memory size for the map.
+	res := make(map[basics.Address]struct{}, len(block.Payset)+2)
+
+	res[block.FeeSink] = struct{}{}
+	res[block.RewardsPool] = struct{}{}
+	for _, stib := range block.Payset {
+		getTxnAddresses(&stib.Txn, res)
+	}
+
+	return res
+}
+
+func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
+	accountDataMap, err := l.LookupWithoutRewards(getBlockAddresses(block))
+	if err != nil {
+		return ledger.EvalForIndexerResources{},
+			fmt.Errorf("prepareEvalResources() err: %w", err)
+	}
+
+	res := ledger.EvalForIndexerResources{
+		Accounts: accountDataMap,
+	}
+	return res, nil
+}
+
 // AddBlock is part of idb.IndexerDb.
 func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 	db.log.Printf("adding block %d", block.Round())
@@ -190,27 +231,16 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 
 		if block.Round() == basics.Round(0) {
 			// Block 0 is special, we cannot run the evaluator on it.
-			// It contains no transactions, so just write the header.
-			err := writer.AddBlock(block, nil, ledgercore.StateDelta{})
+			err := writer.AddBlock0(block)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 		} else {
-			specialAddresses := transactions.SpecialAddresses{
-				FeeSink:     block.FeeSink,
-				RewardsPool: block.RewardsPool,
-			}
-			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-				tx, block.GenesisHash(), specialAddresses)
+			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, block.Round()-1)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 			defer ledgerForEval.Close()
-
-			err = ledgerForEval.PreloadAccounts(ledger.GetBlockAddresses(block))
-			if err != nil {
-				return fmt.Errorf("AddBlock() err: %w", err)
-			}
 
 			proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
 			if !ok {
@@ -219,8 +249,14 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			}
 			proto.EnableAssetCloseAmount = true
 
+			resources, err := prepareEvalResources(&ledgerForEval, block)
+			if err != nil {
+				return fmt.Errorf("AddBlock() eval err: %w", err)
+			}
+
 			start := time.Now()
-			delta, modifiedTxns, err := ledger.Eval(ledgerForEval, block, proto)
+			delta, modifiedTxns, err :=
+				ledger.EvalForIndexer(ledgerForEval, block, proto, resources)
 			if err != nil {
 				return fmt.Errorf("AddBlock() eval err: %w", err)
 			}
@@ -253,6 +289,12 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 		}
 		defer tx.Conn().Deallocate(context.Background(), setAccountStatementName)
 
+		proto, ok := config.Consensus[genesis.Proto]
+		if !ok {
+			return fmt.Errorf("LoadGenesis() consensus version %s not found", genesis.Proto)
+		}
+		var ot basics.OverflowTracker
+		var totals ledgercore.AccountTotals
 		for ai, alloc := range genesis.Allocation {
 			addr, err := basics.UnmarshalChecksumAddress(alloc.Address)
 			if err != nil {
@@ -268,6 +310,14 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() error setting genesis account[%d], %w", ai, err)
 			}
+
+			totals.AddAccount(proto, alloc.State, &ot)
+		}
+
+		err = db.setMetastate(
+			tx, schema.AccountTotals, string(encoding.EncodeAccountTotals(&totals)))
+		if err != nil {
+			return fmt.Errorf("LoadGenesis() err: %w", err)
 		}
 
 		importstate := types.ImportState{
@@ -294,16 +344,9 @@ func (db *IndexerDb) getMetastate(ctx context.Context, tx pgx.Tx, key string) (s
 	return pgutil.GetMetastate(ctx, db.db, tx, key)
 }
 
-const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
-
 // If `tx` is nil, use a normal query.
 func (db *IndexerDb) setMetastate(tx pgx.Tx, key, jsonStrValue string) (err error) {
-	if tx == nil {
-		_, err = db.db.Exec(context.Background(), setMetastateUpsert, key, jsonStrValue)
-	} else {
-		_, err = tx.Exec(context.Background(), setMetastateUpsert, key, jsonStrValue)
-	}
-	return
+	return pgutil.SetMetastate(db.db, tx, key, jsonStrValue)
 }
 
 // Returns idb.ErrorNotInitialized if uninitialized.
@@ -1718,8 +1761,6 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			out <- idb.AssetRow{Error: err}
 			break
 		}
-		var creator basics.Address
-		copy(creator[:], creatorAddr)
 		rec := idb.AssetRow{
 			AssetID:      index,
 			Creator:      creatorAddr,

@@ -131,16 +131,7 @@ func CallProcessor(processor Processor, addrInput string, config Params, results
 		}
 
 		result, err := processor.ProcessAddress(algodData, indexerData)
-
-		if err == nil && (result.Equal || result.SameRound || i >= config.Retries) {
-			// Return when results are equal, or when finished retrying.
-			result.Retries = i
-			if result.Details != nil {
-				result.Details.Address = addr
-			}
-			results <- result
-			return
-		} else if err != nil {
+		if err != nil {
 			// If there is an error return immediately and cram the error.
 			results <- Result{
 				Equal:   false,
@@ -150,6 +141,16 @@ func CallProcessor(processor Processor, addrInput string, config Params, results
 					Address: addr,
 				},
 			}
+			return
+		}
+
+		if result.Equal || result.SameRound || (i >= config.Retries) {
+			// Return when results are equal, or when finished retrying.
+			result.Retries = i
+			if result.Details != nil {
+				result.Details.Address = addr
+			}
+			results <- result
 			return
 		}
 

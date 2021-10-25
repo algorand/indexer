@@ -7,6 +7,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-codec/codec"
 
 	"github.com/algorand/indexer/idb"
@@ -138,11 +139,37 @@ func convertLocalDeltas(deltas map[uint64]basics.StateDelta) map[uint64]stateDel
 	return res
 }
 
+func convertLogs(logs []string) [][]byte {
+	if logs == nil {
+		return nil
+	}
+
+	res := make([][]byte, len(logs))
+	for i, log := range logs {
+		res[i] = []byte(log)
+	}
+	return res
+}
+
+func convertInnerTxns(innerTxns []transactions.SignedTxnWithAD) []signedTxnWithAD {
+	if innerTxns == nil {
+		return nil
+	}
+
+	res := make([]signedTxnWithAD, len(innerTxns))
+	for i, innerTxn := range innerTxns {
+		res[i] = convertSignedTxnWithAD(innerTxn)
+	}
+	return res
+}
+
 func convertEvalDelta(delta transactions.EvalDelta) evalDelta {
 	return evalDelta{
 		EvalDelta:           delta,
 		GlobalDeltaOverride: convertStateDelta(delta.GlobalDelta),
 		LocalDeltasOverride: convertLocalDeltas(delta.LocalDeltas),
+		LogsOverride:        convertLogs(delta.Logs),
+		InnerTxnsOverride:   convertInnerTxns(delta.InnerTxns),
 	}
 }
 
@@ -259,6 +286,11 @@ func EncodeImportState(state *types.ImportState) []byte {
 // EncodeMigrationState encodes migration state into json.
 func EncodeMigrationState(state *types.MigrationState) []byte {
 	return encodeJSON(state)
+}
+
+// EncodeAccountTotals encodes account totals into json.
+func EncodeAccountTotals(totals *ledgercore.AccountTotals) []byte {
+	return encodeJSON(totals)
 }
 
 func init() {

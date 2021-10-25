@@ -19,13 +19,13 @@ CREATE INDEX IF NOT EXISTS block_header_time ON block_header (realtime);
 
 CREATE TABLE IF NOT EXISTS txn (
 round bigint NOT NULL,
-intra smallint NOT NULL,
+intra integer NOT NULL,
 typeenum smallint NOT NULL,
 asset bigint NOT NULL, -- 0=Algos, otherwise AssetIndex
 txid bytea, -- base32 of [32]byte hash, or NULL for inner transactions.
 txnbytes bytea, -- msgpack encoding of signed txn with apply data, or NULL for inner transactions.
 txn jsonb NOT NULL, -- json encoding of signed txn with apply data
-extra jsonb,
+extra jsonb NOT NULL,
 PRIMARY KEY ( round, intra )
 );
 
@@ -38,7 +38,7 @@ CREATE INDEX IF NOT EXISTS txn_by_tixid ON txn ( txid );
 CREATE TABLE IF NOT EXISTS txn_participation (
 addr bytea NOT NULL,
 round bigint NOT NULL,
-intra smallint NOT NULL
+intra integer NOT NULL
 );
 
 -- For query account transactions
@@ -51,10 +51,10 @@ CREATE TABLE IF NOT EXISTS account (
   rewardsbase bigint NOT NULL,
   rewards_total bigint NOT NULL,
   deleted bool NOT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL DEFAULT 0, -- round that the account is first used
+  created_at bigint NOT NULL, -- round that the account is first used
   closed_at bigint, -- round that the account was last closed
-  keytype varchar(8), -- sig,msig,lsig
-  account_data jsonb -- trimmed AccountData that excludes the fields above and the four creatable maps
+  keytype varchar(8), -- "sig", "msig", "lsig", or NULL if unknown
+  account_data jsonb NOT NULL -- trimmed AccountData that excludes the fields above and the four creatable maps; SQL 'NOT NULL' is held though the json string will be "null" iff account is deleted
 );
 
 -- data.basics.AccountData Assets[asset id] AssetHolding{}
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS account_asset (
   amount numeric(20) NOT NULL, -- need the full 18446744073709551615
   frozen boolean NOT NULL,
   deleted bool NOT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL DEFAULT 0, -- round that the asset was added to an account
+  created_at bigint NOT NULL, -- round that the asset was added to an account
   closed_at bigint, -- round that the asset was last removed from the account
   PRIMARY KEY (addr, assetid)
 );
@@ -79,17 +79,17 @@ CREATE INDEX IF NOT EXISTS account_asset_by_addr ON account_asset ( addr );
 CREATE TABLE IF NOT EXISTS asset (
   index bigint PRIMARY KEY,
   creator_addr bytea NOT NULL,
-  params jsonb NOT NULL, -- data.basics.AssetParams -- TODO index some fields?
+  params jsonb NOT NULL, -- data.basics.AssetParams; json string "null" iff asset is deleted
   deleted bool NOT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL DEFAULT 0, -- round that the asset was created
+  created_at bigint NOT NULL, -- round that the asset was created
   closed_at bigint -- round that the asset was closed; cannot be recreated because the index is unique
 );
 
 -- For account lookup
 CREATE INDEX IF NOT EXISTS asset_by_creator_addr ON asset ( creator_addr );
 
--- subsumes ledger/accountdb.go accounttotals and acctrounds
--- "state":{online, onlinerewardunits, offline, offlinerewardunits, notparticipating, notparticipatingrewardunits, rewardslevel, round bigint}
+-- Includes indexer import state, migration state, special accounts (fee sink and
+-- rewards pool) and account totals.
 CREATE TABLE IF NOT EXISTS metastate (
   k text primary key,
   v jsonb
@@ -99,10 +99,10 @@ CREATE TABLE IF NOT EXISTS metastate (
 -- roughly go-algorand/data/basics/userBalance.go AppParams
 CREATE TABLE IF NOT EXISTS app (
   index bigint PRIMARY KEY,
-  creator bytea, -- account address
-  params jsonb,
+  creator bytea NOT NULL, -- account address
+  params jsonb NOT NULL, -- json string "null" iff app is deleted
   deleted bool NOT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL DEFAULT 0, -- round that the asset was created
+  created_at bigint NOT NULL, -- round that the asset was created
   closed_at bigint -- round that the app was deleted; cannot be recreated because the index is unique
 );
 
@@ -113,9 +113,9 @@ CREATE INDEX IF NOT EXISTS app_by_creator ON app ( creator );
 CREATE TABLE IF NOT EXISTS account_app (
   addr bytea,
   app bigint,
-  localstate jsonb,
+  localstate jsonb NOT NULL, -- json string "null" iff deleted from the account
   deleted bool NOT NULL, -- whether or not it is currently deleted
-  created_at bigint NOT NULL DEFAULT 0, -- round that the app was added to an account
+  created_at bigint NOT NULL, -- round that the app was added to an account
   closed_at bigint, -- round that the account_app was last removed from the account
   PRIMARY KEY (addr, app)
 );

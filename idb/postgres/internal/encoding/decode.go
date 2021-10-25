@@ -7,6 +7,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 
 	"github.com/algorand/indexer/idb"
@@ -125,10 +126,36 @@ func unconvertLocalDeltas(deltas map[uint64]stateDelta) map[uint64]basics.StateD
 	return res
 }
 
+func unconvertLogs(logs [][]byte) []string {
+	if logs == nil {
+		return nil
+	}
+
+	res := make([]string, len(logs))
+	for i, log := range logs {
+		res[i] = string(log)
+	}
+	return res
+}
+
+func unconvertInnerTxns(innerTxns []signedTxnWithAD) []transactions.SignedTxnWithAD {
+	if innerTxns == nil {
+		return nil
+	}
+
+	res := make([]transactions.SignedTxnWithAD, len(innerTxns))
+	for i, innerTxn := range innerTxns {
+		res[i] = unconvertSignedTxnWithAD(innerTxn)
+	}
+	return res
+}
+
 func unconvertEvalDelta(delta evalDelta) transactions.EvalDelta {
 	res := delta.EvalDelta
 	res.GlobalDelta = unconvertStateDelta(delta.GlobalDeltaOverride)
 	res.LocalDeltas = unconvertLocalDeltas(delta.LocalDeltasOverride)
+	res.Logs = unconvertLogs(delta.LogsOverride)
+	res.InnerTxns = unconvertInnerTxns(delta.InnerTxnsOverride)
 	return res
 }
 
@@ -339,4 +366,15 @@ func DecodeMigrationState(data []byte) (types.MigrationState, error) {
 	}
 
 	return state, nil
+}
+
+// DecodeAccountTotals decodes account totals from json.
+func DecodeAccountTotals(data []byte) (ledgercore.AccountTotals, error) {
+	var res ledgercore.AccountTotals
+	err := DecodeJSON(data, &res)
+	if err != nil {
+		return ledgercore.AccountTotals{}, err
+	}
+
+	return res, nil
 }
