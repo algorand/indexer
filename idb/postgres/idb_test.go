@@ -70,7 +70,7 @@ func TestTxnRowNext(t *testing.T) {
 				Intra:        51,
 				Round:        1_234_567_890,
 			},
-			errMsg: "could not decode root txn",
+			errMsg: "could not decode root transaction",
 		},
 		{
 			name:      "root intra decode error",
