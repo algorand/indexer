@@ -676,7 +676,6 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 			return generated.Block{}, err
 		}
 		results = append(results, tx)
-		txrow.Next(false)
 	}
 
 	ret.Transactions = &results
@@ -752,6 +751,11 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 
 		rootTxnDedupeMap[*tx.Id] = struct{}{}
 		results = append(results, tx)
+	}
+
+	// No next token if there were no results.
+	if len(results) == 0 {
+		return results, "", round, nil
 	}
 
 	nextToken, err := txrow.Next(filter.Address == nil)

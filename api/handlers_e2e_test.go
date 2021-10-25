@@ -287,12 +287,15 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 			//////////
 			// Then // There are no new results on the next page.
 			//////////
+			var response2 generated.TransactionsResponse
 			require.Equal(t, http.StatusOK, rec2.Code)
-			json.Decode(rec2.Body.Bytes(), &response)
+			json.Decode(rec2.Body.Bytes(), &response2)
 
-			require.Len(t, response.Transactions, 0)
+			require.Len(t, response2.Transactions, 0)
 			// The fact that NextToken changes indicates that the search results were different.
-			require.NotEqual(t, pageOneNextToken, *response.NextToken)
+			if response2.NextToken != nil {
+				require.NotEqual(t, pageOneNextToken, *response2.NextToken)
+			}
 		})
 	}
 }
