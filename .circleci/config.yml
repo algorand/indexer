@@ -1,16 +1,69 @@
 version: 2.1
 
+orbs:
+  go: circleci/go@1.7.0
+  docker: circleci/docker@1.7.0
+  # python: circleci/python@1.1.0
+
+parameters:
+  ubuntu_image:
+    type: string
+    default: "ubuntu-2004:202104-01"
+  # build_dir:
+  #   type: string
+  #   default: "/opt/cibuild"
+  # result_path:
+  #   type: string
+  #   default: "/tmp/build_test_results"
+
 workflows:
   version: 2
   "circleci_build_and_test":
     jobs:
-      - main
+      # - prepare_environment
+      # - install_go:
+      #     name: install_go_<< matrix.go_version >>
+      #     requires:
+      #       - prepare_environment
+      #     matrix: &go-version-matrix
+      #       parameters:
+      #         go_version: ["1.14", "1.15"]
+      - test:
+          name: test_with_go_<< matrix.go_version >>
+          # requires:
+            # - prepare_environment
+          matrix: &go-version-matrix
+            parameters:
+              go_version: ["1.14.7", "1.15.15"]
 
 jobs:
-  main:
+  # prepare_environment:
+  #   machine:
+  #     image: << pipeline.parameters.ubuntu_image >> 
+  #   steps:
+  #     - docker/install-docker-tools
+  #     - prep
+
+  # install_go:
+  #   machine:
+  #     image: ubuntu-2004:202010-01
+  #   parameters:
+  #     go_version:
+  #       type: string
+  #   steps:
+  #     - install_go:
+  #         go_version: << parameters.go_version >>
+  
+  test:
     machine:
-      image: ubuntu-2004:202010-01
+      image: << pipeline.parameters.ubuntu_image >> 
+    parameters:
+      go_version:
+        type: string
     steps:
+      - docker/install-docker-tools
+      - go/install:
+          version: << parameters.go_version >>
       - prep
       - run_tests
       - upload_coverage
@@ -28,32 +81,50 @@ commands:
             git submodule update --init
 
       - run:
-          name: Install golang
+          name: Install python and other python dependencies
           command: |
-            sudo apt update
-            wget -c https://golang.org/dl/go1.14.7.linux-amd64.tar.gz
-            sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.14.7.linux-amd64.tar.gz
-            export PATH=$PATH:/usr/local/go/bin
-
-      - run:
-          name: Install python and dependencies
-          command: |
-            export PATH=$PATH:/usr/local/go/bin
             sudo apt -y install python3 python3-pip python3-setuptools python3-wheel libboost-all-dev libffi-dev
-            go get -u golang.org/x/lint/golint
             pip3 install -r misc/requirements.txt
-
-      - run:
-          name: Install Docker
+      
+      - run: 
+          name: Install golint
           command: |
-            sudo apt -y remove docker docker-engine docker.io containerd runc
-            sudo apt -y install apt-transport-https ca-certificates curl gnupg lsb-release
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-            $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-            sudo apt update
-            sudo apt -y install docker-ce docker-ce-cli containerd.io
-            if [ -n "$DOCKER_PASSWORD" ]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ; fi
+            export PATH=$PATH:/usr/local/go/bin
+            go get -u golang.org/x/lint/golint
+
+      # - run:
+      #     name: Install Docker
+      #     command: |
+      #       sudo apt -y remove docker docker-engine docker.io containerd runc
+      #       sudo apt -y install apt-transport-https ca-certificates curl gnupg lsb-release
+      #       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+      #       echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+      #       $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+      #       sudo apt update
+      #       sudo apt -y install docker-ce docker-ce-cli containerd.io
+      #       if [ -n "$DOCKER_PASSWORD" ]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ; fi
+
+  # install_go:
+  #   description: Install correct go version and other go dependencies
+  #   parameters:
+  #     go_version:
+  #       type: string
+  #   steps:
+  #     - attach_workspace:
+  #         at: << pipeline.parameters.build_dir >>
+  #     - run:
+  #         name: Install golang and golint
+  #         command: |
+  #           sudo apt update
+  #           wget -c https://golang.org/dl/go<< parameters.go_version >>.linux-amd64.tar.gz
+  #           sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go<< parameters.go_version >>.linux-amd64.tar.gz
+  #           export PATH=$PATH:/usr/local/go/bin
+  #           go get -u golang.org/x/lint/golint
+  #     - persist_to_workspace:
+  #         root: << parameters.result_path >>
+  #         paths:
+  #           - << parameters.result_subdir >>
+
 
   run_tests:
     steps:
