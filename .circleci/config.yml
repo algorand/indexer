@@ -29,8 +29,6 @@ jobs:
       - go/install:
           version: << parameters.go_version >>
       - install_dependencies
-      - setup_remote_docker:
-          version: 20.10.7
       - run_tests
       - upload_coverage
 
@@ -53,55 +51,27 @@ commands:
             export PATH=$PATH:/usr/local/go/bin
             go get -u golang.org/x/lint/golint
 
-      # - run:
-      #     name: Install Docker
-      #     command: |
-      #       sudo apt -y remove docker docker-engine docker.io containerd runc
-      #       sudo apt -y install apt-transport-https ca-certificates curl gnupg lsb-release
-      #       curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-      #       echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
-      #       $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-      #       sudo apt update
-      #       sudo apt -y install docker-ce docker-ce-cli containerd.io
-      #       if [ -n "$DOCKER_PASSWORD" ]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ; fi
+      - run:
+          name: Install Docker
+          command: |
+            sudo apt -y remove docker docker-engine docker.io containerd runc
+            sudo apt -y install apt-transport-https ca-certificates curl gnupg lsb-release
+            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu \
+            $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+            sudo apt update
+            sudo apt -y install docker-ce docker-ce-cli containerd.io
+            if [ -n "$DOCKER_PASSWORD" ]; then echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin ; fi
 
   run_tests:
     steps:
-      - run:
-          name: "test -z `go fmt ./...`"
-          command: |
-            export PATH=$PATH:/usr/local/go/bin
-            test -z `go fmt ./...`
-      - run:
-          name: "make lint"
-          command: |
-            export PATH=$PATH:/usr/local/go/bin
-            make lint
-      - run:
-          name: "make check"
-          command: |
-            export PATH=$PATH:/usr/local/go/bin
-            make check
-      - run:
-          name: "make integration"
-          command: |
-            export PATH=$PATH:/usr/local/go/bin
-            make integration
-      - run:
-          name: "make test"
-          command: |
-            export PATH=$PATH:/usr/local/go/bin
-            make test
-      - run:
-          name: "make fakepackage"
-          command: |
-            export PATH=$PATH:/usr/local/go/bin
-            make fakepackage
-      - run:
-          name: "make e2e"
-          command: |
-            export PATH=$PATH:/usr/local/go/bin
-            make e2e
+      - run: test -z `go fmt ./...`
+      - run: make lint
+      - run: make check
+      - run: make integration
+      - run: make test
+      - run: make fakepackage
+      - run: make e2e
 
   upload_coverage:
     description: Collect coverage reports and upload them
