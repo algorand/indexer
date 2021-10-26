@@ -225,13 +225,9 @@ func convertTealKeyValue(tkv basics.TealKeyValue) tealKeyValue {
 		return nil
 	}
 
-	res := make([]keyTealValue, 0, len(tkv))
+	res := make(map[byteArray]tealValue, len(tkv))
 	for k, tv := range tkv {
-		ktv := keyTealValue{
-			Key: []byte(k),
-			Tv:  convertTealValue(tv),
-		}
-		res = append(res, ktv)
+		res[byteArray{data: k}] = convertTealValue(tv)
 	}
 	return res
 }

@@ -399,7 +399,7 @@ func TestAppLocalStateEncoding(t *testing.T) {
 
 	buf := EncodeAppLocalState(state)
 
-	expectedString := `{"hsch":{"nui":2},"tkv":[{"k":"/w==","v":{"tt":3}}]}`
+	expectedString := `{"hsch":{"nui":2},"tkv":{"/w==":{"tt":3}}}`
 	assert.Equal(t, expectedString, string(buf))
 
 	stateNew, err := DecodeAppLocalState(buf)
@@ -421,7 +421,7 @@ func TestAppParamsEncoding(t *testing.T) {
 
 	buf := EncodeAppParams(params)
 
-	expectedString := `{"approv":"/w==","gs":[{"k":"/w==","v":{"tt":3}}]}`
+	expectedString := `{"approv":"/w==","gs":{"/w==":{"tt":3}}}`
 	assert.Equal(t, expectedString, string(buf))
 
 	paramsNew, err := DecodeAppParams(buf)
