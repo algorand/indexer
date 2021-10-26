@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/algorand/indexer/version"
 	"net/http"
 	"strconv"
 
@@ -75,6 +76,7 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
+		Version:     version.LongVersion(),
 		Data:        health.Data,
 		Round:       health.Round,
 		IsMigrating: health.IsMigrating,

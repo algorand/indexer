@@ -1394,12 +1394,17 @@
       "description": "A health check response.",
       "type": "object",
       "required": [
+        "version",
         "message",
         "round",
         "is-migrating",
         "db-available"
       ],
       "properties": {
+        "version": {
+          "description": "Current version.",
+          "type": "string"
+        },
         "data": {
           "type": "object"
         },

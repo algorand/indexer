@@ -299,3 +299,34 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 		})
 	}
 }
+
+func TestVersion(t *testing.T) {
+	///////////
+	// Given // An API and context
+	///////////
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+	api := &ServerImplementation{db: db}
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec1 := httptest.NewRecorder()
+	c := e.NewContext(req, rec1)
+
+	//////////
+	// When // we call the health endpoint
+	//////////
+	err := api.MakeHealthCheck(c)
+
+	//////////
+	// Then // We get the health information.
+	//////////
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec1.Code)
+	var response generated.HealthCheckResponse
+	json.Decode(rec1.Body.Bytes(), &response)
+
+	require.Equal(t, uint64(0), response.Round)
+	require.False(t, response.IsMigrating)
+	require.Contains(t, response.Version, "from git hash")
+}
