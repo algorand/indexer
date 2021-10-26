@@ -1376,7 +1376,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	require.Equal(t, idb.TypeEnumAssetConfig, txns[3].typeenum)
 
 	// Verify special properties of inner transactions.
-	expectedExtra := fmt.Sprintf(`{"root-txid": "%s"}`, txns[0].txid)
+	expectedExtra := fmt.Sprintf(`{"root-txid": "%s", "root-intra": "%d"}`, txns[0].txid, 0)
 	// Inner pay
 	require.Len(t, txns[1].txnbytes, 0)
 	require.Equal(t, "", txns[1].txid)

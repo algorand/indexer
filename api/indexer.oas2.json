@@ -2094,7 +2094,7 @@
     },
     "limit": {
       "type": "integer",
-      "description": "Maximum number of results to return.",
+      "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
       "name": "limit",
       "in": "query"
     },

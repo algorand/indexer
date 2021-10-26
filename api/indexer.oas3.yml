@@ -114,7 +114,7 @@
         }
       },
       "limit": {
-        "description": "Maximum number of results to return.",
+        "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
         "in": "query",
         "name": "limit",
         "schema": {
@@ -1879,7 +1879,7 @@
             }
           },
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -2099,7 +2099,7 @@
         "operationId": "lookupAccountTransactions",
         "parameters": [
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -2327,7 +2327,7 @@
             }
           },
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -2475,7 +2475,7 @@
             }
           },
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -2580,7 +2580,7 @@
             }
           },
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -2781,7 +2781,7 @@
             }
           },
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -2892,7 +2892,7 @@
         "operationId": "lookupAssetTransactions",
         "parameters": [
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -3178,7 +3178,7 @@
         "operationId": "searchForTransactions",
         "parameters": [
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
