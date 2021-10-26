@@ -206,9 +206,9 @@ func unconvertTealKeyValue(tkv tealKeyValue) basics.TealKeyValue {
 		return nil
 	}
 
-	res := basics.TealKeyValue(make(map[string]basics.TealValue, len(tkv)))
-	for _, ktv := range tkv {
-		res[string(ktv.Key)] = unconvertTealValue(ktv.Tv)
+	res := make(map[string]basics.TealValue, len(tkv))
+	for k, tv := range tkv {
+		res[k.data] = unconvertTealValue(tv)
 	}
 	return res
 }

@@ -89,12 +89,7 @@ type tealValue struct {
 	BytesOverride []byte `codec:"tb"`
 }
 
-type keyTealValue struct {
-	Key []byte    `codec:"k"`
-	Tv  tealValue `codec:"v"`
-}
-
-type tealKeyValue []keyTealValue
+type tealKeyValue map[byteArray]tealValue
 
 type appLocalState struct {
 	basics.AppLocalState
