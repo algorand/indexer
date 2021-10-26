@@ -12,9 +12,7 @@ import (
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 )
 
-func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
-	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
-
+func setupIdbWithConnectionString(t *testing.T, connStr string, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) *IndexerDb {
 	idb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 
@@ -24,7 +22,12 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeepin
 	err = idb.AddBlock(&genesisBlock)
 	require.NoError(t, err)
 
-	return idb, shutdownFunc
+	return idb
+}
+
+func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	return setupIdbWithConnectionString(t, connStr, genesis, genesisBlock), shutdownFunc
 }
 
 // Helper to execute a query returning an integer, for example COUNT(*). Returns -1 on an error.

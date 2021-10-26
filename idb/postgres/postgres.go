@@ -628,10 +628,14 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if tf.RekeyTo != nil && (*tf.RekeyTo) {
 		whereParts = append(whereParts, "(t.txn -> 'txn' -> 'rekey') IS NOT NULL")
 	}
-	query = "SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	query = "SELECT t.round, t.intra, t.txnbytes, root.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
+
+	// join in the root transaction
+	query += " LEFT OUTER JOIN txn root ON t.round = root.round AND t.extra->>'root-intra' = root.intra::text"
+
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
 		query += " WHERE " + whereStr
@@ -703,6 +707,9 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 
 // This function blocks. `tx` must be non-nil.
 func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
+	// TODO: Use txid to deduplicate next resultset at the query level?
+
+	// Check for remainder of round from previous page.
 	nextround, nextintra32, err := idb.DecodeTxnRowNext(tf.NextToken)
 	nextintra := uint64(nextintra32)
 	if err != nil {
@@ -736,11 +743,15 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 		out <- idb.TxnRow{Error: err}
 		return
 	}
-	count := int(0)
+
+	count := 0
 	db.yieldTxnsThreadSimple(ctx, rows, out, &count, &err)
 	if err != nil {
 		return
 	}
+
+	// If we haven't reached the limit, restore the original filter and
+	// re-run the original search with new Min/Max round and reduced limit.
 	if uint64(count) >= tf.Limit {
 		return
 	}
@@ -754,10 +765,12 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 	if tf.Address != nil {
 		// (round,intra) descending into the past
 		tf.OffsetLT = origOLT
-		if nextround == 0 {
+
+		if nextround <= 1 {
 			// NO second query
 			return
 		}
+
 		tf.MaxRound = nextround - 1
 	} else {
 		// (round,intra) ascending into the future
@@ -788,9 +801,10 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, r
 		var asset uint64
 		var intra int
 		var txnbytes []byte
+		var roottxnbytes []byte
 		var extraJSON []byte
 		var roundtime time.Time
-		err := rows.Scan(&round, &intra, &txnbytes, &extraJSON, &asset, &roundtime)
+		err := rows.Scan(&round, &intra, &txnbytes, &roottxnbytes, &extraJSON, &asset, &roundtime)
 		var row idb.TxnRow
 		if err != nil {
 			row.Error = err
@@ -798,6 +812,7 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, r
 			row.Round = round
 			row.Intra = intra
 			row.TxnBytes = txnbytes
+			row.RootTxnBytes = roottxnbytes
 			row.RoundTime = roundtime
 			row.AssetID = asset
 			if len(extraJSON) > 0 {

@@ -10,6 +10,7 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -21,6 +22,8 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
+	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
+	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -1471,6 +1474,92 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	assert.Equal(t, uint64(1), *localState.OptedInAtRound)
 	require.NotNil(t, localState.ClosedOutAtRound)
 	assert.Equal(t, uint64(1), *localState.ClosedOutAtRound)
+}
+
+// TestSearchForInnerTransactionReturnsRootTransaction checks that the parent
+// transaction is returned when matching on inner transactions.
+func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
+	var appAddr basics.Address
+	appAddr[1] = 99
+
+	tests := []struct {
+		name    string
+		matches int
+		filter  idb.TransactionFilter
+	}{
+		{
+			name:    "match on root",
+			matches: 1,
+			filter:  idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication},
+		},
+		{
+			name:    "match on inner",
+			matches: 1,
+			filter:  idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay},
+		},
+		{
+			name:    "match on inner-inner",
+			matches: 1,
+			filter:  idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer},
+		},
+		{
+			name:    "match all",
+			matches: 3,
+			filter:  idb.TransactionFilter{Address: appAddr[:]},
+		},
+	}
+
+	// Given: A DB with one transaction containing inner transactions [app -> pay -> xfer]
+	pdb, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesis(), test.MakeGenesisBlock())
+
+	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	require.NoError(t, err)
+	rootTxid := appCall.Txn.ID()
+
+	err = pgutil.TxWithRetry(pdb, serializable, func(tx pgx.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		require.NoError(t, err)
+
+		return nil
+	}, nil)
+	require.NoError(t, err)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// When: searching for a transaction that matches part of the transaction.
+			results, _ := db.Transactions(context.Background(), tc.filter)
+
+			// Then: only the root transaction should be returned.
+			num := 0
+			for result := range results {
+				num++
+				require.NoError(t, result.Error)
+				var stxn transactions.SignedTxnWithAD
+
+				// Get Txn or RootTxn
+				if result.TxnBytes != nil {
+					err = protocol.Decode(result.TxnBytes, &stxn)
+				}
+				if result.RootTxnBytes != nil {
+					err = protocol.Decode(result.RootTxnBytes, &stxn)
+				}
+
+				// Make sure the root txn is returned.
+				require.NoError(t, err)
+				require.Equal(t, rootTxid, stxn.Txn.ID())
+			}
+
+			// There can be multiple matches because deduplication happens in REST API.
+			require.Equal(t, tc.matches, num)
+		})
+	}
 }
 
 // TestNonUTF8Logs makes sure we're able to import cheeky logs.

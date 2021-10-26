@@ -246,13 +246,23 @@ type rowData struct {
 	AssetCloseAmount uint64
 }
 
+// txnRowToTransaction parses the idb.TxnRow and generates the appropriate generated.Transaction object.
+// If the idb.TxnRow represents an inner transaction, the root transaction is returned.
 func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Error != nil {
 		return generated.Transaction{}, row.Error
 	}
 
+	var bytes []byte
+	if row.TxnBytes != nil {
+		bytes = row.TxnBytes
+	} else if row.RootTxnBytes != nil {
+		bytes = row.RootTxnBytes
+	} else {
+		return generated.Transaction{}, fmt.Errorf("%d:%d transaction bytes missing", row.Round, row.Intra)
+	}
 	var stxn transactions.SignedTxnWithAD
-	err := protocol.Decode(row.TxnBytes, &stxn)
+	err := protocol.Decode(bytes, &stxn)
 	if err != nil {
 		return generated.Transaction{}, fmt.Errorf("%s: %s", errUnableToDecodeTransaction, err.Error())
 	}
@@ -265,9 +275,16 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		AssetCloseAmount: row.Extra.AssetCloseAmount,
 	}
 
+	if row.Extra.RootIntra != "" {
+		extra.Intra, err = strconv.Atoi(row.Extra.RootIntra)
+		if err != nil {
+			return generated.Transaction{}, fmt.Errorf("txnRowToTransaction(): failed to parse root-intra (%s): %w", row.Extra.RootIntra, err)
+		}
+	}
+
 	txn, err := signedTxnWithAdToTransaction(&stxn, extra)
 	if err != nil {
-		return generated.Transaction{}, err
+		return generated.Transaction{}, fmt.Errorf("txnRowToTransaction(): failure converting signed transaction to response: %w", err)
 	}
 
 	sig := generated.TransactionSignature{

@@ -676,7 +676,6 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 			return generated.Block{}, err
 		}
 		results = append(results, tx)
-		txrow.Next()
 	}
 
 	ret.Transactions = &results
@@ -727,19 +726,42 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 
 // fetchTransactions is used to query the backend for transactions, and compute the next token
 func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, uint64 /*round*/, error) {
+	// Used for filtering duplicates after getting results.
+	rootTxnDedupeMap := make(map[string]struct{})
+
 	results := make([]generated.Transaction, 0)
 	txchan, round := si.db.Transactions(ctx, filter)
 	nextToken := ""
-	for txrow := range txchan {
+	var txrow idb.TxnRow
+	for txrow = range txchan {
 		tx, err := txnRowToTransaction(txrow)
 		if err != nil {
 			return nil, "", round, err
 		}
+
+		// Do not return inner transactions.
+		if tx.Id == nil {
+			continue
+		}
+
+		// The root txn has already been added.
+		if _, ok := rootTxnDedupeMap[*tx.Id]; ok {
+			continue
+		}
+
+		rootTxnDedupeMap[*tx.Id] = struct{}{}
 		results = append(results, tx)
-		nextToken = txrow.Next()
 	}
 
-	return results, nextToken, round, nil
+	// No next token if there were no results.
+	if len(results) == 0 {
+		return results, "", round, nil
+	}
+
+	// The sort order depends on whether the address filter is used.
+	nextToken, err := txrow.Next(filter.Address == nil)
+
+	return results, nextToken, round, err
 }
 
 //////////////////////

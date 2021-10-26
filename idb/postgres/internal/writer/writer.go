@@ -177,7 +177,7 @@ func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *b
 // addInnerTransactions traverses the inner transaction tree and adds them to
 // the transaction table. It performs a preorder traversal to correctly compute
 // the intra round offset, the offset for the next transaction is returned.
-func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, block *bookkeeping.Block, intra uint64, rootTxid string, rows [][]interface{}) (uint64, [][]interface{}, error) {
+func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, block *bookkeeping.Block, intra, rootIntra uint64, rootTxid string, rows [][]interface{}) (uint64, [][]interface{}, error) {
 	next := intra
 	var err error
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
@@ -189,6 +189,7 @@ func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, bloc
 		assetid := transactionAssetID(itxn, 0, nil)
 		extra := idb.TxnExtra{
 			AssetCloseAmount: itxn.ApplyData.AssetClosingAmount,
+			RootIntra:        fmt.Sprintf("%d", rootIntra),
 			RootTxid:         rootTxid,
 		}
 
@@ -204,7 +205,7 @@ func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, bloc
 			encoding.EncodeTxnExtra(&extra)})
 
 		// Recurse at end for preorder traversal
-		next, rows, err = w.addInnerTransactions(&itxn, block, next+1, rootTxid, rows)
+		next, rows, err = w.addInnerTransactions(&itxn, block, next+1, rootIntra, rootTxid, rows)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -246,7 +247,7 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 			encoding.EncodeSignedTxnWithAD(stxnad),
 			encoding.EncodeTxnExtra(&extra)})
 
-		intra, rows, err = w.addInnerTransactions(&stib.SignedTxnWithAD, block, intra+1, id, rows)
+		intra, rows, err = w.addInnerTransactions(&stib.SignedTxnWithAD, block, intra+1, intra, id, rows)
 		if err != nil {
 			return fmt.Errorf("addTransactions() adding inner: %w", err)
 		}
