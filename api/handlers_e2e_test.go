@@ -329,5 +329,5 @@ func TestVersion(t *testing.T) {
 	require.Equal(t, uint64(0), response.Round)
 	require.False(t, response.IsMigrating)
 	// This is weird looking because the version is set with -ldflags
-	require.Equal(t, response.Version, "-dev.unknown compiled at  from git hash ")
+	require.Equal(t, response.Version, "(unknown version)")
 }
