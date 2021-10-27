@@ -15,6 +15,7 @@ import (
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
+	"github.com/algorand/indexer/version"
 )
 
 // ServerImplementation implements the handler interface used by the generated route definitions.
@@ -75,6 +76,7 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	}
 
 	return ctx.JSON(http.StatusOK, common.HealthCheckResponse{
+		Version:     version.LongVersion(),
 		Data:        health.Data,
 		Round:       health.Round,
 		IsMigrating: health.IsMigrating,

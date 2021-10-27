@@ -1239,13 +1239,18 @@
           },
           "round": {
             "type": "integer"
+          },
+          "version": {
+            "description": "Current version.",
+            "type": "string"
           }
         },
         "required": [
           "db-available",
           "is-migrating",
           "message",
-          "round"
+          "round",
+          "version"
         ],
         "type": "object"
       },

@@ -428,6 +428,9 @@ type HealthCheck struct {
 	IsMigrating bool                    `json:"is-migrating"`
 	Message     string                  `json:"message"`
 	Round       uint64                  `json:"round"`
+
+	// Current version.
+	Version string `json:"version"`
 }
 
 // MiniAssetHolding defines model for MiniAssetHolding.
