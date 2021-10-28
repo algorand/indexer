@@ -42,9 +42,11 @@ func TestTxnRowNext(t *testing.T) {
 			ascending: false,
 			txnRow: idb.TxnRow{
 				RootTxnBytes: protocol.Encode(&stxn),
-				Extra:        idb.TxnExtra{RootIntra: "50"},
-				Intra:        51,
-				Round:        1_234_567_890,
+				Extra: idb.TxnExtra{
+					RootIntra: idb.OptionalUint{Present: true, Value: 50},
+				},
+				Intra: 51,
+				Round: 1_234_567_890,
 			},
 			round: 1_234_567_890,
 			intra: 50,
@@ -54,9 +56,11 @@ func TestTxnRowNext(t *testing.T) {
 			ascending: true,
 			txnRow: idb.TxnRow{
 				RootTxnBytes: protocol.Encode(&stxn),
-				Extra:        idb.TxnExtra{RootIntra: "50"},
-				Intra:        51,
-				Round:        1_234_567_890,
+				Extra: idb.TxnExtra{
+					RootIntra: idb.OptionalUint{Present: true, Value: 50},
+				},
+				Intra: 51,
+				Round: 1_234_567_890,
 			},
 			round: 1_234_567_890,
 			intra: 53, // RootIntra + RootTxnBytes.numInnerTxns()
@@ -66,9 +70,11 @@ func TestTxnRowNext(t *testing.T) {
 			ascending: true,
 			txnRow: idb.TxnRow{
 				RootTxnBytes: []byte{},
-				Extra:        idb.TxnExtra{RootIntra: "50"},
-				Intra:        51,
-				Round:        1_234_567_890,
+				Extra: idb.TxnExtra{
+					RootIntra: idb.OptionalUint{Present: true, Value: 50},
+				},
+				Intra: 51,
+				Round: 1_234_567_890,
 			},
 			errMsg: "could not decode root transaction",
 		},
@@ -77,9 +83,11 @@ func TestTxnRowNext(t *testing.T) {
 			ascending: true,
 			txnRow: idb.TxnRow{
 				RootTxnBytes: nil,
-				Extra:        idb.TxnExtra{RootIntra: "50"},
-				Intra:        51,
-				Round:        1_234_567_890,
+				Extra: idb.TxnExtra{
+					RootIntra: idb.OptionalUint{Present: true, Value: 50},
+				},
+				Intra: 51,
+				Round: 1_234_567_890,
 			},
 			errMsg: "was not given transaction bytes",
 		},
@@ -88,11 +96,10 @@ func TestTxnRowNext(t *testing.T) {
 			ascending: true,
 			txnRow: idb.TxnRow{
 				RootTxnBytes: []byte{},
-				Extra:        idb.TxnExtra{RootIntra: "not a number"},
 				Intra:        51,
 				Round:        1_234_567_890,
 			},
-			errMsg: "could not parse root intra",
+			errMsg: "could not decode root transaction",
 		},
 	}
 

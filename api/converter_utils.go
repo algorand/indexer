@@ -241,7 +241,7 @@ func stateDeltaToStateDelta(d basics.StateDelta) *generated.StateDelta {
 type rowData struct {
 	Round            uint64
 	RoundTime        int64
-	Intra            int
+	Intra            uint
 	AssetID          uint64
 	AssetCloseAmount uint64
 }
@@ -270,16 +270,13 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	extra := rowData{
 		Round:            row.Round,
 		RoundTime:        row.RoundTime.Unix(),
-		Intra:            row.Intra,
+		Intra:            uint(row.Intra),
 		AssetID:          row.AssetID,
 		AssetCloseAmount: row.Extra.AssetCloseAmount,
 	}
 
-	if row.Extra.RootIntra != "" {
-		extra.Intra, err = strconv.Atoi(row.Extra.RootIntra)
-		if err != nil {
-			return generated.Transaction{}, fmt.Errorf("txnRowToTransaction(): failed to parse root-intra (%s): %w", row.Extra.RootIntra, err)
-		}
+	if row.Extra.RootIntra.Present {
+		extra.Intra = row.Extra.RootIntra.Value
 	}
 
 	txn, err := signedTxnWithAdToTransaction(&stxn, extra)
