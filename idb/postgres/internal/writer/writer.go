@@ -178,7 +178,6 @@ func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *b
 // the transaction table. It performs a preorder traversal to correctly compute
 // the intra round offset, the offset for the next transaction is returned.
 func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, block *bookkeeping.Block, intra, rootIntra uint64, rootTxid string, rows [][]interface{}) (uint64, [][]interface{}, error) {
-	next := intra
 	var err error
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
 		txn := &itxn.Txn
@@ -205,13 +204,14 @@ func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, bloc
 			encoding.EncodeTxnExtra(&extra)})
 
 		// Recurse at end for preorder traversal
-		next, rows, err = w.addInnerTransactions(&itxn, block, next+1, rootIntra, rootTxid, rows)
+		intra, rows, err =
+			w.addInnerTransactions(&itxn, block, intra+1, rootIntra, rootTxid, rows)
 		if err != nil {
 			return 0, nil, err
 		}
 	}
 
-	return next, rows, nil
+	return intra, rows, nil
 }
 
 // Add transactions from `block` to the database. `modifiedTxns` contains enhanced

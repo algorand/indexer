@@ -1336,12 +1336,12 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	// App call with inner txns, should be intra 0, 1, 2
+	// App call with inner txns, should be intra 0, 1, 2, 3
 	var appAddr basics.Address
 	appAddr[1] = 99
 	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
-	// Asset create call, should have intra = 3
+	// Asset create call, should have intra = 4
 	assetCreate := test.MakeAssetConfigTxn(
 		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountD)
 
@@ -1362,7 +1362,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 
 	txns, err := txnQuery(db, "SELECT * FROM txn ORDER BY intra")
 	require.NoError(t, err)
-	require.Len(t, txns, 4)
+	require.Len(t, txns, 5)
 
 	// Verify that intra is correctly assigned
 	for i, tx := range txns {
@@ -1372,26 +1372,32 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	// Verify correct order of transaction types.
 	require.Equal(t, idb.TypeEnumApplication, txns[0].typeenum)
 	require.Equal(t, idb.TypeEnumPay, txns[1].typeenum)
-	require.Equal(t, idb.TypeEnumAssetTransfer, txns[2].typeenum)
-	require.Equal(t, idb.TypeEnumAssetConfig, txns[3].typeenum)
+	require.Equal(t, idb.TypeEnumPay, txns[2].typeenum)
+	require.Equal(t, idb.TypeEnumAssetTransfer, txns[3].typeenum)
+	require.Equal(t, idb.TypeEnumAssetConfig, txns[4].typeenum)
 
 	// Verify special properties of inner transactions.
 	expectedExtra := fmt.Sprintf(`{"root-txid": "%s", "root-intra": "%d"}`, txns[0].txid, 0)
-	// Inner pay
+	// Inner pay 1
 	require.Len(t, txns[1].txnbytes, 0)
 	require.Equal(t, "", txns[1].txid)
 	require.Equal(t, expectedExtra, txns[1].extra)
-	require.NotContains(t, txns[1].txn, "itx", "The inner transactions should be pruned.")
 
-	// Inner xfer
+	// Inner pay 2
 	require.Len(t, txns[2].txnbytes, 0)
 	require.Equal(t, "", txns[2].txid)
 	require.Equal(t, expectedExtra, txns[2].extra)
 	require.NotContains(t, txns[2].txn, "itx", "The inner transactions should be pruned.")
 
+	// Inner xfer
+	require.Len(t, txns[3].txnbytes, 0)
+	require.Equal(t, "", txns[3].txid)
+	require.Equal(t, expectedExtra, txns[3].extra)
+	require.NotContains(t, txns[3].txn, "itx", "The inner transactions should be pruned.")
+
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
-	require.Equal(t, 4, txns[3].asset, "intra == 3 -> AssetID = 4")
+	require.Equal(t, 5, txns[4].asset, "intra == 4 -> AssetID = 5")
 
 	// Verify txn participation
 	txnPart, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
@@ -1419,7 +1425,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 			round: 1,
 			intra: 0,
 		},
-		// Inner pay transaction
+		// Inner pay transaction 1
 		{
 			addr:  appAddr,
 			round: 1,
@@ -1430,22 +1436,33 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 			round: 1,
 			intra: 1,
 		},
-		// Inner xfer transaction
+		// Inner pay transaction 2
 		{
 			addr:  appAddr,
 			round: 1,
 			intra: 2,
 		},
 		{
-			addr:  test.AccountC,
+			addr:  test.AccountB,
 			round: 1,
 			intra: 2,
+		},
+		// Inner xfer transaction
+		{
+			addr:  appAddr,
+			round: 1,
+			intra: 3,
+		},
+		{
+			addr:  test.AccountC,
+			round: 1,
+			intra: 3,
 		},
 		// acfg after appl
 		{
 			addr:  test.AccountD,
 			round: 1,
-			intra: 3,
+			intra: 4,
 		},
 	}
 
