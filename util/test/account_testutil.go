@@ -291,9 +291,10 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 }
 
 // MakeAppCallWithInnerTxn creates an app call with 3 levels of transactions:
-// root txn: application create
-// app call inner txn: payment
-// payment inner txn: asset xfer
+// application create
+// |- payment
+// |- payment
+//    |- asset transfer
 func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSender, assetReceiver basics.Address) transactions.SignedTxnWithAD {
 	createApp := MakeCreateAppTxn(appSender)
 
@@ -301,39 +302,55 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
 	// fake ApplyData to have inner txn
 	// otherwise it requires funding the app account and other special setup
-	createApp.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: protocol.PaymentTx,
-				Header: transactions.Header{
-					Sender: paymentSender,
-				},
-				PaymentTxnFields: transactions.PaymentTxnFields{
-					Receiver: paymentReceiver,
-					Amount:   basics.MicroAlgos{Raw: 123},
+	createApp.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
+		{
+			SignedTxn: transactions.SignedTxn{
+				Txn: transactions.Transaction{
+					Type: protocol.PaymentTx,
+					Header: transactions.Header{
+						Sender: paymentSender,
+					},
+					PaymentTxnFields: transactions.PaymentTxnFields{
+						Receiver: paymentReceiver,
+						Amount:   basics.MicroAlgos{Raw: 12},
+					},
 				},
 			},
 		},
-		// also add a fake second-level ApplyData to ensure the recursive part works
-		ApplyData: transactions.ApplyData{
-			EvalDelta: transactions.EvalDelta{
-				InnerTxns: []transactions.SignedTxnWithAD{{
-					SignedTxn: transactions.SignedTxn{
-						Txn: transactions.Transaction{
-							Type: protocol.AssetTransferTx,
-							Header: transactions.Header{
-								Sender: assetSender,
-							},
-							AssetTransferTxnFields: transactions.AssetTransferTxnFields{
-								AssetReceiver: assetReceiver,
-								AssetAmount:   456,
+		{
+			SignedTxn: transactions.SignedTxn{
+				Txn: transactions.Transaction{
+					Type: protocol.PaymentTx,
+					Header: transactions.Header{
+						Sender: paymentSender,
+					},
+					PaymentTxnFields: transactions.PaymentTxnFields{
+						Receiver: paymentReceiver,
+						Amount:   basics.MicroAlgos{Raw: 123},
+					},
+				},
+			},
+			// also add a fake second-level ApplyData to ensure the recursive part works
+			ApplyData: transactions.ApplyData{
+				EvalDelta: transactions.EvalDelta{
+					InnerTxns: []transactions.SignedTxnWithAD{{
+						SignedTxn: transactions.SignedTxn{
+							Txn: transactions.Transaction{
+								Type: protocol.AssetTransferTx,
+								Header: transactions.Header{
+									Sender: assetSender,
+								},
+								AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+									AssetReceiver: assetReceiver,
+									AssetAmount:   456,
+								},
 							},
 						},
-					},
-				}},
+					}},
+				},
 			},
 		},
-	}}
+	}
 
 	return createApp
 }

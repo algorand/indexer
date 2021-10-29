@@ -59,7 +59,7 @@ func TestTxnRowNext(t *testing.T) {
 				Round:        1_234_567_890,
 			},
 			round: 1_234_567_890,
-			intra: 52, // RootIntra + RootTxnBytes.numInnerTxns()
+			intra: 53, // RootIntra + RootTxnBytes.numInnerTxns()
 		},
 		{
 			name:      "root txn decode error",
