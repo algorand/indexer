@@ -15,8 +15,6 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
-var jsonCodecHandle *codec.JsonHandle
-
 // encodeJSON converts an object into JSON
 func encodeJSON(obj interface{}) []byte {
 	var buf []byte
@@ -287,15 +285,4 @@ func EncodeMigrationState(state *types.MigrationState) []byte {
 // EncodeAccountTotals encodes account totals into json.
 func EncodeAccountTotals(totals *ledgercore.AccountTotals) []byte {
 	return encodeJSON(totals)
-}
-
-func init() {
-	jsonCodecHandle = new(codec.JsonHandle)
-	jsonCodecHandle.ErrorIfNoField = true
-	jsonCodecHandle.ErrorIfNoArrayExpand = true
-	jsonCodecHandle.Canonical = true
-	jsonCodecHandle.RecursiveEmptyCheck = true
-	jsonCodecHandle.HTMLCharsAsIs = true
-	jsonCodecHandle.Indent = 0
-	jsonCodecHandle.MapKeyAsString = true
 }
