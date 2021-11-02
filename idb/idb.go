@@ -141,9 +141,8 @@ func (ou *OptionalUint) UnmarshalText(text []byte) error {
 // TxnExtra is some additional metadata needed for a transaction.
 type TxnExtra struct {
 	AssetCloseAmount uint64 `codec:"aca,omitempty"`
-	// RootIntra is set on inner transactions. Combined with the confirmation
+	// RootIntra is set only on inner transactions. Combined with the confirmation
 	// round it can be used to lookup the root transaction.
-	// The type is string to allow distinguishing between 0 and empty.
 	RootIntra OptionalUint `codec:"root-intra,omitempty"`
 	// RootTxid is set on inner transactions. It is a convenience for the
 	// future. If we decide to return inner transactions we'll want to include
