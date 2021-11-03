@@ -65,8 +65,8 @@ CREATE TABLE IF NOT EXISTS account_asset (
   PRIMARY KEY (addr, assetid)
 );
 
--- For account lookup
-CREATE INDEX IF NOT EXISTS account_asset_by_addr ON account_asset ( addr );
+-- For lookup up existing assets by account
+CREATE INDEX IF NOT EXISTS account_asset_by_addr_partial ON account_asset(addr) WHERE NOT deleted;
 
 -- Optional, to make queries of all asset balances fast /v2/assets/<assetid>/balances
 -- CREATE INDEX CONCURRENTLY IF NOT EXISTS account_asset_asset ON account_asset (assetid, addr ASC);
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS asset (
 );
 
 -- For account lookup
-CREATE INDEX IF NOT EXISTS asset_by_creator_addr ON asset ( creator_addr );
+CREATE INDEX IF NOT EXISTS asset_by_creator_addr_deleted ON asset(creator_addr, deleted);
 
 -- Includes indexer import state, migration state, special accounts (fee sink and
 -- rewards pool) and account totals.
@@ -103,7 +103,7 @@ CREATE TABLE IF NOT EXISTS app (
 );
 
 -- For account lookup
-CREATE INDEX IF NOT EXISTS app_by_creator ON app ( creator );
+CREATE INDEX IF NOT EXISTS app_by_creator_deleted ON app(creator, deleted);
 
 -- per-account app local state
 CREATE TABLE IF NOT EXISTS account_app (
@@ -116,5 +116,5 @@ CREATE TABLE IF NOT EXISTS account_app (
   PRIMARY KEY (addr, app)
 );
 
--- For account lookup
-CREATE INDEX IF NOT EXISTS account_app_by_addr ON account_app ( addr );
+-- For looking up existing app local states by account
+CREATE INDEX IF NOT EXISTS account_app_by_addr_partial ON account_app(addr) WHERE NOT deleted;
