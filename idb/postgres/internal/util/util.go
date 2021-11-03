@@ -14,36 +14,50 @@ import (
 	"github.com/algorand/indexer/idb"
 )
 
+func isSerializationError(err error) bool {
+	var pgerr *pgconn.PgError
+	return errors.As(err, &pgerr) && (pgerr.Code == pgerrcode.SerializationFailure)
+}
+
+func attemptTx(tx pgx.Tx, f func(pgx.Tx) error) error {
+	defer tx.Rollback(context.Background())
+
+	err := f(tx)
+	if err != nil {
+		return fmt.Errorf("attemptTx() err: %w", err)
+	}
+
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return fmt.Errorf("attemptTx() commit err: %w", err)
+	}
+
+	return nil
+}
+
 // TxWithRetry is a helper function that retries the function `f` in case the database
 // transaction in it fails due to a serialization error. `f` is provided
-// a transaction created using `opts`. `f` should either return an error in which case
-// the transaction is rolled back and `TxWithRetry` terminates, or nil in which case
-// the transaction attempts to be committed.
+// a transaction created using `opts`. If `f` experiences a database error, this error
+// must be included in `f`'s return error's chain, so that a serialization error can be
+// detected.
 func TxWithRetry(db *pgxpool.Pool, opts pgx.TxOptions, f func(pgx.Tx) error, log *log.Logger) error {
 	count := 0
+
 	for {
 		tx, err := db.BeginTx(context.Background(), opts)
 		if err != nil {
 			return fmt.Errorf("TxWithRetry() begin tx err: %w", err)
 		}
 
-		err = f(tx)
-		if err != nil {
-			tx.Rollback(context.Background())
-			return fmt.Errorf("TxWithRetry() err: %w", err)
-		}
-
-		err = tx.Commit(context.Background())
-		if err == nil {
-			return nil
-		}
-		// If not serialization error.
-		var pgerr *pgconn.PgError
-		if !errors.As(err, &pgerr) || (pgerr.Code != pgerrcode.SerializationFailure) {
+		err = attemptTx(tx, f)
+		if !isSerializationError(err) {
 			if (count > 0) && (log != nil) {
 				log.Printf("transaction was retried %d times", count)
 			}
-			return fmt.Errorf("TxWithRetry() commit tx err: %w", err)
+			if err != nil {
+				return fmt.Errorf("TxWithRetry() err: %w", err)
+			}
+			return nil
 		}
 
 		count++
