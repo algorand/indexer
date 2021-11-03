@@ -1375,21 +1375,6 @@
         }
       }
     },
-    "Error": {
-      "description": "An error response with optional data field.",
-      "type": "object",
-      "required": [
-        "message"
-      ],
-      "properties": {
-        "data": {
-          "type": "object"
-        },
-        "message": {
-          "type": "string"
-        }
-      }
-    },
     "HealthCheck": {
       "description": "A health check response.",
       "type": "object",
@@ -2360,8 +2345,19 @@
     },
     "ErrorResponse": {
       "description": "Response for errors",
-      "schema": {
-        "$ref": "#/definitions/Error"
+      "schema":{
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
       }
     },
     "AssetsResponse": {
