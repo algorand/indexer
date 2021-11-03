@@ -11,6 +11,8 @@ import (
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/algorand/indexer/idb"
 )
 
 func TestEncodeSignedTxnWithAD(t *testing.T) {
@@ -482,4 +484,46 @@ func TestAccountTotalsEncoding(t *testing.T) {
 	totalsNew, err := DecodeAccountTotals(buf)
 	require.NoError(t, err)
 	assert.Equal(t, totals, totalsNew)
+}
+
+func TestTxnExtra(t *testing.T) {
+	tests := []struct {
+		name     string
+		extra    idb.TxnExtra
+		expected string
+	}{
+		{
+			name: "basic",
+			extra: idb.TxnExtra{
+				AssetCloseAmount: 3,
+				RootIntra:        idb.OptionalUint{Present: true, Value: 4},
+				RootTxid:         "abc",
+			},
+			expected: `{"aca":3,"root-intra":"4","root-txid":"abc"}`,
+		},
+		{
+			name: "root_intra_zero",
+			extra: idb.TxnExtra{
+				RootIntra: idb.OptionalUint{Present: true, Value: 0},
+			},
+			expected: `{"root-intra":"0"}`,
+		},
+		{
+			name:     "no_root_intra",
+			extra:    idb.TxnExtra{},
+			expected: `{}`,
+		},
+	}
+
+	for _, testcase := range tests {
+		testcase := testcase
+		t.Run(testcase.name, func(t *testing.T) {
+			buf := EncodeTxnExtra(&testcase.extra)
+			assert.Equal(t, testcase.expected, string(buf))
+
+			extraNew, err := DecodeTxnExtra(buf)
+			require.NoError(t, err)
+			assert.Equal(t, testcase.extra, extraNew)
+		})
+	}
 }
