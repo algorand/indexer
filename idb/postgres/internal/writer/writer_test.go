@@ -410,6 +410,70 @@ func TestWriterTxnParticipationTableBasic(t *testing.T) {
 	}
 }
 
+func TestWriterTxnParticipationTableAppCallAddresses(t *testing.T) {
+	db, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	block := bookkeeping.Block{
+		BlockHeader: bookkeeping.BlockHeader{
+			Round:       basics.Round(2),
+			GenesisID:   test.MakeGenesis().ID(),
+			GenesisHash: test.GenesisHash,
+			UpgradeState: bookkeeping.UpgradeState{
+				CurrentProtocol: test.Proto,
+			},
+		},
+		Payset: make(transactions.Payset, 1),
+	}
+
+	stxnad := test.MakeCreateAppTxn(test.AccountA)
+	stxnad.Txn.ApplicationCallTxnFields.Accounts =
+		[]basics.Address{test.AccountB, test.AccountC}
+	var err error
+	block.Payset[0], err = block.EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
+	require.NoError(t, err)
+
+	f := func(tx pgx.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		require.NoError(t, err)
+
+		w.Close()
+		return nil
+	}
+	err = pgutil.TxWithRetry(db, serializable, f, nil)
+	require.NoError(t, err)
+
+	results, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
+	assert.NoError(t, err)
+
+	expected := []txnParticipationRow{
+		{
+			addr:  test.AccountA,
+			round: 2,
+			intra: 0,
+		},
+		{
+			addr:  test.AccountB,
+			round: 2,
+			intra: 0,
+		},
+		{
+			addr:  test.AccountC,
+			round: 2,
+			intra: 0,
+		},
+	}
+
+	// Verify expected participation
+	assert.Len(t, results, len(expected))
+	for i := range results {
+		assert.Equal(t, expected[i], results[i])
+	}
+}
+
 // Create a new account and then delete it.
 func TestWriterAccountTableBasic(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)

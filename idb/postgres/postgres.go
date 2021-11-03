@@ -24,6 +24,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/algorand/indexer/accounting"
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
@@ -158,20 +159,6 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations()
 }
 
-// Add addresses referenced in `txn` to `out`.
-func getTxnAddresses(txn *transactions.Transaction, out map[basics.Address]struct{}) {
-	out[txn.Sender] = struct{}{}
-	out[txn.Receiver] = struct{}{}
-	out[txn.CloseRemainderTo] = struct{}{}
-	out[txn.AssetSender] = struct{}{}
-	out[txn.AssetReceiver] = struct{}{}
-	out[txn.AssetCloseTo] = struct{}{}
-	out[txn.FreezeAccount] = struct{}{}
-	for _, address := range txn.ApplicationCallTxnFields.Accounts {
-		out[address] = struct{}{}
-	}
-}
-
 // Returns all addresses referenced in `block`.
 func getBlockAddresses(block *bookkeeping.Block) map[basics.Address]struct{} {
 	// Reserve a reasonable memory size for the map.
@@ -180,7 +167,10 @@ func getBlockAddresses(block *bookkeeping.Block) map[basics.Address]struct{} {
 	res[block.FeeSink] = struct{}{}
 	res[block.RewardsPool] = struct{}{}
 	for _, stib := range block.Payset {
-		getTxnAddresses(&stib.Txn, res)
+		addFunc := func(address basics.Address) {
+			res[address] = struct{}{}
+		}
+		accounting.GetTransactionParticipants(&stib.SignedTxnWithAD, true, addFunc)
 	}
 
 	return res

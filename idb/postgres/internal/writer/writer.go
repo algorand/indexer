@@ -13,6 +13,7 @@ import (
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
 
+	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
@@ -265,24 +266,6 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 	return nil
 }
 
-func getTransactionParticipantsImpl(stxnad *transactions.SignedTxnWithAD, includeInner bool, add func(address basics.Address)) {
-	txn := stxnad.Txn
-
-	add(txn.Sender)
-	add(txn.Receiver)
-	add(txn.CloseRemainderTo)
-	add(txn.AssetSender)
-	add(txn.AssetReceiver)
-	add(txn.AssetCloseTo)
-	add(txn.FreezeAccount)
-
-	if includeInner {
-		for _, inner := range stxnad.ApplyData.EvalDelta.InnerTxns {
-			getTransactionParticipantsImpl(&inner, includeInner, add)
-		}
-	}
-}
-
 // getTransactionParticipants returns referenced addresses from the txn and all inner txns
 func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInner bool) []basics.Address {
 	const acctsPerTxn = 7
@@ -302,7 +285,7 @@ func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInn
 			res = append(res, address)
 		}
 
-		getTransactionParticipantsImpl(stxnad, includeInner, add)
+		accounting.GetTransactionParticipants(stxnad, includeInner, add)
 		return res
 	}
 
@@ -318,7 +301,7 @@ func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInn
 		participants[address] = struct{}{}
 	}
 
-	getTransactionParticipantsImpl(stxnad, includeInner, add)
+	accounting.GetTransactionParticipants(stxnad, includeInner, add)
 
 	res := make([]basics.Address, 0, len(participants))
 	for addr := range participants {
