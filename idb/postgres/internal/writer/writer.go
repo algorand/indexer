@@ -274,9 +274,6 @@ func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInn
 		// if no inner transactions then adding into a slice with in-place de-duplication
 		res := make([]basics.Address, 0, acctsPerTxn)
 		add := func(address basics.Address) {
-			if address.IsZero() {
-				return
-			}
 			for _, p := range res {
 				if address == p {
 					return
@@ -295,9 +292,6 @@ func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInn
 	size := acctsPerTxn * (1 + len(stxnad.ApplyData.EvalDelta.InnerTxns)) // approx
 	participants := make(map[basics.Address]struct{}, size)
 	add := func(address basics.Address) {
-		if address.IsZero() {
-			return
-		}
 		participants[address] = struct{}{}
 	}
 
