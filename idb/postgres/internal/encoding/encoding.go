@@ -8,17 +8,56 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-codec/codec"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/types"
+	"github.com/algorand/indexer/util"
 )
 
+var jsonCodecHandle *codec.JsonHandle
+
+func init() {
+	jsonCodecHandle = new(codec.JsonHandle)
+	jsonCodecHandle.ErrorIfNoField = true
+	jsonCodecHandle.ErrorIfNoArrayExpand = true
+	jsonCodecHandle.Canonical = true
+	jsonCodecHandle.RecursiveEmptyCheck = true
+	jsonCodecHandle.HTMLCharsAsIs = true
+	jsonCodecHandle.Indent = 0
+	jsonCodecHandle.MapKeyAsString = true
+}
+
+// encodeJSON converts an object into JSON
+func encodeJSON(obj interface{}) []byte {
+	var buf []byte
+	enc := codec.NewEncoderBytes(&buf, jsonCodecHandle)
+	enc.MustEncode(obj)
+	return buf
+}
+
 // DecodeJSON is a function that decodes json.
-var DecodeJSON = protocol.DecodeJSON
+func DecodeJSON(b []byte, objptr interface{}) error {
+	dec := codec.NewDecoderBytes(b, jsonCodecHandle)
+	return dec.Decode(objptr)
+}
+
+// Base64 encodes a byte array to a base64 string.
+func Base64(data []byte) string {
+	return base64.StdEncoding.EncodeToString(data)
+}
 
 func decodeBase64(data string) ([]byte, error) {
 	return base64.StdEncoding.DecodeString(data)
+}
+
+func convertBlockHeader(header bookkeeping.BlockHeader) blockHeader {
+	return blockHeader{
+		BlockHeader:         header,
+		BranchOverride:      crypto.Digest(header.Branch),
+		FeeSinkOverride:     crypto.Digest(header.FeeSink),
+		RewardsPoolOverride: crypto.Digest(header.RewardsPool),
+	}
 }
 
 func unconvertBlockHeader(header blockHeader) bookkeeping.BlockHeader {
@@ -27,6 +66,11 @@ func unconvertBlockHeader(header blockHeader) bookkeeping.BlockHeader {
 	res.FeeSink = basics.Address(header.FeeSinkOverride)
 	res.RewardsPool = basics.Address(header.RewardsPoolOverride)
 	return res
+}
+
+// EncodeBlockHeader encodes block header into json.
+func EncodeBlockHeader(header bookkeeping.BlockHeader) []byte {
+	return encodeJSON(convertBlockHeader(header))
 }
 
 // DecodeBlockHeader decodes block header from json.
@@ -38,6 +82,37 @@ func DecodeBlockHeader(data []byte) (bookkeeping.BlockHeader, error) {
 	}
 
 	return unconvertBlockHeader(header), nil
+}
+
+func convertAssetParams(params basics.AssetParams) assetParams {
+	ret := assetParams{
+		AssetParams:      params,
+		ManagerOverride:  crypto.Digest(params.Manager),
+		ReserveOverride:  crypto.Digest(params.Reserve),
+		FreezeOverride:   crypto.Digest(params.Freeze),
+		ClawbackOverride: crypto.Digest(params.Clawback),
+		AssetNameBytes:   []byte(params.AssetName),
+		UnitNameBytes:    []byte(params.UnitName),
+		URLBytes:         []byte(params.URL),
+	}
+
+	ret.AssetName = util.PrintableUTF8OrEmpty(params.AssetName)
+	ret.UnitName = util.PrintableUTF8OrEmpty(params.UnitName)
+	ret.URL = util.PrintableUTF8OrEmpty(params.URL)
+
+	// If the string is printable, don't store the encoded version.
+	// This is a nice optimization, and required for backwards compatibility.
+	if len(ret.AssetName) > 0 {
+		ret.AssetNameBytes = nil
+	}
+	if len(ret.UnitName) > 0 {
+		ret.UnitNameBytes = nil
+	}
+	if len(ret.URL) > 0 {
+		ret.URLBytes = nil
+	}
+
+	return ret
 }
 
 func unconvertAssetParams(params assetParams) basics.AssetParams {
@@ -58,6 +133,11 @@ func unconvertAssetParams(params assetParams) basics.AssetParams {
 	return res
 }
 
+// EncodeAssetParams encodes asset params into json.
+func EncodeAssetParams(params basics.AssetParams) []byte {
+	return encodeJSON(convertAssetParams(params))
+}
+
 // DecodeAssetParams decodes asset params from json.
 func DecodeAssetParams(data []byte) (basics.AssetParams, error) {
 	var params assetParams
@@ -67,6 +147,18 @@ func DecodeAssetParams(data []byte) (basics.AssetParams, error) {
 	}
 
 	return unconvertAssetParams(params), nil
+}
+
+func convertAccounts(accounts []basics.Address) []crypto.Digest {
+	if accounts == nil {
+		return nil
+	}
+
+	res := make([]crypto.Digest, 0, len(accounts))
+	for _, address := range accounts {
+		res = append(res, crypto.Digest(address))
+	}
+	return res
 }
 
 func unconvertAccounts(accounts []crypto.Digest) []basics.Address {
@@ -79,6 +171,22 @@ func unconvertAccounts(accounts []crypto.Digest) []basics.Address {
 		res = append(res, basics.Address(address))
 	}
 	return res
+}
+
+func convertTransaction(txn transactions.Transaction) transaction {
+	return transaction{
+		Transaction:              txn,
+		SenderOverride:           crypto.Digest(txn.Sender),
+		RekeyToOverride:          crypto.Digest(txn.RekeyTo),
+		ReceiverOverride:         crypto.Digest(txn.Receiver),
+		AssetParamsOverride:      convertAssetParams(txn.AssetParams),
+		CloseRemainderToOverride: crypto.Digest(txn.CloseRemainderTo),
+		AssetSenderOverride:      crypto.Digest(txn.AssetSender),
+		AssetReceiverOverride:    crypto.Digest(txn.AssetReceiver),
+		AssetCloseToOverride:     crypto.Digest(txn.AssetCloseTo),
+		FreezeAccountOverride:    crypto.Digest(txn.FreezeAccount),
+		AccountsOverride:         convertAccounts(txn.Accounts),
+	}
 }
 
 func unconvertTransaction(txn transaction) transactions.Transaction {
@@ -96,9 +204,28 @@ func unconvertTransaction(txn transaction) transactions.Transaction {
 	return res
 }
 
+func convertValueDelta(delta basics.ValueDelta) valueDelta {
+	return valueDelta{
+		ValueDelta:    delta,
+		BytesOverride: []byte(delta.Bytes),
+	}
+}
+
 func unconvertValueDelta(delta valueDelta) basics.ValueDelta {
 	res := delta.ValueDelta
 	res.Bytes = string(delta.BytesOverride)
+	return res
+}
+
+func convertStateDelta(delta basics.StateDelta) stateDelta {
+	if delta == nil {
+		return nil
+	}
+
+	res := make(map[byteArray]valueDelta, len(delta))
+	for k, v := range delta {
+		res[byteArray{k}] = convertValueDelta(v)
+	}
 	return res
 }
 
@@ -110,6 +237,18 @@ func unconvertStateDelta(delta stateDelta) basics.StateDelta {
 	res := make(map[string]basics.ValueDelta, len(delta))
 	for k, v := range delta {
 		res[k.data] = unconvertValueDelta(v)
+	}
+	return res
+}
+
+func convertLocalDeltas(deltas map[uint64]basics.StateDelta) map[uint64]stateDelta {
+	if deltas == nil {
+		return nil
+	}
+
+	res := make(map[uint64]stateDelta, len(deltas))
+	for i, delta := range deltas {
+		res[i] = convertStateDelta(delta)
 	}
 	return res
 }
@@ -126,6 +265,18 @@ func unconvertLocalDeltas(deltas map[uint64]stateDelta) map[uint64]basics.StateD
 	return res
 }
 
+func convertLogs(logs []string) [][]byte {
+	if logs == nil {
+		return nil
+	}
+
+	res := make([][]byte, len(logs))
+	for i, log := range logs {
+		res[i] = []byte(log)
+	}
+	return res
+}
+
 func unconvertLogs(logs [][]byte) []string {
 	if logs == nil {
 		return nil
@@ -134,6 +285,18 @@ func unconvertLogs(logs [][]byte) []string {
 	res := make([]string, len(logs))
 	for i, log := range logs {
 		res[i] = string(log)
+	}
+	return res
+}
+
+func convertInnerTxns(innerTxns []transactions.SignedTxnWithAD) []signedTxnWithAD {
+	if innerTxns == nil {
+		return nil
+	}
+
+	res := make([]signedTxnWithAD, len(innerTxns))
+	for i, innerTxn := range innerTxns {
+		res[i] = convertSignedTxnWithAD(innerTxn)
 	}
 	return res
 }
@@ -150,6 +313,16 @@ func unconvertInnerTxns(innerTxns []signedTxnWithAD) []transactions.SignedTxnWit
 	return res
 }
 
+func convertEvalDelta(delta transactions.EvalDelta) evalDelta {
+	return evalDelta{
+		EvalDelta:           delta,
+		GlobalDeltaOverride: convertStateDelta(delta.GlobalDelta),
+		LocalDeltasOverride: convertLocalDeltas(delta.LocalDeltas),
+		LogsOverride:        convertLogs(delta.Logs),
+		InnerTxnsOverride:   convertInnerTxns(delta.InnerTxns),
+	}
+}
+
 func unconvertEvalDelta(delta evalDelta) transactions.EvalDelta {
 	res := delta.EvalDelta
 	res.GlobalDelta = unconvertStateDelta(delta.GlobalDeltaOverride)
@@ -159,12 +332,26 @@ func unconvertEvalDelta(delta evalDelta) transactions.EvalDelta {
 	return res
 }
 
+func convertSignedTxnWithAD(stxn transactions.SignedTxnWithAD) signedTxnWithAD {
+	return signedTxnWithAD{
+		SignedTxnWithAD:   stxn,
+		TxnOverride:       convertTransaction(stxn.Txn),
+		AuthAddrOverride:  crypto.Digest(stxn.AuthAddr),
+		EvalDeltaOverride: convertEvalDelta(stxn.EvalDelta),
+	}
+}
+
 func unconvertSignedTxnWithAD(stxn signedTxnWithAD) transactions.SignedTxnWithAD {
 	res := stxn.SignedTxnWithAD
 	res.Txn = unconvertTransaction(stxn.TxnOverride)
 	res.AuthAddr = basics.Address(stxn.AuthAddrOverride)
 	res.EvalDelta = unconvertEvalDelta(stxn.EvalDeltaOverride)
 	return res
+}
+
+// EncodeSignedTxnWithAD encodes signed transaction with apply data into json.
+func EncodeSignedTxnWithAD(stxn transactions.SignedTxnWithAD) []byte {
+	return encodeJSON(convertSignedTxnWithAD(stxn))
 }
 
 // DecodeSignedTxnWithAD decodes signed txn with apply data from json.
@@ -178,10 +365,36 @@ func DecodeSignedTxnWithAD(data []byte) (transactions.SignedTxnWithAD, error) {
 	return unconvertSignedTxnWithAD(stxn), nil
 }
 
+// TrimAccountData deletes various information from account data that we do not write to
+// `account.account_data`.
+func TrimAccountData(ad basics.AccountData) basics.AccountData {
+	ad.MicroAlgos = basics.MicroAlgos{}
+	ad.RewardsBase = 0
+	ad.RewardedMicroAlgos = basics.MicroAlgos{}
+	ad.AssetParams = nil
+	ad.Assets = nil
+	ad.AppLocalStates = nil
+	ad.AppParams = nil
+
+	return ad
+}
+
+func convertTrimmedAccountData(ad basics.AccountData) trimmedAccountData {
+	return trimmedAccountData{
+		AccountData:      ad,
+		AuthAddrOverride: crypto.Digest(ad.AuthAddr),
+	}
+}
+
 func unconvertTrimmedAccountData(ad trimmedAccountData) basics.AccountData {
 	res := ad.AccountData
 	res.AuthAddr = basics.Address(ad.AuthAddrOverride)
 	return res
+}
+
+// EncodeTrimmedAccountData encodes account data into json.
+func EncodeTrimmedAccountData(ad basics.AccountData) []byte {
+	return encodeJSON(convertTrimmedAccountData(ad))
 }
 
 // DecodeTrimmedAccountData decodes account data from json.
@@ -195,9 +408,28 @@ func DecodeTrimmedAccountData(data []byte) (basics.AccountData, error) {
 	return unconvertTrimmedAccountData(ado), nil
 }
 
+func convertTealValue(tv basics.TealValue) tealValue {
+	return tealValue{
+		TealValue:     tv,
+		BytesOverride: []byte(tv.Bytes),
+	}
+}
+
 func unconvertTealValue(tv tealValue) basics.TealValue {
 	res := tv.TealValue
 	res.Bytes = string(tv.BytesOverride)
+	return res
+}
+
+func convertTealKeyValue(tkv basics.TealKeyValue) tealKeyValue {
+	if tkv == nil {
+		return nil
+	}
+
+	res := make(map[byteArray]tealValue, len(tkv))
+	for k, tv := range tkv {
+		res[byteArray{data: k}] = convertTealValue(tv)
+	}
 	return res
 }
 
@@ -213,10 +445,22 @@ func unconvertTealKeyValue(tkv tealKeyValue) basics.TealKeyValue {
 	return res
 }
 
+func convertAppLocalState(state basics.AppLocalState) appLocalState {
+	return appLocalState{
+		AppLocalState:    state,
+		KeyValueOverride: convertTealKeyValue(state.KeyValue),
+	}
+}
+
 func unconvertAppLocalState(state appLocalState) basics.AppLocalState {
 	res := state.AppLocalState
 	res.KeyValue = unconvertTealKeyValue(state.KeyValueOverride)
 	return res
+}
+
+// EncodeAppLocalState encodes local application state into json.
+func EncodeAppLocalState(state basics.AppLocalState) []byte {
+	return encodeJSON(convertAppLocalState(state))
 }
 
 // DecodeAppLocalState decodes local application state from json.
@@ -230,10 +474,22 @@ func DecodeAppLocalState(data []byte) (basics.AppLocalState, error) {
 	return unconvertAppLocalState(state), nil
 }
 
+func convertAppParams(params basics.AppParams) appParams {
+	return appParams{
+		AppParams:           params,
+		GlobalStateOverride: convertTealKeyValue(params.GlobalState),
+	}
+}
+
 func unconvertAppParams(params appParams) basics.AppParams {
 	res := params.AppParams
 	res.GlobalState = unconvertTealKeyValue(params.GlobalStateOverride)
 	return res
+}
+
+// EncodeAppParams encodes application params into json.
+func EncodeAppParams(params basics.AppParams) []byte {
+	return encodeJSON(convertAppParams(params))
 }
 
 // DecodeAppParams decodes application params from json.
@@ -316,12 +572,24 @@ func DecodeAppLocalStateArray(data []byte) ([]basics.AppLocalState, error) {
 
 	return unconvertAppLocalStateArray(array), nil
 }
+func convertSpecialAddresses(special transactions.SpecialAddresses) specialAddresses {
+	return specialAddresses{
+		SpecialAddresses:    special,
+		FeeSinkOverride:     crypto.Digest(special.FeeSink),
+		RewardsPoolOverride: crypto.Digest(special.RewardsPool),
+	}
+}
 
 func unconvertSpecialAddresses(special specialAddresses) transactions.SpecialAddresses {
 	res := special.SpecialAddresses
 	res.FeeSink = basics.Address(special.FeeSinkOverride)
 	res.RewardsPool = basics.Address(special.RewardsPoolOverride)
 	return res
+}
+
+// EncodeSpecialAddresses encodes special addresses (sink and rewards pool) into json.
+func EncodeSpecialAddresses(special transactions.SpecialAddresses) []byte {
+	return encodeJSON(convertSpecialAddresses(special))
 }
 
 // DecodeSpecialAddresses decodes special addresses (sink and rewards pool) from json.
@@ -335,6 +603,11 @@ func DecodeSpecialAddresses(data []byte) (transactions.SpecialAddresses, error) 
 	return unconvertSpecialAddresses(special), nil
 }
 
+// EncodeTxnExtra encodes transaction extra info into json.
+func EncodeTxnExtra(extra *idb.TxnExtra) []byte {
+	return encodeJSON(extra)
+}
+
 // DecodeTxnExtra decodes transaction extra info from json.
 func DecodeTxnExtra(data []byte) (idb.TxnExtra, error) {
 	var extra idb.TxnExtra
@@ -344,6 +617,11 @@ func DecodeTxnExtra(data []byte) (idb.TxnExtra, error) {
 	}
 
 	return extra, nil
+}
+
+// EncodeImportState encodes import state into json.
+func EncodeImportState(state *types.ImportState) []byte {
+	return encodeJSON(state)
 }
 
 // DecodeImportState decodes import state from json.
@@ -357,6 +635,11 @@ func DecodeImportState(data []byte) (types.ImportState, error) {
 	return state, nil
 }
 
+// EncodeMigrationState encodes migration state into json.
+func EncodeMigrationState(state *types.MigrationState) []byte {
+	return encodeJSON(state)
+}
+
 // DecodeMigrationState decodes migration state from json.
 func DecodeMigrationState(data []byte) (types.MigrationState, error) {
 	var state types.MigrationState
@@ -366,6 +649,11 @@ func DecodeMigrationState(data []byte) (types.MigrationState, error) {
 	}
 
 	return state, nil
+}
+
+// EncodeAccountTotals encodes account totals into json.
+func EncodeAccountTotals(totals *ledgercore.AccountTotals) []byte {
+	return encodeJSON(totals)
 }
 
 // DecodeAccountTotals decodes account totals from json.

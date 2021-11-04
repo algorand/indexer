@@ -341,72 +341,121 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	assert.NoError(t, rows.Err())
 }
 
-func TestWriterTxnParticipationTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
-	defer shutdownFunc()
+func TestWriterTxnParticipationTable(t *testing.T) {
+	type testtype struct {
+		name     string
+		payset   transactions.Payset
+		expected []txnParticipationRow
+	}
 
-	block := bookkeeping.Block{
-		BlockHeader: bookkeeping.BlockHeader{
-			Round:       basics.Round(2),
-			GenesisID:   test.MakeGenesis().ID(),
-			GenesisHash: test.GenesisHash,
-			UpgradeState: bookkeeping.UpgradeState{
-				CurrentProtocol: test.Proto,
+	makeBlockFunc := func() bookkeeping.Block {
+		return bookkeeping.Block{
+			BlockHeader: bookkeeping.BlockHeader{
+				Round:       basics.Round(2),
+				GenesisID:   test.MakeGenesis().ID(),
+				GenesisHash: test.GenesisHash,
+				UpgradeState: bookkeeping.UpgradeState{
+					CurrentProtocol: test.Proto,
+				},
 			},
-		},
-		Payset: make(transactions.Payset, 2),
+		}
 	}
 
-	stxnad0 := test.MakePaymentTxn(
-		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-		basics.Address{})
-	var err error
-	block.Payset[0], err = block.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
-	require.NoError(t, err)
-
-	stxnad1 := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
-	block.Payset[1], err = block.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
-	require.NoError(t, err)
-
-	f := func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
+	var tests []testtype
+	{
+		stxnad0 := test.MakePaymentTxn(
+			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
+			basics.Address{})
+		stib0, err := makeBlockFunc().EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		stxnad1 := test.MakeAssetConfigTxn(
+			0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
+		stib1, err := makeBlockFunc().EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
 		require.NoError(t, err)
 
-		w.Close()
-		return nil
+		testcase := testtype{
+			name:   "basic",
+			payset: []transactions.SignedTxnInBlock{stib0, stib1},
+			expected: []txnParticipationRow{
+				{
+					addr:  test.AccountA,
+					round: 2,
+					intra: 0,
+				},
+				{
+					addr:  test.AccountB,
+					round: 2,
+					intra: 0,
+				},
+				{
+					addr:  test.AccountC,
+					round: 2,
+					intra: 1,
+				},
+			},
+		}
+		tests = append(tests, testcase)
 	}
-	err = pgutil.TxWithRetry(db, serializable, f, nil)
-	require.NoError(t, err)
+	{
+		stxnad := test.MakeCreateAppTxn(test.AccountA)
+		stxnad.Txn.ApplicationCallTxnFields.Accounts =
+			[]basics.Address{test.AccountB, test.AccountC}
+		stib, err := makeBlockFunc().EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
+		require.NoError(t, err)
 
-	results, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
-	assert.NoError(t, err)
-
-	expected := []txnParticipationRow{
-		{
-			addr:  test.AccountA,
-			round: 2,
-			intra: 0,
-		},
-		{
-			addr:  test.AccountB,
-			round: 2,
-			intra: 0,
-		},
-		{
-			addr:  test.AccountC,
-			round: 2,
-			intra: 1,
-		},
+		testcase := testtype{
+			name:   "app_call_addresses",
+			payset: []transactions.SignedTxnInBlock{stib},
+			expected: []txnParticipationRow{
+				{
+					addr:  test.AccountA,
+					round: 2,
+					intra: 0,
+				},
+				{
+					addr:  test.AccountB,
+					round: 2,
+					intra: 0,
+				},
+				{
+					addr:  test.AccountC,
+					round: 2,
+					intra: 0,
+				},
+			},
+		}
+		tests = append(tests, testcase)
 	}
 
-	// Verify expected participation
-	assert.Len(t, results, len(expected))
-	for i := range results {
-		assert.Equal(t, expected[i], results[i])
+	for _, testcase := range tests {
+		t.Run(testcase.name, func(t *testing.T) {
+			db, shutdownFunc := setupPostgres(t)
+			defer shutdownFunc()
+
+			block := makeBlockFunc()
+			block.Payset = testcase.payset
+
+			f := func(tx pgx.Tx) error {
+				w, err := writer.MakeWriter(tx)
+				require.NoError(t, err)
+
+				err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+				require.NoError(t, err)
+
+				w.Close()
+				return nil
+			}
+			err := pgutil.TxWithRetry(db, serializable, f, nil)
+			require.NoError(t, err)
+
+			results, err := txnParticipationQuery(
+				db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
+			assert.NoError(t, err)
+
+			// Verify expected participation
+			assert.Equal(t, testcase.expected, results)
+		})
 	}
 }
 
@@ -1336,12 +1385,12 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	// App call with inner txns, should be intra 0, 1, 2
+	// App call with inner txns, should be intra 0, 1, 2, 3
 	var appAddr basics.Address
 	appAddr[1] = 99
 	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
-	// Asset create call, should have intra = 3
+	// Asset create call, should have intra = 4
 	assetCreate := test.MakeAssetConfigTxn(
 		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountD)
 
@@ -1362,7 +1411,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 
 	txns, err := txnQuery(db, "SELECT * FROM txn ORDER BY intra")
 	require.NoError(t, err)
-	require.Len(t, txns, 4)
+	require.Len(t, txns, 5)
 
 	// Verify that intra is correctly assigned
 	for i, tx := range txns {
@@ -1372,26 +1421,32 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	// Verify correct order of transaction types.
 	require.Equal(t, idb.TypeEnumApplication, txns[0].typeenum)
 	require.Equal(t, idb.TypeEnumPay, txns[1].typeenum)
-	require.Equal(t, idb.TypeEnumAssetTransfer, txns[2].typeenum)
-	require.Equal(t, idb.TypeEnumAssetConfig, txns[3].typeenum)
+	require.Equal(t, idb.TypeEnumPay, txns[2].typeenum)
+	require.Equal(t, idb.TypeEnumAssetTransfer, txns[3].typeenum)
+	require.Equal(t, idb.TypeEnumAssetConfig, txns[4].typeenum)
 
 	// Verify special properties of inner transactions.
 	expectedExtra := fmt.Sprintf(`{"root-txid": "%s", "root-intra": "%d"}`, txns[0].txid, 0)
-	// Inner pay
+	// Inner pay 1
 	require.Len(t, txns[1].txnbytes, 0)
 	require.Equal(t, "", txns[1].txid)
 	require.Equal(t, expectedExtra, txns[1].extra)
-	require.NotContains(t, txns[1].txn, "itx", "The inner transactions should be pruned.")
 
-	// Inner xfer
+	// Inner pay 2
 	require.Len(t, txns[2].txnbytes, 0)
 	require.Equal(t, "", txns[2].txid)
 	require.Equal(t, expectedExtra, txns[2].extra)
 	require.NotContains(t, txns[2].txn, "itx", "The inner transactions should be pruned.")
 
+	// Inner xfer
+	require.Len(t, txns[3].txnbytes, 0)
+	require.Equal(t, "", txns[3].txid)
+	require.Equal(t, expectedExtra, txns[3].extra)
+	require.NotContains(t, txns[3].txn, "itx", "The inner transactions should be pruned.")
+
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
-	require.Equal(t, 4, txns[3].asset, "intra == 3 -> AssetID = 4")
+	require.Equal(t, 5, txns[4].asset, "intra == 4 -> AssetID = 5")
 
 	// Verify txn participation
 	txnPart, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
@@ -1419,7 +1474,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 			round: 1,
 			intra: 0,
 		},
-		// Inner pay transaction
+		// Inner pay transaction 1
 		{
 			addr:  appAddr,
 			round: 1,
@@ -1430,22 +1485,33 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 			round: 1,
 			intra: 1,
 		},
-		// Inner xfer transaction
+		// Inner pay transaction 2
 		{
 			addr:  appAddr,
 			round: 1,
 			intra: 2,
 		},
 		{
-			addr:  test.AccountC,
+			addr:  test.AccountB,
 			round: 1,
 			intra: 2,
+		},
+		// Inner xfer transaction
+		{
+			addr:  appAddr,
+			round: 1,
+			intra: 3,
+		},
+		{
+			addr:  test.AccountC,
+			round: 1,
+			intra: 3,
 		},
 		// acfg after appl
 		{
 			addr:  test.AccountD,
 			round: 1,
-			intra: 3,
+			intra: 4,
 		},
 	}
 

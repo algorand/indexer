@@ -1494,7 +1494,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 		},
 		{
 			name:    "match on inner",
-			matches: 1,
+			matches: 2,
 			filter:  idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay},
 		},
 		{
@@ -1504,7 +1504,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 		},
 		{
 			name:    "match all",
-			matches: 3,
+			matches: 4,
 			filter:  idb.TransactionFilter{Address: appAddr[:]},
 		},
 	}

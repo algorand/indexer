@@ -24,6 +24,7 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/algorand/indexer/accounting"
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
@@ -107,9 +108,9 @@ type IndexerDb struct {
 
 // txWithRetry is a helper function that retries the function `f` in case the database
 // transaction in it fails due to a serialization error. `f` is provided
-// a transaction created using `opts`. `f` should either return an error in which case
-// the transaction is rolled back and `TxWithRetry` terminates, or nil in which case
-// the transaction attempts to be committed.
+// a transaction created using `opts`. If `f` experiences a database error, this error
+// must be included in `f`'s return error's chain, so that a serialization error can be
+// detected.
 func (db *IndexerDb) txWithRetry(opts pgx.TxOptions, f func(pgx.Tx) error) error {
 	return pgutil.TxWithRetry(db.db, opts, f, db.log)
 }
@@ -158,20 +159,6 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations()
 }
 
-// Add addresses referenced in `txn` to `out`.
-func getTxnAddresses(txn *transactions.Transaction, out map[basics.Address]struct{}) {
-	out[txn.Sender] = struct{}{}
-	out[txn.Receiver] = struct{}{}
-	out[txn.CloseRemainderTo] = struct{}{}
-	out[txn.AssetSender] = struct{}{}
-	out[txn.AssetReceiver] = struct{}{}
-	out[txn.AssetCloseTo] = struct{}{}
-	out[txn.FreezeAccount] = struct{}{}
-	for _, address := range txn.ApplicationCallTxnFields.Accounts {
-		out[address] = struct{}{}
-	}
-}
-
 // Returns all addresses referenced in `block`.
 func getBlockAddresses(block *bookkeeping.Block) map[basics.Address]struct{} {
 	// Reserve a reasonable memory size for the map.
@@ -180,7 +167,10 @@ func getBlockAddresses(block *bookkeeping.Block) map[basics.Address]struct{} {
 	res[block.FeeSink] = struct{}{}
 	res[block.RewardsPool] = struct{}{}
 	for _, stib := range block.Payset {
-		getTxnAddresses(&stib.Txn, res)
+		addFunc := func(address basics.Address) {
+			res[address] = struct{}{}
+		}
+		accounting.GetTransactionParticipants(&stib.SignedTxnWithAD, true, addFunc)
 	}
 
 	return res

@@ -13,6 +13,7 @@ import (
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
 
+	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
@@ -141,7 +142,7 @@ func setSpecialAccounts(addresses transactions.SpecialAddresses, batch *pgx.Batc
 //       other things too, so it is not clear we should use it. The only
 //       real benefit is that it would slightly simplify this function by
 //       allowing us to leave out the intra / block parameters.
-func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *bookkeeping.Block) uint64 {
+func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint, block *bookkeeping.Block) uint64 {
 	assetid := uint64(0)
 
 	switch txn.Txn.Type {
@@ -153,7 +154,7 @@ func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *b
 		if assetid == 0 {
 			// pre v30 transactions do not have ApplyData.ConfigAsset or InnerTxns
 			// so txn counter + payset pos calculation is OK
-			assetid = block.TxnCounter - uint64(len(block.Payset)) + intra + 1
+			assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 		}
 	case protocol.AssetConfigTx:
 		assetid = uint64(txn.ConfigAsset)
@@ -163,7 +164,7 @@ func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *b
 		if assetid == 0 {
 			// pre v30 transactions do not have ApplyData.ApplicationID or InnerTxns
 			// so txn counter + payset pos calculation is OK
-			assetid = block.TxnCounter - uint64(len(block.Payset)) + intra + 1
+			assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 		}
 	case protocol.AssetTransferTx:
 		assetid = uint64(txn.Txn.XferAsset)
@@ -177,8 +178,7 @@ func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *b
 // addInnerTransactions traverses the inner transaction tree and adds them to
 // the transaction table. It performs a preorder traversal to correctly compute
 // the intra round offset, the offset for the next transaction is returned.
-func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, block *bookkeeping.Block, intra, rootIntra uint64, rootTxid string, rows [][]interface{}) (uint64, [][]interface{}, error) {
-	next := intra
+func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, block *bookkeeping.Block, intra, rootIntra uint, rootTxid string, rows [][]interface{}) (uint, [][]interface{}, error) {
 	var err error
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
 		txn := &itxn.Txn
@@ -189,7 +189,7 @@ func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, bloc
 		assetid := transactionAssetID(itxn, 0, nil)
 		extra := idb.TxnExtra{
 			AssetCloseAmount: itxn.ApplyData.AssetClosingAmount,
-			RootIntra:        fmt.Sprintf("%d", rootIntra),
+			RootIntra:        idb.OptionalUint{Present: true, Value: rootIntra},
 			RootTxid:         rootTxid,
 		}
 
@@ -205,13 +205,14 @@ func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, bloc
 			encoding.EncodeTxnExtra(&extra)})
 
 		// Recurse at end for preorder traversal
-		next, rows, err = w.addInnerTransactions(&itxn, block, next+1, rootIntra, rootTxid, rows)
+		intra, rows, err =
+			w.addInnerTransactions(&itxn, block, intra+1, rootIntra, rootTxid, rows)
 		if err != nil {
 			return 0, nil, err
 		}
 	}
 
-	return next, rows, nil
+	return intra, rows, nil
 }
 
 // Add transactions from `block` to the database. `modifiedTxns` contains enhanced
@@ -219,7 +220,7 @@ func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, bloc
 func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock) error {
 	var rows [][]interface{}
 
-	intra := uint64(0)
+	intra := uint(0)
 	for idx, stib := range block.Payset {
 		var stxnad transactions.SignedTxnWithAD
 		var err error
@@ -265,24 +266,6 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 	return nil
 }
 
-func getTransactionParticipantsImpl(stxnad *transactions.SignedTxnWithAD, includeInner bool, add func(address basics.Address)) {
-	txn := stxnad.Txn
-
-	add(txn.Sender)
-	add(txn.Receiver)
-	add(txn.CloseRemainderTo)
-	add(txn.AssetSender)
-	add(txn.AssetReceiver)
-	add(txn.AssetCloseTo)
-	add(txn.FreezeAccount)
-
-	if includeInner {
-		for _, inner := range stxnad.ApplyData.EvalDelta.InnerTxns {
-			getTransactionParticipantsImpl(&inner, includeInner, add)
-		}
-	}
-}
-
 // getTransactionParticipants returns referenced addresses from the txn and all inner txns
 func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInner bool) []basics.Address {
 	const acctsPerTxn = 7
@@ -302,7 +285,7 @@ func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInn
 			res = append(res, address)
 		}
 
-		getTransactionParticipantsImpl(stxnad, includeInner, add)
+		accounting.GetTransactionParticipants(stxnad, includeInner, add)
 		return res
 	}
 
@@ -318,7 +301,7 @@ func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInn
 		participants[address] = struct{}{}
 	}
 
-	getTransactionParticipantsImpl(stxnad, includeInner, add)
+	accounting.GetTransactionParticipants(stxnad, includeInner, add)
 
 	res := make([]basics.Address, 0, len(participants))
 	for addr := range participants {

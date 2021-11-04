@@ -44,8 +44,8 @@ type TxnRow struct {
 	Error error
 }
 
-func countInner(stxn *transactions.SignedTxnWithAD) int {
-	num := 0
+func countInner(stxn *transactions.SignedTxnWithAD) uint {
+	num := uint(0)
 	for _, itxn := range stxn.ApplyData.EvalDelta.InnerTxns {
 		num++
 		num += countInner(&itxn)
@@ -59,10 +59,10 @@ func (tr TxnRow) Next(ascending bool) (string, error) {
 	var b [12]byte
 	binary.LittleEndian.PutUint64(b[:8], tr.Round)
 
-	intra := tr.Intra
-	if tr.Extra.RootIntra != "" {
+	intra := uint(tr.Intra)
+	if tr.Extra.RootIntra.Present {
 		// initialize for descending order, the root intra.
-		intra, err = strconv.Atoi(tr.Extra.RootIntra)
+		intra = tr.Extra.RootIntra.Value
 		if err != nil {
 			return "", fmt.Errorf("Next() could not parse root intra: %w", err)
 		}
@@ -106,13 +106,44 @@ func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
 	return
 }
 
+// OptionalUint wraps bool and uint. It has a custom marshaller below.
+type OptionalUint struct {
+	Present bool
+	Value   uint
+}
+
+// MarshalText implements TextMarshaler interface.
+func (ou OptionalUint) MarshalText() ([]byte, error) {
+	if !ou.Present {
+		return nil, nil
+	}
+	return []byte(fmt.Sprintf("%d", ou.Value)), nil
+}
+
+// UnmarshalText implements TextUnmarshaler interface.
+func (ou *OptionalUint) UnmarshalText(text []byte) error {
+	if text == nil {
+		*ou = OptionalUint{}
+	} else {
+		value, err := strconv.ParseUint(string(text), 10, 64)
+		if err != nil {
+			return err
+		}
+		*ou = OptionalUint{
+			Present: true,
+			Value:   uint(value),
+		}
+	}
+
+	return nil
+}
+
 // TxnExtra is some additional metadata needed for a transaction.
 type TxnExtra struct {
 	AssetCloseAmount uint64 `codec:"aca,omitempty"`
-	// RootIntra is set on inner transactions. Combined with the confirmation
+	// RootIntra is set only on inner transactions. Combined with the confirmation
 	// round it can be used to lookup the root transaction.
-	// The type is string to allow distinguishing between 0 and empty.
-	RootIntra string `codec:"root-intra,omitempty"`
+	RootIntra OptionalUint `codec:"root-intra,omitempty"`
 	// RootTxid is set on inner transactions. It is a convenience for the
 	// future. If we decide to return inner transactions we'll want to include
 	// the root txid.
