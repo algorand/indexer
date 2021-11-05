@@ -279,15 +279,15 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/keyreg.response"),
 			},
 		},
-		//{
-		//	name: "Key Registration with state proof key",
-		//	txnBytes: [][]byte{
-		//		loadResourceFileOrPanic("test_resources/keyregwithsprfkey.txn"),
-		//	},
-		//	response: []generated.Transaction{
-		//		loadTransactionFromFile("test_resources/keyregwithsprfkey.response"),
-		//	},
-		//},
+		{
+			name: "Key Registration with state proof key",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/keyregwithsprfkey.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/keyregwithsprfkey.response"),
+			},
+		},
 		{
 			name: "Asset Configuration",
 			txnBytes: [][]byte{
@@ -466,7 +466,7 @@ func TestFetchTransactions(t *testing.T) {
 	}
 
 	// use for the brach below and createTxn helper func to add a new test case
-	var addNewTest = true
+	var addNewTest = false
 	if addNewTest {
 		tests = tests[:0]
 		tests = append(tests, struct {

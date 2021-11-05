@@ -1891,6 +1891,11 @@
           "description": "\\[votekey\\] Participation public key used in key registration transactions.",
           "type": "string",
           "format": "byte"
+        },
+        "state-proof-key": {
+          "description": "\\[sprfkey\\] State proof key used in key registration transactions.",
+          "type": "string",
+          "format": "byte"
         }
       }
     },
