@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
 
 	"github.com/algorand/indexer/idb"
 	_ "github.com/algorand/indexer/idb/postgres"
@@ -46,10 +44,7 @@ func main() {
 	rowchan, _ := db.Transactions(context.Background(), rekeyTxnQuery)
 	for txnrow := range rowchan {
 		maybeFail(txnrow.Error, "err rekey txn %v\n", txnrow.Error)
-		var stxn transactions.SignedTxnWithAD
-		err := protocol.Decode(txnrow.TxnBytes, &stxn)
-		maybeFail(err, "decode txnbytes %v\n", err)
-		rekeyedAuthAddrs = append(rekeyedAuthAddrs, stxn.Txn.RekeyTo)
+		rekeyedAuthAddrs = append(rekeyedAuthAddrs, txnrow.Txn.Txn.RekeyTo)
 	}
 
 	// some rekeys get rekeyed back; some rekeyed accounts get deleted, just want to find at least one

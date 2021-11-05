@@ -335,9 +335,8 @@ func TestBlockWithTransactions(t *testing.T) {
 	assert.Len(t, txnRows0, len(txns))
 	assert.Len(t, txnRows1, len(txns))
 	for i := 0; i < len(txnRows0); i++ {
-		expected := protocol.Encode(txns[i])
-		assert.Equal(t, expected, txnRows0[i].TxnBytes)
-		assert.Equal(t, expected, txnRows1[i].TxnBytes)
+		assert.Equal(t, txns[i], txnRows0[i].Txn)
+		assert.Equal(t, txns[i], txnRows1[i].Txn)
 	}
 }
 
@@ -1065,11 +1064,10 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			for row := range txnRows {
 				require.NoError(t, row.Error)
 				// Note: These are created from the TxnBytes, so they have the exact name with embedded null.
-				var txn transactions.SignedTxn
-				require.NoError(t, protocol.Decode(row.TxnBytes, &txn))
-				require.Equal(t, name, txn.Txn.AssetParams.AssetName)
-				require.Equal(t, unit, txn.Txn.AssetParams.UnitName)
-				require.Equal(t, url, txn.Txn.AssetParams.URL)
+				require.NotNil(t, row.Txn)
+				require.Equal(t, name, row.Txn.Txn.AssetParams.AssetName)
+				require.Equal(t, unit, row.Txn.Txn.AssetParams.UnitName)
+				require.Equal(t, url, row.Txn.Txn.AssetParams.URL)
 				num++
 			}
 			require.Equal(t, 1, num)
@@ -1541,14 +1539,17 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 			for result := range results {
 				num++
 				require.NoError(t, result.Error)
-				var stxn transactions.SignedTxnWithAD
+				var stxn *transactions.SignedTxnWithAD
+
+				// Exactly one of Txn and RootTxn must be present.
+				require.True(t, (result.Txn == nil) != (result.RootTxn == nil))
 
 				// Get Txn or RootTxn
-				if result.TxnBytes != nil {
-					err = protocol.Decode(result.TxnBytes, &stxn)
+				if result.Txn != nil {
+					stxn = result.Txn
 				}
-				if result.RootTxnBytes != nil {
-					err = protocol.Decode(result.RootTxnBytes, &stxn)
+				if result.RootTxn != nil {
+					stxn = result.RootTxn
 				}
 
 				// Make sure the root txn is returned.
@@ -1609,9 +1610,8 @@ func TestNonUTF8Logs(t *testing.T) {
 			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 			for row := range txnRows {
 				require.NoError(t, row.Error)
-				var txn transactions.SignedTxnWithAD
-				require.NoError(t, protocol.Decode(row.TxnBytes, &txn))
-				require.Equal(t, testcase.Logs, txn.ApplyData.EvalDelta.Logs)
+				require.NotNil(t, row.Txn)
+				require.Equal(t, testcase.Logs, row.Txn.ApplyData.EvalDelta.Logs)
 			}
 		})
 	}

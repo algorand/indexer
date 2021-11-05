@@ -12,7 +12,6 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 )
@@ -29,10 +28,10 @@ type TxnRow struct {
 	Intra int
 
 	// TxnBytes is the raw signed transaction with apply data object, only used when the root txn is being returned.
-	TxnBytes []byte
+	Txn *transactions.SignedTxnWithAD
 
 	// RootTxnBytes the root transaction raw signed transaction with apply data object, only inner transactions have this.
-	RootTxnBytes []byte
+	RootTxn *transactions.SignedTxnWithAD
 
 	// AssetID is the ID of any asset or application created or configured by this
 	// transaction.
@@ -56,7 +55,6 @@ func countInner(stxn *transactions.SignedTxnWithAD) uint {
 
 // Next returns what should be an opaque string to be used with the next query to resume where a previous limit left off.
 func (tr TxnRow) Next(ascending bool) (string, error) {
-	var err error
 	var b [12]byte
 	binary.LittleEndian.PutUint64(b[:8], tr.Round)
 
@@ -64,31 +62,22 @@ func (tr TxnRow) Next(ascending bool) (string, error) {
 	if tr.Extra.RootIntra.Present {
 		// initialize for descending order, the root intra.
 		intra = tr.Extra.RootIntra.Value
-		if err != nil {
-			return "", fmt.Errorf("Next() could not parse root intra: %w", err)
-		}
 	}
 
 	// when ascending add the count of inner transactions.
 	if ascending {
-		var bytes []byte
-		if tr.TxnBytes != nil {
-			bytes = tr.TxnBytes
+		var stxn *transactions.SignedTxnWithAD
+		if tr.Txn != nil {
+			stxn = tr.Txn
 		} else {
-			bytes = tr.RootTxnBytes
+			stxn = tr.RootTxn
 		}
 
-		if bytes == nil {
-			return "", fmt.Errorf("Next() was not given transaction bytes")
+		if stxn == nil {
+			return "", fmt.Errorf("Next() was not given transaction")
 		}
 
-		var stxn transactions.SignedTxnWithAD
-		err = protocol.Decode(bytes, &stxn)
-		if err != nil {
-			return "", fmt.Errorf("Next() could not decode root transaction: %w", err)
-		}
-
-		intra += countInner(&stxn)
+		intra += countInner(stxn)
 	}
 
 	binary.LittleEndian.PutUint32(b[8:], uint32(intra))

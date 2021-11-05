@@ -26,20 +26,19 @@ func TestBasic(t *testing.T) {
 		Round:                       8,
 	}
 
-	txnBytes := protocol.Encode(&transactions.SignedTxnWithAD{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: protocol.PaymentTx,
-				PaymentTxnFields: transactions.PaymentTxnFields{
-					Receiver: a,
-					Amount:   basics.MicroAlgos{Raw: 2},
+	txnRow := idb.TxnRow{
+		Round: 7,
+		Txn: &transactions.SignedTxnWithAD{
+			SignedTxn: transactions.SignedTxn{
+				Txn: transactions.Transaction{
+					Type: protocol.PaymentTx,
+					PaymentTxnFields: transactions.PaymentTxnFields{
+						Receiver: a,
+						Amount:   basics.MicroAlgos{Raw: 2},
+					},
 				},
 			},
 		},
-	})
-	txnRow := idb.TxnRow{
-		Round:    7,
-		TxnBytes: txnBytes,
 	}
 
 	ch := make(chan idb.TxnRow, 1)
