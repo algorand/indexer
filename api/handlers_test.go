@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/crypto/merklekeystore"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -277,6 +279,15 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/keyreg.response"),
 			},
 		},
+		//{
+		//	name: "Key Registration with state proof key",
+		//	txnBytes: [][]byte{
+		//		loadResourceFileOrPanic("test_resources/keyregwithsprfkey.txn"),
+		//	},
+		//	response: []generated.Transaction{
+		//		loadTransactionFromFile("test_resources/keyregwithsprfkey.response"),
+		//	},
+		//},
 		{
 			name: "Asset Configuration",
 			txnBytes: [][]byte{
@@ -455,7 +466,7 @@ func TestFetchTransactions(t *testing.T) {
 	}
 
 	// use for the brach below and createTxn helper func to add a new test case
-	var addNewTest = false
+	var addNewTest = true
 	if addNewTest {
 		tests = tests[:0]
 		tests = append(tests, struct {
@@ -464,8 +475,8 @@ func TestFetchTransactions(t *testing.T) {
 			response []generated.Transaction
 			created  uint64
 		}{
-			name:     "Application inner asset create",
-			txnBytes: [][]byte{createTxn(t, "test_resources/app_call_inner_acfg.txn")},
+			name:     "Key Registration with state proof key",
+			txnBytes: [][]byte{createTxn(t, "test_resources/keyregwithsprfkey.txn")},
 		})
 	}
 
@@ -571,47 +582,34 @@ func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 func createTxn(t *testing.T, target string) []byte {
 	addr1, err := basics.UnmarshalChecksumAddress("PT4K5LK4KYIQYYRAYPAZIEF47NVEQRDX3CPYWJVH25LKO2METIRBKRHRAE")
 	assert.Error(t, err)
-	addr2, err := basics.UnmarshalChecksumAddress("PIJRXIH5EJF7HT43AZQOQBPEZUTTCJCZ3E5U3QHLE33YP2ZHGXP7O7WN3U")
-	assert.Error(t, err)
+	var votePK crypto.OneTimeSignatureVerifier
+	votePK[0] = 1
+
+	var selectionPK crypto.VRFVerifier
+	selectionPK[0] = 1
+
+	var sprfkey merklekeystore.Verifier
+	sprfkey[0] = 1
 
 	stxnad := transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
-				Type: protocol.ApplicationCallTx,
+				Type: protocol.KeyRegistrationTx,
 				Header: transactions.Header{
 					Sender: addr1,
 				},
-				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
-					ApplicationID: 444,
+				KeyregTxnFields: transactions.KeyregTxnFields{
+					VotePK: votePK,
+					SelectionPK:selectionPK,
+					StateProofPK: sprfkey,
+					VoteFirst: basics.Round(0),
+					VoteLast: basics.Round(100),
+					VoteKeyDilution: 1000,
+					Nonparticipation: false,
 				},
 			},
 		},
-		ApplyData: transactions.ApplyData{
-			EvalDelta: transactions.EvalDelta{
-				InnerTxns: []transactions.SignedTxnWithAD{
-					{
-						SignedTxn: transactions.SignedTxn{
-							Txn: transactions.Transaction{
-								Type: protocol.AssetConfigTx,
-								Header: transactions.Header{
-									Sender:     addr2,
-									Fee:        basics.MicroAlgos{Raw: 654},
-									FirstValid: 3,
-								},
-								AssetConfigTxnFields: transactions.AssetConfigTxnFields{
-									AssetParams: basics.AssetParams{
-										URL: "http://example.com",
-									},
-								},
-							},
-						},
-						ApplyData: transactions.ApplyData{
-							ConfigAsset: 555,
-						},
-					},
-				},
-			},
-		},
+		ApplyData: transactions.ApplyData{},
 	}
 
 	data := msgpack.Encode(stxnad)
