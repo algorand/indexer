@@ -16,14 +16,18 @@ func GetTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInn
 	switch txn.Type {
 	case protocol.PaymentTx:
 		add(txn.Receiver)
+		// Close address is optional.
 		if !txn.CloseRemainderTo.IsZero() {
 			add(txn.CloseRemainderTo)
 		}
 	case protocol.AssetTransferTx:
+		// If asset sender is non-zero, it is a clawback transaction. Otherwise,
+		// the transaction sender address is used.
 		if !txn.AssetSender.IsZero() {
 			add(txn.AssetSender)
 		}
 		add(txn.AssetReceiver)
+		// Asset close address is optional.
 		if !txn.AssetCloseTo.IsZero() {
 			add(txn.AssetCloseTo)
 		}
