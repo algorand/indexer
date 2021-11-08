@@ -228,23 +228,23 @@ func TestValidateTransactionFilter(t *testing.T) {
 		},
 		{
 			name: "Round + MinRound Error",
-			filter:        idb.TransactionFilter{
-				Round: uint64Ptr(10),
+			filter: idb.TransactionFilter{
+				Round:    uint64Ptr(10),
 				MaxRound: 15,
 			},
 			errorContains: []string{errInvalidRoundAndMinMax},
 		},
 		{
 			name: "Round + MinRound Error",
-			filter:        idb.TransactionFilter{
-				Round: uint64Ptr(10),
+			filter: idb.TransactionFilter{
+				Round:    uint64Ptr(10),
 				MinRound: 5,
 			},
 			errorContains: []string{errInvalidRoundAndMinMax},
 		},
 		{
-			name:          "Swapped Min/Max Round",
-			filter:        idb.TransactionFilter{
+			name: "Swapped Min/Max Round",
+			filter: idb.TransactionFilter{
 				MinRound: 15,
 				MaxRound: 5,
 			},
@@ -253,7 +253,7 @@ func TestValidateTransactionFilter(t *testing.T) {
 		{
 			name: "Zero address close address role",
 			filter: idb.TransactionFilter{
-				Address: addrSlice(basics.Address{}),
+				Address:     addrSlice(basics.Address{}),
 				AddressRole: idb.AddressRoleSender | idb.AddressRoleCloseRemainderTo,
 			},
 			errorContains: []string{errZeroAddressCloseRemainderToRole},
@@ -261,7 +261,7 @@ func TestValidateTransactionFilter(t *testing.T) {
 		{
 			name: "Zero address asset sender and asset close address role",
 			filter: idb.TransactionFilter{
-				Address: addrSlice(basics.Address{}),
+				Address:     addrSlice(basics.Address{}),
 				AddressRole: idb.AddressRoleAssetSender | idb.AddressRoleAssetCloseTo,
 			},
 			errorContains: []string{

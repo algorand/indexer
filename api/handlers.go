@@ -74,13 +74,13 @@ func validateTransactionFilter(filter *idb.TransactionFilter) error {
 		var address basics.Address
 		copy(address[:], filter.Address)
 		if address.IsZero() {
-			if filter.AddressRole & idb.AddressRoleCloseRemainderTo != 0 {
+			if filter.AddressRole&idb.AddressRoleCloseRemainderTo != 0 {
 				errorArr = append(errorArr, errZeroAddressCloseRemainderToRole)
 			}
-			if filter.AddressRole & idb.AddressRoleAssetSender != 0 {
+			if filter.AddressRole&idb.AddressRoleAssetSender != 0 {
 				errorArr = append(errorArr, errZeroAddressAssetSenderRole)
 			}
-			if filter.AddressRole & idb.AddressRoleAssetCloseTo != 0 {
+			if filter.AddressRole&idb.AddressRoleAssetCloseTo != 0 {
 				errorArr = append(errorArr, errZeroAddressAssetCloseToRole)
 			}
 		}

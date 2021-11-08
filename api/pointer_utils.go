@@ -104,6 +104,6 @@ func strArrayPtr(x []string) *[]string {
 
 func addrSlice(x basics.Address) []byte {
 	xx := new(basics.Address)
-	*xx = x;
+	*xx = x
 	return xx[:]
 }
