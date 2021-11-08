@@ -372,6 +372,10 @@ func TestTransactionHandler(t *testing.T) {
 	require.NotNil(t, response.Transaction.KeyregTransaction.StateProofKey)
 	require.Equal(t, json.Encode(sprfkey), json.Encode(*response.Transaction.KeyregTransaction.StateProofKey))
 
+	//////////
+	// And // Account is online with state proof key
+	//////////
+
 	req = httptest.NewRequest(http.MethodGet, "/", nil)
 	rec = httptest.NewRecorder()
 	c = e.NewContext(req, rec)
