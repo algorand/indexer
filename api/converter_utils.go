@@ -556,16 +556,6 @@ func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.Assets
 func transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {
 	var errorArr = make([]string, 0)
 
-	// Round + min/max round
-	if params.Round != nil && (params.MaxRound != nil || params.MinRound != nil) {
-		errorArr = append(errorArr, errInvalidRoundAndMinMax)
-	}
-
-	// If min/max are mixed up
-	if params.Round == nil && params.MinRound != nil && params.MaxRound != nil && *params.MinRound > *params.MaxRound {
-		errorArr = append(errorArr, errInvalidRoundMinMax)
-	}
-
 	// Integer
 	filter.MaxRound = uintOrDefault(params.MaxRound)
 	filter.MinRound = uintOrDefault(params.MinRound)
