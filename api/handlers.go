@@ -491,8 +491,7 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 		var address basics.Address
 		copy(address[:], filter.Address)
 		if address.IsZero() {
-			return badRequest(
-				ctx, "searching transactions by zero address with address role is not supported")
+			return badRequest(ctx, errZeroAddressRole)
 		}
 	}
 
