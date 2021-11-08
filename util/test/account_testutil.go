@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/crypto/merklekeystore"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -190,6 +191,9 @@ func MakeSimpleKeyregOnlineTxn(sender basics.Address) transactions.SignedTxnWith
 	var selectionPK crypto.VRFVerifier
 	selectionPK[0] = 2
 
+	var stateProofKey merklekeystore.Verifier
+	stateProofKey[0] = 3
+
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -201,6 +205,7 @@ func MakeSimpleKeyregOnlineTxn(sender basics.Address) transactions.SignedTxnWith
 				KeyregTxnFields: transactions.KeyregTxnFields{
 					VotePK:          votePK,
 					SelectionPK:     selectionPK,
+					StateProofPK:    stateProofKey,
 					VoteKeyDilution: 1,
 				},
 			},
