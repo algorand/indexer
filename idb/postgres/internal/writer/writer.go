@@ -186,7 +186,10 @@ func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, bloc
 		if !ok {
 			return 0, nil, fmt.Errorf("addInnerTransactions() get type enum")
 		}
-		assetid := transactionAssetID(itxn, 0, nil)
+		// Note: the block should be unused when we have inner transactions,
+		// but it is possible to create non-standard environments in sandbox
+		// where that might not be true.
+		assetid := transactionAssetID(itxn, 0, block)
 		extra := idb.TxnExtra{
 			AssetCloseAmount: itxn.ApplyData.AssetClosingAmount,
 			RootIntra:        idb.OptionalUint{Present: true, Value: rootIntra},
