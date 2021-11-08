@@ -487,6 +487,15 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 		return badRequest(ctx, err.Error())
 	}
 
+	if filter.AddressRole != 0 {
+		var address basics.Address
+		copy(address[:], filter.Address)
+		if address.IsZero() {
+			return badRequest(
+				ctx, "searching transactions by zero address with address role is not supported")
+		}
+	}
+
 	// Fetch the transactions
 	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
