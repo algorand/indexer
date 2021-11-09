@@ -1416,8 +1416,8 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 
 		// Add block detects an error
 		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-		expectedError := "AddBlock() err: addTransactions() adding inner: transactionAssetID(): Missing ConfigAsset for transaction: BDFOJVJRY4GPOMW7F3ZQMNAA2ESQMCP5BIZOWCGHGJFFCN3CZTRQ"
-		require.Error(t, err, expectedError)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Missing ConfigAsset for transaction: ")
 
 		return nil
 	})

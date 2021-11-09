@@ -142,40 +142,40 @@ func setSpecialAccounts(addresses transactions.SpecialAddresses, batch *pgx.Batc
 //       other things too, so it is not clear we should use it. The only
 //       real benefit is that it would slightly simplify this function by
 //       allowing us to leave out the intra / block parameters.
-func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint, block *bookkeeping.Block) (uint64, error) {
+func transactionAssetID(stxnad *transactions.SignedTxnWithAD, intra uint, block *bookkeeping.Block) (uint64, error) {
 	assetid := uint64(0)
 
-	switch txn.Txn.Type {
+	switch stxnad.Txn.Type {
 	case protocol.ApplicationCallTx:
-		assetid = uint64(txn.Txn.ApplicationID)
+		assetid = uint64(stxnad.Txn.ApplicationID)
 		if assetid == 0 {
-			assetid = uint64(txn.ApplyData.ApplicationID)
+			assetid = uint64(stxnad.ApplyData.ApplicationID)
 		}
 		if assetid == 0 {
 			if block == nil {
-				return 0, fmt.Errorf("transactionAssetID(): Missing ApplicationID for transaction: %s", txn.ID())
+				return 0, fmt.Errorf("transactionAssetID(): Missing ApplicationID for transaction: %s", stxnad.ID())
 			}
 			// pre v30 transactions do not have ApplyData.ConfigAsset or InnerTxns
 			// so txn counter + payset pos calculation is OK
 			assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 		}
 	case protocol.AssetConfigTx:
-		assetid = uint64(txn.Txn.ConfigAsset)
+		assetid = uint64(stxnad.Txn.ConfigAsset)
 		if assetid == 0 {
-			assetid = uint64(txn.ApplyData.ConfigAsset)
+			assetid = uint64(stxnad.ApplyData.ConfigAsset)
 		}
 		if assetid == 0 {
 			if block == nil {
-				return 0, fmt.Errorf("transactionAssetID(): Missing ConfigAsset for transaction: %s", txn.ID())
+				return 0, fmt.Errorf("transactionAssetID(): Missing ConfigAsset for transaction: %s", stxnad.ID())
 			}
 			// pre v30 transactions do not have ApplyData.ApplicationID or InnerTxns
 			// so txn counter + payset pos calculation is OK
 			assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 		}
 	case protocol.AssetTransferTx:
-		assetid = uint64(txn.Txn.XferAsset)
+		assetid = uint64(stxnad.Txn.XferAsset)
 	case protocol.AssetFreezeTx:
-		assetid = uint64(txn.Txn.FreezeAsset)
+		assetid = uint64(stxnad.Txn.FreezeAsset)
 	}
 
 	return assetid, nil
@@ -191,8 +191,8 @@ func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, bloc
 		if !ok {
 			return 0, nil, fmt.Errorf("addInnerTransactions() get type enum")
 		}
-		// block should be used for inner transactions.
-		assetid, err := transactionAssetID(itxn, 0, nil)
+		// block shouldn't be used for inner transactions.
+		assetid, err := transactionAssetID(&itxn, 0, nil)
 		if err != nil {
 			return 0, nil, err
 		}
@@ -245,7 +245,7 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 		if !ok {
 			return fmt.Errorf("addTransactions() get type enum")
 		}
-		assetid, err := transactionAssetID(stxnad, intra, block)
+		assetid, err := transactionAssetID(&stxnad, intra, block)
 		if err != nil {
 			return err
 		}
