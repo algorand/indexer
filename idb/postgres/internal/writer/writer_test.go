@@ -1381,6 +1381,48 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	assert.Equal(t, block.Round(), basics.Round(closedAt))
 }
 
+func TestAddBlockInvalidInnerAsset(t *testing.T) {
+	db, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	callWithBadInner := test.MakeCreateAppTxn(test.AccountA)
+	callWithBadInner.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
+		{
+			ApplyData: transactions.ApplyData{
+				// This should not be zero
+				ConfigAsset: 0,
+			},
+			SignedTxn: transactions.SignedTxn{
+				Txn: transactions.Transaction{
+					Type: protocol.AssetConfigTx,
+					Header: transactions.Header{
+						Sender: test.AccountB,
+					},
+					AssetConfigTxnFields: transactions.AssetConfigTxnFields{
+						ConfigAsset: 0,
+					},
+				},
+			},
+		},
+	}
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &callWithBadInner)
+	require.NoError(t, err)
+
+	err = makeTx(db, func(tx pgx.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+		defer w.Close()
+
+		// Add block detects an error
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		expectedError := "AddBlock() err: addTransactions() adding inner: transactionAssetID(): Missing ConfigAsset for transaction: BDFOJVJRY4GPOMW7F3ZQMNAA2ESQMCP5BIZOWCGHGJFFCN3CZTRQ"
+		require.Error(t, err, expectedError)
+
+		return nil
+	})
+}
+
 func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()

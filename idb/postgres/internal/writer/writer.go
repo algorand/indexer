@@ -142,26 +142,32 @@ func setSpecialAccounts(addresses transactions.SpecialAddresses, batch *pgx.Batc
 //       other things too, so it is not clear we should use it. The only
 //       real benefit is that it would slightly simplify this function by
 //       allowing us to leave out the intra / block parameters.
-func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint, block *bookkeeping.Block) uint64 {
+func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint, block *bookkeeping.Block) (uint64, error) {
 	assetid := uint64(0)
 
 	switch txn.Txn.Type {
 	case protocol.ApplicationCallTx:
-		assetid = uint64(txn.ApplicationID)
+		assetid = uint64(txn.Txn.ApplicationID)
 		if assetid == 0 {
 			assetid = uint64(txn.ApplyData.ApplicationID)
 		}
 		if assetid == 0 {
+			if block == nil {
+				return 0, fmt.Errorf("transactionAssetID(): Missing ApplicationID for transaction: %s", txn.ID())
+			}
 			// pre v30 transactions do not have ApplyData.ConfigAsset or InnerTxns
 			// so txn counter + payset pos calculation is OK
 			assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 		}
 	case protocol.AssetConfigTx:
-		assetid = uint64(txn.ConfigAsset)
+		assetid = uint64(txn.Txn.ConfigAsset)
 		if assetid == 0 {
 			assetid = uint64(txn.ApplyData.ConfigAsset)
 		}
 		if assetid == 0 {
+			if block == nil {
+				return 0, fmt.Errorf("transactionAssetID(): Missing ConfigAsset for transaction: %s", txn.ID())
+			}
 			// pre v30 transactions do not have ApplyData.ApplicationID or InnerTxns
 			// so txn counter + payset pos calculation is OK
 			assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
@@ -172,24 +178,24 @@ func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint, block *boo
 		assetid = uint64(txn.Txn.FreezeAsset)
 	}
 
-	return assetid
+	return assetid, nil
 }
 
 // addInnerTransactions traverses the inner transaction tree and adds them to
 // the transaction table. It performs a preorder traversal to correctly compute
 // the intra round offset, the offset for the next transaction is returned.
 func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, block *bookkeeping.Block, intra, rootIntra uint, rootTxid string, rows [][]interface{}) (uint, [][]interface{}, error) {
-	var err error
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
 		txn := &itxn.Txn
 		typeenum, ok := idb.GetTypeEnum(txn.Type)
 		if !ok {
 			return 0, nil, fmt.Errorf("addInnerTransactions() get type enum")
 		}
-		// Note: the block should be unused when we have inner transactions,
-		// but it is possible to create non-standard environments in sandbox
-		// where that might not be true.
-		assetid := transactionAssetID(itxn, 0, block)
+		// block should be used for inner transactions.
+		assetid, err := transactionAssetID(itxn, 0, nil)
+		if err != nil {
+			return 0, nil, err
+		}
 		extra := idb.TxnExtra{
 			AssetCloseAmount: itxn.ApplyData.AssetClosingAmount,
 			RootIntra:        idb.OptionalUint{Present: true, Value: rootIntra},
@@ -239,7 +245,10 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 		if !ok {
 			return fmt.Errorf("addTransactions() get type enum")
 		}
-		assetid := transactionAssetID(stxnad, intra, block)
+		assetid, err := transactionAssetID(stxnad, intra, block)
+		if err != nil {
+			return err
+		}
 		id := txn.ID().String()
 
 		extra := idb.TxnExtra{
