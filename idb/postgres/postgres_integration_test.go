@@ -1636,3 +1636,39 @@ func TestLoadGenesisAccountTotals(t *testing.T) {
 	assert.Equal(
 		t, basics.MicroAlgos{Raw: 4 * 1000 * 1000 * 1000 * 1000}, ret.Offline.Money)
 }
+
+func TestTxnAssetID(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	assetid := uint64(1)
+	createAssetTxn := test.MakeAssetConfigTxn(
+		0, 0, 0, false, "myasset", "ma", "", test.AccountA)
+	configAssetTxn := test.MakeAssetConfigTxn(
+		assetid, 0, 0, false, "myasset", "ma", "", test.AccountA)
+	appid := uint64(3)
+	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+	destroyAppTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
+
+	block, err := test.MakeBlockForTxns(
+		test.MakeGenesisBlock().BlockHeader, &createAssetTxn, &configAssetTxn,
+		&createAppTxn, &destroyAppTxn)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	txnRowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+	for i := 0; i < 2; i++ {
+		row, ok := <-txnRowsCh
+		require.True(t, ok)
+		require.NoError(t, row.Error)
+		assert.Equal(t, assetid, row.AssetID)
+	}
+	for i := 0; i < 2; i++ {
+		row, ok := <-txnRowsCh
+		require.True(t, ok)
+		require.NoError(t, row.Error)
+		assert.Equal(t, appid, row.AssetID)
+	}
+}

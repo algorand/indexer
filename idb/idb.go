@@ -34,7 +34,8 @@ type TxnRow struct {
 	// RootTxnBytes the root transaction raw signed transaction with apply data object, only inner transactions have this.
 	RootTxnBytes []byte
 
-	// AssetID is the ID of any asset or application created by this transaction.
+	// AssetID is the ID of any asset or application created or configured by this
+	// transaction.
 	AssetID uint64
 
 	// Extra are some additional fields which might be related to to the transaction.
