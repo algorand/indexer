@@ -1389,7 +1389,7 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 	callWithBadInner.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
 		{
 			ApplyData: transactions.ApplyData{
-				// This should not be zero
+				// This is the invalid inner asset. It should not be zero.
 				ConfigAsset: 0,
 			},
 			SignedTxn: transactions.SignedTxn{
