@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/labstack/echo/v4"
@@ -51,6 +52,46 @@ const defaultAssetsLimit = 100
 // Asset Balances
 const maxBalancesLimit = 10000
 const defaultBalancesLimit = 1000
+
+//////////////////////
+// Helper functions //
+//////////////////////
+
+func validateTransactionFilter(filter *idb.TransactionFilter) error {
+	var errorArr = make([]string, 0)
+
+	// Round + min/max round
+	if filter.Round != nil && (filter.MaxRound != 0 || filter.MinRound != 0) {
+		errorArr = append(errorArr, errInvalidRoundAndMinMax)
+	}
+
+	// If min/max are mixed up
+	if filter.Round == nil && filter.MinRound != 0 && filter.MaxRound != 0 && filter.MinRound > filter.MaxRound {
+		errorArr = append(errorArr, errInvalidRoundMinMax)
+	}
+
+	{
+		var address basics.Address
+		copy(address[:], filter.Address)
+		if address.IsZero() {
+			if filter.AddressRole&idb.AddressRoleCloseRemainderTo != 0 {
+				errorArr = append(errorArr, errZeroAddressCloseRemainderToRole)
+			}
+			if filter.AddressRole&idb.AddressRoleAssetSender != 0 {
+				errorArr = append(errorArr, errZeroAddressAssetSenderRole)
+			}
+			if filter.AddressRole&idb.AddressRoleAssetCloseTo != 0 {
+				errorArr = append(errorArr, errZeroAddressAssetCloseToRole)
+			}
+		}
+	}
+
+	if len(errorArr) > 0 {
+		return errors.New("invalid input: " + strings.Join(errorArr, ", "))
+	}
+
+	return nil
+}
 
 ////////////////////////////
 // Handler implementation //
@@ -274,10 +315,15 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 		MinRound:      params.MinRound,
 		MaxRound:      params.MaxRound,
 		Address:       params.SenderAddress,
-		AddressRole:   strPtr(addrRoleSender),
 	}
 
 	filter, err := transactionParamsToTransactionFilter(searchParams)
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+	filter.AddressRole = idb.AddressRoleSender
+
+	err = validateTransactionFilter(&filter)
 	if err != nil {
 		return badRequest(ctx, err.Error())
 	}
@@ -457,6 +503,11 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 		return badRequest(ctx, err.Error())
 	}
 
+	err = validateTransactionFilter(&filter)
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
 	// Fetch the transactions
 	txns, _, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
@@ -483,6 +534,11 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 // (GET /v2/transactions)
 func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params generated.SearchForTransactionsParams) error {
 	filter, err := transactionParamsToTransactionFilter(params)
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	err = validateTransactionFilter(&filter)
 	if err != nil {
 		return badRequest(ctx, err.Error())
 	}

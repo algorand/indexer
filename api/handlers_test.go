@@ -15,6 +15,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/go-algorand/data/basics"
@@ -137,22 +138,6 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 			nil,
 		},
 		{
-			name: "Round + Min/Max Error",
-			params: generated.SearchForTransactionsParams{
-				Round:    uint64Ptr(10),
-				MinRound: uint64Ptr(5),
-				MaxRound: uint64Ptr(15),
-			},
-			filter:        idb.TransactionFilter{},
-			errorContains: []string{errInvalidRoundAndMinMax},
-		},
-		{
-			name:          "Swapped Min/Max Round",
-			params:        generated.SearchForTransactionsParams{MinRound: uint64Ptr(20), MaxRound: uint64Ptr(10)},
-			filter:        idb.TransactionFilter{},
-			errorContains: []string{errInvalidRoundMinMax},
-		},
-		{
 			name:          "Illegal Address",
 			params:        generated.SearchForTransactionsParams{Address: strPtr("Not-our-base32-thing")},
 			filter:        idb.TransactionFilter{},
@@ -215,18 +200,85 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		//test := test
 		t.Run(test.name, func(t *testing.T) {
-			//t.Parallel()
 			filter, err := transactionParamsToTransactionFilter(test.params)
-			if test.errorContains != nil {
+			if len(test.errorContains) > 0 {
+				require.Error(t, err)
 				for _, msg := range test.errorContains {
 					assert.Contains(t, err.Error(), msg)
 				}
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, test.errorContains != nil, err != nil)
 				assert.Equal(t, test.filter, filter)
+			}
+		})
+	}
+}
+
+func TestValidateTransactionFilter(t *testing.T) {
+	tests := []struct {
+		name          string
+		filter        idb.TransactionFilter
+		errorContains []string
+	}{
+		{
+			"Default",
+			idb.TransactionFilter{Limit: defaultTransactionsLimit},
+			nil,
+		},
+		{
+			name: "Round + MinRound Error",
+			filter: idb.TransactionFilter{
+				Round:    uint64Ptr(10),
+				MaxRound: 15,
+			},
+			errorContains: []string{errInvalidRoundAndMinMax},
+		},
+		{
+			name: "Round + MinRound Error",
+			filter: idb.TransactionFilter{
+				Round:    uint64Ptr(10),
+				MinRound: 5,
+			},
+			errorContains: []string{errInvalidRoundAndMinMax},
+		},
+		{
+			name: "Swapped Min/Max Round",
+			filter: idb.TransactionFilter{
+				MinRound: 15,
+				MaxRound: 5,
+			},
+			errorContains: []string{errInvalidRoundMinMax},
+		},
+		{
+			name: "Zero address close address role",
+			filter: idb.TransactionFilter{
+				Address:     addrSlice(basics.Address{}),
+				AddressRole: idb.AddressRoleSender | idb.AddressRoleCloseRemainderTo,
+			},
+			errorContains: []string{errZeroAddressCloseRemainderToRole},
+		},
+		{
+			name: "Zero address asset sender and asset close address role",
+			filter: idb.TransactionFilter{
+				Address:     addrSlice(basics.Address{}),
+				AddressRole: idb.AddressRoleAssetSender | idb.AddressRoleAssetCloseTo,
+			},
+			errorContains: []string{
+				errZeroAddressAssetSenderRole, errZeroAddressAssetCloseToRole},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateTransactionFilter(&test.filter)
+			if len(test.errorContains) > 0 {
+				require.Error(t, err)
+				for _, msg := range test.errorContains {
+					assert.Contains(t, err.Error(), msg)
+				}
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
