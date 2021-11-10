@@ -66,8 +66,8 @@ func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
 		var txid []byte
 		var json []byte
 		err = rows.Scan(
-      &result.round, &result.intra, &result.typeenum, &result.asset, &txid,
-      &json, &result.extra)
+			&result.round, &result.intra, &result.typeenum, &result.asset, &txid,
+			&json, &result.extra)
 		if err != nil {
 			return nil, err
 		}
