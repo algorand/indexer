@@ -990,7 +990,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.Status = statusStrings[ad.Status]
 			hasSel := !allZero(ad.SelectionID[:])
 			hasVote := !allZero(ad.VoteID[:])
-			hasSprfkey := !allZero(ad.StateProofID[:])
+			hasStateProofkey := !allZero(ad.StateProofID[:])
+
 			if hasSel || hasVote {
 				part := new(models.AccountParticipation)
 				if hasSel {
@@ -999,9 +1000,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				if hasVote {
 					part.VoteParticipationKey = ad.VoteID[:]
 				}
-
-				if hasSprfkey{
-					sprfkey:=ad.StateProofID[:]
+				if hasStateProofkey {
+					sprfkey := ad.StateProofID[:]
 					part.StateProofKey = &sprfkey
 				}
 				part.VoteFirstValid = uint64(ad.VoteFirstValid)

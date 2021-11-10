@@ -315,8 +315,8 @@ func TestTransactionHandler(t *testing.T) {
 	var selectionPK crypto.VRFVerifier
 	selectionPK[0] = 1
 
-	var sprfkey merklekeystore.Verifier
-	sprfkey[0] = 1
+	var stateProofPK merklekeystore.Verifier
+	stateProofPK[0] = 1
 
 	txn := transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
@@ -327,12 +327,12 @@ func TestTransactionHandler(t *testing.T) {
 					GenesisHash: test.GenesisHash,
 				},
 				KeyregTxnFields: transactions.KeyregTxnFields{
-					VotePK: votePK,
-					SelectionPK:selectionPK,
-					StateProofPK: sprfkey,
-					VoteFirst: basics.Round(0),
-					VoteLast: basics.Round(100),
-					VoteKeyDilution: 1000,
+					VotePK:           votePK,
+					SelectionPK:      selectionPK,
+					StateProofPK:     stateProofPK,
+					VoteFirst:        basics.Round(0),
+					VoteLast:         basics.Round(100),
+					VoteKeyDilution:  1000,
 					Nonparticipation: false,
 				},
 			},
@@ -346,52 +346,51 @@ func TestTransactionHandler(t *testing.T) {
 	err = db.AddBlock(&block)
 	require.NoError(t, err, "failed to commit")
 
-	//////////
-	// When // We query the txn
-	//////////
-
 	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.SetPath("/v2/transactions/:txid")
-	api := &ServerImplementation{db: db}
-	//params := generated.LookupAccountByIDParams{}
-	err = api.LookupTransaction(c, txn.Txn.ID().String())
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
+	{
+		//////////
+		// When // We query the txn
+		//////////
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/transactions/:txid")
+		api := &ServerImplementation{db: db}
+		err = api.LookupTransaction(c, txn.Txn.ID().String())
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+		//////////
+		// Then // The key reg txn response has state proof key
+		//////////
+		var response generated.TransactionResponse
+		data := rec.Body.Bytes()
+		err = json.Decode(data, &response)
+		require.NoError(t, err)
+		require.NotNil(t, response.Transaction.KeyregTransaction.StateProofKey)
+		require.Equal(t, json.Encode(stateProofPK), json.Encode(*response.Transaction.KeyregTransaction.StateProofKey))
+	}
+	{
+		//////////
+		// And // Account is online with state proof key
+		//////////
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/accounts/:account-id")
+		api := &ServerImplementation{db: db}
+		params := generated.LookupAccountByIDParams{}
+		err = api.LookupAccountByID(c, test.AccountA.String(), params)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
 
-	//////////
-	// Then // The key reg txn response has state proof key
-	//////////
-
-	var response generated.TransactionResponse
-	data := rec.Body.Bytes()
-	err = json.Decode(data, &response)
-	require.NoError(t, err)
-	require.NotNil(t, response.Transaction.KeyregTransaction.StateProofKey)
-	require.Equal(t, json.Encode(sprfkey), json.Encode(*response.Transaction.KeyregTransaction.StateProofKey))
-
-	//////////
-	// And // Account is online with state proof key
-	//////////
-
-	req = httptest.NewRequest(http.MethodGet, "/", nil)
-	rec = httptest.NewRecorder()
-	c = e.NewContext(req, rec)
-	c.SetPath("/v2/accounts/:account-id")
-	api = &ServerImplementation{db: db}
-	params := generated.LookupAccountByIDParams{}
-	err = api.LookupAccountByID(c, test.AccountA.String(),params)
-	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	var acctResp generated.AccountResponse
-	data = rec.Body.Bytes()
-	err = json.Decode(data, &acctResp)
-	require.NoError(t, err)
-	require.NotNil(t, acctResp.Account)
-	require.NotNil(t, acctResp.Account.Participation.StateProofKey)
+		var acctResp generated.AccountResponse
+		data := rec.Body.Bytes()
+		err = json.Decode(data, &acctResp)
+		require.NoError(t, err)
+		require.NotNil(t, acctResp.Account)
+		require.NotNil(t, acctResp.Account.Participation.StateProofKey)
+		require.Equal(t, json.Encode(stateProofPK),json.Encode(acctResp.Account.Participation.StateProofKey))
+	}
 }
 
 func TestVersion(t *testing.T) {
@@ -425,5 +424,3 @@ func TestVersion(t *testing.T) {
 	// This is weird looking because the version is set with -ldflags
 	require.Equal(t, response.Version, "(unknown version)")
 }
-
-
