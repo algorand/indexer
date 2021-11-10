@@ -367,7 +367,7 @@ func TestTransactionHandler(t *testing.T) {
 		err = json.Decode(data, &response)
 		require.NoError(t, err)
 		require.NotNil(t, response.Transaction.KeyregTransaction.StateProofKey)
-		require.Equal(t, json.Encode(stateProofPK), json.Encode(*response.Transaction.KeyregTransaction.StateProofKey))
+		require.Equal(t, stateProofPK[:], *response.Transaction.KeyregTransaction.StateProofKey)
 	}
 	{
 		//////////
@@ -389,7 +389,7 @@ func TestTransactionHandler(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, acctResp.Account)
 		require.NotNil(t, acctResp.Account.Participation.StateProofKey)
-		require.Equal(t, json.Encode(stateProofPK),json.Encode(acctResp.Account.Participation.StateProofKey))
+		require.Equal(t, stateProofPK[:], *acctResp.Account.Participation.StateProofKey)
 	}
 }
 
