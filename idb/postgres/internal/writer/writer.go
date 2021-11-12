@@ -20,20 +20,19 @@ import (
 )
 
 const (
-	addBlockHeaderStmtName       = "add_block_header"
-	setSpecialAccountsStmtName   = "set_special_accounts"
-	upsertAssetStmtName          = "upsert_asset"
-	upsertAccountAssetStmtName   = "upsert_account_asset"
-	upsertAppStmtName            = "upsert_app"
-	upsertAccountAppStmtName     = "upsert_account_app"
-	deleteAccountStmtName        = "delete_account"
-	upsertAccountStmtName        = "upsert_account"
-	deleteAssetStmtName          = "delete_asset"
-	deleteAccountAssetStmtName   = "delete_account_asset"
-	deleteAppStmtName            = "delete_app"
-	deleteAccountAppStmtName     = "delete_account_app"
-	updateAccountKeyTypeStmtName = "update_account_key_type"
-	updateAccountTotalsStmtName  = "update_account_totals"
+	addBlockHeaderStmtName      = "add_block_header"
+	setSpecialAccountsStmtName  = "set_special_accounts"
+	upsertAssetStmtName         = "upsert_asset"
+	upsertAccountAssetStmtName  = "upsert_account_asset"
+	upsertAppStmtName           = "upsert_app"
+	upsertAccountAppStmtName    = "upsert_account_app"
+	deleteAccountStmtName       = "delete_account"
+	upsertAccountStmtName       = "upsert_account"
+	deleteAssetStmtName         = "delete_asset"
+	deleteAccountAssetStmtName  = "delete_account_asset"
+	deleteAppStmtName           = "delete_app"
+	deleteAccountAppStmtName    = "delete_account_app"
+	updateAccountTotalsStmtName = "update_account_totals"
 )
 
 var statements = map[string]string{
@@ -61,16 +60,18 @@ var statements = map[string]string{
 		localstate = EXCLUDED.localstate, deleted = FALSE`,
 	deleteAccountStmtName: `INSERT INTO account
 		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, closed_at,
-			account_data)
-		VALUES($1, 0, 0, 0, TRUE, $2, $2, 'null'::jsonb) ON CONFLICT (addr) DO UPDATE SET
+		 keytype, account_data)
+		VALUES($1, 0, 0, 0, TRUE, $2, $2, $3, 'null'::jsonb) ON CONFLICT (addr) DO UPDATE SET
 		microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
 		rewards_total = EXCLUDED.rewards_total, deleted = TRUE,
-		closed_at = EXCLUDED.closed_at, account_data = EXCLUDED.account_data`,
+		closed_at = EXCLUDED.closed_at, keytype = EXCLUDED.keytype,
+		account_data = EXCLUDED.account_data`,
 	upsertAccountStmtName: `INSERT INTO account
-		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
-		VALUES($1, $2, $3, $4, FALSE, $5, $6) ON CONFLICT (addr) DO UPDATE SET
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, keytype,
+		 account_data)
+		VALUES($1, $2, $3, $4, FALSE, $5, $6, $7) ON CONFLICT (addr) DO UPDATE SET
 		microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
-		rewards_total = EXCLUDED.rewards_total, deleted = FALSE,
+		rewards_total = EXCLUDED.rewards_total, deleted = FALSE, keytype = EXCLUDED.keytype,
 		account_data = EXCLUDED.account_data`,
 	deleteAssetStmtName: `INSERT INTO asset
 		(index, creator_addr, params, deleted, created_at, closed_at)
@@ -90,7 +91,6 @@ var statements = map[string]string{
 		(addr, app, localstate, deleted, created_at, closed_at)
 		VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (addr, app) DO UPDATE SET
 		localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at`,
-	updateAccountKeyTypeStmtName: `UPDATE account SET keytype = $1 WHERE addr = $2`,
 	updateAccountTotalsStmtName: `UPDATE metastate SET v = $1 WHERE k = '` +
 		schema.AccountTotals + `'`,
 }
@@ -362,7 +362,30 @@ func (w *Writer) addTransactionParticipation(block *bookkeeping.Block) error {
 	return nil
 }
 
-func writeAccountData(round basics.Round, address basics.Address, accountData basics.AccountData, batch *pgx.Batch) {
+type optionalSigType struct {
+	present bool
+	value   idb.SigType
+}
+
+func getSigTypeDeltas(payset []transactions.SignedTxnInBlock) (map[basics.Address]optionalSigType, error) {
+	res := make(map[basics.Address]optionalSigType, len(payset))
+
+	for i := range payset {
+		if payset[i].Txn.RekeyTo == (basics.Address{}) {
+			sigtype, err := idb.SignatureType(&payset[i].SignedTxn)
+			if err != nil {
+				return nil, fmt.Errorf("getSigTypeDelta() err: %w", err)
+			}
+			res[payset[i].Txn.Sender] = optionalSigType{present: true, value: sigtype}
+		} else {
+			res[payset[i].Txn.Sender] = optionalSigType{}
+		}
+	}
+
+	return res, nil
+}
+
+func writeAccount(round basics.Round, address basics.Address, accountData basics.AccountData, sigTypeDelta optionalSigType, batch *pgx.Batch) {
 	// Update `asset` table.
 	for assetid, params := range accountData.AssetParams {
 		batch.Queue(
@@ -392,10 +415,15 @@ func writeAccountData(round basics.Round, address basics.Address, accountData ba
 			address[:], uint64(appid), encoding.EncodeAppLocalState(state), uint64(round))
 	}
 
+	var sigtype *idb.SigType
+	if sigTypeDelta.present {
+		sigtype = &sigTypeDelta.value
+	}
+
 	// Update `account` table.
 	if accountData.IsZero() {
 		// Delete account.
-		batch.Queue(deleteAccountStmtName, address[:], uint64(round))
+		batch.Queue(deleteAccountStmtName, address[:], uint64(round), sigtype)
 	} else {
 		// Update account.
 		accountDataJSON :=
@@ -403,15 +431,16 @@ func writeAccountData(round basics.Round, address basics.Address, accountData ba
 		batch.Queue(
 			upsertAccountStmtName,
 			address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
-			accountData.RewardedMicroAlgos.Raw, uint64(round), accountDataJSON)
+			accountData.RewardedMicroAlgos.Raw, uint64(round), sigtype,
+			accountDataJSON)
 	}
 }
 
-func writeAccountDeltas(round basics.Round, deltas ledgercore.AccountDeltas, batch *pgx.Batch) {
+func writeAccounts(round basics.Round, accountDeltas ledgercore.AccountDeltas, sigTypeDeltas map[basics.Address]optionalSigType, batch *pgx.Batch) {
 	// Update `account` table.
-	for i := 0; i < deltas.Len(); i++ {
-		address, accountData := deltas.GetByIdx(i)
-		writeAccountData(round, address, accountData, batch)
+	for i := 0; i < accountDeltas.Len(); i++ {
+		address, accountData := accountDeltas.GetByIdx(i)
+		writeAccount(round, address, accountData, sigTypeDeltas[address], batch)
 	}
 }
 
@@ -452,30 +481,6 @@ func writeDeletedAppLocalStates(round basics.Round, modifiedAppLocalStates map[l
 			batch.Queue(deleteAccountAppStmtName, address[:], uint64(aa.App), uint64(round))
 		}
 	}
-}
-
-func writeStateDelta(round basics.Round, delta ledgercore.StateDelta, batch *pgx.Batch) {
-	writeAccountDeltas(round, delta.Accts, batch)
-	writeDeletedCreatables(round, delta.Creatables, batch)
-	writeDeletedAssetHoldings(round, delta.ModifiedAssetHoldings, batch)
-	writeDeletedAppLocalStates(round, delta.ModifiedAppLocalStates, batch)
-	batch.Queue(updateAccountTotalsStmtName, encoding.EncodeAccountTotals(&delta.Totals))
-}
-
-func updateAccountSigType(payset []transactions.SignedTxnInBlock, batch *pgx.Batch) error {
-	for i := range payset {
-		if payset[i].Txn.RekeyTo == (basics.Address{}) {
-			sigtype, err := idb.SignatureType(&payset[i].SignedTxn)
-			if err != nil {
-				return fmt.Errorf("updateAccountSigType() err: %w", err)
-			}
-			batch.Queue(updateAccountKeyTypeStmtName, sigtype, payset[i].Txn.Sender[:])
-		} else {
-			batch.Queue(updateAccountKeyTypeStmtName, nil, payset[i].Txn.Sender[:])
-		}
-	}
-
-	return nil
 }
 
 // AddBlock0 writes block 0 to the database.
@@ -525,11 +530,17 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 		RewardsPool: block.RewardsPool,
 	}
 	setSpecialAccounts(specialAddresses, &batch)
-	writeStateDelta(block.Round(), delta, &batch)
-	err = updateAccountSigType(block.Payset, &batch)
-	if err != nil {
-		return fmt.Errorf("AddBlock() err: %w", err)
+	{
+		sigTypeDeltas, err := getSigTypeDeltas(block.Payset)
+		if err != nil {
+			return fmt.Errorf("AddBlock() err: %w", err)
+		}
+		writeAccounts(block.Round(), delta.Accts, sigTypeDeltas, &batch)
 	}
+	writeDeletedCreatables(block.Round(), delta.Creatables, &batch)
+	writeDeletedAssetHoldings(block.Round(), delta.ModifiedAssetHoldings, &batch)
+	writeDeletedAppLocalStates(block.Round(), delta.ModifiedAppLocalStates, &batch)
+	batch.Queue(updateAccountTotalsStmtName, encoding.EncodeAccountTotals(&delta.Totals))
 
 	results := w.tx.SendBatch(context.Background(), &batch)
 	// Clean the results off the connection's queue. Without this, weird things happen.
