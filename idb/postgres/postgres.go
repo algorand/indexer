@@ -979,7 +979,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.SigType = keytype
 		}
 
-		if accountDataJSONStr != nil {
+		{
 			var ad basics.AccountData
 			ad, err = encoding.DecodeTrimmedAccountData(accountDataJSONStr)
 			if err != nil {
@@ -1008,6 +1008,19 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				var spendingkey basics.Address
 				copy(spendingkey[:], ad.AuthAddr[:])
 				account.AuthAddr = stringPtr(spendingkey.String())
+			}
+
+			{
+				totalSchema := models.ApplicationStateSchema{
+					NumByteSlice: ad.TotalAppSchema.NumByteSlice,
+					NumUint:      ad.TotalAppSchema.NumUint,
+				}
+				if totalSchema != (models.ApplicationStateSchema{}) {
+					account.AppsTotalSchema = &totalSchema
+				}
+			}
+			if ad.TotalExtraAppPages != 0 {
+				account.AppsTotalExtraPages = uint64Ptr(uint64(ad.TotalExtraAppPages))
 			}
 		}
 
@@ -1197,8 +1210,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			*account.CreatedAssets = cal
 		}
 
-		var totalSchema models.ApplicationStateSchema
-
 		if len(appParamIndexes) > 0 {
 			// apps owned by this account
 			var appIds []uint64
@@ -1242,7 +1253,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				break
 			}
 
-			var totalExtraPages uint64
 			aout := make([]models.Application, len(appIds))
 			outpos := 0
 			for i, appid := range appIds {
@@ -1271,11 +1281,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						aout[outpos].Params.ExtraProgramPages = &epp
 					}
 				}
-				if aout[outpos].Deleted == nil || !*aout[outpos].Deleted {
-					totalSchema.NumByteSlice += apps[i].GlobalStateSchema.NumByteSlice
-					totalSchema.NumUint += apps[i].GlobalStateSchema.NumUint
-					totalExtraPages += uint64(apps[i].ExtraProgramPages)
-				}
 
 				outpos++
 			}
@@ -1283,10 +1288,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				aout = aout[:outpos]
 			}
 			account.CreatedApps = &aout
-
-			if totalExtraPages != 0 {
-				account.AppsTotalExtraPages = &totalExtraPages
-			}
 		}
 
 		if len(localStateAppIds) > 0 {
@@ -1341,16 +1342,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					NumUint:      ls[i].Schema.NumUint,
 				}
 				aout[i].KeyValue = tealKeyValueToModel(ls[i].KeyValue)
-				if aout[i].Deleted == nil || !*aout[i].Deleted {
-					totalSchema.NumByteSlice += ls[i].Schema.NumByteSlice
-					totalSchema.NumUint += ls[i].Schema.NumUint
-				}
 			}
 			account.AppsLocalState = &aout
-		}
-
-		if totalSchema != (models.ApplicationStateSchema{}) {
-			account.AppsTotalSchema = &totalSchema
 		}
 
 		select {
