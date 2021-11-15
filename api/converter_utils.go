@@ -160,7 +160,7 @@ func msigToTransactionMsig(msig crypto.MultisigSig) *generated.TransactionSignat
 	subsigs := make([]generated.TransactionSignatureMultisigSubsignature, 0)
 	for _, subsig := range msig.Subsigs {
 		subsigs = append(subsigs, generated.TransactionSignatureMultisigSubsignature{
-			PublicKey: bytePtr(subsig.Key[:]),
+			PublicKey: byteSliceOmitZeroPtr(subsig.Key[:]),
 			Signature: sigToTransactionSig(subsig.Sig),
 		})
 	}
@@ -317,11 +317,11 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 	case protocol.KeyRegistrationTx:
 		k := generated.TransactionKeyreg{
 			NonParticipation:          boolPtr(stxn.Txn.Nonparticipation),
-			SelectionParticipationKey: bytePtr(stxn.Txn.SelectionPK[:]),
+			SelectionParticipationKey: byteSliceOmitZeroPtr(stxn.Txn.SelectionPK[:]),
 			VoteFirstValid:            uint64Ptr(uint64(stxn.Txn.VoteFirst)),
 			VoteLastValid:             uint64Ptr(uint64(stxn.Txn.VoteLast)),
 			VoteKeyDilution:           uint64Ptr(stxn.Txn.VoteKeyDilution),
-			VoteParticipationKey:      bytePtr(stxn.Txn.VotePK[:]),
+			VoteParticipationKey:      byteSliceOmitZeroPtr(stxn.Txn.VotePK[:]),
 		}
 		keyreg = &k
 	case protocol.AssetConfigTx:
@@ -332,15 +332,15 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 			DefaultFrozen: boolPtr(stxn.Txn.AssetParams.DefaultFrozen),
 			Freeze:        addrPtr(stxn.Txn.AssetParams.Freeze),
 			Manager:       addrPtr(stxn.Txn.AssetParams.Manager),
-			MetadataHash:  bytePtr(stxn.Txn.AssetParams.MetadataHash[:]),
+			MetadataHash:  byteSliceOmitZeroPtr(stxn.Txn.AssetParams.MetadataHash[:]),
 			Name:          strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.AssetName)),
-			NameB64:       bytePtr([]byte(stxn.Txn.AssetParams.AssetName)),
+			NameB64:       byteSlicePtr([]byte(stxn.Txn.AssetParams.AssetName)),
 			Reserve:       addrPtr(stxn.Txn.AssetParams.Reserve),
 			Total:         stxn.Txn.AssetParams.Total,
 			UnitName:      strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.UnitName)),
-			UnitNameB64:   bytePtr([]byte(stxn.Txn.AssetParams.UnitName)),
+			UnitNameB64:   byteSlicePtr([]byte(stxn.Txn.AssetParams.UnitName)),
 			Url:           strPtr(util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.URL)),
-			UrlB64:        bytePtr([]byte(stxn.Txn.AssetParams.URL)),
+			UrlB64:        byteSlicePtr([]byte(stxn.Txn.AssetParams.URL)),
 		}
 		config := generated.TransactionAssetConfig{
 			AssetId: uint64Ptr(uint64(stxn.Txn.ConfigAsset)),
@@ -389,8 +389,8 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 			Accounts:          &accts,
 			ApplicationArgs:   &args,
 			ApplicationId:     uint64(stxn.Txn.ApplicationID),
-			ApprovalProgram:   bytePtr(stxn.Txn.ApprovalProgram),
-			ClearStateProgram: bytePtr(stxn.Txn.ClearStateProgram),
+			ApprovalProgram:   byteSliceOmitZeroPtr(stxn.Txn.ApprovalProgram),
+			ClearStateProgram: byteSliceOmitZeroPtr(stxn.Txn.ClearStateProgram),
 			ForeignApps:       &apps,
 			ForeignAssets:     &assets,
 			GlobalStateSchema: &generated.StateSchema{
@@ -491,12 +491,12 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		RoundTime:                uint64Ptr(uint64(extra.RoundTime)),
 		Fee:                      stxn.Txn.Fee.Raw,
 		FirstValid:               uint64(stxn.Txn.FirstValid),
-		GenesisHash:              bytePtr(stxn.SignedTxn.Txn.GenesisHash[:]),
+		GenesisHash:              byteSliceOmitZeroPtr(stxn.SignedTxn.Txn.GenesisHash[:]),
 		GenesisId:                strPtr(stxn.SignedTxn.Txn.GenesisID),
-		Group:                    bytePtr(stxn.Txn.Group[:]),
+		Group:                    byteSliceOmitZeroPtr(stxn.Txn.Group[:]),
 		LastValid:                uint64(stxn.Txn.LastValid),
-		Lease:                    bytePtr(stxn.Txn.Lease[:]),
-		Note:                     bytePtr(stxn.Txn.Note[:]),
+		Lease:                    byteSliceOmitZeroPtr(stxn.Txn.Lease[:]),
+		Note:                     byteSliceOmitZeroPtr(stxn.Txn.Note[:]),
 		Sender:                   stxn.Txn.Sender.String(),
 		ReceiverRewards:          uint64Ptr(stxn.ReceiverRewards.Raw),
 		CloseRewards:             uint64Ptr(stxn.CloseRewards.Raw),
