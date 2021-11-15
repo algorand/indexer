@@ -1179,12 +1179,12 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						Decimals:      uint64(ap.Decimals),
 						DefaultFrozen: boolPtr(ap.DefaultFrozen),
 						UnitName:      stringPtr(util.PrintableUTF8OrEmpty(ap.UnitName)),
-						UnitNameB64:   baPtr([]byte(ap.UnitName)),
+						UnitNameB64:   byteSlicePtr([]byte(ap.UnitName)),
 						Name:          stringPtr(util.PrintableUTF8OrEmpty(ap.AssetName)),
-						NameB64:       baPtr([]byte(ap.AssetName)),
+						NameB64:       byteSlicePtr([]byte(ap.AssetName)),
 						Url:           stringPtr(util.PrintableUTF8OrEmpty(ap.URL)),
-						UrlB64:        baPtr([]byte(ap.URL)),
-						MetadataHash:  baPtr(ap.MetadataHash[:]),
+						UrlB64:        byteSlicePtr([]byte(ap.URL)),
+						MetadataHash:  byteSliceOmitZeroPtr(ap.MetadataHash[:]),
 						Manager:       addrStr(ap.Manager),
 						Reserve:       addrStr(ap.Reserve),
 						Freeze:        addrStr(ap.Freeze),
@@ -1411,10 +1411,17 @@ func stringPtr(x string) *string {
 	return out
 }
 
-func baPtr(x []byte) *[]byte {
+func byteSlicePtr(x []byte) *[]byte {
 	if len(x) == 0 {
 		return nil
 	}
+
+	xx := make([]byte, len(x))
+	copy(xx, x)
+	return &xx
+}
+
+func byteSliceOmitZeroPtr(x []byte) *[]byte {
 	allzero := true
 	for _, b := range x {
 		if b != 0 {
