@@ -13,9 +13,14 @@ import (
 	"github.com/algorand/go-codec/codec"
 )
 
+// ErrTimeout is returned when CallWithTimeout has a normal timeout.
 var ErrTimeout = errors.New("timeout during call")
+
+// ErrUnknownTimeoutExit is returned when CallWithTimeout has an unexpected done event.
 var ErrUnknownTimeoutExit = errors.New("unexpected exit during timeout")
 
+// CallWithTimeout manages the channel / select loop required for timing
+// out a function using a WithTimeout context.
 func CallWithTimeout(ctx context.Context, timeout time.Duration, fn func(ctx context.Context) error) error {
 	var err error
 	done := make(chan struct{})
@@ -29,17 +34,16 @@ func CallWithTimeout(ctx context.Context, timeout time.Duration, fn func(ctx con
 		close(done)
 	}()
 
-	for {
-		select {
-		case <-time.After(timeout):
-			ctx.Done()
-			return ErrTimeout
-		case _, ok := <-done:
-			if ok {
-				return err
-			}
-			return ErrUnknownTimeoutExit
+	select {
+	case <-time.After(timeout):
+		ctx.Done()
+		return ErrTimeout
+	case _, ok := <-done:
+		if !ok {
+			// channel was closed as expected, use err object.
+			return err
 		}
+		return ErrUnknownTimeoutExit
 	}
 }
 
