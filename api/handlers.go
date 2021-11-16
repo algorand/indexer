@@ -7,9 +7,12 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/labstack/echo/v4"
 
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/labstack/echo/v4"
+	"github.com/algorand/go-algorand/data/bookkeeping"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/common"
@@ -31,6 +34,8 @@ type ServerImplementation struct {
 	db idb.IndexerDb
 
 	fetcher error
+
+	timeout time.Duration
 }
 
 /////////////////////
@@ -101,9 +106,14 @@ func validateTransactionFilter(filter *idb.TransactionFilter) error {
 // Returns 200 if healthy.
 // (GET /health)
 func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
+	var err error
 	var errors []string
+	var health idb.Health
 
-	health, err := si.db.Health()
+	err = util.CallWithTimeout(ctx.Request().Context(), si.timeout, func(ctx context.Context) error {
+		health, err = si.db.Health()
+		return err
+	})
 	if err != nil {
 		return indexerError(ctx, fmt.Sprintf("problem fetching health: %v", err))
 	}
@@ -259,13 +269,9 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 // SearchForApplications returns applications for the provided parameters.
 // (GET /v2/applications)
 func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params generated.SearchForApplicationsParams) error {
-	results, round := si.db.Applications(ctx.Request().Context(), &params)
-	apps := make([]generated.Application, 0)
-	for result := range results {
-		if result.Error != nil {
-			return indexerError(ctx, result.Error.Error())
-		}
-		apps = append(apps, result.Application)
+	apps, round, err := si.fetchApplications(ctx.Request().Context(), params)
+	if err != nil {
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedSearchingApplication, err))
 	}
 
 	var next *string
@@ -284,23 +290,29 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 // LookupApplicationByID returns one application for the requested ID.
 // (GET /v2/applications/{application-id})
 func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationByIDParams) error {
-	p := &generated.SearchForApplicationsParams{
+	p := generated.SearchForApplicationsParams{
 		ApplicationId: &applicationID,
 		IncludeAll:    params.IncludeAll,
 	}
-	results, round := si.db.Applications(ctx.Request().Context(), p)
-	out := generated.ApplicationResponse{
+
+	apps, round, err := si.fetchApplications(ctx.Request().Context(), p)
+	if err != nil {
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedSearchingApplication, err))
+	}
+
+	if len(apps) == 0 {
+		return notFound(ctx, errNoApplicationsFound)
+		return notFound(ctx, fmt.Sprintf("%s: %d", errNoApplicationsFound, applicationID))
+	}
+
+	if len(apps) > 1 {
+		return indexerError(ctx, fmt.Sprintf("%s: %d", errMultipleApplications, applicationID))
+	}
+
+	return ctx.JSON(http.StatusOK, generated.ApplicationResponse{
+		Application:  &(apps[0]),
 		CurrentRound: round,
-	}
-	result, ok := <-results
-	if !ok {
-		return ctx.JSON(http.StatusNotFound, out)
-	}
-	if result.Error != nil {
-		return indexerError(ctx, result.Error.Error())
-	}
-	out.Application = &result.Application
-	return ctx.JSON(http.StatusOK, out)
+	})
 }
 
 // LookupApplicationLogsByID returns one application logs
@@ -587,9 +599,39 @@ func notFound(ctx echo.Context, err string) error {
 // IndexerDb helpers //
 ///////////////////////
 
+// fetchApplications fetches all results
+func (si *ServerImplementation) fetchApplications(ctx context.Context, params generated.SearchForApplicationsParams) (apps []generated.Application, round uint64, err error) {
+	var results <-chan idb.ApplicationRow
+	err = util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
+		results, round = si.db.Applications(ctx, &params)
+		return nil
+	})
+	if err != nil {
+		return
+	}
+
+	for result := range results {
+		if result.Error != nil {
+			err = result.Error
+			return
+		}
+		apps = append(apps, result.Application)
+	}
+
+	return
+}
+
 // fetchAssets fetches all results and converts them into generated.Asset objects
 func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.AssetsQuery) ([]generated.Asset, uint64 /*round*/, error) {
-	assetchan, round := si.db.Assets(ctx, options)
+	var assetchan <-chan idb.AssetRow
+	var round uint64
+	err := util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
+		assetchan, round = si.db.Assets(ctx, options)
+		return nil
+	})
+	if err != nil {
+		return nil, 0, err
+	}
 	assets := make([]generated.Asset, 0)
 	for row := range assetchan {
 		if row.Error != nil {
@@ -651,7 +693,16 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 // fetchAssetBalances fetches all balances from a query and converts them into
 // generated.MiniAssetHolding objects
 func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options idb.AssetBalanceQuery) ([]generated.MiniAssetHolding, uint64 /*round*/, error) {
-	assetbalchan, round := si.db.AssetBalances(ctx, options)
+	var assetbalchan <-chan idb.AssetBalanceRow
+	var round uint64
+	err := util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
+		assetbalchan, round = si.db.AssetBalances(ctx, options)
+		return nil
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
 	balances := make([]generated.MiniAssetHolding, 0)
 	for row := range assetbalchan {
 		if row.Error != nil {
@@ -682,11 +733,19 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 // fetchBlock looks up a block and converts it into a generated.Block object
 // the method also loads the transactions into the returned block object.
 func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (generated.Block, error) {
-	blockHeader, transactions, err :=
-		si.db.GetBlock(ctx, round, idb.GetBlockOptions{Transactions: true})
-
+	var blockHeader bookkeeping.BlockHeader
+	var transactions []idb.TxnRow
+	var err error
+	err = util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
+		blockHeader, transactions, err =
+			si.db.GetBlock(ctx, round, idb.GetBlockOptions{Transactions: true})
+		if err != nil {
+			return fmt.Errorf("%s '%d': %w", errLookingUpBlock, round, err)
+		}
+		return nil
+	})
 	if err != nil {
-		return generated.Block{}, fmt.Errorf("%s '%d': %w", errLookingUpBlock, round, err)
+		return generated.Block{}, err
 	}
 
 	rewards := generated.BlockRewards{
@@ -743,7 +802,15 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 // fetchAccounts queries for accounts and converts them into generated.Account
 // objects, optionally rewinding their value back to a particular round.
 func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.AccountQueryOptions, atRound *uint64) ([]generated.Account, uint64 /*round*/, error) {
-	accountchan, round := si.db.GetAccounts(ctx, options)
+	var accountchan <-chan idb.AccountRow
+	var round uint64
+	err := util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
+		accountchan, round = si.db.GetAccounts(ctx, options)
+		return nil
+	})
+	if err != nil {
+		return nil, 0, err
+	}
 
 	if (atRound != nil) && (*atRound > round) {
 		return nil, round, fmt.Errorf(
@@ -784,11 +851,18 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 
 // fetchTransactions is used to query the backend for transactions, and compute the next token
 func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, uint64 /*round*/, error) {
-	// Used for filtering duplicates after getting results.
-	rootTxnDedupeMap := make(map[string]struct{})
+	var txchan <-chan idb.TxnRow
+	var round uint64
+	err := util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
+		txchan, round = si.db.Transactions(ctx, filter)
+		return nil
+	})
+	if err != nil {
+		return nil, "", 0, err
+	}
 
+	rootTxnDedupeMap := make(map[string]struct{})
 	results := make([]generated.Transaction, 0)
-	txchan, round := si.db.Transactions(ctx, filter)
 	nextToken := ""
 	var txrow idb.TxnRow
 	for txrow = range txchan {
@@ -817,7 +891,7 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 	}
 
 	// The sort order depends on whether the address filter is used.
-	nextToken, err := txrow.Next(filter.Address == nil)
+	nextToken, err = txrow.Next(filter.Address == nil)
 
 	return results, nextToken, round, err
 }

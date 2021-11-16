@@ -1,14 +1,47 @@
 package util
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/algorand/go-codec/codec"
 )
+
+var ErrTimeout = errors.New("timeout during call")
+var ErrUnknownTimeoutExit = errors.New("unexpected exit during timeout")
+
+func CallWithTimeout(ctx context.Context, timeout time.Duration, fn func(ctx context.Context) error) error {
+	var err error
+	done := make(chan struct{})
+
+	ctx2, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Call the long function
+	go func() {
+		err = fn(ctx2)
+		close(done)
+	}()
+
+	for {
+		select {
+		case <-time.After(timeout):
+			ctx.Done()
+			return ErrTimeout
+		case _, ok := <-done:
+			if ok {
+				return err
+			}
+			return ErrUnknownTimeoutExit
+		}
+	}
+}
 
 // PrintableUTF8OrEmpty checks to see if the entire string is a UTF8 printable string.
 // If this is the case, the string is returned as is. Otherwise, the empty string is returned.
