@@ -2,8 +2,6 @@ package encoding
 
 import (
 	"encoding/base64"
-	"unicode"
-	"unicode/utf8"
 
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"github.com/algorand/go-codec/codec"
@@ -83,20 +81,6 @@ func convertLocalDeltas(deltas map[uint64]types.StateDelta) map[uint64]types.Sta
 	return res
 }
 
-// printableUTF8OrEmpty checks to see if the entire string is a UTF8 printable string.
-// If this is the case, the string is returned as is. Otherwise, the empty string is returned.
-func printableUTF8OrEmpty(in string) string {
-	// iterate throughout all the characters in the string to see if they are all printable.
-	// when range iterating on go strings, go decode each element as a utf8 rune.
-	for _, c := range in {
-		// is this a printable character, or invalid rune ?
-		if c == utf8.RuneError || !unicode.IsPrint(c) {
-			return ""
-		}
-	}
-	return in
-}
-
 func convertItxnSignedTxnWithAD(stxn types.SignedTxnWithAD) types.SignedTxnWithAD {
 	stxn.EvalDelta = convertEvalDelta(stxn.EvalDelta)
 	// Remove non UTF8 characters from Asset params in Inner Transactions
@@ -124,7 +108,7 @@ func removeNonUTF8Chars(logs []string) []string {
 	}
 	res := make([]string, len(logs))
 	for i, log := range logs {
-		res[i] = printableUTF8OrEmpty(log)
+		res[i] = util.PrintableUTF8OrEmpty(log)
 	}
 	return res
 }
