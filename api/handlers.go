@@ -496,7 +496,7 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
 	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber)
 	if errors.Is(err, idb.ErrorBlockNotFound) {
-		return notFound(ctx, err.Error())
+		return notFound(ctx, fmt.Sprintf("%s '%d': %v", errLookingUpBlock, roundNumber, err))
 	}
 	if err != nil {
 		return indexerError(ctx, fmt.Sprintf("%s '%d': %v", errLookingUpBlock, roundNumber, err))

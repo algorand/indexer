@@ -20,8 +20,11 @@ var ErrTimeout = errors.New("timeout during call")
 var ErrUnknownTimeoutExit = errors.New("unexpected exit during timeout")
 
 // CallWithTimeout manages the channel / select loop required for timing
-// out a function using a WithTimeout context.
+// out a function using a WithTimeout context. No timeout if timeout = 0.
 func CallWithTimeout(ctx context.Context, timeout time.Duration, fn func(ctx context.Context) error) error {
+	if timeout == 0 {
+		return fn(ctx)
+	}
 	done := make(chan error)
 
 	// Call the long function
@@ -57,17 +60,17 @@ func CallWithTimeout(ctx context.Context, timeout time.Duration, fn func(ctx con
 		}(timeoutCtx)
 
 		select { // wait for task to finish or context to timeout/cancel
-		case <-timeoutCtx.Done()
-			if timeoutCtx.Err() == context.DeadlineExceeded {
-			    return ErrTimeout
-			}
-			return timeoutCtx.Err()
 		case _, ok := <-done:
 			if !ok {
 				// channel was closed as expected, use err object.
 				return err
 			}
 			return ErrUnknownTimeoutExit
+		case <-timeoutCtx.Done():
+			if timeoutCtx.Err() == context.DeadlineExceeded {
+			    return ErrTimeout
+			}
+			return timeoutCtx.Err()
 		}
 	*/
 }

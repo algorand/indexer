@@ -529,6 +529,7 @@ func TestFetchTransactions(t *testing.T) {
 			si := ServerImplementation{
 				EnableAddressSearchRoundRewind: true,
 				db:                             mockIndexer,
+				timeout:                        1 * time.Second,
 			}
 
 			roundTime := time.Now()
@@ -557,7 +558,7 @@ func TestFetchTransactions(t *testing.T) {
 
 			// Call the function
 			results, _, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Automatically print it out when writing the test.
 			printIt := len(test.response) == 0
@@ -584,7 +585,7 @@ func TestFetchTransactions(t *testing.T) {
 			}
 
 			// Verify the results
-			assert.Equal(t, len(test.response), len(results))
+			require.Equal(t, len(test.response), len(results))
 			for i, expected := range test.response {
 				actual := results[i]
 				// This is set in the mock above, so override it in the expected value.
