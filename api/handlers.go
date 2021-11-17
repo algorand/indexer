@@ -694,36 +694,37 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options idb.AssetBalanceQuery) ([]generated.MiniAssetHolding, uint64 /*round*/, error) {
 	var assetbalchan <-chan idb.AssetBalanceRow
 	var round uint64
+	balances := make([]generated.MiniAssetHolding, 0)
 	err := util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
 		assetbalchan, round = si.db.AssetBalances(ctx, options)
+
+		for row := range assetbalchan {
+			if row.Error != nil {
+				return row.Error
+			}
+
+			addr := basics.Address{}
+			if len(row.Address) != len(addr) {
+				return fmt.Errorf(errInvalidCreatorAddress)
+			}
+			copy(addr[:], row.Address[:])
+
+			bal := generated.MiniAssetHolding{
+				Address:         addr.String(),
+				Amount:          row.Amount,
+				IsFrozen:        row.Frozen,
+				OptedInAtRound:  row.CreatedRound,
+				OptedOutAtRound: row.ClosedRound,
+				Deleted:         row.Deleted,
+			}
+
+			balances = append(balances, bal)
+		}
+
 		return nil
 	})
 	if err != nil {
 		return nil, 0, err
-	}
-
-	balances := make([]generated.MiniAssetHolding, 0)
-	for row := range assetbalchan {
-		if row.Error != nil {
-			return nil, round, row.Error
-		}
-
-		addr := basics.Address{}
-		if len(row.Address) != len(addr) {
-			return nil, round, fmt.Errorf(errInvalidCreatorAddress)
-		}
-		copy(addr[:], row.Address[:])
-
-		bal := generated.MiniAssetHolding{
-			Address:         addr.String(),
-			Amount:          row.Amount,
-			IsFrozen:        row.Frozen,
-			OptedInAtRound:  row.CreatedRound,
-			OptedOutAtRound: row.ClosedRound,
-			Deleted:         row.Deleted,
-		}
-
-		balances = append(balances, bal)
 	}
 
 	return balances, round, nil
@@ -734,64 +735,68 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (generated.Block, error) {
 	var blockHeader bookkeeping.BlockHeader
 	var transactions []idb.TxnRow
+	var ret generated.Block
+	results := make([]generated.Transaction, 0)
 	var err error
 	err = util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
 		blockHeader, transactions, err =
 			si.db.GetBlock(ctx, round, idb.GetBlockOptions{Transactions: true})
+		if err != nil {
+			return err
+		}
+
+		rewards := generated.BlockRewards{
+			FeeSink:                 blockHeader.FeeSink.String(),
+			RewardsCalculationRound: uint64(blockHeader.RewardsRecalculationRound),
+			RewardsLevel:            blockHeader.RewardsLevel,
+			RewardsPool:             blockHeader.RewardsPool.String(),
+			RewardsRate:             blockHeader.RewardsRate,
+			RewardsResidue:          blockHeader.RewardsResidue,
+		}
+
+		upgradeState := generated.BlockUpgradeState{
+			CurrentProtocol:        string(blockHeader.CurrentProtocol),
+			NextProtocol:           strPtr(string(blockHeader.NextProtocol)),
+			NextProtocolApprovals:  uint64Ptr(blockHeader.NextProtocolApprovals),
+			NextProtocolSwitchOn:   uint64Ptr(uint64(blockHeader.NextProtocolSwitchOn)),
+			NextProtocolVoteBefore: uint64Ptr(uint64(blockHeader.NextProtocolVoteBefore)),
+		}
+
+		upgradeVote := generated.BlockUpgradeVote{
+			UpgradeApprove: boolPtr(blockHeader.UpgradeApprove),
+			UpgradeDelay:   uint64Ptr(uint64(blockHeader.UpgradeDelay)),
+			UpgradePropose: strPtr(string(blockHeader.UpgradePropose)),
+		}
+
+		ret = generated.Block{
+			GenesisHash:       blockHeader.GenesisHash[:],
+			GenesisId:         blockHeader.GenesisID,
+			PreviousBlockHash: blockHeader.Branch[:],
+			Rewards:           &rewards,
+			Round:             uint64(blockHeader.Round),
+			Seed:              blockHeader.Seed[:],
+			Timestamp:         uint64(blockHeader.TimeStamp),
+			Transactions:      nil,
+			TransactionsRoot:  blockHeader.TxnRoot[:],
+			TxnCounter:        uint64Ptr(blockHeader.TxnCounter),
+			UpgradeState:      &upgradeState,
+			UpgradeVote:       &upgradeVote,
+		}
+
+		for _, txrow := range transactions {
+			tx, err := txnRowToTransaction(txrow)
+			if err != nil {
+				return err
+			}
+			results = append(results, tx)
+		}
+
+		ret.Transactions = &results
 		return err
 	})
 	if err != nil {
 		return generated.Block{}, err
 	}
-
-	rewards := generated.BlockRewards{
-		FeeSink:                 blockHeader.FeeSink.String(),
-		RewardsCalculationRound: uint64(blockHeader.RewardsRecalculationRound),
-		RewardsLevel:            blockHeader.RewardsLevel,
-		RewardsPool:             blockHeader.RewardsPool.String(),
-		RewardsRate:             blockHeader.RewardsRate,
-		RewardsResidue:          blockHeader.RewardsResidue,
-	}
-
-	upgradeState := generated.BlockUpgradeState{
-		CurrentProtocol:        string(blockHeader.CurrentProtocol),
-		NextProtocol:           strPtr(string(blockHeader.NextProtocol)),
-		NextProtocolApprovals:  uint64Ptr(blockHeader.NextProtocolApprovals),
-		NextProtocolSwitchOn:   uint64Ptr(uint64(blockHeader.NextProtocolSwitchOn)),
-		NextProtocolVoteBefore: uint64Ptr(uint64(blockHeader.NextProtocolVoteBefore)),
-	}
-
-	upgradeVote := generated.BlockUpgradeVote{
-		UpgradeApprove: boolPtr(blockHeader.UpgradeApprove),
-		UpgradeDelay:   uint64Ptr(uint64(blockHeader.UpgradeDelay)),
-		UpgradePropose: strPtr(string(blockHeader.UpgradePropose)),
-	}
-
-	ret := generated.Block{
-		GenesisHash:       blockHeader.GenesisHash[:],
-		GenesisId:         blockHeader.GenesisID,
-		PreviousBlockHash: blockHeader.Branch[:],
-		Rewards:           &rewards,
-		Round:             uint64(blockHeader.Round),
-		Seed:              blockHeader.Seed[:],
-		Timestamp:         uint64(blockHeader.TimeStamp),
-		Transactions:      nil,
-		TransactionsRoot:  blockHeader.TxnRoot[:],
-		TxnCounter:        uint64Ptr(blockHeader.TxnCounter),
-		UpgradeState:      &upgradeState,
-		UpgradeVote:       &upgradeVote,
-	}
-
-	results := make([]generated.Transaction, 0)
-	for _, txrow := range transactions {
-		tx, err := txnRowToTransaction(txrow)
-		if err != nil {
-			return generated.Block{}, err
-		}
-		results = append(results, tx)
-	}
-
-	ret.Transactions = &results
 	return ret, nil
 }
 
@@ -800,48 +805,49 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.AccountQueryOptions, atRound *uint64) ([]generated.Account, uint64 /*round*/, error) {
 	var accountchan <-chan idb.AccountRow
 	var round uint64
+	accounts := make([]generated.Account, 0)
 	err := util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
 		accountchan, round = si.db.GetAccounts(ctx, options)
+
+		if (atRound != nil) && (*atRound > round) {
+			return fmt.Errorf("%s: the requested round %d > the current round %d",
+				errRewindingAccount, *atRound, round)
+		}
+
+		for row := range accountchan {
+			if row.Error != nil {
+				return row.Error
+			}
+
+			// Compute for a given round if requested.
+			var account generated.Account
+			if atRound != nil {
+				acct, err := accounting.AccountAtRound(row.Account, *atRound, si.db)
+				if err != nil {
+					// Ignore the error if this is an account search rewind error
+					_, isSpecialAccountRewindError := err.(*accounting.SpecialAccountRewindError)
+					if len(options.EqualToAddress) != 0 || !isSpecialAccountRewindError {
+						return fmt.Errorf("%s: %v", errRewindingAccount, err)
+					}
+					// If we didn't return, continue to the next account
+					continue
+				}
+				account = acct
+			} else {
+				account = row.Account
+			}
+
+			// match the algod equivalent which includes pending rewards
+			account.Rewards += account.PendingRewards
+			accounts = append(accounts, account)
+		}
 		return nil
+
 	})
+
 	if err != nil {
 		return nil, 0, err
 	}
-
-	if (atRound != nil) && (*atRound > round) {
-		return nil, round, fmt.Errorf(
-			"%s: the requested round %d > the current round %d", errRewindingAccount, *atRound, round)
-	}
-
-	accounts := make([]generated.Account, 0)
-	for row := range accountchan {
-		if row.Error != nil {
-			return nil, round, row.Error
-		}
-
-		// Compute for a given round if requested.
-		var account generated.Account
-		if atRound != nil {
-			acct, err := accounting.AccountAtRound(row.Account, *atRound, si.db)
-			if err != nil {
-				// Ignore the error if this is an account search rewind error
-				_, isSpecialAccountRewindError := err.(*accounting.SpecialAccountRewindError)
-				if len(options.EqualToAddress) != 0 || !isSpecialAccountRewindError {
-					return nil, round, fmt.Errorf("%s: %v", errRewindingAccount, err)
-				}
-				// If we didn't return, continue to the next account
-				continue
-			}
-			account = acct
-		} else {
-			account = row.Account
-		}
-
-		// match the algod equivalent which includes pending rewards
-		account.Rewards += account.PendingRewards
-		accounts = append(accounts, account)
-	}
-
 	return accounts, round, nil
 }
 
@@ -849,45 +855,47 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, uint64 /*round*/, error) {
 	var txchan <-chan idb.TxnRow
 	var round uint64
-	err := util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
+	var nextToken string
+	var err error
+	results := make([]generated.Transaction, 0)
+	err = util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
 		txchan, round = si.db.Transactions(ctx, filter)
+
+		rootTxnDedupeMap := make(map[string]struct{})
+		var txrow idb.TxnRow
+		for txrow = range txchan {
+			tx, err := txnRowToTransaction(txrow)
+			if err != nil {
+				return err
+			}
+
+			// Do not return inner transactions.
+			if tx.Id == nil {
+				continue
+			}
+
+			// The root txn has already been added.
+			if _, ok := rootTxnDedupeMap[*tx.Id]; ok {
+				continue
+			}
+
+			rootTxnDedupeMap[*tx.Id] = struct{}{}
+			results = append(results, tx)
+		}
+
+		// No next token if there were no results.
+		if len(results) == 0 {
+			return nil
+		}
+
+		// The sort order depends on whether the address filter is used.
+		nextToken, err = txrow.Next(filter.Address == nil)
+
 		return nil
 	})
 	if err != nil {
 		return nil, "", 0, err
 	}
-
-	rootTxnDedupeMap := make(map[string]struct{})
-	results := make([]generated.Transaction, 0)
-	nextToken := ""
-	var txrow idb.TxnRow
-	for txrow = range txchan {
-		tx, err := txnRowToTransaction(txrow)
-		if err != nil {
-			return nil, "", round, err
-		}
-
-		// Do not return inner transactions.
-		if tx.Id == nil {
-			continue
-		}
-
-		// The root txn has already been added.
-		if _, ok := rootTxnDedupeMap[*tx.Id]; ok {
-			continue
-		}
-
-		rootTxnDedupeMap[*tx.Id] = struct{}{}
-		results = append(results, tx)
-	}
-
-	// No next token if there were no results.
-	if len(results) == 0 {
-		return results, "", round, nil
-	}
-
-	// The sort order depends on whether the address filter is used.
-	nextToken, err = txrow.Next(filter.Address == nil)
 
 	return results, nextToken, round, err
 }

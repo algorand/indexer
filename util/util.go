@@ -25,54 +25,55 @@ func CallWithTimeout(ctx context.Context, timeout time.Duration, fn func(ctx con
 	if timeout == 0 {
 		return fn(ctx)
 	}
-	done := make(chan error)
-
-	// Call the long function
-	var err error
-	go func(routineCtx context.Context) {
-		err = fn(routineCtx)
-		close(done)
-	}(ctx)
-
-	select { // wait for task to finish or for a timeout.
-	case <-time.After(timeout):
-		return ErrTimeout
-	case _, ok := <-done:
-		if !ok {
-			// channel was closed as expected, use err object.
-			return err
-		}
-		return ErrUnknownTimeoutExit
-	}
-
-	// WithTimeout context isn't working properly.
-	// It should be used so that the DB operation will be cancelled.
 	/*
-		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
-		defer cancel()
+		done := make(chan error)
 
 		// Call the long function
-		done := make(chan error)
 		var err error
 		go func(routineCtx context.Context) {
 			err = fn(routineCtx)
 			close(done)
-		}(timeoutCtx)
+		}(ctx)
 
-		select { // wait for task to finish or context to timeout/cancel
+		select { // wait for task to finish or for a timeout.
+		case <-time.After(timeout):
+			return ErrTimeout
 		case _, ok := <-done:
 			if !ok {
 				// channel was closed as expected, use err object.
 				return err
 			}
 			return ErrUnknownTimeoutExit
-		case <-timeoutCtx.Done():
-			if timeoutCtx.Err() == context.DeadlineExceeded {
-			    return ErrTimeout
-			}
-			return timeoutCtx.Err()
 		}
+
 	*/
+
+	// WithTimeout context isn't working properly.
+	// It should be used so that the DB operation will be cancelled.
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	// Call the long function
+	done := make(chan error)
+	var err error
+	go func(routineCtx context.Context) {
+		err = fn(routineCtx)
+		close(done)
+	}(timeoutCtx)
+
+	select { // wait for task to finish or context to timeout/cancel
+	case _, ok := <-done:
+		if !ok {
+			// channel was closed as expected, use err object.
+			return err
+		}
+		return ErrUnknownTimeoutExit
+	case <-timeoutCtx.Done():
+		if timeoutCtx.Err() == context.DeadlineExceeded {
+			return ErrTimeout
+		}
+		return timeoutCtx.Err()
+	}
 }
 
 // PrintableUTF8OrEmpty checks to see if the entire string is a UTF8 printable string.
