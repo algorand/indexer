@@ -115,7 +115,7 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 		return err
 	})
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("problem fetching health: %v", err))
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedLookingUpHealth, err))
 	}
 
 	if health.Error != "" {
@@ -301,7 +301,6 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 	}
 
 	if len(apps) == 0 {
-		return notFound(ctx, errNoApplicationsFound)
 		return notFound(ctx, fmt.Sprintf("%s: %d", errNoApplicationsFound, applicationID))
 	}
 
@@ -386,7 +385,7 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 
 	assets, round, err := si.fetchAssets(ctx.Request().Context(), options)
 	if err != nil {
-		return indexerError(ctx, err.Error())
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedSearchingAsset, err))
 	}
 
 	if len(assets) == 0 {
@@ -424,7 +423,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 
 	balances, round, err := si.fetchAssetBalances(ctx.Request().Context(), query)
 	if err != nil {
-		return indexerError(ctx, err.Error())
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedSearchingAssetBalances, err))
 	}
 
 	var next *string
@@ -477,7 +476,7 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 
 	assets, round, err := si.fetchAssets(ctx.Request().Context(), options)
 	if err != nil {
-		return indexerError(ctx, err.Error())
+		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedSearchingAsset, err))
 	}
 
 	var next *string
@@ -500,7 +499,7 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 		return notFound(ctx, err.Error())
 	}
 	if err != nil {
-		return indexerError(ctx, err.Error())
+		return indexerError(ctx, fmt.Sprintf("%s '%d': %v", errLookingUpBlock, roundNumber, err))
 	}
 
 	return ctx.JSON(http.StatusOK, generated.BlockResponse(blk))
@@ -739,10 +738,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 	err = util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
 		blockHeader, transactions, err =
 			si.db.GetBlock(ctx, round, idb.GetBlockOptions{Transactions: true})
-		if err != nil {
-			return fmt.Errorf("%s '%d': %w", errLookingUpBlock, round, err)
-		}
-		return nil
+		return err
 	})
 	if err != nil {
 		return generated.Block{}, err
