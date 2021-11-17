@@ -1656,3 +1656,84 @@ func TestMultipleInnerTxn(t *testing.T) {
 		`SELECT COUNT(*) FROM account WHERE addr=$1 AND microalgos=$2`,
 		receiver2[:], amount2))
 }
+
+func TestInnerTxnNonUTF8Fields(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing an app call txn with inners containing non-UTF-8 string fields
+	///////////
+	createApp, _ := test.MakeCreateAppTxn(test.Round, test.AccountA)
+	pay, _ := test.MakePayTxnRowOrPanic(test.Round, 1000, 0, 0, 0, 0, 0, test.AccountC,
+		test.AccountA, sdk_types.ZeroAddress, sdk_types.ZeroAddress)
+
+	block := test.MakeBlockForTxns(test.Round, createApp, pay)
+
+	createdAssetIndex := uint64(111)
+	createdAssetTotal := uint64(math.MaxUint64)
+
+	// Add directly to the block to avoid converting sdk_types.ApplyData and types.ApplyData
+	block.Block.Payset[0].ApplyData.EvalDelta.InnerTxns = []types.SignedTxnWithAD{
+		{
+			SignedTxn: sdk_types.SignedTxn{
+				Txn: sdk_types.Transaction{
+					Type: sdk_types.AssetConfigTx,
+					Header: sdk_types.Header{
+						Sender: test.AccountA,
+					},
+					AssetConfigTxnFields: sdk_types.AssetConfigTxnFields{
+						AssetParams: sdk_types.AssetParams{
+							Total:         createdAssetTotal,
+							Decimals:      uint32(0),
+							DefaultFrozen: false,
+							UnitName:      "unit name with null: (\x00)",
+							AssetName:     "asset name with null: (\x00)",
+							URL:           "url with null: (\x00)",
+							Manager:       test.AccountA,
+							Reserve:       test.AccountA,
+							Freeze:        test.AccountA,
+							Clawback:      test.AccountA,
+						},
+					},
+				},
+			},
+			ApplyData: types.ApplyData{
+				ConfigAsset: types.AssetIndex(createdAssetIndex),
+			},
+		},
+	}
+
+	//////////
+	// When // We import the transaction.
+	//////////
+	_, err := importer.NewDBImporter(db).ImportDecodedBlock(&block)
+	require.NoError(t, err)
+	importer.UpdateAccounting(db, map[uint64]bool{}, idb.UpdateFilter{StartRound: test.Round - 1, MaxRound: test.Round}, log.New())
+
+	//////////
+	// Then // Account A has the correct balance and the asset parameters don't include non-UTF-8 characters.
+	//////////
+
+	// A has the new asset
+	assertAccountAsset(t, db.db, test.AccountA, createdAssetIndex, false, createdAssetTotal)
+
+	// Only in the transaction table are non-UTF-8 characters filtered from the asset parameters
+
+	// The asset parameters remain unchanged in the asset params table
+	assets, _ := db.Assets(context.Background(), idb.AssetsQuery{AssetID: createdAssetIndex})
+	num := 0
+	for asset := range assets {
+		require.NoError(t, asset.Error)
+		require.Equal(t, "unit name with null: (\x00)", asset.Params.UnitName)
+		require.Equal(t, "asset name with null: (\x00)", asset.Params.AssetName)
+		require.Equal(t, "url with null: (\x00)", asset.Params.URL)
+
+		require.Equal(t, test.AccountA, asset.Params.Manager)
+		require.Equal(t, test.AccountA, asset.Params.Reserve)
+		require.Equal(t, test.AccountA, asset.Params.Freeze)
+		require.Equal(t, test.AccountA, asset.Params.Clawback)
+		num++
+	}
+	require.Equal(t, 1, num)
+}
