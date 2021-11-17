@@ -54,12 +54,6 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 	e := echo.New()
 	e.HideBanner = true
 
-	// To ensure everything uses the correct context this must be specified first.
-	e.Use(middleware.TimeoutWithConfig(middleware.TimeoutConfig{
-		ErrorMessage: `{"message":"Request Timeout"}`,
-		Timeout:      options.handlerTimeout(),
-	}))
-
 	if options.MetricsEndpoint {
 		p := echo_contrib.NewPrometheus("indexer", nil, nil)
 		if options.MetricsEndpointVerbose {
