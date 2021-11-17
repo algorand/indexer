@@ -22,21 +22,17 @@ var ErrUnknownTimeoutExit = errors.New("unexpected exit during timeout")
 // CallWithTimeout manages the channel / select loop required for timing
 // out a function using a WithTimeout context.
 func CallWithTimeout(ctx context.Context, timeout time.Duration, fn func(ctx context.Context) error) error {
-	var err error
-	done := make(chan struct{})
-
-	ctx2, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
+	done := make(chan error)
 
 	// Call the long function
-	go func() {
-		err = fn(ctx2)
+	var err error
+	go func(routineCtx context.Context) {
+		err = fn(routineCtx)
 		close(done)
-	}()
+	}(ctx)
 
-	select {
+	select { // wait for task to finish or for a timeout.
 	case <-time.After(timeout):
-		ctx.Done()
 		return ErrTimeout
 	case _, ok := <-done:
 		if !ok {
@@ -45,6 +41,35 @@ func CallWithTimeout(ctx context.Context, timeout time.Duration, fn func(ctx con
 		}
 		return ErrUnknownTimeoutExit
 	}
+
+	// WithTimeout context isn't working properly.
+	// It should be used so that the DB operation will be cancelled.
+	/*
+		timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+
+		// Call the long function
+		done := make(chan error)
+		var err error
+		go func(routineCtx context.Context) {
+			err = fn(routineCtx)
+			close(done)
+		}(timeoutCtx)
+
+		select { // wait for task to finish or context to timeout/cancel
+		case <-timeoutCtx.Done()
+			if timeoutCtx.Err() == context.DeadlineExceeded {
+			    return ErrTimeout
+			}
+			return timeoutCtx.Err()
+		case _, ok := <-done:
+			if !ok {
+				// channel was closed as expected, use err object.
+				return err
+			}
+			return ErrUnknownTimeoutExit
+		}
+	 */
 }
 
 // PrintableUTF8OrEmpty checks to see if the entire string is a UTF8 printable string.
