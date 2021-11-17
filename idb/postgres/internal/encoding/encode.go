@@ -97,6 +97,27 @@ func printableUTF8OrEmpty(in string) string {
 	return in
 }
 
+func convertItxnSignedTxnWithAD(stxn types.SignedTxnWithAD) types.SignedTxnWithAD {
+	stxn.EvalDelta = convertEvalDelta(stxn.EvalDelta)
+	// Remove non UTF8 characters from Asset params in Inner Transactions
+	stxn.Txn.AssetParams.AssetName = util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.AssetName)
+	stxn.Txn.AssetParams.UnitName = util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.UnitName)
+	stxn.Txn.AssetParams.URL = util.PrintableUTF8OrEmpty(stxn.Txn.AssetParams.URL)
+	return stxn
+}
+
+func convertInnerTxns(innerTxns []types.SignedTxnWithAD) []types.SignedTxnWithAD {
+	if innerTxns == nil {
+		return nil
+	}
+
+	res := make([]types.SignedTxnWithAD, len(innerTxns))
+	for i, innerTxn := range innerTxns {
+		res[i] = convertItxnSignedTxnWithAD(innerTxn)
+	}
+	return res
+}
+
 func removeNonUTF8Chars(logs []string) []string {
 	if logs == nil {
 		return nil
@@ -112,6 +133,7 @@ func convertEvalDelta(evalDelta types.EvalDelta) types.EvalDelta {
 	evalDelta.Logs = removeNonUTF8Chars(evalDelta.Logs)
 	evalDelta.GlobalDelta = convertStateDelta(evalDelta.GlobalDelta)
 	evalDelta.LocalDeltas = convertLocalDeltas(evalDelta.LocalDeltas)
+	evalDelta.InnerTxns = convertInnerTxns(evalDelta.InnerTxns)
 	return evalDelta
 }
 
