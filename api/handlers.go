@@ -115,7 +115,7 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 		return err
 	})
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedLookingUpHealth, err))
+		return indexerError(ctx, err, fmt.Sprintf("%s: %v", errFailedLookingUpHealth, err))
 	}
 
 	if health.Error != "" {
@@ -155,7 +155,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 
 	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedSearchingAccount, err))
+		return indexerError(ctx, err, fmt.Sprintf("%s: %v", errFailedSearchingAccount, err))
 	}
 
 	if len(accounts) == 0 {
@@ -163,7 +163,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 	}
 
 	if len(accounts) > 1 {
-		return indexerError(ctx, fmt.Sprintf("%s: %s", errMultipleAccounts, accountID))
+		return indexerError(ctx, nil, fmt.Sprintf("%s: %s", errMultipleAccounts, accountID))
 	}
 
 	return ctx.JSON(http.StatusOK, generated.AccountResponse{
@@ -214,7 +214,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
 
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedSearchingAccount, err))
+		return indexerError(ctx, err, fmt.Sprintf("%s: %v", errFailedSearchingAccount, err))
 	}
 
 	var next *string
@@ -271,7 +271,7 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params generated.SearchForApplicationsParams) error {
 	apps, round, err := si.fetchApplications(ctx.Request().Context(), params)
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedSearchingApplication, err))
+		return indexerError(ctx, err, fmt.Sprintf("%s: %v", errFailedSearchingApplication, err))
 	}
 
 	var next *string
@@ -297,7 +297,7 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 
 	apps, round, err := si.fetchApplications(ctx.Request().Context(), p)
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedSearchingApplication, err))
+		return indexerError(ctx, err, fmt.Sprintf("%s: %v", errFailedSearchingApplication, err))
 	}
 
 	if len(apps) == 0 {
@@ -305,7 +305,7 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 	}
 
 	if len(apps) > 1 {
-		return indexerError(ctx, fmt.Sprintf("%s: %d", errMultipleApplications, applicationID))
+		return indexerError(ctx, nil, fmt.Sprintf("%s: %d", errMultipleApplications, applicationID))
 	}
 
 	return ctx.JSON(http.StatusOK, generated.ApplicationResponse{
@@ -342,7 +342,7 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 	// Fetch the transactions
 	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s: %v", errTransactionSearch, err))
+		return indexerError(ctx, err, fmt.Sprintf("%s: %v", errTransactionSearch, err))
 	}
 
 	var logData []generated.ApplicationLogData
@@ -385,7 +385,7 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 
 	assets, round, err := si.fetchAssets(ctx.Request().Context(), options)
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedSearchingAsset, err))
+		return indexerError(ctx, err, fmt.Sprintf("%s: %v", errFailedSearchingAsset, err))
 	}
 
 	if len(assets) == 0 {
@@ -393,7 +393,7 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 	}
 
 	if len(assets) > 1 {
-		return indexerError(ctx, fmt.Sprintf("%s: %d", errMultipleAssets, assetID))
+		return indexerError(ctx, nil, fmt.Sprintf("%s: %d", errMultipleAssets, assetID))
 	}
 
 	return ctx.JSON(http.StatusOK, generated.AssetResponse{
@@ -423,7 +423,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 
 	balances, round, err := si.fetchAssetBalances(ctx.Request().Context(), query)
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedSearchingAssetBalances, err))
+		return indexerError(ctx, err, fmt.Sprintf("%s: %v", errFailedSearchingAssetBalances, err))
 	}
 
 	var next *string
@@ -476,7 +476,7 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 
 	assets, round, err := si.fetchAssets(ctx.Request().Context(), options)
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s: %v", errFailedSearchingAsset, err))
+		return indexerError(ctx, err, fmt.Sprintf("%s: %v", errFailedSearchingAsset, err))
 	}
 
 	var next *string
@@ -499,7 +499,7 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 		return notFound(ctx, fmt.Sprintf("%s '%d': %v", errLookingUpBlock, roundNumber, err))
 	}
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s '%d': %v", errLookingUpBlock, roundNumber, err))
+		return indexerError(ctx, err, fmt.Sprintf("%s '%d': %v", errLookingUpBlock, roundNumber, err))
 	}
 
 	return ctx.JSON(http.StatusOK, generated.BlockResponse(blk))
@@ -522,7 +522,7 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 	// Fetch the transactions
 	txns, _, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s: %v", errTransactionSearch, err))
+		return indexerError(ctx, err, fmt.Sprintf("%s: %v", errTransactionSearch, err))
 	}
 
 	if len(txns) == 0 {
@@ -530,7 +530,7 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 	}
 
 	if len(txns) > 1 {
-		return indexerError(ctx, fmt.Sprintf("%s: %s", errMultipleTransactions, txid))
+		return indexerError(ctx, nil, fmt.Sprintf("%s: %s", errMultipleTransactions, txid))
 	}
 
 	response := generated.TransactionResponse{
@@ -557,7 +557,7 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 	// Fetch the transactions
 	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
-		return indexerError(ctx, fmt.Sprintf("%s: %v", errTransactionSearch, err))
+		return indexerError(ctx, err, fmt.Sprintf("%s: %v", errTransactionSearch, err))
 	}
 
 	response := generated.TransactionsResponse{
@@ -580,10 +580,24 @@ func badRequest(ctx echo.Context, err string) error {
 	})
 }
 
-// return a 500
-func indexerError(ctx echo.Context, err string) error {
-	return ctx.JSON(http.StatusInternalServerError, generated.ErrorResponse{
+// return a 503
+func timeoutError(ctx echo.Context, err string) error {
+	return ctx.JSON(http.StatusServiceUnavailable, generated.ErrorResponse{
 		Message: err,
+	})
+}
+
+// return a 500, or 503 if it is a timeout error
+func indexerError(ctx echo.Context, err error, msg string) error {
+	var code int
+	if util.IsTimeoutError(err) {
+		code = http.StatusServiceUnavailable
+	} else {
+		code = http.StatusInternalServerError
+	}
+
+	return ctx.JSON(code, generated.ErrorResponse{
+		Message: msg,
 	})
 }
 
