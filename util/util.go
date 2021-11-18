@@ -19,6 +19,14 @@ var ErrTimeout = errors.New("timeout during call")
 // ErrUnknownTimeoutExit is returned when CallWithTimeout has an unexpected done event.
 var ErrUnknownTimeoutExit = errors.New("unexpected exit during timeout")
 
+// IsTimeoutError compares the given error against the timeout errors.
+func IsTimeoutError(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, ErrTimeout) || errors.Is(err, ErrUnknownTimeoutExit)
+}
+
 // CallWithTimeout manages the channel / select loop required for timing
 // out a function using a WithTimeout context. No timeout if timeout = 0.
 // A new context is passed into handler, and cancelled at the end of this
