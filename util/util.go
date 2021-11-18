@@ -21,47 +21,26 @@ var ErrUnknownTimeoutExit = errors.New("unexpected exit during timeout")
 
 // CallWithTimeout manages the channel / select loop required for timing
 // out a function using a WithTimeout context. No timeout if timeout = 0.
-func CallWithTimeout(ctx context.Context, timeout time.Duration, fn func(ctx context.Context) error) error {
+// A new context is passed into handler, and cancelled at the end of this
+// call.
+func CallWithTimeout(ctx context.Context, timeout time.Duration, handler func(ctx context.Context) error) error {
 	if timeout == 0 {
-		return fn(ctx)
+		return handler(ctx)
 	}
-	/*
-		done := make(chan error)
 
-		// Call the long function
-		var err error
-		go func(routineCtx context.Context) {
-			err = fn(routineCtx)
-			close(done)
-		}(ctx)
-
-		select { // wait for task to finish or for a timeout.
-		case <-time.After(timeout):
-			return ErrTimeout
-		case _, ok := <-done:
-			if !ok {
-				// channel was closed as expected, use err object.
-				return err
-			}
-			return ErrUnknownTimeoutExit
-		}
-
-	*/
-
-	// WithTimeout context isn't working properly.
-	// It should be used so that the DB operation will be cancelled.
-	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	timeoutCtx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	// Call the long function
+	// Call function in go routine
 	done := make(chan error)
 	var err error
 	go func(routineCtx context.Context) {
-		err = fn(routineCtx)
+		err = handler(routineCtx)
 		close(done)
 	}(timeoutCtx)
 
-	select { // wait for task to finish or context to timeout/cancel
+	// wait for task to finish or context to timeout/cancel
+	select {
 	case _, ok := <-done:
 		if !ok {
 			// channel was closed as expected, use err object.
