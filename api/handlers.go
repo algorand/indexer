@@ -624,67 +624,67 @@ func (si *ServerImplementation) fetchApplications(ctx context.Context, params ge
 func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.AssetsQuery) ([]generated.Asset, uint64 /*round*/, error) {
 	var assetchan <-chan idb.AssetRow
 	var round uint64
+	assets := make([]generated.Asset, 0)
 	err := util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
 		assetchan, round = si.db.Assets(ctx, options)
+		for row := range assetchan {
+			if row.Error != nil {
+				return row.Error
+			}
+
+			creator := basics.Address{}
+			if len(row.Creator) != len(creator) {
+				return fmt.Errorf(errInvalidCreatorAddress)
+			}
+			copy(creator[:], row.Creator[:])
+
+			mdhash := make([]byte, 32)
+			copy(mdhash, row.Params.MetadataHash[:])
+
+			asset := generated.Asset{
+				Index:            row.AssetID,
+				CreatedAtRound:   row.CreatedRound,
+				DestroyedAtRound: row.ClosedRound,
+				Deleted:          row.Deleted,
+				Params: generated.AssetParams{
+					Creator:       creator.String(),
+					Name:          strPtr(util.PrintableUTF8OrEmpty(row.Params.AssetName)),
+					UnitName:      strPtr(util.PrintableUTF8OrEmpty(row.Params.UnitName)),
+					Url:           strPtr(util.PrintableUTF8OrEmpty(row.Params.URL)),
+					NameB64:       byteSlicePtr([]byte(row.Params.AssetName)),
+					UnitNameB64:   byteSlicePtr([]byte(row.Params.UnitName)),
+					UrlB64:        byteSlicePtr([]byte(row.Params.URL)),
+					Total:         row.Params.Total,
+					Decimals:      uint64(row.Params.Decimals),
+					DefaultFrozen: boolPtr(row.Params.DefaultFrozen),
+					MetadataHash:  byteSliceOmitZeroPtr(mdhash),
+					Clawback:      strPtr(row.Params.Clawback.String()),
+					Reserve:       strPtr(row.Params.Reserve.String()),
+					Freeze:        strPtr(row.Params.Freeze.String()),
+					Manager:       strPtr(row.Params.Manager.String()),
+				},
+			}
+
+			// In case the DB layer filled the name with non-printable utf8
+			if asset.Params.Name != nil {
+				name := util.PrintableUTF8OrEmpty(*asset.Params.Name)
+				asset.Params.Name = &name
+			}
+			if asset.Params.UnitName != nil {
+				unit := util.PrintableUTF8OrEmpty(*asset.Params.UnitName)
+				asset.Params.UnitName = &unit
+			}
+			if asset.Params.Url != nil {
+				url := util.PrintableUTF8OrEmpty(*asset.Params.Url)
+				asset.Params.Url = &url
+			}
+
+			assets = append(assets, asset)
+		}
 		return nil
 	})
 	if err != nil {
 		return nil, 0, err
-	}
-	assets := make([]generated.Asset, 0)
-	for row := range assetchan {
-		if row.Error != nil {
-			return nil, round, row.Error
-		}
-
-		creator := basics.Address{}
-		if len(row.Creator) != len(creator) {
-			return nil, round, fmt.Errorf(errInvalidCreatorAddress)
-		}
-		copy(creator[:], row.Creator[:])
-
-		mdhash := make([]byte, 32)
-		copy(mdhash, row.Params.MetadataHash[:])
-
-		asset := generated.Asset{
-			Index:            row.AssetID,
-			CreatedAtRound:   row.CreatedRound,
-			DestroyedAtRound: row.ClosedRound,
-			Deleted:          row.Deleted,
-			Params: generated.AssetParams{
-				Creator:       creator.String(),
-				Name:          strPtr(util.PrintableUTF8OrEmpty(row.Params.AssetName)),
-				UnitName:      strPtr(util.PrintableUTF8OrEmpty(row.Params.UnitName)),
-				Url:           strPtr(util.PrintableUTF8OrEmpty(row.Params.URL)),
-				NameB64:       byteSlicePtr([]byte(row.Params.AssetName)),
-				UnitNameB64:   byteSlicePtr([]byte(row.Params.UnitName)),
-				UrlB64:        byteSlicePtr([]byte(row.Params.URL)),
-				Total:         row.Params.Total,
-				Decimals:      uint64(row.Params.Decimals),
-				DefaultFrozen: boolPtr(row.Params.DefaultFrozen),
-				MetadataHash:  byteSliceOmitZeroPtr(mdhash),
-				Clawback:      strPtr(row.Params.Clawback.String()),
-				Reserve:       strPtr(row.Params.Reserve.String()),
-				Freeze:        strPtr(row.Params.Freeze.String()),
-				Manager:       strPtr(row.Params.Manager.String()),
-			},
-		}
-
-		// In case the DB layer filled the name with non-printable utf8
-		if asset.Params.Name != nil {
-			name := util.PrintableUTF8OrEmpty(*asset.Params.Name)
-			asset.Params.Name = &name
-		}
-		if asset.Params.UnitName != nil {
-			unit := util.PrintableUTF8OrEmpty(*asset.Params.UnitName)
-			asset.Params.UnitName = &unit
-		}
-		if asset.Params.Url != nil {
-			url := util.PrintableUTF8OrEmpty(*asset.Params.Url)
-			asset.Params.Url = &url
-		}
-
-		assets = append(assets, asset)
 	}
 	return assets, round, nil
 }
@@ -842,9 +842,7 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 			accounts = append(accounts, account)
 		}
 		return nil
-
 	})
-
 	if err != nil {
 		return nil, 0, err
 	}
