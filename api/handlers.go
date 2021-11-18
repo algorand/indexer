@@ -613,25 +613,28 @@ func notFound(ctx echo.Context, err string) error {
 ///////////////////////
 
 // fetchApplications fetches all results
-func (si *ServerImplementation) fetchApplications(ctx context.Context, params generated.SearchForApplicationsParams) (apps []generated.Application, round uint64, err error) {
+func (si *ServerImplementation) fetchApplications(ctx context.Context, params generated.SearchForApplicationsParams) ([]generated.Application, uint64, error) {
+	var apps []generated.Application
+	var round uint64
+	var err error
 	var results <-chan idb.ApplicationRow
 	err = util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
 		results, round = si.db.Applications(ctx, &params)
+
+		for result := range results {
+			if result.Error != nil {
+				return result.Error
+			}
+			apps = append(apps, result.Application)
+		}
+
 		return nil
 	})
 	if err != nil {
-		return
+		return nil, 0, err
 	}
 
-	for result := range results {
-		if result.Error != nil {
-			err = result.Error
-			return
-		}
-		apps = append(apps, result.Application)
-	}
-
-	return
+	return apps, round, err
 }
 
 // fetchAssets fetches all results and converts them into generated.Asset objects
