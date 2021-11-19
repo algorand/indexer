@@ -11,27 +11,44 @@ import (
 	"unicode/utf8"
 
 	"github.com/algorand/go-codec/codec"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // ErrTimeout is returned when CallWithTimeout has a normal timeout.
 var ErrTimeout = errors.New("timeout during call")
-
-// ErrUnknownTimeoutExit is returned when CallWithTimeout has an unexpected done event.
-var ErrUnknownTimeoutExit = errors.New("unexpected exit during timeout")
 
 // IsTimeoutError compares the given error against the timeout errors.
 func IsTimeoutError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return errors.Is(err, ErrTimeout) || errors.Is(err, ErrUnknownTimeoutExit)
+	return errors.Is(err, ErrTimeout)
+}
+
+// ErrMisbehavingHandler is written to the log when a handler does not return.
+var ErrMisbehavingHandler = "Misbehaving handler did not exist after 1 second."
+
+// misbehavingHandlerDetector warn if ch does not exit after 1 second.
+func misbehavingHandlerDetector(log *log.Logger, ch chan struct{}) {
+	if log == nil {
+		return
+	}
+
+	select {
+	case <-ch:
+		// Good. This means the handler returns shortly after the context finished.
+		return
+	case <-time.After(1 * time.Second):
+		log.Warnf(ErrMisbehavingHandler)
+	}
 }
 
 // CallWithTimeout manages the channel / select loop required for timing
 // out a function using a WithTimeout context. No timeout if timeout = 0.
 // A new context is passed into handler, and cancelled at the end of this
 // call.
-func CallWithTimeout(ctx context.Context, timeout time.Duration, handler func(ctx context.Context) error) error {
+func CallWithTimeout(log *log.Logger, ctx context.Context, timeout time.Duration, handler func(ctx context.Context) error) error {
 	if timeout == 0 {
 		return handler(ctx)
 	}
@@ -40,7 +57,7 @@ func CallWithTimeout(ctx context.Context, timeout time.Duration, handler func(ct
 	defer cancel()
 
 	// Call function in go routine
-	done := make(chan error)
+	done := make(chan struct{})
 	var err error
 	go func(routineCtx context.Context) {
 		err = handler(routineCtx)
@@ -49,13 +66,10 @@ func CallWithTimeout(ctx context.Context, timeout time.Duration, handler func(ct
 
 	// wait for task to finish or context to timeout/cancel
 	select {
-	case _, ok := <-done:
-		if !ok {
-			// channel was closed as expected, use err object.
-			return err
-		}
-		return ErrUnknownTimeoutExit
+	case <-done:
+		return err
 	case <-timeoutCtx.Done():
+		go misbehavingHandlerDetector(log, done)
 		if timeoutCtx.Err() == context.DeadlineExceeded {
 			return ErrTimeout
 		}

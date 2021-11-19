@@ -82,6 +82,7 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 		db:                             db,
 		fetcher:                        fetcherError,
 		timeout:                        options.handlerTimeout(),
+		log:                            log,
 	}
 
 	generated.RegisterHandlers(e, &api, middleware...)

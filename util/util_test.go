@@ -6,23 +6,28 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 )
 
 func TestCallWithTimeout_timeout(t *testing.T) {
 	done := make(chan struct{})
 	defer func() {
-		<-done
+		close(done)
 	}()
 
-	err := CallWithTimeout(context.Background(), 1*time.Nanosecond, func(ctx context.Context) error {
-		defer close(done)
-		time.Sleep(10 * time.Nanosecond)
+	logger, hook := test.NewNullLogger()
+	err := CallWithTimeout(logger, context.Background(), 1*time.Nanosecond, func(ctx context.Context) error {
+		<-done
 		return errors.New("should not return")
 	})
 
 	require.Error(t, err, "There should be an error")
 	require.ErrorIs(t, err, ErrTimeout)
+
+	time.Sleep(2 * time.Second)
+	require.Len(t, hook.Entries, 1)
+	require.Equal(t, ErrMisbehavingHandler, hook.LastEntry().Message)
 }
 
 func TestCallWithTimeout_noTimeout(t *testing.T) {
@@ -32,7 +37,7 @@ func TestCallWithTimeout_noTimeout(t *testing.T) {
 	}()
 
 	CallError := errors.New("this should be the result")
-	err := CallWithTimeout(context.Background(), 1*time.Minute, func(ctx context.Context) error {
+	err := CallWithTimeout(nil, context.Background(), 1*time.Minute, func(ctx context.Context) error {
 		defer close(done)
 		return CallError
 	})

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
@@ -36,6 +37,8 @@ type ServerImplementation struct {
 	fetcher error
 
 	timeout time.Duration
+
+	log *log.Logger
 }
 
 /////////////////////
@@ -110,7 +113,7 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	var errors []string
 	var health idb.Health
 
-	err = util.CallWithTimeout(ctx.Request().Context(), si.timeout, func(ctx context.Context) error {
+	err = util.CallWithTimeout(si.log, ctx.Request().Context(), si.timeout, func(ctx context.Context) error {
 		health, err = si.db.Health()
 		return err
 	})
@@ -618,7 +621,7 @@ func (si *ServerImplementation) fetchApplications(ctx context.Context, params ge
 	var round uint64
 	var err error
 	var results <-chan idb.ApplicationRow
-	err = util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
+	err = util.CallWithTimeout(si.log, ctx, si.timeout, func(ctx context.Context) error {
 		results, round = si.db.Applications(ctx, &params)
 
 		for result := range results {
@@ -642,7 +645,7 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 	var assetchan <-chan idb.AssetRow
 	var round uint64
 	assets := make([]generated.Asset, 0)
-	err := util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
+	err := util.CallWithTimeout(si.log, ctx, si.timeout, func(ctx context.Context) error {
 		assetchan, round = si.db.Assets(ctx, options)
 		for row := range assetchan {
 			if row.Error != nil {
@@ -712,7 +715,7 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 	var assetbalchan <-chan idb.AssetBalanceRow
 	var round uint64
 	balances := make([]generated.MiniAssetHolding, 0)
-	err := util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
+	err := util.CallWithTimeout(si.log, ctx, si.timeout, func(ctx context.Context) error {
 		assetbalchan, round = si.db.AssetBalances(ctx, options)
 
 		for row := range assetbalchan {
@@ -755,7 +758,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 	var ret generated.Block
 	results := make([]generated.Transaction, 0)
 	var err error
-	err = util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
+	err = util.CallWithTimeout(si.log, ctx, si.timeout, func(ctx context.Context) error {
 		blockHeader, transactions, err =
 			si.db.GetBlock(ctx, round, idb.GetBlockOptions{Transactions: true})
 		if err != nil {
@@ -823,7 +826,7 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 	var accountchan <-chan idb.AccountRow
 	var round uint64
 	accounts := make([]generated.Account, 0)
-	err := util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
+	err := util.CallWithTimeout(si.log, ctx, si.timeout, func(ctx context.Context) error {
 		accountchan, round = si.db.GetAccounts(ctx, options)
 
 		if (atRound != nil) && (*atRound > round) {
@@ -873,7 +876,7 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 	var nextToken string
 	var err error
 	results := make([]generated.Transaction, 0)
-	err = util.CallWithTimeout(ctx, si.timeout, func(ctx context.Context) error {
+	err = util.CallWithTimeout(si.log, ctx, si.timeout, func(ctx context.Context) error {
 		txchan, round = si.db.Transactions(ctx, filter)
 
 		rootTxnDedupeMap := make(map[string]struct{})
