@@ -48,7 +48,7 @@ func misbehavingHandlerDetector(log *log.Logger, ch chan struct{}) {
 // out a function using a WithTimeout context. No timeout if timeout = 0.
 // A new context is passed into handler, and cancelled at the end of this
 // call.
-func CallWithTimeout(log *log.Logger, ctx context.Context, timeout time.Duration, handler func(ctx context.Context) error) error {
+func CallWithTimeout(ctx context.Context, log *log.Logger, timeout time.Duration, handler func(ctx context.Context) error) error {
 	if timeout == 0 {
 		return handler(ctx)
 	}

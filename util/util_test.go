@@ -17,7 +17,7 @@ func TestCallWithTimeout_timeout(t *testing.T) {
 	}()
 
 	logger, hook := test.NewNullLogger()
-	err := CallWithTimeout(logger, context.Background(), 1*time.Nanosecond, func(ctx context.Context) error {
+	err := CallWithTimeout(context.Background(), logger, 1*time.Nanosecond, func(ctx context.Context) error {
 		<-done
 		return errors.New("should not return")
 	})
@@ -37,7 +37,7 @@ func TestCallWithTimeout_noTimeout(t *testing.T) {
 	}()
 
 	CallError := errors.New("this should be the result")
-	err := CallWithTimeout(nil, context.Background(), 1*time.Minute, func(ctx context.Context) error {
+	err := CallWithTimeout(context.Background(), nil, 1*time.Minute, func(ctx context.Context) error {
 		defer close(done)
 		return CallError
 	})
