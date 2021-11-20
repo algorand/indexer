@@ -26,8 +26,8 @@ func IsTimeoutError(err error) bool {
 	return errors.Is(err, ErrTimeout)
 }
 
-// ErrMisbehavingHandler is written to the log when a handler does not return.
-var ErrMisbehavingHandler = "Misbehaving handler did not exist after 1 second."
+// errMisbehavingHandler is written to the log when a handler does not return.
+var errMisbehavingHandler = "Misbehaving handler did not exist after 1 second."
 
 // misbehavingHandlerDetector warn if ch does not exit after 1 second.
 func misbehavingHandlerDetector(log *log.Logger, ch chan struct{}) {
@@ -40,7 +40,7 @@ func misbehavingHandlerDetector(log *log.Logger, ch chan struct{}) {
 		// Good. This means the handler returns shortly after the context finished.
 		return
 	case <-time.After(1 * time.Second):
-		log.Warnf(ErrMisbehavingHandler)
+		log.Warnf(errMisbehavingHandler)
 	}
 }
 
@@ -53,7 +53,7 @@ func CallWithTimeout(ctx context.Context, log *log.Logger, timeout time.Duration
 		return handler(ctx)
 	}
 
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), timeout)
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	// Call function in go routine
@@ -67,6 +67,12 @@ func CallWithTimeout(ctx context.Context, log *log.Logger, timeout time.Duration
 	// wait for task to finish or context to timeout/cancel
 	select {
 	case <-done:
+		// This may not be possible, but in theory the handler would quickly terminate
+		// when the context deadline is reached. So make sure the handler didn't finish
+		// due to a timeout.
+		if timeoutCtx.Err() == context.DeadlineExceeded {
+			return ErrTimeout
+		}
 		return err
 	case <-timeoutCtx.Done():
 		go misbehavingHandlerDetector(log, done)

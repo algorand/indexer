@@ -27,7 +27,7 @@ func TestCallWithTimeout_timeout(t *testing.T) {
 
 	time.Sleep(2 * time.Second)
 	require.Len(t, hook.Entries, 1)
-	require.Equal(t, ErrMisbehavingHandler, hook.LastEntry().Message)
+	require.Equal(t, errMisbehavingHandler, hook.LastEntry().Message)
 }
 
 func TestCallWithTimeout_noTimeout(t *testing.T) {
