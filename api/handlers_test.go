@@ -864,7 +864,7 @@ func TestTimeouts(t *testing.T) {
 		},
 		{
 			name:      "LookupBlock",
-			errString: errLookingUpBlock,
+			errString: errLookingUpBlockForRound,
 			mockCall:  blockFunc,
 			callHandler: func(ctx echo.Context, si ServerImplementation) error {
 				return si.LookupBlock(ctx, 100)

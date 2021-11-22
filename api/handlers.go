@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand/data/basics"
+
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/common"
 	"github.com/algorand/indexer/api/generated/v2"
@@ -111,7 +112,7 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	var errors []string
 	var health idb.Health
 
-	err = util.CallWithTimeout(ctx.Request().Context(), si.log, si.timeout, func(ctx context.Context) error {
+	err = callWithTimeout(ctx.Request().Context(), si.log, si.timeout, func(ctx context.Context) error {
 		health, err = si.db.Health()
 		return err
 	})
@@ -497,10 +498,10 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
 	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber)
 	if errors.Is(err, idb.ErrorBlockNotFound) {
-		return notFound(ctx, fmt.Sprintf("%s '%d': %v", errLookingUpBlock, roundNumber, err))
+		return notFound(ctx, fmt.Sprintf("%s '%d': %v", errLookingUpBlockForRound, roundNumber, err))
 	}
 	if err != nil {
-		return indexerError(ctx, fmt.Errorf("%s '%d': %w", errLookingUpBlock, roundNumber, err))
+		return indexerError(ctx, fmt.Errorf("%s '%d': %w", errLookingUpBlockForRound, roundNumber, err))
 	}
 
 	return ctx.JSON(http.StatusOK, generated.BlockResponse(blk))
@@ -590,7 +591,7 @@ func timeoutError(ctx echo.Context, err string) error {
 
 // return a 500, or 503 if it is a timeout error
 func indexerError(ctx echo.Context, err error) error {
-	if util.IsTimeoutError(err) {
+	if isTimeoutError(err) {
 		return timeoutError(ctx, err.Error())
 	}
 
@@ -614,9 +615,8 @@ func notFound(ctx echo.Context, err string) error {
 func (si *ServerImplementation) fetchApplications(ctx context.Context, params generated.SearchForApplicationsParams) ([]generated.Application, uint64, error) {
 	var apps []generated.Application
 	var round uint64
-	var err error
-	var results <-chan idb.ApplicationRow
-	err = util.CallWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+		var results <-chan idb.ApplicationRow
 		results, round = si.db.Applications(ctx, &params)
 
 		for result := range results {
@@ -637,10 +637,10 @@ func (si *ServerImplementation) fetchApplications(ctx context.Context, params ge
 
 // fetchAssets fetches all results and converts them into generated.Asset objects
 func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.AssetsQuery) ([]generated.Asset, uint64 /*round*/, error) {
-	var assetchan <-chan idb.AssetRow
 	var round uint64
 	assets := make([]generated.Asset, 0)
-	err := util.CallWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+		var assetchan <-chan idb.AssetRow
 		assetchan, round = si.db.Assets(ctx, options)
 		for row := range assetchan {
 			if row.Error != nil {
@@ -707,10 +707,10 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 // fetchAssetBalances fetches all balances from a query and converts them into
 // generated.MiniAssetHolding objects
 func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options idb.AssetBalanceQuery) ([]generated.MiniAssetHolding, uint64 /*round*/, error) {
-	var assetbalchan <-chan idb.AssetBalanceRow
 	var round uint64
 	balances := make([]generated.MiniAssetHolding, 0)
-	err := util.CallWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+		var assetbalchan <-chan idb.AssetBalanceRow
 		assetbalchan, round = si.db.AssetBalances(ctx, options)
 
 		for row := range assetbalchan {
@@ -749,7 +749,7 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 // the method also loads the transactions into the returned block object.
 func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (generated.Block, error) {
 	var ret generated.Block
-	err := util.CallWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
 		blockHeader, transactions, err :=
 			si.db.GetBlock(ctx, round, idb.GetBlockOptions{Transactions: true})
 		if err != nil {
@@ -817,7 +817,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.AccountQueryOptions, atRound *uint64) ([]generated.Account, uint64 /*round*/, error) {
 	var round uint64
 	accounts := make([]generated.Account, 0)
-	err := util.CallWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
 		var accountchan <-chan idb.AccountRow
 		accountchan, round = si.db.GetAccounts(ctx, options)
 
@@ -865,9 +865,8 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, uint64 /*round*/, error) {
 	var round uint64
 	var nextToken string
-	var err error
 	results := make([]generated.Transaction, 0)
-	err = util.CallWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
 		var txchan <-chan idb.TxnRow
 		txchan, round = si.db.Transactions(ctx, filter)
 
@@ -899,9 +898,10 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 		}
 
 		// The sort order depends on whether the address filter is used.
+		var err error
 		nextToken, err = txrow.Next(filter.Address == nil)
 
-		return nil
+		return err
 	})
 	if err != nil {
 		return nil, "", 0, err

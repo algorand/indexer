@@ -132,7 +132,7 @@ func TestBlockNotFound(t *testing.T) {
 	// Then // A 404 gets returned.
 	//////////
 	require.Equal(t, http.StatusNotFound, rec.Code)
-	require.Contains(t, rec.Body.String(), errLookingUpBlock)
+	require.Contains(t, rec.Body.String(), errLookingUpBlockForRound)
 }
 
 // TestInnerTxn runs queries that return one or more root/inner transactions,
