@@ -1755,3 +1755,31 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 		assert.Contains(t, row.Error.Error(), "error decoding roottxn")
 	}
 }
+
+func TestKeytypeDoNotResetReceiver(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), block)
+	defer shutdownFunc()
+
+	assertKeytype(t, db, test.AccountA, nil)
+
+	// Sigtype of account B becomes "sig".
+	txn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountB, test.AccountB, basics.Address{}, basics.Address{})
+	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	// Sigtype of account A becomes "sig" and B remains the same.
+	txn = test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{})
+	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	keytype := "sig"
+	assertKeytype(t, db, test.AccountA, &keytype)
+	assertKeytype(t, db, test.AccountB, &keytype)
+}

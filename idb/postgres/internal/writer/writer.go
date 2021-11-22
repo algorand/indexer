@@ -20,19 +20,21 @@ import (
 )
 
 const (
-	addBlockHeaderStmtName      = "add_block_header"
-	setSpecialAccountsStmtName  = "set_special_accounts"
-	upsertAssetStmtName         = "upsert_asset"
-	upsertAccountAssetStmtName  = "upsert_account_asset"
-	upsertAppStmtName           = "upsert_app"
-	upsertAccountAppStmtName    = "upsert_account_app"
-	deleteAccountStmtName       = "delete_account"
-	upsertAccountStmtName       = "upsert_account"
-	deleteAssetStmtName         = "delete_asset"
-	deleteAccountAssetStmtName  = "delete_account_asset"
-	deleteAppStmtName           = "delete_app"
-	deleteAccountAppStmtName    = "delete_account_app"
-	updateAccountTotalsStmtName = "update_account_totals"
+	addBlockHeaderStmtName             = "add_block_header"
+	setSpecialAccountsStmtName         = "set_special_accounts"
+	upsertAssetStmtName                = "upsert_asset"
+	upsertAccountAssetStmtName         = "upsert_account_asset"
+	upsertAppStmtName                  = "upsert_app"
+	upsertAccountAppStmtName           = "upsert_account_app"
+	deleteAccountStmtName              = "delete_account"
+	deleteAccountUpdateKeytypeStmtName = "delete_account_update_keytype"
+	upsertAccountStmtName              = "upsert_account"
+	upsertAccountWithKeytypeStmtName   = "upsert_account_with_keytype"
+	deleteAssetStmtName                = "delete_asset"
+	deleteAccountAssetStmtName         = "delete_account_asset"
+	deleteAppStmtName                  = "delete_app"
+	deleteAccountAppStmtName           = "delete_account_app"
+	updateAccountTotalsStmtName        = "update_account_totals"
 )
 
 var statements = map[string]string{
@@ -60,6 +62,13 @@ var statements = map[string]string{
 		localstate = EXCLUDED.localstate, deleted = FALSE`,
 	deleteAccountStmtName: `INSERT INTO account
 		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, closed_at,
+		 account_data)
+		VALUES($1, 0, 0, 0, TRUE, $2, $2, 'null'::jsonb) ON CONFLICT (addr) DO UPDATE SET
+		microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
+		rewards_total = EXCLUDED.rewards_total, deleted = TRUE,
+		closed_at = EXCLUDED.closed_at, account_data = EXCLUDED.account_data`,
+	deleteAccountUpdateKeytypeStmtName: `INSERT INTO account
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, closed_at,
 		 keytype, account_data)
 		VALUES($1, 0, 0, 0, TRUE, $2, $2, $3, 'null'::jsonb) ON CONFLICT (addr) DO UPDATE SET
 		microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
@@ -67,6 +76,12 @@ var statements = map[string]string{
 		closed_at = EXCLUDED.closed_at, keytype = EXCLUDED.keytype,
 		account_data = EXCLUDED.account_data`,
 	upsertAccountStmtName: `INSERT INTO account
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
+		VALUES($1, $2, $3, $4, FALSE, $5, $6) ON CONFLICT (addr) DO UPDATE SET
+		microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
+		rewards_total = EXCLUDED.rewards_total, deleted = FALSE,
+		account_data = EXCLUDED.account_data`,
+	upsertAccountWithKeytypeStmtName: `INSERT INTO account
 		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, keytype,
 		 account_data)
 		VALUES($1, $2, $3, $4, FALSE, $5, $6, $7) ON CONFLICT (addr) DO UPDATE SET
@@ -362,13 +377,13 @@ func (w *Writer) addTransactionParticipation(block *bookkeeping.Block) error {
 	return nil
 }
 
-type optionalSigType struct {
+type sigTypeDelta struct {
 	present bool
 	value   idb.SigType
 }
 
-func getSigTypeDeltas(payset []transactions.SignedTxnInBlock) (map[basics.Address]optionalSigType, error) {
-	res := make(map[basics.Address]optionalSigType, len(payset))
+func getSigTypeDeltas(payset []transactions.SignedTxnInBlock) (map[basics.Address]sigTypeDelta, error) {
+	res := make(map[basics.Address]sigTypeDelta, len(payset))
 
 	for i := range payset {
 		if payset[i].Txn.RekeyTo == (basics.Address{}) {
@@ -376,16 +391,21 @@ func getSigTypeDeltas(payset []transactions.SignedTxnInBlock) (map[basics.Addres
 			if err != nil {
 				return nil, fmt.Errorf("getSigTypeDelta() err: %w", err)
 			}
-			res[payset[i].Txn.Sender] = optionalSigType{present: true, value: sigtype}
+			res[payset[i].Txn.Sender] = sigTypeDelta{present: true, value: sigtype}
 		} else {
-			res[payset[i].Txn.Sender] = optionalSigType{}
+			res[payset[i].Txn.Sender] = sigTypeDelta{}
 		}
 	}
 
 	return res, nil
 }
 
-func writeAccount(round basics.Round, address basics.Address, accountData basics.AccountData, sigTypeDelta optionalSigType, batch *pgx.Batch) {
+type optionalSigTypeDelta struct {
+	present bool
+	value   sigTypeDelta
+}
+
+func writeAccount(round basics.Round, address basics.Address, accountData basics.AccountData, sigtypeDelta optionalSigTypeDelta, batch *pgx.Batch) {
 	// Update `asset` table.
 	for assetid, params := range accountData.AssetParams {
 		batch.Queue(
@@ -415,32 +435,53 @@ func writeAccount(round basics.Round, address basics.Address, accountData basics
 			address[:], uint64(appid), encoding.EncodeAppLocalState(state), uint64(round))
 	}
 
-	var sigtype *idb.SigType
-	if sigTypeDelta.present {
-		sigtype = &sigTypeDelta.value
+	sigtypeFunc := func(delta *sigTypeDelta) *idb.SigType {
+		if delta.present {
+			return &delta.value
+		}
+		return nil
 	}
 
 	// Update `account` table.
 	if accountData.IsZero() {
 		// Delete account.
-		batch.Queue(deleteAccountStmtName, address[:], uint64(round), sigtype)
+		if sigtypeDelta.present {
+			batch.Queue(
+				deleteAccountUpdateKeytypeStmtName,
+				address[:], uint64(round), sigtypeFunc(&sigtypeDelta.value))
+		} else {
+			batch.Queue(deleteAccountStmtName, address[:], uint64(round))
+		}
 	} else {
 		// Update account.
 		accountDataJSON :=
 			encoding.EncodeTrimmedAccountData(encoding.TrimAccountData(accountData))
-		batch.Queue(
-			upsertAccountStmtName,
-			address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
-			accountData.RewardedMicroAlgos.Raw, uint64(round), sigtype,
-			accountDataJSON)
+
+		if sigtypeDelta.present {
+			batch.Queue(
+				upsertAccountWithKeytypeStmtName,
+				address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
+				accountData.RewardedMicroAlgos.Raw, uint64(round),
+				sigtypeFunc(&sigtypeDelta.value), accountDataJSON)
+		} else {
+			batch.Queue(
+				upsertAccountStmtName,
+				address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
+				accountData.RewardedMicroAlgos.Raw, uint64(round),
+				accountDataJSON)
+		}
 	}
 }
 
-func writeAccounts(round basics.Round, accountDeltas ledgercore.AccountDeltas, sigTypeDeltas map[basics.Address]optionalSigType, batch *pgx.Batch) {
+func writeAccounts(round basics.Round, accountDeltas ledgercore.AccountDeltas, sigTypeDeltas map[basics.Address]sigTypeDelta, batch *pgx.Batch) {
 	// Update `account` table.
 	for i := 0; i < accountDeltas.Len(); i++ {
 		address, accountData := accountDeltas.GetByIdx(i)
-		writeAccount(round, address, accountData, sigTypeDeltas[address], batch)
+
+		var sigtypeDelta optionalSigTypeDelta
+		sigtypeDelta.value, sigtypeDelta.present = sigTypeDeltas[address]
+
+		writeAccount(round, address, accountData, sigtypeDelta, batch)
 	}
 }
 
