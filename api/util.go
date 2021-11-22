@@ -13,9 +13,6 @@ var errTimeout = errors.New("timeout during call")
 
 // isTimeoutError compares the given error against the timeout errors.
 func isTimeoutError(err error) bool {
-	if err == nil {
-		return false
-	}
 	return errors.Is(err, errTimeout)
 }
 
