@@ -96,15 +96,19 @@ func (tr TxnRow) Next(ascending bool) (string, error) {
 }
 
 // DecodeTxnRowNext unpacks opaque string returned from TxnRow.Next()
-func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
-	var b []byte
-	b, err = base64.URLEncoding.DecodeString(s)
+func DecodeTxnRowNext(s string) (uint64 /*round*/, uint32 /*intra*/, error) {
+	b, err := base64.URLEncoding.DecodeString(s)
 	if err != nil {
-		return
+		return 0, 0, fmt.Errorf("DecodeTxnRowNext() decode err: %w", err)
 	}
-	round = binary.LittleEndian.Uint64(b[:8])
-	intra = binary.LittleEndian.Uint32(b[8:])
-	return
+
+	if len(b) != 12 {
+		return 0, 0, fmt.Errorf("DecodeTxnRowNext() bad next token b: %x", b)
+	}
+
+	round := binary.LittleEndian.Uint64(b[:8])
+	intra := binary.LittleEndian.Uint32(b[8:])
+	return round, intra, nil
 }
 
 // OptionalUint wraps bool and uint. It has a custom marshaller below.
