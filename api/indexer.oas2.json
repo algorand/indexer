@@ -829,11 +829,13 @@
         "created-at-round": {
           "description": "Round during which this account first appeared in a transaction.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "closed-at-round": {
           "description": "Round during which this account was most recently closed.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         }
       }
@@ -910,11 +912,13 @@
         "opted-in-at-round": {
           "description": "Round when the account opted into the application.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "closed-out-at-round": {
           "description": "Round when account closed out of the application.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "schema": {
@@ -970,6 +974,7 @@
         "uint": {
           "description": "\\[ui\\] uint value.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         }
       }
@@ -993,11 +998,13 @@
         "created-at-round": {
           "description": "Round when this application was created.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "deleted-at-round": {
           "description": "Round when this application was deleted.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "params": {
@@ -1090,11 +1097,13 @@
         "created-at-round": {
           "description": "Round during which this asset was created.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "destroyed-at-round": {
           "description": "Round during which this asset was destroyed.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "params": {
@@ -1115,6 +1124,7 @@
         "amount": {
           "description": "\\[a\\] number of units held.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "asset-id": {
@@ -1136,11 +1146,13 @@
         "opted-in-at-round": {
           "description": "Round during which the account opted into this asset holding.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "opted-out-at-round": {
           "description": "Round during which the account opted out of this asset holding.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         }
       }
@@ -1201,6 +1213,7 @@
         "total": {
           "description": "\\[t\\] The total number of units of this asset.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "unit-name": {
@@ -1427,6 +1440,7 @@
         },
         "amount": {
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "is-frozen": {
@@ -1439,6 +1453,7 @@
         "opted-in-at-round": {
           "description": "Round during which the account opted into the asset.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "opted-out-at-round": {
@@ -1517,6 +1532,7 @@
         "uint": {
           "description": "\\[ui\\] uint value.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         }
       }
@@ -1532,11 +1548,13 @@
         "num-uint": {
           "description": "Maximum number of TEAL uints that may be stored in the key/value store.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "num-byte-slice": {
           "description": "Maximum number of TEAL byte slices that may be stored in the key/value store.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         }
       }
@@ -1832,6 +1850,7 @@
         "amount": {
           "description": "\\[aamt\\] Amount of asset to transfer. A zero amount transferred to self allocates that asset in the account's Assets map.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "asset-id": {
@@ -1841,6 +1860,7 @@
         "close-amount": {
           "description": "Number of assets transfered to the close-to account as part of the transaction.",
           "type": "integer",
+          "format": "int64",
           "x-algorand-format": "uint64"
         },
         "close-to": {
