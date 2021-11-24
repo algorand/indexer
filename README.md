@@ -1,4 +1,6 @@
-[![Build Status](https://travis-ci.com/algorand/indexer.svg?branch=master)](https://travis-ci.com/algorand/indexer)
+| master [![CircleCI](https://circleci.com/gh/algorand/indexer/tree/master.svg?style=svg)](https://circleci.com/gh/algorand/indexer/tree/master) | develop [![CircleCI](https://circleci.com/gh/algorand/indexer/tree/develop.svg?style=svg)](https://circleci.com/gh/algorand/indexer/tree/develop) |
+| --- | --- |
+
 # Algorand Indexer
 
 The Indexer is a standalone service that reads committed blocks from the Algorand blockchain and maintains a database of transactions and accounts that are searchable and indexed.
