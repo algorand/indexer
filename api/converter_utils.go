@@ -130,7 +130,7 @@ func decodeSigType(str *string, errorArr []string) (idb.SigType, []string) {
 func decodeType(str *string, errorArr []string) (t idb.TxnTypeEnum, err []string) {
 	if str != nil {
 		typeLc := protocol.TxType(strings.ToLower(*str))
-		if val, err := idb.GetTypeEnum(typeLc); err != nil {
+		if val, err := idb.GetTypeEnum(typeLc); err == nil {
 			return val, errorArr
 		}
 		return 0, append(errorArr, fmt.Sprintf("%s: '%s'", errUnknownTxType, typeLc))
