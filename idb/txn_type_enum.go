@@ -1,6 +1,7 @@
 package idb
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/algorand/go-algorand/protocol"
@@ -42,7 +43,10 @@ func makeTypeEnumString() string {
 var TxnTypeEnumString = makeTypeEnumString()
 
 // GetTypeEnum returns the enum for the given transaction type string.
-func GetTypeEnum(t protocol.TxType) (TxnTypeEnum, bool /*ok*/) {
+func GetTypeEnum(t protocol.TxType) (TxnTypeEnum, error) {
 	e, ok := typeEnumMap[string(t)]
-	return e, ok
+	if !ok {
+		return 0, fmt.Errorf("GetTypeEnum() unknown type t: %s (0x%x)", t, t)
+	}
+	return e, nil
 }

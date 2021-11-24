@@ -187,9 +187,9 @@ func transactionAssetID(stxnad *transactions.SignedTxnWithAD, intra uint, block 
 func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, block *bookkeeping.Block, intra, rootIntra uint, rootTxid string, rows [][]interface{}) (uint, [][]interface{}, error) {
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
 		txn := &itxn.Txn
-		typeenum, ok := idb.GetTypeEnum(txn.Type)
-		if !ok {
-			return 0, nil, fmt.Errorf("addInnerTransactions() get type enum")
+		typeenum, err := idb.GetTypeEnum(txn.Type)
+		if err != nil {
+			return 0, nil, fmt.Errorf("addInnerTransactions() err: %w", err)
 		}
 		// block shouldn't be used for inner transactions.
 		assetid, err := transactionAssetID(&itxn, 0, nil)
@@ -241,9 +241,9 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 		}
 
 		txn := &stxnad.Txn
-		typeenum, ok := idb.GetTypeEnum(txn.Type)
-		if !ok {
-			return fmt.Errorf("addTransactions() get type enum")
+		typeenum, err := idb.GetTypeEnum(txn.Type)
+		if err != nil {
+			return fmt.Errorf("addTransactions() err: %w", err)
 		}
 		assetid, err := transactionAssetID(&stxnad, intra, block)
 		if err != nil {
