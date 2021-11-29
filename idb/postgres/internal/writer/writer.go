@@ -435,11 +435,14 @@ func writeAccount(round basics.Round, address basics.Address, accountData basics
 			address[:], uint64(appid), encoding.EncodeAppLocalState(state), uint64(round))
 	}
 
-	sigtypeFunc := func(delta *sigTypeDelta) *idb.SigType {
-		if delta.present {
-			return &delta.value
+	sigtypeFunc := func(delta sigTypeDelta) *idb.SigType {
+		if !delta.present {
+			return nil
 		}
-		return nil
+
+		res := new(idb.SigType)
+		*res = delta.value
+		return res
 	}
 
 	// Update `account` table.
@@ -448,7 +451,7 @@ func writeAccount(round basics.Round, address basics.Address, accountData basics
 		if sigtypeDelta.present {
 			batch.Queue(
 				deleteAccountUpdateKeytypeStmtName,
-				address[:], uint64(round), sigtypeFunc(&sigtypeDelta.value))
+				address[:], uint64(round), sigtypeFunc(sigtypeDelta.value))
 		} else {
 			batch.Queue(deleteAccountStmtName, address[:], uint64(round))
 		}
@@ -462,7 +465,7 @@ func writeAccount(round basics.Round, address basics.Address, accountData basics
 				upsertAccountWithKeytypeStmtName,
 				address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
 				accountData.RewardedMicroAlgos.Raw, uint64(round),
-				sigtypeFunc(&sigtypeDelta.value), accountDataJSON)
+				sigtypeFunc(sigtypeDelta.value), accountDataJSON)
 		} else {
 			batch.Queue(
 				upsertAccountStmtName,
@@ -473,13 +476,13 @@ func writeAccount(round basics.Round, address basics.Address, accountData basics
 	}
 }
 
-func writeAccounts(round basics.Round, accountDeltas ledgercore.AccountDeltas, sigTypeDeltas map[basics.Address]sigTypeDelta, batch *pgx.Batch) {
+func writeAccounts(round basics.Round, accountDeltas ledgercore.AccountDeltas, sigtypeDeltas map[basics.Address]sigTypeDelta, batch *pgx.Batch) {
 	// Update `account` table.
 	for i := 0; i < accountDeltas.Len(); i++ {
 		address, accountData := accountDeltas.GetByIdx(i)
 
 		var sigtypeDelta optionalSigTypeDelta
-		sigtypeDelta.value, sigtypeDelta.present = sigTypeDeltas[address]
+		sigtypeDelta.value, sigtypeDelta.present = sigtypeDeltas[address]
 
 		writeAccount(round, address, accountData, sigtypeDelta, batch)
 	}
