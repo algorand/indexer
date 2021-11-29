@@ -539,11 +539,14 @@ func TestFetchTransactions(t *testing.T) {
 
 			ch := make(chan idb.TxnRow, len(test.txnBytes))
 			for _, bytes := range test.txnBytes {
+				stxnad := new(transactions.SignedTxnWithAD)
+				err := protocol.Decode(bytes, stxnad)
+				require.NoError(t, err)
 				txnRow := idb.TxnRow{
 					Round:     1,
 					Intra:     2,
 					RoundTime: roundTime,
-					TxnBytes:  bytes,
+					Txn:       stxnad,
 					AssetID:   test.created,
 					Extra: idb.TxnExtra{
 						AssetCloseAmount: 0,
@@ -693,7 +696,7 @@ func TestLookupApplicationLogsByID(t *testing.T) {
 		Round:     1,
 		Intra:     2,
 		RoundTime: roundTime,
-		TxnBytes:  txnBytes,
+		Txn:       &stxn,
 		AssetID:   0,
 		Extra: idb.TxnExtra{
 			AssetCloseAmount: 0,

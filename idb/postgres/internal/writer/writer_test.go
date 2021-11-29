@@ -49,7 +49,6 @@ type txnRow struct {
 	typeenum idb.TxnTypeEnum
 	asset    int
 	txid     string
-	txnbytes []byte
 	txn      string
 	extra    string
 }
@@ -65,15 +64,15 @@ func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
 	for rows.Next() {
 		var result txnRow
 		var txid []byte
-		var json []byte
-		err = rows.Scan(&result.round, &result.intra, &result.typeenum,
-			&result.asset, &txid, &result.txnbytes, &json,
-			&result.extra)
+		var txn []byte
+		err = rows.Scan(
+			&result.round, &result.intra, &result.typeenum, &result.asset, &txid,
+			&txn, &result.extra)
 		if err != nil {
 			return nil, err
 		}
 		result.txid = string(txid)
-		result.txn = string(json)
+		result.txn = string(txn)
 		results = append(results, result)
 	}
 	return results, rows.Err()
@@ -235,19 +234,17 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	var typeenum uint
 	var asset uint64
 	var txid []byte
-	var txnbytes []byte
 	var txn []byte
 	var extra []byte
 
 	require.True(t, rows.Next())
-	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txnbytes, &txn, &extra)
+	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
 	require.NoError(t, err)
 	assert.Equal(t, block.Round(), basics.Round(round))
 	assert.Equal(t, uint64(0), intra)
 	assert.Equal(t, idb.TypeEnumPay, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(0), asset)
 	assert.Equal(t, stxnad0.ID().String(), string(txid))
-	assert.Equal(t, protocol.Encode(&stxnad0), txnbytes)
 	{
 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
@@ -256,14 +253,13 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	assert.Equal(t, "{}", string(extra))
 
 	require.True(t, rows.Next())
-	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txnbytes, &txn, &extra)
+	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
 	require.NoError(t, err)
 	assert.Equal(t, block.Round(), basics.Round(round))
 	assert.Equal(t, uint64(1), intra)
 	assert.Equal(t, idb.TypeEnumAssetConfig, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(9), asset)
 	assert.Equal(t, stxnad1.ID().String(), string(txid))
-	assert.Equal(t, protocol.Encode(&stxnad1), txnbytes)
 	{
 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
@@ -1469,19 +1465,17 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 
 	// Verify special properties of inner transactions.
 	expectedExtra := fmt.Sprintf(`{"root-txid": "%s", "root-intra": "%d"}`, txns[0].txid, 0)
+
 	// Inner pay 1
-	require.Len(t, txns[1].txnbytes, 0)
 	require.Equal(t, "", txns[1].txid)
 	require.Equal(t, expectedExtra, txns[1].extra)
 
 	// Inner pay 2
-	require.Len(t, txns[2].txnbytes, 0)
 	require.Equal(t, "", txns[2].txid)
 	require.Equal(t, expectedExtra, txns[2].extra)
 	require.NotContains(t, txns[2].txn, "itx", "The inner transactions should be pruned.")
 
 	// Inner xfer
-	require.Len(t, txns[3].txnbytes, 0)
 	require.Equal(t, "", txns[3].txid)
 	require.Equal(t, expectedExtra, txns[3].extra)
 	require.NotContains(t, txns[3].txn, "itx", "The inner transactions should be pruned.")

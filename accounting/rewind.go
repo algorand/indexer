@@ -111,14 +111,10 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			return
 		}
 		txcount++
-		if txnrow.TxnBytes == nil {
+		stxn := txnrow.Txn
+		if stxn == nil {
 			return models.Account{},
 				fmt.Errorf("rewinding past inner transactions is not supported")
-		}
-		var stxn transactions.SignedTxnWithAD
-		err = protocol.Decode(txnrow.TxnBytes, &stxn)
-		if err != nil {
-			return
 		}
 		if addr == stxn.Txn.Sender {
 			acct.AmountWithoutPendingRewards += stxn.Txn.Fee.ToUint64()

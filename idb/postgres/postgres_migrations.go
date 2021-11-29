@@ -47,6 +47,7 @@ func init() {
 		{upgradeNotSupported, false, "make all \"deleted\" columns NOT NULL"},
 		{upgradeNotSupported, true, "change import state format"},
 		{upgradeNotSupported, true, "notify the user that upgrade is not supported"},
+		{dropTxnBytesColumn, true, "drop txnbytes column"},
 	}
 }
 
@@ -217,4 +218,9 @@ func disabled(version string) func(db *IndexerDb, migrationState *types.Migratio
 func upgradeNotSupported(db *IndexerDb, migrationState *types.MigrationState) error {
 	return errors.New(
 		"upgrading from this version is not supported; create a new database")
+}
+
+func dropTxnBytesColumn(db *IndexerDb, migrationState *types.MigrationState) error {
+	return sqlMigration(
+		db, migrationState, []string{"ALTER TABLE txn DROP COLUMN txnbytes"})
 }

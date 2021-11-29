@@ -680,7 +680,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if tf.RekeyTo != nil && (*tf.RekeyTo) {
 		whereParts = append(whereParts, "(t.txn -> 'txn' -> 'rekey') IS NOT NULL")
 	}
-	query = "SELECT t.round, t.intra, t.txnbytes, root.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	query = "SELECT t.round, t.intra, t.txn, root.txn, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
@@ -852,25 +852,41 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, r
 		var round uint64
 		var asset uint64
 		var intra int
-		var txnbytes []byte
-		var roottxnbytes []byte
-		var extraJSON []byte
+		var txn []byte
+		var roottxn []byte
+		var extra []byte
 		var roundtime time.Time
-		err := rows.Scan(&round, &intra, &txnbytes, &roottxnbytes, &extraJSON, &asset, &roundtime)
+		err := rows.Scan(&round, &intra, &txn, &roottxn, &extra, &asset, &roundtime)
 		var row idb.TxnRow
 		if err != nil {
 			row.Error = err
 		} else {
 			row.Round = round
 			row.Intra = intra
-			row.TxnBytes = txnbytes
-			row.RootTxnBytes = roottxnbytes
+			if roottxn != nil {
+				// Inner transaction.
+				row.RootTxn = new(transactions.SignedTxnWithAD)
+				*row.RootTxn, err = encoding.DecodeSignedTxnWithAD(roottxn)
+				if err != nil {
+					err = fmt.Errorf("error decoding roottxn, err: %w", err)
+					row.Error = err
+				}
+			} else {
+				// Root transaction.
+				row.Txn = new(transactions.SignedTxnWithAD)
+				*row.Txn, err = encoding.DecodeSignedTxnWithAD(txn)
+				if err != nil {
+					err = fmt.Errorf("error decoding txn, err: %w", err)
+					row.Error = err
+				}
+			}
 			row.RoundTime = roundtime
 			row.AssetID = asset
-			if len(extraJSON) > 0 {
-				row.Extra, err = encoding.DecodeTxnExtra(extraJSON)
+			if len(extra) > 0 {
+				row.Extra, err = encoding.DecodeTxnExtra(extra)
 				if err != nil {
-					row.Error = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
+					err = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
+					row.Error = err
 				}
 			}
 		}

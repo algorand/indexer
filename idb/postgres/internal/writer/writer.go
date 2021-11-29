@@ -209,7 +209,6 @@ func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, bloc
 		rows = append(rows, []interface{}{
 			uint64(block.Round()), intra, int(typeenum), assetid,
 			nil, // inner transactions do not have a txid.
-			nil, // txn bytes are only in the parent.
 			encoding.EncodeSignedTxnWithAD(txnNoInner),
 			encoding.EncodeTxnExtra(&extra)})
 
@@ -256,7 +255,6 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 		}
 		rows = append(rows, []interface{}{
 			uint64(block.Round()), intra, int(typeenum), assetid, id,
-			protocol.Encode(&stxnad),
 			encoding.EncodeSignedTxnWithAD(stxnad),
 			encoding.EncodeTxnExtra(&extra)})
 
@@ -269,7 +267,7 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 	_, err := w.tx.CopyFrom(
 		context.Background(),
 		pgx.Identifier{"txn"},
-		[]string{"round", "intra", "typeenum", "asset", "txid", "txnbytes", "txn", "extra"},
+		[]string{"round", "intra", "typeenum", "asset", "txid", "txn", "extra"},
 		pgx.CopyFromRows(rows))
 	if err != nil {
 		return fmt.Errorf("addTransactions() copy from err: %w", err)

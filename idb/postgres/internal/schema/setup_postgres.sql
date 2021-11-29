@@ -19,8 +19,7 @@ intra integer NOT NULL,
 typeenum smallint NOT NULL,
 asset bigint NOT NULL, -- 0=Algos, otherwise AssetIndex
 txid bytea, -- base32 of [32]byte hash, or NULL for inner transactions.
-txnbytes bytea, -- msgpack encoding of signed txn with apply data, or NULL for inner transactions.
-txn jsonb NOT NULL, -- json encoding of signed txn with apply data
+txn jsonb NOT NULL, -- json encoding of signed txn with apply data; inner txns exclude nested inner txns
 extra jsonb NOT NULL,
 PRIMARY KEY ( round, intra )
 );

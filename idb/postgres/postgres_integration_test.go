@@ -335,9 +335,8 @@ func TestBlockWithTransactions(t *testing.T) {
 	assert.Len(t, txnRows0, len(txns))
 	assert.Len(t, txnRows1, len(txns))
 	for i := 0; i < len(txnRows0); i++ {
-		expected := protocol.Encode(txns[i])
-		assert.Equal(t, expected, txnRows0[i].TxnBytes)
-		assert.Equal(t, expected, txnRows1[i].TxnBytes)
+		assert.Equal(t, txns[i], txnRows0[i].Txn)
+		assert.Equal(t, txns[i], txnRows1[i].Txn)
 	}
 }
 
@@ -1065,11 +1064,10 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			for row := range txnRows {
 				require.NoError(t, row.Error)
 				// Note: These are created from the TxnBytes, so they have the exact name with embedded null.
-				var txn transactions.SignedTxn
-				require.NoError(t, protocol.Decode(row.TxnBytes, &txn))
-				require.Equal(t, name, txn.Txn.AssetParams.AssetName)
-				require.Equal(t, unit, txn.Txn.AssetParams.UnitName)
-				require.Equal(t, url, txn.Txn.AssetParams.URL)
+				require.NotNil(t, row.Txn)
+				require.Equal(t, name, row.Txn.Txn.AssetParams.AssetName)
+				require.Equal(t, unit, row.Txn.Txn.AssetParams.UnitName)
+				require.Equal(t, url, row.Txn.Txn.AssetParams.URL)
 				num++
 			}
 			require.Equal(t, 1, num)
@@ -1541,14 +1539,17 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 			for result := range results {
 				num++
 				require.NoError(t, result.Error)
-				var stxn transactions.SignedTxnWithAD
+				var stxn *transactions.SignedTxnWithAD
+
+				// Exactly one of Txn and RootTxn must be present.
+				require.True(t, (result.Txn == nil) != (result.RootTxn == nil))
 
 				// Get Txn or RootTxn
-				if result.TxnBytes != nil {
-					err = protocol.Decode(result.TxnBytes, &stxn)
+				if result.Txn != nil {
+					stxn = result.Txn
 				}
-				if result.RootTxnBytes != nil {
-					err = protocol.Decode(result.RootTxnBytes, &stxn)
+				if result.RootTxn != nil {
+					stxn = result.RootTxn
 				}
 
 				// Make sure the root txn is returned.
@@ -1609,9 +1610,8 @@ func TestNonUTF8Logs(t *testing.T) {
 			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 			for row := range txnRows {
 				require.NoError(t, row.Error)
-				var txn transactions.SignedTxnWithAD
-				require.NoError(t, protocol.Decode(row.TxnBytes, &txn))
-				require.Equal(t, testcase.Logs, txn.ApplyData.EvalDelta.Logs)
+				require.NotNil(t, row.Txn)
+				require.Equal(t, testcase.Logs, row.Txn.ApplyData.EvalDelta.Logs)
 			}
 		})
 	}
@@ -1670,5 +1670,67 @@ func TestTxnAssetID(t *testing.T) {
 		require.True(t, ok)
 		require.NoError(t, row.Error)
 		assert.Equal(t, appid, row.AssetID)
+	}
+}
+
+func TestBadTxnJsonEncoding(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	// Need to import a block header because the transactions query joins on it.
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	rootTxid := "abc"
+	rootIntra := uint(4)
+	badJSON := `{"aaaaaaaa": 0}`
+
+	query := `INSERT INTO txn (round, intra, typeenum, asset, txid, txn, extra)
+    VALUES (1, $1, 0, 0, $2, $3, $4)`
+
+	_, err = db.db.Exec(
+		context.Background(), query, rootIntra, rootTxid, badJSON,
+		encoding.EncodeTxnExtra(&idb.TxnExtra{}))
+	require.NoError(t, err)
+
+	{
+		extra := idb.TxnExtra{
+			RootIntra: idb.OptionalUint{Present: true, Value: rootIntra},
+			RootTxid:  rootTxid,
+		}
+		_, err = db.db.Exec(
+			context.Background(), query, rootIntra+1, nil, badJSON,
+			encoding.EncodeTxnExtra(&extra))
+		require.NoError(t, err)
+	}
+
+	{
+		offset := uint64(rootIntra)
+		tf := idb.TransactionFilter{
+			Offset: &offset,
+		}
+		rowsCh, _ := db.Transactions(context.Background(), tf)
+
+		row, ok := <-rowsCh
+		require.True(t, ok)
+
+		require.Error(t, row.Error)
+		assert.Contains(t, row.Error.Error(), "error decoding txn")
+	}
+
+	{
+		offset := uint64(rootIntra) + 1
+		tf := idb.TransactionFilter{
+			Offset: &offset,
+		}
+		rowsCh, _ := db.Transactions(context.Background(), tf)
+
+		row, ok := <-rowsCh
+		require.True(t, ok)
+
+		require.Error(t, row.Error)
+		assert.Contains(t, row.Error.Error(), "error decoding roottxn")
 	}
 }
