@@ -1672,3 +1672,65 @@ func TestTxnAssetID(t *testing.T) {
 		assert.Equal(t, appid, row.AssetID)
 	}
 }
+
+func TestBadTxnJsonEncoding(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	// Need to import a block header because the transactions query joins on it.
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	rootTxid := "abc"
+	rootIntra := uint(4)
+	badJSON := `{"aaaaaaaa": 0}`
+
+	query := `INSERT INTO txn (round, intra, typeenum, asset, txid, txn, extra)
+    VALUES (1, $1, 0, 0, $2, $3, $4)`
+
+	_, err = db.db.Exec(
+		context.Background(), query, rootIntra, rootTxid, badJSON,
+		encoding.EncodeTxnExtra(&idb.TxnExtra{}))
+	require.NoError(t, err)
+
+	{
+		extra := idb.TxnExtra{
+			RootIntra: idb.OptionalUint{Present: true, Value: rootIntra},
+			RootTxid:  rootTxid,
+		}
+		_, err = db.db.Exec(
+			context.Background(), query, rootIntra+1, nil, badJSON,
+			encoding.EncodeTxnExtra(&extra))
+		require.NoError(t, err)
+	}
+
+	{
+		offset := uint64(rootIntra)
+		tf := idb.TransactionFilter{
+			Offset: &offset,
+		}
+		rowsCh, _ := db.Transactions(context.Background(), tf)
+
+		row, ok := <-rowsCh
+		require.True(t, ok)
+
+		require.Error(t, row.Error)
+		assert.Contains(t, row.Error.Error(), "error decoding txn")
+	}
+
+	{
+		offset := uint64(rootIntra) + 1
+		tf := idb.TransactionFilter{
+			Offset: &offset,
+		}
+		rowsCh, _ := db.Transactions(context.Background(), tf)
+
+		row, ok := <-rowsCh
+		require.True(t, ok)
+
+		require.Error(t, row.Error)
+		assert.Contains(t, row.Error.Error(), "error decoding roottxn")
+	}
+}
