@@ -64,15 +64,15 @@ func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
 	for rows.Next() {
 		var result txnRow
 		var txid []byte
-		var json []byte
+		var txn []byte
 		err = rows.Scan(
 			&result.round, &result.intra, &result.typeenum, &result.asset, &txid,
-			&json, &result.extra)
+			&txn, &result.extra)
 		if err != nil {
 			return nil, err
 		}
 		result.txid = string(txid)
-		result.txn = string(json)
+		result.txn = string(txn)
 		results = append(results, result)
 	}
 	return results, rows.Err()
