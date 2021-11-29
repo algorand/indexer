@@ -155,6 +155,10 @@ var ErrorBlockNotFound = errors.New("block not found")
 // TODO: sqlite3 impl
 // TODO: cockroachdb impl
 type IndexerDb interface {
+	// Close all connections to the database. Should be called when IndexerDb is
+	// no longer needed.
+	Close()
+
 	// Import a block and do the accounting.
 	AddBlock(block *bookkeeping.Block) error
 

@@ -28,6 +28,7 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeepin
 
 	db, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
+	defer db.Close()
 
 	err = db.LoadGenesis(genesis)
 	require.NoError(t, err)

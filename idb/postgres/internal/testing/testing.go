@@ -20,9 +20,6 @@ var testpg = flag.String(
 func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
 	if testpg != nil && *testpg != "" {
 		// use non-docker Postgresql
-		shutdownFunc := func() {
-			// nothing to do, psql db setup/teardown is external
-		}
 		connStr := *testpg
 
 		db, err := pgxpool.Connect(context.Background(), connStr)
@@ -31,6 +28,10 @@ func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
 		_, err = db.Exec(
 			context.Background(), `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`)
 		require.NoError(t, err)
+
+		shutdownFunc := func() {
+			db.Close()
+		}
 
 		return db, connStr, shutdownFunc
 	}
@@ -43,11 +44,6 @@ func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
 	container, err := gnomock.Start(p)
 	require.NoError(t, err, "Error starting gnomock")
 
-	shutdownFunc := func() {
-		err = gnomock.Stop(container)
-		require.NoError(t, err, "Error stoping gnomock")
-	}
-
 	connStr := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s  dbname=%s sslmode=disable",
 		container.Host, container.DefaultPort(),
@@ -56,6 +52,12 @@ func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
 
 	db, err := pgxpool.Connect(context.Background(), connStr)
 	require.NoError(t, err, "Error opening postgres connection")
+
+	shutdownFunc := func() {
+		db.Close()
+		err = gnomock.Stop(container)
+		require.NoError(t, err, "Error stoping gnomock")
+	}
 
 	return db, connStr, shutdownFunc
 }

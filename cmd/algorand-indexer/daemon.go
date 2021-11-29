@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -83,8 +84,13 @@ var daemonCmd = &cobra.Command{
 			opts.ReadOnly = true
 		}
 		db, availableCh := indexerDbFromFlags(opts)
+		defer db.Close()
+		var wg sync.WaitGroup
 		if bot != nil {
+			wg.Add(1)
 			go func() {
+				defer wg.Done()
+
 				// Wait until the database is available.
 				<-availableCh
 
@@ -103,7 +109,6 @@ var daemonCmd = &cobra.Command{
 
 				logger.Info("Starting block importer.")
 				bot.Run()
-				cf()
 			}()
 		} else {
 			logger.Info("No block importer configured.")
@@ -112,6 +117,7 @@ var daemonCmd = &cobra.Command{
 		fmt.Printf("serving on %s\n", daemonServerAddr)
 		logger.Infof("serving on %s", daemonServerAddr)
 		api.Serve(ctx, daemonServerAddr, db, bot, logger, makeOptions())
+		wg.Wait()
 	},
 }
 

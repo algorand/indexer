@@ -34,6 +34,7 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
+	defer db.Close()
 
 	round, err := db.GetNextRoundToAccount()
 	assert.Equal(t, idb.ErrorNotInitialized, err)
@@ -51,6 +52,8 @@ func TestMaxRound(t *testing.T) {
 
 	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
+	defer pdb.Close()
+
 	db.Exec(
 		context.Background(),
 		`INSERT INTO metastate (k, v) values ($1, $2)`,
@@ -72,6 +75,8 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 
 	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
+	defer pdb.Close()
+
 	db.Exec(
 		context.Background(),
 		`INSERT INTO metastate (k, v) values ($1, $2)`,
@@ -946,6 +951,7 @@ func TestInitializationNewDatabase(t *testing.T) {
 
 	db, availableCh, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
+	defer db.Close()
 
 	_, ok := <-availableCh
 	assert.False(t, ok)
@@ -961,11 +967,12 @@ func TestOpenDbAgain(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-	_, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	require.NoError(t, err)
-
-	_, _, err = OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	require.NoError(t, err)
+	for i := 0; i < 2; i++ {
+		db, availableCh, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+		require.NoError(t, err)
+		<-availableCh
+		db.Close()
+	}
 }
 
 func requireNilOrEqual(t *testing.T, expected string, actual *string) {
@@ -1298,6 +1305,7 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	defer shutdownFunc()
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
+	defer db.Close()
 
 	err = db.LoadGenesis(test.MakeGenesis())
 	require.NoError(t, err)
@@ -1531,7 +1539,9 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	// Given: A DB with one transaction containing inner transactions [app -> pay -> xfer]
 	pdb, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
-	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesis(), test.MakeGenesisBlock())
+	db := setupIdbWithConnectionString(
+		t, connStr, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer db.Close()
 
 	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
@@ -1644,6 +1654,7 @@ func TestLoadGenesisAccountTotals(t *testing.T) {
 	defer shutdownFunc()
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
+	defer db.Close()
 
 	err = db.LoadGenesis(test.MakeGenesis())
 	require.NoError(t, err)
