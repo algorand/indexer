@@ -377,6 +377,8 @@ func (w *Writer) addTransactionParticipation(block *bookkeeping.Block) error {
 	return nil
 }
 
+// Describes a change to the `account.keytype` column. If `present` is true,
+// `value` is the new value. Otherwise, NULL will be the new value.
 type sigTypeDelta struct {
 	present bool
 	value   idb.SigType
