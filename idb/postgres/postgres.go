@@ -2164,3 +2164,40 @@ func (db *IndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error)
 
 	return accounts, nil
 }
+
+// GetAccountData returns account data for the given addresses. For accounts that are
+// not found, empty AccountData is returned. This function is only used for debugging.
+func (db *IndexerDb) GetAccountData(addresses []basics.Address) (map[basics.Address]basics.AccountData, error) {
+	tx, err := db.db.BeginTx(context.Background(), readonlyRepeatableRead)
+	if err != nil {
+		return nil, fmt.Errorf("GetAccountData() begin tx err: %w", err)
+	}
+	defer tx.Rollback(context.Background())
+
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	if err != nil {
+		return nil, fmt.Errorf("GetAccountData() err: %w", err)
+	}
+	defer l.Close()
+
+	addressesMap := make(map[basics.Address]struct{}, len(addresses))
+	for _, address := range addresses {
+		addressesMap[address] = struct{}{}
+	}
+
+	accountDataMap, err := l.LookupWithoutRewards(addressesMap)
+	if err != nil {
+		return nil, fmt.Errorf("GetAccountData() err: %w", err)
+	}
+
+	res := make(map[basics.Address]basics.AccountData, len(accountDataMap))
+	for address, accountData := range accountDataMap {
+		if accountData == nil {
+			res[address] = basics.AccountData{}
+		} else {
+			res[address] = *accountData
+		}
+	}
+
+	return res, nil
+}
