@@ -36,18 +36,6 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
-type blockHandler struct {
-	f func(*rpcs.EncodedBlockCert) error
-}
-
-func (h blockHandler) HandleBlock(block *rpcs.EncodedBlockCert) {
-	err := h.f(block)
-	if err != nil {
-		fmt.Printf("error handling block %d err: %v\n", block.Block.Round(), err)
-		os.Exit(1)
-	}
-}
-
 func getGenesisBlock(client *algod.Client) (bookkeeping.Block, error) {
 	data, err := client.BlockRaw(0).Do(context.Background())
 	if err != nil {
@@ -278,7 +266,7 @@ func catchup(db *postgres.IndexerDb, l *ledger.Ledger, bot fetcher.Fetcher, logg
 			nextRoundIndexer, nextRoundLedger)
 	}
 
-	blockHandlerFunc := func(block *rpcs.EncodedBlockCert) error {
+	blockHandlerFunc := func(ctx context.Context, block *rpcs.EncodedBlockCert) error {
 		var modifiedAccounts []basics.Address
 		var err0 error
 		var err1 error
@@ -321,9 +309,12 @@ func catchup(db *postgres.IndexerDb, l *ledger.Ledger, bot fetcher.Fetcher, logg
 
 		return checkModifiedAccounts(db, l, &block.Block, modifiedAccounts)
 	}
-	bot.AddBlockHandler(blockHandler{f: blockHandlerFunc})
+	bot.SetBlockHandler(blockHandlerFunc)
 	bot.SetNextRound(nextRoundLedger)
-	bot.Run()
+	err = bot.Run(context.Background())
+	if err != nil {
+		return fmt.Errorf("catchup err: %w", err)
+	}
 
 	return nil
 }
