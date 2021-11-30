@@ -76,6 +76,7 @@ type Account struct {
 	// * sig
 	// * msig
 	// * lsig
+	// * or null if unknown
 	SigType *string `json:"sig-type,omitempty"`
 
 	// \[onl\] delegation status of the account's MicroAlgos
@@ -392,12 +393,6 @@ type BlockUpgradeVote struct {
 	UpgradePropose *string `json:"upgrade-propose,omitempty"`
 }
 
-// ErrorResponse defines model for ErrorResponse.
-type ErrorResponse struct {
-	Data    *map[string]interface{} `json:"data,omitempty"`
-	Message string                  `json:"message"`
-}
-
 // EvalDelta defines model for EvalDelta.
 type EvalDelta struct {
 
@@ -427,6 +422,9 @@ type HealthCheck struct {
 	IsMigrating bool                    `json:"is-migrating"`
 	Message     string                  `json:"message"`
 	Round       uint64                  `json:"round"`
+
+	// Current version.
+	Version string `json:"version"`
 }
 
 // MiniAssetHolding defines model for MiniAssetHolding.
@@ -979,6 +977,12 @@ type AssetsResponse struct {
 // BlockResponse defines model for BlockResponse.
 type BlockResponse Block
 
+// ErrorResponse defines model for ErrorResponse.
+type ErrorResponse struct {
+	Data    *map[string]interface{} `json:"data,omitempty"`
+	Message string                  `json:"message"`
+}
+
 // HealthCheckResponse defines model for HealthCheckResponse.
 type HealthCheckResponse HealthCheck
 
@@ -1013,7 +1017,7 @@ type SearchForAccountsParams struct {
 	// Asset ID
 	AssetId *uint64 `json:"asset-id,omitempty"`
 
-	// Maximum number of results to return.
+	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// The next page of results. Use the next token provided by the previous results.
@@ -1051,7 +1055,7 @@ type LookupAccountByIDParams struct {
 // LookupAccountTransactionsParams defines parameters for LookupAccountTransactions.
 type LookupAccountTransactionsParams struct {
 
-	// Maximum number of results to return.
+	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// The next page of results. Use the next token provided by the previous results.
@@ -1107,7 +1111,7 @@ type SearchForApplicationsParams struct {
 	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
 	IncludeAll *bool `json:"include-all,omitempty"`
 
-	// Maximum number of results to return.
+	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// The next page of results. Use the next token provided by the previous results.
@@ -1124,7 +1128,7 @@ type LookupApplicationByIDParams struct {
 // LookupApplicationLogsByIDParams defines parameters for LookupApplicationLogsByID.
 type LookupApplicationLogsByIDParams struct {
 
-	// Maximum number of results to return.
+	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// The next page of results. Use the next token provided by the previous results.
@@ -1149,7 +1153,7 @@ type SearchForAssetsParams struct {
 	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
 	IncludeAll *bool `json:"include-all,omitempty"`
 
-	// Maximum number of results to return.
+	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// The next page of results. Use the next token provided by the previous results.
@@ -1181,7 +1185,7 @@ type LookupAssetBalancesParams struct {
 	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
 	IncludeAll *bool `json:"include-all,omitempty"`
 
-	// Maximum number of results to return.
+	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// The next page of results. Use the next token provided by the previous results.
@@ -1200,7 +1204,7 @@ type LookupAssetBalancesParams struct {
 // LookupAssetTransactionsParams defines parameters for LookupAssetTransactions.
 type LookupAssetTransactionsParams struct {
 
-	// Maximum number of results to return.
+	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// The next page of results. Use the next token provided by the previous results.
@@ -1256,7 +1260,7 @@ type LookupAssetTransactionsParams struct {
 // SearchForTransactionsParams defines parameters for SearchForTransactions.
 type SearchForTransactionsParams struct {
 
-	// Maximum number of results to return.
+	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
 	Limit *uint64 `json:"limit,omitempty"`
 
 	// The next page of results. Use the next token provided by the previous results.

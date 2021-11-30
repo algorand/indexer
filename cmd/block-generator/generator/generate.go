@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand/agreement"
+	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/daemon/algod/api/server/v2/generated"
 	"github.com/algorand/go-algorand/data/basics"
@@ -259,6 +260,20 @@ func (g *generator) WriteGenesis(output io.Writer) error {
 			},
 		})
 	}
+	// Also add the rewards pool account with minimum balance. Without it, the evaluator
+	// crashes.
+	proto, ok := config.Consensus[g.protocol]
+	if !ok {
+		return fmt.Errorf("protocol version %s not found", g.protocol)
+	}
+	allocations = append(allocations, bookkeeping.GenesisAllocation{
+		Address: g.rewardsPool.String(),
+		Comment: "RewardsPool",
+		State: basics.AccountData{
+			MicroAlgos: basics.MicroAlgos{Raw: proto.MinBalance},
+			Status:     basics.NotParticipating,
+		},
+	})
 
 	gen := bookkeeping.Genesis{
 		SchemaID:    "v1",
@@ -708,7 +723,7 @@ func (g *generator) WriteAccount(output io.Writer, accountString string) error {
 		PendingRewards:              0,
 		RewardBase:                  nil,
 		Rewards:                     0,
-		Round:                       g.round,
+		Round:                       g.round - 1,
 		SigType:                     nil,
 		Status:                      "Offline",
 	}

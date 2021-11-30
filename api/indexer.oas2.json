@@ -88,6 +88,12 @@
         "responses": {
           "200": {
             "$ref": "#/responses/AccountsResponse"
+          },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
           }
         }
       }
@@ -119,6 +125,15 @@
         "responses": {
           "200": {
             "$ref": "#/responses/AccountResponse"
+          },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
           }
         }
       }
@@ -189,6 +204,12 @@
         "responses": {
           "200": {
             "$ref": "#/responses/TransactionsResponse"
+          },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
           }
         }
       }
@@ -223,6 +244,9 @@
         "responses": {
           "200": {
             "$ref": "#/responses/ApplicationsResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
           }
         }
       }
@@ -254,6 +278,12 @@
         "responses": {
           "200": {
             "$ref": "#/responses/ApplicationResponse"
+          },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
           }
         }
       }
@@ -352,6 +382,12 @@
         "responses": {
           "200": {
             "$ref": "#/responses/AssetsResponse"
+          },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
           }
         }
       }
@@ -384,10 +420,14 @@
           "200": {
             "$ref": "#/responses/AssetResponse"
           },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
           "404": {
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
           }
         }
       }
@@ -434,6 +474,12 @@
         "responses": {
           "200": {
             "$ref": "#/responses/AssetBalancesResponse"
+          },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
           }
         }
       }
@@ -513,6 +559,12 @@
         "responses": {
           "200": {
             "$ref": "#/responses/TransactionsResponse"
+          },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
           }
         }
       }
@@ -538,6 +590,12 @@
         "responses": {
           "200": {
             "$ref": "#/responses/BlockResponse"
+          },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
           }
         }
       }
@@ -567,15 +625,14 @@
           "200": {
             "$ref": "#/responses/TransactionResponse"
           },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
           "404": {
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "$ref": "#/responses/ErrorResponse"
           },
           "500": {
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "$ref": "#/responses/ErrorResponse"
           }
         }
       }
@@ -656,10 +713,11 @@
           "200": {
             "$ref": "#/responses/TransactionsResponse"
           },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
           "500": {
-            "schema": {
-              "$ref": "#/definitions/ErrorResponse"
-            }
+            "$ref": "#/responses/ErrorResponse"
           }
         }
       }
@@ -751,7 +809,7 @@
           "type": "string"
         },
         "sig-type": {
-          "description": "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig",
+          "description": "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown",
           "type": "string",
           "enum": [
             "sig",
@@ -770,13 +828,13 @@
         },
         "created-at-round": {
           "description": "Round during which this account first appeared in a transaction.",
-           "type": "integer",
-           "x-algorand-format": "uint64"
+          "type": "integer",
+          "x-algorand-format": "uint64"
         },
         "closed-at-round": {
           "description": "Round during which this account was most recently closed.",
-           "type": "integer",
-           "x-algorand-format": "uint64"
+          "type": "integer",
+          "x-algorand-format": "uint64"
         }
       }
     },
@@ -1031,13 +1089,13 @@
         },
         "created-at-round": {
           "description": "Round during which this asset was created.",
-           "type": "integer",
-           "x-algorand-format": "uint64"
+          "type": "integer",
+          "x-algorand-format": "uint64"
         },
         "destroyed-at-round": {
           "description": "Round during which this asset was destroyed.",
-           "type": "integer",
-           "x-algorand-format": "uint64"
+          "type": "integer",
+          "x-algorand-format": "uint64"
         },
         "params": {
           "$ref": "#/definitions/AssetParams"
@@ -1056,8 +1114,8 @@
       "properties": {
         "amount": {
           "description": "\\[a\\] number of units held.",
-           "type": "integer",
-           "x-algorand-format": "uint64"
+          "type": "integer",
+          "x-algorand-format": "uint64"
         },
         "asset-id": {
           "description": "Asset ID of the holding.",
@@ -1077,13 +1135,13 @@
         },
         "opted-in-at-round": {
           "description": "Round during which the account opted into this asset holding.",
-           "type": "integer",
-           "x-algorand-format": "uint64"
+          "type": "integer",
+          "x-algorand-format": "uint64"
         },
         "opted-out-at-round": {
           "description": "Round during which the account opted out of this asset holding.",
-           "type": "integer",
-           "x-algorand-format": "uint64"
+          "type": "integer",
+          "x-algorand-format": "uint64"
         }
       }
     },
@@ -1317,31 +1375,21 @@
         }
       }
     },
-    "ErrorResponse": {
-      "description": "An error response with optional data field.",
-      "type": "object",
-      "required": [
-        "message"
-      ],
-      "properties": {
-        "data": {
-          "type": "object"
-        },
-        "message": {
-          "type": "string"
-        }
-      }
-    },
     "HealthCheck": {
       "description": "A health check response.",
       "type": "object",
       "required": [
+        "version",
         "message",
         "round",
         "is-migrating",
         "db-available"
       ],
       "properties": {
+        "version": {
+          "description": "Current version.",
+          "type": "string"
+        },
         "data": {
           "type": "object"
         },
@@ -1390,13 +1438,13 @@
         },
         "opted-in-at-round": {
           "description": "Round during which the account opted into the asset.",
-           "type": "integer",
-           "x-algorand-format": "uint64"
+          "type": "integer",
+          "x-algorand-format": "uint64"
         },
         "opted-out-at-round": {
           "description": "Round during which the account opted out of the asset.",
-           "type": "integer",
-           "x-algorand-format": "uint64"
+          "type": "integer",
+          "x-algorand-format": "uint64"
         }
       }
     },
@@ -1783,8 +1831,8 @@
       "properties": {
         "amount": {
           "description": "\\[aamt\\] Amount of asset to transfer. A zero amount transferred to self allocates that asset in the account's Assets map.",
-           "type": "integer",
-           "x-algorand-format": "uint64"
+          "type": "integer",
+          "x-algorand-format": "uint64"
         },
         "asset-id": {
           "description": "\\[xaid\\] ID of the asset being transferred.",
@@ -1792,8 +1840,8 @@
         },
         "close-amount": {
           "description": "Number of assets transfered to the close-to account as part of the transaction.",
-           "type": "integer",
-           "x-algorand-format": "uint64"
+          "type": "integer",
+          "x-algorand-format": "uint64"
         },
         "close-to": {
           "description": "\\[aclose\\] Indicates that the asset should be removed from the account's Assets map, and specifies where the remaining asset holdings should be transferred.  It's always valid to transfer remaining asset holdings to the creator account.",
@@ -2036,7 +2084,7 @@
     },
     "limit": {
       "type": "integer",
-      "description": "Maximum number of results to return.",
+      "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
       "name": "limit",
       "in": "query"
     },
@@ -2291,6 +2339,23 @@
           "current-round": {
             "description": "Round at which the results were computed.",
             "type": "integer"
+          }
+        }
+      }
+    },
+    "ErrorResponse": {
+      "description": "Response for errors",
+      "schema":{
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "data": {
+            "type": "object"
+          },
+          "message": {
+            "type": "string"
           }
         }
       }

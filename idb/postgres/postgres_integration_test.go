@@ -10,6 +10,7 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -19,7 +20,10 @@ import (
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
+	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
+	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
+	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -32,29 +36,11 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	assert.NoError(t, err)
 
 	round, err := db.GetNextRoundToAccount()
-	assert.Equal(t, err, idb.ErrorNotInitialized)
+	assert.Equal(t, idb.ErrorNotInitialized, err)
 	assert.Equal(t, uint64(0), round)
 
 	round, err = db.getMaxRoundAccounted(context.Background(), nil)
-	assert.Equal(t, err, idb.ErrorNotInitialized)
-	assert.Equal(t, uint64(0), round)
-}
-
-// TestMaxRoundEmptyMetastate makes sure we return 0 when the metastate is empty.
-func TestMaxRoundEmptyMetastate(t *testing.T) {
-	pg, connStr, shutdownFunc := pgtest.SetupPostgres(t)
-	defer shutdownFunc()
-
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
-	pg.Exec(context.Background(), `INSERT INTO metastate (k, v) values ('state', '{}')`)
-
-	round, err := db.GetNextRoundToAccount()
-	assert.Equal(t, err, idb.ErrorNotInitialized)
-	assert.Equal(t, uint64(0), round)
-
-	round, err = db.getMaxRoundAccounted(context.Background(), nil)
-	assert.Equal(t, err, idb.ErrorNotInitialized)
+	assert.Equal(t, idb.ErrorNotInitialized, err)
 	assert.Equal(t, uint64(0), round)
 }
 
@@ -750,39 +736,13 @@ func TestInnerTxnParticipation(t *testing.T) {
 	// Given // A block containing an app call txn with inners
 	///////////
 
-	createApp := test.MakeCreateAppTxn(test.AccountA)
-
 	// In order to simplify the test,
 	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
 	// fake ApplyData to have inner txn
 	// otherwise it requires funding the app account and other special setup
-	createApp.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: protocol.PaymentTx,
-				PaymentTxnFields: transactions.PaymentTxnFields{
-					Receiver: test.AccountB,
-					Amount:   basics.MicroAlgos{Raw: 123},
-				},
-			},
-		},
-		// also add a fake second-level ApplyData to ensure the recursive part works
-		ApplyData: transactions.ApplyData{
-			EvalDelta: transactions.EvalDelta{
-				InnerTxns: []transactions.SignedTxnWithAD{{
-					SignedTxn: transactions.SignedTxn{
-						Txn: transactions.Transaction{
-							Type: protocol.AssetTransferTx,
-							AssetTransferTxnFields: transactions.AssetTransferTxnFields{
-								AssetReceiver: test.AccountC,
-								AssetAmount:   456,
-							},
-						},
-					},
-				}},
-			},
-		},
-	}}
+	var appAddr basics.Address
+	appAddr[1] = 99
+	createApp := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createApp)
@@ -795,7 +755,7 @@ func TestInnerTxnParticipation(t *testing.T) {
 	require.NoError(t, err)
 
 	//////////
-	// Then // Both accounts should have an entry in the txn_participation table.
+	// Then // All accounts should have an entry in the txn_participation table.
 	//////////
 	round := uint64(1)
 	intra := uint64(0) // the only one txn in the block
@@ -806,9 +766,11 @@ func TestInnerTxnParticipation(t *testing.T) {
 	acctACount := queryInt(db.db, query, test.AccountA[:], round, intra)
 	acctBCount := queryInt(db.db, query, test.AccountB[:], round, intra)
 	acctCCount := queryInt(db.db, query, test.AccountC[:], round, intra)
+	acctAppCount := queryInt(db.db, query, appAddr[:], round, intra)
 	assert.Equal(t, 1, acctACount)
 	assert.Equal(t, 1, acctBCount)
 	assert.Equal(t, 1, acctCCount)
+	assert.Equal(t, 1, acctAppCount)
 }
 
 func TestAppExtraPages(t *testing.T) {
@@ -818,6 +780,7 @@ func TestAppExtraPages(t *testing.T) {
 	// Create an app.
 
 	// Create a transaction with ExtraProgramPages field set to 1
+	const extraPages = 1
 	txn := transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -829,7 +792,7 @@ func TestAppExtraPages(t *testing.T) {
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
 					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-					ExtraProgramPages: 1,
+					ExtraProgramPages: extraPages,
 				},
 			},
 			Sig: test.Signature,
@@ -850,8 +813,7 @@ func TestAppExtraPages(t *testing.T) {
 	require.NoError(t, err)
 	require.NotZero(t, index)
 
-	var ap basics.AppParams
-	err = encoding.DecodeJSON(paramsStr, &ap)
+	ap, err := encoding.DecodeAppParams(paramsStr)
 	require.NoError(t, err)
 	require.Equal(t, uint32(1), ap.ExtraProgramPages)
 
@@ -870,13 +832,21 @@ func TestAppExtraPages(t *testing.T) {
 
 	rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:]})
 	num = 0
+	var createdApps *[]generated.Application
 	for row := range rows {
 		require.NoError(t, row.Error)
 		num++
 		require.NotNil(t, row.Account.AppsTotalExtraPages, "we should have this field")
 		require.Equal(t, uint64(1), *row.Account.AppsTotalExtraPages)
+		createdApps = row.Account.CreatedApps
 	}
 	require.Equal(t, 1, num)
+
+	require.NotNil(t, createdApps)
+	require.Equal(t, 1, len(*createdApps))
+	app := (*createdApps)[0]
+	require.NotNil(t, app.Params.ExtraProgramPages)
+	require.Equal(t, uint64(extraPages), *app.Params.ExtraProgramPages)
 }
 
 func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype *string) {
@@ -980,7 +950,7 @@ func TestInitializationNewDatabase(t *testing.T) {
 	_, ok := <-availableCh
 	assert.False(t, ok)
 
-	state, err := db.getMigrationState()
+	state, err := db.getMigrationState(nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, len(migrations), state.NextMigration)
@@ -1308,9 +1278,10 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	db.LoadGenesis(test.MakeGenesis())
+	err = db.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
 
 	round, err := db.GetNextRoundToAccount()
 	require.NoError(t, err)
@@ -1503,4 +1474,201 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	assert.Equal(t, uint64(1), *localState.OptedInAtRound)
 	require.NotNil(t, localState.ClosedOutAtRound)
 	assert.Equal(t, uint64(1), *localState.ClosedOutAtRound)
+}
+
+// TestSearchForInnerTransactionReturnsRootTransaction checks that the parent
+// transaction is returned when matching on inner transactions.
+func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
+	var appAddr basics.Address
+	appAddr[1] = 99
+
+	tests := []struct {
+		name    string
+		matches int
+		filter  idb.TransactionFilter
+	}{
+		{
+			name:    "match on root",
+			matches: 1,
+			filter:  idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication},
+		},
+		{
+			name:    "match on inner",
+			matches: 2,
+			filter:  idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay},
+		},
+		{
+			name:    "match on inner-inner",
+			matches: 1,
+			filter:  idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer},
+		},
+		{
+			name:    "match all",
+			matches: 4,
+			filter:  idb.TransactionFilter{Address: appAddr[:]},
+		},
+	}
+
+	// Given: A DB with one transaction containing inner transactions [app -> pay -> xfer]
+	pdb, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesis(), test.MakeGenesisBlock())
+
+	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	require.NoError(t, err)
+	rootTxid := appCall.Txn.ID()
+
+	err = pgutil.TxWithRetry(pdb, serializable, func(tx pgx.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		require.NoError(t, err)
+
+		return nil
+	}, nil)
+	require.NoError(t, err)
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			// When: searching for a transaction that matches part of the transaction.
+			results, _ := db.Transactions(context.Background(), tc.filter)
+
+			// Then: only the root transaction should be returned.
+			num := 0
+			for result := range results {
+				num++
+				require.NoError(t, result.Error)
+				var stxn transactions.SignedTxnWithAD
+
+				// Get Txn or RootTxn
+				if result.TxnBytes != nil {
+					err = protocol.Decode(result.TxnBytes, &stxn)
+				}
+				if result.RootTxnBytes != nil {
+					err = protocol.Decode(result.RootTxnBytes, &stxn)
+				}
+
+				// Make sure the root txn is returned.
+				require.NoError(t, err)
+				require.Equal(t, rootTxid, stxn.Txn.ID())
+			}
+
+			// There can be multiple matches because deduplication happens in REST API.
+			require.Equal(t, tc.matches, num)
+		})
+	}
+}
+
+// TestNonUTF8Logs makes sure we're able to import cheeky logs.
+func TestNonUTF8Logs(t *testing.T) {
+	tests := []struct {
+		Name string
+		Logs []string
+	}{
+		{
+			Name: "Normal",
+			Logs: []string{"Test log1", "Test log2", "Test log3"},
+		},
+		{
+			Name: "Embedded Null",
+			Logs: []string{"\000", "\x00\x00\x00\x00\x00\x00\x00\x00", string([]byte{00, 00})},
+		},
+		{
+			Name: "Invalid UTF8",
+			Logs: []string{"\x8c", "\xff", "\xf8"},
+		},
+		{
+			Name: "Emoji",
+			Logs: []string{"💩", "💰", "🌐"},
+		},
+	}
+
+	for _, testcase := range tests {
+		testcase := testcase
+
+		t.Run(testcase.Name, func(t *testing.T) {
+			db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+			defer shutdownFunc()
+
+			createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+			createAppTxn.ApplyData.EvalDelta = transactions.EvalDelta{
+				Logs: testcase.Logs,
+			}
+
+			block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAppTxn)
+			require.NoError(t, err)
+
+			// Test 1: import/accounting should work.
+			err = db.AddBlock(&block)
+			require.NoError(t, err)
+
+			// Test 2: transaction results properly serialized
+			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+			for row := range txnRows {
+				require.NoError(t, row.Error)
+				var txn transactions.SignedTxnWithAD
+				require.NoError(t, protocol.Decode(row.TxnBytes, &txn))
+				require.Equal(t, testcase.Logs, txn.ApplyData.EvalDelta.Logs)
+			}
+		})
+	}
+}
+
+// Test that LoadGenesis writes account totals.
+func TestLoadGenesisAccountTotals(t *testing.T) {
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	require.NoError(t, err)
+
+	err = db.LoadGenesis(test.MakeGenesis())
+	require.NoError(t, err)
+
+	json, err := db.getMetastate(context.Background(), nil, schema.AccountTotals)
+	require.NoError(t, err)
+
+	ret, err := encoding.DecodeAccountTotals([]byte(json))
+	require.NoError(t, err)
+
+	assert.Equal(
+		t, basics.MicroAlgos{Raw: 4 * 1000 * 1000 * 1000 * 1000}, ret.Offline.Money)
+}
+
+func TestTxnAssetID(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	assetid := uint64(1)
+	createAssetTxn := test.MakeAssetConfigTxn(
+		0, 0, 0, false, "myasset", "ma", "", test.AccountA)
+	configAssetTxn := test.MakeAssetConfigTxn(
+		assetid, 0, 0, false, "myasset", "ma", "", test.AccountA)
+	appid := uint64(3)
+	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+	destroyAppTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
+
+	block, err := test.MakeBlockForTxns(
+		test.MakeGenesisBlock().BlockHeader, &createAssetTxn, &configAssetTxn,
+		&createAppTxn, &destroyAppTxn)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	txnRowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+	for i := 0; i < 2; i++ {
+		row, ok := <-txnRowsCh
+		require.True(t, ok)
+		require.NoError(t, row.Error)
+		assert.Equal(t, assetid, row.AssetID)
+	}
+	for i := 0; i < 2; i++ {
+		row, ok := <-txnRowsCh
+		require.True(t, ok)
+		require.NoError(t, row.Error)
+		assert.Equal(t, appid, row.AssetID)
+	}
 }

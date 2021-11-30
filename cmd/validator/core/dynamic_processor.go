@@ -24,13 +24,13 @@ func (gp DynamicProcessor) ProcessAddress(algodData, indexerData []byte) (Result
 	var indexerAcct map[string]interface{}
 	err := json.Unmarshal(indexerData, &indexerAcct)
 	if err != nil {
-		return Result{}, fmt.Errorf("unable to parse indexer data: %v", err)
+		return Result{}, fmt.Errorf("unable to parse indexer data ('%s'): %v", string(indexerData), err)
 	}
 
 	var algodAcct map[string]interface{}
 	err = json.Unmarshal(algodData, &algodAcct)
 	if err != nil {
-		return Result{}, fmt.Errorf("unable to parse algod data: %v", err)
+		return Result{}, fmt.Errorf("unable to parse algod data ('%s'): %v", string(algodData), err)
 	}
 
 	indexerNorm, err := normalize(indexerAcct)

@@ -5,11 +5,14 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"errors"
+	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 )
@@ -25,10 +28,14 @@ type TxnRow struct {
 	// Intra is the offset into the block where this transaction was placed.
 	Intra int
 
-	// TxnBytes is the raw signed transaction with apply data object.
+	// TxnBytes is the raw signed transaction with apply data object, only used when the root txn is being returned.
 	TxnBytes []byte
 
-	// AssetID is the ID of any asset or application created by this transaction.
+	// RootTxnBytes the root transaction raw signed transaction with apply data object, only inner transactions have this.
+	RootTxnBytes []byte
+
+	// AssetID is the ID of any asset or application created or configured by this
+	// transaction.
 	AssetID uint64
 
 	// Extra are some additional fields which might be related to to the transaction.
@@ -38,36 +45,122 @@ type TxnRow struct {
 	Error error
 }
 
-// Next returns what should be an opaque string to be returned in the next query to resume where a previous limit left off.
-func (tr TxnRow) Next() string {
+func countInner(stxn *transactions.SignedTxnWithAD) uint {
+	num := uint(0)
+	for _, itxn := range stxn.ApplyData.EvalDelta.InnerTxns {
+		num++
+		num += countInner(&itxn)
+	}
+	return num
+}
+
+// Next returns what should be an opaque string to be used with the next query to resume where a previous limit left off.
+func (tr TxnRow) Next(ascending bool) (string, error) {
+	var err error
 	var b [12]byte
 	binary.LittleEndian.PutUint64(b[:8], tr.Round)
-	binary.LittleEndian.PutUint32(b[8:], uint32(tr.Intra))
-	return base64.URLEncoding.EncodeToString(b[:])
+
+	intra := uint(tr.Intra)
+	if tr.Extra.RootIntra.Present {
+		// initialize for descending order, the root intra.
+		intra = tr.Extra.RootIntra.Value
+		if err != nil {
+			return "", fmt.Errorf("Next() could not parse root intra: %w", err)
+		}
+	}
+
+	// when ascending add the count of inner transactions.
+	if ascending {
+		var bytes []byte
+		if tr.TxnBytes != nil {
+			bytes = tr.TxnBytes
+		} else {
+			bytes = tr.RootTxnBytes
+		}
+
+		if bytes == nil {
+			return "", fmt.Errorf("Next() was not given transaction bytes")
+		}
+
+		var stxn transactions.SignedTxnWithAD
+		err = protocol.Decode(bytes, &stxn)
+		if err != nil {
+			return "", fmt.Errorf("Next() could not decode root transaction: %w", err)
+		}
+
+		intra += countInner(&stxn)
+	}
+
+	binary.LittleEndian.PutUint32(b[8:], uint32(intra))
+	return base64.URLEncoding.EncodeToString(b[:]), nil
 }
 
 // DecodeTxnRowNext unpacks opaque string returned from TxnRow.Next()
-func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
-	var b []byte
-	b, err = base64.URLEncoding.DecodeString(s)
+func DecodeTxnRowNext(s string) (uint64 /*round*/, uint32 /*intra*/, error) {
+	b, err := base64.URLEncoding.DecodeString(s)
 	if err != nil {
-		return
+		return 0, 0, fmt.Errorf("DecodeTxnRowNext() decode err: %w", err)
 	}
-	round = binary.LittleEndian.Uint64(b[:8])
-	intra = binary.LittleEndian.Uint32(b[8:])
-	return
+
+	if len(b) != 12 {
+		return 0, 0, fmt.Errorf("DecodeTxnRowNext() bad next token b: %x", b)
+	}
+
+	round := binary.LittleEndian.Uint64(b[:8])
+	intra := binary.LittleEndian.Uint32(b[8:])
+	return round, intra, nil
+}
+
+// OptionalUint wraps bool and uint. It has a custom marshaller below.
+type OptionalUint struct {
+	Present bool
+	Value   uint
+}
+
+// MarshalText implements TextMarshaler interface.
+func (ou OptionalUint) MarshalText() ([]byte, error) {
+	if !ou.Present {
+		return nil, nil
+	}
+	return []byte(fmt.Sprintf("%d", ou.Value)), nil
+}
+
+// UnmarshalText implements TextUnmarshaler interface.
+func (ou *OptionalUint) UnmarshalText(text []byte) error {
+	if text == nil {
+		*ou = OptionalUint{}
+	} else {
+		value, err := strconv.ParseUint(string(text), 10, 64)
+		if err != nil {
+			return err
+		}
+		*ou = OptionalUint{
+			Present: true,
+			Value:   uint(value),
+		}
+	}
+
+	return nil
 }
 
 // TxnExtra is some additional metadata needed for a transaction.
 type TxnExtra struct {
-	AssetCloseAmount   uint64      `codec:"aca,omitempty"`
-	GlobalReverseDelta interface{} `codec:"agr,omitempty"` // deprecated
-	LocalReverseDelta  interface{} `codec:"alr,omitempty"` // deprecated
+	AssetCloseAmount uint64 `codec:"aca,omitempty"`
+	// RootIntra is set only on inner transactions. Combined with the confirmation
+	// round it can be used to lookup the root transaction.
+	RootIntra OptionalUint `codec:"root-intra,omitempty"`
+	// RootTxid is set on inner transactions. It is a convenience for the
+	// future. If we decide to return inner transactions we'll want to include
+	// the root txid.
+	RootTxid string `codec:"root-txid,omitempty"`
 }
 
 // ErrorNotInitialized is used when requesting something that can't be returned
 // because initialization has not been completed.
 var ErrorNotInitialized error = errors.New("accounting not initialized")
+
+// ErrorBlockNotFound is used when requesting a block that isn't in the DB.
+var ErrorBlockNotFound = errors.New("block not found")
 
 // IndexerDb is the interface used to define alternative Indexer backends.
 // TODO: sqlite3 impl

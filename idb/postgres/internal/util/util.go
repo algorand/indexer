@@ -14,30 +14,50 @@ import (
 	"github.com/algorand/indexer/idb"
 )
 
+func isSerializationError(err error) bool {
+	var pgerr *pgconn.PgError
+	return errors.As(err, &pgerr) && (pgerr.Code == pgerrcode.SerializationFailure)
+}
+
+func attemptTx(tx pgx.Tx, f func(pgx.Tx) error) error {
+	defer tx.Rollback(context.Background())
+
+	err := f(tx)
+	if err != nil {
+		return fmt.Errorf("attemptTx() err: %w", err)
+	}
+
+	err = tx.Commit(context.Background())
+	if err != nil {
+		return fmt.Errorf("attemptTx() commit err: %w", err)
+	}
+
+	return nil
+}
+
 // TxWithRetry is a helper function that retries the function `f` in case the database
 // transaction in it fails due to a serialization error. `f` is provided
-// a transaction created using `opts`. `f` should either return an error or
-// call sql.Tx.Commit(). In the second case, `f` should return an error that contains the
-// error returned by sql.Tx.Commit(). The easiest way is to just return the result of
-// sql.Tx.Commit(). If sql.Tx.Commit() is not called, results are rolled back.
+// a transaction created using `opts`. If `f` experiences a database error, this error
+// must be included in `f`'s return error's chain, so that a serialization error can be
+// detected.
 func TxWithRetry(db *pgxpool.Pool, opts pgx.TxOptions, f func(pgx.Tx) error, log *log.Logger) error {
 	count := 0
+
 	for {
 		tx, err := db.BeginTx(context.Background(), opts)
 		if err != nil {
-			return err
+			return fmt.Errorf("TxWithRetry() begin tx err: %w", err)
 		}
 
-		err = f(tx)
-		tx.Rollback(context.Background())
-
-		// If not serialization error.
-		var pgerr *pgconn.PgError
-		if !errors.As(err, &pgerr) || (pgerr.Code != pgerrcode.SerializationFailure) {
+		err = attemptTx(tx, f)
+		if !isSerializationError(err) {
 			if (count > 0) && (log != nil) {
 				log.Printf("transaction was retried %d times", count)
 			}
-			return err
+			if err != nil {
+				return fmt.Errorf("TxWithRetry() err: %w", err)
+			}
+			return nil
 		}
 
 		count++
@@ -65,8 +85,26 @@ func GetMetastate(ctx context.Context, db *pgxpool.Pool, tx pgx.Tx, key string) 
 		return "", idb.ErrorNotInitialized
 	}
 	if err != nil {
-		return "", fmt.Errorf("getMetastate() err: %w", err)
+		return "", fmt.Errorf("GetMetastate() err: %w", err)
 	}
 
 	return value, nil
+}
+
+// SetMetastate sets metastate. If `tx` is nil, it uses a normal query.
+func SetMetastate(db *pgxpool.Pool, tx pgx.Tx, key, jsonStrValue string) error {
+	const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2)
+		ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
+
+	var err error
+	if tx == nil {
+		_, err = db.Exec(context.Background(), setMetastateUpsert, key, jsonStrValue)
+	} else {
+		_, err = tx.Exec(context.Background(), setMetastateUpsert, key, jsonStrValue)
+	}
+	if err != nil {
+		return fmt.Errorf("SetMetastate() err: %w", err)
+	}
+
+	return nil
 }

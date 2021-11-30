@@ -13,6 +13,7 @@ import (
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
 
+	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
@@ -21,8 +22,6 @@ import (
 const (
 	addBlockHeaderStmtName       = "add_block_header"
 	setSpecialAccountsStmtName   = "set_special_accounts"
-	addTxnStmtName               = "add_txn"
-	addTxnParticipantStmtName    = "add_txn_participant"
 	upsertAssetStmtName          = "upsert_asset"
 	upsertAccountAssetStmtName   = "upsert_account_asset"
 	upsertAppStmtName            = "upsert_app"
@@ -34,6 +33,7 @@ const (
 	deleteAppStmtName            = "delete_app"
 	deleteAccountAppStmtName     = "delete_account_app"
 	updateAccountKeyTypeStmtName = "update_account_key_type"
+	updateAccountTotalsStmtName  = "update_account_totals"
 )
 
 var statements = map[string]string{
@@ -43,11 +43,6 @@ var statements = map[string]string{
 	setSpecialAccountsStmtName: `INSERT INTO metastate (k, v) VALUES ('` +
 		schema.SpecialAccountsMetastateKey +
 		`', $1) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`,
-	addTxnStmtName: `INSERT INTO txn
-		(round, intra, typeenum, asset, txid, txnbytes, txn, extra)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT DO NOTHING`,
-	addTxnParticipantStmtName: `INSERT INTO txn_participation
-		(addr, round, intra) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
 	upsertAssetStmtName: `INSERT INTO asset
 		(index, creator_addr, params, deleted, created_at)
 		VALUES($1, $2, $3, FALSE, $4) ON CONFLICT (index) DO UPDATE SET
@@ -65,8 +60,9 @@ var statements = map[string]string{
 		VALUES($1, $2, $3, FALSE, $4) ON CONFLICT (addr, app) DO UPDATE SET
 		localstate = EXCLUDED.localstate, deleted = FALSE`,
 	deleteAccountStmtName: `INSERT INTO account
-		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, closed_at)
-		VALUES($1, 0, 0, 0, TRUE, $2, $2) ON CONFLICT (addr) DO UPDATE SET
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, closed_at,
+			account_data)
+		VALUES($1, 0, 0, 0, TRUE, $2, $2, 'null'::jsonb) ON CONFLICT (addr) DO UPDATE SET
 		microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
 		rewards_total = EXCLUDED.rewards_total, deleted = TRUE,
 		closed_at = EXCLUDED.closed_at, account_data = EXCLUDED.account_data`,
@@ -95,6 +91,8 @@ var statements = map[string]string{
 		VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (addr, app) DO UPDATE SET
 		localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at`,
 	updateAccountKeyTypeStmtName: `UPDATE account SET keytype = $1 WHERE addr = $2`,
+	updateAccountTotalsStmtName: `UPDATE metastate SET v = $1 WHERE k = '` +
+		schema.AccountTotals + `'`,
 }
 
 // Writer is responsible for writing blocks and accounting state deltas to the database.
@@ -139,51 +137,99 @@ func setSpecialAccounts(addresses transactions.SpecialAddresses, batch *pgx.Batc
 
 // Get the ID of the creatable referenced in the given transaction
 // (0 if not an asset or app transaction).
-func transactionAssetID(txn transactions.SignedTxnWithAD, intra uint64, block *bookkeeping.Block) uint64 {
+// Note: ConsensusParams.MaxInnerTransactions could be overridden to force
+//       generating ApplyData.{ApplicationID/ConfigAsset}. This function does
+//       other things too, so it is not clear we should use it. The only
+//       real benefit is that it would slightly simplify this function by
+//       allowing us to leave out the intra / block parameters.
+func transactionAssetID(stxnad *transactions.SignedTxnWithAD, intra uint, block *bookkeeping.Block) (uint64, error) {
 	assetid := uint64(0)
 
-	switch txn.Txn.Type {
+	switch stxnad.Txn.Type {
 	case protocol.ApplicationCallTx:
-		assetid = uint64(txn.ApplicationID)
+		assetid = uint64(stxnad.Txn.ApplicationID)
 		if assetid == 0 {
-			assetid = uint64(txn.ApplyData.ApplicationID)
+			assetid = uint64(stxnad.ApplyData.ApplicationID)
 		}
 		if assetid == 0 {
+			if block == nil {
+				return 0, fmt.Errorf("transactionAssetID(): Missing ApplicationID for transaction: %s", stxnad.ID())
+			}
 			// pre v30 transactions do not have ApplyData.ConfigAsset or InnerTxns
 			// so txn counter + payset pos calculation is OK
-			assetid = block.TxnCounter - uint64(len(block.Payset)) + intra + 1
+			assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 		}
 	case protocol.AssetConfigTx:
-		assetid = uint64(txn.ConfigAsset)
+		assetid = uint64(stxnad.Txn.ConfigAsset)
 		if assetid == 0 {
-			assetid = uint64(txn.ApplyData.ConfigAsset)
+			assetid = uint64(stxnad.ApplyData.ConfigAsset)
 		}
 		if assetid == 0 {
+			if block == nil {
+				return 0, fmt.Errorf("transactionAssetID(): Missing ConfigAsset for transaction: %s", stxnad.ID())
+			}
 			// pre v30 transactions do not have ApplyData.ApplicationID or InnerTxns
 			// so txn counter + payset pos calculation is OK
-			assetid = block.TxnCounter - uint64(len(block.Payset)) + intra + 1
+			assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
 		}
 	case protocol.AssetTransferTx:
-		assetid = uint64(txn.Txn.XferAsset)
+		assetid = uint64(stxnad.Txn.XferAsset)
 	case protocol.AssetFreezeTx:
-		assetid = uint64(txn.Txn.FreezeAsset)
+		assetid = uint64(stxnad.Txn.FreezeAsset)
 	}
 
-	return assetid
+	return assetid, nil
 }
 
-func countTxns(stxnad transactions.SignedTxnWithAD) uint64 {
-	num := uint64(1)
+// addInnerTransactions traverses the inner transaction tree and adds them to
+// the transaction table. It performs a preorder traversal to correctly compute
+// the intra round offset, the offset for the next transaction is returned.
+func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, block *bookkeeping.Block, intra, rootIntra uint, rootTxid string, rows [][]interface{}) (uint, [][]interface{}, error) {
 	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
-		num += countTxns(itxn)
+		txn := &itxn.Txn
+		typeenum, ok := idb.GetTypeEnum(txn.Type)
+		if !ok {
+			return 0, nil, fmt.Errorf("addInnerTransactions() get type enum")
+		}
+		// block shouldn't be used for inner transactions.
+		assetid, err := transactionAssetID(&itxn, 0, nil)
+		if err != nil {
+			return 0, nil, err
+		}
+		extra := idb.TxnExtra{
+			AssetCloseAmount: itxn.ApplyData.AssetClosingAmount,
+			RootIntra:        idb.OptionalUint{Present: true, Value: rootIntra},
+			RootTxid:         rootTxid,
+		}
+
+		// When encoding an inner transaction we remove any further nested inner transactions.
+		// To reconstruct a full object the root transaction must be fetched.
+		txnNoInner := *stxnad
+		txnNoInner.EvalDelta.InnerTxns = nil
+		rows = append(rows, []interface{}{
+			uint64(block.Round()), intra, int(typeenum), assetid,
+			nil, // inner transactions do not have a txid.
+			nil, // txn bytes are only in the parent.
+			encoding.EncodeSignedTxnWithAD(txnNoInner),
+			encoding.EncodeTxnExtra(&extra)})
+
+		// Recurse at end for preorder traversal
+		intra, rows, err =
+			w.addInnerTransactions(&itxn, block, intra+1, rootIntra, rootTxid, rows)
+		if err != nil {
+			return 0, nil, err
+		}
 	}
-	return num
+
+	return intra, rows, nil
 }
 
 // Add transactions from `block` to the database. `modifiedTxns` contains enhanced
 // apply data generated by evaluator.
-func addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, batch *pgx.Batch) error {
-	intra := uint64(0)
+func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock) error {
+	var rows [][]interface{}
+
+	intra := uint(0)
 	for idx, stib := range block.Payset {
 		var stxnad transactions.SignedTxnWithAD
 		var err error
@@ -199,51 +245,47 @@ func addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.Signe
 		if !ok {
 			return fmt.Errorf("addTransactions() get type enum")
 		}
-		assetid := transactionAssetID(stxnad, intra, block)
+		assetid, err := transactionAssetID(&stxnad, intra, block)
+		if err != nil {
+			return err
+		}
 		id := txn.ID().String()
+
 		extra := idb.TxnExtra{
 			AssetCloseAmount: modifiedTxns[idx].ApplyData.AssetClosingAmount,
 		}
-		batch.Queue(
-			addTxnStmtName,
+		rows = append(rows, []interface{}{
 			uint64(block.Round()), intra, int(typeenum), assetid, id,
 			protocol.Encode(&stxnad),
 			encoding.EncodeSignedTxnWithAD(stxnad),
-			encoding.EncodeJSON(extra))
+			encoding.EncodeTxnExtra(&extra)})
 
-		intra += countTxns(modifiedTxns[idx].SignedTxnWithAD)
+		intra, rows, err = w.addInnerTransactions(&stib.SignedTxnWithAD, block, intra+1, intra, id, rows)
+		if err != nil {
+			return fmt.Errorf("addTransactions() adding inner: %w", err)
+		}
+	}
+
+	_, err := w.tx.CopyFrom(
+		context.Background(),
+		pgx.Identifier{"txn"},
+		[]string{"round", "intra", "typeenum", "asset", "txid", "txnbytes", "txn", "extra"},
+		pgx.CopyFromRows(rows))
+	if err != nil {
+		return fmt.Errorf("addTransactions() copy from err: %w", err)
 	}
 
 	return nil
 }
 
-func getTransactionParticipantsImpl(stxnad transactions.SignedTxnWithAD, add func(address basics.Address)) {
-	txn := stxnad.Txn
-
-	add(txn.Sender)
-	add(txn.Receiver)
-	add(txn.CloseRemainderTo)
-	add(txn.AssetSender)
-	add(txn.AssetReceiver)
-	add(txn.AssetCloseTo)
-	add(txn.FreezeAccount)
-
-	for _, inner := range stxnad.ApplyData.EvalDelta.InnerTxns {
-		getTransactionParticipantsImpl(inner, add)
-	}
-}
-
 // getTransactionParticipants returns referenced addresses from the txn and all inner txns
-func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Address {
+func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInner bool) []basics.Address {
 	const acctsPerTxn = 7
 
-	if len(stxnad.ApplyData.EvalDelta.InnerTxns) == 0 {
+	if !includeInner || len(stxnad.ApplyData.EvalDelta.InnerTxns) == 0 {
 		// if no inner transactions then adding into a slice with in-place de-duplication
 		res := make([]basics.Address, 0, acctsPerTxn)
 		add := func(address basics.Address) {
-			if address.IsZero() {
-				return
-			}
 			for _, p := range res {
 				if address == p {
 					return
@@ -252,7 +294,7 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Ad
 			res = append(res, address)
 		}
 
-		getTransactionParticipantsImpl(stxnad, add)
+		accounting.GetTransactionParticipants(stxnad, includeInner, add)
 		return res
 	}
 
@@ -262,13 +304,10 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Ad
 	size := acctsPerTxn * (1 + len(stxnad.ApplyData.EvalDelta.InnerTxns)) // approx
 	participants := make(map[basics.Address]struct{}, size)
 	add := func(address basics.Address) {
-		if address.IsZero() {
-			return
-		}
 		participants[address] = struct{}{}
 	}
 
-	getTransactionParticipantsImpl(stxnad, add)
+	accounting.GetTransactionParticipants(stxnad, includeInner, add)
 
 	res := make([]basics.Address, 0, len(participants))
 	for addr := range participants {
@@ -278,14 +317,48 @@ func getTransactionParticipants(stxnad transactions.SignedTxnWithAD) []basics.Ad
 	return res
 }
 
-func addTransactionParticipation(block *bookkeeping.Block, batch *pgx.Batch) error {
-	for i, stxnad := range block.Payset {
-		// TODO: replace with a function from go-algorand.
-		participants := getTransactionParticipants(stxnad.SignedTxnWithAD)
+// addInnerTransactionParticipation traverses the inner transaction tree and
+// adds txn participation records for each. It performs a preorder traversal
+// to correctly compute the intra round offset, the offset for the next
+// transaction is returned.
+func addInnerTransactionParticipation(stxnad *transactions.SignedTxnWithAD, round, intra uint64, rows [][]interface{}) (uint64, [][]interface{}) {
+	next := intra
+	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
+		// Only search inner transactions by direct participation.
+		// TODO: Should inner app calls be surfaced by their participants?
+		participants := getTransactionParticipants(&itxn, false)
 
 		for j := range participants {
-			batch.Queue(addTxnParticipantStmtName, participants[j][:], uint64(block.Round()), i)
+			rows = append(rows, []interface{}{participants[j][:], round, next})
 		}
+
+		next, rows = addInnerTransactionParticipation(&itxn, round, next+1, rows)
+	}
+	return next, rows
+
+}
+
+func (w *Writer) addTransactionParticipation(block *bookkeeping.Block) error {
+	var rows [][]interface{}
+	next := uint64(0)
+
+	for _, stxnib := range block.Payset {
+		participants := getTransactionParticipants(&stxnib.SignedTxnWithAD, true)
+
+		for j := range participants {
+			rows = append(rows, []interface{}{participants[j][:], uint64(block.Round()), next})
+		}
+
+		next, rows = addInnerTransactionParticipation(&stxnib.SignedTxnWithAD, uint64(block.Round()), next+1, rows)
+	}
+
+	_, err := w.tx.CopyFrom(
+		context.Background(),
+		pgx.Identifier{"txn_participation"},
+		[]string{"addr", "round", "intra"},
+		pgx.CopyFromRows(rows))
+	if err != nil {
+		return fmt.Errorf("addTransactionParticipation() copy from err: %w", err)
 	}
 
 	return nil
@@ -336,17 +409,11 @@ func writeAccountData(round basics.Round, address basics.Address, accountData ba
 	}
 }
 
-func writeAccountDeltas(round basics.Round, deltas ledgercore.AccountDeltas, specialAddresses transactions.SpecialAddresses, batch *pgx.Batch) {
+func writeAccountDeltas(round basics.Round, deltas ledgercore.AccountDeltas, batch *pgx.Batch) {
 	// Update `account` table.
 	for i := 0; i < deltas.Len(); i++ {
 		address, accountData := deltas.GetByIdx(i)
-
-		// Indexer currently doesn't support special accounts.
-		// TODO: remove this check.
-		if (address != specialAddresses.FeeSink) &&
-			(address != specialAddresses.RewardsPool) {
-			writeAccountData(round, address, accountData, batch)
-		}
+		writeAccountData(round, address, accountData, batch)
 	}
 }
 
@@ -389,11 +456,12 @@ func writeDeletedAppLocalStates(round basics.Round, modifiedAppLocalStates map[l
 	}
 }
 
-func writeStateDelta(round basics.Round, delta ledgercore.StateDelta, specialAddresses transactions.SpecialAddresses, batch *pgx.Batch) {
-	writeAccountDeltas(round, delta.Accts, specialAddresses, batch)
+func writeStateDelta(round basics.Round, delta ledgercore.StateDelta, batch *pgx.Batch) {
+	writeAccountDeltas(round, delta.Accts, batch)
 	writeDeletedCreatables(round, delta.Creatables, batch)
 	writeDeletedAssetHoldings(round, delta.ModifiedAssetHoldings, batch)
 	writeDeletedAppLocalStates(round, delta.ModifiedAppLocalStates, batch)
+	batch.Queue(updateAccountTotalsStmtName, encoding.EncodeAccountTotals(&delta.Totals))
 }
 
 func updateAccountSigType(payset []transactions.SignedTxnInBlock, batch *pgx.Batch) error {
@@ -412,26 +480,54 @@ func updateAccountSigType(payset []transactions.SignedTxnInBlock, batch *pgx.Bat
 	return nil
 }
 
-// AddBlock writes the block and accounting state deltas to the database.
-func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, delta ledgercore.StateDelta) error {
+// AddBlock0 writes block 0 to the database.
+func (w *Writer) AddBlock0(block *bookkeeping.Block) error {
 	var batch pgx.Batch
 
+	addBlockHeader(&block.BlockHeader, &batch)
 	specialAddresses := transactions.SpecialAddresses{
 		FeeSink:     block.FeeSink,
 		RewardsPool: block.RewardsPool,
 	}
+	setSpecialAccounts(specialAddresses, &batch)
+
+	results := w.tx.SendBatch(context.Background(), &batch)
+	// Clean the results off the connection's queue. Without this, weird things happen.
+	for i := 0; i < batch.Len(); i++ {
+		_, err := results.Exec()
+		if err != nil {
+			results.Close()
+			return fmt.Errorf("AddBlock() exec err: %w", err)
+		}
+	}
+	err := results.Close()
+	if err != nil {
+		return fmt.Errorf("AddBlock() close results err: %w", err)
+	}
+
+	return nil
+}
+
+// AddBlock writes the block and accounting state deltas to the database.
+func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, delta ledgercore.StateDelta) error {
+	err := w.addTransactions(block, modifiedTxns)
+	if err != nil {
+		return fmt.Errorf("AddBlock() err: %w", err)
+	}
+	err = w.addTransactionParticipation(block)
+	if err != nil {
+		return fmt.Errorf("AddBlock() err: %w", err)
+	}
+
+	var batch pgx.Batch
 
 	addBlockHeader(&block.BlockHeader, &batch)
+	specialAddresses := transactions.SpecialAddresses{
+		FeeSink:     block.FeeSink,
+		RewardsPool: block.RewardsPool,
+	}
 	setSpecialAccounts(specialAddresses, &batch)
-	err := addTransactions(block, modifiedTxns, &batch)
-	if err != nil {
-		return fmt.Errorf("AddBlock() err: %w", err)
-	}
-	err = addTransactionParticipation(block, &batch)
-	if err != nil {
-		return fmt.Errorf("AddBlock() err: %w", err)
-	}
-	writeStateDelta(block.Round(), delta, specialAddresses, &batch)
+	writeStateDelta(block.Round(), delta, &batch)
 	err = updateAccountSigType(block.Payset, &batch)
 	if err != nil {
 		return fmt.Errorf("AddBlock() err: %w", err)

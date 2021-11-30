@@ -24,22 +24,19 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	log "github.com/sirupsen/logrus"
 
+	"github.com/algorand/indexer/accounting"
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	ledger_for_evaluator "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
+	"github.com/algorand/indexer/idb/postgres/internal/types"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
 )
-
-type importState struct {
-	// Next round to account.
-	NextRoundToAccount *uint64 `codec:"next_account_round"`
-}
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
 var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
@@ -79,7 +76,7 @@ func openPostgres(db *pgxpool.Pool, opts idb.IndexerDbOptions, logger *log.Logge
 	var ch chan struct{}
 	// e.g. a user named "readonly" is in the connection string
 	if opts.ReadOnly {
-		migrationState, err := idb.getMigrationState()
+		migrationState, err := idb.getMigrationState(nil)
 		if err != nil {
 			return nil, nil, fmt.Errorf("openPostgres() err: %w", err)
 		}
@@ -111,10 +108,9 @@ type IndexerDb struct {
 
 // txWithRetry is a helper function that retries the function `f` in case the database
 // transaction in it fails due to a serialization error. `f` is provided
-// a transaction created using `opts`. `f` should either return an error or
-// call sql.Tx.Commit(). In the second case, `f` should return an error that contains the
-// error returned by sql.Tx.Commit(). The easiest way is to just return the result of
-// sql.Tx.Commit(). If sql.Tx.Commit() is not called, results are rolled back.
+// a transaction created using `opts`. If `f` experiences a database error, this error
+// must be included in `f`'s return error's chain, so that a serialization error can be
+// detected.
 func (db *IndexerDb) txWithRetry(opts pgx.TxOptions, f func(pgx.Tx) error) error {
 	return pgutil.TxWithRetry(db.db, opts, f, db.log)
 }
@@ -163,6 +159,36 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations()
 }
 
+// Returns all addresses referenced in `block`.
+func getBlockAddresses(block *bookkeeping.Block) map[basics.Address]struct{} {
+	// Reserve a reasonable memory size for the map.
+	res := make(map[basics.Address]struct{}, len(block.Payset)+2)
+
+	res[block.FeeSink] = struct{}{}
+	res[block.RewardsPool] = struct{}{}
+	for _, stib := range block.Payset {
+		addFunc := func(address basics.Address) {
+			res[address] = struct{}{}
+		}
+		accounting.GetTransactionParticipants(&stib.SignedTxnWithAD, true, addFunc)
+	}
+
+	return res
+}
+
+func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
+	accountDataMap, err := l.LookupWithoutRewards(getBlockAddresses(block))
+	if err != nil {
+		return ledger.EvalForIndexerResources{},
+			fmt.Errorf("prepareEvalResources() err: %w", err)
+	}
+
+	res := ledger.EvalForIndexerResources{
+		Accounts: accountDataMap,
+	}
+	return res, nil
+}
+
 // AddBlock is part of idb.IndexerDb.
 func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 	db.log.Printf("adding block %d", block.Round())
@@ -176,16 +202,13 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		if importstate.NextRoundToAccount == nil {
-			return fmt.Errorf("AddBlock() import state not initialized")
-		}
-		if block.Round() != basics.Round(*importstate.NextRoundToAccount) {
+		if block.Round() != basics.Round(importstate.NextRoundToAccount) {
 			return fmt.Errorf(
 				"AddBlock() adding block round %d but next round to account is %d",
-				block.Round(), *importstate.NextRoundToAccount)
+				block.Round(), importstate.NextRoundToAccount)
 		}
-		*importstate.NextRoundToAccount++
-		err = db.setImportState(tx, importstate)
+		importstate.NextRoundToAccount++
+		err = db.setImportState(tx, &importstate)
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
@@ -198,27 +221,16 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 
 		if block.Round() == basics.Round(0) {
 			// Block 0 is special, we cannot run the evaluator on it.
-			// It contains no transactions, so just write the header.
-			err := writer.AddBlock(block, nil, ledgercore.StateDelta{})
+			err := writer.AddBlock0(block)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 		} else {
-			specialAddresses := transactions.SpecialAddresses{
-				FeeSink:     block.FeeSink,
-				RewardsPool: block.RewardsPool,
-			}
-			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(
-				tx, block.GenesisHash(), specialAddresses)
+			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, block.Round()-1)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 			defer ledgerForEval.Close()
-
-			err = ledgerForEval.PreloadAccounts(ledger.GetBlockAddresses(block))
-			if err != nil {
-				return fmt.Errorf("AddBlock() err: %w", err)
-			}
 
 			proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
 			if !ok {
@@ -227,8 +239,14 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			}
 			proto.EnableAssetCloseAmount = true
 
+			resources, err := prepareEvalResources(&ledgerForEval, block)
+			if err != nil {
+				return fmt.Errorf("AddBlock() eval err: %w", err)
+			}
+
 			start := time.Now()
-			delta, modifiedTxns, err := ledger.Eval(ledgerForEval, block, proto)
+			delta, modifiedTxns, err :=
+				ledger.EvalForIndexer(ledgerForEval, block, proto, resources)
 			if err != nil {
 				return fmt.Errorf("AddBlock() eval err: %w", err)
 			}
@@ -242,23 +260,12 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 
 		return nil
 	}
-	// We split functionality in two functions, `f` and `ff`, so that we can easily free
-	// the database resources once and only once using defer before committing the database
-	// transaction.
-	ff := func(tx pgx.Tx) error {
-		err := f(tx)
-		if err != nil {
-			return err
-		}
-
-		err = tx.Commit(context.Background())
-		if err != nil {
-			return fmt.Errorf("AddBlock() tx commit err: %w", err)
-		}
-
-		return nil
+	err := db.txWithRetry(serializable, f)
+	if err != nil {
+		return fmt.Errorf("AddBlock() err: %w", err)
 	}
-	return db.txWithRetry(serializable, ff)
+
+	return nil
 }
 
 // LoadGenesis is part of idb.IndexerDB
@@ -272,6 +279,12 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 		}
 		defer tx.Conn().Deallocate(context.Background(), setAccountStatementName)
 
+		proto, ok := config.Consensus[genesis.Proto]
+		if !ok {
+			return fmt.Errorf("LoadGenesis() consensus version %s not found", genesis.Proto)
+		}
+		var ot basics.OverflowTracker
+		var totals ledgercore.AccountTotals
 		for ai, alloc := range genesis.Allocation {
 			addr, err := basics.UnmarshalChecksumAddress(alloc.Address)
 			if err != nil {
@@ -287,38 +300,32 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() error setting genesis account[%d], %w", ai, err)
 			}
+
+			totals.AddAccount(proto, alloc.State, &ot)
 		}
 
-		nextRound := uint64(0)
-		importstate := importState{
-			NextRoundToAccount: &nextRound,
+		err = db.setMetastate(
+			tx, schema.AccountTotals, string(encoding.EncodeAccountTotals(&totals)))
+		if err != nil {
+			return fmt.Errorf("LoadGenesis() err: %w", err)
 		}
-		err = db.setImportState(tx, importstate)
+
+		importstate := types.ImportState{
+			NextRoundToAccount: 0,
+		}
+		err = db.setImportState(tx, &importstate)
 		if err != nil {
 			return fmt.Errorf("LoadGenesis() err: %w", err)
 		}
 
 		return nil
 	}
-	// We split functionality in two functions, `f` and `ff`, so that we can easily free
-	// the database resources once and only once using defer before committing the database
-	// transaction.
-	ff := func(tx pgx.Tx) error {
-		err := f(tx)
-		if err != nil {
-			tx.Rollback(context.Background())
-			return err
-		}
-
-		err = tx.Commit(context.Background())
-		if err != nil {
-			return fmt.Errorf("LoadGenesis() commit tx err: %w", err)
-		}
-
-		return nil
+	err := db.txWithRetry(serializable, f)
+	if err != nil {
+		return fmt.Errorf("LoadGenesis() err: %w", err)
 	}
 
-	return db.txWithRetry(serializable, ff)
+	return nil
 }
 
 // Returns `idb.ErrorNotInitialized` if uninitialized.
@@ -327,37 +334,25 @@ func (db *IndexerDb) getMetastate(ctx context.Context, tx pgx.Tx, key string) (s
 	return pgutil.GetMetastate(ctx, db.db, tx, key)
 }
 
-const setMetastateUpsert = `INSERT INTO metastate (k, v) VALUES ($1, $2) ON CONFLICT (k) DO UPDATE SET v = EXCLUDED.v`
-
 // If `tx` is nil, use a normal query.
 func (db *IndexerDb) setMetastate(tx pgx.Tx, key, jsonStrValue string) (err error) {
-	if tx == nil {
-		_, err = db.db.Exec(context.Background(), setMetastateUpsert, key, jsonStrValue)
-	} else {
-		_, err = tx.Exec(context.Background(), setMetastateUpsert, key, jsonStrValue)
-	}
-	return
+	return pgutil.SetMetastate(db.db, tx, key, jsonStrValue)
 }
 
 // Returns idb.ErrorNotInitialized if uninitialized.
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) getImportState(ctx context.Context, tx pgx.Tx) (importState, error) {
+func (db *IndexerDb) getImportState(ctx context.Context, tx pgx.Tx) (types.ImportState, error) {
 	importStateJSON, err := db.getMetastate(ctx, tx, schema.StateMetastateKey)
 	if err == idb.ErrorNotInitialized {
-		return importState{}, idb.ErrorNotInitialized
+		return types.ImportState{}, idb.ErrorNotInitialized
 	}
 	if err != nil {
-		return importState{}, fmt.Errorf("unable to get import state err: %w", err)
+		return types.ImportState{}, fmt.Errorf("unable to get import state err: %w", err)
 	}
 
-	if importStateJSON == "" {
-		return importState{}, idb.ErrorNotInitialized
-	}
-
-	var state importState
-	err = encoding.DecodeJSON([]byte(importStateJSON), &state)
+	state, err := encoding.DecodeImportState([]byte(importStateJSON))
 	if err != nil {
-		return importState{},
+		return types.ImportState{},
 			fmt.Errorf("unable to parse import state v: \"%s\" err: %w", importStateJSON, err)
 	}
 
@@ -365,9 +360,9 @@ func (db *IndexerDb) getImportState(ctx context.Context, tx pgx.Tx) (importState
 }
 
 // If `tx` is nil, use a normal query.
-func (db *IndexerDb) setImportState(tx pgx.Tx, state importState) error {
+func (db *IndexerDb) setImportState(tx pgx.Tx, state *types.ImportState) error {
 	return db.setMetastate(
-		tx, schema.StateMetastateKey, string(encoding.EncodeJSON(state)))
+		tx, schema.StateMetastateKey, string(encoding.EncodeImportState(state)))
 }
 
 // Returns ErrorNotInitialized if genesis is not loaded.
@@ -381,10 +376,7 @@ func (db *IndexerDb) getNextRoundToAccount(ctx context.Context, tx pgx.Tx) (uint
 		return 0, fmt.Errorf("getNextRoundToAccount() err: %w", err)
 	}
 
-	if state.NextRoundToAccount == nil {
-		return 0, idb.ErrorNotInitialized
-	}
-	return *state.NextRoundToAccount, nil
+	return state.NextRoundToAccount, nil
 }
 
 // GetNextRoundToAccount is part of idb.IndexerDB
@@ -417,6 +409,10 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 	row := tx.QueryRow(ctx, `SELECT header FROM block_header WHERE round = $1`, round)
 	var blockheaderjson []byte
 	err = row.Scan(&blockheaderjson)
+	if err == pgx.ErrNoRows {
+		err = idb.ErrorBlockNotFound
+		return
+	}
 	if err != nil {
 		return
 	}
@@ -622,10 +618,14 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if tf.RekeyTo != nil && (*tf.RekeyTo) {
 		whereParts = append(whereParts, "(t.txn -> 'txn' -> 'rekey') IS NOT NULL")
 	}
-	query = "SELECT t.round, t.intra, t.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	query = "SELECT t.round, t.intra, t.txnbytes, root.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
+
+	// join in the root transaction
+	query += " LEFT OUTER JOIN txn root ON t.round = root.round AND t.extra->>'root-intra' = root.intra::text"
+
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
 		query += " WHERE " + whereStr
@@ -697,6 +697,9 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 
 // This function blocks. `tx` must be non-nil.
 func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
+	// TODO: Use txid to deduplicate next resultset at the query level?
+
+	// Check for remainder of round from previous page.
 	nextround, nextintra32, err := idb.DecodeTxnRowNext(tf.NextToken)
 	nextintra := uint64(nextintra32)
 	if err != nil {
@@ -730,11 +733,15 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 		out <- idb.TxnRow{Error: err}
 		return
 	}
-	count := int(0)
+
+	count := 0
 	db.yieldTxnsThreadSimple(ctx, rows, out, &count, &err)
 	if err != nil {
 		return
 	}
+
+	// If we haven't reached the limit, restore the original filter and
+	// re-run the original search with new Min/Max round and reduced limit.
 	if uint64(count) >= tf.Limit {
 		return
 	}
@@ -748,10 +755,12 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 	if tf.Address != nil {
 		// (round,intra) descending into the past
 		tf.OffsetLT = origOLT
-		if nextround == 0 {
+
+		if nextround <= 1 {
 			// NO second query
 			return
 		}
+
 		tf.MaxRound = nextround - 1
 	} else {
 		// (round,intra) ascending into the future
@@ -782,9 +791,10 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, r
 		var asset uint64
 		var intra int
 		var txnbytes []byte
+		var roottxnbytes []byte
 		var extraJSON []byte
 		var roundtime time.Time
-		err := rows.Scan(&round, &intra, &txnbytes, &extraJSON, &asset, &roundtime)
+		err := rows.Scan(&round, &intra, &txnbytes, &roottxnbytes, &extraJSON, &asset, &roundtime)
 		var row idb.TxnRow
 		if err != nil {
 			row.Error = err
@@ -792,10 +802,11 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, r
 			row.Round = round
 			row.Intra = intra
 			row.TxnBytes = txnbytes
+			row.RootTxnBytes = roottxnbytes
 			row.RoundTime = roundtime
 			row.AssetID = asset
 			if len(extraJSON) > 0 {
-				err = encoding.DecodeJSON(extraJSON, &row.Extra)
+				row.Extra, err = encoding.DecodeTxnExtra(extraJSON)
 				if err != nil {
 					row.Error = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
 				}
@@ -968,7 +979,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.SigType = keytype
 		}
 
-		if accountDataJSONStr != nil {
+		{
 			var ad basics.AccountData
 			ad, err = encoding.DecodeTrimmedAccountData(accountDataJSONStr)
 			if err != nil {
@@ -997,6 +1008,19 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				var spendingkey basics.Address
 				copy(spendingkey[:], ad.AuthAddr[:])
 				account.AuthAddr = stringPtr(spendingkey.String())
+			}
+
+			{
+				totalSchema := models.ApplicationStateSchema{
+					NumByteSlice: ad.TotalAppSchema.NumByteSlice,
+					NumUint:      ad.TotalAppSchema.NumUint,
+				}
+				if totalSchema != (models.ApplicationStateSchema{}) {
+					account.AppsTotalSchema = &totalSchema
+				}
+			}
+			if ad.TotalExtraAppPages != 0 {
+				account.AppsTotalExtraPages = uint64Ptr(uint64(ad.TotalExtraAppPages))
 			}
 		}
 
@@ -1168,12 +1192,12 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						Decimals:      uint64(ap.Decimals),
 						DefaultFrozen: boolPtr(ap.DefaultFrozen),
 						UnitName:      stringPtr(util.PrintableUTF8OrEmpty(ap.UnitName)),
-						UnitNameB64:   baPtr([]byte(ap.UnitName)),
+						UnitNameB64:   byteSlicePtr([]byte(ap.UnitName)),
 						Name:          stringPtr(util.PrintableUTF8OrEmpty(ap.AssetName)),
-						NameB64:       baPtr([]byte(ap.AssetName)),
+						NameB64:       byteSlicePtr([]byte(ap.AssetName)),
 						Url:           stringPtr(util.PrintableUTF8OrEmpty(ap.URL)),
-						UrlB64:        baPtr([]byte(ap.URL)),
-						MetadataHash:  baPtr(ap.MetadataHash[:]),
+						UrlB64:        byteSlicePtr([]byte(ap.URL)),
+						MetadataHash:  byteSliceOmitZeroPtr(ap.MetadataHash[:]),
 						Manager:       addrStr(ap.Manager),
 						Reserve:       addrStr(ap.Reserve),
 						Freeze:        addrStr(ap.Freeze),
@@ -1185,8 +1209,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.CreatedAssets = new([]models.Asset)
 			*account.CreatedAssets = cal
 		}
-
-		var totalSchema models.ApplicationStateSchema
 
 		if len(appParamIndexes) > 0 {
 			// apps owned by this account
@@ -1231,7 +1253,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				break
 			}
 
-			var totalExtraPages uint64
 			aout := make([]models.Application, len(appIds))
 			outpos := 0
 			for i, appid := range appIds {
@@ -1255,11 +1276,10 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						NumByteSlice: apps[i].LocalStateSchema.NumByteSlice,
 						NumUint:      apps[i].LocalStateSchema.NumUint,
 					}
-				}
-				if aout[outpos].Deleted == nil || !*aout[outpos].Deleted {
-					totalSchema.NumByteSlice += apps[i].GlobalStateSchema.NumByteSlice
-					totalSchema.NumUint += apps[i].GlobalStateSchema.NumUint
-					totalExtraPages += uint64(apps[i].ExtraProgramPages)
+					if apps[i].ExtraProgramPages > 0 {
+						epp := uint64(apps[i].ExtraProgramPages)
+						aout[outpos].Params.ExtraProgramPages = &epp
+					}
 				}
 
 				outpos++
@@ -1268,10 +1288,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				aout = aout[:outpos]
 			}
 			account.CreatedApps = &aout
-
-			if totalExtraPages != 0 {
-				account.AppsTotalExtraPages = &totalExtraPages
-			}
 		}
 
 		if len(localStateAppIds) > 0 {
@@ -1326,16 +1342,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					NumUint:      ls[i].Schema.NumUint,
 				}
 				aout[i].KeyValue = tealKeyValueToModel(ls[i].KeyValue)
-				if aout[i].Deleted == nil || !*aout[i].Deleted {
-					totalSchema.NumByteSlice += ls[i].Schema.NumByteSlice
-					totalSchema.NumUint += ls[i].Schema.NumUint
-				}
 			}
 			account.AppsLocalState = &aout
-		}
-
-		if totalSchema != (models.ApplicationStateSchema{}) {
-			account.AppsTotalSchema = &totalSchema
 		}
 
 		select {
@@ -1396,10 +1404,17 @@ func stringPtr(x string) *string {
 	return out
 }
 
-func baPtr(x []byte) *[]byte {
+func byteSlicePtr(x []byte) *[]byte {
 	if len(x) == 0 {
 		return nil
 	}
+
+	xx := make([]byte, len(x))
+	copy(xx, x)
+	return &xx
+}
+
+func byteSliceOmitZeroPtr(x []byte) *[]byte {
 	allzero := true
 	for _, b := range x {
 		if b != 0 {
@@ -1751,8 +1766,6 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			out <- idb.AssetRow{Error: err}
 			break
 		}
-		var creator basics.Address
-		copy(creator[:], creatorAddr)
 		rec := idb.AssetRow{
 			AssetID:      index,
 			Creator:      creatorAddr,
@@ -2028,7 +2041,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 		migrating = state.Running
 		blocking = state.Blocking
 	} else {
-		state, err := db.getMigrationState()
+		state, err := db.getMigrationState(nil)
 		if err != nil {
 			return idb.Health{}, err
 		}

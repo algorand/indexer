@@ -2,6 +2,7 @@ package writer_test
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"testing"
 	"time"
@@ -49,7 +50,7 @@ type txnRow struct {
 	asset    int
 	txid     string
 	txnbytes []byte
-	txn      []byte
+	txn      string
 	extra    string
 }
 
@@ -64,13 +65,41 @@ func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
 	for rows.Next() {
 		var result txnRow
 		var txid []byte
+		var json []byte
 		err = rows.Scan(&result.round, &result.intra, &result.typeenum,
-			&result.asset, &txid, &result.txnbytes, &result.txn,
+			&result.asset, &txid, &result.txnbytes, &json,
 			&result.extra)
 		if err != nil {
 			return nil, err
 		}
 		result.txid = string(txid)
+		result.txn = string(json)
+		results = append(results, result)
+	}
+	return results, rows.Err()
+}
+
+type txnParticipationRow struct {
+	addr  basics.Address
+	round int
+	intra int
+}
+
+func txnParticipationQuery(db *pgxpool.Pool, query string) ([]txnParticipationRow, error) {
+	var results []txnParticipationRow
+	rows, err := db.Query(context.Background(), query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var result txnParticipationRow
+		var addr []byte
+		err = rows.Scan(&addr, &result.round, &result.intra)
+		if err != nil {
+			return nil, err
+		}
+		copy(result.addr[:], addr)
 		results = append(results, result)
 	}
 	return results, rows.Err()
@@ -93,7 +122,7 @@ func TestWriterBlockHeaderTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -131,7 +160,7 @@ func TestWriterSpecialAccounts(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -192,7 +221,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -278,7 +307,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -302,8 +331,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	{
 		expected := idb.TxnExtra{AssetCloseAmount: 3}
 
-		var actual idb.TxnExtra
-		err := encoding.DecodeJSON(extra, &actual)
+		actual, err := encoding.DecodeTxnExtra(extra)
 		require.NoError(t, err)
 
 		assert.Equal(t, expected, actual)
@@ -313,79 +341,122 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	assert.NoError(t, rows.Err())
 }
 
-func TestWriterTxnParticipationTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
-	defer shutdownFunc()
+func TestWriterTxnParticipationTable(t *testing.T) {
+	type testtype struct {
+		name     string
+		payset   transactions.Payset
+		expected []txnParticipationRow
+	}
 
-	block := bookkeeping.Block{
-		BlockHeader: bookkeeping.BlockHeader{
-			Round:       basics.Round(2),
-			GenesisID:   test.MakeGenesis().ID(),
-			GenesisHash: test.GenesisHash,
-			UpgradeState: bookkeeping.UpgradeState{
-				CurrentProtocol: test.Proto,
+	makeBlockFunc := func() bookkeeping.Block {
+		return bookkeeping.Block{
+			BlockHeader: bookkeeping.BlockHeader{
+				Round:       basics.Round(2),
+				GenesisID:   test.MakeGenesis().ID(),
+				GenesisHash: test.GenesisHash,
+				UpgradeState: bookkeeping.UpgradeState{
+					CurrentProtocol: test.Proto,
+				},
 			},
-		},
-		Payset: make(transactions.Payset, 2),
+		}
 	}
 
-	stxnad0 := test.MakePaymentTxn(
-		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-		basics.Address{})
-	var err error
-	block.Payset[0], err = block.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
-	require.NoError(t, err)
-
-	stxnad1 := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
-	block.Payset[1], err = block.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
-	require.NoError(t, err)
-
-	f := func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
+	var tests []testtype
+	{
+		stxnad0 := test.MakePaymentTxn(
+			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
+			basics.Address{})
+		stib0, err := makeBlockFunc().EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 		require.NoError(t, err)
 
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		stxnad1 := test.MakeAssetConfigTxn(
+			0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
+		stib1, err := makeBlockFunc().EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
 		require.NoError(t, err)
 
-		w.Close()
-		return tx.Commit(context.Background())
+		testcase := testtype{
+			name:   "basic",
+			payset: []transactions.SignedTxnInBlock{stib0, stib1},
+			expected: []txnParticipationRow{
+				{
+					addr:  test.AccountA,
+					round: 2,
+					intra: 0,
+				},
+				{
+					addr:  test.AccountB,
+					round: 2,
+					intra: 0,
+				},
+				{
+					addr:  test.AccountC,
+					round: 2,
+					intra: 1,
+				},
+			},
+		}
+		tests = append(tests, testcase)
 	}
-	err = pgutil.TxWithRetry(db, serializable, f, nil)
-	require.NoError(t, err)
+	{
+		stxnad := test.MakeCreateAppTxn(test.AccountA)
+		stxnad.Txn.ApplicationCallTxnFields.Accounts =
+			[]basics.Address{test.AccountB, test.AccountC}
+		stib, err := makeBlockFunc().EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
+		require.NoError(t, err)
 
-	rows, err := db.Query(
-		context.Background(), "SELECT * FROM txn_participation ORDER BY round, intra, addr")
-	require.NoError(t, err)
-	defer rows.Close()
+		testcase := testtype{
+			name:   "app_call_addresses",
+			payset: []transactions.SignedTxnInBlock{stib},
+			expected: []txnParticipationRow{
+				{
+					addr:  test.AccountA,
+					round: 2,
+					intra: 0,
+				},
+				{
+					addr:  test.AccountB,
+					round: 2,
+					intra: 0,
+				},
+				{
+					addr:  test.AccountC,
+					round: 2,
+					intra: 0,
+				},
+			},
+		}
+		tests = append(tests, testcase)
+	}
 
-	var addr []byte
-	var round uint64
-	var intra uint64
+	for _, testcase := range tests {
+		t.Run(testcase.name, func(t *testing.T) {
+			db, shutdownFunc := setupPostgres(t)
+			defer shutdownFunc()
 
-	require.True(t, rows.Next())
-	err = rows.Scan(&addr, &round, &intra)
-	require.NoError(t, err)
-	assert.Equal(t, test.AccountA[:], addr)
-	assert.Equal(t, uint64(2), round)
-	assert.Equal(t, uint64(0), intra)
+			block := makeBlockFunc()
+			block.Payset = testcase.payset
 
-	require.True(t, rows.Next())
-	err = rows.Scan(&addr, &round, &intra)
-	require.NoError(t, err)
-	assert.Equal(t, test.AccountB[:], addr)
-	assert.Equal(t, uint64(2), round)
-	assert.Equal(t, uint64(0), intra)
+			f := func(tx pgx.Tx) error {
+				w, err := writer.MakeWriter(tx)
+				require.NoError(t, err)
 
-	require.True(t, rows.Next())
-	err = rows.Scan(&addr, &round, &intra)
-	require.NoError(t, err)
-	assert.Equal(t, test.AccountC[:], addr)
-	assert.Equal(t, uint64(2), round)
-	assert.Equal(t, uint64(1), intra)
+				err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+				require.NoError(t, err)
 
-	assert.False(t, rows.Next())
-	assert.NoError(t, rows.Err())
+				w.Close()
+				return nil
+			}
+			err := pgutil.TxWithRetry(db, serializable, f, nil)
+			require.NoError(t, err)
+
+			results, err := txnParticipationQuery(
+				db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
+			assert.NoError(t, err)
+
+			// Verify expected participation
+			assert.Equal(t, testcase.expected, results)
+		})
+	}
 }
 
 // Create a new account and then delete it.
@@ -427,7 +498,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -506,7 +577,12 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	require.NotNil(t, closedAt)
 	assert.Equal(t, uint64(block.Round()), *closedAt)
 	assert.Nil(t, keytype)
-	assert.Nil(t, accountData)
+	assert.Equal(t, []byte("null"), accountData)
+	{
+		accountData, err := encoding.DecodeTrimmedAccountData(accountData)
+		require.NoError(t, err)
+		assert.Equal(t, basics.AccountData{}, accountData)
+	}
 
 	assert.False(t, rows.Next())
 	assert.NoError(t, rows.Err())
@@ -531,7 +607,7 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -564,7 +640,12 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 	assert.Equal(t, block.Round(), basics.Round(createdAt))
 	assert.Equal(t, block.Round(), basics.Round(closedAt))
 	assert.Nil(t, keytype)
-	assert.Nil(t, accountData)
+	assert.Equal(t, []byte("null"), accountData)
+	{
+		accountData, err := encoding.DecodeTrimmedAccountData(accountData)
+		require.NoError(t, err)
+		assert.Equal(t, basics.AccountData{}, accountData)
+	}
 
 	assert.False(t, rows.Next())
 	assert.NoError(t, rows.Err())
@@ -607,7 +688,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -662,7 +743,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -751,7 +832,7 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -804,7 +885,7 @@ func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -846,7 +927,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -907,6 +988,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 
 	assert.Equal(t, assetID, basics.AssetIndex(index))
 	assert.Equal(t, test.AccountA[:], creatorAddr)
+	assert.Equal(t, []byte("null"), params)
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
@@ -948,7 +1030,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -966,6 +1048,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 
 	assert.Equal(t, assetID, basics.AssetIndex(index))
 	assert.Equal(t, test.AccountA[:], creatorAddr)
+	assert.Equal(t, []byte("null"), params)
 	{
 		paramsRead, err := encoding.DecodeAssetParams(params)
 		require.NoError(t, err)
@@ -1009,7 +1092,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1070,6 +1153,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 
 	assert.Equal(t, appID, basics.AppIndex(index))
 	assert.Equal(t, test.AccountA[:], creator)
+	assert.Equal(t, []byte("null"), params)
 	{
 		paramsRead, err := encoding.DecodeAppParams(params)
 		require.NoError(t, err)
@@ -1111,7 +1195,7 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1130,6 +1214,7 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 
 	assert.Equal(t, appID, basics.AppIndex(index))
 	assert.Equal(t, test.AccountA[:], creator)
+	assert.Equal(t, []byte("null"), params)
 	{
 		paramsRead, err := encoding.DecodeAppParams(params)
 		require.NoError(t, err)
@@ -1172,7 +1257,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1229,6 +1314,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 
 	assert.Equal(t, test.AccountA[:], addr)
 	assert.Equal(t, appID, basics.AppIndex(app))
+	assert.Equal(t, []byte("null"), localstate)
 	{
 		appLocalStateRead, err := encoding.DecodeAppLocalState(localstate)
 		require.NoError(t, err)
@@ -1266,7 +1352,7 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1284,6 +1370,7 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 
 	assert.Equal(t, test.AccountA[:], addr)
 	assert.Equal(t, appID, basics.AppIndex(app))
+	assert.Equal(t, []byte("null"), localstate)
 	{
 		appLocalStateRead, err := encoding.DecodeAppLocalState(localstate)
 		require.NoError(t, err)
@@ -1294,67 +1381,60 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	assert.Equal(t, block.Round(), basics.Round(closedAt))
 }
 
-// Check that adding same block twice does not result in an error.
-func TestWriterAddBlockTwice(t *testing.T) {
+func TestAddBlockInvalidInnerAsset(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	block := bookkeeping.Block{
-		BlockHeader: bookkeeping.BlockHeader{
-			Round:       basics.Round(2),
-			TimeStamp:   333,
-			GenesisID:   test.MakeGenesis().ID(),
-			GenesisHash: test.GenesisHash,
-			RewardsState: bookkeeping.RewardsState{
-				RewardsLevel: 111111,
+	callWithBadInner := test.MakeCreateAppTxn(test.AccountA)
+	callWithBadInner.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
+		{
+			ApplyData: transactions.ApplyData{
+				// This is the invalid inner asset. It should not be zero.
+				ConfigAsset: 0,
 			},
-			UpgradeState: bookkeeping.UpgradeState{
-				CurrentProtocol: test.Proto,
+			SignedTxn: transactions.SignedTxn{
+				Txn: transactions.Transaction{
+					Type: protocol.AssetConfigTx,
+					Header: transactions.Header{
+						Sender: test.AccountB,
+					},
+					AssetConfigTxnFields: transactions.AssetConfigTxnFields{
+						ConfigAsset: 0,
+					},
+				},
 			},
 		},
-		Payset: make(transactions.Payset, 2),
 	}
 
-	stxnad0 := test.MakePaymentTxn(
-		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-		basics.Address{})
-	var err error
-	block.Payset[0], err = block.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &callWithBadInner)
 	require.NoError(t, err)
 
-	stxnad1 := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
-	block.Payset[1], err = block.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
-	require.NoError(t, err)
-
-	f := func(tx pgx.Tx) error {
+	err = makeTx(db, func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
+		defer w.Close()
 
+		// Add block detects an error
 		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-		require.NoError(t, err)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "Missing ConfigAsset for transaction: ")
 
-		w.Close()
-		return tx.Commit(context.Background())
-	}
-
-	err = pgutil.TxWithRetry(db, serializable, f, nil)
-	require.NoError(t, err)
-
-	err = pgutil.TxWithRetry(db, serializable, f, nil)
-	require.NoError(t, err)
+		return nil
+	})
 }
 
 func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	// App call with inner txns, should be intra 0, 1, 2
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, test.AccountB, test.AccountC)
+	// App call with inner txns, should be intra 0, 1, 2, 3
+	var appAddr basics.Address
+	appAddr[1] = 99
+	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
-	// Asset create call, should have intra = 3
+	// Asset create call, should have intra = 4
 	assetCreate := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
+		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountD)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall, &assetCreate)
 	require.NoError(t, err)
@@ -1367,23 +1447,212 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	})
 	require.NoError(t, err)
 
 	txns, err := txnQuery(db, "SELECT * FROM txn ORDER BY intra")
 	require.NoError(t, err)
-	require.Len(t, txns, 2)
+	require.Len(t, txns, 5)
 
 	// Verify that intra is correctly assigned
-	require.Equal(t, 0, txns[0].intra, "Intra should be 0.")
-	require.Equal(t, 3, txns[1].intra, "Intra should be 3.")
+	for i, tx := range txns {
+		require.Equal(t, i, tx.intra, "Intra should be assigned 0 - 3.")
+	}
 
 	// Verify correct order of transaction types.
 	require.Equal(t, idb.TypeEnumApplication, txns[0].typeenum)
-	require.Equal(t, idb.TypeEnumAssetConfig, txns[1].typeenum)
+	require.Equal(t, idb.TypeEnumPay, txns[1].typeenum)
+	require.Equal(t, idb.TypeEnumPay, txns[2].typeenum)
+	require.Equal(t, idb.TypeEnumAssetTransfer, txns[3].typeenum)
+	require.Equal(t, idb.TypeEnumAssetConfig, txns[4].typeenum)
+
+	// Verify special properties of inner transactions.
+	expectedExtra := fmt.Sprintf(`{"root-txid": "%s", "root-intra": "%d"}`, txns[0].txid, 0)
+	// Inner pay 1
+	require.Len(t, txns[1].txnbytes, 0)
+	require.Equal(t, "", txns[1].txid)
+	require.Equal(t, expectedExtra, txns[1].extra)
+
+	// Inner pay 2
+	require.Len(t, txns[2].txnbytes, 0)
+	require.Equal(t, "", txns[2].txid)
+	require.Equal(t, expectedExtra, txns[2].extra)
+	require.NotContains(t, txns[2].txn, "itx", "The inner transactions should be pruned.")
+
+	// Inner xfer
+	require.Len(t, txns[3].txnbytes, 0)
+	require.Equal(t, "", txns[3].txid)
+	require.Equal(t, expectedExtra, txns[3].extra)
+	require.NotContains(t, txns[3].txn, "itx", "The inner transactions should be pruned.")
 
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
-	require.Equal(t, 4, txns[1].asset, "intra == 3 -> AssetID = 4")
+	require.Equal(t, 5, txns[4].asset, "intra == 4 -> AssetID = 5")
+
+	// Verify txn participation
+	txnPart, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
+	require.NoError(t, err)
+
+	expectedParticipation := []txnParticipationRow{
+		// Top-level appl transaction + inner transactions
+		{
+			addr:  appAddr,
+			round: 1,
+			intra: 0,
+		},
+		{
+			addr:  test.AccountA,
+			round: 1,
+			intra: 0,
+		},
+		{
+			addr:  test.AccountB,
+			round: 1,
+			intra: 0,
+		},
+		{
+			addr:  test.AccountC,
+			round: 1,
+			intra: 0,
+		},
+		// Inner pay transaction 1
+		{
+			addr:  appAddr,
+			round: 1,
+			intra: 1,
+		},
+		{
+			addr:  test.AccountB,
+			round: 1,
+			intra: 1,
+		},
+		// Inner pay transaction 2
+		{
+			addr:  appAddr,
+			round: 1,
+			intra: 2,
+		},
+		{
+			addr:  test.AccountB,
+			round: 1,
+			intra: 2,
+		},
+		// Inner xfer transaction
+		{
+			addr:  appAddr,
+			round: 1,
+			intra: 3,
+		},
+		{
+			addr:  test.AccountC,
+			round: 1,
+			intra: 3,
+		},
+		// acfg after appl
+		{
+			addr:  test.AccountD,
+			round: 1,
+			intra: 4,
+		},
+	}
+
+	require.Len(t, txnPart, len(expectedParticipation))
+	for i := 0; i < len(txnPart); i++ {
+		require.Equal(t, expectedParticipation[i], txnPart[i])
+	}
+}
+
+func TestWriterAccountTotals(t *testing.T) {
+	db, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	// Set empty account totals.
+	err := pgutil.SetMetastate(db, nil, schema.AccountTotals, "{}")
+	require.NoError(t, err)
+
+	block := test.MakeGenesisBlock()
+
+	accountTotals := ledgercore.AccountTotals{
+		Online: ledgercore.AlgoCount{
+			Money: basics.MicroAlgos{Raw: 33},
+		},
+	}
+
+	f := func(tx pgx.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{Totals: accountTotals})
+		require.NoError(t, err)
+
+		w.Close()
+		return nil
+	}
+	err = pgutil.TxWithRetry(db, serializable, f, nil)
+	require.NoError(t, err)
+
+	j, err := pgutil.GetMetastate(
+		context.Background(), db, nil, schema.AccountTotals)
+	require.NoError(t, err)
+	accountTotalsRead, err := encoding.DecodeAccountTotals([]byte(j))
+	require.NoError(t, err)
+
+	assert.Equal(t, accountTotals, accountTotalsRead)
+}
+
+func TestWriterAddBlock0(t *testing.T) {
+	db, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	block := test.MakeGenesisBlock()
+
+	f := func(tx pgx.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+
+		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		require.NoError(t, err)
+
+		w.Close()
+		return nil
+	}
+	err := pgutil.TxWithRetry(db, serializable, f, nil)
+	require.NoError(t, err)
+
+	// Test that the block header was written correctly.
+	{
+		row := db.QueryRow(context.Background(), "SELECT * FROM block_header")
+		var round uint64
+		var realtime time.Time
+		var rewardslevel uint64
+		var header []byte
+		err = row.Scan(&round, &realtime, &rewardslevel, &header)
+		require.NoError(t, err)
+
+		assert.Equal(t, block.BlockHeader.Round, basics.Round(round))
+		{
+			expected := time.Unix(block.BlockHeader.TimeStamp, 0).UTC()
+			assert.True(t, expected.Equal(realtime))
+		}
+		assert.Equal(t, block.BlockHeader.RewardsLevel, rewardslevel)
+		headerRead, err := encoding.DecodeBlockHeader(header)
+		require.NoError(t, err)
+		assert.Equal(t, block.BlockHeader, headerRead)
+	}
+
+	// Test that the special addresses were written to the metastate.
+	{
+		j, err := pgutil.GetMetastate(
+			context.Background(), db, nil, schema.SpecialAccountsMetastateKey)
+		require.NoError(t, err)
+		accounts, err := encoding.DecodeSpecialAddresses([]byte(j))
+		require.NoError(t, err)
+
+		expected := transactions.SpecialAddresses{
+			FeeSink:     test.FeeAddr,
+			RewardsPool: test.RewardAddr,
+		}
+		assert.Equal(t, expected, accounts)
+	}
 }

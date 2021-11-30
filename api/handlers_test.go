@@ -15,11 +15,14 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
+
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/mocks"
@@ -137,22 +140,6 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 			nil,
 		},
 		{
-			name: "Round + Min/Max Error",
-			params: generated.SearchForTransactionsParams{
-				Round:    uint64Ptr(10),
-				MinRound: uint64Ptr(5),
-				MaxRound: uint64Ptr(15),
-			},
-			filter:        idb.TransactionFilter{},
-			errorContains: []string{errInvalidRoundAndMinMax},
-		},
-		{
-			name:          "Swapped Min/Max Round",
-			params:        generated.SearchForTransactionsParams{MinRound: uint64Ptr(20), MaxRound: uint64Ptr(10)},
-			filter:        idb.TransactionFilter{},
-			errorContains: []string{errInvalidRoundMinMax},
-		},
-		{
 			name:          "Illegal Address",
 			params:        generated.SearchForTransactionsParams{Address: strPtr("Not-our-base32-thing")},
 			filter:        idb.TransactionFilter{},
@@ -215,18 +202,85 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		//test := test
 		t.Run(test.name, func(t *testing.T) {
-			//t.Parallel()
 			filter, err := transactionParamsToTransactionFilter(test.params)
-			if test.errorContains != nil {
+			if len(test.errorContains) > 0 {
+				require.Error(t, err)
 				for _, msg := range test.errorContains {
 					assert.Contains(t, err.Error(), msg)
 				}
 			} else {
 				assert.NoError(t, err)
-				assert.Equal(t, test.errorContains != nil, err != nil)
 				assert.Equal(t, test.filter, filter)
+			}
+		})
+	}
+}
+
+func TestValidateTransactionFilter(t *testing.T) {
+	tests := []struct {
+		name          string
+		filter        idb.TransactionFilter
+		errorContains []string
+	}{
+		{
+			"Default",
+			idb.TransactionFilter{Limit: defaultTransactionsLimit},
+			nil,
+		},
+		{
+			name: "Round + MinRound Error",
+			filter: idb.TransactionFilter{
+				Round:    uint64Ptr(10),
+				MaxRound: 15,
+			},
+			errorContains: []string{errInvalidRoundAndMinMax},
+		},
+		{
+			name: "Round + MinRound Error",
+			filter: idb.TransactionFilter{
+				Round:    uint64Ptr(10),
+				MinRound: 5,
+			},
+			errorContains: []string{errInvalidRoundAndMinMax},
+		},
+		{
+			name: "Swapped Min/Max Round",
+			filter: idb.TransactionFilter{
+				MinRound: 15,
+				MaxRound: 5,
+			},
+			errorContains: []string{errInvalidRoundMinMax},
+		},
+		{
+			name: "Zero address close address role",
+			filter: idb.TransactionFilter{
+				Address:     addrSlice(basics.Address{}),
+				AddressRole: idb.AddressRoleSender | idb.AddressRoleCloseRemainderTo,
+			},
+			errorContains: []string{errZeroAddressCloseRemainderToRole},
+		},
+		{
+			name: "Zero address asset sender and asset close address role",
+			filter: idb.TransactionFilter{
+				Address:     addrSlice(basics.Address{}),
+				AddressRole: idb.AddressRoleAssetSender | idb.AddressRoleAssetCloseTo,
+			},
+			errorContains: []string{
+				errZeroAddressAssetSenderRole, errZeroAddressAssetCloseToRole},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := validateTransactionFilter(&test.filter)
+			if len(test.errorContains) > 0 {
+				require.Error(t, err)
+				for _, msg := range test.errorContains {
+					assert.Contains(t, err.Error(), msg)
+				}
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
@@ -477,6 +531,7 @@ func TestFetchTransactions(t *testing.T) {
 			si := ServerImplementation{
 				EnableAddressSearchRoundRewind: true,
 				db:                             mockIndexer,
+				timeout:                        1 * time.Second,
 			}
 
 			roundTime := time.Now()
@@ -505,7 +560,7 @@ func TestFetchTransactions(t *testing.T) {
 
 			// Call the function
 			results, _, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
-			assert.NoError(t, err)
+			require.NoError(t, err)
 
 			// Automatically print it out when writing the test.
 			printIt := len(test.response) == 0
@@ -532,7 +587,7 @@ func TestFetchTransactions(t *testing.T) {
 			}
 
 			// Verify the results
-			assert.Equal(t, len(test.response), len(results))
+			require.Equal(t, len(test.response), len(results))
 			for i, expected := range test.response {
 				actual := results[i]
 				// This is set in the mock above, so override it in the expected value.
@@ -677,5 +732,185 @@ func TestLookupApplicationLogsByID(t *testing.T) {
 	assert.Equal(t, len(stxn.ApplyData.EvalDelta.Logs), len(ld[0].Logs))
 	for i, log := range ld[0].Logs {
 		assert.Equal(t, []byte(stxn.ApplyData.EvalDelta.Logs[i]), log)
+	}
+}
+
+func TestTimeouts(t *testing.T) {
+	// function pointers to execute the different DB operations. We really only
+	// care that they timeout with WaitUntil, but the return arguments need to
+	// be correct to avoid a panic.
+	mostMockFunctions := func(method string) func(mockIndexer *mocks.IndexerDb, timeout <-chan time.Time) {
+		return func(mockIndexer *mocks.IndexerDb, timeout <-chan time.Time) {
+			mockIndexer.
+				On(method, mock.Anything, mock.Anything, mock.Anything).
+				WaitUntil(timeout).
+				Return(nil, uint64(0))
+		}
+	}
+	transactionFunc := mostMockFunctions("Transactions")
+	applicationsFunc := mostMockFunctions("Applications")
+	accountsFunc := mostMockFunctions("GetAccounts")
+	assetsFunc := mostMockFunctions("Assets")
+	balancesFunc := mostMockFunctions("AssetBalances")
+	blockFunc := func(mockIndexer *mocks.IndexerDb, timeout <-chan time.Time) {
+		mockIndexer.
+			On("GetBlock", mock.Anything, mock.Anything, mock.Anything).
+			WaitUntil(timeout).
+			Return(bookkeeping.BlockHeader{}, nil, nil)
+	}
+	healthFunc := func(mockIndexer *mocks.IndexerDb, timeout <-chan time.Time) {
+		mockIndexer.
+			On("Health", mock.Anything, mock.Anything, mock.Anything).
+			WaitUntil(timeout).
+			Return(idb.Health{}, nil)
+	}
+
+	// Call each of the handlers and let the database timeout.
+	testcases := []struct {
+		name        string
+		errString   string
+		mockCall    func(mockIndexer *mocks.IndexerDb, timeout <-chan time.Time)
+		callHandler func(ctx echo.Context, si ServerImplementation) error
+	}{
+		{
+			name:      "SearchForTransactions",
+			errString: errTransactionSearch,
+			mockCall:  transactionFunc,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForTransactions(ctx, generated.SearchForTransactionsParams{})
+			},
+		},
+		{
+			name:      "LookupAccountTransactions",
+			errString: errTransactionSearch,
+			mockCall:  transactionFunc,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountTransactions(ctx, "", generated.LookupAccountTransactionsParams{})
+			},
+		},
+		{
+			name:      "LookupAssetTransactions",
+			errString: errTransactionSearch,
+			mockCall:  transactionFunc,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAssetTransactions(ctx, 1, generated.LookupAssetTransactionsParams{})
+			},
+		},
+		{
+			name:      "LookupApplicaitonLogsByID",
+			errString: errTransactionSearch,
+			mockCall:  transactionFunc,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupApplicationLogsByID(ctx, 1, generated.LookupApplicationLogsByIDParams{})
+			},
+		},
+		{
+			name:      "LookupApplicationByID",
+			errString: errFailedSearchingApplication,
+			mockCall:  applicationsFunc,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupApplicationByID(ctx, 0, generated.LookupApplicationByIDParams{})
+			},
+		},
+		{
+			name:      "SearchForApplications",
+			errString: errFailedSearchingApplication,
+			mockCall:  applicationsFunc,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForApplications(ctx, generated.SearchForApplicationsParams{})
+			},
+		},
+		{
+			name:      "SearchForAccount",
+			errString: errFailedSearchingAccount,
+			mockCall:  accountsFunc,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForAccounts(ctx, generated.SearchForAccountsParams{})
+			},
+		},
+		{
+			name:      "LookupAccountByID",
+			errString: errFailedSearchingAccount,
+			mockCall:  accountsFunc,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountByID(ctx,
+					"PBH2JQNVP5SBXLTOWNHHPGU6FUMBVS4ZDITPK5RA5FG2YIIFS6UYEMFM2Y",
+					generated.LookupAccountByIDParams{})
+			},
+		},
+		{
+			name:      "SearchForAssets",
+			errString: errFailedSearchingAsset,
+			mockCall:  assetsFunc,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForAssets(ctx, generated.SearchForAssetsParams{})
+			},
+		},
+		{
+			name:      "LookupAssetByID",
+			errString: errFailedSearchingAsset,
+			mockCall:  assetsFunc,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAssetByID(ctx, 1, generated.LookupAssetByIDParams{})
+			},
+		},
+		{
+			name:      "LookupAssetBalances",
+			errString: errFailedSearchingAssetBalances,
+			mockCall:  balancesFunc,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAssetBalances(ctx, 1, generated.LookupAssetBalancesParams{})
+			},
+		},
+		{
+			name:      "LookupBlock",
+			errString: errLookingUpBlockForRound,
+			mockCall:  blockFunc,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupBlock(ctx, 100)
+			},
+		},
+		{
+			name:      "Health",
+			errString: errFailedLookingUpHealth,
+			mockCall:  healthFunc,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.MakeHealthCheck(ctx)
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			timeout := make(chan time.Time, 1)
+			defer func() {
+				timeout <- time.Now()
+				close(timeout)
+			}()
+
+			// Make a mock indexer and tell the mock to timeout.
+			mockIndexer := &mocks.IndexerDb{}
+
+			si := ServerImplementation{
+				db:      mockIndexer,
+				timeout: 5 * time.Millisecond,
+			}
+
+			// Setup context...
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec1 := httptest.NewRecorder()
+			c := e.NewContext(req, rec1)
+
+			// configure the mock to timeout, then call the handler.
+			tc.mockCall(mockIndexer, timeout)
+			err := tc.callHandler(c, si)
+
+			require.NoError(t, err)
+			bodyStr := rec1.Body.String()
+			require.Equal(t, http.StatusServiceUnavailable, rec1.Code)
+			require.Contains(t, bodyStr, tc.errString)
+			require.Contains(t, bodyStr, "timeout")
+		})
 	}
 }

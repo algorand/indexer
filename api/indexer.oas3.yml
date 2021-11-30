@@ -114,7 +114,7 @@
         }
       },
       "limit": {
-        "description": "Maximum number of results to return.",
+        "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
         "in": "query",
         "name": "limit",
         "schema": {
@@ -460,6 +460,28 @@
         },
         "description": "(empty)"
       },
+      "ErrorResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "data": {
+                  "properties": {},
+                  "type": "object"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "message"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "description": "Response for errors"
+      },
       "HealthCheckResponse": {
         "content": {
           "application/json": {
@@ -614,7 +636,7 @@
             "type": "integer"
           },
           "sig-type": {
-            "description": "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig",
+            "description": "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown",
             "enum": [
               "sig",
               "msig",
@@ -1151,22 +1173,6 @@
         },
         "type": "object"
       },
-      "ErrorResponse": {
-        "description": "An error response with optional data field.",
-        "properties": {
-          "data": {
-            "properties": {},
-            "type": "object"
-          },
-          "message": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "message"
-        ],
-        "type": "object"
-      },
       "EvalDelta": {
         "description": "Represents a TEAL value delta.",
         "properties": {
@@ -1229,13 +1235,18 @@
           },
           "round": {
             "type": "integer"
+          },
+          "version": {
+            "description": "Current version.",
+            "type": "string"
           }
         },
         "required": [
           "db-available",
           "is-migrating",
           "message",
-          "round"
+          "round",
+          "version"
         ],
         "type": "object"
       },
@@ -1869,7 +1880,7 @@
             }
           },
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -1965,6 +1976,50 @@
               }
             },
             "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2026,6 +2081,72 @@
               }
             },
             "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2039,7 +2160,7 @@
         "operationId": "lookupAccountTransactions",
         "parameters": [
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -2218,6 +2339,50 @@
               }
             },
             "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2247,7 +2412,7 @@
             }
           },
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -2293,6 +2458,28 @@
               }
             },
             "description": "(empty)"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2344,6 +2531,50 @@
               }
             },
             "description": "(empty)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2365,7 +2596,7 @@
             }
           },
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -2470,7 +2701,7 @@
             }
           },
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -2548,6 +2779,50 @@
               }
             },
             "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2601,14 +2876,71 @@
             },
             "description": "(empty)"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
           "404": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
                 }
               }
-            }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2630,7 +2962,7 @@
             }
           },
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -2708,6 +3040,50 @@
               }
             },
             "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2721,7 +3097,7 @@
         "operationId": "lookupAssetTransactions",
         "parameters": [
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -2922,6 +3298,50 @@
               }
             },
             "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2954,6 +3374,50 @@
               }
             },
             "description": "(empty)"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -2967,7 +3431,7 @@
         "operationId": "searchForTransactions",
         "parameters": [
           {
-            "description": "Maximum number of results to return.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
             "name": "limit",
             "schema": {
@@ -3177,14 +3641,49 @@
             },
             "description": "(empty)"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
           "500": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
                 }
               }
-            }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [
@@ -3230,23 +3729,71 @@
             },
             "description": "(empty)"
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
           "404": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
                 }
               }
-            }
+            },
+            "description": "Response for errors"
           },
           "500": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
                 }
               }
-            }
+            },
+            "description": "Response for errors"
           }
         },
         "tags": [

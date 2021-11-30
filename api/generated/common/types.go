@@ -76,6 +76,7 @@ type Account struct {
 	// * sig
 	// * msig
 	// * lsig
+	// * or null if unknown
 	SigType *string `json:"sig-type,omitempty"`
 
 	// \[onl\] delegation status of the account's MicroAlgos
@@ -392,12 +393,6 @@ type BlockUpgradeVote struct {
 	UpgradePropose *string `json:"upgrade-propose,omitempty"`
 }
 
-// ErrorResponse defines model for ErrorResponse.
-type ErrorResponse struct {
-	Data    *map[string]interface{} `json:"data,omitempty"`
-	Message string                  `json:"message"`
-}
-
 // EvalDelta defines model for EvalDelta.
 type EvalDelta struct {
 
@@ -427,6 +422,9 @@ type HealthCheck struct {
 	IsMigrating bool                    `json:"is-migrating"`
 	Message     string                  `json:"message"`
 	Round       uint64                  `json:"round"`
+
+	// Current version.
+	Version string `json:"version"`
 }
 
 // MiniAssetHolding defines model for MiniAssetHolding.
@@ -978,6 +976,12 @@ type AssetsResponse struct {
 
 // BlockResponse defines model for BlockResponse.
 type BlockResponse Block
+
+// ErrorResponse defines model for ErrorResponse.
+type ErrorResponse struct {
+	Data    *map[string]interface{} `json:"data,omitempty"`
+	Message string                  `json:"message"`
+}
 
 // HealthCheckResponse defines model for HealthCheckResponse.
 type HealthCheckResponse HealthCheck

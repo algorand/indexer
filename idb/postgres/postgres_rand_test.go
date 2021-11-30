@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -14,7 +13,6 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util/test"
 	"github.com/jackc/pgx/v4"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -123,7 +121,7 @@ func TestWriteReadAccountData(t *testing.T) {
 		require.NoError(t, err)
 
 		w.Close()
-		return tx.Commit(context.Background())
+		return nil
 	}
 	err := db.txWithRetry(serializable, f)
 	require.NoError(t, err)
@@ -132,22 +130,24 @@ func TestWriteReadAccountData(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledgerforevaluator.MakeLedgerForEvaluator(
-		tx, crypto.Digest{}, transactions.SpecialAddresses{})
+	l, err := ledgerforevaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
-	// Load all accounts in a batch.
-	err = l.PreloadAccounts(addresses)
+	ret, err := l.LookupWithoutRewards(addresses)
 	require.NoError(t, err)
 
 	for address := range addresses {
-		ret, _, err := l.LookupWithoutRewards(basics.Round(0), address)
-		require.NoError(t, err)
-
 		expected, ok := delta.Accts.Get(address)
 		require.True(t, ok)
 
-		assert.Equal(t, expected, ret)
+		ret, ok := ret[address]
+		require.True(t, ok)
+
+		if ret == nil {
+			require.True(t, expected.IsZero())
+		} else {
+			require.Equal(t, &expected, ret)
+		}
 	}
 }
