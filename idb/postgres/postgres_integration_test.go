@@ -851,6 +851,7 @@ func TestAppExtraPages(t *testing.T) {
 func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype *string) {
 	opts := idb.AccountQueryOptions{
 		EqualToAddress: address[:],
+		IncludeDeleted: true,
 	}
 	rowsCh, _ := db.GetAccounts(context.Background(), opts)
 
@@ -1199,6 +1200,26 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	require.NoError(t, err)
 
 	keytype = "msig"
+	assertKeytype(t, db, test.AccountA, &keytype)
+}
+
+// Test that after closing the account, keytype will be correctly set.
+func TestKeytypeDeletedAccount(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), block)
+	defer shutdownFunc()
+
+	assertKeytype(t, db, test.AccountA, nil)
+
+	closeTxn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, test.AccountB, basics.Address{})
+
+	block, err := test.MakeBlockForTxns(block.BlockHeader, &closeTxn)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	keytype := "sig"
 	assertKeytype(t, db, test.AccountA, &keytype)
 }
 
@@ -1733,4 +1754,32 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 		require.Error(t, row.Error)
 		assert.Contains(t, row.Error.Error(), "error decoding roottxn")
 	}
+}
+
+func TestKeytypeDoNotResetReceiver(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), block)
+	defer shutdownFunc()
+
+	assertKeytype(t, db, test.AccountA, nil)
+
+	// Sigtype of account B becomes "sig".
+	txn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountB, test.AccountB, basics.Address{}, basics.Address{})
+	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	// Sigtype of account A becomes "sig" and B remains the same.
+	txn = test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{})
+	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	keytype := "sig"
+	assertKeytype(t, db, test.AccountA, &keytype)
+	assertKeytype(t, db, test.AccountB, &keytype)
 }
