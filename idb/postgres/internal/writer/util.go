@@ -4,6 +4,7 @@ import (
 	"github.com/jackc/pgx/v4"
 )
 
+// Implements pgx.CopyFromSource.
 type copyFromChannelStruct struct {
 	ch   chan []interface{}
 	next []interface{}
