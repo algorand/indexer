@@ -7,10 +7,10 @@ const SetupPostgresSql = `-- This file is setup_postgres.sql which gets compiled
 -- TODO? replace all 'addr bytea' with 'addr_id bigint' and a mapping table? makes addrs an 8 byte int that fits in a register instead of a 32 byte string
 
 CREATE TABLE IF NOT EXISTS block_header (
-	round bigint PRIMARY KEY,
-	realtime timestamp without time zone NOT NULL,
-	rewardslevel bigint NOT NULL,
-	header jsonb NOT NULL
+  round bigint PRIMARY KEY,
+  realtime timestamp without time zone NOT NULL,
+  rewardslevel bigint NOT NULL,
+  header jsonb NOT NULL
 );
 
 -- For looking round by timestamp. We could replace this with a round-to-timestamp algorithm, it should be extremely
@@ -18,14 +18,14 @@ CREATE TABLE IF NOT EXISTS block_header (
 CREATE INDEX IF NOT EXISTS block_header_time ON block_header (realtime);
 
 CREATE TABLE IF NOT EXISTS txn (
-	round bigint NOT NULL,
-	intra integer NOT NULL,
-	typeenum smallint NOT NULL,
-	asset bigint NOT NULL, -- 0=Algos, otherwise AssetIndex
-	txid bytea, -- base32 of [32]byte hash, or NULL for inner transactions.
-	txn jsonb NOT NULL, -- json encoding of signed txn with apply data; inner txns exclude nested inner txns
-	extra jsonb NOT NULL,
-	PRIMARY KEY ( round, intra )
+  round bigint NOT NULL,
+  intra integer NOT NULL,
+  typeenum smallint NOT NULL,
+  asset bigint NOT NULL, -- 0=Algos, otherwise AssetIndex
+  txid bytea, -- base32 of [32]byte hash, or NULL for inner transactions.
+  txn jsonb NOT NULL, -- json encoding of signed txn with apply data; inner txns exclude nested inner txns
+  extra jsonb NOT NULL,
+  PRIMARY KEY ( round, intra )
 );
 
 -- For transaction lookup
@@ -35,9 +35,9 @@ CREATE INDEX IF NOT EXISTS txn_by_tixid ON txn ( txid );
 -- CREATE INDEX CONCURRENTLY IF NOT EXISTS txn_asset ON txn (asset, round, intra);
 
 CREATE TABLE IF NOT EXISTS txn_participation (
-	addr bytea NOT NULL,
-	round bigint NOT NULL,
-	intra integer NOT NULL
+  addr bytea NOT NULL,
+  round bigint NOT NULL,
+  intra integer NOT NULL
 );
 
 -- For query account transactions
