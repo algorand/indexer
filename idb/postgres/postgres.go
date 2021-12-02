@@ -7,6 +7,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -21,6 +22,8 @@ import (
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	log "github.com/sirupsen/logrus"
@@ -275,20 +278,35 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
 
-		writer, err := writer.MakeWriter(tx)
+		w, err := writer.MakeWriter(tx)
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		defer writer.Close()
+		defer w.Close()
 
 		if block.Round() == basics.Round(0) {
 			// Block 0 is special, we cannot run the evaluator on it.
-			err := writer.AddBlock0(block)
+			err := w.AddBlock0(block)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 		} else {
-			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, block.Round()-1)
+			var wg sync.WaitGroup
+			defer wg.Wait()
+
+			var err0 error
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				f := func(tx pgx.Tx) error {
+					return writer.AddTransactionParticipation(block, tx)
+				}
+				err0 = db.txWithRetry(serializable, f)
+			}()
+
+			ledgerForEval, err :=
+				ledger_for_evaluator.MakeLedgerForEvaluator(tx, block.Round()-1)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
@@ -314,9 +332,32 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			}
 			metrics.PostgresEvalTimeSeconds.Observe(time.Since(start).Seconds())
 
-			err = writer.AddBlock(block, modifiedTxns, delta)
+			var err1 error
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				f := func(tx pgx.Tx) error {
+					return writer.AddTransactions(block, modifiedTxns, tx)
+				}
+				err1 = db.txWithRetry(serializable, f)
+			}()
+
+			err = w.AddBlock(block, modifiedTxns, delta)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
+			}
+
+			wg.Wait()
+			isUniqueViolationFunc := func(err error) bool {
+				var pgerr *pgconn.PgError
+				return errors.As(err, &pgerr) && (pgerr.Code == pgerrcode.UniqueViolation)
+			}
+			if (err0 != nil) && !isUniqueViolationFunc(err0) {
+				return fmt.Errorf("AddBlock() err0: %w", err0)
+			}
+			if (err1 != nil) && !isUniqueViolationFunc(err1) {
+				return fmt.Errorf("AddBlock() err1: %w", err1)
 			}
 		}
 
