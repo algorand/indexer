@@ -296,7 +296,9 @@ func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transa
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
-	ch := make(chan []interface{}, 64)
+	// The capacity of this channel roughly corresponds to the buffer size in the postgres
+	// driver: 2^16 bytes.
+	ch := make(chan []interface{}, 1024)
 	var err0 error
 	go func() {
 		err0 = yieldTransactions(ctx, block, modifiedTxns, ch)
