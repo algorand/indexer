@@ -90,15 +90,19 @@ func (bot *fetcherImpl) processQueue(ctx context.Context) error {
 	}
 }
 
-func (bot *fetcherImpl) enqueueBlock(blockbytes []byte) error {
+func (bot *fetcherImpl) enqueueBlock(ctx context.Context, blockbytes []byte) error {
 	block := new(rpcs.EncodedBlockCert)
 	err := protocol.Decode(blockbytes, block)
 	if err != nil {
 		return fmt.Errorf("enqueueBlock() decode err: %w", err)
 	}
 
-	bot.blockQueue <- block
-	return nil
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case bot.blockQueue <- block:
+		return nil
+	}
 }
 
 // fetch the next block by round number until we find one missing (because it doesn't exist yet)
@@ -118,7 +122,7 @@ func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 			return nil
 		}
 
-		err = bot.enqueueBlock(blockbytes)
+		err = bot.enqueueBlock(ctx, blockbytes)
 		if err != nil {
 			return fmt.Errorf("catchupLoop() err: %w", err)
 		}
@@ -158,7 +162,7 @@ func (bot *fetcherImpl) followLoop(ctx context.Context) error {
 			bot.setError(err)
 			return nil
 		}
-		err = bot.enqueueBlock(blockbytes)
+		err = bot.enqueueBlock(ctx, blockbytes)
 		if err != nil {
 			return fmt.Errorf("followLoop() err: %w", err)
 		}
