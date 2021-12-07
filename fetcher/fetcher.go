@@ -204,8 +204,7 @@ func (bot *fetcherImpl) mainLoop(ctx context.Context) error {
 
 // Run is part of the Fetcher interface
 func (bot *fetcherImpl) Run(ctx context.Context) error {
-	// In theory a buffer of size one should be enough, but let's make it bigger.
-	bot.blockQueue = make(chan *rpcs.EncodedBlockCert, 5)
+	bot.blockQueue = make(chan *rpcs.EncodedBlockCert)
 
 	ctx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()
