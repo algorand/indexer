@@ -223,7 +223,6 @@ func (bot *fetcherImpl) Run(ctx context.Context) error {
 	select {
 	case err := <-ch0:
 		cancelFunc()
-		<-ch1
 		return fmt.Errorf("Run() err: %w", err)
 	case err := <-ch1:
 		cancelFunc()
