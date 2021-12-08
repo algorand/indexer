@@ -7,7 +7,7 @@ The Indexer is a standalone service that reads committed blocks from the Algoran
 
 # Minimum Version Requirements
 
-* [go 1.13](https://golang.org/dl/)
+* [go 1.16](https://golang.org/dl/)
 * [Postgres 11](https://www.postgresql.org/download/)
 
 # Quickstart
