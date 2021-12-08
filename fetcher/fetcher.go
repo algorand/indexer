@@ -209,12 +209,12 @@ func (bot *fetcherImpl) Run(ctx context.Context) error {
 	ctx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()
 
-	ch0 := make(chan error)
+	ch0 := make(chan error, 1)
 	go func() {
 		ch0 <- bot.processQueue(ctx)
 	}()
 
-	ch1 := make(chan error)
+	ch1 := make(chan error, 1)
 	go func() {
 		ch1 <- bot.mainLoop(ctx)
 	}()
