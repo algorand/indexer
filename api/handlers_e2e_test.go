@@ -29,13 +29,18 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeepin
 	db, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 
+	newShutdownFunc := func() {
+		db.Close()
+		shutdownFunc()
+	}
+
 	err = db.LoadGenesis(genesis)
 	require.NoError(t, err)
 
 	err = db.AddBlock(&genesisBlock)
 	require.NoError(t, err)
 
-	return db, shutdownFunc
+	return db, newShutdownFunc
 }
 
 func TestApplicationHander(t *testing.T) {

@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -83,8 +84,13 @@ var daemonCmd = &cobra.Command{
 			opts.ReadOnly = true
 		}
 		db, availableCh := indexerDbFromFlags(opts)
+		defer db.Close()
+		var wg sync.WaitGroup
 		if bot != nil {
+			wg.Add(1)
 			go func() {
+				defer wg.Done()
+
 				// Wait until the database is available.
 				<-availableCh
 
@@ -97,13 +103,21 @@ var daemonCmd = &cobra.Command{
 				maybeFail(err, "failed to get next round, %v", err)
 				bot.SetNextRound(nextRound)
 
-				bih := blockImporterHandler{imp: importer.NewImporter(db)}
-				bot.AddBlockHandler(&bih)
-				bot.SetContext(ctx)
+				imp := importer.NewImporter(db)
+				handler := func(ctx context.Context, block *rpcs.EncodedBlockCert) error {
+					return handleBlock(block, &imp)
+				}
+				bot.SetBlockHandler(handler)
 
 				logger.Info("Starting block importer.")
-				bot.Run()
-				cf()
+				err = bot.Run(ctx)
+				if err != nil {
+					// If context is not expired.
+					if ctx.Err() == nil {
+						logger.WithError(err).Errorf("fetcher exited with error")
+						os.Exit(1)
+					}
+				}
 			}()
 		} else {
 			logger.Info("No block importer configured.")
@@ -112,6 +126,7 @@ var daemonCmd = &cobra.Command{
 		fmt.Printf("serving on %s\n", daemonServerAddr)
 		logger.Infof("serving on %s", daemonServerAddr)
 		api.Serve(ctx, daemonServerAddr, db, bot, logger, makeOptions())
+		wg.Wait()
 	},
 }
 
@@ -159,14 +174,14 @@ func makeOptions() (options api.ExtraOptions) {
 	return
 }
 
-type blockImporterHandler struct {
-	imp importer.Importer
-}
-
-func (bih *blockImporterHandler) HandleBlock(block *rpcs.EncodedBlockCert) {
+func handleBlock(block *rpcs.EncodedBlockCert, imp *importer.Importer) error {
 	start := time.Now()
-	err := bih.imp.ImportBlock(block)
-	maybeFail(err, "adding block %d to database failed", block.Block.Round())
+	err := imp.ImportBlock(block)
+	if err != nil {
+		logger.WithError(err).Errorf(
+			"adding block %d to database failed", block.Block.Round())
+		return fmt.Errorf("handleBlock() err: %w", err)
+	}
 	dt := time.Since(start)
 
 	// Ignore round 0 (which is empty).
@@ -177,4 +192,6 @@ func (bih *blockImporterHandler) HandleBlock(block *rpcs.EncodedBlockCert) {
 	}
 
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())
+
+	return nil
 }

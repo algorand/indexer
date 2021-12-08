@@ -104,6 +104,11 @@ func (_m *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	return r0, r1
 }
 
+// Close provides a mock function with given fields:
+func (_m *IndexerDb) Close() {
+	_m.Called()
+}
+
 // GetAccounts provides a mock function with given fields: ctx, opts
 func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
 	ret := _m.Called(ctx, opts)

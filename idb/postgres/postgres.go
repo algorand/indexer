@@ -107,6 +107,11 @@ type IndexerDb struct {
 	accountingLock sync.Mutex
 }
 
+// Close is part of idb.IndexerDb.
+func (db *IndexerDb) Close() {
+	db.db.Close()
+}
+
 // txWithRetry is a helper function that retries the function `f` in case the database
 // transaction in it fails due to a serialization error. `f` is provided
 // a transaction created using `opts`. If `f` experiences a database error, this error
