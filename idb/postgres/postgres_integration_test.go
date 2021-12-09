@@ -10,7 +10,6 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -23,7 +22,6 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
-	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -1540,23 +1538,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	rootTxid := appCall.Txn.ID()
 
 	err = pgutil.TxWithRetry(pdb, serializable, func(tx pgx.Tx) error {
-		err := writer.AddTransactions(&block, block.Payset, tx)
-		if err != nil {
-			return err
-		}
-
-		err = writer.AddTransactionParticipation(&block, tx)
-		if err != nil {
-			return err
-		}
-
-		w, err := writer.MakeWriter(tx)
-		if err != nil {
-			return err
-		}
-		defer w.Close()
-
-		return w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
+		return db.AddBlock(&block)
 	}, nil)
 	require.NoError(t, err)
 
