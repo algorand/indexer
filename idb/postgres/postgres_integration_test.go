@@ -10,7 +10,6 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -23,7 +22,6 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
-	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -1550,13 +1548,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	rootTxid := appCall.Txn.ID()
 
 	err = pgutil.TxWithRetry(pdb, serializable, func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-		require.NoError(t, err)
-
-		return nil
+		return db.AddBlock(&block)
 	}, nil)
 	require.NoError(t, err)
 
@@ -1793,4 +1785,94 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 	keytype := "sig"
 	assertKeytype(t, db, test.AccountA, &keytype)
 	assertKeytype(t, db, test.AccountB, &keytype)
+}
+
+// Test that if information in `txn` and `txn_participation` tables is ahead of
+// the current round, AddBlock() still runs successfully.
+func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), block)
+	defer shutdownFunc()
+
+	{
+		query := `INSERT INTO txn (round, intra, typeenum, asset, txn, extra)
+			VALUES (1, 0, 0, 0, 'null'::jsonb, 'null'::jsonb)`
+		_, err := db.db.Exec(context.Background(), query)
+		require.NoError(t, err)
+	}
+	{
+		query := `INSERT INTO txn_participation (addr, round, intra)
+			VALUES ($1, 1, 0)`
+		_, err := db.db.Exec(context.Background(), query, test.AccountA[:])
+		require.NoError(t, err)
+	}
+
+	txn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+}
+
+// Test that AddBlock() writes to `txn_participation` table.
+func TestAddBlockTxnParticipationAdded(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), block)
+	defer shutdownFunc()
+
+	txn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	tf := idb.TransactionFilter{
+		Address: test.AccountA[:],
+	}
+	rowsCh, _ := db.Transactions(context.Background(), tf)
+
+	row, ok := <-rowsCh
+	require.True(t, ok)
+	require.NoError(t, row.Error)
+	require.NotNil(t, row.Txn)
+	assert.Equal(t, txn, *row.Txn)
+}
+
+// Test that if information in the `txn` table is ahead of the current round,
+// Transactions() doesn't return the rows ahead of the state.
+func TestTransactionsTxnAhead(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), block)
+	defer shutdownFunc()
+
+	// Insert a transaction row at round 1 and check that Transactions() does not return
+	// it.
+	{
+		query := `INSERT INTO txn (round, intra, typeenum, asset, txn, extra)
+			VALUES (1, 0, 0, 0, 'null'::jsonb, 'null'::jsonb)`
+		_, err := db.db.Exec(context.Background(), query)
+		require.NoError(t, err)
+	}
+	{
+		rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+		_, ok := <-rowsCh
+		assert.False(t, ok)
+	}
+
+	// Now add an empty round 1 block, and verify that Transactions() returns the
+	// fake transaction.
+	{
+		block, err := test.MakeBlockForTxns(block.BlockHeader)
+		require.NoError(t, err)
+		err = db.AddBlock(&block)
+		require.NoError(t, err)
+	}
+	{
+		rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+		row, ok := <-rowsCh
+		require.True(t, ok)
+		require.NoError(t, row.Error)
+	}
 }

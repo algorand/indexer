@@ -213,14 +213,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	f := func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-		require.NoError(t, err)
-
-		w.Close()
-		return nil
+		return writer.AddTransactions(&block, block.Payset, tx)
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -296,14 +289,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	payset[0].ApplyData.AssetClosingAmount = 3
 
 	f := func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, payset, ledgercore.StateDelta{})
-		require.NoError(t, err)
-
-		w.Close()
-		return nil
+		return writer.AddTransactions(&block, payset, tx)
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -433,14 +419,7 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 			block.Payset = testcase.payset
 
 			f := func(tx pgx.Tx) error {
-				w, err := writer.MakeWriter(tx)
-				require.NoError(t, err)
-
-				err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-				require.NoError(t, err)
-
-				w.Close()
-				return nil
+				return writer.AddTransactionParticipation(&block, tx)
 			}
 			err := pgutil.TxWithRetry(db, serializable, f, nil)
 			require.NoError(t, err)
@@ -1406,17 +1385,9 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-		defer w.Close()
-
-		// Add block detects an error
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "Missing ConfigAsset for transaction: ")
-
-		return nil
+		return writer.AddTransactions(&block, block.Payset, tx)
 	})
+	require.Contains(t, err.Error(), "Missing ConfigAsset for transaction: ")
 }
 
 func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
@@ -1436,14 +1407,11 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-		require.NoError(t, err)
-
-		w.Close()
-		return nil
+		err := writer.AddTransactions(&block, block.Payset, tx)
+		if err != nil {
+			return err
+		}
+		return writer.AddTransactionParticipation(&block, tx)
 	})
 	require.NoError(t, err)
 
