@@ -294,6 +294,7 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			var wg sync.WaitGroup
 			defer wg.Wait()
 
+			// Write transaction participation in a parallel db transaction.
 			var err0 error
 			wg.Add(1)
 			go func() {
@@ -332,6 +333,7 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			}
 			metrics.PostgresEvalTimeSeconds.Observe(time.Since(start).Seconds())
 
+			// Write transactions in a parallel db transaction.
 			var err1 error
 			wg.Add(1)
 			go func() {
@@ -348,6 +350,10 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 
+			// Wait for goroutines to finish and check for errors. If there is an error, we
+			// return our own error so that the main transaction does not commit. Hence,
+			// `txn` and `txn_participation` tables can only be ahead but not behind
+			// the other state.
 			wg.Wait()
 			isUniqueViolationFunc := func(err error) bool {
 				var pgerr *pgconn.PgError
