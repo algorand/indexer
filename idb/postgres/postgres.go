@@ -308,7 +308,8 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			defer wg.Wait()
 
 			// Write transaction participation and possibly transactions in a parallel db
-			// transaction.
+			// transaction. If `proto.EnableAssetCloseAmount` is already true, we can start
+			// writing transactions contained in the block early.
 			var err0 error
 			wg.Add(1)
 			go func() {
