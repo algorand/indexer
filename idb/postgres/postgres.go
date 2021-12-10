@@ -296,16 +296,31 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 		} else {
+			proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
+			if !ok {
+				return fmt.Errorf(
+					"AddBlock() cannot find proto version %s", block.BlockHeader.CurrentProtocol)
+			}
+			protoChanged := !proto.EnableAssetCloseAmount
+			proto.EnableAssetCloseAmount = true
+
 			var wg sync.WaitGroup
 			defer wg.Wait()
 
-			// Write transaction participation in a parallel db transaction.
+			// Write transaction participation and possibly transactions in a parallel db
+			// transaction.
 			var err0 error
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 
 				f := func(tx pgx.Tx) error {
+					if !protoChanged {
+						err := writer.AddTransactions(block, block.Payset, tx)
+						if err != nil {
+							return err
+						}
+					}
 					return writer.AddTransactionParticipation(block, tx)
 				}
 				err0 = db.txWithRetry(serializable, f)
@@ -317,13 +332,6 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 			defer ledgerForEval.Close()
-
-			proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
-			if !ok {
-				return fmt.Errorf(
-					"AddBlock() cannot find proto version %s", block.BlockHeader.CurrentProtocol)
-			}
-			proto.EnableAssetCloseAmount = true
 
 			resources, err := prepareEvalResources(&ledgerForEval, block)
 			if err != nil {
@@ -338,17 +346,19 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			}
 			metrics.PostgresEvalTimeSeconds.Observe(time.Since(start).Seconds())
 
-			// Write transactions in a parallel db transaction.
 			var err1 error
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			if protoChanged {
+				// Write transactions in a parallel db transaction.
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
 
-				f := func(tx pgx.Tx) error {
-					return writer.AddTransactions(block, modifiedTxns, tx)
-				}
-				err1 = db.txWithRetry(serializable, f)
-			}()
+					f := func(tx pgx.Tx) error {
+						return writer.AddTransactions(block, modifiedTxns, tx)
+					}
+					err1 = db.txWithRetry(serializable, f)
+				}()
+			}
 
 			err = w.AddBlock(block, modifiedTxns, delta)
 			if err != nil {
