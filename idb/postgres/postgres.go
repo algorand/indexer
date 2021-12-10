@@ -348,6 +348,7 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			metrics.PostgresEvalTimeSeconds.Observe(time.Since(start).Seconds())
 
 			var err1 error
+			// Skip if transaction writing has already started.
 			if protoChanged {
 				// Write transactions in a parallel db transaction.
 				wg.Add(1)
