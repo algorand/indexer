@@ -1,4 +1,4 @@
-ARG GO_IMAGE=golang:1.14.7
+ARG GO_IMAGE=golang:1.16.11
 FROM $GO_IMAGE
 
 RUN echo "Go image: $GO_IMAGE"
