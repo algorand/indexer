@@ -78,7 +78,7 @@ There are two primary modes of operation:
 ### Database updater
 In this mode, the database will be populated with data fetched from an [Algorand archival node](https://developer.algorand.org/docs/run-a-node/setup/types/#archival-mode). Because every block must be fetched to bootstrap the database, the initial import for a ledger with a long history will take a while. If the daemon is terminated, it will resume processing wherever it left off.
 
-Keeping indexer daemon as close as possible to database helps minimize latency. For example if using AWS EC2 and RDS, we suggest putting EC2 in the same VPC, Region, and even Availability Zone.
+Keeping the indexer daemon as close as possible to the database helps minimize latency. For example, if using AWS EC2 and RDS, we suggest putting EC2 in the same VPC, Region, and even Availability Zone.
 
 You should use a process manager, like systemd, to ensure the daemon is always running. Indexer will continue to update the database as new blocks are created.
 
