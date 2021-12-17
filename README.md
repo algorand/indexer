@@ -5,10 +5,10 @@
 
 The Indexer is a standalone service that reads committed blocks from the Algorand blockchain and maintains a database of transactions and accounts that are searchable and indexed.
 
-# Minimum Version Requirements
+# Tested Requirements Versions
 
 * [go 1.16](https://golang.org/dl/)
-* [Postgres 11](https://www.postgresql.org/download/)
+* [Postgres 13](https://www.postgresql.org/download/)
 
 # Quickstart
 
@@ -89,6 +89,8 @@ Alternatively if indexer is running on the same host as the archival node, a sim
 ```
 ~$ algorand-indexer daemon --algod-net yournode.com:1234 -d /path/to/algod/data/dir --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
 ```
+
+**Note**: Keeping indexer daemon as close as possible to database helps minimize latency. For example if using AWS EC2 and RDS, we suggest putting EC2 in the same VPC, Region, and even Availability Zone.
 
 ### Read only
 It is possible to set up one daemon as a writer and one or more readers. The Indexer pulling new data from algod can be started as above. Starting the indexer daemon without $ALGORAND_DATA or -d/--algod/--algod-net/--algod-token will start it without writing new data to the database. For further isolation, a `readonly` user can be created for the database.
