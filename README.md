@@ -78,6 +78,8 @@ There are two primary modes of operation:
 ### Database updater
 In this mode, the database will be populated with data fetched from an [Algorand archival node](https://developer.algorand.org/docs/run-a-node/setup/types/#archival-mode). Because every block must be fetched to bootstrap the database, the initial import for a ledger with a long history will take a while. If the daemon is terminated, it will resume processing wherever it left off.
 
+Keeping indexer daemon as close as possible to database helps minimize latency. For example if using AWS EC2 and RDS, we suggest putting EC2 in the same VPC, Region, and even Availability Zone.
+
 You should use a process manager, like systemd, to ensure the daemon is always running. Indexer will continue to update the database as new blocks are created.
 
 To start indexer as a daemon in update mode, provide the required fields:
@@ -89,8 +91,6 @@ Alternatively if indexer is running on the same host as the archival node, a sim
 ```
 ~$ algorand-indexer daemon --algod-net yournode.com:1234 -d /path/to/algod/data/dir --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
 ```
-
-**Note**: Keeping indexer daemon as close as possible to database helps minimize latency. For example if using AWS EC2 and RDS, we suggest putting EC2 in the same VPC, Region, and even Availability Zone.
 
 ### Read only
 It is possible to set up one daemon as a writer and one or more readers. The Indexer pulling new data from algod can be started as above. Starting the indexer daemon without $ALGORAND_DATA or -d/--algod/--algod-net/--algod-token will start it without writing new data to the database. For further isolation, a `readonly` user can be created for the database.
