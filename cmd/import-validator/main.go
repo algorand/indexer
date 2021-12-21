@@ -1,11 +1,3 @@
-// The import validator tool imports blocks into indexer database and algod's sqlite
-// database in lockstep and checks that the modified accounts are the same in the two
-// databases. It lets detect the first round where an accounting discrepancy occurs
-// and it prints out what the difference is before crashing.
-// There is a small limitation, however. The set of modified accounts is computed using
-// the sqlite database. Thus, if indexer's accounting were to modify a superset of
-// those accounts, this tool would not detect it. This, however, should be unlikely.
-
 package main
 
 import (
