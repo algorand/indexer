@@ -794,12 +794,21 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 			UpgradeVote:       &upgradeVote,
 		}
 
+		rootTxnDedupeMap := make(map[string]struct{})
 		results := make([]generated.Transaction, 0)
 		for _, txrow := range transactions {
 			tx, err := txnRowToTransaction(txrow)
 			if err != nil {
 				return err
 			}
+
+			// Need to de-dupe transactions we've seen already, this occurs with inner transactions
+			if _, ok := rootTxnDedupeMap[*tx.Id]; ok {
+				continue
+			}
+
+			rootTxnDedupeMap[*tx.Id] = struct{}{}
+
 			results = append(results, tx)
 		}
 
