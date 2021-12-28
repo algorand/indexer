@@ -317,6 +317,7 @@ def remove_indexer_only_fields(x):
     x.pop('closeout-at-round', None)
     x.pop('closed-out-at-round', None)
     x.pop('closed-at-round', None)
+    x.pop('extra-program-pages', None)
 
 def _dac(x):
     out = dict(x)
@@ -333,6 +334,7 @@ def _dap(x):
     gs = out['params'].get('global-state')
     if gs:
         out['params']['global-state'] = {z['key']:z['value'] for z in gs}
+    remove_indexer_only_fields(out['params'])
     return out
 
 def dictifyAppParams(ap):
