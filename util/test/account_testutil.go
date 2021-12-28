@@ -295,6 +295,7 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 // |- payment
 // |- payment
 //    |- asset transfer
+//    |- application call
 func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSender, assetReceiver basics.Address) transactions.SignedTxnWithAD {
 	createApp := MakeCreateAppTxn(appSender)
 
@@ -333,20 +334,36 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 			// also add a fake second-level ApplyData to ensure the recursive part works
 			ApplyData: transactions.ApplyData{
 				EvalDelta: transactions.EvalDelta{
-					InnerTxns: []transactions.SignedTxnWithAD{{
-						SignedTxn: transactions.SignedTxn{
-							Txn: transactions.Transaction{
-								Type: protocol.AssetTransferTx,
-								Header: transactions.Header{
-									Sender: assetSender,
-								},
-								AssetTransferTxnFields: transactions.AssetTransferTxnFields{
-									AssetReceiver: assetReceiver,
-									AssetAmount:   456,
+					InnerTxns: []transactions.SignedTxnWithAD{
+						{
+							SignedTxn: transactions.SignedTxn{
+								Txn: transactions.Transaction{
+									Type: protocol.AssetTransferTx,
+									Header: transactions.Header{
+										Sender: assetSender,
+									},
+									AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+										AssetReceiver: assetReceiver,
+										AssetAmount:   456,
+									},
 								},
 							},
 						},
-					}},
+						{
+							SignedTxn: transactions.SignedTxn{
+								Txn: transactions.Transaction{
+									Type: protocol.ApplicationCallTx,
+									Header: transactions.Header{
+										Sender: assetSender,
+									},
+									ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+										ApplicationID: 789,
+										OnCompletion:  transactions.NoOpOC,
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},

@@ -149,6 +149,7 @@ func TestInnerTxn(t *testing.T) {
 
 	pay := "pay"
 	axfer := "axfer"
+	appl := "appl"
 	testcases := []struct {
 		name   string
 		filter generated.SearchForTransactionsParams
@@ -164,6 +165,10 @@ func TestInnerTxn(t *testing.T) {
 		{
 			name:   "match on inner-inner",
 			filter: generated.SearchForTransactionsParams{Address: &appAddrStr, TxType: &axfer},
+		},
+		{
+			name:   "match on inner-inner",
+			filter: generated.SearchForTransactionsParams{Address: &appAddrStr, TxType: &appl},
 		},
 		{
 			name:   "match all",
