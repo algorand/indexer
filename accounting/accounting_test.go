@@ -4,14 +4,25 @@ import (
 	"testing"
 
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	log "github.com/sirupsen/logrus"
+	log_test "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util/test"
 )
 
 func GetAccounting() *State {
-	accountingState := New(make(map[uint64]bool))
+	return GetAccountingWithLogger(nil)
+}
+
+func GetAccountingWithLogger(l *log.Logger) *State {
+	if l == nil {
+		l, _ = log_test.NewNullLogger()
+	}
+	accountingState := New(make(map[uint64]bool), l)
 	accountingState.InitRoundParts(test.Round, test.FeeAddr, test.RewardAddr, 0)
 	return accountingState
 }
@@ -177,4 +188,23 @@ func TestCreateAssetWithTotalZero(t *testing.T) {
 	assert.Len(t, state.RoundUpdates.AssetUpdates, 2)
 	assert.True(t, state.RoundUpdates.AssetUpdates[0][test.AccountA][0].Config.IsNew)
 	assert.Equal(t, state.RoundUpdates.AssetUpdates[1][test.AccountA][0].Transfer.Delta.Int64(), int64(0))
+}
+
+func TestCache(t *testing.T) {
+	logger, hook := log_test.NewNullLogger()
+
+	cache := accountTypeCache{
+		l: logger,
+	}
+
+	addr := types.Address{}
+	addr[0] = 100
+
+	cache.set(addr, "sig")
+	require.Len(t, hook.Entries, 0)
+
+	cache.set(addr, "unexpected-change")
+	require.Len(t, hook.Entries, 1)
+	require.Equal(t, log.WarnLevel, hook.LastEntry().Level)
+	require.Contains(t, hook.LastEntry().Message, "previously had type sig but got unexpected-change for sender")
 }

@@ -17,7 +17,6 @@ import (
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
@@ -25,13 +24,6 @@ import (
 	"github.com/algorand/indexer/types"
 	"github.com/algorand/indexer/util/test"
 )
-
-// getAccounting initializes the ac counting state for testing.
-func getAccounting(round uint64, cache map[uint64]bool) *accounting.State {
-	accountingState := accounting.New(cache)
-	accountingState.InitRoundParts(round, test.FeeAddr, test.RewardAddr, 0)
-	return accountingState
-}
 
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.
 func TestMaxRoundOnUninitializedDB(t *testing.T) {

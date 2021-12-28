@@ -1,27 +1,34 @@
 package accounting
 
 import (
-	"fmt"
+	"github.com/algorand/go-algorand-sdk/types"
+	log "github.com/sirupsen/logrus"
 )
 
 type subCache map[[32]byte]string
 
 type accountTypeCache struct {
 	generations []subCache
+	l           *log.Logger
 }
 
 const generationSize = 1000
 const numGenerations = 5
 
-func (cache *accountTypeCache) set(addr [32]byte, ktype string) (isNew bool, err error) {
+func (cache *accountTypeCache) set(addr [32]byte, ktype string) (isNew bool) {
 	for _, sc := range cache.generations {
 		oldvalue, hit := sc[addr]
 		if hit {
-			isNew = false
-			if oldvalue != ktype {
-				err = fmt.Errorf("previously had type %s but got %s", oldvalue, ktype)
+			if oldvalue == ktype {
+				// Value already set properly
+				return false
 			}
-			return
+
+			// otherwise, warn about the unexpected change (edge case related to rekeyed lsig transactions)
+			addrObject := types.Address{}
+			copy(addrObject[:], addr[:])
+			cache.l.Warnf("accountTypeCache.set(): previously had type %s but got %s for sender %s", oldvalue, ktype, addrObject.String())
+			break
 		}
 	}
 	isNew = true

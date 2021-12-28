@@ -7,6 +7,7 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/types"
@@ -29,8 +30,11 @@ type State struct {
 }
 
 // New creates a new State object.
-func New(defaultFrozenCache map[uint64]bool) *State {
-	result := &State{defaultFrozen: defaultFrozenCache}
+func New(defaultFrozenCache map[uint64]bool, l *log.Logger) *State {
+	result := &State{
+		defaultFrozen: defaultFrozenCache,
+		accountTypes:  accountTypeCache{l: l},
+	}
 	result.Clear()
 	return result
 }
@@ -242,10 +246,7 @@ func (accounting *State) AddTransaction(txnr *idb.TxnRow) (err error) {
 	}
 
 	var isNew bool
-	isNew, err = accounting.accountTypes.set(stxn.Txn.Sender, string(ktype))
-	if err != nil {
-		return fmt.Errorf("error in account type, %v", err)
-	}
+	isNew = accounting.accountTypes.set(stxn.Txn.Sender, string(ktype))
 	if isNew {
 		accounting.updateAccountType(stxn.Txn.Sender, string(ktype))
 	}

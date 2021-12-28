@@ -259,7 +259,7 @@ func updateAccounting(db idb.IndexerDb, frozenCache map[uint64]bool, filter idb.
 	rounds = 0
 	txnCount = 0
 	lastlog := time.Now()
-	act := accounting.New(frozenCache)
+	act := accounting.New(frozenCache, l)
 	txns := db.YieldTxns(context.Background(), filter.StartRound)
 	currentRound := uint64(0)
 	roundsSeen := 0

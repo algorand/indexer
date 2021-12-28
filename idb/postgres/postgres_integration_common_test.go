@@ -8,6 +8,8 @@ import (
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"github.com/orlangure/gnomock"
 	"github.com/orlangure/gnomock/preset/postgres"
+	log "github.com/sirupsen/logrus"
+	log_test "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/accounting"
@@ -56,6 +58,23 @@ func setupIdb(t *testing.T, genesis types.Genesis) (*IndexerDb /*db*/, func() /*
 	return idb, shutdownFunc
 }
 
+func getState(cache map[uint64]bool, logger *log.Logger) *accounting.State {
+	if cache == nil {
+		cache = make(map[uint64]bool)
+	}
+	if logger == nil {
+		logger, _ = log_test.NewNullLogger()
+	}
+	return accounting.New(cache, logger)
+}
+
+// getAccounting initializes the ac counting state for testing.
+func getAccounting(round uint64, cache map[uint64]bool) *accounting.State {
+	accountingState := getState(nil, nil)
+	accountingState.InitRoundParts(round, test.FeeAddr, test.RewardAddr, 0)
+	return accountingState
+}
+
 func importTxns(t *testing.T, db *IndexerDb, round uint64, txns ...*sdk_types.SignedTxnWithAD) {
 	block := test.MakeBlockForTxns(round, txns...)
 
@@ -67,7 +86,7 @@ func accountTxns(t *testing.T, db *IndexerDb, round uint64, txns ...*idb.TxnRow)
 	cache, err := db.GetDefaultFrozen()
 	require.NoError(t, err)
 
-	state := accounting.New(cache)
+	state := getState(cache, nil)
 	err = state.InitRoundParts(round, test.FeeAddr, test.RewardAddr, 0)
 	require.NoError(t, err)
 
