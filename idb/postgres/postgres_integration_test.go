@@ -954,7 +954,7 @@ func TestInitializationNewDatabase(t *testing.T) {
 	_, ok := <-availableCh
 	assert.False(t, ok)
 
-	state, err := db.getMigrationState(nil)
+	state, err := db.getMigrationState(context.Background(), nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, len(migrations), state.NextMigration)

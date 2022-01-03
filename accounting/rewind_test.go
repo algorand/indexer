@@ -1,6 +1,7 @@
 package accounting
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -50,7 +51,7 @@ func TestBasic(t *testing.T) {
 	db.On("GetSpecialAccounts").Return(transactions.SpecialAddresses{}, nil)
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(8))
 
-	account, err := AccountAtRound(account, 6, db)
+	account, err := AccountAtRound(context.Background(), account, 6, db)
 	assert.NoError(t, err)
 
 	assert.Equal(t, uint64(98), account.Amount)
@@ -72,6 +73,6 @@ func TestStaleTransactions1(t *testing.T) {
 	db.On("GetSpecialAccounts").Return(transactions.SpecialAddresses{}, nil)
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
 
-	account, err := AccountAtRound(account, 6, db)
+	account, err := AccountAtRound(context.Background(), account, 6, db)
 	assert.True(t, errors.As(err, &ConsistencyError{}), "err: %v", err)
 }

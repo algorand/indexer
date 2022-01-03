@@ -29,7 +29,7 @@ func MakeMigrationMiddleware(idb idb.IndexerDb) echo.MiddlewareFunc {
 // handler returns a 500 if the IndexerDb is migrating.
 func (mm *MigrationMiddleware) handler(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(ctx echo.Context) error {
-		h, err := mm.idb.Health()
+		h, err := mm.idb.Health(ctx.Request().Context())
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, fmt.Sprintf("Indexer health error: %s", err))
 		}
