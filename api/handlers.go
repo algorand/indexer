@@ -342,7 +342,7 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 	}
 
 	// Fetch the transactions
-	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
+	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter, true)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errTransactionSearch, err))
 	}
@@ -522,7 +522,7 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 	}
 
 	// Fetch the transactions
-	txns, _, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
+	txns, _, round, err := si.fetchTransactions(ctx.Request().Context(), filter, false)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errTransactionSearch, err))
 	}
@@ -557,7 +557,7 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 	}
 
 	// Fetch the transactions
-	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
+	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter, false)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errTransactionSearch, err))
 	}
@@ -796,7 +796,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 
 		results := make([]generated.Transaction, 0)
 		for _, txrow := range transactions {
-			tx, err := txnRowToTransaction(txrow)
+			tx, err := txnRowToTransaction(txrow, false)
 			if err != nil {
 				return err
 			}
@@ -862,7 +862,8 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 }
 
 // fetchTransactions is used to query the backend for transactions, and compute the next token
-func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, uint64 /*round*/, error) {
+// If returnInnerTxn is false, then the root txn is returned for a inner txn match.
+func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter, returnInnerTxn bool) ([]generated.Transaction, string, uint64 /*round*/, error) {
 	var round uint64
 	var nextToken string
 	results := make([]generated.Transaction, 0)
@@ -871,9 +872,9 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 		txchan, round = si.db.Transactions(ctx, filter)
 
 		rootTxnDedupeMap := make(map[string]struct{})
-		var txrow idb.TxnRow
-		for txrow = range txchan {
-			tx, err := txnRowToTransaction(txrow)
+		var lastTxrow idb.TxnRow
+		for txrow := range txchan {
+			tx, err := txnRowToTransaction(txrow, returnInnerTxn)
 			if err != nil {
 				return err
 			}
@@ -890,6 +891,7 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 
 			rootTxnDedupeMap[*tx.Id] = struct{}{}
 			results = append(results, tx)
+			lastTxrow = txrow
 		}
 
 		// No next token if there were no results.
@@ -899,7 +901,7 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 
 		// The sort order depends on whether the address filter is used.
 		var err error
-		nextToken, err = txrow.Next(filter.Address == nil)
+		nextToken, err = lastTxrow.Next(filter.Address == nil)
 
 		return err
 	})

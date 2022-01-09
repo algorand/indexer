@@ -343,3 +343,94 @@ func TestVersion(t *testing.T) {
 	// This is weird looking because the version is set with -ldflags
 	require.Equal(t, response.Version, "(unknown version)")
 }
+
+// TestLookupInnerLogs runs queries for logs given application ids,
+// and checks that logs in inner transactions match properly.
+func TestLookupInnerLogs(t *testing.T) {
+	var appAddr basics.Address
+	appAddr[1] = 99
+	// appAddrStr := appAddr.String()
+
+	params := generated.LookupApplicationLogsByIDParams{}
+
+	testcases := []struct {
+		name  string
+		appID uint64
+		logs  []string
+	}{
+		{
+			name:  "match on root",
+			appID: 123,
+			logs: []string{
+				"testing outer appl log",
+				"app 123 log",
+			},
+		},
+		{
+			name:  "match on inner",
+			appID: 789,
+			logs: []string{
+				"testing inner log",
+				"appId 789 log",
+			},
+		},
+		{
+			name:  "match on inner-inner",
+			appID: 999,
+			logs: []string{
+				"testing inner-inner log",
+				"appId 999 log",
+			},
+		},
+	}
+
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // a DB with some inner txns in it.
+	///////////
+	appCall := test.MakeAppCallWithInnerAppCall(test.AccountA)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err, "failed to commit")
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			//////////
+			// When // we run a query that queries logs based on appID
+			//////////
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetPath("/v2/applications/:appIdx/logs")
+			c.SetParamNames("appIdx")
+			c.SetParamValues(fmt.Sprintf("%d", tc.appID))
+
+			api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+			err = api.LookupApplicationLogsByID(c, tc.appID, params)
+			require.NoError(t, err)
+
+			//////////
+			// Then // The result is the log from the app
+			//////////
+			var response generated.ApplicationLogsResponse
+			require.Equal(t, http.StatusOK, rec.Code)
+			json.Decode(rec.Body.Bytes(), &response)
+			require.NoError(t, err)
+
+			require.Equal(t, uint64(tc.appID), response.ApplicationId)
+			require.NotNil(t, response.LogData)
+			ld := *response.LogData
+			require.Equal(t, 1, len(ld))
+			require.Equal(t, len(tc.logs), len(ld[0].Logs))
+			for i, log := range ld[0].Logs {
+				require.Equal(t, []byte(tc.logs[i]), log)
+			}
+		})
+	}
+}

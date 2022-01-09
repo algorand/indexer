@@ -1394,12 +1394,12 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	// App call with inner txns, should be intra 0, 1, 2, 3
+	// App call with inner txns, should be intra 0, 1, 2, 3, 4
 	var appAddr basics.Address
 	appAddr[1] = 99
 	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
-	// Asset create call, should have intra = 4
+	// Asset create call, should have intra = 5
 	assetCreate := test.MakeAssetConfigTxn(
 		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountD)
 
@@ -1421,13 +1421,13 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 
 	// Verify that intra is correctly assigned
 	for i, tx := range txns {
-		require.Equal(t, i, tx.intra, "Intra should be assigned 0 - 3.")
+		require.Equal(t, i, tx.intra, "Intra should be assigned 0 - 4.")
 	}
 
 	// Verify correct order of transaction types.
 	require.Equal(t, idb.TypeEnumApplication, txns[0].typeenum)
 	require.Equal(t, idb.TypeEnumPay, txns[1].typeenum)
-	require.Equal(t, idb.TypeEnumPay, txns[2].typeenum)
+	require.Equal(t, idb.TypeEnumApplication, txns[2].typeenum)
 	require.Equal(t, idb.TypeEnumAssetTransfer, txns[3].typeenum)
 	require.Equal(t, idb.TypeEnumApplication, txns[4].typeenum)
 	require.Equal(t, idb.TypeEnumAssetConfig, txns[5].typeenum)
@@ -1451,6 +1451,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
+	require.Equal(t, 789, txns[4].asset, "intra == 4 -> ApplicationID = 789")
 	require.Equal(t, 6, txns[5].asset, "intra == 5 -> AssetID = 6")
 
 	// Verify txn participation
@@ -1493,11 +1494,6 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 		// Inner pay transaction 2
 		{
 			addr:  appAddr,
-			round: 1,
-			intra: 2,
-		},
-		{
-			addr:  test.AccountB,
 			round: 1,
 			intra: 2,
 		},

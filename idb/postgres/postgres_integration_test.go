@@ -1513,13 +1513,13 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 		filter  idb.TransactionFilter
 	}{
 		{
-			name:    "match on root and inner-inner",
-			matches: 2,
+			name:    "match on root and inner-inners",
+			matches: 4,
 			filter:  idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication},
 		},
 		{
 			name:    "match on inner",
-			matches: 2,
+			matches: 1,
 			filter:  idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay},
 		},
 		{
@@ -1586,7 +1586,8 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	}
 }
 
-// TestNonUTF8Logs makes sure we're able to import cheeky logs.
+// TestNonUTF8Logs makes sure we're able to import cheeky logs
+// for both the root and inner transactions.
 func TestNonUTF8Logs(t *testing.T) {
 	tests := []struct {
 		Name string
@@ -1620,6 +1621,28 @@ func TestNonUTF8Logs(t *testing.T) {
 			createAppTxn := test.MakeCreateAppTxn(test.AccountA)
 			createAppTxn.ApplyData.EvalDelta = transactions.EvalDelta{
 				Logs: testcase.Logs,
+				InnerTxns: []transactions.SignedTxnWithAD{
+					// Inner application call with nested cheeky logs
+					{
+						SignedTxn: transactions.SignedTxn{
+							Txn: transactions.Transaction{
+								Type: protocol.ApplicationCallTx,
+								Header: transactions.Header{
+									Sender: test.AccountA,
+								},
+								ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+									ApplicationID: 789,
+									OnCompletion:  transactions.NoOpOC,
+								},
+							},
+						},
+						ApplyData: transactions.ApplyData{
+							EvalDelta: transactions.EvalDelta{
+								Logs: testcase.Logs,
+							},
+						},
+					},
+				},
 			}
 
 			block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAppTxn)
