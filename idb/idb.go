@@ -67,10 +67,10 @@ func (tr TxnRow) Next(ascending bool) (string, error) {
 	// when ascending add the count of inner transactions.
 	if ascending {
 		var stxn *transactions.SignedTxnWithAD
-		if tr.Txn != nil {
-			stxn = tr.Txn
-		} else {
+		if tr.RootTxn != nil {
 			stxn = tr.RootTxn
+		} else {
+			stxn = tr.Txn
 		}
 
 		if stxn == nil {

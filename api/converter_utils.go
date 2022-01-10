@@ -257,6 +257,8 @@ func txnRowToTransaction(row idb.TxnRow, returnInnerTxn bool) (generated.Transac
 	var stxn *transactions.SignedTxnWithAD
 	// If we want to return the inner transaction, we keep the root txn to calculate its txid
 	var rootTxn *transactions.SignedTxnWithAD
+	// If returnInnerTxn is true, then return the inner txn and keep the root txn if it exists.
+	// If returnInnerTxn is false, then return the inner txn's root txn if it exists.
 	if returnInnerTxn && row.Txn != nil && row.RootTxn != nil {
 		stxn = row.Txn
 		rootTxn = row.RootTxn

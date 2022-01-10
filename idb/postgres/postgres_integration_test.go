@@ -1557,22 +1557,17 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 			// When: searching for a transaction that matches part of the transaction.
 			results, _ := db.Transactions(context.Background(), tc.filter)
 
-			// Then: only the root transaction should be returned.
+			// Then: the root transaction should be returned.
 			num := 0
 			for result := range results {
 				num++
 				require.NoError(t, result.Error)
 				var stxn *transactions.SignedTxnWithAD
 
-				// Exactly one of Txn and RootTxn must be present.
-				require.True(t, (result.Txn == nil) != (result.RootTxn == nil))
-
-				// Get Txn or RootTxn
-				if result.Txn != nil {
-					stxn = result.Txn
-				}
 				if result.RootTxn != nil {
 					stxn = result.RootTxn
+				} else if result.Txn != nil {
+					stxn = result.Txn
 				}
 
 				// Make sure the root txn is returned.
