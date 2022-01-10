@@ -11,7 +11,7 @@ import (
 )
 
 func TestTxnRowNext(t *testing.T) {
-	// txn with 2 inner transactions and 3 nested inner transactions
+	// txn with 2 inner transactions and 2 nested inner transactions
 	stxn := test.MakeAppCallWithInnerTxn(test.AccountA, test.AccountB, test.AccountC, test.AccountD, test.AccountE)
 
 	testcases := []struct {

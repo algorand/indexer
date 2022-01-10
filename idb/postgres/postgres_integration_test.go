@@ -1032,6 +1032,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 	}
 
 	assetID := uint64(1)
+	innerAssetID := uint64(999)
 
 	for _, testcase := range tests {
 		testcase := testcase
@@ -1045,6 +1046,12 @@ func TestNonDisplayableUTF8(t *testing.T) {
 
 			txn := test.MakeAssetConfigTxn(
 				0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
+			// Try to add cheeky inner txns lazily by adding an AD to the acfg txn
+			txn.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
+				test.MakeAssetConfigTxn(
+					0, math.MaxUint64, 0, false, unit, name, url, test.AccountA),
+			}
+			txn.ApplyData.EvalDelta.InnerTxns[0].ConfigAsset = basics.AssetIndex(innerAssetID)
 			block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 			require.NoError(t, err)
 
@@ -1065,6 +1072,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			require.Equal(t, 1, num)
 
 			// Test 3: transaction results properly serialized
+			// Transaction results also return the inner txn acfg
 			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 			num = 0
 			for row := range txnRows {
@@ -1076,7 +1084,8 @@ func TestNonDisplayableUTF8(t *testing.T) {
 				require.Equal(t, url, row.Txn.Txn.AssetParams.URL)
 				num++
 			}
-			require.Equal(t, 1, num)
+			// Check that the root and inner asset is matched
+			require.Equal(t, 2, num)
 
 			// Test 4: account results should have the correct asset
 			accounts, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAssetParams: true})
