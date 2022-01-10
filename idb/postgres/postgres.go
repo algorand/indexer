@@ -939,7 +939,7 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, r
 			// Root transaction.
 			row.Txn = new(transactions.SignedTxnWithAD)
 			*row.Txn, err = encoding.DecodeSignedTxnWithAD(txn)
-			if err != nil {
+			if row.Error == nil && err != nil {
 				err = fmt.Errorf("error decoding txn, err: %w", err)
 				row.Error = err
 			}
@@ -948,7 +948,7 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, r
 			row.AssetID = asset
 			if len(extra) > 0 {
 				row.Extra, err = encoding.DecodeTxnExtra(extra)
-				if err != nil {
+				if row.Error == nil && err != nil {
 					err = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
 					row.Error = err
 				}
