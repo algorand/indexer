@@ -293,7 +293,7 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 // MakeAppCallWithInnerTxn creates an app call with 3 levels of transactions:
 // application create
 // |- payment
-// |- payment
+// |- application call
 //    |- asset transfer
 //    |- application call
 func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSender, assetReceiver basics.Address) transactions.SignedTxnWithAD {
