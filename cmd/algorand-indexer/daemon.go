@@ -104,9 +104,7 @@ var daemonCmd = &cobra.Command{
 				bot.SetNextRound(nextRound)
 
 				imp := importer.NewImporter(db)
-				handler := func(ctx context.Context, block *rpcs.EncodedBlockCert) error {
-					return handleBlock(block, &imp)
-				}
+				handler := blockHandler(&imp)
 				bot.SetBlockHandler(handler)
 
 				logger.Info("Starting block importer.")
@@ -172,6 +170,29 @@ func makeOptions() (options api.ExtraOptions) {
 	options.ReadTimeout = readTimeout
 
 	return
+}
+
+// blockHandler creates a handler complying to the fetcher block handler interface. In case of a failure it keeps
+// attempting to add the block until the fetcher shuts down.
+func blockHandler(imp *importer.Importer) func(context.Context, *rpcs.EncodedBlockCert) error {
+	return func(ctx context.Context, block *rpcs.EncodedBlockCert) error {
+		for {
+			err := handleBlock(block, imp)
+			if err == nil {
+				// return on success.
+				return nil
+			}
+
+			// Delay or terminate before next attempt.
+			select {
+			case <-ctx.Done():
+				return nil
+				break
+			case <-time.After(1 * time.Second):
+				break
+			}
+		}
+	}
 }
 
 func handleBlock(block *rpcs.EncodedBlockCert, imp *importer.Importer) error {
