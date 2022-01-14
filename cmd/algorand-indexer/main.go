@@ -58,15 +58,15 @@ var rootCmd = &cobra.Command{
 			err = pprof.StartCPUProfile(profFile)
 			maybeFail(err, "%s: start pprof, %v", cpuProfile, err)
 		}
-		if configFile!=""{
-			configs,err:=os.Open(configFile)
+		if configFile != "" {
+			configs, err := os.Open(configFile)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "%v", err)
 				os.Exit(1)
 			}
 			defer configs.Close()
-			err=viper.ReadConfig(configs)
-			if err!=nil{
+			err = viper.ReadConfig(configs)
+			if err != nil {
 				fmt.Fprintf(os.Stderr, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
 				os.Exit(1)
 			}
@@ -97,7 +97,7 @@ var (
 	logLevel       string
 	logFile        string
 	logger         *log.Logger
-	configFile		string
+	configFile     string
 )
 
 func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}) {
