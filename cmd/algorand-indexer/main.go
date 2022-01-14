@@ -58,6 +58,20 @@ var rootCmd = &cobra.Command{
 			err = pprof.StartCPUProfile(profFile)
 			maybeFail(err, "%s: start pprof, %v", cpuProfile, err)
 		}
+		if configFile!=""{
+			configs,err:=os.Open(configFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "%v", err)
+				os.Exit(1)
+			}
+			defer configs.Close()
+			err=viper.ReadConfig(configs)
+			if err!=nil{
+				fmt.Fprintf(os.Stderr, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
+				os.Exit(1)
+			}
+			fmt.Printf("Using configuration file: %s\n", configFile)
+		}
 	},
 	PersistentPostRun: func(cmd *cobra.Command, args []string) {
 		if cpuProfile != "" {
@@ -83,6 +97,7 @@ var (
 	logLevel       string
 	logFile        string
 	logger         *log.Logger
+	configFile		string
 )
 
 func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}) {
@@ -117,6 +132,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")
 	rootCmd.PersistentFlags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
 	rootCmd.PersistentFlags().StringVarP(&pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
+	rootCmd.PersistentFlags().StringVarP(&configFile, "configfile", "c", "", "file path to configuration file (indexer.yml)")
 	rootCmd.PersistentFlags().BoolVarP(&doVersion, "version", "v", false, "print version and exit")
 
 	viper.RegisterAlias("postgres", "postgres-connection-string")
