@@ -186,8 +186,7 @@ func blockHandler(imp *importer.Importer) func(context.Context, *rpcs.EncodedBlo
 			// Delay or terminate before next attempt.
 			select {
 			case <-ctx.Done():
-				return nil
-				break
+				return err
 			case <-time.After(1 * time.Second):
 				break
 			}
