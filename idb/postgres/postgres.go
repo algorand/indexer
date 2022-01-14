@@ -749,8 +749,8 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
 
-	// join in the root transaction
-	query += " LEFT OUTER JOIN txn root ON t.round = root.round AND t.extra->>'root-intra' = root.intra::text"
+	// join in the root transaction if there is one
+	query += " LEFT OUTER JOIN txn root ON t.round = root.round AND (t.extra->>'root-intra')::int = root.intra"
 
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
