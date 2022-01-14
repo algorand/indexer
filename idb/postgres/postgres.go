@@ -80,7 +80,7 @@ func openPostgres(db *pgxpool.Pool, opts idb.IndexerDbOptions, logger *log.Logge
 	var ch chan struct{}
 	// e.g. a user named "readonly" is in the connection string
 	if opts.ReadOnly {
-		migrationState, err := idb.getMigrationState(nil)
+		migrationState, err := idb.getMigrationState(context.Background(), nil)
 		if err != nil {
 			return nil, nil, fmt.Errorf("openPostgres() err: %w", err)
 		}
@@ -563,7 +563,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 		}
 
 		go func() {
-			db.yieldTxnsThreadSimple(ctx, rows, out, nil, nil)
+			db.yieldTxnsThreadSimple(rows, out, nil, nil)
 			close(out)
 		}()
 
@@ -790,7 +790,7 @@ func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.Transactio
 		return
 	}
 
-	db.yieldTxnsThreadSimple(ctx, rows, out, nil, nil)
+	db.yieldTxnsThreadSimple(rows, out, nil, nil)
 }
 
 // Transactions is part of idb.IndexerDB
@@ -861,7 +861,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 	}
 
 	count := 0
-	db.yieldTxnsThreadSimple(ctx, rows, out, &count, &err)
+	db.yieldTxnsThreadSimple(rows, out, &count, &err)
 	if err != nil {
 		return
 	}
@@ -905,10 +905,10 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 		out <- idb.TxnRow{Error: err}
 		return
 	}
-	db.yieldTxnsThreadSimple(ctx, rows, out, nil, nil)
+	db.yieldTxnsThreadSimple(rows, out, nil, nil)
 }
 
-func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, results chan<- idb.TxnRow, countp *int, errp *error) {
+func (db *IndexerDb) yieldTxnsThreadSimple(rows pgx.Rows, results chan<- idb.TxnRow, countp *int, errp *error) {
 	defer rows.Close()
 
 	count := 0
@@ -954,18 +954,14 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, r
 				}
 			}
 		}
-		select {
-		case <-ctx.Done():
-			goto finish
-		case results <- row:
-			if err != nil {
-				if errp != nil {
-					*errp = err
-				}
-				goto finish
+		results <- row
+		if row.Error != nil {
+			if errp != nil {
+				*errp = err
 			}
-			count++
+			goto finish
 		}
+		count++
 	}
 	if err := rows.Err(); err != nil {
 		results <- idb.TxnRow{Error: err}
@@ -1488,13 +1484,9 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.AppsLocalState = &aout
 		}
 
-		select {
-		case req.out <- idb.AccountRow{Account: account}:
-			count++
-			if req.opts.Limit != 0 && count >= req.opts.Limit {
-				return
-			}
-		case <-req.ctx.Done():
+		req.out <- idb.AccountRow{Account: account}
+		count++
+		if req.opts.Limit != 0 && count >= req.opts.Limit {
 			return
 		}
 	}
@@ -1592,7 +1584,6 @@ func addrStr(addr basics.Address) *string {
 }
 
 type getAccountsRequest struct {
-	ctx         context.Context
 	opts        idb.AccountQueryOptions
 	blockheader bookkeeping.BlockHeader
 	query       string
@@ -1656,7 +1647,6 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	// Construct query for fetching accounts...
 	query, whereArgs := db.buildAccountQuery(opts)
 	req := &getAccountsRequest{
-		ctx:         ctx,
 		opts:        opts,
 		blockheader: blockheader,
 		query:       query,
@@ -1879,14 +1869,14 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 		return out, round
 	}
 	go func() {
-		db.yieldAssetsThread(ctx, filter, rows, out)
+		db.yieldAssetsThread(filter, rows, out)
 		close(out)
 		tx.Rollback(ctx)
 	}()
 	return out, round
 }
 
-func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQuery, rows pgx.Rows, out chan<- idb.AssetRow) {
+func (db *IndexerDb) yieldAssetsThread(filter idb.AssetsQuery, rows pgx.Rows, out chan<- idb.AssetRow) {
 	defer rows.Close()
 
 	for rows.Next() {
@@ -1916,11 +1906,7 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			ClosedRound:  closed,
 			Deleted:      deleted,
 		}
-		select {
-		case <-ctx.Done():
-			return
-		case out <- rec:
-		}
+		out <- rec
 	}
 	if err := rows.Err(); err != nil {
 		out <- idb.AssetRow{Error: err}
@@ -1990,14 +1976,14 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 		return out, round
 	}
 	go func() {
-		db.yieldAssetBalanceThread(ctx, rows, out)
+		db.yieldAssetBalanceThread(rows, out)
 		close(out)
 		tx.Rollback(ctx)
 	}()
 	return out, round
 }
 
-func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows pgx.Rows, out chan<- idb.AssetBalanceRow) {
+func (db *IndexerDb) yieldAssetBalanceThread(rows pgx.Rows, out chan<- idb.AssetBalanceRow) {
 	defer rows.Close()
 
 	for rows.Next() {
@@ -2022,11 +2008,7 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows pgx.Rows,
 			CreatedRound: created,
 			Deleted:      deleted,
 		}
-		select {
-		case <-ctx.Done():
-			return
-		case out <- rec:
-		}
+		out <- rec
 	}
 	if err := rows.Err(); err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
@@ -2094,14 +2076,14 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 	}
 
 	go func() {
-		db.yieldApplicationsThread(ctx, rows, out)
+		db.yieldApplicationsThread(rows, out)
 		close(out)
 		tx.Rollback(ctx)
 	}()
 	return out, round
 }
 
-func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows pgx.Rows, out chan idb.ApplicationRow) {
+func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.ApplicationRow) {
 	defer rows.Close()
 
 	for rows.Next() {
@@ -2158,7 +2140,7 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows pgx.Rows,
 }
 
 // Health is part of idb.IndexerDB
-func (db *IndexerDb) Health() (idb.Health, error) {
+func (db *IndexerDb) Health(ctx context.Context) (idb.Health, error) {
 	migrationRequired := false
 	migrating := false
 	blocking := false
@@ -2183,7 +2165,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 		migrating = state.Running
 		blocking = state.Blocking
 	} else {
-		state, err := db.getMigrationState(nil)
+		state, err := db.getMigrationState(ctx, nil)
 		if err != nil {
 			return idb.Health{}, err
 		}
@@ -2194,7 +2176,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 
 	data["migration-required"] = migrationRequired
 
-	round, err := db.getMaxRoundAccounted(context.Background(), nil)
+	round, err := db.getMaxRoundAccounted(ctx, nil)
 
 	// We'll just have to set the round to 0
 	if err == idb.ErrorNotInitialized {
@@ -2212,9 +2194,8 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 }
 
 // GetSpecialAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error) {
-	cache, err := db.getMetastate(
-		context.Background(), nil, schema.SpecialAccountsMetastateKey)
+func (db *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error) {
+	cache, err := db.getMetastate(ctx, nil, schema.SpecialAccountsMetastateKey)
 	if err != nil {
 		return transactions.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
 	}

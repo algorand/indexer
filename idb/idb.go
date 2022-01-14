@@ -166,7 +166,7 @@ type IndexerDb interface {
 
 	// GetNextRoundToAccount returns ErrorNotInitialized if genesis is not loaded.
 	GetNextRoundToAccount() (uint64, error)
-	GetSpecialAccounts() (transactions.SpecialAddresses, error)
+	GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error)
 
 	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []TxnRow, err error)
 
@@ -178,7 +178,7 @@ type IndexerDb interface {
 	AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64)
 	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64)
 
-	Health() (status Health, err error)
+	Health(ctx context.Context) (status Health, err error)
 }
 
 // GetBlockOptions contains the options when requesting to load a block from the database.
