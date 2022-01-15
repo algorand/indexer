@@ -117,8 +117,39 @@ def is_diff_array(da: list) -> bool:
 
 
 def flatten_diff(
-    json_diff: Union[dict, list, int, str, None], blank_diff_path=True
+    json_diff: Union[dict, list, int, str, None],
+    blank_diff_path=True,
+    src: str = None,
+    tgt: str = None,
 ) -> List[str]:
+    if src and (not tgt):
+        tgt = " " * len(src)
+    if tgt and (not src):
+        src = " " * len(tgt)
+    if src:
+        padlen = len(src) - len(tgt)
+        if padlen > 0:
+            tgt += " " * padlen
+        else:
+            src += " " * -padlen
+        tgt += "--->"
+        src += "--->"
+    else:
+        src = tgt = ""
+
+    def dump(stack, jd, src_or_tgt):
+        is_src = src_or_tgt == "src"
+        path = ".".join(map(str, stack))
+        if blank_diff_path and is_src:
+            path = " " * len(path)
+
+        return (
+            (src if is_src else tgt)
+            + path
+            + ":"
+            + json.dumps(jd, separators=(",", ":"))
+        )
+
     def fd(jd, stack=[]) -> list:
         if isinstance(jd, list):
             if not stack or not is_diff_array(jd):
@@ -128,7 +159,7 @@ def flatten_diff(
                 return lines
 
             # WLOG jd is a diff array (except at the top level)
-            return [dump(stack, jd[0], False), dump(stack, jd[1], blank_diff_path)]
+            return [dump(stack, jd[0], "tgt"), dump(stack, jd[1], "src")]
 
         if isinstance(jd, dict):
             lines = []
@@ -139,16 +170,15 @@ def flatten_diff(
         # jd is a simple type:
         return [dump(stack, jd, False)]
 
-    def dump(stack, jd, blanks):
-        path = ".".join(map(str, stack))
-        if blanks:
-            path = " " * len(path)
-        return path + ":" + json.dumps(jd, separators=(",", ":"))
-
     return fd(json_diff)
 
 
 def report_diff(
-    json_diff: Union[dict, list, int, str, None], blank_diff_path=True
+    json_diff: Union[dict, list, int, str, None],
+    blank_diff_path=True,
+    src: str = None,
+    tgt: str = None,
 ) -> str:
-    return "\n".join(flatten_diff(json_diff, blank_diff_path=blank_diff_path))
+    return "\n".join(
+        flatten_diff(json_diff, blank_diff_path=blank_diff_path, src=src, tgt=tgt)
+    )

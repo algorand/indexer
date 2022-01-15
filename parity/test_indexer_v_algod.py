@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 from textwrap import indent
 
-from .json_diff import deep_diff, report_diff
+from .json_diff import deep_diff, flatten_diff, report_diff
 
 BEFORE_MINBALANCE = True
 
@@ -106,6 +106,10 @@ responses.BlockResponse.description:"(empty)"
 """.strip()
 
 
+def fancy_report(diff_json):
+    return report_diff(diff_json, blank_diff_path=True, src="ALGOD", tgt="INDEXER")
+
+
 def test_parity():
     exclude = [
         "basePath",
@@ -157,9 +161,10 @@ def test_parity():
     report = report_diff(expected_overlap_diff_before_minbalance)
     expected_report = expected_overlap_report_before_minbalance
     assert expected_report == report, "mods reports differ"
+
     diff_report = repo / "parity" / "indexer_algod_mods.txt"
     with open(diff_report, "w") as f:
-        f.write(report)
+        f.write(fancy_report(overlap_diff))
 
     # Additions - fields that have been introduced in indexer
     indexer_add_json = deep_diff(
@@ -170,8 +175,8 @@ def test_parity():
         f.write(json.dumps(indexer_add_json, indent=2, sort_keys=True))
 
     diff_report = repo / "parity" / "indexer_algod_adds.txt"
-    with open(diff_json, "w") as f:
-        f.write(report_diff(indexer_add_json))
+    with open(diff_report, "w") as f:
+        f.write(fancy_report(indexer_add_json))
 
     # Removals - fields that have been deleted in indexer
     indexer_remove_json = deep_diff(
@@ -182,8 +187,8 @@ def test_parity():
         f.write(json.dumps(indexer_remove_json, indent=2, sort_keys=True))
 
     diff_report = repo / "parity" / "indexer_algod_removes.txt"
-    with open(diff_json, "w") as f:
-        f.write(report_diff(indexer_remove_json))
+    with open(diff_report, "w") as f:
+        f.write(fancy_report(indexer_remove_json))
 
     # Full Diff - anything that's different
     indexer_full_json = deep_diff(indexer, algod, exclude_keys=exclude, arraysets=True)
@@ -192,5 +197,5 @@ def test_parity():
         f.write(json.dumps(indexer_full_json, indent=2, sort_keys=True))
 
     diff_report = repo / "parity" / "indexer_algod_full_diff.txt"
-    with open(diff_json, "w") as f:
-        f.write(report_diff(indexer_full_json))
+    with open(diff_report, "w") as f:
+        f.write(fancy_report(indexer_full_json))

@@ -1,7 +1,7 @@
 from cmath import exp
 from copy import deepcopy
 
-from json_diff import deep_diff, flatten_diff
+from .json_diff import deep_diff, flatten_diff
 
 
 def test_deep_diff():
@@ -210,6 +210,6 @@ def test_flatten_diff():
     assert expected == actual, f"expected: {expected} v. actual: {actual}"
 
 
-test_deep_diff()
+# test_deep_diff()
 
-test_flatten_diff()
+# test_flatten_diff()
