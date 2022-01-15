@@ -18,9 +18,15 @@ export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 cmd/algorand-indexer/algorand-indexer: idb/postgres/internal/schema/setup_postgres_sql.go go-algorand
 	cd cmd/algorand-indexer && go build -ldflags="${GOLDFLAGS}"
 
-go-algorand:
-	git submodule update --init && cd third_party/go-algorand && \
+# TODO: allow specifying the branch
+go-algorand-submodule:
+	git submodule update --init --force --remote
+
+go-algorand-build:
+	cd third_party/go-algorand && \
 		make crypto/libs/`scripts/ostype.sh`/`scripts/archtype.sh`/lib/libsodium.a
+
+go-algorand: go-algorand-submodule go-algorand-build
 
 idb/postgres/internal/schema/setup_postgres_sql.go:	idb/postgres/internal/schema/setup_postgres.sql
 	cd idb/postgres/internal/schema && go generate
