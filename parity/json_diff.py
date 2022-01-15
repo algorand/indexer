@@ -1,4 +1,5 @@
 from copy import deepcopy
+import json
 from typing import List, Union
 
 L, R = "left", "right"
@@ -97,3 +98,57 @@ def deep_diff(
         return None if all(map(lambda x: x is None, d)) else d
 
     return dd(x, y)
+
+
+def is_diff_array(da: list) -> bool:
+    if len(da) != 2 or da == [None, None]:
+        return False
+
+    if None in da:
+        return True
+
+    def all_of_type(xs, t):
+        return all(map(lambda x: isinstance(x, t), xs))
+
+    if all_of_type(da, list) or all_of_type(da, dict):
+        return False
+
+    return True
+
+
+def flatten_diff(
+    json_diff: Union[dict, list, int, str, None], blank_diff_path=True
+) -> List[str]:
+    def fd(jd, stack=[]) -> list:
+        if isinstance(jd, list):
+            if not stack or not is_diff_array(jd):
+                lines = []
+                for i, x in enumerate(jd):
+                    lines.extend(fd(x, stack + [i]))
+                return lines
+
+            # WLOG jd is a diff array (except at the top level)
+            return [dump(stack, jd[0], False), dump(stack, jd[1], blank_diff_path)]
+
+        if isinstance(jd, dict):
+            lines = []
+            for k, v in jd.items():
+                lines.extend(fd(v, stack + [k]))
+            return lines
+
+        # jd is a simple type:
+        return [dump(stack, jd, False)]
+
+    def dump(stack, jd, blanks):
+        path = ".".join(map(str, stack))
+        if blanks:
+            path = " " * len(path)
+        return path + ":" + json.dumps(jd, separators=(",", ":"))
+
+    return fd(json_diff)
+
+
+def report_diff(
+    json_diff: Union[dict, list, int, str, None], blank_diff_path=True
+) -> str:
+    return "\n".join(flatten_diff(json_diff, blank_diff_path=blank_diff_path))
