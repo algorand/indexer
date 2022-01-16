@@ -133,6 +133,7 @@ def flatten_diff(
     blank_diff_path=True,
     src: str = None,
     tgt: str = None,
+    spacer: str = None,
 ) -> List[str]:
     if src and (not tgt):
         tgt = " " * len(src)
@@ -182,7 +183,17 @@ def flatten_diff(
         # jd is a simple type:
         return [dump(stack, jd, False)]
 
-    return fd(json_diff)
+    def insert_spacer(pairs):
+        res = []
+        n = len(pairs)
+        for i in range(n // 2):
+            res.extend([pairs[2 * i], pairs[2 * i + 1], spacer])
+        if 2 * i + 2 < n:
+            res.append(pairs[2 * i + 2])
+        return res
+
+    pairs = fd(json_diff)
+    return insert_spacer(pairs) if spacer else pairs
 
 
 def report_diff(
@@ -190,8 +201,9 @@ def report_diff(
     blank_diff_path=True,
     src: str = None,
     tgt: str = None,
+    spacer: str = None,
 ) -> Tuple[str, int]:
     flattened = flatten_diff(
-        json_diff, blank_diff_path=blank_diff_path, src=src, tgt=tgt
+        json_diff, blank_diff_path=blank_diff_path, src=src, tgt=tgt, spacer=spacer
     )
     return "\n".join(flattened), len(flattened) / 2

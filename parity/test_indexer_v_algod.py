@@ -8,7 +8,9 @@ BEFORE_MINBALANCE = True
 
 
 def fancy_report(diff_json):
-    return report_diff(diff_json, blank_diff_path=True, src="ALGOD", tgt="INDEXER")
+    return report_diff(
+        diff_json, blank_diff_path=True, src="ALGOD", tgt="INDEXER", spacer="-" * 89
+    )
 
 
 def generate_report(folder, base_name, diff):
