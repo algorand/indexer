@@ -134,7 +134,9 @@ def flatten_diff(
     src: str = None,
     tgt: str = None,
     spacer: str = None,
-) -> List[str]:
+    extra_lines: int = 0,
+    must_be_even: bool = False,
+) -> Tuple[List[str], int]:
     if src and (not tgt):
         tgt = " " * len(src)
     if tgt and (not src):
@@ -192,18 +194,26 @@ def flatten_diff(
             return f"{fw_src} has attribute missing from {fw_tgt}  "
         return f"{fw_src} and {fw_tgt} disagree on an attribute"
 
-    def insert_spacer(pairs):
+    def insert_spacers(pairs):
         res = []
         n = len(pairs)
+        i = -1
         for i in range(n // 2):
             target, source = pairs[2 * i], pairs[2 * i + 1]
-            res.extend([spacer.format(analysis(target, source)), target, source])
-        if 2 * i + 2 < n:
+            group = [spacer.format(analysis(target, source))] if spacer else []
+            group += [target, source]
+            for _ in range(extra_lines):
+                group.append("")
+            res.extend(group)
+        if must_be_even:
+            assert 2 * i + 2 == n, "oops, we have an odd number of lines!!!"
+        elif 2 * i + 2 < n:
             res.append(pairs[2 * i + 2])
+
         return res
 
     pairs = fd(json_diff)
-    return insert_spacer(pairs) if spacer else pairs
+    return insert_spacers(pairs), len(pairs)
 
 
 def report_diff(
@@ -212,8 +222,16 @@ def report_diff(
     src: str = None,
     tgt: str = None,
     spacer: str = None,
+    extra_lines: int = 0,
+    must_be_even: bool = False,
 ) -> Tuple[str, int]:
-    flattened = flatten_diff(
-        json_diff, blank_diff_path=blank_diff_path, src=src, tgt=tgt, spacer=spacer
+    flattened, num_diffs = flatten_diff(
+        json_diff,
+        blank_diff_path=blank_diff_path,
+        src=src,
+        tgt=tgt,
+        spacer=spacer,
+        extra_lines=extra_lines,
+        must_be_even=must_be_even,
     )
-    return "\n".join(flattened), len(flattened) / 2
+    return "\n".join(flattened), num_diffs

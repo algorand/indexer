@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 from textwrap import indent
 
-from .json_diff import deep_diff, flatten_diff, report_diff
+from .json_diff import deep_diff, report_diff
 
 BEFORE_MINBALANCE = True
 
@@ -14,6 +14,8 @@ def fancy_report(diff_json):
         src="ALGOD",
         tgt="INDEXER",
         spacer="-" * 30 + "{}" + "-" * 30,
+        extra_lines=2,
+        must_be_even=True,
     )
 
 
@@ -197,3 +199,6 @@ def test_parity():
     # Full Diff - anything that's different
     indexer_full_json = deep_diff(indexer, algod, exclude_keys=exclude, arraysets=True)
     generate_report(reporting, "algod2indexer_all", indexer_full_json)
+
+
+# test_parity()
