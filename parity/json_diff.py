@@ -139,6 +139,8 @@ def flatten_diff(
         tgt = " " * len(src)
     if tgt and (not src):
         src = " " * len(tgt)
+
+    fw_src, fw_tgt = src, tgt
     if src:
         padlen = len(src) - len(tgt)
         if padlen > 0:
@@ -183,11 +185,19 @@ def flatten_diff(
         # jd is a simple type:
         return [dump(stack, jd, False)]
 
+    def analysis(target, source):
+        if source.endswith("null"):
+            return f"{fw_src} missing attribute present in {fw_tgt}"
+        if target.endswith("null"):
+            return f"{fw_src} has attribute missing from {fw_tgt}  "
+        return f"{fw_src} and {fw_tgt} disagree on an attribute"
+
     def insert_spacer(pairs):
         res = []
         n = len(pairs)
         for i in range(n // 2):
-            res.extend([pairs[2 * i], pairs[2 * i + 1], spacer])
+            target, source = pairs[2 * i], pairs[2 * i + 1]
+            res.extend([spacer.format(analysis(target, source)), target, source])
         if 2 * i + 2 < n:
             res.append(pairs[2 * i + 2])
         return res

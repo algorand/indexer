@@ -9,7 +9,11 @@ BEFORE_MINBALANCE = True
 
 def fancy_report(diff_json):
     return report_diff(
-        diff_json, blank_diff_path=True, src="ALGOD", tgt="INDEXER", spacer="-" * 89
+        diff_json,
+        blank_diff_path=True,
+        src="ALGOD",
+        tgt="INDEXER",
+        spacer="-" * 30 + "{}" + "-" * 30,
     )
 
 
