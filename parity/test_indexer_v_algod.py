@@ -2,7 +2,7 @@ from pathlib import Path
 import json
 from textwrap import indent
 
-from .json_diff import deep_diff, report_diff
+from .json_diff import deep_diff, report_diff, diff_summary
 
 BEFORE_MINBALANCE = True
 
@@ -19,7 +19,7 @@ def fancy_report(diff_json):
     )
 
 
-def generate_report(folder, base_name, diff):
+def generate_report(folder, base_name, diff, summary=True):
     diff_path = folder / (base_name + "_diff.json")
     with open(diff_path, "w") as f:
         f.write(json.dumps(diff, indent=2, sort_keys=True))
@@ -30,6 +30,16 @@ def generate_report(folder, base_name, diff):
     with open(report_path, "w") as f:
         f.write(report)
     print(f"\nsaved report with {num_diffs:.0f} diffs to {report_path}")
+
+    if summary:
+        summary_path = folder / (base_name + "_summary.txt")
+        spacer = "_" * 20 + "{0:^30}" + "_" * 20
+        summary, summary_size = diff_summary(
+            diff, src="ALGOD", tgt="INDEXER", spacer=spacer
+        )
+        with open(summary_path, "w") as f:
+            f.write(summary)
+        print(f"\nsaved summary of size {summary_size:.0f} {summary_path}")
 
 
 expected_overlap_diff_before_minbalance = {
@@ -188,17 +198,16 @@ def test_parity():
     indexer_add_json = deep_diff(
         indexer, algod, exclude_keys=exclude, arraysets=True, extras_only="left"
     )
-    generate_report(reporting, "algod2indexer_add", indexer_add_json)
+    generate_report(reporting, "algod2indexer_add", indexer_add_json, summary=False)
 
     # Removals - fields that have been deleted in indexer
     indexer_remove_json = deep_diff(
         indexer, algod, exclude_keys=exclude, arraysets=True, extras_only="right"
     )
-    generate_report(reporting, "algod2indexer_remove", indexer_remove_json)
+    generate_report(
+        reporting, "algod2indexer_remove", indexer_remove_json, summary=False
+    )
 
     # Full Diff - anything that's different
     indexer_full_json = deep_diff(indexer, algod, exclude_keys=exclude, arraysets=True)
     generate_report(reporting, "algod2indexer_all", indexer_full_json)
-
-
-# test_parity()

@@ -1,10 +1,15 @@
 from copy import deepcopy
+from curses.ascii import DEL
 import json
-from typing import List, Union, Tuple
+from typing import Callable, List, Union, Tuple
 from collections import OrderedDict
 
 
 L, R = "left", "right"
+
+REPORT, SUMMARY = "report", "summary"
+
+CONFLICT, DELETION, ADDITION = "conflict", "deletion", "addition"
 
 
 def deep_diff(
@@ -130,6 +135,7 @@ def sort_json(d: Union[dict, list], sort_lists: bool = False):
 
 def flatten_diff(
     json_diff: Union[dict, list, int, str, None],
+    output: Union[REPORT, SUMMARY] = REPORT,
     blank_diff_path=True,
     src: str = None,
     tgt: str = None,
@@ -137,6 +143,18 @@ def flatten_diff(
     extra_lines: int = 0,
     must_be_even: bool = False,
 ) -> Tuple[List[str], int]:
+    """
+    json_diff: output of deep_diff()
+    blank_diff_path: when True, replace the path string for the source with blanks
+    output: when REPORT, show the diffs 2 lines a time, when SUMMARY, just show the path and diff type
+    src: tag for the source JSON file (e.g. "ALGOD")
+    tgt: tag for the target JSON file (e.g. "INDEXER")
+    spacer: formattable heading string to begin each diff pair with (e.g. "----------{}----------")
+    extra_lines: the number of empty lines to put at the end of each diff pair
+    must_be_even: assert that the number of diff lines is even (recommend set True for standard reports)
+    """
+    assert output in (REPORT, SUMMARY), f"encountered unknown output type [{output}]"
+
     if src and (not tgt):
         tgt = " " * len(src)
     if tgt and (not src):
@@ -154,38 +172,18 @@ def flatten_diff(
     else:
         src = tgt = ""
 
+    SUMMARY_SEP = "###$$$###"
+
+    def jdump(jd):
+        return json.dumps(jd, separators=(",", ":"))
+
     def dump(stack, jd, src_or_tgt):
         is_src = src_or_tgt == "src"
         path = ".".join(map(str, stack))
         if blank_diff_path and is_src:
             path = " " * len(path)
 
-        return (
-            (src if is_src else tgt)
-            + path
-            + ":"
-            + json.dumps(jd, separators=(",", ":"))
-        )
-
-    def fd(jd, stack=[]) -> list:
-        if isinstance(jd, list):
-            if not stack or not is_diff_array(jd):
-                lines = []
-                for i, x in enumerate(jd):
-                    lines.extend(fd(x, stack + [i]))
-                return lines
-
-            # WLOG jd is a diff array (except at the top level)
-            return [dump(stack, jd[0], "tgt"), dump(stack, jd[1], "src")]
-
-        if isinstance(jd, dict):
-            lines = []
-            for k, v in jd.items():
-                lines.extend(fd(v, stack + [k]))
-            return lines
-
-        # jd is a simple type:
-        return [dump(stack, jd, False)]
+        return (src if is_src else tgt) + path + ":" + jdump(jd)
 
     def analysis(target, source):
         if source.endswith("null"):
@@ -212,8 +210,72 @@ def flatten_diff(
 
         return res
 
-    pairs = fd(json_diff)
-    return insert_spacers(pairs), len(pairs)
+    def report_grouper(stack: List[str], diff_array: Tuple["tgt", "src"]) -> List[str]:
+        """
+        lambda that plugs into fd() for diff reports.
+        type-hint for diff_array is a complete lie, but gets the point across
+        """
+        return [dump(stack, diff_array[0], "tgt"), dump(stack, diff_array[1], "src")]
+
+    def summary_grouper(
+        stack: List[str], diff_array: Tuple["tgt", "src"]
+    ) -> List[Tuple[str, str]]:
+        """
+        lambda that plugs into fd() for summary reports.
+        type-hint for diff_array is a complete lie, but gets the point across
+        Returns: (path-summary, diff-type)
+        """
+        assert not (
+            diff_array[0] is None and diff_array[1] is None
+        ), "When both values are None, this shouldn't be treated as a diff-array"
+        diff_type = CONFLICT
+        if diff_array[0] is None:
+            diff_type = DELETION
+        elif diff_array[1] is None:
+            diff_type = ADDITION
+
+        pref = ".".join(map(str, stack))
+        if diff_type == CONFLICT:
+            stub = " " * len(pref)
+            tgt_line = f"{pref}:{tgt}{jdump(diff_array[0])}"
+            src_line = f"{stub}:{src}{jdump(diff_array[1])}"
+            summary = tgt_line + "\n" + src_line
+        else:
+            suffidx = int(diff_type == DELETION)
+            mid = src if diff_type == DELETION else tgt
+            summary = f"{pref}:{mid}{jdump(diff_array[suffidx])}"
+        return [diff_type + SUMMARY_SEP + summary]
+
+    def fd(jd, grouper: Callable, stack=[]) -> list:
+        if isinstance(jd, list):
+            if not stack or not is_diff_array(jd):
+                lines = []
+                for i, x in enumerate(jd):
+                    lines.extend(fd(x, grouper, stack + [i]))
+                return lines
+
+            # WLOG jd is a diff array (except at the top level)
+            return grouper(stack, jd)
+
+        if isinstance(jd, dict):
+            lines = []
+            for k, v in jd.items():
+                lines.extend(fd(v, grouper, stack + [k]))
+            return lines
+
+        # jd is a simple type:
+        return [dump(stack, jd, False)]
+
+    if output == REPORT:
+        pairs = fd(json_diff, report_grouper)
+        return insert_spacers(pairs), len(pairs)
+
+    assert (
+        output == SUMMARY
+    ), "should have had a better check at the top of the function"
+    summaries = fd(json_diff, summary_grouper)
+    summaries = [line.split(SUMMARY_SEP) for line in summaries]
+    return summaries, len(summaries)
 
 
 def report_diff(
@@ -235,3 +297,37 @@ def report_diff(
         must_be_even=must_be_even,
     )
     return "\n".join(flattened), num_diffs
+
+
+def diff_summary(
+    json_diff: Union[dict, list, int, str, None],
+    src: str = None,
+    tgt: str = None,
+    spacer: str = None,
+) -> Tuple[str, int]:
+    diffs, diff_count = flatten_diff(json_diff, output=SUMMARY, src=src, tgt=tgt)
+    conflicts = [line for diff_type, line in diffs if diff_type == CONFLICT]
+    additions = [line for diff_type, line in diffs if diff_type == ADDITION]
+    deletions = [line for diff_type, line in diffs if diff_type == DELETION]
+    total_mods = len(conflicts) + len(additions) + len(deletions)
+    assert (
+        diff_count == total_mods
+    ), f"WOOPS - inconsistent diff count: {total_mods} != {diff_count}"
+
+    def heading(diff_type):
+        insert = f"{len(conflicts)} Conflicting Attributes"
+        if diff_type == DELETION:
+            insert = f"{len(deletions)} Deleted Attributes"
+        elif diff_type == ADDITION:
+            insert = f"{len(additions)} New Attributes"
+        return spacer.format(insert) if spacer else insert
+
+    lines = []
+    lines.append(heading(ADDITION))
+    lines.extend(additions)
+    lines.append(heading(DELETION))
+    lines.extend(deletions)
+    lines.append(heading(CONFLICT))
+    lines.extend(conflicts)
+
+    return "\n".join(lines), diff_count
