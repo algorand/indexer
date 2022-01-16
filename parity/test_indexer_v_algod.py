@@ -6,6 +6,24 @@ from .json_diff import deep_diff, flatten_diff, report_diff
 
 BEFORE_MINBALANCE = True
 
+
+def fancy_report(diff_json):
+    return report_diff(diff_json, blank_diff_path=True, src="ALGOD", tgt="INDEXER")
+
+
+def generate_report(folder, base_name, diff):
+    diff_path = folder / (base_name + "_diff.json")
+    with open(diff_path, "w") as f:
+        f.write(json.dumps(diff, indent=2, sort_keys=True))
+    print(f"\nsaved diff to {diff_path}")
+
+    report_path = folder / (base_name + "_human.txt")
+    report, num_diffs = fancy_report(diff)
+    with open(report_path, "w") as f:
+        f.write(report)
+    print(f"\nsaved report with {num_diffs:.0f} diffs to {report_path}")
+
+
 expected_overlap_diff_before_minbalance = {
     "definitions": {
         "Account": {
@@ -106,10 +124,6 @@ responses.BlockResponse.description:"(empty)"
 """.strip()
 
 
-def fancy_report(diff_json):
-    return report_diff(diff_json, blank_diff_path=True, src="ALGOD", tgt="INDEXER")
-
-
 def test_parity():
     exclude = [
         "basePath",
@@ -126,6 +140,8 @@ def test_parity():
         "x-go-name",
     ]
     repo = Path.cwd()
+    reporting = repo / "parity" / "reports"
+
     indexer_json = repo / "api" / "indexer.oas2.json"
     algod_json = (
         repo
@@ -158,44 +174,20 @@ def test_parity():
     diff_of_diffs = deep_diff(expected_diff, overlap_diff)
     assert diff_of_diffs is None, diff_of_diffs
 
-    report = report_diff(expected_overlap_diff_before_minbalance)
-    expected_report = expected_overlap_report_before_minbalance
-    assert expected_report == report, "mods reports differ"
-
-    diff_report = repo / "parity" / "indexer_algod_mods.txt"
-    with open(diff_report, "w") as f:
-        f.write(fancy_report(overlap_diff))
+    generate_report(reporting, "algod2indexer_mods", overlap_diff)
 
     # Additions - fields that have been introduced in indexer
     indexer_add_json = deep_diff(
         indexer, algod, exclude_keys=exclude, arraysets=True, extras_only="left"
     )
-    diff_json = repo / "parity" / "indexer_algod_adds.json"
-    with open(diff_json, "w") as f:
-        f.write(json.dumps(indexer_add_json, indent=2, sort_keys=True))
-
-    diff_report = repo / "parity" / "indexer_algod_adds.txt"
-    with open(diff_report, "w") as f:
-        f.write(fancy_report(indexer_add_json))
+    generate_report(reporting, "algod2indexer_add", indexer_add_json)
 
     # Removals - fields that have been deleted in indexer
     indexer_remove_json = deep_diff(
         indexer, algod, exclude_keys=exclude, arraysets=True, extras_only="right"
     )
-    diff_json = repo / "parity" / "indexer_algod_removes.json"
-    with open(diff_json, "w") as f:
-        f.write(json.dumps(indexer_remove_json, indent=2, sort_keys=True))
-
-    diff_report = repo / "parity" / "indexer_algod_removes.txt"
-    with open(diff_report, "w") as f:
-        f.write(fancy_report(indexer_remove_json))
+    generate_report(reporting, "algod2indexer_remove", indexer_remove_json)
 
     # Full Diff - anything that's different
     indexer_full_json = deep_diff(indexer, algod, exclude_keys=exclude, arraysets=True)
-    diff_json = repo / "parity" / "indexer_algod_full_diff.json"
-    with open(diff_json, "w") as f:
-        f.write(json.dumps(indexer_full_json, indent=2, sort_keys=True))
-
-    diff_report = repo / "parity" / "indexer_algod_full_diff.txt"
-    with open(diff_report, "w") as f:
-        f.write(fancy_report(indexer_full_json))
+    generate_report(reporting, "algod2indexer_all", indexer_full_json)

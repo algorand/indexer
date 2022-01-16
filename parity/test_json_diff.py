@@ -208,8 +208,3 @@ def test_flatten_diff():
         "                :125",
     ]
     assert expected == actual, f"expected: {expected} v. actual: {actual}"
-
-
-# test_deep_diff()
-
-# test_flatten_diff()

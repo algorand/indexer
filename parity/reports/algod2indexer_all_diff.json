@@ -1,0 +1,2257 @@
+{
+  "definitions": {
+    "Account": {
+      "properties": {
+        "closed-at-round": [
+          {
+            "description": "Round during which this account was most recently closed.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          null
+        ],
+        "created-at-round": [
+          {
+            "description": "Round during which this account first appeared in a transaction.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          null
+        ],
+        "deleted": [
+          {
+            "description": "Whether or not this account is currently closed.",
+            "type": "boolean"
+          },
+          null
+        ],
+        "min-balance": [
+          null,
+          {
+            "description": "MicroAlgo balance required by the account.\n\nThe requirement grows based on asset and application usage.",
+            "type": "integer"
+          }
+        ],
+        "sig-type": {
+          "description": [
+            "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown",
+            "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig"
+          ]
+        }
+      },
+      "required": [
+        [
+          null,
+          "min-balance"
+        ]
+      ]
+    },
+    "Application": {
+      "properties": {
+        "created-at-round": [
+          {
+            "description": "Round when this application was created.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          null
+        ],
+        "deleted": [
+          {
+            "description": "Whether or not this application is currently deleted.",
+            "type": "boolean"
+          },
+          null
+        ],
+        "deleted-at-round": [
+          {
+            "description": "Round when this application was deleted.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          null
+        ]
+      }
+    },
+    "ApplicationLocalState": {
+      "properties": {
+        "closed-out-at-round": [
+          {
+            "description": "Round when account closed out of the application.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          null
+        ],
+        "deleted": [
+          {
+            "description": "Whether or not the application local state is currently deleted from its account.",
+            "type": "boolean"
+          },
+          null
+        ],
+        "opted-in-at-round": [
+          {
+            "description": "Round when the account opted into the application.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          null
+        ]
+      }
+    },
+    "ApplicationLogData": [
+      {
+        "description": "Stores the global information associated with an application.",
+        "properties": {
+          "logs": {
+            "description": "\\[lg\\] Logs for the application being executed by the transaction.",
+            "items": {
+              "format": "byte",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "txid": {
+            "description": "Transaction ID",
+            "type": "string"
+          }
+        },
+        "required": [
+          "txid",
+          "logs"
+        ],
+        "type": "object"
+      },
+      null
+    ],
+    "ApplicationParams": {
+      "properties": {
+        "global-state-schema": {
+          "description": [
+            "[\\lsch\\] global schema",
+            "[\\gsch\\] global schema"
+          ]
+        }
+      },
+      "required": [
+        [
+          null,
+          "creator"
+        ]
+      ]
+    },
+    "Asset": {
+      "properties": {
+        "created-at-round": [
+          {
+            "description": "Round during which this asset was created.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          null
+        ],
+        "deleted": [
+          {
+            "description": "Whether or not this asset is currently deleted.",
+            "type": "boolean"
+          },
+          null
+        ],
+        "destroyed-at-round": [
+          {
+            "description": "Round during which this asset was destroyed.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          null
+        ]
+      }
+    },
+    "AssetHolding": {
+      "properties": {
+        "deleted": [
+          {
+            "description": "Whether or not the asset holding is currently deleted from its account.",
+            "type": "boolean"
+          },
+          null
+        ],
+        "opted-in-at-round": [
+          {
+            "description": "Round during which the account opted into this asset holding.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          null
+        ],
+        "opted-out-at-round": [
+          {
+            "description": "Round during which the account opted out of this asset holding.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          null
+        ]
+      }
+    },
+    "Block": [
+      {
+        "description": "Block information.\n\nDefinition:\ndata/bookkeeping/block.go : Block",
+        "properties": {
+          "genesis-hash": {
+            "description": "\\[gh\\] hash to which this block belongs.",
+            "format": "byte",
+            "type": "string"
+          },
+          "genesis-id": {
+            "description": "\\[gen\\] ID to which this block belongs.",
+            "type": "string"
+          },
+          "previous-block-hash": {
+            "description": "\\[prev\\] Previous block hash.",
+            "format": "byte",
+            "type": "string"
+          },
+          "rewards": {
+            "$ref": "#/definitions/BlockRewards"
+          },
+          "round": {
+            "description": "\\[rnd\\] Current round on which this block was appended to the chain.",
+            "type": "integer"
+          },
+          "seed": {
+            "description": "\\[seed\\] Sortition seed.",
+            "format": "byte",
+            "type": "string"
+          },
+          "timestamp": {
+            "description": "\\[ts\\] Block creation timestamp in seconds since eposh",
+            "type": "integer"
+          },
+          "transactions": {
+            "description": "\\[txns\\] list of transactions corresponding to a given round.",
+            "items": {
+              "$ref": "#/definitions/Transaction"
+            },
+            "type": "array"
+          },
+          "transactions-root": {
+            "description": "\\[txn\\] TransactionsRoot authenticates the set of transactions appearing in the block. More specifically, it's the root of a merkle tree whose leaves are the block's Txids, in lexicographic order. For the empty block, it's 0. Note that the TxnRoot does not authenticate the signatures on the transactions, only the transactions themselves. Two blocks with the same transactions but in a different order and with different signatures will have the same TxnRoot.",
+            "format": "byte",
+            "type": "string"
+          },
+          "txn-counter": {
+            "description": "\\[tc\\] TxnCounter counts the number of transactions committed in the ledger, from the time at which support for this feature was introduced.\n\nSpecifically, TxnCounter is the number of the next transaction that will be committed after this block.  It is 0 when no transactions have ever been committed (since TxnCounter started being supported).",
+            "type": "integer"
+          },
+          "upgrade-state": {
+            "$ref": "#/definitions/BlockUpgradeState"
+          },
+          "upgrade-vote": {
+            "$ref": "#/definitions/BlockUpgradeVote"
+          }
+        },
+        "required": [
+          "round",
+          "previous-block-hash",
+          "seed",
+          "transactions-root",
+          "timestamp",
+          "genesis-id",
+          "genesis-hash"
+        ],
+        "type": "object"
+      },
+      null
+    ],
+    "BlockRewards": [
+      {
+        "description": "Fields relating to rewards,",
+        "properties": {
+          "fee-sink": {
+            "description": "\\[fees\\] accepts transaction fees, it can only spend to the incentive pool.",
+            "type": "string"
+          },
+          "rewards-calculation-round": {
+            "description": "\\[rwcalr\\] number of leftover MicroAlgos after the distribution of rewards-rate MicroAlgos for every reward unit in the next round.",
+            "type": "integer"
+          },
+          "rewards-level": {
+            "description": "\\[earn\\] How many rewards, in MicroAlgos, have been distributed to each RewardUnit of MicroAlgos since genesis.",
+            "type": "integer"
+          },
+          "rewards-pool": {
+            "description": "\\[rwd\\] accepts periodic injections from the fee-sink and continually redistributes them as rewards.",
+            "type": "string"
+          },
+          "rewards-rate": {
+            "description": "\\[rate\\] Number of new MicroAlgos added to the participation stake from rewards at the next round.",
+            "type": "integer"
+          },
+          "rewards-residue": {
+            "description": "\\[frac\\] Number of leftover MicroAlgos after the distribution of RewardsRate/rewardUnits MicroAlgos for every reward unit in the next round.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fee-sink",
+          "rewards-pool",
+          "rewards-level",
+          "rewards-rate",
+          "rewards-residue",
+          "rewards-calculation-round"
+        ],
+        "type": "object"
+      },
+      null
+    ],
+    "BlockUpgradeState": [
+      {
+        "description": "Fields relating to a protocol upgrade.",
+        "properties": {
+          "current-protocol": {
+            "description": "\\[proto\\] The current protocol version.",
+            "type": "string"
+          },
+          "next-protocol": {
+            "description": "\\[nextproto\\] The next proposed protocol version.",
+            "type": "string"
+          },
+          "next-protocol-approvals": {
+            "description": "\\[nextyes\\] Number of blocks which approved the protocol upgrade.",
+            "type": "integer"
+          },
+          "next-protocol-switch-on": {
+            "description": "\\[nextswitch\\] Round on which the protocol upgrade will take effect.",
+            "type": "integer"
+          },
+          "next-protocol-vote-before": {
+            "description": "\\[nextbefore\\] Deadline round for this protocol upgrade (No votes will be consider after this round).",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "current-protocol"
+        ],
+        "type": "object"
+      },
+      null
+    ],
+    "BlockUpgradeVote": [
+      {
+        "description": "Fields relating to voting for a protocol upgrade.",
+        "properties": {
+          "upgrade-approve": {
+            "description": "\\[upgradeyes\\] Indicates a yes vote for the current proposal.",
+            "type": "boolean"
+          },
+          "upgrade-delay": {
+            "description": "\\[upgradedelay\\] Indicates the time between acceptance and execution.",
+            "type": "integer"
+          },
+          "upgrade-propose": {
+            "description": "\\[upgradeprop\\] Indicates a proposed upgrade.",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      null
+    ],
+    "BuildVersion": [
+      null,
+      {
+        "properties": {
+          "branch": {
+            "type": "string"
+          },
+          "build_number": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "commit_hash": {
+            "type": "string"
+          },
+          "major": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "minor": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "major",
+          "minor",
+          "build_number",
+          "commit_hash",
+          "branch",
+          "channel"
+        ],
+        "tags": [
+          "common"
+        ],
+        "title": "BuildVersion contains the current algod build version information.",
+        "type": "object"
+      }
+    ],
+    "DryrunRequest": [
+      null,
+      {
+        "description": "Request data type for dryrun endpoint. Given the Transactions and simulated ledger state upload, run TEAL scripts and return debugging information.",
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/definitions/Account"
+            },
+            "type": "array"
+          },
+          "apps": {
+            "items": {
+              "$ref": "#/definitions/Application"
+            },
+            "type": "array"
+          },
+          "latest-timestamp": {
+            "description": "LatestTimestamp is available to some TEAL scripts. Defaults to the latest confirmed timestamp this algod is attached to.",
+            "format": "int64",
+            "type": "integer"
+          },
+          "protocol-version": {
+            "description": "ProtocolVersion specifies a specific version string to operate under, otherwise whatever the current protocol of the network this algod is running in.",
+            "type": "string"
+          },
+          "round": {
+            "description": "Round is available to some TEAL scripts. Defaults to the current round on the network this algod is attached to.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/definitions/DryrunSource"
+            },
+            "type": "array"
+          },
+          "txns": {
+            "items": {
+              "description": "SignedTxn object. Must be canonically encoded.",
+              "format": "json",
+              "type": "string",
+              "x-algorand-format": "SignedTransaction"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "txns",
+          "accounts",
+          "apps",
+          "protocol-version",
+          "round",
+          "latest-timestamp",
+          "sources"
+        ],
+        "type": "object"
+      }
+    ],
+    "DryrunSource": [
+      null,
+      {
+        "description": "DryrunSource is TEAL source text that gets uploaded, compiled, and inserted into transactions or application state.",
+        "properties": {
+          "app-index": {
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "field-name": {
+            "description": "FieldName is what kind of sources this is. If lsig then it goes into the transactions[this.TxnIndex].LogicSig. If approv or clearp it goes into the Approval Program or Clear State Program of application[this.AppIndex].",
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "txn-index": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "field-name",
+          "source",
+          "txn-index",
+          "app-index"
+        ],
+        "type": "object"
+      }
+    ],
+    "DryrunState": [
+      null,
+      {
+        "description": "Stores the TEAL eval step data",
+        "properties": {
+          "error": {
+            "description": "Evaluation error if any",
+            "type": "string"
+          },
+          "line": {
+            "description": "Line number",
+            "type": "integer"
+          },
+          "pc": {
+            "description": "Program counter",
+            "type": "integer"
+          },
+          "scratch": {
+            "items": {
+              "$ref": "#/definitions/TealValue"
+            },
+            "type": "array"
+          },
+          "stack": {
+            "items": {
+              "$ref": "#/definitions/TealValue"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "line",
+          "pc",
+          "stack"
+        ],
+        "type": "object"
+      }
+    ],
+    "DryrunTxnResult": [
+      null,
+      {
+        "description": "DryrunTxnResult contains any LogicSig or ApplicationCall program debug information and state updates from a dryrun.",
+        "properties": {
+          "app-call-messages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "app-call-trace": {
+            "items": {
+              "$ref": "#/definitions/DryrunState"
+            },
+            "type": "array"
+          },
+          "cost": {
+            "description": "Execution cost of app call transaction",
+            "type": "integer"
+          },
+          "disassembly": {
+            "description": "Disassembled program line by line.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "global-delta": {
+            "$ref": "#/definitions/StateDelta"
+          },
+          "local-deltas": {
+            "items": {
+              "$ref": "#/definitions/AccountStateDelta"
+            },
+            "type": "array"
+          },
+          "logic-sig-messages": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "logic-sig-trace": {
+            "items": {
+              "$ref": "#/definitions/DryrunState"
+            },
+            "type": "array"
+          },
+          "logs": {
+            "items": {
+              "format": "byte",
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "disassembly"
+        ],
+        "type": "object"
+      }
+    ],
+    "ErrorResponse": [
+      null,
+      {
+        "description": "An error response with optional data field.",
+        "properties": {
+          "data": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "message"
+        ],
+        "type": "object"
+      }
+    ],
+    "HealthCheck": [
+      {
+        "description": "A health check response.",
+        "properties": {
+          "data": {
+            "type": "object"
+          },
+          "db-available": {
+            "type": "boolean"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "is-migrating": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string"
+          },
+          "round": {
+            "type": "integer"
+          },
+          "version": {
+            "description": "Current version.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "message",
+          "round",
+          "is-migrating",
+          "db-available"
+        ],
+        "type": "object"
+      },
+      null
+    ],
+    "MiniAssetHolding": [
+      {
+        "description": "A simplified version of AssetHolding ",
+        "properties": {
+          "address": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "deleted": {
+            "description": "Whether or not this asset holding is currently deleted from its account.",
+            "type": "boolean"
+          },
+          "is-frozen": {
+            "type": "boolean"
+          },
+          "opted-in-at-round": {
+            "description": "Round during which the account opted into the asset.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "opted-out-at-round": {
+            "description": "Round during which the account opted out of the asset.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          }
+        },
+        "required": [
+          "address",
+          "amount",
+          "is-frozen"
+        ],
+        "type": "object"
+      },
+      null
+    ],
+    "OnCompletion": [
+      {
+        "description": "\\[apan\\] defines the what additional actions occur with the transaction.\n\nValid types:\n* noop\n* optin\n* closeout\n* clear\n* update\n* update\n* delete",
+        "enum": [
+          "noop",
+          "optin",
+          "closeout",
+          "clear",
+          "update",
+          "delete"
+        ],
+        "type": "string"
+      },
+      null
+    ],
+    "ParticipationKey": [
+      null,
+      {
+        "description": "Represents a participation key used by the node.",
+        "properties": {
+          "address": {
+            "description": "Address the key was generated for.",
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "effective-first-valid": {
+            "description": "When registered, this is the first round it may be used.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "effective-last-valid": {
+            "description": "When registered, this is the last round it may be used.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "id": {
+            "description": "The key's ParticipationID.",
+            "type": "string"
+          },
+          "key": {
+            "$ref": "#/definitions/AccountParticipation",
+            "description": "Key information stored on the account."
+          },
+          "last-block-proposal": {
+            "description": "Round when this key was last used to propose a block.",
+            "type": "integer"
+          },
+          "last-state-proof": {
+            "description": "Round when this key was last used to generate a state proof.",
+            "type": "integer"
+          },
+          "last-vote": {
+            "description": "Round when this key was last used to vote.",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "key",
+          "address"
+        ],
+        "type": "object"
+      }
+    ],
+    "PendingTransactionResponse": [
+      null,
+      {
+        "description": "Details about a pending transaction. If the transaction was recently confirmed, includes confirmation details like the round and reward details.",
+        "properties": {
+          "application-index": {
+            "description": "The application index if the transaction was found and it created an application.",
+            "type": "integer"
+          },
+          "asset-closing-amount": {
+            "description": "The number of the asset's unit that were transferred to the close-to address.",
+            "type": "integer"
+          },
+          "asset-index": {
+            "description": "The asset index if the transaction was found and it created an asset.",
+            "type": "integer"
+          },
+          "close-rewards": {
+            "description": "Rewards in microalgos applied to the close remainder to account.",
+            "type": "integer"
+          },
+          "closing-amount": {
+            "description": "Closing amount for the transaction.",
+            "type": "integer"
+          },
+          "confirmed-round": {
+            "description": "The round where this transaction was confirmed, if present.",
+            "type": "integer"
+          },
+          "global-state-delta": {
+            "$ref": "#/definitions/StateDelta",
+            "description": "\\[gd\\] Global state key/value changes for the application being executed by this transaction."
+          },
+          "inner-txns": {
+            "description": "Inner transactions produced by application execution.",
+            "items": {
+              "$ref": "#/definitions/PendingTransactionResponse"
+            },
+            "type": "array"
+          },
+          "local-state-delta": {
+            "description": "\\[ld\\] Local state key/value changes for the application being executed by this transaction.",
+            "items": {
+              "$ref": "#/definitions/AccountStateDelta"
+            },
+            "type": "array"
+          },
+          "logs": {
+            "description": "\\[lg\\] Logs for the application being executed by this transaction.",
+            "items": {
+              "format": "byte",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "pool-error": {
+            "description": "Indicates that the transaction was kicked out of this node's transaction pool (and specifies why that happened).  An empty string indicates the transaction wasn't kicked out of this node's txpool due to an error.\n",
+            "type": "string"
+          },
+          "receiver-rewards": {
+            "description": "Rewards in microalgos applied to the receiver account.",
+            "type": "integer"
+          },
+          "sender-rewards": {
+            "description": "Rewards in microalgos applied to the sender account.",
+            "type": "integer"
+          },
+          "txn": {
+            "description": "The raw signed transaction.",
+            "type": "object",
+            "x-algorand-format": "SignedTransaction"
+          }
+        },
+        "required": [
+          "txn",
+          "pool-error"
+        ],
+        "type": "object"
+      }
+    ],
+    "StateSchema": [
+      {
+        "description": "Represents a \\[apls\\] local-state or \\[apgs\\] global-state schema. These schemas determine how much storage may be used in a local-state or global-state for an application. The more space used, the larger minimum balance must be maintained in the account holding the data.",
+        "properties": {
+          "num-byte-slice": {
+            "description": "Maximum number of TEAL byte slices that may be stored in the key/value store.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "num-uint": {
+            "description": "Maximum number of TEAL uints that may be stored in the key/value store.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          }
+        },
+        "required": [
+          "num-uint",
+          "num-byte-slice"
+        ],
+        "type": "object"
+      },
+      null
+    ],
+    "TealValue": {
+      "properties": {
+        "type": {
+          "description": [
+            "\\[tt\\] value type.",
+            "\\[tt\\] value type. Value `1` refers to **bytes**, value `2` refers to **uint**"
+          ]
+        }
+      }
+    },
+    "Transaction": [
+      {
+        "description": "Contains all fields common to all transactions and serves as an envelope to all transactions type. Represents both regular and inner transactions.\n\nDefinition:\ndata/transactions/signedtxn.go : SignedTxn\ndata/transactions/transaction.go : Transaction\n",
+        "mutually-exclusive": [
+          "application-transaction",
+          "asset-config-transaction",
+          "asset-freeze-transaction",
+          "asset-transfer-transaction",
+          "keyreg-transaction",
+          "payment-transaction"
+        ],
+        "properties": {
+          "application-transaction": {
+            "$ref": "#/definitions/TransactionApplication"
+          },
+          "asset-config-transaction": {
+            "$ref": "#/definitions/TransactionAssetConfig"
+          },
+          "asset-freeze-transaction": {
+            "$ref": "#/definitions/TransactionAssetFreeze"
+          },
+          "asset-transfer-transaction": {
+            "$ref": "#/definitions/TransactionAssetTransfer"
+          },
+          "auth-addr": {
+            "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth addr is equal to the accounts auth addr.",
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "close-rewards": {
+            "description": "\\[rc\\] rewards applied to close-remainder-to account.",
+            "type": "integer"
+          },
+          "closing-amount": {
+            "description": "\\[ca\\] closing amount for transaction.",
+            "type": "integer"
+          },
+          "confirmed-round": {
+            "description": "Round when the transaction was confirmed.",
+            "type": "integer"
+          },
+          "created-application-index": {
+            "description": "Specifies an application index (ID) if an application was created with this transaction.",
+            "type": "integer"
+          },
+          "created-asset-index": {
+            "description": "Specifies an asset index (ID) if an asset was created with this transaction.",
+            "type": "integer"
+          },
+          "fee": {
+            "description": "\\[fee\\] Transaction fee.",
+            "type": "integer"
+          },
+          "first-valid": {
+            "description": "\\[fv\\] First valid round for this transaction.",
+            "type": "integer"
+          },
+          "genesis-hash": {
+            "description": "\\[gh\\] Hash of genesis block.",
+            "format": "byte",
+            "type": "string"
+          },
+          "genesis-id": {
+            "description": "\\[gen\\] genesis block ID.",
+            "type": "string"
+          },
+          "global-state-delta": {
+            "$ref": "#/definitions/StateDelta",
+            "description": "\\[gd\\] Global state key/value changes for the application being executed by this transaction."
+          },
+          "group": {
+            "description": "\\[grp\\] Base64 encoded byte array of a sha512/256 digest. When present indicates that this transaction is part of a transaction group and the value is the sha512/256 hash of the transactions in that group.",
+            "format": "byte",
+            "type": "string"
+          },
+          "id": {
+            "description": "Transaction ID",
+            "type": "string"
+          },
+          "inner-txns": {
+            "description": "Inner transactions produced by application execution.",
+            "items": {
+              "$ref": "#/definitions/Transaction"
+            },
+            "type": "array"
+          },
+          "intra-round-offset": {
+            "description": "Offset into the round where this transaction was confirmed.",
+            "type": "integer"
+          },
+          "keyreg-transaction": {
+            "$ref": "#/definitions/TransactionKeyreg"
+          },
+          "last-valid": {
+            "description": "\\[lv\\] Last valid round for this transaction.",
+            "type": "integer"
+          },
+          "lease": {
+            "description": "\\[lx\\] Base64 encoded 32-byte array. Lease enforces mutual exclusion of transactions.  If this field is nonzero, then once the transaction is confirmed, it acquires the lease identified by the (Sender, Lease) pair of the transaction until the LastValid round passes.  While this transaction possesses the lease, no other transaction specifying this lease can be confirmed.",
+            "format": "byte",
+            "type": "string"
+          },
+          "local-state-delta": {
+            "description": "\\[ld\\] Local state key/value changes for the application being executed by this transaction.",
+            "items": {
+              "$ref": "#/definitions/AccountStateDelta"
+            },
+            "type": "array"
+          },
+          "logs": {
+            "description": "\\[lg\\] Logs for the application being executed by this transaction.",
+            "items": {
+              "format": "byte",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "note": {
+            "description": "\\[note\\] Free form data.",
+            "format": "byte",
+            "type": "string"
+          },
+          "payment-transaction": {
+            "$ref": "#/definitions/TransactionPayment"
+          },
+          "receiver-rewards": {
+            "description": "\\[rr\\] rewards applied to receiver account.",
+            "type": "integer"
+          },
+          "rekey-to": {
+            "description": "\\[rekey\\] when included in a valid transaction, the accounts auth addr will be updated with this value and future signatures must be signed with the key represented by this address.",
+            "type": "string",
+            "x-algorand-format": "Address"
+          },
+          "round-time": {
+            "description": "Time when the block this transaction is in was confirmed.",
+            "type": "integer"
+          },
+          "sender": {
+            "description": "\\[snd\\] Sender's address.",
+            "type": "string"
+          },
+          "sender-rewards": {
+            "description": "\\[rs\\] rewards applied to sender account.",
+            "type": "integer"
+          },
+          "signature": {
+            "$ref": "#/definitions/TransactionSignature"
+          },
+          "tx-type": {
+            "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction",
+            "enum": [
+              "pay",
+              "keyreg",
+              "acfg",
+              "axfer",
+              "afrz",
+              "appl"
+            ],
+            "type": "string",
+            "x-algorand-format": "tx-type-enum"
+          }
+        },
+        "required": [
+          "tx-type",
+          "sender",
+          "fee",
+          "first-valid",
+          "last-valid"
+        ],
+        "type": "object"
+      },
+      null
+    ],
+    "TransactionApplication": [
+      {
+        "description": "Fields for application transactions.\n\nDefinition:\ndata/transactions/application.go : ApplicationCallTxnFields",
+        "properties": {
+          "accounts": {
+            "description": "\\[apat\\] List of accounts in addition to the sender that may be accessed from the application's approval-program and clear-state-program.",
+            "format": "string",
+            "items": {
+              "type": "string",
+              "x-algorand-format": "Address"
+            },
+            "type": "array"
+          },
+          "application-args": {
+            "description": "\\[apaa\\] transaction specific arguments accessed from the application's approval-program and clear-state-program.",
+            "format": "byte",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "application-id": {
+            "description": "\\[apid\\] ID of the application being configured or empty if creating.",
+            "type": "integer"
+          },
+          "approval-program": {
+            "description": "\\[apap\\] Logic executed for every application transaction, except when on-completion is set to \"clear\". It can read and write global state for the application, as well as account-specific local state. Approval programs may reject the transaction.",
+            "format": "byte",
+            "type": "string",
+            "x-algorand-format": "TEALProgram"
+          },
+          "clear-state-program": {
+            "description": "\\[apsu\\] Logic executed for application transactions with on-completion set to \"clear\". It can read and write global state for the application, as well as account-specific local state. Clear state programs cannot reject the transaction.",
+            "format": "byte",
+            "type": "string",
+            "x-algorand-format": "TEALProgram"
+          },
+          "extra-program-pages": {
+            "description": "\\[epp\\] specifies the additional app program len requested in pages.",
+            "type": "integer"
+          },
+          "foreign-apps": {
+            "description": "\\[apfa\\] Lists the applications in addition to the application-id whose global states may be accessed by this application's approval-program and clear-state-program. The access is read-only.",
+            "format": "string",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "foreign-assets": {
+            "description": "\\[apas\\] lists the assets whose parameters may be accessed by this application's ApprovalProgram and ClearStateProgram. The access is read-only.",
+            "format": "string",
+            "items": {
+              "type": "integer"
+            },
+            "type": "array"
+          },
+          "global-state-schema": {
+            "$ref": "#/definitions/StateSchema"
+          },
+          "local-state-schema": {
+            "$ref": "#/definitions/StateSchema"
+          },
+          "on-completion": {
+            "$ref": "#/definitions/OnCompletion"
+          }
+        },
+        "required": [
+          "application-id",
+          "on-completion"
+        ],
+        "type": "object"
+      },
+      null
+    ],
+    "TransactionAssetConfig": [
+      {
+        "description": "Fields for asset allocation, re-configuration, and destruction.\n\n\nA zero value for asset-id indicates asset creation.\nA zero value for the params indicates asset destruction.\n\nDefinition:\ndata/transactions/asset.go : AssetConfigTxnFields",
+        "properties": {
+          "asset-id": {
+            "description": "\\[xaid\\] ID of the asset being configured or empty if creating.",
+            "type": "integer"
+          },
+          "params": {
+            "$ref": "#/definitions/AssetParams"
+          }
+        },
+        "type": "object"
+      },
+      null
+    ],
+    "TransactionAssetFreeze": [
+      {
+        "description": "Fields for an asset freeze transaction.\n\nDefinition:\ndata/transactions/asset.go : AssetFreezeTxnFields",
+        "properties": {
+          "address": {
+            "description": "\\[fadd\\] Address of the account whose asset is being frozen or thawed.",
+            "type": "string"
+          },
+          "asset-id": {
+            "description": "\\[faid\\] ID of the asset being frozen or thawed.",
+            "type": "integer"
+          },
+          "new-freeze-status": {
+            "description": "\\[afrz\\] The new freeze status.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "asset-id",
+          "address",
+          "new-freeze-status"
+        ],
+        "type": "object"
+      },
+      null
+    ],
+    "TransactionAssetTransfer": [
+      {
+        "description": "Fields for an asset transfer transaction.\n\nDefinition:\ndata/transactions/asset.go : AssetTransferTxnFields",
+        "properties": {
+          "amount": {
+            "description": "\\[aamt\\] Amount of asset to transfer. A zero amount transferred to self allocates that asset in the account's Assets map.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "asset-id": {
+            "description": "\\[xaid\\] ID of the asset being transferred.",
+            "type": "integer"
+          },
+          "close-amount": {
+            "description": "Number of assets transfered to the close-to account as part of the transaction.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "close-to": {
+            "description": "\\[aclose\\] Indicates that the asset should be removed from the account's Assets map, and specifies where the remaining asset holdings should be transferred.  It's always valid to transfer remaining asset holdings to the creator account.",
+            "type": "string"
+          },
+          "receiver": {
+            "description": "\\[arcv\\] Recipient address of the transfer.",
+            "type": "string"
+          },
+          "sender": {
+            "description": "\\[asnd\\] The effective sender during a clawback transactions. If this is not a zero value, the real transaction sender must be the Clawback address from the AssetParams.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset-id",
+          "amount",
+          "receiver"
+        ],
+        "type": "object"
+      },
+      null
+    ],
+    "TransactionKeyreg": [
+      {
+        "description": "Fields for a keyreg transaction.\n\nDefinition:\ndata/transactions/keyreg.go : KeyregTxnFields",
+        "properties": {
+          "non-participation": {
+            "description": "\\[nonpart\\] Mark the account as participating or non-participating.",
+            "type": "boolean"
+          },
+          "selection-participation-key": {
+            "description": "\\[selkey\\] Public key used with the Verified Random Function (VRF) result during committee selection.",
+            "format": "byte",
+            "type": "string"
+          },
+          "vote-first-valid": {
+            "description": "\\[votefst\\] First round this participation key is valid.",
+            "type": "integer"
+          },
+          "vote-key-dilution": {
+            "description": "\\[votekd\\] Number of subkeys in each batch of participation keys.",
+            "type": "integer"
+          },
+          "vote-last-valid": {
+            "description": "\\[votelst\\] Last round this participation key is valid.",
+            "type": "integer"
+          },
+          "vote-participation-key": {
+            "description": "\\[votekey\\] Participation public key used in key registration transactions.",
+            "format": "byte",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      null
+    ],
+    "TransactionPayment": [
+      {
+        "description": "Fields for a payment transaction.\n\nDefinition:\ndata/transactions/payment.go : PaymentTxnFields",
+        "properties": {
+          "amount": {
+            "description": "\\[amt\\] number of MicroAlgos intended to be transferred.",
+            "type": "integer"
+          },
+          "close-amount": {
+            "description": "Number of MicroAlgos that were sent to the close-remainder-to address when closing the sender account.",
+            "type": "integer"
+          },
+          "close-remainder-to": {
+            "description": "\\[close\\] when set, indicates that the sending account should be closed and all remaining funds be transferred to this address.",
+            "type": "string"
+          },
+          "receiver": {
+            "description": "\\[rcv\\] receiver's address.",
+            "type": "string"
+          }
+        },
+        "required": [
+          "receiver",
+          "amount"
+        ],
+        "type": "object"
+      },
+      null
+    ],
+    "TransactionSignature": [
+      {
+        "description": "Validation signature associated with some data. Only one of the signatures should be provided.",
+        "mutually-exclusive": [
+          "sig",
+          "multisig",
+          "logicsig"
+        ],
+        "properties": {
+          "logicsig": {
+            "$ref": "#/definitions/TransactionSignatureLogicsig"
+          },
+          "multisig": {
+            "$ref": "#/definitions/TransactionSignatureMultisig"
+          },
+          "sig": {
+            "description": "\\[sig\\] Standard ed25519 signature.",
+            "format": "byte",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      null
+    ],
+    "TransactionSignatureLogicsig": [
+      {
+        "description": "\\[lsig\\] Programatic transaction signature.\n\nDefinition:\ndata/transactions/logicsig.go",
+        "properties": {
+          "args": {
+            "description": "\\[arg\\] Logic arguments, base64 encoded.",
+            "format": "byte",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "logic": {
+            "description": "\\[l\\] Program signed by a signature or multi signature, or hashed to be the address of ana ccount. Base64 encoded TEAL program.",
+            "format": "byte",
+            "type": "string"
+          },
+          "multisig-signature": {
+            "$ref": "#/definitions/TransactionSignatureMultisig"
+          },
+          "signature": {
+            "description": "\\[sig\\] ed25519 signature.",
+            "format": "byte",
+            "type": "string"
+          }
+        },
+        "required": [
+          "logic"
+        ],
+        "type": "object"
+      },
+      null
+    ],
+    "TransactionSignatureMultisig": [
+      {
+        "description": "\\[msig\\] structure holding multiple subsignatures.\n\nDefinition:\ncrypto/multisig.go : MultisigSig",
+        "properties": {
+          "subsignature": {
+            "description": "\\[subsig\\] holds pairs of public key and signatures.",
+            "items": {
+              "$ref": "#/definitions/TransactionSignatureMultisigSubsignature"
+            },
+            "type": "array"
+          },
+          "threshold": {
+            "description": "\\[thr\\]",
+            "type": "integer"
+          },
+          "version": {
+            "description": "\\[v\\]",
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      null
+    ],
+    "TransactionSignatureMultisigSubsignature": [
+      {
+        "properties": {
+          "public-key": {
+            "description": "\\[pk\\]",
+            "format": "byte",
+            "type": "string"
+          },
+          "signature": {
+            "description": "\\[s\\]",
+            "format": "byte",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      null
+    ],
+    "Version": [
+      null,
+      {
+        "description": "algod version information.",
+        "properties": {
+          "build": {
+            "$ref": "#/definitions/BuildVersion"
+          },
+          "genesis_hash_b64": {
+            "format": "byte",
+            "type": "string"
+          },
+          "genesis_id": {
+            "type": "string"
+          },
+          "versions": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "versions",
+          "genesis_id",
+          "genesis_hash_b64",
+          "build"
+        ],
+        "title": "Version contains the current algod version.",
+        "type": "object"
+      }
+    ]
+  },
+  "parameters": {
+    "application-id": [
+      {
+        "description": "Application ID",
+        "in": "query",
+        "name": "application-id",
+        "type": "integer"
+      },
+      null
+    ],
+    "auth-addr": [
+      {
+        "description": "Include accounts configured to use this spending key.",
+        "in": "query",
+        "name": "auth-addr",
+        "type": "string",
+        "x-algorand-format": "Address"
+      },
+      null
+    ],
+    "catchpoint": [
+      null,
+      {
+        "description": "A catch point",
+        "format": "catchpoint",
+        "in": "path",
+        "name": "catchpoint",
+        "pattern": "[0-9]{1,10}#[A-Z0-9]{1,53}",
+        "required": true,
+        "type": "string",
+        "x-algorand-format": "Catchpoint String"
+      }
+    ],
+    "format": [
+      null,
+      {
+        "description": "Configures whether the response object is JSON or MessagePack encoded.",
+        "enum": [
+          "json",
+          "msgpack"
+        ],
+        "in": "query",
+        "name": "format",
+        "type": "string"
+      }
+    ],
+    "include-all": [
+      {
+        "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+        "in": "query",
+        "name": "include-all",
+        "type": "boolean"
+      },
+      null
+    ],
+    "limit": {
+      "description": [
+        "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
+        "Maximum number of results to return."
+      ]
+    },
+    "max": [
+      null,
+      {
+        "description": "Truncated number of transactions to display. If max=0, returns all pending txns.",
+        "in": "query",
+        "name": "max",
+        "type": "integer"
+      }
+    ],
+    "rekey-to": [
+      {
+        "description": "Include results which include the rekey-to field.",
+        "in": "query",
+        "name": "rekey-to",
+        "type": "boolean"
+      },
+      null
+    ],
+    "sender-address": [
+      {
+        "description": "Only include transactions with this sender address.",
+        "in": "query",
+        "name": "sender-address",
+        "type": "string",
+        "x-algorand-format": "Address"
+      },
+      null
+    ],
+    "tx-id": [
+      null,
+      {
+        "description": "Lookup the specific transaction by ID.",
+        "in": "query",
+        "name": "tx-id",
+        "type": "string",
+        "x-algorand-format": "Address",
+        "x-go-name": "TxID"
+      }
+    ],
+    "txid": [
+      {
+        "description": "Lookup the specific transaction by ID.",
+        "in": "query",
+        "name": "txid",
+        "type": "string"
+      },
+      null
+    ]
+  },
+  "responses": {
+    "AccountResponse": {
+      "description": [
+        "(empty)",
+        null
+      ],
+      "schema": {
+        "$ref": [
+          null,
+          "#/definitions/Account"
+        ],
+        "properties": [
+          {
+            "account": {
+              "$ref": "#/definitions/Account"
+            },
+            "current-round": {
+              "description": "Round at which the results were computed.",
+              "type": "integer"
+            }
+          },
+          null
+        ],
+        "required": [
+          [
+            "current-round",
+            "account"
+          ],
+          null
+        ],
+        "type": [
+          "object",
+          null
+        ]
+      }
+    },
+    "AccountsResponse": [
+      {
+        "description": "(empty)",
+        "schema": {
+          "properties": {
+            "accounts": {
+              "items": {
+                "$ref": "#/definitions/Account"
+              },
+              "type": "array"
+            },
+            "current-round": {
+              "description": "Round at which the results were computed.",
+              "type": "integer"
+            },
+            "next-token": {
+              "description": "Used for pagination, when making another request provide this token with the next parameter.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "current-round",
+            "accounts"
+          ],
+          "type": "object"
+        }
+      },
+      null
+    ],
+    "ApplicationLogsResponse": [
+      {
+        "description": "(empty)",
+        "schema": {
+          "properties": {
+            "application-id": {
+              "description": "\\[appidx\\] application index.",
+              "type": "integer"
+            },
+            "current-round": {
+              "description": "Round at which the results were computed.",
+              "type": "integer"
+            },
+            "log-data": {
+              "items": {
+                "$ref": "#/definitions/ApplicationLogData"
+              },
+              "type": "array"
+            },
+            "next-token": {
+              "description": "Used for pagination, when making another request provide this token with the next parameter.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "application-id",
+            "current-round"
+          ],
+          "type": "object"
+        }
+      },
+      null
+    ],
+    "ApplicationResponse": {
+      "description": [
+        "(empty)",
+        "Application information"
+      ],
+      "schema": {
+        "$ref": [
+          null,
+          "#/definitions/Application"
+        ],
+        "properties": [
+          {
+            "application": {
+              "$ref": "#/definitions/Application"
+            },
+            "current-round": {
+              "description": "Round at which the results were computed.",
+              "type": "integer"
+            }
+          },
+          null
+        ],
+        "required": [
+          [
+            "current-round",
+            "applications"
+          ],
+          null
+        ],
+        "type": [
+          "object",
+          null
+        ]
+      }
+    },
+    "ApplicationsResponse": [
+      {
+        "description": "(empty)",
+        "schema": {
+          "properties": {
+            "applications": {
+              "items": {
+                "$ref": "#/definitions/Application"
+              },
+              "type": "array"
+            },
+            "current-round": {
+              "description": "Round at which the results were computed.",
+              "type": "integer"
+            },
+            "next-token": {
+              "description": "Used for pagination, when making another request provide this token with the next parameter.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "current-round",
+            "applications"
+          ],
+          "type": "object"
+        }
+      },
+      null
+    ],
+    "AssetBalancesResponse": [
+      {
+        "description": "(empty)",
+        "schema": {
+          "properties": {
+            "balances": {
+              "items": {
+                "$ref": "#/definitions/MiniAssetHolding"
+              },
+              "type": "array"
+            },
+            "current-round": {
+              "description": "Round at which the results were computed.",
+              "type": "integer"
+            },
+            "next-token": {
+              "description": "Used for pagination, when making another request provide this token with the next parameter.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "current-round",
+            "balances"
+          ],
+          "type": "object"
+        }
+      },
+      null
+    ],
+    "AssetResponse": {
+      "description": [
+        "(empty)",
+        "Asset information"
+      ],
+      "schema": {
+        "$ref": [
+          null,
+          "#/definitions/Asset"
+        ],
+        "properties": [
+          {
+            "asset": {
+              "$ref": "#/definitions/Asset"
+            },
+            "current-round": {
+              "description": "Round at which the results were computed.",
+              "type": "integer"
+            }
+          },
+          null
+        ],
+        "required": [
+          [
+            "current-round",
+            "asset"
+          ],
+          null
+        ],
+        "type": [
+          "object",
+          null
+        ]
+      }
+    },
+    "AssetsResponse": [
+      {
+        "description": "(empty)",
+        "schema": {
+          "properties": {
+            "assets": {
+              "items": {
+                "$ref": "#/definitions/Asset"
+              },
+              "type": "array"
+            },
+            "current-round": {
+              "description": "Round at which the results were computed.",
+              "type": "integer"
+            },
+            "next-token": {
+              "description": "Used for pagination, when making another request provide this token with the next parameter.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "current-round",
+            "assets"
+          ],
+          "type": "object"
+        }
+      },
+      null
+    ],
+    "BlockResponse": {
+      "description": [
+        "(empty)",
+        "Encoded block object."
+      ],
+      "schema": {
+        "$ref": [
+          "#/definitions/Block",
+          null
+        ],
+        "properties": [
+          null,
+          {
+            "block": {
+              "description": "Block header data.",
+              "type": "object",
+              "x-algorand-format": "BlockHeader"
+            },
+            "cert": {
+              "description": "Optional certificate object. This is only included when the format is set to message pack.",
+              "type": "object",
+              "x-algorand-format": "BlockCertificate"
+            }
+          }
+        ],
+        "required": [
+          null,
+          [
+            "block"
+          ]
+        ],
+        "type": [
+          null,
+          "object"
+        ]
+      }
+    },
+    "CatchpointAbortResponse": [
+      null,
+      {
+        "schema": {
+          "description": "An catchpoint abort response.",
+          "properties": {
+            "catchup-message": {
+              "description": "Catchup abort response string",
+              "type": "string"
+            }
+          },
+          "required": [
+            "catchup-message"
+          ],
+          "type": "object"
+        },
+        "tags": [
+          "private"
+        ]
+      }
+    ],
+    "CatchpointStartResponse": [
+      null,
+      {
+        "schema": {
+          "description": "An catchpoint start response.",
+          "properties": {
+            "catchup-message": {
+              "description": "Catchup start response string",
+              "type": "string"
+            }
+          },
+          "required": [
+            "catchup-message"
+          ],
+          "type": "object"
+        },
+        "tags": [
+          "private"
+        ]
+      }
+    ],
+    "CompileResponse": [
+      null,
+      {
+        "description": "Teal compile Result",
+        "schema": {
+          "properties": {
+            "hash": {
+              "description": "base32 SHA512_256 of program bytes (Address style)",
+              "type": "string"
+            },
+            "result": {
+              "description": "base64 encoded program bytes",
+              "type": "string"
+            }
+          },
+          "required": [
+            "hash",
+            "result"
+          ],
+          "type": "object"
+        }
+      }
+    ],
+    "DeleteParticipationIdResponse": [
+      null,
+      {
+        "description": "Participation key got deleted by ID"
+      }
+    ],
+    "DryrunResponse": [
+      null,
+      {
+        "description": "DryrunResponse contains per-txn debug information from a dryrun.",
+        "schema": {
+          "properties": {
+            "error": {
+              "type": "string"
+            },
+            "protocol-version": {
+              "description": "Protocol version is the protocol version Dryrun was operated under.",
+              "type": "string"
+            },
+            "txns": {
+              "items": {
+                "$ref": "#/definitions/DryrunTxnResult"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "txns",
+            "protocol-version",
+            "error"
+          ],
+          "type": "object"
+        }
+      }
+    ],
+    "ErrorResponse": [
+      {
+        "description": "Response for errors",
+        "schema": {
+          "properties": {
+            "data": {
+              "type": "object"
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "message"
+          ],
+          "type": "object"
+        }
+      },
+      null
+    ],
+    "HealthCheckResponse": [
+      {
+        "description": "(empty)",
+        "schema": {
+          "$ref": "#/definitions/HealthCheck"
+        }
+      },
+      null
+    ],
+    "NodeStatusResponse": [
+      null,
+      {
+        "schema": {
+          "description": "NodeStatus contains the information about a node status",
+          "properties": {
+            "catchpoint": {
+              "description": "The current catchpoint that is being caught up to",
+              "type": "string"
+            },
+            "catchpoint-acquired-blocks": {
+              "description": "The number of blocks that have already been obtained by the node as part of the catchup",
+              "type": "integer"
+            },
+            "catchpoint-processed-accounts": {
+              "description": "The number of accounts from the current catchpoint that have been processed so far as part of the catchup",
+              "type": "integer"
+            },
+            "catchpoint-total-accounts": {
+              "description": "The total number of accounts included in the current catchpoint",
+              "type": "integer"
+            },
+            "catchpoint-total-blocks": {
+              "description": "The total number of blocks that are required to complete the current catchpoint catchup",
+              "type": "integer"
+            },
+            "catchpoint-verified-accounts": {
+              "description": "The number of accounts from the current catchpoint that have been verified so far as part of the catchup",
+              "type": "integer"
+            },
+            "catchup-time": {
+              "description": "CatchupTime in nanoseconds",
+              "type": "integer"
+            },
+            "last-catchpoint": {
+              "description": "The last catchpoint seen by the node",
+              "type": "string"
+            },
+            "last-round": {
+              "description": "LastRound indicates the last round seen",
+              "type": "integer"
+            },
+            "last-version": {
+              "description": "LastVersion indicates the last consensus version supported",
+              "type": "string"
+            },
+            "next-version": {
+              "description": "NextVersion of consensus protocol to use",
+              "type": "string"
+            },
+            "next-version-round": {
+              "description": "NextVersionRound is the round at which the next consensus version will apply",
+              "type": "integer"
+            },
+            "next-version-supported": {
+              "description": "NextVersionSupported indicates whether the next consensus version is supported by this node",
+              "type": "boolean"
+            },
+            "stopped-at-unsupported-round": {
+              "description": "StoppedAtUnsupportedRound indicates that the node does not support the new rounds and has stopped making progress",
+              "type": "boolean"
+            },
+            "time-since-last-round": {
+              "description": "TimeSinceLastRound in nanoseconds",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "catchup-time",
+            "last-version",
+            "last-round",
+            "next-version",
+            "next-version-round",
+            "next-version-supported",
+            "stopped-at-unsupported-round",
+            "time-since-last-round"
+          ],
+          "type": "object"
+        }
+      }
+    ],
+    "ParticipationKeyResponse": [
+      null,
+      {
+        "description": "A detailed description of a participation ID",
+        "schema": {
+          "$ref": "#/definitions/ParticipationKey"
+        }
+      }
+    ],
+    "ParticipationKeysResponse": [
+      null,
+      {
+        "description": "A list of participation keys",
+        "schema": {
+          "items": {
+            "$ref": "#/definitions/ParticipationKey"
+          },
+          "type": "array"
+        }
+      }
+    ],
+    "PendingTransactionsResponse": [
+      null,
+      {
+        "description": "A potentially truncated list of transactions currently in the node's transaction pool. You can compute whether or not the list is truncated if the number of elements in the **top-transactions** array is fewer than **total-transactions**.",
+        "schema": {
+          "description": "PendingTransactions is an array of signed transactions exactly as they were submitted.",
+          "properties": {
+            "top-transactions": {
+              "description": "An array of signed transaction objects.",
+              "items": {
+                "type": "object",
+                "x-algorand-format": "SignedTransaction"
+              },
+              "type": "array"
+            },
+            "total-transactions": {
+              "description": "Total number of transactions in the pool.",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "top-transactions",
+            "total-transactions"
+          ],
+          "type": "object"
+        }
+      }
+    ],
+    "PostParticipationResponse": [
+      null,
+      {
+        "description": "Participation ID of the submission",
+        "schema": {
+          "properties": {
+            "partId": {
+              "description": "encoding of the participation ID.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "partId"
+          ],
+          "type": "object"
+        }
+      }
+    ],
+    "PostTransactionsResponse": [
+      null,
+      {
+        "description": "Transaction ID of the submission.",
+        "schema": {
+          "properties": {
+            "txId": {
+              "description": "encoding of the transaction hash.",
+              "type": "string"
+            }
+          },
+          "required": [
+            "txId"
+          ],
+          "type": "object"
+        }
+      }
+    ],
+    "ProofResponse": [
+      null,
+      {
+        "description": "Proof of transaction in a block.",
+        "schema": {
+          "properties": {
+            "idx": {
+              "description": "Index of the transaction in the block's payset.",
+              "type": "integer"
+            },
+            "proof": {
+              "description": "Merkle proof of transaction membership.",
+              "format": "byte",
+              "type": "string"
+            },
+            "stibhash": {
+              "description": "Hash of SignedTxnInBlock for verifying proof.",
+              "format": "byte",
+              "type": "string"
+            }
+          },
+          "required": [
+            "proof",
+            "stibhash",
+            "idx"
+          ],
+          "type": "object"
+        }
+      }
+    ],
+    "SupplyResponse": [
+      null,
+      {
+        "description": "Supply represents the current supply of MicroAlgos in the system.",
+        "schema": {
+          "description": "Supply represents the current supply of MicroAlgos in the system",
+          "properties": {
+            "current_round": {
+              "description": "Round",
+              "type": "integer"
+            },
+            "online-money": {
+              "description": "OnlineMoney",
+              "type": "integer"
+            },
+            "total-money": {
+              "description": "TotalMoney",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "online-money",
+            "current_round",
+            "total-money"
+          ],
+          "type": "object"
+        }
+      }
+    ],
+    "TransactionParametersResponse": [
+      null,
+      {
+        "description": "TransactionParams contains the parameters that help a client construct a new transaction.",
+        "schema": {
+          "description": "TransactionParams contains the parameters that help a client construct\na new transaction.",
+          "properties": {
+            "consensus-version": {
+              "description": "ConsensusVersion indicates the consensus protocol version\nas of LastRound.",
+              "type": "string"
+            },
+            "fee": {
+              "description": "Fee is the suggested transaction fee\nFee is in units of micro-Algos per byte.\nFee may fall to zero but transactions must still have a fee of\nat least MinTxnFee for the current network protocol.",
+              "type": "integer"
+            },
+            "genesis-hash": {
+              "description": "GenesisHash is the hash of the genesis block.",
+              "format": "byte",
+              "type": "string"
+            },
+            "genesis-id": {
+              "description": "GenesisID is an ID listed in the genesis block.",
+              "type": "string"
+            },
+            "last-round": {
+              "description": "LastRound indicates the last round seen",
+              "type": "integer"
+            },
+            "min-fee": {
+              "description": "The minimum transaction fee (not per byte) required for the\ntxn to validate for the current network protocol.",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "consensus-version",
+            "fee",
+            "genesis-id",
+            "genesis-hash",
+            "last-round",
+            "min-fee"
+          ],
+          "type": "object",
+          "x-go-package": "github.com/algorand/go-algorand/daemon/algod/api/spec/v1"
+        }
+      }
+    ],
+    "TransactionResponse": [
+      {
+        "description": "(empty)",
+        "schema": {
+          "properties": {
+            "current-round": {
+              "description": "Round at which the results were computed.",
+              "type": "integer"
+            },
+            "transaction": {
+              "$ref": "#/definitions/Transaction"
+            }
+          },
+          "required": [
+            "current-round",
+            "transaction"
+          ],
+          "type": "object"
+        }
+      },
+      null
+    ],
+    "TransactionsResponse": [
+      {
+        "description": "(empty)",
+        "schema": {
+          "properties": {
+            "current-round": {
+              "description": "Round at which the results were computed.",
+              "type": "integer"
+            },
+            "next-token": {
+              "description": "Used for pagination, when making another request provide this token with the next parameter.",
+              "type": "string"
+            },
+            "transactions": {
+              "items": {
+                "$ref": "#/definitions/Transaction"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "current-round",
+            "transactions"
+          ],
+          "type": "object"
+        }
+      },
+      null
+    ],
+    "VersionsResponse": [
+      null,
+      {
+        "description": "VersionsResponse is the response to 'GET /versions'",
+        "schema": {
+          "$ref": "#/definitions/Version"
+        }
+      }
+    ]
+  }
+}

@@ -1,6 +1,8 @@
 from copy import deepcopy
 import json
-from typing import List, Union
+from typing import List, Union, Tuple
+from collections import OrderedDict
+
 
 L, R = "left", "right"
 
@@ -97,7 +99,7 @@ def deep_diff(
 
         return None if all(map(lambda x: x is None, d)) else d
 
-    return dd(x, y)
+    return sort_json(dd(x, y))
 
 
 def is_diff_array(da: list) -> bool:
@@ -114,6 +116,16 @@ def is_diff_array(da: list) -> bool:
         return False
 
     return True
+
+
+def sort_json(d: Union[dict, list], sort_lists: bool = False):
+    if isinstance(d, list):
+        return [sort_json(x) for x in (sorted(d) if sort_lists else d)]
+
+    if isinstance(d, dict):
+        return OrderedDict(**{k: sort_json(d[k]) for k in sorted(d.keys())})
+
+    return d
 
 
 def flatten_diff(
@@ -178,7 +190,8 @@ def report_diff(
     blank_diff_path=True,
     src: str = None,
     tgt: str = None,
-) -> str:
-    return "\n".join(
-        flatten_diff(json_diff, blank_diff_path=blank_diff_path, src=src, tgt=tgt)
+) -> Tuple[str, int]:
+    flattened = flatten_diff(
+        json_diff, blank_diff_path=blank_diff_path, src=src, tgt=tgt
     )
+    return "\n".join(flattened), len(flattened) / 2
