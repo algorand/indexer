@@ -1,163 +1,19 @@
 from pathlib import Path
 import json
-from textwrap import indent
+from typing import List
 import yaml
 
-from .json_diff import deep_diff, report_diff, diff_summary, prettify_diff
+from .json_diff import deep_diff, prettify_diff
 
-BEFORE_MINBALANCE = True
-MODELS_ONLY = True
+NEW, OVERLAP, DROPPED, FULL = "new", "overlap", "dropped", "full"
+DIFF_TYPES = [NEW, OVERLAP, DROPPED, FULL]
 
-
-def fancy_report(diff_json):
-    return report_diff(
-        diff_json,
-        blank_diff_path=True,
-        src="ALGOD",
-        tgt="INDEXER",
-        spacer="-" * 30 + "{}" + "-" * 30,
-        extra_lines=2,
-        must_be_even=True,
-    )
+REPO_DIR = Path.cwd()
+GOAL_DIR = REPO_DIR / "third_party" / "go-algorand"
+REPORTS_DIR = REPO_DIR / "parity" / "reports"
 
 
-def generate_report(folder, base_name, diff, summary=True):
-    def ddize(d):
-        if isinstance(d, dict):
-            return {k: ddize(v) for k, v in d.items()}
-        if isinstance(d, list):
-            return [ddize(x) for x in d]
-        return d
-
-    diff_path = folder / (base_name + "_diff.json")
-    with open(diff_path, "w") as f:
-        f.write(json.dumps(diff, indent=2, sort_keys=True))
-    print(f"\nsaved json diff to {diff_path}")
-
-    pretty = ddize(prettify_diff(diff, src="ALGOD", tgt="INDEXER", value_limit=30))
-    yml_path = folder / (base_name + "_diff.yml")
-    with open(yml_path, "w") as f:
-        f.write(yaml.dump(pretty, indent=2, sort_keys=True, width=2000))
-    print(f"\nsaved json diff to {diff_path}")
-
-    report_path = folder / (base_name + "_human.txt")
-    report, num_diffs = fancy_report(diff)
-    with open(report_path, "w") as f:
-        f.write(report)
-    print(f"\nsaved report with {num_diffs:.0f} diffs to {report_path}")
-
-    if summary:
-        summary_path = folder / (base_name + "_summary.txt")
-        spacer = "_" * 20 + "{0:^30}" + "_" * 20
-        summary, summary_size = diff_summary(
-            diff, src="ALGOD", tgt="INDEXER", spacer=spacer
-        )
-        with open(summary_path, "w") as f:
-            f.write(summary)
-        print(f"\nsaved summary of size {summary_size:.0f} {summary_path}")
-
-
-expected_overlap_diff_before_minbalance = {
-    "definitions": {
-        "Account": {
-            "properties": {
-                "sig-type": {
-                    "description": [
-                        "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown",
-                        "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig",
-                    ]
-                }
-            },
-            "required": [[None, "min-balance"]],
-        },
-        "ApplicationParams": {
-            "properties": {
-                "global-state-schema": {
-                    "description": [
-                        "[\\lsch\\] global schema",
-                        "[\\gsch\\] global schema",
-                    ]
-                }
-            },
-            "required": [[None, "creator"]],
-        },
-        "TealValue": {
-            "properties": {
-                "type": {
-                    "description": [
-                        "\\[tt\\] value type.",
-                        "\\[tt\\] value type. Value `1` refers to **bytes**, value `2` refers to **uint**",
-                    ]
-                }
-            }
-        },
-    },
-    "parameters": {
-        "limit": {
-            "description": [
-                "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
-                "Maximum number of results to return.",
-            ]
-        }
-    },
-    "responses": {
-        "ApplicationResponse": {"description": ["(empty)", "Application information"]},
-        "AssetResponse": {"description": ["(empty)", "Asset information"]},
-        "BlockResponse": {"description": ["(empty)", "Encoded block object."]},
-    },
-}
-expected_overlap_diff_after_minbalance = {
-    "definitions": {
-        "Account": {
-            "properties": {
-                "sig-type": {
-                    "description": [
-                        "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown",
-                        "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig",
-                    ]
-                }
-            }
-        },
-        "ApplicationParams": {"required": [[None, "creator"]]},
-    },
-    "parameters": {
-        "limit": {
-            "description": [
-                "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
-                "Maximum number of results to return.",
-            ]
-        }
-    },
-    "responses": {
-        "ApplicationResponse": {"description": ["(empty)", "Application information"]},
-        "AssetResponse": {"description": ["(empty)", "Asset information"]},
-        "BlockResponse": {"description": ["(empty)", "Encoded block object."]},
-    },
-}
-
-expected_overlap_report_before_minbalance = """
-definitions.Account.properties.sig-type.description:"Indicates what type of signature is used by this account, must be one of:\\n* sig\\n* msig\\n* lsig\\n* or null if unknown"
-                                                   :"Indicates what type of signature is used by this account, must be one of:\\n* sig\\n* msig\\n* lsig"
-definitions.Account.required.0:null
-                              :"min-balance"
-definitions.ApplicationParams.properties.global-state-schema.description:"[\\\\lsch\\\\] global schema"
-                                                                        :"[\\\\gsch\\\\] global schema"
-definitions.ApplicationParams.required.0:null
-                                        :"creator"
-definitions.TealValue.properties.type.description:"\\\\[tt\\\\] value type."
-                                                 :"\\\\[tt\\\\] value type. Value `1` refers to **bytes**, value `2` refers to **uint**"
-parameters.limit.description:"Maximum number of results to return. There could be additional pages even if the limit is not reached."
-                            :"Maximum number of results to return."
-responses.ApplicationResponse.description:"(empty)"
-                                         :"Application information"
-responses.AssetResponse.description:"(empty)"
-                                   :"Asset information"
-responses.BlockResponse.description:"(empty)"
-                                   :"Encoded block object."
-""".strip()
-
-
-def test_parity():
+def tsetup(models_only):
     exclude = [
         "basePath",
         "consumes",
@@ -168,68 +24,122 @@ def test_parity():
         "security",
         "securityDefinitions",
         "schemes",
-        "tags",
+        "diff_types",
         "x-algorand-format",
         "x-go-name",
     ]
-    repo = Path.cwd()
-    reporting = repo / "parity" / "reports"
 
-    indexer_json = repo / "api" / "indexer.oas2.json"
-    algod_json = (
-        repo
-        / "third_party"
-        / "go-algorand"
-        / "daemon"
-        / "algod"
-        / "api"
-        / "algod.oas2.json"
-    )
-    with open(indexer_json, "r") as f:
+    indexer = REPO_DIR / "api" / "indexer.oas2.json"
+    with open(indexer, "r") as f:
         indexer = json.loads(f.read())
-        if MODELS_ONLY:
+        if models_only:
             indexer = indexer["definitions"]
 
-    with open(algod_json, "r") as f:
+    algod = GOAL_DIR / "daemon" / "algod" / "api" / "algod.oas2.json"
+    with open(algod, "r") as f:
         algod = json.loads(f.read())
-        if MODELS_ONLY:
+        if models_only:
             algod = algod["definitions"]
 
-    # Overlaps - existing fields that have been modified freom algod ---> indexer
-    overlap_diff = deep_diff(
-        indexer, algod, exclude_keys=exclude, overlaps_only=True, arraysets=True
+    return exclude, indexer, algod
+
+
+def get_report_path(diff_type, for_write=False):
+    suffix = "_OUT" if for_write else ""
+    yml_path = REPORTS_DIR / f"algod2indexer_{diff_type}{suffix}.yml"
+    return yml_path
+
+
+def save_yaml(diff, diff_type):
+    pretty = yamlize(diff)
+    yml_path = get_report_path(diff_type, for_write=True)
+    with open(yml_path, "w") as f:
+        f.write(yaml.dump(pretty, indent=2, sort_keys=True, width=2000))
+    print(f"\nsaved json diff to {yml_path}")
+
+
+def yamlize(diff):
+    def ddize(d):
+        if isinstance(d, dict):
+            return {k: ddize(v) for k, v in d.items()}
+        if isinstance(d, list):
+            return [ddize(x) for x in d]
+        return d
+
+    return ddize(prettify_diff(diff, src="ALGOD", tgt="INDEXER", value_limit=30))
+
+
+def generate_diff(source, target, excludes, diff_type):
+    assert (
+        diff_type in DIFF_TYPES
+    ), f"Unrecognized diff_type [{diff_type}] not in {DIFF_TYPES}"
+
+    if diff_type == OVERLAP:
+        # Overlaps - existing fields that have been modified freom algod ---> indexer
+        overlaps_only = True
+        extras_only = None
+    elif diff_type == NEW:
+        # Additions - fields that have been introduced in indexer
+        overlaps_only = False
+        extras_only = "left"
+    elif diff_type == DROPPED:
+        # Removals - fields that have been deleted in indexer
+        overlaps_only = False
+        extras_only = "right"
+    else:
+        # Full Diff - anything that's different
+        assert diff_type == FULL
+        overlaps_only = False
+        extras_only = None
+
+    return deep_diff(
+        target,
+        source,
+        exclude_keys=excludes,
+        overlaps_only=overlaps_only,
+        extras_only=extras_only,
+        arraysets=True,
     )
-    diff_json = repo / "parity" / "indexer_algod_mods.json"
-    with open(diff_json, "w") as f:
-        f.write(json.dumps(overlap_diff, indent=2, sort_keys=True))
 
-    expected_diff = (
-        expected_overlap_diff_before_minbalance
-        if BEFORE_MINBALANCE
-        else expected_overlap_diff_after_minbalance
-    )
-    if MODELS_ONLY:
-        expected_diff = expected_diff["definitions"]
 
-    diff_of_diffs = deep_diff(expected_diff, overlap_diff)
-    assert diff_of_diffs is None, diff_of_diffs
+def save_reports(*reports, models_only: bool = True) -> None:
+    """
+    Generate a YAML report shoing differences between Algod's API and Indexer's API.
 
-    generate_report(reporting, "algod2indexer_mods", overlap_diff)
+    Possible `reports` diff_types are:
+    "overlap" - show only modifications to features that Algod and Indexer have in common
+    "new" - focus on features added to Indexer and missing from Algod
+    "dropped" (recommended) - focus on features that are present in Algod but dropped in Indexer
+    "full" (recommended) - show all differences
 
-    # Additions - fields that have been introduced in indexer
-    indexer_add_json = deep_diff(
-        indexer, algod, exclude_keys=exclude, arraysets=True, extras_only="left"
-    )
-    generate_report(reporting, "algod2indexer_add", indexer_add_json, summary=False)
+    `models_only` - when True (recommended), trim down the Swaggers to only the `definitions`
+    """
+    excludes, indexer_swgr, algod_swgr = tsetup(models_only)
 
-    # Removals - fields that have been deleted in indexer
-    indexer_remove_json = deep_diff(
-        indexer, algod, exclude_keys=exclude, arraysets=True, extras_only="right"
-    )
-    generate_report(
-        reporting, "algod2indexer_remove", indexer_remove_json, summary=False
-    )
+    for diff_type in reports:
+        diff = generate_diff(algod_swgr, indexer_swgr, excludes, diff_type)
+        save_yaml(diff, diff_type)
 
-    # Full Diff - anything that's different
-    indexer_full_json = deep_diff(indexer, algod, exclude_keys=exclude, arraysets=True)
-    generate_report(reporting, "algod2indexer_all", indexer_full_json)
+
+def test_parity(
+    reports: List[str] = [DROPPED, FULL],
+    models_only: bool = True,
+    save_new: bool = True,
+):
+    excludes, indexer_swgr, algod_swgr = tsetup(models_only)
+
+    for diff_type in reports:
+        ypath = get_report_path(diff_type, for_write=False)
+        with open(ypath, "r") as f:
+            old_diff = yaml.safe_load(f)
+        new_diff = yamlize(generate_diff(algod_swgr, indexer_swgr, excludes, diff_type))
+
+        diff_of_diffs = deep_diff(old_diff, new_diff)
+        assert (
+            diff_of_diffs is None
+        ), f"""UNEXPECTED CHANGE IN {ypath}. Differences are:
+{json.dumps(diff_of_diffs,indent=2)}
+"""
+
+    if save_new:
+        save_reports(*reports, models_only=models_only)

@@ -1,7 +1,7 @@
 from cmath import exp
 from copy import deepcopy
 
-from .json_diff import deep_diff, flatten_diff
+from .json_diff import deep_diff
 
 
 def test_deep_diff():
@@ -120,93 +120,4 @@ def test_deep_diff():
     expected = {
         "FANG": [{"Facebook": [{"price": 330}, None], "Meta": [None, {"price": 290}]}]
     }
-    assert expected == actual, f"expected: {expected} v. actual: {actual}"
-
-
-def test_flatten_diff():
-    actual, _ = flatten_diff(None)
-    expected = [":null"]
-    assert expected == actual, f"expected: {expected} v. actual: {actual}"
-
-    actual, _ = flatten_diff(42)
-    expected = [":42"]
-    assert expected == actual, f"expected: {expected} v. actual: {actual}"
-
-    actual, _ = flatten_diff("seventeen")
-    expected = [':"seventeen"']
-    assert expected == actual, f"expected: {expected} v. actual: {actual}"
-
-    actual, _ = flatten_diff(["one", "two"])
-    expected = ['0:"one"', '1:"two"']
-    assert expected == actual, f"expected: {expected} v. actual: {actual}"
-
-    actual, _ = flatten_diff(["one", None])
-    expected = ['0:"one"', "1:null"]
-    assert expected == actual, f"expected: {expected} v. actual: {actual}"
-
-    actual, _ = flatten_diff(["one", None, 42])
-    expected = ['0:"one"', "1:null", "2:42"]
-    assert expected == actual, f"expected: {expected} v. actual: {actual}"
-
-    actual, _ = flatten_diff(["one", ["three", None], 42])
-    expected = ['0:"one"', '1:"three"', " :null", "2:42"]
-    assert expected == actual, f"expected: {expected} v. actual: {actual}"
-
-    actual, _ = flatten_diff(
-        ["one", [None, None], 42]
-    )  # 2nd level shouldn't be a diff!
-    expected = ['0:"one"', "1.0:null", "1.1:null", "2:42"]
-    assert expected == actual, f"expected: {expected} v. actual: {actual}"
-
-    # 2nd level shouldn't be a diff!
-    actual, _ = flatten_diff(["one", [None, 1337, None], 42])
-    expected = ['0:"one"', "1.0:null", "1.1:1337", "1.2:null", "2:42"]
-    assert expected == actual, f"expected: {expected} v. actual: {actual}"
-
-    actual, _ = flatten_diff([[["one", "two"]]])
-    expected = ['0.0:"one"', '   :"two"']
-    assert expected == actual, f"expected: {expected} v. actual: {actual}"
-
-    diff = {
-        "FANG": [
-            {"Google": {"price": [2900, 2950]}},
-        ]
-    }
-    actual, _ = flatten_diff(diff)
-    expected = [
-        "FANG.0.Google.price:2900",
-        "                   :2950",
-    ]
-    assert expected == actual, f"expected: {expected} v. actual: {actual}"
-
-    diff = {
-        "FANG": [{"Facebook": [{"price": 330}, None], "Meta": [None, {"price": 290}]}]
-    }
-    actual, _ = flatten_diff(diff)
-    expected = [
-        'FANG.0.Facebook:{"price":330}',
-        "               :null",
-        "FANG.0.Meta:null",
-        '           :{"price":290}',
-    ]
-    assert expected == actual, f"expected: {expected} v. actual: {actual}"
-
-    diff = {
-        "FANG": [
-            {"Google": {"price": [2900, 2950]}},
-            {"Facebook": [{"price": 330}, None], "Meta": [None, {"price": 290}]},
-            {"IBM": {"price": [130, 125]}},
-        ]
-    }
-    actual, _ = flatten_diff(diff)
-    expected = [
-        "FANG.0.Google.price:2900",
-        "                   :2950",
-        'FANG.1.Facebook:{"price":330}',
-        "               :null",
-        "FANG.1.Meta:null",
-        '           :{"price":290}',
-        "FANG.2.IBM.price:130",
-        "                :125",
-    ]
     assert expected == actual, f"expected: {expected} v. actual: {actual}"
