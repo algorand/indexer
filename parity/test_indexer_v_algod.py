@@ -57,10 +57,9 @@ def get_report_path(diff_type, for_write=False):
 
 
 def save_yaml(diff, diff_type):
-    pretty = yamlize(diff)
     yml_path = get_report_path(diff_type, for_write=True)
     with open(yml_path, "w") as f:
-        f.write(yaml.dump(pretty, indent=2, sort_keys=True, width=2000))
+        f.write(yaml.dump(diff, indent=2, sort_keys=True, width=2000))
     print(f"\nsaved json diff to {yml_path}")
 
 
@@ -98,13 +97,15 @@ def generate_diff(source, target, excludes, diff_type):
         overlaps_only = False
         extras_only = None
 
-    return deep_diff(
-        target,
-        source,
-        exclude_keys=excludes,
-        overlaps_only=overlaps_only,
-        extras_only=extras_only,
-        arraysets=True,
+    return yamlize(
+        deep_diff(
+            target,
+            source,
+            exclude_keys=excludes,
+            overlaps_only=overlaps_only,
+            extras_only=extras_only,
+            arraysets=True,
+        )
     )
 
 
@@ -132,7 +133,7 @@ def test_parity(reports: List[str] = ASSERTIONS, save_new: bool = True):
         ypath = get_report_path(diff_type, for_write=False)
         with open(ypath, "r") as f:
             old_diff = yaml.safe_load(f)
-        new_diff = yamlize(generate_diff(algod_swgr, indexer_swgr, excludes, diff_type))
+        new_diff = generate_diff(algod_swgr, indexer_swgr, excludes, diff_type)
 
         diff_of_diffs = deep_diff(old_diff, new_diff)
         assert (
