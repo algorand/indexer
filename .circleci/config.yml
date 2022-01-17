@@ -61,6 +61,7 @@ commands:
     steps:
       - run: test -z `go fmt ./...`
       - run: make lint
+      - run: make parity
       - run: make check
       - run: make integration
       - run: make test
