@@ -20,7 +20,8 @@ cmd/algorand-indexer/algorand-indexer: idb/postgres/internal/schema/setup_postgr
 
 # TODO: allow specifying the branch
 go-algorand-submodule:
-	git submodule update --init --force --remote
+	git submodule sync
+	git submodule update --init
 
 go-algorand-build:
 	cd third_party/go-algorand && \
