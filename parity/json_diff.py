@@ -133,7 +133,9 @@ def sort_json(d: Union[dict, list], sort_lists: bool = False):
     return d
 
 
-def jdump(jd):
+def jdump(jd, only_objs=False):
+    if only_objs and not isinstance(jd, (list, dict, str)):
+        return jd
     return json.dumps(jd, separators=(",", ":"))
 
 
@@ -144,27 +146,35 @@ def prettify_diff(
     suppress_bs: bool = True,
     value_limit: int = None,
 ):
-    def suppress(x):
-        x = jdump(x)
+    def sup(x):
+        if not isinstance(x, str):
+            return x
         if value_limit is not None and len(x) > value_limit:
             x = x[:value_limit] + "..."
         return x
+
+    def suppress(x, y):
+        x, y = jdump(x, only_objs=True), jdump(y, only_objs=True)
+        if None not in (x, y):
+            return x, y
+        return sup(x), sup(y)
 
     def pd(jd):
         if isinstance(jd, list):
             if is_diff_array(jd):
                 x, y = jd
                 if suppress_bs:
-                    x, y = suppress(x), suppress(y)
+                    x, y = suppress(x, y)
 
-                return [f"[{tgt:^10}]{x}", f"[{src:^10}]{y}"]
+                # return [f"[{tgt:^10}] --> {x}", f"[{src:^10}] --> {y}"]
+                return [{tgt: x}, {src: y}]
 
             return [pd(x) for x in jd]
 
         if isinstance(jd, dict):
             return {k: pd(v) for k, v in jd.items()}
 
-        return suppress(jd) if suppress_bs else jd
+        return jd
 
     return sort_json(pd(json_diff))
 
