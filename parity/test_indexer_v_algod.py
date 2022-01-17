@@ -11,12 +11,15 @@ DIFF_TYPES = [NEW, OVERLAP, DROPPED, FULL]
 # These are the diff reports that will be run and compared/asserted against:
 ASSERTIONS = [DROPPED, FULL]
 
+# Only compare swagger "definitions":
+MODELS_ONLY = True
+
 REPO_DIR = Path.cwd()
 GOAL_DIR = REPO_DIR / "third_party" / "go-algorand"
 REPORTS_DIR = REPO_DIR / "parity" / "reports"
 
 
-def tsetup(models_only):
+def tsetup():
     exclude = [
         "basePath",
         "consumes",
@@ -35,13 +38,13 @@ def tsetup(models_only):
     indexer = REPO_DIR / "api" / "indexer.oas2.json"
     with open(indexer, "r") as f:
         indexer = json.loads(f.read())
-        if models_only:
+        if MODELS_ONLY:
             indexer = indexer["definitions"]
 
     algod = GOAL_DIR / "daemon" / "algod" / "api" / "algod.oas2.json"
     with open(algod, "r") as f:
         algod = json.loads(f.read())
-        if models_only:
+        if MODELS_ONLY:
             algod = algod["definitions"]
 
     return exclude, indexer, algod
@@ -105,7 +108,7 @@ def generate_diff(source, target, excludes, diff_type):
     )
 
 
-def save_reports(*reports, models_only: bool = True) -> None:
+def save_reports(*reports) -> None:
     """
     Generate a YAML report shoing differences between Algod's API and Indexer's API.
 
@@ -114,20 +117,16 @@ def save_reports(*reports, models_only: bool = True) -> None:
     "new" - focus on features added to Indexer and missing from Algod
     "dropped" (recommended) - focus on features that are present in Algod but dropped in Indexer
     "full" (recommended) - show all differences
-
-    `models_only` - when True (recommended), trim down the Swaggers to only the `definitions`
     """
-    excludes, indexer_swgr, algod_swgr = tsetup(models_only)
+    excludes, indexer_swgr, algod_swgr = tsetup()
 
     for diff_type in reports:
         diff = generate_diff(algod_swgr, indexer_swgr, excludes, diff_type)
         save_yaml(diff, diff_type)
 
 
-def test_parity(
-    reports: List[str] = ASSERTIONS, models_only: bool = True, save_new: bool = True
-):
-    excludes, indexer_swgr, algod_swgr = tsetup(models_only)
+def test_parity(reports: List[str] = ASSERTIONS, save_new: bool = True):
+    excludes, indexer_swgr, algod_swgr = tsetup()
 
     for diff_type in reports:
         ypath = get_report_path(diff_type, for_write=False)
@@ -143,4 +142,4 @@ def test_parity(
 """
 
     if save_new:
-        save_reports(*reports, models_only=models_only)
+        save_reports(*reports)
