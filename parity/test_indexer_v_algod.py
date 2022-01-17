@@ -8,6 +8,9 @@ from .json_diff import deep_diff, prettify_diff
 NEW, OVERLAP, DROPPED, FULL = "new", "overlap", "dropped", "full"
 DIFF_TYPES = [NEW, OVERLAP, DROPPED, FULL]
 
+# These are the diff reports that will be run and compared/asserted against:
+ASSERTIONS = [DROPPED, FULL]
+
 REPO_DIR = Path.cwd()
 GOAL_DIR = REPO_DIR / "third_party" / "go-algorand"
 REPORTS_DIR = REPO_DIR / "parity" / "reports"
@@ -122,9 +125,7 @@ def save_reports(*reports, models_only: bool = True) -> None:
 
 
 def test_parity(
-    reports: List[str] = [DROPPED, FULL],
-    models_only: bool = True,
-    save_new: bool = True,
+    reports: List[str] = ASSERTIONS, models_only: bool = True, save_new: bool = True
 ):
     excludes, indexer_swgr, algod_swgr = tsetup(models_only)
 
