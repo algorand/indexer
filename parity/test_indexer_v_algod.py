@@ -130,8 +130,8 @@ def test_parity(reports: List[str] = ASSERTIONS, save_new: bool = True):
     excludes, indexer_swgr, algod_swgr = tsetup()
     """
     For each report in reports:
-       1.  load the pre-existing yaml report into `old_diff`
-       2.  re-generate the equivalent report by comparing `algod_swgr` with `indexer_swgr`
+       1. load the pre-existing yaml report into `old_diff`
+       2. re-generate the equivalent report by comparing `algod_swgr` with `indexer_swgr`
        3. compute the `diff_of_diffs` between these two reports
        4. assert that there is no diff
     """
