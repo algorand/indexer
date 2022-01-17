@@ -1,10 +1,12 @@
 from pathlib import Path
 import json
 from textwrap import indent
+import yaml
 
-from .json_diff import deep_diff, report_diff, diff_summary
+from .json_diff import deep_diff, report_diff, diff_summary, prettify_diff
 
 BEFORE_MINBALANCE = True
+MODELS_ONLY = True
 
 
 def fancy_report(diff_json):
@@ -20,10 +22,23 @@ def fancy_report(diff_json):
 
 
 def generate_report(folder, base_name, diff, summary=True):
+    def ddize(d):
+        if isinstance(d, dict):
+            return {k: ddize(v) for k, v in d.items()}
+        if isinstance(d, list):
+            return [ddize(x) for x in d]
+        return d
+
     diff_path = folder / (base_name + "_diff.json")
     with open(diff_path, "w") as f:
         f.write(json.dumps(diff, indent=2, sort_keys=True))
-    print(f"\nsaved diff to {diff_path}")
+    print(f"\nsaved json diff to {diff_path}")
+
+    pretty = ddize(prettify_diff(diff, src="ALGOD", tgt="INDEXER", value_limit=30))
+    yml_path = folder / (base_name + "_diff.yml")
+    with open(yml_path, "w") as f:
+        f.write(yaml.dump(pretty, indent=2, sort_keys=True, width=2000))
+    print(f"\nsaved json diff to {diff_path}")
 
     report_path = folder / (base_name + "_human.txt")
     report, num_diffs = fancy_report(diff)
@@ -172,9 +187,13 @@ def test_parity():
     )
     with open(indexer_json, "r") as f:
         indexer = json.loads(f.read())
+        if MODELS_ONLY:
+            indexer = indexer["definitions"]
 
     with open(algod_json, "r") as f:
         algod = json.loads(f.read())
+        if MODELS_ONLY:
+            algod = algod["definitions"]
 
     # Overlaps - existing fields that have been modified freom algod ---> indexer
     overlap_diff = deep_diff(
@@ -189,6 +208,9 @@ def test_parity():
         if BEFORE_MINBALANCE
         else expected_overlap_diff_after_minbalance
     )
+    if MODELS_ONLY:
+        expected_diff = expected_diff["definitions"]
+
     diff_of_diffs = deep_diff(expected_diff, overlap_diff)
     assert diff_of_diffs is None, diff_of_diffs
 

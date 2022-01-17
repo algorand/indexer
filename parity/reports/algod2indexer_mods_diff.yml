@@ -1,0 +1,24 @@
+Account:
+  properties:
+    sig-type:
+      description:
+      - '[ INDEXER  ]"Indicates what type of signat...'
+      - '[  ALGOD   ]"Indicates what type of signat...'
+  required:
+  - - '[ INDEXER  ]null'
+    - '[  ALGOD   ]"min-balance"'
+ApplicationParams:
+  properties:
+    global-state-schema:
+      description:
+      - '[ INDEXER  ]"[\\lsch\\] global schema"'
+      - '[  ALGOD   ]"[\\gsch\\] global schema"'
+  required:
+  - - '[ INDEXER  ]null'
+    - '[  ALGOD   ]"creator"'
+TealValue:
+  properties:
+    type:
+      description:
+      - '[ INDEXER  ]"\\[tt\\] value type."'
+      - '[  ALGOD   ]"\\[tt\\] value type. Value `1...'

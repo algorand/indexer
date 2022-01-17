@@ -133,6 +133,42 @@ def sort_json(d: Union[dict, list], sort_lists: bool = False):
     return d
 
 
+def jdump(jd):
+    return json.dumps(jd, separators=(",", ":"))
+
+
+def prettify_diff(
+    json_diff: Union[dict, list, int, str, None],
+    src: str = "",
+    tgt: str = "",
+    suppress_bs: bool = True,
+    value_limit: int = None,
+):
+    def suppress(x):
+        x = jdump(x)
+        if value_limit is not None and len(x) > value_limit:
+            x = x[:value_limit] + "..."
+        return x
+
+    def pd(jd):
+        if isinstance(jd, list):
+            if is_diff_array(jd):
+                x, y = jd
+                if suppress_bs:
+                    x, y = suppress(x), suppress(y)
+
+                return [f"[{tgt:^10}]{x}", f"[{src:^10}]{y}"]
+
+            return [pd(x) for x in jd]
+
+        if isinstance(jd, dict):
+            return {k: pd(v) for k, v in jd.items()}
+
+        return suppress(jd) if suppress_bs else jd
+
+    return sort_json(pd(json_diff))
+
+
 def flatten_diff(
     json_diff: Union[dict, list, int, str, None],
     output: Union[REPORT, SUMMARY] = REPORT,
@@ -173,9 +209,6 @@ def flatten_diff(
         src = tgt = ""
 
     SUMMARY_SEP = "###$$$###"
-
-    def jdump(jd):
-        return json.dumps(jd, separators=(",", ":"))
 
     def dump(stack, jd, src_or_tgt):
         is_src = src_or_tgt == "src"

@@ -1,0 +1,115 @@
+Account:
+  properties:
+    closed-at-round:
+    - '[ INDEXER  ]{"description":"Round during w...'
+    - '[  ALGOD   ]null'
+    created-at-round:
+    - '[ INDEXER  ]{"description":"Round during w...'
+    - '[  ALGOD   ]null'
+    deleted:
+    - '[ INDEXER  ]{"description":"Whether or not...'
+    - '[  ALGOD   ]null'
+Application:
+  properties:
+    created-at-round:
+    - '[ INDEXER  ]{"description":"Round when thi...'
+    - '[  ALGOD   ]null'
+    deleted:
+    - '[ INDEXER  ]{"description":"Whether or not...'
+    - '[  ALGOD   ]null'
+    deleted-at-round:
+    - '[ INDEXER  ]{"description":"Round when thi...'
+    - '[  ALGOD   ]null'
+ApplicationLocalState:
+  properties:
+    closed-out-at-round:
+    - '[ INDEXER  ]{"description":"Round when acc...'
+    - '[  ALGOD   ]null'
+    deleted:
+    - '[ INDEXER  ]{"description":"Whether or not...'
+    - '[  ALGOD   ]null'
+    opted-in-at-round:
+    - '[ INDEXER  ]{"description":"Round when the...'
+    - '[  ALGOD   ]null'
+ApplicationLogData:
+- '[ INDEXER  ]{"description":"Stores the glo...'
+- '[  ALGOD   ]null'
+Asset:
+  properties:
+    created-at-round:
+    - '[ INDEXER  ]{"description":"Round during w...'
+    - '[  ALGOD   ]null'
+    deleted:
+    - '[ INDEXER  ]{"description":"Whether or not...'
+    - '[  ALGOD   ]null'
+    destroyed-at-round:
+    - '[ INDEXER  ]{"description":"Round during w...'
+    - '[  ALGOD   ]null'
+AssetHolding:
+  properties:
+    deleted:
+    - '[ INDEXER  ]{"description":"Whether or not...'
+    - '[  ALGOD   ]null'
+    opted-in-at-round:
+    - '[ INDEXER  ]{"description":"Round during w...'
+    - '[  ALGOD   ]null'
+    opted-out-at-round:
+    - '[ INDEXER  ]{"description":"Round during w...'
+    - '[  ALGOD   ]null'
+Block:
+- '[ INDEXER  ]{"description":"Block informat...'
+- '[  ALGOD   ]null'
+BlockRewards:
+- '[ INDEXER  ]{"description":"Fields relatin...'
+- '[  ALGOD   ]null'
+BlockUpgradeState:
+- '[ INDEXER  ]{"description":"Fields relatin...'
+- '[  ALGOD   ]null'
+BlockUpgradeVote:
+- '[ INDEXER  ]{"description":"Fields relatin...'
+- '[  ALGOD   ]null'
+HealthCheck:
+- '[ INDEXER  ]{"description":"A health check...'
+- '[  ALGOD   ]null'
+MiniAssetHolding:
+- '[ INDEXER  ]{"description":"A simplified v...'
+- '[  ALGOD   ]null'
+OnCompletion:
+- '[ INDEXER  ]{"description":"\\[apan\\] def...'
+- '[  ALGOD   ]null'
+StateSchema:
+- '[ INDEXER  ]{"description":"Represents a \...'
+- '[  ALGOD   ]null'
+Transaction:
+- '[ INDEXER  ]{"description":"Contains all f...'
+- '[  ALGOD   ]null'
+TransactionApplication:
+- '[ INDEXER  ]{"description":"Fields for app...'
+- '[  ALGOD   ]null'
+TransactionAssetConfig:
+- '[ INDEXER  ]{"description":"Fields for ass...'
+- '[  ALGOD   ]null'
+TransactionAssetFreeze:
+- '[ INDEXER  ]{"description":"Fields for an ...'
+- '[  ALGOD   ]null'
+TransactionAssetTransfer:
+- '[ INDEXER  ]{"description":"Fields for an ...'
+- '[  ALGOD   ]null'
+TransactionKeyreg:
+- '[ INDEXER  ]{"description":"Fields for a k...'
+- '[  ALGOD   ]null'
+TransactionPayment:
+- '[ INDEXER  ]{"description":"Fields for a p...'
+- '[  ALGOD   ]null'
+TransactionSignature:
+- '[ INDEXER  ]{"description":"Validation sig...'
+- '[  ALGOD   ]null'
+TransactionSignatureLogicsig:
+- '[ INDEXER  ]{"description":"\\[lsig\\] Pro...'
+- '[  ALGOD   ]null'
+TransactionSignatureMultisig:
+- '[ INDEXER  ]{"description":"\\[msig\\] str...'
+- '[  ALGOD   ]null'
+TransactionSignatureMultisigSubsignature:
+- '[ INDEXER  ]{"properties":{"public-key":{"...'
+- '[  ALGOD   ]null'
