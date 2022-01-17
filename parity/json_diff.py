@@ -1,8 +1,7 @@
-from copy import deepcopy
-from curses.ascii import DEL
-import json
-from typing import Callable, List, Union, Tuple
 from collections import OrderedDict
+from copy import deepcopy
+import json
+from typing import List, Union
 
 
 L, R = "left", "right"
