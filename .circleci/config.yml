@@ -61,12 +61,12 @@ commands:
     steps:
       - run: test -z `go fmt ./...`
       - run: make lint
-      - run: make parity
       - run: make check
       - run: make integration
       - run: make test
       - run: make fakepackage
       - run: make e2e
+      - run: make parity
 
   upload_coverage:
     description: Collect coverage reports and upload them
