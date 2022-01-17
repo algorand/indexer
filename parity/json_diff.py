@@ -7,10 +7,6 @@ from collections import OrderedDict
 
 L, R = "left", "right"
 
-REPORT, SUMMARY = "report", "summary"
-
-CONFLICT, DELETION, ADDITION = "conflict", "deletion", "addition"
-
 
 def deep_diff(
     x: Union[dict, list],
