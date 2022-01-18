@@ -104,7 +104,7 @@ var daemonCmd = &cobra.Command{
 				bot.SetNextRound(nextRound)
 
 				imp := importer.NewImporter(db)
-				handler := blockHandler(imp, 1 * time.Second)
+				handler := blockHandler(imp, 1*time.Second)
 				bot.SetBlockHandler(handler)
 
 				logger.Info("Starting block importer.")

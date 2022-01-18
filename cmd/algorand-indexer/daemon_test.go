@@ -13,17 +13,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type mockImporter struct{
+type mockImporter struct {
 	count int
 }
 
-var mockError = errors.New("mock import block error")
+var errMockImportBlock= errors.New("mock import block error")
 
 func (imp *mockImporter) ImportBlock(blockContainer *rpcs.EncodedBlockCert) error {
 	imp.count++
-	return mockError
+	return errMockImportBlock
 }
-
 
 func TestImportRetryAndCancel(t *testing.T) {
 	// connect debug logger
@@ -36,7 +35,7 @@ func TestImportRetryAndCancel(t *testing.T) {
 
 	// create handler with mock importer and start, it should generate an error every second until cancelled.
 	imp := &mockImporter{}
-	handler := blockHandler(imp, 50 * time.Millisecond)
+	handler := blockHandler(imp, 50*time.Millisecond)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -58,7 +57,7 @@ func TestImportRetryAndCancel(t *testing.T) {
 
 	for _, entry := range hook.Entries {
 		assert.Equal(t, entry.Message, "adding block 1234 to database failed")
-		assert.Equal(t, entry.Data["error"], mockError)
+		assert.Equal(t, entry.Data["error"], errMockImportBlock)
 	}
 
 	// Wait for handler to exit.
