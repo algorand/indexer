@@ -376,6 +376,17 @@ func TrimAccountData(ad basics.AccountData) basics.AccountData {
 	ad.AppLocalStates = nil
 	ad.AppParams = nil
 
+	// Uh-oh: If we want to calculate MinBalance using
+	// data/basics/userBalance.go::func (basics.AccountData) MinBalance(proto *config.ConsensusParams) (res MicroAlgos)
+	// then we'll need the following information:
+	// * proto.MinBalance:  	:-)
+	// * ad.Assets:				:-(
+	// * ad.AppParams:			:-(
+	// * ad.AppLocalStates:		:-(
+	// * ad.TotalAppSchema:		:-)
+	// * ad.TotalExtraAppPages: :-)
+	// but we're erasing 3 of these fields before we hand the json off to the upsert
+
 	return ad
 }
 
