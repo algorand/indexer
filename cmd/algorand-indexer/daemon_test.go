@@ -17,7 +17,7 @@ type mockImporter struct {
 	count int
 }
 
-var errMockImportBlock= errors.New("mock import block error")
+var errMockImportBlock = errors.New("mock import block error")
 
 func (imp *mockImporter) ImportBlock(blockContainer *rpcs.EncodedBlockCert) error {
 	imp.count++
