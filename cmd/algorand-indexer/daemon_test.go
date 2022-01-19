@@ -31,7 +31,7 @@ func TestImportRetryAndCancel(t *testing.T) {
 	ctx := context.Background()
 	cctx, cancel := context.WithCancel(ctx)
 
-	// create handler with mock importer and start, it should generate an error every second until cancelled.
+	// create handler with mock importer and start, it should generate errors until cancelled.
 	imp := &mockImporter{}
 	handler := blockHandler(imp, 50*time.Millisecond)
 	var wg sync.WaitGroup
