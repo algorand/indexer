@@ -734,7 +734,8 @@
         "pending-rewards",
         "amount-without-pending-rewards",
         "rewards",
-        "status"
+        "status",
+        "min-balance"
       ],
       "properties": {
         "address": {
@@ -743,6 +744,10 @@
         },
         "amount": {
           "description": "\\[algo\\] total number of MicroAlgos in the account",
+          "type": "integer"
+        },
+        "min-balance": {
+          "description": "MicroAlgo balance required by the account.\n\nThe requirement grows based on asset and application usage.",
           "type": "integer"
         },
         "amount-without-pending-rewards": {
@@ -960,7 +965,7 @@
       ],
       "properties": {
         "type": {
-          "description": "\\[tt\\] value type.",
+          "description": "\\[tt\\] value type. Value `1` refers to **bytes**, value `2` refers to **uint**",
           "type": "integer"
         },
         "bytes": {
@@ -1036,7 +1041,7 @@
           "$ref": "#/definitions/ApplicationStateSchema"
         },
         "global-state-schema": {
-          "description": "[\\lsch\\] global schema",
+          "description": "[\\gsch\\] global schema",
           "$ref": "#/definitions/ApplicationStateSchema"
         },
         "global-state": {
