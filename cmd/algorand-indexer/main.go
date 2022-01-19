@@ -61,14 +61,12 @@ var rootCmd = &cobra.Command{
 		if configFile != "" {
 			configs, err := os.Open(configFile)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "%v", err)
-				os.Exit(1)
+				maybeFail(err, "%v", err)
 			}
 			defer configs.Close()
 			err = viper.ReadConfig(configs)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
-				os.Exit(1)
+				maybeFail(err, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
 			}
 			fmt.Printf("Using configuration file: %s\n", configFile)
 		}
