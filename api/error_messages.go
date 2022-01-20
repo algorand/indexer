@@ -16,6 +16,7 @@ const (
 	errUnableToParseDigest             = "unable to parse base32 digest data"
 	errUnableToParseNext               = "unable to parse next token"
 	errUnableToDecodeTransaction       = "unable to decode transaction bytes"
+	errFailedEnrichingAccount          = "failed while enriching account information"
 	errFailedSearchingAccount          = "failed while searching for account"
 	errFailedSearchingAsset            = "failed while searching for asset"
 	errFailedSearchingAssetBalances    = "failed while searching for asset balances"

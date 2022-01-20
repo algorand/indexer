@@ -252,6 +252,8 @@ type AccountQueryOptions struct {
 
 	IncludeAssetHoldings bool
 	IncludeAssetParams   bool
+	// IncludeMinBalance indicates whether to calculate min-balance as well (a realatively slow operation)
+	IncludeMinBalance bool
 
 	// IncludeDeleted indicated whether to include deleted Assets, Applications, etc within the account.
 	IncludeDeleted bool

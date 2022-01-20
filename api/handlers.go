@@ -153,6 +153,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		EqualToAddress:       addr[:],
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
+		IncludeMinBalance:    boolOrDefault(params.IncludeAll),
 		Limit:                1,
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
 	}
@@ -168,6 +169,12 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 
 	if len(accounts) > 1 {
 		return indexerError(ctx, fmt.Errorf("%s: %s", errMultipleAccounts, accountID))
+	}
+
+	// TODO: only enrich when needed
+	err = accounting.Enrich(accounts, accounting.MinBalanceEnricher)
+	if err != nil {
+		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedEnrichingAccount, err))
 	}
 
 	return ctx.JSON(http.StatusOK, generated.AccountResponse{
@@ -220,6 +227,8 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingAccount, err))
 	}
+
+	// TODO: enrichers here
 
 	var next *string
 	if len(accounts) > 0 {
