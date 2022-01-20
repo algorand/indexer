@@ -317,7 +317,7 @@ function start_postgres() {
     -e POSTGRES_USER=algorand \
     -e POSTGRES_PASSWORD=algorand \
     -e PGPASSWORD=algorand \
-    -p 55432:5432 \
+    -p 5434:5432 \
     postgres
 
   sleep 5
