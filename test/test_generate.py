@@ -9,13 +9,14 @@ from subprocess import check_output
 # List of directories that contain generate.go files
 list_of_directories=["../idb/postgres/internal/schema"]
 
+
+first = check_output(["git status --porcelain"], shell=True).strip().decode('UTF-8')
+
 for dir in list_of_directories:
     os.system("/usr/local/go/bin/go generate {}".format(dir))
 
-out = check_output(["git status --porcelain | wc -l"], shell=True).strip().decode('UTF-8')
+second = check_output(["git status --porcelain"], shell=True).strip().decode('UTF-8')
 
-if out != "0":
-    print("Number of files modified was not 0.  It was {}".format(out))
-    out = check_output(["git status --porcelain"], shell=True).strip().decode('UTF-8')
-    print("Output of 'git status --porcelain':\n {}".format(out))
+if first != second:
+    print("Output of 'git status --porcelain':\n {}".format(second))
     sys.exit(1)
