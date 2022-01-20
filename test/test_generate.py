@@ -18,4 +18,6 @@ if out != "0":
     print("Number of files modified was not 0.  It was {}".format(out))
     out = check_output(["git status --porcelain"], shell=True).strip().decode('UTF-8')
     print("Output of 'git status --porcelain':\n {}".format(out))
+    out = check_output(["git diff"], shell=True).strip().decode('UTF-8')
+    print("Output of diff: {}\n".format(out))
     sys.exit(1)
