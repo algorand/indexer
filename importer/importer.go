@@ -10,12 +10,16 @@ import (
 )
 
 // Importer is used to import blocks into an idb.IndexerDb object.
-type Importer struct {
+type Importer interface {
+	ImportBlock(blockContainer *rpcs.EncodedBlockCert) error
+}
+
+type importerImpl struct {
 	db idb.IndexerDb
 }
 
 // ImportBlock processes a block and adds it to the IndexerDb
-func (imp *Importer) ImportBlock(blockContainer *rpcs.EncodedBlockCert) error {
+func (imp *importerImpl) ImportBlock(blockContainer *rpcs.EncodedBlockCert) error {
 	block := &blockContainer.Block
 
 	_, ok := config.Consensus[block.CurrentProtocol]
@@ -27,5 +31,5 @@ func (imp *Importer) ImportBlock(blockContainer *rpcs.EncodedBlockCert) error {
 
 // NewImporter creates a new importer object.
 func NewImporter(db idb.IndexerDb) Importer {
-	return Importer{db: db}
+	return &importerImpl{db: db}
 }
