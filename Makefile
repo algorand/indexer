@@ -79,7 +79,8 @@ test-package:
 	mule/e2e.sh
 
 # check that indexer and algod differ at the expected places
-parity:
+# currently it is turned off since it's not in the .PHONY
+indexer-v-algod-swagger:
 	pytest -sv parity
 
 .PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand
