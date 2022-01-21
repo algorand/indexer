@@ -657,7 +657,6 @@
           "address",
           "amount",
           "amount-without-pending-rewards",
-          "min-balance",
           "pending-rewards",
           "rewards",
           "round",

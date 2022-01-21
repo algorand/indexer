@@ -734,8 +734,7 @@
         "pending-rewards",
         "amount-without-pending-rewards",
         "rewards",
-        "status",
-        "min-balance"
+        "status"
       ],
       "properties": {
         "address": {
