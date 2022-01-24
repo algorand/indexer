@@ -48,7 +48,7 @@ func TestMaxRound(t *testing.T) {
 	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{},nil)
+	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	defer pdb.Close()
 
@@ -1885,21 +1885,20 @@ func TestNetworkIDCheckAtDBStartup(t *testing.T) {
 		t, connStr, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer db.Close()
 
-	network,err:=db.getMetastate(context.Background(), nil,schema.NetworkMetaStateKey)
+	network, err := db.getMetastate(context.Background(), nil, schema.NetworkMetaStateKey)
 	assert.NoError(t, err)
-	networkState,err := encoding.DecodeNetworkState([]byte(network))
+	networkState, err := encoding.DecodeNetworkState([]byte(network))
 	assert.NoError(t, err)
-	assert.Equal(t, "mynet",networkState.NetworkID)
+	assert.Equal(t, "mynet", networkState.NetworkID)
 
 	// connect with different genesis configs
 	genesis := test.MakeGenesis()
-	genesis.Network="testnest"
+	genesis.Network = "testnest"
 
 	// different networkID, should fail
 	idb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	err = idb.LoadGenesis(genesis)
 	assert.Error(t, err)
-	assert.Contains(t,err.Error(),"NetworkID does not match")
+	assert.Contains(t, err.Error(), "NetworkID does not match")
 }
-

@@ -397,8 +397,9 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 // LoadGenesis is part of idb.IndexerDB
 func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 	f := func(tx pgx.Tx) error {
+		// check networkdID
 		network, err := db.getMetastate(context.Background(), nil, schema.NetworkMetaStateKey)
-		if network ==""{
+		if err == idb.ErrorNotInitialized {
 			networkState := types.NetworkState{
 				NetworkID: string(genesis.Network),
 			}
@@ -407,12 +408,12 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() err: %w", err)
 			}
-		}else{
-			networkState,err := encoding.DecodeNetworkState([]byte(network))
+		} else {
+			networkState, err := encoding.DecodeNetworkState([]byte(network))
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() err: %w", err)
 			}
-			if networkState.NetworkID != string(genesis.Network){
+			if networkState.NetworkID != string(genesis.Network) {
 				return fmt.Errorf("LoadGenesis() err: NetworkID does not match")
 			}
 		}
