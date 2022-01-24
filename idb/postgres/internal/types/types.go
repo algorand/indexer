@@ -19,3 +19,8 @@ type MigrationState struct {
 	//       It would require a mechanism to clear the data field between migrations to avoid using migration data
 	//       from the previous migration.
 }
+
+// NetworkState encodes network metastate.
+type NetworkState struct {
+	NetworkID string `codec:"networkID"`
+}

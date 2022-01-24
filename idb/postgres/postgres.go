@@ -397,9 +397,28 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 // LoadGenesis is part of idb.IndexerDB
 func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 	f := func(tx pgx.Tx) error {
+		network, err := db.getMetastate(context.Background(), nil, schema.NetworkMetaStateKey)
+		if network ==""{
+			networkState := types.NetworkState{
+				NetworkID: string(genesis.Network),
+			}
+			err = db.setMetastate(
+				nil, schema.NetworkMetaStateKey, string(encoding.EncodeNetworkState(&networkState)))
+			if err != nil {
+				return fmt.Errorf("LoadGenesis() err: %w", err)
+			}
+		}else{
+			networkState,err := encoding.DecodeNetworkState([]byte(network))
+			if err != nil {
+				return fmt.Errorf("LoadGenesis() err: %w", err)
+			}
+			if networkState.NetworkID != string(genesis.Network){
+				return fmt.Errorf("LoadGenesis() err: NetworkID does not match")
+			}
+		}
 		setAccountStatementName := "set_account"
 		query := `INSERT INTO account (addr, microalgos, rewardsbase, account_data, rewards_total, created_at, deleted) VALUES ($1, $2, 0, $3, $4, 0, false)`
-		_, err := tx.Prepare(context.Background(), setAccountStatementName, query)
+		_, err = tx.Prepare(context.Background(), setAccountStatementName, query)
 		if err != nil {
 			return fmt.Errorf("LoadGenesis() prepare tx err: %w", err)
 		}
