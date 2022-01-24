@@ -9,6 +9,7 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/indexer/idb/postgres/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -526,4 +527,21 @@ func TestTxnExtra(t *testing.T) {
 			assert.Equal(t, testcase.extra, extraNew)
 		})
 	}
+}
+
+// Test that encoding of NetworkState is as expected and that decoding results in the
+// same object.
+func TestNetworkStateEncoding(t *testing.T) {
+	network := types.NetworkState{
+		NetworkID: "testnet",
+	}
+
+	buf := EncodeNetworkState(&network)
+
+	expectedString := `{"networkID":"testnet"}`
+	assert.Equal(t, expectedString, string(buf))
+
+	decodedNetwork, err := DecodeNetworkState(buf)
+	require.NoError(t, err)
+	assert.Equal(t, network, decodedNetwork)
 }
