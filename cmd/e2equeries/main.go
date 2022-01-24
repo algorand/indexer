@@ -33,7 +33,6 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-
 	postgresConfig, err := pgxpool.ParseConfig(pgdb)
 	maybeFail(err, "parsing postgres string, %v", err)
 

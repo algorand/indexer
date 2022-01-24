@@ -144,7 +144,6 @@ func init() {
 	daemonCmd.Flags().Int32VarP(&postgresMaxConns, "max-conns", "", 4, "set the maximum number of connections in the connection pool")
 	daemonCmd.Flags().Int32VarP(&postgresMinConns, "min-conns", "", 0, "set the minimum number of connections in the connection pool")
 
-
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
 	viper.RegisterAlias("server", "server-address")

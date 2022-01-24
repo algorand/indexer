@@ -14,7 +14,7 @@ func (df postgresFactory) Name() string {
 	return "postgres"
 }
 
-func (df postgresFactory) Build(config* pgxpool.Config, opts idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, chan struct{}, error) {
+func (df postgresFactory) Build(config *pgxpool.Config, opts idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, chan struct{}, error) {
 	return OpenPostgres(config, opts, log)
 }
 

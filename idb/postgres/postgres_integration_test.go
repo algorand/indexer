@@ -1664,7 +1664,6 @@ func TestLoadGenesisAccountTotals(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-
 	postgresConfig, err := pgxpool.ParseConfig(connStr)
 	require.NoError(t, err)
 
