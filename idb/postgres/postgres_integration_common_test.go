@@ -13,7 +13,11 @@ import (
 )
 
 func setupIdbWithConnectionString(t *testing.T, connStr string, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) *IndexerDb {
-	idb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+
+	postgresConfig, err := pgxpool.ParseConfig(connStr)
+	require.NoError(t, err)
+
+	idb, _, err := OpenPostgres(postgresConfig, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 
 	err = idb.LoadGenesis(genesis)

@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 
@@ -26,7 +27,10 @@ import (
 func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) (*postgres.IndexerDb /*db*/, func() /*shutdownFunc*/) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
-	db, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	postgresConfig, err := pgxpool.ParseConfig(connStr)
+	require.NoError(t, err)
+
+	db, _, err := postgres.OpenPostgres(postgresConfig, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 
 	newShutdownFunc := func() {

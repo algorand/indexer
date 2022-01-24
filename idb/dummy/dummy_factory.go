@@ -1,6 +1,7 @@
 package dummy
 
 import (
+	"github.com/jackc/pgx/v4/pgxpool"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"
@@ -15,7 +16,7 @@ func (df dummyFactory) Name() string {
 }
 
 // Build is part of the IndexerFactory interface.
-func (df dummyFactory) Build(arg string, opts idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, chan struct{}, error) {
+func (df dummyFactory) Build(config *pgxpool.Config, opts idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, chan struct{}, error) {
 	return &dummyIndexerDb{log: log}, nil, nil
 }
 

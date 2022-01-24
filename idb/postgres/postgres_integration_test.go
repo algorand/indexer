@@ -30,7 +30,10 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	postgresConfig, err := pgxpool.ParseConfig(connStr)
+	require.NoError(t, err)
+
+	db, _, err := OpenPostgres(postgresConfig, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	defer db.Close()
 
@@ -48,7 +51,10 @@ func TestMaxRound(t *testing.T) {
 	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	postgresConfig, err := pgxpool.ParseConfig(connStr)
+	require.NoError(t, err)
+
+	pdb, _, err := OpenPostgres(postgresConfig, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	defer pdb.Close()
 
@@ -71,7 +77,10 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	postgresConfig, err := pgxpool.ParseConfig(connStr)
+	require.NoError(t, err)
+
+	pdb, _, err := OpenPostgres(postgresConfig, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	defer pdb.Close()
 
@@ -947,7 +956,10 @@ func TestInitializationNewDatabase(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-	db, availableCh, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	postgresConfig, err := pgxpool.ParseConfig(connStr)
+	require.NoError(t, err)
+
+	db, availableCh, err := OpenPostgres(postgresConfig, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -965,8 +977,11 @@ func TestOpenDbAgain(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
+	postgresConfig, err := pgxpool.ParseConfig(connStr)
+	require.NoError(t, err)
+
 	for i := 0; i < 2; i++ {
-		db, availableCh, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+		db, availableCh, err := OpenPostgres(postgresConfig, idb.IndexerDbOptions{}, nil)
 		require.NoError(t, err)
 		<-availableCh
 		db.Close()
@@ -1301,7 +1316,11 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+
+	postgresConfig, err := pgxpool.ParseConfig(connStr)
+	require.NoError(t, err)
+
+	db, _, err := OpenPostgres(postgresConfig, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 	defer db.Close()
 
@@ -1644,7 +1663,12 @@ func TestNonUTF8Logs(t *testing.T) {
 func TestLoadGenesisAccountTotals(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
-	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+
+
+	postgresConfig, err := pgxpool.ParseConfig(connStr)
+	require.NoError(t, err)
+
+	db, _, err := OpenPostgres(postgresConfig, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 	defer db.Close()
 

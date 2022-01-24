@@ -7,6 +7,7 @@ import (
 	"runtime/pprof"
 	"strings"
 
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/cobra"
 	//"github.com/spf13/cobra/doc" // TODO: enable cobra doc generation
 	log "github.com/sirupsen/logrus"
@@ -74,20 +75,41 @@ var rootCmd = &cobra.Command{
 }
 
 var (
-	postgresAddr   string
-	dummyIndexerDb bool
-	doVersion      bool
-	cpuProfile     string
-	pidFilePath    string
-	profFile       io.WriteCloser
-	logLevel       string
-	logFile        string
-	logger         *log.Logger
+	postgresAddr     string
+	dummyIndexerDb   bool
+	doVersion        bool
+	cpuProfile       string
+	pidFilePath      string
+	profFile         io.WriteCloser
+	logLevel         string
+	logFile          string
+	logger           *log.Logger
+	postgresMaxConns int32
+	postgresMinConns int32
 )
 
 func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}) {
 	if postgresAddr != "" {
-		db, ch, err := idb.IndexerDbByName("postgres", postgresAddr, opts, logger)
+		postgresConfig, err := pgxpool.ParseConfig(postgresAddr)
+		if err != nil {
+			logger.Errorf("Could not parse connection string %s, %v", postgresAddr, err)
+			os.Exit(1)
+			return nil, nil
+		}
+
+		if strings.Contains(postgresAddr, "readonly") {
+			opts.ReadOnly = true
+		}
+
+		// If the maximum is less than the minimum, just make them the same
+		if postgresMaxConns < postgresMinConns {
+			postgresMaxConns = postgresMinConns
+		}
+
+		postgresConfig.MaxConns = postgresMaxConns
+		postgresConfig.MinConns = postgresMinConns
+
+		db, ch, err := idb.IndexerDbByName("postgres", postgresConfig, opts, logger)
 		maybeFail(err, "could not init db, %v", err)
 		return db, ch
 	}

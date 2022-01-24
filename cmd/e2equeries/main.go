@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"os"
 	"time"
 
@@ -32,7 +33,11 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
-	db, availableCh, err := idb.IndexerDbByName("postgres", pgdb, idb.IndexerDbOptions{ReadOnly: true}, nil)
+
+	postgresConfig, err := pgxpool.ParseConfig(pgdb)
+	maybeFail(err, "parsing postgres string, %v", err)
+
+	db, availableCh, err := idb.IndexerDbByName("postgres", postgresConfig, idb.IndexerDbOptions{ReadOnly: true}, nil)
 	maybeFail(err, "open postgres, %v", err)
 	<-availableCh
 

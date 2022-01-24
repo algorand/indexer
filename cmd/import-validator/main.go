@@ -19,6 +19,7 @@ import (
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
@@ -59,8 +60,15 @@ func getGenesis(client *algod.Client) (bookkeeping.Genesis, error) {
 }
 
 func openIndexerDb(postgresConnStr string, genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block, logger *logrus.Logger) (*postgres.IndexerDb, error) {
+
+	postgresConfig, err := pgxpool.ParseConfig(postgresConnStr)
+
+	if err != nil {
+		return nil, fmt.Errorf("openIndexerDb() err: %w", err)
+	}
+
 	db, availableCh, err :=
-		postgres.OpenPostgres(postgresConnStr, idb.IndexerDbOptions{}, logger)
+		postgres.OpenPostgres(postgresConfig, idb.IndexerDbOptions{}, logger)
 	if err != nil {
 		return nil, fmt.Errorf("openIndexerDb() err: %w", err)
 	}

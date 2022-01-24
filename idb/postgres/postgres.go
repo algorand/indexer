@@ -48,15 +48,12 @@ var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessM
 // OpenPostgres is available for creating test instances of postgres.IndexerDb
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
-func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (*IndexerDb, chan struct{}, error) {
-	db, err := pgxpool.Connect(context.Background(), connection)
+func OpenPostgres(config *pgxpool.Config, opts idb.IndexerDbOptions, log *log.Logger) (*IndexerDb, chan struct{}, error) {
+
+	db, err := pgxpool.ConnectConfig(context.Background(), config)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("connecting to postgres: %v", err)
-	}
-
-	if strings.Contains(connection, "readonly") {
-		opts.ReadOnly = true
 	}
 
 	return openPostgres(db, opts, log)

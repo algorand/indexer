@@ -9,6 +9,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/jackc/pgx/v4/pgxpool"
+
 	ajson "github.com/algorand/go-algorand-sdk/encoding/json"
 	sdk_types "github.com/algorand/go-algorand-sdk/types"
 
@@ -128,8 +130,11 @@ func main() {
 	flag.Parse()
 	testutil.SetQuiet(quiet)
 
+	postgresConfig, err := pgxpool.ParseConfig(pgdb)
+	maybeFail(err, "parsing postgres string, %v", err)
+
 	db, availableCh, err :=
-		idb.IndexerDbByName("postgres", pgdb, idb.IndexerDbOptions{}, nil)
+		idb.IndexerDbByName("postgres", postgresConfig, idb.IndexerDbOptions{}, nil)
 	maybeFail(err, "open postgres, %v", err)
 	<-availableCh
 
