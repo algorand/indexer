@@ -757,7 +757,7 @@ func TestTimeouts(t *testing.T) {
 		mockIndexer.
 			On("GetAccounts", mock.Anything, mock.Anything, mock.Anything).
 			WaitUntil(timeout).
-			Return(nil, uint64(0), &bookkeeping.Block{})
+			Return(nil, uint64(0), &bookkeeping.BlockHeader{})
 	}
 	assetsFunc := mostMockFunctions("Assets")
 	balancesFunc := mostMockFunctions("AssetBalances")
