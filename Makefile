@@ -77,7 +77,6 @@ test-package:
 	mule/e2e.sh
 
 # check that indexer and algod differ at the expected places
-# currently it is turned off since it's not in the .PHONY
 indexer-v-algod-swagger:
 	pytest -sv parity
 
