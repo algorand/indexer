@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/crypto/merklekeystore"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -179,37 +178,6 @@ func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
 			SenderRewards:   basics.MicroAlgos{Raw: sendRewards},
 			ReceiverRewards: basics.MicroAlgos{Raw: receiveRewards},
 			CloseRewards:    basics.MicroAlgos{Raw: closeRewards},
-		},
-	}
-}
-
-// MakeSimpleKeyregOnlineTxn creates a fake key registration transaction.
-func MakeSimpleKeyregOnlineTxn(sender basics.Address) transactions.SignedTxnWithAD {
-	var votePK crypto.OneTimeSignatureVerifier
-	votePK[0] = 1
-
-	var selectionPK crypto.VRFVerifier
-	selectionPK[0] = 2
-
-	var stateProofKey merklekeystore.Verifier
-	stateProofKey[0] = 3
-
-	return transactions.SignedTxnWithAD{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: "keyreg",
-				Header: transactions.Header{
-					Sender:      sender,
-					GenesisHash: GenesisHash,
-				},
-				KeyregTxnFields: transactions.KeyregTxnFields{
-					VotePK:          votePK,
-					SelectionPK:     selectionPK,
-					StateProofPK:    stateProofKey,
-					VoteKeyDilution: 1,
-				},
-			},
-			Sig: Signature,
 		},
 	}
 }

@@ -309,7 +309,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	}
 }
 
-func TestTransactionHandler(t *testing.T) {
+func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()
 
