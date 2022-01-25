@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -533,12 +534,12 @@ func TestTxnExtra(t *testing.T) {
 // same object.
 func TestNetworkStateEncoding(t *testing.T) {
 	network := types.NetworkState{
-		NetworkID: "testnet",
+		GenesisHash: crypto.Digest{77},
 	}
 
 	buf := EncodeNetworkState(&network)
 
-	expectedString := `{"networkID":"testnet"}`
+	expectedString := `{"genesis-hash":"TQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
 	assert.Equal(t, expectedString, string(buf))
 
 	decodedNetwork, err := DecodeNetworkState(buf)
