@@ -18,14 +18,9 @@ export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 cmd/algorand-indexer/algorand-indexer: idb/postgres/internal/schema/setup_postgres_sql.go go-algorand
 	cd cmd/algorand-indexer && go build -ldflags="${GOLDFLAGS}"
 
-go-algorand-submodule:
-	git submodule update --init
-
-go-algorand-build:
-	cd third_party/go-algorand && \
+go-algorand:
+	git submodule update --init && cd third_party/go-algorand && \
 		make crypto/libs/`scripts/ostype.sh`/`scripts/archtype.sh`/lib/libsodium.a
-
-go-algorand: go-algorand-submodule go-algorand-build
 
 idb/postgres/internal/schema/setup_postgres_sql.go:	idb/postgres/internal/schema/setup_postgres.sql
 	cd idb/postgres/internal/schema && go generate
@@ -75,11 +70,5 @@ sign:
 
 test-package:
 	mule/e2e.sh
-
-test-generate:
-	test/test_generate.py
-
-indexer-v-algod-swagger:
-	pytest -sv parity
 
 .PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand

@@ -11,7 +11,7 @@ services:
   e2e-db:
     image: "postgres:13-alpine"
     ports:
-      - 45432:5432
+      - 5433:5432
     environment:
       POSTGRES_USER: algorand
       POSTGRES_PASSWORD: algorand
