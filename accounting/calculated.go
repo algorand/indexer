@@ -25,7 +25,6 @@ func EnrichMinBalance(account *generated.Account, blockheader *bookkeeping.Block
 	return nil
 }
 
-
 // copy pasta the next few from api::pointer_utils.go and then renamed
 // TODO: unify common utils
 
@@ -120,6 +119,7 @@ func convertAppsOptedIn(gApps *[]generated.ApplicationLocalState) map[basics.App
 	}
 	return nil
 }
+
 // minBalanceProjection projects a part of a generated.Account to a basics.AccountData struct.
 // It does so for the purpose of calculating an account's minumum balance using the official
 // calculator go-algorand/data/basics/userBalance.go::MinBalance()

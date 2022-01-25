@@ -16,6 +16,7 @@ import (
 var protoV24 config.ConsensusParams
 
 type minBalVector struct{ assets, appParams, localStates, uints, byteSlices, extraAppPages uint64 }
+
 func asVector(a *basics.AccountData) minBalVector {
 	if a == nil {
 		return minBalVector{}
@@ -40,16 +41,15 @@ func DeepCopy(src, dst interface{}) error {
 	return gob.NewDecoder(bytes.NewBuffer(buf.Bytes())).Decode(dst)
 }
 
-
 // calculateMinBalance is a sanity checker that takes a linear combination
 // of the cost weights of the consensus params with an account's cost attributes (aka minBalVector)
 func minBalanceLinearCombo(proto *config.ConsensusParams, vect minBalVector) basics.MicroAlgos {
-	raw := proto.MinBalance * (1 + vect.assets) +
-		proto.AppFlatParamsMinBalance * (vect.appParams + vect.extraAppPages) +
-		proto.AppFlatOptInMinBalance * vect.localStates +
-		proto.SchemaMinBalancePerEntry * (vect.uints +  vect.byteSlices) +
-		proto.SchemaUintMinBalance * vect.uints +
-		proto.SchemaBytesMinBalance * vect.byteSlices
+	raw := proto.MinBalance*(1+vect.assets) +
+		proto.AppFlatParamsMinBalance*(vect.appParams+vect.extraAppPages) +
+		proto.AppFlatOptInMinBalance*vect.localStates +
+		proto.SchemaMinBalancePerEntry*(vect.uints+vect.byteSlices) +
+		proto.SchemaUintMinBalance*vect.uints +
+		proto.SchemaBytesMinBalance*vect.byteSlices
 
 	return basics.MicroAlgos{Raw: raw}
 }
@@ -60,6 +60,7 @@ type testCase struct {
 	expected basics.AccountData
 	vect     minBalVector
 }
+
 var testCases []testCase
 
 func TestMinBalanceProjection(t *testing.T) {
@@ -81,14 +82,13 @@ func TestMinBalanceComputation(t *testing.T) {
 	}
 }
 
-
 func TestMinBalanceEnricher(t *testing.T) {
 	blockheader := bookkeeping.BlockHeader{
 		UpgradeState: bookkeeping.UpgradeState{
 			CurrentProtocol: protocol.ConsensusV24,
 		},
 	}
-	
+
 	for i, tCase := range testCases {
 		expected := minBalanceLinearCombo(&protoV24, tCase.vect).Raw
 		gAccountMutate := generated.Account{}
