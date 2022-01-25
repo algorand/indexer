@@ -55,14 +55,14 @@ func convertAssetHoldings(gAssets *[]generated.AssetHolding) map[basics.AssetInd
 			continue
 		}
 
-		bAssetId := basics.AssetIndex(gAsset.AssetId)
-		if _, alreadyExists := bAssets[bAssetId]; alreadyExists {
+		bAssetID := basics.AssetIndex(gAsset.AssetId)
+		if _, alreadyExists := bAssets[bAssetID]; alreadyExists {
 			// skip dupes
 			continue
 		}
 
 		// for the purposes if MinBalance calculation, there is no need for Amount field, etc.
-		bAssets[bAssetId] = basics.AssetHolding{}
+		bAssets[bAssetID] = basics.AssetHolding{}
 	}
 	if len(bAssets) > 0 {
 		return bAssets
@@ -80,14 +80,14 @@ func convertAppsCreated(gApps *[]generated.Application) map[basics.AppIndex]basi
 		if boolZerovalIfNil(gApp.Deleted) || gApp.DeletedAtRound != nil {
 			continue
 		}
-		bAppId := basics.AppIndex(gApp.Id)
-		if _, alreadyExists := bAapps[bAppId]; alreadyExists {
+		bAppID := basics.AppIndex(gApp.Id)
+		if _, alreadyExists := bAapps[bAppID]; alreadyExists {
 			// skip dupes
 			continue
 		}
 
 		// MinBalance doesn't dig into AppParams, so provide a zeroval struct
-		bAapps[bAppId] = basics.AppParams{}
+		bAapps[bAppID] = basics.AppParams{}
 	}
 	if len(bAapps) > 0 {
 		return bAapps
@@ -105,14 +105,14 @@ func convertAppsOptedIn(gApps *[]generated.ApplicationLocalState) map[basics.App
 		if boolZerovalIfNil(gApp.Deleted) || gApp.ClosedOutAtRound != nil {
 			continue
 		}
-		bAppId := basics.AppIndex(gApp.Id)
-		if _, alreadyExists := bAapps[bAppId]; alreadyExists {
+		bAppID := basics.AppIndex(gApp.Id)
+		if _, alreadyExists := bAapps[bAppID]; alreadyExists {
 			// skip dupes
 			continue
 		}
 
 		// MinBalance doesn't dig into AppLocalStates, so provide a zeroval struct
-		bAapps[bAppId] = basics.AppLocalState{}
+		bAapps[bAppID] = basics.AppLocalState{}
 	}
 	if len(bAapps) > 0 {
 		return bAapps
