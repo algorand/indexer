@@ -399,12 +399,12 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 	f := func(tx pgx.Tx) error {
 		// check genesis hash
-		network, err := db.getNetworkState(context.Background(), nil)
+		network, err := db.getNetworkState(context.Background(), tx)
 		if err == idb.ErrorNotInitialized {
 			networkState := types.NetworkState{
 				GenesisHash: crypto.HashObj(genesis),
 			}
-			err = db.setNetworkState(nil, &networkState)
+			err = db.setNetworkState(tx, &networkState)
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() err: %w", err)
 			}

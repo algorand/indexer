@@ -10,11 +10,11 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
-	"github.com/algorand/indexer/idb/postgres/internal/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/postgres/internal/types"
 )
 
 func TestEncodeSignedTxnWithAD(t *testing.T) {
