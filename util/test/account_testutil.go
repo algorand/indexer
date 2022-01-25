@@ -235,7 +235,7 @@ func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 	}
 }
 
-// MakeAppDestroyTxn makes a transaction that destroys an asset.
+// MakeAppDestroyTxn makes a transaction that destroys an app.
 func MakeAppDestroyTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{

@@ -24,6 +24,7 @@ var importCmd = &cobra.Command{
 		}
 
 		db, availableCh := indexerDbFromFlags(idb.IndexerDbOptions{})
+		defer db.Close()
 		<-availableCh
 
 		helper := importer.NewImportHelper(

@@ -12,7 +12,6 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 )
@@ -29,12 +28,13 @@ type TxnRow struct {
 	Intra int
 
 	// TxnBytes is the raw signed transaction with apply data object, only used when the root txn is being returned.
-	TxnBytes []byte
+	Txn *transactions.SignedTxnWithAD
 
 	// RootTxnBytes the root transaction raw signed transaction with apply data object, only inner transactions have this.
-	RootTxnBytes []byte
+	RootTxn *transactions.SignedTxnWithAD
 
-	// AssetID is the ID of any asset or application created by this transaction.
+	// AssetID is the ID of any asset or application created or configured by this
+	// transaction.
 	AssetID uint64
 
 	// Extra are some additional fields which might be related to to the transaction.
@@ -55,7 +55,6 @@ func countInner(stxn *transactions.SignedTxnWithAD) uint {
 
 // Next returns what should be an opaque string to be used with the next query to resume where a previous limit left off.
 func (tr TxnRow) Next(ascending bool) (string, error) {
-	var err error
 	var b [12]byte
 	binary.LittleEndian.PutUint64(b[:8], tr.Round)
 
@@ -63,31 +62,22 @@ func (tr TxnRow) Next(ascending bool) (string, error) {
 	if tr.Extra.RootIntra.Present {
 		// initialize for descending order, the root intra.
 		intra = tr.Extra.RootIntra.Value
-		if err != nil {
-			return "", fmt.Errorf("Next() could not parse root intra: %w", err)
-		}
 	}
 
 	// when ascending add the count of inner transactions.
 	if ascending {
-		var bytes []byte
-		if tr.TxnBytes != nil {
-			bytes = tr.TxnBytes
+		var stxn *transactions.SignedTxnWithAD
+		if tr.Txn != nil {
+			stxn = tr.Txn
 		} else {
-			bytes = tr.RootTxnBytes
+			stxn = tr.RootTxn
 		}
 
-		if bytes == nil {
-			return "", fmt.Errorf("Next() was not given transaction bytes")
+		if stxn == nil {
+			return "", fmt.Errorf("Next() was not given transaction")
 		}
 
-		var stxn transactions.SignedTxnWithAD
-		err = protocol.Decode(bytes, &stxn)
-		if err != nil {
-			return "", fmt.Errorf("Next() could not decode root transaction: %w", err)
-		}
-
-		intra += countInner(&stxn)
+		intra += countInner(stxn)
 	}
 
 	binary.LittleEndian.PutUint32(b[8:], uint32(intra))
@@ -95,15 +85,19 @@ func (tr TxnRow) Next(ascending bool) (string, error) {
 }
 
 // DecodeTxnRowNext unpacks opaque string returned from TxnRow.Next()
-func DecodeTxnRowNext(s string) (round uint64, intra uint32, err error) {
-	var b []byte
-	b, err = base64.URLEncoding.DecodeString(s)
+func DecodeTxnRowNext(s string) (uint64 /*round*/, uint32 /*intra*/, error) {
+	b, err := base64.URLEncoding.DecodeString(s)
 	if err != nil {
-		return
+		return 0, 0, fmt.Errorf("DecodeTxnRowNext() decode err: %w", err)
 	}
-	round = binary.LittleEndian.Uint64(b[:8])
-	intra = binary.LittleEndian.Uint32(b[8:])
-	return
+
+	if len(b) != 12 {
+		return 0, 0, fmt.Errorf("DecodeTxnRowNext() bad next token b: %x", b)
+	}
+
+	round := binary.LittleEndian.Uint64(b[:8])
+	intra := binary.LittleEndian.Uint32(b[8:])
+	return round, intra, nil
 }
 
 // OptionalUint wraps bool and uint. It has a custom marshaller below.
@@ -161,6 +155,10 @@ var ErrorBlockNotFound = errors.New("block not found")
 // TODO: sqlite3 impl
 // TODO: cockroachdb impl
 type IndexerDb interface {
+	// Close all connections to the database. Should be called when IndexerDb is
+	// no longer needed.
+	Close()
+
 	// Import a block and do the accounting.
 	AddBlock(block *bookkeeping.Block) error
 
@@ -168,7 +166,7 @@ type IndexerDb interface {
 
 	// GetNextRoundToAccount returns ErrorNotInitialized if genesis is not loaded.
 	GetNextRoundToAccount() (uint64, error)
-	GetSpecialAccounts() (transactions.SpecialAddresses, error)
+	GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error)
 
 	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []TxnRow, err error)
 
@@ -180,7 +178,7 @@ type IndexerDb interface {
 	AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64)
 	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64)
 
-	Health() (status Health, err error)
+	Health(ctx context.Context) (status Health, err error)
 }
 
 // GetBlockOptions contains the options when requesting to load a block from the database.

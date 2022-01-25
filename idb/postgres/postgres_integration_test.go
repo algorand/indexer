@@ -10,7 +10,6 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -23,7 +22,6 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
-	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -34,6 +32,7 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
+	defer db.Close()
 
 	round, err := db.GetNextRoundToAccount()
 	assert.Equal(t, idb.ErrorNotInitialized, err)
@@ -51,6 +50,8 @@ func TestMaxRound(t *testing.T) {
 
 	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
+	defer pdb.Close()
+
 	db.Exec(
 		context.Background(),
 		`INSERT INTO metastate (k, v) values ($1, $2)`,
@@ -72,6 +73,8 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 
 	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
+	defer pdb.Close()
+
 	db.Exec(
 		context.Background(),
 		`INSERT INTO metastate (k, v) values ($1, $2)`,
@@ -335,9 +338,8 @@ func TestBlockWithTransactions(t *testing.T) {
 	assert.Len(t, txnRows0, len(txns))
 	assert.Len(t, txnRows1, len(txns))
 	for i := 0; i < len(txnRows0); i++ {
-		expected := protocol.Encode(txns[i])
-		assert.Equal(t, expected, txnRows0[i].TxnBytes)
-		assert.Equal(t, expected, txnRows1[i].TxnBytes)
+		assert.Equal(t, txns[i], txnRows0[i].Txn)
+		assert.Equal(t, txns[i], txnRows1[i].Txn)
 	}
 }
 
@@ -852,6 +854,7 @@ func TestAppExtraPages(t *testing.T) {
 func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype *string) {
 	opts := idb.AccountQueryOptions{
 		EqualToAddress: address[:],
+		IncludeDeleted: true,
 	}
 	rowsCh, _ := db.GetAccounts(context.Background(), opts)
 
@@ -946,11 +949,12 @@ func TestInitializationNewDatabase(t *testing.T) {
 
 	db, availableCh, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
+	defer db.Close()
 
 	_, ok := <-availableCh
 	assert.False(t, ok)
 
-	state, err := db.getMigrationState(nil)
+	state, err := db.getMigrationState(context.Background(), nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, len(migrations), state.NextMigration)
@@ -961,11 +965,12 @@ func TestOpenDbAgain(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
-	_, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	require.NoError(t, err)
-
-	_, _, err = OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
-	require.NoError(t, err)
+	for i := 0; i < 2; i++ {
+		db, availableCh, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+		require.NoError(t, err)
+		<-availableCh
+		db.Close()
+	}
 }
 
 func requireNilOrEqual(t *testing.T, expected string, actual *string) {
@@ -1065,11 +1070,10 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			for row := range txnRows {
 				require.NoError(t, row.Error)
 				// Note: These are created from the TxnBytes, so they have the exact name with embedded null.
-				var txn transactions.SignedTxn
-				require.NoError(t, protocol.Decode(row.TxnBytes, &txn))
-				require.Equal(t, name, txn.Txn.AssetParams.AssetName)
-				require.Equal(t, unit, txn.Txn.AssetParams.UnitName)
-				require.Equal(t, url, txn.Txn.AssetParams.URL)
+				require.NotNil(t, row.Txn)
+				require.Equal(t, name, row.Txn.Txn.AssetParams.AssetName)
+				require.Equal(t, unit, row.Txn.Txn.AssetParams.UnitName)
+				require.Equal(t, url, row.Txn.Txn.AssetParams.URL)
 				num++
 			}
 			require.Equal(t, 1, num)
@@ -1204,6 +1208,26 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, &keytype)
 }
 
+// Test that after closing the account, keytype will be correctly set.
+func TestKeytypeDeletedAccount(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), block)
+	defer shutdownFunc()
+
+	assertKeytype(t, db, test.AccountA, nil)
+
+	closeTxn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, test.AccountB, basics.Address{})
+
+	block, err := test.MakeBlockForTxns(block.BlockHeader, &closeTxn)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	keytype := "sig"
+	assertKeytype(t, db, test.AccountA, &keytype)
+}
+
 // TestAddBlockGenesis tests that adding block 0 is successful.
 func TestAddBlockGenesis(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
@@ -1279,6 +1303,7 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	defer shutdownFunc()
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
+	defer db.Close()
 
 	err = db.LoadGenesis(test.MakeGenesis())
 	require.NoError(t, err)
@@ -1512,7 +1537,9 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	// Given: A DB with one transaction containing inner transactions [app -> pay -> xfer]
 	pdb, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
-	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesis(), test.MakeGenesisBlock())
+	db := setupIdbWithConnectionString(
+		t, connStr, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer db.Close()
 
 	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
@@ -1521,13 +1548,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	rootTxid := appCall.Txn.ID()
 
 	err = pgutil.TxWithRetry(pdb, serializable, func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-		require.NoError(t, err)
-
-		return nil
+		return db.AddBlock(&block)
 	}, nil)
 	require.NoError(t, err)
 
@@ -1541,14 +1562,17 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 			for result := range results {
 				num++
 				require.NoError(t, result.Error)
-				var stxn transactions.SignedTxnWithAD
+				var stxn *transactions.SignedTxnWithAD
+
+				// Exactly one of Txn and RootTxn must be present.
+				require.True(t, (result.Txn == nil) != (result.RootTxn == nil))
 
 				// Get Txn or RootTxn
-				if result.TxnBytes != nil {
-					err = protocol.Decode(result.TxnBytes, &stxn)
+				if result.Txn != nil {
+					stxn = result.Txn
 				}
-				if result.RootTxnBytes != nil {
-					err = protocol.Decode(result.RootTxnBytes, &stxn)
+				if result.RootTxn != nil {
+					stxn = result.RootTxn
 				}
 
 				// Make sure the root txn is returned.
@@ -1609,9 +1633,8 @@ func TestNonUTF8Logs(t *testing.T) {
 			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 			for row := range txnRows {
 				require.NoError(t, row.Error)
-				var txn transactions.SignedTxnWithAD
-				require.NoError(t, protocol.Decode(row.TxnBytes, &txn))
-				require.Equal(t, testcase.Logs, txn.ApplyData.EvalDelta.Logs)
+				require.NotNil(t, row.Txn)
+				require.Equal(t, testcase.Logs, row.Txn.ApplyData.EvalDelta.Logs)
 			}
 		})
 	}
@@ -1623,6 +1646,7 @@ func TestLoadGenesisAccountTotals(t *testing.T) {
 	defer shutdownFunc()
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
+	defer db.Close()
 
 	err = db.LoadGenesis(test.MakeGenesis())
 	require.NoError(t, err)
@@ -1635,4 +1659,220 @@ func TestLoadGenesisAccountTotals(t *testing.T) {
 
 	assert.Equal(
 		t, basics.MicroAlgos{Raw: 4 * 1000 * 1000 * 1000 * 1000}, ret.Offline.Money)
+}
+
+func TestTxnAssetID(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	assetid := uint64(1)
+	createAssetTxn := test.MakeAssetConfigTxn(
+		0, 0, 0, false, "myasset", "ma", "", test.AccountA)
+	configAssetTxn := test.MakeAssetConfigTxn(
+		assetid, 0, 0, false, "myasset", "ma", "", test.AccountA)
+	appid := uint64(3)
+	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+	destroyAppTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
+
+	block, err := test.MakeBlockForTxns(
+		test.MakeGenesisBlock().BlockHeader, &createAssetTxn, &configAssetTxn,
+		&createAppTxn, &destroyAppTxn)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	txnRowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+	for i := 0; i < 2; i++ {
+		row, ok := <-txnRowsCh
+		require.True(t, ok)
+		require.NoError(t, row.Error)
+		assert.Equal(t, assetid, row.AssetID)
+	}
+	for i := 0; i < 2; i++ {
+		row, ok := <-txnRowsCh
+		require.True(t, ok)
+		require.NoError(t, row.Error)
+		assert.Equal(t, appid, row.AssetID)
+	}
+}
+
+func TestBadTxnJsonEncoding(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	// Need to import a block header because the transactions query joins on it.
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	rootTxid := "abc"
+	rootIntra := uint(4)
+	badJSON := `{"aaaaaaaa": 0}`
+
+	query := `INSERT INTO txn (round, intra, typeenum, asset, txid, txn, extra)
+    VALUES (1, $1, 0, 0, $2, $3, $4)`
+
+	_, err = db.db.Exec(
+		context.Background(), query, rootIntra, rootTxid, badJSON,
+		encoding.EncodeTxnExtra(&idb.TxnExtra{}))
+	require.NoError(t, err)
+
+	{
+		extra := idb.TxnExtra{
+			RootIntra: idb.OptionalUint{Present: true, Value: rootIntra},
+			RootTxid:  rootTxid,
+		}
+		_, err = db.db.Exec(
+			context.Background(), query, rootIntra+1, nil, badJSON,
+			encoding.EncodeTxnExtra(&extra))
+		require.NoError(t, err)
+	}
+
+	{
+		offset := uint64(rootIntra)
+		tf := idb.TransactionFilter{
+			Offset: &offset,
+		}
+		rowsCh, _ := db.Transactions(context.Background(), tf)
+
+		row, ok := <-rowsCh
+		require.True(t, ok)
+
+		require.Error(t, row.Error)
+		assert.Contains(t, row.Error.Error(), "error decoding txn")
+	}
+
+	{
+		offset := uint64(rootIntra) + 1
+		tf := idb.TransactionFilter{
+			Offset: &offset,
+		}
+		rowsCh, _ := db.Transactions(context.Background(), tf)
+
+		row, ok := <-rowsCh
+		require.True(t, ok)
+
+		require.Error(t, row.Error)
+		assert.Contains(t, row.Error.Error(), "error decoding roottxn")
+	}
+}
+
+func TestKeytypeDoNotResetReceiver(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), block)
+	defer shutdownFunc()
+
+	assertKeytype(t, db, test.AccountA, nil)
+
+	// Sigtype of account B becomes "sig".
+	txn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountB, test.AccountB, basics.Address{}, basics.Address{})
+	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	// Sigtype of account A becomes "sig" and B remains the same.
+	txn = test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{})
+	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	keytype := "sig"
+	assertKeytype(t, db, test.AccountA, &keytype)
+	assertKeytype(t, db, test.AccountB, &keytype)
+}
+
+// Test that if information in `txn` and `txn_participation` tables is ahead of
+// the current round, AddBlock() still runs successfully.
+func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), block)
+	defer shutdownFunc()
+
+	{
+		query := `INSERT INTO txn (round, intra, typeenum, asset, txn, extra)
+			VALUES (1, 0, 0, 0, 'null'::jsonb, 'null'::jsonb)`
+		_, err := db.db.Exec(context.Background(), query)
+		require.NoError(t, err)
+	}
+	{
+		query := `INSERT INTO txn_participation (addr, round, intra)
+			VALUES ($1, 1, 0)`
+		_, err := db.db.Exec(context.Background(), query, test.AccountA[:])
+		require.NoError(t, err)
+	}
+
+	txn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+}
+
+// Test that AddBlock() writes to `txn_participation` table.
+func TestAddBlockTxnParticipationAdded(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), block)
+	defer shutdownFunc()
+
+	txn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
+	require.NoError(t, err)
+	err = db.AddBlock(&block)
+	require.NoError(t, err)
+
+	tf := idb.TransactionFilter{
+		Address: test.AccountA[:],
+	}
+	rowsCh, _ := db.Transactions(context.Background(), tf)
+
+	row, ok := <-rowsCh
+	require.True(t, ok)
+	require.NoError(t, row.Error)
+	require.NotNil(t, row.Txn)
+	assert.Equal(t, txn, *row.Txn)
+}
+
+// Test that if information in the `txn` table is ahead of the current round,
+// Transactions() doesn't return the rows ahead of the state.
+func TestTransactionsTxnAhead(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), block)
+	defer shutdownFunc()
+
+	// Insert a transaction row at round 1 and check that Transactions() does not return
+	// it.
+	{
+		query := `INSERT INTO txn (round, intra, typeenum, asset, txn, extra)
+			VALUES (1, 0, 0, 0, 'null'::jsonb, 'null'::jsonb)`
+		_, err := db.db.Exec(context.Background(), query)
+		require.NoError(t, err)
+	}
+	{
+		rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+		_, ok := <-rowsCh
+		assert.False(t, ok)
+	}
+
+	// Now add an empty round 1 block, and verify that Transactions() returns the
+	// fake transaction.
+	{
+		block, err := test.MakeBlockForTxns(block.BlockHeader)
+		require.NoError(t, err)
+		err = db.AddBlock(&block)
+		require.NoError(t, err)
+	}
+	{
+		rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
+		row, ok := <-rowsCh
+		require.True(t, ok)
+		require.NoError(t, row.Error)
+	}
 }

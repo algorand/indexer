@@ -49,7 +49,7 @@ test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 
 lint: go-algorand
 	golint -set_exit_status ./...
-	go vet ./...
+	go vet -mod=mod ./...
 
 fmt:
 	go fmt ./...
@@ -70,5 +70,8 @@ sign:
 
 test-package:
 	mule/e2e.sh
+
+test-generate:
+	test/test_generate.py
 
 .PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand

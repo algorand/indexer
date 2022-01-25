@@ -1,10 +1,12 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklekeystore"
@@ -29,13 +31,18 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeepin
 	db, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 
+	newShutdownFunc := func() {
+		db.Close()
+		shutdownFunc()
+	}
+
 	err = db.LoadGenesis(genesis)
 	require.NoError(t, err)
 
 	err = db.AddBlock(&genesisBlock)
 	require.NoError(t, err)
 
-	return db, shutdownFunc
+	return db, newShutdownFunc
 }
 
 func TestApplicationHandler(t *testing.T) {
@@ -87,11 +94,11 @@ func TestApplicationHandler(t *testing.T) {
 	c.SetParamNames("appidx")
 	c.SetParamValues(strconv.Itoa(expectedAppIdx))
 
-	api := &ServerImplementation{db: db}
+	api := &ServerImplementation{db: db, timeout: 30 * time.Second}
 	params := generated.LookupApplicationByIDParams{}
 	err = api.LookupApplicationByID(c, expectedAppIdx, params)
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
 
 	//////////
 	// Then // The response has non-zero ExtraProgramPages
@@ -124,7 +131,7 @@ func TestBlockNotFound(t *testing.T) {
 	c.SetParamNames("round-number")
 	c.SetParamValues(strconv.Itoa(100))
 
-	api := &ServerImplementation{db: db}
+	api := &ServerImplementation{db: db, timeout: 30 * time.Second}
 	err := api.LookupBlock(c, 100)
 	require.NoError(t, err)
 
@@ -132,7 +139,7 @@ func TestBlockNotFound(t *testing.T) {
 	// Then // A 404 gets returned.
 	//////////
 	require.Equal(t, http.StatusNotFound, rec.Code)
-	require.Equal(t, "{\"message\":\"error while looking up block for round '100': block not found\"}\n", rec.Body.String())
+	require.Contains(t, rec.Body.String(), errLookingUpBlockForRound)
 }
 
 // TestInnerTxn runs queries that return one or more root/inner transactions,
@@ -192,7 +199,7 @@ func TestInnerTxn(t *testing.T) {
 			c := e.NewContext(req, rec)
 			c.SetPath("/v2/transactions/")
 
-			api := &ServerImplementation{db: db}
+			api := &ServerImplementation{db: db, timeout: 30 * time.Second}
 			err = api.SearchForTransactions(c, tc.filter)
 			require.NoError(t, err)
 
@@ -263,7 +270,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 
 			// Get first page with limit 1.
 			// Address filter causes results to return newest to oldest.
-			api := &ServerImplementation{db: db}
+			api := &ServerImplementation{db: db, timeout: 30 * time.Second}
 			err = api.SearchForTransactions(c, tc.params)
 			require.NoError(t, err)
 
@@ -399,7 +406,7 @@ func TestVersion(t *testing.T) {
 	///////////
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()
-	api := &ServerImplementation{db: db}
+	api := &ServerImplementation{db: db, timeout: 30 * time.Second}
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)

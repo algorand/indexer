@@ -104,6 +104,11 @@ func (_m *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	return r0, r1
 }
 
+// Close provides a mock function with given fields:
+func (_m *IndexerDb) Close() {
+	_m.Called()
+}
+
 // GetAccounts provides a mock function with given fields: ctx, opts
 func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
 	ret := _m.Called(ctx, opts)
@@ -178,20 +183,20 @@ func (_m *IndexerDb) GetNextRoundToAccount() (uint64, error) {
 	return r0, r1
 }
 
-// GetSpecialAccounts provides a mock function with given fields:
-func (_m *IndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error) {
-	ret := _m.Called()
+// GetSpecialAccounts provides a mock function with given fields: ctx
+func (_m *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error) {
+	ret := _m.Called(ctx)
 
 	var r0 transactions.SpecialAddresses
-	if rf, ok := ret.Get(0).(func() transactions.SpecialAddresses); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) transactions.SpecialAddresses); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(transactions.SpecialAddresses)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -199,20 +204,20 @@ func (_m *IndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error)
 	return r0, r1
 }
 
-// Health provides a mock function with given fields:
-func (_m *IndexerDb) Health() (idb.Health, error) {
-	ret := _m.Called()
+// Health provides a mock function with given fields: ctx
+func (_m *IndexerDb) Health(ctx context.Context) (idb.Health, error) {
+	ret := _m.Called(ctx)
 
 	var r0 idb.Health
-	if rf, ok := ret.Get(0).(func() idb.Health); ok {
-		r0 = rf()
+	if rf, ok := ret.Get(0).(func(context.Context) idb.Health); ok {
+		r0 = rf(ctx)
 	} else {
 		r0 = ret.Get(0).(idb.Health)
 	}
 
 	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
 	} else {
 		r1 = ret.Error(1)
 	}

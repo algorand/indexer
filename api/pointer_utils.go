@@ -51,11 +51,17 @@ func uint64PtrOrNil(x uint64) *uint64 {
 	return &x
 }
 
-func bytePtr(x []byte) *[]byte {
+func byteSlicePtr(x []byte) *[]byte {
 	if len(x) == 0 {
 		return nil
 	}
 
+	xx := make([]byte, len(x))
+	copy(xx, x)
+	return &xx
+}
+
+func byteSliceOmitZeroPtr(x []byte) *[]byte {
 	// Don't return if it's all zero.
 	for _, v := range x {
 		if v != 0 {
@@ -100,4 +106,10 @@ func strArrayPtr(x []string) *[]string {
 		return nil
 	}
 	return &x
+}
+
+func addrSlice(x basics.Address) []byte {
+	xx := new(basics.Address)
+	*xx = x
+	return xx[:]
 }

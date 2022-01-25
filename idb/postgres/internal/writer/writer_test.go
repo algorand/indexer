@@ -49,7 +49,6 @@ type txnRow struct {
 	typeenum idb.TxnTypeEnum
 	asset    int
 	txid     string
-	txnbytes []byte
 	txn      string
 	extra    string
 }
@@ -65,15 +64,15 @@ func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
 	for rows.Next() {
 		var result txnRow
 		var txid []byte
-		var json []byte
-		err = rows.Scan(&result.round, &result.intra, &result.typeenum,
-			&result.asset, &txid, &result.txnbytes, &json,
-			&result.extra)
+		var txn []byte
+		err = rows.Scan(
+			&result.round, &result.intra, &result.typeenum, &result.asset, &txid,
+			&txn, &result.extra)
 		if err != nil {
 			return nil, err
 		}
 		result.txid = string(txid)
-		result.txn = string(json)
+		result.txn = string(txn)
 		results = append(results, result)
 	}
 	return results, rows.Err()
@@ -214,14 +213,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	f := func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-		require.NoError(t, err)
-
-		w.Close()
-		return nil
+		return writer.AddTransactions(&block, block.Payset, tx)
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -235,19 +227,17 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	var typeenum uint
 	var asset uint64
 	var txid []byte
-	var txnbytes []byte
 	var txn []byte
 	var extra []byte
 
 	require.True(t, rows.Next())
-	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txnbytes, &txn, &extra)
+	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
 	require.NoError(t, err)
 	assert.Equal(t, block.Round(), basics.Round(round))
 	assert.Equal(t, uint64(0), intra)
 	assert.Equal(t, idb.TypeEnumPay, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(0), asset)
 	assert.Equal(t, stxnad0.ID().String(), string(txid))
-	assert.Equal(t, protocol.Encode(&stxnad0), txnbytes)
 	{
 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
@@ -256,14 +246,13 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	assert.Equal(t, "{}", string(extra))
 
 	require.True(t, rows.Next())
-	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txnbytes, &txn, &extra)
+	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
 	require.NoError(t, err)
 	assert.Equal(t, block.Round(), basics.Round(round))
 	assert.Equal(t, uint64(1), intra)
 	assert.Equal(t, idb.TypeEnumAssetConfig, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(9), asset)
 	assert.Equal(t, stxnad1.ID().String(), string(txid))
-	assert.Equal(t, protocol.Encode(&stxnad1), txnbytes)
 	{
 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
@@ -300,14 +289,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	payset[0].ApplyData.AssetClosingAmount = 3
 
 	f := func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, payset, ledgercore.StateDelta{})
-		require.NoError(t, err)
-
-		w.Close()
-		return nil
+		return writer.AddTransactions(&block, payset, tx)
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -437,14 +419,7 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 			block.Payset = testcase.payset
 
 			f := func(tx pgx.Tx) error {
-				w, err := writer.MakeWriter(tx)
-				require.NoError(t, err)
-
-				err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-				require.NoError(t, err)
-
-				w.Close()
-				return nil
+				return writer.AddTransactionParticipation(&block, tx)
 			}
 			err := pgutil.TxWithRetry(db, serializable, f, nil)
 			require.NoError(t, err)
@@ -1381,6 +1356,40 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 	assert.Equal(t, block.Round(), basics.Round(closedAt))
 }
 
+func TestAddBlockInvalidInnerAsset(t *testing.T) {
+	db, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	callWithBadInner := test.MakeCreateAppTxn(test.AccountA)
+	callWithBadInner.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
+		{
+			ApplyData: transactions.ApplyData{
+				// This is the invalid inner asset. It should not be zero.
+				ConfigAsset: 0,
+			},
+			SignedTxn: transactions.SignedTxn{
+				Txn: transactions.Transaction{
+					Type: protocol.AssetConfigTx,
+					Header: transactions.Header{
+						Sender: test.AccountB,
+					},
+					AssetConfigTxnFields: transactions.AssetConfigTxnFields{
+						ConfigAsset: 0,
+					},
+				},
+			},
+		},
+	}
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &callWithBadInner)
+	require.NoError(t, err)
+
+	err = makeTx(db, func(tx pgx.Tx) error {
+		return writer.AddTransactions(&block, block.Payset, tx)
+	})
+	require.Contains(t, err.Error(), "Missing ConfigAsset for transaction: ")
+}
+
 func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
@@ -1398,14 +1407,11 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-		require.NoError(t, err)
-
-		w.Close()
-		return nil
+		err := writer.AddTransactions(&block, block.Payset, tx)
+		if err != nil {
+			return err
+		}
+		return writer.AddTransactionParticipation(&block, tx)
 	})
 	require.NoError(t, err)
 
@@ -1427,19 +1433,17 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 
 	// Verify special properties of inner transactions.
 	expectedExtra := fmt.Sprintf(`{"root-txid": "%s", "root-intra": "%d"}`, txns[0].txid, 0)
+
 	// Inner pay 1
-	require.Len(t, txns[1].txnbytes, 0)
 	require.Equal(t, "", txns[1].txid)
 	require.Equal(t, expectedExtra, txns[1].extra)
 
 	// Inner pay 2
-	require.Len(t, txns[2].txnbytes, 0)
 	require.Equal(t, "", txns[2].txid)
 	require.Equal(t, expectedExtra, txns[2].extra)
 	require.NotContains(t, txns[2].txn, "itx", "The inner transactions should be pruned.")
 
 	// Inner xfer
-	require.Len(t, txns[3].txnbytes, 0)
 	require.Equal(t, "", txns[3].txid)
 	require.Equal(t, expectedExtra, txns[3].extra)
 	require.NotContains(t, txns[3].txn, "itx", "The inner transactions should be pruned.")

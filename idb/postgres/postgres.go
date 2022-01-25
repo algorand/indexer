@@ -7,6 +7,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -19,7 +20,10 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/go-algorand/protocol"
 
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	log "github.com/sirupsen/logrus"
@@ -76,7 +80,7 @@ func openPostgres(db *pgxpool.Pool, opts idb.IndexerDbOptions, logger *log.Logge
 	var ch chan struct{}
 	// e.g. a user named "readonly" is in the connection string
 	if opts.ReadOnly {
-		migrationState, err := idb.getMigrationState(nil)
+		migrationState, err := idb.getMigrationState(context.Background(), nil)
 		if err != nil {
 			return nil, nil, fmt.Errorf("openPostgres() err: %w", err)
 		}
@@ -104,6 +108,11 @@ type IndexerDb struct {
 	db             *pgxpool.Pool
 	migration      *migration.Migration
 	accountingLock sync.Mutex
+}
+
+// Close is part of idb.IndexerDb.
+func (db *IndexerDb) Close() {
+	db.db.Close()
 }
 
 // txWithRetry is a helper function that retries the function `f` in case the database
@@ -177,15 +186,76 @@ func getBlockAddresses(block *bookkeeping.Block) map[basics.Address]struct{} {
 }
 
 func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
-	accountDataMap, err := l.LookupWithoutRewards(getBlockAddresses(block))
+	addresses := getBlockAddresses(block)
+	assets := make(map[basics.AssetIndex]struct{})
+	apps := make(map[basics.AppIndex]struct{})
+
+	for _, stib := range block.Payset {
+		switch stib.Txn.Type {
+		case protocol.AssetConfigTx:
+			if stib.Txn.ConfigAsset != 0 {
+				assets[stib.Txn.ConfigAsset] = struct{}{}
+			}
+		case protocol.AssetTransferTx:
+			if stib.Txn.XferAsset != 0 {
+				assets[stib.Txn.XferAsset] = struct{}{}
+			}
+		case protocol.AssetFreezeTx:
+			if stib.Txn.FreezeAsset != 0 {
+				assets[stib.Txn.FreezeAsset] = struct{}{}
+			}
+		case protocol.ApplicationCallTx:
+			if stib.Txn.ApplicationID != 0 {
+				apps[stib.Txn.ApplicationID] = struct{}{}
+			}
+		}
+	}
+
+	res := ledger.EvalForIndexerResources{
+		Accounts: nil,
+		Creators: make(map[ledger.Creatable]ledger.FoundAddress),
+	}
+
+	assetCreators, err := l.GetAssetCreator(assets)
+	if err != nil {
+		return ledger.EvalForIndexerResources{},
+			fmt.Errorf("prepareEvalResources() err: %w", err)
+	}
+	for index, foundAddress := range assetCreators {
+		creatable := ledger.Creatable{
+			Index: basics.CreatableIndex(index),
+			Type:  basics.AssetCreatable,
+		}
+		res.Creators[creatable] = foundAddress
+
+		if foundAddress.Exists {
+			addresses[foundAddress.Address] = struct{}{}
+		}
+	}
+
+	appCreators, err := l.GetAppCreator(apps)
+	if err != nil {
+		return ledger.EvalForIndexerResources{},
+			fmt.Errorf("prepareEvalResources() err: %w", err)
+	}
+	for index, foundAddress := range appCreators {
+		creatable := ledger.Creatable{
+			Index: basics.CreatableIndex(index),
+			Type:  basics.AppCreatable,
+		}
+		res.Creators[creatable] = foundAddress
+
+		if foundAddress.Exists {
+			addresses[foundAddress.Address] = struct{}{}
+		}
+	}
+
+	res.Accounts, err = l.LookupWithoutRewards(addresses)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
 			fmt.Errorf("prepareEvalResources() err: %w", err)
 	}
 
-	res := ledger.EvalForIndexerResources{
-		Accounts: accountDataMap,
-	}
 	return res, nil
 }
 
@@ -213,31 +283,56 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
 
-		writer, err := writer.MakeWriter(tx)
+		w, err := writer.MakeWriter(tx)
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		defer writer.Close()
+		defer w.Close()
 
 		if block.Round() == basics.Round(0) {
 			// Block 0 is special, we cannot run the evaluator on it.
-			err := writer.AddBlock0(block)
+			err := w.AddBlock0(block)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 		} else {
-			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, block.Round()-1)
-			if err != nil {
-				return fmt.Errorf("AddBlock() err: %w", err)
-			}
-			defer ledgerForEval.Close()
-
 			proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
 			if !ok {
 				return fmt.Errorf(
 					"AddBlock() cannot find proto version %s", block.BlockHeader.CurrentProtocol)
 			}
+			protoChanged := !proto.EnableAssetCloseAmount
 			proto.EnableAssetCloseAmount = true
+
+			var wg sync.WaitGroup
+			defer wg.Wait()
+
+			// Write transaction participation and possibly transactions in a parallel db
+			// transaction. If `proto.EnableAssetCloseAmount` is already true, we can start
+			// writing transactions contained in the block early.
+			var err0 error
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				f := func(tx pgx.Tx) error {
+					if !protoChanged {
+						err := writer.AddTransactions(block, block.Payset, tx)
+						if err != nil {
+							return err
+						}
+					}
+					return writer.AddTransactionParticipation(block, tx)
+				}
+				err0 = db.txWithRetry(serializable, f)
+			}()
+
+			ledgerForEval, err :=
+				ledger_for_evaluator.MakeLedgerForEvaluator(tx, block.Round()-1)
+			if err != nil {
+				return fmt.Errorf("AddBlock() err: %w", err)
+			}
+			defer ledgerForEval.Close()
 
 			resources, err := prepareEvalResources(&ledgerForEval, block)
 			if err != nil {
@@ -252,9 +347,40 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			}
 			metrics.PostgresEvalTimeSeconds.Observe(time.Since(start).Seconds())
 
-			err = writer.AddBlock(block, modifiedTxns, delta)
+			var err1 error
+			// Skip if transaction writing has already started.
+			if protoChanged {
+				// Write transactions in a parallel db transaction.
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+
+					f := func(tx pgx.Tx) error {
+						return writer.AddTransactions(block, modifiedTxns, tx)
+					}
+					err1 = db.txWithRetry(serializable, f)
+				}()
+			}
+
+			err = w.AddBlock(block, modifiedTxns, delta)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
+			}
+
+			// Wait for goroutines to finish and check for errors. If there is an error, we
+			// return our own error so that the main transaction does not commit. Hence,
+			// `txn` and `txn_participation` tables can only be ahead but not behind
+			// the other state.
+			wg.Wait()
+			isUniqueViolationFunc := func(err error) bool {
+				var pgerr *pgconn.PgError
+				return errors.As(err, &pgerr) && (pgerr.Code == pgerrcode.UniqueViolation)
+			}
+			if (err0 != nil) && !isUniqueViolationFunc(err0) {
+				return fmt.Errorf("AddBlock() err0: %w", err0)
+			}
+			if (err1 != nil) && !isUniqueViolationFunc(err1) {
+				return fmt.Errorf("AddBlock() err1: %w", err1)
 			}
 		}
 
@@ -437,7 +563,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 		}
 
 		go func() {
-			db.yieldTxnsThreadSimple(ctx, rows, out, nil, nil)
+			db.yieldTxnsThreadSimple(rows, out, nil, nil)
 			close(out)
 		}()
 
@@ -618,13 +744,13 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if tf.RekeyTo != nil && (*tf.RekeyTo) {
 		whereParts = append(whereParts, "(t.txn -> 'txn' -> 'rekey') IS NOT NULL")
 	}
-	query = "SELECT t.round, t.intra, t.txnbytes, root.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	query = "SELECT t.round, t.intra, t.txn, root.txn, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
 
-	// join in the root transaction
-	query += " LEFT OUTER JOIN txn root ON t.round = root.round AND t.extra->>'root-intra' = root.intra::text"
+	// join in the root transaction if there is one
+	query += " LEFT OUTER JOIN txn root ON t.round = root.round AND (t.extra->>'root-intra')::int = root.intra"
 
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
@@ -664,7 +790,7 @@ func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.Transactio
 		return
 	}
 
-	db.yieldTxnsThreadSimple(ctx, rows, out, nil, nil)
+	db.yieldTxnsThreadSimple(rows, out, nil, nil)
 }
 
 // Transactions is part of idb.IndexerDB
@@ -735,7 +861,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 	}
 
 	count := 0
-	db.yieldTxnsThreadSimple(ctx, rows, out, &count, &err)
+	db.yieldTxnsThreadSimple(rows, out, &count, &err)
 	if err != nil {
 		return
 	}
@@ -779,10 +905,10 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 		out <- idb.TxnRow{Error: err}
 		return
 	}
-	db.yieldTxnsThreadSimple(ctx, rows, out, nil, nil)
+	db.yieldTxnsThreadSimple(rows, out, nil, nil)
 }
 
-func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, results chan<- idb.TxnRow, countp *int, errp *error) {
+func (db *IndexerDb) yieldTxnsThreadSimple(rows pgx.Rows, results chan<- idb.TxnRow, countp *int, errp *error) {
 	defer rows.Close()
 
 	count := 0
@@ -790,40 +916,52 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, r
 		var round uint64
 		var asset uint64
 		var intra int
-		var txnbytes []byte
-		var roottxnbytes []byte
-		var extraJSON []byte
+		var txn []byte
+		var roottxn []byte
+		var extra []byte
 		var roundtime time.Time
-		err := rows.Scan(&round, &intra, &txnbytes, &roottxnbytes, &extraJSON, &asset, &roundtime)
+		err := rows.Scan(&round, &intra, &txn, &roottxn, &extra, &asset, &roundtime)
 		var row idb.TxnRow
 		if err != nil {
 			row.Error = err
 		} else {
 			row.Round = round
 			row.Intra = intra
-			row.TxnBytes = txnbytes
-			row.RootTxnBytes = roottxnbytes
+			if roottxn != nil {
+				// Inner transaction.
+				row.RootTxn = new(transactions.SignedTxnWithAD)
+				*row.RootTxn, err = encoding.DecodeSignedTxnWithAD(roottxn)
+				if err != nil {
+					err = fmt.Errorf("error decoding roottxn, err: %w", err)
+					row.Error = err
+				}
+			} else {
+				// Root transaction.
+				row.Txn = new(transactions.SignedTxnWithAD)
+				*row.Txn, err = encoding.DecodeSignedTxnWithAD(txn)
+				if err != nil {
+					err = fmt.Errorf("error decoding txn, err: %w", err)
+					row.Error = err
+				}
+			}
 			row.RoundTime = roundtime
 			row.AssetID = asset
-			if len(extraJSON) > 0 {
-				row.Extra, err = encoding.DecodeTxnExtra(extraJSON)
+			if len(extra) > 0 {
+				row.Extra, err = encoding.DecodeTxnExtra(extra)
 				if err != nil {
-					row.Error = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
+					err = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
+					row.Error = err
 				}
 			}
 		}
-		select {
-		case <-ctx.Done():
+		results <- row
+		if row.Error != nil {
+			if errp != nil {
+				*errp = err
+			}
 			goto finish
-		case results <- row:
-			if err != nil {
-				if errp != nil {
-					*errp = err
-				}
-				goto finish
-			}
-			count++
 		}
+		count++
 	}
 	if err := rows.Err(); err != nil {
 		results <- idb.TxnRow{Error: err}
@@ -979,7 +1117,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.SigType = keytype
 		}
 
-		if accountDataJSONStr != nil {
+		{
 			var ad basics.AccountData
 			ad, err = encoding.DecodeTrimmedAccountData(accountDataJSONStr)
 			if err != nil {
@@ -1014,6 +1152,19 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				var spendingkey basics.Address
 				copy(spendingkey[:], ad.AuthAddr[:])
 				account.AuthAddr = stringPtr(spendingkey.String())
+			}
+
+			{
+				totalSchema := models.ApplicationStateSchema{
+					NumByteSlice: ad.TotalAppSchema.NumByteSlice,
+					NumUint:      ad.TotalAppSchema.NumUint,
+				}
+				if totalSchema != (models.ApplicationStateSchema{}) {
+					account.AppsTotalSchema = &totalSchema
+				}
+			}
+			if ad.TotalExtraAppPages != 0 {
+				account.AppsTotalExtraPages = uint64Ptr(uint64(ad.TotalExtraAppPages))
 			}
 		}
 
@@ -1185,12 +1336,12 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						Decimals:      uint64(ap.Decimals),
 						DefaultFrozen: boolPtr(ap.DefaultFrozen),
 						UnitName:      stringPtr(util.PrintableUTF8OrEmpty(ap.UnitName)),
-						UnitNameB64:   baPtr([]byte(ap.UnitName)),
+						UnitNameB64:   byteSlicePtr([]byte(ap.UnitName)),
 						Name:          stringPtr(util.PrintableUTF8OrEmpty(ap.AssetName)),
-						NameB64:       baPtr([]byte(ap.AssetName)),
+						NameB64:       byteSlicePtr([]byte(ap.AssetName)),
 						Url:           stringPtr(util.PrintableUTF8OrEmpty(ap.URL)),
-						UrlB64:        baPtr([]byte(ap.URL)),
-						MetadataHash:  baPtr(ap.MetadataHash[:]),
+						UrlB64:        byteSlicePtr([]byte(ap.URL)),
+						MetadataHash:  byteSliceOmitZeroPtr(ap.MetadataHash[:]),
 						Manager:       addrStr(ap.Manager),
 						Reserve:       addrStr(ap.Reserve),
 						Freeze:        addrStr(ap.Freeze),
@@ -1202,8 +1353,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.CreatedAssets = new([]models.Asset)
 			*account.CreatedAssets = cal
 		}
-
-		var totalSchema models.ApplicationStateSchema
 
 		if len(appParamIndexes) > 0 {
 			// apps owned by this account
@@ -1248,7 +1397,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				break
 			}
 
-			var totalExtraPages uint64
 			aout := make([]models.Application, len(appIds))
 			outpos := 0
 			for i, appid := range appIds {
@@ -1277,11 +1425,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 						aout[outpos].Params.ExtraProgramPages = &epp
 					}
 				}
-				if aout[outpos].Deleted == nil || !*aout[outpos].Deleted {
-					totalSchema.NumByteSlice += apps[i].GlobalStateSchema.NumByteSlice
-					totalSchema.NumUint += apps[i].GlobalStateSchema.NumUint
-					totalExtraPages += uint64(apps[i].ExtraProgramPages)
-				}
 
 				outpos++
 			}
@@ -1289,10 +1432,6 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				aout = aout[:outpos]
 			}
 			account.CreatedApps = &aout
-
-			if totalExtraPages != 0 {
-				account.AppsTotalExtraPages = &totalExtraPages
-			}
 		}
 
 		if len(localStateAppIds) > 0 {
@@ -1347,25 +1486,13 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					NumUint:      ls[i].Schema.NumUint,
 				}
 				aout[i].KeyValue = tealKeyValueToModel(ls[i].KeyValue)
-				if aout[i].Deleted == nil || !*aout[i].Deleted {
-					totalSchema.NumByteSlice += ls[i].Schema.NumByteSlice
-					totalSchema.NumUint += ls[i].Schema.NumUint
-				}
 			}
 			account.AppsLocalState = &aout
 		}
 
-		if totalSchema != (models.ApplicationStateSchema{}) {
-			account.AppsTotalSchema = &totalSchema
-		}
-
-		select {
-		case req.out <- idb.AccountRow{Account: account}:
-			count++
-			if req.opts.Limit != 0 && count >= req.opts.Limit {
-				return
-			}
-		case <-req.ctx.Done():
+		req.out <- idb.AccountRow{Account: account}
+		count++
+		if req.opts.Limit != 0 && count >= req.opts.Limit {
 			return
 		}
 	}
@@ -1417,10 +1544,17 @@ func stringPtr(x string) *string {
 	return out
 }
 
-func baPtr(x []byte) *[]byte {
+func byteSlicePtr(x []byte) *[]byte {
 	if len(x) == 0 {
 		return nil
 	}
+
+	xx := make([]byte, len(x))
+	copy(xx, x)
+	return &xx
+}
+
+func byteSliceOmitZeroPtr(x []byte) *[]byte {
 	allzero := true
 	for _, b := range x {
 		if b != 0 {
@@ -1456,7 +1590,6 @@ func addrStr(addr basics.Address) *string {
 }
 
 type getAccountsRequest struct {
-	ctx         context.Context
 	opts        idb.AccountQueryOptions
 	blockheader bookkeeping.BlockHeader
 	query       string
@@ -1520,7 +1653,6 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	// Construct query for fetching accounts...
 	query, whereArgs := db.buildAccountQuery(opts)
 	req := &getAccountsRequest{
-		ctx:         ctx,
 		opts:        opts,
 		blockheader: blockheader,
 		query:       query,
@@ -1743,14 +1875,14 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 		return out, round
 	}
 	go func() {
-		db.yieldAssetsThread(ctx, filter, rows, out)
+		db.yieldAssetsThread(filter, rows, out)
 		close(out)
 		tx.Rollback(ctx)
 	}()
 	return out, round
 }
 
-func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQuery, rows pgx.Rows, out chan<- idb.AssetRow) {
+func (db *IndexerDb) yieldAssetsThread(filter idb.AssetsQuery, rows pgx.Rows, out chan<- idb.AssetRow) {
 	defer rows.Close()
 
 	for rows.Next() {
@@ -1780,11 +1912,7 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			ClosedRound:  closed,
 			Deleted:      deleted,
 		}
-		select {
-		case <-ctx.Done():
-			return
-		case out <- rec:
-		}
+		out <- rec
 	}
 	if err := rows.Err(); err != nil {
 		out <- idb.AssetRow{Error: err}
@@ -1854,14 +1982,14 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 		return out, round
 	}
 	go func() {
-		db.yieldAssetBalanceThread(ctx, rows, out)
+		db.yieldAssetBalanceThread(rows, out)
 		close(out)
 		tx.Rollback(ctx)
 	}()
 	return out, round
 }
 
-func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows pgx.Rows, out chan<- idb.AssetBalanceRow) {
+func (db *IndexerDb) yieldAssetBalanceThread(rows pgx.Rows, out chan<- idb.AssetBalanceRow) {
 	defer rows.Close()
 
 	for rows.Next() {
@@ -1886,11 +2014,7 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows pgx.Rows,
 			CreatedRound: created,
 			Deleted:      deleted,
 		}
-		select {
-		case <-ctx.Done():
-			return
-		case out <- rec:
-		}
+		out <- rec
 	}
 	if err := rows.Err(); err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
@@ -1958,14 +2082,14 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 	}
 
 	go func() {
-		db.yieldApplicationsThread(ctx, rows, out)
+		db.yieldApplicationsThread(rows, out)
 		close(out)
 		tx.Rollback(ctx)
 	}()
 	return out, round
 }
 
-func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows pgx.Rows, out chan idb.ApplicationRow) {
+func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.ApplicationRow) {
 	defer rows.Close()
 
 	for rows.Next() {
@@ -2022,7 +2146,7 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows pgx.Rows,
 }
 
 // Health is part of idb.IndexerDB
-func (db *IndexerDb) Health() (idb.Health, error) {
+func (db *IndexerDb) Health(ctx context.Context) (idb.Health, error) {
 	migrationRequired := false
 	migrating := false
 	blocking := false
@@ -2047,7 +2171,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 		migrating = state.Running
 		blocking = state.Blocking
 	} else {
-		state, err := db.getMigrationState(nil)
+		state, err := db.getMigrationState(ctx, nil)
 		if err != nil {
 			return idb.Health{}, err
 		}
@@ -2058,7 +2182,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 
 	data["migration-required"] = migrationRequired
 
-	round, err := db.getMaxRoundAccounted(context.Background(), nil)
+	round, err := db.getMaxRoundAccounted(ctx, nil)
 
 	// We'll just have to set the round to 0
 	if err == idb.ErrorNotInitialized {
@@ -2076,9 +2200,8 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 }
 
 // GetSpecialAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error) {
-	cache, err := db.getMetastate(
-		context.Background(), nil, schema.SpecialAccountsMetastateKey)
+func (db *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error) {
+	cache, err := db.getMetastate(ctx, nil, schema.SpecialAccountsMetastateKey)
 	if err != nil {
 		return transactions.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
 	}
@@ -2091,4 +2214,41 @@ func (db *IndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error)
 	}
 
 	return accounts, nil
+}
+
+// GetAccountData returns account data for the given addresses. For accounts that are
+// not found, empty AccountData is returned. This function is only used for debugging.
+func (db *IndexerDb) GetAccountData(addresses []basics.Address) (map[basics.Address]basics.AccountData, error) {
+	tx, err := db.db.BeginTx(context.Background(), readonlyRepeatableRead)
+	if err != nil {
+		return nil, fmt.Errorf("GetAccountData() begin tx err: %w", err)
+	}
+	defer tx.Rollback(context.Background())
+
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	if err != nil {
+		return nil, fmt.Errorf("GetAccountData() err: %w", err)
+	}
+	defer l.Close()
+
+	addressesMap := make(map[basics.Address]struct{}, len(addresses))
+	for _, address := range addresses {
+		addressesMap[address] = struct{}{}
+	}
+
+	accountDataMap, err := l.LookupWithoutRewards(addressesMap)
+	if err != nil {
+		return nil, fmt.Errorf("GetAccountData() err: %w", err)
+	}
+
+	res := make(map[basics.Address]basics.AccountData, len(accountDataMap))
+	for address, accountData := range accountDataMap {
+		if accountData == nil {
+			res[address] = basics.AccountData{}
+		} else {
+			res[address] = *accountData
+		}
+	}
+
+	return res, nil
 }

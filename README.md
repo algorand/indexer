@@ -1,12 +1,14 @@
-[![Build Status](https://travis-ci.com/algorand/indexer.svg?branch=master)](https://travis-ci.com/algorand/indexer)
+| master <br> [![CircleCI](https://circleci.com/gh/algorand/indexer/tree/master.svg?style=svg)](https://circleci.com/gh/algorand/indexer/tree/master) | develop <br> [![CircleCI](https://circleci.com/gh/algorand/indexer/tree/develop.svg?style=svg)](https://circleci.com/gh/algorand/indexer/tree/develop) |
+| --- | --- |
+
 # Algorand Indexer
 
 The Indexer is a standalone service that reads committed blocks from the Algorand blockchain and maintains a database of transactions and accounts that are searchable and indexed.
 
-# Minimum Version Requirements
+# Tested Requirements Versions
 
-* [go 1.13](https://golang.org/dl/)
-* [Postgres 11](https://www.postgresql.org/download/)
+* [go 1.16](https://golang.org/dl/)
+* [Postgres 13](https://www.postgresql.org/download/)
 
 # Quickstart
 
@@ -75,6 +77,8 @@ There are two primary modes of operation:
 
 ### Database updater
 In this mode, the database will be populated with data fetched from an [Algorand archival node](https://developer.algorand.org/docs/run-a-node/setup/types/#archival-mode). Because every block must be fetched to bootstrap the database, the initial import for a ledger with a long history will take a while. If the daemon is terminated, it will resume processing wherever it left off.
+
+Keeping the indexer daemon as close as possible to the database helps minimize latency. For example, if using AWS EC2 and RDS, we suggest putting EC2 in the same VPC, Region, and even Availability Zone.
 
 You should use a process manager, like systemd, to ensure the daemon is always running. Indexer will continue to update the database as new blocks are created.
 
