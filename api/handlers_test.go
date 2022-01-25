@@ -308,7 +308,6 @@ func loadTransactionFromFile(path string) generated.Transaction {
 }
 
 func TestFetchTransactions(t *testing.T) {
-	defer assert.Fail(t, "this method should only be used for generating test inputs.")
 	// Add in txnRows (with TxnBytes to parse), verify that they are properly serialized to generated.TransactionResponse
 	tests := []struct {
 		name     string
