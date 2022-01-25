@@ -167,13 +167,13 @@ The command line arguments always take priority over the config file and environ
 
 Default values are placed in the configuration file. They can be overridden with environment variables and command line arguments.
 
-The configuration file must named **indexer**, **indexer.yml**, or **indexer.yaml**. It must also be in the correct location. Only one configuration file is loaded, the path is searched in the following order:
-
-- `./` (current working directory)
-- `$HOME`
-- `$HOME/.algorand-indexer`
-- `$HOME/.config/algorand-indexer`
-- `/etc/algorand-indexer/`
+The configuration file must named **indexer**, **indexer.yml**, or **indexer.yaml**. The filepath may be set on the CLI using `--configfile` or `-c`. 
+When the filepath is not provided on the CLI, it must also be in the correct location. Only one configuration file is loaded, the path is searched in the following order:
+* `./` (current working directory)
+* `$HOME`
+* `$HOME/.algorand-indexer`
+* `$HOME/.config/algorand-indexer`
+* `/etc/algorand-indexer/`
 
 Here is an example **indexer.yml** file:
 
@@ -187,6 +187,11 @@ If it is in the current working directory along with the indexer command we can 
 
 ```bash
 ~$ ./algorand-indexer daemon
+```
+
+If it is not in the current working directory along with the indexer command we can start the indexer daemon with:
+```
+~$ ./algorand-indexer daemon -c <full-file-location>/indexer.yml
 ```
 
 ## Example environment variable
