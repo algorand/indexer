@@ -34,8 +34,7 @@ var (
 	tokenString      string
 	writeTimeout     time.Duration
 	readTimeout      time.Duration
-	maxConn          int32
-	minConn          int32
+	maxConn          uint32
 )
 
 var daemonCmd = &cobra.Command{
@@ -86,12 +85,7 @@ var daemonCmd = &cobra.Command{
 			opts.ReadOnly = true
 		}
 
-		if maxConn < minConn {
-			maxConn = minConn
-		}
-
 		opts.MaxConn = maxConn
-		opts.MinConn = minConn
 
 		db, availableCh := indexerDbFromFlags(opts)
 		defer db.Close()
@@ -151,8 +145,7 @@ func init() {
 	daemonCmd.Flags().StringVarP(&metricsMode, "metrics-mode", "", "OFF", "configure the /metrics endpoint to [ON, OFF, VERBOSE]")
 	daemonCmd.Flags().DurationVarP(&writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
 	daemonCmd.Flags().DurationVarP(&readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
-	daemonCmd.Flags().Int32VarP(&maxConn, "max-conn", "", 4, "set the maximum connections allowed in the connection pool")
-	daemonCmd.Flags().Int32VarP(&minConn, "min-conn", "", 0, "set the minimum connections allowed in the connection pool")
+	daemonCmd.Flags().Uint32VarP(&maxConn, "max-conn", "", 4, "set the maximum connections allowed in the connection pool")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")

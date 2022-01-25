@@ -335,9 +335,7 @@ type ApplicationRow struct {
 type IndexerDbOptions struct {
 	ReadOnly bool
 	// Maximum connection number for connection pool
-	MaxConn int32
-	// Minimum connection number for connection pool
-	MinConn int32
+	MaxConn uint32
 }
 
 // Health is the response object that IndexerDb objects need to return from the Health method.

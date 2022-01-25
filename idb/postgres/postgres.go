@@ -57,11 +57,7 @@ func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger)
 	}
 
 	if opts.MaxConn != 0 {
-		postgresConfig.MaxConns = opts.MaxConn
-	}
-
-	if opts.MinConn != 0 {
-		postgresConfig.MinConns = opts.MinConn
+		postgresConfig.MaxConns = int32(opts.MaxConn)
 	}
 
 	db, err := pgxpool.ConnectConfig(context.Background(), postgresConfig)
