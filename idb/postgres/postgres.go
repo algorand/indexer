@@ -1593,7 +1593,7 @@ type getAccountsRequest struct {
 }
 
 // GetAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
+func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64, *bookkeeping.BlockHeader) {
 	out := make(chan idb.AccountRow, 1)
 
 	if opts.HasAssetID != 0 {
@@ -1602,7 +1602,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetID=%d", uintOrDefault(opts.AssetGT), uintOrDefault(opts.AssetLT), opts.HasAssetID)
 		out <- idb.AccountRow{Error: err}
 		close(out)
-		return out, 0
+		return out, 0, nil
 	}
 
 	// Begin transaction so we get everything at one consistent point in time and round of accounting.
@@ -1611,7 +1611,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		err = fmt.Errorf("account tx err %v", err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
-		return out, 0
+		return out, 0, nil
 	}
 
 	// Get round number through which accounting has been updated
@@ -1621,7 +1621,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback(ctx)
-		return out, round
+		return out, round, nil
 	}
 
 	// Get block header for that round so we know protocol and rewards info
@@ -1633,15 +1633,16 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback(ctx)
-		return out, round
+		return out, round, nil
 	}
+
 	blockheader, err := encoding.DecodeBlockHeader(headerjson)
 	if err != nil {
 		err = fmt.Errorf("account round header %d err %v", round, err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback(ctx)
-		return out, round
+		return out, round, nil
 	}
 
 	// Construct query for fetching accounts...
@@ -1659,14 +1660,14 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback(ctx)
-		return out, round
+		return out, round, &blockheader
 	}
 	go func() {
 		db.yieldAccountsThread(req)
 		close(req.out)
 		tx.Rollback(ctx)
 	}()
-	return out, round
+	return out, round, &blockheader
 }
 
 func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query string, whereArgs []interface{}) {

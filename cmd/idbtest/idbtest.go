@@ -108,7 +108,7 @@ func testTxnPaging(db idb.IndexerDb, q idb.TransactionFilter) {
 }
 
 func getAccount(db idb.IndexerDb, addr []byte) (account models.Account, err error) {
-	accountchan, _ :=
+	accountchan, _, _ :=
 		db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: addr})
 	for ar := range accountchan {
 		return ar.Account, ar.Error

@@ -59,8 +59,8 @@ func (db *dummyIndexerDb) Transactions(ctx context.Context, tf idb.TransactionFi
 }
 
 // GetAccounts is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
-	return nil, 0
+func (db *dummyIndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64, *bookkeeping.BlockHeader) {
+	return nil, 0, nil
 }
 
 // Assets is part of idb.IndexerDB

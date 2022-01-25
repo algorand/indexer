@@ -173,7 +173,7 @@ type IndexerDb interface {
 	// The next multiple functions return a channel with results as well as the latest round
 	// accounted.
 	Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64)
-	GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64)
+	GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64, *bookkeeping.BlockHeader)
 	Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64)
 	AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64)
 	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64)

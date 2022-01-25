@@ -832,7 +832,7 @@ func TestAppExtraPages(t *testing.T) {
 	}
 	require.Equal(t, 1, num)
 
-	rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:]})
+	rows, _, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:]})
 	num = 0
 	var createdApps *[]generated.Application
 	for row := range rows {
@@ -856,7 +856,7 @@ func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype 
 		EqualToAddress: address[:],
 		IncludeDeleted: true,
 	}
-	rowsCh, _ := db.GetAccounts(context.Background(), opts)
+	rowsCh, _, _ := db.GetAccounts(context.Background(), opts)
 
 	row, ok := <-rowsCh
 	require.True(t, ok)
@@ -930,7 +930,7 @@ func TestLargeAssetAmount(t *testing.T) {
 			EqualToAddress:       test.AccountA[:],
 			IncludeAssetHoldings: true,
 		}
-		rowsCh, _ := db.GetAccounts(context.Background(), opts)
+		rowsCh, _, _ := db.GetAccounts(context.Background(), opts)
 
 		row, ok := <-rowsCh
 		require.True(t, ok)
@@ -1079,7 +1079,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			require.Equal(t, 1, num)
 
 			// Test 4: account results should have the correct asset
-			accounts, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAssetParams: true})
+			accounts, _, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAssetParams: true})
 			num = 0
 			for acct := range accounts {
 				require.NoError(t, acct.Error)
@@ -1360,7 +1360,7 @@ func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
 		EqualToAddress: test.AccountE[:],
 		IncludeDeleted: true,
 	}
-	rowsCh, _ := db.GetAccounts(context.Background(), opts)
+	rowsCh, _, _ := db.GetAccounts(context.Background(), opts)
 
 	row, ok := <-rowsCh
 	require.True(t, ok)
@@ -1483,7 +1483,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 		EqualToAddress: test.AccountB[:],
 		IncludeDeleted: true,
 	}
-	rowsCh, _ := db.GetAccounts(context.Background(), opts)
+	rowsCh, _, _ := db.GetAccounts(context.Background(), opts)
 
 	row, ok := <-rowsCh
 	require.True(t, ok)
