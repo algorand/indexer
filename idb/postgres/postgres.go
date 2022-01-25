@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand/config"
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -397,24 +398,21 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 // LoadGenesis is part of idb.IndexerDB
 func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 	f := func(tx pgx.Tx) error {
-		// check networkdID
-		network, err := db.getMetastate(context.Background(), nil, schema.NetworkMetaStateKey)
+		// check genesis hash
+		network, err := db.getNetworkState(context.Background(), nil)
 		if err == idb.ErrorNotInitialized {
 			networkState := types.NetworkState{
-				NetworkID: string(genesis.Network),
+				GenesisHash: crypto.HashObj(genesis),
 			}
-			err = db.setMetastate(
-				nil, schema.NetworkMetaStateKey, string(encoding.EncodeNetworkState(&networkState)))
+			err = db.setNetworkState(nil, &networkState)
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() err: %w", err)
 			}
+		} else if err != nil {
+			return fmt.Errorf("LoadGenesis() err: %w", err)
 		} else {
-			networkState, err := encoding.DecodeNetworkState([]byte(network))
-			if err != nil {
-				return fmt.Errorf("LoadGenesis() err: %w", err)
-			}
-			if networkState.NetworkID != string(genesis.Network) {
-				return fmt.Errorf("LoadGenesis() err: NetworkID does not match")
+			if network.GenesisHash != crypto.HashObj(genesis) {
+				return fmt.Errorf("LoadGenesis() genesis hash not matching")
 			}
 		}
 		setAccountStatementName := "set_account"
@@ -509,6 +507,32 @@ func (db *IndexerDb) getImportState(ctx context.Context, tx pgx.Tx) (types.Impor
 func (db *IndexerDb) setImportState(tx pgx.Tx, state *types.ImportState) error {
 	return db.setMetastate(
 		tx, schema.StateMetastateKey, string(encoding.EncodeImportState(state)))
+}
+
+// Returns idb.ErrorNotInitialized if uninitialized.
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) getNetworkState(ctx context.Context, tx pgx.Tx) (types.NetworkState, error) {
+	networkStateJSON, err := db.getMetastate(ctx, tx, schema.NetworkMetaStateKey)
+	if err == idb.ErrorNotInitialized {
+		return types.NetworkState{}, idb.ErrorNotInitialized
+	}
+	if err != nil {
+		return types.NetworkState{}, fmt.Errorf("unable to get network state err: %w", err)
+	}
+
+	state, err := encoding.DecodeNetworkState([]byte(networkStateJSON))
+	if err != nil {
+		return types.NetworkState{},
+			fmt.Errorf("unable to parse network state v: \"%s\" err: %w", networkStateJSON, err)
+	}
+
+	return state, nil
+}
+
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) setNetworkState(tx pgx.Tx, state *types.NetworkState) error {
+	return db.setMetastate(
+		tx, schema.NetworkMetaStateKey, string(encoding.EncodeNetworkState(state)))
 }
 
 // Returns ErrorNotInitialized if genesis is not loaded.

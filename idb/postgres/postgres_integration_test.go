@@ -1877,28 +1877,27 @@ func TestTransactionsTxnAhead(t *testing.T) {
 	}
 }
 
-func TestNetworkIDCheckAtDBStartup(t *testing.T) {
-
+// Test that if genesis hash is different from what is in db metastate
+// indexer does not start.
+func TestGenesisHashCheckAtDBStartup(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
+	genesis := test.MakeGenesis()
 	db := setupIdbWithConnectionString(
-		t, connStr, test.MakeGenesis(), test.MakeGenesisBlock())
+		t, connStr, genesis, test.MakeGenesisBlock())
 	defer db.Close()
-
+	genesisHash := crypto.HashObj(genesis)
 	network, err := db.getMetastate(context.Background(), nil, schema.NetworkMetaStateKey)
 	assert.NoError(t, err)
 	networkState, err := encoding.DecodeNetworkState([]byte(network))
 	assert.NoError(t, err)
-	assert.Equal(t, "mynet", networkState.NetworkID)
-
+	assert.Equal(t, genesisHash, networkState.GenesisHash)
 	// connect with different genesis configs
-	genesis := test.MakeGenesis()
 	genesis.Network = "testnest"
-
-	// different networkID, should fail
+	// different genesisHash, should fail
 	idb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
 	err = idb.LoadGenesis(genesis)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "NetworkID does not match")
+	assert.Contains(t, err.Error(), "genesis hash not matching")
 }

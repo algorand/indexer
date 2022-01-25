@@ -2,6 +2,7 @@ package encoding
 
 import (
 	"encoding/base64"
+	"fmt"
 
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
@@ -677,7 +678,7 @@ func DecodeNetworkState(data []byte) (types.NetworkState, error) {
 	var state types.NetworkState
 	err := DecodeJSON(data, &state)
 	if err != nil {
-		return types.NetworkState{}, err
+		return types.NetworkState{}, fmt.Errorf("DecodeNetworkState() err: %w", err)
 	}
 
 	return state, nil
