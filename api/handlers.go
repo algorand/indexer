@@ -157,7 +157,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		Limit:                1,
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
 		// omit MinBalance when there is a rewind
-		IncludeMinBalance: boolOrDefault(params.IncludeAll) && params.Round != nil,
+		IncludeMinBalance: boolOrDefault(params.IncludeAll) && params.Round == nil,
 	}
 
 	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
