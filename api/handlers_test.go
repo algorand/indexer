@@ -308,7 +308,7 @@ func loadTransactionFromFile(path string) generated.Transaction {
 }
 
 func TestFetchTransactions(t *testing.T) {
-	defer assert.Fail(t,"this method should only be used for generating test inputs.")
+	defer assert.Fail(t, "this method should only be used for generating test inputs.")
 	// Add in txnRows (with TxnBytes to parse), verify that they are properly serialized to generated.TransactionResponse
 	tests := []struct {
 		name     string
@@ -658,12 +658,12 @@ func createTxn(t *testing.T, target string) []byte {
 					Sender: addr1,
 				},
 				KeyregTxnFields: transactions.KeyregTxnFields{
-					VotePK: votePK,
-					SelectionPK:selectionPK,
-					StateProofPK: sprfkey,
-					VoteFirst: basics.Round(0),
-					VoteLast: basics.Round(100),
-					VoteKeyDilution: 1000,
+					VotePK:           votePK,
+					SelectionPK:      selectionPK,
+					StateProofPK:     sprfkey,
+					VoteFirst:        basics.Round(0),
+					VoteLast:         basics.Round(100),
+					VoteKeyDilution:  1000,
 					Nonparticipation: false,
 				},
 			},
