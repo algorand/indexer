@@ -76,7 +76,9 @@ sign:
 test-package:
 	mule/e2e.sh
 
-# check that indexer and algod differ at the expected places
+test-generate:
+	test/test_generate.py
+
 indexer-v-algod-swagger:
 	pytest -sv parity
 
