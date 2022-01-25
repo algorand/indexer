@@ -25,7 +25,7 @@ func EnrichMinBalance(account *generated.Account, blockheader *bookkeeping.Block
 	return nil
 }
 
-// copy pasta the next few from api::pointer_utils.go and then renamed
+// inspired by api::pointer_utils.go and then renamed
 // TODO: unify common utils
 
 func boolZerovalIfNil(b *bool) bool {
