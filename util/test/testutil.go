@@ -76,7 +76,7 @@ func PrintAssetQuery(db idb.IndexerDb, q idb.AssetsQuery) {
 
 // PrintAccountQuery prints information about an account query.
 func PrintAccountQuery(db idb.IndexerDb, q idb.AccountQueryOptions) {
-	accountchan, _, _ := db.GetAccounts(context.Background(), q)
+	accountchan, _ := db.GetAccounts(context.Background(), q)
 	count := uint64(0)
 	for ar := range accountchan {
 		util.MaybeFail(ar.Error, "GetAccounts err %v\n", ar.Error)

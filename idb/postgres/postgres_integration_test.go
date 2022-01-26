@@ -832,7 +832,7 @@ func TestAppExtraPages(t *testing.T) {
 	}
 	require.Equal(t, 1, num)
 
-	rows, _, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:]})
+	rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:]})
 	num = 0
 	var createdApps *[]generated.Application
 	for row := range rows {
@@ -856,7 +856,7 @@ func assertKeytype(t *testing.T, db *IndexerDb, address basics.Address, keytype 
 		EqualToAddress: address[:],
 		IncludeDeleted: true,
 	}
-	rowsCh, _, _ := db.GetAccounts(context.Background(), opts)
+	rowsCh, _ := db.GetAccounts(context.Background(), opts)
 
 	row, ok := <-rowsCh
 	require.True(t, ok)
@@ -930,7 +930,7 @@ func TestLargeAssetAmount(t *testing.T) {
 			EqualToAddress:       test.AccountA[:],
 			IncludeAssetHoldings: true,
 		}
-		rowsCh, _, _ := db.GetAccounts(context.Background(), opts)
+		rowsCh, _ := db.GetAccounts(context.Background(), opts)
 
 		row, ok := <-rowsCh
 		require.True(t, ok)
@@ -1079,7 +1079,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			require.Equal(t, 1, num)
 
 			// Test 4: account results should have the correct asset
-			accounts, _, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAssetParams: true})
+			accounts, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAssetParams: true})
 			num = 0
 			for acct := range accounts {
 				require.NoError(t, acct.Error)
@@ -1360,7 +1360,7 @@ func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
 		EqualToAddress: test.AccountE[:],
 		IncludeDeleted: true,
 	}
-	rowsCh, _, _ := db.GetAccounts(context.Background(), opts)
+	rowsCh, _ := db.GetAccounts(context.Background(), opts)
 
 	row, ok := <-rowsCh
 	require.True(t, ok)
@@ -1483,7 +1483,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 		EqualToAddress: test.AccountB[:],
 		IncludeDeleted: true,
 	}
-	rowsCh, _, _ := db.GetAccounts(context.Background(), opts)
+	rowsCh, _ := db.GetAccounts(context.Background(), opts)
 
 	row, ok := <-rowsCh
 	require.True(t, ok)
@@ -1875,4 +1875,29 @@ func TestTransactionsTxnAhead(t *testing.T) {
 		require.True(t, ok)
 		require.NoError(t, row.Error)
 	}
+}
+
+// Test that if genesis hash is different from what is in db metastate
+// indexer does not start.
+func TestGenesisHashCheckAtDBStartup(t *testing.T) {
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+	genesis := test.MakeGenesis()
+	db := setupIdbWithConnectionString(
+		t, connStr, genesis, test.MakeGenesisBlock())
+	defer db.Close()
+	genesisHash := crypto.HashObj(genesis)
+	network, err := db.getMetastate(context.Background(), nil, schema.NetworkMetaStateKey)
+	assert.NoError(t, err)
+	networkState, err := encoding.DecodeNetworkState([]byte(network))
+	assert.NoError(t, err)
+	assert.Equal(t, genesisHash, networkState.GenesisHash)
+	// connect with different genesis configs
+	genesis.Network = "testnest"
+	// different genesisHash, should fail
+	idb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	assert.NoError(t, err)
+	err = idb.LoadGenesis(genesis)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "genesis hash not matching")
 }

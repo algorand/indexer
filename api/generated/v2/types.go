@@ -57,11 +57,6 @@ type Account struct {
 	// Whether or not this account is currently closed.
 	Deleted *bool `json:"deleted,omitempty"`
 
-	// MicroAlgo balance required by the account.
-	//
-	// The requirement grows based on asset and application usage.
-	MinBalance *uint64 `json:"min-balance,omitempty"`
-
 	// AccountParticipation describes the parameters used by this account in consensus protocol.
 	Participation *AccountParticipation `json:"participation,omitempty"`
 
@@ -481,7 +476,7 @@ type TealValue struct {
 	// \[tb\] bytes value.
 	Bytes string `json:"bytes"`
 
-	// \[tt\] value type. Value `1` refers to **bytes**, value `2` refers to **uint**
+	// \[tt\] value type.
 	Type uint64 `json:"type"`
 
 	// \[ui\] uint value.

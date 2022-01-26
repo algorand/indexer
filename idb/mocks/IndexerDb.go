@@ -110,7 +110,7 @@ func (_m *IndexerDb) Close() {
 }
 
 // GetAccounts provides a mock function with given fields: ctx, opts
-func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64, *bookkeeping.BlockHeader) {
+func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
 	ret := _m.Called(ctx, opts)
 
 	var r0 <-chan idb.AccountRow
@@ -129,16 +129,7 @@ func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		r1 = ret.Get(1).(uint64)
 	}
 
-	var r2 *bookkeeping.BlockHeader
-	if rf, ok := ret.Get(2).(func(context.Context, idb.AccountQueryOptions) *bookkeeping.BlockHeader); ok {
-		r2 = rf(ctx, opts)
-	} else {
-		if ret.Get(2) != nil {
-			r2 = ret.Get(2).(*bookkeeping.BlockHeader)
-		}
-	}
-
-	return r0, r1, r2
+	return r0, r1
 }
 
 // GetBlock provides a mock function with given fields: ctx, round, options

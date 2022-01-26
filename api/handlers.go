@@ -13,7 +13,6 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/common"
@@ -156,8 +155,6 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		IncludeAssetParams:   true,
 		Limit:                1,
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
-		// omit MinBalance when there is a rewind
-		IncludeMinBalance: boolOrDefault(params.IncludeAll) && params.Round == nil,
 	}
 
 	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
@@ -199,7 +196,6 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		HasAppID:             uintOrDefault(params.ApplicationId),
 		EqualToAuthAddr:      spendingAddr[:],
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
-		IncludeMinBalance:    boolOrDefault(params.IncludeAll),
 	}
 
 	// Set GT/LT on Algos or Asset depending on whether or not an assetID was specified
@@ -822,11 +818,10 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 // objects, optionally rewinding their value back to a particular round.
 func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.AccountQueryOptions, atRound *uint64) ([]generated.Account, uint64 /*round*/, error) {
 	var round uint64
-	var blockheader *bookkeeping.BlockHeader
 	accounts := make([]generated.Account, 0)
 	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
 		var accountchan <-chan idb.AccountRow
-		accountchan, round, blockheader = si.db.GetAccounts(ctx, options)
+		accountchan, round = si.db.GetAccounts(ctx, options)
 
 		if (atRound != nil) && (*atRound > round) {
 			return fmt.Errorf("%s: the requested round %d > the current round %d",
@@ -858,15 +853,6 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 
 			// match the algod equivalent which includes pending rewards
 			account.Rewards += account.PendingRewards
-
-			if atRound == nil && options.IncludeMinBalance {
-				// TODO: handle MinBalance for Rewinds as well
-				err := accounting.EnrichMinBalance(&account, blockheader)
-				if err != nil {
-					return fmt.Errorf("%s: %v", errFailedAccountMinBalance, err)
-				}
-			}
-
 			accounts = append(accounts, account)
 		}
 		return nil

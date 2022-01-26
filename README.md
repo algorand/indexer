@@ -1,8 +1,5 @@
-<!-- markdownlint-disable MD041 -->
-<!-- markdownlint-disable MD033 -->
-
 | master <br> [![CircleCI](https://circleci.com/gh/algorand/indexer/tree/master.svg?style=svg)](https://circleci.com/gh/algorand/indexer/tree/master) | develop <br> [![CircleCI](https://circleci.com/gh/algorand/indexer/tree/develop.svg?style=svg)](https://circleci.com/gh/algorand/indexer/tree/develop) |
-| --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| --- | --- |
 
 # Algorand Indexer
 
@@ -10,19 +7,17 @@ The Indexer is a standalone service that reads committed blocks from the Algoran
 
 # Tested Requirements Versions
 
-- [go 1.16](https://golang.org/dl/)
-- [Postgres 13](https://www.postgresql.org/download/)
+* [go 1.16](https://golang.org/dl/)
+* [Postgres 13](https://www.postgresql.org/download/)
 
 # Quickstart
 
 We prepared a docker compose file to bring up indexer and Postgres preloaded with some data. From the root directory run:
-
-```bash
+```
 ~$ docker-compose up
 ```
 
 Once running, here are a few commands to try out:
-
 ```bash
 ~$ curl "localhost:8980/v2/assets?name=bogo"
 ~$ curl "localhost:8980/v2/transactions?limit=1"
@@ -37,28 +32,27 @@ Once running, here are a few commands to try out:
 # Features
 
 - Search and filter accounts, transactions, assets, and asset balances with many different parameters:
-  - Round
-  - Date
-  - Address (Sender|Receiver)
-  - Balances
-  - Signature type
-  - Transaction type
-  - Asset holdings
-  - Asset name
-  - More
+    - Round
+    - Date
+    - Address (Sender|Receiver)
+    - Balances
+    - Signature type
+    - Transaction type
+    - Asset holdings
+    - Asset name
+    - More
 - Lookup historic account data for a particular round.
 - Result paging
 - Enriched transaction and account data:
-  - Confirmation round (block containing the transaction)
-  - Confirmation time
-  - Signature type
-  - Asset ID
-  - Close amount when applicable
-  - Rewards
+    - Confirmation round (block containing the transaction)
+    - Confirmation time
+    - Signature type
+    - Asset ID
+    - Close amount when applicable
+    - Rewards
 - Human readable field names instead of the space optimized protocol level names.
 
 There are a number of technical features as well:
-
 - Abstracted database layer. We want to support many different backend databases.
 - Optimized Postgres DB backend.
 - User defined API token.
@@ -78,12 +72,10 @@ Indexer works by fetching blocks one at a time, processing the block data, and l
 As of the end of July 2021, storing all the raw blocks in MainNet is about 609 GB and the PostgreSQL database of transactions and accounts is about 495 GB. Much of that size difference is the Indexer ignoring cryptographic signature data; relying on `algod` to validate blocks. Dropping that, the Indexer can focus on the 'what happened' details of transactions and accounts.
 
 There are two primary modes of operation:
+* [Database updater](#database-updater)
+* [Read only](#read-only)
 
-- [Database updater](#database-updater)
-- [Read only](#read-only)
-
-## Database updater
-
+### Database updater
 In this mode, the database will be populated with data fetched from an [Algorand archival node](https://developer.algorand.org/docs/run-a-node/setup/types/#archival-mode). Because every block must be fetched to bootstrap the database, the initial import for a ledger with a long history will take a while. If the daemon is terminated, it will resume processing wherever it left off.
 
 Keeping the indexer daemon as close as possible to the database helps minimize latency. For example, if using AWS EC2 and RDS, we suggest putting EC2 in the same VPC, Region, and even Availability Zone.
@@ -91,27 +83,22 @@ Keeping the indexer daemon as close as possible to the database helps minimize l
 You should use a process manager, like systemd, to ensure the daemon is always running. Indexer will continue to update the database as new blocks are created.
 
 To start indexer as a daemon in update mode, provide the required fields:
-
-```bash
+```
 ~$ algorand-indexer daemon --algod-net yournode.com:1234 --algod-token token --genesis ~/path/to/genesis.json  --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
 ```
 
 Alternatively if indexer is running on the same host as the archival node, a simplified command may be used:
-
-```bash
+```
 ~$ algorand-indexer daemon --algod-net yournode.com:1234 -d /path/to/algod/data/dir --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
 ```
 
-## Read only
-
+### Read only
 It is possible to set up one daemon as a writer and one or more readers. The Indexer pulling new data from algod can be started as above. Starting the indexer daemon without $ALGORAND_DATA or -d/--algod/--algod-net/--algod-token will start it without writing new data to the database. For further isolation, a `readonly` user can be created for the database.
-
-```bash
+```
 ~$ algorand-indexer daemon --no-algod --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
 ```
 
 The Postgres backend does specifically note the username "readonly" and changes behavior to avoid writing to the database. But the primary benefit is that Postgres can enforce restricted access to this user. This can be configured with:
-
 ```sql
 CREATE USER readonly LOGIN PASSWORD 'YourPasswordHere';
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM readonly;
@@ -121,8 +108,7 @@ GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly;
 ## Authorization
 
 When `--token your-token` is provided, an authentication header is required. For example:
-
-```bash
+```
 ~$ curl localhost:8980/transactions -H "X-Indexer-API-Token: your-token"
 ```
 
@@ -133,8 +119,8 @@ The `/metrics` endpoint is configured with the `--metrics-mode` option and confi
 There are different settings:
 | Setting | Description |
 | ------- | ----------- |
-| ON | Metrics for each REST endpoint in addition to application metrics. |
-| OFF | No metrics endpoint. |
+| ON      | Metrics for each REST endpoint in addition to application metrics. |
+| OFF     | No metrics endpoint. |
 | VERBOSE | Separate metrics for each combination of query parameters. This option should be used with caution, there are many combinations of query parameters which could cause extra memory load depending on usage patterns. |
 
 # Settings
@@ -159,34 +145,37 @@ Settings can be provided from the command line, a configuration file, or an envi
 
 The command line arguments always take priority over the config file and environment variables.
 
-```bash
+```
 ~$ ./algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"`
 ```
 
-## Configuration file
 
+## Configuration file
 Default values are placed in the configuration file. They can be overridden with environment variables and command line arguments.
 
-The configuration file must named **indexer**, **indexer.yml**, or **indexer.yaml**. It must also be in the correct location. Only one configuration file is loaded, the path is searched in the following order:
-
-- `./` (current working directory)
-- `$HOME`
-- `$HOME/.algorand-indexer`
-- `$HOME/.config/algorand-indexer`
-- `/etc/algorand-indexer/`
+The configuration file must named **indexer**, **indexer.yml**, or **indexer.yaml**. The filepath may be set on the CLI using `--configfile` or `-c`. 
+When the filepath is not provided on the CLI, it must also be in the correct location. Only one configuration file is loaded, the path is searched in the following order:
+* `./` (current working directory)
+* `$HOME`
+* `$HOME/.algorand-indexer`
+* `$HOME/.config/algorand-indexer`
+* `/etc/algorand-indexer/`
 
 Here is an example **indexer.yml** file:
-
-```bash
+```
 postgres-connection-string: "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
 pidfile: "/var/lib/algorand/algorand-indexer.pid"
 algod-data-dir: "/var/lib/algorand"
 ```
 
 If it is in the current working directory along with the indexer command we can start the indexer daemon with:
-
-```bash
+```
 ~$ ./algorand-indexer daemon
+```
+
+If it is not in the current working directory along with the indexer command we can start the indexer daemon with:
+```
+~$ ./algorand-indexer daemon -c <full-file-location>/indexer.yml
 ```
 
 ## Example environment variable
@@ -194,8 +183,7 @@ If it is in the current working directory along with the indexer command we can 
 Environment variables are also available to configure indexer. Environment variables override settings in the config file and are overridden by command line arguments.
 
 The same indexer configuration from earlier can be made in bash with the following:
-
-```bash
+```
 ~$ export INDEXER_POSTGRES_CONNECTION_STRING="host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
 ~$ export INDEXER_PIDFILE="/var/lib/algorand/algorand-indexer.pid"
 ~$ export INDEXER_ALGOD_DATA_DIR="/var/lib/algorand"
@@ -206,7 +194,7 @@ The same indexer configuration from earlier can be made in bash with the followi
 
 `/lib/systemd/system/algorand-indexer.service` can be partially overridden by creating `/etc/systemd/system/algorand-indexer.service.d/local.conf`. The most common things to override will be the command line and pidfile. The overriding local.conf file might be this:
 
-```bash
+```
 [Service]
 ExecStart=
 ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
@@ -216,9 +204,9 @@ PIDFile=/var/lib/algorand/algorand-indexer.pid
 
 The systemd unit file can be found in source at [misc/systemd/algorand-indexer.service](misc/systemd/algorand-indexer.service)
 
-Note that the service assumes an `algorand` group and user. If the [Algorand package](https://github.com/algorand/go-algorand/) has already been installed on the same machine, this group and user has already been created. However, if the Indexer is running stand-alone, the group and user will need to be created before starting the daemon:
+Note that the service assumes an `algorand` group and user. If the [Algorand package](https://github.com/algorand/go-algorand/) has already been installed on the same machine, this group and user has already been created.  However, if the Indexer is running stand-alone, the group and user will need to be created before starting the daemon:
 
-```bash
+```
 adduser --system --group --home /var/lib/algorand --no-create-home algorand
 ```
 
@@ -231,9 +219,9 @@ sudo systemctl start algorand-indexer
 
 If you wish to run multiple indexers on one server under systemd, see the comments in `/lib/systemd/system/algorand-indexer@.service` or [misc/systemd/algorand-indexer@.service](misc/systemd/algorand-indexer@.service)
 
-# Unique Database Configurations
+# Unique Database Configurations 
 
-Load balancing:
+Load balancing: 
 If indexer is deployed with a clustered database using multiple readers behind a load balancer, query discrepancies are possible due to database replication lag. Users should check the `current-round` response field and be prepared to retry queries when stale data is detected.
 
 <!-- USAGE_END_MARKER_LINE -->

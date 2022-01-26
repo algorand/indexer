@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand/config"
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -397,9 +398,26 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 // LoadGenesis is part of idb.IndexerDB
 func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 	f := func(tx pgx.Tx) error {
+		// check genesis hash
+		network, err := db.getNetworkState(context.Background(), tx)
+		if err == idb.ErrorNotInitialized {
+			networkState := types.NetworkState{
+				GenesisHash: crypto.HashObj(genesis),
+			}
+			err = db.setNetworkState(tx, &networkState)
+			if err != nil {
+				return fmt.Errorf("LoadGenesis() err: %w", err)
+			}
+		} else if err != nil {
+			return fmt.Errorf("LoadGenesis() err: %w", err)
+		} else {
+			if network.GenesisHash != crypto.HashObj(genesis) {
+				return fmt.Errorf("LoadGenesis() genesis hash not matching")
+			}
+		}
 		setAccountStatementName := "set_account"
 		query := `INSERT INTO account (addr, microalgos, rewardsbase, account_data, rewards_total, created_at, deleted) VALUES ($1, $2, 0, $3, $4, 0, false)`
-		_, err := tx.Prepare(context.Background(), setAccountStatementName, query)
+		_, err = tx.Prepare(context.Background(), setAccountStatementName, query)
 		if err != nil {
 			return fmt.Errorf("LoadGenesis() prepare tx err: %w", err)
 		}
@@ -489,6 +507,32 @@ func (db *IndexerDb) getImportState(ctx context.Context, tx pgx.Tx) (types.Impor
 func (db *IndexerDb) setImportState(tx pgx.Tx, state *types.ImportState) error {
 	return db.setMetastate(
 		tx, schema.StateMetastateKey, string(encoding.EncodeImportState(state)))
+}
+
+// Returns idb.ErrorNotInitialized if uninitialized.
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) getNetworkState(ctx context.Context, tx pgx.Tx) (types.NetworkState, error) {
+	networkStateJSON, err := db.getMetastate(ctx, tx, schema.NetworkMetaStateKey)
+	if err == idb.ErrorNotInitialized {
+		return types.NetworkState{}, idb.ErrorNotInitialized
+	}
+	if err != nil {
+		return types.NetworkState{}, fmt.Errorf("unable to get network state err: %w", err)
+	}
+
+	state, err := encoding.DecodeNetworkState([]byte(networkStateJSON))
+	if err != nil {
+		return types.NetworkState{},
+			fmt.Errorf("unable to parse network state v: \"%s\" err: %w", networkStateJSON, err)
+	}
+
+	return state, nil
+}
+
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) setNetworkState(tx pgx.Tx, state *types.NetworkState) error {
+	return db.setMetastate(
+		tx, schema.NetworkMetaStateKey, string(encoding.EncodeNetworkState(state)))
 }
 
 // Returns ErrorNotInitialized if genesis is not loaded.
@@ -1593,7 +1637,7 @@ type getAccountsRequest struct {
 }
 
 // GetAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64, *bookkeeping.BlockHeader) {
+func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
 	out := make(chan idb.AccountRow, 1)
 
 	if opts.HasAssetID != 0 {
@@ -1602,7 +1646,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetID=%d", uintOrDefault(opts.AssetGT), uintOrDefault(opts.AssetLT), opts.HasAssetID)
 		out <- idb.AccountRow{Error: err}
 		close(out)
-		return out, 0, nil
+		return out, 0
 	}
 
 	// Begin transaction so we get everything at one consistent point in time and round of accounting.
@@ -1611,7 +1655,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		err = fmt.Errorf("account tx err %v", err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
-		return out, 0, nil
+		return out, 0
 	}
 
 	// Get round number through which accounting has been updated
@@ -1621,7 +1665,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback(ctx)
-		return out, round, nil
+		return out, round
 	}
 
 	// Get block header for that round so we know protocol and rewards info
@@ -1633,16 +1677,15 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback(ctx)
-		return out, round, nil
+		return out, round
 	}
-
 	blockheader, err := encoding.DecodeBlockHeader(headerjson)
 	if err != nil {
 		err = fmt.Errorf("account round header %d err %v", round, err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback(ctx)
-		return out, round, nil
+		return out, round
 	}
 
 	// Construct query for fetching accounts...
@@ -1660,14 +1703,14 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback(ctx)
-		return out, round, &blockheader
+		return out, round
 	}
 	go func() {
 		db.yieldAccountsThread(req)
 		close(req.out)
 		tx.Rollback(ctx)
 	}()
-	return out, round, &blockheader
+	return out, round
 }
 
 func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query string, whereArgs []interface{}) {

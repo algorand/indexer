@@ -613,8 +613,7 @@ func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 	var outCh <-chan idb.AccountRow = ch
 
 	db := &mocks.IndexerDb{}
-	// empty blockheader since rewinder isn't currently using it
-	db.On("GetAccounts", mock.Anything, mock.Anything).Return(outCh, uint64(7), &bookkeeping.BlockHeader{}).Once()
+	db.On("GetAccounts", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
 
 	si := ServerImplementation{
 		EnableAddressSearchRoundRewind: true,
@@ -753,12 +752,7 @@ func TestTimeouts(t *testing.T) {
 	}
 	transactionFunc := mostMockFunctions("Transactions")
 	applicationsFunc := mostMockFunctions("Applications")
-	accountsFunc := func(mockIndexer *mocks.IndexerDb, timeout <-chan time.Time) {
-		mockIndexer.
-			On("GetAccounts", mock.Anything, mock.Anything, mock.Anything).
-			WaitUntil(timeout).
-			Return(nil, uint64(0), &bookkeeping.BlockHeader{})
-	}
+	accountsFunc := mostMockFunctions("GetAccounts")
 	assetsFunc := mostMockFunctions("Assets")
 	balancesFunc := mostMockFunctions("AssetBalances")
 	blockFunc := func(mockIndexer *mocks.IndexerDb, timeout <-chan time.Time) {
