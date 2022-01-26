@@ -1,5 +1,7 @@
 package types
 
+import "github.com/algorand/go-algorand/crypto"
+
 // ImportState encodes an import round counter.
 type ImportState struct {
 	NextRoundToAccount uint64 `codec:"next_account_round"`
@@ -18,4 +20,9 @@ type MigrationState struct {
 	// Note: a generic "data" field here could be a good way to deal with this growing over time.
 	//       It would require a mechanism to clear the data field between migrations to avoid using migration data
 	//       from the previous migration.
+}
+
+// NetworkState encodes network metastate.
+type NetworkState struct {
+	GenesisHash crypto.Digest `codec:"genesis-hash"`
 }
