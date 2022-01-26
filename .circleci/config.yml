@@ -20,7 +20,7 @@ workflows:
   "nightly_build_and_test_with_algod_comparison":
     triggers:
       - schedule:
-          cron: "16 5 * * *"
+          cron: "23 5 * * *"
           filters:
             branches:
               only: compare2algod

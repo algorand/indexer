@@ -9,10 +9,16 @@ Account:
     deleted:
     - INDEXER: '{"description":"Whether or not...'
     - ALGOD: null
+    min-balance:
+    - INDEXER: null
+    - ALGOD: '{"description":"MicroAlgo bala...'
     sig-type:
       description:
       - INDEXER: '"Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown"'
       - ALGOD: '"Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig"'
+  required:
+  - - INDEXER: null
+    - ALGOD: '"min-balance"'
 Application:
   properties:
     created-at-round:
