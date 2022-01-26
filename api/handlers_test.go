@@ -559,7 +559,7 @@ func TestFetchTransactions(t *testing.T) {
 			close(ch)
 			var outCh <-chan idb.TxnRow = ch
 			var round uint64 = 1
-			mockIndexer.On("Transactions", mock.Anything, mock.Anything, mock.Anything).Return(outCh, round)
+			mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh, round)
 
 			// Call the function
 			results, _, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{}, false)
@@ -707,7 +707,7 @@ func TestLookupApplicationLogsByID(t *testing.T) {
 	close(ch)
 	var outCh <-chan idb.TxnRow = ch
 	var round uint64 = 1
-	mockIndexer.On("Transactions", mock.Anything, mock.Anything, mock.Anything).Return(outCh, round)
+	mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh, round)
 
 	appIdx := stxn.Txn.ApplicationID
 	e := echo.New()

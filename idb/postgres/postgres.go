@@ -958,7 +958,7 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, r
 			row.AssetID = asset
 			if len(extra) > 0 {
 				row.Extra, err = encoding.DecodeTxnExtra(extra)
-				if row.Error == nil && err != nil {
+				if err != nil {
 					err = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
 					row.Error = err
 				}
