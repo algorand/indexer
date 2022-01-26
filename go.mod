@@ -1,6 +1,6 @@
 module github.com/algorand/indexer
 
-go 1.16
+go 1.13
 
 replace github.com/algorand/go-algorand => ./third_party/go-algorand
 
