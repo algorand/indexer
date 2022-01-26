@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"math"
@@ -11,8 +12,10 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/indexer/importer"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -1879,7 +1882,7 @@ func TestTransactionsTxnAhead(t *testing.T) {
 
 // Test that if genesis hash is different from what is in db metastate
 // indexer does not start.
-func TestGenesisHashCheckAtDBStartup(t *testing.T) {
+func TestGenesisHashCheckAtDBSetup(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 	genesis := test.MakeGenesis()
@@ -1900,4 +1903,28 @@ func TestGenesisHashCheckAtDBStartup(t *testing.T) {
 	err = idb.LoadGenesis(genesis)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "genesis hash not matching")
+}
+
+// Test that if genesis hash at initial import is different from what is in db metastate
+// indexer does not start.
+func TestGenesisHashCheckAtInitialImport(t *testing.T) {
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+	genesis := test.MakeGenesis()
+	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	require.NoError(t, err)
+	defer db.Close()
+	logger := logrus.New()
+	genesisReader := bytes.NewReader(protocol.EncodeJSON(genesis))
+	imported, err := importer.InitialImport(db, genesisReader, logger)
+	require.NoError(t, err)
+	require.True(t, true, imported)
+	// change genesis value
+	genesis.Network = "testnest"
+	genesisReader = bytes.NewReader(protocol.EncodeJSON(genesis))
+	// different genesisHash, should fail
+	_, err = importer.InitialImport(db, genesisReader, logger)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "genesis hash not matching")
+
 }

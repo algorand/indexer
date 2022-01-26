@@ -2290,3 +2290,15 @@ func (db *IndexerDb) GetAccountData(addresses []basics.Address) (map[basics.Addr
 
 	return res, nil
 }
+
+// GetNetworkState is part of idb.IndexerDB
+func (db *IndexerDb) GetNetworkState() (idb.NetworkState, error) {
+	state, err := db.getNetworkState(context.Background(), nil)
+	if err != nil {
+		fmt.Errorf("GetNetworkState() err: %w", err)
+	}
+	networkState := idb.NetworkState{
+		GenesisHash: state.GenesisHash,
+	}
+	return networkState, nil
+}
