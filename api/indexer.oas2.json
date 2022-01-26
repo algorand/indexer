@@ -745,10 +745,6 @@
           "description": "\\[algo\\] total number of MicroAlgos in the account",
           "type": "integer"
         },
-        "min-balance": {
-          "description": "MicroAlgo balance required by the account.\n\nThe requirement grows based on asset and application usage.",
-          "type": "integer"
-        },
         "amount-without-pending-rewards": {
           "description": "specifies the amount of MicroAlgos in the account, without the pending rewards.",
           "type": "integer"
