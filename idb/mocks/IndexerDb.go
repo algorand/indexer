@@ -261,23 +261,3 @@ func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 
 	return r0, r1
 }
-
-// GetNetworkState provides a mock function with given fields:
-func (_m *IndexerDb) GetNetworkState() (idb.NetworkState, error) {
-	ret := _m.Called()
-
-	var r0 idb.NetworkState
-	if rf, ok := ret.Get(0).(func() idb.NetworkState); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(idb.NetworkState)
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
