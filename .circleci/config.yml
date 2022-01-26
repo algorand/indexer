@@ -17,19 +17,20 @@ workflows:
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.16.11", "1.17.4"]
-  "nightly":
-    triggers:
-      - schedule:
-        cron: "*/15 * * * *"
-        filters:
-          branches:
-            only: compare2algod
-    jobs:
-      - test-nightly:
-          name: test_with_go_<< matrix.go_version >>
-          matrix: &go-version-matrix
-            parameters:
-              go_version: ["1.16.11", "1.17.4"]
+scheduled-workflow:
+  triggers:
+    - schedule:
+      cron: "*/15 * * * *"
+      filters:
+        branches:
+          only: compare2algod
+  jobs:
+    - test-nightly:
+        name: nightly_test_with_go_<< matrix.go_version >>
+        matrix: &go-version-matrix
+          parameters:
+            go_version: ["1.16.11", "1.17.4"]
+
 
 jobs:
   test:
