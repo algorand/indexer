@@ -8,29 +8,28 @@ parameters:
     type: string
     default: "ubuntu-2004:202107-02"
 
-# workflows:
-#   version: 2
-#   "circleci_build_and_test":
-#     jobs:
-#       - test:
-#           name: test_with_go_<< matrix.go_version >>
-#           matrix: &go-version-matrix
-#             parameters:
-#               go_version: ["1.16.11", "1.17.4"]
-
-scheduled-workflow:
-  triggers:
-    - schedule:
-      cron: "* * * * *"
-      filters:
-        branches:
-          only: compare2algod
-  jobs:
-    - test-nightly:
-        name: nightly_test_with_go_<< matrix.go_version >>
-        matrix: &go-version-matrix
-          parameters:
-            go_version: ["1.16.11", "1.17.4"]
+workflows:
+  version: 2
+  "circleci_build_and_test":
+    jobs:
+      - test:
+          name: test_with_go_<< matrix.go_version >>
+          matrix: &go-version-matrix
+            parameters:
+              go_version: ["1.16.11", "1.17.4"]
+  "nightly_buit_and_test_with_algod_comparison":
+    triggers:
+      - schedule:
+        cron: "*/5 * * * *"
+        filters:
+          branches:
+            only: compare2algod
+    jobs:
+      - test-nightly:
+          name: nightly_test_with_go_<< matrix.go_version >>
+          matrix: &go-version-matrix
+            parameters:
+              go_version: ["1.16.11", "1.17.4"]
 
 
 jobs:
