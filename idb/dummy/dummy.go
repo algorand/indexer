@@ -54,7 +54,7 @@ func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options id
 }
 
 // Transactions is part of idb.IndexerDB
-func (db *dummyIndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
+func (db *dummyIndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter, returnInnerTxnOnly bool) (<-chan idb.TxnRow, uint64) {
 	return nil, 0
 }
 

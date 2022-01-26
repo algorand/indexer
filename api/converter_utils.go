@@ -247,25 +247,16 @@ type rowData struct {
 }
 
 // txnRowToTransaction parses the idb.TxnRow and generates the appropriate generated.Transaction object.
-// If the idb.TxnRow represents an inner transaction and returnInnerTxn is false, the root transaction is returned.
-// If the idb.TxnRow represents an inner transaction and returnInnerTxn is true, then the inner transaction is returned with the root txid.
-func txnRowToTransaction(row idb.TxnRow, returnInnerTxn bool) (generated.Transaction, error) {
+func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Error != nil {
 		return generated.Transaction{}, row.Error
 	}
 
 	var stxn *transactions.SignedTxnWithAD
-	// If we want to return the inner transaction, we keep the root txn to calculate its txid
-	var rootTxn *transactions.SignedTxnWithAD
-	// If returnInnerTxn is true, then return the inner txn and keep the root txn if it exists.
-	// If returnInnerTxn is false, then return the inner txn's root txn if it exists.
-	if returnInnerTxn && row.Txn != nil && row.RootTxn != nil {
+	if row.Txn != nil {
 		stxn = row.Txn
-		rootTxn = row.RootTxn
-	} else if !returnInnerTxn && row.RootTxn != nil {
+	} else if row.RootTxn != nil {
 		stxn = row.RootTxn
-	} else if row.Txn != nil {
-		stxn = row.Txn
 	} else {
 		return generated.Transaction{}, fmt.Errorf("%d:%d transaction bytes missing", row.Round, row.Intra)
 	}
@@ -294,8 +285,8 @@ func txnRowToTransaction(row idb.TxnRow, returnInnerTxn bool) (generated.Transac
 	}
 
 	var txid string
-	if rootTxn != nil {
-		txid = rootTxn.Txn.ID().String()
+	if row.Extra.RootIntra.Present {
+		txid = row.Extra.RootTxid
 	} else {
 		txid = stxn.Txn.ID().String()
 	}

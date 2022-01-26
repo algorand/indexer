@@ -99,7 +99,7 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		MinRound: round + 1,
 		MaxRound: account.Round,
 	}
-	txns, r := db.Transactions(context.Background(), tf)
+	txns, r := db.Transactions(context.Background(), tf, false)
 	if r < account.Round {
 		err = ConsistencyError{fmt.Sprintf("queried round r: %d < account.Round: %d", r, account.Round)}
 		return

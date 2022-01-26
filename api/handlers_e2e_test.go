@@ -349,7 +349,6 @@ func TestVersion(t *testing.T) {
 func TestLookupInnerLogs(t *testing.T) {
 	var appAddr basics.Address
 	appAddr[1] = 99
-	// appAddrStr := appAddr.String()
 
 	params := generated.LookupApplicationLogsByIDParams{}
 

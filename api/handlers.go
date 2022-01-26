@@ -796,7 +796,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 
 		results := make([]generated.Transaction, 0)
 		for _, txrow := range transactions {
-			tx, err := txnRowToTransaction(txrow, false)
+			tx, err := txnRowToTransaction(txrow)
 			if err != nil {
 				return err
 			}
@@ -862,19 +862,19 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 }
 
 // fetchTransactions is used to query the backend for transactions, and compute the next token
-// If returnInnerTxn is false, then the root txn is returned for a inner txn match.
-func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter, returnInnerTxn bool) ([]generated.Transaction, string, uint64 /*round*/, error) {
+// If returnInnerTxnOnly is false, then the root txn is returned for a inner txn match.
+func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter, returnInnerTxnOnly bool) ([]generated.Transaction, string, uint64 /*round*/, error) {
 	var round uint64
 	var nextToken string
 	results := make([]generated.Transaction, 0)
 	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
 		var txchan <-chan idb.TxnRow
-		txchan, round = si.db.Transactions(ctx, filter)
+		txchan, round = si.db.Transactions(ctx, filter, returnInnerTxnOnly)
 
 		rootTxnDedupeMap := make(map[string]struct{})
 		var lastTxrow idb.TxnRow
 		for txrow := range txchan {
-			tx, err := txnRowToTransaction(txrow, returnInnerTxn)
+			tx, err := txnRowToTransaction(txrow)
 			if err != nil {
 				return err
 			}

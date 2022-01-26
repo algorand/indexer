@@ -57,7 +57,7 @@ type roundIntra struct {
 func testTxnPaging(db idb.IndexerDb, q idb.TransactionFilter) {
 	q.Limit = 1000
 	all := make([]roundIntra, 0, q.Limit)
-	rowchan, _ := db.Transactions(context.Background(), q)
+	rowchan, _ := db.Transactions(context.Background(), q, false)
 	for txnrow := range rowchan {
 		var ri roundIntra
 		ri.Round = txnrow.Round
@@ -72,7 +72,7 @@ func testTxnPaging(db idb.IndexerDb, q idb.TransactionFilter) {
 	any := true
 	for any {
 		any = false
-		rowchan, _ := db.Transactions(context.Background(), q)
+		rowchan, _ := db.Transactions(context.Background(), q, false)
 		next := ""
 		var err error
 		for txnrow := range rowchan {

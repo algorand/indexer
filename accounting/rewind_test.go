@@ -48,7 +48,7 @@ func TestBasic(t *testing.T) {
 
 	db := &mocks.IndexerDb{}
 	db.On("GetSpecialAccounts").Return(transactions.SpecialAddresses{}, nil)
-	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(8))
+	db.On("Transactions", mock.Anything, mock.Anything, mock.Anything).Return(outCh, uint64(8))
 
 	account, err := AccountAtRound(account, 6, db)
 	assert.NoError(t, err)
@@ -70,7 +70,7 @@ func TestStaleTransactions1(t *testing.T) {
 
 	db := &mocks.IndexerDb{}
 	db.On("GetSpecialAccounts").Return(transactions.SpecialAddresses{}, nil)
-	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
+	db.On("Transactions", mock.Anything, mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
 
 	account, err := AccountAtRound(account, 6, db)
 	assert.True(t, errors.As(err, &ConsistencyError{}), "err: %v", err)

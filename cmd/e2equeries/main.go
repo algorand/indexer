@@ -41,7 +41,7 @@ func main() {
 	printTxnQuery(db, rekeyTxnQuery)
 
 	var rekeyedAuthAddrs []basics.Address
-	rowchan, _ := db.Transactions(context.Background(), rekeyTxnQuery)
+	rowchan, _ := db.Transactions(context.Background(), rekeyTxnQuery, false)
 	for txnrow := range rowchan {
 		maybeFail(txnrow.Error, "err rekey txn %v\n", txnrow.Error)
 		rekeyedAuthAddrs = append(rekeyedAuthAddrs, txnrow.Txn.Txn.RekeyTo)
