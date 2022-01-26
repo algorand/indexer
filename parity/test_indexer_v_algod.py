@@ -1,7 +1,10 @@
-from pathlib import Path
+import atexit
 import json
+from pathlib import Path
 from typing import List
 import yaml
+
+from git import Repo
 
 from .json_diff import deep_diff, prettify_diff
 
@@ -15,11 +18,37 @@ ASSERTIONS = [DROPPED, FULL]
 MODELS_ONLY = True
 
 REPO_DIR = Path.cwd()
+INDEXER_SWGR = REPO_DIR / "api" / "indexer.oas2.json"
+
 GOAL_DIR = REPO_DIR / "third_party" / "go-algorand"
+ALGOD_SWGR = GOAL_DIR / "daemon" / "algod" / "api" / "algod.oas2.json"
+
 REPORTS_DIR = REPO_DIR / "parity" / "reports"
 
 
+already_printed = False
+def print_git_info_once():
+    global already_printed
+    if already_printed:
+        return
+    already_printed = True
+
+    indexer = Repo(REPO_DIR)
+    indexer_commit = indexer.git.rev_parse("HEAD")
+
+    goal = Repo(GOAL_DIR)
+    goal_commit = goal.git.rev_parse("HEAD")
+
+    print(f"""Finished comparing:
+    * Indexer Swagger {INDEXER_SWGR} for commit hash {indexer_commit}
+    * Algod Swagger {ALGOD_SWGR} for commit hash {goal_commit}
+""")
+
+
+
 def tsetup():
+    atexit.register(print_git_info_once)
+
     exclude = [
         "basePath",
         "consumes",
@@ -35,14 +64,14 @@ def tsetup():
         "x-go-name",
     ]
 
-    indexer = REPO_DIR / "api" / "indexer.oas2.json"
-    with open(indexer, "r") as f:
+    
+    with open(INDEXER_SWGR, "r") as f:
         indexer = json.loads(f.read())
         if MODELS_ONLY:
             indexer = indexer["definitions"]
 
-    algod = GOAL_DIR / "daemon" / "algod" / "api" / "algod.oas2.json"
-    with open(algod, "r") as f:
+    
+    with open(ALGOD_SWGR, "r") as f:
         algod = json.loads(f.read())
         if MODELS_ONLY:
             algod = algod["definitions"]
@@ -136,6 +165,9 @@ def test_parity(reports: List[str] = ASSERTIONS, save_new: bool = True):
        4. assert that there is no diff
     """
 
+    if save_new:
+        save_reports(*reports)
+
     for diff_type in reports:
         ypath = get_report_path(diff_type, for_write=False)
         with open(ypath, "r") as f:
@@ -148,6 +180,3 @@ def test_parity(reports: List[str] = ASSERTIONS, save_new: bool = True):
         ), f"""UNEXPECTED CHANGE IN {ypath}. Differences are:
 {json.dumps(diff_of_diffs,indent=2)}
 """
-
-    if save_new:
-        save_reports(*reports)

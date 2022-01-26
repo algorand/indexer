@@ -74,7 +74,15 @@ test-package:
 test-generate:
 	test/test_generate.py
 
+swagger-setup:
+	cd third_party/go-algorand && git pull origin master
+
+swagger-teardown:
+	git submodule update
+
 indexer-v-algod-swagger:
 	pytest -sv parity
 
-.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod-swagger
+indexer-v-algod-latest: swagger-setup indexer-v-algod-swagger swagger-teardown
+
+.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod-latest
