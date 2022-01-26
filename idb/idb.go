@@ -172,7 +172,7 @@ type IndexerDb interface {
 
 	// The next multiple functions return a channel with results as well as the latest round
 	// accounted.
-	Transactions(ctx context.Context, tf TransactionFilter, returnInnerTxnOnly bool) (<-chan TxnRow, uint64)
+	Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64)
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64)
 	Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64)
 	AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64)
@@ -226,6 +226,8 @@ type TransactionFilter struct {
 	NextToken string
 
 	Limit uint64
+
+	ReturnInnerTxnOnly bool
 }
 
 // AccountQueryOptions is a parameter object with all of the account filter options.

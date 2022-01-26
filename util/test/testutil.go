@@ -96,7 +96,7 @@ func PrintAccountQuery(db idb.IndexerDb, q idb.AccountQueryOptions) {
 
 // PrintTxnQuery prints information about a transaction query.
 func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
-	rowchan, _ := db.Transactions(context.Background(), q, false)
+	rowchan, _ := db.Transactions(context.Background(), q)
 	count := uint64(0)
 	for txnrow := range rowchan {
 		util.MaybeFail(txnrow.Error, "err %v\n", txnrow.Error)

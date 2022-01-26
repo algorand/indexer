@@ -325,7 +325,7 @@ func TestBlockWithTransactions(t *testing.T) {
 		context.Background(), round, idb.GetBlockOptions{Transactions: true})
 	require.NoError(t, err)
 
-	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{Round: &round}, false)
+	rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{Round: &round})
 	txnRows1 := make([]idb.TxnRow, 0)
 	for row := range rowsCh {
 		require.NoError(t, row.Error)
@@ -1073,7 +1073,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 
 			// Test 3: transaction results properly serialized
 			// Transaction results also return the inner txn acfg
-			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{}, false)
+			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 			num = 0
 			for row := range txnRows {
 				require.NoError(t, row.Error)
@@ -1304,7 +1304,7 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 		Round:  &round,
 		Offset: &intra,
 	}
-	rowsCh, _ := db.Transactions(context.Background(), tf, false)
+	rowsCh, _ := db.Transactions(context.Background(), tf)
 
 	row, ok := <-rowsCh
 	require.True(t, ok)
@@ -1572,7 +1572,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// When: searching for a transaction that matches part of the transaction.
-			results, _ := db.Transactions(context.Background(), tc.filter, false)
+			results, _ := db.Transactions(context.Background(), tc.filter)
 
 			// Then: the root transaction should be returned.
 			num := 0
@@ -1665,7 +1665,7 @@ func TestNonUTF8Logs(t *testing.T) {
 			require.NoError(t, err)
 
 			// Test 2: transaction results properly serialized
-			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{}, false)
+			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 			for row := range txnRows {
 				var rowTxn *transactions.SignedTxnWithAD
 				if row.Txn != nil {
@@ -1723,7 +1723,7 @@ func TestTxnAssetID(t *testing.T) {
 	err = db.AddBlock(&block)
 	require.NoError(t, err)
 
-	txnRowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{}, false)
+	txnRowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 	for i := 0; i < 2; i++ {
 		row, ok := <-txnRowsCh
 		require.True(t, ok)
@@ -1776,7 +1776,7 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 		tf := idb.TransactionFilter{
 			Offset: &offset,
 		}
-		rowsCh, _ := db.Transactions(context.Background(), tf, false)
+		rowsCh, _ := db.Transactions(context.Background(), tf)
 
 		row, ok := <-rowsCh
 		require.True(t, ok)
@@ -1790,7 +1790,7 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 		tf := idb.TransactionFilter{
 			Offset: &offset,
 		}
-		rowsCh, _ := db.Transactions(context.Background(), tf, false)
+		rowsCh, _ := db.Transactions(context.Background(), tf)
 
 		row, ok := <-rowsCh
 		require.True(t, ok)
@@ -1872,7 +1872,7 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 	tf := idb.TransactionFilter{
 		Address: test.AccountA[:],
 	}
-	rowsCh, _ := db.Transactions(context.Background(), tf, false)
+	rowsCh, _ := db.Transactions(context.Background(), tf)
 
 	row, ok := <-rowsCh
 	require.True(t, ok)
@@ -1897,7 +1897,7 @@ func TestTransactionsTxnAhead(t *testing.T) {
 		require.NoError(t, err)
 	}
 	{
-		rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{}, false)
+		rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 		_, ok := <-rowsCh
 		assert.False(t, ok)
 	}
@@ -1911,7 +1911,7 @@ func TestTransactionsTxnAhead(t *testing.T) {
 		require.NoError(t, err)
 	}
 	{
-		rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{}, false)
+		rowsCh, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 		row, ok := <-rowsCh
 		require.True(t, ok)
 		require.NoError(t, row.Error)

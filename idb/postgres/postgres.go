@@ -549,7 +549,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 
 	if options.Transactions {
 		out := make(chan idb.TxnRow, 1)
-		query, whereArgs, err := buildTransactionQuery(idb.TransactionFilter{Round: &round}, false)
+		query, whereArgs, err := buildTransactionQuery(idb.TransactionFilter{Round: &round})
 		if err != nil {
 			err = fmt.Errorf("txn query err %v", err)
 			out <- idb.TxnRow{Error: err}
@@ -577,7 +577,7 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 	return blockHeader, transactions, nil
 }
 
-func buildTransactionQuery(tf idb.TransactionFilter, returnInnerTxnOnly bool) (query string, whereArgs []interface{}, err error) {
+func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []interface{}, err error) {
 	// TODO? There are some combinations of tf params that will
 	// yield no results and we could catch that before asking the
 	// database. A hopefully rare optimization.
@@ -746,7 +746,7 @@ func buildTransactionQuery(tf idb.TransactionFilter, returnInnerTxnOnly bool) (q
 	}
 
 	// If returnInnerTxnOnly flag is false, then return the root transaction
-	if !returnInnerTxnOnly {
+	if !tf.ReturnInnerTxnOnly {
 		query = "SELECT t.round, t.intra, t.txn, root.txn, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
 	} else {
 		query = "SELECT t.round, t.intra, t.txn, NULL, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
@@ -757,7 +757,7 @@ func buildTransactionQuery(tf idb.TransactionFilter, returnInnerTxnOnly bool) (q
 	}
 
 	// join in the root transaction if the returnInnerTxnOnly flag is false
-	if !returnInnerTxnOnly {
+	if !tf.ReturnInnerTxnOnly {
 		query += " LEFT OUTER JOIN txn root ON t.round = root.round AND t.extra->>'root-intra' = root.intra::text"
 	}
 
@@ -779,13 +779,13 @@ func buildTransactionQuery(tf idb.TransactionFilter, returnInnerTxnOnly bool) (q
 }
 
 // This function blocks. `tx` must be non-nil.
-func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow, returnInnerTxnOnly bool) {
+func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
 	if len(tf.NextToken) > 0 {
-		db.txnsWithNext(ctx, tx, tf, out, returnInnerTxnOnly)
+		db.txnsWithNext(ctx, tx, tf, out)
 		return
 	}
 
-	query, whereArgs, err := buildTransactionQuery(tf, returnInnerTxnOnly)
+	query, whereArgs, err := buildTransactionQuery(tf)
 	if err != nil {
 		err = fmt.Errorf("txn query err %v", err)
 		out <- idb.TxnRow{Error: err}
@@ -803,7 +803,7 @@ func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.Transactio
 }
 
 // Transactions is part of idb.IndexerDB
-func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter, returnInnerTxnOnly bool) (<-chan idb.TxnRow, uint64) {
+func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	out := make(chan idb.TxnRow, 1)
 
 	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
@@ -822,7 +822,7 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter,
 	}
 
 	go func() {
-		db.yieldTxns(ctx, tx, tf, out, returnInnerTxnOnly)
+		db.yieldTxns(ctx, tx, tf, out)
 		tx.Rollback(ctx)
 		close(out)
 	}()
@@ -831,7 +831,7 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter,
 }
 
 // This function blocks. `tx` must be non-nil.
-func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow, returnInnerTxnOnly bool) {
+func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow) {
 	// TODO: Use txid to deduplicate next resultset at the query level?
 
 	// Check for remainder of round from previous page.
@@ -856,7 +856,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 		tf.Round = &nextround
 		tf.OffsetGT = &nextintra
 	}
-	query, whereArgs, err := buildTransactionQuery(tf, returnInnerTxnOnly)
+	query, whereArgs, err := buildTransactionQuery(tf)
 	if err != nil {
 		err = fmt.Errorf("txn query err %v", err)
 		out <- idb.TxnRow{Error: err}
@@ -902,7 +902,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 		tf.OffsetGT = origOGT
 		tf.MinRound = nextround + 1
 	}
-	query, whereArgs, err = buildTransactionQuery(tf, returnInnerTxnOnly)
+	query, whereArgs, err = buildTransactionQuery(tf)
 	if err != nil {
 		err = fmt.Errorf("txn query err %v", err)
 		out <- idb.TxnRow{Error: err}

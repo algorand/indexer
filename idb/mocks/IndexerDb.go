@@ -239,13 +239,13 @@ func (_m *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 	return r0
 }
 
-// Transactions provides a mock function with given fields: ctx, tf, returnInnerTxnOnly
-func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter, returnInnerTxnOnly bool) (<-chan idb.TxnRow, uint64) {
-	ret := _m.Called(ctx, tf, returnInnerTxnOnly)
+// Transactions provides a mock function with given fields: ctx, tf
+func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
+	ret := _m.Called(ctx, tf)
 
 	var r0 <-chan idb.TxnRow
-	if rf, ok := ret.Get(0).(func(context.Context, idb.TransactionFilter, bool) <-chan idb.TxnRow); ok {
-		r0 = rf(ctx, tf, returnInnerTxnOnly)
+	if rf, ok := ret.Get(0).(func(context.Context, idb.TransactionFilter) <-chan idb.TxnRow); ok {
+		r0 = rf(ctx, tf)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(<-chan idb.TxnRow)
@@ -253,8 +253,8 @@ func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter,
 	}
 
 	var r1 uint64
-	if rf, ok := ret.Get(1).(func(context.Context, idb.TransactionFilter, bool) uint64); ok {
-		r1 = rf(ctx, tf, returnInnerTxnOnly)
+	if rf, ok := ret.Get(1).(func(context.Context, idb.TransactionFilter) uint64); ok {
+		r1 = rf(ctx, tf)
 	} else {
 		r1 = ret.Get(1).(uint64)
 	}

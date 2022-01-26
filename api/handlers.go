@@ -869,7 +869,8 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 	results := make([]generated.Transaction, 0)
 	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
 		var txchan <-chan idb.TxnRow
-		txchan, round = si.db.Transactions(ctx, filter, returnInnerTxnOnly)
+		filter.ReturnInnerTxnOnly = returnInnerTxnOnly
+		txchan, round = si.db.Transactions(ctx, filter)
 
 		rootTxnDedupeMap := make(map[string]struct{})
 		var lastTxrow idb.TxnRow
