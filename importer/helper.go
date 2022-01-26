@@ -245,6 +245,7 @@ func (paths *blockTarPaths) Swap(i, j int) {
 	(*paths)[j] = t
 }
 
+// GetReader creates a genesis reader given the inputs
 func GetReader(genesisJSONPath string, client *algod.Client, l *log.Logger) io.Reader {
 	var genesisReader io.Reader
 	var err error
