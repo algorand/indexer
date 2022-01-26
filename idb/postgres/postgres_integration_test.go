@@ -1077,11 +1077,19 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			num = 0
 			for row := range txnRows {
 				require.NoError(t, row.Error)
+				// The inner txns will have a RootTxn instead of a Txn row
+				var rowTxn *transactions.SignedTxnWithAD
+				if row.Txn != nil {
+					rowTxn = row.Txn
+				} else {
+					rowTxn = row.RootTxn
+				}
+
 				// Note: These are created from the TxnBytes, so they have the exact name with embedded null.
-				require.NotNil(t, row.Txn)
-				require.Equal(t, name, row.Txn.Txn.AssetParams.AssetName)
-				require.Equal(t, unit, row.Txn.Txn.AssetParams.UnitName)
-				require.Equal(t, url, row.Txn.Txn.AssetParams.URL)
+				require.NotNil(t, rowTxn)
+				require.Equal(t, name, rowTxn.Txn.AssetParams.AssetName)
+				require.Equal(t, unit, rowTxn.Txn.AssetParams.UnitName)
+				require.Equal(t, url, rowTxn.Txn.AssetParams.URL)
 				num++
 			}
 			// Check that the root and inner asset is matched
@@ -1659,9 +1667,15 @@ func TestNonUTF8Logs(t *testing.T) {
 			// Test 2: transaction results properly serialized
 			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{}, false)
 			for row := range txnRows {
+				var rowTxn *transactions.SignedTxnWithAD
+				if row.Txn != nil {
+					rowTxn = row.Txn
+				} else {
+					rowTxn = row.RootTxn
+				}
 				require.NoError(t, row.Error)
-				require.NotNil(t, row.Txn)
-				require.Equal(t, testcase.Logs, row.Txn.ApplyData.EvalDelta.Logs)
+				require.NotNil(t, rowTxn)
+				require.Equal(t, testcase.Logs, rowTxn.ApplyData.EvalDelta.Logs)
 			}
 		})
 	}

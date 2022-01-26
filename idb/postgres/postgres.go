@@ -779,13 +779,13 @@ func buildTransactionQuery(tf idb.TransactionFilter, returnInnerTxnOnly bool) (q
 }
 
 // This function blocks. `tx` must be non-nil.
-func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow, returnInnerTxn bool) {
+func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow, returnInnerTxnOnly bool) {
 	if len(tf.NextToken) > 0 {
-		db.txnsWithNext(ctx, tx, tf, out, returnInnerTxn)
+		db.txnsWithNext(ctx, tx, tf, out, returnInnerTxnOnly)
 		return
 	}
 
-	query, whereArgs, err := buildTransactionQuery(tf, returnInnerTxn)
+	query, whereArgs, err := buildTransactionQuery(tf, returnInnerTxnOnly)
 	if err != nil {
 		err = fmt.Errorf("txn query err %v", err)
 		out <- idb.TxnRow{Error: err}
@@ -803,7 +803,7 @@ func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.Transactio
 }
 
 // Transactions is part of idb.IndexerDB
-func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter, returnInnerTxn bool) (<-chan idb.TxnRow, uint64) {
+func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter, returnInnerTxnOnly bool) (<-chan idb.TxnRow, uint64) {
 	out := make(chan idb.TxnRow, 1)
 
 	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
@@ -822,7 +822,7 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter,
 	}
 
 	go func() {
-		db.yieldTxns(ctx, tx, tf, out, returnInnerTxn)
+		db.yieldTxns(ctx, tx, tf, out, returnInnerTxnOnly)
 		tx.Rollback(ctx)
 		close(out)
 	}()
@@ -831,7 +831,7 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter,
 }
 
 // This function blocks. `tx` must be non-nil.
-func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow, returnInnerTxn bool) {
+func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.TransactionFilter, out chan<- idb.TxnRow, returnInnerTxnOnly bool) {
 	// TODO: Use txid to deduplicate next resultset at the query level?
 
 	// Check for remainder of round from previous page.
@@ -856,7 +856,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 		tf.Round = &nextround
 		tf.OffsetGT = &nextintra
 	}
-	query, whereArgs, err := buildTransactionQuery(tf, returnInnerTxn)
+	query, whereArgs, err := buildTransactionQuery(tf, returnInnerTxnOnly)
 	if err != nil {
 		err = fmt.Errorf("txn query err %v", err)
 		out <- idb.TxnRow{Error: err}
@@ -902,7 +902,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 		tf.OffsetGT = origOGT
 		tf.MinRound = nextround + 1
 	}
-	query, whereArgs, err = buildTransactionQuery(tf, returnInnerTxn)
+	query, whereArgs, err = buildTransactionQuery(tf, returnInnerTxnOnly)
 	if err != nil {
 		err = fmt.Errorf("txn query err %v", err)
 		out <- idb.TxnRow{Error: err}
