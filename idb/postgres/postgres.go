@@ -2295,7 +2295,7 @@ func (db *IndexerDb) GetAccountData(addresses []basics.Address) (map[basics.Addr
 func (db *IndexerDb) GetNetworkState() (idb.NetworkState, error) {
 	state, err := db.getNetworkState(context.Background(), nil)
 	if err != nil {
-		fmt.Errorf("GetNetworkState() err: %w", err)
+		return idb.NetworkState{}, fmt.Errorf("GetNetworkState() err: %w", err)
 	}
 	networkState := idb.NetworkState{
 		GenesisHash: state.GenesisHash,
