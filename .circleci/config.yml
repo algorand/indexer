@@ -17,6 +17,19 @@ workflows:
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.16.11", "1.17.4"]
+  "nightly":
+    triggers:
+      - schedule:
+        cron: "*/15 * * * *"
+        filters:
+          branches:
+            only: compare2algod
+    jobs:
+      - test-nightly:
+          name: test_with_go_<< matrix.go_version >>
+          matrix: &go-version-matrix
+            parameters:
+              go_version: ["1.16.11", "1.17.4"]
 
 jobs:
   test:
@@ -30,6 +43,18 @@ jobs:
           version: << parameters.go_version >>
       - install_dependencies
       - run_tests
+      - upload_coverage
+  test-nightly:
+    machine:
+      image: << pipeline.parameters.ubuntu_image >> 
+    parameters:
+      go_version:
+        type: string
+    steps:
+      - go/install:
+          version: << parameters.go_version >>
+      - install_dependencies
+      - run_tests_nightly
       - upload_coverage
 
 commands:
@@ -58,6 +83,17 @@ commands:
           command: go get -u golang.org/x/lint/golint
 
   run_tests:
+    steps:
+      - run: test -z `go fmt ./...`
+      - run: make lint
+      - run: make check
+      - run: make integration
+      - run: make test
+      - run: make test-generate
+      - run: make fakepackage
+      - run: make e2e
+
+  run_tests_nightly:
     steps:
       - run: test -z `go fmt ./...`
       - run: make lint
