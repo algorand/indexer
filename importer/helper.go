@@ -66,13 +66,13 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 				pathsSorted = pathsSorted[:h.BlockFileLimit]
 			}
 			for _, gfname := range pathsSorted {
-				fb, ft := importFile(gfname, &imp, h.Log)
+				fb, ft := importFile(gfname, imp, h.Log)
 				blocks += fb
 				txCount += ft
 			}
 		} else {
 			// try without passing throug glob
-			fb, ft := importFile(fname, &imp, h.Log)
+			fb, ft := importFile(fname, imp, h.Log)
 			blocks += fb
 			txCount += ft
 		}
@@ -92,7 +92,7 @@ func maybeFail(err error, l *log.Logger, errfmt string, params ...interface{}) {
 	os.Exit(1)
 }
 
-func importTar(imp *Importer, tarfile io.Reader, l *log.Logger) (blockCount, txCount int, err error) {
+func importTar(imp Importer, tarfile io.Reader, l *log.Logger) (blockCount, txCount int, err error) {
 	tf := tar.NewReader(tarfile)
 	var header *tar.Header
 	header, err = tf.Next()
@@ -138,7 +138,7 @@ func importTar(imp *Importer, tarfile io.Reader, l *log.Logger) (blockCount, txC
 	return
 }
 
-func importFile(fname string, imp *Importer, l *log.Logger) (blocks, txCount int) {
+func importFile(fname string, imp Importer, l *log.Logger) (blocks, txCount int) {
 	blocks = 0
 	txCount = 0
 	l.Infof("importing %s ...", fname)

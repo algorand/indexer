@@ -1,6 +1,6 @@
 module github.com/algorand/indexer
 
-go 1.16
+go 1.13
 
 replace github.com/algorand/go-algorand => ./third_party/go-algorand
 
@@ -25,4 +25,9 @@ require (
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
 	github.com/vektra/mockery v1.1.2 // indirect
+<<<<<<< HEAD
+=======
+	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
+	golang.org/x/tools v0.1.8 // indirect
+>>>>>>> develop
 )

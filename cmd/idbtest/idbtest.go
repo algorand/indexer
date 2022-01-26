@@ -154,7 +154,7 @@ func main() {
 			MaxRound: account.Round,
 		}
 		printTxnQuery(db, tf)
-		raccount, err := accounting.AccountAtRound(account, round, db)
+		raccount, err := accounting.AccountAtRound(context.Background(), account, round, db)
 		maybeFail(err, "AccountAtRound, %v", err)
 		fmt.Printf("raccount %s\n", string(ajson.Encode(raccount)))
 	}

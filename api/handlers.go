@@ -112,10 +112,12 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	var errors []string
 	var health idb.Health
 
-	err = callWithTimeout(ctx.Request().Context(), si.log, si.timeout, func(ctx context.Context) error {
-		health, err = si.db.Health()
-		return err
-	})
+	err = callWithTimeout(
+		ctx.Request().Context(), si.log, si.timeout, func(ctx context.Context) error {
+			var err error
+			health, err = si.db.Health(ctx)
+			return err
+		})
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedLookingUpHealth, err))
 	}
@@ -834,7 +836,7 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 			// Compute for a given round if requested.
 			var account generated.Account
 			if atRound != nil {
-				acct, err := accounting.AccountAtRound(row.Account, *atRound, si.db)
+				acct, err := accounting.AccountAtRound(ctx, row.Account, *atRound, si.db)
 				if err != nil {
 					// Ignore the error if this is an account search rewind error
 					_, isSpecialAccountRewindError := err.(*accounting.SpecialAccountRewindError)

@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -13,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/postgres/internal/types"
 )
 
 func TestEncodeSignedTxnWithAD(t *testing.T) {
@@ -529,4 +531,21 @@ func TestTxnExtra(t *testing.T) {
 			assert.Equal(t, testcase.extra, extraNew)
 		})
 	}
+}
+
+// Test that encoding of NetworkState is as expected and that decoding results in the
+// same object.
+func TestNetworkStateEncoding(t *testing.T) {
+	network := types.NetworkState{
+		GenesisHash: crypto.Digest{77},
+	}
+
+	buf := EncodeNetworkState(&network)
+
+	expectedString := `{"genesis-hash":"TQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}`
+	assert.Equal(t, expectedString, string(buf))
+
+	decodedNetwork, err := DecodeNetworkState(buf)
+	require.NoError(t, err)
+	assert.Equal(t, network, decodedNetwork)
 }
