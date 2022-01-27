@@ -310,6 +310,36 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 			}
 		})
 	}
+
+	// Test block endpoint deduplication
+	t.Run("Deduplicate Transactions In Block", func(t *testing.T) {
+		//////////
+		// When // we fetch the block
+		//////////
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/blocks/")
+
+		// Get first page with limit 1.
+		// Address filter causes results to return newest to oldest.
+		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		err = api.LookupBlock(c, uint64(block.Round()))
+		require.NoError(t, err)
+
+		//////////
+		// Then // There should be a single transaction which has inner transactions
+		//////////
+		var response generated.BlockResponse
+		require.Equal(t, http.StatusOK, rec.Code)
+		json.Decode(rec.Body.Bytes(), &response)
+
+		require.NotNil(t, response.Transactions)
+		require.Len(t, *response.Transactions, 1)
+		require.NotNil(t, (*response.Transactions)[0])
+		require.Len(t, *(*response.Transactions)[0].InnerTxns, 2)
+	})
 }
 
 func TestVersion(t *testing.T) {
