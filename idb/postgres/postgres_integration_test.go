@@ -113,7 +113,7 @@ func TestMaxConnection(t *testing.T) {
 
 	s = pdb.db.Stat()
 	assert.Equal(t, 1, int(s.AcquiredConns()))
-	//assert.Equal(t, 1, len(pdb.db.AcquireAllIdle(context.Background())))
+
 	conn2, err := pdb.db.Acquire(context.Background())
 	assert.NoError(t, err)
 	defer conn2.Release()

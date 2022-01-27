@@ -130,7 +130,6 @@ One can set the maximum number of connections allowed in the local connection po
  
 If the maximum number of connections/active queries is reached, subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting
 
-
 # Settings
 
 Settings can be provided from the command line, a configuration file, or an environment variable
