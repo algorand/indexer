@@ -7,7 +7,7 @@ import (
 )
 
 func TestPrintableUTF8OrEmpty(t *testing.T) {
-	encodeArg := func (str string) string {
+	encodeArg := func(str string) string {
 		return base64.StdEncoding.EncodeToString([]byte("input"))
 	}
 	tests := []struct {
