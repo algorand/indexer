@@ -127,6 +127,9 @@ There are different settings:
 ## Connection Pool Settings
 
 One can set the maximum number of connections allowed in the local connection pool by using the `--max-conn` setting.  It is recommended to set this number to be below the database server connection pool limit.
+ 
+If the maximum number of connections/active queries is reached, subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting
+
 
 # Settings
 
