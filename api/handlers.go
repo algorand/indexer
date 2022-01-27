@@ -337,6 +337,9 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 		return badRequest(ctx, err.Error())
 	}
 	filter.AddressRole = idb.AddressRoleSender
+	// If there is a match on an inner transaction, return the inner txn's logs
+	// instead of the root txn's logs.
+	filter.ReturnInnerTxnOnly = true
 
 	err = validateTransactionFilter(&filter)
 	if err != nil {
@@ -344,7 +347,7 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 	}
 
 	// Fetch the transactions
-	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter, true)
+	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errTransactionSearch, err))
 	}
@@ -524,7 +527,7 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 	}
 
 	// Fetch the transactions
-	txns, _, round, err := si.fetchTransactions(ctx.Request().Context(), filter, false)
+	txns, _, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errTransactionSearch, err))
 	}
@@ -559,7 +562,7 @@ func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params g
 	}
 
 	// Fetch the transactions
-	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter, false)
+	txns, next, round, err := si.fetchTransactions(ctx.Request().Context(), filter)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errTransactionSearch, err))
 	}
@@ -871,13 +874,12 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 
 // fetchTransactions is used to query the backend for transactions, and compute the next token
 // If returnInnerTxnOnly is false, then the root txn is returned for a inner txn match.
-func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter, returnInnerTxnOnly bool) ([]generated.Transaction, string, uint64 /*round*/, error) {
+func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, uint64 /*round*/, error) {
 	var round uint64
 	var nextToken string
 	results := make([]generated.Transaction, 0)
 	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
 		var txchan <-chan idb.TxnRow
-		filter.ReturnInnerTxnOnly = returnInnerTxnOnly
 		txchan, round = si.db.Transactions(ctx, filter)
 
 		rootTxnDedupeMap := make(map[string]struct{})

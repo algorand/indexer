@@ -562,7 +562,7 @@ func TestFetchTransactions(t *testing.T) {
 			mockIndexer.On("Transactions", mock.Anything, mock.Anything).Return(outCh, round)
 
 			// Call the function
-			results, _, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{}, false)
+			results, _, _, err := si.fetchTransactions(context.Background(), idb.TransactionFilter{})
 			require.NoError(t, err)
 
 			// Automatically print it out when writing the test.

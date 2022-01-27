@@ -227,6 +227,8 @@ type TransactionFilter struct {
 
 	Limit uint64
 
+	// If this flag is set to true, then the query returns the inner txn
+	// instead of the root txn.
 	ReturnInnerTxnOnly bool
 }
 
