@@ -1916,14 +1916,14 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	defer db.Close()
 	logger := logrus.New()
 	genesisReader := bytes.NewReader(protocol.EncodeJSON(genesis))
-	imported, err := importer.InitialImport(db, genesisReader, logger)
+	imported, err := importer.EnsureInitialImport(db, genesisReader, logger)
 	require.NoError(t, err)
 	require.True(t, true, imported)
 	// change genesis value
 	genesis.Network = "testnest"
 	genesisReader = bytes.NewReader(protocol.EncodeJSON(genesis))
 	// different genesisHash, should fail
-	_, err = importer.InitialImport(db, genesisReader, logger)
+	_, err = importer.EnsureInitialImport(db, genesisReader, logger)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "genesis hash not matching")
 

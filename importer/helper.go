@@ -47,9 +47,9 @@ type ImportHelper struct {
 // Import is the main ImportHelper function that glues together a directory full of block files and an Importer objects.
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	// Initial import if needed.
-	genesisReader := GetReader(h.GenesisJSONPath, nil, h.Log)
-	_, err := InitialImport(db, genesisReader, h.Log)
-	maybeFail(err, h.Log, "InitialImport() error")
+	genesisReader := GetGenesisFile(h.GenesisJSONPath, nil, h.Log)
+	_, err := EnsureInitialImport(db, genesisReader, h.Log)
+	maybeFail(err, h.Log, "EnsureInitialImport() error")
 	imp := NewImporter(db)
 	blocks := 0
 	txCount := 0
@@ -185,26 +185,27 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 	return db.LoadGenesis(genesis)
 }
 
-// InitialImport imports the genesis block if needed. Returns true if the initial import occurred.
-func InitialImport(db idb.IndexerDb, genesisReader io.Reader, l *log.Logger) (bool, error) {
+// EnsureInitialImport imports the genesis block if needed. Returns true if the initial import occurred.
+func EnsureInitialImport(db idb.IndexerDb, genesisReader io.Reader, l *log.Logger) (bool, error) {
 	_, err := db.GetNextRoundToAccount()
 	// Exit immediately or crash if we don't see ErrorNotInitialized.
 	if err != idb.ErrorNotInitialized {
 		if err != nil {
-			maybeFail(err, l, "getting import state, %v", err)
-		} else {
-			err = checkGenesisHash(db, genesisReader, l)
-			if err != nil {
-				l.WithError(err).Errorf("%v", err)
-				return false, err
-			}
+			return false, fmt.Errorf("getting import state, %v", err)
+		}
+		err = checkGenesisHash(db, genesisReader)
+		if err != nil {
+			l.WithError(err).Errorf("%v", err)
+			return false, err
 		}
 		return false, nil
 	}
 
 	// Import genesis file from file or algod.
 	err = loadGenesis(db, genesisReader)
-	maybeFail(err, l, "could not load genesis json, %v", err)
+	if err != nil {
+		return false, fmt.Errorf("could not load genesis json, %v", err)
+	}
 	return true, nil
 }
 
@@ -245,8 +246,8 @@ func (paths *blockTarPaths) Swap(i, j int) {
 	(*paths)[j] = t
 }
 
-// GetReader creates a genesis reader given the inputs
-func GetReader(genesisJSONPath string, client *algod.Client, l *log.Logger) io.Reader {
+// GetGenesisFile creates a reader from given the genesis file
+func GetGenesisFile(genesisJSONPath string, client *algod.Client, l *log.Logger) io.Reader {
 	var genesisReader io.Reader
 	var err error
 	if genesisJSONPath != "" {
@@ -266,14 +267,20 @@ func GetReader(genesisJSONPath string, client *algod.Client, l *log.Logger) io.R
 	return genesisReader
 }
 
-func checkGenesisHash(db idb.IndexerDb, genesisReader io.Reader, l *log.Logger) error {
+func checkGenesisHash(db idb.IndexerDb, genesisReader io.Reader) error {
 	network, err := db.GetNetworkState()
-	maybeFail(err, l, "unable to fetch network state from db")
+	if err != nil {
+		return fmt.Errorf("unable to fetch network state from db %v", err)
+	}
 	var genesis bookkeeping.Genesis
 	gbytes, err := ioutil.ReadAll(genesisReader)
-	maybeFail(err, l, "error reading genesis, %v", err)
+	if err != nil {
+		return fmt.Errorf("error reading genesis, %v", err)
+	}
 	err = protocol.DecodeJSON(gbytes, &genesis)
-	maybeFail(err, l, "error decoding genesis, %v", err)
+	if err != nil {
+		return fmt.Errorf("error decoding genesis, %v", err)
+	}
 	if network.GenesisHash != crypto.HashObj(genesis) {
 		return fmt.Errorf("genesis hash not matching")
 	}
