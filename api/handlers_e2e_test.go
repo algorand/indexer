@@ -392,7 +392,7 @@ func TestLookupInnerLogs(t *testing.T) {
 			appID: 123,
 			logs: []string{
 				"testing outer appl log",
-				"app 123 log",
+				"appId 123 log",
 			},
 		},
 		{

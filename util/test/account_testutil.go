@@ -385,7 +385,7 @@ func MakeAppCallWithInnerAppCall(appSender basics.Address) transactions.SignedTx
 	createApp.ApplicationID = 123
 	createApp.ApplyData.EvalDelta.Logs = []string{
 		"testing outer appl log",
-		"app 123 log",
+		"appId 123 log",
 	}
 
 	// In order to simplify the test,
