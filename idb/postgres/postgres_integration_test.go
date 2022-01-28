@@ -90,6 +90,43 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 	assert.Equal(t, uint64(0), round)
 }
 
+// TestMaxConnection tests that when setting the maximum connection to a value, that it is
+// accurately set and that acquiring connections accurately depletes the pool
+func TestMaxConnection(t *testing.T) {
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+
+	// Open Postgres with a maximum of 2 connections locally
+	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{MaxConn: 2}, nil)
+	assert.NoError(t, err)
+	defer pdb.Close()
+
+	s := pdb.db.Stat()
+
+	assert.Equal(t, 2, int(s.MaxConns()))
+	assert.Equal(t, 0, int(s.AcquiredConns()))
+	assert.GreaterOrEqual(t, 1, int(s.IdleConns()))
+
+	conn1, err := pdb.db.Acquire(context.Background())
+	assert.NoError(t, err)
+	defer conn1.Release()
+
+	s = pdb.db.Stat()
+	assert.Equal(t, 1, int(s.AcquiredConns()))
+
+	conn2, err := pdb.db.Acquire(context.Background())
+	assert.NoError(t, err)
+	defer conn2.Release()
+
+	s = pdb.db.Stat()
+
+	// We have reached the total of 2 "total" max connections
+	// Meaning we should have two acquired connections and 0 idle connections
+	assert.Equal(t, 2, int(s.AcquiredConns()))
+	assert.Equal(t, 0, int(s.IdleConns()))
+
+}
+
 func assertAccountAsset(t *testing.T, db *pgxpool.Pool, addr basics.Address, assetid uint64, frozen bool, amount uint64) {
 	var row pgx.Row
 	var f bool

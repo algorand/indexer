@@ -16,7 +16,7 @@ workflows:
           name: test_with_go_<< matrix.go_version >>
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.16.11", "1.17.4"]
+              go_version: ["1.14.7", "1.15.15"]
 
 jobs:
   test:
