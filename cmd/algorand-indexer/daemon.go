@@ -99,8 +99,9 @@ var daemonCmd = &cobra.Command{
 				<-availableCh
 
 				// Initial import if needed.
-				importer.InitialImport(db, genesisJSONPath, bot.Algod(), logger)
-
+				genesisReader := importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
+				_, err := importer.EnsureInitialImport(db, genesisReader, logger)
+				maybeFail(err, "importer.EnsureInitialImport() error")
 				logger.Info("Initializing block import handler.")
 
 				nextRound, err := db.GetNextRoundToAccount()
