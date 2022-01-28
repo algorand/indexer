@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -167,6 +168,7 @@ type IndexerDb interface {
 	// GetNextRoundToAccount returns ErrorNotInitialized if genesis is not loaded.
 	GetNextRoundToAccount() (uint64, error)
 	GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error)
+	GetNetworkState() (NetworkState, error)
 
 	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []TxnRow, err error)
 
@@ -338,6 +340,10 @@ type ApplicationRow struct {
 // IndexerDbOptions are the options common to all indexer backends.
 type IndexerDbOptions struct {
 	ReadOnly bool
+	// Maximum connection number for connection pool
+	// This means the total number of active queries that can be running
+	// concurrently can never be more than this
+	MaxConn uint32
 }
 
 // Health is the response object that IndexerDb objects need to return from the Health method.
@@ -347,4 +353,9 @@ type Health struct {
 	IsMigrating bool                    `json:"is-migrating"`
 	DBAvailable bool                    `json:"db-available"`
 	Error       string                  `json:"error"`
+}
+
+// NetworkState encodes network metastate.
+type NetworkState struct {
+	GenesisHash crypto.Digest `codec:"genesis-hash"`
 }

@@ -33,7 +33,7 @@ var ErrorLog *log.Logger
 
 // Processor is the algorithm to fetch and compare data from indexer and algod
 type Processor interface {
-	ProcessAddress(indexerData []byte, algodData []byte) (Result, error)
+	ProcessAddress(algodData []byte, indexerData []byte) (Result, error)
 }
 
 // Result is the output of ProcessAddress.

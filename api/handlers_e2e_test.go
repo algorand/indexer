@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -372,6 +373,98 @@ func TestVersion(t *testing.T) {
 	require.False(t, response.IsMigrating)
 	// This is weird looking because the version is set with -ldflags
 	require.Equal(t, response.Version, "(unknown version)")
+}
+
+func TestAccountClearsNonUTF8(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // a DB with some inner txns in it.
+	///////////
+	//var createAddr basics.Address
+	//createAddr[1] = 99
+	//createAddrStr := createAddr.String()
+
+	assetName := "valid"
+	//url := "https://my.embedded.\000.null.asset"
+	urlBytes, _ := base64.StdEncoding.DecodeString("8J+qmSBNb25leQ==")
+	url := string(urlBytes)
+	unitName := "asset\rwith\nnon-printable\tcharacters"
+	createAsset := test.MakeAssetConfigTxn(0, 100, 0, false, unitName, assetName, url, test.AccountA)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAsset)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err, "failed to commit")
+
+	verify := func(params generated.AssetParams) {
+		compareB64 := func(expected string, actual *[]byte) {
+			actualStr := string(*actual)
+			require.Equal(t, expected, actualStr)
+		}
+
+		// In all cases, the B64 encoded names should be the same.
+		compareB64(assetName, params.NameB64)
+		compareB64(unitName, params.UnitNameB64)
+		compareB64(url, params.UrlB64)
+
+		require.Equal(t, assetName, *params.Name, "valid utf8 should remain")
+		require.Nil(t, params.UnitName, "null bytes should not be displayed")
+		require.Nil(t, params.Url, "non printable characters should not be displayed")
+	}
+
+	{
+		//////////
+		// When // we lookup the asset
+		//////////
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/assets/")
+
+		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		err = api.SearchForAssets(c, generated.SearchForAssetsParams{})
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		var response generated.AssetsResponse
+		json.Decode(rec.Body.Bytes(), &response)
+
+		//////////
+		// Then // we should find one asset with the expected string encodings
+		//////////
+		require.Len(t, response.Assets, 1)
+		verify(response.Assets[0].Params)
+	}
+
+	{
+		//////////
+		// When // we lookup the account
+		//////////
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/accounts/")
+
+		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		err = api.LookupAccountByID(c, test.AccountA.String(), generated.LookupAccountByIDParams{})
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		var response generated.AccountResponse
+		json.Decode(rec.Body.Bytes(), &response)
+
+		//////////
+		// Then // we should find one asset with the expected string encodings
+		//////////
+		require.NotNil(t, response.Account.CreatedAssets, 1)
+		require.Len(t, *response.Account.CreatedAssets, 1)
+		verify((*response.Account.CreatedAssets)[0].Params)
+	}
 }
 
 // TestLookupInnerLogs runs queries for logs given application ids,

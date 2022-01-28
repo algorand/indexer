@@ -34,6 +34,7 @@ var (
 	tokenString      string
 	writeTimeout     time.Duration
 	readTimeout      time.Duration
+	maxConn          uint32
 )
 
 var daemonCmd = &cobra.Command{
@@ -83,6 +84,9 @@ var daemonCmd = &cobra.Command{
 		if noAlgod && !allowMigration {
 			opts.ReadOnly = true
 		}
+
+		opts.MaxConn = maxConn
+
 		db, availableCh := indexerDbFromFlags(opts)
 		defer db.Close()
 		var wg sync.WaitGroup
@@ -95,8 +99,9 @@ var daemonCmd = &cobra.Command{
 				<-availableCh
 
 				// Initial import if needed.
-				importer.InitialImport(db, genesisJSONPath, bot.Algod(), logger)
-
+				genesisReader := importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
+				_, err := importer.EnsureInitialImport(db, genesisReader, logger)
+				maybeFail(err, "importer.EnsureInitialImport() error")
 				logger.Info("Initializing block import handler.")
 
 				nextRound, err := db.GetNextRoundToAccount()
@@ -141,6 +146,7 @@ func init() {
 	daemonCmd.Flags().StringVarP(&metricsMode, "metrics-mode", "", "OFF", "configure the /metrics endpoint to [ON, OFF, VERBOSE]")
 	daemonCmd.Flags().DurationVarP(&writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
 	daemonCmd.Flags().DurationVarP(&readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
+	daemonCmd.Flags().Uint32VarP(&maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")

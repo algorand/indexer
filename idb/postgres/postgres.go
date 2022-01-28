@@ -50,7 +50,17 @@ var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessM
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
 func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (*IndexerDb, chan struct{}, error) {
-	db, err := pgxpool.Connect(context.Background(), connection)
+
+	postgresConfig, err := pgxpool.ParseConfig(connection)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Couldn't parse config: %v", err)
+	}
+
+	if opts.MaxConn != 0 {
+		postgresConfig.MaxConns = int32(opts.MaxConn)
+	}
+
+	db, err := pgxpool.ConnectConfig(context.Background(), postgresConfig)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("connecting to postgres: %v", err)
@@ -2299,4 +2309,16 @@ func (db *IndexerDb) GetAccountData(addresses []basics.Address) (map[basics.Addr
 	}
 
 	return res, nil
+}
+
+// GetNetworkState is part of idb.IndexerDB
+func (db *IndexerDb) GetNetworkState() (idb.NetworkState, error) {
+	state, err := db.getNetworkState(context.Background(), nil)
+	if err != nil {
+		return idb.NetworkState{}, fmt.Errorf("GetNetworkState() err: %w", err)
+	}
+	networkState := idb.NetworkState{
+		GenesisHash: state.GenesisHash,
+	}
+	return networkState, nil
 }
