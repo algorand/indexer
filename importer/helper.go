@@ -195,7 +195,6 @@ func EnsureInitialImport(db idb.IndexerDb, genesisReader io.Reader, l *log.Logge
 		}
 		err = checkGenesisHash(db, genesisReader)
 		if err != nil {
-			l.WithError(err).Errorf("%v", err)
 			return false, err
 		}
 		return false, nil
@@ -246,7 +245,7 @@ func (paths *blockTarPaths) Swap(i, j int) {
 	(*paths)[j] = t
 }
 
-// GetGenesisFile creates a reader from given the genesis file
+// GetGenesisFile creates a reader from the given genesis file
 func GetGenesisFile(genesisJSONPath string, client *algod.Client, l *log.Logger) io.Reader {
 	var genesisReader io.Reader
 	var err error
@@ -270,16 +269,16 @@ func GetGenesisFile(genesisJSONPath string, client *algod.Client, l *log.Logger)
 func checkGenesisHash(db idb.IndexerDb, genesisReader io.Reader) error {
 	network, err := db.GetNetworkState()
 	if err != nil {
-		return fmt.Errorf("unable to fetch network state from db %v", err)
+		return fmt.Errorf("unable to fetch network state from db %w", err)
 	}
 	var genesis bookkeeping.Genesis
 	gbytes, err := ioutil.ReadAll(genesisReader)
 	if err != nil {
-		return fmt.Errorf("error reading genesis, %v", err)
+		return fmt.Errorf("error reading genesis, %w", err)
 	}
 	err = protocol.DecodeJSON(gbytes, &genesis)
 	if err != nil {
-		return fmt.Errorf("error decoding genesis, %v", err)
+		return fmt.Errorf("error decoding genesis, %w", err)
 	}
 	if network.GenesisHash != crypto.HashObj(genesis) {
 		return fmt.Errorf("genesis hash not matching")
