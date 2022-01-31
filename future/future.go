@@ -82,6 +82,7 @@ Expecting: %#v`, i+1, expected.File, expected)
 			_, ok := foundStruct[field]
 			if !ok {
 				missingSomeField = true
+				break
 			}
 		}
 		fieldsExpectationError := expected.MissingFields.handleMissing(missingSomeField)
