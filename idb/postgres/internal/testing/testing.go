@@ -10,6 +10,8 @@ import (
 	"github.com/orlangure/gnomock"
 	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/require"
+
+	"github.com/algorand/indexer/idb/postgres/internal/schema"
 )
 
 var testpg = flag.String(
@@ -58,6 +60,17 @@ func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
 		err = gnomock.Stop(container)
 		require.NoError(t, err, "Error stoping gnomock")
 	}
+
+	return db, connStr, shutdownFunc
+}
+
+// SetupPostgresWithSchema is equivalent to SetupPostgres() but also creates the
+// indexer schema.
+func SetupPostgresWithSchema(t *testing.T) (*pgxpool.Pool, string, func()) {
+	db, connStr, shutdownFunc := SetupPostgres(t)
+
+	_, err := db.Exec(context.Background(), schema.SetupPostgresSql)
+	require.NoError(t, err)
 
 	return db, connStr, shutdownFunc
 }

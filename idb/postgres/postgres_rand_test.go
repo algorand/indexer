@@ -8,87 +8,37 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	ledgerforevaluator "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util/test"
 	"github.com/jackc/pgx/v4"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func generateAssetParams() basics.AssetParams {
-	return basics.AssetParams{
-		Total: rand.Uint64(),
-	}
-}
+func generateAddress(t *testing.T) basics.Address {
+	var res basics.Address
 
-func generateAssetHolding() basics.AssetHolding {
-	return basics.AssetHolding{
-		Amount: rand.Uint64(),
-	}
-}
-
-func generateAppParams(t *testing.T) basics.AppParams {
-	p := make([]byte, 100)
-	_, err := rand.Read(p)
+	_, err := rand.Read(res[:])
 	require.NoError(t, err)
 
-	return basics.AppParams{
-		ApprovalProgram: p,
-	}
+	return res
 }
 
-func generateAppLocalState(t *testing.T) basics.AppLocalState {
-	k := make([]byte, 100)
-	_, err := rand.Read(k)
-	require.NoError(t, err)
-
-	v := make([]byte, 100)
-	_, err = rand.Read(v)
-	require.NoError(t, err)
-
-	return basics.AppLocalState{
-		KeyValue: map[string]basics.TealValue{
-			string(k): {
-				Bytes: string(v),
-			},
-		},
-	}
-}
-
-func generateAccountData(t *testing.T) basics.AccountData {
+func generateAccountData() ledgercore.AccountData {
 	// Return empty account data with probability 50%.
 	if rand.Uint32()%2 == 0 {
-		return basics.AccountData{}
+		return ledgercore.AccountData{}
 	}
 
 	const numCreatables = 20
 
-	res := basics.AccountData{
-		MicroAlgos:     basics.MicroAlgos{Raw: uint64(rand.Int63())},
-		AssetParams:    make(map[basics.AssetIndex]basics.AssetParams),
-		Assets:         make(map[basics.AssetIndex]basics.AssetHolding),
-		AppLocalStates: make(map[basics.AppIndex]basics.AppLocalState),
-		AppParams:      make(map[basics.AppIndex]basics.AppParams),
-	}
-
-	for i := 0; i < numCreatables; i++ {
-		{
-			index := basics.AssetIndex(rand.Int63())
-			res.AssetParams[index] = generateAssetParams()
-		}
-		{
-			index := basics.AssetIndex(rand.Int63())
-			res.Assets[index] = generateAssetHolding()
-		}
-		{
-			index := basics.AppIndex(rand.Int63())
-			res.AppLocalStates[index] = generateAppLocalState(t)
-		}
-		{
-			index := basics.AppIndex(rand.Int63())
-			res.AppParams[index] = generateAppParams(t)
-		}
+	res := ledgercore.AccountData{
+		AccountBaseData: ledgercore.AccountBaseData{
+			MicroAlgos: basics.MicroAlgos{Raw: uint64(rand.Int63())},
+		},
 	}
 
 	return res
@@ -105,12 +55,10 @@ func TestWriteReadAccountData(t *testing.T) {
 	addresses := make(map[basics.Address]struct{})
 	var delta ledgercore.StateDelta
 	for i := 0; i < 1000; i++ {
-		var address basics.Address
-		_, err := rand.Read(address[:])
-		require.NoError(t, err)
+		address := generateAddress(t)
 
 		addresses[address] = struct{}{}
-		delta.Accts.Upsert(address, generateAccountData(t))
+		delta.NewAccts.Upsert(address, generateAccountData())
 	}
 
 	f := func(tx pgx.Tx) error {
@@ -138,7 +86,7 @@ func TestWriteReadAccountData(t *testing.T) {
 	require.NoError(t, err)
 
 	for address := range addresses {
-		expected, ok := delta.Accts.Get(address)
+		expected, ok := delta.NewAccts.GetData(address)
 		require.True(t, ok)
 
 		ret, ok := ret[address]
@@ -148,6 +96,208 @@ func TestWriteReadAccountData(t *testing.T) {
 			require.True(t, expected.IsZero())
 		} else {
 			require.Equal(t, &expected, ret)
+		}
+	}
+}
+
+func generateAssetParams() basics.AssetParams {
+	return basics.AssetParams{
+		Total: rand.Uint64(),
+	}
+}
+
+func generateAssetParamsDelta() ledgercore.AssetParamsDelta {
+	var res ledgercore.AssetParamsDelta
+
+	r := rand.Uint32() % 3
+	switch r {
+	case 0:
+		res.Deleted = true
+	case 1:
+		res.Params = new(basics.AssetParams)
+		*res.Params = generateAssetParams()
+	case 2:
+		// do nothing
+	}
+
+	return res
+}
+
+func generateAssetHolding() basics.AssetHolding {
+	return basics.AssetHolding{
+		Amount: rand.Uint64(),
+	}
+}
+
+func generateAssetHoldingDelta() ledgercore.AssetHoldingDelta {
+	var res ledgercore.AssetHoldingDelta
+
+	r := rand.Uint32() % 3
+	switch r {
+	case 0:
+		res.Deleted = true
+	case 1:
+		res.Holding = new(basics.AssetHolding)
+		*res.Holding = generateAssetHolding()
+	case 2:
+		// do nothing
+	}
+
+	return res
+}
+
+func generateAppParams(t *testing.T) basics.AppParams {
+	p := make([]byte, 100)
+	_, err := rand.Read(p)
+	require.NoError(t, err)
+
+	return basics.AppParams{
+		ApprovalProgram: p,
+	}
+}
+
+func generateAppParamsDelta(t *testing.T) ledgercore.AppParamsDelta {
+	var res ledgercore.AppParamsDelta
+
+	r := rand.Uint32() % 3
+	switch r {
+	case 0:
+		res.Deleted = true
+	case 1:
+		res.Params = new(basics.AppParams)
+		*res.Params = generateAppParams(t)
+	case 2:
+		// do nothing
+	}
+
+	return res
+}
+
+func generateAppLocalState(t *testing.T) basics.AppLocalState {
+	k := make([]byte, 100)
+	_, err := rand.Read(k)
+	require.NoError(t, err)
+
+	v := make([]byte, 100)
+	_, err = rand.Read(v)
+	require.NoError(t, err)
+
+	return basics.AppLocalState{
+		KeyValue: map[string]basics.TealValue{
+			string(k): {
+				Bytes: string(v),
+			},
+		},
+	}
+}
+
+func generateAppLocalStateDelta(t *testing.T) ledgercore.AppLocalStateDelta {
+	var res ledgercore.AppLocalStateDelta
+
+	r := rand.Uint32() % 3
+	switch r {
+	case 0:
+		res.Deleted = true
+	case 1:
+		res.LocalState = new(basics.AppLocalState)
+		*res.LocalState = generateAppLocalState(t)
+	case 2:
+		// do nothing
+	}
+
+	return res
+}
+
+// Write random assets and apps, then read it and compare.
+// Tests in particular that batch writing and reading is done in the same order
+// and that there are no problems around passing account address pointers to the postgres
+// driver which could be the same pointer if we are not careful.
+func TestWriteReadResources(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	resources := make(map[basics.Address]map[ledger.Creatable]struct{})
+	var delta ledgercore.StateDelta
+	for i := 0; i < 1000; i++ {
+		address := generateAddress(t)
+		assetIndex := basics.AssetIndex(rand.Int63())
+		appIndex := basics.AppIndex(rand.Int63())
+
+		{
+			c := make(map[ledger.Creatable]struct{})
+			resources[address] = c
+
+			creatable := ledger.Creatable{
+				Index: basics.CreatableIndex(assetIndex),
+				Type:  basics.AssetCreatable,
+			}
+			c[creatable] = struct{}{}
+
+			creatable = ledger.Creatable{
+				Index: basics.CreatableIndex(appIndex),
+				Type:  basics.AppCreatable,
+			}
+			c[creatable] = struct{}{}
+		}
+
+		delta.NewAccts.UpsertAssetResource(
+			address, assetIndex, generateAssetParamsDelta(),
+			generateAssetHoldingDelta())
+		delta.NewAccts.UpsertAppResource(
+			address, appIndex, generateAppParamsDelta(t),
+			generateAppLocalStateDelta(t))
+	}
+
+	f := func(tx pgx.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+
+		err = w.AddBlock(&bookkeeping.Block{}, transactions.Payset{}, delta)
+		require.NoError(t, err)
+
+		w.Close()
+		return nil
+	}
+	err := db.txWithRetry(serializable, f)
+	require.NoError(t, err)
+
+	tx, err := db.db.BeginTx(context.Background(), serializable)
+	require.NoError(t, err)
+	defer tx.Rollback(context.Background())
+
+	l, err := ledgerforevaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	require.NoError(t, err)
+	defer l.Close()
+
+	ret, err := l.LookupResources(resources)
+	require.NoError(t, err)
+
+	for address, creatables := range resources {
+		ret, ok := ret[address]
+		require.True(t, ok)
+
+		for creatable := range creatables {
+			ret, ok := ret[creatable]
+			require.True(t, ok)
+
+			switch creatable.Type {
+			case basics.AssetCreatable:
+				assetParamsDelta, _ :=
+					delta.NewAccts.GetAssetParams(address, basics.AssetIndex(creatable.Index))
+				assert.Equal(t, assetParamsDelta.Params, ret.AssetParams)
+
+				assetHoldingDelta, _ :=
+					delta.NewAccts.GetAssetHolding(address, basics.AssetIndex(creatable.Index))
+				assert.Equal(t, assetHoldingDelta.Holding, ret.AssetHolding)
+			case basics.AppCreatable:
+				appParamsDelta, _ :=
+					delta.NewAccts.GetAppParams(address, basics.AppIndex(creatable.Index))
+				assert.Equal(t, appParamsDelta.Params, ret.AppParams)
+
+				appLocalStateDelta, _ :=
+					delta.NewAccts.GetAppLocalState(address, basics.AppIndex(creatable.Index))
+				assert.Equal(t, appLocalStateDelta.LocalState, ret.AppLocalState)
+			}
 		}
 	}
 }
