@@ -74,15 +74,22 @@ test-package:
 test-generate:
 	test/test_generate.py
 
-swagger-setup:
+nightly-setup:
 	cd third_party/go-algorand && git pull origin master
 
-swagger-teardown:
+nightly-teardown:
 	git submodule update
 
 indexer-v-algod-swagger:
 	pytest -sv parity
 
-indexer-v-algod-latest: swagger-setup indexer-v-algod-swagger swagger-teardown
+future-nosync:
+	go test -run "^(TestTheFuture|TestFixture)$$" github.com/algorand/indexer/future
 
-.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod-latest
+indexer-v-algod: nightly-setup indexer-v-algod-swagger nightly-teardown
+
+future: nightly-setup future-nosync nightly-teardown
+
+nightly: nightly-setup indexer-v-algod-swagger future-nosync nightly-teardown
+
+.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod future

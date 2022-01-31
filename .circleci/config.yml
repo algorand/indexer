@@ -103,7 +103,8 @@ commands:
       - run: make test-generate
       - run: make fakepackage
       - run: make e2e
-      - run: make indexer-v-algod-latest
+      - run: make indexer-v-algod
+      - run: make future
 
   upload_coverage:
     description: Collect coverage reports and upload them
