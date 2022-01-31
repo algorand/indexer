@@ -7,14 +7,16 @@ import (
 )
 
 var expectations = []expectation{
-	// we should NOT see the file third_party/go-algorand/ledger/ledgercore/accountdata.go
-	// and CERTAINLY NOT struct AccountBaseData
-	// and ABSLUTELY NOT TotalAssets
 	{
+		// we should NOT see the file third_party/go-algorand/ledger/ledgercore/accountdata.go:
 		"../third_party/go-algorand/ledger/ledgercore/accountdata.go",
 		missing{shouldMiss: true, msg: "\n!!!path ledger/ledgercore/accountdata.go detected ==> unlimited assets has arrived\n"},
+
+		// AND struct AccountBaseData should not be available either:
 		"AccountBaseData",
 		missing{shouldMiss: true, msg: "\n!!!struct AccountBaseData is detected ==> unlimited assets has arrived\n"},
+
+		// AND finally, AccountBaseData.TotalAssets also should not exist:
 		[]string{"TotalAssets"},
 		missing{shouldMiss: true, msg: "\n!!!field TotalAssets is detected ==> unlimited assets has arrived\n"},
 	},
