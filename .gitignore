@@ -34,3 +34,6 @@ __pycache__
 *.tar.bz2
 
 coverage.txt
+
+# mac OS
+.DS_store
