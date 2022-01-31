@@ -10,7 +10,7 @@ var fixtureExpectations = []expectation{
 	// missing DNE.go and happy about that
 	{
 		"./DNE.go", missing{shouldMiss: true, msg: "Not ready to handle DNE.go"},
-		"Msg", missing{shouldMiss: true, msg: "Wow, we already have the struct Msg"},
+		"msg", missing{shouldMiss: true, msg: "Wow, we already have the struct msg"},
 		[]string{"Subject", "Body"}, missing{shouldMiss: false, msg: "why don't we have Subject and Body"},
 	},
 	// missing DNE.go and un-happy about that
@@ -23,13 +23,13 @@ var fixtureExpectations = []expectation{
 	// have fixture.go and everything else, so super happy
 	{
 		"./fixture.go", missing{shouldMiss: false, msg: "should have fixture.go"},
-		"Msg", missing{shouldMiss: false, msg: "why don't we have struct Msg?"},
+		"msg", missing{shouldMiss: false, msg: "why don't we have struct msg?"},
 		[]string{"Subject", "Body"}, missing{shouldMiss: false, msg: "why don't we have a Subjeee and Body"},
 	},
 	// have fixture.go, and un-happy about that only because fields messed up
 	{
 		"./fixture.go", missing{shouldMiss: false, msg: "should have fixture.go"},
-		"Msg", missing{shouldMiss: false, msg: "why don't we have struct Msg?"},
+		"msg", missing{shouldMiss: false, msg: "why don't we have struct msg?"},
 		[]string{"Subjeee", "Body"}, missing{shouldMiss: false, msg: "why don't we have a Subjeee and Body"},
 	},
 	// have fixture.go, and un-happy about the fact that struct is missing
@@ -41,13 +41,13 @@ var fixtureExpectations = []expectation{
 	// have fixture.go, and un-happy about that and everything else
 	{
 		"./fixture.go", missing{shouldMiss: true, msg: "Not ready to handle fixture.go"},
-		"Msg", missing{shouldMiss: true, msg: "Wow, we already have the struct Msg"},
+		"msg", missing{shouldMiss: true, msg: "Wow, we already have the struct msg"},
 		[]string{"Subject", "Body"}, missing{shouldMiss: true, msg: "...and having Subject and Body makes life super difficult"},
 	},
 	// have fixture.go, and un-happy! But other stuff is just fine
 	{
 		"./fixture.go", missing{shouldMiss: true, msg: "Not ready to handle fixture.go"},
-		"Msg", missing{shouldMiss: false, msg: "Might as well have Msg"},
+		"msg", missing{shouldMiss: false, msg: "Might as well have msg"},
 		[]string{"Subject", "Body"}, missing{shouldMiss: false, msg: "...and having Subject and Body is fine too"},
 	},
 }

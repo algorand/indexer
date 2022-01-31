@@ -1,19 +1,17 @@
 package future
 
 import (
-	"log"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-type Msg struct {
+type msg struct {
 	Subject string
 	Body    []byte
 }
 
-func Main() {
-	msg := Msg{
-		Subject: "Hello World",
-		Body:    []byte("Hello!"),
-	}
-
-	log.Printf("Running publisher msg: %#v", msg)
+func TestMsg(t *testing.T) {
+	m := msg{"hello", nil}
+	assert.Equal(t, "hello", m.Subject)
 }
