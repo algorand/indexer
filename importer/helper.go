@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/bzip2"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -277,7 +278,7 @@ func checkGenesisHash(db idb.IndexerDb, genesisReader io.Reader) error {
 		return fmt.Errorf("error decoding genesis, %w", err)
 	}
 	network, err := db.GetNetworkState()
-	if err == idb.ErrorNotInitialized {
+	if errors.Is(err, idb.ErrorNotInitialized) {
 		err = db.SetNetworkState(genesis)
 		if err != nil {
 			return fmt.Errorf("error setting network state %w", err)
