@@ -155,7 +155,7 @@ func (fs fStructs) String() string {
 	return strings.Join(parts, "\n")
 }
 
-// returns map from struct's type name, to its set of fields
+// returns map from struct's name, to its set of field names
 func getFileStructs(root *ast.File) fStructs {
 	fileStructs := map[string]map[string]bool{}
 	for _, tSpec := range getTopLevelTypeNodes(root) {
