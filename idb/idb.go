@@ -12,6 +12,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 )
@@ -173,7 +174,7 @@ type IndexerDb interface {
 	// The next multiple functions return a channel with results as well as the latest round
 	// accounted.
 	Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64)
-	GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64, *bookkeeping.BlockHeader)
+	GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64, *protocol.ConsensusVersion)
 	Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64)
 	AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64)
 	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64)

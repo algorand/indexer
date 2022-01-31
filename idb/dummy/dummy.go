@@ -5,6 +5,7 @@ import (
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/protocol"
 	log "github.com/sirupsen/logrus"
 
 	models "github.com/algorand/indexer/api/generated/v2"
@@ -59,7 +60,7 @@ func (db *dummyIndexerDb) Transactions(ctx context.Context, tf idb.TransactionFi
 }
 
 // GetAccounts is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64, *bookkeeping.BlockHeader) {
+func (db *dummyIndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64, *protocol.ConsensusVersion) {
 	return nil, 0, nil
 }
 

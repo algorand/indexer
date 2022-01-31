@@ -5,7 +5,7 @@ import (
 
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/indexer/api/generated/v2"
 )
 
@@ -13,12 +13,17 @@ import (
 // 1. projecting its essential maintenance cost information to an initially empty basics.AccountData bAccount
 // 2. calculating bAccount.MinBalance(protocol) using the protocol gotten from a recent blockheader
 // 3. adding the result to the generated.Account
-// TODO: this could present compatability challenges with rewind() as we need to also rewind the
-// MinBalance calculation-logic and protocol along with the account.
-func EnrichMinBalance(account *generated.Account, blockheader *bookkeeping.BlockHeader) error {
-	proto, ok := config.Consensus[blockheader.CurrentProtocol]
+//
+// TODO: this could present compatability challenges with rewind() as we need to also rewind the MinBalance calculation-logic and protocol along with the account.
+//
+// TODO: use new MinBalance() function that doesn't require slice lengths when branch feature/unlimited-assets is merged in go-algorand
+func EnrichMinBalance(account *generated.Account, consensusVersion *protocol.ConsensusVersion) error {
+	if consensusVersion == nil {
+		return fmt.Errorf("cannot EnrichMinBalance as consensus version is missing")
+	}	
+	proto, ok := config.Consensus[*consensusVersion]
 	if !ok {
-		return fmt.Errorf("cannot EnrichMinBalance as blockheader's CurrentProtocol is not known to Consensus. CurrentProtocol: %s", blockheader.CurrentProtocol)
+		return fmt.Errorf("cannot EnrichMinBalance as consensus version %s is unknown", *consensusVersion)
 	}
 	raw := minBalanceProjection(account).MinBalance(&proto).Raw
 	account.MinBalance = &raw

@@ -607,6 +607,7 @@ func TestFetchTransactions(t *testing.T) {
 	}
 }
 
+var mockCV = protocol.ConsensusVersion("this is a mock, this is only a mock")
 func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 	ch := make(chan idb.AccountRow)
 	close(ch)
@@ -614,7 +615,7 @@ func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 
 	db := &mocks.IndexerDb{}
 	// empty blockheader since rewinder isn't currently using it
-	db.On("GetAccounts", mock.Anything, mock.Anything).Return(outCh, uint64(7), &bookkeeping.BlockHeader{}).Once()
+	db.On("GetAccounts", mock.Anything, mock.Anything).Return(outCh, uint64(7), &mockCV).Once()
 
 	si := ServerImplementation{
 		EnableAddressSearchRoundRewind: true,
@@ -757,7 +758,7 @@ func TestTimeouts(t *testing.T) {
 		mockIndexer.
 			On("GetAccounts", mock.Anything, mock.Anything, mock.Anything).
 			WaitUntil(timeout).
-			Return(nil, uint64(0), &bookkeeping.BlockHeader{})
+			Return(nil, uint64(0), &mockCV)
 	}
 	assetsFunc := mostMockFunctions("Assets")
 	balancesFunc := mostMockFunctions("AssetBalances")

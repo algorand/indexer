@@ -7,7 +7,6 @@ import (
 
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/stretchr/testify/require"
@@ -83,11 +82,7 @@ func TestMinBalanceComputation(t *testing.T) {
 }
 
 func TestMinBalanceEnricher(t *testing.T) {
-	blockheader := bookkeeping.BlockHeader{
-		UpgradeState: bookkeeping.UpgradeState{
-			CurrentProtocol: protocol.ConsensusV24,
-		},
-	}
+	proto := protocol.ConsensusV24
 
 	for i, tCase := range testCases {
 		expected := minBalanceLinearCombo(&protoV24, tCase.vect).Raw
@@ -96,7 +91,7 @@ func TestMinBalanceEnricher(t *testing.T) {
 		require.NoErrorf(t, err, "failed to deep copy the generated account for testcase %d [%s]: %v", i, tCase.name, err)
 		require.Nil(t, gAccountMutate.MinBalance, "generated account's MinBalance shouldn't be pre-populate but is for testcase %d [%s]", i, tCase.name)
 
-		EnrichMinBalance(&gAccountMutate, &blockheader)
+		EnrichMinBalance(&gAccountMutate, &proto)
 		require.NotNil(t, gAccountMutate.MinBalance, "failed to populate generated account's MinBalance field for testcase %d [%s]", i, tCase.name)
 		actual := *gAccountMutate.MinBalance
 		require.Equal(t, expected, actual, "MinBalance was not computed correctly for test case %d [%s]", i, tCase.name)
@@ -113,7 +108,6 @@ func init() {
 	extraPagesVal29 := uint64(29)
 	extraPagesVal129 := uint64(129)
 	extraPagesVal229 := uint64(229)
-	// extraPagesVal329 := uint64(329)
 
 	testCases = []testCase{
 		// empty case:

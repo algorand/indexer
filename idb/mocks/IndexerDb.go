@@ -13,6 +13,8 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
+	protocol "github.com/algorand/go-algorand/protocol"
+
 	transactions "github.com/algorand/go-algorand/data/transactions"
 )
 
@@ -110,7 +112,7 @@ func (_m *IndexerDb) Close() {
 }
 
 // GetAccounts provides a mock function with given fields: ctx, opts
-func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64, *bookkeeping.BlockHeader) {
+func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64, *protocol.ConsensusVersion) {
 	ret := _m.Called(ctx, opts)
 
 	var r0 <-chan idb.AccountRow
@@ -129,12 +131,12 @@ func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		r1 = ret.Get(1).(uint64)
 	}
 
-	var r2 *bookkeeping.BlockHeader
-	if rf, ok := ret.Get(2).(func(context.Context, idb.AccountQueryOptions) *bookkeeping.BlockHeader); ok {
+	var r2 *protocol.ConsensusVersion
+	if rf, ok := ret.Get(2).(func(context.Context, idb.AccountQueryOptions) *protocol.ConsensusVersion); ok {
 		r2 = rf(ctx, opts)
 	} else {
 		if ret.Get(2) != nil {
-			r2 = ret.Get(2).(*bookkeeping.BlockHeader)
+			r2 = ret.Get(2).(*protocol.ConsensusVersion)
 		}
 	}
 

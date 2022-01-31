@@ -1647,7 +1647,7 @@ type getAccountsRequest struct {
 }
 
 // GetAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64, *bookkeeping.BlockHeader) {
+func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64, *protocol.ConsensusVersion) {
 	out := make(chan idb.AccountRow, 1)
 
 	if opts.HasAssetID != 0 {
@@ -1714,14 +1714,14 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		out <- idb.AccountRow{Error: err}
 		close(out)
 		tx.Rollback(ctx)
-		return out, round, &blockheader
+		return out, round, &blockheader.CurrentProtocol
 	}
 	go func() {
 		db.yieldAccountsThread(req)
 		close(req.out)
 		tx.Rollback(ctx)
 	}()
-	return out, round, &blockheader
+	return out, round, &blockheader.CurrentProtocol
 }
 
 func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query string, whereArgs []interface{}) {
