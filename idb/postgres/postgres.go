@@ -2305,10 +2305,18 @@ func (db *IndexerDb) GetAccountData(addresses []basics.Address) (map[basics.Addr
 func (db *IndexerDb) GetNetworkState() (idb.NetworkState, error) {
 	state, err := db.getNetworkState(context.Background(), nil)
 	if err != nil {
-		return idb.NetworkState{}, fmt.Errorf("GetNetworkState() err: %w", err)
+		return idb.NetworkState{}, err
 	}
 	networkState := idb.NetworkState{
 		GenesisHash: state.GenesisHash,
 	}
 	return networkState, nil
+}
+
+// SetNetworkState is part of idb.IndexerDB
+func (db *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
+	networkState := types.NetworkState{
+		GenesisHash: crypto.HashObj(genesis),
+	}
+	return db.setNetworkState(nil, &networkState)
 }

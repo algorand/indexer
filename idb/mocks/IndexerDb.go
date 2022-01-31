@@ -260,6 +260,20 @@ func (_m *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 	return r0
 }
 
+// SetNetworkState provides a mock function with given fields: genesis
+func (_m *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
+	ret := _m.Called(genesis)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(bookkeeping.Genesis) error); ok {
+		r0 = rf(genesis)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // Transactions provides a mock function with given fields: ctx, tf
 func (_m *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	ret := _m.Called(ctx, tf)

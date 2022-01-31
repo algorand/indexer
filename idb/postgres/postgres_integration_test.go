@@ -12,6 +12,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/indexer/importer"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -1942,6 +1943,10 @@ func TestGenesisHashCheckAtDBSetup(t *testing.T) {
 	assert.Contains(t, err.Error(), "genesis hash not matching")
 }
 
+type ImportState struct {
+	NextRoundToAccount uint64 `codec:"next_account_round"`
+}
+
 // Test that if genesis hash at initial import is different from what is in db metastate
 // indexer does not start.
 func TestGenesisHashCheckAtInitialImport(t *testing.T) {
@@ -1951,11 +1956,27 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 	defer db.Close()
+	// test db upgrade
+	// set next round to account
+	state := ImportState{NextRoundToAccount: 1}
+	var buf []byte
+	jsonCodecHandle := new(codec.JsonHandle)
+	enc := codec.NewEncoderBytes(&buf, jsonCodecHandle)
+	enc.MustEncode(state)
+	db.setMetastate(nil, schema.StateMetastateKey, string(buf))
+	// network state not initialized
+	networkState, err := db.getNetworkState(context.Background(), nil)
+	require.ErrorIs(t, err, idb.ErrorNotInitialized)
 	logger := logrus.New()
 	genesisReader := bytes.NewReader(protocol.EncodeJSON(genesis))
 	imported, err := importer.EnsureInitialImport(db, genesisReader, logger)
 	require.NoError(t, err)
 	require.True(t, true, imported)
+	// network state should be set
+	networkState, err = db.getNetworkState(context.Background(), nil)
+	require.NoError(t, err)
+	require.Equal(t, networkState.GenesisHash, crypto.HashObj(genesis))
+
 	// change genesis value
 	genesis.Network = "testnest"
 	genesisReader = bytes.NewReader(protocol.EncodeJSON(genesis))

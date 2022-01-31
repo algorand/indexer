@@ -267,10 +267,6 @@ func GetGenesisFile(genesisJSONPath string, client *algod.Client, l *log.Logger)
 }
 
 func checkGenesisHash(db idb.IndexerDb, genesisReader io.Reader) error {
-	network, err := db.GetNetworkState()
-	if err != nil {
-		return fmt.Errorf("unable to fetch network state from db %w", err)
-	}
 	var genesis bookkeeping.Genesis
 	gbytes, err := ioutil.ReadAll(genesisReader)
 	if err != nil {
@@ -279,6 +275,16 @@ func checkGenesisHash(db idb.IndexerDb, genesisReader io.Reader) error {
 	err = protocol.DecodeJSON(gbytes, &genesis)
 	if err != nil {
 		return fmt.Errorf("error decoding genesis, %w", err)
+	}
+	network, err := db.GetNetworkState()
+	if err == idb.ErrorNotInitialized {
+		err = db.SetNetworkState(genesis)
+		if err != nil {
+			return fmt.Errorf("error setting network state %w", err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("unable to fetch network state from db %w", err)
 	}
 	if network.GenesisHash != crypto.HashObj(genesis) {
 		return fmt.Errorf("genesis hash not matching")

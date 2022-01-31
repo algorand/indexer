@@ -169,6 +169,7 @@ type IndexerDb interface {
 	GetNextRoundToAccount() (uint64, error)
 	GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error)
 	GetNetworkState() (NetworkState, error)
+	SetNetworkState(genesis bookkeeping.Genesis) error
 
 	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []TxnRow, err error)
 
