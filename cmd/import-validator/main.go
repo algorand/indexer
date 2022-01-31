@@ -120,37 +120,72 @@ func openLedger(ledgerPath string, genesis *bookkeeping.Genesis, genesisBlock *b
 	return ledger, nil
 }
 
-func getModifiedAccounts(l *ledger.Ledger, block *bookkeeping.Block) ([]basics.Address, error) {
+func getModifiedState(l *ledger.Ledger, block *bookkeeping.Block) (map[basics.Address]struct{}, map[basics.Address]map[ledger.Creatable]struct{}, error) {
 	eval, err := l.StartEvaluator(block.BlockHeader, len(block.Payset), 0)
 	if err != nil {
-		return nil, fmt.Errorf("changedAccounts() start evaluator err: %w", err)
+		return nil, nil, fmt.Errorf("getModifiedAccounts() start evaluator err: %w", err)
 	}
 
 	paysetgroups, err := block.DecodePaysetGroups()
 	if err != nil {
-		return nil, fmt.Errorf("changedAccounts() decode payset groups err: %w", err)
+		return nil, nil, fmt.Errorf("getModifiedAccounts() decode payset groups err: %w", err)
 	}
 
 	for _, group := range paysetgroups {
 		err = eval.TransactionGroup(group)
 		if err != nil {
-			return nil, fmt.Errorf("changedAccounts() apply transaction group err: %w", err)
+			return nil, nil,
+				fmt.Errorf("getModifiedAccounts() apply transaction group err: %w", err)
 		}
 	}
 
 	vb, err := eval.GenerateBlock()
 	if err != nil {
-		return nil, fmt.Errorf("changedAccounts() generate block err: %w", err)
+		return nil, nil, fmt.Errorf("getModifiedAccounts() generate block err: %w", err)
 	}
 
-	accountDeltas := vb.Delta().Accts
-	return accountDeltas.ModifiedAccounts(), nil
+	accountDeltas := vb.Delta().NewAccts
+
+	modifiedAccounts := make(map[basics.Address]struct{})
+	for _, address := range accountDeltas.ModifiedAccounts() {
+		modifiedAccounts[address] = struct{}{}
+	}
+
+	modifiedResources := make(map[basics.Address]map[ledger.Creatable]struct{})
+	for _, r := range accountDeltas.GetAllAssetResources() {
+		c, ok := modifiedResources[r.Addr]
+		if !ok {
+			c = make(map[ledger.Creatable]struct{})
+			modifiedResources[r.Addr] = c
+		}
+		creatable := ledger.Creatable{
+			Index: basics.CreatableIndex(r.Aidx),
+			Type:  basics.AssetCreatable,
+		}
+		c[creatable] = struct{}{}
+	}
+	for _, r := range accountDeltas.GetAllAppResources() {
+		c, ok := modifiedResources[r.Addr]
+		if !ok {
+			c = make(map[ledger.Creatable]struct{})
+			modifiedResources[r.Addr] = c
+		}
+		creatable := ledger.Creatable{
+			Index: basics.CreatableIndex(r.Aidx),
+			Type:  basics.AppCreatable,
+		}
+		c[creatable] = struct{}{}
+	}
+
+	return modifiedAccounts, modifiedResources, nil
 }
 
-func checkModifiedAccounts(db *postgres.IndexerDb, l *ledger.Ledger, block *bookkeeping.Block, addresses []basics.Address) error {
-	var accountsIndexer map[basics.Address]basics.AccountData
+func checkModifiedState(db *postgres.IndexerDb, l *ledger.Ledger, block *bookkeeping.Block, addresses map[basics.Address]struct{}, resources map[basics.Address]map[ledger.Creatable]struct{}) error {
+	var accountsIndexer map[basics.Address]ledgercore.AccountData
+	var resourcesIndexer map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource
 	var err0 error
-	var accountsAlgod map[basics.Address]basics.AccountData
+	var accountsAlgod map[basics.Address]ledgercore.AccountData
+	var resourcesAlgod map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource
 	var err1 error
 	var wg sync.WaitGroup
 
@@ -158,10 +193,20 @@ func checkModifiedAccounts(db *postgres.IndexerDb, l *ledger.Ledger, block *book
 	go func() {
 		defer wg.Done()
 
-		accountsIndexer, err0 = db.GetAccountData(addresses)
+		var accounts map[basics.Address]*ledgercore.AccountData
+		accounts, resourcesIndexer, err0 = db.GetAccountState(addresses, resources)
 		if err0 != nil {
 			err0 = fmt.Errorf("checkModifiedAccounts() err0: %w", err0)
 			return
+		}
+
+		accountsIndexer = make(map[basics.Address]ledgercore.AccountData, len(accounts))
+		for address, accountData := range accounts {
+			if accountData == nil {
+				accountsIndexer[address] = ledgercore.AccountData{}
+			} else {
+				accountsIndexer[address] = *accountData
+			}
 		}
 	}()
 
@@ -169,53 +214,25 @@ func checkModifiedAccounts(db *postgres.IndexerDb, l *ledger.Ledger, block *book
 	go func() {
 		defer wg.Done()
 
-		accountsAlgod = make(map[basics.Address]basics.AccountData, len(addresses))
-		for _, address := range addresses {
-			var accountData basics.AccountData
-			accountData, _, err1 = l.LookupWithoutRewards(block.Round(), address)
+		accountsAlgod = make(map[basics.Address]ledgercore.AccountData, len(addresses))
+		for address := range addresses {
+			accountsAlgod[address], _, err1 = l.LookupWithoutRewards(block.Round(), address)
 			if err1 != nil {
-				err1 = fmt.Errorf("checkModifiedAccounts() lookup err1: %w", err1)
+				err1 = fmt.Errorf("checkModifiedAccounts() lookup account err1: %w", err1)
 				return
 			}
-
-			// Indexer returns nil for these maps if they are empty. Unfortunately,
-			// in go-algorand it's not well defined, and sometimes ledger returns empty
-			// maps and sometimes nil maps. So we set those maps to nil if they are empty so
-			// that comparison works.
-			if len(accountData.AssetParams) == 0 {
-				accountData.AssetParams = nil
-			}
-			if len(accountData.Assets) == 0 {
-				accountData.Assets = nil
-			}
-
-			if accountData.AppParams != nil {
-				// Make a copy of `AppParams` to avoid modifying ledger's storage.
-				appParams :=
-					make(map[basics.AppIndex]basics.AppParams, len(accountData.AppParams))
-				for index, params := range accountData.AppParams {
-					if len(params.GlobalState) == 0 {
-						params.GlobalState = nil
-					}
-					appParams[index] = params
+		}
+		for address, creatables := range resources {
+			resourcesForAddress := make(map[ledger.Creatable]ledgercore.AccountResource)
+			resourcesIndexer[address] = resourcesForAddress
+			for creatable := range creatables {
+				resourcesForAddress[creatable], err1 =
+					l.LookupResource(block.Round(), address, creatable.Index, creatable.Type)
+				if err1 != nil {
+					err1 = fmt.Errorf("checkModifiedAccounts() lookup resource err1: %w", err1)
+					return
 				}
-				accountData.AppParams = appParams
 			}
-
-			if accountData.AppLocalStates != nil {
-				// Make a copy of `AppLocalStates` to avoid modifying ledger's storage.
-				appLocalStates :=
-					make(map[basics.AppIndex]basics.AppLocalState, len(accountData.AppLocalStates))
-				for index, state := range accountData.AppLocalStates {
-					if len(state.KeyValue) == 0 {
-						state.KeyValue = nil
-					}
-					appLocalStates[index] = state
-				}
-				accountData.AppLocalStates = appLocalStates
-			}
-
-			accountsAlgod[address] = accountData
 		}
 	}()
 
@@ -233,6 +250,13 @@ func checkModifiedAccounts(db *postgres.IndexerDb, l *ledger.Ledger, block *book
 			"checkModifiedAccounts() accounts differ,"+
 				"\naccountsIndexer: %+v,\naccountsAlgod: %+v,\ndiff: %s",
 			accountsIndexer, accountsAlgod, diff)
+	}
+	if !reflect.DeepEqual(resourcesIndexer, resourcesAlgod) {
+		diff := util.Diff(resourcesAlgod, resourcesIndexer)
+		return fmt.Errorf(
+			"checkModifiedAccounts() resources differ,"+
+				"\nresourcesIndexer: %+v,\nresourcesAlgod: %+v,\ndiff: %s",
+			resourcesIndexer, resourcesAlgod, diff)
 	}
 
 	return nil
@@ -259,14 +283,15 @@ func catchup(db *postgres.IndexerDb, l *ledger.Ledger, bot fetcher.Fetcher, logg
 	}
 
 	blockHandlerFunc := func(ctx context.Context, block *rpcs.EncodedBlockCert) error {
-		var modifiedAccounts []basics.Address
+		var modifiedAccounts map[basics.Address]struct{}
+		var modifiedResources map[basics.Address]map[ledger.Creatable]struct{}
 		var err0 error
 		var err1 error
 		var wg sync.WaitGroup
 
 		wg.Add(1)
 		go func() {
-			modifiedAccounts, err0 = getModifiedAccounts(l, &block.Block)
+			modifiedAccounts, modifiedResources, err0 = getModifiedState(l, &block.Block)
 			wg.Done()
 		}()
 
@@ -299,7 +324,8 @@ func catchup(db *postgres.IndexerDb, l *ledger.Ledger, bot fetcher.Fetcher, logg
 		}
 		nextRoundLedger++
 
-		return checkModifiedAccounts(db, l, &block.Block, modifiedAccounts)
+		return checkModifiedState(
+			db, l, &block.Block, modifiedAccounts, modifiedResources)
 	}
 	bot.SetBlockHandler(blockHandlerFunc)
 	bot.SetNextRound(nextRoundLedger)

@@ -76,26 +76,30 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	voteID[0] = 2
 	var selectionID crypto.VRFVerifier
 	selectionID[0] = 3
-	accountDataWritten := basics.AccountData{
-		Status:          basics.Online,
-		VoteID:          voteID,
-		SelectionID:     selectionID,
-		VoteFirstValid:  basics.Round(4),
-		VoteLastValid:   basics.Round(5),
-		VoteKeyDilution: 6,
-		AuthAddr:        test.AccountA,
+	accountDataFull := ledgercore.AccountData{
+		AccountBaseData: ledgercore.AccountBaseData{
+			Status:             basics.Online,
+			MicroAlgos:         basics.MicroAlgos{Raw: 4},
+			RewardsBase:        5,
+			RewardedMicroAlgos: basics.MicroAlgos{Raw: 6},
+			AuthAddr:           test.AccountA,
+		},
+		VotingData: ledgercore.VotingData{
+			VoteID:          voteID,
+			SelectionID:     selectionID,
+			VoteFirstValid:  basics.Round(7),
+			VoteLastValid:   basics.Round(8),
+			VoteKeyDilution: 9,
+		},
 	}
 
-	accountDataFull := accountDataWritten
-	accountDataFull.MicroAlgos = basics.MicroAlgos{Raw: 2}
-	accountDataFull.RewardsBase = 3
-	accountDataFull.RewardedMicroAlgos = basics.MicroAlgos{Raw: 4}
+	accountDataWritten := encoding.TrimLcAccountData(accountDataFull)
 
 	_, err := db.Exec(
 		context.Background(),
 		query, test.AccountB[:], accountDataFull.MicroAlgos.Raw, accountDataFull.RewardsBase,
 		accountDataFull.RewardedMicroAlgos.Raw,
-		encoding.EncodeTrimmedAccountData(accountDataWritten))
+		encoding.EncodeTrimmedLcAccountData(accountDataWritten))
 	require.NoError(t, err)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
@@ -116,7 +120,7 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	assert.Equal(t, accountDataFull, *accountDataRet)
 }
 
-func insertAccountData(db *pgxpool.Pool, account basics.Address, createdat uint64, deleted bool, data basics.AccountData) error {
+func insertAccountData(db *pgxpool.Pool, account basics.Address, createdat uint64, deleted bool, data ledgercore.AccountData) error {
 	// This could be 'upsertAccountStmtName'
 	query :=
 		"INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, deleted, " +
@@ -124,8 +128,8 @@ func insertAccountData(db *pgxpool.Pool, account basics.Address, createdat uint6
 			"VALUES ($1, $2, $3, $4, $5, $6, $7)"
 	_, err := db.Exec(
 		context.Background(), query,
-		account[:], data.MicroAlgos.Raw, data.RewardsBase, data.RewardedMicroAlgos.Raw, deleted, createdat,
-		encoding.EncodeTrimmedAccountData(data))
+		account[:], data.MicroAlgos.Raw, data.RewardsBase, data.RewardedMicroAlgos.Raw,
+		deleted, createdat, encoding.EncodeTrimmedLcAccountData(data))
 	return err
 }
 
@@ -135,33 +139,42 @@ func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
 		name      string
 		createdAt uint64
 		deleted   bool
-		data      basics.AccountData
+		data      ledgercore.AccountData
 		err       string
 	}{
 		{
 			name: "small balance",
-			data: basics.AccountData{
-				MicroAlgos: basics.MicroAlgos{Raw: 1},
+			data: ledgercore.AccountData{
+				AccountBaseData: ledgercore.AccountBaseData{
+					MicroAlgos: basics.MicroAlgos{Raw: 1},
+				},
 			},
 		},
 		{
 			name: "max balance",
-			data: basics.AccountData{
-				MicroAlgos: basics.MicroAlgos{Raw: math.MaxInt64},
+			data: ledgercore.AccountData{
+				AccountBaseData: ledgercore.AccountBaseData{
+					MicroAlgos: basics.MicroAlgos{Raw: math.MaxInt64},
+				},
 			},
 		},
 		{
 			name: "over max balance",
-			data: basics.AccountData{
-				MicroAlgos: basics.MicroAlgos{Raw: math.MaxUint64},
+			data: ledgercore.AccountData{
+				AccountBaseData: ledgercore.AccountBaseData{
+					MicroAlgos: basics.MicroAlgos{Raw: math.MaxUint64},
+				},
 			},
-			err: fmt.Sprintf("%d is greater than maximum value for Int8", uint64(math.MaxUint64)),
+			err: fmt.Sprintf(
+				"%d is greater than maximum value for Int8", uint64(math.MaxUint64)),
 		},
 		{
 			name:    "deleted",
 			deleted: true,
-			data: basics.AccountData{
-				MicroAlgos: basics.MicroAlgos{Raw: math.MaxInt64},
+			data: ledgercore.AccountData{
+				AccountBaseData: ledgercore.AccountBaseData{
+					MicroAlgos: basics.MicroAlgos{Raw: math.MaxInt64},
+				},
 			},
 		},
 	}
@@ -233,12 +246,14 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 			"created_at, account_data) " +
 			"VALUES ($1, 2, 3, 4, true, 0, $2)"
 
-	accountData := basics.AccountData{
-		MicroAlgos: basics.MicroAlgos{Raw: 5},
+	accountData := ledgercore.AccountData{
+		AccountBaseData: ledgercore.AccountBaseData{
+			MicroAlgos: basics.MicroAlgos{Raw: 5},
+		},
 	}
 	_, err := db.Exec(
 		context.Background(), query, test.AccountB[:],
-		encoding.EncodeTrimmedAccountData(accountData))
+		encoding.EncodeTrimmedLcAccountData(accountData))
 	require.NoError(t, err)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
@@ -277,27 +292,24 @@ func TestLedgerForEvaluatorAccountTableMissingAccount(t *testing.T) {
 	assert.Nil(t, accountDataRet)
 }
 
+func insertAccountAsset(t *testing.T, db *pgxpool.Pool, addr basics.Address, assetid uint64, amount uint64, frozen bool, deleted bool) {
+	query :=
+		"INSERT INTO account_asset (addr, assetid, amount, frozen, deleted, created_at) " +
+			"VALUES ($1, $2, $3, $4, $5, 0)"
+
+	_, err := db.Exec(
+		context.Background(), query, addr[:], assetid, amount, frozen, deleted)
+	require.NoError(t, err)
+}
+
 func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	query := `INSERT INTO account
-		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
-		VALUES ($1, 0, 0, 0, false, 0, 'null'::jsonb)`
-	_, err := db.Exec(context.Background(), query, test.AccountA[:])
-	require.NoError(t, err)
-
-	query =
-		"INSERT INTO account_asset (addr, assetid, amount, frozen, deleted, created_at) " +
-			"VALUES ($1, $2, $3, $4, $5, 0)"
-	_, err = db.Exec(context.Background(), query, test.AccountA[:], 1, 2, false, false)
-	require.NoError(t, err)
-	_, err = db.Exec(context.Background(), query, test.AccountA[:], 3, 4, true, false)
-	require.NoError(t, err)
-	_, err = db.Exec(context.Background(), query, test.AccountA[:], 5, 6, true, true) // deleted
-	require.NoError(t, err)
-	_, err = db.Exec(context.Background(), query, test.AccountB[:], 5, 6, true, false) // wrong account
-	require.NoError(t, err)
+	insertAccountAsset(t, db, test.AccountA, 1, 2, false, false)
+	insertAccountAsset(t, db, test.AccountA, 3, 4, true, false)
+	insertAccountAsset(t, db, test.AccountA, 5, 6, false, true) // deleted
+	insertAccountAsset(t, db, test.AccountB, 5, 6, true, false)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
@@ -307,59 +319,73 @@ func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 	require.NoError(t, err)
 	defer l.Close()
 
-	ret, err :=
-		l.LookupWithoutRewards(map[basics.Address]struct{}{test.AccountA: {}})
+	ret, err := l.LookupResources(map[basics.Address]map[ledger.Creatable]struct{}{
+		test.AccountA: {
+			{Index: 1, Type: basics.AssetCreatable}: {},
+			{Index: 3, Type: basics.AssetCreatable}: {},
+			{Index: 5, Type: basics.AssetCreatable}: {},
+			{Index: 8, Type: basics.AssetCreatable}: {},
+		},
+		test.AccountB: {
+			{Index: 5, Type: basics.AssetCreatable}: {},
+		},
+	})
 	require.NoError(t, err)
 
-	accountDataRet := ret[test.AccountA]
-	require.NotNil(t, accountDataRet)
-
-	accountDataExpected := basics.AccountData{
-		Assets: map[basics.AssetIndex]basics.AssetHolding{
-			1: {
-				Amount: 2,
-				Frozen: false,
+	expected := map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource{
+		test.AccountA: {
+			ledger.Creatable{Index: 1, Type: basics.AssetCreatable}: {
+				AssetHolding: &basics.AssetHolding{
+					Amount: 2,
+					Frozen: false,
+				},
 			},
-			3: {
-				Amount: 4,
-				Frozen: true,
+			ledger.Creatable{Index: 3, Type: basics.AssetCreatable}: {
+				AssetHolding: &basics.AssetHolding{
+					Amount: 4,
+					Frozen: true,
+				},
+			},
+			ledger.Creatable{Index: 5, Type: basics.AssetCreatable}: {},
+			ledger.Creatable{Index: 8, Type: basics.AssetCreatable}: {},
+		},
+		test.AccountB: {
+			ledger.Creatable{Index: 5, Type: basics.AssetCreatable}: {
+				AssetHolding: &basics.AssetHolding{
+					Amount: 6,
+					Frozen: true,
+				},
 			},
 		},
 	}
-	assert.Equal(t, accountDataExpected, *accountDataRet)
+	assert.Equal(t, expected, ret)
+}
+
+func insertAsset(t *testing.T, db *pgxpool.Pool, index uint64, creatorAddr basics.Address, params *basics.AssetParams, deleted bool) {
+	query :=
+		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
+			"VALUES ($1, $2, $3, $4, 0)"
+
+	_, err := db.Exec(
+		context.Background(), query, index, creatorAddr[:],
+		encoding.EncodeAssetParams(*params), deleted)
+	require.NoError(t, err)
 }
 
 func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	query := `INSERT INTO account
-		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
-		VALUES ($1, 0, 0, 0, false, 0, 'null'::jsonb)`
-	_, err := db.Exec(context.Background(), query, test.AccountA[:])
-	require.NoError(t, err)
-
-	query =
-		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
-			"VALUES ($1, $2, $3, $4, 0)"
-
-	_, err = db.Exec(
-		context.Background(), query, 1, test.AccountA[:],
-		encoding.EncodeAssetParams(basics.AssetParams{Manager: test.AccountB}),
-		false)
-	require.NoError(t, err)
-
-	_, err = db.Exec(
-		context.Background(), query, 2, test.AccountA[:],
-		encoding.EncodeAssetParams(basics.AssetParams{Manager: test.AccountC}),
-		false)
-	require.NoError(t, err)
-
-	_, err = db.Exec(context.Background(), query, 3, test.AccountA[:], "{}", true) // deleted
-	require.NoError(t, err)
-
-	_, err = db.Exec(context.Background(), query, 4, test.AccountD[:], "{}", false) // wrong account
-	require.NoError(t, err)
+	insertAsset(
+		t, db, 1, test.AccountA, &basics.AssetParams{Manager: test.AccountB}, false)
+	insertAsset(
+		t, db, 2, test.AccountA, &basics.AssetParams{Total: 10}, false)
+	insertAsset(
+		t, db, 3, test.AccountA, &basics.AssetParams{Total: 11}, true) // deleted
+	insertAsset(
+		t, db, 4, test.AccountC, &basics.AssetParams{Total: 12}, false)
+	insertAsset(
+		t, db, 5, test.AccountD, &basics.AssetParams{Total: 13}, false)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
@@ -369,65 +395,88 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 	require.NoError(t, err)
 	defer l.Close()
 
-	ret, err :=
-		l.LookupWithoutRewards(map[basics.Address]struct{}{test.AccountA: {}})
+	ret, err := l.LookupResources(map[basics.Address]map[ledger.Creatable]struct{}{
+		test.AccountA: {
+			{Index: 1, Type: basics.AssetCreatable}: {},
+			{Index: 2, Type: basics.AssetCreatable}: {},
+			{Index: 3, Type: basics.AssetCreatable}: {},
+			{Index: 4, Type: basics.AssetCreatable}: {},
+			{Index: 6, Type: basics.AssetCreatable}: {},
+		},
+		test.AccountD: {
+			{Index: 5, Type: basics.AssetCreatable}: {},
+		},
+	})
 	require.NoError(t, err)
 
-	accountDataRet := ret[test.AccountA]
-	require.NotNil(t, accountDataRet)
-
-	accountDataExpected := basics.AccountData{
-		AssetParams: map[basics.AssetIndex]basics.AssetParams{
-			1: {
-				Manager: test.AccountB,
+	expected := map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource{
+		test.AccountA: {
+			ledger.Creatable{Index: 1, Type: basics.AssetCreatable}: {
+				AssetParams: &basics.AssetParams{
+					Manager: test.AccountB,
+				},
 			},
-			2: {
-				Manager: test.AccountC,
+			ledger.Creatable{Index: 2, Type: basics.AssetCreatable}: {
+				AssetParams: &basics.AssetParams{
+					Total: 10,
+				},
+			},
+			ledger.Creatable{Index: 3, Type: basics.AssetCreatable}: {},
+			ledger.Creatable{Index: 4, Type: basics.AssetCreatable}: {},
+			ledger.Creatable{Index: 6, Type: basics.AssetCreatable}: {},
+		},
+		test.AccountD: {
+			ledger.Creatable{Index: 5, Type: basics.AssetCreatable}: {
+				AssetParams: &basics.AssetParams{
+					Total: 13,
+				},
 			},
 		},
 	}
-	assert.Equal(t, accountDataExpected, *accountDataRet)
+	assert.Equal(t, expected, ret)
+}
+
+func insertApp(t *testing.T, db *pgxpool.Pool, index uint64, creator basics.Address, params *basics.AppParams, deleted bool) {
+	query :=
+		"INSERT INTO app (index, creator, params, deleted, created_at) " +
+			"VALUES ($1, $2, $3, $4, 0)"
+
+	_, err := db.Exec(
+		context.Background(), query, index, creator[:], encoding.EncodeAppParams(*params),
+		deleted)
+	require.NoError(t, err)
 }
 
 func TestLedgerForEvaluatorAppTable(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	query := `INSERT INTO account
-		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
-		VALUES ($1, 0, 0, 0, false, 0, 'null'::jsonb)`
-	_, err := db.Exec(context.Background(), query, test.AccountA[:])
-	require.NoError(t, err)
-
-	query =
-		"INSERT INTO app (index, creator, params, deleted, created_at) " +
-			"VALUES ($1, $2, $3, $4, 0)"
-
 	params1 := basics.AppParams{
 		GlobalState: map[string]basics.TealValue{
 			string([]byte{0xff}): {}, // try a non-utf8 string
 		},
 	}
-	_, err = db.Exec(
-		context.Background(), query, 1, test.AccountA[:],
-		encoding.EncodeAppParams(params1), false)
-	require.NoError(t, err)
+	insertApp(t, db, 1, test.AccountA, &params1, false)
 
 	params2 := basics.AppParams{
-		ApprovalProgram: []byte{1, 2, 3},
+		ApprovalProgram: []byte{1, 2, 3, 10},
 	}
-	_, err = db.Exec(
-		context.Background(), query, 2, test.AccountA[:],
-		encoding.EncodeAppParams(params2), false)
-	require.NoError(t, err)
+	insertApp(t, db, 2, test.AccountA, &params2, false)
 
-	_, err = db.Exec(
-		context.Background(), query, 3, test.AccountA[:], "{}", true) // deteled
-	require.NoError(t, err)
+	params3 := basics.AppParams{
+		ApprovalProgram: []byte{1, 2, 3, 11},
+	}
+	insertApp(t, db, 3, test.AccountA, &params3, true) // deteled
 
-	_, err = db.Exec(
-		context.Background(), query, 4, test.AccountB[:], "{}", false) // wrong account
-	require.NoError(t, err)
+	params4 := basics.AppParams{
+		ApprovalProgram: []byte{1, 2, 3, 12},
+	}
+	insertApp(t, db, 4, test.AccountB, &params4, false)
+
+	params5 := basics.AppParams{
+		ApprovalProgram: []byte{1, 2, 3, 13},
+	}
+	insertApp(t, db, 5, test.AccountC, &params5, false)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
@@ -437,63 +486,83 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 	require.NoError(t, err)
 	defer l.Close()
 
-	ret, err :=
-		l.LookupWithoutRewards(map[basics.Address]struct{}{test.AccountA: {}})
+	ret, err := l.LookupResources(map[basics.Address]map[ledger.Creatable]struct{}{
+		test.AccountA: {
+			{Index: 1, Type: basics.AppCreatable}: {},
+			{Index: 2, Type: basics.AppCreatable}: {},
+			{Index: 3, Type: basics.AppCreatable}: {},
+			{Index: 4, Type: basics.AppCreatable}: {},
+			{Index: 6, Type: basics.AppCreatable}: {},
+		},
+		test.AccountC: {
+			{Index: 5, Type: basics.AppCreatable}: {},
+		},
+	})
 	require.NoError(t, err)
 
-	accountDataRet := ret[test.AccountA]
-	require.NotNil(t, accountDataRet)
-
-	accountDataExpected := basics.AccountData{
-		AppParams: map[basics.AppIndex]basics.AppParams{
-			1: params1,
-			2: params2,
+	expected := map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource{
+		test.AccountA: {
+			ledger.Creatable{Index: 1, Type: basics.AppCreatable}: {
+				AppParams: &params1,
+			},
+			ledger.Creatable{Index: 2, Type: basics.AppCreatable}: {
+				AppParams: &params2,
+			},
+			ledger.Creatable{Index: 3, Type: basics.AppCreatable}: {},
+			ledger.Creatable{Index: 4, Type: basics.AppCreatable}: {},
+			ledger.Creatable{Index: 6, Type: basics.AppCreatable}: {},
+		},
+		test.AccountC: {
+			ledger.Creatable{Index: 5, Type: basics.AppCreatable}: {
+				AppParams: &params5,
+			},
 		},
 	}
-	assert.Equal(t, accountDataExpected, *accountDataRet)
+	assert.Equal(t, expected, ret)
+}
+
+func insertAccountApp(t *testing.T, db *pgxpool.Pool, addr basics.Address, app uint64, localstate *basics.AppLocalState, deleted bool) {
+	query :=
+		"INSERT INTO account_app (addr, app, localstate, deleted, created_at) " +
+			"VALUES ($1, $2, $3, $4, 0)"
+
+	_, err := db.Exec(
+		context.Background(), query, addr[:], app,
+		encoding.EncodeAppLocalState(*localstate), deleted)
+	require.NoError(t, err)
 }
 
 func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
 
-	query := `INSERT INTO account
-		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
-		VALUES ($1, 0, 0, 0, false, 0, 'null'::jsonb)`
-	_, err := db.Exec(context.Background(), query, test.AccountA[:])
-	require.NoError(t, err)
-
-	query =
-		"INSERT INTO account_app (addr, app, localstate, deleted, created_at) " +
-			"VALUES ($1, $2, $3, $4, 0)"
-
-	params1 := basics.AppLocalState{
+	stateA1 := basics.AppLocalState{
 		KeyValue: map[string]basics.TealValue{
 			string([]byte{0xff}): {}, // try a non-utf8 string
 		},
 	}
-	_, err = db.Exec(
-		context.Background(), query, test.AccountA[:], 1,
-		encoding.EncodeAppLocalState(params1), false)
-	require.NoError(t, err)
+	insertAccountApp(t, db, test.AccountA, 1, &stateA1, false)
 
-	params2 := basics.AppLocalState{
+	stateA2 := basics.AppLocalState{
 		KeyValue: map[string]basics.TealValue{
 			"abc": {},
 		},
 	}
-	_, err = db.Exec(
-		context.Background(), query, test.AccountA[:], 2,
-		encoding.EncodeAppLocalState(params2), false)
-	require.NoError(t, err)
+	insertAccountApp(t, db, test.AccountA, 2, &stateA2, false)
 
-	_, err = db.Exec(
-		context.Background(), query, test.AccountA[:], 3, "{}", true) // deteled
-	require.NoError(t, err)
+	stateA3 := basics.AppLocalState{
+		KeyValue: map[string]basics.TealValue{
+			"abd": {},
+		},
+	}
+	insertAccountApp(t, db, test.AccountA, 3, &stateA3, true) // deteled
 
-	_, err = db.Exec(
-		context.Background(), query, test.AccountB[:], 4, "{}", false) // wrong account
-	require.NoError(t, err)
+	stateB3 := basics.AppLocalState{
+		KeyValue: map[string]basics.TealValue{
+			"abf": {},
+		},
+	}
+	insertAccountApp(t, db, test.AccountB, 3, &stateB3, false)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
@@ -503,24 +572,93 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 	require.NoError(t, err)
 	defer l.Close()
 
-	ret, err :=
-		l.LookupWithoutRewards(map[basics.Address]struct{}{test.AccountA: {}})
+	ret, err := l.LookupResources(map[basics.Address]map[ledger.Creatable]struct{}{
+		test.AccountA: {
+			{Index: 1, Type: basics.AppCreatable}: {},
+			{Index: 2, Type: basics.AppCreatable}: {},
+			{Index: 3, Type: basics.AppCreatable}: {},
+			{Index: 4, Type: basics.AppCreatable}: {},
+		},
+		test.AccountB: {
+			{Index: 3, Type: basics.AppCreatable}: {},
+		},
+	})
 	require.NoError(t, err)
 
-	accountDataRet := ret[test.AccountA]
-	require.NotNil(t, accountDataRet)
-
-	accountDataExpected := basics.AccountData{
-		AppLocalStates: map[basics.AppIndex]basics.AppLocalState{
-			1: params1,
-			2: params2,
+	expected := map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource{
+		test.AccountA: {
+			ledger.Creatable{Index: 1, Type: basics.AppCreatable}: {
+				AppLocalState: &stateA1,
+			},
+			ledger.Creatable{Index: 2, Type: basics.AppCreatable}: {
+				AppLocalState: &stateA2,
+			},
+			ledger.Creatable{Index: 3, Type: basics.AppCreatable}: {},
+			ledger.Creatable{Index: 4, Type: basics.AppCreatable}: {},
+		},
+		test.AccountB: {
+			ledger.Creatable{Index: 3, Type: basics.AppCreatable}: {
+				AppLocalState: &stateB3,
+			},
 		},
 	}
-	assert.Equal(t, accountDataExpected, *accountDataRet)
+	assert.Equal(t, expected, ret)
 }
 
-// Tests that queuing and reading from a batch when using PreloadAccounts()
-// is in the same order.
+func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
+	db, shutdownFunc := setupPostgres(t)
+	defer shutdownFunc()
+
+	insertAccountAsset(t, db, test.AccountA, 1, 2, true, false)
+	insertAsset(t, db, 1, test.AccountA, &basics.AssetParams{Total: 3}, false)
+	insertAccountApp(
+		t, db, test.AccountA, 4,
+		&basics.AppLocalState{Schema: basics.StateSchema{NumUint: 5}}, false)
+	insertApp(t, db, 4, test.AccountA, &basics.AppParams{ExtraProgramPages: 6}, false)
+
+	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
+	require.NoError(t, err)
+	defer tx.Rollback(context.Background())
+
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	require.NoError(t, err)
+	defer l.Close()
+
+	ret, err := l.LookupResources(map[basics.Address]map[ledger.Creatable]struct{}{
+		test.AccountA: {
+			{Index: 1, Type: basics.AssetCreatable}: {},
+			{Index: 4, Type: basics.AppCreatable}:   {},
+		},
+	})
+	require.NoError(t, err)
+
+	expected := map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource{
+		test.AccountA: {
+			ledger.Creatable{Index: 1, Type: basics.AssetCreatable}: {
+				AssetHolding: &basics.AssetHolding{
+					Amount: 2,
+					Frozen: true,
+				},
+				AssetParams: &basics.AssetParams{
+					Total: 3,
+				},
+			},
+			ledger.Creatable{Index: 4, Type: basics.AppCreatable}: {
+				AppLocalState: &basics.AppLocalState{
+					Schema: basics.StateSchema{
+						NumUint: 5,
+					},
+				},
+				AppParams: &basics.AppParams{
+					ExtraProgramPages: 6,
+				},
+			},
+		},
+	}
+	assert.Equal(t, expected, ret)
+}
+
+// Tests that queuing and reading from a batch is in the same order.
 func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	db, shutdownFunc := setupPostgres(t)
 	defer shutdownFunc()
@@ -528,45 +666,13 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	addAccountQuery := `INSERT INTO account
 		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
 		VALUES ($1, 0, 0, 0, false, 0, 'null'::jsonb)`
-	addAccountAssetQuery :=
-		"INSERT INTO account_asset (addr, assetid, amount, frozen, deleted, created_at) " +
-			"VALUES ($1, $2, 0, false, false, 0)"
-	addAssetQuery :=
-		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
-			"VALUES ($1, $2, '{}', false, 0)"
-	addAppQuery :=
-		"INSERT INTO app (index, creator, params, deleted, created_at) " +
-			"VALUES ($1, $2, '{}', false, 0)"
-	addAccountAppQuery :=
-		"INSERT INTO account_app (addr, app, localstate, deleted, created_at) " +
-			"VALUES ($1, $2, '{}', false, 0)"
 
 	addresses := []basics.Address{
 		test.AccountA, test.AccountB, test.AccountC, test.AccountD, test.AccountE}
-	seq := []int{4, 9, 3, 6, 5, 1}
 
-	for i, address := range addresses {
+	for _, address := range addresses {
 		_, err := db.Exec(context.Background(), addAccountQuery, address[:])
 		require.NoError(t, err)
-
-		// Insert all types of creatables. Note that no creatable id is ever repeated.
-		for j := range seq {
-			_, err = db.Exec(
-				context.Background(), addAccountAssetQuery, address[:], i+10*j+100)
-			require.NoError(t, err)
-
-			_, err = db.Exec(
-				context.Background(), addAssetQuery, i+10*j+200, address[:])
-			require.NoError(t, err)
-
-			_, err = db.Exec(
-				context.Background(), addAppQuery, i+10*j+300, address[:])
-			require.NoError(t, err)
-
-			_, err = db.Exec(
-				context.Background(), addAccountAppQuery, address[:], i+10*j+400)
-			require.NoError(t, err)
-		}
 	}
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
@@ -587,28 +693,9 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	ret, err := l.LookupWithoutRewards(addressesMap)
 	require.NoError(t, err)
 
-	for i, address := range addresses {
+	for _, address := range addresses {
 		accountData, _ := ret[address]
 		require.NotNil(t, accountData)
-
-		assert.Equal(t, len(seq), len(accountData.Assets))
-		assert.Equal(t, len(seq), len(accountData.AssetParams))
-		assert.Equal(t, len(seq), len(accountData.AppParams))
-		assert.Equal(t, len(seq), len(accountData.AppLocalStates))
-
-		for j := range seq {
-			_, ok := accountData.Assets[basics.AssetIndex(i+10*j+100)]
-			assert.True(t, ok)
-
-			_, ok = accountData.AssetParams[basics.AssetIndex(i+10*j+200)]
-			assert.True(t, ok)
-
-			_, ok = accountData.AppParams[basics.AppIndex(i+10*j+300)]
-			assert.True(t, ok)
-
-			_, ok = accountData.AppLocalStates[basics.AppIndex(i+10*j+400)]
-			assert.True(t, ok)
-		}
 	}
 }
 

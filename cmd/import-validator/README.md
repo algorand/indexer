@@ -1,14 +1,14 @@
 # Import validation tool
 
 The import validator tool imports blocks into indexer database and algod's
-sqlite database in lockstep and checks that the modified accounts are the same
-in the two databases.
+sqlite database in lockstep and checks that the modified accounts and resources
+are the same in the two databases.
 It lets us detect the first round where an accounting discrepancy occurs
 and it prints out the difference before crashing.
 
 There is a small limitation, however.
-The set of modified accounts is computed using the sqlite database.
-Thus, if indexer's accounting were to modify a superset of those accounts,
+The list of modified address and resources is computed using the sqlite database.
+Thus, if indexer's accounting were to modify a superset of that data,
 this tool would not detect it.
 This, however, should be unlikely.
 
@@ -45,5 +45,5 @@ or one round behind; otherwise, the import validator will fail to start.
 
 Reading and writing to/from the sqlite database is negligible compared to
 importing blocks into the postgres database.
-However, the tool has to read the modified accounts after importing each block.
-Thus, we can expect the import validator to be 1.5 times slower than indexer.
+However, the tool has to read the modified state after importing each block.
+Thus, we can expect the import validator to be about 1.5 times slower than indexer.

@@ -546,3 +546,47 @@ func TestNetworkStateEncoding(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, network, decodedNetwork)
 }
+
+// Test that encoding of ledgercore.AccountData is as expected and that decoding
+// results in the same object.
+func TestLcAccountDataEncoding(t *testing.T) {
+	var authAddr basics.Address
+	authAddr[0] = 6
+
+	var voteID crypto.OneTimeSignatureVerifier
+	voteID[0] = 14
+
+	var selectionID crypto.VRFVerifier
+	selectionID[0] = 15
+
+	ad := ledgercore.AccountData{
+		AccountBaseData: ledgercore.AccountBaseData{
+			Status:   basics.Online,
+			AuthAddr: authAddr,
+			TotalAppSchema: basics.StateSchema{
+				NumUint:      7,
+				NumByteSlice: 8,
+			},
+			TotalExtraAppPages:  9,
+			TotalAppParams:      10,
+			TotalAppLocalStates: 11,
+			TotalAssetParams:    12,
+			TotalAssets:         13,
+		},
+		VotingData: ledgercore.VotingData{
+			VoteID:          voteID,
+			SelectionID:     selectionID,
+			VoteFirstValid:  16,
+			VoteLastValid:   17,
+			VoteKeyDilution: 18,
+		},
+	}
+	buf := EncodeTrimmedLcAccountData(ad)
+
+	expectedString := `{"A":"DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","B":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","C":16,"D":17,"E":18,"a":1,"b":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","c":7,"d":8,"e":9,"f":12,"g":13,"h":10,"i":11}`
+	assert.Equal(t, expectedString, string(buf))
+
+	decodedAd, err := DecodeTrimmedLcAccountData(buf)
+	require.NoError(t, err)
+	assert.Equal(t, ad, decodedAd)
+}
