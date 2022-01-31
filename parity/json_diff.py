@@ -161,7 +161,6 @@ def prettify_diff(
                 if suppress_bs:
                     x, y = suppress(x, y)
 
-                # return [f"[{tgt:^10}] --> {x}", f"[{src:^10}] --> {y}"]
                 return [{tgt: x}, {src: y}]
 
             return [pd(x) for x in jd]
