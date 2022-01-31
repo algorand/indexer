@@ -29,7 +29,6 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/algorand/indexer/accounting"
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
@@ -179,75 +178,238 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations()
 }
 
-// Returns all addresses referenced in `block`.
-func getBlockAddresses(block *bookkeeping.Block) map[basics.Address]struct{} {
-	// Reserve a reasonable memory size for the map.
-	res := make(map[basics.Address]struct{}, len(block.Payset)+2)
+// Add requests for asset and app creators to `assetsReq` and `appsReq` for the given
+// transaction.
+func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD, assetsReq map[basics.AssetIndex]struct{}, appsReq map[basics.AppIndex]struct{}) {
+	txn := &stxnad.Txn
 
-	res[block.FeeSink] = struct{}{}
-	res[block.RewardsPool] = struct{}{}
-	for _, stib := range block.Payset {
-		addFunc := func(address basics.Address) {
-			res[address] = struct{}{}
+	switch txn.Type {
+	case protocol.AssetConfigTx:
+		fields := &txn.AssetConfigTxnFields
+		if fields.ConfigAsset != 0 {
+			assetsReq[fields.ConfigAsset] = struct{}{}
 		}
-		accounting.GetTransactionParticipants(&stib.SignedTxnWithAD, true, addFunc)
+	case protocol.AssetTransferTx:
+		fields := &txn.AssetTransferTxnFields
+		if fields.XferAsset != 0 {
+			assetsReq[fields.XferAsset] = struct{}{}
+		}
+	case protocol.AssetFreezeTx:
+		fields := &txn.AssetFreezeTxnFields
+		if fields.FreezeAsset != 0 {
+			assetsReq[fields.FreezeAsset] = struct{}{}
+		}
+	case protocol.ApplicationCallTx:
+		fields := &txn.ApplicationCallTxnFields
+		if fields.ApplicationID != 0 {
+			appsReq[fields.ApplicationID] = struct{}{}
+		}
+		for _, index := range fields.ForeignApps {
+			appsReq[index] = struct{}{}
+		}
+		for _, index := range fields.ForeignAssets {
+			assetsReq[index] = struct{}{}
+		}
 	}
 
-	return res
+	for i := range stxnad.ApplyData.EvalDelta.InnerTxns {
+		addToCreatorsRequest(&stxnad.ApplyData.EvalDelta.InnerTxns[i], assetsReq, appsReq)
+	}
 }
 
-func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
-	addresses := getBlockAddresses(block)
-	assets := make(map[basics.AssetIndex]struct{})
-	apps := make(map[basics.AppIndex]struct{})
+// Preload asset and app creators.
+func prepareCreators(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
+	assetsReq := make(map[basics.AssetIndex]struct{}, len(payset))
+	appsReq := make(map[basics.AppIndex]struct{}, len(payset))
+	for i := range payset {
+		addToCreatorsRequest(&payset[i].SignedTxnWithAD, assetsReq, appsReq)
+	}
 
-	for _, stib := range block.Payset {
-		switch stib.Txn.Type {
-		case protocol.AssetConfigTx:
-			if stib.Txn.ConfigAsset != 0 {
-				assets[stib.Txn.ConfigAsset] = struct{}{}
+	assets, err := l.GetAssetCreator(assetsReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
+	}
+	apps, err := l.GetAppCreator(appsReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
+	}
+
+	return assets, apps, nil
+}
+
+// Add requests for account data and account resources to `addressesReq` and
+// `resourcesReq` respectively for the given transaction.
+func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress, addressesReq map[basics.Address]struct{}, resourcesReq map[basics.Address]map[ledger.Creatable]struct{}) {
+	lookupResourcesReq :=
+		func(addr basics.Address) map[ledger.Creatable]struct{} {
+			c, ok := resourcesReq[addr]
+			if ok {
+				return c
 			}
-		case protocol.AssetTransferTx:
-			if stib.Txn.XferAsset != 0 {
-				assets[stib.Txn.XferAsset] = struct{}{}
+			c = make(map[ledger.Creatable]struct{})
+			resourcesReq[addr] = c
+			return c
+		}
+
+	txn := &stxnad.Txn
+
+	addressesReq[txn.Sender] = struct{}{}
+
+	switch txn.Type {
+	case protocol.PaymentTx:
+		fields := &txn.PaymentTxnFields
+		addressesReq[fields.Receiver] = struct{}{}
+		// Close address is optional.
+		if !fields.CloseRemainderTo.IsZero() {
+			addressesReq[fields.CloseRemainderTo] = struct{}{}
+		}
+	case protocol.AssetConfigTx:
+		fields := &txn.AssetConfigTxnFields
+		if fields.ConfigAsset == 0 {
+			if stxnad.ApplyData.ConfigAsset != 0 {
+				creatable := ledger.Creatable{
+					Index: basics.CreatableIndex(stxnad.ApplyData.ConfigAsset),
+					Type:  basics.AssetCreatable,
+				}
+				lookupResourcesReq(txn.Sender)[creatable] = struct{}{}
 			}
-		case protocol.AssetFreezeTx:
-			if stib.Txn.FreezeAsset != 0 {
-				assets[stib.Txn.FreezeAsset] = struct{}{}
+		} else {
+			if creator := assetCreators[fields.ConfigAsset]; creator.Exists {
+				creatable := ledger.Creatable{
+					Index: basics.CreatableIndex(fields.ConfigAsset),
+					Type:  basics.AssetCreatable,
+				}
+				addressesReq[creator.Address] = struct{}{}
+				lookupResourcesReq(creator.Address)[creatable] = struct{}{}
 			}
-		case protocol.ApplicationCallTx:
-			if stib.Txn.ApplicationID != 0 {
-				apps[stib.Txn.ApplicationID] = struct{}{}
+		}
+	case protocol.AssetTransferTx:
+		fields := &txn.AssetTransferTxnFields
+		creatable := ledger.Creatable{
+			Index: basics.CreatableIndex(fields.XferAsset),
+			Type:  basics.AssetCreatable,
+		}
+		if creator := assetCreators[fields.XferAsset]; creator.Exists {
+			lookupResourcesReq(creator.Address)[creatable] = struct{}{}
+		}
+		source := txn.Sender
+		// If asset sender is non-zero, it is a clawback transaction. Otherwise,
+		// the transaction sender address is used.
+		if !fields.AssetSender.IsZero() {
+			source = fields.AssetSender
+		}
+		addressesReq[source] = struct{}{}
+		lookupResourcesReq(source)[creatable] = struct{}{}
+		addressesReq[fields.AssetReceiver] = struct{}{}
+		lookupResourcesReq(fields.AssetReceiver)[creatable] = struct{}{}
+		// Asset close address is optional.
+		if !fields.AssetCloseTo.IsZero() {
+			addressesReq[fields.AssetCloseTo] = struct{}{}
+			lookupResourcesReq(fields.AssetCloseTo)[creatable] = struct{}{}
+		}
+	case protocol.AssetFreezeTx:
+		fields := &txn.AssetFreezeTxnFields
+		creatable := ledger.Creatable{
+			Index: basics.CreatableIndex(fields.FreezeAsset),
+			Type:  basics.AssetCreatable,
+		}
+		if creator := assetCreators[fields.FreezeAsset]; creator.Exists {
+			lookupResourcesReq(creator.Address)[creatable] = struct{}{}
+		}
+		lookupResourcesReq(fields.FreezeAccount)[creatable] = struct{}{}
+	case protocol.ApplicationCallTx:
+		fields := &txn.ApplicationCallTxnFields
+		if fields.ApplicationID == 0 {
+			if stxnad.ApplyData.ApplicationID != 0 {
+				creatable := ledger.Creatable{
+					Index: basics.CreatableIndex(stxnad.ApplyData.ApplicationID),
+					Type:  basics.AppCreatable,
+				}
+				lookupResourcesReq(txn.Sender)[creatable] = struct{}{}
+			}
+		} else {
+			creatable := ledger.Creatable{
+				Index: basics.CreatableIndex(fields.ApplicationID),
+				Type:  basics.AppCreatable,
+			}
+			if creator := appCreators[fields.ApplicationID]; creator.Exists {
+				addressesReq[creator.Address] = struct{}{}
+				lookupResourcesReq(creator.Address)[creatable] = struct{}{}
+			}
+			lookupResourcesReq(txn.Sender)[creatable] = struct{}{}
+		}
+		for _, address := range fields.Accounts {
+			addressesReq[address] = struct{}{}
+		}
+		for _, index := range fields.ForeignApps {
+			if creator := appCreators[index]; creator.Exists {
+				creatable := ledger.Creatable{
+					Index: basics.CreatableIndex(index),
+					Type:  basics.AppCreatable,
+				}
+				lookupResourcesReq(creator.Address)[creatable] = struct{}{}
+			}
+		}
+		for _, index := range fields.ForeignAssets {
+			if creator := assetCreators[index]; creator.Exists {
+				creatable := ledger.Creatable{
+					Index: basics.CreatableIndex(index),
+					Type:  basics.AssetCreatable,
+				}
+				lookupResourcesReq(creator.Address)[creatable] = struct{}{}
 			}
 		}
 	}
 
-	res := ledger.EvalForIndexerResources{
-		Accounts: nil,
-		Creators: make(map[ledger.Creatable]ledger.FoundAddress),
+	for i := range stxnad.ApplyData.EvalDelta.InnerTxns {
+		addToAccountsResourcesRequest(
+			&stxnad.ApplyData.EvalDelta.InnerTxns[i], assetCreators, appCreators,
+			addressesReq, resourcesReq)
+	}
+}
+
+// Preload account data and account resources.
+func prepareAccountsResources(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
+	addressesReq := make(map[basics.Address]struct{}, len(payset))
+	resourcesReq := make(map[basics.Address]map[ledger.Creatable]struct{}, len(payset))
+	for i := range payset {
+		addToAccountsResourcesRequest(
+			&payset[i].SignedTxnWithAD, assetCreators, appCreators, addressesReq, resourcesReq)
 	}
 
-	assetCreators, err := l.GetAssetCreator(assets)
+	accounts, err := l.LookupWithoutRewards(addressesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
+	}
+	resources, err := l.LookupResources(resourcesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
+	}
+
+	return accounts, resources, nil
+}
+
+// Preload all resources (account data, account resources, asset/app creators) for the
+// evaluator.
+func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
+	assetCreators, appCreators, err := prepareCreators(l, block.Payset)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
 			fmt.Errorf("prepareEvalResources() err: %w", err)
 	}
+
+	res := ledger.EvalForIndexerResources{
+		Accounts:  nil,
+		Resources: nil,
+		Creators:  make(map[ledger.Creatable]ledger.FoundAddress),
+	}
+
 	for index, foundAddress := range assetCreators {
 		creatable := ledger.Creatable{
 			Index: basics.CreatableIndex(index),
 			Type:  basics.AssetCreatable,
 		}
 		res.Creators[creatable] = foundAddress
-
-		if foundAddress.Exists {
-			addresses[foundAddress.Address] = struct{}{}
-		}
-	}
-
-	appCreators, err := l.GetAppCreator(apps)
-	if err != nil {
-		return ledger.EvalForIndexerResources{},
-			fmt.Errorf("prepareEvalResources() err: %w", err)
 	}
 	for index, foundAddress := range appCreators {
 		creatable := ledger.Creatable{
@@ -255,13 +417,9 @@ func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *boo
 			Type:  basics.AppCreatable,
 		}
 		res.Creators[creatable] = foundAddress
-
-		if foundAddress.Exists {
-			addresses[foundAddress.Address] = struct{}{}
-		}
 	}
 
-	res.Accounts, err = l.LookupWithoutRewards(addresses)
+	res.Accounts, res.Resources, err = prepareAccountsResources(l, block.Payset, assetCreators, appCreators)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
 			fmt.Errorf("prepareEvalResources() err: %w", err)
@@ -447,15 +605,16 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 			if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
 				return fmt.Errorf("LoadGenesis() genesis account[%d] has unhandled asset", ai)
 			}
+			accountData := ledgercore.ToAccountData(alloc.State)
 			_, err = tx.Exec(
 				context.Background(), setAccountStatementName,
 				addr[:], alloc.State.MicroAlgos.Raw,
-				encoding.EncodeTrimmedAccountData(encoding.TrimAccountData(alloc.State)), 0)
+				encoding.EncodeTrimmedLcAccountData(encoding.TrimLcAccountData(accountData)), 0)
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() error setting genesis account[%d], %w", ai, err)
 			}
 
-			totals.AddAccount(proto, alloc.State, &ot)
+			totals.AddAccount(proto, accountData, &ot)
 		}
 
 		err = db.setMetastate(
@@ -1182,8 +1341,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		{
-			var ad basics.AccountData
-			ad, err = encoding.DecodeTrimmedAccountData(accountDataJSONStr)
+			var ad ledgercore.AccountData
+			ad, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
 			if err != nil {
 				err = fmt.Errorf("account decode err (%s) %v", accountDataJSONStr, err)
 				req.out <- idb.AccountRow{Error: err}
@@ -1793,7 +1952,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		whereParts = append(whereParts, "coalesce(a.deleted, false) = false")
 	}
 	if len(opts.EqualToAuthAddr) > 0 {
-		whereParts = append(whereParts, fmt.Sprintf("a.account_data ->> 'spend' = $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("a.account_data ->> 'b' = $%d", partNumber))
 		whereArgs = append(whereArgs, encoding.Base64(opts.EqualToAuthAddr))
 		partNumber++
 	}
@@ -2279,41 +2438,32 @@ func (db *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.Speci
 	return accounts, nil
 }
 
-// GetAccountData returns account data for the given addresses. For accounts that are
-// not found, empty AccountData is returned. This function is only used for debugging.
-func (db *IndexerDb) GetAccountData(addresses []basics.Address) (map[basics.Address]basics.AccountData, error) {
+// GetAccountState returns account data and account resources for the given input.
+// For accounts that are not found, empty AccountData is returned.
+// This function is only used for debugging.
+func (db *IndexerDb) GetAccountState(addressesReq map[basics.Address]struct{}, resourcesReq map[basics.Address]map[ledger.Creatable]struct{}) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
 	tx, err := db.db.BeginTx(context.Background(), readonlyRepeatableRead)
 	if err != nil {
-		return nil, fmt.Errorf("GetAccountData() begin tx err: %w", err)
+		return nil, nil, fmt.Errorf("GetAccountState() begin tx err: %w", err)
 	}
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
 	if err != nil {
-		return nil, fmt.Errorf("GetAccountData() err: %w", err)
+		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
 	}
 	defer l.Close()
 
-	addressesMap := make(map[basics.Address]struct{}, len(addresses))
-	for _, address := range addresses {
-		addressesMap[address] = struct{}{}
-	}
-
-	accountDataMap, err := l.LookupWithoutRewards(addressesMap)
+	accounts, err := l.LookupWithoutRewards(addressesReq)
 	if err != nil {
-		return nil, fmt.Errorf("GetAccountData() err: %w", err)
+		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
+	}
+	resources, err := l.LookupResources(resourcesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
 	}
 
-	res := make(map[basics.Address]basics.AccountData, len(accountDataMap))
-	for address, accountData := range accountDataMap {
-		if accountData == nil {
-			res[address] = basics.AccountData{}
-		} else {
-			res[address] = *accountData
-		}
-	}
-
-	return res, nil
+	return accounts, resources, nil
 }
 
 // GetNetworkState is part of idb.IndexerDB

@@ -178,36 +178,7 @@ type optionalSigTypeDelta struct {
 	value   sigTypeDelta
 }
 
-func writeAccount(round basics.Round, address basics.Address, accountData basics.AccountData, sigtypeDelta optionalSigTypeDelta, batch *pgx.Batch) {
-	// Update `asset` table.
-	for assetid, params := range accountData.AssetParams {
-		batch.Queue(
-			upsertAssetStmtName,
-			uint64(assetid), address[:], encoding.EncodeAssetParams(params), uint64(round))
-	}
-
-	// Update `account_asset` table.
-	for assetid, holding := range accountData.Assets {
-		batch.Queue(
-			upsertAccountAssetStmtName,
-			address[:], uint64(assetid), strconv.FormatUint(holding.Amount, 10),
-			holding.Frozen, uint64(round))
-	}
-
-	// Update `app` table.
-	for appid, params := range accountData.AppParams {
-		batch.Queue(
-			upsertAppStmtName,
-			uint64(appid), address[:], encoding.EncodeAppParams(params), uint64(round))
-	}
-
-	// Update `account_app` table.
-	for appid, state := range accountData.AppLocalStates {
-		batch.Queue(
-			upsertAccountAppStmtName,
-			address[:], uint64(appid), encoding.EncodeAppLocalState(state), uint64(round))
-	}
-
+func writeAccount(round basics.Round, address basics.Address, accountData ledgercore.AccountData, sigtypeDelta optionalSigTypeDelta, batch *pgx.Batch) {
 	sigtypeFunc := func(delta sigTypeDelta) *idb.SigType {
 		if !delta.present {
 			return nil
@@ -218,7 +189,6 @@ func writeAccount(round basics.Round, address basics.Address, accountData basics
 		return res
 	}
 
-	// Update `account` table.
 	if accountData.IsZero() {
 		// Delete account.
 		if sigtypeDelta.present {
@@ -231,7 +201,7 @@ func writeAccount(round basics.Round, address basics.Address, accountData basics
 	} else {
 		// Update account.
 		accountDataJSON :=
-			encoding.EncodeTrimmedAccountData(encoding.TrimAccountData(accountData))
+			encoding.EncodeTrimmedLcAccountData(encoding.TrimLcAccountData(accountData))
 
 		if sigtypeDelta.present {
 			batch.Queue(
@@ -249,7 +219,52 @@ func writeAccount(round basics.Round, address basics.Address, accountData basics
 	}
 }
 
-func writeAccounts(round basics.Round, accountDeltas ledgercore.AccountDeltas, sigtypeDeltas map[basics.Address]sigTypeDelta, batch *pgx.Batch) {
+func writeAssetResource(round basics.Round, resource *ledgercore.AssetResourceRecord, batch *pgx.Batch) {
+	if resource.Params.Deleted {
+		batch.Queue(deleteAssetStmtName, resource.Aidx, resource.Addr[:], round)
+	} else {
+		if resource.Params.Params != nil {
+			batch.Queue(
+				upsertAssetStmtName, resource.Aidx, resource.Addr[:],
+				encoding.EncodeAssetParams(*resource.Params.Params), round)
+		}
+	}
+
+	if resource.Holding.Deleted {
+		batch.Queue(deleteAccountAssetStmtName, resource.Addr[:], resource.Aidx, round)
+	} else {
+		if resource.Holding.Holding != nil {
+			batch.Queue(
+				upsertAccountAssetStmtName, resource.Addr[:], resource.Aidx,
+				strconv.FormatUint(resource.Holding.Holding.Amount, 10),
+				resource.Holding.Holding.Frozen, round)
+		}
+	}
+}
+
+func writeAppResource(round basics.Round, resource *ledgercore.AppResourceRecord, batch *pgx.Batch) {
+	if resource.Params.Deleted {
+		batch.Queue(deleteAppStmtName, resource.Aidx, resource.Addr[:], round)
+	} else {
+		if resource.Params.Params != nil {
+			batch.Queue(
+				upsertAppStmtName, resource.Aidx, resource.Addr[:],
+				encoding.EncodeAppParams(*resource.Params.Params), round)
+		}
+	}
+
+	if resource.State.Deleted {
+		batch.Queue(deleteAccountAppStmtName, resource.Addr[:], resource.Aidx, round)
+	} else {
+		if resource.State.LocalState != nil {
+			batch.Queue(
+				upsertAccountAppStmtName, resource.Addr[:], resource.Aidx,
+				encoding.EncodeAppLocalState(*resource.State.LocalState), round)
+		}
+	}
+}
+
+func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.AccountDeltas, sigtypeDeltas map[basics.Address]sigTypeDelta, batch *pgx.Batch) {
 	// Update `account` table.
 	for i := 0; i < accountDeltas.Len(); i++ {
 		address, accountData := accountDeltas.GetByIdx(i)
@@ -259,43 +274,20 @@ func writeAccounts(round basics.Round, accountDeltas ledgercore.AccountDeltas, s
 
 		writeAccount(round, address, accountData, sigtypeDelta, batch)
 	}
-}
 
-func writeDeletedCreatables(round basics.Round, creatables map[basics.CreatableIndex]ledgercore.ModifiedCreatable, batch *pgx.Batch) {
-	for index, creatable := range creatables {
-		// If deleted.
-		if !creatable.Created {
-			creator := new(basics.Address)
-			*creator = creatable.Creator
-
-			if creatable.Ctype == basics.AssetCreatable {
-				batch.Queue(deleteAssetStmtName, uint64(index), creator[:], uint64(round))
-			} else {
-				batch.Queue(deleteAppStmtName, uint64(index), creator[:], uint64(round))
-			}
+	// Update `asset` and `account_asset` tables.
+	{
+		assetResources := accountDeltas.GetAllAssetResources()
+		for i := range assetResources {
+			writeAssetResource(round, &assetResources[i], batch)
 		}
 	}
-}
 
-func writeDeletedAssetHoldings(round basics.Round, modifiedAssetHoldings map[ledgercore.AccountAsset]bool, batch *pgx.Batch) {
-	for aa, created := range modifiedAssetHoldings {
-		if !created {
-			address := new(basics.Address)
-			*address = aa.Address
-
-			batch.Queue(
-				deleteAccountAssetStmtName, address[:], uint64(aa.Asset), uint64(round))
-		}
-	}
-}
-
-func writeDeletedAppLocalStates(round basics.Round, modifiedAppLocalStates map[ledgercore.AccountApp]bool, batch *pgx.Batch) {
-	for aa, created := range modifiedAppLocalStates {
-		if !created {
-			address := new(basics.Address)
-			*address = aa.Address
-
-			batch.Queue(deleteAccountAppStmtName, address[:], uint64(aa.App), uint64(round))
+	// Update `app` and `account_app` tables.
+	{
+		appResources := accountDeltas.GetAllAppResources()
+		for i := range appResources {
+			writeAppResource(round, &appResources[i], batch)
 		}
 	}
 }
@@ -345,11 +337,8 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		writeAccounts(block.Round(), delta.Accts, sigTypeDeltas, &batch)
+		writeAccountDeltas(block.Round(), &delta.Accts, sigTypeDeltas, &batch)
 	}
-	writeDeletedCreatables(block.Round(), delta.Creatables, &batch)
-	writeDeletedAssetHoldings(block.Round(), delta.ModifiedAssetHoldings, &batch)
-	writeDeletedAppLocalStates(block.Round(), delta.ModifiedAppLocalStates, &batch)
 	batch.Queue(updateAccountTotalsStmtName, encoding.EncodeAccountTotals(&delta.Totals))
 
 	results := w.tx.SendBatch(context.Background(), &batch)
