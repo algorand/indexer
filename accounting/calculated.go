@@ -20,7 +20,7 @@ import (
 func EnrichMinBalance(account *generated.Account, consensusVersion *protocol.ConsensusVersion) error {
 	if consensusVersion == nil {
 		return fmt.Errorf("cannot EnrichMinBalance as consensus version is missing")
-	}	
+	}
 	proto, ok := config.Consensus[*consensusVersion]
 	if !ok {
 		return fmt.Errorf("cannot EnrichMinBalance as consensus version %s is unknown", *consensusVersion)

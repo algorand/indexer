@@ -608,6 +608,7 @@ func TestFetchTransactions(t *testing.T) {
 }
 
 var mockCV = protocol.ConsensusVersion("this is a mock, this is only a mock")
+
 func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 	ch := make(chan idb.AccountRow)
 	close(ch)
