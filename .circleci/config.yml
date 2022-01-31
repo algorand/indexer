@@ -23,7 +23,7 @@ workflows:
           cron: "37 3 * * *"
           filters:
             branches:
-              only: develop
+              only: compare2algod
     jobs:
       - test-nightly:
           name: nightly_test_with_go_<< matrix.go_version >>
