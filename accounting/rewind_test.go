@@ -1,6 +1,7 @@
 package accounting
 
 import (
+	"context"
 	"errors"
 	"testing"
 
@@ -26,20 +27,19 @@ func TestBasic(t *testing.T) {
 		Round:                       8,
 	}
 
-	txnBytes := protocol.Encode(&transactions.SignedTxnWithAD{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: protocol.PaymentTx,
-				PaymentTxnFields: transactions.PaymentTxnFields{
-					Receiver: a,
-					Amount:   basics.MicroAlgos{Raw: 2},
+	txnRow := idb.TxnRow{
+		Round: 7,
+		Txn: &transactions.SignedTxnWithAD{
+			SignedTxn: transactions.SignedTxn{
+				Txn: transactions.Transaction{
+					Type: protocol.PaymentTx,
+					PaymentTxnFields: transactions.PaymentTxnFields{
+						Receiver: a,
+						Amount:   basics.MicroAlgos{Raw: 2},
+					},
 				},
 			},
 		},
-	})
-	txnRow := idb.TxnRow{
-		Round:    7,
-		TxnBytes: txnBytes,
 	}
 
 	ch := make(chan idb.TxnRow, 1)
@@ -48,10 +48,10 @@ func TestBasic(t *testing.T) {
 	var outCh <-chan idb.TxnRow = ch
 
 	db := &mocks.IndexerDb{}
-	db.On("GetSpecialAccounts").Return(transactions.SpecialAddresses{}, nil)
+	db.On("GetSpecialAccounts", mock.Anything).Return(transactions.SpecialAddresses{}, nil)
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(8))
 
-	account, err := AccountAtRound(account, 6, db)
+	account, err := AccountAtRound(context.Background(), account, 6, db)
 	assert.NoError(t, err)
 
 	assert.Equal(t, uint64(98), account.Amount)
@@ -73,6 +73,6 @@ func TestStaleTransactions1(t *testing.T) {
 	db.On("GetSpecialAccounts").Return(transactions.SpecialAddresses{}, nil)
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
 
-	account, err := AccountAtRound(account, 6, db)
+	account, err := AccountAtRound(context.Background(), account, 6, db)
 	assert.True(t, errors.As(err, &ConsistencyError{}), "err: %v", err)
 }

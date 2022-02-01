@@ -1,14 +1,14 @@
-| master [![CircleCI](https://circleci.com/gh/algorand/indexer/tree/master.svg?style=svg)](https://circleci.com/gh/algorand/indexer/tree/master) | develop [![CircleCI](https://circleci.com/gh/algorand/indexer/tree/develop.svg?style=svg)](https://circleci.com/gh/algorand/indexer/tree/develop) |
+| master <br> [![CircleCI](https://circleci.com/gh/algorand/indexer/tree/master.svg?style=svg)](https://circleci.com/gh/algorand/indexer/tree/master) | develop <br> [![CircleCI](https://circleci.com/gh/algorand/indexer/tree/develop.svg?style=svg)](https://circleci.com/gh/algorand/indexer/tree/develop) |
 | --- | --- |
 
 # Algorand Indexer
 
 The Indexer is a standalone service that reads committed blocks from the Algorand blockchain and maintains a database of transactions and accounts that are searchable and indexed.
 
-# Minimum Version Requirements
+# Tested Requirements Versions
 
 * [go 1.13](https://golang.org/dl/)
-* [Postgres 11](https://www.postgresql.org/download/)
+* [Postgres 13](https://www.postgresql.org/download/)
 
 # Quickstart
 
@@ -78,6 +78,8 @@ There are two primary modes of operation:
 ### Database updater
 In this mode, the database will be populated with data fetched from an [Algorand archival node](https://developer.algorand.org/docs/run-a-node/setup/types/#archival-mode). Because every block must be fetched to bootstrap the database, the initial import for a ledger with a long history will take a while. If the daemon is terminated, it will resume processing wherever it left off.
 
+Keeping the indexer daemon as close as possible to the database helps minimize latency. For example, if using AWS EC2 and RDS, we suggest putting EC2 in the same VPC, Region, and even Availability Zone.
+
 You should use a process manager, like systemd, to ensure the daemon is always running. Indexer will continue to update the database as new blocks are created.
 
 To start indexer as a daemon in update mode, provide the required fields:
@@ -115,11 +117,18 @@ When `--token your-token` is provided, an authentication header is required. For
 The `/metrics` endpoint is configured with the `--metrics-mode` option and configures if and how [Prometheus](https://prometheus.io/) formatted metrics are generated.
 
 There are different settings:
+
 | Setting | Description |
 | ------- | ----------- |
 | ON      | Metrics for each REST endpoint in addition to application metrics. |
 | OFF     | No metrics endpoint. |
 | VERBOSE | Separate metrics for each combination of query parameters. This option should be used with caution, there are many combinations of query parameters which could cause extra memory load depending on usage patterns. |
+
+## Connection Pool Settings
+
+One can set the maximum number of connections allowed in the local connection pool by using the `--max-conn` setting.  It is recommended to set this number to be below the database server connection pool limit.
+ 
+If the maximum number of connections/active queries is reached, subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting.
 
 # Settings
 
@@ -138,6 +147,7 @@ Settings can be provided from the command line, a configuration file, or an envi
 | token                    | t       | api-token                  | INDEXER_API_TOKEN                  |
 | dev-mode                 |         | dev-mode                   | INDEXER_DEV_MODE                   |
 | metrics-mode             |         | metrics-mode               | INDEXER_METRICS_MODE               |
+| max-conn                 |         | max-conn                   | INDEXER_MAX_CONN                   |
 
 ## Command line
 
@@ -151,7 +161,8 @@ The command line arguments always take priority over the config file and environ
 ## Configuration file
 Default values are placed in the configuration file. They can be overridden with environment variables and command line arguments.
 
-The configuration file must named **indexer**, **indexer.yml**, or **indexer.yaml**. It must also be in the correct location. Only one configuration file is loaded, the path is searched in the following order:
+The configuration file must named **indexer**, **indexer.yml**, or **indexer.yaml**. The filepath may be set on the CLI using `--configfile` or `-c`. 
+When the filepath is not provided on the CLI, it must also be in the correct location. Only one configuration file is loaded, the path is searched in the following order:
 * `./` (current working directory)
 * `$HOME`
 * `$HOME/.algorand-indexer`
@@ -168,6 +179,11 @@ algod-data-dir: "/var/lib/algorand"
 If it is in the current working directory along with the indexer command we can start the indexer daemon with:
 ```
 ~$ ./algorand-indexer daemon
+```
+
+If it is not in the current working directory along with the indexer command we can start the indexer daemon with:
+```
+~$ ./algorand-indexer daemon -c <full-file-location>/indexer.yml
 ```
 
 ## Example environment variable

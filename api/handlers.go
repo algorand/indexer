@@ -112,10 +112,12 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	var errors []string
 	var health idb.Health
 
-	err = callWithTimeout(ctx.Request().Context(), si.log, si.timeout, func(ctx context.Context) error {
-		health, err = si.db.Health()
-		return err
-	})
+	err = callWithTimeout(
+		ctx.Request().Context(), si.log, si.timeout, func(ctx context.Context) error {
+			var err error
+			health, err = si.db.Health(ctx)
+			return err
+		})
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedLookingUpHealth, err))
 	}
@@ -680,20 +682,6 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 				},
 			}
 
-			// In case the DB layer filled the name with non-printable utf8
-			if asset.Params.Name != nil {
-				name := util.PrintableUTF8OrEmpty(*asset.Params.Name)
-				asset.Params.Name = &name
-			}
-			if asset.Params.UnitName != nil {
-				unit := util.PrintableUTF8OrEmpty(*asset.Params.UnitName)
-				asset.Params.UnitName = &unit
-			}
-			if asset.Params.Url != nil {
-				url := util.PrintableUTF8OrEmpty(*asset.Params.Url)
-				asset.Params.Url = &url
-			}
-
 			assets = append(assets, asset)
 		}
 		return nil
@@ -796,10 +784,16 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 
 		results := make([]generated.Transaction, 0)
 		for _, txrow := range transactions {
+			// Do not include inner transactions.
+			if txrow.RootTxn != nil {
+				continue
+			}
+
 			tx, err := txnRowToTransaction(txrow)
 			if err != nil {
 				return err
 			}
+
 			results = append(results, tx)
 		}
 
@@ -834,7 +828,7 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 			// Compute for a given round if requested.
 			var account generated.Account
 			if atRound != nil {
-				acct, err := accounting.AccountAtRound(row.Account, *atRound, si.db)
+				acct, err := accounting.AccountAtRound(ctx, row.Account, *atRound, si.db)
 				if err != nil {
 					// Ignore the error if this is an account search rewind error
 					_, isSpecialAccountRewindError := err.(*accounting.SpecialAccountRewindError)

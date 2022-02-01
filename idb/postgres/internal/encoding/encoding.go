@@ -2,6 +2,7 @@ package encoding
 
 import (
 	"encoding/base64"
+	"fmt"
 
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
@@ -665,4 +666,20 @@ func DecodeAccountTotals(data []byte) (ledgercore.AccountTotals, error) {
 	}
 
 	return res, nil
+}
+
+// EncodeNetworkState encodes network metastate into json.
+func EncodeNetworkState(state *types.NetworkState) []byte {
+	return encodeJSON(state)
+}
+
+// DecodeNetworkState decodes network metastate from json.
+func DecodeNetworkState(data []byte) (types.NetworkState, error) {
+	var state types.NetworkState
+	err := DecodeJSON(data, &state)
+	if err != nil {
+		return types.NetworkState{}, fmt.Errorf("DecodeNetworkState() err: %w", err)
+	}
+
+	return state, nil
 }

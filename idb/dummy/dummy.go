@@ -20,6 +20,9 @@ func IndexerDb() idb.IndexerDb {
 	return &dummyIndexerDb{}
 }
 
+func (db *dummyIndexerDb) Close() {
+}
+
 func (db *dummyIndexerDb) AddBlock(block *bookkeeping.Block) error {
 	db.log.Printf("AddBlock")
 	return nil
@@ -41,7 +44,7 @@ func (db *dummyIndexerDb) GetNextRoundToLoad() (uint64, error) {
 }
 
 // GetSpecialAccounts is part of idb.IndexerDb
-func (db *dummyIndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error) {
+func (db *dummyIndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error) {
 	return transactions.SpecialAddresses{}, nil
 }
 
@@ -76,6 +79,16 @@ func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.Searc
 }
 
 // Health is part of idb.IndexerDB
-func (db *dummyIndexerDb) Health() (state idb.Health, err error) {
+func (db *dummyIndexerDb) Health(ctx context.Context) (state idb.Health, err error) {
 	return idb.Health{}, nil
+}
+
+// GetNetworkState is part of idb.IndexerDB
+func (db *dummyIndexerDb) GetNetworkState() (state idb.NetworkState, err error) {
+	return idb.NetworkState{}, nil
+}
+
+// SetNetworkState is part of idb.IndexerDB
+func (db *dummyIndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
+	return nil
 }

@@ -2,6 +2,8 @@ package middlewares
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -28,8 +30,12 @@ func TestMigrationMiddlewareWaiting(t *testing.T) {
 	}
 
 	mockIndexer.On("Health", mock.Anything, mock.Anything).Return(hMigrating, nil)
+
 	handler := MakeMigrationMiddleware(mockIndexer)(success)
-	err := handler(e.NewContext(nil, nil))
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	c := e.NewContext(req, nil)
+	err := handler(c)
 
 	require.Error(t, err, DBUnavailableError, `'IsMigrating' is true, so we should see an DBUnavailableError`)
 }
@@ -42,8 +48,12 @@ func TestMigrationMiddlewareDone(t *testing.T) {
 	}
 
 	mockIndexer.On("Health", mock.Anything, mock.Anything).Return(hReady, nil)
+
 	handler := MakeMigrationMiddleware(mockIndexer)(success)
-	err := handler(e.NewContext(nil, nil))
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	c := e.NewContext(req, nil)
+	err := handler(c)
 
 	require.Error(t, err, errSuccess.Error(), `'IsMigrating' is false, so errSuccess should pass through`)
 }

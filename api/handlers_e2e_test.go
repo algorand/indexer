@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -29,13 +30,18 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeepin
 	db, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 
+	newShutdownFunc := func() {
+		db.Close()
+		shutdownFunc()
+	}
+
 	err = db.LoadGenesis(genesis)
 	require.NoError(t, err)
 
 	err = db.AddBlock(&genesisBlock)
 	require.NoError(t, err)
 
-	return db, shutdownFunc
+	return db, newShutdownFunc
 }
 
 func TestApplicationHander(t *testing.T) {
@@ -300,6 +306,36 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 			}
 		})
 	}
+
+	// Test block endpoint deduplication
+	t.Run("Deduplicate Transactions In Block", func(t *testing.T) {
+		//////////
+		// When // we fetch the block
+		//////////
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/blocks/")
+
+		// Get first page with limit 1.
+		// Address filter causes results to return newest to oldest.
+		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		err = api.LookupBlock(c, uint64(block.Round()))
+		require.NoError(t, err)
+
+		//////////
+		// Then // There should be a single transaction which has inner transactions
+		//////////
+		var response generated.BlockResponse
+		require.Equal(t, http.StatusOK, rec.Code)
+		json.Decode(rec.Body.Bytes(), &response)
+
+		require.NotNil(t, response.Transactions)
+		require.Len(t, *response.Transactions, 1)
+		require.NotNil(t, (*response.Transactions)[0])
+		require.Len(t, *(*response.Transactions)[0].InnerTxns, 2)
+	})
 }
 
 func TestVersion(t *testing.T) {
@@ -332,4 +368,96 @@ func TestVersion(t *testing.T) {
 	require.False(t, response.IsMigrating)
 	// This is weird looking because the version is set with -ldflags
 	require.Equal(t, response.Version, "(unknown version)")
+}
+
+func TestAccountClearsNonUTF8(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // a DB with some inner txns in it.
+	///////////
+	//var createAddr basics.Address
+	//createAddr[1] = 99
+	//createAddrStr := createAddr.String()
+
+	assetName := "valid"
+	//url := "https://my.embedded.\000.null.asset"
+	urlBytes, _ := base64.StdEncoding.DecodeString("8J+qmSBNb25leQ==")
+	url := string(urlBytes)
+	unitName := "asset\rwith\nnon-printable\tcharacters"
+	createAsset := test.MakeAssetConfigTxn(0, 100, 0, false, unitName, assetName, url, test.AccountA)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAsset)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err, "failed to commit")
+
+	verify := func(params generated.AssetParams) {
+		compareB64 := func(expected string, actual *[]byte) {
+			actualStr := string(*actual)
+			require.Equal(t, expected, actualStr)
+		}
+
+		// In all cases, the B64 encoded names should be the same.
+		compareB64(assetName, params.NameB64)
+		compareB64(unitName, params.UnitNameB64)
+		compareB64(url, params.UrlB64)
+
+		require.Equal(t, assetName, *params.Name, "valid utf8 should remain")
+		require.Nil(t, params.UnitName, "null bytes should not be displayed")
+		require.Nil(t, params.Url, "non printable characters should not be displayed")
+	}
+
+	{
+		//////////
+		// When // we lookup the asset
+		//////////
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/assets/")
+
+		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		err = api.SearchForAssets(c, generated.SearchForAssetsParams{})
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		var response generated.AssetsResponse
+		json.Decode(rec.Body.Bytes(), &response)
+
+		//////////
+		// Then // we should find one asset with the expected string encodings
+		//////////
+		require.Len(t, response.Assets, 1)
+		verify(response.Assets[0].Params)
+	}
+
+	{
+		//////////
+		// When // we lookup the account
+		//////////
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/accounts/")
+
+		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		err = api.LookupAccountByID(c, test.AccountA.String(), generated.LookupAccountByIDParams{})
+		require.NoError(t, err)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		var response generated.AccountResponse
+		json.Decode(rec.Body.Bytes(), &response)
+
+		//////////
+		// Then // we should find one asset with the expected string encodings
+		//////////
+		require.NotNil(t, response.Account.CreatedAssets, 1)
+		require.Len(t, *response.Account.CreatedAssets, 1)
+		verify((*response.Account.CreatedAssets)[0].Params)
+	}
 }

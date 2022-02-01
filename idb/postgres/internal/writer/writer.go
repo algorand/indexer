@@ -10,30 +10,29 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
 
-	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 )
 
 const (
-	addBlockHeaderStmtName       = "add_block_header"
-	setSpecialAccountsStmtName   = "set_special_accounts"
-	upsertAssetStmtName          = "upsert_asset"
-	upsertAccountAssetStmtName   = "upsert_account_asset"
-	upsertAppStmtName            = "upsert_app"
-	upsertAccountAppStmtName     = "upsert_account_app"
-	deleteAccountStmtName        = "delete_account"
-	upsertAccountStmtName        = "upsert_account"
-	deleteAssetStmtName          = "delete_asset"
-	deleteAccountAssetStmtName   = "delete_account_asset"
-	deleteAppStmtName            = "delete_app"
-	deleteAccountAppStmtName     = "delete_account_app"
-	updateAccountKeyTypeStmtName = "update_account_key_type"
-	updateAccountTotalsStmtName  = "update_account_totals"
+	addBlockHeaderStmtName             = "add_block_header"
+	setSpecialAccountsStmtName         = "set_special_accounts"
+	upsertAssetStmtName                = "upsert_asset"
+	upsertAccountAssetStmtName         = "upsert_account_asset"
+	upsertAppStmtName                  = "upsert_app"
+	upsertAccountAppStmtName           = "upsert_account_app"
+	deleteAccountStmtName              = "delete_account"
+	deleteAccountUpdateKeytypeStmtName = "delete_account_update_keytype"
+	upsertAccountStmtName              = "upsert_account"
+	upsertAccountWithKeytypeStmtName   = "upsert_account_with_keytype"
+	deleteAssetStmtName                = "delete_asset"
+	deleteAccountAssetStmtName         = "delete_account_asset"
+	deleteAppStmtName                  = "delete_app"
+	deleteAccountAppStmtName           = "delete_account_app"
+	updateAccountTotalsStmtName        = "update_account_totals"
 )
 
 var statements = map[string]string{
@@ -61,16 +60,31 @@ var statements = map[string]string{
 		localstate = EXCLUDED.localstate, deleted = FALSE`,
 	deleteAccountStmtName: `INSERT INTO account
 		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, closed_at,
-			account_data)
+		 account_data)
 		VALUES($1, 0, 0, 0, TRUE, $2, $2, 'null'::jsonb) ON CONFLICT (addr) DO UPDATE SET
 		microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
 		rewards_total = EXCLUDED.rewards_total, deleted = TRUE,
 		closed_at = EXCLUDED.closed_at, account_data = EXCLUDED.account_data`,
+	deleteAccountUpdateKeytypeStmtName: `INSERT INTO account
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, closed_at,
+		 keytype, account_data)
+		VALUES($1, 0, 0, 0, TRUE, $2, $2, $3, 'null'::jsonb) ON CONFLICT (addr) DO UPDATE SET
+		microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
+		rewards_total = EXCLUDED.rewards_total, deleted = TRUE,
+		closed_at = EXCLUDED.closed_at, keytype = EXCLUDED.keytype,
+		account_data = EXCLUDED.account_data`,
 	upsertAccountStmtName: `INSERT INTO account
 		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, account_data)
 		VALUES($1, $2, $3, $4, FALSE, $5, $6) ON CONFLICT (addr) DO UPDATE SET
 		microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
 		rewards_total = EXCLUDED.rewards_total, deleted = FALSE,
+		account_data = EXCLUDED.account_data`,
+	upsertAccountWithKeytypeStmtName: `INSERT INTO account
+		(addr, microalgos, rewardsbase, rewards_total, deleted, created_at, keytype,
+		 account_data)
+		VALUES($1, $2, $3, $4, FALSE, $5, $6, $7) ON CONFLICT (addr) DO UPDATE SET
+		microalgos = EXCLUDED.microalgos, rewardsbase = EXCLUDED.rewardsbase,
+		rewards_total = EXCLUDED.rewards_total, deleted = FALSE, keytype = EXCLUDED.keytype,
 		account_data = EXCLUDED.account_data`,
 	deleteAssetStmtName: `INSERT INTO asset
 		(index, creator_addr, params, deleted, created_at, closed_at)
@@ -90,7 +104,6 @@ var statements = map[string]string{
 		(addr, app, localstate, deleted, created_at, closed_at)
 		VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (addr, app) DO UPDATE SET
 		localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at`,
-	updateAccountKeyTypeStmtName: `UPDATE account SET keytype = $1 WHERE addr = $2`,
 	updateAccountTotalsStmtName: `UPDATE metastate SET v = $1 WHERE k = '` +
 		schema.AccountTotals + `'`,
 }
@@ -135,236 +148,37 @@ func setSpecialAccounts(addresses transactions.SpecialAddresses, batch *pgx.Batc
 	batch.Queue(setSpecialAccountsStmtName, j)
 }
 
-// Get the ID of the creatable referenced in the given transaction
-// (0 if not an asset or app transaction).
-// Note: ConsensusParams.MaxInnerTransactions could be overridden to force
-//       generating ApplyData.{ApplicationID/ConfigAsset}. This function does
-//       other things too, so it is not clear we should use it. The only
-//       real benefit is that it would slightly simplify this function by
-//       allowing us to leave out the intra / block parameters.
-func transactionAssetID(stxnad *transactions.SignedTxnWithAD, intra uint, block *bookkeeping.Block) (uint64, error) {
-	assetid := uint64(0)
+// Describes a change to the `account.keytype` column. If `present` is true,
+// `value` is the new value. Otherwise, NULL will be the new value.
+type sigTypeDelta struct {
+	present bool
+	value   idb.SigType
+}
 
-	switch stxnad.Txn.Type {
-	case protocol.ApplicationCallTx:
-		assetid = uint64(stxnad.Txn.ApplicationID)
-		if assetid == 0 {
-			assetid = uint64(stxnad.ApplyData.ApplicationID)
-		}
-		if assetid == 0 {
-			if block == nil {
-				return 0, fmt.Errorf("transactionAssetID(): Missing ApplicationID for transaction: %s", stxnad.ID())
+func getSigTypeDeltas(payset []transactions.SignedTxnInBlock) (map[basics.Address]sigTypeDelta, error) {
+	res := make(map[basics.Address]sigTypeDelta, len(payset))
+
+	for i := range payset {
+		if payset[i].Txn.RekeyTo == (basics.Address{}) {
+			sigtype, err := idb.SignatureType(&payset[i].SignedTxn)
+			if err != nil {
+				return nil, fmt.Errorf("getSigTypeDelta() err: %w", err)
 			}
-			// pre v30 transactions do not have ApplyData.ConfigAsset or InnerTxns
-			// so txn counter + payset pos calculation is OK
-			assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
+			res[payset[i].Txn.Sender] = sigTypeDelta{present: true, value: sigtype}
+		} else {
+			res[payset[i].Txn.Sender] = sigTypeDelta{}
 		}
-	case protocol.AssetConfigTx:
-		assetid = uint64(stxnad.Txn.ConfigAsset)
-		if assetid == 0 {
-			assetid = uint64(stxnad.ApplyData.ConfigAsset)
-		}
-		if assetid == 0 {
-			if block == nil {
-				return 0, fmt.Errorf("transactionAssetID(): Missing ConfigAsset for transaction: %s", stxnad.ID())
-			}
-			// pre v30 transactions do not have ApplyData.ApplicationID or InnerTxns
-			// so txn counter + payset pos calculation is OK
-			assetid = block.TxnCounter - uint64(len(block.Payset)) + uint64(intra) + 1
-		}
-	case protocol.AssetTransferTx:
-		assetid = uint64(stxnad.Txn.XferAsset)
-	case protocol.AssetFreezeTx:
-		assetid = uint64(stxnad.Txn.FreezeAsset)
 	}
 
-	return assetid, nil
+	return res, nil
 }
 
-// addInnerTransactions traverses the inner transaction tree and adds them to
-// the transaction table. It performs a preorder traversal to correctly compute
-// the intra round offset, the offset for the next transaction is returned.
-func (w *Writer) addInnerTransactions(stxnad *transactions.SignedTxnWithAD, block *bookkeeping.Block, intra, rootIntra uint, rootTxid string, rows [][]interface{}) (uint, [][]interface{}, error) {
-	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
-		txn := &itxn.Txn
-		typeenum, ok := idb.GetTypeEnum(txn.Type)
-		if !ok {
-			return 0, nil, fmt.Errorf("addInnerTransactions() get type enum")
-		}
-		// block shouldn't be used for inner transactions.
-		assetid, err := transactionAssetID(&itxn, 0, nil)
-		if err != nil {
-			return 0, nil, err
-		}
-		extra := idb.TxnExtra{
-			AssetCloseAmount: itxn.ApplyData.AssetClosingAmount,
-			RootIntra:        idb.OptionalUint{Present: true, Value: rootIntra},
-			RootTxid:         rootTxid,
-		}
-
-		// When encoding an inner transaction we remove any further nested inner transactions.
-		// To reconstruct a full object the root transaction must be fetched.
-		txnNoInner := *stxnad
-		txnNoInner.EvalDelta.InnerTxns = nil
-		rows = append(rows, []interface{}{
-			uint64(block.Round()), intra, int(typeenum), assetid,
-			nil, // inner transactions do not have a txid.
-			nil, // txn bytes are only in the parent.
-			encoding.EncodeSignedTxnWithAD(txnNoInner),
-			encoding.EncodeTxnExtra(&extra)})
-
-		// Recurse at end for preorder traversal
-		intra, rows, err =
-			w.addInnerTransactions(&itxn, block, intra+1, rootIntra, rootTxid, rows)
-		if err != nil {
-			return 0, nil, err
-		}
-	}
-
-	return intra, rows, nil
+type optionalSigTypeDelta struct {
+	present bool
+	value   sigTypeDelta
 }
 
-// Add transactions from `block` to the database. `modifiedTxns` contains enhanced
-// apply data generated by evaluator.
-func (w *Writer) addTransactions(block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock) error {
-	var rows [][]interface{}
-
-	intra := uint(0)
-	for idx, stib := range block.Payset {
-		var stxnad transactions.SignedTxnWithAD
-		var err error
-		// This function makes sure to set correct genesis information so we can get the
-		// correct transaction hash.
-		stxnad.SignedTxn, stxnad.ApplyData, err = block.BlockHeader.DecodeSignedTxn(stib)
-		if err != nil {
-			return fmt.Errorf("addTransactions() decode signed txn err: %w", err)
-		}
-
-		txn := &stxnad.Txn
-		typeenum, ok := idb.GetTypeEnum(txn.Type)
-		if !ok {
-			return fmt.Errorf("addTransactions() get type enum")
-		}
-		assetid, err := transactionAssetID(&stxnad, intra, block)
-		if err != nil {
-			return err
-		}
-		id := txn.ID().String()
-
-		extra := idb.TxnExtra{
-			AssetCloseAmount: modifiedTxns[idx].ApplyData.AssetClosingAmount,
-		}
-		rows = append(rows, []interface{}{
-			uint64(block.Round()), intra, int(typeenum), assetid, id,
-			protocol.Encode(&stxnad),
-			encoding.EncodeSignedTxnWithAD(stxnad),
-			encoding.EncodeTxnExtra(&extra)})
-
-		intra, rows, err = w.addInnerTransactions(&stib.SignedTxnWithAD, block, intra+1, intra, id, rows)
-		if err != nil {
-			return fmt.Errorf("addTransactions() adding inner: %w", err)
-		}
-	}
-
-	_, err := w.tx.CopyFrom(
-		context.Background(),
-		pgx.Identifier{"txn"},
-		[]string{"round", "intra", "typeenum", "asset", "txid", "txnbytes", "txn", "extra"},
-		pgx.CopyFromRows(rows))
-	if err != nil {
-		return fmt.Errorf("addTransactions() copy from err: %w", err)
-	}
-
-	return nil
-}
-
-// getTransactionParticipants returns referenced addresses from the txn and all inner txns
-func getTransactionParticipants(stxnad *transactions.SignedTxnWithAD, includeInner bool) []basics.Address {
-	const acctsPerTxn = 7
-
-	if !includeInner || len(stxnad.ApplyData.EvalDelta.InnerTxns) == 0 {
-		// if no inner transactions then adding into a slice with in-place de-duplication
-		res := make([]basics.Address, 0, acctsPerTxn)
-		add := func(address basics.Address) {
-			for _, p := range res {
-				if address == p {
-					return
-				}
-			}
-			res = append(res, address)
-		}
-
-		accounting.GetTransactionParticipants(stxnad, includeInner, add)
-		return res
-	}
-
-	// inner transactions might have inner transactions might have inner...
-	// so the resultant slice is created after collecting all the data from nested transactions.
-	// this is probably a bit slower than the default case due to two mem allocs and additional iterations
-	size := acctsPerTxn * (1 + len(stxnad.ApplyData.EvalDelta.InnerTxns)) // approx
-	participants := make(map[basics.Address]struct{}, size)
-	add := func(address basics.Address) {
-		participants[address] = struct{}{}
-	}
-
-	accounting.GetTransactionParticipants(stxnad, includeInner, add)
-
-	res := make([]basics.Address, 0, len(participants))
-	for addr := range participants {
-		res = append(res, addr)
-	}
-
-	return res
-}
-
-// addInnerTransactionParticipation traverses the inner transaction tree and
-// adds txn participation records for each. It performs a preorder traversal
-// to correctly compute the intra round offset, the offset for the next
-// transaction is returned.
-func addInnerTransactionParticipation(stxnad *transactions.SignedTxnWithAD, round, intra uint64, rows [][]interface{}) (uint64, [][]interface{}) {
-	next := intra
-	for _, itxn := range stxnad.ApplyData.EvalDelta.InnerTxns {
-		// Only search inner transactions by direct participation.
-		// TODO: Should inner app calls be surfaced by their participants?
-		participants := getTransactionParticipants(&itxn, false)
-
-		for j := range participants {
-			rows = append(rows, []interface{}{participants[j][:], round, next})
-		}
-
-		next, rows = addInnerTransactionParticipation(&itxn, round, next+1, rows)
-	}
-	return next, rows
-
-}
-
-func (w *Writer) addTransactionParticipation(block *bookkeeping.Block) error {
-	var rows [][]interface{}
-	next := uint64(0)
-
-	for _, stxnib := range block.Payset {
-		participants := getTransactionParticipants(&stxnib.SignedTxnWithAD, true)
-
-		for j := range participants {
-			rows = append(rows, []interface{}{participants[j][:], uint64(block.Round()), next})
-		}
-
-		next, rows = addInnerTransactionParticipation(&stxnib.SignedTxnWithAD, uint64(block.Round()), next+1, rows)
-	}
-
-	_, err := w.tx.CopyFrom(
-		context.Background(),
-		pgx.Identifier{"txn_participation"},
-		[]string{"addr", "round", "intra"},
-		pgx.CopyFromRows(rows))
-	if err != nil {
-		return fmt.Errorf("addTransactionParticipation() copy from err: %w", err)
-	}
-
-	return nil
-}
-
-func writeAccountData(round basics.Round, address basics.Address, accountData basics.AccountData, batch *pgx.Batch) {
+func writeAccount(round basics.Round, address basics.Address, accountData basics.AccountData, sigtypeDelta optionalSigTypeDelta, batch *pgx.Batch) {
 	// Update `asset` table.
 	for assetid, params := range accountData.AssetParams {
 		batch.Queue(
@@ -394,26 +208,56 @@ func writeAccountData(round basics.Round, address basics.Address, accountData ba
 			address[:], uint64(appid), encoding.EncodeAppLocalState(state), uint64(round))
 	}
 
+	sigtypeFunc := func(delta sigTypeDelta) *idb.SigType {
+		if !delta.present {
+			return nil
+		}
+
+		res := new(idb.SigType)
+		*res = delta.value
+		return res
+	}
+
 	// Update `account` table.
 	if accountData.IsZero() {
 		// Delete account.
-		batch.Queue(deleteAccountStmtName, address[:], uint64(round))
+		if sigtypeDelta.present {
+			batch.Queue(
+				deleteAccountUpdateKeytypeStmtName,
+				address[:], uint64(round), sigtypeFunc(sigtypeDelta.value))
+		} else {
+			batch.Queue(deleteAccountStmtName, address[:], uint64(round))
+		}
 	} else {
 		// Update account.
 		accountDataJSON :=
 			encoding.EncodeTrimmedAccountData(encoding.TrimAccountData(accountData))
-		batch.Queue(
-			upsertAccountStmtName,
-			address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
-			accountData.RewardedMicroAlgos.Raw, uint64(round), accountDataJSON)
+
+		if sigtypeDelta.present {
+			batch.Queue(
+				upsertAccountWithKeytypeStmtName,
+				address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
+				accountData.RewardedMicroAlgos.Raw, uint64(round),
+				sigtypeFunc(sigtypeDelta.value), accountDataJSON)
+		} else {
+			batch.Queue(
+				upsertAccountStmtName,
+				address[:], accountData.MicroAlgos.Raw, accountData.RewardsBase,
+				accountData.RewardedMicroAlgos.Raw, uint64(round),
+				accountDataJSON)
+		}
 	}
 }
 
-func writeAccountDeltas(round basics.Round, deltas ledgercore.AccountDeltas, batch *pgx.Batch) {
+func writeAccounts(round basics.Round, accountDeltas ledgercore.AccountDeltas, sigtypeDeltas map[basics.Address]sigTypeDelta, batch *pgx.Batch) {
 	// Update `account` table.
-	for i := 0; i < deltas.Len(); i++ {
-		address, accountData := deltas.GetByIdx(i)
-		writeAccountData(round, address, accountData, batch)
+	for i := 0; i < accountDeltas.Len(); i++ {
+		address, accountData := accountDeltas.GetByIdx(i)
+
+		var sigtypeDelta optionalSigTypeDelta
+		sigtypeDelta.value, sigtypeDelta.present = sigtypeDeltas[address]
+
+		writeAccount(round, address, accountData, sigtypeDelta, batch)
 	}
 }
 
@@ -456,30 +300,6 @@ func writeDeletedAppLocalStates(round basics.Round, modifiedAppLocalStates map[l
 	}
 }
 
-func writeStateDelta(round basics.Round, delta ledgercore.StateDelta, batch *pgx.Batch) {
-	writeAccountDeltas(round, delta.Accts, batch)
-	writeDeletedCreatables(round, delta.Creatables, batch)
-	writeDeletedAssetHoldings(round, delta.ModifiedAssetHoldings, batch)
-	writeDeletedAppLocalStates(round, delta.ModifiedAppLocalStates, batch)
-	batch.Queue(updateAccountTotalsStmtName, encoding.EncodeAccountTotals(&delta.Totals))
-}
-
-func updateAccountSigType(payset []transactions.SignedTxnInBlock, batch *pgx.Batch) error {
-	for i := range payset {
-		if payset[i].Txn.RekeyTo == (basics.Address{}) {
-			sigtype, err := idb.SignatureType(&payset[i].SignedTxn)
-			if err != nil {
-				return fmt.Errorf("updateAccountSigType() err: %w", err)
-			}
-			batch.Queue(updateAccountKeyTypeStmtName, sigtype, payset[i].Txn.Sender[:])
-		} else {
-			batch.Queue(updateAccountKeyTypeStmtName, nil, payset[i].Txn.Sender[:])
-		}
-	}
-
-	return nil
-}
-
 // AddBlock0 writes block 0 to the database.
 func (w *Writer) AddBlock0(block *bookkeeping.Block) error {
 	var batch pgx.Batch
@@ -508,17 +328,10 @@ func (w *Writer) AddBlock0(block *bookkeeping.Block) error {
 	return nil
 }
 
-// AddBlock writes the block and accounting state deltas to the database.
+// AddBlock writes the block and accounting state deltas to the database, except for
+// transactions and transaction participation. Those are imported by free functions in
+// the writer/ directory.
 func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.SignedTxnInBlock, delta ledgercore.StateDelta) error {
-	err := w.addTransactions(block, modifiedTxns)
-	if err != nil {
-		return fmt.Errorf("AddBlock() err: %w", err)
-	}
-	err = w.addTransactionParticipation(block)
-	if err != nil {
-		return fmt.Errorf("AddBlock() err: %w", err)
-	}
-
 	var batch pgx.Batch
 
 	addBlockHeader(&block.BlockHeader, &batch)
@@ -527,11 +340,17 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 		RewardsPool: block.RewardsPool,
 	}
 	setSpecialAccounts(specialAddresses, &batch)
-	writeStateDelta(block.Round(), delta, &batch)
-	err = updateAccountSigType(block.Payset, &batch)
-	if err != nil {
-		return fmt.Errorf("AddBlock() err: %w", err)
+	{
+		sigTypeDeltas, err := getSigTypeDeltas(block.Payset)
+		if err != nil {
+			return fmt.Errorf("AddBlock() err: %w", err)
+		}
+		writeAccounts(block.Round(), delta.Accts, sigTypeDeltas, &batch)
 	}
+	writeDeletedCreatables(block.Round(), delta.Creatables, &batch)
+	writeDeletedAssetHoldings(block.Round(), delta.ModifiedAssetHoldings, &batch)
+	writeDeletedAppLocalStates(block.Round(), delta.ModifiedAppLocalStates, &batch)
+	batch.Queue(updateAccountTotalsStmtName, encoding.EncodeAccountTotals(&delta.Totals))
 
 	results := w.tx.SendBatch(context.Background(), &batch)
 	// Clean the results off the connection's queue. Without this, weird things happen.
@@ -542,7 +361,7 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 			return fmt.Errorf("AddBlock() exec err: %w", err)
 		}
 	}
-	err = results.Close()
+	err := results.Close()
 	if err != nil {
 		return fmt.Errorf("AddBlock() close results err: %w", err)
 	}

@@ -27,7 +27,14 @@ func setupIdbWithConnectionString(t *testing.T, connStr string, genesis bookkeep
 
 func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
-	return setupIdbWithConnectionString(t, connStr, genesis, genesisBlock), shutdownFunc
+
+	db := setupIdbWithConnectionString(t, connStr, genesis, genesisBlock)
+	newShutdownFunc := func() {
+		db.Close()
+		shutdownFunc()
+	}
+
+	return db, newShutdownFunc
 }
 
 // Helper to execute a query returning an integer, for example COUNT(*). Returns -1 on an error.

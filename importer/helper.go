@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/bzip2"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,6 +16,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
@@ -45,15 +47,11 @@ type ImportHelper struct {
 
 // Import is the main ImportHelper function that glues together a directory full of block files and an Importer objects.
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
-	_, err := db.GetNextRoundToAccount()
-	if err == idb.ErrorNotInitialized {
-		InitialImport(db, h.GenesisJSONPath, nil, h.Log)
-	} else {
-		maybeFail(err, h.Log, "problem getting the import state")
-	}
-
+	// Initial import if needed.
+	genesisReader := GetGenesisFile(h.GenesisJSONPath, nil, h.Log)
+	_, err := EnsureInitialImport(db, genesisReader, h.Log)
+	maybeFail(err, h.Log, "EnsureInitialImport() error")
 	imp := NewImporter(db)
-
 	blocks := 0
 	txCount := 0
 	start := time.Now()
@@ -66,13 +64,13 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 				pathsSorted = pathsSorted[:h.BlockFileLimit]
 			}
 			for _, gfname := range pathsSorted {
-				fb, ft := importFile(gfname, &imp, h.Log)
+				fb, ft := importFile(gfname, imp, h.Log)
 				blocks += fb
 				txCount += ft
 			}
 		} else {
 			// try without passing throug glob
-			fb, ft := importFile(fname, &imp, h.Log)
+			fb, ft := importFile(fname, imp, h.Log)
 			blocks += fb
 			txCount += ft
 		}
@@ -92,7 +90,7 @@ func maybeFail(err error, l *log.Logger, errfmt string, params ...interface{}) {
 	os.Exit(1)
 }
 
-func importTar(imp *Importer, tarfile io.Reader, l *log.Logger) (blockCount, txCount int, err error) {
+func importTar(imp Importer, tarfile io.Reader, l *log.Logger) (blockCount, txCount int, err error) {
 	tf := tar.NewReader(tarfile)
 	var header *tar.Header
 	header, err = tf.Next()
@@ -138,7 +136,7 @@ func importTar(imp *Importer, tarfile io.Reader, l *log.Logger) (blockCount, txC
 	return
 }
 
-func importFile(fname string, imp *Importer, l *log.Logger) (blocks, txCount int) {
+func importFile(fname string, imp Importer, l *log.Logger) (blocks, txCount int) {
 	blocks = 0
 	txCount = 0
 	l.Infof("importing %s ...", fname)
@@ -188,37 +186,27 @@ func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
 	return db.LoadGenesis(genesis)
 }
 
-// InitialImport imports the genesis block if needed. Returns true if the initial import occurred.
-func InitialImport(db idb.IndexerDb, genesisJSONPath string, client *algod.Client, l *log.Logger) bool {
+// EnsureInitialImport imports the genesis block if needed. Returns true if the initial import occurred.
+func EnsureInitialImport(db idb.IndexerDb, genesisReader io.Reader, l *log.Logger) (bool, error) {
 	_, err := db.GetNextRoundToAccount()
-
 	// Exit immediately or crash if we don't see ErrorNotInitialized.
 	if err != idb.ErrorNotInitialized {
-		maybeFail(err, l, "getting import state, %v", err)
-		return false
+		if err != nil {
+			return false, fmt.Errorf("getting import state, %v", err)
+		}
+		err = checkGenesisHash(db, genesisReader)
+		if err != nil {
+			return false, err
+		}
+		return false, nil
 	}
 
 	// Import genesis file from file or algod.
-	var genesisReader io.Reader
-
-	if genesisJSONPath != "" {
-		// Read file if specified.
-		l.Infof("loading genesis file %s", genesisJSONPath)
-		genesisReader, err = os.Open(genesisJSONPath)
-		maybeFail(err, l, "unable to read genesis file %s", genesisJSONPath)
-	} else if client != nil {
-		// Fallback to asking algod for genesis if file is not specified.
-		l.Infof("fetching genesis from algod")
-		genesisString, err := client.GetGenesis().Do(context.Background())
-		maybeFail(err, l, "unable to fetch genesis from algod")
-		genesisReader = strings.NewReader(genesisString)
-	} else {
-		l.Fatal("Neither genesis file path or algod client provided for initial import.")
-	}
-
 	err = loadGenesis(db, genesisReader)
-	maybeFail(err, l, "%s: could not load genesis json, %v", genesisJSONPath, err)
-	return true
+	if err != nil {
+		return false, fmt.Errorf("could not load genesis json, %v", err)
+	}
+	return true, nil
 }
 
 type blockTarPaths []string
@@ -256,4 +244,51 @@ func (paths *blockTarPaths) Swap(i, j int) {
 	t := (*paths)[i]
 	(*paths)[i] = (*paths)[j]
 	(*paths)[j] = t
+}
+
+// GetGenesisFile creates a reader from the given genesis file
+func GetGenesisFile(genesisJSONPath string, client *algod.Client, l *log.Logger) io.Reader {
+	var genesisReader io.Reader
+	var err error
+	if genesisJSONPath != "" {
+		// Read file if specified.
+		l.Infof("loading genesis file %s", genesisJSONPath)
+		genesisReader, err = os.Open(genesisJSONPath)
+		maybeFail(err, l, "unable to read genesis file %s", genesisJSONPath)
+	} else if client != nil {
+		// Fallback to asking algod for genesis if file is not specified.
+		l.Infof("fetching genesis from algod")
+		genesisString, err := client.GetGenesis().Do(context.Background())
+		maybeFail(err, l, "unable to fetch genesis from algod")
+		genesisReader = strings.NewReader(genesisString)
+	} else {
+		l.Fatal("Neither genesis file path or algod client provided for initial import.")
+	}
+	return genesisReader
+}
+
+func checkGenesisHash(db idb.IndexerDb, genesisReader io.Reader) error {
+	var genesis bookkeeping.Genesis
+	gbytes, err := ioutil.ReadAll(genesisReader)
+	if err != nil {
+		return fmt.Errorf("error reading genesis, %w", err)
+	}
+	err = protocol.DecodeJSON(gbytes, &genesis)
+	if err != nil {
+		return fmt.Errorf("error decoding genesis, %w", err)
+	}
+	network, err := db.GetNetworkState()
+	if errors.Is(err, idb.ErrorNotInitialized) {
+		err = db.SetNetworkState(genesis)
+		if err != nil {
+			return fmt.Errorf("error setting network state %w", err)
+		}
+		return nil
+	} else if err != nil {
+		return fmt.Errorf("unable to fetch network state from db %w", err)
+	}
+	if network.GenesisHash != crypto.HashObj(genesis) {
+		return fmt.Errorf("genesis hash not matching")
+	}
+	return nil
 }
