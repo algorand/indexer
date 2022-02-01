@@ -167,7 +167,8 @@ type generator struct {
 	config GenerationConfig
 
 	// payment transaction metadata
-	numPayments uint64
+	numPayments   uint64
+	paymentOffset uint64
 
 	// Number of algorand accounts
 	numAccounts uint64
@@ -450,32 +451,41 @@ func (g *generator) generatePaymentTxn(round uint64, intra uint64) (transactions
 	return g.generatePaymentTxnInternal(selection.(TxTypeID), round, intra)
 }
 
+const minbal = uint64(100000)
+
 func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64, intra uint64) (transactions.SignedTxn, transactions.ApplyData, error) {
 	defer g.recordData(track(selection))
 
+	// amounts
+	amount := minbal
+	fee := uint64(1000)
+	total := amount + fee
+
+	// Select a receiver
 	var receiveIndex uint64
 	switch selection {
 	case paymentTx:
 		receiveIndex = rand.Uint64() % g.numAccounts
 	case paymentAcctCreateTx:
 		g.balances = append(g.balances, 0)
-		g.numAccounts++
+		// increment at the end in case it needs to be referenced later.
+		defer func() {
+			g.numAccounts++
+		}()
 		receiveIndex = g.numAccounts - 1
 	}
 
-	// Always send from a genesis account.
-	sendIndex := g.numPayments % g.config.NumGenesisAccounts
+	// Select a sender from genesis account
+	sendIndex := (g.numPayments + g.paymentOffset) % g.config.NumGenesisAccounts
+	// if the genesis account has insufficient balance... start checking others
+	for n := uint64(1); g.balances[sendIndex] < (total + minbal); n++ {
+		g.paymentOffset++
+		sendIndex = (g.numPayments + g.paymentOffset) % g.numAccounts
+		fmt.Printf(" (%d) the sender account does not have enough algos for the transfer. idx %d, payment number %d\n", n, sendIndex, g.numPayments)
+	}
 
 	sender := indexToAccount(sendIndex)
 	receiver := indexToAccount(receiveIndex)
-
-	amount := uint64(1000000)
-	fee := uint64(1000)
-	total := amount + fee
-	if g.balances[sendIndex] < total {
-		fmt.Printf("\n\nthe sender account does not have enough algos for the transfer. idx %d, payment number %d\n\n", sendIndex, g.numPayments)
-		os.Exit(1)
-	}
 
 	g.balances[sendIndex] -= total
 	g.balances[receiveIndex] += amount
