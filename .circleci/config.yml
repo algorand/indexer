@@ -25,7 +25,7 @@ workflows:
             branches:
               only: compare2algod
     jobs:
-      - test-nightly:
+      - test_nightly:
           name: nightly_test_with_go_<< matrix.go_version >>
           matrix: &go-version-matrix
             parameters:
