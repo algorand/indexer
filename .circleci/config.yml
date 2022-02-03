@@ -44,7 +44,7 @@ jobs:
       - install_dependencies
       - run_tests
       - upload_coverage
-  test-nightly:
+  test_nightly:
     machine:
       image: << pipeline.parameters.ubuntu_image >> 
     parameters:
