@@ -467,12 +467,14 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 	case paymentTx:
 		receiveIndex = rand.Uint64() % g.numAccounts
 	case paymentAcctCreateTx:
+		// give new accounts extra algos for sending other transactions (optin/optout)
+		amount = minbal * 100
 		g.balances = append(g.balances, 0)
+		receiveIndex = g.numAccounts
 		// increment at the end in case it needs to be referenced later.
 		defer func() {
 			g.numAccounts++
 		}()
-		receiveIndex = g.numAccounts - 1
 	}
 
 	// Select a sender from genesis account
