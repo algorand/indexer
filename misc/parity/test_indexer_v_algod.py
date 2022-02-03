@@ -23,7 +23,7 @@ INDEXER_SWGR = REPO_DIR / "api" / "indexer.oas2.json"
 GOAL_DIR = REPO_DIR / "third_party" / "go-algorand"
 ALGOD_SWGR = GOAL_DIR / "daemon" / "algod" / "api" / "algod.oas2.json"
 
-REPORTS_DIR = REPO_DIR / "parity" / "reports"
+REPORTS_DIR = REPO_DIR / "misc" / "parity" / "reports"
 
 
 already_printed = False

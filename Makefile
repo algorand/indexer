@@ -81,15 +81,8 @@ nightly-teardown:
 	git submodule update
 
 indexer-v-algod-swagger:
-	pytest -sv parity
-
-future-nosync:
-	go test -run "^(TestTheFuture|TestFixture)$$" github.com/algorand/indexer/future
+	pytest -sv misc/parity
 
 indexer-v-algod: nightly-setup indexer-v-algod-swagger nightly-teardown
 
-future: nightly-setup future-nosync nightly-teardown
-
-nightly: nightly-setup indexer-v-algod-swagger future-nosync nightly-teardown
-
-.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod future
+.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod
