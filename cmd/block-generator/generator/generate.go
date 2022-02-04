@@ -451,13 +451,13 @@ func (g *generator) generatePaymentTxn(round uint64, intra uint64) (transactions
 	return g.generatePaymentTxnInternal(selection.(TxTypeID), round, intra)
 }
 
-const minbal = uint64(100000)
+const minBal = uint64(100000)
 
 func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64, intra uint64) (transactions.SignedTxn, transactions.ApplyData, error) {
 	defer g.recordData(track(selection))
 
 	// amounts
-	amount := minbal
+	amount := minBal
 	fee := uint64(1000)
 	total := amount + fee
 
@@ -468,7 +468,7 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 		receiveIndex = rand.Uint64() % g.numAccounts
 	case paymentAcctCreateTx:
 		// give new accounts extra algos for sending other transactions (optin/optout)
-		amount = minbal * 100
+		amount = minBal * 100
 		g.balances = append(g.balances, 0)
 		receiveIndex = g.numAccounts
 		// increment at the end in case it needs to be referenced later.
@@ -480,7 +480,7 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 	// Select a sender from genesis account
 	sendIndex := (g.numPayments + g.paymentOffset) % g.config.NumGenesisAccounts
 	// if the genesis account has insufficient balance... start checking others
-	for n := uint64(1); g.balances[sendIndex] < (total + minbal); n++ {
+	for n := uint64(1); g.balances[sendIndex] < (total + minBal); n++ {
 		g.paymentOffset++
 		sendIndex = (g.numPayments + g.paymentOffset) % g.numAccounts
 		fmt.Printf(" (%d) the sender account does not have enough algos for the transfer. idx %d, payment number %d\n", n, sendIndex, g.numPayments)
