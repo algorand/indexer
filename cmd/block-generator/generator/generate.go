@@ -457,7 +457,7 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 	defer g.recordData(track(selection))
 
 	// amounts
-	amount := minBal
+	amount := uint64(1)
 	fee := uint64(1000)
 	total := amount + fee
 
