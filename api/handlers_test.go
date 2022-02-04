@@ -921,18 +921,18 @@ func TestTimeouts(t *testing.T) {
 
 func TestApplicationLimits(t *testing.T) {
 	testcases := []struct {
-		name string
-		limit *uint64
+		name     string
+		limit    *uint64
 		expected uint64
-	} {
+	}{
 		{
-			name: "Default",
-			limit: nil,
+			name:     "Default",
+			limit:    nil,
 			expected: defaultApplicationsLimit,
 		},
 		{
-			name: "Max",
-			limit: uint64Ptr(math.MaxUint64),
+			name:     "Max",
+			limit:    uint64Ptr(math.MaxUint64),
 			expected: maxApplicationsLimit,
 		},
 	}
