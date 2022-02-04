@@ -2,6 +2,7 @@ version: 2.1
 
 orbs:
   go: circleci/go@1.7.0
+  slack: circleci/slack@4.7.1
 
 parameters:
   ubuntu_image:
@@ -10,26 +11,34 @@ parameters:
 
 workflows:
   version: 2
-  "circleci_build_and_test":
+  circleci_build_and_test:
     jobs:
       - test:
           name: test_with_go_<< matrix.go_version >>
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.14.7", "1.15.15"]
-  "circleci_build_and_test_nightly":
-    triggers:
-      - schedule:
-          cron: "37 3 * * *"
           filters:
             branches:
-              only: develop
+              ignore: Adding-slack-notifications-to-builds
+
+  circleci_build_and_test_nightly:
+    # triggers:
+      # - schedule:
+      #     cron: "37 3 * * *"
+      #     filters:
+      #       branches:
+      #         only: develop
     jobs:
       - test_nightly:
           name: nightly_test_with_go_<< matrix.go_version >>
+          context: slack-secrets
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.14.7", "1.15.15"]
+          filters:
+            branches:
+              only: Adding-slack-notifications-to-builds
 
 jobs:
   test:
@@ -56,6 +65,9 @@ jobs:
       - install_dependencies
       - run_tests_nightly
       - upload_coverage
+      - slack/notify: &slack-fail-event
+          event: fail
+          template: basic_fail_1
 
 commands:
   install_dependencies:
@@ -95,6 +107,7 @@ commands:
 
   run_tests_nightly:
     steps:
+      - run: testing-remove-me
       - run: test -z `go fmt ./...`
       - run: make lint
       - run: make check
