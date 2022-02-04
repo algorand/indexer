@@ -73,7 +73,7 @@ jobs:
                   "type": "section",
                   "text": {
                     "type": "mrkdwn",
-                    "text": "Failed: $CIRCLE_USERNAME's build of \n<$CIRCLE_BUILD_URL|$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME>\n(<https://app.circleci.com/pipelines/github/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME?branch=$CIRCLE_BRANCH|$CIRCLE_BRANCH>) \n- <$CIRCLE_BUILD_URL|$CIRCLE_JOB> failed\n\nThis is probably a result of `make indexer-v-algod`. See <this wiki page for details|https://algorand.atlassian.net/wiki/spaces/LAMPREY/pages/2339536905/Nightly+Indexer+Tests#Q%3A-What-does-it-mean-that-the-nightly-test-failed-because-of-make-indexer-v-algod%3F>"
+                    "text": "Failed: $CIRCLE_USERNAME's build of \n<$CIRCLE_BUILD_URL|$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME>\n(<https://app.circleci.com/pipelines/github/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME?branch=$CIRCLE_BRANCH|$CIRCLE_BRANCH>) \n- <$CIRCLE_BUILD_URL|$CIRCLE_JOB> failed\n\nThis is probably a result of `make indexer-v-algod`\nSee <https://algorand.atlassian.net/wiki/spaces/LAMPREY/pages/2339536905/Nightly+Indexer+Tests#Q%3A-What-does-it-mean-that-the-nightly-test-failed-because-of-make-indexer-v-algod%3F|this wiki page> for more details"
                   }
                 }
               ]
