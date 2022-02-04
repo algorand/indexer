@@ -18,14 +18,17 @@ workflows:
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.14.7", "1.15.15"]
-
-  circleci_build_and_test_nightly:
-    triggers:
-      - schedule:
-          cron: "37 3 * * *"
           filters:
             branches:
-              only: develop
+              ignore: Adding-slack-notifications-to-builds
+
+  circleci_build_and_test_nightly:
+    # triggers:
+    #   - schedule:
+    #       cron: "37 3 * * *"
+    #       filters:
+    #         branches:
+    #           only: develop
     jobs:
       - test_nightly:
           name: nightly_test_with_go_<< matrix.go_version >>
@@ -33,7 +36,9 @@ workflows:
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.14.7", "1.15.15"]
-
+          filters:
+            branches:
+              only: Adding-slack-notifications-to-builds
 jobs:
   test:
     machine:
@@ -61,7 +66,19 @@ jobs:
       - upload_coverage
       - slack/notify: &slack-fail-event
           event: fail
-          template: basic_fail_1
+          custom: | 
+            { 
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Failed: $CIRCLE_USERNAME's build of \n<$CIRCLE_BUILD_URL|$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME>\n(<https://app.circleci.com/pipelines/github/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME?branch=$CIRCLE_BRANCH|$CIRCLE_BRANCH>) \n- <$CIRCLE_BUILD_URL|$CIRCLE_JOB> failed\n\nIf this is probably a result of `make indexer-algod`. See this wiki page for details:\n(<https://algorand.atlassian.net/wiki/spaces/LAMPREY/pages/2339536905/Nightly+Indexer+Tests#Q%3A-What-does-it-mean-that-the-nightly-test-failed-because-of-make-indexer-v-algod%3F>)"
+                  }
+                }
+              ]
+            }
+          # template: basic_fail_1
 
 commands:
   install_dependencies:
@@ -101,6 +118,7 @@ commands:
 
   run_tests_nightly:
     steps:
+      - run: testing-remove-me
       - run: test -z `go fmt ./...`
       - run: make lint
       - run: make check
