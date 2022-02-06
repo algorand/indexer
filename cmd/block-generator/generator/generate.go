@@ -459,7 +459,6 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 	// amounts
 	amount := uint64(1)
 	fee := uint64(1000)
-	total := amount + fee
 
 	// Select a receiver
 	var receiveIndex uint64
@@ -476,6 +475,7 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 			g.numAccounts++
 		}()
 	}
+	total := amount + fee
 
 	// Select a sender from genesis account
 	sendIndex := (g.numPayments + g.paymentOffset) % g.config.NumGenesisAccounts
