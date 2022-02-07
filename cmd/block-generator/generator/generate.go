@@ -42,12 +42,20 @@ const (
 	assetDestroy TxTypeID = "asset_destroy"
 
 	assetTotal = uint64(100000000000000000)
-	fee        = uint64(1000)
-)
 
-const (
 	consensusTimeMilli int64 = 4500
 )
+
+// consensus parameters.
+var (
+	minBal uint64
+	fee    uint64
+)
+
+func init() {
+	minBal = config.Consensus[protocol.ConsensusFuture].MinBalance
+	fee = config.Consensus[protocol.ConsensusFuture].MinTxnFee
+}
 
 // GenerationConfig defines the tunable parameters for block generation.
 type GenerationConfig struct {
@@ -167,8 +175,7 @@ type generator struct {
 	config GenerationConfig
 
 	// payment transaction metadata
-	numPayments   uint64
-	paymentOffset uint64
+	numPayments uint64
 
 	// Number of algorand accounts
 	numAccounts uint64
@@ -451,14 +458,11 @@ func (g *generator) generatePaymentTxn(round uint64, intra uint64) (transactions
 	return g.generatePaymentTxnInternal(selection.(TxTypeID), round, intra)
 }
 
-const minBal = uint64(100000)
-
 func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64, intra uint64) (transactions.SignedTxn, transactions.ApplyData, error) {
 	defer g.recordData(track(selection))
 
 	// amounts
 	amount := uint64(1)
-	fee := uint64(1000)
 
 	// Select a receiver
 	var receiveIndex uint64
@@ -478,12 +482,11 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 	total := amount + fee
 
 	// Select a sender from genesis account
-	sendIndex := (g.numPayments + g.paymentOffset) % g.config.NumGenesisAccounts
+	sendIndex := g.numPayments % g.config.NumGenesisAccounts
 	// if the genesis account has insufficient balance... start checking others
-	for n := uint64(1); g.balances[sendIndex] < (total + minBal); n++ {
-		g.paymentOffset++
-		sendIndex = (g.numPayments + g.paymentOffset) % g.numAccounts
-		fmt.Printf(" (%d) the sender account does not have enough algos for the transfer. idx %d, payment number %d\n", n, sendIndex, g.numPayments)
+	for g.balances[sendIndex] < (total + minBal) {
+		fmt.Errorf("generatePaymentTxnInternal(): the sender account does not have enough algos for the transfer. idx %d, payment number %d\n", sendIndex, g.numPayments)
+		os.Exit(1)
 	}
 
 	sender := indexToAccount(sendIndex)
