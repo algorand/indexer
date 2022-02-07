@@ -485,7 +485,7 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 	sendIndex := g.numPayments % g.config.NumGenesisAccounts
 	// if the genesis account has insufficient balance... start checking others
 	for g.balances[sendIndex] < (total + minBal) {
-		fmt.Errorf("generatePaymentTxnInternal(): the sender account does not have enough algos for the transfer. idx %d, payment number %d\n", sendIndex, g.numPayments)
+		fmt.Printf("\n\ngeneratePaymentTxnInternal(): the sender account does not have enough algos for the transfer. idx %d, payment number %d\n\n", sendIndex, g.numPayments)
 		os.Exit(1)
 	}
 
