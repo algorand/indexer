@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand/agreement"
-	"github.com/algorand/go-algorand/config"
+	cconfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/daemon/algod/api/server/v2/generated"
 	"github.com/algorand/go-algorand/data/basics"
@@ -44,8 +44,6 @@ const (
 	assetTotal = uint64(100000000000000000)
 
 	consensusTimeMilli int64 = 4500
-
-	fee uint64 = 1000
 )
 
 // GenerationConfig defines the tunable parameters for block generation.
@@ -95,9 +93,11 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 		return nil, fmt.Errorf("asset configuration ratios should equal 1")
 	}
 
+	var proto protocol.ConsensusVersion = "future"
 	gen := &generator{
 		config:                    config,
-		protocol:                  "future",
+		protocol:                  proto,
+		params:                    cconfig.Consensus[proto],
 		genesisHash:               [32]byte{},
 		genesisID:                 "blockgen-test",
 		prevBlockHash:             "",
@@ -177,6 +177,7 @@ type generator struct {
 	prevBlockHash string
 	timestamp     int64
 	protocol      protocol.ConsensusVersion
+	params        cconfig.ConsensusParams
 	genesisID     string
 	genesisHash   crypto.Digest
 
@@ -261,15 +262,11 @@ func (g *generator) WriteGenesis(output io.Writer) error {
 	}
 	// Also add the rewards pool account with minimum balance. Without it, the evaluator
 	// crashes.
-	proto, ok := config.Consensus[g.protocol]
-	if !ok {
-		return fmt.Errorf("protocol version %s not found", g.protocol)
-	}
 	allocations = append(allocations, bookkeeping.GenesisAllocation{
 		Address: g.rewardsPool.String(),
 		Comment: "RewardsPool",
 		State: basics.AccountData{
-			MicroAlgos: basics.MicroAlgos{Raw: proto.MinBalance},
+			MicroAlgos: basics.MicroAlgos{Raw: g.params.MinBalance},
 			Status:     basics.NotParticipating,
 		},
 	})
@@ -451,7 +448,7 @@ func (g *generator) generatePaymentTxn(round uint64, intra uint64) (transactions
 
 func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64, intra uint64) (transactions.SignedTxn, transactions.ApplyData, error) {
 	defer g.recordData(track(selection))
-	minBal := config.Consensus[g.protocol].MinBalance
+	minBal := g.params.MinBalance
 
 	// default amount
 	amount := uint64(1)
@@ -468,7 +465,7 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 		receiveIndex = g.numAccounts
 		g.numAccounts++
 	}
-	total := amount + fee
+	total := amount + g.params.MinTxnFee
 
 	// Select a sender from genesis account
 	sendIndex := g.numPayments % g.config.NumGenesisAccounts
@@ -600,7 +597,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 				fmt.Printf("\n\ncreator doesn't have enough funds for asset %d\n\n", asset.assetID)
 				os.Exit(1)
 			}
-			if g.balances[asset.holdings[0].acctIndex] < fee {
+			if g.balances[asset.holdings[0].acctIndex] < g.params.MinTxnFee {
 				fmt.Printf("\n\ncreator doesn't have enough funds for transaction %d\n\n", asset.assetID)
 				os.Exit(1)
 			}
