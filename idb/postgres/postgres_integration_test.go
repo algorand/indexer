@@ -881,7 +881,7 @@ func TestAppExtraPages(t *testing.T) {
 		num++
 		require.NotNil(t, row.Account.AppsTotalExtraPages, "we should have this field")
 		require.Equal(t, uint64(1), *row.Account.AppsTotalExtraPages)
-		require.Equal(t, 1, row.Account.TotalCreatedApps)
+		require.Equal(t, uint64(1), row.Account.TotalCreatedApps)
 		createdApps = row.Account.CreatedApps
 	}
 	require.Equal(t, 1, num)
@@ -979,7 +979,7 @@ func TestLargeAssetAmount(t *testing.T) {
 		require.NoError(t, row.Error)
 		require.NotNil(t, row.Account.Assets)
 		require.Equal(t, 1, len(*row.Account.Assets))
-		require.Equal(t, 1, row.Account.TotalAssets)
+		require.Equal(t, uint64(1), row.Account.TotalAssets)
 		assert.Equal(t, uint64(math.MaxUint64), (*row.Account.Assets)[0].Amount)
 	}
 }
@@ -1128,7 +1128,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 				require.NoError(t, acct.Error)
 				require.NotNil(t, acct.Account.CreatedAssets)
 				require.Len(t, *acct.Account.CreatedAssets, 1)
-				require.Equal(t, 1, acct.Account.TotalCreatedAssets)
+				require.Equal(t, uint64(1), acct.Account.TotalCreatedAssets)
 
 				asset := (*acct.Account.CreatedAssets)[0]
 				if testcase.ExpectedAssetName == "" {
