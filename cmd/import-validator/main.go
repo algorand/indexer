@@ -123,25 +123,25 @@ func openLedger(ledgerPath string, genesis *bookkeeping.Genesis, genesisBlock *b
 func getModifiedState(l *ledger.Ledger, block *bookkeeping.Block) (map[basics.Address]struct{}, map[basics.Address]map[ledger.Creatable]struct{}, error) {
 	eval, err := l.StartEvaluator(block.BlockHeader, len(block.Payset), 0)
 	if err != nil {
-		return nil, nil, fmt.Errorf("getModifiedAccounts() start evaluator err: %w", err)
+		return nil, nil, fmt.Errorf("getModifiedState() start evaluator err: %w", err)
 	}
 
 	paysetgroups, err := block.DecodePaysetGroups()
 	if err != nil {
-		return nil, nil, fmt.Errorf("getModifiedAccounts() decode payset groups err: %w", err)
+		return nil, nil, fmt.Errorf("getModifiedState() decode payset groups err: %w", err)
 	}
 
 	for _, group := range paysetgroups {
 		err = eval.TransactionGroup(group)
 		if err != nil {
 			return nil, nil,
-				fmt.Errorf("getModifiedAccounts() apply transaction group err: %w", err)
+				fmt.Errorf("getModifiedState() apply transaction group err: %w", err)
 		}
 	}
 
 	vb, err := eval.GenerateBlock()
 	if err != nil {
-		return nil, nil, fmt.Errorf("getModifiedAccounts() generate block err: %w", err)
+		return nil, nil, fmt.Errorf("getModifiedState() generate block err: %w", err)
 	}
 
 	accountDeltas := vb.Delta().NewAccts
@@ -196,7 +196,7 @@ func checkModifiedState(db *postgres.IndexerDb, l *ledger.Ledger, block *bookkee
 		var accounts map[basics.Address]*ledgercore.AccountData
 		accounts, resourcesIndexer, err0 = db.GetAccountState(addresses, resources)
 		if err0 != nil {
-			err0 = fmt.Errorf("checkModifiedAccounts() err0: %w", err0)
+			err0 = fmt.Errorf("checkModifiedState() err0: %w", err0)
 			return
 		}
 
@@ -218,18 +218,20 @@ func checkModifiedState(db *postgres.IndexerDb, l *ledger.Ledger, block *bookkee
 		for address := range addresses {
 			accountsAlgod[address], _, err1 = l.LookupWithoutRewards(block.Round(), address)
 			if err1 != nil {
-				err1 = fmt.Errorf("checkModifiedAccounts() lookup account err1: %w", err1)
+				err1 = fmt.Errorf("checkModifiedState() lookup account err1: %w", err1)
 				return
 			}
 		}
+		resourcesAlgod =
+			make(map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource)
 		for address, creatables := range resources {
 			resourcesForAddress := make(map[ledger.Creatable]ledgercore.AccountResource)
-			resourcesIndexer[address] = resourcesForAddress
+			resourcesAlgod[address] = resourcesForAddress
 			for creatable := range creatables {
 				resourcesForAddress[creatable], err1 =
 					l.LookupResource(block.Round(), address, creatable.Index, creatable.Type)
 				if err1 != nil {
-					err1 = fmt.Errorf("checkModifiedAccounts() lookup resource err1: %w", err1)
+					err1 = fmt.Errorf("checkModifiedState() lookup resource err1: %w", err1)
 					return
 				}
 			}
@@ -247,14 +249,14 @@ func checkModifiedState(db *postgres.IndexerDb, l *ledger.Ledger, block *bookkee
 	if !reflect.DeepEqual(accountsIndexer, accountsAlgod) {
 		diff := util.Diff(accountsAlgod, accountsIndexer)
 		return fmt.Errorf(
-			"checkModifiedAccounts() accounts differ,"+
+			"checkModifiedState() accounts differ,"+
 				"\naccountsIndexer: %+v,\naccountsAlgod: %+v,\ndiff: %s",
 			accountsIndexer, accountsAlgod, diff)
 	}
 	if !reflect.DeepEqual(resourcesIndexer, resourcesAlgod) {
 		diff := util.Diff(resourcesAlgod, resourcesIndexer)
 		return fmt.Errorf(
-			"checkModifiedAccounts() resources differ,"+
+			"checkModifiedState() resources differ,"+
 				"\nresourcesIndexer: %+v,\nresourcesAlgod: %+v,\ndiff: %s",
 			resourcesIndexer, resourcesAlgod, diff)
 	}
