@@ -616,10 +616,6 @@
             "description": "Whether or not this account is currently closed.",
             "type": "boolean"
           },
-          "min-balance": {
-            "description": "MicroAlgo balance required by the account.\n\nThe requirement grows based on asset and application usage.",
-            "type": "integer"
-          },
           "participation": {
             "$ref": "#/components/schemas/AccountParticipation"
           },
@@ -673,7 +669,6 @@
           "address",
           "amount",
           "amount-without-pending-rewards",
-          "min-balance",
           "pending-rewards",
           "rewards",
           "round",

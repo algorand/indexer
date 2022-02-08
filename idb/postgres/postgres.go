@@ -1373,6 +1373,11 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			if ad.TotalExtraAppPages != 0 {
 				account.AppsTotalExtraPages = uint64Ptr(uint64(ad.TotalExtraAppPages))
 			}
+
+			account.TotalAppsLocalState = ad.TotalAppLocalStates
+			account.TotalCreatedApps = ad.TotalAppParams
+			account.TotalAssets = ad.TotalAssets
+			account.TotalCreatedAssets = ad.TotalAssetParams
 		}
 
 		if account.Status == "NotParticipating" {

@@ -735,7 +735,6 @@
         "amount-without-pending-rewards",
         "rewards",
         "status",
-        "min-balance",
         "total-apps-local-state",
         "total-assets",
         "total-created-apps",
@@ -745,10 +744,6 @@
         "address": {
           "description": "the account public key",
           "type": "string"
-        },
-        "min-balance": {
-          "description": "MicroAlgo balance required by the account.\n\nThe requirement grows based on asset and application usage.",
-          "type": "integer"
         },
         "amount": {
           "description": "\\[algo\\] total number of MicroAlgos in the account",
