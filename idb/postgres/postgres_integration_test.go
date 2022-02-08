@@ -1535,7 +1535,6 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 
 	require.NotNil(t, row.Account.AppsLocalState)
 	require.Equal(t, 1, len(*row.Account.AppsLocalState))
-	require.Equal(t, 1, row.Account.TotalAppsLocalState)
 
 	localState := (*row.Account.AppsLocalState)[0]
 	require.NotNil(t, localState.Deleted)
@@ -1544,6 +1543,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	assert.Equal(t, uint64(1), *localState.OptedInAtRound)
 	require.NotNil(t, localState.ClosedOutAtRound)
 	assert.Equal(t, uint64(1), *localState.ClosedOutAtRound)
+	require.Equal(t, uint64(0), row.Account.TotalAppsLocalState)
 }
 
 // TestSearchForInnerTransactionReturnsRootTransaction checks that the parent
