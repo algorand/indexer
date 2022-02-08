@@ -44,18 +44,9 @@ const (
 	assetTotal = uint64(100000000000000000)
 
 	consensusTimeMilli int64 = 4500
-)
 
-// consensus parameters.
-var (
-	minBal uint64
-	fee    uint64
+	fee uint64 = 1000
 )
-
-func init() {
-	minBal = config.Consensus[protocol.ConsensusFuture].MinBalance
-	fee = config.Consensus[protocol.ConsensusFuture].MinTxnFee
-}
 
 // GenerationConfig defines the tunable parameters for block generation.
 type GenerationConfig struct {
@@ -460,8 +451,9 @@ func (g *generator) generatePaymentTxn(round uint64, intra uint64) (transactions
 
 func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64, intra uint64) (transactions.SignedTxn, transactions.ApplyData, error) {
 	defer g.recordData(track(selection))
+	minBal := config.Consensus[g.protocol].MinBalance
 
-	// amounts
+	// default amount
 	amount := uint64(1)
 
 	// Select a receiver
@@ -470,21 +462,17 @@ func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64,
 	case paymentTx:
 		receiveIndex = rand.Uint64() % g.numAccounts
 	case paymentAcctCreateTx:
-		// give new accounts extra algos for sending other transactions (optin/optout)
+		// give new accounts get extra algos for sending other transactions
 		amount = minBal * 100
 		g.balances = append(g.balances, 0)
 		receiveIndex = g.numAccounts
-		// increment at the end in case it needs to be referenced later.
-		defer func() {
-			g.numAccounts++
-		}()
+		g.numAccounts++
 	}
 	total := amount + fee
 
 	// Select a sender from genesis account
 	sendIndex := g.numPayments % g.config.NumGenesisAccounts
-	// if the genesis account has insufficient balance... start checking others
-	for g.balances[sendIndex] < (total + minBal) {
+	if g.balances[sendIndex] < (total + minBal) {
 		fmt.Printf("\n\ngeneratePaymentTxnInternal(): the sender account does not have enough algos for the transfer. idx %d, payment number %d\n\n", sendIndex, g.numPayments)
 		os.Exit(1)
 	}
