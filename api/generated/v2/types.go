@@ -57,6 +57,11 @@ type Account struct {
 	// Whether or not this account is currently closed.
 	Deleted *bool `json:"deleted,omitempty"`
 
+	// MicroAlgo balance required by the account.
+	//
+	// The requirement grows based on asset and application usage.
+	MinBalance uint64 `json:"min-balance"`
+
 	// AccountParticipation describes the parameters used by this account in consensus protocol.
 	Participation *AccountParticipation `json:"participation,omitempty"`
 
@@ -84,6 +89,18 @@ type Account struct {
 	// *  Online  - indicates that the associated account used as part of the delegation pool.
 	// *   NotParticipating - indicates that the associated account is neither a delegator nor a delegate.
 	Status string `json:"status"`
+
+	// The count of all application local data (AppLocalState objects) stored in this account.
+	TotalAppsLocalState uint64 `json:"total-apps-local-state"`
+
+	// The count of all assets (AssetHolding objects) held by this account.
+	TotalAssets uint64 `json:"total-assets"`
+
+	// The count of all apps (AppParams objects) created by this account.
+	TotalCreatedApps uint64 `json:"total-created-apps"`
+
+	// The count of all assets (AssetParams objects) created by this account.
+	TotalCreatedAssets uint64 `json:"total-created-assets"`
 }
 
 // AccountParticipation defines model for AccountParticipation.

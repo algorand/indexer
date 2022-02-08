@@ -734,12 +734,21 @@
         "pending-rewards",
         "amount-without-pending-rewards",
         "rewards",
-        "status"
+        "status",
+        "min-balance",
+        "total-apps-local-state",
+        "total-assets",
+        "total-created-apps",
+        "total-created-assets"
       ],
       "properties": {
         "address": {
           "description": "the account public key",
           "type": "string"
+        },
+        "min-balance": {
+          "description": "MicroAlgo balance required by the account.\n\nThe requirement grows based on asset and application usage.",
+          "type": "integer"
         },
         "amount": {
           "description": "\\[algo\\] total number of MicroAlgos in the account",
@@ -816,6 +825,22 @@
             "msig",
             "lsig"
           ]
+        },
+        "total-apps-local-state": {
+          "description": "The count of all application local data (AppLocalState objects) stored in this account.",
+          "type": "integer"
+        },
+        "total-assets": {
+          "description": "The count of all assets (AssetHolding objects) held by this account.",
+          "type": "integer"
+        },
+        "total-created-apps": {
+          "description": "The count of all apps (AppParams objects) created by this account.",
+          "type": "integer"
+        },
+        "total-created-assets": {
+          "description": "The count of all assets (AssetParams objects) created by this account.",
+          "type": "integer"
         },
         "auth-addr": {
           "description": "\\[spend\\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.",

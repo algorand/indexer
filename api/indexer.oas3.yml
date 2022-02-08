@@ -616,6 +616,10 @@
             "description": "Whether or not this account is currently closed.",
             "type": "boolean"
           },
+          "min-balance": {
+            "description": "MicroAlgo balance required by the account.\n\nThe requirement grows based on asset and application usage.",
+            "type": "integer"
+          },
           "participation": {
             "$ref": "#/components/schemas/AccountParticipation"
           },
@@ -647,16 +651,37 @@
           "status": {
             "description": "\\[onl\\] delegation status of the account's MicroAlgos\n* Offline - indicates that the associated account is delegated.\n*  Online  - indicates that the associated account used as part of the delegation pool.\n*   NotParticipating - indicates that the associated account is neither a delegator nor a delegate.",
             "type": "string"
+          },
+          "total-apps-local-state": {
+            "description": "The count of all application local data (AppLocalState objects) stored in this account.",
+            "type": "integer"
+          },
+          "total-assets": {
+            "description": "The count of all assets (AssetHolding objects) held by this account.",
+            "type": "integer"
+          },
+          "total-created-apps": {
+            "description": "The count of all apps (AppParams objects) created by this account.",
+            "type": "integer"
+          },
+          "total-created-assets": {
+            "description": "The count of all assets (AssetParams objects) created by this account.",
+            "type": "integer"
           }
         },
         "required": [
           "address",
           "amount",
           "amount-without-pending-rewards",
+          "min-balance",
           "pending-rewards",
           "rewards",
           "round",
-          "status"
+          "status",
+          "total-apps-local-state",
+          "total-assets",
+          "total-created-apps",
+          "total-created-assets"
         ],
         "type": "object"
       },
