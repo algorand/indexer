@@ -164,6 +164,8 @@ func setExcludeQueryOptions(exclude []string, opts *idb.AccountQueryOptions) err
 			opts.IncludeAppLocalState = false
 		case "created-apps":
 			opts.IncludeAppParams = false
+		case "none", "":
+			continue
 		default:
 			return fmt.Errorf(`unknown argument "%s": %w`, e, errInvalidExcludeParameter)
 		}
