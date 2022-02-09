@@ -77,12 +77,19 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 		middleware = append(middleware, middlewares.MakeAuth("X-Indexer-API-Token", options.Tokens))
 	}
 
+	swag, err := generated.GetSwagger()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	api := ServerImplementation{
 		EnableAddressSearchRoundRewind: options.DeveloperMode,
 		db:                             db,
 		fetcher:                        fetcherError,
 		timeout:                        options.handlerTimeout(),
 		log:                            log,
+		disabledParams:                 NewDisabledMapFromOA3(swag),
 	}
 
 	generated.RegisterHandlers(e, &api, middleware...)

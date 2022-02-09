@@ -38,6 +38,8 @@ type ServerImplementation struct {
 	timeout time.Duration
 
 	log *log.Logger
+
+	disabledParams *DisabledMap
 }
 
 /////////////////////
@@ -148,6 +150,18 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 // LookupAccountByID queries indexer for a given account.
 // (GET /v2/accounts/{account-id})
 func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID string, params generated.LookupAccountByIDParams) error {
+	rc, dpName := Verify(si.disabledParams, "LookupAccountByID", ctx, si.log)
+	switch rc {
+	case verifyIsGood:
+		// Do nothing
+		break
+	case verifyFailedParameter:
+		return badRequest(ctx, fmt.Sprintf("provided disabled parameter: %s", dpName))
+
+	case verifyFailedEndpoint:
+		return badRequest(ctx, "endpoint is disabled")
+	}
+
 	addr, errors := decodeAddress(&accountID, "account-id", make([]string, 0))
 	if len(errors) != 0 {
 		return badRequest(ctx, errors[0])
@@ -183,6 +197,18 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 // SearchForAccounts returns accounts matching the provided parameters
 // (GET /v2/accounts)
 func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params generated.SearchForAccountsParams) error {
+	rc, dpName := Verify(si.disabledParams, "SearchForAccounts", ctx, si.log)
+	switch rc {
+	case verifyIsGood:
+		// Do nothing
+		break
+	case verifyFailedParameter:
+		return badRequest(ctx, fmt.Sprintf("provided disabled parameter: %s", dpName))
+
+	case verifyFailedEndpoint:
+		return badRequest(ctx, "endpoint is disabled")
+	}
+
 	if !si.EnableAddressSearchRoundRewind && params.Round != nil {
 		return badRequest(ctx, errMultiAcctRewind)
 	}
@@ -242,6 +268,18 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 // LookupAccountTransactions looks up transactions associated with a particular account.
 // (GET /v2/accounts/{account-id}/transactions)
 func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, accountID string, params generated.LookupAccountTransactionsParams) error {
+	rc, dpName := Verify(si.disabledParams, "LookupAccountTransactions", ctx, si.log)
+	switch rc {
+	case verifyIsGood:
+		// Do nothing
+		break
+	case verifyFailedParameter:
+		return badRequest(ctx, fmt.Sprintf("provided disabled parameter: %s", dpName))
+
+	case verifyFailedEndpoint:
+		return badRequest(ctx, "endpoint is disabled")
+	}
+
 	// Check that a valid account was provided
 	_, errors := decodeAddress(strPtr(accountID), "account-id", make([]string, 0))
 	if len(errors) != 0 {
@@ -277,6 +315,17 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 // SearchForApplications returns applications for the provided parameters.
 // (GET /v2/applications)
 func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params generated.SearchForApplicationsParams) error {
+	rc, dpName := Verify(si.disabledParams, "SearchForApplications", ctx, si.log)
+	switch rc {
+	case verifyIsGood:
+		// Do nothing
+		break
+	case verifyFailedParameter:
+		return badRequest(ctx, fmt.Sprintf("provided disabled parameter: %s", dpName))
+
+	case verifyFailedEndpoint:
+		return badRequest(ctx, "endpoint is disabled")
+	}
 	apps, round, err := si.fetchApplications(ctx.Request().Context(), params)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingApplication, err))
@@ -298,6 +347,18 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 // LookupApplicationByID returns one application for the requested ID.
 // (GET /v2/applications/{application-id})
 func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationByIDParams) error {
+	rc, dpName := Verify(si.disabledParams, "LookupApplicationByID", ctx, si.log)
+	switch rc {
+	case verifyIsGood:
+		// Do nothing
+		break
+	case verifyFailedParameter:
+		return badRequest(ctx, fmt.Sprintf("provided disabled parameter: %s", dpName))
+
+	case verifyFailedEndpoint:
+		return badRequest(ctx, "endpoint is disabled")
+	}
+
 	p := generated.SearchForApplicationsParams{
 		ApplicationId: &applicationID,
 		IncludeAll:    params.IncludeAll,
@@ -326,6 +387,17 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 // LookupApplicationLogsByID returns one application logs
 // (GET /v2/applications/{application-id}/logs)
 func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationLogsByIDParams) error {
+	rc, dpName := Verify(si.disabledParams, "LookupApplicationLogsByID", ctx, si.log)
+	switch rc {
+	case verifyIsGood:
+		// Do nothing
+		break
+	case verifyFailedParameter:
+		return badRequest(ctx, fmt.Sprintf("provided disabled parameter: %s", dpName))
+
+	case verifyFailedEndpoint:
+		return badRequest(ctx, "endpoint is disabled")
+	}
 	searchParams := generated.SearchForTransactionsParams{
 		AssetId:       nil,
 		ApplicationId: uint64Ptr(applicationID),
@@ -382,6 +454,17 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 // LookupAssetByID looks up a particular asset
 // (GET /v2/assets/{asset-id})
 func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64, params generated.LookupAssetByIDParams) error {
+	rc, dpName := Verify(si.disabledParams, "LookupAssetByID", ctx, si.log)
+	switch rc {
+	case verifyIsGood:
+		// Do nothing
+		break
+	case verifyFailedParameter:
+		return badRequest(ctx, fmt.Sprintf("provided disabled parameter: %s", dpName))
+
+	case verifyFailedEndpoint:
+		return badRequest(ctx, "endpoint is disabled")
+	}
 	search := generated.SearchForAssetsParams{
 		AssetId:    uint64Ptr(assetID),
 		Limit:      uint64Ptr(1),
@@ -414,6 +497,17 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 // LookupAssetBalances looks up balances for a particular asset
 // (GET /v2/assets/{asset-id}/balances)
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID uint64, params generated.LookupAssetBalancesParams) error {
+	rc, dpName := Verify(si.disabledParams, "LookupAssetBalances", ctx, si.log)
+	switch rc {
+	case verifyIsGood:
+		// Do nothing
+		break
+	case verifyFailedParameter:
+		return badRequest(ctx, fmt.Sprintf("provided disabled parameter: %s", dpName))
+
+	case verifyFailedEndpoint:
+		return badRequest(ctx, "endpoint is disabled")
+	}
 	query := idb.AssetBalanceQuery{
 		AssetID:        assetID,
 		AmountGT:       params.CurrencyGreaterThan,
@@ -450,6 +544,17 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 // LookupAssetTransactions looks up transactions associated with a particular asset
 // (GET /v2/assets/{asset-id}/transactions)
 func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetID uint64, params generated.LookupAssetTransactionsParams) error {
+	rc, dpName := Verify(si.disabledParams, "LookupAssetTransactions", ctx, si.log)
+	switch rc {
+	case verifyIsGood:
+		// Do nothing
+		break
+	case verifyFailedParameter:
+		return badRequest(ctx, fmt.Sprintf("provided disabled parameter: %s", dpName))
+
+	case verifyFailedEndpoint:
+		return badRequest(ctx, "endpoint is disabled")
+	}
 	searchParams := generated.SearchForTransactionsParams{
 		AssetId:             uint64Ptr(assetID),
 		ApplicationId:       nil,
@@ -478,6 +583,17 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 // SearchForAssets returns assets matching the provided parameters
 // (GET /v2/assets)
 func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generated.SearchForAssetsParams) error {
+	rc, dpName := Verify(si.disabledParams, "SearchForAssets", ctx, si.log)
+	switch rc {
+	case verifyIsGood:
+		// Do nothing
+		break
+	case verifyFailedParameter:
+		return badRequest(ctx, fmt.Sprintf("provided disabled parameter: %s", dpName))
+
+	case verifyFailedEndpoint:
+		return badRequest(ctx, "endpoint is disabled")
+	}
 	options, err := assetParamsToAssetQuery(params)
 	if err != nil {
 		return badRequest(ctx, err.Error())
@@ -503,6 +619,17 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 // LookupBlock returns the block for a given round number
 // (GET /v2/blocks/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
+	rc, dpName := Verify(si.disabledParams, "LookupBlock", ctx, si.log)
+	switch rc {
+	case verifyIsGood:
+		// Do nothing
+		break
+	case verifyFailedParameter:
+		return badRequest(ctx, fmt.Sprintf("provided disabled parameter: %s", dpName))
+
+	case verifyFailedEndpoint:
+		return badRequest(ctx, "endpoint is disabled")
+	}
 	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber)
 	if errors.Is(err, idb.ErrorBlockNotFound) {
 		return notFound(ctx, fmt.Sprintf("%s '%d': %v", errLookingUpBlockForRound, roundNumber, err))
@@ -516,6 +643,17 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 
 // LookupTransaction searches for the requested transaction ID.
 func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string) error {
+	rc, dpName := Verify(si.disabledParams, "LookupTransaction", ctx, si.log)
+	switch rc {
+	case verifyIsGood:
+		// Do nothing
+		break
+	case verifyFailedParameter:
+		return badRequest(ctx, fmt.Sprintf("provided disabled parameter: %s", dpName))
+
+	case verifyFailedEndpoint:
+		return badRequest(ctx, "endpoint is disabled")
+	}
 	filter, err := transactionParamsToTransactionFilter(generated.SearchForTransactionsParams{
 		Txid: strPtr(txid),
 	})
@@ -553,6 +691,17 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 // SearchForTransactions returns transactions matching the provided parameters
 // (GET /v2/transactions)
 func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params generated.SearchForTransactionsParams) error {
+	rc, dpName := Verify(si.disabledParams, "SearchForTransactions", ctx, si.log)
+	switch rc {
+	case verifyIsGood:
+		// Do nothing
+		break
+	case verifyFailedParameter:
+		return badRequest(ctx, fmt.Sprintf("provided disabled parameter: %s", dpName))
+
+	case verifyFailedEndpoint:
+		return badRequest(ctx, "endpoint is disabled")
+	}
 	filter, err := transactionParamsToTransactionFilter(params)
 	if err != nil {
 		return badRequest(ctx, err.Error())
