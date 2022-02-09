@@ -2025,7 +2025,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		query += ` LEFT JOIN qapp ON za.addr = qapp.addr`
 	}
 	if opts.IncludeAppLocalState {
-		query += `LEFT JOIN qls ON za.addr = qls.addr`
+		query += ` LEFT JOIN qls ON za.addr = qls.addr`
 	}
 	query += ` ORDER BY za.addr ASC;`
 	return query, whereArgs
