@@ -60,6 +60,10 @@ const defaultAssetsLimit = 100
 const maxBalancesLimit = 10000
 const defaultBalancesLimit = 1000
 
+// Applications
+const maxApplicationsLimit = 1000
+const defaultApplicationsLimit = 100
+
 //////////////////////
 // Helper functions //
 //////////////////////
@@ -297,6 +301,7 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 	p := generated.SearchForApplicationsParams{
 		ApplicationId: &applicationID,
 		IncludeAll:    params.IncludeAll,
+		Limit:         uint64Ptr(1),
 	}
 
 	apps, round, err := si.fetchApplications(ctx.Request().Context(), p)
@@ -618,6 +623,7 @@ func notFound(ctx echo.Context, err string) error {
 
 // fetchApplications fetches all results
 func (si *ServerImplementation) fetchApplications(ctx context.Context, params generated.SearchForApplicationsParams) ([]generated.Application, uint64, error) {
+	params.Limit = uint64Ptr(min(uintOrDefaultValue(params.Limit, defaultApplicationsLimit), maxApplicationsLimit))
 	var apps []generated.Application
 	var round uint64
 	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
