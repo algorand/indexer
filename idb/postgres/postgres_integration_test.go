@@ -873,7 +873,7 @@ func TestAppExtraPages(t *testing.T) {
 	}
 	require.Equal(t, 1, num)
 
-	rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:]})
+	rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAppParams: true})
 	num = 0
 	var createdApps *[]generated.Application
 	for row := range rows {
@@ -1524,8 +1524,9 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	require.NoError(t, err)
 
 	opts := idb.AccountQueryOptions{
-		EqualToAddress: test.AccountB[:],
-		IncludeDeleted: true,
+		EqualToAddress:       test.AccountB[:],
+		IncludeDeleted:       true,
+		IncludeAppLocalState: true,
 	}
 	rowsCh, _ := db.GetAccounts(context.Background(), opts)
 

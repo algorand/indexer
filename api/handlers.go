@@ -157,6 +157,8 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		EqualToAddress:       addr[:],
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
+		IncludeAppLocalState: true,
+		IncludeAppParams:     true,
 		Limit:                1,
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
 	}
@@ -195,6 +197,8 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 	options := idb.AccountQueryOptions{
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
+		IncludeAppLocalState: true,
+		IncludeAppParams:     true,
 		Limit:                min(uintOrDefaultValue(params.Limit, defaultAccountsLimit), maxAccountsLimit),
 		HasAssetID:           uintOrDefault(params.AssetId),
 		HasAppID:             uintOrDefault(params.ApplicationId),
