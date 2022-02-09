@@ -9,6 +9,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/config"
@@ -19,8 +21,6 @@ import (
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
-
-	"github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
@@ -34,45 +34,6 @@ type ImportValidatorArgs struct {
 	AlgodToken      string
 	AlgodLedger     string
 	PostgresConnStr string
-}
-
-// Run is a blocking call that runs the import validator service.
-func Run(args ImportValidatorArgs) {
-	logger := logrus.New()
-
-	bot, err := fetcher.ForNetAndToken(args.AlgodAddr, args.AlgodToken, logger)
-	if err != nil {
-		fmt.Printf("error initializing fetcher err: %v", err)
-		os.Exit(1)
-	}
-
-	genesis, err := getGenesis(bot.Algod())
-	if err != nil {
-		fmt.Printf("error getting genesis err: %v", err)
-		os.Exit(1)
-	}
-	genesisBlock, err := getGenesisBlock(bot.Algod())
-	if err != nil {
-		fmt.Printf("error getting genesis block err: %v", err)
-		os.Exit(1)
-	}
-
-	db, err := openIndexerDb(args.PostgresConnStr, &genesis, &genesisBlock, logger)
-	if err != nil {
-		fmt.Printf("error opening indexer database err: %v", err)
-		os.Exit(1)
-	}
-	l, err := openLedger(args.AlgodLedger, &genesis, &genesisBlock)
-	if err != nil {
-		fmt.Printf("error opening algod database err: %v", err)
-		os.Exit(1)
-	}
-
-	err = catchup(db, l, bot, logger)
-	if err != nil {
-		fmt.Printf("error catching up err: %v", err)
-		os.Exit(1)
-	}
 }
 
 func getGenesisBlock(client *algod.Client) (bookkeeping.Block, error) {
@@ -356,4 +317,43 @@ func catchup(db *postgres.IndexerDb, l *ledger.Ledger, bot fetcher.Fetcher, logg
 	}
 
 	return nil
+}
+
+// Run is a blocking call that runs the import validator service.
+func Run(args ImportValidatorArgs) {
+	logger := logrus.New()
+
+	bot, err := fetcher.ForNetAndToken(args.AlgodAddr, args.AlgodToken, logger)
+	if err != nil {
+		fmt.Printf("error initializing fetcher err: %v", err)
+		os.Exit(1)
+	}
+
+	genesis, err := getGenesis(bot.Algod())
+	if err != nil {
+		fmt.Printf("error getting genesis err: %v", err)
+		os.Exit(1)
+	}
+	genesisBlock, err := getGenesisBlock(bot.Algod())
+	if err != nil {
+		fmt.Printf("error getting genesis block err: %v", err)
+		os.Exit(1)
+	}
+
+	db, err := openIndexerDb(args.PostgresConnStr, &genesis, &genesisBlock, logger)
+	if err != nil {
+		fmt.Printf("error opening indexer database err: %v", err)
+		os.Exit(1)
+	}
+	l, err := openLedger(args.AlgodLedger, &genesis, &genesisBlock)
+	if err != nil {
+		fmt.Printf("error opening algod database err: %v", err)
+		os.Exit(1)
+	}
+
+	err = catchup(db, l, bot, logger)
+	if err != nil {
+		fmt.Printf("error catching up err: %v", err)
+		os.Exit(1)
+	}
 }
