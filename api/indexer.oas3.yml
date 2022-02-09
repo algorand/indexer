@@ -97,6 +97,26 @@
           "type": "integer"
         }
       },
+      "exclude": {
+        "description": "Exclude additional items such as asset holdings, application local data stored for this account, asset parameters created by this account, and application parameters created by this account.",
+        "explode": false,
+        "in": "query",
+        "name": "exclude",
+        "schema": {
+          "items": {
+            "enum": [
+              "all",
+              "assets",
+              "created-assets",
+              "apps-local-state",
+              "created-apps"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "style": "form"
+      },
       "exclude-close-to": {
         "description": "Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.",
         "in": "query",
@@ -1932,6 +1952,26 @@
             }
           },
           {
+            "description": "Exclude additional items such as asset holdings, application local data stored for this account, asset parameters created by this account, and application parameters created by this account.",
+            "explode": false,
+            "in": "query",
+            "name": "exclude",
+            "schema": {
+              "items": {
+                "enum": [
+                  "all",
+                  "assets",
+                  "created-assets",
+                  "apps-local-state",
+                  "created-apps"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
             "description": "Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
             "in": "query",
             "name": "currency-less-than",
@@ -2076,6 +2116,26 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "description": "Exclude additional items such as asset holdings, application local data stored for this account, asset parameters created by this account, and application parameters created by this account.",
+            "explode": false,
+            "in": "query",
+            "name": "exclude",
+            "schema": {
+              "items": {
+                "enum": [
+                  "all",
+                  "assets",
+                  "created-assets",
+                  "apps-local-state",
+                  "created-apps"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "style": "form"
           }
         ],
         "responses": {

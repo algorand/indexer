@@ -145,6 +145,32 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	})
 }
 
+var errInvalidExcludeParameter = errors.New("invalid exclude argument")
+
+// set query options based on the value of the "exclude" parameter
+func setExcludeQueryOptions(exclude []string, opts *idb.AccountQueryOptions) error {
+	for _, e := range exclude {
+		switch e {
+		case "all":
+			opts.IncludeAssetHoldings = false
+			opts.IncludeAssetParams = false
+			opts.IncludeAppLocalState = false
+			opts.IncludeAppParams = false
+		case "assets":
+			opts.IncludeAssetHoldings = false
+		case "created-assets":
+			opts.IncludeAssetParams = false
+		case "apps-local-state":
+			opts.IncludeAppLocalState = false
+		case "created-apps":
+			opts.IncludeAppParams = false
+		default:
+			return fmt.Errorf(`unknown argument "%s": %w`, e, errInvalidExcludeParameter)
+		}
+	}
+	return nil
+}
+
 // LookupAccountByID queries indexer for a given account.
 // (GET /v2/accounts/{account-id})
 func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID string, params generated.LookupAccountByIDParams) error {
@@ -161,6 +187,13 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		IncludeAppParams:     true,
 		Limit:                1,
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
+	}
+
+	if params.Exclude != nil {
+		err := setExcludeQueryOptions(*params.Exclude, &options)
+		if err != nil {
+			return badRequest(ctx, err.Error())
+		}
 	}
 
 	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
@@ -204,6 +237,13 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		HasAppID:             uintOrDefault(params.ApplicationId),
 		EqualToAuthAddr:      spendingAddr[:],
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
+	}
+
+	if params.Exclude != nil {
+		err := setExcludeQueryOptions(*params.Exclude, &options)
+		if err != nil {
+			return badRequest(ctx, err.Error())
+		}
 	}
 
 	// Set GT/LT on Algos or Asset depending on whether or not an assetID was specified

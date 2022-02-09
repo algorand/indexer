@@ -853,6 +853,9 @@ type CurrencyGreaterThan uint64
 // CurrencyLessThan defines model for currency-less-than.
 type CurrencyLessThan uint64
 
+// Exclude defines model for exclude.
+type Exclude []string
+
 // ExcludeCloseTo defines model for exclude-close-to.
 type ExcludeCloseTo bool
 

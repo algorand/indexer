@@ -70,6 +70,9 @@
             "$ref": "#/parameters/include-all"
           },
           {
+            "$ref": "#/parameters/exclude"
+          },
+          {
             "$ref": "#/parameters/currency-less-than"
           },
           {
@@ -120,6 +123,9 @@
           },
           {
             "$ref": "#/parameters/include-all"
+          },
+          {
+            "$ref": "#/parameters/exclude"
           }
         ],
         "responses": {
@@ -2101,6 +2107,22 @@
       "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
       "name": "include-all",
       "in": "query"
+    },
+    "exclude": {
+      "description": "Exclude additional items such as asset holdings, application local data stored for this account, asset parameters created by this account, and application parameters created by this account.",
+      "name": "exclude",
+      "in": "query",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "all",
+          "assets",
+          "created-assets",
+          "apps-local-state",
+          "created-apps"
+        ]
+      }
     },
     "limit": {
       "type": "integer",

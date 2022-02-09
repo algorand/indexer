@@ -853,6 +853,9 @@ type CurrencyGreaterThan uint64
 // CurrencyLessThan defines model for currency-less-than.
 type CurrencyLessThan uint64
 
+// Exclude defines model for exclude.
+type Exclude []string
+
 // ExcludeCloseTo defines model for exclude-close-to.
 type ExcludeCloseTo bool
 
@@ -1041,6 +1044,9 @@ type SearchForAccountsParams struct {
 	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
 	IncludeAll *bool `json:"include-all,omitempty"`
 
+	// Exclude additional items such as asset holdings, application local data stored for this account, asset parameters created by this account, and application parameters created by this account.
+	Exclude *[]string `json:"exclude,omitempty"`
+
 	// Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyLessThan *uint64 `json:"currency-less-than,omitempty"`
 
@@ -1062,6 +1068,9 @@ type LookupAccountByIDParams struct {
 
 	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
 	IncludeAll *bool `json:"include-all,omitempty"`
+
+	// Exclude additional items such as asset holdings, application local data stored for this account, asset parameters created by this account, and application parameters created by this account.
+	Exclude *[]string `json:"exclude,omitempty"`
 }
 
 // LookupAccountTransactionsParams defines parameters for LookupAccountTransactions.
