@@ -1,36 +1,40 @@
 package api
 
 import (
-	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
 )
 
-// DisabledParameter holds the name and disabled status of a parameter
-type DisabledParameter struct {
-	Name     string
-	Disabled bool
+// EndpointConfig is a data structure that contains whether the
+// endpoint is disabled (with a boolean) as well as a set that
+// contains disabled optional parameters.  The disabled optional parameter
+// set is keyed by the name of the variable
+type EndpointConfig struct {
+	EndpointDisabled           bool
+	DisabledOptionalParameters map[string]bool
 }
 
-// DisabledList is a data structure that contains lists of both
-// required and optional parameters.  By storing these, one can
-// determine if any disabled parameters have been supplied
-type DisabledList struct {
-	RequiredParams []DisabledParameter
-	OptionalParams []DisabledParameter
+// NewEndpointConfig creates a new empty endpoint config
+func NewEndpointConfig() *EndpointConfig {
+	rval := &EndpointConfig{
+		EndpointDisabled:           false,
+		DisabledOptionalParameters: make(map[string]bool),
+	}
+
+	return rval
 }
 
 // DisabledMap a type that holds a map of disabled types
 // The key for a disabled map is the handler function name
 type DisabledMap struct {
-	Data map[string]DisabledList
+	Data map[string]*EndpointConfig
 }
 
 // NewDisabledMap creates a new empty disabled map
 func NewDisabledMap() *DisabledMap {
-	rval := &DisabledMap{}
-	rval.Data = make(map[string]DisabledList)
-	return rval
+	return &DisabledMap{
+		Data: make(map[string]*EndpointConfig),
+	}
 }
 
 // NewDisabledMapFromOA3 Creates a new disabled map from an openapi3 definition
@@ -38,26 +42,29 @@ func NewDisabledMapFromOA3(swag *openapi3.Swagger) *DisabledMap {
 	rval := NewDisabledMap()
 	for _, item := range swag.Paths {
 		for _, opItem := range item.Operations() {
-			var disabledList DisabledList
+
+			endpointConfig := NewEndpointConfig()
 
 			for _, pref := range opItem.Parameters {
 
-				disabledParameter := DisabledParameter{
-					Name:     pref.Value.Name,
-					Disabled: false,
-				}
 				// TODO how to enable it to be disabled
+				parameterIsDisabled := false
+				if !parameterIsDisabled {
+					// If the parameter is not disabled, then we don't need
+					// to do anything
+					continue
+				}
 
 				if pref.Value.Required {
-					disabledList.RequiredParams = append(disabledList.RequiredParams, disabledParameter)
-					fmt.Printf(" -> Param (Req): %s\n", pref.Value.Name)
+					// If an endpoint config required parameter is disabled, then the whole endpoint is disabled
+					endpointConfig.EndpointDisabled = true
 				} else {
-					disabledList.OptionalParams = append(disabledList.OptionalParams, disabledParameter)
-					fmt.Printf(" -> Param: %s\n", pref.Value.Name)
+					// If the endpoint is disabled, add it to the map
+					endpointConfig.DisabledOptionalParameters[pref.Value.Name] = true
 				}
 			}
 
-			rval.Data[opItem.OperationID] = disabledList
+			rval.Data[opItem.OperationID] = endpointConfig
 
 		}
 
@@ -105,14 +112,10 @@ func Verify(dm *DisabledMap, nameOfHandlerFunc string, ctx echo.Context, log Dis
 	return verifyIsGood, ""
 }
 
-func (dl *DisabledList) verify(ctx echo.Context, log DisabledParameterErrorReporter) (VerifyRC, string) {
+func (ec *EndpointConfig) verify(ctx echo.Context, log DisabledParameterErrorReporter) (VerifyRC, string) {
 
-	// If any of the Required Params are disabled we have to fail the whole
-	// endpoint
-	for _, dp := range dl.RequiredParams {
-		if dp.Disabled {
-			return verifyFailedEndpoint, ""
-		}
+	if ec.EndpointDisabled {
+		return verifyFailedEndpoint, ""
 	}
 
 	queryParams := ctx.QueryParams()
@@ -122,28 +125,23 @@ func (dl *DisabledList) verify(ctx echo.Context, log DisabledParameterErrorRepor
 		log.Errorf("retrieving form parameters for verification resulted in an error: %v", formErr)
 	}
 
-	for _, dp := range dl.OptionalParams {
-
-		// No point in checking if it isn't disabled
-		if dp.Disabled == false {
-			continue
-		}
+	for paramName := range ec.DisabledOptionalParameters {
 
 		// The optional param is disabled, check that it wasn't supplied...
-		queryValue := queryParams.Get(dp.Name)
+		queryValue := queryParams.Get(paramName)
 		if queryValue != "" {
 			// If the query value is non-zero, and it was disabled, we should return false
-			return verifyFailedParameter, dp.Name
+			return verifyFailedParameter, paramName
 		}
 
 		if formErr != nil {
 			continue
 		}
 
-		formValue := formParams.Get(dp.Name)
+		formValue := formParams.Get(paramName)
 		if formValue != "" {
 			// If the query value is non-zero, and it was disabled, we should return false
-			return verifyFailedParameter, dp.Name
+			return verifyFailedParameter, paramName
 		}
 	}
 

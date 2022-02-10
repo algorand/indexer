@@ -1,11 +1,10 @@
 package api
 
 import (
-	"errors"
-	"io"
-	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -24,356 +23,101 @@ func (er *testingErrorReporter) Reset() {
 	er.ErrorFCalledCount = 0
 }
 
-type testingEchoContext struct {
-	InternalQueryParams  url.Values
-	InternalFormParams   url.Values
-	ForceFormParamsError bool
-}
-
-func (t testingEchoContext) Request() *http.Request {
-	panic("implement me")
-}
-
-func (t testingEchoContext) SetRequest(r *http.Request) {
-	panic("implement me")
-}
-
-func (t testingEchoContext) SetResponse(r *echo.Response) {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Response() *echo.Response {
-	panic("implement me")
-}
-
-func (t testingEchoContext) IsTLS() bool {
-	panic("implement me")
-}
-
-func (t testingEchoContext) IsWebSocket() bool {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Scheme() string {
-	panic("implement me")
-}
-
-func (t testingEchoContext) RealIP() string {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Path() string {
-	panic("implement me")
-}
-
-func (t testingEchoContext) SetPath(p string) {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Param(name string) string {
-	panic("implement me")
-}
-
-func (t testingEchoContext) ParamNames() []string {
-	panic("implement me")
-}
-
-func (t testingEchoContext) SetParamNames(names ...string) {
-	panic("implement me")
-}
-
-func (t testingEchoContext) ParamValues() []string {
-	panic("implement me")
-}
-
-func (t testingEchoContext) SetParamValues(values ...string) {
-	panic("implement me")
-}
-
-func (t testingEchoContext) QueryParam(name string) string {
-	panic("implement me")
-}
-
-func (t testingEchoContext) QueryParams() url.Values {
-	return t.InternalQueryParams
-}
-
-func (t testingEchoContext) QueryString() string {
-	panic("implement me")
-}
-
-func (t testingEchoContext) FormValue(name string) string {
-	panic("implement me")
-}
-
-func (t testingEchoContext) FormParams() (url.Values, error) {
-	if t.ForceFormParamsError {
-		return url.Values{}, errors.New("FormParamsError")
+// TestFailingParam tests that disabled parameters provided via
+// the FormParams() and QueryParams() functions of the context are appropriately handled
+func TestFailingParam(t *testing.T) {
+	type testingStruct struct {
+		name               string
+		setFormValues      func(*url.Values)
+		expectedRval       VerifyRC
+		expectedRstr       string
+		expectedErrorCount int
+		mimeType           string
 	}
-	return t.InternalFormParams, nil
-}
-
-func (t testingEchoContext) FormFile(name string) (*multipart.FileHeader, error) {
-	panic("implement me")
-}
-
-func (t testingEchoContext) MultipartForm() (*multipart.Form, error) {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Cookie(name string) (*http.Cookie, error) {
-	panic("implement me")
-}
-
-func (t testingEchoContext) SetCookie(cookie *http.Cookie) {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Cookies() []*http.Cookie {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Get(key string) interface{} {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Set(key string, val interface{}) {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Bind(i interface{}) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Validate(i interface{}) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Render(code int, name string, data interface{}) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) HTML(code int, html string) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) HTMLBlob(code int, b []byte) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) String(code int, s string) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) JSON(code int, i interface{}) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) JSONPretty(code int, i interface{}, indent string) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) JSONBlob(code int, b []byte) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) JSONP(code int, callback string, i interface{}) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) JSONPBlob(code int, callback string, b []byte) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) XML(code int, i interface{}) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) XMLPretty(code int, i interface{}, indent string) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) XMLBlob(code int, b []byte) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Blob(code int, contentType string, b []byte) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Stream(code int, contentType string, r io.Reader) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) File(file string) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Attachment(file string, name string) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Inline(file string, name string) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) NoContent(code int) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Redirect(code int, url string) error {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Error(err error) {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Handler() echo.HandlerFunc {
-	panic("implement me")
-}
-
-func (t testingEchoContext) SetHandler(h echo.HandlerFunc) {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Logger() echo.Logger {
-	panic("implement me")
-}
-
-func (t testingEchoContext) SetLogger(l echo.Logger) {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Echo() *echo.Echo {
-	panic("implement me")
-}
-
-func (t testingEchoContext) Reset(r *http.Request, w http.ResponseWriter) {
-	panic("implement me")
-}
-
-// TestFailingFormParam tests that disabled parameters provided via
-// the FormParams() function of the context are appropriately handled
-func TestFailingFormParam(t *testing.T) {
-	dm := NewDisabledMap()
-
-	dm.Data["K1"] = DisabledList{
-		RequiredParams: []DisabledParameter{
-			{"1", false},
-			{"2", false},
+	tests := []testingStruct{
+		{
+			"non-disabled param provided",
+			func(f *url.Values) {
+				f.Set("3", "Provided")
+			}, verifyIsGood, "", 0, echo.MIMEApplicationForm,
 		},
-		OptionalParams: []DisabledParameter{
-			{"1", true},
-			{"3", false},
+		{
+			"disabled param provided but empty",
+			func(f *url.Values) {
+				f.Set("1", "")
+			}, verifyIsGood, "", 0, echo.MIMEApplicationForm,
+		},
+		{
+			"disabled param provided",
+			func(f *url.Values) {
+				f.Set("1", "Provided")
+			}, verifyFailedParameter, "1", 0, echo.MIMEApplicationForm,
 		},
 	}
 
-	ctx := testingEchoContext{
-		InternalQueryParams:  nil,
-		InternalFormParams:   make(map[string][]string),
-		ForceFormParamsError: false,
-	}
-
-	ctx.InternalFormParams["3"] = []string{"Provided"}
-
-	er := &testingErrorReporter{0}
-
-	rval, rstr := Verify(dm, "K1", ctx, er)
-
-	require.Equal(t, verifyIsGood, rval)
-	require.Equal(t, 0, er.ErrorFCalledCount)
-	require.Empty(t, rstr)
-
-	er.Reset()
-
-	// Disabled parameter is "provided" but empty...should be ok
-	ctx.InternalFormParams["1"] = []string{}
-
-	rval, rstr = Verify(dm, "K1", ctx, er)
-
-	require.Equal(t, verifyIsGood, rval)
-	require.Equal(t, 0, er.ErrorFCalledCount)
-	require.Empty(t, rstr)
-
-	er.Reset()
-
-	// Disabled parameter is now actually provided
-	ctx.InternalFormParams["1"] = []string{"Provided"}
-
-	rval, rstr = Verify(dm, "K1", ctx, er)
-
-	require.Equal(t, verifyFailedParameter, rval)
-	require.Equal(t, 0, er.ErrorFCalledCount)
-	require.Equal(t, "1", rstr)
-
-	// The forms parameter will now error out and we won't get
-	// an error because we wont be able to check it
-	ctx.ForceFormParamsError = true
-	er.Reset()
-
-	rval, rstr = Verify(dm, "K1", ctx, er)
-
-	require.Equal(t, verifyIsGood, rval)
-	require.Equal(t, 1, er.ErrorFCalledCount)
-	require.Empty(t, rstr)
-
-}
-
-// TestFailingQueryParam tests that disabled parameters provided via
-// the QueryParams() function of the context are appropriately handled
-func TestFailingQueryParam(t *testing.T) {
-	dm := NewDisabledMap()
-
-	dm.Data["K1"] = DisabledList{
-		RequiredParams: []DisabledParameter{
-			{"1", false},
-			{"2", false},
-		},
-		OptionalParams: []DisabledParameter{
-			{"1", true},
-			{"3", false},
+	testsPostOnly := []testingStruct{
+		{
+			"Error encountered for Form Params",
+			func(f *url.Values) {
+				f.Set("1", "Provided")
+			}, verifyIsGood, "", 1, echo.MIMEMultipartForm,
 		},
 	}
 
-	ctx := testingEchoContext{
-		InternalQueryParams:  make(map[string][]string),
-		InternalFormParams:   nil,
-		ForceFormParamsError: false,
+	ctxFactoryGet := func(e *echo.Echo, f *url.Values, t *testingStruct) *echo.Context {
+		req := httptest.NewRequest(http.MethodGet, "/?"+f.Encode(), nil)
+		ctx := e.NewContext(req, nil)
+		return &ctx
 	}
 
-	ctx.InternalQueryParams["3"] = []string{"Provided"}
+	ctxFactoryPost := func(e *echo.Echo, f *url.Values, t *testingStruct) *echo.Context {
+		req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(f.Encode()))
+		req.Header.Add(echo.HeaderContentType, t.mimeType)
+		ctx := e.NewContext(req, nil)
+		return &ctx
+	}
 
-	er := &testingErrorReporter{0}
+	runner := func(t *testing.T, tstruct *testingStruct, ctxFactory func(*echo.Echo, *url.Values, *testingStruct) *echo.Context) {
+		dm := NewDisabledMap()
+		e1 := NewEndpointConfig()
+		e1.EndpointDisabled = false
+		e1.DisabledOptionalParameters["1"] = true
 
-	rval, rstr := Verify(dm, "K1", ctx, er)
+		dm.Data["K1"] = e1
 
-	require.Equal(t, verifyIsGood, rval)
-	require.Equal(t, 0, er.ErrorFCalledCount)
-	require.Empty(t, rstr)
+		e := echo.New()
 
-	er.Reset()
+		f := make(url.Values)
+		tstruct.setFormValues(&f)
 
-	// Disabled parameter is "provided" but empty...should be ok
-	ctx.InternalQueryParams["1"] = []string{}
+		ctx := ctxFactory(e, &f, tstruct)
 
-	rval, rstr = Verify(dm, "K1", ctx, er)
+		er := &testingErrorReporter{0}
 
-	require.Equal(t, verifyIsGood, rval)
-	require.Equal(t, 0, er.ErrorFCalledCount)
-	require.Empty(t, rstr)
+		rval, rstr := Verify(dm, "K1", *ctx, er)
 
-	er.Reset()
+		require.Equal(t, tstruct.expectedRval, rval)
+		require.Equal(t, tstruct.expectedErrorCount, er.ErrorFCalledCount)
+		require.Equal(t, tstruct.expectedRstr, rstr)
+	}
 
-	// Disabled parameter is now actually provided
-	ctx.InternalQueryParams["1"] = []string{"Provided"}
+	for _, test := range tests {
+		t.Run("Post-"+test.name, func(t *testing.T) {
+			runner(t, &test, ctxFactoryPost)
+		})
 
-	rval, rstr = Verify(dm, "K1", ctx, er)
+		t.Run("Get-"+test.name, func(t *testing.T) {
+			runner(t, &test, ctxFactoryGet)
+		})
 
-	require.Equal(t, verifyFailedParameter, rval)
-	require.Equal(t, 0, er.ErrorFCalledCount)
-	require.Equal(t, "1", rstr)
+	}
 
+	for _, test := range testsPostOnly {
+		t.Run("Post-"+test.name, func(t *testing.T) {
+			runner(t, &test, ctxFactoryPost)
+		})
+
+	}
 }
 
 // TestFailingEndpoint tests that an endpoint which has a disabled required parameter
@@ -381,22 +125,15 @@ func TestFailingQueryParam(t *testing.T) {
 func TestFailingEndpoint(t *testing.T) {
 	dm := NewDisabledMap()
 
-	dm.Data["K1"] = DisabledList{
-		RequiredParams: []DisabledParameter{
-			{"1", false},
-			{"2", true},
-		},
-		OptionalParams: []DisabledParameter{
-			{"1", true},
-			{"3", false},
-		},
-	}
+	e1 := NewEndpointConfig()
+	e1.EndpointDisabled = true
+	e1.DisabledOptionalParameters["1"] = true
 
-	ctx := testingEchoContext{
-		InternalQueryParams:  nil,
-		InternalFormParams:   nil,
-		ForceFormParamsError: false,
-	}
+	dm.Data["K1"] = e1
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/?", nil)
+	ctx := e.NewContext(req, nil)
 
 	er := &testingErrorReporter{0}
 
@@ -412,22 +149,15 @@ func TestFailingEndpoint(t *testing.T) {
 func TestVerifyNonExistentHandler(t *testing.T) {
 	dm := NewDisabledMap()
 
-	dm.Data["K1"] = DisabledList{
-		RequiredParams: []DisabledParameter{
-			{"1", false},
-			{"2", false},
-		},
-		OptionalParams: []DisabledParameter{
-			{"1", true},
-			{"3", false},
-		},
-	}
+	e1 := NewEndpointConfig()
+	e1.EndpointDisabled = false
+	e1.DisabledOptionalParameters["1"] = true
 
-	ctx := testingEchoContext{
-		InternalQueryParams:  nil,
-		InternalFormParams:   nil,
-		ForceFormParamsError: false,
-	}
+	dm.Data["K1"] = e1
+
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/?", nil)
+	ctx := e.NewContext(req, nil)
 
 	er := &testingErrorReporter{0}
 
