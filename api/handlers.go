@@ -217,6 +217,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 	})
 }
 
+// LookupAccountAppLocalStates queries indexer for AppLocalState for a given account, and optionally a given app ID.
 // (GET /v2/accounts/{account-id}/apps-local-state)
 func (si *ServerImplementation) LookupAccountAppLocalStates(ctx echo.Context, accountID string, params generated.LookupAccountAppLocalStatesParams) error {
 	search := generated.SearchForApplicationsParams{
@@ -249,6 +250,7 @@ func (si *ServerImplementation) LookupAccountAppLocalStates(ctx echo.Context, ac
 	return ctx.JSON(http.StatusOK, out)
 }
 
+// LookupAccountAssets queries indexer for AssetHolding for a given account, and optionally a given asset ID.
 // (GET /v2/accounts/{account-id}/assets)
 func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID string, params generated.LookupAccountAssetsParams) error {
 	addr, errors := decodeAddress(&accountID, "account-id", make([]string, 0))
@@ -290,6 +292,7 @@ func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID 
 	})
 }
 
+// LookupAccountCreatedApplications queries indexer for AppParams for a given account, and optionally a given app ID.
 // (GET /v2/accounts/{account-id}/created-applications)
 func (si *ServerImplementation) LookupAccountCreatedApplications(ctx echo.Context, accountID string, params generated.LookupAccountCreatedApplicationsParams) error {
 	search := generated.SearchForApplicationsParams{
@@ -302,6 +305,7 @@ func (si *ServerImplementation) LookupAccountCreatedApplications(ctx echo.Contex
 	return si.SearchForApplications(ctx, search)
 }
 
+// LookupAccountCreatedAssets queries indexer for AssetParams for a given account, and optionally a given asset ID.
 // (GET /v2/accounts/{account-id}/created-assets)
 func (si *ServerImplementation) LookupAccountCreatedAssets(ctx echo.Context, accountID string, params generated.LookupAccountCreatedAssetsParams) error {
 	search := generated.SearchForAssetsParams{

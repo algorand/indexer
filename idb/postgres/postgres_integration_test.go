@@ -860,10 +860,10 @@ func TestAppExtraPages(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint32(1), ap.ExtraProgramPages)
 
-	var filter generated.SearchForApplicationsParams
+	var filter idb.ApplicationQuery
 	var aidx uint64 = uint64(index)
-	filter.ApplicationId = &aidx
-	appRows, _ := db.Applications(context.Background(), &filter)
+	filter.ApplicationID = aidx
+	appRows, _ := db.Applications(context.Background(), filter)
 	num := 0
 	for row := range appRows {
 		require.NoError(t, row.Error)
@@ -1488,12 +1488,11 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 	err = db.AddBlock(&block)
 	require.NoError(t, err)
 
-	yes := true
-	opts := generated.SearchForApplicationsParams{
-		ApplicationId: &appid,
-		IncludeAll:    &yes,
+	opts := idb.ApplicationQuery{
+		ApplicationID:  appid,
+		IncludeDeleted: true,
 	}
-	rowsCh, _ := db.Applications(context.Background(), &opts)
+	rowsCh, _ := db.Applications(context.Background(), opts)
 
 	row, ok := <-rowsCh
 	require.True(t, ok)
