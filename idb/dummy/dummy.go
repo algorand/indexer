@@ -7,7 +7,6 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	log "github.com/sirupsen/logrus"
 
-	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 )
 
@@ -74,7 +73,12 @@ func (db *dummyIndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanc
 }
 
 // Applications is part of idb.IndexerDB
-func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan idb.ApplicationRow, uint64) {
+func (db *dummyIndexerDb) Applications(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.ApplicationRow, uint64) {
+	return nil, 0
+}
+
+// AppLocalState is part of idb.IndexerDB
+func (db *dummyIndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.AppLocalStateRow, uint64) {
 	return nil, 0
 }
 

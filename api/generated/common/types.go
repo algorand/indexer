@@ -244,9 +244,6 @@ type AssetHolding struct {
 	// Asset ID of the holding.
 	AssetId uint64 `json:"asset-id"`
 
-	// Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.
-	Creator string `json:"creator"`
-
 	// Whether or not the asset holding is currently deleted from its account.
 	Deleted *bool `json:"deleted,omitempty"`
 
@@ -922,6 +919,17 @@ type AccountsResponse struct {
 	NextToken *string `json:"next-token,omitempty"`
 }
 
+// ApplicationLocalStatesResponse defines model for ApplicationLocalStatesResponse.
+type ApplicationLocalStatesResponse struct {
+	AppsLocalStates []ApplicationLocalState `json:"apps-local-states"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
+}
+
 // ApplicationLogsResponse defines model for ApplicationLogsResponse.
 type ApplicationLogsResponse struct {
 
@@ -960,6 +968,17 @@ type ApplicationsResponse struct {
 // AssetBalancesResponse defines model for AssetBalancesResponse.
 type AssetBalancesResponse struct {
 	Balances []MiniAssetHolding `json:"balances"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
+}
+
+// AssetHoldingsResponse defines model for AssetHoldingsResponse.
+type AssetHoldingsResponse struct {
+	Assets []AssetHolding `json:"assets"`
 
 	// Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`

@@ -244,9 +244,6 @@ type AssetHolding struct {
 	// Asset ID of the holding.
 	AssetId uint64 `json:"asset-id"`
 
-	// Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.
-	Creator string `json:"creator"`
-
 	// Whether or not the asset holding is currently deleted from its account.
 	Deleted *bool `json:"deleted,omitempty"`
 
@@ -922,6 +919,17 @@ type AccountsResponse struct {
 	NextToken *string `json:"next-token,omitempty"`
 }
 
+// ApplicationLocalStatesResponse defines model for ApplicationLocalStatesResponse.
+type ApplicationLocalStatesResponse struct {
+	AppsLocalStates []ApplicationLocalState `json:"apps-local-states"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
+}
+
 // ApplicationLogsResponse defines model for ApplicationLogsResponse.
 type ApplicationLogsResponse struct {
 
@@ -960,6 +968,17 @@ type ApplicationsResponse struct {
 // AssetBalancesResponse defines model for AssetBalancesResponse.
 type AssetBalancesResponse struct {
 	Balances []MiniAssetHolding `json:"balances"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
+}
+
+// AssetHoldingsResponse defines model for AssetHoldingsResponse.
+type AssetHoldingsResponse struct {
+	Assets []AssetHolding `json:"assets"`
 
 	// Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`
@@ -1073,6 +1092,70 @@ type LookupAccountByIDParams struct {
 	Exclude *[]string `json:"exclude,omitempty"`
 }
 
+// LookupAccountAppLocalStatesParams defines parameters for LookupAccountAppLocalStates.
+type LookupAccountAppLocalStatesParams struct {
+
+	// Application ID
+	ApplicationId *uint64 `json:"application-id,omitempty"`
+
+	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
+	IncludeAll *bool `json:"include-all,omitempty"`
+
+	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
+	Limit *uint64 `json:"limit,omitempty"`
+
+	// The next page of results. Use the next token provided by the previous results.
+	Next *string `json:"next,omitempty"`
+}
+
+// LookupAccountAssetsParams defines parameters for LookupAccountAssets.
+type LookupAccountAssetsParams struct {
+
+	// Asset ID
+	AssetId *uint64 `json:"asset-id,omitempty"`
+
+	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
+	IncludeAll *bool `json:"include-all,omitempty"`
+
+	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
+	Limit *uint64 `json:"limit,omitempty"`
+
+	// The next page of results. Use the next token provided by the previous results.
+	Next *string `json:"next,omitempty"`
+}
+
+// LookupAccountCreatedApplicationsParams defines parameters for LookupAccountCreatedApplications.
+type LookupAccountCreatedApplicationsParams struct {
+
+	// Application ID
+	ApplicationId *uint64 `json:"application-id,omitempty"`
+
+	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
+	IncludeAll *bool `json:"include-all,omitempty"`
+
+	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
+	Limit *uint64 `json:"limit,omitempty"`
+
+	// The next page of results. Use the next token provided by the previous results.
+	Next *string `json:"next,omitempty"`
+}
+
+// LookupAccountCreatedAssetsParams defines parameters for LookupAccountCreatedAssets.
+type LookupAccountCreatedAssetsParams struct {
+
+	// Asset ID
+	AssetId *uint64 `json:"asset-id,omitempty"`
+
+	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
+	IncludeAll *bool `json:"include-all,omitempty"`
+
+	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
+	Limit *uint64 `json:"limit,omitempty"`
+
+	// The next page of results. Use the next token provided by the previous results.
+	Next *string `json:"next,omitempty"`
+}
+
 // LookupAccountTransactionsParams defines parameters for LookupAccountTransactions.
 type LookupAccountTransactionsParams struct {
 
@@ -1128,6 +1211,9 @@ type SearchForApplicationsParams struct {
 
 	// Application ID
 	ApplicationId *uint64 `json:"application-id,omitempty"`
+
+	// Filter just applications with the given creator address.
+	Creator *string `json:"creator,omitempty"`
 
 	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
 	IncludeAll *bool `json:"include-all,omitempty"`
@@ -1211,9 +1297,6 @@ type LookupAssetBalancesParams struct {
 
 	// The next page of results. Use the next token provided by the previous results.
 	Next *string `json:"next,omitempty"`
-
-	// Include results for the specified round.
-	Round *uint64 `json:"round,omitempty"`
 
 	// Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.
 	CurrencyGreaterThan *uint64 `json:"currency-greater-than,omitempty"`

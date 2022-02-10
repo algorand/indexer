@@ -1473,7 +1473,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					OptedOutAtRound: holdingClosed[i],
 					OptedInAtRound:  holdingCreated[i],
 					Deleted:         holdingDeleted[i],
-				} // TODO: set Creator to asset creator addr string
+				}
 				av = append(av, tah)
 			}
 			account.Assets = new([]models.AssetHolding)
@@ -2162,6 +2162,16 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 		whereArgs = append(whereArgs, abq.AssetID)
 		partNumber++
 	}
+	if abq.AssetIDGT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.assetid > $%d", partNumber))
+		whereArgs = append(whereArgs, abq.AssetIDGT)
+		partNumber++
+	}
+	if abq.Address != nil {
+		whereParts = append(whereParts, fmt.Sprintf("aa.addr = $%d", partNumber))
+		whereArgs = append(whereArgs, abq.Address)
+		partNumber++
+	}
 	if abq.AmountGT != nil {
 		whereParts = append(whereParts, fmt.Sprintf("aa.amount > $%d", partNumber))
 		whereArgs = append(whereArgs, *abq.AmountGT)
@@ -2184,7 +2194,11 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	if len(whereParts) > 0 {
 		query += " WHERE " + strings.Join(whereParts, " AND ")
 	}
-	query += " ORDER BY addr ASC"
+	if abq.Address != nil {
+		query += " ORDER BY assetid ASC"
+	} else {
+		query += " ORDER BY addr ASC"
+	}
 	if abq.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d", abq.Limit)
 	}
@@ -2254,13 +2268,8 @@ func (db *IndexerDb) yieldAssetBalanceThread(rows pgx.Rows, out chan<- idb.Asset
 }
 
 // Applications is part of idb.IndexerDB
-func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan idb.ApplicationRow, uint64) {
+func (db *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.ApplicationRow, uint64) {
 	out := make(chan idb.ApplicationRow, 1)
-	if filter == nil {
-		out <- idb.ApplicationRow{Error: fmt.Errorf("no arguments provided to application search")}
-		close(out)
-		return out, 0
-	}
 
 	query := `SELECT index, creator, params, created_at, closed_at, deleted FROM app `
 
@@ -2268,17 +2277,22 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if filter.ApplicationId != nil {
+	if filter.ApplicationID != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("index = $%d", partNumber))
-		whereArgs = append(whereArgs, *filter.ApplicationId)
+		whereArgs = append(whereArgs, filter.ApplicationID)
 		partNumber++
 	}
-	if filter.Next != nil {
+	if filter.Address != nil {
+		whereParts = append(whereParts, fmt.Sprintf("creator = $%d", partNumber))
+		whereArgs = append(whereArgs, filter.Address)
+		partNumber++
+	}
+	if filter.ApplicationIDGreaterThan != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("index > $%d", partNumber))
-		whereArgs = append(whereArgs, *filter.Next)
+		whereArgs = append(whereArgs, filter.ApplicationIDGreaterThan)
 		partNumber++
 	}
-	if filter.IncludeAll == nil || !(*filter.IncludeAll) {
+	if !filter.IncludeDeleted {
 		whereParts = append(whereParts, "coalesce(deleted, false) = false")
 	}
 	if len(whereParts) > 0 {
@@ -2286,8 +2300,8 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 		query += " WHERE " + whereStr
 	}
 	query += " ORDER BY 1"
-	if filter.Limit != nil {
-		query += fmt.Sprintf(" LIMIT %d", *filter.Limit)
+	if filter.Limit != 0 {
+		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
 	}
 
 	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
@@ -2374,6 +2388,113 @@ func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.Applica
 	}
 	if err := rows.Err(); err != nil {
 		out <- idb.ApplicationRow{Error: err}
+	}
+}
+
+// AppLocalState is part of idb.IndexerDB
+func (db *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.AppLocalStateRow, uint64) {
+	out := make(chan idb.AppLocalStateRow, 1)
+
+	query := `SELECT app, addr, localstate, created_at, closed_at, deleted FROM account_app `
+
+	const maxWhereParts = 30
+	whereParts := make([]string, 0, maxWhereParts)
+	whereArgs := make([]interface{}, 0, maxWhereParts)
+	partNumber := 1
+	if filter.ApplicationID != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("app = $%d", partNumber))
+		whereArgs = append(whereArgs, filter.ApplicationID)
+		partNumber++
+	}
+	if filter.Address != nil {
+		whereParts = append(whereParts, fmt.Sprintf("addr = $%d", partNumber))
+		whereArgs = append(whereArgs, filter.Address)
+		partNumber++
+	}
+	if filter.ApplicationIDGreaterThan != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("app > $%d", partNumber))
+		whereArgs = append(whereArgs, filter.ApplicationIDGreaterThan)
+		partNumber++
+	}
+	if !filter.IncludeDeleted {
+		whereParts = append(whereParts, "coalesce(deleted, false) = false")
+	}
+	if len(whereParts) > 0 {
+		whereStr := strings.Join(whereParts, " AND ")
+		query += " WHERE " + whereStr
+	}
+	query += " ORDER BY 1"
+	if filter.Limit != 0 {
+		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
+	}
+
+	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
+	if err != nil {
+		out <- idb.AppLocalStateRow{Error: err}
+		close(out)
+		return out, 0
+	}
+
+	round, err := db.getMaxRoundAccounted(ctx, tx)
+	if err != nil {
+		out <- idb.AppLocalStateRow{Error: err}
+		close(out)
+		tx.Rollback(ctx)
+		return out, round
+	}
+
+	rows, err := tx.Query(ctx, query, whereArgs...)
+	if err != nil {
+		out <- idb.AppLocalStateRow{Error: err}
+		close(out)
+		tx.Rollback(ctx)
+		return out, round
+	}
+
+	go func() {
+		db.yieldAppLocalStateThread(rows, out)
+		close(out)
+		tx.Rollback(ctx)
+	}()
+	return out, round
+}
+
+func (db *IndexerDb) yieldAppLocalStateThread(rows pgx.Rows, out chan idb.AppLocalStateRow) {
+	defer rows.Close()
+
+	for rows.Next() {
+		var index uint64
+		var address []byte
+		var statejson []byte
+		var created *uint64
+		var closed *uint64
+		var deleted *bool
+		err := rows.Scan(&index, &address, &statejson, &created, &closed, &deleted)
+		if err != nil {
+			out <- idb.AppLocalStateRow{Error: err}
+			break
+		}
+		var rec idb.AppLocalStateRow
+		rec.AppLocalState.Id = index
+		rec.AppLocalState.OptedInAtRound = created
+		rec.AppLocalState.ClosedOutAtRound = closed
+		rec.AppLocalState.Deleted = deleted
+
+		ls, err := encoding.DecodeAppLocalState(statejson)
+		if err != nil {
+			rec.Error = fmt.Errorf("app=%d json err, %v", index, err)
+			out <- rec
+			break
+		}
+		rec.AppLocalState.Schema = models.ApplicationStateSchema{
+			NumByteSlice: ls.Schema.NumByteSlice,
+			NumUint:      ls.Schema.NumUint,
+		}
+		rec.AppLocalState.KeyValue = tealKeyValueToModel(ls.KeyValue)
+		out <- rec
+	}
+	if err := rows.Err(); err != nil {
+		out <- idb.AppLocalStateRow{Error: err}
 	}
 }
 

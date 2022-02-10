@@ -548,6 +548,30 @@ func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.Assets
 	return query, nil
 }
 
+func appParamsToApplicationQuery(params generated.SearchForApplicationsParams) (idb.ApplicationQuery, error) {
+	addr, errorArr := decodeAddress(params.Creator, "creator", make([]string, 0))
+	if len(errorArr) != 0 {
+		return idb.ApplicationQuery{}, errors.New(errUnableToParseAddress)
+	}
+
+	var appGreaterThan uint64 = 0
+	if params.Next != nil {
+		agt, err := strconv.ParseUint(*params.Next, 10, 64)
+		if err != nil {
+			return idb.ApplicationQuery{}, fmt.Errorf("%s: %v", errUnableToParseNext, err)
+		}
+		appGreaterThan = agt
+	}
+
+	return idb.ApplicationQuery{
+		ApplicationID:            uintOrDefault(params.ApplicationId),
+		ApplicationIDGreaterThan: appGreaterThan,
+		Address:                  addr,
+		IncludeDeleted:           boolOrDefault(params.IncludeAll),
+		Limit:                    min(uintOrDefaultValue(params.Limit, defaultApplicationsLimit), maxApplicationsLimit),
+	}, nil
+}
+
 func transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {
 	var errorArr = make([]string, 0)
 
