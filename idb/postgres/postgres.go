@@ -1275,37 +1275,22 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		var localStateClosedBytes []byte
 		var localStateDeletedBytes []byte
 
-		var err error
-
-		if req.opts.IncludeAssetHoldings && req.opts.IncludeAssetParams {
-			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes, &holdingDeletedBytes,
-				&assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes, &assetParamsDeletedBytes,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
-			)
-		} else if req.opts.IncludeAssetHoldings {
-			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes, &holdingDeletedBytes,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
-			)
-		} else if req.opts.IncludeAssetParams {
-			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes, &assetParamsDeletedBytes,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
-			)
-		} else {
-			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
-			)
+		// build list of columns to scan using include options like buildAccountQuery
+		cols := []interface{}{&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr}
+		if req.opts.IncludeAssetHoldings {
+			cols = append(cols, &holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes, &holdingDeletedBytes)
 		}
+		if req.opts.IncludeAssetParams {
+			cols = append(cols, &assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes, &assetParamsDeletedBytes)
+		}
+		if req.opts.IncludeAppParams {
+			cols = append(cols, &appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes)
+		}
+		if req.opts.IncludeAppLocalState {
+			cols = append(cols, &localStateAppIds, &localStates, &localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes)
+		}
+
+		err := req.rows.Scan(cols...)
 		if err != nil {
 			err = fmt.Errorf("account scan err %v", err)
 			req.out <- idb.AccountRow{Error: err}
@@ -2006,10 +1991,10 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	if opts.IncludeAssetParams {
 		query += `, qap.paid, qap.pp, qap.asset_created_at, qap.asset_closed_at, qap.asset_deleted`
 	}
-	if opts.IncludeAppLocalState {
+	if opts.IncludeAppParams {
 		query += `, qapp.papps, qapp.ppa, qapp.app_created_at, qapp.app_closed_at, qapp.app_deleted`
 	}
-	if opts.IncludeAppParams {
+	if opts.IncludeAppLocalState {
 		query += `, qls.lsapps, qls.lsls, qls.ls_created_at, qls.ls_closed_at, qls.ls_deleted`
 	}
 	query += ` FROM qaccounts za`

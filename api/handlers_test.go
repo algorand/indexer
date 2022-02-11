@@ -958,10 +958,9 @@ func TestApplicationLimits(t *testing.T) {
 				Return(nil, uint64(0)).
 				Run(func(args mock.Arguments) {
 					require.Len(t, args, 2)
-					require.IsType(t, &generated.SearchForApplicationsParams{}, args[1])
-					params := args[1].(*generated.SearchForApplicationsParams)
-					require.NotNil(t, params.Limit)
-					require.Equal(t, *params.Limit, tc.expected)
+					require.IsType(t, idb.ApplicationQuery{}, args[1])
+					params := args[1].(idb.ApplicationQuery)
+					require.Equal(t, params.Limit, tc.expected)
 				})
 
 			err := si.SearchForApplications(c, generated.SearchForApplicationsParams{

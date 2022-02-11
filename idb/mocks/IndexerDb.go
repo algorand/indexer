@@ -33,16 +33,16 @@ func (_m *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 	return r0
 }
 
-// Applications provides a mock function with given fields: ctx, filter
-func (_m *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.ApplicationRow, uint64) {
+// AppLocalState provides a mock function with given fields: ctx, filter
+func (_m *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.AppLocalStateRow, uint64) {
 	ret := _m.Called(ctx, filter)
 
-	var r0 <-chan idb.ApplicationRow
-	if rf, ok := ret.Get(0).(func(context.Context, idb.ApplicationQuery) <-chan idb.ApplicationRow); ok {
+	var r0 <-chan idb.AppLocalStateRow
+	if rf, ok := ret.Get(0).(func(context.Context, idb.ApplicationQuery) <-chan idb.AppLocalStateRow); ok {
 		r0 = rf(ctx, filter)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(<-chan idb.ApplicationRow)
+			r0 = ret.Get(0).(<-chan idb.AppLocalStateRow)
 		}
 	}
 
@@ -57,15 +57,15 @@ func (_m *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQue
 }
 
 // Applications provides a mock function with given fields: ctx, filter
-func (_m *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.AppLocalStateRow, uint64) {
+func (_m *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.ApplicationRow, uint64) {
 	ret := _m.Called(ctx, filter)
 
-	var r0 <-chan idb.AppLocalStateRow
-	if rf, ok := ret.Get(0).(func(context.Context, idb.ApplicationQuery) <-chan idb.AppLocalStateRow); ok {
+	var r0 <-chan idb.ApplicationRow
+	if rf, ok := ret.Get(0).(func(context.Context, idb.ApplicationQuery) <-chan idb.ApplicationRow); ok {
 		r0 = rf(ctx, filter)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(<-chan idb.AppLocalStateRow)
+			r0 = ret.Get(0).(<-chan idb.ApplicationRow)
 		}
 	}
 
