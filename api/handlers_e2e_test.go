@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/crypto/merklekeystore"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -353,7 +353,7 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 	var selectionPK crypto.VRFVerifier
 	selectionPK[0] = 1
 
-	var stateProofPK merklekeystore.Verifier
+	var stateProofPK merklesignature.Verifier
 	stateProofPK[0] = 1
 
 	txn := transactions.SignedTxnWithAD{

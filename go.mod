@@ -5,7 +5,7 @@ go 1.13
 replace github.com/algorand/go-algorand => ./third_party/go-algorand
 
 require (
-	github.com/algorand/go-algorand v0.0.0-20210803210013-358a2e1609c9
+	github.com/algorand/go-algorand v0.0.0-20220210232412-71e39cdef4cf // indirect
 	github.com/algorand/go-algorand-sdk v1.9.1
 	github.com/algorand/go-codec/codec v1.1.7
 	github.com/algorand/oapi-codegen v1.3.5-algorand5
@@ -24,6 +24,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
+	github.com/vektra/mockery v1.1.2 // indirect
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
 	golang.org/x/tools v0.1.9 // indirect
 )
