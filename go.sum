@@ -68,6 +68,8 @@ github.com/alecthomas/units v0.0.0-20190717042225-c3de453c63f4/go.mod h1:ybxpYRF
 github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d/go.mod h1:rBZYJk541a8SKzHPHnH3zbiI+7dagKZ0cgpgrD7Fyho=
 github.com/algoidan/falcon v0.0.0-20211219151734-c5c7db7fd6a0 h1:xlXTKeMXYmCuGD75xK63vIIE+UWeWbw15fZ+8h8D7AU=
 github.com/algoidan/falcon v0.0.0-20211219151734-c5c7db7fd6a0/go.mod h1:lfGz48BW+bfuMDNOO3ncbR3IrctDj/L1plfhfKInRyM=
+github.com/algorand/falcon v0.0.0-20220130164023-c9e1d466f123 h1:cnUjJ/iqUjJNbhUzgmxbfwHMVFnz+DLnNQx8uJcGaks=
+github.com/algorand/falcon v0.0.0-20220130164023-c9e1d466f123/go.mod h1:OkQyHlGvS0kLNcIWbC21/uQcnbfwSOQm+wiqWwBG9pQ=
 github.com/algorand/go-algorand-sdk v1.9.1 h1:v2UaVXeMOZxvWoNJp6+MUAjm8Gif+ultcxg1RBrj45s=
 github.com/algorand/go-algorand-sdk v1.9.1/go.mod h1:U12d8fTN/CyKPR1HObrt51ITxb6OgXxpGCH743Ds2GQ=
 github.com/algorand/go-codec v1.1.2/go.mod h1:A3YI4V24jUUnU1eNekNmx2fLi60FvlNssqOiUsyfNM8=
