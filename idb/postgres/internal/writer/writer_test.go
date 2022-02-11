@@ -29,15 +29,6 @@ import (
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable}
 
-func setupPostgres(t *testing.T) (*pgxpool.Pool, func()) {
-	db, _, shutdownFunc := pgtest.SetupPostgres(t)
-
-	_, err := db.Exec(context.Background(), schema.SetupPostgresSql)
-	require.NoError(t, err)
-
-	return db, shutdownFunc
-}
-
 // makeTx is a helper to simplify calling TxWithRetry
 func makeTx(db *pgxpool.Pool, f func(tx pgx.Tx) error) error {
 	return pgutil.TxWithRetry(db, serializable, f, nil)
@@ -105,7 +96,7 @@ func txnParticipationQuery(db *pgxpool.Pool, query string) ([]txnParticipationRo
 }
 
 func TestWriterBlockHeaderTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -146,7 +137,7 @@ func TestWriterBlockHeaderTableBasic(t *testing.T) {
 }
 
 func TestWriterSpecialAccounts(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	block := test.MakeGenesisBlock()
@@ -178,7 +169,7 @@ func TestWriterSpecialAccounts(t *testing.T) {
 }
 
 func TestWriterTxnTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	block := bookkeeping.Block{
@@ -267,7 +258,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 // Test that asset close amount is written even if it is missing in the apply data
 // in the block (it is present in the "modified transactions").
 func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	block := bookkeeping.Block{
@@ -412,7 +403,7 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 
 	for _, testcase := range tests {
 		t.Run(testcase.name, func(t *testing.T) {
-			db, shutdownFunc := setupPostgres(t)
+			db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 			defer shutdownFunc()
 
 			block := makeBlockFunc()
@@ -436,7 +427,7 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 
 // Create a new account and then delete it.
 func TestWriterAccountTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var voteID crypto.OneTimeSignatureVerifier
@@ -562,7 +553,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 
 // Simulate the scenario where an account is created and deleted in the same round.
 func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -624,7 +615,7 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 }
 
 func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	block := bookkeeping.Block{
@@ -689,7 +680,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 }
 
 func TestWriterAccountAssetTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -779,7 +770,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 
 // Simulate a scenario where an asset holding is added and deleted in the same round.
 func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -826,7 +817,7 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 }
 
 func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -863,7 +854,7 @@ func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
 }
 
 func TestWriterAssetTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -959,7 +950,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 
 // Simulate a scenario where an asset is added and deleted in the same round.
 func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -1009,7 +1000,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 }
 
 func TestWriterAppTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -1109,7 +1100,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 
 // Simulate a scenario where an app is added and deleted in the same round.
 func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -1160,7 +1151,7 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 }
 
 func TestWriterAccountAppTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -1259,7 +1250,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 
 // Simulate a scenario where an account app is added and deleted in the same round.
 func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -1309,7 +1300,7 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 }
 
 func TestAddBlockInvalidInnerAsset(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	callWithBadInner := test.MakeCreateAppTxn(test.AccountA)
@@ -1343,15 +1334,15 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 }
 
 func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	// App call with inner txns, should be intra 0, 1, 2, 3
+	// App call with inner txns, should be intra 0, 1, 2, 3, 4
 	var appAddr basics.Address
 	appAddr[1] = 99
 	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
-	// Asset create call, should have intra = 4
+	// Asset create call, should have intra = 5
 	assetCreate := test.MakeAssetConfigTxn(
 		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountD)
 
@@ -1369,19 +1360,20 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 
 	txns, err := txnQuery(db, "SELECT * FROM txn ORDER BY intra")
 	require.NoError(t, err)
-	require.Len(t, txns, 5)
+	require.Len(t, txns, 6)
 
 	// Verify that intra is correctly assigned
 	for i, tx := range txns {
-		require.Equal(t, i, tx.intra, "Intra should be assigned 0 - 3.")
+		require.Equal(t, i, tx.intra, "Intra should be assigned 0 - 4.")
 	}
 
 	// Verify correct order of transaction types.
 	require.Equal(t, idb.TypeEnumApplication, txns[0].typeenum)
 	require.Equal(t, idb.TypeEnumPay, txns[1].typeenum)
-	require.Equal(t, idb.TypeEnumPay, txns[2].typeenum)
+	require.Equal(t, idb.TypeEnumApplication, txns[2].typeenum)
 	require.Equal(t, idb.TypeEnumAssetTransfer, txns[3].typeenum)
-	require.Equal(t, idb.TypeEnumAssetConfig, txns[4].typeenum)
+	require.Equal(t, idb.TypeEnumApplication, txns[4].typeenum)
+	require.Equal(t, idb.TypeEnumAssetConfig, txns[5].typeenum)
 
 	// Verify special properties of inner transactions.
 	expectedExtra := fmt.Sprintf(`{"root-txid": "%s", "root-intra": "%d"}`, txns[0].txid, 0)
@@ -1402,7 +1394,8 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
-	require.Equal(t, 5, txns[4].asset, "intra == 4 -> AssetID = 5")
+	require.Equal(t, 789, txns[4].asset, "intra == 4 -> ApplicationID = 789")
+	require.Equal(t, 6, txns[5].asset, "intra == 5 -> AssetID = 6")
 
 	// Verify txn participation
 	txnPart, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
@@ -1447,11 +1440,6 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 			round: 1,
 			intra: 2,
 		},
-		{
-			addr:  test.AccountB,
-			round: 1,
-			intra: 2,
-		},
 		// Inner xfer transaction
 		{
 			addr:  appAddr,
@@ -1463,11 +1451,17 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 			round: 1,
 			intra: 3,
 		},
+		// Inner appl transaction
+		{
+			addr:  appAddr,
+			round: 1,
+			intra: 4,
+		},
 		// acfg after appl
 		{
 			addr:  test.AccountD,
 			round: 1,
-			intra: 4,
+			intra: 5,
 		},
 	}
 
@@ -1478,7 +1472,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 }
 
 func TestWriterAccountTotals(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	// Set empty account totals.
@@ -1516,7 +1510,7 @@ func TestWriterAccountTotals(t *testing.T) {
 }
 
 func TestWriterAddBlock0(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	block := test.MakeGenesisBlock()

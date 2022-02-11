@@ -957,13 +957,22 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if tf.RekeyTo != nil && (*tf.RekeyTo) {
 		whereParts = append(whereParts, "(t.txn -> 'txn' -> 'rekey') IS NOT NULL")
 	}
-	query = "SELECT t.round, t.intra, t.txn, root.txn, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+
+	// If returnInnerTxnOnly flag is false, then return the root transaction
+	if !tf.ReturnInnerTxnOnly {
+		query = "SELECT t.round, t.intra, t.txn, root.txn, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	} else {
+		query = "SELECT t.round, t.intra, t.txn, NULL, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	}
+
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
 
-	// join in the root transaction if there is one
-	query += " LEFT OUTER JOIN txn root ON t.round = root.round AND (t.extra->>'root-intra')::int = root.intra"
+	// join in the root transaction if the returnInnerTxnOnly flag is false
+	if !tf.ReturnInnerTxnOnly {
+		query += " LEFT OUTER JOIN txn root ON t.round = root.round AND t.extra->>'root-intra' = root.intra::text"
+	}
 
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
@@ -1157,6 +1166,7 @@ func (db *IndexerDb) yieldTxnsThreadSimple(rows pgx.Rows, results chan<- idb.Txn
 					row.Error = err
 				}
 			}
+
 			row.RoundTime = roundtime
 			row.AssetID = asset
 			if len(extra) > 0 {

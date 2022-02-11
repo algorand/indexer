@@ -146,17 +146,6 @@ func generateAssetHoldingDelta() ledgercore.AssetHoldingDelta {
 	return res
 }
 
-/*
-func generateAssetResourceRecord(t *testing.T) ledgercore.AssetResourceRecord {
-  return ledgercore.AssetResourceRecord{
-    Aidx: basics.AssetIndex(rand.Uint64()),
-    Addr: generateAddress(t),
-    Params: generateAssetParamsDelta(),
-    Holding: generateAssetHoldingDelta(),
-  }
-}
-*/
-
 func generateAppParams(t *testing.T) basics.AppParams {
 	p := make([]byte, 100)
 	_, err := rand.Read(p)
@@ -218,17 +207,6 @@ func generateAppLocalStateDelta(t *testing.T) ledgercore.AppLocalStateDelta {
 
 	return res
 }
-
-/*
-func generateAppResourceRecord(t *testing.T) ledgercore.AppResourceRecord {
-  return ledgercore.AppResourceRecord{
-    Aidx: basics.AppIndex(rand.Uint64()),
-    Addr: generateAddress(t),
-    Params: generateAppParamsDelta(t),
-    State: generateAppLocalStateDelta(t),
-  }
-}
-*/
 
 // Write random assets and apps, then read it and compare.
 // Tests in particular that batch writing and reading is done in the same order

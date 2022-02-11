@@ -494,6 +494,9 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 		return badRequest(ctx, err.Error())
 	}
 	filter.AddressRole = idb.AddressRoleSender
+	// If there is a match on an inner transaction, return the inner txn's logs
+	// instead of the root txn's logs.
+	filter.ReturnInnerTxnOnly = true
 
 	err = validateTransactionFilter(&filter)
 	if err != nil {
@@ -1078,6 +1081,7 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 }
 
 // fetchTransactions is used to query the backend for transactions, and compute the next token
+// If returnInnerTxnOnly is false, then the root txn is returned for a inner txn match.
 func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, uint64 /*round*/, error) {
 	var round uint64
 	var nextToken string
@@ -1087,8 +1091,8 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 		txchan, round = si.db.Transactions(ctx, filter)
 
 		rootTxnDedupeMap := make(map[string]struct{})
-		var txrow idb.TxnRow
-		for txrow = range txchan {
+		var lastTxrow idb.TxnRow
+		for txrow := range txchan {
 			tx, err := txnRowToTransaction(txrow)
 			if err != nil {
 				return err
@@ -1106,6 +1110,7 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 
 			rootTxnDedupeMap[*tx.Id] = struct{}{}
 			results = append(results, tx)
+			lastTxrow = txrow
 		}
 
 		// No next token if there were no results.
@@ -1115,7 +1120,7 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 
 		// The sort order depends on whether the address filter is used.
 		var err error
-		nextToken, err = txrow.Next(filter.Address == nil)
+		nextToken, err = lastTxrow.Next(filter.Address == nil)
 
 		return err
 	})

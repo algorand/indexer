@@ -26,17 +26,8 @@ import (
 
 var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly}
 
-func setupPostgres(t *testing.T) (*pgxpool.Pool, func()) {
-	db, _, shutdownFunc := pgtest.SetupPostgres(t)
-
-	_, err := db.Exec(context.Background(), schema.SetupPostgresSql)
-	require.NoError(t, err)
-
-	return db, shutdownFunc
-}
-
 func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	query :=
@@ -65,7 +56,7 @@ func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	query := `INSERT INTO account
@@ -120,27 +111,35 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	assert.Equal(t, accountDataFull, *accountDataRet)
 }
 
-func insertAccountData(db *pgxpool.Pool, account basics.Address, createdat uint64, deleted bool, data ledgercore.AccountData) error {
-	// This could be 'upsertAccountStmtName'
-	query :=
-		"INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, deleted, " +
-			"created_at, account_data) " +
-			"VALUES ($1, $2, $3, $4, $5, $6, $7)"
+func insertDeletedAccount(db *pgxpool.Pool, address basics.Address) error {
+	query := `INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, deleted,
+		created_at, account_data)
+		VALUES ($1, 0, 0, 0, true, 0, 'null'::jsonb)`
+
+	_, err := db.Exec(
+		context.Background(), query, address[:])
+	return err
+}
+
+func insertAccount(db *pgxpool.Pool, address basics.Address, data ledgercore.AccountData) error {
+	query := `INSERT INTO account (addr, microalgos, rewardsbase, rewards_total, deleted,
+		created_at, account_data)
+		VALUES ($1, $2, $3, $4, false, 0, $5)`
+
 	_, err := db.Exec(
 		context.Background(), query,
-		account[:], data.MicroAlgos.Raw, data.RewardsBase, data.RewardedMicroAlgos.Raw,
-		deleted, createdat, encoding.EncodeTrimmedLcAccountData(data))
+		address[:], data.MicroAlgos.Raw, data.RewardsBase, data.RewardedMicroAlgos.Raw,
+		encoding.EncodeTrimmedLcAccountData(data))
 	return err
 }
 
 // TestLedgerForEvaluatorAccountTableBasicSingleAccount a table driven single account test.
 func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
 	tests := []struct {
-		name      string
-		createdAt uint64
-		deleted   bool
-		data      ledgercore.AccountData
-		err       string
+		name    string
+		deleted bool
+		data    ledgercore.AccountData
+		err     string
 	}{
 		{
 			name: "small balance",
@@ -171,15 +170,10 @@ func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
 		{
 			name:    "deleted",
 			deleted: true,
-			data: ledgercore.AccountData{
-				AccountBaseData: ledgercore.AccountBaseData{
-					MicroAlgos: basics.MicroAlgos{Raw: math.MaxInt64},
-				},
-			},
 		},
 	}
 
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	for i, testcase := range tests {
@@ -197,7 +191,12 @@ func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
 				return false
 			}
 
-			err := insertAccountData(db, addr, tc.createdAt, tc.deleted, tc.data)
+			var err error
+			if tc.deleted {
+				err = insertDeletedAccount(db, addr)
+			} else {
+				err = insertAccount(db, addr, tc.data)
+			}
 			if checkError(err) {
 				return
 			}
@@ -238,7 +237,7 @@ func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	query :=
@@ -273,7 +272,7 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountTableMissingAccount(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
@@ -292,24 +291,34 @@ func TestLedgerForEvaluatorAccountTableMissingAccount(t *testing.T) {
 	assert.Nil(t, accountDataRet)
 }
 
-func insertAccountAsset(t *testing.T, db *pgxpool.Pool, addr basics.Address, assetid uint64, amount uint64, frozen bool, deleted bool) {
+func insertDeletedAccountAsset(t *testing.T, db *pgxpool.Pool, addr basics.Address, assetid uint64) {
 	query :=
 		"INSERT INTO account_asset (addr, assetid, amount, frozen, deleted, created_at) " +
-			"VALUES ($1, $2, $3, $4, $5, 0)"
+			"VALUES ($1, $2, 0, false, true, 0)"
 
 	_, err := db.Exec(
-		context.Background(), query, addr[:], assetid, amount, frozen, deleted)
+		context.Background(), query, addr[:], assetid)
+	require.NoError(t, err)
+}
+
+func insertAccountAsset(t *testing.T, db *pgxpool.Pool, addr basics.Address, assetid uint64, amount uint64, frozen bool) {
+	query :=
+		"INSERT INTO account_asset (addr, assetid, amount, frozen, deleted, created_at) " +
+			"VALUES ($1, $2, $3, $4, false, 0)"
+
+	_, err := db.Exec(
+		context.Background(), query, addr[:], assetid, amount, frozen)
 	require.NoError(t, err)
 }
 
 func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	insertAccountAsset(t, db, test.AccountA, 1, 2, false, false)
-	insertAccountAsset(t, db, test.AccountA, 3, 4, true, false)
-	insertAccountAsset(t, db, test.AccountA, 5, 6, false, true) // deleted
-	insertAccountAsset(t, db, test.AccountB, 5, 6, true, false)
+	insertAccountAsset(t, db, test.AccountA, 1, 2, false)
+	insertAccountAsset(t, db, test.AccountA, 3, 4, true)
+	insertDeletedAccountAsset(t, db, test.AccountA, 5)
+	insertAccountAsset(t, db, test.AccountB, 5, 6, true)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
@@ -361,31 +370,34 @@ func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 	assert.Equal(t, expected, ret)
 }
 
-func insertAsset(t *testing.T, db *pgxpool.Pool, index uint64, creatorAddr basics.Address, params *basics.AssetParams, deleted bool) {
-	query :=
-		"INSERT INTO asset (index, creator_addr, params, deleted, created_at) " +
-			"VALUES ($1, $2, $3, $4, 0)"
+func insertDeletedAsset(t *testing.T, db *pgxpool.Pool, index uint64, creatorAddr basics.Address) {
+	query := `INSERT INTO asset (index, creator_addr, params, deleted, created_at)
+		VALUES ($1, $2, 'null'::jsonb, true, 0)`
+
+	_, err := db.Exec(
+		context.Background(), query, index, creatorAddr[:])
+	require.NoError(t, err)
+}
+
+func insertAsset(t *testing.T, db *pgxpool.Pool, index uint64, creatorAddr basics.Address, params *basics.AssetParams) {
+	query := `INSERT INTO asset (index, creator_addr, params, deleted, created_at)
+		VALUES ($1, $2, $3, false, 0)`
 
 	_, err := db.Exec(
 		context.Background(), query, index, creatorAddr[:],
-		encoding.EncodeAssetParams(*params), deleted)
+		encoding.EncodeAssetParams(*params))
 	require.NoError(t, err)
 }
 
 func TestLedgerForEvaluatorAssetTable(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	insertAsset(
-		t, db, 1, test.AccountA, &basics.AssetParams{Manager: test.AccountB}, false)
-	insertAsset(
-		t, db, 2, test.AccountA, &basics.AssetParams{Total: 10}, false)
-	insertAsset(
-		t, db, 3, test.AccountA, &basics.AssetParams{Total: 11}, true) // deleted
-	insertAsset(
-		t, db, 4, test.AccountC, &basics.AssetParams{Total: 12}, false)
-	insertAsset(
-		t, db, 5, test.AccountD, &basics.AssetParams{Total: 13}, false)
+	insertAsset(t, db, 1, test.AccountA, &basics.AssetParams{Manager: test.AccountB})
+	insertAsset(t, db, 2, test.AccountA, &basics.AssetParams{Total: 10})
+	insertDeletedAsset(t, db, 3, test.AccountA)
+	insertAsset(t, db, 4, test.AccountC, &basics.AssetParams{Total: 12})
+	insertAsset(t, db, 5, test.AccountD, &basics.AssetParams{Total: 13})
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
@@ -436,19 +448,25 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 	assert.Equal(t, expected, ret)
 }
 
-func insertApp(t *testing.T, db *pgxpool.Pool, index uint64, creator basics.Address, params *basics.AppParams, deleted bool) {
-	query :=
-		"INSERT INTO app (index, creator, params, deleted, created_at) " +
-			"VALUES ($1, $2, $3, $4, 0)"
+func insertDeletedApp(t *testing.T, db *pgxpool.Pool, index uint64, creator basics.Address) {
+	query := `INSERT INTO app (index, creator, params, deleted, created_at)
+		VALUES ($1, $2, 'null'::jsonb, true, 0)`
+
+	_, err := db.Exec(context.Background(), query, index, creator[:])
+	require.NoError(t, err)
+}
+
+func insertApp(t *testing.T, db *pgxpool.Pool, index uint64, creator basics.Address, params *basics.AppParams) {
+	query := `INSERT INTO app (index, creator, params, deleted, created_at)
+		VALUES ($1, $2, $3, false, 0)`
 
 	_, err := db.Exec(
-		context.Background(), query, index, creator[:], encoding.EncodeAppParams(*params),
-		deleted)
+		context.Background(), query, index, creator[:], encoding.EncodeAppParams(*params))
 	require.NoError(t, err)
 }
 
 func TestLedgerForEvaluatorAppTable(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	params1 := basics.AppParams{
@@ -456,27 +474,24 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 			string([]byte{0xff}): {}, // try a non-utf8 string
 		},
 	}
-	insertApp(t, db, 1, test.AccountA, &params1, false)
+	insertApp(t, db, 1, test.AccountA, &params1)
 
 	params2 := basics.AppParams{
 		ApprovalProgram: []byte{1, 2, 3, 10},
 	}
-	insertApp(t, db, 2, test.AccountA, &params2, false)
+	insertApp(t, db, 2, test.AccountA, &params2)
 
-	params3 := basics.AppParams{
-		ApprovalProgram: []byte{1, 2, 3, 11},
-	}
-	insertApp(t, db, 3, test.AccountA, &params3, true) // deteled
+	insertDeletedApp(t, db, 3, test.AccountA)
 
 	params4 := basics.AppParams{
 		ApprovalProgram: []byte{1, 2, 3, 12},
 	}
-	insertApp(t, db, 4, test.AccountB, &params4, false)
+	insertApp(t, db, 4, test.AccountB, &params4)
 
 	params5 := basics.AppParams{
 		ApprovalProgram: []byte{1, 2, 3, 13},
 	}
-	insertApp(t, db, 5, test.AccountC, &params5, false)
+	insertApp(t, db, 5, test.AccountC, &params5)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
@@ -521,19 +536,27 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 	assert.Equal(t, expected, ret)
 }
 
-func insertAccountApp(t *testing.T, db *pgxpool.Pool, addr basics.Address, app uint64, localstate *basics.AppLocalState, deleted bool) {
-	query :=
-		"INSERT INTO account_app (addr, app, localstate, deleted, created_at) " +
-			"VALUES ($1, $2, $3, $4, 0)"
+func insertDeletedAccountApp(t *testing.T, db *pgxpool.Pool, addr basics.Address, app uint64) {
+	query := `INSERT INTO account_app (addr, app, localstate, deleted, created_at)
+		VALUES ($1, $2, 'null'::jsonb, true, 0)`
+
+	_, err := db.Exec(
+		context.Background(), query, addr[:], app)
+	require.NoError(t, err)
+}
+
+func insertAccountApp(t *testing.T, db *pgxpool.Pool, addr basics.Address, app uint64, localstate *basics.AppLocalState) {
+	query := `INSERT INTO account_app (addr, app, localstate, deleted, created_at)
+		VALUES ($1, $2, $3, false, 0)`
 
 	_, err := db.Exec(
 		context.Background(), query, addr[:], app,
-		encoding.EncodeAppLocalState(*localstate), deleted)
+		encoding.EncodeAppLocalState(*localstate))
 	require.NoError(t, err)
 }
 
 func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	stateA1 := basics.AppLocalState{
@@ -541,28 +564,23 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 			string([]byte{0xff}): {}, // try a non-utf8 string
 		},
 	}
-	insertAccountApp(t, db, test.AccountA, 1, &stateA1, false)
+	insertAccountApp(t, db, test.AccountA, 1, &stateA1)
 
 	stateA2 := basics.AppLocalState{
 		KeyValue: map[string]basics.TealValue{
 			"abc": {},
 		},
 	}
-	insertAccountApp(t, db, test.AccountA, 2, &stateA2, false)
+	insertAccountApp(t, db, test.AccountA, 2, &stateA2)
 
-	stateA3 := basics.AppLocalState{
-		KeyValue: map[string]basics.TealValue{
-			"abd": {},
-		},
-	}
-	insertAccountApp(t, db, test.AccountA, 3, &stateA3, true) // deteled
+	insertDeletedAccountApp(t, db, test.AccountA, 3)
 
 	stateB3 := basics.AppLocalState{
 		KeyValue: map[string]basics.TealValue{
 			"abf": {},
 		},
 	}
-	insertAccountApp(t, db, test.AccountB, 3, &stateB3, false)
+	insertAccountApp(t, db, test.AccountB, 3, &stateB3)
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
@@ -606,15 +624,15 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	insertAccountAsset(t, db, test.AccountA, 1, 2, true, false)
-	insertAsset(t, db, 1, test.AccountA, &basics.AssetParams{Total: 3}, false)
+	insertAccountAsset(t, db, test.AccountA, 1, 2, true)
+	insertAsset(t, db, 1, test.AccountA, &basics.AssetParams{Total: 3})
 	insertAccountApp(
 		t, db, test.AccountA, 4,
-		&basics.AppLocalState{Schema: basics.StateSchema{NumUint: 5}}, false)
-	insertApp(t, db, 4, test.AccountA, &basics.AppParams{ExtraProgramPages: 6}, false)
+		&basics.AppLocalState{Schema: basics.StateSchema{NumUint: 5}})
+	insertApp(t, db, 4, test.AccountA, &basics.AppParams{ExtraProgramPages: 6})
 
 	tx, err := db.BeginTx(context.Background(), readonlyRepeatableRead)
 	require.NoError(t, err)
@@ -660,7 +678,7 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 
 // Tests that queuing and reading from a batch is in the same order.
 func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	addAccountQuery := `INSERT INTO account
@@ -700,7 +718,7 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	query :=
@@ -732,7 +750,7 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	query :=
@@ -760,7 +778,7 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	creatorsMap := map[basics.AssetIndex]basics.Address{
@@ -816,7 +834,7 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	query :=
@@ -848,7 +866,7 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	query :=
@@ -876,7 +894,7 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	creatorsMap := map[basics.AppIndex]basics.Address{
@@ -932,7 +950,7 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountTotals(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	accountTotals := ledgercore.AccountTotals{
