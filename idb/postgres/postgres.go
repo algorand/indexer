@@ -50,7 +50,17 @@ var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessM
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
 func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (*IndexerDb, chan struct{}, error) {
-	db, err := pgxpool.Connect(context.Background(), connection)
+
+	postgresConfig, err := pgxpool.ParseConfig(connection)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Couldn't parse config: %v", err)
+	}
+
+	if opts.MaxConn != 0 {
+		postgresConfig.MaxConns = int32(opts.MaxConn)
+	}
+
+	db, err := pgxpool.ConnectConfig(context.Background(), postgresConfig)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("connecting to postgres: %v", err)
@@ -788,13 +798,22 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if tf.RekeyTo != nil && (*tf.RekeyTo) {
 		whereParts = append(whereParts, "(t.txn -> 'txn' -> 'rekey') IS NOT NULL")
 	}
-	query = "SELECT t.round, t.intra, t.txn, root.txn, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+
+	// If returnInnerTxnOnly flag is false, then return the root transaction
+	if !tf.ReturnInnerTxnOnly {
+		query = "SELECT t.round, t.intra, t.txn, root.txn, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	} else {
+		query = "SELECT t.round, t.intra, t.txn, NULL, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	}
+
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
 
-	// join in the root transaction if there is one
-	query += " LEFT OUTER JOIN txn root ON t.round = root.round AND (t.extra->>'root-intra')::int = root.intra"
+	// join in the root transaction if the returnInnerTxnOnly flag is false
+	if !tf.ReturnInnerTxnOnly {
+		query += " LEFT OUTER JOIN txn root ON t.round = root.round AND t.extra->>'root-intra' = root.intra::text"
+	}
 
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
@@ -988,6 +1007,7 @@ func (db *IndexerDb) yieldTxnsThreadSimple(rows pgx.Rows, results chan<- idb.Txn
 					row.Error = err
 				}
 			}
+
 			row.RoundTime = roundtime
 			row.AssetID = asset
 			if len(extra) > 0 {
@@ -2289,4 +2309,24 @@ func (db *IndexerDb) GetAccountData(addresses []basics.Address) (map[basics.Addr
 	}
 
 	return res, nil
+}
+
+// GetNetworkState is part of idb.IndexerDB
+func (db *IndexerDb) GetNetworkState() (idb.NetworkState, error) {
+	state, err := db.getNetworkState(context.Background(), nil)
+	if err != nil {
+		return idb.NetworkState{}, fmt.Errorf("GetNetworkState() err: %w", err)
+	}
+	networkState := idb.NetworkState{
+		GenesisHash: state.GenesisHash,
+	}
+	return networkState, nil
+}
+
+// SetNetworkState is part of idb.IndexerDB
+func (db *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
+	networkState := types.NetworkState{
+		GenesisHash: crypto.HashObj(genesis),
+	}
+	return db.setNetworkState(nil, &networkState)
 }

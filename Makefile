@@ -49,7 +49,7 @@ test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 
 lint: go-algorand
 	golint -set_exit_status ./...
-	go vet -mod=mod ./...
+	go vet ./...
 
 fmt:
 	go fmt ./...
@@ -74,4 +74,15 @@ test-package:
 test-generate:
 	test/test_generate.py
 
-.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand
+nightly-setup:
+	cd third_party/go-algorand && git pull origin master
+
+nightly-teardown:
+	git submodule update
+
+indexer-v-algod-swagger:
+	pytest -sv misc/parity
+
+indexer-v-algod: nightly-setup indexer-v-algod-swagger nightly-teardown
+
+.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod

@@ -82,3 +82,13 @@ func (db *dummyIndexerDb) Applications(ctx context.Context, filter *models.Searc
 func (db *dummyIndexerDb) Health(ctx context.Context) (state idb.Health, err error) {
 	return idb.Health{}, nil
 }
+
+// GetNetworkState is part of idb.IndexerDB
+func (db *dummyIndexerDb) GetNetworkState() (state idb.NetworkState, err error) {
+	return idb.NetworkState{}, nil
+}
+
+// SetNetworkState is part of idb.IndexerDB
+func (db *dummyIndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
+	return nil
+}

@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"math"
@@ -11,8 +12,11 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-codec/codec"
+	"github.com/algorand/indexer/importer"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -88,6 +92,43 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 	round, err = pdb.getMaxRoundAccounted(context.Background(), nil)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), round)
+}
+
+// TestMaxConnection tests that when setting the maximum connection to a value, that it is
+// accurately set and that acquiring connections accurately depletes the pool
+func TestMaxConnection(t *testing.T) {
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+
+	// Open Postgres with a maximum of 2 connections locally
+	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{MaxConn: 2}, nil)
+	assert.NoError(t, err)
+	defer pdb.Close()
+
+	s := pdb.db.Stat()
+
+	assert.Equal(t, 2, int(s.MaxConns()))
+	assert.Equal(t, 0, int(s.AcquiredConns()))
+	assert.GreaterOrEqual(t, 1, int(s.IdleConns()))
+
+	conn1, err := pdb.db.Acquire(context.Background())
+	assert.NoError(t, err)
+	defer conn1.Release()
+
+	s = pdb.db.Stat()
+	assert.Equal(t, 1, int(s.AcquiredConns()))
+
+	conn2, err := pdb.db.Acquire(context.Background())
+	assert.NoError(t, err)
+	defer conn2.Release()
+
+	s = pdb.db.Stat()
+
+	// We have reached the total of 2 "total" max connections
+	// Meaning we should have two acquired connections and 0 idle connections
+	assert.Equal(t, 2, int(s.AcquiredConns()))
+	assert.Equal(t, 0, int(s.IdleConns()))
+
 }
 
 func assertAccountAsset(t *testing.T, db *pgxpool.Pool, addr basics.Address, assetid uint64, frozen bool, amount uint64) {
@@ -1032,6 +1073,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 	}
 
 	assetID := uint64(1)
+	innerAssetID := uint64(999)
 
 	for _, testcase := range tests {
 		testcase := testcase
@@ -1045,6 +1087,12 @@ func TestNonDisplayableUTF8(t *testing.T) {
 
 			txn := test.MakeAssetConfigTxn(
 				0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
+			// Try to add cheeky inner txns lazily by adding an AD to the acfg txn
+			txn.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
+				test.MakeAssetConfigTxn(
+					0, math.MaxUint64, 0, false, unit, name, url, test.AccountA),
+			}
+			txn.ApplyData.EvalDelta.InnerTxns[0].ConfigAsset = basics.AssetIndex(innerAssetID)
 			block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 			require.NoError(t, err)
 
@@ -1065,18 +1113,28 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			require.Equal(t, 1, num)
 
 			// Test 3: transaction results properly serialized
+			// Transaction results also return the inner txn acfg
 			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 			num = 0
 			for row := range txnRows {
 				require.NoError(t, row.Error)
+				// The inner txns will have a RootTxn instead of a Txn row
+				var rowTxn *transactions.SignedTxnWithAD
+				if row.Txn != nil {
+					rowTxn = row.Txn
+				} else {
+					rowTxn = row.RootTxn
+				}
+
 				// Note: These are created from the TxnBytes, so they have the exact name with embedded null.
-				require.NotNil(t, row.Txn)
-				require.Equal(t, name, row.Txn.Txn.AssetParams.AssetName)
-				require.Equal(t, unit, row.Txn.Txn.AssetParams.UnitName)
-				require.Equal(t, url, row.Txn.Txn.AssetParams.URL)
+				require.NotNil(t, rowTxn)
+				require.Equal(t, name, rowTxn.Txn.AssetParams.AssetName)
+				require.Equal(t, unit, rowTxn.Txn.AssetParams.UnitName)
+				require.Equal(t, url, rowTxn.Txn.AssetParams.URL)
 				num++
 			}
-			require.Equal(t, 1, num)
+			// Check that the root and inner asset is matched
+			require.Equal(t, 2, num)
 
 			// Test 4: account results should have the correct asset
 			accounts, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAssetParams: true})
@@ -1502,35 +1560,66 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 }
 
 // TestSearchForInnerTransactionReturnsRootTransaction checks that the parent
-// transaction is returned when matching on inner transactions.
+// transaction is returned when matching on inner transactions if the
+// ReturnInnerTxnFlag is false. If the ReturnInnerTxnFlag is true, it should
+// return the inner txn instead.
 func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	var appAddr basics.Address
 	appAddr[1] = 99
 
 	tests := []struct {
-		name    string
-		matches int
-		filter  idb.TransactionFilter
+		name        string
+		matches     int
+		returnInner bool
+		filter      idb.TransactionFilter
 	}{
 		{
-			name:    "match on root",
-			matches: 1,
-			filter:  idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication},
+			name:        "match on root, inner, and inner-inners, return root",
+			matches:     3,
+			returnInner: false,
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication},
 		},
 		{
-			name:    "match on inner",
-			matches: 2,
-			filter:  idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay},
+			name:        "match on inner, return root",
+			matches:     1,
+			returnInner: false,
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay},
 		},
 		{
-			name:    "match on inner-inner",
-			matches: 1,
-			filter:  idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer},
+			name:        "match on inner-inner, return root",
+			matches:     1,
+			returnInner: false,
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer},
 		},
 		{
-			name:    "match all",
-			matches: 4,
-			filter:  idb.TransactionFilter{Address: appAddr[:]},
+			name:        "match all, return root",
+			matches:     5,
+			returnInner: false,
+			filter:      idb.TransactionFilter{Address: appAddr[:]},
+		},
+		{
+			name:        "match on root, inner, and inner-inners, return inners",
+			matches:     3,
+			returnInner: true,
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumApplication, ReturnInnerTxnOnly: true},
+		},
+		{
+			name:        "match on inner, return inners",
+			matches:     1,
+			returnInner: true,
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumPay, ReturnInnerTxnOnly: true},
+		},
+		{
+			name:        "match on inner-inner, return inners",
+			matches:     1,
+			returnInner: true,
+			filter:      idb.TransactionFilter{Address: appAddr[:], TypeEnum: idb.TypeEnumAssetTransfer, ReturnInnerTxnOnly: true},
+		},
+		{
+			name:        "match all, return inners",
+			matches:     5,
+			returnInner: true,
+			filter:      idb.TransactionFilter{Address: appAddr[:], ReturnInnerTxnOnly: true},
 		},
 	}
 
@@ -1557,27 +1646,32 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 			// When: searching for a transaction that matches part of the transaction.
 			results, _ := db.Transactions(context.Background(), tc.filter)
 
-			// Then: only the root transaction should be returned.
+			// Then: only the root transaction should be returned if the ReturnInnerTxnOnly flag is true.
+			// Else if ReturnInnerTxnOnly is false, then the inner txn should be returned.
 			num := 0
 			for result := range results {
 				num++
 				require.NoError(t, result.Error)
-				var stxn *transactions.SignedTxnWithAD
 
-				// Exactly one of Txn and RootTxn must be present.
-				require.True(t, (result.Txn == nil) != (result.RootTxn == nil))
+				if tc.returnInner {
+					// Make sure that only the inner txn is returned
+					require.True(t, (result.Txn != nil) && (result.RootTxn == nil))
+				} else {
+					// Make sure the root txn is returned.
+					var stxn *transactions.SignedTxnWithAD
 
-				// Get Txn or RootTxn
-				if result.Txn != nil {
-					stxn = result.Txn
+					// Exactly one of Txn and RootTxn must be present.
+					require.True(t, (result.Txn == nil) != (result.RootTxn == nil))
+
+					// Get Txn or RootTxn
+					if result.Txn != nil {
+						stxn = result.Txn
+					}
+					if result.RootTxn != nil {
+						stxn = result.RootTxn
+					}
+					require.Equal(t, rootTxid, stxn.Txn.ID())
 				}
-				if result.RootTxn != nil {
-					stxn = result.RootTxn
-				}
-
-				// Make sure the root txn is returned.
-				require.NoError(t, err)
-				require.Equal(t, rootTxid, stxn.Txn.ID())
 			}
 
 			// There can be multiple matches because deduplication happens in REST API.
@@ -1586,7 +1680,8 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	}
 }
 
-// TestNonUTF8Logs makes sure we're able to import cheeky logs.
+// TestNonUTF8Logs makes sure we're able to import cheeky logs
+// for both the root and inner transactions.
 func TestNonUTF8Logs(t *testing.T) {
 	tests := []struct {
 		Name string
@@ -1620,6 +1715,28 @@ func TestNonUTF8Logs(t *testing.T) {
 			createAppTxn := test.MakeCreateAppTxn(test.AccountA)
 			createAppTxn.ApplyData.EvalDelta = transactions.EvalDelta{
 				Logs: testcase.Logs,
+				InnerTxns: []transactions.SignedTxnWithAD{
+					// Inner application call with nested cheeky logs
+					{
+						SignedTxn: transactions.SignedTxn{
+							Txn: transactions.Transaction{
+								Type: protocol.ApplicationCallTx,
+								Header: transactions.Header{
+									Sender: test.AccountA,
+								},
+								ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+									ApplicationID: 789,
+									OnCompletion:  transactions.NoOpOC,
+								},
+							},
+						},
+						ApplyData: transactions.ApplyData{
+							EvalDelta: transactions.EvalDelta{
+								Logs: testcase.Logs,
+							},
+						},
+					},
+				},
 			}
 
 			block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAppTxn)
@@ -1632,9 +1749,15 @@ func TestNonUTF8Logs(t *testing.T) {
 			// Test 2: transaction results properly serialized
 			txnRows, _ := db.Transactions(context.Background(), idb.TransactionFilter{})
 			for row := range txnRows {
+				var rowTxn *transactions.SignedTxnWithAD
+				if row.Txn != nil {
+					rowTxn = row.Txn
+				} else {
+					rowTxn = row.RootTxn
+				}
 				require.NoError(t, row.Error)
-				require.NotNil(t, row.Txn)
-				require.Equal(t, testcase.Logs, row.Txn.ApplyData.EvalDelta.Logs)
+				require.NotNil(t, rowTxn)
+				require.Equal(t, testcase.Logs, rowTxn.ApplyData.EvalDelta.Logs)
 			}
 		})
 	}
@@ -1879,7 +2002,7 @@ func TestTransactionsTxnAhead(t *testing.T) {
 
 // Test that if genesis hash is different from what is in db metastate
 // indexer does not start.
-func TestGenesisHashCheckAtDBStartup(t *testing.T) {
+func TestGenesisHashCheckAtDBSetup(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 	genesis := test.MakeGenesis()
@@ -1900,4 +2023,48 @@ func TestGenesisHashCheckAtDBStartup(t *testing.T) {
 	err = idb.LoadGenesis(genesis)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "genesis hash not matching")
+}
+
+type ImportState struct {
+	NextRoundToAccount uint64 `codec:"next_account_round"`
+}
+
+// Test that if genesis hash at initial import is different from what is in db metastate
+// indexer does not start.
+func TestGenesisHashCheckAtInitialImport(t *testing.T) {
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+	genesis := test.MakeGenesis()
+	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	require.NoError(t, err)
+	defer db.Close()
+	// test db upgrade
+	// set next round to account
+	state := ImportState{NextRoundToAccount: 1}
+	var buf []byte
+	jsonCodecHandle := new(codec.JsonHandle)
+	enc := codec.NewEncoderBytes(&buf, jsonCodecHandle)
+	enc.MustEncode(state)
+	db.setMetastate(nil, schema.StateMetastateKey, string(buf))
+	// network state not initialized
+	networkState, err := db.getNetworkState(context.Background(), nil)
+	require.ErrorIs(t, err, idb.ErrorNotInitialized)
+	logger := logrus.New()
+	genesisReader := bytes.NewReader(protocol.EncodeJSON(genesis))
+	imported, err := importer.EnsureInitialImport(db, genesisReader, logger)
+	require.NoError(t, err)
+	require.True(t, true, imported)
+	// network state should be set
+	networkState, err = db.getNetworkState(context.Background(), nil)
+	require.NoError(t, err)
+	require.Equal(t, networkState.GenesisHash, crypto.HashObj(genesis))
+
+	// change genesis value
+	genesis.Network = "testnest"
+	genesisReader = bytes.NewReader(protocol.EncodeJSON(genesis))
+	// different genesisHash, should fail
+	_, err = importer.EnsureInitialImport(db, genesisReader, logger)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "genesis hash not matching")
+
 }

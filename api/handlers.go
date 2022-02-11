@@ -60,6 +60,10 @@ const defaultAssetsLimit = 100
 const maxBalancesLimit = 10000
 const defaultBalancesLimit = 1000
 
+// Applications
+const maxApplicationsLimit = 1000
+const defaultApplicationsLimit = 100
+
 //////////////////////
 // Helper functions //
 //////////////////////
@@ -297,6 +301,7 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 	p := generated.SearchForApplicationsParams{
 		ApplicationId: &applicationID,
 		IncludeAll:    params.IncludeAll,
+		Limit:         uint64Ptr(1),
 	}
 
 	apps, round, err := si.fetchApplications(ctx.Request().Context(), p)
@@ -337,6 +342,9 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 		return badRequest(ctx, err.Error())
 	}
 	filter.AddressRole = idb.AddressRoleSender
+	// If there is a match on an inner transaction, return the inner txn's logs
+	// instead of the root txn's logs.
+	filter.ReturnInnerTxnOnly = true
 
 	err = validateTransactionFilter(&filter)
 	if err != nil {
@@ -615,6 +623,7 @@ func notFound(ctx echo.Context, err string) error {
 
 // fetchApplications fetches all results
 func (si *ServerImplementation) fetchApplications(ctx context.Context, params generated.SearchForApplicationsParams) ([]generated.Application, uint64, error) {
+	params.Limit = uint64Ptr(min(uintOrDefaultValue(params.Limit, defaultApplicationsLimit), maxApplicationsLimit))
 	var apps []generated.Application
 	var round uint64
 	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
@@ -680,20 +689,6 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 					Freeze:        strPtr(row.Params.Freeze.String()),
 					Manager:       strPtr(row.Params.Manager.String()),
 				},
-			}
-
-			// In case the DB layer filled the name with non-printable utf8
-			if asset.Params.Name != nil {
-				name := util.PrintableUTF8OrEmpty(*asset.Params.Name)
-				asset.Params.Name = &name
-			}
-			if asset.Params.UnitName != nil {
-				unit := util.PrintableUTF8OrEmpty(*asset.Params.UnitName)
-				asset.Params.UnitName = &unit
-			}
-			if asset.Params.Url != nil {
-				url := util.PrintableUTF8OrEmpty(*asset.Params.Url)
-				asset.Params.Url = &url
 			}
 
 			assets = append(assets, asset)
@@ -798,10 +793,16 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 
 		results := make([]generated.Transaction, 0)
 		for _, txrow := range transactions {
+			// Do not include inner transactions.
+			if txrow.RootTxn != nil {
+				continue
+			}
+
 			tx, err := txnRowToTransaction(txrow)
 			if err != nil {
 				return err
 			}
+
 			results = append(results, tx)
 		}
 
@@ -864,6 +865,7 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 }
 
 // fetchTransactions is used to query the backend for transactions, and compute the next token
+// If returnInnerTxnOnly is false, then the root txn is returned for a inner txn match.
 func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, uint64 /*round*/, error) {
 	var round uint64
 	var nextToken string
@@ -873,8 +875,8 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 		txchan, round = si.db.Transactions(ctx, filter)
 
 		rootTxnDedupeMap := make(map[string]struct{})
-		var txrow idb.TxnRow
-		for txrow = range txchan {
+		var lastTxrow idb.TxnRow
+		for txrow := range txchan {
 			tx, err := txnRowToTransaction(txrow)
 			if err != nil {
 				return err
@@ -892,6 +894,7 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 
 			rootTxnDedupeMap[*tx.Id] = struct{}{}
 			results = append(results, tx)
+			lastTxrow = txrow
 		}
 
 		// No next token if there were no results.
@@ -901,7 +904,7 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 
 		// The sort order depends on whether the address filter is used.
 		var err error
-		nextToken, err = txrow.Next(filter.Address == nil)
+		nextToken, err = lastTxrow.Next(filter.Address == nil)
 
 		return err
 	})
