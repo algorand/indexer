@@ -59,7 +59,7 @@ func NewDisabledMapFromOA3(swag *openapi3.Swagger) *DisabledMap {
 					// If an endpoint config required parameter is disabled, then the whole endpoint is disabled
 					endpointConfig.EndpointDisabled = true
 				} else {
-					// If the endpoint is disabled, add it to the map
+					// If the optional parameter is disabled, add it to the map
 					endpointConfig.DisabledOptionalParameters[pref.Value.Name] = true
 				}
 			}
@@ -94,11 +94,7 @@ type DisabledParameterErrorReporter interface {
 // then the variable name that caused it is provided.  In all other cases, it is empty
 func Verify(dm *DisabledMap, nameOfHandlerFunc string, ctx echo.Context, log DisabledParameterErrorReporter) (VerifyRC, string) {
 
-	if dm == nil {
-		return verifyIsGood, ""
-	}
-
-	if dm.Data == nil {
+	if dm == nil || dm.Data == nil {
 		return verifyIsGood, ""
 	}
 
