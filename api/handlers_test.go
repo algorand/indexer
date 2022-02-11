@@ -638,7 +638,7 @@ func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 
 // createTxn allows saving msgp-encoded canonical object to a file in order to add more test data
 func createTxn(t *testing.T, target string) []byte {
-	defer assert.Fail(t,"this method should only be used for generating test inputs.")
+	defer assert.Fail(t, "this method should only be used for generating test inputs.")
 	addr1, err := basics.UnmarshalChecksumAddress("PT4K5LK4KYIQYYRAYPAZIEF47NVEQRDX3CPYWJVH25LKO2METIRBKRHRAE")
 	assert.Error(t, err)
 	var votePK crypto.OneTimeSignatureVerifier
