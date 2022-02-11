@@ -162,6 +162,27 @@ func (_m *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 	return r0, r1, r2
 }
 
+// GetNetworkState provides a mock function with given fields:
+func (_m *IndexerDb) GetNetworkState() (idb.NetworkState, error) {
+	ret := _m.Called()
+
+	var r0 idb.NetworkState
+	if rf, ok := ret.Get(0).(func() idb.NetworkState); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(idb.NetworkState)
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetNextRoundToAccount provides a mock function with given fields:
 func (_m *IndexerDb) GetNextRoundToAccount() (uint64, error) {
 	ret := _m.Called()
@@ -227,6 +248,20 @@ func (_m *IndexerDb) Health(ctx context.Context) (idb.Health, error) {
 
 // LoadGenesis provides a mock function with given fields: genesis
 func (_m *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
+	ret := _m.Called(genesis)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(bookkeeping.Genesis) error); ok {
+		r0 = rf(genesis)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// SetNetworkState provides a mock function with given fields: genesis
+func (_m *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
 	ret := _m.Called(genesis)
 
 	var r0 error

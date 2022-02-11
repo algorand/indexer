@@ -16,7 +16,20 @@ workflows:
           name: test_with_go_<< matrix.go_version >>
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.16.11", "1.17.4"]
+              go_version: ["1.14.7", "1.15.15"]
+  "circleci_build_and_test_nightly":
+    triggers:
+      - schedule:
+          cron: "37 3 * * *"
+          filters:
+            branches:
+              only: develop
+    jobs:
+      - test_nightly:
+          name: nightly_test_with_go_<< matrix.go_version >>
+          matrix: &go-version-matrix
+            parameters:
+              go_version: ["1.14.7", "1.15.15"]
 
 jobs:
   test:
@@ -30,6 +43,18 @@ jobs:
           version: << parameters.go_version >>
       - install_dependencies
       - run_tests
+      - upload_coverage
+  test_nightly:
+    machine:
+      image: << pipeline.parameters.ubuntu_image >> 
+    parameters:
+      go_version:
+        type: string
+    steps:
+      - go/install:
+          version: << parameters.go_version >>
+      - install_dependencies
+      - run_tests_nightly
       - upload_coverage
 
 commands:
@@ -67,6 +92,18 @@ commands:
       - run: make test-generate
       - run: make fakepackage
       - run: make e2e
+
+  run_tests_nightly:
+    steps:
+      - run: test -z `go fmt ./...`
+      - run: make lint
+      - run: make check
+      - run: make integration
+      - run: make test
+      - run: make test-generate
+      - run: make fakepackage
+      - run: make e2e
+      - run: make indexer-v-algod
 
   upload_coverage:
     description: Collect coverage reports and upload them

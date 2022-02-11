@@ -682,20 +682,6 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 				},
 			}
 
-			// In case the DB layer filled the name with non-printable utf8
-			if asset.Params.Name != nil {
-				name := util.PrintableUTF8OrEmpty(*asset.Params.Name)
-				asset.Params.Name = &name
-			}
-			if asset.Params.UnitName != nil {
-				unit := util.PrintableUTF8OrEmpty(*asset.Params.UnitName)
-				asset.Params.UnitName = &unit
-			}
-			if asset.Params.Url != nil {
-				url := util.PrintableUTF8OrEmpty(*asset.Params.Url)
-				asset.Params.Url = &url
-			}
-
 			assets = append(assets, asset)
 		}
 		return nil
@@ -798,10 +784,16 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 
 		results := make([]generated.Transaction, 0)
 		for _, txrow := range transactions {
+			// Do not include inner transactions.
+			if txrow.RootTxn != nil {
+				continue
+			}
+
 			tx, err := txnRowToTransaction(txrow)
 			if err != nil {
 				return err
 			}
+
 			results = append(results, tx)
 		}
 

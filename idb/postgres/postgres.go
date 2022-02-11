@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand/config"
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -49,7 +50,17 @@ var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessM
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
 func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (*IndexerDb, chan struct{}, error) {
-	db, err := pgxpool.Connect(context.Background(), connection)
+
+	postgresConfig, err := pgxpool.ParseConfig(connection)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Couldn't parse config: %v", err)
+	}
+
+	if opts.MaxConn != 0 {
+		postgresConfig.MaxConns = int32(opts.MaxConn)
+	}
+
+	db, err := pgxpool.ConnectConfig(context.Background(), postgresConfig)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("connecting to postgres: %v", err)
@@ -397,9 +408,26 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 // LoadGenesis is part of idb.IndexerDB
 func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 	f := func(tx pgx.Tx) error {
+		// check genesis hash
+		network, err := db.getNetworkState(context.Background(), tx)
+		if err == idb.ErrorNotInitialized {
+			networkState := types.NetworkState{
+				GenesisHash: crypto.HashObj(genesis),
+			}
+			err = db.setNetworkState(tx, &networkState)
+			if err != nil {
+				return fmt.Errorf("LoadGenesis() err: %w", err)
+			}
+		} else if err != nil {
+			return fmt.Errorf("LoadGenesis() err: %w", err)
+		} else {
+			if network.GenesisHash != crypto.HashObj(genesis) {
+				return fmt.Errorf("LoadGenesis() genesis hash not matching")
+			}
+		}
 		setAccountStatementName := "set_account"
 		query := `INSERT INTO account (addr, microalgos, rewardsbase, account_data, rewards_total, created_at, deleted) VALUES ($1, $2, 0, $3, $4, 0, false)`
-		_, err := tx.Prepare(context.Background(), setAccountStatementName, query)
+		_, err = tx.Prepare(context.Background(), setAccountStatementName, query)
 		if err != nil {
 			return fmt.Errorf("LoadGenesis() prepare tx err: %w", err)
 		}
@@ -489,6 +517,32 @@ func (db *IndexerDb) getImportState(ctx context.Context, tx pgx.Tx) (types.Impor
 func (db *IndexerDb) setImportState(tx pgx.Tx, state *types.ImportState) error {
 	return db.setMetastate(
 		tx, schema.StateMetastateKey, string(encoding.EncodeImportState(state)))
+}
+
+// Returns idb.ErrorNotInitialized if uninitialized.
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) getNetworkState(ctx context.Context, tx pgx.Tx) (types.NetworkState, error) {
+	networkStateJSON, err := db.getMetastate(ctx, tx, schema.NetworkMetaStateKey)
+	if err == idb.ErrorNotInitialized {
+		return types.NetworkState{}, idb.ErrorNotInitialized
+	}
+	if err != nil {
+		return types.NetworkState{}, fmt.Errorf("unable to get network state err: %w", err)
+	}
+
+	state, err := encoding.DecodeNetworkState([]byte(networkStateJSON))
+	if err != nil {
+		return types.NetworkState{},
+			fmt.Errorf("unable to parse network state v: \"%s\" err: %w", networkStateJSON, err)
+	}
+
+	return state, nil
+}
+
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) setNetworkState(tx pgx.Tx, state *types.NetworkState) error {
+	return db.setMetastate(
+		tx, schema.NetworkMetaStateKey, string(encoding.EncodeNetworkState(state)))
 }
 
 // Returns ErrorNotInitialized if genesis is not loaded.
@@ -2251,4 +2305,24 @@ func (db *IndexerDb) GetAccountData(addresses []basics.Address) (map[basics.Addr
 	}
 
 	return res, nil
+}
+
+// GetNetworkState is part of idb.IndexerDB
+func (db *IndexerDb) GetNetworkState() (idb.NetworkState, error) {
+	state, err := db.getNetworkState(context.Background(), nil)
+	if err != nil {
+		return idb.NetworkState{}, fmt.Errorf("GetNetworkState() err: %w", err)
+	}
+	networkState := idb.NetworkState{
+		GenesisHash: state.GenesisHash,
+	}
+	return networkState, nil
+}
+
+// SetNetworkState is part of idb.IndexerDB
+func (db *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
+	networkState := types.NetworkState{
+		GenesisHash: crypto.HashObj(genesis),
+	}
+	return db.setNetworkState(nil, &networkState)
 }

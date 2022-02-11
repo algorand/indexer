@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"math"
@@ -11,8 +12,11 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-codec/codec"
+	"github.com/algorand/indexer/importer"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -88,6 +92,43 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 	round, err = pdb.getMaxRoundAccounted(context.Background(), nil)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), round)
+}
+
+// TestMaxConnection tests that when setting the maximum connection to a value, that it is
+// accurately set and that acquiring connections accurately depletes the pool
+func TestMaxConnection(t *testing.T) {
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+
+	// Open Postgres with a maximum of 2 connections locally
+	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{MaxConn: 2}, nil)
+	assert.NoError(t, err)
+	defer pdb.Close()
+
+	s := pdb.db.Stat()
+
+	assert.Equal(t, 2, int(s.MaxConns()))
+	assert.Equal(t, 0, int(s.AcquiredConns()))
+	assert.GreaterOrEqual(t, 1, int(s.IdleConns()))
+
+	conn1, err := pdb.db.Acquire(context.Background())
+	assert.NoError(t, err)
+	defer conn1.Release()
+
+	s = pdb.db.Stat()
+	assert.Equal(t, 1, int(s.AcquiredConns()))
+
+	conn2, err := pdb.db.Acquire(context.Background())
+	assert.NoError(t, err)
+	defer conn2.Release()
+
+	s = pdb.db.Stat()
+
+	// We have reached the total of 2 "total" max connections
+	// Meaning we should have two acquired connections and 0 idle connections
+	assert.Equal(t, 2, int(s.AcquiredConns()))
+	assert.Equal(t, 0, int(s.IdleConns()))
+
 }
 
 func assertAccountAsset(t *testing.T, db *pgxpool.Pool, addr basics.Address, assetid uint64, frozen bool, amount uint64) {
@@ -1875,4 +1916,73 @@ func TestTransactionsTxnAhead(t *testing.T) {
 		require.True(t, ok)
 		require.NoError(t, row.Error)
 	}
+}
+
+// Test that if genesis hash is different from what is in db metastate
+// indexer does not start.
+func TestGenesisHashCheckAtDBSetup(t *testing.T) {
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+	genesis := test.MakeGenesis()
+	db := setupIdbWithConnectionString(
+		t, connStr, genesis, test.MakeGenesisBlock())
+	defer db.Close()
+	genesisHash := crypto.HashObj(genesis)
+	network, err := db.getMetastate(context.Background(), nil, schema.NetworkMetaStateKey)
+	assert.NoError(t, err)
+	networkState, err := encoding.DecodeNetworkState([]byte(network))
+	assert.NoError(t, err)
+	assert.Equal(t, genesisHash, networkState.GenesisHash)
+	// connect with different genesis configs
+	genesis.Network = "testnest"
+	// different genesisHash, should fail
+	idb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	assert.NoError(t, err)
+	err = idb.LoadGenesis(genesis)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "genesis hash not matching")
+}
+
+type ImportState struct {
+	NextRoundToAccount uint64 `codec:"next_account_round"`
+}
+
+// Test that if genesis hash at initial import is different from what is in db metastate
+// indexer does not start.
+func TestGenesisHashCheckAtInitialImport(t *testing.T) {
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	defer shutdownFunc()
+	genesis := test.MakeGenesis()
+	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	require.NoError(t, err)
+	defer db.Close()
+	// test db upgrade
+	// set next round to account
+	state := ImportState{NextRoundToAccount: 1}
+	var buf []byte
+	jsonCodecHandle := new(codec.JsonHandle)
+	enc := codec.NewEncoderBytes(&buf, jsonCodecHandle)
+	enc.MustEncode(state)
+	db.setMetastate(nil, schema.StateMetastateKey, string(buf))
+	// network state not initialized
+	networkState, err := db.getNetworkState(context.Background(), nil)
+	require.ErrorIs(t, err, idb.ErrorNotInitialized)
+	logger := logrus.New()
+	genesisReader := bytes.NewReader(protocol.EncodeJSON(genesis))
+	imported, err := importer.EnsureInitialImport(db, genesisReader, logger)
+	require.NoError(t, err)
+	require.True(t, true, imported)
+	// network state should be set
+	networkState, err = db.getNetworkState(context.Background(), nil)
+	require.NoError(t, err)
+	require.Equal(t, networkState.GenesisHash, crypto.HashObj(genesis))
+
+	// change genesis value
+	genesis.Network = "testnest"
+	genesisReader = bytes.NewReader(protocol.EncodeJSON(genesis))
+	// different genesisHash, should fail
+	_, err = importer.EnsureInitialImport(db, genesisReader, logger)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "genesis hash not matching")
+
 }
