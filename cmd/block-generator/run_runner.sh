@@ -51,5 +51,4 @@ $(dirname "$0")/block-generator runner \
 	--test-duration 30s \
 	--log-level trace \
 	--postgres-connection-string "host=localhost user=algorand password=algorand dbname=generator_db port=15432 sslmode=disable" \
-	--scenario test_config.yml \
-	#--scenario ${CONFIG} \
+	--scenario ${CONFIG}

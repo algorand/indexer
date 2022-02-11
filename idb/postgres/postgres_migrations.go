@@ -14,6 +14,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
+	cad "github.com/algorand/indexer/idb/postgres/internal/migrations/convert_account_data"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	"github.com/algorand/indexer/idb/postgres/internal/types"
 )
@@ -85,20 +86,6 @@ func migrationStateBlocked(state types.MigrationState) bool {
 // needsMigration returns true if there is an incomplete migration.
 func needsMigration(state types.MigrationState) bool {
 	return state.NextMigration < len(migrations)
-}
-
-// upsertMigrationState updates the migration state, and optionally increments
-// the next counter with an existing transaction.
-// If `tx` is nil, use a normal query.
-//lint:ignore U1000 this function might be used in a future migration
-func upsertMigrationState(db *IndexerDb, tx pgx.Tx, state *types.MigrationState) error {
-	migrationStateJSON := encoding.EncodeMigrationState(state)
-	err := db.setMetastate(tx, schema.MigrationMetastateKey, string(migrationStateJSON))
-	if err != nil {
-		return fmt.Errorf("upsertMigrationState() err: %w", err)
-	}
-
-	return nil
 }
 
 // Returns an error object and a channel that gets closed when blocking migrations
@@ -237,16 +224,12 @@ func dropTxnBytesColumn(db *IndexerDb, migrationState *types.MigrationState) err
 		db, migrationState, []string{"ALTER TABLE txn DROP COLUMN txnbytes"})
 }
 
-func doConvertAccountData(tx pgx.Tx) error {
-	return nil
-}
-
 func convertAccountData(db *IndexerDb, migrationState *types.MigrationState) error {
 	newMigrationState := *migrationState
 	newMigrationState.NextMigration++
 
 	f := func(tx pgx.Tx) error {
-		err := doConvertAccountData(tx)
+		err := cad.RunMigration(tx, 10000)
 		if err != nil {
 			return fmt.Errorf("convertAccountData() err: %w", err)
 		}
