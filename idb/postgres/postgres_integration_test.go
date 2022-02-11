@@ -1544,6 +1544,23 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	require.NotNil(t, localState.ClosedOutAtRound)
 	assert.Equal(t, uint64(1), *localState.ClosedOutAtRound)
 	require.Equal(t, uint64(0), row.Account.TotalAppsLocalState)
+
+	q := idb.ApplicationQuery{
+		ApplicationID:  appid,
+		IncludeDeleted: true,
+	}
+	lsRows, _ := db.AppLocalState(context.Background(), q)
+	lsRow, ok := <-lsRows
+	require.True(t, ok)
+	require.NoError(t, lsRow.Error)
+	ls := lsRow.AppLocalState
+	require.Equal(t, appid, ls.Id)
+	require.NotNil(t, ls.Deleted)
+	assert.True(t, *ls.Deleted)
+	require.NotNil(t, ls.OptedInAtRound)
+	assert.Equal(t, uint64(1), *ls.OptedInAtRound)
+	require.NotNil(t, ls.ClosedOutAtRound)
+	assert.Equal(t, uint64(1), *ls.ClosedOutAtRound)
 }
 
 // TestSearchForInnerTransactionReturnsRootTransaction checks that the parent

@@ -44,12 +44,12 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeepin
 	return db, newShutdownFunc
 }
 
-func TestApplicationHander(t *testing.T) {
+func TestApplicationHandlers(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()
 
 	///////////
-	// Given // A block containing an app call txn with ExtraProgramPages
+	// Given // A block containing an app call txn with ExtraProgramPages, that the creator and another account have opted into
 	///////////
 
 	const expectedAppIdx = 1 // must be 1 since this is the first txn
@@ -74,8 +74,10 @@ func TestApplicationHander(t *testing.T) {
 			ApplicationID: expectedAppIdx,
 		},
 	}
+	optInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
+	optInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn, &optInTxnA, &optInTxnB)
 	require.NoError(t, err)
 
 	err = db.AddBlock(&block)
@@ -85,30 +87,102 @@ func TestApplicationHander(t *testing.T) {
 	// When // We query the app
 	//////////
 
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.SetPath("/v2/applications/:appidx")
-	c.SetParamNames("appidx")
-	c.SetParamValues(strconv.Itoa(expectedAppIdx))
+	setupReq := func(path, paramName, paramValue string) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath(path)
+		c.SetParamNames(paramName)
+		c.SetParamValues(paramValue)
+		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		return c, api, rec
+	}
 
-	api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+	c, api, rec := setupReq("/v2/applications/:appidx", "appidx", strconv.Itoa(expectedAppIdx))
 	params := generated.LookupApplicationByIDParams{}
 	err = api.LookupApplicationByID(c, expectedAppIdx, params)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
 
 	//////////
-	// Then // The response has non-zero ExtraProgramPages
+	// Then // The response has non-zero ExtraProgramPages and other app data
 	//////////
+
+	checkApp := func(t *testing.T, app *generated.Application) {
+		require.NotNil(t, app)
+		require.NotNil(t, app.Params.ExtraProgramPages)
+		require.Equal(t, uint64(extraPages), *app.Params.ExtraProgramPages)
+		require.Equal(t, app.Id, uint64(expectedAppIdx))
+		require.NotNil(t, app.Params.Creator)
+		require.Equal(t, *app.Params.Creator, test.AccountA.String())
+		require.Equal(t, app.Params.ApprovalProgram, []byte{0x02, 0x20, 0x01, 0x01, 0x22})
+		require.Equal(t, app.Params.ClearStateProgram, []byte{0x02, 0x20, 0x01, 0x01, 0x22})
+	}
 
 	var response generated.ApplicationResponse
 	data := rec.Body.Bytes()
 	err = json.Decode(data, &response)
 	require.NoError(t, err)
-	require.NotNil(t, response.Application.Params.ExtraProgramPages)
-	require.Equal(t, uint64(extraPages), *response.Application.Params.ExtraProgramPages)
+	checkApp(t, response.Application)
+
+	t.Run("created-applications", func(t *testing.T) {
+		//////////
+		// When // We look up the app by creator address
+		//////////
+
+		c, api, rec := setupReq("/v2/accounts/:accountid/created-applications", "accountid", test.AccountA.String())
+		params := generated.LookupAccountCreatedApplicationsParams{}
+		err = api.LookupAccountCreatedApplications(c, test.AccountA.String(), params)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
+
+		//////////
+		// Then // The response has non-zero ExtraProgramPages and other app data
+		//////////
+
+		var response generated.ApplicationsResponse
+		data := rec.Body.Bytes()
+		err = json.Decode(data, &response)
+		require.NoError(t, err)
+		require.Len(t, response.Applications, 1)
+		checkApp(t, &response.Applications[0])
+	})
+
+	checkAppLocalState := func(t *testing.T, ls *generated.ApplicationLocalState) {
+		require.NotNil(t, ls)
+		require.NotNil(t, ls.Deleted)
+		require.False(t, *ls.Deleted)
+		require.Equal(t, ls.Id, uint64(expectedAppIdx))
+	}
+
+	for _, tc := range []struct{ name, addr string }{
+		{"creator", test.AccountA.String()},
+		{"opted-in-account", test.AccountB.String()},
+	} {
+		t.Run("app-local-state-"+tc.name, func(t *testing.T) {
+			//////////
+			// When // We look up the app's local state for an address that has opted in
+			//////////
+
+			c, api, rec := setupReq("/v2/accounts/:accountid/apps-local-state", "accountid", test.AccountA.String())
+			params := generated.LookupAccountAppLocalStatesParams{}
+			err = api.LookupAccountAppLocalStates(c, tc.addr, params)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
+
+			//////////
+			// Then // AppLocalState is available for that address
+			//////////
+
+			var response generated.ApplicationLocalStatesResponse
+			data := rec.Body.Bytes()
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			require.Len(t, response.AppsLocalStates, 1)
+			checkAppLocalState(t, &response.AppsLocalStates[0])
+		})
+	}
 }
 
 func TestBlockNotFound(t *testing.T) {
