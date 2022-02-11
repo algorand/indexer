@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -913,6 +914,59 @@ func TestTimeouts(t *testing.T) {
 			require.Equal(t, http.StatusServiceUnavailable, rec1.Code)
 			require.Contains(t, bodyStr, tc.errString)
 			require.Contains(t, bodyStr, "timeout")
+		})
+	}
+}
+
+func TestApplicationLimits(t *testing.T) {
+	testcases := []struct {
+		name     string
+		limit    *uint64
+		expected uint64
+	}{
+		{
+			name:     "Default",
+			limit:    nil,
+			expected: defaultApplicationsLimit,
+		},
+		{
+			name:     "Max",
+			limit:    uint64Ptr(math.MaxUint64),
+			expected: maxApplicationsLimit,
+		},
+	}
+
+	// Mock backend to capture default limits
+	mockIndexer := &mocks.IndexerDb{}
+	si := ServerImplementation{
+		db:      mockIndexer,
+		timeout: 5 * time.Millisecond,
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			// Setup context...
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec1 := httptest.NewRecorder()
+			c := e.NewContext(req, rec1)
+
+			// check parameters passed to the backend
+			mockIndexer.
+				On("Applications", mock.Anything, mock.Anything, mock.Anything).
+				Return(nil, uint64(0)).
+				Run(func(args mock.Arguments) {
+					require.Len(t, args, 2)
+					require.IsType(t, &generated.SearchForApplicationsParams{}, args[1])
+					params := args[1].(*generated.SearchForApplicationsParams)
+					require.NotNil(t, params.Limit)
+					require.Equal(t, *params.Limit, tc.expected)
+				})
+
+			err := si.SearchForApplications(c, generated.SearchForApplicationsParams{
+				Limit: tc.limit,
+			})
+			require.NoError(t, err)
 		})
 	}
 }

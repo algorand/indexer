@@ -82,7 +82,7 @@ func yieldInnerTransactions(ctx context.Context, stxnad *transactions.SignedTxnW
 
 		// When encoding an inner transaction we remove any further nested inner transactions.
 		// To reconstruct a full object the root transaction must be fetched.
-		txnNoInner := *stxnad
+		txnNoInner := itxn
 		txnNoInner.EvalDelta.InnerTxns = nil
 		row := []interface{}{
 			uint64(block.Round()), intra, int(typeenum), assetid,

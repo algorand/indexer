@@ -11,7 +11,7 @@ import (
 )
 
 func TestTxnRowNext(t *testing.T) {
-	// txn with 2 inner transactions
+	// txn with 2 inner transactions and 2 nested inner transactions
 	stxn := test.MakeAppCallWithInnerTxn(test.AccountA, test.AccountB, test.AccountC, test.AccountD, test.AccountE)
 
 	testcases := []struct {
@@ -62,7 +62,7 @@ func TestTxnRowNext(t *testing.T) {
 				Round: 1_234_567_890,
 			},
 			round: 1_234_567_890,
-			intra: 53, // RootIntra + RootTxnBytes.numInnerTxns()
+			intra: 54, // RootIntra + RootTxnBytes.numInnerTxns()
 		},
 		{
 			name:      "root txn absent",
