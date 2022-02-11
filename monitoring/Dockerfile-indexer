@@ -1,0 +1,31 @@
+FROM alpine:latest
+
+RUN apk add --no-cache git make musl-dev go bash libtool autoconf automake build-base libsodium-dev boost-dev
+
+# Configure Go
+ENV GOROOT /usr/lib/go
+ENV GOPATH /go
+ENV PATH /go/bin:$PATH
+
+RUN mkdir -p ${GOPATH}/src ${GOPATH}/bin
+
+# Build and run indexer
+RUN mkdir /work
+WORKDIR /work
+ADD . ./
+RUN make
+WORKDIR /work/cmd/algorand-indexer
+ENV CGO_ENABLED="1"
+RUN go build
+
+# The sleep is to wait until postgres starts
+CMD ["/bin/sh", "-c", "\
+  echo $ALGOD_NET && \
+  echo $CONNECTION_STRING &&\
+  sleep 5 && \
+  ./algorand-indexer daemon \
+    --server \":${PORT}\" \
+    -P \"${CONNECTION_STRING}\" \
+    --metrics-mode VERBOSE \
+    --algod-net \"${ALGOD_NET}\" \
+    --algod-token YddOUGbAjHLr1uPZtZwHOvMDmXvR1Zvw1f3Roj2PT1ufenXbNyIxIz0IeznrLbDsF"]
