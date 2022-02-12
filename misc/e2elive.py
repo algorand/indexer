@@ -73,7 +73,8 @@ def main():
     try:
         xrun(['goal', 'network', 'start', '-r', tempnet])
     except Exception:
-        xrun(['cat', tempnet + '/Primary/node.log'])
+        logger.error('failed to start network.')
+        sys.stdout = open(os.path.join(tempnet, 'Primary', 'node.log'), 'w')
         raise
 
     atexitrun(['goal', 'network', 'stop', '-r', tempnet])
