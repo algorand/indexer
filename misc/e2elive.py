@@ -70,7 +70,12 @@ def main():
     blockfiles = glob.glob(os.path.join(tempdir, 'net', 'Primary', '*', '*.block.sqlite'))
     lastblock = countblocks(blockfiles[0])
     #subprocess.run(['find', tempnet, '-type', 'f'])
-    xrun(['goal', 'network', 'start', '-r', tempnet])
+    try:
+        xrun(['goal', 'network', 'start', '-r', tempnet])
+    except Exception:
+        xrun(['cat', tempnet + '/Primary/node.log'])
+        raise
+
     atexitrun(['goal', 'network', 'stop', '-r', tempnet])
 
     psqlstring = ensure_test_db(args.connection_string, args.keep_temps)
