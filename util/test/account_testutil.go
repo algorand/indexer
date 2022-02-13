@@ -182,33 +182,6 @@ func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
 	}
 }
 
-// MakeSimpleKeyregOnlineTxn creates a fake key registration transaction.
-func MakeSimpleKeyregOnlineTxn(sender basics.Address) transactions.SignedTxnWithAD {
-	var votePK crypto.OneTimeSignatureVerifier
-	votePK[0] = 1
-
-	var selectionPK crypto.VRFVerifier
-	selectionPK[0] = 2
-
-	return transactions.SignedTxnWithAD{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: "keyreg",
-				Header: transactions.Header{
-					Sender:      sender,
-					GenesisHash: GenesisHash,
-				},
-				KeyregTxnFields: transactions.KeyregTxnFields{
-					VotePK:          votePK,
-					SelectionPK:     selectionPK,
-					VoteKeyDilution: 1,
-				},
-			},
-			Sig: Signature,
-		},
-	}
-}
-
 // MakeCreateAppTxn makes a transaction that creates a simple application.
 func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 	// Create a transaction with ExtraProgramPages field set to 1
