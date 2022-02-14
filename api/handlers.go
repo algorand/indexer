@@ -794,7 +794,7 @@ func (si *ServerImplementation) fetchApplications(ctx context.Context, params id
 		return nil, 0, err
 	}
 
-	return apps, round, err
+	return apps, round, nil
 }
 
 // fetchAppLocalStates fetches all generated.AppLocalState from a query
@@ -818,7 +818,7 @@ func (si *ServerImplementation) fetchAppLocalStates(ctx context.Context, params 
 		return nil, 0, err
 	}
 
-	return als, round, err
+	return als, round, nil
 }
 
 // fetchAssets fetches all results and converts them into generated.Asset objects
@@ -1128,7 +1128,7 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 		return nil, "", 0, err
 	}
 
-	return results, nextToken, round, err
+	return results, nextToken, round, nil
 }
 
 //////////////////////
