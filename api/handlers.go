@@ -387,16 +387,14 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 			Address:       params.SenderAddress,
 		}
 
-
-	filter, err := transactionParamsToTransactionFilter(searchParams)
-	if err != nil {
-		return badRequest(ctx, err.Error())
-	}
-	filter.AddressRole = idb.AddressRoleSender
-	// If there is a match on an inner transaction, return the inner txn's logs
-	// instead of the root txn's logs.
-	filter.ReturnInnerTxnOnly = true
-
+		filter, err := transactionParamsToTransactionFilter(searchParams)
+		if err != nil {
+			return badRequest(ctx, err.Error())
+		}
+		filter.AddressRole = idb.AddressRoleSender
+		// If there is a match on an inner transaction, return the inner txn's logs
+		// instead of the root txn's logs.
+		filter.ReturnInnerTxnOnly = true
 
 		err = validateTransactionFilter(&filter)
 		if err != nil {
