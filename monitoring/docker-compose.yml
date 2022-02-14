@@ -10,6 +10,7 @@ services:
       PORT: 8888
       CONNECTION_STRING: ${DB_CONNECTION}
       ALGOD_NET: "${ALGOD_NET}"
+      ALGOD_TOKEN: "${ALGOD_TOKEN}"
     ports:
       - 8888:8888
     depends_on:

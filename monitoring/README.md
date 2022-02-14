@@ -2,7 +2,7 @@
 A monitoring dashboard displaying indexer performance metrics. 
 
 ### To start a monitoring dashboard
-Configurable env vars, `DB_CONNECTION` and `ALGOD_NET`. The default values are set in `.env`. 
+Configurable env vars, `DB_CONNECTION`, `ALGOD_NET` and `ALGOD_TOKEN`. The defaults are set in `.env`. User must provide a valid `ALGOD_NET` and `ALGOD_TOKEN` pair.
 
 if indexer is not already running, start all services in `docker-compose.yml`
 

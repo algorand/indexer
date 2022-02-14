@@ -28,4 +28,4 @@ CMD ["/bin/sh", "-c", "\
     -P \"${CONNECTION_STRING}\" \
     --metrics-mode VERBOSE \
     --algod-net \"${ALGOD_NET}\" \
-    --algod-token YddOUGbAjHLr1uPZtZwHOvMDmXvR1Zvw1f3Roj2PT1ufenXbNyIxIz0IeznrLbDsF"]
+    --algod-token ${ALGOD_TOKEN}"]
