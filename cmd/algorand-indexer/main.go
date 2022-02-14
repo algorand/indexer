@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
+	"github.com/algorand/indexer/cmd/import-validator/core"
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/dummy"
@@ -113,6 +114,10 @@ func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}
 }
 
 func init() {
+	// Add hidden subcommands
+	core.ImportValidatorCmd.Hidden = true
+	rootCmd.AddCommand(core.ImportValidatorCmd)
+
 	logger = log.New()
 	logger.SetFormatter(&log.JSONFormatter{
 		DisableHTMLEscape: true,
@@ -173,7 +178,7 @@ func configureLogger() error {
 	if logFile == "-" {
 		logger.SetOutput(os.Stdout)
 	} else if logFile != "" {
-		f, err := os.OpenFile(logFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0755)
+		f, err := os.OpenFile(logFile, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
 			return err
 		}

@@ -70,7 +70,20 @@ def main():
     blockfiles = glob.glob(os.path.join(tempdir, 'net', 'Primary', '*', '*.block.sqlite'))
     lastblock = countblocks(blockfiles[0])
     #subprocess.run(['find', tempnet, '-type', 'f'])
-    xrun(['goal', 'network', 'start', '-r', tempnet])
+    try:
+        xrun(['goal', 'network', 'start', '-r', tempnet])
+    except Exception:
+        logger.error('failed to start private network, looking for node.log')
+        for root, dirs, files in os.walk(tempnet):
+            for f in files:
+                if f == 'node.log':
+                    p = os.path.join(root, f)
+                    logger.error('found node.log: {}'.format(p))
+                    with open(p) as nf:
+                        for line in nf:
+                            logger.error('   {}'.format(line))
+        raise
+
     atexitrun(['goal', 'network', 'stop', '-r', tempnet])
 
     psqlstring = ensure_test_db(args.connection_string, args.keep_temps)

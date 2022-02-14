@@ -9,10 +9,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -44,7 +46,7 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeepin
 	return db, newShutdownFunc
 }
 
-func TestApplicationHander(t *testing.T) {
+func TestApplicationHandler(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()
 
@@ -150,6 +152,7 @@ func TestInnerTxn(t *testing.T) {
 
 	pay := "pay"
 	axfer := "axfer"
+	appl := "appl"
 	testcases := []struct {
 		name   string
 		filter generated.SearchForTransactionsParams
@@ -165,6 +168,10 @@ func TestInnerTxn(t *testing.T) {
 		{
 			name:   "match on inner-inner",
 			filter: generated.SearchForTransactionsParams{Address: &appAddrStr, TxType: &axfer},
+		},
+		{
+			name:   "match on inner-inner",
+			filter: generated.SearchForTransactionsParams{Address: &appAddrStr, TxType: &appl},
 		},
 		{
 			name:   "match all",
@@ -338,6 +345,97 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	})
 }
 
+func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing a key reg txn with state proof key
+	///////////
+	var votePK crypto.OneTimeSignatureVerifier
+	votePK[0] = 1
+
+	var selectionPK crypto.VRFVerifier
+	selectionPK[0] = 1
+
+	var stateProofPK merklesignature.Verifier
+	stateProofPK[0] = 1
+
+	txn := transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: "keyreg",
+				Header: transactions.Header{
+					Sender:      test.AccountA,
+					GenesisHash: test.GenesisHash,
+				},
+				KeyregTxnFields: transactions.KeyregTxnFields{
+					VotePK:           votePK,
+					SelectionPK:      selectionPK,
+					StateProofPK:     stateProofPK,
+					VoteFirst:        basics.Round(0),
+					VoteLast:         basics.Round(100),
+					VoteKeyDilution:  1000,
+					Nonparticipation: false,
+				},
+			},
+			Sig: test.Signature,
+		},
+	}
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err, "failed to commit")
+
+	e := echo.New()
+	{
+		//////////
+		// When // We query the txn
+		//////////
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/transactions/:txid")
+		api := &ServerImplementation{db: db}
+		err = api.LookupTransaction(c, txn.Txn.ID().String())
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+		//////////
+		// Then // The key reg txn response has state proof key
+		//////////
+		var response generated.TransactionResponse
+		data := rec.Body.Bytes()
+		err = json.Decode(data, &response)
+		require.NoError(t, err)
+		require.NotNil(t, response.Transaction.KeyregTransaction.StateProofKey)
+		require.Equal(t, stateProofPK[:], *response.Transaction.KeyregTransaction.StateProofKey)
+	}
+	{
+		//////////
+		// And // Account is online with state proof key
+		//////////
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/accounts/:account-id")
+		api := &ServerImplementation{db: db}
+		params := generated.LookupAccountByIDParams{}
+		err = api.LookupAccountByID(c, test.AccountA.String(), params)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var acctResp generated.AccountResponse
+		data := rec.Body.Bytes()
+		err = json.Decode(data, &acctResp)
+		require.NoError(t, err)
+		require.NotNil(t, acctResp.Account)
+		require.NotNil(t, acctResp.Account.Participation.StateProofKey)
+		require.Equal(t, stateProofPK[:], *acctResp.Account.Participation.StateProofKey)
+	}
+}
+
 func TestVersion(t *testing.T) {
 	///////////
 	// Given // An API and context
@@ -459,5 +557,95 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 		require.NotNil(t, response.Account.CreatedAssets, 1)
 		require.Len(t, *response.Account.CreatedAssets, 1)
 		verify((*response.Account.CreatedAssets)[0].Params)
+	}
+}
+
+// TestLookupInnerLogs runs queries for logs given application ids,
+// and checks that logs in inner transactions match properly.
+func TestLookupInnerLogs(t *testing.T) {
+	var appAddr basics.Address
+	appAddr[1] = 99
+
+	params := generated.LookupApplicationLogsByIDParams{}
+
+	testcases := []struct {
+		name  string
+		appID uint64
+		logs  []string
+	}{
+		{
+			name:  "match on root",
+			appID: 123,
+			logs: []string{
+				"testing outer appl log",
+				"appId 123 log",
+			},
+		},
+		{
+			name:  "match on inner",
+			appID: 789,
+			logs: []string{
+				"testing inner log",
+				"appId 789 log",
+			},
+		},
+		{
+			name:  "match on inner-inner",
+			appID: 999,
+			logs: []string{
+				"testing inner-inner log",
+				"appId 999 log",
+			},
+		},
+	}
+
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // a DB with some inner txns in it.
+	///////////
+	appCall := test.MakeAppCallWithInnerAppCall(test.AccountA)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err, "failed to commit")
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			//////////
+			// When // we run a query that queries logs based on appID
+			//////////
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetPath("/v2/applications/:appIdx/logs")
+			c.SetParamNames("appIdx")
+			c.SetParamValues(fmt.Sprintf("%d", tc.appID))
+
+			api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+			err = api.LookupApplicationLogsByID(c, tc.appID, params)
+			require.NoError(t, err)
+
+			//////////
+			// Then // The result is the log from the app
+			//////////
+			var response generated.ApplicationLogsResponse
+			require.Equal(t, http.StatusOK, rec.Code)
+			json.Decode(rec.Body.Bytes(), &response)
+			require.NoError(t, err)
+
+			require.Equal(t, uint64(tc.appID), response.ApplicationId)
+			require.NotNil(t, response.LogData)
+			ld := *response.LogData
+			require.Equal(t, 1, len(ld))
+			require.Equal(t, len(tc.logs), len(ld[0].Logs))
+			for i, log := range ld[0].Logs {
+				require.Equal(t, []byte(tc.logs[i]), log)
+			}
+		})
 	}
 }

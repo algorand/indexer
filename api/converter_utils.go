@@ -247,7 +247,6 @@ type rowData struct {
 }
 
 // txnRowToTransaction parses the idb.TxnRow and generates the appropriate generated.Transaction object.
-// If the idb.TxnRow represents an inner transaction, the root transaction is returned.
 func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Error != nil {
 		return generated.Transaction{}, row.Error
@@ -284,7 +283,13 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		Multisig: msigToTransactionMsig(stxn.Msig),
 		Sig:      sigToTransactionSig(stxn.Sig),
 	}
-	txid := stxn.Txn.ID().String()
+
+	var txid string
+	if row.Extra.RootIntra.Present {
+		txid = row.Extra.RootTxid
+	} else {
+		txid = stxn.Txn.ID().String()
+	}
 
 	txn.Id = &txid
 	txn.Signature = &sig
@@ -317,6 +322,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 			VoteLastValid:             uint64Ptr(uint64(stxn.Txn.VoteLast)),
 			VoteKeyDilution:           uint64Ptr(stxn.Txn.VoteKeyDilution),
 			VoteParticipationKey:      byteSliceOmitZeroPtr(stxn.Txn.VotePK[:]),
+			StateProofKey:             byteSliceOmitZeroPtr(stxn.Txn.StateProofPK[:]),
 		}
 		keyreg = &k
 	case protocol.AssetConfigTx:
