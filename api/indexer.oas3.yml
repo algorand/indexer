@@ -271,6 +271,42 @@
         },
         "description": "(empty)"
       },
+      "AccountsErrorResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "address": {
+                  "type": "string"
+                },
+                "max-results": {
+                  "type": "integer"
+                },
+                "message": {
+                  "type": "string"
+                },
+                "total-apps-local-state": {
+                  "type": "integer"
+                },
+                "total-assets": {
+                  "type": "integer"
+                },
+                "total-created-apps": {
+                  "type": "integer"
+                },
+                "total-created-assets": {
+                  "type": "integer"
+                }
+              },
+              "required": [
+                "message"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "description": "An error response for the /v2/accounts API endpoint, with optional information about limits that were exceeded."
+      },
       "AccountsResponse": {
         "content": {
           "application/json": {
@@ -2097,12 +2133,26 @@
               "application/json": {
                 "schema": {
                   "properties": {
-                    "data": {
-                      "properties": {},
-                      "type": "object"
+                    "address": {
+                      "type": "string"
+                    },
+                    "max-results": {
+                      "type": "integer"
                     },
                     "message": {
                       "type": "string"
+                    },
+                    "total-apps-local-state": {
+                      "type": "integer"
+                    },
+                    "total-assets": {
+                      "type": "integer"
+                    },
+                    "total-created-apps": {
+                      "type": "integer"
+                    },
+                    "total-created-assets": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -2112,7 +2162,7 @@
                 }
               }
             },
-            "description": "Response for errors"
+            "description": "An error response for the /v2/accounts API endpoint, with optional information about limits that were exceeded."
           },
           "500": {
             "content": {
@@ -2222,12 +2272,26 @@
               "application/json": {
                 "schema": {
                   "properties": {
-                    "data": {
-                      "properties": {},
-                      "type": "object"
+                    "address": {
+                      "type": "string"
+                    },
+                    "max-results": {
+                      "type": "integer"
                     },
                     "message": {
                       "type": "string"
+                    },
+                    "total-apps-local-state": {
+                      "type": "integer"
+                    },
+                    "total-assets": {
+                      "type": "integer"
+                    },
+                    "total-created-apps": {
+                      "type": "integer"
+                    },
+                    "total-created-assets": {
+                      "type": "integer"
                     }
                   },
                   "required": [
@@ -2237,7 +2301,7 @@
                 }
               }
             },
-            "description": "Response for errors"
+            "description": "An error response for the /v2/accounts API endpoint, with optional information about limits that were exceeded."
           },
           "404": {
             "content": {

@@ -23,18 +23,19 @@ import (
 )
 
 var (
-	algodDataDir     string
-	algodAddr        string
-	algodToken       string
-	daemonServerAddr string
-	noAlgod          bool
-	developerMode    bool
-	allowMigration   bool
-	metricsMode      string
-	tokenString      string
-	writeTimeout     time.Duration
-	readTimeout      time.Duration
-	maxConn          uint32
+	algodDataDir          string
+	algodAddr             string
+	algodToken            string
+	daemonServerAddr      string
+	noAlgod               bool
+	developerMode         bool
+	allowMigration        bool
+	metricsMode           string
+	tokenString           string
+	writeTimeout          time.Duration
+	readTimeout           time.Duration
+	maxConn               uint32
+	maxAccountsAPIResults uint32
 )
 
 var daemonCmd = &cobra.Command{
@@ -147,6 +148,7 @@ func init() {
 	daemonCmd.Flags().DurationVarP(&writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
 	daemonCmd.Flags().DurationVarP(&readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
 	daemonCmd.Flags().Uint32VarP(&maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
+	daemonCmd.Flags().Uint32VarP(&maxAccountsAPIResults, "max-accounts-api-results", "", 0, "set the max # of combined apps and assets per account supported by /v2/accounts API calls before a 400 error is returned (default: unlimited)")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
@@ -174,6 +176,7 @@ func makeOptions() (options api.ExtraOptions) {
 	}
 	options.WriteTimeout = writeTimeout
 	options.ReadTimeout = readTimeout
+	options.MaxAccountsAPIResults = maxAccountsAPIResults
 
 	return
 }

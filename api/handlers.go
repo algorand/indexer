@@ -38,6 +38,8 @@ type ServerImplementation struct {
 	timeout time.Duration
 
 	log *log.Logger
+
+	maxAccountsAPIResults uint32
 }
 
 /////////////////////
@@ -176,9 +178,9 @@ func setExcludeQueryOptions(exclude []string, opts *idb.AccountQueryOptions) err
 // LookupAccountByID queries indexer for a given account.
 // (GET /v2/accounts/{account-id})
 func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID string, params generated.LookupAccountByIDParams) error {
-	addr, errors := decodeAddress(&accountID, "account-id", make([]string, 0))
-	if len(errors) != 0 {
-		return badRequest(ctx, errors[0])
+	addr, decodeErrors := decodeAddress(&accountID, "account-id", make([]string, 0))
+	if len(decodeErrors) != 0 {
+		return badRequest(ctx, decodeErrors[0])
 	}
 
 	options := idb.AccountQueryOptions{
@@ -189,6 +191,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		IncludeAppParams:     true,
 		Limit:                1,
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
+		MaxResources:         uint64(si.maxAccountsAPIResults),
 	}
 
 	if params.Exclude != nil {
@@ -200,6 +203,19 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 
 	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
 	if err != nil {
+		var maxErr idb.MaxAccountsAPIResultsError
+		if errors.As(err, &maxErr) {
+			addr := maxErr.Address.String()
+			return ctx.JSON(http.StatusBadRequest, generated.AccountsErrorResponse{
+				Message:             "Result limit exceeded",
+				MaxResults:          &options.MaxResources,
+				Address:             &addr,
+				TotalAssets:         &maxErr.TotalAssets,
+				TotalCreatedAssets:  &maxErr.TotalAppLocalStates,
+				TotalAppsLocalState: &maxErr.TotalAppLocalStates,
+				TotalCreatedApps:    &maxErr.TotalAppParams,
+			})
+		}
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingAccount, err))
 	}
 
@@ -325,9 +341,9 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		return badRequest(ctx, errMultiAcctRewind)
 	}
 
-	spendingAddr, errors := decodeAddress(params.AuthAddr, "account-id", make([]string, 0))
-	if len(errors) != 0 {
-		return badRequest(ctx, errors[0])
+	spendingAddr, decodeErrors := decodeAddress(params.AuthAddr, "account-id", make([]string, 0))
+	if len(decodeErrors) != 0 {
+		return badRequest(ctx, decodeErrors[0])
 	}
 
 	options := idb.AccountQueryOptions{
@@ -340,6 +356,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		HasAppID:             uintOrDefault(params.ApplicationId),
 		EqualToAuthAddr:      spendingAddr[:],
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
+		MaxResources:         uint64(si.maxAccountsAPIResults),
 	}
 
 	if params.Exclude != nil {
@@ -367,8 +384,20 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 	}
 
 	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
-
 	if err != nil {
+		var maxErr idb.MaxAccountsAPIResultsError
+		if errors.As(err, &maxErr) {
+			addr := maxErr.Address.String()
+			return ctx.JSON(http.StatusBadRequest, generated.AccountsErrorResponse{
+				Message:             "Result limit exceeded",
+				MaxResults:          &options.MaxResources,
+				Address:             &addr,
+				TotalAssets:         &maxErr.TotalAssets,
+				TotalCreatedAssets:  &maxErr.TotalAppLocalStates,
+				TotalAppsLocalState: &maxErr.TotalAppLocalStates,
+				TotalCreatedApps:    &maxErr.TotalAppParams,
+			})
+		}
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingAccount, err))
 	}
 

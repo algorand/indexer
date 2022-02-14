@@ -93,7 +93,7 @@
             "$ref": "#/responses/AccountsResponse"
           },
           "400": {
-            "$ref": "#/responses/ErrorResponse"
+            "$ref": "#/responses/AccountsErrorResponse"
           },
           "500": {
             "$ref": "#/responses/ErrorResponse"
@@ -133,7 +133,7 @@
             "$ref": "#/responses/AccountResponse"
           },
           "400": {
-            "$ref": "#/responses/ErrorResponse"
+            "$ref": "#/responses/AccountsErrorResponse"
           },
           "404": {
             "$ref": "#/responses/ErrorResponse"
@@ -2633,6 +2633,39 @@
           },
           "message": {
             "type": "string"
+          }
+        }
+      }
+    },
+    "AccountsErrorResponse": {
+      "description": "An error response for the /v2/accounts API endpoint, with optional information about limits that were exceeded.",
+      "type": "object",
+      "schema":{
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "address": {
+            "type": "string"
+          },
+          "total-apps-local-state": {
+            "type": "integer"
+          },
+          "total-assets": {
+            "type": "integer"
+          },
+          "total-created-apps": {
+            "type": "integer"
+          },
+          "total-created-assets": {
+            "type": "integer"
           }
         }
       }

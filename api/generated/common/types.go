@@ -908,6 +908,17 @@ type AccountResponse struct {
 	CurrentRound uint64 `json:"current-round"`
 }
 
+// AccountsErrorResponse defines model for AccountsErrorResponse.
+type AccountsErrorResponse struct {
+	Address             *string `json:"address,omitempty"`
+	MaxResults          *uint64 `json:"max-results,omitempty"`
+	Message             string  `json:"message"`
+	TotalAppsLocalState *uint64 `json:"total-apps-local-state,omitempty"`
+	TotalAssets         *uint64 `json:"total-assets,omitempty"`
+	TotalCreatedApps    *uint64 `json:"total-created-apps,omitempty"`
+	TotalCreatedAssets  *uint64 `json:"total-created-assets,omitempty"`
+}
+
 // AccountsResponse defines model for AccountsResponse.
 type AccountsResponse struct {
 	Accounts []Account `json:"accounts"`

@@ -37,6 +37,11 @@ type ExtraOptions struct {
 
 	// ReadTimeout is the maximum duration for reading the entire request, including the body.
 	ReadTimeout time.Duration
+
+	// MaxAccountsAPIResults is the maximum number of combined AppParams, AppLocalState, AssetParams,
+	// and AssetHolding resources per address that can be returned by the /v2/accounts endpoints.
+	// If an address exceeds this number, a 400 error is returned. Zero means unlimited.
+	MaxAccountsAPIResults uint32
 }
 
 func (e ExtraOptions) handlerTimeout() time.Duration {
@@ -83,6 +88,7 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 		fetcher:                        fetcherError,
 		timeout:                        options.handlerTimeout(),
 		log:                            log,
+		maxAccountsAPIResults:          options.MaxAccountsAPIResults,
 	}
 
 	generated.RegisterHandlers(e, &api, middleware...)

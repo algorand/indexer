@@ -1857,6 +1857,17 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		return out, round
 	}
 
+	// Enforce max combined # of app & asset resources per account limit, if set
+	if opts.MaxResources != 0 {
+		err = db.checkAccountResourceLimit(ctx, tx, opts)
+		if err != nil {
+			out <- idb.AccountRow{Error: err}
+			close(out)
+			tx.Rollback(ctx)
+			return out, round
+		}
+	}
+
 	// Construct query for fetching accounts...
 	query, whereArgs := db.buildAccountQuery(opts)
 	req := &getAccountsRequest{
@@ -1880,6 +1891,51 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		tx.Rollback(ctx)
 	}()
 	return out, round
+}
+
+func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, opts idb.AccountQueryOptions) error {
+	o := opts
+	o.OnlyAccountData = true
+	o.IncludeAssetHoldings = false
+	o.IncludeAssetParams = false
+	o.IncludeAppLocalState = false
+	o.IncludeAppParams = false
+	query, whereArgs := db.buildAccountQuery(o)
+	rows, err := tx.Query(ctx, query, whereArgs)
+	if err != nil {
+		return fmt.Errorf("account limit query %#v err %v", query, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var addr []byte
+		var accountDataJSONStr []byte
+		cols := []interface{}{&addr, &accountDataJSONStr}
+		err := rows.Scan(cols...)
+		if err != nil {
+			return fmt.Errorf("account limit scan err %v", err)
+		}
+
+		var ad ledgercore.AccountData
+		ad, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
+		if err != nil {
+			return fmt.Errorf("account limit decode err (%s) %v", accountDataJSONStr, err)
+		}
+
+		// check limit
+		totalResources := ad.TotalAppLocalStates + ad.TotalAppParams + ad.TotalAssets + ad.TotalAssetParams
+		if totalResources > opts.MaxResources {
+			var aaddr basics.Address
+			copy(aaddr[:], addr)
+			return idb.MaxAccountsAPIResultsError{
+				Address:             aaddr,
+				TotalAppLocalStates: ad.TotalAppLocalStates,
+				TotalAppParams:      ad.TotalAppParams,
+				TotalAssets:         ad.TotalAssets,
+				TotalAssetParams:    ad.TotalAssetParams,
+			}
+		}
+	}
+	return nil
 }
 
 func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query string, whereArgs []interface{}) {
@@ -1941,7 +1997,11 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		whereArgs = append(whereArgs, encoding.Base64(opts.EqualToAuthAddr))
 		partNumber++
 	}
-	query = `SELECT a.addr, a.microalgos, a.rewards_total, a.created_at, a.closed_at, a.deleted, a.rewardsbase, a.keytype, a.account_data FROM account a`
+	if opts.OnlyAccountData {
+		query = `SELECT a.addr, a.account_data FROM account a`
+	} else {
+		query = `SELECT a.addr, a.microalgos, a.rewards_total, a.created_at, a.closed_at, a.deleted, a.rewardsbase, a.keytype, a.account_data FROM account a`
+	}
 	if opts.HasAssetID != 0 {
 		// inner join requires match, filtering on presence of asset
 		query += " JOIN qasf ON a.addr = qasf.addr"

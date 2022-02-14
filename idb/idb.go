@@ -263,6 +263,12 @@ type AccountQueryOptions struct {
 	IncludeAppLocalState bool
 	IncludeAppParams     bool
 
+	// MaxResources is the maximum combined number of AppParam, AppLocalState, AssetParam, and AssetHolding objects allowed.
+	MaxResources uint64
+
+	// OnlyAccountData specifies that only the address and AccountData columns should be retrieved.
+	OnlyAccountData bool
+
 	// IncludeDeleted indicated whether to include deleted Assets, Applications, etc within the account.
 	IncludeDeleted bool
 
@@ -272,8 +278,17 @@ type AccountQueryOptions struct {
 // AccountRow is metadata relating to one account in a account query.
 type AccountRow struct {
 	Account models.Account
-	Error   error
+	Error   error // could be MaxAccountsAPIResultsError
 }
+
+// MaxAccountsAPIResultsError records the offending address and resource count that exceeded the limit.
+type MaxAccountsAPIResultsError struct {
+	Address basics.Address
+
+	TotalAppLocalStates, TotalAppParams, TotalAssets, TotalAssetParams uint64
+}
+
+func (e MaxAccountsAPIResultsError) Error() string { return "Max accounts API results limit exceeded" }
 
 // AssetsQuery is a parameter object with all of the asset filter options.
 type AssetsQuery struct {
