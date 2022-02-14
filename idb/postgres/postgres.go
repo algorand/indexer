@@ -2189,11 +2189,8 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	if len(whereParts) > 0 {
 		query += " WHERE " + strings.Join(whereParts, " AND ")
 	}
-	if abq.Address != nil {
-		query += " ORDER BY assetid ASC"
-	} else {
-		query += " ORDER BY addr ASC"
-	}
+	query += " ORDER BY addr, assetid ASC"
+
 	if abq.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d", abq.Limit)
 	}
