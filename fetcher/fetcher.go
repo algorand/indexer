@@ -117,7 +117,7 @@ func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 		blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(ctx)
 
 		dt := time.Since(start)
-		metrics.AlgodRawBlockTimeSeconds.Observe(dt.Seconds())
+		metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
 
 		if err != nil {
 			// If context has expired.
@@ -162,7 +162,7 @@ func (bot *fetcherImpl) followLoop(ctx context.Context) error {
 			blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(ctx)
 
 			dt := time.Since(start)
-			metrics.AlgodRawBlockTimeSeconds.Observe(dt.Seconds())
+			metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
 
 			if err == nil {
 				break

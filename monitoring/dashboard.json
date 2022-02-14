@@ -907,11 +907,11 @@
             "uid": "${DS_INDEXERPROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "rate(indexer_daemon_algod_raw_block_time_sec_sum{}[1m])",
+          "expr": "rate(indexer_daemon_get_algod_raw_block_time_sec_sum{}[1m])",
           "format": "time_series",
           "instant": false,
           "interval": "",
-          "legendFormat": "Algod Raw Block Response time(sec)",
+          "legendFormat": "Get Algod Raw Block Response time(sec)",
           "refId": "A"
         },
         {
@@ -946,7 +946,7 @@
           "options": {
             "alias": "Total import time (sec)",
             "binary": {
-              "left": "Algod Raw Block Response time(sec)",
+              "left": "Get Algod Raw Block Response time(sec)",
               "operator": "+",
               "reducer": "sum",
               "right": "block import time (sec)"
