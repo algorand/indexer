@@ -8,20 +8,9 @@ import (
 	"testing"
 
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 )
-
-type testingErrorReporter struct {
-	ErrorFCalledCount int
-}
-
-func (er *testingErrorReporter) Errorf(string, ...interface{}) {
-	er.ErrorFCalledCount = er.ErrorFCalledCount + 1
-}
-
-func (er *testingErrorReporter) Reset() {
-	er.ErrorFCalledCount = 0
-}
 
 // TestFailingParam tests that disabled parameters provided via
 // the FormParams() and QueryParams() functions of the context are appropriately handled
@@ -92,12 +81,12 @@ func TestFailingParam(t *testing.T) {
 
 		ctx := ctxFactory(e, &f, tstruct)
 
-		er := &testingErrorReporter{0}
+		logger, hook := test.NewNullLogger()
 
-		rval, rstr := Verify(dm, "K1", *ctx, er)
+		rval, rstr := Verify(dm, "K1", *ctx, logger)
 
 		require.Equal(t, tstruct.expectedRval, rval)
-		require.Equal(t, tstruct.expectedErrorCount, er.ErrorFCalledCount)
+		require.Equal(t, tstruct.expectedErrorCount, len(hook.AllEntries()))
 		require.Equal(t, tstruct.expectedRstr, rstr)
 	}
 
@@ -135,12 +124,12 @@ func TestFailingEndpoint(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/?", nil)
 	ctx := e.NewContext(req, nil)
 
-	er := &testingErrorReporter{0}
+	logger, hook := test.NewNullLogger()
 
-	rval, rstr := Verify(dm, "K1", ctx, er)
+	rval, rstr := Verify(dm, "K1", ctx, logger)
 
 	require.Equal(t, verifyFailedEndpoint, rval)
-	require.Equal(t, 0, er.ErrorFCalledCount)
+	require.Equal(t, 0, len(hook.AllEntries()))
 	require.Empty(t, rstr)
 }
 
@@ -159,19 +148,19 @@ func TestVerifyNonExistentHandler(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/?", nil)
 	ctx := e.NewContext(req, nil)
 
-	er := &testingErrorReporter{0}
+	logger, hook := test.NewNullLogger()
 
-	rval, rstr := Verify(dm, "DoesntExist", ctx, er)
+	rval, rstr := Verify(dm, "DoesntExist", ctx, logger)
 
 	require.Equal(t, verifyIsGood, rval)
-	require.Equal(t, 1, er.ErrorFCalledCount)
+	require.Equal(t, 1, len(hook.AllEntries()))
 	require.Empty(t, rstr)
 
-	er.Reset()
+	hook.Reset()
 
-	rval, rstr = Verify(dm, "K1", ctx, er)
+	rval, rstr = Verify(dm, "K1", ctx, logger)
 
 	require.Equal(t, verifyIsGood, rval)
-	require.Equal(t, 0, er.ErrorFCalledCount)
+	require.Equal(t, 0, len(hook.AllEntries()))
 	require.Empty(t, rstr)
 }
