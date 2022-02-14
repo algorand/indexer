@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -148,15 +147,8 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	})
 }
 
-func (si *ServerImplementation) verifyHandler(operationID string, ctx echo.Context, next interface{}) func(params ...interface{}) error {
-	return func(params ...interface{}) error {
-		// We need this because of reflection
-		defer func() {
-			if r := recover(); r != nil {
-				si.log.Fatalf("panic occured for operation: %s", operationID)
-			}
-		}()
-
+func (si *ServerImplementation) verifyHandler(operationID string, ctx echo.Context, f func() error) func() error {
+	return func() error {
 		rc, dpName := Verify(si.disabledParams, operationID, ctx, si.log)
 		switch rc {
 		case verifyIsGood:
@@ -169,14 +161,7 @@ func (si *ServerImplementation) verifyHandler(operationID string, ctx echo.Conte
 			return badRequest(ctx, "endpoint is disabled")
 		}
 
-		valueParameters := make([]reflect.Value, len(params))
-		for n := range params {
-			valueParameters[n] = reflect.ValueOf(params[n])
-		}
-
-		// This can panic, so we have to make sure to capture it above
-		eVal := reflect.ValueOf(next).Call(valueParameters)
-		return eVal[0].Interface().(error)
+		return f()
 	}
 }
 
