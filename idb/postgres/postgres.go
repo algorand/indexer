@@ -2352,7 +2352,7 @@ func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.Applica
 		rec.Application.Deleted = deleted
 		ap, err := encoding.DecodeAppParams(paramsjson)
 		if err != nil {
-			rec.Error = fmt.Errorf("app=%d json err, %v", index, err)
+			rec.Error = fmt.Errorf("app=%d json err: %w", index, err)
 			out <- rec
 			break
 		}
@@ -2477,7 +2477,7 @@ func (db *IndexerDb) yieldAppLocalStateThread(rows pgx.Rows, out chan idb.AppLoc
 
 		ls, err := encoding.DecodeAppLocalState(statejson)
 		if err != nil {
-			rec.Error = fmt.Errorf("app=%d json err, %v", index, err)
+			rec.Error = fmt.Errorf("app=%d json err: %w", index, err)
 			out <- rec
 			break
 		}
