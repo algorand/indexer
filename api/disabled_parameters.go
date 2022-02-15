@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
 )
@@ -73,14 +74,17 @@ func NewDisabledMapFromOA3(swag *openapi3.Swagger) *DisabledMap {
 	return rval
 }
 
-// VerifyRC is the return code for the Verify function
-type VerifyRC int
+// ErrVerifyFailedEndpoint an error that signifies that the entire endpoint is disabled
+var ErrVerifyFailedEndpoint error = fmt.Errorf("endpoint is disabled")
 
-const (
-	verifyIsGood VerifyRC = iota
-	verifyFailedEndpoint
-	verifyFailedParameter
-)
+// ErrVerifyFailedParameter an error that signifies that a parameter was provided when it was disabled
+type ErrVerifyFailedParameter struct {
+	ParameterName string
+}
+
+func (evfp ErrVerifyFailedParameter) Error() string {
+	return fmt.Sprintf("provided disabled parameter: %s", evfp.ParameterName)
+}
 
 // DisabledParameterErrorReporter defines an error reporting interface
 // for the Verify functions
@@ -88,14 +92,13 @@ type DisabledParameterErrorReporter interface {
 	Errorf(format string, args ...interface{})
 }
 
-// Verify returns verifyIsGood if the function can continue (i.e. the parameters are valid and disabled
-// parameters are not supplied), otherwise verifyFailedEndpoint if the endpoint failed and
-// verifyFailedParameter if a disabled parameter was provided.  If verifyFailedParameter is returned
-// then the variable name that caused it is provided.  In all other cases, it is empty
-func Verify(dm *DisabledMap, nameOfHandlerFunc string, ctx echo.Context, log DisabledParameterErrorReporter) (VerifyRC, string) {
+// Verify returns nil if the function can continue (i.e. the parameters are valid and disabled
+// parameters are not supplied), otherwise VerifyFailedEndpoint if the endpoint failed and
+// VerifyFailedParameter if a disabled parameter was provided.
+func Verify(dm *DisabledMap, nameOfHandlerFunc string, ctx echo.Context, log DisabledParameterErrorReporter) error {
 
 	if dm == nil || dm.Data == nil {
-		return verifyIsGood, ""
+		return nil
 	}
 
 	if val, ok := dm.Data[nameOfHandlerFunc]; ok {
@@ -105,13 +108,13 @@ func Verify(dm *DisabledMap, nameOfHandlerFunc string, ctx echo.Context, log Dis
 	// If the function name wasn't in the map something got messed up....
 	log.Errorf("verify function could not find name of handler function in map: %s", nameOfHandlerFunc)
 	// We want to fail-safe to not stop the indexer
-	return verifyIsGood, ""
+	return nil
 }
 
-func (ec *EndpointConfig) verify(ctx echo.Context, log DisabledParameterErrorReporter) (VerifyRC, string) {
+func (ec *EndpointConfig) verify(ctx echo.Context, log DisabledParameterErrorReporter) error {
 
 	if ec.EndpointDisabled {
-		return verifyFailedEndpoint, ""
+		return ErrVerifyFailedEndpoint
 	}
 
 	queryParams := ctx.QueryParams()
@@ -127,7 +130,7 @@ func (ec *EndpointConfig) verify(ctx echo.Context, log DisabledParameterErrorRep
 		queryValue := queryParams.Get(paramName)
 		if queryValue != "" {
 			// If the query value is non-zero, and it was disabled, we should return false
-			return verifyFailedParameter, paramName
+			return ErrVerifyFailedParameter{paramName}
 		}
 
 		if formErr != nil {
@@ -137,9 +140,9 @@ func (ec *EndpointConfig) verify(ctx echo.Context, log DisabledParameterErrorRep
 		formValue := formParams.Get(paramName)
 		if formValue != "" {
 			// If the query value is non-zero, and it was disabled, we should return false
-			return verifyFailedParameter, paramName
+			return ErrVerifyFailedParameter{paramName}
 		}
 	}
 
-	return verifyIsGood, ""
+	return nil
 }

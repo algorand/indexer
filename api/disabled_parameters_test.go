@@ -18,8 +18,7 @@ func TestFailingParam(t *testing.T) {
 	type testingStruct struct {
 		name               string
 		setFormValues      func(*url.Values)
-		expectedRval       VerifyRC
-		expectedRstr       string
+		expectedError      error
 		expectedErrorCount int
 		mimeType           string
 	}
@@ -28,19 +27,19 @@ func TestFailingParam(t *testing.T) {
 			"non-disabled param provided",
 			func(f *url.Values) {
 				f.Set("3", "Provided")
-			}, verifyIsGood, "", 0, echo.MIMEApplicationForm,
+			}, nil, 0, echo.MIMEApplicationForm,
 		},
 		{
 			"disabled param provided but empty",
 			func(f *url.Values) {
 				f.Set("1", "")
-			}, verifyIsGood, "", 0, echo.MIMEApplicationForm,
+			}, nil, 0, echo.MIMEApplicationForm,
 		},
 		{
 			"disabled param provided",
 			func(f *url.Values) {
 				f.Set("1", "Provided")
-			}, verifyFailedParameter, "1", 0, echo.MIMEApplicationForm,
+			}, ErrVerifyFailedParameter{"1"}, 0, echo.MIMEApplicationForm,
 		},
 	}
 
@@ -49,7 +48,7 @@ func TestFailingParam(t *testing.T) {
 			"Error encountered for Form Params",
 			func(f *url.Values) {
 				f.Set("1", "Provided")
-			}, verifyIsGood, "", 1, echo.MIMEMultipartForm,
+			}, nil, 1, echo.MIMEMultipartForm,
 		},
 	}
 
@@ -83,11 +82,10 @@ func TestFailingParam(t *testing.T) {
 
 		logger, hook := test.NewNullLogger()
 
-		rval, rstr := Verify(dm, "K1", *ctx, logger)
+		err := Verify(dm, "K1", *ctx, logger)
 
-		require.Equal(t, tstruct.expectedRval, rval)
+		require.Equal(t, tstruct.expectedError, err)
 		require.Equal(t, tstruct.expectedErrorCount, len(hook.AllEntries()))
-		require.Equal(t, tstruct.expectedRstr, rstr)
 	}
 
 	for _, test := range tests {
@@ -126,11 +124,10 @@ func TestFailingEndpoint(t *testing.T) {
 
 	logger, hook := test.NewNullLogger()
 
-	rval, rstr := Verify(dm, "K1", ctx, logger)
+	err := Verify(dm, "K1", ctx, logger)
 
-	require.Equal(t, verifyFailedEndpoint, rval)
+	require.Equal(t, ErrVerifyFailedEndpoint, err)
 	require.Equal(t, 0, len(hook.AllEntries()))
-	require.Empty(t, rstr)
 }
 
 // TestVerifyNonExistentHandler tests that nonexistent endpoint is logged
@@ -150,17 +147,15 @@ func TestVerifyNonExistentHandler(t *testing.T) {
 
 	logger, hook := test.NewNullLogger()
 
-	rval, rstr := Verify(dm, "DoesntExist", ctx, logger)
+	err := Verify(dm, "DoesntExist", ctx, logger)
 
-	require.Equal(t, verifyIsGood, rval)
+	require.Equal(t, nil, err)
 	require.Equal(t, 1, len(hook.AllEntries()))
-	require.Empty(t, rstr)
 
 	hook.Reset()
 
-	rval, rstr = Verify(dm, "K1", ctx, logger)
+	err = Verify(dm, "K1", ctx, logger)
 
-	require.Equal(t, verifyIsGood, rval)
+	require.Equal(t, nil, err)
 	require.Equal(t, 0, len(hook.AllEntries()))
-	require.Empty(t, rstr)
 }
