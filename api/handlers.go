@@ -147,17 +147,6 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	})
 }
 
-func (si *ServerImplementation) handleVerifyError(err error, ctx echo.Context) error {
-	var perr *ErrVerifyFailedParameter
-	if errors.As(err, &perr) {
-		return badRequest(ctx, perr.Error())
-	} else if errors.Is(err, ErrVerifyFailedEndpoint) {
-		return badRequest(ctx, err.Error())
-	}
-
-	return nil
-}
-
 func (si *ServerImplementation) verifyHandler(operationID string, ctx echo.Context) error {
 	return Verify(si.disabledParams, operationID, ctx, si.log)
 }
@@ -166,7 +155,7 @@ func (si *ServerImplementation) verifyHandler(operationID string, ctx echo.Conte
 // (GET /v2/accounts/{account-id})
 func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID string, params generated.LookupAccountByIDParams) error {
 	if err := si.verifyHandler("LookupAccountByID", ctx); err != nil {
-		return si.handleVerifyError(err, ctx)
+		return badRequest(ctx, err.Error())
 	}
 
 	addr, errors := decodeAddress(&accountID, "account-id", make([]string, 0))
@@ -205,7 +194,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 // (GET /v2/accounts)
 func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params generated.SearchForAccountsParams) error {
 	if err := si.verifyHandler("SearchForAccounts", ctx); err != nil {
-		return si.handleVerifyError(err, ctx)
+		return badRequest(ctx, err.Error())
 	}
 
 	if !si.EnableAddressSearchRoundRewind && params.Round != nil {
@@ -268,7 +257,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 // (GET /v2/accounts/{account-id}/transactions)
 func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, accountID string, params generated.LookupAccountTransactionsParams) error {
 	if err := si.verifyHandler("LookupAccountTransactions", ctx); err != nil {
-		return si.handleVerifyError(err, ctx)
+		return badRequest(ctx, err.Error())
 	}
 	// Check that a valid account was provided
 	_, errors := decodeAddress(strPtr(accountID), "account-id", make([]string, 0))
@@ -306,7 +295,7 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 // (GET /v2/applications)
 func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params generated.SearchForApplicationsParams) error {
 	if err := si.verifyHandler("SearchForApplications", ctx); err != nil {
-		return si.handleVerifyError(err, ctx)
+		return badRequest(ctx, err.Error())
 	}
 	apps, round, err := si.fetchApplications(ctx.Request().Context(), params)
 	if err != nil {
@@ -330,7 +319,7 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 // (GET /v2/applications/{application-id})
 func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationByIDParams) error {
 	if err := si.verifyHandler("LookupApplicationByID", ctx); err != nil {
-		return si.handleVerifyError(err, ctx)
+		return badRequest(ctx, err.Error())
 	}
 	p := generated.SearchForApplicationsParams{
 		ApplicationId: &applicationID,
@@ -361,7 +350,7 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 // (GET /v2/applications/{application-id}/logs)
 func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationLogsByIDParams) error {
 	if err := si.verifyHandler("LookupApplicationLogsByID", ctx); err != nil {
-		return si.handleVerifyError(err, ctx)
+		return badRequest(ctx, err.Error())
 	}
 
 	searchParams := generated.SearchForTransactionsParams{
@@ -424,7 +413,7 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 // (GET /v2/assets/{asset-id})
 func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64, params generated.LookupAssetByIDParams) error {
 	if err := si.verifyHandler("LookupAssetByID", ctx); err != nil {
-		return si.handleVerifyError(err, ctx)
+		return badRequest(ctx, err.Error())
 	}
 
 	search := generated.SearchForAssetsParams{
@@ -460,7 +449,7 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 // (GET /v2/assets/{asset-id}/balances)
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID uint64, params generated.LookupAssetBalancesParams) error {
 	if err := si.verifyHandler("LookupAssetBalances", ctx); err != nil {
-		return si.handleVerifyError(err, ctx)
+		return badRequest(ctx, err.Error())
 	}
 
 	query := idb.AssetBalanceQuery{
@@ -500,7 +489,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 // (GET /v2/assets/{asset-id}/transactions)
 func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetID uint64, params generated.LookupAssetTransactionsParams) error {
 	if err := si.verifyHandler("LookupAssetTransactions", ctx); err != nil {
-		return si.handleVerifyError(err, ctx)
+		return badRequest(ctx, err.Error())
 	}
 
 	searchParams := generated.SearchForTransactionsParams{
@@ -532,7 +521,7 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 // (GET /v2/assets)
 func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generated.SearchForAssetsParams) error {
 	if err := si.verifyHandler("SearchForAssets", ctx); err != nil {
-		return si.handleVerifyError(err, ctx)
+		return badRequest(ctx, err.Error())
 	}
 
 	options, err := assetParamsToAssetQuery(params)
@@ -561,7 +550,7 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 // (GET /v2/blocks/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
 	if err := si.verifyHandler("LookupBlock", ctx); err != nil {
-		return si.handleVerifyError(err, ctx)
+		return badRequest(ctx, err.Error())
 	}
 
 	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber)
@@ -578,7 +567,7 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 // LookupTransaction searches for the requested transaction ID.
 func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string) error {
 	if err := si.verifyHandler("LookupTransaction", ctx); err != nil {
-		return si.handleVerifyError(err, ctx)
+		return badRequest(ctx, err.Error())
 	}
 
 	filter, err := transactionParamsToTransactionFilter(generated.SearchForTransactionsParams{
@@ -619,7 +608,7 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 // (GET /v2/transactions)
 func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params generated.SearchForTransactionsParams) error {
 	if err := si.verifyHandler("SearchForTransactions", ctx); err != nil {
-		return si.handleVerifyError(err, ctx)
+		return badRequest(ctx, err.Error())
 	}
 
 	filter, err := transactionParamsToTransactionFilter(params)
