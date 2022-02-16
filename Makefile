@@ -9,7 +9,7 @@ GOLDFLAGS += -X github.com/algorand/indexer/version.Hash=$(shell git log -n 1 --
 GOLDFLAGS += -X github.com/algorand/indexer/version.Dirty=$(if $(filter $(strip $(shell git status --porcelain|wc -c)), "0"),,true)
 GOLDFLAGS += -X github.com/algorand/indexer/version.CompileTime=$(shell date -u +%Y-%m-%dT%H:%M:%S%z)
 GOLDFLAGS += -X github.com/algorand/indexer/version.GitDecorateBase64=$(shell git log -n 1 --pretty="%D"|base64|tr -d ' \n')
-GOLDFLAGS += -X github.com/algorand/indexer/version.ReleaseVersion=$(shell git describe --tags)
+GOLDFLAGS += -X github.com/algorand/indexer/version.ReleaseVersion=$(VERSION)
 
 # Used for e2e test
 export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
