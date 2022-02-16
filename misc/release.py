@@ -100,6 +100,10 @@ def link(sourcepath, destpath):
     os.link(sourcepath, destpath)
 
 def compile_version_opts(release_version=None):
+    result = subprocess.run(['git', 'log', '-n', '1', '--pretty=%H %D'], stdout=subprocess.PIPE)
+    result.check_returncode()
+    so = result.stdout.decode()
+    githash, desc = so.split(None, 1)
     now = time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime()) + '+0000'
     result = subprocess.run(['git', 'status', '--porcelain'], stdout=subprocess.PIPE)
     result.check_returncode()
