@@ -75,7 +75,7 @@ test-generate:
 	test/test_generate.py
 
 nightly-setup:
-	cd third_party/go-algorand && git pull origin master
+	cd third_party/go-algorand && git fetch && git reset --hard origin/master
 
 nightly-teardown:
 	git submodule update
