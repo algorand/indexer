@@ -1,8 +1,9 @@
 SRCPATH		:= $(shell pwd)
-VERSION		:= $(shell git describe --tags)
+VERSION		?= $(shell git describe --tags)
+RELVERSION	?= $(VERSION)
 OS_TYPE		?= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
-ARCH			?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
-PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(VERSION)
+ARCH		?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
+PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(RELVERSION)
 
 # TODO: ensure any additions here are mirrored in misc/release.py
 GOLDFLAGS += -X github.com/algorand/indexer/version.Hash=$(shell git log -n 1 --pretty="%H")
@@ -36,7 +37,7 @@ check: go-algorand
 package: go-algorand
 	rm -rf $(PKG_DIR)
 	mkdir -p $(PKG_DIR)
-	misc/release.py --host-only --outdir $(PKG_DIR) --version $(VERSION)
+	misc/release.py --host-only --outdir $(PKG_DIR) --version $(VERSION) --relversion $(RELVERSION)
 
 test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 	go test ./... -coverprofile=coverage.txt -covermode=atomic

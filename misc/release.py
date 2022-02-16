@@ -217,6 +217,7 @@ def main():
     ap.add_argument('--host-only', action='store_true', default=False, help='only build for host OS and CPU')
     ap.add_argument('--build-only', action='store_true', default=False, help="don't make tar or deb release")
     ap.add_argument('--version', help="build version", type=str)
+    ap.add_argument('--relversion', help="release version", type=str)
     ap.add_argument('--verbose', action='store_true', default=False)
     args = ap.parse_args()
 
@@ -230,6 +231,7 @@ def main():
         hostos, hostarch = hostOsArch()
         logger.info('will only run %s %s', hostos, hostarch)
     version = args.version
+    relversion = args.relversion
     ldflags = compile_version_opts(version)
     for goos, goarch, debarch in osArchArch:
         if args.host_only and (goos != hostos or goarch != hostarch):
@@ -240,10 +242,10 @@ def main():
         if args.build_only:
             logger.debug('skip packaging')
             continue
-        tarname = build_tar(goos, goarch, version, outdir)
+        tarname = build_tar(goos, goarch, relversion, outdir)
         logger.info('\t%s', tarname)
         if (not args.no_deb) and (debarch is not None):
-            debname = build_deb(debarch, version, outdir)
+            debname = build_deb(debarch, relversion, outdir)
             logger.info('\t%s', debname)
     dt = time.time() - start
     logger.info('done %0.1fs', dt)
