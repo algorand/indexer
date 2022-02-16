@@ -1927,9 +1927,21 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 			return fmt.Errorf("account limit decode err (%s) %v", accountDataJSONStr, err)
 		}
 
-		// check limit
-		totalResources := ad.TotalAppLocalStates + ad.TotalAppParams + ad.TotalAssets + ad.TotalAssetParams
-		if totalResources > opts.MaxResources {
+		// check limit against filters (only count what would be returned)
+		var resultCount uint64
+		if opts.IncludeAssetHoldings {
+			resultCount += ad.TotalAssets
+		}
+		if opts.IncludeAssetParams {
+			resultCount += ad.TotalAssetParams
+		}
+		if opts.IncludeAppLocalState {
+			resultCount += ad.TotalAppLocalStates
+		}
+		if opts.IncludeAppParams {
+			resultCount += ad.TotalAppParams
+		}
+		if resultCount > opts.MaxResources {
 			var aaddr basics.Address
 			copy(aaddr[:], addr)
 			return idb.MaxAccountsAPIResultsError{

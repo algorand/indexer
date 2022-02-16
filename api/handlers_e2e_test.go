@@ -400,39 +400,24 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 			require.Nil(t, r.Account.CreatedApps)
 			require.Nil(t, r.Account.Assets)
 			require.Nil(t, r.Account.AppsLocalState)
-		}}, {
-		address: test.AccountA,
-		exclude: []string{"created-assets"},
-		check: func(t *testing.T, r generated.AccountResponse) {
-			require.Nil(t, r.Account.CreatedAssets)
-			require.NotNil(t, r.Account.CreatedApps)
-			require.NotNil(t, r.Account.Assets)
-			require.NotNil(t, r.Account.AppsLocalState)
-		}}, {
-		address: test.AccountA,
-		exclude: []string{"created-apps"},
-		check: func(t *testing.T, r generated.AccountResponse) {
-			require.NotNil(t, r.Account.CreatedAssets)
-			require.Nil(t, r.Account.CreatedApps)
-			require.NotNil(t, r.Account.Assets)
-			require.NotNil(t, r.Account.AppsLocalState)
-		}}, {
-		address: test.AccountA,
-		exclude: []string{"apps-local-state"},
-		check: func(t *testing.T, r generated.AccountResponse) {
-			require.NotNil(t, r.Account.CreatedAssets)
-			require.NotNil(t, r.Account.CreatedApps)
-			require.NotNil(t, r.Account.Assets)
-			require.Nil(t, r.Account.AppsLocalState)
-		}}, {
-		address: test.AccountA,
-		exclude: []string{"assets"},
-		check: func(t *testing.T, r generated.AccountResponse) {
-			require.NotNil(t, r.Account.CreatedAssets)
-			require.NotNil(t, r.Account.CreatedApps)
-			require.Nil(t, r.Account.Assets)
-			require.NotNil(t, r.Account.AppsLocalState)
-		}}, {
+		},
+	}, {
+		address:   test.AccountA,
+		exclude:   []string{"created-assets"},
+		errStatus: http.StatusBadRequest,
+	}, {
+		address:   test.AccountA,
+		exclude:   []string{"created-apps"},
+		errStatus: http.StatusBadRequest,
+	}, {
+		address:   test.AccountA,
+		exclude:   []string{"apps-local-state"},
+		errStatus: http.StatusBadRequest,
+	}, {
+		address:   test.AccountA,
+		exclude:   []string{"assets"},
+		errStatus: http.StatusBadRequest,
+	}, {
 		address: test.AccountB,
 		exclude: []string{"assets", "apps-local-state"},
 		check: func(t *testing.T, r generated.AccountResponse) {
@@ -441,20 +426,25 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 			require.Nil(t, r.Account.Assets)
 			require.Nil(t, r.Account.AppsLocalState)
 		}},
-		{
-			address:   test.AccountA,
-			exclude:   []string{"abc"},
-			errStatus: http.StatusBadRequest,
-		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("exclude %v", tc.exclude), func(t *testing.T) {
-			c, api, rec := setupReq("/v2/accounts/:account-id", "account-id", tc.address.String(), 100)
+			c, api, rec := setupReq("/v2/accounts/:account-id", "account-id", tc.address.String(), 14)
 			err := api.LookupAccountByID(c, tc.address.String(), generated.LookupAccountByIDParams{Exclude: &tc.exclude})
 			require.NoError(t, err)
 			if tc.errStatus != 0 {
 				require.Equal(t, tc.errStatus, rec.Code)
+				data := rec.Body.Bytes()
+				var response generated.AccountsErrorResponse
+				err = json.Decode(data, &response)
+				require.NoError(t, err)
+				require.Equal(t, *response.Address, tc.address.String())
+				require.Equal(t, *response.MaxResults, uint64(14))
+				require.Equal(t, *response.TotalAppsLocalState, uint64(5))
+				require.Equal(t, *response.TotalCreatedApps, uint64(5))
+				require.Equal(t, *response.TotalAssets, uint64(5))
+				require.Equal(t, *response.TotalCreatedAssets, uint64(5))
 				return
 			}
 			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
