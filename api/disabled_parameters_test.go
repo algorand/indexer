@@ -85,7 +85,7 @@ func TestFailingParam(t *testing.T) {
 		err := Verify(dm, "K1", *ctx, logger)
 
 		require.Equal(t, tstruct.expectedError, err)
-		require.Equal(t, tstruct.expectedErrorCount, len(hook.AllEntries()))
+		require.Len(t, hook.AllEntries(), tstruct.expectedErrorCount)
 	}
 
 	for _, test := range tests {
@@ -127,7 +127,8 @@ func TestFailingEndpoint(t *testing.T) {
 	err := Verify(dm, "K1", ctx, logger)
 
 	require.Equal(t, ErrVerifyFailedEndpoint, err)
-	require.Equal(t, 0, len(hook.AllEntries()))
+
+	require.Len(t, hook.AllEntries(), 0)
 }
 
 // TestVerifyNonExistentHandler tests that nonexistent endpoint is logged
@@ -150,12 +151,13 @@ func TestVerifyNonExistentHandler(t *testing.T) {
 	err := Verify(dm, "DoesntExist", ctx, logger)
 
 	require.Equal(t, nil, err)
-	require.Equal(t, 1, len(hook.AllEntries()))
+	require.Len(t, hook.AllEntries(), 1)
 
 	hook.Reset()
 
 	err = Verify(dm, "K1", ctx, logger)
 
 	require.Equal(t, nil, err)
-	require.Equal(t, 0, len(hook.AllEntries()))
+
+	require.Len(t, hook.AllEntries(), 0)
 }
