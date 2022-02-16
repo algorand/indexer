@@ -185,6 +185,289 @@ func TestApplicationHandlers(t *testing.T) {
 	}
 }
 
+func TestAccountExcludeParameters(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing a creator of an app, an asset, who also holds and has opted-into those apps.
+	///////////
+
+	const expectedAppIdx = 1 // must be 1 since this is the first txn
+	const expectedAssetIdx = 2
+	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+	createAssetTxn := test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT", "Asset 2", "http://asset2.com", test.AccountA)
+	appOptInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
+	appOptInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
+	assetOptInTxnA := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountA)
+	assetOptInTxnB := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountB)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAppTxn, &createAssetTxn,
+		&appOptInTxnA, &appOptInTxnB, &assetOptInTxnA, &assetOptInTxnB)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err, "failed to commit")
+
+	//////////
+	// When // We look up the address using various exclude parameters.
+	//////////
+
+	setupReq := func(path, paramName, paramValue string) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath(path)
+		c.SetParamNames(paramName)
+		c.SetParamValues(paramValue)
+		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		return c, api, rec
+	}
+
+	//////////
+	// Then // Those parameters are excluded.
+	//////////
+
+	testCases := []struct {
+		address   basics.Address
+		exclude   []string
+		check     func(*testing.T, generated.AccountResponse)
+		errStatus int
+	}{{
+		address: test.AccountA,
+		exclude: []string{"all"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.Nil(t, r.Account.CreatedAssets)
+			require.Nil(t, r.Account.CreatedApps)
+			require.Nil(t, r.Account.Assets)
+			require.Nil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.Nil(t, r.Account.CreatedAssets)
+			require.Nil(t, r.Account.CreatedApps)
+			require.Nil(t, r.Account.Assets)
+			require.Nil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"created-assets"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.Nil(t, r.Account.CreatedAssets)
+			require.NotNil(t, r.Account.CreatedApps)
+			require.NotNil(t, r.Account.Assets)
+			require.NotNil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"created-apps"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.NotNil(t, r.Account.CreatedAssets)
+			require.Nil(t, r.Account.CreatedApps)
+			require.NotNil(t, r.Account.Assets)
+			require.NotNil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"apps-local-state"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.NotNil(t, r.Account.CreatedAssets)
+			require.NotNil(t, r.Account.CreatedApps)
+			require.NotNil(t, r.Account.Assets)
+			require.Nil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"assets"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.NotNil(t, r.Account.CreatedAssets)
+			require.NotNil(t, r.Account.CreatedApps)
+			require.Nil(t, r.Account.Assets)
+			require.NotNil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountB,
+		exclude: []string{"assets", "apps-local-state"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.Nil(t, r.Account.CreatedAssets)
+			require.Nil(t, r.Account.CreatedApps)
+			require.Nil(t, r.Account.Assets)
+			require.Nil(t, r.Account.AppsLocalState)
+		}},
+		{
+			address:   test.AccountA,
+			exclude:   []string{"abc"},
+			errStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("exclude %v", tc.exclude), func(t *testing.T) {
+			c, api, rec := setupReq("/v2/accounts/:account-id", "account-id", tc.address.String())
+			err := api.LookupAccountByID(c, tc.address.String(), generated.LookupAccountByIDParams{Exclude: &tc.exclude})
+			require.NoError(t, err)
+			if tc.errStatus != 0 {
+				require.Equal(t, tc.errStatus, rec.Code)
+				return
+			}
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
+			data := rec.Body.Bytes()
+			var response generated.AccountResponse
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			tc.check(t, response)
+		})
+	}
+
+}
+
+func TestAccountMaxResultsLimit(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing an address that has created 5 apps and 5 assets, and another address that has opted into them all
+	///////////
+
+	expectedAppIDs := []uint64{1, 2, 3, 4, 5}
+	expectedAssetIDs := []uint64{6, 7, 8, 9, 10}
+
+	var txns []transactions.SignedTxnWithAD
+	for range expectedAppIDs {
+		txns = append(txns, test.MakeCreateAppTxn(test.AccountA))
+	}
+
+	for i := range expectedAssetIDs {
+		txns = append(txns, test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
+			fmt.Sprintf("Asset %d", expectedAssetIDs[i]), "http://asset.com", test.AccountA))
+	}
+
+	for _, id := range expectedAppIDs {
+		txns = append(txns, test.MakeAppOptInTxn(id, test.AccountA))
+		txns = append(txns, test.MakeAppOptInTxn(id, test.AccountB))
+	}
+	for _, id := range expectedAssetIDs {
+		txns = append(txns, test.MakeAssetOptInTxn(id, test.AccountA))
+		txns = append(txns, test.MakeAssetOptInTxn(id, test.AccountB))
+	}
+
+	ptxns := make([]*transactions.SignedTxnWithAD, len(txns))
+	for i := range txns {
+		ptxns[i] = &txns[i]
+	}
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err, "failed to commit")
+
+	//////////
+	// When // We look up the address using a ServerImplementation with a maxAccountsAPIResults limit set,
+	//      // and addresses with max # apps over & under the limit
+	//////////
+
+	setupReq := func(path, paramName, paramValue string, maxResults int) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath(path)
+		c.SetParamNames(paramName)
+		c.SetParamValues(paramValue)
+		api := &ServerImplementation{db: db, timeout: 30 * time.Second, maxAccountsAPIResults: uint32(maxResults)}
+		return c, api, rec
+	}
+
+	//////////
+	// Then // The limit is enforced, leading to a 400 error
+	//////////
+
+	testCases := []struct {
+		address   basics.Address
+		exclude   []string
+		check     func(*testing.T, generated.AccountResponse)
+		errStatus int
+	}{{
+		address: test.AccountA,
+		exclude: []string{"all"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.Nil(t, r.Account.CreatedAssets)
+			require.Nil(t, r.Account.CreatedApps)
+			require.Nil(t, r.Account.Assets)
+			require.Nil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.Nil(t, r.Account.CreatedAssets)
+			require.Nil(t, r.Account.CreatedApps)
+			require.Nil(t, r.Account.Assets)
+			require.Nil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"created-assets"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.Nil(t, r.Account.CreatedAssets)
+			require.NotNil(t, r.Account.CreatedApps)
+			require.NotNil(t, r.Account.Assets)
+			require.NotNil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"created-apps"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.NotNil(t, r.Account.CreatedAssets)
+			require.Nil(t, r.Account.CreatedApps)
+			require.NotNil(t, r.Account.Assets)
+			require.NotNil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"apps-local-state"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.NotNil(t, r.Account.CreatedAssets)
+			require.NotNil(t, r.Account.CreatedApps)
+			require.NotNil(t, r.Account.Assets)
+			require.Nil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"assets"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.NotNil(t, r.Account.CreatedAssets)
+			require.NotNil(t, r.Account.CreatedApps)
+			require.Nil(t, r.Account.Assets)
+			require.NotNil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountB,
+		exclude: []string{"assets", "apps-local-state"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.Nil(t, r.Account.CreatedAssets)
+			require.Nil(t, r.Account.CreatedApps)
+			require.Nil(t, r.Account.Assets)
+			require.Nil(t, r.Account.AppsLocalState)
+		}},
+		{
+			address:   test.AccountA,
+			exclude:   []string{"abc"},
+			errStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("exclude %v", tc.exclude), func(t *testing.T) {
+			c, api, rec := setupReq("/v2/accounts/:account-id", "account-id", tc.address.String(), 100)
+			err := api.LookupAccountByID(c, tc.address.String(), generated.LookupAccountByIDParams{Exclude: &tc.exclude})
+			require.NoError(t, err)
+			if tc.errStatus != 0 {
+				require.Equal(t, tc.errStatus, rec.Code)
+				return
+			}
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
+			data := rec.Body.Bytes()
+			var response generated.AccountResponse
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			tc.check(t, response)
+		})
+	}
+
+}
+
 func TestBlockNotFound(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()

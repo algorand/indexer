@@ -266,9 +266,6 @@ type AccountQueryOptions struct {
 	// MaxResources is the maximum combined number of AppParam, AppLocalState, AssetParam, and AssetHolding objects allowed.
 	MaxResources uint64
 
-	// OnlyAccountData specifies that only the address and AccountData columns should be retrieved.
-	OnlyAccountData bool
-
 	// IncludeDeleted indicated whether to include deleted Assets, Applications, etc within the account.
 	IncludeDeleted bool
 

@@ -1895,21 +1895,27 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 
 func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, opts idb.AccountQueryOptions) error {
 	o := opts
-	o.OnlyAccountData = true
 	o.IncludeAssetHoldings = false
 	o.IncludeAssetParams = false
 	o.IncludeAppLocalState = false
 	o.IncludeAppParams = false
 	query, whereArgs := db.buildAccountQuery(o)
-	rows, err := tx.Query(ctx, query, whereArgs)
+	rows, err := tx.Query(ctx, query, whereArgs...)
 	if err != nil {
 		return fmt.Errorf("account limit query %#v err %v", query, err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var addr []byte
+		var microalgos uint64
+		var rewardstotal uint64
+		var createdat sql.NullInt64
+		var closedat sql.NullInt64
+		var deleted sql.NullBool
+		var rewardsbase uint64
+		var keytype *string
 		var accountDataJSONStr []byte
-		cols := []interface{}{&addr, &accountDataJSONStr}
+		cols := []interface{}{&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr}
 		err := rows.Scan(cols...)
 		if err != nil {
 			return fmt.Errorf("account limit scan err %v", err)
@@ -1997,11 +2003,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		whereArgs = append(whereArgs, encoding.Base64(opts.EqualToAuthAddr))
 		partNumber++
 	}
-	if opts.OnlyAccountData {
-		query = `SELECT a.addr, a.account_data FROM account a`
-	} else {
-		query = `SELECT a.addr, a.microalgos, a.rewards_total, a.created_at, a.closed_at, a.deleted, a.rewardsbase, a.keytype, a.account_data FROM account a`
-	}
+	query = `SELECT a.addr, a.microalgos, a.rewards_total, a.created_at, a.closed_at, a.deleted, a.rewardsbase, a.keytype, a.account_data FROM account a`
 	if opts.HasAssetID != 0 {
 		// inner join requires match, filtering on presence of asset
 		query += " JOIN qasf ON a.addr = qasf.addr"
