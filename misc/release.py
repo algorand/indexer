@@ -99,25 +99,7 @@ def link(sourcepath, destpath):
         os.remove(destpath)
     os.link(sourcepath, destpath)
 
-_tagpat = re.compile(r'tag:\s+([^,\n]+)')
-
-def compile_version_opts(release_version=None, allow_mismatch=False):
-    result = subprocess.run(['git', 'log', '-n', '1', '--pretty=%H %D'], stdout=subprocess.PIPE)
-    result.check_returncode()
-    so = result.stdout.decode()
-    githash, desc = so.split(None, 1)
-    tags = []
-    tag = None
-    for m in _tagpat.finditer(desc):
-        tag = m.group(1)
-        tags.append(tag)
-        if tag == release_version:
-            break
-    if tag != release_version:
-        if not allow_mismatch:
-            raise Exception('.version is {!r} but tags {!r}'.format(release_version, tags))
-        else:
-            logger.warning('.version is %r but tags %r', release_version, tags)
+def compile_version_opts(release_version=None):
     now = time.strftime('%Y-%m-%dT%H:%M:%S', time.gmtime()) + '+0000'
     result = subprocess.run(['git', 'status', '--porcelain'], stdout=subprocess.PIPE)
     result.check_returncode()
@@ -230,7 +212,7 @@ def main():
     ap.add_argument('--no-deb', action='store_true', default=False, help='disable debian package building')
     ap.add_argument('--host-only', action='store_true', default=False, help='only build for host OS and CPU')
     ap.add_argument('--build-only', action='store_true', default=False, help="don't make tar or deb release")
-    ap.add_argument('--fake-release', action='store_true', default=False, help='relax some checks during release script development')
+    ap.add_argument('--version', help="build version", type=str)
     ap.add_argument('--verbose', action='store_true', default=False)
     args = ap.parse_args()
 
@@ -243,9 +225,8 @@ def main():
     if args.host_only:
         hostos, hostarch = hostOsArch()
         logger.info('will only run %s %s', hostos, hostarch)
-    with open('.version') as fin:
-        version = fin.read().strip()
-    ldflags = compile_version_opts(version, allow_mismatch=args.fake_release)
+    version = args.version
+    ldflags = compile_version_opts(version)
     for goos, goarch, debarch in osArchArch:
         if args.host_only and (goos != hostos or goarch != hostarch):
             logger.debug('skip %s %s', goos, goarch)

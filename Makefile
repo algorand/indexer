@@ -1,5 +1,5 @@
 SRCPATH		:= $(shell pwd)
-VERSION		:= $(shell $(SRCPATH)/mule/scripts/compute_build_number.sh)
+VERSION		:= $(shell git describe --tags)
 OS_TYPE		?= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
 ARCH			?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
 PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(VERSION)
@@ -9,7 +9,7 @@ GOLDFLAGS += -X github.com/algorand/indexer/version.Hash=$(shell git log -n 1 --
 GOLDFLAGS += -X github.com/algorand/indexer/version.Dirty=$(if $(filter $(strip $(shell git status --porcelain|wc -c)), "0"),,true)
 GOLDFLAGS += -X github.com/algorand/indexer/version.CompileTime=$(shell date -u +%Y-%m-%dT%H:%M:%S%z)
 GOLDFLAGS += -X github.com/algorand/indexer/version.GitDecorateBase64=$(shell git log -n 1 --pretty="%D"|base64|tr -d ' \n')
-GOLDFLAGS += -X github.com/algorand/indexer/version.ReleaseVersion=$(shell cat .version)
+GOLDFLAGS += -X github.com/algorand/indexer/version.ReleaseVersion=$(shell git describe --tags)
 
 # Used for e2e test
 export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
@@ -36,13 +36,7 @@ check: go-algorand
 package: go-algorand
 	rm -rf $(PKG_DIR)
 	mkdir -p $(PKG_DIR)
-	misc/release.py --host-only --outdir $(PKG_DIR)
-
-# used in travis test builds; doesn't verify that tag and .version match
-fakepackage: go-algorand
-	rm -rf $(PKG_DIR)
-	mkdir -p $(PKG_DIR)
-	misc/release.py --host-only --outdir $(PKG_DIR) --fake-release
+	misc/release.py --host-only --outdir $(PKG_DIR) --version $(VERSION)
 
 test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 	go test ./... -coverprofile=coverage.txt -covermode=atomic
