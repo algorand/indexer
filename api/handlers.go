@@ -39,32 +39,8 @@ type ServerImplementation struct {
 
 	log *log.Logger
 
-	maxAccountsAPIResults uint32
+	opts ExtraOptions
 }
-
-/////////////////////
-// Limit Constants //
-/////////////////////
-
-// Transactions
-const maxTransactionsLimit = 10000
-const defaultTransactionsLimit = 1000
-
-// Accounts
-const maxAccountsLimit = 1000
-const defaultAccountsLimit = 100
-
-// Assets
-const maxAssetsLimit = 1000
-const defaultAssetsLimit = 100
-
-// Asset Balances
-const maxBalancesLimit = 10000
-const defaultBalancesLimit = 1000
-
-// Applications
-const maxApplicationsLimit = 1000
-const defaultApplicationsLimit = 100
 
 //////////////////////
 // Helper functions //
@@ -166,10 +142,8 @@ func setExcludeQueryOptions(exclude []string, opts *idb.AccountQueryOptions) err
 			opts.IncludeAppLocalState = false
 		case "created-apps":
 			opts.IncludeAppParams = false
-		case "none", "":
-			continue
 		default:
-			return fmt.Errorf(`unknown argument "%s": %w`, e, errInvalidExcludeParameter)
+			return fmt.Errorf(`unknown value "%s": %w`, e, errInvalidExcludeParameter)
 		}
 	}
 	return nil
@@ -191,7 +165,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		IncludeAppParams:     true,
 		Limit:                1,
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
-		MaxResources:         uint64(si.maxAccountsAPIResults),
+		MaxResources:         uint64(si.opts.MaxAccountsAPIResults),
 	}
 
 	if params.Exclude != nil {
@@ -243,7 +217,7 @@ func (si *ServerImplementation) LookupAccountAppLocalStates(ctx echo.Context, ac
 		Limit:         params.Limit,
 		Next:          params.Next,
 	}
-	options, err := appParamsToApplicationQuery(search)
+	options, err := si.appParamsToApplicationQuery(search)
 	if err != nil {
 		return badRequest(ctx, err.Error())
 	}
@@ -288,7 +262,7 @@ func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID 
 		AssetID:        uintOrDefault(params.AssetId),
 		AssetIDGT:      assetGreaterThan,
 		IncludeDeleted: boolOrDefault(params.IncludeAll),
-		Limit:          min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
+		Limit:          min(uintOrDefaultValue(params.Limit, si.opts.DefaultBalancesLimit), si.opts.MaxBalancesLimit),
 	}
 
 	assets, round, err := si.fetchAssetHoldings(ctx.Request().Context(), query)
@@ -351,12 +325,12 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		IncludeAssetParams:   true,
 		IncludeAppLocalState: true,
 		IncludeAppParams:     true,
-		Limit:                min(uintOrDefaultValue(params.Limit, defaultAccountsLimit), maxAccountsLimit),
+		Limit:                min(uintOrDefaultValue(params.Limit, si.opts.DefaultAccountsLimit), si.opts.MaxAccountsLimit),
 		HasAssetID:           uintOrDefault(params.AssetId),
 		HasAppID:             uintOrDefault(params.ApplicationId),
 		EqualToAuthAddr:      spendingAddr[:],
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
-		MaxResources:         uint64(si.maxAccountsAPIResults),
+		MaxResources:         uint64(si.opts.MaxAccountsAPIResults),
 	}
 
 	if params.Exclude != nil {
@@ -453,7 +427,7 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 // SearchForApplications returns applications for the provided parameters.
 // (GET /v2/applications)
 func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params generated.SearchForApplicationsParams) error {
-	options, err := appParamsToApplicationQuery(params)
+	options, err := si.appParamsToApplicationQuery(params)
 	if err != nil {
 		return badRequest(ctx, err.Error())
 	}
@@ -518,7 +492,7 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 		Address:       params.SenderAddress,
 	}
 
-	filter, err := transactionParamsToTransactionFilter(searchParams)
+	filter, err := si.transactionParamsToTransactionFilter(searchParams)
 	if err != nil {
 		return badRequest(ctx, err.Error())
 	}
@@ -571,7 +545,7 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 		Limit:      uint64Ptr(1),
 		IncludeAll: params.IncludeAll,
 	}
-	options, err := assetParamsToAssetQuery(search)
+	options, err := si.assetParamsToAssetQuery(search)
 	if err != nil {
 		return badRequest(ctx, err.Error())
 	}
@@ -603,7 +577,7 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 		AmountGT:       params.CurrencyGreaterThan,
 		AmountLT:       params.CurrencyLessThan,
 		IncludeDeleted: boolOrDefault(params.IncludeAll),
-		Limit:          min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
+		Limit:          min(uintOrDefaultValue(params.Limit, si.opts.DefaultBalancesLimit), si.opts.MaxBalancesLimit),
 	}
 
 	if params.Next != nil {
@@ -662,7 +636,7 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 // SearchForAssets returns assets matching the provided parameters
 // (GET /v2/assets)
 func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generated.SearchForAssetsParams) error {
-	options, err := assetParamsToAssetQuery(params)
+	options, err := si.assetParamsToAssetQuery(params)
 	if err != nil {
 		return badRequest(ctx, err.Error())
 	}
@@ -700,7 +674,7 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 
 // LookupTransaction searches for the requested transaction ID.
 func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string) error {
-	filter, err := transactionParamsToTransactionFilter(generated.SearchForTransactionsParams{
+	filter, err := si.transactionParamsToTransactionFilter(generated.SearchForTransactionsParams{
 		Txid: strPtr(txid),
 	})
 	if err != nil {
@@ -737,7 +711,7 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 // SearchForTransactions returns transactions matching the provided parameters
 // (GET /v2/transactions)
 func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params generated.SearchForTransactionsParams) error {
-	filter, err := transactionParamsToTransactionFilter(params)
+	filter, err := si.transactionParamsToTransactionFilter(params)
 	if err != nil {
 		return badRequest(ctx, err.Error())
 	}

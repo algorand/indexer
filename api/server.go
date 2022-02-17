@@ -41,7 +41,31 @@ type ExtraOptions struct {
 	// MaxAccountsAPIResults is the maximum number of combined AppParams, AppLocalState, AssetParams,
 	// and AssetHolding resources per address that can be returned by the /v2/accounts endpoints.
 	// If an address exceeds this number, a 400 error is returned. Zero means unlimited.
-	MaxAccountsAPIResults uint32
+	MaxAccountsAPIResults uint64
+
+	/////////////////////
+	// Limit Constants //
+	/////////////////////
+
+	// Transactions
+	MaxTransactionsLimit     uint64
+	DefaultTransactionsLimit uint64
+
+	// Accounts
+	MaxAccountsLimit     uint64
+	DefaultAccountsLimit uint64
+
+	// Assets
+	MaxAssetsLimit     uint64
+	DefaultAssetsLimit uint64
+
+	// Asset Balances
+	MaxBalancesLimit     uint64
+	DefaultBalancesLimit uint64
+
+	// Applications
+	MaxApplicationsLimit     uint64
+	DefaultApplicationsLimit uint64
 }
 
 func (e ExtraOptions) handlerTimeout() time.Duration {
@@ -88,7 +112,7 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 		fetcher:                        fetcherError,
 		timeout:                        options.handlerTimeout(),
 		log:                            log,
-		maxAccountsAPIResults:          options.MaxAccountsAPIResults,
+		opts:                           options,
 	}
 
 	generated.RegisterHandlers(e, &api, middleware...)
