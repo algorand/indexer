@@ -598,6 +598,76 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 			require.Equal(t, expectedAssetIDs[i], asset.Index)
 		}
 	})
+
+	//////////
+	// When // We look up the apps an account has opted in to, and paginate through them using "Next"
+	//////////
+
+	t.Run("LookupAccountAppLocalStates", func(t *testing.T) {
+		var next *string   // nil/unset to start
+		limit := uint64(2) // 2 at a time
+		var apps []generated.ApplicationLocalState
+		for {
+			maxResults := 3
+			c, api, rec := setupReq("/v2/accounts/:account-id/apps-local-state", "account-id", test.AccountA.String(), maxResults)
+			err := api.LookupAccountAppLocalStates(c, test.AccountA.String(), generated.LookupAccountAppLocalStatesParams{Next: next, Limit: &limit})
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
+			data := rec.Body.Bytes()
+			var response generated.ApplicationLocalStatesResponse
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			if len(response.AppsLocalStates) == 0 {
+				require.Nil(t, response.NextToken)
+				break
+			}
+			require.NotEmpty(t, response.AppsLocalStates)
+			apps = append(apps, response.AppsLocalStates...)
+			next = response.NextToken // paginate
+		}
+		//////////
+		// Then // We can see all the apps, even though there were more than the limit
+		//////////
+		require.Len(t, apps, 5)
+		for i, app := range apps {
+			require.Equal(t, expectedAppIDs[i], app.Id)
+		}
+	})
+
+	//////////
+	// When // We look up the apps an account has opted in to, and paginate through them using "Next"
+	//////////
+
+	t.Run("LookupAccountCreatedApplications", func(t *testing.T) {
+		var next *string   // nil/unset to start
+		limit := uint64(2) // 2 at a time
+		var apps []generated.Application
+		for {
+			maxResults := 3
+			c, api, rec := setupReq("/v2/accounts/:account-id/created-apps", "account-id", test.AccountA.String(), maxResults)
+			err := api.LookupAccountCreatedApplications(c, test.AccountA.String(), generated.LookupAccountCreatedApplicationsParams{Next: next, Limit: &limit})
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
+			data := rec.Body.Bytes()
+			var response generated.ApplicationsResponse
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			if len(response.Applications) == 0 {
+				require.Nil(t, response.NextToken)
+				break
+			}
+			require.NotEmpty(t, response.Applications)
+			apps = append(apps, response.Applications...)
+			next = response.NextToken // paginate
+		}
+		//////////
+		// Then // We can see all the apps, even though there were more than the limit
+		//////////
+		require.Len(t, apps, 5)
+		for i, app := range apps {
+			require.Equal(t, expectedAppIDs[i], app.Id)
+		}
+	})
 }
 
 func TestBlockNotFound(t *testing.T) {
