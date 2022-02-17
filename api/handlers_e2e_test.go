@@ -24,6 +24,27 @@ import (
 	"github.com/algorand/indexer/util/test"
 )
 
+var defaultOpts = ExtraOptions{
+	MaxTransactionsLimit:     10000,
+	DefaultTransactionsLimit: 1000,
+
+	MaxAccountsLimit:     1000,
+	DefaultAccountsLimit: 100,
+
+	MaxAssetsLimit:     1000,
+	DefaultAssetsLimit: 100,
+
+	MaxBalancesLimit:     10000,
+	DefaultBalancesLimit: 1000,
+
+	MaxApplicationsLimit:     1000,
+	DefaultApplicationsLimit: 100,
+}
+
+func testServerImplementation(db idb.IndexerDb) *ServerImplementation {
+	return &ServerImplementation{db: db, timeout: 30 * time.Second, opts: defaultOpts}
+}
+
 func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) (*postgres.IndexerDb /*db*/, func() /*shutdownFunc*/) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
@@ -95,7 +116,7 @@ func TestApplicationHandlers(t *testing.T) {
 		c.SetPath(path)
 		c.SetParamNames(paramName)
 		c.SetParamValues(paramValue)
-		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		api := testServerImplementation(db)
 		return c, api, rec
 	}
 
@@ -221,7 +242,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 		c.SetPath(path)
 		c.SetParamNames(paramName)
 		c.SetParamValues(paramValue)
-		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		api := testServerImplementation(db)
 		return c, api, rec
 	}
 
@@ -371,7 +392,8 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		c.SetPath(path)
 		c.SetParamNames(paramName)
 		c.SetParamValues(paramValue)
-		api := &ServerImplementation{db: db, timeout: 30 * time.Second, maxAccountsAPIResults: uint32(maxResults)}
+		api := testServerImplementation(db)
+		api.opts.MaxAccountsAPIResults = uint64(maxResults)
 		return c, api, rec
 	}
 
@@ -477,7 +499,7 @@ func TestBlockNotFound(t *testing.T) {
 	c.SetParamNames("round-number")
 	c.SetParamValues(strconv.Itoa(100))
 
-	api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+	api := testServerImplementation(db)
 	err := api.LookupBlock(c, 100)
 	require.NoError(t, err)
 
@@ -550,7 +572,7 @@ func TestInnerTxn(t *testing.T) {
 			c := e.NewContext(req, rec)
 			c.SetPath("/v2/transactions/")
 
-			api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+			api := testServerImplementation(db)
 			err = api.SearchForTransactions(c, tc.filter)
 			require.NoError(t, err)
 
@@ -621,7 +643,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 
 			// Get first page with limit 1.
 			// Address filter causes results to return newest to oldest.
-			api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+			api := testServerImplementation(db)
 			err = api.SearchForTransactions(c, tc.params)
 			require.NoError(t, err)
 
@@ -672,7 +694,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 
 		// Get first page with limit 1.
 		// Address filter causes results to return newest to oldest.
-		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		api := testServerImplementation(db)
 		err = api.LookupBlock(c, uint64(block.Round()))
 		require.NoError(t, err)
 
@@ -696,7 +718,7 @@ func TestVersion(t *testing.T) {
 	///////////
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()
-	api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+	api := testServerImplementation(db)
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -772,7 +794,7 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/assets/")
 
-		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		api := testServerImplementation(db)
 		err = api.SearchForAssets(c, generated.SearchForAssetsParams{})
 		require.NoError(t, err)
 
@@ -797,7 +819,7 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/accounts/")
 
-		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		api := testServerImplementation(db)
 		err = api.LookupAccountByID(c, test.AccountA.String(), generated.LookupAccountByIDParams{})
 		require.NoError(t, err)
 
@@ -880,7 +902,7 @@ func TestLookupInnerLogs(t *testing.T) {
 			c.SetParamNames("appIdx")
 			c.SetParamValues(fmt.Sprintf("%d", tc.appID))
 
-			api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+			api := testServerImplementation(db)
 			err = api.LookupApplicationLogsByID(c, tc.appID, params)
 			require.NoError(t, err)
 

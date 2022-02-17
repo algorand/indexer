@@ -39,49 +39,49 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		{
 			"Default",
 			generated.SearchForTransactionsParams{},
-			idb.TransactionFilter{Limit: defaultTransactionsLimit},
+			idb.TransactionFilter{Limit: defaultOpts.DefaultTransactionsLimit},
 			nil,
 		},
 		{
 			"Limit",
-			generated.SearchForTransactionsParams{Limit: uint64Ptr(defaultTransactionsLimit + 10)},
-			idb.TransactionFilter{Limit: defaultTransactionsLimit + 10},
+			generated.SearchForTransactionsParams{Limit: uint64Ptr(defaultOpts.DefaultTransactionsLimit + 10)},
+			idb.TransactionFilter{Limit: defaultOpts.DefaultTransactionsLimit + 10},
 			nil,
 		},
 		{
 			"Limit Max",
-			generated.SearchForTransactionsParams{Limit: uint64Ptr(maxTransactionsLimit + 10)},
-			idb.TransactionFilter{Limit: maxTransactionsLimit},
+			generated.SearchForTransactionsParams{Limit: uint64Ptr(defaultOpts.MaxTransactionsLimit + 10)},
+			idb.TransactionFilter{Limit: defaultOpts.MaxTransactionsLimit},
 			nil,
 		},
 		{
 			"Int field",
 			generated.SearchForTransactionsParams{AssetId: uint64Ptr(1234)},
-			idb.TransactionFilter{AssetID: 1234, Limit: defaultTransactionsLimit},
+			idb.TransactionFilter{AssetID: 1234, Limit: defaultOpts.DefaultTransactionsLimit},
 			nil,
 		},
 		{
 			"Pointer field",
 			generated.SearchForTransactionsParams{Round: uint64Ptr(1234)},
-			idb.TransactionFilter{Round: uint64Ptr(1234), Limit: defaultTransactionsLimit},
+			idb.TransactionFilter{Round: uint64Ptr(1234), Limit: defaultOpts.DefaultTransactionsLimit},
 			nil,
 		},
 		{
 			"Base64 field",
 			generated.SearchForTransactionsParams{NotePrefix: strPtr(base64.StdEncoding.EncodeToString([]byte("SomeData")))},
-			idb.TransactionFilter{NotePrefix: []byte("SomeData"), Limit: defaultTransactionsLimit},
+			idb.TransactionFilter{NotePrefix: []byte("SomeData"), Limit: defaultOpts.DefaultTransactionsLimit},
 			nil,
 		},
 		{
 			"Enum fields",
 			generated.SearchForTransactionsParams{TxType: strPtr("pay"), SigType: strPtr("lsig")},
-			idb.TransactionFilter{TypeEnum: 1, SigType: "lsig", Limit: defaultTransactionsLimit},
+			idb.TransactionFilter{TypeEnum: 1, SigType: "lsig", Limit: defaultOpts.DefaultTransactionsLimit},
 			nil,
 		},
 		{
 			"Date time fields",
 			generated.SearchForTransactionsParams{AfterTime: timePtr(time.Date(2020, 3, 4, 12, 0, 0, 0, time.FixedZone("UTC", 0)))},
-			idb.TransactionFilter{AfterTime: time.Date(2020, 3, 4, 12, 0, 0, 0, time.FixedZone("UTC", 0)), Limit: defaultTransactionsLimit},
+			idb.TransactionFilter{AfterTime: time.Date(2020, 3, 4, 12, 0, 0, 0, time.FixedZone("UTC", 0)), Limit: defaultOpts.DefaultTransactionsLimit},
 			nil,
 		},
 		{
@@ -93,7 +93,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		{
 			"As many fields as possible",
 			generated.SearchForTransactionsParams{
-				Limit:               uint64Ptr(defaultTransactionsLimit + 1),
+				Limit:               uint64Ptr(defaultOpts.DefaultTransactionsLimit + 1),
 				Next:                strPtr("next-token"),
 				NotePrefix:          strPtr(base64.StdEncoding.EncodeToString([]byte("custom-note"))),
 				TxType:              strPtr("pay"),
@@ -113,7 +113,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 				ApplicationId:       uint64Ptr(7),
 			},
 			idb.TransactionFilter{
-				Limit:             defaultTransactionsLimit + 1,
+				Limit:             defaultOpts.DefaultTransactionsLimit + 1,
 				NextToken:         "next-token",
 				NotePrefix:        []byte("custom-note"),
 				TypeEnum:          1,
@@ -155,56 +155,57 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		{
 			name:          "Bitmask sender + closeTo(true)",
 			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("sender"), ExcludeCloseTo: boolPtr(true)},
-			filter:        idb.TransactionFilter{AddressRole: 9, Limit: defaultTransactionsLimit},
+			filter:        idb.TransactionFilter{AddressRole: 9, Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 		{
 			name:          "Bitmask sender + closeTo(false)",
 			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("sender"), ExcludeCloseTo: boolPtr(false)},
-			filter:        idb.TransactionFilter{AddressRole: 9, Limit: defaultTransactionsLimit},
+			filter:        idb.TransactionFilter{AddressRole: 9, Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 		{
 			name:          "Bitmask receiver + closeTo(true)",
 			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("receiver"), ExcludeCloseTo: boolPtr(true)},
-			filter:        idb.TransactionFilter{AddressRole: 18, Limit: defaultTransactionsLimit},
+			filter:        idb.TransactionFilter{AddressRole: 18, Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 		{
 			name:          "Bitmask receiver + closeTo(false)",
 			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("receiver"), ExcludeCloseTo: boolPtr(false)},
-			filter:        idb.TransactionFilter{AddressRole: 54, Limit: defaultTransactionsLimit},
+			filter:        idb.TransactionFilter{AddressRole: 54, Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 		{
 			name:          "Bitmask receiver + implicit closeTo (false)",
 			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("receiver")},
-			filter:        idb.TransactionFilter{AddressRole: 54, Limit: defaultTransactionsLimit},
+			filter:        idb.TransactionFilter{AddressRole: 54, Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 		{
 			name:          "Bitmask freeze-target",
 			params:        generated.SearchForTransactionsParams{AddressRole: strPtr("freeze-target")},
-			filter:        idb.TransactionFilter{AddressRole: 64, Limit: defaultTransactionsLimit},
+			filter:        idb.TransactionFilter{AddressRole: 64, Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 		{
 			name:          "Currency to Algos when no asset-id",
 			params:        generated.SearchForTransactionsParams{CurrencyGreaterThan: uint64Ptr(10), CurrencyLessThan: uint64Ptr(20)},
-			filter:        idb.TransactionFilter{AlgosGT: uint64Ptr(10), AlgosLT: uint64Ptr(20), Limit: defaultTransactionsLimit},
+			filter:        idb.TransactionFilter{AlgosGT: uint64Ptr(10), AlgosLT: uint64Ptr(20), Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 		{
 			name:          "Searching by application-id",
 			params:        generated.SearchForTransactionsParams{ApplicationId: uint64Ptr(1234)},
-			filter:        idb.TransactionFilter{ApplicationID: 1234, Limit: defaultTransactionsLimit},
+			filter:        idb.TransactionFilter{ApplicationID: 1234, Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			filter, err := transactionParamsToTransactionFilter(test.params)
+			si := testServerImplementation(nil)
+			filter, err := si.transactionParamsToTransactionFilter(test.params)
 			if len(test.errorContains) > 0 {
 				require.Error(t, err)
 				for _, msg := range test.errorContains {
@@ -226,7 +227,7 @@ func TestValidateTransactionFilter(t *testing.T) {
 	}{
 		{
 			"Default",
-			idb.TransactionFilter{Limit: defaultTransactionsLimit},
+			idb.TransactionFilter{Limit: defaultOpts.DefaultTransactionsLimit},
 			nil,
 		},
 		{
@@ -529,11 +530,9 @@ func TestFetchTransactions(t *testing.T) {
 			// Setup the mocked responses
 
 			mockIndexer := &mocks.IndexerDb{}
-			si := ServerImplementation{
-				EnableAddressSearchRoundRewind: true,
-				db:                             mockIndexer,
-				timeout:                        1 * time.Second,
-			}
+			si := testServerImplementation(mockIndexer)
+			si.EnableAddressSearchRoundRewind = true
+			si.timeout = 1 * time.Second
 
 			roundTime := time.Now()
 			roundTime64 := uint64(roundTime.Unix())
@@ -616,10 +615,8 @@ func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 	db := &mocks.IndexerDb{}
 	db.On("GetAccounts", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
 
-	si := ServerImplementation{
-		EnableAddressSearchRoundRewind: true,
-		db:                             db,
-	}
+	si := testServerImplementation(db)
+	si.EnableAddressSearchRoundRewind = true
 	atRound := uint64(8)
 	_, _, err := si.fetchAccounts(context.Background(), idb.AccountQueryOptions{}, &atRound)
 	assert.Error(t, err)
@@ -681,10 +678,8 @@ func createTxn(t *testing.T, target string) []byte {
 
 func TestLookupApplicationLogsByID(t *testing.T) {
 	mockIndexer := &mocks.IndexerDb{}
-	si := ServerImplementation{
-		EnableAddressSearchRoundRewind: true,
-		db:                             mockIndexer,
-	}
+	si := testServerImplementation(mockIndexer)
+	si.EnableAddressSearchRoundRewind = true
 
 	txnBytes := loadResourceFileOrPanic("test_resources/app_call_logs.txn")
 	var stxn transactions.SignedTxnWithAD
@@ -895,10 +890,8 @@ func TestTimeouts(t *testing.T) {
 			// Make a mock indexer and tell the mock to timeout.
 			mockIndexer := &mocks.IndexerDb{}
 
-			si := ServerImplementation{
-				db:      mockIndexer,
-				timeout: 5 * time.Millisecond,
-			}
+			si := testServerImplementation(mockIndexer)
+			si.timeout = 5 * time.Millisecond
 
 			// Setup context...
 			e := echo.New()
@@ -908,7 +901,7 @@ func TestTimeouts(t *testing.T) {
 
 			// configure the mock to timeout, then call the handler.
 			tc.mockCall(mockIndexer, timeout)
-			err := tc.callHandler(c, si)
+			err := tc.callHandler(c, *si)
 
 			require.NoError(t, err)
 			bodyStr := rec1.Body.String()
@@ -928,21 +921,19 @@ func TestApplicationLimits(t *testing.T) {
 		{
 			name:     "Default",
 			limit:    nil,
-			expected: defaultApplicationsLimit,
+			expected: defaultOpts.DefaultApplicationsLimit,
 		},
 		{
 			name:     "Max",
 			limit:    uint64Ptr(math.MaxUint64),
-			expected: maxApplicationsLimit,
+			expected: defaultOpts.MaxApplicationsLimit,
 		},
 	}
 
 	// Mock backend to capture default limits
 	mockIndexer := &mocks.IndexerDb{}
-	si := ServerImplementation{
-		db:      mockIndexer,
-		timeout: 5 * time.Millisecond,
-	}
+	si := testServerImplementation(mockIndexer)
+	si.timeout = 5 * time.Millisecond
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
