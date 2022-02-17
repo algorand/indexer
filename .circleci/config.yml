@@ -107,7 +107,7 @@ commands:
       - run: make test
       - run: make test-generate
       - run: make fakepackage
-      - run: make e2e
+      #- run: make e2e
 
   run_tests_nightly:
     steps:
