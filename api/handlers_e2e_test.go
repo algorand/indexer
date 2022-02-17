@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/require"
 
@@ -451,18 +452,19 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("exclude %v", tc.exclude), func(t *testing.T) {
-			c, api, rec := setupReq("/v2/accounts/:account-id", "account-id", tc.address.String(), 14)
+		maxResults := 14
+		t.Run(fmt.Sprintf("LookupAccountByID exclude %v", tc.exclude), func(t *testing.T) {
+			c, api, rec := setupReq("/v2/accounts/:account-id", "account-id", tc.address.String(), maxResults)
 			err := api.LookupAccountByID(c, tc.address.String(), generated.LookupAccountByIDParams{Exclude: &tc.exclude})
 			require.NoError(t, err)
-			if tc.errStatus != 0 {
+			if tc.errStatus != 0 { // was a 400 error expected? check error response
 				require.Equal(t, tc.errStatus, rec.Code)
 				data := rec.Body.Bytes()
 				var response generated.AccountsErrorResponse
 				err = json.Decode(data, &response)
 				require.NoError(t, err)
 				require.Equal(t, *response.Address, tc.address.String())
-				require.Equal(t, *response.MaxResults, uint64(14))
+				require.Equal(t, *response.MaxResults, uint64(maxResults))
 				require.Equal(t, *response.TotalAppsLocalState, uint64(5))
 				require.Equal(t, *response.TotalCreatedApps, uint64(5))
 				require.Equal(t, *response.TotalAssets, uint64(5))
@@ -478,6 +480,124 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		})
 	}
 
+	//////////
+	// When // We search all addresses using a ServerImplementation with a maxAccountsAPIResults limit set,
+	//      // and one of those addresses is over the limit, but another address is not
+	//////////
+
+	for _, tc := range []struct {
+		exclude    []string
+		errStatus  int
+		errAddress basics.Address
+	}{
+		{exclude: []string{"all"}},
+		{exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
+		{exclude: []string{"assets", "apps-local-state"}},
+		{errAddress: test.AccountA, exclude: nil, errStatus: 400},
+		{errAddress: test.AccountA, exclude: []string{"created-assets"}, errStatus: http.StatusBadRequest},
+		{errAddress: test.AccountA, exclude: []string{"created-apps"}, errStatus: http.StatusBadRequest},
+		{errAddress: test.AccountA, exclude: []string{"apps-local-state"}, errStatus: http.StatusBadRequest},
+		{errAddress: test.AccountA, exclude: []string{"assets"}, errStatus: http.StatusBadRequest},
+	} {
+		t.Run(fmt.Sprintf("SearchForAccounts exclude %v", tc.exclude), func(t *testing.T) {
+			maxResults := 14
+			c, api, rec := setupReq("/v2/accounts", "", "", maxResults)
+			err := api.SearchForAccounts(c, generated.SearchForAccountsParams{Exclude: &tc.exclude})
+			require.NoError(t, err)
+			if tc.errStatus != 0 { // was a 400 error expected? check error response
+				require.Equal(t, tc.errStatus, rec.Code)
+				data := rec.Body.Bytes()
+				var response generated.AccountsErrorResponse
+				err = json.Decode(data, &response)
+				require.NoError(t, err)
+				require.Equal(t, *response.Address, tc.errAddress.String())
+				require.Equal(t, *response.MaxResults, uint64(maxResults))
+				require.Equal(t, *response.TotalAppsLocalState, uint64(5))
+				require.Equal(t, *response.TotalCreatedApps, uint64(5))
+				require.Equal(t, *response.TotalAssets, uint64(5))
+				require.Equal(t, *response.TotalCreatedAssets, uint64(5))
+				return
+			}
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
+			data := rec.Body.Bytes()
+			var response generated.AccountsResponse
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			t.Log(spew.Sdump(response))
+			//tc.check(t, response)
+
+		})
+	}
+
+	//////////
+	// When // We look up the assets an account holds, and paginate through them using "Next"
+	//////////
+
+	t.Run("LookupAccountAssets", func(t *testing.T) {
+		var next *string   // nil/unset to start
+		limit := uint64(2) // 2 at a time
+		var assets []generated.AssetHolding
+		for {
+			maxResults := 3
+			c, api, rec := setupReq("/v2/accounts/:account-id/assets", "account-id", test.AccountB.String(), maxResults)
+			err := api.LookupAccountAssets(c, test.AccountB.String(), generated.LookupAccountAssetsParams{Next: next, Limit: &limit})
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
+			data := rec.Body.Bytes()
+			var response generated.AssetHoldingsResponse
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			if len(response.Assets) == 0 {
+				require.Nil(t, response.NextToken)
+				break
+			}
+			require.NotEmpty(t, response.Assets)
+			assets = append(assets, response.Assets...)
+			next = response.NextToken // paginate
+		}
+		//////////
+		// Then // We can see all the assets, even though there were more than the limit
+		//////////
+		require.Len(t, assets, 5)
+		for i, asset := range assets {
+			require.Equal(t, expectedAssetIDs[i], asset.AssetId)
+		}
+	})
+
+	//////////
+	// When // We look up the assets an account has created, and paginate through them using "Next"
+	//////////
+
+	t.Run("LookupAccountCreatedAssets", func(t *testing.T) {
+		var next *string   // nil/unset to start
+		limit := uint64(2) // 2 at a time
+		var assets []generated.Asset
+		for {
+			maxResults := 3
+			c, api, rec := setupReq("/v2/accounts/:account-id/created-assets", "account-id", test.AccountA.String(), maxResults)
+			err := api.LookupAccountCreatedAssets(c, test.AccountA.String(), generated.LookupAccountCreatedAssetsParams{Next: next, Limit: &limit})
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
+			data := rec.Body.Bytes()
+			var response generated.AssetsResponse
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			if len(response.Assets) == 0 {
+				require.Nil(t, response.NextToken)
+				break
+			}
+			require.NotEmpty(t, response.Assets)
+			assets = append(assets, response.Assets...)
+			next = response.NextToken // paginate
+		}
+		//////////
+		// Then // We can see all the assets, even though there were more than the limit
+		//////////
+		require.Len(t, assets, 5)
+		for i, asset := range assets {
+			require.Equal(t, expectedAssetIDs[i], asset.Index)
+		}
+	})
 }
 
 func TestBlockNotFound(t *testing.T) {
