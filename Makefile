@@ -11,7 +11,7 @@ GOLDFLAGS += -X github.com/algorand/indexer/version.CompileTime=$(shell date -u 
 GOLDFLAGS += -X github.com/algorand/indexer/version.GitDecorateBase64=$(shell git log -n 1 --pretty="%D"|base64|tr -d ' \n')
 GOLDFLAGS += -X github.com/algorand/indexer/version.ReleaseVersion=$(shell cat .version)
 
-COVERPKG := $(shell go list ./...  | egrep -v '(testing|test|mocks)$$' |  paste -s -d, - )
+COVERPKG := $(shell go list ./...  | grep -v '/cmd/' | egrep -v '(testing|test|mocks)$$' |  paste -s -d, - )
 
 # Used for e2e test
 export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
