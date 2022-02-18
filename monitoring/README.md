@@ -2,34 +2,35 @@
 A monitoring dashboard displaying indexer performance metrics. 
 
 ### To start a monitoring dashboard
-Configurable env vars, `DB_CONNECTION`, `ALGOD_NET` and `ALGOD_TOKEN`. The defaults are set in `.env`. User must provide a valid `ALGOD_NET` and `ALGOD_TOKEN` pair.
+### Prerequisite
+ - Algorand indexer is running with metrics-mode set to ON or VERBOSE 
 
-if indexer is not already running, start all services in `docker-compose.yml`
+Data sources for Grafana are set in `grafana_prometheus_datasource.yml`. Check that configurations for
+Prometheus source and PostgresSQL source are correct or Grafana will not have the metrics.
 
-`docker-compose up -d`
-
-if indexer is already running, start monitoring services only.
-
-`docker-compose up -d prometheus grafana`
- 
-prometheus target should be updated to listen to a correct indexer address (host:port), 
+Also, Prometheus target should be updated to listen to a correct indexer address (host:port). The default target assumes
+the indexer is running on prometheus container's host at port 8888. Check `<prometheus-url>/targets` to see whether Prometheus
+connects to the target successfully. 
 
 ```json
 static_configs:
-- targets: ['indexer:8888'] 
+- targets: ['host.docker.internal:8888'] 
 ```
 
-By default, 
- - indexer is running on http://localhost:8888 
- - grafana is running on http://localhost:3000; default login (admin/admin)
+Run,
+
+`docker-compose up -d prometheus grafana` 
+
+- Check metrics are written to <indexer-url>/metrics 
+- Grafana is running on http://localhost:3000; default login (admin/admin)
+
+
 
 ### View metrics on grafana
 
-- In grafana configurations, add a PostgreSQL datasource. See example below. 
 - Go to Import and upload dashboard.json
 - Run `create extension pg_stat_statements;` sql on db to enable query stats from Postgres
 
-![](examples/postgresql_conn.png)
 ![](examples/widgets.png)
 
 

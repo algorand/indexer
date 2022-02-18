@@ -1,18 +1,20 @@
-FROM alpine:latest
+ARG GO_VERSION=1.17.5
+FROM golang:$GO_VERSION
 
-RUN apk add --no-cache git make musl-dev go bash libtool autoconf automake build-base libsodium-dev boost-dev
+ENV DEBIAN_FRONTEND noninteractive
+RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutils python3
 
-# Configure Go
-ENV GOROOT /usr/lib/go
-ENV GOPATH /go
-ENV PATH /go/bin:$PATH
 
-RUN mkdir -p ${GOPATH}/src ${GOPATH}/bin
-
-# Build and run indexer
+# Build go-algorand
 RUN mkdir /work
 WORKDIR /work
 ADD . ./
+WORKDIR /work/third_party/go-algorand
+RUN ./scripts/configure_dev.sh
+RUN make
+
+# Build indexer
+WORKDIR /work
 RUN make
 WORKDIR /work/cmd/algorand-indexer
 ENV CGO_ENABLED="1"

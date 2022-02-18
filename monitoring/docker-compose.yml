@@ -1,5 +1,4 @@
 version: '3'
-
 services:
   indexer:
     container_name: "indexer"
@@ -8,9 +7,9 @@ services:
       dockerfile: "./monitoring/Dockerfile-indexer"
     environment:
       PORT: 8888
-      CONNECTION_STRING: ${DB_CONNECTION}
-      ALGOD_NET: "${ALGOD_NET}"
-      ALGOD_TOKEN: "${ALGOD_TOKEN}"
+      CONNECTION_STRING: ${DB_CONNECTION:-"host=indexer-db port=5432 user=algorand password=algorand dbname=indexer_db sslmode=disable"}
+      ALGOD_NET: ${ALGOD_NET}
+      ALGOD_TOKEN: ${ALGOD_TOKEN}
     ports:
       - 8888:8888
     depends_on:
@@ -38,6 +37,8 @@ services:
     volumes:
       # Install prometheus config
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   grafana:
     image: "grafana/grafana"

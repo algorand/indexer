@@ -26,5 +26,5 @@ scrape_configs:
     # scheme defaults to 'http'.
 
     static_configs:
-    - targets: ['indexer:8888']
+    - targets: ['host.docker.internal:8888']
 
