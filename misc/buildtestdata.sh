@@ -33,9 +33,6 @@ if [ -z "${E2EDATA}" ]; then
     E2EDATA="${HOME}/Algorand/e2edata"
 fi
 
-tests="${INDEXER_BTD_TESTS:-"test/scripts/e2e_subs/{*.py,*.sh}"}"
-echo "Configured tests = ${tests}"
-
 # TODO: EXPERIMENTAL
 # run faster rounds? 1000 down from 2000
 export ALGOSMALLLAMBDAMSEC=1000
@@ -44,7 +41,7 @@ rm -rf "${E2EDATA}"
 mkdir -p "${E2EDATA}"
 (cd "${GOALGORAND}" && \
   TEMPDIR="${E2EDATA}" \
-  python3 test/scripts/e2e_client_runner.py --keep-temps "$tests")
+  python3 test/scripts/e2e_client_runner.py --keep-temps test/scripts/e2e_subs/{*.py,*.sh})
 
 (cd "${E2EDATA}" && tar -j -c -f net_done.tar.bz2 --exclude node.log --exclude agreement.cdv net)
 
