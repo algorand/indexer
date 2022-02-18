@@ -397,6 +397,24 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	listenAddr := "localhost:8989"
 	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
 
+	// wait at most a few seconds for server to come up
+	serverUp := false
+	for maxWait := 3 * time.Second; !serverUp && maxWait > 0; maxWait -= 50 * time.Millisecond {
+		time.Sleep(50 * time.Millisecond)
+		resp, err := http.Get("http://" + listenAddr + "/health")
+		if err != nil {
+			t.Log("waiting for server:", err)
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Log("waiting for server OK:", resp.StatusCode)
+			continue
+		}
+		serverUp = true // server is up now
+	}
+	require.True(t, serverUp, "api.Serve did not start server in time")
+
 	// make a real HTTP request (to additionally test generated param parsing logic)
 	makeReq := func(t *testing.T, path string, exclude []string, next *string, limit *uint64) (*http.Response, []byte) {
 		var query []string
