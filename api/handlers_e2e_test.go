@@ -1,16 +1,20 @@
 package api
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
@@ -385,98 +389,99 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	//      // and addresses with max # apps over & under the limit
 	//////////
 
-	setupReq := func(path, paramName, paramValue string, maxResults int) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
-		e := echo.New()
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		rec := httptest.NewRecorder()
-		c := e.NewContext(req, rec)
-		c.SetPath(path)
-		c.SetParamNames(paramName)
-		c.SetParamValues(paramValue)
-		api := testServerImplementation(db)
-		api.opts.MaxAccountsAPIResults = uint64(maxResults)
-		return c, api, rec
+	maxResults := 14
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
+	opts := defaultOpts
+	opts.MaxAccountsAPIResults = uint64(maxResults)
+	listenAddr := "localhost:8989"
+	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
+
+	// make a real HTTP request (to additionally test generated param parsing logic)
+	makeReq := func(t *testing.T, path string, exclude []string, next *string, limit *uint64) (*http.Response, []byte) {
+		var query []string
+		if len(exclude) > 0 {
+			query = append(query, "exclude="+strings.Join(exclude, ","))
+		}
+		if next != nil {
+			query = append(query, "next="+*next)
+		}
+		if limit != nil {
+			query = append(query, fmt.Sprintf("limit=%d", *limit))
+		}
+		if len(query) > 0 {
+			path += "?" + strings.Join(query, "&")
+		}
+		t.Log("making HTTP request path", path)
+		resp, err := http.Get("http://" + listenAddr + path)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		return resp, body
 	}
 
 	//////////
 	// Then // The limit is enforced, leading to a 400 error
 	//////////
 
+	checkExclude := func(t *testing.T, acct generated.Account, exclude []string) {
+		for _, exc := range exclude {
+			switch exc {
+			case "all":
+				assert.Nil(t, acct.CreatedApps)
+				assert.Nil(t, acct.AppsLocalState)
+				assert.Nil(t, acct.CreatedAssets)
+				assert.Nil(t, acct.Assets)
+			case "created-assets":
+				assert.Nil(t, acct.CreatedAssets)
+			case "apps-local-state":
+				assert.Nil(t, acct.AppsLocalState)
+			case "created-apps":
+				assert.Nil(t, acct.CreatedApps)
+			case "assets":
+				assert.Nil(t, acct.Assets)
+			}
+		}
+	}
+
 	testCases := []struct {
 		address   basics.Address
 		exclude   []string
-		check     func(*testing.T, generated.AccountResponse)
 		errStatus int
-	}{{
-		address: test.AccountA,
-		exclude: []string{"all"},
-		check: func(t *testing.T, r generated.AccountResponse) {
-			require.Nil(t, r.Account.CreatedAssets)
-			require.Nil(t, r.Account.CreatedApps)
-			require.Nil(t, r.Account.Assets)
-			require.Nil(t, r.Account.AppsLocalState)
-		}}, {
-		address: test.AccountA,
-		exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"},
-		check: func(t *testing.T, r generated.AccountResponse) {
-			require.Nil(t, r.Account.CreatedAssets)
-			require.Nil(t, r.Account.CreatedApps)
-			require.Nil(t, r.Account.Assets)
-			require.Nil(t, r.Account.AppsLocalState)
-		},
-	}, {
-		address:   test.AccountA,
-		exclude:   []string{"created-assets"},
-		errStatus: http.StatusBadRequest,
-	}, {
-		address:   test.AccountA,
-		exclude:   []string{"created-apps"},
-		errStatus: http.StatusBadRequest,
-	}, {
-		address:   test.AccountA,
-		exclude:   []string{"apps-local-state"},
-		errStatus: http.StatusBadRequest,
-	}, {
-		address:   test.AccountA,
-		exclude:   []string{"assets"},
-		errStatus: http.StatusBadRequest,
-	}, {
-		address: test.AccountB,
-		exclude: []string{"assets", "apps-local-state"},
-		check: func(t *testing.T, r generated.AccountResponse) {
-			require.Nil(t, r.Account.CreatedAssets)
-			require.Nil(t, r.Account.CreatedApps)
-			require.Nil(t, r.Account.Assets)
-			require.Nil(t, r.Account.AppsLocalState)
-		}},
+	}{
+		{address: test.AccountA, exclude: []string{"all"}},
+		{address: test.AccountA, exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
+		{address: test.AccountB, exclude: []string{"assets", "apps-local-state"}},
+		{address: test.AccountA, exclude: []string{"created-assets"}, errStatus: http.StatusBadRequest},
+		{address: test.AccountA, exclude: []string{"created-apps"}, errStatus: http.StatusBadRequest},
+		{address: test.AccountA, exclude: []string{"apps-local-state"}, errStatus: http.StatusBadRequest},
+		{address: test.AccountA, exclude: []string{"assets"}, errStatus: http.StatusBadRequest},
 	}
 
 	for _, tc := range testCases {
 		maxResults := 14
 		t.Run(fmt.Sprintf("LookupAccountByID exclude %v", tc.exclude), func(t *testing.T) {
-			c, api, rec := setupReq("/v2/accounts/:account-id", "account-id", tc.address.String(), maxResults)
-			err := api.LookupAccountByID(c, tc.address.String(), generated.LookupAccountByIDParams{Exclude: &tc.exclude})
-			require.NoError(t, err)
+			path := "/v2/accounts/" + tc.address.String()
+			resp, data := makeReq(t, path, tc.exclude, nil, nil)
 			if tc.errStatus != 0 { // was a 400 error expected? check error response
-				require.Equal(t, tc.errStatus, rec.Code)
-				data := rec.Body.Bytes()
+				require.Equal(t, tc.errStatus, resp.StatusCode)
 				var response generated.AccountsErrorResponse
 				err = json.Decode(data, &response)
 				require.NoError(t, err)
-				require.Equal(t, *response.Address, tc.address.String())
-				require.Equal(t, *response.MaxResults, uint64(maxResults))
-				require.Equal(t, *response.TotalAppsLocalState, uint64(5))
-				require.Equal(t, *response.TotalCreatedApps, uint64(5))
-				require.Equal(t, *response.TotalAssets, uint64(5))
-				require.Equal(t, *response.TotalCreatedAssets, uint64(5))
+				assert.Equal(t, *response.Address, tc.address.String())
+				assert.Equal(t, *response.MaxResults, uint64(maxResults))
+				assert.Equal(t, *response.TotalAppsLocalState, uint64(5))
+				assert.Equal(t, *response.TotalCreatedApps, uint64(5))
+				assert.Equal(t, *response.TotalAssets, uint64(5))
+				assert.Equal(t, *response.TotalCreatedAssets, uint64(5))
 				return
 			}
-			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
-			data := rec.Body.Bytes()
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 			var response generated.AccountResponse
 			err = json.Decode(data, &response)
 			require.NoError(t, err)
-			tc.check(t, response)
+			checkExclude(t, response.Account, tc.exclude)
 		})
 	}
 
@@ -501,12 +506,9 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("SearchForAccounts exclude %v", tc.exclude), func(t *testing.T) {
 			maxResults := 14
-			c, api, rec := setupReq("/v2/accounts", "", "", maxResults)
-			err := api.SearchForAccounts(c, generated.SearchForAccountsParams{Exclude: &tc.exclude})
-			require.NoError(t, err)
+			resp, data := makeReq(t, "/v2/accounts", tc.exclude, nil, nil)
 			if tc.errStatus != 0 { // was a 400 error expected? check error response
-				require.Equal(t, tc.errStatus, rec.Code)
-				data := rec.Body.Bytes()
+				require.Equal(t, tc.errStatus, resp.StatusCode)
 				var response generated.AccountsErrorResponse
 				err = json.Decode(data, &response)
 				require.NoError(t, err)
@@ -518,14 +520,31 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 				require.Equal(t, *response.TotalCreatedAssets, uint64(5))
 				return
 			}
-			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
-			data := rec.Body.Bytes()
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 			var response generated.AccountsResponse
 			err = json.Decode(data, &response)
 			require.NoError(t, err)
-			t.Log(spew.Sdump(response))
-			//tc.check(t, response)
 
+			// check that the accounts are in there
+			var sawAccountA, sawAccountB bool
+			for _, acct := range response.Accounts {
+				switch acct.Address {
+				case test.AccountA.String():
+					sawAccountA = true
+					require.Equal(t, acct.TotalAppsLocalState, uint64(5))
+					require.Equal(t, acct.TotalCreatedApps, uint64(5))
+					require.Equal(t, acct.TotalAssets, uint64(5))
+					require.Equal(t, acct.TotalCreatedAssets, uint64(5))
+				case test.AccountB.String():
+					sawAccountB = true
+					require.Equal(t, acct.TotalAppsLocalState, uint64(5))
+					require.Equal(t, acct.TotalCreatedApps, uint64(0))
+					require.Equal(t, acct.TotalAssets, uint64(5))
+					require.Equal(t, acct.TotalCreatedAssets, uint64(0))
+				}
+				checkExclude(t, acct, tc.exclude)
+			}
+			require.True(t, sawAccountA && sawAccountB)
 		})
 	}
 
@@ -538,12 +557,8 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		limit := uint64(2) // 2 at a time
 		var assets []generated.AssetHolding
 		for {
-			maxResults := 3
-			c, api, rec := setupReq("/v2/accounts/:account-id/assets", "account-id", test.AccountB.String(), maxResults)
-			err := api.LookupAccountAssets(c, test.AccountB.String(), generated.LookupAccountAssetsParams{Next: next, Limit: &limit})
-			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
-			data := rec.Body.Bytes()
+			resp, data := makeReq(t, "/v2/accounts/"+test.AccountB.String()+"/assets", nil, next, &limit)
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 			var response generated.AssetHoldingsResponse
 			err = json.Decode(data, &response)
 			require.NoError(t, err)
@@ -573,12 +588,8 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		limit := uint64(2) // 2 at a time
 		var assets []generated.Asset
 		for {
-			maxResults := 3
-			c, api, rec := setupReq("/v2/accounts/:account-id/created-assets", "account-id", test.AccountA.String(), maxResults)
-			err := api.LookupAccountCreatedAssets(c, test.AccountA.String(), generated.LookupAccountCreatedAssetsParams{Next: next, Limit: &limit})
-			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
-			data := rec.Body.Bytes()
+			resp, data := makeReq(t, "/v2/accounts/"+test.AccountA.String()+"/created-assets", nil, next, &limit)
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 			var response generated.AssetsResponse
 			err = json.Decode(data, &response)
 			require.NoError(t, err)
@@ -608,12 +619,8 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		limit := uint64(2) // 2 at a time
 		var apps []generated.ApplicationLocalState
 		for {
-			maxResults := 3
-			c, api, rec := setupReq("/v2/accounts/:account-id/apps-local-state", "account-id", test.AccountA.String(), maxResults)
-			err := api.LookupAccountAppLocalStates(c, test.AccountA.String(), generated.LookupAccountAppLocalStatesParams{Next: next, Limit: &limit})
-			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
-			data := rec.Body.Bytes()
+			resp, data := makeReq(t, "/v2/accounts/"+test.AccountA.String()+"/apps-local-state", nil, next, &limit)
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 			var response generated.ApplicationLocalStatesResponse
 			err = json.Decode(data, &response)
 			require.NoError(t, err)
@@ -643,12 +650,8 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		limit := uint64(2) // 2 at a time
 		var apps []generated.Application
 		for {
-			maxResults := 3
-			c, api, rec := setupReq("/v2/accounts/:account-id/created-apps", "account-id", test.AccountA.String(), maxResults)
-			err := api.LookupAccountCreatedApplications(c, test.AccountA.String(), generated.LookupAccountCreatedApplicationsParams{Next: next, Limit: &limit})
-			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
-			data := rec.Body.Bytes()
+			resp, data := makeReq(t, "/v2/accounts/"+test.AccountA.String()+"/created-applications", nil, next, &limit)
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 			var response generated.ApplicationsResponse
 			err = json.Decode(data, &response)
 			require.NoError(t, err)
