@@ -61,16 +61,14 @@ func MakePreloadCreatorsRequest(payset transactions.Payset) (map[basics.AssetInd
 // Add requests for account data and account resources to `addressesReq` and
 // `resourcesReq` respectively for the given transaction.
 func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress, addressesReq map[basics.Address]struct{}, resourcesReq map[basics.Address]map[ledger.Creatable]struct{}) {
-	lookupResourcesReq :=
-		func(addr basics.Address) map[ledger.Creatable]struct{} {
-			c, ok := resourcesReq[addr]
-			if ok {
-				return c
-			}
+	setResourcesReq := func(addr basics.Address, creatable ledger.Creatable) {
+		c, ok := resourcesReq[addr]
+		if !ok {
 			c = make(map[ledger.Creatable]struct{})
 			resourcesReq[addr] = c
-			return c
 		}
+		c[creatable] = struct{}{}
+	}
 
 	txn := &stxnad.Txn
 
@@ -92,7 +90,7 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 					Index: basics.CreatableIndex(stxnad.ApplyData.ConfigAsset),
 					Type:  basics.AssetCreatable,
 				}
-				lookupResourcesReq(txn.Sender)[creatable] = struct{}{}
+				setResourcesReq(txn.Sender, creatable)
 			}
 		} else {
 			if creator := assetCreators[fields.ConfigAsset]; creator.Exists {
@@ -101,7 +99,7 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 					Type:  basics.AssetCreatable,
 				}
 				addressesReq[creator.Address] = struct{}{}
-				lookupResourcesReq(creator.Address)[creatable] = struct{}{}
+				setResourcesReq(creator.Address, creatable)
 			}
 		}
 	case protocol.AssetTransferTx:
@@ -111,7 +109,7 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 			Type:  basics.AssetCreatable,
 		}
 		if creator := assetCreators[fields.XferAsset]; creator.Exists {
-			lookupResourcesReq(creator.Address)[creatable] = struct{}{}
+			setResourcesReq(creator.Address, creatable)
 		}
 		source := txn.Sender
 		// If asset sender is non-zero, it is a clawback transaction. Otherwise,
@@ -120,13 +118,13 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 			source = fields.AssetSender
 		}
 		addressesReq[source] = struct{}{}
-		lookupResourcesReq(source)[creatable] = struct{}{}
+		setResourcesReq(source, creatable)
 		addressesReq[fields.AssetReceiver] = struct{}{}
-		lookupResourcesReq(fields.AssetReceiver)[creatable] = struct{}{}
+		setResourcesReq(fields.AssetReceiver, creatable)
 		// Asset close address is optional.
 		if !fields.AssetCloseTo.IsZero() {
 			addressesReq[fields.AssetCloseTo] = struct{}{}
-			lookupResourcesReq(fields.AssetCloseTo)[creatable] = struct{}{}
+			setResourcesReq(fields.AssetCloseTo, creatable)
 		}
 	case protocol.AssetFreezeTx:
 		fields := &txn.AssetFreezeTxnFields
@@ -135,9 +133,9 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 			Type:  basics.AssetCreatable,
 		}
 		if creator := assetCreators[fields.FreezeAsset]; creator.Exists {
-			lookupResourcesReq(creator.Address)[creatable] = struct{}{}
+			setResourcesReq(creator.Address, creatable)
 		}
-		lookupResourcesReq(fields.FreezeAccount)[creatable] = struct{}{}
+		setResourcesReq(fields.FreezeAccount, creatable)
 	case protocol.ApplicationCallTx:
 		fields := &txn.ApplicationCallTxnFields
 		if fields.ApplicationID == 0 {
@@ -146,7 +144,7 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 					Index: basics.CreatableIndex(stxnad.ApplyData.ApplicationID),
 					Type:  basics.AppCreatable,
 				}
-				lookupResourcesReq(txn.Sender)[creatable] = struct{}{}
+				setResourcesReq(txn.Sender, creatable)
 			}
 		} else {
 			creatable := ledger.Creatable{
@@ -155,9 +153,9 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 			}
 			if creator := appCreators[fields.ApplicationID]; creator.Exists {
 				addressesReq[creator.Address] = struct{}{}
-				lookupResourcesReq(creator.Address)[creatable] = struct{}{}
+				setResourcesReq(creator.Address, creatable)
 			}
-			lookupResourcesReq(txn.Sender)[creatable] = struct{}{}
+			setResourcesReq(txn.Sender, creatable)
 		}
 		for _, address := range fields.Accounts {
 			addressesReq[address] = struct{}{}
@@ -168,7 +166,7 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 					Index: basics.CreatableIndex(index),
 					Type:  basics.AppCreatable,
 				}
-				lookupResourcesReq(creator.Address)[creatable] = struct{}{}
+				setResourcesReq(creator.Address, creatable)
 			}
 		}
 		for _, index := range fields.ForeignAssets {
@@ -177,7 +175,7 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 					Index: basics.CreatableIndex(index),
 					Type:  basics.AssetCreatable,
 				}
-				lookupResourcesReq(creator.Address)[creatable] = struct{}{}
+				setResourcesReq(creator.Address, creatable)
 			}
 		}
 	}
