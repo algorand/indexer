@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -416,7 +416,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		resp, err := http.Get("http://" + listenAddr + path)
 		require.NoError(t, err)
 		defer resp.Body.Close()
-		body, err := io.ReadAll(resp.Body)
+		body, err := ioutil.ReadAll(resp.Body)
 		require.NoError(t, err)
 		return resp, body
 	}
