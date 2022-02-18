@@ -29,7 +29,9 @@ Run,
 ### View metrics on grafana
 
 - Go to Import and upload dashboard.json
-- Run `create extension pg_stat_statements;` sql on db to enable query stats from Postgres
+- Run `create extension pg_stat_statements;` sql on db to enable query stats from Postgres. 
+  - If getting error such as `elation "pg_stat_statements" does not exist`, check `pg_stat_statements` is 
+   loaded to shared_preload_libraries in postgresql.conf or added in db start up command `-c shared_preload_libraries=pg_stat_statements`. 
 
 ![](examples/widgets.png)
 
