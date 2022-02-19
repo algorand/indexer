@@ -116,13 +116,16 @@ func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}
 }
 
 func init() {
+	utilsCmd := &cobra.Command{
+		Use: "util",
+		Short: "Utilities for testing Indexer operation and correctness.",
+		Long: "Utilities used for Indexer development. These are low level tools that may require low level knowledge of Indexer deployment and operation. They are included as part of this binary for ease of deployment and automation, and to publicize their existance to people who may find them useful. More detailed documention may be found on github in README files located the different 'cmd' directories.",
+	}
 	// Add hidden subcommands
-	iv.ImportValidatorCmd.Hidden = true
-	rootCmd.AddCommand(iv.ImportValidatorCmd)
-	v.ValidatorCmd.Hidden = true
-	rootCmd.AddCommand(v.ValidatorCmd)
-	bg.BlockGenerator.Hidden = true
-	rootCmd.AddCommand(bg.BlockGenerator)
+	utilsCmd.AddCommand(iv.ImportValidatorCmd)
+	utilsCmd.AddCommand(v.ValidatorCmd)
+	utilsCmd.AddCommand(bg.BlockGenerator)
+	rootCmd.AddCommand(utilsCmd)
 
 	logger = log.New()
 	logger.SetFormatter(&log.JSONFormatter{
