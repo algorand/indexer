@@ -12,7 +12,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
-	"github.com/algorand/indexer/cmd/import-validator/core"
+	iv "github.com/algorand/indexer/cmd/import-validator/core"
+	v "github.com/algorand/indexer/cmd/validator/core"
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/dummy"
@@ -115,8 +116,10 @@ func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}
 
 func init() {
 	// Add hidden subcommands
-	core.ImportValidatorCmd.Hidden = true
-	rootCmd.AddCommand(core.ImportValidatorCmd)
+	iv.ImportValidatorCmd.Hidden = true
+	rootCmd.AddCommand(iv.ImportValidatorCmd)
+	v.ValidatorCmd.Hidden = true
+	rootCmd.AddCommand(v.ValidatorCmd)
 
 	logger = log.New()
 	logger.SetFormatter(&log.JSONFormatter{
