@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
+	bg "github.com/algorand/indexer/cmd/block-generator/core"
 	iv "github.com/algorand/indexer/cmd/import-validator/core"
 	v "github.com/algorand/indexer/cmd/validator/core"
 	"github.com/algorand/indexer/config"
@@ -120,6 +121,8 @@ func init() {
 	rootCmd.AddCommand(iv.ImportValidatorCmd)
 	v.ValidatorCmd.Hidden = true
 	rootCmd.AddCommand(v.ValidatorCmd)
+	bg.BlockGenerator.Hidden = true
+	rootCmd.AddCommand(bg.BlockGenerator)
 
 	logger = log.New()
 	logger.SetFormatter(&log.JSONFormatter{
@@ -132,14 +135,19 @@ func init() {
 	importCmd.Hidden = true
 	rootCmd.AddCommand(daemonCmd)
 
-	rootCmd.PersistentFlags().StringVarP(&logLevel, "loglevel", "l", "info", "verbosity of logs: [error, warn, info, debug, trace]")
-	rootCmd.PersistentFlags().StringVarP(&logFile, "logfile", "f", "", "file to write logs to, if unset logs are written to standard out")
-	rootCmd.PersistentFlags().StringVarP(&postgresAddr, "postgres", "P", "", "connection string for postgres database")
-	rootCmd.PersistentFlags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")
-	rootCmd.PersistentFlags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
-	rootCmd.PersistentFlags().StringVarP(&pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
-	rootCmd.PersistentFlags().StringVarP(&configFile, "configfile", "c", "", "file path to configuration file (indexer.yml)")
-	rootCmd.PersistentFlags().BoolVarP(&doVersion, "version", "v", false, "print version and exit")
+	// Not applied globally to avoid adding to utility commands.
+	addFlags := func(cmd *cobra.Command) {
+		cmd.Flags().StringVarP(&logLevel, "loglevel", "l", "info", "verbosity of logs: [error, warn, info, debug, trace]")
+		cmd.Flags().StringVarP(&logFile, "logfile", "f", "", "file to write logs to, if unset logs are written to standard out")
+		cmd.Flags().StringVarP(&postgresAddr, "postgres", "P", "", "connection string for postgres database")
+		cmd.Flags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")
+		cmd.Flags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
+		cmd.Flags().StringVarP(&pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
+		cmd.Flags().StringVarP(&configFile, "configfile", "c", "", "file path to configuration file (indexer.yml)")
+		cmd.Flags().BoolVarP(&doVersion, "version", "v", false, "print version and exit")
+	}
+	addFlags(daemonCmd)
+	addFlags(importCmd)
 
 	viper.RegisterAlias("postgres", "postgres-connection-string")
 

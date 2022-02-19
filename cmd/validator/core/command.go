@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ValidatorCmd is a configured cobra command to be executed, or included as a subcommand.
+// ValidatorCmd is the account validator utility.
 var ValidatorCmd *cobra.Command
 
 func init() {
