@@ -443,11 +443,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	block.BlockHeader.Round = 4
 
 	var delta ledgercore.StateDelta
-<<<<<<< HEAD
-	delta.NewAccts.Upsert(test.AccountA, ledgercore.AccountData{
-=======
 	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{
->>>>>>> origin/feature/unlimited-assets
 		AccountBaseData: ledgercore.AccountBaseData{
 			Status:             basics.Online,
 			MicroAlgos:         basics.MicroAlgos{Raw: 5},
@@ -498,7 +494,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, test.AccountA[:], addr)
-	_, expectedAccountData := delta.NewAccts.GetByIdx(0)
+	_, expectedAccountData := delta.Accts.GetByIdx(0)
 	assert.Equal(t, expectedAccountData.MicroAlgos, basics.MicroAlgos{Raw: microalgos})
 	assert.Equal(t, expectedAccountData.RewardsBase, rewardsbase)
 	assert.Equal(

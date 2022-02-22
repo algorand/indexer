@@ -58,11 +58,7 @@ func TestWriteReadAccountData(t *testing.T) {
 		address := generateAddress(t)
 
 		addresses[address] = struct{}{}
-<<<<<<< HEAD
-		delta.NewAccts.Upsert(address, generateAccountData())
-=======
 		delta.Accts.Upsert(address, generateAccountData())
->>>>>>> origin/feature/unlimited-assets
 	}
 
 	f := func(tx pgx.Tx) error {

@@ -264,11 +264,7 @@ func writeAppResource(round basics.Round, resource *ledgercore.AppResourceRecord
 	}
 }
 
-<<<<<<< HEAD
-func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.NewAccountDeltas, sigtypeDeltas map[basics.Address]sigTypeDelta, batch *pgx.Batch) {
-=======
 func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.AccountDeltas, sigtypeDeltas map[basics.Address]sigTypeDelta, batch *pgx.Batch) {
->>>>>>> origin/feature/unlimited-assets
 	// Update `account` table.
 	for i := 0; i < accountDeltas.Len(); i++ {
 		address, accountData := accountDeltas.GetByIdx(i)
