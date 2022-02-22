@@ -85,9 +85,9 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 
 	// TODO enable this when command line options allows for disabling/enabling overrides
 	//disabledMapConfig := GetDefaultDisabledMapConfigForPostgres()
-	disabledMapConfig := NewDisabledMapConfig()
+	disabledMapConfig := MakeDisabledMapConfig()
 
-	disabledMap, err := NewDisabledMapFromOA3(swag, disabledMapConfig)
+	disabledMap, err := MakeDisabledMapFromOA3(swag, disabledMapConfig)
 	if err != nil {
 		log.Fatal(err)
 	}

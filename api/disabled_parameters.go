@@ -18,8 +18,8 @@ type EndpointConfig struct {
 	DisabledOptionalParameters map[string]bool
 }
 
-// NewEndpointConfig creates a new empty endpoint config
-func NewEndpointConfig() *EndpointConfig {
+// makeEndpointConfig creates a new empty endpoint config
+func makeEndpointConfig() *EndpointConfig {
 	rval := &EndpointConfig{
 		EndpointDisabled:           false,
 		DisabledOptionalParameters: make(map[string]bool),
@@ -35,8 +35,8 @@ type DisabledMap struct {
 	Data map[string]*EndpointConfig
 }
 
-// NewDisabledMap creates a new empty disabled map
-func NewDisabledMap() *DisabledMap {
+// MakeDisabledMap creates a new empty disabled map
+func MakeDisabledMap() *DisabledMap {
 	return &DisabledMap{
 		Data: make(map[string]*EndpointConfig),
 	}
@@ -50,8 +50,8 @@ type DisabledMapConfig struct {
 	Data map[string]map[string][]string
 }
 
-// IsDisabled Returns true if the parameter is disabled for the given path
-func (dmc *DisabledMapConfig) IsDisabled(restPath string, operationName string, parameterName string) bool {
+// isDisabled Returns true if the parameter is disabled for the given path
+func (dmc *DisabledMapConfig) isDisabled(restPath string, operationName string, parameterName string) bool {
 	parameterList, exists := dmc.Data[restPath][operationName]
 	if !exists {
 		return false
@@ -78,8 +78,8 @@ func (dmc *DisabledMapConfig) addEntry(restPath string, operationName string, pa
 	dmc.Data[restPath][operationName] = parameterNames
 }
 
-// NewDisabledMapConfig creates a new disabled map configuration
-func NewDisabledMapConfig() *DisabledMapConfig {
+// MakeDisabledMapConfig creates a new disabled map configuration
+func MakeDisabledMapConfig() *DisabledMapConfig {
 	return &DisabledMapConfig{
 		Data: make(map[string]map[string][]string),
 	}
@@ -88,7 +88,7 @@ func NewDisabledMapConfig() *DisabledMapConfig {
 // GetDefaultDisabledMapConfigForPostgres will generate a configuration that will block certain
 // parameters.  Should be used only for the postgres implementation
 func GetDefaultDisabledMapConfigForPostgres() *DisabledMapConfig {
-	rval := NewDisabledMapConfig()
+	rval := MakeDisabledMapConfig()
 
 	// Some syntactic sugar
 	get := func(restPath string, parameterNames []string) {
@@ -129,19 +129,19 @@ func (edmc *ErrDisabledMapConfig) Error() string {
 	return sb.String()
 }
 
-// NewErrDisabledMapConfig returns a new disabled map config error
-func NewErrDisabledMapConfig() *ErrDisabledMapConfig {
+// makeErrDisabledMapConfig returns a new disabled map config error
+func makeErrDisabledMapConfig() *ErrDisabledMapConfig {
 	return &ErrDisabledMapConfig{
 		BadEntries: make(map[string]map[string][]string),
 	}
 }
 
-// Validate makes sure that all keys and values in the Disabled Map Configuration
+// validate makes sure that all keys and values in the Disabled Map Configuration
 // are actually spelled right.  What might happen is that a user might
 // accidentally mis-spell an entry, so we want to make sure to mitigate against
 // that by checking the openapi definition
-func (dmc *DisabledMapConfig) Validate(swag *openapi3.Swagger) error {
-	potentialRval := NewErrDisabledMapConfig()
+func (dmc *DisabledMapConfig) validate(swag *openapi3.Swagger) error {
+	potentialRval := makeErrDisabledMapConfig()
 
 	for recordedPath, recordedOp := range dmc.Data {
 		swagPath, exists := swag.Paths[recordedPath]
@@ -187,26 +187,26 @@ func (dmc *DisabledMapConfig) Validate(swag *openapi3.Swagger) error {
 	return nil
 }
 
-// NewDisabledMapFromOA3 Creates a new disabled map from an openapi3 definition
-func NewDisabledMapFromOA3(swag *openapi3.Swagger, config *DisabledMapConfig) (*DisabledMap, error) {
+// MakeDisabledMapFromOA3 Creates a new disabled map from an openapi3 definition
+func MakeDisabledMapFromOA3(swag *openapi3.Swagger, config *DisabledMapConfig) (*DisabledMap, error) {
 
-	err := config.Validate(swag)
+	err := config.validate(swag)
 
 	if err != nil {
 		return nil, err
 	}
 
-	rval := NewDisabledMap()
+	rval := MakeDisabledMap()
 	for restPath, item := range swag.Paths {
 		for opName, opItem := range item.Operations() {
 
-			endpointConfig := NewEndpointConfig()
+			endpointConfig := makeEndpointConfig()
 
 			for _, pref := range opItem.Parameters {
 
 				paramName := pref.Value.Name
 
-				parameterIsDisabled := config.IsDisabled(restPath, opName, paramName)
+				parameterIsDisabled := config.isDisabled(restPath, opName, paramName)
 				if !parameterIsDisabled {
 					// If the parameter is not disabled, then we don't need
 					// to do anything
