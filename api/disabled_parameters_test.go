@@ -10,7 +10,19 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
+
+	"github.com/algorand/indexer/api/generated/v2"
 )
+
+func TestValidate(t *testing.T) {
+	// Validates that the default config is correctly spelled
+	dmc := GetDefaultDisabledMapConfigForPostgres()
+
+	swag, err := generated.GetSwagger()
+	require.NoError(t, err)
+
+	require.NoError(t, dmc.Validate(swag))
+}
 
 // TestFailingParam tests that disabled parameters provided via
 // the FormParams() and QueryParams() functions of the context are appropriately handled
