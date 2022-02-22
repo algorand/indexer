@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -563,6 +564,9 @@ func TestLcAccountDataEncoding(t *testing.T) {
 	var selectionID crypto.VRFVerifier
 	selectionID[0] = 15
 
+	var stateProofID merklesignature.Verifier
+	stateProofID[0] = 19
+
 	ad := ledgercore.AccountData{
 		AccountBaseData: ledgercore.AccountBaseData{
 			Status:   basics.Online,
@@ -580,6 +584,7 @@ func TestLcAccountDataEncoding(t *testing.T) {
 		VotingData: ledgercore.VotingData{
 			VoteID:          voteID,
 			SelectionID:     selectionID,
+			StateProofID:    stateProofID,
 			VoteFirstValid:  16,
 			VoteLastValid:   17,
 			VoteKeyDilution: 18,
@@ -587,7 +592,7 @@ func TestLcAccountDataEncoding(t *testing.T) {
 	}
 	buf := EncodeTrimmedLcAccountData(ad)
 
-	expectedString := `{"A":"DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","B":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","C":16,"D":17,"E":18,"a":1,"b":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","c":7,"d":8,"e":9,"f":12,"g":13,"h":10,"i":11}`
+	expectedString := `{"A":"DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","B":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","C":"EwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","D":16,"E":17,"F":18,"a":1,"b":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","c":7,"d":8,"e":9,"f":12,"g":13,"h":10,"i":11}`
 	assert.Equal(t, expectedString, string(buf))
 
 	decodedAd, err := DecodeTrimmedLcAccountData(buf)

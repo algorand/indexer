@@ -322,6 +322,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 			VoteLastValid:             uint64Ptr(uint64(stxn.Txn.VoteLast)),
 			VoteKeyDilution:           uint64Ptr(stxn.Txn.VoteKeyDilution),
 			VoteParticipationKey:      byteSliceOmitZeroPtr(stxn.Txn.VotePK[:]),
+			StateProofKey:             byteSliceOmitZeroPtr(stxn.Txn.StateProofPK[:]),
 		}
 		keyreg = &k
 	case protocol.AssetConfigTx:

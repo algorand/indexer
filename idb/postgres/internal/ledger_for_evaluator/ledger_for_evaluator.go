@@ -15,15 +15,15 @@ import (
 )
 
 const (
-	blockHeaderStmtName    = "block_header"
-	assetCreatorStmtName   = "asset_creator"
-	appCreatorStmtName     = "app_creator"
-	accountStmtName        = "account"
-	assetHoldingsStmtName  = "asset_holdings"
-	assetParamsStmtName    = "asset_params"
-	appParamsStmtName      = "app_params"
-	appLocalStatesStmtName = "app_local_states"
-	accountTotalsStmtName  = "account_totals"
+	blockHeaderStmtName   = "block_header"
+	assetCreatorStmtName  = "asset_creator"
+	appCreatorStmtName    = "app_creator"
+	accountStmtName       = "account"
+	assetHoldingStmtName  = "asset_holding"
+	assetParamsStmtName   = "asset_params"
+	appParamsStmtName     = "app_params"
+	appLocalStateStmtName = "app_local_state"
+	accountTotalsStmtName = "account_totals"
 )
 
 var statements = map[string]string{
@@ -33,12 +33,12 @@ var statements = map[string]string{
 	appCreatorStmtName: "SELECT creator FROM app WHERE index = $1 AND NOT deleted",
 	accountStmtName: "SELECT microalgos, rewardsbase, rewards_total, account_data " +
 		"FROM account WHERE addr = $1 AND NOT deleted",
-	assetHoldingsStmtName: "SELECT amount, frozen FROM account_asset " +
+	assetHoldingStmtName: "SELECT amount, frozen FROM account_asset " +
 		"WHERE addr = $1 AND assetid = $2 AND NOT deleted",
 	assetParamsStmtName: "SELECT creator_addr, params FROM asset " +
 		"WHERE index = $1 AND NOT deleted",
 	appParamsStmtName: "SELECT creator, params FROM app WHERE index = $1 AND NOT deleted",
-	appLocalStatesStmtName: "SELECT localstate FROM account_app " +
+	appLocalStateStmtName: "SELECT localstate FROM account_app " +
 		"WHERE addr = $1 AND app = $2 AND NOT deleted",
 	accountTotalsStmtName: `SELECT v FROM metastate WHERE k = '` +
 		schema.AccountTotals + `'`,
@@ -260,15 +260,22 @@ func (l *LedgerForEvaluator) parseAccountAppTable(row pgx.Row) (basics.AppLocalS
 
 // LookupResources is part of go-algorand's indexerLedgerForEval interface.
 func (l LedgerForEvaluator) LookupResources(input map[basics.Address]map[ledger.Creatable]struct{}) (map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
+	// Create request arrays since iterating over maps is non-deterministic.
 	type AddrID struct {
 		addr basics.Address
 		id   basics.CreatableIndex
 	}
+	// Asset holdings to request.
 	assetHoldingsReq := make([]AddrID, 0, len(input))
+	// Asset params to request.
 	assetParamsReq := make([]basics.CreatableIndex, 0, len(input))
+	// For each asset id, record for which addresses it was requested.
 	assetParamsToAddresses := make(map[basics.CreatableIndex]map[basics.Address]struct{})
+	// App local states to request.
 	appLocalStatesReq := make([]AddrID, 0, len(input))
+	// App params to request.
 	appParamsReq := make([]basics.CreatableIndex, 0, len(input))
+	// For each app id, record for which addresses it was requested.
 	appParamsToAddresses := make(map[basics.CreatableIndex]map[basics.Address]struct{})
 
 	for address, creatables := range input {
@@ -301,10 +308,11 @@ func (l LedgerForEvaluator) LookupResources(input map[basics.Address]map[ledger.
 		}
 	}
 
+	// Prepare a batch of sql queries.
 	var batch pgx.Batch
 	for i := range assetHoldingsReq {
 		batch.Queue(
-			assetHoldingsStmtName, assetHoldingsReq[i].addr[:], assetHoldingsReq[i].id)
+			assetHoldingStmtName, assetHoldingsReq[i].addr[:], assetHoldingsReq[i].id)
 	}
 	for _, cidx := range assetParamsReq {
 		batch.Queue(assetParamsStmtName, cidx)
@@ -314,9 +322,10 @@ func (l LedgerForEvaluator) LookupResources(input map[basics.Address]map[ledger.
 	}
 	for i := range appLocalStatesReq {
 		batch.Queue(
-			appLocalStatesStmtName, appLocalStatesReq[i].addr[:], appLocalStatesReq[i].id)
+			appLocalStateStmtName, appLocalStatesReq[i].addr[:], appLocalStatesReq[i].id)
 	}
 
+	// Execute the sql queries.
 	results := l.tx.SendBatch(context.Background(), &batch)
 	defer results.Close()
 
@@ -332,6 +341,7 @@ func (l LedgerForEvaluator) LookupResources(input map[basics.Address]map[ledger.
 		}
 	}
 
+	// Parse sql query results in the same order the queries were made.
 	for _, addrID := range assetHoldingsReq {
 		row := results.QueryRow()
 		assetHolding, exists, err := l.parseAccountAssetTable(row)

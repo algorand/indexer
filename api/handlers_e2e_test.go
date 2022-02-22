@@ -12,12 +12,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -921,6 +923,97 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 		require.NotNil(t, (*response.Transactions)[0])
 		require.Len(t, *(*response.Transactions)[0].InnerTxns, 2)
 	})
+}
+
+func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing a key reg txn with state proof key
+	///////////
+	var votePK crypto.OneTimeSignatureVerifier
+	votePK[0] = 1
+
+	var selectionPK crypto.VRFVerifier
+	selectionPK[0] = 1
+
+	var stateProofPK merklesignature.Verifier
+	stateProofPK[0] = 1
+
+	txn := transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: "keyreg",
+				Header: transactions.Header{
+					Sender:      test.AccountA,
+					GenesisHash: test.GenesisHash,
+				},
+				KeyregTxnFields: transactions.KeyregTxnFields{
+					VotePK:           votePK,
+					SelectionPK:      selectionPK,
+					StateProofPK:     stateProofPK,
+					VoteFirst:        basics.Round(0),
+					VoteLast:         basics.Round(100),
+					VoteKeyDilution:  1000,
+					Nonparticipation: false,
+				},
+			},
+			Sig: test.Signature,
+		},
+	}
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err, "failed to commit")
+
+	e := echo.New()
+	{
+		//////////
+		// When // We query the txn
+		//////////
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/transactions/:txid")
+		api := &ServerImplementation{db: db}
+		err = api.LookupTransaction(c, txn.Txn.ID().String())
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+		//////////
+		// Then // The key reg txn response has state proof key
+		//////////
+		var response generated.TransactionResponse
+		data := rec.Body.Bytes()
+		err = json.Decode(data, &response)
+		require.NoError(t, err)
+		require.NotNil(t, response.Transaction.KeyregTransaction.StateProofKey)
+		require.Equal(t, stateProofPK[:], *response.Transaction.KeyregTransaction.StateProofKey)
+	}
+	{
+		//////////
+		// And // Account is online with state proof key
+		//////////
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath("/v2/accounts/:account-id")
+		api := &ServerImplementation{db: db}
+		params := generated.LookupAccountByIDParams{}
+		err = api.LookupAccountByID(c, test.AccountA.String(), params)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code)
+
+		var acctResp generated.AccountResponse
+		data := rec.Body.Bytes()
+		err = json.Decode(data, &acctResp)
+		require.NoError(t, err)
+		require.NotNil(t, acctResp.Account)
+		require.NotNil(t, acctResp.Account.Participation.StateProofKey)
+		require.Equal(t, stateProofPK[:], *acctResp.Account.Participation.StateProofKey)
+	}
 }
 
 func TestVersion(t *testing.T) {

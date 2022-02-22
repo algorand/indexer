@@ -58,7 +58,11 @@ func TestWriteReadAccountData(t *testing.T) {
 		address := generateAddress(t)
 
 		addresses[address] = struct{}{}
+<<<<<<< HEAD
 		delta.NewAccts.Upsert(address, generateAccountData())
+=======
+		delta.Accts.Upsert(address, generateAccountData())
+>>>>>>> origin/feature/unlimited-assets
 	}
 
 	f := func(tx pgx.Tx) error {
@@ -86,7 +90,7 @@ func TestWriteReadAccountData(t *testing.T) {
 	require.NoError(t, err)
 
 	for address := range addresses {
-		expected, ok := delta.NewAccts.GetData(address)
+		expected, ok := delta.Accts.GetData(address)
 		require.True(t, ok)
 
 		ret, ok := ret[address]
@@ -240,10 +244,10 @@ func TestWriteReadResources(t *testing.T) {
 			c[creatable] = struct{}{}
 		}
 
-		delta.NewAccts.UpsertAssetResource(
+		delta.Accts.UpsertAssetResource(
 			address, assetIndex, generateAssetParamsDelta(),
 			generateAssetHoldingDelta())
-		delta.NewAccts.UpsertAppResource(
+		delta.Accts.UpsertAppResource(
 			address, appIndex, generateAppParamsDelta(t),
 			generateAppLocalStateDelta(t))
 	}
@@ -283,19 +287,19 @@ func TestWriteReadResources(t *testing.T) {
 			switch creatable.Type {
 			case basics.AssetCreatable:
 				assetParamsDelta, _ :=
-					delta.NewAccts.GetAssetParams(address, basics.AssetIndex(creatable.Index))
+					delta.Accts.GetAssetParams(address, basics.AssetIndex(creatable.Index))
 				assert.Equal(t, assetParamsDelta.Params, ret.AssetParams)
 
 				assetHoldingDelta, _ :=
-					delta.NewAccts.GetAssetHolding(address, basics.AssetIndex(creatable.Index))
+					delta.Accts.GetAssetHolding(address, basics.AssetIndex(creatable.Index))
 				assert.Equal(t, assetHoldingDelta.Holding, ret.AssetHolding)
 			case basics.AppCreatable:
 				appParamsDelta, _ :=
-					delta.NewAccts.GetAppParams(address, basics.AppIndex(creatable.Index))
+					delta.Accts.GetAppParams(address, basics.AppIndex(creatable.Index))
 				assert.Equal(t, appParamsDelta.Params, ret.AppParams)
 
 				appLocalStateDelta, _ :=
-					delta.NewAccts.GetAppLocalState(address, basics.AppIndex(creatable.Index))
+					delta.Accts.GetAppLocalState(address, basics.AppIndex(creatable.Index))
 				assert.Equal(t, appLocalStateDelta.LocalState, ret.AppLocalState)
 			}
 		}

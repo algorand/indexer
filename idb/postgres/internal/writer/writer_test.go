@@ -443,7 +443,11 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	block.BlockHeader.Round = 4
 
 	var delta ledgercore.StateDelta
+<<<<<<< HEAD
 	delta.NewAccts.Upsert(test.AccountA, ledgercore.AccountData{
+=======
+	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{
+>>>>>>> origin/feature/unlimited-assets
 		AccountBaseData: ledgercore.AccountBaseData{
 			Status:             basics.Online,
 			MicroAlgos:         basics.MicroAlgos{Raw: 5},
@@ -515,8 +519,8 @@ func TestWriterAccountTableBasic(t *testing.T) {
 
 	// Now delete this account.
 	block.BlockHeader.Round++
-	delta.NewAccts = ledgercore.NewAccountDeltas{}
-	delta.NewAccts.Upsert(test.AccountA, ledgercore.AccountData{})
+	delta.Accts = ledgercore.AccountDeltas{}
+	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -560,7 +564,7 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 	block.BlockHeader.Round = 4
 
 	var delta ledgercore.StateDelta
-	delta.NewAccts.Upsert(test.AccountA, ledgercore.AccountData{})
+	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{})
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -639,7 +643,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	require.NoError(t, err)
 
 	var delta ledgercore.StateDelta
-	delta.NewAccts.Upsert(test.AccountA, ledgercore.AccountData{
+	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{
 		AccountBaseData: ledgercore.AccountBaseData{
 			MicroAlgos: basics.MicroAlgos{Raw: 5},
 		},
@@ -667,8 +671,8 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 
 	// Now delete this account.
 	block.BlockHeader.Round = basics.Round(5)
-	delta.NewAccts = ledgercore.NewAccountDeltas{}
-	delta.NewAccts.Upsert(test.AccountA, ledgercore.AccountData{})
+	delta.Accts = ledgercore.AccountDeltas{}
+	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -692,7 +696,7 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 		Frozen: true,
 	}
 	var delta ledgercore.StateDelta
-	delta.NewAccts.UpsertAssetResource(
+	delta.Accts.UpsertAssetResource(
 		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
 		ledgercore.AssetHoldingDelta{Holding: &assetHolding})
 
@@ -739,8 +743,8 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	// Now delete the asset.
 	block.BlockHeader.Round++
 
-	delta.NewAccts = ledgercore.NewAccountDeltas{}
-	delta.NewAccts.UpsertAssetResource(
+	delta.Accts = ledgercore.AccountDeltas{}
+	delta.Accts.UpsertAssetResource(
 		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
 		ledgercore.AssetHoldingDelta{Deleted: true})
 
@@ -778,7 +782,7 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 
 	assetID := basics.AssetIndex(3)
 	var delta ledgercore.StateDelta
-	delta.NewAccts.UpsertAssetResource(
+	delta.Accts.UpsertAssetResource(
 		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
 		ledgercore.AssetHoldingDelta{Deleted: true})
 
@@ -828,7 +832,7 @@ func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
 		Amount: math.MaxUint64,
 	}
 	var delta ledgercore.StateDelta
-	delta.NewAccts.UpsertAssetResource(
+	delta.Accts.UpsertAssetResource(
 		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
 		ledgercore.AssetHoldingDelta{Holding: &assetHolding})
 
@@ -866,7 +870,7 @@ func TestWriterAssetTableBasic(t *testing.T) {
 		Manager: test.AccountB,
 	}
 	var delta ledgercore.StateDelta
-	delta.NewAccts.UpsertAssetResource(
+	delta.Accts.UpsertAssetResource(
 		test.AccountA, assetID, ledgercore.AssetParamsDelta{Params: &assetParams},
 		ledgercore.AssetHoldingDelta{})
 
@@ -915,8 +919,8 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	// Now delete the asset.
 	block.BlockHeader.Round++
 
-	delta.NewAccts = ledgercore.NewAccountDeltas{}
-	delta.NewAccts.UpsertAssetResource(
+	delta.Accts = ledgercore.AccountDeltas{}
+	delta.Accts.UpsertAssetResource(
 		test.AccountA, assetID, ledgercore.AssetParamsDelta{Deleted: true},
 		ledgercore.AssetHoldingDelta{})
 
@@ -958,7 +962,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 
 	assetID := basics.AssetIndex(3)
 	var delta ledgercore.StateDelta
-	delta.NewAccts.UpsertAssetResource(
+	delta.Accts.UpsertAssetResource(
 		test.AccountA, assetID, ledgercore.AssetParamsDelta{Deleted: true},
 		ledgercore.AssetHoldingDelta{})
 
@@ -1016,7 +1020,7 @@ func TestWriterAppTableBasic(t *testing.T) {
 		},
 	}
 	var delta ledgercore.StateDelta
-	delta.NewAccts.UpsertAppResource(
+	delta.Accts.UpsertAppResource(
 		test.AccountA, appID, ledgercore.AppParamsDelta{Params: &appParams},
 		ledgercore.AppLocalStateDelta{})
 
@@ -1065,8 +1069,8 @@ func TestWriterAppTableBasic(t *testing.T) {
 	// Now delete the app.
 	block.BlockHeader.Round++
 
-	delta.NewAccts = ledgercore.NewAccountDeltas{}
-	delta.NewAccts.UpsertAppResource(
+	delta.Accts = ledgercore.AccountDeltas{}
+	delta.Accts.UpsertAppResource(
 		test.AccountA, appID, ledgercore.AppParamsDelta{Deleted: true},
 		ledgercore.AppLocalStateDelta{})
 
@@ -1108,7 +1112,7 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 
 	appID := basics.AppIndex(3)
 	var delta ledgercore.StateDelta
-	delta.NewAccts.UpsertAppResource(
+	delta.Accts.UpsertAppResource(
 		test.AccountA, appID, ledgercore.AppParamsDelta{Deleted: true},
 		ledgercore.AppLocalStateDelta{})
 
@@ -1166,7 +1170,7 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 		},
 	}
 	var delta ledgercore.StateDelta
-	delta.NewAccts.UpsertAppResource(
+	delta.Accts.UpsertAppResource(
 		test.AccountA, appID, ledgercore.AppParamsDelta{},
 		ledgercore.AppLocalStateDelta{LocalState: &appLocalState})
 
@@ -1215,8 +1219,8 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	// Now delete the app.
 	block.BlockHeader.Round++
 
-	delta.NewAccts = ledgercore.NewAccountDeltas{}
-	delta.NewAccts.UpsertAppResource(
+	delta.Accts = ledgercore.AccountDeltas{}
+	delta.Accts.UpsertAppResource(
 		test.AccountA, appID, ledgercore.AppParamsDelta{},
 		ledgercore.AppLocalStateDelta{Deleted: true})
 
@@ -1258,7 +1262,7 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 
 	appID := basics.AppIndex(3)
 	var delta ledgercore.StateDelta
-	delta.NewAccts.UpsertAppResource(
+	delta.Accts.UpsertAppResource(
 		test.AccountA, appID, ledgercore.AppParamsDelta{},
 		ledgercore.AppLocalStateDelta{Deleted: true})
 

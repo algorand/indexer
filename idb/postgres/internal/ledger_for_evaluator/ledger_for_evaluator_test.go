@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger"
@@ -67,6 +68,8 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	voteID[0] = 2
 	var selectionID crypto.VRFVerifier
 	selectionID[0] = 3
+	var stateProofID merklesignature.Verifier
+	stateProofID[0] = 10
 	accountDataFull := ledgercore.AccountData{
 		AccountBaseData: ledgercore.AccountBaseData{
 			Status:             basics.Online,
@@ -78,6 +81,7 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 		VotingData: ledgercore.VotingData{
 			VoteID:          voteID,
 			SelectionID:     selectionID,
+			StateProofID:    stateProofID,
 			VoteFirstValid:  basics.Round(7),
 			VoteLastValid:   basics.Round(8),
 			VoteKeyDilution: 9,

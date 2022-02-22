@@ -152,7 +152,7 @@ func getModifiedState(l *ledger.Ledger, block *bookkeeping.Block) (map[basics.Ad
 		return nil, nil, fmt.Errorf("getModifiedState() generate block err: %w", err)
 	}
 
-	accountDeltas := vb.Delta().NewAccts
+	accountDeltas := vb.Delta().Accts
 
 	modifiedAccounts := make(map[basics.Address]struct{})
 	for _, address := range accountDeltas.ModifiedAccounts() {
