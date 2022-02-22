@@ -220,6 +220,10 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 // LookupAccountAppLocalStates queries indexer for AppLocalState for a given account, and optionally a given app ID.
 // (GET /v2/accounts/{account-id}/apps-local-state)
 func (si *ServerImplementation) LookupAccountAppLocalStates(ctx echo.Context, accountID string, params generated.LookupAccountAppLocalStatesParams) error {
+	if err := si.verifyHandler("LookupAccountAppLocalStates", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
 	search := generated.SearchForApplicationsParams{
 		Creator:       &accountID,
 		ApplicationId: params.ApplicationId,
@@ -253,6 +257,10 @@ func (si *ServerImplementation) LookupAccountAppLocalStates(ctx echo.Context, ac
 // LookupAccountAssets queries indexer for AssetHolding for a given account, and optionally a given asset ID.
 // (GET /v2/accounts/{account-id}/assets)
 func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID string, params generated.LookupAccountAssetsParams) error {
+	if err := si.verifyHandler("LookupAccountAssets", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
 	addr, errors := decodeAddress(&accountID, "account-id", make([]string, 0))
 	if len(errors) != 0 {
 		return badRequest(ctx, errors[0])
@@ -295,6 +303,10 @@ func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID 
 // LookupAccountCreatedApplications queries indexer for AppParams for a given account, and optionally a given app ID.
 // (GET /v2/accounts/{account-id}/created-applications)
 func (si *ServerImplementation) LookupAccountCreatedApplications(ctx echo.Context, accountID string, params generated.LookupAccountCreatedApplicationsParams) error {
+	if err := si.verifyHandler("LookupAccountCreatedApplications", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
 	search := generated.SearchForApplicationsParams{
 		Creator:       &accountID,
 		ApplicationId: params.ApplicationId,
@@ -308,6 +320,10 @@ func (si *ServerImplementation) LookupAccountCreatedApplications(ctx echo.Contex
 // LookupAccountCreatedAssets queries indexer for AssetParams for a given account, and optionally a given asset ID.
 // (GET /v2/accounts/{account-id}/created-assets)
 func (si *ServerImplementation) LookupAccountCreatedAssets(ctx echo.Context, accountID string, params generated.LookupAccountCreatedAssetsParams) error {
+	if err := si.verifyHandler("LookupAccountCreatedAssets", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
 	search := generated.SearchForAssetsParams{
 		Creator:    &accountID,
 		AssetId:    params.AssetId,
