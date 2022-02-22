@@ -116,12 +116,12 @@ func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}
 }
 
 func init() {
+	// Utilities subcommand for more convenient access to useful testing utilities.
 	utilsCmd := &cobra.Command{
 		Use:   "util",
 		Short: "Utilities for testing Indexer operation and correctness.",
 		Long:  "Utilities used for Indexer development. These are low level tools that may require low level knowledge of Indexer deployment and operation. They are included as part of this binary for ease of deployment and automation, and to publicize their existance to people who may find them useful. More detailed documention may be found on github in README files located the different 'cmd' directories.",
 	}
-	// Add hidden subcommands
 	utilsCmd.AddCommand(iv.ImportValidatorCmd)
 	utilsCmd.AddCommand(v.ValidatorCmd)
 	utilsCmd.AddCommand(bg.BlockGenerator)
