@@ -21,7 +21,6 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/protocol"
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
@@ -179,75 +178,60 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations()
 }
 
-// Returns all addresses referenced in `block`.
-func getBlockAddresses(block *bookkeeping.Block) map[basics.Address]struct{} {
-	// Reserve a reasonable memory size for the map.
-	res := make(map[basics.Address]struct{}, len(block.Payset)+2)
+// Preload asset and app creators.
+func prepareCreators(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
+	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
 
-	res[block.FeeSink] = struct{}{}
-	res[block.RewardsPool] = struct{}{}
-	for _, stib := range block.Payset {
-		addFunc := func(address basics.Address) {
-			res[address] = struct{}{}
-		}
-		accounting.GetTransactionParticipants(&stib.SignedTxnWithAD, true, addFunc)
+	assets, err := l.GetAssetCreator(assetsReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
+	}
+	apps, err := l.GetAppCreator(appsReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
 	}
 
-	return res
+	return assets, apps, nil
 }
 
+// Preload account data and account resources.
+func prepareAccountsResources(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
+	addressesReq, resourcesReq :=
+		accounting.MakePreloadAccountsResourcesRequest(payset, assetCreators, appCreators)
+
+	accounts, err := l.LookupWithoutRewards(addressesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
+	}
+	resources, err := l.LookupResources(resourcesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
+	}
+
+	return accounts, resources, nil
+}
+
+// Preload all resources (account data, account resources, asset/app creators) for the
+// evaluator.
 func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
-	addresses := getBlockAddresses(block)
-	assets := make(map[basics.AssetIndex]struct{})
-	apps := make(map[basics.AppIndex]struct{})
-
-	for _, stib := range block.Payset {
-		switch stib.Txn.Type {
-		case protocol.AssetConfigTx:
-			if stib.Txn.ConfigAsset != 0 {
-				assets[stib.Txn.ConfigAsset] = struct{}{}
-			}
-		case protocol.AssetTransferTx:
-			if stib.Txn.XferAsset != 0 {
-				assets[stib.Txn.XferAsset] = struct{}{}
-			}
-		case protocol.AssetFreezeTx:
-			if stib.Txn.FreezeAsset != 0 {
-				assets[stib.Txn.FreezeAsset] = struct{}{}
-			}
-		case protocol.ApplicationCallTx:
-			if stib.Txn.ApplicationID != 0 {
-				apps[stib.Txn.ApplicationID] = struct{}{}
-			}
-		}
-	}
-
-	res := ledger.EvalForIndexerResources{
-		Accounts: nil,
-		Creators: make(map[ledger.Creatable]ledger.FoundAddress),
-	}
-
-	assetCreators, err := l.GetAssetCreator(assets)
+	assetCreators, appCreators, err := prepareCreators(l, block.Payset)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
 			fmt.Errorf("prepareEvalResources() err: %w", err)
 	}
+
+	res := ledger.EvalForIndexerResources{
+		Accounts:  nil,
+		Resources: nil,
+		Creators:  make(map[ledger.Creatable]ledger.FoundAddress),
+	}
+
 	for index, foundAddress := range assetCreators {
 		creatable := ledger.Creatable{
 			Index: basics.CreatableIndex(index),
 			Type:  basics.AssetCreatable,
 		}
 		res.Creators[creatable] = foundAddress
-
-		if foundAddress.Exists {
-			addresses[foundAddress.Address] = struct{}{}
-		}
-	}
-
-	appCreators, err := l.GetAppCreator(apps)
-	if err != nil {
-		return ledger.EvalForIndexerResources{},
-			fmt.Errorf("prepareEvalResources() err: %w", err)
 	}
 	for index, foundAddress := range appCreators {
 		creatable := ledger.Creatable{
@@ -255,13 +239,9 @@ func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *boo
 			Type:  basics.AppCreatable,
 		}
 		res.Creators[creatable] = foundAddress
-
-		if foundAddress.Exists {
-			addresses[foundAddress.Address] = struct{}{}
-		}
 	}
 
-	res.Accounts, err = l.LookupWithoutRewards(addresses)
+	res.Accounts, res.Resources, err = prepareAccountsResources(l, block.Payset, assetCreators, appCreators)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
 			fmt.Errorf("prepareEvalResources() err: %w", err)
@@ -447,15 +427,16 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 			if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
 				return fmt.Errorf("LoadGenesis() genesis account[%d] has unhandled asset", ai)
 			}
+			accountData := ledgercore.ToAccountData(alloc.State)
 			_, err = tx.Exec(
 				context.Background(), setAccountStatementName,
 				addr[:], alloc.State.MicroAlgos.Raw,
-				encoding.EncodeTrimmedAccountData(encoding.TrimAccountData(alloc.State)), 0)
+				encoding.EncodeTrimmedLcAccountData(encoding.TrimLcAccountData(accountData)), 0)
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() error setting genesis account[%d], %w", ai, err)
 			}
 
-			totals.AddAccount(proto, alloc.State, &ot)
+			totals.AddAccount(proto, accountData, &ot)
 		}
 
 		err = db.setMetastate(
@@ -1182,8 +1163,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		{
-			var ad basics.AccountData
-			ad, err = encoding.DecodeTrimmedAccountData(accountDataJSONStr)
+			var ad ledgercore.AccountData
+			ad, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
 			if err != nil {
 				err = fmt.Errorf("account decode err (%s) %v", accountDataJSONStr, err)
 				req.out <- idb.AccountRow{Error: err}
@@ -1793,7 +1774,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		whereParts = append(whereParts, "coalesce(a.deleted, false) = false")
 	}
 	if len(opts.EqualToAuthAddr) > 0 {
-		whereParts = append(whereParts, fmt.Sprintf("a.account_data ->> 'spend' = $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("a.account_data ->> 'b' = $%d", partNumber))
 		whereArgs = append(whereArgs, encoding.Base64(opts.EqualToAuthAddr))
 		partNumber++
 	}
@@ -2279,41 +2260,32 @@ func (db *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.Speci
 	return accounts, nil
 }
 
-// GetAccountData returns account data for the given addresses. For accounts that are
-// not found, empty AccountData is returned. This function is only used for debugging.
-func (db *IndexerDb) GetAccountData(addresses []basics.Address) (map[basics.Address]basics.AccountData, error) {
+// GetAccountState returns account data and account resources for the given input.
+// For accounts that are not found, empty AccountData is returned.
+// This function is only used for debugging.
+func (db *IndexerDb) GetAccountState(addressesReq map[basics.Address]struct{}, resourcesReq map[basics.Address]map[ledger.Creatable]struct{}) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
 	tx, err := db.db.BeginTx(context.Background(), readonlyRepeatableRead)
 	if err != nil {
-		return nil, fmt.Errorf("GetAccountData() begin tx err: %w", err)
+		return nil, nil, fmt.Errorf("GetAccountState() begin tx err: %w", err)
 	}
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
 	if err != nil {
-		return nil, fmt.Errorf("GetAccountData() err: %w", err)
+		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
 	}
 	defer l.Close()
 
-	addressesMap := make(map[basics.Address]struct{}, len(addresses))
-	for _, address := range addresses {
-		addressesMap[address] = struct{}{}
-	}
-
-	accountDataMap, err := l.LookupWithoutRewards(addressesMap)
+	accounts, err := l.LookupWithoutRewards(addressesReq)
 	if err != nil {
-		return nil, fmt.Errorf("GetAccountData() err: %w", err)
+		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
+	}
+	resources, err := l.LookupResources(resourcesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
 	}
 
-	res := make(map[basics.Address]basics.AccountData, len(accountDataMap))
-	for address, accountData := range accountDataMap {
-		if accountData == nil {
-			res[address] = basics.AccountData{}
-		} else {
-			res[address] = *accountData
-		}
-	}
-
-	return res, nil
+	return accounts, resources, nil
 }
 
 // GetNetworkState is part of idb.IndexerDB

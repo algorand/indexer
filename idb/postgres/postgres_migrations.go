@@ -14,6 +14,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
+	cad "github.com/algorand/indexer/idb/postgres/internal/migrations/convert_account_data"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	"github.com/algorand/indexer/idb/postgres/internal/types"
 )
@@ -48,6 +49,7 @@ func init() {
 		{upgradeNotSupported, true, "change import state format"},
 		{upgradeNotSupported, true, "notify the user that upgrade is not supported"},
 		{dropTxnBytesColumn, true, "drop txnbytes column"},
+		{convertAccountData, true, "convert account.account_data column"},
 	}
 }
 
@@ -84,20 +86,6 @@ func migrationStateBlocked(state types.MigrationState) bool {
 // needsMigration returns true if there is an incomplete migration.
 func needsMigration(state types.MigrationState) bool {
 	return state.NextMigration < len(migrations)
-}
-
-// upsertMigrationState updates the migration state, and optionally increments
-// the next counter with an existing transaction.
-// If `tx` is nil, use a normal query.
-//lint:ignore U1000 this function might be used in a future migration
-func upsertMigrationState(db *IndexerDb, tx pgx.Tx, state *types.MigrationState) error {
-	migrationStateJSON := encoding.EncodeMigrationState(state)
-	err := db.setMetastate(tx, schema.MigrationMetastateKey, string(migrationStateJSON))
-	if err != nil {
-		return fmt.Errorf("upsertMigrationState() err: %w", err)
-	}
-
-	return nil
 }
 
 // Returns an error object and a channel that gets closed when blocking migrations
@@ -171,6 +159,17 @@ func (db *IndexerDb) getMigrationState(ctx context.Context, tx pgx.Tx) (types.Mi
 	return state, nil
 }
 
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) setMigrationState(tx pgx.Tx, state *types.MigrationState) error {
+	err := db.setMetastate(
+		tx, schema.MigrationMetastateKey, string(encoding.EncodeMigrationState(state)))
+	if err != nil {
+		return fmt.Errorf("setMigrationState() err: %w", err)
+	}
+
+	return nil
+}
+
 // sqlMigration executes a sql statements as the entire migration.
 //lint:ignore U1000 this function might be used in a future migration
 func sqlMigration(db *IndexerDb, state *types.MigrationState, sqlLines []string) error {
@@ -223,4 +222,30 @@ func upgradeNotSupported(db *IndexerDb, migrationState *types.MigrationState) er
 func dropTxnBytesColumn(db *IndexerDb, migrationState *types.MigrationState) error {
 	return sqlMigration(
 		db, migrationState, []string{"ALTER TABLE txn DROP COLUMN txnbytes"})
+}
+
+func convertAccountData(db *IndexerDb, migrationState *types.MigrationState) error {
+	newMigrationState := *migrationState
+	newMigrationState.NextMigration++
+
+	f := func(tx pgx.Tx) error {
+		err := cad.RunMigration(tx, 10000)
+		if err != nil {
+			return fmt.Errorf("convertAccountData() err: %w", err)
+		}
+
+		err = db.setMigrationState(tx, &newMigrationState)
+		if err != nil {
+			return fmt.Errorf("convertAccountData() err: %w", err)
+		}
+
+		return nil
+	}
+	err := db.txWithRetry(serializable, f)
+	if err != nil {
+		return fmt.Errorf("convertAccountData() err: %w", err)
+	}
+
+	*migrationState = newMigrationState
+	return nil
 }

@@ -681,7 +681,6 @@ func (g *generator) WriteAccount(output io.Writer, accountString string) error {
 			assets = append(assets, generated.AssetHolding{
 				Amount:   holding.balance,
 				AssetId:  a.assetID,
-				Creator:  indexToAccount(a.creator).String(),
 				IsFrozen: false,
 			})
 		}
