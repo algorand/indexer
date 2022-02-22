@@ -1,4 +1,5 @@
 package generator
+
 import (
 	"fmt"
 	"math/rand"
@@ -6,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// DaemonCmd is the block generator daemon.
+// DaemonCmd starts a block generator daemon.
 var DaemonCmd *cobra.Command
 
 func init() {

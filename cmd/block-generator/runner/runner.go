@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// RunnerCmd launches the block-generator test suite runner.
 var RunnerCmd *cobra.Command
 
 func init() {
@@ -17,6 +18,7 @@ func init() {
 	RunnerCmd = &cobra.Command{
 		Use:   "runner",
 		Short: "Run test suite and collect results.",
+		Long:  "Run an automated test suite using the block-generator daemon and a provided algorand-indexer binary. Results are captured to a specified output directory.",
 		Run: func(cmd *cobra.Command, args []string) {
 			if err := Run(runnerArgs); err != nil {
 				fmt.Println(err)
