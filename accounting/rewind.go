@@ -102,18 +102,15 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 	ctx2, cf := context.WithCancel(ctx)
 	defer cf()
 	txns, r := db.Transactions(ctx2, tf)
+	defer func() {
+		cf()
+		for range txns {
+		}
+	}()
 	if r < account.Round {
 		err = ConsistencyError{fmt.Sprintf("queried round r: %d < account.Round: %d", r, account.Round)}
 		return
 	}
-	return processTransactions(account, addr, round, txns)
-}
-
-func processTransactions(account models.Account, addr basics.Address, round uint64, txns <-chan idb.TxnRow) (acct models.Account, err error) {
-	defer func() {
-		for range txns {
-		}
-	}()
 	txcount := 0
 	for txnrow := range txns {
 		if txnrow.Error != nil {
