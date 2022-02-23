@@ -86,10 +86,10 @@ type Account struct {
 	Status string `json:"status"`
 
 	// The count of all application local data (AppLocalState objects) stored in this account.
-	TotalAppsLocalState uint64 `json:"total-apps-local-state"`
+	TotalAppsOptedIn uint64 `json:"total-apps-opted-in"`
 
 	// The count of all assets (AssetHolding objects) held by this account.
-	TotalAssets uint64 `json:"total-assets"`
+	TotalAssetsOptedIn uint64 `json:"total-assets-opted-in"`
 
 	// The count of all apps (AppParams objects) created by this account.
 	TotalCreatedApps uint64 `json:"total-created-apps"`
@@ -916,13 +916,13 @@ type AccountResponse struct {
 
 // AccountsErrorResponse defines model for AccountsErrorResponse.
 type AccountsErrorResponse struct {
-	Address             *string `json:"address,omitempty"`
-	MaxResults          *uint64 `json:"max-results,omitempty"`
-	Message             string  `json:"message"`
-	TotalAppsLocalState *uint64 `json:"total-apps-local-state,omitempty"`
-	TotalAssets         *uint64 `json:"total-assets,omitempty"`
-	TotalCreatedApps    *uint64 `json:"total-created-apps,omitempty"`
-	TotalCreatedAssets  *uint64 `json:"total-created-assets,omitempty"`
+	Address            *string `json:"address,omitempty"`
+	MaxResults         *uint64 `json:"max-results,omitempty"`
+	Message            string  `json:"message"`
+	TotalAppsOptedIn   *uint64 `json:"total-apps-opted-in,omitempty"`
+	TotalAssetsOptedIn *uint64 `json:"total-assets-opted-in,omitempty"`
+	TotalCreatedApps   *uint64 `json:"total-created-apps,omitempty"`
+	TotalCreatedAssets *uint64 `json:"total-created-assets,omitempty"`
 }
 
 // AccountsResponse defines model for AccountsResponse.

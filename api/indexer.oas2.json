@@ -928,8 +928,8 @@
         "amount-without-pending-rewards",
         "rewards",
         "status",
-        "total-apps-local-state",
-        "total-assets",
+        "total-apps-opted-in",
+        "total-assets-opted-in",
         "total-created-apps",
         "total-created-assets"
       ],
@@ -1014,11 +1014,11 @@
             "lsig"
           ]
         },
-        "total-apps-local-state": {
+        "total-apps-opted-in": {
           "description": "The count of all application local data (AppLocalState objects) stored in this account.",
           "type": "integer"
         },
-        "total-assets": {
+        "total-assets-opted-in": {
           "description": "The count of all assets (AssetHolding objects) held by this account.",
           "type": "integer"
         },
@@ -2665,10 +2665,10 @@
           "address": {
             "type": "string"
           },
-          "total-apps-local-state": {
+          "total-apps-opted-in": {
             "type": "integer"
           },
-          "total-assets": {
+          "total-assets-opted-in": {
             "type": "integer"
           },
           "total-created-apps": {

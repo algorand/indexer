@@ -189,16 +189,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 	if err != nil {
 		var maxErr idb.MaxAccountsAPIResultsError
 		if errors.As(err, &maxErr) {
-			addr := maxErr.Address.String()
-			return ctx.JSON(http.StatusBadRequest, generated.AccountsErrorResponse{
-				Message:             "Result limit exceeded",
-				MaxResults:          &options.MaxResources,
-				Address:             &addr,
-				TotalAssets:         &maxErr.TotalAssets,
-				TotalCreatedAssets:  &maxErr.TotalAppLocalStates,
-				TotalAppsLocalState: &maxErr.TotalAppLocalStates,
-				TotalCreatedApps:    &maxErr.TotalAppParams,
-			})
+			return ctx.JSON(http.StatusBadRequest, si.maxAccountsErrorToAccountsErrorResponse(maxErr))
 		}
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingAccount, err))
 	}
@@ -391,16 +382,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 	if err != nil {
 		var maxErr idb.MaxAccountsAPIResultsError
 		if errors.As(err, &maxErr) {
-			addr := maxErr.Address.String()
-			return ctx.JSON(http.StatusBadRequest, generated.AccountsErrorResponse{
-				Message:             "Result limit exceeded",
-				MaxResults:          &options.MaxResources,
-				Address:             &addr,
-				TotalAssets:         &maxErr.TotalAssets,
-				TotalCreatedAssets:  &maxErr.TotalAppLocalStates,
-				TotalAppsLocalState: &maxErr.TotalAppLocalStates,
-				TotalCreatedApps:    &maxErr.TotalAppParams,
-			})
+			return ctx.JSON(http.StatusBadRequest, si.maxAccountsErrorToAccountsErrorResponse(maxErr))
 		}
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingAccount, err))
 	}

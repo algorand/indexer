@@ -1196,9 +1196,9 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 				account.AppsTotalExtraPages = uint64Ptr(uint64(ad.TotalExtraAppPages))
 			}
 
-			account.TotalAppsLocalState = ad.TotalAppLocalStates
+			account.TotalAppsOptedIn = ad.TotalAppLocalStates
 			account.TotalCreatedApps = ad.TotalAppParams
-			account.TotalAssets = ad.TotalAssets
+			account.TotalAssetsOptedIn = ad.TotalAssets
 			account.TotalCreatedAssets = ad.TotalAssetParams
 		}
 
