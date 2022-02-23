@@ -681,15 +681,17 @@ func TrimLcAccountData(ad ledgercore.AccountData) ledgercore.AccountData {
 
 func convertTrimmedLcAccountData(ad ledgercore.AccountData) baseAccountData {
 	return baseAccountData{
-		Status:                     ad.Status,
-		AuthAddr:                   crypto.Digest(ad.AuthAddr),
-		TotalAppSchemaNumUint:      ad.TotalAppSchema.NumUint,
-		TotalAppSchemaNumByteSlice: ad.TotalAppSchema.NumByteSlice,
-		TotalExtraAppPages:         ad.TotalExtraAppPages,
-		TotalAssetParams:           ad.TotalAssetParams,
-		TotalAssets:                ad.TotalAssets,
-		TotalAppParams:             ad.TotalAppParams,
-		TotalAppLocalStates:        ad.TotalAppLocalStates,
+		Status:   ad.Status,
+		AuthAddr: crypto.Digest(ad.AuthAddr),
+		TotalAppSchema: stateSchema{
+			NumUint:      ad.TotalAppSchema.NumUint,
+			NumByteSlice: ad.TotalAppSchema.NumByteSlice,
+		},
+		TotalExtraAppPages:  ad.TotalExtraAppPages,
+		TotalAssetParams:    ad.TotalAssetParams,
+		TotalAssets:         ad.TotalAssets,
+		TotalAppParams:      ad.TotalAppParams,
+		TotalAppLocalStates: ad.TotalAppLocalStates,
 		baseOnlineAccountData: baseOnlineAccountData{
 			VoteID:          ad.VoteID,
 			SelectionID:     ad.SelectionID,
@@ -707,8 +709,8 @@ func unconvertTrimmedLcAccountData(ba baseAccountData) ledgercore.AccountData {
 			Status:   ba.Status,
 			AuthAddr: basics.Address(ba.AuthAddr),
 			TotalAppSchema: basics.StateSchema{
-				NumUint:      ba.TotalAppSchemaNumUint,
-				NumByteSlice: ba.TotalAppSchemaNumByteSlice,
+				NumUint:      ba.TotalAppSchema.NumUint,
+				NumByteSlice: ba.TotalAppSchema.NumByteSlice,
 			},
 			TotalExtraAppPages:  ba.TotalExtraAppPages,
 			TotalAppParams:      ba.TotalAppParams,

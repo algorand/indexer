@@ -111,26 +111,32 @@ type specialAddresses struct {
 type baseOnlineAccountData struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-	VoteID          crypto.OneTimeSignatureVerifier `codec:"A"`
-	SelectionID     crypto.VRFVerifier              `codec:"B"`
-	StateProofID    merklesignature.Verifier        `codec:"C"`
-	VoteFirstValid  basics.Round                    `codec:"D"`
-	VoteLastValid   basics.Round                    `codec:"E"`
-	VoteKeyDilution uint64                          `codec:"F"`
+	VoteID          crypto.OneTimeSignatureVerifier `codec:"vote"`
+	SelectionID     crypto.VRFVerifier              `codec:"sel"`
+	StateProofID    merklesignature.Verifier        `codec:"stprf"`
+	VoteFirstValid  basics.Round                    `codec:"voteFst"`
+	VoteLastValid   basics.Round                    `codec:"voteLst"`
+	VoteKeyDilution uint64                          `codec:"voteKD"`
 }
 
 type baseAccountData struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-	Status                     basics.Status `codec:"a"`
-	AuthAddr                   crypto.Digest `codec:"b"`
-	TotalAppSchemaNumUint      uint64        `codec:"c"`
-	TotalAppSchemaNumByteSlice uint64        `codec:"d"`
-	TotalExtraAppPages         uint32        `codec:"e"`
-	TotalAssetParams           uint64        `codec:"f"`
-	TotalAssets                uint64        `codec:"g"`
-	TotalAppParams             uint64        `codec:"h"`
-	TotalAppLocalStates        uint64        `codec:"i"`
+	Status              basics.Status `codec:"onl"`
+	AuthAddr            crypto.Digest `codec:"spend"`
+	TotalAppSchema      stateSchema   `codec:"tsch"`
+	TotalExtraAppPages  uint32        `codec:"teap"`
+	TotalAssetParams    uint64        `codec:"tasp"`
+	TotalAssets         uint64        `codec:"tas"`
+	TotalAppParams      uint64        `codec:"tapp"`
+	TotalAppLocalStates uint64        `codec:"tapl"`
 
 	baseOnlineAccountData
+}
+
+type stateSchema struct {
+	_struct struct{} `codec:",omitempty,omitemptyarray"`
+
+	NumUint      uint64 `codec:"nui"`
+	NumByteSlice uint64 `codec:"nbs"`
 }
