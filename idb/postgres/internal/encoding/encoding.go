@@ -681,12 +681,9 @@ func TrimLcAccountData(ad ledgercore.AccountData) ledgercore.AccountData {
 
 func convertTrimmedLcAccountData(ad ledgercore.AccountData) baseAccountData {
 	return baseAccountData{
-		Status:   ad.Status,
-		AuthAddr: crypto.Digest(ad.AuthAddr),
-		TotalAppSchema: stateSchema{
-			NumUint:      ad.TotalAppSchema.NumUint,
-			NumByteSlice: ad.TotalAppSchema.NumByteSlice,
-		},
+		Status:              ad.Status,
+		AuthAddr:            crypto.Digest(ad.AuthAddr),
+		TotalAppSchema:      ad.TotalAppSchema,
 		TotalExtraAppPages:  ad.TotalExtraAppPages,
 		TotalAssetParams:    ad.TotalAssetParams,
 		TotalAssets:         ad.TotalAssets,
@@ -706,12 +703,9 @@ func convertTrimmedLcAccountData(ad ledgercore.AccountData) baseAccountData {
 func unconvertTrimmedLcAccountData(ba baseAccountData) ledgercore.AccountData {
 	return ledgercore.AccountData{
 		AccountBaseData: ledgercore.AccountBaseData{
-			Status:   ba.Status,
-			AuthAddr: basics.Address(ba.AuthAddr),
-			TotalAppSchema: basics.StateSchema{
-				NumUint:      ba.TotalAppSchema.NumUint,
-				NumByteSlice: ba.TotalAppSchema.NumByteSlice,
-			},
+			Status:              ba.Status,
+			AuthAddr:            basics.Address(ba.AuthAddr),
+			TotalAppSchema:      ba.TotalAppSchema,
 			TotalExtraAppPages:  ba.TotalExtraAppPages,
 			TotalAppParams:      ba.TotalAppParams,
 			TotalAppLocalStates: ba.TotalAppLocalStates,

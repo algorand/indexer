@@ -122,21 +122,14 @@ type baseOnlineAccountData struct {
 type baseAccountData struct {
 	_struct struct{} `codec:",omitempty,omitemptyarray"`
 
-	Status              basics.Status `codec:"onl"`
-	AuthAddr            crypto.Digest `codec:"spend"`
-	TotalAppSchema      stateSchema   `codec:"tsch"`
-	TotalExtraAppPages  uint32        `codec:"teap"`
-	TotalAssetParams    uint64        `codec:"tasp"`
-	TotalAssets         uint64        `codec:"tas"`
-	TotalAppParams      uint64        `codec:"tapp"`
-	TotalAppLocalStates uint64        `codec:"tapl"`
+	Status              basics.Status      `codec:"onl"`
+	AuthAddr            crypto.Digest      `codec:"spend"`
+	TotalAppSchema      basics.StateSchema `codec:"tsch"`
+	TotalExtraAppPages  uint32             `codec:"teap"`
+	TotalAssetParams    uint64             `codec:"tasp"`
+	TotalAssets         uint64             `codec:"tas"`
+	TotalAppParams      uint64             `codec:"tapp"`
+	TotalAppLocalStates uint64             `codec:"tapl"`
 
 	baseOnlineAccountData
-}
-
-type stateSchema struct {
-	_struct struct{} `codec:",omitempty,omitemptyarray"`
-
-	NumUint      uint64 `codec:"nui"`
-	NumByteSlice uint64 `codec:"nbs"`
 }
