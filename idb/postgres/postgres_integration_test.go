@@ -979,7 +979,7 @@ func TestLargeAssetAmount(t *testing.T) {
 		require.NoError(t, row.Error)
 		require.NotNil(t, row.Account.Assets)
 		require.Equal(t, 1, len(*row.Account.Assets))
-		require.Equal(t, uint64(1), row.Account.TotalAssets)
+		require.Equal(t, uint64(1), row.Account.TotalAssetsOptedIn)
 		assert.Equal(t, uint64(math.MaxUint64), (*row.Account.Assets)[0].Amount)
 	}
 }
@@ -1560,7 +1560,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	assert.Equal(t, uint64(1), *localState.OptedInAtRound)
 	require.NotNil(t, localState.ClosedOutAtRound)
 	assert.Equal(t, uint64(1), *localState.ClosedOutAtRound)
-	require.Equal(t, uint64(0), row.Account.TotalAppsLocalState)
+	require.Equal(t, uint64(0), row.Account.TotalAppsOptedIn)
 
 	q := idb.ApplicationQuery{
 		ApplicationID:  appid,

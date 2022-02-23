@@ -491,9 +491,9 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, *response.Address, tc.address.String())
 				assert.Equal(t, *response.MaxResults, uint64(maxResults))
-				assert.Equal(t, *response.TotalAppsLocalState, uint64(5))
+				assert.Equal(t, *response.TotalAppsOptedIn, uint64(5))
 				assert.Equal(t, *response.TotalCreatedApps, uint64(5))
-				assert.Equal(t, *response.TotalAssets, uint64(5))
+				assert.Equal(t, *response.TotalAssetsOptedIn, uint64(5))
 				assert.Equal(t, *response.TotalCreatedAssets, uint64(5))
 				return
 			}
@@ -534,9 +534,9 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, *response.Address, tc.errAddress.String())
 				require.Equal(t, *response.MaxResults, uint64(maxResults))
-				require.Equal(t, *response.TotalAppsLocalState, uint64(5))
+				require.Equal(t, *response.TotalAppsOptedIn, uint64(5))
 				require.Equal(t, *response.TotalCreatedApps, uint64(5))
-				require.Equal(t, *response.TotalAssets, uint64(5))
+				require.Equal(t, *response.TotalAssetsOptedIn, uint64(5))
 				require.Equal(t, *response.TotalCreatedAssets, uint64(5))
 				return
 			}
@@ -551,15 +551,15 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 				switch acct.Address {
 				case test.AccountA.String():
 					sawAccountA = true
-					require.Equal(t, acct.TotalAppsLocalState, uint64(5))
+					require.Equal(t, acct.TotalAppsOptedIn, uint64(5))
 					require.Equal(t, acct.TotalCreatedApps, uint64(5))
-					require.Equal(t, acct.TotalAssets, uint64(5))
+					require.Equal(t, acct.TotalAssetsOptedIn, uint64(5))
 					require.Equal(t, acct.TotalCreatedAssets, uint64(5))
 				case test.AccountB.String():
 					sawAccountB = true
-					require.Equal(t, acct.TotalAppsLocalState, uint64(5))
+					require.Equal(t, acct.TotalAppsOptedIn, uint64(5))
 					require.Equal(t, acct.TotalCreatedApps, uint64(0))
-					require.Equal(t, acct.TotalAssets, uint64(5))
+					require.Equal(t, acct.TotalAssetsOptedIn, uint64(5))
 					require.Equal(t, acct.TotalCreatedAssets, uint64(0))
 				}
 				checkExclude(t, acct, tc.exclude)
