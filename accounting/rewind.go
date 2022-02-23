@@ -99,7 +99,13 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 		MinRound: round + 1,
 		MaxRound: account.Round,
 	}
+	ctx, cf := context.WithCancel(ctx)
 	txns, r := db.Transactions(ctx, tf)
+	defer func() {
+		cf()
+		for range txns {
+		}
+	}()
 	if r < account.Round {
 		err = ConsistencyError{fmt.Sprintf("queried round r: %d < account.Round: %d", r, account.Round)}
 		return
