@@ -10,7 +10,19 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
+
+	"github.com/algorand/indexer/api/generated/v2"
 )
+
+func TestValidate(t *testing.T) {
+	// Validates that the default config is correctly spelled
+	dmc := GetDefaultDisabledMapConfigForPostgres()
+
+	swag, err := generated.GetSwagger()
+	require.NoError(t, err)
+
+	require.NoError(t, dmc.validate(swag))
+}
 
 // TestFailingParam tests that disabled parameters provided via
 // the FormParams() and QueryParams() functions of the context are appropriately handled
@@ -66,8 +78,8 @@ func TestFailingParam(t *testing.T) {
 	}
 
 	runner := func(t *testing.T, tstruct *testingStruct, ctxFactory func(*echo.Echo, *url.Values, *testingStruct) *echo.Context) {
-		dm := NewDisabledMap()
-		e1 := NewEndpointConfig()
+		dm := MakeDisabledMap()
+		e1 := makeEndpointConfig()
 		e1.EndpointDisabled = false
 		e1.DisabledOptionalParameters["1"] = true
 
@@ -110,9 +122,9 @@ func TestFailingParam(t *testing.T) {
 // TestFailingEndpoint tests that an endpoint which has a disabled required parameter
 // returns a failed endpoint error
 func TestFailingEndpoint(t *testing.T) {
-	dm := NewDisabledMap()
+	dm := MakeDisabledMap()
 
-	e1 := NewEndpointConfig()
+	e1 := makeEndpointConfig()
 	e1.EndpointDisabled = true
 	e1.DisabledOptionalParameters["1"] = true
 
@@ -134,9 +146,9 @@ func TestFailingEndpoint(t *testing.T) {
 // TestVerifyNonExistentHandler tests that nonexistent endpoint is logged
 // but doesn't stop the indexer from functioning
 func TestVerifyNonExistentHandler(t *testing.T) {
-	dm := NewDisabledMap()
+	dm := MakeDisabledMap()
 
-	e1 := NewEndpointConfig()
+	e1 := makeEndpointConfig()
 	e1.EndpointDisabled = false
 	e1.DisabledOptionalParameters["1"] = true
 

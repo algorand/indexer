@@ -83,13 +83,22 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 		log.Fatal(err)
 	}
 
+	// TODO enable this when command line options allows for disabling/enabling overrides
+	//disabledMapConfig := GetDefaultDisabledMapConfigForPostgres()
+	disabledMapConfig := MakeDisabledMapConfig()
+
+	disabledMap, err := MakeDisabledMapFromOA3(swag, disabledMapConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	api := ServerImplementation{
 		EnableAddressSearchRoundRewind: options.DeveloperMode,
 		db:                             db,
 		fetcher:                        fetcherError,
 		timeout:                        options.handlerTimeout(),
 		log:                            log,
-		disabledParams:                 NewDisabledMapFromOA3(swag),
+		disabledParams:                 disabledMap,
 	}
 
 	generated.RegisterHandlers(e, &api, middleware...)
