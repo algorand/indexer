@@ -59,7 +59,7 @@ def main():
         s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
         tarname = 'net_done.tar.bz2'
         tarpath = os.path.join(tempdir, tarname)
-        firstFromS3Prefix(s3, bucket, 'indexer/e2e3', tarname, outpath=tarpath)
+        firstFromS3Prefix(s3, bucket, 'indexer/e2e4', tarname, outpath=tarpath)
         source_is_tar = True
         sourcenet = tarpath
     tempnet = os.path.join(tempdir, 'net')
@@ -111,7 +111,7 @@ def main():
         return 1
     try:
         logger.info('reached expected round={}'.format(lastblock))
-        xrun(['python3', 'misc/validate_accounting.py', '--verbose', '--algod', algoddir, '--indexer', indexerurl], timeout=20)
+#         xrun(['python3', 'misc/validate_accounting.py', '--verbose', '--algod', algoddir, '--indexer', indexerurl], timeout=20)
         xrun(['go', 'run', 'cmd/e2equeries/main.go', '-pg', psqlstring, '-q'], timeout=15)
     except Exception:
         sys.stderr.write(indexerout.dump())
