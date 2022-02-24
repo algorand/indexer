@@ -824,6 +824,12 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 		var accountchan <-chan idb.AccountRow
 		accountchan, round = si.db.GetAccounts(ctx, options)
 
+		// Make sure accountchan is empty at the end of processing.
+		defer func() {
+			for range accountchan {
+			}
+		}()
+
 		if (atRound != nil) && (*atRound > round) {
 			return fmt.Errorf("%s: the requested round %d > the current round %d",
 				errRewindingAccount, *atRound, round)
