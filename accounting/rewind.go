@@ -100,8 +100,10 @@ func AccountAtRound(ctx context.Context, account models.Account, round uint64, d
 		MaxRound: account.Round,
 	}
 	ctx2, cf := context.WithCancel(ctx)
+	// In case of a panic before the next defer, call cf() here.
 	defer cf()
 	txns, r := db.Transactions(ctx2, tf)
+	// In case of an error, make sure the context is cancelled, and the channel is cleaned up.
 	defer func() {
 		cf()
 		for range txns {
