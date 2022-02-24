@@ -13,6 +13,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
+	"github.com/algorand/indexer/util/metrics"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -111,7 +112,13 @@ func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 	var blockbytes []byte
 	aclient := bot.Algod()
 	for {
+		start := time.Now()
+
 		blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(ctx)
+
+		dt := time.Since(start)
+		metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
+
 		if err != nil {
 			// If context has expired.
 			if ctx.Err() != nil {
@@ -150,7 +157,13 @@ func (bot *fetcherImpl) followLoop(ctx context.Context) error {
 					"r=%d error getting status %d", retries, bot.nextRound)
 				continue
 			}
+			start := time.Now()
+
 			blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(ctx)
+
+			dt := time.Since(start)
+			metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
+
 			if err == nil {
 				break
 			} else if ctx.Err() != nil { // if context has expired
