@@ -111,7 +111,7 @@ def main():
         return 1
     try:
         logger.info('reached expected round={}'.format(lastblock))
-#         xrun(['python3', 'misc/validate_accounting.py', '--verbose', '--algod', algoddir, '--indexer', indexerurl], timeout=20)
+        xrun(['python3', 'misc/validate_accounting.py', '--verbose', '--algod', algoddir, '--indexer', indexerurl], timeout=20)
         xrun(['go', 'run', 'cmd/e2equeries/main.go', '-pg', psqlstring, '-q'], timeout=15)
     except Exception:
         sys.stderr.write(indexerout.dump())
