@@ -1774,7 +1774,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		whereParts = append(whereParts, "coalesce(a.deleted, false) = false")
 	}
 	if len(opts.EqualToAuthAddr) > 0 {
-		whereParts = append(whereParts, fmt.Sprintf("a.account_data ->> 'b' = $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("a.account_data ->> 'spend' = $%d", partNumber))
 		whereArgs = append(whereArgs, encoding.Base64(opts.EqualToAuthAddr))
 		partNumber++
 	}
