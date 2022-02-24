@@ -652,6 +652,9 @@
             "$ref": "#/parameters/next"
           },
           {
+            "$ref": "#/parameters/round"
+          },
+          {
             "$ref": "#/parameters/currency-greater-than"
           },
           {
@@ -928,6 +931,7 @@
         "amount-without-pending-rewards",
         "rewards",
         "status",
+        "min-balance",
         "total-apps-opted-in",
         "total-assets-opted-in",
         "total-created-apps",
@@ -940,6 +944,10 @@
         },
         "amount": {
           "description": "\\[algo\\] total number of MicroAlgos in the account",
+          "type": "integer"
+        },
+        "min-balance": {
+          "description": "MicroAlgo balance required by the account.\n\nThe requirement grows based on asset and application usage.",
           "type": "integer"
         },
         "amount-without-pending-rewards": {
@@ -976,7 +984,7 @@
           }
         },
         "created-assets": {
-          "description": "\\[apar\\] parameters of assets created by this account.\n\nNote: the raw account uses `map[int] -\u003e Asset` for this type.",
+          "description": "\\[apar\\] parameters of assets created by this account.\n\nNote: the raw account uses `map[int] -\u003e AssetParams` for this type.",
           "type": "array",
           "items": {
             "$ref": "#/definitions/Asset"
@@ -1337,7 +1345,12 @@
         },
         "asset-id": {
           "description": "Asset ID of the holding.",
-          "type": "integer"
+          "type": "integer",
+          "x-go-name": "AssetID"
+        },
+        "creator": {
+          "description": "Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.",
+          "type": "string"
         },
         "is-frozen": {
           "description": "\\[f\\] whether or not the holding is frozen.",
@@ -2631,7 +2644,7 @@
       }
     },
     "ErrorResponse": {
-      "description": "Response for errors",
+      "description": "An error response with optional data field.",
       "schema":{
         "type": "object",
         "required": [
