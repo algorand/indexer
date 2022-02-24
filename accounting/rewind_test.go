@@ -67,10 +67,12 @@ func TestStaleTransactions1(t *testing.T) {
 		Round:   8,
 	}
 
-	var outCh <-chan idb.TxnRow
+	ch := make(chan idb.TxnRow)
+	var outCh <-chan idb.TxnRow = ch
+	close(ch)
 
 	db := &mocks.IndexerDb{}
-	db.On("GetSpecialAccounts").Return(transactions.SpecialAddresses{}, nil)
+	db.On("GetSpecialAccounts", mock.Anything).Return(transactions.SpecialAddresses{}, nil)
 	db.On("Transactions", mock.Anything, mock.Anything).Return(outCh, uint64(7)).Once()
 
 	account, err := AccountAtRound(context.Background(), account, 6, db)
