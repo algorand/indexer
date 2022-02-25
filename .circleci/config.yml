@@ -104,7 +104,9 @@ commands:
       - run: make lint
       - run: make check
       - run: make integration
-      - run: make test
+      - run:
+          command: make test
+          no_output_timeout: 15m
       - run: make test-generate
       - run: make fakepackage
       - run: make e2e
@@ -115,7 +117,9 @@ commands:
       - run: make lint
       - run: make check
       - run: make integration
-      - run: make test
+      - run:
+          command: make test
+          no_output_timeout: 15m
       - run: make test-generate
       - run: make fakepackage
       - run: make e2e
