@@ -351,22 +351,40 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	defer shutdownFunc()
 
 	///////////
-	// Given // A block containing an address that has created 5 apps and 5 assets, and another address that has opted into them all
+	// Given // A block containing an address that has created 10 apps, deleted 5 apps, and created 10 assets,
+	//       // deleted 5 assets, and another address that has opted into the 5 apps and 5 assets remaining
 	///////////
 
-	expectedAppIDs := []uint64{1, 2, 3, 4, 5}
-	expectedAssetIDs := []uint64{6, 7, 8, 9, 10}
+	deletedAppIDs := []uint64{1, 2, 3, 4, 5}
+	deletedAssetIDs := []uint64{6, 7, 8, 9, 10}
+	expectedAppIDs := []uint64{11, 12, 13, 14, 15}
+	expectedAssetIDs := []uint64{16, 17, 18, 19, 20}
 
 	var txns []transactions.SignedTxnWithAD
+	// make apps and assets
+	for range deletedAppIDs {
+		txns = append(txns, test.MakeCreateAppTxn(test.AccountA))
+	}
+	for _, id := range deletedAssetIDs {
+		txns = append(txns, test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
+			fmt.Sprintf("Asset %d", id), "http://asset.com", test.AccountA))
+	}
 	for range expectedAppIDs {
 		txns = append(txns, test.MakeCreateAppTxn(test.AccountA))
 	}
-
-	for i := range expectedAssetIDs {
+	for _, id := range expectedAssetIDs {
 		txns = append(txns, test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
-			fmt.Sprintf("Asset %d", expectedAssetIDs[i]), "http://asset.com", test.AccountA))
+			fmt.Sprintf("Asset %d", id), "http://asset.com", test.AccountA))
+	}
+	// delete some apps and assets
+	for _, id := range deletedAppIDs {
+		txns = append(txns, test.MakeAppDestroyTxn(id, test.AccountA))
+	}
+	for _, id := range deletedAssetIDs {
+		txns = append(txns, test.MakeAssetDestroyTxn(id, test.AccountA))
 	}
 
+	// opt in to the remaining ones
 	for _, id := range expectedAppIDs {
 		txns = append(txns, test.MakeAppOptInTxn(id, test.AccountA))
 		txns = append(txns, test.MakeAppOptInTxn(id, test.AccountB))
@@ -418,10 +436,13 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	require.True(t, serverUp, "api.Serve did not start server in time")
 
 	// make a real HTTP request (to additionally test generated param parsing logic)
-	makeReq := func(t *testing.T, path string, exclude []string, next *string, limit *uint64) (*http.Response, []byte) {
+	makeReq := func(t *testing.T, path string, exclude []string, includeDeleted bool, next *string, limit *uint64) (*http.Response, []byte) {
 		var query []string
 		if len(exclude) > 0 {
 			query = append(query, "exclude="+strings.Join(exclude, ","))
+		}
+		if includeDeleted {
+			query = append(query, "include-all=true")
 		}
 		if next != nil {
 			query = append(query, "next="+*next)
@@ -466,12 +487,17 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	}
 
 	testCases := []struct {
-		address   basics.Address
-		exclude   []string
-		errStatus int
+		address        basics.Address
+		exclude        []string
+		includeDeleted bool
+		errStatus      int
 	}{
 		{address: test.AccountA, exclude: []string{"all"}},
 		{address: test.AccountA, exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
+		{address: test.AccountA, exclude: []string{"assets", "created-apps"}},
+		{address: test.AccountA, exclude: []string{"assets", "apps-local-state"}},
+		{address: test.AccountA, exclude: []string{"assets", "apps-local-state"}, includeDeleted: true, errStatus: http.StatusBadRequest},
+		{address: test.AccountB, exclude: []string{"created-assets", "apps-local-state"}},
 		{address: test.AccountB, exclude: []string{"assets", "apps-local-state"}},
 		{address: test.AccountA, exclude: []string{"created-assets"}, errStatus: http.StatusBadRequest},
 		{address: test.AccountA, exclude: []string{"created-apps"}, errStatus: http.StatusBadRequest},
@@ -483,18 +509,23 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		maxResults := 14
 		t.Run(fmt.Sprintf("LookupAccountByID exclude %v", tc.exclude), func(t *testing.T) {
 			path := "/v2/accounts/" + tc.address.String()
-			resp, data := makeReq(t, path, tc.exclude, nil, nil)
+			resp, data := makeReq(t, path, tc.exclude, tc.includeDeleted, nil, nil)
 			if tc.errStatus != 0 { // was a 400 error expected? check error response
 				require.Equal(t, tc.errStatus, resp.StatusCode)
 				var response generated.AccountsErrorResponse
 				err = json.Decode(data, &response)
 				require.NoError(t, err)
-				assert.Equal(t, *response.Address, tc.address.String())
-				assert.Equal(t, *response.MaxResults, uint64(maxResults))
-				assert.Equal(t, *response.TotalAppsOptedIn, uint64(5))
-				assert.Equal(t, *response.TotalCreatedApps, uint64(5))
-				assert.Equal(t, *response.TotalAssetsOptedIn, uint64(5))
-				assert.Equal(t, *response.TotalCreatedAssets, uint64(5))
+				assert.Equal(t, tc.address.String(), *response.Address)
+				assert.Equal(t, uint64(maxResults), *response.MaxResults)
+				if tc.includeDeleted {
+					assert.Equal(t, uint64(10), *response.TotalCreatedApps)
+					assert.Equal(t, uint64(10), *response.TotalCreatedAssets)
+				} else {
+					assert.Equal(t, uint64(5), *response.TotalAppsOptedIn)
+					assert.Equal(t, uint64(5), *response.TotalAssetsOptedIn)
+					assert.Equal(t, uint64(5), *response.TotalCreatedApps)
+					assert.Equal(t, uint64(5), *response.TotalCreatedAssets)
+				}
 				return
 			}
 			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
@@ -526,7 +557,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("SearchForAccounts exclude %v", tc.exclude), func(t *testing.T) {
 			maxResults := 14
-			resp, data := makeReq(t, "/v2/accounts", tc.exclude, nil, nil)
+			resp, data := makeReq(t, "/v2/accounts", tc.exclude, false, nil, nil)
 			if tc.errStatus != 0 { // was a 400 error expected? check error response
 				require.Equal(t, tc.errStatus, resp.StatusCode)
 				var response generated.AccountsErrorResponse
@@ -577,7 +608,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		limit := uint64(2) // 2 at a time
 		var assets []generated.AssetHolding
 		for {
-			resp, data := makeReq(t, "/v2/accounts/"+test.AccountB.String()+"/assets", nil, next, &limit)
+			resp, data := makeReq(t, "/v2/accounts/"+test.AccountB.String()+"/assets", nil, false, next, &limit)
 			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 			var response generated.AssetHoldingsResponse
 			err = json.Decode(data, &response)
@@ -608,7 +639,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		limit := uint64(2) // 2 at a time
 		var assets []generated.Asset
 		for {
-			resp, data := makeReq(t, "/v2/accounts/"+test.AccountA.String()+"/created-assets", nil, next, &limit)
+			resp, data := makeReq(t, "/v2/accounts/"+test.AccountA.String()+"/created-assets", nil, false, next, &limit)
 			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 			var response generated.AssetsResponse
 			err = json.Decode(data, &response)
@@ -639,7 +670,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		limit := uint64(2) // 2 at a time
 		var apps []generated.ApplicationLocalState
 		for {
-			resp, data := makeReq(t, "/v2/accounts/"+test.AccountA.String()+"/apps-local-state", nil, next, &limit)
+			resp, data := makeReq(t, "/v2/accounts/"+test.AccountA.String()+"/apps-local-state", nil, false, next, &limit)
 			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 			var response generated.ApplicationLocalStatesResponse
 			err = json.Decode(data, &response)
@@ -670,7 +701,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		limit := uint64(2) // 2 at a time
 		var apps []generated.Application
 		for {
-			resp, data := makeReq(t, "/v2/accounts/"+test.AccountA.String()+"/created-applications", nil, next, &limit)
+			resp, data := makeReq(t, "/v2/accounts/"+test.AccountA.String()+"/created-applications", nil, false, next, &limit)
 			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
 			var response generated.ApplicationsResponse
 			err = json.Decode(data, &response)
@@ -794,7 +825,8 @@ func TestInnerTxn(t *testing.T) {
 			//////////
 			require.Equal(t, http.StatusOK, rec.Code)
 			var response generated.TransactionsResponse
-			json.Decode(rec.Body.Bytes(), &response)
+			err = json.Decode(rec.Body.Bytes(), &response)
+			require.NoError(t, err)
 
 			require.Len(t, response.Transactions, 1)
 			require.Equal(t, expectedID, *(response.Transactions[0].Id))
@@ -862,7 +894,8 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 
 			require.Equal(t, http.StatusOK, rec1.Code)
 			var response generated.TransactionsResponse
-			json.Decode(rec1.Body.Bytes(), &response)
+			err = json.Decode(rec1.Body.Bytes(), &response)
+			require.NoError(t, err)
 			require.Len(t, response.Transactions, 1)
 			require.Equal(t, expectedID, *(response.Transactions[0].Id))
 			pageOneNextToken := *response.NextToken
@@ -884,7 +917,8 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 			//////////
 			var response2 generated.TransactionsResponse
 			require.Equal(t, http.StatusOK, rec2.Code)
-			json.Decode(rec2.Body.Bytes(), &response2)
+			err = json.Decode(rec2.Body.Bytes(), &response2)
+			require.NoError(t, err)
 
 			require.Len(t, response2.Transactions, 0)
 			// The fact that NextToken changes indicates that the search results were different.
@@ -916,7 +950,8 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 		//////////
 		var response generated.BlockResponse
 		require.Equal(t, http.StatusOK, rec.Code)
-		json.Decode(rec.Body.Bytes(), &response)
+		err = json.Decode(rec.Body.Bytes(), &response)
+		require.NoError(t, err)
 
 		require.NotNil(t, response.Transactions)
 		require.Len(t, *response.Transactions, 1)
