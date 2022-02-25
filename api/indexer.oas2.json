@@ -1325,7 +1325,6 @@
       "type": "object",
       "required": [
         "asset-id",
-        "creator",
         "amount",
         "is-frozen"
       ],
