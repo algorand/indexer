@@ -1015,11 +1015,11 @@
           ]
         },
         "total-apps-opted-in": {
-          "description": "The count of all application local data (AppLocalState objects) stored in this account.",
+          "description": "The count of all applications that have been opted in, equivalent to the count of application local data (AppLocalState objects) stored in this account.",
           "type": "integer"
         },
         "total-assets-opted-in": {
-          "description": "The count of all assets (AssetHolding objects) held by this account.",
+          "description": "The count of all assets that have been opted in, equivalent to the count of AssetHolding objects held by this account.",
           "type": "integer"
         },
         "total-created-apps": {
