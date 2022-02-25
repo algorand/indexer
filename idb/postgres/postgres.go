@@ -1785,7 +1785,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 
 func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query string, whereArgs []interface{}) {
 	// Construct query for fetching accounts...
-	const maxWhereParts = 14
+	const maxWhereParts = 9
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs = make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
