@@ -272,6 +272,21 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.Nil(t, r.Account.AppsLocalState)
 		}}, {
 		address: test.AccountA,
+		exclude: []string{"none"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.NotNil(t, r.Account.CreatedAssets)
+			require.NotNil(t, r.Account.CreatedApps)
+			require.NotNil(t, r.Account.Assets)
+			require.NotNil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.NotNil(t, r.Account.CreatedAssets)
+			require.NotNil(t, r.Account.CreatedApps)
+			require.NotNil(t, r.Account.Assets)
+			require.NotNil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
 		exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"},
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.Nil(t, r.Account.CreatedAssets)

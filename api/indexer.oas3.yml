@@ -109,7 +109,8 @@
               "assets",
               "created-assets",
               "apps-local-state",
-              "created-apps"
+              "created-apps",
+              "none"
             ],
             "type": "string"
           },
@@ -2066,7 +2067,8 @@
                   "assets",
                   "created-assets",
                   "apps-local-state",
-                  "created-apps"
+                  "created-apps",
+                  "none"
                 ],
                 "type": "string"
               },
@@ -2246,7 +2248,8 @@
                   "assets",
                   "created-assets",
                   "apps-local-state",
-                  "created-apps"
+                  "created-apps",
+                  "none"
                 ],
                 "type": "string"
               },

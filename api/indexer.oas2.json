@@ -2313,7 +2313,8 @@
           "assets",
           "created-assets",
           "apps-local-state",
-          "created-apps"
+          "created-apps",
+          "none"
         ]
       }
     },
