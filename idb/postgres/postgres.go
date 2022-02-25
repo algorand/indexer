@@ -1696,7 +1696,7 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	}
 
 	// Construct query for fetching accounts...
-	query, whereArgs := db.buildAccountQuery(opts)
+	query, whereArgs := db.buildAccountQuery(opts, false)
 	req := &getAccountsRequest{
 		opts:        opts,
 		blockheader: blockheader,
@@ -1728,11 +1728,12 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 
 	// make a copy of the filters requested
 	o := opts
+	var countOnly bool
 
 	if opts.IncludeDeleted {
 		// if IncludeDeleted is set, need to construct a query (preserving filters) to count deleted values that would be returned from
 		// asset, app, account_asset, account_app
-		o.CountOnly = true
+		countOnly = true
 	} else {
 		// if IncludeDeleted is not set, query AccountData with no resources (preserving filters), to read ad.TotalX counts inside
 		o.IncludeAssetHoldings = false
@@ -1741,7 +1742,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 		o.IncludeAppParams = false
 	}
 
-	query, whereArgs := db.buildAccountQuery(o)
+	query, whereArgs := db.buildAccountQuery(o, countOnly)
 	rows, err := tx.Query(ctx, query, whereArgs...)
 	if err != nil {
 		return fmt.Errorf("account limit query %#v err %v", query, err)
@@ -1759,7 +1760,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 		var accountDataJSONStr []byte
 		var holdingCount, assetCount, appCount, lsCount uint64
 		cols := []interface{}{&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr}
-		if o.CountOnly {
+		if countOnly {
 			if o.IncludeAssetHoldings {
 				cols = append(cols, &holdingCount)
 			}
@@ -1786,7 +1787,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 
 		// check limit against filters (only count what would be returned)
 		var resultCount, totalAssets, totalAssetParams, totalAppLocalStates, totalAppParams uint64
-		if o.CountOnly {
+		if countOnly {
 			totalAssets = holdingCount
 			totalAssetParams = assetCount
 			totalAppLocalStates = lsCount
@@ -1824,7 +1825,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 	return nil
 }
 
-func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query string, whereArgs []interface{}) {
+func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions, countOnly bool) (query string, whereArgs []interface{}) {
 	// Construct query for fetching accounts...
 	const maxWhereParts = 9
 	whereParts := make([]string, 0, maxWhereParts)
@@ -1910,7 +1911,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		if !opts.IncludeDeleted {
 			where = ` WHERE NOT aa.deleted`
 		}
-		if opts.CountOnly {
+		if countOnly {
 			selectCols = `count(*) as holding_count`
 		} else {
 			selectCols = `json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf, json_agg(aa.created_at) as holding_created_at, json_agg(aa.closed_at) as holding_closed_at, json_agg(aa.deleted) as holding_deleted`
@@ -1922,7 +1923,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		if !opts.IncludeDeleted {
 			where = ` WHERE NOT ap.deleted`
 		}
-		if opts.CountOnly {
+		if countOnly {
 			selectCols = `count(*) as asset_count`
 		} else {
 			selectCols = `json_agg(ap.index) as paid, json_agg(ap.params) as pp, json_agg(ap.created_at) as asset_created_at, json_agg(ap.closed_at) as asset_closed_at, json_agg(ap.deleted) as asset_deleted`
@@ -1934,7 +1935,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		if !opts.IncludeDeleted {
 			where = ` WHERE NOT app.deleted`
 		}
-		if opts.CountOnly {
+		if countOnly {
 			selectCols = `count(*) as app_count`
 		} else {
 			selectCols = `json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at, json_agg(app.deleted) as app_deleted`
@@ -1946,7 +1947,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		if !opts.IncludeDeleted {
 			where = ` WHERE NOT la.deleted`
 		}
-		if opts.CountOnly {
+		if countOnly {
 			selectCols = `count(*) as app_count`
 		} else {
 			selectCols = `json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls, json_agg(la.created_at) as ls_created_at, json_agg(la.closed_at) as ls_closed_at, json_agg(la.deleted) as ls_deleted`
@@ -1957,28 +1958,28 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	// query results
 	query += ` SELECT za.addr, za.microalgos, za.rewards_total, za.created_at, za.closed_at, za.deleted, za.rewardsbase, za.keytype, za.account_data`
 	if opts.IncludeAssetHoldings {
-		if opts.CountOnly {
+		if countOnly {
 			query += `, qaa.holding_count`
 		} else {
 			query += `, qaa.haid, qaa.hamt, qaa.hf, qaa.holding_created_at, qaa.holding_closed_at, qaa.holding_deleted`
 		}
 	}
 	if opts.IncludeAssetParams {
-		if opts.CountOnly {
+		if countOnly {
 			query += `, qap.asset_count`
 		} else {
 			query += `, qap.paid, qap.pp, qap.asset_created_at, qap.asset_closed_at, qap.asset_deleted`
 		}
 	}
 	if opts.IncludeAppParams {
-		if opts.CountOnly {
+		if countOnly {
 			query += `, qapp.app_count`
 		} else {
 			query += `, qapp.papps, qapp.ppa, qapp.app_created_at, qapp.app_closed_at, qapp.app_deleted`
 		}
 	}
 	if opts.IncludeAppLocalState {
-		if opts.CountOnly {
+		if countOnly {
 			query += `, qls.ls_count`
 		} else {
 			query += `, qls.lsapps, qls.lsls, qls.ls_created_at, qls.ls_closed_at, qls.ls_deleted`
