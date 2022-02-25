@@ -249,8 +249,14 @@ func handleBlock(block *rpcs.EncodedBlockCert, imp importer.Importer) error {
 	// Ignore round 0 (which is empty).
 	if block.Block.Round() > 0 {
 		metrics.BlockImportTimeSeconds.Observe(dt.Seconds())
-		metrics.ImportedTxnsPerBlock.Observe(float64(len(block.Block.Payset)))
 		metrics.ImportedRoundGauge.Set(float64(block.Block.Round()))
+		txnCountByType := make(map[string]int)
+		for _, txn := range block.Block.Payset {
+			txnCountByType[string(txn.Txn.Type)]++
+		}
+		for k, v := range txnCountByType {
+			metrics.ImportedTxnsPerBlock.WithLabelValues(k).Set(float64(v))
+		}
 	}
 
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())
