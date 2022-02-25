@@ -23,29 +23,29 @@ import (
 )
 
 var (
-	algodDataDir             string
-	algodAddr                string
-	algodToken               string
-	daemonServerAddr         string
-	noAlgod                  bool
-	developerMode            bool
-	allowMigration           bool
-	metricsMode              string
-	tokenString              string
-	writeTimeout             time.Duration
-	readTimeout              time.Duration
-	maxConn                  uint32
-	maxAPIResourcesPerAccount  uint32
-	maxTransactionsLimit     uint32
-	defaultTransactionsLimit uint32
-	maxAccountsLimit         uint32
-	defaultAccountsLimit     uint32
-	maxAssetsLimit           uint32
-	defaultAssetsLimit       uint32
-	maxBalancesLimit         uint32
-	defaultBalancesLimit     uint32
-	maxApplicationsLimit     uint32
-	defaultApplicationsLimit uint32
+	algodDataDir              string
+	algodAddr                 string
+	algodToken                string
+	daemonServerAddr          string
+	noAlgod                   bool
+	developerMode             bool
+	allowMigration            bool
+	metricsMode               string
+	tokenString               string
+	writeTimeout              time.Duration
+	readTimeout               time.Duration
+	maxConn                   uint32
+	maxAPIResourcesPerAccount uint32
+	maxTransactionsLimit      uint32
+	defaultTransactionsLimit  uint32
+	maxAccountsLimit          uint32
+	defaultAccountsLimit      uint32
+	maxAssetsLimit            uint32
+	defaultAssetsLimit        uint32
+	maxBalancesLimit          uint32
+	defaultBalancesLimit      uint32
+	maxApplicationsLimit      uint32
+	defaultApplicationsLimit  uint32
 )
 
 var daemonCmd = &cobra.Command{
@@ -159,7 +159,7 @@ func init() {
 	daemonCmd.Flags().DurationVarP(&readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
 	daemonCmd.Flags().Uint32VarP(&maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
 
-	daemonCmd.Flags().Uint32VarP(&maxAPIResourcesPerAccount, "max-account-nested-objects", "", 0, "set the max # of combined apps and assets per account supported by /v2/accounts API calls before a 400 error is returned (default: unlimited)")
+	daemonCmd.Flags().Uint32VarP(&maxAPIResourcesPerAccount, "max-api-resources-per-account", "", 0, "set the maximum total number of resources (created assets, created apps, asset holdings, and application local state) per account that will be allowed in REST API lookupAccountByID and searchForAccounts responses before returning a 400 Bad Request. Set zero for no limit (default: unlimited)")
 
 	daemonCmd.Flags().Uint32VarP(&maxTransactionsLimit, "max-transactions-limit", "", 10000, "set the maximum allowed Limit parameter for querying transactions")
 	daemonCmd.Flags().Uint32VarP(&defaultTransactionsLimit, "default-transactions-limit", "", 1000, "set the default Limit parameter for querying transactions, if none is provided")
