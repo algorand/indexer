@@ -35,7 +35,7 @@ var (
 	writeTimeout             time.Duration
 	readTimeout              time.Duration
 	maxConn                  uint32
-	maxAccountsAPIResults    uint32
+	maxAccountNestedObjects  uint32
 	maxTransactionsLimit     uint32
 	defaultTransactionsLimit uint32
 	maxAccountsLimit         uint32
@@ -159,7 +159,7 @@ func init() {
 	daemonCmd.Flags().DurationVarP(&readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
 	daemonCmd.Flags().Uint32VarP(&maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
 
-	daemonCmd.Flags().Uint32VarP(&maxAccountsAPIResults, "max-accounts-api-results", "", 0, "set the max # of combined apps and assets per account supported by /v2/accounts API calls before a 400 error is returned (default: unlimited)")
+	daemonCmd.Flags().Uint32VarP(&maxAccountNestedObjects, "max-account-nested-objects", "", 0, "set the max # of combined apps and assets per account supported by /v2/accounts API calls before a 400 error is returned (default: unlimited)")
 
 	daemonCmd.Flags().Uint32VarP(&maxTransactionsLimit, "max-transactions-limit", "", 10000, "set the maximum allowed Limit parameter for querying transactions")
 	daemonCmd.Flags().Uint32VarP(&defaultTransactionsLimit, "default-transactions-limit", "", 1000, "set the default Limit parameter for querying transactions, if none is provided")
@@ -199,7 +199,7 @@ func makeOptions() (options api.ExtraOptions) {
 	options.WriteTimeout = writeTimeout
 	options.ReadTimeout = readTimeout
 
-	options.MaxAccountsAPIResults = uint64(maxAccountsAPIResults)
+	options.MaxAccountNestedObjects = uint64(maxAccountNestedObjects)
 	options.MaxTransactionsLimit = uint64(maxTransactionsLimit)
 	options.DefaultTransactionsLimit = uint64(defaultTransactionsLimit)
 	options.MaxAccountsLimit = uint64(maxAccountsLimit)

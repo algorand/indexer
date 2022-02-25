@@ -175,7 +175,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		IncludeAppParams:     true,
 		Limit:                1,
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
-		MaxResources:         uint64(si.opts.MaxAccountsAPIResults),
+		MaxResources:         uint64(si.opts.MaxAccountNestedObjects),
 	}
 
 	if params.Exclude != nil {
@@ -187,7 +187,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 
 	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
 	if err != nil {
-		var maxErr idb.MaxAccountsAPIResultsError
+		var maxErr idb.MaxAccountNestedObjectsError
 		if errors.As(err, &maxErr) {
 			return ctx.JSON(http.StatusBadRequest, si.maxAccountsErrorToAccountsErrorResponse(maxErr))
 		}
@@ -351,7 +351,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		HasAppID:             uintOrDefault(params.ApplicationId),
 		EqualToAuthAddr:      spendingAddr[:],
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
-		MaxResources:         uint64(si.opts.MaxAccountsAPIResults),
+		MaxResources:         uint64(si.opts.MaxAccountNestedObjects),
 	}
 
 	if params.Exclude != nil {
@@ -380,7 +380,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 
 	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
 	if err != nil {
-		var maxErr idb.MaxAccountsAPIResultsError
+		var maxErr idb.MaxAccountNestedObjectsError
 		if errors.As(err, &maxErr) {
 			return ctx.JSON(http.StatusBadRequest, si.maxAccountsErrorToAccountsErrorResponse(maxErr))
 		}

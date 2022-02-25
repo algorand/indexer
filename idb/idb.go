@@ -275,17 +275,17 @@ type AccountQueryOptions struct {
 // AccountRow is metadata relating to one account in a account query.
 type AccountRow struct {
 	Account models.Account
-	Error   error // could be MaxAccountsAPIResultsError
+	Error   error // could be MaxAccountNestedObjectsError
 }
 
-// MaxAccountsAPIResultsError records the offending address and resource count that exceeded the limit.
-type MaxAccountsAPIResultsError struct {
+// MaxAccountNestedObjectsError records the offending address and resource count that exceeded the limit.
+type MaxAccountNestedObjectsError struct {
 	Address basics.Address
 
 	TotalAppLocalStates, TotalAppParams, TotalAssets, TotalAssetParams uint64
 }
 
-func (e MaxAccountsAPIResultsError) Error() string { return "Max accounts API results limit exceeded" }
+func (e MaxAccountNestedObjectsError) Error() string { return "Max accounts API results limit exceeded" }
 
 // AssetsQuery is a parameter object with all of the asset filter options.
 type AssetsQuery struct {

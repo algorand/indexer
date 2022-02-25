@@ -1721,6 +1721,13 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 }
 
 func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, opts idb.AccountQueryOptions) error {
+	// skip check if no resources are requested
+	if !opts.IncludeAssetHoldings && !opts.IncludeAssetParams && !opts.IncludeAppLocalState && !opts.IncludeAppParams {
+		return nil
+
+	}
+
+	// build query based on copy of provided filter options, but with no resources, to count total # that would be returned
 	o := opts
 	o.IncludeAssetHoldings = false
 	o.IncludeAssetParams = false
@@ -1771,7 +1778,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 		if resultCount > opts.MaxResources {
 			var aaddr basics.Address
 			copy(aaddr[:], addr)
-			return idb.MaxAccountsAPIResultsError{
+			return idb.MaxAccountNestedObjectsError{
 				Address:             aaddr,
 				TotalAppLocalStates: ad.TotalAppLocalStates,
 				TotalAppParams:      ad.TotalAppParams,

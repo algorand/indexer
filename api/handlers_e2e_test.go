@@ -395,7 +395,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	serverCtx, serverCancel := context.WithCancel(context.Background())
 	defer serverCancel()
 	opts := defaultOpts
-	opts.MaxAccountsAPIResults = uint64(maxResults)
+	opts.MaxAccountNestedObjects = uint64(maxResults)
 	listenAddr := "localhost:8989"
 	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
 

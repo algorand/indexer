@@ -38,10 +38,10 @@ type ExtraOptions struct {
 	// ReadTimeout is the maximum duration for reading the entire request, including the body.
 	ReadTimeout time.Duration
 
-	// MaxAccountsAPIResults is the maximum number of combined AppParams, AppLocalState, AssetParams,
+	// MaxAccountNestedObjects is the maximum number of combined AppParams, AppLocalState, AssetParams,
 	// and AssetHolding resources per address that can be returned by the /v2/accounts endpoints.
 	// If an address exceeds this number, a 400 error is returned. Zero means unlimited.
-	MaxAccountsAPIResults uint64
+	MaxAccountNestedObjects uint64
 
 	/////////////////////
 	// Limit Constants //
