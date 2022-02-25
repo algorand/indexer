@@ -285,7 +285,9 @@ type MaxAccountNestedObjectsError struct {
 	TotalAppLocalStates, TotalAppParams, TotalAssets, TotalAssetParams uint64
 }
 
-func (e MaxAccountNestedObjectsError) Error() string { return "Max accounts API results limit exceeded" }
+func (e MaxAccountNestedObjectsError) Error() string {
+	return "Max accounts API results limit exceeded"
+}
 
 // AssetsQuery is a parameter object with all of the asset filter options.
 type AssetsQuery struct {
