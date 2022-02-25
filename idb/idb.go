@@ -269,6 +269,9 @@ type AccountQueryOptions struct {
 	// IncludeDeleted indicated whether to include deleted Assets, Applications, etc within the account.
 	IncludeDeleted bool
 
+	// CountOnly returns a count of assets and applications, rather than data.
+	CountOnly bool
+
 	Limit uint64
 }
 
