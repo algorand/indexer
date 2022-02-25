@@ -2290,7 +2290,7 @@ func (db *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQu
 
 	query := `SELECT app, addr, localstate, created_at, closed_at, deleted FROM account_app `
 
-	const maxWhereParts = 30
+	const maxWhereParts = 4
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
