@@ -2166,7 +2166,7 @@ func (db *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQue
 
 	query := `SELECT index, creator, params, created_at, closed_at, deleted FROM app `
 
-	const maxWhereParts = 30
+	const maxWhereParts = 4
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
