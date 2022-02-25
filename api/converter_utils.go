@@ -635,9 +635,9 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	return
 }
 
-func (si *ServerImplementation) maxAccountsErrorToAccountsErrorResponse(maxErr idb.MaxAccountNestedObjectsError) generated.AccountsErrorResponse {
+func (si *ServerImplementation) maxAccountsErrorToAccountsErrorResponse(maxErr idb.MaxAPIResourcesPerAccountError) generated.AccountsErrorResponse {
 	addr := maxErr.Address.String()
-	max := uint64(si.opts.MaxAccountNestedObjects)
+	max := uint64(si.opts.MaxAPIResourcesPerAccount)
 	return generated.AccountsErrorResponse{
 		Message:            "Result limit exceeded",
 		MaxResults:         &max,

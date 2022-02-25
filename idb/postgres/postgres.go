@@ -1813,7 +1813,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 		if resultCount > opts.MaxResources {
 			var aaddr basics.Address
 			copy(aaddr[:], addr)
-			return idb.MaxAccountNestedObjectsError{
+			return idb.MaxAPIResourcesPerAccountError{
 				Address:             aaddr,
 				TotalAppLocalStates: totalAppLocalStates,
 				TotalAppParams:      totalAppParams,
