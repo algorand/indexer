@@ -70,6 +70,9 @@
             "$ref": "#/parameters/include-all"
           },
           {
+            "$ref": "#/parameters/exclude"
+          },
+          {
             "$ref": "#/parameters/currency-less-than"
           },
           {
@@ -90,7 +93,7 @@
             "$ref": "#/responses/AccountsResponse"
           },
           "400": {
-            "$ref": "#/responses/ErrorResponse"
+            "$ref": "#/responses/AccountsErrorResponse"
           },
           "500": {
             "$ref": "#/responses/ErrorResponse"
@@ -120,11 +123,198 @@
           },
           {
             "$ref": "#/parameters/include-all"
+          },
+          {
+            "$ref": "#/parameters/exclude"
           }
         ],
         "responses": {
           "200": {
             "$ref": "#/responses/AccountResponse"
+          },
+          "400": {
+            "$ref": "#/responses/AccountsErrorResponse"
+          },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account-id}/assets": {
+      "get": {
+        "description": "Lookup an account's asset holdings, optionally for a specific ID.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "lookup"
+        ],
+        "operationId": "lookupAccountAssets",
+        "parameters": [
+          {
+            "$ref": "#/parameters/account-id"
+          },
+          {
+            "$ref": "#/parameters/asset-id"
+          },
+          {
+            "$ref": "#/parameters/include-all"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/next"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/AssetHoldingsResponse"
+          },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account-id}/created-assets": {
+      "get": {
+        "description": "Lookup an account's created asset parameters, optionally for a specific ID.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "lookup"
+        ],
+        "operationId": "lookupAccountCreatedAssets",
+        "parameters": [
+          {
+            "$ref": "#/parameters/account-id"
+          },
+          {
+            "$ref": "#/parameters/asset-id"
+          },
+          {
+            "$ref": "#/parameters/include-all"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/next"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/AssetsResponse"
+          },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account-id}/apps-local-state": {
+      "get": {
+        "description": "Lookup an account's asset holdings, optionally for a specific ID.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "lookup"
+        ],
+        "operationId": "lookupAccountAppLocalStates",
+        "parameters": [
+          {
+            "$ref": "#/parameters/account-id"
+          },
+          {
+            "$ref": "#/parameters/application-id"
+          },
+          {
+            "$ref": "#/parameters/include-all"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/next"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ApplicationLocalStatesResponse"
+          },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
+          }
+        }
+      }
+    },
+    "/v2/accounts/{account-id}/created-applications": {
+      "get": {
+        "description": "Lookup an account's created application parameters, optionally for a specific ID.",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "lookup"
+        ],
+        "operationId": "lookupAccountCreatedApplications",
+        "parameters": [
+          {
+            "$ref": "#/parameters/account-id"
+          },
+          {
+            "$ref": "#/parameters/application-id"
+          },
+          {
+            "$ref": "#/parameters/include-all"
+          },
+          {
+            "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/next"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/ApplicationsResponse"
           },
           "400": {
             "$ref": "#/responses/ErrorResponse"
@@ -230,6 +420,12 @@
         "parameters": [
           {
             "$ref": "#/parameters/application-id"
+          },
+          {
+            "type": "string",
+            "description": "Filter just applications with the given creator address.",
+            "name": "creator",
+            "in": "query"
           },
           {
             "$ref": "#/parameters/include-all"
@@ -454,9 +650,6 @@
           },
           {
             "$ref": "#/parameters/next"
-          },
-          {
-            "$ref": "#/parameters/round"
           },
           {
             "$ref": "#/parameters/currency-greater-than"
@@ -734,7 +927,11 @@
         "pending-rewards",
         "amount-without-pending-rewards",
         "rewards",
-        "status"
+        "status",
+        "total-apps-opted-in",
+        "total-assets-opted-in",
+        "total-created-apps",
+        "total-created-assets"
       ],
       "properties": {
         "address": {
@@ -816,6 +1013,22 @@
             "msig",
             "lsig"
           ]
+        },
+        "total-apps-opted-in": {
+          "description": "The count of all application local data (AppLocalState objects) stored in this account.",
+          "type": "integer"
+        },
+        "total-assets-opted-in": {
+          "description": "The count of all assets (AssetHolding objects) held by this account.",
+          "type": "integer"
+        },
+        "total-created-apps": {
+          "description": "The count of all apps (AppParams objects) created by this account.",
+          "type": "integer"
+        },
+        "total-created-assets": {
+          "description": "The count of all assets (AssetParams objects) created by this account.",
+          "type": "integer"
         },
         "auth-addr": {
           "description": "\\[spend\\] the address against which signing should be checked. If empty, the address of the current account is used. This field can be updated in any transaction by setting the RekeyTo field.",
@@ -1125,10 +1338,6 @@
         "asset-id": {
           "description": "Asset ID of the holding.",
           "type": "integer"
-        },
-        "creator": {
-          "description": "Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.",
-          "type": "string"
         },
         "is-frozen": {
           "description": "\\[f\\] whether or not the holding is frozen.",
@@ -2092,6 +2301,22 @@
       "name": "include-all",
       "in": "query"
     },
+    "exclude": {
+      "description": "Exclude additional items such as asset holdings, application local data stored for this account, asset parameters created by this account, and application parameters created by this account.",
+      "name": "exclude",
+      "in": "query",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "all",
+          "assets",
+          "created-assets",
+          "apps-local-state",
+          "created-apps"
+        ]
+      }
+    },
     "limit": {
       "type": "integer",
       "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
@@ -2203,6 +2428,32 @@
           "current-round": {
             "description": "Round at which the results were computed.",
             "type": "integer"
+          }
+        }
+      }
+    },
+    "AssetHoldingsResponse": {
+      "description": "(empty)",
+      "schema": {
+        "type": "object",
+        "required": [
+          "current-round",
+          "assets"
+        ],
+        "properties": {
+          "current-round": {
+            "description": "Round at which the results were computed.",
+            "type": "integer"
+          },
+          "next-token": {
+            "description": "Used for pagination, when making another request provide this token with the next parameter.",
+            "type": "string"
+          },
+          "assets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/AssetHolding"
+            }
           }
         }
       }
@@ -2334,6 +2585,32 @@
         }
       }
     },
+    "ApplicationLocalStatesResponse": {
+      "description": "(empty)",
+      "schema": {
+        "type": "object",
+        "required": [
+          "current-round",
+          "apps-local-states"
+        ],
+        "properties": {
+          "apps-local-states": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/ApplicationLocalState"
+            }
+          },
+          "current-round": {
+            "description": "Round at which the results were computed.",
+            "type": "integer"
+          },
+          "next-token": {
+            "description": "Used for pagination, when making another request provide this token with the next parameter.",
+            "type": "string"
+          }
+        }
+      }
+    },
     "AssetResponse": {
       "description": "(empty)",
       "schema": {
@@ -2366,6 +2643,39 @@
           },
           "message": {
             "type": "string"
+          }
+        }
+      }
+    },
+    "AccountsErrorResponse": {
+      "description": "An error response for the /v2/accounts API endpoint, with optional information about limits that were exceeded.",
+      "type": "object",
+      "schema":{
+        "type": "object",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "max-results": {
+            "type": "integer"
+          },
+          "address": {
+            "type": "string"
+          },
+          "total-apps-opted-in": {
+            "type": "integer"
+          },
+          "total-assets-opted-in": {
+            "type": "integer"
+          },
+          "total-created-apps": {
+            "type": "integer"
+          },
+          "total-created-assets": {
+            "type": "integer"
           }
         }
       }

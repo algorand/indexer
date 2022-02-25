@@ -84,6 +84,18 @@ type Account struct {
 	// *  Online  - indicates that the associated account used as part of the delegation pool.
 	// *   NotParticipating - indicates that the associated account is neither a delegator nor a delegate.
 	Status string `json:"status"`
+
+	// The count of all application local data (AppLocalState objects) stored in this account.
+	TotalAppsOptedIn uint64 `json:"total-apps-opted-in"`
+
+	// The count of all assets (AssetHolding objects) held by this account.
+	TotalAssetsOptedIn uint64 `json:"total-assets-opted-in"`
+
+	// The count of all apps (AppParams objects) created by this account.
+	TotalCreatedApps uint64 `json:"total-created-apps"`
+
+	// The count of all assets (AssetParams objects) created by this account.
+	TotalCreatedAssets uint64 `json:"total-created-assets"`
 }
 
 // AccountParticipation defines model for AccountParticipation.
@@ -234,9 +246,6 @@ type AssetHolding struct {
 
 	// Asset ID of the holding.
 	AssetId uint64 `json:"asset-id"`
-
-	// Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.
-	Creator string `json:"creator"`
 
 	// Whether or not the asset holding is currently deleted from its account.
 	Deleted *bool `json:"deleted,omitempty"`
@@ -847,6 +856,9 @@ type CurrencyGreaterThan uint64
 // CurrencyLessThan defines model for currency-less-than.
 type CurrencyLessThan uint64
 
+// Exclude defines model for exclude.
+type Exclude []string
+
 // ExcludeCloseTo defines model for exclude-close-to.
 type ExcludeCloseTo bool
 
@@ -902,9 +914,31 @@ type AccountResponse struct {
 	CurrentRound uint64 `json:"current-round"`
 }
 
+// AccountsErrorResponse defines model for AccountsErrorResponse.
+type AccountsErrorResponse struct {
+	Address            *string `json:"address,omitempty"`
+	MaxResults         *uint64 `json:"max-results,omitempty"`
+	Message            string  `json:"message"`
+	TotalAppsOptedIn   *uint64 `json:"total-apps-opted-in,omitempty"`
+	TotalAssetsOptedIn *uint64 `json:"total-assets-opted-in,omitempty"`
+	TotalCreatedApps   *uint64 `json:"total-created-apps,omitempty"`
+	TotalCreatedAssets *uint64 `json:"total-created-assets,omitempty"`
+}
+
 // AccountsResponse defines model for AccountsResponse.
 type AccountsResponse struct {
 	Accounts []Account `json:"accounts"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
+}
+
+// ApplicationLocalStatesResponse defines model for ApplicationLocalStatesResponse.
+type ApplicationLocalStatesResponse struct {
+	AppsLocalStates []ApplicationLocalState `json:"apps-local-states"`
 
 	// Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`
@@ -951,6 +985,17 @@ type ApplicationsResponse struct {
 // AssetBalancesResponse defines model for AssetBalancesResponse.
 type AssetBalancesResponse struct {
 	Balances []MiniAssetHolding `json:"balances"`
+
+	// Round at which the results were computed.
+	CurrentRound uint64 `json:"current-round"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
+}
+
+// AssetHoldingsResponse defines model for AssetHoldingsResponse.
+type AssetHoldingsResponse struct {
+	Assets []AssetHolding `json:"assets"`
 
 	// Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`

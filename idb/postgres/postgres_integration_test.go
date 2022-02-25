@@ -860,10 +860,10 @@ func TestAppExtraPages(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, uint32(1), ap.ExtraProgramPages)
 
-	var filter generated.SearchForApplicationsParams
+	var filter idb.ApplicationQuery
 	var aidx uint64 = uint64(index)
-	filter.ApplicationId = &aidx
-	appRows, _ := db.Applications(context.Background(), &filter)
+	filter.ApplicationID = aidx
+	appRows, _ := db.Applications(context.Background(), filter)
 	num := 0
 	for row := range appRows {
 		require.NoError(t, row.Error)
@@ -873,7 +873,7 @@ func TestAppExtraPages(t *testing.T) {
 	}
 	require.Equal(t, 1, num)
 
-	rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:]})
+	rows, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: test.AccountA[:], IncludeAppParams: true})
 	num = 0
 	var createdApps *[]generated.Application
 	for row := range rows {
@@ -881,6 +881,7 @@ func TestAppExtraPages(t *testing.T) {
 		num++
 		require.NotNil(t, row.Account.AppsTotalExtraPages, "we should have this field")
 		require.Equal(t, uint64(1), *row.Account.AppsTotalExtraPages)
+		require.Equal(t, uint64(1), row.Account.TotalCreatedApps)
 		createdApps = row.Account.CreatedApps
 	}
 	require.Equal(t, 1, num)
@@ -978,6 +979,7 @@ func TestLargeAssetAmount(t *testing.T) {
 		require.NoError(t, row.Error)
 		require.NotNil(t, row.Account.Assets)
 		require.Equal(t, 1, len(*row.Account.Assets))
+		require.Equal(t, uint64(1), row.Account.TotalAssetsOptedIn)
 		assert.Equal(t, uint64(math.MaxUint64), (*row.Account.Assets)[0].Amount)
 	}
 }
@@ -1143,6 +1145,7 @@ func TestNonDisplayableUTF8(t *testing.T) {
 				require.NoError(t, acct.Error)
 				require.NotNil(t, acct.Account.CreatedAssets)
 				require.Len(t, *acct.Account.CreatedAssets, 1)
+				require.Equal(t, uint64(1), acct.Account.TotalCreatedAssets)
 
 				asset := (*acct.Account.CreatedAssets)[0]
 				if testcase.ExpectedAssetName == "" {
@@ -1502,12 +1505,11 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 	err = db.AddBlock(&block)
 	require.NoError(t, err)
 
-	yes := true
-	opts := generated.SearchForApplicationsParams{
-		ApplicationId: &appid,
-		IncludeAll:    &yes,
+	opts := idb.ApplicationQuery{
+		ApplicationID:  appid,
+		IncludeDeleted: true,
 	}
-	rowsCh, _ := db.Applications(context.Background(), &opts)
+	rowsCh, _ := db.Applications(context.Background(), opts)
 
 	row, ok := <-rowsCh
 	require.True(t, ok)
@@ -1538,8 +1540,9 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	require.NoError(t, err)
 
 	opts := idb.AccountQueryOptions{
-		EqualToAddress: test.AccountB[:],
-		IncludeDeleted: true,
+		EqualToAddress:       test.AccountB[:],
+		IncludeDeleted:       true,
+		IncludeAppLocalState: true,
 	}
 	rowsCh, _ := db.GetAccounts(context.Background(), opts)
 
@@ -1557,6 +1560,24 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	assert.Equal(t, uint64(1), *localState.OptedInAtRound)
 	require.NotNil(t, localState.ClosedOutAtRound)
 	assert.Equal(t, uint64(1), *localState.ClosedOutAtRound)
+	require.Equal(t, uint64(0), row.Account.TotalAppsOptedIn)
+
+	q := idb.ApplicationQuery{
+		ApplicationID:  appid,
+		IncludeDeleted: true,
+	}
+	lsRows, _ := db.AppLocalState(context.Background(), q)
+	lsRow, ok := <-lsRows
+	require.True(t, ok)
+	require.NoError(t, lsRow.Error)
+	ls := lsRow.AppLocalState
+	require.Equal(t, appid, ls.Id)
+	require.NotNil(t, ls.Deleted)
+	assert.True(t, *ls.Deleted)
+	require.NotNil(t, ls.OptedInAtRound)
+	assert.Equal(t, uint64(1), *ls.OptedInAtRound)
+	require.NotNil(t, ls.ClosedOutAtRound)
+	assert.Equal(t, uint64(1), *ls.ClosedOutAtRound)
 }
 
 // TestSearchForInnerTransactionReturnsRootTransaction checks that the parent

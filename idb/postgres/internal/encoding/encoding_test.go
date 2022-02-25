@@ -466,20 +466,21 @@ func TestSpecialAddressesEncoding(t *testing.T) {
 // Test that encoding of AccountTotals is as expected and that decoding results in the
 // same object.
 func TestAccountTotalsEncoding(t *testing.T) {
+	random := rand.New(rand.NewSource(1))
 	totals := ledgercore.AccountTotals{
 		Online: ledgercore.AlgoCount{
-			Money:       basics.MicroAlgos{Raw: rand.Uint64()},
-			RewardUnits: rand.Uint64(),
+			Money:       basics.MicroAlgos{Raw: random.Uint64()},
+			RewardUnits: random.Uint64(),
 		},
 		Offline: ledgercore.AlgoCount{
-			Money:       basics.MicroAlgos{Raw: rand.Uint64()},
-			RewardUnits: rand.Uint64(),
+			Money:       basics.MicroAlgos{Raw: random.Uint64()},
+			RewardUnits: random.Uint64(),
 		},
 		NotParticipating: ledgercore.AlgoCount{
-			Money:       basics.MicroAlgos{Raw: rand.Uint64()},
-			RewardUnits: rand.Uint64(),
+			Money:       basics.MicroAlgos{Raw: random.Uint64()},
+			RewardUnits: random.Uint64(),
 		},
-		RewardsLevel: rand.Uint64(),
+		RewardsLevel: random.Uint64(),
 	}
 
 	buf := EncodeAccountTotals(&totals)

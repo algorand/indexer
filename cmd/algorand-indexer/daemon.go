@@ -23,18 +23,29 @@ import (
 )
 
 var (
-	algodDataDir     string
-	algodAddr        string
-	algodToken       string
-	daemonServerAddr string
-	noAlgod          bool
-	developerMode    bool
-	allowMigration   bool
-	metricsMode      string
-	tokenString      string
-	writeTimeout     time.Duration
-	readTimeout      time.Duration
-	maxConn          uint32
+	algodDataDir             string
+	algodAddr                string
+	algodToken               string
+	daemonServerAddr         string
+	noAlgod                  bool
+	developerMode            bool
+	allowMigration           bool
+	metricsMode              string
+	tokenString              string
+	writeTimeout             time.Duration
+	readTimeout              time.Duration
+	maxConn                  uint32
+	maxAccountNestedObjects  uint32
+	maxTransactionsLimit     uint32
+	defaultTransactionsLimit uint32
+	maxAccountsLimit         uint32
+	defaultAccountsLimit     uint32
+	maxAssetsLimit           uint32
+	defaultAssetsLimit       uint32
+	maxBalancesLimit         uint32
+	defaultBalancesLimit     uint32
+	maxApplicationsLimit     uint32
+	defaultApplicationsLimit uint32
 )
 
 var daemonCmd = &cobra.Command{
@@ -148,6 +159,19 @@ func init() {
 	daemonCmd.Flags().DurationVarP(&readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
 	daemonCmd.Flags().Uint32VarP(&maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
 
+	daemonCmd.Flags().Uint32VarP(&maxAccountNestedObjects, "max-account-nested-objects", "", 0, "set the max # of combined apps and assets per account supported by /v2/accounts API calls before a 400 error is returned (default: unlimited)")
+
+	daemonCmd.Flags().Uint32VarP(&maxTransactionsLimit, "max-transactions-limit", "", 10000, "set the maximum allowed Limit parameter for querying transactions")
+	daemonCmd.Flags().Uint32VarP(&defaultTransactionsLimit, "default-transactions-limit", "", 1000, "set the default Limit parameter for querying transactions, if none is provided")
+	daemonCmd.Flags().Uint32VarP(&maxAccountsLimit, "max-accounts-limit", "", 1000, "set the maximum allowed Limit parameter for querying accounts")
+	daemonCmd.Flags().Uint32VarP(&defaultAccountsLimit, "default-accounts-limit", "", 100, "set the default Limit parameter for querying accounts, if none is provided")
+	daemonCmd.Flags().Uint32VarP(&maxAssetsLimit, "max-assets-limit", "", 1000, "set the maximum allowed Limit parameter for querying assets")
+	daemonCmd.Flags().Uint32VarP(&defaultAssetsLimit, "default-assets-limit", "", 100, "set the default Limit parameter for querying assets, if none is provided")
+	daemonCmd.Flags().Uint32VarP(&maxBalancesLimit, "max-balances-limit", "", 10000, "set the maximum allowed Limit parameter for querying balances")
+	daemonCmd.Flags().Uint32VarP(&defaultBalancesLimit, "default-balances-limit", "", 1000, "set the default Limit parameter for querying balances, if none is provided")
+	daemonCmd.Flags().Uint32VarP(&maxApplicationsLimit, "max-applications-limit", "", 1000, "set the maximum allowed Limit parameter for querying applications")
+	daemonCmd.Flags().Uint32VarP(&defaultApplicationsLimit, "default-applications-limit", "", 100, "set the default Limit parameter for querying applications, if none is provided")
+
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
 	viper.RegisterAlias("server", "server-address")
@@ -174,6 +198,18 @@ func makeOptions() (options api.ExtraOptions) {
 	}
 	options.WriteTimeout = writeTimeout
 	options.ReadTimeout = readTimeout
+
+	options.MaxAccountNestedObjects = uint64(maxAccountNestedObjects)
+	options.MaxTransactionsLimit = uint64(maxTransactionsLimit)
+	options.DefaultTransactionsLimit = uint64(defaultTransactionsLimit)
+	options.MaxAccountsLimit = uint64(maxAccountsLimit)
+	options.DefaultAccountsLimit = uint64(defaultAccountsLimit)
+	options.MaxAssetsLimit = uint64(maxAssetsLimit)
+	options.DefaultAssetsLimit = uint64(defaultAssetsLimit)
+	options.MaxBalancesLimit = uint64(maxBalancesLimit)
+	options.DefaultBalancesLimit = uint64(defaultBalancesLimit)
+	options.MaxApplicationsLimit = uint64(maxApplicationsLimit)
+	options.DefaultApplicationsLimit = uint64(defaultApplicationsLimit)
 
 	return
 }

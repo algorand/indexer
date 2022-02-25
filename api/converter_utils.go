@@ -525,7 +525,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 	return txn, nil
 }
 
-func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.AssetsQuery, error) {
+func (si *ServerImplementation) assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.AssetsQuery, error) {
 	creator, errorArr := decodeAddress(params.Creator, "creator", make([]string, 0))
 	if len(errorArr) != 0 {
 		return idb.AssetsQuery{}, errors.New(errUnableToParseAddress)
@@ -548,13 +548,37 @@ func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.Assets
 		Unit:               strOrDefault(params.Unit),
 		Query:              "",
 		IncludeDeleted:     boolOrDefault(params.IncludeAll),
-		Limit:              min(uintOrDefaultValue(params.Limit, defaultAssetsLimit), maxAssetsLimit),
+		Limit:              min(uintOrDefaultValue(params.Limit, si.opts.DefaultAssetsLimit), si.opts.MaxAssetsLimit),
 	}
 
 	return query, nil
 }
 
-func transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {
+func (si *ServerImplementation) appParamsToApplicationQuery(params generated.SearchForApplicationsParams) (idb.ApplicationQuery, error) {
+	addr, errorArr := decodeAddress(params.Creator, "creator", make([]string, 0))
+	if len(errorArr) != 0 {
+		return idb.ApplicationQuery{}, errors.New(errUnableToParseAddress)
+	}
+
+	var appGreaterThan uint64 = 0
+	if params.Next != nil {
+		agt, err := strconv.ParseUint(*params.Next, 10, 64)
+		if err != nil {
+			return idb.ApplicationQuery{}, fmt.Errorf("%s: %v", errUnableToParseNext, err)
+		}
+		appGreaterThan = agt
+	}
+
+	return idb.ApplicationQuery{
+		ApplicationID:            uintOrDefault(params.ApplicationId),
+		ApplicationIDGreaterThan: appGreaterThan,
+		Address:                  addr,
+		IncludeDeleted:           boolOrDefault(params.IncludeAll),
+		Limit:                    min(uintOrDefaultValue(params.Limit, si.opts.DefaultApplicationsLimit), si.opts.MaxApplicationsLimit),
+	}, nil
+}
+
+func (si *ServerImplementation) transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {
 	var errorArr = make([]string, 0)
 
 	// Integer
@@ -562,7 +586,7 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.MinRound = uintOrDefault(params.MinRound)
 	filter.AssetID = uintOrDefault(params.AssetId)
 	filter.ApplicationID = uintOrDefault(params.ApplicationId)
-	filter.Limit = min(uintOrDefaultValue(params.Limit, defaultTransactionsLimit), maxTransactionsLimit)
+	filter.Limit = min(uintOrDefaultValue(params.Limit, si.opts.DefaultTransactionsLimit), si.opts.MaxTransactionsLimit)
 
 	// filter Algos or Asset but not both.
 	if filter.AssetID != 0 {
@@ -609,4 +633,18 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	}
 
 	return
+}
+
+func (si *ServerImplementation) maxAccountsErrorToAccountsErrorResponse(maxErr idb.MaxAccountNestedObjectsError) generated.AccountsErrorResponse {
+	addr := maxErr.Address.String()
+	max := uint64(si.opts.MaxAccountNestedObjects)
+	return generated.AccountsErrorResponse{
+		Message:            "Result limit exceeded",
+		MaxResults:         &max,
+		Address:            &addr,
+		TotalAssetsOptedIn: &maxErr.TotalAssets,
+		TotalCreatedAssets: &maxErr.TotalAssetParams,
+		TotalAppsOptedIn:   &maxErr.TotalAppLocalStates,
+		TotalCreatedApps:   &maxErr.TotalAppParams,
+	}
 }

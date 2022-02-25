@@ -134,20 +134,33 @@ If the maximum number of connections/active queries is reached, subsequent conne
 
 Settings can be provided from the command line, a configuration file, or an environment variable
 
-| Command Line Flag (long) | (short) | Config File                | Environment Variable               |
-| ------------------------ | ------- | -------------------------- | ---------------------------------- |
-| postgres                 | P       | postgres-connection-string | INDEXER_POSTGRES_CONNECTION_STRING |
-| pidfile                  |         | pidfile                    | INDEXER_PIDFILE                    |
-| algod                    | d       | algod-data-dir             | INDEXER_ALGOD_DATA_DIR             |
-| algod-net                |         | algod-address              | INDEXER_ALGOD_ADDRESS              |
-| algod-token              |         | algod-token                | INDEXER_ALGOD_TOKEN                |
-| genesis                  | g       | genesis                    | INDEXER_GENESIS                    |
-| server                   | S       | server-address             | INDEXER_SERVER_ADDRESS             |
-| no-algod                 |         | no-algod                   | INDEXER_NO_ALGOD                   |
-| token                    | t       | api-token                  | INDEXER_API_TOKEN                  |
-| dev-mode                 |         | dev-mode                   | INDEXER_DEV_MODE                   |
-| metrics-mode             |         | metrics-mode               | INDEXER_METRICS_MODE               |
-| max-conn                 |         | max-conn                   | INDEXER_MAX_CONN                   |
+| Command Line Flag (long)   | (short) | Config File                | Environment Variable               |
+|----------------------------|---------|----------------------------|------------------------------------|
+| postgres                   | P       | postgres-connection-string | INDEXER_POSTGRES_CONNECTION_STRING |
+| pidfile                    |         | pidfile                    | INDEXER_PIDFILE                    |
+| algod                      | d       | algod-data-dir             | INDEXER_ALGOD_DATA_DIR             |
+| algod-net                  |         | algod-address              | INDEXER_ALGOD_ADDRESS              |
+| algod-token                |         | algod-token                | INDEXER_ALGOD_TOKEN                |
+| genesis                    | g       | genesis                    | INDEXER_GENESIS                    |
+| server                     | S       | server-address             | INDEXER_SERVER_ADDRESS             |
+| no-algod                   |         | no-algod                   | INDEXER_NO_ALGOD                   |
+| token                      | t       | api-token                  | INDEXER_API_TOKEN                  |
+| dev-mode                   |         | dev-mode                   | INDEXER_DEV_MODE                   |
+| metrics-mode               |         | metrics-mode               | INDEXER_METRICS_MODE               |
+| max-conn                   |         | max-conn                   | INDEXER_MAX_CONN                   |
+| write-timeout              |         | write-timeout              | INDEXER_WRITE_TIMEOUT              |
+| read-timeout               |         | read-timeout               | INDEXER_READ_TIMEOUT               |
+| max-account-nested-objects |         | max-account-nested-objects | INDEXER_MAX_ACCOUNT_NESTED_OBJECTS |
+| max-transactions-limit     |         | max-transactions-limit     | INDEXER_MAX_TRANSACTIONS_LIMIT     |
+| default-transactions-limit |         | default-transactions-limit | INDEXER_DEFAULT_TRANSACTIONS_LIMIT |
+| max-accounts-limit         |         | max-accounts-limit         | INDEXER_MAX_ACCOUNTS_LIMIT         |
+| default-accounts-limit     |         | default-accounts-limit     | INDEXER_DEFAULT_ACCOUNTS_LIMIT     |
+| max-assets-limit           |         | max-assets-limit           | INDEXER_MAX_ASSETS_LIMIT           |
+| default-assets-limit       |         | default-assets-limit       | INDEXER_DEFAULT_ASSETS_LIMIT       |
+| max-balances-limit         |         | max-balances-limit         | INDEXER_MAX_BALANCES_LIMIT         |
+| default-balances-limit     |         | default-balances-limit     | INDEXER_DEFAULT_BALANCES_LIMIT     |
+| max-applications-limit     |         | max-applications-limit     | INDEXER_MAX_APPLICATIONS_LIMIT     |
+| default-applications-limit |         | default-applications-limit | INDEXER_DEFAULT_APPLICATIONS_LIMIT |
 
 ## Command line
 

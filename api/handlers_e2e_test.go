@@ -1,16 +1,21 @@
 package api
 
 import (
+	"context"
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/labstack/echo/v4"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
@@ -25,6 +30,27 @@ import (
 	pgtest "github.com/algorand/indexer/idb/postgres/testing"
 	"github.com/algorand/indexer/util/test"
 )
+
+var defaultOpts = ExtraOptions{
+	MaxTransactionsLimit:     10000,
+	DefaultTransactionsLimit: 1000,
+
+	MaxAccountsLimit:     1000,
+	DefaultAccountsLimit: 100,
+
+	MaxAssetsLimit:     1000,
+	DefaultAssetsLimit: 100,
+
+	MaxBalancesLimit:     10000,
+	DefaultBalancesLimit: 1000,
+
+	MaxApplicationsLimit:     1000,
+	DefaultApplicationsLimit: 100,
+}
+
+func testServerImplementation(db idb.IndexerDb) *ServerImplementation {
+	return &ServerImplementation{db: db, timeout: 30 * time.Second, opts: defaultOpts}
+}
 
 func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) (*postgres.IndexerDb /*db*/, func() /*shutdownFunc*/) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
@@ -46,12 +72,12 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeepin
 	return db, newShutdownFunc
 }
 
-func TestApplicationHandler(t *testing.T) {
+func TestApplicationHandlers(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()
 
 	///////////
-	// Given // A block containing an app call txn with ExtraProgramPages
+	// Given // A block containing an app call txn with ExtraProgramPages, that the creator and another account have opted into
 	///////////
 
 	const expectedAppIdx = 1 // must be 1 since this is the first txn
@@ -76,8 +102,10 @@ func TestApplicationHandler(t *testing.T) {
 			ApplicationID: expectedAppIdx,
 		},
 	}
+	optInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
+	optInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn, &optInTxnA, &optInTxnB)
 	require.NoError(t, err)
 
 	err = db.AddBlock(&block)
@@ -87,30 +115,582 @@ func TestApplicationHandler(t *testing.T) {
 	// When // We query the app
 	//////////
 
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.SetPath("/v2/applications/:appidx")
-	c.SetParamNames("appidx")
-	c.SetParamValues(strconv.Itoa(expectedAppIdx))
+	setupReq := func(path, paramName, paramValue string) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath(path)
+		c.SetParamNames(paramName)
+		c.SetParamValues(paramValue)
+		api := testServerImplementation(db)
+		return c, api, rec
+	}
 
-	api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+	c, api, rec := setupReq("/v2/applications/:appidx", "appidx", strconv.Itoa(expectedAppIdx))
 	params := generated.LookupApplicationByIDParams{}
 	err = api.LookupApplicationByID(c, expectedAppIdx, params)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
 
 	//////////
-	// Then // The response has non-zero ExtraProgramPages
+	// Then // The response has non-zero ExtraProgramPages and other app data
 	//////////
+
+	checkApp := func(t *testing.T, app *generated.Application) {
+		require.NotNil(t, app)
+		require.NotNil(t, app.Params.ExtraProgramPages)
+		require.Equal(t, uint64(extraPages), *app.Params.ExtraProgramPages)
+		require.Equal(t, app.Id, uint64(expectedAppIdx))
+		require.NotNil(t, app.Params.Creator)
+		require.Equal(t, *app.Params.Creator, test.AccountA.String())
+		require.Equal(t, app.Params.ApprovalProgram, []byte{0x02, 0x20, 0x01, 0x01, 0x22})
+		require.Equal(t, app.Params.ClearStateProgram, []byte{0x02, 0x20, 0x01, 0x01, 0x22})
+	}
 
 	var response generated.ApplicationResponse
 	data := rec.Body.Bytes()
 	err = json.Decode(data, &response)
 	require.NoError(t, err)
-	require.NotNil(t, response.Application.Params.ExtraProgramPages)
-	require.Equal(t, uint64(extraPages), *response.Application.Params.ExtraProgramPages)
+	checkApp(t, response.Application)
+
+	t.Run("created-applications", func(t *testing.T) {
+		//////////
+		// When // We look up the app by creator address
+		//////////
+
+		c, api, rec := setupReq("/v2/accounts/:accountid/created-applications", "accountid", test.AccountA.String())
+		params := generated.LookupAccountCreatedApplicationsParams{}
+		err = api.LookupAccountCreatedApplications(c, test.AccountA.String(), params)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
+
+		//////////
+		// Then // The response has non-zero ExtraProgramPages and other app data
+		//////////
+
+		var response generated.ApplicationsResponse
+		data := rec.Body.Bytes()
+		err = json.Decode(data, &response)
+		require.NoError(t, err)
+		require.Len(t, response.Applications, 1)
+		checkApp(t, &response.Applications[0])
+	})
+
+	checkAppLocalState := func(t *testing.T, ls *generated.ApplicationLocalState) {
+		require.NotNil(t, ls)
+		require.NotNil(t, ls.Deleted)
+		require.False(t, *ls.Deleted)
+		require.Equal(t, ls.Id, uint64(expectedAppIdx))
+	}
+
+	for _, tc := range []struct{ name, addr string }{
+		{"creator", test.AccountA.String()},
+		{"opted-in-account", test.AccountB.String()},
+	} {
+		t.Run("app-local-state-"+tc.name, func(t *testing.T) {
+			//////////
+			// When // We look up the app's local state for an address that has opted in
+			//////////
+
+			c, api, rec := setupReq("/v2/accounts/:accountid/apps-local-state", "accountid", test.AccountA.String())
+			params := generated.LookupAccountAppLocalStatesParams{}
+			err = api.LookupAccountAppLocalStates(c, tc.addr, params)
+			require.NoError(t, err)
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
+
+			//////////
+			// Then // AppLocalState is available for that address
+			//////////
+
+			var response generated.ApplicationLocalStatesResponse
+			data := rec.Body.Bytes()
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			require.Len(t, response.AppsLocalStates, 1)
+			checkAppLocalState(t, &response.AppsLocalStates[0])
+		})
+	}
+}
+
+func TestAccountExcludeParameters(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing a creator of an app, an asset, who also holds and has opted-into those apps.
+	///////////
+
+	const expectedAppIdx = 1 // must be 1 since this is the first txn
+	const expectedAssetIdx = 2
+	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+	createAssetTxn := test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT", "Asset 2", "http://asset2.com", test.AccountA)
+	appOptInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
+	appOptInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
+	assetOptInTxnA := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountA)
+	assetOptInTxnB := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountB)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAppTxn, &createAssetTxn,
+		&appOptInTxnA, &appOptInTxnB, &assetOptInTxnA, &assetOptInTxnB)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err, "failed to commit")
+
+	//////////
+	// When // We look up the address using various exclude parameters.
+	//////////
+
+	setupReq := func(path, paramName, paramValue string) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath(path)
+		c.SetParamNames(paramName)
+		c.SetParamValues(paramValue)
+		api := testServerImplementation(db)
+		return c, api, rec
+	}
+
+	//////////
+	// Then // Those parameters are excluded.
+	//////////
+
+	testCases := []struct {
+		address   basics.Address
+		exclude   []string
+		check     func(*testing.T, generated.AccountResponse)
+		errStatus int
+	}{{
+		address: test.AccountA,
+		exclude: []string{"all"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.Nil(t, r.Account.CreatedAssets)
+			require.Nil(t, r.Account.CreatedApps)
+			require.Nil(t, r.Account.Assets)
+			require.Nil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.Nil(t, r.Account.CreatedAssets)
+			require.Nil(t, r.Account.CreatedApps)
+			require.Nil(t, r.Account.Assets)
+			require.Nil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"created-assets"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.Nil(t, r.Account.CreatedAssets)
+			require.NotNil(t, r.Account.CreatedApps)
+			require.NotNil(t, r.Account.Assets)
+			require.NotNil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"created-apps"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.NotNil(t, r.Account.CreatedAssets)
+			require.Nil(t, r.Account.CreatedApps)
+			require.NotNil(t, r.Account.Assets)
+			require.NotNil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"apps-local-state"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.NotNil(t, r.Account.CreatedAssets)
+			require.NotNil(t, r.Account.CreatedApps)
+			require.NotNil(t, r.Account.Assets)
+			require.Nil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
+		exclude: []string{"assets"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.NotNil(t, r.Account.CreatedAssets)
+			require.NotNil(t, r.Account.CreatedApps)
+			require.Nil(t, r.Account.Assets)
+			require.NotNil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountB,
+		exclude: []string{"assets", "apps-local-state"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.Nil(t, r.Account.CreatedAssets)
+			require.Nil(t, r.Account.CreatedApps)
+			require.Nil(t, r.Account.Assets)
+			require.Nil(t, r.Account.AppsLocalState)
+		}},
+		{
+			address:   test.AccountA,
+			exclude:   []string{"abc"},
+			errStatus: http.StatusBadRequest,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("exclude %v", tc.exclude), func(t *testing.T) {
+			c, api, rec := setupReq("/v2/accounts/:account-id", "account-id", tc.address.String())
+			err := api.LookupAccountByID(c, tc.address.String(), generated.LookupAccountByIDParams{Exclude: &tc.exclude})
+			require.NoError(t, err)
+			if tc.errStatus != 0 {
+				require.Equal(t, tc.errStatus, rec.Code)
+				return
+			}
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("unexpected return code, body: %s", rec.Body.String()))
+			data := rec.Body.Bytes()
+			var response generated.AccountResponse
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			tc.check(t, response)
+		})
+	}
+
+}
+
+func TestAccountMaxResultsLimit(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // A block containing an address that has created 5 apps and 5 assets, and another address that has opted into them all
+	///////////
+
+	expectedAppIDs := []uint64{1, 2, 3, 4, 5}
+	expectedAssetIDs := []uint64{6, 7, 8, 9, 10}
+
+	var txns []transactions.SignedTxnWithAD
+	for range expectedAppIDs {
+		txns = append(txns, test.MakeCreateAppTxn(test.AccountA))
+	}
+
+	for i := range expectedAssetIDs {
+		txns = append(txns, test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
+			fmt.Sprintf("Asset %d", expectedAssetIDs[i]), "http://asset.com", test.AccountA))
+	}
+
+	for _, id := range expectedAppIDs {
+		txns = append(txns, test.MakeAppOptInTxn(id, test.AccountA))
+		txns = append(txns, test.MakeAppOptInTxn(id, test.AccountB))
+	}
+	for _, id := range expectedAssetIDs {
+		txns = append(txns, test.MakeAssetOptInTxn(id, test.AccountA))
+		txns = append(txns, test.MakeAssetOptInTxn(id, test.AccountB))
+	}
+
+	ptxns := make([]*transactions.SignedTxnWithAD, len(txns))
+	for i := range txns {
+		ptxns[i] = &txns[i]
+	}
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err, "failed to commit")
+
+	//////////
+	// When // We look up the address using a ServerImplementation with a maxAccountsAPIResults limit set,
+	//      // and addresses with max # apps over & under the limit
+	//////////
+
+	maxResults := 14
+	serverCtx, serverCancel := context.WithCancel(context.Background())
+	defer serverCancel()
+	opts := defaultOpts
+	opts.MaxAccountNestedObjects = uint64(maxResults)
+	listenAddr := "localhost:8989"
+	go Serve(serverCtx, listenAddr, db, nil, logrus.New(), opts)
+
+	// wait at most a few seconds for server to come up
+	serverUp := false
+	for maxWait := 3 * time.Second; !serverUp && maxWait > 0; maxWait -= 50 * time.Millisecond {
+		time.Sleep(50 * time.Millisecond)
+		resp, err := http.Get("http://" + listenAddr + "/health")
+		if err != nil {
+			t.Log("waiting for server:", err)
+			continue
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Log("waiting for server OK:", resp.StatusCode)
+			continue
+		}
+		serverUp = true // server is up now
+	}
+	require.True(t, serverUp, "api.Serve did not start server in time")
+
+	// make a real HTTP request (to additionally test generated param parsing logic)
+	makeReq := func(t *testing.T, path string, exclude []string, next *string, limit *uint64) (*http.Response, []byte) {
+		var query []string
+		if len(exclude) > 0 {
+			query = append(query, "exclude="+strings.Join(exclude, ","))
+		}
+		if next != nil {
+			query = append(query, "next="+*next)
+		}
+		if limit != nil {
+			query = append(query, fmt.Sprintf("limit=%d", *limit))
+		}
+		if len(query) > 0 {
+			path += "?" + strings.Join(query, "&")
+		}
+		t.Log("making HTTP request path", path)
+		resp, err := http.Get("http://" + listenAddr + path)
+		require.NoError(t, err)
+		defer resp.Body.Close()
+		body, err := ioutil.ReadAll(resp.Body)
+		require.NoError(t, err)
+		return resp, body
+	}
+
+	//////////
+	// Then // The limit is enforced, leading to a 400 error
+	//////////
+
+	checkExclude := func(t *testing.T, acct generated.Account, exclude []string) {
+		for _, exc := range exclude {
+			switch exc {
+			case "all":
+				assert.Nil(t, acct.CreatedApps)
+				assert.Nil(t, acct.AppsLocalState)
+				assert.Nil(t, acct.CreatedAssets)
+				assert.Nil(t, acct.Assets)
+			case "created-assets":
+				assert.Nil(t, acct.CreatedAssets)
+			case "apps-local-state":
+				assert.Nil(t, acct.AppsLocalState)
+			case "created-apps":
+				assert.Nil(t, acct.CreatedApps)
+			case "assets":
+				assert.Nil(t, acct.Assets)
+			}
+		}
+	}
+
+	testCases := []struct {
+		address   basics.Address
+		exclude   []string
+		errStatus int
+	}{
+		{address: test.AccountA, exclude: []string{"all"}},
+		{address: test.AccountA, exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
+		{address: test.AccountB, exclude: []string{"assets", "apps-local-state"}},
+		{address: test.AccountA, exclude: []string{"created-assets"}, errStatus: http.StatusBadRequest},
+		{address: test.AccountA, exclude: []string{"created-apps"}, errStatus: http.StatusBadRequest},
+		{address: test.AccountA, exclude: []string{"apps-local-state"}, errStatus: http.StatusBadRequest},
+		{address: test.AccountA, exclude: []string{"assets"}, errStatus: http.StatusBadRequest},
+	}
+
+	for _, tc := range testCases {
+		maxResults := 14
+		t.Run(fmt.Sprintf("LookupAccountByID exclude %v", tc.exclude), func(t *testing.T) {
+			path := "/v2/accounts/" + tc.address.String()
+			resp, data := makeReq(t, path, tc.exclude, nil, nil)
+			if tc.errStatus != 0 { // was a 400 error expected? check error response
+				require.Equal(t, tc.errStatus, resp.StatusCode)
+				var response generated.AccountsErrorResponse
+				err = json.Decode(data, &response)
+				require.NoError(t, err)
+				assert.Equal(t, *response.Address, tc.address.String())
+				assert.Equal(t, *response.MaxResults, uint64(maxResults))
+				assert.Equal(t, *response.TotalAppsOptedIn, uint64(5))
+				assert.Equal(t, *response.TotalCreatedApps, uint64(5))
+				assert.Equal(t, *response.TotalAssetsOptedIn, uint64(5))
+				assert.Equal(t, *response.TotalCreatedAssets, uint64(5))
+				return
+			}
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+			var response generated.AccountResponse
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			checkExclude(t, response.Account, tc.exclude)
+		})
+	}
+
+	//////////
+	// When // We search all addresses using a ServerImplementation with a maxAccountsAPIResults limit set,
+	//      // and one of those addresses is over the limit, but another address is not
+	//////////
+
+	for _, tc := range []struct {
+		exclude    []string
+		errStatus  int
+		errAddress basics.Address
+	}{
+		{exclude: []string{"all"}},
+		{exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
+		{exclude: []string{"assets", "apps-local-state"}},
+		{errAddress: test.AccountA, exclude: nil, errStatus: 400},
+		{errAddress: test.AccountA, exclude: []string{"created-assets"}, errStatus: http.StatusBadRequest},
+		{errAddress: test.AccountA, exclude: []string{"created-apps"}, errStatus: http.StatusBadRequest},
+		{errAddress: test.AccountA, exclude: []string{"apps-local-state"}, errStatus: http.StatusBadRequest},
+		{errAddress: test.AccountA, exclude: []string{"assets"}, errStatus: http.StatusBadRequest},
+	} {
+		t.Run(fmt.Sprintf("SearchForAccounts exclude %v", tc.exclude), func(t *testing.T) {
+			maxResults := 14
+			resp, data := makeReq(t, "/v2/accounts", tc.exclude, nil, nil)
+			if tc.errStatus != 0 { // was a 400 error expected? check error response
+				require.Equal(t, tc.errStatus, resp.StatusCode)
+				var response generated.AccountsErrorResponse
+				err = json.Decode(data, &response)
+				require.NoError(t, err)
+				require.Equal(t, *response.Address, tc.errAddress.String())
+				require.Equal(t, *response.MaxResults, uint64(maxResults))
+				require.Equal(t, *response.TotalAppsOptedIn, uint64(5))
+				require.Equal(t, *response.TotalCreatedApps, uint64(5))
+				require.Equal(t, *response.TotalAssetsOptedIn, uint64(5))
+				require.Equal(t, *response.TotalCreatedAssets, uint64(5))
+				return
+			}
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+			var response generated.AccountsResponse
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+
+			// check that the accounts are in there
+			var sawAccountA, sawAccountB bool
+			for _, acct := range response.Accounts {
+				switch acct.Address {
+				case test.AccountA.String():
+					sawAccountA = true
+					require.Equal(t, acct.TotalAppsOptedIn, uint64(5))
+					require.Equal(t, acct.TotalCreatedApps, uint64(5))
+					require.Equal(t, acct.TotalAssetsOptedIn, uint64(5))
+					require.Equal(t, acct.TotalCreatedAssets, uint64(5))
+				case test.AccountB.String():
+					sawAccountB = true
+					require.Equal(t, acct.TotalAppsOptedIn, uint64(5))
+					require.Equal(t, acct.TotalCreatedApps, uint64(0))
+					require.Equal(t, acct.TotalAssetsOptedIn, uint64(5))
+					require.Equal(t, acct.TotalCreatedAssets, uint64(0))
+				}
+				checkExclude(t, acct, tc.exclude)
+			}
+			require.True(t, sawAccountA && sawAccountB)
+		})
+	}
+
+	//////////
+	// When // We look up the assets an account holds, and paginate through them using "Next"
+	//////////
+
+	t.Run("LookupAccountAssets", func(t *testing.T) {
+		var next *string   // nil/unset to start
+		limit := uint64(2) // 2 at a time
+		var assets []generated.AssetHolding
+		for {
+			resp, data := makeReq(t, "/v2/accounts/"+test.AccountB.String()+"/assets", nil, next, &limit)
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+			var response generated.AssetHoldingsResponse
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			if len(response.Assets) == 0 {
+				require.Nil(t, response.NextToken)
+				break
+			}
+			require.NotEmpty(t, response.Assets)
+			assets = append(assets, response.Assets...)
+			next = response.NextToken // paginate
+		}
+		//////////
+		// Then // We can see all the assets, even though there were more than the limit
+		//////////
+		require.Len(t, assets, 5)
+		for i, asset := range assets {
+			require.Equal(t, expectedAssetIDs[i], asset.AssetId)
+		}
+	})
+
+	//////////
+	// When // We look up the assets an account has created, and paginate through them using "Next"
+	//////////
+
+	t.Run("LookupAccountCreatedAssets", func(t *testing.T) {
+		var next *string   // nil/unset to start
+		limit := uint64(2) // 2 at a time
+		var assets []generated.Asset
+		for {
+			resp, data := makeReq(t, "/v2/accounts/"+test.AccountA.String()+"/created-assets", nil, next, &limit)
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+			var response generated.AssetsResponse
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			if len(response.Assets) == 0 {
+				require.Nil(t, response.NextToken)
+				break
+			}
+			require.NotEmpty(t, response.Assets)
+			assets = append(assets, response.Assets...)
+			next = response.NextToken // paginate
+		}
+		//////////
+		// Then // We can see all the assets, even though there were more than the limit
+		//////////
+		require.Len(t, assets, 5)
+		for i, asset := range assets {
+			require.Equal(t, expectedAssetIDs[i], asset.Index)
+		}
+	})
+
+	//////////
+	// When // We look up the apps an account has opted in to, and paginate through them using "Next"
+	//////////
+
+	t.Run("LookupAccountAppLocalStates", func(t *testing.T) {
+		var next *string   // nil/unset to start
+		limit := uint64(2) // 2 at a time
+		var apps []generated.ApplicationLocalState
+		for {
+			resp, data := makeReq(t, "/v2/accounts/"+test.AccountA.String()+"/apps-local-state", nil, next, &limit)
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+			var response generated.ApplicationLocalStatesResponse
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			if len(response.AppsLocalStates) == 0 {
+				require.Nil(t, response.NextToken)
+				break
+			}
+			require.NotEmpty(t, response.AppsLocalStates)
+			apps = append(apps, response.AppsLocalStates...)
+			next = response.NextToken // paginate
+		}
+		//////////
+		// Then // We can see all the apps, even though there were more than the limit
+		//////////
+		require.Len(t, apps, 5)
+		for i, app := range apps {
+			require.Equal(t, expectedAppIDs[i], app.Id)
+		}
+	})
+
+	//////////
+	// When // We look up the apps an account has opted in to, and paginate through them using "Next"
+	//////////
+
+	t.Run("LookupAccountCreatedApplications", func(t *testing.T) {
+		var next *string   // nil/unset to start
+		limit := uint64(2) // 2 at a time
+		var apps []generated.Application
+		for {
+			resp, data := makeReq(t, "/v2/accounts/"+test.AccountA.String()+"/created-applications", nil, next, &limit)
+			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))
+			var response generated.ApplicationsResponse
+			err = json.Decode(data, &response)
+			require.NoError(t, err)
+			if len(response.Applications) == 0 {
+				require.Nil(t, response.NextToken)
+				break
+			}
+			require.NotEmpty(t, response.Applications)
+			apps = append(apps, response.Applications...)
+			next = response.NextToken // paginate
+		}
+		//////////
+		// Then // We can see all the apps, even though there were more than the limit
+		//////////
+		require.Len(t, apps, 5)
+		for i, app := range apps {
+			require.Equal(t, expectedAppIDs[i], app.Id)
+		}
+	})
 }
 
 func TestBlockNotFound(t *testing.T) {
@@ -132,7 +712,7 @@ func TestBlockNotFound(t *testing.T) {
 	c.SetParamNames("round-number")
 	c.SetParamValues(strconv.Itoa(100))
 
-	api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+	api := testServerImplementation(db)
 	err := api.LookupBlock(c, 100)
 	require.NoError(t, err)
 
@@ -205,7 +785,7 @@ func TestInnerTxn(t *testing.T) {
 			c := e.NewContext(req, rec)
 			c.SetPath("/v2/transactions/")
 
-			api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+			api := testServerImplementation(db)
 			err = api.SearchForTransactions(c, tc.filter)
 			require.NoError(t, err)
 
@@ -276,7 +856,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 
 			// Get first page with limit 1.
 			// Address filter causes results to return newest to oldest.
-			api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+			api := testServerImplementation(db)
 			err = api.SearchForTransactions(c, tc.params)
 			require.NoError(t, err)
 
@@ -327,7 +907,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 
 		// Get first page with limit 1.
 		// Address filter causes results to return newest to oldest.
-		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		api := testServerImplementation(db)
 		err = api.LookupBlock(c, uint64(block.Round()))
 		require.NoError(t, err)
 
@@ -442,7 +1022,7 @@ func TestVersion(t *testing.T) {
 	///////////
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()
-	api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+	api := testServerImplementation(db)
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
@@ -518,7 +1098,7 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/assets/")
 
-		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		api := testServerImplementation(db)
 		err = api.SearchForAssets(c, generated.SearchForAssetsParams{})
 		require.NoError(t, err)
 
@@ -543,7 +1123,7 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 		c := e.NewContext(req, rec)
 		c.SetPath("/v2/accounts/")
 
-		api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+		api := testServerImplementation(db)
 		err = api.LookupAccountByID(c, test.AccountA.String(), generated.LookupAccountByIDParams{})
 		require.NoError(t, err)
 
@@ -626,7 +1206,7 @@ func TestLookupInnerLogs(t *testing.T) {
 			c.SetParamNames("appIdx")
 			c.SetParamValues(fmt.Sprintf("%d", tc.appID))
 
-			api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+			api := testServerImplementation(db)
 			err = api.LookupApplicationLogsByID(c, tc.appID, params)
 			require.NoError(t, err)
 
