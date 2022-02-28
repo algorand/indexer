@@ -12,6 +12,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
+	"github.com/algorand/indexer/api"
 	bg "github.com/algorand/indexer/cmd/block-generator/core"
 	iv "github.com/algorand/indexer/cmd/import-validator/core"
 	v "github.com/algorand/indexer/cmd/validator/core"
@@ -22,6 +23,8 @@ import (
 	"github.com/algorand/indexer/util/metrics"
 	"github.com/algorand/indexer/version"
 )
+
+var disabledMapConfig *api.DisabledMapConfig
 
 func maybeFail(err error, errfmt string, params ...interface{}) {
 	if err == nil {
@@ -137,6 +140,7 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Hidden = true
 	rootCmd.AddCommand(daemonCmd)
+	rootCmd.AddCommand(apiConfigCmd)
 
 	// Not applied globally to avoid adding to utility commands.
 	addFlags := func(cmd *cobra.Command) {
@@ -203,6 +207,11 @@ func configureLogger() error {
 }
 
 func main() {
+
+	// TODO enable this when command line options allows for disabling/enabling overrides
+	//disabledMapConfig = api.GetDefaultDisabledMapConfigForPostgres()
+	disabledMapConfig = api.MakeDisabledMapConfig()
+
 	if err := rootCmd.Execute(); err != nil {
 		logger.WithError(err).Error("an error occurred running indexer")
 		os.Exit(1)

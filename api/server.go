@@ -50,7 +50,7 @@ func (e ExtraOptions) handlerTimeout() time.Duration {
 }
 
 // Serve starts an http server for the indexer API. This call blocks.
-func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError error, log *log.Logger, options ExtraOptions) {
+func Serve(ctx context.Context, disabledMapConfig *DisabledMapConfig, serveAddr string, db idb.IndexerDb, fetcherError error, log *log.Logger, options ExtraOptions) {
 	e := echo.New()
 	e.HideBanner = true
 
@@ -82,10 +82,6 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// TODO enable this when command line options allows for disabling/enabling overrides
-	//disabledMapConfig := GetDefaultDisabledMapConfigForPostgres()
-	disabledMapConfig := MakeDisabledMapConfig()
 
 	disabledMap, err := MakeDisabledMapFromOA3(swag, disabledMapConfig)
 	if err != nil {

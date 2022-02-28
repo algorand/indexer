@@ -128,7 +128,7 @@ var daemonCmd = &cobra.Command{
 
 		fmt.Printf("serving on %s\n", daemonServerAddr)
 		logger.Infof("serving on %s", daemonServerAddr)
-		api.Serve(ctx, daemonServerAddr, db, bot, logger, makeOptions())
+		api.Serve(ctx, disabledMapConfig, daemonServerAddr, db, bot, logger, makeOptions())
 		wg.Wait()
 	},
 }
