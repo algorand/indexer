@@ -2,7 +2,7 @@ package core
 
 import "github.com/spf13/cobra"
 
-// ImportValidatorCmd is a configured cobra command to be executed, or included as a subcommand.
+// ImportValidatorCmd is the real-time import validator command.
 var ImportValidatorCmd *cobra.Command
 
 func init() {
