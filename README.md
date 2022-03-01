@@ -112,6 +112,50 @@ When `--token your-token` is provided, an authentication header is required. For
 ~$ curl localhost:8980/transactions -H "X-Indexer-API-Token: your-token"
 ```
 
+## Disabling Parameters 
+
+The Indexer has the ability to selectively enable or disable parameters for endpoints.  Disabling a "required" parameter will result in the entire endpoint being disabled while disabling an "optional" parameter will cause an error to be returned only if the parameter is provided.
+
+### Viewing the Current Configuration
+
+The Indexer has a default set of disabled parameters.  To view the disabled parameters issue:
+```
+~$ algorand-indexer api-config
+```
+
+This will output ONLY the disabled parameters in a YAML configuration.  To view all parameters (both enabled and disabled) issue:
+
+```
+~$ algorand-indexer api-config --all
+```
+
+### Interpreting The Configuration
+
+Below is a snippet of the output from `algorand-indexer api-config`:
+
+```
+/v2/accounts:
+    optional:
+        - currency-greater-than: disabled
+        - currency-less-than: disabled
+/v2/assets/{asset-id}/transactions:
+    optional:
+        - note-prefix: disabled
+        - tx-type: disabled
+        - sig-type: disabled
+        - before-time: disabled
+        - after-time: disabled
+        - currency-greater-than: disabled
+        - currency-less-than: disabled
+        - address-role: disabled
+        - exclude-close-to: disabled
+        - rekey-to: disabled
+    required:
+        - asset-id: disabled
+```
+
+Seeing this we know that the `/v2/accounts` endpoint will return an error if either `currency-greater-than` or `currency-less-than` is provided.  Additionally, because a "required" parameter is provided for `/v2/assets/{asset-id}/transactions` then we know this entire endpoint is disabled.  The optional parameters are provided so that you can understand what else is disabled if you enable all "required" parameters.
+
 ## Metrics
 
 The `/metrics` endpoint is configured with the `--metrics-mode` option and configures if and how [Prometheus](https://prometheus.io/) formatted metrics are generated.
