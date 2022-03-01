@@ -37,6 +37,9 @@ type ExtraOptions struct {
 
 	// ReadTimeout is the maximum duration for reading the entire request, including the body.
 	ReadTimeout time.Duration
+
+	// DisabledMapConfig is the disabled map configuration that is being used by the server
+	DisabledMapConfig *DisabledMapConfig
 }
 
 func (e ExtraOptions) handlerTimeout() time.Duration {
@@ -50,7 +53,7 @@ func (e ExtraOptions) handlerTimeout() time.Duration {
 }
 
 // Serve starts an http server for the indexer API. This call blocks.
-func Serve(ctx context.Context, disabledMapConfig *DisabledMapConfig, serveAddr string, db idb.IndexerDb, fetcherError error, log *log.Logger, options ExtraOptions) {
+func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError error, log *log.Logger, options ExtraOptions) {
 	e := echo.New()
 	e.HideBanner = true
 
@@ -83,7 +86,7 @@ func Serve(ctx context.Context, disabledMapConfig *DisabledMapConfig, serveAddr 
 		log.Fatal(err)
 	}
 
-	disabledMap, err := MakeDisabledMapFromOA3(swag, disabledMapConfig)
+	disabledMap, err := MakeDisabledMapFromOA3(swag, options.DisabledMapConfig)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -126,12 +126,12 @@ The Indexer has a default set of disabled parameters.  To view the disabled para
 This will output ONLY the disabled parameters in a YAML configuration.  To view all parameters (both enabled and disabled) issue:
 
 ```
-~$ algorand-indexer api-config all
+~$ algorand-indexer api-config --all
 ```
 
 ### Interpreting The Configuration
 
-Below is a sample output of what the output of `algorand-indexer api-config` will look like:
+Below is a snippet of the output from `algorand-indexer api-config`:
 
 ```
 /v2/accounts:

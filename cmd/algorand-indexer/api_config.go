@@ -11,6 +11,10 @@ import (
 	"github.com/algorand/indexer/config"
 )
 
+var (
+	showAllDisabled bool
+)
+
 var apiConfigCmd = &cobra.Command{
 	Use:   "api-config",
 	Short: "dump api configuration",
@@ -31,19 +35,14 @@ var apiConfigCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		options := makeOptions()
+
 		var displayDisabledMapConfig *api.DisplayDisabledMap
 		// Show a limited subset
-		if len(args) == 0 {
-			displayDisabledMapConfig = api.MakeDisplayDisabledMapFromConfig(swag, disabledMapConfig, true)
-
+		if !showAllDisabled {
+			displayDisabledMapConfig = api.MakeDisplayDisabledMapFromConfig(swag, options.DisabledMapConfig, true)
 		} else {
-			// This is the only acceptable option
-			if args[0] != "all" {
-				fmt.Fprintf(os.Stderr, "unrecognized option to api-config: %s", args[0])
-				os.Exit(1)
-			}
-
-			displayDisabledMapConfig = api.MakeDisplayDisabledMapFromConfig(swag, disabledMapConfig, false)
+			displayDisabledMapConfig = api.MakeDisplayDisabledMapFromConfig(swag, options.DisabledMapConfig, false)
 		}
 
 		output, err := displayDisabledMapConfig.String()
@@ -57,4 +56,9 @@ var apiConfigCmd = &cobra.Command{
 		os.Exit(0)
 
 	},
+}
+
+func init() {
+	apiConfigCmd.Flags().BoolVarP(&showAllDisabled, "all", "", false, "show all api config parameters, enabled and disabled")
+	apiConfigCmd.Flags().Lookup("all").NoOptDefVal = "true"
 }

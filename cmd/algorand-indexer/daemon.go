@@ -128,7 +128,7 @@ var daemonCmd = &cobra.Command{
 
 		fmt.Printf("serving on %s\n", daemonServerAddr)
 		logger.Infof("serving on %s", daemonServerAddr)
-		api.Serve(ctx, disabledMapConfig, daemonServerAddr, db, bot, logger, makeOptions())
+		api.Serve(ctx, daemonServerAddr, db, bot, logger, makeOptions())
 		wg.Wait()
 	},
 }
@@ -174,6 +174,12 @@ func makeOptions() (options api.ExtraOptions) {
 	}
 	options.WriteTimeout = writeTimeout
 	options.ReadTimeout = readTimeout
+
+	// TODO enable this when command line options allows for disabling/enabling overrides
+	//disabledMapConfig := api.GetDefaultDisabledMapConfigForPostgres()
+	disabledMapConfig := api.MakeDisabledMapConfig()
+
+	options.DisabledMapConfig = disabledMapConfig
 
 	return
 }
