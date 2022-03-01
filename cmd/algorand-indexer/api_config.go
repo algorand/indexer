@@ -59,6 +59,5 @@ var apiConfigCmd = &cobra.Command{
 }
 
 func init() {
-	apiConfigCmd.Flags().BoolVarP(&showAllDisabled, "all", "", false, "show all api config parameters, enabled and disabled")
-	apiConfigCmd.Flags().Lookup("all").NoOptDefVal = "true"
+	apiConfigCmd.Flags().BoolVar(&showAllDisabled, "all", false, "show all api config parameters, enabled and disabled")
 }
