@@ -68,10 +68,10 @@ func (tr TxnRow) Next(ascending bool) (string, error) {
 	// when ascending add the count of inner transactions.
 	if ascending {
 		var stxn *transactions.SignedTxnWithAD
-		if tr.Txn != nil {
-			stxn = tr.Txn
-		} else {
+		if tr.RootTxn != nil {
 			stxn = tr.RootTxn
+		} else {
+			stxn = tr.Txn
 		}
 
 		if stxn == nil {
@@ -229,6 +229,10 @@ type TransactionFilter struct {
 	NextToken string
 
 	Limit uint64
+
+	// If this flag is set to true, then the query returns the inner txn
+	// instead of the root txn.
+	ReturnInnerTxnOnly bool
 }
 
 // AccountQueryOptions is a parameter object with all of the account filter options.

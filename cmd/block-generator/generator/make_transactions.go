@@ -14,7 +14,7 @@ func (g *generator) makeTxnHeader(sender basics.Address, round, intra uint64) tr
 
 	return transactions.Header{
 		Sender:      sender,
-		Fee:         basics.MicroAlgos{Raw: fee},
+		Fee:         basics.MicroAlgos{Raw: g.params.MinTxnFee},
 		FirstValid:  basics.Round(round),
 		LastValid:   basics.Round(round + 1000),
 		GenesisID:   g.genesisID,

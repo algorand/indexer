@@ -182,33 +182,6 @@ func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
 	}
 }
 
-// MakeSimpleKeyregOnlineTxn creates a fake key registration transaction.
-func MakeSimpleKeyregOnlineTxn(sender basics.Address) transactions.SignedTxnWithAD {
-	var votePK crypto.OneTimeSignatureVerifier
-	votePK[0] = 1
-
-	var selectionPK crypto.VRFVerifier
-	selectionPK[0] = 2
-
-	return transactions.SignedTxnWithAD{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: "keyreg",
-				Header: transactions.Header{
-					Sender:      sender,
-					GenesisHash: GenesisHash,
-				},
-				KeyregTxnFields: transactions.KeyregTxnFields{
-					VotePK:          votePK,
-					SelectionPK:     selectionPK,
-					VoteKeyDilution: 1,
-				},
-			},
-			Sig: Signature,
-		},
-	}
-}
-
 // MakeCreateAppTxn makes a transaction that creates a simple application.
 func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 	// Create a transaction with ExtraProgramPages field set to 1
@@ -293,8 +266,9 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 // MakeAppCallWithInnerTxn creates an app call with 3 levels of transactions:
 // application create
 // |- payment
-// |- payment
+// |- application call
 //    |- asset transfer
+//    |- application call
 func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSender, assetReceiver basics.Address) transactions.SignedTxnWithAD {
 	createApp := MakeCreateAppTxn(appSender)
 
@@ -320,33 +294,142 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 		{
 			SignedTxn: transactions.SignedTxn{
 				Txn: transactions.Transaction{
-					Type: protocol.PaymentTx,
+					Type: protocol.ApplicationCallTx,
 					Header: transactions.Header{
-						Sender: paymentSender,
+						Sender: assetSender,
 					},
-					PaymentTxnFields: transactions.PaymentTxnFields{
-						Receiver: paymentReceiver,
-						Amount:   basics.MicroAlgos{Raw: 123},
+					ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+						ApplicationID: 789,
+						OnCompletion:  transactions.NoOpOC,
 					},
 				},
 			},
 			// also add a fake second-level ApplyData to ensure the recursive part works
 			ApplyData: transactions.ApplyData{
 				EvalDelta: transactions.EvalDelta{
-					InnerTxns: []transactions.SignedTxnWithAD{{
-						SignedTxn: transactions.SignedTxn{
-							Txn: transactions.Transaction{
-								Type: protocol.AssetTransferTx,
-								Header: transactions.Header{
-									Sender: assetSender,
-								},
-								AssetTransferTxnFields: transactions.AssetTransferTxnFields{
-									AssetReceiver: assetReceiver,
-									AssetAmount:   456,
+					InnerTxns: []transactions.SignedTxnWithAD{
+						// Inner axfer call
+						{
+							SignedTxn: transactions.SignedTxn{
+								Txn: transactions.Transaction{
+									Type: protocol.AssetTransferTx,
+									Header: transactions.Header{
+										Sender: assetSender,
+									},
+									AssetTransferTxnFields: transactions.AssetTransferTxnFields{
+										AssetReceiver: assetReceiver,
+										AssetAmount:   456,
+									},
 								},
 							},
 						},
-					}},
+						// Inner application call
+						{
+							SignedTxn: transactions.SignedTxn{
+								Txn: transactions.Transaction{
+									Type: protocol.ApplicationCallTx,
+									Header: transactions.Header{
+										Sender: assetSender,
+									},
+									ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+										ApplicationID: 789,
+										OnCompletion:  transactions.NoOpOC,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	return createApp
+}
+
+// MakeAppCallWithInnerAppCall creates an app call with 3 levels of app txns:
+// application create
+//   |- application call
+//     |- application create
+func MakeAppCallWithInnerAppCall(appSender basics.Address) transactions.SignedTxnWithAD {
+	createApp := MakeCreateAppTxn(appSender)
+
+	// Add a log to the outer appl call
+	createApp.ApplicationID = 123
+	createApp.ApplyData.EvalDelta.Logs = []string{
+		"testing outer appl log",
+		"appId 123 log",
+	}
+
+	// In order to simplify the test,
+	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
+	// fake ApplyData to have inner txn
+	// otherwise it requires funding the app account and other special setup
+	createApp.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
+		// Inner application call
+		{
+			SignedTxn: transactions.SignedTxn{
+				Txn: transactions.Transaction{
+					Type: protocol.ApplicationCallTx,
+					Header: transactions.Header{
+						Sender: appSender,
+					},
+					ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+						ApplicationID: 789,
+						OnCompletion:  transactions.NoOpOC,
+					},
+				},
+			},
+			ApplyData: transactions.ApplyData{
+				EvalDelta: transactions.EvalDelta{
+					Logs: []string{
+						"testing inner log",
+						"appId 789 log",
+					},
+					InnerTxns: []transactions.SignedTxnWithAD{
+						// Inner application call
+						{
+							SignedTxn: transactions.SignedTxn{
+								Txn: transactions.Transaction{
+									Type: protocol.ApplicationCallTx,
+									Header: transactions.Header{
+										Sender: appSender,
+									},
+									ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+										ApplicationID: 789,
+										OnCompletion:  transactions.NoOpOC,
+									},
+								},
+							},
+						},
+						// Inner transaction that creates a new application
+						{
+							SignedTxn: transactions.SignedTxn{
+								Txn: transactions.Transaction{
+									Type: "appl",
+									Header: transactions.Header{
+										Sender:      appSender,
+										GenesisHash: GenesisHash,
+									},
+									ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+										ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+										ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+									},
+								},
+								Sig: Signature,
+							},
+							// For appl creation in inner txn, the id must be set in ApplyData
+							ApplyData: transactions.ApplyData{
+								EvalDelta: transactions.EvalDelta{
+									Logs: []string{
+										"testing inner-inner log",
+										"appId 999 log",
+									},
+								},
+								ApplicationID: 999,
+							},
+						},
+					},
 				},
 			},
 		},
