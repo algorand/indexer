@@ -12,7 +12,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 
-	"github.com/algorand/indexer/cmd/import-validator/core"
+	bg "github.com/algorand/indexer/cmd/block-generator/core"
+	iv "github.com/algorand/indexer/cmd/import-validator/core"
+	v "github.com/algorand/indexer/cmd/validator/core"
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/dummy"
@@ -114,9 +116,16 @@ func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}
 }
 
 func init() {
-	// Add hidden subcommands
-	core.ImportValidatorCmd.Hidden = true
-	rootCmd.AddCommand(core.ImportValidatorCmd)
+	// Utilities subcommand for more convenient access to useful testing utilities.
+	utilsCmd := &cobra.Command{
+		Use:   "util",
+		Short: "Utilities for testing Indexer operation and correctness.",
+		Long:  "Utilities used for Indexer development. These are low level tools that may require low level knowledge of Indexer deployment and operation. They are included as part of this binary for ease of deployment and automation, and to publicize their existance to people who may find them useful. More detailed documention may be found on github in README files located the different 'cmd' directories.",
+	}
+	utilsCmd.AddCommand(iv.ImportValidatorCmd)
+	utilsCmd.AddCommand(v.ValidatorCmd)
+	utilsCmd.AddCommand(bg.BlockGenerator)
+	rootCmd.AddCommand(utilsCmd)
 
 	logger = log.New()
 	logger.SetFormatter(&log.JSONFormatter{
@@ -128,15 +137,21 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Hidden = true
 	rootCmd.AddCommand(daemonCmd)
+	rootCmd.AddCommand(apiConfigCmd)
 
-	rootCmd.PersistentFlags().StringVarP(&logLevel, "loglevel", "l", "info", "verbosity of logs: [error, warn, info, debug, trace]")
-	rootCmd.PersistentFlags().StringVarP(&logFile, "logfile", "f", "", "file to write logs to, if unset logs are written to standard out")
-	rootCmd.PersistentFlags().StringVarP(&postgresAddr, "postgres", "P", "", "connection string for postgres database")
-	rootCmd.PersistentFlags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")
-	rootCmd.PersistentFlags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
-	rootCmd.PersistentFlags().StringVarP(&pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
-	rootCmd.PersistentFlags().StringVarP(&configFile, "configfile", "c", "", "file path to configuration file (indexer.yml)")
-	rootCmd.PersistentFlags().BoolVarP(&doVersion, "version", "v", false, "print version and exit")
+	// Not applied globally to avoid adding to utility commands.
+	addFlags := func(cmd *cobra.Command) {
+		cmd.Flags().StringVarP(&logLevel, "loglevel", "l", "info", "verbosity of logs: [error, warn, info, debug, trace]")
+		cmd.Flags().StringVarP(&logFile, "logfile", "f", "", "file to write logs to, if unset logs are written to standard out")
+		cmd.Flags().StringVarP(&postgresAddr, "postgres", "P", "", "connection string for postgres database")
+		cmd.Flags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")
+		cmd.Flags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
+		cmd.Flags().StringVarP(&pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
+		cmd.Flags().StringVarP(&configFile, "configfile", "c", "", "file path to configuration file (indexer.yml)")
+		cmd.Flags().BoolVarP(&doVersion, "version", "v", false, "print version and exit")
+	}
+	addFlags(daemonCmd)
+	addFlags(importCmd)
 
 	viper.RegisterAlias("postgres", "postgres-connection-string")
 

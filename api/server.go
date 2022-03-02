@@ -37,6 +37,9 @@ type ExtraOptions struct {
 
 	// ReadTimeout is the maximum duration for reading the entire request, including the body.
 	ReadTimeout time.Duration
+
+	// DisabledMapConfig is the disabled map configuration that is being used by the server
+	DisabledMapConfig *DisabledMapConfig
 }
 
 func (e ExtraOptions) handlerTimeout() time.Duration {
@@ -83,13 +86,18 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 		log.Fatal(err)
 	}
 
+	disabledMap, err := MakeDisabledMapFromOA3(swag, options.DisabledMapConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	api := ServerImplementation{
 		EnableAddressSearchRoundRewind: options.DeveloperMode,
 		db:                             db,
 		fetcher:                        fetcherError,
 		timeout:                        options.handlerTimeout(),
 		log:                            log,
-		disabledParams:                 NewDisabledMapFromOA3(swag),
+		disabledParams:                 disabledMap,
 	}
 
 	generated.RegisterHandlers(e, &api, middleware...)

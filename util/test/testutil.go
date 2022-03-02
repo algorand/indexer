@@ -101,12 +101,14 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 	for txnrow := range rowchan {
 		util.MaybeFail(txnrow.Error, "err %v\n", txnrow.Error)
 		stxn := txnrow.Txn
-		tjs := util.JSONOneLine(stxn.Txn)
-		info("%d:%d %s sr=%d rr=%d ca=%d cr=%d t=%s\n", txnrow.Round, txnrow.Intra, tjs, stxn.SenderRewards, stxn.ReceiverRewards, stxn.ClosingAmount, stxn.CloseRewards, txnrow.RoundTime.String())
-		count++
+		if stxn != nil {
+			tjs := util.JSONOneLine(stxn.Txn)
+			info("%d:%d %s sr=%d rr=%d ca=%d cr=%d t=%s\n", txnrow.Round, txnrow.Intra, tjs, stxn.SenderRewards, stxn.ReceiverRewards, stxn.ClosingAmount, stxn.CloseRewards, txnrow.RoundTime.String())
+			count++
+		}
 	}
 	info("%d txns\n", count)
-	if q.Limit != 0 && q.Limit != count {
+	if q.Limit != 0 && count < 2 || count > 100 {
 		fmt.Fprintf(os.Stderr, "txn q CAME UP SHORT, limit=%d actual=%d, q=%#v\n", q.Limit, count, q)
 		myStackTrace()
 		exitValue = 1

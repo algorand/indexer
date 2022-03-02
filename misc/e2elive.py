@@ -59,7 +59,7 @@ def main():
         s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
         tarname = 'net_done.tar.bz2'
         tarpath = os.path.join(tempdir, tarname)
-        firstFromS3Prefix(s3, bucket, 'indexer/e2e3', tarname, outpath=tarpath)
+        firstFromS3Prefix(s3, bucket, 'indexer/e2e4', tarname, outpath=tarpath)
         source_is_tar = True
         sourcenet = tarpath
     tempnet = os.path.join(tempdir, 'net')

@@ -2,10 +2,107 @@ package api
 
 import (
 	"fmt"
+	"net/http"
+	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
+	"gopkg.in/yaml.v3"
 )
+
+// DisplayDisabledMap is a struct that contains the necessary information
+// to output the current config to the screen
+type DisplayDisabledMap struct {
+	// A complicated map but necessary to output the correct YAML.
+	// This is supposed to represent a data structure with a similar YAML
+	// representation:
+	//  /v2/accounts/{account-id}:
+	//    required:
+	//      - account-id : enabled
+	//  /v2/accounts:
+	//    optional:
+	//      - auth-addr : enabled
+	//      - next: disabled
+	Data map[string]map[string][]map[string]string
+}
+
+func (ddm *DisplayDisabledMap) String() (string, error) {
+
+	if len(ddm.Data) == 0 {
+		return "", nil
+	}
+
+	bytes, err := yaml.Marshal(ddm.Data)
+	if err != nil {
+		return "", err
+	}
+
+	return string(bytes), nil
+}
+
+func makeDisplayDisabledMap() *DisplayDisabledMap {
+	return &DisplayDisabledMap{
+		Data: make(map[string]map[string][]map[string]string),
+	}
+}
+
+func (ddm *DisplayDisabledMap) addEntry(restPath string, requiredOrOptional string, entryName string, status string) {
+	if ddm.Data == nil {
+		ddm.Data = make(map[string]map[string][]map[string]string)
+	}
+
+	if ddm.Data[restPath] == nil {
+		ddm.Data[restPath] = make(map[string][]map[string]string)
+	}
+
+	mapEntry := map[string]string{entryName: status}
+
+	ddm.Data[restPath][requiredOrOptional] = append(ddm.Data[restPath][requiredOrOptional], mapEntry)
+}
+
+// MakeDisplayDisabledMapFromConfig will make a DisplayDisabledMap that takes into account the DisabledMapConfig.
+// If limited is set to true, then only disabled parameters will be added to the DisplayDisabledMap
+func MakeDisplayDisabledMapFromConfig(swag *openapi3.Swagger, mapConfig *DisabledMapConfig, limited bool) *DisplayDisabledMap {
+
+	rval := makeDisplayDisabledMap()
+	for restPath, item := range swag.Paths {
+
+		for opName, opItem := range item.Operations() {
+
+			for _, pref := range opItem.Parameters {
+
+				paramName := pref.Value.Name
+
+				parameterIsDisabled := mapConfig.isDisabled(restPath, opName, paramName)
+				// If we are limited, then don't bother with enabled parameters
+				if !parameterIsDisabled && limited {
+					// If the parameter is not disabled, then we don't need
+					// to do anything
+					continue
+				}
+
+				var statusStr string
+
+				if parameterIsDisabled {
+					statusStr = "disabled"
+				} else {
+					statusStr = "enabled"
+				}
+
+				if pref.Value.Required {
+					rval.addEntry(restPath, "required", paramName, statusStr)
+				} else {
+					// If the optional parameter is disabled, add it to the map
+					rval.addEntry(restPath, "optional", paramName, statusStr)
+				}
+			}
+
+		}
+
+	}
+
+	return rval
+}
 
 // EndpointConfig is a data structure that contains whether the
 // endpoint is disabled (with a boolean) as well as a set that
@@ -16,8 +113,8 @@ type EndpointConfig struct {
 	DisabledOptionalParameters map[string]bool
 }
 
-// NewEndpointConfig creates a new empty endpoint config
-func NewEndpointConfig() *EndpointConfig {
+// makeEndpointConfig creates a new empty endpoint config
+func makeEndpointConfig() *EndpointConfig {
 	rval := &EndpointConfig{
 		EndpointDisabled:           false,
 		DisabledOptionalParameters: make(map[string]bool),
@@ -29,28 +126,182 @@ func NewEndpointConfig() *EndpointConfig {
 // DisabledMap a type that holds a map of disabled types
 // The key for a disabled map is the handler function name
 type DisabledMap struct {
+	// Key -> Function Name/Operation ID
 	Data map[string]*EndpointConfig
 }
 
-// NewDisabledMap creates a new empty disabled map
-func NewDisabledMap() *DisabledMap {
+// MakeDisabledMap creates a new empty disabled map
+func MakeDisabledMap() *DisabledMap {
 	return &DisabledMap{
 		Data: make(map[string]*EndpointConfig),
 	}
 }
 
-// NewDisabledMapFromOA3 Creates a new disabled map from an openapi3 definition
-func NewDisabledMapFromOA3(swag *openapi3.Swagger) *DisabledMap {
-	rval := NewDisabledMap()
-	for _, item := range swag.Paths {
-		for _, opItem := range item.Operations() {
+// DisabledMapConfig is a type that holds the configuration for setting up
+// a DisabledMap
+type DisabledMapConfig struct {
+	// Key -> Path of REST endpoint (i.e. /v2/accounts/{account-id}/transactions)
+	// Value -> Operation "get, post, etc" -> Sub-value: List of parameters disabled for that endpoint
+	Data map[string]map[string][]string
+}
 
-			endpointConfig := NewEndpointConfig()
+// isDisabled Returns true if the parameter is disabled for the given path
+func (dmc *DisabledMapConfig) isDisabled(restPath string, operationName string, parameterName string) bool {
+	parameterList, exists := dmc.Data[restPath][operationName]
+	if !exists {
+		return false
+	}
+
+	for _, parameter := range parameterList {
+		if parameterName == parameter {
+			return true
+		}
+	}
+	return false
+}
+
+func (dmc *DisabledMapConfig) addEntry(restPath string, operationName string, parameterNames []string) {
+
+	if dmc.Data == nil {
+		dmc.Data = make(map[string]map[string][]string)
+	}
+
+	if dmc.Data[restPath] == nil {
+		dmc.Data[restPath] = make(map[string][]string)
+	}
+
+	dmc.Data[restPath][operationName] = parameterNames
+}
+
+// MakeDisabledMapConfig creates a new disabled map configuration
+func MakeDisabledMapConfig() *DisabledMapConfig {
+	return &DisabledMapConfig{
+		Data: make(map[string]map[string][]string),
+	}
+}
+
+// GetDefaultDisabledMapConfigForPostgres will generate a configuration that will block certain
+// parameters.  Should be used only for the postgres implementation
+func GetDefaultDisabledMapConfigForPostgres() *DisabledMapConfig {
+	rval := MakeDisabledMapConfig()
+
+	// Some syntactic sugar
+	get := func(restPath string, parameterNames []string) {
+		rval.addEntry(restPath, http.MethodGet, parameterNames)
+	}
+
+	get("/v2/accounts", []string{"currency-greater-than", "currency-less-than"})
+	get("/v2/accounts/{account-id}/transactions", []string{"note-prefix", "tx-type", "sig-type", "asset-id", "before-time", "after-time", "rekey-to"})
+	get("/v2/assets", []string{"name", "unit"})
+	get("/v2/assets/{asset-id}/balances", []string{"round", "currency-greater-than", "currency-less-than"})
+	get("/v2/transactions", []string{"note-prefix", "tx-type", "sig-type", "asset-id", "before-time", "after-time", "currency-greater-than", "currency-less-than", "address-role", "exclude-close-to", "rekey-to", "application-id"})
+	get("/v2/assets/{asset-id}/transactions", []string{"note-prefix", "tx-type", "sig-type", "asset-id", "before-time", "after-time", "currency-greater-than", "currency-less-than", "address-role", "exclude-close-to", "rekey-to"})
+
+	return rval
+}
+
+// ErrDisabledMapConfig contains any mis-spellings that could be present in a configuration
+type ErrDisabledMapConfig struct {
+	// Key -> REST Path that was mis-spelled
+	// Value -> Operation "get, post, etc" -> Sub-value: Any parameters that were found to be mis-spelled in a valid REST PATH
+	BadEntries map[string]map[string][]string
+}
+
+func (edmc *ErrDisabledMapConfig) Error() string {
+	var sb strings.Builder
+	for k, v := range edmc.BadEntries {
+
+		// If the length of the list is zero then it is a mis-spelled REST path
+		if len(v) == 0 {
+			_, _ = sb.WriteString(fmt.Sprintf("Mis-spelled REST Path: %s\n", k))
+			continue
+		}
+
+		for op, param := range v {
+			_, _ = sb.WriteString(fmt.Sprintf("REST Path %s (Operation: %s) contains mis-spelled parameters: %s\n", k, op, strings.Join(param, ",")))
+		}
+	}
+	return sb.String()
+}
+
+// makeErrDisabledMapConfig returns a new disabled map config error
+func makeErrDisabledMapConfig() *ErrDisabledMapConfig {
+	return &ErrDisabledMapConfig{
+		BadEntries: make(map[string]map[string][]string),
+	}
+}
+
+// validate makes sure that all keys and values in the Disabled Map Configuration
+// are actually spelled right.  What might happen is that a user might
+// accidentally mis-spell an entry, so we want to make sure to mitigate against
+// that by checking the openapi definition
+func (dmc *DisabledMapConfig) validate(swag *openapi3.Swagger) error {
+	potentialRval := makeErrDisabledMapConfig()
+
+	for recordedPath, recordedOp := range dmc.Data {
+		swagPath, exists := swag.Paths[recordedPath]
+		if !exists {
+			// This means that the rest endpoint itself is mis-spelled
+			potentialRval.BadEntries[recordedPath] = map[string][]string{}
+			continue
+		}
+
+		for opName, recordedParams := range recordedOp {
+			// This will panic if it is an illegal name so no need to check for nil
+			swagOperation := swagPath.GetOperation(opName)
+
+			for _, recordedParam := range recordedParams {
+				found := false
+
+				for _, swagParam := range swagOperation.Parameters {
+					if recordedParam == swagParam.Value.Name {
+						found = true
+						break
+					}
+				}
+
+				if found {
+					continue
+				}
+
+				// If we didn't find it then it's time to add it to the entry
+				if potentialRval.BadEntries[recordedPath] == nil {
+					potentialRval.BadEntries[recordedPath] = make(map[string][]string)
+				}
+
+				potentialRval.BadEntries[recordedPath][opName] = append(potentialRval.BadEntries[recordedPath][opName], recordedParam)
+			}
+		}
+	}
+
+	// If we have no entries then don't return an error
+	if len(potentialRval.BadEntries) != 0 {
+		return potentialRval
+	}
+
+	return nil
+}
+
+// MakeDisabledMapFromOA3 Creates a new disabled map from an openapi3 definition
+func MakeDisabledMapFromOA3(swag *openapi3.Swagger, config *DisabledMapConfig) (*DisabledMap, error) {
+
+	err := config.validate(swag)
+
+	if err != nil {
+		return nil, err
+	}
+
+	rval := MakeDisabledMap()
+	for restPath, item := range swag.Paths {
+		for opName, opItem := range item.Operations() {
+
+			endpointConfig := makeEndpointConfig()
 
 			for _, pref := range opItem.Parameters {
 
-				// TODO how to enable it to be disabled
-				parameterIsDisabled := false
+				paramName := pref.Value.Name
+
+				parameterIsDisabled := config.isDisabled(restPath, opName, paramName)
 				if !parameterIsDisabled {
 					// If the parameter is not disabled, then we don't need
 					// to do anything
@@ -62,7 +313,7 @@ func NewDisabledMapFromOA3(swag *openapi3.Swagger) *DisabledMap {
 					endpointConfig.EndpointDisabled = true
 				} else {
 					// If the optional parameter is disabled, add it to the map
-					endpointConfig.DisabledOptionalParameters[pref.Value.Name] = true
+					endpointConfig.DisabledOptionalParameters[paramName] = true
 				}
 			}
 
@@ -72,7 +323,7 @@ func NewDisabledMapFromOA3(swag *openapi3.Swagger) *DisabledMap {
 
 	}
 
-	return rval
+	return rval, err
 }
 
 // ErrVerifyFailedEndpoint an error that signifies that the entire endpoint is disabled
