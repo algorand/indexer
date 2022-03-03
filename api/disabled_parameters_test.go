@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -13,6 +14,147 @@ import (
 
 	"github.com/algorand/indexer/api/generated/v2"
 )
+
+func TestToDisabledMapConfig(t *testing.T) {
+	type testingStruct struct {
+		name        string
+		ddm         *DisplayDisabledMap
+		dmc         *DisabledMapConfig
+		expectError bool
+	}
+
+	tests := []testingStruct{
+		{"test 1",
+			&DisplayDisabledMap{Data: map[string]map[string][]map[string]string{
+				"/sampleEndpoint": {
+					"required": {{"p1": "enabled"}, {"p2": "disabled"}},
+					"optional": {{"p3": "enabled"}},
+				}}},
+			&DisabledMapConfig{Data: map[string]map[string][]string{
+				"/sampleEndpoint": {http.MethodGet: {"p2"}},
+			}},
+
+			false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			dmc, err := test.ddm.toDisabledMapConfig(nil)
+
+			if test.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.True(t, reflect.DeepEqual(*dmc, *test.dmc))
+			}
+		})
+	}
+
+}
+
+func TestSchemaCheck(t *testing.T) {
+	type testingStruct struct {
+		name        string
+		ddm         *DisplayDisabledMap
+		expectError bool
+	}
+	tests := []testingStruct{
+		{"test param types - good",
+			&DisplayDisabledMap{Data: map[string]map[string][]map[string]string{
+				"/sampleEndpoint": {
+					"required": {{"p1": "enabled"}, {"p2": "disabled"}},
+					"optional": {{"p3": "enabled"}},
+				}},
+			},
+			false,
+		},
+
+		{"test param types - bad required",
+			&DisplayDisabledMap{Data: map[string]map[string][]map[string]string{
+				"/sampleEndpoint": {
+					"required-FAKE": {{"p1": "enabled"}, {"p2": "disabled"}},
+					"optional":      {{"p3": "enabled"}},
+				}},
+			},
+			true,
+		},
+
+		{"test param types - bad optional",
+			&DisplayDisabledMap{Data: map[string]map[string][]map[string]string{
+				"/sampleEndpoint": {
+					"required":      {{"p1": "enabled"}, {"p2": "disabled"}},
+					"optional-FAKE": {{"p3": "enabled"}},
+				}},
+			},
+			true,
+		},
+
+		{"test param types - bad both",
+			&DisplayDisabledMap{Data: map[string]map[string][]map[string]string{
+				"/sampleEndpoint": {
+					"required-FAKE": {{"p1": "enabled"}, {"p2": "disabled"}},
+					"optional-FAKE": {{"p3": "enabled"}},
+				}},
+			},
+			true,
+		},
+
+		{"test param status - good",
+			&DisplayDisabledMap{Data: map[string]map[string][]map[string]string{
+				"/sampleEndpoint": {
+					"required": {{"p1": "enabled"}, {"p2": "disabled"}},
+					"optional": {{"p3": "enabled"}},
+				}},
+			},
+			false,
+		},
+
+		{"test param status - bad required",
+			&DisplayDisabledMap{Data: map[string]map[string][]map[string]string{
+				"/sampleEndpoint": {
+					"required": {{"p1": "enabled"}, {"p2": "disabled-FAKE"}},
+					"optional": {{"p3": "enabled"}},
+				}},
+			},
+			true,
+		},
+
+		{"test param status - bad optional",
+			&DisplayDisabledMap{Data: map[string]map[string][]map[string]string{
+				"/sampleEndpoint": {
+					"required": {{"p1": "enabled"}, {"p2": "disabled"}},
+					"optional": {{"p3": "enabled-FAKE"}},
+				}},
+			},
+			true,
+		},
+
+		{"test param status - bad both",
+			&DisplayDisabledMap{Data: map[string]map[string][]map[string]string{
+				"/sampleEndpoint": {
+					"required": {{"p1": "enabled-FAKE"}, {"p2": "disabled"}},
+					"optional": {{"p3": "enabled-FAKE"}},
+				}},
+			},
+			true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := test.ddm.validateSchema()
+
+			if test.expectError {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+
+}
 
 func TestValidate(t *testing.T) {
 	// Validates that the default config is correctly spelled

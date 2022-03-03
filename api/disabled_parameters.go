@@ -2,12 +2,20 @@ package api
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
 	"gopkg.in/yaml.v3"
+)
+
+const (
+	disabledStatusStr    = "disabled"
+	enabledStatusStr     = "enabled"
+	requiredParameterStr = "required"
+	optionalParameterStr = "optional"
 )
 
 // DisplayDisabledMap is a struct that contains the necessary information
@@ -60,6 +68,125 @@ func (ddm *DisplayDisabledMap) addEntry(restPath string, requiredOrOptional stri
 	ddm.Data[restPath][requiredOrOptional] = append(ddm.Data[restPath][requiredOrOptional], mapEntry)
 }
 
+// validateSchema takes in a newly loaded DisplayDisabledMap and validates that all the
+// "strings" are the correct values.  For instance, it says that the sub-config is either
+// "required" or "optional" as well as making sure the string values for the parameters
+// are either "enabled" or "disabled".
+//
+// However, it does not validate whether the values actually exist.  That comes with the "Validate"
+// function on a DisabledMapConfig
+func (ddm *DisplayDisabledMap) validateSchema() error {
+	type innerStruct struct {
+		// IllegalParamTypes: list of the mis-spelled parameter types (i.e. not required or optional)
+		IllegalParamTypes []string
+		// IllegalParamStatus: list of parameter names with mis-spelled parameter status combined as a string
+		IllegalParamStatus []string
+	}
+
+	// Key is restPath,
+	// Value is anonymous struct with two fields:
+	illegalSchema := make(map[string]innerStruct)
+
+	for restPath, entries := range ddm.Data {
+		tmp := innerStruct{}
+		for requiredOrOptional, paramList := range entries {
+
+			if requiredOrOptional != requiredParameterStr && requiredOrOptional != optionalParameterStr {
+				tmp.IllegalParamTypes = append(tmp.IllegalParamTypes, requiredOrOptional)
+			}
+
+			for _, paramDict := range paramList {
+				for paramName, paramStatus := range paramDict {
+					if paramStatus != disabledStatusStr && paramStatus != enabledStatusStr {
+						errorStr := fmt.Sprintf("%s : %s", paramName, paramStatus)
+						tmp.IllegalParamStatus = append(tmp.IllegalParamStatus, errorStr)
+					}
+				}
+			}
+
+			if len(tmp.IllegalParamTypes) != 0 || len(tmp.IllegalParamStatus) != 0 {
+				illegalSchema[restPath] = tmp
+			}
+		}
+	}
+
+	// No error if there are no entries
+	if len(illegalSchema) == 0 {
+		return nil
+	}
+
+	var sb strings.Builder
+
+	for restPath, iStruct := range illegalSchema {
+		_, _ = sb.WriteString(fmt.Sprintf("REST Path %s contained the following errors:\n", restPath))
+		if len(iStruct.IllegalParamTypes) != 0 {
+			_, _ = sb.WriteString(fmt.Sprintf("  -> Illegal Parameter Types: %v\n", iStruct.IllegalParamTypes))
+		}
+		if len(iStruct.IllegalParamStatus) != 0 {
+			_, _ = sb.WriteString(fmt.Sprintf("  -> Illegal Parameter Status: %v\n", iStruct.IllegalParamStatus))
+		}
+	}
+
+	return fmt.Errorf(sb.String())
+}
+
+func (ddm *DisplayDisabledMap) toDisabledMapConfig(swag *openapi3.Swagger) (*DisabledMapConfig, error) {
+	// Check that all the "strings" are valid
+	err := ddm.validateSchema()
+	if err != nil {
+		return nil, err
+	}
+
+	// We now should have a correctly formed DisplayDisabledMap.
+	// Let's turn that into a config
+	dmc := MakeDisabledMapConfig()
+
+	for restPath, entries := range ddm.Data {
+		var disabledParams []string
+		for _, paramList := range entries {
+			// We don't care if they are required or optional, only if the are disabled
+			for _, paramDict := range paramList {
+				for paramName, paramStatus := range paramDict {
+					if paramStatus != disabledStatusStr {
+						continue
+					}
+					disabledParams = append(disabledParams, paramName)
+				}
+			}
+		}
+
+		// Default to just get for now
+		dmc.addEntry(restPath, http.MethodGet, disabledParams)
+	}
+
+	if swag != nil {
+		err = dmc.validate(swag)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return dmc, nil
+}
+
+// MakeDisabledMapConfigFromFile loads a file containing a disabled map configuration.
+func MakeDisabledMapConfigFromFile(swag *openapi3.Swagger, filePath string) (*DisabledMapConfig, error) {
+	// First load the file...
+	f, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	ddm := makeDisplayDisabledMap()
+
+	err = yaml.Unmarshal(f, ddm)
+	if err != nil {
+		return nil, err
+	}
+
+	return ddm.toDisabledMapConfig(swag)
+}
+
 // MakeDisplayDisabledMapFromConfig will make a DisplayDisabledMap that takes into account the DisabledMapConfig.
 // If limited is set to true, then only disabled parameters will be added to the DisplayDisabledMap
 func MakeDisplayDisabledMapFromConfig(swag *openapi3.Swagger, mapConfig *DisabledMapConfig, limited bool) *DisplayDisabledMap {
@@ -84,16 +211,16 @@ func MakeDisplayDisabledMapFromConfig(swag *openapi3.Swagger, mapConfig *Disable
 				var statusStr string
 
 				if parameterIsDisabled {
-					statusStr = "disabled"
+					statusStr = disabledStatusStr
 				} else {
-					statusStr = "enabled"
+					statusStr = enabledStatusStr
 				}
 
 				if pref.Value.Required {
-					rval.addEntry(restPath, "required", paramName, statusStr)
+					rval.addEntry(restPath, requiredParameterStr, paramName, statusStr)
 				} else {
 					// If the optional parameter is disabled, add it to the map
-					rval.addEntry(restPath, "optional", paramName, statusStr)
+					rval.addEntry(restPath, optionalParameterStr, paramName, statusStr)
 				}
 			}
 
@@ -326,7 +453,7 @@ func MakeDisabledMapFromOA3(swag *openapi3.Swagger, config *DisabledMapConfig) (
 	return rval, err
 }
 
-// ErrVerifyFailedEndpoint an error that signifies that the entire endpoint is disabled
+// ErrVerifyFailedEndpoint an error that signifies that the entire endpoint is disa`.bled
 var ErrVerifyFailedEndpoint error = fmt.Errorf("endpoint is disabled")
 
 // ErrVerifyFailedParameter an error that signifies that a parameter was provided when it was disabled
