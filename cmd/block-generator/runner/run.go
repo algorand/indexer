@@ -153,13 +153,14 @@ func recordDataToFile(start time.Time, entry Entry, prefix string, out *os.File)
 
 	record("_average", metrics.BlockImportTimeName, rate)
 	record("_cumulative", metrics.BlockImportTimeName, floatTotal)
-	record("_average", metrics.ImportedTxnsPerBlockName, rate)
-	record("_cumulative", metrics.ImportedTxnsPerBlockName, intTotal)
+	record("", metrics.ImportedTxnsPerBlockName, intTotal)
 	record("_average", metrics.BlockUploadTimeName, rate)
 	record("_cumulative", metrics.BlockUploadTimeName, floatTotal)
 	record("_average", metrics.PostgresEvalName, rate)
 	record("_cumulative", metrics.PostgresEvalName, floatTotal)
 	record("", metrics.ImportedRoundGaugeName, intTotal)
+	record("_average", metrics.GetAlgodRawBlockTimeName, rate)
+	record("_cumulative", metrics.GetAlgodRawBlockTimeName, floatTotal)
 
 	if len(writeErrors) > 0 {
 		return fmt.Errorf("error writing metrics (%s): %w", strings.Join(writeErrors, ", "), writeErr)
@@ -229,23 +230,30 @@ func getMetric(entry Entry, suffix string, rateMetric bool) (float64, error) {
 				return 0.0, fmt.Errorf("unknown metric format, expected 'key value' received: %s", metric)
 			}
 
-			// Check for _sum / _count for summary (rateMetric) metrics.
-			// Otherwise grab the total value.
-			if strings.HasSuffix(split[0], "_sum") {
+			// imported_tx_per_block metric is grouped by txn_type
+			// e.g. indexer_daemon_imported_tx_per_block{txn_type="keyreg"} 1
+			if suffix == metrics.ImportedTxnsPerBlockName {
 				sum, err = strconv.ParseFloat(split[1], 64)
-				hasSum = true
-			} else if strings.HasSuffix(split[0], "_count") {
-				count, err = strconv.ParseFloat(split[1], 64)
-				hasCount = true
-			} else if strings.HasSuffix(split[0], suffix) {
-				total, err = strconv.ParseFloat(split[1], 64)
+				total += sum
 				hasTotal = true
-			}
+			} else {
+				// Check for _sum / _count for summary (rateMetric) metrics.
+				// Otherwise grab the total value.
+				if strings.HasSuffix(split[0], "_sum") {
+					sum, err = strconv.ParseFloat(split[1], 64)
+					hasSum = true
+				} else if strings.HasSuffix(split[0], "_count") {
+					count, err = strconv.ParseFloat(split[1], 64)
+					hasCount = true
+				} else if strings.HasSuffix(split[0], suffix) {
+					total, err = strconv.ParseFloat(split[1], 64)
+					hasTotal = true
+				}
 
-			if err != nil {
-				return 0.0, fmt.Errorf("unable to parse metric '%s': %w", metric, err)
+				if err != nil {
+					return 0.0, fmt.Errorf("unable to parse metric '%s': %w", metric, err)
+				}
 			}
-
 			if rateMetric && hasSum && hasCount {
 				return sum / count, nil
 			} else if !rateMetric {
