@@ -249,24 +249,27 @@ func getMetric(entry Entry, suffix string, rateMetric bool) (float64, error) {
 					total, err = strconv.ParseFloat(split[1], 64)
 					hasTotal = true
 				}
-
 				if err != nil {
 					return 0.0, fmt.Errorf("unable to parse metric '%s': %w", metric, err)
 				}
-			}
-			if rateMetric && hasSum && hasCount {
-				return sum / count, nil
-			} else if !rateMetric {
-				if hasSum {
-					return sum, nil
-				}
-				if hasTotal {
-					return total, nil
+				if rateMetric && hasSum && hasCount {
+					return sum / count, nil
+				} else if !rateMetric {
+					if hasSum {
+						return sum, nil
+					}
+					if hasTotal {
+						return total, nil
+					}
 				}
 			}
 		}
-	}
 
+	}
+	// return accumulated total for imported_tx_per_block
+	if hasTotal {
+		return total, nil
+	}
 	return 0.0, fmt.Errorf("metric incomplete or not found: %s", suffix)
 }
 
