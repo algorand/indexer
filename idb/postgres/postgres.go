@@ -812,7 +812,7 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 
 	// join in the root transaction if the returnInnerTxnOnly flag is false
 	if !tf.ReturnInnerTxnOnly {
-		query += " LEFT OUTER JOIN txn root ON t.round = root.round AND t.extra->>'root-intra' = root.intra::text"
+		query += " LEFT OUTER JOIN txn root ON t.round = root.round AND (t.extra->>'root-intra')::int = root.intra"
 	}
 
 	if len(whereParts) > 0 {
