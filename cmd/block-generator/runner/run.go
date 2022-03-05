@@ -87,11 +87,23 @@ func (r *Args) run() error {
 	algodNet := fmt.Sprintf("localhost:%d", 11112)
 	indexerNet := fmt.Sprintf("localhost:%d", r.IndexerPort)
 	generatorShutdownFunc, generator := startGenerator(r.Path, algodNet, blockMiddleware)
+	defer func() {
+		// Shutdown generator.
+		if err := generatorShutdownFunc(); err != nil {
+			fmt.Printf("Failed to shutdown generator: %s\n", err)
+		}
+	}()
 
 	indexerShutdownFunc, err := startIndexer(logfile, r.LogLevel, r.IndexerBinary, algodNet, indexerNet, r.PostgresConnectionString, r.CPUProfilePath)
 	if err != nil {
 		return fmt.Errorf("failed to start indexer: %w", err)
 	}
+	defer func() {
+		// Shutdown indexer
+		if err := indexerShutdownFunc(); err != nil {
+			fmt.Printf("Failed to shutdown indexer: %s\n", err)
+		}
+	}()
 
 	// Create the report file
 	report, err := os.Create(reportfile)
@@ -118,25 +130,17 @@ func (r *Args) run() error {
 		}
 	}
 
-	// Shutdown generator.
-	if err := generatorShutdownFunc(); err != nil {
-		return err
-	}
-
-	// Shutdown indexer
-	if err := indexerShutdownFunc(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
 type metricType int
 
 const (
-	rate metricType = iota
+	na metricType = iota
+	rate
 	intTotal
 	floatTotal
+	gaugeVecSum
 )
 
 // Helper to record metrics. Supports rates (sum/count) and counters.
@@ -153,7 +157,7 @@ func recordDataToFile(start time.Time, entry Entry, prefix string, out *os.File)
 
 	record("_average", metrics.BlockImportTimeName, rate)
 	record("_cumulative", metrics.BlockImportTimeName, floatTotal)
-	record("", metrics.ImportedTxnsPerBlockName, intTotal)
+	record("", metrics.ImportedTxnsPerBlockName, gaugeVecSum)
 	record("_average", metrics.BlockUploadTimeName, rate)
 	record("_cumulative", metrics.BlockUploadTimeName, floatTotal)
 	record("_average", metrics.PostgresEvalName, rate)
@@ -167,12 +171,12 @@ func recordDataToFile(start time.Time, entry Entry, prefix string, out *os.File)
 	}
 
 	// Calculate import transactions per second.
-	totalTxn, err := getMetric(entry, metrics.ImportedTxnsPerBlockName, false)
+	totalTxn, err := getMetric(entry, metrics.ImportedTxnsPerBlockName, gaugeVecSum)
 	if err != nil {
 		return err
 	}
 
-	importTimeS, err := getMetric(entry, metrics.BlockImportTimeName, false)
+	importTimeS, err := getMetric(entry, metrics.BlockImportTimeName, na)
 	if err != nil {
 		return err
 	}
@@ -194,7 +198,7 @@ func recordDataToFile(start time.Time, entry Entry, prefix string, out *os.File)
 }
 
 func recordMetricToFile(entry Entry, outputKey, metricSuffix string, t metricType, out *os.File) error {
-	value, err := getMetric(entry, metricSuffix, t == rate)
+	value, err := getMetric(entry, metricSuffix, t)
 	if err != nil {
 		return err
 	}
@@ -213,13 +217,15 @@ func recordMetricToFile(entry Entry, outputKey, metricSuffix string, t metricTyp
 	return nil
 }
 
-func getMetric(entry Entry, suffix string, rateMetric bool) (float64, error) {
+func getMetric(entry Entry, suffix string, t metricType) (float64, error) {
 	total := 0.0
 	sum := 0.0
 	count := 0.0
 	hasSum := false
 	hasCount := false
 	hasTotal := false
+	hasVecSum := false
+	rateMetric := t == rate
 
 	for _, metric := range entry.Data {
 		var err error
@@ -232,42 +238,39 @@ func getMetric(entry Entry, suffix string, rateMetric bool) (float64, error) {
 
 			// imported_tx_per_block metric is grouped by txn_type
 			// e.g. indexer_daemon_imported_tx_per_block{txn_type="keyreg"} 1
-			if suffix == metrics.ImportedTxnsPerBlockName {
+			if t == gaugeVecSum {
 				sum, err = strconv.ParseFloat(split[1], 64)
 				total += sum
+				hasVecSum = true
+			} else if strings.HasSuffix(split[0], "_sum") {
+				sum, err = strconv.ParseFloat(split[1], 64)
+				hasSum = true
+			} else if strings.HasSuffix(split[0], "_count") {
+				count, err = strconv.ParseFloat(split[1], 64)
+				hasCount = true
+			} else if strings.HasSuffix(split[0], suffix) {
+				total, err = strconv.ParseFloat(split[1], 64)
 				hasTotal = true
-			} else {
-				// Check for _sum / _count for summary (rateMetric) metrics.
-				// Otherwise grab the total value.
-				if strings.HasSuffix(split[0], "_sum") {
-					sum, err = strconv.ParseFloat(split[1], 64)
-					hasSum = true
-				} else if strings.HasSuffix(split[0], "_count") {
-					count, err = strconv.ParseFloat(split[1], 64)
-					hasCount = true
-				} else if strings.HasSuffix(split[0], suffix) {
-					total, err = strconv.ParseFloat(split[1], 64)
-					hasTotal = true
+			}
+
+			if err != nil {
+				return 0.0, fmt.Errorf("unable to parse metric '%s': %w", metric, err)
+			}
+
+			if rateMetric && hasSum && hasCount {
+				return sum / count, nil
+			} else if !rateMetric {
+				if hasSum {
+					return sum, nil
 				}
-				if err != nil {
-					return 0.0, fmt.Errorf("unable to parse metric '%s': %w", metric, err)
-				}
-				if rateMetric && hasSum && hasCount {
-					return sum / count, nil
-				} else if !rateMetric {
-					if hasSum {
-						return sum, nil
-					}
-					if hasTotal {
-						return total, nil
-					}
+				if hasTotal {
+					return total, nil
 				}
 			}
 		}
-
 	}
 	// return accumulated total for imported_tx_per_block
-	if hasTotal {
+	if hasVecSum {
 		return total, nil
 	}
 	return 0.0, fmt.Errorf("metric incomplete or not found: %s", suffix)
