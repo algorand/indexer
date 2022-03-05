@@ -49,8 +49,8 @@ var (
 			Help:      "Block upload time in seconds.",
 		})
 
-	ImportedTxnsPerBlock = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
+	ImportedTxnsPerBlock = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
 			Subsystem: "indexer_daemon",
 			Name:      ImportedTxnsPerBlockName,
 			Help:      "Transactions per block.",

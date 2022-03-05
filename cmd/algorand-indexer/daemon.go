@@ -225,7 +225,7 @@ func handleBlock(block *rpcs.EncodedBlockCert, imp importer.Importer) error {
 			txnCountByType[string(txn.Txn.Type)]++
 		}
 		for k, v := range txnCountByType {
-			metrics.ImportedTxnsPerBlock.WithLabelValues(k).Set(float64(v))
+			metrics.ImportedTxnsPerBlock.WithLabelValues(k).Add(float64(v))
 		}
 	}
 
