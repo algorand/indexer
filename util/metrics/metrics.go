@@ -11,6 +11,7 @@ func RegisterPrometheusMetrics() {
 	prometheus.Register(BlockUploadTimeSeconds)
 	prometheus.Register(PostgresEvalTimeSeconds)
 	prometheus.Register(GetAlgodRawBlockTimeSeconds)
+	prometheus.Register(ImportedTxns)
 }
 
 // Prometheus metric names broken out for reuse.
@@ -21,6 +22,7 @@ const (
 	ImportedRoundGaugeName   = "imported_round"
 	PostgresEvalName         = "postgres_eval_time_sec"
 	GetAlgodRawBlockTimeName = "get_algod_raw_block_time_sec"
+	ImportedTxnsName         = "imported_txns"
 )
 
 // AllMetricNames is a reference for all the custom metric names.
@@ -49,11 +51,19 @@ var (
 			Help:      "Block upload time in seconds.",
 		})
 
-	ImportedTxnsPerBlock = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
+	ImportedTxnsPerBlock = prometheus.NewSummary(
+		prometheus.SummaryOpts{
 			Subsystem: "indexer_daemon",
 			Name:      ImportedTxnsPerBlockName,
 			Help:      "Transactions per block.",
+		},
+	)
+
+	ImportedTxns = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Subsystem: "indexer_daemon",
+			Name:      ImportedTxnsName,
+			Help:      "Imported transactions grouped by type",
 		},
 		[]string{"txn_type"},
 	)
