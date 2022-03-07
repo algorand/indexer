@@ -9,8 +9,8 @@
       "pluginName": "Prometheus"
     },
     {
-      "name": "DS_POSTGRESQL",
-      "label": "PostgreSQL",
+      "name": "DS_POSTGRESSQL",
+      "label": "PostgresSQL",
       "description": "",
       "type": "datasource",
       "pluginId": "postgres",
@@ -23,7 +23,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "8.3.6"
+      "version": "8.4.2"
     },
     {
       "type": "panel",
@@ -514,7 +514,7 @@
     {
       "datasource": {
         "type": "postgres",
-        "uid": "${DS_POSTGRESQL}"
+        "uid": "${DS_POSTGRESSQL}"
       },
       "fieldConfig": {
         "defaults": {
@@ -559,12 +559,12 @@
         },
         "showHeader": true
       },
-      "pluginVersion": "8.3.6",
+      "pluginVersion": "8.4.2",
       "targets": [
         {
           "datasource": {
             "type": "postgres",
-            "uid": "${DS_POSTGRESQL}"
+            "uid": "${DS_POSTGRESSQL}"
           },
           "format": "table",
           "group": [],
@@ -593,7 +593,7 @@
     {
       "datasource": {
         "type": "postgres",
-        "uid": "${DS_POSTGRESQL}"
+        "uid": "${DS_POSTGRESSQL}"
       },
       "fieldConfig": {
         "defaults": {
@@ -657,12 +657,12 @@
           }
         ]
       },
-      "pluginVersion": "8.3.6",
+      "pluginVersion": "8.4.2",
       "targets": [
         {
           "datasource": {
             "type": "postgres",
-            "uid": "${DS_POSTGRESQL}"
+            "uid": "${DS_POSTGRESSQL}"
           },
           "format": "table",
           "group": [],
@@ -781,7 +781,7 @@
             "uid": "${DS_INDEXERPROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "sum(avg_over_time(indexer_daemon_imported_tx_per_block[10m])/4.3)",
+          "expr": "rate(indexer_daemon_imported_tx_per_block_sum{}[$__interval])/rate(indexer_daemon_imported_round[$__interval])",
           "interval": "",
           "legendFormat": "TPS",
           "refId": "A"
@@ -907,7 +907,7 @@
             "uid": "${DS_INDEXERPROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "rate(indexer_daemon_get_algod_raw_block_time_sec_sum{}[1m])",
+          "expr": "rate(indexer_daemon_get_algod_raw_block_time_sec_sum{}[$__interval])",
           "format": "time_series",
           "instant": false,
           "interval": "",
@@ -920,7 +920,7 @@
             "uid": "${DS_INDEXERPROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "sum(avg_over_time(indexer_daemon_imported_tx_per_block[1m]))",
+          "expr": "rate(indexer_daemon_imported_tx_per_block_sum{}[$__interval])",
           "hide": false,
           "interval": "",
           "legendFormat": "txns per block",
@@ -932,7 +932,7 @@
             "uid": "${DS_INDEXERPROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "rate(indexer_daemon_import_time_sec_sum[1m])",
+          "expr": "rate(indexer_daemon_import_time_sec_sum[$__interval])",
           "hide": false,
           "interval": "",
           "legendFormat": "block import time (sec)",
@@ -1077,7 +1077,7 @@
             "uid": "${DS_INDEXERPROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "delta(indexer_daemon_imported_round[$__interval])",
+          "expr": "rate(indexer_daemon_imported_round[$__interval])",
           "hide": false,
           "interval": "",
           "legendFormat": "rounds imported",
@@ -1168,7 +1168,7 @@
             "uid": "${DS_INDEXERPROMETHEUS}"
           },
           "exemplar": true,
-          "expr": "indexer_daemon_imported_tx_per_block",
+          "expr": "indexer_daemon_imported_txns",
           "interval": "",
           "legendFormat": "{{txn_type}}",
           "refId": "A"
@@ -1179,20 +1179,20 @@
     }
   ],
   "refresh": "",
-  "schemaVersion": 34,
+  "schemaVersion": 35,
   "style": "dark",
   "tags": [],
   "templating": {
     "list": []
   },
   "time": {
-    "from": "now-5m",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Monitoring",
   "uid": "ArMgIZ-7z",
-  "version": 3,
+  "version": 9,
   "weekStart": ""
 }
