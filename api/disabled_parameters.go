@@ -83,8 +83,6 @@ func (ddm *DisplayDisabledMap) validateSchema() error {
 		IllegalParamStatus []string
 	}
 
-	// Key is restPath,
-	// Value is anonymous struct with two fields:
 	illegalSchema := make(map[string]innerStruct)
 
 	for restPath, entries := range ddm.Data {
@@ -130,6 +128,8 @@ func (ddm *DisplayDisabledMap) validateSchema() error {
 	return fmt.Errorf(sb.String())
 }
 
+// toDisabledMapConfig creates a disabled map config from a display disabled map.  If the swag pointer
+// is nil then no validation is performed on the disabled map config.  This is useful for unit tests
 func (ddm *DisplayDisabledMap) toDisabledMapConfig(swag *openapi3.Swagger) (*DisabledMapConfig, error) {
 	// Check that all the "strings" are valid
 	err := ddm.validateSchema()
@@ -179,7 +179,7 @@ func MakeDisabledMapConfigFromFile(swag *openapi3.Swagger, filePath string) (*Di
 
 	ddm := makeDisplayDisabledMap()
 
-	err = yaml.Unmarshal(f, ddm)
+	err = yaml.Unmarshal(f, &ddm.Data)
 	if err != nil {
 		return nil, err
 	}
@@ -300,7 +300,7 @@ func (dmc *DisabledMapConfig) addEntry(restPath string, operationName string, pa
 	dmc.Data[restPath][operationName] = parameterNames
 }
 
-// MakeDisabledMapConfig creates a new disabled map configuration
+// MakeDisabledMapConfig creates a new disabled map configuration with everything enabled
 func MakeDisabledMapConfig() *DisabledMapConfig {
 	return &DisabledMapConfig{
 		Data: make(map[string]map[string][]string),
@@ -338,14 +338,14 @@ func (edmc *ErrDisabledMapConfig) Error() string {
 	var sb strings.Builder
 	for k, v := range edmc.BadEntries {
 
-		// If the length of the list is zero then it is a mis-spelled REST path
+		// If the length of the list is zero then it is an unknown REST path
 		if len(v) == 0 {
-			_, _ = sb.WriteString(fmt.Sprintf("Mis-spelled REST Path: %s\n", k))
+			_, _ = sb.WriteString(fmt.Sprintf("Unknown REST Path: %s\n", k))
 			continue
 		}
 
 		for op, param := range v {
-			_, _ = sb.WriteString(fmt.Sprintf("REST Path %s (Operation: %s) contains mis-spelled parameters: %s\n", k, op, strings.Join(param, ",")))
+			_, _ = sb.WriteString(fmt.Sprintf("REST Path %s (Operation: %s) contains unknown parameters: %s\n", k, op, strings.Join(param, ",")))
 		}
 	}
 	return sb.String()
@@ -453,7 +453,7 @@ func MakeDisabledMapFromOA3(swag *openapi3.Swagger, config *DisabledMapConfig) (
 	return rval, err
 }
 
-// ErrVerifyFailedEndpoint an error that signifies that the entire endpoint is disa`.bled
+// ErrVerifyFailedEndpoint an error that signifies that the entire endpoint is disabled
 var ErrVerifyFailedEndpoint error = fmt.Errorf("endpoint is disabled")
 
 // ErrVerifyFailedParameter an error that signifies that a parameter was provided when it was disabled

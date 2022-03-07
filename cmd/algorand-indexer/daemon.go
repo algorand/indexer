@@ -10,11 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/algorand/go-algorand/rpcs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/api"
+	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
@@ -23,18 +24,19 @@ import (
 )
 
 var (
-	algodDataDir     string
-	algodAddr        string
-	algodToken       string
-	daemonServerAddr string
-	noAlgod          bool
-	developerMode    bool
-	allowMigration   bool
-	metricsMode      string
-	tokenString      string
-	writeTimeout     time.Duration
-	readTimeout      time.Duration
-	maxConn          uint32
+	algodDataDir        string
+	algodAddr           string
+	algodToken          string
+	daemonServerAddr    string
+	noAlgod             bool
+	developerMode       bool
+	allowMigration      bool
+	metricsMode         string
+	tokenString         string
+	writeTimeout        time.Duration
+	readTimeout         time.Duration
+	maxConn             uint32
+	enableAllParameters bool
 )
 
 var daemonCmd = &cobra.Command{
@@ -128,7 +130,26 @@ var daemonCmd = &cobra.Command{
 
 		fmt.Printf("serving on %s\n", daemonServerAddr)
 		logger.Infof("serving on %s", daemonServerAddr)
-		api.Serve(ctx, daemonServerAddr, db, bot, logger, makeOptions())
+
+		options := makeOptions()
+
+		swag, err := generated.GetSwagger()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to get swagger: %v", err)
+			os.Exit(1)
+		}
+
+		if suppliedAPIConfigFile != "" {
+			logger.Infof("supplied api configuration file located at: %s", suppliedAPIConfigFile)
+			potentialDisabledMapConfig, err := api.MakeDisabledMapConfigFromFile(swag, suppliedAPIConfigFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to created disabled map config from file: %v", err)
+				os.Exit(1)
+			}
+			options.DisabledMapConfig = potentialDisabledMapConfig
+		}
+
+		api.Serve(ctx, daemonServerAddr, db, bot, logger, options)
 		wg.Wait()
 	},
 }
@@ -147,6 +168,8 @@ func init() {
 	daemonCmd.Flags().DurationVarP(&writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
 	daemonCmd.Flags().DurationVarP(&readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
 	daemonCmd.Flags().Uint32VarP(&maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
+	daemonCmd.Flags().StringVar(&suppliedAPIConfigFile, "api-config-file", "", "supply an API config file to enable/disable parameters")
+	daemonCmd.Flags().BoolVar(&enableAllParameters, "enable-all-parameters", false, "override supplied or default configuration and enable all parameters")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
@@ -175,11 +198,11 @@ func makeOptions() (options api.ExtraOptions) {
 	options.WriteTimeout = writeTimeout
 	options.ReadTimeout = readTimeout
 
-	// TODO enable this when command line options allows for disabling/enabling overrides
-	//disabledMapConfig := api.GetDefaultDisabledMapConfigForPostgres()
-	disabledMapConfig := api.MakeDisabledMapConfig()
-
-	options.DisabledMapConfig = disabledMapConfig
+	if enableAllParameters {
+		options.DisabledMapConfig = api.MakeDisabledMapConfig()
+	} else {
+		options.DisabledMapConfig = api.GetDefaultDisabledMapConfigForPostgres()
+	}
 
 	return
 }

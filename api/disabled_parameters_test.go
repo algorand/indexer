@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -14,6 +15,22 @@ import (
 
 	"github.com/algorand/indexer/api/generated/v2"
 )
+
+func TestToDisabledMapConfigFromFile(t *testing.T) {
+	expectedValue := &DisabledMapConfig{Data: map[string]map[string][]string{
+		"/sampleEndpoint": {http.MethodGet: {"p2"}},
+	}}
+
+	configFile := filepath.Join("test_resources", "mock_disabled_map_config.yaml")
+
+	// Nil pointer for openapi3.swagger because we don't want any validation
+	// to be run on the config (they are made up endpoints)
+	loadedConfig, err := MakeDisabledMapConfigFromFile(nil, configFile)
+	require.NoError(t, err)
+
+	require.True(t, reflect.DeepEqual(*expectedValue, *loadedConfig))
+
+}
 
 func TestToDisabledMapConfig(t *testing.T) {
 	type testingStruct struct {
@@ -41,6 +58,8 @@ func TestToDisabledMapConfig(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 
+			// Nil pointer for openapi3.swagger because we don't want any validation
+			// to be run on the config
 			dmc, err := test.ddm.toDisabledMapConfig(nil)
 
 			if test.expectError {
