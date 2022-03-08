@@ -7,7 +7,102 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/labstack/echo/v4"
+	"gopkg.in/yaml.v3"
 )
+
+// DisplayDisabledMap is a struct that contains the necessary information
+// to output the current config to the screen
+type DisplayDisabledMap struct {
+	// A complicated map but necessary to output the correct YAML.
+	// This is supposed to represent a data structure with a similar YAML
+	// representation:
+	//  /v2/accounts/{account-id}:
+	//    required:
+	//      - account-id : enabled
+	//  /v2/accounts:
+	//    optional:
+	//      - auth-addr : enabled
+	//      - next: disabled
+	Data map[string]map[string][]map[string]string
+}
+
+func (ddm *DisplayDisabledMap) String() (string, error) {
+
+	if len(ddm.Data) == 0 {
+		return "", nil
+	}
+
+	bytes, err := yaml.Marshal(ddm.Data)
+	if err != nil {
+		return "", err
+	}
+
+	return string(bytes), nil
+}
+
+func makeDisplayDisabledMap() *DisplayDisabledMap {
+	return &DisplayDisabledMap{
+		Data: make(map[string]map[string][]map[string]string),
+	}
+}
+
+func (ddm *DisplayDisabledMap) addEntry(restPath string, requiredOrOptional string, entryName string, status string) {
+	if ddm.Data == nil {
+		ddm.Data = make(map[string]map[string][]map[string]string)
+	}
+
+	if ddm.Data[restPath] == nil {
+		ddm.Data[restPath] = make(map[string][]map[string]string)
+	}
+
+	mapEntry := map[string]string{entryName: status}
+
+	ddm.Data[restPath][requiredOrOptional] = append(ddm.Data[restPath][requiredOrOptional], mapEntry)
+}
+
+// MakeDisplayDisabledMapFromConfig will make a DisplayDisabledMap that takes into account the DisabledMapConfig.
+// If limited is set to true, then only disabled parameters will be added to the DisplayDisabledMap
+func MakeDisplayDisabledMapFromConfig(swag *openapi3.Swagger, mapConfig *DisabledMapConfig, limited bool) *DisplayDisabledMap {
+
+	rval := makeDisplayDisabledMap()
+	for restPath, item := range swag.Paths {
+
+		for opName, opItem := range item.Operations() {
+
+			for _, pref := range opItem.Parameters {
+
+				paramName := pref.Value.Name
+
+				parameterIsDisabled := mapConfig.isDisabled(restPath, opName, paramName)
+				// If we are limited, then don't bother with enabled parameters
+				if !parameterIsDisabled && limited {
+					// If the parameter is not disabled, then we don't need
+					// to do anything
+					continue
+				}
+
+				var statusStr string
+
+				if parameterIsDisabled {
+					statusStr = "disabled"
+				} else {
+					statusStr = "enabled"
+				}
+
+				if pref.Value.Required {
+					rval.addEntry(restPath, "required", paramName, statusStr)
+				} else {
+					// If the optional parameter is disabled, add it to the map
+					rval.addEntry(restPath, "optional", paramName, statusStr)
+				}
+			}
+
+		}
+
+	}
+
+	return rval
+}
 
 // EndpointConfig is a data structure that contains whether the
 // endpoint is disabled (with a boolean) as well as a set that

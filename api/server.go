@@ -38,6 +38,9 @@ type ExtraOptions struct {
 	// ReadTimeout is the maximum duration for reading the entire request, including the body.
 	ReadTimeout time.Duration
 
+	// DisabledMapConfig is the disabled map configuration that is being used by the server
+	DisabledMapConfig *DisabledMapConfig
+
 	// MaxAPIResourcesPerAccount is the maximum number of combined AppParams, AppLocalState, AssetParams,
 	// and AssetHolding resources per address that can be returned by the /v2/accounts endpoints.
 	// If an address exceeds this number, a 400 error is returned. Zero means unlimited.
@@ -112,11 +115,7 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 		log.Fatal(err)
 	}
 
-	// TODO enable this when command line options allows for disabling/enabling overrides
-	//disabledMapConfig := GetDefaultDisabledMapConfigForPostgres()
-	disabledMapConfig := MakeDisabledMapConfig()
-
-	disabledMap, err := MakeDisabledMapFromOA3(swag, disabledMapConfig)
+	disabledMap, err := MakeDisabledMapFromOA3(swag, options.DisabledMapConfig)
 	if err != nil {
 		log.Fatal(err)
 	}
