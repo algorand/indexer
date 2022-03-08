@@ -46,6 +46,8 @@ var defaultOpts = ExtraOptions{
 
 	MaxApplicationsLimit:     1000,
 	DefaultApplicationsLimit: 100,
+
+	DisabledMapConfig: MakeDisabledMapConfig(),
 }
 
 func testServerImplementation(db idb.IndexerDb) *ServerImplementation {
