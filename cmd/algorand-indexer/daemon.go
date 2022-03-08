@@ -53,6 +53,13 @@ var daemonCmd = &cobra.Command{
 			os.Exit(1)
 		}
 
+		// If someone supplied a configuration file but also said to enable all parameters,
+		// that's an error
+		if suppliedAPIConfigFile != "" && enableAllParameters {
+			fmt.Fprint(os.Stderr, "not allowed to supply an api config file and enable all parameters")
+			os.Exit(1)
+		}
+
 		if algodDataDir == "" {
 			algodDataDir = os.Getenv("ALGORAND_DATA")
 		}
@@ -169,7 +176,7 @@ func init() {
 	daemonCmd.Flags().DurationVarP(&readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
 	daemonCmd.Flags().Uint32VarP(&maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
 	daemonCmd.Flags().StringVar(&suppliedAPIConfigFile, "api-config-file", "", "supply an API config file to enable/disable parameters")
-	daemonCmd.Flags().BoolVar(&enableAllParameters, "enable-all-parameters", false, "override supplied or default configuration and enable all parameters")
+	daemonCmd.Flags().BoolVar(&enableAllParameters, "enable-all-parameters", false, "override default configuration and enable all parameters. Can't be used with --api-config-file")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
