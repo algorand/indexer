@@ -36,7 +36,7 @@ func TestToDisabledMapConfig(t *testing.T) {
 		name        string
 		ddm         *DisplayDisabledMap
 		dmc         *DisabledMapConfig
-		expectError bool
+		expectError string
 	}
 
 	tests := []testingStruct{
@@ -50,7 +50,7 @@ func TestToDisabledMapConfig(t *testing.T) {
 				"/sampleEndpoint": {http.MethodGet: {"p2"}},
 			}},
 
-			false,
+			"",
 		},
 	}
 
@@ -61,8 +61,9 @@ func TestToDisabledMapConfig(t *testing.T) {
 			// to be run on the config
 			dmc, err := test.ddm.toDisabledMapConfig(nil)
 
-			if test.expectError {
+			if test.expectError != "" {
 				require.Error(t, err)
+				require.Contains(t, err.Error(), test.expectError)
 			} else {
 				require.NoError(t, err)
 				require.True(t, reflect.DeepEqual(*dmc, *test.dmc))
@@ -76,7 +77,7 @@ func TestSchemaCheck(t *testing.T) {
 	type testingStruct struct {
 		name        string
 		ddm         *DisplayDisabledMap
-		expectError bool
+		expectError string
 	}
 	tests := []testingStruct{
 		{"test param types - good",
@@ -86,7 +87,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional": {{"p3": "enabled"}},
 				}},
 			},
-			false,
+			"",
 		},
 
 		{"test param types - bad required",
@@ -96,7 +97,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional":      {{"p3": "enabled"}},
 				}},
 			},
-			true,
+			"required-FAKE",
 		},
 
 		{"test param types - bad optional",
@@ -106,7 +107,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional-FAKE": {{"p3": "enabled"}},
 				}},
 			},
-			true,
+			"optional-FAKE",
 		},
 
 		{"test param types - bad both",
@@ -116,7 +117,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional-FAKE": {{"p3": "enabled"}},
 				}},
 			},
-			true,
+			"required-FAKE optional-FAKE",
 		},
 
 		{"test param status - good",
@@ -126,7 +127,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional": {{"p3": "enabled"}},
 				}},
 			},
-			false,
+			"",
 		},
 
 		{"test param status - bad required",
@@ -136,7 +137,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional": {{"p3": "enabled"}},
 				}},
 			},
-			true,
+			"p2",
 		},
 
 		{"test param status - bad optional",
@@ -146,7 +147,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional": {{"p3": "enabled-FAKE"}},
 				}},
 			},
-			true,
+			"p3",
 		},
 
 		{"test param status - bad both",
@@ -156,7 +157,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional": {{"p3": "enabled-FAKE"}},
 				}},
 			},
-			true,
+			"p1",
 		},
 	}
 
@@ -164,8 +165,9 @@ func TestSchemaCheck(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			err := test.ddm.validateSchema()
 
-			if test.expectError {
+			if test.expectError != "" {
 				require.Error(t, err)
+				require.Contains(t, err.Error(), test.expectError)
 			} else {
 				require.NoError(t, err)
 			}
