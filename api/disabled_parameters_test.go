@@ -17,7 +17,7 @@ import (
 )
 
 func TestToDisabledMapConfigFromFile(t *testing.T) {
-	expectedValue := &DisabledMapConfig{Data: map[string]map[string][]string{
+	expectedValue := DisabledMapConfig{Data: map[string]map[string][]string{
 		"/sampleEndpoint": {http.MethodGet: {"p2"}},
 	}}
 
@@ -27,9 +27,8 @@ func TestToDisabledMapConfigFromFile(t *testing.T) {
 	// to be run on the config (they are made up endpoints)
 	loadedConfig, err := MakeDisabledMapConfigFromFile(nil, configFile)
 	require.NoError(t, err)
-
-	require.True(t, reflect.DeepEqual(*expectedValue, *loadedConfig))
-
+	require.NotNil(t, loadedConfig)
+	require.Equal(t, expectedValue, *loadedConfig)
 }
 
 func TestToDisabledMapConfig(t *testing.T) {
