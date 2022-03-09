@@ -263,7 +263,7 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 	}
 }
 
-// MakeAppOptOutTxn makes an appl transaction with a NoOp upon completion.
+// MakeAppCallTxn makes an appl transaction with a NoOp upon completion.
 func MakeAppCallTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
