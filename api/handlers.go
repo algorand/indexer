@@ -1168,7 +1168,9 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 			}
 
 			// The root txn has already been added.
-			if _, ok := rootTxnDedupeMap[*tx.Id]; ok {
+			// If we also want to return inner txns, we cannot deduplicate the
+			// results as inner txns all share the same txn ID as its root txn.
+			if _, ok := rootTxnDedupeMap[*tx.Id]; ok && !filter.ReturnInnerTxnOnly {
 				continue
 			}
 

@@ -263,6 +263,33 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 	}
 }
 
+// MakeAppCallTxn makes an appl transaction with a NoOp upon completion.
+func MakeAppCallTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
+	return transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: "appl",
+				Header: transactions.Header{
+					Sender:      sender,
+					GenesisHash: GenesisHash,
+				},
+				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+					ApplicationID: basics.AppIndex(appid),
+					OnCompletion:  transactions.NoOpOC,
+				},
+			},
+			Sig: Signature,
+		},
+	}
+}
+
+// MakeAppCallTxnWithLogs makes an appl NoOp transaction with initialized logs.
+func MakeAppCallTxnWithLogs(appid uint64, sender basics.Address, logs []string) (txn transactions.SignedTxnWithAD) {
+	txn = MakeAppCallTxn(appid, sender)
+	txn.ApplyData.EvalDelta.Logs = logs
+	return
+}
+
 // MakeAppCallWithInnerTxn creates an app call with 3 levels of transactions:
 // application create
 // |- payment
@@ -324,24 +351,74 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 							},
 						},
 						// Inner application call
-						{
-							SignedTxn: transactions.SignedTxn{
-								Txn: transactions.Transaction{
-									Type: protocol.ApplicationCallTx,
-									Header: transactions.Header{
-										Sender: assetSender,
-									},
-									ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
-										ApplicationID: 789,
-										OnCompletion:  transactions.NoOpOC,
-									},
-								},
-							},
-						},
+						MakeAppCallTxn(789, assetSender),
 					},
 				},
 			},
 		},
+	}
+
+	return createApp
+}
+
+// MakeAppCallWithMultiLogs creates an app call that creates multiple logs
+// at the same level.
+// application create
+//   |- application call
+//     |- application call
+//   |- application call
+//   |- application call
+//   |- application call
+func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWithAD {
+	createApp := MakeCreateAppTxn(appSender)
+
+	// Add a log to the outer appl call
+	createApp.ApplicationID = 123
+	createApp.ApplyData.EvalDelta.Logs = []string{
+		"testing outer appl log",
+		"appId 123 log",
+	}
+
+	createApp.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
+		{
+			SignedTxn: transactions.SignedTxn{
+				Txn: transactions.Transaction{
+					Type: protocol.ApplicationCallTx,
+					Header: transactions.Header{
+						Sender: appSender,
+					},
+					ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+						ApplicationID: 789,
+						OnCompletion:  transactions.NoOpOC,
+					},
+				},
+			},
+			// also add a fake second-level ApplyData to ensure the recursive part works
+			ApplyData: transactions.ApplyData{
+				EvalDelta: transactions.EvalDelta{
+					InnerTxns: []transactions.SignedTxnWithAD{
+						// Inner application call
+						MakeAppCallTxn(789, appSender),
+					},
+					Logs: []string{
+						"testing inner log",
+						"appId 789 log",
+					},
+				},
+			},
+		},
+		MakeAppCallTxnWithLogs(222, appSender, []string{
+			"testing multiple logs 1",
+			"appId 222 log 1",
+		}),
+		MakeAppCallTxnWithLogs(222, appSender, []string{
+			"testing multiple logs 2",
+			"appId 222 log 2",
+		}),
+		MakeAppCallTxnWithLogs(222, appSender, []string{
+			"testing multiple logs 3",
+			"appId 222 log 3",
+		}),
 	}
 
 	return createApp

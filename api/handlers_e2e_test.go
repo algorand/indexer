@@ -1281,3 +1281,106 @@ func TestLookupInnerLogs(t *testing.T) {
 		})
 	}
 }
+
+// TestLookupInnerLogs runs queries for logs given application ids,
+// and checks that logs in inner transactions match properly.
+func TestLookupMultiInnerLogs(t *testing.T) {
+	var appAddr basics.Address
+	appAddr[1] = 99
+
+	params := generated.LookupApplicationLogsByIDParams{}
+
+	testcases := []struct {
+		name            string
+		appID           uint64
+		numTxnsWithLogs int
+		logs            []string
+	}{
+		{
+			name:            "match on root with appId 123",
+			appID:           123,
+			numTxnsWithLogs: 1,
+			logs: []string{
+				"testing outer appl log",
+				"appId 123 log",
+			},
+		},
+		{
+			name:            "match on inner with appId 789",
+			appID:           789,
+			numTxnsWithLogs: 1,
+			logs: []string{
+				"testing inner log",
+				"appId 789 log",
+			},
+		},
+		{
+			name:            "match on inner with appId 222",
+			appID:           222,
+			numTxnsWithLogs: 3, // There are 6 logs over 3 transactions
+			logs: []string{
+				"testing multiple logs 1",
+				"appId 222 log 1",
+				"testing multiple logs 2",
+				"appId 222 log 2",
+				"testing multiple logs 3",
+				"appId 222 log 3",
+			},
+		},
+	}
+
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	///////////
+	// Given // a DB with some inner txns in it.
+	///////////
+	appCall := test.MakeAppCallWithMultiLogs(test.AccountA)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
+	require.NoError(t, err)
+
+	err = db.AddBlock(&block)
+	require.NoError(t, err, "failed to commit")
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			//////////
+			// When // we run a query that queries logs based on appID
+			//////////
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			c.SetPath("/v2/applications/:appIdx/logs")
+			c.SetParamNames("appIdx")
+			c.SetParamValues(fmt.Sprintf("%d", tc.appID))
+
+			api := &ServerImplementation{db: db, timeout: 30 * time.Second}
+			err = api.LookupApplicationLogsByID(c, tc.appID, params)
+			require.NoError(t, err)
+
+			//////////
+			// Then // The result is the log from the app
+			//////////
+			var response generated.ApplicationLogsResponse
+			require.Equal(t, http.StatusOK, rec.Code)
+			json.Decode(rec.Body.Bytes(), &response)
+			require.NoError(t, err)
+
+			require.Equal(t, uint64(tc.appID), response.ApplicationId)
+			require.NotNil(t, response.LogData)
+			ld := *response.LogData
+			require.Equal(t, tc.numTxnsWithLogs, len(ld))
+
+			logCount := 0
+			for txnIndex, result := range ld {
+				for logIndex, log := range result.Logs {
+					require.Equal(t, []byte(tc.logs[txnIndex*2+logIndex]), log)
+					logCount++
+				}
+			}
+			require.Equal(t, logCount, len(tc.logs))
+		})
+	}
+}

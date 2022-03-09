@@ -10,11 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/algorand/go-algorand/rpcs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/api"
+	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
@@ -46,6 +47,7 @@ var (
 	defaultBalancesLimit      uint32
 	maxApplicationsLimit      uint32
 	defaultApplicationsLimit  uint32
+	enableAllParameters       bool
 )
 
 var daemonCmd = &cobra.Command{
@@ -59,6 +61,13 @@ var daemonCmd = &cobra.Command{
 		err = configureLogger()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
+			os.Exit(1)
+		}
+
+		// If someone supplied a configuration file but also said to enable all parameters,
+		// that's an error
+		if suppliedAPIConfigFile != "" && enableAllParameters {
+			fmt.Fprint(os.Stderr, "not allowed to supply an api config file and enable all parameters")
 			os.Exit(1)
 		}
 
@@ -139,7 +148,26 @@ var daemonCmd = &cobra.Command{
 
 		fmt.Printf("serving on %s\n", daemonServerAddr)
 		logger.Infof("serving on %s", daemonServerAddr)
-		api.Serve(ctx, daemonServerAddr, db, bot, logger, makeOptions())
+
+		options := makeOptions()
+
+		swag, err := generated.GetSwagger()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to get swagger: %v", err)
+			os.Exit(1)
+		}
+
+		if suppliedAPIConfigFile != "" {
+			logger.Infof("supplied api configuration file located at: %s", suppliedAPIConfigFile)
+			potentialDisabledMapConfig, err := api.MakeDisabledMapConfigFromFile(swag, suppliedAPIConfigFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to created disabled map config from file: %v", err)
+				os.Exit(1)
+			}
+			options.DisabledMapConfig = potentialDisabledMapConfig
+		}
+
+		api.Serve(ctx, daemonServerAddr, db, bot, logger, options)
 		wg.Wait()
 	},
 }
@@ -158,6 +186,8 @@ func init() {
 	daemonCmd.Flags().DurationVarP(&writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
 	daemonCmd.Flags().DurationVarP(&readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
 	daemonCmd.Flags().Uint32VarP(&maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
+	daemonCmd.Flags().StringVar(&suppliedAPIConfigFile, "api-config-file", "", "supply an API config file to enable/disable parameters")
+	daemonCmd.Flags().BoolVar(&enableAllParameters, "enable-all-parameters", false, "override default configuration and enable all parameters. Can't be used with --api-config-file")
 
 	daemonCmd.Flags().Uint32VarP(&maxAPIResourcesPerAccount, "max-api-resources-per-account", "", 0, "set the maximum total number of resources (created assets, created apps, asset holdings, and application local state) per account that will be allowed in REST API lookupAccountByID and searchForAccounts responses before returning a 400 Bad Request. Set zero for no limit (default: unlimited)")
 
@@ -216,6 +246,11 @@ func makeOptions() (options api.ExtraOptions) {
 	disabledMapConfig := api.MakeDisabledMapConfig()
 
 	options.DisabledMapConfig = disabledMapConfig
+	if enableAllParameters {
+		options.DisabledMapConfig = api.MakeDisabledMapConfig()
+	} else {
+		options.DisabledMapConfig = api.GetDefaultDisabledMapConfigForPostgres()
+	}
 
 	return
 }

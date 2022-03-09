@@ -12,14 +12,14 @@ import (
 )
 
 var (
-	showAllDisabled bool
+	suppliedAPIConfigFile string
+	showAllDisabled       bool
 )
 
 var apiConfigCmd = &cobra.Command{
 	Use:   "api-config",
-	Short: "dump api configuration",
-	Long:  "dump api configuration",
-	//Args:
+	Short: "api configuration",
+	Long:  "api configuration",
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 		config.BindFlags(cmd)
@@ -36,6 +36,14 @@ var apiConfigCmd = &cobra.Command{
 		}
 
 		options := makeOptions()
+		if suppliedAPIConfigFile != "" {
+			potentialDisabledMapConfig, err := api.MakeDisabledMapConfigFromFile(swag, suppliedAPIConfigFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to created disabled map config from file: %v", err)
+				os.Exit(1)
+			}
+			options.DisabledMapConfig = potentialDisabledMapConfig
+		}
 
 		var displayDisabledMapConfig *api.DisplayDisabledMap
 		// Show a limited subset
@@ -60,4 +68,5 @@ var apiConfigCmd = &cobra.Command{
 
 func init() {
 	apiConfigCmd.Flags().BoolVar(&showAllDisabled, "all", false, "show all api config parameters, enabled and disabled")
+	apiConfigCmd.Flags().StringVar(&suppliedAPIConfigFile, "api-config-file", "", "supply an API config file to enable/disable parameters")
 }
