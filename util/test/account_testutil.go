@@ -263,6 +263,33 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 	}
 }
 
+// MakeAppOptOutTxn makes an appl transaction with a NoOp upon completion.
+func MakeAppCallTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
+	return transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: "appl",
+				Header: transactions.Header{
+					Sender:      sender,
+					GenesisHash: GenesisHash,
+				},
+				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+					ApplicationID: basics.AppIndex(appid),
+					OnCompletion:  transactions.NoOpOC,
+				},
+			},
+			Sig: Signature,
+		},
+	}
+}
+
+// MakeAppCallTxnWithLogs makes an appl NoOp transaction with initialized logs.
+func MakeAppCallTxnWithLogs(appid uint64, sender basics.Address, logs []string) (txn transactions.SignedTxnWithAD) {
+	txn = MakeAppCallTxn(appid, sender)
+	txn.ApplyData.EvalDelta.Logs = logs
+	return
+}
+
 // MakeAppCallWithInnerTxn creates an app call with 3 levels of transactions:
 // application create
 // |- payment
@@ -324,20 +351,7 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 							},
 						},
 						// Inner application call
-						{
-							SignedTxn: transactions.SignedTxn{
-								Txn: transactions.Transaction{
-									Type: protocol.ApplicationCallTx,
-									Header: transactions.Header{
-										Sender: assetSender,
-									},
-									ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
-										ApplicationID: 789,
-										OnCompletion:  transactions.NoOpOC,
-									},
-								},
-							},
-						},
+						MakeAppCallTxn(789, assetSender),
 					},
 				},
 			},
@@ -384,20 +398,7 @@ func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWi
 				EvalDelta: transactions.EvalDelta{
 					InnerTxns: []transactions.SignedTxnWithAD{
 						// Inner application call
-						{
-							SignedTxn: transactions.SignedTxn{
-								Txn: transactions.Transaction{
-									Type: protocol.ApplicationCallTx,
-									Header: transactions.Header{
-										Sender: appSender,
-									},
-									ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
-										ApplicationID: 789,
-										OnCompletion:  transactions.NoOpOC,
-									},
-								},
-							},
-						},
+						MakeAppCallTxn(789, appSender),
 					},
 					Logs: []string{
 						"testing inner log",
@@ -406,72 +407,18 @@ func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWi
 				},
 			},
 		},
-		{
-			SignedTxn: transactions.SignedTxn{
-				Txn: transactions.Transaction{
-					Type: protocol.ApplicationCallTx,
-					Header: transactions.Header{
-						Sender: appSender,
-					},
-					ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
-						ApplicationID: 222,
-						OnCompletion:  transactions.NoOpOC,
-					},
-				},
-			},
-			ApplyData: transactions.ApplyData{
-				EvalDelta: transactions.EvalDelta{
-					Logs: []string{
-						"testing multiple logs 1",
-						"appId 222 log 1",
-					},
-				},
-			},
-		},
-		{
-			SignedTxn: transactions.SignedTxn{
-				Txn: transactions.Transaction{
-					Type: protocol.ApplicationCallTx,
-					Header: transactions.Header{
-						Sender: appSender,
-					},
-					ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
-						ApplicationID: 222,
-						OnCompletion:  transactions.NoOpOC,
-					},
-				},
-			},
-			ApplyData: transactions.ApplyData{
-				EvalDelta: transactions.EvalDelta{
-					Logs: []string{
-						"testing multiple logs 2",
-						"appId 222 log 2",
-					},
-				},
-			},
-		},
-		{
-			SignedTxn: transactions.SignedTxn{
-				Txn: transactions.Transaction{
-					Type: protocol.ApplicationCallTx,
-					Header: transactions.Header{
-						Sender: appSender,
-					},
-					ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
-						ApplicationID: 222,
-						OnCompletion:  transactions.NoOpOC,
-					},
-				},
-			},
-			ApplyData: transactions.ApplyData{
-				EvalDelta: transactions.EvalDelta{
-					Logs: []string{
-						"testing multiple logs 3",
-						"appId 222 log 3",
-					},
-				},
-			},
-		},
+		MakeAppCallTxnWithLogs(222, appSender, []string{
+			"testing multiple logs 1",
+			"appId 222 log 1",
+		}),
+		MakeAppCallTxnWithLogs(222, appSender, []string{
+			"testing multiple logs 2",
+			"appId 222 log 2",
+		}),
+		MakeAppCallTxnWithLogs(222, appSender, []string{
+			"testing multiple logs 3",
+			"appId 222 log 3",
+		}),
 	}
 
 	return createApp
