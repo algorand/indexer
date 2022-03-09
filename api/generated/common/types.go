@@ -85,10 +85,10 @@ type Account struct {
 	// *   NotParticipating - indicates that the associated account is neither a delegator nor a delegate.
 	Status string `json:"status"`
 
-	// The count of all application local data (AppLocalState objects) stored in this account.
+	// The count of all applications that have been opted in, equivalent to the count of application local data (AppLocalState objects) stored in this account.
 	TotalAppsOptedIn uint64 `json:"total-apps-opted-in"`
 
-	// The count of all assets (AssetHolding objects) held by this account.
+	// The count of all assets that have been opted in, equivalent to the count of AssetHolding objects held by this account.
 	TotalAssetsOptedIn uint64 `json:"total-assets-opted-in"`
 
 	// The count of all apps (AppParams objects) created by this account.
@@ -912,17 +912,6 @@ type AccountResponse struct {
 
 	// Round at which the results were computed.
 	CurrentRound uint64 `json:"current-round"`
-}
-
-// AccountsErrorResponse defines model for AccountsErrorResponse.
-type AccountsErrorResponse struct {
-	Address            *string `json:"address,omitempty"`
-	MaxResults         *uint64 `json:"max-results,omitempty"`
-	Message            string  `json:"message"`
-	TotalAppsOptedIn   *uint64 `json:"total-apps-opted-in,omitempty"`
-	TotalAssetsOptedIn *uint64 `json:"total-assets-opted-in,omitempty"`
-	TotalCreatedApps   *uint64 `json:"total-created-apps,omitempty"`
-	TotalCreatedAssets *uint64 `json:"total-created-assets,omitempty"`
 }
 
 // AccountsResponse defines model for AccountsResponse.
