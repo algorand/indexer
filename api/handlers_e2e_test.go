@@ -665,6 +665,14 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 		logs            []string
 	}{
 		{
+			name:            "match on root with appId 123",
+			appID:           123,
+			numTxnsWithLogs: 1,
+			logs: []string{
+				"testing outer appl log",
+				"appId 123 log",
+			},
+		}, {
 			name:            "match on inner with appId 789",
 			appID:           789,
 			numTxnsWithLogs: 1,

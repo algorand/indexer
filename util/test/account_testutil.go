@@ -358,6 +358,13 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWithAD {
 	createApp := MakeCreateAppTxn(appSender)
 
+	// Add a log to the outer appl call
+	createApp.ApplicationID = 123
+	createApp.ApplyData.EvalDelta.Logs = []string{
+		"testing outer appl log",
+		"appId 123 log",
+	}
+
 	createApp.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
 		{
 			SignedTxn: transactions.SignedTxn{
