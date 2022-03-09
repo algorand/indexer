@@ -672,7 +672,8 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 				"testing outer appl log",
 				"appId 123 log",
 			},
-		}, {
+		},
+		{
 			name:            "match on inner with appId 789",
 			appID:           789,
 			numTxnsWithLogs: 1,
@@ -741,9 +742,9 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 			require.Equal(t, tc.numTxnsWithLogs, len(ld))
 
 			logCount := 0
-			for offset, result := range ld {
-				for i, log := range result.Logs {
-					require.Equal(t, []byte(tc.logs[offset*2+i]), log)
+			for txnIndex, result := range ld {
+				for logIndex, log := range result.Logs {
+					require.Equal(t, []byte(tc.logs[txnIndex*2+logIndex]), log)
 					logCount++
 				}
 			}
