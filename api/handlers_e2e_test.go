@@ -676,7 +676,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 		{
 			name:            "match on inner with appId 222",
 			appID:           222,
-			numTxnsWithLogs: 3, // There are 4 logs over 3 transactions
+			numTxnsWithLogs: 3, // There are 6 logs over 3 transactions
 			logs: []string{
 				"testing multiple logs 1",
 				"appId 222 log 1",
