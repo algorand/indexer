@@ -639,12 +639,12 @@ func (si *ServerImplementation) maxAccountsErrorToAccountsErrorResponse(maxErr i
 	addr := maxErr.Address.String()
 	max := uint64(si.opts.MaxAPIResourcesPerAccount)
 	extraData := map[string]interface{}{
-		"max-results":           &max,
-		"address":               &addr,
-		"total-assets-opted-in": &maxErr.TotalAssets,
-		"total-created-assets":  &maxErr.TotalAssetParams,
-		"total-apps-opted-in":   &maxErr.TotalAppLocalStates,
-		"total-created-apps":    &maxErr.TotalAppParams,
+		"max-results":           max,
+		"address":               addr,
+		"total-assets-opted-in": maxErr.TotalAssets,
+		"total-created-assets":  maxErr.TotalAssetParams,
+		"total-apps-opted-in":   maxErr.TotalAppLocalStates,
+		"total-created-apps":    maxErr.TotalAppParams,
 	}
 	return generated.ErrorResponse{
 		Message: "Result limit exceeded",
