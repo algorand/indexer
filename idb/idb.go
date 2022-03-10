@@ -179,7 +179,8 @@ type IndexerDb interface {
 	GetAccounts(ctx context.Context, opts AccountQueryOptions) (<-chan AccountRow, uint64)
 	Assets(ctx context.Context, filter AssetsQuery) (<-chan AssetRow, uint64)
 	AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64)
-	Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan ApplicationRow, uint64)
+	Applications(ctx context.Context, filter ApplicationQuery) (<-chan ApplicationRow, uint64)
+	AppLocalState(ctx context.Context, filter ApplicationQuery) (<-chan AppLocalStateRow, uint64)
 
 	Health(ctx context.Context) (status Health, err error)
 }
@@ -259,6 +260,11 @@ type AccountQueryOptions struct {
 
 	IncludeAssetHoldings bool
 	IncludeAssetParams   bool
+	IncludeAppLocalState bool
+	IncludeAppParams     bool
+
+	// MaxResources is the maximum combined number of AppParam, AppLocalState, AssetParam, and AssetHolding objects allowed.
+	MaxResources uint64
 
 	// IncludeDeleted indicated whether to include deleted Assets, Applications, etc within the account.
 	IncludeDeleted bool
@@ -269,7 +275,18 @@ type AccountQueryOptions struct {
 // AccountRow is metadata relating to one account in a account query.
 type AccountRow struct {
 	Account models.Account
-	Error   error
+	Error   error // could be MaxAPIResourcesPerAccountError
+}
+
+// MaxAPIResourcesPerAccountError records the offending address and resource count that exceeded the limit.
+type MaxAPIResourcesPerAccountError struct {
+	Address basics.Address
+
+	TotalAppLocalStates, TotalAppParams, TotalAssets, TotalAssetParams uint64
+}
+
+func (e MaxAPIResourcesPerAccountError) Error() string {
+	return "Max accounts API results limit exceeded"
 }
 
 // AssetsQuery is a parameter object with all of the asset filter options.
@@ -306,9 +323,12 @@ type AssetRow struct {
 
 // AssetBalanceQuery is a parameter object with all of the asset balance filter options.
 type AssetBalanceQuery struct {
-	AssetID  uint64
-	AmountGT *uint64 // only rows > this
-	AmountLT *uint64 // only rows < this
+	AssetID   uint64
+	AssetIDGT uint64
+	AmountGT  *uint64 // only rows > this
+	AmountLT  *uint64 // only rows < this
+
+	Address []byte
 
 	// IncludeDeleted indicated whether to include deleted AssetHoldingss in the results.
 	IncludeDeleted bool
@@ -332,10 +352,25 @@ type AssetBalanceRow struct {
 	Deleted      *bool
 }
 
-// ApplicationRow is metadata relating to one application in an application query.
+// ApplicationRow is metadata and global state (AppParams) relating to one application in an application query.
 type ApplicationRow struct {
 	Application models.Application
 	Error       error
+}
+
+// ApplicationQuery is a parameter object used for query local and global application state.
+type ApplicationQuery struct {
+	Address                  []byte
+	ApplicationID            uint64
+	ApplicationIDGreaterThan uint64
+	IncludeDeleted           bool
+	Limit                    uint64
+}
+
+// AppLocalStateRow is metadata and local state (AppLocalState) relating to one application in an application query.
+type AppLocalStateRow struct {
+	AppLocalState models.ApplicationLocalState
+	Error         error
 }
 
 // IndexerDbOptions are the options common to all indexer backends.

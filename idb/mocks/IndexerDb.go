@@ -7,8 +7,6 @@ import (
 
 	bookkeeping "github.com/algorand/go-algorand/data/bookkeeping"
 
-	generated "github.com/algorand/indexer/api/generated/v2"
-
 	idb "github.com/algorand/indexer/idb"
 
 	mock "github.com/stretchr/testify/mock"
@@ -35,12 +33,35 @@ func (_m *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 	return r0
 }
 
+// AppLocalState provides a mock function with given fields: ctx, filter
+func (_m *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.AppLocalStateRow, uint64) {
+	ret := _m.Called(ctx, filter)
+
+	var r0 <-chan idb.AppLocalStateRow
+	if rf, ok := ret.Get(0).(func(context.Context, idb.ApplicationQuery) <-chan idb.AppLocalStateRow); ok {
+		r0 = rf(ctx, filter)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(<-chan idb.AppLocalStateRow)
+		}
+	}
+
+	var r1 uint64
+	if rf, ok := ret.Get(1).(func(context.Context, idb.ApplicationQuery) uint64); ok {
+		r1 = rf(ctx, filter)
+	} else {
+		r1 = ret.Get(1).(uint64)
+	}
+
+	return r0, r1
+}
+
 // Applications provides a mock function with given fields: ctx, filter
-func (_m *IndexerDb) Applications(ctx context.Context, filter *generated.SearchForApplicationsParams) (<-chan idb.ApplicationRow, uint64) {
+func (_m *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.ApplicationRow, uint64) {
 	ret := _m.Called(ctx, filter)
 
 	var r0 <-chan idb.ApplicationRow
-	if rf, ok := ret.Get(0).(func(context.Context, *generated.SearchForApplicationsParams) <-chan idb.ApplicationRow); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, idb.ApplicationQuery) <-chan idb.ApplicationRow); ok {
 		r0 = rf(ctx, filter)
 	} else {
 		if ret.Get(0) != nil {
@@ -49,7 +70,7 @@ func (_m *IndexerDb) Applications(ctx context.Context, filter *generated.SearchF
 	}
 
 	var r1 uint64
-	if rf, ok := ret.Get(1).(func(context.Context, *generated.SearchForApplicationsParams) uint64); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, idb.ApplicationQuery) uint64); ok {
 		r1 = rf(ctx, filter)
 	} else {
 		r1 = ret.Get(1).(uint64)

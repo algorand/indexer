@@ -492,7 +492,6 @@ function create_delete_tests() {
       '{
         "amount": 0,
         "asset-id": 135,
-        "creator": "",
         "deleted": true,
         "is-frozen": false,
         "opted-in-at-round": 25,

@@ -320,7 +320,7 @@ func GetDefaultDisabledMapConfigForPostgres() *DisabledMapConfig {
 	get("/v2/accounts", []string{"currency-greater-than", "currency-less-than"})
 	get("/v2/accounts/{account-id}/transactions", []string{"note-prefix", "tx-type", "sig-type", "asset-id", "before-time", "after-time", "rekey-to"})
 	get("/v2/assets", []string{"name", "unit"})
-	get("/v2/assets/{asset-id}/balances", []string{"round", "currency-greater-than", "currency-less-than"})
+	get("/v2/assets/{asset-id}/balances", []string{"currency-greater-than", "currency-less-than"})
 	get("/v2/transactions", []string{"note-prefix", "tx-type", "sig-type", "asset-id", "before-time", "after-time", "currency-greater-than", "currency-less-than", "address-role", "exclude-close-to", "rekey-to", "application-id"})
 	get("/v2/assets/{asset-id}/transactions", []string{"note-prefix", "tx-type", "sig-type", "asset-id", "before-time", "after-time", "currency-greater-than", "currency-less-than", "address-role", "exclude-close-to", "rekey-to"})
 

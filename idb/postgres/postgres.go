@@ -21,7 +21,6 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/protocol"
 
 	"github.com/jackc/pgconn"
 	"github.com/jackc/pgerrcode"
@@ -179,75 +178,60 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations()
 }
 
-// Returns all addresses referenced in `block`.
-func getBlockAddresses(block *bookkeeping.Block) map[basics.Address]struct{} {
-	// Reserve a reasonable memory size for the map.
-	res := make(map[basics.Address]struct{}, len(block.Payset)+2)
+// Preload asset and app creators.
+func prepareCreators(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
+	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
 
-	res[block.FeeSink] = struct{}{}
-	res[block.RewardsPool] = struct{}{}
-	for _, stib := range block.Payset {
-		addFunc := func(address basics.Address) {
-			res[address] = struct{}{}
-		}
-		accounting.GetTransactionParticipants(&stib.SignedTxnWithAD, true, addFunc)
+	assets, err := l.GetAssetCreator(assetsReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
+	}
+	apps, err := l.GetAppCreator(appsReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
 	}
 
-	return res
+	return assets, apps, nil
 }
 
+// Preload account data and account resources.
+func prepareAccountsResources(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
+	addressesReq, resourcesReq :=
+		accounting.MakePreloadAccountsResourcesRequest(payset, assetCreators, appCreators)
+
+	accounts, err := l.LookupWithoutRewards(addressesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
+	}
+	resources, err := l.LookupResources(resourcesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
+	}
+
+	return accounts, resources, nil
+}
+
+// Preload all resources (account data, account resources, asset/app creators) for the
+// evaluator.
 func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
-	addresses := getBlockAddresses(block)
-	assets := make(map[basics.AssetIndex]struct{})
-	apps := make(map[basics.AppIndex]struct{})
-
-	for _, stib := range block.Payset {
-		switch stib.Txn.Type {
-		case protocol.AssetConfigTx:
-			if stib.Txn.ConfigAsset != 0 {
-				assets[stib.Txn.ConfigAsset] = struct{}{}
-			}
-		case protocol.AssetTransferTx:
-			if stib.Txn.XferAsset != 0 {
-				assets[stib.Txn.XferAsset] = struct{}{}
-			}
-		case protocol.AssetFreezeTx:
-			if stib.Txn.FreezeAsset != 0 {
-				assets[stib.Txn.FreezeAsset] = struct{}{}
-			}
-		case protocol.ApplicationCallTx:
-			if stib.Txn.ApplicationID != 0 {
-				apps[stib.Txn.ApplicationID] = struct{}{}
-			}
-		}
-	}
-
-	res := ledger.EvalForIndexerResources{
-		Accounts: nil,
-		Creators: make(map[ledger.Creatable]ledger.FoundAddress),
-	}
-
-	assetCreators, err := l.GetAssetCreator(assets)
+	assetCreators, appCreators, err := prepareCreators(l, block.Payset)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
 			fmt.Errorf("prepareEvalResources() err: %w", err)
 	}
+
+	res := ledger.EvalForIndexerResources{
+		Accounts:  nil,
+		Resources: nil,
+		Creators:  make(map[ledger.Creatable]ledger.FoundAddress),
+	}
+
 	for index, foundAddress := range assetCreators {
 		creatable := ledger.Creatable{
 			Index: basics.CreatableIndex(index),
 			Type:  basics.AssetCreatable,
 		}
 		res.Creators[creatable] = foundAddress
-
-		if foundAddress.Exists {
-			addresses[foundAddress.Address] = struct{}{}
-		}
-	}
-
-	appCreators, err := l.GetAppCreator(apps)
-	if err != nil {
-		return ledger.EvalForIndexerResources{},
-			fmt.Errorf("prepareEvalResources() err: %w", err)
 	}
 	for index, foundAddress := range appCreators {
 		creatable := ledger.Creatable{
@@ -255,13 +239,9 @@ func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *boo
 			Type:  basics.AppCreatable,
 		}
 		res.Creators[creatable] = foundAddress
-
-		if foundAddress.Exists {
-			addresses[foundAddress.Address] = struct{}{}
-		}
 	}
 
-	res.Accounts, err = l.LookupWithoutRewards(addresses)
+	res.Accounts, res.Resources, err = prepareAccountsResources(l, block.Payset, assetCreators, appCreators)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
 			fmt.Errorf("prepareEvalResources() err: %w", err)
@@ -447,15 +427,16 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 			if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
 				return fmt.Errorf("LoadGenesis() genesis account[%d] has unhandled asset", ai)
 			}
+			accountData := ledgercore.ToAccountData(alloc.State)
 			_, err = tx.Exec(
 				context.Background(), setAccountStatementName,
 				addr[:], alloc.State.MicroAlgos.Raw,
-				encoding.EncodeTrimmedAccountData(encoding.TrimAccountData(alloc.State)), 0)
+				encoding.EncodeTrimmedLcAccountData(encoding.TrimLcAccountData(accountData)), 0)
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() error setting genesis account[%d], %w", ai, err)
 			}
 
-			totals.AddAccount(proto, alloc.State, &ot)
+			totals.AddAccount(proto, accountData, &ot)
 		}
 
 		err = db.setMetastate(
@@ -1126,37 +1107,22 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		var localStateClosedBytes []byte
 		var localStateDeletedBytes []byte
 
-		var err error
-
-		if req.opts.IncludeAssetHoldings && req.opts.IncludeAssetParams {
-			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes, &holdingDeletedBytes,
-				&assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes, &assetParamsDeletedBytes,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
-			)
-		} else if req.opts.IncludeAssetHoldings {
-			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes, &holdingDeletedBytes,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
-			)
-		} else if req.opts.IncludeAssetParams {
-			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes, &assetParamsDeletedBytes,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
-			)
-		} else {
-			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
-			)
+		// build list of columns to scan using include options like buildAccountQuery
+		cols := []interface{}{&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr}
+		if req.opts.IncludeAssetHoldings {
+			cols = append(cols, &holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes, &holdingDeletedBytes)
 		}
+		if req.opts.IncludeAssetParams {
+			cols = append(cols, &assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes, &assetParamsDeletedBytes)
+		}
+		if req.opts.IncludeAppParams {
+			cols = append(cols, &appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes)
+		}
+		if req.opts.IncludeAppLocalState {
+			cols = append(cols, &localStateAppIds, &localStates, &localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes)
+		}
+
+		err := req.rows.Scan(cols...)
 		if err != nil {
 			err = fmt.Errorf("account scan err %v", err)
 			req.out <- idb.AccountRow{Error: err}
@@ -1182,8 +1148,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		{
-			var ad basics.AccountData
-			ad, err = encoding.DecodeTrimmedAccountData(accountDataJSONStr)
+			var ad ledgercore.AccountData
+			ad, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
 			if err != nil {
 				err = fmt.Errorf("account decode err (%s) %v", accountDataJSONStr, err)
 				req.out <- idb.AccountRow{Error: err}
@@ -1229,6 +1195,11 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			if ad.TotalExtraAppPages != 0 {
 				account.AppsTotalExtraPages = uint64Ptr(uint64(ad.TotalExtraAppPages))
 			}
+
+			account.TotalAppsOptedIn = ad.TotalAppLocalStates
+			account.TotalCreatedApps = ad.TotalAppParams
+			account.TotalAssetsOptedIn = ad.TotalAssets
+			account.TotalCreatedAssets = ad.TotalAssetParams
 		}
 
 		if account.Status == "NotParticipating" {
@@ -1324,7 +1295,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					OptedOutAtRound: holdingClosed[i],
 					OptedInAtRound:  holdingCreated[i],
 					Deleted:         holdingDeleted[i],
-				} // TODO: set Creator to asset creator addr string
+				}
 				av = append(av, tah)
 			}
 			account.Assets = new([]models.AssetHolding)
@@ -1713,8 +1684,19 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		return out, round
 	}
 
+	// Enforce max combined # of app & asset resources per account limit, if set
+	if opts.MaxResources != 0 {
+		err = db.checkAccountResourceLimit(ctx, tx, opts)
+		if err != nil {
+			out <- idb.AccountRow{Error: err}
+			close(out)
+			tx.Rollback(ctx)
+			return out, round
+		}
+	}
+
 	// Construct query for fetching accounts...
-	query, whereArgs := db.buildAccountQuery(opts)
+	query, whereArgs := db.buildAccountQuery(opts, false)
 	req := &getAccountsRequest{
 		opts:        opts,
 		blockheader: blockheader,
@@ -1738,9 +1720,114 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	return out, round
 }
 
-func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query string, whereArgs []interface{}) {
+func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, opts idb.AccountQueryOptions) error {
+	// skip check if no resources are requested
+	if !opts.IncludeAssetHoldings && !opts.IncludeAssetParams && !opts.IncludeAppLocalState && !opts.IncludeAppParams {
+		return nil
+	}
+
+	// make a copy of the filters requested
+	o := opts
+	var countOnly bool
+
+	if opts.IncludeDeleted {
+		// if IncludeDeleted is set, need to construct a query (preserving filters) to count deleted values that would be returned from
+		// asset, app, account_asset, account_app
+		countOnly = true
+	} else {
+		// if IncludeDeleted is not set, query AccountData with no resources (preserving filters), to read ad.TotalX counts inside
+		o.IncludeAssetHoldings = false
+		o.IncludeAssetParams = false
+		o.IncludeAppLocalState = false
+		o.IncludeAppParams = false
+	}
+
+	query, whereArgs := db.buildAccountQuery(o, countOnly)
+	rows, err := tx.Query(ctx, query, whereArgs...)
+	if err != nil {
+		return fmt.Errorf("account limit query %#v err %v", query, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var addr []byte
+		var microalgos uint64
+		var rewardstotal uint64
+		var createdat sql.NullInt64
+		var closedat sql.NullInt64
+		var deleted sql.NullBool
+		var rewardsbase uint64
+		var keytype *string
+		var accountDataJSONStr []byte
+		var holdingCount, assetCount, appCount, lsCount uint64
+		cols := []interface{}{&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr}
+		if countOnly {
+			if o.IncludeAssetHoldings {
+				cols = append(cols, &holdingCount)
+			}
+			if o.IncludeAssetParams {
+				cols = append(cols, &assetCount)
+			}
+			if o.IncludeAppParams {
+				cols = append(cols, &appCount)
+			}
+			if o.IncludeAppLocalState {
+				cols = append(cols, &lsCount)
+			}
+		}
+		err := rows.Scan(cols...)
+		if err != nil {
+			return fmt.Errorf("account limit scan err %v", err)
+		}
+
+		var ad ledgercore.AccountData
+		ad, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
+		if err != nil {
+			return fmt.Errorf("account limit decode err (%s) %v", accountDataJSONStr, err)
+		}
+
+		// check limit against filters (only count what would be returned)
+		var resultCount, totalAssets, totalAssetParams, totalAppLocalStates, totalAppParams uint64
+		if countOnly {
+			totalAssets = holdingCount
+			totalAssetParams = assetCount
+			totalAppLocalStates = lsCount
+			totalAppParams = appCount
+		} else {
+			totalAssets = ad.TotalAssets
+			totalAssetParams = ad.TotalAssetParams
+			totalAppLocalStates = ad.TotalAppLocalStates
+			totalAppParams = ad.TotalAppParams
+		}
+		if opts.IncludeAssetHoldings {
+			resultCount += totalAssets
+		}
+		if opts.IncludeAssetParams {
+			resultCount += totalAssetParams
+		}
+		if opts.IncludeAppLocalState {
+			resultCount += totalAppLocalStates
+		}
+		if opts.IncludeAppParams {
+			resultCount += totalAppParams
+		}
+		if resultCount > opts.MaxResources {
+			var aaddr basics.Address
+			copy(aaddr[:], addr)
+			return idb.MaxAPIResourcesPerAccountError{
+				Address:             aaddr,
+				TotalAppLocalStates: totalAppLocalStates,
+				TotalAppParams:      totalAppParams,
+				TotalAssets:         totalAssets,
+				TotalAssetParams:    totalAssetParams,
+			}
+		}
+	}
+	return nil
+}
+
+func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions, countOnly bool) (query string, whereArgs []interface{}) {
 	// Construct query for fetching accounts...
-	const maxWhereParts = 14
+	const maxWhereParts = 9
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs = make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
@@ -1790,7 +1877,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		partNumber++
 	}
 	if !opts.IncludeDeleted {
-		whereParts = append(whereParts, "coalesce(a.deleted, false) = false")
+		whereParts = append(whereParts, "NOT a.deleted")
 	}
 	if len(opts.EqualToAuthAddr) > 0 {
 		whereParts = append(whereParts, fmt.Sprintf("a.account_data ->> 'spend' = $%d", partNumber))
@@ -1814,42 +1901,91 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	if opts.Limit != 0 {
 		query += fmt.Sprintf(" LIMIT %d", opts.Limit)
 	}
-	// TODO: asset holdings and asset params are optional, but practically always used. Either make them actually always on, or make app-global and app-local clauses also optional (they are currently always on).
+
 	withClauses = append(withClauses, "qaccounts AS ("+query+")")
 	query = "WITH " + strings.Join(withClauses, ", ")
-	if opts.IncludeDeleted {
-		if opts.IncludeAssetHoldings {
-			query += `, qaa AS (SELECT xa.addr, json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf, json_agg(aa.created_at) as holding_created_at, json_agg(aa.closed_at) as holding_closed_at, json_agg(coalesce(aa.deleted, false)) as holding_deleted FROM account_asset aa JOIN qaccounts xa ON aa.addr = xa.addr GROUP BY 1)`
+
+	// build nested selects for querying app/asset data associated with an address
+	if opts.IncludeAssetHoldings {
+		var where, selectCols string
+		if !opts.IncludeDeleted {
+			where = ` WHERE NOT aa.deleted`
 		}
-		if opts.IncludeAssetParams {
-			query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp, json_agg(ap.created_at) as asset_created_at, json_agg(ap.closed_at) as asset_closed_at, json_agg(ap.deleted) as asset_deleted FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr GROUP BY 1)`
+		if countOnly {
+			selectCols = `count(*) as holding_count`
+		} else {
+			selectCols = `json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf, json_agg(aa.created_at) as holding_created_at, json_agg(aa.closed_at) as holding_closed_at, json_agg(aa.deleted) as holding_deleted`
 		}
-		// app
-		query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at, json_agg(app.deleted) as app_deleted FROM app JOIN qaccounts ON qaccounts.addr = app.creator GROUP BY 1)`
-		// app localstate
-		query += `, qls AS (SELECT la.addr, json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls, json_agg(la.created_at) as ls_created_at, json_agg(la.closed_at) as ls_closed_at, json_agg(la.deleted) as ls_deleted FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr GROUP BY 1)`
-	} else {
-		if opts.IncludeAssetHoldings {
-			query += `, qaa AS (SELECT xa.addr, json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf, json_agg(aa.created_at) as holding_created_at, json_agg(aa.closed_at) as holding_closed_at, json_agg(coalesce(aa.deleted, false)) as holding_deleted FROM account_asset aa JOIN qaccounts xa ON aa.addr = xa.addr WHERE coalesce(aa.deleted, false) = false GROUP BY 1)`
+		query += `, qaa AS (SELECT xa.addr, ` + selectCols + ` FROM account_asset aa JOIN qaccounts xa ON aa.addr = xa.addr` + where + ` GROUP BY 1)`
+	}
+	if opts.IncludeAssetParams {
+		var where, selectCols string
+		if !opts.IncludeDeleted {
+			where = ` WHERE NOT ap.deleted`
 		}
-		if opts.IncludeAssetParams {
-			query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp, json_agg(ap.created_at) as asset_created_at, json_agg(ap.closed_at) as asset_closed_at, json_agg(ap.deleted) as asset_deleted FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr WHERE coalesce(ap.deleted, false) = false GROUP BY 1)`
+		if countOnly {
+			selectCols = `count(*) as asset_count`
+		} else {
+			selectCols = `json_agg(ap.index) as paid, json_agg(ap.params) as pp, json_agg(ap.created_at) as asset_created_at, json_agg(ap.closed_at) as asset_closed_at, json_agg(ap.deleted) as asset_deleted`
 		}
-		// app
-		query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at, json_agg(app.deleted) as app_deleted FROM app JOIN qaccounts ON qaccounts.addr = app.creator WHERE coalesce(app.deleted, false) = false GROUP BY 1)`
-		// app localstate
-		query += `, qls AS (SELECT la.addr, json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls, json_agg(la.created_at) as ls_created_at, json_agg(la.closed_at) as ls_closed_at, json_agg(la.deleted) as ls_deleted FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr WHERE coalesce(la.deleted, false) = false GROUP BY 1)`
+		query += `, qap AS (SELECT ya.addr, ` + selectCols + ` FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr` + where + ` GROUP BY 1)`
+	}
+	if opts.IncludeAppParams {
+		var where, selectCols string
+		if !opts.IncludeDeleted {
+			where = ` WHERE NOT app.deleted`
+		}
+		if countOnly {
+			selectCols = `count(*) as app_count`
+		} else {
+			selectCols = `json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at, json_agg(app.deleted) as app_deleted`
+		}
+		query += `, qapp AS (SELECT app.creator as addr, ` + selectCols + ` FROM app JOIN qaccounts ON qaccounts.addr = app.creator` + where + ` GROUP BY 1)`
+	}
+	if opts.IncludeAppLocalState {
+		var where, selectCols string
+		if !opts.IncludeDeleted {
+			where = ` WHERE NOT la.deleted`
+		}
+		if countOnly {
+			selectCols = `count(*) as app_count`
+		} else {
+			selectCols = `json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls, json_agg(la.created_at) as ls_created_at, json_agg(la.closed_at) as ls_closed_at, json_agg(la.deleted) as ls_deleted`
+		}
+		query += `, qls AS (SELECT la.addr, ` + selectCols + ` FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr` + where + ` GROUP BY 1)`
 	}
 
 	// query results
 	query += ` SELECT za.addr, za.microalgos, za.rewards_total, za.created_at, za.closed_at, za.deleted, za.rewardsbase, za.keytype, za.account_data`
 	if opts.IncludeAssetHoldings {
-		query += `, qaa.haid, qaa.hamt, qaa.hf, qaa.holding_created_at, qaa.holding_closed_at, qaa.holding_deleted`
+		if countOnly {
+			query += `, qaa.holding_count`
+		} else {
+			query += `, qaa.haid, qaa.hamt, qaa.hf, qaa.holding_created_at, qaa.holding_closed_at, qaa.holding_deleted`
+		}
 	}
 	if opts.IncludeAssetParams {
-		query += `, qap.paid, qap.pp, qap.asset_created_at, qap.asset_closed_at, qap.asset_deleted`
+		if countOnly {
+			query += `, qap.asset_count`
+		} else {
+			query += `, qap.paid, qap.pp, qap.asset_created_at, qap.asset_closed_at, qap.asset_deleted`
+		}
 	}
-	query += `, qapp.papps, qapp.ppa, qapp.app_created_at, qapp.app_closed_at, qapp.app_deleted, qls.lsapps, qls.lsls, qls.ls_created_at, qls.ls_closed_at, qls.ls_deleted FROM qaccounts za`
+	if opts.IncludeAppParams {
+		if countOnly {
+			query += `, qapp.app_count`
+		} else {
+			query += `, qapp.papps, qapp.ppa, qapp.app_created_at, qapp.app_closed_at, qapp.app_deleted`
+		}
+	}
+	if opts.IncludeAppLocalState {
+		if countOnly {
+			query += `, qls.ls_count`
+		} else {
+			query += `, qls.lsapps, qls.lsls, qls.ls_created_at, qls.ls_closed_at, qls.ls_deleted`
+		}
+	}
+	query += ` FROM qaccounts za`
 
 	// join everything together
 	if opts.IncludeAssetHoldings {
@@ -1858,7 +1994,13 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	if opts.IncludeAssetParams {
 		query += ` LEFT JOIN qap ON za.addr = qap.addr`
 	}
-	query += " LEFT JOIN qapp ON za.addr = qapp.addr LEFT JOIN qls ON qls.addr = za.addr ORDER BY za.addr ASC;"
+	if opts.IncludeAppParams {
+		query += ` LEFT JOIN qapp ON za.addr = qapp.addr`
+	}
+	if opts.IncludeAppLocalState {
+		query += ` LEFT JOIN qls ON za.addr = qls.addr`
+	}
+	query += ` ORDER BY za.addr ASC;`
 	return query, whereArgs
 }
 
@@ -1901,7 +2043,7 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 		partNumber++
 	}
 	if !filter.IncludeDeleted {
-		whereParts = append(whereParts, "coalesce(a.deleted, false) = false")
+		whereParts = append(whereParts, "NOT a.deleted")
 	}
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
@@ -1993,6 +2135,16 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 		whereArgs = append(whereArgs, abq.AssetID)
 		partNumber++
 	}
+	if abq.AssetIDGT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.assetid > $%d", partNumber))
+		whereArgs = append(whereArgs, abq.AssetIDGT)
+		partNumber++
+	}
+	if abq.Address != nil {
+		whereParts = append(whereParts, fmt.Sprintf("aa.addr = $%d", partNumber))
+		whereArgs = append(whereArgs, abq.Address)
+		partNumber++
+	}
 	if abq.AmountGT != nil {
 		whereParts = append(whereParts, fmt.Sprintf("aa.amount > $%d", partNumber))
 		whereArgs = append(whereArgs, *abq.AmountGT)
@@ -2009,13 +2161,14 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 		partNumber++
 	}
 	if !abq.IncludeDeleted {
-		whereParts = append(whereParts, "coalesce(aa.deleted, false) = false")
+		whereParts = append(whereParts, "NOT aa.deleted")
 	}
 	query := `SELECT addr, assetid, amount, frozen, created_at, closed_at, deleted FROM account_asset aa`
 	if len(whereParts) > 0 {
 		query += " WHERE " + strings.Join(whereParts, " AND ")
 	}
-	query += " ORDER BY addr ASC"
+	query += " ORDER BY addr, assetid ASC"
+
 	if abq.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d", abq.Limit)
 	}
@@ -2085,40 +2238,40 @@ func (db *IndexerDb) yieldAssetBalanceThread(rows pgx.Rows, out chan<- idb.Asset
 }
 
 // Applications is part of idb.IndexerDB
-func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan idb.ApplicationRow, uint64) {
+func (db *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.ApplicationRow, uint64) {
 	out := make(chan idb.ApplicationRow, 1)
-	if filter == nil {
-		out <- idb.ApplicationRow{Error: fmt.Errorf("no arguments provided to application search")}
-		close(out)
-		return out, 0
-	}
 
 	query := `SELECT index, creator, params, created_at, closed_at, deleted FROM app `
 
-	const maxWhereParts = 30
+	const maxWhereParts = 4
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if filter.ApplicationId != nil {
+	if filter.ApplicationID != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("index = $%d", partNumber))
-		whereArgs = append(whereArgs, *filter.ApplicationId)
+		whereArgs = append(whereArgs, filter.ApplicationID)
 		partNumber++
 	}
-	if filter.Next != nil {
+	if filter.Address != nil {
+		whereParts = append(whereParts, fmt.Sprintf("creator = $%d", partNumber))
+		whereArgs = append(whereArgs, filter.Address)
+		partNumber++
+	}
+	if filter.ApplicationIDGreaterThan != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("index > $%d", partNumber))
-		whereArgs = append(whereArgs, *filter.Next)
+		whereArgs = append(whereArgs, filter.ApplicationIDGreaterThan)
 		partNumber++
 	}
-	if filter.IncludeAll == nil || !(*filter.IncludeAll) {
-		whereParts = append(whereParts, "coalesce(deleted, false) = false")
+	if !filter.IncludeDeleted {
+		whereParts = append(whereParts, "NOT deleted")
 	}
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
 		query += " WHERE " + whereStr
 	}
 	query += " ORDER BY 1"
-	if filter.Limit != nil {
-		query += fmt.Sprintf(" LIMIT %d", *filter.Limit)
+	if filter.Limit != 0 {
+		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
 	}
 
 	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
@@ -2174,7 +2327,7 @@ func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.Applica
 		rec.Application.Deleted = deleted
 		ap, err := encoding.DecodeAppParams(paramsjson)
 		if err != nil {
-			rec.Error = fmt.Errorf("app=%d json err, %v", index, err)
+			rec.Error = fmt.Errorf("app=%d json err: %w", index, err)
 			out <- rec
 			break
 		}
@@ -2205,6 +2358,113 @@ func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.Applica
 	}
 	if err := rows.Err(); err != nil {
 		out <- idb.ApplicationRow{Error: err}
+	}
+}
+
+// AppLocalState is part of idb.IndexerDB
+func (db *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.AppLocalStateRow, uint64) {
+	out := make(chan idb.AppLocalStateRow, 1)
+
+	query := `SELECT app, addr, localstate, created_at, closed_at, deleted FROM account_app `
+
+	const maxWhereParts = 4
+	whereParts := make([]string, 0, maxWhereParts)
+	whereArgs := make([]interface{}, 0, maxWhereParts)
+	partNumber := 1
+	if filter.ApplicationID != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("app = $%d", partNumber))
+		whereArgs = append(whereArgs, filter.ApplicationID)
+		partNumber++
+	}
+	if filter.Address != nil {
+		whereParts = append(whereParts, fmt.Sprintf("addr = $%d", partNumber))
+		whereArgs = append(whereArgs, filter.Address)
+		partNumber++
+	}
+	if filter.ApplicationIDGreaterThan != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("app > $%d", partNumber))
+		whereArgs = append(whereArgs, filter.ApplicationIDGreaterThan)
+		partNumber++
+	}
+	if !filter.IncludeDeleted {
+		whereParts = append(whereParts, "NOT deleted")
+	}
+	if len(whereParts) > 0 {
+		whereStr := strings.Join(whereParts, " AND ")
+		query += " WHERE " + whereStr
+	}
+	query += " ORDER BY 1"
+	if filter.Limit != 0 {
+		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
+	}
+
+	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
+	if err != nil {
+		out <- idb.AppLocalStateRow{Error: err}
+		close(out)
+		return out, 0
+	}
+
+	round, err := db.getMaxRoundAccounted(ctx, tx)
+	if err != nil {
+		out <- idb.AppLocalStateRow{Error: err}
+		close(out)
+		tx.Rollback(ctx)
+		return out, round
+	}
+
+	rows, err := tx.Query(ctx, query, whereArgs...)
+	if err != nil {
+		out <- idb.AppLocalStateRow{Error: err}
+		close(out)
+		tx.Rollback(ctx)
+		return out, round
+	}
+
+	go func() {
+		db.yieldAppLocalStateThread(rows, out)
+		close(out)
+		tx.Rollback(ctx)
+	}()
+	return out, round
+}
+
+func (db *IndexerDb) yieldAppLocalStateThread(rows pgx.Rows, out chan idb.AppLocalStateRow) {
+	defer rows.Close()
+
+	for rows.Next() {
+		var index uint64
+		var address []byte
+		var statejson []byte
+		var created *uint64
+		var closed *uint64
+		var deleted *bool
+		err := rows.Scan(&index, &address, &statejson, &created, &closed, &deleted)
+		if err != nil {
+			out <- idb.AppLocalStateRow{Error: err}
+			break
+		}
+		var rec idb.AppLocalStateRow
+		rec.AppLocalState.Id = index
+		rec.AppLocalState.OptedInAtRound = created
+		rec.AppLocalState.ClosedOutAtRound = closed
+		rec.AppLocalState.Deleted = deleted
+
+		ls, err := encoding.DecodeAppLocalState(statejson)
+		if err != nil {
+			rec.Error = fmt.Errorf("app=%d json err: %w", index, err)
+			out <- rec
+			break
+		}
+		rec.AppLocalState.Schema = models.ApplicationStateSchema{
+			NumByteSlice: ls.Schema.NumByteSlice,
+			NumUint:      ls.Schema.NumUint,
+		}
+		rec.AppLocalState.KeyValue = tealKeyValueToModel(ls.KeyValue)
+		out <- rec
+	}
+	if err := rows.Err(); err != nil {
+		out <- idb.AppLocalStateRow{Error: err}
 	}
 }
 
@@ -2279,41 +2539,32 @@ func (db *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.Speci
 	return accounts, nil
 }
 
-// GetAccountData returns account data for the given addresses. For accounts that are
-// not found, empty AccountData is returned. This function is only used for debugging.
-func (db *IndexerDb) GetAccountData(addresses []basics.Address) (map[basics.Address]basics.AccountData, error) {
+// GetAccountState returns account data and account resources for the given input.
+// For accounts that are not found, empty AccountData is returned.
+// This function is only used for debugging.
+func (db *IndexerDb) GetAccountState(addressesReq map[basics.Address]struct{}, resourcesReq map[basics.Address]map[ledger.Creatable]struct{}) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
 	tx, err := db.db.BeginTx(context.Background(), readonlyRepeatableRead)
 	if err != nil {
-		return nil, fmt.Errorf("GetAccountData() begin tx err: %w", err)
+		return nil, nil, fmt.Errorf("GetAccountState() begin tx err: %w", err)
 	}
 	defer tx.Rollback(context.Background())
 
 	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
 	if err != nil {
-		return nil, fmt.Errorf("GetAccountData() err: %w", err)
+		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
 	}
 	defer l.Close()
 
-	addressesMap := make(map[basics.Address]struct{}, len(addresses))
-	for _, address := range addresses {
-		addressesMap[address] = struct{}{}
-	}
-
-	accountDataMap, err := l.LookupWithoutRewards(addressesMap)
+	accounts, err := l.LookupWithoutRewards(addressesReq)
 	if err != nil {
-		return nil, fmt.Errorf("GetAccountData() err: %w", err)
+		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
+	}
+	resources, err := l.LookupResources(resourcesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
 	}
 
-	res := make(map[basics.Address]basics.AccountData, len(accountDataMap))
-	for address, accountData := range accountDataMap {
-		if accountData == nil {
-			res[address] = basics.AccountData{}
-		} else {
-			res[address] = *accountData
-		}
-	}
-
-	return res, nil
+	return accounts, resources, nil
 }
 
 // GetNetworkState is part of idb.IndexerDB
