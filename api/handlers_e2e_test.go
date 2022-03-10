@@ -363,6 +363,19 @@ func TestAccountExcludeParameters(t *testing.T) {
 
 }
 
+type accountsErrorResponse struct {
+	Data struct {
+		Address            *string `json:"address,omitempty"`
+		MaxResults         *uint64 `json:"max-results,omitempty"`
+		Message            string  `json:"message"`
+		TotalAppsOptedIn   *uint64 `json:"total-apps-opted-in,omitempty"`
+		TotalAssetsOptedIn *uint64 `json:"total-assets-opted-in,omitempty"`
+		TotalCreatedApps   *uint64 `json:"total-created-apps,omitempty"`
+		TotalCreatedAssets *uint64 `json:"total-created-assets,omitempty"`
+	} `json:"data,omitempty"`
+	Message string `json:"message"`
+}
+
 func TestAccountMaxResultsLimit(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()
@@ -529,19 +542,19 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 			resp, data := makeReq(t, path, tc.exclude, tc.includeDeleted, nil, nil)
 			if tc.errStatus != 0 { // was a 400 error expected? check error response
 				require.Equal(t, tc.errStatus, resp.StatusCode)
-				var response generated.AccountsErrorResponse
+				var response accountsErrorResponse
 				err = json.Decode(data, &response)
 				require.NoError(t, err)
-				assert.Equal(t, tc.address.String(), *response.Address)
-				assert.Equal(t, uint64(maxResults), *response.MaxResults)
+				assert.Equal(t, tc.address.String(), *response.Data.Address)
+				assert.Equal(t, uint64(maxResults), *response.Data.MaxResults)
 				if tc.includeDeleted {
-					assert.Equal(t, uint64(10), *response.TotalCreatedApps)
-					assert.Equal(t, uint64(10), *response.TotalCreatedAssets)
+					assert.Equal(t, uint64(10), *response.Data.TotalCreatedApps)
+					assert.Equal(t, uint64(10), *response.Data.TotalCreatedAssets)
 				} else {
-					assert.Equal(t, uint64(5), *response.TotalAppsOptedIn)
-					assert.Equal(t, uint64(5), *response.TotalAssetsOptedIn)
-					assert.Equal(t, uint64(5), *response.TotalCreatedApps)
-					assert.Equal(t, uint64(5), *response.TotalCreatedAssets)
+					assert.Equal(t, uint64(5), *response.Data.TotalAppsOptedIn)
+					assert.Equal(t, uint64(5), *response.Data.TotalAssetsOptedIn)
+					assert.Equal(t, uint64(5), *response.Data.TotalCreatedApps)
+					assert.Equal(t, uint64(5), *response.Data.TotalCreatedAssets)
 				}
 				return
 			}
@@ -577,15 +590,15 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 			resp, data := makeReq(t, "/v2/accounts", tc.exclude, false, nil, nil)
 			if tc.errStatus != 0 { // was a 400 error expected? check error response
 				require.Equal(t, tc.errStatus, resp.StatusCode)
-				var response generated.AccountsErrorResponse
+				var response accountsErrorResponse
 				err = json.Decode(data, &response)
 				require.NoError(t, err)
-				require.Equal(t, *response.Address, tc.errAddress.String())
-				require.Equal(t, *response.MaxResults, uint64(maxResults))
-				require.Equal(t, *response.TotalAppsOptedIn, uint64(5))
-				require.Equal(t, *response.TotalCreatedApps, uint64(5))
-				require.Equal(t, *response.TotalAssetsOptedIn, uint64(5))
-				require.Equal(t, *response.TotalCreatedAssets, uint64(5))
+				require.Equal(t, *response.Data.Address, tc.errAddress.String())
+				require.Equal(t, *response.Data.MaxResults, uint64(maxResults))
+				require.Equal(t, *response.Data.TotalAppsOptedIn, uint64(5))
+				require.Equal(t, *response.Data.TotalCreatedApps, uint64(5))
+				require.Equal(t, *response.Data.TotalAssetsOptedIn, uint64(5))
+				require.Equal(t, *response.Data.TotalCreatedAssets, uint64(5))
 				return
 			}
 			require.Equal(t, http.StatusOK, resp.StatusCode, fmt.Sprintf("unexpected return code, body: %s", string(data)))

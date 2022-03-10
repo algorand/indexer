@@ -635,16 +635,19 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	return
 }
 
-func (si *ServerImplementation) maxAccountsErrorToAccountsErrorResponse(maxErr idb.MaxAPIResourcesPerAccountError) generated.AccountsErrorResponse {
+func (si *ServerImplementation) maxAccountsErrorToAccountsErrorResponse(maxErr idb.MaxAPIResourcesPerAccountError) generated.ErrorResponse {
 	addr := maxErr.Address.String()
 	max := uint64(si.opts.MaxAPIResourcesPerAccount)
-	return generated.AccountsErrorResponse{
-		Message:            "Result limit exceeded",
-		MaxResults:         &max,
-		Address:            &addr,
-		TotalAssetsOptedIn: &maxErr.TotalAssets,
-		TotalCreatedAssets: &maxErr.TotalAssetParams,
-		TotalAppsOptedIn:   &maxErr.TotalAppLocalStates,
-		TotalCreatedApps:   &maxErr.TotalAppParams,
+	extraData := map[string]interface{}{
+		"max-results":           max,
+		"address":               addr,
+		"total-assets-opted-in": maxErr.TotalAssets,
+		"total-created-assets":  maxErr.TotalAssetParams,
+		"total-apps-opted-in":   maxErr.TotalAppLocalStates,
+		"total-created-apps":    maxErr.TotalAppParams,
+	}
+	return generated.ErrorResponse{
+		Message: "Result limit exceeded",
+		Data:    &extraData,
 	}
 }

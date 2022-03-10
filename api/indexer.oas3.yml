@@ -272,42 +272,6 @@
         },
         "description": "(empty)"
       },
-      "AccountsErrorResponse": {
-        "content": {
-          "application/json": {
-            "schema": {
-              "properties": {
-                "address": {
-                  "type": "string"
-                },
-                "max-results": {
-                  "type": "integer"
-                },
-                "message": {
-                  "type": "string"
-                },
-                "total-apps-opted-in": {
-                  "type": "integer"
-                },
-                "total-assets-opted-in": {
-                  "type": "integer"
-                },
-                "total-created-apps": {
-                  "type": "integer"
-                },
-                "total-created-assets": {
-                  "type": "integer"
-                }
-              },
-              "required": [
-                "message"
-              ],
-              "type": "object"
-            }
-          }
-        },
-        "description": "An error response for the /v2/accounts API endpoint, with optional information about limits that were exceeded."
-      },
       "AccountsResponse": {
         "content": {
           "application/json": {
@@ -766,11 +730,11 @@
             "type": "string"
           },
           "total-apps-opted-in": {
-            "description": "The count of all application local data (AppLocalState objects) stored in this account.",
+            "description": "The count of all applications that have been opted in, equivalent to the count of application local data (AppLocalState objects) stored in this account.",
             "type": "integer"
           },
           "total-assets-opted-in": {
-            "description": "The count of all assets (AssetHolding objects) held by this account.",
+            "description": "The count of all assets that have been opted in, equivalent to the count of AssetHolding objects held by this account.",
             "type": "integer"
           },
           "total-created-apps": {
@@ -2147,26 +2111,12 @@
               "application/json": {
                 "schema": {
                   "properties": {
-                    "address": {
-                      "type": "string"
-                    },
-                    "max-results": {
-                      "type": "integer"
+                    "data": {
+                      "properties": {},
+                      "type": "object"
                     },
                     "message": {
                       "type": "string"
-                    },
-                    "total-apps-opted-in": {
-                      "type": "integer"
-                    },
-                    "total-assets-opted-in": {
-                      "type": "integer"
-                    },
-                    "total-created-apps": {
-                      "type": "integer"
-                    },
-                    "total-created-assets": {
-                      "type": "integer"
                     }
                   },
                   "required": [
@@ -2176,7 +2126,7 @@
                 }
               }
             },
-            "description": "An error response for the /v2/accounts API endpoint, with optional information about limits that were exceeded."
+            "description": "Response for errors"
           },
           "500": {
             "content": {
@@ -2287,26 +2237,12 @@
               "application/json": {
                 "schema": {
                   "properties": {
-                    "address": {
-                      "type": "string"
-                    },
-                    "max-results": {
-                      "type": "integer"
+                    "data": {
+                      "properties": {},
+                      "type": "object"
                     },
                     "message": {
                       "type": "string"
-                    },
-                    "total-apps-opted-in": {
-                      "type": "integer"
-                    },
-                    "total-assets-opted-in": {
-                      "type": "integer"
-                    },
-                    "total-created-apps": {
-                      "type": "integer"
-                    },
-                    "total-created-assets": {
-                      "type": "integer"
                     }
                   },
                   "required": [
@@ -2316,7 +2252,7 @@
                 }
               }
             },
-            "description": "An error response for the /v2/accounts API endpoint, with optional information about limits that were exceeded."
+            "description": "Response for errors"
           },
           "404": {
             "content": {
