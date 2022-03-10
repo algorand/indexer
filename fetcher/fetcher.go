@@ -147,6 +147,7 @@ func (bot *fetcherImpl) followLoop(ctx context.Context) error {
 	aclient := bot.Algod()
 	for {
 		for retries := 0; retries < 3; retries++ {
+			// nextRound - 1 because the endpoint waits until "StatusAfterBlock"
 			_, err = aclient.StatusAfterBlock(bot.nextRound - 1).Do(ctx)
 			if err != nil {
 				// If context has expired.
