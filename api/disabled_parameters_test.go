@@ -77,7 +77,7 @@ func TestSchemaCheck(t *testing.T) {
 	type testingStruct struct {
 		name        string
 		ddm         *DisplayDisabledMap
-		expectError string
+		expectError []string
 	}
 	tests := []testingStruct{
 		{"test param types - good",
@@ -87,7 +87,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional": {{"p3": "enabled"}},
 				}},
 			},
-			"",
+			nil,
 		},
 
 		{"test param types - bad required",
@@ -97,7 +97,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional":      {{"p3": "enabled"}},
 				}},
 			},
-			"required-FAKE",
+			[]string{"required-FAKE"},
 		},
 
 		{"test param types - bad optional",
@@ -107,7 +107,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional-FAKE": {{"p3": "enabled"}},
 				}},
 			},
-			"optional-FAKE",
+			[]string{"optional-FAKE"},
 		},
 
 		{"test param types - bad both",
@@ -117,7 +117,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional-FAKE": {{"p3": "enabled"}},
 				}},
 			},
-			"required-FAKE optional-FAKE",
+			[]string{"required-FAKE", "optional-FAKE"},
 		},
 
 		{"test param status - good",
@@ -127,7 +127,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional": {{"p3": "enabled"}},
 				}},
 			},
-			"",
+			nil,
 		},
 
 		{"test param status - bad required",
@@ -137,7 +137,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional": {{"p3": "enabled"}},
 				}},
 			},
-			"p2",
+			[]string{"p2"},
 		},
 
 		{"test param status - bad optional",
@@ -147,7 +147,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional": {{"p3": "enabled-FAKE"}},
 				}},
 			},
-			"p3",
+			[]string{"p3"},
 		},
 
 		{"test param status - bad both",
@@ -157,7 +157,7 @@ func TestSchemaCheck(t *testing.T) {
 					"optional": {{"p3": "enabled-FAKE"}},
 				}},
 			},
-			"p1",
+			[]string{"p1"},
 		},
 	}
 
@@ -165,9 +165,11 @@ func TestSchemaCheck(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			err := test.ddm.validateSchema()
 
-			if test.expectError != "" {
+			if len(test.expectError) != 0 {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), test.expectError)
+				for _, str := range test.expectError {
+					require.Contains(t, err.Error(), str)
+				}
 			} else {
 				require.NoError(t, err)
 			}
