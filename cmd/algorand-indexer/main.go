@@ -137,7 +137,9 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Hidden = true
 	rootCmd.AddCommand(daemonCmd)
-	rootCmd.AddCommand(apiConfigCmd)
+	if paramConfigEnableFlag {
+		rootCmd.AddCommand(apiConfigCmd)
+	}
 
 	// Not applied globally to avoid adding to utility commands.
 	addFlags := func(cmd *cobra.Command) {

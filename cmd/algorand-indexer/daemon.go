@@ -39,6 +39,8 @@ var (
 	enableAllParameters bool
 )
 
+const paramConfigEnableFlag = false
+
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "run indexer daemon",
@@ -140,22 +142,6 @@ var daemonCmd = &cobra.Command{
 
 		options := makeOptions()
 
-		swag, err := generated.GetSwagger()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to get swagger: %v", err)
-			os.Exit(1)
-		}
-
-		if suppliedAPIConfigFile != "" {
-			logger.Infof("supplied api configuration file located at: %s", suppliedAPIConfigFile)
-			potentialDisabledMapConfig, err := api.MakeDisabledMapConfigFromFile(swag, suppliedAPIConfigFile)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to created disabled map config from file: %v", err)
-				os.Exit(1)
-			}
-			options.DisabledMapConfig = potentialDisabledMapConfig
-		}
-
 		api.Serve(ctx, daemonServerAddr, db, bot, logger, options)
 		wg.Wait()
 	},
@@ -177,6 +163,10 @@ func init() {
 	daemonCmd.Flags().Uint32VarP(&maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
 	daemonCmd.Flags().StringVar(&suppliedAPIConfigFile, "api-config-file", "", "supply an API config file to enable/disable parameters")
 	daemonCmd.Flags().BoolVar(&enableAllParameters, "enable-all-parameters", false, "override default configuration and enable all parameters. Can't be used with --api-config-file")
+	if !paramConfigEnableFlag {
+		daemonCmd.Flags().MarkHidden("api-config-file")
+		daemonCmd.Flags().MarkHidden("enable-all-parameters")
+	}
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
@@ -205,10 +195,28 @@ func makeOptions() (options api.ExtraOptions) {
 	options.WriteTimeout = writeTimeout
 	options.ReadTimeout = readTimeout
 
-	if enableAllParameters {
-		options.DisabledMapConfig = api.MakeDisabledMapConfig()
-	} else {
-		options.DisabledMapConfig = api.GetDefaultDisabledMapConfigForPostgres()
+	if paramConfigEnableFlag {
+		if enableAllParameters {
+			options.DisabledMapConfig = api.MakeDisabledMapConfig()
+		} else {
+			options.DisabledMapConfig = api.GetDefaultDisabledMapConfigForPostgres()
+		}
+
+		if suppliedAPIConfigFile != "" {
+			swag, err := generated.GetSwagger()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to get swagger: %v", err)
+				os.Exit(1)
+			}
+
+			logger.Infof("supplied api configuration file located at: %s", suppliedAPIConfigFile)
+			potentialDisabledMapConfig, err := api.MakeDisabledMapConfigFromFile(swag, suppliedAPIConfigFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to created disabled map config from file: %v", err)
+				os.Exit(1)
+			}
+			options.DisabledMapConfig = potentialDisabledMapConfig
+		}
 	}
 
 	return

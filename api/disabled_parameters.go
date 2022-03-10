@@ -411,6 +411,9 @@ func (dmc *DisabledMapConfig) validate(swag *openapi3.Swagger) error {
 
 // MakeDisabledMapFromOA3 Creates a new disabled map from an openapi3 definition
 func MakeDisabledMapFromOA3(swag *openapi3.Swagger, config *DisabledMapConfig) (*DisabledMap, error) {
+	if config == nil {
+		return nil, nil
+	}
 
 	err := config.validate(swag)
 
