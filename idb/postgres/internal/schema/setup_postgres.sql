@@ -21,11 +21,22 @@ CREATE TABLE IF NOT EXISTS txn (
   txid bytea, -- base32 of [32]byte hash, or NULL for inner transactions.
   txn jsonb NOT NULL, -- json encoding of signed txn with apply data; inner txns exclude nested inner txns
   extra jsonb NOT NULL,
-  PRIMARY KEY ( round, intra )
-);
+  PRIMARY KEY ( txid, round, intra )
+) PARTITION BY hash(txid,round, intra);
 
--- For transaction lookup
-CREATE INDEX IF NOT EXISTS txn_by_tixid ON txn ( txid );
+
+do $$
+declare
+n integer := 7;
+begin
+for i in 0..6 loop
+   EXECUTE format('CREATE TABLE IF NOT EXISTS %s partition of txn for values with (modulus %s, remainder %s);', 'txn_' || i, n, i);
+   -- For transaction lookup
+   EXECUTE format(' CREATE INDEX IF NOT EXISTS %s ON %s ( txid );', 'txn_by_tixid_' || i,'txn_' || i);
+	i:= i + 1;
+end loop;
+end; $$;
+
 
 -- Optional, to make txn queries by asset fast:
 -- CREATE INDEX CONCURRENTLY IF NOT EXISTS txn_asset ON txn (asset, round, intra);
