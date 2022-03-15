@@ -12,7 +12,7 @@ import (
 )
 
 // schema with non-partitioned txn table. Needed for unit testing txn table partitioning.
-const SetupPostgresSqlNonPart = `-- This file is setup_postgres.sql which gets compiled into go source using a go:generate statement in postgres.go
+const SetupPostgresSQLNonPart = `-- This file is setup_postgres.sql which gets compiled into go source using a go:generate statement in postgres.go
 --
 -- TODO? replace all 'addr bytea' with 'addr_id bigint' and a mapping table? makes addrs an 8 byte int that fits in a register instead of a 32 byte string
 
@@ -156,7 +156,7 @@ func TestConvertAccountDataIncrementsMigrationNumber(t *testing.T) {
 }
 
 func TestPartitionTxnTable(t *testing.T) {
-	pdb, _, shutdownFunc := pgtest.SetupPostgresWithOlderSchema(t, SetupPostgresSqlNonPart)
+	pdb, _, shutdownFunc := pgtest.SetupPostgresWithGivenSchema(t, SetupPostgresSQLNonPart)
 	defer shutdownFunc()
 
 	db := IndexerDb{db: pdb}

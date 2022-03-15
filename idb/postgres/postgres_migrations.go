@@ -259,8 +259,8 @@ func partitionTxnTable(db *IndexerDb, migrationState *types.MigrationState) erro
 		" txid bytea," +
 		" txn jsonb NOT NULL," +
 		" extra jsonb NOT NULL, " +
-		"PRIMARY KEY ( txid, round, intra )" +
-		") PARTITION BY hash(txid,round, intra);" +
+		"PRIMARY KEY ( round, intra )" +
+		") PARTITION BY hash(round, intra);" +
 		"do $$ " +
 		"declare " +
 		"n integer := 7;" +

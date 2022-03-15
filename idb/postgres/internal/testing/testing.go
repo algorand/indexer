@@ -75,7 +75,9 @@ func SetupPostgresWithSchema(t *testing.T) (*pgxpool.Pool, string, func()) {
 	return db, connStr, shutdownFunc
 }
 
-func SetupPostgresWithOlderSchema(t *testing.T, schema string) (*pgxpool.Pool, string, func()) {
+// SetupPostgresWithGivenSchema is equivalent to SetupPostgres() but also creates a
+// given schema.
+func SetupPostgresWithGivenSchema(t *testing.T, schema string) (*pgxpool.Pool, string, func()) {
 	db, connStr, shutdownFunc := SetupPostgres(t)
 
 	_, err := db.Exec(context.Background(), schema)
