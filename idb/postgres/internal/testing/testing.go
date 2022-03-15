@@ -74,3 +74,12 @@ func SetupPostgresWithSchema(t *testing.T) (*pgxpool.Pool, string, func()) {
 
 	return db, connStr, shutdownFunc
 }
+
+func SetupPostgresWithOlderSchema(t *testing.T, schema string) (*pgxpool.Pool, string, func()) {
+	db, connStr, shutdownFunc := SetupPostgres(t)
+
+	_, err := db.Exec(context.Background(), schema)
+	require.NoError(t, err)
+
+	return db, connStr, shutdownFunc
+}
