@@ -156,6 +156,8 @@ Below is a snippet of the output from `algorand-indexer api-config`:
 
 Seeing this we know that the `/v2/accounts` endpoint will return an error if either `currency-greater-than` or `currency-less-than` is provided.  Additionally, because a "required" parameter is provided for `/v2/assets/{asset-id}/transactions` then we know this entire endpoint is disabled.  The optional parameters are provided so that you can understand what else is disabled if you enable all "required" parameters.
 
+For more information on disabling parameters see the [Disabling Parameters Guide](docs/DisablingParametersGuide.md).
+
 ## Metrics
 
 The `/metrics` endpoint is configured with the `--metrics-mode` option and configures if and how [Prometheus](https://prometheus.io/) formatted metrics are generated.
