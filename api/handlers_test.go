@@ -205,7 +205,7 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 		{
 			name:          "Search all asset transfer by amount",
 			params:        generated.SearchForTransactionsParams{TxType: strPtr("axfer"), CurrencyGreaterThan: uint64Ptr(10)},
-			filter:        idb.TransactionFilter{TypeEnum: idb.TypeEnumAssetTransfer, AlgosGT: uint64Ptr(10), Limit: defaultOpts.DefaultTransactionsLimit},
+			filter:        idb.TransactionFilter{TypeEnum: idb.TypeEnumAssetTransfer, AssetAmountGT: uint64Ptr(10), Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
 	}
