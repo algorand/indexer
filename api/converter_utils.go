@@ -589,7 +589,7 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	filter.Limit = min(uintOrDefaultValue(params.Limit, si.opts.DefaultTransactionsLimit), si.opts.MaxTransactionsLimit)
 
 	// filter Algos or Asset but not both.
-	if filter.AssetID != 0 {
+	if filter.AssetID != 0 || filter.TypeEnum == idb.TypeEnumAssetTransfer {
 		filter.AssetAmountLT = params.CurrencyLessThan
 		filter.AssetAmountGT = params.CurrencyGreaterThan
 	} else {
