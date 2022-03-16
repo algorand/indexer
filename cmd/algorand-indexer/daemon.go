@@ -50,7 +50,7 @@ var (
 	enableAllParameters       bool
 )
 
-const paramConfigEnableFlag = false
+const paramConfigEnableFlag = true
 
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
