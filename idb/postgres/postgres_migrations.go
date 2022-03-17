@@ -267,16 +267,24 @@ func partitionTxnTable(db *IndexerDb, migrationState *types.MigrationState) erro
 		"begin " +
 		"for i in 0..6 loop " +
 		"   EXECUTE format('CREATE TABLE IF NOT EXISTS %s partition of txn_part for values with (modulus %s, remainder %s);', 'txn_' || i, n, i);" +
-		"   EXECUTE format(' CREATE INDEX IF NOT EXISTS %s ON %s ( txid );', 'txn_by_tixid_' || i,'txn_' || i);" +
 		"	i:= i + 1;" +
 		"end loop; " +
 		"end; $$;"
 	copyData := "INSERT INTO txn_part SELECT * FROM txn;"
 	dropOldTxn := "DROP TABLE txn;"
 	renameTable := "ALTER TABLE txn_part RENAME TO txn; "
+	indices := "do $$ " +
+		"begin " +
+		"for i in 0..6 loop " +
+		"   EXECUTE format(' CREATE INDEX IF NOT EXISTS %s ON %s ( txid );', 'txn_by_tixid_' || i,'txn_' || i);" +
+		"	i:= i + 1;" +
+		"end loop; " +
+		"end; $$;"
+
 	return sqlMigration(
 		db, migrationState, []string{createNewTxnTable,
 			copyData,
 			dropOldTxn,
-			renameTable})
+			renameTable,
+			indices})
 }
