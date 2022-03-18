@@ -534,7 +534,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		includeDeleted bool
 		errStatus      int
 	}{
-		{address: test.AccountA, exclude: []string{}},
+		{address: test.AccountA, exclude: []string{}, errStatus: http.StatusBadRequest},
 		{address: test.AccountA, exclude: []string{"all"}},
 		{address: test.AccountA, exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
 		{address: test.AccountA, exclude: []string{"assets", "created-apps"}},
@@ -589,7 +589,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		errStatus  int
 		errAddress basics.Address
 	}{
-		{exclude: []string{}},
+		{exclude: []string{}, errStatus: http.StatusBadRequest},
 		{exclude: []string{"all"}},
 		{exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
 		{exclude: []string{"assets", "apps-local-state"}},
