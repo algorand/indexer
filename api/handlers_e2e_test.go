@@ -524,6 +524,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		includeDeleted bool
 		errStatus      int
 	}{
+		{address: test.AccountA, exclude: []string{}},
 		{address: test.AccountA, exclude: []string{"all"}},
 		{address: test.AccountA, exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
 		{address: test.AccountA, exclude: []string{"assets", "created-apps"}},
