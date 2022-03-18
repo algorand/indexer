@@ -1758,7 +1758,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 		var rewardsbase uint64
 		var keytype *string
 		var accountDataJSONStr []byte
-		var holdingCount, assetCount, appCount, lsCount uint64
+		var holdingCount, assetCount, appCount, lsCount sql.NullInt64
 		cols := []interface{}{&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr}
 		if countOnly {
 			if o.IncludeAssetHoldings {
@@ -1788,10 +1788,10 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 		// check limit against filters (only count what would be returned)
 		var resultCount, totalAssets, totalAssetParams, totalAppLocalStates, totalAppParams uint64
 		if countOnly {
-			totalAssets = holdingCount
-			totalAssetParams = assetCount
-			totalAppLocalStates = lsCount
-			totalAppParams = appCount
+			totalAssets = uint64(holdingCount.Int64)
+			totalAssetParams = uint64(assetCount.Int64)
+			totalAppLocalStates = uint64(lsCount.Int64)
+			totalAppParams = uint64(appCount.Int64)
 		} else {
 			totalAssets = ad.TotalAssets
 			totalAssetParams = ad.TotalAssetParams
@@ -1948,7 +1948,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions, countOnly b
 			where = ` WHERE NOT la.deleted`
 		}
 		if countOnly {
-			selectCols = `count(*) as app_count`
+			selectCols = `count(*) as ls_count`
 		} else {
 			selectCols = `json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls, json_agg(la.created_at) as ls_created_at, json_agg(la.closed_at) as ls_closed_at, json_agg(la.deleted) as ls_deleted`
 		}
