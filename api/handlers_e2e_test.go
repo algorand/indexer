@@ -589,7 +589,6 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		errStatus  int
 		errAddress basics.Address
 	}{
-		{exclude: []string{}, errStatus: http.StatusBadRequest},
 		{exclude: []string{"all"}},
 		{exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
 		{exclude: []string{"assets", "apps-local-state"}},
