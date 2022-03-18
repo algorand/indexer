@@ -1758,7 +1758,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 		var rewardsbase uint64
 		var keytype *string
 		var accountDataJSONStr []byte
-		var holdingCount, assetCount, appCount, lsCount uint64
+		var holdingCount, assetCount, appCount, lsCount sql.NullInt64
 		cols := []interface{}{&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr}
 		if countOnly {
 			if o.IncludeAssetHoldings {
@@ -1788,10 +1788,10 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 		// check limit against filters (only count what would be returned)
 		var resultCount, totalAssets, totalAssetParams, totalAppLocalStates, totalAppParams uint64
 		if countOnly {
-			totalAssets = holdingCount
-			totalAssetParams = assetCount
-			totalAppLocalStates = lsCount
-			totalAppParams = appCount
+			totalAssets = uint64(holdingCount.Int64)
+			totalAssetParams = uint64(assetCount.Int64)
+			totalAppLocalStates = uint64(lsCount.Int64)
+			totalAppParams = uint64(appCount.Int64)
 		} else {
 			totalAssets = ad.TotalAssets
 			totalAssetParams = ad.TotalAssetParams

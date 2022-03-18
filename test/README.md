@@ -49,7 +49,7 @@ sql_test `<description>` `<database>` `<query>` `<substring>`
 
 # Debugging
 
-You'll need to break before the `algorand-indexer import` call and startup your debugger in import mode.
+Add true to the end of the `algorand-indexer import` call, use the provided command to initialize indexer.
 
 It may be useful to edit one of the entry point scripts to make sure the dataset you're interested in is loaded first.
 
