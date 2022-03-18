@@ -32,6 +32,8 @@ import (
 )
 
 var defaultOpts = ExtraOptions{
+	MaxAPIResourcesPerAccount: 1000,
+
 	MaxTransactionsLimit:     10000,
 	DefaultTransactionsLimit: 1000,
 
