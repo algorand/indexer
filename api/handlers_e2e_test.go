@@ -284,6 +284,14 @@ func TestAccountExcludeParameters(t *testing.T) {
 			require.NotNil(t, r.Account.AppsLocalState)
 		}}, {
 		address: test.AccountA,
+		exclude: []string{},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.NotNil(t, r.Account.CreatedAssets)
+			require.NotNil(t, r.Account.CreatedApps)
+			require.NotNil(t, r.Account.Assets)
+			require.NotNil(t, r.Account.AppsLocalState)
+		}}, {
+		address: test.AccountA,
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
 			require.NotNil(t, r.Account.CreatedApps)
@@ -579,6 +587,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		errStatus  int
 		errAddress basics.Address
 	}{
+		{exclude: []string{}},
 		{exclude: []string{"all"}},
 		{exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
 		{exclude: []string{"assets", "apps-local-state"}},
