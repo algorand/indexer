@@ -1948,7 +1948,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions, countOnly b
 			where = ` WHERE NOT la.deleted`
 		}
 		if countOnly {
-			selectCols = `count(*) as app_count`
+			selectCols = `count(*) as ls_count`
 		} else {
 			selectCols = `json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls, json_agg(la.created_at) as ls_created_at, json_agg(la.closed_at) as ls_closed_at, json_agg(la.deleted) as ls_deleted`
 		}
