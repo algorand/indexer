@@ -50,8 +50,6 @@ var (
 	enableAllParameters       bool
 )
 
-const paramConfigEnableFlag = false
-
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "run indexer daemon",
@@ -172,15 +170,12 @@ func init() {
 	daemonCmd.Flags().DurationVarP(&writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
 	daemonCmd.Flags().DurationVarP(&readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
 	daemonCmd.Flags().Uint32VarP(&maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
+
 	daemonCmd.Flags().StringVar(&suppliedAPIConfigFile, "api-config-file", "", "supply an API config file to enable/disable parameters")
 	daemonCmd.Flags().BoolVar(&enableAllParameters, "enable-all-parameters", false, "override default configuration and enable all parameters. Can't be used with --api-config-file")
-	if !paramConfigEnableFlag {
-		daemonCmd.Flags().MarkHidden("api-config-file")
-		daemonCmd.Flags().MarkHidden("enable-all-parameters")
-	}
-
+	daemonCmd.Flags().MarkHidden("api-config-file")
+	daemonCmd.Flags().MarkHidden("enable-all-parameters")
 	daemonCmd.Flags().Uint32VarP(&maxAPIResourcesPerAccount, "max-api-resources-per-account", "", 1000, "set the maximum total number of resources (created assets, created apps, asset holdings, and application local state) per account that will be allowed in REST API lookupAccountByID and searchForAccounts responses before returning a 400 Bad Request. Set zero for no limit")
-
 	daemonCmd.Flags().Uint32VarP(&maxTransactionsLimit, "max-transactions-limit", "", 10000, "set the maximum allowed Limit parameter for querying transactions")
 	daemonCmd.Flags().Uint32VarP(&defaultTransactionsLimit, "default-transactions-limit", "", 1000, "set the default Limit parameter for querying transactions, if none is provided")
 	daemonCmd.Flags().Uint32VarP(&maxAccountsLimit, "max-accounts-limit", "", 1000, "set the maximum allowed Limit parameter for querying accounts")
@@ -231,28 +226,26 @@ func makeOptions() (options api.ExtraOptions) {
 	options.MaxApplicationsLimit = uint64(maxApplicationsLimit)
 	options.DefaultApplicationsLimit = uint64(defaultApplicationsLimit)
 
-	if paramConfigEnableFlag {
-		if enableAllParameters {
-			options.DisabledMapConfig = api.MakeDisabledMapConfig()
-		} else {
-			options.DisabledMapConfig = api.GetDefaultDisabledMapConfigForPostgres()
+	if enableAllParameters {
+		options.DisabledMapConfig = api.MakeDisabledMapConfig()
+	} else {
+		options.DisabledMapConfig = api.GetDefaultDisabledMapConfigForPostgres()
+	}
+
+	if suppliedAPIConfigFile != "" {
+		swag, err := generated.GetSwagger()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to get swagger: %v", err)
+			os.Exit(1)
 		}
 
-		if suppliedAPIConfigFile != "" {
-			swag, err := generated.GetSwagger()
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to get swagger: %v", err)
-				os.Exit(1)
-			}
-
-			logger.Infof("supplied api configuration file located at: %s", suppliedAPIConfigFile)
-			potentialDisabledMapConfig, err := api.MakeDisabledMapConfigFromFile(swag, suppliedAPIConfigFile)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "failed to created disabled map config from file: %v", err)
-				os.Exit(1)
-			}
-			options.DisabledMapConfig = potentialDisabledMapConfig
+		logger.Infof("supplied api configuration file located at: %s", suppliedAPIConfigFile)
+		potentialDisabledMapConfig, err := api.MakeDisabledMapConfigFromFile(swag, suppliedAPIConfigFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to created disabled map config from file: %v", err)
+			os.Exit(1)
 		}
+		options.DisabledMapConfig = potentialDisabledMapConfig
 	}
 
 	return

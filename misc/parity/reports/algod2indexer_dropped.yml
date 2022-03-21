@@ -26,9 +26,6 @@ DryrunTxnResult:
 ErrorResponse:
 - INDEXER: null
 - ALGOD: '{"description":"An error respo...'
-AccountsErrorResponse:
-- INDEXER: null
-- ALGOD: '{"description":"An error respo...'
 ParticipationKey:
 - INDEXER: null
 - ALGOD: '{"description":"Represents a p...'
