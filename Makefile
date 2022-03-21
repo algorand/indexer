@@ -11,6 +11,8 @@ GOLDFLAGS += -X github.com/algorand/indexer/version.CompileTime=$(shell date -u 
 GOLDFLAGS += -X github.com/algorand/indexer/version.GitDecorateBase64=$(shell git log -n 1 --pretty="%D"|base64|tr -d ' \n')
 GOLDFLAGS += -X github.com/algorand/indexer/version.ReleaseVersion=$(shell cat .version)
 
+COVERPKG := $(shell go list ./...  | grep -v '/cmd/' | egrep -v '(testing|test|mocks)$$' |  paste -s -d, - )
+
 # Used for e2e test
 export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 
@@ -45,7 +47,7 @@ fakepackage: go-algorand
 	misc/release.py --host-only --outdir $(PKG_DIR) --fake-release
 
 test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
-	go test ./... -coverprofile=coverage.txt -covermode=atomic
+	go test -coverpkg=$(COVERPKG) ./... -coverprofile=coverage.txt -covermode=atomic
 
 lint: go-algorand
 	golint -set_exit_status ./...
@@ -75,7 +77,7 @@ test-generate:
 	test/test_generate.py
 
 nightly-setup:
-	cd third_party/go-algorand && git pull origin master
+	cd third_party/go-algorand && git fetch && git reset --hard origin/master
 
 nightly-teardown:
 	git submodule update

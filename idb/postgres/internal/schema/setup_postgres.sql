@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS account (
   created_at bigint NOT NULL, -- round that the account is first used
   closed_at bigint, -- round that the account was last closed
   keytype varchar(8), -- "sig", "msig", "lsig", or NULL if unknown
-  account_data jsonb NOT NULL -- trimmed AccountData that excludes the fields above and the four creatable maps; SQL 'NOT NULL' is held though the json string will be "null" iff account is deleted
+  account_data jsonb NOT NULL -- trimmed ledgercore.AccountData that excludes the fields above; SQL 'NOT NULL' is held though the json string will be "null" iff account is deleted
 );
 
 -- data.basics.AccountData Assets[asset id] AssetHolding{}

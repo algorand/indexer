@@ -366,20 +366,6 @@ func DecodeSignedTxnWithAD(data []byte) (transactions.SignedTxnWithAD, error) {
 	return unconvertSignedTxnWithAD(stxn), nil
 }
 
-// TrimAccountData deletes various information from account data that we do not write to
-// `account.account_data`.
-func TrimAccountData(ad basics.AccountData) basics.AccountData {
-	ad.MicroAlgos = basics.MicroAlgos{}
-	ad.RewardsBase = 0
-	ad.RewardedMicroAlgos = basics.MicroAlgos{}
-	ad.AssetParams = nil
-	ad.Assets = nil
-	ad.AppLocalStates = nil
-	ad.AppParams = nil
-
-	return ad
-}
-
 func convertTrimmedAccountData(ad basics.AccountData) trimmedAccountData {
 	return trimmedAccountData{
 		AccountData:      ad,
@@ -682,4 +668,73 @@ func DecodeNetworkState(data []byte) (types.NetworkState, error) {
 	}
 
 	return state, nil
+}
+
+// TrimLcAccountData deletes various information from account data that we do not write
+// to `account.account_data`.
+func TrimLcAccountData(ad ledgercore.AccountData) ledgercore.AccountData {
+	ad.MicroAlgos = basics.MicroAlgos{}
+	ad.RewardsBase = 0
+	ad.RewardedMicroAlgos = basics.MicroAlgos{}
+	return ad
+}
+
+func convertTrimmedLcAccountData(ad ledgercore.AccountData) baseAccountData {
+	return baseAccountData{
+		Status:              ad.Status,
+		AuthAddr:            crypto.Digest(ad.AuthAddr),
+		TotalAppSchema:      ad.TotalAppSchema,
+		TotalExtraAppPages:  ad.TotalExtraAppPages,
+		TotalAssetParams:    ad.TotalAssetParams,
+		TotalAssets:         ad.TotalAssets,
+		TotalAppParams:      ad.TotalAppParams,
+		TotalAppLocalStates: ad.TotalAppLocalStates,
+		baseOnlineAccountData: baseOnlineAccountData{
+			VoteID:          ad.VoteID,
+			SelectionID:     ad.SelectionID,
+			StateProofID:    ad.StateProofID,
+			VoteFirstValid:  ad.VoteFirstValid,
+			VoteLastValid:   ad.VoteLastValid,
+			VoteKeyDilution: ad.VoteKeyDilution,
+		},
+	}
+}
+
+func unconvertTrimmedLcAccountData(ba baseAccountData) ledgercore.AccountData {
+	return ledgercore.AccountData{
+		AccountBaseData: ledgercore.AccountBaseData{
+			Status:              ba.Status,
+			AuthAddr:            basics.Address(ba.AuthAddr),
+			TotalAppSchema:      ba.TotalAppSchema,
+			TotalExtraAppPages:  ba.TotalExtraAppPages,
+			TotalAppParams:      ba.TotalAppParams,
+			TotalAppLocalStates: ba.TotalAppLocalStates,
+			TotalAssetParams:    ba.TotalAssetParams,
+			TotalAssets:         ba.TotalAssets,
+		},
+		VotingData: ledgercore.VotingData{
+			VoteID:          ba.VoteID,
+			SelectionID:     ba.SelectionID,
+			StateProofID:    ba.StateProofID,
+			VoteFirstValid:  ba.VoteFirstValid,
+			VoteLastValid:   ba.VoteLastValid,
+			VoteKeyDilution: ba.VoteKeyDilution,
+		},
+	}
+}
+
+// EncodeTrimmedLcAccountData encodes ledgercore account data into json.
+func EncodeTrimmedLcAccountData(ad ledgercore.AccountData) []byte {
+	return encodeJSON(convertTrimmedLcAccountData(ad))
+}
+
+// DecodeTrimmedLcAccountData decodes ledgercore account data from json.
+func DecodeTrimmedLcAccountData(data []byte) (ledgercore.AccountData, error) {
+	var ba baseAccountData
+	err := DecodeJSON(data, &ba)
+	if err != nil {
+		return ledgercore.AccountData{}, err
+	}
+
+	return unconvertTrimmedLcAccountData(ba), nil
 }

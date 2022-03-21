@@ -97,6 +97,27 @@
           "type": "integer"
         }
       },
+      "exclude": {
+        "description": "Exclude additional items such as asset holdings, application local data stored for this account, asset parameters created by this account, and application parameters created by this account.",
+        "explode": false,
+        "in": "query",
+        "name": "exclude",
+        "schema": {
+          "items": {
+            "enum": [
+              "all",
+              "assets",
+              "created-assets",
+              "apps-local-state",
+              "created-apps",
+              "none"
+            ],
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "style": "form"
+      },
       "exclude-close-to": {
         "description": "Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.",
         "in": "query",
@@ -281,6 +302,36 @@
         },
         "description": "(empty)"
       },
+      "ApplicationLocalStatesResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "apps-local-states": {
+                  "items": {
+                    "$ref": "#/components/schemas/ApplicationLocalState"
+                  },
+                  "type": "array"
+                },
+                "current-round": {
+                  "description": "Round at which the results were computed.",
+                  "type": "integer"
+                },
+                "next-token": {
+                  "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "apps-local-states",
+                "current-round"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "description": "(empty)"
+      },
       "ApplicationLogsResponse": {
         "content": {
           "application/json": {
@@ -389,6 +440,36 @@
               },
               "required": [
                 "balances",
+                "current-round"
+              ],
+              "type": "object"
+            }
+          }
+        },
+        "description": "(empty)"
+      },
+      "AssetHoldingsResponse": {
+        "content": {
+          "application/json": {
+            "schema": {
+              "properties": {
+                "assets": {
+                  "items": {
+                    "$ref": "#/components/schemas/AssetHolding"
+                  },
+                  "type": "array"
+                },
+                "current-round": {
+                  "description": "Round at which the results were computed.",
+                  "type": "integer"
+                },
+                "next-token": {
+                  "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "assets",
                 "current-round"
               ],
               "type": "object"
@@ -647,6 +728,22 @@
           "status": {
             "description": "\\[onl\\] delegation status of the account's MicroAlgos\n* Offline - indicates that the associated account is delegated.\n*  Online  - indicates that the associated account used as part of the delegation pool.\n*   NotParticipating - indicates that the associated account is neither a delegator nor a delegate.",
             "type": "string"
+          },
+          "total-apps-opted-in": {
+            "description": "The count of all applications that have been opted in, equivalent to the count of application local data (AppLocalState objects) stored in this account.",
+            "type": "integer"
+          },
+          "total-assets-opted-in": {
+            "description": "The count of all assets that have been opted in, equivalent to the count of AssetHolding objects held by this account.",
+            "type": "integer"
+          },
+          "total-created-apps": {
+            "description": "The count of all apps (AppParams objects) created by this account.",
+            "type": "integer"
+          },
+          "total-created-assets": {
+            "description": "The count of all assets (AssetParams objects) created by this account.",
+            "type": "integer"
           }
         },
         "required": [
@@ -656,7 +753,11 @@
           "pending-rewards",
           "rewards",
           "round",
-          "status"
+          "status",
+          "total-apps-opted-in",
+          "total-assets-opted-in",
+          "total-created-apps",
+          "total-created-assets"
         ],
         "type": "object"
       },
@@ -910,10 +1011,6 @@
             "description": "Asset ID of the holding.",
             "type": "integer"
           },
-          "creator": {
-            "description": "Address that created this asset. This is the address where the parameters for this asset can be found, and also the address where unwanted asset units can be sent in the worst case.",
-            "type": "string"
-          },
           "deleted": {
             "description": "Whether or not the asset holding is currently deleted from its account.",
             "type": "boolean"
@@ -936,7 +1033,6 @@
         "required": [
           "amount",
           "asset-id",
-          "creator",
           "is-frozen"
         ],
         "type": "object"
@@ -1924,6 +2020,27 @@
             }
           },
           {
+            "description": "Exclude additional items such as asset holdings, application local data stored for this account, asset parameters created by this account, and application parameters created by this account.",
+            "explode": false,
+            "in": "query",
+            "name": "exclude",
+            "schema": {
+              "items": {
+                "enum": [
+                  "all",
+                  "assets",
+                  "created-assets",
+                  "apps-local-state",
+                  "created-apps",
+                  "none"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "style": "form"
+          },
+          {
             "description": "Results should have an amount less than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
             "in": "query",
             "name": "currency-less-than",
@@ -2068,6 +2185,27 @@
             "schema": {
               "type": "boolean"
             }
+          },
+          {
+            "description": "Exclude additional items such as asset holdings, application local data stored for this account, asset parameters created by this account, and application parameters created by this account.",
+            "explode": false,
+            "in": "query",
+            "name": "exclude",
+            "schema": {
+              "items": {
+                "enum": [
+                  "all",
+                  "assets",
+                  "created-assets",
+                  "apps-local-state",
+                  "created-apps",
+                  "none"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "style": "form"
           }
         ],
         "responses": {
@@ -2086,6 +2224,606 @@
                   },
                   "required": [
                     "account",
+                    "current-round"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          }
+        },
+        "tags": [
+          "lookup"
+        ]
+      }
+    },
+    "/v2/accounts/{account-id}/apps-local-state": {
+      "get": {
+        "description": "Lookup an account's asset holdings, optionally for a specific ID.",
+        "operationId": "lookupAccountAppLocalStates",
+        "parameters": [
+          {
+            "description": "account string",
+            "in": "path",
+            "name": "account-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Application ID",
+            "in": "query",
+            "name": "application-id",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+            "in": "query",
+            "name": "include-all",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page of results. Use the next token provided by the previous results.",
+            "in": "query",
+            "name": "next",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "apps-local-states": {
+                      "items": {
+                        "$ref": "#/components/schemas/ApplicationLocalState"
+                      },
+                      "type": "array"
+                    },
+                    "current-round": {
+                      "description": "Round at which the results were computed.",
+                      "type": "integer"
+                    },
+                    "next-token": {
+                      "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "apps-local-states",
+                    "current-round"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          }
+        },
+        "tags": [
+          "lookup"
+        ]
+      }
+    },
+    "/v2/accounts/{account-id}/assets": {
+      "get": {
+        "description": "Lookup an account's asset holdings, optionally for a specific ID.",
+        "operationId": "lookupAccountAssets",
+        "parameters": [
+          {
+            "description": "account string",
+            "in": "path",
+            "name": "account-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Asset ID",
+            "in": "query",
+            "name": "asset-id",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+            "in": "query",
+            "name": "include-all",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page of results. Use the next token provided by the previous results.",
+            "in": "query",
+            "name": "next",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "assets": {
+                      "items": {
+                        "$ref": "#/components/schemas/AssetHolding"
+                      },
+                      "type": "array"
+                    },
+                    "current-round": {
+                      "description": "Round at which the results were computed.",
+                      "type": "integer"
+                    },
+                    "next-token": {
+                      "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "assets",
+                    "current-round"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          }
+        },
+        "tags": [
+          "lookup"
+        ]
+      }
+    },
+    "/v2/accounts/{account-id}/created-applications": {
+      "get": {
+        "description": "Lookup an account's created application parameters, optionally for a specific ID.",
+        "operationId": "lookupAccountCreatedApplications",
+        "parameters": [
+          {
+            "description": "account string",
+            "in": "path",
+            "name": "account-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Application ID",
+            "in": "query",
+            "name": "application-id",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+            "in": "query",
+            "name": "include-all",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page of results. Use the next token provided by the previous results.",
+            "in": "query",
+            "name": "next",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "applications": {
+                      "items": {
+                        "$ref": "#/components/schemas/Application"
+                      },
+                      "type": "array"
+                    },
+                    "current-round": {
+                      "description": "Round at which the results were computed.",
+                      "type": "integer"
+                    },
+                    "next-token": {
+                      "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "applications",
+                    "current-round"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "(empty)"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "properties": {},
+                      "type": "object"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Response for errors"
+          }
+        },
+        "tags": [
+          "lookup"
+        ]
+      }
+    },
+    "/v2/accounts/{account-id}/created-assets": {
+      "get": {
+        "description": "Lookup an account's created asset parameters, optionally for a specific ID.",
+        "operationId": "lookupAccountCreatedAssets",
+        "parameters": [
+          {
+            "description": "account string",
+            "in": "path",
+            "name": "account-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "description": "Asset ID",
+            "in": "query",
+            "name": "asset-id",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
+            "in": "query",
+            "name": "include-all",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "description": "The next page of results. Use the next token provided by the previous results.",
+            "in": "query",
+            "name": "next",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "assets": {
+                      "items": {
+                        "$ref": "#/components/schemas/Asset"
+                      },
+                      "type": "array"
+                    },
+                    "current-round": {
+                      "description": "Round at which the results were computed.",
+                      "type": "integer"
+                    },
+                    "next-token": {
+                      "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "assets",
                     "current-round"
                   ],
                   "type": "object"
@@ -2413,6 +3151,14 @@
             "name": "application-id",
             "schema": {
               "type": "integer"
+            }
+          },
+          {
+            "description": "Filter just applications with the given creator address.",
+            "in": "query",
+            "name": "creator",
+            "schema": {
+              "type": "string"
             }
           },
           {
@@ -2987,14 +3733,6 @@
             "name": "next",
             "schema": {
               "type": "string"
-            }
-          },
-          {
-            "description": "Include results for the specified round.",
-            "in": "query",
-            "name": "round",
-            "schema": {
-              "type": "integer"
             }
           },
           {

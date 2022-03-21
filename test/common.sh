@@ -200,6 +200,7 @@ function start_indexer_with_connection_string() {
   ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer daemon \
     -S $NET "$RO" \
     -P "$1" \
+    --enable-all-parameters \
     "$RO" \
     --pidfile $PIDFILE 2>&1 > /dev/null &
 }
@@ -440,12 +441,12 @@ function create_delete_tests() {
       '"created-at-round": 13' \
       '"deleted-at-round": 37'
 
-    rest_test "[rest - account/application] account with a deleted application" \
+    rest_test "[rest - account/application] account with a deleted application excluded" \
       "/v2/accounts/XNMIHFHAZ2GE3XUKISNMOYKNFDOJXBJMVHRSXVVVIK3LNMT22ET2TA4N4I?pretty" \
       200 \
       false \
       '"id": 82'
-    rest_test "[rest - account/application] account with a deleted application" \
+    rest_test "[rest - account/application] account with a deleted application included" \
       "/v2/accounts/XNMIHFHAZ2GE3XUKISNMOYKNFDOJXBJMVHRSXVVVIK3LNMT22ET2TA4N4I?pretty&include-all=true" \
       200 \
       true \
@@ -491,7 +492,6 @@ function create_delete_tests() {
       '{
         "amount": 0,
         "asset-id": 135,
-        "creator": "",
         "deleted": true,
         "is-frozen": false,
         "opted-in-at-round": 25,
