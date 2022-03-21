@@ -4,7 +4,7 @@ services:
   e2e:    
     build:    
       context: ../.
-      dockerfile: ./misc/Dockerfile    
+      dockerfile: ./misc/Dockerfile
     environment:
       CONNECTION_STRING: "host=e2e-db port=5432 user=algorand password=algorand dbname=indexer_db sslmode=disable"
 

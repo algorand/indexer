@@ -8,6 +8,10 @@ ENV HOME /opt
 ENV DEBIAN_FRONTEND noninteractive    
 RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutils python3 python3-pip make bash libtool libboost-math-dev libffi-dev
 
+# We want this before we change any working directories
+RUN mkdir -p /opt/e2edata
+COPY misc/local_e2e/net_done.tar.bz2 /opt/e2edata
+
 # Install algod nightly binaries to the path
 RUN mkdir -p /opt/algorand/{bin,data}
 ADD https://github.com/algorand/go-algorand/raw/1e1474216421da27008726c44ebe0a5ba2fb6a08/cmd/updater/update.sh /opt/algorand/bin/update.sh
@@ -18,7 +22,7 @@ RUN find /opt/algorand
 ENV PATH="/opt/algorand/bin:${PATH}"
 
 # Setup files for test
-run mkdir -p /opt/go/indexer
+RUN mkdir -p /opt/go/indexer
 COPY . /opt/go/indexer
 WORKDIR /opt/go/indexer
 RUN rm /opt/go/indexer/cmd/algorand-indexer/algorand-indexer
@@ -26,4 +30,4 @@ RUN make
 RUN pip3 install -r misc/requirements.txt
 
 # Run test script
-ENTRYPOINT ["/bin/bash", "-c", "sleep 5 && python3 misc/e2elive.py --connection-string \"$CONNECTION_STRING\" --indexer-bin /opt/go/indexer/cmd/algorand-indexer/algorand-indexer --indexer-port 9890"]
+ENTRYPOINT ["/bin/bash", "-c", "sleep 5 && python3 misc/e2elive.py --source-net /opt/e2edata/net_done.tar.bz2 --connection-string \"$CONNECTION_STRING\" --indexer-bin /opt/go/indexer/cmd/algorand-indexer/algorand-indexer --indexer-port 9890"]

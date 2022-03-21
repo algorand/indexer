@@ -61,8 +61,8 @@ integration: cmd/algorand-indexer/algorand-indexer
 	curl -s https://algorand-testdata.s3.amazonaws.com/indexer/test_blockdata/create_destroy.tar.bz2 -o test/blockdata/create_destroy.tar.bz2
 	test/postgres_integration_test.sh
 
-e2e: cmd/algorand-indexer/algorand-indexer
-	cd misc && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e
+e2e: check cmd/algorand-indexer/algorand-indexer
+	cd misc && export GOALGORAND="${PWD}/third_party/go-algorand"; ./run_e2e.sh
 
 deploy:
 	mule/deploy.sh
