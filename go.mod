@@ -1,14 +1,14 @@
 module github.com/algorand/indexer
 
-go 1.13
+go 1.16
 
 replace github.com/algorand/go-algorand => ./third_party/go-algorand
 
 require (
-	github.com/algorand/go-algorand v0.0.0-20220211161928-53b157beb10f
+	github.com/algorand/go-algorand v0.0.0-20220322182955-997bd8641cbb
 	github.com/algorand/go-algorand-sdk v1.9.1
-	github.com/algorand/go-codec/codec v1.1.7
-	github.com/algorand/oapi-codegen v1.3.5-algorand5
+	github.com/algorand/go-codec/codec v1.1.8
+	github.com/algorand/oapi-codegen v1.3.7
 	github.com/davecgh/go-spew v1.1.1
 	github.com/getkin/kin-openapi v0.22.0
 	github.com/jackc/pgconn v1.10.0
@@ -24,8 +24,6 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.1
 	github.com/stretchr/testify v1.7.0
-	github.com/vektra/mockery v1.1.2 // indirect
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
-	golang.org/x/tools v0.1.10 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
 )
