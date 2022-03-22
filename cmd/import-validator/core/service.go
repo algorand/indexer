@@ -188,23 +188,25 @@ func getModifiedState(l *ledger.Ledger, block *bookkeeping.Block) (map[basics.Ad
 	return modifiedAccounts, modifiedResources, nil
 }
 
-func normalizeAccountResource(r ledgercore.AccountResource) ledgercore.AccountResource {
+func normalizeAccountResource(r ledgercore.AppResource) (ar ledgercore.AccountResource) {
+	ar.AppLocalState = r.AppLocalState
+	ar.AppParams = r.AppParams
 	if (r.AppParams != nil) && (len(r.AppParams.GlobalState) == 0) {
 		// Make a copy of `AppParams` to avoid modifying ledger's storage.
 		appParams := new(basics.AppParams)
 		*appParams = *r.AppParams
 		appParams.GlobalState = nil
-		r.AppParams = appParams
+		ar.AppParams = appParams
 	}
 	if (r.AppLocalState != nil) && (len(r.AppLocalState.KeyValue) == 0) {
 		// Make a copy of `AppLocalState` to avoid modifying ledger's storage.
 		appLocalState := new(basics.AppLocalState)
 		*appLocalState = *r.AppLocalState
 		appLocalState.KeyValue = nil
-		r.AppLocalState = appLocalState
+		ar.AppLocalState = appLocalState
 	}
 
-	return r
+	return ar
 }
 
 func checkModifiedState(db *postgres.IndexerDb, l *ledger.Ledger, block *bookkeeping.Block, addresses map[basics.Address]struct{}, resources map[basics.Address]map[ledger.Creatable]struct{}) error {
@@ -255,14 +257,31 @@ func checkModifiedState(db *postgres.IndexerDb, l *ledger.Ledger, block *bookkee
 			resourcesForAddress := make(map[ledger.Creatable]ledgercore.AccountResource)
 			resourcesAlgod[address] = resourcesForAddress
 			for creatable := range creatables {
-				var resource ledgercore.AccountResource
-				resource, err1 =
-					l.LookupResource(block.Round(), address, creatable.Index, creatable.Type)
-				if err1 != nil {
-					err1 = fmt.Errorf("checkModifiedState() lookup resource err1: %w", err1)
+				switch creatable.Type {
+				case basics.AssetCreatable:
+					var assetResource ledgercore.AssetResource
+					assetResource, err1 = l.LookupAsset(block.Round(), address, basics.AssetIndex(creatable.Index))
+					if err1 != nil {
+						err1 = fmt.Errorf("checkModifiedState() lookup asset resource err1: %w", err1)
+						return
+					}
+					ar := ledgercore.AccountResource{
+						AssetParams:  assetResource.AssetParams,
+						AssetHolding: assetResource.AssetHolding,
+					}
+					resourcesForAddress[creatable] = ar
+				case basics.AppCreatable:
+					var appResource ledgercore.AppResource
+					appResource, err1 = l.LookupApplication(block.Round(), address, basics.AppIndex(creatable.Index))
+					if err1 != nil {
+						err1 = fmt.Errorf("checkModifiedState() lookup application resource err1: %w", err1)
+						return
+					}
+					resourcesForAddress[creatable] = normalizeAccountResource(appResource)
+				default:
+					err1 = fmt.Errorf("checkModifiedState() unexpected creatable type %v", creatable.Type)
 					return
 				}
-				resourcesForAddress[creatable] = normalizeAccountResource(resource)
 			}
 		}
 	}()
