@@ -17,7 +17,7 @@ workflows:
           name: test_with_go_<< matrix.go_version >>
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.14.7", "1.15.15"]
+              go_version: ["1.14.7", "1.15.15", "1.16.11"]
 
   circleci_build_and_test_nightly:
     triggers:
@@ -32,7 +32,7 @@ workflows:
           context: slack-secrets
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.14.7", "1.15.15"]
+              go_version: ["1.14.7", "1.15.15", "1.16.11"]
 jobs:
   test:
     machine:
