@@ -22,7 +22,7 @@ func TestPrintableUTF8OrEmpty(t *testing.T) {
 		},
 		{
 			"Asset 510285544",
-			"8J+qmSBNb25leQ==",
+			"//ogTW9uZXk=",
 			"",
 		},
 	}
