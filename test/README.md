@@ -49,7 +49,7 @@ sql_test `<description>` `<database>` `<query>` `<substring>`
 
 # Debugging
 
-You'll need to break before the `algorand-indexer import` call and startup your debugger in import mode.
+Add true to the end of the `algorand-indexer import` call, use the provided command to initialize indexer.
 
 It may be useful to edit one of the entry point scripts to make sure the dataset you're interested in is loaded first.
 
@@ -58,21 +58,7 @@ It may be useful to edit one of the entry point scripts to make sure the dataset
 
 When you have setup for an integration test, use the provided `rest_test` / `sql_test` functions to write your tests.
 
-This test loads an e2edata block archive + genesis dataset, you create one using the [buildtestdata.sh](../misc/buildtestdata.sh) script. You need to configure it with where to place the resulting archive, and your go-algorand directory. Here is an example script to setup everything:
-```bash
-#!/usr/bin/env bash
-
-rm -rf ve3
-export GOALGORAND="${GOPATH}/src/github.com/algorand/go-algorand"
-export E2EDATA="${HOME}/algorand/indexer/e2edata"
-export BUILD_BLOCK_ARCHIVE="yes please"
-rm -rf "$E2EDATA"
-mkdir -p "$E2EDATA"
-python3 -m venv ve3
-ve3/bin/pip install py-algorand-sdk
-. ve3/bin/activate
-./misc/buildtestdata.sh
-```
+This test loads an e2edata block archive + genesis dataset, you create one using the [buildtestdata.sh](../misc/buildtestdata.sh) script. See top-level comments in [buildtestdata.sh](../misc/buildtestdata.sh) for local environment setup instructions.
 
 The archive will be buried in the `E2EDATA` directory somewhere. That file is passed to start_indexer_with_blocks, then you just need to write the tests.
 

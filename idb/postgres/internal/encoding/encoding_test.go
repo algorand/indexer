@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -465,20 +466,21 @@ func TestSpecialAddressesEncoding(t *testing.T) {
 // Test that encoding of AccountTotals is as expected and that decoding results in the
 // same object.
 func TestAccountTotalsEncoding(t *testing.T) {
+	random := rand.New(rand.NewSource(1))
 	totals := ledgercore.AccountTotals{
 		Online: ledgercore.AlgoCount{
-			Money:       basics.MicroAlgos{Raw: rand.Uint64()},
-			RewardUnits: rand.Uint64(),
+			Money:       basics.MicroAlgos{Raw: random.Uint64()},
+			RewardUnits: random.Uint64(),
 		},
 		Offline: ledgercore.AlgoCount{
-			Money:       basics.MicroAlgos{Raw: rand.Uint64()},
-			RewardUnits: rand.Uint64(),
+			Money:       basics.MicroAlgos{Raw: random.Uint64()},
+			RewardUnits: random.Uint64(),
 		},
 		NotParticipating: ledgercore.AlgoCount{
-			Money:       basics.MicroAlgos{Raw: rand.Uint64()},
-			RewardUnits: rand.Uint64(),
+			Money:       basics.MicroAlgos{Raw: random.Uint64()},
+			RewardUnits: random.Uint64(),
 		},
-		RewardsLevel: rand.Uint64(),
+		RewardsLevel: random.Uint64(),
 	}
 
 	buf := EncodeAccountTotals(&totals)
@@ -548,4 +550,52 @@ func TestNetworkStateEncoding(t *testing.T) {
 	decodedNetwork, err := DecodeNetworkState(buf)
 	require.NoError(t, err)
 	assert.Equal(t, network, decodedNetwork)
+}
+
+// Test that encoding of ledgercore.AccountData is as expected and that decoding
+// results in the same object.
+func TestLcAccountDataEncoding(t *testing.T) {
+	var authAddr basics.Address
+	authAddr[0] = 6
+
+	var voteID crypto.OneTimeSignatureVerifier
+	voteID[0] = 14
+
+	var selectionID crypto.VRFVerifier
+	selectionID[0] = 15
+
+	var stateProofID merklesignature.Verifier
+	stateProofID[0] = 19
+
+	ad := ledgercore.AccountData{
+		AccountBaseData: ledgercore.AccountBaseData{
+			Status:   basics.Online,
+			AuthAddr: authAddr,
+			TotalAppSchema: basics.StateSchema{
+				NumUint:      7,
+				NumByteSlice: 8,
+			},
+			TotalExtraAppPages:  9,
+			TotalAppParams:      10,
+			TotalAppLocalStates: 11,
+			TotalAssetParams:    12,
+			TotalAssets:         13,
+		},
+		VotingData: ledgercore.VotingData{
+			VoteID:          voteID,
+			SelectionID:     selectionID,
+			StateProofID:    stateProofID,
+			VoteFirstValid:  16,
+			VoteLastValid:   17,
+			VoteKeyDilution: 18,
+		},
+	}
+	buf := EncodeTrimmedLcAccountData(ad)
+
+	expectedString := `{"onl":1,"sel":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","spend":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","stprf":"EwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","tapl":11,"tapp":10,"tas":13,"tasp":12,"teap":9,"tsch":{"nbs":8,"nui":7},"vote":"DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","voteFst":16,"voteKD":18,"voteLst":17}`
+	assert.Equal(t, expectedString, string(buf))
+
+	decodedAd, err := DecodeTrimmedLcAccountData(buf)
+	require.NoError(t, err)
+	assert.Equal(t, ad, decodedAd)
 }

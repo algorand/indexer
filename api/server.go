@@ -37,6 +37,38 @@ type ExtraOptions struct {
 
 	// ReadTimeout is the maximum duration for reading the entire request, including the body.
 	ReadTimeout time.Duration
+
+	// DisabledMapConfig is the disabled map configuration that is being used by the server
+	DisabledMapConfig *DisabledMapConfig
+
+	// MaxAPIResourcesPerAccount is the maximum number of combined AppParams, AppLocalState, AssetParams,
+	// and AssetHolding resources per address that can be returned by the /v2/accounts endpoints.
+	// If an address exceeds this number, a 400 error is returned. Zero means unlimited.
+	MaxAPIResourcesPerAccount uint64
+
+	/////////////////////
+	// Limit Constants //
+	/////////////////////
+
+	// Transactions
+	MaxTransactionsLimit     uint64
+	DefaultTransactionsLimit uint64
+
+	// Accounts
+	MaxAccountsLimit     uint64
+	DefaultAccountsLimit uint64
+
+	// Assets
+	MaxAssetsLimit     uint64
+	DefaultAssetsLimit uint64
+
+	// Asset Balances
+	MaxBalancesLimit     uint64
+	DefaultBalancesLimit uint64
+
+	// Applications
+	MaxApplicationsLimit     uint64
+	DefaultApplicationsLimit uint64
 }
 
 func (e ExtraOptions) handlerTimeout() time.Duration {
@@ -77,12 +109,25 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 		middleware = append(middleware, middlewares.MakeAuth("X-Indexer-API-Token", options.Tokens))
 	}
 
+	swag, err := generated.GetSwagger()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	disabledMap, err := MakeDisabledMapFromOA3(swag, options.DisabledMapConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	api := ServerImplementation{
 		EnableAddressSearchRoundRewind: options.DeveloperMode,
 		db:                             db,
 		fetcher:                        fetcherError,
 		timeout:                        options.handlerTimeout(),
 		log:                            log,
+		disabledParams:                 disabledMap,
+		opts:                           options,
 	}
 
 	generated.RegisterHandlers(e, &api, middleware...)

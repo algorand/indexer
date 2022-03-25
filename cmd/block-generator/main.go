@@ -1,12 +1,7 @@
 package main
 
-import "github.com/spf13/cobra"
-
-var rootCmd = &cobra.Command{
-	Use:   `block-generator`,
-	Short: `Block generator testing tools.`,
-}
+import "github.com/algorand/indexer/cmd/block-generator/core"
 
 func main() {
-	rootCmd.Execute()
+	core.BlockGenerator.Execute()
 }

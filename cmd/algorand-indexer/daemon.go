@@ -10,11 +10,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/algorand/go-algorand/rpcs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/api"
+	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
@@ -23,18 +24,30 @@ import (
 )
 
 var (
-	algodDataDir     string
-	algodAddr        string
-	algodToken       string
-	daemonServerAddr string
-	noAlgod          bool
-	developerMode    bool
-	allowMigration   bool
-	metricsMode      string
-	tokenString      string
-	writeTimeout     time.Duration
-	readTimeout      time.Duration
-	maxConn          uint32
+	algodDataDir              string
+	algodAddr                 string
+	algodToken                string
+	daemonServerAddr          string
+	noAlgod                   bool
+	developerMode             bool
+	allowMigration            bool
+	metricsMode               string
+	tokenString               string
+	writeTimeout              time.Duration
+	readTimeout               time.Duration
+	maxConn                   uint32
+	maxAPIResourcesPerAccount uint32
+	maxTransactionsLimit      uint32
+	defaultTransactionsLimit  uint32
+	maxAccountsLimit          uint32
+	defaultAccountsLimit      uint32
+	maxAssetsLimit            uint32
+	defaultAssetsLimit        uint32
+	maxBalancesLimit          uint32
+	defaultBalancesLimit      uint32
+	maxApplicationsLimit      uint32
+	defaultApplicationsLimit  uint32
+	enableAllParameters       bool
 )
 
 var daemonCmd = &cobra.Command{
@@ -48,6 +61,13 @@ var daemonCmd = &cobra.Command{
 		err = configureLogger()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
+			os.Exit(1)
+		}
+
+		// If someone supplied a configuration file but also said to enable all parameters,
+		// that's an error
+		if suppliedAPIConfigFile != "" && enableAllParameters {
+			fmt.Fprint(os.Stderr, "not allowed to supply an api config file and enable all parameters")
 			os.Exit(1)
 		}
 
@@ -128,7 +148,10 @@ var daemonCmd = &cobra.Command{
 
 		fmt.Printf("serving on %s\n", daemonServerAddr)
 		logger.Infof("serving on %s", daemonServerAddr)
-		api.Serve(ctx, daemonServerAddr, db, bot, logger, makeOptions())
+
+		options := makeOptions()
+
+		api.Serve(ctx, daemonServerAddr, db, bot, logger, options)
 		wg.Wait()
 	},
 }
@@ -147,6 +170,22 @@ func init() {
 	daemonCmd.Flags().DurationVarP(&writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
 	daemonCmd.Flags().DurationVarP(&readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
 	daemonCmd.Flags().Uint32VarP(&maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
+
+	daemonCmd.Flags().StringVar(&suppliedAPIConfigFile, "api-config-file", "", "supply an API config file to enable/disable parameters")
+	daemonCmd.Flags().BoolVar(&enableAllParameters, "enable-all-parameters", false, "override default configuration and enable all parameters. Can't be used with --api-config-file")
+	daemonCmd.Flags().MarkHidden("api-config-file")
+	daemonCmd.Flags().MarkHidden("enable-all-parameters")
+	daemonCmd.Flags().Uint32VarP(&maxAPIResourcesPerAccount, "max-api-resources-per-account", "", 1000, "set the maximum total number of resources (created assets, created apps, asset holdings, and application local state) per account that will be allowed in REST API lookupAccountByID and searchForAccounts responses before returning a 400 Bad Request. Set zero for no limit")
+	daemonCmd.Flags().Uint32VarP(&maxTransactionsLimit, "max-transactions-limit", "", 10000, "set the maximum allowed Limit parameter for querying transactions")
+	daemonCmd.Flags().Uint32VarP(&defaultTransactionsLimit, "default-transactions-limit", "", 1000, "set the default Limit parameter for querying transactions, if none is provided")
+	daemonCmd.Flags().Uint32VarP(&maxAccountsLimit, "max-accounts-limit", "", 1000, "set the maximum allowed Limit parameter for querying accounts")
+	daemonCmd.Flags().Uint32VarP(&defaultAccountsLimit, "default-accounts-limit", "", 100, "set the default Limit parameter for querying accounts, if none is provided")
+	daemonCmd.Flags().Uint32VarP(&maxAssetsLimit, "max-assets-limit", "", 1000, "set the maximum allowed Limit parameter for querying assets")
+	daemonCmd.Flags().Uint32VarP(&defaultAssetsLimit, "default-assets-limit", "", 100, "set the default Limit parameter for querying assets, if none is provided")
+	daemonCmd.Flags().Uint32VarP(&maxBalancesLimit, "max-balances-limit", "", 10000, "set the maximum allowed Limit parameter for querying balances")
+	daemonCmd.Flags().Uint32VarP(&defaultBalancesLimit, "default-balances-limit", "", 1000, "set the default Limit parameter for querying balances, if none is provided")
+	daemonCmd.Flags().Uint32VarP(&maxApplicationsLimit, "max-applications-limit", "", 1000, "set the maximum allowed Limit parameter for querying applications")
+	daemonCmd.Flags().Uint32VarP(&defaultApplicationsLimit, "default-applications-limit", "", 100, "set the default Limit parameter for querying applications, if none is provided")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
@@ -174,6 +213,40 @@ func makeOptions() (options api.ExtraOptions) {
 	}
 	options.WriteTimeout = writeTimeout
 	options.ReadTimeout = readTimeout
+
+	options.MaxAPIResourcesPerAccount = uint64(maxAPIResourcesPerAccount)
+	options.MaxTransactionsLimit = uint64(maxTransactionsLimit)
+	options.DefaultTransactionsLimit = uint64(defaultTransactionsLimit)
+	options.MaxAccountsLimit = uint64(maxAccountsLimit)
+	options.DefaultAccountsLimit = uint64(defaultAccountsLimit)
+	options.MaxAssetsLimit = uint64(maxAssetsLimit)
+	options.DefaultAssetsLimit = uint64(defaultAssetsLimit)
+	options.MaxBalancesLimit = uint64(maxBalancesLimit)
+	options.DefaultBalancesLimit = uint64(defaultBalancesLimit)
+	options.MaxApplicationsLimit = uint64(maxApplicationsLimit)
+	options.DefaultApplicationsLimit = uint64(defaultApplicationsLimit)
+
+	if enableAllParameters {
+		options.DisabledMapConfig = api.MakeDisabledMapConfig()
+	} else {
+		options.DisabledMapConfig = api.GetDefaultDisabledMapConfigForPostgres()
+	}
+
+	if suppliedAPIConfigFile != "" {
+		swag, err := generated.GetSwagger()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to get swagger: %v", err)
+			os.Exit(1)
+		}
+
+		logger.Infof("supplied api configuration file located at: %s", suppliedAPIConfigFile)
+		potentialDisabledMapConfig, err := api.MakeDisabledMapConfigFromFile(swag, suppliedAPIConfigFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to created disabled map config from file: %v", err)
+			os.Exit(1)
+		}
+		options.DisabledMapConfig = potentialDisabledMapConfig
+	}
 
 	return
 }
@@ -215,6 +288,13 @@ func handleBlock(block *rpcs.EncodedBlockCert, imp importer.Importer) error {
 		metrics.BlockImportTimeSeconds.Observe(dt.Seconds())
 		metrics.ImportedTxnsPerBlock.Observe(float64(len(block.Block.Payset)))
 		metrics.ImportedRoundGauge.Set(float64(block.Block.Round()))
+		txnCountByType := make(map[string]int)
+		for _, txn := range block.Block.Payset {
+			txnCountByType[string(txn.Txn.Type)]++
+		}
+		for k, v := range txnCountByType {
+			metrics.ImportedTxns.WithLabelValues(k).Set(float64(v))
+		}
 	}
 
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())

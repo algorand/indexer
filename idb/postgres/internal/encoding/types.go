@@ -2,6 +2,7 @@ package encoding
 
 import (
 	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -105,4 +106,30 @@ type specialAddresses struct {
 	transactions.SpecialAddresses
 	FeeSinkOverride     crypto.Digest `codec:"FeeSink"`
 	RewardsPoolOverride crypto.Digest `codec:"RewardsPool"`
+}
+
+type baseOnlineAccountData struct {
+	_struct struct{} `codec:",omitempty,omitemptyarray"`
+
+	VoteID          crypto.OneTimeSignatureVerifier `codec:"vote"`
+	SelectionID     crypto.VRFVerifier              `codec:"sel"`
+	StateProofID    merklesignature.Verifier        `codec:"stprf"`
+	VoteFirstValid  basics.Round                    `codec:"voteFst"`
+	VoteLastValid   basics.Round                    `codec:"voteLst"`
+	VoteKeyDilution uint64                          `codec:"voteKD"`
+}
+
+type baseAccountData struct {
+	_struct struct{} `codec:",omitempty,omitemptyarray"`
+
+	Status              basics.Status      `codec:"onl"`
+	AuthAddr            crypto.Digest      `codec:"spend"`
+	TotalAppSchema      basics.StateSchema `codec:"tsch"`
+	TotalExtraAppPages  uint32             `codec:"teap"`
+	TotalAssetParams    uint64             `codec:"tasp"`
+	TotalAssets         uint64             `codec:"tas"`
+	TotalAppParams      uint64             `codec:"tapp"`
+	TotalAppLocalStates uint64             `codec:"tapl"`
+
+	baseOnlineAccountData
 }
