@@ -20,19 +20,23 @@ workflows:
               go_version: ["1.14.7", "1.15.15"]
 
   circleci_build_and_test_nightly:
-    triggers:
-      - schedule:
-          cron: "37 3 * * *"
-          filters:
-            branches:
-              only: develop
+    # triggers:
+    #   - schedule:
+    #       cron: "37 3 * * *"
+    #       filters:
+    #         branches:
+    #           only: develop
     jobs:
-      - test_nightly:
-          name: nightly_test_with_go_<< matrix.go_version >>
+      # - test_nightly:
+      #     name: nightly_test_with_go_<< matrix.go_version >>
+      #     context: slack-secrets
+      #     matrix: &go-version-matrix
+      #       parameters:
+      #         go_version: ["1.14.7", "1.15.15"]
+      - indexer_vs_algod_nightly:
+          name: nightly_test_indexer_vs_algod
           context: slack-secrets
-          matrix: &go-version-matrix
-            parameters:
-              go_version: ["1.14.7", "1.15.15"]
+
 jobs:
   test:
     machine:
@@ -72,6 +76,12 @@ jobs:
                 }
               ]
             }
+  indexer_vs_algod_nightly:
+    machine:
+      image: << pipeline.parameters.ubuntu_image >>
+    steps:
+      - install_dependencies
+      - run_indexer_vs_algod
 
 commands:
   install_dependencies:
@@ -123,6 +133,9 @@ commands:
       - run: make test-generate
       - run: make fakepackage
       - run: make e2e
+
+  run_indexer_vs_algod:
+    steps:
       - run: make indexer-v-algod
 
   upload_coverage:
