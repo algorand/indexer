@@ -20,19 +20,19 @@ workflows:
               go_version: ["1.14.7", "1.15.15"]
 
   circleci_build_and_test_nightly:
-    # triggers:
-    #   - schedule:
-    #       cron: "37 3 * * *"
-    #       filters:
-    #         branches:
-    #           only: develop
+    triggers:
+      - schedule:
+          cron: "37 3 * * *"
+          filters:
+            branches:
+              only: develop
     jobs:
-      # - test_nightly:
-      #     name: nightly_test_with_go_<< matrix.go_version >>
-      #     context: slack-secrets
-      #     matrix: &go-version-matrix
-      #       parameters:
-      #         go_version: ["1.14.7", "1.15.15"]
+      - test_nightly:
+          name: nightly_test_with_go_<< matrix.go_version >>
+          context: slack-secrets
+          matrix: &go-version-matrix
+            parameters:
+              go_version: ["1.14.7", "1.15.15"]
       - indexer_vs_algod_nightly:
           name: nightly_test_indexer_vs_algod
           context: slack-secrets
@@ -64,8 +64,8 @@ jobs:
       - upload_coverage
       - slack/notify: &slack-fail-event
           event: fail
-          custom: | 
-            { 
+          custom: |
+            {
               "blocks": [
                 {
                   "type": "section",
@@ -82,6 +82,20 @@ jobs:
     steps:
       - install_dependencies
       - run_indexer_vs_algod
+      - slack/notify: &slack-fail-event
+          event: fail
+          custom: |
+            {
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "Failed: $CIRCLE_USERNAME's build of \n<$CIRCLE_BUILD_URL|$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME>\n(<https://app.circleci.com/pipelines/github/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME?branch=$CIRCLE_BRANCH|$CIRCLE_BRANCH>) \n- <$CIRCLE_BUILD_URL|$CIRCLE_JOB> failed\n\nThis is probably a result of `make indexer-v-algod`\nSee <https://algorand.atlassian.net/wiki/spaces/LAMPREY/pages/2339536905/Nightly+Indexer+Tests#Q%3A-What-does-it-mean-that-the-nightly-test-failed-because-of-make-indexer-v-algod%3F|this wiki page> for more details"
+                  }
+                }
+              ]
+            }
 
 commands:
   install_dependencies:
