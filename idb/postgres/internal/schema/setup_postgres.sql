@@ -27,9 +27,9 @@ CREATE TABLE IF NOT EXISTS txn (
 
 do $$
 declare
-n integer := 7;
+n integer := 13;
 begin
-for i in 0..6 loop
+for i in 0..12 loop
    EXECUTE format('CREATE TABLE IF NOT EXISTS %s partition of txn for values with (modulus %s, remainder %s);', 'txn_' || i, n, i);
    -- For transaction lookup
    EXECUTE format(' CREATE INDEX IF NOT EXISTS %s ON %s ( txid );', 'txn_by_tixid_' || i,'txn_' || i);
