@@ -56,6 +56,7 @@ jobs:
       - go/install:
           version: << parameters.go_version >>
       - install_dependencies
+      - run_tests
       - run_tests_nightly
       - upload_coverage
       - slack/notify: &slack-fail-event
@@ -104,6 +105,10 @@ commands:
       - run: make lint
       - run: make check
       - run: make integration
+      # Start a docker container and set PG_TEST to optimize running tests.
+      - run: docker run -d --name some-postgres -p 5555:5432 -e POSTGRES_PASSWORD=pgpass -e POSTGRES_USER=pguser -e POSTGRES_DB=mydb postgres
+      - run: echo 'export PG_TEST="host=localhost user=pguser password=pgpass dbname=mydb port=5555 sslmode=disable"' >> $BASH_ENV
+      - run: echo 'export TEST_FLAG="-p 1"' >> $BASH_ENV
       - run:
           command: make test
           no_output_timeout: 15m
@@ -113,16 +118,6 @@ commands:
 
   run_tests_nightly:
     steps:
-      - run: test -z `go fmt ./...`
-      - run: make lint
-      - run: make check
-      - run: make integration
-      - run:
-          command: make test
-          no_output_timeout: 15m
-      - run: make test-generate
-      - run: make fakepackage
-      - run: make e2e
       - run: make indexer-v-algod
 
   upload_coverage:
