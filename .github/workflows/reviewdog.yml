@@ -19,7 +19,7 @@ jobs:
       - name: reviewdog-golangci-lint
         uses: reviewdog/action-golangci-lint@v2
         with:
-          golangci_lint_version: "v1.41.1"
+          golangci_lint_version: "v1.44.2"
           golangci_lint_flags: "-c .golangci.yml --allow-parallel-runners"
           reporter: "github-pr-review"
           tool_name: "Lint Errors"
