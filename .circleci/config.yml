@@ -25,8 +25,7 @@ workflows:
           cron: "37 3 * * *"
           filters:
             branches:
-              # only: develop
-              only: nightly-job-improvements
+              only: develop
     jobs:
       - test_nightly:
           name: nightly_test_with_go_<< matrix.go_version >>
