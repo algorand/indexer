@@ -22,10 +22,12 @@ workflows:
   circleci_build_and_test_nightly:
     triggers:
       - schedule:
-          cron: "37 3 * * *"
+          # cron: "37 3 * * *"
+          cron: "24 * * * *"
           filters:
             branches:
-              only: develop
+              # only: develop
+              only: nightly-job-improvements
     jobs:
       - test_nightly:
           name: nightly_test_with_go_<< matrix.go_version >>
