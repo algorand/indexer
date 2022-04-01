@@ -144,7 +144,7 @@ commands:
 
   run_tests_nightly:
     steps:
-      - run: false
+      - run: /bin/false
       - run: test -z `go fmt ./...`
       - run: make lint
       - run: make check
@@ -158,7 +158,7 @@ commands:
 
   run_indexer_vs_algod:
     steps:
-      - run: false
+      - run: /bin/false
       - run: make indexer-v-algod
 
   upload_coverage:
