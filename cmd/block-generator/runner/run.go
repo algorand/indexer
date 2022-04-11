@@ -87,11 +87,23 @@ func (r *Args) run() error {
 	algodNet := fmt.Sprintf("localhost:%d", 11112)
 	indexerNet := fmt.Sprintf("localhost:%d", r.IndexerPort)
 	generatorShutdownFunc, generator := startGenerator(r.Path, algodNet, blockMiddleware)
+	defer func() {
+		// Shutdown generator.
+		if err := generatorShutdownFunc(); err != nil {
+			fmt.Printf("Failed to shutdown generator: %s\n", err)
+		}
+	}()
 
 	indexerShutdownFunc, err := startIndexer(logfile, r.LogLevel, r.IndexerBinary, algodNet, indexerNet, r.PostgresConnectionString, r.CPUProfilePath)
 	if err != nil {
 		return fmt.Errorf("failed to start indexer: %w", err)
 	}
+	defer func() {
+		// Shutdown indexer
+		if err := indexerShutdownFunc(); err != nil {
+			fmt.Printf("Failed to shutdown indexer: %s\n", err)
+		}
+	}()
 
 	// Create the report file
 	report, err := os.Create(reportfile)
@@ -116,16 +128,6 @@ func (r *Args) run() error {
 		if err != nil {
 			return fmt.Errorf("problem running validator: %w", err)
 		}
-	}
-
-	// Shutdown generator.
-	if err := generatorShutdownFunc(); err != nil {
-		return err
-	}
-
-	// Shutdown indexer
-	if err := indexerShutdownFunc(); err != nil {
-		return err
 	}
 
 	return nil

@@ -32,6 +32,8 @@ import (
 )
 
 var defaultOpts = ExtraOptions{
+	MaxAPIResourcesPerAccount: 1000,
+
 	MaxTransactionsLimit:     10000,
 	DefaultTransactionsLimit: 1000,
 
@@ -260,10 +262,11 @@ func TestAccountExcludeParameters(t *testing.T) {
 	//////////
 
 	testCases := []struct {
-		address   basics.Address
-		exclude   []string
-		check     func(*testing.T, generated.AccountResponse)
-		errStatus int
+		address        basics.Address
+		exclude        []string
+		check          func(*testing.T, generated.AccountResponse)
+		errStatus      int
+		includeDeleted bool
 	}{{
 		address: test.AccountA,
 		exclude: []string{"all"},
@@ -275,6 +278,15 @@ func TestAccountExcludeParameters(t *testing.T) {
 		}}, {
 		address: test.AccountA,
 		exclude: []string{"none"},
+		check: func(t *testing.T, r generated.AccountResponse) {
+			require.NotNil(t, r.Account.CreatedAssets)
+			require.NotNil(t, r.Account.CreatedApps)
+			require.NotNil(t, r.Account.Assets)
+			require.NotNil(t, r.Account.AppsLocalState)
+		}}, {
+		address:        test.AccountA,
+		exclude:        []string{},
+		includeDeleted: true,
 		check: func(t *testing.T, r generated.AccountResponse) {
 			require.NotNil(t, r.Account.CreatedAssets)
 			require.NotNil(t, r.Account.CreatedApps)
@@ -346,7 +358,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("exclude %v", tc.exclude), func(t *testing.T) {
 			c, api, rec := setupReq("/v2/accounts/:account-id", "account-id", tc.address.String())
-			err := api.LookupAccountByID(c, tc.address.String(), generated.LookupAccountByIDParams{Exclude: &tc.exclude})
+			err := api.LookupAccountByID(c, tc.address.String(), generated.LookupAccountByIDParams{IncludeAll: &tc.includeDeleted, Exclude: &tc.exclude})
 			require.NoError(t, err)
 			if tc.errStatus != 0 {
 				require.Equal(t, tc.errStatus, rec.Code)
@@ -522,6 +534,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 		includeDeleted bool
 		errStatus      int
 	}{
+		{address: test.AccountA, exclude: []string{}, errStatus: http.StatusBadRequest},
 		{address: test.AccountA, exclude: []string{"all"}},
 		{address: test.AccountA, exclude: []string{"created-assets", "created-apps", "apps-local-state", "assets"}},
 		{address: test.AccountA, exclude: []string{"assets", "created-apps"}},
