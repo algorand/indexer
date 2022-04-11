@@ -200,7 +200,6 @@ function start_indexer_with_connection_string() {
   ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer daemon \
     -S $NET "$RO" \
     -P "$1" \
-    --enable-all-parameters \
     "$RO" \
     --pidfile $PIDFILE 2>&1 > /dev/null &
 }
