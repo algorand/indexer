@@ -50,7 +50,6 @@ func init() {
 		{upgradeNotSupported, true, "notify the user that upgrade is not supported"},
 		{dropTxnBytesColumn, true, "drop txnbytes column"},
 		{convertAccountData, true, "convert account.account_data column"},
-		{partitionTxnTable, true, "partition txn table"},
 	}
 }
 
@@ -249,42 +248,4 @@ func convertAccountData(db *IndexerDb, migrationState *types.MigrationState) err
 
 	*migrationState = newMigrationState
 	return nil
-}
-
-func partitionTxnTable(db *IndexerDb, migrationState *types.MigrationState) error {
-	createNewTxnTable := "CREATE TABLE IF NOT EXISTS txn_part (round bigint NOT NULL, " +
-		"intra integer NOT NULL," +
-		" typeenum smallint NOT NULL," +
-		"asset bigint NOT NULL," +
-		" txid bytea," +
-		" txn jsonb NOT NULL," +
-		" extra jsonb NOT NULL, " +
-		"PRIMARY KEY ( round, intra )" +
-		") PARTITION BY hash(round, intra);" +
-		"do $$ " +
-		"declare " +
-		"n integer := 7;" +
-		"begin " +
-		"for i in 0..6 loop " +
-		"   EXECUTE format('CREATE TABLE IF NOT EXISTS %s partition of txn_part for values with (modulus %s, remainder %s);', 'txn_' || i, n, i);" +
-		"	i:= i + 1;" +
-		"end loop; " +
-		"end; $$;"
-	copyData := "INSERT INTO txn_part SELECT * FROM txn;"
-	dropOldTxn := "DROP TABLE txn;"
-	renameTable := "ALTER TABLE txn_part RENAME TO txn; "
-	indices := "do $$ " +
-		"begin " +
-		"for i in 0..6 loop " +
-		"   EXECUTE format(' CREATE INDEX IF NOT EXISTS %s ON %s ( txid );', 'txn_by_tixid_' || i,'txn_' || i);" +
-		"	i:= i + 1;" +
-		"end loop; " +
-		"end; $$;"
-
-	return sqlMigration(
-		db, migrationState, []string{createNewTxnTable,
-			copyData,
-			dropOldTxn,
-			renameTable,
-			indices})
 }
