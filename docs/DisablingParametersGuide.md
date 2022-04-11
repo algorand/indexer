@@ -4,7 +4,7 @@
 
 The indexer has various endpoints that you (the user) can query.  However, some of these endpoints contain parameters that cause significant query performance degradation, ultimately leading to a scenario where your Indexer instance can be significantly slowed.
 
-In order to alleviate this, the Indexer has the ability to enable or disable query parameters from being supplied. Query parameters that are configured to be disabled stop the query from being run and instead return the user an error message.
+In order to alleviate this, the Indexer has the ability to enable or disable query parameters from being supplied. Query parameters that are configured to be disabled stop the query from being run and instead return an error message to the user.
 
 ### Types of Parameters
 
@@ -53,27 +53,34 @@ If you query an endpoint with a required parameter you will receive a `400` resp
 
 Below is a list of common scenarios that one might run into when trying to enable/disable configurations.  Each section describes recommended ways of achieving success in that scenario.
 
-### How do I see enable all parameters?
+### How do I see and use the recommended Indexer configuration?
 
-When running the Indexer daemon, one might wish to enable all parameters.  To do that, start the Indexer daemon with the `--enable-all-parameters` flag:
-
-```
-~$ algorand-indexer daemon --enable-all-parameters ...
-```
-
-Note that one can not provide the `--enable-all-parameters` flag and supply a config file via the `--api-config-file` flag at the same time.
-
-### How do I see what is currently disabled?
-
-By default, the Algorand Indexer will disable certain parameters in certain endpoints.  To see what those are, issue the command:
+When running the Indexer daemon, one might wish to use the recommended parameter configuration.  To do that, first issue the following command to save the recommended configuration to a file:
 
 ```
-~$ algorand-indexer api-config
+~$ algorand-indexer api-config --recommended > myconfig.yaml
 ```
 
-This command will only show disabled parameters.  If you want to see all parameters (enabled and disabled) then issue:
+Note that one can not provide the `--api-config-file` flag and the `--recommended` flag at the same time.
+
+Then inspect the configuration file and modify to suite your needs.  Finally, supply the config file to the daemon:
+
 ```
-~$ algorand-indexer api-config --all
+~$ algorand-indexer daemon --api-config-file myconfig.yaml
+```
+
+
+### How do I see what is disabled?
+
+By default, the Algorand Indexer will not disable any parameters.  To see which parameters are disabled by a config file, issue the command:
+
+```
+~$ algorand-indexer api-config --api-config-file PATH_TO_FILE
+```
+where `PATH_TO_FILE` is the path to the configuration file. Note, this will output ONLY the disabled parameters in a YAML configuration.  To view all parameters (both enabled and disabled) issue:
+
+```
+~$ algorand-indexer api-config --all --api-config-file PATH_TO_FILE
 ```
 
 The output from the `api-config` command is a valid YAML configuration file.
@@ -85,7 +92,7 @@ Often it is necessary to change what the Indexer disables and/or enables.  To do
 1) Determine what endpoint you wish to disable and find the endpoint path.  One can do this by looking at the [Algorand Developer Docs](https://developer.algorand.org/docs/rest-apis/indexer/).
 2) Determine which parameters you wish to disable and whether they are optional or required.
 3) Build up the configuration file with the schema described above.
-   1) __NOTE:__ The `api-config` outputs a valid YAML configuration file that can be used as a starting point.
+   1) __NOTE:__ The `api-config --recommended` command outputs a valid YAML configuration file that can be used as a starting point.
 4) Validate the configuration file you supplied by issuing the command below.  If the file is valid, then the output will show the original YAML file and the program will return zero.  Otherwise, a list of errors will be printed and one will be returned.
 ```
 ~$ algorand-indexer api-config --api-config-file PATH_TO_FILE

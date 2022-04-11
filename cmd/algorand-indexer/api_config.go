@@ -14,6 +14,7 @@ import (
 var (
 	suppliedAPIConfigFile string
 	showAllDisabled       bool
+	showRecommended       bool
 )
 
 var apiConfigCmd = &cobra.Command{
@@ -33,6 +34,28 @@ var apiConfigCmd = &cobra.Command{
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to get swagger: %v", err)
 			os.Exit(1)
+		}
+
+		// Can't show recommended and a file at the same time
+		if suppliedAPIConfigFile != "" && showRecommended {
+			fmt.Fprintf(os.Stderr, "can't supply a config file and show recommended at the same time")
+			os.Exit(1)
+		}
+
+		if showRecommended {
+			recommendedConfig := api.GetDefaultDisabledMapConfigForPostgres()
+			displayMap := api.MakeDisplayDisabledMapFromConfig(swag, recommendedConfig, true)
+
+			output, err := displayMap.String()
+
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "failed to output yaml: %v", err)
+				os.Exit(1)
+			}
+
+			fmt.Fprint(os.Stdout, output)
+			os.Exit(0)
+
 		}
 
 		options := makeOptions()
@@ -69,4 +92,5 @@ var apiConfigCmd = &cobra.Command{
 func init() {
 	apiConfigCmd.Flags().BoolVar(&showAllDisabled, "all", false, "show all api config parameters, enabled and disabled")
 	apiConfigCmd.Flags().StringVar(&suppliedAPIConfigFile, "api-config-file", "", "supply an API config file to enable/disable parameters")
+	apiConfigCmd.Flags().BoolVar(&showRecommended, "recommended", false, "show the recommended configuration")
 }

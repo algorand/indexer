@@ -118,20 +118,38 @@ The Indexer has the ability to selectively enable or disable parameters for endp
 
 ### Viewing the Current Configuration
 
-The Indexer has a default set of disabled parameters.  To view the disabled parameters issue:
+The Indexer does not disable any parameters by default and requires a file be passed to it to do so.  To view the parameters disabled by a config file issue:
 ```
-~$ algorand-indexer api-config
+~$ algorand-indexer api-config --api-config-file PATH_TO_FILE
 ```
 
-This will output ONLY the disabled parameters in a YAML configuration.  To view all parameters (both enabled and disabled) issue:
+where `PATH_TO_FILE` is the path to the configuration file. Note, this will output ONLY the disabled parameters in a YAML configuration.  To view all parameters (both enabled and disabled) issue:
 
 ```
-~$ algorand-indexer api-config --all
+~$ algorand-indexer api-config --all --api-config-file PATH_TO_FILE
+```
+
+#### Getting the Recommended Configuration
+
+The indexer comes shipped with a recommended configuration to use.  To view, simply issue:
+
+```
+~$ algorand-indexer api-config --recommended
+```
+
+Note that `--recommended` can not be used with `--api-config-file`.  
+
+A good way to bootstrap your own configuration file would be to pipe the output to a file and edit it:
+```
+~$ algorand-indexer api-config --recommended > myconfig.yaml
+~$ vim myconfig.yaml
+... EDIT ...
+~$ algorand-indexer daemon --api-config-file myconfig.yaml
 ```
 
 ### Interpreting The Configuration
 
-Below is a snippet of the output from `algorand-indexer api-config`:
+Below is a sample output from `algorand-indexer api-config`:
 
 ```
 /v2/accounts:
