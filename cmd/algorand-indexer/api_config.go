@@ -38,7 +38,7 @@ var apiConfigCmd = &cobra.Command{
 
 		// Can't show recommended and a file at the same time
 		if suppliedAPIConfigFile != "" && showRecommended {
-			fmt.Fprintf(os.Stderr, "can't supply a config file and show recommended at the same time")
+			fmt.Fprintf(os.Stderr, "do not supply --api-config-file and --recommended at the same time")
 			os.Exit(1)
 		}
 
