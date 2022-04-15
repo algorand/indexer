@@ -263,6 +263,14 @@ If indexer is deployed with a clustered database using multiple readers behind a
 ## Custom indices
 Different application workloads will require different custom indices in order to make queries perform well. More information is available in [PostgresqlIndexes.md](docs/PostgresqlIndexes.md).
 
+## Transaction results order
+
+The order transactions are returned it depends on whether or not an account address filter is used.
+
+When searching by an account, results are returned most recent first. The intent being that a wallet application would want to display the most recent transactions. A special index is used to make this case performant.
+
+For all other transaction queries, results are returned oldest first. This is because it is the physical order they would normally be written in, so it is going to be faster.
+
 <!-- USAGE_END_MARKER_LINE -->
 
 # Migrating from Indexer v1
