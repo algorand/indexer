@@ -265,7 +265,7 @@ Different application workloads will require different custom indices in order t
 
 ## Transaction results order
 
-The order transactions are returned it depends on whether or not an account address filter is used.
+The order transactions are returned in depends on whether or not an account address filter is used.
 
 When searching by an account, results are returned most recent first. The intent being that a wallet application would want to display the most recent transactions. A special index is used to make this case performant.
 
