@@ -143,7 +143,7 @@ There are different settings:
 ## Connection Pool Settings
 
 One can set the maximum number of connections allowed in the local connection pool by using the `--max-conn` setting.  It is recommended to set this number to be below the database server connection pool limit.
- 
+
 If the maximum number of connections/active queries is reached, subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting.
 
 # Settings
@@ -189,7 +189,7 @@ The command line arguments always take priority over the config file and environ
 ## Configuration file
 Default values are placed in the configuration file. They can be overridden with environment variables and command line arguments.
 
-The configuration file must named **indexer**, **indexer.yml**, or **indexer.yaml**. The filepath may be set on the CLI using `--configfile` or `-c`. 
+The configuration file must named **indexer**, **indexer.yml**, or **indexer.yaml**. The filepath may be set on the CLI using `--configfile` or `-c`.
 When the filepath is not provided on the CLI, it must also be in the correct location. Only one configuration file is loaded, the path is searched in the following order:
 * `./` (current working directory)
 * `$HOME`
@@ -255,9 +255,9 @@ sudo systemctl start algorand-indexer
 
 If you wish to run multiple indexers on one server under systemd, see the comments in `/lib/systemd/system/algorand-indexer@.service` or [misc/systemd/algorand-indexer@.service](misc/systemd/algorand-indexer@.service)
 
-# Unique Database Configurations 
+# Unique Database Configurations
 
-## Load balancing: 
+## Load balancing
 If indexer is deployed with a clustered database using multiple readers behind a load balancer, query discrepancies are possible due to database replication lag. Users should check the `current-round` response field and be prepared to retry queries when stale data is detected.
 
 ## Custom indices
