@@ -128,9 +128,9 @@ commands:
       - run: make lint
       - run: make check
       - run: make integration
-      # Start a docker container and set PG_TEST to optimize running tests.
+      # Start a docker container and set TEST_PG to optimize running tests.
       - run: docker run -d --name some-postgres -p 5555:5432 -e POSTGRES_PASSWORD=pgpass -e POSTGRES_USER=pguser -e POSTGRES_DB=mydb postgres
-      - run: echo 'export PG_TEST="host=localhost user=pguser password=pgpass dbname=mydb port=5555 sslmode=disable"' >> $BASH_ENV
+      - run: echo 'export TEST_PG="host=localhost user=pguser password=pgpass dbname=mydb port=5555 sslmode=disable"' >> $BASH_ENV
       - run: echo 'export TEST_FLAG="-p 1"' >> $BASH_ENV
       - run:
           command: make test
