@@ -124,7 +124,6 @@ func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 			if ctx.Err() != nil {
 				return fmt.Errorf("catchupLoop() fetch err: %w", err)
 			}
-			bot.setError(err)
 			bot.log.WithError(err).Errorf("catchup block %d", bot.nextRound)
 			return nil
 		}
