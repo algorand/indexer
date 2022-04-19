@@ -1,4 +1,4 @@
-## PostgresDB Vacuum
+# PostgrSQL Vacuum
 
 See [official documentation](https://www.postgresql.org/docs/current/routine-vacuuming.html#VACUUM-BASICS) for more details
 
@@ -9,18 +9,19 @@ There are two types of vacuum: **autovacuum** or **vacuum** full.
 In the default configuration, autovacuuming is enabled and the related configuration parameters are appropriately set.
 
 
-### Autovacuum (Standard vacuum)
+## Autovacuum (Standard vacuum)
 
 - can run in parallel with production database operations
 - does not recover as much space full vacuum
 
-### Vacuum full
-- cannot be done in parallel with other use of the table;
+## Vacuum full
+- cannot be done in parallel with other use of the table
 - runs much more slowly
+- is sometimes able to recover space that autovacuum cannot
 
-*Since vacuum full is much more costly,  the usual goal of routine vacuuming is to standar vacuum often enough to avoid full vacuum.*
+*Since vacuum full is much more costly,  the usual goal of routine vacuuming is to standard vacuum often enough to avoid full vacuum.*
 
-### Vacuum configuration
+## Vacuum configuration
 
 Vacuum can be [configured](https://www.postgresql.org/docs/current/runtime-config-autovacuum.html) to be more or less aggressive
 
