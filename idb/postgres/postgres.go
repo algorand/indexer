@@ -1672,11 +1672,11 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	round, err := db.getMaxRoundAccounted(ctx, tx)
 	if err != nil {
 		err = fmt.Errorf("account round err %v", err)
-		out <- idb.AccountRow{Error: err}
 		// Because we return a channel into a "callWithTimeout" function,
 		// We need to make sure that rollback is called before close()
 		// otherwise we can end up with a situation where "callWithTimeout"
 		// will cancel our context, resulting in connection pool churn
+		out <- idb.AccountRow{Error: err}
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			db.log.Printf("rollback error: %s", rerr)
 		}
