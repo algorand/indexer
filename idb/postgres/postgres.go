@@ -852,10 +852,6 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 
 	round, err := db.getMaxRoundAccounted(ctx, tx)
 	if err != nil {
-		// Because we return a channel into a "callWithTimeout" function,
-		// We need to make sure that rollback is called before close()
-		// otherwise we can end up with a situation where "callWithTimeout"
-		// will cancel our context, resulting in connection pool churn
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			db.log.Printf("rollback error: %s", rerr)
 		}
@@ -1672,10 +1668,6 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	round, err := db.getMaxRoundAccounted(ctx, tx)
 	if err != nil {
 		err = fmt.Errorf("account round err %v", err)
-		// Because we return a channel into a "callWithTimeout" function,
-		// We need to make sure that rollback is called before close()
-		// otherwise we can end up with a situation where "callWithTimeout"
-		// will cancel our context, resulting in connection pool churn
 		out <- idb.AccountRow{Error: err}
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			db.log.Printf("rollback error: %s", rerr)
@@ -1691,10 +1683,6 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	if err != nil {
 		err = fmt.Errorf("account round header %d err %v", round, err)
 		out <- idb.AccountRow{Error: err}
-		// Because we return a channel into a "callWithTimeout" function,
-		// We need to make sure that rollback is called before close()
-		// otherwise we can end up with a situation where "callWithTimeout"
-		// will cancel our context, resulting in connection pool churn
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			db.log.Printf("rollback error: %s", rerr)
 		}
@@ -1705,10 +1693,6 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	if err != nil {
 		err = fmt.Errorf("account round header %d err %v", round, err)
 		out <- idb.AccountRow{Error: err}
-		// Because we return a channel into a "callWithTimeout" function,
-		// We need to make sure that rollback is called before close()
-		// otherwise we can end up with a situation where "callWithTimeout"
-		// will cancel our context, resulting in connection pool churn
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			db.log.Printf("rollback error: %s", rerr)
 		}
@@ -1721,10 +1705,6 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		err = db.checkAccountResourceLimit(ctx, tx, opts)
 		if err != nil {
 			out <- idb.AccountRow{Error: err}
-			// Because we return a channel into a "callWithTimeout" function,
-			// We need to make sure that rollback is called before close()
-			// otherwise we can end up with a situation where "callWithTimeout"
-			// will cancel our context, resulting in connection pool churn
 			if rerr := tx.Rollback(ctx); rerr != nil {
 				db.log.Printf("rollback error: %s", rerr)
 			}
@@ -1746,10 +1726,6 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	if err != nil {
 		err = fmt.Errorf("account query %#v err %v", query, err)
 		out <- idb.AccountRow{Error: err}
-		// Because we return a channel into a "callWithTimeout" function,
-		// We need to make sure that rollback is called before close()
-		// otherwise we can end up with a situation where "callWithTimeout"
-		// will cancel our context, resulting in connection pool churn
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			db.log.Printf("rollback error: %s", rerr)
 		}
@@ -2116,10 +2092,6 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	round, err := db.getMaxRoundAccounted(ctx, tx)
 	if err != nil {
 		out <- idb.AssetRow{Error: err}
-		// Because we return a channel into a "callWithTimeout" function,
-		// We need to make sure that rollback is called before close()
-		// otherwise we can end up with a situation where "callWithTimeout"
-		// will cancel our context, resulting in connection pool churn
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			db.log.Printf("rollback error: %s", rerr)
 		}
@@ -2131,10 +2103,6 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	if err != nil {
 		err = fmt.Errorf("asset query %#v err %v", query, err)
 		out <- idb.AssetRow{Error: err}
-		// Because we return a channel into a "callWithTimeout" function,
-		// We need to make sure that rollback is called before close()
-		// otherwise we can end up with a situation where "callWithTimeout"
-		// will cancel our context, resulting in connection pool churn
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			db.log.Printf("rollback error: %s", rerr)
 		}
@@ -2253,10 +2221,6 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	round, err := db.getMaxRoundAccounted(ctx, tx)
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
-		// Because we return a channel into a "callWithTimeout" function,
-		// We need to make sure that rollback is called before close()
-		// otherwise we can end up with a situation where "callWithTimeout"
-		// will cancel our context, resulting in connection pool churn
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			db.log.Printf("rollback error: %s", rerr)
 		}
@@ -2267,10 +2231,6 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	rows, err := tx.Query(ctx, query, whereArgs...)
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
-		// Because we return a channel into a "callWithTimeout" function,
-		// We need to make sure that rollback is called before close()
-		// otherwise we can end up with a situation where "callWithTimeout"
-		// will cancel our context, resulting in connection pool churn
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			db.log.Printf("rollback error: %s", rerr)
 		}
@@ -2370,10 +2330,6 @@ func (db *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQue
 	round, err := db.getMaxRoundAccounted(ctx, tx)
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
-		// Because we return a channel into a "callWithTimeout" function,
-		// We need to make sure that rollback is called before close()
-		// otherwise we can end up with a situation where "callWithTimeout"
-		// will cancel our context, resulting in connection pool churn
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			db.log.Printf("rollback error: %s", rerr)
 		}
@@ -2384,10 +2340,6 @@ func (db *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQue
 	rows, err := tx.Query(ctx, query, whereArgs...)
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
-		// Because we return a channel into a "callWithTimeout" function,
-		// We need to make sure that rollback is called before close()
-		// otherwise we can end up with a situation where "callWithTimeout"
-		// will cancel our context, resulting in connection pool churn
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			db.log.Printf("rollback error: %s", rerr)
 		}
@@ -2512,10 +2464,6 @@ func (db *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQu
 	round, err := db.getMaxRoundAccounted(ctx, tx)
 	if err != nil {
 		out <- idb.AppLocalStateRow{Error: err}
-		// Because we return a channel into a "callWithTimeout" function,
-		// We need to make sure that rollback is called before close()
-		// otherwise we can end up with a situation where "callWithTimeout"
-		// will cancel our context, resulting in connection pool churn
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			db.log.Printf("rollback error: %s", rerr)
 		}
@@ -2526,10 +2474,6 @@ func (db *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQu
 	rows, err := tx.Query(ctx, query, whereArgs...)
 	if err != nil {
 		out <- idb.AppLocalStateRow{Error: err}
-		// Because we return a channel into a "callWithTimeout" function,
-		// We need to make sure that rollback is called before close()
-		// otherwise we can end up with a situation where "callWithTimeout"
-		// will cancel our context, resulting in connection pool churn
 		if rerr := tx.Rollback(ctx); rerr != nil {
 			db.log.Printf("rollback error: %s", rerr)
 		}
