@@ -39,10 +39,14 @@ type Processor interface {
 	ProcessAddress(algodData []byte, indexerData []byte) (Result, error)
 }
 
+// Skip indicates why something was skipped.
 type Skip string
 
 const (
-	NotSkipped       Skip = ""
+	// NotSkipped is the default value indicated the results are not skipped.
+	NotSkipped Skip = ""
+	// SkipLimitReached is used when the result is skipped because an account
+	// resource limit prevents fetching results.
 	SkipLimitReached Skip = "account-limit"
 )
 

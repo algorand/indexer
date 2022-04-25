@@ -7,6 +7,7 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
+// constant error messages.
 const (
 	errInvalidRoundAndMinMax           = "cannot specify round and min-round/max-round"
 	errInvalidRoundMinMax              = "min-round must be less than max-round"
