@@ -100,7 +100,7 @@ func start(processorID ProcessorID, threads int, config Params, results chan<- R
 }
 
 // resultChar picks the appropriate status character for the output.
-func resultChar(success bool, retries int) string {
+func resultChar(success bool, retries int, skipReason Skip) string {
 	if success && retries == 0 {
 		return "."
 	}
@@ -110,6 +110,11 @@ func resultChar(success bool, retries int) string {
 	if success {
 		return fmt.Sprintf("%d", retries)
 	}
+
+	if skipReason != NotSkipped {
+		return "_"
+	}
+
 	return "X"
 }
 
@@ -117,6 +122,7 @@ func resultChar(success bool, retries int) string {
 func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
 	numResults := 0
 	numErrors := 0
+	skipCounts := make(map[Skip]uint64)
 	numRetries := 0
 	startTime := time.Now()
 
@@ -124,6 +130,7 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
 		endTime := time.Now()
 		duration := endTime.Sub(startTime)
 		fmt.Printf("\n\nNumber of errors: [%d / %d]\n", numErrors, numResults)
+		fmt.Printf("Skipped (%s): %d\n", SkipLimitReached, skipCounts[SkipLimitReached])
 		fmt.Printf("Retry count: %d\n", numRetries)
 		fmt.Printf("Checks per second: %f\n", float64(numResults+numRetries)/duration.Seconds())
 		fmt.Printf("Test duration: %s\n", time.Time{}.Add(duration).Format("15:04:05"))
@@ -146,21 +153,32 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
 		if numResults%100 == 0 {
 			fmt.Printf("\n%-8d : ", numResults)
 		}
-		fmt.Printf("%s", resultChar(r.Equal, r.Retries))
+		fmt.Printf("%s", resultChar(r.Equal, r.Retries, r.SkipReason))
 
 		numResults++
 		numRetries += r.Retries
 		if r.Error != nil || !r.Equal {
-			numErrors++
+			if r.SkipReason != NotSkipped {
+				skipCounts[r.SkipReason]++
+			} else {
+				numErrors++
+			}
 			ErrorLog.Printf("===================================================================")
 			ErrorLog.Printf("%s", time.Now().Format("2006-01-02 3:4:5 PM"))
 			ErrorLog.Printf("Account: %s", r.Details.Address)
-			ErrorLog.Printf("Error #: %d", numErrors)
 			ErrorLog.Printf("Retries: %d", r.Retries)
 			ErrorLog.Printf("Rounds Match: %t", r.SameRound)
 
 			// Print error message if there is one.
-			if r.Error != nil {
+			if r.SkipReason != NotSkipped {
+				switch r.SkipReason {
+				case SkipLimitReached:
+					ErrorLog.Printf("Address skipped: too many asset and/or accounts to return\n")
+				default:
+					ErrorLog.Printf("Address skipped: Unknown reason (%s)\n", r.SkipReason)
+				}
+
+			} else if r.Error != nil {
 				ErrorLog.Printf("Processor error: %v\n", r.Error)
 			} else {
 				// Print error details if there are any.

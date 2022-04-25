@@ -36,6 +36,7 @@ const (
 	errZeroAddressCloseRemainderToRole = "searching transactions by zero address with close address role is not supported"
 	errZeroAddressAssetSenderRole      = "searching transactions by zero address with asset sender role is not supported"
 	errZeroAddressAssetCloseToRole     = "searching transactions by zero address with asset close address role is not supported"
+	ErrResultLimitReached              = "Result limit exceeded"
 )
 
 var errUnknownAddressRole string
