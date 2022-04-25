@@ -21,6 +21,7 @@ func init() {
 		threads      int
 		processorNum int
 		printCurl    bool
+		errorLogFile string
 	)
 
 	ValidatorCmd = &cobra.Command{
@@ -28,7 +29,7 @@ func init() {
 		Short: "validator",
 		Long:  "Compare algod and indexer to each other and report any discrepencies.",
 		Run: func(cmd *cobra.Command, _ []string) {
-			run(config, addr, threads, processorNum, printCurl)
+			run(config, errorLogFile, addr, threads, processorNum, printCurl)
 		},
 	}
 
@@ -44,9 +45,10 @@ func init() {
 	ValidatorCmd.Flags().IntVar(&threads, "threads", 4, "Number of worker threads to initialize.")
 	ValidatorCmd.Flags().IntVar(&processorNum, "processor", 0, "Choose compare algorithm [0 = Struct, 1 = Reflection]")
 	ValidatorCmd.Flags().BoolVar(&printCurl, "print-commands", false, "Print curl commands, including tokens, to query algod and indexer.")
+	ValidatorCmd.Flags().StringVarP(&errorLogFile, "error-log-file", "e", "", "When specified, error messages are written to this file instead of to stderr.")
 }
 
-func run(config Params, addr string, threads int, processorNum int, printCurl bool) {
+func run(config Params, errorLogFile, addr string, threads int, processorNum int, printCurl bool) {
 	if len(config.AlgodURL) == 0 {
 		ErrorLog.Fatalf("algod-url parameter is required.")
 	}
@@ -55,6 +57,19 @@ func run(config Params, addr string, threads int, processorNum int, printCurl bo
 	}
 	if len(config.IndexerURL) == 0 {
 		ErrorLog.Fatalf("indexer-url parameter is required.")
+	}
+
+	if errorLogFile != "" {
+		_, err := os.Stat(errorLogFile)
+		if !os.IsNotExist(err) {
+			ErrorLog.Fatalf("Error log already exists: %s", errorLogFile)
+		}
+
+		errorWriter, err := os.OpenFile(errorLogFile, os.O_CREATE|os.O_WRONLY, 0o600)
+		if err != nil {
+			ErrorLog.Fatalf("Unable to open error log file: %s", err)
+		}
+		ErrorLog.SetOutput(errorWriter)
 	}
 
 	results := make(chan Result, 10)
