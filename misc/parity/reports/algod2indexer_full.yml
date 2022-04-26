@@ -100,9 +100,6 @@ DryrunTxnResult:
 ErrorResponse:
 - INDEXER: null
 - ALGOD: '{"description":"An error respo...'
-AccountsErrorResponse:
-- INDEXER: null
-- ALGOD: '{"description":"An error respo...'
 HealthCheck:
 - INDEXER: '{"description":"A health check...'
 - ALGOD: null

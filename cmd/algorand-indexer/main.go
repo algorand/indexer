@@ -137,10 +137,10 @@ func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.Hidden = true
 	rootCmd.AddCommand(daemonCmd)
-	if paramConfigEnableFlag {
-		rootCmd.AddCommand(apiConfigCmd)
-	}
+	rootCmd.AddCommand(apiConfigCmd)
 
+	// Version should be available globally
+	rootCmd.Flags().BoolVarP(&doVersion, "version", "v", false, "print version and exit")
 	// Not applied globally to avoid adding to utility commands.
 	addFlags := func(cmd *cobra.Command) {
 		cmd.Flags().StringVarP(&logLevel, "loglevel", "l", "info", "verbosity of logs: [error, warn, info, debug, trace]")
