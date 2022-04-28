@@ -12,15 +12,13 @@ import (
 // LedgerForEvaluator implements the indexerLedgerForEval interface from
 // go-algorand ledger/eval.go and is used for accounting.
 type LedgerForEvaluator struct {
-	Ledger      *ledger.Ledger
-	latestRound basics.Round
+	Ledger *ledger.Ledger
 }
 
 // MakeLedgerForEvaluator creates a LedgerForEvaluator object.
-func MakeLedgerForEvaluator(ld *ledger.Ledger, latestRound basics.Round) (LedgerForEvaluator, error) {
+func MakeLedgerForEvaluator(ld *ledger.Ledger) (LedgerForEvaluator, error) {
 	l := LedgerForEvaluator{
-		Ledger:      ld,
-		latestRound: latestRound,
+		Ledger: ld,
 	}
 	return l, nil
 }
@@ -32,7 +30,7 @@ func (l *LedgerForEvaluator) Close() {
 
 // LatestBlockHdr is part of go-algorand's indexerLedgerForEval interface.
 func (l LedgerForEvaluator) LatestBlockHdr() (bookkeeping.BlockHeader, error) {
-	return l.Ledger.BlockHdr(l.latestRound)
+	return l.Ledger.BlockHdr(l.Ledger.Latest())
 }
 
 // LookupWithoutRewards is part of go-algorand's indexerLedgerForEval interface.
