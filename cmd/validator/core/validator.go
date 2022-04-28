@@ -3,7 +3,6 @@ package core
 import (
 	"encoding/base64"
 	"fmt"
-	sdk_types "github.com/algorand/go-algorand-sdk/types"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -11,6 +10,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	sdk_types "github.com/algorand/go-algorand-sdk/types"
+
+	"github.com/algorand/indexer/api"
 )
 
 // Params are the program arguments which need to be passed between objects.
@@ -36,11 +39,23 @@ type Processor interface {
 	ProcessAddress(algodData []byte, indexerData []byte) (Result, error)
 }
 
+// Skip indicates why something was skipped.
+type Skip string
+
+const (
+	// NotSkipped is the default value indicated the results are not skipped.
+	NotSkipped Skip = ""
+	// SkipLimitReached is used when the result is skipped because an account
+	// resource limit prevents fetching results.
+	SkipLimitReached Skip = "account-limit"
+)
+
 // Result is the output of ProcessAddress.
 type Result struct {
 	// Error is set if there were errors running the test.
-	Error     error
-	SameRound bool
+	Error      error
+	SameRound  bool
+	SkipReason Skip
 
 	Equal   bool
 	Retries int
@@ -126,7 +141,12 @@ func CallProcessor(processor Processor, addrInput string, config Params, results
 	for i := 0; true; i++ {
 		indexerData, err := getData(indexerDataURL, config.IndexerToken)
 		if err != nil {
-			results <- resultError(err, addrInput)
+			switch {
+			case strings.Contains(string(indexerData), api.ErrResultLimitReached):
+				results <- resultSkip(err, addrInput, SkipLimitReached)
+			default:
+				results <- resultError(err, addrInput)
+			}
 			return
 		}
 
@@ -201,14 +221,27 @@ func getData(url, token string) ([]byte, error) {
 		}
 	}()
 
-	return ioutil.ReadAll(resp.Body)
+	data, ioErr := ioutil.ReadAll(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		// We attempted to read the body even though the status was bad.
+		// Return the bad status error, and the data if available.
+		return data, fmt.Errorf("bad status: %s", resp.Status)
+	}
+
+	return data, ioErr
 }
 
 func resultError(err error, address string) Result {
+	return resultSkip(err, address, NotSkipped)
+}
+
+func resultSkip(err error, address string, skip Skip) Result {
 	return Result{
-		Equal:   false,
-		Error:   err,
-		Retries: 0,
+		Equal:      false,
+		Error:      err,
+		SkipReason: skip,
+		Retries:    0,
 		Details: &ErrorDetails{
 			Address: address,
 		},
