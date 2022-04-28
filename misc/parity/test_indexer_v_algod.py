@@ -6,7 +6,7 @@ import yaml
 
 from git import Repo
 
-from .json_diff import deep_diff, prettify_diff
+from .json_diff import deep_diff, prettify_diff, select
 
 NEW, OVERLAP, DROPPED, FULL = "new", "overlap", "dropped", "full"
 DIFF_TYPES = [NEW, OVERLAP, DROPPED, FULL]
@@ -14,8 +14,12 @@ DIFF_TYPES = [NEW, OVERLAP, DROPPED, FULL]
 # These are the diff reports that will be run and compared/asserted against:
 ASSERTIONS = [DROPPED, FULL]
 
-# Only compare swagger "definitions":
-MODELS_ONLY = True
+# When non-empty, keep only:
+PATH_INCLUDES = {"definitions": ["Account"]}
+
+# Any diffs past one of the following keys in a path will be ignored:
+PATH_KEY_EXCLUDES = []
+
 
 REPO_DIR = Path.cwd()
 INDEXER_SWGR = REPO_DIR / "api" / "indexer.oas2.json"
@@ -27,6 +31,8 @@ REPORTS_DIR = REPO_DIR / "misc" / "parity" / "reports"
 
 
 already_printed = False
+
+
 def print_git_info_once():
     global already_printed
     if already_printed:
@@ -39,44 +45,26 @@ def print_git_info_once():
     goal = Repo(GOAL_DIR)
     goal_commit = goal.git.rev_parse("HEAD")
 
-    print(f"""Finished comparing:
+    print(
+        f"""Finished comparing:
     * Indexer Swagger {INDEXER_SWGR} for commit hash {indexer_commit}
     * Algod Swagger {ALGOD_SWGR} for commit hash {goal_commit}
-""")
-
+"""
+    )
 
 
 def tsetup():
     atexit.register(print_git_info_once)
 
-    exclude = [
-        "basePath",
-        "consumes",
-        "host",
-        "info",
-        "paths",
-        "produces",
-        "security",
-        "securityDefinitions",
-        "schemes",
-        "diff_types",
-        "x-algorand-format",
-        "x-go-name",
-    ]
-
-    
     with open(INDEXER_SWGR, "r") as f:
         indexer = json.loads(f.read())
-        if MODELS_ONLY:
-            indexer = indexer["definitions"]
+        indexer = select(indexer, PATH_INCLUDES)
 
-    
     with open(ALGOD_SWGR, "r") as f:
         algod = json.loads(f.read())
-        if MODELS_ONLY:
-            algod = algod["definitions"]
+        algod = select(algod, PATH_INCLUDES)
 
-    return exclude, indexer, algod
+    return PATH_KEY_EXCLUDES, indexer, algod
 
 
 def get_report_path(diff_type, for_write=False):
@@ -100,7 +88,7 @@ def yamlize(diff):
             return [ddize(x) for x in d]
         return d
 
-    return ddize(prettify_diff(diff, src="ALGOD", tgt="INDEXER", value_limit=30))
+    return ddize(prettify_diff(diff, src="ALGOD", tgt="INDEXER", value_limit=50))
 
 
 def generate_diff(source, target, excludes, diff_type):
