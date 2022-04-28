@@ -14,26 +14,11 @@ DIFF_TYPES = [NEW, OVERLAP, DROPPED, FULL]
 # These are the diff reports that will be run and compared/asserted against:
 ASSERTIONS = [DROPPED, FULL]
 
-# When non-empty, keep only :
+# When non-empty, keep only:
 ROOT_WHITELIST = {"definitions": ["Account"]}
 
 # Any diffs past one of the following keys in a path will be ignored:
-PATH_KEY_EXCLUDES = [
-    "basePath",
-    "consumes",
-    "diff_types",
-    "host",
-    "info",
-    "parameters",
-    "produces",
-    "security",
-    "securityDefinitions",
-    "schema",
-    "schemes",
-    "tags",
-    "x-algorand-format",
-    "x-go-name",
-]
+PATH_KEY_EXCLUDES = []
 
 
 REPO_DIR = Path.cwd()
