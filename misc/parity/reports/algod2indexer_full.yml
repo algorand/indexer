@@ -1,0 +1,22 @@
+definitions:
+  Account:
+    properties:
+      closed-at-round:
+      - INDEXER: '{"description":"Round during which this account wa...'
+      - ALGOD: null
+      created-at-round:
+      - INDEXER: '{"description":"Round during which this account fi...'
+      - ALGOD: null
+      deleted:
+      - INDEXER: '{"description":"Whether or not this account is cur...'
+      - ALGOD: null
+      min-balance:
+      - INDEXER: null
+      - ALGOD: '{"description":"MicroAlgo balance required by the ...'
+      sig-type:
+        description:
+        - INDEXER: '"Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown"'
+        - ALGOD: '"Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig"'
+    required:
+    - - INDEXER: null
+      - ALGOD: '"min-balance"'

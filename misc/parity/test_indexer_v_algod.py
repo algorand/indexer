@@ -6,16 +6,35 @@ import yaml
 
 from git import Repo
 
-from .json_diff import deep_diff, prettify_diff
+from .json_diff import deep_diff, prettify_diff, select
 
 NEW, OVERLAP, DROPPED, FULL = "new", "overlap", "dropped", "full"
 DIFF_TYPES = [NEW, OVERLAP, DROPPED, FULL]
 
 # These are the diff reports that will be run and compared/asserted against:
-ASSERTIONS = [DROPPED]
+ASSERTIONS = [DROPPED, FULL]
 
-# Only compare swagger "definitions":
-MODELS_ONLY = False
+# When non-empty, keep only :
+ROOT_WHITELIST = {"definitions": ["Account"]}
+
+# Any diffs past one of the following keys in a path will be ignored:
+PATH_KEY_EXCLUDES = [
+    "basePath",
+    "consumes",
+    "diff_types",
+    "host",
+    "info",
+    "parameters",
+    "produces",
+    "security",
+    "securityDefinitions",
+    "schema",
+    "schemes",
+    "tags",
+    "x-algorand-format",
+    "x-go-name",
+]
+
 
 REPO_DIR = Path.cwd()
 INDEXER_SWGR = REPO_DIR / "api" / "indexer.oas2.json"
@@ -52,34 +71,15 @@ def print_git_info_once():
 def tsetup():
     atexit.register(print_git_info_once)
 
-    exclude = [
-        "basePath",
-        "consumes",
-        "diff_types",
-        "host",
-        "info",
-        "parameters",
-        "produces",
-        "security",
-        "securityDefinitions",
-        "schema",
-        "schemes",
-        "tags",
-        "x-algorand-format",
-        "x-go-name",
-    ]
-
     with open(INDEXER_SWGR, "r") as f:
         indexer = json.loads(f.read())
-        if MODELS_ONLY:
-            indexer = indexer["definitions"]
+        indexer = select(indexer, ROOT_WHITELIST)
 
     with open(ALGOD_SWGR, "r") as f:
         algod = json.loads(f.read())
-        if MODELS_ONLY:
-            algod = algod["definitions"]
+        algod = select(algod, ROOT_WHITELIST)
 
-    return exclude, indexer, algod
+    return PATH_KEY_EXCLUDES, indexer, algod
 
 
 def get_report_path(diff_type, for_write=False):

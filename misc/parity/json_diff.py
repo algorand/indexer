@@ -177,3 +177,29 @@ def prettify_diff(
         return jd
 
     return sort_json(pd(json_diff))
+
+
+def select(d: dict, where: Union[dict, list]):
+    """
+    Keep only paths in d modeled by where.
+    If where is empty, keep everything.
+    """
+    if not where:
+        return d
+
+    if not isinstance(d, dict):
+        raise Exception(f"d should be a dict but is {type(d)}: d = {d}")
+
+    if isinstance(where, list):
+        try:
+            return {k: d[k] for k in where}
+        except KeyError as ke:
+            print(f"where = {where} but keys = {d.keys()}")
+            raise ke
+
+    if not isinstance(where, dict):
+        raise Exception(
+            f"where may only be dict or list but was a {type(where)}: where = {where}"
+        )
+
+    return {k: select(d[k], v) for k, v in where.items()}
