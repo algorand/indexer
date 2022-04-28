@@ -12,10 +12,10 @@ NEW, OVERLAP, DROPPED, FULL = "new", "overlap", "dropped", "full"
 DIFF_TYPES = [NEW, OVERLAP, DROPPED, FULL]
 
 # These are the diff reports that will be run and compared/asserted against:
-ASSERTIONS = [DROPPED, FULL]
+ASSERTIONS = [DROPPED]
 
 # Only compare swagger "definitions":
-MODELS_ONLY = True
+MODELS_ONLY = False
 
 REPO_DIR = Path.cwd()
 INDEXER_SWGR = REPO_DIR / "api" / "indexer.oas2.json"
@@ -27,6 +27,8 @@ REPORTS_DIR = REPO_DIR / "misc" / "parity" / "reports"
 
 
 already_printed = False
+
+
 def print_git_info_once():
     global already_printed
     if already_printed:
@@ -39,11 +41,12 @@ def print_git_info_once():
     goal = Repo(GOAL_DIR)
     goal_commit = goal.git.rev_parse("HEAD")
 
-    print(f"""Finished comparing:
+    print(
+        f"""Finished comparing:
     * Indexer Swagger {INDEXER_SWGR} for commit hash {indexer_commit}
     * Algod Swagger {ALGOD_SWGR} for commit hash {goal_commit}
-""")
-
+"""
+    )
 
 
 def tsetup():
@@ -52,25 +55,25 @@ def tsetup():
     exclude = [
         "basePath",
         "consumes",
+        "diff_types",
         "host",
         "info",
-        "paths",
+        "parameters",
         "produces",
         "security",
         "securityDefinitions",
+        "schema",
         "schemes",
-        "diff_types",
+        "tags",
         "x-algorand-format",
         "x-go-name",
     ]
 
-    
     with open(INDEXER_SWGR, "r") as f:
         indexer = json.loads(f.read())
         if MODELS_ONLY:
             indexer = indexer["definitions"]
 
-    
     with open(ALGOD_SWGR, "r") as f:
         algod = json.loads(f.read())
         if MODELS_ONLY:
@@ -100,7 +103,7 @@ def yamlize(diff):
             return [ddize(x) for x in d]
         return d
 
-    return ddize(prettify_diff(diff, src="ALGOD", tgt="INDEXER", value_limit=30))
+    return ddize(prettify_diff(diff, src="ALGOD", tgt="INDEXER", value_limit=50))
 
 
 def generate_diff(source, target, excludes, diff_type):
