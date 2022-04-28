@@ -15,7 +15,7 @@ DIFF_TYPES = [NEW, OVERLAP, DROPPED, FULL]
 ASSERTIONS = [DROPPED, FULL]
 
 # When non-empty, keep only:
-ROOT_WHITELIST = {"definitions": ["Account"]}
+PATH_INCLUDES = {"definitions": ["Account"]}
 
 # Any diffs past one of the following keys in a path will be ignored:
 PATH_KEY_EXCLUDES = []
@@ -58,11 +58,11 @@ def tsetup():
 
     with open(INDEXER_SWGR, "r") as f:
         indexer = json.loads(f.read())
-        indexer = select(indexer, ROOT_WHITELIST)
+        indexer = select(indexer, PATH_INCLUDES)
 
     with open(ALGOD_SWGR, "r") as f:
         algod = json.loads(f.read())
-        algod = select(algod, ROOT_WHITELIST)
+        algod = select(algod, PATH_INCLUDES)
 
     return PATH_KEY_EXCLUDES, indexer, algod
 
