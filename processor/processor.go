@@ -1,12 +1,9 @@
 package processor
 
 import (
-	"context"
 	"fmt"
-	"os"
 	"path"
 
-	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
@@ -15,7 +12,6 @@ import (
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
-	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/accounting"
 )
@@ -24,7 +20,7 @@ type Processor interface {
 	Process(cert *rpcs.EncodedBlockCert) error
 	SetHandler(handler func(block *ledgercore.ValidatedBlock) error)
 	GetLastProcessedRound() uint64
-	Start(path string, client *algod.Client)
+	Start(path string, genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block) error
 }
 
 type ProcessorImpl struct {
@@ -34,19 +30,32 @@ type ProcessorImpl struct {
 }
 
 // Start block processor. Create ledger if it wasn't initialized before
-func (processor *ProcessorImpl) Start(path string, client *algod.Client) {
+func (processor *ProcessorImpl) Start(ledgerPath string, genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block) error {
 	//open ledger
-	genesis, err := getGenesis(client)
-	if err != nil {
-		fmt.Printf("error getting genesis err: %v", err)
-		os.Exit(1)
+	logger := logging.NewLogger()
+
+	accounts := make(map[basics.Address]basics.AccountData)
+	for _, alloc := range genesis.Allocation {
+		address, err := basics.UnmarshalChecksumAddress(alloc.Address)
+		if err != nil {
+			return fmt.Errorf("openLedger() decode address err: %w", err)
+		}
+		accounts[address] = alloc.State
 	}
-	genesisBlock, err := getGenesisBlock(client)
-	if err != nil {
-		fmt.Printf("error getting genesis block err: %v", err)
-		os.Exit(1)
+
+	initState := ledgercore.InitState{
+		Block:       *genesisBlock,
+		Accounts:    accounts,
+		GenesisHash: genesisBlock.GenesisHash(),
 	}
-	openLedger(path, &genesis, &genesisBlock)
+
+	ledger, err := ledger.OpenLedger(
+		logger, path.Join(ledgerPath, "ledger"), false, initState, config.GetDefaultLocal())
+	if err != nil {
+		return fmt.Errorf("openLedger() open err: %w", err)
+	}
+	processor.ledger = ledger
+	return nil
 }
 
 // Process a raw algod block
@@ -110,33 +119,6 @@ func (processor *ProcessorImpl) SetHandler(handler func(block *ledgercore.Valida
 }
 func (processor *ProcessorImpl) GetLastProcessedRound() uint64 {
 	return processor.lastProcessedRound
-}
-
-func openLedger(ledgerPath string, genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block) (*ledger.Ledger, error) {
-	logger := logging.NewLogger()
-
-	accounts := make(map[basics.Address]basics.AccountData)
-	for _, alloc := range genesis.Allocation {
-		address, err := basics.UnmarshalChecksumAddress(alloc.Address)
-		if err != nil {
-			return nil, fmt.Errorf("openLedger() decode address err: %w", err)
-		}
-		accounts[address] = alloc.State
-	}
-
-	initState := ledgercore.InitState{
-		Block:       *genesisBlock,
-		Accounts:    accounts,
-		GenesisHash: genesisBlock.GenesisHash(),
-	}
-
-	ledger, err := ledger.OpenLedger(
-		logger, path.Join(ledgerPath, "ledger"), false, initState, config.GetDefaultLocal())
-	if err != nil {
-		return nil, fmt.Errorf("openLedger() open err: %w", err)
-	}
-
-	return ledger, nil
 }
 
 // Preload all resources (account data, account resources, asset/app creators) for the
@@ -209,34 +191,4 @@ func prepareAccountsResources(l *LedgerForEvaluator, payset transactions.Payset,
 	}
 
 	return accounts, resources, nil
-}
-
-func getGenesisBlock(client *algod.Client) (bookkeeping.Block, error) {
-	data, err := client.BlockRaw(0).Do(context.Background())
-	if err != nil {
-		return bookkeeping.Block{}, fmt.Errorf("getGenesisBlock() client err: %w", err)
-	}
-
-	var block rpcs.EncodedBlockCert
-	err = protocol.Decode(data, &block)
-	if err != nil {
-		return bookkeeping.Block{}, fmt.Errorf("getGenesisBlock() decode err: %w", err)
-	}
-
-	return block.Block, nil
-}
-
-func getGenesis(client *algod.Client) (bookkeeping.Genesis, error) {
-	data, err := client.GetGenesis().Do(context.Background())
-	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("getGenesis() client err: %w", err)
-	}
-
-	var res bookkeeping.Genesis
-	err = protocol.DecodeJSON([]byte(data), &res)
-	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("getGenesis() decode err: %w", err)
-	}
-
-	return res, nil
 }
