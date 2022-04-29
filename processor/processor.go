@@ -31,24 +31,22 @@ type ProcessorImpl struct {
 	handler            func(block *ledgercore.ValidatedBlock) error
 	lastProcessedRound uint64
 	ledger             *ledger.Ledger
-	aclient            *algod.Client
-	ledgerPath         string
 }
 
 // Start block processor. Create ledger if it wasn't initialized before
-func (processor *ProcessorImpl) Start() {
+func (processor *ProcessorImpl) Start(path string, client *algod.Client) {
 	//open ledger
-	genesis, err := getGenesis(processor.aclient)
+	genesis, err := getGenesis(client)
 	if err != nil {
 		fmt.Printf("error getting genesis err: %v", err)
 		os.Exit(1)
 	}
-	genesisBlock, err := getGenesisBlock(processor.aclient)
+	genesisBlock, err := getGenesisBlock(client)
 	if err != nil {
 		fmt.Printf("error getting genesis block err: %v", err)
 		os.Exit(1)
 	}
-	openLedger(processor.ledgerPath, &genesis, &genesisBlock)
+	openLedger(path, &genesis, &genesisBlock)
 }
 
 // Process a raw algod block
