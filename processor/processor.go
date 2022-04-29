@@ -21,7 +21,7 @@ import (
 )
 
 type Processor interface {
-	Process(cert *rpcs.EncodedBlockCert)
+	Process(cert *rpcs.EncodedBlockCert) error
 	SetHandler(handler func(block *ledgercore.ValidatedBlock) error)
 	GetLastProcessedRound() uint64
 	Start(path string, client *algod.Client)
@@ -35,6 +35,7 @@ type ProcessorImpl struct {
 	ledgerPath         string
 }
 
+// Start block processor. Create ledger if it wasn't initialized before
 func (processor *ProcessorImpl) Start() {
 	//open ledger
 	genesis, err := getGenesis(processor.aclient)
@@ -51,52 +52,59 @@ func (processor *ProcessorImpl) Start() {
 }
 
 // Process a raw algod block
-func (processor *ProcessorImpl) Process(cert *rpcs.EncodedBlockCert) {
+func (processor *ProcessorImpl) Process(cert *rpcs.EncodedBlockCert) error {
 	if processor.ledger == nil {
-		panic(fmt.Errorf("local ledger not initialized"))
+		panic(fmt.Errorf("Process() err: local ledger not initialized"))
+	}
+	if uint64(cert.Block.Round()) != processor.lastProcessedRound+1 {
+		return fmt.Errorf("Process() err: block has invalid round")
 	}
 	if cert.Block.Round() == basics.Round(0) {
 		// Block 0 is special, we cannot run the evaluator on it
 		err := processor.ledger.AddBlock(cert.Block, agreement.Certificate{})
 		if err != nil {
-			panic(fmt.Errorf("error adding round  %v to local ledger", err.Error()))
+			return fmt.Errorf("error adding round  %v to local ledger", err.Error())
 		}
-		processor.lastProcessedRound = processor.lastProcessedRound + 1
+		processor.lastProcessedRound = uint64(cert.Block.Round())
 	} else {
 		proto, ok := config.Consensus[cert.Block.BlockHeader.CurrentProtocol]
 		if !ok {
-			panic(fmt.Errorf(
-				"process() cannot find proto version %s", cert.Block.BlockHeader.CurrentProtocol))
+			return fmt.Errorf(
+				"Process() cannot find proto version %s", cert.Block.BlockHeader.CurrentProtocol)
 		}
 		proto.EnableAssetCloseAmount = true
 
 		ledgerForEval, err := MakeLedgerForEvaluator(processor.ledger)
 		if err != nil {
-			panic(fmt.Errorf("AddBlock() err: %w", err))
+			return fmt.Errorf("Process() err: %w", err)
 		}
 		defer ledgerForEval.Close()
 		resources, _ := prepareEvalResources(&ledgerForEval, &cert.Block)
 		if err != nil {
-			panic(fmt.Errorf("AddBlock() eval err: %w", err))
+			panic(fmt.Errorf("Process() eval err: %w", err))
 		}
 
 		delta, _, err :=
 			ledger.EvalForIndexer(ledgerForEval, &cert.Block, proto, resources)
 		if err != nil {
-			panic(fmt.Errorf("AddBlock() eval err: %w", err))
+			return fmt.Errorf("Process() eval err: %w", err)
 		}
 		//validated block
 		vb := ledgercore.MakeValidatedBlock(cert.Block, delta)
 		//	write to ledger
 		err = processor.ledger.AddValidatedBlock(vb, agreement.Certificate{})
 		if err != nil {
-			panic(fmt.Errorf("AddBlock() eval err: %w", err))
+			return fmt.Errorf("Process() add validated block err: %w", err)
 		}
-		processor.lastProcessedRound = processor.lastProcessedRound + 1
 		if processor.handler != nil {
-			processor.handler(&vb)
+			err = processor.handler(&vb)
+			if err != nil {
+				return fmt.Errorf("Process() handler err: %w", err)
+			}
 		}
+		processor.lastProcessedRound = uint64(cert.Block.Round())
 	}
+	return nil
 }
 
 func (processor *ProcessorImpl) SetHandler(handler func(block *ledgercore.ValidatedBlock) error) {
