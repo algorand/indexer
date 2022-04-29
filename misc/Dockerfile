@@ -4,8 +4,8 @@ FROM $GO_IMAGE
 RUN echo "Go image: $GO_IMAGE"
 
 # Misc dependencies
-ENV HOME /opt    
-ENV DEBIAN_FRONTEND noninteractive    
+ENV HOME /opt
+ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutils python3 python3-pip make bash libtool libboost-math-dev libffi-dev
 
 # Install algod nightly binaries to the path
@@ -18,7 +18,7 @@ RUN find /opt/algorand
 ENV PATH="/opt/algorand/bin:${PATH}"
 
 # Setup files for test
-run mkdir -p /opt/go/indexer
+RUN mkdir -p /opt/go/indexer
 COPY . /opt/go/indexer
 WORKDIR /opt/go/indexer
 RUN rm /opt/go/indexer/cmd/algorand-indexer/algorand-indexer
