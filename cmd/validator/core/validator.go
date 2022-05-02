@@ -42,11 +42,10 @@ type Processor interface {
 // Skip indicates why something was skipped.
 type Skip string
 
+// constants relating to different skip cases
 const (
 	// NotSkipped is the default value indicated the results are not skipped.
-	NotSkipped Skip = ""
-	// SkipLimitReached is used when the result is skipped because an account
-	// resource limit prevents fetching results.
+	NotSkipped          Skip = ""
 	SkipLimitReached    Skip = "account-limit"
 	SkipAccountNotFound Skip = "missing-account"
 )
