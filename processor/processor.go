@@ -8,6 +8,7 @@ import (
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
@@ -68,30 +69,36 @@ func (processor *processorImpl) Process(cert *rpcs.EncodedBlockCert) error {
 		return fmt.Errorf("Process() err: block has invalid round")
 	}
 
-	if cert.Block.Round() == basics.Round(0) {
-		// Block 0 is special, we cannot run the evaluator on it
-		err := processor.ledger.AddBlock(cert.Block, agreement.Certificate{})
-		if err != nil {
-			return fmt.Errorf("error adding round  %v to local ledger", err.Error())
-		}
-		processor.nextRoundToProcess = uint64(cert.Block.Round()) + 1
-	} else {
-		blkeval, err := processor.ledger.StartEvaluator(cert.Block.BlockHeader, len(cert.Block.Payset), 0)
-		//validated block
-		vb, err := blkeval.GenerateBlock()
-		//	write to ledger
-		err = processor.ledger.AddValidatedBlock(*vb, agreement.Certificate{})
-		if err != nil {
-			return fmt.Errorf("Process() add validated block err: %w", err)
-		}
-		if processor.handler != nil {
-			err = processor.handler(vb)
-			if err != nil {
-				return fmt.Errorf("Process() handler err: %w", err)
-			}
-		}
-		processor.nextRoundToProcess = uint64(cert.Block.Round()) + 1
+	blkeval, err := processor.ledger.StartEvaluator(cert.Block.BlockHeader, len(cert.Block.Payset), 0)
+	if err != nil {
+		return fmt.Errorf("Process() block eval err: %w", err)
 	}
+
+	var txns []transactions.SignedTxnWithAD
+	for _, payset := range cert.Block.Payset {
+		txns = append(txns, payset.SignedTxnWithAD)
+	}
+	err = blkeval.TransactionGroup(txns)
+	if err != nil {
+		return fmt.Errorf("Process() add txn err: %w", err)
+	}
+	//validated block
+	vb, err := blkeval.GenerateBlock()
+	if err != nil {
+		return fmt.Errorf("Process() validated block err: %w", err)
+	}
+	//	write to ledger
+	err = processor.ledger.AddValidatedBlock(*vb, agreement.Certificate{})
+	if err != nil {
+		return fmt.Errorf("Process() add validated block err: %w", err)
+	}
+	if processor.handler != nil {
+		err = processor.handler(vb)
+		if err != nil {
+			return fmt.Errorf("Process() handler err: %w", err)
+		}
+	}
+	processor.nextRoundToProcess = uint64(cert.Block.Round()) + 1
 	return nil
 }
 
