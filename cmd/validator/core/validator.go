@@ -47,7 +47,8 @@ const (
 	NotSkipped Skip = ""
 	// SkipLimitReached is used when the result is skipped because an account
 	// resource limit prevents fetching results.
-	SkipLimitReached Skip = "account-limit"
+	SkipLimitReached    Skip = "account-limit"
+	SkipAccountNotFound Skip = "missing-account"
 )
 
 // Result is the output of ProcessAddress.
@@ -133,6 +134,7 @@ func CallProcessor(processor Processor, addrInput string, config Params, results
 	// catches up with the first algod account query.
 	algodData, err := getData(algodDataURL, config.AlgodToken)
 	if err != nil {
+		err = fmt.Errorf("error getting algod data (%d): %w", algodData, err)
 		results <- resultError(err, addrInput)
 		return
 	}
@@ -141,9 +143,12 @@ func CallProcessor(processor Processor, addrInput string, config Params, results
 	for i := 0; true; i++ {
 		indexerData, err := getData(indexerDataURL, config.IndexerToken)
 		if err != nil {
+			err = fmt.Errorf("error getting indexer data (%d): %w", indexerData, err)
 			switch {
 			case strings.Contains(string(indexerData), api.ErrResultLimitReached):
 				results <- resultSkip(err, addrInput, SkipLimitReached)
+			case strings.Contains(string(indexerData), api.ErrNoAccountsFound):
+				results <- resultSkip(err, addrInput, SkipAccountNotFound)
 			default:
 				results <- resultError(err, addrInput)
 			}
