@@ -17,18 +17,23 @@ import (
 type Processor interface {
 	Process(cert *rpcs.EncodedBlockCert) error
 	SetHandler(handler func(block *ledgercore.ValidatedBlock) error)
-	GetLastProcessedRound() uint64
-	Start(path string, genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block) error
+	NextRoundToProcess() uint64
+	Init(path string, genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block) error
 }
 
-type ProcessorImpl struct {
+type processorImpl struct {
 	handler            func(block *ledgercore.ValidatedBlock) error
-	lastProcessedRound uint64
+	nextRoundToProcess uint64
 	ledger             *ledger.Ledger
 }
 
-// Start block processor. Create ledger if it wasn't initialized before
-func (processor *ProcessorImpl) Start(ledgerPath string, genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block) error {
+// MakeProcessor creates a block processor
+func MakeProcessor() Processor {
+	return &processorImpl{}
+}
+
+// Init block processor. Create ledger if it wasn't initialized before
+func (processor *processorImpl) Init(ledgerPath string, genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block) error {
 	logger := logging.NewLogger()
 
 	accounts := make(map[basics.Address]basics.AccountData)
@@ -50,25 +55,27 @@ func (processor *ProcessorImpl) Start(ledgerPath string, genesis *bookkeeping.Ge
 		return fmt.Errorf("openLedger() open err: %w", err)
 	}
 	processor.ledger = ledger
+	processor.nextRoundToProcess = 1
 	return nil
 }
 
 // Process a raw algod block
-func (processor *ProcessorImpl) Process(cert *rpcs.EncodedBlockCert) error {
+func (processor *processorImpl) Process(cert *rpcs.EncodedBlockCert) error {
 	if processor.ledger == nil {
 		return fmt.Errorf("Process() err: local ledger not initialized")
 	}
+	if uint64(cert.Block.Round()) != processor.nextRoundToProcess {
+		return fmt.Errorf("Process() err: block has invalid round")
+	}
+
 	if cert.Block.Round() == basics.Round(0) {
 		// Block 0 is special, we cannot run the evaluator on it
 		err := processor.ledger.AddBlock(cert.Block, agreement.Certificate{})
 		if err != nil {
 			return fmt.Errorf("error adding round  %v to local ledger", err.Error())
 		}
-		processor.lastProcessedRound = uint64(cert.Block.Round())
+		processor.nextRoundToProcess = uint64(cert.Block.Round()) + 1
 	} else {
-		if uint64(cert.Block.Round()) != processor.lastProcessedRound+1 {
-			return fmt.Errorf("Process() err: block has invalid round")
-		}
 		blkeval, err := processor.ledger.StartEvaluator(cert.Block.BlockHeader, len(cert.Block.Payset), 0)
 		//validated block
 		vb, err := blkeval.GenerateBlock()
@@ -83,14 +90,14 @@ func (processor *ProcessorImpl) Process(cert *rpcs.EncodedBlockCert) error {
 				return fmt.Errorf("Process() handler err: %w", err)
 			}
 		}
-		processor.lastProcessedRound = uint64(cert.Block.Round())
+		processor.nextRoundToProcess = uint64(cert.Block.Round()) + 1
 	}
 	return nil
 }
 
-func (processor *ProcessorImpl) SetHandler(handler func(block *ledgercore.ValidatedBlock) error) {
+func (processor *processorImpl) SetHandler(handler func(block *ledgercore.ValidatedBlock) error) {
 	processor.handler = handler
 }
-func (processor *ProcessorImpl) GetLastProcessedRound() uint64 {
-	return processor.lastProcessedRound
+func (processor *processorImpl) NextRoundToProcess() uint64 {
+	return processor.nextRoundToProcess
 }
