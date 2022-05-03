@@ -23,9 +23,6 @@ func TestInit(t *testing.T) {
 	err = processor.Init(dir, &genesis, &genesisBlock)
 	assert.Nil(t, err)
 	assert.NotNil(t, processor.ledger)
-	files, err := os.ReadDir(dir)
-	assert.Nil(t, err)
-	assert.Greater(t, len(files), 0)
 }
 
 func TestProcess(t *testing.T) {
