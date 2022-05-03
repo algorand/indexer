@@ -1,7 +1,6 @@
 package processor
 
 import (
-	"math/rand"
 	"os"
 	"testing"
 
@@ -43,16 +42,12 @@ func TestProcess(t *testing.T) {
 	err = processor.Init(dir, &genesis, &genesisBlock)
 	defer os.RemoveAll(dir)
 	assert.Nil(t, err)
-	// add a block
-	var addr basics.Address
-	_, err = rand.Read(addr[:])
-	assert.Nil(t, err)
 	// create a few rounds
 	for i := 0; i < 3; i++ {
 		prevHeader, err := processor.ledger.BlockHdr(processor.ledger.Latest())
 		assert.Nil(t, err)
 
-		txn := test.MakePaymentTxn(0, 10, 0, 1, 1, 0, addr, addr, addr, addr)
+		txn := test.MakePaymentTxn(0, uint64(i+1), 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 		block, err := test.MakeBlockForTxns(prevHeader, &txn)
 		assert.Nil(t, err)
 		block.BlockHeader.Round = basics.Round(i + 1)
@@ -69,7 +64,7 @@ func TestProcess(t *testing.T) {
 
 	}
 	// incorrect round
-	txns := test.MakePaymentTxn(0, 10, 0, 1, 1, 0, addr, addr, addr, addr)
+	txns := test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, test.AccountA, test.AccountA)
 	block, err := test.MakeBlockForTxns(genesisBlock.BlockHeader, &txns)
 	block.BlockHeader.Round = 10
 	assert.Nil(t, err)

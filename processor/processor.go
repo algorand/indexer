@@ -8,7 +8,6 @@ import (
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
@@ -74,14 +73,18 @@ func (processor *processorImpl) Process(cert *rpcs.EncodedBlockCert) error {
 		return fmt.Errorf("Process() block eval err: %w", err)
 	}
 
-	var txns []transactions.SignedTxnWithAD
-	for _, payset := range cert.Block.Payset {
-		txns = append(txns, payset.SignedTxnWithAD)
-	}
-	err = blkeval.TransactionGroup(txns)
+	paysetgroups, err := cert.Block.DecodePaysetGroups()
 	if err != nil {
-		return fmt.Errorf("Process() add txn err: %w", err)
+		return fmt.Errorf("Process() decode payset groups err: %w", err)
 	}
+
+	for _, group := range paysetgroups {
+		err = blkeval.TransactionGroup(group)
+		if err != nil {
+			return fmt.Errorf("Process() apply transaction group err: %w", err)
+		}
+	}
+
 	//validated block
 	vb, err := blkeval.GenerateBlock()
 	if err != nil {

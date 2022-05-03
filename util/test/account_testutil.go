@@ -164,6 +164,7 @@ func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
 					Fee:         basics.MicroAlgos{Raw: fee},
 					GenesisHash: GenesisHash,
 					RekeyTo:     rekeyTo,
+					LastValid:   10,
 				},
 				PaymentTxnFields: transactions.PaymentTxnFields{
 					Receiver:         receiver,
