@@ -587,15 +587,6 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	filter.AssetID = uintOrDefault(params.AssetId)
 	filter.ApplicationID = uintOrDefault(params.ApplicationId)
 	filter.Limit = min(uintOrDefaultValue(params.Limit, si.opts.DefaultTransactionsLimit), si.opts.MaxTransactionsLimit)
-
-	// filter Algos or Asset but not both.
-	if filter.AssetID != 0 {
-		filter.AssetAmountLT = params.CurrencyLessThan
-		filter.AssetAmountGT = params.CurrencyGreaterThan
-	} else {
-		filter.AlgosLT = params.CurrencyLessThan
-		filter.AlgosGT = params.CurrencyGreaterThan
-	}
 	filter.Round = params.Round
 
 	// String
@@ -624,6 +615,15 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	// Boolean
 	filter.RekeyTo = params.RekeyTo
 
+	// filter Algos or Asset but not both.
+	if filter.AssetID != 0 || filter.TypeEnum == idb.TypeEnumAssetTransfer {
+		filter.AssetAmountLT = params.CurrencyLessThan
+		filter.AssetAmountGT = params.CurrencyGreaterThan
+	} else {
+		filter.AlgosLT = params.CurrencyLessThan
+		filter.AlgosGT = params.CurrencyGreaterThan
+	}
+
 	// If there were any errorArr while setting up the TransactionFilter, return now.
 	if len(errorArr) > 0 {
 		err = errors.New("invalid input: " + strings.Join(errorArr, ", "))
@@ -647,7 +647,7 @@ func (si *ServerImplementation) maxAccountsErrorToAccountsErrorResponse(maxErr i
 		"total-created-apps":    maxErr.TotalAppParams,
 	}
 	return generated.ErrorResponse{
-		Message: "Result limit exceeded",
+		Message: ErrResultLimitReached,
 		Data:    &extraData,
 	}
 }

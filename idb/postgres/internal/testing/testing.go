@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/jackc/pgx/v4/pgxpool"
@@ -14,15 +15,23 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 )
 
-var testpg = flag.String(
-	"test-pg", "", "postgres connection string; resets the database")
+var testpg string
+
+func init() {
+	flag.StringVar(&testpg, "test-pg", "", "postgres connection string; resets the database")
+	if testpg == "" {
+		// Note: tests across packages run in parallel, so this does not work
+		// very well unless you use "-p 1".
+		testpg = os.Getenv("TEST_PG")
+	}
+}
 
 // SetupPostgres starts a gnomock postgres DB then returns the database object,
 // the connection string and a shutdown function.
 func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
-	if testpg != nil && *testpg != "" {
+	if testpg != "" {
 		// use non-docker Postgresql
-		connStr := *testpg
+		connStr := testpg
 
 		db, err := pgxpool.Connect(context.Background(), connStr)
 		require.NoError(t, err, "Error opening postgres connection")

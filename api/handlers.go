@@ -196,7 +196,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 	}
 
 	if len(accounts) == 0 {
-		return notFound(ctx, fmt.Sprintf("%s: %s", errNoAccountsFound, accountID))
+		return notFound(ctx, fmt.Sprintf("%s: %s", ErrNoAccountsFound, accountID))
 	}
 
 	if len(accounts) > 1 {

@@ -22,8 +22,8 @@ function help () {
 }
 
 #default selection queries
-SELECTION_QUERY="select encode(addr,'base64') from account where deleted is not null limit 1000"
-SELECTION_QUERY_COPY="COPY (select encode(addr, 'base64') from account) TO stdout"
+SELECTION_QUERY="select encode(addr,'base64') from account where deleted is false limit 1000"
+SELECTION_QUERY_COPY="COPY (select encode(addr, 'base64') from account where deleted is false) TO stdout"
 
 START_TIME=$SECONDS
 PGUSER=

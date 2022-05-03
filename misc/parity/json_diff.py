@@ -1,7 +1,8 @@
 from collections import OrderedDict
+from collections.abc import Hashable
 from copy import deepcopy
 import json
-from typing import List, Union
+from typing import Iterable, List, Union
 
 
 L, R = "left", "right"
@@ -82,7 +83,8 @@ def deep_diff(
                 for i in range(m, n):
                     d[i] = [y[i], None] if flipped else [None, y[i]]
         else:  # will raise error if contains a non-hashable element
-            sx, sy = set(x), set(y)
+            sx = set(hashablize(x))
+            sy = set(hashablize(y))
             if extras_only:
                 d = list(sx - sy) if left_extras else list(sy - sx)
             elif overlaps_only:
@@ -116,6 +118,10 @@ def is_diff_array(da: list) -> bool:
         return False
 
     return True
+
+
+def hashablize(x: Iterable) -> Iterable:
+    return (a if isinstance(a, Hashable) else str(a) for a in x)
 
 
 def sort_json(d: Union[dict, list], sort_lists: bool = False):
@@ -171,3 +177,29 @@ def prettify_diff(
         return jd
 
     return sort_json(pd(json_diff))
+
+
+def select(d: dict, where: Union[dict, list]):
+    """
+    Keep only paths in d modeled by where.
+    If where is empty, keep everything.
+    """
+    if not where:
+        return d
+
+    if not isinstance(d, dict):
+        raise Exception(f"d should be a dict but is {type(d)}: d = {d}")
+
+    if isinstance(where, list):
+        try:
+            return {k: d[k] for k in where}
+        except KeyError as ke:
+            print(f"where = {where} but keys = {d.keys()}")
+            raise ke
+
+    if not isinstance(where, dict):
+        raise Exception(
+            f"where may only be dict or list but was a {type(where)}: where = {where}"
+        )
+
+    return {k: select(d[k], v) for k, v in where.items()}
