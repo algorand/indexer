@@ -1060,9 +1060,13 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 			Timestamp:         uint64(blockHeader.TimeStamp),
 			Transactions:      nil,
 			TransactionsRoot:  blockHeader.TxnRoot[:],
-			TxnCounter:        uint64Ptr(blockHeader.TxnCounter),
-			UpgradeState:      &upgradeState,
-			UpgradeVote:       &upgradeVote,
+			/* TODO: When SHA256 TxnRoot header is merged to master
+			   TransactionsRoot:        blockHeader.TxnRoot.DigestSha512_256[:],
+			   TransactionsRootSha256:  blockHeader.TxnRoot.DigestSha256[:],
+			*/
+			TxnCounter:   uint64Ptr(blockHeader.TxnCounter),
+			UpgradeState: &upgradeState,
+			UpgradeVote:  &upgradeVote,
 		}
 
 		results := make([]generated.Transaction, 0)

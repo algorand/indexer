@@ -1444,6 +1444,7 @@
         "previous-block-hash",
         "seed",
         "transactions-root",
+        "transactions-root-sha256",
         "timestamp",
         "genesis-id",
         "genesis-hash"
@@ -1488,6 +1489,11 @@
         },
         "transactions-root": {
           "description": "\\[txn\\] TransactionsRoot authenticates the set of transactions appearing in the block. More specifically, it's the root of a merkle tree whose leaves are the block's Txids, in lexicographic order. For the empty block, it's 0. Note that the TxnRoot does not authenticate the signatures on the transactions, only the transactions themselves. Two blocks with the same transactions but in a different order and with different signatures will have the same TxnRoot.",
+          "type": "string",
+          "format": "byte"
+        },
+        "transactions-root-sha256": {
+          "description": "\\[txn256\\] TransactionsRootSHA256 is an auxiliary TransactionRoot, built using a vector commitment instead of a merkle tree, and SHA256 hash function instead of the default SHA512_256. It is used mostly for StateProofs.",
           "type": "string",
           "format": "byte"
         },
