@@ -146,6 +146,7 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
 		duration := endTime.Sub(startTime)
 		fmt.Printf("\n\nNumber of errors: [%d / %d]\n", numErrors, numResults)
 		fmt.Printf("Skipped (%s): %d\n", SkipLimitReached, skipCounts[SkipLimitReached])
+		fmt.Printf("Skipped (%s): %d\n", SkipAccountNotFound, skipCounts[SkipAccountNotFound])
 		fmt.Printf("Retry count: %d\n", numRetries)
 		fmt.Printf("Checks per second: %f\n", float64(numResults+numRetries)/duration.Seconds())
 		fmt.Printf("Test duration: %s\n", time.Time{}.Add(duration).Format("15:04:05"))
@@ -189,6 +190,8 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
 				switch r.SkipReason {
 				case SkipLimitReached:
 					ErrorLog.Printf("Address skipped: too many asset and/or accounts to return\n")
+				case SkipAccountNotFound:
+					ErrorLog.Printf("Address skipped: account not found, probably deleted\n")
 				default:
 					ErrorLog.Printf("Address skipped: Unknown reason (%s)\n", r.SkipReason)
 				}

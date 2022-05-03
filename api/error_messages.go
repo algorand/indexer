@@ -23,7 +23,7 @@ const (
 	errFailedSearchingApplication      = "failed while searching for application"
 	errFailedLookingUpHealth           = "failed while getting indexer health"
 	errNoApplicationsFound             = "no application found for application-id"
-	errNoAccountsFound                 = "no accounts found for address"
+	ErrNoAccountsFound                 = "no accounts found for address"
 	errNoAssetsFound                   = "no assets found for asset-id"
 	errNoTransactionFound              = "no transaction found for transaction id"
 	errMultipleTransactions            = "multiple transactions found for this txid, please contact us, this shouldn't happen"
