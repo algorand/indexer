@@ -1646,7 +1646,7 @@ type getAccountsRequest struct {
 func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
 	out := make(chan idb.AccountRow, 1)
 
-	if (opts.AssetGT != nil) || (opts.AssetLT != nil) {
+	if opts.HasAssetID == 0 && (opts.AssetGT != nil || opts.AssetLT != nil) {
 		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetID=%d", uintOrDefault(opts.AssetGT), uintOrDefault(opts.AssetLT), opts.HasAssetID)
 		out <- idb.AccountRow{Error: err}
 		close(out)
