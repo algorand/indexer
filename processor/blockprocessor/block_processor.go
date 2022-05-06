@@ -1,4 +1,4 @@
-package block_processor
+package blockprocessor
 
 import (
 	"fmt"

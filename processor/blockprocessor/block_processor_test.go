@@ -1,4 +1,4 @@
-package block_processor_test
+package blockprocessor_test
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ import (
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/rpcs"
-	block_processor "github.com/algorand/indexer/processor/block-processor"
+	block_processor "github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/algorand/indexer/util/test"
 	"github.com/stretchr/testify/assert"
 )
