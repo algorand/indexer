@@ -7,6 +7,9 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-codec/codec"
 )
 
@@ -51,6 +54,24 @@ func JSONOneLine(obj interface{}) string {
 	enc := codec.NewEncoderBytes(&b, oneLineJSONCodecHandle)
 	enc.MustEncode(obj)
 	return string(b)
+}
+
+// CreateInitState makes an initState
+func CreateInitState(genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block) (ledgercore.InitState, error) {
+	accounts := make(map[basics.Address]basics.AccountData)
+	for _, alloc := range genesis.Allocation {
+		address, err := basics.UnmarshalChecksumAddress(alloc.Address)
+		if err != nil {
+			return ledgercore.InitState{}, fmt.Errorf("openLedger() decode address err: %w", err)
+		}
+		accounts[address] = alloc.State
+	}
+	initState := ledgercore.InitState{
+		Block:       *genesisBlock,
+		Accounts:    accounts,
+		GenesisHash: genesisBlock.GenesisHash(),
+	}
+	return initState, nil
 }
 
 func init() {

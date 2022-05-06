@@ -13,28 +13,20 @@ import (
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/rpcs"
 	block_processor "github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestProcess(t *testing.T) {
-	//initialize local ledger
-	genesis := test.MakeGenesis()
-	genesisBlock := test.MakeGenesisBlock()
-	initState, err := test.CreateInitState(&genesis, &genesisBlock)
-	if err != nil {
-		log.Panicf("test init err: %v", err)
-	}
-	logger := logging.NewLogger()
-	l, err := ledger.OpenLedger(logger, "local_ledger", true, initState, config.GetDefaultLocal())
-	if err != nil {
-		log.Panicf("test init err: %v", err)
-	}
-	//create processor
+	l := makeTestLedger(t, "local_ledger")
+	genesisBlock, err := l.Block(basics.Round(0))
+	assert.Nil(t, err)
+	// create processor
 	handler := func(vb *ledgercore.ValidatedBlock) error {
 		return nil
 	}
-	pr := block_processor.MakeProcessor(l, handler)
+	pr, _ := block_processor.MakeProcessor(l, handler)
 	prevHeader := genesisBlock.BlockHeader
 
 	// create a few rounds
@@ -58,26 +50,17 @@ func TestProcess(t *testing.T) {
 }
 
 func TestFailedProcess(t *testing.T) {
-	//initialize local ledger
-	genesis := test.MakeGenesis()
-	genesisBlock := test.MakeGenesisBlock()
-	initState, err := test.CreateInitState(&genesis, &genesisBlock)
-	if err != nil {
-		log.Panicf("test init err: %v", err)
-	}
-	logger := logging.NewLogger()
-	l, err := ledger.OpenLedger(logger, "local_ledger2", true, initState, config.GetDefaultLocal())
-	if err != nil {
-		log.Panicf("test init err: %v", err)
-	}
+	l := makeTestLedger(t, "local_ledger2")
 	// invalid processor
-	pr := block_processor.MakeProcessor(nil, nil)
-	err = pr.Process(&rpcs.EncodedBlockCert{})
-	assert.Contains(t, err.Error(), "Process() err: local ledger not initialized")
-	pr = block_processor.MakeProcessor(l, nil)
+	pr, err := block_processor.MakeProcessor(nil, nil)
+	assert.Contains(t, err.Error(), "MakeProcessor(): local ledger not initialized")
+	pr, err = block_processor.MakeProcessor(l, nil)
+	assert.Nil(t, err)
 	err = pr.Process(nil)
-	assert.Contains(t, err.Error(), "Process() err: cannot process a nil block")
+	assert.Contains(t, err.Error(), "Process(): cannot process a nil block")
 
+	genesisBlock, err := l.Block(basics.Round(0))
+	assert.Nil(t, err)
 	// incorrect round
 	txn := test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, test.AccountA, test.AccountA)
 	block, err := test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
@@ -85,9 +68,9 @@ func TestFailedProcess(t *testing.T) {
 	assert.Nil(t, err)
 	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
 	err = pr.Process(&rawBlock)
-	assert.Contains(t, err.Error(), "Process() err: block has invalid round")
+	assert.Contains(t, err.Error(), "Process() invalid round blockCert.Block.Round()")
 
-	//	non-zero balance after close remainder to sender address
+	// non-zero balance after close remainder to sender address
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, test.AccountA, test.AccountA)
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	assert.Nil(t, err)
@@ -95,7 +78,7 @@ func TestFailedProcess(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Contains(t, err.Error(), "Process() apply transaction group")
 
-	//	stxn GenesisID not empty
+	// stxn GenesisID not empty
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	assert.Nil(t, err)
@@ -104,7 +87,7 @@ func TestFailedProcess(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Contains(t, err.Error(), "Process() decode payset groups err")
 
-	//	eval error: concensus protocol not supported
+	// eval error: concensus protocol not supported
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	block.BlockHeader.CurrentProtocol = "testing"
@@ -117,11 +100,27 @@ func TestFailedProcess(t *testing.T) {
 	handler := func(vb *ledgercore.ValidatedBlock) error {
 		return fmt.Errorf("handler error")
 	}
-	pr = block_processor.MakeProcessor(l, handler)
+	pr, _ = block_processor.MakeProcessor(l, handler)
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	assert.Nil(t, err)
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
 	err = pr.Process(&rawBlock)
 	assert.Contains(t, err.Error(), "Process() handler err")
+}
+
+func makeTestLedger(t *testing.T, prefix string) *ledger.Ledger {
+	// initialize local ledger
+	genesis := test.MakeGenesis()
+	genesisBlock := test.MakeGenesisBlock()
+	initState, err := util.CreateInitState(&genesis, &genesisBlock)
+	if err != nil {
+		log.Panicf("test init err: %v", err)
+	}
+	logger := logging.NewLogger()
+	l, err := ledger.OpenLedger(logger, prefix, true, initState, config.GetDefaultLocal())
+	if err != nil {
+		log.Panicf("test init err: %v", err)
+	}
+	return l
 }
