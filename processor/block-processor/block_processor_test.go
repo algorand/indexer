@@ -2,6 +2,7 @@ package block_processor_test
 
 import (
 	"fmt"
+	"log"
 	"testing"
 
 	"github.com/algorand/go-algorand/agreement"
@@ -28,12 +29,12 @@ func init() {
 	genesisBlock = test.MakeGenesisBlock()
 	initState, err := test.CreateInitState(&genesis, &genesisBlock)
 	if err != nil {
-
+		log.Panicf("test init err: %v", err)
 	}
 	logger := logging.NewLogger()
 	l, err = ledger.OpenLedger(logger, "local_ledger", true, initState, config.GetDefaultLocal())
 	if err != nil {
-
+		log.Panicf("test init err: %v", err)
 	}
 }
 func TestProcess(t *testing.T) {
