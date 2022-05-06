@@ -18,6 +18,7 @@ import (
 )
 
 func TestProcess(t *testing.T) {
+	//initialize local ledger
 	genesis := test.MakeGenesis()
 	genesisBlock := test.MakeGenesisBlock()
 	initState, err := test.CreateInitState(&genesis, &genesisBlock)
@@ -29,8 +30,7 @@ func TestProcess(t *testing.T) {
 	if err != nil {
 		log.Panicf("test init err: %v", err)
 	}
-
-	//initialize local ledger
+	//create processor
 	handler := func(vb *ledgercore.ValidatedBlock) error {
 		return nil
 	}
@@ -58,6 +58,7 @@ func TestProcess(t *testing.T) {
 }
 
 func TestFailedProcess(t *testing.T) {
+	//initialize local ledger
 	genesis := test.MakeGenesis()
 	genesisBlock := test.MakeGenesisBlock()
 	initState, err := test.CreateInitState(&genesis, &genesisBlock)
