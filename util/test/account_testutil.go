@@ -599,6 +599,7 @@ func MakeGenesisBlock() bookkeeping.Block {
 	}
 }
 
+// CreateInitState makes an initState
 func CreateInitState(genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block) (ledgercore.InitState, error) {
 	accounts := make(map[basics.Address]basics.AccountData)
 	for _, alloc := range genesis.Allocation {
