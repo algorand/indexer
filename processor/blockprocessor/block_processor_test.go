@@ -8,7 +8,6 @@ import (
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
@@ -18,26 +17,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var (
-	genesis      bookkeeping.Genesis
-	genesisBlock bookkeeping.Block
-	l            *ledger.Ledger
-)
-
-func init() {
-	genesis = test.MakeGenesis()
-	genesisBlock = test.MakeGenesisBlock()
+func TestProcess(t *testing.T) {
+	genesis := test.MakeGenesis()
+	genesisBlock := test.MakeGenesisBlock()
 	initState, err := test.CreateInitState(&genesis, &genesisBlock)
 	if err != nil {
 		log.Panicf("test init err: %v", err)
 	}
 	logger := logging.NewLogger()
-	l, err = ledger.OpenLedger(logger, "local_ledger", true, initState, config.GetDefaultLocal())
+	l, err := ledger.OpenLedger(logger, "local_ledger", true, initState, config.GetDefaultLocal())
 	if err != nil {
 		log.Panicf("test init err: %v", err)
 	}
-}
-func TestProcess(t *testing.T) {
+
 	//initialize local ledger
 	handler := func(vb *ledgercore.ValidatedBlock) error {
 		return nil
@@ -66,9 +58,20 @@ func TestProcess(t *testing.T) {
 }
 
 func TestFailedProcess(t *testing.T) {
+	genesis := test.MakeGenesis()
+	genesisBlock := test.MakeGenesisBlock()
+	initState, err := test.CreateInitState(&genesis, &genesisBlock)
+	if err != nil {
+		log.Panicf("test init err: %v", err)
+	}
+	logger := logging.NewLogger()
+	l, err := ledger.OpenLedger(logger, "local_ledger2", true, initState, config.GetDefaultLocal())
+	if err != nil {
+		log.Panicf("test init err: %v", err)
+	}
 	// invalid processor
 	pr := block_processor.MakeProcessor(nil, nil)
-	err := pr.Process(&rpcs.EncodedBlockCert{})
+	err = pr.Process(&rpcs.EncodedBlockCert{})
 	assert.Contains(t, err.Error(), "Process() err: local ledger not initialized")
 	pr = block_processor.MakeProcessor(l, nil)
 	err = pr.Process(nil)
