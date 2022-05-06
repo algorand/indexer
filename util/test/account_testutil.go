@@ -7,6 +7,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 )
 
@@ -596,4 +597,21 @@ func MakeGenesisBlock() bookkeeping.Block {
 			UpgradeState: bookkeeping.UpgradeState{CurrentProtocol: Proto},
 		},
 	}
+}
+
+func CreateInitState(genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block) (ledgercore.InitState, error) {
+	accounts := make(map[basics.Address]basics.AccountData)
+	for _, alloc := range genesis.Allocation {
+		address, err := basics.UnmarshalChecksumAddress(alloc.Address)
+		if err != nil {
+			return ledgercore.InitState{}, fmt.Errorf("openLedger() decode address err: %w", err)
+		}
+		accounts[address] = alloc.State
+	}
+	initState := ledgercore.InitState{
+		Block:       *genesisBlock,
+		Accounts:    accounts,
+		GenesisHash: genesisBlock.GenesisHash(),
+	}
+	return initState, nil
 }

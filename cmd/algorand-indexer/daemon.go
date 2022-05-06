@@ -10,6 +10,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -298,4 +301,24 @@ func handleBlock(block *rpcs.EncodedBlockCert, imp importer.Importer) error {
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())
 
 	return nil
+}
+
+func createInitState(genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block) (ledgercore.InitState, error) {
+	if genesis == nil || genesisBlock == nil {
+		return ledgercore.InitState{}, fmt.Errorf("genesis or genesis block is nil")
+	}
+	accounts := make(map[basics.Address]basics.AccountData)
+	for _, alloc := range genesis.Allocation {
+		address, err := basics.UnmarshalChecksumAddress(alloc.Address)
+		if err != nil {
+			return ledgercore.InitState{}, fmt.Errorf("openLedger() decode address err: %w", err)
+		}
+		accounts[address] = alloc.State
+	}
+	initState := ledgercore.InitState{
+		Block:       *genesisBlock,
+		Accounts:    accounts,
+		GenesisHash: genesisBlock.GenesisHash(),
+	}
+	return initState, nil
 }
