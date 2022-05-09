@@ -100,10 +100,13 @@ func TestFailedProcess(t *testing.T) {
 	handler := func(vb *ledgercore.ValidatedBlock) error {
 		return fmt.Errorf("handler error")
 	}
-	pr, _ = block_processor.MakeProcessor(l, handler)
+	_, err = block_processor.MakeProcessor(l, handler)
+	assert.Contains(t, err.Error(), "MakeProcessor() handler err")
+	pr, _ = block_processor.MakeProcessor(l, nil)
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	assert.Nil(t, err)
+	pr.SetHandler(handler)
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
 	err = pr.Process(&rawBlock)
 	assert.Contains(t, err.Error(), "Process() handler err")

@@ -20,6 +20,17 @@ func MakeProcessor(ledger *ledger.Ledger, handler func(block *ledgercore.Validat
 	if ledger == nil {
 		return nil, fmt.Errorf("MakeProcessor(): local ledger not initialized")
 	}
+	if handler != nil && ledger.Latest() == 0 {
+		blk, err := ledger.Block(0)
+		if err != nil {
+			return nil, fmt.Errorf("MakeProcessor() err: %w", err)
+		}
+		vb := ledgercore.MakeValidatedBlock(blk, ledgercore.StateDelta{})
+		err = handler(&vb)
+		if err != nil {
+			return nil, fmt.Errorf("MakeProcessor() handler err: %w", err)
+		}
+	}
 	return &blockProcessor{ledger: ledger, nextRoundToProcess: uint64(ledger.Latest() + 1), handler: handler}, nil
 }
 
