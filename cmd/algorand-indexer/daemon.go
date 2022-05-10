@@ -48,6 +48,7 @@ var (
 	maxApplicationsLimit      uint32
 	defaultApplicationsLimit  uint32
 	enableAllParameters       bool
+	indexerDataDir            string
 )
 
 var daemonCmd = &cobra.Command{
@@ -73,6 +74,17 @@ var daemonCmd = &cobra.Command{
 
 		if algodDataDir == "" {
 			algodDataDir = os.Getenv("ALGORAND_DATA")
+		}
+
+		if indexerDataDir == "" {
+			indexerDataDir = os.Getenv("INDEXER_DATA")
+		}
+
+		if indexerDataDir != "" {
+			if _, err := os.Stat(indexerDataDir); os.IsNotExist(err) {
+				err := os.Mkdir(indexerDataDir, 0755)
+				maybeFail(err, "indexer data directory error, %v", err)
+			}
 		}
 
 		ctx, cf := context.WithCancel(context.Background())
@@ -184,6 +196,8 @@ func init() {
 	daemonCmd.Flags().Uint32VarP(&defaultBalancesLimit, "default-balances-limit", "", 1000, "set the default Limit parameter for querying balances, if none is provided")
 	daemonCmd.Flags().Uint32VarP(&maxApplicationsLimit, "max-applications-limit", "", 1000, "set the maximum allowed Limit parameter for querying applications")
 	daemonCmd.Flags().Uint32VarP(&defaultApplicationsLimit, "default-applications-limit", "", 100, "set the default Limit parameter for querying applications, if none is provided")
+
+	daemonCmd.Flags().StringVarP(&indexerDataDir, "data-dir", "i", "", "path to indexer data dir, or $INDEXER_DATA")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")

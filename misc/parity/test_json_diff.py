@@ -1,7 +1,7 @@
 from cmath import exp
 from copy import deepcopy
 
-from .json_diff import deep_diff
+from .json_diff import deep_diff, select
 
 
 def test_deep_diff():
@@ -121,3 +121,55 @@ def test_deep_diff():
         "FANG": [{"Facebook": [{"price": 330}, None], "Meta": [None, {"price": 290}]}]
     }
     assert expected == actual, f"expected: {expected} v. actual: {actual}"
+
+
+def test_json_filter():
+    unfiltered = {
+        "Definitions": ["don't", "pick", "me up"],
+        "definitions": {
+            "Other stuff 1": ["ok", "stuff"],
+            "Account": {
+                "properties": {
+                    "sig-type": {
+                        "description": "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown"
+                    }
+                }
+            },
+            "account": {"I'm not": "capitalized"},
+            "Other stuff 2": ["great", "stuff"],
+        },
+        "non-definition": {"not": "a definition"},
+    }
+    expected = {
+        "definitions": {
+            "Account": {
+                "properties": {
+                    "sig-type": {
+                        "description": "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown"
+                    }
+                }
+            },
+        },
+    }
+
+    actual = select(unfiltered, {"definitions": ["Account"]})
+    assert expected == actual, actual
+
+    expected = {
+        "Definitions": ["don't", "pick", "me up"],
+        "definitions": {
+            "account": {"I'm not": "capitalized"},
+            "Other stuff 2": ["great", "stuff"],
+        },
+        "non-definition": {"not": "a definition"},
+    }
+    actual = select(
+        unfiltered,
+        {
+            "definitions": ["account", "Other stuff 2"],
+            "non-definition": ["not"],
+            "Definitions": {},
+        },
+    )
+    print(actual)
+    assert expected == actual, actual

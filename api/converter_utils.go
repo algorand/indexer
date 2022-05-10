@@ -647,7 +647,7 @@ func (si *ServerImplementation) maxAccountsErrorToAccountsErrorResponse(maxErr i
 		"total-created-apps":    maxErr.TotalAppParams,
 	}
 	return generated.ErrorResponse{
-		Message: "Result limit exceeded",
+		Message: ErrResultLimitReached,
 		Data:    &extraData,
 	}
 }

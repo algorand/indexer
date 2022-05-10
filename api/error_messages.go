@@ -7,6 +7,7 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
+// constant error messages.
 const (
 	errInvalidRoundAndMinMax           = "cannot specify round and min-round/max-round"
 	errInvalidRoundMinMax              = "min-round must be less than max-round"
@@ -22,7 +23,7 @@ const (
 	errFailedSearchingApplication      = "failed while searching for application"
 	errFailedLookingUpHealth           = "failed while getting indexer health"
 	errNoApplicationsFound             = "no application found for application-id"
-	errNoAccountsFound                 = "no accounts found for address"
+	ErrNoAccountsFound                 = "no accounts found for address"
 	errNoAssetsFound                   = "no assets found for asset-id"
 	errNoTransactionFound              = "no transaction found for transaction id"
 	errMultipleTransactions            = "multiple transactions found for this txid, please contact us, this shouldn't happen"
@@ -36,6 +37,7 @@ const (
 	errZeroAddressCloseRemainderToRole = "searching transactions by zero address with close address role is not supported"
 	errZeroAddressAssetSenderRole      = "searching transactions by zero address with asset sender role is not supported"
 	errZeroAddressAssetCloseToRole     = "searching transactions by zero address with asset close address role is not supported"
+	ErrResultLimitReached              = "Result limit exceeded"
 )
 
 var errUnknownAddressRole string

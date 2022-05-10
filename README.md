@@ -5,10 +5,28 @@
 
 The Indexer is a standalone service that reads committed blocks from the Algorand blockchain and maintains a database of transactions and accounts that are searchable and indexed.
 
-# Tested Requirements Versions
+## Building from source ##
 
-* [go 1.17.9](https://golang.org/dl/)
-* [Postgres 13](https://www.postgresql.org/download/)
+Development is done using the [Go Programming Language](https://golang.org/), the version is specified in the project's [go.mod](go.mod) file.
+
+Run `make` to build Indexer, the binary is located at `cmd/algorand-indexer/algorand-indexer`.
+
+# Requirements
+
+All recommendations here should be be used as a starting point. Further benchmarking should be done to verify performance is acceptible for any application using Indexer.
+
+## Versions
+
+* Database: [Postgres 13](https://www.postgresql.org/download/)
+
+## System
+
+For a simple deployment the following configuration works well:
+* Network: Indexer, Algod and PostgreSQL should all be on the same network.
+* Indexer: 2 CPU and 8 GB of ram.
+* Database: When hosted on AWS a `db.r5.xlarge` instance works well.
+
+A database with replication can be used to scale read volume. Configure multiple Indexer daemons with a single writer and multiple readers.
 
 # Quickstart
 
