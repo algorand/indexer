@@ -188,7 +188,9 @@ func getModifiedState(l *ledger.Ledger, block *bookkeeping.Block) (map[basics.Ad
 	return modifiedAccounts, modifiedResources, nil
 }
 
-func normalizeAccountResource(r ledgercore.AppResource) (ar ledgercore.AccountResource) {
+// Converts an `ledgercore.AppResource` to a `ledgercore.AccountResource`.
+// Returns a copy with the `GlobalState` and `KeyValue` fields normalized if needed.
+func convertAppResource(r ledgercore.AppResource) (ar ledgercore.AccountResource) {
 	ar.AppLocalState = r.AppLocalState
 	ar.AppParams = r.AppParams
 	if (r.AppParams != nil) && (len(r.AppParams.GlobalState) == 0) {
@@ -277,7 +279,7 @@ func checkModifiedState(db *postgres.IndexerDb, l *ledger.Ledger, block *bookkee
 						err1 = fmt.Errorf("checkModifiedState() lookup application resource err1: %w", err1)
 						return
 					}
-					resourcesForAddress[creatable] = normalizeAccountResource(appResource)
+					resourcesForAddress[creatable] = convertAppResource(appResource)
 				default:
 					err1 = fmt.Errorf("checkModifiedState() unexpected creatable type %v", creatable.Type)
 					return
