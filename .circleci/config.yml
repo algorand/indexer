@@ -17,7 +17,7 @@ workflows:
           name: test_with_go_<< matrix.go_version >>
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.14.7", "1.15.15"]
+              go_version: ["1.17.9"]
 
   circleci_build_and_test_nightly:
     triggers:
@@ -32,7 +32,7 @@ workflows:
           context: slack-secrets
           matrix: &go-version-matrix
             parameters:
-              go_version: ["1.14.7", "1.15.15"]
+              go_version: ["1.17.9"]
       - indexer_vs_algod_nightly:
           name: nightly_test_indexer_vs_algod
           context: slack-secrets
@@ -120,7 +120,7 @@ commands:
 
       - run: 
           name: Install golint
-          command: go get -u golang.org/x/lint/golint
+          command: go install golang.org/x/lint/golint
 
   run_tests:
     steps:

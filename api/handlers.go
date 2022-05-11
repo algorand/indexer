@@ -1059,7 +1059,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 			Seed:              blockHeader.Seed[:],
 			Timestamp:         uint64(blockHeader.TimeStamp),
 			Transactions:      nil,
-			TransactionsRoot:  blockHeader.TxnRoot[:],
+			TransactionsRoot:  blockHeader.TxnCommitments.NativeSha512_256Commitment[:],
 			TxnCounter:        uint64Ptr(blockHeader.TxnCounter),
 			UpgradeState:      &upgradeState,
 			UpgradeVote:       &upgradeVote,

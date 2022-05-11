@@ -2,7 +2,6 @@ package util
 
 import (
 	"encoding/base64"
-
 	"testing"
 )
 
@@ -22,7 +21,7 @@ func TestPrintableUTF8OrEmpty(t *testing.T) {
 		},
 		{
 			"Asset 510285544",
-			"8J+qmSBNb25leQ==",
+			"8J+qmSBNb25leSwgd2FudAo=",
 			"",
 		},
 	}
