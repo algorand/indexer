@@ -3,6 +3,7 @@ version: 2.1
 orbs:
   go: circleci/go@1.7.0
   slack: circleci/slack@4.7.1
+  codecov: codecov/codecov@3.1.1
 
 parameters:
   ubuntu_image:
@@ -49,7 +50,7 @@ jobs:
           version: << parameters.go_version >>
       - install_dependencies
       - run_tests
-      - upload_coverage
+      - codecov/upload
   test_nightly:
     machine:
       image: << pipeline.parameters.ubuntu_image >> 
