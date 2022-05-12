@@ -63,6 +63,7 @@ jobs:
       - install_dependencies
       - run_tests
       - upload_coverage
+      - codecov/upload
       - slack/notify: &slack-fail-event
           event: fail
           custom: |
