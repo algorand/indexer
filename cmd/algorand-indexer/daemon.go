@@ -5,14 +5,24 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/client/v2/algod"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger"
+	"github.com/algorand/go-algorand/logging"
+	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/indexer/processor"
+	"github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/indexer/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	algodConfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
@@ -123,7 +133,17 @@ var daemonCmd = &cobra.Command{
 		defer db.Close()
 		var wg sync.WaitGroup
 		if bot != nil {
+			if indexerDataDir == "" {
+				fmt.Fprint(os.Stderr, "missing indexer data directory")
+				os.Exit(1)
+			}
 			wg.Add(1)
+			genesis, err := getGenesis(bot.Algod())
+			maybeFail(err, "Error getting genesis")
+			genesisBlock, err := getGenesisBlock(bot.Algod())
+			maybeFail(err, "Error getting genesis block")
+			initState, err := util.CreateInitState(&genesis, &genesisBlock)
+			maybeFail(err, "Error getting genesis block")
 			go func() {
 				defer wg.Done()
 
@@ -134,14 +154,18 @@ var daemonCmd = &cobra.Command{
 				genesisReader := importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
 				_, err := importer.EnsureInitialImport(db, genesisReader, logger)
 				maybeFail(err, "importer.EnsureInitialImport() error")
+
 				logger.Info("Initializing block import handler.")
-
-				nextRound, err := db.GetNextRoundToAccount()
-				maybeFail(err, "failed to get next round, %v", err)
-				bot.SetNextRound(nextRound)
-
 				imp := importer.NewImporter(db)
-				handler := blockHandler(imp, 1*time.Second)
+				logger.Info("Initializing local ledger.")
+				localLedger, err := ledger.OpenLedger(logging.NewLogger(), path.Dir(indexerDataDir), false, initState, algodConfig.GetDefaultLocal())
+				bot.SetNextRound(uint64(localLedger.Latest()) + 1)
+
+				proc, err := blockprocessor.MakeProcessor(localLedger, imp.ImportValidatedBlock)
+				if err != nil {
+					maybeFail(err, err.Error())
+				}
+				handler := blockHandler(proc, 1*time.Second)
 				bot.SetBlockHandler(handler)
 
 				logger.Info("Starting block importer.")
@@ -265,10 +289,10 @@ func makeOptions() (options api.ExtraOptions) {
 
 // blockHandler creates a handler complying to the fetcher block handler interface. In case of a failure it keeps
 // attempting to add the block until the fetcher shuts down.
-func blockHandler(imp importer.Importer, retryDelay time.Duration) func(context.Context, *rpcs.EncodedBlockCert) error {
+func blockHandler(proc processor.Processor, retryDelay time.Duration) func(context.Context, *rpcs.EncodedBlockCert) error {
 	return func(ctx context.Context, block *rpcs.EncodedBlockCert) error {
 		for {
-			err := handleBlock(block, imp)
+			err := handleBlock(block, proc)
 			if err == nil {
 				// return on success.
 				return nil
@@ -285,12 +309,12 @@ func blockHandler(imp importer.Importer, retryDelay time.Duration) func(context.
 	}
 }
 
-func handleBlock(block *rpcs.EncodedBlockCert, imp importer.Importer) error {
+func handleBlock(block *rpcs.EncodedBlockCert, proc processor.Processor) error {
 	start := time.Now()
-	err := imp.ImportBlock(block)
+	err := proc.Process(block)
 	if err != nil {
 		logger.WithError(err).Errorf(
-			"adding block %d to database failed", block.Block.Round())
+			"block %d import failed", block.Block.Round())
 		return fmt.Errorf("handleBlock() err: %w", err)
 	}
 	dt := time.Since(start)
@@ -312,4 +336,34 @@ func handleBlock(block *rpcs.EncodedBlockCert, imp importer.Importer) error {
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())
 
 	return nil
+}
+
+func getGenesis(client *algod.Client) (bookkeeping.Genesis, error) {
+	data, err := client.GetGenesis().Do(context.Background())
+	if err != nil {
+		return bookkeeping.Genesis{}, fmt.Errorf("getGenesis() client err: %w", err)
+	}
+
+	var res bookkeeping.Genesis
+	err = protocol.DecodeJSON([]byte(data), &res)
+	if err != nil {
+		return bookkeeping.Genesis{}, fmt.Errorf("getGenesis() decode err: %w", err)
+	}
+
+	return res, nil
+}
+
+func getGenesisBlock(client *algod.Client) (bookkeeping.Block, error) {
+	data, err := client.BlockRaw(0).Do(context.Background())
+	if err != nil {
+		return bookkeeping.Block{}, fmt.Errorf("getGenesisBlock() client err: %w", err)
+	}
+
+	var block rpcs.EncodedBlockCert
+	err = protocol.Decode(data, &block)
+	if err != nil {
+		return bookkeeping.Block{}, fmt.Errorf("getGenesisBlock() decode err: %w", err)
+	}
+
+	return block.Block, nil
 }
