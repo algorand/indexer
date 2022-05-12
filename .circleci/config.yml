@@ -50,7 +50,8 @@ jobs:
           version: << parameters.go_version >>
       - install_dependencies
       - run_tests
-      - codecov/upload
+      - codecov/upload:
+        file: coverage.txt
   test_nightly:
     machine:
       image: << pipeline.parameters.ubuntu_image >> 
@@ -62,8 +63,8 @@ jobs:
           version: << parameters.go_version >>
       - install_dependencies
       - run_tests
-      - upload_coverage
-      - codecov/upload
+      - codecov/upload:
+        file: coverage.txt
       - slack/notify: &slack-fail-event
           event: fail
           custom: |
@@ -144,12 +145,3 @@ commands:
   run_indexer_vs_algod:
     steps:
       - run: make indexer-v-algod
-
-  upload_coverage:
-    description: Collect coverage reports and upload them
-    steps:
-      - run:
-          name: Upload Coverage Reports
-          no_output_timeout: 10m
-          command: |
-            scripts/upload_coverage.sh || true
