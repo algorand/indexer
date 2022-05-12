@@ -160,6 +160,7 @@ var daemonCmd = &cobra.Command{
 				logger.Info("Initializing local ledger.")
 				localLedger, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(indexerDataDir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
 				maybeFail(err, "%v", err)
+				defer localLedger.Close()
 				bot.SetNextRound(uint64(localLedger.Latest()) + 1)
 
 				proc, err := blockprocessor.MakeProcessor(localLedger, imp.ImportValidatedBlock)
