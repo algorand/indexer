@@ -50,8 +50,7 @@ jobs:
           version: << parameters.go_version >>
       - install_dependencies
       - run_tests
-      - codecov/upload:
-        file: coverage.txt
+      - codecov/upload
   test_nightly:
     machine:
       image: << pipeline.parameters.ubuntu_image >> 
@@ -63,8 +62,7 @@ jobs:
           version: << parameters.go_version >>
       - install_dependencies
       - run_tests
-      - codecov/upload:
-        file: coverage.txt
+      - codecov/upload
       - slack/notify: &slack-fail-event
           event: fail
           custom: |
