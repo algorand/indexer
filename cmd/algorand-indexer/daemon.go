@@ -6,23 +6,18 @@ import (
 	"os"
 	"os/signal"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
+	algodConfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/protocol"
-	"github.com/algorand/indexer/processor"
-	"github.com/algorand/indexer/processor/blockprocessor"
-	"github.com/algorand/indexer/util"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
-
-	algodConfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
@@ -30,7 +25,12 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
+	"github.com/algorand/indexer/processor"
+	"github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -158,7 +158,8 @@ var daemonCmd = &cobra.Command{
 				logger.Info("Initializing block import handler.")
 				imp := importer.NewImporter(db)
 				logger.Info("Initializing local ledger.")
-				localLedger, err := ledger.OpenLedger(logging.NewLogger(), path.Dir(indexerDataDir), false, initState, algodConfig.GetDefaultLocal())
+				localLedger, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(indexerDataDir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
+				maybeFail(err, "%v", err)
 				bot.SetNextRound(uint64(localLedger.Latest()) + 1)
 
 				proc, err := blockprocessor.MakeProcessor(localLedger, imp.ImportValidatedBlock)
