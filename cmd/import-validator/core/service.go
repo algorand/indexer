@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
@@ -92,7 +93,8 @@ func openIndexerDb(postgresConnStr string, genesis *bookkeeping.Genesis, genesis
 	}
 
 	if nextRound == 0 {
-		err = db.AddBlock(genesisBlock)
+		vb := ledgercore.MakeValidatedBlock(*genesisBlock, ledgercore.StateDelta{})
+		err = db.AddBlock(&vb)
 		if err != nil {
 			return nil, fmt.Errorf("openIndexerDb() err: %w", err)
 		}
@@ -348,15 +350,16 @@ func catchup(db *postgres.IndexerDb, l *ledger.Ledger, bot fetcher.Fetcher, logg
 		}()
 
 		if nextRoundLedger >= nextRoundIndexer {
-			wg.Add(1)
-			go func() {
-				start := time.Now()
-				err1 = db.AddBlock(&block.Block)
-				fmt.Printf(
-					"%d transactions imported in %v\n",
-					len(block.Block.Payset), time.Since(start))
-				wg.Done()
-			}()
+			prc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
+			if err != nil {
+				return fmt.Errorf("catchup() err: %w", err)
+			}
+			blockCert := rpcs.EncodedBlockCert{Block: block.Block, Certificate: block.Certificate}
+			start := time.Now()
+			prc.Process(&blockCert)
+			fmt.Printf(
+				"%d transactions imported in %v\n",
+				len(block.Block.Payset), time.Since(start))
 		}
 
 		wg.Wait()

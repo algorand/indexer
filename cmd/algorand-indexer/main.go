@@ -134,8 +134,6 @@ func init() {
 	logger.SetOutput(os.Stdout)
 	logger.SetLevel(log.InfoLevel)
 
-	rootCmd.AddCommand(importCmd)
-	importCmd.Hidden = true
 	rootCmd.AddCommand(daemonCmd)
 	rootCmd.AddCommand(apiConfigCmd)
 
@@ -153,7 +151,6 @@ func init() {
 		cmd.Flags().BoolVarP(&doVersion, "version", "v", false, "print version and exit")
 	}
 	addFlags(daemonCmd)
-	addFlags(importCmd)
 
 	viper.RegisterAlias("postgres", "postgres-connection-string")
 

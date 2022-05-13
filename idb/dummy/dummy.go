@@ -5,6 +5,7 @@ import (
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"
@@ -22,7 +23,7 @@ func IndexerDb() idb.IndexerDb {
 func (db *dummyIndexerDb) Close() {
 }
 
-func (db *dummyIndexerDb) AddBlock(block *bookkeeping.Block) error {
+func (db *dummyIndexerDb) AddBlock(block *ledgercore.ValidatedBlock) error {
 	db.log.Printf("AddBlock")
 	return nil
 }

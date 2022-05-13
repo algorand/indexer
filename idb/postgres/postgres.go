@@ -39,7 +39,6 @@ import (
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util"
-	"github.com/algorand/indexer/util/metrics"
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
@@ -251,7 +250,8 @@ func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *boo
 }
 
 // AddBlock is part of idb.IndexerDb.
-func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
+func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
+	block := vb.Block()
 	db.log.Printf("adding block %d", block.Round())
 
 	db.accountingLock.Lock()
@@ -282,7 +282,7 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 
 		if block.Round() == basics.Round(0) {
 			// Block 0 is special, we cannot run the evaluator on it.
-			err := w.AddBlock0(block)
+			err := w.AddBlock0(&block)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
@@ -308,35 +308,15 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 
 				f := func(tx pgx.Tx) error {
 					if !protoChanged {
-						err := writer.AddTransactions(block, block.Payset, tx)
+						err := writer.AddTransactions(&block, block.Payset, tx)
 						if err != nil {
 							return err
 						}
 					}
-					return writer.AddTransactionParticipation(block, tx)
+					return writer.AddTransactionParticipation(&block, tx)
 				}
 				err0 = db.txWithRetry(serializable, f)
 			}()
-
-			ledgerForEval, err :=
-				ledger_for_evaluator.MakeLedgerForEvaluator(tx, block.Round()-1)
-			if err != nil {
-				return fmt.Errorf("AddBlock() err: %w", err)
-			}
-			defer ledgerForEval.Close()
-
-			resources, err := prepareEvalResources(&ledgerForEval, block)
-			if err != nil {
-				return fmt.Errorf("AddBlock() eval err: %w", err)
-			}
-
-			start := time.Now()
-			delta, modifiedTxns, err :=
-				ledger.EvalForIndexer(ledgerForEval, block, proto, resources)
-			if err != nil {
-				return fmt.Errorf("AddBlock() eval err: %w", err)
-			}
-			metrics.PostgresEvalTimeSeconds.Observe(time.Since(start).Seconds())
 
 			var err1 error
 			// Skip if transaction writing has already started.
@@ -347,13 +327,13 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 					defer wg.Done()
 
 					f := func(tx pgx.Tx) error {
-						return writer.AddTransactions(block, modifiedTxns, tx)
+						return writer.AddTransactions(&block, block.Payset, tx)
 					}
 					err1 = db.txWithRetry(serializable, f)
 				}()
 			}
 
-			err = w.AddBlock(block, modifiedTxns, delta)
+			err = w.AddBlock(&block, block.Payset, vb.Delta())
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}

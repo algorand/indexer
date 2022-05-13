@@ -59,6 +59,7 @@ var (
 	defaultApplicationsLimit  uint32
 	enableAllParameters       bool
 	indexerDataDir            string
+	genesisJSONPath           string
 )
 
 var daemonCmd = &cobra.Command{
@@ -163,7 +164,7 @@ var daemonCmd = &cobra.Command{
 				defer localLedger.Close()
 				bot.SetNextRound(uint64(localLedger.Latest()) + 1)
 
-				proc, err := blockprocessor.MakeProcessor(localLedger, imp.ImportValidatedBlock)
+				proc, err := blockprocessor.MakeProcessor(localLedger, imp.ImportBlock)
 				if err != nil {
 					maybeFail(err, err.Error())
 				}
