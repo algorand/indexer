@@ -982,6 +982,14 @@
             "$ref": "#/definitions/Asset"
           }
         },
+        "hashtype": {
+          "type": "string",
+          "enum": [
+            "sha512_256",
+            "sha256"
+          ],
+          "description": "The type of hash function used to create the proof, must be one of: \n* sha512_256 \n* sha256"
+        },
         "participation": {
           "$ref": "#/definitions/AccountParticipation"
         },
