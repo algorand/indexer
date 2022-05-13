@@ -120,7 +120,7 @@ commands:
 
       - run: 
           name: Install golint
-          command: go install golang.org/x/lint/golint
+          command: go install golang.org/x/lint/golint@latest
 
   run_tests:
     steps:
