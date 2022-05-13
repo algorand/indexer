@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"fmt"
 	"math"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
@@ -2088,4 +2090,84 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "genesis hash not matching")
 
+}
+
+func getResults(ctx context.Context, rows <-chan idb.AccountRow) (result []idb.AccountRow) {
+	for {
+		select {
+		case row, ok := <-rows:
+			if !ok {
+				return
+			}
+			result = append(result, row)
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+func TestIndexerDb_GetAccounts(t *testing.T) {
+	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	defer shutdownFunc()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	testcases := []struct {
+		gt *uint64
+		lt *uint64
+		id uint64
+	}{
+		{
+			gt: uint64Ptr(1),
+			lt: nil,
+		},
+		{
+			gt: nil,
+			lt: uint64Ptr(1),
+		},
+		{
+			gt: uint64Ptr(1),
+			lt: uint64Ptr(1),
+		},
+		{
+			gt: uint64Ptr(1),
+			lt: nil,
+			id: 1,
+		},
+		{
+			gt: nil,
+			lt: uint64Ptr(1),
+			id: 1,
+		},
+		{
+			gt: uint64Ptr(1),
+			lt: uint64Ptr(1),
+			id: 1,
+		},
+	}
+
+	for i, testcase := range testcases {
+		t.Run(fmt.Sprintf("test %d", i), func(t *testing.T) {
+			resultCh, count := db.GetAccounts(ctx, idb.AccountQueryOptions{
+				AssetGT:    testcase.gt,
+				AssetLT:    testcase.lt,
+				HasAssetID: testcase.id,
+			})
+			assert.Equal(t, uint64(0), count)
+			results := getResults(ctx, resultCh)
+
+			if testcase.id == 0 {
+				// When the id is 0, there should be an error
+				assert.NotNil(t, results)
+				assert.Len(t, results, 1)
+				assert.Error(t, results[0].Error)
+				expected := fmt.Sprintf("AssetGT=%d, AssetLT=%d, but HasAssetID=0", uintOrDefault(testcase.gt), uintOrDefault(testcase.lt))
+				assert.Equal(t, expected, results[0].Error.Error())
+			} else {
+				// Otherwise, the empty DB should simply return no results.
+				assert.Nil(t, results)
+			}
+		})
+	}
 }
