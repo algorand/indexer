@@ -2913,7 +2913,7 @@
     },
     "/v2/accounts/{account-id}/transactions": {
       "get": {
-        "description": "Lookup account transactions.",
+        "description": "Lookup account transactions. Transactions are returned newest to oldest.",
         "operationId": "lookupAccountTransactions",
         "parameters": [
           {
@@ -3850,7 +3850,7 @@
     },
     "/v2/assets/{asset-id}/transactions": {
       "get": {
-        "description": "Lookup transactions for an asset.",
+        "description": "Lookup transactions for an asset. Transactions are returned oldest to newest.",
         "operationId": "lookupAssetTransactions",
         "parameters": [
           {
@@ -4184,7 +4184,7 @@
     },
     "/v2/transactions": {
       "get": {
-        "description": "Search for transactions.",
+        "description": "Search for transactions. Transactions are returned oldest to newest unless the address parameter is used, in which case results are returned newest to oldest.",
         "operationId": "searchForTransactions",
         "parameters": [
           {

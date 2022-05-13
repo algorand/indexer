@@ -23,7 +23,6 @@ indexer.oas3.yml:	.3tmp.json
 	curl -s -X POST "https://converter.swagger.io/api/convert" -H "accept: application/json" -H "Content-Type: application/json" -d @./indexer.oas2.json -o .3tmp.json
 
 oapi-codegen:	.PHONY
-	# This weirdness is to workaround incompatible dependencies in our go.mod
-	cd /tmp && GO111MODULE=on go get "github.com/algorand/oapi-codegen/cmd/oapi-codegen@v1.3.5-algorand5"
+	go install "github.com/algorand/oapi-codegen/...@v1.3.7"
 
 .PHONY:

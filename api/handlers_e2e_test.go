@@ -1139,7 +1139,7 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 
 	assetName := "valid"
 	//url := "https://my.embedded.\000.null.asset"
-	urlBytes, _ := base64.StdEncoding.DecodeString("8J+qmSBNb25leQ==")
+	urlBytes, _ := base64.StdEncoding.DecodeString("8J+qmSBNb25leSwgd2FudAo=")
 	url := string(urlBytes)
 	unitName := "asset\rwith\nnon-printable\tcharacters"
 	createAsset := test.MakeAssetConfigTxn(0, 100, 0, false, unitName, assetName, url, test.AccountA)

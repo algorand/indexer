@@ -334,13 +334,13 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) error {
 	numTxnForBlock := g.txnForRound(round)
 
 	header := bookkeeping.BlockHeader{
-		Round:       basics.Round(g.round),
-		Branch:      bookkeeping.BlockHash{},
-		Seed:        committee.Seed{},
-		TxnRoot:     crypto.Digest{},
-		TimeStamp:   g.timestamp,
-		GenesisID:   g.genesisID,
-		GenesisHash: g.genesisHash,
+		Round:          basics.Round(g.round),
+		Branch:         bookkeeping.BlockHash{},
+		Seed:           committee.Seed{},
+		TxnCommitments: bookkeeping.TxnCommitments{NativeSha512_256Commitment: crypto.Digest{}},
+		TimeStamp:      g.timestamp,
+		GenesisID:      g.genesisID,
+		GenesisHash:    g.genesisHash,
 		RewardsState: bookkeeping.RewardsState{
 			FeeSink:                   g.feeSink,
 			RewardsPool:               g.rewardsPool,

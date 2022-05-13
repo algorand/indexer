@@ -196,7 +196,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 	}
 
 	if len(accounts) == 0 {
-		return notFound(ctx, fmt.Sprintf("%s: %s", errNoAccountsFound, accountID))
+		return notFound(ctx, fmt.Sprintf("%s: %s", ErrNoAccountsFound, accountID))
 	}
 
 	if len(accounts) > 1 {
@@ -1051,22 +1051,19 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 		}
 
 		ret = generated.Block{
-			GenesisHash:       blockHeader.GenesisHash[:],
-			GenesisId:         blockHeader.GenesisID,
-			PreviousBlockHash: blockHeader.Branch[:],
-			Rewards:           &rewards,
-			Round:             uint64(blockHeader.Round),
-			Seed:              blockHeader.Seed[:],
-			Timestamp:         uint64(blockHeader.TimeStamp),
-			Transactions:      nil,
-			TransactionsRoot:  blockHeader.TxnRoot[:],
-			/* TODO: When SHA256 TxnRoot header is merged to master
-			   TransactionsRoot:        blockHeader.TxnRoot.DigestSha512_256[:],
-			   TransactionsRootSha256:  blockHeader.TxnRoot.DigestSha256[:],
-			*/
-			TxnCounter:   uint64Ptr(blockHeader.TxnCounter),
-			UpgradeState: &upgradeState,
-			UpgradeVote:  &upgradeVote,
+			GenesisHash:            blockHeader.GenesisHash[:],
+			GenesisId:              blockHeader.GenesisID,
+			PreviousBlockHash:      blockHeader.Branch[:],
+			Rewards:                &rewards,
+			Round:                  uint64(blockHeader.Round),
+			Seed:                   blockHeader.Seed[:],
+			Timestamp:              uint64(blockHeader.TimeStamp),
+			Transactions:           nil,
+			TransactionsRoot:       blockHeader.TxnCommitments.NativeSha512_256Commitment[:],
+			TransactionsRootSha256: blockHeader.TxnCommitments.Sha256Commitment[:],
+			TxnCounter:             uint64Ptr(blockHeader.TxnCounter),
+			UpgradeState:           &upgradeState,
+			UpgradeVote:            &upgradeVote,
 		}
 
 		results := make([]generated.Transaction, 0)
