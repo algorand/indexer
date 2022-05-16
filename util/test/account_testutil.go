@@ -49,7 +49,7 @@ func DecodeAddressOrPanic(addr string) basics.Address {
 }
 
 // MakeAssetConfigTxn is a helper to ensure test asset config are initialized.
-func MakeAssetConfigTxn(configid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr basics.Address) transactions.SignedTxnWithAD {
+func MakeAssetConfigTxn(configid, total, decimals uint64, defaultFrozen bool, unitName, assetName, url string, addr basics.Address, lv uint64) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -58,6 +58,7 @@ func MakeAssetConfigTxn(configid, total, decimals uint64, defaultFrozen bool, un
 					Sender:      addr,
 					Fee:         basics.MicroAlgos{Raw: 1000},
 					GenesisHash: GenesisHash,
+					LastValid:   basics.Round(lv),
 				},
 				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
 					ConfigAsset: basics.AssetIndex(configid),
@@ -104,7 +105,7 @@ func MakeAssetFreezeTxn(assetid uint64, frozen bool, sender, freezeAccount basic
 }
 
 // MakeAssetTransferTxn creates an asset transfer transaction.
-func MakeAssetTransferTxn(assetid, amt uint64, sender, receiver, close basics.Address) transactions.SignedTxnWithAD {
+func MakeAssetTransferTxn(assetid, amt uint64, sender, receiver, close basics.Address, lv uint64) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -113,6 +114,7 @@ func MakeAssetTransferTxn(assetid, amt uint64, sender, receiver, close basics.Ad
 					Sender:      sender,
 					Fee:         basics.MicroAlgos{Raw: 1000},
 					GenesisHash: GenesisHash,
+					LastValid:   basics.Round(lv),
 				},
 				AssetTransferTxnFields: transactions.AssetTransferTxnFields{
 					XferAsset:   basics.AssetIndex(assetid),
@@ -129,12 +131,12 @@ func MakeAssetTransferTxn(assetid, amt uint64, sender, receiver, close basics.Ad
 }
 
 // MakeAssetOptInTxn makes a transaction that opts in an asset.
-func MakeAssetOptInTxn(assetid uint64, address basics.Address) transactions.SignedTxnWithAD {
-	return MakeAssetTransferTxn(assetid, 0, address, address, basics.Address{})
+func MakeAssetOptInTxn(assetid uint64, address basics.Address, lv uint64) transactions.SignedTxnWithAD {
+	return MakeAssetTransferTxn(assetid, 0, address, address, basics.Address{}, lv)
 }
 
 // MakeAssetDestroyTxn makes a transaction that destroys an asset.
-func MakeAssetDestroyTxn(assetID uint64, sender basics.Address) transactions.SignedTxnWithAD {
+func MakeAssetDestroyTxn(assetID uint64, sender basics.Address, lv uint64) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -142,6 +144,7 @@ func MakeAssetDestroyTxn(assetID uint64, sender basics.Address) transactions.Sig
 				Header: transactions.Header{
 					Sender:      sender,
 					GenesisHash: GenesisHash,
+					LastValid:   basics.Round(lv),
 				},
 				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
 					ConfigAsset: basics.AssetIndex(assetID),
@@ -184,7 +187,7 @@ func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
 }
 
 // MakeCreateAppTxn makes a transaction that creates a simple application.
-func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
+func MakeCreateAppTxn(sender basics.Address, lv uint64) transactions.SignedTxnWithAD {
 	// Create a transaction with ExtraProgramPages field set to 1
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
@@ -193,6 +196,7 @@ func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 				Header: transactions.Header{
 					Sender:      sender,
 					GenesisHash: GenesisHash,
+					LastValid:   basics.Round(lv),
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
@@ -205,7 +209,7 @@ func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 }
 
 // MakeAppDestroyTxn makes a transaction that destroys an app.
-func MakeAppDestroyTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
+func MakeAppDestroyTxn(appid uint64, sender basics.Address, lv uint64) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -213,6 +217,7 @@ func MakeAppDestroyTxn(appid uint64, sender basics.Address) transactions.SignedT
 				Header: transactions.Header{
 					Sender:      sender,
 					GenesisHash: GenesisHash,
+					LastValid:   basics.Round(lv),
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApplicationID: basics.AppIndex(appid),
@@ -225,7 +230,7 @@ func MakeAppDestroyTxn(appid uint64, sender basics.Address) transactions.SignedT
 }
 
 // MakeAppOptInTxn makes a transaction that opts in an app.
-func MakeAppOptInTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
+func MakeAppOptInTxn(appid uint64, sender basics.Address, lv uint64) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -233,6 +238,7 @@ func MakeAppOptInTxn(appid uint64, sender basics.Address) transactions.SignedTxn
 				Header: transactions.Header{
 					Sender:      sender,
 					GenesisHash: GenesisHash,
+					LastValid:   basics.Round(lv),
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApplicationID: basics.AppIndex(appid),
@@ -297,8 +303,8 @@ func MakeAppCallTxnWithLogs(appid uint64, sender basics.Address, logs []string) 
 // |- application call
 //    |- asset transfer
 //    |- application call
-func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSender, assetReceiver basics.Address) transactions.SignedTxnWithAD {
-	createApp := MakeCreateAppTxn(appSender)
+func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSender, assetReceiver basics.Address, lv uint64) transactions.SignedTxnWithAD {
+	createApp := MakeCreateAppTxn(appSender, lv)
 
 	// In order to simplify the test,
 	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
@@ -371,7 +377,7 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 //   |- application call
 //   |- application call
 func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWithAD {
-	createApp := MakeCreateAppTxn(appSender)
+	createApp := MakeCreateAppTxn(appSender, 0)
 
 	// Add a log to the outer appl call
 	createApp.ApplicationID = 123
@@ -430,7 +436,7 @@ func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWi
 //   |- application call
 //     |- application create
 func MakeAppCallWithInnerAppCall(appSender basics.Address) transactions.SignedTxnWithAD {
-	createApp := MakeCreateAppTxn(appSender)
+	createApp := MakeCreateAppTxn(appSender, 0)
 
 	// Add a log to the outer appl call
 	createApp.ApplicationID = 123

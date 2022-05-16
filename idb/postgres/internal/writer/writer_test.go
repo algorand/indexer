@@ -197,8 +197,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 		block.BlockHeader.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 	require.NoError(t, err)
 
-	stxnad1 := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
+	stxnad1 := test.MakeAssetConfigTxn(0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA, 0)
 	block.Payset[1], err =
 		block.BlockHeader.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
 	require.NoError(t, err)
@@ -271,7 +270,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 		},
 		Payset: make(transactions.Payset, 1),
 	}
-	stxnad := test.MakeAssetTransferTxn(1, 2, test.AccountA, test.AccountB, test.AccountC)
+	stxnad := test.MakeAssetTransferTxn(1, 2, test.AccountA, test.AccountB, test.AccountC, 0)
 	var err error
 	block.Payset[0], err = block.EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
 	require.NoError(t, err)
@@ -342,8 +341,7 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 		stib0, err := makeBlockFunc().EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 		require.NoError(t, err)
 
-		stxnad1 := test.MakeAssetConfigTxn(
-			0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
+		stxnad1 := test.MakeAssetConfigTxn(0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC, 0)
 		stib1, err := makeBlockFunc().EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
 		require.NoError(t, err)
 
@@ -371,7 +369,7 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 		tests = append(tests, testcase)
 	}
 	{
-		stxnad := test.MakeCreateAppTxn(test.AccountA)
+		stxnad := test.MakeCreateAppTxn(test.AccountA, 0)
 		stxnad.Txn.ApplicationCallTxnFields.Accounts =
 			[]basics.Address{test.AccountB, test.AccountC}
 		stib, err := makeBlockFunc().EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
@@ -1303,7 +1301,7 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	callWithBadInner := test.MakeCreateAppTxn(test.AccountA)
+	callWithBadInner := test.MakeCreateAppTxn(test.AccountA, 0)
 	callWithBadInner.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
 		{
 			ApplyData: transactions.ApplyData{
@@ -1340,11 +1338,10 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	// App call with inner txns, should be intra 0, 1, 2, 3, 4
 	var appAddr basics.Address
 	appAddr[1] = 99
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
+	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC, 0)
 
 	// Asset create call, should have intra = 5
-	assetCreate := test.MakeAssetConfigTxn(
-		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountD)
+	assetCreate := test.MakeAssetConfigTxn(0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountD, 0)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall, &assetCreate)
 	require.NoError(t, err)
