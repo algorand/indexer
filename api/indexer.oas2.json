@@ -982,14 +982,6 @@
             "$ref": "#/definitions/Asset"
           }
         },
-        "hashtype": {
-          "type": "string",
-          "enum": [
-            "sha512_256",
-            "sha256"
-          ],
-          "description": "The type of hash function used to create the proof, must be one of: \n* sha512_256 \n* sha256"
-        },
         "participation": {
           "$ref": "#/definitions/AccountParticipation"
         },
@@ -2300,6 +2292,16 @@
       "type": "boolean",
       "description": "Combine with address and address-role parameters to define what type of address to search for. The close to fields are normally treated as a receiver, if you would like to exclude them set this parameter to true.",
       "name": "exclude-close-to",
+      "in": "query"
+    },
+    "hashtype": {
+      "type": "string",
+      "enum": [
+        "sha512_256",
+        "sha256"
+      ],
+      "description": "The type of hash function used to create the proof, must be one of: \n* sha512_256 \n* sha256",
+      "name": "hashtype",
       "in": "query"
     },
     "include-all": {

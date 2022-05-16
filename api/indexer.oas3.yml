@@ -126,6 +126,18 @@
           "type": "boolean"
         }
       },
+      "hashtype": {
+        "description": "The type of hash function used to create the proof, must be one of: \n* sha512_256 \n* sha256",
+        "in": "query",
+        "name": "hashtype",
+        "schema": {
+          "enum": [
+            "sha512_256",
+            "sha256"
+          ],
+          "type": "string"
+        }
+      },
       "include-all": {
         "description": "Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.",
         "in": "query",

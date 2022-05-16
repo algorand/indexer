@@ -862,6 +862,9 @@ type Exclude []string
 // ExcludeCloseTo defines model for exclude-close-to.
 type ExcludeCloseTo bool
 
+// Hashtype defines model for hashtype.
+type Hashtype string
+
 // IncludeAll defines model for include-all.
 type IncludeAll bool
 
