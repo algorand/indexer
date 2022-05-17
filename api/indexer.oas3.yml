@@ -234,7 +234,8 @@
             "acfg",
             "axfer",
             "afrz",
-            "appl"
+            "appl",
+            "cert"
           ],
           "type": "string"
         }
@@ -1275,6 +1276,95 @@
         },
         "type": "object"
       },
+      "CompactCert": {
+        "description": "\\[cert\\] represents a compact cert.\n\nDefinition:\ncrypto/compactcerts/structus.go : Cert",
+        "properties": {
+          "part-proofs": {
+            "$ref": "#/components/schemas/MerkleArrayProof"
+          },
+          "reveals": {
+            "$ref": "#/components/schemas/CompactCertReveal"
+          },
+          "sig-commit": {
+            "$ref": "#/components/schemas/GenericDigest"
+          },
+          "sig-proofs": {
+            "$ref": "#/components/schemas/MerkleArrayProof"
+          },
+          "signed-weight": {
+            "description": "\\[w\\]",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          }
+        },
+        "type": "object"
+      },
+      "CompactCertParticipant": {
+        "properties": {
+          "verifier": {
+            "description": "\\[p\\]",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "weight": {
+            "description": "\\[w\\]",
+            "type": "integer",
+            "x-algorand-fotmart": "uint64"
+          }
+        },
+        "type": "object"
+      },
+      "CompactCertReveal": {
+        "properties": {
+          "participant": {
+            "$ref": "#/components/schemas/CompactCertParticipant"
+          },
+          "position": {
+            "description": "The position in the signature and participants arrays corresponding to this entry.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "sig-slot": {
+            "description": "\\[s\\]",
+            "properties": {
+              "lower-sig-weight": {
+                "description": "\\[l\\]",
+                "type": "integer",
+                "x-algorand-format": "uint64"
+              },
+              "signature": {
+                "$ref": "#/components/schemas/CompactCertSignature"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "CompactCertSignature": {
+        "properties": {
+          "falcon-signature": {
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "merkle-array-index": {
+            "type": "integer",
+            "x-algorand-foramt": "uint64"
+          },
+          "proof": {
+            "$ref": "#/components/schemas/MerkleArrayProof"
+          },
+          "verifying-key": {
+            "description": "\\[vkey\\]",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "EvalDelta": {
         "description": "Represents a TEAL value delta.",
         "properties": {
@@ -1311,6 +1401,20 @@
           "key",
           "value"
         ],
+        "type": "object"
+      },
+      "GenericDigest": {
+        "format": "byte",
+        "type": "string"
+      },
+      "HashFactory": {
+        "properties": {
+          "hash-type": {
+            "description": "\\[t\\]",
+            "type": "integer",
+            "x-algorand-format": "uint16"
+          }
+        },
         "type": "object"
       },
       "Hashtype": {
@@ -1358,6 +1462,26 @@
           "round",
           "version"
         ],
+        "type": "object"
+      },
+      "MerkleArrayProof": {
+        "properties": {
+          "hash-factory": {
+            "$ref": "#/components/schemas/HashFactory"
+          },
+          "path": {
+            "description": "\\[pth\\]",
+            "items": {
+              "$ref": "#/components/schemas/GenericDigest"
+            },
+            "type": "array"
+          },
+          "tree-depth": {
+            "description": "\\[td\\]",
+            "type": "integer",
+            "x-algorand-format": "uint8"
+          }
+        },
         "type": "object"
       },
       "MiniAssetHolding": {
@@ -1509,6 +1633,9 @@
             "description": "\\[ca\\] closing amount for transaction.",
             "type": "integer"
           },
+          "compact-cert-transaction": {
+            "$ref": "#/components/schemas/TransactionCompactCert"
+          },
           "confirmed-round": {
             "description": "Round when the transaction was confirmed.",
             "type": "integer"
@@ -1626,14 +1753,15 @@
             "$ref": "#/components/schemas/TransactionSignature"
           },
           "tx-type": {
-            "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction",
+            "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction\n* \\[cert\\] compact-cert-transaction",
             "enum": [
               "pay",
               "keyreg",
               "acfg",
               "axfer",
               "afrz",
-              "appl"
+              "appl",
+              "cert"
             ],
             "type": "string",
             "x-algorand-format": "tx-type-enum"
@@ -1789,6 +1917,24 @@
           "asset-id",
           "receiver"
         ],
+        "type": "object"
+      },
+      "TransactionCompactCert": {
+        "description": "Fields for a compact cert (state proof) transaction. \n\nDefinition:\ndata/transactions/compactcert.go : CompactCertTxnFields",
+        "properties": {
+          "cert": {
+            "$ref": "#/components/schemas/CompactCert"
+          },
+          "cert-round": {
+            "description": "\\[certrnd\\] Round which corresponds to the compact cert.",
+            "type": "integer"
+          },
+          "cert-type": {
+            "description": "\\[certtype\\] Type of the compact cert. Integer representing an entry defined in protocol/compactcerts.go",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          }
+        },
         "type": "object"
       },
       "TransactionKeyreg": {
@@ -2953,7 +3099,8 @@
                 "acfg",
                 "axfer",
                 "afrz",
-                "appl"
+                "appl",
+                "cert"
               ],
               "type": "string"
             }
@@ -3890,7 +4037,8 @@
                 "acfg",
                 "axfer",
                 "afrz",
-                "appl"
+                "appl",
+                "cert"
               ],
               "type": "string"
             }
@@ -4224,7 +4372,8 @@
                 "acfg",
                 "axfer",
                 "afrz",
-                "appl"
+                "appl",
+                "cert"
               ],
               "type": "string"
             }

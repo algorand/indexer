@@ -405,6 +405,53 @@ type BlockUpgradeVote struct {
 	UpgradePropose *string `json:"upgrade-propose,omitempty"`
 }
 
+// CompactCert defines model for CompactCert.
+type CompactCert struct {
+	PartProofs *MerkleArrayProof  `json:"part-proofs,omitempty"`
+	Reveals    *CompactCertReveal `json:"reveals,omitempty"`
+	SigCommit  *GenericDigest     `json:"sig-commit,omitempty"`
+	SigProofs  *MerkleArrayProof  `json:"sig-proofs,omitempty"`
+
+	// \[w\]
+	SignedWeight *uint64 `json:"signed-weight,omitempty"`
+}
+
+// CompactCertParticipant defines model for CompactCertParticipant.
+type CompactCertParticipant struct {
+
+	// \[p\]
+	Verifier *[]byte `json:"verifier,omitempty"`
+
+	// \[w\]
+	Weight *uint64 `json:"weight,omitempty"`
+}
+
+// CompactCertReveal defines model for CompactCertReveal.
+type CompactCertReveal struct {
+	Participant *CompactCertParticipant `json:"participant,omitempty"`
+
+	// The position in the signature and participants arrays corresponding to this entry.
+	Position *uint64 `json:"position,omitempty"`
+
+	// \[s\]
+	SigSlot *struct {
+
+		// \[l\]
+		LowerSigWeight *uint64               `json:"lower-sig-weight,omitempty"`
+		Signature      *CompactCertSignature `json:"signature,omitempty"`
+	} `json:"sig-slot,omitempty"`
+}
+
+// CompactCertSignature defines model for CompactCertSignature.
+type CompactCertSignature struct {
+	FalconSignature  *[]byte           `json:"falcon-signature,omitempty"`
+	MerkleArrayIndex *uint64           `json:"merkle-array-index,omitempty"`
+	Proof            *MerkleArrayProof `json:"proof,omitempty"`
+
+	// \[vkey\]
+	VerifyingKey *[]byte `json:"verifying-key,omitempty"`
+}
+
 // EvalDelta defines model for EvalDelta.
 type EvalDelta struct {
 
@@ -426,6 +473,16 @@ type EvalDeltaKeyValue struct {
 	Value EvalDelta `json:"value"`
 }
 
+// GenericDigest defines model for GenericDigest.
+type GenericDigest []byte
+
+// HashFactory defines model for HashFactory.
+type HashFactory struct {
+
+	// \[t\]
+	HashType *uint64 `json:"hash-type,omitempty"`
+}
+
 // Hashtype defines model for Hashtype.
 type Hashtype string
 
@@ -440,6 +497,17 @@ type HealthCheck struct {
 
 	// Current version.
 	Version string `json:"version"`
+}
+
+// MerkleArrayProof defines model for MerkleArrayProof.
+type MerkleArrayProof struct {
+	HashFactory *HashFactory `json:"hash-factory,omitempty"`
+
+	// \[pth\]
+	Path *[]GenericDigest `json:"path,omitempty"`
+
+	// \[td\]
+	TreeDepth *uint64 `json:"tree-depth,omitempty"`
 }
 
 // MiniAssetHolding defines model for MiniAssetHolding.
@@ -538,6 +606,12 @@ type Transaction struct {
 	// \[ca\] closing amount for transaction.
 	ClosingAmount *uint64 `json:"closing-amount,omitempty"`
 
+	// Fields for a compact cert (state proof) transaction.
+	//
+	// Definition:
+	// data/transactions/compactcert.go : CompactCertTxnFields
+	CompactCertTransaction *TransactionCompactCert `json:"compact-cert-transaction,omitempty"`
+
 	// Round when the transaction was confirmed.
 	ConfirmedRound *uint64 `json:"confirmed-round,omitempty"`
 
@@ -628,6 +702,7 @@ type Transaction struct {
 	// * \[axfer\] asset-transfer-transaction
 	// * \[afrz\] asset-freeze-transaction
 	// * \[appl\] application-transaction
+	// * \[cert\] compact-cert-transaction
 	TxType string `json:"tx-type"`
 }
 
@@ -725,6 +800,22 @@ type TransactionAssetTransfer struct {
 
 	// \[asnd\] The effective sender during a clawback transactions. If this is not a zero value, the real transaction sender must be the Clawback address from the AssetParams.
 	Sender *string `json:"sender,omitempty"`
+}
+
+// TransactionCompactCert defines model for TransactionCompactCert.
+type TransactionCompactCert struct {
+
+	// \[cert\] represents a compact cert.
+	//
+	// Definition:
+	// crypto/compactcerts/structus.go : Cert
+	Cert *CompactCert `json:"cert,omitempty"`
+
+	// \[certrnd\] Round which corresponds to the compact cert.
+	CertRound *uint64 `json:"cert-round,omitempty"`
+
+	// \[certtype\] Type of the compact cert. Integer representing an entry defined in protocol/compactcerts.go
+	CertType *uint64 `json:"cert-type,omitempty"`
 }
 
 // TransactionKeyreg defines model for TransactionKeyreg.

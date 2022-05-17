@@ -1778,7 +1778,8 @@
         "asset-freeze-transaction",
         "asset-transfer-transaction",
         "keyreg-transaction",
-        "payment-transaction"
+        "payment-transaction",
+        "compact-cert-transaction"
       ],
       "properties": {
         "application-transaction": {
@@ -1792,6 +1793,9 @@
         },
         "asset-transfer-transaction": {
           "$ref": "#/definitions/TransactionAssetTransfer"
+        },
+        "compact-cert-transaction": {
+          "$ref": "#/definitions/TransactionCompactCert"
         },
         "auth-addr": {
           "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth addr is equal to the accounts auth addr.",
@@ -1893,7 +1897,7 @@
           "$ref": "#/definitions/TransactionSignature"
         },
         "tx-type": {
-          "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction",
+          "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction\n* \\[cert\\] compact-cert-transaction",
           "type": "string",
           "enum": [
             "pay",
@@ -1901,7 +1905,8 @@
             "acfg",
             "axfer",
             "afrz",
-            "appl"
+            "appl",
+            "cert"
           ],
           "x-algorand-format": "tx-type-enum"
         },
@@ -2038,6 +2043,24 @@
         "new-freeze-status": {
           "description": "\\[afrz\\] The new freeze status.",
           "type": "boolean"
+        }
+      }
+    },
+    "TransactionCompactCert": {
+      "description": "Fields for a compact cert (state proof) transaction. \n\nDefinition:\ndata/transactions/compactcert.go : CompactCertTxnFields",
+      "type": "object",
+      "properties": {
+        "cert-round": {
+          "description": "\\[certrnd\\] Round which corresponds to the compact cert.",
+          "type": "integer"
+        },
+        "cert-type": {
+          "description": "\\[certtype\\] Type of the compact cert. Integer representing an entry defined in protocol/compactcerts.go",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "cert": {
+          "$ref": "#/definitions/CompactCert"
         }
       }
     },
@@ -2228,6 +2251,132 @@
           "format": "byte"
         }
       }
+    },
+    "CompactCert": {
+      "description": "\\[cert\\] represents a compact cert.\n\nDefinition:\ncrypto/compactcerts/structus.go : Cert",
+      "type": "object",
+      "properties": {
+        "sig-commit": {
+          "description": "\\[c\\]",
+          "$ref": "#/definitions/GenericDigest"
+        },
+        "signed-weight": {
+          "description": "\\[w\\]",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "sig-proofs": {
+          "description": "\\[S\\]",
+          "$ref": "#/definitions/MerkleArrayProof"
+        },
+        "part-proofs": {
+          "description": "\\[P\\]",
+          "$ref": "#/definitions/MerkleArrayProof"
+        },
+        "reveals": {
+          "description": "\\[r\\] Note that this is actually stored as a map[uint64] - Reveal in the actual msgp",
+          "$ref": "#/definitions/CompactCertReveal"
+        }
+      }
+    },
+    "CompactCertReveal": {
+      "type": "object",
+      "properties": {
+        "position": {
+          "description": "The position in the signature and participants arrays corresponding to this entry.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "sig-slot": {
+          "description": "\\[s\\]",
+          "type": "object",
+          "properties": {
+            "signature": {
+              "description": "",
+              "$ref": "#/definitions/CompactCertSignature"
+            },
+            "lower-sig-weight": {
+              "description": "\\[l\\]",
+              "type": "integer",
+              "x-algorand-format": "uint64"
+            }
+          }
+        },
+        "participant": {
+          "description": "\\[p\\]",
+          "$ref": "#/definitions/CompactCertParticipant"
+        }
+      }
+    },
+    "CompactCertSignature": {
+      "type": "object",
+      "properties": {
+        "falcon-signature": {
+          "type": "string",
+          "format": "byte"
+        },
+        "merkle-array-index": {
+          "type": "integer",
+          "x-algorand-foramt": "uint64"
+        },
+        "proof": {
+          "$ref": "#/definitions/MerkleArrayProof"
+        },
+        "verifying-key": {
+          "description": "\\[vkey\\]",
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "CompactCertParticipant": {
+      "type": "object",
+      "properties": {
+         "verifier": {
+           "description": "\\[p\\]",
+           "type": "string",
+           "format": "byte"
+         },
+        "weight": {
+          "description": "\\[w\\]",
+          "type": "integer",
+          "x-algorand-fotmart": "uint64"
+        }
+      }
+    },
+    "MerkleArrayProof": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "\\[pth\\]",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/GenericDigest"
+          }
+        },
+        "hash-factory": {
+          "$ref": "#/definitions/HashFactory"
+        },
+        "tree-depth": {
+          "description": "\\[td\\]",
+          "type": "integer",
+          "x-algorand-format": "uint8"
+        }
+      }
+    },
+    "HashFactory": {
+      "type": "object",
+      "properties": {
+        "hash-type": {
+          "description": "\\[t\\]",
+          "type": "integer",
+          "x-algorand-format": "uint16"
+        }
+      }
+    },
+    "GenericDigest": {
+      "type": "string",
+      "format": "byte"
     }
   },
   "parameters": {
@@ -2413,7 +2562,8 @@
         "acfg",
         "axfer",
         "afrz",
-        "appl"
+        "appl",
+        "cert"
       ],
       "type": "string",
       "name": "tx-type",
