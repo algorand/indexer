@@ -76,7 +76,7 @@ func TestFailedProcess(t *testing.T) {
 	assert.Nil(t, err)
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
 	err = pr.Process(&rawBlock)
-	assert.Contains(t, err.Error(), "Process() apply transaction group")
+	assert.Contains(t, err.Error(), "ProcessBlockForIndexer() err")
 
 	// stxn GenesisID not empty
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
@@ -85,7 +85,7 @@ func TestFailedProcess(t *testing.T) {
 	block.Payset[0].Txn.GenesisID = "genesisID"
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
 	err = pr.Process(&rawBlock)
-	assert.Contains(t, err.Error(), "Process() decode payset groups err")
+	assert.Contains(t, err.Error(), "ProcessBlockForIndexer() err")
 
 	// eval error: concensus protocol not supported
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})

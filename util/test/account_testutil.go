@@ -376,8 +376,8 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 //   |- application call
 //   |- application call
 //   |- application call
-func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWithAD {
-	createApp := MakeCreateAppTxn(appSender, 0)
+func MakeAppCallWithMultiLogs(appSender basics.Address, lv uint64) transactions.SignedTxnWithAD {
+	createApp := MakeCreateAppTxn(appSender, lv)
 
 	// Add a log to the outer appl call
 	createApp.ApplicationID = 123
@@ -435,8 +435,8 @@ func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWi
 // application create
 //   |- application call
 //     |- application create
-func MakeAppCallWithInnerAppCall(appSender basics.Address) transactions.SignedTxnWithAD {
-	createApp := MakeCreateAppTxn(appSender, 0)
+func MakeAppCallWithInnerAppCall(appSender basics.Address, lv uint64) transactions.SignedTxnWithAD {
+	createApp := MakeCreateAppTxn(appSender, lv)
 
 	// Add a log to the outer appl call
 	createApp.ApplicationID = 123

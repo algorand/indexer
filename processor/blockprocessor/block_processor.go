@@ -47,33 +47,28 @@ func (processor *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error
 	if err != nil {
 		return fmt.Errorf("Process() block eval err: %w", err)
 	}
-
-	paysetgroups, err := blockCert.Block.DecodePaysetGroups()
+	_, _, err = blkeval.ProcessBlockForIndexer(&blockCert.Block)
 	if err != nil {
-		return fmt.Errorf("Process() decode payset groups err: %w", err)
+		return fmt.Errorf("%w", err)
 	}
-
-	for _, group := range paysetgroups {
-		err = blkeval.TransactionGroup(group)
-		if err != nil {
-			return fmt.Errorf("Process() apply transaction group err: %w", err)
-		}
+	genblk, err := blkeval.GenerateBlock()
+	if err != nil {
+		return fmt.Errorf("%w", err)
 	}
-
 	// validated block
-	vb, err := blkeval.GenerateBlock()
+	vb := ledgercore.MakeValidatedBlock(blockCert.Block, genblk.Delta())
 	if err != nil {
-		return fmt.Errorf("Process() validated block err: %w", err)
+		return fmt.Errorf("Process() block eval err: %w", err)
 	}
 	// execute handler before writing to local ledger
 	if processor.handler != nil {
-		err = processor.handler(vb)
+		err = processor.handler(&vb)
 		if err != nil {
 			return fmt.Errorf("Process() handler err: %w", err)
 		}
 	}
 	// write to ledger
-	err = processor.ledger.AddValidatedBlock(*vb, blockCert.Certificate)
+	err = processor.ledger.AddValidatedBlock(vb, blockCert.Certificate)
 	if err != nil {
 		return fmt.Errorf("Process() add validated block err: %w", err)
 	}
