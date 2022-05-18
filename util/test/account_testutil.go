@@ -83,7 +83,7 @@ func MakeAssetConfigTxn(configid, total, decimals uint64, defaultFrozen bool, un
 }
 
 // MakeAssetFreezeTxn create an asset freeze/unfreeze transaction.
-func MakeAssetFreezeTxn(assetid uint64, frozen bool, sender, freezeAccount basics.Address) transactions.SignedTxnWithAD {
+func MakeAssetFreezeTxn(assetid uint64, frozen bool, sender, freezeAccount basics.Address, lv uint64) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -92,6 +92,7 @@ func MakeAssetFreezeTxn(assetid uint64, frozen bool, sender, freezeAccount basic
 					Sender:      sender,
 					Fee:         basics.MicroAlgos{Raw: 1000},
 					GenesisHash: GenesisHash,
+					LastValid:   basics.Round(lv),
 				},
 				AssetFreezeTxnFields: transactions.AssetFreezeTxnFields{
 					FreezeAccount: freezeAccount,
@@ -156,8 +157,7 @@ func MakeAssetDestroyTxn(assetID uint64, sender basics.Address, lv uint64) trans
 }
 
 // MakePaymentTxn creates an algo transfer transaction.
-func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
-	closeRewards uint64, sender, receiver, close, rekeyTo basics.Address) transactions.SignedTxnWithAD {
+func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards, closeRewards uint64, sender, receiver, close, rekeyTo basics.Address, lv uint64) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -167,7 +167,7 @@ func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
 					Fee:         basics.MicroAlgos{Raw: fee},
 					GenesisHash: GenesisHash,
 					RekeyTo:     rekeyTo,
-					LastValid:   10,
+					LastValid:   basics.Round(lv),
 				},
 				PaymentTxnFields: transactions.PaymentTxnFields{
 					Receiver:         receiver,
@@ -540,7 +540,6 @@ func MakeBlockForTxns(prevHeader bookkeeping.BlockHeader, inputs ...*transaction
 
 		res.Payset = append(res.Payset, stxnib)
 	}
-
 	return res, nil
 }
 

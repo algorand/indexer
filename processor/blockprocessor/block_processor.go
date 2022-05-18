@@ -47,6 +47,7 @@ func (processor *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error
 	if err != nil {
 		return fmt.Errorf("Process() block eval err: %w", err)
 	}
+
 	_, _, err = blkeval.ProcessBlockForIndexer(&blockCert.Block)
 	if err != nil {
 		return fmt.Errorf("%w", err)

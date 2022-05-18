@@ -31,7 +31,7 @@ func TestProcess(t *testing.T) {
 
 	// create a few rounds
 	for i := 1; i <= 3; i++ {
-		txn := test.MakePaymentTxn(0, uint64(i), 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+		txn := test.MakePaymentTxn(0, uint64(i), 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{}, 0)
 		block, err := test.MakeBlockForTxns(prevHeader, &txn)
 		assert.Nil(t, err)
 		rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
@@ -62,7 +62,7 @@ func TestFailedProcess(t *testing.T) {
 	genesisBlock, err := l.Block(basics.Round(0))
 	assert.Nil(t, err)
 	// incorrect round
-	txn := test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, test.AccountA, test.AccountA)
+	txn := test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, test.AccountA, test.AccountA, 0)
 	block, err := test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	block.BlockHeader.Round = 10
 	assert.Nil(t, err)
@@ -71,7 +71,7 @@ func TestFailedProcess(t *testing.T) {
 	assert.Contains(t, err.Error(), "Process() invalid round blockCert.Block.Round()")
 
 	// non-zero balance after close remainder to sender address
-	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, test.AccountA, test.AccountA)
+	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, test.AccountA, test.AccountA, 0)
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	assert.Nil(t, err)
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
@@ -79,7 +79,7 @@ func TestFailedProcess(t *testing.T) {
 	assert.Contains(t, err.Error(), "ProcessBlockForIndexer() err")
 
 	// stxn GenesisID not empty
-	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{}, 0)
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	assert.Nil(t, err)
 	block.Payset[0].Txn.GenesisID = "genesisID"
@@ -88,7 +88,7 @@ func TestFailedProcess(t *testing.T) {
 	assert.Contains(t, err.Error(), "ProcessBlockForIndexer() err")
 
 	// eval error: concensus protocol not supported
-	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{}, 0)
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	block.BlockHeader.CurrentProtocol = "testing"
 	assert.Nil(t, err)
@@ -103,7 +103,7 @@ func TestFailedProcess(t *testing.T) {
 	_, err = block_processor.MakeProcessor(l, handler)
 	assert.Contains(t, err.Error(), "MakeProcessor() handler err")
 	pr, _ = block_processor.MakeProcessor(l, nil)
-	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{}, 0)
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	assert.Nil(t, err)
 	pr.SetHandler(handler)

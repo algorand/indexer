@@ -189,9 +189,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 		Payset: make([]transactions.SignedTxnInBlock, 2),
 	}
 
-	stxnad0 := test.MakePaymentTxn(
-		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-		basics.Address{})
+	stxnad0 := test.MakePaymentTxn(1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{}, 0)
 	var err error
 	block.Payset[0], err =
 		block.BlockHeader.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
@@ -335,9 +333,7 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 
 	var tests []testtype
 	{
-		stxnad0 := test.MakePaymentTxn(
-			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-			basics.Address{})
+		stxnad0 := test.MakePaymentTxn(1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{}, 0)
 		stib0, err := makeBlockFunc().EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 		require.NoError(t, err)
 
@@ -628,9 +624,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 		Payset: make(transactions.Payset, 1),
 	}
 
-	stxnad := test.MakePaymentTxn(
-		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
-		basics.Address{})
+	stxnad := test.MakePaymentTxn(1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{}, 0)
 	stxnad.Sig[0] = 5 // set signature so that keytype for account is updated
 	var err error
 	block.Payset[0], err = block.EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
