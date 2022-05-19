@@ -308,7 +308,7 @@ func TestMultipleWriters(t *testing.T) {
 	///////////
 	// Given // Send amt to AccountE
 	///////////
-	payAccountE := test.MakePaymentTxn(1000, amt, 0, 0, 0, 0, test.AccountD, test.AccountE, basics.Address{}, basics.Address{}, 0)
+	payAccountE := test.MakePaymentTxn(1000, amt, 0, 0, 0, 0, test.AccountD, test.AccountE, basics.Address{}, basics.Address{})
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &payAccountE)
 	require.NoError(t, err)
@@ -423,7 +423,7 @@ func TestRekeyBasic(t *testing.T) {
 	///////////
 	// Given // Send rekey transaction
 	///////////
-	txn := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB, 0)
+	txn := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
@@ -456,7 +456,7 @@ func TestRekeyToItself(t *testing.T) {
 	// Given // Send rekey transactions
 	///////////
 
-	txn := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountA, 0)
+	txn := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountA)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
@@ -490,9 +490,9 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 	///////////
 	// Given // Send rekey transaction
 	///////////
-	txn0 := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB, 0)
-	txn1 := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountA, 0)
-	txn2 := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountC, 0)
+	txn0 := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
+	txn1 := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountA)
+	txn2 := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountC)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2)
@@ -526,7 +526,7 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	///////////
 	// Given // Send rekey transaction
 	///////////
-	txn := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{}, 0)
+	txn := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
@@ -987,7 +987,7 @@ func TestKeytypeBasic(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, nil)
 
 	// Sig
-	txn := test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{}, 0)
+	txn := test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
@@ -1003,7 +1003,7 @@ func TestKeytypeBasic(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, &keytype)
 
 	// Msig
-	txn = test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountB, test.AccountA, basics.Address{}, basics.Address{}, 0)
+	txn = test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountB, test.AccountA, basics.Address{}, basics.Address{})
 	txn.Sig = crypto.Signature{}
 	txn.Msig.Subsigs = append(txn.Msig.Subsigs, crypto.MultisigSubsig{})
 
@@ -1321,7 +1321,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	defer shutdownFunc()
 
 	// Sig
-	txn := test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{}, 10)
+	txn := test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
@@ -1337,7 +1337,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, &keytype)
 
 	// Rekey.
-	txn = test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB, 10)
+	txn = test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
 
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
@@ -1348,7 +1348,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, nil)
 
 	// Msig
-	txn = test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountB, test.AccountA, basics.Address{}, basics.Address{}, 10)
+	txn = test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountB, test.AccountA, basics.Address{}, basics.Address{})
 	txn.Sig = crypto.Signature{}
 	txn.Msig.Subsigs = append(txn.Msig.Subsigs, crypto.MultisigSubsig{})
 	txn.AuthAddr = test.AccountB
@@ -1371,8 +1371,7 @@ func TestKeytypeDeletedAccount(t *testing.T) {
 
 	assertKeytype(t, db, test.AccountA, nil)
 
-	closeTxn := test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, test.AccountB, basics.Address{}, 10)
+	closeTxn := test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, test.AccountB, basics.Address{})
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &closeTxn)
 	require.NoError(t, err)
@@ -1509,10 +1508,8 @@ func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()
 
-	createTxn := test.MakePaymentTxn(
-		0, 100000, 0, 0, 0, 0, test.AccountA, test.AccountE, basics.Address{}, basics.Address{}, 10)
-	deleteTxn := test.MakePaymentTxn(
-		0, 100000, 3, 0, 0, 0, test.AccountE, test.AccountB, test.AccountC, basics.Address{}, 10)
+	createTxn := test.MakePaymentTxn(0, 100000, 0, 0, 0, 0, test.AccountA, test.AccountE, basics.Address{}, basics.Address{})
+	deleteTxn := test.MakePaymentTxn(0, 100000, 3, 0, 0, 0, test.AccountE, test.AccountB, test.AccountC, basics.Address{})
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
 	require.NoError(t, err)
@@ -2052,8 +2049,7 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, nil)
 
 	// Sigtype of account B becomes "sig".
-	txn := test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountB, test.AccountB, basics.Address{}, basics.Address{}, 10)
+	txn := test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountB, test.AccountB, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
 	l := makeTestLedger(t)
@@ -2065,8 +2061,7 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 	require.NoError(t, err)
 
 	// Sigtype of account A becomes "sig" and B remains the same.
-	txn = test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{}, 10)
+	txn = test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{})
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
 	blockCert = rpcs.EncodedBlockCert{Block: block}
@@ -2098,8 +2093,7 @@ func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	txn := test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{}, 10)
+	txn := test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
 	l := makeTestLedger(t)
@@ -2117,8 +2111,7 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), block)
 	defer shutdownFunc()
 
-	txn := test.MakePaymentTxn(
-		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{}, 10)
+	txn := test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
 	l := makeTestLedger(t)

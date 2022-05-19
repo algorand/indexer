@@ -157,7 +157,7 @@ func MakeAssetDestroyTxn(assetID uint64, sender basics.Address, lv uint64) trans
 }
 
 // MakePaymentTxn creates an algo transfer transaction.
-func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards, closeRewards uint64, sender, receiver, close, rekeyTo basics.Address, lv uint64) transactions.SignedTxnWithAD {
+func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards, closeRewards uint64, sender, receiver, close, rekeyTo basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -167,7 +167,6 @@ func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards, closeReward
 					Fee:         basics.MicroAlgos{Raw: fee},
 					GenesisHash: GenesisHash,
 					RekeyTo:     rekeyTo,
-					LastValid:   basics.Round(lv),
 				},
 				PaymentTxnFields: transactions.PaymentTxnFields{
 					Receiver:         receiver,
