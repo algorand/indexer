@@ -251,7 +251,7 @@ func MakeAppOptInTxn(appid uint64, sender basics.Address, lv uint64) transaction
 }
 
 // MakeAppOptOutTxn makes a transaction that opts out an app.
-func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
+func MakeAppOptOutTxn(appid uint64, sender basics.Address, lv uint64) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -259,6 +259,7 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 				Header: transactions.Header{
 					Sender:      sender,
 					GenesisHash: GenesisHash,
+					LastValid:   basics.Round(lv),
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApplicationID: basics.AppIndex(appid),
