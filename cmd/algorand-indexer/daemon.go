@@ -59,7 +59,6 @@ var (
 	defaultApplicationsLimit  uint32
 	enableAllParameters       bool
 	indexerDataDir            string
-	genesisJSONPath           string
 )
 
 var daemonCmd = &cobra.Command{

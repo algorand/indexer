@@ -1,6 +1,8 @@
 package importer
 
 import (
+	"archive/tar"
+	"compress/bzip2"
 	"context"
 	"errors"
 	"fmt"
@@ -8,13 +10,21 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
+	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger"
+	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-algorand/rpcs"
+	"github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/indexer/util"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"
@@ -40,12 +50,136 @@ type ImportHelper struct {
 	Log *log.Logger
 }
 
+// Import is the main ImportHelper function that glues together a directory full of block files and an Importer objects.
+func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
+	// Initial import if needed.
+	genesisReader := GetGenesisFile(h.GenesisJSONPath, nil, h.Log)
+	_, err := EnsureInitialImport(db, genesisReader, h.Log)
+	maybeFail(err, h.Log, "EnsureInitialImport() error")
+	imp := NewImporter(db)
+	blocks := 0
+	txCount := 0
+	start := time.Now()
+	for _, fname := range args {
+		matches, err := filepath.Glob(fname)
+		if err == nil {
+			pathsSorted := blockTarPaths(matches)
+			sort.Sort(&pathsSorted)
+			if h.BlockFileLimit != 0 && len(pathsSorted) > h.BlockFileLimit {
+				pathsSorted = pathsSorted[:h.BlockFileLimit]
+			}
+			for _, gfname := range pathsSorted {
+				fb, ft := importFile(gfname, imp, h.Log, h.GenesisJSONPath)
+				blocks += fb
+				txCount += ft
+			}
+		} else {
+			// try without passing throug glob
+			fb, ft := importFile(fname, imp, h.Log, h.GenesisJSONPath)
+			blocks += fb
+			txCount += ft
+		}
+	}
+	blockdone := time.Now()
+	if blocks > 0 {
+		dt := blockdone.Sub(start)
+		h.Log.Infof("%d blocks in %s, %.0f/s, %d txn, %.0f/s", blocks, dt.String(), float64(time.Second)*float64(blocks)/float64(dt), txCount, float64(time.Second)*float64(txCount)/float64(dt))
+	}
+}
+
 func maybeFail(err error, l *log.Logger, errfmt string, params ...interface{}) {
 	if err == nil {
 		return
 	}
 	l.WithError(err).Errorf(errfmt, params...)
 	os.Exit(1)
+}
+
+func importTar(imp Importer, tarfile io.Reader, l *log.Logger, genesisReader io.Reader) (blockCount, txCount int, err error) {
+	tf := tar.NewReader(tarfile)
+	var header *tar.Header
+	header, err = tf.Next()
+	txCount = 0
+	blocks := make([]rpcs.EncodedBlockCert, 0)
+	for err == nil {
+		if header.Typeflag != tar.TypeReg {
+			err = fmt.Errorf("cannot deal with non-regular-file tar entry %#v", header.Name)
+			return
+		}
+		blockbytes := make([]byte, header.Size)
+		_, err = io.ReadFull(tf, blockbytes)
+		if err != nil {
+			err = fmt.Errorf("error reading tar entry %#v: %v", header.Name, err)
+			return
+		}
+		var blockContainer rpcs.EncodedBlockCert
+		err = protocol.Decode(blockbytes, &blockContainer)
+		if err != nil {
+			err = fmt.Errorf("error decoding blockbytes, %w", err)
+			return
+		}
+		txCount += len(blockContainer.Block.Payset)
+		blocks = append(blocks, blockContainer)
+		header, err = tf.Next()
+	}
+	if err == io.EOF {
+		err = nil
+	}
+
+	less := func(i int, j int) bool {
+		return blocks[i].Block.Round() < blocks[j].Block.Round()
+	}
+	sort.Slice(blocks, less)
+
+	genesis, err := getGenesis(genesisReader)
+	maybeFail(err, l, "Error getting genesis")
+	genesisBlock := blocks[0]
+	initState, err := util.CreateInitState(&genesis, &genesisBlock.Block)
+	maybeFail(err, l, "Error getting genesis block")
+
+	ld, err := ledger.OpenLedger(logging.NewLogger(), "ledger", true, initState, config.GetDefaultLocal())
+	maybeFail(err, l, "Cannot open ledger")
+
+	proc, err := blockprocessor.MakeProcessor(ld, imp.ImportBlock)
+	maybeFail(err, l, "Error creating processor")
+
+	for _, blockContainer := range blocks[1:] {
+		err = proc.Process(&blockContainer)
+		if err != nil {
+			return
+		}
+	}
+
+	return
+}
+
+func importFile(fname string, imp Importer, l *log.Logger, genesisPath string) (blocks, txCount int) {
+	blocks = 0
+	txCount = 0
+	l.Infof("importing %s ...", fname)
+	genesisReader := GetGenesisFile(genesisPath, nil, l)
+	if strings.HasSuffix(fname, ".tar") {
+		fin, err := os.Open(fname)
+		maybeFail(err, l, "%s: %v", fname, err)
+		defer fin.Close()
+		tblocks, btxns, err := importTar(imp, fin, l, genesisReader)
+		maybeFail(err, l, "%s: %v", fname, err)
+		blocks += tblocks
+		txCount += btxns
+	} else if strings.HasSuffix(fname, ".tar.bz2") {
+		fin, err := os.Open(fname)
+		maybeFail(err, l, "%s: %v", fname, err)
+		defer fin.Close()
+		bzin := bzip2.NewReader(fin)
+		tblocks, btxns, err := importTar(imp, bzin, l, genesisReader)
+		maybeFail(err, l, "%s: %v", fname, err)
+		blocks += tblocks
+		txCount += btxns
+	} else {
+		//assume a standalone block msgpack blob
+		maybeFail(errors.New("cannot import a standalone block"), l, "not supported")
+	}
+	return
 }
 
 func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
@@ -167,4 +301,18 @@ func checkGenesisHash(db idb.IndexerDb, genesisReader io.Reader) error {
 		return fmt.Errorf("genesis hash not matching")
 	}
 	return nil
+}
+
+func getGenesis(in io.Reader) (bookkeeping.Genesis, error) {
+	var genesis bookkeeping.Genesis
+	gbytes, err := ioutil.ReadAll(in)
+	if err != nil {
+		return bookkeeping.Genesis{}, fmt.Errorf("error reading genesis, %v", err)
+	}
+	err = protocol.DecodeJSON(gbytes, &genesis)
+	if err != nil {
+		return bookkeeping.Genesis{}, fmt.Errorf("error decoding genesis, %v", err)
+	}
+
+	return genesis, nil
 }
