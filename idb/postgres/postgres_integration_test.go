@@ -177,14 +177,14 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	///////////
 	// Given // A round scenario requiring subround accounting: AccountA is funded, closed, opts back, and funded again.
 	///////////
-	createAsset := test.MakeAssetConfigTxn(0, total, uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountD, 10)
-	optInA := test.MakeAssetOptInTxn(assetid, test.AccountA, 10)
-	fundA := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{}, 10)
-	optInB := test.MakeAssetOptInTxn(assetid, test.AccountB, 10)
-	optInC := test.MakeAssetOptInTxn(assetid, test.AccountC, 10)
-	closeA := test.MakeAssetTransferTxn(assetid, 1000, test.AccountA, test.AccountB, test.AccountC, 10)
-	optInDA := test.MakeAssetOptInTxn(assetid, test.AccountA, 12)
-	payMain := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{}, 12)
+	createAsset := test.MakeAssetConfigTxn(0, total, uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountD)
+	optInA := test.MakeAssetOptInTxn(assetid, test.AccountA)
+	fundA := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
+	optInB := test.MakeAssetOptInTxn(assetid, test.AccountB)
+	optInC := test.MakeAssetOptInTxn(assetid, test.AccountC)
+	closeA := test.MakeAssetTransferTxn(assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
+	optInDA := test.MakeAssetOptInTxn(assetid, test.AccountA)
+	payMain := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createAsset, &optInA, &fundA, &optInB,
@@ -230,11 +230,11 @@ func TestReCreateAssetHolding(t *testing.T) {
 		// A new asset with default-frozen, AccountB opts-in and has its frozen state
 		// toggled.
 		/////////// Then AccountB opts-out then opts-in again.
-		createAssetFrozen := test.MakeAssetConfigTxn(0, total, uint64(6), frozen, "icicles", "frozen coin", "http://antarctica.com", test.AccountA, 10)
-		optinB := test.MakeAssetOptInTxn(assetid, test.AccountB, 10)
-		unfreezeB := test.MakeAssetFreezeTxn(assetid, !frozen, test.AccountA, test.AccountB, 10)
-		optoutB := test.MakeAssetTransferTxn(assetid, 0, test.AccountB, test.AccountC, test.AccountD, 10)
-		optinB2 := test.MakeAssetOptInTxn(assetid, test.AccountB, 12)
+		createAssetFrozen := test.MakeAssetConfigTxn(0, total, uint64(6), frozen, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+		optinB := test.MakeAssetOptInTxn(assetid, test.AccountB)
+		unfreezeB := test.MakeAssetFreezeTxn(assetid, !frozen, test.AccountA, test.AccountB)
+		optoutB := test.MakeAssetTransferTxn(assetid, 0, test.AccountB, test.AccountC, test.AccountD)
+		optinB2 := test.MakeAssetOptInTxn(assetid, test.AccountB)
 
 		var err error
 		block, err = test.MakeBlockForTxns(
@@ -272,10 +272,10 @@ func TestNoopOptins(t *testing.T) {
 	///////////
 	assetid := uint64(1)
 
-	createAsset := test.MakeAssetConfigTxn(0, uint64(1000000), uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountD, 10)
-	optinB := test.MakeAssetOptInTxn(assetid, test.AccountB, 10)
-	unfreezeB := test.MakeAssetFreezeTxn(assetid, false, test.AccountD, test.AccountB, 10)
-	optinB2 := test.MakeAssetOptInTxn(assetid, test.AccountB, 12)
+	createAsset := test.MakeAssetConfigTxn(0, uint64(1000000), uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	optinB := test.MakeAssetOptInTxn(assetid, test.AccountB)
+	unfreezeB := test.MakeAssetFreezeTxn(assetid, false, test.AccountD, test.AccountB)
+	optinB2 := test.MakeAssetOptInTxn(assetid, test.AccountB)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createAsset, &optinB, &unfreezeB, &optinB2)
@@ -370,14 +370,14 @@ func TestBlockWithTransactions(t *testing.T) {
 	///////////
 	// Given // A block at round `round` with 5 transactions.
 	///////////
-	txn1 := test.MakeAssetConfigTxn(0, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD, 10)
-	txn2 := test.MakeAssetOptInTxn(assetid, test.AccountA, 10)
-	txn3 := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{}, 10)
-	txn4 := test.MakeAssetOptInTxn(assetid, test.AccountB, 10)
-	txn5 := test.MakeAssetOptInTxn(assetid, test.AccountC, 10)
-	txn6 := test.MakeAssetTransferTxn(assetid, 1000, test.AccountA, test.AccountB, test.AccountC, 10)
-	txn7 := test.MakeAssetTransferTxn(assetid, 0, test.AccountA, test.AccountA, basics.Address{}, 12)
-	txn8 := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{}, 12)
+	txn1 := test.MakeAssetConfigTxn(0, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	txn2 := test.MakeAssetOptInTxn(assetid, test.AccountA)
+	txn3 := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
+	txn4 := test.MakeAssetOptInTxn(assetid, test.AccountB)
+	txn5 := test.MakeAssetOptInTxn(assetid, test.AccountC)
+	txn6 := test.MakeAssetTransferTxn(assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
+	txn7 := test.MakeAssetTransferTxn(assetid, 0, test.AccountA, test.AccountA, basics.Address{})
+	txn8 := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 	txns := []*transactions.SignedTxnWithAD{
 		&txn1, &txn2, &txn3, &txn4, &txn5, &txn6, &txn7, &txn8}
 
@@ -455,9 +455,8 @@ func TestRekeyToItself(t *testing.T) {
 	///////////
 	// Given // Send rekey transactions
 	///////////
-
-	txn := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountA)
-
+	txn := test.MakePaymentTxn(
+		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
@@ -466,6 +465,16 @@ func TestRekeyToItself(t *testing.T) {
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
 	blockCert := rpcs.EncodedBlockCert{Block: block}
+	err = proc.Process(&blockCert)
+	require.NoError(t, err)
+
+	txn = test.MakePaymentTxn(
+		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{},
+		test.AccountA)
+	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
+	require.NoError(t, err)
+
+	blockCert = rpcs.EncodedBlockCert{Block: block}
 	err = proc.Process(&blockCert)
 	require.NoError(t, err)
 
@@ -554,9 +563,9 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	///////////
 	// Given // A new asset with default-frozen = true, and AccountB opting into it.
 	///////////
-	createAssetNotFrozen := test.MakeAssetConfigTxn(0, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA, 10)
-	modifyAssetToFrozen := test.MakeAssetConfigTxn(assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA, 10)
-	optin := test.MakeAssetOptInTxn(assetid, test.AccountB, 10)
+	createAssetNotFrozen := test.MakeAssetConfigTxn(0, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	modifyAssetToFrozen := test.MakeAssetConfigTxn(assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	optin := test.MakeAssetOptInTxn(assetid, test.AccountB)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createAssetNotFrozen, &modifyAssetToFrozen,
@@ -593,7 +602,7 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 	///////////
 	// Given // A new asset with total = 0.
 	///////////
-	createAsset := test.MakeAssetConfigTxn(0, total, uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountA, 10)
+	createAsset := test.MakeAssetConfigTxn(0, total, uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountA)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAsset)
 	require.NoError(t, err)
 
@@ -655,7 +664,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 	assetID := uint64(1)
 
 	// Create an asset.
-	txn := test.MakeAssetConfigTxn(0, 4, 0, false, "uu", "aa", "", test.AccountA, 10)
+	txn := test.MakeAssetConfigTxn(0, 4, 0, false, "uu", "aa", "", test.AccountA)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
@@ -668,7 +677,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	// Destroy an asset.
-	txn = test.MakeAssetDestroyTxn(assetID, test.AccountA, 10)
+	txn = test.MakeAssetDestroyTxn(assetID, test.AccountA)
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
 
@@ -696,8 +705,8 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 	assetID := uint64(1)
 
 	// Create an asset. Set total supply to 0.
-	txn0 := test.MakeAssetConfigTxn(0, 0, 0, false, "uu", "aa", "", test.AccountA, 10)
-	txn1 := test.MakeAssetDestroyTxn(assetID, test.AccountA, 10)
+	txn0 := test.MakeAssetConfigTxn(0, 0, 0, false, "uu", "aa", "", test.AccountA)
+	txn1 := test.MakeAssetDestroyTxn(assetID, test.AccountA)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1)
 	require.NoError(t, err)
 
@@ -753,10 +762,10 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 	}
 
 	// Another account opts in.
-	txn1 := test.MakeAssetOptInTxn(assetID, test.AccountC, 10)
+	txn1 := test.MakeAssetOptInTxn(assetID, test.AccountC)
 
 	// Destroy an asset.
-	txn2 := test.MakeAssetDestroyTxn(assetID, test.AccountB, 10)
+	txn2 := test.MakeAssetDestroyTxn(assetID, test.AccountB)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2)
@@ -798,9 +807,9 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	// Create a block with freeze txn
 	assetid := uint64(1)
 
-	createAsset := test.MakeAssetConfigTxn(0, uint64(1000000), uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountA, 10)
-	optinB := test.MakeAssetOptInTxn(assetid, test.AccountB, 10)
-	freeze := test.MakeAssetFreezeTxn(assetid, true, test.AccountA, test.AccountB, 10)
+	createAsset := test.MakeAssetConfigTxn(0, uint64(1000000), uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountA)
+	optinB := test.MakeAssetOptInTxn(assetid, test.AccountB)
+	freeze := test.MakeAssetFreezeTxn(assetid, true, test.AccountA, test.AccountB)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createAsset, &optinB, &freeze)
@@ -847,7 +856,7 @@ func TestInnerTxnParticipation(t *testing.T) {
 	// otherwise it requires funding the app account and other special setup
 	var appAddr basics.Address
 	appAddr[1] = 99
-	createApp := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC, 10)
+	createApp := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createApp)
@@ -1024,7 +1033,7 @@ func TestLargeAssetAmount(t *testing.T) {
 	defer shutdownFunc()
 
 	assetid := uint64(1)
-	txn := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, "mc", "mycoin", "", test.AccountA, 10)
+	txn := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, "mc", "mycoin", "", test.AccountA)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
@@ -1168,10 +1177,10 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 			defer shutdownFunc()
 
-			txn := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, unit, name, url, test.AccountA, 10)
+			txn := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
 			// Try to add cheeky inner txns lazily by adding an AD to the acfg txn
 			txn.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
-				test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, unit, name, url, test.AccountA, 10),
+				test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, unit, name, url, test.AccountA),
 			}
 			txn.ApplyData.EvalDelta.InnerTxns[0].ConfigAsset = basics.AssetIndex(innerAssetID)
 			block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
@@ -1258,7 +1267,7 @@ func TestReconfigAsset(t *testing.T) {
 	url := "https://algorand.com"
 	assetID := uint64(1)
 
-	txn := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, unit, name, url, test.AccountA, 10)
+	txn := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 	l := makeTestLedger(t)
@@ -1419,12 +1428,12 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 
 	assetid := uint64(1)
 
-	createAsset := test.MakeAssetConfigTxn(0, uint64(1000000), uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountA, 10)
-	optinB := test.MakeAssetOptInTxn(assetid, test.AccountB, 10)
-	transferAB := test.MakeAssetTransferTxn(assetid, 100, test.AccountA, test.AccountB, basics.Address{}, 10)
-	optinC := test.MakeAssetOptInTxn(assetid, test.AccountC, 10)
+	createAsset := test.MakeAssetConfigTxn(0, uint64(1000000), uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountA)
+	optinB := test.MakeAssetOptInTxn(assetid, test.AccountB)
+	transferAB := test.MakeAssetTransferTxn(assetid, 100, test.AccountA, test.AccountB, basics.Address{})
+	optinC := test.MakeAssetOptInTxn(assetid, test.AccountC)
 	// Close B to C.
-	closeB := test.MakeAssetTransferTxn(assetid, 30, test.AccountB, test.AccountA, test.AccountC, 10)
+	closeB := test.MakeAssetTransferTxn(assetid, 30, test.AccountB, test.AccountA, test.AccountC)
 
 	block, err := test.MakeBlockForTxns(
 		block.BlockHeader, &createAsset, &optinB, &transferAB,
@@ -1546,8 +1555,8 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 	defer shutdownFunc()
 
 	assetid := uint64(1)
-	createTxn := test.MakeAssetConfigTxn(0, 3, 0, false, "", "", "", test.AccountA, 10)
-	deleteTxn := test.MakeAssetDestroyTxn(assetid, test.AccountA, 10)
+	createTxn := test.MakeAssetConfigTxn(0, 3, 0, false, "", "", "", test.AccountA)
+	deleteTxn := test.MakeAssetDestroyTxn(assetid, test.AccountA)
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
 	require.NoError(t, err)
@@ -1606,8 +1615,8 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 	defer shutdownFunc()
 
 	appid := uint64(1)
-	createTxn := test.MakeCreateAppTxn(test.AccountA, 10)
-	deleteTxn := test.MakeAppDestroyTxn(appid, test.AccountA, 10)
+	createTxn := test.MakeCreateAppTxn(test.AccountA)
+	deleteTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
 	require.NoError(t, err)
@@ -1644,9 +1653,9 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	defer shutdownFunc()
 
 	appid := uint64(1)
-	createTxn := test.MakeCreateAppTxn(test.AccountA, 10)
-	optInTxn := test.MakeAppOptInTxn(appid, test.AccountB, 10)
-	optOutTxn := test.MakeAppOptOutTxn(appid, test.AccountB, 10)
+	createTxn := test.MakeCreateAppTxn(test.AccountA)
+	optInTxn := test.MakeAppOptInTxn(appid, test.AccountB)
+	optOutTxn := test.MakeAppOptOutTxn(appid, test.AccountB)
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &optInTxn, &optOutTxn)
 	require.NoError(t, err)
@@ -1771,7 +1780,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 		t, connStr, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer db.Close()
 
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC, 10)
+	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
@@ -1858,7 +1867,7 @@ func TestNonUTF8Logs(t *testing.T) {
 			db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 			defer shutdownFunc()
 
-			createAppTxn := test.MakeCreateAppTxn(test.AccountA, 10)
+			createAppTxn := test.MakeCreateAppTxn(test.AccountA)
 			createAppTxn.ApplyData.EvalDelta = transactions.EvalDelta{
 				Logs: testcase.Logs,
 				InnerTxns: []transactions.SignedTxnWithAD{
@@ -1940,11 +1949,11 @@ func TestTxnAssetID(t *testing.T) {
 	defer shutdownFunc()
 
 	assetid := uint64(1)
-	createAssetTxn := test.MakeAssetConfigTxn(0, 0, 0, false, "myasset", "ma", "", test.AccountA, 10)
-	configAssetTxn := test.MakeAssetConfigTxn(assetid, 0, 0, false, "myasset", "ma", "", test.AccountA, 10)
+	createAssetTxn := test.MakeAssetConfigTxn(0, 0, 0, false, "myasset", "ma", "", test.AccountA)
+	configAssetTxn := test.MakeAssetConfigTxn(assetid, 0, 0, false, "myasset", "ma", "", test.AccountA)
 	appid := uint64(3)
-	createAppTxn := test.MakeCreateAppTxn(test.AccountA, 10)
-	destroyAppTxn := test.MakeAppDestroyTxn(appid, test.AccountA, 10)
+	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+	destroyAppTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createAssetTxn, &configAssetTxn,

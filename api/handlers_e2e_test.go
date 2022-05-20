@@ -124,8 +124,8 @@ func TestApplicationHandlers(t *testing.T) {
 			ApplicationID: expectedAppIdx,
 		},
 	}
-	optInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA, 10)
-	optInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB, 10)
+	optInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
+	optInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn, &optInTxnA, &optInTxnB)
 	require.NoError(t, err)
@@ -250,12 +250,12 @@ func TestAccountExcludeParameters(t *testing.T) {
 
 	const expectedAppIdx = 1 // must be 1 since this is the first txn
 	const expectedAssetIdx = 2
-	createAppTxn := test.MakeCreateAppTxn(test.AccountA, 10)
-	createAssetTxn := test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT", "Asset 2", "http://asset2.com", test.AccountA, 10)
-	appOptInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA, 10)
-	appOptInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB, 10)
-	assetOptInTxnA := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountA, 10)
-	assetOptInTxnB := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountB, 10)
+	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
+	createAssetTxn := test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT", "Asset 2", "http://asset2.com", test.AccountA)
+	appOptInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
+	appOptInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
+	assetOptInTxnA := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountA)
+	assetOptInTxnB := test.MakeAssetOptInTxn(expectedAssetIdx, test.AccountB)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAppTxn, &createAssetTxn,
 		&appOptInTxnA, &appOptInTxnB, &assetOptInTxnA, &assetOptInTxnB)
@@ -432,36 +432,36 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 
 	var txns []transactions.SignedTxnWithAD
 	// make apps and assets
-	for _, id := range deletedAppIDs {
-		txns = append(txns, test.MakeCreateAppTxn(test.AccountA, id+10))
+	for range deletedAppIDs {
+		txns = append(txns, test.MakeCreateAppTxn(test.AccountA))
 	}
 	for _, id := range deletedAssetIDs {
 		txns = append(txns, test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
-			fmt.Sprintf("Asset %d", id), "http://asset.com", test.AccountA, id+10))
+			fmt.Sprintf("Asset %d", id), "http://asset.com", test.AccountA))
 	}
-	for _, id := range expectedAppIDs {
-		txns = append(txns, test.MakeCreateAppTxn(test.AccountA, id+10))
+	for range expectedAppIDs {
+		txns = append(txns, test.MakeCreateAppTxn(test.AccountA))
 	}
 	for _, id := range expectedAssetIDs {
 		txns = append(txns, test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
-			fmt.Sprintf("Asset %d", id), "http://asset.com", test.AccountA, id+10))
+			fmt.Sprintf("Asset %d", id), "http://asset.com", test.AccountA))
 	}
 	// delete some apps and assets
 	for _, id := range deletedAppIDs {
-		txns = append(txns, test.MakeAppDestroyTxn(id, test.AccountA, id+10))
+		txns = append(txns, test.MakeAppDestroyTxn(id, test.AccountA))
 	}
 	for _, id := range deletedAssetIDs {
-		txns = append(txns, test.MakeAssetDestroyTxn(id, test.AccountA, id+10))
+		txns = append(txns, test.MakeAssetDestroyTxn(id, test.AccountA))
 	}
 
 	// opt in to the remaining ones
 	for _, id := range expectedAppIDs {
-		txns = append(txns, test.MakeAppOptInTxn(id, test.AccountA, id+10))
-		txns = append(txns, test.MakeAppOptInTxn(id, test.AccountB, id+10))
+		txns = append(txns, test.MakeAppOptInTxn(id, test.AccountA))
+		txns = append(txns, test.MakeAppOptInTxn(id, test.AccountB))
 	}
 	for _, id := range expectedAssetIDs {
-		txns = append(txns, test.MakeAssetOptInTxn(id, test.AccountA, id+10))
-		txns = append(txns, test.MakeAssetOptInTxn(id, test.AccountB, id+10))
+		txns = append(txns, test.MakeAssetOptInTxn(id, test.AccountA))
+		txns = append(txns, test.MakeAssetOptInTxn(id, test.AccountB))
 	}
 
 	ptxns := make([]*transactions.SignedTxnWithAD, len(txns))
@@ -872,7 +872,7 @@ func TestInnerTxn(t *testing.T) {
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC, 10)
+	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 	expectedID := appCall.Txn.ID().String()
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
@@ -929,7 +929,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	appAddr[1] = 99
 	appAddrStr := appAddr.String()
 
-	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC, 10)
+	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 	expectedID := appCall.Txn.ID().String()
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
@@ -1191,7 +1191,7 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 	urlBytes, _ := base64.StdEncoding.DecodeString("8J+qmSBNb25leSwgd2FudAo=")
 	url := string(urlBytes)
 	unitName := "asset\rwith\nnon-printable\tcharacters"
-	createAsset := test.MakeAssetConfigTxn(0, 100, 0, false, unitName, assetName, url, test.AccountA, 10)
+	createAsset := test.MakeAssetConfigTxn(0, 100, 0, false, unitName, assetName, url, test.AccountA)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAsset)
 	require.NoError(t, err)
@@ -1317,7 +1317,7 @@ func TestLookupInnerLogs(t *testing.T) {
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-	appCall := test.MakeAppCallWithInnerAppCall(test.AccountA, 10)
+	appCall := test.MakeAppCallWithInnerAppCall(test.AccountA)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
@@ -1420,7 +1420,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 	///////////
 	// Given // a DB with some inner txns in it.
 	///////////
-	appCall := test.MakeAppCallWithMultiLogs(test.AccountA, 10)
+	appCall := test.MakeAppCallWithMultiLogs(test.AccountA)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
