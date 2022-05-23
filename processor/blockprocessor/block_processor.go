@@ -12,6 +12,7 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/processor"
+	indxledger "github.com/algorand/indexer/processor/ledger"
 )
 
 type blockProcessor struct {
@@ -41,6 +42,19 @@ func MakeProcessor(ledger *ledger.Ledger, handler func(block *ledgercore.Validat
 
 // Process a raw algod block
 func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
+	apps, _ := proc.ledger.ListApplications(100, 100)
+	//paysets := blockCert.Block.Payset
+
+	for _, app := range apps {
+		fmt.Printf("%v\n", app)
+	}
+	//for _, payset := range paysets {
+	//	//if payset.Txn.ID().String() == "MM76PGEZHO5WRA3HJIVNKQE2Y7Y2GJS7CPIGL65MX43AUEUNYGEQ" {
+	//	//	fmt.Printf("%+v\n", payset)
+	//	//}
+	//	fmt.Println(payset.Txn.ID().String())
+	//}
+
 	if blockCert == nil {
 		return fmt.Errorf("Process(): cannot process a nil block")
 	}
@@ -53,27 +67,33 @@ func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
 		return fmt.Errorf(
 			"Process() cannot find proto version %s", blockCert.Block.BlockHeader.CurrentProtocol)
 	}
-	proto.EnableAssetCloseAmount = true
+	protoChanged := !proto.EnableAssetCloseAmount
 
-	ledgerForEval, err := processor.MakeLedgerForEvaluator(proc.ledger)
+	ledgerForEval, err := indxledger.MakeLedgerForEvaluator(proc.ledger)
 	if err != nil {
 		return fmt.Errorf("Process() err: %w", err)
 	}
-	resources, _ := prepareEvalResources(&ledgerForEval, &blockCert.Block)
+	resources, err := prepareEvalResources(&ledgerForEval, &blockCert.Block)
 	if err != nil {
-		panic(fmt.Errorf("Process() eval err: %w", err))
+		panic(fmt.Errorf("Process() resources err: %w", err))
 	}
 
-	delta, _, err :=
+	delta, modifiedTxns, err :=
 		ledger.EvalForIndexer(ledgerForEval, &blockCert.Block, proto, resources)
 	if err != nil {
 		return fmt.Errorf("Process() eval err: %w", err)
 	}
 	// validated block
-	vb := ledgercore.MakeValidatedBlock(blockCert.Block, delta)
-	if err != nil {
-		return fmt.Errorf("Process() block eval err: %w", err)
+	var vb ledgercore.ValidatedBlock
+	vb = ledgercore.MakeValidatedBlock(blockCert.Block, delta)
+	if protoChanged {
+		block := bookkeeping.Block{
+			BlockHeader: blockCert.Block.BlockHeader,
+			Payset:      modifiedTxns,
+		}
+		vb = ledgercore.MakeValidatedBlock(block, delta)
 	}
+
 	// execute handler before writing to local ledger
 	if proc.handler != nil {
 		err = proc.handler(&vb)
@@ -100,7 +120,7 @@ func (proc *blockProcessor) NextRoundToProcess() uint64 {
 
 // Preload all resources (account data, account resources, asset/app creators) for the
 // evaluator.
-func prepareEvalResources(l *processor.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
+func prepareEvalResources(l *indxledger.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
 	assetCreators, appCreators, err := prepareCreators(l, block.Payset)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
@@ -138,7 +158,7 @@ func prepareEvalResources(l *processor.LedgerForEvaluator, block *bookkeeping.Bl
 }
 
 // Preload asset and app creators.
-func prepareCreators(l *processor.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
+func prepareCreators(l *indxledger.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
 	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
 
 	assets, err := l.GetAssetCreator(assetsReq)
@@ -154,7 +174,7 @@ func prepareCreators(l *processor.LedgerForEvaluator, payset transactions.Payset
 }
 
 // Preload account data and account resources.
-func prepareAccountsResources(l *processor.LedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
+func prepareAccountsResources(l *indxledger.LedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
 	addressesReq, resourcesReq :=
 		accounting.MakePreloadAccountsResourcesRequest(payset, assetCreators, appCreators)
 

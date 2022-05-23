@@ -1,4 +1,4 @@
-package processor
+package ledger
 
 import (
 	"fmt"
@@ -47,7 +47,12 @@ func (l LedgerForEvaluator) LookupWithoutRewards(addresses map[basics.Address]st
 		if err != nil {
 			return nil, err
 		}
-		res[address] = &acctData
+		empty := ledgercore.AccountData{}
+		if acctData == empty {
+			res[address] = nil
+		} else {
+			res[address] = &acctData
+		}
 	}
 
 	return res, nil
@@ -71,14 +76,14 @@ func (l LedgerForEvaluator) LookupResources(input map[basics.Address]map[ledger.
 		for creatable := range creatables {
 			switch creatable.Type {
 			case basics.AssetCreatable:
-				resource, err := l.Ledger.LookupAsset(0, address, basics.AssetIndex(creatable.Index))
+				resource, err := l.Ledger.LookupAsset(l.Ledger.Latest(), address, basics.AssetIndex(creatable.Index))
 				if err != nil {
 					return nil, fmt.Errorf(
 						"LookupResources() %d failed", creatable.Type)
 				}
 				res[address][creatable] = ledgercore.AccountResource{AssetHolding: resource.AssetHolding, AssetParams: resource.AssetParams}
 			case basics.AppCreatable:
-				resource, err := l.Ledger.LookupApplication(0, address, basics.AppIndex(creatable.Index))
+				resource, err := l.Ledger.LookupApplication(l.Ledger.Latest(), address, basics.AppIndex(creatable.Index))
 				if err != nil {
 					return nil, fmt.Errorf(
 						"LookupResources() %d failed", creatable.Type)
