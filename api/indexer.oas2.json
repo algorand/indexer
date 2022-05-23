@@ -1493,7 +1493,7 @@
           "format": "byte"
         },
         "transactions-root-sha256": {
-          "description": "\\[txn256\\] TransactionsRootSHA256 is an auxiliary TransactionRoot, built using a vector commitment instead of a merkle tree, and SHA256 hash function instead of the default SHA512_256. It is used mostly for StateProofs.",
+          "description": "\\[txn256\\] TransactionsRootSHA256 is an auxiliary TransactionRoot, built using a vector commitment instead of a merkle tree, and SHA256 hash function instead of the default SHA512_256. This commitment can be used on environments where only the SHA256 function exists.",
           "type": "string",
           "format": "byte"
         },
