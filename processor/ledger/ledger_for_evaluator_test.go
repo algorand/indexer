@@ -79,7 +79,7 @@ func TestLedgerForEvaluatorAccountDataMissingAccount(t *testing.T) {
 	assert.Nil(t, accountDataRet)
 }
 
-func TestLedgerForEvaluatorAccountAsset(t *testing.T) {
+func TestLedgerForEvaluatorAsset(t *testing.T) {
 	l := makeTestLedger(t, "ledger")
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessor(l, nil)
@@ -262,20 +262,98 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 	assert.Equal(t, expected, ret)
 }
 
-func TestLedgerForEvaluatorAsset(t *testing.T) {}
-
 func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
+	l := makeTestLedger(t, "ledger")
+	defer l.Close()
+	pr, _ := block_processor.MakeProcessor(l, nil)
+
+	txn0 := test.MakeAppCallTxn(0, test.AccountA)
+	txn1 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1)
+	assert.Nil(t, err)
+	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
+	err = pr.Process(&rawBlock)
+	assert.Nil(t, err)
+
+	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	require.NoError(t, err)
+	defer ld.Close()
+
+	ret, err :=
+		ld.LookupResources(map[basics.Address]map[ledger.Creatable]struct{}{
+			test.AccountA: {
+				{Index: 1, Type: basics.AppCreatable}:   {},
+				{Index: 2, Type: basics.AssetCreatable}: {},
+			},
+		})
+	require.NoError(t, err)
+
+	expected := map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource{
+		test.AccountA: {
+			ledger.Creatable{Index: 1, Type: basics.AppCreatable}: {
+				AppParams: &basics.AppParams{
+					ApprovalProgram:   []byte{0x06, 0x81, 0x01},
+					ClearStateProgram: []byte{0x06, 0x81, 0x01},
+					GlobalState:       nil,
+					StateSchemas:      basics.StateSchemas{},
+					ExtraProgramPages: 0,
+				},
+			},
+			ledger.Creatable{Index: 2, Type: basics.AssetCreatable}: {
+				AssetHolding: &basics.AssetHolding{
+					Amount: 2,
+					Frozen: false,
+				},
+				AssetParams: &basics.AssetParams{
+					Total:         2,
+					Decimals:      0,
+					DefaultFrozen: false,
+					UnitName:      "",
+					AssetName:     "",
+					URL:           "",
+					MetadataHash:  [32]byte{},
+					Manager:       test.AccountA,
+					Reserve:       test.AccountA,
+					Freeze:        test.AccountA,
+					Clawback:      test.AccountA,
+				},
+			},
+		},
+	}
+	assert.Equal(t, expected, ret)
 }
 
 func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
+	l := makeTestLedger(t, "ledger")
+	defer l.Close()
+	block_processor.MakeProcessor(l, nil)
 
+	addresses := []basics.Address{
+		test.AccountA, test.AccountB, test.AccountC, test.AccountD}
+
+	addressesMap := make(map[basics.Address]struct{})
+	for _, address := range addresses {
+		addressesMap[address] = struct{}{}
+	}
+	addressesMap[test.FeeAddr] = struct{}{}
+	addressesMap[test.RewardAddr] = struct{}{}
+
+	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	require.NoError(t, err)
+	defer ld.Close()
+
+	ret, err :=
+		ld.LookupWithoutRewards(addressesMap)
+	require.NoError(t, err)
+
+	for _, address := range addresses {
+		accountData, _ := ret[address]
+		require.NotNil(t, accountData)
+	}
 }
 
 func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
-
-}
-
-func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 
 }
 
@@ -284,10 +362,6 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
-
-}
-
-func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 
 }
 
