@@ -12,16 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/processor/blockprocessor"
-	"github.com/algorand/indexer/util"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -79,20 +75,6 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeepin
 	return db, newShutdownFunc
 }
 
-func makeTestLedger(t *testing.T) *ledger.Ledger {
-	genesis := test.MakeGenesis()
-	genesisBlock := test.MakeGenesisBlock()
-	initState, err := util.CreateInitState(&genesis, &genesisBlock)
-	if err != nil {
-		logrus.Panicf("test init err: %v", err)
-	}
-	l, err := ledger.OpenLedger(logging.NewLogger(), "ledger", true, initState, config.GetDefaultLocal())
-	if err != nil {
-		logrus.Panicf("test init err: %v", err)
-	}
-	return l
-}
-
 func TestApplicationHandlers(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()
@@ -110,7 +92,6 @@ func TestApplicationHandlers(t *testing.T) {
 				Header: transactions.Header{
 					Sender:      test.AccountA,
 					GenesisHash: test.GenesisHash,
-					LastValid:   10,
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
@@ -130,7 +111,7 @@ func TestApplicationHandlers(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn, &optInTxnA, &optInTxnB)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -261,7 +242,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 		&appOptInTxnA, &appOptInTxnB, &assetOptInTxnA, &assetOptInTxnB)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -471,7 +452,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -878,7 +859,7 @@ func TestInnerTxn(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -935,7 +916,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1042,7 +1023,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 		require.NotNil(t, response.Transactions)
 		require.Len(t, *response.Transactions, 1)
 		require.NotNil(t, (*response.Transactions)[0])
-		//require.Len(t, *(*response.Transactions)[0].InnerTxns, 2)
+		require.Len(t, *(*response.Transactions)[0].InnerTxns, 2)
 	})
 }
 
@@ -1069,7 +1050,6 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 				Header: transactions.Header{
 					Sender:      test.AccountA,
 					GenesisHash: test.GenesisHash,
-					LastValid:   10,
 				},
 				KeyregTxnFields: transactions.KeyregTxnFields{
 					VotePK:           votePK,
@@ -1088,7 +1068,7 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1196,7 +1176,7 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAsset)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1322,7 +1302,7 @@ func TestLookupInnerLogs(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1425,7 +1405,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")

@@ -189,13 +189,16 @@ func TestWriterTxnTableBasic(t *testing.T) {
 		Payset: make([]transactions.SignedTxnInBlock, 2),
 	}
 
-	stxnad0 := test.MakePaymentTxn(1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{})
+	stxnad0 := test.MakePaymentTxn(
+		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
+		basics.Address{})
 	var err error
 	block.Payset[0], err =
 		block.BlockHeader.EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 	require.NoError(t, err)
 
-	stxnad1 := test.MakeAssetConfigTxn(0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
+	stxnad1 := test.MakeAssetConfigTxn(
+		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountA)
 	block.Payset[1], err =
 		block.BlockHeader.EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
 	require.NoError(t, err)
@@ -333,11 +336,14 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 
 	var tests []testtype
 	{
-		stxnad0 := test.MakePaymentTxn(1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{})
+		stxnad0 := test.MakePaymentTxn(
+			1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
+			basics.Address{})
 		stib0, err := makeBlockFunc().EncodeSignedTxn(stxnad0.SignedTxn, stxnad0.ApplyData)
 		require.NoError(t, err)
 
-		stxnad1 := test.MakeAssetConfigTxn(0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
+		stxnad1 := test.MakeAssetConfigTxn(
+			0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountC)
 		stib1, err := makeBlockFunc().EncodeSignedTxn(stxnad1.SignedTxn, stxnad1.ApplyData)
 		require.NoError(t, err)
 
@@ -624,7 +630,9 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 		Payset: make(transactions.Payset, 1),
 	}
 
-	stxnad := test.MakePaymentTxn(1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{})
+	stxnad := test.MakePaymentTxn(
+		1000, 1, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{},
+		basics.Address{})
 	stxnad.Sig[0] = 5 // set signature so that keytype for account is updated
 	var err error
 	block.Payset[0], err = block.EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
@@ -1335,7 +1343,8 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
 	// Asset create call, should have intra = 5
-	assetCreate := test.MakeAssetConfigTxn(0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountD)
+	assetCreate := test.MakeAssetConfigTxn(
+		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountD)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall, &assetCreate)
 	require.NoError(t, err)

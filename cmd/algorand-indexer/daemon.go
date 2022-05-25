@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"path"
@@ -138,12 +140,7 @@ var daemonCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			wg.Add(1)
-			genesis, err := getGenesis(bot.Algod())
-			maybeFail(err, "Error getting genesis")
-			genesisBlock, err := getGenesisBlock(bot.Algod())
-			maybeFail(err, "Error getting genesis block")
-			initState, err := util.CreateInitState(&genesis, &genesisBlock)
-			maybeFail(err, "Error getting genesis block")
+
 			go func() {
 				defer wg.Done()
 
@@ -157,15 +154,23 @@ var daemonCmd = &cobra.Command{
 
 				logger.Info("Initializing block import handler.")
 				imp := importer.NewImporter(db)
+
+				genesis, err := getGenesis(genesisReader)
+				maybeFail(err, "Error reading genesis")
+				genesisBlock, err := getGenesisBlock(bot.Algod())
+				maybeFail(err, "Error getting genesis block")
+				initState, err := util.CreateInitState(&genesis, &genesisBlock)
+				maybeFail(err, "Error creating init state")
+
 				logger.Info("Initializing local ledger.")
 				localLedger, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(indexerDataDir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
-				maybeFail(err, "%v", err)
+				maybeFail(err, "failed to open ledger %v", err)
 				defer localLedger.Close()
 				bot.SetNextRound(uint64(localLedger.Latest()) + 1)
 
 				proc, err := blockprocessor.MakeProcessor(localLedger, imp.ImportBlock)
 				if err != nil {
-					maybeFail(err, err.Error())
+					maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
 				}
 				handler := blockHandler(proc, 1*time.Second)
 				bot.SetBlockHandler(handler)
@@ -340,19 +345,17 @@ func handleBlock(block *rpcs.EncodedBlockCert, proc processor.Processor) error {
 	return nil
 }
 
-func getGenesis(client *algod.Client) (bookkeeping.Genesis, error) {
-	data, err := client.GetGenesis().Do(context.Background())
+func getGenesis(reader io.Reader) (bookkeeping.Genesis, error) {
+	var genesis bookkeeping.Genesis
+	gbytes, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("getGenesis() client err: %w", err)
+		maybeFail(err, "error reading genesis, %v", err)
 	}
-
-	var res bookkeeping.Genesis
-	err = protocol.DecodeJSON([]byte(data), &res)
+	err = protocol.DecodeJSON(gbytes, &genesis)
 	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("getGenesis() decode err: %w", err)
+		maybeFail(err, "error reading genesis, %v", err)
 	}
-
-	return res, nil
+	return genesis, nil
 }
 
 func getGenesisBlock(client *algod.Client) (bookkeeping.Block, error) {

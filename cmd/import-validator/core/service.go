@@ -350,18 +350,21 @@ func catchup(db *postgres.IndexerDb, l *ledger.Ledger, bot fetcher.Fetcher, logg
 		}()
 
 		if nextRoundLedger >= nextRoundIndexer {
+			wg.Add(1)
 			prc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 			if err != nil {
 				return fmt.Errorf("catchup() err: %w", err)
 			}
 			blockCert := rpcs.EncodedBlockCert{Block: block.Block, Certificate: block.Certificate}
-			start := time.Now()
-			prc.Process(&blockCert)
-			fmt.Printf(
-				"%d transactions imported in %v\n",
-				len(block.Block.Payset), time.Since(start))
+			go func() {
+				start := time.Now()
+				err1 = prc.Process(&blockCert)
+				fmt.Printf(
+					"%d transactions imported in %v\n",
+					len(block.Block.Payset), time.Since(start))
+				wg.Done()
+			}()
 		}
-
 		wg.Wait()
 		if err0 != nil {
 			return fmt.Errorf("catchup() err0: %w", err0)
