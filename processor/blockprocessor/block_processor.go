@@ -42,18 +42,6 @@ func MakeProcessor(ledger *ledger.Ledger, handler func(block *ledgercore.Validat
 
 // Process a raw algod block
 func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
-	apps, _ := proc.ledger.ListApplications(100, 100)
-	//paysets := blockCert.Block.Payset
-
-	for _, app := range apps {
-		fmt.Printf("%v\n", app)
-	}
-	//for _, payset := range paysets {
-	//	//if payset.Txn.ID().String() == "MM76PGEZHO5WRA3HJIVNKQE2Y7Y2GJS7CPIGL65MX43AUEUNYGEQ" {
-	//	//	fmt.Printf("%+v\n", payset)
-	//	//}
-	//	fmt.Println(payset.Txn.ID().String())
-	//}
 
 	if blockCert == nil {
 		return fmt.Errorf("Process(): cannot process a nil block")
