@@ -153,8 +153,9 @@ var daemonCmd = &cobra.Command{
 				logger.Info("Initializing block import handler.")
 				imp := importer.NewImporter(db)
 
+				genesisReader = importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
 				genesis, err := readGenesis(genesisReader)
-				maybeFail(err, "Error reading genesis")
+				maybeFail(err, "Error reading genesis file")
 				genesisBlock, err := getGenesisBlock(bot.Algod())
 				maybeFail(err, "Error getting genesis block")
 				initState, err := util.CreateInitState(&genesis, &genesisBlock)
@@ -347,11 +348,11 @@ func readGenesis(reader io.Reader) (bookkeeping.Genesis, error) {
 	var genesis bookkeeping.Genesis
 	gbytes, err := ioutil.ReadAll(reader)
 	if err != nil {
-		maybeFail(err, "error reading genesis, %v", err)
+		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: %w", err)
 	}
 	err = protocol.DecodeJSON(gbytes, &genesis)
 	if err != nil {
-		maybeFail(err, "error reading genesis, %v", err)
+		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: %w", err)
 	}
 	return genesis, nil
 }
