@@ -56,6 +56,7 @@ func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
 			"Process() cannot find proto version %s", blockCert.Block.BlockHeader.CurrentProtocol)
 	}
 	protoChanged := !proto.EnableAssetCloseAmount
+	proto.EnableAssetCloseAmount = true
 
 	ledgerForEval, err := indxledger.MakeLedgerForEvaluator(proc.ledger)
 	if err != nil {
