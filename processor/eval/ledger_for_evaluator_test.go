@@ -1,4 +1,4 @@
-package ledger_test
+package eval_test
 
 import (
 	"crypto/rand"
@@ -13,7 +13,7 @@ import (
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/rpcs"
 	block_processor "github.com/algorand/indexer/processor/blockprocessor"
-	indxLeder "github.com/algorand/indexer/processor/ledger"
+	indxLeder "github.com/algorand/indexer/processor/eval"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
 	"github.com/stretchr/testify/assert"

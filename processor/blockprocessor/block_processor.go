@@ -12,7 +12,7 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/processor"
-	indxledger "github.com/algorand/indexer/processor/ledger"
+	indxledger "github.com/algorand/indexer/processor/eval"
 )
 
 type blockProcessor struct {
