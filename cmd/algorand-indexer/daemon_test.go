@@ -24,7 +24,7 @@ import (
 type mockImporter struct {
 }
 
-var errMockImportBlock = errors.New("Process() invalid round blockCert.Block.Round(): 1234 processor.nextRoundToProcess: 1")
+var errMockImportBlock = errors.New("Process() invalid round blockCert.Block.Round(): 1234 proc.nextRoundToProcess: 1")
 
 func (imp *mockImporter) ImportBlock(blockContainer *rpcs.EncodedBlockCert) error {
 	return nil
