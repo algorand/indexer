@@ -109,7 +109,7 @@ func (l LedgerForEvaluator) GetAssetCreator(indices map[basics.AssetIndex]struct
 	res := make(map[basics.AssetIndex]ledger.FoundAddress, len(indices))
 	for _, index := range indicesArr {
 		cidx := basics.CreatableIndex(index)
-		address, exists, err := l.Ledger.GetCreatorForRound(0, cidx, basics.AssetCreatable)
+		address, exists, err := l.Ledger.GetCreatorForRound(l.Ledger.Latest(), cidx, basics.AssetCreatable)
 		if err != nil {
 			return nil, fmt.Errorf("GetAssetCreator() err: %w", err)
 		}
@@ -129,7 +129,7 @@ func (l LedgerForEvaluator) GetAppCreator(indices map[basics.AppIndex]struct{}) 
 	res := make(map[basics.AppIndex]ledger.FoundAddress, len(indices))
 	for _, index := range indicesArr {
 		cidx := basics.CreatableIndex(index)
-		address, exists, err := l.Ledger.GetCreatorForRound(0, cidx, basics.AssetCreatable)
+		address, exists, err := l.Ledger.GetCreatorForRound(l.Ledger.Latest(), cidx, basics.AppCreatable)
 		if err != nil {
 			return nil, fmt.Errorf("GetAppCreator() err: %w", err)
 		}

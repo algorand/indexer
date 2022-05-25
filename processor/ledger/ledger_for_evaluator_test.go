@@ -354,22 +354,248 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
+	l := makeTestLedger(t, "ledger")
+	defer l.Close()
+	pr, _ := block_processor.MakeProcessor(l, nil)
 
+	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0)
+	assert.Nil(t, err)
+	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
+	err = pr.Process(&rawBlock)
+	assert.Nil(t, err)
+
+	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	require.NoError(t, err)
+	defer ld.Close()
+
+	ret, err := ld.GetAssetCreator(
+		map[basics.AssetIndex]struct{}{basics.AssetIndex(1): {}})
+	require.NoError(t, err)
+
+	foundAddress, ok := ret[basics.AssetIndex(1)]
+	require.True(t, ok)
+
+	expected := ledger.FoundAddress{
+		Address: test.AccountA,
+		Exists:  true,
+	}
+	assert.Equal(t, expected, foundAddress)
+}
+
+func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
+	l := makeTestLedger(t, "ledger")
+	defer l.Close()
+	pr, _ := block_processor.MakeProcessor(l, nil)
+
+	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
+	txn1 := test.MakeAssetDestroyTxn(1, test.AccountA)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1)
+	assert.Nil(t, err)
+	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
+	err = pr.Process(&rawBlock)
+	assert.Nil(t, err)
+
+	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	require.NoError(t, err)
+	defer ld.Close()
+
+	ret, err := ld.GetAssetCreator(
+		map[basics.AssetIndex]struct{}{basics.AssetIndex(1): {}})
+	require.NoError(t, err)
+
+	foundAddress, ok := ret[basics.AssetIndex(1)]
+	require.True(t, ok)
+
+	assert.False(t, foundAddress.Exists)
 }
 
 func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 
+	l := makeTestLedger(t, "ledger")
+	defer l.Close()
+	pr, _ := block_processor.MakeProcessor(l, nil)
+
+	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
+	txn1 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountB)
+	txn2 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountC)
+	txn3 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountD)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2, &txn3)
+	assert.Nil(t, err)
+	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
+	err = pr.Process(&rawBlock)
+	assert.Nil(t, err)
+
+	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	require.NoError(t, err)
+	defer ld.Close()
+
+	indices := map[basics.AssetIndex]struct{}{
+		1: {}, 2: {}, 3: {}, 4: {}, 5: {}, 6: {}, 7: {}, 8: {}}
+	ret, err := ld.GetAssetCreator(indices)
+	require.NoError(t, err)
+
+	creatorsMap := map[basics.AssetIndex]basics.Address{
+		1: test.AccountA,
+		2: test.AccountB,
+		3: test.AccountC,
+		4: test.AccountD,
+	}
+
+	for i := 1; i <= 4; i++ {
+		index := basics.AssetIndex(i)
+
+		foundAddress, ok := ret[index]
+		require.True(t, ok)
+
+		expected := ledger.FoundAddress{
+			Address: creatorsMap[index],
+			Exists:  true,
+		}
+		assert.Equal(t, expected, foundAddress)
+	}
+	for i := 5; i <= 8; i++ {
+		index := basics.AssetIndex(i)
+
+		foundAddress, ok := ret[index]
+		require.True(t, ok)
+
+		assert.False(t, foundAddress.Exists)
+	}
 }
 
 func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
+	l := makeTestLedger(t, "ledger")
+	defer l.Close()
+	pr, _ := block_processor.MakeProcessor(l, nil)
 
+	txn0 := test.MakeAppCallTxn(0, test.AccountA)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0)
+	assert.Nil(t, err)
+	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
+	err = pr.Process(&rawBlock)
+	assert.Nil(t, err)
+
+	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	require.NoError(t, err)
+	defer ld.Close()
+
+	ret, err := ld.GetAppCreator(
+		map[basics.AppIndex]struct{}{basics.AppIndex(1): {}})
+	require.NoError(t, err)
+
+	foundAddress, ok := ret[basics.AppIndex(1)]
+	require.True(t, ok)
+
+	expected := ledger.FoundAddress{
+		Address: test.AccountA,
+		Exists:  true,
+	}
+	assert.Equal(t, expected, foundAddress)
+
+}
+
+func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
+	l := makeTestLedger(t, "ledger")
+	defer l.Close()
+	pr, _ := block_processor.MakeProcessor(l, nil)
+
+	txn0 := test.MakeAppCallTxn(0, test.AccountA)
+	txn1 := test.MakeAppDestroyTxn(1, test.AccountA)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1)
+	assert.Nil(t, err)
+	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
+	err = pr.Process(&rawBlock)
+	assert.Nil(t, err)
+
+	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	require.NoError(t, err)
+	defer ld.Close()
+
+	ret, err := ld.GetAppCreator(
+		map[basics.AppIndex]struct{}{basics.AppIndex(1): {}})
+	require.NoError(t, err)
+
+	foundAddress, ok := ret[basics.AppIndex(1)]
+	require.True(t, ok)
+
+	assert.False(t, foundAddress.Exists)
 }
 
 func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 
+	l := makeTestLedger(t, "ledger")
+	defer l.Close()
+	pr, _ := block_processor.MakeProcessor(l, nil)
+
+	txn0 := test.MakeAppCallTxn(0, test.AccountA)
+	txn1 := test.MakeAppCallTxn(0, test.AccountB)
+	txn2 := test.MakeAppCallTxn(0, test.AccountC)
+	txn3 := test.MakeAppCallTxn(0, test.AccountD)
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2, &txn3)
+	assert.Nil(t, err)
+	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
+	err = pr.Process(&rawBlock)
+	assert.Nil(t, err)
+
+	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	require.NoError(t, err)
+	defer ld.Close()
+
+	creatorsMap := map[basics.AppIndex]basics.Address{
+		1: test.AccountA,
+		2: test.AccountB,
+		3: test.AccountC,
+		4: test.AccountD,
+	}
+
+	indices := map[basics.AppIndex]struct{}{
+		1: {}, 2: {}, 3: {}, 4: {}, 5: {}, 6: {}, 7: {}, 8: {}}
+	ret, err := ld.GetAppCreator(indices)
+	require.NoError(t, err)
+
+	assert.Equal(t, len(indices), len(ret))
+	for i := 1; i <= 4; i++ {
+		index := basics.AppIndex(i)
+
+		foundAddress, ok := ret[index]
+		require.True(t, ok)
+
+		expected := ledger.FoundAddress{
+			Address: creatorsMap[index],
+			Exists:  true,
+		}
+		assert.Equal(t, expected, foundAddress)
+	}
+	for i := 5; i <= 8; i++ {
+		index := basics.AppIndex(i)
+
+		foundAddress, ok := ret[index]
+		require.True(t, ok)
+
+		assert.False(t, foundAddress.Exists)
+	}
 }
 
 func TestLedgerForEvaluatorAccountTotals(t *testing.T) {
+	l := makeTestLedger(t, "ledger")
+	defer l.Close()
+
+	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	require.NoError(t, err)
+	defer ld.Close()
+
+	accountTotalsRead, err := ld.LatestTotals()
+	require.NoError(t, err)
+
+	_, total, _ := l.LatestTotals()
+	assert.Equal(t, total, accountTotalsRead)
 
 }
 
