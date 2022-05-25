@@ -2,19 +2,15 @@ package eval_test
 
 import (
 	"crypto/rand"
-	"log"
 	"testing"
 
 	"github.com/algorand/go-algorand/agreement"
-	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/rpcs"
 	block_processor "github.com/algorand/indexer/processor/blockprocessor"
 	indxLeder "github.com/algorand/indexer/processor/eval"
-	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,7 +18,7 @@ import (
 
 func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 
-	l := makeTestLedger(t, "ledger")
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessor(l, nil)
 	txn := test.MakePaymentTxn(0, 100, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
@@ -43,7 +39,7 @@ func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountDataBasic(t *testing.T) {
-	l := makeTestLedger(t, "ledger")
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	block_processor.MakeProcessor(l, nil)
 	accountData, _, err := l.LookupWithoutRewards(0, test.AccountB)
@@ -63,7 +59,7 @@ func TestLedgerForEvaluatorAccountDataBasic(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountDataMissingAccount(t *testing.T) {
-	l := makeTestLedger(t, "ledger")
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	ld, err := indxLeder.MakeLedgerForEvaluator(l)
 	require.NoError(t, err)
@@ -80,7 +76,7 @@ func TestLedgerForEvaluatorAccountDataMissingAccount(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAsset(t *testing.T) {
-	l := makeTestLedger(t, "ledger")
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessor(l, nil)
 
@@ -181,7 +177,7 @@ func TestLedgerForEvaluatorAsset(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorApp(t *testing.T) {
-	l := makeTestLedger(t, "ledger")
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessor(l, nil)
 
@@ -221,8 +217,8 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 			ledger.Creatable{Index: 1, Type: basics.AppCreatable}: {},
 			ledger.Creatable{Index: 2, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
-					ApprovalProgram:   []byte{0x06, 0x81, 0x01},
-					ClearStateProgram: []byte{0x06, 0x81, 0x01},
+					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
 					GlobalState:       nil,
 					StateSchemas:      basics.StateSchemas{},
 					ExtraProgramPages: 0,
@@ -230,8 +226,8 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 			},
 			ledger.Creatable{Index: 3, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
-					ApprovalProgram:   []byte{0x06, 0x81, 0x01},
-					ClearStateProgram: []byte{0x06, 0x81, 0x01},
+					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
 					GlobalState:       nil,
 					StateSchemas:      basics.StateSchemas{},
 					ExtraProgramPages: 0,
@@ -239,8 +235,8 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 			},
 			ledger.Creatable{Index: 4, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
-					ApprovalProgram:   []byte{0x06, 0x81, 0x01},
-					ClearStateProgram: []byte{0x06, 0x81, 0x01},
+					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
 					GlobalState:       nil,
 					StateSchemas:      basics.StateSchemas{},
 					ExtraProgramPages: 0,
@@ -250,8 +246,8 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 		test.AccountB: {
 			ledger.Creatable{Index: 6, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
-					ApprovalProgram:   []byte{0x06, 0x81, 0x01},
-					ClearStateProgram: []byte{0x06, 0x81, 0x01},
+					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
 					GlobalState:       nil,
 					StateSchemas:      basics.StateSchemas{},
 					ExtraProgramPages: 0,
@@ -263,7 +259,7 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
-	l := makeTestLedger(t, "ledger")
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessor(l, nil)
 
@@ -293,8 +289,8 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 		test.AccountA: {
 			ledger.Creatable{Index: 1, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
-					ApprovalProgram:   []byte{0x06, 0x81, 0x01},
-					ClearStateProgram: []byte{0x06, 0x81, 0x01},
+					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
 					GlobalState:       nil,
 					StateSchemas:      basics.StateSchemas{},
 					ExtraProgramPages: 0,
@@ -325,7 +321,7 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
-	l := makeTestLedger(t, "ledger")
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	block_processor.MakeProcessor(l, nil)
 
@@ -354,7 +350,7 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
-	l := makeTestLedger(t, "ledger")
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessor(l, nil)
 
@@ -385,7 +381,7 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
-	l := makeTestLedger(t, "ledger")
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessor(l, nil)
 
@@ -414,7 +410,7 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 
 func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 
-	l := makeTestLedger(t, "ledger")
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessor(l, nil)
 
@@ -468,7 +464,7 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
-	l := makeTestLedger(t, "ledger")
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessor(l, nil)
 
@@ -500,7 +496,7 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
-	l := makeTestLedger(t, "ledger")
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessor(l, nil)
 
@@ -529,7 +525,7 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 
 func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 
-	l := makeTestLedger(t, "ledger")
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessor(l, nil)
 
@@ -584,7 +580,7 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountTotals(t *testing.T) {
-	l := makeTestLedger(t, "ledger")
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 
 	ld, err := indxLeder.MakeLedgerForEvaluator(l)
@@ -597,20 +593,4 @@ func TestLedgerForEvaluatorAccountTotals(t *testing.T) {
 	_, total, _ := l.LatestTotals()
 	assert.Equal(t, total, accountTotalsRead)
 
-}
-
-func makeTestLedger(t *testing.T, prefix string) *ledger.Ledger {
-	// initialize local ledger
-	genesis := test.MakeGenesis()
-	genesisBlock := test.MakeGenesisBlock()
-	initState, err := util.CreateInitState(&genesis, &genesisBlock)
-	if err != nil {
-		log.Panicf("test init err: %v", err)
-	}
-	logger := logging.NewLogger()
-	l, err := ledger.OpenLedger(logger, prefix, true, initState, config.GetDefaultLocal())
-	if err != nil {
-		log.Panicf("test init err: %v", err)
-	}
-	return l
 }

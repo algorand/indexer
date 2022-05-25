@@ -140,7 +140,6 @@ var daemonCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			wg.Add(1)
-
 			go func() {
 				defer wg.Done()
 
@@ -151,11 +150,10 @@ var daemonCmd = &cobra.Command{
 				genesisReader := importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
 				_, err := importer.EnsureInitialImport(db, genesisReader, logger)
 				maybeFail(err, "importer.EnsureInitialImport() error")
-
 				logger.Info("Initializing block import handler.")
 				imp := importer.NewImporter(db)
 
-				genesis, err := getGenesis(genesisReader)
+				genesis, err := readGenesis(genesisReader)
 				maybeFail(err, "Error reading genesis")
 				genesisBlock, err := getGenesisBlock(bot.Algod())
 				maybeFail(err, "Error getting genesis block")
@@ -345,7 +343,7 @@ func handleBlock(block *rpcs.EncodedBlockCert, proc processor.Processor) error {
 	return nil
 }
 
-func getGenesis(reader io.Reader) (bookkeeping.Genesis, error) {
+func readGenesis(reader io.Reader) (bookkeeping.Genesis, error) {
 	var genesis bookkeeping.Genesis
 	gbytes, err := ioutil.ReadAll(reader)
 	if err != nil {

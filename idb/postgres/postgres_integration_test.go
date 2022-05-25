@@ -746,7 +746,6 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 				Header: transactions.Header{
 					Sender:      test.AccountA,
 					GenesisHash: test.GenesisHash,
-					LastValid:   10,
 				},
 				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
 					AssetParams: basics.AssetParams{
@@ -907,7 +906,6 @@ func TestAppExtraPages(t *testing.T) {
 				Header: transactions.Header{
 					Sender:      test.AccountA,
 					GenesisHash: test.GenesisHash,
-					LastValid:   10,
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
 					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
@@ -1286,7 +1284,6 @@ func TestReconfigAsset(t *testing.T) {
 					Sender:      test.AccountA,
 					Fee:         basics.MicroAlgos{Raw: 1000},
 					GenesisHash: test.GenesisHash,
-					LastValid:   10,
 				},
 				AssetConfigTxnFields: transactions.AssetConfigTxnFields{
 					ConfigAsset: basics.AssetIndex(assetID),

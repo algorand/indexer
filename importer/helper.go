@@ -131,8 +131,15 @@ func importTar(imp Importer, tarfile io.Reader, l *log.Logger, genesisReader io.
 	}
 	sort.Slice(blocks, less)
 
-	genesis, err := getGenesis(genesisReader)
-	maybeFail(err, l, "Error getting genesis")
+	var genesis bookkeeping.Genesis
+	gbytes, err := ioutil.ReadAll(genesisReader)
+	if err != nil {
+		maybeFail(err, l, "error reading genesis, %v", err)
+	}
+	err = protocol.DecodeJSON(gbytes, &genesis)
+	if err != nil {
+		maybeFail(err, l, "error decoding genesis, %v", err)
+	}
 	genesisBlock := blocks[0]
 	initState, err := util.CreateInitState(&genesis, &genesisBlock.Block)
 	maybeFail(err, l, "Error getting genesis block")
@@ -301,18 +308,4 @@ func checkGenesisHash(db idb.IndexerDb, genesisReader io.Reader) error {
 		return fmt.Errorf("genesis hash not matching")
 	}
 	return nil
-}
-
-func getGenesis(in io.Reader) (bookkeeping.Genesis, error) {
-	var genesis bookkeeping.Genesis
-	gbytes, err := ioutil.ReadAll(in)
-	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("error reading genesis, %v", err)
-	}
-	err = protocol.DecodeJSON(gbytes, &genesis)
-	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("error decoding genesis, %v", err)
-	}
-
-	return genesis, nil
 }
