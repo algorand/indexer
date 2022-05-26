@@ -355,6 +355,7 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 				}
 			}
 		}
+
 		return nil
 	}
 	err := db.txWithRetry(serializable, f)

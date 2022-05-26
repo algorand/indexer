@@ -346,6 +346,9 @@ func handleBlock(block *rpcs.EncodedBlockCert, proc processor.Processor) error {
 
 func readGenesis(reader io.Reader) (bookkeeping.Genesis, error) {
 	var genesis bookkeeping.Genesis
+	if reader == nil {
+		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: reader is nil")
+	}
 	gbytes, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: %w", err)

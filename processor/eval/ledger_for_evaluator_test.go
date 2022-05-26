@@ -21,7 +21,8 @@ func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessor(l, nil)
-	txn := test.MakePaymentTxn(0, 100, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn := test.MakePaymentTxn(0, 100, 0, 1, 1,
+		0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	assert.Nil(t, err)
 	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}

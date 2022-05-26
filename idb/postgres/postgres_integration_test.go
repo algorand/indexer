@@ -10,12 +10,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-codec/codec"
@@ -25,7 +22,6 @@ import (
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/processor/blockprocessor"
-	"github.com/algorand/indexer/util"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/sirupsen/logrus"
@@ -36,20 +32,6 @@ import (
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	"github.com/algorand/indexer/util/test"
 )
-
-func makeTestLedger(t *testing.T) *ledger.Ledger {
-	genesis := test.MakeGenesis()
-	genesisBlock := test.MakeGenesisBlock()
-	initState, err := util.CreateInitState(&genesis, &genesisBlock)
-	if err != nil {
-		logrus.Panicf("test init err: %v", err)
-	}
-	l, err := ledger.OpenLedger(logging.NewLogger(), "ledger", true, initState, config.GetDefaultLocal())
-	if err != nil {
-		logrus.Panicf("test init err: %v", err)
-	}
-	return l
-}
 
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.
 func TestMaxRoundOnUninitializedDB(t *testing.T) {
@@ -183,18 +165,17 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	optInB := test.MakeAssetOptInTxn(assetid, test.AccountB)
 	optInC := test.MakeAssetOptInTxn(assetid, test.AccountC)
 	closeA := test.MakeAssetTransferTxn(assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
-	optInDA := test.MakeAssetOptInTxn(assetid, test.AccountA)
 	payMain := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createAsset, &optInA, &fundA, &optInB,
-		&optInC, &closeA, &optInDA, &payMain)
+		&optInC, &closeA, &optInA, &payMain)
 	require.NoError(t, err)
 
 	//////////
 	// When // We commit the block to the database
 	//////////
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -215,7 +196,7 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	assertAccountAsset(t, db.db, test.AccountD, assetid, false, total-2*amt)
 }
 
-//TestReCreateAssetHolding checks the optin value of a defunct
+// TestReCreateAssetHolding checks the optin value of a defunct
 func TestReCreateAssetHolding(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()
@@ -230,22 +211,25 @@ func TestReCreateAssetHolding(t *testing.T) {
 		// A new asset with default-frozen, AccountB opts-in and has its frozen state
 		// toggled.
 		/////////// Then AccountB opts-out then opts-in again.
-		createAssetFrozen := test.MakeAssetConfigTxn(0, total, uint64(6), frozen, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+		createAssetFrozen := test.MakeAssetConfigTxn(
+			0, total, uint64(6), frozen, "icicles", "frozen coin",
+			"http://antarctica.com", test.AccountA)
 		optinB := test.MakeAssetOptInTxn(assetid, test.AccountB)
-		unfreezeB := test.MakeAssetFreezeTxn(assetid, !frozen, test.AccountA, test.AccountB)
-		optoutB := test.MakeAssetTransferTxn(assetid, 0, test.AccountB, test.AccountC, test.AccountD)
-		optinB2 := test.MakeAssetOptInTxn(assetid, test.AccountB)
+		unfreezeB := test.MakeAssetFreezeTxn(
+			assetid, !frozen, test.AccountA, test.AccountB)
+		optoutB := test.MakeAssetTransferTxn(
+			assetid, 0, test.AccountB, test.AccountC, test.AccountD)
 
 		var err error
 		block, err = test.MakeBlockForTxns(
 			block.BlockHeader, &createAssetFrozen, &optinB, &unfreezeB,
-			&optoutB, &optinB2)
+			&optoutB, &optinB)
 		require.NoError(t, err)
 
 		//////////
 		// When // We commit the round accounting to the database.
 		//////////
-		l := makeTestLedger(t)
+		l := test.MakeTestLedger("ledger")
 		defer l.Close()
 		proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 		require.NoError(t, err, "failed to open ledger")
@@ -272,19 +256,20 @@ func TestNoopOptins(t *testing.T) {
 	///////////
 	assetid := uint64(1)
 
-	createAsset := test.MakeAssetConfigTxn(0, uint64(1000000), uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	createAsset := test.MakeAssetConfigTxn(
+		0, uint64(1000000), uint64(6), true, "icicles", "frozen coin",
+		"http://antarctica.com", test.AccountD)
 	optinB := test.MakeAssetOptInTxn(assetid, test.AccountB)
 	unfreezeB := test.MakeAssetFreezeTxn(assetid, false, test.AccountD, test.AccountB)
-	optinB2 := test.MakeAssetOptInTxn(assetid, test.AccountB)
 
 	block, err := test.MakeBlockForTxns(
-		test.MakeGenesisBlock().BlockHeader, &createAsset, &optinB, &unfreezeB, &optinB2)
+		test.MakeGenesisBlock().BlockHeader, &createAsset, &optinB, &unfreezeB, &optinB)
 	require.NoError(t, err)
 
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -303,16 +288,18 @@ func TestMultipleWriters(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()
 
-	amt := uint64(100000) //min balance
+	amt := uint64(10000)
 
 	///////////
 	// Given // Send amt to AccountE
 	///////////
-	payAccountE := test.MakePaymentTxn(1000, amt, 0, 0, 0, 0, test.AccountD, test.AccountE, basics.Address{}, basics.Address{})
+	payAccountE := test.MakePaymentTxn(
+		1000, amt, 0, 0, 0, 0, test.AccountD, test.AccountE, basics.Address{},
+		basics.Address{})
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &payAccountE)
 	require.NoError(t, err)
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -370,20 +357,26 @@ func TestBlockWithTransactions(t *testing.T) {
 	///////////
 	// Given // A block at round `round` with 5 transactions.
 	///////////
-	txn1 := test.MakeAssetConfigTxn(0, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountD)
+	txn1 := test.MakeAssetConfigTxn(
+		0, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com",
+		test.AccountD)
 	txn2 := test.MakeAssetOptInTxn(assetid, test.AccountA)
-	txn3 := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
+	txn3 := test.MakeAssetTransferTxn(
+		assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 	txn4 := test.MakeAssetOptInTxn(assetid, test.AccountB)
 	txn5 := test.MakeAssetOptInTxn(assetid, test.AccountC)
-	txn6 := test.MakeAssetTransferTxn(assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
-	txn7 := test.MakeAssetTransferTxn(assetid, 0, test.AccountA, test.AccountA, basics.Address{})
-	txn8 := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
+	txn6 := test.MakeAssetTransferTxn(
+		assetid, 1000, test.AccountA, test.AccountB, test.AccountC)
+	txn7 := test.MakeAssetTransferTxn(
+		assetid, 0, test.AccountA, test.AccountA, basics.Address{})
+	txn8 := test.MakeAssetTransferTxn(
+		assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 	txns := []*transactions.SignedTxnWithAD{
 		&txn1, &txn2, &txn3, &txn4, &txn5, &txn6, &txn7, &txn8}
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, txns...)
 	require.NoError(t, err)
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -423,11 +416,12 @@ func TestRekeyBasic(t *testing.T) {
 	///////////
 	// Given // Send rekey transaction
 	///////////
-	txn := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
+	txn := test.MakePaymentTxn(
+		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -460,7 +454,7 @@ func TestRekeyToItself(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -488,7 +482,6 @@ func TestRekeyToItself(t *testing.T) {
 
 	ad, err := encoding.DecodeTrimmedLcAccountData(accountDataStr)
 	require.NoError(t, err, "failed to parse account data json")
-	fmt.Println("addr:", ad.AuthAddr.String())
 	assert.Equal(t, basics.Address{}, ad.AuthAddr)
 }
 
@@ -499,15 +492,20 @@ func TestRekeyThreeTimesInSameRound(t *testing.T) {
 	///////////
 	// Given // Send rekey transaction
 	///////////
-	txn0 := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
-	txn1 := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountA)
-	txn2 := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountC)
+	txn0 := test.MakePaymentTxn(
+		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{},
+		test.AccountB)
+	txn1 := test.MakePaymentTxn(
+		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{},
+		basics.Address{})
+	txn2 := test.MakePaymentTxn(
+		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountC)
 
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -535,21 +533,22 @@ func TestRekeyToItselfHasNotBeenRekeyed(t *testing.T) {
 	///////////
 	// Given // Send rekey transaction
 	///////////
-	txn := test.MakePaymentTxn(1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn := test.MakePaymentTxn(
+		1000, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{},
+		basics.Address{})
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
 	//////////
 	// Then // No error when committing to the DB.
 	//////////
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
 	blockCert := rpcs.EncodedBlockCert{Block: block}
 	err = proc.Process(&blockCert)
 	require.NoError(t, err)
-
 }
 
 // TestIgnoreDefaultFrozenConfigUpdate the creator asset holding should ignore default-frozen = true.
@@ -563,8 +562,12 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	///////////
 	// Given // A new asset with default-frozen = true, and AccountB opting into it.
 	///////////
-	createAssetNotFrozen := test.MakeAssetConfigTxn(0, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
-	modifyAssetToFrozen := test.MakeAssetConfigTxn(assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com", test.AccountA)
+	createAssetNotFrozen := test.MakeAssetConfigTxn(
+		0, total, uint64(6), false, "icicles", "frozen coin", "http://antarctica.com",
+		test.AccountA)
+	modifyAssetToFrozen := test.MakeAssetConfigTxn(
+		assetid, total, uint64(6), true, "icicles", "frozen coin", "http://antarctica.com",
+		test.AccountA)
 	optin := test.MakeAssetOptInTxn(assetid, test.AccountB)
 
 	block, err := test.MakeBlockForTxns(
@@ -575,7 +578,7 @@ func TestIgnoreDefaultFrozenConfigUpdate(t *testing.T) {
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -602,14 +605,16 @@ func TestZeroTotalAssetCreate(t *testing.T) {
 	///////////
 	// Given // A new asset with total = 0.
 	///////////
-	createAsset := test.MakeAssetConfigTxn(0, total, uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountA)
+	createAsset := test.MakeAssetConfigTxn(
+		0, total, uint64(6), false, "mcn", "my coin", "http://antarctica.com",
+		test.AccountA)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAsset)
 	require.NoError(t, err)
 
 	//////////
 	// When // We commit the round accounting to the database.
 	//////////
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -668,7 +673,7 @@ func TestDestroyAssetBasic(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -710,7 +715,7 @@ func TestDestroyAssetZeroSupply(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -769,13 +774,14 @@ func TestDestroyAssetDeleteCreatorsHolding(t *testing.T) {
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2)
 	require.NoError(t, err)
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
 	blockCert := rpcs.EncodedBlockCert{Block: block}
 	err = proc.Process(&blockCert)
 	require.NoError(t, err)
+
 	// Check that the creator's asset holding is deleted.
 	assertAssetHoldingDates(t, db.db, test.AccountA, assetID,
 		sql.NullBool{Valid: true, Bool: true},
@@ -806,7 +812,9 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	// Create a block with freeze txn
 	assetid := uint64(1)
 
-	createAsset := test.MakeAssetConfigTxn(0, uint64(1000000), uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountA)
+	createAsset := test.MakeAssetConfigTxn(
+		0, uint64(1000000), uint64(6), false, "mcn", "my coin", "http://antarctica.com",
+		test.AccountA)
 	optinB := test.MakeAssetOptInTxn(assetid, test.AccountB)
 	freeze := test.MakeAssetFreezeTxn(assetid, true, test.AccountA, test.AccountB)
 
@@ -817,7 +825,7 @@ func TestAssetFreezeTxnParticipation(t *testing.T) {
 	//////////
 	// When // We import the block.
 	//////////
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -864,7 +872,7 @@ func TestInnerTxnParticipation(t *testing.T) {
 	//////////
 	// When // We import the block.
 	//////////
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -920,7 +928,7 @@ func TestAppExtraPages(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -994,11 +1002,12 @@ func TestKeytypeBasic(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, nil)
 
 	// Sig
-	txn := test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1010,7 +1019,8 @@ func TestKeytypeBasic(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, &keytype)
 
 	// Msig
-	txn = test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountB, test.AccountA, basics.Address{}, basics.Address{})
+	txn = test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	txn.Sig = crypto.Signature{}
 	txn.Msig.Subsigs = append(txn.Msig.Subsigs, crypto.MultisigSubsig{})
 
@@ -1021,7 +1031,7 @@ func TestKeytypeBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	keytype = "msig"
-	assertKeytype(t, db, test.AccountB, &keytype)
+	assertKeytype(t, db, test.AccountA, &keytype)
 }
 
 // Test that asset amount >= 2^63 is handled correctly. Due to the specifics of
@@ -1031,11 +1041,12 @@ func TestLargeAssetAmount(t *testing.T) {
 	defer shutdownFunc()
 
 	assetid := uint64(1)
-	txn := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, "mc", "mycoin", "", test.AccountA)
+	txn := test.MakeAssetConfigTxn(
+		0, math.MaxUint64, 0, false, "mc", "mycoin", "", test.AccountA)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1175,17 +1186,19 @@ func TestNonDisplayableUTF8(t *testing.T) {
 			db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 			defer shutdownFunc()
 
-			txn := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
+			txn := test.MakeAssetConfigTxn(
+				0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
 			// Try to add cheeky inner txns lazily by adding an AD to the acfg txn
 			txn.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
-				test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, unit, name, url, test.AccountA),
+				test.MakeAssetConfigTxn(
+					0, math.MaxUint64, 0, false, unit, name, url, test.AccountA),
 			}
 			txn.ApplyData.EvalDelta.InnerTxns[0].ConfigAsset = basics.AssetIndex(innerAssetID)
 			block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 			require.NoError(t, err)
 
 			// Test 1: import/accounting should work.
-			l := makeTestLedger(t)
+			l := test.MakeTestLedger("ledger")
 			defer l.Close()
 			proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 			require.NoError(t, err, "failed to open ledger")
@@ -1265,10 +1278,11 @@ func TestReconfigAsset(t *testing.T) {
 	url := "https://algorand.com"
 	assetID := uint64(1)
 
-	txn := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
+	txn := test.MakeAssetConfigTxn(
+		0, math.MaxUint64, 0, false, unit, name, url, test.AccountA)
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1327,11 +1341,12 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	defer shutdownFunc()
 
 	// Sig
-	txn := test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1343,7 +1358,8 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, &keytype)
 
 	// Rekey.
-	txn = test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
+	txn = test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, test.AccountB)
 
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
@@ -1354,7 +1370,8 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, nil)
 
 	// Msig
-	txn = test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountB, test.AccountA, basics.Address{}, basics.Address{})
+	txn = test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	txn.Sig = crypto.Signature{}
 	txn.Msig.Subsigs = append(txn.Msig.Subsigs, crypto.MultisigSubsig{})
 	txn.AuthAddr = test.AccountB
@@ -1366,7 +1383,7 @@ func TestKeytypeResetsOnRekey(t *testing.T) {
 	require.NoError(t, err)
 
 	keytype = "msig"
-	assertKeytype(t, db, test.AccountB, &keytype)
+	assertKeytype(t, db, test.AccountA, &keytype)
 }
 
 // Test that after closing the account, keytype will be correctly set.
@@ -1377,11 +1394,12 @@ func TestKeytypeDeletedAccount(t *testing.T) {
 
 	assertKeytype(t, db, test.AccountA, nil)
 
-	closeTxn := test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, test.AccountB, basics.Address{})
+	closeTxn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, test.AccountB, basics.Address{})
 
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &closeTxn)
 	require.NoError(t, err)
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1425,19 +1443,23 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 
 	assetid := uint64(1)
 
-	createAsset := test.MakeAssetConfigTxn(0, uint64(1000000), uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountA)
+	createAsset := test.MakeAssetConfigTxn(
+		0, uint64(1000000), uint64(6), false, "mcn", "my coin", "http://antarctica.com",
+		test.AccountA)
 	optinB := test.MakeAssetOptInTxn(assetid, test.AccountB)
-	transferAB := test.MakeAssetTransferTxn(assetid, 100, test.AccountA, test.AccountB, basics.Address{})
+	transferAB := test.MakeAssetTransferTxn(
+		assetid, 100, test.AccountA, test.AccountB, basics.Address{})
 	optinC := test.MakeAssetOptInTxn(assetid, test.AccountC)
 	// Close B to C.
-	closeB := test.MakeAssetTransferTxn(assetid, 30, test.AccountB, test.AccountA, test.AccountC)
+	closeB := test.MakeAssetTransferTxn(
+		assetid, 30, test.AccountB, test.AccountA, test.AccountC)
 
 	block, err := test.MakeBlockForTxns(
 		block.BlockHeader, &createAsset, &optinB, &transferAB,
 		&optinC, &closeB)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1478,7 +1500,7 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), round)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1514,13 +1536,15 @@ func TestAddBlockCreateDeleteAccountSameRound(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
 	defer shutdownFunc()
 
-	createTxn := test.MakePaymentTxn(0, 100000, 0, 0, 0, 0, test.AccountA, test.AccountE, basics.Address{}, basics.Address{})
-	deleteTxn := test.MakePaymentTxn(0, 100000, 3, 0, 0, 0, test.AccountE, test.AccountB, test.AccountC, basics.Address{})
+	createTxn := test.MakePaymentTxn(
+		0, 5, 0, 0, 0, 0, test.AccountA, test.AccountE, basics.Address{}, basics.Address{})
+	deleteTxn := test.MakePaymentTxn(
+		0, 2, 3, 0, 0, 0, test.AccountE, test.AccountB, test.AccountC, basics.Address{})
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1558,7 +1582,7 @@ func TestAddBlockCreateDeleteAssetSameRound(t *testing.T) {
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1618,7 +1642,7 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1657,7 +1681,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &optInTxn, &optOutTxn)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1784,7 +1808,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	rootTxid := appCall.Txn.ID()
 
 	err = pgutil.TxWithRetry(pdb, serializable, func(tx pgx.Tx) error {
-		l := makeTestLedger(t)
+		l := test.MakeTestLedger("ledger")
 		defer l.Close()
 		proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 		require.NoError(t, err, "failed to open ledger")
@@ -1895,7 +1919,7 @@ func TestNonUTF8Logs(t *testing.T) {
 			require.NoError(t, err)
 
 			// Test 1: import/accounting should work.
-			l := makeTestLedger(t)
+			l := test.MakeTestLedger("ledger")
 			defer l.Close()
 			proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 			require.NoError(t, err, "failed to open ledger")
@@ -1946,8 +1970,10 @@ func TestTxnAssetID(t *testing.T) {
 	defer shutdownFunc()
 
 	assetid := uint64(1)
-	createAssetTxn := test.MakeAssetConfigTxn(0, 0, 0, false, "myasset", "ma", "", test.AccountA)
-	configAssetTxn := test.MakeAssetConfigTxn(assetid, 0, 0, false, "myasset", "ma", "", test.AccountA)
+	createAssetTxn := test.MakeAssetConfigTxn(
+		0, 0, 0, false, "myasset", "ma", "", test.AccountA)
+	configAssetTxn := test.MakeAssetConfigTxn(
+		assetid, 0, 0, false, "myasset", "ma", "", test.AccountA)
 	appid := uint64(3)
 	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
 	destroyAppTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
@@ -1957,7 +1983,7 @@ func TestTxnAssetID(t *testing.T) {
 		&createAppTxn, &destroyAppTxn)
 	require.NoError(t, err)
 
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1987,7 +2013,7 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 	// Need to import a block header because the transactions query joins on it.
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader)
 	require.NoError(t, err)
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -2000,7 +2026,7 @@ func TestBadTxnJsonEncoding(t *testing.T) {
 	badJSON := `{"aaaaaaaa": 0}`
 
 	query := `INSERT INTO txn (round, intra, typeenum, asset, txid, txn, extra)
-   VALUES (1, $1, 0, 0, $2, $3, $4)`
+    VALUES (1, $1, 0, 0, $2, $3, $4)`
 
 	_, err = db.db.Exec(
 		context.Background(), query, rootIntra, rootTxid, badJSON,
@@ -2055,10 +2081,11 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 	assertKeytype(t, db, test.AccountA, nil)
 
 	// Sigtype of account B becomes "sig".
-	txn := test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountB, test.AccountB, basics.Address{}, basics.Address{})
+	txn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountB, test.AccountB, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -2067,7 +2094,8 @@ func TestKeytypeDoNotResetReceiver(t *testing.T) {
 	require.NoError(t, err)
 
 	// Sigtype of account A becomes "sig" and B remains the same.
-	txn = test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{})
+	txn = test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountB, basics.Address{}, basics.Address{})
 	block, err = test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
 	blockCert = rpcs.EncodedBlockCert{Block: block}
@@ -2099,10 +2127,11 @@ func TestAddBlockTxnTxnParticipationAhead(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	txn := test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -2117,10 +2146,11 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), block)
 	defer shutdownFunc()
 
-	txn := test.MakePaymentTxn(0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn := test.MakePaymentTxn(
+		0, 0, 0, 0, 0, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(block.BlockHeader, &txn)
 	require.NoError(t, err)
-	l := makeTestLedger(t)
+	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -2166,7 +2196,7 @@ func TestTransactionsTxnAhead(t *testing.T) {
 	{
 		block, err := test.MakeBlockForTxns(block.BlockHeader)
 		require.NoError(t, err)
-		l := makeTestLedger(t)
+		l := test.MakeTestLedger("ledger")
 		defer l.Close()
 		proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
 		require.NoError(t, err, "failed to open ledger")

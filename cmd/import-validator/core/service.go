@@ -365,6 +365,7 @@ func catchup(db *postgres.IndexerDb, l *ledger.Ledger, bot fetcher.Fetcher, logg
 				wg.Done()
 			}()
 		}
+
 		wg.Wait()
 		if err0 != nil {
 			return fmt.Errorf("catchup() err0: %w", err0)

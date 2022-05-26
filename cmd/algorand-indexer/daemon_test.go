@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
@@ -21,12 +24,8 @@ type mockImporter struct {
 
 var errMockImportBlock = errors.New("Process() invalid round blockCert.Block.Round(): 1234 proc.nextRoundToProcess: 1")
 
-func (imp *mockImporter) ImportBlock(blockContainer *rpcs.EncodedBlockCert) error {
+func (imp *mockImporter) ImportBlock(vb *ledgercore.ValidatedBlock) error {
 	return nil
-}
-
-func (imp *mockImporter) ImportValidatedBlock(vb *ledgercore.ValidatedBlock) error {
-	return errMockImportBlock
 }
 
 func TestImportRetryAndCancel(t *testing.T) {
@@ -44,7 +43,7 @@ func TestImportRetryAndCancel(t *testing.T) {
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessor(l, nil)
 	assert.Nil(t, err)
-	proc.SetHandler(imp.ImportValidatedBlock)
+	proc.SetHandler(imp.ImportBlock)
 	handler := blockHandler(proc, 50*time.Millisecond)
 	var wg sync.WaitGroup
 	wg.Add(1)
@@ -73,4 +72,33 @@ func TestImportRetryAndCancel(t *testing.T) {
 	// Wait for handler to exit.
 	cancel()
 	wg.Wait()
+}
+
+func TestReadGenesis(t *testing.T) {
+	var reader io.Reader
+	// nil reader
+	_, err := readGenesis(reader)
+	assert.Contains(t, err.Error(), "readGenesis() err: reader is nil")
+	// no match struct field
+	genesisStr := "{\"version\": 2}"
+	reader = strings.NewReader(genesisStr)
+	_, err = readGenesis(reader)
+	assert.Contains(t, err.Error(), "json decode error")
+
+	genesis := bookkeeping.Genesis{
+		SchemaID:    "1",
+		Network:     "test",
+		Proto:       "test",
+		RewardsPool: "AAAA",
+		FeeSink:     "AAAA",
+	}
+
+	// read and decode genesis
+	reader = strings.NewReader(string(json.Encode(genesis)))
+	_, err = readGenesis(reader)
+	assert.Nil(t, err)
+	// read from empty reader
+	_, err = readGenesis(reader)
+	assert.Contains(t, err.Error(), "readGenesis() err: EOF")
+
 }
