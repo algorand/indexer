@@ -426,6 +426,9 @@ type EvalDeltaKeyValue struct {
 	Value EvalDelta `json:"value"`
 }
 
+// Hashtype defines model for Hashtype.
+type Hashtype string
+
 // HealthCheck defines model for HealthCheck.
 type HealthCheck struct {
 	Data        *map[string]interface{} `json:"data,omitempty"`
