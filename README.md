@@ -195,6 +195,7 @@ Settings can be provided from the command line, a configuration file, or an envi
 | default-balances-limit        |         | default-balances-limit        | INDEXER_DEFAULT_BALANCES_LIMIT        |
 | max-applications-limit        |         | max-applications-limit        | INDEXER_MAX_APPLICATIONS_LIMIT        |
 | default-applications-limit    |         | default-applications-limit    | INDEXER_DEFAULT_APPLICATIONS_LIMIT    |
+| data-dir                      | i       | data-dir                      | INDEXER_DATA_DIR                      |
 
 ## Command line
 
@@ -231,6 +232,26 @@ If it is not in the current working directory along with the indexer command we 
 ```
 ~$ ./algorand-indexer daemon -c <full-file-location>/indexer.yml
 ```
+
+## Data Directory
+
+The Indexer data directory is the location where the Indexer can store and/or load data needed for runtime operation and configuration.  
+
+**It is a required argument for Indexer daemon operation. Supply it to the Indexer via the `--data-dir` flag.**
+
+
+### Auto-Loading Configuration
+
+The Indexer will scan the data directory at startup and load certain configuration files if they are present.  The files are as follows:
+
+- Indexer Configuration File
+  - Normally supplied with the `-c` flag, if the data directory contains a file named `indexer.yml` then the Indexer will assume it is an Indexer configuration file.
+- Parameter Enable/Disable Configuration File
+  - Normally supplied with the `--api-config-file` flag, if the data directory contains a file named `api_config.yml` then the Indexer will assume it is a Parameter Enable/Disable configuration file.
+
+**NOTE:** It is not allowed to supply both the command line flag AND have an auto-loading configuration file in the data directory.  Doing so will result in an error.
+
+To see an example of how to use the data directory to load a configuration file check out the [Disabling Parameters Guide](docs/DisablingParametersGuide.md).
 
 ## Example environment variable
 
