@@ -1,4 +1,4 @@
-package local_ledger
+package localledger
 
 import (
 	"context"
@@ -56,7 +56,7 @@ func RunMigration(round uint64, opts *idb.IndexerDbOptions) error {
 			return fmt.Errorf("RunMigration() err: %w", err)
 		}
 	} else {
-		return fmt.Errorf("RunMigration() err: %w")
+		return fmt.Errorf("RunMigration() err: unable to create algod client")
 	}
 	genesis, err := getGenesis(bot.Algod())
 	genesisBlock, err := getGenesisBlock(bot.Algod())
@@ -73,7 +73,7 @@ func RunMigration(round uint64, opts *idb.IndexerDbOptions) error {
 	bot.SetNextRound(uint64(localLedger.Latest()) + 1)
 	proc, err := blockprocessor.MakeProcessor(localLedger, nil)
 	if err != nil {
-		return fmt.Errorf("RunMigration() err: %w")
+		return fmt.Errorf("RunMigration() err: %w", err)
 	}
 	handler := blockHandler(round, proc, cf, 1*time.Second)
 	bot.SetBlockHandler(handler)
