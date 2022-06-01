@@ -53,7 +53,7 @@ func init() {
 		{convertAccountData, true, "convert account.account_data column"},
 
 		// Migrations for x.x.x release
-		{ledgerMigration, true, "convert account.account_data column"},
+		{ledgerMigration, true, "sync between local ledger and database"},
 	}
 }
 

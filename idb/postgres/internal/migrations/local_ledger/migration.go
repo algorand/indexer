@@ -35,8 +35,8 @@ func RunMigration(round uint64, opts *idb.IndexerDbOptions) error {
 		signal.Notify(cancelCh, syscall.SIGTERM, syscall.SIGINT)
 		go func() {
 			<-cancelCh
-			logger.Println("Stopping ledger migration.")
-			cf()
+			logger.Errorf("Ledger migration interrupted")
+			os.Exit(1)
 		}()
 	}
 
@@ -78,7 +78,7 @@ func RunMigration(round uint64, opts *idb.IndexerDbOptions) error {
 	handler := blockHandler(round, proc, cf, 1*time.Second)
 	bot.SetBlockHandler(handler)
 
-	logger.Info("Starting block importer.")
+	logger.Info("Starting ledger migration.")
 	err = bot.Run(ctx)
 	if err != nil {
 		// If context is not expired.
@@ -92,18 +92,19 @@ func RunMigration(round uint64, opts *idb.IndexerDbOptions) error {
 
 // blockHandler creates a handler complying to the fetcher block handler interface. In case of a failure it keeps
 // attempting to add the block until the fetcher shuts down.
-func blockHandler(dbRound uint64, proc processor.Processor, cf context.CancelFunc, retryDelay time.Duration) func(context.Context, *rpcs.EncodedBlockCert) error {
+func blockHandler(dbRound uint64, proc processor.Processor, cancel context.CancelFunc, retryDelay time.Duration) func(context.Context, *rpcs.EncodedBlockCert) error {
 	return func(ctx context.Context, block *rpcs.EncodedBlockCert) error {
 		for {
-			if uint64(block.Block.Round()) > dbRound {
-				cf()
-			}
 			err := handleBlock(block, proc)
 			if err == nil {
-				// return on success.
-				return nil
+				if uint64(block.Block.Round()) == dbRound {
+					// migration completes
+					cancel()
+				} else {
+					// return on success.
+					return nil
+				}
 			}
-
 			// Delay or terminate before next attempt.
 			select {
 			case <-ctx.Done():
