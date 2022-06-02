@@ -22,7 +22,7 @@ import (
 	"github.com/algorand/indexer/version"
 )
 
-const autoLoadIndexerConfigName = "indexer.yml"
+const autoLoadIndexerConfigName = config.FileName + "." + config.FileType
 const autoLoadParameterConfigName = "api_config.yml"
 
 // Calling os.Exit() directly will not honor any defer'd statements.
