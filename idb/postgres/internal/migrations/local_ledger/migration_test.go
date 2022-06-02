@@ -108,7 +108,7 @@ func TestRunMigration(t *testing.T) {
 	assert.Equal(t, uint64(3), uint64(l.Latest()))
 	l.Close()
 
-	//	migration continues from last round
+	// migration continues from last round
 	err = RunMigration(5, &opts)
 	assert.NoError(t, err)
 	l, err = ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
