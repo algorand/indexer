@@ -36,6 +36,8 @@ func RunMigration(round uint64, opts *idb.IndexerDbOptions) error {
 		go func() {
 			<-cancelCh
 			logger.Errorf("Ledger migration interrupted")
+			// exit process if migration is interrupted so that
+			// migration state doesn't get updated in db
 			os.Exit(1)
 		}()
 	}
@@ -45,6 +47,7 @@ func RunMigration(round uint64, opts *idb.IndexerDbOptions) error {
 	if opts.IndexerDatadir == "" {
 		return fmt.Errorf("RunMigration() err: indexer data directory missing")
 	}
+	// create algod client
 	if opts.AlgodDataDir != "" {
 		bot, err = fetcher.ForDataDir(opts.AlgodDataDir, logger)
 		if err != nil {
@@ -58,6 +61,8 @@ func RunMigration(round uint64, opts *idb.IndexerDbOptions) error {
 	} else {
 		return fmt.Errorf("RunMigration() err: unable to create algod client")
 	}
+
+	logger.Info("initializing ledger")
 	genesis, err := getGenesis(bot.Algod())
 	if err != nil {
 		return fmt.Errorf("RunMigration() err: %w", err)
@@ -76,9 +81,6 @@ func RunMigration(round uint64, opts *idb.IndexerDbOptions) error {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}
 	defer localLedger.Close()
-	if uint64(localLedger.Latest()) == round {
-		return nil
-	}
 	bot.SetNextRound(uint64(localLedger.Latest()) + 1)
 	proc, err := blockprocessor.MakeProcessor(localLedger, nil)
 	if err != nil {

@@ -38,7 +38,3 @@ coverage.txt
 # mac OS
 .DS_store
 
-# ledger migration testing files
-/idb/postgres/internal/migrations/local_ledger/*.sqlite
-/idb/postgres/internal/migrations/local_ledger/*.sqlite-shm
-/idb/postgres/internal/migrations/local_ledger/*.sqlite-wal
