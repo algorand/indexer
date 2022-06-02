@@ -59,8 +59,17 @@ func RunMigration(round uint64, opts *idb.IndexerDbOptions) error {
 		return fmt.Errorf("RunMigration() err: unable to create algod client")
 	}
 	genesis, err := getGenesis(bot.Algod())
+	if err != nil {
+		return fmt.Errorf("RunMigration() err: %w", err)
+	}
 	genesisBlock, err := getGenesisBlock(bot.Algod())
+	if err != nil {
+		return fmt.Errorf("RunMigration() err: %w", err)
+	}
 	initState, err := util.CreateInitState(&genesis, &genesisBlock)
+	if err != nil {
+		return fmt.Errorf("RunMigration() err: %w", err)
+	}
 
 	localLedger, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
 	if err != nil {
