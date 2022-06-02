@@ -96,6 +96,8 @@ func RunMigration(round uint64, opts *idb.IndexerDbOptions) error {
 			os.Exit(1)
 		}
 	}
+	// wait for commit to disk
+	localLedger.WaitForCommit(localLedger.Latest())
 	return nil
 }
 
