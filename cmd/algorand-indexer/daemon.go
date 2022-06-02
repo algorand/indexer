@@ -71,10 +71,6 @@ var daemonCmd = &cobra.Command{
 		}
 
 		if indexerDataDir == "" {
-			indexerDataDir = os.Getenv("INDEXER_DATA")
-		}
-
-		if indexerDataDir == "" {
 			fmt.Fprint(os.Stderr, "indexer data directory was not provided")
 			panic(exit{1})
 		}
@@ -301,6 +297,7 @@ func init() {
 	viper.RegisterAlias("algod-net", "algod-address")
 	viper.RegisterAlias("server", "server-address")
 	viper.RegisterAlias("token", "api-token")
+	viper.RegisterAlias("data-dir", "data")
 }
 
 // makeOptions converts CLI options to server options

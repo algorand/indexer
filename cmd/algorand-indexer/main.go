@@ -22,7 +22,7 @@ import (
 	"github.com/algorand/indexer/version"
 )
 
-const autoLoadIndexerConfigName = config.FileName + "." + config.FileType
+const autoLoadIndexerConfigName = "indexer.yml"
 const autoLoadParameterConfigName = "api_config.yml"
 
 // Calling os.Exit() directly will not honor any defer'd statements.
@@ -199,6 +199,6 @@ func main() {
 
 	if err := rootCmd.Execute(); err != nil {
 		logger.WithError(err).Error("an error occurred running indexer")
-		panic(exit{1})
+		os.Exit(1)
 	}
 }
