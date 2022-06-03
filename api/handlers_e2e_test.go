@@ -16,7 +16,9 @@ import (
 	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/rpcs"
+	"github.com/algorand/indexer/processor"
 	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
@@ -58,7 +60,7 @@ func testServerImplementation(db idb.IndexerDb) *ServerImplementation {
 	return &ServerImplementation{db: db, timeout: 30 * time.Second, opts: defaultOpts}
 }
 
-func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) (*postgres.IndexerDb /*db*/, func() /*shutdownFunc*/) {
+func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, func(), processor.Processor, *ledger.Ledger) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
 	db, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -72,12 +74,16 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeepin
 	err = db.LoadGenesis(genesis)
 	require.NoError(t, err)
 
-	return db, newShutdownFunc
+	l := test.MakeTestLedger("ledger")
+	proc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
+	require.NoError(t, err, "failed to open ledger")
+	return db, newShutdownFunc, proc, l
 }
 
 func TestApplicationHandlers(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
+	defer l.Close()
 
 	///////////
 	// Given // A block containing an app call txn with ExtraProgramPages, that the creator and another account have opted into
@@ -111,13 +117,8 @@ func TestApplicationHandlers(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn, &optInTxnA, &optInTxnB)
 	require.NoError(t, err)
 
-	l := test.MakeTestLedger("ledger")
-	defer l.Close()
-	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
-	require.NoError(t, err, "failed to open ledger")
-	blockCert := rpcs.EncodedBlockCert{Block: block}
-	err = proc.Process(&blockCert)
-	require.NoError(t, err, "failed to commit")
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
 
 	//////////
 	// When // We query the app
@@ -222,8 +223,9 @@ func TestApplicationHandlers(t *testing.T) {
 }
 
 func TestAccountExcludeParameters(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
+	defer l.Close()
 
 	///////////
 	// Given // A block containing a creator of an app, an asset, who also holds and has opted-into those apps.
@@ -242,13 +244,8 @@ func TestAccountExcludeParameters(t *testing.T) {
 		&appOptInTxnA, &appOptInTxnB, &assetOptInTxnA, &assetOptInTxnB)
 	require.NoError(t, err)
 
-	l := test.MakeTestLedger("ledger")
-	defer l.Close()
-	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
-	require.NoError(t, err, "failed to open ledger")
-	blockCert := rpcs.EncodedBlockCert{Block: block}
-	err = proc.Process(&blockCert)
-	require.NoError(t, err, "failed to commit")
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
 
 	//////////
 	// When // We look up the address using various exclude parameters.
@@ -398,8 +395,9 @@ type accountsErrorResponse struct {
 }
 
 func TestAccountMaxResultsLimit(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
+	defer l.Close()
 
 	///////////
 	// Given // A block containing an address that has created 10 apps, deleted 5 apps, and created 10 assets,
@@ -452,13 +450,8 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
 	require.NoError(t, err)
 
-	l := test.MakeTestLedger("ledger")
-	defer l.Close()
-	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
-	require.NoError(t, err, "failed to open ledger")
-	blockCert := rpcs.EncodedBlockCert{Block: block}
-	err = proc.Process(&blockCert)
-	require.NoError(t, err, "failed to commit")
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
 
 	//////////
 	// When // We look up the address using a ServerImplementation with a maxAccountsAPIResults limit set,
@@ -782,8 +775,9 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 }
 
 func TestBlockNotFound(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
+	defer l.Close()
 
 	///////////
 	// Given // An empty database.
@@ -847,8 +841,9 @@ func TestInnerTxn(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
+	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
@@ -859,13 +854,8 @@ func TestInnerTxn(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	l := test.MakeTestLedger("ledger")
-	defer l.Close()
-	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
-	require.NoError(t, err, "failed to open ledger")
-	blockCert := rpcs.EncodedBlockCert{Block: block}
-	err = proc.Process(&blockCert)
-	require.NoError(t, err, "failed to commit")
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -900,8 +890,9 @@ func TestInnerTxn(t *testing.T) {
 // transaction group does not allow the root transaction to be returned on both
 // pages.
 func TestPagingRootTxnDeduplication(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
+	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
@@ -916,13 +907,8 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	l := test.MakeTestLedger("ledger")
-	defer l.Close()
-	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
-	require.NoError(t, err, "failed to open ledger")
-	blockCert := rpcs.EncodedBlockCert{Block: block}
-	err = proc.Process(&blockCert)
-	require.NoError(t, err, "failed to commit")
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
 
 	testcases := []struct {
 		name   string
@@ -1028,8 +1014,9 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 }
 
 func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
+	defer l.Close()
 
 	///////////
 	// Given // A block containing a key reg txn with state proof key
@@ -1068,13 +1055,8 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	l := test.MakeTestLedger("ledger")
-	defer l.Close()
-	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
-	require.NoError(t, err, "failed to open ledger")
-	blockCert := rpcs.EncodedBlockCert{Block: block}
-	err = proc.Process(&blockCert)
-	require.NoError(t, err, "failed to commit")
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
 
 	e := echo.New()
 	{
@@ -1127,8 +1109,9 @@ func TestVersion(t *testing.T) {
 	///////////
 	// Given // An API and context
 	///////////
-	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	db, shutdownFunc, _, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
+	defer l.Close()
 	api := testServerImplementation(db)
 
 	e := echo.New()
@@ -1156,8 +1139,9 @@ func TestVersion(t *testing.T) {
 }
 
 func TestAccountClearsNonUTF8(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
+	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
@@ -1176,13 +1160,8 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAsset)
 	require.NoError(t, err)
 
-	l := test.MakeTestLedger("ledger")
-	defer l.Close()
-	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
-	require.NoError(t, err, "failed to open ledger")
-	blockCert := rpcs.EncodedBlockCert{Block: block}
-	err = proc.Process(&blockCert)
-	require.NoError(t, err, "failed to commit")
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
 
 	verify := func(params generated.AssetParams) {
 		compareB64 := func(expected string, actual *[]byte) {
@@ -1291,8 +1270,9 @@ func TestLookupInnerLogs(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
+	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
@@ -1302,13 +1282,8 @@ func TestLookupInnerLogs(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	l := test.MakeTestLedger("ledger")
-	defer l.Close()
-	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
-	require.NoError(t, err, "failed to open ledger")
-	blockCert := rpcs.EncodedBlockCert{Block: block}
-	err = proc.Process(&blockCert)
-	require.NoError(t, err, "failed to commit")
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1394,8 +1369,9 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 		},
 	}
 
-	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
+	defer l.Close()
 
 	///////////
 	// Given // a DB with some inner txns in it.
@@ -1405,13 +1381,8 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	l := test.MakeTestLedger("ledger")
-	defer l.Close()
-	proc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
-	require.NoError(t, err, "failed to open ledger")
-	blockCert := rpcs.EncodedBlockCert{Block: block}
-	err = proc.Process(&blockCert)
-	require.NoError(t, err, "failed to commit")
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {

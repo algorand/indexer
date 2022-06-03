@@ -11,10 +11,9 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/logging"
-	"github.com/sirupsen/logrus"
-
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
+	"github.com/sirupsen/logrus"
 )
 
 var quiet = false
