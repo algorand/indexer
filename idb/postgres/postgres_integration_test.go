@@ -2056,7 +2056,7 @@ func TestAddBlockTxnParticipationAdded(t *testing.T) {
 // Transactions() doesn't return the rows ahead of the state.
 func TestTransactionsTxnAhead(t *testing.T) {
 	block := test.MakeGenesisBlock()
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis(), block)
 	defer shutdownFunc()
 	defer l.Close()
 
@@ -2077,7 +2077,9 @@ func TestTransactionsTxnAhead(t *testing.T) {
 	// Now add an empty round 1 block, and verify that Transactions() returns the
 	// fake transaction.
 	{
-		err := proc.Process(&rpcs.EncodedBlockCert{Block: block})
+		block, err := test.MakeBlockForTxns(block.BlockHeader)
+		require.NoError(t, err)
+		err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
 		require.NoError(t, err)
 	}
 	{
