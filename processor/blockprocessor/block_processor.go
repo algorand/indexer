@@ -27,9 +27,12 @@ type blockProcessor struct {
 // MakeProcessorWithLedger creates a block processor with a given ledger
 func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
 	if l == nil {
-		return nil, fmt.Errorf("MakeProcessorWithLedger(): local ledger not initialized")
+		return nil, fmt.Errorf("MakeProcessorWithLedger() err: local ledger not initialized")
 	}
-	addGenesisBlock(l, handler)
+	err := addGenesisBlock(l, handler)
+	if err != nil {
+		return nil, fmt.Errorf("MakeProcessorWithLedger() err: %w", err)
+	}
 	return &blockProcessor{ledger: l, handler: handler}, nil
 }
 

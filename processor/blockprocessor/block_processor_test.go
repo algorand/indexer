@@ -50,7 +50,7 @@ func TestFailedProcess(t *testing.T) {
 	defer l.Close()
 	// invalid processor
 	pr, err := block_processor.MakeProcessorWithLedger(nil, nil)
-	assert.Contains(t, err.Error(), "MakeProcessor(): local ledger not initialized")
+	assert.Contains(t, err.Error(), "MakeProcessorWithLedger() err: local ledger not initialized")
 	pr, err = block_processor.MakeProcessorWithLedger(l, nil)
 	assert.Nil(t, err)
 	err = pr.Process(nil)
@@ -98,7 +98,7 @@ func TestFailedProcess(t *testing.T) {
 		return fmt.Errorf("handler error")
 	}
 	_, err = block_processor.MakeProcessorWithLedger(l, handler)
-	assert.Contains(t, err.Error(), "MakeProcessor() handler err")
+	assert.Contains(t, err.Error(), "handler error")
 	pr, _ = block_processor.MakeProcessorWithLedger(l, nil)
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
