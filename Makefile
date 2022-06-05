@@ -1,7 +1,7 @@
 SRCPATH		:= $(shell pwd)
 VERSION		:= $(shell $(SRCPATH)/mule/scripts/compute_build_number.sh)
 OS_TYPE		?= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
-ARCH			?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
+ARCH		?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
 PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(VERSION)
 ifeq ($(OS_TYPE), darwin)
 ifeq ($(ARCH), arm64)
@@ -26,8 +26,10 @@ export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 cmd/algorand-indexer/algorand-indexer: idb/postgres/internal/schema/setup_postgres_sql.go go-algorand
 	cd cmd/algorand-indexer && go build -ldflags="${GOLDFLAGS}"
 
-go-algorand:
-	git submodule update --init && cd third_party/go-algorand && \
+
+# TEMPORARY CHANGE - REVERT BEFORE MERGING
+go-algorand: go-avm-box
+	cd third_party/go-algorand && \
 		make crypto/libs/`scripts/ostype.sh`/`scripts/archtype.sh`/lib/libsodium.a
 
 idb/postgres/internal/schema/setup_postgres_sql.go:	idb/postgres/internal/schema/setup_postgres.sql
@@ -94,3 +96,9 @@ indexer-v-algod-swagger:
 indexer-v-algod: nightly-setup indexer-v-algod-swagger nightly-teardown
 
 .PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod
+
+
+# TEMPORARY RECIPE. DO NOT MERGE.
+go-avm-box: # assumes .gitmodules is pointing to a boxes enabled evalindexer branch
+	git submodule update --init --remote 
+
