@@ -34,6 +34,7 @@ cmd/algorand-indexer/algorand-indexer: idb/postgres/internal/schema/setup_postgr
 # TEMPORARY CHANGE - REVERT BEFORE MERGING
 go-algorand: go-avm-box
 	cd third_party/go-algorand && \
+		make crypto/libs/`scripts/ostype.sh`/`scripts/archtype.sh`/lib/libsodium.a
 
 
 idb/postgres/internal/schema/setup_postgres_sql.go:	idb/postgres/internal/schema/setup_postgres.sql
