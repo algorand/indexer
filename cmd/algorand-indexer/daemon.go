@@ -221,6 +221,7 @@ func init() {
 	viper.RegisterAlias("algod-net", "algod-address")
 	viper.RegisterAlias("server", "server-address")
 	viper.RegisterAlias("token", "api-token")
+	viper.RegisterAlias("data-dir", "data")
 
 }
 
