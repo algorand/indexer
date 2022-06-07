@@ -25,6 +25,7 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
+	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/algorand/indexer/util"
 )
 
@@ -92,7 +93,8 @@ func openIndexerDb(postgresConnStr string, genesis *bookkeeping.Genesis, genesis
 	}
 
 	if nextRound == 0 {
-		err = db.AddBlock(genesisBlock)
+		vb := ledgercore.MakeValidatedBlock(*genesisBlock, ledgercore.StateDelta{})
+		err = db.AddBlock(&vb)
 		if err != nil {
 			return nil, fmt.Errorf("openIndexerDb() err: %w", err)
 		}
@@ -119,13 +121,13 @@ func openLedger(ledgerPath string, genesis *bookkeeping.Genesis, genesisBlock *b
 		GenesisHash: genesisBlock.GenesisHash(),
 	}
 
-	ledger, err := ledger.OpenLedger(
+	l, err := ledger.OpenLedger(
 		logger, path.Join(ledgerPath, "ledger"), false, initState, config.GetDefaultLocal())
 	if err != nil {
 		return nil, fmt.Errorf("openLedger() open err: %w", err)
 	}
 
-	return ledger, nil
+	return l, nil
 }
 
 func getModifiedState(l *ledger.Ledger, block *bookkeeping.Block) (map[basics.Address]struct{}, map[basics.Address]map[ledger.Creatable]struct{}, error) {
@@ -349,9 +351,14 @@ func catchup(db *postgres.IndexerDb, l *ledger.Ledger, bot fetcher.Fetcher, logg
 
 		if nextRoundLedger >= nextRoundIndexer {
 			wg.Add(1)
+			prc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
+			if err != nil {
+				return fmt.Errorf("catchup() err: %w", err)
+			}
+			blockCert := rpcs.EncodedBlockCert{Block: block.Block, Certificate: block.Certificate}
 			go func() {
 				start := time.Now()
-				err1 = db.AddBlock(&block.Block)
+				err1 = prc.Process(&blockCert)
 				fmt.Printf(
 					"%d transactions imported in %v\n",
 					len(block.Block.Payset), time.Since(start))
