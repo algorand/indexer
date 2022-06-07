@@ -1,6 +1,7 @@
 package localledger
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
@@ -25,81 +26,52 @@ func TestRunMigration(t *testing.T) {
 	httpmock.Activate()
 	defer httpmock.DeactivateAndReset()
 	// /genesis
+	genesis := test.MakeGenesis()
 	httpmock.RegisterResponder("GET", "http://localhost/genesis",
-		httpmock.NewStringResponder(200, string(json.Encode(test.MakeGenesis()))))
+		httpmock.NewStringResponder(200, string(json.Encode(genesis))))
 	// /v2/blocks/0 endpoint
+	genesisBlock := test.MakeGenesisBlock()
 	blockCert := rpcs.EncodedBlockCert{
-		Block: test.MakeGenesisBlock(),
+		Block: genesisBlock,
 	}
 	// /v2/blocks/0
 	httpmock.RegisterResponder("GET", "http://localhost/v2/blocks/0?format=msgpack",
 		httpmock.NewStringResponder(200, string(msgpack.Encode(blockCert))))
 
-	// /v2/blocks/1
+	// responder for rounds 1 to 6
 	txn := test.MakePaymentTxn(0, 100, 0, 1, 1,
 		0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
-	block1, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
-	assert.Nil(t, err)
-	blockCert1 := rpcs.EncodedBlockCert{
-		Block: block1,
+	prevHeader := genesisBlock.BlockHeader
+	for i := 1; i < 7; i++ {
+		block, err := test.MakeBlockForTxns(prevHeader, &txn)
+		assert.Nil(t, err)
+		blockCert = rpcs.EncodedBlockCert{
+			Block: block,
+		}
+		url := fmt.Sprintf("http://localhost/v2/blocks/%d?format=msgpack", i)
+		httpmock.RegisterResponder("GET", url,
+			httpmock.NewStringResponder(200, string(msgpack.Encode(blockCert))))
+		prevHeader = block.BlockHeader
 	}
-	httpmock.RegisterResponder("GET", "http://localhost/v2/blocks/1?format=msgpack",
-		httpmock.NewStringResponder(200, string(msgpack.Encode(blockCert1))))
 
-	// /v2/blocks/2
-	block2, err := test.MakeBlockForTxns(block1.BlockHeader, &txn)
-	assert.Nil(t, err)
-	blockCert2 := rpcs.EncodedBlockCert{
-		Block: block2,
-	}
-	httpmock.RegisterResponder("GET", "http://localhost/v2/blocks/2?format=msgpack",
-		httpmock.NewStringResponder(200, string(msgpack.Encode(blockCert2))))
-
-	// /v2/blocks/3
-	block3, err := test.MakeBlockForTxns(block2.BlockHeader, &txn)
-	assert.Nil(t, err)
-	blockCert3 := rpcs.EncodedBlockCert{
-		Block: block3,
-	}
-	httpmock.RegisterResponder("GET", "http://localhost/v2/blocks/3?format=msgpack",
-		httpmock.NewStringResponder(200, string(msgpack.Encode(blockCert3))))
-
-	// /v2/blocks/4
-	block4, err := test.MakeBlockForTxns(block3.BlockHeader, &txn)
-	assert.Nil(t, err)
-	blockCert4 := rpcs.EncodedBlockCert{
-		Block: block4,
-	}
-	httpmock.RegisterResponder("GET", "http://localhost/v2/blocks/4?format=msgpack",
-		httpmock.NewStringResponder(200, string(msgpack.Encode(blockCert4))))
-
-	// /v2/blocks/5
-	block5, err := test.MakeBlockForTxns(block4.BlockHeader, &txn)
-	assert.Nil(t, err)
-	blockCert5 := rpcs.EncodedBlockCert{
-		Block: block5,
-	}
-	httpmock.RegisterResponder("GET", "http://localhost/v2/blocks/5?format=msgpack",
-		httpmock.NewStringResponder(200, string(msgpack.Encode(blockCert5))))
-
-	// /v2/blocks/6
-	httpmock.RegisterResponder("GET", "http://localhost/v2/blocks/6?format=msgpack",
+	httpmock.RegisterResponder("GET", "http://localhost/v2/blocks/7?format=msgpack",
 		httpmock.NewStringResponder(404, string(json.Encode(algod.Status{}))))
 
 	// /v2/status/wait-for-block-after/{round}
 	httpmock.RegisterResponder("GET", `=~^http://localhost/v2/status/wait-for-block-after/\d+\z`,
 		httpmock.NewStringResponder(200, string(json.Encode(algod.Status{}))))
 
+	dname, err := os.MkdirTemp("", "indexer")
+	defer os.RemoveAll(dname)
 	opts := idb.IndexerDbOptions{
-		IndexerDatadir: "testdir",
+		IndexerDatadir: dname + "/",
 		AlgodAddr:      "localhost",
 		AlgodToken:     "AAAAA",
 	}
+
 	// migrate 3 rounds
 	err = RunMigration(3, &opts)
 	assert.NoError(t, err)
-	genesis := test.MakeGenesis()
-	genesisBlock := test.MakeGenesisBlock()
 	initState, err := util.CreateInitState(&genesis, &genesisBlock)
 	assert.NoError(t, err)
 	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
@@ -109,22 +81,11 @@ func TestRunMigration(t *testing.T) {
 	l.Close()
 
 	// migration continues from last round
-	err = RunMigration(5, &opts)
+	err = RunMigration(6, &opts)
 	assert.NoError(t, err)
+
 	l, err = ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
 	assert.NoError(t, err)
-	assert.Equal(t, uint64(5), uint64(l.Latest()))
+	assert.Equal(t, uint64(6), uint64(l.Latest()))
 	l.Close()
-
-	// remove ledger files
-	ledgerFiles := []string{"ledger.block.sqlite", "ledger.block.sqlite-shm", "ledger.block.sqlite-wal",
-		"ledger.tracker.sqlite", "ledger.tracker.sqlite-shm", "ledger.tracker.sqlite-wal"}
-
-	for _, fn := range ledgerFiles {
-		if _, err = os.Stat(fn); err == nil {
-			err = os.Remove(fn)
-			assert.NoError(t, err)
-		}
-	}
-
 }
