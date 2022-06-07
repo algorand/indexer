@@ -17,6 +17,7 @@ import (
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/processor"
 	iledger "github.com/algorand/indexer/processor/eval"
+	"github.com/algorand/indexer/util"
 )
 
 type blockProcessor struct {
@@ -37,7 +38,11 @@ func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.Va
 }
 
 // MakeProcessor creates a block processor
-func MakeProcessor(initState ledgercore.InitState, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+func MakeProcessor(genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+	initState, err := util.CreateInitState(genesis, genesisBlock)
+	if err != nil {
+		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
+	}
 	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(datadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)

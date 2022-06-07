@@ -24,7 +24,6 @@ import (
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/processor"
 	"github.com/algorand/indexer/processor/blockprocessor"
-	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -150,10 +149,8 @@ var daemonCmd = &cobra.Command{
 				maybeFail(err, "Error reading genesis file")
 				genesisBlock, err := getGenesisBlock(bot.Algod())
 				maybeFail(err, "Error getting genesis block")
-				initState, err := util.CreateInitState(&genesis, &genesisBlock)
-				maybeFail(err, "Error creating init state")
 
-				proc, err := blockprocessor.MakeProcessor(initState, indexerDataDir, imp.ImportBlock)
+				proc, err := blockprocessor.MakeProcessor(&genesis, &genesisBlock, indexerDataDir, imp.ImportBlock)
 				if err != nil {
 					maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
 				}
@@ -221,7 +218,7 @@ func init() {
 	viper.RegisterAlias("algod-net", "algod-address")
 	viper.RegisterAlias("server", "server-address")
 	viper.RegisterAlias("token", "api-token")
-	viper.RegisterAlias("data-dir", "data_dir")
+	viper.RegisterAlias("data-dir", "data")
 
 }
 
