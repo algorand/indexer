@@ -78,7 +78,7 @@ var daemonCmd = &cobra.Command{
 		// Create the directory if it doesn't exist
 		if _, err := os.Stat(indexerDataDir); os.IsNotExist(err) {
 			err := os.Mkdir(indexerDataDir, 0755)
-			maybeFail(err, "indexer data directory error, %v", err)
+			maybeFail(err, "failure while creating data directory: %v", err)
 		}
 
 		// Detect the various auto-loading configs from data directory
@@ -92,18 +92,16 @@ var daemonCmd = &cobra.Command{
 					"indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one.",
 					filepath.Join(indexerDataDir, autoLoadIndexerConfigName))
 				panic(exit{1})
-			} else {
-				// No config file supplied via command line, auto-load it
-				configs, err := os.Open(configFile)
-				if err != nil {
-					maybeFail(err, "%v", err)
-				}
-				defer configs.Close()
-				err = viper.ReadConfig(configs)
-				if err != nil {
-					maybeFail(err, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
-				}
-				fmt.Printf("Using configuration file: %s\n", configFile)
+			}
+			// No config file supplied via command line, auto-load it
+			configs, err := os.Open(configFile)
+			if err != nil {
+				maybeFail(err, "%v", err)
+			}
+			defer configs.Close()
+			err = viper.ReadConfig(configs)
+			if err != nil {
+				maybeFail(err, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
 			}
 		}
 
@@ -113,10 +111,10 @@ var daemonCmd = &cobra.Command{
 					"api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one.",
 					filepath.Join(indexerDataDir, autoLoadParameterConfigName))
 				panic(exit{1})
-			} else {
-				suppliedAPIConfigFile = filepath.Join(indexerDataDir, autoLoadParameterConfigName)
-				fmt.Printf("Auto-loading parameter configuration file: %s", suppliedAPIConfigFile)
 			}
+			suppliedAPIConfigFile = filepath.Join(indexerDataDir, autoLoadParameterConfigName)
+			fmt.Printf("Auto-loading parameter configuration file: %s", suppliedAPIConfigFile)
+
 		}
 
 		if pidFilePath != "" {
