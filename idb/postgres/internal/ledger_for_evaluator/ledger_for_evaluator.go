@@ -514,3 +514,11 @@ func (l LedgerForEvaluator) LatestTotals() (ledgercore.AccountTotals, error) {
 
 	return totals, nil
 }
+
+// // LookupKv - part of go-algorand's indexerLedgerForEval interface looks up a box for a given full key
+// func (l LedgerForEvaluator) LookupKv(rnd basics.Round, key string) (*string, error) {
+// 	// No need to worry about locks when populating indexer info
+// 	// r, err := l.lookupResource()
+// 	// return l.accts.LookupKv(rnd, key)
+// 	return nil, nil
+// }
