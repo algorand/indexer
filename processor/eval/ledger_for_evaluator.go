@@ -16,11 +16,11 @@ type LedgerForEvaluator struct {
 }
 
 // MakeLedgerForEvaluator creates a LedgerForEvaluator object.
-func MakeLedgerForEvaluator(ld *ledger.Ledger) (LedgerForEvaluator, error) {
+func MakeLedgerForEvaluator(ld *ledger.Ledger) LedgerForEvaluator {
 	l := LedgerForEvaluator{
 		Ledger: ld,
 	}
-	return l, nil
+	return l
 }
 
 // Close shuts down LedgerForEvaluator.

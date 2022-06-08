@@ -29,7 +29,7 @@ func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLeder.MakeLedgerForEvaluator(l)
 	require.NoError(t, err)
 	defer ld.Close()
 
@@ -46,7 +46,7 @@ func TestLedgerForEvaluatorAccountDataBasic(t *testing.T) {
 	accountData, _, err := l.LookupWithoutRewards(0, test.AccountB)
 	require.NoError(t, err)
 
-	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLeder.MakeLedgerForEvaluator(l)
 	require.NoError(t, err)
 	defer ld.Close()
 
@@ -61,13 +61,12 @@ func TestLedgerForEvaluatorAccountDataBasic(t *testing.T) {
 
 func TestLedgerForEvaluatorAccountDataMissingAccount(t *testing.T) {
 	l := test.MakeTestLedger("ledger")
+	ld := indxLeder.MakeLedgerForEvaluator(l)
 	defer l.Close()
-	ld, err := indxLeder.MakeLedgerForEvaluator(l)
-	require.NoError(t, err)
 	defer ld.Close()
 
 	var addr basics.Address
-	_, err = rand.Read(addr[:])
+	_, err := rand.Read(addr[:])
 	ret, err :=
 		ld.LookupWithoutRewards(map[basics.Address]struct{}{addr: {}})
 	require.NoError(t, err)
@@ -93,7 +92,7 @@ func TestLedgerForEvaluatorAsset(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLeder.MakeLedgerForEvaluator(l)
 	require.NoError(t, err)
 	defer ld.Close()
 
@@ -159,7 +158,7 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLeder.MakeLedgerForEvaluator(l)
 	require.NoError(t, err)
 	defer ld.Close()
 
@@ -237,7 +236,7 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLeder.MakeLedgerForEvaluator(l)
 	require.NoError(t, err)
 	defer ld.Close()
 
@@ -288,8 +287,7 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	addressesMap[test.FeeAddr] = struct{}{}
 	addressesMap[test.RewardAddr] = struct{}{}
 
-	ld, err := indxLeder.MakeLedgerForEvaluator(l)
-	require.NoError(t, err)
+	ld := indxLeder.MakeLedgerForEvaluator(l)
 	defer ld.Close()
 
 	ret, err :=
@@ -315,7 +313,7 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLeder.MakeLedgerForEvaluator(l)
 	require.NoError(t, err)
 	defer ld.Close()
 
@@ -347,7 +345,7 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLeder.MakeLedgerForEvaluator(l)
 	require.NoError(t, err)
 	defer ld.Close()
 
@@ -378,7 +376,7 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLeder.MakeLedgerForEvaluator(l)
 	require.NoError(t, err)
 	defer ld.Close()
 
@@ -429,7 +427,7 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLeder.MakeLedgerForEvaluator(l)
 	require.NoError(t, err)
 	defer ld.Close()
 
@@ -462,7 +460,7 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLeder.MakeLedgerForEvaluator(l)
 	require.NoError(t, err)
 	defer ld.Close()
 
@@ -493,7 +491,7 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld, err := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLeder.MakeLedgerForEvaluator(l)
 	require.NoError(t, err)
 	defer ld.Close()
 
@@ -536,8 +534,7 @@ func TestLedgerForEvaluatorAccountTotals(t *testing.T) {
 	l := test.MakeTestLedger("ledger")
 	defer l.Close()
 
-	ld, err := indxLeder.MakeLedgerForEvaluator(l)
-	require.NoError(t, err)
+	ld := indxLeder.MakeLedgerForEvaluator(l)
 	defer ld.Close()
 
 	accountTotalsRead, err := ld.LatestTotals()

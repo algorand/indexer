@@ -174,7 +174,7 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	}
 
 	// see postgres_migrations.go
-	return db.runAvailableMigrations()
+	return db.runAvailableMigrations(opts)
 }
 
 // Preload asset and app creators.
