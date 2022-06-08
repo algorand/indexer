@@ -10,7 +10,7 @@ import (
 )
 
 // LedgerForEvaluator implements the indexerLedgerForEval interface from
-// go-algorand ledger/eval.go and is used for accounting.
+// go-algorand ledger/evalindexer.go and is used for accounting.
 type LedgerForEvaluator struct {
 	Ledger *ledger.Ledger
 }

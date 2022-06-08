@@ -22,7 +22,7 @@ import (
 type mockImporter struct {
 }
 
-var errMockImportBlock = errors.New("Process() invalid round blockCert.Block.Round(): 1234 proc.nextRoundToProcess: 1")
+var errMockImportBlock = errors.New("Process() invalid round blockCert.Block.Round(): 1234 nextRoundToProcess: 1")
 
 func (imp *mockImporter) ImportBlock(vb *ledgercore.ValidatedBlock) error {
 	return nil
@@ -41,7 +41,7 @@ func TestImportRetryAndCancel(t *testing.T) {
 	imp := &mockImporter{}
 	l := itest.MakeTestLedger("ledger")
 	defer l.Close()
-	proc, err := blockprocessor.MakeProcessor(l, nil)
+	proc, err := blockprocessor.MakeProcessorWithLedger(l, nil)
 	assert.Nil(t, err)
 	proc.SetHandler(imp.ImportBlock)
 	handler := blockHandler(proc, 50*time.Millisecond)

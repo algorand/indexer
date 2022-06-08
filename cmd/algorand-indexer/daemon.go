@@ -7,18 +7,13 @@ import (
 	"io/ioutil"
 	"os"
 	"os/signal"
-	"path"
-	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
-	algodConfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/api"
@@ -29,7 +24,6 @@ import (
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/processor"
 	"github.com/algorand/indexer/processor/blockprocessor"
-	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -88,10 +82,6 @@ var daemonCmd = &cobra.Command{
 			algodDataDir = os.Getenv("ALGORAND_DATA")
 		}
 
-		if indexerDataDir == "" {
-			indexerDataDir = os.Getenv("INDEXER_DATA")
-		}
-
 		if indexerDataDir != "" {
 			if _, err := os.Stat(indexerDataDir); os.IsNotExist(err) {
 				err := os.Mkdir(indexerDataDir, 0755)
@@ -130,10 +120,6 @@ var daemonCmd = &cobra.Command{
 		}
 
 		opts.MaxConn = maxConn
-		opts.IndexerDatadir = indexerDataDir
-		opts.AlgodDataDir = algodDataDir
-		opts.AlgodToken = algodToken
-		opts.AlgodAddr = algodAddr
 
 		db, availableCh := indexerDbFromFlags(opts)
 		defer db.Close()
@@ -157,24 +143,19 @@ var daemonCmd = &cobra.Command{
 				logger.Info("Initializing block import handler.")
 				imp := importer.NewImporter(db)
 
+				logger.Info("Initializing local ledger.")
 				genesisReader = importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
 				genesis, err := readGenesis(genesisReader)
 				maybeFail(err, "Error reading genesis file")
 				genesisBlock, err := getGenesisBlock(bot.Algod())
 				maybeFail(err, "Error getting genesis block")
-				initState, err := util.CreateInitState(&genesis, &genesisBlock)
-				maybeFail(err, "Error creating init state")
 
-				logger.Info("Initializing local ledger.")
-				localLedger, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(indexerDataDir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
-				maybeFail(err, "failed to open ledger %v", err)
-				defer localLedger.Close()
-				bot.SetNextRound(uint64(localLedger.Latest()) + 1)
-
-				proc, err := blockprocessor.MakeProcessor(localLedger, imp.ImportBlock)
+				proc, err := blockprocessor.MakeProcessor(&genesis, &genesisBlock, indexerDataDir, imp.ImportBlock)
 				if err != nil {
 					maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
 				}
+
+				bot.SetNextRound(proc.NextRoundToProcess())
 				handler := blockHandler(proc, 1*time.Second)
 				bot.SetBlockHandler(handler)
 
@@ -237,6 +218,8 @@ func init() {
 	viper.RegisterAlias("algod-net", "algod-address")
 	viper.RegisterAlias("server", "server-address")
 	viper.RegisterAlias("token", "api-token")
+	viper.RegisterAlias("data-dir", "data")
+
 }
 
 // makeOptions converts CLI options to server options

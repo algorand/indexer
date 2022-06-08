@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
@@ -26,6 +25,7 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
+	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/algorand/indexer/util"
 )
 
@@ -121,13 +121,13 @@ func openLedger(ledgerPath string, genesis *bookkeeping.Genesis, genesisBlock *b
 		GenesisHash: genesisBlock.GenesisHash(),
 	}
 
-	ledger, err := ledger.OpenLedger(
+	l, err := ledger.OpenLedger(
 		logger, path.Join(ledgerPath, "ledger"), false, initState, config.GetDefaultLocal())
 	if err != nil {
 		return nil, fmt.Errorf("openLedger() open err: %w", err)
 	}
 
-	return ledger, nil
+	return l, nil
 }
 
 func getModifiedState(l *ledger.Ledger, block *bookkeeping.Block) (map[basics.Address]struct{}, map[basics.Address]map[ledger.Creatable]struct{}, error) {
@@ -351,7 +351,7 @@ func catchup(db *postgres.IndexerDb, l *ledger.Ledger, bot fetcher.Fetcher, logg
 
 		if nextRoundLedger >= nextRoundIndexer {
 			wg.Add(1)
-			prc, err := blockprocessor.MakeProcessor(l, db.AddBlock)
+			prc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
 			if err != nil {
 				return fmt.Errorf("catchup() err: %w", err)
 			}

@@ -20,7 +20,7 @@ func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 
 	l := test.MakeTestLedger("ledger")
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessor(l, nil)
+	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 	txn := test.MakePaymentTxn(0, 100, 0, 1, 1,
 		0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
@@ -42,7 +42,7 @@ func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 func TestLedgerForEvaluatorAccountDataBasic(t *testing.T) {
 	l := test.MakeTestLedger("ledger")
 	defer l.Close()
-	block_processor.MakeProcessor(l, nil)
+	block_processor.MakeProcessorWithLedger(l, nil)
 	accountData, _, err := l.LookupWithoutRewards(0, test.AccountB)
 	require.NoError(t, err)
 
@@ -79,7 +79,7 @@ func TestLedgerForEvaluatorAccountDataMissingAccount(t *testing.T) {
 func TestLedgerForEvaluatorAsset(t *testing.T) {
 	l := test.MakeTestLedger("ledger")
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessor(l, nil)
+	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 	txn1 := test.MakeAssetConfigTxn(0, 4, 0, false, "", "", "", test.AccountA)
@@ -115,62 +115,26 @@ func TestLedgerForEvaluatorAsset(t *testing.T) {
 			ledger.Creatable{Index: 1, Type: basics.AssetCreatable}: {},
 			ledger.Creatable{Index: 2, Type: basics.AssetCreatable}: {
 				AssetHolding: &basics.AssetHolding{
-					Amount: 4,
-					Frozen: false,
+					Amount: txn1.Txn.AssetParams.Total,
+					Frozen: txn1.Txn.AssetFrozen,
 				},
-				AssetParams: &basics.AssetParams{
-					Total:         4,
-					Decimals:      0,
-					DefaultFrozen: false,
-					UnitName:      "",
-					AssetName:     "",
-					URL:           "",
-					MetadataHash:  [32]byte{},
-					Manager:       test.AccountA,
-					Reserve:       test.AccountA,
-					Freeze:        test.AccountA,
-					Clawback:      test.AccountA,
-				},
+				AssetParams: &txn1.Txn.AssetParams,
 			},
 			ledger.Creatable{Index: 3, Type: basics.AssetCreatable}: {
 				AssetHolding: &basics.AssetHolding{
-					Amount: 6,
-					Frozen: false,
+					Amount: txn2.Txn.AssetParams.Total,
+					Frozen: txn2.Txn.AssetFrozen,
 				},
-				AssetParams: &basics.AssetParams{
-					Total:         6,
-					Decimals:      0,
-					DefaultFrozen: false,
-					UnitName:      "",
-					AssetName:     "",
-					URL:           "",
-					MetadataHash:  [32]byte{},
-					Manager:       test.AccountA,
-					Reserve:       test.AccountA,
-					Freeze:        test.AccountA,
-					Clawback:      test.AccountA,
-				},
+				AssetParams: &txn2.Txn.AssetParams,
 			},
 		},
 		test.AccountB: {
 			ledger.Creatable{Index: 4, Type: basics.AssetCreatable}: {
 				AssetHolding: &basics.AssetHolding{
-					Amount: 8,
-					Frozen: false,
+					Amount: txn3.Txn.AssetParams.Total,
+					Frozen: txn3.Txn.AssetFrozen,
 				},
-				AssetParams: &basics.AssetParams{
-					Total:         8,
-					Decimals:      0,
-					DefaultFrozen: false,
-					UnitName:      "",
-					AssetName:     "",
-					URL:           "",
-					MetadataHash:  [32]byte{},
-					Manager:       test.AccountB,
-					Reserve:       test.AccountB,
-					Freeze:        test.AccountB,
-					Clawback:      test.AccountB,
-				},
+				AssetParams: &txn3.Txn.AssetParams,
 			},
 		},
 	}
@@ -180,7 +144,7 @@ func TestLedgerForEvaluatorAsset(t *testing.T) {
 func TestLedgerForEvaluatorApp(t *testing.T) {
 	l := test.MakeTestLedger("ledger")
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessor(l, nil)
+	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAppCallTxnWithLogs(0, test.AccountA, []string{"testing"})
@@ -218,40 +182,40 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 			ledger.Creatable{Index: 1, Type: basics.AppCreatable}: {},
 			ledger.Creatable{Index: 2, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
-					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					ApprovalProgram:   txn1.Txn.ApprovalProgram,
+					ClearStateProgram: txn1.Txn.ClearStateProgram,
 					GlobalState:       nil,
 					StateSchemas:      basics.StateSchemas{},
-					ExtraProgramPages: 0,
+					ExtraProgramPages: txn1.Txn.ExtraProgramPages,
 				},
 			},
 			ledger.Creatable{Index: 3, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
-					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					ApprovalProgram:   txn2.Txn.ApprovalProgram,
+					ClearStateProgram: txn2.Txn.ClearStateProgram,
 					GlobalState:       nil,
 					StateSchemas:      basics.StateSchemas{},
-					ExtraProgramPages: 0,
+					ExtraProgramPages: txn2.Txn.ExtraProgramPages,
 				},
 			},
 			ledger.Creatable{Index: 4, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
-					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					ApprovalProgram:   txn3.Txn.ApprovalProgram,
+					ClearStateProgram: txn3.Txn.ClearStateProgram,
 					GlobalState:       nil,
 					StateSchemas:      basics.StateSchemas{},
-					ExtraProgramPages: 0,
+					ExtraProgramPages: txn3.Txn.ExtraProgramPages,
 				},
 			},
 		},
 		test.AccountB: {
 			ledger.Creatable{Index: 6, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
-					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					ApprovalProgram:   txn5.Txn.ApprovalProgram,
+					ClearStateProgram: txn5.Txn.ClearStateProgram,
 					GlobalState:       nil,
 					StateSchemas:      basics.StateSchemas{},
-					ExtraProgramPages: 0,
+					ExtraProgramPages: txn5.Txn.ExtraProgramPages,
 				},
 			},
 		},
@@ -262,7 +226,7 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 	l := test.MakeTestLedger("ledger")
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessor(l, nil)
+	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
@@ -290,11 +254,11 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 		test.AccountA: {
 			ledger.Creatable{Index: 1, Type: basics.AppCreatable}: {
 				AppParams: &basics.AppParams{
-					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
-					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					ApprovalProgram:   txn0.Txn.ApprovalProgram,
+					ClearStateProgram: txn0.Txn.ClearStateProgram,
 					GlobalState:       nil,
 					StateSchemas:      basics.StateSchemas{},
-					ExtraProgramPages: 0,
+					ExtraProgramPages: txn0.Txn.ExtraProgramPages,
 				},
 			},
 			ledger.Creatable{Index: 2, Type: basics.AssetCreatable}: {
@@ -302,19 +266,7 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 					Amount: 2,
 					Frozen: false,
 				},
-				AssetParams: &basics.AssetParams{
-					Total:         2,
-					Decimals:      0,
-					DefaultFrozen: false,
-					UnitName:      "",
-					AssetName:     "",
-					URL:           "",
-					MetadataHash:  [32]byte{},
-					Manager:       test.AccountA,
-					Reserve:       test.AccountA,
-					Freeze:        test.AccountA,
-					Clawback:      test.AccountA,
-				},
+				AssetParams: &txn1.Txn.AssetParams,
 			},
 		},
 	}
@@ -324,7 +276,7 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	l := test.MakeTestLedger("ledger")
 	defer l.Close()
-	block_processor.MakeProcessor(l, nil)
+	block_processor.MakeProcessorWithLedger(l, nil)
 
 	addresses := []basics.Address{
 		test.AccountA, test.AccountB, test.AccountC, test.AccountD}
@@ -353,7 +305,7 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 	l := test.MakeTestLedger("ledger")
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessor(l, nil)
+	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 
@@ -384,7 +336,7 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	l := test.MakeTestLedger("ledger")
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessor(l, nil)
+	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 	txn1 := test.MakeAssetDestroyTxn(1, test.AccountA)
@@ -413,7 +365,7 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 
 	l := test.MakeTestLedger("ledger")
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessor(l, nil)
+	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 	txn1 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountB)
@@ -467,7 +419,7 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 	l := test.MakeTestLedger("ledger")
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessor(l, nil)
+	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 
@@ -499,7 +451,7 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	l := test.MakeTestLedger("ledger")
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessor(l, nil)
+	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAppDestroyTxn(1, test.AccountA)
@@ -528,7 +480,7 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 
 	l := test.MakeTestLedger("ledger")
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessor(l, nil)
+	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAppCallTxn(0, test.AccountB)

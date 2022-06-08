@@ -5,7 +5,11 @@ import (
 	"testing"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/indexer/processor"
+	"github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/indexer/util/test"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/stretchr/testify/require"
 
@@ -27,7 +31,7 @@ func setupIdbWithConnectionString(t *testing.T, connStr string, genesis bookkeep
 	return idb
 }
 
-func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) (*IndexerDb /*db*/, func() /*shutdownFunc*/) {
+func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) (*IndexerDb /*db*/, func() /*shutdownFunc*/, processor.Processor, *ledger.Ledger) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
 	db := setupIdbWithConnectionString(t, connStr, genesis, genesisBlock)
@@ -36,7 +40,11 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeepin
 		shutdownFunc()
 	}
 
-	return db, newShutdownFunc
+	l := test.MakeTestLedger("ledger")
+	proc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
+	require.NoError(t, err, "failed to open ledger")
+
+	return db, newShutdownFunc, proc, l
 }
 
 // Helper to execute a query returning an integer, for example COUNT(*). Returns -1 on an error.
