@@ -1779,7 +1779,7 @@
         "asset-transfer-transaction",
         "keyreg-transaction",
         "payment-transaction",
-        "compact-cert-transaction"
+        "state-proof-transaction"
       ],
       "properties": {
         "application-transaction": {
@@ -1794,8 +1794,8 @@
         "asset-transfer-transaction": {
           "$ref": "#/definitions/TransactionAssetTransfer"
         },
-        "compact-cert-transaction": {
-          "$ref": "#/definitions/TransactionCompactCert"
+        "state-proof-transaction": {
+          "$ref": "#/definitions/TransactionStateProof"
         },
         "auth-addr": {
           "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth addr is equal to the accounts auth addr.",
@@ -1897,7 +1897,7 @@
           "$ref": "#/definitions/TransactionSignature"
         },
         "tx-type": {
-          "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction\n* \\[cert\\] compact-cert-transaction",
+          "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction\n* \\[stpf\\] state-proof-transaction",
           "type": "string",
           "enum": [
             "pay",
@@ -1906,7 +1906,7 @@
             "axfer",
             "afrz",
             "appl",
-            "cert"
+            "stpf"
           ],
           "x-algorand-format": "tx-type-enum"
         },
@@ -2046,21 +2046,25 @@
         }
       }
     },
-    "TransactionCompactCert": {
-      "description": "Fields for a compact cert (state proof) transaction. \n\nDefinition:\ndata/transactions/compactcert.go : CompactCertTxnFields",
+    "TransactionStateProof": {
+      "description": "Fields for a state proof transaction. \n\nDefinition:\ndata/transactions/stateproof.go : StateProofTxnFields",
       "type": "object",
       "properties": {
-        "cert-round": {
-          "description": "\\[certrnd\\] Round which corresponds to the compact cert.",
+        "state-proof-interval-latest-round": {
+          "description": "\\[sprnd\\] Latest round which corresponds to the state proof.",
           "type": "integer"
         },
-        "cert-type": {
-          "description": "\\[certtype\\] Type of the compact cert. Integer representing an entry defined in protocol/compactcerts.go",
+        "state-proof-type": {
+          "description": "\\[sptype\\] Type of the state proof. Integer representing an entry defined in protocol/stateproof.go",
           "type": "integer",
           "x-algorand-format": "uint64"
         },
-        "cert": {
-          "$ref": "#/definitions/CompactCert"
+        "state-proof": {
+          "$ref": "#/definitions/StateProof"
+        },
+        "message": {
+          "$ref": "#/definitions/StateProofMessage",
+          "description": "\\[spmsg\\]"
         }
       }
     },
@@ -2252,8 +2256,8 @@
         }
       }
     },
-    "CompactCert": {
-      "description": "\\[cert\\] represents a compact cert.\n\nDefinition:\ncrypto/compactcerts/structus.go : Cert",
+    "StateProof": {
+      "description": "\\[sp\\] represents a state proof.\n\nDefinition:\ncrypto/stateproof/structs.go : StateProof",
       "type": "object",
       "properties": {
         "sig-commit": {
@@ -2273,13 +2277,47 @@
           "description": "\\[P\\]",
           "$ref": "#/definitions/MerkleArrayProof"
         },
+        "salt-version": {
+          "description": "\\[v\\] Salt version of the merkle signature.",
+          "type": "integer"
+        },
         "reveals": {
           "description": "\\[r\\] Note that this is actually stored as a map[uint64] - Reveal in the actual msgp",
-          "$ref": "#/definitions/CompactCertReveal"
+          "$ref": "#/definitions/StateProofReveal"
         }
       }
     },
-    "CompactCertReveal": {
+    "StateProofMessage": {
+      "type": "object",
+      "properties": {
+        "block-headers-commitment": {
+          "description": "\\[b\\]",
+          "type": "string",
+          "format": "byte"
+        },
+        "voters-commitment": {
+          "description": "\\[v\\]",
+          "type": "string",
+          "format": "byte"
+        },
+        "ln-proven-weight": {
+          "description": "\\[P\\]",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "first-attested-round": {
+          "description": "\\[f\\]",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "latest-attested-round": {
+          "description": "\\[l\\]",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        }
+      }
+    },
+    "StateProofReveal": {
       "type": "object",
       "properties": {
         "position": {
@@ -2293,7 +2331,7 @@
           "properties": {
             "signature": {
               "description": "",
-              "$ref": "#/definitions/CompactCertSignature"
+              "$ref": "#/definitions/StateProofSignature"
             },
             "lower-sig-weight": {
               "description": "\\[l\\]",
@@ -2304,11 +2342,11 @@
         },
         "participant": {
           "description": "\\[p\\]",
-          "$ref": "#/definitions/CompactCertParticipant"
+          "$ref": "#/definitions/StateProofParticipant"
         }
       }
     },
-    "CompactCertSignature": {
+    "StateProofSignature": {
       "type": "object",
       "properties": {
         "falcon-signature": {
@@ -2329,7 +2367,7 @@
         }
       }
     },
-    "CompactCertParticipant": {
+    "StateProofParticipant": {
       "type": "object",
       "properties": {
          "verifier": {
@@ -2563,7 +2601,7 @@
         "axfer",
         "afrz",
         "appl",
-        "cert"
+        "stpf"
       ],
       "type": "string",
       "name": "tx-type",

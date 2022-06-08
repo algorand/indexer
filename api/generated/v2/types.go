@@ -405,53 +405,6 @@ type BlockUpgradeVote struct {
 	UpgradePropose *string `json:"upgrade-propose,omitempty"`
 }
 
-// CompactCert defines model for CompactCert.
-type CompactCert struct {
-	PartProofs *MerkleArrayProof  `json:"part-proofs,omitempty"`
-	Reveals    *CompactCertReveal `json:"reveals,omitempty"`
-	SigCommit  *GenericDigest     `json:"sig-commit,omitempty"`
-	SigProofs  *MerkleArrayProof  `json:"sig-proofs,omitempty"`
-
-	// \[w\]
-	SignedWeight *uint64 `json:"signed-weight,omitempty"`
-}
-
-// CompactCertParticipant defines model for CompactCertParticipant.
-type CompactCertParticipant struct {
-
-	// \[p\]
-	Verifier *[]byte `json:"verifier,omitempty"`
-
-	// \[w\]
-	Weight *uint64 `json:"weight,omitempty"`
-}
-
-// CompactCertReveal defines model for CompactCertReveal.
-type CompactCertReveal struct {
-	Participant *CompactCertParticipant `json:"participant,omitempty"`
-
-	// The position in the signature and participants arrays corresponding to this entry.
-	Position *uint64 `json:"position,omitempty"`
-
-	// \[s\]
-	SigSlot *struct {
-
-		// \[l\]
-		LowerSigWeight *uint64               `json:"lower-sig-weight,omitempty"`
-		Signature      *CompactCertSignature `json:"signature,omitempty"`
-	} `json:"sig-slot,omitempty"`
-}
-
-// CompactCertSignature defines model for CompactCertSignature.
-type CompactCertSignature struct {
-	FalconSignature  *[]byte           `json:"falcon-signature,omitempty"`
-	MerkleArrayIndex *uint64           `json:"merkle-array-index,omitempty"`
-	Proof            *MerkleArrayProof `json:"proof,omitempty"`
-
-	// \[vkey\]
-	VerifyingKey *[]byte `json:"verifying-key,omitempty"`
-}
-
 // EvalDelta defines model for EvalDelta.
 type EvalDelta struct {
 
@@ -532,6 +485,75 @@ type OnCompletion string
 // StateDelta defines model for StateDelta.
 type StateDelta []EvalDeltaKeyValue
 
+// StateProof defines model for StateProof.
+type StateProof struct {
+	PartProofs *MerkleArrayProof `json:"part-proofs,omitempty"`
+	Reveals    *StateProofReveal `json:"reveals,omitempty"`
+
+	// \[v\] Salt version of the merkle signature.
+	SaltVersion *uint64           `json:"salt-version,omitempty"`
+	SigCommit   *GenericDigest    `json:"sig-commit,omitempty"`
+	SigProofs   *MerkleArrayProof `json:"sig-proofs,omitempty"`
+
+	// \[w\]
+	SignedWeight *uint64 `json:"signed-weight,omitempty"`
+}
+
+// StateProofMessage defines model for StateProofMessage.
+type StateProofMessage struct {
+
+	// \[b\]
+	BlockHeadersCommitment *[]byte `json:"block-headers-commitment,omitempty"`
+
+	// \[f\]
+	FirstAttestedRound *uint64 `json:"first-attested-round,omitempty"`
+
+	// \[l\]
+	LatestAttestedRound *uint64 `json:"latest-attested-round,omitempty"`
+
+	// \[P\]
+	LnProvenWeight *uint64 `json:"ln-proven-weight,omitempty"`
+
+	// \[v\]
+	VotersCommitment *[]byte `json:"voters-commitment,omitempty"`
+}
+
+// StateProofParticipant defines model for StateProofParticipant.
+type StateProofParticipant struct {
+
+	// \[p\]
+	Verifier *[]byte `json:"verifier,omitempty"`
+
+	// \[w\]
+	Weight *uint64 `json:"weight,omitempty"`
+}
+
+// StateProofReveal defines model for StateProofReveal.
+type StateProofReveal struct {
+	Participant *StateProofParticipant `json:"participant,omitempty"`
+
+	// The position in the signature and participants arrays corresponding to this entry.
+	Position *uint64 `json:"position,omitempty"`
+
+	// \[s\]
+	SigSlot *struct {
+
+		// \[l\]
+		LowerSigWeight *uint64              `json:"lower-sig-weight,omitempty"`
+		Signature      *StateProofSignature `json:"signature,omitempty"`
+	} `json:"sig-slot,omitempty"`
+}
+
+// StateProofSignature defines model for StateProofSignature.
+type StateProofSignature struct {
+	FalconSignature  *[]byte           `json:"falcon-signature,omitempty"`
+	MerkleArrayIndex *uint64           `json:"merkle-array-index,omitempty"`
+	Proof            *MerkleArrayProof `json:"proof,omitempty"`
+
+	// \[vkey\]
+	VerifyingKey *[]byte `json:"verifying-key,omitempty"`
+}
+
 // StateSchema defines model for StateSchema.
 type StateSchema struct {
 
@@ -605,12 +627,6 @@ type Transaction struct {
 
 	// \[ca\] closing amount for transaction.
 	ClosingAmount *uint64 `json:"closing-amount,omitempty"`
-
-	// Fields for a compact cert (state proof) transaction.
-	//
-	// Definition:
-	// data/transactions/compactcert.go : CompactCertTxnFields
-	CompactCertTransaction *TransactionCompactCert `json:"compact-cert-transaction,omitempty"`
 
 	// Round when the transaction was confirmed.
 	ConfirmedRound *uint64 `json:"confirmed-round,omitempty"`
@@ -693,6 +709,12 @@ type Transaction struct {
 	// Validation signature associated with some data. Only one of the signatures should be provided.
 	Signature *TransactionSignature `json:"signature,omitempty"`
 
+	// Fields for a state proof transaction.
+	//
+	// Definition:
+	// data/transactions/stateproof.go : StateProofTxnFields
+	StateProofTransaction *TransactionStateProof `json:"state-proof-transaction,omitempty"`
+
 	// \[type\] Indicates what type of transaction this is. Different types have different fields.
 	//
 	// Valid types, and where their fields are stored:
@@ -702,7 +724,7 @@ type Transaction struct {
 	// * \[axfer\] asset-transfer-transaction
 	// * \[afrz\] asset-freeze-transaction
 	// * \[appl\] application-transaction
-	// * \[cert\] compact-cert-transaction
+	// * \[stpf\] state-proof-transaction
 	TxType string `json:"tx-type"`
 }
 
@@ -800,22 +822,6 @@ type TransactionAssetTransfer struct {
 
 	// \[asnd\] The effective sender during a clawback transactions. If this is not a zero value, the real transaction sender must be the Clawback address from the AssetParams.
 	Sender *string `json:"sender,omitempty"`
-}
-
-// TransactionCompactCert defines model for TransactionCompactCert.
-type TransactionCompactCert struct {
-
-	// \[cert\] represents a compact cert.
-	//
-	// Definition:
-	// crypto/compactcerts/structus.go : Cert
-	Cert *CompactCert `json:"cert,omitempty"`
-
-	// \[certrnd\] Round which corresponds to the compact cert.
-	CertRound *uint64 `json:"cert-round,omitempty"`
-
-	// \[certtype\] Type of the compact cert. Integer representing an entry defined in protocol/compactcerts.go
-	CertType *uint64 `json:"cert-type,omitempty"`
 }
 
 // TransactionKeyreg defines model for TransactionKeyreg.
@@ -918,6 +924,23 @@ type TransactionSignatureMultisigSubsignature struct {
 
 	// \[s\]
 	Signature *[]byte `json:"signature,omitempty"`
+}
+
+// TransactionStateProof defines model for TransactionStateProof.
+type TransactionStateProof struct {
+	Message *StateProofMessage `json:"message,omitempty"`
+
+	// \[sp\] represents a state proof.
+	//
+	// Definition:
+	// crypto/stateproof/structs.go : StateProof
+	StateProof *StateProof `json:"state-proof,omitempty"`
+
+	// \[sprnd\] Latest round which corresponds to the state proof.
+	StateProofIntervalLatestRound *uint64 `json:"state-proof-interval-latest-round,omitempty"`
+
+	// \[sptype\] Type of the state proof. Integer representing an entry defined in protocol/stateproof.go
+	StateProofType *uint64 `json:"state-proof-type,omitempty"`
 }
 
 // AccountId defines model for account-id.
