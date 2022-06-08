@@ -5,23 +5,17 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"path"
-	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
-	algodConfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/processor"
 	"github.com/algorand/indexer/processor/blockprocessor"
-	"github.com/algorand/indexer/util"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -71,21 +65,12 @@ func RunMigration(round uint64, opts *idb.IndexerDbOptions) error {
 	if err != nil {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}
-	initState, err := util.CreateInitState(&genesis, &genesisBlock)
-	if err != nil {
-		return fmt.Errorf("RunMigration() err: %w", err)
-	}
 
-	localLedger, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
+	proc, err := blockprocessor.MakeProcessor(&genesis, &genesisBlock, opts.IndexerDatadir, nil)
 	if err != nil {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}
-	defer localLedger.Close()
-	bot.SetNextRound(uint64(localLedger.Latest()) + 1)
-	proc, err := blockprocessor.MakeProcessor(localLedger, nil)
-	if err != nil {
-		return fmt.Errorf("RunMigration() err: %w", err)
-	}
+	bot.SetNextRound(proc.NextRoundToProcess())
 	handler := blockHandler(round, proc, cf, 1*time.Second)
 	bot.SetBlockHandler(handler)
 
@@ -98,8 +83,6 @@ func RunMigration(round uint64, opts *idb.IndexerDbOptions) error {
 			os.Exit(1)
 		}
 	}
-	// wait for commit to disk
-	localLedger.WaitForCommit(localLedger.Latest())
 	return nil
 }
 

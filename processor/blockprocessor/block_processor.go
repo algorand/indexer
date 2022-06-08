@@ -120,6 +120,8 @@ func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
 	if err != nil {
 		return fmt.Errorf("Process() add validated block err: %w", err)
 	}
+	// wait for commit to disk
+	proc.ledger.WaitForCommit(blockCert.Block.Round())
 	return nil
 }
 
