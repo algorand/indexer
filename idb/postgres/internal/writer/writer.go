@@ -32,6 +32,8 @@ const (
 	deleteAccountAssetStmtName         = "delete_account_asset"
 	deleteAppStmtName                  = "delete_app"
 	deleteAccountAppStmtName           = "delete_account_app"
+	upsertAppBoxStmtName               = "upsert_app_box"
+	deleteAppBoxStmtName               = "delete_app_box"
 	updateAccountTotalsStmtName        = "update_account_totals"
 )
 
@@ -104,6 +106,13 @@ var statements = map[string]string{
 		(addr, app, localstate, deleted, created_at, closed_at)
 		VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (addr, app) DO UPDATE SET
 		localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at`,
+	upsertAppBoxStmtName: `INSERT INTO app_box
+		(app, box, value, created_at)
+		VALUES($1, $2, $3, $4) ON CONFLICT (app, box) DO UPDATE SET
+		value = EXCLUDED.value`,
+	// TODO: publicize and get an answer to: is there agreement about this HARD delete?
+	deleteAppBoxStmtName: `DELETE FROM app_box
+		WHERE app = $1 and box = $2`,
 	updateAccountTotalsStmtName: `UPDATE metastate SET v = $1 WHERE k = '` +
 		schema.AccountTotals + `'`,
 }
@@ -264,6 +273,28 @@ func writeAppResource(round basics.Round, resource *ledgercore.AppResourceRecord
 	}
 }
 
+func writeBoxResource(round basics.Round, resource *ledgercore.AppResourceRecord, batch *pgx.Batch) {
+	if resource.Params.Deleted {
+		batch.Queue(deleteAppStmtName, resource.Aidx, resource.Addr[:], round)
+	} else {
+		if resource.Params.Params != nil {
+			batch.Queue(
+				upsertAppStmtName, resource.Aidx, resource.Addr[:],
+				encoding.EncodeAppParams(*resource.Params.Params), round)
+		}
+	}
+
+	if resource.State.Deleted {
+		batch.Queue(deleteAccountAppStmtName, resource.Addr[:], resource.Aidx, round)
+	} else {
+		if resource.State.LocalState != nil {
+			batch.Queue(
+				upsertAccountAppStmtName, resource.Addr[:], resource.Aidx,
+				encoding.EncodeAppLocalState(*resource.State.LocalState), round)
+		}
+	}
+}
+
 func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.AccountDeltas, sigtypeDeltas map[basics.Address]sigTypeDelta, batch *pgx.Batch) {
 	// Update `account` table.
 	for i := 0; i < accountDeltas.Len(); i++ {
@@ -288,6 +319,14 @@ func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.AccountDel
 		appResources := accountDeltas.GetAllAppResources()
 		for i := range appResources {
 			writeAppResource(round, &appResources[i], batch)
+		}
+	}
+
+	// Update `app_box` table.
+	{
+		boxResources := boxDeltas.GetAllBoxResources()
+		for i := range boxResources {
+			writeBoxResource(round, &boxResources[i], batch)
 		}
 	}
 }

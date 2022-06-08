@@ -7,9 +7,11 @@ import (
 	"github.com/algorand/go-algorand/protocol"
 )
 
+// func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD, assetsReq map[basics.AssetIndex]struct{}, appsReq map[basics.AppIndex]struct{}, boxesReq map[transactions.BoxRef]struct{}) {
+
 // Add requests for asset and app creators to `assetsReq` and `appsReq` for the given
 // transaction.
-func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD, assetsReq map[basics.AssetIndex]struct{}, appsReq map[basics.AppIndex]struct{}, boxesReq map[transactions.BoxRef]struct{}) {
+func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD, assetsReq map[basics.AssetIndex]struct{}, appsReq map[basics.AppIndex]struct{}) {
 	txn := &stxnad.Txn
 
 	switch txn.Type {
@@ -39,27 +41,32 @@ func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD, assetsReq map[ba
 		for _, index := range fields.ForeignAssets {
 			assetsReq[index] = struct{}{}
 		}
-		for _, boxRef := range fields.Boxes {
-			boxesReq[boxRef] = struct{}{}
-		}
+		// for _, boxRef := range fields.Boxes {
+		// 	boxesReq[boxRef] = struct{}{}
+		// }
 	}
 
 	for i := range stxnad.ApplyData.EvalDelta.InnerTxns {
-		addToCreatorsRequest(&stxnad.ApplyData.EvalDelta.InnerTxns[i], assetsReq, appsReq, boxesReq)
+		// addToCreatorsRequest(&stxnad.ApplyData.EvalDelta.InnerTxns[i], assetsReq, appsReq, boxesReq)
+		addToCreatorsRequest(&stxnad.ApplyData.EvalDelta.InnerTxns[i], assetsReq, appsReq)
 	}
 }
 
+// func MakePreloadCreatorsRequest(payset transactions.Payset) (map[basics.AssetIndex]struct{}, map[basics.AppIndex]struct{}, map[transactions.BoxRef]struct{}) {
+
 // MakePreloadCreatorsRequest makes a request for preloading creators in the batch mode.
-func MakePreloadCreatorsRequest(payset transactions.Payset) (map[basics.AssetIndex]struct{}, map[basics.AppIndex]struct{}, map[transactions.BoxRef]struct{}) {
+func MakePreloadCreatorsRequest(payset transactions.Payset) (map[basics.AssetIndex]struct{}, map[basics.AppIndex]struct{}) {
 	assetsReq := make(map[basics.AssetIndex]struct{}, len(payset))
 	appsReq := make(map[basics.AppIndex]struct{}, len(payset))
-	boxesReq := make(map[transactions.BoxRef]struct{})
+	// boxesReq := make(map[transactions.BoxRef]struct{})
 
 	for i := range payset {
-		addToCreatorsRequest(&payset[i].SignedTxnWithAD, assetsReq, appsReq, boxesReq)
+		// addToCreatorsRequest(&payset[i].SignedTxnWithAD, assetsReq, appsReq, boxesReq)
+		addToCreatorsRequest(&payset[i].SignedTxnWithAD, assetsReq, appsReq)
 	}
 
-	return assetsReq, appsReq, boxesReq
+	// return assetsReq, appsReq, boxesReq
+	return assetsReq, appsReq
 }
 
 // Add requests for account data and account resources to `addressesReq` and
