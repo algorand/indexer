@@ -2,89 +2,203 @@ package blockprocessor
 
 import (
 	"fmt"
+	"path"
+	"path/filepath"
 
+	"github.com/algorand/go-algorand/config"
+	algodConfig "github.com/algorand/go-algorand/config"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/rpcs"
+	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/processor"
+	iledger "github.com/algorand/indexer/processor/eval"
+	"github.com/algorand/indexer/util"
 )
 
 type blockProcessor struct {
-	handler            func(block *ledgercore.ValidatedBlock) error
-	nextRoundToProcess uint64
-	ledger             *ledger.Ledger
+	handler func(block *ledgercore.ValidatedBlock) error
+	ledger  *ledger.Ledger
+}
+
+// MakeProcessorWithLedger creates a block processor with a given ledger
+func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+	if l == nil {
+		return nil, fmt.Errorf("MakeProcessorWithLedger() err: local ledger not initialized")
+	}
+	err := addGenesisBlock(l, handler)
+	if err != nil {
+		return nil, fmt.Errorf("MakeProcessorWithLedger() err: %w", err)
+	}
+	return &blockProcessor{ledger: l, handler: handler}, nil
 }
 
 // MakeProcessor creates a block processor
-func MakeProcessor(ledger *ledger.Ledger, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
-	if ledger == nil {
-		return nil, fmt.Errorf("MakeProcessor(): local ledger not initialized")
+func MakeProcessor(genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+	initState, err := util.CreateInitState(genesis, genesisBlock)
+	if err != nil {
+		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
 	}
-	if handler != nil && ledger.Latest() == 0 {
-		blk, err := ledger.Block(0)
+	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(datadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
+	if err != nil {
+		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
+	}
+	return MakeProcessorWithLedger(l, handler)
+}
+
+func addGenesisBlock(l *ledger.Ledger, handler func(block *ledgercore.ValidatedBlock) error) error {
+	if handler != nil && uint64(l.Latest()) == 0 {
+		blk, err := l.Block(0)
 		if err != nil {
-			return nil, fmt.Errorf("MakeProcessor() err: %w", err)
+			return fmt.Errorf("addGenesisBlock() err: %w", err)
 		}
 		vb := ledgercore.MakeValidatedBlock(blk, ledgercore.StateDelta{})
 		err = handler(&vb)
 		if err != nil {
-			return nil, fmt.Errorf("MakeProcessor() handler err: %w", err)
+			return fmt.Errorf("addGenesisBlock() handler err: %w", err)
 		}
 	}
-	return &blockProcessor{ledger: ledger, nextRoundToProcess: uint64(ledger.Latest() + 1), handler: handler}, nil
+	return nil
 }
 
 // Process a raw algod block
-func (processor *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
+func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
+
 	if blockCert == nil {
 		return fmt.Errorf("Process(): cannot process a nil block")
 	}
-	if uint64(blockCert.Block.Round()) != processor.nextRoundToProcess {
-		return fmt.Errorf("Process() invalid round blockCert.Block.Round(): %d processor.nextRoundToProcess: %d", blockCert.Block.Round(), processor.nextRoundToProcess)
+	if uint64(blockCert.Block.Round()) != uint64(proc.ledger.Latest())+1 {
+		return fmt.Errorf("Process() invalid round blockCert.Block.Round(): %d nextRoundToProcess: %d", blockCert.Block.Round(), uint64(proc.ledger.Latest())+1)
 	}
 
-	blkeval, err := processor.ledger.StartEvaluator(blockCert.Block.BlockHeader, len(blockCert.Block.Payset), 0)
+	proto, ok := config.Consensus[blockCert.Block.BlockHeader.CurrentProtocol]
+	if !ok {
+		return fmt.Errorf(
+			"Process() cannot find proto version %s", blockCert.Block.BlockHeader.CurrentProtocol)
+	}
+	protoChanged := !proto.EnableAssetCloseAmount
+	proto.EnableAssetCloseAmount = true
+
+	ledgerForEval, err := iledger.MakeLedgerForEvaluator(proc.ledger)
 	if err != nil {
-		return fmt.Errorf("Process() block eval err: %w", err)
+		return fmt.Errorf("Process() err: %w", err)
 	}
-
-	paysetgroups, err := blockCert.Block.DecodePaysetGroups()
+	resources, err := prepareEvalResources(&ledgerForEval, &blockCert.Block)
 	if err != nil {
-		return fmt.Errorf("Process() decode payset groups err: %w", err)
+		panic(fmt.Errorf("Process() resources err: %w", err))
 	}
 
-	for _, group := range paysetgroups {
-		err = blkeval.TransactionGroup(group)
-		if err != nil {
-			return fmt.Errorf("Process() apply transaction group err: %w", err)
-		}
+	delta, modifiedTxns, err :=
+		ledger.EvalForIndexer(ledgerForEval, &blockCert.Block, proto, resources)
+	if err != nil {
+		return fmt.Errorf("Process() eval err: %w", err)
 	}
-
 	// validated block
-	vb, err := blkeval.GenerateBlock()
-	if err != nil {
-		return fmt.Errorf("Process() validated block err: %w", err)
+	var vb ledgercore.ValidatedBlock
+	vb = ledgercore.MakeValidatedBlock(blockCert.Block, delta)
+	if protoChanged {
+		block := bookkeeping.Block{
+			BlockHeader: blockCert.Block.BlockHeader,
+			Payset:      modifiedTxns,
+		}
+		vb = ledgercore.MakeValidatedBlock(block, delta)
 	}
+
 	// execute handler before writing to local ledger
-	if processor.handler != nil {
-		err = processor.handler(vb)
+	if proc.handler != nil {
+		err = proc.handler(&vb)
 		if err != nil {
 			return fmt.Errorf("Process() handler err: %w", err)
 		}
 	}
 	// write to ledger
-	err = processor.ledger.AddValidatedBlock(*vb, blockCert.Certificate)
+	err = proc.ledger.AddValidatedBlock(vb, blockCert.Certificate)
 	if err != nil {
 		return fmt.Errorf("Process() add validated block err: %w", err)
 	}
-	processor.nextRoundToProcess = uint64(processor.ledger.Latest()) + 1
 	return nil
 }
 
-func (processor *blockProcessor) SetHandler(handler func(block *ledgercore.ValidatedBlock) error) {
-	processor.handler = handler
+func (proc *blockProcessor) SetHandler(handler func(block *ledgercore.ValidatedBlock) error) {
+	proc.handler = handler
 }
 
-func (processor *blockProcessor) NextRoundToProcess() uint64 {
-	return processor.nextRoundToProcess
+func (proc *blockProcessor) NextRoundToProcess() uint64 {
+	return uint64(proc.ledger.Latest()) + 1
+}
+
+// Preload all resources (account data, account resources, asset/app creators) for the
+// evaluator.
+func prepareEvalResources(l *iledger.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
+	assetCreators, appCreators, err := prepareCreators(l, block.Payset)
+	if err != nil {
+		return ledger.EvalForIndexerResources{},
+			fmt.Errorf("prepareEvalResources() err: %w", err)
+	}
+
+	res := ledger.EvalForIndexerResources{
+		Accounts:  nil,
+		Resources: nil,
+		Creators:  make(map[ledger.Creatable]ledger.FoundAddress),
+	}
+
+	for index, foundAddress := range assetCreators {
+		creatable := ledger.Creatable{
+			Index: basics.CreatableIndex(index),
+			Type:  basics.AssetCreatable,
+		}
+		res.Creators[creatable] = foundAddress
+	}
+	for index, foundAddress := range appCreators {
+		creatable := ledger.Creatable{
+			Index: basics.CreatableIndex(index),
+			Type:  basics.AppCreatable,
+		}
+		res.Creators[creatable] = foundAddress
+	}
+
+	res.Accounts, res.Resources, err = prepareAccountsResources(l, block.Payset, assetCreators, appCreators)
+	if err != nil {
+		return ledger.EvalForIndexerResources{},
+			fmt.Errorf("prepareEvalResources() err: %w", err)
+	}
+
+	return res, nil
+}
+
+// Preload asset and app creators.
+func prepareCreators(l *iledger.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
+	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
+
+	assets, err := l.GetAssetCreator(assetsReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
+	}
+	apps, err := l.GetAppCreator(appsReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
+	}
+
+	return assets, apps, nil
+}
+
+// Preload account data and account resources.
+func prepareAccountsResources(l *iledger.LedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
+	addressesReq, resourcesReq :=
+		accounting.MakePreloadAccountsResourcesRequest(payset, assetCreators, appCreators)
+
+	accounts, err := l.LookupWithoutRewards(addressesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
+	}
+	resources, err := l.LookupResources(resourcesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
+	}
+
+	return accounts, resources, nil
 }

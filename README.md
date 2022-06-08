@@ -195,6 +195,7 @@ Settings can be provided from the command line, a configuration file, or an envi
 | default-balances-limit        |         | default-balances-limit        | INDEXER_DEFAULT_BALANCES_LIMIT        |
 | max-applications-limit        |         | max-applications-limit        | INDEXER_MAX_APPLICATIONS_LIMIT        |
 | default-applications-limit    |         | default-applications-limit    | INDEXER_DEFAULT_APPLICATIONS_LIMIT    |
+| data-dir                      | i       | data                          | INDEXER_DATA                          |
 
 ## Command line
 

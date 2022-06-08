@@ -16,10 +16,15 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
+	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger"
+	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
+	"github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/indexer/util"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"
@@ -64,13 +69,13 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 				pathsSorted = pathsSorted[:h.BlockFileLimit]
 			}
 			for _, gfname := range pathsSorted {
-				fb, ft := importFile(gfname, imp, h.Log)
+				fb, ft := importFile(gfname, imp, h.Log, h.GenesisJSONPath)
 				blocks += fb
 				txCount += ft
 			}
 		} else {
 			// try without passing throug glob
-			fb, ft := importFile(fname, imp, h.Log)
+			fb, ft := importFile(fname, imp, h.Log, h.GenesisJSONPath)
 			blocks += fb
 			txCount += ft
 		}
@@ -90,7 +95,7 @@ func maybeFail(err error, l *log.Logger, errfmt string, params ...interface{}) {
 	os.Exit(1)
 }
 
-func importTar(imp Importer, tarfile io.Reader, l *log.Logger) (blockCount, txCount int, err error) {
+func importTar(imp Importer, tarfile io.Reader, l *log.Logger, genesisReader io.Reader) (blockCount, txCount int, err error) {
 	tf := tar.NewReader(tarfile)
 	var header *tar.Header
 	header, err = tf.Next()
@@ -126,8 +131,27 @@ func importTar(imp Importer, tarfile io.Reader, l *log.Logger) (blockCount, txCo
 	}
 	sort.Slice(blocks, less)
 
-	for _, blockContainer := range blocks {
-		err = imp.ImportBlock(&blockContainer)
+	var genesis bookkeeping.Genesis
+	gbytes, err := ioutil.ReadAll(genesisReader)
+	if err != nil {
+		maybeFail(err, l, "error reading genesis, %v", err)
+	}
+	err = protocol.DecodeJSON(gbytes, &genesis)
+	if err != nil {
+		maybeFail(err, l, "error decoding genesis, %v", err)
+	}
+	genesisBlock := blocks[0]
+	initState, err := util.CreateInitState(&genesis, &genesisBlock.Block)
+	maybeFail(err, l, "Error getting genesis block")
+
+	ld, err := ledger.OpenLedger(logging.NewLogger(), "ledger", true, initState, config.GetDefaultLocal())
+	maybeFail(err, l, "Cannot open ledger")
+
+	proc, err := blockprocessor.MakeProcessorWithLedger(ld, imp.ImportBlock)
+	maybeFail(err, l, "Error creating processor")
+
+	for _, blockContainer := range blocks[1:] {
+		err = proc.Process(&blockContainer)
 		if err != nil {
 			return
 		}
@@ -136,15 +160,16 @@ func importTar(imp Importer, tarfile io.Reader, l *log.Logger) (blockCount, txCo
 	return
 }
 
-func importFile(fname string, imp Importer, l *log.Logger) (blocks, txCount int) {
+func importFile(fname string, imp Importer, l *log.Logger, genesisPath string) (blocks, txCount int) {
 	blocks = 0
 	txCount = 0
 	l.Infof("importing %s ...", fname)
+	genesisReader := GetGenesisFile(genesisPath, nil, l)
 	if strings.HasSuffix(fname, ".tar") {
 		fin, err := os.Open(fname)
 		maybeFail(err, l, "%s: %v", fname, err)
 		defer fin.Close()
-		tblocks, btxns, err := importTar(imp, fin, l)
+		tblocks, btxns, err := importTar(imp, fin, l, genesisReader)
 		maybeFail(err, l, "%s: %v", fname, err)
 		blocks += tblocks
 		txCount += btxns
@@ -153,21 +178,13 @@ func importFile(fname string, imp Importer, l *log.Logger) (blocks, txCount int)
 		maybeFail(err, l, "%s: %v", fname, err)
 		defer fin.Close()
 		bzin := bzip2.NewReader(fin)
-		tblocks, btxns, err := importTar(imp, bzin, l)
+		tblocks, btxns, err := importTar(imp, bzin, l, genesisReader)
 		maybeFail(err, l, "%s: %v", fname, err)
 		blocks += tblocks
 		txCount += btxns
 	} else {
-		// assume a standalone block msgpack blob
-		blockbytes, err := ioutil.ReadFile(fname)
-		maybeFail(err, l, "%s: could not read, %v", fname, err)
-		var blockContainer rpcs.EncodedBlockCert
-		err = protocol.Decode(blockbytes, &blockContainer)
-		maybeFail(err, l, "cannot decode blockbytes err: %v", err)
-		err = imp.ImportBlock(&blockContainer)
-		maybeFail(err, l, "cannot import block err: %v", err)
-		blocks++
-		txCount += len(blockContainer.Block.Payset)
+		//assume a standalone block msgpack blob
+		maybeFail(errors.New("cannot import a standalone block"), l, "not supported")
 	}
 	return
 }
