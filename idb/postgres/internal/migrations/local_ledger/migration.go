@@ -126,7 +126,7 @@ func RunMigrationFastCatchup(catchpoint string, opts *idb.IndexerDbOptions) erro
 		time.Sleep(2 * time.Second)
 		status, err = node.Status()
 		if status.CatchpointCatchupTotalBlocks > 0 {
-			logger.Debugf("catchup %d blocks ", status.CatchpointCatchupTotalBlocks)
+			logger.Debugf("current round %d ", status.LastRound)
 		}
 	}
 	logger.Info("fast catchup completed")

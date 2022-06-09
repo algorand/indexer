@@ -262,7 +262,7 @@ func ledgerMigration(db *IndexerDb, migrationState *types.MigrationState, opts *
 		if err != nil {
 			return fmt.Errorf("ledgerMigration() err: %w", err)
 		}
-		err = ledger.RunMigration(round, opts)
+		err = ledger.RunMigrationSimple(round, opts)
 		if err != nil {
 			return fmt.Errorf("ledgerMigration() err: %w", err)
 		}
