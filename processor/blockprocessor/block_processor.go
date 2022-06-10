@@ -22,6 +22,8 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
+const Prefix = "ledger"
+
 type blockProcessor struct {
 	handler func(block *ledgercore.ValidatedBlock) error
 	ledger  *ledger.Ledger
@@ -40,21 +42,20 @@ func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.Va
 }
 
 // MakeProcessor creates a block processor
-func MakeProcessor(genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+func MakeProcessor(genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block, dbRound uint64, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
 	initState, err := util.CreateInitState(genesis, genesisBlock)
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
 	}
-	if !ledgerExists(datadir) {
-		msg := []string{
-			"The ledger cache was not found in the data directory and must be initialized. There are several ways to initialize it:\n",
-			"1.Fetch blocks and re-initialize, this takes a long time and is the most secure\n",
-			"2.Initialize with a catchpoint, this requires trusting that the relay is providing the correct ledger snapshot.\n",
-			"3.Copy files X/Y/Z from an existing node installation from before round 1234 into the indexer data directory.\n",
-		}
+	if dbRound != 0 && !ledgerExists(datadir, Prefix) {
+		msg := fmt.Sprintf("%s\n%s\n%s\n%s\n",
+			"The ledger cache was not found in the data directory and must be initialized. There are several ways to initialize it:",
+			"1.Fetch blocks and re-initialize, this takes a long time and is the most secure",
+			"2.Initialize with a catchpoint, this requires trusting that the relay is providing the correct ledger snapshot.",
+			fmt.Sprintf("3.Copy files ledger.block.sqlite and ledger.tracker.sqlite from an existing node installation from before round %d into the indexer data directory.", dbRound))
 		return nil, fmt.Errorf("MakeProcessor() err: %s", msg)
 	}
-	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(datadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
+	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(datadir), Prefix), false, initState, algodConfig.GetDefaultLocal())
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
 	}
@@ -214,10 +215,10 @@ func prepareAccountsResources(l *indexerledger.LedgerForEvaluator, payset transa
 	return accounts, resources, nil
 }
 
-func ledgerExists(datadir string) bool {
+func ledgerExists(datadir, prefix string) bool {
 	ledgerFiles := []string{
-		"ledger.block.sqlite",
-		"ledger.tracker.sqlite",
+		fmt.Sprintf("%s.block.sqlite", prefix),
+		fmt.Sprintf("%s.tracker.sqlite", prefix),
 	}
 	for _, f := range ledgerFiles {
 		if _, err := os.Stat(filepath.Join(path.Dir(datadir), f)); errors.Is(err, os.ErrNotExist) {
