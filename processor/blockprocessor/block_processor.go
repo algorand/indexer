@@ -1,7 +1,9 @@
 package blockprocessor
 
 import (
+	"errors"
 	"fmt"
+	"os"
 	"path"
 	"path/filepath"
 
@@ -42,6 +44,15 @@ func MakeProcessor(genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block
 	initState, err := util.CreateInitState(genesis, genesisBlock)
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
+	}
+	if !ledgerExists(datadir) {
+		msg := []string{
+			"The ledger cache was not found in the data directory and must be initialized. There are several ways to initialize it:\n",
+			"1.Fetch blocks and re-initialize, this takes a long time and is the most secure\n",
+			"2.Initialize with a catchpoint, this requires trusting that the relay is providing the correct ledger snapshot.\n",
+			"3.Copy files X/Y/Z from an existing node installation from before round 1234 into the indexer data directory.\n",
+		}
+		return nil, fmt.Errorf("MakeProcessor() err: %s", msg)
 	}
 	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(datadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
 	if err != nil {
@@ -201,4 +212,18 @@ func prepareAccountsResources(l *indexerledger.LedgerForEvaluator, payset transa
 	}
 
 	return accounts, resources, nil
+}
+
+func ledgerExists(datadir string) bool {
+	ledgerFiles := []string{
+		"ledger.block.sqlite",
+		"ledger.tracker.sqlite",
+	}
+	for _, f := range ledgerFiles {
+		if _, err := os.Stat(filepath.Join(path.Dir(datadir), f)); errors.Is(err, os.ErrNotExist) {
+			// path/to/whatever does not exist
+			return false
+		}
+	}
+	return true
 }
