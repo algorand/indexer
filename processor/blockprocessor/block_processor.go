@@ -222,7 +222,6 @@ func ledgerExists(datadir, prefix string) bool {
 	}
 	for _, f := range ledgerFiles {
 		if _, err := os.Stat(filepath.Join(path.Dir(datadir), f)); errors.Is(err, os.ErrNotExist) {
-			// path/to/whatever does not exist
 			return false
 		}
 	}
