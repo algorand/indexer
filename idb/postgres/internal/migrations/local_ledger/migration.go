@@ -61,12 +61,8 @@ func RunMigration(round uint64, opts *idb.IndexerDbOptions) error {
 	if err != nil {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}
-	genesisBlock, err := getGenesisBlock(bot.Algod())
-	if err != nil {
-		return fmt.Errorf("RunMigration() err: %w", err)
-	}
 
-	proc, err := blockprocessor.MakeProcessor(&genesis, &genesisBlock, opts.IndexerDatadir, nil)
+	proc, err := blockprocessor.MakeProcessor(&genesis, opts.IndexerDatadir, nil)
 	if err != nil {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}
@@ -135,19 +131,4 @@ func getGenesis(client *algod.Client) (bookkeeping.Genesis, error) {
 	}
 
 	return res, nil
-}
-
-func getGenesisBlock(client *algod.Client) (bookkeeping.Block, error) {
-	data, err := client.BlockRaw(0).Do(context.Background())
-	if err != nil {
-		return bookkeeping.Block{}, fmt.Errorf("getGenesisBlock() client err: %w", err)
-	}
-
-	var block rpcs.EncodedBlockCert
-	err = protocol.Decode(data, &block)
-	if err != nil {
-		return bookkeeping.Block{}, fmt.Errorf("getGenesisBlock() decode err: %w", err)
-	}
-
-	return block.Block, nil
 }

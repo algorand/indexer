@@ -38,8 +38,16 @@ func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.Va
 }
 
 // MakeProcessor creates a block processor
-func MakeProcessor(genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
-	initState, err := util.CreateInitState(genesis, genesisBlock)
+func MakeProcessor(genesis *bookkeeping.Genesis, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+	balances, err := genesis.Balances()
+	if err != nil {
+		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
+	}
+	genesisBlock, err := bookkeeping.MakeGenesisBlock(genesis.Proto, balances, genesis.ID(), genesis.Hash())
+	if err != nil {
+		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
+	}
+	initState, err := util.CreateInitState(genesis, &genesisBlock)
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
 	}

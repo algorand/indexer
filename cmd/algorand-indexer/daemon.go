@@ -12,7 +12,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
@@ -151,10 +150,8 @@ var daemonCmd = &cobra.Command{
 				genesisReader = importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
 				genesis, err := readGenesis(genesisReader)
 				maybeFail(err, "Error reading genesis file")
-				genesisBlock, err := getGenesisBlock(bot.Algod())
-				maybeFail(err, "Error getting genesis block")
 
-				proc, err := blockprocessor.MakeProcessor(&genesis, &genesisBlock, indexerDataDir, imp.ImportBlock)
+				proc, err := blockprocessor.MakeProcessor(&genesis, indexerDataDir, imp.ImportBlock)
 				if err != nil {
 					maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
 				}
@@ -349,19 +346,4 @@ func readGenesis(reader io.Reader) (bookkeeping.Genesis, error) {
 		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: %w", err)
 	}
 	return genesis, nil
-}
-
-func getGenesisBlock(client *algod.Client) (bookkeeping.Block, error) {
-	data, err := client.BlockRaw(0).Do(context.Background())
-	if err != nil {
-		return bookkeeping.Block{}, fmt.Errorf("getGenesisBlock() client err: %w", err)
-	}
-
-	var block rpcs.EncodedBlockCert
-	err = protocol.Decode(data, &block)
-	if err != nil {
-		return bookkeeping.Block{}, fmt.Errorf("getGenesisBlock() decode err: %w", err)
-	}
-
-	return block.Block, nil
 }
