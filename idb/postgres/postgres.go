@@ -263,11 +263,11 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		if block.Round() > basics.Round(importstate.NextRoundToAccount) {
+		if block.Round() != basics.Round(importstate.NextRoundToAccount) {
 			return fmt.Errorf(
 				"AddBlock() adding block round %d but next round to account is %d",
 				block.Round(), importstate.NextRoundToAccount)
-		} else if block.Round() == basics.Round(importstate.NextRoundToAccount) {
+		} else {
 			importstate.NextRoundToAccount++
 			err = db.setImportState(tx, &importstate)
 			if err != nil {
