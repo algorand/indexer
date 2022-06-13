@@ -16,7 +16,7 @@ import (
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 )
 
-func setupIdbWithConnectionString(t *testing.T, connStr string, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) *IndexerDb {
+func setupIdbWithConnectionString(t *testing.T, connStr string, genesis bookkeeping.Genesis) *IndexerDb {
 	idb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	require.NoError(t, err)
 
@@ -26,10 +26,10 @@ func setupIdbWithConnectionString(t *testing.T, connStr string, genesis bookkeep
 	return idb
 }
 
-func setupIdb(t *testing.T, genesis bookkeeping.Genesis, genesisBlock bookkeeping.Block) (*IndexerDb /*db*/, func() /*shutdownFunc*/, processor.Processor, *ledger.Ledger) {
+func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*IndexerDb, func(), processor.Processor, *ledger.Ledger) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
-	db := setupIdbWithConnectionString(t, connStr, genesis, genesisBlock)
+	db := setupIdbWithConnectionString(t, connStr, genesis)
 	newShutdownFunc := func() {
 		db.Close()
 		shutdownFunc()
