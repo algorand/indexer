@@ -286,73 +286,72 @@ func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 				if err != nil {
 					return fmt.Errorf("AddBlock() err: %w", err)
 				}
-			} else {
-				proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
-				if !ok {
-					return fmt.Errorf(
-						"AddBlock() cannot find proto version %s", block.BlockHeader.CurrentProtocol)
+			}
+			proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
+			if !ok {
+				return fmt.Errorf(
+					"AddBlock() cannot find proto version %s", block.BlockHeader.CurrentProtocol)
+			}
+			protoChanged := !proto.EnableAssetCloseAmount
+			proto.EnableAssetCloseAmount = true
+
+			var wg sync.WaitGroup
+			defer wg.Wait()
+
+			// Write transaction participation and possibly transactions in a parallel db
+			// transaction. If `proto.EnableAssetCloseAmount` is already true, we can start
+			// writing transactions contained in the block early.
+			var err0 error
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				f := func(tx pgx.Tx) error {
+					if !protoChanged {
+						err := writer.AddTransactions(&block, block.Payset, tx)
+						if err != nil {
+							return err
+						}
+					}
+					return writer.AddTransactionParticipation(&block, tx)
 				}
-				protoChanged := !proto.EnableAssetCloseAmount
-				proto.EnableAssetCloseAmount = true
+				err0 = db.txWithRetry(serializable, f)
+			}()
 
-				var wg sync.WaitGroup
-				defer wg.Wait()
-
-				// Write transaction participation and possibly transactions in a parallel db
-				// transaction. If `proto.EnableAssetCloseAmount` is already true, we can start
-				// writing transactions contained in the block early.
-				var err0 error
+			var err1 error
+			// Skip if transaction writing has already started.
+			if protoChanged {
+				// Write transactions in a parallel db transaction.
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
 
 					f := func(tx pgx.Tx) error {
-						if !protoChanged {
-							err := writer.AddTransactions(&block, block.Payset, tx)
-							if err != nil {
-								return err
-							}
-						}
-						return writer.AddTransactionParticipation(&block, tx)
+						return writer.AddTransactions(&block, block.Payset, tx)
 					}
-					err0 = db.txWithRetry(serializable, f)
+					err1 = db.txWithRetry(serializable, f)
 				}()
+			}
 
-				var err1 error
-				// Skip if transaction writing has already started.
-				if protoChanged {
-					// Write transactions in a parallel db transaction.
-					wg.Add(1)
-					go func() {
-						defer wg.Done()
+			err = w.AddBlock(&block, block.Payset, vb.Delta())
+			if err != nil {
+				return fmt.Errorf("AddBlock() err: %w", err)
+			}
 
-						f := func(tx pgx.Tx) error {
-							return writer.AddTransactions(&block, block.Payset, tx)
-						}
-						err1 = db.txWithRetry(serializable, f)
-					}()
-				}
-
-				err = w.AddBlock(&block, block.Payset, vb.Delta())
-				if err != nil {
-					return fmt.Errorf("AddBlock() err: %w", err)
-				}
-
-				// Wait for goroutines to finish and check for errors. If there is an error, we
-				// return our own error so that the main transaction does not commit. Hence,
-				// `txn` and `txn_participation` tables can only be ahead but not behind
-				// the other state.
-				wg.Wait()
-				isUniqueViolationFunc := func(err error) bool {
-					var pgerr *pgconn.PgError
-					return errors.As(err, &pgerr) && (pgerr.Code == pgerrcode.UniqueViolation)
-				}
-				if (err0 != nil) && !isUniqueViolationFunc(err0) {
-					return fmt.Errorf("AddBlock() err0: %w", err0)
-				}
-				if (err1 != nil) && !isUniqueViolationFunc(err1) {
-					return fmt.Errorf("AddBlock() err1: %w", err1)
-				}
+			// Wait for goroutines to finish and check for errors. If there is an error, we
+			// return our own error so that the main transaction does not commit. Hence,
+			// `txn` and `txn_participation` tables can only be ahead but not behind
+			// the other state.
+			wg.Wait()
+			isUniqueViolationFunc := func(err error) bool {
+				var pgerr *pgconn.PgError
+				return errors.As(err, &pgerr) && (pgerr.Code == pgerrcode.UniqueViolation)
+			}
+			if (err0 != nil) && !isUniqueViolationFunc(err0) {
+				return fmt.Errorf("AddBlock() err0: %w", err0)
+			}
+			if (err1 != nil) && !isUniqueViolationFunc(err1) {
+				return fmt.Errorf("AddBlock() err1: %w", err1)
 			}
 		}
 

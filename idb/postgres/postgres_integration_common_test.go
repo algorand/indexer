@@ -6,7 +6,6 @@ import (
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/processor"
 	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/algorand/indexer/util/test"
@@ -23,10 +22,10 @@ func setupIdbWithConnectionString(t *testing.T, connStr string, genesis bookkeep
 
 	err = idb.LoadGenesis(genesis)
 	require.NoError(t, err)
-
-	vb := ledgercore.MakeValidatedBlock(genesisBlock, ledgercore.StateDelta{})
-	err = idb.AddBlock(&vb)
-	require.NoError(t, err)
+	//
+	//vb := ledgercore.MakeValidatedBlock(genesisBlock, ledgercore.StateDelta{})
+	//err = idb.AddBlock(&vb)
+	//require.NoError(t, err)
 
 	return idb
 }

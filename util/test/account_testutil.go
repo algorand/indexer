@@ -27,7 +27,7 @@ var (
 	RewardAddr = DecodeAddressOrPanic("4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM")
 
 	// GenesisHash is a genesis hash used in tests.
-	GenesisHash = crypto.Digest{77}
+	GenesisHash = MakeGenesis().Hash()
 	// Signature is a signature for transactions used in tests.
 	Signature = crypto.Signature{88}
 
@@ -594,7 +594,7 @@ func MakeGenesisBlock() bookkeeping.Block {
 	return bookkeeping.Block{
 		BlockHeader: bookkeeping.BlockHeader{
 			GenesisID:   MakeGenesis().ID(),
-			GenesisHash: MakeGenesis().Hash(),
+			GenesisHash: GenesisHash,
 			RewardsState: bookkeeping.RewardsState{
 				FeeSink:     FeeAddr,
 				RewardsPool: RewardAddr,
