@@ -594,7 +594,7 @@ func MakeGenesisBlock() bookkeeping.Block {
 	return bookkeeping.Block{
 		BlockHeader: bookkeeping.BlockHeader{
 			GenesisID:   MakeGenesis().ID(),
-			GenesisHash: GenesisHash,
+			GenesisHash: MakeGenesis().Hash(),
 			RewardsState: bookkeeping.RewardsState{
 				FeeSink:     FeeAddr,
 				RewardsPool: RewardAddr,

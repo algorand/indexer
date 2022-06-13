@@ -121,8 +121,7 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 // MakeTestLedger creates an in-memory local ledger
 func MakeTestLedger(prefix string) *ledger.Ledger {
 	genesis := MakeGenesis()
-	genesisBlock := MakeGenesisBlock()
-	initState, err := util.CreateInitState(&genesis, &genesisBlock)
+	initState, err := util.CreateInitState(&genesis)
 	if err != nil {
 		logrus.Panicf("test init err: %v", err)
 	}

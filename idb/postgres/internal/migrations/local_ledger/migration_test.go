@@ -31,21 +31,16 @@ func TestRunMigration(t *testing.T) {
 		httpmock.NewStringResponder(200, string(json.Encode(genesis))))
 	// /v2/blocks/0 endpoint
 	genesisBlock := test.MakeGenesisBlock()
-	blockCert := rpcs.EncodedBlockCert{
-		Block: genesisBlock,
-	}
-	// /v2/blocks/0
-	httpmock.RegisterResponder("GET", "http://localhost/v2/blocks/0?format=msgpack",
-		httpmock.NewStringResponder(200, string(msgpack.Encode(blockCert))))
 
 	// responder for rounds 1 to 6
 	txn := test.MakePaymentTxn(0, 100, 0, 1, 1,
 		0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	prevHeader := genesisBlock.BlockHeader
+	txn.Txn.GenesisHash = genesis.Hash()
 	for i := 1; i < 7; i++ {
 		block, err := test.MakeBlockForTxns(prevHeader, &txn)
 		assert.Nil(t, err)
-		blockCert = rpcs.EncodedBlockCert{
+		blockCert := rpcs.EncodedBlockCert{
 			Block: block,
 		}
 		url := fmt.Sprintf("http://localhost/v2/blocks/%d?format=msgpack", i)
@@ -72,7 +67,7 @@ func TestRunMigration(t *testing.T) {
 	// migrate 3 rounds
 	err = RunMigration(3, &opts)
 	assert.NoError(t, err)
-	initState, err := util.CreateInitState(&genesis, &genesisBlock)
+	initState, err := util.CreateInitState(&genesis)
 	assert.NoError(t, err)
 	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
 	assert.NoError(t, err)
