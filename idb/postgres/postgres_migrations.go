@@ -15,6 +15,7 @@ import (
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	cad "github.com/algorand/indexer/idb/postgres/internal/migrations/convert_account_data"
+	ledger "github.com/algorand/indexer/idb/postgres/internal/migrations/local_ledger"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	"github.com/algorand/indexer/idb/postgres/internal/types"
 )
@@ -50,6 +51,9 @@ func init() {
 		{upgradeNotSupported, true, "notify the user that upgrade is not supported"},
 		{dropTxnBytesColumn, true, "drop txnbytes column"},
 		{convertAccountData, true, "convert account.account_data column"},
+
+		// Migrations for x.x.x release
+		{ledgerMigration, true, "sync between local ledger and database"},
 	}
 }
 
@@ -244,6 +248,34 @@ func convertAccountData(db *IndexerDb, migrationState *types.MigrationState, opt
 	err := db.txWithRetry(serializable, f)
 	if err != nil {
 		return fmt.Errorf("convertAccountData() err: %w", err)
+	}
+
+	*migrationState = newMigrationState
+	return nil
+}
+
+func ledgerMigration(db *IndexerDb, migrationState *types.MigrationState, opts *idb.IndexerDbOptions) error {
+	newMigrationState := *migrationState
+	newMigrationState.NextMigration++
+	f := func(tx pgx.Tx) error {
+		round, err := db.getMaxRoundAccounted(context.Background(), tx)
+		if err != nil {
+			return fmt.Errorf("ledgerMigration() err: %w", err)
+		}
+		err = ledger.RunMigrationSimple(round, opts)
+		if err != nil {
+			return fmt.Errorf("ledgerMigration() err: %w", err)
+		}
+		err = db.setMigrationState(tx, &newMigrationState)
+		if err != nil {
+			return fmt.Errorf("ledgerMigration() err: %w", err)
+		}
+
+		return nil
+	}
+	err := db.txWithRetry(serializable, f)
+	if err != nil {
+		return fmt.Errorf("ledgerMigration() err: %w", err)
 	}
 
 	*migrationState = newMigrationState
