@@ -234,7 +234,7 @@ func init() {
 
 	daemonCmd.Flags().StringVarP(&indexerDataDir, "data-dir", "i", "", "path to indexer data dir, or $INDEXER_DATA")
 	daemonCmd.Flags().BoolVar(&initLedger, "init-ledger", true, "initialize local ledger using sequential mode")
-	daemonCmd.Flags().StringVarP(&catchpoint, "catchpoint", "c", "", "initialize local ledger using fast catchup")
+	daemonCmd.Flags().StringVarP(&catchpoint, "catchpoint", "", "", "initialize local ledger using fast catchup")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
