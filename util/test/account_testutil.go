@@ -591,15 +591,14 @@ func MakeGenesis() bookkeeping.Genesis {
 
 // MakeGenesisBlock makes a genesis block.
 func MakeGenesisBlock() bookkeeping.Block {
-	return bookkeeping.Block{
-		BlockHeader: bookkeeping.BlockHeader{
-			GenesisID:   MakeGenesis().ID(),
-			GenesisHash: GenesisHash,
-			RewardsState: bookkeeping.RewardsState{
-				FeeSink:     FeeAddr,
-				RewardsPool: RewardAddr,
-			},
-			UpgradeState: bookkeeping.UpgradeState{CurrentProtocol: Proto},
-		},
+	genesis := MakeGenesis()
+	balances, err := genesis.Balances()
+	if err != nil {
+		return bookkeeping.Block{}
 	}
+	genesisBlock, err := bookkeeping.MakeGenesisBlock(genesis.Proto, balances, genesis.ID(), genesis.Hash())
+	if err != nil {
+		return bookkeeping.Block{}
+	}
+	return genesisBlock
 }
