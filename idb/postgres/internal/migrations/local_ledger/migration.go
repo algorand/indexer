@@ -86,9 +86,7 @@ func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
 }
 
 // RunMigrationFastCatchup executes the migration core functionality.
-func RunMigrationFastCatchup(catchpoint string, opts *idb.IndexerDbOptions) error {
-	logger := log.New()
-	fmt.Printf("%+v\n", opts)
+func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb.IndexerDbOptions) error {
 	if opts.IndexerDatadir == "" {
 		return fmt.Errorf("RunMigrationFastCatchup() err: indexer data directory missing")
 	}
