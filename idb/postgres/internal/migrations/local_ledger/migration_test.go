@@ -11,6 +11,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	algodConfig "github.com/algorand/go-algorand/config"
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/logging"
@@ -30,7 +31,9 @@ func TestRunMigration(t *testing.T) {
 	httpmock.RegisterResponder("GET", "http://localhost/genesis",
 		httpmock.NewStringResponder(200, string(json.Encode(genesis))))
 	// /v2/blocks/0 endpoint
+	genesisHash := crypto.HashObj(genesis)
 	genesisBlock := test.MakeGenesisBlock()
+	genesisBlock.BlockHeader.GenesisHash = genesisHash
 	blockCert := rpcs.EncodedBlockCert{
 		Block: genesisBlock,
 	}
@@ -41,10 +44,12 @@ func TestRunMigration(t *testing.T) {
 	// responder for rounds 1 to 6
 	txn := test.MakePaymentTxn(0, 100, 0, 1, 1,
 		0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
+	txn.Txn.GenesisHash = genesisHash
 	prevHeader := genesisBlock.BlockHeader
 	for i := 1; i < 7; i++ {
 		block, err := test.MakeBlockForTxns(prevHeader, &txn)
 		assert.Nil(t, err)
+
 		blockCert = rpcs.EncodedBlockCert{
 			Block: block,
 		}
@@ -70,7 +75,7 @@ func TestRunMigration(t *testing.T) {
 	}
 
 	// migrate 3 rounds
-	err = RunMigration(3, &opts)
+	err = RunMigrationSimple(3, &opts)
 	assert.NoError(t, err)
 	initState, err := util.CreateInitState(&genesis, &genesisBlock)
 	assert.NoError(t, err)
@@ -81,7 +86,7 @@ func TestRunMigration(t *testing.T) {
 	l.Close()
 
 	// migration continues from last round
-	err = RunMigration(6, &opts)
+	err = RunMigrationSimple(6, &opts)
 	assert.NoError(t, err)
 
 	l, err = ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
