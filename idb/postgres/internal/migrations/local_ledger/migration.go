@@ -6,8 +6,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -16,6 +14,7 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/node"
 	"github.com/algorand/go-algorand/protocol"
@@ -91,8 +90,7 @@ func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb
 		return fmt.Errorf("RunMigrationFastCatchup() err: indexer data directory missing")
 	}
 	// catchpoint round
-	catchpointAr := strings.Split(catchpoint, "#")
-	round, err := strconv.ParseUint(string(catchpointAr[0]), 10, 64)
+	round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
 	if err != nil {
 		return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
 	}
@@ -120,7 +118,7 @@ func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb
 	node.StartCatchup(catchpoint)
 	//  If the node isn't in fast catchup mode, catchpoint will be empty.
 	logger.Infof("Running fast catchup using catchpoint %s", catchpoint)
-	for uint64(status.LastRound) < round {
+	for status.LastRound < round {
 		time.Sleep(2 * time.Second)
 		status, err = node.Status()
 		if status.CatchpointCatchupTotalBlocks > 0 {
