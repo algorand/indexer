@@ -22,10 +22,6 @@ func setupIdbWithConnectionString(t *testing.T, connStr string, genesis bookkeep
 
 	err = idb.LoadGenesis(genesis)
 	require.NoError(t, err)
-	//
-	//vb := ledgercore.MakeValidatedBlock(genesisBlock, ledgercore.StateDelta{})
-	//err = idb.AddBlock(&vb)
-	//require.NoError(t, err)
 
 	return idb
 }
