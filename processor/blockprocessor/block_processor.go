@@ -22,7 +22,7 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
-const Prefix = "ledger"
+const prefix = "ledger"
 
 type blockProcessor struct {
 	handler func(block *ledgercore.ValidatedBlock) error
@@ -47,7 +47,7 @@ func MakeProcessor(genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
 	}
-	if dbRound != 0 && !ledgerExists(datadir, Prefix) {
+	if dbRound != 0 && !ledgerExists(datadir, prefix) {
 		msg := fmt.Sprintf("%s\n%s\n%s\n%s\n",
 			"The ledger cache was not found in the data directory and must be initialized. There are several ways to initialize it:",
 			"1.Fetch blocks and re-initialize, this takes a long time and is the most secure",
@@ -55,9 +55,12 @@ func MakeProcessor(genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block
 			fmt.Sprintf("3.Copy files ledger.block.sqlite and ledger.tracker.sqlite from an existing node installation from before round %d into the indexer data directory.", dbRound))
 		return nil, fmt.Errorf("MakeProcessor() err: %s", msg)
 	}
-	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(datadir), Prefix), false, initState, algodConfig.GetDefaultLocal())
+	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(datadir), prefix), false, initState, algodConfig.GetDefaultLocal())
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
+	}
+	if uint64(l.Latest()) > dbRound {
+		return nil, fmt.Errorf("MakeProcessor() err: the ledger cache is ahead of the required round and must be re-initialized.")
 	}
 	return MakeProcessorWithLedger(l, handler)
 }
