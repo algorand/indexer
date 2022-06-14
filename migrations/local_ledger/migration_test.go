@@ -74,14 +74,22 @@ func TestRunMigration(t *testing.T) {
 		AlgodToken:     "AAAAA",
 	}
 
-	// migrate 3 rounds
+	// run migration when ledger not initialized
 	err = RunMigrationSimple(3, &opts)
-	assert.NoError(t, err)
+	assert.Contains(t, err.Error(), "The ledger cache was not found in the data directory and must be initialized")
+
+	// initialize ledger
 	initState, err := util.CreateInitState(&genesis, &genesisBlock)
 	assert.NoError(t, err)
 	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
 	assert.NoError(t, err)
+	l.Close()
+	// migrate 3 rounds
+	err = RunMigrationSimple(3, &opts)
+	assert.NoError(t, err)
 	// check 3 rounds written to ledger
+	l, err = ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
+	assert.NoError(t, err)
 	assert.Equal(t, uint64(3), uint64(l.Latest()))
 	l.Close()
 

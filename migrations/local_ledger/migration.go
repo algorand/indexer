@@ -65,7 +65,7 @@ func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}
 
-	proc, err := blockprocessor.MakeProcessor(&genesis, genesisBlock, 0, opts.IndexerDatadir, nil)
+	proc, err := blockprocessor.MakeProcessor(&genesis, genesisBlock, round, opts.IndexerDatadir, nil)
 	if err != nil {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}
@@ -114,7 +114,7 @@ func RunMigrationFastCatchup(catchpoint string, opts *idb.IndexerDbOptions) erro
 		nil,
 		genesis)
 	// remove node directory after when exiting fast catchup mode
-	//defer os.RemoveAll(filepath.Join(opts.IndexerDatadir, genesis.ID()))
+	defer os.RemoveAll(filepath.Join(opts.IndexerDatadir, genesis.ID()))
 	node.Start()
 	time.Sleep(5 * time.Second)
 	logger.Info("algod node running")
