@@ -137,18 +137,6 @@ var daemonCmd = &cobra.Command{
 				os.Exit(1)
 			}
 
-			// sync local ledger
-			nextDBRound, err := db.GetNextRoundToAccount()
-			maybeFail(err, "Error getting DB round")
-			if nextDBRound > 0 {
-				if catchpoint != "" {
-					err = localledger.RunMigrationFastCatchup(catchpoint, &opts)
-					maybeFail(err, "Error running ledger migration in fast catchup mode")
-				}
-				err = localledger.RunMigrationSimple(nextDBRound, &opts)
-				maybeFail(err, "Error running ledger migration")
-			}
-
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -160,6 +148,19 @@ var daemonCmd = &cobra.Command{
 				genesisReader := importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
 				_, err := importer.EnsureInitialImport(db, genesisReader, logger)
 				maybeFail(err, "importer.EnsureInitialImport() error")
+
+				// sync local ledger
+				nextDBRound, err := db.GetNextRoundToAccount()
+				maybeFail(err, "Error getting DB round")
+				if nextDBRound > 0 {
+					if catchpoint != "" {
+						err = localledger.RunMigrationFastCatchup(catchpoint, &opts)
+						maybeFail(err, "Error running ledger migration in fast catchup mode")
+					}
+					err = localledger.RunMigrationSimple(nextDBRound, &opts)
+					maybeFail(err, "Error running ledger migration")
+				}
+
 				logger.Info("Initializing block import handler.")
 				imp := importer.NewImporter(db)
 
