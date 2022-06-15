@@ -833,8 +833,8 @@ func notFound(ctx echo.Context, err string) error {
 
 // fetchApplications fetches all results
 func (si *ServerImplementation) fetchApplications(ctx context.Context, params idb.ApplicationQuery) ([]generated.Application, uint64, error) {
+	var apps []generated.Application
 	var round uint64
-	apps := make([]generated.Application, 0)
 	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
 		var results <-chan idb.ApplicationRow
 		results, round = si.db.Applications(ctx, params)
@@ -857,8 +857,8 @@ func (si *ServerImplementation) fetchApplications(ctx context.Context, params id
 
 // fetchAppLocalStates fetches all generated.AppLocalState from a query
 func (si *ServerImplementation) fetchAppLocalStates(ctx context.Context, params idb.ApplicationQuery) ([]generated.ApplicationLocalState, uint64, error) {
+	var als []generated.ApplicationLocalState
 	var round uint64
-	als := make([]generated.ApplicationLocalState, 0)
 	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
 		var results <-chan idb.AppLocalStateRow
 		results, round = si.db.AppLocalState(ctx, params)
