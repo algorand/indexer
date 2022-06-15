@@ -135,7 +135,11 @@ func RunMigrationFastCatchup(catchpoint string, opts *idb.IndexerDbOptions) erro
 	// move ledger to indexer directory
 	ledgerFiles := []string{
 		"ledger.block.sqlite",
+		"ledger.block.sqlite-shm",
+		"ledger.block.sqlite-wal",
 		"ledger.tracker.sqlite",
+		"ledger.tracker.sqlite-shm",
+		"ledger.tracker.sqlite-wal",
 	}
 	for _, f := range ledgerFiles {
 		err = os.Rename(filepath.Join(opts.IndexerDatadir, genesis.ID(), f), filepath.Join(opts.IndexerDatadir, f))
