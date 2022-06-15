@@ -322,13 +322,13 @@ func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.AccountDel
 		}
 	}
 
-	// Update `app_box` table.
-	{
-		boxResources := boxDeltas.GetAllBoxResources()
-		for i := range boxResources {
-			writeBoxResource(round, &boxResources[i], batch)
-		}
-	}
+	// // Update `app_box` table.
+	// {
+	// 	boxResources := accountDeltas.GetAllBoxResources()
+	// 	for i := range boxResources {
+	// 		writeBoxResource(round, &boxResources[i], batch)
+	// 	}
+	// }
 }
 
 // AddBlock0 writes block 0 to the database.
