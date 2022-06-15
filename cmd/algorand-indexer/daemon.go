@@ -22,6 +22,7 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
+	localledger "github.com/algorand/indexer/migrations/local_ledger"
 	"github.com/algorand/indexer/processor"
 	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/algorand/indexer/util/metrics"
@@ -55,6 +56,8 @@ var (
 	defaultApplicationsLimit  uint32
 	enableAllParameters       bool
 	indexerDataDir            string
+	initLedger                bool
+	catchpoint                string
 )
 
 var daemonCmd = &cobra.Command{
@@ -133,6 +136,7 @@ var daemonCmd = &cobra.Command{
 				fmt.Fprint(os.Stderr, "missing indexer data directory")
 				os.Exit(1)
 			}
+
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
@@ -144,6 +148,19 @@ var daemonCmd = &cobra.Command{
 				genesisReader := importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
 				_, err := importer.EnsureInitialImport(db, genesisReader, logger)
 				maybeFail(err, "importer.EnsureInitialImport() error")
+
+				// sync local ledger
+				nextDBRound, err := db.GetNextRoundToAccount()
+				maybeFail(err, "Error getting DB round")
+				if nextDBRound > 0 {
+					if catchpoint != "" {
+						err = localledger.RunMigrationFastCatchup(catchpoint, &opts)
+						maybeFail(err, "Error running ledger migration in fast catchup mode")
+					}
+					err = localledger.RunMigrationSimple(nextDBRound, &opts)
+					maybeFail(err, "Error running ledger migration")
+				}
+
 				logger.Info("Initializing block import handler.")
 				imp := importer.NewImporter(db)
 
@@ -154,9 +171,9 @@ var daemonCmd = &cobra.Command{
 				genesisBlock, err := getGenesisBlock(bot.Algod())
 				maybeFail(err, "Error getting genesis block")
 
-				proc, err := blockprocessor.MakeProcessor(&genesis, &genesisBlock, indexerDataDir, imp.ImportBlock)
+				proc, err := blockprocessor.MakeProcessor(&genesis, &genesisBlock, nextDBRound, indexerDataDir, imp.ImportBlock)
 				if err != nil {
-					maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
+					maybeFail(err, "Error creating a block processor")
 				}
 
 				bot.SetNextRound(proc.NextRoundToProcess())
@@ -217,6 +234,8 @@ func init() {
 	daemonCmd.Flags().Uint32VarP(&defaultApplicationsLimit, "default-applications-limit", "", 100, "set the default Limit parameter for querying applications, if none is provided")
 
 	daemonCmd.Flags().StringVarP(&indexerDataDir, "data-dir", "i", "", "path to indexer data dir, or $INDEXER_DATA")
+	daemonCmd.Flags().BoolVar(&initLedger, "init-ledger", true, "initialize local ledger using sequential mode")
+	daemonCmd.Flags().StringVarP(&catchpoint, "catchpoint", "", "", "initialize local ledger using fast catchup")
 
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
