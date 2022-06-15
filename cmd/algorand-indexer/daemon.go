@@ -120,6 +120,10 @@ var daemonCmd = &cobra.Command{
 		}
 
 		opts.MaxConn = maxConn
+		opts.IndexerDatadir = indexerDataDir
+		opts.AlgodDataDir = algodDataDir
+		opts.AlgodToken = algodToken
+		opts.AlgodAddr = algodAddr
 
 		db, availableCh := indexerDbFromFlags(opts)
 		defer db.Close()

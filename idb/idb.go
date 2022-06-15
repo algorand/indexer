@@ -381,6 +381,11 @@ type IndexerDbOptions struct {
 	// This means the total number of active queries that can be running
 	// concurrently can never be more than this
 	MaxConn uint32
+
+	IndexerDatadir string
+	AlgodDataDir   string
+	AlgodToken     string
+	AlgodAddr      string
 }
 
 // Health is the response object that IndexerDb objects need to return from the Health method.

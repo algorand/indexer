@@ -16,7 +16,7 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/processor"
-	iledger "github.com/algorand/indexer/processor/eval"
+	indexerledger "github.com/algorand/indexer/processor/eval"
 	"github.com/algorand/indexer/util"
 )
 
@@ -83,10 +83,8 @@ func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
 	protoChanged := !proto.EnableAssetCloseAmount
 	proto.EnableAssetCloseAmount = true
 
-	ledgerForEval, err := iledger.MakeLedgerForEvaluator(proc.ledger)
-	if err != nil {
-		return fmt.Errorf("Process() err: %w", err)
-	}
+	ledgerForEval := indexerledger.MakeLedgerForEvaluator(proc.ledger)
+
 	resources, err := prepareEvalResources(&ledgerForEval, &blockCert.Block)
 	if err != nil {
 		panic(fmt.Errorf("Process() resources err: %w", err))
@@ -120,9 +118,87 @@ func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
 	if err != nil {
 		return fmt.Errorf("Process() add validated block err: %w", err)
 	}
+	// wait for commit to disk
+	proc.ledger.WaitForCommit(blockCert.Block.Round())
 	return nil
 }
 
+// }
+
+// func (proc *blockProcessor) NextRoundToProcess() uint64 {
+// 	return uint64(proc.ledger.Latest()) + 1
+// }
+
+// // Preload all resources (account data, account resources, asset/app creators) for the
+// // evaluator.
+// func prepareEvalResources(l *iledger.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
+// 	// assetCreators, appCreators, box2appIndex, err := prepareCreators(l, block.Payset)
+
+// 	assetCreators, appCreators, err := prepareCreators(l, block.Payset)
+// 	if err != nil {
+// 		return ledger.EvalForIndexerResources{},
+// 			fmt.Errorf("prepareEvalResources() err: %w", err)
+// 	}
+
+// 	res := ledger.EvalForIndexerResources{
+// 		Accounts:  nil,
+// 		Resources: nil,
+// 		Creators:  make(map[ledger.Creatable]ledger.FoundAddress),
+// 	}
+
+// 	for index, foundAddress := range assetCreators {
+// 		creatable := ledger.Creatable{
+// 			Index: basics.CreatableIndex(index),
+// 			Type:  basics.AssetCreatable,
+// 		}
+// 		res.Creators[creatable] = foundAddress
+// 	}
+// 	for index, foundAddress := range appCreators {
+// 		creatable := ledger.Creatable{
+// 			Index: basics.CreatableIndex(index),
+// 			Type:  basics.AppCreatable,
+// 		}
+// 		res.Creators[creatable] = foundAddress
+// 	}
+
+// 	// var _ = box2appIndex
+
+// 	res.Accounts, res.Resources, err = prepareAccountsResources(l, block.Payset, assetCreators, appCreators)
+// 	if err != nil {
+// 		return ledger.EvalForIndexerResources{},
+// 			fmt.Errorf("prepareEvalResources() err: %w", err)
+// 	}
+
+// 	return res, nil
+// }
+
+// // func prepareCreators(l *iledger.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, map[transactions.BoxRef]basics.AppIndex, error) {
+
+// // Preload asset and app creators.
+// func prepareCreators(l *iledger.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
+// 	// assetsReq, appsReq, boxesReq := accounting.MakePreloadCreatorsRequest(payset)
+// 	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
+
+// 	assets, err := l.GetAssetCreator(assetsReq)
+// 	if err != nil {
+// 		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
+// 	}
+// 	apps, err := l.GetAppCreator(appsReq)
+// 	if err != nil {
+// 		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
+// 	}
+
+// 	// box2appIndex := make(map[transactions.BoxRef]basics.AppIndex)
+// 	// for box := range boxesReq {
+// 	// 	var _ = box
+// 	// }
+
+// 	// return assets, apps, box2appIndex, nil
+// 	return assets, apps, nil
+// }
+
+// // Preload account data and account resources.
+// func prepareAccountsResources(l *iledger.LedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
 func (proc *blockProcessor) SetHandler(handler func(block *ledgercore.ValidatedBlock) error) {
 	proc.handler = handler
 }
@@ -133,9 +209,7 @@ func (proc *blockProcessor) NextRoundToProcess() uint64 {
 
 // Preload all resources (account data, account resources, asset/app creators) for the
 // evaluator.
-func prepareEvalResources(l *iledger.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
-	// assetCreators, appCreators, box2appIndex, err := prepareCreators(l, block.Payset)
-
+func prepareEvalResources(l *indexerledger.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
 	assetCreators, appCreators, err := prepareCreators(l, block.Payset)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
@@ -163,8 +237,6 @@ func prepareEvalResources(l *iledger.LedgerForEvaluator, block *bookkeeping.Bloc
 		res.Creators[creatable] = foundAddress
 	}
 
-	// var _ = box2appIndex
-
 	res.Accounts, res.Resources, err = prepareAccountsResources(l, block.Payset, assetCreators, appCreators)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
@@ -174,11 +246,8 @@ func prepareEvalResources(l *iledger.LedgerForEvaluator, block *bookkeeping.Bloc
 	return res, nil
 }
 
-// func prepareCreators(l *iledger.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, map[transactions.BoxRef]basics.AppIndex, error) {
-
 // Preload asset and app creators.
-func prepareCreators(l *iledger.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
-	// assetsReq, appsReq, boxesReq := accounting.MakePreloadCreatorsRequest(payset)
+func prepareCreators(l *indexerledger.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
 	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
 
 	assets, err := l.GetAssetCreator(assetsReq)
@@ -190,17 +259,11 @@ func prepareCreators(l *iledger.LedgerForEvaluator, payset transactions.Payset) 
 		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
 	}
 
-	// box2appIndex := make(map[transactions.BoxRef]basics.AppIndex)
-	// for box := range boxesReq {
-	// 	var _ = box
-	// }
-
-	// return assets, apps, box2appIndex, nil
 	return assets, apps, nil
 }
 
 // Preload account data and account resources.
-func prepareAccountsResources(l *iledger.LedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
+func prepareAccountsResources(l *indexerledger.LedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
 	addressesReq, resourcesReq :=
 		accounting.MakePreloadAccountsResourcesRequest(payset, assetCreators, appCreators)
 
