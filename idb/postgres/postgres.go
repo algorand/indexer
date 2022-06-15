@@ -256,6 +256,7 @@ func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *boo
 	return res, nil
 }
 
+// ZZZZZZZZ - through much indirection we eventually call this after evaluating the ledger-block
 // AddBlock is part of idb.IndexerDb.
 func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
 	block := vb.Block()
