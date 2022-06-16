@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -14,7 +16,6 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/node"
 	"github.com/algorand/go-algorand/protocol"
@@ -85,12 +86,15 @@ func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
 }
 
 // RunMigrationFastCatchup executes the migration core functionality.
-func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb.IndexerDbOptions) error {
+func RunMigrationFastCatchup(catchpoint string, opts *idb.IndexerDbOptions) error {
+	logger := log.New()
+	fmt.Printf("%+v\n", opts)
 	if opts.IndexerDatadir == "" {
 		return fmt.Errorf("RunMigrationFastCatchup() err: indexer data directory missing")
 	}
 	// catchpoint round
-	round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
+	catchpointAr := strings.Split(catchpoint, "#")
+	round, err := strconv.ParseUint(string(catchpointAr[0]), 10, 64)
 	if err != nil {
 		return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
 	}
@@ -110,7 +114,7 @@ func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb
 		nil,
 		genesis)
 	// remove node directory after when exiting fast catchup mode
-	//defer os.RemoveAll(filepath.Join(opts.IndexerDatadir, genesis.ID()))
+	defer os.RemoveAll(filepath.Join(opts.IndexerDatadir, genesis.ID()))
 	node.Start()
 	time.Sleep(5 * time.Second)
 	logger.Info("algod node running")
@@ -118,7 +122,7 @@ func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb
 	node.StartCatchup(catchpoint)
 	//  If the node isn't in fast catchup mode, catchpoint will be empty.
 	logger.Infof("Running fast catchup using catchpoint %s", catchpoint)
-	for status.LastRound < round {
+	for uint64(status.LastRound) < round {
 		time.Sleep(2 * time.Second)
 		status, err = node.Status()
 		if status.CatchpointCatchupTotalBlocks > 0 {
@@ -131,7 +135,11 @@ func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb
 	// move ledger to indexer directory
 	ledgerFiles := []string{
 		"ledger.block.sqlite",
+		"ledger.block.sqlite-shm",
+		"ledger.block.sqlite-wal",
 		"ledger.tracker.sqlite",
+		"ledger.tracker.sqlite-shm",
+		"ledger.tracker.sqlite-wal",
 	}
 	for _, f := range ledgerFiles {
 		err = os.Rename(filepath.Join(opts.IndexerDatadir, genesis.ID(), f), filepath.Join(opts.IndexerDatadir, f))
