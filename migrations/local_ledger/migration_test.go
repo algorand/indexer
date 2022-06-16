@@ -74,10 +74,6 @@ func TestRunMigration(t *testing.T) {
 		AlgodToken:     "AAAAA",
 	}
 
-	// run migration when ledger not initialized
-	err = RunMigrationSimple(3, &opts)
-	assert.Contains(t, err.Error(), "The ledger cache was not found in the data directory and must be initialized")
-
 	// initialize ledger
 	initState, err := util.CreateInitState(&genesis, &genesisBlock)
 	assert.NoError(t, err)
