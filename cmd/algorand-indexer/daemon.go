@@ -124,7 +124,7 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	// If we auto-loaded configs but a user supplied them as well, we have an error
 	if indexerConfigFound {
 		if daemonConfig.configFile != "" {
-			err = fmt.Errorf("indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one.",
+			err = fmt.Errorf("indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
 				filepath.Join(daemonConfig.indexerDataDir, autoLoadIndexerConfigName))
 			logger.WithError(err)
 			return err

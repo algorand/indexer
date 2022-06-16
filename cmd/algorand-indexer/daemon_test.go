@@ -183,7 +183,7 @@ func TestConfigSpecifiedTwiceExpectError(t *testing.T) {
 	daemonConfig.indexerDataDir = indexerDataDir
 	daemonConfig.configFile = tempConfigFile
 	err := runDaemon(daemonConfig)
-	expectedError := fmt.Errorf("indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one.",
+	expectedError := fmt.Errorf("indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
 		filepath.Join(indexerDataDir, "indexer.yml"))
 	if err.Error() != expectedError.Error() {
 		t.Fatalf("expected error %v, but got %v", expectedError, err)

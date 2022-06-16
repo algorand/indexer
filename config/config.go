@@ -41,6 +41,7 @@ func BindFlags(cmd *cobra.Command) {
 	})
 }
 
+// BindFlagSet glues cobra and viper together via FlagSets
 func BindFlagSet(flags *pflag.FlagSet) {
 	flags.VisitAll(func(f *pflag.Flag) {
 		// Environment variables can't have dashes in them, so bind them to their equivalent
