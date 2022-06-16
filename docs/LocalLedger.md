@@ -2,7 +2,7 @@
 
 In order to ensure that various operations are performed in a timely manner, the Indexer stores a "local ledger" in the supplied data directory.  This ledger allows for fast lookup of data and significantly reduces the amount of time to perform initial loading of the state data.
 
-To maintain backwards compatability with the current Indexer API, the Indexer also maintains a database backend that is used to service the REST API.  Because of this, the local ledger must have data "migrated" to it whenever the Indexer is started.  A simplified flow is shown below:
+In case of upgrading from an earlier version of Indexer, or setting up a new Indexer server with an existing database, the local ledger must sometimes be initialized when the Indexer is started.  A simplified flow is shown below:
 
 ```mermaid
 graph TD;
