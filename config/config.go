@@ -13,7 +13,7 @@ import (
 const EnvPrefix = "INDEXER"
 
 // FileType is the type of the config file.
-const FileType = "yaml"
+const FileType = "yml"
 
 // FileName is the name of the config file. Don't use 'algorand-indexer', viper
 // gets confused and thinks the binary is a config file with no extension.

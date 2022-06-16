@@ -20,6 +20,8 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
+const prefix = "ledger"
+
 type blockProcessor struct {
 	handler func(block *ledgercore.ValidatedBlock) error
 	ledger  *ledger.Ledger

@@ -65,7 +65,7 @@ func TestRunMigration(t *testing.T) {
 	}
 
 	// migrate 3 rounds
-	err = RunMigration(3, &opts)
+	err = RunMigrationSimple(3, &opts)
 	assert.NoError(t, err)
 	initState, err := util.CreateInitState(&genesis)
 	assert.NoError(t, err)
@@ -76,7 +76,7 @@ func TestRunMigration(t *testing.T) {
 	l.Close()
 
 	// migration continues from last round
-	err = RunMigration(6, &opts)
+	err = RunMigrationSimple(6, &opts)
 	assert.NoError(t, err)
 
 	l, err = ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())

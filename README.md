@@ -195,7 +195,7 @@ Settings can be provided from the command line, a configuration file, or an envi
 | default-balances-limit        |         | default-balances-limit        | INDEXER_DEFAULT_BALANCES_LIMIT        |
 | max-applications-limit        |         | max-applications-limit        | INDEXER_MAX_APPLICATIONS_LIMIT        |
 | default-applications-limit    |         | default-applications-limit    | INDEXER_DEFAULT_APPLICATIONS_LIMIT    |
-| data-dir                      | i       | data                          | INDEXER_DATA                          |
+| data-dir                      | i       | data-dir                      | INDEXER_DATA                          |
 
 ## Command line
 
@@ -205,33 +205,23 @@ The command line arguments always take priority over the config file and environ
 ~$ ./algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"`
 ```
 
-## Configuration file
-Default values are placed in the configuration file. They can be overridden with environment variables and command line arguments.
+## Data Directory
 
-The configuration file must named **indexer**, **indexer.yml**, or **indexer.yaml**. The filepath may be set on the CLI using `--configfile` or `-c`.
-When the filepath is not provided on the CLI, it must also be in the correct location. Only one configuration file is loaded, the path is searched in the following order:
-* `./` (current working directory)
-* `$HOME`
-* `$HOME/.algorand-indexer`
-* `$HOME/.config/algorand-indexer`
-* `/etc/algorand-indexer/`
+The Indexer data directory is the location where the Indexer can store and/or load data needed for runtime operation and configuration.
 
-Here is an example **indexer.yml** file:
-```
-postgres-connection-string: "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
-pidfile: "/var/lib/algorand/algorand-indexer.pid"
-algod-data-dir: "/var/lib/algorand"
-```
+**It is a required argument for Indexer daemon operation. Supply it to the Indexer via the `--data-dir` flag.**
 
-If it is in the current working directory along with the indexer command we can start the indexer daemon with:
-```
-~$ ./algorand-indexer daemon
-```
 
-If it is not in the current working directory along with the indexer command we can start the indexer daemon with:
-```
-~$ ./algorand-indexer daemon -c <full-file-location>/indexer.yml
-```
+### Auto-Loading Configuration
+
+The Indexer will scan the data directory at startup and load certain configuration files if they are present.  The files are as follows:
+
+- `indexer.yml` - Indexer Configuration File
+- `api_config.yml` - API Parameter Enable/Disable Configuration File
+- 
+**NOTE:** It is not allowed to supply both the command line flag AND have an auto-loading configuration file in the data directory.  Doing so will result in an error.
+
+To see an example of how to use the data directory to load a configuration file check out the [Disabling Parameters Guide](docs/DisablingParametersGuide.md).
 
 ## Example environment variable
 
@@ -244,6 +234,25 @@ The same indexer configuration from earlier can be made in bash with the followi
 ~$ export INDEXER_ALGOD_DATA_DIR="/var/lib/algorand"
 ~$ ./algorand-indexer daemon
 ```
+
+
+## Configuration file
+Default values are placed in the configuration file. They can be overridden with environment variables and command line arguments.
+
+The configuration file must named **indexer.yml** and placed in the data directory (see above). The filepath may be set on the CLI using `--configfile` or `-c` but this functionality is deprecated.
+
+Here is an example **indexer.yml** file:
+```
+postgres-connection-string: "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
+pidfile: "/var/lib/algorand/algorand-indexer.pid"
+algod-data-dir: "/var/lib/algorand"
+```
+
+Place this file in the data directory (`/tmp/data-dir` in this example) and supply it to the Indexer daemon:
+```
+~$ ./algorand-indexer daemon --data-dir /tmp/data-dir
+```
+
 
 # Systemd
 
