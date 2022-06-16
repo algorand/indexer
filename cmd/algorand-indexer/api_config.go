@@ -22,7 +22,7 @@ var apiConfigCmd = &cobra.Command{
 	Long:  "api configuration",
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
-		config.BindFlags(cmd)
+		config.BindFlagSet(cmd.Flags())
 		err = configureLogger()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
