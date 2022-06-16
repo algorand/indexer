@@ -255,7 +255,7 @@ var daemonCmd = &cobra.Command{
 				genesis, err := readGenesis(genesisReader)
 				maybeFail(err, "Error reading genesis file")
 
-				proc, err := blockprocessor.MakeProcessor(&genesis, indexerDataDir, imp.ImportBlock)
+				proc, err := blockprocessor.MakeProcessor(&genesis, nextDBRound, indexerDataDir, imp.ImportBlock)
 				if err != nil {
 					maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
 				}

@@ -40,14 +40,17 @@ func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.Va
 }
 
 // MakeProcessor creates a block processor
-func MakeProcessor(genesis *bookkeeping.Genesis, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+func MakeProcessor(genesis *bookkeeping.Genesis, dbRound uint64, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
 	initState, err := util.CreateInitState(genesis)
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
 	}
-	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(datadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
+	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(datadir), prefix), false, initState, algodConfig.GetDefaultLocal())
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
+	}
+	if uint64(l.Latest()) > dbRound {
+		return nil, fmt.Errorf("MakeProcessor() err: the ledger cache is ahead of the required round and must be re-initialized")
 	}
 	return MakeProcessorWithLedger(l, handler)
 }
