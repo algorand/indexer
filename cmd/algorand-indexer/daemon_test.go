@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/spf13/pflag"
 	"io"
 	"io/fs"
 	"os"
@@ -122,8 +123,7 @@ func TestConfigWithEnableAllParamsExpectError(t *testing.T) {
 	indexerDataDir := createTempDir(t)
 	defer os.RemoveAll(indexerDataDir)
 	daemonConfig := newDaemonConfig()
-	cmd := newDaemonCmd(daemonConfig)
-	daemonConfig.flags = cmd.Flags()
+	daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
 	daemonConfig.indexerDataDir = indexerDataDir
 	daemonConfig.enableAllParameters = true
 	daemonConfig.suppliedAPIConfigFile = "foobar"
@@ -139,8 +139,7 @@ func TestConfigDoesNotExistExpectError(t *testing.T) {
 	defer os.RemoveAll(indexerDataDir)
 	tempConfigFile := indexerDataDir + "/indexer.yml"
 	daemonConfig := newDaemonConfig()
-	cmd := newDaemonCmd(daemonConfig)
-	daemonConfig.flags = cmd.Flags()
+	daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
 	daemonConfig.indexerDataDir = indexerDataDir
 	daemonConfig.configFile = tempConfigFile
 	err := runDaemon(daemonConfig)
@@ -158,8 +157,7 @@ func TestConfigInvalidExpectError(t *testing.T) {
 	tempConfigFile := indexerDataDir + "/indexer-alt.yml"
 	os.WriteFile(tempConfigFile, []byte(";;;"), fs.ModePerm)
 	daemonConfig := newDaemonConfig()
-	cmd := newDaemonCmd(daemonConfig)
-	daemonConfig.flags = cmd.Flags()
+	daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
 	daemonConfig.indexerDataDir = indexerDataDir
 	daemonConfig.configFile = tempConfigFile
 	logger.SetOutput(b)
@@ -178,8 +176,7 @@ func TestConfigSpecifiedTwiceExpectError(t *testing.T) {
 	tempConfigFile := indexerDataDir + "/indexer.yml"
 	os.WriteFile(tempConfigFile, []byte{}, fs.ModePerm)
 	daemonConfig := newDaemonConfig()
-	cmd := newDaemonCmd(daemonConfig)
-	daemonConfig.flags = cmd.Flags()
+	daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
 	daemonConfig.indexerDataDir = indexerDataDir
 	daemonConfig.configFile = tempConfigFile
 	err := runDaemon(daemonConfig)

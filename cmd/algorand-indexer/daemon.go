@@ -35,8 +35,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-var daemonCmd *cobra.Command
-
 type daemonConfig struct {
 	flags                     *pflag.FlagSet
 	algodDataDir              string
@@ -374,9 +372,6 @@ func (cfg *daemonConfig) setFlags(flags *pflag.FlagSet) {
 }
 
 func init() {
-	daemonConfig := newDaemonConfig()
-	daemonCmd = newDaemonCmd(daemonConfig)
-
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
 	viper.RegisterAlias("server", "server-address")
