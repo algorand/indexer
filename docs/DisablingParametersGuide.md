@@ -94,3 +94,13 @@ Often it is necessary to change what the Indexer disables and/or enables.  To do
 ```
 ~$ algorand-indexer daemon --api-config-file PATH_TO_FILE ...
 ```
+
+or place it in the data directory with the filename `api_config.yml`:
+
+
+```
+~$ mkdir ~/indexer-data
+~$ algorand-indexer api-config > ~/indexer-data/api_config.yml
+~$ algorand-indexer daemon --data-dir ~/indexer-data
+```
+

@@ -20,7 +20,7 @@ var importCmd = &cobra.Command{
 		err := configureLogger()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
-			os.Exit(1)
+			panic(exit{1})
 		}
 
 		db, availableCh := indexerDbFromFlags(idb.IndexerDbOptions{})

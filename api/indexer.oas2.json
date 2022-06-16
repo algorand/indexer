@@ -917,6 +917,14 @@
     }
   },
   "definitions": {
+    "Hashtype": {
+      "description": "The type of hash function used to create the proof, must be one of: \n* sha512_256 \n* sha256",
+      "type": "string",
+      "enum": [
+        "sha512_256",
+        "sha256"
+      ]
+    },
     "Account": {
       "description": "Account information at a given round.\n\nDefinition:\ndata/basics/userBalance.go : AccountData\n",
       "type": "object",

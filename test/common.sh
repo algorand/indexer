@@ -200,6 +200,7 @@ function start_indexer_with_connection_string() {
   ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer daemon \
     -S $NET "$RO" \
     -P "$1" \
+    -i /tmp \
     --enable-all-parameters \
     "$RO" \
     --pidfile $PIDFILE 2>&1 > /dev/null &
@@ -209,7 +210,7 @@ function start_indexer_with_connection_string() {
 # $2 - if set, halts execution
 function start_indexer() {
   if [ ! -z $2 ]; then
-    echo "daemon -S $NET -P \"${CONNECTION_STRING/DB_NAME_HERE/$1}\""
+    echo "daemon -i /tmp -S $NET -P \"${CONNECTION_STRING/DB_NAME_HERE/$1}\""
     sleep_forever
   fi
 
