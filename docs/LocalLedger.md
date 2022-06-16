@@ -14,7 +14,7 @@ graph TD;
     F --> E;
 ```
 
-Migration can be performed in a couple of ways:
+Initialization can be performed in a couple of ways:
 
 1) The Indexer can be told to use a catchpoint to "fast-forward" through the process.
 2) The Indexer can use a "sequential scan" of the database and insert data into the ledger one by one.
