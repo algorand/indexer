@@ -3,6 +3,7 @@ version: 2.1
 orbs:
   go: circleci/go@1.7.0
   slack: circleci/slack@4.7.1
+  codecov: codecov/codecov@3.1.1
 
 parameters:
   ubuntu_image:
@@ -49,7 +50,7 @@ jobs:
           version: << parameters.go_version >>
       - install_dependencies
       - run_tests
-      - upload_coverage
+      - codecov/upload
   test_nightly:
     machine:
       image: << pipeline.parameters.ubuntu_image >> 
@@ -61,7 +62,7 @@ jobs:
           version: << parameters.go_version >>
       - install_dependencies
       - run_tests
-      - upload_coverage
+      - codecov/upload
       - slack/notify: &slack-fail-event
           event: fail
           custom: |
@@ -120,7 +121,7 @@ commands:
 
       - run: 
           name: Install golint
-          command: go install golang.org/x/lint/golint
+          command: go install golang.org/x/lint/golint@latest
 
   run_tests:
     steps:
@@ -142,12 +143,3 @@ commands:
   run_indexer_vs_algod:
     steps:
       - run: make indexer-v-algod
-
-  upload_coverage:
-    description: Collect coverage reports and upload them
-    steps:
-      - run:
-          name: Upload Coverage Reports
-          no_output_timeout: 10m
-          command: |
-            scripts/upload_coverage.sh || true
