@@ -171,16 +171,17 @@ Settings can be provided from the command line, a configuration file, or an envi
 | Command Line Flag (long)      | (short) | Config File                   | Environment Variable                  |
 |-------------------------------|---------|-------------------------------|---------------------------------------|
 | postgres                      | P       | postgres-connection-string    | INDEXER_POSTGRES_CONNECTION_STRING    |
+| data-dir                      | i       | data                          | INDEXER_DATA                          |
 | pidfile                       |         | pidfile                       | INDEXER_PIDFILE                       |
-| algod                         | d       | algod-data-dir                | INDEXER_ALGOD_DATA_DIR                |
+| algod                         | d       | algod-data-dir                | INDEXER_ALGOD_DATA_DIR / ALGORAND_DATA|
 | algod-net                     |         | algod-address                 | INDEXER_ALGOD_ADDRESS                 |
 | algod-token                   |         | algod-token                   | INDEXER_ALGOD_TOKEN                   |
-| genesis                       | g       | genesis                       | INDEXER_GENESIS                       |
 | server                        | S       | server-address                | INDEXER_SERVER_ADDRESS                |
 | no-algod                      |         | no-algod                      | INDEXER_NO_ALGOD                      |
 | token                         | t       | api-token                     | INDEXER_API_TOKEN                     |
-| dev-mode                      |         | dev-mode                      | INDEXER_DEV_MODE                      |
 | metrics-mode                  |         | metrics-mode                  | INDEXER_METRICS_MODE                  |
+| logfile                       | f       | logfile                       | INDEXER_LOGFILE                       |
+| loglevel                      | l       | loglevel                      | INDEXER_LOGLEVEL                      |
 | max-conn                      |         | max-conn                      | INDEXER_MAX_CONN                      |
 | write-timeout                 |         | write-timeout                 | INDEXER_WRITE_TIMEOUT                 |
 | read-timeout                  |         | read-timeout                  | INDEXER_READ_TIMEOUT                  |
@@ -195,7 +196,7 @@ Settings can be provided from the command line, a configuration file, or an envi
 | default-balances-limit        |         | default-balances-limit        | INDEXER_DEFAULT_BALANCES_LIMIT        |
 | max-applications-limit        |         | max-applications-limit        | INDEXER_MAX_APPLICATIONS_LIMIT        |
 | default-applications-limit    |         | default-applications-limit    | INDEXER_DEFAULT_APPLICATIONS_LIMIT    |
-| data-dir                      | i       | data-dir                      | INDEXER_DATA                      |
+| enable-all-parameters         |         | enable-all-parameters         | INDEXER_ENABLE_ALL_PARAMETERS         |
 
 ## Command line
 
