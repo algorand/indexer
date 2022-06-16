@@ -35,22 +35,21 @@ var apiConfigCmd = &cobra.Command{
 			panic(exit{1})
 		}
 
-		options := makeOptions()
+		var potentialDisabledMapConfig *api.DisabledMapConfig
 		if suppliedAPIConfigFile != "" {
-			potentialDisabledMapConfig, err := api.MakeDisabledMapConfigFromFile(swag, suppliedAPIConfigFile)
+			potentialDisabledMapConfig, err = api.MakeDisabledMapConfigFromFile(swag, suppliedAPIConfigFile)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "failed to created disabled map config from file: %v", err)
 				panic(exit{1})
 			}
-			options.DisabledMapConfig = potentialDisabledMapConfig
 		}
 
 		var displayDisabledMapConfig *api.DisplayDisabledMap
 		// Show a limited subset
 		if !showAllDisabled {
-			displayDisabledMapConfig = api.MakeDisplayDisabledMapFromConfig(swag, options.DisabledMapConfig, true)
+			displayDisabledMapConfig = api.MakeDisplayDisabledMapFromConfig(swag, potentialDisabledMapConfig, true)
 		} else {
-			displayDisabledMapConfig = api.MakeDisplayDisabledMapFromConfig(swag, options.DisabledMapConfig, false)
+			displayDisabledMapConfig = api.MakeDisplayDisabledMapFromConfig(swag, potentialDisabledMapConfig, false)
 		}
 
 		output, err := displayDisabledMapConfig.String()
