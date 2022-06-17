@@ -58,12 +58,6 @@ func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
 	}
 
 	proc, err := blockprocessor.MakeProcessor(&genesis, round, opts.IndexerDatadir, nil)
-	genesisBlock, err := getGenesisBlock(&genesis)
-	if err != nil {
-		return fmt.Errorf("RunMigration() err: %w", err)
-	}
-
-	proc, err := blockprocessor.MakeProcessor(&genesis, genesisBlock, round, opts.IndexerDatadir, nil)
 	if err != nil {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}

@@ -187,11 +187,11 @@ func prepareCreators(l *ledger_for_evaluator.LedgerForEvaluator, payset transact
 
 	assets, err := l.GetAssetCreator(assetsReq)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
 	}
 	apps, err := l.GetAppCreator(appsReq)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
 	}
 
 	// box2appIndex := make(map[transactions.BoxRef]basics.AppIndex)

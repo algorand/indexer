@@ -105,3 +105,14 @@ indexer-v-algod: nightly-setup indexer-v-algod-swagger nightly-teardown
 # TEMPORARY RECIPE. DO NOT MERGE.
 go-avm-box:
 	test -h third_party/go-algorand && exit 0 || exit 1
+
+
+LOCAL_GO_ALGORAND = "/Users/zeph/github/tzaffi/go-algorand"
+# "/Users/zeph/github/cce/go-algorand"
+zymlocal:
+	mv third_party/go-algorand third_party/zo-algorand
+	ln -s $(LOCAL_GO_ALGORAND) third_party/go-algorand
+
+dezymlocal:
+	# rm third_party/go-algorand
+	mv third_party/zo-algorand third_party/go-algorand

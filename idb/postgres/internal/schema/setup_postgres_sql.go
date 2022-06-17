@@ -129,4 +129,5 @@ CREATE TABLE IF NOT EXISTS app_box (
   value bytea NOT NULL, -- equals 0x0000...000 at creation
   created_at bigint NOT NULL,
   PRIMARY KEY (app, box)
-);`
+);
+`
