@@ -11,7 +11,6 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	algodConfig "github.com/algorand/go-algorand/config"
-	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/logging"
@@ -31,26 +30,17 @@ func TestRunMigration(t *testing.T) {
 	httpmock.RegisterResponder("GET", "http://localhost/genesis",
 		httpmock.NewStringResponder(200, string(json.Encode(genesis))))
 	// /v2/blocks/0 endpoint
-	genesisHash := crypto.HashObj(genesis)
 	genesisBlock := test.MakeGenesisBlock()
-	genesisBlock.BlockHeader.GenesisHash = genesisHash
-	blockCert := rpcs.EncodedBlockCert{
-		Block: genesisBlock,
-	}
-	// /v2/blocks/0
-	httpmock.RegisterResponder("GET", "http://localhost/v2/blocks/0?format=msgpack",
-		httpmock.NewStringResponder(200, string(msgpack.Encode(blockCert))))
 
 	// responder for rounds 1 to 6
 	txn := test.MakePaymentTxn(0, 100, 0, 1, 1,
 		0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
-	txn.Txn.GenesisHash = genesisHash
 	prevHeader := genesisBlock.BlockHeader
+	txn.Txn.GenesisHash = genesis.Hash()
 	for i := 1; i < 7; i++ {
 		block, err := test.MakeBlockForTxns(prevHeader, &txn)
 		assert.Nil(t, err)
-
-		blockCert = rpcs.EncodedBlockCert{
+		blockCert := rpcs.EncodedBlockCert{
 			Block: block,
 		}
 		url := fmt.Sprintf("http://localhost/v2/blocks/%d?format=msgpack", i)
@@ -74,18 +64,14 @@ func TestRunMigration(t *testing.T) {
 		AlgodToken:     "AAAAA",
 	}
 
-	// initialize ledger
-	initState, err := util.CreateInitState(&genesis, &genesisBlock)
-	assert.NoError(t, err)
-	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
-	assert.NoError(t, err)
-	l.Close()
 	// migrate 3 rounds
 	err = RunMigrationSimple(3, &opts)
 	assert.NoError(t, err)
-	// check 3 rounds written to ledger
-	l, err = ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
+	initState, err := util.CreateInitState(&genesis)
 	assert.NoError(t, err)
+	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
+	assert.NoError(t, err)
+	// check 3 rounds written to ledger
 	assert.Equal(t, uint64(3), uint64(l.Latest()))
 	l.Close()
 

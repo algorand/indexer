@@ -140,8 +140,7 @@ func importTar(imp Importer, tarfile io.Reader, l *log.Logger, genesisReader io.
 	if err != nil {
 		maybeFail(err, l, "error decoding genesis, %v", err)
 	}
-	genesisBlock := blocks[0]
-	initState, err := util.CreateInitState(&genesis, &genesisBlock.Block)
+	initState, err := util.CreateInitState(&genesis)
 	maybeFail(err, l, "Error getting genesis block")
 
 	ld, err := ledger.OpenLedger(logging.NewLogger(), "ledger", true, initState, config.GetDefaultLocal())

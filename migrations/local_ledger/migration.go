@@ -6,16 +6,13 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	algodConfig "github.com/algorand/go-algorand/config"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/node"
 	"github.com/algorand/go-algorand/protocol"
@@ -52,7 +49,7 @@ func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
 	// create algod client
 	bot, err = getFetcher(opts)
 	if err != nil {
-		return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
+		return fmt.Errorf("RunMigrationSimple() err: %w", err)
 	}
 	logger.Info("initializing ledger")
 	genesis, err := getGenesis(bot.Algod())
@@ -60,12 +57,7 @@ func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
 		return fmt.Errorf("RunMigrationSimple() err: %w", err)
 	}
 
-	genesisBlock, err := getGenesisBlock(&genesis)
-	if err != nil {
-		return fmt.Errorf("RunMigration() err: %w", err)
-	}
-
-	proc, err := blockprocessor.MakeProcessor(&genesis, genesisBlock, round, opts.IndexerDatadir, nil)
+	proc, err := blockprocessor.MakeProcessor(&genesis, round, opts.IndexerDatadir, nil)
 	if err != nil {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}
@@ -86,15 +78,12 @@ func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
 }
 
 // RunMigrationFastCatchup executes the migration core functionality.
-func RunMigrationFastCatchup(catchpoint string, opts *idb.IndexerDbOptions) error {
-	logger := log.New()
-	fmt.Printf("%+v\n", opts)
+func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb.IndexerDbOptions) error {
 	if opts.IndexerDatadir == "" {
 		return fmt.Errorf("RunMigrationFastCatchup() err: indexer data directory missing")
 	}
 	// catchpoint round
-	catchpointAr := strings.Split(catchpoint, "#")
-	round, err := strconv.ParseUint(string(catchpointAr[0]), 10, 64)
+	round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
 	if err != nil {
 		return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
 	}
@@ -122,7 +111,7 @@ func RunMigrationFastCatchup(catchpoint string, opts *idb.IndexerDbOptions) erro
 	node.StartCatchup(catchpoint)
 	//  If the node isn't in fast catchup mode, catchpoint will be empty.
 	logger.Infof("Running fast catchup using catchpoint %s", catchpoint)
-	for uint64(status.LastRound) < round {
+	for status.LastRound < round {
 		time.Sleep(2 * time.Second)
 		status, err = node.Status()
 		if status.CatchpointCatchupTotalBlocks > 0 {
@@ -200,30 +189,6 @@ func getGenesis(client *algod.Client) (bookkeeping.Genesis, error) {
 
 	return res, nil
 }
-
-func getGenesisBlock(genesis *bookkeeping.Genesis) (*bookkeeping.Block, error) {
-	accounts := make(map[basics.Address]basics.AccountData)
-	for _, alloc := range genesis.Allocation {
-		addr, err := basics.UnmarshalChecksumAddress(alloc.Address)
-		if err != nil {
-			return nil, fmt.Errorf("getGenesisBlock() err: %w", err)
-		}
-		accounts[addr] = alloc.State
-	}
-
-	feeSink, err := basics.UnmarshalChecksumAddress(genesis.FeeSink)
-	if err != nil {
-		return nil, fmt.Errorf("getGenesisBlock() err: %w", err)
-	}
-	rewardsPool, err := basics.UnmarshalChecksumAddress(genesis.RewardsPool)
-	if err != nil {
-		return nil, fmt.Errorf("getGenesisBlock() err: %w", err)
-	}
-	genesisBal := bookkeeping.MakeGenesisBalances(accounts, feeSink, rewardsPool)
-	genesisBlock, err := bookkeeping.MakeGenesisBlock(genesis.Proto, genesisBal, genesis.ID(), crypto.HashObj(genesis))
-	return &genesisBlock, nil
-}
-
 func getFetcher(opts *idb.IndexerDbOptions) (fetcher.Fetcher, error) {
 	logger := log.New()
 	var err error

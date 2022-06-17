@@ -57,7 +57,16 @@ func JSONOneLine(obj interface{}) string {
 }
 
 // CreateInitState makes an initState
-func CreateInitState(genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Block) (ledgercore.InitState, error) {
+func CreateInitState(genesis *bookkeeping.Genesis) (ledgercore.InitState, error) {
+	balances, err := genesis.Balances()
+	if err != nil {
+		return ledgercore.InitState{}, fmt.Errorf("MakeProcessor() err: %w", err)
+	}
+	genesisBlock, err := bookkeeping.MakeGenesisBlock(genesis.Proto, balances, genesis.ID(), genesis.Hash())
+	if err != nil {
+		return ledgercore.InitState{}, fmt.Errorf("MakeProcessor() err: %w", err)
+	}
+
 	accounts := make(map[basics.Address]basics.AccountData)
 	for _, alloc := range genesis.Allocation {
 		address, err := basics.UnmarshalChecksumAddress(alloc.Address)
@@ -67,7 +76,7 @@ func CreateInitState(genesis *bookkeeping.Genesis, genesisBlock *bookkeeping.Blo
 		accounts[address] = alloc.State
 	}
 	initState := ledgercore.InitState{
-		Block:       *genesisBlock,
+		Block:       genesisBlock,
 		Accounts:    accounts,
 		GenesisHash: genesisBlock.GenesisHash(),
 	}

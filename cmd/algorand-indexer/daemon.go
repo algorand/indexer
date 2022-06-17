@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-algorand/util"
@@ -240,10 +240,10 @@ var daemonCmd = &cobra.Command{
 				maybeFail(err, "Error getting DB round")
 				if nextDBRound > 0 {
 					if catchpoint != "" {
-						err = localledger.RunMigrationFastCatchup(catchpoint, &opts)
+						err = localledger.RunMigrationFastCatchup(logging.NewLogger(), catchpoint, &opts)
 						maybeFail(err, "Error running ledger migration in fast catchup mode")
 					}
-					err = localledger.RunMigrationSimple(nextDBRound, &opts)
+					err = localledger.RunMigrationSimple(nextDBRound-1, &opts)
 					maybeFail(err, "Error running ledger migration")
 				}
 
@@ -254,12 +254,10 @@ var daemonCmd = &cobra.Command{
 				genesisReader = importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
 				genesis, err := readGenesis(genesisReader)
 				maybeFail(err, "Error reading genesis file")
-				genesisBlock, err := getGenesisBlock(bot.Algod())
-				maybeFail(err, "Error getting genesis block")
 
-				proc, err := blockprocessor.MakeProcessor(&genesis, &genesisBlock, nextDBRound, indexerDataDir, imp.ImportBlock)
+				proc, err := blockprocessor.MakeProcessor(&genesis, nextDBRound, indexerDataDir, imp.ImportBlock)
 				if err != nil {
-					maybeFail(err, "Error creating a block processor")
+					maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
 				}
 
 				bot.SetNextRound(proc.NextRoundToProcess())
@@ -457,19 +455,4 @@ func readGenesis(reader io.Reader) (bookkeeping.Genesis, error) {
 		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: %w", err)
 	}
 	return genesis, nil
-}
-
-func getGenesisBlock(client *algod.Client) (bookkeeping.Block, error) {
-	data, err := client.BlockRaw(0).Do(context.Background())
-	if err != nil {
-		return bookkeeping.Block{}, fmt.Errorf("getGenesisBlock() client err: %w", err)
-	}
-
-	var block rpcs.EncodedBlockCert
-	err = protocol.Decode(data, &block)
-	if err != nil {
-		return bookkeeping.Block{}, fmt.Errorf("getGenesisBlock() decode err: %w", err)
-	}
-
-	return block.Block, nil
 }
