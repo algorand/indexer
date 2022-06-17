@@ -186,3 +186,72 @@ func TestConfigSpecifiedTwiceExpectError(t *testing.T) {
 		t.Fatalf("expected error %v, but got %v", expectedError, err)
 	}
 }
+
+func TestLoadAPIConfigGivenAutoLoadAndUserSuppliedExpectError(t *testing.T) {
+	indexerDataDir := createTempDir(t)
+	defer os.RemoveAll(indexerDataDir)
+
+	autoloadPath := filepath.Join(indexerDataDir, autoLoadParameterConfigName)
+	userSuppliedPath := filepath.Join(indexerDataDir, "foobar.yml")
+	os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+	cfg := newDaemonConfig()
+	cfg.indexerDataDir = indexerDataDir
+	cfg.suppliedAPIConfigFile = userSuppliedPath
+
+	err := loadIndexerParamConfig(cfg)
+	expectedErr := fmt.Errorf("api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one.",
+		autoloadPath)
+	if err.Error() != expectedErr.Error() {
+		t.Fatalf("expected error %v, but got %v", expectedErr, err)
+	}
+}
+
+func TestLoadAPIConfigGivenUserSuppliedExpectSuccess(t *testing.T) {
+	indexerDataDir := createTempDir(t)
+	defer os.RemoveAll(indexerDataDir)
+
+	userSuppliedPath := filepath.Join(indexerDataDir, "foobar.yml")
+	cfg := newDaemonConfig()
+	cfg.indexerDataDir = indexerDataDir
+	cfg.suppliedAPIConfigFile = userSuppliedPath
+
+	err := loadIndexerParamConfig(cfg)
+	if err != nil {
+		t.Fatalf("expected no error but got %v", err)
+	}
+}
+
+func TestLoadAPIConfigGivenAutoLoadExpectSuccess(t *testing.T) {
+	indexerDataDir := createTempDir(t)
+	defer os.RemoveAll(indexerDataDir)
+
+	autoloadPath := filepath.Join(indexerDataDir, autoLoadParameterConfigName)
+	os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+	cfg := newDaemonConfig()
+	cfg.indexerDataDir = indexerDataDir
+
+	err := loadIndexerParamConfig(cfg)
+	if err != nil {
+		t.Fatalf("expected no error but got %v", err)
+	}
+	assert.Equal(t, autoloadPath, cfg.suppliedAPIConfigFile)
+}
+
+func TestIndexerDataDirNotProvidedExpectError(t *testing.T) {
+	cfg := newDaemonConfig()
+
+	expectedErr := "indexer data directory was not provided"
+
+	assert.EqualError(t, configureIndexerDataDir(cfg), expectedErr)
+}
+
+func TestIndexerDataDirCreateFailExpectError(t *testing.T) {
+	indexerDataDir := createTempDir(t)
+	defer os.RemoveAll(indexerDataDir)
+
+	invalidDir := filepath.Join(indexerDataDir, "foo", "bar")
+	cfg := newDaemonConfig()
+	cfg.indexerDataDir = invalidDir
+
+	assert.Error(t, configureIndexerDataDir(cfg))
+}

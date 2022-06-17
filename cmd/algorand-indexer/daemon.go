@@ -91,44 +91,35 @@ func newDaemonCmd(config *daemonConfig) *cobra.Command {
 	return cmd
 }
 
-func runDaemon(daemonConfig *daemonConfig) error {
+func configureIndexerDataDir(cfg *daemonConfig) error {
 	var err error
-	config.BindFlagSet(daemonConfig.flags)
-	err = configureLogger()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
+	if cfg.indexerDataDir == "" {
+		err = fmt.Errorf("indexer data directory was not provided")
+		logger.WithError(err).Errorf("indexer data directory error, %v", err)
 		return err
 	}
-
-	if daemonConfig.indexerDataDir == "" {
-		fmt.Fprint(os.Stderr, "indexer data directory was not provided")
+	if _, err = os.Stat(cfg.indexerDataDir); os.IsNotExist(err) {
+		err = os.Mkdir(cfg.indexerDataDir, 0755)
 		if err != nil {
 			logger.WithError(err).Errorf("indexer data directory error, %v", err)
 			return err
 		}
 	}
-	if _, err := os.Stat(daemonConfig.indexerDataDir); os.IsNotExist(err) {
-		err := os.Mkdir(daemonConfig.indexerDataDir, 0755)
-		if err != nil {
-			logger.WithError(err).Errorf("indexer data directory error, %v", err)
-			return err
-		}
-	}
+	return err
+}
 
-	// Detect the various auto-loading configs from data directory
-	indexerConfigFound := util.FileExists(filepath.Join(daemonConfig.indexerDataDir, autoLoadIndexerConfigName))
-	paramConfigFound := util.FileExists(filepath.Join(daemonConfig.indexerDataDir, autoLoadParameterConfigName))
-
-	// If we auto-loaded configs but a user supplied them as well, we have an error
+func loadIndexerConfig(cfg *daemonConfig) error {
+	var err error
+	indexerConfigFound := util.FileExists(filepath.Join(cfg.indexerDataDir, autoLoadIndexerConfigName))
 	if indexerConfigFound {
-		if daemonConfig.configFile != "" {
+		if cfg.configFile != "" {
 			err = fmt.Errorf("indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
-				filepath.Join(daemonConfig.indexerDataDir, autoLoadIndexerConfigName))
+				filepath.Join(cfg.indexerDataDir, autoLoadIndexerConfigName))
 			logger.WithError(err)
 			return err
 		}
 		// No config file supplied via command line, auto-load it
-		configs, err := os.Open(daemonConfig.configFile)
+		configs, err := os.Open(cfg.configFile)
 		if err != nil {
 			logger.WithError(err).Errorf("%v", err)
 			return err
@@ -140,8 +131,8 @@ func runDaemon(daemonConfig *daemonConfig) error {
 			return err
 		}
 	}
-	if daemonConfig.configFile != "" {
-		configs, err := os.Open(daemonConfig.configFile)
+	if cfg.configFile != "" {
+		configs, err := os.Open(cfg.configFile)
 		if err != nil {
 			logger.WithError(err).Errorf("File Does Not Exist Error: %v", err)
 			return err
@@ -152,19 +143,58 @@ func runDaemon(daemonConfig *daemonConfig) error {
 			logger.WithError(err).Errorf("invalid config file (%s): %v", viper.ConfigFileUsed(), err)
 			return err
 		}
-		fmt.Printf("Using configuration file: %s\n", daemonConfig.configFile)
+		logger.Infof("Using configuration file: %s\n", cfg.configFile)
+	}
+	return err
+}
+
+func loadIndexerParamConfig(cfg *daemonConfig) error {
+	var err error
+	// If someone supplied a configuration file but also said to enable all parameters,
+	// that's an error
+	if cfg.suppliedAPIConfigFile != "" && cfg.enableAllParameters {
+		err = errors.New("not allowed to supply an api config file and enable all parameters")
+		logger.WithError(err).Errorf("API Parameter Error: %v", err)
+		return err
+	}
+	autoloadParamConfigPath := filepath.Join(cfg.indexerDataDir, autoLoadParameterConfigName)
+	paramConfigFound := util.FileExists(autoloadParamConfigPath)
+	// If we auto-loaded configs but a user supplied them as well, we have an error
+	if paramConfigFound {
+		if cfg.suppliedAPIConfigFile != "" {
+			err = fmt.Errorf("api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one.",
+				filepath.Join(cfg.indexerDataDir, autoLoadParameterConfigName))
+			logger.WithError(err).Errorf("indexer parameter config error: %v", err)
+			return err
+		}
+		cfg.suppliedAPIConfigFile = autoloadParamConfigPath
+		logger.Infof("Auto-loading parameter configuration file: %s", suppliedAPIConfigFile)
+	}
+	return err
+}
+
+func runDaemon(daemonConfig *daemonConfig) error {
+	var err error
+	config.BindFlagSet(daemonConfig.flags)
+	err = configureLogger()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
+		return err
 	}
 
-	if paramConfigFound {
-		if suppliedAPIConfigFile != "" {
-			logger.Errorf(
-				"api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one.",
-				filepath.Join(daemonConfig.indexerDataDir, autoLoadParameterConfigName))
-			panic(exit{1})
-		}
-		suppliedAPIConfigFile = filepath.Join(daemonConfig.indexerDataDir, autoLoadParameterConfigName)
-		fmt.Printf("Auto-loading parameter configuration file: %s", suppliedAPIConfigFile)
+	// Create the data directory if necessary/possible
+	if err = configureIndexerDataDir(daemonConfig); err != nil {
+		return err
+	}
 
+	// Detect the various auto-loading configs from data directory
+	if err = loadIndexerConfig(daemonConfig); err != nil {
+		return err
+	}
+
+	// Load the Parameter config
+	if err = loadIndexerParamConfig(daemonConfig); err != nil {
+		return err
 	}
 
 	if daemonConfig.pidFilePath != "" {
@@ -206,14 +236,6 @@ func runDaemon(daemonConfig *daemonConfig) error {
 			return err
 		}
 		defer pprof.StopCPUProfile()
-	}
-
-	// If someone supplied a configuration file but also said to enable all parameters,
-	// that's an error
-	if daemonConfig.suppliedAPIConfigFile != "" && daemonConfig.enableAllParameters {
-		err = errors.New("not allowed to supply an api config file and enable all parameters")
-		logger.WithError(err).Errorf("API Parameter Error: %v", err)
-		return err
 	}
 
 	if daemonConfig.algodDataDir == "" {
