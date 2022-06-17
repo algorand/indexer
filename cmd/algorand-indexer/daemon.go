@@ -243,7 +243,7 @@ var daemonCmd = &cobra.Command{
 						err = localledger.RunMigrationFastCatchup(logging.NewLogger(), catchpoint, &opts)
 						maybeFail(err, "Error running ledger migration in fast catchup mode")
 					}
-					err = localledger.RunMigrationSimple(nextDBRound, &opts)
+					err = localledger.RunMigrationSimple(nextDBRound-1, &opts)
 					maybeFail(err, "Error running ledger migration")
 				}
 

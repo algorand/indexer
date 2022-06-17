@@ -103,7 +103,7 @@ func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb
 		nil,
 		genesis)
 	// remove node directory after when exiting fast catchup mode
-	//defer os.RemoveAll(filepath.Join(opts.IndexerDatadir, genesis.ID()))
+	defer os.RemoveAll(filepath.Join(opts.IndexerDatadir, genesis.ID()))
 	node.Start()
 	time.Sleep(5 * time.Second)
 	logger.Info("algod node running")
@@ -124,7 +124,11 @@ func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb
 	// move ledger to indexer directory
 	ledgerFiles := []string{
 		"ledger.block.sqlite",
+		"ledger.block.sqlite-shm",
+		"ledger.block.sqlite-wal",
 		"ledger.tracker.sqlite",
+		"ledger.tracker.sqlite-shm",
+		"ledger.tracker.sqlite-wal",
 	}
 	for _, f := range ledgerFiles {
 		err = os.Rename(filepath.Join(opts.IndexerDatadir, genesis.ID(), f), filepath.Join(opts.IndexerDatadir, f))
