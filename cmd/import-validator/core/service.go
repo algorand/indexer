@@ -37,21 +37,6 @@ type ImportValidatorArgs struct {
 	PostgresConnStr string
 }
 
-func getGenesisBlock(client *algod.Client) (bookkeeping.Block, error) {
-	data, err := client.BlockRaw(0).Do(context.Background())
-	if err != nil {
-		return bookkeeping.Block{}, fmt.Errorf("getGenesisBlock() client err: %w", err)
-	}
-
-	var block rpcs.EncodedBlockCert
-	err = protocol.Decode(data, &block)
-	if err != nil {
-		return bookkeeping.Block{}, fmt.Errorf("getGenesisBlock() decode err: %w", err)
-	}
-
-	return block.Block, nil
-}
-
 func getGenesis(client *algod.Client) (bookkeeping.Genesis, error) {
 	data, err := client.GetGenesis().Do(context.Background())
 	if err != nil {
@@ -411,7 +396,12 @@ func Run(args ImportValidatorArgs) {
 		fmt.Printf("error getting genesis err: %v", err)
 		os.Exit(1)
 	}
-	genesisBlock, err := getGenesisBlock(bot.Algod())
+	balances, err := genesis.Balances()
+	if err != nil {
+		fmt.Printf("error getting genesis balances err: %v", err)
+		os.Exit(1)
+	}
+	genesisBlock, err := bookkeeping.MakeGenesisBlock(genesis.Proto, balances, genesis.ID(), genesis.Hash())
 	if err != nil {
 		fmt.Printf("error getting genesis block err: %v", err)
 		os.Exit(1)
