@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
@@ -240,8 +241,17 @@ var daemonCmd = &cobra.Command{
 				maybeFail(err, "Error getting DB round")
 				if nextDBRound > 0 {
 					if catchpoint != "" {
-						err = localledger.RunMigrationFastCatchup(logging.NewLogger(), catchpoint, &opts)
-						maybeFail(err, "Error running ledger migration in fast catchup mode")
+						round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
+						if err != nil {
+							maybeFail(err, "catchpoint error")
+						}
+						if uint64(round) >= nextDBRound {
+							logger.Warnf("round for given catchpoint is ahead of db round. skip fast catchup")
+						} else {
+							err = localledger.RunMigrationFastCatchup(logging.NewLogger(), catchpoint, &opts)
+							maybeFail(err, "Error running ledger migration in fast catchup mode")
+						}
+
 					}
 					err = localledger.RunMigrationSimple(nextDBRound-1, &opts)
 					maybeFail(err, "Error running ledger migration")
