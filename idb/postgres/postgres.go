@@ -177,9 +177,13 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations(opts)
 }
 
+// func prepareCreators(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, map[transactions.BoxRef]basics.AppIndex, error) {
+// 	assetsReq, appsReq, boxesReq := accounting.MakePreloadCreatorsRequest(payset)
+
 // Preload asset and app creators.
-func prepareCreators(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, map[transactions.BoxRef]basics.AppIndex, error) {
-	assetsReq, appsReq, boxesReq := accounting.MakePreloadCreatorsRequest(payset)
+func prepareCreators(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
+	// assetsReq, appsReq, boxesReq := accounting.MakePreloadCreatorsRequest(payset)
+	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
 
 	assets, err := l.GetAssetCreator(assetsReq)
 	if err != nil {
@@ -190,12 +194,14 @@ func prepareCreators(l *ledger_for_evaluator.LedgerForEvaluator, payset transact
 		return nil, nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
 	}
 
-	box2appIndex := make(map[transactions.BoxRef]basics.AppIndex)
-	for box := range boxesReq {
-		var _ = box
-	}
+	// box2appIndex := make(map[transactions.BoxRef]basics.AppIndex)
+	// for box := range boxesReq {
+	// 	var _ = box
+	// }
 
-	return assets, apps, box2appIndex, nil
+	// return assets, apps, box2appIndex, nil
+
+	return assets, apps, nil
 }
 
 // Preload account data and account resources.
@@ -218,13 +224,14 @@ func prepareAccountsResources(l *ledger_for_evaluator.LedgerForEvaluator, payset
 // Preload all resources (account data, account resources, asset/app creators) for the
 // evaluator.
 func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
-	assetCreators, appCreators, box2appIndex, err := prepareCreators(l, block.Payset)
+	// assetCreators, appCreators, box2appIndex, err := prepareCreators(l, block.Payset)
+	assetCreators, appCreators, err := prepareCreators(l, block.Payset)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
 			fmt.Errorf("prepareEvalResources() err: %w", err)
 	}
 
-	var _ = box2appIndex
+	// var _ = box2appIndex
 
 	res := ledger.EvalForIndexerResources{
 		Accounts:  nil,
