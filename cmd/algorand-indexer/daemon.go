@@ -87,17 +87,14 @@ var daemonCmd = &cobra.Command{
 		// Detect the various auto-loading configs from data directory
 		indexerConfigFound := util.FileExists(filepath.Join(indexerDataDir, autoLoadIndexerConfigName))
 		paramConfigFound := util.FileExists(filepath.Join(indexerDataDir, autoLoadParameterConfigName))
-		consensusConfigFound := util.FileExists("/app")
-
+		consensusConfigFound := util.FileExists(filepath.Join(indexerDataDir, "consensus.json"))
 		if consensusConfigFound {
-			err = goconfig.LoadConfigurableConsensusProtocols("/app")
+			err = goconfig.LoadConfigurableConsensusProtocols(indexerDataDir)
 			if err != nil {
-				fmt.Fprintf(os.Stderr, "Unable to load optional consensus protocols file: /app %v\n", err)
+				fmt.Fprintf(os.Stderr, "Unable to load optional consensus protocols file: %s/consensus.json %v\n", indexerDataDir, err)
 			}else{
-				fmt.Printf("/app loaded\n");
+				fmt.Printf("consensus loaded\n");
 			}
-		}else{
-			fmt.Printf("/app does not exists\n");
 		}
 
 		// If we auto-loaded configs but a user supplied them as well, we have an error
