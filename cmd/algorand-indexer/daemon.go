@@ -24,6 +24,9 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/util/metrics"
+
+	goconfig "github.com/algorand/go-algorand/config"
+
 )
 
 var (
@@ -84,6 +87,18 @@ var daemonCmd = &cobra.Command{
 		// Detect the various auto-loading configs from data directory
 		indexerConfigFound := util.FileExists(filepath.Join(indexerDataDir, autoLoadIndexerConfigName))
 		paramConfigFound := util.FileExists(filepath.Join(indexerDataDir, autoLoadParameterConfigName))
+		consensusConfigFound := util.FileExists("consensus.json")
+
+		if consensusConfigFound {
+			err = goconfig.LoadConfigurableConsensusProtocols("consensus.json")
+			if err != nil {
+				fmt.Fprint(os.Stderr, "Unable to load optional consensus protocols file: consensus.json")
+			}else{
+				fmt.Printf("consensus.json loaded");
+			}
+		}else{
+			fmt.Printf("consensus.json does not exists");
+		}
 
 		// If we auto-loaded configs but a user supplied them as well, we have an error
 		if indexerConfigFound {
