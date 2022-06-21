@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -254,4 +255,28 @@ func TestIndexerDataDirCreateFailExpectError(t *testing.T) {
 	cfg.indexerDataDir = invalidDir
 
 	assert.Error(t, configureIndexerDataDir(cfg))
+}
+
+func TestIndexerPidFileExpectSuccess(t *testing.T) {
+	indexerDataDir := createTempDir(t)
+	defer os.RemoveAll(indexerDataDir)
+
+	cfg := newDaemonConfig()
+	cfg.pidFilePath = path.Join(indexerDataDir, "pidFile")
+	assert.NoError(t, createIndexerPidFile(cfg))
+}
+
+func TestIndexerPidFileCreateFailExpectError(t *testing.T) {
+	indexerDataDir := createTempDir(t)
+	defer os.RemoveAll(indexerDataDir)
+
+	invalidDir := filepath.Join(indexerDataDir, "foo", "bar")
+	cfg := newDaemonConfig()
+	cfg.pidFilePath = invalidDir
+
+	cfg.flags = pflag.NewFlagSet("indexer", 0)
+	cfg.indexerDataDir = indexerDataDir
+
+	assert.ErrorContains(t, runDaemon(cfg), "pid file")
+	assert.Error(t, createIndexerPidFile(cfg))
 }
