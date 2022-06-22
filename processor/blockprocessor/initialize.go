@@ -129,7 +129,7 @@ func InitializeLedgerFastCatchup(logger *log.Logger, catchpoint, dataDir string,
 	}
 
 	// TODO: switch to catchup service catchup.
-	//err = internal.CatchupServiceCatchup(logger, round, catchpoint, dataDir, genesis)
+	//err = internal.CatchupServiceCatchup(logger, catchpoint, dataDir, genesis)
 	err = fullNodeCatchup(logger, round, catchpoint, dataDir, genesis)
 	if err != nil {
 		return fmt.Errorf("fullNodeCatchup() err: %w", err)
