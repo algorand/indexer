@@ -21,15 +21,15 @@ import (
 func ReadGenesis(in io.Reader) (bookkeeping.Genesis, error) {
 	var genesis bookkeeping.Genesis
 	if in == nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: reader is nil")
+		return bookkeeping.Genesis{}, fmt.Errorf("ReadGenesis() err: reader is nil")
 	}
 	gbytes, err := ioutil.ReadAll(in)
 	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("error reading genesis, %v", err)
+		return bookkeeping.Genesis{}, fmt.Errorf("ReadGenesis() err: %w", err)
 	}
 	err = protocol.DecodeJSON(gbytes, &genesis)
 	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("error decoding genesis, %v", err)
+		return bookkeeping.Genesis{}, fmt.Errorf("ReadGenesis() decode err: %w", err)
 	}
 	return genesis, nil
 }
