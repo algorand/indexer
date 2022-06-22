@@ -69,8 +69,5 @@ func MakeLedger(logger *log.Logger, genesis *bookkeeping.Genesis, dataDir string
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
 	}
-	return ledger.OpenLedger(logging.NewLogger(), dbPrefix, false, initState, algodConfig.GetDefaultLocal())
-
-	// TODO: Adding a new logger constructor to go-algorand so that we can wrap the indexer logger.
-	//return ledger.OpenLedger(logging.NewWrappedLogger(logger), dbPrefix, false, initState, algodConfig.GetDefaultLocal())
+	return ledger.OpenLedger(logging.NewWrappedLogger(logger), dbPrefix, false, initState, algodConfig.GetDefaultLocal())
 }

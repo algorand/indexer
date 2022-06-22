@@ -3,20 +3,17 @@ package blockprocessor
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/sirupsen/logrus"
+	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	algodConfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/idb"
@@ -69,9 +66,8 @@ func TestRunMigration(t *testing.T) {
 	// migrate 3 rounds
 	err = InitializeLedgerSimple(logrus.New(), 3, &opts)
 	assert.NoError(t, err)
-	initState, err := util.CreateInitState(&genesis)
-	assert.NoError(t, err)
-	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(opts.IndexerDatadir, "ledger"), false, initState, algodConfig.GetDefaultLocal())
+	log, _ := test2.NewNullLogger()
+	l, err := util.MakeLedger(log, &genesis, opts.IndexerDatadir)
 	assert.NoError(t, err)
 	// check 3 rounds written to ledger
 	assert.Equal(t, uint64(3), uint64(l.Latest()))
@@ -81,7 +77,7 @@ func TestRunMigration(t *testing.T) {
 	err = InitializeLedgerSimple(logrus.New(), 6, &opts)
 	assert.NoError(t, err)
 
-	l, err = ledger.OpenLedger(logging.NewLogger(), filepath.Join(opts.IndexerDatadir, "ledger"), false, initState, algodConfig.GetDefaultLocal())
+	l, err = util.MakeLedger(log, &genesis, opts.IndexerDatadir)
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(6), uint64(l.Latest()))
 	l.Close()

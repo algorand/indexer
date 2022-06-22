@@ -82,9 +82,7 @@ func InitializeLedgerSimple(logger *log.Logger, round uint64, opts *idb.IndexerD
 }
 
 func fullNodeCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
-	wrappedLogger := logging.NewLogger()
-	// TODO: Use new wrapped logger
-	//wrappedLogger := logging.NewWrappedLogger(logger)
+	wrappedLogger := logging.NewWrappedLogger(logger)
 
 	node, err := node.MakeFull(
 		wrappedLogger,

@@ -7,13 +7,15 @@ import (
 	"os"
 	"runtime"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/logging"
+
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
-	"github.com/sirupsen/logrus"
 )
 
 var quiet = false
@@ -119,15 +121,15 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 }
 
 // MakeTestLedger creates an in-memory local ledger
-func MakeTestLedger(prefix string) *ledger.Ledger {
+func MakeTestLedger(logger *log.Logger, prefix string) *ledger.Ledger {
 	genesis := MakeGenesis()
 	initState, err := util.CreateInitState(&genesis)
 	if err != nil {
-		logrus.Panicf("test init err: %v", err)
+		logger.Panicf("test init err: %v", err)
 	}
-	l, err := ledger.OpenLedger(logging.NewLogger(), prefix, true, initState, config.GetDefaultLocal())
+	l, err := ledger.OpenLedger(logging.NewWrappedLogger(logger), prefix, true, initState, config.GetDefaultLocal())
 	if err != nil {
-		logrus.Panicf("test init err: %v", err)
+		logger.Panicf("test init err: %v", err)
 	}
 	return l
 }

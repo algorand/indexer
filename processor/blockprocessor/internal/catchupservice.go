@@ -52,8 +52,7 @@ func (n nodeProvider) SetCatchpointCatchupMode(enabled bool) (newContextCh <-cha
 // CatchupServiceCatchup initializes a ledger using the catchup service.
 func CatchupServiceCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
 	logger.Infof("Starting catchup service with catchpoint: %s", catchpoint)
-	wrappedLogger := logging.NewLogger()
-	// TODO: Use new wrapped logger
+	wrappedLogger := logging.NewWrappedLogger(logger)
 
 	start := time.Now()
 	ctx := context.Background()
@@ -65,7 +64,6 @@ func CatchupServiceCatchup(logger *log.Logger, round basics.Round, catchpoint, d
 		return fmt.Errorf("CatchupServiceCatchup() MakeLedger err: %w", err)
 	}
 
-	//wrappedLogger := logging.NewWrappedLogger(logger)
 	p2pNode, err := network.NewWebsocketNetwork(wrappedLogger, cfg, nil, genesis.ID(), genesis.Network, node)
 	if err != nil {
 		return fmt.Errorf("CatchupServiceCatchup() NewWebsocketNetwork err: %w", err)

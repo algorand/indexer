@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	test2 "github.com/sirupsen/logrus/hooks/test"
+
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
@@ -14,7 +16,8 @@ import (
 )
 
 func TestProcess(t *testing.T) {
-	l := test.MakeTestLedger("local_ledger")
+	log, _ := test2.NewNullLogger()
+	l := test.MakeTestLedger(log, "local_ledger")
 	defer l.Close()
 	genesisBlock, err := l.Block(basics.Round(0))
 	assert.Nil(t, err)
@@ -46,7 +49,8 @@ func TestProcess(t *testing.T) {
 }
 
 func TestFailedProcess(t *testing.T) {
-	l := test.MakeTestLedger("local_ledger")
+	log, _ := test2.NewNullLogger()
+	l := test.MakeTestLedger(log, "local_ledger")
 	defer l.Close()
 	// invalid processor
 	pr, err := block_processor.MakeProcessorWithLedger(nil, nil)

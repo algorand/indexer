@@ -12,26 +12,27 @@ import (
 	"testing"
 	"time"
 
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/crypto/merklesignature"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/rpcs"
-	"github.com/algorand/indexer/processor"
-	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
+	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand/crypto"
+	"github.com/algorand/go-algorand/crypto/merklesignature"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger"
+	"github.com/algorand/go-algorand/rpcs"
+	"github.com/algorand/indexer/processor"
 
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
 	pgtest "github.com/algorand/indexer/idb/postgres/testing"
+	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -74,7 +75,8 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, f
 	err = db.LoadGenesis(genesis)
 	require.NoError(t, err)
 
-	l := test.MakeTestLedger("ledger")
+	log, _ := test2.NewNullLogger()
+	l := test.MakeTestLedger(log, "ledger")
 	proc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
 	return db, newShutdownFunc, proc, l

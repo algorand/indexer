@@ -147,7 +147,7 @@ func importTar(imp Importer, tarfile io.Reader, l *log.Logger, genesisReader io.
 	initState, err := util.CreateInitState(&genesis)
 	maybeFail(err, l, "Error getting genesis block")
 
-	ld, err := ledger.OpenLedger(logging.NewLogger(), "ledger", true, initState, config.GetDefaultLocal())
+	ld, err := ledger.OpenLedger(logging.NewWrappedLogger(l), "ledger", true, initState, config.GetDefaultLocal())
 	maybeFail(err, l, "Cannot open ledger")
 
 	proc, err := blockprocessor.MakeProcessorWithLedger(ld, imp.ImportBlock)
