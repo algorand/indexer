@@ -68,6 +68,7 @@ type daemonConfig struct {
 	pidFilePath               string
 	configFile                string
 	suppliedAPIConfigFile     string
+	genesisJSONPath           string
 }
 
 func newDaemonConfig() *daemonConfig {
@@ -296,63 +297,8 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	defer db.Close()
 	var wg sync.WaitGroup
 	if bot != nil {
-		if daemonConfig.indexerDataDir == "" {
-			fmt.Fprint(os.Stderr, "missing indexer data directory")
-			panic(exit{1})
-		}
 		wg.Add(1)
-		go func() {
-			// Need to redefine exitHandler() for every go-routine
-			defer exitHandler()
-			defer wg.Done()
-
-			// Wait until the database is available.
-			<-availableCh
-
-			// Initial import if needed.
-			genesisReader := importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
-			_, err := importer.EnsureInitialImport(db, genesisReader, logger)
-			maybeFail(err, "importer.EnsureInitialImport() error")
-
-			// sync local ledger
-			nextDBRound, err := db.GetNextRoundToAccount()
-			maybeFail(err, "Error getting DB round")
-			if nextDBRound > 0 {
-				if daemonConfig.catchpoint != "" {
-					err = localledger.RunMigrationFastCatchup(logging.NewLogger(), daemonConfig.catchpoint, &opts)
-					maybeFail(err, "Error running ledger migration in fast catchup mode")
-				}
-				err = localledger.RunMigrationSimple(nextDBRound-1, &opts)
-				maybeFail(err, "Error running ledger migration")
-			}
-
-			logger.Info("Initializing block import handler.")
-			imp := importer.NewImporter(db)
-
-			logger.Info("Initializing local ledger.")
-			genesisReader = importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
-			genesis, err := readGenesis(genesisReader)
-			maybeFail(err, "Error reading genesis file")
-
-			proc, err := blockprocessor.MakeProcessor(&genesis, nextDBRound, daemonConfig.indexerDataDir, imp.ImportBlock)
-			if err != nil {
-				maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
-			}
-
-			bot.SetNextRound(proc.NextRoundToProcess())
-			handler := blockHandler(proc, 1*time.Second)
-			bot.SetBlockHandler(handler)
-
-			logger.Info("Starting block importer.")
-			err = bot.Run(ctx)
-			if err != nil {
-				// If context is not expired.
-				if ctx.Err() == nil {
-					logger.WithError(err).Errorf("fetcher exited with error")
-					panic(exit{1})
-				}
-			}
-		}()
+		go runBlockImporter(daemonConfig, &wg, db, availableCh, bot, ctx, &opts)
 	} else {
 		logger.Info("No block importer configured.")
 	}
@@ -367,11 +313,64 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	return err
 }
 
+func runBlockImporter(cfg *daemonConfig, wg *sync.WaitGroup, db idb.IndexerDb, dbAvailable chan struct{}, bot fetcher.Fetcher, ctx context.Context, opts *idb.IndexerDbOptions) {
+	// Need to redefine exitHandler() for every go-routine
+	defer exitHandler()
+	defer wg.Done()
+
+	// Wait until the database is available.
+	<-dbAvailable
+
+	// Initial import if needed.
+	genesisReader := importer.GetGenesisFile(cfg.genesisJSONPath, bot.Algod(), logger)
+	_, err := importer.EnsureInitialImport(db, genesisReader, logger)
+	maybeFail(err, "importer.EnsureInitialImport() error")
+
+	// sync local ledger
+	nextDBRound, err := db.GetNextRoundToAccount()
+	maybeFail(err, "Error getting DB round")
+	if nextDBRound > 0 {
+		if cfg.catchpoint != "" {
+			err = localledger.RunMigrationFastCatchup(logging.NewLogger(), cfg.catchpoint, opts)
+			maybeFail(err, "Error running ledger migration in fast catchup mode")
+		}
+		err = localledger.RunMigrationSimple(nextDBRound-1, opts)
+		maybeFail(err, "Error running ledger migration")
+	}
+
+	logger.Info("Initializing block import handler.")
+	imp := importer.NewImporter(db)
+
+	logger.Info("Initializing local ledger.")
+	genesisReader = importer.GetGenesisFile(cfg.genesisJSONPath, bot.Algod(), logger)
+	genesis, err := readGenesis(genesisReader)
+	maybeFail(err, "Error reading genesis file")
+
+	proc, err := blockprocessor.MakeProcessor(&genesis, nextDBRound, cfg.indexerDataDir, imp.ImportBlock)
+	if err != nil {
+		maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
+	}
+
+	bot.SetNextRound(proc.NextRoundToProcess())
+	handler := blockHandler(proc, 1*time.Second)
+	bot.SetBlockHandler(handler)
+
+	logger.Info("Starting block importer.")
+	err = bot.Run(ctx)
+	if err != nil {
+		// If context is not expired.
+		if ctx.Err() == nil {
+			logger.WithError(err).Errorf("fetcher exited with error")
+			panic(exit{1})
+		}
+	}
+}
+
 func (cfg *daemonConfig) setFlags(flags *pflag.FlagSet) {
 	flags.StringVarP(&cfg.algodDataDir, "algod", "d", "", "path to algod data dir, or $ALGORAND_DATA")
 	flags.StringVarP(&cfg.algodAddr, "algod-net", "", "", "host:port of algod")
 	flags.StringVarP(&cfg.algodToken, "algod-token", "", "", "api access token for algod")
-	flags.StringVarP(&genesisJSONPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
+	flags.StringVarP(&cfg.genesisJSONPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
 	flags.StringVarP(&cfg.daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
 	flags.BoolVarP(&cfg.noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
 	flags.StringVarP(&cfg.tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
