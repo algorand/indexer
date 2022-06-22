@@ -123,7 +123,7 @@ func createTempDir(t *testing.T) string {
 func TestConfigWithEnableAllParamsExpectError(t *testing.T) {
 	indexerDataDir := createTempDir(t)
 	defer os.RemoveAll(indexerDataDir)
-	daemonConfig := newDaemonConfig()
+	daemonConfig := &daemonConfig{}
 	daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
 	daemonConfig.indexerDataDir = indexerDataDir
 	daemonConfig.enableAllParameters = true
@@ -139,7 +139,7 @@ func TestConfigDoesNotExistExpectError(t *testing.T) {
 	indexerDataDir := createTempDir(t)
 	defer os.RemoveAll(indexerDataDir)
 	tempConfigFile := indexerDataDir + "/indexer.yml"
-	daemonConfig := newDaemonConfig()
+	daemonConfig := &daemonConfig{}
 	daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
 	daemonConfig.indexerDataDir = indexerDataDir
 	daemonConfig.configFile = tempConfigFile
@@ -157,7 +157,7 @@ func TestConfigInvalidExpectError(t *testing.T) {
 	defer os.RemoveAll(indexerDataDir)
 	tempConfigFile := indexerDataDir + "/indexer-alt.yml"
 	os.WriteFile(tempConfigFile, []byte(";;;"), fs.ModePerm)
-	daemonConfig := newDaemonConfig()
+	daemonConfig := &daemonConfig{}
 	daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
 	daemonConfig.indexerDataDir = indexerDataDir
 	daemonConfig.configFile = tempConfigFile
@@ -176,7 +176,7 @@ func TestConfigSpecifiedTwiceExpectError(t *testing.T) {
 	defer os.RemoveAll(indexerDataDir)
 	tempConfigFile := indexerDataDir + "/indexer.yml"
 	os.WriteFile(tempConfigFile, []byte{}, fs.ModePerm)
-	daemonConfig := newDaemonConfig()
+	daemonConfig := &daemonConfig{}
 	daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
 	daemonConfig.indexerDataDir = indexerDataDir
 	daemonConfig.configFile = tempConfigFile
@@ -195,12 +195,12 @@ func TestLoadAPIConfigGivenAutoLoadAndUserSuppliedExpectError(t *testing.T) {
 	autoloadPath := filepath.Join(indexerDataDir, autoLoadParameterConfigName)
 	userSuppliedPath := filepath.Join(indexerDataDir, "foobar.yml")
 	os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
-	cfg := newDaemonConfig()
+	cfg := &daemonConfig{}
 	cfg.indexerDataDir = indexerDataDir
 	cfg.suppliedAPIConfigFile = userSuppliedPath
 
 	err := loadIndexerParamConfig(cfg)
-	expectedErr := fmt.Errorf("api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one.",
+	expectedErr := fmt.Errorf("api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
 		autoloadPath)
 	if err.Error() != expectedErr.Error() {
 		t.Fatalf("expected error %v, but got %v", expectedErr, err)
@@ -212,7 +212,7 @@ func TestLoadAPIConfigGivenUserSuppliedExpectSuccess(t *testing.T) {
 	defer os.RemoveAll(indexerDataDir)
 
 	userSuppliedPath := filepath.Join(indexerDataDir, "foobar.yml")
-	cfg := newDaemonConfig()
+	cfg := &daemonConfig{}
 	cfg.indexerDataDir = indexerDataDir
 	cfg.suppliedAPIConfigFile = userSuppliedPath
 
@@ -228,7 +228,7 @@ func TestLoadAPIConfigGivenAutoLoadExpectSuccess(t *testing.T) {
 
 	autoloadPath := filepath.Join(indexerDataDir, autoLoadParameterConfigName)
 	os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
-	cfg := newDaemonConfig()
+	cfg := &daemonConfig{}
 	cfg.indexerDataDir = indexerDataDir
 
 	err := loadIndexerParamConfig(cfg)
@@ -239,7 +239,7 @@ func TestLoadAPIConfigGivenAutoLoadExpectSuccess(t *testing.T) {
 }
 
 func TestIndexerDataDirNotProvidedExpectError(t *testing.T) {
-	cfg := newDaemonConfig()
+	cfg := &daemonConfig{}
 
 	expectedErr := "indexer data directory was not provided"
 
@@ -251,7 +251,7 @@ func TestIndexerDataDirCreateFailExpectError(t *testing.T) {
 	defer os.RemoveAll(indexerDataDir)
 
 	invalidDir := filepath.Join(indexerDataDir, "foo", "bar")
-	cfg := newDaemonConfig()
+	cfg := &daemonConfig{}
 	cfg.indexerDataDir = invalidDir
 
 	assert.Error(t, configureIndexerDataDir(cfg))
@@ -261,7 +261,7 @@ func TestIndexerPidFileExpectSuccess(t *testing.T) {
 	indexerDataDir := createTempDir(t)
 	defer os.RemoveAll(indexerDataDir)
 
-	cfg := newDaemonConfig()
+	cfg := &daemonConfig{}
 	cfg.pidFilePath = path.Join(indexerDataDir, "pidFile")
 	assert.NoError(t, createIndexerPidFile(cfg))
 }
@@ -271,7 +271,7 @@ func TestIndexerPidFileCreateFailExpectError(t *testing.T) {
 	defer os.RemoveAll(indexerDataDir)
 
 	invalidDir := filepath.Join(indexerDataDir, "foo", "bar")
-	cfg := newDaemonConfig()
+	cfg := &daemonConfig{}
 	cfg.pidFilePath = invalidDir
 
 	cfg.flags = pflag.NewFlagSet("indexer", 0)

@@ -71,25 +71,19 @@ type daemonConfig struct {
 	genesisJSONPath           string
 }
 
-func newDaemonConfig() *daemonConfig {
-	return &daemonConfig{}
-}
+var daemonCfg = &daemonConfig{}
 
-func newDaemonCmd(config *daemonConfig) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "daemon",
-		Short: "run indexer daemon",
-		Long:  "run indexer daemon. Serve api on HTTP.",
-		//Args:
-		Run: func(cmd *cobra.Command, args []string) {
-			config.flags = cmd.Flags()
-			if err := runDaemon(config); err != nil {
-				panic(exit{1})
-			}
-		},
-	}
-	config.setFlags(cmd.Flags())
-	return cmd
+var daemonCmd = &cobra.Command{
+	Use:   "daemon",
+	Short: "run indexer daemon",
+	Long:  "run indexer daemon. Serve api on HTTP.",
+	//Args:
+	Run: func(cmd *cobra.Command, args []string) {
+		daemonCfg.flags = cmd.Flags()
+		if err := runDaemon(daemonCfg); err != nil {
+			panic(exit{1})
+		}
+	},
 }
 
 func configureIndexerDataDir(cfg *daemonConfig) error {
@@ -163,7 +157,7 @@ func loadIndexerParamConfig(cfg *daemonConfig) error {
 	// If we auto-loaded configs but a user supplied them as well, we have an error
 	if paramConfigFound {
 		if cfg.suppliedAPIConfigFile != "" {
-			err = fmt.Errorf("api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one.",
+			err = fmt.Errorf("api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
 				filepath.Join(cfg.indexerDataDir, autoLoadParameterConfigName))
 			logger.WithError(err).Errorf("indexer parameter config error: %v", err)
 			return err
@@ -298,7 +292,7 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	var wg sync.WaitGroup
 	if bot != nil {
 		wg.Add(1)
-		go runBlockImporter(daemonConfig, &wg, db, availableCh, bot, ctx, &opts)
+		go runBlockImporter(ctx, daemonConfig, &wg, db, availableCh, bot, &opts)
 	} else {
 		logger.Info("No block importer configured.")
 	}
@@ -313,7 +307,7 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	return err
 }
 
-func runBlockImporter(cfg *daemonConfig, wg *sync.WaitGroup, db idb.IndexerDb, dbAvailable chan struct{}, bot fetcher.Fetcher, ctx context.Context, opts *idb.IndexerDbOptions) {
+func runBlockImporter(ctx context.Context, cfg *daemonConfig, wg *sync.WaitGroup, db idb.IndexerDb, dbAvailable chan struct{}, bot fetcher.Fetcher, opts *idb.IndexerDbOptions) {
 	// Need to redefine exitHandler() for every go-routine
 	defer exitHandler()
 	defer wg.Done()
