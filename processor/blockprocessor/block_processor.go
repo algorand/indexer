@@ -2,24 +2,23 @@ package blockprocessor
 
 import (
 	"fmt"
-	"path/filepath"
+
+	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand/config"
-	algodConfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/rpcs"
+
 	"github.com/algorand/indexer/accounting"
+	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/processor"
 	indexerledger "github.com/algorand/indexer/processor/eval"
 	"github.com/algorand/indexer/util"
 )
-
-const prefix = "ledger"
 
 type blockProcessor struct {
 	handler func(block *ledgercore.ValidatedBlock) error
@@ -38,13 +37,38 @@ func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.Va
 	return &blockProcessor{ledger: l, handler: handler}, nil
 }
 
+// MakeProcessorWithLedgerInit creates a block processor and initializes the ledger.
+func MakeProcessorWithLedgerInit(logger *log.Logger, catchpoint string, genesis *bookkeeping.Genesis, nextDBRound uint64, opts idb.IndexerDbOptions, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+	/*
+		// TODO: Uncomment this once migrations/local_ledger is moved into this package to avoid circular dependency.
+			if nextDBRound > 0 {
+				if catchpoint != "" {
+					round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
+					if err != nil {
+						return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() label err: %w", err)
+					}
+					if uint64(round) >= nextDBRound {
+						logger.Warnf("round for given catchpoint is ahead of db round. skip fast catchup")
+					} else {
+						err = localledger.RunMigrationFastCatchup(logging.NewLogger(), catchpoint, opts.IndexerDatadir, *genesis)
+						if err != nil {
+							return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() fast catchup err: %w", err)
+						}
+					}
+
+				}
+				err := localledger.RunMigrationSimple(logger, nextDBRound-1, &opts)
+				if err != nil {
+					return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() slow catchup err: %w", err)
+				}
+			}
+	*/
+	return MakeProcessor(logger, genesis, nextDBRound, opts.AlgodDataDir, handler)
+}
+
 // MakeProcessor creates a block processor
-func MakeProcessor(genesis *bookkeeping.Genesis, dbRound uint64, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
-	initState, err := util.CreateInitState(genesis)
-	if err != nil {
-		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
-	}
-	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(datadir, prefix), false, initState, algodConfig.GetDefaultLocal())
+func MakeProcessor(logger *log.Logger, genesis *bookkeeping.Genesis, dbRound uint64, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+	l, err := util.MakeLedger(logger, genesis, datadir)
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
 	}
