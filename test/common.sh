@@ -291,6 +291,7 @@ function kill_indexer() {
     kill -9 $(cat "$PIDFILE") > /dev/null 2>&1 || true
     rm $PIDFILE
     rm -rf $INDEXER_DATA
+    rm ledger\..*sqlite.*
   fi
 }
 
