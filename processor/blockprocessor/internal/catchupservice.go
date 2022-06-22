@@ -51,19 +51,20 @@ func (n nodeProvider) SetCatchpointCatchupMode(enabled bool) (newContextCh <-cha
 
 // CatchupServiceCatchup initializes a ledger using the catchup service.
 func CatchupServiceCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+	logger.Infof("Starting catchup service with catchpoint: %s", catchpoint)
+	wrappedLogger := logging.NewLogger()
+	// TODO: Use new wrapped logger
+
 	start := time.Now()
 	ctx := context.Background()
 	cfg := config.AutogenLocal
 
 	node := makeNodeProvider(ctx)
-	//l, err := MakeLedger(rootDir, genesis)
 	l, err := util.MakeLedger(logger, &genesis, dataDir)
 	if err != nil {
 		return fmt.Errorf("CatchupServiceCatchup() MakeLedger err: %w", err)
 	}
 
-	wrappedLogger := logging.NewLogger()
-	// TODO: Use new wrapped logger
 	//wrappedLogger := logging.NewWrappedLogger(logger)
 	p2pNode, err := network.NewWebsocketNetwork(wrappedLogger, cfg, nil, genesis.ID(), genesis.Network, node)
 	if err != nil {
@@ -73,6 +74,7 @@ func CatchupServiceCatchup(logger *log.Logger, round basics.Round, catchpoint, d
 	//p2pNode.SetPrioScheme(node)
 	p2pNode.Start()
 
+	// TODO: if the ledger already has a catchpoint, use MakeResumedCatchpointCatchupService
 	service, err := catchup.MakeNewCatchpointCatchupService(
 		catchpoint,
 		node,
@@ -90,24 +92,25 @@ func CatchupServiceCatchup(logger *log.Logger, round basics.Round, catchpoint, d
 
 	running := true
 	for running {
-		//time.Sleep(5 * time.Second)
+		time.Sleep(5 * time.Second)
 		stats := service.GetStatistics()
-		/*
-			fmt.Println("==========================")
-			fmt.Printf("Time:               %s\n", time.Now())
-			fmt.Printf("Ledger:             %d\n", l.Latest())
-			fmt.Printf("Processed Accounts: %d / %d\n", stats.ProcessedAccounts, stats.TotalAccounts)
-			fmt.Printf("Verified Accounts:  %d / %d\n", stats.VerifiedAccounts, stats.TotalAccounts)
-			fmt.Printf("Aquired Blocks:     %d / %d\n", stats.AcquiredBlocks, stats.TotalBlocks)
-			fmt.Printf("Verified Blocks:    %d / %d\n", stats.VerifiedBlocks, stats.TotalBlocks)
-		*/
 		running = stats.TotalBlocks == 0 || stats.TotalBlocks != stats.VerifiedBlocks
+
+		switch {
+		case !running:
+			break
+		case stats.VerifiedBlocks > 0:
+			logger.Infof("catchup phase 4 of 4 (Verified Blocks): %d / %d", stats.VerifiedBlocks, stats.TotalBlocks)
+		case stats.AcquiredBlocks > 0:
+			logger.Infof("catchup phase 3 of 4 (Aquired Blocks): %d / %d", stats.AcquiredBlocks, stats.TotalBlocks)
+		case stats.VerifiedAccounts > 0:
+			logger.Infof("catchup phase 2 of 4 (Verified Accounts):  %d / %d", stats.VerifiedAccounts, stats.TotalAccounts)
+		case stats.ProcessedAccounts > 0:
+			logger.Infof("catchup phase 1 of 4 (Processed Accounts): %d / %d", stats.ProcessedAccounts, stats.TotalAccounts)
+		}
 	}
 
-	fmt.Printf("Done after: %s\n", time.Since(start))
-	writing := time.Now()
+	logger.Infof("Catchup finished in %s", time.Since(start))
 	l.WaitForCommit(l.Latest())
-	fmt.Printf("Done after: %s\n", time.Since(start))
-	fmt.Printf("Write duration: %s\n", time.Since(writing))
 	return nil
 }
