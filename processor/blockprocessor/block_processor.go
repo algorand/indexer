@@ -2,7 +2,6 @@ package blockprocessor
 
 import (
 	"fmt"
-	"path"
 	"path/filepath"
 
 	"github.com/algorand/go-algorand/config"
@@ -45,7 +44,7 @@ func MakeProcessor(genesis *bookkeeping.Genesis, dbRound uint64, datadir string,
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
 	}
-	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(datadir), prefix), false, initState, algodConfig.GetDefaultLocal())
+	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(datadir, prefix), false, initState, algodConfig.GetDefaultLocal())
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
 	}

@@ -61,6 +61,10 @@ func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
 	if err != nil {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}
+	// ledger and db states are in sync
+	if proc.NextRoundToProcess()-1 == round {
+		return nil
+	}
 	bot.SetNextRound(proc.NextRoundToProcess())
 	handler := blockHandler(round, proc, cf, 1*time.Second)
 	bot.SetBlockHandler(handler)
