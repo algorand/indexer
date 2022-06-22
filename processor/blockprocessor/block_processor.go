@@ -11,12 +11,10 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/idb"
-	localledger "github.com/algorand/indexer/migrations/local_ledger"
 	"github.com/algorand/indexer/processor"
 	indexerledger "github.com/algorand/indexer/processor/eval"
 	"github.com/algorand/indexer/util"
@@ -40,27 +38,30 @@ func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.Va
 }
 
 func MakeProcessorWithCatchup(logger *log.Logger, catchpoint string, genesis *bookkeeping.Genesis, nextDBRound uint64, opts idb.IndexerDbOptions, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
-	if nextDBRound > 0 {
-		if catchpoint != "" {
-			round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
-			if err != nil {
-				return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() label err: %w", err)
-			}
-			if uint64(round) >= nextDBRound {
-				logger.Warnf("round for given catchpoint is ahead of db round. skip fast catchup")
-			} else {
-				err = localledger.RunMigrationFastCatchup(logging.NewLogger(), catchpoint, opts.IndexerDatadir, *genesis)
+	/*
+		// TODO: Uncomment this once migrations/local_ledger is moved into this package to avoid circular dependency.
+			if nextDBRound > 0 {
+				if catchpoint != "" {
+					round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
+					if err != nil {
+						return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() label err: %w", err)
+					}
+					if uint64(round) >= nextDBRound {
+						logger.Warnf("round for given catchpoint is ahead of db round. skip fast catchup")
+					} else {
+						err = localledger.RunMigrationFastCatchup(logging.NewLogger(), catchpoint, opts.IndexerDatadir, *genesis)
+						if err != nil {
+							return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() fast catchup err: %w", err)
+						}
+					}
+
+				}
+				err := localledger.RunMigrationSimple(logger, nextDBRound-1, &opts)
 				if err != nil {
-					return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() fast catchup err: %w", err)
+					return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() slow catchup err: %w", err)
 				}
 			}
-
-		}
-		err := localledger.RunMigrationSimple(logger, nextDBRound-1, &opts)
-		if err != nil {
-			return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() slow catchup err: %w", err)
-		}
-	}
+	*/
 	return MakeProcessor(logger, genesis, nextDBRound, opts.AlgodDataDir, handler)
 }
 
