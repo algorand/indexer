@@ -256,7 +256,7 @@ var daemonCmd = &cobra.Command{
 						}
 
 					}
-					err = localledger.RunMigrationSimple(nextDBRound-1, &opts)
+					err = localledger.RunMigrationSimple(logger, nextDBRound-1, &opts)
 					maybeFail(err, "Error running ledger migration")
 				}
 
@@ -264,7 +264,7 @@ var daemonCmd = &cobra.Command{
 				imp := importer.NewImporter(db)
 
 				logger.Info("Initializing local ledger.")
-				proc, err := blockprocessor.MakeProcessor(&genesis, nextDBRound, indexerDataDir, imp.ImportBlock)
+				proc, err := blockprocessor.MakeProcessor(logger, &genesis, nextDBRound, indexerDataDir, imp.ImportBlock)
 				if err != nil {
 					maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
 				}

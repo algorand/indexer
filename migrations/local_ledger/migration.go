@@ -27,8 +27,7 @@ import (
 )
 
 // RunMigrationSimple executes the migration core functionality.
-func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
-	logger := log.New()
+func RunMigrationSimple(logger *log.Logger, round uint64, opts *idb.IndexerDbOptions) error {
 	ctx, cf := context.WithCancel(context.Background())
 	defer cf()
 	{
@@ -59,7 +58,7 @@ func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
 		return fmt.Errorf("RunMigrationSimple() err: %w", err)
 	}
 
-	proc, err := blockprocessor.MakeProcessor(&genesis, round, opts.IndexerDatadir, nil)
+	proc, err := blockprocessor.MakeProcessor(logger, &genesis, round, opts.IndexerDatadir, nil)
 	if err != nil {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}

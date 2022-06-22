@@ -4,15 +4,16 @@ import (
 	"fmt"
 	"path/filepath"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/algorand/go-algorand/config"
-	algodConfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/rpcs"
+
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/processor"
 	indexerledger "github.com/algorand/indexer/processor/eval"
@@ -39,12 +40,8 @@ func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.Va
 }
 
 // MakeProcessor creates a block processor
-func MakeProcessor(genesis *bookkeeping.Genesis, dbRound uint64, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
-	initState, err := util.CreateInitState(genesis)
-	if err != nil {
-		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
-	}
-	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(datadir, prefix), false, initState, algodConfig.GetDefaultLocal())
+func MakeProcessor(logger *log.Logger, genesis *bookkeeping.Genesis, dbRound uint64, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+	l, err := util.MakeLedger(logger, genesis, filepath.Join(datadir, prefix))
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
 	}
