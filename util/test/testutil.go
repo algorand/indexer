@@ -118,7 +118,7 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 }
 
 // MakeTestLedger creates an in-memory local ledger
-func MakeTestLedger(logger *log.Logger, prefix string) (*ledger.Ledger, error) {
+func MakeTestLedger(logger *log.Logger) (*ledger.Ledger, error) {
 	genesis := MakeGenesis()
-	return util.MakeLedger(logger, true, &genesis, prefix)
+	return util.MakeLedger(logger, true, &genesis, "ledger")
 }

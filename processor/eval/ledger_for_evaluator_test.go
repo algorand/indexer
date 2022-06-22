@@ -21,7 +21,7 @@ import (
 
 func makeTestLedger(t *testing.T) *ledger.Ledger {
 	log, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(log, "ledger")
+	l, err := test.MakeTestLedger(log)
 	require.NoError(t, err)
 	return l
 }

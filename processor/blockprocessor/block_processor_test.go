@@ -18,7 +18,7 @@ import (
 
 func TestProcess(t *testing.T) {
 	log, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(log, "local_ledger")
+	l, err := test.MakeTestLedger(log)
 	require.NoError(t, err)
 	defer l.Close()
 	genesisBlock, err := l.Block(basics.Round(0))
@@ -52,7 +52,7 @@ func TestProcess(t *testing.T) {
 
 func TestFailedProcess(t *testing.T) {
 	log, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(log, "local_ledger")
+	l, err := test.MakeTestLedger(log)
 	require.NoError(t, err)
 	defer l.Close()
 	// invalid processor

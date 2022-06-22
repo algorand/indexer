@@ -1415,7 +1415,7 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	assert.Equal(t, uint64(0), round)
 
 	log, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(log, "ledger")
+	l, err := test.MakeTestLedger(log)
 	require.NoError(t, err)
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
@@ -1713,7 +1713,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 
 	err = pgutil.TxWithRetry(pdb, serializable, func(tx pgx.Tx) error {
 		log, _ := test2.NewNullLogger()
-		l, err := test.MakeTestLedger(log, "ledger")
+		l, err := test.MakeTestLedger(log)
 		require.NoError(t, err)
 		defer l.Close()
 		proc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)

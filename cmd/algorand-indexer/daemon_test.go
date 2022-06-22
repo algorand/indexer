@@ -40,7 +40,7 @@ func TestImportRetryAndCancel(t *testing.T) {
 	// create handler with mock importer and start, it should generate errors until cancelled.
 	imp := &mockImporter{}
 	ledgerLogger, _ := test.NewNullLogger()
-	l, err := itest.MakeTestLedger(ledgerLogger, "ledger")
+	l, err := itest.MakeTestLedger(ledgerLogger)
 	require.NoError(t, err)
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessorWithLedger(l, nil)
