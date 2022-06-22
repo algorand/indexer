@@ -50,25 +50,11 @@ type ImportHelper struct {
 	Log *log.Logger
 }
 
-// ReadGenesis converts a reader into a Genesis file.
-func ReadGenesis(in io.Reader) (bookkeeping.Genesis, error) {
-	var genesis bookkeeping.Genesis
-	gbytes, err := ioutil.ReadAll(in)
-	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("error reading genesis, %v", err)
-	}
-	err = protocol.DecodeJSON(gbytes, &genesis)
-	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("error decoding genesis, %v", err)
-	}
-	return genesis, nil
-}
-
 // Import is the main ImportHelper function that glues together a directory full of block files and an Importer objects.
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	// Initial import if needed.
 	genesisReader := GetGenesisFile(h.GenesisJSONPath, nil, h.Log)
-	genesis, err := ReadGenesis(genesisReader)
+	genesis, err := util.ReadGenesis(genesisReader)
 	maybeFail(err, h.Log, "readGenesis() error")
 
 	_, err = EnsureInitialImport(db, genesis, h.Log)

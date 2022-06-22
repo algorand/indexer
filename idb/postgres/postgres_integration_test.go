@@ -30,6 +30,7 @@ import (
 
 	"github.com/algorand/indexer/idb"
 	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
+	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -2141,7 +2142,7 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	require.ErrorIs(t, err, idb.ErrorNotInitialized)
 	logger := logrus.New()
 	genesisReader := bytes.NewReader(protocol.EncodeJSON(genesis))
-	gen, err := importer.ReadGenesis(genesisReader)
+	gen, err := util.ReadGenesis(genesisReader)
 	require.NoError(t, err)
 	imported, err := importer.EnsureInitialImport(db, gen, logger)
 	require.NoError(t, err)
@@ -2154,7 +2155,7 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	// change genesis value
 	genesis.Network = "testnest"
 	genesisReader = bytes.NewReader(protocol.EncodeJSON(genesis))
-	gen, err = importer.ReadGenesis(genesisReader)
+	gen, err = util.ReadGenesis(genesisReader)
 	require.NoError(t, err)
 	// different genesisHash, should fail
 	_, err = importer.EnsureInitialImport(db, gen, logger)

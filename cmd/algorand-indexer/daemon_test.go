@@ -9,14 +9,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
+
 	"github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/indexer/util"
 	itest "github.com/algorand/indexer/util/test"
-	"github.com/sirupsen/logrus/hooks/test"
-	"github.com/stretchr/testify/assert"
 )
 
 type mockImporter struct {
@@ -77,12 +80,12 @@ func TestImportRetryAndCancel(t *testing.T) {
 func TestReadGenesis(t *testing.T) {
 	var reader io.Reader
 	// nil reader
-	_, err := readGenesis(reader)
+	_, err := util.ReadGenesis(reader)
 	assert.Contains(t, err.Error(), "readGenesis() err: reader is nil")
 	// no match struct field
 	genesisStr := "{\"version\": 2}"
 	reader = strings.NewReader(genesisStr)
-	_, err = readGenesis(reader)
+	_, err = util.ReadGenesis(reader)
 	assert.Contains(t, err.Error(), "json decode error")
 
 	genesis := bookkeeping.Genesis{
@@ -95,10 +98,10 @@ func TestReadGenesis(t *testing.T) {
 
 	// read and decode genesis
 	reader = strings.NewReader(string(json.Encode(genesis)))
-	_, err = readGenesis(reader)
+	_, err = util.ReadGenesis(reader)
 	assert.Nil(t, err)
 	// read from empty reader
-	_, err = readGenesis(reader)
+	_, err = util.ReadGenesis(reader)
 	assert.Contains(t, err.Error(), "readGenesis() err: EOF")
 
 }

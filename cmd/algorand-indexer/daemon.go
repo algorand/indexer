@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -14,10 +12,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/protocol"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-algorand/util"
+
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/config"
@@ -26,9 +26,8 @@ import (
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/processor"
 	"github.com/algorand/indexer/processor/blockprocessor"
+	iutil "github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -230,7 +229,7 @@ var daemonCmd = &cobra.Command{
 
 				// Initial import if needed.
 				genesisReader := importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
-				genesis, err := readGenesis(genesisReader)
+				genesis, err := iutil.ReadGenesis(genesisReader)
 				maybeFail(err, "Error reading genesis file")
 
 				_, err = importer.EnsureInitialImport(db, genesis, logger)
@@ -428,20 +427,4 @@ func handleBlock(block *rpcs.EncodedBlockCert, proc processor.Processor) error {
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())
 
 	return nil
-}
-
-func readGenesis(reader io.Reader) (bookkeeping.Genesis, error) {
-	var genesis bookkeeping.Genesis
-	if reader == nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: reader is nil")
-	}
-	gbytes, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: %w", err)
-	}
-	err = protocol.DecodeJSON(gbytes, &genesis)
-	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: %w", err)
-	}
-	return genesis, nil
 }

@@ -2,6 +2,8 @@ package util
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
@@ -12,7 +14,25 @@ import (
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
+	"github.com/algorand/go-algorand/protocol"
 )
+
+// ReadGenesis converts a reader into a Genesis file.
+func ReadGenesis(in io.Reader) (bookkeeping.Genesis, error) {
+	var genesis bookkeeping.Genesis
+	if in == nil {
+		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: reader is nil")
+	}
+	gbytes, err := ioutil.ReadAll(in)
+	if err != nil {
+		return bookkeeping.Genesis{}, fmt.Errorf("error reading genesis, %v", err)
+	}
+	err = protocol.DecodeJSON(gbytes, &genesis)
+	if err != nil {
+		return bookkeeping.Genesis{}, fmt.Errorf("error decoding genesis, %v", err)
+	}
+	return genesis, nil
+}
 
 // CreateInitState makes an initState
 func CreateInitState(genesis *bookkeeping.Genesis) (ledgercore.InitState, error) {
