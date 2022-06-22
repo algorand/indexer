@@ -292,7 +292,9 @@ function kill_indexer() {
     rm $PIDFILE
     rm -rf $INDEXER_DATA
     pwd
-    rm ledger\..*sqlite.* || true
+    ls -l
+    rm ledger.*sqlite.* || true
+    rm ledger.*sqlite || true
   fi
 }
 
