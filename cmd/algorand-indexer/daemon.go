@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"syscall"
@@ -14,6 +16,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/algorand/go-algorand/rpcs"
+	"github.com/algorand/go-algorand/util"
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/config"
@@ -48,27 +51,116 @@ var (
 	maxApplicationsLimit      uint32
 	defaultApplicationsLimit  uint32
 	enableAllParameters       bool
+	indexerDataDir            string
+	cpuProfile                string
+	pidFilePath               string
+	configFile                string
 )
 
 var daemonCmd = &cobra.Command{
 	Use:   "daemon",
 	Short: "run indexer daemon",
 	Long:  "run indexer daemon. Serve api on HTTP.",
-	//Args:
 	Run: func(cmd *cobra.Command, args []string) {
 		var err error
 		config.BindFlags(cmd)
 		err = configureLogger()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
-			os.Exit(1)
+			panic(exit{1})
+		}
+
+		if indexerDataDir == "" {
+			fmt.Fprint(os.Stderr, "indexer data directory was not provided")
+			panic(exit{1})
+		}
+
+		// Create the directory if it doesn't exist
+		if _, err := os.Stat(indexerDataDir); os.IsNotExist(err) {
+			err := os.Mkdir(indexerDataDir, 0755)
+			maybeFail(err, "failure while creating data directory: %v", err)
+		}
+
+		// Detect the various auto-loading configs from data directory
+		indexerConfigFound := util.FileExists(filepath.Join(indexerDataDir, autoLoadIndexerConfigName))
+		paramConfigFound := util.FileExists(filepath.Join(indexerDataDir, autoLoadParameterConfigName))
+
+		// If we auto-loaded configs but a user supplied them as well, we have an error
+		if indexerConfigFound {
+			if configFile != "" {
+				logger.Errorf(
+					"indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one.",
+					filepath.Join(indexerDataDir, autoLoadIndexerConfigName))
+				panic(exit{1})
+			}
+			// No config file supplied via command line, auto-load it
+			configs, err := os.Open(configFile)
+			if err != nil {
+				maybeFail(err, "%v", err)
+			}
+			defer configs.Close()
+			err = viper.ReadConfig(configs)
+			if err != nil {
+				maybeFail(err, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
+			}
+		}
+
+		if paramConfigFound {
+			if suppliedAPIConfigFile != "" {
+				logger.Errorf(
+					"api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one.",
+					filepath.Join(indexerDataDir, autoLoadParameterConfigName))
+				panic(exit{1})
+			}
+			suppliedAPIConfigFile = filepath.Join(indexerDataDir, autoLoadParameterConfigName)
+			fmt.Printf("Auto-loading parameter configuration file: %s", suppliedAPIConfigFile)
+
+		}
+
+		if pidFilePath != "" {
+			fmt.Printf("Creating PID file at: %s\n", pidFilePath)
+			fout, err := os.Create(pidFilePath)
+			maybeFail(err, "%s: could not create pid file, %v", pidFilePath, err)
+			_, err = fmt.Fprintf(fout, "%d", os.Getpid())
+			maybeFail(err, "%s: could not write pid file, %v", pidFilePath, err)
+			err = fout.Close()
+			maybeFail(err, "%s: could not close pid file, %v", pidFilePath, err)
+			defer func(name string) {
+				err := os.Remove(name)
+				if err != nil {
+					logger.WithError(err).Errorf("%s: could not remove pid file", pidFilePath)
+				}
+			}(pidFilePath)
+		}
+
+		if cpuProfile != "" {
+			var err error
+			profFile, err = os.Create(cpuProfile)
+			maybeFail(err, "%s: create, %v", cpuProfile, err)
+			defer profFile.Close()
+			err = pprof.StartCPUProfile(profFile)
+			maybeFail(err, "%s: start pprof, %v", cpuProfile, err)
+			defer pprof.StopCPUProfile()
+		}
+
+		if configFile != "" {
+			configs, err := os.Open(configFile)
+			if err != nil {
+				maybeFail(err, "%v", err)
+			}
+			defer configs.Close()
+			err = viper.ReadConfig(configs)
+			if err != nil {
+				maybeFail(err, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
+			}
+			fmt.Printf("Using configuration file: %s\n", configFile)
 		}
 
 		// If someone supplied a configuration file but also said to enable all parameters,
 		// that's an error
 		if suppliedAPIConfigFile != "" && enableAllParameters {
 			fmt.Fprint(os.Stderr, "not allowed to supply an api config file and enable all parameters")
-			os.Exit(1)
+			panic(exit{1})
 		}
 
 		if algodDataDir == "" {
@@ -81,6 +173,8 @@ var daemonCmd = &cobra.Command{
 			cancelCh := make(chan os.Signal, 1)
 			signal.Notify(cancelCh, syscall.SIGTERM, syscall.SIGINT)
 			go func() {
+				// Need to redefine exitHandler() for every go-routine
+				defer exitHandler()
 				<-cancelCh
 				logger.Println("Stopping Indexer.")
 				cf()
@@ -111,8 +205,14 @@ var daemonCmd = &cobra.Command{
 		defer db.Close()
 		var wg sync.WaitGroup
 		if bot != nil {
+			if indexerDataDir == "" {
+				fmt.Fprint(os.Stderr, "missing indexer data directory")
+				panic(exit{1})
+			}
 			wg.Add(1)
 			go func() {
+				// Need to redefine exitHandler() for every go-routine
+				defer exitHandler()
 				defer wg.Done()
 
 				// Wait until the database is available.
@@ -138,7 +238,7 @@ var daemonCmd = &cobra.Command{
 					// If context is not expired.
 					if ctx.Err() == nil {
 						logger.WithError(err).Errorf("fetcher exited with error")
-						os.Exit(1)
+						panic(exit{1})
 					}
 				}
 			}()
@@ -185,10 +285,17 @@ func init() {
 	daemonCmd.Flags().Uint32VarP(&maxApplicationsLimit, "max-applications-limit", "", 1000, "set the maximum allowed Limit parameter for querying applications")
 	daemonCmd.Flags().Uint32VarP(&defaultApplicationsLimit, "default-applications-limit", "", 100, "set the default Limit parameter for querying applications, if none is provided")
 
+	daemonCmd.Flags().StringVarP(&indexerDataDir, "data-dir", "i", "", "path to indexer data dir, or $INDEXER_DATA")
+
+	daemonCmd.Flags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
+	daemonCmd.Flags().StringVarP(&pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
+	daemonCmd.Flags().StringVarP(&configFile, "configfile", "c", "", "file path to configuration file (indexer.yml)")
+
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
 	viper.RegisterAlias("server", "server-address")
 	viper.RegisterAlias("token", "api-token")
+	viper.RegisterAlias("data-dir", "data")
 }
 
 // makeOptions converts CLI options to server options
@@ -234,14 +341,14 @@ func makeOptions() (options api.ExtraOptions) {
 		swag, err := generated.GetSwagger()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to get swagger: %v", err)
-			os.Exit(1)
+			panic(exit{1})
 		}
 
 		logger.Infof("supplied api configuration file located at: %s", suppliedAPIConfigFile)
 		potentialDisabledMapConfig, err := api.MakeDisabledMapConfigFromFile(swag, suppliedAPIConfigFile)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to created disabled map config from file: %v", err)
-			os.Exit(1)
+			panic(exit{1})
 		}
 		options.DisabledMapConfig = potentialDisabledMapConfig
 	}

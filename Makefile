@@ -3,6 +3,12 @@ VERSION		:= $(shell $(SRCPATH)/mule/scripts/compute_build_number.sh)
 OS_TYPE		?= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
 ARCH			?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
 PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(VERSION)
+ifeq ($(OS_TYPE), darwin)
+ifeq ($(ARCH), arm64)
+export CPATH=/opt/homebrew/include
+export LIBRARY_PATH=/opt/homebrew/lib
+endif
+endif
 
 # TODO: ensure any additions here are mirrored in misc/release.py
 GOLDFLAGS += -X github.com/algorand/indexer/version.Hash=$(shell git log -n 1 --pretty="%H")
@@ -28,8 +34,8 @@ idb/postgres/internal/schema/setup_postgres_sql.go:	idb/postgres/internal/schema
 	cd idb/postgres/internal/schema && go generate
 
 idb/mocks/IndexerDb.go:	idb/idb.go
-	go get github.com/vektra/mockery/.../
-	cd idb && mockery -name=IndexerDb
+	go install github.com/vektra/mockery/v2@v2.12.3
+	cd idb && mockery --name=IndexerDb
 
 # check that all packages (except tests) compile
 check: go-algorand
