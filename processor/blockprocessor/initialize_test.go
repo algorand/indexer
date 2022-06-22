@@ -1,4 +1,4 @@
-package localledger
+package blockprocessor
 
 import (
 	"fmt"
@@ -67,7 +67,7 @@ func TestRunMigration(t *testing.T) {
 	}
 
 	// migrate 3 rounds
-	err = RunMigrationSimple(logrus.New(), 3, &opts)
+	err = InitializeLedgerSimple(logrus.New(), 3, &opts)
 	assert.NoError(t, err)
 	initState, err := util.CreateInitState(&genesis)
 	assert.NoError(t, err)
@@ -78,7 +78,7 @@ func TestRunMigration(t *testing.T) {
 	l.Close()
 
 	// migration continues from last round
-	err = RunMigrationSimple(logrus.New(), 6, &opts)
+	err = InitializeLedgerSimple(logrus.New(), 6, &opts)
 	assert.NoError(t, err)
 
 	l, err = ledger.OpenLedger(logging.NewLogger(), filepath.Join(opts.IndexerDatadir, "ledger"), false, initState, algodConfig.GetDefaultLocal())

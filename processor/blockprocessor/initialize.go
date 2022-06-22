@@ -1,4 +1,4 @@
-package localledger
+package blockprocessor
 
 import (
 	"context"
@@ -23,11 +23,10 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/processor"
-	"github.com/algorand/indexer/processor/blockprocessor"
 )
 
-// RunMigrationSimple executes the migration core functionality.
-func RunMigrationSimple(logger *log.Logger, round uint64, opts *idb.IndexerDbOptions) error {
+// InitializeLedgerSimple executes the migration core functionality.
+func InitializeLedgerSimple(logger *log.Logger, round uint64, opts *idb.IndexerDbOptions) error {
 	ctx, cf := context.WithCancel(context.Background())
 	defer cf()
 	{
@@ -45,20 +44,20 @@ func RunMigrationSimple(logger *log.Logger, round uint64, opts *idb.IndexerDbOpt
 	var bot fetcher.Fetcher
 	var err error
 	if opts.IndexerDatadir == "" {
-		return fmt.Errorf("RunMigrationSimple() err: indexer data directory missing")
+		return fmt.Errorf("InitializeLedgerSimple() err: indexer data directory missing")
 	}
 	// create algod client
 	bot, err = getFetcher(opts)
 	if err != nil {
-		return fmt.Errorf("RunMigrationSimple() err: %w", err)
+		return fmt.Errorf("InitializeLedgerSimple() err: %w", err)
 	}
 	logger.Info("initializing ledger")
 	genesis, err := getGenesis(bot.Algod())
 	if err != nil {
-		return fmt.Errorf("RunMigrationSimple() err: %w", err)
+		return fmt.Errorf("InitializeLedgerSimple() err: %w", err)
 	}
 
-	proc, err := blockprocessor.MakeProcessor(logger, &genesis, round, opts.IndexerDatadir, nil)
+	proc, err := MakeProcessor(logger, &genesis, round, opts.IndexerDatadir, nil)
 	if err != nil {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}
@@ -118,15 +117,15 @@ func fullNodeCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir
 	return nil
 }
 
-// RunMigrationFastCatchup executes the migration core functionality.
-func RunMigrationFastCatchup(logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+// InitializeLedgerFastCatchup executes the migration core functionality.
+func InitializeLedgerFastCatchup(logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
 	if dataDir == "" {
-		return fmt.Errorf("RunMigrationFastCatchup() err: indexer data directory missing")
+		return fmt.Errorf("InitializeLedgerFastCatchup() err: indexer data directory missing")
 	}
 	// catchpoint round
 	round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
 	if err != nil {
-		return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
+		return fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
 	}
 
 	// TODO: switch to catchup service catchup.
@@ -148,7 +147,7 @@ func RunMigrationFastCatchup(logger *log.Logger, catchpoint, dataDir string, gen
 	for _, f := range ledgerFiles {
 		err = os.Rename(filepath.Join(dataDir, genesis.ID(), f), filepath.Join(dataDir, f))
 		if err != nil {
-			return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
+			return fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
 		}
 	}
 	return nil
@@ -211,15 +210,15 @@ func getFetcher(opts *idb.IndexerDbOptions) (fetcher.Fetcher, error) {
 	if opts.AlgodDataDir != "" {
 		bot, err = fetcher.ForDataDir(opts.AlgodDataDir, logger)
 		if err != nil {
-			return nil, fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
+			return nil, fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
 		}
 	} else if opts.AlgodAddr != "" && opts.AlgodToken != "" {
 		bot, err = fetcher.ForNetAndToken(opts.AlgodAddr, opts.AlgodToken, logger)
 		if err != nil {
-			return nil, fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
+			return nil, fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
 		}
 	} else {
-		return nil, fmt.Errorf("RunMigrationFastCatchup() err: unable to create algod client")
+		return nil, fmt.Errorf("InitializeLedgerFastCatchup() err: unable to create algod client")
 	}
 	return bot, nil
 }
