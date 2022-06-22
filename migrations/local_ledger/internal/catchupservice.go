@@ -49,6 +49,7 @@ func (n nodeProvider) SetCatchpointCatchupMode(enabled bool) (newContextCh <-cha
 	return ch
 }
 
+// CatchupServiceCatchup initializes a ledger using the catchup service.
 func CatchupServiceCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
 	start := time.Now()
 	ctx := context.Background()

@@ -41,6 +41,7 @@ func CreateInitState(genesis *bookkeeping.Genesis) (ledgercore.InitState, error)
 	return initState, nil
 }
 
+// MakeLedger opens a ledger, initializing if necessary.
 func MakeLedger(logger *log.Logger, genesis *bookkeeping.Genesis, dataDir string) (*ledger.Ledger, error) {
 	const prefix = "ledger"
 	dbPrefix := filepath.Join(dataDir, prefix)
