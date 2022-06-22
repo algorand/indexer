@@ -244,7 +244,7 @@ var daemonCmd = &cobra.Command{
 				imp := importer.NewImporter(db)
 
 				logger.Info("Initializing local ledger.")
-				proc, err := blockprocessor.MakeProcessorWithCatchup(logger, catchpoint, &genesis, nextDBRound, opts, imp.ImportBlock)
+				proc, err := blockprocessor.MakeProcessorWithLedgerInit(logger, catchpoint, &genesis, nextDBRound, opts, imp.ImportBlock)
 				if err != nil {
 					maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
 				}

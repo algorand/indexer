@@ -50,7 +50,8 @@ type ImportHelper struct {
 	Log *log.Logger
 }
 
-func readGenesis(in io.Reader) (bookkeeping.Genesis, error) {
+// ReadGenesis converts a reader into a Genesis file.
+func ReadGenesis(in io.Reader) (bookkeeping.Genesis, error) {
 	var genesis bookkeeping.Genesis
 	gbytes, err := ioutil.ReadAll(in)
 	if err != nil {
@@ -67,7 +68,7 @@ func readGenesis(in io.Reader) (bookkeeping.Genesis, error) {
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	// Initial import if needed.
 	genesisReader := GetGenesisFile(h.GenesisJSONPath, nil, h.Log)
-	genesis, err := readGenesis(genesisReader)
+	genesis, err := ReadGenesis(genesisReader)
 	maybeFail(err, h.Log, "readGenesis() error")
 
 	_, err = EnsureInitialImport(db, genesis, h.Log)

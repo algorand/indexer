@@ -37,7 +37,8 @@ func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.Va
 	return &blockProcessor{ledger: l, handler: handler}, nil
 }
 
-func MakeProcessorWithCatchup(logger *log.Logger, catchpoint string, genesis *bookkeeping.Genesis, nextDBRound uint64, opts idb.IndexerDbOptions, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+// MakeProcessorWithLedgerInit creates a block processor and initializes the ledger.
+func MakeProcessorWithLedgerInit(logger *log.Logger, catchpoint string, genesis *bookkeeping.Genesis, nextDBRound uint64, opts idb.IndexerDbOptions, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
 	/*
 		// TODO: Uncomment this once migrations/local_ledger is moved into this package to avoid circular dependency.
 			if nextDBRound > 0 {

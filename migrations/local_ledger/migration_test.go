@@ -6,6 +6,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/jarcoal/httpmock"
+	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
+
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
@@ -14,11 +18,10 @@ import (
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/rpcs"
+
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
-	"github.com/jarcoal/httpmock"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestRunMigration(t *testing.T) {
@@ -64,7 +67,7 @@ func TestRunMigration(t *testing.T) {
 	}
 
 	// migrate 3 rounds
-	err = RunMigrationSimple(3, &opts)
+	err = RunMigrationSimple(logrus.New(), 3, &opts)
 	assert.NoError(t, err)
 	initState, err := util.CreateInitState(&genesis)
 	assert.NoError(t, err)
@@ -75,7 +78,7 @@ func TestRunMigration(t *testing.T) {
 	l.Close()
 
 	// migration continues from last round
-	err = RunMigrationSimple(6, &opts)
+	err = RunMigrationSimple(logrus.New(), 6, &opts)
 	assert.NoError(t, err)
 
 	l, err = ledger.OpenLedger(logging.NewLogger(), filepath.Join(opts.IndexerDatadir, "ledger"), false, initState, algodConfig.GetDefaultLocal())

@@ -82,9 +82,13 @@ func RunMigrationSimple(logger *log.Logger, round uint64, opts *idb.IndexerDbOpt
 	return nil
 }
 
-func fullNodeCatchup(logger logging.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+func fullNodeCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+	wrappedLogger := logging.NewLogger()
+	// TODO: Use new wrapped logger
+	//wrappedLogger := logging.NewWrappedLogger(logger)
+
 	node, err := node.MakeFull(
-		logging.NewLogger(),
+		wrappedLogger,
 		dataDir,
 		algodConfig.AutogenLocal,
 		nil,
@@ -115,7 +119,7 @@ func fullNodeCatchup(logger logging.Logger, round basics.Round, catchpoint, data
 }
 
 // RunMigrationFastCatchup executes the migration core functionality.
-func RunMigrationFastCatchup(logger logging.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+func RunMigrationFastCatchup(logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
 	if dataDir == "" {
 		return fmt.Errorf("RunMigrationFastCatchup() err: indexer data directory missing")
 	}
@@ -124,6 +128,9 @@ func RunMigrationFastCatchup(logger logging.Logger, catchpoint, dataDir string, 
 	if err != nil {
 		return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
 	}
+
+	// TODO: switch to catchup service catchup.
+	//err = internal.CatchupServiceCatchup(logger, round, catchpoint, dataDir, genesis)
 	err = fullNodeCatchup(logger, round, catchpoint, dataDir, genesis)
 	if err != nil {
 		return fmt.Errorf("fullNodeCatchup() err: %w", err)
