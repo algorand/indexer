@@ -293,8 +293,7 @@ function kill_indexer() {
     rm -rf $INDEXER_DATA
     pwd
     ls -l
-    rm ledger.*sqlite.* || true
-    rm ledger.*sqlite || true
+    rm ledger*sqlite* || true
   fi
 }
 
