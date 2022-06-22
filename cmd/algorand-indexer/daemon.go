@@ -15,8 +15,6 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-algorand/util"
@@ -26,7 +24,6 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
-	localledger "github.com/algorand/indexer/migrations/local_ledger"
 	"github.com/algorand/indexer/processor"
 	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/algorand/indexer/util/metrics"
@@ -242,29 +239,12 @@ var daemonCmd = &cobra.Command{
 				// sync local ledger
 				nextDBRound, err := db.GetNextRoundToAccount()
 				maybeFail(err, "Error getting DB round")
-				if nextDBRound > 0 {
-					if catchpoint != "" {
-						round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
-						if err != nil {
-							maybeFail(err, "catchpoint error")
-						}
-						if uint64(round) >= nextDBRound {
-							logger.Warnf("round for given catchpoint is ahead of db round. skip fast catchup")
-						} else {
-							err = localledger.RunMigrationFastCatchup(logging.NewLogger(), catchpoint, opts.IndexerDatadir, genesis)
-							maybeFail(err, "Error running ledger migration in fast catchup mode")
-						}
-
-					}
-					err = localledger.RunMigrationSimple(logger, nextDBRound-1, &opts)
-					maybeFail(err, "Error running ledger migration")
-				}
 
 				logger.Info("Initializing block import handler.")
 				imp := importer.NewImporter(db)
 
 				logger.Info("Initializing local ledger.")
-				proc, err := blockprocessor.MakeProcessor(logger, &genesis, nextDBRound, indexerDataDir, imp.ImportBlock)
+				proc, err := blockprocessor.MakeProcessorWithCatchup(logger, catchpoint, &genesis, nextDBRound, opts, imp.ImportBlock)
 				if err != nil {
 					maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
 				}
