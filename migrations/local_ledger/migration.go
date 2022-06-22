@@ -82,8 +82,8 @@ func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
 }
 
 // RunMigrationFastCatchup executes the migration core functionality.
-func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb.IndexerDbOptions) error {
-	if opts.IndexerDatadir == "" {
+func RunMigrationFastCatchup(logger logging.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+	if dataDir == "" {
 		return fmt.Errorf("RunMigrationFastCatchup() err: indexer data directory missing")
 	}
 	// catchpoint round
@@ -91,23 +91,14 @@ func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb
 	if err != nil {
 		return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
 	}
-	// create algod client
-	bot, err := getFetcher(opts)
-	if err != nil {
-		return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
-	}
-	genesis, err := getGenesis(bot.Algod())
-	if err != nil {
-		return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
-	}
 	node, err := node.MakeFull(
 		logging.NewLogger(),
-		opts.IndexerDatadir,
+		dataDir,
 		algodConfig.AutogenLocal,
 		nil,
 		genesis)
 	// remove node directory after when exiting fast catchup mode
-	defer os.RemoveAll(filepath.Join(opts.IndexerDatadir, genesis.ID()))
+	defer os.RemoveAll(filepath.Join(dataDir, genesis.ID()))
 	node.Start()
 	time.Sleep(5 * time.Second)
 	logger.Info("algod node running")
@@ -135,7 +126,7 @@ func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb
 		"ledger.tracker.sqlite-wal",
 	}
 	for _, f := range ledgerFiles {
-		err = os.Rename(filepath.Join(opts.IndexerDatadir, genesis.ID(), f), filepath.Join(opts.IndexerDatadir, f))
+		err = os.Rename(filepath.Join(dataDir, genesis.ID(), f), filepath.Join(dataDir, f))
 		if err != nil {
 			return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
 		}

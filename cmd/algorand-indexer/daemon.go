@@ -233,7 +233,10 @@ var daemonCmd = &cobra.Command{
 
 				// Initial import if needed.
 				genesisReader := importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
-				_, err := importer.EnsureInitialImport(db, genesisReader, logger)
+				genesis, err := readGenesis(genesisReader)
+				maybeFail(err, "Error reading genesis file")
+
+				_, err = importer.EnsureInitialImport(db, genesis, logger)
 				maybeFail(err, "importer.EnsureInitialImport() error")
 
 				// sync local ledger
@@ -248,7 +251,7 @@ var daemonCmd = &cobra.Command{
 						if uint64(round) >= nextDBRound {
 							logger.Warnf("round for given catchpoint is ahead of db round. skip fast catchup")
 						} else {
-							err = localledger.RunMigrationFastCatchup(logging.NewLogger(), catchpoint, &opts)
+							err = localledger.RunMigrationFastCatchup(logging.NewLogger(), catchpoint, opts.IndexerDatadir, genesis)
 							maybeFail(err, "Error running ledger migration in fast catchup mode")
 						}
 
@@ -261,10 +264,6 @@ var daemonCmd = &cobra.Command{
 				imp := importer.NewImporter(db)
 
 				logger.Info("Initializing local ledger.")
-				genesisReader = importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
-				genesis, err := readGenesis(genesisReader)
-				maybeFail(err, "Error reading genesis file")
-
 				proc, err := blockprocessor.MakeProcessor(&genesis, nextDBRound, indexerDataDir, imp.ImportBlock)
 				if err != nil {
 					maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
