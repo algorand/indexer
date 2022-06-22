@@ -3,7 +3,6 @@ package localledger
 import (
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"testing"
 
@@ -59,7 +58,7 @@ func TestRunMigration(t *testing.T) {
 	dname, err := os.MkdirTemp("", "indexer")
 	defer os.RemoveAll(dname)
 	opts := idb.IndexerDbOptions{
-		IndexerDatadir: dname + "/",
+		IndexerDatadir: dname,
 		AlgodAddr:      "localhost",
 		AlgodToken:     "AAAAA",
 	}
@@ -69,7 +68,7 @@ func TestRunMigration(t *testing.T) {
 	assert.NoError(t, err)
 	initState, err := util.CreateInitState(&genesis)
 	assert.NoError(t, err)
-	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
+	l, err := ledger.OpenLedger(logging.NewLogger(), filepath.Join(opts.IndexerDatadir, "ledger"), false, initState, algodConfig.GetDefaultLocal())
 	assert.NoError(t, err)
 	// check 3 rounds written to ledger
 	assert.Equal(t, uint64(3), uint64(l.Latest()))
@@ -79,7 +78,7 @@ func TestRunMigration(t *testing.T) {
 	err = RunMigrationSimple(6, &opts)
 	assert.NoError(t, err)
 
-	l, err = ledger.OpenLedger(logging.NewLogger(), filepath.Join(path.Dir(opts.IndexerDatadir), "ledger"), false, initState, algodConfig.GetDefaultLocal())
+	l, err = ledger.OpenLedger(logging.NewLogger(), filepath.Join(opts.IndexerDatadir, "ledger"), false, initState, algodConfig.GetDefaultLocal())
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(6), uint64(l.Latest()))
 	l.Close()
