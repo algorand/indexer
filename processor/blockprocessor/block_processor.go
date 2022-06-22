@@ -2,8 +2,6 @@ package blockprocessor
 
 import (
 	"fmt"
-	"path/filepath"
-
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand/config"
@@ -19,8 +17,6 @@ import (
 	indexerledger "github.com/algorand/indexer/processor/eval"
 	"github.com/algorand/indexer/util"
 )
-
-const prefix = "ledger"
 
 type blockProcessor struct {
 	handler func(block *ledgercore.ValidatedBlock) error
@@ -41,7 +37,7 @@ func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.Va
 
 // MakeProcessor creates a block processor
 func MakeProcessor(logger *log.Logger, genesis *bookkeeping.Genesis, dbRound uint64, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
-	l, err := util.MakeLedger(logger, genesis, filepath.Join(datadir, prefix))
+	l, err := util.MakeLedger(logger, genesis, datadir)
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
 	}

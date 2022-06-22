@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"path/filepath"
 
 	log "github.com/sirupsen/logrus"
 
@@ -40,7 +41,9 @@ func CreateInitState(genesis *bookkeeping.Genesis) (ledgercore.InitState, error)
 	return initState, nil
 }
 
-func MakeLedger(logger *log.Logger, genesis *bookkeeping.Genesis, dbPrefix string) (*ledger.Ledger, error) {
+func MakeLedger(logger *log.Logger, genesis *bookkeeping.Genesis, dataDir string) (*ledger.Ledger, error) {
+	const prefix = "ledger"
+	dbPrefix := filepath.Join(dataDir, prefix)
 	initState, err := CreateInitState(genesis)
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
