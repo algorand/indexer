@@ -59,7 +59,7 @@ func CatchupServiceCatchup(logger *log.Logger, round basics.Round, catchpoint, d
 	cfg := config.AutogenLocal
 
 	node := makeNodeProvider(ctx)
-	l, err := util.MakeLedger(logger, &genesis, dataDir)
+	l, err := util.MakeLedger(logger, false, &genesis, dataDir)
 	if err != nil {
 		return fmt.Errorf("CatchupServiceCatchup() MakeLedger err: %w", err)
 	}

@@ -35,7 +35,7 @@ func ReadGenesis(in io.Reader) (bookkeeping.Genesis, error) {
 }
 
 // CreateInitState makes an initState
-func CreateInitState(genesis *bookkeeping.Genesis) (ledgercore.InitState, error) {
+func createInitState(genesis *bookkeeping.Genesis) (ledgercore.InitState, error) {
 	balances, err := genesis.Balances()
 	if err != nil {
 		return ledgercore.InitState{}, fmt.Errorf("MakeProcessor() err: %w", err)
@@ -62,12 +62,12 @@ func CreateInitState(genesis *bookkeeping.Genesis) (ledgercore.InitState, error)
 }
 
 // MakeLedger opens a ledger, initializing if necessary.
-func MakeLedger(logger *log.Logger, genesis *bookkeeping.Genesis, dataDir string) (*ledger.Ledger, error) {
+func MakeLedger(logger *log.Logger, inMemory bool, genesis *bookkeeping.Genesis, dataDir string) (*ledger.Ledger, error) {
 	const prefix = "ledger"
 	dbPrefix := filepath.Join(dataDir, prefix)
-	initState, err := CreateInitState(genesis)
+	initState, err := createInitState(genesis)
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
 	}
-	return ledger.OpenLedger(logging.NewWrappedLogger(logger), dbPrefix, false, initState, algodConfig.GetDefaultLocal())
+	return ledger.OpenLedger(logging.NewWrappedLogger(logger), dbPrefix, inMemory, initState, algodConfig.GetDefaultLocal())
 }

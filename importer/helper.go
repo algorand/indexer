@@ -16,11 +16,8 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
-	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/processor/blockprocessor"
@@ -144,10 +141,8 @@ func importTar(imp Importer, tarfile io.Reader, l *log.Logger, genesisReader io.
 	if err != nil {
 		maybeFail(err, l, "error decoding genesis, %v", err)
 	}
-	initState, err := util.CreateInitState(&genesis)
-	maybeFail(err, l, "Error getting genesis block")
 
-	ld, err := ledger.OpenLedger(logging.NewWrappedLogger(l), "ledger", true, initState, config.GetDefaultLocal())
+	ld, err := util.MakeLedger(l, false, &genesis, "")
 	maybeFail(err, l, "Cannot open ledger")
 
 	proc, err := blockprocessor.MakeProcessorWithLedger(ld, imp.ImportBlock)

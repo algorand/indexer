@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	test2 "github.com/sirupsen/logrus/hooks/test"
+
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/indexer/processor"
@@ -35,7 +37,9 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*IndexerDb, func(), pr
 		shutdownFunc()
 	}
 
-	l := test.MakeTestLedger("ledger")
+	log, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(log, "ledger")
+	require.NoError(t, err)
 	proc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
 

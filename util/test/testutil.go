@@ -9,11 +9,8 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
-	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/logging"
-
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
 )
@@ -121,15 +118,7 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 }
 
 // MakeTestLedger creates an in-memory local ledger
-func MakeTestLedger(logger *log.Logger, prefix string) *ledger.Ledger {
+func MakeTestLedger(logger *log.Logger, prefix string) (*ledger.Ledger, error) {
 	genesis := MakeGenesis()
-	initState, err := util.CreateInitState(&genesis)
-	if err != nil {
-		logger.Panicf("test init err: %v", err)
-	}
-	l, err := ledger.OpenLedger(logging.NewWrappedLogger(logger), prefix, true, initState, config.GetDefaultLocal())
-	if err != nil {
-		logger.Panicf("test init err: %v", err)
-	}
-	return l
+	return util.MakeLedger(logger, true, &genesis, prefix)
 }

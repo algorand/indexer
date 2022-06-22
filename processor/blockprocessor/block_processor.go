@@ -64,7 +64,7 @@ func MakeProcessorWithLedgerInit(logger *log.Logger, catchpoint string, genesis 
 
 // MakeProcessor creates a block processor
 func MakeProcessor(logger *log.Logger, genesis *bookkeeping.Genesis, dbRound uint64, datadir string, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
-	l, err := util.MakeLedger(logger, genesis, datadir)
+	l, err := util.MakeLedger(logger, false, genesis, datadir)
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessor() err: %w", err)
 	}

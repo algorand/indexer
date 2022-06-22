@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	test2 "github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
@@ -17,7 +18,8 @@ import (
 
 func TestProcess(t *testing.T) {
 	log, _ := test2.NewNullLogger()
-	l := test.MakeTestLedger(log, "local_ledger")
+	l, err := test.MakeTestLedger(log, "local_ledger")
+	require.NoError(t, err)
 	defer l.Close()
 	genesisBlock, err := l.Block(basics.Round(0))
 	assert.Nil(t, err)
@@ -50,7 +52,8 @@ func TestProcess(t *testing.T) {
 
 func TestFailedProcess(t *testing.T) {
 	log, _ := test2.NewNullLogger()
-	l := test.MakeTestLedger(log, "local_ledger")
+	l, err := test.MakeTestLedger(log, "local_ledger")
+	require.NoError(t, err)
 	defer l.Close()
 	// invalid processor
 	pr, err := block_processor.MakeProcessorWithLedger(nil, nil)

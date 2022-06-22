@@ -67,7 +67,7 @@ func TestRunMigration(t *testing.T) {
 	err = InitializeLedgerSimple(logrus.New(), 3, &opts)
 	assert.NoError(t, err)
 	log, _ := test2.NewNullLogger()
-	l, err := util.MakeLedger(log, &genesis, opts.IndexerDatadir)
+	l, err := util.MakeLedger(log, false, &genesis, opts.IndexerDatadir)
 	assert.NoError(t, err)
 	// check 3 rounds written to ledger
 	assert.Equal(t, uint64(3), uint64(l.Latest()))
@@ -77,7 +77,7 @@ func TestRunMigration(t *testing.T) {
 	err = InitializeLedgerSimple(logrus.New(), 6, &opts)
 	assert.NoError(t, err)
 
-	l, err = util.MakeLedger(log, &genesis, opts.IndexerDatadir)
+	l, err = util.MakeLedger(log, false, &genesis, opts.IndexerDatadir)
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(6), uint64(l.Latest()))
 	l.Close()
