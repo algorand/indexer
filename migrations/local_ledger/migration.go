@@ -11,17 +11,19 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	algodConfig "github.com/algorand/go-algorand/config"
+	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/node"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/processor"
 	"github.com/algorand/indexer/processor/blockprocessor"
-	log "github.com/sirupsen/logrus"
 )
 
 // RunMigrationSimple executes the migration core functionality.
@@ -81,22 +83,16 @@ func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
 	return nil
 }
 
-// RunMigrationFastCatchup executes the migration core functionality.
-func RunMigrationFastCatchup(logger logging.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
-	if dataDir == "" {
-		return fmt.Errorf("RunMigrationFastCatchup() err: indexer data directory missing")
-	}
-	// catchpoint round
-	round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
-	if err != nil {
-		return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
-	}
+func fullNodeCatchup(logger logging.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
 	node, err := node.MakeFull(
 		logging.NewLogger(),
 		dataDir,
 		algodConfig.AutogenLocal,
 		nil,
 		genesis)
+	if err != nil {
+		return err
+	}
 	// remove node directory after when exiting fast catchup mode
 	defer os.RemoveAll(filepath.Join(dataDir, genesis.ID()))
 	node.Start()
@@ -116,6 +112,24 @@ func RunMigrationFastCatchup(logger logging.Logger, catchpoint, dataDir string, 
 	logger.Info("fast catchup completed")
 	node.Stop()
 	logger.Info("algod node stopped")
+	return nil
+}
+
+// RunMigrationFastCatchup executes the migration core functionality.
+func RunMigrationFastCatchup(logger logging.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+	if dataDir == "" {
+		return fmt.Errorf("RunMigrationFastCatchup() err: indexer data directory missing")
+	}
+	// catchpoint round
+	round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
+	if err != nil {
+		return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
+	}
+	err = fullNodeCatchup(logger, round, catchpoint, dataDir, genesis)
+	if err != nil {
+		return fmt.Errorf("fullNodeCatchup() err: %w", err)
+	}
+
 	// move ledger to indexer directory
 	ledgerFiles := []string{
 		"ledger.block.sqlite",
