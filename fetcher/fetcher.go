@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/util/metrics"
@@ -75,15 +76,30 @@ func (bot *fetcherImpl) setError(err error) {
 }
 
 func (bot *fetcherImpl) processQueue(ctx context.Context) error {
+	flg := true
+	flg2 := true
+	prevsuccess := bot.nextRound - 1
 	for {
 		select {
 		case block, ok := <-bot.blockQueue:
 			if !ok {
 				return nil
 			}
-			err := bot.handler(ctx, block)
-			if err != nil {
-				return fmt.Errorf("processQueue() handler err: %w", err)
+			if uint64(block.Block.Round()) == prevsuccess+1 {
+				flg2 = true
+				err := bot.handler(ctx, block)
+				if err != nil && flg {
+					// if theres an error, decrease bot.nextRound to a lower value to fetch the block again
+					bot.nextRound = prevsuccess - 3
+					flg = false
+				} else if err == nil {
+					flg = true
+					prevsuccess++
+				}
+			} else if flg2 {
+				// if theres an error, pushback bot.nextRound to a lower value to fetch the block again
+				bot.nextRound = prevsuccess - 3
+				flg2 = false
 			}
 		case <-ctx.Done():
 			return fmt.Errorf("processQueue: ctx.Err(): %w", ctx.Err())
@@ -97,7 +113,7 @@ func (bot *fetcherImpl) enqueueBlock(ctx context.Context, blockbytes []byte) err
 	if err != nil {
 		return fmt.Errorf("enqueueBlock() decode err: %w", err)
 	}
-
+	fmt.Println("inside enqueueblock")
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -111,30 +127,77 @@ func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 	var err error
 	var blockbytes []byte
 	aclient := bot.Algod()
+	directFetch := true
+
+	// load genesis from disk
+	genesisFile := "/Users/ganesh/go-algorand/installer/genesis/mainnet/genesis.json"
+	genesisText, _ := ioutil.ReadFile(genesisFile)
+	var genesis bookkeeping.Genesis
+	_ = protocol.DecodeJSON(genesisText, &genesis)
+
+	// make catchup service
+	serviceDr := MakeCatchupService(genesis, ctx)
+	serviceDr.net.Start()
+	serviceDr.cfg.NetAddress, _ = serviceDr.net.Address()
+
+	// making peerselector, makes sure that dns records are loaded
+	serviceDr.net.RequestConnectOutgoing(false, ctx.Done())
+	serviceDr.peerSelector = serviceDr.createPeerSelector(false)
+	if _, err := serviceDr.peerSelector.getNextPeer(); err != nil {
+		fmt.Println(err)
+	}
+	psp, _ := serviceDr.peerSelector.getNextPeer()
 	for {
 		start := time.Now()
+		if directFetch {
+			if psp.Peer == nil {
+				psp, _ = serviceDr.peerSelector.getNextPeer()
+			} else {
+				blk, cert, err1 := serviceDr.directNetworkFetch(ctx, bot.nextRound, psp, psp.Peer)
+				if err1 != nil {
+					psp, _ = serviceDr.peerSelector.getNextPeer()
+					// If context has expired.
+					if ctx.Err() != nil {
+						return fmt.Errorf("catchupLoop() fetch err: %w", err)
+					}
+				} else if uint64(blk.Round()) == bot.nextRound {
 
-		blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(ctx)
+					block := new(rpcs.EncodedBlockCert)
+					block.Block = *blk
+					block.Certificate = *cert
+					select {
+					case <-ctx.Done():
+						return ctx.Err()
+					case bot.blockQueue <- block:
+						bot.nextRound++
+					}
+				}
+			}
+		} else {
+			blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(ctx)
+		}
 
 		dt := time.Since(start)
 		metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
-
-		if err != nil {
-			// If context has expired.
-			if ctx.Err() != nil {
-				return fmt.Errorf("catchupLoop() fetch err: %w", err)
+		if !directFetch {
+			if err != nil {
+				// If context has expired.
+				if ctx.Err() != nil {
+					return fmt.Errorf("catchupLoop() fetch err: %w", err)
+				}
+				bot.log.WithError(err).Errorf("catchup block %d", bot.nextRound)
+				return nil
 			}
-			bot.log.WithError(err).Errorf("catchup block %d", bot.nextRound)
-			return nil
-		}
 
-		err = bot.enqueueBlock(ctx, blockbytes)
-		if err != nil {
-			return fmt.Errorf("catchupLoop() err: %w", err)
+			err = bot.enqueueBlock(ctx, blockbytes)
+			if err != nil {
+				return fmt.Errorf("catchupLoop() err: %w", err)
+			}
+			bot.nextRound++
 		}
 		// If we successfully handle the block, clear out any transient error which may have occurred.
 		bot.setError(nil)
-		bot.nextRound++
+		// bot.nextRound++
 		bot.failingSince = time.Time{}
 	}
 }
