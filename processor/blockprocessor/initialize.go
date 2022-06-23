@@ -123,7 +123,7 @@ func fullNodeCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir
 		logger.Infof("Catchpoint Catchup Total Blocks %d ", status.CatchpointCatchupTotalBlocks)
 		logger.Infof("Catchpoint Catchup Acquired Blocks %d ", status.CatchpointCatchupAcquiredBlocks)
 	}
-	logger.Infof("fast catchup completed in %d", status.CatchupTime.Seconds())
+	logger.Infof("fast catchup completed in %v", status.CatchupTime.Seconds())
 	node.Stop()
 	logger.Info("algod node stopped")
 	return nil
