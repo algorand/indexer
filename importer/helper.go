@@ -16,11 +16,8 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
-	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/processor/blockprocessor"
@@ -54,8 +51,12 @@ type ImportHelper struct {
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	// Initial import if needed.
 	genesisReader := GetGenesisFile(h.GenesisJSONPath, nil, h.Log)
-	_, err := EnsureInitialImport(db, genesisReader, h.Log)
+	genesis, err := util.ReadGenesis(genesisReader)
+	maybeFail(err, h.Log, "readGenesis() error")
+
+	_, err = EnsureInitialImport(db, genesis, h.Log)
 	maybeFail(err, h.Log, "EnsureInitialImport() error")
+
 	imp := NewImporter(db)
 	blocks := 0
 	txCount := 0
@@ -140,10 +141,8 @@ func importTar(imp Importer, tarfile io.Reader, l *log.Logger, genesisReader io.
 	if err != nil {
 		maybeFail(err, l, "error decoding genesis, %v", err)
 	}
-	initState, err := util.CreateInitState(&genesis)
-	maybeFail(err, l, "Error getting genesis block")
 
-	ld, err := ledger.OpenLedger(logging.NewLogger(), "ledger", true, initState, config.GetDefaultLocal())
+	ld, err := util.MakeLedger(l, false, &genesis, "")
 	maybeFail(err, l, "Cannot open ledger")
 
 	proc, err := blockprocessor.MakeProcessorWithLedger(ld, imp.ImportBlock)
@@ -188,29 +187,15 @@ func importFile(fname string, imp Importer, l *log.Logger, genesisPath string) (
 	return
 }
 
-func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
-	var genesis bookkeeping.Genesis
-	gbytes, err := ioutil.ReadAll(in)
-	if err != nil {
-		return fmt.Errorf("error reading genesis, %v", err)
-	}
-	err = protocol.DecodeJSON(gbytes, &genesis)
-	if err != nil {
-		return fmt.Errorf("error decoding genesis, %v", err)
-	}
-
-	return db.LoadGenesis(genesis)
-}
-
 // EnsureInitialImport imports the genesis block if needed. Returns true if the initial import occurred.
-func EnsureInitialImport(db idb.IndexerDb, genesisReader io.Reader, l *log.Logger) (bool, error) {
+func EnsureInitialImport(db idb.IndexerDb, genesis bookkeeping.Genesis, l *log.Logger) (bool, error) {
 	_, err := db.GetNextRoundToAccount()
 	// Exit immediately or crash if we don't see ErrorNotInitialized.
 	if err != idb.ErrorNotInitialized {
 		if err != nil {
 			return false, fmt.Errorf("getting import state, %v", err)
 		}
-		err = checkGenesisHash(db, genesisReader)
+		err = checkGenesisHash(db, genesis)
 		if err != nil {
 			return false, err
 		}
@@ -218,7 +203,7 @@ func EnsureInitialImport(db idb.IndexerDb, genesisReader io.Reader, l *log.Logge
 	}
 
 	// Import genesis file from file or algod.
-	err = loadGenesis(db, genesisReader)
+	err = db.LoadGenesis(genesis)
 	if err != nil {
 		return false, fmt.Errorf("could not load genesis json, %v", err)
 	}
@@ -280,19 +265,11 @@ func GetGenesisFile(genesisJSONPath string, client *algod.Client, l *log.Logger)
 	} else {
 		l.Fatal("Neither genesis file path or algod client provided for initial import.")
 	}
+
 	return genesisReader
 }
 
-func checkGenesisHash(db idb.IndexerDb, genesisReader io.Reader) error {
-	var genesis bookkeeping.Genesis
-	gbytes, err := ioutil.ReadAll(genesisReader)
-	if err != nil {
-		return fmt.Errorf("error reading genesis, %w", err)
-	}
-	err = protocol.DecodeJSON(gbytes, &genesis)
-	if err != nil {
-		return fmt.Errorf("error decoding genesis, %w", err)
-	}
+func checkGenesisHash(db idb.IndexerDb, genesis bookkeeping.Genesis) error {
 	network, err := db.GetNetworkState()
 	if errors.Is(err, idb.ErrorNotInitialized) {
 		err = db.SetNetworkState(genesis)

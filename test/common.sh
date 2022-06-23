@@ -2,6 +2,7 @@
 
 # The cleanup hook ensures these containers are removed when the script exits.
 POSTGRES_CONTAINER=test-container
+export INDEXER_DATA=/tmp/e2e_test/
 
 NET=localhost:8981
 CURL_TEMPFILE=curl_out.txt
@@ -197,10 +198,10 @@ function start_indexer_with_connection_string() {
     # we may start up from canned data, but need to update for the current running binary.
     RO="--allow-migration"
   fi
+  mkdir -p $INDEXER_DATA
   ALGORAND_DATA= ../cmd/algorand-indexer/algorand-indexer daemon \
     -S $NET "$RO" \
     -P "$1" \
-    -i /tmp \
     --enable-all-parameters \
     "$RO" \
     --pidfile $PIDFILE 2>&1 > /dev/null &
@@ -289,6 +290,10 @@ function kill_indexer() {
   if test -f "$PIDFILE"; then
     kill -9 $(cat "$PIDFILE") > /dev/null 2>&1 || true
     rm $PIDFILE
+    rm -rf $INDEXER_DATA
+    pwd
+    ls -l
+    rm ledger*sqlite* || true
   fi
 }
 
