@@ -72,18 +72,18 @@ You should use a process manager, like systemd, to ensure the daemon is always r
 
 To start indexer as a daemon in update mode, provide the required fields:
 ```
-~$ algorand-indexer daemon --algod-net yournode.com:1234 --algod-token token --genesis ~/path/to/genesis.json  --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
+~$ algorand-indexer daemon --data-dir /tmp --algod-net yournode.com:1234 --algod-token token --genesis ~/path/to/genesis.json  --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
 ```
 
 Alternatively if indexer is running on the same host as the archival node, a simplified command may be used:
 ```
-~$ algorand-indexer daemon --algod-net yournode.com:1234 -d /path/to/algod/data/dir --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
+~$ algorand-indexer daemon --data-dir /tmp --algod-net yournode.com:1234 -d /path/to/algod/data/dir --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
 ```
 
 ### Read only
 It is possible to set up one daemon as a writer and one or more readers. The Indexer pulling new data from algod can be started as above. Starting the indexer daemon without $ALGORAND_DATA or -d/--algod/--algod-net/--algod-token will start it without writing new data to the database. For further isolation, a `readonly` user can be created for the database.
 ```
-~$ algorand-indexer daemon --no-algod --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
+~$ algorand-indexer daemon --data-dir /tmp --no-algod --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
 ```
 
 The Postgres backend does specifically note the username "readonly" and changes behavior to avoid writing to the database. But the primary benefit is that Postgres can enforce restricted access to this user. This can be configured with:
@@ -203,7 +203,7 @@ Settings can be provided from the command line, a configuration file, or an envi
 The command line arguments always take priority over the config file and environment variables.
 
 ```
-~$ ./algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"`
+~$ ./algorand-indexer daemon --data-dir /tmp --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"`
 ```
 
 ## Data Directory
@@ -233,6 +233,7 @@ The same indexer configuration from earlier can be made in bash with the followi
 ~$ export INDEXER_POSTGRES_CONNECTION_STRING="host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
 ~$ export INDEXER_PIDFILE="/var/lib/algorand/algorand-indexer.pid"
 ~$ export INDEXER_ALGOD_DATA_DIR="/var/lib/algorand"
+~$ export INDEXER_DATA="/tmp"
 ~$ ./algorand-indexer daemon
 ```
 
@@ -262,7 +263,7 @@ Place this file in the data directory (`/tmp/data-dir` in this example) and supp
 ```
 [Service]
 ExecStart=
-ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
+ExecStart=/usr/bin/algorand-indexer daemon --data-dir /tmp --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
 PIDFile=/var/lib/algorand/algorand-indexer.pid
 
 ```

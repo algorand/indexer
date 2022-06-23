@@ -93,10 +93,14 @@ var daemonCmd = &cobra.Command{
 					filepath.Join(indexerDataDir, autoLoadIndexerConfigName))
 				panic(exit{1})
 			}
+
+			configToLoad := filepath.Join(indexerDataDir, autoLoadIndexerConfigName)
+			fmt.Printf("Auto-loading indexer configuration file: %s\n", configToLoad)
+
 			// No config file supplied via command line, auto-load it
-			configs, err := os.Open(configFile)
+			configs, err := os.Open(configToLoad)
 			if err != nil {
-				maybeFail(err, "%v", err)
+				maybeFail(err, "error with config file (%s): %v", configToLoad, err)
 			}
 			defer configs.Close()
 			err = viper.ReadConfig(configs)
