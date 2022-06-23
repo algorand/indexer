@@ -34,9 +34,7 @@ func InitializeLedgerSimple(logger *log.Logger, round uint64, opts *idb.IndexerD
 		signal.Notify(cancelCh, syscall.SIGTERM, syscall.SIGINT)
 		go func() {
 			<-cancelCh
-			logger.Errorf("Ledger migration interrupted")
-			// exit process if migration is interrupted so that
-			// migration state doesn't get updated in db
+			logger.Errorf("Ledger initalization aborted")
 			os.Exit(1)
 		}()
 	}
@@ -95,6 +93,20 @@ func fullNodeCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir
 	}
 	// remove node directory after when exiting fast catchup mode
 	defer os.RemoveAll(filepath.Join(dataDir, genesis.ID()))
+	// stop node if indexer exits during ledger init
+	_, cf := context.WithCancel(context.Background())
+	defer cf()
+	{
+		cancelCh := make(chan os.Signal, 1)
+		signal.Notify(cancelCh, syscall.SIGTERM, syscall.SIGINT)
+		go func() {
+			<-cancelCh
+			logger.Errorf("Ledger initalization aborted")
+			node.Stop()
+			os.Exit(1)
+		}()
+	}
+
 	node.Start()
 	time.Sleep(5 * time.Second)
 	logger.Info("algod node running")
@@ -105,11 +117,13 @@ func fullNodeCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir
 	for status.LastRound < round {
 		time.Sleep(2 * time.Second)
 		status, err = node.Status()
-		if status.CatchpointCatchupTotalBlocks > 0 {
-			logger.Debugf("current round %d ", status.LastRound)
-		}
+		logger.Infof("Catchpoint Catchup Total Accounts %d ", status.CatchpointCatchupTotalAccounts)
+		logger.Infof("Catchpoint Catchup Processed Accounts %d ", status.CatchpointCatchupProcessedAccounts)
+		logger.Infof("Catchpoint Catchup Verified Accounts %d ", status.CatchpointCatchupVerifiedAccounts)
+		logger.Infof("Catchpoint Catchup Total Blocks %d ", status.CatchpointCatchupTotalBlocks)
+		logger.Infof("Catchpoint Catchup Acquired Blocks %d ", status.CatchpointCatchupAcquiredBlocks)
 	}
-	logger.Info("fast catchup completed")
+	logger.Infof("fast catchup completed in %d", status.CatchupTime.Seconds())
 	node.Stop()
 	logger.Info("algod node stopped")
 	return nil
@@ -185,6 +199,7 @@ func handleBlock(block *rpcs.EncodedBlockCert, proc processor.Processor) error {
 			"block %d import failed", block.Block.Round())
 		return fmt.Errorf("handleBlock() err: %w", err)
 	}
+	logger.Infof("Initialize Ledger: added block %d to ledger", block.Block.Round())
 	return nil
 }
 func getGenesis(client *algod.Client) (bookkeeping.Genesis, error) {
