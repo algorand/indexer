@@ -17,7 +17,6 @@ import (
 
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-algorand/util"
-
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/config"
@@ -98,16 +97,22 @@ var daemonCmd = &cobra.Command{
 					filepath.Join(indexerDataDir, autoLoadIndexerConfigName))
 				panic(exit{1})
 			}
-			// No config file supplied via command line, auto-load it
+
+			configFile = filepath.Join(indexerDataDir, autoLoadIndexerConfigName)
+			fmt.Printf("Auto-loading indexer configuration found: %s\n", configFile)
+		}
+
+		if configFile != "" {
 			configs, err := os.Open(configFile)
 			if err != nil {
-				maybeFail(err, "%v", err)
+				maybeFail(err, "error with config file (%s): %v", configFile, err)
 			}
 			defer configs.Close()
 			err = viper.ReadConfig(configs)
 			if err != nil {
 				maybeFail(err, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
 			}
+			fmt.Printf("Using configuration file: %s\n", configFile)
 		}
 
 		if paramConfigFound {
@@ -146,19 +151,6 @@ var daemonCmd = &cobra.Command{
 			err = pprof.StartCPUProfile(profFile)
 			maybeFail(err, "%s: start pprof, %v", cpuProfile, err)
 			defer pprof.StopCPUProfile()
-		}
-
-		if configFile != "" {
-			configs, err := os.Open(configFile)
-			if err != nil {
-				maybeFail(err, "%v", err)
-			}
-			defer configs.Close()
-			err = viper.ReadConfig(configs)
-			if err != nil {
-				maybeFail(err, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
-			}
-			fmt.Printf("Using configuration file: %s\n", configFile)
 		}
 
 		// If someone supplied a configuration file but also said to enable all parameters,
