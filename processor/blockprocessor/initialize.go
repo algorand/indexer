@@ -26,8 +26,8 @@ import (
 )
 
 // InitializeLedgerSimple executes the migration core functionality.
-func InitializeLedgerSimple(logger *log.Logger, round uint64, opts *idb.IndexerDbOptions) error {
-	ctx, cf := context.WithCancel(context.Background())
+func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint64, opts *idb.IndexerDbOptions) error {
+	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	{
 		cancelCh := make(chan os.Signal, 1)
@@ -79,7 +79,7 @@ func InitializeLedgerSimple(logger *log.Logger, round uint64, opts *idb.IndexerD
 	return nil
 }
 
-func fullNodeCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+func fullNodeCatchup(ctx context.Context, logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
 	wrappedLogger := logging.NewWrappedLogger(logger)
 
 	node, err := node.MakeFull(
@@ -94,7 +94,7 @@ func fullNodeCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir
 	// remove node directory after when exiting fast catchup mode
 	defer os.RemoveAll(filepath.Join(dataDir, genesis.ID()))
 	// stop node if indexer exits during ledger init
-	_, cf := context.WithCancel(context.Background())
+	_, cf := context.WithCancel(ctx)
 	defer cf()
 	{
 		cancelCh := make(chan os.Signal, 1)
@@ -130,7 +130,7 @@ func fullNodeCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir
 }
 
 // InitializeLedgerFastCatchup executes the migration core functionality.
-func InitializeLedgerFastCatchup(logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
 	if dataDir == "" {
 		return fmt.Errorf("InitializeLedgerFastCatchup() err: indexer data directory missing")
 	}
@@ -142,7 +142,7 @@ func InitializeLedgerFastCatchup(logger *log.Logger, catchpoint, dataDir string,
 
 	// TODO: switch to catchup service catchup.
 	//err = internal.CatchupServiceCatchup(logger, round, catchpoint, dataDir, genesis)
-	err = fullNodeCatchup(logger, round, catchpoint, dataDir, genesis)
+	err = fullNodeCatchup(ctx, logger, round, catchpoint, dataDir, genesis)
 	if err != nil {
 		return fmt.Errorf("fullNodeCatchup() err: %w", err)
 	}
