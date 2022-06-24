@@ -94,6 +94,14 @@ var daemonCmd = &cobra.Command{
 				panic(exit{1})
 			}
 
+			if autoFoundConfigPath != "" {
+				logger.Errorf(
+					"indexer configuration was automatically found (%s) as well found in the data directory (%s).  Make sure only one is present",
+					autoFoundConfigPath,
+					filepath.Join(indexerDataDir, autoLoadIndexerConfigName))
+				panic(exit{1})
+			}
+
 			configFile = filepath.Join(indexerDataDir, autoLoadIndexerConfigName)
 			fmt.Printf("Auto-loading indexer configuration found: %s\n", configFile)
 		}
@@ -109,6 +117,7 @@ var daemonCmd = &cobra.Command{
 				maybeFail(err, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
 			}
 			fmt.Printf("Using configuration file: %s\n", configFile)
+			config.BindFlags(cmd)
 		}
 
 		if paramConfigFound {
@@ -119,7 +128,7 @@ var daemonCmd = &cobra.Command{
 				panic(exit{1})
 			}
 			suppliedAPIConfigFile = filepath.Join(indexerDataDir, autoLoadParameterConfigName)
-			fmt.Printf("Auto-loading parameter configuration file: %s", suppliedAPIConfigFile)
+			fmt.Printf("Auto-loading parameter configuration file: %s\n", suppliedAPIConfigFile)
 
 		}
 

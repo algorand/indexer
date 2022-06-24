@@ -72,13 +72,14 @@ var rootCmd = &cobra.Command{
 }
 
 var (
-	postgresAddr   string
-	dummyIndexerDb bool
-	doVersion      bool
-	profFile       io.WriteCloser
-	logLevel       string
-	logFile        string
-	logger         *log.Logger
+	postgresAddr        string
+	dummyIndexerDb      bool
+	doVersion           bool
+	profFile            io.WriteCloser
+	logLevel            string
+	logFile             string
+	logger              *log.Logger
+	autoFoundConfigPath string
 )
 
 func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}) {
@@ -95,6 +96,7 @@ func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}
 }
 
 func init() {
+	autoFoundConfigPath = ""
 	// Utilities subcommand for more convenient access to useful testing utilities.
 	utilsCmd := &cobra.Command{
 		Use:   "util",
@@ -149,7 +151,8 @@ func init() {
 			panic(exit{1})
 		}
 	} else {
-		fmt.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
+		fmt.Printf("Using configuration file via auto-search path: %s\n", viper.ConfigFileUsed())
+		autoFoundConfigPath = viper.ConfigFileUsed()
 	}
 
 	viper.SetEnvPrefix(config.EnvPrefix)
