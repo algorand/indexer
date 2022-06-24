@@ -3,6 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -15,6 +17,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-algorand/util"
 	"github.com/algorand/indexer/api"
@@ -55,6 +59,7 @@ var (
 	cpuProfile                string
 	pidFilePath               string
 	configFile                string
+	directFetch               string
 )
 
 var daemonCmd = &cobra.Command{
@@ -190,6 +195,14 @@ var daemonCmd = &cobra.Command{
 		} else if algodDataDir != "" {
 			bot, err = fetcher.ForDataDir(algodDataDir, logger)
 			maybeFail(err, "fetcher setup, %v", err)
+		} else if directFetch != "" {
+			genesisText, err := ioutil.ReadFile(directFetch)
+			maybeFail(err, "fetcher setup, %v", err)
+			var genesis bookkeeping.Genesis
+			err = protocol.DecodeJSON(genesisText, &genesis)
+			maybeFail(err, "fetcher setup, %v", err)
+			bot, err = fetcher.SetDirectFetch(genesis)
+			maybeFail(err, "fetcher setup, %v", err)
 		} else {
 			// no algod was found
 			noAlgod = true
@@ -219,7 +232,12 @@ var daemonCmd = &cobra.Command{
 				<-availableCh
 
 				// Initial import if needed.
-				genesisReader := importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
+				var genesisReader io.Reader
+				if directFetch != "" {
+					genesisReader = importer.GetGenesisFile(directFetch, bot.Algod(), logger)
+				} else {
+					genesisReader = importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
+				}
 				_, err := importer.EnsureInitialImport(db, genesisReader, logger)
 				maybeFail(err, "importer.EnsureInitialImport() error")
 				logger.Info("Initializing block import handler.")
@@ -270,6 +288,7 @@ func init() {
 	daemonCmd.Flags().DurationVarP(&writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
 	daemonCmd.Flags().DurationVarP(&readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
 	daemonCmd.Flags().Uint32VarP(&maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
+	daemonCmd.Flags().StringVar(&directFetch, "catchup", "", "start catchup without algod. Takes in path to genesis.json")
 
 	daemonCmd.Flags().StringVar(&suppliedAPIConfigFile, "api-config-file", "", "supply an API config file to enable/disable parameters")
 	daemonCmd.Flags().BoolVar(&enableAllParameters, "enable-all-parameters", false, "override default configuration and enable all parameters. Can't be used with --api-config-file")

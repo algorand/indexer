@@ -3,6 +3,7 @@ package fetcher
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -118,4 +119,43 @@ func TestFetcherImplCatchupLoopBlockError(t *testing.T) {
 	err := fetcher.catchupLoop(context.Background())
 	require.NoError(t, err, "FetcherImpl returned an unexpected error from catchupLoop")
 	require.Equal(t, "", fetcher.Error(), "FetcherImpl set an unexpected error from algod client during catchupLoop")
+}
+
+func TestDirectCatchupService(t *testing.T) {
+	nextRound := uint64(0)
+	ctx, _ := context.WithCancel(context.Background())
+
+	// load genesis from disk
+	genesisFile := "/Users/ganesh/go-algorand/installer/genesis/mainnet/genesis.json"
+	genesisText, _ := ioutil.ReadFile(genesisFile)
+	var genesis bookkeeping.Genesis
+	_ = protocol.DecodeJSON(genesisText, &genesis)
+
+	// make catchup service
+	serviceDr := MakeCatchupService(genesis, ctx)
+	serviceDr.net.Start()
+	serviceDr.cfg.NetAddress, _ = serviceDr.net.Address()
+
+	// making peerselector, makes sure that dns records are loaded
+	serviceDr.net.RequestConnectOutgoing(false, ctx.Done())
+	serviceDr.peerSelector = serviceDr.createPeerSelector(false)
+	if _, err := serviceDr.peerSelector.getNextPeer(); err != nil {
+		fmt.Println(err)
+	}
+	psp, _ := serviceDr.peerSelector.getNextPeer()
+	for nextRound < 10 {
+		if psp.Peer == nil {
+			psp, _ = serviceDr.peerSelector.getNextPeer()
+		} else {
+			blk, cert, err1 := serviceDr.directNetworkFetch(ctx, nextRound, psp, psp.Peer)
+			if err1 != nil {
+				psp, _ = serviceDr.peerSelector.getNextPeer()
+			} else if uint64(blk.Round()) == nextRound {
+				block := new(rpcs.EncodedBlockCert)
+				block.Block = *blk
+				block.Certificate = *cert
+				nextRound++
+			}
+		}
+	}
 }

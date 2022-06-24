@@ -51,7 +51,14 @@ type fetcherImpl struct {
 	// To improve performance, we fetch new blocks and call the block handler concurrently.
 	// This queue contains the blocks that have been fetched but haven't been given to
 	// the handler.
-	blockQueue chan *rpcs.EncodedBlockCert
+	blockQueue  chan *rpcs.EncodedBlockCert
+	genesis     bookkeeping.Genesis
+	directFetch bool
+}
+
+func SetDirectFetch(genesis bookkeeping.Genesis) (bot Fetcher, err error) {
+	bot = &fetcherImpl{genesis: genesis, directFetch: true}
+	return
 }
 
 func (bot *fetcherImpl) Error() string {
@@ -113,7 +120,7 @@ func (bot *fetcherImpl) enqueueBlock(ctx context.Context, blockbytes []byte) err
 	if err != nil {
 		return fmt.Errorf("enqueueBlock() decode err: %w", err)
 	}
-	fmt.Println("inside enqueueblock")
+
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -125,31 +132,22 @@ func (bot *fetcherImpl) enqueueBlock(ctx context.Context, blockbytes []byte) err
 // fetch the next block by round number until we find one missing (because it doesn't exist yet)
 func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 	var err error
-	var blockbytes []byte
-	aclient := bot.Algod()
-	directFetch := true
+	if bot.directFetch {
+		// make catchup service
+		serviceDr := MakeCatchupService(bot.genesis, ctx)
+		serviceDr.net.Start()
+		serviceDr.cfg.NetAddress, _ = serviceDr.net.Address()
 
-	// load genesis from disk
-	genesisFile := "/Users/ganesh/go-algorand/installer/genesis/mainnet/genesis.json"
-	genesisText, _ := ioutil.ReadFile(genesisFile)
-	var genesis bookkeeping.Genesis
-	_ = protocol.DecodeJSON(genesisText, &genesis)
-
-	// make catchup service
-	serviceDr := MakeCatchupService(genesis, ctx)
-	serviceDr.net.Start()
-	serviceDr.cfg.NetAddress, _ = serviceDr.net.Address()
-
-	// making peerselector, makes sure that dns records are loaded
-	serviceDr.net.RequestConnectOutgoing(false, ctx.Done())
-	serviceDr.peerSelector = serviceDr.createPeerSelector(false)
-	if _, err := serviceDr.peerSelector.getNextPeer(); err != nil {
-		fmt.Println(err)
-	}
-	psp, _ := serviceDr.peerSelector.getNextPeer()
-	for {
-		start := time.Now()
-		if directFetch {
+		// making peerselector, makes sure that dns records are loaded
+		serviceDr.net.RequestConnectOutgoing(false, ctx.Done())
+		serviceDr.peerSelector = serviceDr.createPeerSelector(false)
+		if _, err := serviceDr.peerSelector.getNextPeer(); err != nil {
+			fmt.Println(err)
+		}
+		psp, _ := serviceDr.peerSelector.getNextPeer()
+		// loop to catchup
+		for {
+			start := time.Now()
 			if psp.Peer == nil {
 				psp, _ = serviceDr.peerSelector.getNextPeer()
 			} else {
@@ -173,13 +171,24 @@ func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 					}
 				}
 			}
-		} else {
-			blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(ctx)
+			dt := time.Since(start)
+			metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
+			// If we successfully handle the block, clear out any transient error which may have occurred.
+			bot.setError(nil)
+			// bot.nextRound++
+			bot.failingSince = time.Time{}
 		}
+	} else {
+		var blockbytes []byte
+		aclient := bot.Algod()
+		for {
+			start := time.Now()
 
-		dt := time.Since(start)
-		metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
-		if !directFetch {
+			blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(ctx)
+
+			dt := time.Since(start)
+			metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
+
 			if err != nil {
 				// If context has expired.
 				if ctx.Err() != nil {
@@ -193,12 +202,11 @@ func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 			if err != nil {
 				return fmt.Errorf("catchupLoop() err: %w", err)
 			}
+			// If we successfully handle the block, clear out any transient error which may have occurred.
+			bot.setError(nil)
 			bot.nextRound++
+			bot.failingSince = time.Time{}
 		}
-		// If we successfully handle the block, clear out any transient error which may have occurred.
-		bot.setError(nil)
-		// bot.nextRound++
-		bot.failingSince = time.Time{}
 	}
 }
 
