@@ -21,20 +21,21 @@ type catchupService struct {
 	peerSelector *peerSelector
 }
 
-// makeNodeInfo initializes the node provider.
+// makeNodeInfo initializes nodeInfo.
 func makeNodeInfo(ctx context.Context) nodeInfo {
 	return nodeInfo{
 		ctx: ctx,
 	}
 }
 
-// nodeInfo implements two services required to start the catchpoint catchup service.
+// nodeInfo has context and implements one service required to create a gossip node
 type nodeInfo struct {
 	ctx context.Context
 }
 
 func (n nodeInfo) IsParticipating() bool { return false }
 
+// MakeCatchupService creats a catchup service and initialzes a gossipnode
 func MakeCatchupService(genesis bookkeeping.Genesis, ctx context.Context) (serviceDr *catchupService) {
 	serviceDr = &catchupService{}
 	serviceDr.cfg = config.AutogenLocal
@@ -111,6 +112,7 @@ func (s *catchupService) createPeerSelector(pipelineFetch bool) *peerSelector {
 	return makePeerSelector(s.net, peerClasses)
 }
 
+// directNetworkFetch given a block number and peer, fetches the block from the network.
 func (s *catchupService) directNetworkFetch(ctx context.Context, rnd uint64, psp *peerSelectorPeer, peer network.Peer) (blk *bookkeeping.Block, cert *agreement.Certificate, err error) {
 	fetch := makeUniversalBlockFetcher(s.log, s.net, s.cfg)
 	blk, cert, _, err = fetch.fetchBlock(ctx, basics.Round(rnd), peer)

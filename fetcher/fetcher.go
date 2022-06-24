@@ -51,11 +51,14 @@ type fetcherImpl struct {
 	// To improve performance, we fetch new blocks and call the block handler concurrently.
 	// This queue contains the blocks that have been fetched but haven't been given to
 	// the handler.
-	blockQueue  chan *rpcs.EncodedBlockCert
-	genesis     bookkeeping.Genesis
+	blockQueue chan *rpcs.EncodedBlockCert
+
+	// is true if blocks to be fetched from the network
 	directFetch bool
+	genesis     bookkeeping.Genesis
 }
 
+// SetDirectFetch initializes bot.genesis
 func SetDirectFetch(genesis bookkeeping.Genesis) (bot Fetcher, err error) {
 	bot = &fetcherImpl{genesis: genesis, directFetch: true}
 	return
@@ -83,6 +86,7 @@ func (bot *fetcherImpl) setError(err error) {
 }
 
 func (bot *fetcherImpl) processQueue(ctx context.Context) error {
+	// flags are used to error handle invalid blocks
 	flg := true
 	flg2 := true
 	prevsuccess := bot.nextRound - 1
