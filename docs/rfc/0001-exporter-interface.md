@@ -47,9 +47,7 @@ section will outline the properties of so called "Indexer-native" plugins, which
 section to incorporate non-native plugins.
 
 ***Plugin Interface***  
-Exporter plugins that are native to the Indexer (maintained within the Indexer repository) will each have the
-following components:
-* An implementation of the exporter interface.
+Exporter plugins that are native to the Indexer (maintained within the Indexer repository) will each implementation the exporter interface:
 ```
 // Exporter defines the methods invoked during the plugin lifecycle of a data exporter.
 type Exporter interface {
