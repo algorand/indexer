@@ -5,17 +5,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/spf13/pflag"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -106,9 +105,7 @@ func TestConfigWithEnableAllParamsExpectError(t *testing.T) {
 	daemonConfig.suppliedAPIConfigFile = "foobar"
 	err := runDaemon(daemonConfig)
 	errorStr := "not allowed to supply an api config file and enable all parameters"
-	if err.Error() != errorStr {
-		t.Fatalf("expected error %s, but got %s", errorStr, err.Error())
-	}
+	require.EqualError(t, err, errorStr)
 }
 
 func TestConfigDoesNotExistExpectError(t *testing.T) {
@@ -121,10 +118,8 @@ func TestConfigDoesNotExistExpectError(t *testing.T) {
 	daemonConfig.configFile = tempConfigFile
 	err := runDaemon(daemonConfig)
 	// This error string is probably OS-specific
-	errorStr := "no such file or directory"
-	if !strings.Contains(err.Error(), errorStr) {
-		t.Fatalf("expected error %s, but got %s", errorStr, err.Error())
-	}
+	errorStr := fmt.Sprintf("open %s: no such file or directory", tempConfigFile)
+	require.EqualError(t, err, errorStr)
 }
 
 func TestConfigInvalidExpectError(t *testing.T) {
@@ -138,13 +133,9 @@ func TestConfigInvalidExpectError(t *testing.T) {
 	daemonConfig.indexerDataDir = indexerDataDir
 	daemonConfig.configFile = tempConfigFile
 	logger.SetOutput(b)
-	// Should assert this is an error even if it's not one we directly control (ours are wrapped)
-	_ = runDaemon(daemonConfig)
-	errorStr := "invalid config file"
-	logs := b.String()
-	if !strings.Contains(logs, errorStr) {
-		t.Fatalf("expected error to contain %s, but got %s", errorStr, logs)
-	}
+	err := runDaemon(daemonConfig)
+	errorStr := "While parsing config: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `;;;` into map[string]interface {}"
+	require.EqualError(t, err, errorStr)
 }
 
 func TestConfigSpecifiedTwiceExpectError(t *testing.T) {
@@ -157,11 +148,9 @@ func TestConfigSpecifiedTwiceExpectError(t *testing.T) {
 	daemonConfig.indexerDataDir = indexerDataDir
 	daemonConfig.configFile = tempConfigFile
 	err := runDaemon(daemonConfig)
-	expectedError := fmt.Errorf("indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
+	errorStr := fmt.Sprintf("indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
 		filepath.Join(indexerDataDir, "indexer.yml"))
-	if err.Error() != expectedError.Error() {
-		t.Fatalf("expected error %v, but got %v", expectedError, err)
-	}
+	require.EqualError(t, err, errorStr)
 }
 
 func TestLoadAPIConfigGivenAutoLoadAndUserSuppliedExpectError(t *testing.T) {
@@ -176,11 +165,9 @@ func TestLoadAPIConfigGivenAutoLoadAndUserSuppliedExpectError(t *testing.T) {
 	cfg.suppliedAPIConfigFile = userSuppliedPath
 
 	err := loadIndexerParamConfig(cfg)
-	expectedErr := fmt.Errorf("api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
+	errorStr := fmt.Sprintf("api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
 		autoloadPath)
-	if err.Error() != expectedErr.Error() {
-		t.Fatalf("expected error %v, but got %v", expectedErr, err)
-	}
+	require.EqualError(t, err, errorStr)
 }
 
 func TestLoadAPIConfigGivenUserSuppliedExpectSuccess(t *testing.T) {
@@ -193,9 +180,7 @@ func TestLoadAPIConfigGivenUserSuppliedExpectSuccess(t *testing.T) {
 	cfg.suppliedAPIConfigFile = userSuppliedPath
 
 	err := loadIndexerParamConfig(cfg)
-	if err != nil {
-		t.Fatalf("expected no error but got %v", err)
-	}
+	require.NoError(t, err)
 }
 
 func TestLoadAPIConfigGivenAutoLoadExpectSuccess(t *testing.T) {
@@ -208,38 +193,28 @@ func TestLoadAPIConfigGivenAutoLoadExpectSuccess(t *testing.T) {
 	cfg.indexerDataDir = indexerDataDir
 
 	err := loadIndexerParamConfig(cfg)
-	if err != nil {
-		t.Fatalf("expected no error but got %v", err)
-	}
-	assert.Equal(t, autoloadPath, cfg.suppliedAPIConfigFile)
+	require.NoError(t, err)
+	require.Equal(t, autoloadPath, cfg.suppliedAPIConfigFile)
 }
 
 func TestIndexerDataDirNotProvidedExpectError(t *testing.T) {
-	cfg := &daemonConfig{}
+	errorStr := "indexer data directory was not provided"
 
-	expectedErr := "indexer data directory was not provided"
-
-	assert.EqualError(t, configureIndexerDataDir(cfg), expectedErr)
+	assert.EqualError(t, configureIndexerDataDir(""), errorStr)
 }
 
 func TestIndexerDataDirCreateFailExpectError(t *testing.T) {
-	indexerDataDir := createTempDir(t)
-	defer os.RemoveAll(indexerDataDir)
+	invalidDir := filepath.Join("foo", "bar")
 
-	invalidDir := filepath.Join(indexerDataDir, "foo", "bar")
-	cfg := &daemonConfig{}
-	cfg.indexerDataDir = invalidDir
-
-	assert.Error(t, configureIndexerDataDir(cfg))
+	assert.Error(t, configureIndexerDataDir(invalidDir))
 }
 
 func TestIndexerPidFileExpectSuccess(t *testing.T) {
 	indexerDataDir := createTempDir(t)
 	defer os.RemoveAll(indexerDataDir)
 
-	cfg := &daemonConfig{}
-	cfg.pidFilePath = path.Join(indexerDataDir, "pidFile")
-	assert.NoError(t, createIndexerPidFile(cfg))
+	pidFilePath := path.Join(indexerDataDir, "pidFile")
+	assert.NoError(t, createIndexerPidFile(pidFilePath))
 }
 
 func TestIndexerPidFileCreateFailExpectError(t *testing.T) {
@@ -256,5 +231,5 @@ func TestIndexerPidFileCreateFailExpectError(t *testing.T) {
 	cfg.indexerDataDir = indexerDataDir
 
 	assert.ErrorContains(t, runDaemon(cfg), "pid file")
-	assert.Error(t, createIndexerPidFile(cfg))
+	assert.Error(t, createIndexerPidFile(cfg.pidFilePath))
 }

@@ -115,7 +115,7 @@ func init() {
 
 	rootCmd.AddCommand(importCmd)
 	importCmd.Hidden = true
-	daemonCfg.setFlags(daemonCmd.Flags())
+	daemonCmd := DaemonCmd()
 	rootCmd.AddCommand(daemonCmd)
 	rootCmd.AddCommand(apiConfigCmd)
 

@@ -4,9 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/algorand/indexer/config"
-	iutil "github.com/algorand/indexer/util"
-	"github.com/spf13/pflag"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -17,17 +14,21 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-algorand/util"
+
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/processor"
 	"github.com/algorand/indexer/processor/blockprocessor"
+	iutil "github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
 )
 
@@ -67,30 +68,72 @@ type daemonConfig struct {
 	genesisJSONPath           string
 }
 
-var daemonCfg = &daemonConfig{}
+func DaemonCmd() *cobra.Command {
+	cfg := &daemonConfig{}
+	daemonCmd := &cobra.Command{
+		Use:   "daemon",
+		Short: "run indexer daemon",
+		Long:  "run indexer daemon. Serve api on HTTP.",
+		//Args:
+		Run: func(cmd *cobra.Command, args []string) {
+			if err := runDaemon(cfg); err != nil {
+				panic(exit{1})
+			}
+		},
+	}
+	cfg.flags = daemonCmd.Flags()
+	cfg.flags.StringVarP(&cfg.algodDataDir, "algod", "d", "", "path to algod data dir, or $ALGORAND_DATA")
+	cfg.flags.StringVarP(&cfg.algodAddr, "algod-net", "", "", "host:port of algod")
+	cfg.flags.StringVarP(&cfg.algodToken, "algod-token", "", "", "api access token for algod")
+	cfg.flags.StringVarP(&cfg.genesisJSONPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
+	cfg.flags.StringVarP(&cfg.daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
+	cfg.flags.BoolVarP(&cfg.noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
+	cfg.flags.StringVarP(&cfg.tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
+	cfg.flags.BoolVarP(&cfg.developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
+	cfg.flags.BoolVarP(&cfg.allowMigration, "allow-migration", "", false, "allow migrations to happen even when no algod connected")
+	cfg.flags.StringVarP(&cfg.metricsMode, "metrics-mode", "", "OFF", "configure the /metrics endpoint to [ON, OFF, VERBOSE]")
+	cfg.flags.DurationVarP(&cfg.writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
+	cfg.flags.DurationVarP(&cfg.readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
+	cfg.flags.Uint32VarP(&cfg.maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
 
-var daemonCmd = &cobra.Command{
-	Use:   "daemon",
-	Short: "run indexer daemon",
-	Long:  "run indexer daemon. Serve api on HTTP.",
-	//Args:
-	Run: func(cmd *cobra.Command, args []string) {
-		daemonCfg.flags = cmd.Flags()
-		if err := runDaemon(daemonCfg); err != nil {
-			panic(exit{1})
-		}
-	},
+	cfg.flags.StringVar(&cfg.suppliedAPIConfigFile, "api-config-file", "", "supply an API config file to enable/disable parameters")
+	cfg.flags.BoolVar(&cfg.enableAllParameters, "enable-all-parameters", false, "override default configuration and enable all parameters. Can't be used with --api-config-file")
+	cfg.flags.Uint32VarP(&cfg.maxAPIResourcesPerAccount, "max-api-resources-per-account", "", 1000, "set the maximum total number of resources (created assets, created apps, asset holdings, and application local state) per account that will be allowed in REST API lookupAccountByID and searchForAccounts responses before returning a 400 Bad Request. Set zero for no limit")
+	cfg.flags.Uint32VarP(&cfg.maxTransactionsLimit, "max-transactions-limit", "", 10000, "set the maximum allowed Limit parameter for querying transactions")
+	cfg.flags.Uint32VarP(&cfg.defaultTransactionsLimit, "default-transactions-limit", "", 1000, "set the default Limit parameter for querying transactions, if none is provided")
+	cfg.flags.Uint32VarP(&cfg.maxAccountsLimit, "max-accounts-limit", "", 1000, "set the maximum allowed Limit parameter for querying accounts")
+	cfg.flags.Uint32VarP(&cfg.defaultAccountsLimit, "default-accounts-limit", "", 100, "set the default Limit parameter for querying accounts, if none is provided")
+	cfg.flags.Uint32VarP(&cfg.maxAssetsLimit, "max-assets-limit", "", 1000, "set the maximum allowed Limit parameter for querying assets")
+	cfg.flags.Uint32VarP(&cfg.defaultAssetsLimit, "default-assets-limit", "", 100, "set the default Limit parameter for querying assets, if none is provided")
+	cfg.flags.Uint32VarP(&cfg.maxBalancesLimit, "max-balances-limit", "", 10000, "set the maximum allowed Limit parameter for querying balances")
+	cfg.flags.Uint32VarP(&cfg.defaultBalancesLimit, "default-balances-limit", "", 1000, "set the default Limit parameter for querying balances, if none is provided")
+	cfg.flags.Uint32VarP(&cfg.maxApplicationsLimit, "max-applications-limit", "", 1000, "set the maximum allowed Limit parameter for querying applications")
+	cfg.flags.Uint32VarP(&cfg.defaultApplicationsLimit, "default-applications-limit", "", 100, "set the default Limit parameter for querying applications, if none is provided")
+
+	cfg.flags.StringVarP(&cfg.indexerDataDir, "data-dir", "i", "", "path to indexer data dir, or $INDEXER_DATA")
+	cfg.flags.BoolVar(&cfg.initLedger, "init-ledger", true, "initialize local ledger using sequential mode")
+	cfg.flags.StringVarP(&cfg.catchpoint, "catchpoint", "", "", "initialize local ledger using fast catchup")
+
+	cfg.flags.StringVarP(&cfg.cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
+	cfg.flags.StringVarP(&cfg.pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
+	cfg.flags.StringVarP(&cfg.configFile, "configfile", "c", "", "file path to configuration file (indexer.yml)")
+	viper.RegisterAlias("algod", "algod-data-dir")
+	viper.RegisterAlias("algod-net", "algod-address")
+	viper.RegisterAlias("server", "server-address")
+	viper.RegisterAlias("token", "api-token")
+	viper.RegisterAlias("data-dir", "data")
+	return daemonCmd
 }
 
-func configureIndexerDataDir(cfg *daemonConfig) error {
+func configureIndexerDataDir(indexerDataDir string) error {
 	var err error
-	if cfg.indexerDataDir == "" {
+	if indexerDataDir == "" {
 		err = fmt.Errorf("indexer data directory was not provided")
 		logger.WithError(err).Errorf("indexer data directory error, %v", err)
 		return err
 	}
-	if _, err = os.Stat(cfg.indexerDataDir); os.IsNotExist(err) {
-		err = os.Mkdir(cfg.indexerDataDir, 0755)
+	if _, err = os.Stat(indexerDataDir); os.IsNotExist(err) {
+		err = os.Mkdir(indexerDataDir, 0755)
 		if err != nil {
 			logger.WithError(err).Errorf("indexer data directory error, %v", err)
 			return err
@@ -99,23 +142,23 @@ func configureIndexerDataDir(cfg *daemonConfig) error {
 	return err
 }
 
-func loadIndexerConfig(cfg *daemonConfig) error {
+func loadIndexerConfig(indexerDataDir string, configFile string) error {
 	var err error
 	var resolvedConfigPath string
-	indexerConfigAutoLoadPath := filepath.Join(cfg.indexerDataDir, autoLoadIndexerConfigName)
+	indexerConfigAutoLoadPath := filepath.Join(indexerDataDir, autoLoadIndexerConfigName)
 	indexerConfigFound := util.FileExists(indexerConfigAutoLoadPath)
 	if indexerConfigFound {
 		//autoload
-		if cfg.configFile != "" {
+		if configFile != "" {
 			err = fmt.Errorf("indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
 				indexerConfigAutoLoadPath)
 			logger.WithError(err)
 			return err
 		}
 		resolvedConfigPath = indexerConfigAutoLoadPath
-	} else if cfg.configFile != "" {
+	} else if configFile != "" {
 		// user specified
-		resolvedConfigPath = cfg.configFile
+		resolvedConfigPath = configFile
 	} else {
 		// neither autoload nor user specified
 		err = fmt.Errorf("indexer configuration file was not found in data directory (%s) or specified via command line. Please provide one",
@@ -134,7 +177,7 @@ func loadIndexerConfig(cfg *daemonConfig) error {
 		logger.WithError(err).Errorf("invalid config file (%s): %v", viper.ConfigFileUsed(), err)
 		return err
 	}
-	logger.Infof("Using configuration file: %s\n", cfg.configFile)
+	logger.Infof("Using configuration file: %s\n", configFile)
 	return err
 }
 
@@ -163,24 +206,24 @@ func loadIndexerParamConfig(cfg *daemonConfig) error {
 	return err
 }
 
-func createIndexerPidFile(cfg *daemonConfig) error {
+func createIndexerPidFile(pidFilePath string) error {
 	var err error
-	logger.Infof("Creating PID file at: %s\n", cfg.pidFilePath)
-	fout, err := os.Create(cfg.pidFilePath)
+	logger.Infof("Creating PID file at: %s\n", pidFilePath)
+	fout, err := os.Create(pidFilePath)
 	if err != nil {
-		err = fmt.Errorf("%s: could not create pid file, %v", cfg.pidFilePath, err)
+		err = fmt.Errorf("%s: could not create pid file, %v", pidFilePath, err)
 		logger.WithError(err).Error(err)
 		return err
 	}
 	_, err = fmt.Fprintf(fout, "%d", os.Getpid())
 	if err != nil {
-		err = fmt.Errorf("%s: could not write pid file, %v", cfg.pidFilePath, err)
+		err = fmt.Errorf("%s: could not write pid file, %v", pidFilePath, err)
 		logger.WithError(err).Error(err)
 		return err
 	}
 	err = fout.Close()
 	if err != nil {
-		err = fmt.Errorf("%s: could not close pid file, %v", cfg.pidFilePath, err)
+		err = fmt.Errorf("%s: could not close pid file, %v", pidFilePath, err)
 		logger.WithError(err).Error(err)
 		return err
 	}
@@ -197,12 +240,12 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	}
 
 	// Create the data directory if necessary/possible
-	if err = configureIndexerDataDir(daemonConfig); err != nil {
+	if err = configureIndexerDataDir(daemonConfig.indexerDataDir); err != nil {
 		return err
 	}
 
 	// Detect the various auto-loading configs from data directory
-	if err = loadIndexerConfig(daemonConfig); err != nil {
+	if err = loadIndexerConfig(daemonConfig.indexerDataDir, daemonConfig.configFile); err != nil {
 		return err
 	}
 
@@ -212,7 +255,7 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	}
 
 	if daemonConfig.pidFilePath != "" {
-		err = createIndexerPidFile(daemonConfig)
+		err = createIndexerPidFile(daemonConfig.pidFilePath)
 		if err != nil {
 			return err
 		}
@@ -344,52 +387,6 @@ func runBlockImporter(ctx context.Context, cfg *daemonConfig, wg *sync.WaitGroup
 			panic(exit{1})
 		}
 	}
-}
-
-func (cfg *daemonConfig) setFlags(flags *pflag.FlagSet) {
-	flags.StringVarP(&cfg.algodDataDir, "algod", "d", "", "path to algod data dir, or $ALGORAND_DATA")
-	flags.StringVarP(&cfg.algodAddr, "algod-net", "", "", "host:port of algod")
-	flags.StringVarP(&cfg.algodToken, "algod-token", "", "", "api access token for algod")
-	flags.StringVarP(&cfg.genesisJSONPath, "genesis", "g", "", "path to genesis.json (defaults to genesis.json in algod data dir if that was set)")
-	flags.StringVarP(&cfg.daemonServerAddr, "server", "S", ":8980", "host:port to serve API on (default :8980)")
-	flags.BoolVarP(&cfg.noAlgod, "no-algod", "", false, "disable connecting to algod for block following")
-	flags.StringVarP(&cfg.tokenString, "token", "t", "", "an optional auth token, when set REST calls must use this token in a bearer format, or in a 'X-Indexer-API-Token' header")
-	flags.BoolVarP(&cfg.developerMode, "dev-mode", "", false, "allow performance intensive operations like searching for accounts at a particular round")
-	flags.BoolVarP(&cfg.allowMigration, "allow-migration", "", false, "allow migrations to happen even when no algod connected")
-	flags.StringVarP(&cfg.metricsMode, "metrics-mode", "", "OFF", "configure the /metrics endpoint to [ON, OFF, VERBOSE]")
-	flags.DurationVarP(&cfg.writeTimeout, "write-timeout", "", 30*time.Second, "set the maximum duration to wait before timing out writes to a http response, breaking connection")
-	flags.DurationVarP(&cfg.readTimeout, "read-timeout", "", 5*time.Second, "set the maximum duration for reading the entire request")
-	flags.Uint32VarP(&cfg.maxConn, "max-conn", "", 0, "set the maximum connections allowed in the connection pool, if the maximum is reached subsequent connections will wait until a connection becomes available, or timeout according to the read-timeout setting")
-
-	flags.StringVar(&cfg.suppliedAPIConfigFile, "api-config-file", "", "supply an API config file to enable/disable parameters")
-	flags.BoolVar(&cfg.enableAllParameters, "enable-all-parameters", false, "override default configuration and enable all parameters. Can't be used with --api-config-file")
-	flags.Uint32VarP(&cfg.maxAPIResourcesPerAccount, "max-api-resources-per-account", "", 1000, "set the maximum total number of resources (created assets, created apps, asset holdings, and application local state) per account that will be allowed in REST API lookupAccountByID and searchForAccounts responses before returning a 400 Bad Request. Set zero for no limit")
-	flags.Uint32VarP(&cfg.maxTransactionsLimit, "max-transactions-limit", "", 10000, "set the maximum allowed Limit parameter for querying transactions")
-	flags.Uint32VarP(&cfg.defaultTransactionsLimit, "default-transactions-limit", "", 1000, "set the default Limit parameter for querying transactions, if none is provided")
-	flags.Uint32VarP(&cfg.maxAccountsLimit, "max-accounts-limit", "", 1000, "set the maximum allowed Limit parameter for querying accounts")
-	flags.Uint32VarP(&cfg.defaultAccountsLimit, "default-accounts-limit", "", 100, "set the default Limit parameter for querying accounts, if none is provided")
-	flags.Uint32VarP(&cfg.maxAssetsLimit, "max-assets-limit", "", 1000, "set the maximum allowed Limit parameter for querying assets")
-	flags.Uint32VarP(&cfg.defaultAssetsLimit, "default-assets-limit", "", 100, "set the default Limit parameter for querying assets, if none is provided")
-	flags.Uint32VarP(&cfg.maxBalancesLimit, "max-balances-limit", "", 10000, "set the maximum allowed Limit parameter for querying balances")
-	flags.Uint32VarP(&cfg.defaultBalancesLimit, "default-balances-limit", "", 1000, "set the default Limit parameter for querying balances, if none is provided")
-	flags.Uint32VarP(&cfg.maxApplicationsLimit, "max-applications-limit", "", 1000, "set the maximum allowed Limit parameter for querying applications")
-	flags.Uint32VarP(&cfg.defaultApplicationsLimit, "default-applications-limit", "", 100, "set the default Limit parameter for querying applications, if none is provided")
-
-	flags.StringVarP(&cfg.indexerDataDir, "data-dir", "i", "", "path to indexer data dir, or $INDEXER_DATA")
-	flags.BoolVar(&cfg.initLedger, "init-ledger", true, "initialize local ledger using sequential mode")
-	flags.StringVarP(&cfg.catchpoint, "catchpoint", "", "", "initialize local ledger using fast catchup")
-
-	flags.StringVarP(&cfg.cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
-	flags.StringVarP(&cfg.pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
-	flags.StringVarP(&cfg.configFile, "configfile", "c", "", "file path to configuration file (indexer.yml)")
-}
-
-func init() {
-	viper.RegisterAlias("algod", "algod-data-dir")
-	viper.RegisterAlias("algod-net", "algod-address")
-	viper.RegisterAlias("server", "server-address")
-	viper.RegisterAlias("token", "api-token")
-	viper.RegisterAlias("data-dir", "data")
 }
 
 // makeOptions converts CLI options to server options
