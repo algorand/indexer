@@ -94,14 +94,6 @@ var daemonCmd = &cobra.Command{
 				panic(exit{1})
 			}
 
-			if autoFoundConfigPath != "" {
-				logger.Errorf(
-					"indexer configuration was automatically found (%s) as well found in the data directory (%s).  Make sure only one is present",
-					autoFoundConfigPath,
-					filepath.Join(indexerDataDir, autoLoadIndexerConfigName))
-				panic(exit{1})
-			}
-
 			configFile = filepath.Join(indexerDataDir, autoLoadIndexerConfigName)
 			fmt.Printf("Auto-loading indexer configuration found: %s\n", configFile)
 		}
@@ -352,7 +344,14 @@ func makeOptions() (options api.ExtraOptions) {
 			fmt.Fprintf(os.Stderr, "failed to created disabled map config from file: %v", err)
 			panic(exit{1})
 		}
+
+		if len((*potentialDisabledMapConfig).Data) == 0 {
+			logger.Infof("NOTICE: All parameters are enabled since the provided parameter configuration file (%s) is empty.", suppliedAPIConfigFile)
+		}
+
 		options.DisabledMapConfig = potentialDisabledMapConfig
+	} else {
+		logger.Infof("NOTICE: Enable all parameters flag is set to: %v", enableAllParameters)
 	}
 
 	return

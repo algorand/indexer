@@ -79,7 +79,6 @@ var (
 	logLevel            string
 	logFile             string
 	logger              *log.Logger
-	autoFoundConfigPath string
 )
 
 func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}) {
@@ -96,7 +95,6 @@ func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}
 }
 
 func init() {
-	autoFoundConfigPath = ""
 	// Utilities subcommand for more convenient access to useful testing utilities.
 	utilsCmd := &cobra.Command{
 		Use:   "util",
@@ -138,22 +136,7 @@ func init() {
 	// Setup configuration file
 	viper.SetConfigName(config.FileName)
 	viper.SetConfigType(config.FileType)
-	for _, k := range config.ConfigPaths {
-		viper.AddConfigPath(k)
-	}
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found, not an error since it may be set on the CLI.
-		} else {
-			fmt.Fprintf(os.Stderr, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
-			panic(exit{1})
-		}
-	} else {
-		fmt.Printf("Using configuration file via auto-search path: %s\n", viper.ConfigFileUsed())
-		autoFoundConfigPath = viper.ConfigFileUsed()
-	}
 
 	viper.SetEnvPrefix(config.EnvPrefix)
 	viper.AutomaticEnv()
