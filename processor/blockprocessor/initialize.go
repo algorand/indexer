@@ -1,4 +1,4 @@
-package localledger
+package blockprocessor
 
 import (
 	"context"
@@ -11,22 +11,22 @@ import (
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	algodConfig "github.com/algorand/go-algorand/config"
+	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/node"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
+	log "github.com/sirupsen/logrus"
+
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/processor"
-	"github.com/algorand/indexer/processor/blockprocessor"
-	log "github.com/sirupsen/logrus"
 )
 
-// RunMigrationSimple executes the migration core functionality.
-func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
-	logger := log.New()
+// InitializeLedgerSimple executes the migration core functionality.
+func InitializeLedgerSimple(logger *log.Logger, round uint64, opts *idb.IndexerDbOptions) error {
 	ctx, cf := context.WithCancel(context.Background())
 	defer cf()
 	{
@@ -44,20 +44,20 @@ func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
 	var bot fetcher.Fetcher
 	var err error
 	if opts.IndexerDatadir == "" {
-		return fmt.Errorf("RunMigrationSimple() err: indexer data directory missing")
+		return fmt.Errorf("InitializeLedgerSimple() err: indexer data directory missing")
 	}
 	// create algod client
 	bot, err = getFetcher(opts)
 	if err != nil {
-		return fmt.Errorf("RunMigrationSimple() err: %w", err)
+		return fmt.Errorf("InitializeLedgerSimple() err: %w", err)
 	}
 	logger.Info("initializing ledger")
 	genesis, err := getGenesis(bot.Algod())
 	if err != nil {
-		return fmt.Errorf("RunMigrationSimple() err: %w", err)
+		return fmt.Errorf("InitializeLedgerSimple() err: %w", err)
 	}
 
-	proc, err := blockprocessor.MakeProcessor(&genesis, round, opts.IndexerDatadir, nil)
+	proc, err := MakeProcessor(logger, &genesis, round, opts.IndexerDatadir, nil)
 	if err != nil {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}
@@ -81,33 +81,20 @@ func RunMigrationSimple(round uint64, opts *idb.IndexerDbOptions) error {
 	return nil
 }
 
-// RunMigrationFastCatchup executes the migration core functionality.
-func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb.IndexerDbOptions) error {
-	if opts.IndexerDatadir == "" {
-		return fmt.Errorf("RunMigrationFastCatchup() err: indexer data directory missing")
-	}
-	// catchpoint round
-	round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
-	if err != nil {
-		return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
-	}
-	// create algod client
-	bot, err := getFetcher(opts)
-	if err != nil {
-		return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
-	}
-	genesis, err := getGenesis(bot.Algod())
-	if err != nil {
-		return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
-	}
+func fullNodeCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+	wrappedLogger := logging.NewWrappedLogger(logger)
+
 	node, err := node.MakeFull(
-		logging.NewLogger(),
-		opts.IndexerDatadir,
+		wrappedLogger,
+		dataDir,
 		algodConfig.AutogenLocal,
 		nil,
 		genesis)
+	if err != nil {
+		return err
+	}
 	// remove node directory after when exiting fast catchup mode
-	defer os.RemoveAll(filepath.Join(opts.IndexerDatadir, genesis.ID()))
+	defer os.RemoveAll(filepath.Join(dataDir, genesis.ID()))
 	node.Start()
 	time.Sleep(5 * time.Second)
 	logger.Info("algod node running")
@@ -125,6 +112,27 @@ func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb
 	logger.Info("fast catchup completed")
 	node.Stop()
 	logger.Info("algod node stopped")
+	return nil
+}
+
+// InitializeLedgerFastCatchup executes the migration core functionality.
+func InitializeLedgerFastCatchup(logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+	if dataDir == "" {
+		return fmt.Errorf("InitializeLedgerFastCatchup() err: indexer data directory missing")
+	}
+	// catchpoint round
+	round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
+	if err != nil {
+		return fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
+	}
+
+	// TODO: switch to catchup service catchup.
+	//err = internal.CatchupServiceCatchup(logger, round, catchpoint, dataDir, genesis)
+	err = fullNodeCatchup(logger, round, catchpoint, dataDir, genesis)
+	if err != nil {
+		return fmt.Errorf("fullNodeCatchup() err: %w", err)
+	}
+
 	// move ledger to indexer directory
 	ledgerFiles := []string{
 		"ledger.block.sqlite",
@@ -135,9 +143,9 @@ func RunMigrationFastCatchup(logger logging.Logger, catchpoint string, opts *idb
 		"ledger.tracker.sqlite-wal",
 	}
 	for _, f := range ledgerFiles {
-		err = os.Rename(filepath.Join(opts.IndexerDatadir, genesis.ID(), f), filepath.Join(opts.IndexerDatadir, f))
+		err = os.Rename(filepath.Join(dataDir, genesis.ID(), f), filepath.Join(dataDir, f))
 		if err != nil {
-			return fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
+			return fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
 		}
 	}
 	return nil
@@ -200,15 +208,15 @@ func getFetcher(opts *idb.IndexerDbOptions) (fetcher.Fetcher, error) {
 	if opts.AlgodDataDir != "" {
 		bot, err = fetcher.ForDataDir(opts.AlgodDataDir, logger)
 		if err != nil {
-			return nil, fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
+			return nil, fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
 		}
 	} else if opts.AlgodAddr != "" && opts.AlgodToken != "" {
 		bot, err = fetcher.ForNetAndToken(opts.AlgodAddr, opts.AlgodToken, logger)
 		if err != nil {
-			return nil, fmt.Errorf("RunMigrationFastCatchup() err: %w", err)
+			return nil, fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
 		}
 	} else {
-		return nil, fmt.Errorf("RunMigrationFastCatchup() err: unable to create algod client")
+		return nil, fmt.Errorf("InitializeLedgerFastCatchup() err: unable to create algod client")
 	}
 	return bot, nil
 }

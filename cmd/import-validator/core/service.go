@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand/agreement"
@@ -52,7 +52,7 @@ func getGenesis(client *algod.Client) (bookkeeping.Genesis, error) {
 	return res, nil
 }
 
-func openIndexerDb(postgresConnStr string, genesis *bookkeeping.Genesis, logger *logrus.Logger) (*postgres.IndexerDb, error) {
+func openIndexerDb(postgresConnStr string, genesis *bookkeeping.Genesis, logger *log.Logger) (*postgres.IndexerDb, error) {
 	db, availableCh, err :=
 		postgres.OpenPostgres(postgresConnStr, idb.IndexerDbOptions{}, logger)
 	if err != nil {
@@ -92,9 +92,7 @@ func openIndexerDb(postgresConnStr string, genesis *bookkeeping.Genesis, logger 
 	return db, nil
 }
 
-func openLedger(ledgerPath string, genesis *bookkeeping.Genesis) (*ledger.Ledger, error) {
-	logger := logging.NewLogger()
-
+func openLedger(logger *log.Logger, ledgerPath string, genesis *bookkeeping.Genesis) (*ledger.Ledger, error) {
 	accounts := make(map[basics.Address]basics.AccountData)
 	for _, alloc := range genesis.Allocation {
 		address, err := basics.UnmarshalChecksumAddress(alloc.Address)
@@ -115,7 +113,7 @@ func openLedger(ledgerPath string, genesis *bookkeeping.Genesis) (*ledger.Ledger
 	}
 
 	l, err := ledger.OpenLedger(
-		logger, path.Join(ledgerPath, "ledger"), false, initState, config.GetDefaultLocal())
+		logging.NewWrappedLogger(logger), path.Join(ledgerPath, "ledger"), false, initState, config.GetDefaultLocal())
 	if err != nil {
 		return nil, fmt.Errorf("openLedger() open err: %w", err)
 	}
@@ -309,7 +307,7 @@ func checkModifiedState(db *postgres.IndexerDb, l *ledger.Ledger, block *bookkee
 	return nil
 }
 
-func catchup(db *postgres.IndexerDb, l *ledger.Ledger, bot fetcher.Fetcher, logger *logrus.Logger) error {
+func catchup(db *postgres.IndexerDb, l *ledger.Ledger, bot fetcher.Fetcher, logger *log.Logger) error {
 	nextRoundIndexer, err := db.GetNextRoundToAccount()
 	if err != nil {
 		return fmt.Errorf("catchup err: %w", err)
@@ -391,7 +389,7 @@ func catchup(db *postgres.IndexerDb, l *ledger.Ledger, bot fetcher.Fetcher, logg
 
 // Run is a blocking call that runs the import validator service.
 func Run(args ImportValidatorArgs) {
-	logger := logrus.New()
+	logger := log.New()
 
 	bot, err := fetcher.ForNetAndToken(args.AlgodAddr, args.AlgodToken, logger)
 	if err != nil {
@@ -408,7 +406,7 @@ func Run(args ImportValidatorArgs) {
 		fmt.Printf("error opening indexer database err: %v", err)
 		os.Exit(1)
 	}
-	l, err := openLedger(args.AlgodLedger, &genesis)
+	l, err := openLedger(logger, args.AlgodLedger, &genesis)
 	if err != nil {
 		fmt.Printf("error opening algod database err: %v", err)
 		os.Exit(1)

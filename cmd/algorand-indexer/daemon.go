@@ -3,8 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -14,10 +12,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/logging"
-	"github.com/algorand/go-algorand/protocol"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-algorand/util"
 	"github.com/algorand/indexer/api"
@@ -26,12 +23,10 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
-	localledger "github.com/algorand/indexer/migrations/local_ledger"
 	"github.com/algorand/indexer/processor"
 	"github.com/algorand/indexer/processor/blockprocessor"
+	iutil "github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -102,16 +97,22 @@ var daemonCmd = &cobra.Command{
 					filepath.Join(indexerDataDir, autoLoadIndexerConfigName))
 				panic(exit{1})
 			}
-			// No config file supplied via command line, auto-load it
+
+			configFile = filepath.Join(indexerDataDir, autoLoadIndexerConfigName)
+			fmt.Printf("Auto-loading indexer configuration found: %s\n", configFile)
+		}
+
+		if configFile != "" {
 			configs, err := os.Open(configFile)
 			if err != nil {
-				maybeFail(err, "%v", err)
+				maybeFail(err, "error with config file (%s): %v", configFile, err)
 			}
 			defer configs.Close()
 			err = viper.ReadConfig(configs)
 			if err != nil {
 				maybeFail(err, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
 			}
+			fmt.Printf("Using configuration file: %s\n", configFile)
 		}
 
 		if paramConfigFound {
@@ -150,19 +151,6 @@ var daemonCmd = &cobra.Command{
 			err = pprof.StartCPUProfile(profFile)
 			maybeFail(err, "%s: start pprof, %v", cpuProfile, err)
 			defer pprof.StopCPUProfile()
-		}
-
-		if configFile != "" {
-			configs, err := os.Open(configFile)
-			if err != nil {
-				maybeFail(err, "%v", err)
-			}
-			defer configs.Close()
-			err = viper.ReadConfig(configs)
-			if err != nil {
-				maybeFail(err, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
-			}
-			fmt.Printf("Using configuration file: %s\n", configFile)
 		}
 
 		// If someone supplied a configuration file but also said to enable all parameters,
@@ -233,39 +221,21 @@ var daemonCmd = &cobra.Command{
 
 				// Initial import if needed.
 				genesisReader := importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
-				_, err := importer.EnsureInitialImport(db, genesisReader, logger)
+				genesis, err := iutil.ReadGenesis(genesisReader)
+				maybeFail(err, "Error reading genesis file")
+
+				_, err = importer.EnsureInitialImport(db, genesis, logger)
 				maybeFail(err, "importer.EnsureInitialImport() error")
 
 				// sync local ledger
 				nextDBRound, err := db.GetNextRoundToAccount()
 				maybeFail(err, "Error getting DB round")
-				if nextDBRound > 0 {
-					if catchpoint != "" {
-						round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
-						if err != nil {
-							maybeFail(err, "catchpoint error")
-						}
-						if uint64(round) >= nextDBRound {
-							logger.Warnf("round for given catchpoint is ahead of db round. skip fast catchup")
-						} else {
-							err = localledger.RunMigrationFastCatchup(logging.NewLogger(), catchpoint, &opts)
-							maybeFail(err, "Error running ledger migration in fast catchup mode")
-						}
-
-					}
-					err = localledger.RunMigrationSimple(nextDBRound-1, &opts)
-					maybeFail(err, "Error running ledger migration")
-				}
 
 				logger.Info("Initializing block import handler.")
 				imp := importer.NewImporter(db)
 
 				logger.Info("Initializing local ledger.")
-				genesisReader = importer.GetGenesisFile(genesisJSONPath, bot.Algod(), logger)
-				genesis, err := readGenesis(genesisReader)
-				maybeFail(err, "Error reading genesis file")
-
-				proc, err := blockprocessor.MakeProcessor(&genesis, nextDBRound, indexerDataDir, imp.ImportBlock)
+				proc, err := blockprocessor.MakeProcessorWithLedgerInit(logger, catchpoint, &genesis, nextDBRound, opts, imp.ImportBlock)
 				if err != nil {
 					maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
 				}
@@ -449,20 +419,4 @@ func handleBlock(block *rpcs.EncodedBlockCert, proc processor.Processor) error {
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())
 
 	return nil
-}
-
-func readGenesis(reader io.Reader) (bookkeeping.Genesis, error) {
-	var genesis bookkeeping.Genesis
-	if reader == nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: reader is nil")
-	}
-	gbytes, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: %w", err)
-	}
-	err = protocol.DecodeJSON(gbytes, &genesis)
-	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: %w", err)
-	}
-	return genesis, nil
 }

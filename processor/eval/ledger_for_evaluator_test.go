@@ -4,21 +4,30 @@ import (
 	"crypto/rand"
 	"testing"
 
+	test2 "github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
+
 	block_processor "github.com/algorand/indexer/processor/blockprocessor"
 	indxLeder "github.com/algorand/indexer/processor/eval"
 	"github.com/algorand/indexer/util/test"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
-func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
+func makeTestLedger(t *testing.T) *ledger.Ledger {
+	log, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(log)
+	require.NoError(t, err)
+	return l
+}
 
-	l := test.MakeTestLedger("ledger")
+func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
+	l := makeTestLedger(t)
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 	txn := test.MakePaymentTxn(0, 100, 0, 1, 1,
@@ -40,7 +49,7 @@ func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountDataBasic(t *testing.T) {
-	l := test.MakeTestLedger("ledger")
+	l := makeTestLedger(t)
 	defer l.Close()
 	block_processor.MakeProcessorWithLedger(l, nil)
 	accountData, _, err := l.LookupWithoutRewards(0, test.AccountB)
@@ -60,7 +69,7 @@ func TestLedgerForEvaluatorAccountDataBasic(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountDataMissingAccount(t *testing.T) {
-	l := test.MakeTestLedger("ledger")
+	l := makeTestLedger(t)
 	ld := indxLeder.MakeLedgerForEvaluator(l)
 	defer l.Close()
 	defer ld.Close()
@@ -76,7 +85,7 @@ func TestLedgerForEvaluatorAccountDataMissingAccount(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAsset(t *testing.T) {
-	l := test.MakeTestLedger("ledger")
+	l := makeTestLedger(t)
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
@@ -141,7 +150,7 @@ func TestLedgerForEvaluatorAsset(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorApp(t *testing.T) {
-	l := test.MakeTestLedger("ledger")
+	l := makeTestLedger(t)
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
@@ -223,7 +232,7 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
-	l := test.MakeTestLedger("ledger")
+	l := makeTestLedger(t)
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
@@ -273,7 +282,7 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
-	l := test.MakeTestLedger("ledger")
+	l := makeTestLedger(t)
 	defer l.Close()
 	block_processor.MakeProcessorWithLedger(l, nil)
 
@@ -301,7 +310,7 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
-	l := test.MakeTestLedger("ledger")
+	l := makeTestLedger(t)
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
@@ -332,7 +341,7 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
-	l := test.MakeTestLedger("ledger")
+	l := makeTestLedger(t)
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
@@ -361,7 +370,7 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 
 func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 
-	l := test.MakeTestLedger("ledger")
+	l := makeTestLedger(t)
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
@@ -415,7 +424,7 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
-	l := test.MakeTestLedger("ledger")
+	l := makeTestLedger(t)
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
@@ -447,7 +456,7 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
-	l := test.MakeTestLedger("ledger")
+	l := makeTestLedger(t)
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
@@ -476,7 +485,7 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 
 func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 
-	l := test.MakeTestLedger("ledger")
+	l := makeTestLedger(t)
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
@@ -531,7 +540,7 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 }
 
 func TestLedgerForEvaluatorAccountTotals(t *testing.T) {
-	l := test.MakeTestLedger("ledger")
+	l := makeTestLedger(t)
 	defer l.Close()
 
 	ld := indxLeder.MakeLedgerForEvaluator(l)

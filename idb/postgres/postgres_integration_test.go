@@ -10,26 +10,29 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v4/pgxpool"
+	"github.com/sirupsen/logrus"
+	test2 "github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-codec/codec"
+
 	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
+	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/processor/blockprocessor"
-	"github.com/jackc/pgx/v4"
-	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/sirupsen/logrus"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
-	"github.com/algorand/indexer/idb"
-	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
+	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -1411,7 +1414,9 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), round)
 
-	l := test.MakeTestLedger("ledger")
+	log, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(log)
+	require.NoError(t, err)
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
@@ -1707,7 +1712,9 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	rootTxid := appCall.Txn.ID()
 
 	err = pgutil.TxWithRetry(pdb, serializable, func(tx pgx.Tx) error {
-		l := test.MakeTestLedger("ledger")
+		log, _ := test2.NewNullLogger()
+		l, err := test.MakeTestLedger(log)
+		require.NoError(t, err)
 		defer l.Close()
 		proc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
 		require.NoError(t, err, "failed to open ledger")
@@ -2141,7 +2148,9 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	require.ErrorIs(t, err, idb.ErrorNotInitialized)
 	logger := logrus.New()
 	genesisReader := bytes.NewReader(protocol.EncodeJSON(genesis))
-	imported, err := importer.EnsureInitialImport(db, genesisReader, logger)
+	gen, err := util.ReadGenesis(genesisReader)
+	require.NoError(t, err)
+	imported, err := importer.EnsureInitialImport(db, gen, logger)
 	require.NoError(t, err)
 	require.True(t, true, imported)
 	// network state should be set
@@ -2152,8 +2161,10 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	// change genesis value
 	genesis.Network = "testnest"
 	genesisReader = bytes.NewReader(protocol.EncodeJSON(genesis))
+	gen, err = util.ReadGenesis(genesisReader)
+	require.NoError(t, err)
 	// different genesisHash, should fail
-	_, err = importer.EnsureInitialImport(db, genesisReader, logger)
+	_, err = importer.EnsureInitialImport(db, gen, logger)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "genesis hash not matching")
 
