@@ -64,9 +64,8 @@ func TestRunMigration(t *testing.T) {
 		AlgodToken:     "AAAAA",
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
 	// migrate 3 rounds
-	err = InitializeLedgerSimple(ctx, cancel, logrus.New(), 3, &opts)
+	err = InitializeLedgerSimple(context.Background(), logrus.New(), 3, &opts)
 	assert.NoError(t, err)
 	log, _ := test2.NewNullLogger()
 	l, err := util.MakeLedger(log, false, &genesis, opts.IndexerDatadir)
@@ -76,8 +75,7 @@ func TestRunMigration(t *testing.T) {
 	l.Close()
 
 	// migration continues from last round
-	ctx, cancel = context.WithCancel(context.Background())
-	err = InitializeLedgerSimple(ctx, cancel, logrus.New(), 6, &opts)
+	err = InitializeLedgerSimple(context.Background(), logrus.New(), 6, &opts)
 	assert.NoError(t, err)
 
 	l, err = util.MakeLedger(log, false, &genesis, opts.IndexerDatadir)

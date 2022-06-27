@@ -24,8 +24,8 @@ import (
 )
 
 // InitializeLedgerSimple executes the migration core functionality.
-func InitializeLedgerSimple(ctx context.Context, cf context.CancelFunc, logger *log.Logger, round uint64, opts *idb.IndexerDbOptions) error {
-
+func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint64, opts *idb.IndexerDbOptions) error {
+	ctx, cf := context.WithCancel(ctx)
 	var bot fetcher.Fetcher
 	var err error
 	if opts.IndexerDatadir == "" {
@@ -68,7 +68,6 @@ func InitializeLedgerSimple(ctx context.Context, cf context.CancelFunc, logger *
 
 func fullNodeCatchup(ctx context.Context, logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
 	wrappedLogger := logging.NewWrappedLogger(logger)
-
 	node, err := node.MakeFull(
 		wrappedLogger,
 		dataDir,
