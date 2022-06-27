@@ -179,7 +179,7 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 
 // Preload asset and app creators.
 func prepareCreators(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
-	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
+	assetsReq, appsReq, _ := accounting.MakePreloadCreatorsRequest(payset)
 
 	assets, err := l.GetAssetCreator(assetsReq)
 	if err != nil {

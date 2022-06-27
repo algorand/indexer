@@ -9,6 +9,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/jackc/pgx/v4"
 
@@ -32,6 +33,7 @@ const (
 	deleteAccountAssetStmtName         = "delete_account_asset"
 	deleteAppStmtName                  = "delete_app"
 	deleteAccountAppStmtName           = "delete_account_app"
+	upsertAppBoxStmtName               = "upsert_app_box"
 	updateAccountTotalsStmtName        = "update_account_totals"
 )
 
@@ -104,6 +106,15 @@ var statements = map[string]string{
 		(addr, app, localstate, deleted, created_at, closed_at)
 		VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (addr, app) DO UPDATE SET
 		localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at`,
+	upsertAppBoxStmtName: `INSERT INTO app_box AS ab
+		(app, box_name, size, value, created_at)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (app, box_name) DO UPDATE SET
+		-- retain size info of deleted boxes:
+		size = (CASE WHEN EXCLUDED.value IS NULL THEN ab.size ELSE EXCLUDED.size END),
+		value = EXCLUDED.value,
+		-- keep round except when overwriting deleted:
+		created_at = (CASE WHEN ab.value IS NULL THEN EXCLUDED.created_at ELSE ab.created_at END)`,
 	updateAccountTotalsStmtName: `UPDATE metastate SET v = $1 WHERE k = '` +
 		schema.AccountTotals + `'`,
 }
@@ -243,6 +254,12 @@ func writeAssetResource(round basics.Round, resource *ledgercore.AssetResourceRe
 }
 
 func writeAppResource(round basics.Round, resource *ledgercore.AppResourceRecord, batch *pgx.Batch) {
+	// type AppResourceRecord struct {
+	// 	Aidx   basics.AppIndex
+	// 	Addr   basics.Address
+	// 	Params AppParamsDelta
+	// 	State  AppLocalStateDelta
+	// }
 	if resource.Params.Deleted {
 		batch.Queue(deleteAppStmtName, resource.Aidx, resource.Addr[:], round)
 	} else {
@@ -290,6 +307,37 @@ func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.AccountDel
 			writeAppResource(round, &appResources[i], batch)
 		}
 	}
+
+}
+
+// type appBoxRecord struct {
+// 	App basics.AppIndex
+// }
+
+func writeBoxMods(round basics.Round, kvMods map[string]*string, batch *pgx.Batch) error {
+	// kvMods can in theory support more general storage types than app boxes.
+	// However, here we assume that all the given kvMods represent app boxes.
+
+	// Update `app_box`
+	fmt.Printf("writeAccountDeltas - app_box portion for round=%d", round)
+
+	for key, value := range kvMods {
+		app, name, err := logic.GetAppAndNameFromKey(key)
+		if err != nil {
+			return fmt.Errorf("writeBoxMods() err: %w", err)
+		}
+		var valueOrNil interface{} = nil
+		size := 1 // this value should NEVER be set based on upsertAppBox'es CONFLICT resolution
+		if value != nil {
+			valueOrNil = []byte(*value)
+			// because of 2's complement representation of smallint, need to use negative to avoid overflow:
+			size = -len(*value)
+		}
+		// TODO: do I need to use an encoding for the arbitrary bytes `box_name` and `value` ?
+		batch.Queue(upsertAppBoxStmtName, app, []byte(name), size, valueOrNil, round)
+	}
+
+	return nil
 }
 
 // AddBlock0 writes block 0 to the database.
@@ -320,6 +368,7 @@ func (w *Writer) AddBlock0(block *bookkeeping.Block) error {
 	return nil
 }
 
+// TODO: Zeph remove this comment which points out the <<<pg import entrypoint>>>
 // AddBlock writes the block and accounting state deltas to the database, except for
 // transactions and transaction participation. Those are imported by free functions in
 // the writer/ directory.
@@ -338,6 +387,13 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
 		writeAccountDeltas(block.Round(), &delta.Accts, sigTypeDeltas, &batch)
+	}
+	{
+		// TODO: don't think I actually need this code block
+		err := writeBoxMods(block.Round(), delta.KvMods, &batch)
+		if err != nil {
+			return fmt.Errorf("AddBlock() err on boxes: %w", err)
+		}
 	}
 	batch.Queue(updateAccountTotalsStmtName, encoding.EncodeAccountTotals(&delta.Totals))
 

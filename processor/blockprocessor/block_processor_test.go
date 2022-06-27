@@ -49,9 +49,9 @@ func TestFailedProcess(t *testing.T) {
 	l := test.MakeTestLedger("local_ledger")
 	defer l.Close()
 	// invalid processor
-	pr, err := block_processor.MakeProcessorWithLedger(nil, nil)
+	_, err := block_processor.MakeProcessorWithLedger(nil, nil)
 	assert.Contains(t, err.Error(), "MakeProcessorWithLedger() err: local ledger not initialized")
-	pr, err = block_processor.MakeProcessorWithLedger(l, nil)
+	pr, err := block_processor.MakeProcessorWithLedger(l, nil)
 	assert.Nil(t, err)
 	err = pr.Process(nil)
 	assert.Contains(t, err.Error(), "Process(): cannot process a nil block")

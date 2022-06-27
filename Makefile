@@ -1,7 +1,7 @@
 SRCPATH		:= $(shell pwd)
 VERSION		:= $(shell $(SRCPATH)/mule/scripts/compute_build_number.sh)
 OS_TYPE		?= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
-ARCH			?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
+ARCH		?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
 PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(VERSION)
 ifeq ($(OS_TYPE), darwin)
 ifeq ($(ARCH), arm64)
@@ -26,9 +26,16 @@ export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 cmd/algorand-indexer/algorand-indexer: idb/postgres/internal/schema/setup_postgres_sql.go go-algorand
 	cd cmd/algorand-indexer && go build -ldflags="${GOLDFLAGS}"
 
-go-algorand:
-	git submodule update --init && cd third_party/go-algorand && \
+# go-algorand:
+# 	git submodule update --init && cd third_party/go-algorand && \
+# 		make crypto/libs/`scripts/ostype.sh`/`scripts/archtype.sh`/lib/libsodium.a
+
+
+# TEMPORARY CHANGE - REVERT BEFORE MERGING
+go-algorand: go-avm-box
+	cd third_party/go-algorand && \
 		make crypto/libs/`scripts/ostype.sh`/`scripts/archtype.sh`/lib/libsodium.a
+
 
 idb/postgres/internal/schema/setup_postgres_sql.go:	idb/postgres/internal/schema/setup_postgres.sql
 	cd idb/postgres/internal/schema && go generate
@@ -94,3 +101,18 @@ indexer-v-algod-swagger:
 indexer-v-algod: nightly-setup indexer-v-algod-swagger nightly-teardown
 
 .PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod
+
+# TEMPORARY RECIPE. DO NOT MERGE.
+go-avm-box:
+	test -h third_party/go-algorand && exit 0 || exit 1
+
+
+LOCAL_GO_ALGORAND = "/Users/zeph/github/tzaffi/go-algorand"
+# "/Users/zeph/github/cce/go-algorand"
+zymlocal:
+	mv third_party/go-algorand third_party/zo-algorand
+	ln -s $(LOCAL_GO_ALGORAND) third_party/go-algorand
+
+dezymlocal:
+	# rm third_party/go-algorand
+	mv third_party/zo-algorand third_party/go-algorand

@@ -117,3 +117,13 @@ CREATE TABLE IF NOT EXISTS account_app (
 
 -- For looking up existing app local states by account
 CREATE INDEX IF NOT EXISTS account_app_by_addr_partial ON account_app(addr) WHERE NOT deleted;
+
+-- For lookup up app box storage
+CREATE TABLE IF NOT EXISTS app_box (
+  app bigint NOT NULL,
+  box_name bytea NOT NULL,
+  size smallint NOT NULL,     -- _NEGATIVE_ of box'es size
+  value bytea,                -- NULL exactly when deleted
+  created_at bigint NOT NULL, -- round at which the box was created
+  PRIMARY KEY (app, box_name)
+);

@@ -66,7 +66,7 @@ func TestLedgerForEvaluatorAccountDataMissingAccount(t *testing.T) {
 	defer ld.Close()
 
 	var addr basics.Address
-	_, err := rand.Read(addr[:])
+	rand.Read(addr[:])
 	ret, err :=
 		ld.LookupWithoutRewards(map[basics.Address]struct{}{addr: {}})
 	require.NoError(t, err)
@@ -295,7 +295,7 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, address := range addresses {
-		accountData, _ := ret[address]
+		accountData := ret[address]
 		require.NotNil(t, accountData)
 	}
 }
