@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spf13/pflag"
-	"io"
 	"io/fs"
 	"os"
 	"path"
@@ -16,14 +15,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
+
 	"github.com/algorand/indexer/processor/blockprocessor"
 	itest "github.com/algorand/indexer/util/test"
-	"github.com/sirupsen/logrus/hooks/test"
-	"github.com/stretchr/testify/assert"
 )
 
 type mockImporter struct {
@@ -46,7 +47,9 @@ func TestImportRetryAndCancel(t *testing.T) {
 
 	// create handler with mock importer and start, it should generate errors until cancelled.
 	imp := &mockImporter{}
-	l := itest.MakeTestLedger("ledger")
+	ledgerLogger, _ := test.NewNullLogger()
+	l, err := itest.MakeTestLedger(ledgerLogger)
+	require.NoError(t, err)
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessorWithLedger(l, nil)
 	assert.Nil(t, err)
@@ -81,35 +84,6 @@ func TestImportRetryAndCancel(t *testing.T) {
 	wg.Wait()
 }
 
-func TestReadGenesis(t *testing.T) {
-	var reader io.Reader
-	// nil reader
-	_, err := readGenesis(reader)
-	assert.Contains(t, err.Error(), "readGenesis() err: reader is nil")
-	// no match struct field
-	genesisStr := "{\"version\": 2}"
-	reader = strings.NewReader(genesisStr)
-	_, err = readGenesis(reader)
-	assert.Contains(t, err.Error(), "json decode error")
-
-	genesis := bookkeeping.Genesis{
-		SchemaID:    "1",
-		Network:     "test",
-		Proto:       "test",
-		RewardsPool: "AAAA",
-		FeeSink:     "AAAA",
-	}
-
-	// read and decode genesis
-	reader = strings.NewReader(string(json.Encode(genesis)))
-	_, err = readGenesis(reader)
-	assert.Nil(t, err)
-	// read from empty reader
-	_, err = readGenesis(reader)
-	assert.Contains(t, err.Error(), "readGenesis() err: EOF")
-
-}
-
 func createTempDir(t *testing.T) string {
 	dir, err := os.MkdirTemp("", "indexer")
 	if err != nil {
@@ -123,6 +97,8 @@ func createTempDir(t *testing.T) string {
 func TestConfigWithEnableAllParamsExpectError(t *testing.T) {
 	indexerDataDir := createTempDir(t)
 	defer os.RemoveAll(indexerDataDir)
+	autoloadPath := filepath.Join(indexerDataDir, autoLoadIndexerConfigName)
+	os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
 	daemonConfig := &daemonConfig{}
 	daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
 	daemonConfig.indexerDataDir = indexerDataDir
@@ -269,6 +245,8 @@ func TestIndexerPidFileExpectSuccess(t *testing.T) {
 func TestIndexerPidFileCreateFailExpectError(t *testing.T) {
 	indexerDataDir := createTempDir(t)
 	defer os.RemoveAll(indexerDataDir)
+	autoloadPath := filepath.Join(indexerDataDir, autoLoadIndexerConfigName)
+	os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
 
 	invalidDir := filepath.Join(indexerDataDir, "foo", "bar")
 	cfg := &daemonConfig{}

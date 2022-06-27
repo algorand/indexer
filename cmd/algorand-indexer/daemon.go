@@ -5,9 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/algorand/indexer/config"
+	iutil "github.com/algorand/indexer/util"
 	"github.com/spf13/pflag"
-	"io"
-	"io/ioutil"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -17,9 +16,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/logging"
-	"github.com/algorand/go-algorand/protocol"
+	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
+
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-algorand/util"
 	"github.com/algorand/indexer/api"
@@ -27,12 +26,9 @@ import (
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
-	localledger "github.com/algorand/indexer/migrations/local_ledger"
 	"github.com/algorand/indexer/processor"
 	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/algorand/indexer/util/metrics"
-	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 type daemonConfig struct {
@@ -105,41 +101,40 @@ func configureIndexerDataDir(cfg *daemonConfig) error {
 
 func loadIndexerConfig(cfg *daemonConfig) error {
 	var err error
-	indexerConfigFound := util.FileExists(filepath.Join(cfg.indexerDataDir, autoLoadIndexerConfigName))
+	var resolvedConfigPath string
+	indexerConfigAutoLoadPath := filepath.Join(cfg.indexerDataDir, autoLoadIndexerConfigName)
+	indexerConfigFound := util.FileExists(indexerConfigAutoLoadPath)
 	if indexerConfigFound {
+		//autoload
 		if cfg.configFile != "" {
 			err = fmt.Errorf("indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
-				filepath.Join(cfg.indexerDataDir, autoLoadIndexerConfigName))
+				indexerConfigAutoLoadPath)
 			logger.WithError(err)
 			return err
 		}
-		// No config file supplied via command line, auto-load it
-		configs, err := os.Open(cfg.configFile)
-		if err != nil {
-			logger.WithError(err).Errorf("%v", err)
-			return err
-		}
-		defer configs.Close()
-		err = viper.ReadConfig(configs)
-		if err != nil {
-			logger.WithError(err).Errorf("invalid config file (%s): %v", viper.ConfigFileUsed(), err)
-			return err
-		}
+		resolvedConfigPath = indexerConfigAutoLoadPath
+	} else if cfg.configFile != "" {
+		// user specified
+		resolvedConfigPath = cfg.configFile
+	} else {
+		// neither autoload nor user specified
+		err = fmt.Errorf("indexer configuration file was not found in data directory (%s) or specified via command line. Please provide one",
+			indexerConfigAutoLoadPath)
+		logger.WithError(err)
+		return err
 	}
-	if cfg.configFile != "" {
-		configs, err := os.Open(cfg.configFile)
-		if err != nil {
-			logger.WithError(err).Errorf("File Does Not Exist Error: %v", err)
-			return err
-		}
-		defer configs.Close()
-		err = viper.ReadConfig(configs)
-		if err != nil {
-			logger.WithError(err).Errorf("invalid config file (%s): %v", viper.ConfigFileUsed(), err)
-			return err
-		}
-		logger.Infof("Using configuration file: %s\n", cfg.configFile)
+	configs, err := os.Open(resolvedConfigPath)
+	if err != nil {
+		logger.WithError(err).Errorf("File Does Not Exist Error: %v", err)
+		return err
 	}
+	defer configs.Close()
+	err = viper.ReadConfig(configs)
+	if err != nil {
+		logger.WithError(err).Errorf("invalid config file (%s): %v", viper.ConfigFileUsed(), err)
+		return err
+	}
+	logger.Infof("Using configuration file: %s\n", cfg.configFile)
 	return err
 }
 
@@ -292,7 +287,7 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	var wg sync.WaitGroup
 	if bot != nil {
 		wg.Add(1)
-		go runBlockImporter(ctx, daemonConfig, &wg, db, availableCh, bot, &opts)
+		go runBlockImporter(ctx, daemonConfig, &wg, db, availableCh, bot, opts)
 	} else {
 		logger.Info("No block importer configured.")
 	}
@@ -307,7 +302,7 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	return err
 }
 
-func runBlockImporter(ctx context.Context, cfg *daemonConfig, wg *sync.WaitGroup, db idb.IndexerDb, dbAvailable chan struct{}, bot fetcher.Fetcher, opts *idb.IndexerDbOptions) {
+func runBlockImporter(ctx context.Context, cfg *daemonConfig, wg *sync.WaitGroup, db idb.IndexerDb, dbAvailable chan struct{}, bot fetcher.Fetcher, opts idb.IndexerDbOptions) {
 	// Need to redefine exitHandler() for every go-routine
 	defer exitHandler()
 	defer wg.Done()
@@ -317,30 +312,21 @@ func runBlockImporter(ctx context.Context, cfg *daemonConfig, wg *sync.WaitGroup
 
 	// Initial import if needed.
 	genesisReader := importer.GetGenesisFile(cfg.genesisJSONPath, bot.Algod(), logger)
-	_, err := importer.EnsureInitialImport(db, genesisReader, logger)
+	genesis, err := iutil.ReadGenesis(genesisReader)
+	maybeFail(err, "Error reading genesis file")
+
+	_, err = importer.EnsureInitialImport(db, genesis, logger)
 	maybeFail(err, "importer.EnsureInitialImport() error")
 
 	// sync local ledger
 	nextDBRound, err := db.GetNextRoundToAccount()
 	maybeFail(err, "Error getting DB round")
-	if nextDBRound > 0 {
-		if cfg.catchpoint != "" {
-			err = localledger.RunMigrationFastCatchup(logging.NewLogger(), cfg.catchpoint, opts)
-			maybeFail(err, "Error running ledger migration in fast catchup mode")
-		}
-		err = localledger.RunMigrationSimple(nextDBRound-1, opts)
-		maybeFail(err, "Error running ledger migration")
-	}
 
 	logger.Info("Initializing block import handler.")
 	imp := importer.NewImporter(db)
 
 	logger.Info("Initializing local ledger.")
-	genesisReader = importer.GetGenesisFile(cfg.genesisJSONPath, bot.Algod(), logger)
-	genesis, err := readGenesis(genesisReader)
-	maybeFail(err, "Error reading genesis file")
-
-	proc, err := blockprocessor.MakeProcessor(&genesis, nextDBRound, cfg.indexerDataDir, imp.ImportBlock)
+	proc, err := blockprocessor.MakeProcessorWithLedgerInit(logger, cfg.catchpoint, &genesis, nextDBRound, opts, imp.ImportBlock)
 	if err != nil {
 		maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
 	}
@@ -513,20 +499,4 @@ func handleBlock(block *rpcs.EncodedBlockCert, proc processor.Processor) error {
 	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())
 
 	return nil
-}
-
-func readGenesis(reader io.Reader) (bookkeeping.Genesis, error) {
-	var genesis bookkeeping.Genesis
-	if reader == nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: reader is nil")
-	}
-	gbytes, err := ioutil.ReadAll(reader)
-	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: %w", err)
-	}
-	err = protocol.DecodeJSON(gbytes, &genesis)
-	if err != nil {
-		return bookkeeping.Genesis{}, fmt.Errorf("readGenesis() err: %w", err)
-	}
-	return genesis, nil
 }
