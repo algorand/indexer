@@ -61,8 +61,7 @@ func MakePreloadCreatorsRequest(payset transactions.Payset) (map[basics.AssetInd
 
 // Add requests for account data and account resources to `addressesReq` and
 // `resourcesReq` respectively for the given transaction.
-func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress,
-	addressesReq map[basics.Address]struct{}, resourcesReq map[basics.Address]map[ledger.Creatable]struct{}) {
+func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress, addressesReq map[basics.Address]struct{}, resourcesReq map[basics.Address]map[ledger.Creatable]struct{}) {
 	setResourcesReq := func(addr basics.Address, creatable ledger.Creatable) {
 		c, ok := resourcesReq[addr]
 		if !ok {
