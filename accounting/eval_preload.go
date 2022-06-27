@@ -10,7 +10,7 @@ import (
 // Add requests for asset and app creators to `assetsReq` and `appsReq` for the given
 // transaction.
 func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD,
-	assetsReq map[basics.AssetIndex]struct{}, appsReq map[basics.AppIndex]struct{}, boxesReq map[ledger.DeprecatedBoxRefCmp]struct{}) {
+	assetsReq map[basics.AssetIndex]struct{}, appsReq map[basics.AppIndex]struct{}) {
 	txn := &stxnad.Txn
 
 	switch txn.Type {
@@ -40,28 +40,23 @@ func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD,
 		for _, index := range fields.ForeignAssets {
 			assetsReq[index] = struct{}{}
 		}
-		for _, boxRef := range fields.Boxes {
-			boxesReq[ledger.DeprecatedMakeComparable(&boxRef)] = struct{}{}
-		}
 	}
 
 	for i := range stxnad.ApplyData.EvalDelta.InnerTxns {
-		addToCreatorsRequest(&stxnad.ApplyData.EvalDelta.InnerTxns[i], assetsReq, appsReq, boxesReq)
+		addToCreatorsRequest(&stxnad.ApplyData.EvalDelta.InnerTxns[i], assetsReq, appsReq)
 	}
 }
 
 // MakePreloadCreatorsRequest makes a request for preloading creators in the batch mode.
-func MakePreloadCreatorsRequest(payset transactions.Payset) (map[basics.AssetIndex]struct{}, map[basics.AppIndex]struct{}, map[ledger.DeprecatedBoxRefCmp]struct{}) {
+func MakePreloadCreatorsRequest(payset transactions.Payset) (map[basics.AssetIndex]struct{}, map[basics.AppIndex]struct{}) {
 	assetsReq := make(map[basics.AssetIndex]struct{}, len(payset))
 	appsReq := make(map[basics.AppIndex]struct{}, len(payset))
-	deprecatedBoxesReq := make(map[ledger.DeprecatedBoxRefCmp]struct{}, len(payset))
-	// boxesReqNotUsed := make(map[string]struct{}, len(payset))
 
 	for i := range payset {
-		addToCreatorsRequest(&payset[i].SignedTxnWithAD, assetsReq, appsReq, deprecatedBoxesReq)
+		addToCreatorsRequest(&payset[i].SignedTxnWithAD, assetsReq, appsReq)
 	}
 
-	return assetsReq, appsReq, deprecatedBoxesReq //, boxesReqNotUsed
+	return assetsReq, appsReq
 }
 
 // Add requests for account data and account resources to `addressesReq` and

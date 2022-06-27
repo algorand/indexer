@@ -33,8 +33,6 @@ func generateAccountData() ledgercore.AccountData {
 		return ledgercore.AccountData{}
 	}
 
-	const numCreatables = 20
-
 	res := ledgercore.AccountData{
 		AccountBaseData: ledgercore.AccountBaseData{
 			MicroAlgos: basics.MicroAlgos{Raw: uint64(rand.Int63())},

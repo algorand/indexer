@@ -5,7 +5,6 @@ import (
 
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 )
@@ -148,78 +147,6 @@ func (l LedgerForEvaluator) LookupKv(round basics.Round, key string) (*string, e
 	fmt.Printf("\nindexer::LedgerForEvaluator.LookupKv(round=%d, key=%s) --> (%v, %v)", round, key, val, err)
 
 	return val, err
-}
-
-// DeprecatedGetBoxes is NOT CURRENTLY part of go-algorand's indexerLedgerForEval interface.
-func (l LedgerForEvaluator) DeprecatedGetBoxes(indices map[ledger.DeprecatedBoxRefCmp]struct{}) (map[ledger.DeprecatedBoxRefCmp]ledger.DeprecatedFoundBox, error) {
-	boxRefs := make([]ledger.DeprecatedBoxRefCmp, 0, len(indices))
-	for boxRef := range indices {
-		boxRefs = append(boxRefs, boxRef)
-	}
-
-	res := make(map[ledger.DeprecatedBoxRefCmp]ledger.DeprecatedFoundBox, len(indices))
-	for _, index := range boxRefs {
-		value, err := l.Ledger.LookupKv(l.Ledger.Latest(), index.BoxKey())
-		exists := true
-		if err != nil {
-			// TODO: this is LIKELY TO BE WRONG !!! Should probably return an error:
-			// return nil, fmt.Errorf("GetKv() err: %w", err)
-			exists = false
-		}
-		res[index] = ledger.DeprecatedFoundBox{
-			BoxRef: index.BoxRef(),
-			Value:  value,
-			Exists: exists,
-		}
-	}
-
-	return res, nil
-}
-
-// GetBoxes is NOT CURRENTLY part of go-algorand's indexerLedgerForEval interface.
-func (l LedgerForEvaluator) GetBoxes(indices map[string]struct{}) (map[string]ledger.DeprectedIndexerBox, error) {
-	boxKeys := make([]string, 0, len(indices))
-	for boxKey := range indices {
-		boxKeys = append(boxKeys, boxKey)
-	}
-
-	/*
-		TODO - probably DON'T need to add a mega SQLITE query that looks sumin like da following:
-
-		SELECT key, value
-		FROM kvstore
-		WHERE key in ({','.join(boxKeys)})
-
-		And now that indexerLedger.LookupKv() is trying LookupKv(), actually trying to look this up
-		here probably no longer makes sense
-	*/
-
-	res := make(map[string]ledger.DeprectedIndexerBox, len(boxKeys))
-	for _, boxKey := range boxKeys {
-		// TODO: can probably defer this de-structuring till much later
-		app, name, err := logic.GetAppAndNameFromKey(boxKey)
-		if err != nil {
-			return res, fmt.Errorf("GetBoxes() could not extract app and name out of boxKey [%s]: %w", boxKey, err)
-		}
-		value, err := l.Ledger.LookupKv(l.Ledger.Latest(), boxKey)
-		if err != nil {
-			return res, fmt.Errorf("GetBox() unexpected error in Ledger's LookupKv: %w", err)
-		}
-		// if value == nil {
-		// 	// either the box doesn't yet exist, or it was previously deleted. Either way, we can defer
-		// 	// handling
-		// }
-		box := ledger.DeprectedIndexerBox{
-			Index: app,
-			Name:  name,
-			Value: value,
-			// Touched: false,
-		}
-
-		res[boxKey] = box
-	}
-
-	return res, nil
 }
 
 // LatestTotals is part of go-algorand's indexerLedgerForEval interface.

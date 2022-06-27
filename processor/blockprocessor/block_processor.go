@@ -133,9 +133,10 @@ func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
 		vb = ledgercore.MakeValidatedBlock(block, delta)
 	}
 
+	// TODO: DO NOT MERGE WITH THIS DEBUGGING CODE IN PLACE
 	// 1.5 Temporary checkpoint to compare KvMods with TouchedBoxes
 	kvmods := delta.KvMods
-	touchedBoxes := resources.TouchedBoxes
+	touchedBoxes := resources.DeprecatedTouchedBoxes
 	lk := len(kvmods)
 	lb := len(touchedBoxes)
 	kvmodsMinusTouchedBoxes := []string{}
@@ -194,19 +195,17 @@ func (proc *blockProcessor) NextRoundToProcess() uint64 {
 // Preload all resources (account data, account resources, asset/app creators) for the
 // evaluator.
 func prepareEvalResources(lfe *indexerledger.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
-	assetCreators, appCreators, deprecatedBoxes, deprecatedBoxes2, err := prepareCreators(lfe, block.Payset)
+	assetCreators, appCreators, err := prepareCreators(lfe, block.Payset)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
 			fmt.Errorf("prepareEvalResources() err: %w", err)
 	}
 
 	res := ledger.EvalForIndexerResources{
-		Accounts:         nil,
-		Resources:        nil,
-		Creators:         make(map[ledger.Creatable]ledger.FoundAddress),
-		DeprecatedBoxes:  deprecatedBoxes,
-		DeprecatedBoxes2: deprecatedBoxes2,
-		TouchedBoxes:     make(map[string]struct{}), // TODO: we can know what the expected size is. Should we provide this as well?
+		Accounts:               nil,
+		Resources:              nil,
+		Creators:               make(map[ledger.Creatable]ledger.FoundAddress),
+		DeprecatedTouchedBoxes: make(map[string]struct{}),
 	}
 
 	for index, foundAddress := range assetCreators {
@@ -233,29 +232,25 @@ func prepareEvalResources(lfe *indexerledger.LedgerForEvaluator, block *bookkeep
 	return res, nil
 }
 
-// TODO: should I rename to `prepareTransactionalResourcesCache()` ?
 // Preload asset and app creators.
 func prepareCreators(lfe *indexerledger.LedgerForEvaluator, payset transactions.Payset) (
 	map[basics.AssetIndex]ledger.FoundAddress,
 	map[basics.AppIndex]ledger.FoundAddress,
-	map[ledger.DeprecatedBoxRefCmp]ledger.DeprecatedFoundBox,
-	map[string]ledger.DeprectedIndexerBox,
 	error) {
-	assetsReq, appsReq, deprecatedBoxesReq := accounting.MakePreloadCreatorsRequest(payset)
+	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
 	assets, err := lfe.GetAssetCreator(assetsReq)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
 	}
 	apps, err := lfe.GetAppCreator(appsReq)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
 	}
-	deprecatedBoxes, err := lfe.DeprecatedGetBoxes(deprecatedBoxesReq)
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
 	}
 
-	return assets, apps, deprecatedBoxes, nil, nil
+	return assets, apps, nil
 }
 
 // Preload account data and account resources.
