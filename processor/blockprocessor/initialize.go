@@ -68,6 +68,8 @@ func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint6
 }
 
 func fullNodeCatchup(ctx context.Context, logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+	ctx, cf := context.WithCancel(ctx)
+	defer cf()
 	wrappedLogger := logging.NewWrappedLogger(logger)
 	node, err := node.MakeFull(
 		wrappedLogger,
@@ -117,8 +119,6 @@ func fullNodeCatchup(ctx context.Context, logger *log.Logger, round basics.Round
 
 // InitializeLedgerFastCatchup executes the migration core functionality.
 func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
-	ctx, cf := context.WithCancel(ctx)
-	defer cf()
 	if dataDir == "" {
 		return fmt.Errorf("InitializeLedgerFastCatchup() err: indexer data directory missing")
 	}
