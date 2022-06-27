@@ -381,15 +381,18 @@ func blockHandler(imp importer.Importer, retryDelay time.Duration) func(context.
 	return func(ctx context.Context, block *rpcs.EncodedBlockCert) error {
 		for {
 			err := handleBlock(block, imp)
-			return err
+			if err == nil {
+				// return on success.
+				return nil
+			}
 
-			// // Delay or terminate before next attempt.
-			// select {
-			// case <-ctx.Done():
-			// 	return err
-			// case <-time.After(retryDelay):
-			// 	break
-			// }
+			// Delay or terminate before next attempt.
+			select {
+			case <-ctx.Done():
+				return err
+			case <-time.After(retryDelay):
+				break
+			}
 		}
 	}
 }
