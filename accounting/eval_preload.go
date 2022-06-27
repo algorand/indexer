@@ -9,8 +9,7 @@ import (
 
 // Add requests for asset and app creators to `assetsReq` and `appsReq` for the given
 // transaction.
-func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD,
-	assetsReq map[basics.AssetIndex]struct{}, appsReq map[basics.AppIndex]struct{}) {
+func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD, assetsReq map[basics.AssetIndex]struct{}, appsReq map[basics.AppIndex]struct{}) {
 	txn := &stxnad.Txn
 
 	switch txn.Type {
