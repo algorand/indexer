@@ -39,7 +39,7 @@ func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.Va
 }
 
 // MakeProcessorWithLedgerInit creates a block processor and initializes the ledger.
-func MakeProcessorWithLedgerInit(ctx context.Context, logger *log.Logger, catchpoint string, genesis *bookkeeping.Genesis, nextDBRound uint64, opts idb.IndexerDbOptions, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+func MakeProcessorWithLedgerInit(ctx context.Context, cf context.CancelFunc, logger *log.Logger, catchpoint string, genesis *bookkeeping.Genesis, nextDBRound uint64, opts idb.IndexerDbOptions, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
 	if nextDBRound > 0 {
 		if catchpoint != "" {
 			round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
@@ -56,7 +56,7 @@ func MakeProcessorWithLedgerInit(ctx context.Context, logger *log.Logger, catchp
 			}
 
 		}
-		err := InitializeLedgerSimple(ctx, logger, nextDBRound-1, &opts)
+		err := InitializeLedgerSimple(ctx, cf, logger, nextDBRound-1, &opts)
 		if err != nil {
 			return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() slow catchup err: %w", err)
 		}

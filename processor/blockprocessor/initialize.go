@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/signal"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
@@ -26,18 +24,7 @@ import (
 )
 
 // InitializeLedgerSimple executes the migration core functionality.
-func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint64, opts *idb.IndexerDbOptions) error {
-	ctx, cf := context.WithCancel(ctx)
-	defer cf()
-	{
-		cancelCh := make(chan os.Signal, 1)
-		signal.Notify(cancelCh, syscall.SIGTERM, syscall.SIGINT)
-		go func() {
-			<-cancelCh
-			logger.Errorf("Ledger initalization aborted")
-			os.Exit(1)
-		}()
-	}
+func InitializeLedgerSimple(ctx context.Context, cf context.CancelFunc, logger *log.Logger, round uint64, opts *idb.IndexerDbOptions) error {
 
 	var bot fetcher.Fetcher
 	var err error
@@ -91,41 +78,40 @@ func fullNodeCatchup(ctx context.Context, logger *log.Logger, round basics.Round
 	if err != nil {
 		return err
 	}
-	// remove node directory after when exiting fast catchup mode
-	defer os.RemoveAll(filepath.Join(dataDir, genesis.ID()))
-	// stop node if indexer exits during ledger init
-	_, cf := context.WithCancel(ctx)
-	defer cf()
-	{
-		cancelCh := make(chan os.Signal, 1)
-		signal.Notify(cancelCh, syscall.SIGTERM, syscall.SIGINT)
-		go func() {
-			<-cancelCh
-			logger.Errorf("Ledger initalization aborted")
-			node.Stop()
-			os.Exit(1)
-		}()
+	node.Start()
+	defer func() {
+		node.Stop()
+		logger.Info("algod node stopped")
+	}()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(5 * time.Second):
+		logger.Info("algod node running")
 	}
 
-	node.Start()
-	time.Sleep(5 * time.Second)
-	logger.Info("algod node running")
 	status, err := node.Status()
+	if err != nil {
+		return err
+	}
 	node.StartCatchup(catchpoint)
-	//  If the node isn't in fast catchup mode, catchpoint will be empty.
+
 	logger.Infof("Running fast catchup using catchpoint %s", catchpoint)
 	for status.LastRound < round {
-		time.Sleep(2 * time.Second)
-		status, err = node.Status()
-		logger.Infof("Catchpoint Catchup Total Accounts %d ", status.CatchpointCatchupTotalAccounts)
-		logger.Infof("Catchpoint Catchup Processed Accounts %d ", status.CatchpointCatchupProcessedAccounts)
-		logger.Infof("Catchpoint Catchup Verified Accounts %d ", status.CatchpointCatchupVerifiedAccounts)
-		logger.Infof("Catchpoint Catchup Total Blocks %d ", status.CatchpointCatchupTotalBlocks)
-		logger.Infof("Catchpoint Catchup Acquired Blocks %d ", status.CatchpointCatchupAcquiredBlocks)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(2 * time.Second):
+			status, err = node.Status()
+			logger.Infof("Catchpoint Catchup Total Accounts %d ", status.CatchpointCatchupTotalAccounts)
+			logger.Infof("Catchpoint Catchup Processed Accounts %d ", status.CatchpointCatchupProcessedAccounts)
+			logger.Infof("Catchpoint Catchup Verified Accounts %d ", status.CatchpointCatchupVerifiedAccounts)
+			logger.Infof("Catchpoint Catchup Total Blocks %d ", status.CatchpointCatchupTotalBlocks)
+			logger.Infof("Catchpoint Catchup Acquired Blocks %d ", status.CatchpointCatchupAcquiredBlocks)
+		}
+
 	}
 	logger.Infof("fast catchup completed in %v", status.CatchupTime.Seconds())
-	node.Stop()
-	logger.Info("algod node stopped")
 	return nil
 }
 
@@ -146,7 +132,8 @@ func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchp
 	if err != nil {
 		return fmt.Errorf("fullNodeCatchup() err: %w", err)
 	}
-
+	// remove node directory after fast catchup completes
+	defer os.RemoveAll(filepath.Join(dataDir, genesis.ID()))
 	// move ledger to indexer directory
 	ledgerFiles := []string{
 		"ledger.block.sqlite",
