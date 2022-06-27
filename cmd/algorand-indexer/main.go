@@ -72,13 +72,13 @@ var rootCmd = &cobra.Command{
 }
 
 var (
-	postgresAddr        string
-	dummyIndexerDb      bool
-	doVersion           bool
-	profFile            io.WriteCloser
-	logLevel            string
-	logFile             string
-	logger              *log.Logger
+	postgresAddr   string
+	dummyIndexerDb bool
+	doVersion      bool
+	profFile       io.WriteCloser
+	logLevel       string
+	logFile        string
+	logger         *log.Logger
 )
 
 func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}) {
