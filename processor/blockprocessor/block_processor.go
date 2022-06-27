@@ -233,10 +233,7 @@ func prepareEvalResources(lfe *indexerledger.LedgerForEvaluator, block *bookkeep
 }
 
 // Preload asset and app creators.
-func prepareCreators(lfe *indexerledger.LedgerForEvaluator, payset transactions.Payset) (
-	map[basics.AssetIndex]ledger.FoundAddress,
-	map[basics.AppIndex]ledger.FoundAddress,
-	error) {
+func prepareCreators(lfe *indexerledger.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
 	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
 	assets, err := lfe.GetAssetCreator(assetsReq)
 	if err != nil {
