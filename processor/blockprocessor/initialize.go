@@ -98,13 +98,13 @@ func fullNodeCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir
 	node.Start()
 	time.Sleep(5 * time.Second)
 	logger.Info("algod node running")
-	status, err := node.Status()
+	status, _ := node.Status()
 	node.StartCatchup(catchpoint)
 	//  If the node isn't in fast catchup mode, catchpoint will be empty.
 	logger.Infof("Running fast catchup using catchpoint %s", catchpoint)
 	for status.LastRound < round {
 		time.Sleep(2 * time.Second)
-		status, err = node.Status()
+		status, _ = node.Status()
 		if status.CatchpointCatchupTotalBlocks > 0 {
 			logger.Debugf("current round %d ", status.LastRound)
 		}
@@ -171,7 +171,7 @@ func blockHandler(dbRound uint64, proc processor.Processor, cancel context.Cance
 			case <-ctx.Done():
 				return err
 			case <-time.After(retryDelay):
-				break
+				// noop
 			}
 		}
 	}

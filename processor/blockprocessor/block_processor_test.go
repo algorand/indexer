@@ -56,7 +56,7 @@ func TestFailedProcess(t *testing.T) {
 	require.NoError(t, err)
 	defer l.Close()
 	// invalid processor
-	_, err := block_processor.MakeProcessorWithLedger(nil, nil)
+	_, err = block_processor.MakeProcessorWithLedger(nil, nil)
 	assert.Contains(t, err.Error(), "MakeProcessorWithLedger() err: local ledger not initialized")
 	pr, err := block_processor.MakeProcessorWithLedger(l, nil)
 	assert.Nil(t, err)
