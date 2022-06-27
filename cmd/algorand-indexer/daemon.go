@@ -68,6 +68,7 @@ type daemonConfig struct {
 	genesisJSONPath           string
 }
 
+// DaemonCmd creates the main cobra command, initializes flags, and viper aliases
 func DaemonCmd() *cobra.Command {
 	cfg := &daemonConfig{}
 	daemonCmd := &cobra.Command{
