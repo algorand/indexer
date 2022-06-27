@@ -153,7 +153,7 @@ func loadIndexerConfig(indexerDataDir string, configFile string) error {
 		if configFile != "" {
 			err = fmt.Errorf("indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
 				indexerConfigAutoLoadPath)
-			logger.WithError(err)
+			logger.Error(err)
 			return err
 		}
 		resolvedConfigPath = indexerConfigAutoLoadPath
@@ -162,9 +162,6 @@ func loadIndexerConfig(indexerDataDir string, configFile string) error {
 		resolvedConfigPath = configFile
 	} else {
 		// neither autoload nor user specified
-		err = fmt.Errorf("indexer configuration file was not found in data directory (%s) or specified via command line. Please provide one",
-			indexerConfigAutoLoadPath)
-		logger.WithError(err)
 		return err
 	}
 	configs, err := os.Open(resolvedConfigPath)
@@ -178,7 +175,7 @@ func loadIndexerConfig(indexerDataDir string, configFile string) error {
 		logger.WithError(err).Errorf("invalid config file (%s): %v", viper.ConfigFileUsed(), err)
 		return err
 	}
-	logger.Infof("Using configuration file: %s\n", configFile)
+	logger.Infof("Using configuration file: %s\n", resolvedConfigPath)
 	return err
 }
 
@@ -213,19 +210,19 @@ func createIndexerPidFile(pidFilePath string) error {
 	fout, err := os.Create(pidFilePath)
 	if err != nil {
 		err = fmt.Errorf("%s: could not create pid file, %v", pidFilePath, err)
-		logger.WithError(err).Error(err)
+		logger.Error(err)
 		return err
 	}
 	_, err = fmt.Fprintf(fout, "%d", os.Getpid())
 	if err != nil {
 		err = fmt.Errorf("%s: could not write pid file, %v", pidFilePath, err)
-		logger.WithError(err).Error(err)
+		logger.Error(err)
 		return err
 	}
 	err = fout.Close()
 	if err != nil {
 		err = fmt.Errorf("%s: could not close pid file, %v", pidFilePath, err)
-		logger.WithError(err).Error(err)
+		logger.Error(err)
 		return err
 	}
 	return err
