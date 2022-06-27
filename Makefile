@@ -30,9 +30,6 @@ go-algorand:
 	git submodule update --init && cd third_party/go-algorand && \
 		make crypto/libs/`scripts/ostype.sh`/`scripts/archtype.sh`/lib/libsodium.a
 
-		make crypto/libs/`scripts/ostype.sh`/`scripts/archtype.sh`/lib/libsodium.a
-
-
 idb/postgres/internal/schema/setup_postgres_sql.go:	idb/postgres/internal/schema/setup_postgres.sql
 	cd idb/postgres/internal/schema && go generate
 
