@@ -26,6 +26,7 @@ import (
 // InitializeLedgerSimple executes the migration core functionality.
 func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint64, opts *idb.IndexerDbOptions) error {
 	ctx, cf := context.WithCancel(ctx)
+	defer cf()
 	var bot fetcher.Fetcher
 	var err error
 	if opts.IndexerDatadir == "" {
@@ -116,6 +117,8 @@ func fullNodeCatchup(ctx context.Context, logger *log.Logger, round basics.Round
 
 // InitializeLedgerFastCatchup executes the migration core functionality.
 func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+	ctx, cf := context.WithCancel(ctx)
+	defer cf()
 	if dataDir == "" {
 		return fmt.Errorf("InitializeLedgerFastCatchup() err: indexer data directory missing")
 	}
