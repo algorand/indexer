@@ -5,6 +5,7 @@ import (
 
 	log "github.com/sirupsen/logrus"
 
+	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -99,7 +100,7 @@ func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
 		return fmt.Errorf("Process() invalid round blockCert.Block.Round(): %d nextRoundToProcess: %d", blockCert.Block.Round(), uint64(proc.ledger.Latest())+1)
 	}
 
-	proto, ok := algodConfig.Consensus[blockCert.Block.BlockHeader.CurrentProtocol]
+	proto, ok := config.Consensus[blockCert.Block.BlockHeader.CurrentProtocol]
 	if !ok {
 		return fmt.Errorf(
 			"Process() cannot find proto version %s", blockCert.Block.BlockHeader.CurrentProtocol)
