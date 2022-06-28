@@ -19,9 +19,6 @@ const FileType = "yml"
 // gets confused and thinks the binary is a config file with no extension.
 const FileName = "indexer"
 
-// ConfigPaths are the different locations that algorand-indexer should look for config files.
-var ConfigPaths = [...]string{".", "$HOME", "$HOME/.algorand-indexer/", "$HOME/.config/algorand-indexer/", "/etc/algorand-indexer/"}
-
 // BindFlags glues the cobra and viper libraries together.
 func BindFlags(cmd *cobra.Command) {
 	cmd.Flags().VisitAll(func(f *pflag.Flag) {
