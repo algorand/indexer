@@ -16,7 +16,6 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
@@ -48,7 +47,7 @@ func TestImportRetryAndCancel(t *testing.T) {
 	imp := &mockImporter{}
 	ledgerLogger, _ := test.NewNullLogger()
 	l, err := itest.MakeTestLedger(ledgerLogger)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	defer l.Close()
 	proc, err := blockprocessor.MakeProcessorWithLedger(l, nil)
 	assert.Nil(t, err)
@@ -105,7 +104,7 @@ func TestConfigWithEnableAllParamsExpectError(t *testing.T) {
 	daemonConfig.suppliedAPIConfigFile = "foobar"
 	err := runDaemon(daemonConfig)
 	errorStr := "not allowed to supply an api config file and enable all parameters"
-	require.EqualError(t, err, errorStr)
+	assert.EqualError(t, err, errorStr)
 }
 
 func TestConfigDoesNotExistExpectError(t *testing.T) {
@@ -119,7 +118,7 @@ func TestConfigDoesNotExistExpectError(t *testing.T) {
 	err := runDaemon(daemonConfig)
 	// This error string is probably OS-specific
 	errorStr := fmt.Sprintf("open %s: no such file or directory", tempConfigFile)
-	require.EqualError(t, err, errorStr)
+	assert.EqualError(t, err, errorStr)
 }
 
 func TestConfigInvalidExpectError(t *testing.T) {
@@ -135,7 +134,7 @@ func TestConfigInvalidExpectError(t *testing.T) {
 	logger.SetOutput(b)
 	err := runDaemon(daemonConfig)
 	errorStr := "While parsing config: yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `;;;` into map[string]interface {}"
-	require.EqualError(t, err, errorStr)
+	assert.EqualError(t, err, errorStr)
 }
 
 func TestConfigSpecifiedTwiceExpectError(t *testing.T) {
@@ -150,7 +149,7 @@ func TestConfigSpecifiedTwiceExpectError(t *testing.T) {
 	err := runDaemon(daemonConfig)
 	errorStr := fmt.Sprintf("indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
 		filepath.Join(indexerDataDir, "indexer.yml"))
-	require.EqualError(t, err, errorStr)
+	assert.EqualError(t, err, errorStr)
 }
 
 func TestLoadAPIConfigGivenAutoLoadAndUserSuppliedExpectError(t *testing.T) {
@@ -167,7 +166,7 @@ func TestLoadAPIConfigGivenAutoLoadAndUserSuppliedExpectError(t *testing.T) {
 	err := loadIndexerParamConfig(cfg)
 	errorStr := fmt.Sprintf("api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
 		autoloadPath)
-	require.EqualError(t, err, errorStr)
+	assert.EqualError(t, err, errorStr)
 }
 
 func TestLoadAPIConfigGivenUserSuppliedExpectSuccess(t *testing.T) {
@@ -180,7 +179,7 @@ func TestLoadAPIConfigGivenUserSuppliedExpectSuccess(t *testing.T) {
 	cfg.suppliedAPIConfigFile = userSuppliedPath
 
 	err := loadIndexerParamConfig(cfg)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 }
 
 func TestLoadAPIConfigGivenAutoLoadExpectSuccess(t *testing.T) {
@@ -193,8 +192,8 @@ func TestLoadAPIConfigGivenAutoLoadExpectSuccess(t *testing.T) {
 	cfg.indexerDataDir = indexerDataDir
 
 	err := loadIndexerParamConfig(cfg)
-	require.NoError(t, err)
-	require.Equal(t, autoloadPath, cfg.suppliedAPIConfigFile)
+	assert.NoError(t, err)
+	assert.Equal(t, autoloadPath, cfg.suppliedAPIConfigFile)
 }
 
 func TestIndexerDataDirNotProvidedExpectError(t *testing.T) {
