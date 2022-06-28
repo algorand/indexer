@@ -13,10 +13,10 @@ type Exporter interface {
 	// Should return an error if it fails--this will result in the Indexer process terminating.
 	Connect(cfg ExporterConfig) error
 
-	// Shutdown will be called during termination of the Indexer process.
+	// Disconnect will be called during termination of the Indexer process.
 	// There is no guarantee that plugin lifecycle hooks will be invoked in any specific order in relation to one another.
 	// Returns an error if it fails which will be surfaced in the logs, but the process is already terminating.
-	Shutdown() error
+	Disconnect() error
 
 	// Receive is called for each block to be processed by the exporter.
 	// Should return an error on failure--retries are configurable.
