@@ -49,47 +49,50 @@ section to incorporate non-native plugins.
 ***Plugin Interface***  
 Exporter plugins that are native to the Indexer (maintained within the Indexer repository) will each implementation the exporter interface:
 ```
+// ExporterConfig will act as a placeholder for now. It will end up providing an interface for
+// serialization/deserialization of config files.
+// Derived types will provide plugin-specific data fields.
+type ExporterConfig interface {}
+
+
 // Exporter defines the methods invoked during the plugin lifecycle of a data exporter.
 type Exporter interface {
   // Connect will be called during initialization, before block data starts going through the pipeline.
   // Typically used for things like initializating network connections.
   // The ExporterConfig passed to Connect will contain the Unmarhsalled config file specific to this plugin.
   // Should return an error if it fails--this will result in the Indexer process terminating.
-  Connect(ExporterConfig cfg) error
+  Connect(cfg ExporterConfig) error
   
-  // Shutdown will be called during termination of the Indexer process.
+  // Connect will be called during termination of the Indexer process.
   // There is no guarantee that plugin lifecycle hooks will be invoked in any specific order in relation to one another.
   // Returns an error if it fails which will be surfaced in the logs, but the process is already terminating.
-  Shutdown() error
+  Connect() error
   
-  // Recv is called for each block to be processed by the exporter.
+  // Receive is called for each block to be processed by the exporter.
   // Should return an error on failure--retries are configurable.
-  Recv(DataFormat blockData) error
+  Receive(blockData *rpcs.EncodedBlockCert) error
   
-  // DataFormat returns the type of the data that the plugin expects to receive.
-  // Must be one of the impelemented formats in the Indexer repository.
-  DataFormat() DataFormat
-  
-  // Round returns the next round to be processed. Atomically updated when Recv successfully completes.
+  // Round returns the next round not yet processed by the Exporter. Atomically updated when Receive successfully completes.
   Round() uint64
 }
 ```
 
 ***Plugin Config***
 * A config file that defines all parameters that can be supplied to the plugin, and which provides the default values
-that will be used for each parameter. A toml file stored inside the Indexer data directory stores all of the config data
+that will be used for each parameter. A yaml file stored inside the Indexer data directory stores all of the config data
 for a given plugin. The Indexer will use the type specified in the Indexer config to look for a plugin config which
 satisfies that class, and then load that as the selected plugin. Supplying multiple plugin configs for the selected type
-of exporter will result in undefined behavior--a random config will be chosen.
+of exporter will result in a random config being chosen. In the future we may evolve this to support multiple plugins
+of the same type via a method of differentiation.
 ```
-[Plugin.Exporter]
-name = "postgresql-exporter"
-type = "IndexerPostgresqlExporter"
-username = "foo"
-password = "bar"
-host = "127.0.0.1"
-port = "1234"
-dbname = "indexer"
+name: "postgresql-exporter"
+type: "IndexerPostgresqlExporter"
+properties:
+  username: "foo"
+  password: "bar"
+  host: "127.0.0.1"
+  port: "1234"
+  dbname: "indexer"
 ```
 
 **Indexer Config**
@@ -177,11 +180,6 @@ docker/linkerd/containerd use HTTP endpoints to standardize communication (thoug
 instead of streaming data). 
   - I support using sockets--very standard and well known programming interface,and has useful libraries built
 around it unlike using process input/output which may have additional OS-specific challenges.
-- What should the plugin config file format be?
-  - toml is a great format which has serialization/deserialization support in golang, is expressive in terms of the
-supported data, and has an easy-to-read format. However, we currently use yaml for most things--this is probably our
-opportunity to swap over, at least for a portion of our configs if we want.
-- 
 
 ### Future possibilities
 
