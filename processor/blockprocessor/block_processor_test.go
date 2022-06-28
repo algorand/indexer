@@ -142,7 +142,7 @@ func TestMakeProcessorWithLedgerInit_CatchpointErrors(t *testing.T) {
 			name:       "catchpoint too recent",
 			catchpoint: "21890000#IQ4BQTCNVEDIBNRPNCKWRBQLJ7ILXIJBYKJHF67TLUOYRUGHW7ZA",
 			round:      21889999,
-			errMsg:     "catchpoint round is ahead of db round",
+			errMsg:     "invalid catchpoint: catchpoint round 21890000 should not be ahead of target round 21889998",
 		},
 		{
 			name:       "get past catchpoint check",
