@@ -346,12 +346,12 @@ func makeOptions() (options api.ExtraOptions) {
 		}
 
 		if len((*potentialDisabledMapConfig).Data) == 0 {
-			logger.Infof("NOTICE: All parameters are enabled since the provided parameter configuration file (%s) is empty.", suppliedAPIConfigFile)
+			logger.Warnf("All parameters are enabled since the provided parameter configuration file (%s) is empty.", suppliedAPIConfigFile)
 		}
 
 		options.DisabledMapConfig = potentialDisabledMapConfig
 	} else {
-		logger.Infof("NOTICE: Enable all parameters flag is set to: %v", enableAllParameters)
+		logger.Infof("Enable all parameters flag is set to: %v", enableAllParameters)
 	}
 
 	return
