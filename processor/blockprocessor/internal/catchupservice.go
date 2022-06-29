@@ -68,11 +68,10 @@ func CatchupServiceCatchup(logger *log.Logger, round basics.Round, catchpoint, d
 	if err != nil {
 		return fmt.Errorf("CatchupServiceCatchup() NewWebsocketNetwork err: %w", err)
 	}
-	// TODO: Do we need to implement the peer prioritization interface?
-	//p2pNode.SetPrioScheme(node)
 	p2pNode.Start()
 
-	// TODO: if the ledger already has a catchpoint, use MakeResumedCatchpointCatchupService
+	// TODO: Can use MakeResumedCatchpointCatchupService if ledger exists.
+	//       Without this ledger is re-initialized instead of resumed on restart.
 	service, err := catchup.MakeNewCatchpointCatchupService(
 		catchpoint,
 		node,

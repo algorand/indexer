@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
+	log "github.com/sirupsen/logrus"
+
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	algodConfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/basics"
@@ -16,11 +18,11 @@ import (
 	"github.com/algorand/go-algorand/node"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/processor"
+	"github.com/algorand/indexer/processor/blockprocessor/internal"
 )
 
 // InitializeLedgerSimple executes the migration core functionality.
@@ -111,29 +113,10 @@ func fullNodeCatchup(ctx context.Context, logger *log.Logger, round basics.Round
 			logger.Infof("Catchpoint Catchup Total Blocks %d ", status.CatchpointCatchupTotalBlocks)
 			logger.Infof("Catchpoint Catchup Acquired Blocks %d ", status.CatchpointCatchupAcquiredBlocks)
 		}
-
-	}
-	logger.Infof("fast catchup completed in %v", status.CatchupTime.Seconds())
-	return nil
-}
-
-// InitializeLedgerFastCatchup executes the migration core functionality.
-func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
-	if dataDir == "" {
-		return fmt.Errorf("InitializeLedgerFastCatchup() err: indexer data directory missing")
-	}
-	// catchpoint round
-	round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
-	if err != nil {
-		return fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
 	}
 
-	// TODO: switch to catchup service catchup.
-	//err = internal.CatchupServiceCatchup(logger, round, catchpoint, dataDir, genesis)
-	err = fullNodeCatchup(ctx, logger, round, catchpoint, dataDir, genesis)
-	if err != nil {
-		return fmt.Errorf("fullNodeCatchup() err: %w", err)
-	}
+	logger.Infof("fast catchup completed in %v, moving files to data directory", status.CatchupTime.Seconds())
+
 	// remove node directory after fast catchup completes
 	defer os.RemoveAll(filepath.Join(dataDir, genesis.ID()))
 	// move ledger to indexer directory
@@ -148,8 +131,27 @@ func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchp
 	for _, f := range ledgerFiles {
 		err = os.Rename(filepath.Join(dataDir, genesis.ID(), f), filepath.Join(dataDir, f))
 		if err != nil {
-			return fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
+			return fmt.Errorf("fullNodeCatchup() err: %w", err)
 		}
+	}
+	return nil
+}
+
+// InitializeLedgerFastCatchup executes the migration core functionality.
+func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+	if dataDir == "" {
+		return fmt.Errorf("InitializeLedgerFastCatchup() err: indexer data directory missing")
+	}
+	// catchpoint round
+	round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
+	if err != nil {
+		return fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
+	}
+
+	err = internal.CatchupServiceCatchup(logger, round, catchpoint, dataDir, genesis)
+	//err = fullNodeCatchup(ctx, logger, round, catchpoint, dataDir, genesis)
+	if err != nil {
+		return fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
 	}
 	return nil
 }
