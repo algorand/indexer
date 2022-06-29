@@ -207,7 +207,6 @@ func prepareEvalResources(lfe *indexerledger.LedgerForEvaluator, block *bookkeep
 		Accounts:  nil,
 		Resources: nil,
 		Creators:  make(map[ledger.Creatable]ledger.FoundAddress),
-		// DeprecatedTouchedBoxes: make(map[string]struct{}),
 	}
 
 	for index, foundAddress := range assetCreators {
