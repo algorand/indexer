@@ -17,6 +17,8 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
+var Delay = 5 * time.Second
+
 // makeNodeProvider initializes the node provider.
 func makeNodeProvider(ctx context.Context) nodeProvider {
 	return nodeProvider{
@@ -89,7 +91,7 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, round basics
 	}
 
 	select {
-	case <-time.After(5 * time.Second):
+	case <-time.After(Delay):
 	case <-ctx.Done():
 		return ctx.Err()
 	}
@@ -98,7 +100,7 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, round basics
 	running := true
 	for running {
 		select {
-		case <-time.After(5 * time.Second):
+		case <-time.After(Delay):
 		case <-ctx.Done():
 			return ctx.Err()
 		}

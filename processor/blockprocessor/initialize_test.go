@@ -21,6 +21,7 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/processor/blockprocessor/internal"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
 )
@@ -124,9 +125,11 @@ func TestInitializeLedgerFastCatchup_Errors(t *testing.T) {
 
 	// This should hit a couple extra branches
 	ctx, cf = context.WithCancel(context.Background())
+	internal.Delay = 1 * time.Millisecond
+	// cancel after a short delay
 	go func() {
-		time.Sleep(11 * time.Second)
-		cf() // cancel immediately
+		time.Sleep(1 * time.Second)
+		cf()
 	}()
 	tryToRun(ctx)
 }
