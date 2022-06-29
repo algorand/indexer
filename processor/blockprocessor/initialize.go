@@ -148,7 +148,7 @@ func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchp
 		return fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
 	}
 
-	err = internal.CatchupServiceCatchup(logger, round, catchpoint, dataDir, genesis)
+	err = internal.CatchupServiceCatchup(ctx, logger, round, catchpoint, dataDir, genesis)
 	//err = fullNodeCatchup(ctx, logger, round, catchpoint, dataDir, genesis)
 	if err != nil {
 		return fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
