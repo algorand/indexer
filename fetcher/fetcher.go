@@ -142,46 +142,12 @@ func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 		serviceDr.net.Start()
 		serviceDr.cfg.NetAddress, _ = serviceDr.net.Address()
 
-		// making peerselector, makes sure that dns records are loaded
+		// // making peerselector, makes sure that dns records are loaded
 		serviceDr.net.RequestConnectOutgoing(false, ctx.Done())
-		serviceDr.peerSelector = serviceDr.createPeerSelector(false)
-		if _, err := serviceDr.peerSelector.getNextPeer(); err != nil {
-			fmt.Println(err)
-		}
-		psp, _ := serviceDr.peerSelector.getNextPeer()
-		// loop to catchup
-		for {
-			start := time.Now()
-			if psp.Peer == nil {
-				psp, _ = serviceDr.peerSelector.getNextPeer()
-			} else {
-				blk, cert, err1 := serviceDr.directNetworkFetch(ctx, bot.nextRound, psp, psp.Peer)
-				if err1 != nil {
-					psp, _ = serviceDr.peerSelector.getNextPeer()
-					// If context has expired.
-					if ctx.Err() != nil {
-						return fmt.Errorf("catchupLoop() fetch err: %w", err)
-					}
-				} else if uint64(blk.Round()) == bot.nextRound {
 
-					block := new(rpcs.EncodedBlockCert)
-					block.Block = *blk
-					block.Certificate = *cert
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case bot.blockQueue <- block:
-						bot.nextRound++
-					}
-				}
-			}
-			dt := time.Since(start)
-			metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
-			// If we successfully handle the block, clear out any transient error which may have occurred.
-			bot.setError(nil)
-			// bot.nextRound++
-			bot.failingSince = time.Time{}
-		}
+		err = serviceDr.pipelinedFetch(uint64(2), bot, ctx)
+		return err
+
 	} else {
 		var blockbytes []byte
 		aclient := bot.Algod()
@@ -292,7 +258,7 @@ func (bot *fetcherImpl) mainLoop(ctx context.Context) error {
 
 // Run is part of the Fetcher interface
 func (bot *fetcherImpl) Run(ctx context.Context) error {
-	bot.blockQueue = make(chan *rpcs.EncodedBlockCert)
+	bot.blockQueue = make(chan *rpcs.EncodedBlockCert, 5000)
 
 	ctx, cancelFunc := context.WithCancel(ctx)
 	defer cancelFunc()
