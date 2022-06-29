@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/jarcoal/httpmock"
 	"github.com/sirupsen/logrus"
@@ -94,25 +95,38 @@ func TestInitializeLedgerFastCatchup_Errors(t *testing.T) {
 	err = InitializeLedgerFastCatchup(context.Background(), log, "asdf", t.TempDir(), bookkeeping.Genesis{})
 	require.EqualError(t, err, "InitializeLedgerFastCatchup() err: catchpoint parsing failed")
 
+	tryToRun := func(ctx context.Context) {
+		var addr basics.Address
+		genesis := bookkeeping.Genesis{
+			SchemaID:    "1",
+			Network:     "test",
+			Proto:       "future",
+			Allocation:  nil,
+			RewardsPool: addr.String(),
+			FeeSink:     addr.String(),
+			Timestamp:   0,
+			Comment:     "",
+			DevMode:     false,
+		}
+		err = InitializeLedgerFastCatchup(
+			ctx,
+			logrus.New(),
+			"21890000#BOGUSTCNVEDIBNRPNCKWRBQLJ7ILXIJBYKAHF67TLUOYRUGHW7ZA",
+			t.TempDir(),
+			genesis)
+		require.EqualError(t, err, "InitializeLedgerFastCatchup() err: context canceled")
+	}
+
+	// Run with an immediate cancel
 	ctx, cf := context.WithCancel(context.Background())
 	cf() // cancel immediately
-	var addr basics.Address
-	genesis := bookkeeping.Genesis{
-		SchemaID:    "1",
-		Network:     "test",
-		Proto:       "future",
-		Allocation:  nil,
-		RewardsPool: addr.String(),
-		FeeSink:     addr.String(),
-		Timestamp:   0,
-		Comment:     "",
-		DevMode:     false,
-	}
-	err = InitializeLedgerFastCatchup(
-		ctx,
-		logrus.New(),
-		"21890000#BOGUSTCNVEDIBNRPNCKWRBQLJ7ILXIJBYKAHF67TLUOYRUGHW7ZA",
-		t.TempDir(),
-		genesis)
-	require.EqualError(t, err, "InitializeLedgerFastCatchup() err: context canceled")
+	tryToRun(ctx)
+
+	// This should hit a couple extra branches
+	ctx, cf = context.WithCancel(context.Background())
+	go func() {
+		time.Sleep(11 * time.Second)
+		cf() // cancel immediately
+	}()
+	tryToRun(ctx)
 }
