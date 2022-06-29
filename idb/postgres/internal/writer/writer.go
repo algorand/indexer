@@ -358,7 +358,6 @@ func (w *Writer) AddBlock0(block *bookkeeping.Block) error {
 	return nil
 }
 
-// TODO: Zeph remove this comment which points out the <<<pg import entrypoint>>>
 // AddBlock writes the block and accounting state deltas to the database, except for
 // transactions and transaction participation. Those are imported by free functions in
 // the writer/ directory.
