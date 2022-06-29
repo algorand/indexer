@@ -246,6 +246,8 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	if err = loadIndexerConfig(daemonConfig.indexerDataDir, daemonConfig.configFile); err != nil {
 		return err
 	}
+	// We need to re-run this because loading the config file could change these
+	config.BindFlagSet(daemonConfig.flags)
 
 	// Load the Parameter config
 	if err = loadIndexerParamConfig(daemonConfig); err != nil {
