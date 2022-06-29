@@ -564,7 +564,7 @@ func TestLcAccountDataEncoding(t *testing.T) {
 	var selectionID crypto.VRFVerifier
 	selectionID[0] = 15
 
-	var stateProofID merklesignature.Verifier
+	var stateProofID merklesignature.Commitment
 	stateProofID[0] = 19
 
 	ad := ledgercore.AccountData{

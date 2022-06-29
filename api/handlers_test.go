@@ -735,7 +735,7 @@ func createTxn(t *testing.T, target string) []byte {
 	var selectionPK crypto.VRFVerifier
 	selectionPK[0] = 1
 
-	var sprfkey merklesignature.Verifier
+	var sprfkey merklesignature.Commitment
 	sprfkey[0] = 1
 
 	stxnad := transactions.SignedTxnWithAD{
