@@ -48,7 +48,7 @@ section to incorporate non-native plugins.
 
 ***Plugin Interface***  
 Exporter plugins that are native to the Indexer (maintained within the Indexer repository) will each implementation the exporter interface:
-```
+```Go
 // ExporterConfig will act as a placeholder for now. It will end up providing an interface for
 // serialization/deserialization of config files.
 // Derived types will provide plugin-specific data fields.
@@ -84,7 +84,7 @@ for a given plugin. The Indexer will use the type specified in the Indexer confi
 satisfies that class, and then load that as the selected plugin. Supplying multiple plugin configs for the selected type
 of exporter will result in a random config being chosen. In the future we may evolve this to support multiple plugins
 of the same type via a method of differentiation.
-```
+```YAML
 name: "postgresql-exporter"
 type: "IndexerPostgresqlExporter"
 properties:
