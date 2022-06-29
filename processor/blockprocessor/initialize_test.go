@@ -3,6 +3,7 @@ package blockprocessor
 import (
 	"context"
 	"fmt"
+	"github.com/sirupsen/logrus"
 	"os"
 	"testing"
 	"time"
