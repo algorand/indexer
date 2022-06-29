@@ -254,12 +254,6 @@ func writeAssetResource(round basics.Round, resource *ledgercore.AssetResourceRe
 }
 
 func writeAppResource(round basics.Round, resource *ledgercore.AppResourceRecord, batch *pgx.Batch) {
-	// type AppResourceRecord struct {
-	// 	Aidx   basics.AppIndex
-	// 	Addr   basics.Address
-	// 	Params AppParamsDelta
-	// 	State  AppLocalStateDelta
-	// }
 	if resource.Params.Deleted {
 		batch.Queue(deleteAppStmtName, resource.Aidx, resource.Addr[:], round)
 	} else {
