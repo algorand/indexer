@@ -136,21 +136,7 @@ func init() {
 	// Setup configuration file
 	viper.SetConfigName(config.FileName)
 	viper.SetConfigType(config.FileType)
-	for _, k := range config.ConfigPaths {
-		viper.AddConfigPath(k)
-	}
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found, not an error since it may be set on the CLI.
-		} else {
-			fmt.Fprintf(os.Stderr, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
-			panic(exit{1})
-		}
-	} else {
-		fmt.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
-	}
 
 	viper.SetEnvPrefix(config.EnvPrefix)
 	viper.AutomaticEnv()
