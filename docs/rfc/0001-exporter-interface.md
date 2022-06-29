@@ -2,9 +2,7 @@
 
 - Contribution Name: Exporter Interface/Plugin Framework
 - Implementation Owner: Eric Warehime
-- RFC PR: [algorand/indexer#0000](https://github.com/algorand/indexer/pull/0000)
-- Indexer Issue:
-  [algorand/indexer#0000](https://github.com/algorand/indexer/issues/0000)
+- RFC PR: [algorand/indexer#1061](https://github.com/algorand/indexer/pull/1061)
 
 ## Summary
 
