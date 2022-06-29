@@ -133,36 +133,38 @@ func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
 		vb = ledgercore.MakeValidatedBlock(block, delta)
 	}
 
-	// TODO: DO NOT MERGE WITH THIS DEBUGGING CODE IN PLACE
-	// 1.5 Temporary checkpoint to compare KvMods with TouchedBoxes
-	kvmods := delta.KvMods
-	touchedBoxes := resources.DeprecatedTouchedBoxes
-	lk := len(kvmods)
-	lb := len(touchedBoxes)
-	kvmodsMinusTouchedBoxes := []string{}
-	touchedBoxesMinusKvMods := []string{}
-	for box := range kvmods {
-		if _, ok := touchedBoxes[box]; !ok {
-			kvmodsMinusTouchedBoxes = append(kvmodsMinusTouchedBoxes, box)
-		}
-	}
-	for box := range touchedBoxes {
-		if _, ok := kvmods[box]; !ok {
-			touchedBoxesMinusKvMods = append(touchedBoxesMinusKvMods, box)
-		}
-	}
-	fmt.Printf(`Sanity check report kvmods V. touchedBoxes
-***	len(kvmods)       			=  %d
-***	len(touchedBoxes) 			=  %d
-***	len(kvmods - touchedBoxes)	=  %d
-***	len(touchedBoxes - kvmods)	=  %d
-***	kvmods - touchedBoxes       = %+v
-***	touchedBoxes - kvmods       = %+v
-***	kvmods                      = %+v
-***	touchedBoxes                = %+v
-`, lk, lb, len(kvmodsMinusTouchedBoxes), len(touchedBoxesMinusKvMods), kvmodsMinusTouchedBoxes, touchedBoxesMinusKvMods, kvmods, touchedBoxes)
-	// Drumroll.....🥁...... and the winner is: kvmods
-	// UPSHOT: touchedBoxes was completely unecessary
+	/*
+			// TODO: DO NOT MERGE WITH THIS DEBUGGING CODE IN PLACE
+			// 1.5 Temporary checkpoint to compare KvMods with TouchedBoxes
+			kvmods := delta.KvMods
+			touchedBoxes := resources.DeprecatedTouchedBoxes
+			lk := len(kvmods)
+			lb := len(touchedBoxes)
+			kvmodsMinusTouchedBoxes := []string{}
+			touchedBoxesMinusKvMods := []string{}
+			for box := range kvmods {
+				if _, ok := touchedBoxes[box]; !ok {
+					kvmodsMinusTouchedBoxes = append(kvmodsMinusTouchedBoxes, box)
+				}
+			}
+			for box := range touchedBoxes {
+				if _, ok := kvmods[box]; !ok {
+					touchedBoxesMinusKvMods = append(touchedBoxesMinusKvMods, box)
+				}
+			}
+			fmt.Printf(`Sanity check report kvmods V. touchedBoxes
+		***	len(kvmods)       			=  %d
+		***	len(touchedBoxes) 			=  %d
+		***	len(kvmods - touchedBoxes)	=  %d
+		***	len(touchedBoxes - kvmods)	=  %d
+		***	kvmods - touchedBoxes       = %+v
+		***	touchedBoxes - kvmods       = %+v
+		***	kvmods                      = %+v
+		***	touchedBoxes                = %+v
+		`, lk, lb, len(kvmodsMinusTouchedBoxes), len(touchedBoxesMinusKvMods), kvmodsMinusTouchedBoxes, touchedBoxesMinusKvMods, kvmods, touchedBoxes)
+			// Drumroll.....🥁...... and the winner is: kvmods
+			// UPSHOT: touchedBoxes was completely unecessary
+	*/
 
 	// 2. persist to indexer database
 	// execute handler before writing to local ledger
@@ -202,10 +204,10 @@ func prepareEvalResources(lfe *indexerledger.LedgerForEvaluator, block *bookkeep
 	}
 
 	res := ledger.EvalForIndexerResources{
-		Accounts:               nil,
-		Resources:              nil,
-		Creators:               make(map[ledger.Creatable]ledger.FoundAddress),
-		DeprecatedTouchedBoxes: make(map[string]struct{}),
+		Accounts:  nil,
+		Resources: nil,
+		Creators:  make(map[ledger.Creatable]ledger.FoundAddress),
+		// DeprecatedTouchedBoxes: make(map[string]struct{}),
 	}
 
 	for index, foundAddress := range assetCreators {

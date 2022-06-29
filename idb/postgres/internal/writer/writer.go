@@ -107,9 +107,9 @@ var statements = map[string]string{
 		VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (addr, app) DO UPDATE SET
 		localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at`,
 	upsertAppBoxStmtName: `INSERT INTO app_box AS ab
-		(app, box_name, size, value, created_at)
+		(app, name, size, value, created_at)
 		VALUES ($1, $2, $3, $4, $5)
-		ON CONFLICT (app, box_name) DO UPDATE SET
+		ON CONFLICT (app, name) DO UPDATE SET
 		-- retain size info of deleted boxes:
 		size = (CASE WHEN EXCLUDED.value IS NULL THEN ab.size ELSE EXCLUDED.size END),
 		value = EXCLUDED.value,
