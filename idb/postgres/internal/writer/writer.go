@@ -304,10 +304,6 @@ func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.AccountDel
 
 }
 
-// type appBoxRecord struct {
-// 	App basics.AppIndex
-// }
-
 func writeBoxMods(round basics.Round, kvMods map[string]*string, batch *pgx.Batch) error {
 	// kvMods can in theory support more general storage types than app boxes.
 	// However, here we assume that all the given kvMods represent app boxes.
