@@ -1,20 +1,28 @@
 package blockprocessor_test
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	test2 "github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
-	block_processor "github.com/algorand/indexer/processor/blockprocessor"
+
+	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/algorand/indexer/util/test"
-	"github.com/stretchr/testify/assert"
 )
+
+var noopHandler = func(block *ledgercore.ValidatedBlock) error {
+	return nil
+}
 
 func TestProcess(t *testing.T) {
 	log, _ := test2.NewNullLogger()
@@ -24,10 +32,7 @@ func TestProcess(t *testing.T) {
 	genesisBlock, err := l.Block(basics.Round(0))
 	assert.Nil(t, err)
 	// create processor
-	handler := func(vb *ledgercore.ValidatedBlock) error {
-		return nil
-	}
-	pr, _ := block_processor.MakeProcessorWithLedger(l, handler)
+	pr, _ := blockprocessor.MakeProcessorWithLedger(l, noopHandler)
 	prevHeader := genesisBlock.BlockHeader
 	assert.Equal(t, basics.Round(0), l.Latest())
 	// create a few rounds
@@ -56,9 +61,9 @@ func TestFailedProcess(t *testing.T) {
 	require.NoError(t, err)
 	defer l.Close()
 	// invalid processor
-	_, err = block_processor.MakeProcessorWithLedger(nil, nil)
+	pr, err := blockprocessor.MakeProcessorWithLedger(nil, nil)
 	assert.Contains(t, err.Error(), "MakeProcessorWithLedger() err: local ledger not initialized")
-	pr, err := block_processor.MakeProcessorWithLedger(l, nil)
+	pr, err = blockprocessor.MakeProcessorWithLedger(l, nil)
 	assert.Nil(t, err)
 	err = pr.Process(nil)
 	assert.Contains(t, err.Error(), "Process(): cannot process a nil block")
@@ -104,9 +109,9 @@ func TestFailedProcess(t *testing.T) {
 	handler := func(vb *ledgercore.ValidatedBlock) error {
 		return fmt.Errorf("handler error")
 	}
-	_, err = block_processor.MakeProcessorWithLedger(l, handler)
+	_, err = blockprocessor.MakeProcessorWithLedger(l, handler)
 	assert.Contains(t, err.Error(), "handler error")
-	pr, _ = block_processor.MakeProcessorWithLedger(l, nil)
+	pr, _ = blockprocessor.MakeProcessorWithLedger(l, nil)
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	assert.Nil(t, err)
@@ -114,4 +119,50 @@ func TestFailedProcess(t *testing.T) {
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
 	err = pr.Process(&rawBlock)
 	assert.Contains(t, err.Error(), "Process() handler err")
+}
+
+// TestMakeProcessorWithLedgerInit_CatchpointErrors verifies that the catchpoint error handling works properly.
+func TestMakeProcessorWithLedgerInit_CatchpointErrors(t *testing.T) {
+	log, _ := test2.NewNullLogger()
+	var genesis bookkeeping.Genesis
+
+	testCases := []struct {
+		name       string
+		catchpoint string
+		round      uint64
+		errMsg     string
+	}{
+		{
+			name:       "invalid catchpoint string",
+			catchpoint: "asdlgkjasldgkjsadg",
+			round:      1,
+			errMsg:     "catchpoint parsing failed",
+		},
+		{
+			name:       "catchpoint too recent",
+			catchpoint: "21890000#IQ4BQTCNVEDIBNRPNCKWRBQLJ7ILXIJBYKJHF67TLUOYRUGHW7ZA",
+			round:      21889999,
+			errMsg:     "invalid catchpoint: catchpoint round 21890000 should not be ahead of target round 21889998",
+		},
+		{
+			name:       "get past catchpoint check",
+			catchpoint: "21890000#IQ4BQTCNVEDIBNRPNCKWRBQLJ7ILXIJBYKJHF67TLUOYRUGHW7ZA",
+			round:      21890001,
+			errMsg:     "indexer data directory missing",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := blockprocessor.MakeProcessorWithLedgerInit(
+				context.Background(),
+				log,
+				tc.catchpoint,
+				&genesis,
+				tc.round,
+				idb.IndexerDbOptions{},
+				noopHandler)
+			require.ErrorContains(t, err, tc.errMsg)
+		})
+	}
 }

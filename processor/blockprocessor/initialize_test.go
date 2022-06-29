@@ -1,12 +1,12 @@
 package blockprocessor
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
 
 	"github.com/jarcoal/httpmock"
-	"github.com/sirupsen/logrus"
 	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 
@@ -64,9 +64,9 @@ func TestRunMigration(t *testing.T) {
 	}
 
 	// migrate 3 rounds
-	err := InitializeLedgerSimple(logrus.New(), 3, &opts)
-	assert.NoError(t, err)
 	log, _ := test2.NewNullLogger()
+	err := InitializeLedgerSimple(context.Background(), log, 3, &opts)
+	assert.NoError(t, err)
 	l, err := util.MakeLedger(log, false, &genesis, opts.IndexerDatadir)
 	assert.NoError(t, err)
 	// check 3 rounds written to ledger
@@ -74,7 +74,7 @@ func TestRunMigration(t *testing.T) {
 	l.Close()
 
 	// migration continues from last round
-	err = InitializeLedgerSimple(logrus.New(), 6, &opts)
+	err = InitializeLedgerSimple(context.Background(), log, 6, &opts)
 	assert.NoError(t, err)
 
 	l, err = util.MakeLedger(log, false, &genesis, opts.IndexerDatadir)
