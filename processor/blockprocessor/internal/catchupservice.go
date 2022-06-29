@@ -17,6 +17,7 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
+// Delay is the time to wait for catchup service startup
 var Delay = 5 * time.Second
 
 // makeNodeProvider initializes the node provider.
