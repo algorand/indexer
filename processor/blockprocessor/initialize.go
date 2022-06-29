@@ -4,18 +4,13 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"time"
 
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
-	algodConfig "github.com/algorand/go-algorand/config"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/logging"
-	"github.com/algorand/go-algorand/node"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 
@@ -69,6 +64,9 @@ func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint6
 	return nil
 }
 
+/*
+// TODO: When we are happy with the state of ledger initialization, remove this code.
+//       If we add "stop at round" to the node, it may be useful to change back to this.
 func fullNodeCatchup(ctx context.Context, logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
@@ -136,6 +134,7 @@ func fullNodeCatchup(ctx context.Context, logger *log.Logger, round basics.Round
 	}
 	return nil
 }
+*/
 
 // InitializeLedgerFastCatchup executes the migration core functionality.
 func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
