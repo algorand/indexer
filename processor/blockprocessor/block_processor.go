@@ -1,7 +1,9 @@
 package blockprocessor
 
 import (
+	"context"
 	"fmt"
+
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand/config"
@@ -37,7 +39,7 @@ func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.Va
 }
 
 // MakeProcessorWithLedgerInit creates a block processor and initializes the ledger.
-func MakeProcessorWithLedgerInit(logger *log.Logger, catchpoint string, genesis *bookkeeping.Genesis, nextDBRound uint64, opts idb.IndexerDbOptions, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+func MakeProcessorWithLedgerInit(ctx context.Context, logger *log.Logger, catchpoint string, genesis *bookkeeping.Genesis, nextDBRound uint64, opts idb.IndexerDbOptions, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
 	if nextDBRound > 0 {
 		if catchpoint != "" {
 			round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
@@ -45,21 +47,19 @@ func MakeProcessorWithLedgerInit(logger *log.Logger, catchpoint string, genesis 
 				return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() label err: %w", err)
 			}
 			if uint64(round) >= nextDBRound {
-				logger.Warnf("round for given catchpoint is ahead of db round. skip fast catchup")
-			} else {
-				err = InitializeLedgerFastCatchup(logger, catchpoint, opts.IndexerDatadir, *genesis)
-				if err != nil {
-					return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() fast catchup err: %w", err)
-				}
+				return &blockProcessor{}, fmt.Errorf("invalid catchpoint: catchpoint round %d should not be ahead of target round %d", uint64(round), nextDBRound-1)
 			}
-
+			err = InitializeLedgerFastCatchup(ctx, logger, catchpoint, opts.IndexerDatadir, *genesis)
+			if err != nil {
+				return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() fast catchup err: %w", err)
+			}
 		}
-		err := InitializeLedgerSimple(logger, nextDBRound-1, &opts)
+		err := InitializeLedgerSimple(ctx, logger, nextDBRound-1, &opts)
 		if err != nil {
 			return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() slow catchup err: %w", err)
 		}
 	}
-	return MakeProcessor(logger, genesis, nextDBRound, opts.AlgodDataDir, handler)
+	return MakeProcessor(logger, genesis, nextDBRound, opts.IndexerDatadir, handler)
 }
 
 // MakeProcessor creates a block processor
