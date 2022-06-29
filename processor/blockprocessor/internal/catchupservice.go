@@ -62,7 +62,10 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, round basics
 	if err != nil {
 		return fmt.Errorf("CatchupServiceCatchup() MakeLedger err: %w", err)
 	}
-	defer l.Close()
+	defer func() {
+		l.WaitForCommit(l.Latest())
+		l.Close()
+	}()
 
 	p2pNode, err := network.NewWebsocketNetwork(wrappedLogger, cfg, nil, genesis.ID(), genesis.Network, node)
 	if err != nil {
