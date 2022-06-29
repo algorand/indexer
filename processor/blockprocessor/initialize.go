@@ -33,7 +33,7 @@ func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint6
 		return fmt.Errorf("InitializeLedgerSimple() err: indexer data directory missing")
 	}
 	// create algod client
-	bot, err = getFetcher(opts)
+	bot, err = getFetcher(logger, opts)
 	if err != nil {
 		return fmt.Errorf("InitializeLedgerSimple() err: %w", err)
 	}
@@ -52,7 +52,7 @@ func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint6
 		return nil
 	}
 	bot.SetNextRound(proc.NextRoundToProcess())
-	handler := blockHandler(round, proc, cf, 1*time.Second)
+	handler := blockHandler(logger, round, proc, cf, 1*time.Second)
 	bot.SetBlockHandler(handler)
 
 	logger.Info("Starting ledger migration.")
@@ -156,10 +156,10 @@ func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchp
 
 // blockHandler creates a handler complying to the fetcher block handler interface. In case of a failure it keeps
 // attempting to add the block until the fetcher shuts down.
-func blockHandler(dbRound uint64, proc processor.Processor, cancel context.CancelFunc, retryDelay time.Duration) func(context.Context, *rpcs.EncodedBlockCert) error {
+func blockHandler(logger *log.Logger, dbRound uint64, proc processor.Processor, cancel context.CancelFunc, retryDelay time.Duration) func(context.Context, *rpcs.EncodedBlockCert) error {
 	return func(ctx context.Context, block *rpcs.EncodedBlockCert) error {
 		for {
-			err := handleBlock(block, proc)
+			err := handleBlock(logger, block, proc)
 			if err == nil {
 				if uint64(block.Block.Round()) == dbRound {
 					// migration completes
@@ -180,8 +180,7 @@ func blockHandler(dbRound uint64, proc processor.Processor, cancel context.Cance
 	}
 }
 
-func handleBlock(block *rpcs.EncodedBlockCert, proc processor.Processor) error {
-	logger := log.New()
+func handleBlock(logger *log.Logger, block *rpcs.EncodedBlockCert, proc processor.Processor) error {
 	err := proc.Process(block)
 	if err != nil {
 		logger.WithError(err).Errorf(
@@ -205,8 +204,7 @@ func getGenesis(client *algod.Client) (bookkeeping.Genesis, error) {
 
 	return res, nil
 }
-func getFetcher(opts *idb.IndexerDbOptions) (fetcher.Fetcher, error) {
-	logger := log.New()
+func getFetcher(logger *log.Logger, opts *idb.IndexerDbOptions) (fetcher.Fetcher, error) {
 	var err error
 	var bot fetcher.Fetcher
 	if opts.AlgodDataDir != "" {
