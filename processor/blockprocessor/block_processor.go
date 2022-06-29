@@ -47,12 +47,11 @@ func MakeProcessorWithLedgerInit(ctx context.Context, logger *log.Logger, catchp
 				return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() label err: %w", err)
 			}
 			if uint64(round) >= nextDBRound {
-				logger.Warnf("round for given catchpoint is ahead of db round. skip fast catchup")
-			} else {
-				err = InitializeLedgerFastCatchup(ctx, logger, catchpoint, opts.IndexerDatadir, *genesis)
-				if err != nil {
-					return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() fast catchup err: %w", err)
-				}
+				return &blockProcessor{}, fmt.Errorf("invalid catchpoint: catchpoint round %d should not be ahead of target round %d", uint64(round), nextDBRound-1)
+			}
+			err = InitializeLedgerFastCatchup(ctx, logger, catchpoint, opts.IndexerDatadir, *genesis)
+			if err != nil {
+				return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() fast catchup err: %w", err)
 			}
 		}
 		err := InitializeLedgerSimple(ctx, logger, nextDBRound-1, &opts)
