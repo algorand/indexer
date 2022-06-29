@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand/agreement"
-	"github.com/algorand/go-algorand/config"
+	cconfig "github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/daemon/algod/api/server/v2/generated"
 	"github.com/algorand/go-algorand/data/basics"
@@ -42,10 +42,7 @@ const (
 	assetDestroy TxTypeID = "asset_destroy"
 
 	assetTotal = uint64(100000000000000000)
-	fee        = uint64(1000)
-)
 
-const (
 	consensusTimeMilli int64 = 4500
 )
 
@@ -96,9 +93,11 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 		return nil, fmt.Errorf("asset configuration ratios should equal 1")
 	}
 
+	var proto protocol.ConsensusVersion = "future"
 	gen := &generator{
 		config:                    config,
-		protocol:                  "future",
+		protocol:                  proto,
+		params:                    cconfig.Consensus[proto],
 		genesisHash:               [32]byte{},
 		genesisID:                 "blockgen-test",
 		prevBlockHash:             "",
@@ -178,6 +177,7 @@ type generator struct {
 	prevBlockHash string
 	timestamp     int64
 	protocol      protocol.ConsensusVersion
+	params        cconfig.ConsensusParams
 	genesisID     string
 	genesisHash   crypto.Digest
 
@@ -262,15 +262,11 @@ func (g *generator) WriteGenesis(output io.Writer) error {
 	}
 	// Also add the rewards pool account with minimum balance. Without it, the evaluator
 	// crashes.
-	proto, ok := config.Consensus[g.protocol]
-	if !ok {
-		return fmt.Errorf("protocol version %s not found", g.protocol)
-	}
 	allocations = append(allocations, bookkeeping.GenesisAllocation{
 		Address: g.rewardsPool.String(),
 		Comment: "RewardsPool",
 		State: basics.AccountData{
-			MicroAlgos: basics.MicroAlgos{Raw: proto.MinBalance},
+			MicroAlgos: basics.MicroAlgos{Raw: g.params.MinBalance},
 			Status:     basics.NotParticipating,
 		},
 	})
@@ -338,13 +334,13 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) error {
 	numTxnForBlock := g.txnForRound(round)
 
 	header := bookkeeping.BlockHeader{
-		Round:       basics.Round(g.round),
-		Branch:      bookkeeping.BlockHash{},
-		Seed:        committee.Seed{},
-		TxnRoot:     crypto.Digest{},
-		TimeStamp:   g.timestamp,
-		GenesisID:   g.genesisID,
-		GenesisHash: g.genesisHash,
+		Round:          basics.Round(g.round),
+		Branch:         bookkeeping.BlockHash{},
+		Seed:           committee.Seed{},
+		TxnCommitments: bookkeeping.TxnCommitments{NativeSha512_256Commitment: crypto.Digest{}},
+		TimeStamp:      g.timestamp,
+		GenesisID:      g.genesisID,
+		GenesisHash:    g.genesisHash,
 		RewardsState: bookkeeping.RewardsState{
 			FeeSink:                   g.feeSink,
 			RewardsPool:               g.rewardsPool,
@@ -452,30 +448,34 @@ func (g *generator) generatePaymentTxn(round uint64, intra uint64) (transactions
 
 func (g *generator) generatePaymentTxnInternal(selection TxTypeID, round uint64, intra uint64) (transactions.SignedTxn, transactions.ApplyData, error) {
 	defer g.recordData(track(selection))
+	minBal := g.params.MinBalance
 
+	// default amount
+	amount := uint64(1)
+
+	// Select a receiver
 	var receiveIndex uint64
 	switch selection {
 	case paymentTx:
 		receiveIndex = rand.Uint64() % g.numAccounts
 	case paymentAcctCreateTx:
+		// give new accounts get extra algos for sending other transactions
+		amount = minBal * 100
 		g.balances = append(g.balances, 0)
+		receiveIndex = g.numAccounts
 		g.numAccounts++
-		receiveIndex = g.numAccounts - 1
 	}
+	total := amount + g.params.MinTxnFee
 
-	// Always send from a genesis account.
+	// Select a sender from genesis account
 	sendIndex := g.numPayments % g.config.NumGenesisAccounts
+	if g.balances[sendIndex] < (total + minBal) {
+		fmt.Printf("\n\ngeneratePaymentTxnInternal(): the sender account does not have enough algos for the transfer. idx %d, payment number %d\n\n", sendIndex, g.numPayments)
+		os.Exit(1)
+	}
 
 	sender := indexToAccount(sendIndex)
 	receiver := indexToAccount(receiveIndex)
-
-	amount := uint64(1000000)
-	fee := uint64(1000)
-	total := amount + fee
-	if g.balances[sendIndex] < total {
-		fmt.Printf("\n\nthe sender account does not have enough algos for the transfer. idx %d, payment number %d\n\n", sendIndex, g.numPayments)
-		os.Exit(1)
-	}
 
 	g.balances[sendIndex] -= total
 	g.balances[receiveIndex] += amount
@@ -597,7 +597,7 @@ func (g *generator) generateAssetTxnInternalHint(txType TxTypeID, round uint64, 
 				fmt.Printf("\n\ncreator doesn't have enough funds for asset %d\n\n", asset.assetID)
 				os.Exit(1)
 			}
-			if g.balances[asset.holdings[0].acctIndex] < fee {
+			if g.balances[asset.holdings[0].acctIndex] < g.params.MinTxnFee {
 				fmt.Printf("\n\ncreator doesn't have enough funds for transaction %d\n\n", asset.assetID)
 				os.Exit(1)
 			}
@@ -681,7 +681,6 @@ func (g *generator) WriteAccount(output io.Writer, accountString string) error {
 			assets = append(assets, generated.AssetHolding{
 				Amount:   holding.balance,
 				AssetId:  a.assetID,
-				Creator:  indexToAccount(a.creator).String(),
 				IsFrozen: false,
 			})
 		}

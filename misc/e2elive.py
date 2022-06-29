@@ -59,7 +59,7 @@ def main():
         s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
         tarname = 'net_done.tar.bz2'
         tarpath = os.path.join(tempdir, tarname)
-        firstFromS3Prefix(s3, bucket, 'indexer/e2e2', tarname, outpath=tarpath)
+        firstFromS3Prefix(s3, bucket, 'indexer/e2e4', tarname, outpath=tarpath)
         source_is_tar = True
         sourcenet = tarpath
     tempnet = os.path.join(tempdir, 'net')
@@ -70,13 +70,26 @@ def main():
     blockfiles = glob.glob(os.path.join(tempdir, 'net', 'Primary', '*', '*.block.sqlite'))
     lastblock = countblocks(blockfiles[0])
     #subprocess.run(['find', tempnet, '-type', 'f'])
-    xrun(['goal', 'network', 'start', '-r', tempnet])
+    try:
+        xrun(['goal', 'network', 'start', '-r', tempnet])
+    except Exception:
+        logger.error('failed to start private network, looking for node.log')
+        for root, dirs, files in os.walk(tempnet):
+            for f in files:
+                if f == 'node.log':
+                    p = os.path.join(root, f)
+                    logger.error('found node.log: {}'.format(p))
+                    with open(p) as nf:
+                        for line in nf:
+                            logger.error('   {}'.format(line))
+        raise
+
     atexitrun(['goal', 'network', 'stop', '-r', tempnet])
 
     psqlstring = ensure_test_db(args.connection_string, args.keep_temps)
     algoddir = os.path.join(tempnet, 'Primary')
     aiport = args.indexer_port or random.randint(4000,30000)
-    cmd = [indexer_bin, 'daemon', '-P', psqlstring, '--dev-mode', '--algod', algoddir, '--server', ':{}'.format(aiport)]
+    cmd = [indexer_bin, 'daemon', '--data-dir', '/tmp', '-P', psqlstring, '--dev-mode', '--algod', algoddir, '--server', ':{}'.format(aiport)]
     logger.debug("%s", ' '.join(map(repr,cmd)))
     indexerdp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     indexerout = subslurp(indexerdp.stdout)
@@ -97,6 +110,7 @@ def main():
         sys.stderr.write(indexerout.dump())
         return 1
     try:
+        logger.info('reached expected round={}'.format(lastblock))
         xrun(['python3', 'misc/validate_accounting.py', '--verbose', '--algod', algoddir, '--indexer', indexerurl], timeout=20)
         xrun(['go', 'run', 'cmd/e2equeries/main.go', '-pg', psqlstring, '-q'], timeout=15)
     except Exception:

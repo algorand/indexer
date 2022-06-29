@@ -134,7 +134,13 @@ func main() {
 	<-availableCh
 
 	if accounttest {
-		printAccountQuery(db, idb.AccountQueryOptions{IncludeAssetHoldings: true, IncludeAssetParams: true, AlgosGreaterThan: uint64Ptr(10000000000), Limit: 20})
+		printAccountQuery(db, idb.AccountQueryOptions{
+			IncludeAssetHoldings: true,
+			IncludeAssetParams:   true,
+			IncludeAppLocalState: true,
+			IncludeAppParams:     true,
+			AlgosGreaterThan:     uint64Ptr(10000000000),
+			Limit:                20})
 		printAccountQuery(db, idb.AccountQueryOptions{HasAssetID: 312769, Limit: 19})
 	}
 	if assettest {
@@ -154,7 +160,7 @@ func main() {
 			MaxRound: account.Round,
 		}
 		printTxnQuery(db, tf)
-		raccount, err := accounting.AccountAtRound(account, round, db)
+		raccount, err := accounting.AccountAtRound(context.Background(), account, round, db)
 		maybeFail(err, "AccountAtRound, %v", err)
 		fmt.Printf("raccount %s\n", string(ajson.Encode(raccount)))
 	}

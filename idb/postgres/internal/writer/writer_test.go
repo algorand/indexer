@@ -29,15 +29,6 @@ import (
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable}
 
-func setupPostgres(t *testing.T) (*pgxpool.Pool, func()) {
-	db, _, shutdownFunc := pgtest.SetupPostgres(t)
-
-	_, err := db.Exec(context.Background(), schema.SetupPostgresSql)
-	require.NoError(t, err)
-
-	return db, shutdownFunc
-}
-
 // makeTx is a helper to simplify calling TxWithRetry
 func makeTx(db *pgxpool.Pool, f func(tx pgx.Tx) error) error {
 	return pgutil.TxWithRetry(db, serializable, f, nil)
@@ -49,7 +40,6 @@ type txnRow struct {
 	typeenum idb.TxnTypeEnum
 	asset    int
 	txid     string
-	txnbytes []byte
 	txn      string
 	extra    string
 }
@@ -65,15 +55,15 @@ func txnQuery(db *pgxpool.Pool, query string) ([]txnRow, error) {
 	for rows.Next() {
 		var result txnRow
 		var txid []byte
-		var json []byte
-		err = rows.Scan(&result.round, &result.intra, &result.typeenum,
-			&result.asset, &txid, &result.txnbytes, &json,
-			&result.extra)
+		var txn []byte
+		err = rows.Scan(
+			&result.round, &result.intra, &result.typeenum, &result.asset, &txid,
+			&txn, &result.extra)
 		if err != nil {
 			return nil, err
 		}
 		result.txid = string(txid)
-		result.txn = string(json)
+		result.txn = string(txn)
 		results = append(results, result)
 	}
 	return results, rows.Err()
@@ -106,7 +96,7 @@ func txnParticipationQuery(db *pgxpool.Pool, query string) ([]txnParticipationRo
 }
 
 func TestWriterBlockHeaderTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -147,7 +137,7 @@ func TestWriterBlockHeaderTableBasic(t *testing.T) {
 }
 
 func TestWriterSpecialAccounts(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	block := test.MakeGenesisBlock()
@@ -179,7 +169,7 @@ func TestWriterSpecialAccounts(t *testing.T) {
 }
 
 func TestWriterTxnTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	block := bookkeeping.Block{
@@ -214,14 +204,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	require.NoError(t, err)
 
 	f := func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-		require.NoError(t, err)
-
-		w.Close()
-		return nil
+		return writer.AddTransactions(&block, block.Payset, tx)
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -235,19 +218,17 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	var typeenum uint
 	var asset uint64
 	var txid []byte
-	var txnbytes []byte
 	var txn []byte
 	var extra []byte
 
 	require.True(t, rows.Next())
-	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txnbytes, &txn, &extra)
+	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
 	require.NoError(t, err)
 	assert.Equal(t, block.Round(), basics.Round(round))
 	assert.Equal(t, uint64(0), intra)
 	assert.Equal(t, idb.TypeEnumPay, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(0), asset)
 	assert.Equal(t, stxnad0.ID().String(), string(txid))
-	assert.Equal(t, protocol.Encode(&stxnad0), txnbytes)
 	{
 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
@@ -256,14 +237,13 @@ func TestWriterTxnTableBasic(t *testing.T) {
 	assert.Equal(t, "{}", string(extra))
 
 	require.True(t, rows.Next())
-	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txnbytes, &txn, &extra)
+	err = rows.Scan(&round, &intra, &typeenum, &asset, &txid, &txn, &extra)
 	require.NoError(t, err)
 	assert.Equal(t, block.Round(), basics.Round(round))
 	assert.Equal(t, uint64(1), intra)
 	assert.Equal(t, idb.TypeEnumAssetConfig, idb.TxnTypeEnum(typeenum))
 	assert.Equal(t, uint64(9), asset)
 	assert.Equal(t, stxnad1.ID().String(), string(txid))
-	assert.Equal(t, protocol.Encode(&stxnad1), txnbytes)
 	{
 		stxn, err := encoding.DecodeSignedTxnWithAD(txn)
 		require.NoError(t, err)
@@ -278,7 +258,7 @@ func TestWriterTxnTableBasic(t *testing.T) {
 // Test that asset close amount is written even if it is missing in the apply data
 // in the block (it is present in the "modified transactions").
 func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	block := bookkeeping.Block{
@@ -300,14 +280,7 @@ func TestWriterTxnTableAssetCloseAmount(t *testing.T) {
 	payset[0].ApplyData.AssetClosingAmount = 3
 
 	f := func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, payset, ledgercore.StateDelta{})
-		require.NoError(t, err)
-
-		w.Close()
-		return nil
+		return writer.AddTransactions(&block, payset, tx)
 	}
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -430,21 +403,14 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 
 	for _, testcase := range tests {
 		t.Run(testcase.name, func(t *testing.T) {
-			db, shutdownFunc := setupPostgres(t)
+			db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 			defer shutdownFunc()
 
 			block := makeBlockFunc()
 			block.Payset = testcase.payset
 
 			f := func(tx pgx.Tx) error {
-				w, err := writer.MakeWriter(tx)
-				require.NoError(t, err)
-
-				err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-				require.NoError(t, err)
-
-				w.Close()
-				return nil
+				return writer.AddTransactionParticipation(&block, tx)
 			}
 			err := pgutil.TxWithRetry(db, serializable, f, nil)
 			require.NoError(t, err)
@@ -461,7 +427,7 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 
 // Create a new account and then delete it.
 func TestWriterAccountTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var voteID crypto.OneTimeSignatureVerifier
@@ -477,17 +443,21 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	block.BlockHeader.Round = 4
 
 	var delta ledgercore.StateDelta
-	delta.Accts.Upsert(test.AccountA, basics.AccountData{
-		Status:             basics.Online,
-		MicroAlgos:         basics.MicroAlgos{Raw: 5},
-		RewardsBase:        6,
-		RewardedMicroAlgos: basics.MicroAlgos{Raw: 7},
-		VoteID:             voteID,
-		SelectionID:        selectionID,
-		VoteFirstValid:     7,
-		VoteLastValid:      8,
-		VoteKeyDilution:    9,
-		AuthAddr:           authAddr,
+	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{
+		AccountBaseData: ledgercore.AccountBaseData{
+			Status:             basics.Online,
+			MicroAlgos:         basics.MicroAlgos{Raw: 5},
+			RewardsBase:        6,
+			RewardedMicroAlgos: basics.MicroAlgos{Raw: 7},
+			AuthAddr:           authAddr,
+		},
+		VotingData: ledgercore.VotingData{
+			VoteID:          voteID,
+			SelectionID:     selectionID,
+			VoteFirstValid:  7,
+			VoteLastValid:   8,
+			VoteKeyDilution: 9,
+		},
 	})
 
 	f := func(tx pgx.Tx) error {
@@ -535,16 +505,9 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	assert.Nil(t, closedAt)
 	assert.Nil(t, keytype)
 	{
-		accountDataRead, err := encoding.DecodeTrimmedAccountData(accountData)
+		accountDataRead, err := encoding.DecodeTrimmedLcAccountData(accountData)
 		require.NoError(t, err)
-
-		assert.Equal(t, expectedAccountData.Status, accountDataRead.Status)
-		assert.Equal(t, expectedAccountData.VoteID, accountDataRead.VoteID)
-		assert.Equal(t, expectedAccountData.SelectionID, accountDataRead.SelectionID)
-		assert.Equal(t, expectedAccountData.VoteFirstValid, accountDataRead.VoteFirstValid)
-		assert.Equal(t, expectedAccountData.VoteLastValid, accountDataRead.VoteLastValid)
-		assert.Equal(t, expectedAccountData.VoteKeyDilution, accountDataRead.VoteKeyDilution)
-		assert.Equal(t, expectedAccountData.AuthAddr, accountDataRead.AuthAddr)
+		assert.Equal(t, encoding.TrimLcAccountData(expectedAccountData), accountDataRead)
 	}
 
 	assert.False(t, rows.Next())
@@ -553,7 +516,7 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	// Now delete this account.
 	block.BlockHeader.Round++
 	delta.Accts = ledgercore.AccountDeltas{}
-	delta.Accts.Upsert(test.AccountA, basics.AccountData{})
+	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -579,9 +542,9 @@ func TestWriterAccountTableBasic(t *testing.T) {
 	assert.Nil(t, keytype)
 	assert.Equal(t, []byte("null"), accountData)
 	{
-		accountData, err := encoding.DecodeTrimmedAccountData(accountData)
+		accountData, err := encoding.DecodeTrimmedLcAccountData(accountData)
 		require.NoError(t, err)
-		assert.Equal(t, basics.AccountData{}, accountData)
+		assert.Equal(t, ledgercore.AccountData{}, accountData)
 	}
 
 	assert.False(t, rows.Next())
@@ -590,14 +553,14 @@ func TestWriterAccountTableBasic(t *testing.T) {
 
 // Simulate the scenario where an account is created and deleted in the same round.
 func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
 	block.BlockHeader.Round = 4
 
 	var delta ledgercore.StateDelta
-	delta.Accts.Upsert(test.AccountA, basics.AccountData{})
+	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{})
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -642,9 +605,9 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 	assert.Nil(t, keytype)
 	assert.Equal(t, []byte("null"), accountData)
 	{
-		accountData, err := encoding.DecodeTrimmedAccountData(accountData)
+		accountData, err := encoding.DecodeTrimmedLcAccountData(accountData)
 		require.NoError(t, err)
-		assert.Equal(t, basics.AccountData{}, accountData)
+		assert.Equal(t, ledgercore.AccountData{}, accountData)
 	}
 
 	assert.False(t, rows.Next())
@@ -652,7 +615,7 @@ func TestWriterAccountTableCreateDeleteSameRound(t *testing.T) {
 }
 
 func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	block := bookkeeping.Block{
@@ -676,8 +639,10 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	require.NoError(t, err)
 
 	var delta ledgercore.StateDelta
-	delta.Accts.Upsert(test.AccountA, basics.AccountData{
-		MicroAlgos: basics.MicroAlgos{Raw: 5},
+	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{
+		AccountBaseData: ledgercore.AccountBaseData{
+			MicroAlgos: basics.MicroAlgos{Raw: 5},
+		},
 	})
 
 	f := func(tx pgx.Tx) error {
@@ -703,7 +668,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 	// Now delete this account.
 	block.BlockHeader.Round = basics.Round(5)
 	delta.Accts = ledgercore.AccountDeltas{}
-	delta.Accts.Upsert(test.AccountA, basics.AccountData{})
+	delta.Accts.Upsert(test.AccountA, ledgercore.AccountData{})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -715,7 +680,7 @@ func TestWriterDeleteAccountDoesNotDeleteKeytype(t *testing.T) {
 }
 
 func TestWriterAccountAssetTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -726,14 +691,10 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 		Amount: 4,
 		Frozen: true,
 	}
-	accountData := basics.AccountData{
-		MicroAlgos: basics.MicroAlgos{Raw: 5},
-		Assets: map[basics.AssetIndex]basics.AssetHolding{
-			assetID: assetHolding,
-		},
-	}
 	var delta ledgercore.StateDelta
-	delta.Accts.Upsert(test.AccountA, accountData)
+	delta.Accts.UpsertAssetResource(
+		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
+		ledgercore.AssetHoldingDelta{Holding: &assetHolding})
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -778,12 +739,10 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 	// Now delete the asset.
 	block.BlockHeader.Round++
 
-	delta.ModifiedAssetHoldings = map[ledgercore.AccountAsset]bool{
-		{Address: test.AccountA, Asset: assetID}: false,
-	}
-	accountData.Assets = nil
 	delta.Accts = ledgercore.AccountDeltas{}
-	delta.Accts.Upsert(test.AccountA, accountData)
+	delta.Accts.UpsertAssetResource(
+		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
+		ledgercore.AssetHoldingDelta{Deleted: true})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -811,18 +770,17 @@ func TestWriterAccountAssetTableBasic(t *testing.T) {
 
 // Simulate a scenario where an asset holding is added and deleted in the same round.
 func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
 	block.BlockHeader.Round = basics.Round(1)
 
 	assetID := basics.AssetIndex(3)
-	delta := ledgercore.StateDelta{
-		ModifiedAssetHoldings: map[ledgercore.AccountAsset]bool{
-			{Address: test.AccountA, Asset: assetID}: false,
-		},
-	}
+	var delta ledgercore.StateDelta
+	delta.Accts.UpsertAssetResource(
+		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
+		ledgercore.AssetHoldingDelta{Deleted: true})
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -859,7 +817,7 @@ func TestWriterAccountAssetTableCreateDeleteSameRound(t *testing.T) {
 }
 
 func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -870,12 +828,9 @@ func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
 		Amount: math.MaxUint64,
 	}
 	var delta ledgercore.StateDelta
-	delta.Accts.Upsert(test.AccountA, basics.AccountData{
-		MicroAlgos: basics.MicroAlgos{Raw: 5},
-		Assets: map[basics.AssetIndex]basics.AssetHolding{
-			assetID: assetHolding,
-		},
-	})
+	delta.Accts.UpsertAssetResource(
+		test.AccountA, assetID, ledgercore.AssetParamsDelta{},
+		ledgercore.AssetHoldingDelta{Holding: &assetHolding})
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -899,7 +854,7 @@ func TestWriterAccountAssetTableLargeAmount(t *testing.T) {
 }
 
 func TestWriterAssetTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -910,14 +865,10 @@ func TestWriterAssetTableBasic(t *testing.T) {
 		Total:   99999,
 		Manager: test.AccountB,
 	}
-	accountData := basics.AccountData{
-		MicroAlgos: basics.MicroAlgos{Raw: 5},
-		AssetParams: map[basics.AssetIndex]basics.AssetParams{
-			assetID: assetParams,
-		},
-	}
 	var delta ledgercore.StateDelta
-	delta.Accts.Upsert(test.AccountA, accountData)
+	delta.Accts.UpsertAssetResource(
+		test.AccountA, assetID, ledgercore.AssetParamsDelta{Params: &assetParams},
+		ledgercore.AssetHoldingDelta{})
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -964,16 +915,10 @@ func TestWriterAssetTableBasic(t *testing.T) {
 	// Now delete the asset.
 	block.BlockHeader.Round++
 
-	delta.Creatables = map[basics.CreatableIndex]ledgercore.ModifiedCreatable{
-		basics.CreatableIndex(assetID): {
-			Ctype:   basics.AssetCreatable,
-			Created: false,
-			Creator: test.AccountA,
-		},
-	}
-	accountData.AssetParams = nil
 	delta.Accts = ledgercore.AccountDeltas{}
-	delta.Accts.Upsert(test.AccountA, accountData)
+	delta.Accts.UpsertAssetResource(
+		test.AccountA, assetID, ledgercore.AssetParamsDelta{Deleted: true},
+		ledgercore.AssetHoldingDelta{})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1005,22 +950,17 @@ func TestWriterAssetTableBasic(t *testing.T) {
 
 // Simulate a scenario where an asset is added and deleted in the same round.
 func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
 	block.BlockHeader.Round = basics.Round(1)
 
 	assetID := basics.AssetIndex(3)
-	delta := ledgercore.StateDelta{
-		Creatables: map[basics.CreatableIndex]ledgercore.ModifiedCreatable{
-			basics.CreatableIndex(assetID): {
-				Ctype:   basics.AssetCreatable,
-				Created: false,
-				Creator: test.AccountA,
-			},
-		},
-	}
+	var delta ledgercore.StateDelta
+	delta.Accts.UpsertAssetResource(
+		test.AccountA, assetID, ledgercore.AssetParamsDelta{Deleted: true},
+		ledgercore.AssetHoldingDelta{})
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -1060,7 +1000,7 @@ func TestWriterAssetTableCreateDeleteSameRound(t *testing.T) {
 }
 
 func TestWriterAppTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -1075,14 +1015,10 @@ func TestWriterAppTableBasic(t *testing.T) {
 			},
 		},
 	}
-	accountData := basics.AccountData{
-		MicroAlgos: basics.MicroAlgos{Raw: 5},
-		AppParams: map[basics.AppIndex]basics.AppParams{
-			appID: appParams,
-		},
-	}
 	var delta ledgercore.StateDelta
-	delta.Accts.Upsert(test.AccountA, accountData)
+	delta.Accts.UpsertAppResource(
+		test.AccountA, appID, ledgercore.AppParamsDelta{Params: &appParams},
+		ledgercore.AppLocalStateDelta{})
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -1129,16 +1065,10 @@ func TestWriterAppTableBasic(t *testing.T) {
 	// Now delete the app.
 	block.BlockHeader.Round++
 
-	delta.Creatables = map[basics.CreatableIndex]ledgercore.ModifiedCreatable{
-		basics.CreatableIndex(appID): {
-			Ctype:   basics.AppCreatable,
-			Created: false,
-			Creator: test.AccountA,
-		},
-	}
-	accountData.AppParams = nil
 	delta.Accts = ledgercore.AccountDeltas{}
-	delta.Accts.Upsert(test.AccountA, accountData)
+	delta.Accts.UpsertAppResource(
+		test.AccountA, appID, ledgercore.AppParamsDelta{Deleted: true},
+		ledgercore.AppLocalStateDelta{})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1170,22 +1100,17 @@ func TestWriterAppTableBasic(t *testing.T) {
 
 // Simulate a scenario where an app is added and deleted in the same round.
 func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
 	block.BlockHeader.Round = basics.Round(1)
 
 	appID := basics.AppIndex(3)
-	delta := ledgercore.StateDelta{
-		Creatables: map[basics.CreatableIndex]ledgercore.ModifiedCreatable{
-			basics.CreatableIndex(appID): {
-				Ctype:   basics.AppCreatable,
-				Created: false,
-				Creator: test.AccountA,
-			},
-		},
-	}
+	var delta ledgercore.StateDelta
+	delta.Accts.UpsertAppResource(
+		test.AccountA, appID, ledgercore.AppParamsDelta{Deleted: true},
+		ledgercore.AppLocalStateDelta{})
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -1226,7 +1151,7 @@ func TestWriterAppTableCreateDeleteSameRound(t *testing.T) {
 }
 
 func TestWriterAccountAppTableBasic(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
@@ -1240,14 +1165,10 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 			},
 		},
 	}
-	accountData := basics.AccountData{
-		MicroAlgos: basics.MicroAlgos{Raw: 5},
-		AppLocalStates: map[basics.AppIndex]basics.AppLocalState{
-			appID: appLocalState,
-		},
-	}
 	var delta ledgercore.StateDelta
-	delta.Accts.Upsert(test.AccountA, accountData)
+	delta.Accts.UpsertAppResource(
+		test.AccountA, appID, ledgercore.AppParamsDelta{},
+		ledgercore.AppLocalStateDelta{LocalState: &appLocalState})
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -1294,12 +1215,10 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 	// Now delete the app.
 	block.BlockHeader.Round++
 
-	delta.ModifiedAppLocalStates = map[ledgercore.AccountApp]bool{
-		{Address: test.AccountA, App: appID}: false,
-	}
-	accountData.AppLocalStates = nil
 	delta.Accts = ledgercore.AccountDeltas{}
-	delta.Accts.Upsert(test.AccountA, accountData)
+	delta.Accts.UpsertAppResource(
+		test.AccountA, appID, ledgercore.AppParamsDelta{},
+		ledgercore.AppLocalStateDelta{Deleted: true})
 
 	err = pgutil.TxWithRetry(db, serializable, f, nil)
 	require.NoError(t, err)
@@ -1331,18 +1250,17 @@ func TestWriterAccountAppTableBasic(t *testing.T) {
 
 // Simulate a scenario where an account app is added and deleted in the same round.
 func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	var block bookkeeping.Block
 	block.BlockHeader.Round = basics.Round(1)
 
 	appID := basics.AppIndex(3)
-	delta := ledgercore.StateDelta{
-		ModifiedAppLocalStates: map[ledgercore.AccountApp]bool{
-			{Address: test.AccountA, App: appID}: false,
-		},
-	}
+	var delta ledgercore.StateDelta
+	delta.Accts.UpsertAppResource(
+		test.AccountA, appID, ledgercore.AppParamsDelta{},
+		ledgercore.AppLocalStateDelta{Deleted: true})
 
 	f := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
@@ -1382,7 +1300,7 @@ func TestWriterAccountAppTableCreateDeleteSameRound(t *testing.T) {
 }
 
 func TestAddBlockInvalidInnerAsset(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	callWithBadInner := test.MakeCreateAppTxn(test.AccountA)
@@ -1410,29 +1328,21 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-		defer w.Close()
-
-		// Add block detects an error
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "Missing ConfigAsset for transaction: ")
-
-		return nil
+		return writer.AddTransactions(&block, block.Payset, tx)
 	})
+	require.Contains(t, err.Error(), "Missing ConfigAsset for transaction: ")
 }
 
 func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	// App call with inner txns, should be intra 0, 1, 2, 3
+	// App call with inner txns, should be intra 0, 1, 2, 3, 4
 	var appAddr basics.Address
 	appAddr[1] = 99
 	appCall := test.MakeAppCallWithInnerTxn(test.AccountA, appAddr, test.AccountB, appAddr, test.AccountC)
 
-	// Asset create call, should have intra = 4
+	// Asset create call, should have intra = 5
 	assetCreate := test.MakeAssetConfigTxn(
 		0, 100, 1, false, "ma", "myasset", "myasset.com", test.AccountD)
 
@@ -1440,55 +1350,52 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 	require.NoError(t, err)
 
 	err = makeTx(db, func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&block, block.Payset, ledgercore.StateDelta{})
-		require.NoError(t, err)
-
-		w.Close()
-		return nil
+		err := writer.AddTransactions(&block, block.Payset, tx)
+		if err != nil {
+			return err
+		}
+		return writer.AddTransactionParticipation(&block, tx)
 	})
 	require.NoError(t, err)
 
 	txns, err := txnQuery(db, "SELECT * FROM txn ORDER BY intra")
 	require.NoError(t, err)
-	require.Len(t, txns, 5)
+	require.Len(t, txns, 6)
 
 	// Verify that intra is correctly assigned
 	for i, tx := range txns {
-		require.Equal(t, i, tx.intra, "Intra should be assigned 0 - 3.")
+		require.Equal(t, i, tx.intra, "Intra should be assigned 0 - 4.")
 	}
 
 	// Verify correct order of transaction types.
 	require.Equal(t, idb.TypeEnumApplication, txns[0].typeenum)
 	require.Equal(t, idb.TypeEnumPay, txns[1].typeenum)
-	require.Equal(t, idb.TypeEnumPay, txns[2].typeenum)
+	require.Equal(t, idb.TypeEnumApplication, txns[2].typeenum)
 	require.Equal(t, idb.TypeEnumAssetTransfer, txns[3].typeenum)
-	require.Equal(t, idb.TypeEnumAssetConfig, txns[4].typeenum)
+	require.Equal(t, idb.TypeEnumApplication, txns[4].typeenum)
+	require.Equal(t, idb.TypeEnumAssetConfig, txns[5].typeenum)
 
 	// Verify special properties of inner transactions.
 	expectedExtra := fmt.Sprintf(`{"root-txid": "%s", "root-intra": "%d"}`, txns[0].txid, 0)
+
 	// Inner pay 1
-	require.Len(t, txns[1].txnbytes, 0)
 	require.Equal(t, "", txns[1].txid)
 	require.Equal(t, expectedExtra, txns[1].extra)
 
 	// Inner pay 2
-	require.Len(t, txns[2].txnbytes, 0)
 	require.Equal(t, "", txns[2].txid)
 	require.Equal(t, expectedExtra, txns[2].extra)
 	require.NotContains(t, txns[2].txn, "itx", "The inner transactions should be pruned.")
 
 	// Inner xfer
-	require.Len(t, txns[3].txnbytes, 0)
 	require.Equal(t, "", txns[3].txid)
 	require.Equal(t, expectedExtra, txns[3].extra)
 	require.NotContains(t, txns[3].txn, "itx", "The inner transactions should be pruned.")
 
 	// Verify correct App and Asset IDs
 	require.Equal(t, 1, txns[0].asset, "intra == 0 -> ApplicationID = 1")
-	require.Equal(t, 5, txns[4].asset, "intra == 4 -> AssetID = 5")
+	require.Equal(t, 789, txns[4].asset, "intra == 4 -> ApplicationID = 789")
+	require.Equal(t, 6, txns[5].asset, "intra == 5 -> AssetID = 6")
 
 	// Verify txn participation
 	txnPart, err := txnParticipationQuery(db, `SELECT * FROM txn_participation ORDER BY round, intra, addr`)
@@ -1533,11 +1440,6 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 			round: 1,
 			intra: 2,
 		},
-		{
-			addr:  test.AccountB,
-			round: 1,
-			intra: 2,
-		},
 		// Inner xfer transaction
 		{
 			addr:  appAddr,
@@ -1549,11 +1451,17 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 			round: 1,
 			intra: 3,
 		},
+		// Inner appl transaction
+		{
+			addr:  appAddr,
+			round: 1,
+			intra: 4,
+		},
 		// acfg after appl
 		{
 			addr:  test.AccountD,
 			round: 1,
-			intra: 4,
+			intra: 5,
 		},
 	}
 
@@ -1564,7 +1472,7 @@ func TestWriterAddBlockInnerTxnsAssetCreate(t *testing.T) {
 }
 
 func TestWriterAccountTotals(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	// Set empty account totals.
@@ -1602,7 +1510,7 @@ func TestWriterAccountTotals(t *testing.T) {
 }
 
 func TestWriterAddBlock0(t *testing.T) {
-	db, shutdownFunc := setupPostgres(t)
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
 	block := test.MakeGenesisBlock()

@@ -247,24 +247,18 @@ type rowData struct {
 }
 
 // txnRowToTransaction parses the idb.TxnRow and generates the appropriate generated.Transaction object.
-// If the idb.TxnRow represents an inner transaction, the root transaction is returned.
 func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 	if row.Error != nil {
 		return generated.Transaction{}, row.Error
 	}
 
-	var bytes []byte
-	if row.TxnBytes != nil {
-		bytes = row.TxnBytes
-	} else if row.RootTxnBytes != nil {
-		bytes = row.RootTxnBytes
+	var stxn *transactions.SignedTxnWithAD
+	if row.Txn != nil {
+		stxn = row.Txn
+	} else if row.RootTxn != nil {
+		stxn = row.RootTxn
 	} else {
 		return generated.Transaction{}, fmt.Errorf("%d:%d transaction bytes missing", row.Round, row.Intra)
-	}
-	var stxn transactions.SignedTxnWithAD
-	err := protocol.Decode(bytes, &stxn)
-	if err != nil {
-		return generated.Transaction{}, fmt.Errorf("%s: %s", errUnableToDecodeTransaction, err.Error())
 	}
 
 	extra := rowData{
@@ -279,7 +273,7 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		extra.Intra = row.Extra.RootIntra.Value
 	}
 
-	txn, err := signedTxnWithAdToTransaction(&stxn, extra)
+	txn, err := signedTxnWithAdToTransaction(stxn, extra)
 	if err != nil {
 		return generated.Transaction{}, fmt.Errorf("txnRowToTransaction(): failure converting signed transaction to response: %w", err)
 	}
@@ -289,7 +283,13 @@ func txnRowToTransaction(row idb.TxnRow) (generated.Transaction, error) {
 		Multisig: msigToTransactionMsig(stxn.Msig),
 		Sig:      sigToTransactionSig(stxn.Sig),
 	}
-	txid := stxn.Txn.ID().String()
+
+	var txid string
+	if row.Extra.RootIntra.Present {
+		txid = row.Extra.RootTxid
+	} else {
+		txid = stxn.Txn.ID().String()
+	}
 
 	txn.Id = &txid
 	txn.Signature = &sig
@@ -322,6 +322,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 			VoteLastValid:             uint64Ptr(uint64(stxn.Txn.VoteLast)),
 			VoteKeyDilution:           uint64Ptr(stxn.Txn.VoteKeyDilution),
 			VoteParticipationKey:      byteSliceOmitZeroPtr(stxn.Txn.VotePK[:]),
+			StateProofKey:             byteSliceOmitZeroPtr(stxn.Txn.StateProofPK[:]),
 		}
 		keyreg = &k
 	case protocol.AssetConfigTx:
@@ -524,7 +525,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 	return txn, nil
 }
 
-func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.AssetsQuery, error) {
+func (si *ServerImplementation) assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.AssetsQuery, error) {
 	creator, errorArr := decodeAddress(params.Creator, "creator", make([]string, 0))
 	if len(errorArr) != 0 {
 		return idb.AssetsQuery{}, errors.New(errUnableToParseAddress)
@@ -547,13 +548,37 @@ func assetParamsToAssetQuery(params generated.SearchForAssetsParams) (idb.Assets
 		Unit:               strOrDefault(params.Unit),
 		Query:              "",
 		IncludeDeleted:     boolOrDefault(params.IncludeAll),
-		Limit:              min(uintOrDefaultValue(params.Limit, defaultAssetsLimit), maxAssetsLimit),
+		Limit:              min(uintOrDefaultValue(params.Limit, si.opts.DefaultAssetsLimit), si.opts.MaxAssetsLimit),
 	}
 
 	return query, nil
 }
 
-func transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {
+func (si *ServerImplementation) appParamsToApplicationQuery(params generated.SearchForApplicationsParams) (idb.ApplicationQuery, error) {
+	addr, errorArr := decodeAddress(params.Creator, "creator", make([]string, 0))
+	if len(errorArr) != 0 {
+		return idb.ApplicationQuery{}, errors.New(errUnableToParseAddress)
+	}
+
+	var appGreaterThan uint64 = 0
+	if params.Next != nil {
+		agt, err := strconv.ParseUint(*params.Next, 10, 64)
+		if err != nil {
+			return idb.ApplicationQuery{}, fmt.Errorf("%s: %v", errUnableToParseNext, err)
+		}
+		appGreaterThan = agt
+	}
+
+	return idb.ApplicationQuery{
+		ApplicationID:            uintOrDefault(params.ApplicationId),
+		ApplicationIDGreaterThan: appGreaterThan,
+		Address:                  addr,
+		IncludeDeleted:           boolOrDefault(params.IncludeAll),
+		Limit:                    min(uintOrDefaultValue(params.Limit, si.opts.DefaultApplicationsLimit), si.opts.MaxApplicationsLimit),
+	}, nil
+}
+
+func (si *ServerImplementation) transactionParamsToTransactionFilter(params generated.SearchForTransactionsParams) (filter idb.TransactionFilter, err error) {
 	var errorArr = make([]string, 0)
 
 	// Integer
@@ -561,16 +586,7 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	filter.MinRound = uintOrDefault(params.MinRound)
 	filter.AssetID = uintOrDefault(params.AssetId)
 	filter.ApplicationID = uintOrDefault(params.ApplicationId)
-	filter.Limit = min(uintOrDefaultValue(params.Limit, defaultTransactionsLimit), maxTransactionsLimit)
-
-	// filter Algos or Asset but not both.
-	if filter.AssetID != 0 {
-		filter.AssetAmountLT = params.CurrencyLessThan
-		filter.AssetAmountGT = params.CurrencyGreaterThan
-	} else {
-		filter.AlgosLT = params.CurrencyLessThan
-		filter.AlgosGT = params.CurrencyGreaterThan
-	}
+	filter.Limit = min(uintOrDefaultValue(params.Limit, si.opts.DefaultTransactionsLimit), si.opts.MaxTransactionsLimit)
 	filter.Round = params.Round
 
 	// String
@@ -599,6 +615,15 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	// Boolean
 	filter.RekeyTo = params.RekeyTo
 
+	// filter Algos or Asset but not both.
+	if filter.AssetID != 0 || filter.TypeEnum == idb.TypeEnumAssetTransfer {
+		filter.AssetAmountLT = params.CurrencyLessThan
+		filter.AssetAmountGT = params.CurrencyGreaterThan
+	} else {
+		filter.AlgosLT = params.CurrencyLessThan
+		filter.AlgosGT = params.CurrencyGreaterThan
+	}
+
 	// If there were any errorArr while setting up the TransactionFilter, return now.
 	if len(errorArr) > 0 {
 		err = errors.New("invalid input: " + strings.Join(errorArr, ", "))
@@ -608,4 +633,21 @@ func transactionParamsToTransactionFilter(params generated.SearchForTransactions
 	}
 
 	return
+}
+
+func (si *ServerImplementation) maxAccountsErrorToAccountsErrorResponse(maxErr idb.MaxAPIResourcesPerAccountError) generated.ErrorResponse {
+	addr := maxErr.Address.String()
+	max := uint64(si.opts.MaxAPIResourcesPerAccount)
+	extraData := map[string]interface{}{
+		"max-results":           max,
+		"address":               addr,
+		"total-assets-opted-in": maxErr.TotalAssets,
+		"total-created-assets":  maxErr.TotalAssetParams,
+		"total-apps-opted-in":   maxErr.TotalAppLocalStates,
+		"total-created-apps":    maxErr.TotalAppParams,
+	}
+	return generated.ErrorResponse{
+		Message: ErrResultLimitReached,
+		Data:    &extraData,
+	}
 }

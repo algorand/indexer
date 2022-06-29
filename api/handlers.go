@@ -38,27 +38,11 @@ type ServerImplementation struct {
 	timeout time.Duration
 
 	log *log.Logger
+
+	disabledParams *DisabledMap
+
+	opts ExtraOptions
 }
-
-/////////////////////
-// Limit Constants //
-/////////////////////
-
-// Transactions
-const maxTransactionsLimit = 10000
-const defaultTransactionsLimit = 1000
-
-// Accounts
-const maxAccountsLimit = 1000
-const defaultAccountsLimit = 100
-
-// Assets
-const maxAssetsLimit = 1000
-const defaultAssetsLimit = 100
-
-// Asset Balances
-const maxBalancesLimit = 10000
-const defaultBalancesLimit = 1000
 
 //////////////////////
 // Helper functions //
@@ -112,10 +96,12 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	var errors []string
 	var health idb.Health
 
-	err = callWithTimeout(ctx.Request().Context(), si.log, si.timeout, func(ctx context.Context) error {
-		health, err = si.db.Health()
-		return err
-	})
+	err = callWithTimeout(
+		ctx.Request().Context(), si.log, si.timeout, func(ctx context.Context) error {
+			var err error
+			health, err = si.db.Health(ctx)
+			return err
+		})
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedLookingUpHealth, err))
 	}
@@ -139,29 +125,78 @@ func (si *ServerImplementation) MakeHealthCheck(ctx echo.Context) error {
 	})
 }
 
+var errInvalidExcludeParameter = errors.New("invalid exclude argument")
+
+// set query options based on the value of the "exclude" parameter
+func setExcludeQueryOptions(exclude []string, opts *idb.AccountQueryOptions) error {
+	for _, e := range exclude {
+		switch e {
+		case "all":
+			opts.IncludeAssetHoldings = false
+			opts.IncludeAssetParams = false
+			opts.IncludeAppLocalState = false
+			opts.IncludeAppParams = false
+		case "assets":
+			opts.IncludeAssetHoldings = false
+		case "created-assets":
+			opts.IncludeAssetParams = false
+		case "apps-local-state":
+			opts.IncludeAppLocalState = false
+		case "created-apps":
+			opts.IncludeAppParams = false
+		case "none":
+		default:
+			return fmt.Errorf(`unknown value "%s": %w`, e, errInvalidExcludeParameter)
+		}
+	}
+	return nil
+}
+
+func (si *ServerImplementation) verifyHandler(operationID string, ctx echo.Context) error {
+	return Verify(si.disabledParams, operationID, ctx, si.log)
+}
+
 // LookupAccountByID queries indexer for a given account.
 // (GET /v2/accounts/{account-id})
 func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID string, params generated.LookupAccountByIDParams) error {
-	addr, errors := decodeAddress(&accountID, "account-id", make([]string, 0))
-	if len(errors) != 0 {
-		return badRequest(ctx, errors[0])
+	if err := si.verifyHandler("LookupAccountByID", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	addr, decodeErrors := decodeAddress(&accountID, "account-id", make([]string, 0))
+	if len(decodeErrors) != 0 {
+		return badRequest(ctx, decodeErrors[0])
 	}
 
 	options := idb.AccountQueryOptions{
 		EqualToAddress:       addr[:],
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
+		IncludeAppLocalState: true,
+		IncludeAppParams:     true,
 		Limit:                1,
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
+		MaxResources:         uint64(si.opts.MaxAPIResourcesPerAccount),
+	}
+
+	if params.Exclude != nil {
+		err := setExcludeQueryOptions(*params.Exclude, &options)
+		if err != nil {
+			return badRequest(ctx, err.Error())
+		}
 	}
 
 	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
 	if err != nil {
+		var maxErr idb.MaxAPIResourcesPerAccountError
+		if errors.As(err, &maxErr) {
+			return ctx.JSON(http.StatusBadRequest, si.maxAccountsErrorToAccountsErrorResponse(maxErr))
+		}
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingAccount, err))
 	}
 
 	if len(accounts) == 0 {
-		return notFound(ctx, fmt.Sprintf("%s: %s", errNoAccountsFound, accountID))
+		return notFound(ctx, fmt.Sprintf("%s: %s", ErrNoAccountsFound, accountID))
 	}
 
 	if len(accounts) > 1 {
@@ -174,26 +209,157 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 	})
 }
 
+// LookupAccountAppLocalStates queries indexer for AppLocalState for a given account, and optionally a given app ID.
+// (GET /v2/accounts/{account-id}/apps-local-state)
+func (si *ServerImplementation) LookupAccountAppLocalStates(ctx echo.Context, accountID string, params generated.LookupAccountAppLocalStatesParams) error {
+	if err := si.verifyHandler("LookupAccountAppLocalStates", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	search := generated.SearchForApplicationsParams{
+		Creator:       &accountID,
+		ApplicationId: params.ApplicationId,
+		IncludeAll:    params.IncludeAll,
+		Limit:         params.Limit,
+		Next:          params.Next,
+	}
+	options, err := si.appParamsToApplicationQuery(search)
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	apps, round, err := si.fetchAppLocalStates(ctx.Request().Context(), options)
+	if err != nil {
+		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingApplication, err))
+	}
+
+	var next *string
+	if len(apps) > 0 {
+		next = strPtr(strconv.FormatUint(apps[len(apps)-1].Id, 10))
+	}
+
+	out := generated.ApplicationLocalStatesResponse{
+		AppsLocalStates: apps,
+		CurrentRound:    round,
+		NextToken:       next,
+	}
+	return ctx.JSON(http.StatusOK, out)
+}
+
+// LookupAccountAssets queries indexer for AssetHolding for a given account, and optionally a given asset ID.
+// (GET /v2/accounts/{account-id}/assets)
+func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID string, params generated.LookupAccountAssetsParams) error {
+	if err := si.verifyHandler("LookupAccountAssets", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	addr, errors := decodeAddress(&accountID, "account-id", make([]string, 0))
+	if len(errors) != 0 {
+		return badRequest(ctx, errors[0])
+	}
+
+	var assetGreaterThan uint64 = 0
+	if params.Next != nil {
+		agt, err := strconv.ParseUint(*params.Next, 10, 64)
+		if err != nil {
+			return badRequest(ctx, fmt.Sprintf("%s: %v", errUnableToParseNext, err))
+		}
+		assetGreaterThan = agt
+	}
+
+	query := idb.AssetBalanceQuery{
+		Address:        addr,
+		AssetID:        uintOrDefault(params.AssetId),
+		AssetIDGT:      assetGreaterThan,
+		IncludeDeleted: boolOrDefault(params.IncludeAll),
+		Limit:          min(uintOrDefaultValue(params.Limit, si.opts.DefaultBalancesLimit), si.opts.MaxBalancesLimit),
+	}
+
+	assets, round, err := si.fetchAssetHoldings(ctx.Request().Context(), query)
+	if err != nil {
+		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingAssetBalances, err))
+	}
+
+	var next *string
+	if len(assets) > 0 {
+		next = strPtr(strconv.FormatUint(assets[len(assets)-1].AssetId, 10))
+	}
+
+	return ctx.JSON(http.StatusOK, generated.AssetHoldingsResponse{
+		CurrentRound: round,
+		NextToken:    next,
+		Assets:       assets,
+	})
+}
+
+// LookupAccountCreatedApplications queries indexer for AppParams for a given account, and optionally a given app ID.
+// (GET /v2/accounts/{account-id}/created-applications)
+func (si *ServerImplementation) LookupAccountCreatedApplications(ctx echo.Context, accountID string, params generated.LookupAccountCreatedApplicationsParams) error {
+	if err := si.verifyHandler("LookupAccountCreatedApplications", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	search := generated.SearchForApplicationsParams{
+		Creator:       &accountID,
+		ApplicationId: params.ApplicationId,
+		IncludeAll:    params.IncludeAll,
+		Limit:         params.Limit,
+		Next:          params.Next,
+	}
+	return si.SearchForApplications(ctx, search)
+}
+
+// LookupAccountCreatedAssets queries indexer for AssetParams for a given account, and optionally a given asset ID.
+// (GET /v2/accounts/{account-id}/created-assets)
+func (si *ServerImplementation) LookupAccountCreatedAssets(ctx echo.Context, accountID string, params generated.LookupAccountCreatedAssetsParams) error {
+	if err := si.verifyHandler("LookupAccountCreatedAssets", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	search := generated.SearchForAssetsParams{
+		Creator:    &accountID,
+		AssetId:    params.AssetId,
+		IncludeAll: params.IncludeAll,
+		Limit:      params.Limit,
+		Next:       params.Next,
+	}
+	return si.SearchForAssets(ctx, search)
+}
+
 // SearchForAccounts returns accounts matching the provided parameters
 // (GET /v2/accounts)
 func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params generated.SearchForAccountsParams) error {
+	if err := si.verifyHandler("SearchForAccounts", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
 	if !si.EnableAddressSearchRoundRewind && params.Round != nil {
 		return badRequest(ctx, errMultiAcctRewind)
 	}
 
-	spendingAddr, errors := decodeAddress(params.AuthAddr, "account-id", make([]string, 0))
-	if len(errors) != 0 {
-		return badRequest(ctx, errors[0])
+	spendingAddr, decodeErrors := decodeAddress(params.AuthAddr, "account-id", make([]string, 0))
+	if len(decodeErrors) != 0 {
+		return badRequest(ctx, decodeErrors[0])
 	}
 
 	options := idb.AccountQueryOptions{
 		IncludeAssetHoldings: true,
 		IncludeAssetParams:   true,
-		Limit:                min(uintOrDefaultValue(params.Limit, defaultAccountsLimit), maxAccountsLimit),
+		IncludeAppLocalState: true,
+		IncludeAppParams:     true,
+		Limit:                min(uintOrDefaultValue(params.Limit, si.opts.DefaultAccountsLimit), si.opts.MaxAccountsLimit),
 		HasAssetID:           uintOrDefault(params.AssetId),
 		HasAppID:             uintOrDefault(params.ApplicationId),
 		EqualToAuthAddr:      spendingAddr[:],
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
+		MaxResources:         uint64(si.opts.MaxAPIResourcesPerAccount),
+	}
+
+	if params.Exclude != nil {
+		err := setExcludeQueryOptions(*params.Exclude, &options)
+		if err != nil {
+			return badRequest(ctx, err.Error())
+		}
 	}
 
 	// Set GT/LT on Algos or Asset depending on whether or not an assetID was specified
@@ -214,8 +380,11 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 	}
 
 	accounts, round, err := si.fetchAccounts(ctx.Request().Context(), options, params.Round)
-
 	if err != nil {
+		var maxErr idb.MaxAPIResourcesPerAccountError
+		if errors.As(err, &maxErr) {
+			return ctx.JSON(http.StatusBadRequest, si.maxAccountsErrorToAccountsErrorResponse(maxErr))
+		}
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingAccount, err))
 	}
 
@@ -236,6 +405,9 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 // LookupAccountTransactions looks up transactions associated with a particular account.
 // (GET /v2/accounts/{account-id}/transactions)
 func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, accountID string, params generated.LookupAccountTransactionsParams) error {
+	if err := si.verifyHandler("LookupAccountTransactions", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
 	// Check that a valid account was provided
 	_, errors := decodeAddress(strPtr(accountID), "account-id", make([]string, 0))
 	if len(errors) != 0 {
@@ -271,7 +443,16 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 // SearchForApplications returns applications for the provided parameters.
 // (GET /v2/applications)
 func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params generated.SearchForApplicationsParams) error {
-	apps, round, err := si.fetchApplications(ctx.Request().Context(), params)
+	if err := si.verifyHandler("SearchForApplications", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	options, err := si.appParamsToApplicationQuery(params)
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	apps, round, err := si.fetchApplications(ctx.Request().Context(), options)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingApplication, err))
 	}
@@ -292,12 +473,16 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 // LookupApplicationByID returns one application for the requested ID.
 // (GET /v2/applications/{application-id})
 func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationByIDParams) error {
-	p := generated.SearchForApplicationsParams{
-		ApplicationId: &applicationID,
-		IncludeAll:    params.IncludeAll,
+	if err := si.verifyHandler("LookupApplicationByID", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+	q := idb.ApplicationQuery{
+		ApplicationID:  applicationID,
+		IncludeDeleted: boolOrDefault(params.IncludeAll),
+		Limit:          1,
 	}
 
-	apps, round, err := si.fetchApplications(ctx.Request().Context(), p)
+	apps, round, err := si.fetchApplications(ctx.Request().Context(), q)
 	if err != nil {
 		return indexerError(ctx, fmt.Errorf("%s: %w", errFailedSearchingApplication, err))
 	}
@@ -319,6 +504,10 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 // LookupApplicationLogsByID returns one application logs
 // (GET /v2/applications/{application-id}/logs)
 func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationLogsByIDParams) error {
+	if err := si.verifyHandler("LookupApplicationLogsByID", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
 	searchParams := generated.SearchForTransactionsParams{
 		AssetId:       nil,
 		ApplicationId: uint64Ptr(applicationID),
@@ -330,11 +519,14 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 		Address:       params.SenderAddress,
 	}
 
-	filter, err := transactionParamsToTransactionFilter(searchParams)
+	filter, err := si.transactionParamsToTransactionFilter(searchParams)
 	if err != nil {
 		return badRequest(ctx, err.Error())
 	}
 	filter.AddressRole = idb.AddressRoleSender
+	// If there is a match on an inner transaction, return the inner txn's logs
+	// instead of the root txn's logs.
+	filter.ReturnInnerTxnOnly = true
 
 	err = validateTransactionFilter(&filter)
 	if err != nil {
@@ -375,12 +567,16 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 // LookupAssetByID looks up a particular asset
 // (GET /v2/assets/{asset-id})
 func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64, params generated.LookupAssetByIDParams) error {
+	if err := si.verifyHandler("LookupAssetByID", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
 	search := generated.SearchForAssetsParams{
 		AssetId:    uint64Ptr(assetID),
 		Limit:      uint64Ptr(1),
 		IncludeAll: params.IncludeAll,
 	}
-	options, err := assetParamsToAssetQuery(search)
+	options, err := si.assetParamsToAssetQuery(search)
 	if err != nil {
 		return badRequest(ctx, err.Error())
 	}
@@ -407,12 +603,16 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 // LookupAssetBalances looks up balances for a particular asset
 // (GET /v2/assets/{asset-id}/balances)
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID uint64, params generated.LookupAssetBalancesParams) error {
+	if err := si.verifyHandler("LookupAssetBalances", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
 	query := idb.AssetBalanceQuery{
 		AssetID:        assetID,
 		AmountGT:       params.CurrencyGreaterThan,
 		AmountLT:       params.CurrencyLessThan,
 		IncludeDeleted: boolOrDefault(params.IncludeAll),
-		Limit:          min(uintOrDefaultValue(params.Limit, defaultBalancesLimit), maxBalancesLimit),
+		Limit:          min(uintOrDefaultValue(params.Limit, si.opts.DefaultBalancesLimit), si.opts.MaxBalancesLimit),
 	}
 
 	if params.Next != nil {
@@ -443,6 +643,10 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 // LookupAssetTransactions looks up transactions associated with a particular asset
 // (GET /v2/assets/{asset-id}/transactions)
 func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetID uint64, params generated.LookupAssetTransactionsParams) error {
+	if err := si.verifyHandler("LookupAssetTransactions", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
 	searchParams := generated.SearchForTransactionsParams{
 		AssetId:             uint64Ptr(assetID),
 		ApplicationId:       nil,
@@ -471,7 +675,11 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 // SearchForAssets returns assets matching the provided parameters
 // (GET /v2/assets)
 func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generated.SearchForAssetsParams) error {
-	options, err := assetParamsToAssetQuery(params)
+	if err := si.verifyHandler("SearchForAssets", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	options, err := si.assetParamsToAssetQuery(params)
 	if err != nil {
 		return badRequest(ctx, err.Error())
 	}
@@ -496,6 +704,10 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 // LookupBlock returns the block for a given round number
 // (GET /v2/blocks/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
+	if err := si.verifyHandler("LookupBlock", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
 	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber)
 	if errors.Is(err, idb.ErrorBlockNotFound) {
 		return notFound(ctx, fmt.Sprintf("%s '%d': %v", errLookingUpBlockForRound, roundNumber, err))
@@ -509,7 +721,11 @@ func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64
 
 // LookupTransaction searches for the requested transaction ID.
 func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string) error {
-	filter, err := transactionParamsToTransactionFilter(generated.SearchForTransactionsParams{
+	if err := si.verifyHandler("LookupTransaction", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	filter, err := si.transactionParamsToTransactionFilter(generated.SearchForTransactionsParams{
 		Txid: strPtr(txid),
 	})
 	if err != nil {
@@ -546,7 +762,11 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 // SearchForTransactions returns transactions matching the provided parameters
 // (GET /v2/transactions)
 func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params generated.SearchForTransactionsParams) error {
-	filter, err := transactionParamsToTransactionFilter(params)
+	if err := si.verifyHandler("SearchForTransactions", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	filter, err := si.transactionParamsToTransactionFilter(params)
 	if err != nil {
 		return badRequest(ctx, err.Error())
 	}
@@ -612,12 +832,12 @@ func notFound(ctx echo.Context, err string) error {
 ///////////////////////
 
 // fetchApplications fetches all results
-func (si *ServerImplementation) fetchApplications(ctx context.Context, params generated.SearchForApplicationsParams) ([]generated.Application, uint64, error) {
-	var apps []generated.Application
+func (si *ServerImplementation) fetchApplications(ctx context.Context, params idb.ApplicationQuery) ([]generated.Application, uint64, error) {
 	var round uint64
+	apps := make([]generated.Application, 0)
 	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
 		var results <-chan idb.ApplicationRow
-		results, round = si.db.Applications(ctx, &params)
+		results, round = si.db.Applications(ctx, params)
 
 		for result := range results {
 			if result.Error != nil {
@@ -632,7 +852,31 @@ func (si *ServerImplementation) fetchApplications(ctx context.Context, params ge
 		return nil, 0, err
 	}
 
-	return apps, round, err
+	return apps, round, nil
+}
+
+// fetchAppLocalStates fetches all generated.AppLocalState from a query
+func (si *ServerImplementation) fetchAppLocalStates(ctx context.Context, params idb.ApplicationQuery) ([]generated.ApplicationLocalState, uint64, error) {
+	var round uint64
+	als := make([]generated.ApplicationLocalState, 0)
+	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+		var results <-chan idb.AppLocalStateRow
+		results, round = si.db.AppLocalState(ctx, params)
+
+		for result := range results {
+			if result.Error != nil {
+				return result.Error
+			}
+			als = append(als, result.AppLocalState)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return als, round, nil
 }
 
 // fetchAssets fetches all results and converts them into generated.Asset objects
@@ -680,20 +924,6 @@ func (si *ServerImplementation) fetchAssets(ctx context.Context, options idb.Ass
 				},
 			}
 
-			// In case the DB layer filled the name with non-printable utf8
-			if asset.Params.Name != nil {
-				name := util.PrintableUTF8OrEmpty(*asset.Params.Name)
-				asset.Params.Name = &name
-			}
-			if asset.Params.UnitName != nil {
-				unit := util.PrintableUTF8OrEmpty(*asset.Params.UnitName)
-				asset.Params.UnitName = &unit
-			}
-			if asset.Params.Url != nil {
-				url := util.PrintableUTF8OrEmpty(*asset.Params.Url)
-				asset.Params.Url = &url
-			}
-
 			assets = append(assets, asset)
 		}
 		return nil
@@ -727,6 +957,47 @@ func (si *ServerImplementation) fetchAssetBalances(ctx context.Context, options 
 			bal := generated.MiniAssetHolding{
 				Address:         addr.String(),
 				Amount:          row.Amount,
+				IsFrozen:        row.Frozen,
+				OptedInAtRound:  row.CreatedRound,
+				OptedOutAtRound: row.ClosedRound,
+				Deleted:         row.Deleted,
+			}
+
+			balances = append(balances, bal)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return balances, round, nil
+}
+
+// fetchAssetHoldings fetches all balances from a query and converts them into
+// generated.AssetHolding objects
+func (si *ServerImplementation) fetchAssetHoldings(ctx context.Context, options idb.AssetBalanceQuery) ([]generated.AssetHolding, uint64 /*round*/, error) {
+	var round uint64
+	balances := make([]generated.AssetHolding, 0)
+	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+		var assetbalchan <-chan idb.AssetBalanceRow
+		assetbalchan, round = si.db.AssetBalances(ctx, options)
+
+		for row := range assetbalchan {
+			if row.Error != nil {
+				return row.Error
+			}
+
+			addr := basics.Address{}
+			if len(row.Address) != len(addr) {
+				return fmt.Errorf(errInvalidCreatorAddress)
+			}
+			copy(addr[:], row.Address[:])
+
+			bal := generated.AssetHolding{
+				Amount:          row.Amount,
+				AssetId:         row.AssetID,
 				IsFrozen:        row.Frozen,
 				OptedInAtRound:  row.CreatedRound,
 				OptedOutAtRound: row.ClosedRound,
@@ -788,7 +1059,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 			Seed:              blockHeader.Seed[:],
 			Timestamp:         uint64(blockHeader.TimeStamp),
 			Transactions:      nil,
-			TransactionsRoot:  blockHeader.TxnRoot[:],
+			TransactionsRoot:  blockHeader.TxnCommitments.NativeSha512_256Commitment[:],
 			TxnCounter:        uint64Ptr(blockHeader.TxnCounter),
 			UpgradeState:      &upgradeState,
 			UpgradeVote:       &upgradeVote,
@@ -796,10 +1067,16 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 
 		results := make([]generated.Transaction, 0)
 		for _, txrow := range transactions {
+			// Do not include inner transactions.
+			if txrow.RootTxn != nil {
+				continue
+			}
+
 			tx, err := txnRowToTransaction(txrow)
 			if err != nil {
 				return err
 			}
+
 			results = append(results, tx)
 		}
 
@@ -821,6 +1098,12 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 		var accountchan <-chan idb.AccountRow
 		accountchan, round = si.db.GetAccounts(ctx, options)
 
+		// Make sure accountchan is empty at the end of processing.
+		defer func() {
+			for range accountchan {
+			}
+		}()
+
 		if (atRound != nil) && (*atRound > round) {
 			return fmt.Errorf("%s: the requested round %d > the current round %d",
 				errRewindingAccount, *atRound, round)
@@ -834,7 +1117,7 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 			// Compute for a given round if requested.
 			var account generated.Account
 			if atRound != nil {
-				acct, err := accounting.AccountAtRound(row.Account, *atRound, si.db)
+				acct, err := accounting.AccountAtRound(ctx, row.Account, *atRound, si.db)
 				if err != nil {
 					// Ignore the error if this is an account search rewind error
 					_, isSpecialAccountRewindError := err.(*accounting.SpecialAccountRewindError)
@@ -862,6 +1145,7 @@ func (si *ServerImplementation) fetchAccounts(ctx context.Context, options idb.A
 }
 
 // fetchTransactions is used to query the backend for transactions, and compute the next token
+// If returnInnerTxnOnly is false, then the root txn is returned for a inner txn match.
 func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter idb.TransactionFilter) ([]generated.Transaction, string, uint64 /*round*/, error) {
 	var round uint64
 	var nextToken string
@@ -871,8 +1155,8 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 		txchan, round = si.db.Transactions(ctx, filter)
 
 		rootTxnDedupeMap := make(map[string]struct{})
-		var txrow idb.TxnRow
-		for txrow = range txchan {
+		var lastTxrow idb.TxnRow
+		for txrow := range txchan {
 			tx, err := txnRowToTransaction(txrow)
 			if err != nil {
 				return err
@@ -884,12 +1168,15 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 			}
 
 			// The root txn has already been added.
-			if _, ok := rootTxnDedupeMap[*tx.Id]; ok {
+			// If we also want to return inner txns, we cannot deduplicate the
+			// results as inner txns all share the same txn ID as its root txn.
+			if _, ok := rootTxnDedupeMap[*tx.Id]; ok && !filter.ReturnInnerTxnOnly {
 				continue
 			}
 
 			rootTxnDedupeMap[*tx.Id] = struct{}{}
 			results = append(results, tx)
+			lastTxrow = txrow
 		}
 
 		// No next token if there were no results.
@@ -899,7 +1186,7 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 
 		// The sort order depends on whether the address filter is used.
 		var err error
-		nextToken, err = txrow.Next(filter.Address == nil)
+		nextToken, err = lastTxrow.Next(filter.Address == nil)
 
 		return err
 	})
@@ -907,7 +1194,7 @@ func (si *ServerImplementation) fetchTransactions(ctx context.Context, filter id
 		return nil, "", 0, err
 	}
 
-	return results, nextToken, round, err
+	return results, nextToken, round, nil
 }
 
 //////////////////////

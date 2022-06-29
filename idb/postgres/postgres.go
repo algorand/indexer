@@ -7,6 +7,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -14,12 +15,15 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand/config"
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 
+	"github.com/jackc/pgconn"
+	"github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	log "github.com/sirupsen/logrus"
@@ -45,7 +49,17 @@ var readonlyRepeatableRead = pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessM
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
 func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger) (*IndexerDb, chan struct{}, error) {
-	db, err := pgxpool.Connect(context.Background(), connection)
+
+	postgresConfig, err := pgxpool.ParseConfig(connection)
+	if err != nil {
+		return nil, nil, fmt.Errorf("Couldn't parse config: %v", err)
+	}
+
+	if opts.MaxConn != 0 {
+		postgresConfig.MaxConns = int32(opts.MaxConn)
+	}
+
+	db, err := pgxpool.ConnectConfig(context.Background(), postgresConfig)
 
 	if err != nil {
 		return nil, nil, fmt.Errorf("connecting to postgres: %v", err)
@@ -76,7 +90,7 @@ func openPostgres(db *pgxpool.Pool, opts idb.IndexerDbOptions, logger *log.Logge
 	var ch chan struct{}
 	// e.g. a user named "readonly" is in the connection string
 	if opts.ReadOnly {
-		migrationState, err := idb.getMigrationState(nil)
+		migrationState, err := idb.getMigrationState(context.Background(), nil)
 		if err != nil {
 			return nil, nil, fmt.Errorf("openPostgres() err: %w", err)
 		}
@@ -104,6 +118,11 @@ type IndexerDb struct {
 	db             *pgxpool.Pool
 	migration      *migration.Migration
 	accountingLock sync.Mutex
+}
+
+// Close is part of idb.IndexerDb.
+func (db *IndexerDb) Close() {
+	db.db.Close()
 }
 
 // txWithRetry is a helper function that retries the function `f` in case the database
@@ -159,33 +178,75 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	return db.runAvailableMigrations()
 }
 
-// Returns all addresses referenced in `block`.
-func getBlockAddresses(block *bookkeeping.Block) map[basics.Address]struct{} {
-	// Reserve a reasonable memory size for the map.
-	res := make(map[basics.Address]struct{}, len(block.Payset)+2)
+// Preload asset and app creators.
+func prepareCreators(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
+	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
 
-	res[block.FeeSink] = struct{}{}
-	res[block.RewardsPool] = struct{}{}
-	for _, stib := range block.Payset {
-		addFunc := func(address basics.Address) {
-			res[address] = struct{}{}
-		}
-		accounting.GetTransactionParticipants(&stib.SignedTxnWithAD, true, addFunc)
+	assets, err := l.GetAssetCreator(assetsReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
+	}
+	apps, err := l.GetAppCreator(appsReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
 	}
 
-	return res
+	return assets, apps, nil
 }
 
+// Preload account data and account resources.
+func prepareAccountsResources(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
+	addressesReq, resourcesReq :=
+		accounting.MakePreloadAccountsResourcesRequest(payset, assetCreators, appCreators)
+
+	accounts, err := l.LookupWithoutRewards(addressesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
+	}
+	resources, err := l.LookupResources(resourcesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
+	}
+
+	return accounts, resources, nil
+}
+
+// Preload all resources (account data, account resources, asset/app creators) for the
+// evaluator.
 func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
-	accountDataMap, err := l.LookupWithoutRewards(getBlockAddresses(block))
+	assetCreators, appCreators, err := prepareCreators(l, block.Payset)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
 			fmt.Errorf("prepareEvalResources() err: %w", err)
 	}
 
 	res := ledger.EvalForIndexerResources{
-		Accounts: accountDataMap,
+		Accounts:  nil,
+		Resources: nil,
+		Creators:  make(map[ledger.Creatable]ledger.FoundAddress),
 	}
+
+	for index, foundAddress := range assetCreators {
+		creatable := ledger.Creatable{
+			Index: basics.CreatableIndex(index),
+			Type:  basics.AssetCreatable,
+		}
+		res.Creators[creatable] = foundAddress
+	}
+	for index, foundAddress := range appCreators {
+		creatable := ledger.Creatable{
+			Index: basics.CreatableIndex(index),
+			Type:  basics.AppCreatable,
+		}
+		res.Creators[creatable] = foundAddress
+	}
+
+	res.Accounts, res.Resources, err = prepareAccountsResources(l, block.Payset, assetCreators, appCreators)
+	if err != nil {
+		return ledger.EvalForIndexerResources{},
+			fmt.Errorf("prepareEvalResources() err: %w", err)
+	}
+
 	return res, nil
 }
 
@@ -213,31 +274,56 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
 
-		writer, err := writer.MakeWriter(tx)
+		w, err := writer.MakeWriter(tx)
 		if err != nil {
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
-		defer writer.Close()
+		defer w.Close()
 
 		if block.Round() == basics.Round(0) {
 			// Block 0 is special, we cannot run the evaluator on it.
-			err := writer.AddBlock0(block)
+			err := w.AddBlock0(block)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
 		} else {
-			ledgerForEval, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, block.Round()-1)
-			if err != nil {
-				return fmt.Errorf("AddBlock() err: %w", err)
-			}
-			defer ledgerForEval.Close()
-
 			proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
 			if !ok {
 				return fmt.Errorf(
 					"AddBlock() cannot find proto version %s", block.BlockHeader.CurrentProtocol)
 			}
+			protoChanged := !proto.EnableAssetCloseAmount
 			proto.EnableAssetCloseAmount = true
+
+			var wg sync.WaitGroup
+			defer wg.Wait()
+
+			// Write transaction participation and possibly transactions in a parallel db
+			// transaction. If `proto.EnableAssetCloseAmount` is already true, we can start
+			// writing transactions contained in the block early.
+			var err0 error
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+
+				f := func(tx pgx.Tx) error {
+					if !protoChanged {
+						err := writer.AddTransactions(block, block.Payset, tx)
+						if err != nil {
+							return err
+						}
+					}
+					return writer.AddTransactionParticipation(block, tx)
+				}
+				err0 = db.txWithRetry(serializable, f)
+			}()
+
+			ledgerForEval, err :=
+				ledger_for_evaluator.MakeLedgerForEvaluator(tx, block.Round()-1)
+			if err != nil {
+				return fmt.Errorf("AddBlock() err: %w", err)
+			}
+			defer ledgerForEval.Close()
 
 			resources, err := prepareEvalResources(&ledgerForEval, block)
 			if err != nil {
@@ -252,9 +338,40 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 			}
 			metrics.PostgresEvalTimeSeconds.Observe(time.Since(start).Seconds())
 
-			err = writer.AddBlock(block, modifiedTxns, delta)
+			var err1 error
+			// Skip if transaction writing has already started.
+			if protoChanged {
+				// Write transactions in a parallel db transaction.
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+
+					f := func(tx pgx.Tx) error {
+						return writer.AddTransactions(block, modifiedTxns, tx)
+					}
+					err1 = db.txWithRetry(serializable, f)
+				}()
+			}
+
+			err = w.AddBlock(block, modifiedTxns, delta)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
+			}
+
+			// Wait for goroutines to finish and check for errors. If there is an error, we
+			// return our own error so that the main transaction does not commit. Hence,
+			// `txn` and `txn_participation` tables can only be ahead but not behind
+			// the other state.
+			wg.Wait()
+			isUniqueViolationFunc := func(err error) bool {
+				var pgerr *pgconn.PgError
+				return errors.As(err, &pgerr) && (pgerr.Code == pgerrcode.UniqueViolation)
+			}
+			if (err0 != nil) && !isUniqueViolationFunc(err0) {
+				return fmt.Errorf("AddBlock() err0: %w", err0)
+			}
+			if (err1 != nil) && !isUniqueViolationFunc(err1) {
+				return fmt.Errorf("AddBlock() err1: %w", err1)
 			}
 		}
 
@@ -271,9 +388,26 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 // LoadGenesis is part of idb.IndexerDB
 func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 	f := func(tx pgx.Tx) error {
+		// check genesis hash
+		network, err := db.getNetworkState(context.Background(), tx)
+		if err == idb.ErrorNotInitialized {
+			networkState := types.NetworkState{
+				GenesisHash: crypto.HashObj(genesis),
+			}
+			err = db.setNetworkState(tx, &networkState)
+			if err != nil {
+				return fmt.Errorf("LoadGenesis() err: %w", err)
+			}
+		} else if err != nil {
+			return fmt.Errorf("LoadGenesis() err: %w", err)
+		} else {
+			if network.GenesisHash != crypto.HashObj(genesis) {
+				return fmt.Errorf("LoadGenesis() genesis hash not matching")
+			}
+		}
 		setAccountStatementName := "set_account"
 		query := `INSERT INTO account (addr, microalgos, rewardsbase, account_data, rewards_total, created_at, deleted) VALUES ($1, $2, 0, $3, $4, 0, false)`
-		_, err := tx.Prepare(context.Background(), setAccountStatementName, query)
+		_, err = tx.Prepare(context.Background(), setAccountStatementName, query)
 		if err != nil {
 			return fmt.Errorf("LoadGenesis() prepare tx err: %w", err)
 		}
@@ -293,15 +427,16 @@ func (db *IndexerDb) LoadGenesis(genesis bookkeeping.Genesis) error {
 			if len(alloc.State.AssetParams) > 0 || len(alloc.State.Assets) > 0 {
 				return fmt.Errorf("LoadGenesis() genesis account[%d] has unhandled asset", ai)
 			}
+			accountData := ledgercore.ToAccountData(alloc.State)
 			_, err = tx.Exec(
 				context.Background(), setAccountStatementName,
 				addr[:], alloc.State.MicroAlgos.Raw,
-				encoding.EncodeTrimmedAccountData(encoding.TrimAccountData(alloc.State)), 0)
+				encoding.EncodeTrimmedLcAccountData(encoding.TrimLcAccountData(accountData)), 0)
 			if err != nil {
 				return fmt.Errorf("LoadGenesis() error setting genesis account[%d], %w", ai, err)
 			}
 
-			totals.AddAccount(proto, alloc.State, &ot)
+			totals.AddAccount(proto, accountData, &ot)
 		}
 
 		err = db.setMetastate(
@@ -363,6 +498,32 @@ func (db *IndexerDb) getImportState(ctx context.Context, tx pgx.Tx) (types.Impor
 func (db *IndexerDb) setImportState(tx pgx.Tx, state *types.ImportState) error {
 	return db.setMetastate(
 		tx, schema.StateMetastateKey, string(encoding.EncodeImportState(state)))
+}
+
+// Returns idb.ErrorNotInitialized if uninitialized.
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) getNetworkState(ctx context.Context, tx pgx.Tx) (types.NetworkState, error) {
+	networkStateJSON, err := db.getMetastate(ctx, tx, schema.NetworkMetaStateKey)
+	if err == idb.ErrorNotInitialized {
+		return types.NetworkState{}, idb.ErrorNotInitialized
+	}
+	if err != nil {
+		return types.NetworkState{}, fmt.Errorf("unable to get network state err: %w", err)
+	}
+
+	state, err := encoding.DecodeNetworkState([]byte(networkStateJSON))
+	if err != nil {
+		return types.NetworkState{},
+			fmt.Errorf("unable to parse network state v: \"%s\" err: %w", networkStateJSON, err)
+	}
+
+	return state, nil
+}
+
+// If `tx` is nil, use a normal query.
+func (db *IndexerDb) setNetworkState(tx pgx.Tx, state *types.NetworkState) error {
+	return db.setMetastate(
+		tx, schema.NetworkMetaStateKey, string(encoding.EncodeNetworkState(state)))
 }
 
 // Returns ErrorNotInitialized if genesis is not loaded.
@@ -436,8 +597,10 @@ func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.Get
 			return bookkeeping.BlockHeader{}, nil, err
 		}
 
+		// Unlike other spots, because we don't return a channel, we don't need
+		// to worry about performing a rollback before closing the channel
 		go func() {
-			db.yieldTxnsThreadSimple(ctx, rows, out, nil, nil)
+			db.yieldTxnsThreadSimple(rows, out, nil, nil)
 			close(out)
 		}()
 
@@ -618,13 +781,22 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	if tf.RekeyTo != nil && (*tf.RekeyTo) {
 		whereParts = append(whereParts, "(t.txn -> 'txn' -> 'rekey') IS NOT NULL")
 	}
-	query = "SELECT t.round, t.intra, t.txnbytes, root.txnbytes, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+
+	// If returnInnerTxnOnly flag is false, then return the root transaction
+	if !tf.ReturnInnerTxnOnly {
+		query = "SELECT t.round, t.intra, t.txn, root.txn, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	} else {
+		query = "SELECT t.round, t.intra, t.txn, NULL, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
+	}
+
 	if joinParticipation {
 		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
 
-	// join in the root transaction
-	query += " LEFT OUTER JOIN txn root ON t.round = root.round AND t.extra->>'root-intra' = root.intra::text"
+	// join in the root transaction if the returnInnerTxnOnly flag is false
+	if !tf.ReturnInnerTxnOnly {
+		query += " LEFT OUTER JOIN txn root ON t.round = root.round AND (t.extra->>'root-intra')::int = root.intra"
+	}
 
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
@@ -664,7 +836,7 @@ func (db *IndexerDb) yieldTxns(ctx context.Context, tx pgx.Tx, tf idb.Transactio
 		return
 	}
 
-	db.yieldTxnsThreadSimple(ctx, rows, out, nil, nil)
+	db.yieldTxnsThreadSimple(rows, out, nil, nil)
 }
 
 // Transactions is part of idb.IndexerDB
@@ -680,15 +852,23 @@ func (db *IndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter)
 
 	round, err := db.getMaxRoundAccounted(ctx, tx)
 	if err != nil {
-		tx.Rollback(ctx)
 		out <- idb.TxnRow{Error: err}
 		close(out)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		return out, round
 	}
 
 	go func() {
 		db.yieldTxns(ctx, tx, tf, out)
-		tx.Rollback(ctx)
+		// Because we return a channel into a "callWithTimeout" function,
+		// We need to make sure that rollback is called before close()
+		// otherwise we can end up with a situation where "callWithTimeout"
+		// will cancel our context, resulting in connection pool churn
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		close(out)
 	}()
 
@@ -735,7 +915,7 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 	}
 
 	count := 0
-	db.yieldTxnsThreadSimple(ctx, rows, out, &count, &err)
+	db.yieldTxnsThreadSimple(rows, out, &count, &err)
 	if err != nil {
 		return
 	}
@@ -779,10 +959,10 @@ func (db *IndexerDb) txnsWithNext(ctx context.Context, tx pgx.Tx, tf idb.Transac
 		out <- idb.TxnRow{Error: err}
 		return
 	}
-	db.yieldTxnsThreadSimple(ctx, rows, out, nil, nil)
+	db.yieldTxnsThreadSimple(rows, out, nil, nil)
 }
 
-func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, results chan<- idb.TxnRow, countp *int, errp *error) {
+func (db *IndexerDb) yieldTxnsThreadSimple(rows pgx.Rows, results chan<- idb.TxnRow, countp *int, errp *error) {
 	defer rows.Close()
 
 	count := 0
@@ -790,40 +970,53 @@ func (db *IndexerDb) yieldTxnsThreadSimple(ctx context.Context, rows pgx.Rows, r
 		var round uint64
 		var asset uint64
 		var intra int
-		var txnbytes []byte
-		var roottxnbytes []byte
-		var extraJSON []byte
+		var txn []byte
+		var roottxn []byte
+		var extra []byte
 		var roundtime time.Time
-		err := rows.Scan(&round, &intra, &txnbytes, &roottxnbytes, &extraJSON, &asset, &roundtime)
+		err := rows.Scan(&round, &intra, &txn, &roottxn, &extra, &asset, &roundtime)
 		var row idb.TxnRow
 		if err != nil {
 			row.Error = err
 		} else {
 			row.Round = round
 			row.Intra = intra
-			row.TxnBytes = txnbytes
-			row.RootTxnBytes = roottxnbytes
+			if roottxn != nil {
+				// Inner transaction.
+				row.RootTxn = new(transactions.SignedTxnWithAD)
+				*row.RootTxn, err = encoding.DecodeSignedTxnWithAD(roottxn)
+				if err != nil {
+					err = fmt.Errorf("error decoding roottxn, err: %w", err)
+					row.Error = err
+				}
+			} else {
+				// Root transaction.
+				row.Txn = new(transactions.SignedTxnWithAD)
+				*row.Txn, err = encoding.DecodeSignedTxnWithAD(txn)
+				if err != nil {
+					err = fmt.Errorf("error decoding txn, err: %w", err)
+					row.Error = err
+				}
+			}
+
 			row.RoundTime = roundtime
 			row.AssetID = asset
-			if len(extraJSON) > 0 {
-				row.Extra, err = encoding.DecodeTxnExtra(extraJSON)
+			if len(extra) > 0 {
+				row.Extra, err = encoding.DecodeTxnExtra(extra)
 				if err != nil {
-					row.Error = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
+					err = fmt.Errorf("%d:%d decode txn extra, %v", row.Round, row.Intra, err)
+					row.Error = err
 				}
 			}
 		}
-		select {
-		case <-ctx.Done():
+		results <- row
+		if row.Error != nil {
+			if errp != nil {
+				*errp = err
+			}
 			goto finish
-		case results <- row:
-			if err != nil {
-				if errp != nil {
-					*errp = err
-				}
-				goto finish
-			}
-			count++
 		}
+		count++
 	}
 	if err := rows.Err(); err != nil {
 		results <- idb.TxnRow{Error: err}
@@ -924,37 +1117,22 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		var localStateClosedBytes []byte
 		var localStateDeletedBytes []byte
 
-		var err error
-
-		if req.opts.IncludeAssetHoldings && req.opts.IncludeAssetParams {
-			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes, &holdingDeletedBytes,
-				&assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes, &assetParamsDeletedBytes,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
-			)
-		} else if req.opts.IncludeAssetHoldings {
-			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes, &holdingDeletedBytes,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
-			)
-		} else if req.opts.IncludeAssetParams {
-			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes, &assetParamsDeletedBytes,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
-			)
-		} else {
-			err = req.rows.Scan(
-				&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr,
-				&appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes, &localStateAppIds, &localStates,
-				&localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes,
-			)
+		// build list of columns to scan using include options like buildAccountQuery
+		cols := []interface{}{&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr}
+		if req.opts.IncludeAssetHoldings {
+			cols = append(cols, &holdingAssetids, &holdingAmount, &holdingFrozen, &holdingCreatedBytes, &holdingClosedBytes, &holdingDeletedBytes)
 		}
+		if req.opts.IncludeAssetParams {
+			cols = append(cols, &assetParamsIds, &assetParamsStr, &assetParamsCreatedBytes, &assetParamsClosedBytes, &assetParamsDeletedBytes)
+		}
+		if req.opts.IncludeAppParams {
+			cols = append(cols, &appParamIndexes, &appParams, &appCreatedBytes, &appClosedBytes, &appDeletedBytes)
+		}
+		if req.opts.IncludeAppLocalState {
+			cols = append(cols, &localStateAppIds, &localStates, &localStateCreatedBytes, &localStateClosedBytes, &localStateDeletedBytes)
+		}
+
+		err := req.rows.Scan(cols...)
 		if err != nil {
 			err = fmt.Errorf("account scan err %v", err)
 			req.out <- idb.AccountRow{Error: err}
@@ -980,8 +1158,8 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		{
-			var ad basics.AccountData
-			ad, err = encoding.DecodeTrimmedAccountData(accountDataJSONStr)
+			var ad ledgercore.AccountData
+			ad, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
 			if err != nil {
 				err = fmt.Errorf("account decode err (%s) %v", accountDataJSONStr, err)
 				req.out <- idb.AccountRow{Error: err}
@@ -990,13 +1168,18 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.Status = statusStrings[ad.Status]
 			hasSel := !allZero(ad.SelectionID[:])
 			hasVote := !allZero(ad.VoteID[:])
-			if hasSel || hasVote {
+			hasStateProofkey := !allZero(ad.StateProofID[:])
+
+			if hasSel || hasVote || hasStateProofkey {
 				part := new(models.AccountParticipation)
 				if hasSel {
 					part.SelectionParticipationKey = ad.SelectionID[:]
 				}
 				if hasVote {
 					part.VoteParticipationKey = ad.VoteID[:]
+				}
+				if hasStateProofkey {
+					part.StateProofKey = byteSlicePtr(ad.StateProofID[:])
 				}
 				part.VoteFirstValid = uint64(ad.VoteFirstValid)
 				part.VoteLastValid = uint64(ad.VoteLastValid)
@@ -1022,6 +1205,11 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			if ad.TotalExtraAppPages != 0 {
 				account.AppsTotalExtraPages = uint64Ptr(uint64(ad.TotalExtraAppPages))
 			}
+
+			account.TotalAppsOptedIn = ad.TotalAppLocalStates
+			account.TotalCreatedApps = ad.TotalAppParams
+			account.TotalAssetsOptedIn = ad.TotalAssets
+			account.TotalCreatedAssets = ad.TotalAssetParams
 		}
 
 		if account.Status == "NotParticipating" {
@@ -1117,7 +1305,7 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 					OptedOutAtRound: holdingClosed[i],
 					OptedInAtRound:  holdingCreated[i],
 					Deleted:         holdingDeleted[i],
-				} // TODO: set Creator to asset creator addr string
+				}
 				av = append(av, tah)
 			}
 			account.Assets = new([]models.AssetHolding)
@@ -1346,13 +1534,9 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 			account.AppsLocalState = &aout
 		}
 
-		select {
-		case req.out <- idb.AccountRow{Account: account}:
-			count++
-			if req.opts.Limit != 0 && count >= req.opts.Limit {
-				return
-			}
-		case <-req.ctx.Done():
+		req.out <- idb.AccountRow{Account: account}
+		count++
+		if req.opts.Limit != 0 && count >= req.opts.Limit {
 			return
 		}
 	}
@@ -1450,7 +1634,6 @@ func addrStr(addr basics.Address) *string {
 }
 
 type getAccountsRequest struct {
-	ctx         context.Context
 	opts        idb.AccountQueryOptions
 	blockheader bookkeeping.BlockHeader
 	query       string
@@ -1463,9 +1646,7 @@ type getAccountsRequest struct {
 func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptions) (<-chan idb.AccountRow, uint64) {
 	out := make(chan idb.AccountRow, 1)
 
-	if opts.HasAssetID != 0 {
-		opts.IncludeAssetHoldings = true
-	} else if (opts.AssetGT != nil) || (opts.AssetLT != nil) {
+	if opts.HasAssetID == 0 && (opts.AssetGT != nil || opts.AssetLT != nil) {
 		err := fmt.Errorf("AssetGT=%d, AssetLT=%d, but HasAssetID=%d", uintOrDefault(opts.AssetGT), uintOrDefault(opts.AssetLT), opts.HasAssetID)
 		out <- idb.AccountRow{Error: err}
 		close(out)
@@ -1487,7 +1668,9 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		err = fmt.Errorf("account round err %v", err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
-		tx.Rollback(ctx)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		return out, round
 	}
 
@@ -1499,7 +1682,9 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		err = fmt.Errorf("account round header %d err %v", round, err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
-		tx.Rollback(ctx)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		return out, round
 	}
 	blockheader, err := encoding.DecodeBlockHeader(headerjson)
@@ -1507,14 +1692,28 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		err = fmt.Errorf("account round header %d err %v", round, err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
-		tx.Rollback(ctx)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		return out, round
 	}
 
+	// Enforce max combined # of app & asset resources per account limit, if set
+	if opts.MaxResources != 0 {
+		err = db.checkAccountResourceLimit(ctx, tx, opts)
+		if err != nil {
+			out <- idb.AccountRow{Error: err}
+			close(out)
+			if rerr := tx.Rollback(ctx); rerr != nil {
+				db.log.Printf("rollback error: %s", rerr)
+			}
+			return out, round
+		}
+	}
+
 	// Construct query for fetching accounts...
-	query, whereArgs := db.buildAccountQuery(opts)
+	query, whereArgs := db.buildAccountQuery(opts, false)
 	req := &getAccountsRequest{
-		ctx:         ctx,
 		opts:        opts,
 		blockheader: blockheader,
 		query:       query,
@@ -1526,20 +1725,133 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		err = fmt.Errorf("account query %#v err %v", query, err)
 		out <- idb.AccountRow{Error: err}
 		close(out)
-		tx.Rollback(ctx)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		return out, round
 	}
 	go func() {
 		db.yieldAccountsThread(req)
+		// Because we return a channel into a "callWithTimeout" function,
+		// We need to make sure that rollback is called before close()
+		// otherwise we can end up with a situation where "callWithTimeout"
+		// will cancel our context, resulting in connection pool churn
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		close(req.out)
-		tx.Rollback(ctx)
 	}()
 	return out, round
 }
 
-func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query string, whereArgs []interface{}) {
+func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, opts idb.AccountQueryOptions) error {
+	// skip check if no resources are requested
+	if !opts.IncludeAssetHoldings && !opts.IncludeAssetParams && !opts.IncludeAppLocalState && !opts.IncludeAppParams {
+		return nil
+	}
+
+	// make a copy of the filters requested
+	o := opts
+	var countOnly bool
+
+	if opts.IncludeDeleted {
+		// if IncludeDeleted is set, need to construct a query (preserving filters) to count deleted values that would be returned from
+		// asset, app, account_asset, account_app
+		countOnly = true
+	} else {
+		// if IncludeDeleted is not set, query AccountData with no resources (preserving filters), to read ad.TotalX counts inside
+		o.IncludeAssetHoldings = false
+		o.IncludeAssetParams = false
+		o.IncludeAppLocalState = false
+		o.IncludeAppParams = false
+	}
+
+	query, whereArgs := db.buildAccountQuery(o, countOnly)
+	rows, err := tx.Query(ctx, query, whereArgs...)
+	if err != nil {
+		return fmt.Errorf("account limit query %#v err %v", query, err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var addr []byte
+		var microalgos uint64
+		var rewardstotal uint64
+		var createdat sql.NullInt64
+		var closedat sql.NullInt64
+		var deleted sql.NullBool
+		var rewardsbase uint64
+		var keytype *string
+		var accountDataJSONStr []byte
+		var holdingCount, assetCount, appCount, lsCount sql.NullInt64
+		cols := []interface{}{&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr}
+		if countOnly {
+			if o.IncludeAssetHoldings {
+				cols = append(cols, &holdingCount)
+			}
+			if o.IncludeAssetParams {
+				cols = append(cols, &assetCount)
+			}
+			if o.IncludeAppParams {
+				cols = append(cols, &appCount)
+			}
+			if o.IncludeAppLocalState {
+				cols = append(cols, &lsCount)
+			}
+		}
+		err := rows.Scan(cols...)
+		if err != nil {
+			return fmt.Errorf("account limit scan err %v", err)
+		}
+
+		var ad ledgercore.AccountData
+		ad, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
+		if err != nil {
+			return fmt.Errorf("account limit decode err (%s) %v", accountDataJSONStr, err)
+		}
+
+		// check limit against filters (only count what would be returned)
+		var resultCount, totalAssets, totalAssetParams, totalAppLocalStates, totalAppParams uint64
+		if countOnly {
+			totalAssets = uint64(holdingCount.Int64)
+			totalAssetParams = uint64(assetCount.Int64)
+			totalAppLocalStates = uint64(lsCount.Int64)
+			totalAppParams = uint64(appCount.Int64)
+		} else {
+			totalAssets = ad.TotalAssets
+			totalAssetParams = ad.TotalAssetParams
+			totalAppLocalStates = ad.TotalAppLocalStates
+			totalAppParams = ad.TotalAppParams
+		}
+		if opts.IncludeAssetHoldings {
+			resultCount += totalAssets
+		}
+		if opts.IncludeAssetParams {
+			resultCount += totalAssetParams
+		}
+		if opts.IncludeAppLocalState {
+			resultCount += totalAppLocalStates
+		}
+		if opts.IncludeAppParams {
+			resultCount += totalAppParams
+		}
+		if resultCount > opts.MaxResources {
+			var aaddr basics.Address
+			copy(aaddr[:], addr)
+			return idb.MaxAPIResourcesPerAccountError{
+				Address:             aaddr,
+				TotalAppLocalStates: totalAppLocalStates,
+				TotalAppParams:      totalAppParams,
+				TotalAssets:         totalAssets,
+				TotalAssetParams:    totalAssetParams,
+			}
+		}
+	}
+	return nil
+}
+
+func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions, countOnly bool) (query string, whereArgs []interface{}) {
 	// Construct query for fetching accounts...
-	const maxWhereParts = 14
+	const maxWhereParts = 9
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs = make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
@@ -1589,7 +1901,7 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 		partNumber++
 	}
 	if !opts.IncludeDeleted {
-		whereParts = append(whereParts, "coalesce(a.deleted, false) = false")
+		whereParts = append(whereParts, "NOT a.deleted")
 	}
 	if len(opts.EqualToAuthAddr) > 0 {
 		whereParts = append(whereParts, fmt.Sprintf("a.account_data ->> 'spend' = $%d", partNumber))
@@ -1613,42 +1925,91 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	if opts.Limit != 0 {
 		query += fmt.Sprintf(" LIMIT %d", opts.Limit)
 	}
-	// TODO: asset holdings and asset params are optional, but practically always used. Either make them actually always on, or make app-global and app-local clauses also optional (they are currently always on).
+
 	withClauses = append(withClauses, "qaccounts AS ("+query+")")
 	query = "WITH " + strings.Join(withClauses, ", ")
-	if opts.IncludeDeleted {
-		if opts.IncludeAssetHoldings {
-			query += `, qaa AS (SELECT xa.addr, json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf, json_agg(aa.created_at) as holding_created_at, json_agg(aa.closed_at) as holding_closed_at, json_agg(coalesce(aa.deleted, false)) as holding_deleted FROM account_asset aa JOIN qaccounts xa ON aa.addr = xa.addr GROUP BY 1)`
+
+	// build nested selects for querying app/asset data associated with an address
+	if opts.IncludeAssetHoldings {
+		var where, selectCols string
+		if !opts.IncludeDeleted {
+			where = ` WHERE NOT aa.deleted`
 		}
-		if opts.IncludeAssetParams {
-			query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp, json_agg(ap.created_at) as asset_created_at, json_agg(ap.closed_at) as asset_closed_at, json_agg(ap.deleted) as asset_deleted FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr GROUP BY 1)`
+		if countOnly {
+			selectCols = `count(*) as holding_count`
+		} else {
+			selectCols = `json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf, json_agg(aa.created_at) as holding_created_at, json_agg(aa.closed_at) as holding_closed_at, json_agg(aa.deleted) as holding_deleted`
 		}
-		// app
-		query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at, json_agg(app.deleted) as app_deleted FROM app JOIN qaccounts ON qaccounts.addr = app.creator GROUP BY 1)`
-		// app localstate
-		query += `, qls AS (SELECT la.addr, json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls, json_agg(la.created_at) as ls_created_at, json_agg(la.closed_at) as ls_closed_at, json_agg(la.deleted) as ls_deleted FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr GROUP BY 1)`
-	} else {
-		if opts.IncludeAssetHoldings {
-			query += `, qaa AS (SELECT xa.addr, json_agg(aa.assetid) as haid, json_agg(aa.amount) as hamt, json_agg(aa.frozen) as hf, json_agg(aa.created_at) as holding_created_at, json_agg(aa.closed_at) as holding_closed_at, json_agg(coalesce(aa.deleted, false)) as holding_deleted FROM account_asset aa JOIN qaccounts xa ON aa.addr = xa.addr WHERE coalesce(aa.deleted, false) = false GROUP BY 1)`
+		query += `, qaa AS (SELECT xa.addr, ` + selectCols + ` FROM account_asset aa JOIN qaccounts xa ON aa.addr = xa.addr` + where + ` GROUP BY 1)`
+	}
+	if opts.IncludeAssetParams {
+		var where, selectCols string
+		if !opts.IncludeDeleted {
+			where = ` WHERE NOT ap.deleted`
 		}
-		if opts.IncludeAssetParams {
-			query += `, qap AS (SELECT ya.addr, json_agg(ap.index) as paid, json_agg(ap.params) as pp, json_agg(ap.created_at) as asset_created_at, json_agg(ap.closed_at) as asset_closed_at, json_agg(ap.deleted) as asset_deleted FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr WHERE coalesce(ap.deleted, false) = false GROUP BY 1)`
+		if countOnly {
+			selectCols = `count(*) as asset_count`
+		} else {
+			selectCols = `json_agg(ap.index) as paid, json_agg(ap.params) as pp, json_agg(ap.created_at) as asset_created_at, json_agg(ap.closed_at) as asset_closed_at, json_agg(ap.deleted) as asset_deleted`
 		}
-		// app
-		query += `, qapp AS (SELECT app.creator as addr, json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at, json_agg(app.deleted) as app_deleted FROM app JOIN qaccounts ON qaccounts.addr = app.creator WHERE coalesce(app.deleted, false) = false GROUP BY 1)`
-		// app localstate
-		query += `, qls AS (SELECT la.addr, json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls, json_agg(la.created_at) as ls_created_at, json_agg(la.closed_at) as ls_closed_at, json_agg(la.deleted) as ls_deleted FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr WHERE coalesce(la.deleted, false) = false GROUP BY 1)`
+		query += `, qap AS (SELECT ya.addr, ` + selectCols + ` FROM asset ap JOIN qaccounts ya ON ap.creator_addr = ya.addr` + where + ` GROUP BY 1)`
+	}
+	if opts.IncludeAppParams {
+		var where, selectCols string
+		if !opts.IncludeDeleted {
+			where = ` WHERE NOT app.deleted`
+		}
+		if countOnly {
+			selectCols = `count(*) as app_count`
+		} else {
+			selectCols = `json_agg(app.index) as papps, json_agg(app.params) as ppa, json_agg(app.created_at) as app_created_at, json_agg(app.closed_at) as app_closed_at, json_agg(app.deleted) as app_deleted`
+		}
+		query += `, qapp AS (SELECT app.creator as addr, ` + selectCols + ` FROM app JOIN qaccounts ON qaccounts.addr = app.creator` + where + ` GROUP BY 1)`
+	}
+	if opts.IncludeAppLocalState {
+		var where, selectCols string
+		if !opts.IncludeDeleted {
+			where = ` WHERE NOT la.deleted`
+		}
+		if countOnly {
+			selectCols = `count(*) as ls_count`
+		} else {
+			selectCols = `json_agg(la.app) as lsapps, json_agg(la.localstate) as lsls, json_agg(la.created_at) as ls_created_at, json_agg(la.closed_at) as ls_closed_at, json_agg(la.deleted) as ls_deleted`
+		}
+		query += `, qls AS (SELECT la.addr, ` + selectCols + ` FROM account_app la JOIN qaccounts ON qaccounts.addr = la.addr` + where + ` GROUP BY 1)`
 	}
 
 	// query results
 	query += ` SELECT za.addr, za.microalgos, za.rewards_total, za.created_at, za.closed_at, za.deleted, za.rewardsbase, za.keytype, za.account_data`
 	if opts.IncludeAssetHoldings {
-		query += `, qaa.haid, qaa.hamt, qaa.hf, qaa.holding_created_at, qaa.holding_closed_at, qaa.holding_deleted`
+		if countOnly {
+			query += `, qaa.holding_count`
+		} else {
+			query += `, qaa.haid, qaa.hamt, qaa.hf, qaa.holding_created_at, qaa.holding_closed_at, qaa.holding_deleted`
+		}
 	}
 	if opts.IncludeAssetParams {
-		query += `, qap.paid, qap.pp, qap.asset_created_at, qap.asset_closed_at, qap.asset_deleted`
+		if countOnly {
+			query += `, qap.asset_count`
+		} else {
+			query += `, qap.paid, qap.pp, qap.asset_created_at, qap.asset_closed_at, qap.asset_deleted`
+		}
 	}
-	query += `, qapp.papps, qapp.ppa, qapp.app_created_at, qapp.app_closed_at, qapp.app_deleted, qls.lsapps, qls.lsls, qls.ls_created_at, qls.ls_closed_at, qls.ls_deleted FROM qaccounts za`
+	if opts.IncludeAppParams {
+		if countOnly {
+			query += `, qapp.app_count`
+		} else {
+			query += `, qapp.papps, qapp.ppa, qapp.app_created_at, qapp.app_closed_at, qapp.app_deleted`
+		}
+	}
+	if opts.IncludeAppLocalState {
+		if countOnly {
+			query += `, qls.ls_count`
+		} else {
+			query += `, qls.lsapps, qls.lsls, qls.ls_created_at, qls.ls_closed_at, qls.ls_deleted`
+		}
+	}
+	query += ` FROM qaccounts za`
 
 	// join everything together
 	if opts.IncludeAssetHoldings {
@@ -1657,7 +2018,13 @@ func (db *IndexerDb) buildAccountQuery(opts idb.AccountQueryOptions) (query stri
 	if opts.IncludeAssetParams {
 		query += ` LEFT JOIN qap ON za.addr = qap.addr`
 	}
-	query += " LEFT JOIN qapp ON za.addr = qapp.addr LEFT JOIN qls ON qls.addr = za.addr ORDER BY za.addr ASC;"
+	if opts.IncludeAppParams {
+		query += ` LEFT JOIN qapp ON za.addr = qapp.addr`
+	}
+	if opts.IncludeAppLocalState {
+		query += ` LEFT JOIN qls ON za.addr = qls.addr`
+	}
+	query += ` ORDER BY za.addr ASC;`
 	return query, whereArgs
 }
 
@@ -1700,7 +2067,7 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 		partNumber++
 	}
 	if !filter.IncludeDeleted {
-		whereParts = append(whereParts, "coalesce(a.deleted, false) = false")
+		whereParts = append(whereParts, "NOT a.deleted")
 	}
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
@@ -1724,7 +2091,9 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 	if err != nil {
 		out <- idb.AssetRow{Error: err}
 		close(out)
-		tx.Rollback(ctx)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		return out, round
 	}
 
@@ -1733,18 +2102,26 @@ func (db *IndexerDb) Assets(ctx context.Context, filter idb.AssetsQuery) (<-chan
 		err = fmt.Errorf("asset query %#v err %v", query, err)
 		out <- idb.AssetRow{Error: err}
 		close(out)
-		tx.Rollback(ctx)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		return out, round
 	}
 	go func() {
-		db.yieldAssetsThread(ctx, filter, rows, out)
+		db.yieldAssetsThread(filter, rows, out)
+		// Because we return a channel into a "callWithTimeout" function,
+		// We need to make sure that rollback is called before close()
+		// otherwise we can end up with a situation where "callWithTimeout"
+		// will cancel our context, resulting in connection pool churn
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		close(out)
-		tx.Rollback(ctx)
 	}()
 	return out, round
 }
 
-func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQuery, rows pgx.Rows, out chan<- idb.AssetRow) {
+func (db *IndexerDb) yieldAssetsThread(filter idb.AssetsQuery, rows pgx.Rows, out chan<- idb.AssetRow) {
 	defer rows.Close()
 
 	for rows.Next() {
@@ -1774,11 +2151,7 @@ func (db *IndexerDb) yieldAssetsThread(ctx context.Context, filter idb.AssetsQue
 			ClosedRound:  closed,
 			Deleted:      deleted,
 		}
-		select {
-		case <-ctx.Done():
-			return
-		case out <- rec:
-		}
+		out <- rec
 	}
 	if err := rows.Err(); err != nil {
 		out <- idb.AssetRow{Error: err}
@@ -1794,6 +2167,16 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	if abq.AssetID != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("aa.assetid = $%d", partNumber))
 		whereArgs = append(whereArgs, abq.AssetID)
+		partNumber++
+	}
+	if abq.AssetIDGT != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("aa.assetid > $%d", partNumber))
+		whereArgs = append(whereArgs, abq.AssetIDGT)
+		partNumber++
+	}
+	if abq.Address != nil {
+		whereParts = append(whereParts, fmt.Sprintf("aa.addr = $%d", partNumber))
+		whereArgs = append(whereArgs, abq.Address)
 		partNumber++
 	}
 	if abq.AmountGT != nil {
@@ -1812,13 +2195,14 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 		partNumber++
 	}
 	if !abq.IncludeDeleted {
-		whereParts = append(whereParts, "coalesce(aa.deleted, false) = false")
+		whereParts = append(whereParts, "NOT aa.deleted")
 	}
 	query := `SELECT addr, assetid, amount, frozen, created_at, closed_at, deleted FROM account_asset aa`
 	if len(whereParts) > 0 {
 		query += " WHERE " + strings.Join(whereParts, " AND ")
 	}
-	query += " ORDER BY addr ASC"
+	query += " ORDER BY addr, assetid ASC"
+
 	if abq.Limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d", abq.Limit)
 	}
@@ -1836,7 +2220,9 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
-		tx.Rollback(ctx)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		return out, round
 	}
 
@@ -1844,18 +2230,26 @@ func (db *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuer
 	if err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
 		close(out)
-		tx.Rollback(ctx)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		return out, round
 	}
 	go func() {
-		db.yieldAssetBalanceThread(ctx, rows, out)
+		db.yieldAssetBalanceThread(rows, out)
+		// Because we return a channel into a "callWithTimeout" function,
+		// We need to make sure that rollback is called before close()
+		// otherwise we can end up with a situation where "callWithTimeout"
+		// will cancel our context, resulting in connection pool churn
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		close(out)
-		tx.Rollback(ctx)
 	}()
 	return out, round
 }
 
-func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows pgx.Rows, out chan<- idb.AssetBalanceRow) {
+func (db *IndexerDb) yieldAssetBalanceThread(rows pgx.Rows, out chan<- idb.AssetBalanceRow) {
 	defer rows.Close()
 
 	for rows.Next() {
@@ -1880,11 +2274,7 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows pgx.Rows,
 			CreatedRound: created,
 			Deleted:      deleted,
 		}
-		select {
-		case <-ctx.Done():
-			return
-		case out <- rec:
-		}
+		out <- rec
 	}
 	if err := rows.Err(); err != nil {
 		out <- idb.AssetBalanceRow{Error: err}
@@ -1892,40 +2282,40 @@ func (db *IndexerDb) yieldAssetBalanceThread(ctx context.Context, rows pgx.Rows,
 }
 
 // Applications is part of idb.IndexerDB
-func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForApplicationsParams) (<-chan idb.ApplicationRow, uint64) {
+func (db *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.ApplicationRow, uint64) {
 	out := make(chan idb.ApplicationRow, 1)
-	if filter == nil {
-		out <- idb.ApplicationRow{Error: fmt.Errorf("no arguments provided to application search")}
-		close(out)
-		return out, 0
-	}
 
 	query := `SELECT index, creator, params, created_at, closed_at, deleted FROM app `
 
-	const maxWhereParts = 30
+	const maxWhereParts = 4
 	whereParts := make([]string, 0, maxWhereParts)
 	whereArgs := make([]interface{}, 0, maxWhereParts)
 	partNumber := 1
-	if filter.ApplicationId != nil {
+	if filter.ApplicationID != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("index = $%d", partNumber))
-		whereArgs = append(whereArgs, *filter.ApplicationId)
+		whereArgs = append(whereArgs, filter.ApplicationID)
 		partNumber++
 	}
-	if filter.Next != nil {
+	if filter.Address != nil {
+		whereParts = append(whereParts, fmt.Sprintf("creator = $%d", partNumber))
+		whereArgs = append(whereArgs, filter.Address)
+		partNumber++
+	}
+	if filter.ApplicationIDGreaterThan != 0 {
 		whereParts = append(whereParts, fmt.Sprintf("index > $%d", partNumber))
-		whereArgs = append(whereArgs, *filter.Next)
+		whereArgs = append(whereArgs, filter.ApplicationIDGreaterThan)
 		partNumber++
 	}
-	if filter.IncludeAll == nil || !(*filter.IncludeAll) {
-		whereParts = append(whereParts, "coalesce(deleted, false) = false")
+	if !filter.IncludeDeleted {
+		whereParts = append(whereParts, "NOT deleted")
 	}
 	if len(whereParts) > 0 {
 		whereStr := strings.Join(whereParts, " AND ")
 		query += " WHERE " + whereStr
 	}
 	query += " ORDER BY 1"
-	if filter.Limit != nil {
-		query += fmt.Sprintf(" LIMIT %d", *filter.Limit)
+	if filter.Limit != 0 {
+		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
 	}
 
 	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
@@ -1939,7 +2329,9 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
-		tx.Rollback(ctx)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		return out, round
 	}
 
@@ -1947,19 +2339,27 @@ func (db *IndexerDb) Applications(ctx context.Context, filter *models.SearchForA
 	if err != nil {
 		out <- idb.ApplicationRow{Error: err}
 		close(out)
-		tx.Rollback(ctx)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		return out, round
 	}
 
 	go func() {
-		db.yieldApplicationsThread(ctx, rows, out)
+		db.yieldApplicationsThread(rows, out)
+		// Because we return a channel into a "callWithTimeout" function,
+		// We need to make sure that rollback is called before close()
+		// otherwise we can end up with a situation where "callWithTimeout"
+		// will cancel our context, resulting in connection pool churn
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
 		close(out)
-		tx.Rollback(ctx)
 	}()
 	return out, round
 }
 
-func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows pgx.Rows, out chan idb.ApplicationRow) {
+func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.ApplicationRow) {
 	defer rows.Close()
 
 	for rows.Next() {
@@ -1981,7 +2381,7 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows pgx.Rows,
 		rec.Application.Deleted = deleted
 		ap, err := encoding.DecodeAppParams(paramsjson)
 		if err != nil {
-			rec.Error = fmt.Errorf("app=%d json err, %v", index, err)
+			rec.Error = fmt.Errorf("app=%d json err: %w", index, err)
 			out <- rec
 			break
 		}
@@ -2015,8 +2415,125 @@ func (db *IndexerDb) yieldApplicationsThread(ctx context.Context, rows pgx.Rows,
 	}
 }
 
+// AppLocalState is part of idb.IndexerDB
+func (db *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.AppLocalStateRow, uint64) {
+	out := make(chan idb.AppLocalStateRow, 1)
+
+	query := `SELECT app, addr, localstate, created_at, closed_at, deleted FROM account_app `
+
+	const maxWhereParts = 4
+	whereParts := make([]string, 0, maxWhereParts)
+	whereArgs := make([]interface{}, 0, maxWhereParts)
+	partNumber := 1
+	if filter.ApplicationID != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("app = $%d", partNumber))
+		whereArgs = append(whereArgs, filter.ApplicationID)
+		partNumber++
+	}
+	if filter.Address != nil {
+		whereParts = append(whereParts, fmt.Sprintf("addr = $%d", partNumber))
+		whereArgs = append(whereArgs, filter.Address)
+		partNumber++
+	}
+	if filter.ApplicationIDGreaterThan != 0 {
+		whereParts = append(whereParts, fmt.Sprintf("app > $%d", partNumber))
+		whereArgs = append(whereArgs, filter.ApplicationIDGreaterThan)
+		partNumber++
+	}
+	if !filter.IncludeDeleted {
+		whereParts = append(whereParts, "NOT deleted")
+	}
+	if len(whereParts) > 0 {
+		whereStr := strings.Join(whereParts, " AND ")
+		query += " WHERE " + whereStr
+	}
+	query += " ORDER BY 1"
+	if filter.Limit != 0 {
+		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
+	}
+
+	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
+	if err != nil {
+		out <- idb.AppLocalStateRow{Error: err}
+		close(out)
+		return out, 0
+	}
+
+	round, err := db.getMaxRoundAccounted(ctx, tx)
+	if err != nil {
+		out <- idb.AppLocalStateRow{Error: err}
+		close(out)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
+		return out, round
+	}
+
+	rows, err := tx.Query(ctx, query, whereArgs...)
+	if err != nil {
+		out <- idb.AppLocalStateRow{Error: err}
+		close(out)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
+		return out, round
+	}
+
+	go func() {
+		db.yieldAppLocalStateThread(rows, out)
+		// Because we return a channel into a "callWithTimeout" function,
+		// We need to make sure that rollback is called before close()
+		// otherwise we can end up with a situation where "callWithTimeout"
+		// will cancel our context, resulting in connection pool churn
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
+		close(out)
+	}()
+	return out, round
+}
+
+func (db *IndexerDb) yieldAppLocalStateThread(rows pgx.Rows, out chan idb.AppLocalStateRow) {
+	defer rows.Close()
+
+	for rows.Next() {
+		var index uint64
+		var address []byte
+		var statejson []byte
+		var created *uint64
+		var closed *uint64
+		var deleted *bool
+		err := rows.Scan(&index, &address, &statejson, &created, &closed, &deleted)
+		if err != nil {
+			out <- idb.AppLocalStateRow{Error: err}
+			break
+		}
+		var rec idb.AppLocalStateRow
+		rec.AppLocalState.Id = index
+		rec.AppLocalState.OptedInAtRound = created
+		rec.AppLocalState.ClosedOutAtRound = closed
+		rec.AppLocalState.Deleted = deleted
+
+		ls, err := encoding.DecodeAppLocalState(statejson)
+		if err != nil {
+			rec.Error = fmt.Errorf("app=%d json err: %w", index, err)
+			out <- rec
+			break
+		}
+		rec.AppLocalState.Schema = models.ApplicationStateSchema{
+			NumByteSlice: ls.Schema.NumByteSlice,
+			NumUint:      ls.Schema.NumUint,
+		}
+		rec.AppLocalState.KeyValue = tealKeyValueToModel(ls.KeyValue)
+		out <- rec
+	}
+	if err := rows.Err(); err != nil {
+		out <- idb.AppLocalStateRow{Error: err}
+	}
+}
+
 // Health is part of idb.IndexerDB
-func (db *IndexerDb) Health() (idb.Health, error) {
+func (db *IndexerDb) Health(ctx context.Context) (idb.Health, error) {
 	migrationRequired := false
 	migrating := false
 	blocking := false
@@ -2041,7 +2558,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 		migrating = state.Running
 		blocking = state.Blocking
 	} else {
-		state, err := db.getMigrationState(nil)
+		state, err := db.getMigrationState(ctx, nil)
 		if err != nil {
 			return idb.Health{}, err
 		}
@@ -2052,7 +2569,7 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 
 	data["migration-required"] = migrationRequired
 
-	round, err := db.getMaxRoundAccounted(context.Background(), nil)
+	round, err := db.getMaxRoundAccounted(ctx, nil)
 
 	// We'll just have to set the round to 0
 	if err == idb.ErrorNotInitialized {
@@ -2070,9 +2587,8 @@ func (db *IndexerDb) Health() (idb.Health, error) {
 }
 
 // GetSpecialAccounts is part of idb.IndexerDB
-func (db *IndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error) {
-	cache, err := db.getMetastate(
-		context.Background(), nil, schema.SpecialAccountsMetastateKey)
+func (db *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.SpecialAddresses, error) {
+	cache, err := db.getMetastate(ctx, nil, schema.SpecialAccountsMetastateKey)
 	if err != nil {
 		return transactions.SpecialAddresses{}, fmt.Errorf("GetSpecialAccounts() err: %w", err)
 	}
@@ -2085,4 +2601,52 @@ func (db *IndexerDb) GetSpecialAccounts() (transactions.SpecialAddresses, error)
 	}
 
 	return accounts, nil
+}
+
+// GetAccountState returns account data and account resources for the given input.
+// For accounts that are not found, empty AccountData is returned.
+// This function is only used for debugging.
+func (db *IndexerDb) GetAccountState(addressesReq map[basics.Address]struct{}, resourcesReq map[basics.Address]map[ledger.Creatable]struct{}) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
+	tx, err := db.db.BeginTx(context.Background(), readonlyRepeatableRead)
+	if err != nil {
+		return nil, nil, fmt.Errorf("GetAccountState() begin tx err: %w", err)
+	}
+	defer tx.Rollback(context.Background())
+
+	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	if err != nil {
+		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
+	}
+	defer l.Close()
+
+	accounts, err := l.LookupWithoutRewards(addressesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
+	}
+	resources, err := l.LookupResources(resourcesReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
+	}
+
+	return accounts, resources, nil
+}
+
+// GetNetworkState is part of idb.IndexerDB
+func (db *IndexerDb) GetNetworkState() (idb.NetworkState, error) {
+	state, err := db.getNetworkState(context.Background(), nil)
+	if err != nil {
+		return idb.NetworkState{}, fmt.Errorf("GetNetworkState() err: %w", err)
+	}
+	networkState := idb.NetworkState{
+		GenesisHash: state.GenesisHash,
+	}
+	return networkState, nil
+}
+
+// SetNetworkState is part of idb.IndexerDB
+func (db *IndexerDb) SetNetworkState(genesis bookkeeping.Genesis) error {
+	networkState := types.NetworkState{
+		GenesisHash: crypto.HashObj(genesis),
+	}
+	return db.setNetworkState(nil, &networkState)
 }

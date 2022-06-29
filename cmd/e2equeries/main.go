@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
 
 	"github.com/algorand/indexer/idb"
 	_ "github.com/algorand/indexer/idb/postgres"
@@ -46,10 +44,12 @@ func main() {
 	rowchan, _ := db.Transactions(context.Background(), rekeyTxnQuery)
 	for txnrow := range rowchan {
 		maybeFail(txnrow.Error, "err rekey txn %v\n", txnrow.Error)
-		var stxn transactions.SignedTxnWithAD
-		err := protocol.Decode(txnrow.TxnBytes, &stxn)
-		maybeFail(err, "decode txnbytes %v\n", err)
-		rekeyedAuthAddrs = append(rekeyedAuthAddrs, stxn.Txn.RekeyTo)
+
+		t := txnrow.Txn
+		if txnrow.RootTxn != nil {
+			t = txnrow.RootTxn
+		}
+		rekeyedAuthAddrs = append(rekeyedAuthAddrs, t.Txn.RekeyTo)
 	}
 
 	// some rekeys get rekeyed back; some rekeyed accounts get deleted, just want to find at least one
@@ -68,7 +68,7 @@ func main() {
 	}
 	if !foundRekey {
 		// this will report the error in a handy way
-		printAccountQuery(db, idb.AccountQueryOptions{EqualToAuthAddr: rekeyedAuthAddrs[0][:], Limit: 1})
+		printAccountQuery(db, idb.AccountQueryOptions{EqualToAuthAddr: rekeyedAuthAddrs[0][:], Limit: 0})
 	}
 
 	// find an asset with > 1 account

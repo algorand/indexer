@@ -8,8 +8,6 @@ import (
 	"runtime"
 
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/protocol"
 
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
@@ -102,15 +100,15 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 	count := uint64(0)
 	for txnrow := range rowchan {
 		util.MaybeFail(txnrow.Error, "err %v\n", txnrow.Error)
-		var stxn transactions.SignedTxnWithAD
-		err := protocol.Decode(txnrow.TxnBytes, &stxn)
-		util.MaybeFail(err, "decode txnbytes %v\n", err)
-		tjs := util.JSONOneLine(stxn.Txn)
-		info("%d:%d %s sr=%d rr=%d ca=%d cr=%d t=%s\n", txnrow.Round, txnrow.Intra, tjs, stxn.SenderRewards, stxn.ReceiverRewards, stxn.ClosingAmount, stxn.CloseRewards, txnrow.RoundTime.String())
-		count++
+		stxn := txnrow.Txn
+		if stxn != nil {
+			tjs := util.JSONOneLine(stxn.Txn)
+			info("%d:%d %s sr=%d rr=%d ca=%d cr=%d t=%s\n", txnrow.Round, txnrow.Intra, tjs, stxn.SenderRewards, stxn.ReceiverRewards, stxn.ClosingAmount, stxn.CloseRewards, txnrow.RoundTime.String())
+			count++
+		}
 	}
 	info("%d txns\n", count)
-	if q.Limit != 0 && q.Limit != count {
+	if q.Limit != 0 && count < 2 || count > 100 {
 		fmt.Fprintf(os.Stderr, "txn q CAME UP SHORT, limit=%d actual=%d, q=%#v\n", q.Limit, count, q)
 		myStackTrace()
 		exitValue = 1

@@ -1,0 +1,8 @@
+definitions:
+  Account:
+    properties:
+      min-balance:
+      - INDEXER: null
+      - ALGOD: '{"description":"MicroAlgo balance required by the ...'
+    required:
+    - min-balance

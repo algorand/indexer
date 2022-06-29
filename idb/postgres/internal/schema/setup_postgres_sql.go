@@ -7,10 +7,10 @@ const SetupPostgresSql = `-- This file is setup_postgres.sql which gets compiled
 -- TODO? replace all 'addr bytea' with 'addr_id bigint' and a mapping table? makes addrs an 8 byte int that fits in a register instead of a 32 byte string
 
 CREATE TABLE IF NOT EXISTS block_header (
-round bigint PRIMARY KEY,
-realtime timestamp without time zone NOT NULL,
-rewardslevel bigint NOT NULL,
-header jsonb NOT NULL
+  round bigint PRIMARY KEY,
+  realtime timestamp without time zone NOT NULL,
+  rewardslevel bigint NOT NULL,
+  header jsonb NOT NULL
 );
 
 -- For looking round by timestamp. We could replace this with a round-to-timestamp algorithm, it should be extremely
@@ -18,15 +18,14 @@ header jsonb NOT NULL
 CREATE INDEX IF NOT EXISTS block_header_time ON block_header (realtime);
 
 CREATE TABLE IF NOT EXISTS txn (
-round bigint NOT NULL,
-intra integer NOT NULL,
-typeenum smallint NOT NULL,
-asset bigint NOT NULL, -- 0=Algos, otherwise AssetIndex
-txid bytea, -- base32 of [32]byte hash, or NULL for inner transactions.
-txnbytes bytea, -- msgpack encoding of signed txn with apply data, or NULL for inner transactions.
-txn jsonb NOT NULL, -- json encoding of signed txn with apply data
-extra jsonb NOT NULL,
-PRIMARY KEY ( round, intra )
+  round bigint NOT NULL,
+  intra integer NOT NULL,
+  typeenum smallint NOT NULL,
+  asset bigint NOT NULL, -- 0=Algos, otherwise AssetIndex
+  txid bytea, -- base32 of [32]byte hash, or NULL for inner transactions.
+  txn jsonb NOT NULL, -- json encoding of signed txn with apply data; inner txns exclude nested inner txns
+  extra jsonb NOT NULL,
+  PRIMARY KEY ( round, intra )
 );
 
 -- For transaction lookup
@@ -36,9 +35,9 @@ CREATE INDEX IF NOT EXISTS txn_by_tixid ON txn ( txid );
 -- CREATE INDEX CONCURRENTLY IF NOT EXISTS txn_asset ON txn (asset, round, intra);
 
 CREATE TABLE IF NOT EXISTS txn_participation (
-addr bytea NOT NULL,
-round bigint NOT NULL,
-intra integer NOT NULL
+  addr bytea NOT NULL,
+  round bigint NOT NULL,
+  intra integer NOT NULL
 );
 
 -- For query account transactions
@@ -54,7 +53,7 @@ CREATE TABLE IF NOT EXISTS account (
   created_at bigint NOT NULL, -- round that the account is first used
   closed_at bigint, -- round that the account was last closed
   keytype varchar(8), -- "sig", "msig", "lsig", or NULL if unknown
-  account_data jsonb NOT NULL -- trimmed AccountData that excludes the fields above and the four creatable maps; SQL 'NOT NULL' is held though the json string will be "null" iff account is deleted
+  account_data jsonb NOT NULL -- trimmed ledgercore.AccountData that excludes the fields above; SQL 'NOT NULL' is held though the json string will be "null" iff account is deleted
 );
 
 -- data.basics.AccountData Assets[asset id] AssetHolding{}

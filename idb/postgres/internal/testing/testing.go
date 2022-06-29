@@ -4,26 +4,34 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/orlangure/gnomock"
 	"github.com/orlangure/gnomock/preset/postgres"
 	"github.com/stretchr/testify/require"
+
+	"github.com/algorand/indexer/idb/postgres/internal/schema"
 )
 
-var testpg = flag.String(
-	"test-pg", "", "postgres connection string; resets the database")
+var testpg string
+
+func init() {
+	flag.StringVar(&testpg, "test-pg", "", "postgres connection string; resets the database")
+	if testpg == "" {
+		// Note: tests across packages run in parallel, so this does not work
+		// very well unless you use "-p 1".
+		testpg = os.Getenv("TEST_PG")
+	}
+}
 
 // SetupPostgres starts a gnomock postgres DB then returns the database object,
 // the connection string and a shutdown function.
 func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
-	if testpg != nil && *testpg != "" {
+	if testpg != "" {
 		// use non-docker Postgresql
-		shutdownFunc := func() {
-			// nothing to do, psql db setup/teardown is external
-		}
-		connStr := *testpg
+		connStr := testpg
 
 		db, err := pgxpool.Connect(context.Background(), connStr)
 		require.NoError(t, err, "Error opening postgres connection")
@@ -31,6 +39,10 @@ func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
 		_, err = db.Exec(
 			context.Background(), `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`)
 		require.NoError(t, err)
+
+		shutdownFunc := func() {
+			db.Close()
+		}
 
 		return db, connStr, shutdownFunc
 	}
@@ -43,11 +55,6 @@ func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
 	container, err := gnomock.Start(p)
 	require.NoError(t, err, "Error starting gnomock")
 
-	shutdownFunc := func() {
-		err = gnomock.Stop(container)
-		require.NoError(t, err, "Error stoping gnomock")
-	}
-
 	connStr := fmt.Sprintf(
 		"host=%s port=%d user=%s password=%s  dbname=%s sslmode=disable",
 		container.Host, container.DefaultPort(),
@@ -56,6 +63,23 @@ func SetupPostgres(t *testing.T) (*pgxpool.Pool, string, func()) {
 
 	db, err := pgxpool.Connect(context.Background(), connStr)
 	require.NoError(t, err, "Error opening postgres connection")
+
+	shutdownFunc := func() {
+		db.Close()
+		err = gnomock.Stop(container)
+		require.NoError(t, err, "Error stoping gnomock")
+	}
+
+	return db, connStr, shutdownFunc
+}
+
+// SetupPostgresWithSchema is equivalent to SetupPostgres() but also creates the
+// indexer schema.
+func SetupPostgresWithSchema(t *testing.T) (*pgxpool.Pool, string, func()) {
+	db, connStr, shutdownFunc := SetupPostgres(t)
+
+	_, err := db.Exec(context.Background(), schema.SetupPostgresSql)
+	require.NoError(t, err)
 
 	return db, connStr, shutdownFunc
 }

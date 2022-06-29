@@ -65,11 +65,11 @@ var specialAccounts *transactions.SpecialAddresses
 // AccountAtRound queries the idb.IndexerDb object for transactions and rewinds most fields of the account back to
 // their values at the requested round.
 // `round` must be <= `account.Round`
-func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acct models.Account, err error) {
+func AccountAtRound(ctx context.Context, account models.Account, round uint64, db idb.IndexerDb) (acct models.Account, err error) {
 	// Make sure special accounts cache has been initialized.
 	if specialAccounts == nil {
 		var accounts transactions.SpecialAddresses
-		accounts, err = db.GetSpecialAccounts()
+		accounts, err = db.GetSpecialAccounts(ctx)
 		if err != nil {
 			return models.Account{}, fmt.Errorf("unable to get special accounts: %v", err)
 		}
@@ -99,7 +99,16 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 		MinRound: round + 1,
 		MaxRound: account.Round,
 	}
-	txns, r := db.Transactions(context.Background(), tf)
+	ctx2, cf := context.WithCancel(ctx)
+	// In case of a panic before the next defer, call cf() here.
+	defer cf()
+	txns, r := db.Transactions(ctx2, tf)
+	// In case of an error, make sure the context is cancelled, and the channel is cleaned up.
+	defer func() {
+		cf()
+		for range txns {
+		}
+	}()
 	if r < account.Round {
 		err = ConsistencyError{fmt.Sprintf("queried round r: %d < account.Round: %d", r, account.Round)}
 		return
@@ -111,14 +120,10 @@ func AccountAtRound(account models.Account, round uint64, db idb.IndexerDb) (acc
 			return
 		}
 		txcount++
-		if txnrow.TxnBytes == nil {
+		stxn := txnrow.Txn
+		if stxn == nil {
 			return models.Account{},
 				fmt.Errorf("rewinding past inner transactions is not supported")
-		}
-		var stxn transactions.SignedTxnWithAD
-		err = protocol.Decode(txnrow.TxnBytes, &stxn)
-		if err != nil {
-			return
 		}
 		if addr == stxn.Txn.Sender {
 			acct.AmountWithoutPendingRewards += stxn.Txn.Fee.ToUint64()

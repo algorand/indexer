@@ -3,7 +3,6 @@ package idb_test
 import (
 	"testing"
 
-	"github.com/algorand/go-algorand/protocol"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -12,7 +11,7 @@ import (
 )
 
 func TestTxnRowNext(t *testing.T) {
-	// txn with 2 inner transactions
+	// txn with 2 inner transactions and 2 nested inner transactions
 	stxn := test.MakeAppCallWithInnerTxn(test.AccountA, test.AccountB, test.AccountC, test.AccountD, test.AccountE)
 
 	testcases := []struct {
@@ -41,7 +40,7 @@ func TestTxnRowNext(t *testing.T) {
 			name:      "inner txns descending",
 			ascending: false,
 			txnRow: idb.TxnRow{
-				RootTxnBytes: protocol.Encode(&stxn),
+				RootTxn: &stxn,
 				Extra: idb.TxnExtra{
 					RootIntra: idb.OptionalUint{Present: true, Value: 50},
 				},
@@ -55,7 +54,7 @@ func TestTxnRowNext(t *testing.T) {
 			name:      "inner txns ascending",
 			ascending: true,
 			txnRow: idb.TxnRow{
-				RootTxnBytes: protocol.Encode(&stxn),
+				RootTxn: &stxn,
 				Extra: idb.TxnExtra{
 					RootIntra: idb.OptionalUint{Present: true, Value: 50},
 				},
@@ -63,43 +62,19 @@ func TestTxnRowNext(t *testing.T) {
 				Round: 1_234_567_890,
 			},
 			round: 1_234_567_890,
-			intra: 53, // RootIntra + RootTxnBytes.numInnerTxns()
+			intra: 54, // RootIntra + RootTxnBytes.numInnerTxns()
 		},
 		{
-			name:      "root txn decode error",
+			name:      "root txn absent",
 			ascending: true,
 			txnRow: idb.TxnRow{
-				RootTxnBytes: []byte{},
 				Extra: idb.TxnExtra{
 					RootIntra: idb.OptionalUint{Present: true, Value: 50},
 				},
 				Intra: 51,
 				Round: 1_234_567_890,
 			},
-			errMsg: "could not decode root transaction",
-		},
-		{
-			name:      "root txn decode error 2",
-			ascending: true,
-			txnRow: idb.TxnRow{
-				RootTxnBytes: nil,
-				Extra: idb.TxnExtra{
-					RootIntra: idb.OptionalUint{Present: true, Value: 50},
-				},
-				Intra: 51,
-				Round: 1_234_567_890,
-			},
-			errMsg: "was not given transaction bytes",
-		},
-		{
-			name:      "root intra decode error",
-			ascending: true,
-			txnRow: idb.TxnRow{
-				RootTxnBytes: []byte{},
-				Intra:        51,
-				Round:        1_234_567_890,
-			},
-			errMsg: "could not decode root transaction",
+			errMsg: "was not given transaction",
 		},
 	}
 

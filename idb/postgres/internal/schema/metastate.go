@@ -6,4 +6,5 @@ const (
 	MigrationMetastateKey       = "migration"
 	SpecialAccountsMetastateKey = "accounts"
 	AccountTotals               = "totals"
+	NetworkMetaStateKey         = "network"
 )
