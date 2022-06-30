@@ -441,7 +441,14 @@ func makeOptions(daemonConfig *daemonConfig) (options api.ExtraOptions) {
 			fmt.Fprintf(os.Stderr, "failed to created disabled map config from file: %v", err)
 			panic(exit{1})
 		}
+
+		if len((*potentialDisabledMapConfig).Data) == 0 {
+			logger.Warnf("All parameters are enabled since the provided parameter configuration file (%s) is empty.", suppliedAPIConfigFile)
+		}
+
 		options.DisabledMapConfig = potentialDisabledMapConfig
+	} else {
+		logger.Infof("Enable all parameters flag is set to: %v", daemonConfig.enableAllParameters)
 	}
 
 	return

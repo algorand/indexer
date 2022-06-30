@@ -137,9 +137,6 @@ func init() {
 	// Setup configuration file
 	viper.SetConfigName(config.FileName)
 	viper.SetConfigType(config.FileType)
-	for _, k := range config.ConfigPaths {
-		viper.AddConfigPath(k)
-	}
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
 	if err := viper.ReadInConfig(); err != nil {
