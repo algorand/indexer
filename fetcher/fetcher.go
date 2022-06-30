@@ -96,7 +96,12 @@ func (bot *fetcherImpl) processQueue(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			if uint64(block.Block.Round()) == prevsuccess+1 {
+			if !bot.directFetch {
+				err := bot.handler(ctx, block)
+				if err != nil {
+					return fmt.Errorf("processQueue() handler err: %w", err)
+				}
+			} else if uint64(block.Block.Round()) == prevsuccess+1 {
 				flg2 = true
 				err := bot.handler(ctx, block)
 				if err != nil && flg {
@@ -138,46 +143,46 @@ func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 	var err error
 	if bot.directFetch {
 		// make catchup service
-		serviceDr := MakeCatchupService(bot.genesis, ctx)
+		serviceDr := MakeCatchupService(ctx, bot.genesis)
 		serviceDr.net.Start()
 		serviceDr.cfg.NetAddress, _ = serviceDr.net.Address()
 
 		// // making peerselector, makes sure that dns records are loaded
 		serviceDr.net.RequestConnectOutgoing(false, ctx.Done())
 
-		err = serviceDr.pipelinedFetch(uint64(2), bot, ctx)
+		err = serviceDr.pipelinedFetch(ctx, uint64(2), bot)
 		return err
 
-	} else {
-		var blockbytes []byte
-		aclient := bot.Algod()
-		for {
-			start := time.Now()
-
-			blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(ctx)
-
-			dt := time.Since(start)
-			metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
-
-			if err != nil {
-				// If context has expired.
-				if ctx.Err() != nil {
-					return fmt.Errorf("catchupLoop() fetch err: %w", err)
-				}
-				bot.log.WithError(err).Errorf("catchup block %d", bot.nextRound)
-				return nil
-			}
-
-			err = bot.enqueueBlock(ctx, blockbytes)
-			if err != nil {
-				return fmt.Errorf("catchupLoop() err: %w", err)
-			}
-			// If we successfully handle the block, clear out any transient error which may have occurred.
-			bot.setError(nil)
-			bot.nextRound++
-			bot.failingSince = time.Time{}
-		}
 	}
+	var blockbytes []byte
+	aclient := bot.Algod()
+	for {
+		start := time.Now()
+
+		blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(ctx)
+
+		dt := time.Since(start)
+		metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
+
+		if err != nil {
+			// If context has expired.
+			if ctx.Err() != nil {
+				return fmt.Errorf("catchupLoop() fetch err: %w", err)
+			}
+			bot.log.WithError(err).Errorf("catchup block %d", bot.nextRound)
+			return nil
+		}
+
+		err = bot.enqueueBlock(ctx, blockbytes)
+		if err != nil {
+			return fmt.Errorf("catchupLoop() err: %w", err)
+		}
+		// If we successfully handle the block, clear out any transient error which may have occurred.
+		bot.setError(nil)
+		bot.nextRound++
+		bot.failingSince = time.Time{}
+	}
+
 }
 
 // wait for algod to notify of a new round, then fetch that block

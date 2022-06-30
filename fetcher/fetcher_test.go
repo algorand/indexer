@@ -132,7 +132,7 @@ func TestDirectCatchupService(t *testing.T) {
 	_ = protocol.DecodeJSON(genesisText, &genesis)
 
 	// make catchup service
-	serviceDr := MakeCatchupService(genesis, ctx)
+	serviceDr := MakeCatchupService(ctx, genesis)
 	serviceDr.net.Start()
 	serviceDr.cfg.NetAddress, _ = serviceDr.net.Address()
 

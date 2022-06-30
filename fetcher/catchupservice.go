@@ -18,7 +18,7 @@ import (
 	"github.com/labstack/gommon/log"
 )
 
-type catchupService struct {
+type CatchupService struct {
 	net          network.GossipNode
 	log          logging.Logger
 	cfg          config.Local
@@ -43,8 +43,8 @@ type task func() basics.Round
 func (n nodeInfo) IsParticipating() bool { return false }
 
 // MakeCatchupService creats a catchup service and initialzes a gossipnode
-func MakeCatchupService(genesis bookkeeping.Genesis, ctx context.Context) (serviceDr *catchupService) {
-	serviceDr = &catchupService{}
+func MakeCatchupService(ctx context.Context, genesis bookkeeping.Genesis) (serviceDr *CatchupService) {
+	serviceDr = &CatchupService{}
 	serviceDr.cfg = config.AutogenLocal
 	serviceDr.genesis = genesis
 	serviceDr.log = logging.NewLogger()
@@ -53,7 +53,7 @@ func MakeCatchupService(genesis bookkeeping.Genesis, ctx context.Context) (servi
 	return serviceDr
 }
 
-func (s *catchupService) pipelineCallback(r basics.Round, thisFetchComplete chan bool, prevFetchCompleteChan chan bool, lookbackChan chan bool, bot *fetcherImpl, ctx context.Context) func() basics.Round {
+func (s *CatchupService) pipelineCallback(ctx context.Context, r basics.Round, thisFetchComplete chan bool, prevFetchCompleteChan chan bool, lookbackChan chan bool, bot *fetcherImpl) func() basics.Round {
 	return func() basics.Round {
 		psp, _ := s.peerSelector.getNextPeer()
 		for {
@@ -99,7 +99,7 @@ func (s *catchupService) pipelineCallback(r basics.Round, thisFetchComplete chan
 }
 
 // parallelization attempt
-func (s *catchupService) pipelinedFetch(seedLookback uint64, bot *fetcherImpl, ctx context.Context) error {
+func (s *CatchupService) pipelinedFetch(ctx context.Context, seedLookback uint64, bot *fetcherImpl) error {
 	var err error
 	s.peerSelector = s.createPeerSelector(true)
 	if _, err := s.peerSelector.getNextPeer(); err != nil {
@@ -143,7 +143,7 @@ func (s *catchupService) pipelinedFetch(seedLookback uint64, bot *fetcherImpl, c
 	for ; nextRound < from+basics.Round(parallelRequests); nextRound++ {
 		currentRoundComplete := make(chan bool, 2)
 		// len(taskCh) + (# pending writes to completed) increases by 1
-		taskCh <- s.pipelineCallback(nextRound, currentRoundComplete, recentReqs[len(recentReqs)-1], recentReqs[len(recentReqs)-int(seedLookback)], bot, ctx)
+		taskCh <- s.pipelineCallback(ctx, nextRound, currentRoundComplete, recentReqs[len(recentReqs)-1], recentReqs[len(recentReqs)-int(seedLookback)], bot)
 		recentReqs = append(recentReqs[1:], currentRoundComplete)
 	}
 	completedRounds := make(map[basics.Round]bool)
@@ -162,7 +162,7 @@ func (s *catchupService) pipelinedFetch(seedLookback uint64, bot *fetcherImpl, c
 				delete(completedRounds, nextRound)
 				currentRoundComplete := make(chan bool, 2)
 				// len(taskCh) + (# pending writes to completed) increases by 1
-				taskCh <- s.pipelineCallback(nextRound, currentRoundComplete, recentReqs[len(recentReqs)-1], recentReqs[0], bot, ctx)
+				taskCh <- s.pipelineCallback(ctx, nextRound, currentRoundComplete, recentReqs[len(recentReqs)-1], recentReqs[0], bot)
 				recentReqs = append(recentReqs[1:], currentRoundComplete)
 				nextRound++
 			}
@@ -172,7 +172,7 @@ func (s *catchupService) pipelinedFetch(seedLookback uint64, bot *fetcherImpl, c
 	}
 }
 
-func (s *catchupService) createPeerSelector(pipelineFetch bool) *peerSelector {
+func (s *CatchupService) createPeerSelector(pipelineFetch bool) *peerSelector {
 	var peerClasses []peerClass
 	if s.cfg.EnableCatchupFromArchiveServers {
 		if pipelineFetch {
@@ -239,7 +239,7 @@ func (s *catchupService) createPeerSelector(pipelineFetch bool) *peerSelector {
 }
 
 // directNetworkFetch given a block number and peer, fetches the block from the network.
-func (s *catchupService) directNetworkFetch(ctx context.Context, rnd uint64, psp *peerSelectorPeer, peer network.Peer) (blk *bookkeeping.Block, cert *agreement.Certificate, err error) {
+func (s *CatchupService) directNetworkFetch(ctx context.Context, rnd uint64, psp *peerSelectorPeer, peer network.Peer) (blk *bookkeeping.Block, cert *agreement.Certificate, err error) {
 	fetch := makeUniversalBlockFetcher(s.log, s.net, s.cfg)
 	blk, cert, _, err = fetch.fetchBlock(ctx, basics.Round(rnd), peer)
 	// Check that the block's contents match the block header (necessary with an untrusted block because b.Hash() only hashes the header)
