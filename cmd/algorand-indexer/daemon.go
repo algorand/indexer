@@ -448,7 +448,7 @@ func makeOptions(daemonConfig *daemonConfig) (options api.ExtraOptions) {
 
 		options.DisabledMapConfig = potentialDisabledMapConfig
 	} else {
-		logger.Infof("Enable all parameters flag is set to: %v", enableAllParameters)
+		logger.Infof("Enable all parameters flag is set to: %v", daemonConfig.enableAllParameters)
 	}
 
 	return
