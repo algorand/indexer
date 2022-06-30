@@ -312,7 +312,7 @@ func writeBoxMods(round basics.Round, kvMods map[string]*string, batch *pgx.Batc
 	fmt.Printf("writeAccountDeltas - app_box portion for round=%d", round)
 
 	for key, value := range kvMods {
-		app, name, err := logic.GetAppAndNameFromKey(key)
+		app, name, err := logic.SplitBoxKey(key)
 		if err != nil {
 			return fmt.Errorf("writeBoxMods() err: %w", err)
 		}
