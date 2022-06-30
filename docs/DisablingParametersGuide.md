@@ -45,8 +45,6 @@ The first "level" is a key-value pair where the key is the REST path to the endp
 
 As a concrete example: in the above snippet the endpoint `/v2/accounts` has two optional parameters that are disabled: `currency-greater-than` and `currency-less-than`.  Querying that endpoint and providing either of those two parameters would result in an error being returned.
 
-**NOTE: An empty parameter configuration file results in all parameters being ENABLED.**
-
 ### Error Return Value
 
 If you query an endpoint with a required parameter you will receive a `400` response with a json message explaining the error.

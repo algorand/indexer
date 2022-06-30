@@ -1,5 +1,5 @@
 ARG ARCH="amd64"
-FROM ${ARCH}/ubuntu:20.04
+FROM ${ARCH}/ubuntu:18.04
 ARG GOLANG_VERSION
 ARG GOARCH="amd64"
 ARG ARCH="amd64"

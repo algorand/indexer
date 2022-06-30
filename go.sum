@@ -94,6 +94,7 @@ github.com/algorand/go-deadlock v0.2.2 h1:L7AKATSUCzoeVuOgpTipfCEjdUu5ECmlje8R7l
 github.com/algorand/go-deadlock v0.2.2/go.mod h1:Hat1OXKqKNUcN/iv74FjGhF4hsOE2l7gOgQ9ZVIq6Fk=
 github.com/algorand/go-sumhash v0.1.0 h1:b/QRhyLuF//vOcicBIxBXYW8bERNoeLxieht/dUYpVg=
 github.com/algorand/go-sumhash v0.1.0/go.mod h1:OOe7jdDWUhLkuP1XytkK5gnLu9entAviN5DfDZh6XAc=
+github.com/algorand/graphtrace v0.1.0 h1:QemP1iT0W56SExD0NfiU6rsG34/v0Je6bg5UZnptEUM=
 github.com/algorand/graphtrace v0.1.0/go.mod h1:HscLQrzBdH1BH+5oehs3ICd8SYcXvnSL9BjfTu8WHCc=
 github.com/algorand/msgp v1.1.52 h1:Tw2OCCikKy0jaTWEIHwIfvThYHlJf9moviyKw+7PVVM=
 github.com/algorand/msgp v1.1.52/go.mod h1:5K3d58/poT5fPmtiwuQft6GjgSrVEM46KoXdLrID8ZU=
