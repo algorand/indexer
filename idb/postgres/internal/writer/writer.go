@@ -34,6 +34,7 @@ const (
 	deleteAppStmtName                  = "delete_app"
 	deleteAccountAppStmtName           = "delete_account_app"
 	upsertAppBoxStmtName               = "upsert_app_box"
+	deleteAppBoxStmtName               = "delete_app_box"
 	updateAccountTotalsStmtName        = "update_account_totals"
 )
 
@@ -107,14 +108,11 @@ var statements = map[string]string{
 		VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (addr, app) DO UPDATE SET
 		localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at`,
 	upsertAppBoxStmtName: `INSERT INTO app_box AS ab
-		(app, name, size, value, created_at)
-		VALUES ($1, $2, $3, $4, $5)
+		(app, name, value, created_at)
+		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (app, name) DO UPDATE SET
-		-- retain size info of deleted boxes:
-		size = (CASE WHEN EXCLUDED.value IS NULL THEN ab.size ELSE EXCLUDED.size END),
-		value = EXCLUDED.value,
-		-- keep round except when overwriting deleted:
-		created_at = (CASE WHEN ab.value IS NULL THEN EXCLUDED.created_at ELSE ab.created_at END)`,
+		value = EXCLUDED.value`,
+	deleteAppBoxStmtName: `DELETE FROM app_box WHERE app = $1 and name = $2`,
 	updateAccountTotalsStmtName: `UPDATE metastate SET v = $1 WHERE k = '` +
 		schema.AccountTotals + `'`,
 }
@@ -133,7 +131,7 @@ func MakeWriter(tx pgx.Tx) (Writer, error) {
 	for name, query := range statements {
 		_, err := tx.Prepare(context.Background(), name, query)
 		if err != nil {
-			return Writer{}, fmt.Errorf("MakeWriter() prepare statement err: %w", err)
+			return Writer{}, fmt.Errorf("MakeWriter() prepare statement for name '%s' err: %w", name, err)
 		}
 	}
 
@@ -316,15 +314,12 @@ func writeBoxMods(round basics.Round, kvMods map[string]*string, batch *pgx.Batc
 		if err != nil {
 			return fmt.Errorf("writeBoxMods() err: %w", err)
 		}
-		var valueOrNil interface{} = nil
-		size := 1 // this value should NEVER be set based on upsertAppBox'es CONFLICT resolution
+		// TODO: we need solid tests to verify no further encoding of bytes `box_name` and `value` is necessary
 		if value != nil {
-			valueOrNil = []byte(*value)
-			// because of 2's complement representation of smallint, need to use negative to avoid overflow:
-			size = -len(*value)
+			batch.Queue(upsertAppBoxStmtName, app, []byte(name), []byte(*value), round)
+		} else {
+			batch.Queue(deleteAppBoxStmtName, app, []byte(name))
 		}
-		// TODO: do I need to use an encoding for the arbitrary bytes `box_name` and `value` ?
-		batch.Queue(upsertAppBoxStmtName, app, []byte(name), size, valueOrNil, round)
 	}
 
 	return nil
@@ -347,12 +342,12 @@ func (w *Writer) AddBlock0(block *bookkeeping.Block) error {
 		_, err := results.Exec()
 		if err != nil {
 			results.Close()
-			return fmt.Errorf("AddBlock() exec err: %w", err)
+			return fmt.Errorf("AddBlock() exec err for block 0: %w", err)
 		}
 	}
 	err := results.Close()
 	if err != nil {
-		return fmt.Errorf("AddBlock() close results err: %w", err)
+		return fmt.Errorf("AddBlock() close results err for block 0: %w", err)
 	}
 
 	return nil

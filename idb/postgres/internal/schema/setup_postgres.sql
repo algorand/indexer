@@ -122,8 +122,7 @@ CREATE INDEX IF NOT EXISTS account_app_by_addr_partial ON account_app(addr) WHER
 CREATE TABLE IF NOT EXISTS app_box (
   app bigint NOT NULL,
   name bytea NOT NULL,
-  size smallint NOT NULL,     -- _NEGATIVE_ of box'es size
-  value bytea,                -- NULL exactly when deleted
+  value bytea NOT NULL,       -- upon creation `value` is 0x000...000 with length being the box'es size
   created_at bigint NOT NULL, -- round at which the box was created
   PRIMARY KEY (app, name)
 );
