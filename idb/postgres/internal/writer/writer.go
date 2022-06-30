@@ -108,8 +108,8 @@ var statements = map[string]string{
 		VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (addr, app) DO UPDATE SET
 		localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at`,
 	upsertAppBoxStmtName: `INSERT INTO app_box AS ab
-		(app, name, value, created_at)
-		VALUES ($1, $2, $3, $4)
+		(app, name, value)
+		VALUES ($1, $2, $3)
 		ON CONFLICT (app, name) DO UPDATE SET
 		value = EXCLUDED.value`,
 	deleteAppBoxStmtName: `DELETE FROM app_box WHERE app = $1 and name = $2`,
@@ -302,12 +302,12 @@ func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.AccountDel
 
 }
 
-func writeBoxMods(round basics.Round, kvMods map[string]*string, batch *pgx.Batch) error {
+func writeBoxMods(kvMods map[string]*string, batch *pgx.Batch) error {
+	// Insert/Update/Delete ON `app_box`
 	// kvMods can in theory support more general storage types than app boxes.
-	// However, here we assume that all the given kvMods represent app boxes.
+	// However, here we assume that all the provided kvMods represent app boxes.
 
-	// Update `app_box`
-	fmt.Printf("writeAccountDeltas - app_box portion for round=%d", round)
+	fmt.Printf("writeAccountDeltas - app_box portion for kvMods of len=%d", len(kvMods))
 
 	for key, value := range kvMods {
 		app, name, err := logic.SplitBoxKey(key)
@@ -316,7 +316,7 @@ func writeBoxMods(round basics.Round, kvMods map[string]*string, batch *pgx.Batc
 		}
 		// TODO: we need solid tests to verify no further encoding of bytes `box_name` and `value` is necessary
 		if value != nil {
-			batch.Queue(upsertAppBoxStmtName, app, []byte(name), []byte(*value), round)
+			batch.Queue(upsertAppBoxStmtName, app, []byte(name), []byte(*value))
 		} else {
 			batch.Queue(deleteAppBoxStmtName, app, []byte(name))
 		}
@@ -374,7 +374,7 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 	}
 	{
 		// TODO: don't think I actually need this code block
-		err := writeBoxMods(block.Round(), delta.KvMods, &batch)
+		err := writeBoxMods(delta.KvMods, &batch)
 		if err != nil {
 			return fmt.Errorf("AddBlock() err on boxes: %w", err)
 		}
