@@ -144,6 +144,8 @@ Below is a snippet of the output from `algorand-indexer api-config`:
 
 Seeing this we know that the `/v2/accounts` endpoint will return an error if either `currency-greater-than` or `currency-less-than` is provided.  Additionally, because a "required" parameter is provided for `/v2/assets/{asset-id}/transactions` then we know this entire endpoint is disabled.  The optional parameters are provided so that you can understand what else is disabled if you enable all "required" parameters.
 
+**NOTE: An empty parameter configuration file results in all parameters being ENABLED.**
+
 For more information on disabling parameters see the [Disabling Parameters Guide](docs/DisablingParametersGuide.md).
 
 ## Metrics
@@ -196,7 +198,6 @@ Settings can be provided from the command line, a configuration file, or an envi
 | default-balances-limit        |         | default-balances-limit        | INDEXER_DEFAULT_BALANCES_LIMIT        |
 | max-applications-limit        |         | max-applications-limit        | INDEXER_MAX_APPLICATIONS_LIMIT        |
 | default-applications-limit    |         | default-applications-limit    | INDEXER_DEFAULT_APPLICATIONS_LIMIT    |
-| data-dir                      | i       | data-dir                      | INDEXER_DATA                          |
 | enable-all-parameters         |         | enable-all-parameters         | INDEXER_ENABLE_ALL_PARAMETERS         |
 
 ## Command line
@@ -213,6 +214,7 @@ The Indexer data directory is the location where the Indexer can store and/or lo
 
 **It is a required argument for Indexer daemon operation. Supply it to the Indexer via the `--data-dir` flag.**
 
+**It is HIGHLY recommended placing the data directory in a separate, stateful directory for production usage of the Indexer.**
 
 ### Auto-Loading Configuration
 
