@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -19,9 +18,12 @@ const FileType = "yml"
 // gets confused and thinks the binary is a config file with no extension.
 const FileName = "indexer"
 
-// BindFlags glues the cobra and viper libraries together.
-func BindFlags(cmd *cobra.Command) {
-	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+// ConfigPaths are the different locations that algorand-indexer should look for config files.
+var ConfigPaths = [...]string{".", "$HOME", "$HOME/.algorand-indexer/", "$HOME/.config/algorand-indexer/", "/etc/algorand-indexer/"}
+
+// BindFlagSet glues cobra and viper together via FlagSets
+func BindFlagSet(flags *pflag.FlagSet) {
+	flags.VisitAll(func(f *pflag.Flag) {
 		// Environment variables can't have dashes in them, so bind them to their equivalent
 		// keys with underscores
 		// e.g. prefix=STING and --favorite-color is set to STING_FAVORITE_COLOR
@@ -33,7 +35,7 @@ func BindFlags(cmd *cobra.Command) {
 		// Apply the viper config value to the flag when the flag is not set and viper has a value
 		if !f.Changed && viper.IsSet(f.Name) {
 			val := viper.Get(f.Name)
-			cmd.Flags().Set(f.Name, fmt.Sprintf("%v", val))
+			flags.Set(f.Name, fmt.Sprintf("%v", val))
 		}
 	})
 }

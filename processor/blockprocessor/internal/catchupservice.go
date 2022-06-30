@@ -17,6 +17,9 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
+// Delay is the time to wait for catchup service startup
+var Delay = 5 * time.Second
+
 // makeNodeProvider initializes the node provider.
 func makeNodeProvider(ctx context.Context) nodeProvider {
 	return nodeProvider{
@@ -50,12 +53,11 @@ func (n nodeProvider) SetCatchpointCatchupMode(enabled bool) (newContextCh <-cha
 }
 
 // CatchupServiceCatchup initializes a ledger using the catchup service.
-func CatchupServiceCatchup(logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
 	logger.Infof("Starting catchup service with catchpoint: %s", catchpoint)
 	wrappedLogger := logging.NewWrappedLogger(logger)
 
 	start := time.Now()
-	ctx := context.Background()
 	cfg := config.AutogenLocal
 
 	node := makeNodeProvider(ctx)
@@ -63,16 +65,20 @@ func CatchupServiceCatchup(logger *log.Logger, round basics.Round, catchpoint, d
 	if err != nil {
 		return fmt.Errorf("CatchupServiceCatchup() MakeLedger err: %w", err)
 	}
+	defer func() {
+		l.WaitForCommit(l.Latest())
+		l.Close()
+	}()
 
 	p2pNode, err := network.NewWebsocketNetwork(wrappedLogger, cfg, nil, genesis.ID(), genesis.Network, node)
 	if err != nil {
 		return fmt.Errorf("CatchupServiceCatchup() NewWebsocketNetwork err: %w", err)
 	}
-	// TODO: Do we need to implement the peer prioritization interface?
-	//p2pNode.SetPrioScheme(node)
 	p2pNode.Start()
+	defer p2pNode.Stop()
 
-	// TODO: if the ledger already has a catchpoint, use MakeResumedCatchpointCatchupService
+	// TODO: Can use MakeResumedCatchpointCatchupService if ledger exists.
+	//       Without this ledger is re-initialized instead of resumed on restart.
 	service, err := catchup.MakeNewCatchpointCatchupService(
 		catchpoint,
 		node,
@@ -85,12 +91,20 @@ func CatchupServiceCatchup(logger *log.Logger, round basics.Round, catchpoint, d
 		return fmt.Errorf("CatchupServiceCatchup() MakeNewCatchpointCatchupService err: %w", err)
 	}
 
-	time.Sleep(5 * time.Second)
+	select {
+	case <-time.After(Delay):
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 	service.Start(ctx)
 
 	running := true
 	for running {
-		time.Sleep(5 * time.Second)
+		select {
+		case <-time.After(Delay):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
 		stats := service.GetStatistics()
 		running = stats.TotalBlocks == 0 || stats.TotalBlocks != stats.VerifiedBlocks
 
@@ -109,6 +123,5 @@ func CatchupServiceCatchup(logger *log.Logger, round basics.Round, catchpoint, d
 	}
 
 	logger.Infof("Catchup finished in %s", time.Since(start))
-	l.WaitForCommit(l.Latest())
 	return nil
 }
