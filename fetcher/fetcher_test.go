@@ -123,7 +123,7 @@ func TestFetcherImplCatchupLoopBlockError(t *testing.T) {
 
 func TestDirectCatchupService(t *testing.T) {
 	nextRound := uint64(0)
-	ctx, _ := context.WithCancel(context.Background())
+	ctx, f := context.WithCancel(context.Background())
 
 	// load genesis from disk
 	genesisFile := "/Users/ganesh/go-algorand/installer/genesis/mainnet/genesis.json"
@@ -158,4 +158,5 @@ func TestDirectCatchupService(t *testing.T) {
 			}
 		}
 	}
+	f()
 }
