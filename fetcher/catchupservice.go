@@ -15,22 +15,15 @@ import (
 	"github.com/algorand/go-algorand/network"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/util/metrics"
-	"github.com/labstack/gommon/log"
 )
 
+// CatchupService represents the catchup service implemented to enable indexer to directly fetch blocks from the network
 type CatchupService struct {
 	net          network.GossipNode
 	log          logging.Logger
 	cfg          config.Local
 	genesis      bookkeeping.Genesis
 	peerSelector *peerSelector
-}
-
-// makeNodeInfo initializes nodeInfo.
-func makeNodeInfo(ctx context.Context) nodeInfo {
-	return nodeInfo{
-		ctx: ctx,
-	}
 }
 
 // nodeInfo has context and implements one service required to create a gossip node
@@ -40,17 +33,26 @@ type nodeInfo struct {
 
 type task func() basics.Round
 
+// makeNodeInfo initializes nodeInfo.
+func makeNodeInfo(ctx context.Context) nodeInfo {
+	return nodeInfo{
+		ctx: ctx,
+	}
+}
+
 func (n nodeInfo) IsParticipating() bool { return false }
 
 // MakeCatchupService creats a catchup service and initialzes a gossipnode
-func MakeCatchupService(ctx context.Context, genesis bookkeeping.Genesis) (serviceDr *CatchupService) {
-	serviceDr = &CatchupService{}
-	serviceDr.cfg = config.AutogenLocal
-	serviceDr.genesis = genesis
-	serviceDr.log = logging.NewLogger()
+func MakeCatchupService(ctx context.Context, genesis bookkeeping.Genesis) (s *CatchupService) {
+	s = &CatchupService{}
+
+	s.cfg = config.AutogenLocal
+	s.genesis = genesis
+	s.log = logging.NewLogger()
 	nodeinfo := makeNodeInfo(ctx)
-	serviceDr.net, _ = network.NewWebsocketNetwork(serviceDr.log, serviceDr.cfg, nil, genesis.ID(), genesis.Network, nodeinfo)
-	return serviceDr
+	s.net, _ = network.NewWebsocketNetwork(s.log, s.cfg, nil, genesis.ID(), genesis.Network, nodeinfo)
+
+	return s
 }
 
 func (s *CatchupService) pipelineCallback(ctx context.Context, r basics.Round, thisFetchComplete chan bool, prevFetchCompleteChan chan bool, lookbackChan chan bool, bot *fetcherImpl) func() basics.Round {
@@ -61,7 +63,7 @@ func (s *CatchupService) pipelineCallback(ctx context.Context, r basics.Round, t
 			if psp.Peer == nil {
 				psp, _ = s.peerSelector.getNextPeer()
 			} else {
-				blk, cert, err1 := s.directNetworkFetch(ctx, uint64(r), psp, psp.Peer)
+				blk, cert, err1 := s.DirectNetworkFetch(ctx, uint64(r), psp, psp.Peer)
 				if err1 != nil {
 					psp, _ = s.peerSelector.getNextPeer()
 					// If context has expired.
@@ -77,7 +79,9 @@ func (s *CatchupService) pipelineCallback(ctx context.Context, r basics.Round, t
 						return 0
 					case prevFetchSuccess := <-prevFetchCompleteChan:
 						if prevFetchSuccess {
+							// check if previous block has been downloaded
 							bot.blockQueue <- block
+							// push true twice, one for lookback (to be used with block authenticator) and another as previous block
 							thisFetchComplete <- true
 							thisFetchComplete <- true
 							bot.nextRound++
@@ -98,8 +102,8 @@ func (s *CatchupService) pipelineCallback(ctx context.Context, r basics.Round, t
 	}
 }
 
-// parallelization attempt
-func (s *CatchupService) pipelinedFetch(ctx context.Context, seedLookback uint64, bot *fetcherImpl) error {
+// PipelinedFetch attempts to fetch blocks parallelly from network
+func (s *CatchupService) PipelinedFetch(ctx context.Context, seedLookback uint64, bot *fetcherImpl) error {
 	var err error
 	s.peerSelector = s.createPeerSelector(true)
 	if _, err := s.peerSelector.getNextPeer(); err != nil {
@@ -137,6 +141,8 @@ func (s *CatchupService) pipelinedFetch(ctx context.Context, seedLookback uint64
 		reqComplete <- true
 		recentReqs = append(recentReqs, reqComplete)
 	}
+
+	// starting first set of tasks
 	from := basics.Round(bot.nextRound)
 	nextRound := from
 	// loop to catchup
@@ -146,10 +152,13 @@ func (s *CatchupService) pipelinedFetch(ctx context.Context, seedLookback uint64
 		taskCh <- s.pipelineCallback(ctx, nextRound, currentRoundComplete, recentReqs[len(recentReqs)-1], recentReqs[len(recentReqs)-int(seedLookback)], bot)
 		recentReqs = append(recentReqs[1:], currentRoundComplete)
 	}
+
+	// keep creating tasks as long as rounds complete
 	completedRounds := make(map[basics.Round]bool)
 	for {
 		select {
 		case round := <-completed:
+			// fmt.Println(len(bot.blockQueue))
 			if round == 0 {
 				// there was an error
 				return err
@@ -238,10 +247,11 @@ func (s *CatchupService) createPeerSelector(pipelineFetch bool) *peerSelector {
 	return makePeerSelector(s.net, peerClasses)
 }
 
-// directNetworkFetch given a block number and peer, fetches the block from the network.
-func (s *CatchupService) directNetworkFetch(ctx context.Context, rnd uint64, psp *peerSelectorPeer, peer network.Peer) (blk *bookkeeping.Block, cert *agreement.Certificate, err error) {
+// DirectNetworkFetch given a block number and peer, fetches the block from the network.
+func (s *CatchupService) DirectNetworkFetch(ctx context.Context, rnd uint64, psp *peerSelectorPeer, peer network.Peer) (blk *bookkeeping.Block, cert *agreement.Certificate, err error) {
 	fetch := makeUniversalBlockFetcher(s.log, s.net, s.cfg)
 	blk, cert, _, err = fetch.fetchBlock(ctx, basics.Round(rnd), peer)
+
 	// Check that the block's contents match the block header (necessary with an untrusted block because b.Hash() only hashes the header)
 	if blk == nil || cert == nil {
 		err = errors.New("invalid block download")
@@ -249,9 +259,9 @@ func (s *CatchupService) directNetworkFetch(ctx context.Context, rnd uint64, psp
 		s.peerSelector.rankPeer(psp, peerRankInvalidDownload)
 		// Check if this mismatch is due to an unsupported protocol version
 		if _, ok := config.Consensus[blk.BlockHeader.CurrentProtocol]; !ok {
-			log.Errorf("fetchAndWrite(%v): unsupported protocol version detected: '%v'", rnd, blk.BlockHeader.CurrentProtocol)
+			s.log.Errorf("fetchAndWrite(%v): unsupported protocol version detected: '%v'", rnd, blk.BlockHeader.CurrentProtocol)
 		}
-		log.Warnf("fetchAndWrite(%v): block contents do not match header (attempt %d)", rnd, 1)
+		s.log.Warnf("fetchAndWrite(%v): block contents do not match header (attempt %d)", rnd, 1)
 		// continue // retry the fetch: add a loop over here
 		err = errors.New("invalid block download")
 	}

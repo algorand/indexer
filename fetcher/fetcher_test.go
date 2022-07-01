@@ -147,7 +147,7 @@ func TestDirectCatchupService(t *testing.T) {
 		if psp.Peer == nil {
 			psp, _ = serviceDr.peerSelector.getNextPeer()
 		} else {
-			blk, cert, err1 := serviceDr.directNetworkFetch(ctx, nextRound, psp, psp.Peer)
+			blk, cert, err1 := serviceDr.DirectNetworkFetch(ctx, nextRound, psp, psp.Peer)
 			if err1 != nil {
 				psp, _ = serviceDr.peerSelector.getNextPeer()
 			} else if uint64(blk.Round()) == nextRound {

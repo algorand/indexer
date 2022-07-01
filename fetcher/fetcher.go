@@ -150,7 +150,7 @@ func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 		// // making peerselector, makes sure that dns records are loaded
 		serviceDr.net.RequestConnectOutgoing(false, ctx.Done())
 
-		err = serviceDr.pipelinedFetch(ctx, uint64(2), bot)
+		err = serviceDr.PipelinedFetch(ctx, uint64(2), bot)
 		return err
 
 	}
@@ -182,7 +182,6 @@ func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 		bot.nextRound++
 		bot.failingSince = time.Time{}
 	}
-
 }
 
 // wait for algod to notify of a new round, then fetch that block
