@@ -65,7 +65,6 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, 
 		return fmt.Errorf("CatchupServiceCatchup() MakeLedger err: %w", err)
 	}
 	defer func() {
-		l.WaitForCommit(l.Latest())
 		l.Close()
 	}()
 
@@ -122,5 +121,6 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, 
 	}
 
 	logger.Infof("Catchup finished in %s", time.Since(start))
+	l.WaitForCommit(l.Latest())
 	return nil
 }
