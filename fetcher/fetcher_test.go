@@ -139,24 +139,19 @@ func TestDirectCatchupService(t *testing.T) {
 	// making peerselector, makes sure that dns records are loaded
 	serviceDr.net.RequestConnectOutgoing(false, ctx.Done())
 	serviceDr.peerSelector = serviceDr.createPeerSelector(false)
-	if _, err := serviceDr.peerSelector.getNextPeer(); err != nil {
-		fmt.Println(err)
-	}
-	psp, _ := serviceDr.peerSelector.getNextPeer()
-	for nextRound < 10 {
-		if psp.Peer == nil {
-			psp, _ = serviceDr.peerSelector.getNextPeer()
-		} else {
-			blk, cert, err1 := serviceDr.DirectNetworkFetch(ctx, nextRound, psp, psp.Peer)
-			if err1 != nil {
+	if psp, err := serviceDr.peerSelector.getNextPeer(); err == nil {
+		for nextRound < 10 {
+			if psp.Peer == nil {
 				psp, _ = serviceDr.peerSelector.getNextPeer()
-			} else if uint64(blk.Round()) == nextRound {
-				block := new(rpcs.EncodedBlockCert)
-				block.Block = *blk
-				block.Certificate = *cert
-				nextRound++
+			} else {
+				blk, _, err1 := serviceDr.DirectNetworkFetch(ctx, nextRound, psp, psp.Peer)
+				if err1 != nil {
+					psp, _ = serviceDr.peerSelector.getNextPeer()
+				} else if uint64(blk.Round()) == nextRound {
+					nextRound++
+				}
 			}
 		}
+		f()
 	}
-	f()
 }
