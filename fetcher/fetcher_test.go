@@ -122,7 +122,6 @@ func TestFetcherImplCatchupLoopBlockError(t *testing.T) {
 }
 
 func TestDirectCatchupService(t *testing.T) {
-	nextRound := uint64(0)
 	ctx, f := context.WithCancel(context.Background())
 
 	// load genesis from disk
@@ -138,20 +137,16 @@ func TestDirectCatchupService(t *testing.T) {
 
 	// making peerselector, makes sure that dns records are loaded
 	serviceDr.net.RequestConnectOutgoing(false, ctx.Done())
-	serviceDr.peerSelector = serviceDr.createPeerSelector(false)
-	if psp, err := serviceDr.peerSelector.getNextPeer(); err == nil {
-		for nextRound < 10 {
-			if psp.Peer == nil {
-				psp, _ = serviceDr.peerSelector.getNextPeer()
-			} else {
-				blk, _, err1 := serviceDr.DirectNetworkFetch(ctx, nextRound, psp, psp.Peer)
-				if err1 != nil {
-					psp, _ = serviceDr.peerSelector.getNextPeer()
-				} else if uint64(blk.Round()) == nextRound {
-					nextRound++
-				}
-			}
+	bot := &fetcherImpl{genesis: genesis, directFetch: true}
+	bot.nextRound = uint64(0)
+	bot.blockQueue = make(chan *rpcs.EncodedBlockCert, 5000)
+	go func() {
+		_ = serviceDr.PipelinedFetch(ctx, uint64(2), bot)
+	}()
+	for {
+		if bot.nextRound > uint64(10) {
+			f()
+			break
 		}
 	}
-	f()
 }
