@@ -62,11 +62,12 @@ func TestMaxRound(t *testing.T) {
 	assert.NoError(t, err)
 	defer pdb.Close()
 
-	db.Exec(
+	_, err = db.Exec(
 		context.Background(),
 		`INSERT INTO metastate (k, v) values ($1, $2)`,
 		"state",
 		`{"next_account_round":123454322}`)
+	assert.NoError(t, err)
 
 	round, err := pdb.GetNextRoundToAccount()
 	require.NoError(t, err)
@@ -85,11 +86,12 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 	assert.NoError(t, err)
 	defer pdb.Close()
 
-	db.Exec(
+	_, err = db.Exec(
 		context.Background(),
 		`INSERT INTO metastate (k, v) values ($1, $2)`,
 		"state",
 		`{"next_account_round":0}`)
+	assert.NoError(t, err)
 
 	round, err := pdb.GetNextRoundToAccount()
 	require.NoError(t, err)
@@ -2113,9 +2115,9 @@ func TestGenesisHashCheckAtDBSetup(t *testing.T) {
 	// connect with different genesis configs
 	genesis.Network = "testnest"
 	// different genesisHash, should fail
-	idb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	idbImpl, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
-	err = idb.LoadGenesis(genesis)
+	err = idbImpl.LoadGenesis(genesis)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "genesis hash not matching")
 }
@@ -2141,7 +2143,8 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	jsonCodecHandle := new(codec.JsonHandle)
 	enc := codec.NewEncoderBytes(&buf, jsonCodecHandle)
 	enc.MustEncode(state)
-	db.setMetastate(nil, schema.StateMetastateKey, string(buf))
+	err = db.setMetastate(nil, schema.StateMetastateKey, string(buf))
+	assert.NoError(t, err)
 	// network state not initialized
 	networkState, err := db.getNetworkState(context.Background(), nil)
 	require.ErrorIs(t, err, idb.ErrorNotInitialized)
