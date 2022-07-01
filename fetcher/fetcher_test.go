@@ -152,6 +152,6 @@ func TestDirectCatchupService(t *testing.T) {
 				}
 			}
 		}
-		f()
 	}
+	f()
 }
