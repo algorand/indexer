@@ -40,24 +40,9 @@ func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.Va
 
 // MakeProcessorWithLedgerInit creates a block processor and initializes the ledger.
 func MakeProcessorWithLedgerInit(ctx context.Context, logger *log.Logger, catchpoint string, genesis *bookkeeping.Genesis, nextDBRound uint64, opts idb.IndexerDbOptions, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
-	if nextDBRound > 0 {
-		if catchpoint != "" {
-			round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
-			if err != nil {
-				return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() label err: %w", err)
-			}
-			if uint64(round) >= nextDBRound {
-				return &blockProcessor{}, fmt.Errorf("invalid catchpoint: catchpoint round %d should not be ahead of target round %d", uint64(round), nextDBRound-1)
-			}
-			err = InitializeLedgerFastCatchup(ctx, logger, catchpoint, opts.IndexerDatadir, *genesis)
-			if err != nil {
-				return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() fast catchup err: %w", err)
-			}
-		}
-		err := InitializeLedgerSimple(ctx, logger, nextDBRound-1, genesis, &opts)
-		if err != nil {
-			return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() slow catchup err: %w", err)
-		}
+	err := InitializeLedger(ctx, logger, catchpoint, nextDBRound, *genesis, &opts)
+	if err != nil {
+		return nil, fmt.Errorf("MakeProcessorWithLedgerInit() err: %w", err)
 	}
 	return MakeProcessor(logger, genesis, nextDBRound, opts.IndexerDatadir, handler)
 }

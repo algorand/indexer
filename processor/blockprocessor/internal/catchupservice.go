@@ -9,7 +9,6 @@ import (
 
 	"github.com/algorand/go-algorand/catchup"
 	"github.com/algorand/go-algorand/config"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/network"
@@ -53,7 +52,7 @@ func (n nodeProvider) SetCatchpointCatchupMode(enabled bool) (newContextCh <-cha
 }
 
 // CatchupServiceCatchup initializes a ledger using the catchup service.
-func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
 	logger.Infof("Starting catchup service with catchpoint: %s", catchpoint)
 	wrappedLogger := logging.NewWrappedLogger(logger)
 

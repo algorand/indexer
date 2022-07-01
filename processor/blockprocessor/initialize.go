@@ -18,6 +18,46 @@ import (
 	"github.com/algorand/indexer/processor/blockprocessor/internal"
 )
 
+// InitializeLedger will initialize a ledger to the directory given by the
+// IndexerDbOpts.
+// nextRound - next round to process after initializing.
+// catchpoint - if provided, attempt to use fast catchup.
+func InitializeLedger(ctx context.Context, logger *log.Logger, catchpoint string, nextRound uint64, genesis bookkeeping.Genesis, opts *idb.IndexerDbOptions) error {
+	if nextRound > 0 {
+		if catchpoint != "" {
+			round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
+			if err != nil {
+				return fmt.Errorf("InitializeLedger() label err: %w", err)
+			}
+			if uint64(round) >= nextRound {
+				return fmt.Errorf("invalid catchpoint: catchpoint round %d should not be ahead of target round %d", uint64(round), nextRound-1)
+			}
+			err = InitializeLedgerFastCatchup(ctx, logger, catchpoint, opts.IndexerDatadir, genesis)
+			if err != nil {
+				return fmt.Errorf("InitializeLedger() fast catchup err: %w", err)
+			}
+		}
+		err := InitializeLedgerSimple(ctx, logger, nextRound-1, &genesis, opts)
+		if err != nil {
+			return fmt.Errorf("InitializeLedger() slow catchup err: %w", err)
+		}
+	}
+	return nil
+}
+
+// InitializeLedgerFastCatchup executes the migration core functionality.
+func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+	if dataDir == "" {
+		return fmt.Errorf("InitializeLedgerFastCatchup() err: indexer data directory missing")
+	}
+
+	err := internal.CatchupServiceCatchup(ctx, logger, catchpoint, dataDir, genesis)
+	if err != nil {
+		return fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
+	}
+	return nil
+}
+
 // InitializeLedgerSimple initializes a ledger with the block processor by
 // sending it one block at a time and letting it update the ledger as usual.
 func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint64, genesis *bookkeeping.Genesis, opts *idb.IndexerDbOptions) error {
@@ -130,25 +170,6 @@ func fullNodeCatchup(ctx context.Context, logger *log.Logger, round basics.Round
 	return nil
 }
 */
-
-// InitializeLedgerFastCatchup executes the migration core functionality.
-func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
-	if dataDir == "" {
-		return fmt.Errorf("InitializeLedgerFastCatchup() err: indexer data directory missing")
-	}
-	// catchpoint round
-	round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
-	if err != nil {
-		return fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
-	}
-
-	err = internal.CatchupServiceCatchup(ctx, logger, round, catchpoint, dataDir, genesis)
-	//err = fullNodeCatchup(ctx, logger, round, catchpoint, dataDir, genesis)
-	if err != nil {
-		return fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
-	}
-	return nil
-}
 
 // blockHandler creates a handler complying to the fetcher block handler interface. In case of a failure it keeps
 // attempting to add the block until the fetcher shuts down.
