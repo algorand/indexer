@@ -109,6 +109,7 @@ var daemonCmd = &cobra.Command{
 				maybeFail(err, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
 			}
 			fmt.Printf("Using configuration file: %s\n", configFile)
+			config.BindFlags(cmd)
 		}
 
 		if paramConfigFound {
@@ -119,7 +120,7 @@ var daemonCmd = &cobra.Command{
 				panic(exit{1})
 			}
 			suppliedAPIConfigFile = filepath.Join(indexerDataDir, autoLoadParameterConfigName)
-			fmt.Printf("Auto-loading parameter configuration file: %s", suppliedAPIConfigFile)
+			fmt.Printf("Auto-loading parameter configuration file: %s\n", suppliedAPIConfigFile)
 
 		}
 
@@ -343,7 +344,14 @@ func makeOptions() (options api.ExtraOptions) {
 			fmt.Fprintf(os.Stderr, "failed to created disabled map config from file: %v", err)
 			panic(exit{1})
 		}
+
+		if len((*potentialDisabledMapConfig).Data) == 0 {
+			logger.Warnf("All parameters are enabled since the provided parameter configuration file (%s) is empty.", suppliedAPIConfigFile)
+		}
+
 		options.DisabledMapConfig = potentialDisabledMapConfig
+	} else {
+		logger.Infof("Enable all parameters flag is set to: %v", enableAllParameters)
 	}
 
 	return
