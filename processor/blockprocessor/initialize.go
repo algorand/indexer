@@ -51,13 +51,6 @@ func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchp
 		return fmt.Errorf("InitializeLedgerFastCatchup() err: indexer data directory missing")
 	}
 
-	if catchpoint != "" {
-		_, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
-		if err != nil {
-			return fmt.Errorf("InitializeLedgerFastCatchup() invalid catchpoint err: %w", err)
-		}
-	}
-
 	err := internal.CatchupServiceCatchup(ctx, logger, catchpoint, dataDir, genesis)
 	if err != nil {
 		return fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)

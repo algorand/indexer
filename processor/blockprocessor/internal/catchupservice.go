@@ -10,6 +10,7 @@ import (
 	"github.com/algorand/go-algorand/catchup"
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/network"
 
@@ -53,8 +54,15 @@ func (n nodeProvider) SetCatchpointCatchupMode(enabled bool) (newContextCh <-cha
 
 // CatchupServiceCatchup initializes a ledger using the catchup service.
 func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+	if catchpoint == "" {
+		return fmt.Errorf("CatchupServiceCatchup() catchpoint missing")
+	}
+	catchpointRound, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
+	if err != nil {
+		return fmt.Errorf("CatchupServiceCatchup() invalid catchpoint err: %w", err)
+	}
+
 	logger.Infof("Starting catchup service with catchpoint: %s", catchpoint)
-	wrappedLogger := logging.NewWrappedLogger(logger)
 
 	start := time.Now()
 	cfg := config.AutogenLocal
@@ -68,6 +76,12 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, 
 		l.Close()
 	}()
 
+	// If the ledger is beyond the catchpoint round, we're done. Return with no error.
+	if l.Latest() >= catchpointRound {
+		return nil
+	}
+
+	wrappedLogger := logging.NewWrappedLogger(logger)
 	p2pNode, err := network.NewWebsocketNetwork(wrappedLogger, cfg, nil, genesis.ID(), genesis.Network, node)
 	if err != nil {
 		return fmt.Errorf("CatchupServiceCatchup() NewWebsocketNetwork err: %w", err)
