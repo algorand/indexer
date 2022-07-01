@@ -342,12 +342,12 @@ func (w *Writer) AddBlock0(block *bookkeeping.Block) error {
 		_, err := results.Exec()
 		if err != nil {
 			results.Close()
-			return fmt.Errorf("AddBlock() exec err for block 0: %w", err)
+			return fmt.Errorf("AddBlock0() exec err: %w", err)
 		}
 	}
 	err := results.Close()
 	if err != nil {
-		return fmt.Errorf("AddBlock() close results err for block 0: %w", err)
+		return fmt.Errorf("AddBlock0() close results err: %w", err)
 	}
 
 	return nil
