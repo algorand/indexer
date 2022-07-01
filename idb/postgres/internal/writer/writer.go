@@ -303,9 +303,11 @@ func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.AccountDel
 }
 
 func writeBoxMods(kvMods map[string]*string, batch *pgx.Batch) error {
-	// Insert/Update/Delete ON `app_box`
-	// kvMods can in theory support more general storage types than app boxes.
+	// INSERT INTO / UPDATE / DELETE FROM `app_box`
+	// WARNING: kvMods can in theory support more general storage types than app boxes.
 	// However, here we assume that all the provided kvMods represent app boxes.
+	// If a non-box is encountered inside kvMods, an error will be returned and
+	// AddBlock() will fail with the migration getting stuck at the corresponding round.
 
 	fmt.Printf("writeAccountDeltas - app_box portion for kvMods of len=%d", len(kvMods))
 
