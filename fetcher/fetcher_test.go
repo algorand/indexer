@@ -137,16 +137,20 @@ func TestDirectCatchupService(t *testing.T) {
 
 	// making peerselector, makes sure that dns records are loaded
 	serviceDr.net.RequestConnectOutgoing(false, ctx.Done())
-	bot := &fetcherImpl{genesis: genesis, directFetch: true}
-	bot.nextRound = uint64(0)
-	bot.blockQueue = make(chan *rpcs.EncodedBlockCert, 5000)
-	go func() {
-		_ = serviceDr.PipelinedFetch(ctx, uint64(2), bot)
-	}()
-	for {
-		if bot.nextRound > uint64(10) {
-			f()
-			break
+	serviceDr.peerSelector = serviceDr.createPeerSelector(false)
+	if _, err := serviceDr.peerSelector.getNextPeer(); err == nil {
+		bot := &fetcherImpl{genesis: genesis, directFetch: true}
+		bot.nextRound = uint64(0)
+		bot.blockQueue = make(chan *rpcs.EncodedBlockCert, 5000)
+		go func() {
+			_ = serviceDr.PipelinedFetch(ctx, uint64(2), bot)
+		}()
+		for {
+			if bot.nextRound > uint64(10) {
+				f()
+				break
+			}
 		}
 	}
+	f()
 }
