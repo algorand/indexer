@@ -54,7 +54,7 @@ func MakeProcessorWithLedgerInit(ctx context.Context, logger *log.Logger, catchp
 				return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() fast catchup err: %w", err)
 			}
 		}
-		err := InitializeLedgerSimple(ctx, logger, nextDBRound-1, &opts)
+		err := InitializeLedgerSimple(ctx, logger, nextDBRound-1, genesis, &opts)
 		if err != nil {
 			return &blockProcessor{}, fmt.Errorf("MakeProcessorWithCatchup() slow catchup err: %w", err)
 		}

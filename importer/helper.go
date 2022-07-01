@@ -54,7 +54,7 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	genesis, err := util.ReadGenesis(genesisReader)
 	maybeFail(err, h.Log, "readGenesis() error")
 
-	_, err = EnsureInitialImport(db, genesis, h.Log)
+	_, err = EnsureInitialImport(db, genesis)
 	maybeFail(err, h.Log, "EnsureInitialImport() error")
 
 	imp := NewImporter(db)
@@ -188,7 +188,7 @@ func importFile(fname string, imp Importer, l *log.Logger, genesisPath string) (
 }
 
 // EnsureInitialImport imports the genesis block if needed. Returns true if the initial import occurred.
-func EnsureInitialImport(db idb.IndexerDb, genesis bookkeeping.Genesis, l *log.Logger) (bool, error) {
+func EnsureInitialImport(db idb.IndexerDb, genesis bookkeeping.Genesis) (bool, error) {
 	_, err := db.GetNextRoundToAccount()
 	// Exit immediately or crash if we don't see ErrorNotInitialized.
 	if err != idb.ErrorNotInitialized {

@@ -12,7 +12,6 @@ import (
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/sirupsen/logrus"
 	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -2146,11 +2145,10 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	// network state not initialized
 	networkState, err := db.getNetworkState(context.Background(), nil)
 	require.ErrorIs(t, err, idb.ErrorNotInitialized)
-	logger := logrus.New()
 	genesisReader := bytes.NewReader(protocol.EncodeJSON(genesis))
 	gen, err := util.ReadGenesis(genesisReader)
 	require.NoError(t, err)
-	imported, err := importer.EnsureInitialImport(db, gen, logger)
+	imported, err := importer.EnsureInitialImport(db, gen)
 	require.NoError(t, err)
 	require.True(t, true, imported)
 	// network state should be set
@@ -2164,7 +2162,7 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	gen, err = util.ReadGenesis(genesisReader)
 	require.NoError(t, err)
 	// different genesisHash, should fail
-	_, err = importer.EnsureInitialImport(db, gen, logger)
+	_, err = importer.EnsureInitialImport(db, gen)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "genesis hash not matching")
 

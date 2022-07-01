@@ -70,7 +70,7 @@ func TestRunMigration(t *testing.T) {
 
 	// migrate 3 rounds
 	log, _ := test2.NewNullLogger()
-	err = InitializeLedgerSimple(context.Background(), log, 3, &opts)
+	err = InitializeLedgerSimple(context.Background(), log, 3, &genesis, &opts)
 	assert.NoError(t, err)
 	l, err := util.MakeLedger(log, false, &genesis, opts.IndexerDatadir)
 	assert.NoError(t, err)
@@ -79,7 +79,7 @@ func TestRunMigration(t *testing.T) {
 	l.Close()
 
 	// migration continues from last round
-	err = InitializeLedgerSimple(context.Background(), log, 6, &opts)
+	err = InitializeLedgerSimple(context.Background(), log, 6, &genesis, &opts)
 	assert.NoError(t, err)
 
 	l, err = util.MakeLedger(log, false, &genesis, opts.IndexerDatadir)
