@@ -373,7 +373,6 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 		writeAccountDeltas(block.Round(), &delta.Accts, sigTypeDeltas, &batch)
 	}
 	{
-		// TODO: don't think I actually need this code block
 		err := writeBoxMods(delta.KvMods, &batch)
 		if err != nil {
 			return fmt.Errorf("AddBlock() err on boxes: %w", err)

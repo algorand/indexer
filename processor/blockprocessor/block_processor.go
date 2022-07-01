@@ -243,9 +243,6 @@ func prepareCreators(lfe *indexerledger.LedgerForEvaluator, payset transactions.
 	if err != nil {
 		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
 	}
-	if err != nil {
-		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
-	}
 
 	return assets, apps, nil
 }
