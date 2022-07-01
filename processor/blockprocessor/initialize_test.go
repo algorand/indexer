@@ -97,18 +97,7 @@ func TestInitializeLedgerFastCatchup_Errors(t *testing.T) {
 	require.EqualError(t, err, "InitializeLedgerFastCatchup() err: catchpoint parsing failed")
 
 	tryToRun := func(ctx context.Context) {
-		var addr basics.Address
-		genesis := bookkeeping.Genesis{
-			SchemaID:    "1",
-			Network:     "test",
-			Proto:       "future",
-			Allocation:  nil,
-			RewardsPool: addr.String(),
-			FeeSink:     addr.String(),
-			Timestamp:   0,
-			Comment:     "",
-			DevMode:     false,
-		}
+		genesis := test.MakeGenesis()
 		err = InitializeLedgerFastCatchup(
 			ctx,
 			logrus.New(),
