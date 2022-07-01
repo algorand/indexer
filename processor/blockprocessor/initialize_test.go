@@ -17,7 +17,6 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/idb"
@@ -89,12 +88,13 @@ func TestRunMigration(t *testing.T) {
 }
 
 func TestInitializeLedgerFastCatchup_Errors(t *testing.T) {
+	genesis := test.MakeGenesis()
 	log, _ := test2.NewNullLogger()
-	err := InitializeLedgerFastCatchup(context.Background(), log, "asdf", "", bookkeeping.Genesis{})
+	err := InitializeLedgerFastCatchup(context.Background(), log, "asdf", "", genesis)
 	require.EqualError(t, err, "InitializeLedgerFastCatchup() err: indexer data directory missing")
 
-	err = InitializeLedgerFastCatchup(context.Background(), log, "asdf", t.TempDir(), bookkeeping.Genesis{})
-	require.EqualError(t, err, "InitializeLedgerFastCatchup() err: catchpoint parsing failed")
+	err = InitializeLedgerFastCatchup(context.Background(), log, "asdf", t.TempDir(), genesis)
+	require.ErrorContains(t, err, "catchpoint parsing failed")
 
 	tryToRun := func(ctx context.Context) {
 		genesis := test.MakeGenesis()
@@ -104,7 +104,7 @@ func TestInitializeLedgerFastCatchup_Errors(t *testing.T) {
 			"21890000#BOGUSTCNVEDIBNRPNCKWRBQLJ7ILXIJBYKAHF67TLUOYRUGHW7ZA",
 			t.TempDir(),
 			genesis)
-		require.EqualError(t, err, "InitializeLedgerFastCatchup() err: context canceled")
+		require.ErrorContains(t, err, "context canceled")
 	}
 
 	// Run with an immediate cancel
