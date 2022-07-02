@@ -72,9 +72,7 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, 
 	if err != nil {
 		return fmt.Errorf("CatchupServiceCatchup() MakeLedger err: %w", err)
 	}
-	defer func() {
-		l.Close()
-	}()
+	defer l.Close()
 
 	// If the ledger is beyond the catchpoint round, we're done. Return with no error.
 	if l.Latest() >= catchpointRound {
@@ -82,12 +80,15 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, 
 	}
 
 	wrappedLogger := logging.NewWrappedLogger(logger)
-	p2pNode, err := network.NewWebsocketNetwork(wrappedLogger, cfg, nil, genesis.ID(), genesis.Network, node)
+	net, err := network.NewWebsocketNetwork(wrappedLogger, cfg, nil, genesis.ID(), genesis.Network, node)
 	if err != nil {
 		return fmt.Errorf("CatchupServiceCatchup() NewWebsocketNetwork err: %w", err)
 	}
-	p2pNode.Start()
-	defer p2pNode.Stop()
+	net.Start()
+	defer func() {
+		net.ClearHandlers()
+		net.Stop()
+	}()
 
 	// TODO: Can use MakeResumedCatchpointCatchupService if ledger exists.
 	//       Without this ledger is re-initialized instead of resumed on restart.
@@ -95,7 +96,7 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, 
 		catchpoint,
 		node,
 		wrappedLogger,
-		p2pNode,
+		net,
 		l,
 		cfg,
 	)
