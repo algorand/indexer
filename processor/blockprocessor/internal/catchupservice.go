@@ -110,6 +110,7 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, 
 		return ctx.Err()
 	}
 	service.Start(ctx)
+	defer service.Stop()
 
 	running := true
 	for running {
