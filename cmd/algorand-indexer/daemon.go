@@ -93,7 +93,7 @@ var daemonCmd = &cobra.Command{
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Unable to load optional consensus protocols file: %s/consensus.json %v\n", indexerDataDir, err)
 			}else{
-				fmt.Printf("consensus loaded\n");
+				fmt.Printf("consensus loaded\n")
 			}
 		}
 
