@@ -8,6 +8,8 @@ import (
 
 // ExporterConfig is a generic string which can be deserialized by each individual Exporter.
 type ExporterConfig string
+
+// ExportData is the interface which all data types sent to Exporters should implement
 type ExportData interface {
 	Round() uint64
 }
@@ -24,6 +26,7 @@ type BlockExportData struct {
 	Certificate agreement.Certificate
 }
 
+// Round returns the round to which the BlockExportData corresponds
 func (blkData *BlockExportData) Round() uint64 {
 	return uint64(blkData.Block.Round())
 }
