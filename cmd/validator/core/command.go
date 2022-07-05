@@ -22,6 +22,7 @@ func init() {
 		processorNum int
 		printCurl    bool
 		errorLogFile string
+		logSkipped   bool
 	)
 
 	ValidatorCmd = &cobra.Command{
@@ -29,7 +30,7 @@ func init() {
 		Short: "validator",
 		Long:  "Compare algod and indexer to each other and report any discrepencies.",
 		Run: func(cmd *cobra.Command, _ []string) {
-			run(config, errorLogFile, addr, threads, processorNum, printCurl)
+			run(config, errorLogFile, addr, threads, processorNum, printCurl, logSkipped)
 		},
 	}
 
@@ -45,10 +46,11 @@ func init() {
 	ValidatorCmd.Flags().IntVar(&threads, "threads", 4, "Number of worker threads to initialize.")
 	ValidatorCmd.Flags().IntVar(&processorNum, "processor", 0, "Choose compare algorithm [0 = Struct, 1 = Reflection]")
 	ValidatorCmd.Flags().BoolVar(&printCurl, "print-commands", false, "Print curl commands, including tokens, to query algod and indexer.")
-	ValidatorCmd.Flags().StringVarP(&errorLogFile, "error-log-file", "e", "", "When specified, error messages are written to this file instead of to stderr.")
+	ValidatorCmd.Flags().StringVarP(&errorLogFile, "error-log-file", "", "", "When specified, error messages are written to this file instead of to stderr.")
+	ValidatorCmd.Flags().BoolVarP(&logSkipped, "log-skipped", "", false, "When specified, skipped accounts are written along with errors.")
 }
 
-func run(config Params, errorLogFile, addr string, threads int, processorNum int, printCurl bool) {
+func run(config Params, errorLogFile, addr string, threads int, processorNum int, printCurl, logSkipped bool) {
 	if len(config.AlgodURL) == 0 {
 		ErrorLog.Fatalf("algod-url parameter is required.")
 	}
@@ -91,7 +93,7 @@ func run(config Params, errorLogFile, addr string, threads int, processorNum int
 	}()
 
 	// This will keep going until the results channel is closed.
-	numErrors := resultsPrinter(config, printCurl, results)
+	numErrors := resultsPrinter(logSkipped, config, printCurl, results)
 	if numErrors > 0 {
 		os.Exit(1)
 	}
@@ -134,7 +136,7 @@ func resultChar(success bool, retries int, skipReason Skip) string {
 }
 
 // resultsPrinter reads the results channel and prints it to the error log. Returns the number of errors.
-func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
+func resultsPrinter(logSkipped bool, config Params, printCurl bool, results <-chan Result) int {
 	numResults := 0
 	numErrors := 0
 	skipCounts := make(map[Skip]uint64)
@@ -187,15 +189,16 @@ func resultsPrinter(config Params, printCurl bool, results <-chan Result) int {
 
 			// Print error message if there is one.
 			if r.SkipReason != NotSkipped {
-				switch r.SkipReason {
-				case SkipLimitReached:
-					ErrorLog.Printf("Address skipped: too many asset and/or accounts to return\n")
-				case SkipAccountNotFound:
-					ErrorLog.Printf("Address skipped: account not found, probably deleted\n")
-				default:
-					ErrorLog.Printf("Address skipped: Unknown reason (%s)\n", r.SkipReason)
+				if logSkipped {
+					switch r.SkipReason {
+					case SkipLimitReached:
+						ErrorLog.Printf("Address skipped: too many asset and/or accounts to return\n")
+					case SkipAccountNotFound:
+						ErrorLog.Printf("Address skipped: account not found, probably deleted\n")
+					default:
+						ErrorLog.Printf("Address skipped: Unknown reason (%s)\n", r.SkipReason)
+					}
 				}
-
 			} else if r.Error != nil {
 				ErrorLog.Printf("Processor error: %v\n", r.Error)
 			} else {
