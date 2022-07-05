@@ -138,6 +138,23 @@ specify the data format it expects for both input data and output if it provides
 output data in this sense). The system will ensure that the constructed pipeline has compatible data formats during
 initialization.
 
+Here is the data that will be initially passed into an Exporter.
+```GO
+package exporters
+
+type BlockExportData struct {
+	// Block is the block data written to the blockchain.
+	Block bookkeping.Block
+	
+	//Delta contains a list of account changes resulting from the block. Processor plugins may have modified this data.
+	Delta ledgercore.StateDelta
+	
+	// Certificate contains voting data that certifies the block. The certificate is non deterministic,
+	// a node stops collecting votes once the voting threshold is reached.
+	Certificate agreement.Certificate
+}
+```
+
 ### External Plugins
 
 In order to enable users to develop and maintain their own plugins external to the Indexer repository, the plugin
