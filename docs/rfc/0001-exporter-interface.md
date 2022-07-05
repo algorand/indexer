@@ -47,6 +47,8 @@ section to incorporate non-native plugins.
 ***Plugin Interface***  
 Exporter plugins that are native to the Indexer (maintained within the Indexer repository) will each implementation the exporter interface:
 ```Go
+package exporters
+
 // ExporterConfig will act as a placeholder for now. It will end up providing an interface for
 // serialization/deserialization of config files.
 // Derived types will provide plugin-specific data fields.
@@ -54,24 +56,36 @@ type ExporterConfig interface {}
 
 
 // Exporter defines the methods invoked during the plugin lifecycle of a data exporter.
-type Exporter interface {
-  // Connect will be called during initialization, before block data starts going through the pipeline.
-  // Typically used for things like initializating network connections.
-  // The ExporterConfig passed to Connect will contain the Unmarhsalled config file specific to this plugin.
-  // Should return an error if it fails--this will result in the Indexer process terminating.
-  Connect(cfg ExporterConfig) error
+type Exporter interface { 
+	// Name is a UID for each Exporter 
+	Name() string
+	
+    // Connect will be called during initialization, before block data starts going through the pipeline.
+    // Typically used for things like initializating network connections.
+    // The ExporterConfig passed to Connect will contain the Unmarhsalled config file specific to this plugin.
+    // Should return an error if it fails--this will result in the Indexer process terminating.
+    Connect(cfg ExporterConfig) error
+	
+	// Config returns the configuration options used to create an Exporter.
+	// Initialized during `Connect`, it will return nil until the Exporter has been Connected.
+	Config() ExporterConfig
   
-  // Connect will be called during termination of the Indexer process.
-  // There is no guarantee that plugin lifecycle hooks will be invoked in any specific order in relation to one another.
-  // Returns an error if it fails which will be surfaced in the logs, but the process is already terminating.
-  Connect() error
+    // Disconnect will be called during termination of the Indexer process.
+    // There is no guarantee that plugin lifecycle hooks will be invoked in any specific order in relation to one another.
+    // Returns an error if it fails which will be surfaced in the logs, but the process is already terminating.
+    Disconnect() error
   
-  // Receive is called for each block to be processed by the exporter.
-  // Should return an error on failure--retries are configurable.
-  Receive(blockData *rpcs.EncodedBlockCert) error
+    // Receive is called for each block to be processed by the exporter.
+    // Should return an error on failure--retries are configurable.
+    Receive(exportData ExportData) error
+
+    // HandleGenesis is an Exporter's opportunity to do initial validation and handling of the Genesis block.
+    // If validation (such as a check to ensure `genesis` matches a previously stored genesis block) or handling fails,
+    // it returns an error.
+    HandleGenesis(genesis bookkeeping.Genesis) error
   
-  // Round returns the next round not yet processed by the Exporter. Atomically updated when Receive successfully completes.
-  Round() uint64
+    // Round returns the next round not yet processed by the Exporter. Atomically updated when Receive successfully completes.
+    Round() uint64
 }
 ```
 
