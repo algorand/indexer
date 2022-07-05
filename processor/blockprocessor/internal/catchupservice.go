@@ -9,8 +9,8 @@ import (
 
 	"github.com/algorand/go-algorand/catchup"
 	"github.com/algorand/go-algorand/config"
-	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/logging"
 	"github.com/algorand/go-algorand/network"
 
@@ -53,9 +53,16 @@ func (n nodeProvider) SetCatchpointCatchupMode(enabled bool) (newContextCh <-cha
 }
 
 // CatchupServiceCatchup initializes a ledger using the catchup service.
-func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
+	if catchpoint == "" {
+		return fmt.Errorf("CatchupServiceCatchup() catchpoint missing")
+	}
+	catchpointRound, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
+	if err != nil {
+		return fmt.Errorf("CatchupServiceCatchup() invalid catchpoint err: %w", err)
+	}
+
 	logger.Infof("Starting catchup service with catchpoint: %s", catchpoint)
-	wrappedLogger := logging.NewWrappedLogger(logger)
 
 	start := time.Now()
 	cfg := config.AutogenLocal
@@ -65,17 +72,23 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, round basics
 	if err != nil {
 		return fmt.Errorf("CatchupServiceCatchup() MakeLedger err: %w", err)
 	}
-	defer func() {
-		l.WaitForCommit(l.Latest())
-		l.Close()
-	}()
+	defer l.Close()
 
-	p2pNode, err := network.NewWebsocketNetwork(wrappedLogger, cfg, nil, genesis.ID(), genesis.Network, node)
+	// If the ledger is beyond the catchpoint round, we're done. Return with no error.
+	if l.Latest() >= catchpointRound {
+		return nil
+	}
+
+	wrappedLogger := logging.NewWrappedLogger(logger)
+	net, err := network.NewWebsocketNetwork(wrappedLogger, cfg, nil, genesis.ID(), genesis.Network, node)
 	if err != nil {
 		return fmt.Errorf("CatchupServiceCatchup() NewWebsocketNetwork err: %w", err)
 	}
-	p2pNode.Start()
-	defer p2pNode.Stop()
+	net.Start()
+	defer func() {
+		net.ClearHandlers()
+		net.Stop()
+	}()
 
 	// TODO: Can use MakeResumedCatchpointCatchupService if ledger exists.
 	//       Without this ledger is re-initialized instead of resumed on restart.
@@ -83,7 +96,7 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, round basics
 		catchpoint,
 		node,
 		wrappedLogger,
-		p2pNode,
+		net,
 		l,
 		cfg,
 	)
@@ -97,6 +110,7 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, round basics
 		return ctx.Err()
 	}
 	service.Start(ctx)
+	defer service.Stop()
 
 	running := true
 	for running {
@@ -123,5 +137,6 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, round basics
 	}
 
 	logger.Infof("Catchup finished in %s", time.Since(start))
+	l.WaitForCommit(l.Latest())
 	return nil
 }

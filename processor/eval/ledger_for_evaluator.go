@@ -1,3 +1,12 @@
+// Package eval implements the 'ledger.indexerLedgerForEval' interface for
+// generating StateDelta's and updating ApplyData with a custom protocol.
+//
+//
+// TODO: Expose private functions in go-algorand to allow code reuse.
+// This interface is designed to allow sourcing initial state data from
+// postgres. Since we are not sourcing initial states from the ledger there
+// is no need for this custom code, except that the interface doesn't support
+// reading from the ledger.
 package eval
 
 import (

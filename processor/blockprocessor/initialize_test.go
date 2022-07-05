@@ -3,12 +3,12 @@ package blockprocessor
 import (
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/jarcoal/httpmock"
+	"github.com/sirupsen/logrus"
 	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,7 +17,6 @@ import (
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
 	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/idb"
@@ -70,7 +69,7 @@ func TestRunMigration(t *testing.T) {
 
 	// migrate 3 rounds
 	log, _ := test2.NewNullLogger()
-	err = InitializeLedgerSimple(context.Background(), log, 3, &opts)
+	err = InitializeLedgerSimple(context.Background(), log, 3, &genesis, &opts)
 	assert.NoError(t, err)
 	l, err := util.MakeLedger(log, false, &genesis, opts.IndexerDatadir)
 	assert.NoError(t, err)
@@ -79,7 +78,7 @@ func TestRunMigration(t *testing.T) {
 	l.Close()
 
 	// migration continues from last round
-	err = InitializeLedgerSimple(context.Background(), log, 6, &opts)
+	err = InitializeLedgerSimple(context.Background(), log, 6, &genesis, &opts)
 	assert.NoError(t, err)
 
 	l, err = util.MakeLedger(log, false, &genesis, opts.IndexerDatadir)
@@ -89,33 +88,23 @@ func TestRunMigration(t *testing.T) {
 }
 
 func TestInitializeLedgerFastCatchup_Errors(t *testing.T) {
+	genesis := test.MakeGenesis()
 	log, _ := test2.NewNullLogger()
-	err := InitializeLedgerFastCatchup(context.Background(), log, "asdf", "", bookkeeping.Genesis{})
+	err := InitializeLedgerFastCatchup(context.Background(), log, "asdf", "", genesis)
 	require.EqualError(t, err, "InitializeLedgerFastCatchup() err: indexer data directory missing")
 
-	err = InitializeLedgerFastCatchup(context.Background(), log, "asdf", t.TempDir(), bookkeeping.Genesis{})
-	require.EqualError(t, err, "InitializeLedgerFastCatchup() err: catchpoint parsing failed")
+	err = InitializeLedgerFastCatchup(context.Background(), log, "asdf", t.TempDir(), genesis)
+	require.ErrorContains(t, err, "catchpoint parsing failed")
 
 	tryToRun := func(ctx context.Context) {
-		var addr basics.Address
-		genesis := bookkeeping.Genesis{
-			SchemaID:    "1",
-			Network:     "test",
-			Proto:       "future",
-			Allocation:  nil,
-			RewardsPool: addr.String(),
-			FeeSink:     addr.String(),
-			Timestamp:   0,
-			Comment:     "",
-			DevMode:     false,
-		}
+		genesis := test.MakeGenesis()
 		err = InitializeLedgerFastCatchup(
 			ctx,
 			logrus.New(),
 			"21890000#BOGUSTCNVEDIBNRPNCKWRBQLJ7ILXIJBYKAHF67TLUOYRUGHW7ZA",
 			t.TempDir(),
 			genesis)
-		require.EqualError(t, err, "InitializeLedgerFastCatchup() err: context canceled")
+		require.ErrorContains(t, err, "context canceled")
 	}
 
 	// Run with an immediate cancel

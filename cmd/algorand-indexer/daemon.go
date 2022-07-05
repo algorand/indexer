@@ -358,7 +358,7 @@ func runBlockImporter(ctx context.Context, cfg *daemonConfig, wg *sync.WaitGroup
 	genesis, err := iutil.ReadGenesis(genesisReader)
 	maybeFail(err, "Error reading genesis file")
 
-	_, err = importer.EnsureInitialImport(db, genesis, logger)
+	_, err = importer.EnsureInitialImport(db, genesis)
 	maybeFail(err, "importer.EnsureInitialImport() error")
 
 	// sync local ledger
