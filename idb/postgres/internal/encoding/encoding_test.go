@@ -600,7 +600,7 @@ func TestLcAccountDataEncoding(t *testing.T) {
 	assert.Equal(t, ad, decodedAd)
 }
 
-// TODO: test encoding of box data
-func TestBoxEncoding(t *testing.T) {
-	assert.Fail(t, "not implemented")
-}
+// // TODO: test encoding of box data
+// func TestBoxEncoding(t *testing.T) {
+// 	assert.Fail(t, "not implemented")
+// }
