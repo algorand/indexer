@@ -46,7 +46,7 @@ func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(2))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(2))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -101,7 +101,7 @@ func TestLedgerForEvaluatorAccountTableBasic(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -214,7 +214,7 @@ func TestLedgerForEvaluatorAccountTableSingleAccount(t *testing.T) {
 			require.NoError(t, err)
 			defer tx.Rollback(context.Background())
 
-			l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+			l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 			if checkError(err) {
 				return
 			}
@@ -263,7 +263,7 @@ func TestLedgerForEvaluatorAccountTableDeleted(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -283,7 +283,7 @@ func TestLedgerForEvaluatorAccountTableMissingAccount(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -328,7 +328,7 @@ func TestLedgerForEvaluatorAccountAssetTable(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -407,7 +407,7 @@ func TestLedgerForEvaluatorAssetTable(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -501,7 +501,7 @@ func TestLedgerForEvaluatorAppTable(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -590,7 +590,7 @@ func TestLedgerForEvaluatorAccountAppTable(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -642,7 +642,7 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -701,7 +701,7 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -735,7 +735,7 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -767,7 +767,7 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -805,7 +805,7 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -851,7 +851,7 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -883,7 +883,7 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -921,7 +921,7 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -970,7 +970,7 @@ func TestLedgerForEvaluatorAccountTotals(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
 	require.NoError(t, err)
 	defer l.Close()
 
@@ -979,3 +979,9 @@ func TestLedgerForEvaluatorAccountTotals(t *testing.T) {
 
 	assert.Equal(t, accountTotals, accountTotalsRead)
 }
+
+// func TestLedgerForEvaluatorAppBox(t *testing.T) {
+// 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
+// 	defer shutdownFunc()
+
+// }

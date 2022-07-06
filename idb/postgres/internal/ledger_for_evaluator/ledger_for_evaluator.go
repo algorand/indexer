@@ -44,16 +44,16 @@ var statements = map[string]string{
 		schema.AccountTotals + `'`,
 }
 
-// LedgerForEvaluator implements the indexerLedgerForEval interface from
+// DeprecatedLedgerForEvaluator implements the indexerLedgerForEval interface from
 // go-algorand ledger/eval.go and is used for accounting.
-type LedgerForEvaluator struct {
+type DeprecatedLedgerForEvaluator struct {
 	tx          pgx.Tx
 	latestRound basics.Round
 }
 
-// MakeLedgerForEvaluator creates a LedgerForEvaluator object.
-func MakeLedgerForEvaluator(tx pgx.Tx, latestRound basics.Round) (LedgerForEvaluator, error) {
-	l := LedgerForEvaluator{
+// MakeDeprecatedLedgerForEvaluator creates a LedgerForEvaluator object.
+func MakeDeprecatedLedgerForEvaluator(tx pgx.Tx, latestRound basics.Round) (DeprecatedLedgerForEvaluator, error) {
+	l := DeprecatedLedgerForEvaluator{
 		tx:          tx,
 		latestRound: latestRound,
 	}
@@ -61,7 +61,7 @@ func MakeLedgerForEvaluator(tx pgx.Tx, latestRound basics.Round) (LedgerForEvalu
 	for name, query := range statements {
 		_, err := tx.Prepare(context.Background(), name, query)
 		if err != nil {
-			return LedgerForEvaluator{},
+			return DeprecatedLedgerForEvaluator{},
 				fmt.Errorf("MakeLedgerForEvaluator() prepare statement err: %w", err)
 		}
 	}
@@ -70,14 +70,14 @@ func MakeLedgerForEvaluator(tx pgx.Tx, latestRound basics.Round) (LedgerForEvalu
 }
 
 // Close shuts down LedgerForEvaluator.
-func (l *LedgerForEvaluator) Close() {
+func (l *DeprecatedLedgerForEvaluator) Close() {
 	for name := range statements {
 		l.tx.Conn().Deallocate(context.Background(), name)
 	}
 }
 
 // LatestBlockHdr is part of go-algorand's indexerLedgerForEval interface.
-func (l LedgerForEvaluator) LatestBlockHdr() (bookkeeping.BlockHeader, error) {
+func (l DeprecatedLedgerForEvaluator) LatestBlockHdr() (bookkeeping.BlockHeader, error) {
 	row := l.tx.QueryRow(context.Background(), blockHeaderStmtName, uint64(l.latestRound))
 
 	var header []byte
@@ -94,7 +94,7 @@ func (l LedgerForEvaluator) LatestBlockHdr() (bookkeeping.BlockHeader, error) {
 	return res, nil
 }
 
-func (l *LedgerForEvaluator) parseAccountTable(row pgx.Row) (ledgercore.AccountData, bool /*exists*/, error) {
+func (l *DeprecatedLedgerForEvaluator) parseAccountTable(row pgx.Row) (ledgercore.AccountData, bool /*exists*/, error) {
 	var microalgos uint64
 	var rewardsbase uint64
 	var rewardsTotal uint64
@@ -125,7 +125,7 @@ func (l *LedgerForEvaluator) parseAccountTable(row pgx.Row) (ledgercore.AccountD
 }
 
 // LookupWithoutRewards is part of go-algorand's indexerLedgerForEval interface.
-func (l LedgerForEvaluator) LookupWithoutRewards(addresses map[basics.Address]struct{}) (map[basics.Address]*ledgercore.AccountData, error) {
+func (l DeprecatedLedgerForEvaluator) LookupWithoutRewards(addresses map[basics.Address]struct{}) (map[basics.Address]*ledgercore.AccountData, error) {
 	addressesArr := make([]basics.Address, 0, len(addresses))
 	for address := range addresses {
 		addressesArr = append(addressesArr, address)
@@ -167,7 +167,7 @@ func (l LedgerForEvaluator) LookupWithoutRewards(addresses map[basics.Address]st
 	return res, nil
 }
 
-func (l *LedgerForEvaluator) parseAccountAssetTable(row pgx.Row) (basics.AssetHolding, bool /*exists*/, error) {
+func (l *DeprecatedLedgerForEvaluator) parseAccountAssetTable(row pgx.Row) (basics.AssetHolding, bool /*exists*/, error) {
 	var amount uint64
 	var frozen bool
 
@@ -187,7 +187,7 @@ func (l *LedgerForEvaluator) parseAccountAssetTable(row pgx.Row) (basics.AssetHo
 	return assetHolding, true, nil
 }
 
-func (l *LedgerForEvaluator) parseAssetTable(row pgx.Row) (basics.Address /*creator*/, basics.AssetParams, bool /*exists*/, error) {
+func (l *DeprecatedLedgerForEvaluator) parseAssetTable(row pgx.Row) (basics.Address /*creator*/, basics.AssetParams, bool /*exists*/, error) {
 	var creatorAddr []byte
 	var params []byte
 
@@ -212,7 +212,7 @@ func (l *LedgerForEvaluator) parseAssetTable(row pgx.Row) (basics.Address /*crea
 	return creator, assetParams, true, nil
 }
 
-func (l *LedgerForEvaluator) parseAppTable(row pgx.Row) (basics.Address /*creator*/, basics.AppParams, bool /*exists*/, error) {
+func (l *DeprecatedLedgerForEvaluator) parseAppTable(row pgx.Row) (basics.Address /*creator*/, basics.AppParams, bool /*exists*/, error) {
 	var creatorAddr []byte
 	var params []byte
 
@@ -237,7 +237,7 @@ func (l *LedgerForEvaluator) parseAppTable(row pgx.Row) (basics.Address /*creato
 	return creator, appParams, true, nil
 }
 
-func (l *LedgerForEvaluator) parseAccountAppTable(row pgx.Row) (basics.AppLocalState, bool /*exists*/, error) {
+func (l *DeprecatedLedgerForEvaluator) parseAccountAppTable(row pgx.Row) (basics.AppLocalState, bool /*exists*/, error) {
 	var localstate []byte
 
 	err := row.Scan(&localstate)
@@ -259,7 +259,7 @@ func (l *LedgerForEvaluator) parseAccountAppTable(row pgx.Row) (basics.AppLocalS
 }
 
 // LookupResources is part of go-algorand's indexerLedgerForEval interface.
-func (l LedgerForEvaluator) LookupResources(input map[basics.Address]map[ledger.Creatable]struct{}) (map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
+func (l DeprecatedLedgerForEvaluator) LookupResources(input map[basics.Address]map[ledger.Creatable]struct{}) (map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
 	// Create request arrays since iterating over maps is non-deterministic.
 	type AddrID struct {
 		addr basics.Address
@@ -423,7 +423,7 @@ func (l LedgerForEvaluator) LookupResources(input map[basics.Address]map[ledger.
 	return res, nil
 }
 
-func (l *LedgerForEvaluator) parseAddress(row pgx.Row) (basics.Address, bool /*exists*/, error) {
+func (l *DeprecatedLedgerForEvaluator) parseAddress(row pgx.Row) (basics.Address, bool /*exists*/, error) {
 	var buf []byte
 	err := row.Scan(&buf)
 	if err == pgx.ErrNoRows {
@@ -440,7 +440,7 @@ func (l *LedgerForEvaluator) parseAddress(row pgx.Row) (basics.Address, bool /*e
 }
 
 // GetAssetCreator is part of go-algorand's indexerLedgerForEval interface.
-func (l LedgerForEvaluator) GetAssetCreator(indices map[basics.AssetIndex]struct{}) (map[basics.AssetIndex]ledger.FoundAddress, error) {
+func (l DeprecatedLedgerForEvaluator) GetAssetCreator(indices map[basics.AssetIndex]struct{}) (map[basics.AssetIndex]ledger.FoundAddress, error) {
 	indicesArr := make([]basics.AssetIndex, 0, len(indices))
 	for index := range indices {
 		indicesArr = append(indicesArr, index)
@@ -469,7 +469,7 @@ func (l LedgerForEvaluator) GetAssetCreator(indices map[basics.AssetIndex]struct
 }
 
 // GetAppCreator is part of go-algorand's indexerLedgerForEval interface.
-func (l LedgerForEvaluator) GetAppCreator(indices map[basics.AppIndex]struct{}) (map[basics.AppIndex]ledger.FoundAddress, error) {
+func (l DeprecatedLedgerForEvaluator) GetAppCreator(indices map[basics.AppIndex]struct{}) (map[basics.AppIndex]ledger.FoundAddress, error) {
 	indicesArr := make([]basics.AppIndex, 0, len(indices))
 	for index := range indices {
 		indicesArr = append(indicesArr, index)
@@ -498,7 +498,7 @@ func (l LedgerForEvaluator) GetAppCreator(indices map[basics.AppIndex]struct{}) 
 }
 
 // LatestTotals is part of go-algorand's indexerLedgerForEval interface.
-func (l LedgerForEvaluator) LatestTotals() (ledgercore.AccountTotals, error) {
+func (l DeprecatedLedgerForEvaluator) LatestTotals() (ledgercore.AccountTotals, error) {
 	row := l.tx.QueryRow(context.Background(), accountTotalsStmtName)
 
 	var json string
