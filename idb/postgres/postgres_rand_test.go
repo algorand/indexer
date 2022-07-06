@@ -429,8 +429,8 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 			require.NoError(t, err, msg)
 			require.Equal(t, appIdx, expectedAppIdx, msg)
 
-			appBoxSql := `SELECT app, name, value FROM app_box WHERE app = $1 AND name = $2`
-			row := db.db.QueryRow(context.Background(), appBoxSql, appIdx, []byte(boxName))
+			appBoxSQL := `SELECT app, name, value FROM app_box WHERE app = $1 AND name = $2`
+			row := db.db.QueryRow(context.Background(), appBoxSQL, appIdx, []byte(boxName))
 
 			boxDeleted := false
 			if deletedBoxes != nil {
@@ -451,7 +451,7 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 				require.ErrorContains(t, err, "no rows in result set", msg)
 			}
 		}
-		caseNum += 1
+		caseNum++
 	}
 }
 
