@@ -11,6 +11,13 @@ var nc = &Constructor{}
 
 var ne = nc.New()
 
+func TestExporterByName(t *testing.T) {
+	exporters.RegisterExporter(noopExporterMetadata.Name, nc)
+	ne, err := exporters.ExporterByName(noopExporterMetadata.Name, "")
+	assert.NoError(t, err)
+	assert.Implements(t, (*exporters.Exporter)(nil), ne)
+}
+
 func TestExporterMetadata(t *testing.T) {
 	meta := ne.Metadata()
 	assert.Equal(t, noopExporterMetadata.Name, meta.Name)
