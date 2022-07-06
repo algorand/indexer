@@ -31,10 +31,17 @@ func (blkData *BlockExportData) Round() uint64 {
 	return uint64(blkData.Block.Round())
 }
 
+// ExporterMetadata contains fields relevant to identification and description of plugins.
+type ExporterMetadata struct {
+	Name        string
+	Description string
+	Deprecated  bool
+}
+
 // Exporter defines the interface for plugins
 type Exporter interface {
-	// Name is a UID for each Exporter.
-	Name() string
+	// Metadata associated with each Exporter.
+	Metadata() ExporterMetadata
 
 	// Connect will be called during initialization, before block data starts going through the pipeline.
 	// Typically used for things like initializing network connections.

@@ -7,15 +7,15 @@ import (
 	"testing"
 )
 
-var nc = &NoopConstructor{}
+var nc = &Constructor{}
 
 var ne = nc.New()
 
 func TestExporterMetadata(t *testing.T) {
 	meta := ne.Metadata()
-	assert.Equal(t, NoopExporterMetadata.Name, meta.Name)
-	assert.Equal(t, NoopExporterMetadata.Description, meta.Description)
-	assert.Equal(t, NoopExporterMetadata.Deprecated, meta.Deprecated)
+	assert.Equal(t, noopExporterMetadata.Name, meta.Name)
+	assert.Equal(t, noopExporterMetadata.Description, meta.Description)
+	assert.Equal(t, noopExporterMetadata.Deprecated, meta.Deprecated)
 }
 
 func TestExporterConnect(t *testing.T) {

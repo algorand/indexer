@@ -14,16 +14,17 @@ type noopExporter struct {
 	cfg   exporters.ExporterConfig
 }
 
-var NoopExporterMetadata exporters.ExporterMetadata = exporters.ExporterMetadata{
+var noopExporterMetadata exporters.ExporterMetadata = exporters.ExporterMetadata{
 	Name:        "noop",
 	Description: "noop exporter",
 	Deprecated:  false,
 }
 
-// NoopConstructor is the ExporterConstructor implementation for the "noop" exporter
-type NoopConstructor struct{}
+// Constructor is the ExporterConstructor implementation for the "noop" exporter
+type Constructor struct{}
 
-func (c *NoopConstructor) New() exporters.Exporter {
+// New initializes a noopExporter
+func (c *Constructor) New() exporters.Exporter {
 	return &noopExporter{
 		round: 0,
 		cfg:   "",
@@ -31,7 +32,7 @@ func (c *NoopConstructor) New() exporters.Exporter {
 }
 
 func (exp *noopExporter) Metadata() exporters.ExporterMetadata {
-	return NoopExporterMetadata
+	return noopExporterMetadata
 }
 
 func (exp *noopExporter) Connect(_ exporters.ExporterConfig) error {
@@ -60,5 +61,5 @@ func (exp *noopExporter) Round() uint64 {
 }
 
 func init() {
-	exporters.RegisterExporter(NoopExporterMetadata.Name, &NoopConstructor{})
+	exporters.RegisterExporter(noopExporterMetadata.Name, &Constructor{})
 }
