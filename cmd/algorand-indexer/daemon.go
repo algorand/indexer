@@ -92,7 +92,7 @@ var daemonCmd = &cobra.Command{
 			err = goconfig.LoadConfigurableConsensusProtocols(indexerDataDir)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Unable to load optional consensus protocols file: %s/consensus.json %v\n", indexerDataDir, err)
-			}else{
+			} else {
 				fmt.Printf("consensus loaded\n")
 			}
 		}
