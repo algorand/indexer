@@ -60,7 +60,7 @@ func TestRunMigration(t *testing.T) {
 	httpmock.RegisterResponder("GET", `=~^http://localhost/v2/status/wait-for-block-after/\d+\z`,
 		httpmock.NewStringResponder(200, string(json.Encode(algod.Status{}))))
 
-	dname, _ := os.MkdirTemp("", "indexer")
+	dname, err := os.MkdirTemp("", "indexer")
 	defer os.RemoveAll(dname)
 	opts := idb.IndexerDbOptions{
 		IndexerDatadir: dname,
@@ -70,7 +70,7 @@ func TestRunMigration(t *testing.T) {
 
 	// migrate 3 rounds
 	log, _ := test2.NewNullLogger()
-	err := InitializeLedgerSimple(context.Background(), log, 3, &opts)
+	err = InitializeLedgerSimple(context.Background(), log, 3, &opts)
 	assert.NoError(t, err)
 	l, err := util.MakeLedger(log, false, &genesis, opts.IndexerDatadir)
 	assert.NoError(t, err)

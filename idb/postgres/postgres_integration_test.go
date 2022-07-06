@@ -12,7 +12,6 @@ import (
 
 	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
-	"github.com/sirupsen/logrus"
 	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -63,11 +62,12 @@ func TestMaxRound(t *testing.T) {
 	assert.NoError(t, err)
 	defer pdb.Close()
 
-	db.Exec(
+	_, err = db.Exec(
 		context.Background(),
 		`INSERT INTO metastate (k, v) values ($1, $2)`,
 		"state",
 		`{"next_account_round":123454322}`)
+	assert.NoError(t, err)
 
 	round, err := pdb.GetNextRoundToAccount()
 	require.NoError(t, err)
@@ -86,11 +86,12 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 	assert.NoError(t, err)
 	defer pdb.Close()
 
-	db.Exec(
+	_, err = db.Exec(
 		context.Background(),
 		`INSERT INTO metastate (k, v) values ($1, $2)`,
 		"state",
 		`{"next_account_round":0}`)
+	assert.NoError(t, err)
 
 	round, err := pdb.GetNextRoundToAccount()
 	require.NoError(t, err)
@@ -2114,9 +2115,9 @@ func TestGenesisHashCheckAtDBSetup(t *testing.T) {
 	// connect with different genesis configs
 	genesis.Network = "testnest"
 	// different genesisHash, should fail
-	idb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
+	idbImpl, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
 	assert.NoError(t, err)
-	err = idb.LoadGenesis(genesis)
+	err = idbImpl.LoadGenesis(genesis)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "genesis hash not matching")
 }
@@ -2142,15 +2143,15 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	jsonCodecHandle := new(codec.JsonHandle)
 	enc := codec.NewEncoderBytes(&buf, jsonCodecHandle)
 	enc.MustEncode(state)
-	db.setMetastate(nil, schema.StateMetastateKey, string(buf))
+	err = db.setMetastate(nil, schema.StateMetastateKey, string(buf))
+	assert.NoError(t, err)
 	// network state not initialized
 	networkState, err := db.getNetworkState(context.Background(), nil)
 	require.ErrorIs(t, err, idb.ErrorNotInitialized)
-	logger := logrus.New()
 	genesisReader := bytes.NewReader(protocol.EncodeJSON(genesis))
 	gen, err := util.ReadGenesis(genesisReader)
 	require.NoError(t, err)
-	imported, err := importer.EnsureInitialImport(db, gen, logger)
+	imported, err := importer.EnsureInitialImport(db, gen)
 	require.NoError(t, err)
 	require.True(t, true, imported)
 	// network state should be set
@@ -2164,7 +2165,7 @@ func TestGenesisHashCheckAtInitialImport(t *testing.T) {
 	gen, err = util.ReadGenesis(genesisReader)
 	require.NoError(t, err)
 	// different genesisHash, should fail
-	_, err = importer.EnsureInitialImport(db, gen, logger)
+	_, err = importer.EnsureInitialImport(db, gen)
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "genesis hash not matching")
 
