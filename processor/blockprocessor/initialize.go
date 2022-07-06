@@ -191,7 +191,7 @@ func blockHandler(logger *log.Logger, dbRound uint64, proc processor.Processor, 
 			case <-ctx.Done():
 				return err
 			case <-time.After(retryDelay):
-				break
+				// noop
 			}
 		}
 	}
