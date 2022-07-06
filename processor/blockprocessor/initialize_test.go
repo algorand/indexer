@@ -3,10 +3,11 @@ package blockprocessor
 import (
 	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
 
 	"github.com/jarcoal/httpmock"
 	test2 "github.com/sirupsen/logrus/hooks/test"
