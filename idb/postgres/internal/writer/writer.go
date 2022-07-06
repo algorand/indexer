@@ -316,7 +316,6 @@ func writeBoxMods(kvMods map[string]*string, batch *pgx.Batch) error {
 		if err != nil {
 			return fmt.Errorf("writeBoxMods() err: %w", err)
 		}
-		// TODO: we need solid tests to verify no further encoding of bytes `box_name` and `value` is necessary
 		if value != nil {
 			batch.Queue(upsertAppBoxStmtName, app, []byte(name), []byte(*value))
 		} else {
