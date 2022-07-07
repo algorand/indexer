@@ -599,8 +599,3 @@ func TestLcAccountDataEncoding(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, ad, decodedAd)
 }
-
-// // TODO: test encoding of box data
-// func TestBoxEncoding(t *testing.T) {
-// 	assert.Fail(t, "not implemented")
-// }

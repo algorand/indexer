@@ -322,7 +322,6 @@ func generateBoxes(t *testing.T, appIdx basics.AppIndex) map[string]string {
 		require.NoError(t, err)
 		key := logic.MakeBoxKey(appIdx, string(nameBytes))
 
-		// TODO: temporary asserstion -
 		require.Positive(t, len(key))
 
 		valueBytes := make([]byte, size)
