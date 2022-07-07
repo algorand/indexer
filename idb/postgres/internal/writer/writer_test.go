@@ -11,6 +11,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
@@ -1563,4 +1564,135 @@ func TestWriterAddBlock0(t *testing.T) {
 		}
 		assert.Equal(t, expected, accounts)
 	}
+}
+
+// Simulate a scenario where app boxes are created, mutated and deleted in consecutive rounds.
+func TestWriterAppBoxTableInsertMutateDeleteSameRound(t *testing.T) {
+	/* Simulation details:
+	Box 1: inserted and then untouched
+	Box 2: inserted and mutated
+	Box 3: inserted and deleted
+	Box 4: inserted, mutated and deleted
+	Box 5: inserted, deleted and re-inserted
+	*/
+
+	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
+	defer shutdownFunc()
+
+	var block bookkeeping.Block
+	block.BlockHeader.Round = basics.Round(1)
+	delta := ledgercore.StateDelta{}
+
+	f := func(tx pgx.Tx) error {
+		w, err := writer.MakeWriter(tx)
+		require.NoError(t, err)
+
+		err = w.AddBlock(&block, block.Payset, delta)
+		require.NoError(t, err)
+
+		w.Close()
+		return nil
+	}
+
+	appBoxSQL := `SELECT app, name, value FROM app_box WHERE app = $1 AND name = $2`
+	appID := basics.AppIndex(3)
+	notPresent := "NOT PRESENT"
+
+	/*** FIRST ROUND - create 5 boxes ***/
+	n1, v1 := "box1", "inserted"
+	n2, v2 := "box2", "inserted"
+	n3, v3 := "box3", "inserted"
+	n4, v4 := "box4", "inserted"
+	n5, v5 := "box6", "inserted"
+
+	k1 := logic.MakeBoxKey(appID, n1)
+	k2 := logic.MakeBoxKey(appID, n2)
+	k3 := logic.MakeBoxKey(appID, n3)
+	k4 := logic.MakeBoxKey(appID, n4)
+	k5 := logic.MakeBoxKey(appID, n5)
+
+	delta.KvMods = map[string]*string{}
+	delta.KvMods[k1] = &v1
+	delta.KvMods[k2] = &v2
+	delta.KvMods[k3] = &v3
+	delta.KvMods[k4] = &v4
+	delta.KvMods[k5] = &v5
+
+	err := pgutil.TxWithRetry(db, serializable, f, nil)
+	require.NoError(t, err)
+
+	validateRow := func(expectedName string, expectedValue string) {
+		var app basics.AppIndex
+		var name, value []byte
+
+		row := db.QueryRow(context.Background(), appBoxSQL, appID, []byte(expectedName))
+		err := row.Scan(&app, &name, &value)
+
+		if expectedValue == notPresent {
+			require.ErrorContains(t, err, "no rows in result set")
+			return
+		}
+
+		require.NoError(t, err)
+		require.Equal(t, appID, app)
+		require.Equal(t, expectedName, string(name))
+		require.Equal(t, expectedValue, string(value))
+	}
+
+	validateRow(n1, v1)
+	validateRow(n2, v2)
+	validateRow(n3, v3)
+	validateRow(n4, v4)
+	validateRow(n5, v5)
+
+	/*** SECOND ROUND - mutate 2, delete 3, mutate 4, delete 5 ***/
+	v2 = "mutated"
+	// v3 is "deleted"
+	v4 = "mutated"
+	// v5 is "deleted"
+
+	delta.KvMods = map[string]*string{}
+	delta.KvMods[k2] = &v2
+	delta.KvMods[k3] = nil
+	delta.KvMods[k4] = &v4
+	delta.KvMods[k5] = nil
+
+	err = pgutil.TxWithRetry(db, serializable, f, nil)
+	require.NoError(t, err)
+
+	validateRow(n1, v1) // untouched
+	validateRow(n2, v2) // new v2
+	validateRow(n3, notPresent)
+	validateRow(n4, v4) // new v4
+	validateRow(n5, notPresent)
+
+	/*** THIRD ROUND  - delete 4, insert 5 ***/
+
+	// v4 is "deleted"
+	v5 = "re-inserted"
+
+	delta.KvMods = map[string]*string{}
+	delta.KvMods[k4] = nil
+	delta.KvMods[k5] = &v5
+
+	err = pgutil.TxWithRetry(db, serializable, f, nil)
+	require.NoError(t, err)
+
+	validateRow(n1, v1)         // untouched
+	validateRow(n2, v2)         // untouched
+	validateRow(n3, notPresent) // still deleted
+	validateRow(n4, notPresent) // deleted
+	validateRow(n5, v5)         // re-inserted
+
+	/*** FOURTH ROUND  - NOOP ***/
+	delta.KvMods = map[string]*string{}
+
+	err = pgutil.TxWithRetry(db, serializable, f, nil)
+	require.NoError(t, err)
+
+	validateRow(n1, v1)         // untouched
+	validateRow(n2, v2)         // untouched
+	validateRow(n3, notPresent) // still deleted
+	validateRow(n4, notPresent) // still deleted
+	validateRow(n5, v5)         // untouched
 }
