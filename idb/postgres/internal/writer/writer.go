@@ -308,9 +308,6 @@ func writeBoxMods(kvMods map[string]*string, batch *pgx.Batch) error {
 	// However, here we assume that all the provided kvMods represent app boxes.
 	// If a non-box is encountered inside kvMods, an error will be returned and
 	// AddBlock() will fail with the migration getting stuck at the corresponding round.
-
-	fmt.Printf("writeAccountDeltas - app_box portion for kvMods of len=%d", len(kvMods))
-
 	for key, value := range kvMods {
 		app, name, err := logic.SplitBoxKey(key)
 		if err != nil {
