@@ -57,13 +57,12 @@ type ExporterConfig interface {}
 
 // Exporter defines the methods invoked during the plugin lifecycle of a data exporter.
 type Exporter interface { 
-	// Name is a UID for each Exporter 
-	Name() string
+    // Metadata associated with each Exporter.
+	Metadata() ExporterMetadata
 	
     // Connect will be called during initialization, before block data starts going through the pipeline.
     // Typically used for things like initializating network connections.
     // The ExporterConfig passed to Connect will contain the Unmarhsalled config file specific to this plugin.
-    // Should return an error if it fails--this will result in the Indexer process terminating.
     Connect(cfg ExporterConfig) error
 	
 	// Config returns the configuration options used to create an Exporter.
@@ -72,16 +71,12 @@ type Exporter interface {
   
     // Disconnect will be called during termination of the Indexer process.
     // There is no guarantee that plugin lifecycle hooks will be invoked in any specific order in relation to one another.
-    // Returns an error if it fails which will be surfaced in the logs, but the process is already terminating.
     Disconnect() error
   
     // Receive is called for each block to be processed by the exporter.
-    // Should return an error on failure--retries are configurable.
     Receive(exportData ExportData) error
 
     // HandleGenesis is an Exporter's opportunity to do initial validation and handling of the Genesis block.
-    // If validation (such as a check to ensure `genesis` matches a previously stored genesis block) or handling fails,
-    // it returns an error.
     HandleGenesis(genesis bookkeeping.Genesis) error
   
     // Round returns the next round not yet processed by the Exporter. Atomically updated when Receive successfully completes.
