@@ -151,11 +151,7 @@ func (l LedgerForEvaluator) GetAppCreator(indices map[basics.AppIndex]struct{}) 
 // LookupKv is part of go-algorand's indexerLedgerForEval interface.
 func (l LedgerForEvaluator) LookupKv(round basics.Round, key string) (*string, error) {
 	// a simple pass-thru to the go-algorand ledger
-	val, err := l.Ledger.LookupKv(round, key)
-
-	fmt.Printf("\nindexer::LedgerForEvaluator.LookupKv(round=%d, key=%s) --> (%v, %v)", round, key, val, err)
-
-	return val, err
+	return l.Ledger.LookupKv(round, key)
 }
 
 // LatestTotals is part of go-algorand's indexerLedgerForEval interface.
