@@ -94,13 +94,11 @@ func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
 
 	ledgerForEval := indexerledger.MakeLedgerForEvaluator(proc.ledger)
 
-	// 0. scan the block for resources and initialize indexer cache
 	resources, err := prepareEvalResources(&ledgerForEval, &blockCert.Block)
 	if err != nil {
 		panic(fmt.Errorf("Process() resources err: %w", err))
 	}
 
-	// 1. evaluate the block
 	delta, modifiedTxns, err :=
 		ledger.EvalForIndexer(ledgerForEval, &blockCert.Block, proto, resources)
 	if err != nil {
@@ -117,40 +115,6 @@ func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
 		vb = ledgercore.MakeValidatedBlock(block, delta)
 	}
 
-	/*
-			// TODO: DO NOT MERGE WITH THIS DEBUGGING CODE IN PLACE
-			// 1.5 Temporary checkpoint to compare KvMods with TouchedBoxes
-			kvmods := delta.KvMods
-			touchedBoxes := resources.DeprecatedTouchedBoxes
-			lk := len(kvmods)
-			lb := len(touchedBoxes)
-			kvmodsMinusTouchedBoxes := []string{}
-			touchedBoxesMinusKvMods := []string{}
-			for box := range kvmods {
-				if _, ok := touchedBoxes[box]; !ok {
-					kvmodsMinusTouchedBoxes = append(kvmodsMinusTouchedBoxes, box)
-				}
-			}
-			for box := range touchedBoxes {
-				if _, ok := kvmods[box]; !ok {
-					touchedBoxesMinusKvMods = append(touchedBoxesMinusKvMods, box)
-				}
-			}
-			fmt.Printf(`Sanity check report kvmods V. touchedBoxes
-		***	len(kvmods)       			=  %d
-		***	len(touchedBoxes) 			=  %d
-		***	len(kvmods - touchedBoxes)	=  %d
-		***	len(touchedBoxes - kvmods)	=  %d
-		***	kvmods - touchedBoxes       = %+v
-		***	touchedBoxes - kvmods       = %+v
-		***	kvmods                      = %+v
-		***	touchedBoxes                = %+v
-		`, lk, lb, len(kvmodsMinusTouchedBoxes), len(touchedBoxesMinusKvMods), kvmodsMinusTouchedBoxes, touchedBoxesMinusKvMods, kvmods, touchedBoxes)
-			// Drumroll.....🥁...... and the winner is: kvmods
-			// UPSHOT: touchedBoxes was completely unecessary
-	*/
-
-	// 2. persist to indexer database
 	// execute handler before writing to local ledger
 	if proc.handler != nil {
 		err = proc.handler(&vb)
@@ -158,8 +122,6 @@ func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
 			return fmt.Errorf("Process() handler err: %w", err)
 		}
 	}
-
-	// 3. write to the local ledger
 	// write to ledger
 	err = proc.ledger.AddValidatedBlock(vb, blockCert.Certificate)
 	if err != nil {
@@ -180,8 +142,8 @@ func (proc *blockProcessor) NextRoundToProcess() uint64 {
 
 // Preload all resources (account data, account resources, asset/app creators) for the
 // evaluator.
-func prepareEvalResources(lfe *indexerledger.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
-	assetCreators, appCreators, err := prepareCreators(lfe, block.Payset)
+func prepareEvalResources(l *indexerledger.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
+	assetCreators, appCreators, err := prepareCreators(l, block.Payset)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
 			fmt.Errorf("prepareEvalResources() err: %w", err)
@@ -208,7 +170,7 @@ func prepareEvalResources(lfe *indexerledger.LedgerForEvaluator, block *bookkeep
 		res.Creators[creatable] = foundAddress
 	}
 
-	res.Accounts, res.Resources, err = prepareAccountsResources(lfe, block.Payset, assetCreators, appCreators)
+	res.Accounts, res.Resources, err = prepareAccountsResources(l, block.Payset, assetCreators, appCreators)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
 			fmt.Errorf("prepareEvalResources() err: %w", err)
@@ -218,13 +180,14 @@ func prepareEvalResources(lfe *indexerledger.LedgerForEvaluator, block *bookkeep
 }
 
 // Preload asset and app creators.
-func prepareCreators(lfe *indexerledger.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
+func prepareCreators(l *indexerledger.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
 	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
-	assets, err := lfe.GetAssetCreator(assetsReq)
+
+	assets, err := l.GetAssetCreator(assetsReq)
 	if err != nil {
 		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
 	}
-	apps, err := lfe.GetAppCreator(appsReq)
+	apps, err := l.GetAppCreator(appsReq)
 	if err != nil {
 		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
 	}
@@ -233,15 +196,15 @@ func prepareCreators(lfe *indexerledger.LedgerForEvaluator, payset transactions.
 }
 
 // Preload account data and account resources.
-func prepareAccountsResources(lfe *indexerledger.LedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
+func prepareAccountsResources(l *indexerledger.LedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
 	addressesReq, resourcesReq :=
 		accounting.MakePreloadAccountsResourcesRequest(payset, assetCreators, appCreators)
 
-	accounts, err := lfe.LookupWithoutRewards(addressesReq)
+	accounts, err := l.LookupWithoutRewards(addressesReq)
 	if err != nil {
 		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
 	}
-	resources, err := lfe.LookupResources(resourcesReq)
+	resources, err := l.LookupResources(resourcesReq)
 	if err != nil {
 		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
 	}
