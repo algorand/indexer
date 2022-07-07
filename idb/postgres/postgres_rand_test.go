@@ -2,6 +2,9 @@ package postgres
 
 import (
 	"context"
+	"encoding/base64"
+	"fmt"
+	"github.com/algorand/go-algorand/ledger"
 	"math/rand"
 	"testing"
 
@@ -21,7 +24,7 @@ import (
 
 func generateAddress(t *testing.T) basics.Address {
 	var res basics.Address
-
+	rand.Seed(1234)
 	_, err := rand.Read(res[:])
 	require.NoError(t, err)
 
@@ -45,7 +48,7 @@ func generateAccountData() ledgercore.AccountData {
 	return res
 }
 
-func getOneAccount(t *testing.T, db *IndexerDb, address basics.Address) *models.Account {
+func maybeGetAccount(t *testing.T, db *IndexerDb, address basics.Address) *models.Account {
 	resultCh, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: address[:]})
 	num := 0
 	var result *models.Account
@@ -55,7 +58,7 @@ func getOneAccount(t *testing.T, db *IndexerDb, address basics.Address) *models.
 		acct := row.Account
 		result = &acct
 	}
-	//require.Equal(t, 1, num, "There should only be one result for the address.")
+	require.LessOrEqual(t, num, 1, "There should be at most one result for the address.")
 	return result
 }
 
@@ -96,7 +99,7 @@ func TestWriteReadAccountData(t *testing.T) {
 	defer tx.Rollback(context.Background())
 
 	for address, expected := range data {
-		account := getOneAccount(t, db, address)
+		account := maybeGetAccount(t, db, address)
 
 		if expected.IsZero() {
 			require.Nil(t, account)
@@ -214,7 +217,6 @@ func generateAppLocalStateDelta(t *testing.T) ledgercore.AppLocalStateDelta {
 	return res
 }
 
-/*
 // Write random assets and apps, then read it and compare.
 // Tests in particular that batch writing and reading is done in the same order
 // and that there are no problems around passing account address pointers to the postgres
@@ -273,41 +275,53 @@ func TestWriteReadResources(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledgerforevaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
-	require.NoError(t, err)
-	defer l.Close()
+	/*
+		l, err := ledgerforevaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
+		require.NoError(t, err)
+		defer l.Close()
 
-	ret, err := l.LookupResources(resources)
-	require.NoError(t, err)
+		ret, err := l.LookupResources(resources)
+		require.NoError(t, err)
+	*/
 
 	for address, creatables := range resources {
-		ret, ok := ret[address]
-		require.True(t, ok)
+		fmt.Println(base64.StdEncoding.EncodeToString(address[:]))
+		account := maybeGetAccount(t, db, address)
+		if account == nil {
+			fmt.Println(nil)
+		} else {
+			fmt.Println(nil)
+		}
+		//require.NotNil(t, account)
+		//ret, ok := ret[address]
+		//require.True(t, ok)
 
 		for creatable := range creatables {
-			ret, ok := ret[creatable]
-			require.True(t, ok)
+			fmt.Println(creatable)
+			fmt.Println(creatable)
+			//ret, ok := ret[creatable]
+			//require.True(t, ok)
 
-			switch creatable.Type {
-			case basics.AssetCreatable:
-				assetParamsDelta, _ :=
-					delta.Accts.GetAssetParams(address, basics.AssetIndex(creatable.Index))
-				assert.Equal(t, assetParamsDelta.Params, ret.AssetParams)
+			/*
+				switch creatable.Type {
+				case basics.AssetCreatable:
+					assetParamsDelta, _ :=
+						delta.Accts.GetAssetParams(address, basics.AssetIndex(creatable.Index))
+					assert.Equal(t, assetParamsDelta.Params, ret.AssetParams)
 
-				assetHoldingDelta, _ :=
-					delta.Accts.GetAssetHolding(address, basics.AssetIndex(creatable.Index))
-				assert.Equal(t, assetHoldingDelta.Holding, ret.AssetHolding)
-			case basics.AppCreatable:
-				appParamsDelta, _ :=
-					delta.Accts.GetAppParams(address, basics.AppIndex(creatable.Index))
-				assert.Equal(t, appParamsDelta.Params, ret.AppParams)
+					assetHoldingDelta, _ :=
+						delta.Accts.GetAssetHolding(address, basics.AssetIndex(creatable.Index))
+					assert.Equal(t, assetHoldingDelta.Holding, ret.AssetHolding)
+				case basics.AppCreatable:
+					appParamsDelta, _ :=
+						delta.Accts.GetAppParams(address, basics.AppIndex(creatable.Index))
+					assert.Equal(t, appParamsDelta.Params, ret.AppParams)
 
-				appLocalStateDelta, _ :=
-					delta.Accts.GetAppLocalState(address, basics.AppIndex(creatable.Index))
-				assert.Equal(t, appLocalStateDelta.LocalState, ret.AppLocalState)
-			}
+					appLocalStateDelta, _ :=
+						delta.Accts.GetAppLocalState(address, basics.AppIndex(creatable.Index))
+					assert.Equal(t, appLocalStateDelta.LocalState, ret.AppLocalState)
+				}
+			*/
 		}
 	}
 }
-
-*/
