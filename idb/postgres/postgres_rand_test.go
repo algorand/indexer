@@ -5,17 +5,18 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/jackc/pgx/v4"
+	"github.com/stretchr/testify/require"
+
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	ledgerforevaluator "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
+
+	models "github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util/test"
-	"github.com/jackc/pgx/v4"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func generateAddress(t *testing.T) basics.Address {
@@ -44,6 +45,20 @@ func generateAccountData() ledgercore.AccountData {
 	return res
 }
 
+func getOneAccount(t *testing.T, db *IndexerDb, address basics.Address) *models.Account {
+	resultCh, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: address[:]})
+	num := 0
+	var result *models.Account
+	for row := range resultCh {
+		num++
+		require.NoError(t, row.Error)
+		acct := row.Account
+		result = &acct
+	}
+	//require.Equal(t, 1, num, "There should only be one result for the address.")
+	return result
+}
+
 // Write random account data for many random accounts, then read it and compare.
 // Tests in particular that batch writing and reading is done in the same order
 // and that there are no problems around passing account address pointers to the postgres
@@ -53,13 +68,14 @@ func TestWriteReadAccountData(t *testing.T) {
 	defer shutdownFunc()
 	defer ld.Close()
 
-	addresses := make(map[basics.Address]struct{})
+	data := make(map[basics.Address]ledgercore.AccountData)
 	var delta ledgercore.StateDelta
 	for i := 0; i < 1000; i++ {
 		address := generateAddress(t)
 
-		addresses[address] = struct{}{}
-		delta.Accts.Upsert(address, generateAccountData())
+		acctData := generateAccountData()
+		data[address] = acctData
+		delta.Accts.Upsert(address, acctData)
 	}
 
 	f := func(tx pgx.Tx) error {
@@ -79,24 +95,13 @@ func TestWriteReadAccountData(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledgerforevaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
-	require.NoError(t, err)
-	defer l.Close()
+	for address, expected := range data {
+		account := getOneAccount(t, db, address)
 
-	ret, err := l.LookupWithoutRewards(addresses)
-	require.NoError(t, err)
-
-	for address := range addresses {
-		expected, ok := delta.Accts.GetData(address)
-		require.True(t, ok)
-
-		ret, ok := ret[address]
-		require.True(t, ok)
-
-		if ret == nil {
-			require.True(t, expected.IsZero())
+		if expected.IsZero() {
+			require.Nil(t, account)
 		} else {
-			require.Equal(t, &expected, ret)
+			require.Equal(t, expected.AccountBaseData.MicroAlgos.Raw, account.Amount)
 		}
 	}
 }
@@ -209,6 +214,7 @@ func generateAppLocalStateDelta(t *testing.T) ledgercore.AppLocalStateDelta {
 	return res
 }
 
+/*
 // Write random assets and apps, then read it and compare.
 // Tests in particular that batch writing and reading is done in the same order
 // and that there are no problems around passing account address pointers to the postgres
@@ -303,3 +309,5 @@ func TestWriteReadResources(t *testing.T) {
 		}
 	}
 }
+
+*/
