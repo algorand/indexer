@@ -307,7 +307,7 @@ func writeBoxMods(kvMods map[string]*string, batch *pgx.Batch) error {
 	// WARNING: kvMods can in theory support more general storage types than app boxes.
 	// However, here we assume that all the provided kvMods represent app boxes.
 	// If a non-box is encountered inside kvMods, an error will be returned and
-	// AddBlock() will fail with the migration getting stuck at the corresponding round.
+	// AddBlock() will fail with the import getting stuck at the corresponding round.
 	for key, value := range kvMods {
 		app, name, err := logic.SplitBoxKey(key)
 		if err != nil {
