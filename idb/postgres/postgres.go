@@ -212,6 +212,14 @@ func prepareAccountsResources(l *ledger_for_evaluator.LedgerForEvaluator, payset
 	addressesReq, resourcesReq :=
 		accounting.MakePreloadAccountsResourcesRequest(payset, assetCreators, appCreators)
 
+	for addr := range resourcesReq {
+		for cidx := range resourcesReq[addr] {
+			if cidx.Index >= basics.CreatableIndex(math.MaxInt64) {
+				delete(resourcesReq[addr], cidx)
+			}
+		}
+	}
+
 	accounts, err := l.LookupWithoutRewards(addressesReq)
 	if err != nil {
 		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
