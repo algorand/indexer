@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"sync"
@@ -181,6 +182,18 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 // Preload asset and app creators.
 func prepareCreators(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
 	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
+
+	for aidx := range assetsReq {
+		if aidx >= basics.AssetIndex(math.MaxInt64) {
+			delete(assetsReq, aidx)
+		}
+	}
+
+	for aidx := range appsReq {
+		if aidx >= basics.AppIndex(math.MaxInt64) {
+			delete(appsReq, aidx)
+		}
+	}
 
 	assets, err := l.GetAssetCreator(assetsReq)
 	if err != nil {
