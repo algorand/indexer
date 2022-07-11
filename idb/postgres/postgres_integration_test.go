@@ -2253,65 +2253,6 @@ func TestIndexerDb_GetAccounts(t *testing.T) {
 	}
 }
 
-const boxApproval string = `#pragma version 7
-txn ApplicationID
-	bz end
-	txn ApplicationArgs 0
-	byte "create"			// create box named arg[1]
-	==
-	bz del
-	int 24
-	txn NumAppArgs
-	int 2
-	==
-	bnz default
-	pop						// get rid of 24
-	txn ApplicationArgs 2
-	btoi
-	default:
-	txn ApplicationArgs 1
-	box_create
-	b end
-del:						// delete box arg[1]
-	txn ApplicationArgs 0
-	byte "delete"
-	==
-	bz set
-	txn ApplicationArgs 1
-	box_del
-	b end
-set:						// put arg[1] at start of box arg[0]
-	txn ApplicationArgs 0
-	byte "set"
-	==
-	bz test
-	txn ApplicationArgs 1
-	int 0
-	txn ApplicationArgs 2
-	box_replace
-	b end
-test:						// fail unless arg[2] is the prefix of box arg[1]
-	txn ApplicationArgs 0
-	byte "check"
-	==
-	bz bad
-	txn ApplicationArgs 1
-	int 0
-	txn ApplicationArgs 2
-	len
-	box_extract
-	txn ApplicationArgs 2
-	==
-	assert
-	b end
-bad:
-	err
-end: 
-	int 1`
-
-const boxClear string = `#pragma version 7
-int 1`
-
 // Test that box evolution is ingested as expected across rounds
 func TestBoxCreateMutateDelete(t *testing.T) {
 	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
@@ -2324,7 +2265,7 @@ func TestBoxCreateMutateDelete(t *testing.T) {
 	/**** ROUND 1: create and fund the box app ****/
 	currentRound := basics.Round(1)
 
-	createTxn, err := test.MakeCreateAppTxn(test.AccountA, boxApproval, boxClear)
+	createTxn, err := test.MakeCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram)
 	require.NoError(t, err)
 
 	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},

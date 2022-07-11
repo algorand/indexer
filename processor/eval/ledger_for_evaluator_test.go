@@ -10,12 +10,14 @@ import (
 
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
 
 	block_processor "github.com/algorand/indexer/processor/blockprocessor"
-	indxLeder "github.com/algorand/indexer/processor/eval"
+	indxLedger "github.com/algorand/indexer/processor/eval"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -38,8 +40,7 @@ func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld := indxLeder.MakeLedgerForEvaluator(l)
-	require.NoError(t, err)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer ld.Close()
 
 	ret, err := ld.LatestBlockHdr()
@@ -55,8 +56,7 @@ func TestLedgerForEvaluatorAccountDataBasic(t *testing.T) {
 	accountData, _, err := l.LookupWithoutRewards(0, test.AccountB)
 	require.NoError(t, err)
 
-	ld := indxLeder.MakeLedgerForEvaluator(l)
-	require.NoError(t, err)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer ld.Close()
 
 	ret, err :=
@@ -70,7 +70,7 @@ func TestLedgerForEvaluatorAccountDataBasic(t *testing.T) {
 
 func TestLedgerForEvaluatorAccountDataMissingAccount(t *testing.T) {
 	l := makeTestLedger(t)
-	ld := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer l.Close()
 	defer ld.Close()
 
@@ -101,8 +101,7 @@ func TestLedgerForEvaluatorAsset(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld := indxLeder.MakeLedgerForEvaluator(l)
-	require.NoError(t, err)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer ld.Close()
 
 	ret, err :=
@@ -167,8 +166,7 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld := indxLeder.MakeLedgerForEvaluator(l)
-	require.NoError(t, err)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer ld.Close()
 
 	ret, err :=
@@ -245,8 +243,7 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld := indxLeder.MakeLedgerForEvaluator(l)
-	require.NoError(t, err)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer ld.Close()
 
 	ret, err :=
@@ -296,7 +293,7 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	addressesMap[test.FeeAddr] = struct{}{}
 	addressesMap[test.RewardAddr] = struct{}{}
 
-	ld := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer ld.Close()
 
 	ret, err :=
@@ -322,8 +319,7 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld := indxLeder.MakeLedgerForEvaluator(l)
-	require.NoError(t, err)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer ld.Close()
 
 	ret, err := ld.GetAssetCreator(
@@ -354,8 +350,7 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld := indxLeder.MakeLedgerForEvaluator(l)
-	require.NoError(t, err)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer ld.Close()
 
 	ret, err := ld.GetAssetCreator(
@@ -385,8 +380,7 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld := indxLeder.MakeLedgerForEvaluator(l)
-	require.NoError(t, err)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer ld.Close()
 
 	indices := map[basics.AssetIndex]struct{}{
@@ -436,7 +430,7 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
 	require.NoError(t, err)
 	defer ld.Close()
 
@@ -469,8 +463,7 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld := indxLeder.MakeLedgerForEvaluator(l)
-	require.NoError(t, err)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer ld.Close()
 
 	ret, err := ld.GetAppCreator(
@@ -500,8 +493,7 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 	err = pr.Process(&rawBlock)
 	assert.Nil(t, err)
 
-	ld := indxLeder.MakeLedgerForEvaluator(l)
-	require.NoError(t, err)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer ld.Close()
 
 	creatorsMap := map[basics.AppIndex]basics.Address{
@@ -539,15 +531,219 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 	}
 }
 
+// Test the functionality of `func (l LedgerForEvaluator) LookupKv()`.
+// This is done by handing off a pointer to Struct `processor/eval/ledger_for_evaluator.go::LedgerForEvaluator`
+// in the `CompareAppBoxesAgainstLedger()` assertions function which then asserts using `LookupKv()`
 func TestLedgerForEvaluatorLookupKv(t *testing.T) {
-	require.Fail(t, "not implemented")
+	l := makeTestLedger(t)
+	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
+	defer l.Close()
+	defer ld.Close()
+
+	/**** ROUND 1: create and fund the box app ****/
+
+	appid := basics.AppIndex(1)
+	currentRound := basics.Round(1)
+
+	createTxn, err := test.MakeCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram)
+	require.NoError(t, err)
+
+	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
+		basics.Address{})
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
+	require.NoError(t, err)
+	assert.Nil(t, err)
+
+	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
+	err = pr.Process(&rawBlock)
+	require.NoError(t, err)
+
+	ret, err := ld.LookupKv(currentRound, "sanity check")
+	require.NoError(t, err)
+	require.Nil(t, ret) // nothing found isn't considered an error
+
+	// block header handoff: round 1 --> round 3
+	blockHdr, err := l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	/**** ROUND 2: create 8 boxes of appid == 1 ****/
+	currentRound = basics.Round(2)
+
+	boxNames := []string{
+		"a great box",
+		"another great box",
+		"not so great box",
+		"disappointing box",
+		"don't box me in this way",
+		"I will be assimilated",
+		"I'm destined for deletion",
+		"box #8",
+	}
+
+	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
+	expectedAppBoxes[appid] = map[string]string{}
+	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
+	for _, boxName := range boxNames {
+		expectedAppBoxes[appid][logic.MakeBoxKey(appid, boxName)] = newBoxValue
+
+		args := []string{"create", boxName}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+
+	}
+
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
+	err = pr.Process(&rawBlock)
+	require.NoError(t, err)
+
+	test.CompareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes)
+
+	// block header handoff: round 2 --> round 3
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	/**** ROUND 3: populate the boxes appropriately ****/
+	currentRound = basics.Round(3)
+
+	appBoxesToSet := map[string]string{
+		"a great box":               "it's a wonderful box",
+		"another great box":         "I'm wonderful too",
+		"not so great box":          "bummer",
+		"disappointing box":         "RUG PULL!!!!",
+		"don't box me in this way":  "non box-conforming",
+		"I will be assimilated":     "THE BORG",
+		"I'm destined for deletion": "I'm still alive!!!",
+		"box #8":                    "eight is beautiful",
+	}
+
+	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	expectedAppBoxes[appid] = make(map[string]string)
+	for boxName, valPrefix := range appBoxesToSet {
+		args := []string{"set", boxName, valPrefix}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+
+		key := logic.MakeBoxKey(appid, boxName)
+		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	}
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
+	err = pr.Process(&rawBlock)
+	require.NoError(t, err)
+
+	test.CompareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes)
+
+	// block header handoff: round 3 --> round 4
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	/**** ROUND 4: delete the unhappy boxes ****/
+	currentRound = basics.Round(4)
+
+	appBoxesToDelete := []string{
+		"not so great box",
+		"disappointing box",
+		"I'm destined for deletion",
+	}
+
+	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	for _, boxName := range appBoxesToDelete {
+		args := []string{"delete", boxName}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+
+		key := logic.MakeBoxKey(appid, boxName)
+		delete(expectedAppBoxes[appid], key)
+	}
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
+	err = pr.Process(&rawBlock)
+	require.NoError(t, err)
+
+	deletedBoxes := make(map[basics.AppIndex]map[string]bool)
+	deletedBoxes[appid] = make(map[string]bool)
+	for _, deletedBox := range appBoxesToDelete {
+		deletedBoxes[appid][deletedBox] = true
+	}
+	test.CompareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes, deletedBoxes)
+
+	// block header handoff: round 4 --> round 5
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	/**** ROUND 5: create 3 new boxes, overwriting one of the former boxes ****/
+	currentRound = basics.Round(5)
+
+	appBoxesToCreate := []string{
+		"fantabulous",
+		"disappointing box", // overwriting here
+		"AVM is the new EVM",
+	}
+	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	for _, boxName := range appBoxesToCreate {
+		args := []string{"create", boxName}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+
+		key := logic.MakeBoxKey(appid, boxName)
+		expectedAppBoxes[appid] = make(map[string]string)
+		expectedAppBoxes[appid][key] = newBoxValue
+	}
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
+	err = pr.Process(&rawBlock)
+	require.NoError(t, err)
+
+	test.CompareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes)
+
+	// block header handoff: round 5 --> round 6
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	/**** ROUND 6: populate the 3 new boxes ****/
+	currentRound = basics.Round(6)
+
+	appBoxesToSet = map[string]string{
+		"fantabulous":        "Italian food's the best!", // max char's
+		"disappointing box":  "you made it!",
+		"AVM is the new EVM": "yes we can!",
+	}
+	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	for boxName, valPrefix := range appBoxesToSet {
+		args := []string{"set", boxName, valPrefix}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+
+		key := logic.MakeBoxKey(appid, boxName)
+		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	}
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
+	err = pr.Process(&rawBlock)
+	require.NoError(t, err)
+
+	test.CompareAppBoxesAgainstLedger(t, ld, currentRound, expectedAppBoxes, deletedBoxes)
 }
 
 func TestLedgerForEvaluatorAccountTotals(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
 
-	ld := indxLeder.MakeLedgerForEvaluator(l)
+	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer ld.Close()
 
 	accountTotalsRead, err := ld.LatestTotals()
