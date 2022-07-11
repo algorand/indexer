@@ -412,7 +412,7 @@ func addAppBoxesBlock(t *testing.T, db *IndexerDb, delta ledgercore.StateDelta) 
 	require.NoError(t, err)
 }
 
-func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
+func CompareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 	appBoxes map[basics.AppIndex]map[string]string, extras ...map[basics.AppIndex]map[string]bool) {
 	require.LessOrEqual(t, len(extras), 1)
 	var deletedBoxes map[basics.AppIndex]map[string]bool
@@ -464,13 +464,13 @@ func TestWriteReadBoxes(t *testing.T) {
 
 	appBoxes, delta := createBoxesWithDelta(t)
 	addAppBoxesBlock(t, db, delta)
-	compareAppBoxesAgainstDB(t, db, appBoxes)
+	CompareAppBoxesAgainstDB(t, db, appBoxes)
 
 	delta = mutateSomeBoxesWithDelta(t, appBoxes)
 	addAppBoxesBlock(t, db, delta)
-	compareAppBoxesAgainstDB(t, db, appBoxes)
+	CompareAppBoxesAgainstDB(t, db, appBoxes)
 
 	deletedBoxes, delta := deleteSomeBoxesWithDelta(t, appBoxes)
 	addAppBoxesBlock(t, db, delta)
-	compareAppBoxesAgainstDB(t, db, appBoxes, deletedBoxes)
+	CompareAppBoxesAgainstDB(t, db, appBoxes, deletedBoxes)
 }
