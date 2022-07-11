@@ -1,5 +1,6 @@
 package test
 
+// BoxApprovalProgram is a TEAL program which allows for testing box functionality
 const BoxApprovalProgram string = `#pragma version 7
 txn ApplicationID
 	bz end
@@ -56,5 +57,6 @@ bad:
 end: 
 	int 1`
 
+// BoxClearProgram is a vanilla TEAL clear state program
 const BoxClearProgram string = `#pragma version 7
 int 1`

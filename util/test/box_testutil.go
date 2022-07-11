@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// CompareAppBoxesAgainstLedger uses LedgerForEvaluator to assert that provided app boxes can be retrieved as expected
 func CompareAppBoxesAgainstLedger(t *testing.T, ld indxLedger.LedgerForEvaluator, round basics.Round,
 	appBoxes map[basics.AppIndex]map[string]string, extras ...map[basics.AppIndex]map[string]bool) {
 	require.LessOrEqual(t, len(extras), 1)
