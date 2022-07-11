@@ -372,7 +372,7 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 		tests = append(tests, testcase)
 	}
 	{
-		stxnad := test.MakeCreateAppTxn(test.AccountA)
+		stxnad := test.MakeCreateSimpleAppTxn(test.AccountA)
 		stxnad.Txn.ApplicationCallTxnFields.Accounts =
 			[]basics.Address{test.AccountB, test.AccountC}
 		stib, err := makeBlockFunc().EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
@@ -1304,7 +1304,7 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	callWithBadInner := test.MakeCreateAppTxn(test.AccountA)
+	callWithBadInner := test.MakeCreateSimpleAppTxn(test.AccountA)
 	callWithBadInner.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
 		{
 			ApplyData: transactions.ApplyData{

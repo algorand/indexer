@@ -7,6 +7,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/protocol"
 )
 
@@ -183,8 +184,8 @@ func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
 	}
 }
 
-// MakeCreateAppTxn makes a transaction that creates a simple application.
-func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
+// MakeCreateSimpleAppTxn makes a transaction that creates a simple application.
+func MakeCreateSimpleAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 	// Create a transaction with ExtraProgramPages field set to 1
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
@@ -202,6 +203,36 @@ func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 			Sig: Signature,
 		},
 	}
+}
+
+// MakeCreateAppTxn makes a transaction that creates an arbitrary app
+func MakeCreateAppTxn(sender basics.Address, approval, clear string) (transactions.SignedTxnWithAD, error) {
+	// Create a transaction with ExtraProgramPages field set to 1
+	approvalOps, err := logic.AssembleString(approval)
+	if err != nil {
+		return transactions.SignedTxnWithAD{}, err
+	}
+	clearOps, err := logic.AssembleString(clear)
+	if err != nil {
+		return transactions.SignedTxnWithAD{}, err
+	}
+
+	return transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: "appl",
+				Header: transactions.Header{
+					Sender:      sender,
+					GenesisHash: GenesisHash,
+				},
+				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+					ApprovalProgram:   approvalOps.Program,
+					ClearStateProgram: clearOps.Program,
+				},
+			},
+			Sig: Signature,
+		},
+	}, nil
 }
 
 // MakeAppDestroyTxn makes a transaction that destroys an app.
@@ -266,8 +297,8 @@ func MakeAppOptOutTxn(appid uint64, sender basics.Address) transactions.SignedTx
 	}
 }
 
-// MakeAppCallTxn makes an appl transaction with a NoOp upon completion.
-func MakeAppCallTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
+// MakeSimpleAppCallTxn makes an appl transaction with a NoOp upon completion.
+func MakeSimpleAppCallTxn(appid uint64, sender basics.Address) transactions.SignedTxnWithAD {
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
 			Txn: transactions.Transaction{
@@ -288,9 +319,40 @@ func MakeAppCallTxn(appid uint64, sender basics.Address) transactions.SignedTxnW
 	}
 }
 
+// MakeAppCallTxnWithBoxes makes an appl transaction with a NoOp upon completion.
+func MakeAppCallTxnWithBoxes(appid uint64, sender basics.Address, appArgs []string, boxNames []string) transactions.SignedTxnWithAD {
+	appArgBytes := [][]byte{}
+	for _, appArg := range appArgs {
+		appArgBytes = append(appArgBytes, []byte(appArg))
+	}
+	appBoxes := []transactions.BoxRef{}
+	for _, boxName := range boxNames {
+		// hard-coding box reference to current app
+		appBoxes = append(appBoxes, transactions.BoxRef{Index: uint64(0), Name: []byte(boxName)})
+	}
+	return transactions.SignedTxnWithAD{
+		SignedTxn: transactions.SignedTxn{
+			Txn: transactions.Transaction{
+				Type: "appl",
+				Header: transactions.Header{
+					Sender:      sender,
+					GenesisHash: GenesisHash,
+				},
+				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
+					ApplicationID:   basics.AppIndex(appid),
+					OnCompletion:    transactions.NoOpOC,
+					ApplicationArgs: appArgBytes,
+					Boxes:           appBoxes,
+				},
+			},
+			Sig: Signature,
+		},
+	}
+}
+
 // MakeAppCallTxnWithLogs makes an appl NoOp transaction with initialized logs.
 func MakeAppCallTxnWithLogs(appid uint64, sender basics.Address, logs []string) (txn transactions.SignedTxnWithAD) {
-	txn = MakeAppCallTxn(appid, sender)
+	txn = MakeSimpleAppCallTxn(appid, sender)
 	txn.ApplyData.EvalDelta.Logs = logs
 	return
 }
@@ -302,7 +364,7 @@ func MakeAppCallTxnWithLogs(appid uint64, sender basics.Address, logs []string) 
 //    |- asset transfer
 //    |- application call
 func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSender, assetReceiver basics.Address) transactions.SignedTxnWithAD {
-	createApp := MakeCreateAppTxn(appSender)
+	createApp := MakeCreateSimpleAppTxn(appSender)
 
 	// In order to simplify the test,
 	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
@@ -358,7 +420,7 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 							},
 						},
 						// Inner application call
-						MakeAppCallTxn(789, assetSender),
+						MakeSimpleAppCallTxn(789, assetSender),
 					},
 				},
 			},
@@ -377,7 +439,7 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 //   |- application call
 //   |- application call
 func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWithAD {
-	createApp := MakeCreateAppTxn(appSender)
+	createApp := MakeCreateSimpleAppTxn(appSender)
 
 	// Add a log to the outer appl call
 	createApp.ApplicationID = 123
@@ -405,7 +467,7 @@ func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWi
 				EvalDelta: transactions.EvalDelta{
 					InnerTxns: []transactions.SignedTxnWithAD{
 						// Inner application call
-						MakeAppCallTxn(789, appSender),
+						MakeSimpleAppCallTxn(789, appSender),
 					},
 					Logs: []string{
 						"testing inner log",
@@ -436,7 +498,7 @@ func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWi
 //   |- application call
 //     |- application create
 func MakeAppCallWithInnerAppCall(appSender basics.Address) transactions.SignedTxnWithAD {
-	createApp := MakeCreateAppTxn(appSender)
+	createApp := MakeCreateSimpleAppTxn(appSender)
 
 	// Add a log to the outer appl call
 	createApp.ApplicationID = 123
