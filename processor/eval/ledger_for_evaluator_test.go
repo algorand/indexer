@@ -154,12 +154,12 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
-	txn0 := test.MakeAppCallTxn(0, test.AccountA)
+	txn0 := test.MakeSimpleAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAppCallTxnWithLogs(0, test.AccountA, []string{"testing"})
 	txn2 := test.MakeAppCallWithInnerTxn(test.AccountA, test.AccountA, test.AccountB, basics.Address{}, basics.Address{})
 	txn3 := test.MakeAppCallWithMultiLogs(test.AccountA)
 	txn4 := test.MakeAppDestroyTxn(1, test.AccountA)
-	txn5 := test.MakeAppCallTxn(0, test.AccountB)
+	txn5 := test.MakeSimpleAppCallTxn(0, test.AccountB)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2, &txn3, &txn4, &txn5)
 	assert.Nil(t, err)
@@ -236,7 +236,7 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
-	txn0 := test.MakeAppCallTxn(0, test.AccountA)
+	txn0 := test.MakeSimpleAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1)
@@ -428,7 +428,7 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
-	txn0 := test.MakeAppCallTxn(0, test.AccountA)
+	txn0 := test.MakeSimpleAppCallTxn(0, test.AccountA)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0)
 	assert.Nil(t, err)
@@ -460,7 +460,7 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
-	txn0 := test.MakeAppCallTxn(0, test.AccountA)
+	txn0 := test.MakeSimpleAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAppDestroyTxn(1, test.AccountA)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1)
@@ -489,10 +489,10 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 	defer l.Close()
 	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
 
-	txn0 := test.MakeAppCallTxn(0, test.AccountA)
-	txn1 := test.MakeAppCallTxn(0, test.AccountB)
-	txn2 := test.MakeAppCallTxn(0, test.AccountC)
-	txn3 := test.MakeAppCallTxn(0, test.AccountD)
+	txn0 := test.MakeSimpleAppCallTxn(0, test.AccountA)
+	txn1 := test.MakeSimpleAppCallTxn(0, test.AccountB)
+	txn2 := test.MakeSimpleAppCallTxn(0, test.AccountC)
+	txn3 := test.MakeSimpleAppCallTxn(0, test.AccountD)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2, &txn3)
 	assert.Nil(t, err)
@@ -537,6 +537,10 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 
 		assert.False(t, foundAddress.Exists)
 	}
+}
+
+func TestLedgerForEvaluatorLookupKv(t *testing.T) {
+	require.Fail(t, "not implemented")
 }
 
 func TestLedgerForEvaluatorAccountTotals(t *testing.T) {
