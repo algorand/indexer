@@ -564,7 +564,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, ret) // nothing found isn't considered an error
 
-	// block header handoff: round 1 --> round 3
+	// block header handoff: round 1 --> round 2
 	blockHdr, err := l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
