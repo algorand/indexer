@@ -87,7 +87,7 @@ func (exp *postgresqlExporter) Receive(exportData exporters.ExportData) error {
 }
 
 func (exp *postgresqlExporter) HandleGenesis(genesis bookkeeping.Genesis) error {
-	_, err := importer.EnsureInitialImport(exp.db, genesis, exp.logger)
+	_, err := importer.EnsureInitialImport(exp.db, genesis)
 	return err
 }
 
