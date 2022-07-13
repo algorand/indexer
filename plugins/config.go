@@ -4,7 +4,7 @@ import (
 	"github.com/algorand/go-algorand/util"
 	"github.com/algorand/indexer/config"
 	"github.com/sirupsen/logrus"
-	"os"
+	"io/ioutil"
 	"path/filepath"
 )
 
@@ -23,13 +23,10 @@ func LoadConfig(log *logrus.Logger, indexerDataDir string, meta PluginMetadata) 
 		log.Infof("Did not find config file for %s plugin. Continuing with empty config.", meta.Name())
 		return configs
 	}
-	if configFile, err := os.Open(resolvedConfigPath); err == nil {
-		defer configFile.Close()
-		_, err = configFile.Read([]byte(configs))
-		if err != nil {
-			log.Infof("Loaded config file %s", resolvedConfigPath)
-			return configs
-		}
+	buf, err := ioutil.ReadFile(resolvedConfigPath)
+	if err == nil {
+		log.Infof("Loaded config file %s", resolvedConfigPath)
+		return PluginConfig(buf)
 	}
 	log.Warnf("Found config file %s, but failed to read it into memory.", resolvedConfigPath)
 	return configs

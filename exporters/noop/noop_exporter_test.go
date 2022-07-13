@@ -21,9 +21,10 @@ func TestExporterByName(t *testing.T) {
 
 func TestExporterMetadata(t *testing.T) {
 	meta := ne.Metadata()
-	assert.Equal(t, noopExporterMetadata.ExpName, meta.ExpName)
-	assert.Equal(t, noopExporterMetadata.ExpDescription, meta.ExpDescription)
-	assert.Equal(t, noopExporterMetadata.ExpDeprecated, meta.ExpDeprecated)
+	assert.Equal(t, plugins.PluginType(plugins.Exporter), meta.Type())
+	assert.Equal(t, noopExporterMetadata.ExpName, meta.Name())
+	assert.Equal(t, noopExporterMetadata.ExpDescription, meta.Description())
+	assert.Equal(t, noopExporterMetadata.ExpDeprecated, meta.Deprecated())
 }
 
 func TestExporterConnect(t *testing.T) {
