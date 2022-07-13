@@ -33,6 +33,8 @@ func algodStat(netpath, tokenpath string) (lastmod time.Time, err error) {
 	return
 }
 
+// LookupNetAndToken reads the algod.net and algod.token files from an algod
+// data directory.
 func LookupNetAndToken(algodDataDir string) (string, string, error) {
 	netpath, tokenpath := algodPaths(algodDataDir)
 	var netaddrbytes []byte
