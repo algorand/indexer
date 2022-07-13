@@ -321,9 +321,13 @@ func runDaemon(daemonConfig *daemonConfig) error {
 
 	opts.MaxConn = daemonConfig.maxConn
 	opts.IndexerDatadir = daemonConfig.indexerDataDir
-	opts.AlgodDataDir = daemonConfig.algodDataDir
-	opts.AlgodToken = daemonConfig.algodToken
-	opts.AlgodAddr = daemonConfig.algodAddr
+	if daemonConfig.algodDataDir != "" {
+		opts.AlgodAddr, opts.AlgodToken, err = iutil.LookupNetAndToken(daemonConfig.algodDataDir)
+		return fmt.Errorf("runDaemon() algod lookup err: %w", err)
+	} else {
+		opts.AlgodToken = daemonConfig.algodToken
+		opts.AlgodAddr = daemonConfig.algodAddr
+	}
 
 	db, availableCh := indexerDbFromFlags(opts)
 	defer db.Close()

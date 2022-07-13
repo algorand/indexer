@@ -383,7 +383,6 @@ type IndexerDbOptions struct {
 	MaxConn uint32
 
 	IndexerDatadir string
-	AlgodDataDir   string
 	AlgodToken     string
 	AlgodAddr      string
 }
