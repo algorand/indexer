@@ -3,6 +3,8 @@ package noop
 import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/exporters"
+	"github.com/algorand/indexer/plugins"
+	"github.com/sirupsen/logrus"
 )
 
 // `noopExporter`s will function without ever erroring. This means they will also process out of order blocks
@@ -11,13 +13,13 @@ import (
 // The `noopExporter` will maintain `Round` state according to the round of the last block it processed.
 type noopExporter struct {
 	round uint64
-	cfg   exporters.ExporterConfig
+	cfg   plugins.PluginConfig
 }
 
 var noopExporterMetadata exporters.ExporterMetadata = exporters.ExporterMetadata{
-	Name:        "noop",
-	Description: "noop exporter",
-	Deprecated:  false,
+	ExpName:        "noop",
+	ExpDescription: "noop exporter",
+	ExpDeprecated:  false,
 }
 
 // Constructor is the ExporterConstructor implementation for the "noop" exporter
@@ -35,11 +37,11 @@ func (exp *noopExporter) Metadata() exporters.ExporterMetadata {
 	return noopExporterMetadata
 }
 
-func (exp *noopExporter) Connect(_ exporters.ExporterConfig) error {
+func (exp *noopExporter) Connect(_ plugins.PluginConfig, _ *logrus.Logger) error {
 	return nil
 }
 
-func (exp *noopExporter) Config() exporters.ExporterConfig {
+func (exp *noopExporter) Config() plugins.PluginConfig {
 	return exp.cfg
 }
 
@@ -61,5 +63,5 @@ func (exp *noopExporter) Round() uint64 {
 }
 
 func init() {
-	exporters.RegisterExporter(noopExporterMetadata.Name, &Constructor{})
+	exporters.RegisterExporter(noopExporterMetadata.ExpName, &Constructor{})
 }

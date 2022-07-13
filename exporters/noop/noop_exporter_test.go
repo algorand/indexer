@@ -3,6 +3,7 @@ package noop
 import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/exporters"
+	"github.com/algorand/indexer/plugins"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -12,25 +13,25 @@ var nc = &Constructor{}
 var ne = nc.New()
 
 func TestExporterByName(t *testing.T) {
-	exporters.RegisterExporter(noopExporterMetadata.Name, nc)
-	ne, err := exporters.ExporterByName(noopExporterMetadata.Name, "")
+	exporters.RegisterExporter(noopExporterMetadata.ExpName, nc)
+	ne, err := exporters.ExporterByName(noopExporterMetadata.ExpName, "", nil)
 	assert.NoError(t, err)
 	assert.Implements(t, (*exporters.Exporter)(nil), ne)
 }
 
 func TestExporterMetadata(t *testing.T) {
 	meta := ne.Metadata()
-	assert.Equal(t, noopExporterMetadata.Name, meta.Name)
-	assert.Equal(t, noopExporterMetadata.Description, meta.Description)
-	assert.Equal(t, noopExporterMetadata.Deprecated, meta.Deprecated)
+	assert.Equal(t, noopExporterMetadata.ExpName, meta.ExpName)
+	assert.Equal(t, noopExporterMetadata.ExpDescription, meta.ExpDescription)
+	assert.Equal(t, noopExporterMetadata.ExpDeprecated, meta.ExpDeprecated)
 }
 
 func TestExporterConnect(t *testing.T) {
-	assert.NoError(t, ne.Connect(""))
+	assert.NoError(t, ne.Connect("", nil))
 }
 
 func TestExporterConfig(t *testing.T) {
-	assert.Equal(t, exporters.ExporterConfig(""), ne.Config())
+	assert.Equal(t, plugins.PluginConfig(""), ne.Config())
 }
 
 func TestExporterDisconnect(t *testing.T) {
