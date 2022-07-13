@@ -72,17 +72,13 @@ func (l LedgerForEvaluator) LookupResources(input map[basics.Address]map[ledger.
 	// Initialize the result `res` with the same structure as `input`.
 	res := make(
 		map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, len(input))
+
 	for address, creatables := range input {
 		creatablesOutput :=
 			make(map[ledger.Creatable]ledgercore.AccountResource, len(creatables))
 		res[address] = creatablesOutput
 		for creatable := range creatables {
 			creatablesOutput[creatable] = ledgercore.AccountResource{}
-		}
-	}
-
-	for address, creatables := range input {
-		for creatable := range creatables {
 			switch creatable.Type {
 			case basics.AssetCreatable:
 				resource, err := l.Ledger.LookupAsset(l.Ledger.Latest(), address, basics.AssetIndex(creatable.Index))
