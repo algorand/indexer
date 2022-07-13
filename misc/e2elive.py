@@ -76,9 +76,9 @@ def main():
         logger.error('failed to start private network, looking for node.log')
         for root, dirs, files in os.walk(tempnet):
             for f in files:
-                if f == 'node.log':
+                if f == 'node.log' or f == 'algod-out.log' or f == 'algod-err.log':
                     p = os.path.join(root, f)
-                    logger.error('found node.log: {}'.format(p))
+                    logger.error('found {}: {}'.format(f, p))
                     with open(p) as nf:
                         for line in nf:
                             logger.error('   {}'.format(line))
