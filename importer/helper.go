@@ -96,7 +96,7 @@ func maybeFail(err error, l *log.Logger, errfmt string, params ...interface{}) {
 	os.Exit(1)
 }
 
-func importTar(imp Importer, tarfile io.Reader, l *log.Logger, genesisReader io.Reader) (blockCount, txCount int, err error) {
+func importTar(imp Importer, tarfile io.Reader, logger *log.Logger, genesisReader io.Reader) (blockCount, txCount int, err error) {
 	tf := tar.NewReader(tarfile)
 	var header *tar.Header
 	header, err = tf.Next()
@@ -135,18 +135,18 @@ func importTar(imp Importer, tarfile io.Reader, l *log.Logger, genesisReader io.
 	var genesis bookkeeping.Genesis
 	gbytes, err := ioutil.ReadAll(genesisReader)
 	if err != nil {
-		maybeFail(err, l, "error reading genesis, %v", err)
+		maybeFail(err, logger, "error reading genesis, %v", err)
 	}
 	err = protocol.DecodeJSON(gbytes, &genesis)
 	if err != nil {
-		maybeFail(err, l, "error decoding genesis, %v", err)
+		maybeFail(err, logger, "error decoding genesis, %v", err)
 	}
 
-	ld, err := util.MakeLedger(l, false, &genesis, "")
-	maybeFail(err, l, "Cannot open ledger")
+	ld, err := util.MakeLedger(logger, false, &genesis, "")
+	maybeFail(err, logger, "Cannot open ledger")
 
-	proc, err := blockprocessor.MakeProcessorWithLedger(l, ld, imp.ImportBlock)
-	maybeFail(err, l, "Error creating processor")
+	proc, err := blockprocessor.MakeProcessorWithLedger(logger, ld, imp.ImportBlock)
+	maybeFail(err, logger, "Error creating processor")
 
 	for _, blockContainer := range blocks[1:] {
 		err = proc.Process(&blockContainer)

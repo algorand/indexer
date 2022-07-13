@@ -25,14 +25,14 @@ var noopHandler = func(block *ledgercore.ValidatedBlock) error {
 }
 
 func TestProcess(t *testing.T) {
-	log, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(log)
+	logger, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(logger)
 	require.NoError(t, err)
 	defer l.Close()
 	genesisBlock, err := l.Block(basics.Round(0))
 	assert.Nil(t, err)
 	// create processor
-	pr, _ := blockprocessor.MakeProcessorWithLedger(log, l, noopHandler)
+	pr, _ := blockprocessor.MakeProcessorWithLedger(logger, l, noopHandler)
 	prevHeader := genesisBlock.BlockHeader
 	assert.Equal(t, basics.Round(0), l.Latest())
 	// create a few rounds
@@ -56,14 +56,14 @@ func TestProcess(t *testing.T) {
 }
 
 func TestFailedProcess(t *testing.T) {
-	log, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(log)
+	logger, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(logger)
 	require.NoError(t, err)
 	defer l.Close()
 	// invalid processor
-	pr, err := blockprocessor.MakeProcessorWithLedger(log, nil, nil)
+	pr, err := blockprocessor.MakeProcessorWithLedger(logger, nil, nil)
 	assert.Contains(t, err.Error(), "MakeProcessorWithLedger() err: local ledger not initialized")
-	pr, err = blockprocessor.MakeProcessorWithLedger(log, l, nil)
+	pr, err = blockprocessor.MakeProcessorWithLedger(logger, l, nil)
 	assert.Nil(t, err)
 	err = pr.Process(nil)
 	assert.Contains(t, err.Error(), "Process(): cannot process a nil block")
@@ -109,9 +109,9 @@ func TestFailedProcess(t *testing.T) {
 	handler := func(vb *ledgercore.ValidatedBlock) error {
 		return fmt.Errorf("handler error")
 	}
-	_, err = blockprocessor.MakeProcessorWithLedger(log, l, handler)
+	_, err = blockprocessor.MakeProcessorWithLedger(logger, l, handler)
 	assert.Contains(t, err.Error(), "handler error")
-	pr, _ = blockprocessor.MakeProcessorWithLedger(log, l, nil)
+	pr, _ = blockprocessor.MakeProcessorWithLedger(logger, l, nil)
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	assert.Nil(t, err)
@@ -123,7 +123,7 @@ func TestFailedProcess(t *testing.T) {
 
 // TestMakeProcessorWithLedgerInit_CatchpointErrors verifies that the catchpoint error handling works properly.
 func TestMakeProcessorWithLedgerInit_CatchpointErrors(t *testing.T) {
-	log, _ := test2.NewNullLogger()
+	logger, _ := test2.NewNullLogger()
 	var genesis bookkeeping.Genesis
 
 	testCases := []struct {
@@ -156,7 +156,7 @@ func TestMakeProcessorWithLedgerInit_CatchpointErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := blockprocessor.MakeProcessorWithLedgerInit(
 				context.Background(),
-				log,
+				logger,
 				tc.catchpoint,
 				&genesis,
 				tc.round,
