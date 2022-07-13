@@ -369,7 +369,9 @@ func runBlockImporter(ctx context.Context, cfg *daemonConfig, wg *sync.WaitGroup
 	imp := importer.NewImporter(db)
 
 	logger.Info("Initializing local ledger.")
-	proc, err := blockprocessor.MakeProcessorWithLedgerInit(ctx, logger, cfg.catchpoint, &genesis, nextDBRound, opts, imp.ImportBlock)
+	proc, err := blockprocessor.MakeProcessorWithLedgerInit(
+		ctx, logger, cfg.indexerDataDir, cfg.algodAddr, cfg.algodToken,
+		cfg.catchpoint, &genesis, nextDBRound, imp.ImportBlock)
 	if err != nil {
 		maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
 	}

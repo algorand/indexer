@@ -15,7 +15,6 @@ import (
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
 
-	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/processor/blockprocessor"
 	"github.com/algorand/indexer/util/test"
 )
@@ -157,10 +156,12 @@ func TestMakeProcessorWithLedgerInit_CatchpointErrors(t *testing.T) {
 			_, err := blockprocessor.MakeProcessorWithLedgerInit(
 				context.Background(),
 				log,
+				"",
+				"",
+				"",
 				tc.catchpoint,
 				&genesis,
 				tc.round,
-				idb.IndexerDbOptions{},
 				noopHandler)
 			require.ErrorContains(t, err, tc.errMsg)
 		})

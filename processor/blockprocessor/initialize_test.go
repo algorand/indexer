@@ -19,7 +19,6 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/rpcs"
 
-	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/processor/blockprocessor/internal"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
@@ -61,27 +60,22 @@ func TestRunMigration(t *testing.T) {
 
 	dname, err := os.MkdirTemp("", "indexer")
 	defer os.RemoveAll(dname)
-	opts := idb.IndexerDbOptions{
-		IndexerDatadir: dname,
-		AlgodAddr:      "localhost",
-		AlgodToken:     "AAAAA",
-	}
 
 	// migrate 3 rounds
 	log, _ := test2.NewNullLogger()
-	err = InitializeLedgerSimple(context.Background(), log, 3, &genesis, &opts)
+	err = InitializeLedgerSimple(context.Background(), log, 3, dname, "localhost", "AAAAA", &genesis)
 	assert.NoError(t, err)
-	l, err := util.MakeLedger(log, false, &genesis, opts.IndexerDatadir)
+	l, err := util.MakeLedger(log, false, &genesis, dname)
 	assert.NoError(t, err)
 	// check 3 rounds written to ledger
 	assert.Equal(t, uint64(3), uint64(l.Latest()))
 	l.Close()
 
 	// migration continues from last round
-	err = InitializeLedgerSimple(context.Background(), log, 6, &genesis, &opts)
+	err = InitializeLedgerSimple(context.Background(), log, 6, dname, "localhost", "AAAAA", &genesis)
 	assert.NoError(t, err)
 
-	l, err = util.MakeLedger(log, false, &genesis, opts.IndexerDatadir)
+	l, err = util.MakeLedger(log, false, &genesis, dname)
 	assert.NoError(t, err)
 	assert.Equal(t, uint64(6), uint64(l.Latest()))
 	l.Close()

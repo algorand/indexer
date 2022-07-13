@@ -3,9 +3,6 @@ package fetcher
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +10,7 @@ import (
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
+	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
 	log "github.com/sirupsen/logrus"
 )
@@ -34,7 +32,6 @@ type Fetcher interface {
 type fetcherImpl struct {
 	algorandData string
 	aclient      *algod.Client
-	algodLastmod time.Time // newest mod time of algod.net algod.token
 
 	handler func(context.Context, *rpcs.EncodedBlockCert) error
 
@@ -284,60 +281,17 @@ func (bot *fetcherImpl) reclient() (err error) {
 	// If we know the algod data dir, re-read the algod.net and
 	// algod.token files and make a new API client object.
 	var nclient *algod.Client
-	var lastmod time.Time
-	nclient, lastmod, err = algodClientForDataDir(bot.algorandData)
+	nclient, err = algodClientForDataDir(bot.algorandData)
 	if err == nil {
 		bot.aclient = nclient
-		bot.algodLastmod = lastmod
 	}
 	return
 }
 
-func algodPaths(datadir string) (netpath, tokenpath string) {
-	netpath = filepath.Join(datadir, "algod.net")
-	tokenpath = filepath.Join(datadir, "algod.token")
-	return
-}
-
-func algodStat(netpath, tokenpath string) (lastmod time.Time, err error) {
-	nstat, err := os.Stat(netpath)
+func algodClientForDataDir(datadir string) (client *algod.Client, err error) {
+	token, netaddr, err := util.LookupNetAndToken(datadir)
 	if err != nil {
-		err = fmt.Errorf("%s: %v", netpath, err)
-		return
+		return nil, fmt.Errorf("algodClientForDataDir() err: %w", err)
 	}
-	tstat, err := os.Stat(tokenpath)
-	if err != nil {
-		err = fmt.Errorf("%s: %v", tokenpath, err)
-		return
-	}
-	if nstat.ModTime().Before(tstat.ModTime()) {
-		lastmod = tstat.ModTime()
-	}
-	lastmod = nstat.ModTime()
-	return
-}
-
-func algodClientForDataDir(datadir string) (client *algod.Client, lastmod time.Time, err error) {
-	// TODO: move this to go-algorand-sdk
-	netpath, tokenpath := algodPaths(datadir)
-	var netaddrbytes []byte
-	netaddrbytes, err = ioutil.ReadFile(netpath)
-	if err != nil {
-		err = fmt.Errorf("%s: %v", netpath, err)
-		return
-	}
-	netaddr := strings.TrimSpace(string(netaddrbytes))
-	if !strings.HasPrefix(netaddr, "http") {
-		netaddr = "http://" + netaddr
-	}
-	token, err := ioutil.ReadFile(tokenpath)
-	if err != nil {
-		err = fmt.Errorf("%s: %v", tokenpath, err)
-		return
-	}
-	client, err = algod.MakeClient(netaddr, strings.TrimSpace(string(token)))
-	if err == nil {
-		lastmod, err = algodStat(netpath, tokenpath)
-	}
-	return
+	return algod.MakeClient(netaddr, token)
 }

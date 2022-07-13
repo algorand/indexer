@@ -15,7 +15,6 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/accounting"
-	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/processor"
 	indexerledger "github.com/algorand/indexer/processor/eval"
 	"github.com/algorand/indexer/util"
@@ -39,12 +38,12 @@ func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.Va
 }
 
 // MakeProcessorWithLedgerInit creates a block processor and initializes the ledger.
-func MakeProcessorWithLedgerInit(ctx context.Context, logger *log.Logger, catchpoint string, genesis *bookkeeping.Genesis, nextDBRound uint64, opts idb.IndexerDbOptions, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
-	err := InitializeLedger(ctx, logger, catchpoint, nextDBRound, *genesis, &opts)
+func MakeProcessorWithLedgerInit(ctx context.Context, logger *log.Logger, indexerDataDir, algodToken, algodAddr, catchpoint string, genesis *bookkeeping.Genesis, nextDBRound uint64, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+	err := InitializeLedger(ctx, logger, indexerDataDir, algodAddr, algodToken, catchpoint, nextDBRound, *genesis)
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessorWithLedgerInit() err: %w", err)
 	}
-	return MakeProcessor(logger, genesis, nextDBRound, opts.IndexerDatadir, handler)
+	return MakeProcessor(logger, genesis, nextDBRound, indexerDataDir, handler)
 }
 
 // MakeProcessor creates a block processor
