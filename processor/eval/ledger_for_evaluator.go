@@ -56,8 +56,7 @@ func (l LedgerForEvaluator) LookupWithoutRewards(addresses map[basics.Address]st
 		if err != nil {
 			return nil, err
 		}
-		empty := ledgercore.AccountData{}
-		if acctData == empty {
+		if acctData.IsZero() {
 			res[address] = nil
 		} else {
 			res[address] = &acctData
@@ -118,7 +117,7 @@ func (l LedgerForEvaluator) GetAssetCreator(indices map[basics.AssetIndex]struct
 	res := make(map[basics.AssetIndex]ledger.FoundAddress, len(indices))
 	for _, index := range indicesArr {
 		cidx := basics.CreatableIndex(index)
-		address, exists, err := l.Ledger.GetCreatorForRound(l.Ledger.Latest(), cidx, basics.AssetCreatable)
+		address, exists, err := l.Ledger.GetCreator(cidx, basics.AssetCreatable)
 		if err != nil {
 			return nil, fmt.Errorf("GetAssetCreator() err: %w", err)
 		}

@@ -32,7 +32,7 @@ func TestProcess(t *testing.T) {
 	genesisBlock, err := l.Block(basics.Round(0))
 	assert.Nil(t, err)
 	// create processor
-	pr, _ := blockprocessor.MakeProcessorWithLedger(l, noopHandler)
+	pr, _ := blockprocessor.MakeProcessorWithLedger(log, l, noopHandler)
 	prevHeader := genesisBlock.BlockHeader
 	assert.Equal(t, basics.Round(0), l.Latest())
 	// create a few rounds
@@ -61,9 +61,9 @@ func TestFailedProcess(t *testing.T) {
 	require.NoError(t, err)
 	defer l.Close()
 	// invalid processor
-	pr, err := blockprocessor.MakeProcessorWithLedger(nil, nil)
+	pr, err := blockprocessor.MakeProcessorWithLedger(log, nil, nil)
 	assert.Contains(t, err.Error(), "MakeProcessorWithLedger() err: local ledger not initialized")
-	pr, err = blockprocessor.MakeProcessorWithLedger(l, nil)
+	pr, err = blockprocessor.MakeProcessorWithLedger(log, l, nil)
 	assert.Nil(t, err)
 	err = pr.Process(nil)
 	assert.Contains(t, err.Error(), "Process(): cannot process a nil block")
@@ -109,9 +109,9 @@ func TestFailedProcess(t *testing.T) {
 	handler := func(vb *ledgercore.ValidatedBlock) error {
 		return fmt.Errorf("handler error")
 	}
-	_, err = blockprocessor.MakeProcessorWithLedger(l, handler)
+	_, err = blockprocessor.MakeProcessorWithLedger(log, l, handler)
 	assert.Contains(t, err.Error(), "handler error")
-	pr, _ = blockprocessor.MakeProcessorWithLedger(l, nil)
+	pr, _ = blockprocessor.MakeProcessorWithLedger(log, l, nil)
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	assert.Nil(t, err)

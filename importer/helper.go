@@ -145,7 +145,7 @@ func importTar(imp Importer, tarfile io.Reader, l *log.Logger, genesisReader io.
 	ld, err := util.MakeLedger(l, false, &genesis, "")
 	maybeFail(err, l, "Cannot open ledger")
 
-	proc, err := blockprocessor.MakeProcessorWithLedger(ld, imp.ImportBlock)
+	proc, err := blockprocessor.MakeProcessorWithLedger(l, ld, imp.ImportBlock)
 	maybeFail(err, l, "Error creating processor")
 
 	for _, blockContainer := range blocks[1:] {
