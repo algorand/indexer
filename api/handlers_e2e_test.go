@@ -76,7 +76,7 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, f
 	require.NoError(t, err)
 
 	logger, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(log)
+	l, err := test.MakeTestLedger(logger)
 	require.NoError(t, err)
 	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
