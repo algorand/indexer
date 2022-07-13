@@ -342,7 +342,7 @@ func catchup(db *postgres.IndexerDb, l *ledger.Ledger, bot fetcher.Fetcher, logg
 
 		if nextRoundLedger >= nextRoundIndexer {
 			wg.Add(1)
-			prc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
+			prc, err := blockprocessor.MakeProcessorWithLedger(logger, l, db.AddBlock)
 			if err != nil {
 				return fmt.Errorf("catchup() err: %w", err)
 			}

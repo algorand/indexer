@@ -22,8 +22,8 @@ import (
 )
 
 func makeTestLedger(t *testing.T) *ledger.Ledger {
-	log, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(log)
+	logger, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(logger)
 	require.NoError(t, err)
 	return l
 }
@@ -31,7 +31,8 @@ func makeTestLedger(t *testing.T) *ledger.Ledger {
 func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
+	logger, _ := test2.NewNullLogger()
+	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
 	txn := test.MakePaymentTxn(0, 100, 0, 1, 1,
 		0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
@@ -52,7 +53,8 @@ func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 func TestLedgerForEvaluatorAccountDataBasic(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
-	block_processor.MakeProcessorWithLedger(l, nil)
+	logger, _ := test2.NewNullLogger()
+	block_processor.MakeProcessorWithLedger(logger, l, nil)
 	accountData, _, err := l.LookupWithoutRewards(0, test.AccountB)
 	require.NoError(t, err)
 
@@ -87,7 +89,8 @@ func TestLedgerForEvaluatorAccountDataMissingAccount(t *testing.T) {
 func TestLedgerForEvaluatorAsset(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
+	logger, _ := test2.NewNullLogger()
+	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 	txn1 := test.MakeAssetConfigTxn(0, 4, 0, false, "", "", "", test.AccountA)
@@ -151,7 +154,8 @@ func TestLedgerForEvaluatorAsset(t *testing.T) {
 func TestLedgerForEvaluatorApp(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
+	logger, _ := test2.NewNullLogger()
+	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
 
 	txn0 := test.MakeSimpleAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAppCallTxnWithLogs(0, test.AccountA, []string{"testing"})
@@ -232,7 +236,8 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
+	logger, _ := test2.NewNullLogger()
+	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
 
 	txn0 := test.MakeSimpleAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
@@ -281,7 +286,8 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
-	block_processor.MakeProcessorWithLedger(l, nil)
+	logger, _ := test2.NewNullLogger()
+	block_processor.MakeProcessorWithLedger(logger, l, nil)
 
 	addresses := []basics.Address{
 		test.AccountA, test.AccountB, test.AccountC, test.AccountD}
@@ -309,7 +315,8 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
+	logger, _ := test2.NewNullLogger()
+	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 
@@ -339,7 +346,8 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
+	logger, _ := test2.NewNullLogger()
+	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 	txn1 := test.MakeAssetDestroyTxn(1, test.AccountA)
@@ -367,7 +375,8 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 
 	l := makeTestLedger(t)
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
+	logger, _ := test2.NewNullLogger()
+	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 	txn1 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountB)
@@ -420,7 +429,8 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
+	logger, _ := test2.NewNullLogger()
+	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
 
 	txn0 := test.MakeSimpleAppCallTxn(0, test.AccountA)
 
@@ -452,7 +462,8 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
+	logger, _ := test2.NewNullLogger()
+	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
 
 	txn0 := test.MakeSimpleAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAppDestroyTxn(1, test.AccountA)
@@ -480,7 +491,8 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 
 	l := makeTestLedger(t)
 	defer l.Close()
-	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
+	logger, _ := test2.NewNullLogger()
+	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
 
 	txn0 := test.MakeSimpleAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeSimpleAppCallTxn(0, test.AccountB)

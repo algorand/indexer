@@ -1416,11 +1416,11 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), round)
 
-	log, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(log)
+	logger, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(logger)
 	require.NoError(t, err)
 	defer l.Close()
-	proc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
+	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
 
 	round, err = db.GetNextRoundToAccount()
@@ -1714,11 +1714,11 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	rootTxid := appCall.Txn.ID()
 
 	err = pgutil.TxWithRetry(pdb, serializable, func(tx pgx.Tx) error {
-		log, _ := test2.NewNullLogger()
-		l, err := test.MakeTestLedger(log)
+		logger, _ := test2.NewNullLogger()
+		l, err := test.MakeTestLedger(logger)
 		require.NoError(t, err)
 		defer l.Close()
-		proc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
+		proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, db.AddBlock)
 		require.NoError(t, err, "failed to open ledger")
 		blockCert := rpcs.EncodedBlockCert{Block: block}
 		return proc.Process(&blockCert)
