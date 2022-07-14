@@ -1,4 +1,4 @@
-package importerPlugin
+package importerplugin
 
 import (
 	"strings"
