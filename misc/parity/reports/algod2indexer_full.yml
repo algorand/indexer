@@ -237,11 +237,11 @@ paths:
       - ALGOD: '"GetApplicationByID"'
       parameters:
       - - INDEXER: null
+        - ALGOD: '"{''$ref'': ''#/parameters/include-all''}"'
+      - - INDEXER: null
         - ALGOD: '"{''type'': ''integer'', ''description'': ''An applicatio...'
       - - INDEXER: null
         - ALGOD: '"{''type'': ''integer'', ''name'': ''application-id'', ''in...'
-      - - INDEXER: null
-        - ALGOD: '"{''$ref'': ''#/parameters/include-all''}"'
       responses:
         '200':
           description:
@@ -288,6 +288,85 @@ paths:
     parameters:
     - INDEXER: null
     - ALGOD: '[{"in":"path","name":"application-id","required":t...'
+  /v2/applications/{application-id}/box:
+    get:
+      responses:
+        '200':
+          description:
+          - INDEXER: null
+          - ALGOD: '"OK"'
+        '400':
+          $ref:
+          - INDEXER: '"#/responses/ErrorResponse"'
+          - ALGOD: null
+          description:
+          - INDEXER: null
+          - ALGOD: '"Bad Request"'
+          schema:
+          - INDEXER: null
+          - ALGOD: '{"$ref":"#/definitions/ErrorResponse"}'
+        '401':
+        - INDEXER: null
+        - ALGOD: '{"description":"Invalid API Token","schema":{"$ref...'
+        '404':
+          $ref:
+          - INDEXER: '"#/responses/ErrorResponse"'
+          - ALGOD: null
+          description:
+          - INDEXER: null
+          - ALGOD: '"Box Not Found"'
+          schema:
+          - INDEXER: null
+          - ALGOD: '{"$ref":"#/definitions/ErrorResponse"}'
+        '500':
+          $ref:
+          - INDEXER: '"#/responses/ErrorResponse"'
+          - ALGOD: null
+          description:
+          - INDEXER: null
+          - ALGOD: '"Internal Error"'
+          schema:
+          - INDEXER: null
+          - ALGOD: '{"$ref":"#/definitions/ErrorResponse"}'
+        default:
+        - INDEXER: null
+        - ALGOD: '{"description":"Unknown Error"}'
+  /v2/applications/{application-id}/boxes:
+    get:
+      responses:
+        '200':
+          description:
+          - INDEXER: null
+          - ALGOD: '"OK"'
+        '400':
+          $ref:
+          - INDEXER: '"#/responses/ErrorResponse"'
+          - ALGOD: null
+          description:
+          - INDEXER: null
+          - ALGOD: '"Bad Request"'
+          schema:
+          - INDEXER: null
+          - ALGOD: '{"$ref":"#/definitions/ErrorResponse"}'
+        '401':
+        - INDEXER: null
+        - ALGOD: '{"description":"Invalid API Token","schema":{"$ref...'
+        '404':
+        - INDEXER: '{"$ref":"#/responses/ErrorResponse"}'
+        - ALGOD: null
+        '500':
+          $ref:
+          - INDEXER: '"#/responses/ErrorResponse"'
+          - ALGOD: null
+          description:
+          - INDEXER: null
+          - ALGOD: '"Internal Error"'
+          schema:
+          - INDEXER: null
+          - ALGOD: '{"$ref":"#/definitions/ErrorResponse"}'
+        default:
+        - INDEXER: null
+        - ALGOD: '{"description":"Unknown Error"}'
   /v2/applications/{application-id}/logs:
   - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
   - ALGOD: null
@@ -307,11 +386,11 @@ paths:
       - ALGOD: '"GetAssetByID"'
       parameters:
       - - INDEXER: null
-        - ALGOD: '"{''type'': ''integer'', ''name'': ''asset-id'', ''in'': ''pa...'
-      - - INDEXER: null
         - ALGOD: '"{''type'': ''integer'', ''description'': ''An asset iden...'
       - - INDEXER: null
         - ALGOD: '"{''$ref'': ''#/parameters/include-all''}"'
+      - - INDEXER: null
+        - ALGOD: '"{''type'': ''integer'', ''name'': ''asset-id'', ''in'': ''pa...'
       responses:
         '200':
           description:

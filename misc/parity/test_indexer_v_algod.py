@@ -12,8 +12,7 @@ NEW, OVERLAP, DROPPED, FULL = "new", "overlap", "dropped", "full"
 DIFF_TYPES = [NEW, OVERLAP, DROPPED, FULL]
 
 # These are the diff reports that will be run and compared/asserted against:
-ASSERTIONS = [FULL]
-# ASSERTIONS = [DROPPED, FULL]
+ASSERTIONS = [DROPPED, FULL]
 
 # When non-empty, keep only:
 PATH_INCLUDES = {"paths": [], "definitions": []}

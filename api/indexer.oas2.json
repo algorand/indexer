@@ -1,7 +1,5 @@
 {
-  "schemes": [
-    "https"
-  ],
+  "schemes": ["https"],
   "swagger": "2.0",
   "info": {
     "description": "Algorand ledger analytics API.",
@@ -13,21 +11,13 @@
     "version": "2.0"
   },
   "host": "example.com",
-  "produces": [
-    "application/json"
-  ],
+  "produces": ["application/json"],
   "paths": {
     "/health": {
       "get": {
-        "tags": [
-          "common"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "schemes": [
-          "http"
-        ],
+        "tags": ["common"],
+        "produces": ["application/json"],
+        "schemes": ["http"],
         "summary": "Returns 200 if healthy.",
         "operationId": "makeHealthCheck",
         "responses": {
@@ -43,15 +33,9 @@
     "/v2/accounts": {
       "get": {
         "description": "Search for accounts.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "search"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["search"],
         "operationId": "searchForAccounts",
         "parameters": [
           {
@@ -104,15 +88,9 @@
     "/v2/accounts/{account-id}": {
       "get": {
         "description": "Lookup account information.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "lookup"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["lookup"],
         "operationId": "lookupAccountByID",
         "parameters": [
           {
@@ -147,15 +125,9 @@
     "/v2/accounts/{account-id}/assets": {
       "get": {
         "description": "Lookup an account's asset holdings, optionally for a specific ID.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "lookup"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["lookup"],
         "operationId": "lookupAccountAssets",
         "parameters": [
           {
@@ -193,15 +165,9 @@
     "/v2/accounts/{account-id}/created-assets": {
       "get": {
         "description": "Lookup an account's created asset parameters, optionally for a specific ID.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "lookup"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["lookup"],
         "operationId": "lookupAccountCreatedAssets",
         "parameters": [
           {
@@ -239,15 +205,9 @@
     "/v2/accounts/{account-id}/apps-local-state": {
       "get": {
         "description": "Lookup an account's asset holdings, optionally for a specific ID.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "lookup"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["lookup"],
         "operationId": "lookupAccountAppLocalStates",
         "parameters": [
           {
@@ -285,15 +245,9 @@
     "/v2/accounts/{account-id}/created-applications": {
       "get": {
         "description": "Lookup an account's created application parameters, optionally for a specific ID.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "lookup"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["lookup"],
         "operationId": "lookupAccountCreatedApplications",
         "parameters": [
           {
@@ -331,15 +285,9 @@
     "/v2/accounts/{account-id}/transactions": {
       "get": {
         "description": "Lookup account transactions. Transactions are returned newest to oldest.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "lookup"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["lookup"],
         "operationId": "lookupAccountTransactions",
         "parameters": [
           {
@@ -407,15 +355,9 @@
     "/v2/applications": {
       "get": {
         "description": "Search for applications",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "search"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["search"],
         "operationId": "searchForApplications",
         "parameters": [
           {
@@ -450,15 +392,9 @@
     "/v2/applications/{application-id}": {
       "get": {
         "description": "Lookup application.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "lookup"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["lookup"],
         "operationId": "lookupApplicationByID",
         "parameters": [
           {
@@ -484,18 +420,111 @@
         }
       }
     },
+    "/v2/applications/{application-id}/boxes": {
+      "get": {
+        "description": "Given an application ID, it returns the box names of that application. No particular ordering is guaranteed.",
+        "produces": ["application/json"],
+        "schemes": ["http"],
+        "summary": "Get box names for a given application.",
+        "operationId": "GetApplicationBoxes",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "An application identifier",
+            "name": "application-id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "integer",
+            "description": "Max number of box names to return. If max is not set, or max == 0, returns all box-names.",
+            "name": "max",
+            "in": "query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/BoxesResponse"
+          },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "type": "integer",
+          "name": "application-id",
+          "in": "path",
+          "required": true
+        }
+      ]
+    },
+    "/v2/applications/{application-id}/box": {
+      "get": {
+        "description": "Given an application ID and box name, it returns the box name and value (each base64 encoded). Box names must be in the goal app call arg encoding form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
+        "produces": ["application/json"],
+        "schemes": ["http"],
+        "summary": "Get box information for a given application.",
+        "operationId": "GetApplicationBoxByName",
+        "parameters": [
+          {
+            "type": "integer",
+            "description": "An application identifier",
+            "name": "application-id",
+            "in": "path",
+            "required": true
+          },
+          {
+            "type": "string",
+            "description": "A box name, in the goal app call arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
+            "name": "name",
+            "in": "query",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/responses/BoxResponse"
+          },
+          "400": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "404": {
+            "$ref": "#/responses/ErrorResponse"
+          },
+          "500": {
+            "$ref": "#/responses/ErrorResponse"
+          }
+        }
+      },
+      "parameters": [
+        {
+          "type": "integer",
+          "name": "application-id",
+          "in": "path",
+          "required": true
+        },
+        {
+          "type": "string",
+          "name": "name",
+          "in": "query",
+          "required": true
+        }
+      ]
+    },
     "/v2/applications/{application-id}/logs": {
       "get": {
         "description": "Lookup application logs.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "lookup"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["lookup"],
         "operationId": "lookupApplicationLogsByID",
         "parameters": [
           {
@@ -533,15 +562,9 @@
     "/v2/assets": {
       "get": {
         "description": "Search for assets.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "search"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["search"],
         "operationId": "searchForAssets",
         "parameters": [
           {
@@ -591,15 +614,9 @@
     "/v2/assets/{asset-id}": {
       "get": {
         "description": "Lookup asset information.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "lookup"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["lookup"],
         "operationId": "lookupAssetByID",
         "parameters": [
           {
@@ -631,15 +648,9 @@
     "/v2/assets/{asset-id}/balances": {
       "get": {
         "description": "Lookup the list of accounts who hold this asset ",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "lookup"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["lookup"],
         "operationId": "lookupAssetBalances",
         "parameters": [
           {
@@ -680,15 +691,9 @@
     "/v2/assets/{asset-id}/transactions": {
       "get": {
         "description": "Lookup transactions for an asset. Transactions are returned oldest to newest.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "lookup"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["lookup"],
         "operationId": "lookupAssetTransactions",
         "parameters": [
           {
@@ -765,15 +770,9 @@
     "/v2/blocks/{round-number}": {
       "get": {
         "description": "Lookup block.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "lookup"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["lookup"],
         "operationId": "lookupBlock",
         "parameters": [
           {
@@ -796,15 +795,9 @@
     "/v2/transactions/{txid}": {
       "get": {
         "description": "Lookup a single transaction.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "lookup"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["lookup"],
         "operationId": "lookupTransaction",
         "parameters": [
           {
@@ -833,15 +826,9 @@
     "/v2/transactions": {
       "get": {
         "description": "Search for transactions. Transactions are returned oldest to newest unless the address parameter is used, in which case results are returned newest to oldest.",
-        "consumes": [
-          "application/json"
-        ],
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "search"
-        ],
+        "consumes": ["application/json"],
+        "produces": ["application/json"],
+        "tags": ["search"],
         "operationId": "searchForTransactions",
         "parameters": [
           {
@@ -920,10 +907,7 @@
     "Hashtype": {
       "description": "The type of hash function used to create the proof, must be one of: \n* sha512_256 \n* sha256",
       "type": "string",
-      "enum": [
-        "sha512_256",
-        "sha256"
-      ]
+      "enum": ["sha512_256", "sha256"]
     },
     "Account": {
       "description": "Account information at a given round.\n\nDefinition:\ndata/basics/userBalance.go : AccountData\n",
@@ -1016,11 +1000,7 @@
         "sig-type": {
           "description": "Indicates what type of signature is used by this account, must be one of:\n* sig\n* msig\n* lsig\n* or null if unknown",
           "type": "string",
-          "enum": [
-            "sig",
-            "msig",
-            "lsig"
-          ]
+          "enum": ["sig", "msig", "lsig"]
         },
         "total-apps-opted-in": {
           "description": "The count of all applications that have been opted in, equivalent to the count of application local data (AppLocalState objects) stored in this account.",
@@ -1102,10 +1082,7 @@
     "ApplicationStateSchema": {
       "description": "Specifies maximums on the number of each type that may be stored.",
       "type": "object",
-      "required": [
-        "num-uint",
-        "num-byte-slice"
-      ],
+      "required": ["num-uint", "num-byte-slice"],
       "properties": {
         "num-uint": {
           "description": "\\[nui\\] num of uints.",
@@ -1120,10 +1097,7 @@
     "ApplicationLocalState": {
       "description": "Stores local state associated with an application.",
       "type": "object",
-      "required": [
-        "id",
-        "schema"
-      ],
+      "required": ["id", "schema"],
       "properties": {
         "id": {
           "description": "The application which this local state is for.",
@@ -1163,10 +1137,7 @@
     "TealKeyValue": {
       "description": "Represents a key-value pair in an application store.",
       "type": "object",
-      "required": [
-        "key",
-        "value"
-      ],
+      "required": ["key", "value"],
       "properties": {
         "key": {
           "type": "string"
@@ -1179,11 +1150,7 @@
     "TealValue": {
       "description": "Represents a TEAL value.",
       "type": "object",
-      "required": [
-        "type",
-        "uint",
-        "bytes"
-      ],
+      "required": ["type", "uint", "bytes"],
       "properties": {
         "type": {
           "description": "\\[tt\\] value type. Value `1` refers to **bytes**, value `2` refers to **uint**",
@@ -1203,10 +1170,7 @@
     "Application": {
       "description": "Application index and its parameters",
       "type": "object",
-      "required": [
-        "id",
-        "params"
-      ],
+      "required": ["id", "params"],
       "properties": {
         "id": {
           "description": "\\[appidx\\] application index.",
@@ -1235,10 +1199,7 @@
     "ApplicationParams": {
       "description": "Stores the global information associated with an application.",
       "type": "object",
-      "required": [
-        "approval-program",
-        "clear-state-program"
-      ],
+      "required": ["approval-program", "clear-state-program"],
       "properties": {
         "creator": {
           "description": "The address that created this application. This is the address where the parameters and global state for this application can be found.",
@@ -1278,10 +1239,7 @@
     "ApplicationLogData": {
       "description": "Stores the global information associated with an application.",
       "type": "object",
-      "required": [
-        "txid",
-        "logs"
-      ],
+      "required": ["txid", "logs"],
       "properties": {
         "txid": {
           "description": "Transaction ID",
@@ -1300,10 +1258,7 @@
     "Asset": {
       "description": "Specifies both the unique identifier and the parameters for an asset",
       "type": "object",
-      "required": [
-        "index",
-        "params"
-      ],
+      "required": ["index", "params"],
       "properties": {
         "index": {
           "description": "unique asset identifier",
@@ -1331,11 +1286,7 @@
     "AssetHolding": {
       "description": "Describes an asset held by an account.\n\nDefinition:\ndata/basics/userBalance.go : AssetHolding",
       "type": "object",
-      "required": [
-        "asset-id",
-        "amount",
-        "is-frozen"
-      ],
+      "required": ["asset-id", "amount", "is-frozen"],
       "properties": {
         "amount": {
           "description": "\\[a\\] number of units held.",
@@ -1369,11 +1320,7 @@
     "AssetParams": {
       "description": "AssetParams specifies the parameters for an asset.\n\n\\[apar\\] when part of an AssetConfig transaction.\n\nDefinition:\ndata/transactions/asset.go : AssetParams",
       "type": "object",
-      "required": [
-        "creator",
-        "total",
-        "decimals"
-      ],
+      "required": ["creator", "total", "decimals"],
       "properties": {
         "clawback": {
           "description": "\\[c\\] Address of account used to clawback holdings of this asset.  If empty, clawback is not permitted.",
@@ -1552,9 +1499,7 @@
     "BlockUpgradeState": {
       "description": "Fields relating to a protocol upgrade.",
       "type": "object",
-      "required": [
-        "current-protocol"
-      ],
+      "required": ["current-protocol"],
       "properties": {
         "current-protocol": {
           "description": "\\[proto\\] The current protocol version.",
@@ -1593,6 +1538,35 @@
         "upgrade-propose": {
           "description": "\\[upgradeprop\\] Indicates a proposed upgrade.",
           "type": "string"
+        }
+      }
+    },
+    "Box": {
+      "description": "Box name and its content.",
+      "type": "object",
+      "required": ["name", "value"],
+      "properties": {
+        "name": {
+          "description": "\\[name\\] box name, base64 encoded",
+          "type": "string",
+          "format": "byte"
+        },
+        "value": {
+          "description": "\\[value\\] box value, base64 encoded.",
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "BoxDescriptor": {
+      "description": "Box descriptor describes a Box.",
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "description": "Base64 encoded box name",
+          "type": "string",
+          "format": "byte"
         }
       }
     },
@@ -1637,11 +1611,7 @@
     "MiniAssetHolding": {
       "description": "A simplified version of AssetHolding ",
       "type": "object",
-      "required": [
-        "address",
-        "amount",
-        "is-frozen"
-      ],
+      "required": ["address", "amount", "is-frozen"],
       "properties": {
         "address": {
           "type": "string"
@@ -1672,14 +1642,7 @@
     "OnCompletion": {
       "description": "\\[apan\\] defines the what additional actions occur with the transaction.\n\nValid types:\n* noop\n* optin\n* closeout\n* clear\n* update\n* update\n* delete",
       "type": "string",
-      "enum": [
-        "noop",
-        "optin",
-        "closeout",
-        "clear",
-        "update",
-        "delete"
-      ]
+      "enum": ["noop", "optin", "closeout", "clear", "update", "delete"]
     },
     "StateDelta": {
       "description": "Application state delta.",
@@ -1691,10 +1654,7 @@
     "AccountStateDelta": {
       "description": "Application state delta.",
       "type": "object",
-      "required": [
-        "address",
-        "delta"
-      ],
+      "required": ["address", "delta"],
       "properties": {
         "address": {
           "type": "string"
@@ -1707,10 +1667,7 @@
     "EvalDeltaKeyValue": {
       "description": "Key-value pairs for StateDelta.",
       "type": "object",
-      "required": [
-        "key",
-        "value"
-      ],
+      "required": ["key", "value"],
       "properties": {
         "key": {
           "type": "string"
@@ -1723,9 +1680,7 @@
     "EvalDelta": {
       "description": "Represents a TEAL value delta.",
       "type": "object",
-      "required": [
-        "action"
-      ],
+      "required": ["action"],
       "properties": {
         "action": {
           "description": "\\[at\\] delta action.",
@@ -1745,10 +1700,7 @@
     "StateSchema": {
       "description": "Represents a \\[apls\\] local-state or \\[apgs\\] global-state schema. These schemas determine how much storage may be used in a local-state or global-state for an application. The more space used, the larger minimum balance must be maintained in the account holding the data.",
       "type": "object",
-      "required": [
-        "num-uint",
-        "num-byte-slice"
-      ],
+      "required": ["num-uint", "num-byte-slice"],
       "properties": {
         "num-uint": {
           "description": "Maximum number of TEAL uints that may be stored in the key/value store.",
@@ -1765,13 +1717,7 @@
     "Transaction": {
       "description": "Contains all fields common to all transactions and serves as an envelope to all transactions type. Represents both regular and inner transactions.\n\nDefinition:\ndata/transactions/signedtxn.go : SignedTxn\ndata/transactions/transaction.go : Transaction\n",
       "type": "object",
-      "required": [
-        "tx-type",
-        "sender",
-        "fee",
-        "first-valid",
-        "last-valid"
-      ],
+      "required": ["tx-type", "sender", "fee", "first-valid", "last-valid"],
       "mutually-exclusive": [
         "application-transaction",
         "asset-config-transaction",
@@ -1895,14 +1841,7 @@
         "tx-type": {
           "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction",
           "type": "string",
-          "enum": [
-            "pay",
-            "keyreg",
-            "acfg",
-            "axfer",
-            "afrz",
-            "appl"
-          ],
+          "enum": ["pay", "keyreg", "acfg", "axfer", "afrz", "appl"],
           "x-algorand-format": "tx-type-enum"
         },
         "local-state-delta": {
@@ -1936,10 +1875,7 @@
     "TransactionApplication": {
       "description": "Fields for application transactions.\n\nDefinition:\ndata/transactions/application.go : ApplicationCallTxnFields",
       "type": "object",
-      "required": [
-        "application-id",
-        "on-completion"
-      ],
+      "required": ["application-id", "on-completion"],
       "properties": {
         "application-id": {
           "description": "\\[apid\\] ID of the application being configured or empty if creating.",
@@ -2021,11 +1957,7 @@
     "TransactionAssetFreeze": {
       "description": "Fields for an asset freeze transaction.\n\nDefinition:\ndata/transactions/asset.go : AssetFreezeTxnFields",
       "type": "object",
-      "required": [
-        "asset-id",
-        "address",
-        "new-freeze-status"
-      ],
+      "required": ["asset-id", "address", "new-freeze-status"],
       "properties": {
         "address": {
           "description": "\\[fadd\\] Address of the account whose asset is being frozen or thawed.",
@@ -2044,11 +1976,7 @@
     "TransactionAssetTransfer": {
       "description": "Fields for an asset transfer transaction.\n\nDefinition:\ndata/transactions/asset.go : AssetTransferTxnFields",
       "type": "object",
-      "required": [
-        "asset-id",
-        "amount",
-        "receiver"
-      ],
+      "required": ["asset-id", "amount", "receiver"],
       "properties": {
         "amount": {
           "description": "\\[aamt\\] Amount of asset to transfer. A zero amount transferred to self allocates that asset in the account's Assets map.",
@@ -2118,10 +2046,7 @@
     "TransactionPayment": {
       "description": "Fields for a payment transaction.\n\nDefinition:\ndata/transactions/payment.go : PaymentTxnFields",
       "type": "object",
-      "required": [
-        "receiver",
-        "amount"
-      ],
+      "required": ["receiver", "amount"],
       "properties": {
         "amount": {
           "description": "\\[amt\\] number of MicroAlgos intended to be transferred.",
@@ -2144,11 +2069,7 @@
     "TransactionSignature": {
       "description": "Validation signature associated with some data. Only one of the signatures should be provided.",
       "type": "object",
-      "mutually-exclusive": [
-        "sig",
-        "multisig",
-        "logicsig"
-      ],
+      "mutually-exclusive": ["sig", "multisig", "logicsig"],
       "properties": {
         "logicsig": {
           "$ref": "#/definitions/TransactionSignatureLogicsig"
@@ -2166,9 +2087,7 @@
     "TransactionSignatureLogicsig": {
       "description": "\\[lsig\\] Programatic transaction signature.\n\nDefinition:\ndata/transactions/logicsig.go",
       "type": "object",
-      "required": [
-        "logic"
-      ],
+      "required": ["logic"],
       "properties": {
         "args": {
           "description": "\\[arg\\] Logic arguments, base64 encoded.",
@@ -2246,11 +2165,7 @@
       "in": "query"
     },
     "address-role": {
-      "enum": [
-        "sender",
-        "receiver",
-        "freeze-target"
-      ],
+      "enum": ["sender", "receiver", "freeze-target"],
       "type": "string",
       "description": "Combine with the address parameter to define what type of address to search for.",
       "name": "address-role",
@@ -2383,11 +2298,7 @@
       "in": "query"
     },
     "sig-type": {
-      "enum": [
-        "sig",
-        "msig",
-        "lsig"
-      ],
+      "enum": ["sig", "msig", "lsig"],
       "type": "string",
       "description": "SigType filters just results using the specified type of signature:\n* sig - Standard\n* msig - MultiSig\n* lsig - LogicSig",
       "name": "sig-type",
@@ -2407,14 +2318,7 @@
       "in": "query"
     },
     "tx-type": {
-      "enum": [
-        "pay",
-        "keyreg",
-        "acfg",
-        "axfer",
-        "afrz",
-        "appl"
-      ],
+      "enum": ["pay", "keyreg", "acfg", "axfer", "afrz", "appl"],
       "type": "string",
       "name": "tx-type",
       "in": "query"
@@ -2425,10 +2329,7 @@
       "description": "(empty)",
       "schema": {
         "type": "object",
-        "required": [
-          "current-round",
-          "account"
-        ],
+        "required": ["current-round", "account"],
         "properties": {
           "account": {
             "$ref": "#/definitions/Account"
@@ -2444,10 +2345,7 @@
       "description": "(empty)",
       "schema": {
         "type": "object",
-        "required": [
-          "current-round",
-          "assets"
-        ],
+        "required": ["current-round", "assets"],
         "properties": {
           "current-round": {
             "description": "Round at which the results were computed.",
@@ -2470,10 +2368,7 @@
       "description": "(empty)",
       "schema": {
         "type": "object",
-        "required": [
-          "current-round",
-          "accounts"
-        ],
+        "required": ["current-round", "accounts"],
         "properties": {
           "accounts": {
             "type": "array",
@@ -2496,10 +2391,7 @@
       "description": "(empty)",
       "schema": {
         "type": "object",
-        "required": [
-          "current-round",
-          "balances"
-        ],
+        "required": ["current-round", "balances"],
         "properties": {
           "balances": {
             "type": "array",
@@ -2522,10 +2414,7 @@
       "description": "(empty)",
       "schema": {
         "type": "object",
-        "required": [
-          "current-round",
-          "applications"
-        ],
+        "required": ["current-round", "applications"],
         "properties": {
           "application": {
             "$ref": "#/definitions/Application"
@@ -2541,10 +2430,7 @@
       "description": "(empty)",
       "schema": {
         "type": "object",
-        "required": [
-          "current-round",
-          "applications"
-        ],
+        "required": ["current-round", "applications"],
         "properties": {
           "applications": {
             "type": "array",
@@ -2567,10 +2453,7 @@
       "description": "(empty)",
       "schema": {
         "type": "object",
-        "required": [
-          "application-id",
-          "current-round"
-        ],
+        "required": ["application-id", "current-round"],
         "properties": {
           "application-id": {
             "description": "\\[appidx\\] application index.",
@@ -2597,10 +2480,7 @@
       "description": "(empty)",
       "schema": {
         "type": "object",
-        "required": [
-          "current-round",
-          "apps-local-states"
-        ],
+        "required": ["current-round", "apps-local-states"],
         "properties": {
           "apps-local-states": {
             "type": "array",
@@ -2623,10 +2503,7 @@
       "description": "(empty)",
       "schema": {
         "type": "object",
-        "required": [
-          "current-round",
-          "asset"
-        ],
+        "required": ["current-round", "asset"],
         "properties": {
           "asset": {
             "$ref": "#/definitions/Asset"
@@ -2640,11 +2517,9 @@
     },
     "ErrorResponse": {
       "description": "Response for errors",
-      "schema":{
+      "schema": {
         "type": "object",
-        "required": [
-          "message"
-        ],
+        "required": ["message"],
         "properties": {
           "data": {
             "type": "object"
@@ -2659,10 +2534,7 @@
       "description": "(empty)",
       "schema": {
         "type": "object",
-        "required": [
-          "current-round",
-          "assets"
-        ],
+        "required": ["current-round", "assets"],
         "properties": {
           "assets": {
             "type": "array",
@@ -2687,6 +2559,27 @@
         "$ref": "#/definitions/Block"
       }
     },
+    "BoxesResponse": {
+      "description": "Box names of an application",
+      "schema": {
+        "type": "object",
+        "required": ["boxes"],
+        "properties": {
+          "boxes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/BoxDescriptor"
+            }
+          }
+        }
+      }
+    },
+    "BoxResponse": {
+      "description": "Box information",
+      "schema": {
+        "$ref": "#/definitions/Box"
+      }
+    },
     "HealthCheckResponse": {
       "description": "(empty)",
       "schema": {
@@ -2697,10 +2590,7 @@
       "description": "(empty)",
       "schema": {
         "type": "object",
-        "required": [
-          "current-round",
-          "transaction"
-        ],
+        "required": ["current-round", "transaction"],
         "properties": {
           "transaction": {
             "$ref": "#/definitions/Transaction"
@@ -2716,10 +2606,7 @@
       "description": "(empty)",
       "schema": {
         "type": "object",
-        "required": [
-          "current-round",
-          "transactions"
-        ],
+        "required": ["current-round", "transactions"],
         "properties": {
           "current-round": {
             "description": "Round at which the results were computed.",
