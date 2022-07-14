@@ -12,10 +12,11 @@ NEW, OVERLAP, DROPPED, FULL = "new", "overlap", "dropped", "full"
 DIFF_TYPES = [NEW, OVERLAP, DROPPED, FULL]
 
 # These are the diff reports that will be run and compared/asserted against:
-ASSERTIONS = [DROPPED, FULL]
+ASSERTIONS = [FULL]
+# ASSERTIONS = [DROPPED, FULL]
 
 # When non-empty, keep only:
-PATH_INCLUDES = {"definitions": ["Account"]}
+PATH_INCLUDES = {"paths": [], "definitions": []}
 
 # Any diffs past one of the following keys in a path will be ignored:
 PATH_KEY_EXCLUDES = []
@@ -162,7 +163,7 @@ def test_parity(reports: List[str] = ASSERTIONS, save_new: bool = True):
             old_diff = yaml.safe_load(f)
         new_diff = generate_diff(algod_swgr, indexer_swgr, excludes, diff_type)
 
-        diff_of_diffs = deep_diff(old_diff, new_diff)
+        diff_of_diffs = deep_diff(old_diff, new_diff, arraysets=True)
         assert (
             diff_of_diffs is None
         ), f"""UNEXPECTED CHANGE IN {ypath}. Differences are:

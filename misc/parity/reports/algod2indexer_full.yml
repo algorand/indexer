@@ -20,3 +20,415 @@ definitions:
     required:
     - - INDEXER: null
       - ALGOD: '"min-balance"'
+  Application:
+    properties:
+      created-at-round:
+      - INDEXER: '{"description":"Round when this application was cr...'
+      - ALGOD: null
+      deleted:
+      - INDEXER: '{"description":"Whether or not this application is...'
+      - ALGOD: null
+      deleted-at-round:
+      - INDEXER: '{"description":"Round when this application was de...'
+      - ALGOD: null
+  ApplicationLocalState:
+    properties:
+      closed-out-at-round:
+      - INDEXER: '{"description":"Round when account closed out of t...'
+      - ALGOD: null
+      deleted:
+      - INDEXER: '{"description":"Whether or not the application loc...'
+      - ALGOD: null
+      opted-in-at-round:
+      - INDEXER: '{"description":"Round when the account opted into ...'
+      - ALGOD: null
+  ApplicationLogData:
+  - INDEXER: '{"description":"Stores the global information asso...'
+  - ALGOD: null
+  ApplicationParams:
+    required:
+    - - INDEXER: null
+      - ALGOD: '"creator"'
+  Asset:
+    properties:
+      created-at-round:
+      - INDEXER: '{"description":"Round during which this asset was ...'
+      - ALGOD: null
+      deleted:
+      - INDEXER: '{"description":"Whether or not this asset is curre...'
+      - ALGOD: null
+      destroyed-at-round:
+      - INDEXER: '{"description":"Round during which this asset was ...'
+      - ALGOD: null
+  AssetHolding:
+    properties:
+      asset-id:
+        x-go-name:
+        - INDEXER: null
+        - ALGOD: '"AssetID"'
+      deleted:
+      - INDEXER: '{"description":"Whether or not the asset holding i...'
+      - ALGOD: null
+      opted-in-at-round:
+      - INDEXER: '{"description":"Round during which the account opt...'
+      - ALGOD: null
+      opted-out-at-round:
+      - INDEXER: '{"description":"Round during which the account opt...'
+      - ALGOD: null
+  Block:
+  - INDEXER: '{"description":"Block information.\n\nDefinition:\...'
+  - ALGOD: null
+  BlockRewards:
+  - INDEXER: '{"description":"Fields relating to rewards,","prop...'
+  - ALGOD: null
+  BlockUpgradeState:
+  - INDEXER: '{"description":"Fields relating to a protocol upgr...'
+  - ALGOD: null
+  BlockUpgradeVote:
+  - INDEXER: '{"description":"Fields relating to voting for a pr...'
+  - ALGOD: null
+  BuildVersion:
+  - INDEXER: null
+  - ALGOD: '{"properties":{"branch":{"type":"string"},"build_n...'
+  DryrunRequest:
+  - INDEXER: null
+  - ALGOD: '{"description":"Request data type for dryrun endpo...'
+  DryrunSource:
+  - INDEXER: null
+  - ALGOD: '{"description":"DryrunSource is TEAL source text t...'
+  DryrunState:
+  - INDEXER: null
+  - ALGOD: '{"description":"Stores the TEAL eval step data","p...'
+  DryrunTxnResult:
+  - INDEXER: null
+  - ALGOD: '{"description":"DryrunTxnResult contains any Logic...'
+  ErrorResponse:
+  - INDEXER: null
+  - ALGOD: '{"description":"An error response with optional da...'
+  Hashtype:
+  - INDEXER: '{"description":"The type of hash function used to ...'
+  - ALGOD: null
+  HealthCheck:
+  - INDEXER: '{"description":"A health check response.","propert...'
+  - ALGOD: null
+  MiniAssetHolding:
+  - INDEXER: '{"description":"A simplified version of AssetHoldi...'
+  - ALGOD: null
+  OnCompletion:
+  - INDEXER: '{"description":"\\[apan\\] defines the what additi...'
+  - ALGOD: null
+  ParticipationKey:
+  - INDEXER: null
+  - ALGOD: '{"description":"Represents a participation key use...'
+  PendingTransactionResponse:
+  - INDEXER: null
+  - ALGOD: '{"description":"Details about a pending transactio...'
+  StateSchema:
+  - INDEXER: '{"description":"Represents a \\[apls\\] local-stat...'
+  - ALGOD: null
+  Transaction:
+  - INDEXER: '{"description":"Contains all fields common to all ...'
+  - ALGOD: null
+  TransactionApplication:
+  - INDEXER: '{"description":"Fields for application transaction...'
+  - ALGOD: null
+  TransactionAssetConfig:
+  - INDEXER: '{"description":"Fields for asset allocation, re-co...'
+  - ALGOD: null
+  TransactionAssetFreeze:
+  - INDEXER: '{"description":"Fields for an asset freeze transac...'
+  - ALGOD: null
+  TransactionAssetTransfer:
+  - INDEXER: '{"description":"Fields for an asset transfer trans...'
+  - ALGOD: null
+  TransactionKeyreg:
+  - INDEXER: '{"description":"Fields for a keyreg transaction.\n...'
+  - ALGOD: null
+  TransactionPayment:
+  - INDEXER: '{"description":"Fields for a payment transaction.\...'
+  - ALGOD: null
+  TransactionSignature:
+  - INDEXER: '{"description":"Validation signature associated wi...'
+  - ALGOD: null
+  TransactionSignatureLogicsig:
+  - INDEXER: '{"description":"\\[lsig\\] Programatic transaction...'
+  - ALGOD: null
+  TransactionSignatureMultisig:
+  - INDEXER: '{"description":"\\[msig\\] structure holding multi...'
+  - ALGOD: null
+  TransactionSignatureMultisigSubsignature:
+  - INDEXER: '{"properties":{"public-key":{"description":"\\[pk\...'
+  - ALGOD: null
+  Version:
+  - INDEXER: null
+  - ALGOD: '{"description":"algod version information.","prope...'
+paths:
+  /genesis:
+  - INDEXER: null
+  - ALGOD: '{"get":{"description":"Returns the entire genesis ...'
+  /health:
+    get:
+      operationId:
+      - INDEXER: '"makeHealthCheck"'
+      - ALGOD: '"HealthCheck"'
+      responses:
+        '200':
+          $ref:
+          - INDEXER: '"#/responses/HealthCheckResponse"'
+          - ALGOD: null
+          description:
+          - INDEXER: null
+          - ALGOD: '"OK."'
+      summary:
+      - INDEXER: '"Returns 200 if healthy."'
+      - ALGOD: '"Returns OK if healthy."'
+  /metrics:
+  - INDEXER: null
+  - ALGOD: '{"get":{"operationId":"Metrics","produces":["text/...'
+  /swagger.json:
+  - INDEXER: null
+  - ALGOD: '{"get":{"description":"Returns the entire swagger ...'
+  /v2/accounts:
+  - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
+  - ALGOD: null
+  /v2/accounts/{account-id}:
+  - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
+  - ALGOD: null
+  /v2/accounts/{account-id}/apps-local-state:
+  - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
+  - ALGOD: null
+  /v2/accounts/{account-id}/assets:
+  - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
+  - ALGOD: null
+  /v2/accounts/{account-id}/created-applications:
+  - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
+  - ALGOD: null
+  /v2/accounts/{account-id}/created-assets:
+  - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
+  - ALGOD: null
+  /v2/accounts/{account-id}/transactions:
+  - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
+  - ALGOD: null
+  /v2/accounts/{address}:
+  - INDEXER: null
+  - ALGOD: '{"get":{"description":"Given a specific account pu...'
+  /v2/accounts/{address}/applications/{application-id}:
+  - INDEXER: null
+  - ALGOD: '{"get":{"description":"Given a specific account pu...'
+  /v2/accounts/{address}/assets/{asset-id}:
+  - INDEXER: null
+  - ALGOD: '{"get":{"description":"Given a specific account pu...'
+  /v2/accounts/{address}/transactions/pending:
+  - INDEXER: null
+  - ALGOD: '{"get":{"description":"Get the list of pending tra...'
+  /v2/applications:
+  - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
+  - ALGOD: null
+  /v2/applications/{application-id}:
+    get:
+      consumes:
+      - INDEXER: '["application/json"]'
+      - ALGOD: null
+      description:
+      - INDEXER: '"Lookup application."'
+      - ALGOD: '"Given a application ID, it returns application information including creator, approval and clear programs, global and local schemas, and global state."'
+      operationId:
+      - INDEXER: '"lookupApplicationByID"'
+      - ALGOD: '"GetApplicationByID"'
+      parameters:
+      - - INDEXER: null
+        - ALGOD: '"{''type'': ''integer'', ''description'': ''An applicatio...'
+      - - INDEXER: null
+        - ALGOD: '"{''type'': ''integer'', ''name'': ''application-id'', ''in...'
+      - - INDEXER: null
+        - ALGOD: '"{''$ref'': ''#/parameters/include-all''}"'
+      responses:
+        '200':
+          description:
+          - INDEXER: null
+          - ALGOD: '"OK"'
+        '400':
+        - INDEXER: null
+        - ALGOD: '{"description":"Bad Request","schema":{"$ref":"#/d...'
+        '401':
+        - INDEXER: null
+        - ALGOD: '{"description":"Invalid API Token","schema":{"$ref...'
+        '404':
+          $ref:
+          - INDEXER: '"#/responses/ErrorResponse"'
+          - ALGOD: null
+          description:
+          - INDEXER: null
+          - ALGOD: '"Application Not Found"'
+          schema:
+          - INDEXER: null
+          - ALGOD: '{"$ref":"#/definitions/ErrorResponse"}'
+        '500':
+          $ref:
+          - INDEXER: '"#/responses/ErrorResponse"'
+          - ALGOD: null
+          description:
+          - INDEXER: null
+          - ALGOD: '"Internal Error"'
+          schema:
+          - INDEXER: null
+          - ALGOD: '{"$ref":"#/definitions/ErrorResponse"}'
+        default:
+        - INDEXER: null
+        - ALGOD: '{"description":"Unknown Error"}'
+      schemes:
+      - INDEXER: null
+      - ALGOD: '["http"]'
+      summary:
+      - INDEXER: null
+      - ALGOD: '"Get application information."'
+      tags:
+      - INDEXER: '["lookup"]'
+      - ALGOD: null
+    parameters:
+    - INDEXER: null
+    - ALGOD: '[{"in":"path","name":"application-id","required":t...'
+  /v2/applications/{application-id}/logs:
+  - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
+  - ALGOD: null
+  /v2/assets:
+  - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
+  - ALGOD: null
+  /v2/assets/{asset-id}:
+    get:
+      consumes:
+      - INDEXER: '["application/json"]'
+      - ALGOD: null
+      description:
+      - INDEXER: '"Lookup asset information."'
+      - ALGOD: '"Given a asset ID, it returns asset information including creator, name, total supply and special addresses."'
+      operationId:
+      - INDEXER: '"lookupAssetByID"'
+      - ALGOD: '"GetAssetByID"'
+      parameters:
+      - - INDEXER: null
+        - ALGOD: '"{''type'': ''integer'', ''name'': ''asset-id'', ''in'': ''pa...'
+      - - INDEXER: null
+        - ALGOD: '"{''type'': ''integer'', ''description'': ''An asset iden...'
+      - - INDEXER: null
+        - ALGOD: '"{''$ref'': ''#/parameters/include-all''}"'
+      responses:
+        '200':
+          description:
+          - INDEXER: null
+          - ALGOD: '"OK"'
+        '400':
+          $ref:
+          - INDEXER: '"#/responses/ErrorResponse"'
+          - ALGOD: null
+          description:
+          - INDEXER: null
+          - ALGOD: '"Bad Request"'
+          schema:
+          - INDEXER: null
+          - ALGOD: '{"$ref":"#/definitions/ErrorResponse"}'
+        '401':
+        - INDEXER: null
+        - ALGOD: '{"description":"Invalid API Token","schema":{"$ref...'
+        '404':
+          $ref:
+          - INDEXER: '"#/responses/ErrorResponse"'
+          - ALGOD: null
+          description:
+          - INDEXER: null
+          - ALGOD: '"Application Not Found"'
+          schema:
+          - INDEXER: null
+          - ALGOD: '{"$ref":"#/definitions/ErrorResponse"}'
+        '500':
+          $ref:
+          - INDEXER: '"#/responses/ErrorResponse"'
+          - ALGOD: null
+          description:
+          - INDEXER: null
+          - ALGOD: '"Internal Error"'
+          schema:
+          - INDEXER: null
+          - ALGOD: '{"$ref":"#/definitions/ErrorResponse"}'
+        default:
+        - INDEXER: null
+        - ALGOD: '{"description":"Unknown Error"}'
+      schemes:
+      - INDEXER: null
+      - ALGOD: '["http"]'
+      summary:
+      - INDEXER: null
+      - ALGOD: '"Get asset information."'
+      tags:
+      - INDEXER: '["lookup"]'
+      - ALGOD: null
+    parameters:
+    - INDEXER: null
+    - ALGOD: '[{"in":"path","name":"asset-id","required":true,"t...'
+  /v2/assets/{asset-id}/balances:
+  - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
+  - ALGOD: null
+  /v2/assets/{asset-id}/transactions:
+  - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
+  - ALGOD: null
+  /v2/blocks/{round-number}:
+  - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
+  - ALGOD: null
+  /v2/blocks/{round}:
+  - INDEXER: null
+  - ALGOD: '{"get":{"operationId":"GetBlock","parameters":[{"d...'
+  /v2/blocks/{round}/transactions/{txid}/proof:
+  - INDEXER: null
+  - ALGOD: '{"get":{"operationId":"GetProof","parameters":[{"d...'
+  /v2/catchup/{catchpoint}:
+  - INDEXER: null
+  - ALGOD: '{"delete":{"description":"Given a catchpoint, it a...'
+  /v2/ledger/supply:
+  - INDEXER: null
+  - ALGOD: '{"get":{"operationId":"GetSupply","produces":["app...'
+  /v2/participation:
+  - INDEXER: null
+  - ALGOD: '{"get":{"description":"Return a list of participat...'
+  /v2/participation/{participation-id}:
+  - INDEXER: null
+  - ALGOD: '{"delete":{"description":"Delete a given participa...'
+  /v2/shutdown:
+  - INDEXER: null
+  - ALGOD: '{"post":{"description":"Special management endpoin...'
+  /v2/status:
+  - INDEXER: null
+  - ALGOD: '{"get":{"operationId":"GetStatus","produces":["app...'
+  /v2/status/wait-for-block-after/{round}:
+  - INDEXER: null
+  - ALGOD: '{"get":{"description":"Waits for a block to appear...'
+  /v2/teal/compile:
+  - INDEXER: null
+  - ALGOD: '{"post":{"consumes":["text/plain"],"description":"...'
+  /v2/teal/disassemble:
+  - INDEXER: null
+  - ALGOD: '{"post":{"consumes":["application/x-binary"],"desc...'
+  /v2/teal/dryrun:
+  - INDEXER: null
+  - ALGOD: '{"post":{"consumes":["application/json","applicati...'
+  /v2/transactions:
+    get:
+    - INDEXER: '{"consumes":["application/json"],"description":"Se...'
+    - ALGOD: null
+    post:
+    - INDEXER: null
+    - ALGOD: '{"consumes":["application/x-binary"],"operationId"...'
+  /v2/transactions/params:
+  - INDEXER: null
+  - ALGOD: '{"get":{"operationId":"TransactionParams","produce...'
+  /v2/transactions/pending:
+  - INDEXER: null
+  - ALGOD: '{"get":{"description":"Get the list of pending tra...'
+  /v2/transactions/pending/{txid}:
+  - INDEXER: null
+  - ALGOD: '{"get":{"description":"Given a transaction ID of a...'
+  /v2/transactions/{txid}:
+  - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
+  - ALGOD: null
+  /versions:
+  - INDEXER: null
+  - ALGOD: '{"get":{"description":"Retrieves the supported API...'
