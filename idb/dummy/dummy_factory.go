@@ -16,7 +16,9 @@ func (df dummyFactory) Name() string {
 
 // Build is part of the IndexerFactory interface.
 func (df dummyFactory) Build(arg string, opts idb.IndexerDbOptions, log *log.Logger) (idb.IndexerDb, chan struct{}, error) {
-	return &dummyIndexerDb{log: log}, nil, nil
+	ch := make(chan struct{})
+	close(ch)
+	return &dummyIndexerDb{log: log}, ch, nil
 }
 
 func init() {

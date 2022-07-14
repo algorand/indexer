@@ -6,7 +6,6 @@ import (
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/plugins"
 	"github.com/sirupsen/logrus"
@@ -18,7 +17,7 @@ const exporterName = "postgresql"
 type postgresqlExporter struct {
 	round  uint64
 	cfg    ExporterConfig
-	db     *postgres.IndexerDb
+	db     idb.IndexerDb
 	logger *logrus.Logger
 }
 
@@ -43,16 +42,21 @@ func (exp *postgresqlExporter) Metadata() exporters.ExporterMetadata {
 }
 
 func (exp *postgresqlExporter) Connect(cfg plugins.PluginConfig, logger *logrus.Logger) error {
+	dbName := "postgres"
 	exp.logger = logger
 	if err := exp.unmarhshalConfig(string(cfg)); err != nil {
 		return fmt.Errorf("connect failure in unmarshalConfig: %v", err)
 	}
+	// Inject a dummy db for unit testing
+	if exp.cfg.Test {
+		dbName = "dummy"
+	}
 	var opts idb.IndexerDbOptions
 	opts.MaxConn = exp.cfg.MaxConn
 	opts.ReadOnly = false
-	db, ready, err := postgres.OpenPostgres(exp.cfg.ConnectionString, opts, exp.logger)
+	db, ready, err := idb.IndexerDbByName(dbName, exp.cfg.ConnectionString, opts, exp.logger)
 	if err != nil {
-		return fmt.Errorf("connect failure in OpenPostgres: %v", err)
+		return fmt.Errorf("connect failure constructing db, %s: %v", dbName, err)
 	}
 	exp.db = db
 	<-ready
@@ -81,9 +85,12 @@ func (exp *postgresqlExporter) Receive(exportData exporters.ExportData) error {
 	if !ok {
 		return fmt.Errorf("receive error, unable to convert input %#v to BlockExportData", exportData)
 	}
-	exp.round = exportData.Round() + 1
 	vb := ledgercore.MakeValidatedBlock(blkExpData.Block, blkExpData.Delta)
-	return exp.db.AddBlock(&vb)
+	if err := exp.db.AddBlock(&vb); err != nil {
+		return err
+	}
+	exp.round = exportData.Round() + 1
+	return nil
 }
 
 func (exp *postgresqlExporter) HandleGenesis(genesis bookkeeping.Genesis) error {
@@ -98,7 +105,7 @@ func (exp *postgresqlExporter) Round() uint64 {
 }
 
 func (exp *postgresqlExporter) unmarhshalConfig(cfg string) error {
-	return yaml.Unmarshal([]byte(cfg), exp.cfg)
+	return yaml.Unmarshal([]byte(cfg), &exp.cfg)
 }
 
 func init() {
