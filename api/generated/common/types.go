@@ -405,6 +405,23 @@ type BlockUpgradeVote struct {
 	UpgradePropose *string `json:"upgrade-propose,omitempty"`
 }
 
+// Box defines model for Box.
+type Box struct {
+
+	// \[name\] box name, base64 encoded
+	Name []byte `json:"name"`
+
+	// \[value\] box value, base64 encoded.
+	Value []byte `json:"value"`
+}
+
+// BoxDescriptor defines model for BoxDescriptor.
+type BoxDescriptor struct {
+
+	// Base64 encoded box name
+	Name []byte `json:"name"`
+}
+
 // EvalDelta defines model for EvalDelta.
 type EvalDelta struct {
 
@@ -1019,6 +1036,14 @@ type AssetsResponse struct {
 
 // BlockResponse defines model for BlockResponse.
 type BlockResponse Block
+
+// BoxResponse defines model for BoxResponse.
+type BoxResponse Box
+
+// BoxesResponse defines model for BoxesResponse.
+type BoxesResponse struct {
+	Boxes []BoxDescriptor `json:"boxes"`
+}
 
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {

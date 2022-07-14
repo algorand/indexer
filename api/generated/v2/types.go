@@ -405,6 +405,23 @@ type BlockUpgradeVote struct {
 	UpgradePropose *string `json:"upgrade-propose,omitempty"`
 }
 
+// Box defines model for Box.
+type Box struct {
+
+	// \[name\] box name, base64 encoded
+	Name []byte `json:"name"`
+
+	// \[value\] box value, base64 encoded.
+	Value []byte `json:"value"`
+}
+
+// BoxDescriptor defines model for BoxDescriptor.
+type BoxDescriptor struct {
+
+	// Base64 encoded box name
+	Name []byte `json:"name"`
+}
+
 // EvalDelta defines model for EvalDelta.
 type EvalDelta struct {
 
@@ -1020,6 +1037,14 @@ type AssetsResponse struct {
 // BlockResponse defines model for BlockResponse.
 type BlockResponse Block
 
+// BoxResponse defines model for BoxResponse.
+type BoxResponse Box
+
+// BoxesResponse defines model for BoxesResponse.
+type BoxesResponse struct {
+	Boxes []BoxDescriptor `json:"boxes"`
+}
+
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
 	Data    *map[string]interface{} `json:"data,omitempty"`
@@ -1239,6 +1264,20 @@ type LookupApplicationByIDParams struct {
 
 	// Include all items including closed accounts, deleted applications, destroyed assets, opted-out asset holdings, and closed-out application localstates.
 	IncludeAll *bool `json:"include-all,omitempty"`
+}
+
+// GetApplicationBoxByNameParams defines parameters for GetApplicationBoxByName.
+type GetApplicationBoxByNameParams struct {
+
+	// A box name, in the goal app call arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.
+	Name string `json:"name"`
+}
+
+// GetApplicationBoxesParams defines parameters for GetApplicationBoxes.
+type GetApplicationBoxesParams struct {
+
+	// Max number of box names to return. If max is not set, or max == 0, returns all box-names.
+	Max *uint64 `json:"max,omitempty"`
 }
 
 // LookupApplicationLogsByIDParams defines parameters for LookupApplicationLogsByID.
