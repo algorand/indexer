@@ -7,8 +7,10 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/algorand/go-algorand/data/basics"
+	log "github.com/sirupsen/logrus"
 
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/util"
 )
@@ -113,4 +115,10 @@ func PrintTxnQuery(db idb.IndexerDb, q idb.TransactionFilter) {
 		myStackTrace()
 		exitValue = 1
 	}
+}
+
+// MakeTestLedger creates an in-memory local ledger
+func MakeTestLedger(logger *log.Logger) (*ledger.Ledger, error) {
+	genesis := MakeGenesis()
+	return util.MakeLedger(logger, true, &genesis, "ledger")
 }

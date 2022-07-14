@@ -27,7 +27,7 @@ var (
 	RewardAddr = DecodeAddressOrPanic("4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM")
 
 	// GenesisHash is a genesis hash used in tests.
-	GenesisHash = crypto.Digest{77}
+	GenesisHash = MakeGenesis().Hash()
 	// Signature is a signature for transactions used in tests.
 	Signature = crypto.Signature{88}
 
@@ -215,8 +215,10 @@ func MakeAppDestroyTxn(appid uint64, sender basics.Address) transactions.SignedT
 					GenesisHash: GenesisHash,
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
-					ApplicationID: basics.AppIndex(appid),
-					OnCompletion:  transactions.DeleteApplicationOC,
+					ApplicationID:     basics.AppIndex(appid),
+					OnCompletion:      transactions.DeleteApplicationOC,
+					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
 				},
 			},
 			Sig: Signature,
@@ -275,8 +277,10 @@ func MakeAppCallTxn(appid uint64, sender basics.Address) transactions.SignedTxnW
 					GenesisHash: GenesisHash,
 				},
 				ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
-					ApplicationID: basics.AppIndex(appid),
-					OnCompletion:  transactions.NoOpOC,
+					ApplicationID:     basics.AppIndex(appid),
+					OnCompletion:      transactions.NoOpOC,
+					ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+					ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
 				},
 			},
 			Sig: Signature,
@@ -327,8 +331,10 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 						Sender: assetSender,
 					},
 					ApplicationCallTxnFields: transactions.ApplicationCallTxnFields{
-						ApplicationID: 789,
-						OnCompletion:  transactions.NoOpOC,
+						ApplicationID:     789,
+						OnCompletion:      transactions.NoOpOC,
+						ApprovalProgram:   []byte{0x02, 0x20, 0x01, 0x01, 0x22},
+						ClearStateProgram: []byte{0x02, 0x20, 0x01, 0x01, 0x22},
 					},
 				},
 			},
@@ -585,15 +591,14 @@ func MakeGenesis() bookkeeping.Genesis {
 
 // MakeGenesisBlock makes a genesis block.
 func MakeGenesisBlock() bookkeeping.Block {
-	return bookkeeping.Block{
-		BlockHeader: bookkeeping.BlockHeader{
-			GenesisID:   MakeGenesis().ID(),
-			GenesisHash: GenesisHash,
-			RewardsState: bookkeeping.RewardsState{
-				FeeSink:     FeeAddr,
-				RewardsPool: RewardAddr,
-			},
-			UpgradeState: bookkeeping.UpgradeState{CurrentProtocol: Proto},
-		},
+	genesis := MakeGenesis()
+	balances, err := genesis.Balances()
+	if err != nil {
+		return bookkeeping.Block{}
 	}
+	genesisBlock, err := bookkeeping.MakeGenesisBlock(genesis.Proto, balances, genesis.ID(), genesis.Hash())
+	if err != nil {
+		return bookkeeping.Block{}
+	}
+	return genesisBlock
 }

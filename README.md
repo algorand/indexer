@@ -216,7 +216,6 @@ The Indexer data directory is the location where the Indexer can store and/or lo
 
 **It is HIGHLY recommended placing the data directory in a separate, stateful directory for production usage of the Indexer.**
 
-
 ### Auto-Loading Configuration
 
 The Indexer will scan the data directory at startup and load certain configuration files if they are present.  The files are as follows:

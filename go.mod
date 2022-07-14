@@ -14,6 +14,7 @@ require (
 	github.com/jackc/pgconn v1.10.0
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
 	github.com/jackc/pgx/v4 v4.13.0
+	github.com/jarcoal/httpmock v1.2.0
 	github.com/labstack/echo-contrib v0.11.0
 	github.com/labstack/echo/v4 v4.3.0
 	github.com/orlangure/gnomock v0.12.0
@@ -32,6 +33,7 @@ require (
 	github.com/algorand/falcon v0.0.0-20220130164023-c9e1d466f123 // indirect
 	github.com/algorand/go-deadlock v0.2.2 // indirect
 	github.com/algorand/go-sumhash v0.1.0 // indirect
+	github.com/algorand/graphtrace v0.1.0 // indirect
 	github.com/algorand/msgp v1.1.52 // indirect
 	github.com/algorand/websocket v1.4.5 // indirect
 	github.com/aws/aws-sdk-go v1.30.19 // indirect
