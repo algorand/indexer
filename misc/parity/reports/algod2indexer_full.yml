@@ -239,9 +239,9 @@ paths:
       - - INDEXER: null
         - ALGOD: '"{''$ref'': ''#/parameters/include-all''}"'
       - - INDEXER: null
-        - ALGOD: '"{''type'': ''integer'', ''description'': ''An applicatio...'
-      - - INDEXER: null
         - ALGOD: '"{''type'': ''integer'', ''name'': ''application-id'', ''in...'
+      - - INDEXER: null
+        - ALGOD: '"{''type'': ''integer'', ''description'': ''An applicatio...'
       responses:
         '200':
           description:
@@ -290,6 +290,12 @@ paths:
     - ALGOD: '[{"in":"path","name":"application-id","required":t...'
   /v2/applications/{application-id}/box:
     get:
+      consumes:
+      - INDEXER: '["application/json"]'
+      - ALGOD: null
+      operationId:
+      - INDEXER: '"lookupApplicationBoxByIDandName"'
+      - ALGOD: '"GetApplicationBoxByName"'
       responses:
         '200':
           description:
@@ -331,8 +337,17 @@ paths:
         default:
         - INDEXER: null
         - ALGOD: '{"description":"Unknown Error"}'
+      tags:
+      - INDEXER: '["lookup"]'
+      - ALGOD: null
   /v2/applications/{application-id}/boxes:
     get:
+      consumes:
+      - INDEXER: '["application/json"]'
+      - ALGOD: null
+      operationId:
+      - INDEXER: '"lookupApplicationBoxesByID"'
+      - ALGOD: '"GetApplicationBoxes"'
       responses:
         '200':
           description:
@@ -367,6 +382,9 @@ paths:
         default:
         - INDEXER: null
         - ALGOD: '{"description":"Unknown Error"}'
+      tags:
+      - INDEXER: '["lookup"]'
+      - ALGOD: null
   /v2/applications/{application-id}/logs:
   - INDEXER: '{"get":{"consumes":["application/json"],"descripti...'
   - ALGOD: null

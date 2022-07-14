@@ -487,10 +487,12 @@
     "/v2/applications/{application-id}/boxes": {
       "get": {
         "description": "Given an application ID, it returns the box names of that application. No particular ordering is guaranteed.",
+        "consumes": ["application/json"],
         "produces": ["application/json"],
+        "tags": ["lookup"],
+        "operationId": "lookupApplicationBoxesByID",
         "schemes": ["http"],
         "summary": "Get box names for a given application.",
-        "operationId": "GetApplicationBoxes",
         "parameters": [
           {
             "type": "integer",
@@ -533,10 +535,12 @@
     "/v2/applications/{application-id}/box": {
       "get": {
         "description": "Given an application ID and box name, it returns the box name and value (each base64 encoded). Box names must be in the goal app call arg encoding form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
+        "consumes": ["application/json"],
         "produces": ["application/json"],
+        "tags": ["lookup"],
+        "operationId": "lookupApplicationBoxByIDandName",
         "schemes": ["http"],
         "summary": "Get box information for a given application.",
-        "operationId": "GetApplicationBoxByName",
         "parameters": [
           {
             "type": "integer",
