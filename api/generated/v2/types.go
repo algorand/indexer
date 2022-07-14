@@ -408,6 +408,9 @@ type BlockUpgradeVote struct {
 // Box defines model for Box.
 type Box struct {
 
+	// the application id of the box owner
+	ApplicationId uint64 `json:"application-id"`
+
 	// \[name\] box name, base64 encoded
 	Name []byte `json:"name"`
 
@@ -417,6 +420,9 @@ type Box struct {
 
 // BoxDescriptor defines model for BoxDescriptor.
 type BoxDescriptor struct {
+
+	// the application id of the box owner
+	ApplicationId uint64 `json:"application-id"`
 
 	// Base64 encoded box name
 	Name []byte `json:"name"`
@@ -870,6 +876,9 @@ type AuthAddr string
 // BeforeTime defines model for before-time.
 type BeforeTime time.Time
 
+// BoxName defines model for box-name.
+type BoxName string
+
 // CurrencyGreaterThan defines model for currency-greater-than.
 type CurrencyGreaterThan uint64
 
@@ -1269,15 +1278,15 @@ type LookupApplicationByIDParams struct {
 // LookupApplicationBoxByIDandNameParams defines parameters for LookupApplicationBoxByIDandName.
 type LookupApplicationBoxByIDandNameParams struct {
 
-	// A box name, in the goal app call arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.
+	// A box name in goal-arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.
 	Name string `json:"name"`
 }
 
-// LookupApplicationBoxesByIDParams defines parameters for LookupApplicationBoxesByID.
-type LookupApplicationBoxesByIDParams struct {
+// SearchForApplicationBoxesParams defines parameters for SearchForApplicationBoxes.
+type SearchForApplicationBoxesParams struct {
 
-	// Max number of box names to return. If max is not set, or max == 0, returns all box-names.
-	Max *uint64 `json:"max,omitempty"`
+	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
+	Limit *uint64 `json:"limit,omitempty"`
 }
 
 // LookupApplicationLogsByIDParams defines parameters for LookupApplicationLogsByID.

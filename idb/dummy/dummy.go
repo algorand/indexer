@@ -83,6 +83,11 @@ func (db *dummyIndexerDb) AppLocalState(ctx context.Context, filter idb.Applicat
 	return nil, 0
 }
 
+// ApplicationBoxes isn't currently implemented
+func (_m *dummyIndexerDb) ApplicationBoxes(ctx context.Context, filter idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
+	panic("not implemented")
+}
+
 // Health is part of idb.IndexerDB
 func (db *dummyIndexerDb) Health(ctx context.Context) (state idb.Health, err error) {
 	return idb.Health{}, nil

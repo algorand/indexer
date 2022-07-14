@@ -81,6 +81,17 @@
         },
         "x-algorand-format": "RFC3339 String"
       },
+      "box-name": {
+        "description": "A box name in goal-arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
+        "in": "query",
+        "name": "name",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "x-algorand-format": "GOALarg"
+        },
+        "x-algorand-format": "GOALarg"
+      },
       "currency-greater-than": {
         "description": "Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
         "in": "query",
@@ -1307,8 +1318,12 @@
         "type": "object"
       },
       "Box": {
-        "description": "Box name and its content.",
+        "description": "Box and contents.",
         "properties": {
+          "application-id": {
+            "description": "the application id of the box owner",
+            "type": "integer"
+          },
           "name": {
             "description": "\\[name\\] box name, base64 encoded",
             "format": "byte",
@@ -1323,14 +1338,19 @@
           }
         },
         "required": [
+          "application-id",
           "name",
           "value"
         ],
         "type": "object"
       },
       "BoxDescriptor": {
-        "description": "Box descriptor describes a Box.",
+        "description": "Box descriptor describes an app box without a value.",
         "properties": {
+          "application-id": {
+            "description": "the application id of the box owner",
+            "type": "integer"
+          },
           "name": {
             "description": "Base64 encoded box name",
             "format": "byte",
@@ -1339,6 +1359,7 @@
           }
         },
         "required": [
+          "application-id",
           "name"
         ],
         "type": "object"
@@ -3418,11 +3439,10 @@
     },
     "/v2/applications/{application-id}/box": {
       "get": {
-        "description": "Given an application ID and box name, it returns the box name and value (each base64 encoded). Box names must be in the goal app call arg encoding form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
+        "description": "Given an application ID and box name, returns base64 encoded box name and value. Box names must be in the goal-arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, encode base 64 and use 'b64' prefix as in 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
         "operationId": "lookupApplicationBoxByIDandName",
         "parameters": [
           {
-            "description": "An application identifier",
             "in": "path",
             "name": "application-id",
             "required": true,
@@ -3431,13 +3451,15 @@
             }
           },
           {
-            "description": "A box name, in the goal app call arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
+            "description": "A box name in goal-arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
             "in": "query",
             "name": "name",
             "required": true,
             "schema": {
-              "type": "string"
-            }
+              "type": "string",
+              "x-algorand-format": "GOALarg"
+            },
+            "x-algorand-format": "GOALarg"
           }
         ],
         "responses": {
@@ -3526,11 +3548,10 @@
     },
     "/v2/applications/{application-id}/boxes": {
       "get": {
-        "description": "Given an application ID, it returns the box names of that application. No particular ordering is guaranteed.",
-        "operationId": "lookupApplicationBoxesByID",
+        "description": "Given an application ID, returns the box names of that application. No particular ordering is guaranteed.",
+        "operationId": "searchForApplicationBoxes",
         "parameters": [
           {
-            "description": "An application identifier",
             "in": "path",
             "name": "application-id",
             "required": true,
@@ -3539,9 +3560,9 @@
             }
           },
           {
-            "description": "Max number of box names to return. If max is not set, or max == 0, returns all box-names.",
+            "description": "Maximum number of results to return. There could be additional pages even if the limit is not reached.",
             "in": "query",
-            "name": "max",
+            "name": "limit",
             "schema": {
               "type": "integer"
             }
@@ -3638,7 +3659,7 @@
         },
         "summary": "Get box names for a given application.",
         "tags": [
-          "lookup"
+          "search"
         ]
       }
     },

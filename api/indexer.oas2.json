@@ -486,26 +486,21 @@
     },
     "/v2/applications/{application-id}/boxes": {
       "get": {
-        "description": "Given an application ID, it returns the box names of that application. No particular ordering is guaranteed.",
+        "description": "Given an application ID, returns the box names of that application. No particular ordering is guaranteed.",
         "consumes": ["application/json"],
         "produces": ["application/json"],
-        "tags": ["lookup"],
-        "operationId": "lookupApplicationBoxesByID",
-        "schemes": ["http"],
+        "tags": ["search"],
+        "operationId": "searchForApplicationBoxes",
         "summary": "Get box names for a given application.",
         "parameters": [
           {
             "type": "integer",
-            "description": "An application identifier",
             "name": "application-id",
             "in": "path",
             "required": true
           },
           {
-            "type": "integer",
-            "description": "Max number of box names to return. If max is not set, or max == 0, returns all box-names.",
-            "name": "max",
-            "in": "query"
+            "$ref": "#/parameters/limit"
           }
         ],
         "responses": {
@@ -522,19 +517,11 @@
             "$ref": "#/responses/ErrorResponse"
           }
         }
-      },
-      "parameters": [
-        {
-          "type": "integer",
-          "name": "application-id",
-          "in": "path",
-          "required": true
-        }
-      ]
+      }
     },
     "/v2/applications/{application-id}/box": {
       "get": {
-        "description": "Given an application ID and box name, it returns the box name and value (each base64 encoded). Box names must be in the goal app call arg encoding form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
+        "description": "Given an application ID and box name, returns base64 encoded box name and value. Box names must be in the goal-arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, encode base 64 and use 'b64' prefix as in 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
         "consumes": ["application/json"],
         "produces": ["application/json"],
         "tags": ["lookup"],
@@ -544,17 +531,12 @@
         "parameters": [
           {
             "type": "integer",
-            "description": "An application identifier",
             "name": "application-id",
             "in": "path",
             "required": true
           },
           {
-            "type": "string",
-            "description": "A box name, in the goal app call arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
-            "name": "name",
-            "in": "query",
-            "required": true
+            "$ref": "#/parameters/box-name"
           }
         ],
         "responses": {
@@ -571,21 +553,7 @@
             "$ref": "#/responses/ErrorResponse"
           }
         }
-      },
-      "parameters": [
-        {
-          "type": "integer",
-          "name": "application-id",
-          "in": "path",
-          "required": true
-        },
-        {
-          "type": "string",
-          "name": "name",
-          "in": "query",
-          "required": true
-        }
-      ]
+      }
     },
     "/v2/applications/{application-id}/logs": {
       "get": {
@@ -1700,10 +1668,14 @@
       }
     },
     "Box": {
-      "description": "Box name and its content.",
+      "description": "Box and contents.",
       "type": "object",
-      "required": ["name", "value"],
+      "required": ["application-id", "name", "value"],
       "properties": {
+        "application-id": {
+          "description": "the application id of the box owner",
+          "type": "integer"
+        },
         "name": {
           "description": "\\[name\\] box name, base64 encoded",
           "type": "string",
@@ -1717,10 +1689,15 @@
       }
     },
     "BoxDescriptor": {
-      "description": "Box descriptor describes a Box.",
+      "description": "Box descriptor describes an app box without a value.",
       "type": "object",
-      "required": ["name"],
+      "required": ["application-id", "name"],
       "properties": {
+        "application-id": {
+          "description": "the application id of the box owner",
+
+          "type": "integer"
+        },
         "name": {
           "description": "Base64 encoded box name",
           "type": "string",
@@ -2415,6 +2392,14 @@
       "description": "Include results before the given time. Must be an RFC 3339 formatted string.",
       "name": "before-time",
       "in": "query"
+    },
+    "box-name": {
+      "description": "A box name in goal-arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
+      "type": "string",
+      "name": "name",
+      "in": "query",
+      "required": true,
+      "x-algorand-format": "GOALarg"
     },
     "currency-greater-than": {
       "type": "integer",

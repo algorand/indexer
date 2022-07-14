@@ -408,6 +408,9 @@ type BlockUpgradeVote struct {
 // Box defines model for Box.
 type Box struct {
 
+	// the application id of the box owner
+	ApplicationId uint64 `json:"application-id"`
+
 	// \[name\] box name, base64 encoded
 	Name []byte `json:"name"`
 
@@ -417,6 +420,9 @@ type Box struct {
 
 // BoxDescriptor defines model for BoxDescriptor.
 type BoxDescriptor struct {
+
+	// the application id of the box owner
+	ApplicationId uint64 `json:"application-id"`
 
 	// Base64 encoded box name
 	Name []byte `json:"name"`
@@ -869,6 +875,9 @@ type AuthAddr string
 
 // BeforeTime defines model for before-time.
 type BeforeTime time.Time
+
+// BoxName defines model for box-name.
+type BoxName string
 
 // CurrencyGreaterThan defines model for currency-greater-than.
 type CurrencyGreaterThan uint64

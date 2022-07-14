@@ -248,6 +248,11 @@ func (_m *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.Speci
 	return r0, r1
 }
 
+// ApplicationBoxes isn't currently implemented
+func (_m *IndexerDb)ApplicationBoxes(ctx context.Context, filter idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
+	panic("not implemented")
+}
+
 // Health provides a mock function with given fields: ctx
 func (_m *IndexerDb) Health(ctx context.Context) (idb.Health, error) {
 	ret := _m.Called(ctx)

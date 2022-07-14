@@ -182,6 +182,7 @@ type IndexerDb interface {
 	AssetBalances(ctx context.Context, abq AssetBalanceQuery) (<-chan AssetBalanceRow, uint64)
 	Applications(ctx context.Context, filter ApplicationQuery) (<-chan ApplicationRow, uint64)
 	AppLocalState(ctx context.Context, filter ApplicationQuery) (<-chan AppLocalStateRow, uint64)
+	ApplicationBoxes(ctx context.Context, filter ApplicationBoxQuery) (<-chan ApplicationBoxRow, uint64)
 
 	Health(ctx context.Context) (status Health, err error)
 }
@@ -372,6 +373,20 @@ type ApplicationQuery struct {
 type AppLocalStateRow struct {
 	AppLocalState models.ApplicationLocalState
 	Error         error
+}
+
+// ApplicationBoxQuery is a parameter object used to query application boxes.
+type ApplicationBoxQuery struct {
+	ApplicationID uint64
+	BoxName       []byte
+	OmitValues    bool
+	Limit         uint64
+}
+
+// BoxRow provides the appid, name, and value in an application box query.
+type ApplicationBoxRow struct {
+	Box   models.Box
+	Error error
 }
 
 // IndexerDbOptions are the options common to all indexer backends.

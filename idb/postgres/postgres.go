@@ -50,7 +50,7 @@ func OpenPostgres(connection string, opts idb.IndexerDbOptions, log *log.Logger)
 
 	postgresConfig, err := pgxpool.ParseConfig(connection)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Couldn't parse config: %v", err)
+		return nil, nil, fmt.Errorf("couldn't parse config: %v", err)
 	}
 
 	if opts.MaxConn != 0 {
@@ -2287,6 +2287,99 @@ func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.Applica
 	}
 	if err := rows.Err(); err != nil {
 		out <- idb.ApplicationRow{Error: err}
+	}
+}
+
+// ApplicationBoxes is part of interface idb.IndexerDB
+func (db *IndexerDb) ApplicationBoxes(ctx context.Context, filter idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
+	out := make(chan idb.ApplicationBoxRow, 1)
+
+	columns := `app, name`
+	if !filter.OmitValues {
+		columns += `, value`
+	}
+	query := fmt.Sprintf("SELECT %s FROM app_box WHERE app = $1", columns)
+	whereArgs := []interface{}{filter.ApplicationID}
+
+	if filter.BoxName != nil {
+		query += " AND name = $2"
+		whereArgs = append(whereArgs, filter.BoxName)
+	}
+
+	// NOTE: not providing ORDER BY
+	if filter.Limit != 0 {
+		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
+	}
+
+	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
+	if err != nil {
+		out <- idb.ApplicationBoxRow{Error: err}
+		close(out)
+		return out, 0
+	}
+
+	round, err := db.getMaxRoundAccounted(ctx, tx)
+	if err != nil {
+		out <- idb.ApplicationBoxRow{Error: err}
+		close(out)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
+		return out, round
+	}
+
+	rows, err := tx.Query(ctx, query, whereArgs...)
+	if err != nil {
+		out <- idb.ApplicationBoxRow{Error: err}
+		close(out)
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
+		return out, round
+	}
+
+	go func() {
+		db.yieldApplicationBoxThread(filter.OmitValues, rows, out)
+		// Because we return a channel into a "callWithTimeout" function,
+		// We need to make sure that rollback is called before close()
+		// otherwise we can end up with a situation where "callWithTimeout"
+		// will cancel our context, resulting in connection pool churn
+		if rerr := tx.Rollback(ctx); rerr != nil {
+			db.log.Printf("rollback error: %s", rerr)
+		}
+		close(out)
+	}()
+	return out, round
+}
+
+func (db *IndexerDb) yieldApplicationBoxThread(omitValues bool, rows pgx.Rows, out chan idb.ApplicationBoxRow) {
+	defer rows.Close()
+
+	for rows.Next() {
+		var app uint64
+		var name []byte
+		var value []byte
+		var err error
+
+		if omitValues {
+			err = rows.Scan(&app, &name)
+		} else {
+			err = rows.Scan(&app, &name, &value)
+		}
+		if err != nil {
+			out <- idb.ApplicationBoxRow{Error: err}
+			break
+		}
+
+		box := models.Box{
+			Name:  name,
+			Value: value, // is nil when omitValues
+		}
+
+		out <- idb.ApplicationBoxRow{Box: box}
+	}
+	if err := rows.Err(); err != nil {
+		out <- idb.ApplicationBoxRow{Error: err}
 	}
 }
 
