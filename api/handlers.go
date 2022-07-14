@@ -501,6 +501,18 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 	})
 }
 
+// LookupApplicationBoxByIDandName returns the value of an application's box
+// (GET /v2/applications/{application-id}/box)
+func (v2 *ServerImplementation) LookupApplicationBoxByIDandName(ctx echo.Context, applicationID uint64, params generated.LookupApplicationBoxByIDandNameParams) error {
+	panic("not implemented")
+}
+
+// LookupApplicationBoxesByID returns box names for an app
+// (GET /v2/applications/{application-id}/boxes)
+func (si *ServerImplementation) LookupApplicationBoxesByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationBoxesByIDParams) error {
+	panic("not implemented")
+}
+
 // LookupApplicationLogsByID returns one application logs
 // (GET /v2/applications/{application-id}/logs)
 func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationLogsByIDParams) error {
