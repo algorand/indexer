@@ -548,7 +548,8 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 // in the `CompareAppBoxesAgainstLedger()` assertions function which then asserts using `LookupKv()`
 func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	l := makeTestLedger(t)
-	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
+	logger, _ := test2.NewNullLogger()
+	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
 	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer l.Close()
 	defer ld.Close()
