@@ -567,6 +567,10 @@
           "application/json": {
             "schema": {
               "properties": {
+                "application-id": {
+                  "description": "\\[appidx\\] application index.",
+                  "type": "integer"
+                },
                 "boxes": {
                   "items": {
                     "$ref": "#/components/schemas/BoxDescriptor"
@@ -575,6 +579,7 @@
                 }
               },
               "required": [
+                "application-id",
                 "boxes"
               ],
               "type": "object"
@@ -1347,10 +1352,6 @@
       "BoxDescriptor": {
         "description": "Box descriptor describes an app box without a value.",
         "properties": {
-          "application-id": {
-            "description": "the application id of the box owner",
-            "type": "integer"
-          },
           "name": {
             "description": "Base64 encoded box name",
             "format": "byte",
@@ -1359,7 +1360,6 @@
           }
         },
         "required": [
-          "application-id",
           "name"
         ],
         "type": "object"
@@ -3574,6 +3574,10 @@
               "application/json": {
                 "schema": {
                   "properties": {
+                    "application-id": {
+                      "description": "\\[appidx\\] application index.",
+                      "type": "integer"
+                    },
                     "boxes": {
                       "items": {
                         "$ref": "#/components/schemas/BoxDescriptor"
@@ -3582,6 +3586,7 @@
                     }
                   },
                   "required": [
+                    "application-id",
                     "boxes"
                   ],
                   "type": "object"

@@ -421,9 +421,6 @@ type Box struct {
 // BoxDescriptor defines model for BoxDescriptor.
 type BoxDescriptor struct {
 
-	// the application id of the box owner
-	ApplicationId uint64 `json:"application-id"`
-
 	// Base64 encoded box name
 	Name []byte `json:"name"`
 }
@@ -1051,7 +1048,10 @@ type BoxResponse Box
 
 // BoxesResponse defines model for BoxesResponse.
 type BoxesResponse struct {
-	Boxes []BoxDescriptor `json:"boxes"`
+
+	// \[appidx\] application index.
+	ApplicationId uint64          `json:"application-id"`
+	Boxes         []BoxDescriptor `json:"boxes"`
 }
 
 // ErrorResponse defines model for ErrorResponse.

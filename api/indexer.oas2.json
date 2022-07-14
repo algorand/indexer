@@ -1691,13 +1691,8 @@
     "BoxDescriptor": {
       "description": "Box descriptor describes an app box without a value.",
       "type": "object",
-      "required": ["application-id", "name"],
+      "required": ["name"],
       "properties": {
-        "application-id": {
-          "description": "the application id of the box owner",
-
-          "type": "integer"
-        },
         "name": {
           "description": "Base64 encoded box name",
           "type": "string",
@@ -2785,9 +2780,13 @@
       "description": "Box names of an application",
       "schema": {
         "type": "object",
-        "required": ["boxes"],
+        "required": ["application-id", "boxes"],
         "properties": {
-          "boxes": {
+          "application-id": {
+            "description": "\\[appidx\\] application index.",
+            "type": "integer"
+          },
+           "boxes": {
             "type": "array",
             "items": {
               "$ref": "#/definitions/BoxDescriptor"

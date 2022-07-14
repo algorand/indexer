@@ -13,6 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/transactions/logic"
 
 	"github.com/algorand/indexer/accounting"
 	"github.com/algorand/indexer/api/generated/common"
@@ -503,14 +504,76 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 
 // LookupApplicationBoxByIDandName returns the value of an application's box
 // (GET /v2/applications/{application-id}/box)
-func (v2 *ServerImplementation) LookupApplicationBoxByIDandName(ctx echo.Context, applicationID uint64, params generated.LookupApplicationBoxByIDandNameParams) error {
-	panic("not implemented")
+func (si *ServerImplementation) LookupApplicationBoxByIDandName(ctx echo.Context, applicationID uint64, params generated.LookupApplicationBoxByIDandNameParams) error {
+	if err := si.verifyHandler("LookupApplicationBoxByIDandName", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	encodedBoxName := params.Name
+	boxNameBytes, err := logic.NewAppCallBytes(encodedBoxName)
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+	boxName, err := boxNameBytes.Raw()
+	if err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	q := idb.ApplicationBoxQuery{
+		ApplicationID: applicationID,
+		BoxName:       boxName,
+	}
+	boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
+
+	if err != nil {
+		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", errFailedSearchingBoxes, round, applicationID, encodedBoxName)
+		return indexerError(ctx, fmt.Errorf("%s: %w", msg, err))
+	}
+
+	if len(boxes) == 0 {
+		return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%+v", errNoBoxesFound, round, applicationID, encodedBoxName))
+	}
+
+	if len(boxes) > 1 {
+		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, boxName=%s", errMultipleBoxes, round, applicationID, encodedBoxName))
+	}
+
+	box := boxes[0]
+	if box.ApplicationId != applicationID {
+		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, unexpected appid=%d", errBoxMismatch, round, applicationID, box.ApplicationId))
+	}
+	return ctx.JSON(http.StatusOK, generated.BoxResponse(box))
 }
 
 // LookupApplicationBoxesByID returns box names for an app
 // (GET /v2/applications/{application-id}/boxes)
-func (si *ServerImplementation) LookupApplicationBoxesByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationBoxesByIDParams) error {
-	panic("not implemented")
+func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, applicationID uint64, params generated.SearchForApplicationBoxesParams) error {
+	if err := si.verifyHandler("SearchForApplicationBoxes", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
+
+	q := idb.ApplicationBoxQuery{
+		ApplicationID: applicationID,
+		OmitValues:    true,
+	}
+	boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
+
+	if err != nil {
+		msg := fmt.Sprintf("%s: round=?=%d, appid=%d", errBoxMismatch, round, applicationID)
+		return indexerError(ctx, fmt.Errorf("%s: %w", msg, err))
+	}
+
+	res := generated.BoxesResponse{ApplicationId: applicationID}
+	descriptors := []generated.BoxDescriptor{}
+	for _, box := range boxes {
+		if box.ApplicationId != applicationID {
+			return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, unexpected appid=%d", errBoxMismatch, round, applicationID, box.ApplicationId))
+		}
+		descriptors = append(descriptors, generated.BoxDescriptor{Name: box.Name})
+	}
+	res.Boxes = descriptors
+
+	return ctx.JSON(http.StatusOK, res)
 }
 
 // LookupApplicationLogsByID returns one application logs
@@ -865,6 +928,31 @@ func (si *ServerImplementation) fetchApplications(ctx context.Context, params id
 	}
 
 	return apps, round, nil
+}
+
+// fetchApplications fetches all results
+func (si *ServerImplementation) fetchApplicationBoxes(ctx context.Context, params idb.ApplicationBoxQuery) ([]generated.Box, uint64, error) {
+	var round uint64
+	boxes := make([]generated.Box, 0)
+
+	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+		var results <-chan idb.ApplicationBoxRow
+		results, round = si.db.ApplicationBoxes(ctx, params)
+
+		for result := range results {
+			if result.Error != nil {
+				return result.Error
+			}
+			boxes = append(boxes, result.Box)
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return boxes, round, nil
 }
 
 // fetchAppLocalStates fetches all generated.AppLocalState from a query
