@@ -4,6 +4,7 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
+	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )
@@ -13,8 +14,9 @@ var nc = &Constructor{}
 var ne = nc.New()
 
 func TestExporterByName(t *testing.T) {
+	logger, _ := test.NewNullLogger()
 	exporters.RegisterExporter(noopExporterMetadata.ExpName, nc)
-	ne, err := exporters.ExporterByName(noopExporterMetadata.ExpName, "", nil)
+	ne, err := exporters.ExporterByName(noopExporterMetadata.ExpName, "", logger)
 	assert.NoError(t, err)
 	assert.Implements(t, (*exporters.Exporter)(nil), ne)
 }
