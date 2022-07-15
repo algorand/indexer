@@ -547,8 +547,9 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 // This is done by handing off a pointer to Struct `processor/eval/ledger_for_evaluator.go::LedgerForEvaluator`
 // in the `CompareAppBoxesAgainstLedger()` assertions function which then asserts using `LookupKv()`
 func TestLedgerForEvaluatorLookupKv(t *testing.T) {
+	logger, _ := test2.NewNullLogger()
 	l := makeTestLedger(t)
-	pr, _ := block_processor.MakeProcessorWithLedger(l, nil)
+	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
 	ld := indxLedger.MakeLedgerForEvaluator(l)
 	defer l.Close()
 	defer ld.Close()
