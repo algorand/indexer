@@ -9,7 +9,12 @@ The Indexer is a standalone service that reads committed blocks from the Algoran
 
 Development is done using the [Go Programming Language](https://golang.org/), the version is specified in the project's [go.mod](go.mod) file.
 
-Run `make` to build Indexer, the binary is located at `cmd/algorand-indexer/algorand-indexer`.
+To build the Indexer, run:
+```bash
+git submodule update --init
+make
+```
+The binary is located at `cmd/algorand-indexer/algorand-indexer`.
 
 # Requirements
 
