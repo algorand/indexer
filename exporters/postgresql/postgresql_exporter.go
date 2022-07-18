@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
@@ -73,7 +74,10 @@ func (exp *postgresqlExporter) Disconnect() error {
 	return nil
 }
 
-func (exp *postgresqlExporter) Receive(exportData exporters.ExportData) error {
+func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
+	if exportData.Block == nil || exportData.Delta == nil {
+		return fmt.Errorf("receive got an invalid block: %#v", exportData)
+	}
 	// Do we need to test for consensus protocol here?
 	/*
 		_, ok := config.Consensus[block.CurrentProtocol]
@@ -81,11 +85,7 @@ func (exp *postgresqlExporter) Receive(exportData exporters.ExportData) error {
 				return fmt.Errorf("protocol %s not found", block.CurrentProtocol)
 		}
 	*/
-	blkExpData, ok := exportData.(exporters.BlockExportData)
-	if !ok {
-		return fmt.Errorf("receive error, unable to convert input %#v to BlockExportData", exportData)
-	}
-	vb := ledgercore.MakeValidatedBlock(*blkExpData.Block, *blkExpData.Delta)
+	vb := ledgercore.MakeValidatedBlock(*exportData.Block, *exportData.Delta)
 	if err := exp.db.AddBlock(&vb); err != nil {
 		return err
 	}

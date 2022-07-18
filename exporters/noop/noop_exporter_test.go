@@ -2,6 +2,7 @@ package noop
 
 import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -46,7 +47,7 @@ func TestExporterHandleGenesis(t *testing.T) {
 }
 
 func TestExporterRoundReceive(t *testing.T) {
-	eData := &exporters.BlockExportData{
+	eData := data.BlockData{
 		Block: &bookkeeping.Block{
 			BlockHeader: bookkeeping.BlockHeader{
 				Round: 5,

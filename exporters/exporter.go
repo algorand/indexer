@@ -1,34 +1,11 @@
 package exporters
 
 import (
-	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
 	"github.com/sirupsen/logrus"
 )
-
-// ExportData is the interface which all data types sent to Exporters should implement
-type ExportData interface {
-	Round() uint64
-}
-
-// BlockExportData is provided to the Exporter on each round.
-type BlockExportData struct {
-	// Block is the block data written to the blockchain.
-	Block *bookkeeping.Block
-
-	// Delta contains a list of account changes resulting from the block. Processor plugins may have modify this data.
-	Delta *ledgercore.StateDelta
-
-	// Certificate contains voting data that certifies the block. The certificate is non deterministic, a node stops collecting votes once the voting threshold is reached.
-	Certificate *agreement.Certificate
-}
-
-// Round returns the round to which the BlockExportData corresponds
-func (blkData BlockExportData) Round() uint64 {
-	return uint64(blkData.Block.Round())
-}
 
 // Exporter defines the interface for plugins
 type Exporter interface {
@@ -52,7 +29,7 @@ type Exporter interface {
 
 	// Receive is called for each block to be processed by the exporter.
 	// Should return an error on failure--retries are configurable.
-	Receive(exportData ExportData) error
+	Receive(exportData data.BlockData) error
 
 	// HandleGenesis is an Exporter's opportunity to do initial validation and handling of the Genesis block.
 	// If validation (such as a check to ensure `genesis` matches a previously stored genesis block) or handling fails,

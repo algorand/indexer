@@ -2,6 +2,7 @@ package noop
 
 import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
 	"github.com/sirupsen/logrus"
@@ -49,7 +50,7 @@ func (exp *noopExporter) Disconnect() error {
 	return nil
 }
 
-func (exp *noopExporter) Receive(exportData exporters.ExportData) error {
+func (exp *noopExporter) Receive(exportData data.BlockData) error {
 	exp.round = exportData.Round() + 1
 	return nil
 }
