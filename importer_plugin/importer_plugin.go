@@ -1,9 +1,11 @@
 package importerplugin
 
 import (
+	"context"
 	"strings"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
+	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	log "github.com/sirupsen/logrus"
 )
@@ -17,7 +19,7 @@ type Importer interface {
 	Round() uint64
 
 	// GetBlock fetches block of round number rnd
-	GetBlock(rnd uint64) (rpcs.EncodedBlockCert, error)
+	GetBlock(rnd uint64) (*rpcs.EncodedBlockCert, error)
 }
 
 type importerImpl struct {
@@ -25,8 +27,8 @@ type importerImpl struct {
 	lastRound uint64
 	log       *log.Logger
 
-	// To determine if the importer should fetch blocks from algod or gossip network
-	algodFetch bool
+	// To determine if the importer should fetch blocks from algod or gossip network or from a file
+	fetchMethod string
 }
 
 // Algod returns the importer's algod client
@@ -41,22 +43,36 @@ func (bot *importerImpl) Round() uint64 {
 
 // Getblock takes the round number as an input and downloads that specific block, updates the 'lastRound' local variable and returns
 // an encodedBlockCert struct consisting of Block and Certificate
-func (bot *importerImpl) GetBlock(rnd uint64) (blk rpcs.EncodedBlockCert, err error) {
+func (bot *importerImpl) GetBlock(rnd uint64) (*rpcs.EncodedBlockCert, error) {
 	/* code to fetch block number rnd */
+	var blockbytes []byte
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
+
+	aclient := bot.Algod()
+	blockbytes, err := aclient.BlockRaw(rnd).Do(ctx)
+	if err != nil {
+		return nil, err
+	}
+	blk := new(rpcs.EncodedBlockCert)
+	err = protocol.Decode(blockbytes, blk)
 
 	// after fetching the block, update lastround
 	bot.lastRound = rnd
-	return
+	return blk, err
 }
 
 // RegisterImporter will be called during initialization by the user/processor_plugin, to initialize necessary connections
 // Used for initializing algod client, which is the last block number that processor_plugin has (used to syncup with importer)
 // Can also be used for initializing gossip node in the case when importer fetches blocks directly from the network
-func RegisterImporter(netaddr, token string, log *log.Logger, algodFetch bool, lastRound uint64) (bot Importer, err error) {
+func RegisterImporter(netaddr, token string, log *log.Logger, fetchMethod string, lastRound uint64) (bot Importer, err error) {
 	// for downloading blocks directly from the gossip network
-	if !algodFetch {
+	if fetchMethod == "network" {
 		/* code to initialize gossip network block fetcher */
-		bot = &importerImpl{log: log, lastRound: lastRound, algodFetch: algodFetch}
+		bot = &importerImpl{log: log, lastRound: lastRound, fetchMethod: fetchMethod}
+		return
+	} else if fetchMethod == "file" {
+		/* code to initialize file importer block fetcher */
 		return
 	}
 
@@ -69,6 +85,6 @@ func RegisterImporter(netaddr, token string, log *log.Logger, algodFetch bool, l
 	if err != nil {
 		return
 	}
-	bot = &importerImpl{aclient: client, log: log, lastRound: lastRound, algodFetch: algodFetch}
+	bot = &importerImpl{aclient: client, log: log, lastRound: lastRound, fetchMethod: fetchMethod}
 	return
 }
