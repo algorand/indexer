@@ -16,13 +16,13 @@ type ExportData interface {
 // BlockExportData is provided to the Exporter on each round.
 type BlockExportData struct {
 	// Block is the block data written to the blockchain.
-	Block bookkeeping.Block
+	Block *bookkeeping.Block
 
 	// Delta contains a list of account changes resulting from the block. Processor plugins may have modify this data.
-	Delta ledgercore.StateDelta
+	Delta *ledgercore.StateDelta
 
 	// Certificate contains voting data that certifies the block. The certificate is non deterministic, a node stops collecting votes once the voting threshold is reached.
-	Certificate agreement.Certificate
+	Certificate *agreement.Certificate
 }
 
 // Round returns the round to which the BlockExportData corresponds

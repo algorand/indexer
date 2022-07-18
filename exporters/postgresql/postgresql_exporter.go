@@ -85,7 +85,7 @@ func (exp *postgresqlExporter) Receive(exportData exporters.ExportData) error {
 	if !ok {
 		return fmt.Errorf("receive error, unable to convert input %#v to BlockExportData", exportData)
 	}
-	vb := ledgercore.MakeValidatedBlock(blkExpData.Block, blkExpData.Delta)
+	vb := ledgercore.MakeValidatedBlock(*blkExpData.Block, *blkExpData.Delta)
 	if err := exp.db.AddBlock(&vb); err != nil {
 		return err
 	}

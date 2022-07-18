@@ -47,7 +47,7 @@ func TestExporterHandleGenesis(t *testing.T) {
 
 func TestExporterRoundReceive(t *testing.T) {
 	eData := &exporters.BlockExportData{
-		Block: bookkeeping.Block{
+		Block: &bookkeeping.Block{
 			BlockHeader: bookkeeping.BlockHeader{
 				Round: 5,
 			},
