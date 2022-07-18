@@ -25,6 +25,7 @@ For a simple deployment the following configuration works well:
 * Network: Indexer, Algod and PostgreSQL should all be on the same network.
 * Indexer: 2 CPU and 8 GB of ram.
 * Database: When hosted on AWS a `db.r5.xlarge` instance works well.
+* Storage: 20 GiB
 
 A database with replication can be used to scale read volume. Configure multiple Indexer daemons with a single writer and multiple readers.
 
@@ -212,9 +213,11 @@ The command line arguments always take priority over the config file and environ
 
 The Indexer data directory is the location where the Indexer can store and/or load data needed for runtime operation and configuration.
 
-**It is a required argument for Indexer daemon operation. Supply it to the Indexer via the `--data-dir` flag.**
+**It is a required argument for Indexer daemon operation. Supply it to the Indexer via the `--data-dir`/`-i` flag.**
 
 **It is HIGHLY recommended placing the data directory in a separate, stateful directory for production usage of the Indexer.**
+
+For more information on the data directory see [Indexer Data Directory](docs/DataDirectory.md).
 
 ### Auto-Loading Configuration
 
@@ -222,7 +225,7 @@ The Indexer will scan the data directory at startup and load certain configurati
 
 - `indexer.yml` - Indexer Configuration File
 - `api_config.yml` - API Parameter Enable/Disable Configuration File
-- 
+
 **NOTE:** It is not allowed to supply both the command line flag AND have an auto-loading configuration file in the data directory.  Doing so will result in an error.
 
 To see an example of how to use the data directory to load a configuration file check out the [Disabling Parameters Guide](docs/DisablingParametersGuide.md).
