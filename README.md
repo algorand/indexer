@@ -200,6 +200,7 @@ Settings can be provided from the command line, a configuration file, or an envi
 | max-applications-limit        |         | max-applications-limit        | INDEXER_MAX_APPLICATIONS_LIMIT        |
 | default-applications-limit    |         | default-applications-limit    | INDEXER_DEFAULT_APPLICATIONS_LIMIT    |
 | enable-all-parameters         |         | enable-all-parameters         | INDEXER_ENABLE_ALL_PARAMETERS         |
+| catchpoint                    |         | catchpoint                    | INDEXER_CATCHPOINT                    |
 
 ## Command line
 
