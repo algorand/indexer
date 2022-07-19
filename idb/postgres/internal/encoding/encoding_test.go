@@ -1,7 +1,9 @@
 package encoding
 
 import (
+	"fmt"
 	"math/rand"
+	"reflect"
 	"testing"
 
 	"github.com/algorand/go-algorand/crypto"
@@ -598,4 +600,49 @@ func TestLcAccountDataEncoding(t *testing.T) {
 	decodedAd, err := DecodeTrimmedLcAccountData(buf)
 	require.NoError(t, err)
 	assert.Equal(t, ad, decodedAd)
+}
+
+// Test that all fields in go-algorand's AccountBaseData are either in local baseAccountData
+// or are accounted for
+func TestBaseAccountDataVersusAccountBaseDataParity(t *testing.T) {
+	importNames := map[string]bool{}
+
+	ABD := reflect.TypeOf(ledgercore.AccountBaseData{})
+	ABDlen := ABD.NumField()
+	for i := 0; i < ABDlen; i++ {
+		importNames[ABD.Field(i).Name] = true
+	}
+
+	OAD := reflect.TypeOf(ledgercore.OnlineAccountData{})
+	OADlen := OAD.NumField()
+	for i := 0; i < OADlen; i++ {
+		name := OAD.Field(i).Name
+		_, alreadySeen := importNames[name]
+		require.False(t, alreadySeen, fmt.Sprintf("field %s already seen", name))
+		importNames[name] = true
+	}
+
+	indexerABDnames := map[string]bool{}
+
+	indexerABD := reflect.TypeOf(baseAccountData{})
+	indexerABDlen := indexerABD.NumField()
+	for i := 0; i < indexerABDlen; i++ {
+		indexerABDnames[indexerABD.Field(i).Name] = true
+	}
+
+	skip := map[string]bool{
+		"MicroAlgos":            true,
+		"RewardsBase":           true,
+		"RewardedMicroAlgos":    true,
+		"MicroAlgosWithRewards": true,
+	}
+
+	for name := range importNames {
+		if skip[name] {
+			continue
+		}
+		require.Contains(t, indexerABDnames, name)
+	}
+
+	require.Equal(t, indexerABDlen, 10)
 }
