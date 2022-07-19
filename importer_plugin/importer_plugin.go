@@ -2,6 +2,7 @@ package importerplugin
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
@@ -43,23 +44,35 @@ func (bot *importerImpl) Round() uint64 {
 
 // Getblock takes the round number as an input and downloads that specific block, updates the 'lastRound' local variable and returns
 // an encodedBlockCert struct consisting of Block and Certificate
-func (bot *importerImpl) GetBlock(rnd uint64) (*rpcs.EncodedBlockCert, error) {
-	/* code to fetch block number rnd */
+func (bot *importerImpl) GetBlock(rnd uint64) (blk *rpcs.EncodedBlockCert, err error) {
+	// for downloading blocks directly from the gossip network
+	if bot.fetchMethod == "network" {
+		/* code to fetch block from gossip network */
+		return
+	}
+
+	// for downloading blocks from a file
+	if bot.fetchMethod == "file" {
+		/* code to fetch block from a file */
+		return
+	}
+
+	// for downloading blocks from algod rest endpoint
 	var blockbytes []byte
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
 
 	aclient := bot.Algod()
-	blockbytes, err := aclient.BlockRaw(rnd).Do(ctx)
+	blockbytes, err = aclient.BlockRaw(rnd).Do(ctx)
 	if err != nil {
 		return nil, err
 	}
-	blk := new(rpcs.EncodedBlockCert)
+	blk = new(rpcs.EncodedBlockCert)
 	err = protocol.Decode(blockbytes, blk)
 
 	// after fetching the block, update lastround
 	bot.lastRound = rnd
-	return blk, err
+	return
 }
 
 // RegisterImporter will be called during initialization by the user/processor_plugin, to initialize necessary connections
@@ -69,14 +82,20 @@ func RegisterImporter(netaddr, token string, log *log.Logger, fetchMethod string
 	// for downloading blocks directly from the gossip network
 	if fetchMethod == "network" {
 		/* code to initialize gossip network block fetcher */
-		bot = &importerImpl{log: log, lastRound: lastRound, fetchMethod: fetchMethod}
 		return
-	} else if fetchMethod == "file" {
+	}
+
+	// for downloading blocks from a file
+	if fetchMethod == "file" {
 		/* code to initialize file importer block fetcher */
 		return
 	}
 
 	// for downloading blocks from algod rest endpoint
+	if fetchMethod != "algod" {
+		err = errors.New("invalid importer method")
+		return
+	}
 	var client *algod.Client
 	if !strings.HasPrefix(netaddr, "http") {
 		netaddr = "http://" + netaddr
