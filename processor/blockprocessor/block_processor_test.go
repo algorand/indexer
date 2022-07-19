@@ -24,6 +24,13 @@ var noopHandler = func(block *ledgercore.ValidatedBlock) error {
 	return nil
 }
 
+var genesisHandler = func(block *ledgercore.ValidatedBlock) error {
+	if block.Block().Round() != 0 {
+		return fmt.Errorf("handler error")
+	}
+	return nil
+}
+
 func TestProcess(t *testing.T) {
 	logger, _ := test2.NewNullLogger()
 	l, err := test.MakeTestLedger(logger)
@@ -111,11 +118,10 @@ func TestFailedProcess(t *testing.T) {
 	}
 	_, err = blockprocessor.MakeProcessorWithLedger(logger, l, handler)
 	assert.Contains(t, err.Error(), "handler error")
-	pr, _ = blockprocessor.MakeProcessorWithLedger(logger, l, nil)
+	pr, _ = blockprocessor.MakeProcessorWithLedger(logger, l, genesisHandler)
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	assert.Nil(t, err)
-	pr.SetHandler(handler)
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
 	err = pr.Process(&rawBlock)
 	assert.Contains(t, err.Error(), "Process() handler err")
