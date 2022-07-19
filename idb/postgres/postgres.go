@@ -179,7 +179,7 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 }
 
 // Preload asset and app creators.
-func prepareCreators(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
+func prepareCreators(l *ledger_for_evaluator.DeprecatedLedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
 	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
 
 	for aidx := range assetsReq {
@@ -207,7 +207,7 @@ func prepareCreators(l *ledger_for_evaluator.LedgerForEvaluator, payset transact
 }
 
 // Preload account data and account resources.
-func prepareAccountsResources(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
+func prepareAccountsResources(l *ledger_for_evaluator.DeprecatedLedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
 	addressesReq, resourcesReq :=
 		accounting.MakePreloadAccountsResourcesRequest(payset, assetCreators, appCreators)
 
@@ -233,7 +233,7 @@ func prepareAccountsResources(l *ledger_for_evaluator.LedgerForEvaluator, payset
 
 // Preload all resources (account data, account resources, asset/app creators) for the
 // evaluator.
-func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
+func prepareEvalResources(l *ledger_for_evaluator.DeprecatedLedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
 	assetCreators, appCreators, err := prepareCreators(l, block.Payset)
 	if err != nil {
 		return ledger.EvalForIndexerResources{},
