@@ -28,9 +28,9 @@ func TestExporterMetadata(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	meta := pgsqlExp.Metadata()
 	assert.Equal(t, plugins.PluginType(plugins.Exporter), meta.Type())
-	assert.Equal(t, postgresqlExporterMetadata.ExpName, meta.Name())
-	assert.Equal(t, postgresqlExporterMetadata.ExpDescription, meta.Description())
-	assert.Equal(t, postgresqlExporterMetadata.ExpDeprecated, meta.Deprecated())
+	assert.Equal(t, Metadata.ExpName, meta.Name())
+	assert.Equal(t, Metadata.ExpDescription, meta.Description())
+	assert.Equal(t, Metadata.ExpDeprecated, meta.Deprecated())
 }
 
 func TestConnectDisconnectSuccess(t *testing.T) {

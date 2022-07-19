@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/algorand/indexer/plugins"
+	"gopkg.in/yaml.v3"
+	"io/fs"
+	"io/ioutil"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -23,6 +27,9 @@ import (
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/config"
+	"github.com/algorand/indexer/exporters"
+	_ "github.com/algorand/indexer/exporters/noop"
+	"github.com/algorand/indexer/exporters/postgresql"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
@@ -66,6 +73,7 @@ type daemonConfig struct {
 	configFile                string
 	suppliedAPIConfigFile     string
 	genesisJSONPath           string
+	exporterPlugin            string
 }
 
 // DaemonCmd creates the main cobra command, initializes flags, and viper aliases
@@ -118,6 +126,7 @@ func DaemonCmd() *cobra.Command {
 	cfg.flags.StringVarP(&cfg.cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
 	cfg.flags.StringVarP(&cfg.pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
 	cfg.flags.StringVarP(&cfg.configFile, "configfile", "c", "", "file path to configuration file (indexer.yml)")
+	cfg.flags.StringVarP(&cfg.exporterPlugin, "exporter", "", postgresql.ExporterName, "name of the exporter plugin to use")
 	viper.RegisterAlias("algod", "algod-data-dir")
 	viper.RegisterAlias("algod-net", "algod-address")
 	viper.RegisterAlias("server", "server-address")
@@ -315,9 +324,9 @@ func runDaemon(daemonConfig *daemonConfig) error {
 		daemonConfig.noAlgod = true
 	}
 	opts := idb.IndexerDbOptions{}
-	if daemonConfig.noAlgod && !daemonConfig.allowMigration {
-		opts.ReadOnly = true
-	}
+	// if daemonConfig.noAlgod && !daemonConfig.allowMigration {
+	opts.ReadOnly = true
+	// }
 
 	opts.MaxConn = daemonConfig.maxConn
 	opts.IndexerDatadir = daemonConfig.indexerDataDir
@@ -325,51 +334,76 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	opts.AlgodToken = daemonConfig.algodToken
 	opts.AlgodAddr = daemonConfig.algodAddr
 
-	db, availableCh := indexerDbFromFlags(opts)
-	defer db.Close()
 	var wg sync.WaitGroup
 	if bot != nil {
 		wg.Add(1)
-		go runBlockImporter(ctx, daemonConfig, &wg, db, availableCh, bot, opts)
+		logger.Info("Initializing exporter.")
+		// Need to update config file w/ options provided via CLI
+		writeCLIToPlugin(daemonConfig)
+		exp, err := exporters.ExporterByName(daemonConfig.exporterPlugin, daemonConfig.indexerDataDir, logger)
+		if err != nil {
+			maybeFail(err, "unable to construct requested Exporter: %v", err)
+		}
+		go runBlockImporter(ctx, daemonConfig, &wg, bot, opts, exp)
 	} else {
 		logger.Info("No block importer configured.")
 	}
 
-	fmt.Printf("serving on %s\n", daemonConfig.daemonServerAddr)
-	logger.Infof("serving on %s", daemonConfig.daemonServerAddr)
-
-	options := makeOptions(daemonConfig)
-
-	api.Serve(ctx, daemonConfig.daemonServerAddr, db, bot, logger, options)
+	// Only serve the API for the postgres exporter
+	if daemonConfig.exporterPlugin == postgresql.ExporterName {
+		fmt.Printf("serving on %s\n", daemonConfig.daemonServerAddr)
+		logger.Infof("serving on %s", daemonConfig.daemonServerAddr)
+		db, availableCh := indexerDbFromFlags(opts)
+		defer db.Close()
+		options := makeOptions(daemonConfig)
+		// Wait for db to become available
+		<-availableCh
+		api.Serve(ctx, daemonConfig.daemonServerAddr, db, bot, logger, options)
+	}
 	wg.Wait()
 	return err
 }
 
-func runBlockImporter(ctx context.Context, cfg *daemonConfig, wg *sync.WaitGroup, db idb.IndexerDb, dbAvailable chan struct{}, bot fetcher.Fetcher, opts idb.IndexerDbOptions) {
+// Bridges functionality between setting config via CLI and the new plugin configs
+func writeCLIToPlugin(cfg *daemonConfig) {
+	switch cfg.exporterPlugin {
+	case postgresql.Metadata.Name():
+		pluginCfg := plugins.LoadConfig(logger, cfg.indexerDataDir, postgresql.Metadata)
+		var expCfg postgresql.ExporterConfig
+		err := yaml.Unmarshal([]byte(pluginCfg), &expCfg)
+		if err != nil {
+			maybeFail(err, "unable to load postgresql config: %v", err)
+		}
+		expCfg.Test = dummyIndexerDb
+		expCfg.MaxConn = cfg.maxConn
+		expCfg.ConnectionString = postgresAddr
+		data, err := yaml.Marshal(expCfg)
+		if err != nil {
+			maybeFail(err, "failure setting postgresql config data: %v", err)
+		}
+		err = ioutil.WriteFile(plugins.PluginConfigPath(cfg.indexerDataDir, postgresql.Metadata), []byte(data), fs.ModePerm)
+		if err != nil {
+			maybeFail(err, "failure writing updated options to postgresql exporter config file: %v", err)
+		}
+	default:
+	}
+}
+
+func runBlockImporter(ctx context.Context, cfg *daemonConfig, wg *sync.WaitGroup, bot fetcher.Fetcher, opts idb.IndexerDbOptions, exp exporters.Exporter) {
 	// Need to redefine exitHandler() for every go-routine
 	defer exitHandler()
 	defer wg.Done()
-
-	// Wait until the database is available.
-	<-dbAvailable
 
 	// Initial import if needed.
 	genesisReader := importer.GetGenesisFile(cfg.genesisJSONPath, bot.Algod(), logger)
 	genesis, err := iutil.ReadGenesis(genesisReader)
 	maybeFail(err, "Error reading genesis file")
 
-	_, err = importer.EnsureInitialImport(db, genesis)
-	maybeFail(err, "importer.EnsureInitialImport() error")
-
-	// sync local ledger
-	nextDBRound, err := db.GetNextRoundToAccount()
-	maybeFail(err, "Error getting DB round")
-
-	logger.Info("Initializing block import handler.")
-	imp := importer.NewImporter(db)
+	err = exp.HandleGenesis(genesis)
+	maybeFail(err, "exporter.HandleGenesis() error")
 
 	logger.Info("Initializing local ledger.")
-	proc, err := blockprocessor.MakeProcessorWithLedgerInit(ctx, logger, cfg.catchpoint, &genesis, nextDBRound, opts, imp.ImportBlock)
+	proc, err := blockprocessor.MakeProcessorWithLedgerInit(ctx, logger, cfg.catchpoint, &genesis, exp.Round(), opts, exp)
 	if err != nil {
 		maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
 	}

@@ -16,8 +16,8 @@ var ne = nc.New()
 
 func TestExporterByName(t *testing.T) {
 	logger, _ := test.NewNullLogger()
-	exporters.RegisterExporter(noopExporterMetadata.ExpName, nc)
-	ne, err := exporters.ExporterByName(noopExporterMetadata.ExpName, "", logger)
+	exporters.RegisterExporter(Metadata.ExpName, nc)
+	ne, err := exporters.ExporterByName(Metadata.ExpName, "", logger)
 	assert.NoError(t, err)
 	assert.Implements(t, (*exporters.Exporter)(nil), ne)
 }
@@ -25,9 +25,9 @@ func TestExporterByName(t *testing.T) {
 func TestExporterMetadata(t *testing.T) {
 	meta := ne.Metadata()
 	assert.Equal(t, plugins.PluginType(plugins.Exporter), meta.Type())
-	assert.Equal(t, noopExporterMetadata.ExpName, meta.Name())
-	assert.Equal(t, noopExporterMetadata.ExpDescription, meta.Description())
-	assert.Equal(t, noopExporterMetadata.ExpDeprecated, meta.Deprecated())
+	assert.Equal(t, Metadata.ExpName, meta.Name())
+	assert.Equal(t, Metadata.ExpDescription, meta.Description())
+	assert.Equal(t, Metadata.ExpDeprecated, meta.Deprecated())
 }
 
 func TestExporterConnect(t *testing.T) {

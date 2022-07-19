@@ -13,7 +13,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-const exporterName = "postgresql"
+// ExporterName constant for the postgresql Exporter module
+const ExporterName = "postgresql"
 
 type postgresqlExporter struct {
 	round  uint64
@@ -22,8 +23,9 @@ type postgresqlExporter struct {
 	logger *logrus.Logger
 }
 
-var postgresqlExporterMetadata = exporters.ExporterMetadata{
-	ExpName:        exporterName,
+// Metadata for the postgresql Exporter
+var Metadata = exporters.ExporterMetadata{
+	ExpName:        ExporterName,
 	ExpDescription: "Exporter for writing data to a postgresql instance.",
 	ExpDeprecated:  false,
 }
@@ -39,7 +41,7 @@ func (c *Constructor) New() exporters.Exporter {
 }
 
 func (exp *postgresqlExporter) Metadata() exporters.ExporterMetadata {
-	return postgresqlExporterMetadata
+	return Metadata
 }
 
 func (exp *postgresqlExporter) Connect(cfg plugins.PluginConfig, logger *logrus.Logger) error {
@@ -61,6 +63,11 @@ func (exp *postgresqlExporter) Connect(cfg plugins.PluginConfig, logger *logrus.
 	}
 	exp.db = db
 	<-ready
+	round, err := exp.db.GetNextRoundToAccount()
+	if err != nil {
+		return err
+	}
+	exp.round = round
 	return err
 }
 
@@ -109,5 +116,5 @@ func (exp *postgresqlExporter) unmarhshalConfig(cfg string) error {
 }
 
 func init() {
-	exporters.RegisterExporter(exporterName, &Constructor{})
+	exporters.RegisterExporter(ExporterName, &Constructor{})
 }

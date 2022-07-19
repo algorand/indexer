@@ -70,3 +70,9 @@ func TestLoadConfigDoesNotRead(t *testing.T) {
 	logMessage := fmt.Sprintf("Found config file %s, but failed to read it into memory.", configFile)
 	assert.Equal(t, logMessage, hook.LastEntry().Message)
 }
+
+func TestPluginConfigPath(t *testing.T) {
+	indexerDataDir := "foo"
+	expectedPath := filepath.Join(indexerDataDir, "baz.yml")
+	assert.Equal(t, expectedPath, PluginConfigPath(indexerDataDir, &mockMetadata{}))
+}

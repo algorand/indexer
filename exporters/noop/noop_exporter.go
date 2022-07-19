@@ -17,7 +17,8 @@ type noopExporter struct {
 	cfg   plugins.PluginConfig
 }
 
-var noopExporterMetadata exporters.ExporterMetadata = exporters.ExporterMetadata{
+// Metadata for the noop Exporter
+var Metadata exporters.ExporterMetadata = exporters.ExporterMetadata{
 	ExpName:        "noop",
 	ExpDescription: "noop exporter",
 	ExpDeprecated:  false,
@@ -35,7 +36,7 @@ func (c *Constructor) New() exporters.Exporter {
 }
 
 func (exp *noopExporter) Metadata() exporters.ExporterMetadata {
-	return noopExporterMetadata
+	return Metadata
 }
 
 func (exp *noopExporter) Connect(_ plugins.PluginConfig, _ *logrus.Logger) error {
@@ -64,5 +65,5 @@ func (exp *noopExporter) Round() uint64 {
 }
 
 func init() {
-	exporters.RegisterExporter(noopExporterMetadata.ExpName, &Constructor{})
+	exporters.RegisterExporter(Metadata.ExpName, &Constructor{})
 }
