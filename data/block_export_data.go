@@ -9,6 +9,7 @@ import (
 // RoundProvider is the interface which all data types sent to Exporters should implement
 type RoundProvider interface {
 	Round() uint64
+	Empty() bool
 }
 
 // BlockData is provided to the Exporter on each round.
@@ -26,4 +27,12 @@ type BlockData struct {
 // Round returns the round to which the BlockData corresponds
 func (blkData BlockData) Round() uint64 {
 	return uint64(blkData.Block.Round())
+}
+
+func (blkData BlockData) Empty() (bool, error) {
+	payset, err := blkData.Block.DecodePaysetFlat()
+	if err != nil {
+		return true, err
+	}
+	return len(payset) > 0, nil
 }
