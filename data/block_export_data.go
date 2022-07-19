@@ -29,6 +29,7 @@ func (blkData BlockData) Round() uint64 {
 	return uint64(blkData.Block.Round())
 }
 
+// Empty returns whether the Block contains Txns. Assumes the Block is never nil
 func (blkData BlockData) Empty() (bool, error) {
 	payset, err := blkData.Block.DecodePaysetFlat()
 	if err != nil {
