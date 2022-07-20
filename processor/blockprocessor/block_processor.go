@@ -28,6 +28,8 @@ func MakeProcessorWithLedger(logger *log.Logger, l *ledger.Ledger, genericHandle
 		proc = &ledgerExporterProcessor{logger: logger, ledger: l, exporter: exp}
 	} else if handler, ok := genericHandler.(func(block *ledgercore.ValidatedBlock) error); ok {
 		proc = &blockProcessor{logger: logger, ledger: l, handler: handler}
+	} else if genericHandler == nil {
+		proc = &blockProcessor{logger: logger, ledger: l, handler: handler}
 	} else {
 		return nil, fmt.Errorf("MakeProcessorWithLedger was unable to determine the type of block handler: %v", genericHandler)
 	}
