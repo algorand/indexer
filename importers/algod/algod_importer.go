@@ -8,7 +8,7 @@ import (
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/exporters"
-	importerplugin "github.com/algorand/indexer/importer_plugin"
+	"github.com/algorand/indexer/importers"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -17,7 +17,7 @@ type algodImporter struct {
 	log     *log.Logger
 }
 
-// Getblock takes the round number as an input and downloads that specific block, updates the 'lastRound' local variable and returns an exporters.BlockExportData struct
+// Getblock takes the round number as an input and downloads that specific block and returns an exporters.BlockExportData object
 func (bot *algodImporter) GetBlock(rnd uint64) (blk *exporters.BlockExportData, err error) {
 	var blockbytes []byte
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -36,7 +36,7 @@ func (bot *algodImporter) GetBlock(rnd uint64) (blk *exporters.BlockExportData, 
 }
 
 // RegisterAlgodImporter will be called during initialization by the user/processor_plugin, to initialize necessary connections used for initializing algod client
-func RegisterAlgodImporter(netaddr, token string, log *log.Logger) (bot importerplugin.Importer, err error) {
+func RegisterAlgodImporter(netaddr, token string, log *log.Logger) (bot importers.Importer, err error) {
 	var client *algod.Client
 	if !strings.HasPrefix(netaddr, "http") {
 		netaddr = "http://" + netaddr

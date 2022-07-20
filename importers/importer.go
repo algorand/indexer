@@ -1,4 +1,4 @@
-package importerplugin
+package importers
 
 import (
 	"github.com/algorand/indexer/exporters"
