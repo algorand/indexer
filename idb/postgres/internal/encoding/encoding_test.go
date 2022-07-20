@@ -1,7 +1,6 @@
 package encoding
 
 import (
-	"fmt"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -602,40 +601,68 @@ func TestLcAccountDataEncoding(t *testing.T) {
 	assert.Equal(t, ad, decodedAd)
 }
 
+// structFields gets all fields names in a strict, with recursion on nested structs
+func structFields(theStruct interface{}, skip map[string]bool, names map[string]bool) {
+	rStruct := reflect.TypeOf(theStruct)
+	numFields := rStruct.NumField()
+	for i := 0; i < numFields; i++ {
+		field := rStruct.Field(i)
+		name := field.Name
+		if totalSkip, nameSkip := skip[name]; nameSkip {
+			if totalSkip {
+				continue
+			}
+		} else {
+			names[name] = true
+		}
+		if field.Type.Kind() == reflect.Struct {
+			structFields(reflect.New(field.Type).Elem().Interface(), skip, names)
+		}
+	}
+}
+
 // Test that all fields in go-algorand's AccountBaseData are either in local baseAccountData
 // or are accounted for
 func TestBaseAccountDataVersusAccountBaseDataParity(t *testing.T) {
-	importNames := map[string]bool{}
-
-	ABD := reflect.TypeOf(ledgercore.AccountBaseData{})
-	ABDlen := ABD.NumField()
-	for i := 0; i < ABDlen; i++ {
-		importNames[ABD.Field(i).Name] = true
-	}
-
-	OAD := reflect.TypeOf(ledgercore.OnlineAccountData{})
-	OADlen := OAD.NumField()
-	for i := 0; i < OADlen; i++ {
-		name := OAD.Field(i).Name
-		_, alreadySeen := importNames[name]
-		require.False(t, alreadySeen, fmt.Sprintf("field %s already seen", name))
-		importNames[name] = true
-	}
-
-	indexerABDnames := map[string]bool{}
-
-	indexerABD := reflect.TypeOf(baseAccountData{})
-	indexerABDlen := indexerABD.NumField()
-	for i := 0; i < indexerABDlen; i++ {
-		indexerABDnames[indexerABD.Field(i).Name] = true
-	}
 
 	skip := map[string]bool{
+		"_struct":               true,
 		"MicroAlgos":            true,
 		"RewardsBase":           true,
 		"RewardedMicroAlgos":    true,
 		"MicroAlgosWithRewards": true,
+		"VotingData":            false, // skip the name, but continue with the recursion
 	}
+
+	importNames := map[string]bool{}
+
+	structFields(ledgercore.AccountBaseData{}, skip, importNames)
+
+	// ABD := reflect.TypeOf(ledgercore.AccountBaseData{})
+	// ABDlen := ABD.NumField()
+	// for i := 0; i < ABDlen; i++ {
+	// 	importNames[ABD.Field(i).Name] = true
+	// }
+
+	structFields(ledgercore.OnlineAccountData{}, skip, importNames)
+
+	// OAD := reflect.TypeOf(ledgercore.OnlineAccountData{})
+	// OADlen := OAD.NumField()
+	// for i := 0; i < OADlen; i++ {
+	// 	name := OAD.Field(i).Name
+	// 	_, alreadySeen := importNames[name]
+	// 	require.False(t, alreadySeen, fmt.Sprintf("field %s already seen", name))
+	// 	importNames[name] = true
+	// }
+
+	indexerABDnames := map[string]bool{}
+	structFields(baseAccountData{}, skip, indexerABDnames)
+
+	// indexerABD := reflect.TypeOf(baseAccountData{})
+	// indexerABDlen := indexerABD.NumField()
+	// for i := 0; i < indexerABDlen; i++ {
+	// 	indexerABDnames[indexerABD.Field(i).Name] = true
+	// }
 
 	for name := range importNames {
 		if skip[name] {
@@ -643,6 +670,4 @@ func TestBaseAccountDataVersusAccountBaseDataParity(t *testing.T) {
 		}
 		require.Contains(t, indexerABDnames, name)
 	}
-
-	require.Equal(t, indexerABDlen, 10)
 }
