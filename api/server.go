@@ -149,7 +149,7 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 
 	go func() {
 		if err := e.StartServer(s); err != nil {
-			log.Fatal("Serve() err: %s", err)
+			log.Fatalf("Serve() err: %s", err)
 		}
 	}()
 
