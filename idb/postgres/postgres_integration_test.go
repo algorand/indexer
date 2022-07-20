@@ -2424,7 +2424,6 @@ func TestBoxCreateMutateDelete(t *testing.T) {
 		boxTxns = append(boxTxns, &boxTxn)
 
 		key := logic.MakeBoxKey(appid, boxName)
-		expectedAppBoxes[appid] = make(map[string]string)
 		expectedAppBoxes[appid][key] = newBoxValue
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)

@@ -581,6 +581,8 @@ func TestLcAccountDataEncoding(t *testing.T) {
 			TotalAppLocalStates: 11,
 			TotalAssetParams:    12,
 			TotalAssets:         13,
+			TotalBoxes:          20,
+			TotalBoxBytes:       21,
 		},
 		VotingData: ledgercore.VotingData{
 			VoteID:          voteID,
@@ -593,7 +595,7 @@ func TestLcAccountDataEncoding(t *testing.T) {
 	}
 	buf := EncodeTrimmedLcAccountData(ad)
 
-	expectedString := `{"onl":1,"sel":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","spend":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","stprf":"EwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","tapl":11,"tapp":10,"tas":13,"tasp":12,"teap":9,"tsch":{"nbs":8,"nui":7},"vote":"DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","voteFst":16,"voteKD":18,"voteLst":17}`
+	expectedString := `{"onl":1,"sel":"DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","spend":"BgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","stprf":"EwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==","tapl":11,"tapp":10,"tas":13,"tasp":12,"tbx":20,"tbxb":21,"teap":9,"tsch":{"nbs":8,"nui":7},"vote":"DgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","voteFst":16,"voteKD":18,"voteLst":17}`
 	assert.Equal(t, expectedString, string(buf))
 
 	decodedAd, err := DecodeTrimmedLcAccountData(buf)
@@ -601,7 +603,7 @@ func TestLcAccountDataEncoding(t *testing.T) {
 	assert.Equal(t, ad, decodedAd)
 }
 
-// structFields gets all fields names in a strict, with recursion on nested structs
+// structFields recurisively gets all fields names in a struct
 func structFields(theStruct interface{}, skip map[string]bool, names map[string]bool) {
 	rStruct := reflect.TypeOf(theStruct)
 	numFields := rStruct.NumField()
@@ -622,7 +624,7 @@ func structFields(theStruct interface{}, skip map[string]bool, names map[string]
 }
 
 // Test that all fields in go-algorand's AccountBaseData are either in local baseAccountData
-// or are accounted for
+// or are accounted for explicitly in "skip"
 func TestBaseAccountDataVersusAccountBaseDataParity(t *testing.T) {
 
 	skip := map[string]bool{
@@ -634,40 +636,14 @@ func TestBaseAccountDataVersusAccountBaseDataParity(t *testing.T) {
 		"VotingData":            false, // skip the name, but continue with the recursion
 	}
 
-	importNames := map[string]bool{}
+	goalNames := map[string]bool{}
+	structFields(ledgercore.AccountBaseData{}, skip, goalNames)
+	structFields(ledgercore.OnlineAccountData{}, skip, goalNames)
 
-	structFields(ledgercore.AccountBaseData{}, skip, importNames)
+	indexerNames := map[string]bool{}
+	structFields(baseAccountData{}, skip, indexerNames)
 
-	// ABD := reflect.TypeOf(ledgercore.AccountBaseData{})
-	// ABDlen := ABD.NumField()
-	// for i := 0; i < ABDlen; i++ {
-	// 	importNames[ABD.Field(i).Name] = true
-	// }
-
-	structFields(ledgercore.OnlineAccountData{}, skip, importNames)
-
-	// OAD := reflect.TypeOf(ledgercore.OnlineAccountData{})
-	// OADlen := OAD.NumField()
-	// for i := 0; i < OADlen; i++ {
-	// 	name := OAD.Field(i).Name
-	// 	_, alreadySeen := importNames[name]
-	// 	require.False(t, alreadySeen, fmt.Sprintf("field %s already seen", name))
-	// 	importNames[name] = true
-	// }
-
-	indexerABDnames := map[string]bool{}
-	structFields(baseAccountData{}, skip, indexerABDnames)
-
-	// indexerABD := reflect.TypeOf(baseAccountData{})
-	// indexerABDlen := indexerABD.NumField()
-	// for i := 0; i < indexerABDlen; i++ {
-	// 	indexerABDnames[indexerABD.Field(i).Name] = true
-	// }
-
-	for name := range importNames {
-		if skip[name] {
-			continue
-		}
-		require.Contains(t, indexerABDnames, name)
+	for name := range goalNames {
+		require.Contains(t, indexerNames, name)
 	}
 }
