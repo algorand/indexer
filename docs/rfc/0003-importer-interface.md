@@ -17,7 +17,7 @@ Importer interface allows users to fetch any particular block either from algod 
 Importer plugins that are native to the Indexer (maintained within the Indexer repository) will each implementation the importer interface:
 
 ```GO
-package importerplugin
+package importers
 
 // Importer defines the interface for importer plugins
 type Importer interface {
