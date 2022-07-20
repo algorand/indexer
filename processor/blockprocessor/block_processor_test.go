@@ -3,6 +3,7 @@ package blockprocessor_test
 import (
 	"context"
 	"fmt"
+	"github.com/algorand/indexer/exporters/noop"
 	"testing"
 
 	test2 "github.com/sirupsen/logrus/hooks/test"
@@ -171,4 +172,55 @@ func TestMakeProcessorWithLedgerInit_CatchpointErrors(t *testing.T) {
 			require.ErrorContains(t, err, tc.errMsg)
 		})
 	}
+}
+
+func TestMakeProcessorWithLedgerConstructsBlockProcessor(t *testing.T) {
+	logger, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(logger)
+	require.NoError(t, err)
+	defer l.Close()
+
+	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, noopHandler)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, proc)
+}
+
+func TestMakeProcessorWithLedgerConstructsExporterProcessor(t *testing.T) {
+	logger, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(logger)
+	require.NoError(t, err)
+	defer l.Close()
+
+	constructor := noop.Constructor{}
+	exp := constructor.New()
+	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, exp)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, proc)
+}
+
+func TestMakeProcessorWithLedgerConstructsNilHandlerProcessor(t *testing.T) {
+	logger, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(logger)
+	require.NoError(t, err)
+	defer l.Close()
+
+	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, nil)
+
+	assert.NoError(t, err)
+	assert.NotNil(t, proc)
+}
+
+func TestMakeProcessorWithLedgerErrorsOnUnknown(t *testing.T) {
+	logger, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(logger)
+	require.NoError(t, err)
+	defer l.Close()
+
+	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, l)
+
+	assert.Errorf(t, err, "MakeProcessorWithLedger was unable to determine the type of block handler: %v", l)
+	assert.Nil(t, proc)
+
 }
