@@ -1,109 +1,12 @@
 package importerplugin
 
 import (
-	"context"
-	"errors"
-	"strings"
-
-	"github.com/algorand/go-algorand-sdk/client/v2/algod"
-	"github.com/algorand/go-algorand/protocol"
-	"github.com/algorand/go-algorand/rpcs"
-	log "github.com/sirupsen/logrus"
+	"github.com/algorand/indexer/exporters"
 )
 
-// Importer defines the interface for importer plugin
+// Importer defines the interface for importer plugins
 type Importer interface {
-	// Algod returns the importer's algod client
-	Algod() *algod.Client
-
-	// Round returns the recent downloaded block
-	Round() uint64
-
-	// GetBlock fetches block of round number rnd
-	GetBlock(rnd uint64) (*rpcs.EncodedBlockCert, error)
-}
-
-type importerImpl struct {
-	aclient   *algod.Client
-	lastRound uint64
-	log       *log.Logger
-
-	// To determine if the importer should fetch blocks from algod or gossip network or from a file
-	fetchMethod string
-}
-
-// Algod returns the importer's algod client
-func (bot *importerImpl) Algod() *algod.Client {
-	return bot.aclient
-}
-
-// Round returns the recent downloaded block
-func (bot *importerImpl) Round() uint64 {
-	return bot.lastRound
-}
-
-// Getblock takes the round number as an input and downloads that specific block, updates the 'lastRound' local variable and returns
-// an encodedBlockCert struct consisting of Block and Certificate
-func (bot *importerImpl) GetBlock(rnd uint64) (blk *rpcs.EncodedBlockCert, err error) {
-	// for downloading blocks directly from the gossip network
-	if bot.fetchMethod == "network" {
-		/* code to fetch block from gossip network */
-		return
-	}
-
-	// for downloading blocks from a file
-	if bot.fetchMethod == "file" {
-		/* code to fetch block from a file */
-		return
-	}
-
-	// for downloading blocks from algod rest endpoint
-	var blockbytes []byte
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	defer cancelFunc()
-
-	aclient := bot.Algod()
-	blockbytes, err = aclient.BlockRaw(rnd).Do(ctx)
-	if err != nil {
-		return nil, err
-	}
-	blk = new(rpcs.EncodedBlockCert)
-	err = protocol.Decode(blockbytes, blk)
-
-	// after fetching the block, update lastround
-	bot.lastRound = rnd
-	return
-}
-
-// RegisterImporter will be called during initialization by the user/processor_plugin, to initialize necessary connections
-// Used for initializing algod client, which is the last block number that processor_plugin has (used to syncup with importer)
-// Can also be used for initializing gossip node in the case when importer fetches blocks directly from the network
-func RegisterImporter(netaddr, token string, log *log.Logger, fetchMethod string, lastRound uint64) (bot Importer, err error) {
-	// for downloading blocks directly from the gossip network
-	if fetchMethod == "network" {
-		/* code to initialize gossip network block fetcher */
-		return
-	}
-
-	// for downloading blocks from a file
-	if fetchMethod == "file" {
-		/* code to initialize file importer block fetcher */
-		return
-	}
-
-	// for downloading blocks from algod rest endpoint
-	if fetchMethod != "algod" {
-		err = errors.New("invalid importer method")
-		return
-	}
-	var client *algod.Client
-	if !strings.HasPrefix(netaddr, "http") {
-		netaddr = "http://" + netaddr
-	}
-	client, err = algod.MakeClient(netaddr, token)
-	if err != nil {
-		return
-	}
-	bot = &importerImpl{aclient: client, log: log, lastRound: lastRound, fetchMethod: fetchMethod}
-	return
+	// GetBlock given any round number rnd fetches the block at that round
+	// It returns an object of type BlockExportData defined in exporters plugin
+	GetBlock(rnd uint64) (*exporters.BlockExportData, error)
 }

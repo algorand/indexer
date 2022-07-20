@@ -11,52 +11,23 @@ The current implementation of indexer only allows downloading blocks sequentiall
 
 ## Proposal
 
-Importer interface allows users to fetch any particular block either from algod rest endpoint (or directly from the network or from a file written to by the exporter plugin). Current interface also stores round number of the latest fetched block. 
+Importer interface allows users to fetch any particular block either from algod rest endpoint (or directly from the network or from a file written to by the exporter plugin).
 
 ### Plugin Interface
-A sample interface is shown below:
+Importer plugins that are native to the Indexer (maintained within the Indexer repository) will each implementation the importer interface:
 
 ```GO
 package importerplugin
 
-// Importer defines the interface for importer plugin
+// Importer defines the interface for importer plugins
 type Importer interface {
-	// Algod returns the importer's algod client
-	Algod() *algod.Client
-
-	// Round returns the recent downloaded block
-	Round() uint64
-
-	// Getblock takes the round number as an input and downloads that specific block, updates the 'lastRound' local variable and returns an encodedBlockCert struct consisting of Block and Certificate
-	GetBlock(rnd uint64) (rpcs.EncodedBlockCert, error)
+	// GetBlock given any round number rnd fetches the block at that round
+	// It returns an object of type BlockExportData defined in exporters plugin
+	GetBlock(rnd uint64) (*exporters.BlockExportData, error)
 }
 ```
 
-### Plugin implementation
-A sample implementation of importer:
+### Interface Description
 
-``` GO
-type importerImpl struct {
-	// aclient is the algod client used to fetch block
-	aclient   *algod.Client
-
-	// lastRound is the last successfully fetched block
-	lastRound uint64
-
-	// log.Logger given by the user through RegisterImporter method
-	log       *log.Logger
-
-	// To determine if the importer should fetch blocks from algod or gossip network or from a file
-	fetchMethod string
-}
-
-// RegisterImporter will be called during initialization by the user/processor_plugin, to initialize necessary connections
-// Used for initializing algod client, which is the last block number that processor_plugin has (used to syncup with importer)
-// Can also be used for initializing gossip node in the case when importer fetches blocks directly from the network
-func RegisterImporter(netaddr, token string, log *log.Logger, fetchMethod string, lastRound uint64) (bot Importer, err error) {	
-}
-```
-
-## Open Questions
-
-- The current assumption is that importer fetches blocks one by one, upon each `GetBlock` function call from either the user/processor_plugin, should this be updated to instead fetching a range of blocks? eg: fetch blocks from 0 to 10
+#### GetBlock
+Every importer plugin effectively implements only one function that fetches a block at given round number and returns this data in a standardized format (exporters.BlockExportData).
