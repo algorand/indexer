@@ -148,7 +148,9 @@ func Serve(ctx context.Context, serveAddr string, db idb.IndexerDb, fetcherError
 	}
 
 	go func() {
-		log.Fatal(e.StartServer(s))
+		if err := e.StartServer(s); err != nil {
+			log.Fatal("Serve() err: %s", err)
+		}
 	}()
 
 	<-ctx.Done()
