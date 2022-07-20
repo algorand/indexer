@@ -19,6 +19,7 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
+// MakeProcessorWithLedger creates a Processor with a given ledger
 func MakeProcessorWithLedger(logger *log.Logger, l *ledger.Ledger, genericHandler interface{}) (processor.Processor, error) {
 	if l == nil {
 		return nil, fmt.Errorf("MakeProcessorWithLedger() err: local ledger not initialized")

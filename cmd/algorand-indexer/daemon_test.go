@@ -49,11 +49,7 @@ func TestImportRetryAndCancel(t *testing.T) {
 	l, err := itest.MakeTestLedger(ledgerLogger)
 	assert.NoError(t, err)
 	defer l.Close()
-<<<<<<< HEAD
-	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, nil)
-=======
-	proc, err := blockprocessor.MakeProcessorWithLedger(l, imp.ImportBlock)
->>>>>>> 97e3a69 (Integrate postgresql exporter w/ daemon)
+	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, imp.ImportBlock)
 	assert.Nil(t, err)
 	handler := blockHandler(proc, 50*time.Millisecond)
 	var wg sync.WaitGroup
