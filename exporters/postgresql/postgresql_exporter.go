@@ -64,11 +64,12 @@ func (exp *postgresqlExporter) Connect(cfg plugins.PluginConfig, logger *logrus.
 	exp.db = db
 	<-ready
 	round, err := exp.db.GetNextRoundToAccount()
-	if err != nil {
+	// Returns idb.ErrorNotInitialized if the genesis has not been loaded
+	if err != nil && err != idb.ErrorNotInitialized {
 		return err
 	}
 	exp.round = round
-	return err
+	return nil
 }
 
 func (exp *postgresqlExporter) Config() plugins.PluginConfig {
