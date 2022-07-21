@@ -33,7 +33,6 @@ require (
 	github.com/algorand/falcon v0.0.0-20220130164023-c9e1d466f123 // indirect
 	github.com/algorand/go-deadlock v0.2.2 // indirect
 	github.com/algorand/go-sumhash v0.1.0 // indirect
-	github.com/algorand/graphtrace v0.1.0 // indirect
 	github.com/algorand/msgp v1.1.52 // indirect
 	github.com/algorand/websocket v1.4.5 // indirect
 	github.com/aws/aws-sdk-go v1.30.19 // indirect

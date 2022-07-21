@@ -2255,6 +2255,8 @@ func TestIndexerDb_GetAccounts(t *testing.T) {
 
 // Test that box evolution is ingested as expected across rounds
 func TestBoxCreateMutateDelete(t *testing.T) {
+	start := time.Now()
+
 	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
@@ -2466,4 +2468,6 @@ func TestBoxCreateMutateDelete(t *testing.T) {
 	require.Equal(t, uint64(currentRound), round)
 
 	CompareAppBoxesAgainstDB(t, db, expectedAppBoxes)
+
+	fmt.Printf("TestBoxCreateMutateDelete total time: %s\n", time.Since(start))
 }
