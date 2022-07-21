@@ -36,7 +36,9 @@ If a new data directory must be created, the following process should be used:
    ```
    {"level":"info","msg":"round r=22212765 (49 txn) imported in 139.782694ms","time":"2022-07-18T19:23:13Z"} 
    ```
-2. Lookup the most recent catchpoint **without going over** from the list for your network. For example, with `22212765` from step 1, on mainnet you would choose `22210000#MZZIOYXYPPGNYRQHROXCPILIWIMQQRN7ZNLQJVM2QVSKT3QX6O4A`. A full list of available catchpoints for each network can be found at the following links:
+2. Lookup the most recent catchpoint for your network **without going over the indexer's current round** from the following links. For example, with `22212765` from step 1, on mainnet you would choose `22210000#MZZIOYXYPPGNYRQHROXCPILIWIMQQRN7ZNLQJVM2QVSKT3QX6O4A` from the Mainnet consolidated catchpoint list. 
+
+Full list of available catchpoints for each network can be found at the following links:
    [Mainnet](https://algorand-catchpoints.s3.us-east-2.amazonaws.com/consolidated/mainnet_catchpoints.txt)
    [Testnet](https://algorand-catchpoints.s3.us-east-2.amazonaws.com/consolidated/testnet_catchpoints.txt)
    [Betanet](https://algorand-catchpoints.s3.us-east-2.amazonaws.com/consolidated/betanet_catchpoints.txt)
