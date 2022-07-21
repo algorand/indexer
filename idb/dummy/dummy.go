@@ -2,6 +2,7 @@ package dummy
 
 import (
 	"context"
+	"github.com/algorand/go-algorand/crypto"
 
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
@@ -90,7 +91,7 @@ func (db *dummyIndexerDb) Health(ctx context.Context) (state idb.Health, err err
 
 // GetNetworkState is part of idb.IndexerDB
 func (db *dummyIndexerDb) GetNetworkState() (state idb.NetworkState, err error) {
-	return idb.NetworkState{}, nil
+	return idb.NetworkState{GenesisHash: crypto.HashObj(bookkeeping.Genesis{})}, nil
 }
 
 // SetNetworkState is part of idb.IndexerDB
