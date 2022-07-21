@@ -453,7 +453,7 @@ func startIndexer(dataDir string, logfile string, loglevel string, indexerBinary
 			}
 		}
 		if err := cmd.Wait(); err != nil {
-			return fmt.Errorf("error waiting for process to stop: %w", err)
+			fmt.Printf("ignoring error while waiting for process to stop: %s\n", err)
 		}
 		return nil
 	}, nil
