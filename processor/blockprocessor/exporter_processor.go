@@ -90,7 +90,7 @@ func (proc *ledgerExporterProcessor) Process(blockCert *rpcs.EncodedBlockCert) e
 	if proc.exporter != nil {
 		err = proc.exporter.Receive(blkData)
 		if err != nil {
-			return fmt.Errorf("Process() handler err: %w", err)
+			return fmt.Errorf("Process() exporter err: %w", err)
 		}
 	}
 	// write to ledger
