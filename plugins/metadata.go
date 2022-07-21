@@ -6,6 +6,12 @@ type PluginType string
 const (
 	// Exporter PluginType
 	Exporter = "exporter"
+
+	// Processor PluginType
+	Processor = "processor"
+
+	// Importer PluginType
+	Importer = "importer"
 )
 
 // PluginMetadata provides static per-plugin data
