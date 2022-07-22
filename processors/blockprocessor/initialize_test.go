@@ -19,8 +19,8 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/rpcs"
 
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/processor/blockprocessor/internal"
+	"github.com/algorand/indexer/processors"
+	"github.com/algorand/indexer/processors/blockprocessor/internal"
 	"github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/test"
 )
@@ -61,7 +61,7 @@ func TestRunMigration(t *testing.T) {
 
 	dname, err := os.MkdirTemp("", "indexer")
 	defer os.RemoveAll(dname)
-	opts := idb.IndexerDbOptions{
+	opts := processors.BlockProcessorConfig{
 		IndexerDatadir: dname,
 		AlgodAddr:      "localhost",
 		AlgodToken:     "AAAAA",

@@ -20,14 +20,15 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-algorand/util"
 
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/importer"
-	"github.com/algorand/indexer/processor"
-	"github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/indexer/processors"
+	"github.com/algorand/indexer/processors/blockprocessor"
 	iutil "github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
 )
@@ -368,14 +369,22 @@ func runBlockImporter(ctx context.Context, cfg *daemonConfig, wg *sync.WaitGroup
 	logger.Info("Initializing block import handler.")
 	imp := importer.NewImporter(db)
 
+	processorOpts := processors.BlockProcessorConfig{
+		Catchpoint:     cfg.catchpoint,
+		IndexerDatadir: opts.IndexerDatadir,
+		AlgodDataDir:   opts.AlgodDataDir,
+		AlgodToken:     opts.AlgodToken,
+		AlgodAddr:      opts.AlgodAddr,
+	}
+
 	logger.Info("Initializing local ledger.")
-	proc, err := blockprocessor.MakeProcessorWithLedgerInit(ctx, logger, cfg.catchpoint, &genesis, nextDBRound, opts, imp.ImportBlock)
+	proc, err := blockprocessor.MakeBlockProcessorWithLedgerInit(ctx, logger, nextDBRound, &genesis, processorOpts, imp.ImportBlock)
 	if err != nil {
-		maybeFail(err, "blockprocessor.MakeProcessor() err %v", err)
+		maybeFail(err, "blockprocessor.MakeBlockProcessor() err %v", err)
 	}
 
 	bot.SetNextRound(proc.NextRoundToProcess())
-	handler := blockHandler(proc, 1*time.Second)
+	handler := blockHandler(&proc, imp.ImportBlock, 1*time.Second)
 	bot.SetBlockHandler(handler)
 
 	logger.Info("Starting block importer.")
@@ -456,10 +465,10 @@ func makeOptions(daemonConfig *daemonConfig) (options api.ExtraOptions) {
 
 // blockHandler creates a handler complying to the fetcher block handler interface. In case of a failure it keeps
 // attempting to add the block until the fetcher shuts down.
-func blockHandler(proc processor.Processor, retryDelay time.Duration) func(context.Context, *rpcs.EncodedBlockCert) error {
+func blockHandler(proc *blockprocessor.BlockProcessor, blockHandler func(block *ledgercore.ValidatedBlock) error, retryDelay time.Duration) func(context.Context, *rpcs.EncodedBlockCert) error {
 	return func(ctx context.Context, block *rpcs.EncodedBlockCert) error {
 		for {
-			err := handleBlock(block, proc)
+			err := handleBlock(block, proc, blockHandler)
 			if err == nil {
 				// return on success.
 				return nil
@@ -476,9 +485,10 @@ func blockHandler(proc processor.Processor, retryDelay time.Duration) func(conte
 	}
 }
 
-func handleBlock(block *rpcs.EncodedBlockCert, proc processor.Processor) error {
+func handleBlock(block *rpcs.EncodedBlockCert, proc *blockprocessor.BlockProcessor, handler func(block *ledgercore.ValidatedBlock) error) error {
 	start := time.Now()
-	err := proc.Process(block)
+	f := blockprocessor.MakeLegacyProcessorHandlerFunction(proc, handler)
+	err := f(block)
 	if err != nil {
 		logger.WithError(err).Errorf(
 			"block %d import failed", block.Block.Round())

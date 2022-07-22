@@ -21,14 +21,14 @@ import (
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
 
-	"github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/indexer/processors/blockprocessor"
 	itest "github.com/algorand/indexer/util/test"
 )
 
 type mockImporter struct {
 }
 
-var errMockImportBlock = errors.New("Process() invalid round blockCert.Block.Round(): 1234 nextRoundToProcess: 1")
+var errMockImportBlock = errors.New("invalid round blockCert.Block.Round(): 1234 nextRoundToProcess: 1")
 
 func (imp *mockImporter) ImportBlock(vb *ledgercore.ValidatedBlock) error {
 	return nil
@@ -49,10 +49,9 @@ func TestImportRetryAndCancel(t *testing.T) {
 	l, err := itest.MakeTestLedger(ledgerLogger)
 	assert.NoError(t, err)
 	defer l.Close()
-	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, nil)
+	proc, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, imp.ImportBlock)
 	assert.Nil(t, err)
-	proc.SetHandler(imp.ImportBlock)
-	handler := blockHandler(proc, 50*time.Millisecond)
+	handler := blockHandler(&proc, imp.ImportBlock, 50*time.Millisecond)
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -74,7 +73,9 @@ func TestImportRetryAndCancel(t *testing.T) {
 
 	for _, entry := range hook.Entries {
 		assert.Equal(t, entry.Message, "block 1234 import failed")
-		assert.Equal(t, entry.Data["error"], errMockImportBlock)
+
+		tmpStr := entry.Data["error"].(error).Error()
+		assert.Contains(t, tmpStr, errMockImportBlock.Error())
 	}
 
 	// Wait for handler to exit.

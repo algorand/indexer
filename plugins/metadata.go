@@ -8,7 +8,7 @@ const (
 	Exporter = "exporter"
 
 	// Processor PluginType
-	Processor = "processor"
+	Processor = "processors"
 
 	// Importer PluginType
 	Importer = "importer"
