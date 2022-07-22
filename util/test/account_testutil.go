@@ -205,8 +205,8 @@ func MakeCreateSimpleAppTxn(sender basics.Address) transactions.SignedTxnWithAD 
 	}
 }
 
-// MakeCreateAppTxn makes a transaction that creates an arbitrary app
-func MakeCreateAppTxn(sender basics.Address, approval, clear string) (transactions.SignedTxnWithAD, error) {
+// MakeComplexCreateAppTxn makes a transaction that creates an arbitrary app
+func MakeComplexCreateAppTxn(sender basics.Address, approval, clear string) (transactions.SignedTxnWithAD, error) {
 	// Create a transaction with ExtraProgramPages field set to 1
 	approvalOps, err := logic.AssembleString(approval)
 	if err != nil {

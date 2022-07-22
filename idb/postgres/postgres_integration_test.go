@@ -2267,14 +2267,13 @@ func TestBoxCreateMutateDelete(t *testing.T) {
 	/**** ROUND 1: create and fund the box app ****/
 	currentRound := basics.Round(1)
 
-	createTxn, err := test.MakeCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram)
+	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram)
 	require.NoError(t, err)
 
 	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
 		basics.Address{})
 
-	block, err := test.MakeBlockForTxns(
-		test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
 	require.NoError(t, err)
 
 	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
@@ -2295,7 +2294,7 @@ func TestBoxCreateMutateDelete(t *testing.T) {
 	blockHdr, err := l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 2: create 8 boxes of appid == 1 ****/
+	/**** ROUND 2: create 8 boxes for appid == 1 ****/
 	currentRound = basics.Round(2)
 
 	boxNames := []string{
@@ -2310,6 +2309,7 @@ func TestBoxCreateMutateDelete(t *testing.T) {
 	}
 
 	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
+
 	expectedAppBoxes[appid] = map[string]string{}
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
@@ -2319,7 +2319,6 @@ func TestBoxCreateMutateDelete(t *testing.T) {
 		args := []string{"create", boxName}
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
-
 	}
 
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)

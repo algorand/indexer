@@ -559,7 +559,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	appid := basics.AppIndex(1)
 	currentRound := basics.Round(1)
 
-	createTxn, err := test.MakeCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram)
+	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram)
 	require.NoError(t, err)
 
 	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
