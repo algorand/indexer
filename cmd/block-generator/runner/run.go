@@ -36,6 +36,7 @@ type Args struct {
 	ReportDirectory          string
 	ResetReportDir           bool
 	RunValidation            bool
+	KeepDataDir              bool
 }
 
 // Run is a public helper to run the tests.
@@ -73,7 +74,9 @@ func (r *Args) run() error {
 	reportfile := path.Join(r.ReportDirectory, fmt.Sprintf("%s.report", baseNameNoExt))
 	logfile := path.Join(r.ReportDirectory, fmt.Sprintf("%s.indexer-log", baseNameNoExt))
 	dataDir := path.Join(r.ReportDirectory, fmt.Sprintf("%s_data", baseNameNoExt))
-	//defer os.RemoveAll(dataDir)
+	if !r.KeepDataDir {
+		defer os.RemoveAll(dataDir)
+	}
 
 	// This middleware allows us to lock the block endpoint
 	var freezeMutex sync.Mutex
