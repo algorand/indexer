@@ -5,6 +5,7 @@ INDEXER_BINARY=""
 REPORT_DIR=""
 DURATION="1h"
 LOG_LEVEL="error"
+SCENARIOS=""
 
 help() {
   echo "Usage:"
@@ -12,6 +13,7 @@ help() {
   echo " -c|--connection-string"
   echo "                 PostgreSQL connection string."
   echo " -i|--indexer    path to indexer binary."
+  echo " -s|--scenarios  path to indexer test scenarios."
   echo " -r|--report-dir directory where the report should be written."
   echo " -d|--duration   test duration."
   echo " -l|--level      log level to pass to Indexer."
@@ -60,6 +62,11 @@ if [ -z "$INDEXER_BINARY" ]; then
   exit 1
 fi
 
+if [ -z "$SCENARIOS" ]; then
+  echo "Missing required indexer test scenario parameter (-s / --scenarios)."
+  exit 1
+fi
+
 echo "Running with binary: $INDEXER_BINARY"
 echo "Report directory: $REPORT_DIR"
 echo "Duration: $DURATION"
@@ -68,7 +75,7 @@ echo "Log Level: $LOG_LEVEL"
 "$INDEXER_BINARY" \
          util block-generator runner \
   -i "$INDEXER_BINARY" \
-  -s /home/ubuntu/scenarios/ \
+  -s "$SCENARIOS" \
   -d "$DURATION" \
   -c "$CONNECTION_STRING" \
   --report-directory "$REPORT_DIR" \
