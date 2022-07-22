@@ -36,6 +36,10 @@ while :; do
     REPORT_DIR="${2-}"
     shift
     ;;
+  -s | --scenarios)
+    SCENARIOS="${2-}"
+    shift
+    ;;
   -d | --duration)
     DURATION="${2-}"
     shift
