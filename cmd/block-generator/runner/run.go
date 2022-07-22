@@ -73,7 +73,7 @@ func (r *Args) run() error {
 	reportfile := path.Join(r.ReportDirectory, fmt.Sprintf("%s.report", baseNameNoExt))
 	logfile := path.Join(r.ReportDirectory, fmt.Sprintf("%s.indexer-log", baseNameNoExt))
 	dataDir := path.Join(r.ReportDirectory, fmt.Sprintf("%s_data", baseNameNoExt))
-	defer os.RemoveAll(dataDir)
+	//defer os.RemoveAll(dataDir)
 
 	// This middleware allows us to lock the block endpoint
 	var freezeMutex sync.Mutex
@@ -271,15 +271,17 @@ func (r *Args) runTest(report *os.File, indexerURL string, generatorURL string) 
 
 	// Run for r.RunDuration
 	start := time.Now()
+	count := 1
 	for time.Since(start) < r.RunDuration {
 		time.Sleep(r.RunDuration / 10)
 
 		if err := collector.Collect(metrics.AllMetricNames...); err != nil {
-			return fmt.Errorf("problem collecting metrics: %w", err)
+			return fmt.Errorf("problem collecting metrics (%d / %s): %w", count, time.Since(start), err)
 		}
+		count++
 	}
 	if err := collector.Collect(metrics.AllMetricNames...); err != nil {
-		return fmt.Errorf("problem collecting metrics: %w", err)
+		return fmt.Errorf("problem collecting final metrics (%d / %s): %w", count, time.Since(start), err)
 	}
 
 	// Collect results.
