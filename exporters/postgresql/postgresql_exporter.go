@@ -3,7 +3,6 @@ package postgresql
 import (
 	"fmt"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
@@ -86,10 +85,6 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 				return fmt.Errorf("protocol %s not found", block.CurrentProtocol)
 		}
 	*/
-	var pset transactions.Payset = nil
-	if exportData.Payset != nil {
-		pset = *exportData.Payset
-	}
 	var delta ledgercore.StateDelta
 	if exportData.Delta != nil {
 		delta = *exportData.Delta
@@ -97,7 +92,7 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 	vb := ledgercore.MakeValidatedBlock(
 		bookkeeping.Block{
 			BlockHeader: exportData.BlockHeader,
-			Payset:      pset,
+			Payset:      exportData.Payset,
 		},
 		delta)
 	if err := exp.db.AddBlock(&vb); err != nil {

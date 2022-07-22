@@ -20,7 +20,7 @@ type BlockData struct {
 	BlockHeader bookkeeping.BlockHeader
 
 	// Payset is the set of data the block is carrying--can be modified as it is processed
-	Payset *transactions.Payset
+	Payset transactions.Payset
 
 	// Delta contains a list of account changes resulting from the block. Processor plugins may have modify this data.
 	Delta *ledgercore.StateDelta
@@ -36,5 +36,5 @@ func (blkData BlockData) Round() uint64 {
 
 // Empty returns whether the Block contains Txns. Assumes the Block is never nil
 func (blkData BlockData) Empty() bool {
-	return blkData.Payset == nil || len(*blkData.Payset) == 0
+	return len(blkData.Payset) == 0
 }

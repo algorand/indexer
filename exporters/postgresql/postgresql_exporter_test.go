@@ -82,7 +82,7 @@ func TestReceiveInvalidBlock(t *testing.T) {
 
 	invalidBlock := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{},
-		Payset:      &transactions.Payset{},
+		Payset:      transactions.Payset{},
 		Certificate: &agreement.Certificate{},
 		Delta:       nil,
 	}
@@ -97,7 +97,7 @@ func TestReceiveAddBlockSuccess(t *testing.T) {
 
 	block := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{},
-		Payset:      &transactions.Payset{},
+		Payset:      transactions.Payset{},
 		Certificate: &agreement.Certificate{},
 		Delta:       &ledgercore.StateDelta{},
 	}
