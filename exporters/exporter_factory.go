@@ -10,7 +10,7 @@ import (
 // It provides a basic no-arg constructor for instances of an ExporterImpl.
 type ExporterConstructor interface {
 	// New should return an instantiation of an Exporter.
-	// Configuration values should be passed and can be processed during `Connect()`.
+	// Configuration values should be passed and can be processed during `Init()`.
 	New() Exporter
 }
 
@@ -36,7 +36,7 @@ func ExporterByName(name string, dataDir string, logger *logrus.Logger) (Exporte
 	}
 	val := constructor.New()
 	cfg := plugins.LoadConfig(logger, dataDir, val.Metadata())
-	if err := val.Connect(cfg, logger); err != nil {
+	if err := val.Init(cfg, logger); err != nil {
 		return nil, err
 	}
 	return val, nil

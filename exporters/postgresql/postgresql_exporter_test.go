@@ -37,20 +37,20 @@ func TestExporterMetadata(t *testing.T) {
 func TestConnectDisconnectSuccess(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true\nconnection-string: ''")
-	assert.NoError(t, pgsqlExp.Connect(cfg, logger))
-	assert.NoError(t, pgsqlExp.Disconnect())
+	assert.NoError(t, pgsqlExp.Init(cfg, logger))
+	assert.NoError(t, pgsqlExp.Close())
 }
 
 func TestConnectUnmarshalFailure(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("'")
-	assert.ErrorContains(t, pgsqlExp.Connect(cfg, logger), "connect failure in unmarshalConfig")
+	assert.ErrorContains(t, pgsqlExp.Init(cfg, logger), "connect failure in unmarshalConfig")
 }
 
 func TestConnectDbFailure(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("")
-	assert.ErrorContains(t, pgsqlExp.Connect(cfg, logger), "connect failure constructing db, postgres:")
+	assert.ErrorContains(t, pgsqlExp.Init(cfg, logger), "connect failure constructing db, postgres:")
 }
 
 func TestConfigDefault(t *testing.T) {
@@ -71,14 +71,14 @@ func TestDefaultRoundZero(t *testing.T) {
 func TestHandleGenesis(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true")
-	assert.NoError(t, pgsqlExp.Connect(cfg, logger))
+	assert.NoError(t, pgsqlExp.Init(cfg, logger))
 	assert.NoError(t, pgsqlExp.HandleGenesis(bookkeeping.Genesis{}))
 }
 
 func TestReceiveInvalidBlock(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true")
-	assert.NoError(t, pgsqlExp.Connect(cfg, logger))
+	assert.NoError(t, pgsqlExp.Init(cfg, logger))
 
 	invalidBlock := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{},
@@ -93,7 +93,7 @@ func TestReceiveInvalidBlock(t *testing.T) {
 func TestReceiveAddBlockSuccess(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true")
-	assert.NoError(t, pgsqlExp.Connect(cfg, logger))
+	assert.NoError(t, pgsqlExp.Init(cfg, logger))
 
 	block := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{},

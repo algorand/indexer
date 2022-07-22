@@ -21,7 +21,7 @@ type mockExporter struct {
 	Exporter
 }
 
-func (m *mockExporter) Connect(config plugins.PluginConfig, logger *logrus.Logger) error {
+func (m *mockExporter) Init(config plugins.PluginConfig, logger *logrus.Logger) error {
 	args := m.Called(config, logger)
 	return args.Error(0)
 }
@@ -42,7 +42,7 @@ func (c *mockExporterConstructor) New() Exporter {
 
 func TestExporterByNameSuccess(t *testing.T) {
 	me := mockExporter{}
-	me.On("Connect", mock.Anything, mock.Anything).Return(nil)
+	me.On("Init", mock.Anything, mock.Anything).Return(nil)
 	RegisterExporter("foobar", &mockExporterConstructor{&me})
 
 	exp, err := ExporterByName("foobar", "", logger)
@@ -59,7 +59,7 @@ func TestExporterByNameNotFound(t *testing.T) {
 func TestExporterByNameConnectFailure(t *testing.T) {
 	me := mockExporter{}
 	expectedErr := fmt.Errorf("connect failure")
-	me.On("Connect", mock.Anything, mock.Anything).Return(expectedErr)
+	me.On("Init", mock.Anything, mock.Anything).Return(expectedErr)
 	RegisterExporter("baz", &mockExporterConstructor{&me})
 	_, err := ExporterByName("baz", "", logger)
 	assert.EqualError(t, err, expectedErr.Error())

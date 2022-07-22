@@ -38,7 +38,7 @@ func (exp *noopExporter) Metadata() exporters.ExporterMetadata {
 	return noopExporterMetadata
 }
 
-func (exp *noopExporter) Connect(_ plugins.PluginConfig, _ *logrus.Logger) error {
+func (exp *noopExporter) Init(_ plugins.PluginConfig, _ *logrus.Logger) error {
 	return nil
 }
 
@@ -46,7 +46,7 @@ func (exp *noopExporter) Config() plugins.PluginConfig {
 	return exp.cfg
 }
 
-func (exp *noopExporter) Disconnect() error {
+func (exp *noopExporter) Close() error {
 	return nil
 }
 

@@ -31,7 +31,7 @@ func TestExporterMetadata(t *testing.T) {
 }
 
 func TestExporterConnect(t *testing.T) {
-	assert.NoError(t, ne.Connect("", nil))
+	assert.NoError(t, ne.Init("", nil))
 }
 
 func TestExporterConfig(t *testing.T) {
@@ -39,7 +39,7 @@ func TestExporterConfig(t *testing.T) {
 }
 
 func TestExporterDisconnect(t *testing.T) {
-	assert.NoError(t, ne.Disconnect())
+	assert.NoError(t, ne.Close())
 }
 
 func TestExporterHandleGenesis(t *testing.T) {

@@ -43,7 +43,7 @@ func (exp *postgresqlExporter) Metadata() exporters.ExporterMetadata {
 	return postgresqlExporterMetadata
 }
 
-func (exp *postgresqlExporter) Connect(cfg plugins.PluginConfig, logger *logrus.Logger) error {
+func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Logger) error {
 	dbName := "postgres"
 	exp.logger = logger
 	if err := exp.unmarhshalConfig(string(cfg)); err != nil {
@@ -70,7 +70,7 @@ func (exp *postgresqlExporter) Config() plugins.PluginConfig {
 	return plugins.PluginConfig(ret)
 }
 
-func (exp *postgresqlExporter) Disconnect() error {
+func (exp *postgresqlExporter) Close() error {
 	exp.db.Close()
 	return nil
 }
