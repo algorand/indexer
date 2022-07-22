@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/data"
 	"github.com/sirupsen/logrus"
@@ -80,9 +81,10 @@ func TestReceiveInvalidBlock(t *testing.T) {
 	assert.NoError(t, pgsqlExp.Connect(cfg, logger))
 
 	invalidBlock := data.BlockData{
-		Block:       nil,
+		BlockHeader: bookkeeping.BlockHeader{},
+		Payset:      &transactions.Payset{},
 		Certificate: &agreement.Certificate{},
-		Delta:       &ledgercore.StateDelta{},
+		Delta:       nil,
 	}
 	expectedErr := fmt.Sprintf("receive got an invalid block: %#v", invalidBlock)
 	assert.EqualError(t, pgsqlExp.Receive(invalidBlock), expectedErr)
@@ -94,7 +96,8 @@ func TestReceiveAddBlockSuccess(t *testing.T) {
 	assert.NoError(t, pgsqlExp.Connect(cfg, logger))
 
 	block := data.BlockData{
-		Block:       &bookkeeping.Block{},
+		BlockHeader: bookkeeping.BlockHeader{},
+		Payset:      &transactions.Payset{},
 		Certificate: &agreement.Certificate{},
 		Delta:       &ledgercore.StateDelta{},
 	}

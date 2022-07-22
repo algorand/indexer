@@ -3,6 +3,7 @@ package postgresql
 import (
 	"fmt"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
@@ -75,7 +76,7 @@ func (exp *postgresqlExporter) Disconnect() error {
 }
 
 func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
-	if exportData.Block == nil || exportData.Delta == nil {
+	if exportData.Delta == nil {
 		return fmt.Errorf("receive got an invalid block: %#v", exportData)
 	}
 	// Do we need to test for consensus protocol here?
@@ -85,7 +86,20 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 				return fmt.Errorf("protocol %s not found", block.CurrentProtocol)
 		}
 	*/
-	vb := ledgercore.MakeValidatedBlock(*exportData.Block, *exportData.Delta)
+	var pset transactions.Payset = nil
+	if exportData.Payset != nil {
+		pset = *exportData.Payset
+	}
+	var delta ledgercore.StateDelta
+	if exportData.Delta != nil {
+		delta = *exportData.Delta
+	}
+	vb := ledgercore.MakeValidatedBlock(
+		bookkeeping.Block{
+			BlockHeader: exportData.BlockHeader,
+			Payset:      pset,
+		},
+		delta)
 	if err := exp.db.AddBlock(&vb); err != nil {
 		return err
 	}
