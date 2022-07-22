@@ -184,8 +184,8 @@ func MakePaymentTxn(fee, amt, closeAmt, sendRewards, receiveRewards,
 	}
 }
 
-// MakeCreateSimpleAppTxn makes a transaction that creates a simple application.
-func MakeCreateSimpleAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
+// MakeCreateAppTxn makes a transaction that creates a simple application.
+func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 	// Create a transaction with ExtraProgramPages field set to 1
 	return transactions.SignedTxnWithAD{
 		SignedTxn: transactions.SignedTxn{
@@ -364,7 +364,7 @@ func MakeAppCallTxnWithLogs(appid uint64, sender basics.Address, logs []string) 
 //    |- asset transfer
 //    |- application call
 func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSender, assetReceiver basics.Address) transactions.SignedTxnWithAD {
-	createApp := MakeCreateSimpleAppTxn(appSender)
+	createApp := MakeCreateAppTxn(appSender)
 
 	// In order to simplify the test,
 	// since db.AddBlock uses ApplyData from the block and not from the evaluator,
@@ -439,7 +439,7 @@ func MakeAppCallWithInnerTxn(appSender, paymentSender, paymentReceiver, assetSen
 //   |- application call
 //   |- application call
 func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWithAD {
-	createApp := MakeCreateSimpleAppTxn(appSender)
+	createApp := MakeCreateAppTxn(appSender)
 
 	// Add a log to the outer appl call
 	createApp.ApplicationID = 123
@@ -498,7 +498,7 @@ func MakeAppCallWithMultiLogs(appSender basics.Address) transactions.SignedTxnWi
 //   |- application call
 //     |- application create
 func MakeAppCallWithInnerAppCall(appSender basics.Address) transactions.SignedTxnWithAD {
-	createApp := MakeCreateSimpleAppTxn(appSender)
+	createApp := MakeCreateAppTxn(appSender)
 
 	// Add a log to the outer appl call
 	createApp.ApplicationID = 123

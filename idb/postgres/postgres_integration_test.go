@@ -1550,7 +1550,7 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 	defer l.Close()
 
 	appid := uint64(1)
-	createTxn := test.MakeCreateSimpleAppTxn(test.AccountA)
+	createTxn := test.MakeCreateAppTxn(test.AccountA)
 	deleteTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
@@ -1585,7 +1585,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	defer l.Close()
 
 	appid := uint64(1)
-	createTxn := test.MakeCreateSimpleAppTxn(test.AccountA)
+	createTxn := test.MakeCreateAppTxn(test.AccountA)
 	optInTxn := test.MakeAppOptInTxn(appid, test.AccountB)
 	optOutTxn := test.MakeAppOptOutTxn(appid, test.AccountB)
 	block, err := test.MakeBlockForTxns(
@@ -1798,7 +1798,7 @@ func TestNonUTF8Logs(t *testing.T) {
 
 			defer l.Close()
 
-			createAppTxn := test.MakeCreateSimpleAppTxn(test.AccountA)
+			createAppTxn := test.MakeCreateAppTxn(test.AccountA)
 			createAppTxn.ApplyData.EvalDelta = transactions.EvalDelta{
 				Logs: testcase.Logs,
 				InnerTxns: []transactions.SignedTxnWithAD{
@@ -1883,7 +1883,7 @@ func TestTxnAssetID(t *testing.T) {
 	configAssetTxn := test.MakeAssetConfigTxn(
 		assetid, 0, 0, false, "myasset", "ma", "", test.AccountA)
 	appid := uint64(3)
-	createAppTxn := test.MakeCreateSimpleAppTxn(test.AccountA)
+	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
 	destroyAppTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
 
 	block, err := test.MakeBlockForTxns(
