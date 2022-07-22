@@ -41,7 +41,6 @@ Full list of available catchpoints for each network can be found at the followin
    - [Mainnet](https://algorand-catchpoints.s3.us-east-2.amazonaws.com/consolidated/mainnet_catchpoints.txt)
    - [Testnet](https://algorand-catchpoints.s3.us-east-2.amazonaws.com/consolidated/testnet_catchpoints.txt)
    - [Betanet](https://algorand-catchpoints.s3.us-east-2.amazonaws.com/consolidated/betanet_catchpoints.txt)
-   - [Devnet](https://algorand-catchpoints.s3.us-east-2.amazonaws.com/consolidated/devnet_catchpoints.txt)
 3. Supply the catchpoint label when starting Indexer using the command line setting `--catchpoint 22210000#MZZIOYXYPPGNYRQHROXCPILIWIMQQRN7ZNLQJVM2QVSKT3QX6O4A`, setting `catchpoint` in `indexer.yml`, or setting the `INDEXER_CATCHPOINT` environment variable.
 
 While Indexer starts, you can see progress information printed periodically in the log file.
