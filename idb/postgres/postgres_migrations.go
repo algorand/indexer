@@ -50,11 +50,12 @@ func init() {
 		{upgradeNotSupported, true, "notify the user that upgrade is not supported"},
 		{dropTxnBytesColumn, true, "drop txnbytes column"},
 		{convertAccountData, true, "convert account.account_data column"},
+		{convertBigIntType, true, "convert column storing round from bigint type to numeric(20) for all tables"},
 	}
 }
 
 // A migration function should take care of writing back to metastate migration row
-type postgresMigrationFunc func(*IndexerDb, *types.MigrationState, *idb.IndexerDbOptions) error
+type postgresMigrationFunc func(*IndexerDb, *types.MigrationState) error
 
 type migrationStruct struct {
 	migrate postgresMigrationFunc
@@ -67,9 +68,9 @@ type migrationStruct struct {
 
 var migrations []migrationStruct
 
-func wrapPostgresHandler(handler postgresMigrationFunc, db *IndexerDb, state *types.MigrationState, opts *idb.IndexerDbOptions) migration.Handler {
+func wrapPostgresHandler(handler postgresMigrationFunc, db *IndexerDb, state *types.MigrationState) migration.Handler {
 	return func() error {
-		return handler(db, state, opts)
+		return handler(db, state)
 	}
 }
 
@@ -90,7 +91,7 @@ func needsMigration(state types.MigrationState) bool {
 
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
-func (db *IndexerDb) runAvailableMigrations(opts idb.IndexerDbOptions) (chan struct{}, error) {
+func (db *IndexerDb) runAvailableMigrations() (chan struct{}, error) {
 	state, err := db.getMigrationState(context.Background(), nil)
 	if err == idb.ErrorNotInitialized {
 		state = types.MigrationState{}
@@ -103,7 +104,7 @@ func (db *IndexerDb) runAvailableMigrations(opts idb.IndexerDbOptions) (chan str
 	tasks := make([]migration.Task, 0)
 	for nextMigration < len(migrations) {
 		tasks = append(tasks, migration.Task{
-			Handler:       wrapPostgresHandler(migrations[nextMigration].migrate, db, &state, &opts),
+			Handler:       wrapPostgresHandler(migrations[nextMigration].migrate, db, &state),
 			MigrationID:   nextMigration,
 			Description:   migrations[nextMigration].description,
 			DBUnavailable: migrations[nextMigration].blocking,
@@ -214,17 +215,17 @@ func disabled(version string) func(db *IndexerDb, migrationState *types.Migratio
 	}
 }
 
-func upgradeNotSupported(db *IndexerDb, migrationState *types.MigrationState, opts *idb.IndexerDbOptions) error {
+func upgradeNotSupported(db *IndexerDb, migrationState *types.MigrationState) error {
 	return errors.New(
 		"upgrading from this version is not supported; create a new database")
 }
 
-func dropTxnBytesColumn(db *IndexerDb, migrationState *types.MigrationState, opts *idb.IndexerDbOptions) error {
+func dropTxnBytesColumn(db *IndexerDb, migrationState *types.MigrationState) error {
 	return sqlMigration(
 		db, migrationState, []string{"ALTER TABLE txn DROP COLUMN txnbytes"})
 }
 
-func convertAccountData(db *IndexerDb, migrationState *types.MigrationState, opts *idb.IndexerDbOptions) error {
+func convertAccountData(db *IndexerDb, migrationState *types.MigrationState) error {
 	newMigrationState := *migrationState
 	newMigrationState.NextMigration++
 
@@ -248,4 +249,18 @@ func convertAccountData(db *IndexerDb, migrationState *types.MigrationState, opt
 
 	*migrationState = newMigrationState
 	return nil
+}
+
+func convertBigIntType(db *IndexerDb, migrationState *types.MigrationState) error {
+	return sqlMigration(
+		db, migrationState, []string{"ALTER TABLE block_header ALTER COLUMN round SET DATA TYPE numeric(20)",
+			"ALTER TABLE txn ALTER COLUMN round SET DATA TYPE numeric(20),ALTER COLUMN asset SET DATA TYPE numeric(20);",
+			"ALTER TABLE txn_participation ALTER COLUMN round SET DATA TYPE numeric(20)",
+			"ALTER TABLE account ALTER COLUMN created_at SET DATA TYPE numeric(20),ALTER COLUMN closed_at SET DATA TYPE numeric(20);",
+			"ALTER TABLE account_asset ALTER COLUMN assetid SET DATA TYPE numeric(20),ALTER COLUMN created_at SET DATA TYPE numeric(20), ALTER COLUMN closed_at SET DATA TYPE numeric(20);",
+			"ALTER TABLE asset ALTER COLUMN index SET DATA TYPE numeric(20),ALTER COLUMN created_at SET DATA TYPE numeric(20), ALTER COLUMN closed_at SET DATA TYPE numeric(20);",
+			"ALTER TABLE app ALTER COLUMN index SET DATA TYPE numeric(20),ALTER COLUMN created_at SET DATA TYPE numeric(20), ALTER COLUMN closed_at SET DATA TYPE numeric(20);",
+			"ALTER TABLE account_app ALTER COLUMN app SET DATA TYPE numeric(20),ALTER COLUMN created_at SET DATA TYPE numeric(20), ALTER COLUMN closed_at SET DATA TYPE numeric(20);",
+			"",
+		})
 }

@@ -24,7 +24,7 @@ func TestConvertAccountDataIncrementsMigrationNumber(t *testing.T) {
 	err := db.setMigrationState(nil, &migrationState)
 	require.NoError(t, err)
 
-	err = convertAccountData(&db, &migrationState, nil)
+	err = convertAccountData(&db, &migrationState)
 	require.NoError(t, err)
 
 	migrationState, err = db.getMigrationState(context.Background(), nil)
