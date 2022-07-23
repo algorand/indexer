@@ -112,6 +112,7 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, 
 	service.Start(ctx)
 	defer service.Stop()
 
+	// Report progress periodically while waiting for catchup to complete
 	running := true
 	for running {
 		select {

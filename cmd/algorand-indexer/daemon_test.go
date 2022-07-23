@@ -49,7 +49,7 @@ func TestImportRetryAndCancel(t *testing.T) {
 	l, err := itest.MakeTestLedger(ledgerLogger)
 	assert.NoError(t, err)
 	defer l.Close()
-	proc, err := blockprocessor.MakeProcessorWithLedger(l, nil)
+	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, nil)
 	assert.Nil(t, err)
 	proc.SetHandler(imp.ImportBlock)
 	handler := blockHandler(proc, 50*time.Millisecond)

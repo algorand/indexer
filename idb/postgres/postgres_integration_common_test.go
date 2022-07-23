@@ -37,10 +37,10 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*IndexerDb, func(), pr
 		shutdownFunc()
 	}
 
-	log, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(log)
+	logger, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(logger)
 	require.NoError(t, err)
-	proc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
+	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
 
 	return db, newShutdownFunc, proc, l
