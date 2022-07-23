@@ -119,9 +119,4 @@ CREATE TABLE IF NOT EXISTS account_app (
 CREATE INDEX IF NOT EXISTS account_app_by_addr_partial ON account_app(addr) WHERE NOT deleted;
 
 -- For looking up app box storage
-CREATE TABLE IF NOT EXISTS app_box (
-  app bigint NOT NULL,
-  name bytea NOT NULL,
-  value bytea NOT NULL, -- upon creation 'value' is 0x000...000 with length being the box'es size
-  PRIMARY KEY (app, name)
-);
+{{.AppBox}};
