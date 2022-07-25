@@ -50,7 +50,7 @@ func init() {
 		{upgradeNotSupported, true, "notify the user that upgrade is not supported"},
 		{dropTxnBytesColumn, true, "drop txnbytes column"},
 		{convertAccountData, true, "convert account.account_data column"},
-		{convertBigIntType, true, "convert column storing round from bigint type to numeric(20) for all tables"},
+		{convertBigIntType, true, "convert columns from bigint type to numeric(20) for all tables"},
 	}
 }
 
