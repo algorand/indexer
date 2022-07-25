@@ -219,7 +219,7 @@ func generateAppLocalStateDelta(t *testing.T) ledgercore.AppLocalStateDelta {
 // Tests in particular that batch writing and reading is done in the same order
 // and that there are no problems around passing account address pointers to the postgres
 // driver which could be the same pointer if we are not careful.
-func testWriteReadResources(t *testing.T) {
+func TestWriteReadResources(t *testing.T) {
 	db, shutdownFunc, _, ld := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 	defer ld.Close()
@@ -277,35 +277,38 @@ func testWriteReadResources(t *testing.T) {
 	// require.NoError(t, err)
 	// defer l.Close()
 
-	// ret, err := l.LookupResources(resources)
-	// require.NoError(t, err)
+	l := ledgerforevaluator.MakeLedgerForEvaluator(ld)
+	defer l.Close()
 
-	// for address, creatables := range resources {
-	// 	ret, ok := ret[address]
-	// 	require.True(t, ok)
+	ret, err := l.LookupResources(resources)
+	require.NoError(t, err)
 
-	// 	for creatable := range creatables {
-	// 		ret, ok := ret[creatable]
-	// 		require.True(t, ok)
+	for address, creatables := range resources {
+		ret, ok := ret[address]
+		require.True(t, ok)
 
-	// 		switch creatable.Type {
-	// 		case basics.AssetCreatable:
-	// 			assetParamsDelta, _ :=
-	// 				delta.Accts.GetAssetParams(address, basics.AssetIndex(creatable.Index))
-	// 			assert.Equal(t, assetParamsDelta.Params, ret.AssetParams)
+		for creatable := range creatables {
+			ret, ok := ret[creatable]
+			require.True(t, ok)
 
-	// 			assetHoldingDelta, _ :=
-	// 				delta.Accts.GetAssetHolding(address, basics.AssetIndex(creatable.Index))
-	// 			assert.Equal(t, assetHoldingDelta.Holding, ret.AssetHolding)
-	// 		case basics.AppCreatable:
-	// 			appParamsDelta, _ :=
-	// 				delta.Accts.GetAppParams(address, basics.AppIndex(creatable.Index))
-	// 			assert.Equal(t, appParamsDelta.Params, ret.AppParams)
+			switch creatable.Type {
+			case basics.AssetCreatable:
+				assetParamsDelta, _ :=
+					delta.Accts.GetAssetParams(address, basics.AssetIndex(creatable.Index))
+				require.Equal(t, assetParamsDelta.Params, ret.AssetParams)
 
-	// 			appLocalStateDelta, _ :=
-	// 				delta.Accts.GetAppLocalState(address, basics.AppIndex(creatable.Index))
-	// 			assert.Equal(t, appLocalStateDelta.LocalState, ret.AppLocalState)
-	// 		}
-	// 	}
-	// }
+				assetHoldingDelta, _ :=
+					delta.Accts.GetAssetHolding(address, basics.AssetIndex(creatable.Index))
+				require.Equal(t, assetHoldingDelta.Holding, ret.AssetHolding)
+			case basics.AppCreatable:
+				appParamsDelta, _ :=
+					delta.Accts.GetAppParams(address, basics.AppIndex(creatable.Index))
+				require.Equal(t, appParamsDelta.Params, ret.AppParams)
+
+				appLocalStateDelta, _ :=
+					delta.Accts.GetAppLocalState(address, basics.AppIndex(creatable.Index))
+				require.Equal(t, appLocalStateDelta.LocalState, ret.AppLocalState)
+			}
+		}
+	}
 }
