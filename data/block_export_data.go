@@ -20,7 +20,7 @@ type BlockData struct {
 	BlockHeader bookkeeping.BlockHeader
 
 	// Payset is the set of data the block is carrying--can be modified as it is processed
-	Payset transactions.Payset
+	Payset []transactions.SignedTxnInBlock
 
 	// Delta contains a list of account changes resulting from the block. Processor plugins may have modify this data.
 	Delta *ledgercore.StateDelta
