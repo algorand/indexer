@@ -21,6 +21,8 @@ var (
 	AccountD = DecodeAddressOrPanic("6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI")
 	// AccountE is a premade account for use in tests.
 	AccountE = DecodeAddressOrPanic("QYE3RIRIIUS4VRZ4WYR7E5R6WBHTQXUY7F62C7U77SSRAXUSFTSRQPXPPU")
+	// AccountForRandom is a premade test account with maximum uint64 balance
+	AccountForRandom = DecodeAddressOrPanic("ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZUEPSTQ")
 	// FeeAddr is the fee addess to use when creating the state object.
 	FeeAddr = DecodeAddressOrPanic("ZROKLZW4GVOK5WQIF2GUR6LHFVEZBMV56BIQEQD4OTIZL2BPSYYUKFBSHM")
 	// RewardAddr is the fee addess to use when creating the state object.
@@ -583,6 +585,13 @@ func MakeGenesis() bookkeeping.Genesis {
 					MicroAlgos: basics.MicroAlgos{Raw: 1000 * 1000 * 1000 * 1000},
 				},
 			},
+			// {
+			// 	Address: AccountForRandom.String(),
+			// 	State: basics.AccountData{
+			// 		// 2^64 - 10 µalgos which is much greater than 2^63 but still won't overflow
+			// 		MicroAlgos: basics.MicroAlgos{Raw: ^uint64(0) - 10_000_000_000_000},
+			// 	},
+			// },
 		},
 		RewardsPool: RewardAddr.String(),
 		FeeSink:     FeeAddr.String(),
