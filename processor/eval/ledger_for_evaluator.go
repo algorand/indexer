@@ -148,3 +148,8 @@ func (l LedgerForEvaluator) LatestTotals() (ledgercore.AccountTotals, error) {
 	_, totals, err := l.Ledger.LatestTotals()
 	return totals, err
 }
+
+// BlockHdrCached is part of go-algorand's indexerLedgerForEval interface.
+func (l LedgerForEvaluator) BlockHdrCached(round basics.Round) (bookkeeping.BlockHeader, error) {
+	panic("not implemented")
+}

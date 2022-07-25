@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/algorand/go-algorand/agreement"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/data"
 	"github.com/sirupsen/logrus"
@@ -36,20 +37,20 @@ func TestExporterMetadata(t *testing.T) {
 func TestConnectDisconnectSuccess(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true\nconnection-string: ''")
-	assert.NoError(t, pgsqlExp.Connect(cfg, logger))
-	assert.NoError(t, pgsqlExp.Disconnect())
+	assert.NoError(t, pgsqlExp.Init(cfg, logger))
+	assert.NoError(t, pgsqlExp.Close())
 }
 
 func TestConnectUnmarshalFailure(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("'")
-	assert.ErrorContains(t, pgsqlExp.Connect(cfg, logger), "connect failure in unmarshalConfig")
+	assert.ErrorContains(t, pgsqlExp.Init(cfg, logger), "connect failure in unmarshalConfig")
 }
 
 func TestConnectDbFailure(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("")
-	assert.ErrorContains(t, pgsqlExp.Connect(cfg, logger), "connect failure constructing db, postgres:")
+	assert.ErrorContains(t, pgsqlExp.Init(cfg, logger), "connect failure constructing db, postgres:")
 }
 
 func TestConfigDefault(t *testing.T) {
@@ -70,19 +71,20 @@ func TestDefaultRoundZero(t *testing.T) {
 func TestHandleGenesis(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true")
-	assert.NoError(t, pgsqlExp.Connect(cfg, logger))
+	assert.NoError(t, pgsqlExp.Init(cfg, logger))
 	assert.NoError(t, pgsqlExp.HandleGenesis(bookkeeping.Genesis{}))
 }
 
 func TestReceiveInvalidBlock(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true")
-	assert.NoError(t, pgsqlExp.Connect(cfg, logger))
+	assert.NoError(t, pgsqlExp.Init(cfg, logger))
 
 	invalidBlock := data.BlockData{
-		Block:       nil,
+		BlockHeader: bookkeeping.BlockHeader{},
+		Payset:      transactions.Payset{},
 		Certificate: &agreement.Certificate{},
-		Delta:       &ledgercore.StateDelta{},
+		Delta:       nil,
 	}
 	expectedErr := fmt.Sprintf("receive got an invalid block: %#v", invalidBlock)
 	assert.EqualError(t, pgsqlExp.Receive(invalidBlock), expectedErr)
@@ -91,10 +93,11 @@ func TestReceiveInvalidBlock(t *testing.T) {
 func TestReceiveAddBlockSuccess(t *testing.T) {
 	pgsqlExp := pgsqlConstructor.New()
 	cfg := plugins.PluginConfig("test: true")
-	assert.NoError(t, pgsqlExp.Connect(cfg, logger))
+	assert.NoError(t, pgsqlExp.Init(cfg, logger))
 
 	block := data.BlockData{
-		Block:       &bookkeeping.Block{},
+		BlockHeader: bookkeeping.BlockHeader{},
+		Payset:      transactions.Payset{},
 		Certificate: &agreement.Certificate{},
 		Delta:       &ledgercore.StateDelta{},
 	}

@@ -42,7 +42,7 @@ func (exp *postgresqlExporter) Metadata() exporters.ExporterMetadata {
 	return postgresqlExporterMetadata
 }
 
-func (exp *postgresqlExporter) Connect(cfg plugins.PluginConfig, logger *logrus.Logger) error {
+func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Logger) error {
 	dbName := "postgres"
 	exp.logger = logger
 	if err := exp.unmarhshalConfig(string(cfg)); err != nil {
@@ -69,13 +69,13 @@ func (exp *postgresqlExporter) Config() plugins.PluginConfig {
 	return plugins.PluginConfig(ret)
 }
 
-func (exp *postgresqlExporter) Disconnect() error {
+func (exp *postgresqlExporter) Close() error {
 	exp.db.Close()
 	return nil
 }
 
 func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
-	if exportData.Block == nil || exportData.Delta == nil {
+	if exportData.Delta == nil {
 		return fmt.Errorf("receive got an invalid block: %#v", exportData)
 	}
 	// Do we need to test for consensus protocol here?
@@ -85,7 +85,16 @@ func (exp *postgresqlExporter) Receive(exportData data.BlockData) error {
 				return fmt.Errorf("protocol %s not found", block.CurrentProtocol)
 		}
 	*/
-	vb := ledgercore.MakeValidatedBlock(*exportData.Block, *exportData.Delta)
+	var delta ledgercore.StateDelta
+	if exportData.Delta != nil {
+		delta = *exportData.Delta
+	}
+	vb := ledgercore.MakeValidatedBlock(
+		bookkeeping.Block{
+			BlockHeader: exportData.BlockHeader,
+			Payset:      exportData.Payset,
+		},
+		delta)
 	if err := exp.db.AddBlock(&vb); err != nil {
 		return err
 	}
