@@ -452,9 +452,9 @@ func startIndexer(dataDir string, logfile string, loglevel string, indexerBinary
 
 	return func() error {
 		if err := cmd.Process.Signal(os.Interrupt); err != nil {
-			fmt.Printf("failed to kill indexer process: %w\n", err)
+			fmt.Printf("failed to kill indexer process: %s\n", err)
 			if err := cmd.Process.Kill(); err != nil {
-				return fmt.Errorf("failed to kill indexer process: %w\n", err)
+				return fmt.Errorf("failed to kill indexer process: %w", err)
 			}
 		}
 		if err := cmd.Wait(); err != nil {
