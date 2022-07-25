@@ -17,6 +17,7 @@ help() {
   echo " -r|--report-dir directory where the report should be written."
   echo " -d|--duration   test duration."
   echo " -l|--level      log level to pass to Indexer."
+  echo " -g|--generator  use a different indexer binary to run the generator."
   exit
 }
 
@@ -26,6 +27,10 @@ while :; do
   -v | --verbose) set -x ;;
   -c | --connection-string)
     CONNECTION_STRING="${2-}"
+    shift
+    ;;
+  -g | --generator)
+    GENERATOR_BINARY="${2-}"
     shift
     ;;
   -i | --indexer)
@@ -71,12 +76,17 @@ if [ -z "$SCENARIOS" ]; then
   exit 1
 fi
 
+if [ -z "$GENERATOR_BINARY" ]; then
+  echo "Using indexer binary for generator, override with (-g / --generator)."
+  GENERATOR_BINARY="$INDEXER_BINARY"
+fi
+
 echo "Running with binary: $INDEXER_BINARY"
 echo "Report directory: $REPORT_DIR"
 echo "Duration: $DURATION"
 echo "Log Level: $LOG_LEVEL"
 
-"$INDEXER_BINARY" \
+"$GENERATOR_BINARY" \
          util block-generator runner \
   -i "$INDEXER_BINARY" \
   -s "$SCENARIOS" \
