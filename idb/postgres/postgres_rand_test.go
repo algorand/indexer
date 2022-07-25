@@ -43,7 +43,6 @@ func generateAccountData() ledgercore.AccountData {
 	return res
 }
 
-
 // Temporarily turning this test off:
 
 // Write random account data for many random accounts, then read it and compare.
