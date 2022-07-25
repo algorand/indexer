@@ -101,7 +101,7 @@ func MakeGenerator(config GenerationConfig) (Generator, error) {
 		genesisHash:               [32]byte{},
 		genesisID:                 "blockgen-test",
 		prevBlockHash:             "",
-		round:                     0,
+		round:                     1,
 		txnCounter:                0,
 		timestamp:                 0,
 		rewardsLevel:              0,
