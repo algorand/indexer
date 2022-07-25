@@ -148,3 +148,7 @@ func (l LedgerForEvaluator) LatestTotals() (ledgercore.AccountTotals, error) {
 	_, totals, err := l.Ledger.LatestTotals()
 	return totals, err
 }
+
+func (l LedgerForEvaluator) BlockHdrCached(round basics.Round) (bookkeeping.BlockHeader, error) {
+	return l.Ledger.BlockHdrCached(round)
+}
