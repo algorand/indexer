@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"github.com/algorand/go-algorand/ledger"
 	"math/rand"
 	"testing"
 
@@ -36,8 +35,6 @@ func generateAccountData() ledgercore.AccountData {
 	if rand.Uint32()%2 == 0 {
 		return ledgercore.AccountData{}
 	}
-
-	const numCreatables = 20
 
 	res := ledgercore.AccountData{
 		AccountBaseData: ledgercore.AccountBaseData{
@@ -226,36 +223,39 @@ func TestWriteReadResources(t *testing.T) {
 	defer shutdownFunc()
 	defer ld.Close()
 
-	resources := make(map[basics.Address]map[ledger.Creatable]struct{})
+	type datum struct {
+		assetIndex basics.AssetIndex
+		assetParams ledgercore.AssetParamsDelta
+		holding ledgercore.AssetHoldingDelta
+		appIndex basics.AppIndex
+		appParams ledgercore.AppParamsDelta
+		localState ledgercore.AppLocalStateDelta
+	}
+
+	data := make(map[basics.Address]datum)
 	var delta ledgercore.StateDelta
 	for i := 0; i < 1000; i++ {
 		address := generateAddress(t)
+
 		assetIndex := basics.AssetIndex(rand.Int63())
+		assetParams := generateAssetParamsDelta()
+		holding := generateAssetHoldingDelta()
+
 		appIndex := basics.AppIndex(rand.Int63())
+		appParamsDelta := generateAppParamsDelta(t)
+		localState := generateAppLocalStateDelta(t)
 
-		{
-			c := make(map[ledger.Creatable]struct{})
-			resources[address] = c
-
-			creatable := ledger.Creatable{
-				Index: basics.CreatableIndex(assetIndex),
-				Type:  basics.AssetCreatable,
-			}
-			c[creatable] = struct{}{}
-
-			creatable = ledger.Creatable{
-				Index: basics.CreatableIndex(appIndex),
-				Type:  basics.AppCreatable,
-			}
-			c[creatable] = struct{}{}
+		data[address] = datum{
+			assetIndex: assetIndex,
+			assetParams: assetParams,
+			holding: holding,
+			appIndex: appIndex,
+			appParams: appParamsDelta,
+			localState: localState,
 		}
 
-		delta.Accts.UpsertAssetResource(
-			address, assetIndex, generateAssetParamsDelta(),
-			generateAssetHoldingDelta())
-		delta.Accts.UpsertAppResource(
-			address, appIndex, generateAppParamsDelta(t),
-			generateAppLocalStateDelta(t))
+		delta.Accts.UpsertAssetResource(address, assetIndex, assetParams, holding)
+		delta.Accts.UpsertAppResource(address, appIndex, appParamsDelta, localState)
 	}
 
 	f := func(tx pgx.Tx) error {
@@ -275,53 +275,19 @@ func TestWriteReadResources(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	/*
-		l, err := ledgerforevaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
-		require.NoError(t, err)
-		defer l.Close()
-
-		ret, err := l.LookupResources(resources)
-		require.NoError(t, err)
-	*/
-
-	for address, creatables := range resources {
+	for address, datum := range data {
 		fmt.Println(base64.StdEncoding.EncodeToString(address[:]))
-		account := maybeGetAccount(t, db, address)
-		if account == nil {
-			fmt.Println(nil)
-		} else {
-			fmt.Println(nil)
-		}
-		//require.NotNil(t, account)
-		//ret, ok := ret[address]
-		//require.True(t, ok)
 
-		for creatable := range creatables {
-			fmt.Println(creatable)
-			fmt.Println(creatable)
-			//ret, ok := ret[creatable]
-			//require.True(t, ok)
+		// asset info
+		assetParams, _ := delta.Accts.GetAssetParams(address, datum.assetIndex)
+		require.Equal(t, datum.assetParams, assetParams)
+		holding, _ := delta.Accts.GetAssetHolding(address, datum.assetIndex)
+		require.Equal(t, datum.holding, holding)
 
-			/*
-				switch creatable.Type {
-				case basics.AssetCreatable:
-					assetParamsDelta, _ :=
-						delta.Accts.GetAssetParams(address, basics.AssetIndex(creatable.Index))
-					assert.Equal(t, assetParamsDelta.Params, ret.AssetParams)
-
-					assetHoldingDelta, _ :=
-						delta.Accts.GetAssetHolding(address, basics.AssetIndex(creatable.Index))
-					assert.Equal(t, assetHoldingDelta.Holding, ret.AssetHolding)
-				case basics.AppCreatable:
-					appParamsDelta, _ :=
-						delta.Accts.GetAppParams(address, basics.AppIndex(creatable.Index))
-					assert.Equal(t, appParamsDelta.Params, ret.AppParams)
-
-					appLocalStateDelta, _ :=
-						delta.Accts.GetAppLocalState(address, basics.AppIndex(creatable.Index))
-					assert.Equal(t, appLocalStateDelta.LocalState, ret.AppLocalState)
-				}
-			*/
-		}
+		// app info
+		appParams, _ := delta.Accts.GetAppParams(address, datum.appIndex)
+		require.Equal(t, datum.appParams, appParams)
+		localState, _ := delta.Accts.GetAppLocalState(address, datum.appIndex)
+		require.Equal(t, datum.localState, localState)
 	}
 }
