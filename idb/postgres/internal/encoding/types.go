@@ -130,6 +130,8 @@ type baseAccountData struct {
 	TotalAssets         uint64             `codec:"tas"`
 	TotalAppParams      uint64             `codec:"tapp"`
 	TotalAppLocalStates uint64             `codec:"tapl"`
+	TotalBoxes          uint64             `codec:"tbx"`
+	TotalBoxBytes       uint64             `codec:"tbxb"`
 
 	baseOnlineAccountData
 }

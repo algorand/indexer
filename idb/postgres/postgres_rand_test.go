@@ -2,31 +2,27 @@ package postgres
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"testing"
 
-	"github.com/algorand/go-algorand/config"
+	"github.com/jackc/pgx/v4"
+	"github.com/stretchr/testify/require"
+
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/protocol"
-
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
-	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/indexer/idb/postgres/internal/writer"
-	ledgerforevaluator "github.com/algorand/indexer/processor/eval"
-	"github.com/algorand/indexer/util/test"
 
-	"github.com/jackc/pgx/v4"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	models "github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/idb/postgres/internal/writer"
+	"github.com/algorand/indexer/util/test"
 )
 
 func generateAddress(t *testing.T) basics.Address {
 	var res basics.Address
-
 	_, err := rand.Read(res[:])
 	require.NoError(t, err)
 
@@ -48,6 +44,20 @@ func generateAccountData() ledgercore.AccountData {
 	return res
 }
 
+func maybeGetAccount(t *testing.T, db *IndexerDb, address basics.Address) *models.Account {
+	resultCh, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: address[:]})
+	num := 0
+	var result *models.Account
+	for row := range resultCh {
+		num++
+		require.NoError(t, row.Error)
+		acct := row.Account
+		result = &acct
+	}
+	require.LessOrEqual(t, num, 1, "There should be at most one result for the address.")
+	return result
+}
+
 // Write random account data for many random accounts, then read it and compare.
 // Tests in particular that batch writing and reading is done in the same order
 // and that there are no problems around passing account address pointers to the postgres
@@ -57,13 +67,14 @@ func TestWriteReadAccountData(t *testing.T) {
 	defer shutdownFunc()
 	defer ld.Close()
 
-	addresses := make(map[basics.Address]struct{})
+	data := make(map[basics.Address]ledgercore.AccountData)
 	var delta ledgercore.StateDelta
 	for i := 0; i < 1000; i++ {
 		address := generateAddress(t)
 
-		addresses[address] = struct{}{}
-		delta.Accts.Upsert(address, generateAccountData())
+		acctData := generateAccountData()
+		data[address] = acctData
+		delta.Accts.Upsert(address, acctData)
 	}
 
 	f := func(tx pgx.Tx) error {
@@ -83,23 +94,13 @@ func TestWriteReadAccountData(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l := ledgerforevaluator.MakeLedgerForEvaluator(ld)
-	defer l.Close()
+	for address, expected := range data {
+		account := maybeGetAccount(t, db, address)
 
-	ret, err := l.LookupWithoutRewards(addresses)
-	require.NoError(t, err)
-
-	for address := range addresses {
-		expected, ok := delta.Accts.GetData(address)
-		require.True(t, ok)
-
-		ret, ok := ret[address]
-		require.True(t, ok)
-
-		if ret == nil {
-			require.True(t, expected.IsZero())
+		if expected.IsZero() {
+			require.Nil(t, account)
 		} else {
-			require.Equal(t, &expected, ret)
+			require.Equal(t, expected.AccountBaseData.MicroAlgos.Raw, account.Amount)
 		}
 	}
 }
@@ -221,36 +222,39 @@ func TestWriteReadResources(t *testing.T) {
 	defer shutdownFunc()
 	defer ld.Close()
 
-	resources := make(map[basics.Address]map[ledger.Creatable]struct{})
+	type datum struct {
+		assetIndex  basics.AssetIndex
+		assetParams ledgercore.AssetParamsDelta
+		holding     ledgercore.AssetHoldingDelta
+		appIndex    basics.AppIndex
+		appParams   ledgercore.AppParamsDelta
+		localState  ledgercore.AppLocalStateDelta
+	}
+
+	data := make(map[basics.Address]datum)
 	var delta ledgercore.StateDelta
 	for i := 0; i < 1000; i++ {
 		address := generateAddress(t)
+
 		assetIndex := basics.AssetIndex(rand.Int63())
+		assetParams := generateAssetParamsDelta()
+		holding := generateAssetHoldingDelta()
+
 		appIndex := basics.AppIndex(rand.Int63())
+		appParamsDelta := generateAppParamsDelta(t)
+		localState := generateAppLocalStateDelta(t)
 
-		{
-			c := make(map[ledger.Creatable]struct{})
-			resources[address] = c
-
-			creatable := ledger.Creatable{
-				Index: basics.CreatableIndex(assetIndex),
-				Type:  basics.AssetCreatable,
-			}
-			c[creatable] = struct{}{}
-
-			creatable = ledger.Creatable{
-				Index: basics.CreatableIndex(appIndex),
-				Type:  basics.AppCreatable,
-			}
-			c[creatable] = struct{}{}
+		data[address] = datum{
+			assetIndex:  assetIndex,
+			assetParams: assetParams,
+			holding:     holding,
+			appIndex:    appIndex,
+			appParams:   appParamsDelta,
+			localState:  localState,
 		}
 
-		delta.Accts.UpsertAssetResource(
-			address, assetIndex, generateAssetParamsDelta(),
-			generateAssetHoldingDelta())
-		delta.Accts.UpsertAppResource(
-			address, appIndex, generateAppParamsDelta(t),
-			generateAppLocalStateDelta(t))
+		delta.Accts.UpsertAssetResource(address, assetIndex, assetParams, holding)
+		delta.Accts.UpsertAppResource(address, appIndex, appParamsDelta, localState)
 	}
 
 	f := func(tx pgx.Tx) error {
@@ -270,207 +274,19 @@ func TestWriteReadResources(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l := ledgerforevaluator.MakeLedgerForEvaluator(ld)
-	defer l.Close()
+	for address, datum := range data {
+		fmt.Println(base64.StdEncoding.EncodeToString(address[:]))
 
-	ret, err := l.LookupResources(resources)
-	require.NoError(t, err)
+		// asset info
+		assetParams, _ := delta.Accts.GetAssetParams(address, datum.assetIndex)
+		require.Equal(t, datum.assetParams, assetParams)
+		holding, _ := delta.Accts.GetAssetHolding(address, datum.assetIndex)
+		require.Equal(t, datum.holding, holding)
 
-	for address, creatables := range resources {
-		ret, ok := ret[address]
-		require.True(t, ok)
-
-		for creatable := range creatables {
-			ret, ok := ret[creatable]
-			require.True(t, ok)
-
-			switch creatable.Type {
-			case basics.AssetCreatable:
-				assetParamsDelta, _ :=
-					delta.Accts.GetAssetParams(address, basics.AssetIndex(creatable.Index))
-				assert.Equal(t, assetParamsDelta.Params, ret.AssetParams)
-
-				assetHoldingDelta, _ :=
-					delta.Accts.GetAssetHolding(address, basics.AssetIndex(creatable.Index))
-				assert.Equal(t, assetHoldingDelta.Holding, ret.AssetHolding)
-			case basics.AppCreatable:
-				appParamsDelta, _ :=
-					delta.Accts.GetAppParams(address, basics.AppIndex(creatable.Index))
-				assert.Equal(t, appParamsDelta.Params, ret.AppParams)
-
-				appLocalStateDelta, _ :=
-					delta.Accts.GetAppLocalState(address, basics.AppIndex(creatable.Index))
-				assert.Equal(t, appLocalStateDelta.LocalState, ret.AppLocalState)
-			}
-		}
+		// app info
+		appParams, _ := delta.Accts.GetAppParams(address, datum.appIndex)
+		require.Equal(t, datum.appParams, appParams)
+		localState, _ := delta.Accts.GetAppLocalState(address, datum.appIndex)
+		require.Equal(t, datum.localState, localState)
 	}
-}
-
-// generateBoxes generates a random slice of box keys and values for an app using future consensus params for guidance.
-// NOTE: no attempt is made to adhere to the constraints BytesPerBoxReference etc.
-func generateBoxes(t *testing.T, appIdx basics.AppIndex) map[string]string {
-	future := config.Consensus[protocol.ConsensusFuture]
-	numBoxes := rand.Intn(future.MaxAppBoxReferences + 1)
-
-	boxes := make(map[string]string)
-	for i := 0; i < numBoxes; i++ {
-		nameLen := rand.Intn(future.MaxAppKeyLen + 1)
-		size := rand.Intn(int(future.MaxBoxSize) + 1)
-
-		nameBytes := make([]byte, nameLen)
-		_, err := rand.Read(nameBytes)
-		require.NoError(t, err)
-		key := logic.MakeBoxKey(appIdx, string(nameBytes))
-
-		require.Positive(t, len(key))
-
-		valueBytes := make([]byte, size)
-		_, err = rand.Read(valueBytes)
-		require.NoError(t, err)
-
-		boxes[key] = string(valueBytes)
-	}
-	return boxes
-}
-
-func createBoxesWithDelta(t *testing.T) (map[basics.AppIndex]map[string]string, ledgercore.StateDelta) {
-	appBoxes := make(map[basics.AppIndex]map[string]string)
-	var delta ledgercore.StateDelta
-	delta.KvMods = make(map[string]*string)
-	for i := 0; i < 100; i++ {
-
-		appIndex := basics.AppIndex(rand.Int63())
-		boxes := generateBoxes(t, appIndex)
-		appBoxes[appIndex] = boxes
-
-		for key, value := range boxes {
-			embeddedAppIdx, _, err := logic.SplitBoxKey(key)
-			require.NoError(t, err)
-			require.Equal(t, appIndex, embeddedAppIdx)
-
-			val := string([]byte(value)[:])
-			delta.KvMods[key] = &val
-		}
-	}
-	return appBoxes, delta
-}
-
-func mutateSomeBoxesWithDelta(t *testing.T, appBoxes map[basics.AppIndex]map[string]string) ledgercore.StateDelta {
-	var delta ledgercore.StateDelta
-	delta.KvMods = make(map[string]*string)
-
-	for _, boxes := range appBoxes {
-		for key, value := range boxes {
-			if rand.Intn(2) == 0 {
-				continue
-			}
-			valueBytes := make([]byte, len(value))
-			_, err := rand.Read(valueBytes)
-			require.NoError(t, err)
-			boxes[key] = string(valueBytes)
-
-			val := string([]byte(boxes[key])[:])
-			delta.KvMods[key] = &val
-		}
-	}
-
-	return delta
-}
-
-func deleteSomeBoxesWithDelta(t *testing.T, appBoxes map[basics.AppIndex]map[string]string) (map[basics.AppIndex]map[string]bool, ledgercore.StateDelta) {
-	deletedBoxes := make(map[basics.AppIndex]map[string]bool, len(appBoxes))
-
-	var delta ledgercore.StateDelta
-	delta.KvMods = make(map[string]*string)
-
-	for appIndex, boxes := range appBoxes {
-		deletedBoxes[appIndex] = map[string]bool{}
-		for key := range boxes {
-			if rand.Intn(2) == 0 {
-				continue
-			}
-			deletedBoxes[appIndex][key] = true
-			delta.KvMods[key] = nil
-		}
-	}
-
-	return deletedBoxes, delta
-}
-
-func addAppBoxesBlock(t *testing.T, db *IndexerDb, delta ledgercore.StateDelta) {
-	f := func(tx pgx.Tx) error {
-		w, err := writer.MakeWriter(tx)
-		require.NoError(t, err)
-
-		err = w.AddBlock(&bookkeeping.Block{}, transactions.Payset{}, delta)
-		require.NoError(t, err)
-
-		w.Close()
-		return nil
-	}
-	err := db.txWithRetry(serializable, f)
-	require.NoError(t, err)
-}
-
-func CompareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
-	appBoxes map[basics.AppIndex]map[string]string, extras ...map[basics.AppIndex]map[string]bool) {
-	require.LessOrEqual(t, len(extras), 1)
-	var deletedBoxes map[basics.AppIndex]map[string]bool
-	if len(extras) == 1 {
-		deletedBoxes = extras[0]
-	}
-
-	caseNum := 1
-	for appIdx, boxes := range appBoxes {
-		for key, expectedValue := range boxes {
-			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
-			expectedAppIdx, boxName, err := logic.SplitBoxKey(key)
-			require.NoError(t, err, msg)
-			require.Equal(t, appIdx, expectedAppIdx, msg)
-
-			appBoxSQL := `SELECT app, name, value FROM app_box WHERE app = $1 AND name = $2`
-			row := db.db.QueryRow(context.Background(), appBoxSQL, appIdx, []byte(boxName))
-
-			boxDeleted := false
-			if deletedBoxes != nil {
-				if _, ok := deletedBoxes[appIdx][key]; ok {
-					boxDeleted = true
-				}
-			}
-
-			var app basics.AppIndex
-			var name, value []byte
-			err = row.Scan(&app, &name, &value)
-			if !boxDeleted {
-				require.NoError(t, err, msg)
-				require.Equal(t, expectedAppIdx, app, msg)
-				require.Equal(t, boxName, string(name), msg)
-				require.Equal(t, expectedValue, string(value), msg)
-			} else {
-				require.ErrorContains(t, err, "no rows in result set", msg)
-			}
-		}
-		caseNum++
-	}
-}
-
-// Write random apps with random box names and values, then read them from indexer DB and compare.
-// Mutate some boxes and repeat the comparison.
-// Delete some boxes and repeat the comparison.
-func TestWriteReadBoxes(t *testing.T) {
-	db, shutdownFunc, _, ld := setupIdb(t, test.MakeGenesis())
-	defer shutdownFunc()
-	defer ld.Close()
-
-	appBoxes, delta := createBoxesWithDelta(t)
-	addAppBoxesBlock(t, db, delta)
-	CompareAppBoxesAgainstDB(t, db, appBoxes)
-
-	delta = mutateSomeBoxesWithDelta(t, appBoxes)
-	addAppBoxesBlock(t, db, delta)
-	CompareAppBoxesAgainstDB(t, db, appBoxes)
-
-	deletedBoxes, delta := deleteSomeBoxesWithDelta(t, appBoxes)
-	addAppBoxesBlock(t, db, delta)
-	CompareAppBoxesAgainstDB(t, db, appBoxes, deletedBoxes)
 }

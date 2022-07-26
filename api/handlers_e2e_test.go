@@ -236,7 +236,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 
 	const expectedAppIdx = 1 // must be 1 since this is the first txn
 	const expectedAssetIdx = 2
-	createAppTxn := test.MakeCreateSimpleAppTxn(test.AccountA)
+	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
 	createAssetTxn := test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT", "Asset 2", "http://asset2.com", test.AccountA)
 	appOptInTxnA := test.MakeAppOptInTxn(expectedAppIdx, test.AccountA)
 	appOptInTxnB := test.MakeAppOptInTxn(expectedAppIdx, test.AccountB)
@@ -415,14 +415,14 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	var txns []transactions.SignedTxnWithAD
 	// make apps and assets
 	for range deletedAppIDs {
-		txns = append(txns, test.MakeCreateSimpleAppTxn(test.AccountA))
+		txns = append(txns, test.MakeCreateAppTxn(test.AccountA))
 	}
 	for _, id := range deletedAssetIDs {
 		txns = append(txns, test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",
 			fmt.Sprintf("Asset %d", id), "http://asset.com", test.AccountA))
 	}
 	for range expectedAppIDs {
-		txns = append(txns, test.MakeCreateSimpleAppTxn(test.AccountA))
+		txns = append(txns, test.MakeCreateAppTxn(test.AccountA))
 	}
 	for _, id := range expectedAssetIDs {
 		txns = append(txns, test.MakeAssetConfigTxn(0, 100, 0, false, "UNIT",

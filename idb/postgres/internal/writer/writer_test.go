@@ -372,7 +372,7 @@ func TestWriterTxnParticipationTable(t *testing.T) {
 		tests = append(tests, testcase)
 	}
 	{
-		stxnad := test.MakeCreateSimpleAppTxn(test.AccountA)
+		stxnad := test.MakeCreateAppTxn(test.AccountA)
 		stxnad.Txn.ApplicationCallTxnFields.Accounts =
 			[]basics.Address{test.AccountB, test.AccountC}
 		stib, err := makeBlockFunc().EncodeSignedTxn(stxnad.SignedTxn, stxnad.ApplyData)
@@ -1304,7 +1304,7 @@ func TestAddBlockInvalidInnerAsset(t *testing.T) {
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
 	defer shutdownFunc()
 
-	callWithBadInner := test.MakeCreateSimpleAppTxn(test.AccountA)
+	callWithBadInner := test.MakeCreateAppTxn(test.AccountA)
 	callWithBadInner.ApplyData.EvalDelta.InnerTxns = []transactions.SignedTxnWithAD{
 		{
 			ApplyData: transactions.ApplyData{
@@ -1567,7 +1567,7 @@ func TestWriterAddBlock0(t *testing.T) {
 }
 
 // Simulate a scenario where app boxes are created, mutated and deleted in consecutive rounds.
-func TestWriterAppBoxTableInsertMutateDeleteSameRound(t *testing.T) {
+func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	/* Simulation details:
 	Box 1: inserted and then untouched
 	Box 2: inserted and mutated
@@ -1583,7 +1583,7 @@ func TestWriterAppBoxTableInsertMutateDeleteSameRound(t *testing.T) {
 	block.BlockHeader.Round = basics.Round(1)
 	delta := ledgercore.StateDelta{}
 
-	f := func(tx pgx.Tx) error {
+	blockAdder := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
@@ -1594,7 +1594,6 @@ func TestWriterAppBoxTableInsertMutateDeleteSameRound(t *testing.T) {
 		return nil
 	}
 
-	appBoxSQL := `SELECT app, name, value FROM app_box WHERE app = $1 AND name = $2`
 	appID := basics.AppIndex(3)
 	notPresent := "NOT PRESENT"
 
@@ -1603,7 +1602,7 @@ func TestWriterAppBoxTableInsertMutateDeleteSameRound(t *testing.T) {
 	n2, v2 := "box2", "inserted"
 	n3, v3 := "box3", "inserted"
 	n4, v4 := "box4", "inserted"
-	n5, v5 := "box6", "inserted"
+	n5, v5 := "box5", "inserted"
 
 	k1 := logic.MakeBoxKey(appID, n1)
 	k2 := logic.MakeBoxKey(appID, n2)
@@ -1618,10 +1617,14 @@ func TestWriterAppBoxTableInsertMutateDeleteSameRound(t *testing.T) {
 	delta.KvMods[k4] = &v4
 	delta.KvMods[k5] = &v5
 
-	err := pgutil.TxWithRetry(db, serializable, f, nil)
+	delta2, newKvMods, accts := test.BuildAccountDeltasFromKvsAndMods(t, map[string]*string{}, delta.KvMods)
+	delta.Accts = delta2.Accts
+
+	err := pgutil.TxWithRetry(db, serializable, blockAdder, nil)
 	require.NoError(t, err)
 
 	validateRow := func(expectedName string, expectedValue string) {
+		appBoxSQL := `SELECT app, name, value FROM app_box WHERE app = $1 AND name = $2`
 		var app basics.AppIndex
 		var name, value []byte
 
@@ -1639,11 +1642,29 @@ func TestWriterAppBoxTableInsertMutateDeleteSameRound(t *testing.T) {
 		require.Equal(t, expectedValue, string(value))
 	}
 
+	validateTotals := func() {
+		acctDataSQL := "SELECT account_data FROM account WHERE addr = $1"
+		for addr, acctInfo := range accts {
+			row := db.QueryRow(context.Background(), acctDataSQL, addr[:])
+
+			var buf []byte
+			err := row.Scan(&buf)
+			require.NoError(t, err)
+
+			ret, err := encoding.DecodeTrimmedLcAccountData(buf)
+			require.NoError(t, err)
+			require.Equal(t, acctInfo.TotalBoxes, ret.TotalBoxes)
+			require.Equal(t, acctInfo.TotalBoxBytes, ret.TotalBoxBytes)
+		}
+	}
+
 	validateRow(n1, v1)
 	validateRow(n2, v2)
 	validateRow(n3, v3)
 	validateRow(n4, v4)
 	validateRow(n5, v5)
+
+	validateTotals()
 
 	/*** SECOND ROUND - mutate 2, delete 3, mutate 4, delete 5 ***/
 	v2 = "mutated"
@@ -1657,7 +1678,10 @@ func TestWriterAppBoxTableInsertMutateDeleteSameRound(t *testing.T) {
 	delta.KvMods[k4] = &v4
 	delta.KvMods[k5] = nil
 
-	err = pgutil.TxWithRetry(db, serializable, f, nil)
+	delta2, newKvMods, accts = test.BuildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+	delta.Accts = delta2.Accts
+
+	err = pgutil.TxWithRetry(db, serializable, blockAdder, nil)
 	require.NoError(t, err)
 
 	validateRow(n1, v1) // untouched
@@ -1665,6 +1689,8 @@ func TestWriterAppBoxTableInsertMutateDeleteSameRound(t *testing.T) {
 	validateRow(n3, notPresent)
 	validateRow(n4, v4) // new v4
 	validateRow(n5, notPresent)
+
+	validateTotals()
 
 	/*** THIRD ROUND  - delete 4, insert 5 ***/
 
@@ -1675,7 +1701,10 @@ func TestWriterAppBoxTableInsertMutateDeleteSameRound(t *testing.T) {
 	delta.KvMods[k4] = nil
 	delta.KvMods[k5] = &v5
 
-	err = pgutil.TxWithRetry(db, serializable, f, nil)
+	delta2, newKvMods, accts = test.BuildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+	delta.Accts = delta2.Accts
+
+	err = pgutil.TxWithRetry(db, serializable, blockAdder, nil)
 	require.NoError(t, err)
 
 	validateRow(n1, v1)         // untouched
@@ -1684,10 +1713,14 @@ func TestWriterAppBoxTableInsertMutateDeleteSameRound(t *testing.T) {
 	validateRow(n4, notPresent) // deleted
 	validateRow(n5, v5)         // re-inserted
 
+	validateTotals()
+
 	/*** FOURTH ROUND  - NOOP ***/
 	delta.KvMods = map[string]*string{}
+	delta2, _, accts = test.BuildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
+	delta.Accts = delta2.Accts
 
-	err = pgutil.TxWithRetry(db, serializable, f, nil)
+	err = pgutil.TxWithRetry(db, serializable, blockAdder, nil)
 	require.NoError(t, err)
 
 	validateRow(n1, v1)         // untouched
@@ -1695,4 +1728,6 @@ func TestWriterAppBoxTableInsertMutateDeleteSameRound(t *testing.T) {
 	validateRow(n3, notPresent) // still deleted
 	validateRow(n4, notPresent) // still deleted
 	validateRow(n5, v5)         // untouched
+
+	validateTotals()
 }

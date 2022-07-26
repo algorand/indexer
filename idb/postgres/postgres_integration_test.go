@@ -166,7 +166,8 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	// Given // A round scenario requiring subround accounting: AccountA is funded, closed, opts back, and funded again.
 	///////////
 	createAsset := test.MakeAssetConfigTxn(0, total, uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountD)
-	optInA := test.MakeAssetOptInTxn(assetid, test.AccountA)
+	optInA1 := test.MakeAssetOptInTxn(assetid, test.AccountA)
+	optInA2 := test.MakeAssetOptInTxn(assetid, test.AccountA)
 	fundA := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 	optInB := test.MakeAssetOptInTxn(assetid, test.AccountB)
 	optInC := test.MakeAssetOptInTxn(assetid, test.AccountC)
@@ -174,8 +175,8 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	payMain := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 
 	block, err := test.MakeBlockForTxns(
-		test.MakeGenesisBlock().BlockHeader, &createAsset, &optInA, &fundA, &optInB,
-		&optInC, &closeA, &optInA, &payMain)
+		test.MakeGenesisBlock().BlockHeader, &createAsset, &optInA1, &fundA, &optInB,
+		&optInC, &closeA, &optInA2, &payMain)
 	require.NoError(t, err)
 
 	//////////
@@ -216,7 +217,8 @@ func TestReCreateAssetHolding(t *testing.T) {
 		createAssetFrozen := test.MakeAssetConfigTxn(
 			0, total, uint64(6), frozen, "icicles", "frozen coin",
 			"http://antarctica.com", test.AccountA)
-		optinB := test.MakeAssetOptInTxn(assetid, test.AccountB)
+		optinB1 := test.MakeAssetOptInTxn(assetid, test.AccountB)
+		optinB2 := test.MakeAssetOptInTxn(assetid, test.AccountB)
 		unfreezeB := test.MakeAssetFreezeTxn(
 			assetid, !frozen, test.AccountA, test.AccountB)
 		optoutB := test.MakeAssetTransferTxn(
@@ -224,8 +226,8 @@ func TestReCreateAssetHolding(t *testing.T) {
 
 		var err error
 		block, err = test.MakeBlockForTxns(
-			block.BlockHeader, &createAssetFrozen, &optinB, &unfreezeB,
-			&optoutB, &optinB)
+			block.BlockHeader, &createAssetFrozen, &optinB1, &unfreezeB,
+			&optoutB, &optinB2)
 		require.NoError(t, err)
 
 		//////////
@@ -257,11 +259,12 @@ func TestNoopOptins(t *testing.T) {
 	createAsset := test.MakeAssetConfigTxn(
 		0, uint64(1000000), uint64(6), true, "icicles", "frozen coin",
 		"http://antarctica.com", test.AccountD)
-	optinB := test.MakeAssetOptInTxn(assetid, test.AccountB)
+	optinB1 := test.MakeAssetOptInTxn(assetid, test.AccountB)
+	optinB2 := test.MakeAssetOptInTxn(assetid, test.AccountB)
 	unfreezeB := test.MakeAssetFreezeTxn(assetid, false, test.AccountD, test.AccountB)
 
 	block, err := test.MakeBlockForTxns(
-		test.MakeGenesisBlock().BlockHeader, &createAsset, &optinB, &unfreezeB, &optinB)
+		test.MakeGenesisBlock().BlockHeader, &createAsset, &optinB1, &unfreezeB, &optinB2)
 	require.NoError(t, err)
 
 	//////////
@@ -1550,7 +1553,7 @@ func TestAddBlockCreateDeleteAppSameRound(t *testing.T) {
 	defer l.Close()
 
 	appid := uint64(1)
-	createTxn := test.MakeCreateSimpleAppTxn(test.AccountA)
+	createTxn := test.MakeCreateAppTxn(test.AccountA)
 	deleteTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
 	block, err := test.MakeBlockForTxns(
 		test.MakeGenesisBlock().BlockHeader, &createTxn, &deleteTxn)
@@ -1585,7 +1588,7 @@ func TestAddBlockAppOptInOutSameRound(t *testing.T) {
 	defer l.Close()
 
 	appid := uint64(1)
-	createTxn := test.MakeCreateSimpleAppTxn(test.AccountA)
+	createTxn := test.MakeCreateAppTxn(test.AccountA)
 	optInTxn := test.MakeAppOptInTxn(appid, test.AccountB)
 	optOutTxn := test.MakeAppOptOutTxn(appid, test.AccountB)
 	block, err := test.MakeBlockForTxns(
@@ -1798,7 +1801,7 @@ func TestNonUTF8Logs(t *testing.T) {
 
 			defer l.Close()
 
-			createAppTxn := test.MakeCreateSimpleAppTxn(test.AccountA)
+			createAppTxn := test.MakeCreateAppTxn(test.AccountA)
 			createAppTxn.ApplyData.EvalDelta = transactions.EvalDelta{
 				Logs: testcase.Logs,
 				InnerTxns: []transactions.SignedTxnWithAD{
@@ -1883,7 +1886,7 @@ func TestTxnAssetID(t *testing.T) {
 	configAssetTxn := test.MakeAssetConfigTxn(
 		assetid, 0, 0, false, "myasset", "ma", "", test.AccountA)
 	appid := uint64(3)
-	createAppTxn := test.MakeCreateSimpleAppTxn(test.AccountA)
+	createAppTxn := test.MakeCreateAppTxn(test.AccountA)
 	destroyAppTxn := test.MakeAppDestroyTxn(appid, test.AccountA)
 
 	block, err := test.MakeBlockForTxns(
@@ -2255,6 +2258,8 @@ func TestIndexerDb_GetAccounts(t *testing.T) {
 
 // Test that box evolution is ingested as expected across rounds
 func TestBoxCreateMutateDelete(t *testing.T) {
+	start := time.Now()
+
 	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
 
@@ -2265,14 +2270,13 @@ func TestBoxCreateMutateDelete(t *testing.T) {
 	/**** ROUND 1: create and fund the box app ****/
 	currentRound := basics.Round(1)
 
-	createTxn, err := test.MakeCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram)
+	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram)
 	require.NoError(t, err)
 
 	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
 		basics.Address{})
 
-	block, err := test.MakeBlockForTxns(
-		test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
 	require.NoError(t, err)
 
 	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
@@ -2293,7 +2297,7 @@ func TestBoxCreateMutateDelete(t *testing.T) {
 	blockHdr, err := l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 2: create 8 boxes of appid == 1 ****/
+	/**** ROUND 2: create 8 boxes for appid == 1 ****/
 	currentRound = basics.Round(2)
 
 	boxNames := []string{
@@ -2308,6 +2312,7 @@ func TestBoxCreateMutateDelete(t *testing.T) {
 	}
 
 	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
+
 	expectedAppBoxes[appid] = map[string]string{}
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
@@ -2317,7 +2322,6 @@ func TestBoxCreateMutateDelete(t *testing.T) {
 		args := []string{"create", boxName}
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
-
 	}
 
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -2424,7 +2428,6 @@ func TestBoxCreateMutateDelete(t *testing.T) {
 		boxTxns = append(boxTxns, &boxTxn)
 
 		key := logic.MakeBoxKey(appid, boxName)
-		expectedAppBoxes[appid] = make(map[string]string)
 		expectedAppBoxes[appid][key] = newBoxValue
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
@@ -2467,4 +2470,6 @@ func TestBoxCreateMutateDelete(t *testing.T) {
 	require.Equal(t, uint64(currentRound), round)
 
 	CompareAppBoxesAgainstDB(t, db, expectedAppBoxes)
+
+	fmt.Printf("TestBoxCreateMutateDelete total time: %s\n", time.Since(start))
 }
