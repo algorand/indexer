@@ -1,4 +1,4 @@
-<div style="text-align:center">
+<div style="text-align:center" align="center">
   <picture style="width: 40%">
     <img src="./docs/assets/algorand_logo_mark_black.svg" alt="Algorand">
     <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/algorand_logo_mark_white.svg">
