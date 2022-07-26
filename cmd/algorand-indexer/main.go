@@ -12,6 +12,7 @@ import (
 	"github.com/spf13/viper"
 
 	bg "github.com/algorand/indexer/cmd/block-generator/core"
+	iv "github.com/algorand/indexer/cmd/import-validator/core"
 	v "github.com/algorand/indexer/cmd/validator/core"
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
@@ -100,6 +101,7 @@ func init() {
 		Short: "Utilities for testing Indexer operation and correctness.",
 		Long:  "Utilities used for Indexer development. These are low level tools that may require low level knowledge of Indexer deployment and operation. They are included as part of this binary for ease of deployment and automation, and to publicize their existance to people who may find them useful. More detailed documention may be found on github in README files located the different 'cmd' directories.",
 	}
+	utilsCmd.AddCommand(iv.ImportValidatorCmd)
 	utilsCmd.AddCommand(v.ValidatorCmd)
 	utilsCmd.AddCommand(bg.BlockGenerator)
 	rootCmd.AddCommand(utilsCmd)

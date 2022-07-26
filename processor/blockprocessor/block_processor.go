@@ -24,10 +24,11 @@ import (
 type blockProcessor struct {
 	handler func(block *ledgercore.ValidatedBlock) error
 	ledger  *ledger.Ledger
+	logger  *log.Logger
 }
 
 // MakeProcessorWithLedger creates a block processor with a given ledger
-func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
+func MakeProcessorWithLedger(logger *log.Logger, l *ledger.Ledger, handler func(block *ledgercore.ValidatedBlock) error) (processor.Processor, error) {
 	if l == nil {
 		return nil, fmt.Errorf("MakeProcessorWithLedger() err: local ledger not initialized")
 	}
@@ -35,7 +36,7 @@ func MakeProcessorWithLedger(l *ledger.Ledger, handler func(block *ledgercore.Va
 	if err != nil {
 		return nil, fmt.Errorf("MakeProcessorWithLedger() err: %w", err)
 	}
-	return &blockProcessor{ledger: l, handler: handler}, nil
+	return &blockProcessor{logger: logger, ledger: l, handler: handler}, nil
 }
 
 // MakeProcessorWithLedgerInit creates a block processor and initializes the ledger.
@@ -56,11 +57,11 @@ func MakeProcessor(logger *log.Logger, genesis *bookkeeping.Genesis, dbRound uin
 	if uint64(l.Latest()) > dbRound {
 		return nil, fmt.Errorf("MakeProcessor() err: the ledger cache is ahead of the required round and must be re-initialized")
 	}
-	return MakeProcessorWithLedger(l, handler)
+	return MakeProcessorWithLedger(logger, l, handler)
 }
 
 func addGenesisBlock(l *ledger.Ledger, handler func(block *ledgercore.ValidatedBlock) error) error {
-	if handler != nil && uint64(l.Latest()) == 0 {
+	if handler != nil && l != nil && l.Latest() == 0 {
 		blk, err := l.Block(0)
 		if err != nil {
 			return fmt.Errorf("addGenesisBlock() err: %w", err)
@@ -80,10 +81,13 @@ func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
 	if blockCert == nil {
 		return fmt.Errorf("Process(): cannot process a nil block")
 	}
-	if uint64(blockCert.Block.Round()) != uint64(proc.ledger.Latest())+1 {
+	if blockCert.Block.Round() != (proc.ledger.Latest() + 1) {
 		return fmt.Errorf("Process() invalid round blockCert.Block.Round(): %d nextRoundToProcess: %d", blockCert.Block.Round(), uint64(proc.ledger.Latest())+1)
 	}
 
+	// Make sure "AssetCloseAmount" is enabled. If it isn't, override the
+	// protocol and update the blocks to include transactions with modified
+	// apply data.
 	proto, ok := config.Consensus[blockCert.Block.BlockHeader.CurrentProtocol]
 	if !ok {
 		return fmt.Errorf(
@@ -96,7 +100,7 @@ func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
 
 	resources, err := prepareEvalResources(&ledgerForEval, &blockCert.Block)
 	if err != nil {
-		panic(fmt.Errorf("Process() resources err: %w", err))
+		proc.logger.Panicf("Process() resources err: %v", err)
 	}
 
 	delta, modifiedTxns, err :=
@@ -106,13 +110,14 @@ func (proc *blockProcessor) Process(blockCert *rpcs.EncodedBlockCert) error {
 	}
 	// validated block
 	var vb ledgercore.ValidatedBlock
-	vb = ledgercore.MakeValidatedBlock(blockCert.Block, delta)
 	if protoChanged {
 		block := bookkeeping.Block{
 			BlockHeader: blockCert.Block.BlockHeader,
 			Payset:      modifiedTxns,
 		}
 		vb = ledgercore.MakeValidatedBlock(block, delta)
+	} else {
+		vb = ledgercore.MakeValidatedBlock(blockCert.Block, delta)
 	}
 
 	// execute handler before writing to local ledger

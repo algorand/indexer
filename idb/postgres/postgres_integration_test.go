@@ -165,7 +165,8 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	// Given // A round scenario requiring subround accounting: AccountA is funded, closed, opts back, and funded again.
 	///////////
 	createAsset := test.MakeAssetConfigTxn(0, total, uint64(6), false, "mcn", "my coin", "http://antarctica.com", test.AccountD)
-	optInA := test.MakeAssetOptInTxn(assetid, test.AccountA)
+	optInA1 := test.MakeAssetOptInTxn(assetid, test.AccountA)
+	optInA2 := test.MakeAssetOptInTxn(assetid, test.AccountA)
 	fundA := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 	optInB := test.MakeAssetOptInTxn(assetid, test.AccountB)
 	optInC := test.MakeAssetOptInTxn(assetid, test.AccountC)
@@ -173,8 +174,8 @@ func TestAssetCloseReopenTransfer(t *testing.T) {
 	payMain := test.MakeAssetTransferTxn(assetid, amt, test.AccountD, test.AccountA, basics.Address{})
 
 	block, err := test.MakeBlockForTxns(
-		test.MakeGenesisBlock().BlockHeader, &createAsset, &optInA, &fundA, &optInB,
-		&optInC, &closeA, &optInA, &payMain)
+		test.MakeGenesisBlock().BlockHeader, &createAsset, &optInA1, &fundA, &optInB,
+		&optInC, &closeA, &optInA2, &payMain)
 	require.NoError(t, err)
 
 	//////////
@@ -215,7 +216,8 @@ func TestReCreateAssetHolding(t *testing.T) {
 		createAssetFrozen := test.MakeAssetConfigTxn(
 			0, total, uint64(6), frozen, "icicles", "frozen coin",
 			"http://antarctica.com", test.AccountA)
-		optinB := test.MakeAssetOptInTxn(assetid, test.AccountB)
+		optinB1 := test.MakeAssetOptInTxn(assetid, test.AccountB)
+		optinB2 := test.MakeAssetOptInTxn(assetid, test.AccountB)
 		unfreezeB := test.MakeAssetFreezeTxn(
 			assetid, !frozen, test.AccountA, test.AccountB)
 		optoutB := test.MakeAssetTransferTxn(
@@ -223,8 +225,8 @@ func TestReCreateAssetHolding(t *testing.T) {
 
 		var err error
 		block, err = test.MakeBlockForTxns(
-			block.BlockHeader, &createAssetFrozen, &optinB, &unfreezeB,
-			&optoutB, &optinB)
+			block.BlockHeader, &createAssetFrozen, &optinB1, &unfreezeB,
+			&optoutB, &optinB2)
 		require.NoError(t, err)
 
 		//////////
@@ -256,11 +258,12 @@ func TestNoopOptins(t *testing.T) {
 	createAsset := test.MakeAssetConfigTxn(
 		0, uint64(1000000), uint64(6), true, "icicles", "frozen coin",
 		"http://antarctica.com", test.AccountD)
-	optinB := test.MakeAssetOptInTxn(assetid, test.AccountB)
+	optinB1 := test.MakeAssetOptInTxn(assetid, test.AccountB)
+	optinB2 := test.MakeAssetOptInTxn(assetid, test.AccountB)
 	unfreezeB := test.MakeAssetFreezeTxn(assetid, false, test.AccountD, test.AccountB)
 
 	block, err := test.MakeBlockForTxns(
-		test.MakeGenesisBlock().BlockHeader, &createAsset, &optinB, &unfreezeB, &optinB)
+		test.MakeGenesisBlock().BlockHeader, &createAsset, &optinB1, &unfreezeB, &optinB2)
 	require.NoError(t, err)
 
 	//////////
@@ -1415,11 +1418,11 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), round)
 
-	log, _ := test2.NewNullLogger()
-	l, err := test.MakeTestLedger(log)
+	logger, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(logger)
 	require.NoError(t, err)
 	defer l.Close()
-	proc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
+	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
 
 	round, err = db.GetNextRoundToAccount()
@@ -1713,11 +1716,11 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	rootTxid := appCall.Txn.ID()
 
 	err = pgutil.TxWithRetry(pdb, serializable, func(tx pgx.Tx) error {
-		log, _ := test2.NewNullLogger()
-		l, err := test.MakeTestLedger(log)
+		logger, _ := test2.NewNullLogger()
+		l, err := test.MakeTestLedger(logger)
 		require.NoError(t, err)
 		defer l.Close()
-		proc, err := blockprocessor.MakeProcessorWithLedger(l, db.AddBlock)
+		proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, db.AddBlock)
 		require.NoError(t, err, "failed to open ledger")
 		blockCert := rpcs.EncodedBlockCert{Block: block}
 		return proc.Process(&blockCert)

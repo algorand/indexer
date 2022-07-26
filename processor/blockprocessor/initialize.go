@@ -39,7 +39,7 @@ func InitializeLedger(ctx context.Context, logger *log.Logger, catchpoint string
 		}
 		err := InitializeLedgerSimple(ctx, logger, nextRound-1, &genesis, opts)
 		if err != nil {
-			return fmt.Errorf("InitializeLedger() slow catchup err: %w", err)
+			return fmt.Errorf("InitializeLedger() simple catchup err: %w", err)
 		}
 	}
 	return nil
@@ -98,78 +98,6 @@ func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint6
 	}
 	return nil
 }
-
-/*
-// TODO: When we are happy with the state of ledger initialization, remove this code.
-//       If we add "stop at round" to the node, it may be useful to change back to this.
-func fullNodeCatchup(ctx context.Context, logger *log.Logger, round basics.Round, catchpoint, dataDir string, genesis bookkeeping.Genesis) error {
-	ctx, cf := context.WithCancel(ctx)
-	defer cf()
-	wrappedLogger := logging.NewWrappedLogger(logger)
-	node, err := node.MakeFull(
-		wrappedLogger,
-		dataDir,
-		algodConfig.AutogenLocal,
-		nil,
-		genesis)
-	if err != nil {
-		return err
-	}
-	node.Start()
-	defer func() {
-		node.Stop()
-		logger.Info("algod node stopped")
-	}()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(5 * time.Second):
-		logger.Info("algod node running")
-	}
-
-	status, err := node.Status()
-	if err != nil {
-		return err
-	}
-	node.StartCatchup(catchpoint)
-
-	logger.Infof("Running fast catchup using catchpoint %s", catchpoint)
-	for status.LastRound < round {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(2 * time.Second):
-			status, err = node.Status()
-			logger.Infof("Catchpoint Catchup Total Accounts %d ", status.CatchpointCatchupTotalAccounts)
-			logger.Infof("Catchpoint Catchup Processed Accounts %d ", status.CatchpointCatchupProcessedAccounts)
-			logger.Infof("Catchpoint Catchup Verified Accounts %d ", status.CatchpointCatchupVerifiedAccounts)
-			logger.Infof("Catchpoint Catchup Total Blocks %d ", status.CatchpointCatchupTotalBlocks)
-			logger.Infof("Catchpoint Catchup Acquired Blocks %d ", status.CatchpointCatchupAcquiredBlocks)
-		}
-	}
-
-	logger.Infof("fast catchup completed in %v, moving files to data directory", status.CatchupTime.Seconds())
-
-	// remove node directory after fast catchup completes
-	defer os.RemoveAll(filepath.Join(dataDir, genesis.ID()))
-	// move ledger to indexer directory
-	ledgerFiles := []string{
-		"ledger.block.sqlite",
-		"ledger.block.sqlite-shm",
-		"ledger.block.sqlite-wal",
-		"ledger.tracker.sqlite",
-		"ledger.tracker.sqlite-shm",
-		"ledger.tracker.sqlite-wal",
-	}
-	for _, f := range ledgerFiles {
-		err = os.Rename(filepath.Join(dataDir, genesis.ID(), f), filepath.Join(dataDir, f))
-		if err != nil {
-			return fmt.Errorf("fullNodeCatchup() err: %w", err)
-		}
-	}
-	return nil
-}
-*/
 
 // blockHandler creates a handler complying to the fetcher block handler interface. In case of a failure it keeps
 // attempting to add the block until the fetcher shuts down.
