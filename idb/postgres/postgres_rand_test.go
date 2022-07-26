@@ -23,7 +23,6 @@ import (
 
 func generateAddress(t *testing.T) basics.Address {
 	var res basics.Address
-	rand.Seed(1234)
 	_, err := rand.Read(res[:])
 	require.NoError(t, err)
 
