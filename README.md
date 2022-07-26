@@ -1,6 +1,6 @@
 <div style="text-align:center">
-  <picture>
-    <img src="./docs/assets/algorand_logo_mark_black.svg" alt="Algorand" style="width:40%; ">
+  <picture style="width: 40%">
+    <img src="./docs/assets/algorand_logo_mark_black.svg" alt="Algorand">
     <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/algorand_logo_mark_white.svg">
     <source media="(prefers-color-scheme: light)" srcset="./docs/assets/algorand_logo_mark_black.svg">
   </picture>
