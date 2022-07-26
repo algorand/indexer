@@ -27,7 +27,8 @@ func (proc *ledgerExporterProcessor) AddGenesisBlock() error {
 			return fmt.Errorf("addGenesisBlock() err: %w", err)
 		}
 		err = proc.exporter.Receive(data.BlockData{
-			Block:       &blk,
+			BlockHeader: blk.BlockHeader,
+			Payset:      blk.Payset,
 			Delta:       &ledgercore.StateDelta{},
 			Certificate: &agreement.Certificate{},
 		})
@@ -72,7 +73,8 @@ func (proc *ledgerExporterProcessor) Process(blockCert *rpcs.EncodedBlockCert) e
 	var vb ledgercore.ValidatedBlock
 	// BlockData
 	var blkData = data.BlockData{
-		Block:       &blockCert.Block,
+		BlockHeader: blockCert.Block.BlockHeader,
+		Payset:      blockCert.Block.Payset,
 		Delta:       &delta,
 		Certificate: &blockCert.Certificate,
 	}
@@ -83,7 +85,8 @@ func (proc *ledgerExporterProcessor) Process(blockCert *rpcs.EncodedBlockCert) e
 			Payset:      modifiedTxns,
 		}
 		vb = ledgercore.MakeValidatedBlock(block, delta)
-		blkData.Block = &block
+		blkData.BlockHeader = blockCert.Block.BlockHeader
+		blkData.Payset = modifiedTxns
 	}
 
 	// execute Exporter before writing to local ledger
