@@ -224,12 +224,12 @@ func TestWriteReadResources(t *testing.T) {
 	defer ld.Close()
 
 	type datum struct {
-		assetIndex basics.AssetIndex
+		assetIndex  basics.AssetIndex
 		assetParams ledgercore.AssetParamsDelta
-		holding ledgercore.AssetHoldingDelta
-		appIndex basics.AppIndex
-		appParams ledgercore.AppParamsDelta
-		localState ledgercore.AppLocalStateDelta
+		holding     ledgercore.AssetHoldingDelta
+		appIndex    basics.AppIndex
+		appParams   ledgercore.AppParamsDelta
+		localState  ledgercore.AppLocalStateDelta
 	}
 
 	data := make(map[basics.Address]datum)
@@ -246,12 +246,12 @@ func TestWriteReadResources(t *testing.T) {
 		localState := generateAppLocalStateDelta(t)
 
 		data[address] = datum{
-			assetIndex: assetIndex,
+			assetIndex:  assetIndex,
 			assetParams: assetParams,
-			holding: holding,
-			appIndex: appIndex,
-			appParams: appParamsDelta,
-			localState: localState,
+			holding:     holding,
+			appIndex:    appIndex,
+			appParams:   appParamsDelta,
+			localState:  localState,
 		}
 
 		delta.Accts.UpsertAssetResource(address, assetIndex, assetParams, holding)
