@@ -19,6 +19,7 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/types"
 )
 
+// AppBoxMigration is used to interpolate the field AppBoxMigration of `cmd/texttosource/main.go` in the SQL template `idb/postgres/internal/schema/setup_postgres.sql`
 const AppBoxMigration = `CREATE TABLE IF NOT EXISTS app_box (
   app bigint NOT NULL,
   name bytea NOT NULL,

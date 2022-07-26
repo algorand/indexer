@@ -11,6 +11,7 @@ import (
 	"github.com/algorand/indexer/idb/postgres"
 )
 
+// Interpolators is a struct used for interpolating into the SQL template `idb/postgres/internal/schema/setup_postgres.sql`
 type Interpolators struct {
 	AppBox string
 }
