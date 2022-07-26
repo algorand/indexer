@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"strings"
 	"sync"
@@ -20,7 +19,6 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 
 	"github.com/jackc/pgconn"
@@ -29,12 +27,10 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/algorand/indexer/accounting"
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	ledger_for_evaluator "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	"github.com/algorand/indexer/idb/postgres/internal/types"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
@@ -176,98 +172,6 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 
 	// see postgres_migrations.go
 	return db.runAvailableMigrations(opts)
-}
-
-// Preload asset and app creators.
-func prepareCreators(l *ledger_for_evaluator.DeprecatedLedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
-	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
-
-	for aidx := range assetsReq {
-		if aidx >= basics.AssetIndex(math.MaxInt64) {
-			delete(assetsReq, aidx)
-		}
-	}
-
-	for aidx := range appsReq {
-		if aidx >= basics.AppIndex(math.MaxInt64) {
-			delete(appsReq, aidx)
-		}
-	}
-
-	assets, err := l.GetAssetCreator(assetsReq)
-	if err != nil {
-		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
-	}
-	apps, err := l.GetAppCreator(appsReq)
-	if err != nil {
-		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
-	}
-
-	return assets, apps, nil
-}
-
-// Preload account data and account resources.
-func prepareAccountsResources(l *ledger_for_evaluator.DeprecatedLedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
-	addressesReq, resourcesReq :=
-		accounting.MakePreloadAccountsResourcesRequest(payset, assetCreators, appCreators)
-
-	for addr := range resourcesReq {
-		for cidx := range resourcesReq[addr] {
-			if cidx.Index >= basics.CreatableIndex(math.MaxInt64) {
-				delete(resourcesReq[addr], cidx)
-			}
-		}
-	}
-
-	accounts, err := l.LookupWithoutRewards(addressesReq)
-	if err != nil {
-		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
-	}
-	resources, err := l.LookupResources(resourcesReq)
-	if err != nil {
-		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
-	}
-
-	return accounts, resources, nil
-}
-
-// Preload all resources (account data, account resources, asset/app creators) for the
-// evaluator.
-func prepareEvalResources(l *ledger_for_evaluator.DeprecatedLedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
-	assetCreators, appCreators, err := prepareCreators(l, block.Payset)
-	if err != nil {
-		return ledger.EvalForIndexerResources{},
-			fmt.Errorf("prepareEvalResources() err: %w", err)
-	}
-
-	res := ledger.EvalForIndexerResources{
-		Accounts:  nil,
-		Resources: nil,
-		Creators:  make(map[ledger.Creatable]ledger.FoundAddress),
-	}
-
-	for index, foundAddress := range assetCreators {
-		creatable := ledger.Creatable{
-			Index: basics.CreatableIndex(index),
-			Type:  basics.AssetCreatable,
-		}
-		res.Creators[creatable] = foundAddress
-	}
-	for index, foundAddress := range appCreators {
-		creatable := ledger.Creatable{
-			Index: basics.CreatableIndex(index),
-			Type:  basics.AppCreatable,
-		}
-		res.Creators[creatable] = foundAddress
-	}
-
-	res.Accounts, res.Resources, err = prepareAccountsResources(l, block.Payset, assetCreators, appCreators)
-	if err != nil {
-		return ledger.EvalForIndexerResources{},
-			fmt.Errorf("prepareEvalResources() err: %w", err)
-	}
-
-	return res, nil
 }
 
 // AddBlock is part of idb.IndexerDb.
@@ -2570,34 +2474,6 @@ func (db *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.Speci
 	}
 
 	return accounts, nil
-}
-
-// GetAccountState returns account data and account resources for the given input.
-// For accounts that are not found, empty AccountData is returned.
-// This function is only used for debugging.
-func (db *IndexerDb) GetAccountState(addressesReq map[basics.Address]struct{}, resourcesReq map[basics.Address]map[ledger.Creatable]struct{}) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
-	tx, err := db.db.BeginTx(context.Background(), readonlyRepeatableRead)
-	if err != nil {
-		return nil, nil, fmt.Errorf("GetAccountState() begin tx err: %w", err)
-	}
-	defer tx.Rollback(context.Background())
-
-	l, err := ledger_for_evaluator.MakeDeprecatedLedgerForEvaluator(tx, basics.Round(0))
-	if err != nil {
-		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
-	}
-	defer l.Close()
-
-	accounts, err := l.LookupWithoutRewards(addressesReq)
-	if err != nil {
-		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
-	}
-	resources, err := l.LookupResources(resourcesReq)
-	if err != nil {
-		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
-	}
-
-	return accounts, resources, nil
 }
 
 // GetNetworkState is part of idb.IndexerDB
