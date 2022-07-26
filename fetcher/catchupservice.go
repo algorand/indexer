@@ -26,21 +26,7 @@ type CatchupService struct {
 	peerSelector *peerSelector
 }
 
-// nodeInfo has context and implements one service required to create a gossip node
-type nodeInfo struct {
-	ctx context.Context
-}
-
 type task func() basics.Round
-
-// makeNodeInfo initializes nodeInfo.
-func makeNodeInfo(ctx context.Context) nodeInfo {
-	return nodeInfo{
-		ctx: ctx,
-	}
-}
-
-func (n nodeInfo) IsParticipating() bool { return false }
 
 // MakeCatchupService creats a catchup service and initialzes a gossipnode
 func MakeCatchupService(ctx context.Context, genesis bookkeeping.Genesis) (s *CatchupService) {
@@ -49,8 +35,7 @@ func MakeCatchupService(ctx context.Context, genesis bookkeeping.Genesis) (s *Ca
 	s.cfg = config.AutogenLocal
 	s.genesis = genesis
 	s.log = logging.NewLogger()
-	nodeinfo := makeNodeInfo(ctx)
-	s.net, _ = network.NewWebsocketNetwork(s.log, s.cfg, nil, genesis.ID(), genesis.Network, nodeinfo)
+	s.net, _ = network.NewWebsocketNetwork(s.log, s.cfg, nil, genesis.ID(), genesis.Network, nil)
 
 	return s
 }
