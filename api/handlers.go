@@ -539,9 +539,6 @@ func (si *ServerImplementation) LookupApplicationBoxByIDandName(ctx echo.Context
 	}
 
 	box := boxes[0]
-	if box.ApplicationId != applicationID {
-		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, unexpected appid=%d", errBoxMismatch, round, applicationID, box.ApplicationId))
-	}
 	return ctx.JSON(http.StatusOK, generated.BoxResponse(box))
 }
 
@@ -566,9 +563,6 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	res := generated.BoxesResponse{ApplicationId: applicationID}
 	descriptors := []generated.BoxDescriptor{}
 	for _, box := range boxes {
-		if box.ApplicationId != applicationID {
-			return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, unexpected appid=%d", errBoxMismatch, round, applicationID, box.ApplicationId))
-		}
 		descriptors = append(descriptors, generated.BoxDescriptor{Name: box.Name})
 	}
 	res.Boxes = descriptors
