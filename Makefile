@@ -80,7 +80,9 @@ test-package:
 	mule/e2e.sh
 
 test-generate:
+	git diff
 	test/test_generate.py
+	git diff
 
 nightly-setup:
 	cd third_party/go-algorand && git fetch && git reset --hard origin/master
