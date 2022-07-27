@@ -383,7 +383,7 @@ type ApplicationBoxQuery struct {
 	Limit         uint64
 }
 
-// BoxRow provides the appid, name, and value in an application box query.
+// ApplicationBoxRow provides a response wrapping box information.
 type ApplicationBoxRow struct {
 	Box   models.Box
 	Error error

@@ -545,7 +545,7 @@ func (si *ServerImplementation) LookupApplicationBoxByIDandName(ctx echo.Context
 	return ctx.JSON(http.StatusOK, generated.BoxResponse(box))
 }
 
-// LookupApplicationBoxesByID returns box names for an app
+// SearchForApplicationBoxes returns box names for an app
 // (GET /v2/applications/{application-id}/boxes)
 func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, applicationID uint64, params generated.SearchForApplicationBoxesParams) error {
 	if err := si.verifyHandler("SearchForApplicationBoxes", ctx); err != nil {

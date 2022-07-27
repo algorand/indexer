@@ -84,7 +84,7 @@ func (db *dummyIndexerDb) AppLocalState(ctx context.Context, filter idb.Applicat
 }
 
 // ApplicationBoxes isn't currently implemented
-func (_m *dummyIndexerDb) ApplicationBoxes(ctx context.Context, filter idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
+func (db *dummyIndexerDb) ApplicationBoxes(ctx context.Context, filter idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
 	panic("not implemented")
 }
 

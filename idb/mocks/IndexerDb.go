@@ -249,7 +249,7 @@ func (_m *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.Speci
 }
 
 // ApplicationBoxes isn't currently implemented
-func (_m *IndexerDb)ApplicationBoxes(ctx context.Context, filter idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
+func (_m *IndexerDb) ApplicationBoxes(ctx context.Context, filter idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
 	panic("not implemented")
 }
 
