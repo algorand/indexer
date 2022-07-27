@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"strings"
 	"sync"
@@ -20,7 +19,6 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 
 	"github.com/jackc/pgconn"
@@ -29,18 +27,15 @@ import (
 	"github.com/jackc/pgx/v4/pgxpool"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/algorand/indexer/accounting"
 	models "github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/migration"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
-	ledger_for_evaluator "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
 	"github.com/algorand/indexer/idb/postgres/internal/types"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util"
-	"github.com/algorand/indexer/util/metrics"
 )
 
 var serializable = pgx.TxOptions{IsoLevel: pgx.Serializable} // be a real ACID database
@@ -176,103 +171,12 @@ func (db *IndexerDb) init(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	}
 
 	// see postgres_migrations.go
-	return db.runAvailableMigrations()
-}
-
-// Preload asset and app creators.
-func prepareCreators(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset) (map[basics.AssetIndex]ledger.FoundAddress, map[basics.AppIndex]ledger.FoundAddress, error) {
-	assetsReq, appsReq := accounting.MakePreloadCreatorsRequest(payset)
-
-	for aidx := range assetsReq {
-		if aidx >= basics.AssetIndex(math.MaxInt64) {
-			delete(assetsReq, aidx)
-		}
-	}
-
-	for aidx := range appsReq {
-		if aidx >= basics.AppIndex(math.MaxInt64) {
-			delete(appsReq, aidx)
-		}
-	}
-
-	assets, err := l.GetAssetCreator(assetsReq)
-	if err != nil {
-		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
-	}
-	apps, err := l.GetAppCreator(appsReq)
-	if err != nil {
-		return nil, nil, fmt.Errorf("prepareCreators() err: %w", err)
-	}
-
-	return assets, apps, nil
-}
-
-// Preload account data and account resources.
-func prepareAccountsResources(l *ledger_for_evaluator.LedgerForEvaluator, payset transactions.Payset, assetCreators map[basics.AssetIndex]ledger.FoundAddress, appCreators map[basics.AppIndex]ledger.FoundAddress) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
-	addressesReq, resourcesReq :=
-		accounting.MakePreloadAccountsResourcesRequest(payset, assetCreators, appCreators)
-
-	for addr := range resourcesReq {
-		for cidx := range resourcesReq[addr] {
-			if cidx.Index >= basics.CreatableIndex(math.MaxInt64) {
-				delete(resourcesReq[addr], cidx)
-			}
-		}
-	}
-
-	accounts, err := l.LookupWithoutRewards(addressesReq)
-	if err != nil {
-		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
-	}
-	resources, err := l.LookupResources(resourcesReq)
-	if err != nil {
-		return nil, nil, fmt.Errorf("prepareAccountsResources() err: %w", err)
-	}
-
-	return accounts, resources, nil
-}
-
-// Preload all resources (account data, account resources, asset/app creators) for the
-// evaluator.
-func prepareEvalResources(l *ledger_for_evaluator.LedgerForEvaluator, block *bookkeeping.Block) (ledger.EvalForIndexerResources, error) {
-	assetCreators, appCreators, err := prepareCreators(l, block.Payset)
-	if err != nil {
-		return ledger.EvalForIndexerResources{},
-			fmt.Errorf("prepareEvalResources() err: %w", err)
-	}
-
-	res := ledger.EvalForIndexerResources{
-		Accounts:  nil,
-		Resources: nil,
-		Creators:  make(map[ledger.Creatable]ledger.FoundAddress),
-	}
-
-	for index, foundAddress := range assetCreators {
-		creatable := ledger.Creatable{
-			Index: basics.CreatableIndex(index),
-			Type:  basics.AssetCreatable,
-		}
-		res.Creators[creatable] = foundAddress
-	}
-	for index, foundAddress := range appCreators {
-		creatable := ledger.Creatable{
-			Index: basics.CreatableIndex(index),
-			Type:  basics.AppCreatable,
-		}
-		res.Creators[creatable] = foundAddress
-	}
-
-	res.Accounts, res.Resources, err = prepareAccountsResources(l, block.Payset, assetCreators, appCreators)
-	if err != nil {
-		return ledger.EvalForIndexerResources{},
-			fmt.Errorf("prepareEvalResources() err: %w", err)
-	}
-
-	return res, nil
+	return db.runAvailableMigrations(opts)
 }
 
 // AddBlock is part of idb.IndexerDb.
-func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
+func (db *IndexerDb) AddBlock(vb *ledgercore.ValidatedBlock) error {
+	block := vb.Block()
 	db.log.Printf("adding block %d", block.Round())
 
 	db.accountingLock.Lock()
@@ -302,98 +206,46 @@ func (db *IndexerDb) AddBlock(block *bookkeeping.Block) error {
 		defer w.Close()
 
 		if block.Round() == basics.Round(0) {
-			// Block 0 is special, we cannot run the evaluator on it.
-			err := w.AddBlock0(block)
+			err = w.AddBlock0(&block)
 			if err != nil {
 				return fmt.Errorf("AddBlock() err: %w", err)
 			}
-		} else {
-			proto, ok := config.Consensus[block.BlockHeader.CurrentProtocol]
-			if !ok {
-				return fmt.Errorf(
-					"AddBlock() cannot find proto version %s", block.BlockHeader.CurrentProtocol)
-			}
-			protoChanged := !proto.EnableAssetCloseAmount
-			proto.EnableAssetCloseAmount = true
+			return nil
+		}
 
-			var wg sync.WaitGroup
-			defer wg.Wait()
+		var wg sync.WaitGroup
+		defer wg.Wait()
 
-			// Write transaction participation and possibly transactions in a parallel db
-			// transaction. If `proto.EnableAssetCloseAmount` is already true, we can start
-			// writing transactions contained in the block early.
-			var err0 error
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-
-				f := func(tx pgx.Tx) error {
-					if !protoChanged {
-						err := writer.AddTransactions(block, block.Payset, tx)
-						if err != nil {
-							return err
-						}
-					}
-					return writer.AddTransactionParticipation(block, tx)
+		var err0 error
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			f := func(tx pgx.Tx) error {
+				err := writer.AddTransactions(&block, block.Payset, tx)
+				if err != nil {
+					return err
 				}
-				err0 = db.txWithRetry(serializable, f)
-			}()
+				return writer.AddTransactionParticipation(&block, tx)
+			}
+			err0 = db.txWithRetry(serializable, f)
+		}()
 
-			ledgerForEval, err :=
-				ledger_for_evaluator.MakeLedgerForEvaluator(tx, block.Round()-1)
-			if err != nil {
-				return fmt.Errorf("AddBlock() err: %w", err)
-			}
-			defer ledgerForEval.Close()
+		err = w.AddBlock(&block, block.Payset, vb.Delta())
+		if err != nil {
+			return fmt.Errorf("AddBlock() err: %w", err)
+		}
 
-			resources, err := prepareEvalResources(&ledgerForEval, block)
-			if err != nil {
-				return fmt.Errorf("AddBlock() eval err: %w", err)
-			}
-
-			start := time.Now()
-			delta, modifiedTxns, err :=
-				ledger.EvalForIndexer(ledgerForEval, block, proto, resources)
-			if err != nil {
-				return fmt.Errorf("AddBlock() eval err: %w", err)
-			}
-			metrics.PostgresEvalTimeSeconds.Observe(time.Since(start).Seconds())
-
-			var err1 error
-			// Skip if transaction writing has already started.
-			if protoChanged {
-				// Write transactions in a parallel db transaction.
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-
-					f := func(tx pgx.Tx) error {
-						return writer.AddTransactions(block, modifiedTxns, tx)
-					}
-					err1 = db.txWithRetry(serializable, f)
-				}()
-			}
-
-			err = w.AddBlock(block, modifiedTxns, delta)
-			if err != nil {
-				return fmt.Errorf("AddBlock() err: %w", err)
-			}
-
-			// Wait for goroutines to finish and check for errors. If there is an error, we
-			// return our own error so that the main transaction does not commit. Hence,
-			// `txn` and `txn_participation` tables can only be ahead but not behind
-			// the other state.
-			wg.Wait()
-			isUniqueViolationFunc := func(err error) bool {
-				var pgerr *pgconn.PgError
-				return errors.As(err, &pgerr) && (pgerr.Code == pgerrcode.UniqueViolation)
-			}
-			if (err0 != nil) && !isUniqueViolationFunc(err0) {
-				return fmt.Errorf("AddBlock() err0: %w", err0)
-			}
-			if (err1 != nil) && !isUniqueViolationFunc(err1) {
-				return fmt.Errorf("AddBlock() err1: %w", err1)
-			}
+		// Wait for goroutines to finish and check for errors. If there is an error, we
+		// return our own error so that the main transaction does not commit. Hence,
+		// `txn` and `txn_participation` tables can only be ahead but not behind
+		// the other state.
+		wg.Wait()
+		isUniqueViolationFunc := func(err error) bool {
+			var pgerr *pgconn.PgError
+			return errors.As(err, &pgerr) && (pgerr.Code == pgerrcode.UniqueViolation)
+		}
+		if (err0 != nil) && !isUniqueViolationFunc(err0) {
+			return fmt.Errorf("AddBlock() err0: %w", err0)
 		}
 
 		return nil
@@ -2622,34 +2474,6 @@ func (db *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.Speci
 	}
 
 	return accounts, nil
-}
-
-// GetAccountState returns account data and account resources for the given input.
-// For accounts that are not found, empty AccountData is returned.
-// This function is only used for debugging.
-func (db *IndexerDb) GetAccountState(addressesReq map[basics.Address]struct{}, resourcesReq map[basics.Address]map[ledger.Creatable]struct{}) (map[basics.Address]*ledgercore.AccountData, map[basics.Address]map[ledger.Creatable]ledgercore.AccountResource, error) {
-	tx, err := db.db.BeginTx(context.Background(), readonlyRepeatableRead)
-	if err != nil {
-		return nil, nil, fmt.Errorf("GetAccountState() begin tx err: %w", err)
-	}
-	defer tx.Rollback(context.Background())
-
-	l, err := ledger_for_evaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
-	if err != nil {
-		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
-	}
-	defer l.Close()
-
-	accounts, err := l.LookupWithoutRewards(addressesReq)
-	if err != nil {
-		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
-	}
-	resources, err := l.LookupResources(resourcesReq)
-	if err != nil {
-		return nil, nil, fmt.Errorf("GetAccountState() err: %w", err)
-	}
-
-	return accounts, resources, nil
 }
 
 // GetNetworkState is part of idb.IndexerDB

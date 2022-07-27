@@ -54,7 +54,7 @@ func init() {
 }
 
 // A migration function should take care of writing back to metastate migration row
-type postgresMigrationFunc func(*IndexerDb, *types.MigrationState) error
+type postgresMigrationFunc func(*IndexerDb, *types.MigrationState, *idb.IndexerDbOptions) error
 
 type migrationStruct struct {
 	migrate postgresMigrationFunc
@@ -67,9 +67,9 @@ type migrationStruct struct {
 
 var migrations []migrationStruct
 
-func wrapPostgresHandler(handler postgresMigrationFunc, db *IndexerDb, state *types.MigrationState) migration.Handler {
+func wrapPostgresHandler(handler postgresMigrationFunc, db *IndexerDb, state *types.MigrationState, opts *idb.IndexerDbOptions) migration.Handler {
 	return func() error {
-		return handler(db, state)
+		return handler(db, state, opts)
 	}
 }
 
@@ -90,7 +90,7 @@ func needsMigration(state types.MigrationState) bool {
 
 // Returns an error object and a channel that gets closed when blocking migrations
 // finish running successfully.
-func (db *IndexerDb) runAvailableMigrations() (chan struct{}, error) {
+func (db *IndexerDb) runAvailableMigrations(opts idb.IndexerDbOptions) (chan struct{}, error) {
 	state, err := db.getMigrationState(context.Background(), nil)
 	if err == idb.ErrorNotInitialized {
 		state = types.MigrationState{}
@@ -103,7 +103,7 @@ func (db *IndexerDb) runAvailableMigrations() (chan struct{}, error) {
 	tasks := make([]migration.Task, 0)
 	for nextMigration < len(migrations) {
 		tasks = append(tasks, migration.Task{
-			Handler:       wrapPostgresHandler(migrations[nextMigration].migrate, db, &state),
+			Handler:       wrapPostgresHandler(migrations[nextMigration].migrate, db, &state, &opts),
 			MigrationID:   nextMigration,
 			Description:   migrations[nextMigration].description,
 			DBUnavailable: migrations[nextMigration].blocking,
@@ -214,17 +214,17 @@ func disabled(version string) func(db *IndexerDb, migrationState *types.Migratio
 	}
 }
 
-func upgradeNotSupported(db *IndexerDb, migrationState *types.MigrationState) error {
+func upgradeNotSupported(db *IndexerDb, migrationState *types.MigrationState, opts *idb.IndexerDbOptions) error {
 	return errors.New(
 		"upgrading from this version is not supported; create a new database")
 }
 
-func dropTxnBytesColumn(db *IndexerDb, migrationState *types.MigrationState) error {
+func dropTxnBytesColumn(db *IndexerDb, migrationState *types.MigrationState, opts *idb.IndexerDbOptions) error {
 	return sqlMigration(
 		db, migrationState, []string{"ALTER TABLE txn DROP COLUMN txnbytes"})
 }
 
-func convertAccountData(db *IndexerDb, migrationState *types.MigrationState) error {
+func convertAccountData(db *IndexerDb, migrationState *types.MigrationState, opts *idb.IndexerDbOptions) error {
 	newMigrationState := *migrationState
 	newMigrationState.NextMigration++
 

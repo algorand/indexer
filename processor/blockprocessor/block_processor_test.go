@@ -1,34 +1,40 @@
 package blockprocessor_test
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"testing"
 
-	"github.com/algorand/go-algorand/agreement"
-	"github.com/algorand/go-algorand/config"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/ledger"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/logging"
-	"github.com/algorand/go-algorand/rpcs"
-	block_processor "github.com/algorand/indexer/processor/blockprocessor"
-	"github.com/algorand/indexer/util"
-	"github.com/algorand/indexer/util/test"
+	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/algorand/go-algorand/agreement"
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/go-algorand/rpcs"
+
+	"github.com/algorand/indexer/idb"
+	"github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/indexer/util/test"
 )
 
+var noopHandler = func(block *ledgercore.ValidatedBlock) error {
+	return nil
+}
+
 func TestProcess(t *testing.T) {
-	l := makeTestLedger(t, "local_ledger")
+	logger, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(logger)
+	require.NoError(t, err)
+	defer l.Close()
 	genesisBlock, err := l.Block(basics.Round(0))
 	assert.Nil(t, err)
 	// create processor
-	handler := func(vb *ledgercore.ValidatedBlock) error {
-		return nil
-	}
-	pr, _ := block_processor.MakeProcessor(l, handler)
+	pr, _ := blockprocessor.MakeProcessorWithLedger(logger, l, noopHandler)
 	prevHeader := genesisBlock.BlockHeader
-
+	assert.Equal(t, basics.Round(0), l.Latest())
 	// create a few rounds
 	for i := 1; i <= 3; i++ {
 		txn := test.MakePaymentTxn(0, uint64(i), 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
@@ -50,11 +56,14 @@ func TestProcess(t *testing.T) {
 }
 
 func TestFailedProcess(t *testing.T) {
-	l := makeTestLedger(t, "local_ledger2")
+	logger, _ := test2.NewNullLogger()
+	l, err := test.MakeTestLedger(logger)
+	require.NoError(t, err)
+	defer l.Close()
 	// invalid processor
-	pr, err := block_processor.MakeProcessor(nil, nil)
-	assert.Contains(t, err.Error(), "MakeProcessor(): local ledger not initialized")
-	pr, err = block_processor.MakeProcessor(l, nil)
+	pr, err := blockprocessor.MakeProcessorWithLedger(logger, nil, nil)
+	assert.Contains(t, err.Error(), "MakeProcessorWithLedger() err: local ledger not initialized")
+	pr, err = blockprocessor.MakeProcessorWithLedger(logger, l, nil)
 	assert.Nil(t, err)
 	err = pr.Process(nil)
 	assert.Contains(t, err.Error(), "Process(): cannot process a nil block")
@@ -76,7 +85,7 @@ func TestFailedProcess(t *testing.T) {
 	assert.Nil(t, err)
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
 	err = pr.Process(&rawBlock)
-	assert.Contains(t, err.Error(), "Process() apply transaction group")
+	assert.Contains(t, err.Error(), "ProcessBlockForIndexer() err")
 
 	// stxn GenesisID not empty
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
@@ -85,7 +94,7 @@ func TestFailedProcess(t *testing.T) {
 	block.Payset[0].Txn.GenesisID = "genesisID"
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
 	err = pr.Process(&rawBlock)
-	assert.Contains(t, err.Error(), "Process() decode payset groups err")
+	assert.Contains(t, err.Error(), "ProcessBlockForIndexer() err")
 
 	// eval error: concensus protocol not supported
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
@@ -94,15 +103,15 @@ func TestFailedProcess(t *testing.T) {
 	assert.Nil(t, err)
 	rawBlock = rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
 	err = pr.Process(&rawBlock)
-	assert.Contains(t, err.Error(), "Process() block eval err")
+	assert.Contains(t, err.Error(), "Process() cannot find proto version testing")
 
 	// handler error
 	handler := func(vb *ledgercore.ValidatedBlock) error {
 		return fmt.Errorf("handler error")
 	}
-	_, err = block_processor.MakeProcessor(l, handler)
-	assert.Contains(t, err.Error(), "MakeProcessor() handler err")
-	pr, _ = block_processor.MakeProcessor(l, nil)
+	_, err = blockprocessor.MakeProcessorWithLedger(logger, l, handler)
+	assert.Contains(t, err.Error(), "handler error")
+	pr, _ = blockprocessor.MakeProcessorWithLedger(logger, l, nil)
 	txn = test.MakePaymentTxn(0, 10, 0, 1, 1, 0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err = test.MakeBlockForTxns(genesisBlock.BlockHeader, &txn)
 	assert.Nil(t, err)
@@ -112,18 +121,48 @@ func TestFailedProcess(t *testing.T) {
 	assert.Contains(t, err.Error(), "Process() handler err")
 }
 
-func makeTestLedger(t *testing.T, prefix string) *ledger.Ledger {
-	// initialize local ledger
-	genesis := test.MakeGenesis()
-	genesisBlock := test.MakeGenesisBlock()
-	initState, err := util.CreateInitState(&genesis, &genesisBlock)
-	if err != nil {
-		log.Panicf("test init err: %v", err)
+// TestMakeProcessorWithLedgerInit_CatchpointErrors verifies that the catchpoint error handling works properly.
+func TestMakeProcessorWithLedgerInit_CatchpointErrors(t *testing.T) {
+	logger, _ := test2.NewNullLogger()
+	var genesis bookkeeping.Genesis
+
+	testCases := []struct {
+		name       string
+		catchpoint string
+		round      uint64
+		errMsg     string
+	}{
+		{
+			name:       "invalid catchpoint string",
+			catchpoint: "asdlgkjasldgkjsadg",
+			round:      1,
+			errMsg:     "catchpoint parsing failed",
+		},
+		{
+			name:       "catchpoint too recent",
+			catchpoint: "21890000#IQ4BQTCNVEDIBNRPNCKWRBQLJ7ILXIJBYKJHF67TLUOYRUGHW7ZA",
+			round:      21889999,
+			errMsg:     "invalid catchpoint: catchpoint round 21890000 should not be ahead of target round 21889998",
+		},
+		{
+			name:       "get past catchpoint check",
+			catchpoint: "21890000#IQ4BQTCNVEDIBNRPNCKWRBQLJ7ILXIJBYKJHF67TLUOYRUGHW7ZA",
+			round:      21890001,
+			errMsg:     "indexer data directory missing",
+		},
 	}
-	logger := logging.NewLogger()
-	l, err := ledger.OpenLedger(logger, prefix, true, initState, config.GetDefaultLocal())
-	if err != nil {
-		log.Panicf("test init err: %v", err)
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := blockprocessor.MakeProcessorWithLedgerInit(
+				context.Background(),
+				logger,
+				tc.catchpoint,
+				&genesis,
+				tc.round,
+				idb.IndexerDbOptions{},
+				noopHandler)
+			require.ErrorContains(t, err, tc.errMsg)
+		})
 	}
-	return l
 }

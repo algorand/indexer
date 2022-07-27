@@ -12,7 +12,6 @@ import (
 	"github.com/spf13/viper"
 
 	bg "github.com/algorand/indexer/cmd/block-generator/core"
-	iv "github.com/algorand/indexer/cmd/import-validator/core"
 	v "github.com/algorand/indexer/cmd/validator/core"
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
@@ -101,7 +100,6 @@ func init() {
 		Short: "Utilities for testing Indexer operation and correctness.",
 		Long:  "Utilities used for Indexer development. These are low level tools that may require low level knowledge of Indexer deployment and operation. They are included as part of this binary for ease of deployment and automation, and to publicize their existance to people who may find them useful. More detailed documention may be found on github in README files located the different 'cmd' directories.",
 	}
-	utilsCmd.AddCommand(iv.ImportValidatorCmd)
 	utilsCmd.AddCommand(v.ValidatorCmd)
 	utilsCmd.AddCommand(bg.BlockGenerator)
 	rootCmd.AddCommand(utilsCmd)
@@ -115,6 +113,7 @@ func init() {
 
 	rootCmd.AddCommand(importCmd)
 	importCmd.Hidden = true
+	daemonCmd := DaemonCmd()
 	rootCmd.AddCommand(daemonCmd)
 	rootCmd.AddCommand(apiConfigCmd)
 
@@ -137,6 +136,17 @@ func init() {
 	viper.SetConfigName(config.FileName)
 	viper.SetConfigType(config.FileType)
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			// Config file not found, not an error since it may be set on the CLI.
+		} else {
+			fmt.Fprintf(os.Stderr, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
+			panic(exit{1})
+		}
+	} else {
+		fmt.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
+	}
 
 	viper.SetEnvPrefix(config.EnvPrefix)
 	viper.AutomaticEnv()

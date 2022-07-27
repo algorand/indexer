@@ -20,6 +20,8 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
+	"github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/indexer/util"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/idb"
@@ -49,8 +51,12 @@ type ImportHelper struct {
 func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 	// Initial import if needed.
 	genesisReader := GetGenesisFile(h.GenesisJSONPath, nil, h.Log)
-	_, err := EnsureInitialImport(db, genesisReader, h.Log)
+	genesis, err := util.ReadGenesis(genesisReader)
+	maybeFail(err, h.Log, "readGenesis() error")
+
+	_, err = EnsureInitialImport(db, genesis)
 	maybeFail(err, h.Log, "EnsureInitialImport() error")
+
 	imp := NewImporter(db)
 	blocks := 0
 	txCount := 0
@@ -64,13 +70,13 @@ func (h *ImportHelper) Import(db idb.IndexerDb, args []string) {
 				pathsSorted = pathsSorted[:h.BlockFileLimit]
 			}
 			for _, gfname := range pathsSorted {
-				fb, ft := importFile(gfname, imp, h.Log)
+				fb, ft := importFile(gfname, imp, h.Log, h.GenesisJSONPath)
 				blocks += fb
 				txCount += ft
 			}
 		} else {
 			// try without passing throug glob
-			fb, ft := importFile(fname, imp, h.Log)
+			fb, ft := importFile(fname, imp, h.Log, h.GenesisJSONPath)
 			blocks += fb
 			txCount += ft
 		}
@@ -90,7 +96,7 @@ func maybeFail(err error, l *log.Logger, errfmt string, params ...interface{}) {
 	os.Exit(1)
 }
 
-func importTar(imp Importer, tarfile io.Reader, l *log.Logger) (blockCount, txCount int, err error) {
+func importTar(imp Importer, tarfile io.Reader, logger *log.Logger, genesisReader io.Reader) (blockCount, txCount int, err error) {
 	tf := tar.NewReader(tarfile)
 	var header *tar.Header
 	header, err = tf.Next()
@@ -126,8 +132,24 @@ func importTar(imp Importer, tarfile io.Reader, l *log.Logger) (blockCount, txCo
 	}
 	sort.Slice(blocks, less)
 
-	for _, blockContainer := range blocks {
-		err = imp.ImportBlock(&blockContainer)
+	var genesis bookkeeping.Genesis
+	gbytes, err := ioutil.ReadAll(genesisReader)
+	if err != nil {
+		maybeFail(err, logger, "error reading genesis, %v", err)
+	}
+	err = protocol.DecodeJSON(gbytes, &genesis)
+	if err != nil {
+		maybeFail(err, logger, "error decoding genesis, %v", err)
+	}
+
+	ld, err := util.MakeLedger(logger, false, &genesis, "")
+	maybeFail(err, logger, "Cannot open ledger")
+
+	proc, err := blockprocessor.MakeProcessorWithLedger(logger, ld, imp.ImportBlock)
+	maybeFail(err, logger, "Error creating processor")
+
+	for _, blockContainer := range blocks[1:] {
+		err = proc.Process(&blockContainer)
 		if err != nil {
 			return
 		}
@@ -136,15 +158,16 @@ func importTar(imp Importer, tarfile io.Reader, l *log.Logger) (blockCount, txCo
 	return
 }
 
-func importFile(fname string, imp Importer, l *log.Logger) (blocks, txCount int) {
+func importFile(fname string, imp Importer, l *log.Logger, genesisPath string) (blocks, txCount int) {
 	blocks = 0
 	txCount = 0
 	l.Infof("importing %s ...", fname)
+	genesisReader := GetGenesisFile(genesisPath, nil, l)
 	if strings.HasSuffix(fname, ".tar") {
 		fin, err := os.Open(fname)
 		maybeFail(err, l, "%s: %v", fname, err)
 		defer fin.Close()
-		tblocks, btxns, err := importTar(imp, fin, l)
+		tblocks, btxns, err := importTar(imp, fin, l, genesisReader)
 		maybeFail(err, l, "%s: %v", fname, err)
 		blocks += tblocks
 		txCount += btxns
@@ -153,48 +176,26 @@ func importFile(fname string, imp Importer, l *log.Logger) (blocks, txCount int)
 		maybeFail(err, l, "%s: %v", fname, err)
 		defer fin.Close()
 		bzin := bzip2.NewReader(fin)
-		tblocks, btxns, err := importTar(imp, bzin, l)
+		tblocks, btxns, err := importTar(imp, bzin, l, genesisReader)
 		maybeFail(err, l, "%s: %v", fname, err)
 		blocks += tblocks
 		txCount += btxns
 	} else {
-		// assume a standalone block msgpack blob
-		blockbytes, err := ioutil.ReadFile(fname)
-		maybeFail(err, l, "%s: could not read, %v", fname, err)
-		var blockContainer rpcs.EncodedBlockCert
-		err = protocol.Decode(blockbytes, &blockContainer)
-		maybeFail(err, l, "cannot decode blockbytes err: %v", err)
-		err = imp.ImportBlock(&blockContainer)
-		maybeFail(err, l, "cannot import block err: %v", err)
-		blocks++
-		txCount += len(blockContainer.Block.Payset)
+		//assume a standalone block msgpack blob
+		maybeFail(errors.New("cannot import a standalone block"), l, "not supported")
 	}
 	return
 }
 
-func loadGenesis(db idb.IndexerDb, in io.Reader) (err error) {
-	var genesis bookkeeping.Genesis
-	gbytes, err := ioutil.ReadAll(in)
-	if err != nil {
-		return fmt.Errorf("error reading genesis, %v", err)
-	}
-	err = protocol.DecodeJSON(gbytes, &genesis)
-	if err != nil {
-		return fmt.Errorf("error decoding genesis, %v", err)
-	}
-
-	return db.LoadGenesis(genesis)
-}
-
 // EnsureInitialImport imports the genesis block if needed. Returns true if the initial import occurred.
-func EnsureInitialImport(db idb.IndexerDb, genesisReader io.Reader, l *log.Logger) (bool, error) {
+func EnsureInitialImport(db idb.IndexerDb, genesis bookkeeping.Genesis) (bool, error) {
 	_, err := db.GetNextRoundToAccount()
 	// Exit immediately or crash if we don't see ErrorNotInitialized.
 	if err != idb.ErrorNotInitialized {
 		if err != nil {
 			return false, fmt.Errorf("getting import state, %v", err)
 		}
-		err = checkGenesisHash(db, genesisReader)
+		err = checkGenesisHash(db, genesis)
 		if err != nil {
 			return false, err
 		}
@@ -202,7 +203,7 @@ func EnsureInitialImport(db idb.IndexerDb, genesisReader io.Reader, l *log.Logge
 	}
 
 	// Import genesis file from file or algod.
-	err = loadGenesis(db, genesisReader)
+	err = db.LoadGenesis(genesis)
 	if err != nil {
 		return false, fmt.Errorf("could not load genesis json, %v", err)
 	}
@@ -264,19 +265,11 @@ func GetGenesisFile(genesisJSONPath string, client *algod.Client, l *log.Logger)
 	} else {
 		l.Fatal("Neither genesis file path or algod client provided for initial import.")
 	}
+
 	return genesisReader
 }
 
-func checkGenesisHash(db idb.IndexerDb, genesisReader io.Reader) error {
-	var genesis bookkeeping.Genesis
-	gbytes, err := ioutil.ReadAll(genesisReader)
-	if err != nil {
-		return fmt.Errorf("error reading genesis, %w", err)
-	}
-	err = protocol.DecodeJSON(gbytes, &genesis)
-	if err != nil {
-		return fmt.Errorf("error decoding genesis, %w", err)
-	}
+func checkGenesisHash(db idb.IndexerDb, genesis bookkeeping.Genesis) error {
 	network, err := db.GetNetworkState()
 	if errors.Is(err, idb.ErrorNotInitialized) {
 		err = db.SetNetworkState(genesis)
