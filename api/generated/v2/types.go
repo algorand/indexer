@@ -408,9 +408,6 @@ type BlockUpgradeVote struct {
 // Box defines model for Box.
 type Box struct {
 
-	// the application id of the box owner
-	ApplicationId uint64 `json:"application-id"`
-
 	// \[name\] box name, base64 encoded
 	Name []byte `json:"name"`
 
@@ -1287,6 +1284,9 @@ type SearchForApplicationBoxesParams struct {
 
 	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
 	Limit *uint64 `json:"limit,omitempty"`
+
+	// The next page of results. Use the next token provided by the previous results.
+	Next *string `json:"next,omitempty"`
 }
 
 // LookupApplicationLogsByIDParams defines parameters for LookupApplicationLogsByID.

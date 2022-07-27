@@ -408,9 +408,6 @@ type BlockUpgradeVote struct {
 // Box defines model for Box.
 type Box struct {
 
-	// the application id of the box owner
-	ApplicationId uint64 `json:"application-id"`
-
 	// \[name\] box name, base64 encoded
 	Name []byte `json:"name"`
 

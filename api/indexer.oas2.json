@@ -486,7 +486,7 @@
     },
     "/v2/applications/{application-id}/boxes": {
       "get": {
-        "description": "Given an application ID, returns the box names of that application. No particular ordering is guaranteed.",
+        "description": "Given an application ID, returns the box names of that application sorted lexicographically.",
         "consumes": ["application/json"],
         "produces": ["application/json"],
         "tags": ["search"],
@@ -501,6 +501,9 @@
           },
           {
             "$ref": "#/parameters/limit"
+          },
+          {
+            "$ref": "#/parameters/next"
           }
         ],
         "responses": {
@@ -1668,23 +1671,21 @@
       }
     },
     "Box": {
-      "description": "Box and contents.",
+      "description": "Box name and its content.",
+      "required": ["name", "value"],
       "type": "object",
-      "required": ["application-id", "name", "value"],
       "properties": {
-        "application-id": {
-          "description": "the application id of the box owner",
-          "type": "integer"
-        },
         "name": {
           "description": "\\[name\\] box name, base64 encoded",
-          "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": "string"
         },
         "value": {
           "description": "\\[value\\] box value, base64 encoded.",
-          "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": "string"
         }
       }
     },
@@ -1695,8 +1696,9 @@
       "properties": {
         "name": {
           "description": "Base64 encoded box name",
-          "type": "string",
-          "format": "byte"
+          "format": "byte",
+          "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+          "type": "string"
         }
       }
     },

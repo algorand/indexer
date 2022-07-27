@@ -1323,12 +1323,8 @@
         "type": "object"
       },
       "Box": {
-        "description": "Box and contents.",
+        "description": "Box name and its content.",
         "properties": {
-          "application-id": {
-            "description": "the application id of the box owner",
-            "type": "integer"
-          },
           "name": {
             "description": "\\[name\\] box name, base64 encoded",
             "format": "byte",
@@ -1343,7 +1339,6 @@
           }
         },
         "required": [
-          "application-id",
           "name",
           "value"
         ],
@@ -3548,7 +3543,7 @@
     },
     "/v2/applications/{application-id}/boxes": {
       "get": {
-        "description": "Given an application ID, returns the box names of that application. No particular ordering is guaranteed.",
+        "description": "Given an application ID, returns the box names of that application sorted lexicographically.",
         "operationId": "searchForApplicationBoxes",
         "parameters": [
           {
@@ -3565,6 +3560,14 @@
             "name": "limit",
             "schema": {
               "type": "integer"
+            }
+          },
+          {
+            "description": "The next page of results. Use the next token provided by the previous results.",
+            "in": "query",
+            "name": "next",
+            "schema": {
+              "type": "string"
             }
           }
         ],

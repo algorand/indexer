@@ -114,6 +114,9 @@ paths:
     - ALGOD: '[{"in":"path","name":"application-id","required":t...'
   /v2/applications/{application-id}/box:
     get:
+      parameters:
+      - INDEXER: '"{''type'': ''string'', ''description'': \"A box name, in the goal app call arg form ''encoding:value''. For ints, use the form ''int:1234''. For raw bytes, use the form ''b64:A==''. For printable strings, use the form ''str:hello''. For addresses, use the form ''addr:XYZ...''.\", ''name'': ''name'', ''in'': ''query'', ''required'': True}"'
+      - ALGOD: '"{''type'': ''integer'', ''description'': ''An application identifier'', ''name'': ''application-id'', ''in'': ''path'', ''required'': True}"'
       responses:
         '200':
           description:
@@ -146,8 +149,14 @@ paths:
         default:
         - INDEXER: null
         - ALGOD: '{"description":"Unknown Error"}'
+    parameters:
+    - INDEXER: null
+    - ALGOD: '[{"in":"path","name":"application-id","required":t...'
   /v2/applications/{application-id}/boxes:
     get:
+      parameters:
+      - INDEXER: '"{''type'': ''integer'', ''description'': ''Max number of box names to return. If max is not set, or max == 0, returns all box-names.'', ''name'': ''max'', ''in'': ''query''}"'
+      - ALGOD: '"{''type'': ''integer'', ''description'': ''An application identifier'', ''name'': ''application-id'', ''in'': ''path'', ''required'': True}"'
       responses:
         '200':
           description:
@@ -173,6 +182,12 @@ paths:
         default:
         - INDEXER: null
         - ALGOD: '{"description":"Unknown Error"}'
+      schemes:
+      - INDEXER: null
+      - ALGOD: '["http"]'
+    parameters:
+    - INDEXER: null
+    - ALGOD: '[{"in":"path","name":"application-id","required":t...'
   /v2/assets/{asset-id}:
     get:
       parameters:
