@@ -40,6 +40,7 @@ idb/mocks/IndexerDb.go:	idb/idb.go
 # check that all packages (except tests) compile
 check: go-algorand
 	go build ./...
+	git diff | cat	
 
 package: go-algorand
 	rm -rf $(PKG_DIR)
@@ -58,6 +59,7 @@ test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 lint: go-algorand
 	golint -set_exit_status ./...
 	go vet ./...
+	git diff | cat	
 
 fmt:
 	go fmt ./...
@@ -66,6 +68,8 @@ integration: cmd/algorand-indexer/algorand-indexer
 	mkdir -p test/blockdata
 	curl -s https://algorand-testdata.s3.amazonaws.com/indexer/test_blockdata/create_destroy.tar.bz2 -o test/blockdata/create_destroy.tar.bz2
 	test/postgres_integration_test.sh
+	git diff | cat
+
 
 e2e: cmd/algorand-indexer/algorand-indexer
 	cd misc && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e
@@ -80,9 +84,8 @@ test-package:
 	mule/e2e.sh
 
 test-generate:
-	git diff
 	test/test_generate.py
-	git diff
+	git diff | cat
 
 nightly-setup:
 	cd third_party/go-algorand && git fetch && git reset --hard origin/master
