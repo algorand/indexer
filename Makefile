@@ -84,6 +84,7 @@ test-package:
 	mule/e2e.sh
 
 test-generate:
+	git diff | cat
 	test/test_generate.py
 	git diff | cat
 
