@@ -53,6 +53,8 @@ type daemonConfig struct {
 	defaultAccountsLimit      uint32
 	maxAssetsLimit            uint32
 	defaultAssetsLimit        uint32
+	maxBoxesLimit             uint32
+	defaultBoxesLimit         uint32
 	maxBalancesLimit          uint32
 	defaultBalancesLimit      uint32
 	maxApplicationsLimit      uint32
@@ -110,6 +112,8 @@ func DaemonCmd() *cobra.Command {
 	cfg.flags.Uint32VarP(&cfg.defaultBalancesLimit, "default-balances-limit", "", 1000, "set the default Limit parameter for querying balances, if none is provided")
 	cfg.flags.Uint32VarP(&cfg.maxApplicationsLimit, "max-applications-limit", "", 1000, "set the maximum allowed Limit parameter for querying applications")
 	cfg.flags.Uint32VarP(&cfg.defaultApplicationsLimit, "default-applications-limit", "", 100, "set the default Limit parameter for querying applications, if none is provided")
+	cfg.flags.Uint32VarP(&cfg.maxBoxesLimit, "max-boxes-limit", "", 10000, "set the maximum allowed Limit parameter for searching an app's boxes")
+	cfg.flags.Uint32VarP(&cfg.defaultBoxesLimit, "max-boxes-limit", "", 1000, "set the default allowed Limit parameter for searching an app's boxes")
 
 	cfg.flags.StringVarP(&cfg.indexerDataDir, "data-dir", "i", "", "path to indexer data dir, or $INDEXER_DATA")
 	cfg.flags.BoolVar(&cfg.initLedger, "init-ledger", true, "initialize local ledger using sequential mode")
@@ -421,6 +425,8 @@ func makeOptions(daemonConfig *daemonConfig) (options api.ExtraOptions) {
 	options.DefaultBalancesLimit = uint64(daemonConfig.defaultBalancesLimit)
 	options.MaxApplicationsLimit = uint64(daemonConfig.maxApplicationsLimit)
 	options.DefaultApplicationsLimit = uint64(daemonConfig.defaultApplicationsLimit)
+	options.MaxBoxesLimit = uint64(daemonConfig.maxBoxesLimit)
+	options.DefaultBoxesLimit = uint64(daemonConfig.defaultBoxesLimit)
 
 	if daemonConfig.enableAllParameters {
 		options.DisabledMapConfig = api.MakeDisabledMapConfig()
@@ -470,7 +476,7 @@ func blockHandler(proc processor.Processor, retryDelay time.Duration) func(conte
 			case <-ctx.Done():
 				return err
 			case <-time.After(retryDelay):
-				break
+				// NOOP
 			}
 		}
 	}
