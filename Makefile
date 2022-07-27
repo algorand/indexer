@@ -55,6 +55,7 @@ fakepackage: go-algorand
 
 test: idb/mocks/IndexerDb.go cmd/algorand-indexer/algorand-indexer
 	go test -coverpkg=$(COVERPKG) ./... -coverprofile=coverage.txt -covermode=atomic ${TEST_FLAG}
+	git diff | cat
 
 lint: go-algorand
 	golint -set_exit_status ./...
