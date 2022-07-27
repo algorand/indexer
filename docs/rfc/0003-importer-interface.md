@@ -28,6 +28,9 @@ type Importer interface {
 	// It is called during initialization of an importer plugin such as setting up network connections, file buffers etc.
 	Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) error
 
+	// Config returns the configuration options used to create an Importer. Initialized during Init.
+	Config() plugins.PluginConfig
+
 	// Close function is used for closing network connections, files, flushing buffers etc.
 	Close() error
 
@@ -44,6 +47,9 @@ This function returns the metadata associated with an importer plugin that imple
 
 #### Init
 This function is used to initialize the importer plugin such as establishing network connections, file buffers, context etc.
+
+#### Config
+This function returns the configuration options used to create an Importer. Initialized during Init.
 
 #### Close
 This function is used to close/end resources used by the importer plugin, such as closing of open network connections, file buffers, context etc.
