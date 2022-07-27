@@ -113,7 +113,7 @@ func DaemonCmd() *cobra.Command {
 	cfg.flags.Uint32VarP(&cfg.maxApplicationsLimit, "max-applications-limit", "", 1000, "set the maximum allowed Limit parameter for querying applications")
 	cfg.flags.Uint32VarP(&cfg.defaultApplicationsLimit, "default-applications-limit", "", 100, "set the default Limit parameter for querying applications, if none is provided")
 	cfg.flags.Uint32VarP(&cfg.maxBoxesLimit, "max-boxes-limit", "", 10000, "set the maximum allowed Limit parameter for searching an app's boxes")
-	cfg.flags.Uint32VarP(&cfg.defaultBoxesLimit, "max-boxes-limit", "", 1000, "set the default allowed Limit parameter for searching an app's boxes")
+	cfg.flags.Uint32VarP(&cfg.defaultBoxesLimit, "default-boxes-limit", "", 1000, "set the default allowed Limit parameter for searching an app's boxes")
 
 	cfg.flags.StringVarP(&cfg.indexerDataDir, "data-dir", "i", "", "path to indexer data dir, or $INDEXER_DATA")
 	cfg.flags.BoolVar(&cfg.initLedger, "init-ledger", true, "initialize local ledger using sequential mode")
