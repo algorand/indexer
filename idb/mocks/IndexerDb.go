@@ -81,6 +81,11 @@ func (_m *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQue
 	return r0, r1
 }
 
+// ApplicationBoxes isn't currently implemented
+func (_m *IndexerDb) ApplicationBoxes(ctx context.Context, filter idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
+	panic("not implemented")
+}
+
 // AssetBalances provides a mock function with given fields: ctx, abq
 func (_m *IndexerDb) AssetBalances(ctx context.Context, abq idb.AssetBalanceQuery) (<-chan idb.AssetBalanceRow, uint64) {
 	ret := _m.Called(ctx, abq)
@@ -246,11 +251,6 @@ func (_m *IndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.Speci
 	}
 
 	return r0, r1
-}
-
-// ApplicationBoxes isn't currently implemented
-func (_m *IndexerDb) ApplicationBoxes(ctx context.Context, filter idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
-	panic("not implemented")
 }
 
 // Health provides a mock function with given fields: ctx
