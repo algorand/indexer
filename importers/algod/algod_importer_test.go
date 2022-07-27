@@ -4,8 +4,11 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"path"
+	"strconv"
 	"testing"
 
+	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
@@ -32,7 +35,24 @@ func init() {
 	s = ""
 }
 
-func testImporterorterMetadata(t *testing.T) {
+func MockAlgodServerReturnsEmptyBlock() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rnd, _ := strconv.Atoi(path.Base(r.URL.Path))
+		blk := rpcs.EncodedBlockCert{Block: bookkeeping.Block{BlockHeader: bookkeeping.BlockHeader{Round: basics.Round(rnd)}}}
+		var blockbytes []byte
+		w.WriteHeader(http.StatusOK)
+		response := struct {
+			Block bookkeeping.Block `codec:"block"`
+		}{
+			Block: blk.Block,
+		}
+		enc := codec.NewEncoderBytes(&blockbytes, protocol.CodecHandle)
+		enc.Encode(response)
+		w.Write(blockbytes)
+	}))
+}
+
+func TestImporterorterMetadata(t *testing.T) {
 	testImporter = New()
 	metadata := testImporter.Metadata()
 	assert.Equal(t, metadata.Type(), algodImporterMetadata.Type())
@@ -86,20 +106,7 @@ func TestGetBlockFailure(t *testing.T) {
 }
 
 func TestGetBlockSuccess(t *testing.T) {
-	blk := rpcs.EncodedBlockCert{Block: bookkeeping.Block{BlockHeader: bookkeeping.BlockHeader{Round: 5}}}
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var blockbytes []byte
-		w.WriteHeader(200)
-		response := struct {
-			Block bookkeeping.Block `codec:"block"`
-		}{
-			Block: blk.Block,
-		}
-		enc := codec.NewEncoderBytes(&blockbytes, protocol.CodecHandle)
-		enc.Encode(response)
-		w.Write(blockbytes)
-	}))
-
+	ts := MockAlgodServerReturnsEmptyBlock()
 	testImporter = New()
 	err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
@@ -107,7 +114,7 @@ func TestGetBlockSuccess(t *testing.T) {
 
 	downloadedBlk, err := testImporter.GetBlock(uint64(10))
 	assert.NoError(t, err)
-	assert.Equal(t, uint64(blk.Block.Round()), downloadedBlk.Round())
+	assert.Equal(t, downloadedBlk.Round(), uint64(10))
 	assert.True(t, downloadedBlk.Empty())
 	cancel()
 }
