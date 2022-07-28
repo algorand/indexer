@@ -264,6 +264,7 @@ type AccountQueryOptions struct {
 	IncludeAssetParams   bool
 	IncludeAppLocalState bool
 	IncludeAppParams     bool
+	IncludeBoxTotals     bool
 
 	// MaxResources is the maximum combined number of AppParam, AppLocalState, AssetParam, and AssetHolding objects allowed.
 	MaxResources uint64

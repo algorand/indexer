@@ -784,6 +784,14 @@
             "description": "The count of all assets that have been opted in, equivalent to the count of AssetHolding objects held by this account.",
             "type": "integer"
           },
+          "total-box-bytes": {
+            "description": "For app-accounts only. The total number of bytes allocated for the keys and values of boxes which belong to the associated application.",
+            "type": "integer"
+          },
+          "total-boxes": {
+            "description": "For app-accounts only. The total number of boxes which belong to the associated application.",
+            "type": "integer"
+          },
           "total-created-apps": {
             "description": "The count of all apps (AppParams objects) created by this account.",
             "type": "integer"
@@ -803,6 +811,8 @@
           "status",
           "total-apps-opted-in",
           "total-assets-opted-in",
+          "total-box-bytes",
+          "total-boxes",
           "total-created-apps",
           "total-created-assets"
         ],

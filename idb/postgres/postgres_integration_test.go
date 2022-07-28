@@ -19,7 +19,6 @@ import (
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-codec/codec"
@@ -28,7 +27,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
-	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
+	pgtest2 "github.com/algorand/indexer/idb/postgres/internal/testing"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/processor/blockprocessor"
@@ -38,7 +37,7 @@ import (
 
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.
 func TestMaxRoundOnUninitializedDB(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
 	defer shutdownFunc()
 
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -56,7 +55,7 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 
 // TestMaxRound the happy path.
 func TestMaxRound(t *testing.T) {
-	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	db, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
 	defer shutdownFunc()
 
 	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -80,7 +79,7 @@ func TestMaxRound(t *testing.T) {
 }
 
 func TestAccountedRoundNextRound0(t *testing.T) {
-	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	db, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
 	defer shutdownFunc()
 
 	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -106,7 +105,7 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 // TestMaxConnection tests that when setting the maximum connection to a value, that it is
 // accurately set and that acquiring connections accurately depletes the pool
 func TestMaxConnection(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
 	defer shutdownFunc()
 
 	// Open Postgres with a maximum of 2 connections locally
@@ -1022,7 +1021,7 @@ func TestLargeAssetAmount(t *testing.T) {
 // Test that initializing a new database sets the correct migration number and
 // that the database is available.
 func TestInitializationNewDatabase(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
 	defer shutdownFunc()
 
 	db, availableCh, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -1040,7 +1039,7 @@ func TestInitializationNewDatabase(t *testing.T) {
 
 // Test that opening the database the second time (after initializing) is successful.
 func TestOpenDbAgain(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
 	defer shutdownFunc()
 
 	for i := 0; i < 2; i++ {
@@ -1405,7 +1404,7 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 }
 
 func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
 	defer shutdownFunc()
 
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -1704,7 +1703,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	}
 
 	// Given: A DB with one transaction containing inner transactions [app -> pay -> xfer]
-	pdb, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	pdb, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
 	defer shutdownFunc()
 
 	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesis())
@@ -1854,7 +1853,7 @@ func TestNonUTF8Logs(t *testing.T) {
 
 // Test that LoadGenesis writes account totals.
 func TestLoadGenesisAccountTotals(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
 	defer shutdownFunc()
 
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -2104,7 +2103,7 @@ func TestTransactionsTxnAhead(t *testing.T) {
 // Test that if genesis hash is different from what is in db metastate
 // indexer does not start.
 func TestGenesisHashCheckAtDBSetup(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
 	defer shutdownFunc()
 
 	genesis := test.MakeGenesis()
@@ -2133,7 +2132,7 @@ type ImportState struct {
 // Test that if genesis hash at initial import is different from what is in db metastate
 // indexer does not start.
 func TestGenesisHashCheckAtInitialImport(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
 	defer shutdownFunc()
 
 	genesis := test.MakeGenesis()
@@ -2256,220 +2255,7 @@ func TestIndexerDb_GetAccounts(t *testing.T) {
 	}
 }
 
-// Test that box evolution is ingested as expected across rounds
-func TestBoxCreateMutateDelete(t *testing.T) {
-	start := time.Now()
-
-	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
-	defer shutdownFunc()
-
-	defer l.Close()
-
-	appid := basics.AppIndex(1)
-
-	/**** ROUND 1: create and fund the box app ****/
-	currentRound := basics.Round(1)
-
-	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram)
-	require.NoError(t, err)
-
-	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
-		basics.Address{})
-
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
-	require.NoError(t, err)
-
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
-
-	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
-
-	rowsCh, round := db.Applications(context.Background(), opts)
-	require.Equal(t, uint64(currentRound), round)
-
-	row, ok := <-rowsCh
-	require.True(t, ok)
-	require.NoError(t, row.Error)
-	require.NotNil(t, row.Application.CreatedAtRound)
-	require.Equal(t, uint64(currentRound), *row.Application.CreatedAtRound)
-
-	// block header handoff: round 1 --> round 2
-	blockHdr, err := l.BlockHdr(currentRound)
-	require.NoError(t, err)
-
-	/**** ROUND 2: create 8 boxes for appid == 1 ****/
-	currentRound = basics.Round(2)
-
-	boxNames := []string{
-		"a great box",
-		"another great box",
-		"not so great box",
-		"disappointing box",
-		"don't box me in this way",
-		"I will be assimilated",
-		"I'm destined for deletion",
-		"box #8",
-	}
-
-	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
-
-	expectedAppBoxes[appid] = map[string]string{}
-	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
-	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
-	for _, boxName := range boxNames {
-		expectedAppBoxes[appid][logic.MakeBoxKey(appid, boxName)] = newBoxValue
-
-		args := []string{"create", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-	}
-
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
-	require.NoError(t, err)
-
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
-	_, round = db.Applications(context.Background(), opts)
-	require.Equal(t, uint64(currentRound), round)
-
-	CompareAppBoxesAgainstDB(t, db, expectedAppBoxes)
-
-	// block header handoff: round 2 --> round 3
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
-
-	/**** ROUND 3: populate the boxes appropriately ****/
-	currentRound = basics.Round(3)
-
-	appBoxesToSet := map[string]string{
-		"a great box":               "it's a wonderful box",
-		"another great box":         "I'm wonderful too",
-		"not so great box":          "bummer",
-		"disappointing box":         "RUG PULL!!!!",
-		"don't box me in this way":  "non box-conforming",
-		"I will be assimilated":     "THE BORG",
-		"I'm destined for deletion": "I'm still alive!!!",
-		"box #8":                    "eight is beautiful",
-	}
-
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
-	expectedAppBoxes[appid] = make(map[string]string)
-	for boxName, valPrefix := range appBoxesToSet {
-		args := []string{"set", boxName, valPrefix}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(appid, boxName)
-		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
-	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
-	require.NoError(t, err)
-
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
-	_, round = db.Applications(context.Background(), opts)
-	require.Equal(t, uint64(currentRound), round)
-
-	CompareAppBoxesAgainstDB(t, db, expectedAppBoxes)
-
-	// block header handoff: round 3 --> round 4
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
-
-	/**** ROUND 4: delete the unhappy boxes ****/
-	currentRound = basics.Round(4)
-
-	appBoxesToDelete := []string{
-		"not so great box",
-		"disappointing box",
-		"I'm destined for deletion",
-	}
-
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
-	for _, boxName := range appBoxesToDelete {
-		args := []string{"delete", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(appid, boxName)
-		delete(expectedAppBoxes[appid], key)
-	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
-	require.NoError(t, err)
-
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
-	_, round = db.Applications(context.Background(), opts)
-	require.Equal(t, uint64(currentRound), round)
-
-	deletedBoxes := make(map[basics.AppIndex]map[string]bool)
-	deletedBoxes[appid] = make(map[string]bool)
-	for _, deletedBox := range appBoxesToDelete {
-		deletedBoxes[appid][deletedBox] = true
-	}
-	CompareAppBoxesAgainstDB(t, db, expectedAppBoxes, deletedBoxes)
-
-	// block header handoff: round 4 --> round 5
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
-
-	/**** ROUND 5: create 3 new boxes, overwriting one of the former boxes ****/
-	currentRound = basics.Round(5)
-
-	appBoxesToCreate := []string{
-		"fantabulous",
-		"disappointing box", // overwriting here
-		"AVM is the new EVM",
-	}
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
-	for _, boxName := range appBoxesToCreate {
-		args := []string{"create", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(appid, boxName)
-		expectedAppBoxes[appid][key] = newBoxValue
-	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
-	require.NoError(t, err)
-
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
-	_, round = db.Applications(context.Background(), opts)
-	require.Equal(t, uint64(currentRound), round)
-
-	CompareAppBoxesAgainstDB(t, db, expectedAppBoxes)
-
-	// block header handoff: round 5 --> round 6
-	blockHdr, err = l.BlockHdr(currentRound)
-	require.NoError(t, err)
-
-	/**** ROUND 6: populate the 3 new boxes ****/
-	currentRound = basics.Round(6)
-
-	appBoxesToSet = map[string]string{
-		"fantabulous":        "Italian food's the best!", // max char's
-		"disappointing box":  "you made it!",
-		"AVM is the new EVM": "yes we can!",
-	}
-	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
-	for boxName, valPrefix := range appBoxesToSet {
-		args := []string{"set", boxName, valPrefix}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
-		boxTxns = append(boxTxns, &boxTxn)
-
-		key := logic.MakeBoxKey(appid, boxName)
-		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
-	}
-	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
-	require.NoError(t, err)
-
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
-	require.NoError(t, err)
-	_, round = db.Applications(context.Background(), opts)
-	require.Equal(t, uint64(currentRound), round)
-
-	CompareAppBoxesAgainstDB(t, db, expectedAppBoxes)
-
-	fmt.Printf("TestBoxCreateMutateDelete total time: %s\n", time.Since(start))
+// Test that box evolution is ingested as expected across rounds using database to compare
+func TestBoxCreateMutateDeleteAgainstDB(t *testing.T) {
+	RunBoxCreateMutateDelete(t, CompareAppBoxesAgainstDB)
 }

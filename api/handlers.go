@@ -137,8 +137,11 @@ func setExcludeQueryOptions(exclude []string, opts *idb.AccountQueryOptions) err
 			opts.IncludeAssetParams = false
 			opts.IncludeAppLocalState = false
 			opts.IncludeAppParams = false
+			opts.IncludeBoxTotals = false
 		case "assets":
 			opts.IncludeAssetHoldings = false
+		case "boxes":
+			opts.IncludeBoxTotals = false
 		case "created-assets":
 			opts.IncludeAssetParams = false
 		case "apps-local-state":
@@ -175,6 +178,7 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 		IncludeAssetParams:   true,
 		IncludeAppLocalState: true,
 		IncludeAppParams:     true,
+		IncludeBoxTotals:     false,
 		Limit:                1,
 		IncludeDeleted:       boolOrDefault(params.IncludeAll),
 		MaxResources:         uint64(si.opts.MaxAPIResourcesPerAccount),
@@ -348,6 +352,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		IncludeAssetParams:   true,
 		IncludeAppLocalState: true,
 		IncludeAppParams:     true,
+		IncludeBoxTotals:     false,
 		Limit:                min(uintOrDefaultValue(params.Limit, si.opts.DefaultAccountsLimit), si.opts.MaxAccountsLimit),
 		HasAssetID:           uintOrDefault(params.AssetId),
 		HasAppID:             uintOrDefault(params.ApplicationId),

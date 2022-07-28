@@ -24,6 +24,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/indexer/processor"
@@ -53,6 +54,9 @@ var defaultOpts = ExtraOptions{
 
 	MaxApplicationsLimit:     1000,
 	DefaultApplicationsLimit: 100,
+
+	MaxBoxesLimit:     10000,
+	DefaultBoxesLimit: 1000,
 
 	DisabledMapConfig: MakeDisabledMapConfig(),
 }
@@ -1427,4 +1431,301 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 			require.Equal(t, logCount, len(tc.logs))
 		})
 	}
+}
+
+// CompareAppBoxesAgainstHandler is of type BoxTestComparator
+func CompareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
+	appBoxes map[basics.AppIndex]map[string]string, deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool) {
+
+	numRequests := 0
+	sumOfBoxes := 0
+	sumOfBoxBytes := 0
+
+	caseNum := 1
+	var totalBoxes, totalBoxBytes int
+	for appIdx, boxes := range appBoxes {
+		totalBoxes = 0
+		totalBoxBytes = 0
+
+		// compare expected against handler response one box at a time
+		for key, expectedValue := range boxes {
+			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
+			expectedAppIdx, boxName, err := logic.SplitBoxKey(key)
+			require.NoError(t, err, msg)
+			require.Equal(t, appIdx, expectedAppIdx, msg)
+			numRequests++
+
+			boxDeleted := false
+			if deletedBoxes != nil {
+				if _, ok := deletedBoxes[appIdx][key]; ok {
+					boxDeleted = true
+				}
+			}
+
+			var app basics.AppIndex
+			var name, value []byte
+
+			if !boxDeleted {
+				require.NoError(t, err, msg)
+				require.Equal(t, expectedAppIdx, app, msg)
+				require.Equal(t, boxName, string(name), msg)
+				require.Equal(t, expectedValue, string(value), msg)
+
+				totalBoxes++
+				totalBoxBytes += len(boxName) + len(expectedValue)
+			} else {
+				require.ErrorContains(t, err, "no rows in result set", msg)
+			}
+		}
+		if verifyTotals {
+			// compare expected totals against handler account_data JSON fields
+
+			addr := appIdx.Address()
+			msg := fmt.Sprintf("caseNum=%d, appIdx=%d", caseNum, appIdx)
+
+			opts := idb.AccountQueryOptions{
+				EqualToAddress: addr[:],
+			}
+			rowsCh, round := db.GetAccounts(context.Background(), opts)
+			row, ok := <-rowsCh
+			require.True(t, ok, msg)
+			require.NoError(t, row.Error, msg)
+			require.Greater(t, round, 0, msg)
+
+			require.Equal(t, uint64(totalBoxes), row.Account.TotalBoxes, msg)
+			require.Equal(t, uint64(totalBoxBytes), row.Account.TotalBoxBytes, msg)
+
+			row, ok = <-rowsCh
+			require.False(t, ok, msg)
+			require.Nil(t, row, msg)
+		}
+
+		sumOfBoxes += totalBoxes
+		sumOfBoxBytes += totalBoxBytes
+		caseNum++
+	}
+
+	fmt.Printf("CompareAppBoxesAgainstHandler succeeded with %d requests, %d boxes and %d boxBytes\n", numRequests, sumOfBoxes, sumOfBoxBytes)
+}
+
+// test runner copy/pastad/tweaked in handlers_e2e_test.go and postgres_integration_test.go
+func RunBoxCreateMutateDelete(t *testing.T, comparator postgres.BoxTestComparator) {
+	start := time.Now()
+
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+	defer l.Close()
+
+	appid := basics.AppIndex(1)
+
+	/**** ROUND 1: create and fund the box app ****/
+	currentRound := basics.Round(1)
+
+	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram)
+	require.NoError(t, err)
+
+	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
+		basics.Address{})
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
+	require.NoError(t, err)
+
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+
+	opts := idb.ApplicationQuery{ApplicationID: uint64(appid)}
+
+	rowsCh, round := db.Applications(context.Background(), opts)
+	require.Equal(t, uint64(currentRound), round)
+
+	row, ok := <-rowsCh
+	require.True(t, ok)
+	require.NoError(t, row.Error)
+	require.NotNil(t, row.Application.CreatedAtRound)
+	require.Equal(t, uint64(currentRound), *row.Application.CreatedAtRound)
+
+	// block header handoff: round 1 --> round 2
+	blockHdr, err := l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	/**** ROUND 2: create 8 boxes for appid == 1 ****/
+	currentRound = basics.Round(2)
+
+	boxNames := []string{
+		"a great box",
+		"another great box",
+		"not so great box",
+		"disappointing box",
+		"don't box me in this way",
+		"I will be assimilated",
+		"I'm destined for deletion",
+		"box #8",
+	}
+
+	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
+
+	expectedAppBoxes[appid] = map[string]string{}
+	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
+	for _, boxName := range boxNames {
+		expectedAppBoxes[appid][logic.MakeBoxKey(appid, boxName)] = newBoxValue
+
+		args := []string{"create", boxName}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+	}
+
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+	_, round = db.Applications(context.Background(), opts)
+	require.Equal(t, uint64(currentRound), round)
+
+	comparator(t, db, expectedAppBoxes, nil, true)
+
+	// block header handoff: round 2 --> round 3
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	/**** ROUND 3: populate the boxes appropriately ****/
+	currentRound = basics.Round(3)
+
+	appBoxesToSet := map[string]string{
+		"a great box":               "it's a wonderful box",
+		"another great box":         "I'm wonderful too",
+		"not so great box":          "bummer",
+		"disappointing box":         "RUG PULL!!!!",
+		"don't box me in this way":  "non box-conforming",
+		"I will be assimilated":     "THE BORG",
+		"I'm destined for deletion": "I'm still alive!!!",
+		"box #8":                    "eight is beautiful",
+	}
+
+	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	expectedAppBoxes[appid] = make(map[string]string)
+	for boxName, valPrefix := range appBoxesToSet {
+		args := []string{"set", boxName, valPrefix}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+
+		key := logic.MakeBoxKey(appid, boxName)
+		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	}
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+	_, round = db.Applications(context.Background(), opts)
+	require.Equal(t, uint64(currentRound), round)
+
+	comparator(t, db, expectedAppBoxes, nil, true)
+
+	// block header handoff: round 3 --> round 4
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	/**** ROUND 4: delete the unhappy boxes ****/
+	currentRound = basics.Round(4)
+
+	appBoxesToDelete := []string{
+		"not so great box",
+		"disappointing box",
+		"I'm destined for deletion",
+	}
+
+	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	for _, boxName := range appBoxesToDelete {
+		args := []string{"delete", boxName}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+
+		key := logic.MakeBoxKey(appid, boxName)
+		delete(expectedAppBoxes[appid], key)
+	}
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+	_, round = db.Applications(context.Background(), opts)
+	require.Equal(t, uint64(currentRound), round)
+
+	deletedBoxes := make(map[basics.AppIndex]map[string]bool)
+	deletedBoxes[appid] = make(map[string]bool)
+	for _, deletedBox := range appBoxesToDelete {
+		deletedBoxes[appid][deletedBox] = true
+	}
+	comparator(t, db, expectedAppBoxes, deletedBoxes, true)
+
+	// block header handoff: round 4 --> round 5
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	/**** ROUND 5: create 3 new boxes, overwriting one of the former boxes ****/
+	currentRound = basics.Round(5)
+
+	appBoxesToCreate := []string{
+		"fantabulous",
+		"disappointing box", // overwriting here
+		"AVM is the new EVM",
+	}
+	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	for _, boxName := range appBoxesToCreate {
+		args := []string{"create", boxName}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+
+		key := logic.MakeBoxKey(appid, boxName)
+		expectedAppBoxes[appid][key] = newBoxValue
+	}
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+	_, round = db.Applications(context.Background(), opts)
+	require.Equal(t, uint64(currentRound), round)
+
+	comparator(t, db, expectedAppBoxes, nil, true)
+
+	// block header handoff: round 5 --> round 6
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	/**** ROUND 6: populate the 3 new boxes ****/
+	currentRound = basics.Round(6)
+
+	appBoxesToSet = map[string]string{
+		"fantabulous":        "Italian food's the best!", // max char's
+		"disappointing box":  "you made it!",
+		"AVM is the new EVM": "yes we can!",
+	}
+	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	for boxName, valPrefix := range appBoxesToSet {
+		args := []string{"set", boxName, valPrefix}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+
+		key := logic.MakeBoxKey(appid, boxName)
+		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	}
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+	_, round = db.Applications(context.Background(), opts)
+	require.Equal(t, uint64(currentRound), round)
+
+	comparator(t, db, expectedAppBoxes, nil, true)
+
+	fmt.Printf("RunBoxCreateMutateDelete total time: %s\n", time.Since(start))
+}
+
+// Test that box evolution is ingested as expected across rounds using API to compare
+func TestBoxCreateMutateDeleteAgainstHandler(t *testing.T) {
+	RunBoxCreateMutateDelete(t, CompareAppBoxesAgainstHandler)
 }

@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/algorand/go-algorand/config"
@@ -115,6 +116,10 @@ type IndexerDb struct {
 	migration      *migration.Migration
 	accountingLock sync.Mutex
 }
+
+// BoxTestComparator is a type used for testing in postres and api
+type BoxTestComparator func(t *testing.T, db *IndexerDb, appBoxes map[basics.AppIndex]map[string]string,
+	deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool)
 
 // Close is part of idb.IndexerDb.
 func (db *IndexerDb) Close() {
@@ -1031,58 +1036,61 @@ func (db *IndexerDb) yieldAccountsThread(req *getAccountsRequest) {
 		}
 
 		{
-			var ad ledgercore.AccountData
-			ad, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
+			var accountData ledgercore.AccountData
+			accountData, err = encoding.DecodeTrimmedLcAccountData(accountDataJSONStr)
 			if err != nil {
 				err = fmt.Errorf("account decode err (%s) %v", accountDataJSONStr, err)
 				req.out <- idb.AccountRow{Error: err}
 				break
 			}
-			account.Status = statusStrings[ad.Status]
-			hasSel := !allZero(ad.SelectionID[:])
-			hasVote := !allZero(ad.VoteID[:])
-			hasStateProofkey := !allZero(ad.StateProofID[:])
+			account.Status = statusStrings[accountData.Status]
+			hasSel := !allZero(accountData.SelectionID[:])
+			hasVote := !allZero(accountData.VoteID[:])
+			hasStateProofkey := !allZero(accountData.StateProofID[:])
 
 			if hasSel || hasVote || hasStateProofkey {
 				part := new(models.AccountParticipation)
 				if hasSel {
-					part.SelectionParticipationKey = ad.SelectionID[:]
+					part.SelectionParticipationKey = accountData.SelectionID[:]
 				}
 				if hasVote {
-					part.VoteParticipationKey = ad.VoteID[:]
+					part.VoteParticipationKey = accountData.VoteID[:]
 				}
 				if hasStateProofkey {
-					part.StateProofKey = byteSlicePtr(ad.StateProofID[:])
+					part.StateProofKey = byteSlicePtr(accountData.StateProofID[:])
 				}
-				part.VoteFirstValid = uint64(ad.VoteFirstValid)
-				part.VoteLastValid = uint64(ad.VoteLastValid)
-				part.VoteKeyDilution = ad.VoteKeyDilution
+				part.VoteFirstValid = uint64(accountData.VoteFirstValid)
+				part.VoteLastValid = uint64(accountData.VoteLastValid)
+				part.VoteKeyDilution = accountData.VoteKeyDilution
 				account.Participation = part
 			}
 
-			if !ad.AuthAddr.IsZero() {
+			if !accountData.AuthAddr.IsZero() {
 				var spendingkey basics.Address
-				copy(spendingkey[:], ad.AuthAddr[:])
+				copy(spendingkey[:], accountData.AuthAddr[:])
 				account.AuthAddr = stringPtr(spendingkey.String())
 			}
 
 			{
 				totalSchema := models.ApplicationStateSchema{
-					NumByteSlice: ad.TotalAppSchema.NumByteSlice,
-					NumUint:      ad.TotalAppSchema.NumUint,
+					NumByteSlice: accountData.TotalAppSchema.NumByteSlice,
+					NumUint:      accountData.TotalAppSchema.NumUint,
 				}
 				if totalSchema != (models.ApplicationStateSchema{}) {
 					account.AppsTotalSchema = &totalSchema
 				}
 			}
-			if ad.TotalExtraAppPages != 0 {
-				account.AppsTotalExtraPages = uint64Ptr(uint64(ad.TotalExtraAppPages))
+			if accountData.TotalExtraAppPages != 0 {
+				account.AppsTotalExtraPages = uint64Ptr(uint64(accountData.TotalExtraAppPages))
 			}
 
-			account.TotalAppsOptedIn = ad.TotalAppLocalStates
-			account.TotalCreatedApps = ad.TotalAppParams
-			account.TotalAssetsOptedIn = ad.TotalAssets
-			account.TotalCreatedAssets = ad.TotalAssetParams
+			account.TotalAppsOptedIn = accountData.TotalAppLocalStates
+			account.TotalCreatedApps = accountData.TotalAppParams
+			account.TotalAssetsOptedIn = accountData.TotalAssets
+			account.TotalCreatedAssets = accountData.TotalAssetParams
+
+			account.TotalBoxes = accountData.TotalBoxes
+			account.TotalBoxBytes = accountData.TotalBoxBytes
 		}
 
 		if account.Status == "NotParticipating" {
@@ -1655,7 +1663,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 		var rewardsbase uint64
 		var keytype *string
 		var accountDataJSONStr []byte
-		var holdingCount, assetCount, appCount, lsCount sql.NullInt64
+		var holdingCount, assetCount, appCount, lsCount, boxesCount, boxBytesCount sql.NullInt64
 		cols := []interface{}{&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr}
 		if countOnly {
 			if o.IncludeAssetHoldings {
@@ -1669,6 +1677,10 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 			}
 			if o.IncludeAppLocalState {
 				cols = append(cols, &lsCount)
+			}
+			if o.IncludeBoxTotals {
+				cols = append(cols, &boxesCount)
+				cols = append(cols, &boxBytesCount)
 			}
 		}
 		err := rows.Scan(cols...)
