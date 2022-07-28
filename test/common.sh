@@ -447,7 +447,7 @@ function create_delete_tests() {
       '"deleted": true' \
       '"created-at-round": 13' \
       '"deleted-at-round": 37'
-
+    sleep infinity
     rest_test "[rest - account/application] account with a deleted application excluded" \
       "/v2/accounts/XNMIHFHAZ2GE3XUKISNMOYKNFDOJXBJMVHRSXVVVIK3LNMT22ET2TA4N4I?pretty" \
       200 \
