@@ -1,6 +1,8 @@
 package accounting
 
 import (
+	"math"
+
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
@@ -34,9 +36,15 @@ func addToCreatorsRequest(stxnad *transactions.SignedTxnWithAD, assetsReq map[ba
 			appsReq[fields.ApplicationID] = struct{}{}
 		}
 		for _, index := range fields.ForeignApps {
+			if index > basics.AppIndex(math.MaxInt64) {
+				continue
+			}
 			appsReq[index] = struct{}{}
 		}
 		for _, index := range fields.ForeignAssets {
+			if index > basics.AssetIndex(math.MaxInt64) {
+				continue
+			}
 			assetsReq[index] = struct{}{}
 		}
 	}
@@ -161,6 +169,9 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 			addressesReq[address] = struct{}{}
 		}
 		for _, index := range fields.ForeignApps {
+			if index > basics.AppIndex(math.MaxInt64) {
+				continue
+			}
 			if creator := appCreators[index]; creator.Exists {
 				creatable := ledger.Creatable{
 					Index: basics.CreatableIndex(index),
@@ -170,6 +181,9 @@ func addToAccountsResourcesRequest(stxnad *transactions.SignedTxnWithAD, assetCr
 			}
 		}
 		for _, index := range fields.ForeignAssets {
+			if index > basics.AssetIndex(math.MaxInt64) {
+				continue
+			}
 			if creator := assetCreators[index]; creator.Exists {
 				creatable := ledger.Creatable{
 					Index: basics.CreatableIndex(index),
