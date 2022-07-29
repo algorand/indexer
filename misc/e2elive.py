@@ -119,7 +119,7 @@ def main():
         indexer_bin,
         "daemon",
         "--data-dir",
-        "/tmp",
+        tempdir,
         "-P",
         psqlstring,
         "--dev-mode",
