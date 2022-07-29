@@ -145,7 +145,7 @@ def ensure_test_db(connection_string, keep_temps=False):
 
 # whoever calls this will need to import boto and get the s3 client
 def firstFromS3Prefix(s3, bucket, prefix, desired_filename, outdir=None, outpath=None):
-    response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=10)
+    response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=50)
     if (not response.get('KeyCount')) or ('Contents' not in response):
         raise Exception('nothing found in s3://{}/{}'.format(bucket, prefix))
     for x in response['Contents']:
@@ -159,3 +159,4 @@ def firstFromS3Prefix(s3, bucket, prefix, desired_filename, outdir=None, outpath
             logger.info('s3://%s/%s -> %s', bucket, x['Key'], outpath)
             s3.download_file(bucket, x['Key'], outpath)
             return
+    logger.warning('file not found in s3://{}/{}'.format(bucket, prefix))
