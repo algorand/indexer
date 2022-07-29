@@ -110,14 +110,12 @@ commands:
             sudo apt update
             sudo apt -y install python3 python3-pip python3-setuptools python3-wheel libboost-math-dev libffi-dev
             pip3 install -r misc/requirements.txt
-            git diff | cat
 
       - run:
           name: sync submodules (go-algorand)
           command: |
             git submodule sync
             git submodule update --init
-            git diff | cat
 
       - run: echo 'export PATH=$PATH:/usr/local/go/bin' >> $BASH_ENV
 
