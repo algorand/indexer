@@ -1437,6 +1437,19 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 func CompareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 	appBoxes map[basics.AppIndex]map[string]string, deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool) {
 
+	setupRequest := func(path, paramName, paramValue string) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath(path)
+		c.SetParamNames(paramName)
+		c.SetParamValues(paramValue)
+		api := testServerImplementation(db)
+		return c, api, rec
+	}
+
+	remainingBoxes := map[basics.AppIndex]map[string]string{}
 	numRequests := 0
 	sumOfBoxes := 0
 	sumOfBoxBytes := 0
@@ -1446,6 +1459,8 @@ func CompareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 	for appIdx, boxes := range appBoxes {
 		totalBoxes = 0
 		totalBoxBytes = 0
+
+		remainingBoxes[appIdx] = map[string]string{}
 
 		// compare expected against handler response one box at a time
 		for key, expectedValue := range boxes {
@@ -1462,14 +1477,30 @@ func CompareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 				}
 			}
 
-			var app basics.AppIndex
-			var name, value []byte
+			c, api, rec := setupRequest("/v2/applications/:appidx/box/", "appidx", strconv.Itoa(int(appIdx)))
+			// TODO for prefix in
+			//  []string{"str", "string", "int", "integer", "addr", "address",
+			//		    "b32", "base32", "byte base32",
+			//			"b64", "base64", "byte base64",
+			//			"abi"
+			//			}
+			// ... do the right thing
+			prefixedName := fmt.Sprintf("str:%s", boxName)
+			params := generated.LookupApplicationBoxByIDandNameParams{Name: prefixedName}
+			err = api.LookupApplicationBoxByIDandName(c, uint64(appIdx), params)
+			require.NoError(t, err, msg)
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
+
+			var resp generated.BoxResponse
+			data := rec.Body.Bytes()
+			err = json.Decode(data, &resp)
 
 			if !boxDeleted {
-				require.NoError(t, err, msg)
-				require.Equal(t, expectedAppIdx, app, msg)
-				require.Equal(t, boxName, string(name), msg)
-				require.Equal(t, expectedValue, string(value), msg)
+				require.NoError(t, err, msg, msg)
+				require.Equal(t, boxName, string(resp.Name), msg)
+				require.Equal(t, expectedValue, string(resp.Value), msg)
+
+				remainingBoxes[appIdx][boxName] = expectedValue
 
 				totalBoxes++
 				totalBoxBytes += len(boxName) + len(expectedValue)
@@ -1477,27 +1508,56 @@ func CompareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 				require.ErrorContains(t, err, "no rows in result set", msg)
 			}
 		}
+
+		msg := fmt.Sprintf("caseNum=%d, appIdx=%d", caseNum, appIdx)
+
+		expectedBoxes := remainingBoxes[appIdx]
+
+		c, api, rec := setupRequest("/v2/applications/:appidx/boxes", "appidx", strconv.Itoa(int(appIdx)))
+		// TODO: should we add Order to the search params?
+		params := generated.SearchForApplicationBoxesParams{}
+
+		// TODO: also test non-nil Limit, Next
+		err := api.SearchForApplicationBoxes(c, uint64(appIdx), params)
+		require.NoError(t, err, msg)
+		require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
+
+		var resp generated.BoxesResponse
+		data := rec.Body.Bytes()
+		err = json.Decode(data, &resp)
+		require.NoError(t, err, msg)
+
+		require.Equal(t, uint64(appIdx), uint64(resp.ApplicationId), msg)
+
+		boxes := resp.Boxes
+		require.NotNil(t, boxes, msg)
+		require.Len(t, boxes, len(expectedBoxes), msg)
+		for _, box := range boxes {
+			require.Contains(t, expectedBoxes, string(box.Name), msg)
+		}
+
 		if verifyTotals {
 			// compare expected totals against handler account_data JSON fields
-
-			addr := appIdx.Address()
 			msg := fmt.Sprintf("caseNum=%d, appIdx=%d", caseNum, appIdx)
 
-			opts := idb.AccountQueryOptions{
-				EqualToAddress: addr[:],
-			}
-			rowsCh, round := db.GetAccounts(context.Background(), opts)
-			row, ok := <-rowsCh
-			require.True(t, ok, msg)
-			require.NoError(t, row.Error, msg)
-			require.Greater(t, round, 0, msg)
+			appAddr := appIdx.Address().String()
+			c, api, rec = setupRequest("/v2/accounts/:addr", "addr", appAddr)
+			tru := true
+			params := generated.LookupAccountByIDParams{IncludeAll: &tru}
+			err := api.LookupAccountByID(c, appAddr, params)
+			require.NoError(t, err, msg)
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
 
-			require.Equal(t, uint64(totalBoxes), row.Account.TotalBoxes, msg)
-			require.Equal(t, uint64(totalBoxBytes), row.Account.TotalBoxBytes, msg)
+			var resp generated.AccountResponse
+			data := rec.Body.Bytes()
+			err = json.Decode(data, &resp)
 
-			row, ok = <-rowsCh
-			require.False(t, ok, msg)
-			require.Nil(t, row, msg)
+			require.NoError(t, err, msg)
+			require.Equal(t, uint64(totalBoxes), resp.Account.TotalBoxes, msg)
+			require.Equal(t, uint64(totalBoxBytes), resp.Account.TotalBoxBytes, msg)
+
+			// sanity check of the account summary query vs. the direct box search query results:
+			require.Equal(t, uint64(len(boxes)), resp.Account.TotalBoxes, msg)
 		}
 
 		sumOfBoxes += totalBoxes

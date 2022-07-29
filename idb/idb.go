@@ -381,7 +381,9 @@ type ApplicationBoxQuery struct {
 	ApplicationID uint64
 	BoxName       []byte
 	OmitValues    bool
+	Ascending     *bool
 	Limit         uint64
+	PrevFinalBox  []byte
 }
 
 // ApplicationBoxRow provides a response wrapping box information.

@@ -1663,7 +1663,7 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 		var rewardsbase uint64
 		var keytype *string
 		var accountDataJSONStr []byte
-		var holdingCount, assetCount, appCount, lsCount, boxesCount, boxBytesCount sql.NullInt64
+		var holdingCount, assetCount, appCount, lsCount sql.NullInt64
 		cols := []interface{}{&addr, &microalgos, &rewardstotal, &createdat, &closedat, &deleted, &rewardsbase, &keytype, &accountDataJSONStr}
 		if countOnly {
 			if o.IncludeAssetHoldings {
@@ -1677,10 +1677,6 @@ func (db *IndexerDb) checkAccountResourceLimit(ctx context.Context, tx pgx.Tx, o
 			}
 			if o.IncludeAppLocalState {
 				cols = append(cols, &lsCount)
-			}
-			if o.IncludeBoxTotals {
-				cols = append(cols, &boxesCount)
-				cols = append(cols, &boxBytesCount)
 			}
 		}
 		err := rows.Scan(cols...)
@@ -2301,24 +2297,34 @@ func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.Applica
 }
 
 // ApplicationBoxes is part of interface idb.IndexerDB
-func (db *IndexerDb) ApplicationBoxes(ctx context.Context, filter idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
+func (db *IndexerDb) ApplicationBoxes(ctx context.Context, queryOpts idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
 	out := make(chan idb.ApplicationBoxRow, 1)
 
 	columns := `app, name`
-	if !filter.OmitValues {
+	if !queryOpts.OmitValues {
 		columns += `, value`
 	}
 	query := fmt.Sprintf("SELECT %s FROM app_box WHERE app = $1", columns)
-	whereArgs := []interface{}{filter.ApplicationID}
 
-	if filter.BoxName != nil {
+	whereArgs := []interface{}{queryOpts.ApplicationID}
+	if queryOpts.BoxName != nil {
 		query += " AND name = $2"
-		whereArgs = append(whereArgs, filter.BoxName)
+		whereArgs = append(whereArgs, queryOpts.BoxName)
+	} else if queryOpts.PrevFinalBox != nil {
+		query += " AND name > $2"
+		whereArgs = append(whereArgs, queryOpts.PrevFinalBox)
 	}
 
-	// NOTE: not providing ORDER BY
-	if filter.Limit != 0 {
-		query += fmt.Sprintf(" LIMIT %d", filter.Limit)
+	if queryOpts.Ascending != nil {
+		orderKind := "ASC"
+		if !*queryOpts.Ascending {
+			orderKind = "DESC"
+		}
+		query += fmt.Sprintf(" ORDER BY name %s", orderKind)
+	}
+
+	if queryOpts.Limit != 0 {
+		query += fmt.Sprintf(" LIMIT %d", queryOpts.Limit)
 	}
 
 	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
@@ -2349,7 +2355,7 @@ func (db *IndexerDb) ApplicationBoxes(ctx context.Context, filter idb.Applicatio
 	}
 
 	go func() {
-		db.yieldApplicationBoxThread(filter.OmitValues, rows, out)
+		db.yieldApplicationBoxThread(queryOpts.OmitValues, rows, out)
 		// Because we return a channel into a "callWithTimeout" function,
 		// We need to make sure that rollback is called before close()
 		// otherwise we can end up with a situation where "callWithTimeout"

@@ -352,7 +352,7 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 		IncludeAssetParams:   true,
 		IncludeAppLocalState: true,
 		IncludeAppParams:     true,
-		IncludeBoxTotals:     false,
+		IncludeBoxTotals:     boolOrDefault(params.IncludeAll),
 		Limit:                min(uintOrDefaultValue(params.Limit, si.opts.DefaultAccountsLimit), si.opts.MaxAccountsLimit),
 		HasAssetID:           uintOrDefault(params.AssetId),
 		HasAppID:             uintOrDefault(params.ApplicationId),
@@ -558,6 +558,22 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 		ApplicationID: applicationID,
 		OmitValues:    true,
 	}
+	if params.Limit != nil {
+		q.Limit = *params.Limit
+	}
+	if params.Next != nil {
+		encodedBoxName := *params.Next
+		boxNameBytes, err := logic.NewAppCallBytes(encodedBoxName)
+		if err != nil {
+			return badRequest(ctx, err.Error())
+		}
+		prevBox, err := boxNameBytes.Raw()
+		if err != nil {
+			return badRequest(ctx, err.Error())
+		}
+		q.PrevFinalBox = prevBox
+	}
+
 	boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
 
 	if err != nil {
