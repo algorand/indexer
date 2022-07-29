@@ -82,8 +82,8 @@ def main():
         import boto3
         from botocore.config import Config
         from botocore import UNSIGNED
-
         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
+        s3 = boto3.client('s3', config=Config(signature_version=UNSIGNED))
         tarpath = os.path.join(tempdir, tarname)
         prefix = "indexer/e2e4"
         success = firstFromS3Prefix(s3, bucket, prefix, tarname, outpath=tarpath)
