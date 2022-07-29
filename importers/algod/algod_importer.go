@@ -53,6 +53,7 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
 		algodImp.cfg.NetAddr = "http://" + algodImp.cfg.NetAddr
+		algodImp.logger.Warnf("Plugin config has missing or invalid URL scheme")
 	}
 	client, err = algod.MakeClient(algodImp.cfg.NetAddr, algodImp.cfg.Token)
 	if err != nil {
@@ -68,17 +69,15 @@ func (algodImp *algodImporter) Config() plugins.PluginConfig {
 }
 
 func (algodImp *algodImporter) Close() error {
-	var err error
 	algodImp.cancel()
-	return err
+	return nil
 }
 
 func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	var blockbytes []byte
 	var err error
 	var blk data.BlockData
-	aclient := algodImp.aclient
-	blockbytes, err = aclient.BlockRaw(rnd).Do(algodImp.ctx)
+	blockbytes, err = algodImp.aclient.BlockRaw(rnd).Do(algodImp.ctx)
 	if err != nil {
 		return blk, err
 	}
