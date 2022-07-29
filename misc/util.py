@@ -188,6 +188,7 @@ def firstFromS3Prefix(
                 outpath = os.path.join(outdir, desired_filename)
             logger.info("s3://%s/%s -> %s", bucket, x["Key"], outpath)
             s3.download_file(bucket, x["Key"], outpath)
-            return True
+            found_needle = True
+            break
 
-    return False
+    return found_needle
