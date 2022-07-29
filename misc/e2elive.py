@@ -89,7 +89,7 @@ def main():
     psqlstring = ensure_test_db(args.connection_string, args.keep_temps)
     algoddir = os.path.join(tempnet, 'Primary')
     aiport = args.indexer_port or random.randint(4000,30000)
-    cmd = [indexer_bin, 'daemon', '--data-dir', '/tmp', '-P', psqlstring, '--dev-mode', '--algod', algoddir, '--server', ':{}'.format(aiport)]
+    cmd = [indexer_bin, 'daemon', '--data-dir', tempdir, '-P', psqlstring, '--dev-mode', '--algod', algoddir, '--server', ':{}'.format(aiport)]
     logger.debug("%s", ' '.join(map(repr,cmd)))
     indexerdp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     indexerout = subslurp(indexerdp.stdout)
