@@ -77,6 +77,7 @@ def main():
         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
         tarname = "net_done.tar.bz2"
         tarpath = os.path.join(tempdir, tarname)
+        tarname = "THIS_DOES_NOT_EXIST"  # temporary change for testing purposes
         success = firstFromS3Prefix(
             s3, bucket, "indexer/e2e4", tarname, outpath=tarpath
         )
