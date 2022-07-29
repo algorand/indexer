@@ -168,6 +168,7 @@ def firstFromS3Prefix(
             f"""Hello from firstFromS3Prefix() !!!!
         I finished searching for the needle {desired_filename} in the AWS S3 path {bucket}/{prefix}.
         haystack={haystack}
+        len(haystack)={len(haystack)}
         found_needle={found_needle}
 """
         )
