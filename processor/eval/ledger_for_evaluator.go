@@ -151,5 +151,5 @@ func (l LedgerForEvaluator) LatestTotals() (ledgercore.AccountTotals, error) {
 
 // BlockHdrCached is part of go-algorand's indexerLedgerForEval interface.
 func (l LedgerForEvaluator) BlockHdrCached(round basics.Round) (bookkeeping.BlockHeader, error) {
-	return l.BlockHdrCached(round)
+	return l.Ledger.BlockHdrCached(round)
 }
