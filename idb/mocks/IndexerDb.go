@@ -58,6 +58,29 @@ func (_m *IndexerDb) AppLocalState(ctx context.Context, filter idb.ApplicationQu
 	return r0, r1
 }
 
+// ApplicationBoxes provides a mock function with given fields: ctx, filter
+func (_m *IndexerDb) ApplicationBoxes(ctx context.Context, filter idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
+	ret := _m.Called(ctx, filter)
+
+	var r0 <-chan idb.ApplicationBoxRow
+	if rf, ok := ret.Get(0).(func(context.Context, idb.ApplicationBoxQuery) <-chan idb.ApplicationBoxRow); ok {
+		r0 = rf(ctx, filter)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(<-chan idb.ApplicationBoxRow)
+		}
+	}
+
+	var r1 uint64
+	if rf, ok := ret.Get(1).(func(context.Context, idb.ApplicationBoxQuery) uint64); ok {
+		r1 = rf(ctx, filter)
+	} else {
+		r1 = ret.Get(1).(uint64)
+	}
+
+	return r0, r1
+}
+
 // Applications provides a mock function with given fields: ctx, filter
 func (_m *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQuery) (<-chan idb.ApplicationRow, uint64) {
 	ret := _m.Called(ctx, filter)
@@ -79,11 +102,6 @@ func (_m *IndexerDb) Applications(ctx context.Context, filter idb.ApplicationQue
 	}
 
 	return r0, r1
-}
-
-// ApplicationBoxes isn't currently implemented
-func (_m *IndexerDb) ApplicationBoxes(ctx context.Context, filter idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
-	panic("not implemented")
 }
 
 // AssetBalances provides a mock function with given fields: ctx, abq
