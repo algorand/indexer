@@ -159,4 +159,4 @@ def firstFromS3Prefix(s3, bucket, prefix, desired_filename, outdir=None, outpath
             logger.info('s3://%s/%s -> %s', bucket, x['Key'], outpath)
             s3.download_file(bucket, x['Key'], outpath)
             return
-    logger.info('file not found in s3://{}/{}'.format(bucket, prefix))
+    logger.warning('file not found in s3://{}/{}'.format(bucket, prefix))
