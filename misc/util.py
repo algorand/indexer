@@ -157,12 +157,30 @@ def ensure_test_db(connection_string, keep_temps=False):
 
 
 # whoever calls this will need to import boto and get the s3 client
-def firstFromS3Prefix(s3, bucket, prefix, desired_filename, outdir=None, outpath=None):
+def firstFromS3Prefix(
+    s3, bucket, prefix, desired_filename, outdir=None, outpath=None
+) -> bool:
+    haystack = []
+    found_needle = False
+
+    def report():
+        print(
+            f"""Hello from firstFromS3Prefix() !!!!
+        I finished searching for the needle {desired_filename} in the AWS S3 path {bucket}/{prefix}.
+        haystack={haystack}
+        len(haystack)={len(haystack)}
+        found_needle={found_needle}
+"""
+        )
+
+    atexit.register(report)
+
     response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=50)
     if (not response.get("KeyCount")) or ("Contents" not in response):
         raise Exception("nothing found in s3://{}/{}".format(bucket, prefix))
     for x in response["Contents"]:
         path = x["Key"]
+        haystack.append(path)
         _, fname = path.rsplit("/", 1)
         if fname == desired_filename:
             if outpath is None:
@@ -171,5 +189,8 @@ def firstFromS3Prefix(s3, bucket, prefix, desired_filename, outdir=None, outpath
                 outpath = os.path.join(outdir, desired_filename)
             logger.info("s3://%s/%s -> %s", bucket, x["Key"], outpath)
             s3.download_file(bucket, x["Key"], outpath)
-            return
+            found_needle = True
+            break
+
     logger.warning("file not found in s3://{}/{}".format(bucket, prefix))
+    return found_needle

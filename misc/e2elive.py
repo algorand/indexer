@@ -77,7 +77,12 @@ def main():
         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
         tarname = "net_done.tar.bz2"
         tarpath = os.path.join(tempdir, tarname)
-        firstFromS3Prefix(s3, bucket, "indexer/e2e4", tarname, outpath=tarpath)
+        prefix = "indexer/e2e4"
+        success = firstFromS3Prefix(s3, bucket, prefix, tarname, outpath=tarpath)
+        if not success:
+            raise Exception(
+                f"failed to locate tarname={tarname} from AWS S3 path {bucket}/{prefix}"
+            )
         source_is_tar = True
         sourcenet = tarpath
     tempnet = os.path.join(tempdir, "net")
