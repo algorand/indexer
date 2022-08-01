@@ -53,7 +53,7 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
 		algodImp.cfg.NetAddr = "http://" + algodImp.cfg.NetAddr
-		algodImp.logger.Warnf("Plugin config has missing or invalid URL scheme")
+		algodImp.logger.Infof("Algod Importer added http prefix to NetAddr: %s", algodImp.cfg.NetAddr)
 	}
 	client, err = algod.MakeClient(algodImp.cfg.NetAddr, algodImp.cfg.Token)
 	if err != nil {
