@@ -36,6 +36,7 @@ func init() {
 	RunnerCmd.Flags().StringVarP(&runnerArgs.CPUProfilePath, "cpuprofile", "", "", "Path where Indexer writes its CPU profile.")
 	RunnerCmd.Flags().BoolVarP(&runnerArgs.ResetReportDir, "reset", "", false, "If set any existing report directory will be deleted before running tests.")
 	RunnerCmd.Flags().BoolVarP(&runnerArgs.RunValidation, "validate", "", false, "If set the validator will run after test-duration has elapsed to verify data is correct. An extra line in each report indicates validator success or failure.")
+	RunnerCmd.Flags().BoolVarP(&runnerArgs.KeepDataDir, "keep-data-dir", "k", false, "If set the validator will not delete the data directory after tests complete.")
 
 	RunnerCmd.MarkFlagRequired("scenario")
 	RunnerCmd.MarkFlagRequired("indexer-binary")
