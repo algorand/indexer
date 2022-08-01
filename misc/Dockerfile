@@ -1,5 +1,5 @@
-ARG GO_IMAGE=golang:1.14.7
-FROM $GO_IMAGE
+ARG GO_IMAGE=golang:1.18.2
+FROM $GO_IMAGE-bullseye
 
 RUN echo "Go image: $GO_IMAGE"
 
@@ -7,6 +7,7 @@ RUN echo "Go image: $GO_IMAGE"
 ENV HOME /opt
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update && apt-get install -y apt-utils curl git git-core bsdmainutils python3 python3-pip make bash libtool libboost-math-dev libffi-dev
+RUN python3 --version
 
 # Setup files for test
 RUN mkdir -p /opt/go/indexer
