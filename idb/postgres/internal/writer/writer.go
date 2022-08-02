@@ -3,6 +3,7 @@ package writer
 import (
 	"context"
 	"fmt"
+	"github.com/algorand/go-algorand/protocol"
 	"strconv"
 	"time"
 
@@ -159,7 +160,7 @@ func getSigTypeDeltas(payset []transactions.SignedTxnInBlock) (map[basics.Addres
 	res := make(map[basics.Address]sigTypeDelta, len(payset))
 
 	for i := range payset {
-		if payset[i].Txn.RekeyTo == (basics.Address{}) {
+		if payset[i].Txn.RekeyTo == (basics.Address{}) && payset[i].Txn.Type != protocol.StateProofTx {
 			sigtype, err := idb.SignatureType(&payset[i].SignedTxn)
 			if err != nil {
 				return nil, fmt.Errorf("getSigTypeDelta() err: %w", err)
