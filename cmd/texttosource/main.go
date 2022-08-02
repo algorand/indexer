@@ -1,28 +1,15 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"strings"
-	"text/template"
-
-	"github.com/algorand/indexer/idb/postgres"
 )
-
-// Interpolators is a struct used for interpolating into the SQL template `idb/postgres/internal/schema/setup_postgres.sql`
-type Interpolators struct {
-	AppBox string
-}
 
 // usage:
 // go run cmd/texttosource/main.go packagename constantname inputfile outputfile
 func main() {
-	interpolators := Interpolators{
-		AppBox: postgres.AppBoxMigration,
-	}
-
 	packageName := os.Args[1]
 	constantName := os.Args[2]
 	inputFilepath := os.Args[3]
@@ -35,19 +22,6 @@ func main() {
 	}
 
 	body := "`" + strings.ReplaceAll(string(data), "`", "\\u0060") + "`"
-	tmpl, err := template.New("setup_postgres_sql").Parse(body)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot parse template for %s: %v\n", outputFilepath, err)
-		os.Exit(1)
-	}
-
-	var bodyBuff bytes.Buffer
-	err = tmpl.Execute(&bodyBuff, interpolators)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot interpolate template with %+v for %s: %v\n", interpolators, outputFilepath, err)
-		os.Exit(1)
-	}
-	body = bodyBuff.String()
 
 	fout, err := os.Create(outputFilepath)
 	if err != nil {
