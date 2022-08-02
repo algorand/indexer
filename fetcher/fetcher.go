@@ -225,6 +225,9 @@ func (bot *fetcherImpl) mainLoop(ctx context.Context) error {
 
 // Run is part of the Fetcher interface
 func (bot *fetcherImpl) Run(ctx context.Context) error {
+	if bot.algodImp == nil {
+		bot.algodImp = algodimporter.New()
+	}
 	bot.algodImp.Init(ctx, bot.cfg, bot.log)
 
 	bot.blockQueue = make(chan *rpcs.EncodedBlockCert)
@@ -283,7 +286,7 @@ func ForNetAndToken(netaddr, token string, log *log.Logger) (bot Fetcher, err er
 	if err != nil {
 		return
 	}
-	cfg := plugins.PluginConfig("netaddr: " + netaddr + "\n" + "token: " + token)
+	cfg := plugins.PluginConfig("netaddr: " + netaddr + "\ntoken: " + token)
 	bot = &fetcherImpl{aclient: client, log: log, algodImp: algodimporter.New(), cfg: cfg}
 	return
 }
