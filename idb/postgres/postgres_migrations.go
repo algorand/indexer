@@ -256,11 +256,10 @@ func convertBigIntType(db *IndexerDb, migrationState *types.MigrationState) erro
 		db, migrationState, []string{"ALTER TABLE block_header ALTER COLUMN round SET DATA TYPE numeric(20)",
 			"ALTER TABLE txn ALTER COLUMN round SET DATA TYPE numeric(20),ALTER COLUMN asset SET DATA TYPE numeric(20);",
 			"ALTER TABLE txn_participation ALTER COLUMN round SET DATA TYPE numeric(20)",
-			"ALTER TABLE account ALTER COLUMN created_at SET DATA TYPE numeric(20),ALTER COLUMN closed_at SET DATA TYPE numeric(20);",
-			"ALTER TABLE account_asset ALTER COLUMN assetid SET DATA TYPE numeric(20),ALTER COLUMN created_at SET DATA TYPE numeric(20), ALTER COLUMN closed_at SET DATA TYPE numeric(20);",
-			"ALTER TABLE asset ALTER COLUMN index SET DATA TYPE numeric(20),ALTER COLUMN created_at SET DATA TYPE numeric(20), ALTER COLUMN closed_at SET DATA TYPE numeric(20);",
-			"ALTER TABLE app ALTER COLUMN index SET DATA TYPE numeric(20),ALTER COLUMN created_at SET DATA TYPE numeric(20), ALTER COLUMN closed_at SET DATA TYPE numeric(20);",
-			"ALTER TABLE account_app ALTER COLUMN app SET DATA TYPE numeric(20),ALTER COLUMN created_at SET DATA TYPE numeric(20), ALTER COLUMN closed_at SET DATA TYPE numeric(20);",
+			"ALTER TABLE account_asset ALTER COLUMN assetid SET DATA TYPE numeric(20)",
+			"ALTER TABLE asset ALTER COLUMN index SET DATA TYPE numeric(20)",
+			"ALTER TABLE app ALTER COLUMN index SET DATA TYPE numeric(20)",
+			"ALTER TABLE account_app ALTER COLUMN app SET DATA TYPE numeric(20)",
 			"",
 		})
 }
