@@ -16,6 +16,8 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
+	algodimporter "github.com/algorand/indexer/importers/algod"
+	"github.com/algorand/indexer/plugins"
 )
 
 type AlgodHandler struct {
@@ -36,29 +38,29 @@ func (handler *BlockHandler) handlerFunc(ctx context.Context, cert *rpcs.Encoded
 	return args.Error(0)
 }
 
-func mockAClient(t *testing.T, algodHandler *AlgodHandler) *algod.Client {
+func mockAClient(t *testing.T, algodHandler *AlgodHandler) (*algod.Client, string) {
 	mockServer := httptest.NewServer(algodHandler)
 	aclient, err := algod.MakeClient(mockServer.URL, "")
 	if err != nil {
 		t.FailNow()
 	}
-	return aclient
+	return aclient, mockServer.URL
 }
 
 func TestFetcherImplErrorInitialization(t *testing.T) {
-	aclient := mockAClient(t, &AlgodHandler{})
+	aclient, _ := mockAClient(t, &AlgodHandler{})
 	fetcher := &fetcherImpl{aclient: aclient, log: logrus.New()}
 	require.Equal(t, "", fetcher.Error(), "Initialization of fetcher caused an unexpected error.")
 }
 
 func TestFetcherImplAlgodReturnsClient(t *testing.T) {
-	aclient := mockAClient(t, &AlgodHandler{})
+	aclient, _ := mockAClient(t, &AlgodHandler{})
 	fetcher := &fetcherImpl{aclient: aclient, log: logrus.New()}
 	require.Equal(t, aclient, fetcher.Algod(), "Algod client returned from fetcherImpl does not match expected instance.")
 }
 
 func TestFetcherImplSetError(t *testing.T) {
-	aclient := mockAClient(t, &AlgodHandler{})
+	aclient, _ := mockAClient(t, &AlgodHandler{})
 	fetcher := &fetcherImpl{aclient: aclient, log: logrus.New()}
 	expectedErr := fmt.Errorf("foobar")
 	fetcher.setError(expectedErr)
@@ -67,8 +69,8 @@ func TestFetcherImplSetError(t *testing.T) {
 
 func TestFetcherImplProcessQueueHandlerError(t *testing.T) {
 	mockAlgodHandler := &AlgodHandler{}
-	aclient := mockAClient(t, mockAlgodHandler)
-	fetcher := &fetcherImpl{aclient: aclient, log: logrus.New()}
+	aclient, url := mockAClient(t, mockAlgodHandler)
+	fetcher := &fetcherImpl{aclient: aclient, log: logrus.New(), algodImp: algodimporter.New(), cfg: plugins.PluginConfig("netaddr: " + url)}
 	bHandler := &BlockHandler{}
 	expectedError := fmt.Errorf("handlerError")
 	// The block handler function will immediately return an error on any block passed to it
@@ -89,10 +91,10 @@ func TestFetcherImplProcessQueueHandlerError(t *testing.T) {
 
 func TestFetcherImplCatchupLoopBlockError(t *testing.T) {
 	mockAlgodHandler := &AlgodHandler{}
-	aclient := mockAClient(t, mockAlgodHandler)
+	aclient, url := mockAClient(t, mockAlgodHandler)
 	passingCalls := 5
 	// Initializing blockQueue here needs buffer since we have no other goroutines receiving from it
-	fetcher := &fetcherImpl{aclient: aclient, log: logrus.New(), blockQueue: make(chan *rpcs.EncodedBlockCert, 256)}
+	fetcher := &fetcherImpl{aclient: aclient, log: logrus.New(), blockQueue: make(chan *rpcs.EncodedBlockCert, 256), algodImp: algodimporter.New(), cfg: plugins.PluginConfig("netaddr: " + url)}
 	bHandler := &BlockHandler{}
 	// the handler will do nothing here
 	bHandler.On("handlerFunc", mock.Anything, mock.Anything).Return(nil)
@@ -115,7 +117,9 @@ func TestFetcherImplCatchupLoopBlockError(t *testing.T) {
 			}
 		}
 	})
-	err := fetcher.catchupLoop(context.Background())
+	ctx := context.Background()
+	fetcher.algodImp.Init(ctx, fetcher.cfg, fetcher.log)
+	err := fetcher.catchupLoop(ctx)
 	require.NoError(t, err, "FetcherImpl returned an unexpected error from catchupLoop")
 	require.Equal(t, "", fetcher.Error(), "FetcherImpl set an unexpected error from algod client during catchupLoop")
 }

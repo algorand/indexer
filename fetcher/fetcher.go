@@ -11,8 +11,12 @@ import (
 	"time"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
-	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/rpcs"
+	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/importers"
+	algodimporter "github.com/algorand/indexer/importers/algod"
+	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/util/metrics"
 	log "github.com/sirupsen/logrus"
 )
@@ -51,6 +55,9 @@ type fetcherImpl struct {
 	// This queue contains the blocks that have been fetched but haven't been given to
 	// the handler.
 	blockQueue chan *rpcs.EncodedBlockCert
+
+	algodImp importers.Importer
+	cfg      plugins.PluginConfig
 }
 
 func (bot *fetcherImpl) Error() string {
@@ -91,11 +98,13 @@ func (bot *fetcherImpl) processQueue(ctx context.Context) error {
 	}
 }
 
-func (bot *fetcherImpl) enqueueBlock(ctx context.Context, blockbytes []byte) error {
-	block := new(rpcs.EncodedBlockCert)
-	err := protocol.Decode(blockbytes, block)
-	if err != nil {
-		return fmt.Errorf("enqueueBlock() decode err: %w", err)
+func (bot *fetcherImpl) enqueueBlock(ctx context.Context, blk data.BlockData) error {
+	block := &rpcs.EncodedBlockCert{
+		Block: bookkeeping.Block{
+			BlockHeader: blk.BlockHeader,
+			Payset:      blk.Payset,
+		},
+		Certificate: *blk.Certificate,
 	}
 
 	select {
@@ -109,12 +118,11 @@ func (bot *fetcherImpl) enqueueBlock(ctx context.Context, blockbytes []byte) err
 // fetch the next block by round number until we find one missing (because it doesn't exist yet)
 func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 	var err error
-	var blockbytes []byte
-	aclient := bot.Algod()
+	var blk data.BlockData
 	for {
 		start := time.Now()
 
-		blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(ctx)
+		blk, err = bot.algodImp.GetBlock(bot.nextRound)
 
 		dt := time.Since(start)
 		metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
@@ -128,7 +136,7 @@ func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 			return nil
 		}
 
-		err = bot.enqueueBlock(ctx, blockbytes)
+		err = bot.enqueueBlock(ctx, blk)
 		if err != nil {
 			return fmt.Errorf("catchupLoop() err: %w", err)
 		}
@@ -142,7 +150,7 @@ func (bot *fetcherImpl) catchupLoop(ctx context.Context) error {
 // wait for algod to notify of a new round, then fetch that block
 func (bot *fetcherImpl) followLoop(ctx context.Context) error {
 	var err error
-	var blockbytes []byte
+	var blk data.BlockData
 	aclient := bot.Algod()
 	for {
 		for retries := 0; retries < 3; retries++ {
@@ -159,7 +167,7 @@ func (bot *fetcherImpl) followLoop(ctx context.Context) error {
 			}
 			start := time.Now()
 
-			blockbytes, err = aclient.BlockRaw(bot.nextRound).Do(ctx)
+			blk, err = bot.algodImp.GetBlock(bot.nextRound)
 
 			dt := time.Since(start)
 			metrics.GetAlgodRawBlockTimeSeconds.Observe(dt.Seconds())
@@ -175,7 +183,7 @@ func (bot *fetcherImpl) followLoop(ctx context.Context) error {
 			bot.setError(err)
 			return nil
 		}
-		err = bot.enqueueBlock(ctx, blockbytes)
+		err = bot.enqueueBlock(ctx, blk)
 		if err != nil {
 			return fmt.Errorf("followLoop() err: %w", err)
 		}
@@ -217,6 +225,8 @@ func (bot *fetcherImpl) mainLoop(ctx context.Context) error {
 
 // Run is part of the Fetcher interface
 func (bot *fetcherImpl) Run(ctx context.Context) error {
+	bot.algodImp.Init(ctx, bot.cfg, bot.log)
+
 	bot.blockQueue = make(chan *rpcs.EncodedBlockCert)
 
 	ctx, cancelFunc := context.WithCancel(ctx)
@@ -273,7 +283,8 @@ func ForNetAndToken(netaddr, token string, log *log.Logger) (bot Fetcher, err er
 	if err != nil {
 		return
 	}
-	bot = &fetcherImpl{aclient: client, log: log}
+	cfg := plugins.PluginConfig("netaddr: " + netaddr + "\n" + "token: " + token)
+	bot = &fetcherImpl{aclient: client, log: log, algodImp: algodimporter.New(), cfg: cfg}
 	return
 }
 
