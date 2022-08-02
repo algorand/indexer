@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
 
+	"github.com/algorand/indexer/cmd/algorand-indexer/internal"
 	bg "github.com/algorand/indexer/cmd/block-generator/core"
 	v "github.com/algorand/indexer/cmd/validator/core"
 	"github.com/algorand/indexer/config"
@@ -102,6 +103,7 @@ func init() {
 	}
 	utilsCmd.AddCommand(v.ValidatorCmd)
 	utilsCmd.AddCommand(bg.BlockGenerator)
+	utilsCmd.AddCommand(internal.LedgerTestCmd)
 	rootCmd.AddCommand(utilsCmd)
 
 	logger = log.New()
