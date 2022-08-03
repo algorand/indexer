@@ -265,9 +265,7 @@ func (proc *blockProcessor) Process(input data.BlockData) (data.BlockData, error
 	return input, nil
 }
 
-func (proc *blockProcessor) OnComplete(input data.BlockData) error {
-	// We don't actually need any info since it might have been modified by other processors
-	_ = input
+func (proc *blockProcessor) OnComplete(_ data.BlockData) error {
 	return proc.addValidatedBlockCertToLedger(proc.lastValidatedBlock, proc.lastValidatedBlockCertificate, proc.lastValidatedBlockRound)
 }
 
@@ -355,24 +353,7 @@ func MakeLegacyProcessorHandlerFunction(proc *BlockProcessor, handler func(block
 			return err
 		}
 
-		proto, ok := config.Consensus[cert.Block.BlockHeader.CurrentProtocol]
-		if !ok {
-			return fmt.Errorf(
-				"cannot find proto version %s", cert.Block.BlockHeader.CurrentProtocol)
-		}
-		protoChanged := !proto.EnableAssetCloseAmount
-
-		// validated block
-		var vb ledgercore.ValidatedBlock
-		if protoChanged {
-			block := bookkeeping.Block{
-				BlockHeader: cert.Block.BlockHeader,
-				Payset:      blockData.Payset,
-			}
-			vb = ledgercore.MakeValidatedBlock(block, *blockData.Delta)
-		} else {
-			vb = ledgercore.MakeValidatedBlock(cert.Block, *blockData.Delta)
-		}
+		vb := blockData.ValidatedBlock()
 
 		if handler != nil {
 			err = handler(&vb)
