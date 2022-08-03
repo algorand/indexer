@@ -3,10 +3,11 @@ package processors
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/indexer/data"
 
-	"github.com/algorand/indexer/plugins"
 	"github.com/sirupsen/logrus"
+
+	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/plugins"
 )
 
 // ProcessorConstructor must be implemented by each Processor.

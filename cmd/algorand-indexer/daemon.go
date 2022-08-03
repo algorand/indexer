@@ -487,7 +487,7 @@ func blockHandler(proc *blockprocessor.BlockProcessor, blockHandler func(block *
 
 func handleBlock(block *rpcs.EncodedBlockCert, proc *blockprocessor.BlockProcessor, handler func(block *ledgercore.ValidatedBlock) error) error {
 	start := time.Now()
-	f := blockprocessor.MakeLegacyProcessorHandlerFunction(proc, handler)
+	f := blockprocessor.MakeBlockProcessorHandlerAdapter(proc, handler)
 	err := f(block)
 	if err != nil {
 		logger.WithError(err).Errorf(

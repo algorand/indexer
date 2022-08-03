@@ -62,11 +62,7 @@ func (c *Constructor) New() processors.Processor {
 }
 
 func (proc *blockProcessor) Metadata() processors.ProcessorMetadata {
-	return processors.ProcessorMetadata{
-		ImplementationName:        implementationName,
-		ImplementationDescription: "Local Ledger Block Processor",
-		ImplementationDeprecated:  false,
-	}
+	return processors.MakeProcessorMetadata(implementationName, "Local Ledger Block Processor", false)
 }
 
 func (proc *blockProcessor) Config() plugins.PluginConfig {
@@ -99,9 +95,8 @@ func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProv
 		return fmt.Errorf("ledger was created with nil pointer")
 	}
 
-	nextRound := initProvider.NextDBRound()
-	if uint64(l.Latest()) > uint64(nextRound) {
-		return fmt.Errorf("the ledger cache is ahead of the required round (%d > %d) and must be re-initialized", l.Latest(), nextRound)
+	if uint64(l.Latest()) > round {
+		return fmt.Errorf("the ledger cache is ahead of the required round (%d > %d) and must be re-initialized", l.Latest(), round)
 	}
 
 	if l.Latest() == 0 {
@@ -345,8 +340,8 @@ func prepareAccountsResources(l *indexerledger.LedgerForEvaluator, payset transa
 	return accounts, resources, nil
 }
 
-// MakeLegacyProcessorHandlerFunction makes a legacy function that emulates original behavior of block processor
-func MakeLegacyProcessorHandlerFunction(proc *BlockProcessor, handler func(block *ledgercore.ValidatedBlock) error) func(cert *rpcs.EncodedBlockCert) error {
+// MakeBlockProcessorHandlerAdapter makes an adapter function that emulates original behavior of block processor
+func MakeBlockProcessorHandlerAdapter(proc *BlockProcessor, handler func(block *ledgercore.ValidatedBlock) error) func(cert *rpcs.EncodedBlockCert) error {
 	return func(cert *rpcs.EncodedBlockCert) error {
 		blockData, err := (*proc).Process(data.MakeBlockDataFromEncodedBlockCertificate(data.BlockData{}, cert))
 		if err != nil {

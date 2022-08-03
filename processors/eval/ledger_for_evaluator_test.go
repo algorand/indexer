@@ -31,7 +31,7 @@ func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
 	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
-	proc := block_processor.MakeLegacyProcessorHandlerFunction(&pr, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 	txn := test.MakePaymentTxn(0, 100, 0, 1, 1,
 		0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
@@ -92,7 +92,7 @@ func TestLedgerForEvaluatorAsset(t *testing.T) {
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
 	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
-	proc := block_processor.MakeLegacyProcessorHandlerFunction(&pr, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 	txn1 := test.MakeAssetConfigTxn(0, 4, 0, false, "", "", "", test.AccountA)
@@ -159,7 +159,7 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
 	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
-	proc := block_processor.MakeLegacyProcessorHandlerFunction(&pr, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAppCallTxnWithLogs(0, test.AccountA, []string{"testing"})
@@ -243,7 +243,7 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
 	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
-	proc := block_processor.MakeLegacyProcessorHandlerFunction(&pr, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
@@ -324,7 +324,7 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
 	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
-	proc := block_processor.MakeLegacyProcessorHandlerFunction(&pr, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 
@@ -357,7 +357,7 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
 	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
-	proc := block_processor.MakeLegacyProcessorHandlerFunction(&pr, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 	txn1 := test.MakeAssetDestroyTxn(1, test.AccountA)
@@ -388,7 +388,7 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
 	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
-	proc := block_processor.MakeLegacyProcessorHandlerFunction(&pr, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 	txn1 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountB)
@@ -444,7 +444,7 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
 	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
-	proc := block_processor.MakeLegacyProcessorHandlerFunction(&pr, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 
@@ -478,7 +478,7 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
 	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
-	proc := block_processor.MakeLegacyProcessorHandlerFunction(&pr, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAppDestroyTxn(1, test.AccountA)
@@ -509,7 +509,7 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
 	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
-	proc := block_processor.MakeLegacyProcessorHandlerFunction(&pr, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAppCallTxn(0, test.AccountB)

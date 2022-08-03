@@ -33,7 +33,7 @@ func TestProcess(t *testing.T) {
 	assert.Nil(t, err)
 	// create processor
 	pr, _ := blockprocessor.MakeBlockProcessorWithLedger(logger, l, noopHandler)
-	proc := blockprocessor.MakeLegacyProcessorHandlerFunction(&pr, noopHandler)
+	proc := blockprocessor.MakeBlockProcessorHandlerAdapter(&pr, noopHandler)
 	prevHeader := genesisBlock.BlockHeader
 	assert.Equal(t, basics.Round(0), l.Latest())
 	// create a few rounds
@@ -65,7 +65,7 @@ func TestFailedProcess(t *testing.T) {
 	pr, err := blockprocessor.MakeBlockProcessorWithLedger(logger, nil, nil)
 	assert.Contains(t, err.Error(), "local ledger not initialized")
 	pr, err = blockprocessor.MakeBlockProcessorWithLedger(logger, l, nil)
-	proc := blockprocessor.MakeLegacyProcessorHandlerFunction(&pr, nil)
+	proc := blockprocessor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 	assert.Nil(t, err)
 	err = proc(nil)
 	assert.Contains(t, err.Error(), "invalid round")
@@ -120,7 +120,7 @@ func TestFailedProcess(t *testing.T) {
 	// We don't want it to throw an error when we create the ledger but after
 	throwError = false
 	pr, err = blockprocessor.MakeBlockProcessorWithLedger(logger, l, handler)
-	proc = blockprocessor.MakeLegacyProcessorHandlerFunction(&pr, handler)
+	proc = blockprocessor.MakeBlockProcessorHandlerAdapter(&pr, handler)
 	assert.NotNil(t, pr)
 	assert.NoError(t, err)
 	// enable this so it will throw an error when we process the block

@@ -148,7 +148,7 @@ func importTar(imp Importer, tarfile io.Reader, logger *log.Logger, genesisReade
 	proc, err := blockprocessor.MakeBlockProcessorWithLedger(logger, ld, imp.ImportBlock)
 	maybeFail(err, logger, "Error creating processor")
 
-	f := blockprocessor.MakeLegacyProcessorHandlerFunction(&proc, imp.ImportBlock)
+	f := blockprocessor.MakeBlockProcessorHandlerAdapter(&proc, imp.ImportBlock)
 
 	for _, blockContainer := range blocks[1:] {
 		err = f(&blockContainer)

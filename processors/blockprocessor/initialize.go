@@ -21,22 +21,22 @@ import (
 // IndexerDbOpts.
 // nextRound - next round to process after initializing.
 // catchpoint - if provided, attempt to use fast catchup.
-func InitializeLedger(ctx context.Context, logger *log.Logger, nextDbRound uint64, genesis bookkeeping.Genesis, opts *processors.BlockProcessorConfig) error {
+func InitializeLedger(ctx context.Context, logger *log.Logger, nextDbRound uint64, genesis bookkeeping.Genesis, config *processors.BlockProcessorConfig) error {
 	if nextDbRound > 0 {
-		if opts.Catchpoint != "" {
-			round, _, err := ledgercore.ParseCatchpointLabel(opts.Catchpoint)
+		if config.Catchpoint != "" {
+			round, _, err := ledgercore.ParseCatchpointLabel(config.Catchpoint)
 			if err != nil {
 				return fmt.Errorf("InitializeLedger() label err: %w", err)
 			}
 			if uint64(round) >= nextDbRound {
 				return fmt.Errorf("invalid catchpoint: catchpoint round %d should not be ahead of target round %d", uint64(round), nextDbRound-1)
 			}
-			err = InitializeLedgerFastCatchup(ctx, logger, opts.Catchpoint, opts.IndexerDatadir, genesis)
+			err = InitializeLedgerFastCatchup(ctx, logger, config.Catchpoint, config.IndexerDatadir, genesis)
 			if err != nil {
 				return fmt.Errorf("InitializeLedger() fast catchup err: %w", err)
 			}
 		}
-		err := InitializeLedgerSimple(ctx, logger, nextDbRound-1, &genesis, opts)
+		err := InitializeLedgerSimple(ctx, logger, nextDbRound-1, &genesis, config)
 		if err != nil {
 			return fmt.Errorf("InitializeLedger() simple catchup err: %w", err)
 		}
@@ -84,7 +84,7 @@ func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint6
 	}
 	bot.SetNextRound(proc.NextRoundToProcess())
 
-	procHandler := MakeLegacyProcessorHandlerFunction(&proc, nil)
+	procHandler := MakeBlockProcessorHandlerAdapter(&proc, nil)
 
 	handler := blockHandler(logger, round, procHandler, cf, 1*time.Second)
 	bot.SetBlockHandler(handler)

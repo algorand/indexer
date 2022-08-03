@@ -1424,7 +1424,7 @@ func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
 	defer l.Close()
 	pr, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
-	proc := blockprocessor.MakeLegacyProcessorHandlerFunction(&pr, db.AddBlock)
+	proc := blockprocessor.MakeBlockProcessorHandlerAdapter(&pr, db.AddBlock)
 
 	round, err = db.GetNextRoundToAccount()
 	require.NoError(t, err)
@@ -1724,7 +1724,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 		pr, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, db.AddBlock)
 		require.NoError(t, err, "failed to open ledger")
 		blockCert := rpcs.EncodedBlockCert{Block: block}
-		proc := blockprocessor.MakeLegacyProcessorHandlerFunction(&pr, db.AddBlock)
+		proc := blockprocessor.MakeBlockProcessorHandlerAdapter(&pr, db.AddBlock)
 		return proc(&blockCert)
 	}, nil)
 	require.NoError(t, err)

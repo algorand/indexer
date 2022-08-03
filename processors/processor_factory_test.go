@@ -43,9 +43,7 @@ func (m *mockProcessor) Init(ctx context.Context, initProvider data.InitProvider
 }
 
 func (m *mockProcessor) Metadata() ProcessorMetadata {
-	return ProcessorMetadata{
-		ImplementationName: "foobar",
-	}
+	return MakeProcessorMetadata("foobar", "", false)
 }
 
 type mockProcessorConstructor struct {
