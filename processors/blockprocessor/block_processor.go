@@ -166,10 +166,9 @@ func (proc *blockProcessor) extractValidatedBlockAndPayset(blockCert *rpcs.Encod
 		}
 		vb = ledgercore.MakeValidatedBlock(block, delta)
 		return vb, payset, nil
-	} else {
-		vb = ledgercore.MakeValidatedBlock(blockCert.Block, delta)
-		return vb, blockCert.Block.Payset, nil
 	}
+	vb = ledgercore.MakeValidatedBlock(blockCert.Block, delta)
+	return vb, blockCert.Block.Payset, nil
 }
 
 func (proc *blockProcessor) addValidatedBlockCertToLedger(vb ledgercore.ValidatedBlock, cert agreement.Certificate, roundToWait basics.Round) error {
