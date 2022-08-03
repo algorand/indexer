@@ -21,14 +21,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	body := "`" + strings.ReplaceAll(string(data), "`", "\\u0060") + "`"
-
 	fout, err := os.Create(outputFilepath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "cannot open %s for writing: %v\n", outputFilepath, err)
 		os.Exit(1)
 	}
 
+	body := "`" + strings.ReplaceAll(string(data), "`", "\\u0060") + "`"
 	format := `// Code generated from source %s via go generate. DO NOT EDIT.
 
 package %s
