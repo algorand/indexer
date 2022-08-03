@@ -39,40 +39,38 @@ type BlockData struct {
 }
 
 // MakeBlockDataFromValidatedBlock makes BlockData from agreement.ValidatedBlock
-func MakeBlockDataFromValidatedBlock(base BlockData, input ledgercore.ValidatedBlock) BlockData {
+func MakeBlockDataFromValidatedBlock(input ledgercore.ValidatedBlock) BlockData {
+	blockData := BlockData{}
+	blockData.UpdateFromValidatedBlock(input)
+	return blockData
+}
+
+// UpdateFromValidatedBlock updates BlockData from ValidatedBlock input
+func (blkData *BlockData) UpdateFromValidatedBlock(input ledgercore.ValidatedBlock) {
+	blkData.BlockHeader = input.Block().BlockHeader
+	blkData.Payset = input.Block().Payset
 	delta := input.Delta()
-	return BlockData{
-		BlockHeader: input.Block().BlockHeader,
-		Payset:      input.Block().Payset,
-		Delta:       &delta,
-		Certificate: base.Certificate,
+	blkData.Delta = &delta
+}
+
+// UpdateFromEncodedBlockCertificate updates BlockData from EncodedBlockCert info
+func (blkData *BlockData) UpdateFromEncodedBlockCertificate(input *rpcs.EncodedBlockCert) {
+	if input == nil {
+		return
 	}
 
+	blkData.BlockHeader = input.Block.BlockHeader
+	blkData.Payset = input.Block.Payset
+
+	cert := input.Certificate
+	blkData.Certificate = &cert
 }
 
 // MakeBlockDataFromEncodedBlockCertificate makes BlockData from rpcs.EncodedBlockCert
-func MakeBlockDataFromEncodedBlockCertificate(base BlockData, input *rpcs.EncodedBlockCert) BlockData {
-	if input == nil {
-		return base
-	}
-	cert := input.Certificate
-
-	return BlockData{
-		BlockHeader: input.Block.BlockHeader,
-		Payset:      input.Block.Payset,
-		Delta:       base.Delta,
-		Certificate: &cert,
-	}
-}
-
-// MakeBlockDataFromBlock makes BlockData from boookeeping.Block
-func MakeBlockDataFromBlock(base BlockData, input bookkeeping.Block) BlockData {
-	return BlockData{
-		BlockHeader: input.BlockHeader,
-		Payset:      input.Payset,
-		Delta:       base.Delta,
-		Certificate: base.Certificate,
-	}
+func MakeBlockDataFromEncodedBlockCertificate(input *rpcs.EncodedBlockCert) BlockData {
+	blkData := BlockData{}
+	blkData.UpdateFromEncodedBlockCertificate(input)
+	return blkData
 }
 
 // ValidatedBlock returns a validated block from the BlockData object

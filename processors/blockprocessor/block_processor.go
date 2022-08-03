@@ -106,7 +106,12 @@ func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProv
 		}
 		vb := ledgercore.MakeValidatedBlock(blk, ledgercore.StateDelta{})
 
-		err = proc.addValidatedBlockCertToLedger(vb, cert, blk.Round())
+		blockData := data.MakeBlockDataFromValidatedBlock(vb)
+		blockData.Certificate = &cert
+
+		proc.saveLastValidatedInformation(vb, blk.Round(), cert)
+		err = proc.OnComplete(data.BlockData{})
+
 		if err != nil {
 			return fmt.Errorf("error adding gensis block: %w", err)
 		}
@@ -164,18 +169,6 @@ func (proc *blockProcessor) extractValidatedBlockAndPayset(blockCert *rpcs.Encod
 	}
 	vb = ledgercore.MakeValidatedBlock(blockCert.Block, delta)
 	return vb, blockCert.Block.Payset, nil
-}
-
-func (proc *blockProcessor) addValidatedBlockCertToLedger(vb ledgercore.ValidatedBlock, cert agreement.Certificate, roundToWait basics.Round) error {
-	// write to ledger
-	err := proc.ledger.AddValidatedBlock(vb, cert)
-	if err != nil {
-		return fmt.Errorf("add validated block err: %w", err)
-	}
-
-	// wait for commit to disk
-	proc.ledger.WaitForCommit(roundToWait)
-	return nil
 }
 
 func (proc *blockProcessor) saveLastValidatedInformation(lastValidatedBlock ledgercore.ValidatedBlock, lastValidatedBlockRound basics.Round, lastValidatedBlockCertificate agreement.Certificate) {
@@ -261,7 +254,17 @@ func (proc *blockProcessor) Process(input data.BlockData) (data.BlockData, error
 }
 
 func (proc *blockProcessor) OnComplete(_ data.BlockData) error {
-	return proc.addValidatedBlockCertToLedger(proc.lastValidatedBlock, proc.lastValidatedBlockCertificate, proc.lastValidatedBlockRound)
+
+	// write to ledger
+	err := proc.ledger.AddValidatedBlock(proc.lastValidatedBlock, proc.lastValidatedBlockCertificate)
+	if err != nil {
+		return fmt.Errorf("add validated block err: %w", err)
+	}
+
+	// wait for commit to disk
+	proc.ledger.WaitForCommit(proc.lastValidatedBlockRound)
+	return nil
+
 }
 
 func (proc *blockProcessor) NextRoundToProcess() uint64 {
@@ -343,7 +346,7 @@ func prepareAccountsResources(l *indexerledger.LedgerForEvaluator, payset transa
 // MakeBlockProcessorHandlerAdapter makes an adapter function that emulates original behavior of block processor
 func MakeBlockProcessorHandlerAdapter(proc *BlockProcessor, handler func(block *ledgercore.ValidatedBlock) error) func(cert *rpcs.EncodedBlockCert) error {
 	return func(cert *rpcs.EncodedBlockCert) error {
-		blockData, err := (*proc).Process(data.MakeBlockDataFromEncodedBlockCertificate(data.BlockData{}, cert))
+		blockData, err := (*proc).Process(data.MakeBlockDataFromEncodedBlockCertificate(cert))
 		if err != nil {
 			return err
 		}
