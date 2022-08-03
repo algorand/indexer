@@ -86,7 +86,6 @@ func (blkData BlockData) ValidatedBlock() ledgercore.ValidatedBlock {
 	if blkData.Delta != nil {
 		tmpDelta = *blkData.Delta
 	}
-
 	return ledgercore.MakeValidatedBlock(tmpBlock, tmpDelta)
 }
 
