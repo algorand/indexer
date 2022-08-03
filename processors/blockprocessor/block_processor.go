@@ -23,7 +23,7 @@ import (
 	"github.com/algorand/indexer/util"
 )
 
-var implementationName = "block_evaluator"
+const implementationName = "block_evaluator"
 
 // BlockProcessor is the block processors interface
 type BlockProcessor interface {
@@ -84,7 +84,7 @@ func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProv
 	}
 
 	genesis := initProvider.Genesis()
-	round := uint64(initProvider.NextDbRound())
+	round := uint64(initProvider.NextDBRound())
 
 	err = InitializeLedger(ctx, proc.logger, round, *genesis, &pCfg)
 	if err != nil {
@@ -99,7 +99,7 @@ func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProv
 		return fmt.Errorf("ledger was created with nil pointer")
 	}
 
-	nextRound := initProvider.NextDbRound()
+	nextRound := initProvider.NextDBRound()
 	if uint64(l.Latest()) > uint64(nextRound) {
 		return fmt.Errorf("the ledger cache is ahead of the required round (%d > %d) and must be re-initialized", l.Latest(), nextRound)
 	}

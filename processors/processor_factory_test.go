@@ -28,7 +28,7 @@ func (m mockProvider) Genesis() *bookkeeping.Genesis {
 	return nil
 }
 
-func (m mockProvider) NextDbRound() basics.Round {
+func (m mockProvider) NextDBRound() basics.Round {
 	return basics.Round(0)
 }
 
