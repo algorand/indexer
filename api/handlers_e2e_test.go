@@ -1581,7 +1581,7 @@ func RunBoxCreateMutateDelete(t *testing.T, comparator postgres.BoxTestComparato
 	/**** ROUND 1: create and fund the box app ****/
 	currentRound := basics.Round(1)
 
-	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram)
+	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
 	require.NoError(t, err)
 
 	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
