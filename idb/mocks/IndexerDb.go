@@ -155,36 +155,6 @@ func (_m *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	return r0, r1
 }
 
-// GetBlock provides a mock function with given fields: ctx, round, options
-func (_m *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (bookkeeping.BlockHeader, []idb.TxnRow, error) {
-	ret := _m.Called(ctx, round, options)
-
-	var r0 bookkeeping.BlockHeader
-	if rf, ok := ret.Get(0).(func(context.Context, uint64, idb.GetBlockOptions) bookkeeping.BlockHeader); ok {
-		r0 = rf(ctx, round, options)
-	} else {
-		r0 = ret.Get(0).(bookkeeping.BlockHeader)
-	}
-
-	var r1 []idb.TxnRow
-	if rf, ok := ret.Get(1).(func(context.Context, uint64, idb.GetBlockOptions) []idb.TxnRow); ok {
-		r1 = rf(ctx, round, options)
-	} else {
-		if ret.Get(1) != nil {
-			r1 = ret.Get(1).([]idb.TxnRow)
-		}
-	}
-
-	var r2 error
-	if rf, ok := ret.Get(2).(func(context.Context, uint64, idb.GetBlockOptions) error); ok {
-		r2 = rf(ctx, round, options)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
-}
-
 // GetNetworkState provides a mock function with given fields:
 func (_m *IndexerDb) GetNetworkState() (idb.NetworkState, error) {
 	ret := _m.Called()

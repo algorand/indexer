@@ -172,8 +172,6 @@ type IndexerDb interface {
 	GetNetworkState() (NetworkState, error)
 	SetNetworkState(genesis bookkeeping.Genesis) error
 
-	GetBlock(ctx context.Context, round uint64, options GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []TxnRow, err error)
-
 	// The next multiple functions return a channel with results as well as the latest round
 	// accounted.
 	Transactions(ctx context.Context, tf TransactionFilter) (<-chan TxnRow, uint64)

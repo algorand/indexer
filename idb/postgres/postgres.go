@@ -433,60 +433,6 @@ func (db *IndexerDb) getMaxRoundAccounted(ctx context.Context, tx pgx.Tx) (uint6
 	return round, nil
 }
 
-// GetBlock is part of idb.IndexerDB
-func (db *IndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []idb.TxnRow, err error) {
-	tx, err := db.db.BeginTx(ctx, readonlyRepeatableRead)
-	if err != nil {
-		return
-	}
-	defer tx.Rollback(ctx)
-	row := tx.QueryRow(ctx, `SELECT header FROM block_header WHERE round = $1`, round)
-	var blockheaderjson []byte
-	err = row.Scan(&blockheaderjson)
-	if err == pgx.ErrNoRows {
-		err = idb.ErrorBlockNotFound
-		return
-	}
-	if err != nil {
-		return
-	}
-	blockHeader, err = encoding.DecodeBlockHeader(blockheaderjson)
-	if err != nil {
-		return
-	}
-
-	if options.Transactions {
-		out := make(chan idb.TxnRow, 1)
-		query, whereArgs, err := buildTransactionQuery(idb.TransactionFilter{Round: &round})
-		if err != nil {
-			err = fmt.Errorf("txn query err %v", err)
-			out <- idb.TxnRow{Error: err}
-			close(out)
-			return bookkeeping.BlockHeader{}, nil, err
-		}
-		rows, err := tx.Query(ctx, query, whereArgs...)
-		if err != nil {
-			err = fmt.Errorf("txn query %#v err %v", query, err)
-			return bookkeeping.BlockHeader{}, nil, err
-		}
-
-		// Unlike other spots, because we don't return a channel, we don't need
-		// to worry about performing a rollback before closing the channel
-		go func() {
-			db.yieldTxnsThreadSimple(rows, out, nil, nil)
-			close(out)
-		}()
-
-		results := make([]idb.TxnRow, 0)
-		for txrow := range out {
-			results = append(results, txrow)
-		}
-		transactions = results
-	}
-
-	return blockHeader, transactions, nil
-}
-
 func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []interface{}, err error) {
 	// TODO? There are some combinations of tf params that will
 	// yield no results and we could catch that before asking the
@@ -653,17 +599,6 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 	}
 	if tf.RekeyTo != nil && (*tf.RekeyTo) {
 		whereParts = append(whereParts, "(t.txn -> 'txn' -> 'rekey') IS NOT NULL")
-	}
-
-	// If returnInnerTxnOnly flag is false, then return the root transaction
-	if !tf.ReturnInnerTxnOnly {
-		query = "SELECT t.round, t.intra, t.txn, root.txn, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
-	} else {
-		query = "SELECT t.round, t.intra, t.txn, NULL, t.extra, t.asset, h.realtime FROM txn t JOIN block_header h ON t.round = h.round"
-	}
-
-	if joinParticipation {
-		query += " JOIN txn_participation p ON t.round = p.round AND t.intra = p.intra"
 	}
 
 	// join in the root transaction if the returnInnerTxnOnly flag is false
@@ -1547,30 +1482,6 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 		return out, round
 	}
 
-	// Get block header for that round so we know protocol and rewards info
-	row := tx.QueryRow(ctx, `SELECT header FROM block_header WHERE round = $1`, round)
-	var headerjson []byte
-	err = row.Scan(&headerjson)
-	if err != nil {
-		err = fmt.Errorf("account round header %d err %v", round, err)
-		out <- idb.AccountRow{Error: err}
-		close(out)
-		if rerr := tx.Rollback(ctx); rerr != nil {
-			db.log.Printf("rollback error: %s", rerr)
-		}
-		return out, round
-	}
-	blockheader, err := encoding.DecodeBlockHeader(headerjson)
-	if err != nil {
-		err = fmt.Errorf("account round header %d err %v", round, err)
-		out <- idb.AccountRow{Error: err}
-		close(out)
-		if rerr := tx.Rollback(ctx); rerr != nil {
-			db.log.Printf("rollback error: %s", rerr)
-		}
-		return out, round
-	}
-
 	// Enforce max combined # of app & asset resources per account limit, if set
 	if opts.MaxResources != 0 {
 		err = db.checkAccountResourceLimit(ctx, tx, opts)
@@ -1587,11 +1498,10 @@ func (db *IndexerDb) GetAccounts(ctx context.Context, opts idb.AccountQueryOptio
 	// Construct query for fetching accounts...
 	query, whereArgs := db.buildAccountQuery(opts, false)
 	req := &getAccountsRequest{
-		opts:        opts,
-		blockheader: blockheader,
-		query:       query,
-		out:         out,
-		start:       time.Now(),
+		opts:  opts,
+		query: query,
+		out:   out,
+		start: time.Now(),
 	}
 	req.rows, err = tx.Query(ctx, query, whereArgs...)
 	if err != nil {

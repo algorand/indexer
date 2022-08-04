@@ -48,11 +48,6 @@ func (db *dummyIndexerDb) GetSpecialAccounts(ctx context.Context) (transactions.
 	return transactions.SpecialAddresses{}, nil
 }
 
-// GetBlock is part of idb.IndexerDB
-func (db *dummyIndexerDb) GetBlock(ctx context.Context, round uint64, options idb.GetBlockOptions) (blockHeader bookkeeping.BlockHeader, transactions []idb.TxnRow, err error) {
-	return bookkeeping.BlockHeader{}, nil, nil
-}
-
 // Transactions is part of idb.IndexerDB
 func (db *dummyIndexerDb) Transactions(ctx context.Context, tf idb.TransactionFilter) (<-chan idb.TxnRow, uint64) {
 	return nil, 0

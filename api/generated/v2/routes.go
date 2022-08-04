@@ -60,8 +60,6 @@ type ServerInterface interface {
 	// (GET /v2/assets/{asset-id}/transactions)
 	LookupAssetTransactions(ctx echo.Context, assetId uint64, params LookupAssetTransactionsParams) error
 
-	// (GET /v2/blocks/{round-number})
-	LookupBlock(ctx echo.Context, roundNumber uint64) error
 
 	// (GET /v2/transactions)
 	SearchForTransactions(ctx echo.Context, params SearchForTransactionsParams) error
@@ -1422,30 +1420,7 @@ func (w *ServerInterfaceWrapper) LookupAssetTransactions(ctx echo.Context) error
 
 // LookupBlock converts echo context to params.
 func (w *ServerInterfaceWrapper) LookupBlock(ctx echo.Context) error {
-
-	validQueryParams := map[string]bool{
-		"pretty": true,
-	}
-
-	// Check for unknown query parameters.
-	for name, _ := range ctx.QueryParams() {
-		if _, ok := validQueryParams[name]; !ok {
-			return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Unknown parameter detected: %s", name))
-		}
-	}
-
-	var err error
-	// ------------- Path parameter "round-number" -------------
-	var roundNumber uint64
-
-	err = runtime.BindStyledParameter("simple", false, "round-number", ctx.Param("round-number"), &roundNumber)
-	if err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter round-number: %s", err))
-	}
-
-	// Invoke the callback with all the unmarshalled arguments
-	err = w.Handler.LookupBlock(ctx, roundNumber)
-	return err
+	return nil
 }
 
 // SearchForTransactions converts echo context to params.

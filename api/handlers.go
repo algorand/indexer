@@ -704,19 +704,7 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 // LookupBlock returns the block for a given round number
 // (GET /v2/blocks/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
-	if err := si.verifyHandler("LookupBlock", ctx); err != nil {
-		return badRequest(ctx, err.Error())
-	}
-
-	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber)
-	if errors.Is(err, idb.ErrorBlockNotFound) {
-		return notFound(ctx, fmt.Sprintf("%s '%d': %v", errLookingUpBlockForRound, roundNumber, err))
-	}
-	if err != nil {
-		return indexerError(ctx, fmt.Errorf("%s '%d': %w", errLookingUpBlockForRound, roundNumber, err))
-	}
-
-	return ctx.JSON(http.StatusOK, generated.BlockResponse(blk))
+	return nil
 }
 
 // LookupTransaction searches for the requested transaction ID.
@@ -1014,79 +1002,6 @@ func (si *ServerImplementation) fetchAssetHoldings(ctx context.Context, options 
 	}
 
 	return balances, round, nil
-}
-
-// fetchBlock looks up a block and converts it into a generated.Block object
-// the method also loads the transactions into the returned block object.
-func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (generated.Block, error) {
-	var ret generated.Block
-	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
-		blockHeader, transactions, err :=
-			si.db.GetBlock(ctx, round, idb.GetBlockOptions{Transactions: true})
-		if err != nil {
-			return err
-		}
-
-		rewards := generated.BlockRewards{
-			FeeSink:                 blockHeader.FeeSink.String(),
-			RewardsCalculationRound: uint64(blockHeader.RewardsRecalculationRound),
-			RewardsLevel:            blockHeader.RewardsLevel,
-			RewardsPool:             blockHeader.RewardsPool.String(),
-			RewardsRate:             blockHeader.RewardsRate,
-			RewardsResidue:          blockHeader.RewardsResidue,
-		}
-
-		upgradeState := generated.BlockUpgradeState{
-			CurrentProtocol:        string(blockHeader.CurrentProtocol),
-			NextProtocol:           strPtr(string(blockHeader.NextProtocol)),
-			NextProtocolApprovals:  uint64Ptr(blockHeader.NextProtocolApprovals),
-			NextProtocolSwitchOn:   uint64Ptr(uint64(blockHeader.NextProtocolSwitchOn)),
-			NextProtocolVoteBefore: uint64Ptr(uint64(blockHeader.NextProtocolVoteBefore)),
-		}
-
-		upgradeVote := generated.BlockUpgradeVote{
-			UpgradeApprove: boolPtr(blockHeader.UpgradeApprove),
-			UpgradeDelay:   uint64Ptr(uint64(blockHeader.UpgradeDelay)),
-			UpgradePropose: strPtr(string(blockHeader.UpgradePropose)),
-		}
-
-		ret = generated.Block{
-			GenesisHash:       blockHeader.GenesisHash[:],
-			GenesisId:         blockHeader.GenesisID,
-			PreviousBlockHash: blockHeader.Branch[:],
-			Rewards:           &rewards,
-			Round:             uint64(blockHeader.Round),
-			Seed:              blockHeader.Seed[:],
-			Timestamp:         uint64(blockHeader.TimeStamp),
-			Transactions:      nil,
-			TransactionsRoot:  blockHeader.TxnCommitments.NativeSha512_256Commitment[:],
-			TxnCounter:        uint64Ptr(blockHeader.TxnCounter),
-			UpgradeState:      &upgradeState,
-			UpgradeVote:       &upgradeVote,
-		}
-
-		results := make([]generated.Transaction, 0)
-		for _, txrow := range transactions {
-			// Do not include inner transactions.
-			if txrow.RootTxn != nil {
-				continue
-			}
-
-			tx, err := txnRowToTransaction(txrow)
-			if err != nil {
-				return err
-			}
-
-			results = append(results, tx)
-		}
-
-		ret.Transactions = &results
-		return err
-	})
-	if err != nil {
-		return generated.Block{}, err
-	}
-	return ret, nil
 }
 
 // fetchAccounts queries for accounts and converts them into generated.Account

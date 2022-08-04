@@ -1,15 +1,11 @@
 package writer
 
 import (
-	"context"
-	"fmt"
-
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/jackc/pgx/v4"
-
 	"github.com/algorand/indexer/accounting"
+	"github.com/jackc/pgx/v4"
 )
 
 // getTransactionParticipants returns referenced addresses from the txn and all inner txns
@@ -75,27 +71,5 @@ func addInnerTransactionParticipation(stxnad *transactions.SignedTxnWithAD, roun
 // AddTransactionParticipation writes account participation info to the
 // `txn_participation` table.
 func AddTransactionParticipation(block *bookkeeping.Block, tx pgx.Tx) error {
-	var rows [][]interface{}
-	next := uint64(0)
-
-	for _, stxnib := range block.Payset {
-		participants := getTransactionParticipants(&stxnib.SignedTxnWithAD, true)
-
-		for j := range participants {
-			rows = append(rows, []interface{}{participants[j][:], uint64(block.Round()), next})
-		}
-
-		next, rows = addInnerTransactionParticipation(&stxnib.SignedTxnWithAD, uint64(block.Round()), next+1, rows)
-	}
-
-	_, err := tx.CopyFrom(
-		context.Background(),
-		pgx.Identifier{"txn_participation"},
-		[]string{"addr", "round", "intra"},
-		pgx.CopyFromRows(rows))
-	if err != nil {
-		return fmt.Errorf("addTransactionParticipation() copy from err: %w", err)
-	}
-
 	return nil
 }
