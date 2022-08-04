@@ -48,6 +48,10 @@ def main():
         "--source-net",
         help="Path to test network directory containing Primary and other nodes. May be a tar file.",
     )
+    ap.add_argument(
+        "--s3-source-net",
+        help="AWS S3 key suffix to test network tarball containing Primary and other nodes. Must be a tar bz2 file.",
+    )
     ap.add_argument("--verbose", default=False, action="store_true")
     args = ap.parse_args()
     if args.verbose:
@@ -68,6 +72,13 @@ def main():
     else:
         logger.info("leaving temp dir %r", tempdir)
     if not (source_is_tar or (sourcenet and os.path.isdir(sourcenet))):
+        tarname = args.s3_source_net
+        if not tarname:
+            raise Exception(
+                "Must provide either local or s3 network to run test against"
+            )
+        tarname = f"{tarname}.tar.bz2"
+
         # fetch test data from S3
         bucket = "algorand-testdata"
         import boto3
@@ -75,14 +86,12 @@ def main():
         from botocore import UNSIGNED
 
         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
-        tarname = "net_done.tar.bz2"
         tarpath = os.path.join(tempdir, tarname)
-        success = firstFromS3Prefix(
-            s3, bucket, "indexer/e2e4", tarname, outpath=tarpath
-        )
+        prefix = "indexer/e2e4"
+        success = firstFromS3Prefix(s3, bucket, prefix, tarname, outpath=tarpath)
         if not success:
             raise Exception(
-                f"failed to locate tarname={tarname} from AWS S3 path {bucket}/indexer/e2e4"
+                f"failed to locate tarname={tarname} from AWS S3 path {bucket}/{prefix}"
             )
         source_is_tar = True
         sourcenet = tarpath
@@ -95,7 +104,6 @@ def main():
         os.path.join(tempdir, "net", "Primary", "*", "*.block.sqlite")
     )
     lastblock = countblocks(blockfiles[0])
-    # subprocess.run(['find', tempnet, '-type', 'f'])
     try:
         xrun(["goal", "network", "start", "-r", tempnet])
     except Exception:
@@ -119,7 +127,7 @@ def main():
         indexer_bin,
         "daemon",
         "--data-dir",
-        "/tmp",
+        tempdir,
         "-P",
         psqlstring,
         "--dev-mode",

@@ -2,6 +2,8 @@ package test
 
 import (
 	"fmt"
+	"math/rand"
+
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
@@ -9,7 +11,6 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/protocol"
-	"math/rand"
 )
 
 var (
@@ -213,9 +214,18 @@ func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 }
 
 // MakeComplexCreateAppTxn makes a transaction that creates an arbitrary app
-func MakeComplexCreateAppTxn(sender basics.Address, approval, clear string) (transactions.SignedTxnWithAD, error) {
+func MakeComplexCreateAppTxn(sender basics.Address, approval, clear string, assemblerVersion ...uint64) (transactions.SignedTxnWithAD, error) {
+	version := uint64(0)
+	numExtras := len(assemblerVersion)
+	if numExtras > 0 {
+		if numExtras > 1 {
+			return transactions.SignedTxnWithAD{}, fmt.Errorf("can only handle 1 extra arg but given %d", numExtras)
+		}
+		version = assemblerVersion[0]
+	}
+
 	// Create a transaction with ExtraProgramPages field set to 1
-	approvalOps, err := logic.AssembleString(approval)
+	approvalOps, err := logic.AssembleStringWithVersion(approval, version)
 	if err != nil {
 		return transactions.SignedTxnWithAD{}, err
 	}

@@ -19,14 +19,6 @@ import (
 	"github.com/algorand/indexer/idb/postgres/internal/types"
 )
 
-// AppBoxMigration is used to interpolate the field AppBoxMigration of `cmd/texttosource/main.go` in the SQL template `idb/postgres/internal/schema/setup_postgres.sql`
-const AppBoxMigration = `CREATE TABLE IF NOT EXISTS app_box (
-  app bigint NOT NULL,
-  name bytea NOT NULL,
-  value bytea NOT NULL, -- upon creation 'value' is 0x000...000 with length being the box'es size
-  PRIMARY KEY (app, name)
-)`
-
 func init() {
 	// To deprecate old migrations change the functions to return a `unsupportedMigrationErrorMsg` error.
 	// Make sure you set the blocking flag to true to avoid possible consistency issues during startup.
@@ -263,5 +255,10 @@ func convertAccountData(db *IndexerDb, migrationState *types.MigrationState, opt
 
 func createAppBoxTable(db *IndexerDb, migrationState *types.MigrationState, opts *idb.IndexerDbOptions) error {
 	return sqlMigration(
-		db, migrationState, []string{AppBoxMigration})
+		db, migrationState, []string{`CREATE TABLE IF NOT EXISTS app_box (
+			app bigint NOT NULL,
+			name bytea NOT NULL,
+			value bytea NOT NULL, -- upon creation 'value' is 0x000...000 with length being the box'es size
+			PRIMARY KEY (app, name)
+		)`})
 }

@@ -168,13 +168,14 @@ def firstFromS3Prefix(
             f"""Hello from firstFromS3Prefix() !!!!
         I finished searching for the needle {desired_filename} in the AWS S3 path {bucket}/{prefix}.
         haystack={haystack}
+        len(haystack)={len(haystack)}
         found_needle={found_needle}
 """
         )
 
     atexit.register(report)
 
-    response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=100)
+    response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=50)
     if (not response.get("KeyCount")) or ("Contents" not in response):
         raise Exception("nothing found in s3://{}/{}".format(bucket, prefix))
     for x in response["Contents"]:
@@ -188,6 +189,8 @@ def firstFromS3Prefix(
                 outpath = os.path.join(outdir, desired_filename)
             logger.info("s3://%s/%s -> %s", bucket, x["Key"], outpath)
             s3.download_file(bucket, x["Key"], outpath)
-            return True
+            found_needle = True
+            break
 
-    return False
+    logger.warning("file not found in s3://{}/{}".format(bucket, prefix))
+    return found_needle
