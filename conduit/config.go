@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// Config configuration for conduit running
 type Config struct {
 	Flags          *pflag.FlagSet
 	ConduitDataDir string

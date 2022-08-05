@@ -24,6 +24,9 @@ func init() {
 type mockProvider struct {
 }
 
+func (m mockProvider) AdvanceDBRound() {
+}
+
 func (m mockProvider) Genesis() *bookkeeping.Genesis {
 	return nil
 }

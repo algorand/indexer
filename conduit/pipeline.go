@@ -27,6 +27,7 @@ type PipelineConfig struct {
 	Exporter   map[string]interface{}   `yaml:"Exporter"`
 }
 
+// Valid validates pipeline config
 func (cfg *PipelineConfig) Valid() error {
 	if cfg.ConduitConfig == nil {
 		return fmt.Errorf("conduit configuration was nil")
@@ -88,14 +89,14 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 
 }
 
+// Pipeline is a struct that orchestrates the entire
+// sequence of events, taking in importers, processors and
+// exporters and generating the result
 type Pipeline interface {
 	Start() error
 	Stop() error
 }
 
-// pipeline is a struct that orchestrates the entire
-// sequence of events, taking in importers, processors and
-// exporters and generating the result
 type pipelineImpl struct {
 	ctx    context.Context
 	cfg    *PipelineConfig
@@ -160,6 +161,7 @@ func (p *pipelineImpl) Stop() error {
 	return nil
 }
 
+// MakePipeline creates a Pipeline
 func MakePipeline(cfg *PipelineConfig, logger *log.Logger, initProvider *data.InitProvider) (Pipeline, error) {
 
 	if cfg == nil {

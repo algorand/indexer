@@ -17,7 +17,6 @@ type noopExporter struct {
 	cfg   plugins.PluginConfig
 }
 
-
 // package-wide init function
 func init() {
 	exporters.RegisterExporter("noop", &Constructor{})
