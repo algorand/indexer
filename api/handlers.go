@@ -723,7 +723,7 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 // SearchForAssets returns assets matching the provided parameters
 // (GET /v2/assets)
 func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generated.SearchForAssetsParams) error {
-	if uint64(*params.AssetId) > math.MaxInt64 {
+	if params.AssetId != nil && uint64(*params.AssetId) > math.MaxInt64 {
 		return badRequest(ctx, errValueExceedingInt64)
 	}
 	if err := si.verifyHandler("SearchForAssets", ctx); err != nil {
