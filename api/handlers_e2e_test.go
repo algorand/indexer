@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	test2 "github.com/sirupsen/logrus/hooks/test"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
-	test2 "github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -26,13 +26,12 @@ import (
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/rpcs"
-	"github.com/algorand/indexer/processor"
 
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres"
 	pgtest "github.com/algorand/indexer/idb/postgres/testing"
-	"github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/indexer/processors/blockprocessor"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -61,7 +60,7 @@ func testServerImplementation(db idb.IndexerDb) *ServerImplementation {
 	return &ServerImplementation{db: db, timeout: 30 * time.Second, opts: defaultOpts}
 }
 
-func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, func(), processor.Processor, *ledger.Ledger) {
+func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, func(), func(cert *rpcs.EncodedBlockCert) error, *ledger.Ledger) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 
 	db, _, err := postgres.OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -78,9 +77,12 @@ func setupIdb(t *testing.T, genesis bookkeeping.Genesis) (*postgres.IndexerDb, f
 	logger, _ := test2.NewNullLogger()
 	l, err := test.MakeTestLedger(logger)
 	require.NoError(t, err)
-	proc, err := blockprocessor.MakeProcessorWithLedger(logger, l, db.AddBlock)
+	proc, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, db.AddBlock)
 	require.NoError(t, err, "failed to open ledger")
-	return db, newShutdownFunc, proc, l
+
+	f := blockprocessor.MakeBlockProcessorHandlerAdapter(&proc, db.AddBlock)
+
+	return db, newShutdownFunc, f, l
 }
 
 func TestApplicationHandlers(t *testing.T) {
@@ -120,7 +122,8 @@ func TestApplicationHandlers(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn, &optInTxnA, &optInTxnB)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
+
 	require.NoError(t, err)
 
 	//////////
@@ -247,7 +250,7 @@ func TestAccountExcludeParameters(t *testing.T) {
 		&appOptInTxnA, &appOptInTxnB, &assetOptInTxnA, &assetOptInTxnB)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -453,7 +456,7 @@ func TestAccountMaxResultsLimit(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, ptxns...)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	//////////
@@ -857,7 +860,7 @@ func TestInnerTxn(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -910,7 +913,7 @@ func TestPagingRootTxnDeduplication(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	testcases := []struct {
@@ -1058,7 +1061,7 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	e := echo.New()
@@ -1163,7 +1166,7 @@ func TestAccountClearsNonUTF8(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createAsset)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	verify := func(params generated.AssetParams) {
@@ -1285,7 +1288,7 @@ func TestLookupInnerLogs(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	for _, tc := range testcases {
@@ -1384,7 +1387,7 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCall)
 	require.NoError(t, err)
 
-	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	err = proc(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
 	for _, tc := range testcases {

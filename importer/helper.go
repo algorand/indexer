@@ -20,7 +20,7 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/protocol"
 	"github.com/algorand/go-algorand/rpcs"
-	"github.com/algorand/indexer/processor/blockprocessor"
+	"github.com/algorand/indexer/processors/blockprocessor"
 	"github.com/algorand/indexer/util"
 	log "github.com/sirupsen/logrus"
 
@@ -145,11 +145,13 @@ func importTar(imp Importer, tarfile io.Reader, logger *log.Logger, genesisReade
 	ld, err := util.MakeLedger(logger, false, &genesis, "")
 	maybeFail(err, logger, "Cannot open ledger")
 
-	proc, err := blockprocessor.MakeProcessorWithLedger(logger, ld, imp.ImportBlock)
+	proc, err := blockprocessor.MakeBlockProcessorWithLedger(logger, ld, imp.ImportBlock)
 	maybeFail(err, logger, "Error creating processor")
 
+	f := blockprocessor.MakeBlockProcessorHandlerAdapter(&proc, imp.ImportBlock)
+
 	for _, blockContainer := range blocks[1:] {
-		err = proc.Process(&blockContainer)
+		err = f(&blockContainer)
 		if err != nil {
 			return
 		}

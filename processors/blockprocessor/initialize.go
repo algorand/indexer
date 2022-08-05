@@ -13,31 +13,30 @@ import (
 	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/fetcher"
-	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/processor"
-	"github.com/algorand/indexer/processor/blockprocessor/internal"
+	"github.com/algorand/indexer/processors"
+	"github.com/algorand/indexer/processors/blockprocessor/internal"
 )
 
 // InitializeLedger will initialize a ledger to the directory given by the
 // IndexerDbOpts.
 // nextRound - next round to process after initializing.
 // catchpoint - if provided, attempt to use fast catchup.
-func InitializeLedger(ctx context.Context, logger *log.Logger, catchpoint string, nextRound uint64, genesis bookkeeping.Genesis, opts *idb.IndexerDbOptions) error {
-	if nextRound > 0 {
-		if catchpoint != "" {
-			round, _, err := ledgercore.ParseCatchpointLabel(catchpoint)
+func InitializeLedger(ctx context.Context, logger *log.Logger, nextDbRound uint64, genesis bookkeeping.Genesis, config *processors.BlockProcessorConfig) error {
+	if nextDbRound > 0 {
+		if config.Catchpoint != "" {
+			round, _, err := ledgercore.ParseCatchpointLabel(config.Catchpoint)
 			if err != nil {
 				return fmt.Errorf("InitializeLedger() label err: %w", err)
 			}
-			if uint64(round) >= nextRound {
-				return fmt.Errorf("invalid catchpoint: catchpoint round %d should not be ahead of target round %d", uint64(round), nextRound-1)
+			if uint64(round) >= nextDbRound {
+				return fmt.Errorf("invalid catchpoint: catchpoint round %d should not be ahead of target round %d", uint64(round), nextDbRound-1)
 			}
-			err = InitializeLedgerFastCatchup(ctx, logger, catchpoint, opts.IndexerDatadir, genesis)
+			err = InitializeLedgerFastCatchup(ctx, logger, config.Catchpoint, config.IndexerDatadir, genesis)
 			if err != nil {
 				return fmt.Errorf("InitializeLedger() fast catchup err: %w", err)
 			}
 		}
-		err := InitializeLedgerSimple(ctx, logger, nextRound-1, &genesis, opts)
+		err := InitializeLedgerSimple(ctx, logger, nextDbRound-1, &genesis, config)
 		if err != nil {
 			return fmt.Errorf("InitializeLedger() simple catchup err: %w", err)
 		}
@@ -60,22 +59,22 @@ func InitializeLedgerFastCatchup(ctx context.Context, logger *log.Logger, catchp
 
 // InitializeLedgerSimple initializes a ledger with the block processor by
 // sending it one block at a time and letting it update the ledger as usual.
-func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint64, genesis *bookkeeping.Genesis, opts *idb.IndexerDbOptions) error {
+func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint64, genesis *bookkeeping.Genesis, config *processors.BlockProcessorConfig) error {
 	ctx, cf := context.WithCancel(ctx)
 	defer cf()
 	var bot fetcher.Fetcher
 	var err error
-	if opts.IndexerDatadir == "" {
+	if config.IndexerDatadir == "" {
 		return fmt.Errorf("InitializeLedgerSimple() err: indexer data directory missing")
 	}
 	// create algod client
-	bot, err = getFetcher(logger, opts)
+	bot, err = getFetcher(logger, config)
 	if err != nil {
 		return fmt.Errorf("InitializeLedgerSimple() err: %w", err)
 	}
 	logger.Info("initializing ledger")
 
-	proc, err := MakeProcessor(logger, genesis, round, opts.IndexerDatadir, nil)
+	proc, err := MakeBlockProcessor(logger, genesis, round, config.IndexerDatadir, nil)
 	if err != nil {
 		return fmt.Errorf("RunMigration() err: %w", err)
 	}
@@ -84,7 +83,10 @@ func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint6
 		return nil
 	}
 	bot.SetNextRound(proc.NextRoundToProcess())
-	handler := blockHandler(logger, round, proc, cf, 1*time.Second)
+
+	procHandler := MakeBlockProcessorHandlerAdapter(&proc, nil)
+
+	handler := blockHandler(logger, round, procHandler, cf, 1*time.Second)
 	bot.SetBlockHandler(handler)
 
 	logger.Info("Starting ledger migration.")
@@ -101,10 +103,10 @@ func InitializeLedgerSimple(ctx context.Context, logger *log.Logger, round uint6
 
 // blockHandler creates a handler complying to the fetcher block handler interface. In case of a failure it keeps
 // attempting to add the block until the fetcher shuts down.
-func blockHandler(logger *log.Logger, dbRound uint64, proc processor.Processor, cancel context.CancelFunc, retryDelay time.Duration) func(context.Context, *rpcs.EncodedBlockCert) error {
+func blockHandler(logger *log.Logger, dbRound uint64, procHandler func(block *rpcs.EncodedBlockCert) error, cancel context.CancelFunc, retryDelay time.Duration) func(context.Context, *rpcs.EncodedBlockCert) error {
 	return func(ctx context.Context, block *rpcs.EncodedBlockCert) error {
 		for {
-			err := handleBlock(logger, block, proc)
+			err := handleBlock(logger, block, procHandler)
 			if err == nil {
 				if uint64(block.Block.Round()) == dbRound {
 					// migration completes
@@ -125,8 +127,8 @@ func blockHandler(logger *log.Logger, dbRound uint64, proc processor.Processor, 
 	}
 }
 
-func handleBlock(logger *log.Logger, block *rpcs.EncodedBlockCert, proc processor.Processor) error {
-	err := proc.Process(block)
+func handleBlock(logger *log.Logger, block *rpcs.EncodedBlockCert, procHandler func(block *rpcs.EncodedBlockCert) error) error {
+	err := procHandler(block)
 	if err != nil {
 		logger.WithError(err).Errorf(
 			"block %d import failed", block.Block.Round())
@@ -136,16 +138,16 @@ func handleBlock(logger *log.Logger, block *rpcs.EncodedBlockCert, proc processo
 	return nil
 }
 
-func getFetcher(logger *log.Logger, opts *idb.IndexerDbOptions) (fetcher.Fetcher, error) {
+func getFetcher(logger *log.Logger, config *processors.BlockProcessorConfig) (fetcher.Fetcher, error) {
 	var err error
 	var bot fetcher.Fetcher
-	if opts.AlgodDataDir != "" {
-		bot, err = fetcher.ForDataDir(opts.AlgodDataDir, logger)
+	if config.AlgodDataDir != "" {
+		bot, err = fetcher.ForDataDir(config.AlgodDataDir, logger)
 		if err != nil {
 			return nil, fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
 		}
-	} else if opts.AlgodAddr != "" && opts.AlgodToken != "" {
-		bot, err = fetcher.ForNetAndToken(opts.AlgodAddr, opts.AlgodToken, logger)
+	} else if config.AlgodAddr != "" && config.AlgodToken != "" {
+		bot, err = fetcher.ForNetAndToken(config.AlgodAddr, config.AlgodToken, logger)
 		if err != nil {
 			return nil, fmt.Errorf("InitializeLedgerFastCatchup() err: %w", err)
 		}

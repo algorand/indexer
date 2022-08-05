@@ -14,8 +14,8 @@ import (
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
 
-	block_processor "github.com/algorand/indexer/processor/blockprocessor"
-	indxLeder "github.com/algorand/indexer/processor/eval"
+	block_processor "github.com/algorand/indexer/processors/blockprocessor"
+	indxLeder "github.com/algorand/indexer/processors/eval"
 	"github.com/algorand/indexer/util/test"
 )
 
@@ -30,13 +30,14 @@ func TestLedgerForEvaluatorLatestBlockHdr(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
-	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
+	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 	txn := test.MakePaymentTxn(0, 100, 0, 1, 1,
 		0, test.AccountA, test.AccountA, basics.Address{}, basics.Address{})
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn)
 	assert.Nil(t, err)
 	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	assert.Nil(t, err)
 
 	ld := indxLeder.MakeLedgerForEvaluator(l)
@@ -53,7 +54,7 @@ func TestLedgerForEvaluatorAccountDataBasic(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
-	block_processor.MakeProcessorWithLedger(logger, l, nil)
+	block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
 	accountData, _, err := l.LookupWithoutRewards(0, test.AccountB)
 	require.NoError(t, err)
 
@@ -90,7 +91,8 @@ func TestLedgerForEvaluatorAsset(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
-	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
+	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 	txn1 := test.MakeAssetConfigTxn(0, 4, 0, false, "", "", "", test.AccountA)
@@ -101,7 +103,7 @@ func TestLedgerForEvaluatorAsset(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2, &txn3, &txn4)
 	assert.Nil(t, err)
 	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	assert.Nil(t, err)
 
 	ld := indxLeder.MakeLedgerForEvaluator(l)
@@ -156,7 +158,8 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
-	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
+	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAppCallTxnWithLogs(0, test.AccountA, []string{"testing"})
@@ -168,7 +171,7 @@ func TestLedgerForEvaluatorApp(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2, &txn3, &txn4, &txn5)
 	assert.Nil(t, err)
 	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	assert.Nil(t, err)
 
 	ld := indxLeder.MakeLedgerForEvaluator(l)
@@ -239,7 +242,8 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
-	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
+	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
@@ -247,7 +251,7 @@ func TestLedgerForEvaluatorFetchAllResourceTypes(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1)
 	assert.Nil(t, err)
 	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	assert.Nil(t, err)
 
 	ld := indxLeder.MakeLedgerForEvaluator(l)
@@ -290,7 +294,7 @@ func TestLedgerForEvaluatorLookupMultipleAccounts(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
-	block_processor.MakeProcessorWithLedger(logger, l, nil)
+	block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
 
 	addresses := []basics.Address{
 		test.AccountA, test.AccountB, test.AccountC, test.AccountD}
@@ -319,14 +323,15 @@ func TestLedgerForEvaluatorAssetCreatorBasic(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
-	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
+	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0)
 	assert.Nil(t, err)
 	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	assert.Nil(t, err)
 
 	ld := indxLeder.MakeLedgerForEvaluator(l)
@@ -351,7 +356,8 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
-	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
+	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 	txn1 := test.MakeAssetDestroyTxn(1, test.AccountA)
@@ -359,7 +365,7 @@ func TestLedgerForEvaluatorAssetCreatorDeleted(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1)
 	assert.Nil(t, err)
 	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	assert.Nil(t, err)
 
 	ld := indxLeder.MakeLedgerForEvaluator(l)
@@ -381,7 +387,8 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
-	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
+	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountA)
 	txn1 := test.MakeAssetConfigTxn(0, 2, 0, false, "", "", "", test.AccountB)
@@ -391,7 +398,7 @@ func TestLedgerForEvaluatorAssetCreatorMultiple(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2, &txn3)
 	assert.Nil(t, err)
 	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	assert.Nil(t, err)
 
 	ld := indxLeder.MakeLedgerForEvaluator(l)
@@ -436,14 +443,15 @@ func TestLedgerForEvaluatorAppCreatorBasic(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
-	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
+	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0)
 	assert.Nil(t, err)
 	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	assert.Nil(t, err)
 
 	ld := indxLeder.MakeLedgerForEvaluator(l)
@@ -469,7 +477,8 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
-	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
+	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAppDestroyTxn(1, test.AccountA)
@@ -477,7 +486,7 @@ func TestLedgerForEvaluatorAppCreatorDeleted(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1)
 	assert.Nil(t, err)
 	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	assert.Nil(t, err)
 
 	ld := indxLeder.MakeLedgerForEvaluator(l)
@@ -499,7 +508,8 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 	l := makeTestLedger(t)
 	defer l.Close()
 	logger, _ := test2.NewNullLogger()
-	pr, _ := block_processor.MakeProcessorWithLedger(logger, l, nil)
+	pr, _ := block_processor.MakeBlockProcessorWithLedger(logger, l, nil)
+	proc := block_processor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 
 	txn0 := test.MakeAppCallTxn(0, test.AccountA)
 	txn1 := test.MakeAppCallTxn(0, test.AccountB)
@@ -509,7 +519,7 @@ func TestLedgerForEvaluatorAppCreatorMultiple(t *testing.T) {
 	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &txn0, &txn1, &txn2, &txn3)
 	assert.Nil(t, err)
 	rawBlock := rpcs.EncodedBlockCert{Block: block, Certificate: agreement.Certificate{}}
-	err = pr.Process(&rawBlock)
+	err = proc(&rawBlock)
 	assert.Nil(t, err)
 
 	ld := indxLeder.MakeLedgerForEvaluator(l)
