@@ -20,6 +20,7 @@ type RoundProvider interface {
 type InitProvider interface {
 	Genesis() *bookkeeping.Genesis
 	NextDBRound() basics.Round
+	AdvanceDBRound()
 }
 
 // BlockData is provided to the Exporter on each round.

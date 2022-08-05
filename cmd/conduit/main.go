@@ -1,14 +1,25 @@
-package conduit
+package main
 
 import (
 	"fmt"
-	"github.com/algorand/indexer/config"
-	"github.com/spf13/pflag"
 	"os"
-	"strings"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+
+	"github.com/algorand/indexer/conduit"
+	"github.com/algorand/indexer/config"
+	"github.com/algorand/indexer/data"
+)
+
+import (
+
+	// Make sure the package init() function is called
+	_ "github.com/algorand/indexer/exporters/noop"
+	_ "github.com/algorand/indexer/exporters/postgresql"
+	_ "github.com/algorand/indexer/importers/algod"
+	_ "github.com/algorand/indexer/processors/blockprocessor"
+	_ "github.com/algorand/indexer/processors/noop"
 )
 
 var (
@@ -27,34 +38,9 @@ func init() {
 	logger.SetLevel(log.InfoLevel)
 }
 
-type conduitConfig struct {
-	flags          *pflag.FlagSet
-	conduitDataDir string
-}
-
-func (cfg *conduitConfig) String() string {
-	if cfg == nil {
-		return ""
-	}
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "Data Directory: %s ", cfg.conduitDataDir)
-
-	return sb.String()
-}
-
-// validateConfig validates a supplied configuration
-func validateConfig(cfg *conduitConfig) error {
-	// belt and suspenders
-	if cfg == nil {
-		return fmt.Errorf("validation failure.  configuration was nil")
-	}
-
-	return nil
-}
-
 // conduitCmd creates the main cobra command, initializes flags, and viper aliases
 func conduitCmd() *cobra.Command {
-	cfg := &conduitConfig{}
+	cfg := &conduit.Config{}
 	conduitCmd := &cobra.Command{
 		Use:   "conduit",
 		Short: "run the conduit framework",
@@ -63,36 +49,56 @@ func conduitCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 
 			// Tie cobra variables into local go-lang variables
-			config.BindFlagSet(cfg.flags)
+			config.BindFlagSet(cfg.Flags)
 			logger.Info(cfg)
 
-			if err := validateConfig(cfg); err != nil {
+			if err := cfg.Valid(); err != nil {
 				return err
 			}
 
-			return runConduit(cfg)
+			pCfg, err := conduit.MakePipelineConfig(logger, cfg)
+
+			if err != nil {
+				return err
+			}
+
+			var initProvider data.InitProvider = &conduit.AlgodInitProvider{}
+
+			logger.Info("Conduit configuration is valid")
+
+			pipeline, err := conduit.MakePipeline(pCfg, logger, &initProvider)
+			if err != nil {
+				return fmt.Errorf("pipeline creation error: %w", err)
+			}
+
+			// Make sure to call this so we can shutdown if there is an error
+			defer func(pipeline conduit.Pipeline) {
+				err := pipeline.Stop()
+				if err != nil {
+					logger.Errorf("Pipeline stoppage failure: %v", err)
+				}
+			}(pipeline)
+
+			// TODO decide if blocking or not
+			err = pipeline.Start()
+			if err != nil {
+				logger.Errorf("Pipeline start failure: %v", err)
+				return err
+			}
+
+			return nil
 		},
 	}
 
-	cfg.flags = conduitCmd.Flags()
-	cfg.flags.StringVarP(&cfg.conduitDataDir, "data-dir", "d", "", "set the data directory for the conduit binary")
+	cfg.Flags = conduitCmd.PersistentFlags()
+	cfg.Flags.StringVarP(&cfg.ConduitDataDir, "data-dir", "d", "", "set the data directory for the conduit binary")
 
 	return conduitCmd
 }
 
-// runConduit runs the main conduit command, the cfg is assumed to be initialized and
-// valid at this point
-func runConduit(cfg *conduitConfig) error {
-	// belt and suspenders...
-	if cfg == nil {
-		return fmt.Errorf("configuration is nil")
-	}
-	return nil
-}
-
 func main() {
 	if err := conduitCmd().Execute(); err != nil {
-		// TODO Log here
+		log.Errorf("%v", err)
 		os.Exit(1)
 	}
 

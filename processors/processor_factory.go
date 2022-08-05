@@ -3,7 +3,6 @@ package processors
 import (
 	"context"
 	"fmt"
-
 	"github.com/sirupsen/logrus"
 
 	"github.com/algorand/indexer/data"
@@ -47,4 +46,14 @@ func ProcessorByName(ctx context.Context, name string, dataDir string, initProvi
 		return nil, err
 	}
 	return processor, nil
+}
+
+// ProcessorBuilderByName returns a Processor constructor for the name provided
+func ProcessorBuilderByName(name string) (ProcessorConstructor, error) {
+	constructor, ok := processorImpls[name]
+	if !ok {
+		return nil, fmt.Errorf("no Processor Constructor for %s", name)
+	}
+
+	return constructor, nil
 }

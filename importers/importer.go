@@ -23,7 +23,7 @@ type Importer interface {
 	// Close function is used for closing network connections, files, flushing buffers etc.
 	Close() error
 
-	// GetBlock, given any round number-rnd fetches the block at that round
+	// GetBlock given any round number-rnd fetches the block at that round
 	// It returns an object of type BlockData defined in data
 	GetBlock(rnd uint64) (data.BlockData, error)
 }

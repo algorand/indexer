@@ -41,3 +41,13 @@ func ExporterByName(name string, dataDir string, logger *logrus.Logger) (Exporte
 	}
 	return val, nil
 }
+
+// ExporterBuilderByName returns a Processor constructor for the name provided
+func ExporterBuilderByName(name string) (ExporterConstructor, error) {
+	constructor, ok := exporterImpls[name]
+	if !ok {
+		return nil, fmt.Errorf("no Exporter Constructor for %s", name)
+	}
+
+	return constructor, nil
+}
