@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -588,6 +589,10 @@ func (si *ServerImplementation) transactionParamsToTransactionFilter(params gene
 	filter.ApplicationID = uintOrDefault(params.ApplicationId)
 	filter.Limit = min(uintOrDefaultValue(params.Limit, si.opts.DefaultTransactionsLimit), si.opts.MaxTransactionsLimit)
 	filter.Round = params.Round
+	// Integer > math.Int64
+	if filter.AssetID > math.MaxInt64 || filter.ApplicationID > math.MaxInt64 || (filter.Round != nil && uint64(*filter.Round) > math.MaxInt64) {
+		errorArr = append(errorArr, errValueExceedingInt64)
+	}
 
 	// String
 	filter.AddressRole, errorArr = decodeAddressRole(params.AddressRole, params.ExcludeCloseTo, errorArr)
