@@ -198,12 +198,12 @@ func MakeBlockProcessorWithLedger(logger *log.Logger, l *ledger.Ledger, handler 
 }
 
 // MakeBlockProcessorWithLedgerInit creates a block processor and initializes the ledger.
-func MakeBlockProcessorWithLedgerInit(ctx context.Context, logger *log.Logger, nextDbRound uint64, genesis *bookkeeping.Genesis, opts processors.BlockProcessorConfig, handler func(block *ledgercore.ValidatedBlock) error) (BlockProcessor, error) {
-	err := InitializeLedger(ctx, logger, nextDbRound, *genesis, &opts)
+func MakeBlockProcessorWithLedgerInit(ctx context.Context, logger *log.Logger, nextDbRound uint64, genesis *bookkeeping.Genesis, config processors.BlockProcessorConfig, handler func(block *ledgercore.ValidatedBlock) error) (BlockProcessor, error) {
+	err := InitializeLedger(ctx, logger, nextDbRound, *genesis, &config)
 	if err != nil {
 		return nil, fmt.Errorf("MakeBlockProcessorWithLedgerInit() err: %w", err)
 	}
-	return MakeBlockProcessor(logger, genesis, nextDbRound, opts.IndexerDatadir, handler)
+	return MakeBlockProcessor(logger, genesis, nextDbRound, config.IndexerDatadir, handler)
 }
 
 // MakeBlockProcessor creates a block processor

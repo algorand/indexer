@@ -166,13 +166,13 @@ func TestMakeProcessorWithLedgerInit_CatchpointErrors(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			opts := processors.BlockProcessorConfig{Catchpoint: tc.catchpoint}
+			config := processors.BlockProcessorConfig{Catchpoint: tc.catchpoint}
 			_, err := blockprocessor.MakeBlockProcessorWithLedgerInit(
 				context.Background(),
 				logger,
 				tc.round,
 				&genesis,
-				opts,
+				config,
 				noopHandler)
 			require.ErrorContains(t, err, tc.errMsg)
 		})
