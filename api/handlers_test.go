@@ -609,6 +609,15 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/app_call_inner_acfg.response"),
 			},
 		},
+		{
+			name: "State Proof Txn",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/state_proof.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/state_proof.response"),
+			},
+		},
 	}
 
 	// use for the brach below and createTxn helper func to add a new test case
