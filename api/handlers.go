@@ -53,8 +53,28 @@ func validateTransactionFilter(filter *idb.TransactionFilter) error {
 	var errorArr = make([]string, 0)
 
 	// Round or application-id or asset-id is greater than math.MaxInt64
-	if filter.AssetID > math.MaxInt64 || filter.ApplicationID > math.MaxInt64 ||
-		(filter.Round != nil && *filter.Round > math.MaxInt64) {
+	if filter.MinRound > math.MaxInt64 || filter.MaxRound > math.MaxInt64 ||
+		(filter.Round != nil && *filter.Round > math.MaxInt64) ||
+		filter.AssetID > math.MaxInt64 || filter.ApplicationID > math.MaxInt64 {
+		errorArr = append(errorArr, errValueExceedingInt64)
+	}
+
+	// offset > math.MaxInt64
+	if (filter.Offset != nil && *filter.Offset > math.MaxInt64) ||
+		(filter.OffsetLT != nil && *filter.OffsetLT > math.MaxInt64) ||
+		(filter.OffsetGT != nil && *filter.OffsetGT > math.MaxInt64) {
+		errorArr = append(errorArr, errValueExceedingInt64)
+	}
+
+	// algos > math.MaxInt64
+	if (filter.AlgosLT != nil && *filter.AlgosLT > math.MaxInt64) ||
+		(filter.AlgosGT != nil && *filter.AlgosGT > math.MaxInt64) {
+		errorArr = append(errorArr, errValueExceedingInt64)
+	}
+
+	// effectiveAmount > math.MaxInt64
+	if (filter.EffectiveAmountLT != nil && *filter.EffectiveAmountLT > math.MaxInt64) ||
+		(filter.EffectiveAmountGT != nil && *filter.EffectiveAmountGT > math.MaxInt64) {
 		errorArr = append(errorArr, errValueExceedingInt64)
 	}
 
@@ -166,11 +186,11 @@ func (si *ServerImplementation) verifyHandler(operationID string, ctx echo.Conte
 // LookupAccountByID queries indexer for a given account.
 // (GET /v2/accounts/{account-id})
 func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID string, params generated.LookupAccountByIDParams) error {
-	if params.Round != nil && uint64(*params.Round) > math.MaxInt64 {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
 	if err := si.verifyHandler("LookupAccountByID", ctx); err != nil {
 		return badRequest(ctx, err.Error())
+	}
+	if params.Round != nil && uint64(*params.Round) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
 	}
 
 	addr, decodeErrors := decodeAddress(&accountID, "account-id", make([]string, 0))
@@ -222,11 +242,11 @@ func (si *ServerImplementation) LookupAccountByID(ctx echo.Context, accountID st
 // LookupAccountAppLocalStates queries indexer for AppLocalState for a given account, and optionally a given app ID.
 // (GET /v2/accounts/{account-id}/apps-local-state)
 func (si *ServerImplementation) LookupAccountAppLocalStates(ctx echo.Context, accountID string, params generated.LookupAccountAppLocalStatesParams) error {
-	if params.ApplicationId != nil && uint64(*params.ApplicationId) > math.MaxInt64 {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
 	if err := si.verifyHandler("LookupAccountAppLocalStates", ctx); err != nil {
 		return badRequest(ctx, err.Error())
+	}
+	if params.ApplicationId != nil && uint64(*params.ApplicationId) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
 	}
 
 	search := generated.SearchForApplicationsParams{
@@ -262,11 +282,11 @@ func (si *ServerImplementation) LookupAccountAppLocalStates(ctx echo.Context, ac
 // LookupAccountAssets queries indexer for AssetHolding for a given account, and optionally a given asset ID.
 // (GET /v2/accounts/{account-id}/assets)
 func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID string, params generated.LookupAccountAssetsParams) error {
-	if params.AssetId != nil && uint64(*params.AssetId) > math.MaxInt64 {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
 	if err := si.verifyHandler("LookupAccountAssets", ctx); err != nil {
 		return badRequest(ctx, err.Error())
+	}
+	if params.AssetId != nil && uint64(*params.AssetId) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
 	}
 
 	addr, errors := decodeAddress(&accountID, "account-id", make([]string, 0))
@@ -311,13 +331,12 @@ func (si *ServerImplementation) LookupAccountAssets(ctx echo.Context, accountID 
 // LookupAccountCreatedApplications queries indexer for AppParams for a given account, and optionally a given app ID.
 // (GET /v2/accounts/{account-id}/created-applications)
 func (si *ServerImplementation) LookupAccountCreatedApplications(ctx echo.Context, accountID string, params generated.LookupAccountCreatedApplicationsParams) error {
-	if params.ApplicationId != nil && uint64(*params.ApplicationId) > math.MaxInt64 {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
 	if err := si.verifyHandler("LookupAccountCreatedApplications", ctx); err != nil {
 		return badRequest(ctx, err.Error())
 	}
-
+	if params.ApplicationId != nil && uint64(*params.ApplicationId) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
+	}
 	search := generated.SearchForApplicationsParams{
 		Creator:       &accountID,
 		ApplicationId: params.ApplicationId,
@@ -331,11 +350,11 @@ func (si *ServerImplementation) LookupAccountCreatedApplications(ctx echo.Contex
 // LookupAccountCreatedAssets queries indexer for AssetParams for a given account, and optionally a given asset ID.
 // (GET /v2/accounts/{account-id}/created-assets)
 func (si *ServerImplementation) LookupAccountCreatedAssets(ctx echo.Context, accountID string, params generated.LookupAccountCreatedAssetsParams) error {
-	if params.AssetId != nil && uint64(*params.AssetId) > math.MaxInt64 {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
 	if err := si.verifyHandler("LookupAccountCreatedAssets", ctx); err != nil {
 		return badRequest(ctx, err.Error())
+	}
+	if params.AssetId != nil && uint64(*params.AssetId) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
 	}
 
 	search := generated.SearchForAssetsParams{
@@ -351,13 +370,13 @@ func (si *ServerImplementation) LookupAccountCreatedAssets(ctx echo.Context, acc
 // SearchForAccounts returns accounts matching the provided parameters
 // (GET /v2/accounts)
 func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params generated.SearchForAccountsParams) error {
+	if err := si.verifyHandler("SearchForAccounts", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
 	if (params.AssetId != nil && uint64(*params.AssetId) > math.MaxInt64) ||
 		(params.ApplicationId != nil && uint64(*params.ApplicationId) > math.MaxInt64) ||
 		(params.Round != nil && uint64(*params.Round) > math.MaxInt64) {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
-	if err := si.verifyHandler("SearchForAccounts", ctx); err != nil {
-		return badRequest(ctx, err.Error())
+		return notFound(ctx, errValueExceedingInt64)
 	}
 
 	if !si.EnableAddressSearchRoundRewind && params.Round != nil {
@@ -432,11 +451,11 @@ func (si *ServerImplementation) SearchForAccounts(ctx echo.Context, params gener
 // LookupAccountTransactions looks up transactions associated with a particular account.
 // (GET /v2/accounts/{account-id}/transactions)
 func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, accountID string, params generated.LookupAccountTransactionsParams) error {
-	if (params.AssetId != nil && uint64(*params.AssetId) > math.MaxInt64) || (params.Round != nil && uint64(*params.Round) > math.MaxInt64) {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
 	if err := si.verifyHandler("LookupAccountTransactions", ctx); err != nil {
 		return badRequest(ctx, err.Error())
+	}
+	if (params.AssetId != nil && uint64(*params.AssetId) > math.MaxInt64) || (params.Round != nil && uint64(*params.Round) > math.MaxInt64) {
+		return notFound(ctx, errValueExceedingInt64)
 	}
 	// Check that a valid account was provided
 	_, errors := decodeAddress(strPtr(accountID), "account-id", make([]string, 0))
@@ -473,13 +492,12 @@ func (si *ServerImplementation) LookupAccountTransactions(ctx echo.Context, acco
 // SearchForApplications returns applications for the provided parameters.
 // (GET /v2/applications)
 func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params generated.SearchForApplicationsParams) error {
-	if params.ApplicationId != nil && uint64(*params.ApplicationId) > math.MaxInt64 {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
 	if err := si.verifyHandler("SearchForApplications", ctx); err != nil {
 		return badRequest(ctx, err.Error())
 	}
-
+	if params.ApplicationId != nil && uint64(*params.ApplicationId) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
+	}
 	options, err := si.appParamsToApplicationQuery(params)
 	if err != nil {
 		return badRequest(ctx, err.Error())
@@ -506,11 +524,11 @@ func (si *ServerImplementation) SearchForApplications(ctx echo.Context, params g
 // LookupApplicationByID returns one application for the requested ID.
 // (GET /v2/applications/{application-id})
 func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationByIDParams) error {
-	if uint64(applicationID) > math.MaxInt64 {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
 	if err := si.verifyHandler("LookupApplicationByID", ctx); err != nil {
 		return badRequest(ctx, err.Error())
+	}
+	if uint64(applicationID) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
 	}
 	q := idb.ApplicationQuery{
 		ApplicationID:  applicationID,
@@ -540,11 +558,11 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 // LookupApplicationLogsByID returns one application logs
 // (GET /v2/applications/{application-id}/logs)
 func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, applicationID uint64, params generated.LookupApplicationLogsByIDParams) error {
-	if uint64(applicationID) > math.MaxInt64 {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
 	if err := si.verifyHandler("LookupApplicationLogsByID", ctx); err != nil {
 		return badRequest(ctx, err.Error())
+	}
+	if uint64(applicationID) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
 	}
 
 	searchParams := generated.SearchForTransactionsParams{
@@ -606,11 +624,11 @@ func (si *ServerImplementation) LookupApplicationLogsByID(ctx echo.Context, appl
 // LookupAssetByID looks up a particular asset
 // (GET /v2/assets/{asset-id})
 func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64, params generated.LookupAssetByIDParams) error {
-	if uint64(assetID) > math.MaxInt64 {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
 	if err := si.verifyHandler("LookupAssetByID", ctx); err != nil {
 		return badRequest(ctx, err.Error())
+	}
+	if uint64(assetID) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
 	}
 
 	search := generated.SearchForAssetsParams{
@@ -645,11 +663,11 @@ func (si *ServerImplementation) LookupAssetByID(ctx echo.Context, assetID uint64
 // LookupAssetBalances looks up balances for a particular asset
 // (GET /v2/assets/{asset-id}/balances)
 func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID uint64, params generated.LookupAssetBalancesParams) error {
-	if uint64(assetID) > math.MaxInt64 {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
 	if err := si.verifyHandler("LookupAssetBalances", ctx); err != nil {
 		return badRequest(ctx, err.Error())
+	}
+	if uint64(assetID) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
 	}
 
 	query := idb.AssetBalanceQuery{
@@ -688,13 +706,12 @@ func (si *ServerImplementation) LookupAssetBalances(ctx echo.Context, assetID ui
 // LookupAssetTransactions looks up transactions associated with a particular asset
 // (GET /v2/assets/{asset-id}/transactions)
 func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetID uint64, params generated.LookupAssetTransactionsParams) error {
-	if uint64(assetID) > math.MaxInt64 || (params.Round != nil && *params.Round > math.MaxInt64) {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
 	if err := si.verifyHandler("LookupAssetTransactions", ctx); err != nil {
 		return badRequest(ctx, err.Error())
 	}
-
+	if uint64(assetID) > math.MaxInt64 || (params.Round != nil && *params.Round > math.MaxInt64) {
+		return notFound(ctx, errValueExceedingInt64)
+	}
 	searchParams := generated.SearchForTransactionsParams{
 		AssetId:             uint64Ptr(assetID),
 		ApplicationId:       nil,
@@ -723,11 +740,11 @@ func (si *ServerImplementation) LookupAssetTransactions(ctx echo.Context, assetI
 // SearchForAssets returns assets matching the provided parameters
 // (GET /v2/assets)
 func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generated.SearchForAssetsParams) error {
-	if params.AssetId != nil && uint64(*params.AssetId) > math.MaxInt64 {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
 	if err := si.verifyHandler("SearchForAssets", ctx); err != nil {
 		return badRequest(ctx, err.Error())
+	}
+	if params.AssetId != nil && uint64(*params.AssetId) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
 	}
 
 	options, err := si.assetParamsToAssetQuery(params)
@@ -755,11 +772,11 @@ func (si *ServerImplementation) SearchForAssets(ctx echo.Context, params generat
 // LookupBlock returns the block for a given round number
 // (GET /v2/blocks/{round-number})
 func (si *ServerImplementation) LookupBlock(ctx echo.Context, roundNumber uint64) error {
-	if uint64(roundNumber) > math.MaxInt64 {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
 	if err := si.verifyHandler("LookupBlock", ctx); err != nil {
 		return badRequest(ctx, err.Error())
+	}
+	if uint64(roundNumber) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
 	}
 
 	blk, err := si.fetchBlock(ctx.Request().Context(), roundNumber)
@@ -816,13 +833,13 @@ func (si *ServerImplementation) LookupTransaction(ctx echo.Context, txid string)
 // SearchForTransactions returns transactions matching the provided parameters
 // (GET /v2/transactions)
 func (si *ServerImplementation) SearchForTransactions(ctx echo.Context, params generated.SearchForTransactionsParams) error {
+	if err := si.verifyHandler("SearchForTransactions", ctx); err != nil {
+		return badRequest(ctx, err.Error())
+	}
 	if (params.AssetId != nil && uint64(*params.AssetId) > math.MaxInt64) ||
 		(params.ApplicationId != nil && uint64(*params.ApplicationId) > math.MaxInt64) ||
 		(params.Round != nil && *params.Round > math.MaxInt64) {
-		return badRequest(ctx, errValueExceedingInt64)
-	}
-	if err := si.verifyHandler("SearchForTransactions", ctx); err != nil {
-		return badRequest(ctx, err.Error())
+		return notFound(ctx, errValueExceedingInt64)
 	}
 
 	filter, err := si.transactionParamsToTransactionFilter(params)

@@ -208,42 +208,6 @@ func TestTransactionParamToTransactionFilter(t *testing.T) {
 			filter:        idb.TransactionFilter{TypeEnum: idb.TypeEnumAssetTransfer, AssetAmountGT: uint64Ptr(10), Limit: defaultOpts.DefaultTransactionsLimit},
 			errorContains: nil,
 		},
-		{
-			"round math.MaxInt64",
-			generated.SearchForTransactionsParams{Round: uint64Ptr(math.MaxInt64)},
-			idb.TransactionFilter{Round: uint64Ptr(math.MaxInt64), Limit: defaultOpts.DefaultTransactionsLimit},
-			nil,
-		},
-		{
-			"round math.MaxInt64+1",
-			generated.SearchForTransactionsParams{Round: uint64Ptr(math.MaxInt64 + 1)},
-			idb.TransactionFilter{Round: uint64Ptr(math.MaxInt64 + 1), Limit: defaultOpts.DefaultTransactionsLimit},
-			[]string{errValueExceedingInt64},
-		},
-		{
-			"application-id math.MaxInt64",
-			generated.SearchForTransactionsParams{ApplicationId: uint64Ptr(math.MaxInt64)},
-			idb.TransactionFilter{ApplicationID: uint64(math.MaxInt64), Limit: defaultOpts.DefaultTransactionsLimit},
-			nil,
-		},
-		{
-			"application-id math.MaxInt64+1",
-			generated.SearchForTransactionsParams{ApplicationId: uint64Ptr(math.MaxInt64 + 1)},
-			idb.TransactionFilter{ApplicationID: uint64(math.MaxInt64), Limit: defaultOpts.DefaultTransactionsLimit},
-			[]string{errValueExceedingInt64},
-		},
-		{
-			"asset-id math.MaxInt64",
-			generated.SearchForTransactionsParams{ApplicationId: uint64Ptr(math.MaxInt64)},
-			idb.TransactionFilter{ApplicationID: uint64(math.MaxInt64), Limit: defaultOpts.DefaultTransactionsLimit},
-			nil,
-		},
-		{
-			"asset-id math.MaxInt64+1",
-			generated.SearchForTransactionsParams{ApplicationId: uint64Ptr(math.MaxInt64 + 1)},
-			idb.TransactionFilter{ApplicationID: uint64(math.MaxInt64), Limit: defaultOpts.DefaultTransactionsLimit},
-			[]string{errValueExceedingInt64},
-		},
 	}
 
 	for _, test := range tests {
@@ -323,6 +287,20 @@ func TestValidateTransactionFilter(t *testing.T) {
 			errorContains: []string{errValueExceedingInt64},
 		},
 		{
+			name: "MinRound > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				MinRound: uint64(math.MaxInt64 + 1),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "MaxRound > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				MaxRound: uint64(math.MaxInt64 + 1),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
 			name: "application-id > math.MaxInt64",
 			filter: idb.TransactionFilter{
 				ApplicationID: math.MaxInt64 + 1,
@@ -333,6 +311,55 @@ func TestValidateTransactionFilter(t *testing.T) {
 			name: "asset-id > math.MaxInt64",
 			filter: idb.TransactionFilter{
 				AssetID: math.MaxInt64 + 1,
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "offset > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				Offset: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "offsetLT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				OffsetLT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "offsetGT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				OffsetGT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "algosLT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				AlgosLT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "algosGT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				AlgosGT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "effectiveAmountLT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				EffectiveAmountLT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "effectiveAmountGT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				EffectiveAmountGT: uint64Ptr(uint64(math.MaxInt64 + 1)),
 			},
 			errorContains: []string{errValueExceedingInt64},
 		},
@@ -1205,7 +1232,7 @@ func TestBigNumbers(t *testing.T) {
 
 			// call handler
 			tc.callHandler(c, *si)
-			assert.Equal(t, http.StatusBadRequest, rec1.Code)
+			assert.Equal(t, http.StatusNotFound, rec1.Code)
 			bodyStr := rec1.Body.String()
 			require.Contains(t, bodyStr, tc.errString)
 
