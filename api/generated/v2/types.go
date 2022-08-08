@@ -488,7 +488,12 @@ type StateDelta []EvalDeltaKeyValue
 // StateProof defines model for StateProof.
 type StateProof struct {
 	PartProofs *MerkleArrayProof `json:"part-proofs,omitempty"`
-	Reveals    *StateProofReveal `json:"reveals,omitempty"`
+
+	// \[pr\] Sequence of reveal positions.
+	PositionsToReveal *[]uint64 `json:"positions-to-reveal,omitempty"`
+
+	// \[r\] Note that this is actually stored as a map[uint64] - Reveal in the actual msgp
+	Reveals *[]StateProofReveal `json:"reveals,omitempty"`
 
 	// \[v\] Salt version of the merkle signature.
 	SaltVersion *uint64           `json:"salt-version,omitempty"`
@@ -520,9 +525,7 @@ type StateProofMessage struct {
 
 // StateProofParticipant defines model for StateProofParticipant.
 type StateProofParticipant struct {
-
-	// \[p\]
-	Verifier *[]byte `json:"verifier,omitempty"`
+	Verifier *StateProofVerifier `json:"verifier,omitempty"`
 
 	// \[w\]
 	Weight *uint64 `json:"weight,omitempty"`
@@ -533,15 +536,16 @@ type StateProofReveal struct {
 	Participant *StateProofParticipant `json:"participant,omitempty"`
 
 	// The position in the signature and participants arrays corresponding to this entry.
-	Position *uint64 `json:"position,omitempty"`
+	Position *uint64            `json:"position,omitempty"`
+	SigSlot  *StateProofSigSlot `json:"sig-slot,omitempty"`
+}
 
-	// \[s\]
-	SigSlot *struct {
+// StateProofSigSlot defines model for StateProofSigSlot.
+type StateProofSigSlot struct {
 
-		// \[l\]
-		LowerSigWeight *uint64              `json:"lower-sig-weight,omitempty"`
-		Signature      *StateProofSignature `json:"signature,omitempty"`
-	} `json:"sig-slot,omitempty"`
+	// \[l\]
+	LowerSigWeight *uint64              `json:"lower-sig-weight,omitempty"`
+	Signature      *StateProofSignature `json:"signature,omitempty"`
 }
 
 // StateProofSignature defines model for StateProofSignature.
@@ -552,6 +556,16 @@ type StateProofSignature struct {
 
 	// \[vkey\]
 	VerifyingKey *[]byte `json:"verifying-key,omitempty"`
+}
+
+// StateProofVerifier defines model for StateProofVerifier.
+type StateProofVerifier struct {
+
+	// \[cmt\] Represents the root of the vector commitment tree.
+	Commitment *[]byte `json:"commitment,omitempty"`
+
+	// \[lf\] Key lifetime.
+	KeyLifetime *uint64 `json:"key-lifetime,omitempty"`
 }
 
 // StateSchema defines model for StateSchema.
@@ -935,9 +949,6 @@ type TransactionStateProof struct {
 	// Definition:
 	// crypto/stateproof/structs.go : StateProof
 	StateProof *StateProof `json:"state-proof,omitempty"`
-
-	// \[sprnd\] Latest round which corresponds to the state proof.
-	StateProofIntervalLatestRound *uint64 `json:"state-proof-interval-latest-round,omitempty"`
 
 	// \[sptype\] Type of the state proof. Integer representing an entry defined in protocol/stateproof.go
 	StateProofType *uint64 `json:"state-proof-type,omitempty"`

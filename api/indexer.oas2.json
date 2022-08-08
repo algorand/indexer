@@ -2050,10 +2050,6 @@
       "description": "Fields for a state proof transaction. \n\nDefinition:\ndata/transactions/stateproof.go : StateProofTxnFields",
       "type": "object",
       "properties": {
-        "state-proof-interval-latest-round": {
-          "description": "\\[sprnd\\] Latest round which corresponds to the state proof.",
-          "type": "integer"
-        },
         "state-proof-type": {
           "description": "\\[sptype\\] Type of the state proof. Integer representing an entry defined in protocol/stateproof.go",
           "type": "integer",
@@ -2282,8 +2278,19 @@
           "type": "integer"
         },
         "reveals": {
+          "type": "array",
           "description": "\\[r\\] Note that this is actually stored as a map[uint64] - Reveal in the actual msgp",
-          "$ref": "#/definitions/StateProofReveal"
+          "items": {
+            "$ref": "#/definitions/StateProofReveal"
+          }
+        },
+        "positions-to-reveal": {
+          "description": "\\[pr\\] Sequence of reveal positions.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          }
         }
       }
     },
@@ -2327,22 +2334,25 @@
         },
         "sig-slot": {
           "description": "\\[s\\]",
-          "type": "object",
-          "properties": {
-            "signature": {
-              "description": "",
-              "$ref": "#/definitions/StateProofSignature"
-            },
-            "lower-sig-weight": {
-              "description": "\\[l\\]",
-              "type": "integer",
-              "x-algorand-format": "uint64"
-            }
-          }
+          "$ref": "#/definitions/StateProofSigSlot"
         },
         "participant": {
           "description": "\\[p\\]",
           "$ref": "#/definitions/StateProofParticipant"
+        }
+      }
+    },
+    "StateProofSigSlot": {
+      "type": "object",
+      "properties": {
+        "signature": {
+          "description": "",
+          "$ref": "#/definitions/StateProofSignature"
+        },
+        "lower-sig-weight": {
+          "description": "\\[l\\]",
+          "type": "integer",
+          "x-algorand-format": "uint64"
         }
       }
     },
@@ -2372,13 +2382,27 @@
       "properties": {
          "verifier": {
            "description": "\\[p\\]",
-           "type": "string",
-           "format": "byte"
+           "$ref": "#/definitions/StateProofVerifier"
          },
         "weight": {
           "description": "\\[w\\]",
           "type": "integer",
-          "x-algorand-fotmart": "uint64"
+          "x-algorand-format": "uint64"
+        }
+      }
+    },
+    "StateProofVerifier": {
+      "type": "object",
+      "properties": {
+        "commitment": {
+          "description": "\\[cmt\\] Represents the root of the vector commitment tree.",
+          "type": "string",
+          "format": "byte"
+        },
+        "key-lifetime": {
+          "description": "\\[lf\\] Key lifetime.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
         }
       }
     },

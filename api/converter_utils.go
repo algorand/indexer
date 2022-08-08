@@ -304,6 +304,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 	var assetFreeze *generated.TransactionAssetFreeze
 	var assetTransfer *generated.TransactionAssetTransfer
 	var application *generated.TransactionApplication
+	var stateProof *generated.TransactionStateProof
 
 	switch stxn.Txn.Type {
 	case protocol.PaymentTx:
@@ -407,6 +408,92 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		}
 
 		application = &a
+	case protocol.StateProofTx:
+		partPath := make([]generated.GenericDigest, len(stxn.Txn.StateProof.PartProofs.Path))
+		for idx, part := range stxn.Txn.StateProof.PartProofs.Path {
+			partPath[idx] = generated.GenericDigest(part)
+		}
+
+		sigProofPath := make([]generated.GenericDigest, len(stxn.Txn.StateProof.SigProofs.Path))
+		for idx, sigPart := range stxn.Txn.StateProof.SigProofs.Path {
+			sigProofPath[idx] = generated.GenericDigest(sigPart)
+		}
+
+		sigCommit := generated.GenericDigest(stxn.Txn.StateProof.SigCommit)
+
+		reveals := make([]generated.StateProofReveal, len(stxn.Txn.StateProof.Reveals))
+		elems := 0
+		for key, revToConv := range stxn.Txn.StateProof.Reveals {
+			commitment := revToConv.Part.PK.Commitment[:]
+			falconSig := []byte(revToConv.SigSlot.Sig.Signature)
+			verifyKey := revToConv.SigSlot.Sig.VerifyingKey.PublicKey[:]
+			proofPath := make([]generated.GenericDigest, len(revToConv.SigSlot.Sig.Proof.Path))
+			for idx, proofPart := range revToConv.SigSlot.Sig.Proof.Path {
+				proofPath[idx] = generated.GenericDigest(proofPart)
+			}
+
+			reveals[elems] = generated.StateProofReveal{
+				Participant: &generated.StateProofParticipant{
+					Verifier: &generated.StateProofVerifier{
+						Commitment:  &commitment,
+						KeyLifetime: uint64Ptr(revToConv.Part.PK.KeyLifetime),
+					},
+					Weight: uint64Ptr(revToConv.Part.Weight),
+				},
+				Position: uint64Ptr(key),
+				SigSlot: &generated.StateProofSigSlot{
+					LowerSigWeight: uint64Ptr(revToConv.SigSlot.L),
+					Signature: &generated.StateProofSignature{
+						FalconSignature:  &falconSig,
+						MerkleArrayIndex: uint64Ptr(revToConv.SigSlot.Sig.VectorCommitmentIndex),
+						Proof: &generated.MerkleArrayProof{
+							HashFactory: &generated.HashFactory{
+								HashType: uint64Ptr(uint64(revToConv.SigSlot.Sig.Proof.HashFactory.HashType)),
+							},
+							Path:      &proofPath,
+							TreeDepth: uint64Ptr(uint64(revToConv.SigSlot.Sig.Proof.TreeDepth)),
+						},
+						VerifyingKey: &verifyKey,
+					},
+				},
+			}
+			elems++
+		}
+		proof := generated.StateProof{
+			PartProofs: &generated.MerkleArrayProof{
+				HashFactory: &generated.HashFactory{
+					HashType: uint64Ptr(uint64(stxn.Txn.StateProof.PartProofs.HashFactory.HashType)),
+				},
+				Path:      &partPath,
+				TreeDepth: uint64Ptr(uint64(stxn.Txn.StateProof.PartProofs.TreeDepth)),
+			},
+			Reveals:     &reveals,
+			SaltVersion: uint64Ptr(uint64(stxn.Txn.StateProof.MerkleSignatureSaltVersion)),
+			SigCommit:   &sigCommit,
+			SigProofs: &generated.MerkleArrayProof{
+				HashFactory: &generated.HashFactory{
+					HashType: uint64Ptr(uint64(stxn.Txn.StateProof.SigProofs.HashFactory.HashType)),
+				},
+				Path:      &sigProofPath,
+				TreeDepth: uint64Ptr(uint64(stxn.Txn.StateProof.SigProofs.TreeDepth)),
+			},
+			SignedWeight: uint64Ptr(stxn.Txn.StateProof.SignedWeight),
+		}
+
+		message := generated.StateProofMessage{
+			BlockHeadersCommitment: &stxn.Txn.Message.BlockHeadersCommitment,
+			FirstAttestedRound:     uint64Ptr(stxn.Txn.Message.FirstAttestedRound),
+			LatestAttestedRound:    uint64Ptr(stxn.Txn.Message.LastAttestedRound),
+			LnProvenWeight:         uint64Ptr(stxn.Txn.Message.LnProvenWeight),
+			VotersCommitment:       &stxn.Txn.Message.VotersCommitment,
+		}
+
+		proofTxn := generated.TransactionStateProof{
+			Message:        &message,
+			StateProof:     &proof,
+			StateProofType: uint64Ptr(uint64(stxn.Txn.StateProofType)),
+		}
+		stateProof = &proofTxn
 	}
 
 	var localStateDelta *[]generated.AccountStateDelta
@@ -486,6 +573,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		AssetTransferTransaction: assetTransfer,
 		PaymentTransaction:       payment,
 		KeyregTransaction:        keyreg,
+		StateProofTransaction:    stateProof,
 		ClosingAmount:            uint64Ptr(stxn.ClosingAmount.Raw),
 		ConfirmedRound:           uint64Ptr(extra.Round),
 		IntraRoundOffset:         uint64Ptr(uint64(extra.Intra)),
