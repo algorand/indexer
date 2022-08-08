@@ -630,8 +630,8 @@ func TestFetchTransactions(t *testing.T) {
 			response []generated.Transaction
 			created  uint64
 		}{
-			name:     "Key Registration with state proof key",
-			txnBytes: [][]byte{createTxn(t, "test_resources/keyregwithsprfkey.txn")},
+			name:     "State Proof Txn",
+			txnBytes: [][]byte{loadResourceFileOrPanic("test_resources/state_proof.txn")},
 		})
 	}
 

@@ -421,9 +421,17 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 
 		sigCommit := generated.GenericDigest(stxn.Txn.StateProof.SigCommit)
 
-		reveals := make([]generated.StateProofReveal, len(stxn.Txn.StateProof.Reveals))
+		// We need to iterate through these in order, to make sure our responses are deterministic
+		keys := make([]uint64, len(stxn.Txn.StateProof.Reveals))
 		elems := 0
-		for key, revToConv := range stxn.Txn.StateProof.Reveals {
+		for key := range stxn.Txn.StateProof.Reveals {
+			keys[elems] = key
+			elems++
+		}
+		sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+		reveals := make([]generated.StateProofReveal, len(stxn.Txn.StateProof.Reveals))
+		for _, key := range keys {
+			revToConv := stxn.Txn.StateProof.Reveals[key]
 			commitment := revToConv.Part.PK.Commitment[:]
 			falconSig := []byte(revToConv.SigSlot.Sig.Signature)
 			verifyKey := revToConv.SigSlot.Sig.VerifyingKey.PublicKey[:]
@@ -432,7 +440,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 				proofPath[idx] = generated.GenericDigest(proofPart)
 			}
 
-			reveals[elems] = generated.StateProofReveal{
+			reveals[key] = generated.StateProofReveal{
 				Participant: &generated.StateProofParticipant{
 					Verifier: &generated.StateProofVerifier{
 						Commitment:  &commitment,
@@ -457,7 +465,6 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 					},
 				},
 			}
-			elems++
 		}
 		proof := generated.StateProof{
 			PartProofs: &generated.MerkleArrayProof{
