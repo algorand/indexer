@@ -213,19 +213,10 @@ func MakeCreateAppTxn(sender basics.Address) transactions.SignedTxnWithAD {
 	}
 }
 
-// MakeComplexCreateAppTxn makes a transaction that creates an arbitrary app
-func MakeComplexCreateAppTxn(sender basics.Address, approval, clear string, assemblerVersion ...uint64) (transactions.SignedTxnWithAD, error) {
-	version := uint64(0)
-	numExtras := len(assemblerVersion)
-	if numExtras > 0 {
-		if numExtras > 1 {
-			return transactions.SignedTxnWithAD{}, fmt.Errorf("can only handle 1 extra arg but given %d", numExtras)
-		}
-		version = assemblerVersion[0]
-	}
-
+// MakeComplexCreateAppTxn makes a transaction that creates an arbitrary app. When assemblerVersion is set to 0, use the AssemblerDefaultVersion.
+func MakeComplexCreateAppTxn(sender basics.Address, approval, clear string, assemblerVersion uint64) (transactions.SignedTxnWithAD, error) {
 	// Create a transaction with ExtraProgramPages field set to 1
-	approvalOps, err := logic.AssembleStringWithVersion(approval, version)
+	approvalOps, err := logic.AssembleStringWithVersion(approval, assemblerVersion)
 	if err != nil {
 		return transactions.SignedTxnWithAD{}, err
 	}

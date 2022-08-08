@@ -1574,6 +1574,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	Box 3: inserted and deleted
 	Box 4: inserted, mutated and deleted
 	Box 5: inserted, deleted and re-inserted
+	Box 6: inserted after Box 2 is set
 	*/
 
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
@@ -1583,7 +1584,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	block.BlockHeader.Round = basics.Round(1)
 	delta := ledgercore.StateDelta{}
 
-	blockAdder := func(tx pgx.Tx) error {
+	addNewBlock := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
@@ -1620,7 +1621,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	delta2, newKvMods, accts := test.BuildAccountDeltasFromKvsAndMods(t, map[string]*string{}, delta.KvMods)
 	delta.Accts = delta2.Accts
 
-	err := pgutil.TxWithRetry(db, serializable, blockAdder, nil)
+	err := pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
 	require.NoError(t, err)
 
 	validateRow := func(expectedName string, expectedValue string) {
@@ -1666,22 +1667,26 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 
 	validateTotals()
 
-	/*** SECOND ROUND - mutate 2, delete 3, mutate 4, delete 5 ***/
+	/*** SECOND ROUND - mutate 2, delete 3, mutate 4, delete 5, create 6 ***/
 	v2 = "mutated"
 	// v3 is "deleted"
 	v4 = "mutated"
 	// v5 is "deleted"
+	n6, v6 := "box6", "inserted"
+
+	k6 := logic.MakeBoxKey(appID, n6)
 
 	delta.KvMods = map[string]*string{}
 	delta.KvMods[k2] = &v2
 	delta.KvMods[k3] = nil
 	delta.KvMods[k4] = &v4
 	delta.KvMods[k5] = nil
+	delta.KvMods[k6] = &v6
 
 	delta2, newKvMods, accts = test.BuildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
 
-	err = pgutil.TxWithRetry(db, serializable, blockAdder, nil)
+	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
 	require.NoError(t, err)
 
 	validateRow(n1, v1) // untouched
@@ -1704,7 +1709,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	delta2, newKvMods, accts = test.BuildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
 
-	err = pgutil.TxWithRetry(db, serializable, blockAdder, nil)
+	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
 	require.NoError(t, err)
 
 	validateRow(n1, v1)         // untouched
@@ -1720,7 +1725,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	delta2, _, accts = test.BuildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
 
-	err = pgutil.TxWithRetry(db, serializable, blockAdder, nil)
+	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
 	require.NoError(t, err)
 
 	validateRow(n1, v1)         // untouched
