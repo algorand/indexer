@@ -13,17 +13,14 @@ import (
 )
 
 import (
-
-	// Make sure the package init() function is called
-	_ "github.com/algorand/indexer/exporters/noop"
-	_ "github.com/algorand/indexer/exporters/postgresql"
-	_ "github.com/algorand/indexer/importers/algod"
-	_ "github.com/algorand/indexer/processors/blockprocessor"
-	_ "github.com/algorand/indexer/processors/noop"
+	_ "github.com/algorand/indexer/exporters/all"
+	_ "github.com/algorand/indexer/importers/all"
+	_ "github.com/algorand/indexer/processors/all"
 )
 
 var (
 	logger *log.Logger
+	defaultLogLevel string
 )
 
 // init() function for main package
@@ -31,11 +28,18 @@ func init() {
 
 	// Setup logger
 	logger = log.New()
-	logger.SetFormatter(&log.JSONFormatter{
-		DisableHTMLEscape: true,
-	})
+
+	formatter := conduit.PluginLogFormatter{
+		Formatter: &log.JSONFormatter{
+			DisableHTMLEscape: true,
+		},
+		Type: "Conduit",
+		Name: "main",
+	}
+
+	logger.SetFormatter(&formatter)
 	logger.SetOutput(os.Stdout)
-	logger.SetLevel(log.InfoLevel)
+	defaultLogLevel = "info"
 }
 
 // conduitCmd creates the main cobra command, initializes flags, and viper aliases
@@ -61,6 +65,11 @@ func conduitCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			logLevel, _ := log.ParseLevel(pCfg.PipelineLogLevel)
+			logger.Infof("Log level set to: %s", pCfg.PipelineLogLevel)
+
+			logger.SetLevel(logLevel)
 
 			var initProvider data.InitProvider = &conduit.AlgodInitProvider{}
 

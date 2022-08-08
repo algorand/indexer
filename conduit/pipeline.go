@@ -21,6 +21,8 @@ const autoLoadParameterConfigName = "conduit.yml"
 // PipelineConfig stores configuration specific to the conduit pipeline
 type PipelineConfig struct {
 	ConduitConfig *Config
+
+	PipelineLogLevel string `yaml:"LogLevel"`
 	// Store a local copy to access parent variables
 	Importer   map[string]interface{}   `yaml:"Importer"`
 	Processors []map[string]interface{} `yaml:"Processors"`
@@ -33,12 +35,12 @@ func (cfg *PipelineConfig) Valid() error {
 		return fmt.Errorf("conduit configuration was nil")
 	}
 
-	if len(cfg.Importer) == 0 {
-		return fmt.Errorf("importer configuration was empty")
+	if _, err := log.ParseLevel(cfg.PipelineLogLevel); err != nil {
+		return fmt.Errorf("pipeline log level (%s) was invalid: %w", cfg.PipelineLogLevel, err)
 	}
 
-	if len(cfg.Processors) == 0 {
-		return fmt.Errorf("processor configuration was empty")
+	if len(cfg.Importer) == 0 {
+		return fmt.Errorf("importer configuration was empty")
 	}
 
 	if len(cfg.Exporter) == 0 {
@@ -59,7 +61,7 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 		return nil, err
 	}
 
-	pCfg := PipelineConfig{ConduitConfig: cfg}
+	pCfg := PipelineConfig{PipelineLogLevel: logger.Level.String(), ConduitConfig: cfg}
 
 	// Search for pipeline configuration in data directory
 	autoloadParamConfigPath := filepath.Join(cfg.ConduitDataDir, autoLoadParameterConfigName)
@@ -114,7 +116,18 @@ func (p *pipelineImpl) Start() error {
 
 	// TODO need to change config to map[string]interface{}
 
-	err := (*p.importer).Init(p.ctx, "", p.logger)
+	importerLogger := log.New()
+	importerLogger.SetFormatter(
+		PluginLogFormatter{
+			Formatter: &log.JSONFormatter{
+				DisableHTMLEscape: true,
+			},
+			Type: "Importer",
+			Name: (*p.importer).Metadata().Name(),
+		},
+	)
+
+	err := (*p.importer).Init(p.ctx, "", importerLogger)
 	importerName := (*p.importer).Metadata().Name()
 	if err != nil {
 		return fmt.Errorf("could not initialize importer (%s): %w", importerName, err)
@@ -122,6 +135,18 @@ func (p *pipelineImpl) Start() error {
 	p.logger.Infof("Initialized Importer: %s", importerName)
 
 	for _, processor := range p.processors {
+
+		processorLogger := log.New()
+		processorLogger.SetFormatter(
+			PluginLogFormatter{
+				Formatter: &log.JSONFormatter{
+					DisableHTMLEscape: true,
+				},
+				Type: "Processor",
+				Name: (*processor).Metadata().Name(),
+			},
+		)
+
 		err := (*processor).Init(p.ctx, *p.initProvider, "")
 		processorName := (*processor).Metadata().Name()
 		if err != nil {
@@ -130,6 +155,17 @@ func (p *pipelineImpl) Start() error {
 		p.logger.Infof("Initialized Processor: %s", processorName)
 
 	}
+
+	exporterLogger := log.New()
+	exporterLogger.SetFormatter(
+		PluginLogFormatter{
+			Formatter: &log.JSONFormatter{
+				DisableHTMLEscape: true,
+			},
+			Type: "Exporter",
+			Name: (*p.exporter).Metadata().Name(),
+		},
+	)
 
 	err = (*p.exporter).Init("", p.logger)
 	ExporterName := (*p.exporter).Metadata().Name()

@@ -17,11 +17,6 @@ type noopExporter struct {
 	cfg   plugins.PluginConfig
 }
 
-// package-wide init function
-func init() {
-	exporters.RegisterExporter("noop", &Constructor{})
-}
-
 var noopExporterMetadata exporters.ExporterMetadata = exporters.ExporterMetadata{
 	ExpName:        "noop",
 	ExpDescription: "noop exporter",
