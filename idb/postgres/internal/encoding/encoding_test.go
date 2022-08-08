@@ -603,7 +603,7 @@ func TestLcAccountDataEncoding(t *testing.T) {
 	assert.Equal(t, ad, decodedAd)
 }
 
-// structFields recursively gets all fields names in a struct
+// structFields recursively gets all field names in a struct
 func structFields(theStruct interface{}, skip map[string]bool, names map[string]bool) {
 	rStruct := reflect.TypeOf(theStruct)
 	numFields := rStruct.NumField()
