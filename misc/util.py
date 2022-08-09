@@ -175,7 +175,7 @@ def firstFromS3Prefix(
 
     atexit.register(report)
 
-    response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=50)
+    response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=100)
     if (not response.get("KeyCount")) or ("Contents" not in response):
         raise Exception("nothing found in s3://{}/{}".format(bucket, prefix))
     for x in response["Contents"]:
