@@ -27,7 +27,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/encoding"
 	"github.com/algorand/indexer/idb/postgres/internal/schema"
-	pgtest2 "github.com/algorand/indexer/idb/postgres/internal/testing"
+	pgtest "github.com/algorand/indexer/idb/postgres/internal/testing"
 	pgutil "github.com/algorand/indexer/idb/postgres/internal/util"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/processor/blockprocessor"
@@ -37,7 +37,7 @@ import (
 
 // TestMaxRoundOnUninitializedDB makes sure we return 0 when getting the max round on a new DB.
 func TestMaxRoundOnUninitializedDB(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -55,7 +55,7 @@ func TestMaxRoundOnUninitializedDB(t *testing.T) {
 
 // TestMaxRound the happy path.
 func TestMaxRound(t *testing.T) {
-	db, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
+	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -79,7 +79,7 @@ func TestMaxRound(t *testing.T) {
 }
 
 func TestAccountedRoundNextRound0(t *testing.T) {
-	db, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
+	db, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	pdb, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -105,7 +105,7 @@ func TestAccountedRoundNextRound0(t *testing.T) {
 // TestMaxConnection tests that when setting the maximum connection to a value, that it is
 // accurately set and that acquiring connections accurately depletes the pool
 func TestMaxConnection(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	// Open Postgres with a maximum of 2 connections locally
@@ -1021,7 +1021,7 @@ func TestLargeAssetAmount(t *testing.T) {
 // Test that initializing a new database sets the correct migration number and
 // that the database is available.
 func TestInitializationNewDatabase(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	db, availableCh, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -1039,7 +1039,7 @@ func TestInitializationNewDatabase(t *testing.T) {
 
 // Test that opening the database the second time (after initializing) is successful.
 func TestOpenDbAgain(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	for i := 0; i < 2; i++ {
@@ -1404,7 +1404,7 @@ func TestAddBlockAssetCloseAmountInTxnExtra(t *testing.T) {
 }
 
 func TestAddBlockIncrementsMaxRoundAccounted(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -1703,7 +1703,7 @@ func TestSearchForInnerTransactionReturnsRootTransaction(t *testing.T) {
 	}
 
 	// Given: A DB with one transaction containing inner transactions [app -> pay -> xfer]
-	pdb, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
+	pdb, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	db := setupIdbWithConnectionString(t, connStr, test.MakeGenesis())
@@ -1853,7 +1853,7 @@ func TestNonUTF8Logs(t *testing.T) {
 
 // Test that LoadGenesis writes account totals.
 func TestLoadGenesisAccountTotals(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	db, _, err := OpenPostgres(connStr, idb.IndexerDbOptions{}, nil)
@@ -2103,7 +2103,7 @@ func TestTransactionsTxnAhead(t *testing.T) {
 // Test that if genesis hash is different from what is in db metastate
 // indexer does not start.
 func TestGenesisHashCheckAtDBSetup(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	genesis := test.MakeGenesis()
@@ -2132,7 +2132,7 @@ type ImportState struct {
 // Test that if genesis hash at initial import is different from what is in db metastate
 // indexer does not start.
 func TestGenesisHashCheckAtInitialImport(t *testing.T) {
-	_, connStr, shutdownFunc := pgtest2.SetupPostgres(t)
+	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
 	defer shutdownFunc()
 
 	genesis := test.MakeGenesis()
