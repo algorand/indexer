@@ -2101,7 +2101,7 @@ func TestTransactionsTxnAhead(t *testing.T) {
 	}
 }
 
-// Test that if genesis hash is different from what is in db metastate
+// Test that if genesis hash is different fro,m what is in db metastate
 // indexer does not start.
 func TestGenesisHashCheckAtDBSetup(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
@@ -2254,6 +2254,55 @@ func TestIndexerDb_GetAccounts(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Test that AddBlock() writes to `txn_participation` table.
+func TestTransactionFilterAssetAmount(t *testing.T) {
+	block := test.MakeGenesisBlock()
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+	defer l.Close()
+
+	// AssetAmountLT
+	txnA := test.MakeAssetConfigTxn(0, 100, 0, false, "test", "test", "", test.AccountA)
+	txnB := test.MakeAssetOptInTxn(1, test.AccountB)
+	txnC := test.MakeAssetTransferTxn(1, 10, test.AccountA, test.AccountB, basics.Address{})
+
+	block, err := test.MakeBlockForTxns(block.BlockHeader, &txnA, &txnB, &txnC)
+	require.NoError(t, err)
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+
+	// query
+	filter := idb.TransactionFilter{AssetAmountLT: uint64Ptr(uint64(math.MaxInt64 + 1))}
+	rowsCh, _ := db.Transactions(context.Background(), filter)
+
+	row, ok := <-rowsCh
+	require.True(t, ok)
+	require.NoError(t, row.Error)
+	require.NotNil(t, row.Txn)
+	assert.Equal(t, txnC, *row.Txn)
+
+	// AssetAmountGT
+	txnD := test.MakeAssetConfigTxn(0, math.MaxUint64, 0, false, "test2", "test2", "", test.AccountA)
+	txnE := test.MakeAssetOptInTxn(4, test.AccountB)
+	txnF := test.MakeAssetTransferTxn(4, math.MaxUint64, test.AccountA, test.AccountB, basics.Address{})
+
+	block, err = test.MakeBlockForTxns(block.BlockHeader, &txnD, &txnE, &txnF)
+	require.NoError(t, err)
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+
+	// query
+	filter = idb.TransactionFilter{AssetAmountGT: uint64Ptr(uint64(math.MaxInt64 + 1))}
+	rowsCh, _ = db.Transactions(context.Background(), filter)
+
+	row, ok = <-rowsCh
+	require.True(t, ok)
+	require.NoError(t, row.Error)
+	require.NotNil(t, row.Txn)
+	assert.Equal(t, txnF, *row.Txn)
+
 }
 
 // Test that box evolution is ingested as expected across rounds
