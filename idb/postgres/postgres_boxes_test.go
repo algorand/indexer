@@ -25,8 +25,8 @@ import (
 	"github.com/algorand/indexer/util/test"
 )
 
-// CompareAppBoxesAgainstDB is of type testing.BoxTestComparator
-func CompareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
+// compareAppBoxesAgainstDB is of type testing.BoxTestComparator
+func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 	appBoxes map[basics.AppIndex]map[string]string,
 	deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool) {
 
@@ -441,15 +441,15 @@ func TestRandomWriteReadBoxes(t *testing.T) {
 
 	appBoxes, delta := createBoxesWithDelta(t, 10, 2500)
 	addAppBoxesBlock(t, db, delta)
-	CompareAppBoxesAgainstDB(t, db, appBoxes, nil, false)
+	compareAppBoxesAgainstDB(t, db, appBoxes, nil, false)
 
 	delta = mutateSomeBoxesWithDelta(t, appBoxes)
 	addAppBoxesBlock(t, db, delta)
-	CompareAppBoxesAgainstDB(t, db, appBoxes, nil, false)
+	compareAppBoxesAgainstDB(t, db, appBoxes, nil, false)
 
 	deletedBoxes, delta := deleteSomeBoxesWithDelta(t, appBoxes)
 	addAppBoxesBlock(t, db, delta)
-	CompareAppBoxesAgainstDB(t, db, appBoxes, deletedBoxes, false)
+	compareAppBoxesAgainstDB(t, db, appBoxes, deletedBoxes, false)
 
 	fmt.Printf("TestWriteReadBoxes total time: %s\n", time.Since(start))
 }
