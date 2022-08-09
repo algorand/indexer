@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"path"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/algorand/go-algorand/data/basics"
@@ -37,18 +38,26 @@ func init() {
 
 func MockAlgodServerReturnsEmptyBlock() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		rnd, _ := strconv.Atoi(path.Base(r.URL.Path))
-		blk := rpcs.EncodedBlockCert{Block: bookkeeping.Block{BlockHeader: bookkeeping.BlockHeader{Round: basics.Round(rnd)}}}
-		var blockbytes []byte
-		w.WriteHeader(http.StatusOK)
-		response := struct {
-			Block bookkeeping.Block `codec:"block"`
-		}{
-			Block: blk.Block,
+
+		if strings.Contains(r.URL.Path, "/genesis") {
+			w.WriteHeader(http.StatusOK)
+			genesis := &bookkeeping.Genesis{}
+			blockbytes := protocol.EncodeJSON(*genesis)
+			w.Write(blockbytes)
+		} else {
+			rnd, _ := strconv.Atoi(path.Base(r.URL.Path))
+			blk := rpcs.EncodedBlockCert{Block: bookkeeping.Block{BlockHeader: bookkeeping.BlockHeader{Round: basics.Round(rnd)}}}
+			var blockbytes []byte
+			w.WriteHeader(http.StatusOK)
+			response := struct {
+				Block bookkeeping.Block `codec:"block"`
+			}{
+				Block: blk.Block,
+			}
+			enc := codec.NewEncoderBytes(&blockbytes, protocol.CodecHandle)
+			enc.Encode(response)
+			w.Write(blockbytes)
 		}
-		enc := codec.NewEncoderBytes(&blockbytes, protocol.CodecHandle)
-		enc.Encode(response)
-		w.Write(blockbytes)
 	}))
 }
 
