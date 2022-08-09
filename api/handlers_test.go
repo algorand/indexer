@@ -279,6 +279,90 @@ func TestValidateTransactionFilter(t *testing.T) {
 			errorContains: []string{
 				errZeroAddressAssetSenderRole, errZeroAddressAssetCloseToRole},
 		},
+		{
+			name: "Round > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				Round: uint64Ptr(math.MaxInt64 + 1),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "MinRound > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				MinRound: uint64(math.MaxInt64 + 1),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "MaxRound > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				MaxRound: uint64(math.MaxInt64 + 1),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "application-id > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				ApplicationID: math.MaxInt64 + 1,
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "asset-id > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				AssetID: math.MaxInt64 + 1,
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "offset > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				Offset: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "offsetLT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				OffsetLT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "offsetGT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				OffsetGT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "algosLT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				AlgosLT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "algosGT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				AlgosGT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "effectiveAmountLT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				EffectiveAmountLT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "effectiveAmountGT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				EffectiveAmountGT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
 	}
 
 	for _, test := range tests {
@@ -963,6 +1047,195 @@ func TestApplicationLimits(t *testing.T) {
 				Limit: tc.limit,
 			})
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestBigNumbers(t *testing.T) {
+
+	testcases := []struct {
+		name        string
+		errString   string
+		callHandler func(ctx echo.Context, si ServerImplementation) error
+	}{
+		{
+			name:      "SearchForTransactionsInvalidRound",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForTransactions(ctx, generated.SearchForTransactionsParams{Round: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "SearchForTransactionsInvalidAppID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForTransactions(ctx, generated.SearchForTransactionsParams{ApplicationId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "SearchForTransactionsInvalidAssetID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForTransactions(ctx, generated.SearchForTransactionsParams{AssetId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAccountTransactionsInvalidRound",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountTransactions(ctx, "", generated.LookupAccountTransactionsParams{Round: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAccountTransactionsInvalidAssetID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountTransactions(ctx, "", generated.LookupAccountTransactionsParams{AssetId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAssetTransactionsInvalidAssetID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAssetTransactions(ctx, math.MaxInt64+1, generated.LookupAssetTransactionsParams{})
+			},
+		},
+		{
+			name:      "LookupAssetTransactionsInvalidRound",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAssetTransactions(ctx, 12, generated.LookupAssetTransactionsParams{Round: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupApplicaitonLogsByID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupApplicationLogsByID(ctx, math.MaxInt64+1, generated.LookupApplicationLogsByIDParams{})
+			},
+		},
+		{
+			name:      "LookupApplicationByID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupApplicationByID(ctx, math.MaxInt64+1, generated.LookupApplicationByIDParams{})
+			},
+		},
+		{
+			name:      "SearchForApplications",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForApplications(ctx, generated.SearchForApplicationsParams{ApplicationId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "SearchForAccountInvalidRound",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForAccounts(ctx, generated.SearchForAccountsParams{Round: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "SearchForAccountInvalidAppID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForAccounts(ctx, generated.SearchForAccountsParams{ApplicationId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "SearchForAccountInvalidAssetID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForAccounts(ctx, generated.SearchForAccountsParams{AssetId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAccountByID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountByID(ctx,
+					"PBH2JQNVP5SBXLTOWNHHPGU6FUMBVS4ZDITPK5RA5FG2YIIFS6UYEMFM2Y",
+					generated.LookupAccountByIDParams{Round: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "SearchForAssets",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForAssets(ctx, generated.SearchForAssetsParams{AssetId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAssetByID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAssetByID(ctx, math.MaxInt64+1, generated.LookupAssetByIDParams{})
+			},
+		},
+		{
+			name:      "LookupAssetBalances",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAssetBalances(ctx, math.MaxInt64+1, generated.LookupAssetBalancesParams{})
+			},
+		},
+		{
+			name:      "LookupBlock",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupBlock(ctx, math.MaxInt64+1)
+			},
+		},
+		{
+			name:      "LookupAccountAppLocalStates",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountAppLocalStates(ctx, "10", generated.LookupAccountAppLocalStatesParams{ApplicationId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAccountAssets",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountAssets(ctx, "10", generated.LookupAccountAssetsParams{AssetId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAccountCreatedApplications",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountCreatedApplications(ctx, "10", generated.LookupAccountCreatedApplicationsParams{ApplicationId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAccountCreatedAssets",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountCreatedAssets(ctx, "10", generated.LookupAccountCreatedAssetsParams{AssetId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			// Make a mock indexer.
+			mockIndexer := &mocks.IndexerDb{}
+
+			si := testServerImplementation(mockIndexer)
+
+			// Setup context...
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec1 := httptest.NewRecorder()
+			c := e.NewContext(req, rec1)
+
+			// call handler
+			tc.callHandler(c, *si)
+			assert.Equal(t, http.StatusNotFound, rec1.Code)
+			bodyStr := rec1.Body.String()
+			require.Contains(t, bodyStr, tc.errString)
+
 		})
 	}
 }

@@ -582,12 +582,12 @@ func buildTransactionQuery(tf idb.TransactionFilter) (query string, whereArgs []
 		partNumber++
 	}
 	if tf.AssetAmountGT != nil {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::bigint > $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::numeric(20) > $%d", partNumber))
 		whereArgs = append(whereArgs, *tf.AssetAmountGT)
 		partNumber++
 	}
 	if tf.AssetAmountLT != nil {
-		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::bigint < $%d", partNumber))
+		whereParts = append(whereParts, fmt.Sprintf("(t.txn -> 'txn' -> 'aamt')::numeric(20) < $%d", partNumber))
 		whereArgs = append(whereArgs, *tf.AssetAmountLT)
 		partNumber++
 	}
