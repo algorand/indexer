@@ -427,6 +427,11 @@ func addAppBoxesBlock(t *testing.T, db *IndexerDb, delta ledgercore.StateDelta) 
 	require.NoError(t, err)
 }
 
+// Integration test for validating that box evolution is ingested as expected across rounds using database to compare
+func TestBoxCreateMutateDeleteAgainstDB(t *testing.T) {
+	runBoxCreateMutateDelete(t, compareAppBoxesAgainstDB)
+}
+
 // Write random apps with random box names and values, then read them from indexer DB and compare.
 // NOTE: this does not populate TotalBoxes nor TotalBoxBytes deep under StateDeltas.Accts and therefore
 // no query is taken to compare the summary box information in `account.account_data`
