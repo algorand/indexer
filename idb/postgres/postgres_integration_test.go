@@ -2257,5 +2257,5 @@ func TestIndexerDb_GetAccounts(t *testing.T) {
 
 // Test that box evolution is ingested as expected across rounds using database to compare
 func TestBoxCreateMutateDeleteAgainstDB(t *testing.T) {
-	RunBoxCreateMutateDelete(t, compareAppBoxesAgainstDB)
+	runBoxCreateMutateDelete(t, compareAppBoxesAgainstDB)
 }

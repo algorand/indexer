@@ -1433,8 +1433,8 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 	}
 }
 
-// CompareAppBoxesAgainstHandler is of type BoxTestComparator
-func CompareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
+// compareAppBoxesAgainstHandler is of type BoxTestComparator
+func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 	appBoxes map[basics.AppIndex]map[string]string, deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool) {
 
 	setupRequest := func(path, paramName, paramValue string) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
@@ -1565,11 +1565,11 @@ func CompareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 		caseNum++
 	}
 
-	fmt.Printf("CompareAppBoxesAgainstHandler succeeded with %d requests, %d boxes and %d boxBytes\n", numRequests, sumOfBoxes, sumOfBoxBytes)
+	fmt.Printf("compareAppBoxesAgainstHandler succeeded with %d requests, %d boxes and %d boxBytes\n", numRequests, sumOfBoxes, sumOfBoxBytes)
 }
 
 // test runner copy/pastad/tweaked in handlers_e2e_test.go and postgres_integration_test.go
-func RunBoxCreateMutateDelete(t *testing.T, comparator postgres.BoxTestComparator) {
+func runBoxCreateMutateDelete(t *testing.T, comparator postgres.BoxTestComparator) {
 	start := time.Now()
 
 	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
@@ -1782,10 +1782,10 @@ func RunBoxCreateMutateDelete(t *testing.T, comparator postgres.BoxTestComparato
 
 	comparator(t, db, expectedAppBoxes, nil, true)
 
-	fmt.Printf("RunBoxCreateMutateDelete total time: %s\n", time.Since(start))
+	fmt.Printf("runBoxCreateMutateDelete total time: %s\n", time.Since(start))
 }
 
 // Test that box evolution is ingested as expected across rounds using API to compare
 func TestBoxCreateMutateDeleteAgainstHandler(t *testing.T) {
-	RunBoxCreateMutateDelete(t, CompareAppBoxesAgainstHandler)
+	runBoxCreateMutateDelete(t, compareAppBoxesAgainstHandler)
 }

@@ -74,9 +74,7 @@ def main():
     if not (source_is_tar or (sourcenet and os.path.isdir(sourcenet))):
         tarname = args.s3_source_net
         if not tarname:
-            raise Exception(
-                "Must provide either local or s3 network to run test against"
-            )
+            raise Exception("Must provide either local or s3 network to run test against")
         tarname = f"{tarname}.tar.bz2"
 
         # fetch test data from S3

@@ -96,11 +96,11 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 		caseNum++
 	}
 
-	fmt.Printf("CompareAppBoxesAgainstDB succeeded with %d queries, %d boxes and %d boxBytes\n", numQueries, sumOfBoxes, sumOfBoxBytes)
+	fmt.Printf("compareAppBoxesAgainstDB succeeded with %d queries, %d boxes and %d boxBytes\n", numQueries, sumOfBoxes, sumOfBoxBytes)
 }
 
 // test runner copy/pastad/tweaked in handlers_e2e_test.go and postgres_integration_test.go
-func RunBoxCreateMutateDelete(t *testing.T, comparator BoxTestComparator) {
+func runBoxCreateMutateDelete(t *testing.T, comparator BoxTestComparator) {
 	start := time.Now()
 
 	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
@@ -314,7 +314,7 @@ func RunBoxCreateMutateDelete(t *testing.T, comparator BoxTestComparator) {
 
 	comparator(t, db, expectedAppBoxes, nil, true)
 
-	fmt.Printf("TestBoxCreateMutateDelete total time: %s\n", time.Since(start))
+	fmt.Printf("runBoxCreateMutateDelete total time: %s\n", time.Since(start))
 }
 
 // generateBoxes generates a random slice of box keys and values for an app using future consensus params for guidance.
