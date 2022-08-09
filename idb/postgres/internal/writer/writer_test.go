@@ -1733,6 +1733,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	validateRow(n3, notPresent) // still deleted
 	validateRow(n4, notPresent) // still deleted
 	validateRow(n5, v5)         // untouched
+	validateRow(n6, v6)         // untouched
 
 	validateTotals()
 }
