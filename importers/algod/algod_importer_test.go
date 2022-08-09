@@ -63,7 +63,7 @@ func TestImporterorterMetadata(t *testing.T) {
 
 func TestCloseSuccess(t *testing.T) {
 	testImporter = New()
-	err := testImporter.Init(ctx, s, logger)
+	_, err := testImporter.Init(ctx, s, logger)
 	assert.NoError(t, err)
 	err = testImporter.Close()
 	assert.NoError(t, err)
@@ -71,7 +71,7 @@ func TestCloseSuccess(t *testing.T) {
 
 func TestInitSuccess(t *testing.T) {
 	testImporter = New()
-	err := testImporter.Init(ctx, s, logger)
+	_, err := testImporter.Init(ctx, s, logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
 	testImporter.Close()
@@ -79,7 +79,7 @@ func TestInitSuccess(t *testing.T) {
 
 func TestInitUnmarshalFailure(t *testing.T) {
 	testImporter = New()
-	err := testImporter.Init(ctx, "`", logger)
+	_, err := testImporter.Init(ctx, "`", logger)
 	assert.Error(t, err)
 	assert.ErrorContains(t, err, "connect failure in unmarshalConfig")
 	testImporter.Close()
@@ -96,7 +96,7 @@ func TestConfigDefault(t *testing.T) {
 
 func TestGetBlockFailure(t *testing.T) {
 	testImporter = New()
-	err := testImporter.Init(ctx, s, logger)
+	_, err := testImporter.Init(ctx, s, logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
 
@@ -108,7 +108,7 @@ func TestGetBlockFailure(t *testing.T) {
 func TestGetBlockSuccess(t *testing.T) {
 	ts := MockAlgodServerReturnsEmptyBlock()
 	testImporter = New()
-	err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
+	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
 

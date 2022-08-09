@@ -9,7 +9,6 @@ import (
 
 	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/config"
-	"github.com/algorand/indexer/data"
 )
 
 import (
@@ -19,7 +18,7 @@ import (
 )
 
 var (
-	logger *log.Logger
+	logger          *log.Logger
 	defaultLogLevel string
 )
 
@@ -71,11 +70,9 @@ func conduitCmd() *cobra.Command {
 
 			logger.SetLevel(logLevel)
 
-			var initProvider data.InitProvider = &conduit.AlgodInitProvider{}
-
 			logger.Info("Conduit configuration is valid")
 
-			pipeline, err := conduit.MakePipeline(pCfg, logger, &initProvider)
+			pipeline, err := conduit.MakePipeline(pCfg, logger)
 			if err != nil {
 				return fmt.Errorf("pipeline creation error: %w", err)
 			}

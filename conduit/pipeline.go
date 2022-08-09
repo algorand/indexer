@@ -3,6 +3,8 @@ package conduit
 import (
 	"context"
 	"fmt"
+	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/indexer/plugins"
 
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -127,7 +129,17 @@ func (p *pipelineImpl) Start() error {
 		},
 	)
 
-	err := (*p.importer).Init(p.ctx, "", importerLogger)
+	// TODO modify/fix ?
+	jsonEncode := string(json.Encode(p.cfg.Importer["Config"]))
+	genesis, err := (*p.importer).Init(p.ctx, plugins.PluginConfig(jsonEncode), importerLogger)
+
+	var initProvider data.InitProvider = &PipelineInitProvider{
+		currentRound: 0,
+		genesis:      genesis,
+	}
+
+	p.initProvider = &initProvider
+
 	importerName := (*p.importer).Metadata().Name()
 	if err != nil {
 		return fmt.Errorf("could not initialize importer (%s): %w", importerName, err)
@@ -198,7 +210,7 @@ func (p *pipelineImpl) Stop() error {
 }
 
 // MakePipeline creates a Pipeline
-func MakePipeline(cfg *PipelineConfig, logger *log.Logger, initProvider *data.InitProvider) (Pipeline, error) {
+func MakePipeline(cfg *PipelineConfig, logger *log.Logger) (Pipeline, error) {
 
 	if cfg == nil {
 		return nil, fmt.Errorf("pipeline config was empty")
@@ -212,15 +224,11 @@ func MakePipeline(cfg *PipelineConfig, logger *log.Logger, initProvider *data.In
 		return nil, fmt.Errorf("logger was empty")
 	}
 
-	if initProvider == nil {
-		return nil, fmt.Errorf("init provider was empty")
-	}
-
 	pipeline := &pipelineImpl{
 		ctx:          context.Background(),
 		cfg:          cfg,
 		logger:       logger,
-		initProvider: initProvider,
+		initProvider: nil,
 		importer:     nil,
 		processors:   []*processors.Processor{},
 		exporter:     nil,
