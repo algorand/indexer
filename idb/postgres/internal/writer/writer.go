@@ -9,6 +9,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/data/transactions/logic"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/jackc/pgx/v4"
 
@@ -32,6 +33,8 @@ const (
 	deleteAccountAssetStmtName         = "delete_account_asset"
 	deleteAppStmtName                  = "delete_app"
 	deleteAccountAppStmtName           = "delete_account_app"
+	upsertAppBoxStmtName               = "upsert_app_box"
+	deleteAppBoxStmtName               = "delete_app_box"
 	updateAccountTotalsStmtName        = "update_account_totals"
 )
 
@@ -104,6 +107,12 @@ var statements = map[string]string{
 		(addr, app, localstate, deleted, created_at, closed_at)
 		VALUES($1, $2, 'null'::jsonb, TRUE, $3, $3) ON CONFLICT (addr, app) DO UPDATE SET
 		localstate = EXCLUDED.localstate, deleted = TRUE, closed_at = EXCLUDED.closed_at`,
+	upsertAppBoxStmtName: `INSERT INTO app_box AS ab
+		(app, name, value)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (app, name) DO UPDATE SET
+		value = EXCLUDED.value`,
+	deleteAppBoxStmtName: `DELETE FROM app_box WHERE app = $1 and name = $2`,
 	updateAccountTotalsStmtName: `UPDATE metastate SET v = $1 WHERE k = '` +
 		schema.AccountTotals + `'`,
 }
@@ -122,7 +131,7 @@ func MakeWriter(tx pgx.Tx) (Writer, error) {
 	for name, query := range statements {
 		_, err := tx.Prepare(context.Background(), name, query)
 		if err != nil {
-			return Writer{}, fmt.Errorf("MakeWriter() prepare statement err: %w", err)
+			return Writer{}, fmt.Errorf("MakeWriter() prepare statement for name '%s' err: %w", name, err)
 		}
 	}
 
@@ -290,6 +299,28 @@ func writeAccountDeltas(round basics.Round, accountDeltas *ledgercore.AccountDel
 			writeAppResource(round, &appResources[i], batch)
 		}
 	}
+
+}
+
+func writeBoxMods(kvMods map[string]*string, batch *pgx.Batch) error {
+	// INSERT INTO / UPDATE / DELETE FROM `app_box`
+	// WARNING: kvMods can in theory support more general storage types than app boxes.
+	// However, here we assume that all the provided kvMods represent app boxes.
+	// If a non-box is encountered inside kvMods, an error will be returned and
+	// AddBlock() will fail with the import getting stuck at the corresponding round.
+	for key, value := range kvMods {
+		app, name, err := logic.SplitBoxKey(key)
+		if err != nil {
+			return fmt.Errorf("writeBoxMods() err: %w", err)
+		}
+		if value != nil {
+			batch.Queue(upsertAppBoxStmtName, app, []byte(name), []byte(*value))
+		} else {
+			batch.Queue(deleteAppBoxStmtName, app, []byte(name))
+		}
+	}
+
+	return nil
 }
 
 // AddBlock0 writes block 0 to the database.
@@ -309,12 +340,12 @@ func (w *Writer) AddBlock0(block *bookkeeping.Block) error {
 		_, err := results.Exec()
 		if err != nil {
 			results.Close()
-			return fmt.Errorf("AddBlock() exec err: %w", err)
+			return fmt.Errorf("AddBlock0() exec err: %w", err)
 		}
 	}
 	err := results.Close()
 	if err != nil {
-		return fmt.Errorf("AddBlock() close results err: %w", err)
+		return fmt.Errorf("AddBlock0() close results err: %w", err)
 	}
 
 	return nil
@@ -338,6 +369,12 @@ func (w *Writer) AddBlock(block *bookkeeping.Block, modifiedTxns []transactions.
 			return fmt.Errorf("AddBlock() err: %w", err)
 		}
 		writeAccountDeltas(block.Round(), &delta.Accts, sigTypeDeltas, &batch)
+	}
+	{
+		err := writeBoxMods(delta.KvMods, &batch)
+		if err != nil {
+			return fmt.Errorf("AddBlock() err on boxes: %w", err)
+		}
 	}
 	batch.Queue(updateAccountTotalsStmtName, encoding.EncodeAccountTotals(&delta.Totals))
 
