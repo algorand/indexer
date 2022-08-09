@@ -1694,6 +1694,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	validateRow(n3, notPresent)
 	validateRow(n4, v4) // new v4
 	validateRow(n5, notPresent)
+	validateRow(n6, v6) // inserted
 
 	validateTotals()
 
