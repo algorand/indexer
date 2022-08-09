@@ -411,12 +411,16 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 	case protocol.StateProofTx:
 		partPath := make([]generated.GenericDigest, len(stxn.Txn.StateProof.PartProofs.Path))
 		for idx, part := range stxn.Txn.StateProof.PartProofs.Path {
-			partPath[idx] = generated.GenericDigest(part)
+			digest := make(generated.GenericDigest, len(part))
+			copy(digest, part)
+			partPath[idx] = digest
 		}
 
 		sigProofPath := make([]generated.GenericDigest, len(stxn.Txn.StateProof.SigProofs.Path))
 		for idx, sigPart := range stxn.Txn.StateProof.SigProofs.Path {
-			sigProofPath[idx] = generated.GenericDigest(sigPart)
+			digest := make(generated.GenericDigest, len(sigPart))
+			copy(digest, sigPart)
+			sigProofPath[idx] = digest
 		}
 
 		sigCommit := generated.GenericDigest(stxn.Txn.StateProof.SigCommit)
