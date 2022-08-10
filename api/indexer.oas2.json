@@ -2427,8 +2427,8 @@
           "type": "string",
           "format": "byte"
         },
-        "voters-total-weight": {
-          "description": "\\[t\\] The total number of microalgos held by accounts in the StateProof Vector Commitment.",
+        "online-total-weight": {
+          "description": "\\[t\\] The total number of microalgos held by the online accounts during the StateProof round.",
           "type": "integer"
         },
         "next-round": {

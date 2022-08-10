@@ -566,14 +566,14 @@ type StateProofTracking struct {
 	// \[n\] Next round for which we will accept a state proof transaction.
 	NextRound *uint64 `json:"next-round,omitempty"`
 
+	// \[t\] The total number of microalgos held by the online accounts during the StateProof round.
+	OnlineTotalWeight *uint64 `json:"online-total-weight,omitempty"`
+
 	// State Proof Type. Note the raw object uses map with this as key.
 	Type *uint64 `json:"type,omitempty"`
 
 	// \[v\] Root of a vector commitment containing online accounts that will help sign the proof.
 	VotersCommitment *[]byte `json:"voters-commitment,omitempty"`
-
-	// \[t\] The total number of microalgos held by accounts in the StateProof Vector Commitment.
-	VotersTotalWeight *uint64 `json:"voters-total-weight,omitempty"`
 }
 
 // StateProofVerifier defines model for StateProofVerifier.

@@ -1144,7 +1144,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 				NextRound:         uint64Ptr(uint64(stpfTracking.StateProofNextRound)),
 				Type:              uint64Ptr(uint64(orderedTrackingTypes[i])),
 				VotersCommitment:  byteSliceOmitZeroPtr(stpfTracking.StateProofVotersCommitment),
-				VotersTotalWeight: uint64Ptr(stpfTracking.StateProofVotersTotalWeight.Raw),
+				OnlineTotalWeight: uint64Ptr(stpfTracking.StateProofOnlineTotalWeight.Raw),
 			}
 			trackingArray[orderedTrackingTypes[i]] = thing1
 		}
