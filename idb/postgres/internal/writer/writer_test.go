@@ -1565,7 +1565,6 @@ func TestWriterAddBlock0(t *testing.T) {
 		assert.Equal(t, expected, accounts)
 	}
 }
-
 func getNameAndAccountPointer(t *testing.T, value *string, fullKey string, accts map[basics.Address]*ledgercore.AccountData) (basics.Address, string, *ledgercore.AccountData) {
 	require.NotNil(t, value, "cannot handle a nil value for box stats modification")
 	appIdx, name, err := logic.SplitBoxKey(fullKey)
@@ -1671,6 +1670,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	Box 3: inserted and deleted
 	Box 4: inserted, mutated and deleted
 	Box 5: inserted, deleted and re-inserted
+	Box 6: inserted after Box 2 is set
 	*/
 
 	db, _, shutdownFunc := pgtest.SetupPostgresWithSchema(t)
@@ -1763,17 +1763,21 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 
 	validateTotals()
 
-	/*** SECOND ROUND - mutate 2, delete 3, mutate 4, delete 5 ***/
+	/*** SECOND ROUND - mutate 2, delete 3, mutate 4, delete 5, create 6 ***/
 	v2 = "mutated"
 	// v3 is "deleted"
 	v4 = "mutated"
 	// v5 is "deleted"
+	n6, v6 := "box6", "inserted"
+
+	k6 := logic.MakeBoxKey(appID, n6)
 
 	delta.KvMods = map[string]*string{}
 	delta.KvMods[k2] = &v2
 	delta.KvMods[k3] = nil
 	delta.KvMods[k4] = &v4
-	delta.KvMods[k5] = nil
+	delta.KvMods[k5] = nil // v5 is "deleted"
+	delta.KvMods[k6] = &v6
 
 	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
@@ -1809,6 +1813,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	validateRow(n3, notPresent) // still deleted
 	validateRow(n4, notPresent) // deleted
 	validateRow(n5, v5)         // re-inserted
+	validateRow(n6, v6)         // untouched
 
 	validateTotals()
 
@@ -1825,6 +1830,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	validateRow(n3, notPresent) // still deleted
 	validateRow(n4, notPresent) // still deleted
 	validateRow(n5, v5)         // untouched
+	validateRow(n6, v6)         // untouched
 
 	validateTotals()
 }
