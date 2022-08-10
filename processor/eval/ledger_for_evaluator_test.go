@@ -582,7 +582,7 @@ func compareAppBoxesAgainstLedger(t *testing.T, ld indxLedger.LedgerForEvaluator
 
 // Test the functionality of `func (l LedgerForEvaluator) LookupKv()`.
 // This is done by handing off a pointer to Struct `processor/eval/ledger_for_evaluator.go::LedgerForEvaluator`
-// to `compareAppBoxesAgainstLedger()`` which then asserts using `LookupKv()`
+// to `compareAppBoxesAgainstLedger()` which then asserts using `LookupKv()`
 func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	logger, _ := test2.NewNullLogger()
 	l := makeTestLedger(t)
