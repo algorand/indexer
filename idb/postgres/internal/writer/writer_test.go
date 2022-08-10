@@ -1776,7 +1776,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	delta.KvMods[k2] = &v2
 	delta.KvMods[k3] = nil
 	delta.KvMods[k4] = &v4
-	delta.KvMods[k5] = nil // v5 is "deleted"
+	delta.KvMods[k5] = nil
 	delta.KvMods[k6] = &v6
 
 	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
@@ -1790,6 +1790,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	validateRow(n3, notPresent)
 	validateRow(n4, v4) // new v4
 	validateRow(n5, notPresent)
+	validateRow(n6, v6)
 
 	validateTotals()
 
