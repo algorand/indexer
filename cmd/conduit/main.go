@@ -12,14 +12,14 @@ import (
 )
 
 import (
+	// We need to import these so that the package wide init() function gets called
 	_ "github.com/algorand/indexer/exporters/all"
 	_ "github.com/algorand/indexer/importers/all"
 	_ "github.com/algorand/indexer/processors/all"
 )
 
 var (
-	logger          *log.Logger
-	defaultLogLevel string
+	logger *log.Logger
 )
 
 // init() function for main package
@@ -38,7 +38,53 @@ func init() {
 
 	logger.SetFormatter(&formatter)
 	logger.SetOutput(os.Stdout)
-	defaultLogLevel = "info"
+}
+
+// runConduitCmdWithConfig run the main logic with a supplied conduit config
+func runConduitCmdWithConfig(cfg *conduit.Config) error {
+
+	// Tie cobra variables into local go-lang variables
+	config.BindFlagSet(cfg.Flags)
+	logger.Info(cfg)
+
+	if err := cfg.Valid(); err != nil {
+		return err
+	}
+
+	pCfg, err := conduit.MakePipelineConfig(logger, cfg)
+
+	if err != nil {
+		return err
+	}
+
+	logLevel, _ := log.ParseLevel(pCfg.PipelineLogLevel)
+	logger.Infof("Log level set to: %s", pCfg.PipelineLogLevel)
+
+	logger.SetLevel(logLevel)
+
+	logger.Info("Conduit configuration is valid")
+
+	pipeline, err := conduit.MakePipeline(pCfg, logger)
+	if err != nil {
+		return fmt.Errorf("pipeline creation error: %w", err)
+	}
+
+	// Make sure to call this so we can shutdown if there is an error
+	defer func(pipeline conduit.Pipeline) {
+		err := pipeline.Stop()
+		if err != nil {
+			logger.Errorf("Pipeline stoppage failure: %v", err)
+		}
+	}(pipeline)
+
+	// TODO decide if blocking or not
+	err = pipeline.Start()
+	if err != nil {
+		logger.Errorf("Pipeline start failure: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 // conduitCmd creates the main cobra command, initializes flags, and viper aliases
@@ -50,49 +96,7 @@ func conduitCmd() *cobra.Command {
 		Long:  "run the conduit framework",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-
-			// Tie cobra variables into local go-lang variables
-			config.BindFlagSet(cfg.Flags)
-			logger.Info(cfg)
-
-			if err := cfg.Valid(); err != nil {
-				return err
-			}
-
-			pCfg, err := conduit.MakePipelineConfig(logger, cfg)
-
-			if err != nil {
-				return err
-			}
-
-			logLevel, _ := log.ParseLevel(pCfg.PipelineLogLevel)
-			logger.Infof("Log level set to: %s", pCfg.PipelineLogLevel)
-
-			logger.SetLevel(logLevel)
-
-			logger.Info("Conduit configuration is valid")
-
-			pipeline, err := conduit.MakePipeline(pCfg, logger)
-			if err != nil {
-				return fmt.Errorf("pipeline creation error: %w", err)
-			}
-
-			// Make sure to call this so we can shutdown if there is an error
-			defer func(pipeline conduit.Pipeline) {
-				err := pipeline.Stop()
-				if err != nil {
-					logger.Errorf("Pipeline stoppage failure: %v", err)
-				}
-			}(pipeline)
-
-			// TODO decide if blocking or not
-			err = pipeline.Start()
-			if err != nil {
-				logger.Errorf("Pipeline start failure: %v", err)
-				return err
-			}
-
-			return nil
+			return runConduitCmdWithConfig(cfg)
 		},
 	}
 

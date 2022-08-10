@@ -22,7 +22,7 @@ COVERPKG := $(shell go list ./...  | grep -v '/cmd/' | egrep -v '(testing|test|m
 # Used for e2e test
 export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 
-conduit: go-algorand
+conduit: cmd/algorand-indexer/algorand-indexer go-algorand
 	cd cmd/conduit && go build
 
 # This is the default target, build the indexer:

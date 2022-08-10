@@ -1,5 +1,6 @@
 # Build artifacts
 cmd/algorand-indexer/algorand-indexer
+cmd/conduit/conduit
 api/.3tmp.json
 tmp/
 
