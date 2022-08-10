@@ -1311,7 +1311,7 @@ func TestFetchBlock(t *testing.T) {
 
 			// Set RoundTime which is overridden in the mock above
 			if tc.expected.Transactions != nil {
-				for i, _ := range *tc.expected.Transactions {
+				for i := range *tc.expected.Transactions {
 					actual := (*blkOutput.Transactions)[i]
 					(*tc.expected.Transactions)[i].RoundTime = &roundTime64
 					if (*tc.expected.Transactions)[i].InnerTxns != nil {
