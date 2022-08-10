@@ -330,6 +330,9 @@ type Block struct {
 	// \[seed\] Sortition seed.
 	Seed []byte `json:"seed"`
 
+	// Tracks the status of state proofs.
+	StateProofTracking *[]StateProofTracking `json:"state-proof-tracking,omitempty"`
+
 	// \[ts\] Block creation timestamp in seconds since eposh
 	Timestamp uint64 `json:"timestamp"`
 
@@ -426,9 +429,6 @@ type EvalDeltaKeyValue struct {
 	Value EvalDelta `json:"value"`
 }
 
-// GenericDigest defines model for GenericDigest.
-type GenericDigest []byte
-
 // HashFactory defines model for HashFactory.
 type HashFactory struct {
 
@@ -457,7 +457,7 @@ type MerkleArrayProof struct {
 	HashFactory *HashFactory `json:"hash-factory,omitempty"`
 
 	// \[pth\]
-	Path *[]GenericDigest `json:"path,omitempty"`
+	Path *[][]byte `json:"path,omitempty"`
 
 	// \[td\]
 	TreeDepth *uint64 `json:"tree-depth,omitempty"`
@@ -496,9 +496,11 @@ type StateProof struct {
 	Reveals *[]StateProofReveal `json:"reveals,omitempty"`
 
 	// \[v\] Salt version of the merkle signature.
-	SaltVersion *uint64           `json:"salt-version,omitempty"`
-	SigCommit   *GenericDigest    `json:"sig-commit,omitempty"`
-	SigProofs   *MerkleArrayProof `json:"sig-proofs,omitempty"`
+	SaltVersion *uint64 `json:"salt-version,omitempty"`
+
+	// \[c\]
+	SigCommit *[]byte           `json:"sig-commit,omitempty"`
+	SigProofs *MerkleArrayProof `json:"sig-proofs,omitempty"`
 
 	// \[w\]
 	SignedWeight *uint64 `json:"signed-weight,omitempty"`
@@ -556,6 +558,22 @@ type StateProofSignature struct {
 
 	// \[vkey\]
 	VerifyingKey *[]byte `json:"verifying-key,omitempty"`
+}
+
+// StateProofTracking defines model for StateProofTracking.
+type StateProofTracking struct {
+
+	// \[n\] Next round for which we will accept a state proof transaction.
+	NextRound *uint64 `json:"next-round,omitempty"`
+
+	// State Proof Type. Note the raw object uses map with this as key.
+	Type *uint64 `json:"type,omitempty"`
+
+	// \[v\] Root of a vector commitment containing online accounts that will help sign the proof.
+	VotersCommitment *[]byte `json:"voters-commitment,omitempty"`
+
+	// \[t\] The total number of microalgos held by accounts in the StateProof Vector Commitment.
+	VotersTotalWeight *uint64 `json:"voters-total-weight,omitempty"`
 }
 
 // StateProofVerifier defines model for StateProofVerifier.

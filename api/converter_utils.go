@@ -409,21 +409,19 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 
 		application = &a
 	case protocol.StateProofTx:
-		partPath := make([]generated.GenericDigest, len(stxn.Txn.StateProof.PartProofs.Path))
+		partPath := make([][]byte, len(stxn.Txn.StateProof.PartProofs.Path))
 		for idx, part := range stxn.Txn.StateProof.PartProofs.Path {
-			digest := make(generated.GenericDigest, len(part))
+			digest := make([]byte, len(part))
 			copy(digest, part)
 			partPath[idx] = digest
 		}
 
-		sigProofPath := make([]generated.GenericDigest, len(stxn.Txn.StateProof.SigProofs.Path))
+		sigProofPath := make([][]byte, len(stxn.Txn.StateProof.SigProofs.Path))
 		for idx, sigPart := range stxn.Txn.StateProof.SigProofs.Path {
-			digest := make(generated.GenericDigest, len(sigPart))
+			digest := make([]byte, len(sigPart))
 			copy(digest, sigPart)
 			sigProofPath[idx] = digest
 		}
-
-		sigCommit := generated.GenericDigest(stxn.Txn.StateProof.SigCommit)
 
 		// We need to iterate through these in order, to make sure our responses are deterministic
 		keys := make([]uint64, len(stxn.Txn.StateProof.Reveals))
@@ -439,9 +437,9 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 			commitment := revToConv.Part.PK.Commitment[:]
 			falconSig := []byte(revToConv.SigSlot.Sig.Signature)
 			verifyKey := revToConv.SigSlot.Sig.VerifyingKey.PublicKey[:]
-			proofPath := make([]generated.GenericDigest, len(revToConv.SigSlot.Sig.Proof.Path))
+			proofPath := make([][]byte, len(revToConv.SigSlot.Sig.Proof.Path))
 			for idx, proofPart := range revToConv.SigSlot.Sig.Proof.Path {
-				proofPath[idx] = generated.GenericDigest(proofPart)
+				proofPath[idx] = proofPart
 			}
 
 			reveals[key] = generated.StateProofReveal{
@@ -480,7 +478,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 			},
 			Reveals:     &reveals,
 			SaltVersion: uint64Ptr(uint64(stxn.Txn.StateProof.MerkleSignatureSaltVersion)),
-			SigCommit:   &sigCommit,
+			SigCommit:   byteSliceOmitZeroPtr(stxn.Txn.StateProof.SigCommit),
 			SigProofs: &generated.MerkleArrayProof{
 				HashFactory: &generated.HashFactory{
 					HashType: uint64Ptr(uint64(stxn.Txn.StateProof.SigProofs.HashFactory.HashType)),

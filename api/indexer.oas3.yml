@@ -1152,6 +1152,13 @@
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string"
           },
+          "state-proof-tracking": {
+            "description": "Tracks the status of state proofs.",
+            "items": {
+              "$ref": "#/components/schemas/StateProofTracking"
+            },
+            "type": "array"
+          },
           "timestamp": {
             "description": "\\[ts\\] Block creation timestamp in seconds since eposh",
             "type": "integer"
@@ -1314,10 +1321,6 @@
         ],
         "type": "object"
       },
-      "GenericDigest": {
-        "format": "byte",
-        "type": "string"
-      },
       "HashFactory": {
         "properties": {
           "hash-type": {
@@ -1383,7 +1386,9 @@
           "path": {
             "description": "\\[pth\\]",
             "items": {
-              "$ref": "#/components/schemas/GenericDigest"
+              "format": "byte",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": "string"
             },
             "type": "array"
           },
@@ -1475,7 +1480,10 @@
             "type": "integer"
           },
           "sig-commit": {
-            "$ref": "#/components/schemas/GenericDigest"
+            "description": "\\[c\\]",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
           },
           "sig-proofs": {
             "$ref": "#/components/schemas/MerkleArrayProof"
@@ -1581,6 +1589,30 @@
             "format": "byte",
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "StateProofTracking": {
+        "properties": {
+          "next-round": {
+            "description": "\\[n\\] Next round for which we will accept a state proof transaction.",
+            "type": "integer"
+          },
+          "type": {
+            "description": "State Proof Type. Note the raw object uses map with this as key.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "voters-commitment": {
+            "description": "\\[v\\] Root of a vector commitment containing online accounts that will help sign the proof.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "voters-total-weight": {
+            "description": "\\[t\\] The total number of microalgos held by accounts in the StateProof Vector Commitment.",
+            "type": "integer"
           }
         },
         "type": "object"

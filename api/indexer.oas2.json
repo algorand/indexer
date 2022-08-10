@@ -1483,6 +1483,13 @@
           "type": "string",
           "format": "byte"
         },
+        "state-proof-tracking": {
+          "description": "Tracks the status of state proofs.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StateProofTracking"
+          }
+        },
         "timestamp": {
           "description": "\\[ts\\] Block creation timestamp in seconds since eposh",
           "type": "integer"
@@ -2258,7 +2265,8 @@
       "properties": {
         "sig-commit": {
           "description": "\\[c\\]",
-          "$ref": "#/definitions/GenericDigest"
+          "type": "string",
+          "format": "byte"
         },
         "signed-weight": {
           "description": "\\[w\\]",
@@ -2406,6 +2414,29 @@
         }
       }
     },
+    "StateProofTracking": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "State Proof Type. Note the raw object uses map with this as key.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "voters-commitment": {
+          "description": "\\[v\\] Root of a vector commitment containing online accounts that will help sign the proof.",
+          "type": "string",
+          "format": "byte"
+        },
+        "voters-total-weight": {
+          "description": "\\[t\\] The total number of microalgos held by accounts in the StateProof Vector Commitment.",
+          "type": "integer"
+        },
+        "next-round": {
+          "description": "\\[n\\] Next round for which we will accept a state proof transaction.",
+          "type": "integer"
+        }
+      }
+    },
     "MerkleArrayProof": {
       "type": "object",
       "properties": {
@@ -2413,7 +2444,8 @@
           "description": "\\[pth\\]",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/GenericDigest"
+            "type": "string",
+            "format": "byte"
           }
         },
         "hash-factory": {
@@ -2435,10 +2467,6 @@
           "x-algorand-format": "uint16"
         }
       }
-    },
-    "GenericDigest": {
-      "type": "string",
-      "format": "byte"
     }
   },
   "parameters": {
