@@ -585,7 +585,7 @@ func (si *ServerImplementation) LookupApplicationBoxByIDandName(ctx echo.Context
 	boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
 
 	if err != nil {
-		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", errFailedSearchingBoxes, round, applicationID, encodedBoxName)
+		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", errFailedLookingUpBoxes, round, applicationID, encodedBoxName)
 		return indexerError(ctx, fmt.Errorf("%s: %w", msg, err))
 	}
 
@@ -631,7 +631,7 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
 
 	if err != nil {
-		msg := fmt.Sprintf("%s: round=?=%d, appid=%d", errBoxMismatch, round, applicationID)
+		msg := fmt.Sprintf("%s: round=?=%d, appid=%d", errFailedSearchingBoxes, round, applicationID)
 		return indexerError(ctx, fmt.Errorf("%s: %w", msg, err))
 	}
 

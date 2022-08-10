@@ -33,7 +33,7 @@ const (
 	errMultipleAssets                  = "multiple assets found for this id, please contact us, this shouldn't happen"
 	errMultipleApplications            = "multiple applications found for this id, please contact us, this shouldn't happen"
 	errMultipleBoxes                   = "multiple applicatoins boxes found for this app id and name, please contact us, this shouldn't happen"
-	errBoxMismatch                     = "the box found mismatches details provided by the query, please contact us, this shouldn't happen"
+	errFailedLookingUpBoxes            = "failed while lookup up application boxes"
 	errMultiAcctRewind                 = "multiple accounts rewind is not supported by this server"
 	errRewindingAccount                = "error while rewinding account"
 	errLookingUpBlockForRound          = "error while looking up block for round"
