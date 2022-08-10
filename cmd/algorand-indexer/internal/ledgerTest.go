@@ -43,8 +43,8 @@ func init() {
 
 	LedgerTestCmd.Flags().StringVar(&config.indexerDataDir, "data-dir", "", "Indexer data directory.")
 	LedgerTestCmd.Flags().StringVar(&config.catchpoint, "catchpoint", "", "Catchpoint to use for initializing.")
-	LedgerTestCmd.Flags().StringVarP(&config.algodAddr, "algod-net", "", "", "host:port of algod")
-	LedgerTestCmd.Flags().StringVarP(&config.algodToken, "algod-token", "", "", "api access token for algod")
+	LedgerTestCmd.Flags().StringVar(&config.algodAddr, "algod-net", "", "host:port of algod")
+	LedgerTestCmd.Flags().StringVar(&config.algodToken, "algod-token", "", "api access token for algod")
 
 	LedgerTestCmd.MarkFlagRequired("algod-net")
 	LedgerTestCmd.MarkFlagRequired("algod-token")
