@@ -1483,6 +1483,13 @@
           "type": "string",
           "format": "byte"
         },
+        "state-proof-tracking": {
+          "description": "Tracks the status of state proofs.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/StateProofTracking"
+          }
+        },
         "timestamp": {
           "description": "\\[ts\\] Block creation timestamp in seconds since eposh",
           "type": "integer"
@@ -1778,7 +1785,8 @@
         "asset-freeze-transaction",
         "asset-transfer-transaction",
         "keyreg-transaction",
-        "payment-transaction"
+        "payment-transaction",
+        "state-proof-transaction"
       ],
       "properties": {
         "application-transaction": {
@@ -1792,6 +1800,9 @@
         },
         "asset-transfer-transaction": {
           "$ref": "#/definitions/TransactionAssetTransfer"
+        },
+        "state-proof-transaction": {
+          "$ref": "#/definitions/TransactionStateProof"
         },
         "auth-addr": {
           "description": "\\[sgnr\\] this is included with signed transactions when the signing address does not equal the sender. The backend can use this to ensure that auth addr is equal to the accounts auth addr.",
@@ -1893,7 +1904,7 @@
           "$ref": "#/definitions/TransactionSignature"
         },
         "tx-type": {
-          "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction",
+          "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction\n* \\[stpf\\] state-proof-transaction",
           "type": "string",
           "enum": [
             "pay",
@@ -1901,7 +1912,8 @@
             "acfg",
             "axfer",
             "afrz",
-            "appl"
+            "appl",
+            "stpf"
           ],
           "x-algorand-format": "tx-type-enum"
         },
@@ -2038,6 +2050,24 @@
         "new-freeze-status": {
           "description": "\\[afrz\\] The new freeze status.",
           "type": "boolean"
+        }
+      }
+    },
+    "TransactionStateProof": {
+      "description": "Fields for a state proof transaction. \n\nDefinition:\ndata/transactions/stateproof.go : StateProofTxnFields",
+      "type": "object",
+      "properties": {
+        "state-proof-type": {
+          "description": "\\[sptype\\] Type of the state proof. Integer representing an entry defined in protocol/stateproof.go",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "state-proof": {
+          "$ref": "#/definitions/StateProof"
+        },
+        "message": {
+          "$ref": "#/definitions/StateProofMessage",
+          "description": "\\[spmsg\\]"
         }
       }
     },
@@ -2228,6 +2258,215 @@
           "format": "byte"
         }
       }
+    },
+    "StateProof": {
+      "description": "\\[sp\\] represents a state proof.\n\nDefinition:\ncrypto/stateproof/structs.go : StateProof",
+      "type": "object",
+      "properties": {
+        "sig-commit": {
+          "description": "\\[c\\]",
+          "type": "string",
+          "format": "byte"
+        },
+        "signed-weight": {
+          "description": "\\[w\\]",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "sig-proofs": {
+          "description": "\\[S\\]",
+          "$ref": "#/definitions/MerkleArrayProof"
+        },
+        "part-proofs": {
+          "description": "\\[P\\]",
+          "$ref": "#/definitions/MerkleArrayProof"
+        },
+        "salt-version": {
+          "description": "\\[v\\] Salt version of the merkle signature.",
+          "type": "integer"
+        },
+        "reveals": {
+          "type": "array",
+          "description": "\\[r\\] Note that this is actually stored as a map[uint64] - Reveal in the actual msgp",
+          "items": {
+            "$ref": "#/definitions/StateProofReveal"
+          }
+        },
+        "positions-to-reveal": {
+          "description": "\\[pr\\] Sequence of reveal positions.",
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          }
+        }
+      }
+    },
+    "StateProofMessage": {
+      "type": "object",
+      "properties": {
+        "block-headers-commitment": {
+          "description": "\\[b\\]",
+          "type": "string",
+          "format": "byte"
+        },
+        "voters-commitment": {
+          "description": "\\[v\\]",
+          "type": "string",
+          "format": "byte"
+        },
+        "ln-proven-weight": {
+          "description": "\\[P\\]",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "first-attested-round": {
+          "description": "\\[f\\]",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "latest-attested-round": {
+          "description": "\\[l\\]",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        }
+      }
+    },
+    "StateProofReveal": {
+      "type": "object",
+      "properties": {
+        "position": {
+          "description": "The position in the signature and participants arrays corresponding to this entry.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "sig-slot": {
+          "description": "\\[s\\]",
+          "$ref": "#/definitions/StateProofSigSlot"
+        },
+        "participant": {
+          "description": "\\[p\\]",
+          "$ref": "#/definitions/StateProofParticipant"
+        }
+      }
+    },
+    "StateProofSigSlot": {
+      "type": "object",
+      "properties": {
+        "signature": {
+          "description": "",
+          "$ref": "#/definitions/StateProofSignature"
+        },
+        "lower-sig-weight": {
+          "description": "\\[l\\] The total weight of signatures in the lower-numbered slots.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        }
+      }
+    },
+    "StateProofSignature": {
+      "type": "object",
+      "properties": {
+        "falcon-signature": {
+          "type": "string",
+          "format": "byte"
+        },
+        "merkle-array-index": {
+          "type": "integer",
+          "x-algorand-foramt": "uint64"
+        },
+        "proof": {
+          "$ref": "#/definitions/MerkleArrayProof"
+        },
+        "verifying-key": {
+          "description": "\\[vkey\\]",
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "StateProofParticipant": {
+      "type": "object",
+      "properties": {
+         "verifier": {
+           "description": "\\[p\\]",
+           "$ref": "#/definitions/StateProofVerifier"
+         },
+        "weight": {
+          "description": "\\[w\\]",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        }
+      }
+    },
+    "StateProofVerifier": {
+      "type": "object",
+      "properties": {
+        "commitment": {
+          "description": "\\[cmt\\] Represents the root of the vector commitment tree.",
+          "type": "string",
+          "format": "byte"
+        },
+        "key-lifetime": {
+          "description": "\\[lf\\] Key lifetime.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        }
+      }
+    },
+    "StateProofTracking": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "description": "State Proof Type. Note the raw object uses map with this as key.",
+          "type": "integer",
+          "x-algorand-format": "uint64"
+        },
+        "voters-commitment": {
+          "description": "\\[v\\] Root of a vector commitment containing online accounts that will help sign the proof.",
+          "type": "string",
+          "format": "byte"
+        },
+        "online-total-weight": {
+          "description": "\\[t\\] The total number of microalgos held by the online accounts during the StateProof round.",
+          "type": "integer"
+        },
+        "next-round": {
+          "description": "\\[n\\] Next round for which we will accept a state proof transaction.",
+          "type": "integer"
+        }
+      }
+    },
+    "MerkleArrayProof": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "description": "\\[pth\\]",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "byte"
+          }
+        },
+        "hash-factory": {
+          "$ref": "#/definitions/HashFactory"
+        },
+        "tree-depth": {
+          "description": "\\[td\\]",
+          "type": "integer",
+          "x-algorand-format": "uint8"
+        }
+      }
+    },
+    "HashFactory": {
+      "type": "object",
+      "properties": {
+        "hash-type": {
+          "description": "\\[t\\]",
+          "type": "integer",
+          "x-algorand-format": "uint16"
+        }
+      }
     }
   },
   "parameters": {
@@ -2413,7 +2652,8 @@
         "acfg",
         "axfer",
         "afrz",
-        "appl"
+        "appl",
+        "stpf"
       ],
       "type": "string",
       "name": "tx-type",
