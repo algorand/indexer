@@ -19,7 +19,7 @@ const (
 	TypeEnumAssetTransfer
 	TypeEnumAssetFreeze
 	TypeEnumApplication
-	TypeStateProof
+	TypeEnumStateProof
 )
 
 var typeEnumMap = map[string]TxnTypeEnum{
@@ -29,7 +29,7 @@ var typeEnumMap = map[string]TxnTypeEnum{
 	"axfer":  TypeEnumAssetTransfer,
 	"afrz":   TypeEnumAssetFreeze,
 	"appl":   TypeEnumApplication,
-	"stpf":   TypeStateProof,
+	"stpf":   TypeEnumStateProof,
 }
 
 func makeTypeEnumString() string {

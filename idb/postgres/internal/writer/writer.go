@@ -3,7 +3,6 @@ package writer
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/go-algorand/protocol"
 	"strconv"
 	"time"
 
@@ -11,6 +10,7 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+	"github.com/algorand/go-algorand/protocol"
 	"github.com/jackc/pgx/v4"
 
 	"github.com/algorand/indexer/idb"
