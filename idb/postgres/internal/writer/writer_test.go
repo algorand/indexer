@@ -1680,7 +1680,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	block.BlockHeader.Round = basics.Round(1)
 	delta := ledgercore.StateDelta{}
 
-	blockAdder := func(tx pgx.Tx) error {
+	addNewBlock := func(tx pgx.Tx) error {
 		w, err := writer.MakeWriter(tx)
 		require.NoError(t, err)
 
@@ -1717,7 +1717,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	delta2, newKvMods, accts := buildAccountDeltasFromKvsAndMods(t, map[string]*string{}, delta.KvMods)
 	delta.Accts = delta2.Accts
 
-	err := pgutil.TxWithRetry(db, serializable, blockAdder, nil)
+	err := pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
 	require.NoError(t, err)
 
 	validateRow := func(expectedName string, expectedValue string) {
@@ -1782,7 +1782,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
 
-	err = pgutil.TxWithRetry(db, serializable, blockAdder, nil)
+	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
 	require.NoError(t, err)
 
 	validateRow(n1, v1) // untouched
@@ -1805,7 +1805,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	delta2, newKvMods, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
 
-	err = pgutil.TxWithRetry(db, serializable, blockAdder, nil)
+	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
 	require.NoError(t, err)
 
 	validateRow(n1, v1)         // untouched
@@ -1822,7 +1822,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	delta2, _, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts
 
-	err = pgutil.TxWithRetry(db, serializable, blockAdder, nil)
+	err = pgutil.TxWithRetry(db, serializable, addNewBlock, nil)
 	require.NoError(t, err)
 
 	validateRow(n1, v1)         // untouched
