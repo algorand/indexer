@@ -2101,7 +2101,7 @@ func TestTransactionsTxnAhead(t *testing.T) {
 	}
 }
 
-// Test that if genesis hash is different fro,m what is in db metastate
+// Test that if genesis hash is different from what is in db metastate
 // indexer does not start.
 func TestGenesisHashCheckAtDBSetup(t *testing.T) {
 	_, connStr, shutdownFunc := pgtest.SetupPostgres(t)
