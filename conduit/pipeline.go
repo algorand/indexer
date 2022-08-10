@@ -30,7 +30,8 @@ type nameConfigPair struct {
 type PipelineConfig struct {
 	ConduitConfig *Config
 
-	PipelineLogLevel string `yaml:"LogLevel"`
+	pipelineLogLevel string `yaml:"LogLevel"`
+	PipelineLogLevel log.Level
 	// Store a local copy to access parent variables
 	Importer   nameConfigPair   `yaml:"Importer"`
 	Processors []nameConfigPair `yaml:"Processors"`
@@ -43,8 +44,8 @@ func (cfg *PipelineConfig) Valid() error {
 		return fmt.Errorf("PipelineConfig.Valid(): conduit configuration was nil")
 	}
 
-	if _, err := log.ParseLevel(cfg.PipelineLogLevel); err != nil {
-		return fmt.Errorf("PipelineConfig.Valid(): pipeline log level (%s) was invalid: %w", cfg.PipelineLogLevel, err)
+	if _, err := log.ParseLevel(cfg.pipelineLogLevel); err != nil {
+		return fmt.Errorf("PipelineConfig.Valid(): pipeline log level (%s) was invalid: %w", cfg.pipelineLogLevel, err)
 	}
 
 	if len(cfg.Importer.Config) == 0 {
@@ -69,7 +70,7 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 		return nil, fmt.Errorf("MakePipelineConfig(): %w", err)
 	}
 
-	pCfg := PipelineConfig{PipelineLogLevel: logger.Level.String(), ConduitConfig: cfg}
+	pCfg := PipelineConfig{pipelineLogLevel: logger.Level.String(), ConduitConfig: cfg}
 
 	// Search for pipeline configuration in data directory
 	autoloadParamConfigPath := filepath.Join(cfg.ConduitDataDir, autoLoadParameterConfigName)
@@ -95,6 +96,12 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 
 	if err := pCfg.Valid(); err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) had mal-formed schema: %w", autoloadParamConfigPath, err)
+	}
+
+	pCfg.PipelineLogLevel, err = log.ParseLevel(pCfg.pipelineLogLevel)
+	if err != nil {
+		// Belt and suspenders.  Valid() should have caught this
+		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) had mal-formed log level: %w", autoloadParamConfigPath, err)
 	}
 
 	return &pCfg, nil

@@ -57,10 +57,8 @@ func runConduitCmdWithConfig(cfg *conduit.Config) error {
 		return err
 	}
 
-	logLevel, _ := log.ParseLevel(pCfg.PipelineLogLevel)
+	logger.SetLevel(pCfg.PipelineLogLevel)
 	logger.Infof("Log level set to: %s", pCfg.PipelineLogLevel)
-
-	logger.SetLevel(logLevel)
 
 	logger.Info("Conduit configuration is valid")
 
