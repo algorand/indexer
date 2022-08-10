@@ -1560,7 +1560,7 @@
       "StateProofSigSlot": {
         "properties": {
           "lower-sig-weight": {
-            "description": "\\[l\\]",
+            "description": "\\[l\\] The total weight of signatures in the lower-numbered slots.",
             "type": "integer",
             "x-algorand-format": "uint64"
           },

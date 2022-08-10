@@ -486,7 +486,8 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 				Path:      &sigProofPath,
 				TreeDepth: uint64Ptr(uint64(stxn.Txn.StateProof.SigProofs.TreeDepth)),
 			},
-			SignedWeight: uint64Ptr(stxn.Txn.StateProof.SignedWeight),
+			SignedWeight:      uint64Ptr(stxn.Txn.StateProof.SignedWeight),
+			PositionsToReveal: &stxn.Txn.StateProof.PositionsToReveal,
 		}
 
 		message := generated.StateProofMessage{

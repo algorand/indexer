@@ -545,7 +545,7 @@ type StateProofReveal struct {
 // StateProofSigSlot defines model for StateProofSigSlot.
 type StateProofSigSlot struct {
 
-	// \[l\]
+	// \[l\] The total weight of signatures in the lower-numbered slots.
 	LowerSigWeight *uint64              `json:"lower-sig-weight,omitempty"`
 	Signature      *StateProofSignature `json:"signature,omitempty"`
 }
