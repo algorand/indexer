@@ -2,15 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-	"os"
-	"strings"
-
+	"github.com/algorand/indexer/conduit"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-
-	"github.com/algorand/indexer/conduit"
+	"github.com/spf13/viper"
+	"os"
 )
 
 import (
@@ -45,22 +41,28 @@ func init() {
 // runConduitCmdWithConfig run the main logic with a supplied conduit config
 func runConduitCmdWithConfig(cfg *conduit.Config) error {
 
-	// Tie cobra variables into local go-lang variables
-	cfg.Flags.VisitAll(func(f *pflag.Flag) {
-		// Environment variables can't have dashes in them, so bind them to their equivalent
-		// keys with underscores
-		// e.g. prefix=STING and --favorite-color is set to STING_FAVORITE_COLOR
-		if strings.Contains(f.Name, "-") {
-			envVarSuffix := strings.ToUpper(strings.ReplaceAll(f.Name, "-", "_"))
-			viper.BindEnv(f.Name, fmt.Sprintf("%s_%s", "CONDUIT", envVarSuffix))
-		}
+	// From docs:
+	// BindEnv takes one or more parameters. The first parameter is the key name, the rest are the name of the
+	// environment variables to bind to this key. If more than one are provided, they will take precedence in
+	// the specified order. The name of the environment variable is case sensitive. If the ENV variable name is not
+	// provided, then Viper will automatically assume that the ENV variable matches the following format:
+	// prefix + "_" + the key name in ALL CAPS. When you explicitly provide the ENV variable name (the second
+	// parameter), it does not automatically add the prefix. For example if the second parameter is "id",
+	// Viper will look for the ENV variable "ID".
+	//
+	// One important thing to recognize when working with ENV variables is that the value will be read each time
+	// it is accessed. Viper does not fix the value when the BindEnv is called.
+	err := viper.BindEnv("data-dir", "CONDUIT_DATA_DIR")
+	if err != nil {
+		return err
+	}
 
-		// Apply the viper config value to the flag when the flag is not set and viper has a value
-		if !f.Changed && viper.IsSet(f.Name) {
-			val := viper.Get(f.Name)
-			cfg.Flags.Set(f.Name, fmt.Sprintf("%v", val))
-		}
-	})
+	// Changed returns true if the key was set during parse and IsSet determines if it is in the internal
+	// viper hashmap
+	if !cfg.Flags.Changed("data-dir") && viper.IsSet("data-dir") {
+		cfg.ConduitDataDir = viper.Get("data-dir").(string)
+	}
+
 	logger.Info(cfg)
 
 	if err := cfg.Valid(); err != nil {

@@ -10,7 +10,7 @@ import (
 // Config configuration for conduit running
 type Config struct {
 	Flags          *pflag.FlagSet
-	ConduitDataDir string
+	ConduitDataDir string `yaml:"data-dir"`
 }
 
 func (cfg *Config) String() string {

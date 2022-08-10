@@ -3,21 +3,24 @@ package conduit
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/go-algorand/data/basics"
 	"os"
 
 	log "github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
-	"io/ioutil"
+	"github.com/spf13/viper"
 	"path/filepath"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
+	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/importers"
 	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"
 )
+
+func init() {
+	viper.SetConfigType("yaml")
+}
 
 const autoLoadParameterConfigName = "conduit.yml"
 
@@ -84,12 +87,14 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 
 	logger.Infof("Auto-loading Conduit Configuration: %s", autoloadParamConfigPath)
 
-	configStr, err := ioutil.ReadFile(autoloadParamConfigPath)
+	file, err := os.Open(autoloadParamConfigPath)
+
+	err = viper.ReadConfig(file)
 	if err != nil {
-		return nil, fmt.Errorf("MakePipelineConfig(): %w", err)
+		return nil, fmt.Errorf("MakePipelineConfig(): reading config error: %w", err)
 	}
 
-	err = yaml.Unmarshal(configStr, &pCfg)
+	err = viper.Unmarshal(&pCfg)
 	if err != nil {
 		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) was mal-formed yaml: %w", autoloadParamConfigPath, err)
 	}
