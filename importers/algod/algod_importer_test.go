@@ -26,17 +26,29 @@ var (
 	logger       *logrus.Logger
 	ctx          context.Context
 	cancel       context.CancelFunc
-	s            plugins.PluginConfig
 	testImporter importers.Importer
 )
 
 func init() {
 	logger, _ = test.NewNullLogger()
 	ctx, cancel = context.WithCancel(context.Background())
-	s = ""
 }
 
-func MockAlgodServerReturnsEmptyBlock() *httptest.Server {
+func MockAlgodServerReturnsJustGenesis() *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		if strings.Contains(r.URL.Path, "/genesis") {
+			w.WriteHeader(http.StatusOK)
+			genesis := &bookkeeping.Genesis{}
+			blockbytes := protocol.EncodeJSON(*genesis)
+			w.Write(blockbytes)
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	}))
+}
+
+func MockAlgodServerReturnsGenesisAndEmptyBlock() *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		if strings.Contains(r.URL.Path, "/genesis") {
@@ -71,16 +83,18 @@ func TestImporterorterMetadata(t *testing.T) {
 }
 
 func TestCloseSuccess(t *testing.T) {
+	ts := MockAlgodServerReturnsJustGenesis()
 	testImporter = New()
-	_, err := testImporter.Init(ctx, s, logger)
+	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	err = testImporter.Close()
 	assert.NoError(t, err)
 }
 
 func TestInitSuccess(t *testing.T) {
+	ts := MockAlgodServerReturnsJustGenesis()
 	testImporter = New()
-	_, err := testImporter.Init(ctx, s, logger)
+	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
 	testImporter.Close()
@@ -104,8 +118,9 @@ func TestConfigDefault(t *testing.T) {
 }
 
 func TestGetBlockFailure(t *testing.T) {
+	ts := MockAlgodServerReturnsJustGenesis()
 	testImporter = New()
-	_, err := testImporter.Init(ctx, s, logger)
+	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
 	assert.NotEqual(t, testImporter, nil)
 
@@ -115,7 +130,7 @@ func TestGetBlockFailure(t *testing.T) {
 }
 
 func TestGetBlockSuccess(t *testing.T) {
-	ts := MockAlgodServerReturnsEmptyBlock()
+	ts := MockAlgodServerReturnsGenesisAndEmptyBlock()
 	testImporter = New()
 	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)

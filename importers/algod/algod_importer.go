@@ -67,8 +67,6 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 		return nil, err
 	}
 
-	netAddrIsEmpty := algodImp.cfg.NetAddr == ""
-
 	if u.Scheme != "http" && u.Scheme != "https" {
 		algodImp.cfg.NetAddr = "http://" + algodImp.cfg.NetAddr
 		algodImp.logger.Infof("Algod Importer added http prefix to NetAddr: %s", algodImp.cfg.NetAddr)
@@ -79,25 +77,19 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 	}
 	algodImp.aclient = client
 
-	// For testing check against nil
-	if !netAddrIsEmpty {
-
-		genesisResponse, err := client.GetGenesis().Do(ctx)
-		if err != nil {
-			return nil, err
-		}
-
-		genesis := bookkeeping.Genesis{}
-
-		err = json.Unmarshal([]byte(genesisResponse), &genesis)
-		if err != nil {
-			return nil, err
-		}
-
-		return &genesis, err
+	genesisResponse, err := client.GetGenesis().Do(ctx)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, err
+	genesis := bookkeeping.Genesis{}
+
+	err = json.Unmarshal([]byte(genesisResponse), &genesis)
+	if err != nil {
+		return nil, err
+	}
+
+	return &genesis, err
 }
 
 func (algodImp *algodImporter) Config() plugins.PluginConfig {

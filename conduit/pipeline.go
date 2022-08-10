@@ -3,6 +3,7 @@ package conduit
 import (
 	"context"
 	"fmt"
+	"github.com/algorand/go-algorand/data/basics"
 	"os"
 
 	log "github.com/sirupsen/logrus"
@@ -20,15 +21,20 @@ import (
 
 const autoLoadParameterConfigName = "conduit.yml"
 
+type nameConfigPair struct {
+	Name   string                 `yaml:"Name"`
+	Config map[string]interface{} `yaml:"Config"`
+}
+
 // PipelineConfig stores configuration specific to the conduit pipeline
 type PipelineConfig struct {
 	ConduitConfig *Config
 
 	PipelineLogLevel string `yaml:"LogLevel"`
 	// Store a local copy to access parent variables
-	Importer   map[string]interface{}   `yaml:"Importer"`
-	Processors []map[string]interface{} `yaml:"Processors"`
-	Exporter   map[string]interface{}   `yaml:"Exporter"`
+	Importer   nameConfigPair   `yaml:"Importer"`
+	Processors []nameConfigPair `yaml:"Processors"`
+	Exporter   nameConfigPair   `yaml:"Exporter"`
 }
 
 // Valid validates pipeline config
@@ -41,11 +47,11 @@ func (cfg *PipelineConfig) Valid() error {
 		return fmt.Errorf("PipelineConfig.Valid(): pipeline log level (%s) was invalid: %w", cfg.PipelineLogLevel, err)
 	}
 
-	if len(cfg.Importer) == 0 {
+	if len(cfg.Importer.Config) == 0 {
 		return fmt.Errorf("PipelineConfig.Valid(): importer configuration was empty")
 	}
 
-	if len(cfg.Exporter) == 0 {
+	if len(cfg.Exporter.Config) == 0 {
 		return fmt.Errorf("PipelineConfig.Valid(): exporter configuration was empty")
 	}
 
@@ -132,11 +138,13 @@ func (p *pipelineImpl) Start() error {
 	)
 
 	// TODO modify/fix ?
-	jsonEncode := string(json.Encode(p.cfg.Importer["Config"]))
+	jsonEncode := string(json.Encode(p.cfg.Importer.Config))
 	genesis, err := (*p.importer).Init(p.ctx, plugins.PluginConfig(jsonEncode), importerLogger)
 
+	currentRound := basics.Round(0)
+
 	var initProvider data.InitProvider = &PipelineInitProvider{
-		currentRound: 0,
+		currentRound: &currentRound,
 		genesis:      genesis,
 	}
 
@@ -236,53 +244,44 @@ func MakePipeline(cfg *PipelineConfig, logger *log.Logger) (Pipeline, error) {
 		exporter:     nil,
 	}
 
-	importerName, ok := cfg.Importer["Name"]
-	if !ok {
-		return nil, fmt.Errorf("MakePipeline(): invalid schema, importer has no 'Name' attribute")
-	}
+	importerName := cfg.Importer.Name
 
-	importerBuilder, err := importers.ImporterBuilderByName(importerName.(string))
+	importerBuilder, err := importers.ImporterBuilderByName(importerName)
 	if err != nil {
-		return nil, fmt.Errorf("MakePipeline(): could not find importer builder with name: %s", importerName.(string))
+		return nil, fmt.Errorf("MakePipeline(): could not find importer builder with name: %s", importerName)
 	}
 
 	importer := importerBuilder.New()
 	pipeline.importer = &importer
-	logger.Infof("Found Importer: %s", importerName.(string))
+	logger.Infof("Found Importer: %s", importerName)
 
 	// ---
 
 	for _, processorConfig := range cfg.Processors {
-		processorName, ok := processorConfig["Name"]
-		if !ok {
-			return nil, fmt.Errorf("MakePipeline(): invalid schema, processor has no 'Name' attribute")
-		}
+		processorName := processorConfig.Name
 
-		processorBuilder, err := processors.ProcessorBuilderByName(processorName.(string))
+		processorBuilder, err := processors.ProcessorBuilderByName(processorName)
 		if err != nil {
-			return nil, fmt.Errorf("MakePipeline(): could not find processor builder with name: %s", processorName.(string))
+			return nil, fmt.Errorf("MakePipeline(): could not find processor builder with name: %s", processorName)
 		}
 
 		processor := processorBuilder.New()
 		pipeline.processors = append(pipeline.processors, &processor)
-		logger.Infof("Found Processor: %s", processorName.(string))
+		logger.Infof("Found Processor: %s", processorName)
 	}
 
 	// ---
 
-	exporterName, ok := cfg.Exporter["Name"]
-	if !ok {
-		return nil, fmt.Errorf("MakePipeline(): invalid schema, exporter has no 'Name' attribute")
-	}
+	exporterName := cfg.Exporter.Name
 
-	exporterBuilder, err := exporters.ExporterBuilderByName(exporterName.(string))
+	exporterBuilder, err := exporters.ExporterBuilderByName(exporterName)
 	if err != nil {
-		return nil, fmt.Errorf("MakePipeline(): could not find exporter builder with name: %s", exporterName.(string))
+		return nil, fmt.Errorf("MakePipeline(): could not find exporter builder with name: %s", exporterName)
 	}
 
 	exporter := exporterBuilder.New()
 	pipeline.exporter = &exporter
-	logger.Infof("Found Exporter: %s", exporterName.(string))
+	logger.Infof("Found Exporter: %s", exporterName)
 
 	return pipeline, nil
 }
