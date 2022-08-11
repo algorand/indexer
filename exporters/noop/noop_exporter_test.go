@@ -7,6 +7,7 @@ import (
 	"github.com/algorand/indexer/plugins"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 	"testing"
 )
 
@@ -35,7 +36,13 @@ func TestExporterInit(t *testing.T) {
 }
 
 func TestExporterConfig(t *testing.T) {
-	assert.Equal(t, plugins.PluginConfig(""), ne.Config())
+	defaultConfig := &ExporterConfig{}
+	expected, err := yaml.Marshal(defaultConfig)
+	if err != nil {
+		t.Fatalf("unable to Marshal default noop.ExporterConfig: %v", err)
+	}
+	assert.NoError(t, ne.Init("", nil))
+	assert.Equal(t, plugins.PluginConfig(expected), ne.Config())
 }
 
 func TestExporterClose(t *testing.T) {
