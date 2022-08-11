@@ -67,7 +67,6 @@ func TestExporterRoundReceive(t *testing.T) {
 			Round: 5,
 		},
 	}
-	assert.Equal(t, uint64(0), ne.Round())
 	assert.NoError(t, ne.Receive(eData))
 	assert.Equal(t, uint64(6), ne.Round())
 }
