@@ -1,11 +1,13 @@
 package noop
 
 import (
+	"fmt"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
 )
 
 // `noopExporter`s will function without ever erroring. This means they will also process out of order blocks
@@ -14,7 +16,7 @@ import (
 // The `noopExporter` will maintain `Round` state according to the round of the last block it processed.
 type noopExporter struct {
 	round uint64
-	cfg   plugins.PluginConfig
+	cfg   ExporterConfig
 }
 
 var noopExporterMetadata exporters.ExporterMetadata = exporters.ExporterMetadata{
@@ -30,7 +32,6 @@ type Constructor struct{}
 func (c *Constructor) New() exporters.Exporter {
 	return &noopExporter{
 		round: 0,
-		cfg:   "",
 	}
 }
 
@@ -38,12 +39,17 @@ func (exp *noopExporter) Metadata() exporters.ExporterMetadata {
 	return noopExporterMetadata
 }
 
-func (exp *noopExporter) Init(_ plugins.PluginConfig, _ *logrus.Logger) error {
+func (exp *noopExporter) Init(cfg plugins.PluginConfig, _ *logrus.Logger) error {
+	if err := yaml.Unmarshal([]byte(cfg), &exp.cfg); err != nil {
+		return fmt.Errorf("init failure in unmarshalConfig: %v", err)
+	}
+	exp.round = exp.cfg.Round
 	return nil
 }
 
 func (exp *noopExporter) Config() plugins.PluginConfig {
-	return exp.cfg
+	ret, _ := yaml.Marshal(exp.cfg)
+	return plugins.PluginConfig(ret)
 }
 
 func (exp *noopExporter) Close() error {
