@@ -2,7 +2,9 @@ package algodimporter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"github.com/algorand/go-algorand/data/bookkeeping"
 	"net/url"
 
 	"github.com/algorand/go-algorand-sdk/client/v2/algod"
@@ -36,31 +38,58 @@ func New() importers.Importer {
 	return &algodImporter{}
 }
 
+// Constructor is the Constructor implementation for the "algod" importer
+type Constructor struct{}
+
+// New initializes a blockProcessorConstructor
+func (c *Constructor) New() importers.Importer {
+	return &algodImporter{}
+}
+
 func (algodImp *algodImporter) Metadata() importers.ImporterMetadata {
 	return algodImporterMetadata
 }
 
-func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) error {
+// package-wide init function
+func init() {
+	importers.RegisterImporter(importerName, &Constructor{})
+}
+
+func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfig, logger *logrus.Logger) (*bookkeeping.Genesis, error) {
 	algodImp.ctx, algodImp.cancel = context.WithCancel(ctx)
 	algodImp.logger = logger
 	if err := algodImp.unmarhshalConfig(string(cfg)); err != nil {
-		return fmt.Errorf("connect failure in unmarshalConfig: %v", err)
+		return nil, fmt.Errorf("connect failure in unmarshalConfig: %v", err)
 	}
 	var client *algod.Client
 	u, err := url.Parse(algodImp.cfg.NetAddr)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
 	if u.Scheme != "http" && u.Scheme != "https" {
 		algodImp.cfg.NetAddr = "http://" + algodImp.cfg.NetAddr
 		algodImp.logger.Infof("Algod Importer added http prefix to NetAddr: %s", algodImp.cfg.NetAddr)
 	}
 	client, err = algod.MakeClient(algodImp.cfg.NetAddr, algodImp.cfg.Token)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	algodImp.aclient = client
-	return err
+
+	genesisResponse, err := client.GetGenesis().Do(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	genesis := bookkeeping.Genesis{}
+
+	err = json.Unmarshal([]byte(genesisResponse), &genesis)
+	if err != nil {
+		return nil, err
+	}
+
+	return &genesis, err
 }
 
 func (algodImp *algodImporter) Config() plugins.PluginConfig {

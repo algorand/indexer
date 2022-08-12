@@ -32,7 +32,7 @@ type BlockProcessor interface {
 	processors.Processor
 }
 
-// blockprocessor package-wide init function
+// package-wide init function
 func init() {
 	processors.RegisterProcessor(implementationName, &Constructor{})
 }

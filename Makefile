@@ -22,7 +22,12 @@ COVERPKG := $(shell go list ./...  | grep -v '/cmd/' | egrep -v '(testing|test|m
 # Used for e2e test
 export GO_IMAGE = golang:$(shell go version | cut -d ' ' -f 3 | tail -c +3 )
 
-# This is the default target, build the indexer:
+# This is the default target, build everything:
+all: conduit cmd/algorand-indexer/algorand-indexer go-algorand idb/postgres/internal/schema/setup_postgres_sql.go idb/mocks/IndexerDb.go
+
+conduit: go-algorand
+	cd cmd/conduit && go build
+
 cmd/algorand-indexer/algorand-indexer: idb/postgres/internal/schema/setup_postgres_sql.go go-algorand
 	cd cmd/algorand-indexer && go build -ldflags="${GOLDFLAGS}"
 
@@ -93,4 +98,4 @@ indexer-v-algod-swagger:
 
 indexer-v-algod: nightly-setup indexer-v-algod-swagger nightly-teardown
 
-.PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod
+.PHONY: all test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod conduit
