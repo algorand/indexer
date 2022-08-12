@@ -61,6 +61,9 @@ func (exp *postgresqlExporter) Init(cfg plugins.PluginConfig, logger *logrus.Log
 	}
 	exp.db = db
 	<-ready
+	if rnd, err := exp.db.GetNextRoundToAccount(); err == nil {
+		exp.round = rnd
+	}
 	return err
 }
 
