@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -46,7 +47,6 @@ type testCase struct {
 	Response     responseInfo `json:"response"`
 	Witness      interface{}  `json:"witness"`
 	WitnessError *string      `json:"witnessError"`
-	prover       func(responseInfo) (interface{}, *string)
 }
 type requestInfo struct {
 	Endpoint string  `json:"endpoint"`
@@ -60,6 +60,111 @@ type responseInfo struct {
 	StatusCode int    `json:"statusCode"`
 	Body       string `json:"body"`
 	// BodyErr       string `json:"bodyErr"`
+}
+type prover func(responseInfo) (interface{}, *string)
+
+func (f *testCase) proof() (prover, error) {
+	path := f.Request.Endpoint
+	if len(path) == 0 || path[0] != '/' {
+		return nil, fmt.Errorf("invalid endpoint [%s]", path)
+	}
+	_, p, e := getProof(path[1:])
+	return p, e
+}
+
+type proofPath struct {
+	parts map[string]proofPath
+	proof prover
+}
+
+var proverRoutes = proofPath{
+	parts: map[string]proofPath{
+		"v2": {
+			parts: map[string]proofPath{
+				"accounts": {
+					parts: map[string]proofPath{
+						":account-id": {
+							proof: nil,
+						},
+					},
+				},
+				"applications": {
+					parts: map[string]proofPath{
+						":application-id": {
+							proof: nil,
+							parts: map[string]proofPath{
+								"box": {
+									proof: boxProof,
+								},
+								"boxes": {
+									proof: nil,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+func getProof(path string) (route string, proof prover, err error) {
+	var impl func(string, []string, proofPath) (string, prover, error)
+	impl = func(prefix string, suffix []string, node proofPath) (path string, proof prover, err error) {
+		if len(suffix) == 0 {
+			return prefix, node.proof, nil
+		}
+		part := suffix[0]
+		next, ok := node.parts[part]
+		if ok {
+			return impl(prefix+"/"+part, suffix[1:], next)
+		}
+		// look for a wild-card part, e.g. ":application-id"
+		for routePart, next := range node.parts {
+			if routePart[0] == ':' {
+				return impl(prefix+"/"+routePart, suffix[1:], next)
+			}
+		}
+		// no wild-card, so an error
+		return prefix, nil, fmt.Errorf("<<<suffix=%+v; node=%+v>>>\nfollowing sub-path (%s) cannot find part [%s]", suffix, node, prefix, part)
+	}
+
+	return impl("", strings.Split(path, "/"), proverRoutes)
+}
+
+// WARNING: receiver should not call l.Close()
+func setupIdbAndReturnShutdownFunc(t *testing.T) (db *postgres.IndexerDb, proc processor.Processor, l *ledger.Ledger, shutdown func()) {
+	db, dbShutdown, proc, l := setupIdb(t, test.MakeGenesis())
+
+	shutdown = func() {
+		dbShutdown()
+		l.Close()
+	}
+
+	return
+}
+
+func setupLiveServerAndReturnShutdownFunc(t *testing.T, db *postgres.IndexerDb) (shutdown func()) {
+	serverCtx, shutdown := context.WithCancel(context.Background())
+	go Serve(serverCtx, fixtestListenAddr, db, nil, logrus.New(), fixtestServerOpts)
+
+	serverUp := false
+	for maxWait := fixtestMaxStartup; !serverUp && maxWait > 0; maxWait -= 50 * time.Millisecond {
+		time.Sleep(50 * time.Millisecond)
+		resp, _, reqErr, bodyErr := getRequest(t, "/health", []param{})
+		if reqErr != nil || bodyErr != nil {
+			t.Log("waiting for server:", reqErr, bodyErr)
+			continue
+		}
+		if resp.StatusCode != http.StatusOK {
+			t.Log("waiting for server OK:", resp.StatusCode)
+			continue
+		}
+		serverUp = true
+	}
+	require.True(t, serverUp, "api.Serve did not start server in time")
+
+	return
 }
 
 func readFixture(t *testing.T, path string, live fixture) fixture {
@@ -363,9 +468,13 @@ func validateOrGenerateFixtures(t *testing.T, db *postgres.IndexerDb, seed fixtu
 			StatusCode: resp.StatusCode,
 			Body:       string(body),
 		}
-		// msg += fmt.Sprintf(" newResponse=%+v", liveCase.Response)
-		if seedCase.prover != nil {
-			witness, errStr := seedCase.prover(liveCase.Response)
+		msg += fmt.Sprintf(" newResponse=%+v", liveCase.Response)
+
+		prove, err := seedCase.proof()
+		require.NoError(t, err, msg)
+
+		if prove != nil {
+			witness, errStr := prove(liveCase.Response)
 			liveCase.Witness = witness
 			liveCase.WitnessError = errStr
 		}
@@ -411,8 +520,12 @@ func validateOrGenerateFixtures(t *testing.T, db *postgres.IndexerDb, seed fixtu
 
 			require.Equal(t, savedCase.Response, liveCase.Response, msg)
 
-			require.NotNil(t, seedCase.prover, msg)
-			proof, errStr := seedCase.prover(liveCase.Response)
+			require.NotNil(t, seedCase.proof, msg)
+			prove, err := seedCase.proof()
+			require.NoError(t, err, msg)
+			require.NotNil(t, prove, msg)
+
+			proof, errStr := prove(liveCase.Response)
 			require.Equal(t, seedCase.Witness, proof, msg)
 			if seedCase.WitnessError == nil {
 				require.Nil(t, errStr)
@@ -555,42 +668,7 @@ func tempName(t *testing.T, db *postgres.IndexerDb, appBoxes map[basics.AppIndex
 	fmt.Printf("compareAppBoxesAgainstHandler succeeded with %d requests, %d boxes and %d boxBytes\n", numRequests, sumOfBoxes, sumOfBoxBytes)
 }
 
-// WARNING: receiver should not call l.Close()
-func setupIdbAndReturnShutdownFunc(t *testing.T) (db *postgres.IndexerDb, proc processor.Processor, l *ledger.Ledger, shutdown func()) {
-	db, dbShutdown, proc, l := setupIdb(t, test.MakeGenesis())
-
-	shutdown = func() {
-		dbShutdown()
-		l.Close()
-	}
-
-	return
-}
-
-func setupLiveServerAndReturnShutdownFunc(t *testing.T, db *postgres.IndexerDb) (shutdown func()) {
-	serverCtx, shutdown := context.WithCancel(context.Background())
-	go Serve(serverCtx, fixtestListenAddr, db, nil, logrus.New(), fixtestServerOpts)
-
-	serverUp := false
-	for maxWait := fixtestMaxStartup; !serverUp && maxWait > 0; maxWait -= 50 * time.Millisecond {
-		time.Sleep(50 * time.Millisecond)
-		resp, _, reqErr, bodyErr := getRequest(t, "/health", []param{})
-		if reqErr != nil || bodyErr != nil {
-			t.Log("waiting for server:", reqErr, bodyErr)
-			continue
-		}
-		if resp.StatusCode != http.StatusOK {
-			t.Log("waiting for server OK:", resp.StatusCode)
-			continue
-		}
-		serverUp = true
-	}
-	require.True(t, serverUp, "api.Serve did not start server in time")
-
-	return
-}
-
-func boxProver(resp responseInfo) (wit interface{}, errStr *string) {
+func boxProof(resp responseInfo) (wit interface{}, errStr *string) {
 	if resp.StatusCode >= 300 {
 		s := fmt.Sprintf("%d error", resp.StatusCode)
 		errStr = &s
@@ -610,6 +688,9 @@ func boxProver(resp responseInfo) (wit interface{}, errStr *string) {
 /*
 expectedAppBoxes=map[1:map[AVM is the new EVM:yes we can! I will be assimilated:THE BORG I'm destined for deletion:DELETED a great box:it's a wonderful box another great box:I'm wonderful too box #8:eight is beautiful disappointing box:you made it! don't box me in this way:non box-conforming fantabulous:Italian food's the best! not so great box:DELETED]]
 expected totals=map[1:map[tBoxBytes:317 tBoxes:8]]
+appIdx=1
+appAddr=WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM
+path=/v2/accounts/WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM
 */
 var boxSeedFixture = fixture{
 	File:   "boxes.json",
@@ -633,10 +714,11 @@ var boxSeedFixture = fixture{
 		{
 			Name: "A box attempt for a non-existing app 1337",
 			Request: requestInfo{
-				Endpoint: "/v2/applications/1337/box/string:non-existing",
-				Params:   []param{},
+				Endpoint: "/v2/applications/1337/box",
+				Params: []param{
+					{"name", "string:non-existing"},
+				},
 			},
-			prover: boxProver,
 		},
 		{
 			Name: "Lookup existing app 1",
@@ -655,18 +737,27 @@ var boxSeedFixture = fixture{
 		{
 			Name: "App 1 box(non-existing)",
 			Request: requestInfo{
-				Endpoint: "/v2/applications/1/box/string:non-existing",
-				Params:   []param{},
+				Endpoint: "/v2/applications/1/box",
+				Params: []param{
+					{"name", "string:non-existing"},
+				},
 			},
-			prover: boxProver,
 		},
 		{
 			Name: "App 1 box(a great box) - no params",
 			Request: requestInfo{
-				Endpoint: "/v2/applications/1/box/string:a great box",
+				Endpoint: "/v2/applications/1/box",
+				Params: []param{
+					{"name", "string:a great box"},
+				},
+			},
+		},
+		{
+			Name: "App 1 (as address) totals - no params",
+			Request: requestInfo{
+				Endpoint: "/v2/accounts/WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM",
 				Params:   []param{},
 			},
-			prover: boxProver,
 		},
 	},
 }

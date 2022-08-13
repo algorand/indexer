@@ -1542,6 +1542,7 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 
 			appAddr := appIdx.Address().String()
 			c, api, rec = setupRequest("/v2/accounts/:addr", "addr", appAddr)
+			fmt.Printf("appIdx=%d\nappAddr=%s\npath=/v2/accounts/%s\n", appIdx, appAddr, appAddr)
 			tru := true
 			params := generated.LookupAccountByIDParams{IncludeAll: &tru}
 			err := api.LookupAccountByID(c, appAddr, params)
