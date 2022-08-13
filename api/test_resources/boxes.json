@@ -1,0 +1,99 @@
+{
+  "file": "boxes.json",
+  "owner": "TestBoxes",
+  "lastModified": "2022-08-13 10:11:48.942835 -0500 CDT m=+2.948031062",
+  "frozen": false,
+  "cases": [
+    {
+      "name": "Lookup non-existing app 1337",
+      "request": {
+        "endpoint": "/v2/applications/1337",
+        "params": []
+      },
+      "response": {
+        "statusCode": 404,
+        "body": "{\"message\":\"no application found for application-id: 1337\"}\n"
+      },
+      "witness": null,
+      "witnessError": null
+    },
+    {
+      "name": "Boxes of a non-existing app 1337",
+      "request": {
+        "endpoint": "/v2/applications/1337/boxes",
+        "params": []
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"application-id\":1337,\"boxes\":[]}\n"
+      },
+      "witness": null,
+      "witnessError": null
+    },
+    {
+      "name": "A box attempt for a non-existing app 1337",
+      "request": {
+        "endpoint": "/v2/applications/1337/box/string:non-existing",
+        "params": []
+      },
+      "response": {
+        "statusCode": 404,
+        "body": "{\"message\":\"Not Found\"}\n"
+      },
+      "witness": null,
+      "witnessError": "404 error"
+    },
+    {
+      "name": "Lookup existing app 1",
+      "request": {
+        "endpoint": "/v2/applications/1",
+        "params": []
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"application\":{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},\"current-round\":6}\n"
+      },
+      "witness": null,
+      "witnessError": null
+    },
+    {
+      "name": "App 1 boxes: no params",
+      "request": {
+        "endpoint": "/v2/applications/1/boxes",
+        "params": []
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Ym94ICM4\"},{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"ZmFudGFidWxvdXM=\"},{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"}]}\n"
+      },
+      "witness": null,
+      "witnessError": null
+    },
+    {
+      "name": "App 1 box(non-existing)",
+      "request": {
+        "endpoint": "/v2/applications/1/box/string:non-existing",
+        "params": []
+      },
+      "response": {
+        "statusCode": 404,
+        "body": "{\"message\":\"Not Found\"}\n"
+      },
+      "witness": null,
+      "witnessError": "404 error"
+    },
+    {
+      "name": "App 1 box(a great box) - no params",
+      "request": {
+        "endpoint": "/v2/applications/1/box/string:a great box",
+        "params": []
+      },
+      "response": {
+        "statusCode": 404,
+        "body": "{\"message\":\"Not Found\"}\n"
+      },
+      "witness": null,
+      "witnessError": "404 error"
+    }
+  ]
+}
