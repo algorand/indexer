@@ -1694,7 +1694,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 	appID := basics.AppIndex(3)
 	notPresent := "NOT PRESENT"
 
-	/*** FIRST ROUND - create 5 boxes ***/
+	// ---- ROUND 1: create 5 boxes  ---- //
 	n1, v1 := "box1", "inserted"
 	n2, v2 := "box2", "inserted"
 	n3, v3 := "box3", "inserted"
@@ -1763,7 +1763,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 
 	validateTotals()
 
-	/*** SECOND ROUND - mutate 2, delete 3, mutate 4, delete 5, create 6 ***/
+	// ---- ROUND 2: mutate 2, delete 3, mutate 4, delete 5, create 6  ---- //
 	v2 = "mutated"
 	// v3 is "deleted"
 	v4 = "mutated"
@@ -1794,7 +1794,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 
 	validateTotals()
 
-	/*** THIRD ROUND  - delete 4, insert 5 ***/
+	// ---- ROUND 3: delete 4, insert 5  ---- //
 
 	// v4 is "deleted"
 	v5 = "re-inserted"
@@ -1818,7 +1818,7 @@ func TestWriterAppBoxTableInsertMutateDelete(t *testing.T) {
 
 	validateTotals()
 
-	/*** FOURTH ROUND  - NOOP ***/
+	// ---- ROUND 4: NOOP  ---- //
 	delta.KvMods = map[string]*string{}
 	delta2, _, accts = buildAccountDeltasFromKvsAndMods(t, newKvMods, delta.KvMods)
 	delta.Accts = delta2.Accts

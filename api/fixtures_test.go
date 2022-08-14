@@ -249,7 +249,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 
 	appid := basics.AppIndex(1)
 
-	/**** ROUND 1: create and fund the box app ****/
+	// ---- ROUND 1: create and fund the box app  ---- //
 	currentRound := basics.Round(1)
 
 	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
@@ -268,7 +268,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	blockHdr, err := l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 2: create 8 boxes for appid == 1 ****/
+	// ---- ROUND 2: create 8 boxes for appid == 1  ---- //
 	currentRound = basics.Round(2)
 
 	boxNames := []string{
@@ -303,7 +303,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	blockHdr, err = l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 3: populate the boxes appropriately ****/
+	// ---- ROUND 3: populate the boxes appropriately  ---- //
 	currentRound = basics.Round(3)
 
 	appBoxesToSet := map[string]string{
@@ -337,7 +337,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	blockHdr, err = l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 4: delete the unhappy boxes ****/
+	// ---- ROUND 4: delete the unhappy boxes  ---- //
 	currentRound = basics.Round(4)
 
 	appBoxesToDelete := []string{
@@ -365,13 +365,15 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	blockHdr, err = l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 5: create 3 new boxes, overwriting one of the former boxes ****/
+	// ---- ROUND 5: create 4 new boxes, overwriting one of the former boxes  ---- //
 	currentRound = basics.Round(5)
 
+	randBoxName := []byte{0x52, 0xfd, 0xfc, 0x7, 0x21, 0x82, 0x65, 0x4f, 0x16, 0x3f, 0x5f, 0xf, 0x9a, 0x62, 0x1d, 0x72, 0x95, 0x66, 0xc7, 0x4d, 0x10, 0x3, 0x7c, 0x4d, 0x7b, 0xbb, 0x4, 0x7, 0xd1, 0xe2, 0xc6, 0x49, 0x81, 0x85, 0x5a, 0xd8, 0x68, 0x1d, 0xd, 0x86, 0xd1, 0xe9, 0x1e, 0x0, 0x16, 0x79, 0x39, 0xcb, 0x66, 0x94, 0xd2, 0xc4, 0x22, 0xac, 0xd2, 0x8, 0xa0, 0x7, 0x29, 0x39, 0x48, 0x7f, 0x69, 0x99}
 	appBoxesToCreate := []string{
 		"fantabulous",
 		"disappointing box", // overwriting here
 		"AVM is the new EVM",
+		string(randBoxName),
 	}
 	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range appBoxesToCreate {
@@ -392,13 +394,15 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	blockHdr, err = l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 6: populate the 3 new boxes ****/
+	// ---- ROUND 6: populate the 4 new boxes  ---- //
 	currentRound = basics.Round(6)
 
+	randBoxValue := []byte{0xeb, 0x9d, 0x18, 0xa4, 0x47, 0x84, 0x4, 0x5d, 0x87, 0xf3, 0xc6, 0x7c, 0xf2, 0x27, 0x46, 0xe9, 0x95, 0xaf, 0x5a, 0x25, 0x36, 0x79, 0x51, 0xba}
 	appBoxesToSet = map[string]string{
 		"fantabulous":        "Italian food's the best!", // max char's
 		"disappointing box":  "you made it!",
 		"AVM is the new EVM": "yes we can!",
+		string(randBoxName):  string(randBoxValue),
 	}
 	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
 	for boxName, valPrefix := range appBoxesToSet {
@@ -415,6 +419,8 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
+	// ---- SUMMARY ---- //
+
 	totals := map[basics.AppIndex]map[string]int{}
 	for appIndex, appBoxes := range expectedAppBoxes {
 		totals[appIndex] = map[string]int{
@@ -428,6 +434,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 			}
 		}
 	}
+
 	fmt.Printf("expectedAppBoxes=%+v\n", expectedAppBoxes)
 	fmt.Printf("expected totals=%+v\n", totals)
 }
@@ -578,6 +585,7 @@ func tempName(t *testing.T, db *postgres.IndexerDb, appBoxes map[basics.AppIndex
 			}
 
 			c, api, rec := setupRequest("/v2/applications/:appidx/box/", "appidx", strconv.Itoa(int(appIdx)))
+			// TODO - random box name & val example
 			// TODO for prefix in
 			//  []string{"str", "string", "int", "integer", "addr", "address",
 			//		    "b32", "base32", "byte base32",

@@ -591,7 +591,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	defer l.Close()
 	defer ld.Close()
 
-	/**** ROUND 1: create and fund the box app ****/
+	// ---- ROUND 1: create and fund the box app  ---- //
 
 	appid := basics.AppIndex(1)
 	currentRound := basics.Round(1)
@@ -618,7 +618,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	blockHdr, err := l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 2: create 8 boxes of appid == 1 ****/
+	// ---- ROUND 2: create 8 boxes of appid == 1  ---- //
 	currentRound = basics.Round(2)
 
 	boxNames := []string{
@@ -658,7 +658,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	blockHdr, err = l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 3: populate the boxes appropriately ****/
+	// ---- ROUND 3: populate the boxes appropriately  ---- //
 	currentRound = basics.Round(3)
 
 	appBoxesToSet := map[string]string{
@@ -695,7 +695,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	blockHdr, err = l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 4: delete the unhappy boxes ****/
+	// ---- ROUND 4: delete the unhappy boxes  ---- //
 	currentRound = basics.Round(4)
 
 	appBoxesToDelete := []string{
@@ -731,7 +731,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	blockHdr, err = l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 5: create 3 new boxes, overwriting one of the former boxes ****/
+	// ---- ROUND 5: create 3 new boxes, overwriting one of the former boxes  ---- //
 	currentRound = basics.Round(5)
 
 	appBoxesToCreate := []string{
@@ -762,7 +762,7 @@ func TestLedgerForEvaluatorLookupKv(t *testing.T) {
 	blockHdr, err = l.BlockHdr(currentRound)
 	require.NoError(t, err)
 
-	/**** ROUND 6: populate the 3 new boxes ****/
+	// ---- ROUND 6: populate the 3 new boxes  ---- //
 	currentRound = basics.Round(6)
 
 	appBoxesToSet = map[string]string{
