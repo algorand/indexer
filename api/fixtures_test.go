@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -51,6 +52,7 @@ type testCase struct {
 type requestInfo struct {
 	Endpoint string  `json:"endpoint"`
 	Params   []param `json:"params"`
+	Path     string  `json:"path"`
 }
 type param struct {
 	Name  string `json:"name"`
@@ -62,6 +64,26 @@ type responseInfo struct {
 	// BodyErr       string `json:"bodyErr"`
 }
 type prover func(responseInfo) (interface{}, *string)
+
+// ---- BEGIN provers / witness generators ---- //
+func boxProof(resp responseInfo) (wit interface{}, errStr *string) {
+	if resp.StatusCode >= 300 {
+		s := fmt.Sprintf("%d error", resp.StatusCode)
+		errStr = &s
+		return
+	}
+	box := generated.BoxResponse{}
+	err := stdJson.Unmarshal([]byte(resp.Body), &box)
+	if err != nil {
+		s := fmt.Sprintf("unmarshal err: %s", err)
+		errStr = &s
+		return
+	}
+	wit = box
+	return
+}
+
+// ---- END provers / witness generators ---- //
 
 func (f *testCase) proof() (prover, error) {
 	path := f.Request.Endpoint
@@ -144,6 +166,140 @@ func setupIdbAndReturnShutdownFunc(t *testing.T) (db *postgres.IndexerDb, proc p
 	return
 }
 
+// TODO: what am I doing with this?
+func tempName(t *testing.T, db *postgres.IndexerDb, appBoxes map[basics.AppIndex]map[string]string, deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool) {
+	setupRequest := func(path, paramName, paramValue string) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
+		e := echo.New()
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		rec := httptest.NewRecorder()
+		c := e.NewContext(req, rec)
+		c.SetPath(path)
+		c.SetParamNames(paramName)
+		c.SetParamValues(paramValue)
+		api := testServerImplementation(db)
+		return c, api, rec
+	}
+
+	remainingBoxes := map[basics.AppIndex]map[string]string{}
+	numRequests := 0
+	sumOfBoxes := 0
+	sumOfBoxBytes := 0
+
+	caseNum := 1
+	var totalBoxes, totalBoxBytes int
+	for appIdx, boxes := range appBoxes {
+		totalBoxes = 0
+		totalBoxBytes = 0
+
+		remainingBoxes[appIdx] = map[string]string{}
+
+		// compare expected against handler response one box at a time
+		for key, expectedValue := range boxes {
+			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
+			expectedAppIdx, boxName, err := logic.SplitBoxKey(key)
+			require.NoError(t, err, msg)
+			require.Equal(t, appIdx, expectedAppIdx, msg)
+			numRequests++
+
+			boxDeleted := false
+			if deletedBoxes != nil {
+				if _, ok := deletedBoxes[appIdx][key]; ok {
+					boxDeleted = true
+				}
+			}
+
+			c, api, rec := setupRequest("/v2/applications/:appidx/box/", "appidx", strconv.Itoa(int(appIdx)))
+			// TODO - random box name & val example
+			// TODO for prefix in
+			//  []string{"str", "string", "int", "integer", "addr", "address",
+			//		    "b32", "base32", "byte base32",
+			//			"b64", "base64", "byte base64",
+			//			"abi"
+			//			}
+			// ... do the right thing
+			prefixedName := fmt.Sprintf("str:%s", boxName)
+			params := generated.LookupApplicationBoxByIDandNameParams{Name: prefixedName}
+			err = api.LookupApplicationBoxByIDandName(c, uint64(appIdx), params)
+			require.NoError(t, err, msg)
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
+
+			var resp generated.BoxResponse
+			data := rec.Body.Bytes()
+			err = json.Decode(data, &resp)
+
+			if !boxDeleted {
+				require.NoError(t, err, msg, msg)
+				require.Equal(t, boxName, string(resp.Name), msg)
+				require.Equal(t, expectedValue, string(resp.Value), msg)
+
+				remainingBoxes[appIdx][boxName] = expectedValue
+
+				totalBoxes++
+				totalBoxBytes += len(boxName) + len(expectedValue)
+			} else {
+				require.ErrorContains(t, err, "no rows in result set", msg)
+			}
+		}
+
+		msg := fmt.Sprintf("caseNum=%d, appIdx=%d", caseNum, appIdx)
+
+		expectedBoxes := remainingBoxes[appIdx]
+
+		c, api, rec := setupRequest("/v2/applications/:appidx/boxes", "appidx", strconv.Itoa(int(appIdx)))
+		// TODO: should we add Order to the search params?
+		params := generated.SearchForApplicationBoxesParams{}
+
+		// TODO: also test non-nil Limit, Next
+		err := api.SearchForApplicationBoxes(c, uint64(appIdx), params)
+		require.NoError(t, err, msg)
+		require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
+
+		var resp generated.BoxesResponse
+		data := rec.Body.Bytes()
+		err = json.Decode(data, &resp)
+		require.NoError(t, err, msg)
+
+		require.Equal(t, uint64(appIdx), uint64(resp.ApplicationId), msg)
+
+		boxes := resp.Boxes
+		require.NotNil(t, boxes, msg)
+		require.Len(t, boxes, len(expectedBoxes), msg)
+		for _, box := range boxes {
+			require.Contains(t, expectedBoxes, string(box.Name), msg)
+		}
+
+		if verifyTotals {
+			// compare expected totals against handler account_data JSON fields
+			msg := fmt.Sprintf("caseNum=%d, appIdx=%d", caseNum, appIdx)
+
+			appAddr := appIdx.Address().String()
+			c, api, rec = setupRequest("/v2/accounts/:addr", "addr", appAddr)
+			tru := true
+			params := generated.LookupAccountByIDParams{IncludeAll: &tru}
+			err := api.LookupAccountByID(c, appAddr, params)
+			require.NoError(t, err, msg)
+			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
+
+			var resp generated.AccountResponse
+			data := rec.Body.Bytes()
+			err = json.Decode(data, &resp)
+
+			require.NoError(t, err, msg)
+			require.Equal(t, uint64(totalBoxes), resp.Account.TotalBoxes, msg)
+			require.Equal(t, uint64(totalBoxBytes), resp.Account.TotalBoxBytes, msg)
+
+			// sanity check of the account summary query vs. the direct box search query results:
+			require.Equal(t, uint64(len(boxes)), resp.Account.TotalBoxes, msg)
+		}
+
+		sumOfBoxes += totalBoxes
+		sumOfBoxBytes += totalBoxBytes
+		caseNum++
+	}
+
+	fmt.Printf("compareAppBoxesAgainstHandler succeeded with %d requests, %d boxes and %d boxBytes\n", numRequests, sumOfBoxes, sumOfBoxBytes)
+}
+
 func setupLiveServerAndReturnShutdownFunc(t *testing.T, db *postgres.IndexerDb) (shutdown func()) {
 	serverCtx, shutdown := context.WithCancel(context.Background())
 	go Serve(serverCtx, fixtestListenAddr, db, nil, logrus.New(), fixtestServerOpts)
@@ -151,7 +307,7 @@ func setupLiveServerAndReturnShutdownFunc(t *testing.T, db *postgres.IndexerDb) 
 	serverUp := false
 	for maxWait := fixtestMaxStartup; !serverUp && maxWait > 0; maxWait -= 50 * time.Millisecond {
 		time.Sleep(50 * time.Millisecond)
-		resp, _, reqErr, bodyErr := getRequest(t, "/health", []param{})
+		_, resp, _, reqErr, bodyErr := getRequest(t, "/health", []param{})
 		if reqErr != nil || bodyErr != nil {
 			t.Log("waiting for server:", reqErr, bodyErr)
 			continue
@@ -167,8 +323,8 @@ func setupLiveServerAndReturnShutdownFunc(t *testing.T, db *postgres.IndexerDb) 
 	return
 }
 
-func readFixture(t *testing.T, path string, live fixture) fixture {
-	fileBytes, err := ioutil.ReadFile(path + live.File)
+func readFixture(t *testing.T, path string, seed *fixture) fixture {
+	fileBytes, err := ioutil.ReadFile(path + seed.File)
 	require.NoError(t, err)
 
 	saved := fixture{}
@@ -210,16 +366,17 @@ var fixtestServerOpts = ExtraOptions{
 	DisabledMapConfig: MakeDisabledMapConfig(),
 }
 
-func getRequest(t *testing.T, endpoint string, params []param) (resp *http.Response, body []byte, reqErr, bodyErr error) {
+func getRequest(t *testing.T, endpoint string, params []param) (path string, resp *http.Response, body []byte, reqErr, bodyErr error) {
 	verbose := true
 
-	path := fixtestBaseUrl + endpoint
-	prefix := "?"
-	for i, param := range params {
-		if i > 0 {
-			prefix = "&"
+	path = fixtestBaseUrl + endpoint
+
+	if len(params) > 0 {
+		urlValues := url.Values{}
+		for _, param := range params {
+			urlValues.Add(param.Name, param.Value)
 		}
-		path += prefix + param.Name + "=" + param.Value
+		path += "?" + urlValues.Encode()
 	}
 
 	t.Log("making HTTP request path", path)
@@ -240,7 +397,6 @@ body=%s
 reqErr=%v
 bodyErr=%v`, resp, string(body), reqErr, bodyErr)
 	}
-
 	return
 }
 
@@ -439,27 +595,13 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	fmt.Printf("expected totals=%+v\n", totals)
 }
 
-// When the provided seed has `seed.Frozen == false` assertions will be skipped.
-// On the other hand, when `seed.Frozen == false` assertions are made:
-// * ownerVariable == seed.Owner == saved.Owner == live.Owner sanity checks
-// * seed.File ( == saved.File == live.File sanity checks)
-// * len(seed.Cases) == len(saved.Cases) (== len(live.Cases) sanity check)
-// * for each seedCase in seed.Cases:
-//   * seedCase.Name == savedCase.Name (== liveCase.Name sanity check)
-//   * seedCase.Request == savedCase.Request (== liveCase.Request sanity check)
-//   * seedCase.Witness == savedCase.Witness (== liveCase.Witness sanity check)
-//   * savedCase.Response == liveCase.Response
-//   * seedCase.Proof(liveCase.Response) == savedCase.Witness
-// Regardless of `seed.Frozen`, saved fixture `live` to `fixturesDirectory + "_" + seed.File`
-// NOTE: `live.Witness` is always recalculated via `seed.proof(live.Response)`
-func validateOrGenerateFixtures(t *testing.T, db *postgres.IndexerDb, seed fixture, owner string) {
-	require.Equal(t, owner, seed.Owner, "mismatch between purported owners of fixture")
-
-	live := fixture{
+func generateLiveFixture(t *testing.T, seed fixture) (live fixture) {
+	live = fixture{
 		File:   seed.File,
 		Owner:  seed.Owner,
 		Frozen: seed.Frozen,
 	}
+
 	for i, seedCase := range seed.Cases {
 		msg := fmt.Sprintf("Case %d. seedCase=%+v.", i, seedCase)
 		liveCase := testCase{
@@ -467,9 +609,12 @@ func validateOrGenerateFixtures(t *testing.T, db *postgres.IndexerDb, seed fixtu
 			Request: seedCase.Request,
 		}
 
-		resp, body, reqErr, bodyErr := getRequest(t, seedCase.Request.Endpoint, seedCase.Request.Params)
+		path, resp, body, reqErr, bodyErr := getRequest(t, seedCase.Request.Endpoint, seedCase.Request.Params)
 		require.NoError(t, reqErr, msg)
-		require.NoError(t, bodyErr, msg) // not sure about this one!!!
+
+		// not sure about this one!!!
+		require.NoError(t, bodyErr, msg)
+		liveCase.Request.Path = path
 
 		liveCase.Response = responseInfo{
 			StatusCode: resp.StatusCode,
@@ -491,206 +636,75 @@ func validateOrGenerateFixtures(t *testing.T, db *postgres.IndexerDb, seed fixtu
 	live.LastModified = time.Now().String()
 	writeFixture(t, fixturesDirectory+"_", live)
 
-	saved := readFixture(t, fixturesDirectory, seed)
-	if seed.Frozen {
-		// sanity check:
-		require.True(t, live.Frozen, "should be frozen for assertions")
-
-		require.Equal(t, seed.Owner, saved.Owner, "unexpected discrepancy in Owner")
-		// sanity check:
-		require.Equal(t, saved.Owner, live.Owner, "unexpected discrepancy in Owner")
-
-		require.Equal(t, seed.File, saved.File, "unexpected discrepancy in File")
-		// sanity check:
-		require.Equal(t, saved.File, live.File, "unexpected discrepancy in File")
-
-		numSeedCases, numSavedCases, numLiveCases := len(seed.Cases), len(saved.Cases), len(live.Cases)
-		require.Equal(t, numSeedCases, numSavedCases, "numSeedCases=%d but numSavedCases=%d", numSeedCases, numSavedCases)
-		// sanity check:
-		require.Equal(t, numSavedCases, numLiveCases, "numSavedCases=%d but numLiveCases=%d", numSavedCases, numLiveCases)
-
-		for i, seedCase := range seed.Cases {
-			savedCase, liveCase := saved.Cases[i], live.Cases[i]
-			msg := fmt.Sprintf("(%d)[%s]. discrepency in seed=\n%+v\nsaved=\n%+v\nlive=\n%+v\n", i, seedCase.Name, seedCase, savedCase, liveCase)
-
-			require.Equal(t, seedCase.Name, savedCase.Name, msg)
-			// sanity check:
-			require.Equal(t, savedCase.Name, liveCase.Name, msg)
-
-			require.Equal(t, seedCase.Request, savedCase.Request, msg)
-			// sanity check:
-			require.Equal(t, savedCase.Request, liveCase.Request, msg)
-
-			require.Equal(t, seedCase.Witness, savedCase.Witness, msg)
-			// sanity check:
-			require.Equal(t, savedCase.Witness, liveCase.Witness, msg)
-
-			require.Equal(t, savedCase.Response, liveCase.Response, msg)
-
-			require.NotNil(t, seedCase.proof, msg)
-			prove, err := seedCase.proof()
-			require.NoError(t, err, msg)
-			require.NotNil(t, prove, msg)
-
-			proof, errStr := prove(liveCase.Response)
-			require.Equal(t, seedCase.Witness, proof, msg)
-			if seedCase.WitnessError == nil {
-				require.Nil(t, errStr)
-			} else {
-				require.Equal(t, *seedCase.WitnessError, *errStr)
-			}
-		}
-	}
-}
-
-func tempName(t *testing.T, db *postgres.IndexerDb, appBoxes map[basics.AppIndex]map[string]string, deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool) {
-	setupRequest := func(path, paramName, paramValue string) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
-		e := echo.New()
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		rec := httptest.NewRecorder()
-		c := e.NewContext(req, rec)
-		c.SetPath(path)
-		c.SetParamNames(paramName)
-		c.SetParamValues(paramValue)
-		api := testServerImplementation(db)
-		return c, api, rec
-	}
-
-	remainingBoxes := map[basics.AppIndex]map[string]string{}
-	numRequests := 0
-	sumOfBoxes := 0
-	sumOfBoxBytes := 0
-
-	caseNum := 1
-	var totalBoxes, totalBoxBytes int
-	for appIdx, boxes := range appBoxes {
-		totalBoxes = 0
-		totalBoxBytes = 0
-
-		remainingBoxes[appIdx] = map[string]string{}
-
-		// compare expected against handler response one box at a time
-		for key, expectedValue := range boxes {
-			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
-			expectedAppIdx, boxName, err := logic.SplitBoxKey(key)
-			require.NoError(t, err, msg)
-			require.Equal(t, appIdx, expectedAppIdx, msg)
-			numRequests++
-
-			boxDeleted := false
-			if deletedBoxes != nil {
-				if _, ok := deletedBoxes[appIdx][key]; ok {
-					boxDeleted = true
-				}
-			}
-
-			c, api, rec := setupRequest("/v2/applications/:appidx/box/", "appidx", strconv.Itoa(int(appIdx)))
-			// TODO - random box name & val example
-			// TODO for prefix in
-			//  []string{"str", "string", "int", "integer", "addr", "address",
-			//		    "b32", "base32", "byte base32",
-			//			"b64", "base64", "byte base64",
-			//			"abi"
-			//			}
-			// ... do the right thing
-			prefixedName := fmt.Sprintf("str:%s", boxName)
-			params := generated.LookupApplicationBoxByIDandNameParams{Name: prefixedName}
-			err = api.LookupApplicationBoxByIDandName(c, uint64(appIdx), params)
-			require.NoError(t, err, msg)
-			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
-
-			var resp generated.BoxResponse
-			data := rec.Body.Bytes()
-			err = json.Decode(data, &resp)
-
-			if !boxDeleted {
-				require.NoError(t, err, msg, msg)
-				require.Equal(t, boxName, string(resp.Name), msg)
-				require.Equal(t, expectedValue, string(resp.Value), msg)
-
-				remainingBoxes[appIdx][boxName] = expectedValue
-
-				totalBoxes++
-				totalBoxBytes += len(boxName) + len(expectedValue)
-			} else {
-				require.ErrorContains(t, err, "no rows in result set", msg)
-			}
-		}
-
-		msg := fmt.Sprintf("caseNum=%d, appIdx=%d", caseNum, appIdx)
-
-		expectedBoxes := remainingBoxes[appIdx]
-
-		c, api, rec := setupRequest("/v2/applications/:appidx/boxes", "appidx", strconv.Itoa(int(appIdx)))
-		// TODO: should we add Order to the search params?
-		params := generated.SearchForApplicationBoxesParams{}
-
-		// TODO: also test non-nil Limit, Next
-		err := api.SearchForApplicationBoxes(c, uint64(appIdx), params)
-		require.NoError(t, err, msg)
-		require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
-
-		var resp generated.BoxesResponse
-		data := rec.Body.Bytes()
-		err = json.Decode(data, &resp)
-		require.NoError(t, err, msg)
-
-		require.Equal(t, uint64(appIdx), uint64(resp.ApplicationId), msg)
-
-		boxes := resp.Boxes
-		require.NotNil(t, boxes, msg)
-		require.Len(t, boxes, len(expectedBoxes), msg)
-		for _, box := range boxes {
-			require.Contains(t, expectedBoxes, string(box.Name), msg)
-		}
-
-		if verifyTotals {
-			// compare expected totals against handler account_data JSON fields
-			msg := fmt.Sprintf("caseNum=%d, appIdx=%d", caseNum, appIdx)
-
-			appAddr := appIdx.Address().String()
-			c, api, rec = setupRequest("/v2/accounts/:addr", "addr", appAddr)
-			tru := true
-			params := generated.LookupAccountByIDParams{IncludeAll: &tru}
-			err := api.LookupAccountByID(c, appAddr, params)
-			require.NoError(t, err, msg)
-			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
-
-			var resp generated.AccountResponse
-			data := rec.Body.Bytes()
-			err = json.Decode(data, &resp)
-
-			require.NoError(t, err, msg)
-			require.Equal(t, uint64(totalBoxes), resp.Account.TotalBoxes, msg)
-			require.Equal(t, uint64(totalBoxBytes), resp.Account.TotalBoxBytes, msg)
-
-			// sanity check of the account summary query vs. the direct box search query results:
-			require.Equal(t, uint64(len(boxes)), resp.Account.TotalBoxes, msg)
-		}
-
-		sumOfBoxes += totalBoxes
-		sumOfBoxBytes += totalBoxBytes
-		caseNum++
-	}
-
-	fmt.Printf("compareAppBoxesAgainstHandler succeeded with %d requests, %d boxes and %d boxBytes\n", numRequests, sumOfBoxes, sumOfBoxBytes)
-}
-
-func boxProof(resp responseInfo) (wit interface{}, errStr *string) {
-	if resp.StatusCode >= 300 {
-		s := fmt.Sprintf("%d error", resp.StatusCode)
-		errStr = &s
-		return
-	}
-	box := generated.BoxResponse{}
-	err := stdJson.Unmarshal([]byte(resp.Body), &box)
-	if err != nil {
-		s := fmt.Sprintf("unmarshal err: %s", err)
-		errStr = &s
-		return
-	}
-	wit = box
 	return
+}
+
+// When the provided seed has `seed.Frozen == false` assertions will be skipped.
+// On the other hand, when `seed.Frozen == false` assertions are made:
+// * ownerVariable == seed.Owner == saved.Owner == live.Owner sanity checks
+// * seed.File ( == saved.File == live.File sanity checks)
+// * len(seed.Cases) == len(saved.Cases) (== len(live.Cases) sanity check)
+// * for each seedCase in seed.Cases:
+//   * seedCase.Name == savedCase.Name (== liveCase.Name sanity check)
+//   * seedCase.Request == savedCase.Request (== liveCase.Request sanity check)
+//   * seedCase.Witness == savedCase.Witness (== liveCase.Witness sanity check)
+//   * savedCase.Response == liveCase.Response
+//   * seedCase.Proof(liveCase.Response) == savedCase.Witness
+// Regardless of `seed.Frozen`, saved fixture `live` to `fixturesDirectory + "_" + seed.File`
+// NOTE: `live.Witness` is always recalculated via `seed.proof(live.Response)`
+func validateOrGenerateFixtures(t *testing.T, db *postgres.IndexerDb, seed fixture, owner string) {
+	require.Equal(t, owner, seed.Owner, "mismatch between purported owners of fixture")
+
+	live := generateLiveFixture(t, seed)
+
+	if seed.Frozen {
+		validateLiveVsSaved(t, &seed, &live)
+	}
+}
+
+func validateLiveVsSaved(t *testing.T, seed *fixture, live *fixture) {
+	require.True(t, live.Frozen, "should be frozen for assertions")
+	saved := readFixture(t, fixturesDirectory, seed)
+
+	require.Equal(t, seed.Owner, saved.Owner, "unexpected discrepancy in Owner")
+	// sanity check:
+	require.Equal(t, saved.Owner, live.Owner, "unexpected discrepancy in Owner")
+
+	require.Equal(t, seed.File, saved.File, "unexpected discrepancy in File")
+	// sanity check:
+	require.Equal(t, saved.File, live.File, "unexpected discrepancy in File")
+
+	numSeedCases, numSavedCases, numLiveCases := len(seed.Cases), len(saved.Cases), len(live.Cases)
+	require.Equal(t, numSeedCases, numSavedCases, "numSeedCases=%d but numSavedCases=%d", numSeedCases, numSavedCases)
+	// sanity check:
+	require.Equal(t, numSavedCases, numLiveCases, "numSavedCases=%d but numLiveCases=%d", numSavedCases, numLiveCases)
+
+	for i, seedCase := range seed.Cases {
+		savedCase, liveCase := saved.Cases[i], live.Cases[i]
+		msg := fmt.Sprintf("(%d)[%s]. discrepency in seed=\n%+v\nsaved=\n%+v\nlive=\n%+v\n", i, seedCase.Name, seedCase, savedCase, liveCase)
+
+		require.Equal(t, seedCase.Name, savedCase.Name, msg)
+		// sanity check:
+		require.Equal(t, savedCase.Name, liveCase.Name, msg)
+
+		// only saved vs live:
+		require.Equal(t, savedCase.Request, liveCase.Request, msg)
+		require.Equal(t, savedCase.Witness, liveCase.Witness, msg)
+		require.Equal(t, savedCase.Response, liveCase.Response, msg)
+
+		// require.NotNil(t, seedCase.proof, msg)
+		prove, err := savedCase.proof()
+		require.NoError(t, err, msg)
+		require.NotNil(t, prove, msg)
+
+		proof, errStr := prove(liveCase.Response)
+		require.Equal(t, seedCase.Witness, proof, msg)
+		if seedCase.WitnessError == nil {
+			require.Nil(t, errStr)
+		} else {
+			require.Equal(t, *seedCase.WitnessError, *errStr)
+		}
+	}
 }
 
 /*
@@ -713,7 +727,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "Boxes of a non-existing app 1337",
+			Name: "!!!WRONG!!!! Boxes of a non-existing app 1337",
 			Request: requestInfo{
 				Endpoint: "/v2/applications/1337/boxes",
 				Params:   []param{},
