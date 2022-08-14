@@ -106,19 +106,35 @@ func (algodImp *algodImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	var blockbytes []byte
 	var err error
 	var blk data.BlockData
-	blockbytes, err = algodImp.aclient.BlockRaw(rnd).Do(algodImp.ctx)
-	if err != nil {
+
+	for retries := 0; retries < 3; retries++ {
+		// nextRound - 1 because the endpoint waits until the subsequent block is committed to return
+		_, err = algodImp.aclient.StatusAfterBlock(rnd - 1).Do(algodImp.ctx)
+		if err != nil {
+			// If context has expired.
+			if algodImp.ctx.Err() != nil {
+				return blk, fmt.Errorf("GetBlock ctx error: %w", err)
+			}
+			algodImp.logger.Errorf(
+				"r=%d error getting status %d", retries, rnd)
+			continue
+		}
+		blockbytes, err = algodImp.aclient.BlockRaw(rnd).Do(algodImp.ctx)
+		if err != nil {
+			return blk, err
+		}
+		tmpBlk := new(rpcs.EncodedBlockCert)
+		err = protocol.Decode(blockbytes, tmpBlk)
+
+		blk = data.BlockData{
+			BlockHeader: tmpBlk.Block.BlockHeader,
+			Payset:      tmpBlk.Block.Payset,
+			Certificate: &tmpBlk.Certificate,
+		}
 		return blk, err
 	}
-	tmpBlk := new(rpcs.EncodedBlockCert)
-	err = protocol.Decode(blockbytes, tmpBlk)
-
-	blk = data.BlockData{
-		BlockHeader: tmpBlk.Block.BlockHeader,
-		Payset:      tmpBlk.Block.Payset,
-		Certificate: &tmpBlk.Certificate,
-	}
-	return blk, err
+	algodImp.logger.Error("GetBlock finished retries without fetching a block.")
+	return blk, fmt.Errorf("finished retries without fetching a block")
 }
 
 func (algodImp *algodImporter) unmarhshalConfig(cfg string) error {

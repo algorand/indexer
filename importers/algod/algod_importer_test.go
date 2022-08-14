@@ -2,22 +2,13 @@ package algodimporter
 
 import (
 	"context"
-	"net/http"
-	"net/http/httptest"
-	"path"
-	"strconv"
-	"strings"
+	"github.com/algorand/indexer/util/test"
+	"os"
 	"testing"
 
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/protocol"
-	"github.com/algorand/go-algorand/rpcs"
-	"github.com/algorand/go-codec/codec"
 	"github.com/algorand/indexer/importers"
 	"github.com/algorand/indexer/plugins"
 	"github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 )
@@ -30,47 +21,10 @@ var (
 )
 
 func init() {
-	logger, _ = test.NewNullLogger()
+	logger = logrus.New()
+	logger.SetOutput(os.Stdout)
+	logger.SetLevel(logrus.InfoLevel)
 	ctx, cancel = context.WithCancel(context.Background())
-}
-
-func MockAlgodServerReturnsJustGenesis() *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		if strings.Contains(r.URL.Path, "/genesis") {
-			w.WriteHeader(http.StatusOK)
-			genesis := &bookkeeping.Genesis{}
-			blockbytes := protocol.EncodeJSON(*genesis)
-			w.Write(blockbytes)
-		} else {
-			w.WriteHeader(http.StatusBadRequest)
-		}
-	}))
-}
-
-func MockAlgodServerReturnsGenesisAndEmptyBlock() *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		if strings.Contains(r.URL.Path, "/genesis") {
-			w.WriteHeader(http.StatusOK)
-			genesis := &bookkeeping.Genesis{}
-			blockbytes := protocol.EncodeJSON(*genesis)
-			w.Write(blockbytes)
-		} else {
-			rnd, _ := strconv.Atoi(path.Base(r.URL.Path))
-			blk := rpcs.EncodedBlockCert{Block: bookkeeping.Block{BlockHeader: bookkeeping.BlockHeader{Round: basics.Round(rnd)}}}
-			var blockbytes []byte
-			w.WriteHeader(http.StatusOK)
-			response := struct {
-				Block bookkeeping.Block `codec:"block"`
-			}{
-				Block: blk.Block,
-			}
-			enc := codec.NewEncoderBytes(&blockbytes, protocol.CodecHandle)
-			enc.Encode(response)
-			w.Write(blockbytes)
-		}
-	}))
 }
 
 func TestImporterorterMetadata(t *testing.T) {
@@ -83,7 +37,7 @@ func TestImporterorterMetadata(t *testing.T) {
 }
 
 func TestCloseSuccess(t *testing.T) {
-	ts := MockAlgodServerReturnsJustGenesis()
+	ts := test.NewAlgodServer(test.GenesisResponder)
 	testImporter = New()
 	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
@@ -92,7 +46,7 @@ func TestCloseSuccess(t *testing.T) {
 }
 
 func TestInitSuccess(t *testing.T) {
-	ts := MockAlgodServerReturnsJustGenesis()
+	ts := test.NewAlgodServer(test.GenesisResponder)
 	testImporter = New()
 	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
@@ -117,8 +71,8 @@ func TestConfigDefault(t *testing.T) {
 	assert.Equal(t, plugins.PluginConfig(expected), testImporter.Config())
 }
 
-func TestGetBlockFailure(t *testing.T) {
-	ts := MockAlgodServerReturnsJustGenesis()
+func TestWaitForBlockBlockFailure(t *testing.T) {
+	ts := test.NewAlgodServer(test.GenesisResponder)
 	testImporter = New()
 	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
@@ -130,7 +84,11 @@ func TestGetBlockFailure(t *testing.T) {
 }
 
 func TestGetBlockSuccess(t *testing.T) {
-	ts := MockAlgodServerReturnsGenesisAndEmptyBlock()
+	ctx, cancel = context.WithCancel(context.Background())
+	ts := test.NewAlgodServer(
+		test.GenesisResponder,
+		test.BlockResponder,
+		test.BlockAfterResponder)
 	testImporter = New()
 	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
 	assert.NoError(t, err)
@@ -140,5 +98,36 @@ func TestGetBlockSuccess(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, downloadedBlk.Round(), uint64(10))
 	assert.True(t, downloadedBlk.Empty())
+	cancel()
+}
+
+func TestGetBlockContextCancelled(t *testing.T) {
+	ctx, cancel = context.WithCancel(context.Background())
+	ts := test.NewAlgodServer(
+		test.GenesisResponder,
+		test.BlockResponder,
+		test.BlockAfterResponder)
+	testImporter = New()
+	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
+	assert.NoError(t, err)
+	assert.NotEqual(t, testImporter, nil)
+
+	cancel()
+	_, err = testImporter.GetBlock(uint64(10))
+	assert.Error(t, err)
+}
+
+func TestGetBlockFailure(t *testing.T) {
+	ctx, cancel = context.WithCancel(context.Background())
+	ts := test.NewAlgodServer(
+		test.GenesisResponder,
+		test.BlockAfterResponder)
+	testImporter = New()
+	_, err := testImporter.Init(ctx, plugins.PluginConfig("netaddr: "+ts.URL), logger)
+	assert.NoError(t, err)
+	assert.NotEqual(t, testImporter, nil)
+
+	_, err = testImporter.GetBlock(uint64(10))
+	assert.Error(t, err)
 	cancel()
 }
