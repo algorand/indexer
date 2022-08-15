@@ -69,7 +69,7 @@ func TestFetcherImplCatchupLoopBlockError(t *testing.T) {
 		// returning an empty block `passingCalls` times before throwing 500s
 		func(path string, w http.ResponseWriter) bool {
 			if strings.Contains(path, "v2/blocks/") {
-				if passingCalls <= 0 {
+				if passingCalls == 0 {
 					w.WriteHeader(http.StatusInternalServerError)
 				} else {
 					var block bookkeeping.Block

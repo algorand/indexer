@@ -2,12 +2,13 @@ package algodimporter
 
 import (
 	"context"
-	"github.com/algorand/indexer/util/test"
 	"os"
 	"testing"
 
 	"github.com/algorand/indexer/importers"
 	"github.com/algorand/indexer/plugins"
+	"github.com/algorand/indexer/util/test"
+
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
