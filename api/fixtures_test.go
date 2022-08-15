@@ -31,7 +31,7 @@ import (
 )
 
 const fixtestListenAddr = "localhost:8989"
-const fixtestBaseUrl = "http://" + fixtestListenAddr
+const fixtestBaseURL = "http://" + fixtestListenAddr
 const fixtestMaxStartup time.Duration = 5 * time.Second
 const fixturesDirectory = "test_resources/"
 
@@ -50,9 +50,9 @@ type testCase struct {
 	WitnessError *string      `json:"witnessError"`
 }
 type requestInfo struct {
-	Endpoint string  `json:"endpoint"`
-	Params   []param `json:"params"`
-	URL      string  `json:"url"`
+	Path   string  `json:"path"`
+	Params []param `json:"params"`
+	URL    string  `json:"url"`
 }
 type param struct {
 	Name  string `json:"name"`
@@ -67,6 +67,21 @@ type prover func(responseInfo) (interface{}, *string)
 
 // ---- BEGIN provers / witness generators ---- //
 
+func accountsProof(resp responseInfo) (wit interface{}, errStr *string) {
+	accounts := generated.AccountsResponse{}
+	errStr = parseForProver(resp, &accounts)
+	if errStr != nil {
+		return
+	}
+	wit = struct {
+		Type     string                     `json:"goType"`
+		Accounts generated.AccountsResponse `json:"accounts"`
+	}{
+		Type:     fmt.Sprintf("%T", accounts),
+		Accounts: accounts,
+	}
+	return
+}
 func accountInfoProof(resp responseInfo) (wit interface{}, errStr *string) {
 	account := generated.AccountResponse{}
 	errStr = parseForProver(resp, &account)
@@ -165,7 +180,7 @@ func parseForProver(resp responseInfo, reconstructed interface{}) (errStr *strin
 // ---- END provers / witness generators ---- //
 
 func (f *testCase) proverFromEndoint() (prover, error) {
-	path := f.Request.Endpoint
+	path := f.Request.Path
 	if len(path) == 0 || path[0] != '/' {
 		return nil, fmt.Errorf("invalid endpoint [%s]", path)
 	}
@@ -183,6 +198,7 @@ var proverRoutes = proofPath{
 		"v2": {
 			parts: map[string]proofPath{
 				"accounts": {
+					proof: accountsProof,
 					parts: map[string]proofPath{
 						":account-id": {
 							proof: accountInfoProof,
@@ -449,7 +465,7 @@ var fixtestServerOpts = ExtraOptions{
 func getRequest(t *testing.T, endpoint string, params []param) (path string, resp *http.Response, body []byte, reqErr, bodyErr error) {
 	verbose := true
 
-	path = fixtestBaseUrl + endpoint
+	path = fixtestBaseURL + endpoint
 
 	if len(params) > 0 {
 		urlValues := url.Values{}
@@ -695,7 +711,7 @@ func generateLiveFixture(t *testing.T, seed fixture) (live fixture) {
 			Request: seedCase.Request,
 		}
 
-		path, resp, body, reqErr, bodyErr := getRequest(t, seedCase.Request.Endpoint, seedCase.Request.Params)
+		path, resp, body, reqErr, bodyErr := getRequest(t, seedCase.Request.Path, seedCase.Request.Params)
 		require.NoError(t, reqErr, msg)
 
 		// not sure about this one!!!
@@ -805,103 +821,116 @@ var boxSeedFixture = fixture{
 	Owner:  "TestBoxes",
 	Frozen: false,
 	Cases: []testCase{
+		// /v2/accounts - 1 case
+		{
+			Name: "What are all the accounts?",
+			Request: requestInfo{
+				Path:   "/v2/accounts",
+				Params: []param{},
+			},
+		},
+		// /v2/applications - 1 case
 		{
 			Name: "What are all the apps?",
 			Request: requestInfo{
-				Endpoint: "/v2/applications",
-				Params:   []param{},
+				Path:   "/v2/applications",
+				Params: []param{},
 			},
 		},
+		// /v2/applications/:app-id - 3 cases
 		{
 			Name: "Lookup non-existing app 1337",
 			Request: requestInfo{
-				Endpoint: "/v2/applications/1337",
-				Params:   []param{},
+				Path:   "/v2/applications/1337",
+				Params: []param{},
 			},
 		},
+		{
+			Name: "Lookup app 3 (funded with no boxes)",
+			Request: requestInfo{
+				Path:   "/v2/applications/3",
+				Params: []param{},
+			},
+		},
+		{
+			Name: "Lookup app (funded with boxes)",
+			Request: requestInfo{
+				Path:   "/v2/applications/1",
+				Params: []param{},
+			},
+		},
+		// /v2/accounts/:accoundt-id using AppIndex.Address() - 2 cases
+		{
+			Name: "App 3 (as address) totals no boxes - no params",
+			Request: requestInfo{
+				Path:   "/v2/accounts/" + basics.AppIndex(3).Address().String(),
+				Params: []param{},
+			},
+		},
+		{
+			Name: "App 1 (as address) totals with boxes - no params",
+			Request: requestInfo{
+				Path:   "/v2/accounts/" + basics.AppIndex(1).Address().String(),
+				Params: []param{},
+			},
+		},
+		// /v2/applications/:app-id/boxes - 3 apps with lots of param variations
 		{
 			Name: "Boxes of a non-existing app 1337",
 			Request: requestInfo{
-				Endpoint: "/v2/applications/1337/boxes",
-				Params:   []param{},
+				Path:   "/v2/applications/1337/boxes",
+				Params: []param{},
 			},
 		},
 		{
-			Name: "A box attempt for a non-existing app 1337",
+			Name: "app 3 no boxes: no params",
 			Request: requestInfo{
-				Endpoint: "/v2/applications/1337/box",
-				Params: []param{
-					{"name", "string:non-existing"},
-				},
-			},
-		},
-		{
-			Name: "Lookup existing app 1",
-			Request: requestInfo{
-				Endpoint: "/v2/applications/1",
-				Params:   []param{},
-			},
-		},
-		{
-			Name: "Lookup existing app 3",
-			Request: requestInfo{
-				Endpoint: "/v2/applications/3",
-				Params:   []param{},
+				Path:   "/v2/applications/3/boxes",
+				Params: []param{},
 			},
 		},
 		{
 			Name: "App 1 boxes: no params",
 			Request: requestInfo{
-				Endpoint: "/v2/applications/1/boxes",
-				Params:   []param{},
+				Path:   "/v2/applications/1/boxes",
+				Params: []param{},
 			},
 		},
+		// /v2/applications/:app-id/box?name=...  - lots and lots
 		{
-			Name: "app 3 boxes: no params",
+			Name: "A box attempt for a non-existing app 1337",
 			Request: requestInfo{
-				Endpoint: "/v2/applications/3/boxes",
-				Params:   []param{},
-			},
-		},
-		{
-			Name: "App 1 box(non-existing)",
-			Request: requestInfo{
-				Endpoint: "/v2/applications/1/box",
+				Path: "/v2/applications/1337/box",
 				Params: []param{
 					{"name", "string:non-existing"},
 				},
 			},
 		},
 		{
-			Name: "app 3 box(non-existing)",
+			Name: "App 3 box (non-existing)",
 			Request: requestInfo{
-				Endpoint: "/v2/applications/3/box",
+				Path: "/v2/applications/3/box",
 				Params: []param{
 					{"name", "string:non-existing"},
 				},
 			},
 		},
 		{
-			Name: "App 1 box(a great box) - no params",
+			Name: "App 1 box (non-existing)",
 			Request: requestInfo{
-				Endpoint: "/v2/applications/1/box",
+				Path: "/v2/applications/1/box",
+				Params: []param{
+					{"name", "string:non-existing"},
+				},
+			},
+		},
+		{
+			Name: "App 1 box (a great box) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/1/box",
 				Params: []param{
 					{"name", "string:a great box"},
 				},
-			},
-		},
-		{
-			Name: "App 1 (as address) totals - no params",
-			Request: requestInfo{
-				Endpoint: "/v2/accounts/" + basics.AppIndex(1).Address().String(),
-				Params:   []param{},
-			},
-		},
-		{
-			Name: "App 3 (as address) totals - no params",
-			Request: requestInfo{
-				Endpoint: "/v2/accounts/" + basics.AppIndex(3).Address().String(),
-				Params:   []param{},
 			},
 		},
 	},
