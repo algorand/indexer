@@ -2,15 +2,19 @@ package postgresql
 
 import (
 	"fmt"
+
+	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v3"
+
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
+
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/idb"
+	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/plugins"
-	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
 )
 
 const exporterName = "postgresql"

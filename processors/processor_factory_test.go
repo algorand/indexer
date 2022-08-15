@@ -3,16 +3,18 @@ package processors
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/go-algorand/data/basics"
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/indexer/data"
 	"testing"
 
-	"github.com/algorand/indexer/plugins"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+
+	"github.com/algorand/go-algorand/data/basics"
+	"github.com/algorand/go-algorand/data/bookkeeping"
+
+	"github.com/algorand/indexer/data"
+	"github.com/algorand/indexer/plugins"
 )
 
 var logger *logrus.Logger
@@ -40,8 +42,8 @@ type mockProcessor struct {
 	Processor
 }
 
-func (m *mockProcessor) Init(ctx context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig) error {
-	args := m.Called(ctx, initProvider, cfg)
+func (m *mockProcessor) Init(ctx context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig, logger *logrus.Logger) error {
+	args := m.Called(ctx, initProvider, cfg, logger)
 	return args.Error(0)
 }
 

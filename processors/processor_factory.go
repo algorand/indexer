@@ -42,7 +42,7 @@ func ProcessorByName(ctx context.Context, name string, dataDir string, initProvi
 	}
 	processor := constructor.New()
 	cfg := plugins.LoadConfig(logger, dataDir, processor.Metadata())
-	if err := processor.Init(ctx, initProvider, cfg); err != nil {
+	if err := processor.Init(ctx, initProvider, cfg, logger); err != nil {
 		return nil, err
 	}
 	return processor, nil

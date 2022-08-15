@@ -2,6 +2,9 @@ package noop
 
 import (
 	"context"
+
+	"github.com/sirupsen/logrus"
+
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"
@@ -36,7 +39,7 @@ func (p *Processor) Config() plugins.PluginConfig {
 }
 
 // Init noop
-func (p *Processor) Init(_ context.Context, _ data.InitProvider, _ plugins.PluginConfig) error {
+func (p *Processor) Init(_ context.Context, _ data.InitProvider, _ plugins.PluginConfig, _ *logrus.Logger) error {
 	return nil
 }
 

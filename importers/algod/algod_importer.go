@@ -2,7 +2,6 @@ package algodimporter
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"net/url"
@@ -84,7 +83,7 @@ func (algodImp *algodImporter) Init(ctx context.Context, cfg plugins.PluginConfi
 
 	genesis := bookkeeping.Genesis{}
 
-	err = json.Unmarshal([]byte(genesisResponse), &genesis)
+	err = protocol.DecodeJSON([]byte(genesisResponse), &genesis)
 	if err != nil {
 		return nil, err
 	}
