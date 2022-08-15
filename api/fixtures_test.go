@@ -52,7 +52,7 @@ type testCase struct {
 type requestInfo struct {
 	Endpoint string  `json:"endpoint"`
 	Params   []param `json:"params"`
-	Path     string  `json:"path"`
+	URL      string  `json:"url"`
 }
 type param struct {
 	Name  string `json:"name"`
@@ -66,26 +66,105 @@ type responseInfo struct {
 type prover func(responseInfo) (interface{}, *string)
 
 // ---- BEGIN provers / witness generators ---- //
+
+func accountInfoProof(resp responseInfo) (wit interface{}, errStr *string) {
+	account := generated.AccountResponse{}
+	errStr = parseForProver(resp, &account)
+	if errStr != nil {
+		return
+	}
+	wit = struct {
+		Type    string                    `json:"goType"`
+		Account generated.AccountResponse `json:"account"`
+	}{
+		Type:    fmt.Sprintf("%T", account),
+		Account: account,
+	}
+	return
+}
+
+func appsProof(resp responseInfo) (wit interface{}, errStr *string) {
+	apps := generated.ApplicationsResponse{}
+	errStr = parseForProver(resp, &apps)
+	if errStr != nil {
+		return
+	}
+	wit = struct {
+		Type string                         `json:"goType"`
+		Apps generated.ApplicationsResponse `json:"apps"`
+	}{
+		Type: fmt.Sprintf("%T", apps),
+		Apps: apps,
+	}
+	return
+}
+
+func appInfoProof(resp responseInfo) (wit interface{}, errStr *string) {
+	app := generated.ApplicationResponse{}
+	errStr = parseForProver(resp, &app)
+	if errStr != nil {
+		return
+	}
+	wit = struct {
+		Type string                        `json:"goType"`
+		App  generated.ApplicationResponse `json:"app"`
+	}{
+		Type: fmt.Sprintf("%T", app),
+		App:  app,
+	}
+	return
+}
+
 func boxProof(resp responseInfo) (wit interface{}, errStr *string) {
+	box := generated.BoxResponse{}
+	errStr = parseForProver(resp, &box)
+	if errStr != nil {
+		return
+	}
+	wit = struct {
+		Type string                `json:"goType"`
+		Box  generated.BoxResponse `json:"box"`
+	}{
+		Type: fmt.Sprintf("%T", box),
+		Box:  box,
+	}
+	return
+}
+
+func boxesProof(resp responseInfo) (wit interface{}, errStr *string) {
+	boxes := generated.BoxesResponse{}
+	errStr = parseForProver(resp, &boxes)
+	if errStr != nil {
+		return
+	}
+	wit = struct {
+		Type  string                  `json:"goType"`
+		Boxes generated.BoxesResponse `json:"boxes"`
+	}{
+		Type:  fmt.Sprintf("%T", boxes),
+		Boxes: boxes,
+	}
+	return
+}
+
+func parseForProver(resp responseInfo, reconstructed interface{}) (errStr *string) {
 	if resp.StatusCode >= 300 {
 		s := fmt.Sprintf("%d error", resp.StatusCode)
 		errStr = &s
 		return
 	}
-	box := generated.BoxResponse{}
-	err := stdJson.Unmarshal([]byte(resp.Body), &box)
+	err := stdJson.Unmarshal([]byte(resp.Body), reconstructed)
 	if err != nil {
 		s := fmt.Sprintf("unmarshal err: %s", err)
 		errStr = &s
 		return
 	}
-	wit = box
-	return
+	return nil
 }
 
 // ---- END provers / witness generators ---- //
 
-func (f *testCase) proof() (prover, error) {
+func (f *testCase) proverFromEndoint() (prover, error) {
 	path := f.Request.Endpoint
 	if len(path) == 0 || path[0] != '/' {
 		return nil, fmt.Errorf("invalid endpoint [%s]", path)
@@ -106,20 +185,21 @@ var proverRoutes = proofPath{
 				"accounts": {
 					parts: map[string]proofPath{
 						":account-id": {
-							proof: nil,
+							proof: accountInfoProof,
 						},
 					},
 				},
 				"applications": {
+					proof: appsProof,
 					parts: map[string]proofPath{
 						":application-id": {
-							proof: nil,
+							proof: appInfoProof,
 							parts: map[string]proofPath{
 								"box": {
 									proof: boxProof,
 								},
 								"boxes": {
-									proof: nil,
+									proof: boxesProof,
 								},
 							},
 						},
@@ -403,18 +483,24 @@ bodyErr=%v`, resp, string(body), reqErr, bodyErr)
 func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	deleted := "DELETED"
 
-	appid := basics.AppIndex(1)
+	firstAppid := basics.AppIndex(1)
+	secondAppid := basics.AppIndex(3)
 
-	// ---- ROUND 1: create and fund the box app  ---- //
+	// ---- ROUND 1: create and fund the box app and another app which won't have boxes ---- //
 	currentRound := basics.Round(1)
 
 	createTxn, err := test.MakeComplexCreateAppTxn(test.AccountA, test.BoxApprovalProgram, test.BoxClearProgram, 8)
 	require.NoError(t, err)
 
-	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, appid.Address(), basics.Address{},
+	payNewAppTxn := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountA, firstAppid.Address(), basics.Address{},
 		basics.Address{})
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn)
+	createTxn2, err := test.MakeComplexCreateAppTxn(test.AccountB, test.BoxApprovalProgram, test.BoxClearProgram, 8)
+	require.NoError(t, err)
+	payNewAppTxn2 := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountB, secondAppid.Address(), basics.Address{},
+		basics.Address{})
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn, &createTxn2, &payNewAppTxn2)
 	require.NoError(t, err)
 
 	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
@@ -439,13 +525,13 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	}
 
 	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
-	expectedAppBoxes[appid] = map[string]string{}
+	expectedAppBoxes[firstAppid] = map[string]string{}
 	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range boxNames {
-		expectedAppBoxes[appid][logic.MakeBoxKey(appid, boxName)] = newBoxValue
+		expectedAppBoxes[firstAppid][logic.MakeBoxKey(firstAppid, boxName)] = newBoxValue
 		args := []string{"create", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 	}
 
@@ -474,14 +560,14 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	}
 
 	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
-	expectedAppBoxes[appid] = make(map[string]string)
+	expectedAppBoxes[firstAppid] = make(map[string]string)
 	for boxName, valPrefix := range appBoxesToSet {
 		args := []string{"set", boxName, valPrefix}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
-		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
+		key := logic.MakeBoxKey(firstAppid, boxName)
+		expectedAppBoxes[firstAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
@@ -505,11 +591,11 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range appBoxesToDelete {
 		args := []string{"delete", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
-		expectedAppBoxes[appid][key] = deleted
+		key := logic.MakeBoxKey(firstAppid, boxName)
+		expectedAppBoxes[firstAppid][key] = deleted
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
@@ -534,11 +620,11 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range appBoxesToCreate {
 		args := []string{"create", boxName}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
-		expectedAppBoxes[appid][key] = newBoxValue
+		key := logic.MakeBoxKey(firstAppid, boxName)
+		expectedAppBoxes[firstAppid][key] = newBoxValue
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
@@ -563,11 +649,11 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
 	for boxName, valPrefix := range appBoxesToSet {
 		args := []string{"set", boxName, valPrefix}
-		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(appid), test.AccountA, args, []string{boxName})
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
 		boxTxns = append(boxTxns, &boxTxn)
 
-		key := logic.MakeBoxKey(appid, boxName)
-		expectedAppBoxes[appid][key] = valPrefix + newBoxValue[len(valPrefix):]
+		key := logic.MakeBoxKey(firstAppid, boxName)
+		expectedAppBoxes[firstAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
 	}
 	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
 	require.NoError(t, err)
@@ -614,7 +700,7 @@ func generateLiveFixture(t *testing.T, seed fixture) (live fixture) {
 
 		// not sure about this one!!!
 		require.NoError(t, bodyErr, msg)
-		liveCase.Request.Path = path
+		liveCase.Request.URL = path
 
 		liveCase.Response = responseInfo{
 			StatusCode: resp.StatusCode,
@@ -622,7 +708,7 @@ func generateLiveFixture(t *testing.T, seed fixture) (live fixture) {
 		}
 		msg += fmt.Sprintf(" newResponse=%+v", liveCase.Response)
 
-		prove, err := seedCase.proof()
+		prove, err := seedCase.proverFromEndoint()
 		require.NoError(t, err, msg)
 
 		if prove != nil {
@@ -693,7 +779,7 @@ func validateLiveVsSaved(t *testing.T, seed *fixture, live *fixture) {
 		require.Equal(t, savedCase.Response, liveCase.Response, msg)
 
 		// require.NotNil(t, seedCase.proof, msg)
-		prove, err := savedCase.proof()
+		prove, err := savedCase.proverFromEndoint()
 		require.NoError(t, err, msg)
 		require.NotNil(t, prove, msg)
 
@@ -720,6 +806,13 @@ var boxSeedFixture = fixture{
 	Frozen: false,
 	Cases: []testCase{
 		{
+			Name: "What are all the apps?",
+			Request: requestInfo{
+				Endpoint: "/v2/applications",
+				Params:   []param{},
+			},
+		},
+		{
 			Name: "Lookup non-existing app 1337",
 			Request: requestInfo{
 				Endpoint: "/v2/applications/1337",
@@ -727,7 +820,7 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "!!!WRONG!!!! Boxes of a non-existing app 1337",
+			Name: "Boxes of a non-existing app 1337",
 			Request: requestInfo{
 				Endpoint: "/v2/applications/1337/boxes",
 				Params:   []param{},
@@ -750,6 +843,13 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
+			Name: "Lookup existing app 3",
+			Request: requestInfo{
+				Endpoint: "/v2/applications/3",
+				Params:   []param{},
+			},
+		},
+		{
 			Name: "App 1 boxes: no params",
 			Request: requestInfo{
 				Endpoint: "/v2/applications/1/boxes",
@@ -757,9 +857,25 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
+			Name: "app 3 boxes: no params",
+			Request: requestInfo{
+				Endpoint: "/v2/applications/3/boxes",
+				Params:   []param{},
+			},
+		},
+		{
 			Name: "App 1 box(non-existing)",
 			Request: requestInfo{
 				Endpoint: "/v2/applications/1/box",
+				Params: []param{
+					{"name", "string:non-existing"},
+				},
+			},
+		},
+		{
+			Name: "app 3 box(non-existing)",
+			Request: requestInfo{
+				Endpoint: "/v2/applications/3/box",
 				Params: []param{
 					{"name", "string:non-existing"},
 				},
@@ -777,7 +893,14 @@ var boxSeedFixture = fixture{
 		{
 			Name: "App 1 (as address) totals - no params",
 			Request: requestInfo{
-				Endpoint: "/v2/accounts/WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM",
+				Endpoint: "/v2/accounts/" + basics.AppIndex(1).Address().String(),
+				Params:   []param{},
+			},
+		},
+		{
+			Name: "App 3 (as address) totals - no params",
+			Request: requestInfo{
+				Endpoint: "/v2/accounts/" + basics.AppIndex(3).Address().String(),
 				Params:   []param{},
 			},
 		},

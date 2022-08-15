@@ -2300,11 +2300,14 @@ func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.Applica
 func (db *IndexerDb) ApplicationBoxes(ctx context.Context, queryOpts idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
 	out := make(chan idb.ApplicationBoxRow, 1)
 
-	columns := `app, name`
+	columns := `a.app, ab.name`
 	if !queryOpts.OmitValues {
-		columns += `, value`
+		columns += `, ab.value`
 	}
-	query := fmt.Sprintf("SELECT %s FROM app_box WHERE app = $1", columns)
+	query := fmt.Sprintf(`WITH apps AS (SELECT index AS app FROM app WHERE index = $1)
+SELECT %s
+FROM apps a
+LEFT OUTER JOIN app_box ab ON ab.app = a.app`, columns)
 
 	whereArgs := []interface{}{queryOpts.ApplicationID}
 	if queryOpts.BoxName != nil {
@@ -2320,7 +2323,7 @@ func (db *IndexerDb) ApplicationBoxes(ctx context.Context, queryOpts idb.Applica
 		if !*queryOpts.Ascending {
 			orderKind = "DESC"
 		}
-		query += fmt.Sprintf(" ORDER BY name %s", orderKind)
+		query += fmt.Sprintf(" ORDER BY ab.name %s", orderKind)
 	}
 
 	if queryOpts.Limit != 0 {

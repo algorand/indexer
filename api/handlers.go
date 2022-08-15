@@ -590,7 +590,7 @@ func (si *ServerImplementation) LookupApplicationBoxByIDandName(ctx echo.Context
 	}
 
 	if len(boxes) == 0 {
-		return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%+v", errNoBoxesFound, round, applicationID, encodedBoxName))
+		return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%+v", errNoApplicationsFound, round, applicationID, encodedBoxName))
 	}
 
 	if len(boxes) > 1 {
@@ -598,6 +598,14 @@ func (si *ServerImplementation) LookupApplicationBoxByIDandName(ctx echo.Context
 	}
 
 	box := boxes[0]
+	if len(box.Name) == 0 && len(boxName) > 0 {
+		return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%+v", errNoBoxesFound, round, applicationID, encodedBoxName))
+	}
+
+	if string(box.Name) != string(boxName) {
+		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, boxName=%s", errWrongBoxFound, round, applicationID, encodedBoxName))
+	}
+
 	return ctx.JSON(http.StatusOK, generated.BoxResponse(box))
 }
 
@@ -635,9 +643,16 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 		return indexerError(ctx, fmt.Errorf("%s: %w", msg, err))
 	}
 
+	if len(boxes) == 0 {
+		return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d", errNoApplicationsFound, round, applicationID))
+	}
+
 	res := generated.BoxesResponse{ApplicationId: applicationID}
 	descriptors := []generated.BoxDescriptor{}
 	for _, box := range boxes {
+		if box.Name == nil {
+			continue
+		}
 		descriptors = append(descriptors, generated.BoxDescriptor{Name: box.Name})
 	}
 	res.Boxes = descriptors
