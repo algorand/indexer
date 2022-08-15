@@ -897,6 +897,55 @@ var boxSeedFixture = fixture{
 				Params: []param{},
 			},
 		},
+		{
+			Name: "Boxes of app 1 with boxes: limit 3 - page 1",
+			Request: requestInfo{
+				Path: "/v2/applications/1/boxes",
+				Params: []param{
+					{"limit", "3"},
+				},
+			},
+		},
+		{
+			Name: "Boxes of app 1 with boxes: limit 3 - page 2 - b64",
+			Request: requestInfo{
+				Path: "/v2/applications/1/boxes",
+				Params: []param{
+					{"limit", "3"},
+					{"next", "b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="},
+				},
+			},
+		},
+		{
+			Name: "Boxes of app 1 with boxes: limit 3 - page 3 - b64",
+			Request: requestInfo{
+				Path: "/v2/applications/1/boxes",
+				Params: []param{
+					{"limit", "3"},
+					{"next", "b64:Ym94ICM4"},
+				},
+			},
+		},
+		{
+			Name: "Boxes of app 1 with boxes: limit 3 - page 3 - string",
+			Request: requestInfo{
+				Path: "/v2/applications/1/boxes",
+				Params: []param{
+					{"limit", "3"},
+					{"next", "str:box #8"},
+				},
+			},
+		},
+		{
+			Name: "Boxes of app 1 with boxes: limit 3 - page 4 (empty) - b64",
+			Request: requestInfo{
+				Path: "/v2/applications/1/boxes",
+				Params: []param{
+					{"limit", "3"},
+					{"next", "b64:ZmFudGFidWxvdXM="},
+				},
+			},
+		},
 		// /v2/applications/:app-id/box?name=...  - lots and lots
 		{
 			Name: "A box attempt for a non-existing app 1337",

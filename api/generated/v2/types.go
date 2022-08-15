@@ -1055,6 +1055,9 @@ type BoxesResponse struct {
 	// \[appidx\] application index.
 	ApplicationId uint64          `json:"application-id"`
 	Boxes         []BoxDescriptor `json:"boxes"`
+
+	// Used for pagination, when making another request provide this token with the next parameter.
+	NextToken *string `json:"next-token,omitempty"`
 }
 
 // ErrorResponse defines model for ErrorResponse.

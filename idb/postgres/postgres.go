@@ -2318,13 +2318,11 @@ LEFT OUTER JOIN app_box ab ON ab.app = a.app`, columns)
 		whereArgs = append(whereArgs, queryOpts.PrevFinalBox)
 	}
 
-	if queryOpts.Ascending != nil {
-		orderKind := "ASC"
-		if !*queryOpts.Ascending {
-			orderKind = "DESC"
-		}
-		query += fmt.Sprintf(" ORDER BY ab.name %s", orderKind)
+	orderKind := "ASC"
+	if queryOpts.Ascending != nil && !*queryOpts.Ascending {
+		orderKind = "DESC"
 	}
+	query += fmt.Sprintf(" ORDER BY ab.name %s", orderKind)
 
 	if queryOpts.Limit != 0 {
 		query += fmt.Sprintf(" LIMIT %d", queryOpts.Limit)
@@ -2395,7 +2393,7 @@ func (db *IndexerDb) yieldApplicationBoxThread(omitValues bool, rows pgx.Rows, o
 			Value: value, // is nil when omitValues
 		}
 
-		out <- idb.ApplicationBoxRow{Box: box}
+		out <- idb.ApplicationBoxRow{App: app, Box: box}
 	}
 	if err := rows.Err(); err != nil {
 		out <- idb.ApplicationBoxRow{Error: err}

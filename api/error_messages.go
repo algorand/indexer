@@ -25,6 +25,7 @@ const (
 	errFailedLookingUpHealth           = "failed while getting indexer health"
 	errNoApplicationsFound             = "no application found for application-id"
 	errNoBoxesFound                    = "no applications boxes found"
+	errWrongAppidFound                 = "the wrong application index was found, please contact us, this shouldn't happen"
 	errWrongBoxFound                   = "a box with an unexpected name was found, please contact us, this shouldn't happen"
 	ErrNoAccountsFound                 = "no accounts found for address"
 	errNoAssetsFound                   = "no assets found for asset-id"

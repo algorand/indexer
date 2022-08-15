@@ -388,6 +388,7 @@ type ApplicationBoxQuery struct {
 
 // ApplicationBoxRow provides a response wrapping box information.
 type ApplicationBoxRow struct {
+	App   uint64
 	Box   models.Box
 	Error error
 }

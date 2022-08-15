@@ -576,6 +576,10 @@
                     "$ref": "#/components/schemas/BoxDescriptor"
                   },
                   "type": "array"
+                },
+                "next-token": {
+                  "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                  "type": "string"
                 }
               },
               "required": [
@@ -3596,6 +3600,10 @@
                         "$ref": "#/components/schemas/BoxDescriptor"
                       },
                       "type": "array"
+                    },
+                    "next-token": {
+                      "description": "Used for pagination, when making another request provide this token with the next parameter.",
+                      "type": "string"
                     }
                   },
                   "required": [

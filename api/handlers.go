@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"math"
@@ -582,7 +583,7 @@ func (si *ServerImplementation) LookupApplicationBoxByIDandName(ctx echo.Context
 		ApplicationID: applicationID,
 		BoxName:       boxName,
 	}
-	boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
+	appid, boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
 
 	if err != nil {
 		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", errFailedLookingUpBoxes, round, applicationID, encodedBoxName)
@@ -591,6 +592,10 @@ func (si *ServerImplementation) LookupApplicationBoxByIDandName(ctx echo.Context
 
 	if len(boxes) == 0 {
 		return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%+v", errNoApplicationsFound, round, applicationID, encodedBoxName))
+	}
+
+	if appid != generated.ApplicationId(applicationID) {
+		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, wrong appid=%d, boxName=%s", errWrongAppidFound, round, applicationID, appid, encodedBoxName))
 	}
 
 	if len(boxes) > 1 {
@@ -636,7 +641,7 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 		q.PrevFinalBox = prevBox
 	}
 
-	boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
+	appid, boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
 
 	if err != nil {
 		msg := fmt.Sprintf("%s: round=?=%d, appid=%d", errFailedSearchingBoxes, round, applicationID)
@@ -647,7 +652,20 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 		return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d", errNoApplicationsFound, round, applicationID))
 	}
 
-	res := generated.BoxesResponse{ApplicationId: applicationID}
+	if appid != generated.ApplicationId(applicationID) {
+		return indexerError(ctx, fmt.Errorf("%s: round=%d, appid=%d, wrong appid=%d", errWrongAppidFound, round, applicationID, appid))
+	}
+
+	var next *string
+	finalNameBytes := boxes[len(boxes)-1].Name
+	if finalNameBytes != nil {
+		encoded := base64.StdEncoding.EncodeToString(finalNameBytes)
+		next = strPtr(encoded)
+	}
+	res := generated.BoxesResponse{
+		ApplicationId: applicationID,
+		NextToken:     next,
+	}
 	descriptors := []generated.BoxDescriptor{}
 	for _, box := range boxes {
 		if box.Name == nil {
@@ -1038,11 +1056,10 @@ func (si *ServerImplementation) fetchApplications(ctx context.Context, params id
 }
 
 // fetchApplications fetches all results
-func (si *ServerImplementation) fetchApplicationBoxes(ctx context.Context, params idb.ApplicationBoxQuery) ([]generated.Box, uint64, error) {
-	var round uint64
-	boxes := make([]generated.Box, 0)
+func (si *ServerImplementation) fetchApplicationBoxes(ctx context.Context, params idb.ApplicationBoxQuery) (appid generated.ApplicationId, boxes []generated.Box, round uint64, err error) {
+	boxes = make([]generated.Box, 0)
 
-	err := callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
+	err = callWithTimeout(ctx, si.log, si.timeout, func(ctx context.Context) error {
 		var results <-chan idb.ApplicationBoxRow
 		results, round = si.db.ApplicationBoxes(ctx, params)
 
@@ -1050,16 +1067,19 @@ func (si *ServerImplementation) fetchApplicationBoxes(ctx context.Context, param
 			if result.Error != nil {
 				return result.Error
 			}
+			if appid == 0 {
+				appid = generated.ApplicationId(result.App)
+			}
 			boxes = append(boxes, result.Box)
 		}
 
 		return nil
 	})
 	if err != nil {
-		return nil, 0, err
+		return
 	}
 
-	return boxes, round, nil
+	return
 }
 
 // fetchAppLocalStates fetches all generated.AppLocalState from a query
