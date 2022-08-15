@@ -16,6 +16,9 @@ tmp/
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+# Output of the fixtuires test
+_*.json
+
 # Dependency directories (remove the comment below to include it)
 # vendor/
 
