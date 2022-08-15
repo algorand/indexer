@@ -1056,7 +1056,7 @@ type BoxesResponse struct {
 	ApplicationId uint64          `json:"application-id"`
 	Boxes         []BoxDescriptor `json:"boxes"`
 
-	// Used for pagination, when making another request provide this token with the next parameter.
+	// Base64 encoded final box name result. Used for pagination, when making another request provide this token with the next parameter and prepend with "b64:" if keeping the provided encoding.
 	NextToken *string `json:"next-token,omitempty"`
 }
 
@@ -1294,7 +1294,7 @@ type SearchForApplicationBoxesParams struct {
 	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
 	Limit *uint64 `json:"limit,omitempty"`
 
-	// The next page of results. Use the next token provided by the previous results.
+	// The next page of results starting from a box name in goal-arg form 'encoding:value'. Use the next token provided by the previous results.
 	Next *string `json:"next,omitempty"`
 }
 

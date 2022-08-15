@@ -439,7 +439,11 @@
             "$ref": "#/parameters/limit"
           },
           {
-            "$ref": "#/parameters/next"
+            "type": "string",
+            "description": "The next page of results starting from a box name in goal-arg form 'encoding:value'. Use the next token provided by the previous results.",
+            "name": "next",
+            "in": "query",
+            "x-algorand-format": "GOALarg"
           }
         ],
         "responses": {
@@ -2551,7 +2555,7 @@
             }
           },
           "next-token": {
-            "description": "Used for pagination, when making another request provide this token with the next parameter.",
+            "description": "Base64 encoded final box name result. Used for pagination, when making another request provide this token with the next parameter and prepend with \"b64:\" if keeping the provided encoding.",
             "type": "string"
           }
         }
