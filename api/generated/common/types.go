@@ -452,6 +452,25 @@ type HealthCheck struct {
 	Version string `json:"version"`
 }
 
+// IndexerStateProofMessage defines model for IndexerStateProofMessage.
+type IndexerStateProofMessage struct {
+
+	// \[b\]
+	BlockHeadersCommitment *[]byte `json:"block-headers-commitment,omitempty"`
+
+	// \[f\]
+	FirstAttestedRound *uint64 `json:"first-attested-round,omitempty"`
+
+	// \[l\]
+	LatestAttestedRound *uint64 `json:"latest-attested-round,omitempty"`
+
+	// \[P\]
+	LnProvenWeight *uint64 `json:"ln-proven-weight,omitempty"`
+
+	// \[v\]
+	VotersCommitment *[]byte `json:"voters-commitment,omitempty"`
+}
+
 // MerkleArrayProof defines model for MerkleArrayProof.
 type MerkleArrayProof struct {
 	HashFactory *HashFactory `json:"hash-factory,omitempty"`
@@ -485,8 +504,8 @@ type OnCompletion string
 // StateDelta defines model for StateDelta.
 type StateDelta []EvalDeltaKeyValue
 
-// StateProof defines model for StateProof.
-type StateProof struct {
+// StateProofFields defines model for StateProofFields.
+type StateProofFields struct {
 	PartProofs *MerkleArrayProof `json:"part-proofs,omitempty"`
 
 	// \[pr\] Sequence of reveal positions.
@@ -504,25 +523,6 @@ type StateProof struct {
 
 	// \[w\]
 	SignedWeight *uint64 `json:"signed-weight,omitempty"`
-}
-
-// StateProofMessage defines model for StateProofMessage.
-type StateProofMessage struct {
-
-	// \[b\]
-	BlockHeadersCommitment *[]byte `json:"block-headers-commitment,omitempty"`
-
-	// \[f\]
-	FirstAttestedRound *uint64 `json:"first-attested-round,omitempty"`
-
-	// \[l\]
-	LatestAttestedRound *uint64 `json:"latest-attested-round,omitempty"`
-
-	// \[P\]
-	LnProvenWeight *uint64 `json:"ln-proven-weight,omitempty"`
-
-	// \[v\]
-	VotersCommitment *[]byte `json:"voters-commitment,omitempty"`
 }
 
 // StateProofParticipant defines model for StateProofParticipant.
@@ -960,13 +960,13 @@ type TransactionSignatureMultisigSubsignature struct {
 
 // TransactionStateProof defines model for TransactionStateProof.
 type TransactionStateProof struct {
-	Message *StateProofMessage `json:"message,omitempty"`
+	Message *IndexerStateProofMessage `json:"message,omitempty"`
 
 	// \[sp\] represents a state proof.
 	//
 	// Definition:
 	// crypto/stateproof/structs.go : StateProof
-	StateProof *StateProof `json:"state-proof,omitempty"`
+	StateProof *StateProofFields `json:"state-proof,omitempty"`
 
 	// \[sptype\] Type of the state proof. Integer representing an entry defined in protocol/stateproof.go
 	StateProofType *uint64 `json:"state-proof-type,omitempty"`
