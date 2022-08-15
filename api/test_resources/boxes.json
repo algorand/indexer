@@ -1,99 +1,805 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-08-13 10:11:48.942835 -0500 CDT m=+2.948031062",
+  "lastModified": "2022-08-15 17:26:36.225627 -0500 CDT m=+10.491774287",
   "frozen": false,
   "cases": [
     {
+      "name": "What are all the accounts?",
+      "request": {
+        "path": "/v2/accounts",
+        "params": [],
+        "url": "http://localhost:8999/v2/accounts",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"accounts\":[{\"address\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":3,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE\",\"amount\":1000000000000,\"amount-without-pending-rewards\":1000000000000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":405,\"total-boxes\":9,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"ZROKLZW4GVOK5WQIF2GUR6LHFVEZBMV56BIQEQD4OTIZL2BPSYYUKFBSHM\",\"amount\":2000,\"amount-without-pending-rewards\":2000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM\",\"amount\":100000,\"amount-without-pending-rewards\":100000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"NotParticipating\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI\",\"amount\":1000000000000,\"amount-without-pending-rewards\":1000000000000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0}],\"current-round\":6,\"next-token\":\"6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI\"}\n"
+      },
+      "witness": {
+        "goType": "generated.AccountsResponse",
+        "accounts": {
+          "accounts": [
+            {
+              "address": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
+              "amount": 999999499000,
+              "amount-without-pending-rewards": 999999499000,
+              "created-apps": [
+                {
+                  "created-at-round": 1,
+                  "deleted": false,
+                  "id": 1,
+                  "params": {
+                    "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+                    "clear-state-program": "CIEB",
+                    "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
+                    "global-state-schema": {
+                      "num-byte-slice": 0,
+                      "num-uint": 0
+                    },
+                    "local-state-schema": {
+                      "num-byte-slice": 0,
+                      "num-uint": 0
+                    }
+                  }
+                }
+              ],
+              "created-at-round": 0,
+              "deleted": false,
+              "pending-rewards": 0,
+              "reward-base": 0,
+              "rewards": 0,
+              "round": 6,
+              "sig-type": "sig",
+              "status": "Offline",
+              "total-apps-opted-in": 0,
+              "total-assets-opted-in": 0,
+              "total-box-bytes": 0,
+              "total-boxes": 0,
+              "total-created-apps": 1,
+              "total-created-assets": 0
+            },
+            {
+              "address": "LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+              "amount": 500000,
+              "amount-without-pending-rewards": 500000,
+              "created-at-round": 1,
+              "deleted": false,
+              "pending-rewards": 0,
+              "reward-base": 0,
+              "rewards": 0,
+              "round": 6,
+              "status": "Offline",
+              "total-apps-opted-in": 0,
+              "total-assets-opted-in": 0,
+              "total-box-bytes": 0,
+              "total-boxes": 0,
+              "total-created-apps": 0,
+              "total-created-assets": 0
+            },
+            {
+              "address": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU",
+              "amount": 999999499000,
+              "amount-without-pending-rewards": 999999499000,
+              "created-apps": [
+                {
+                  "created-at-round": 1,
+                  "deleted": false,
+                  "id": 3,
+                  "params": {
+                    "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+                    "clear-state-program": "CIEB",
+                    "creator": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU",
+                    "global-state-schema": {
+                      "num-byte-slice": 0,
+                      "num-uint": 0
+                    },
+                    "local-state-schema": {
+                      "num-byte-slice": 0,
+                      "num-uint": 0
+                    }
+                  }
+                }
+              ],
+              "created-at-round": 0,
+              "deleted": false,
+              "pending-rewards": 0,
+              "reward-base": 0,
+              "rewards": 0,
+              "round": 6,
+              "sig-type": "sig",
+              "status": "Offline",
+              "total-apps-opted-in": 0,
+              "total-assets-opted-in": 0,
+              "total-box-bytes": 0,
+              "total-boxes": 0,
+              "total-created-apps": 1,
+              "total-created-assets": 0
+            },
+            {
+              "address": "OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE",
+              "amount": 1000000000000,
+              "amount-without-pending-rewards": 1000000000000,
+              "created-at-round": 0,
+              "deleted": false,
+              "pending-rewards": 0,
+              "reward-base": 0,
+              "rewards": 0,
+              "round": 6,
+              "status": "Offline",
+              "total-apps-opted-in": 0,
+              "total-assets-opted-in": 0,
+              "total-box-bytes": 0,
+              "total-boxes": 0,
+              "total-created-apps": 0,
+              "total-created-assets": 0
+            },
+            {
+              "address": "WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM",
+              "amount": 500000,
+              "amount-without-pending-rewards": 500000,
+              "created-at-round": 1,
+              "deleted": false,
+              "pending-rewards": 0,
+              "reward-base": 0,
+              "rewards": 0,
+              "round": 6,
+              "status": "Offline",
+              "total-apps-opted-in": 0,
+              "total-assets-opted-in": 0,
+              "total-box-bytes": 405,
+              "total-boxes": 9,
+              "total-created-apps": 0,
+              "total-created-assets": 0
+            },
+            {
+              "address": "ZROKLZW4GVOK5WQIF2GUR6LHFVEZBMV56BIQEQD4OTIZL2BPSYYUKFBSHM",
+              "amount": 2000,
+              "amount-without-pending-rewards": 2000,
+              "created-at-round": 1,
+              "deleted": false,
+              "pending-rewards": 0,
+              "reward-base": 0,
+              "rewards": 0,
+              "round": 6,
+              "status": "Offline",
+              "total-apps-opted-in": 0,
+              "total-assets-opted-in": 0,
+              "total-box-bytes": 0,
+              "total-boxes": 0,
+              "total-created-apps": 0,
+              "total-created-assets": 0
+            },
+            {
+              "address": "4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM",
+              "amount": 100000,
+              "amount-without-pending-rewards": 100000,
+              "created-at-round": 0,
+              "deleted": false,
+              "pending-rewards": 0,
+              "reward-base": 0,
+              "rewards": 0,
+              "round": 6,
+              "status": "NotParticipating",
+              "total-apps-opted-in": 0,
+              "total-assets-opted-in": 0,
+              "total-box-bytes": 0,
+              "total-boxes": 0,
+              "total-created-apps": 0,
+              "total-created-assets": 0
+            },
+            {
+              "address": "6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI",
+              "amount": 1000000000000,
+              "amount-without-pending-rewards": 1000000000000,
+              "created-at-round": 0,
+              "deleted": false,
+              "pending-rewards": 0,
+              "reward-base": 0,
+              "rewards": 0,
+              "round": 6,
+              "status": "Offline",
+              "total-apps-opted-in": 0,
+              "total-assets-opted-in": 0,
+              "total-box-bytes": 0,
+              "total-boxes": 0,
+              "total-created-apps": 0,
+              "total-created-assets": 0
+            }
+          ],
+          "current-round": 6,
+          "next-token": "6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI"
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "What are all the apps?",
+      "request": {
+        "path": "/v2/applications",
+        "params": [],
+        "url": "http://localhost:8999/v2/applications",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"applications\":[{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},{\"created-at-round\":1,\"deleted\":false,\"id\":3,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"current-round\":6,\"next-token\":\"3\"}\n"
+      },
+      "witness": {
+        "goType": "generated.ApplicationsResponse",
+        "apps": {
+          "applications": [
+            {
+              "created-at-round": 1,
+              "deleted": false,
+              "id": 1,
+              "params": {
+                "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+                "clear-state-program": "CIEB",
+                "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
+                "global-state-schema": {
+                  "num-byte-slice": 0,
+                  "num-uint": 0
+                },
+                "local-state-schema": {
+                  "num-byte-slice": 0,
+                  "num-uint": 0
+                }
+              }
+            },
+            {
+              "created-at-round": 1,
+              "deleted": false,
+              "id": 3,
+              "params": {
+                "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+                "clear-state-program": "CIEB",
+                "creator": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU",
+                "global-state-schema": {
+                  "num-byte-slice": 0,
+                  "num-uint": 0
+                },
+                "local-state-schema": {
+                  "num-byte-slice": 0,
+                  "num-uint": 0
+                }
+              }
+            }
+          ],
+          "current-round": 6,
+          "next-token": "3"
+        }
+      },
+      "witnessError": null
+    },
+    {
       "name": "Lookup non-existing app 1337",
       "request": {
-        "endpoint": "/v2/applications/1337",
-        "params": []
+        "path": "/v2/applications/1337",
+        "params": [],
+        "url": "http://localhost:8999/v2/applications/1337",
+        "route": ""
       },
       "response": {
         "statusCode": 404,
         "body": "{\"message\":\"no application found for application-id: 1337\"}\n"
       },
       "witness": null,
-      "witnessError": null
-    },
-    {
-      "name": "Boxes of a non-existing app 1337",
-      "request": {
-        "endpoint": "/v2/applications/1337/boxes",
-        "params": []
-      },
-      "response": {
-        "statusCode": 200,
-        "body": "{\"application-id\":1337,\"boxes\":[]}\n"
-      },
-      "witness": null,
-      "witnessError": null
-    },
-    {
-      "name": "A box attempt for a non-existing app 1337",
-      "request": {
-        "endpoint": "/v2/applications/1337/box/string:non-existing",
-        "params": []
-      },
-      "response": {
-        "statusCode": 404,
-        "body": "{\"message\":\"Not Found\"}\n"
-      },
-      "witness": null,
       "witnessError": "404 error"
     },
     {
-      "name": "Lookup existing app 1",
+      "name": "Lookup app 3 (funded with no boxes)",
       "request": {
-        "endpoint": "/v2/applications/1",
-        "params": []
+        "path": "/v2/applications/3",
+        "params": [],
+        "url": "http://localhost:8999/v2/applications/3",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"application\":{\"created-at-round\":1,\"deleted\":false,\"id\":3,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},\"current-round\":6}\n"
+      },
+      "witness": {
+        "goType": "generated.ApplicationResponse",
+        "app": {
+          "application": {
+            "created-at-round": 1,
+            "deleted": false,
+            "id": 3,
+            "params": {
+              "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+              "clear-state-program": "CIEB",
+              "creator": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU",
+              "global-state-schema": {
+                "num-byte-slice": 0,
+                "num-uint": 0
+              },
+              "local-state-schema": {
+                "num-byte-slice": 0,
+                "num-uint": 0
+              }
+            }
+          },
+          "current-round": 6
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "Lookup app (funded with boxes)",
+      "request": {
+        "path": "/v2/applications/1",
+        "params": [],
+        "url": "http://localhost:8999/v2/applications/1",
+        "route": ""
       },
       "response": {
         "statusCode": 200,
         "body": "{\"application\":{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},\"current-round\":6}\n"
       },
-      "witness": null,
+      "witness": {
+        "goType": "generated.ApplicationResponse",
+        "app": {
+          "application": {
+            "created-at-round": 1,
+            "deleted": false,
+            "id": 1,
+            "params": {
+              "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+              "clear-state-program": "CIEB",
+              "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
+              "global-state-schema": {
+                "num-byte-slice": 0,
+                "num-uint": 0
+              },
+              "local-state-schema": {
+                "num-byte-slice": 0,
+                "num-uint": 0
+              }
+            }
+          },
+          "current-round": 6
+        }
+      },
       "witnessError": null
     },
     {
-      "name": "App 1 boxes: no params",
+      "name": "App 3 (as account) totals no boxes - no params",
       "request": {
-        "endpoint": "/v2/applications/1/boxes",
-        "params": []
+        "path": "/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+        "params": [],
+        "url": "http://localhost:8999/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+        "route": ""
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Ym94ICM4\"},{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"ZmFudGFidWxvdXM=\"},{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"}]}\n"
+        "body": "{\"account\":{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":6}\n"
       },
-      "witness": null,
+      "witness": {
+        "goType": "generated.AccountResponse",
+        "account": {
+          "account": {
+            "address": "LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+            "amount": 500000,
+            "amount-without-pending-rewards": 500000,
+            "created-at-round": 1,
+            "deleted": false,
+            "pending-rewards": 0,
+            "reward-base": 0,
+            "rewards": 0,
+            "round": 6,
+            "status": "Offline",
+            "total-apps-opted-in": 0,
+            "total-assets-opted-in": 0,
+            "total-box-bytes": 0,
+            "total-boxes": 0,
+            "total-created-apps": 0,
+            "total-created-assets": 0
+          },
+          "current-round": 6
+        }
+      },
       "witnessError": null
     },
     {
-      "name": "App 1 box(non-existing)",
+      "name": "App 1 (as account) totals with boxes - no params",
       "request": {
-        "endpoint": "/v2/applications/1/box/string:non-existing",
-        "params": []
+        "path": "/v2/accounts/WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM",
+        "params": [],
+        "url": "http://localhost:8999/v2/accounts/WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"account\":{\"address\":\"WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":405,\"total-boxes\":9,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":6}\n"
+      },
+      "witness": {
+        "goType": "generated.AccountResponse",
+        "account": {
+          "account": {
+            "address": "WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM",
+            "amount": 500000,
+            "amount-without-pending-rewards": 500000,
+            "created-at-round": 1,
+            "deleted": false,
+            "pending-rewards": 0,
+            "reward-base": 0,
+            "rewards": 0,
+            "round": 6,
+            "status": "Offline",
+            "total-apps-opted-in": 0,
+            "total-assets-opted-in": 0,
+            "total-box-bytes": 405,
+            "total-boxes": 9,
+            "total-created-apps": 0,
+            "total-created-assets": 0
+          },
+          "current-round": 6
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "Boxes of a non-existing app 1337",
+      "request": {
+        "path": "/v2/applications/1337/boxes",
+        "params": [],
+        "url": "http://localhost:8999/v2/applications/1337/boxes",
+        "route": ""
       },
       "response": {
         "statusCode": 404,
-        "body": "{\"message\":\"Not Found\"}\n"
+        "body": "{\"message\":\"no application found for application-id: round=6, appid=1337\"}\n"
       },
       "witness": null,
       "witnessError": "404 error"
     },
     {
-      "name": "App 1 box(a great box) - no params",
+      "name": "Boxes of app 3 with no boxes: no params",
       "request": {
-        "endpoint": "/v2/applications/1/box/string:a great box",
-        "params": []
+        "path": "/v2/applications/3/boxes",
+        "params": [],
+        "url": "http://localhost:8999/v2/applications/3/boxes",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"application-id\":3,\"boxes\":[]}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxesResponse",
+        "boxes": {
+          "application-id": 3,
+          "boxes": []
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "Boxes of app 1 with boxes: no params",
+      "request": {
+        "path": "/v2/applications/1/boxes",
+        "params": [],
+        "url": "http://localhost:8999/v2/applications/1/boxes",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"},{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"Ym94ICM4\"},{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"ZmFudGFidWxvdXM=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxesResponse",
+        "boxes": {
+          "application-id": 1,
+          "boxes": [
+            {
+              "name": "QVZNIGlzIHRoZSBuZXcgRVZN"
+            },
+            {
+              "name": "SSB3aWxsIGJlIGFzc2ltaWxhdGVk"
+            },
+            {
+              "name": "Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
+            },
+            {
+              "name": "YSBncmVhdCBib3g="
+            },
+            {
+              "name": "YW5vdGhlciBncmVhdCBib3g="
+            },
+            {
+              "name": "Ym94ICM4"
+            },
+            {
+              "name": "ZGlzYXBwb2ludGluZyBib3g="
+            },
+            {
+              "name": "ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5"
+            },
+            {
+              "name": "ZmFudGFidWxvdXM="
+            }
+          ],
+          "next-token": "ZmFudGFidWxvdXM="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "Boxes of app 1 with boxes: limit 3 - page 1",
+      "request": {
+        "path": "/v2/applications/1/boxes",
+        "params": [
+          {
+            "name": "limit",
+            "value": "3"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}],\"next-token\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxesResponse",
+        "boxes": {
+          "application-id": 1,
+          "boxes": [
+            {
+              "name": "QVZNIGlzIHRoZSBuZXcgRVZN"
+            },
+            {
+              "name": "SSB3aWxsIGJlIGFzc2ltaWxhdGVk"
+            },
+            {
+              "name": "Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
+            }
+          ],
+          "next-token": "Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "Boxes of app 1 with boxes: limit 3 - page 2 - b64",
+      "request": {
+        "path": "/v2/applications/1/boxes",
+        "params": [
+          {
+            "name": "limit",
+            "value": "3"
+          },
+          {
+            "name": "next",
+            "value": "b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3AUv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ%3D%3D",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"Ym94ICM4\"}],\"next-token\":\"Ym94ICM4\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxesResponse",
+        "boxes": {
+          "application-id": 1,
+          "boxes": [
+            {
+              "name": "YSBncmVhdCBib3g="
+            },
+            {
+              "name": "YW5vdGhlciBncmVhdCBib3g="
+            },
+            {
+              "name": "Ym94ICM4"
+            }
+          ],
+          "next-token": "Ym94ICM4"
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "Boxes of app 1 with boxes: limit 3 - page 3 - b64",
+      "request": {
+        "path": "/v2/applications/1/boxes",
+        "params": [
+          {
+            "name": "limit",
+            "value": "3"
+          },
+          {
+            "name": "next",
+            "value": "b64:Ym94ICM4"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3AYm94ICM4",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"ZmFudGFidWxvdXM=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxesResponse",
+        "boxes": {
+          "application-id": 1,
+          "boxes": [
+            {
+              "name": "ZGlzYXBwb2ludGluZyBib3g="
+            },
+            {
+              "name": "ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5"
+            },
+            {
+              "name": "ZmFudGFidWxvdXM="
+            }
+          ],
+          "next-token": "ZmFudGFidWxvdXM="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "Boxes of app 1 with boxes: limit 3 - page 3 - string",
+      "request": {
+        "path": "/v2/applications/1/boxes",
+        "params": [
+          {
+            "name": "limit",
+            "value": "3"
+          },
+          {
+            "name": "next",
+            "value": "str:box #8"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=str%3Abox+%238",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"ZmFudGFidWxvdXM=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxesResponse",
+        "boxes": {
+          "application-id": 1,
+          "boxes": [
+            {
+              "name": "ZGlzYXBwb2ludGluZyBib3g="
+            },
+            {
+              "name": "ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5"
+            },
+            {
+              "name": "ZmFudGFidWxvdXM="
+            }
+          ],
+          "next-token": "ZmFudGFidWxvdXM="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "Boxes of app 1 with boxes: limit 3 - page 4 (empty) - b64",
+      "request": {
+        "path": "/v2/applications/1/boxes",
+        "params": [
+          {
+            "name": "limit",
+            "value": "3"
+          },
+          {
+            "name": "next",
+            "value": "b64:ZmFudGFidWxvdXM="
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3AZmFudGFidWxvdXM%3D",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"application-id\":1,\"boxes\":[]}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxesResponse",
+        "boxes": {
+          "application-id": 1,
+          "boxes": []
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "A box attempt for a non-existing app 1337",
+      "request": {
+        "path": "/v2/applications/1337/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "string:non-existing"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/1337/box?name=string%3Anon-existing",
+        "route": ""
       },
       "response": {
         "statusCode": 404,
-        "body": "{\"message\":\"Not Found\"}\n"
+        "body": "{\"message\":\"no application found for application-id: round=6, appid=1337, boxName=string:non-existing\"}\n"
       },
       "witness": null,
       "witnessError": "404 error"
+    },
+    {
+      "name": "App 3 box (non-existing)",
+      "request": {
+        "path": "/v2/applications/3/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "string:non-existing"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/3/box?name=string%3Anon-existing",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 404,
+        "body": "{\"message\":\"no applications boxes found: round=6, appid=3, boxName=string:non-existing\"}\n"
+      },
+      "witness": null,
+      "witnessError": "404 error"
+    },
+    {
+      "name": "App 1 box (non-existing)",
+      "request": {
+        "path": "/v2/applications/1/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "string:non-existing"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/1/box?name=string%3Anon-existing",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 404,
+        "body": "{\"message\":\"no applications boxes found: round=6, appid=1, boxName=string:non-existing\"}\n"
+      },
+      "witness": null,
+      "witnessError": "404 error"
+    },
+    {
+      "name": "App 1 box (a great box) - no params",
+      "request": {
+        "path": "/v2/applications/1/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "string:a great box"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/1/box?name=string%3Aa+great+box",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"name\":\"YSBncmVhdCBib3g=\",\"value\":\"aXQncyBhIHdvbmRlcmZ1bCBib3gAAAAA\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxResponse",
+        "box": {
+          "name": "YSBncmVhdCBib3g=",
+          "value": "aXQncyBhIHdvbmRlcmZ1bCBib3gAAAAA"
+        }
+      },
+      "witnessError": null
     }
   ]
 }
