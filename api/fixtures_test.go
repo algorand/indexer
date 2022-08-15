@@ -30,7 +30,7 @@ import (
 	"github.com/algorand/indexer/util/test"
 )
 
-const fixtestListenAddr = "localhost:8989"
+const fixtestListenAddr = "localhost:8999"
 const fixtestBaseURL = "http://" + fixtestListenAddr
 const fixtestMaxStartup time.Duration = 5 * time.Second
 const fixturesDirectory = "test_resources/"
@@ -53,6 +53,7 @@ type requestInfo struct {
 	Path   string  `json:"path"`
 	Params []param `json:"params"`
 	URL    string  `json:"url"`
+	Route  string  `json:"route"` // `Route` is really a test artifact from matching against `proverRoutes`
 }
 type param struct {
 	Name  string `json:"name"`
@@ -859,16 +860,16 @@ var boxSeedFixture = fixture{
 				Params: []param{},
 			},
 		},
-		// /v2/accounts/:accoundt-id using AppIndex.Address() - 2 cases
+		// /v2/accounts/:account-id using AppIndex.Address() - 2 cases
 		{
-			Name: "App 3 (as address) totals no boxes - no params",
+			Name: "App 3 (as account) totals no boxes - no params",
 			Request: requestInfo{
 				Path:   "/v2/accounts/" + basics.AppIndex(3).Address().String(),
 				Params: []param{},
 			},
 		},
 		{
-			Name: "App 1 (as address) totals with boxes - no params",
+			Name: "App 1 (as account) totals with boxes - no params",
 			Request: requestInfo{
 				Path:   "/v2/accounts/" + basics.AppIndex(1).Address().String(),
 				Params: []param{},
@@ -883,14 +884,14 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "app 3 no boxes: no params",
+			Name: "Boxes of app 3 with no boxes: no params",
 			Request: requestInfo{
 				Path:   "/v2/applications/3/boxes",
 				Params: []param{},
 			},
 		},
 		{
-			Name: "App 1 boxes: no params",
+			Name: "Boxes of app 1 with boxes: no params",
 			Request: requestInfo{
 				Path:   "/v2/applications/1/boxes",
 				Params: []param{},
