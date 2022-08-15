@@ -12,6 +12,7 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/idb"
+	// Necessary to ensure the postgres implementation has been registered in the idb factory
 	_ "github.com/algorand/indexer/idb/postgres"
 	"github.com/algorand/indexer/importer"
 	"github.com/algorand/indexer/plugins"
