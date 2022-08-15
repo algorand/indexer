@@ -42,6 +42,8 @@ var apiConfigCmd = &cobra.Command{
 				fmt.Fprintf(os.Stderr, "failed to created disabled map config from file: %v", err)
 				panic(exit{1})
 			}
+		} else {
+			potentialDisabledMapConfig = api.GetDefaultDisabledMapConfigForPostgres()
 		}
 
 		var displayDisabledMapConfig *api.DisplayDisabledMap
