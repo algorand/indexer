@@ -468,7 +468,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 				},
 			}
 		}
-		proof := generated.StateProof{
+		proof := generated.StateProofFields{
 			PartProofs: &generated.MerkleArrayProof{
 				HashFactory: &generated.HashFactory{
 					HashType: uint64Ptr(uint64(stxn.Txn.StateProof.PartProofs.HashFactory.HashType)),
@@ -490,7 +490,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 			PositionsToReveal: &stxn.Txn.StateProof.PositionsToReveal,
 		}
 
-		message := generated.StateProofMessage{
+		message := generated.IndexerStateProofMessage{
 			BlockHeadersCommitment: &stxn.Txn.Message.BlockHeadersCommitment,
 			FirstAttestedRound:     uint64Ptr(stxn.Txn.Message.FirstAttestedRound),
 			LatestAttestedRound:    uint64Ptr(stxn.Txn.Message.LastAttestedRound),
