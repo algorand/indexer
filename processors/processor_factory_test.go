@@ -61,7 +61,7 @@ func (c *mockProcessorConstructor) New() Processor {
 
 func TestProcessorByNameSuccess(t *testing.T) {
 	me := mockProcessor{}
-	me.On("Init", mock.Anything, mock.Anything, mock.Anything).Return(nil)
+	me.On("Init", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil)
 	RegisterProcessor("foobar", &mockProcessorConstructor{&me})
 
 	exp, err := ProcessorByName(context.Background(), "foobar", "", mockProvider{}, logger)
@@ -78,7 +78,7 @@ func TestProcessorByNameNotFound(t *testing.T) {
 func TestProcessorByNameConnectFailure(t *testing.T) {
 	me := mockProcessor{}
 	expectedErr := fmt.Errorf("connect failure")
-	me.On("Init", mock.Anything, mock.Anything, mock.Anything).Return(expectedErr)
+	me.On("Init", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(expectedErr)
 	RegisterProcessor("baz", &mockProcessorConstructor{&me})
 	_, err := ProcessorByName(context.Background(), "baz", "", mockProvider{}, logger)
 	assert.EqualError(t, err, expectedErr.Error())
