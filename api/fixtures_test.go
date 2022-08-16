@@ -2,22 +2,20 @@ package api
 
 import (
 	"context"
+	"encoding/base32"
+	"encoding/base64"
 	stdJson "encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/labstack/echo/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 
-	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/data/transactions/logic"
@@ -62,7 +60,6 @@ type param struct {
 type responseInfo struct {
 	StatusCode int    `json:"statusCode"`
 	Body       string `json:"body"`
-	// BodyErr       string `json:"bodyErr"`
 }
 type prover func(responseInfo) (interface{}, *string)
 
@@ -263,140 +260,6 @@ func setupIdbAndReturnShutdownFunc(t *testing.T) (db *postgres.IndexerDb, proc p
 	return
 }
 
-// TODO: what am I doing with this?
-func tempName(t *testing.T, db *postgres.IndexerDb, appBoxes map[basics.AppIndex]map[string]string, deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool) {
-	setupRequest := func(path, paramName, paramValue string) (echo.Context, *ServerImplementation, *httptest.ResponseRecorder) {
-		e := echo.New()
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		rec := httptest.NewRecorder()
-		c := e.NewContext(req, rec)
-		c.SetPath(path)
-		c.SetParamNames(paramName)
-		c.SetParamValues(paramValue)
-		api := testServerImplementation(db)
-		return c, api, rec
-	}
-
-	remainingBoxes := map[basics.AppIndex]map[string]string{}
-	numRequests := 0
-	sumOfBoxes := 0
-	sumOfBoxBytes := 0
-
-	caseNum := 1
-	var totalBoxes, totalBoxBytes int
-	for appIdx, boxes := range appBoxes {
-		totalBoxes = 0
-		totalBoxBytes = 0
-
-		remainingBoxes[appIdx] = map[string]string{}
-
-		// compare expected against handler response one box at a time
-		for key, expectedValue := range boxes {
-			msg := fmt.Sprintf("caseNum=%d, appIdx=%d, key=%#v", caseNum, appIdx, key)
-			expectedAppIdx, boxName, err := logic.SplitBoxKey(key)
-			require.NoError(t, err, msg)
-			require.Equal(t, appIdx, expectedAppIdx, msg)
-			numRequests++
-
-			boxDeleted := false
-			if deletedBoxes != nil {
-				if _, ok := deletedBoxes[appIdx][key]; ok {
-					boxDeleted = true
-				}
-			}
-
-			c, api, rec := setupRequest("/v2/applications/:appidx/box/", "appidx", strconv.Itoa(int(appIdx)))
-			// TODO - random box name & val example
-			// TODO for prefix in
-			//  []string{"str", "string", "int", "integer", "addr", "address",
-			//		    "b32", "base32", "byte base32",
-			//			"b64", "base64", "byte base64",
-			//			"abi"
-			//			}
-			// ... do the right thing
-			prefixedName := fmt.Sprintf("str:%s", boxName)
-			params := generated.LookupApplicationBoxByIDandNameParams{Name: prefixedName}
-			err = api.LookupApplicationBoxByIDandName(c, uint64(appIdx), params)
-			require.NoError(t, err, msg)
-			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
-
-			var resp generated.BoxResponse
-			data := rec.Body.Bytes()
-			err = json.Decode(data, &resp)
-
-			if !boxDeleted {
-				require.NoError(t, err, msg, msg)
-				require.Equal(t, boxName, string(resp.Name), msg)
-				require.Equal(t, expectedValue, string(resp.Value), msg)
-
-				remainingBoxes[appIdx][boxName] = expectedValue
-
-				totalBoxes++
-				totalBoxBytes += len(boxName) + len(expectedValue)
-			} else {
-				require.ErrorContains(t, err, "no rows in result set", msg)
-			}
-		}
-
-		msg := fmt.Sprintf("caseNum=%d, appIdx=%d", caseNum, appIdx)
-
-		expectedBoxes := remainingBoxes[appIdx]
-
-		c, api, rec := setupRequest("/v2/applications/:appidx/boxes", "appidx", strconv.Itoa(int(appIdx)))
-		// TODO: should we add Order to the search params?
-		params := generated.SearchForApplicationBoxesParams{}
-
-		// TODO: also test non-nil Limit, Next
-		err := api.SearchForApplicationBoxes(c, uint64(appIdx), params)
-		require.NoError(t, err, msg)
-		require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
-
-		var resp generated.BoxesResponse
-		data := rec.Body.Bytes()
-		err = json.Decode(data, &resp)
-		require.NoError(t, err, msg)
-
-		require.Equal(t, uint64(appIdx), uint64(resp.ApplicationId), msg)
-
-		boxes := resp.Boxes
-		require.NotNil(t, boxes, msg)
-		require.Len(t, boxes, len(expectedBoxes), msg)
-		for _, box := range boxes {
-			require.Contains(t, expectedBoxes, string(box.Name), msg)
-		}
-
-		if verifyTotals {
-			// compare expected totals against handler account_data JSON fields
-			msg := fmt.Sprintf("caseNum=%d, appIdx=%d", caseNum, appIdx)
-
-			appAddr := appIdx.Address().String()
-			c, api, rec = setupRequest("/v2/accounts/:addr", "addr", appAddr)
-			tru := true
-			params := generated.LookupAccountByIDParams{IncludeAll: &tru}
-			err := api.LookupAccountByID(c, appAddr, params)
-			require.NoError(t, err, msg)
-			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
-
-			var resp generated.AccountResponse
-			data := rec.Body.Bytes()
-			err = json.Decode(data, &resp)
-
-			require.NoError(t, err, msg)
-			require.Equal(t, uint64(totalBoxes), resp.Account.TotalBoxes, msg)
-			require.Equal(t, uint64(totalBoxBytes), resp.Account.TotalBoxBytes, msg)
-
-			// sanity check of the account summary query vs. the direct box search query results:
-			require.Equal(t, uint64(len(boxes)), resp.Account.TotalBoxes, msg)
-		}
-
-		sumOfBoxes += totalBoxes
-		sumOfBoxBytes += totalBoxBytes
-		caseNum++
-	}
-
-	fmt.Printf("compareAppBoxesAgainstHandler succeeded with %d requests, %d boxes and %d boxBytes\n", numRequests, sumOfBoxes, sumOfBoxBytes)
-}
-
 func setupLiveServerAndReturnShutdownFunc(t *testing.T, db *postgres.IndexerDb) (shutdown func()) {
 	serverCtx, shutdown := context.WithCancel(context.Background())
 	go Serve(serverCtx, fixtestListenAddr, db, nil, logrus.New(), fixtestServerOpts)
@@ -463,6 +326,14 @@ var fixtestServerOpts = ExtraOptions{
 	DisabledMapConfig: MakeDisabledMapConfig(),
 }
 
+func goalEncode(t *testing.T, s string) string {
+	b1, err := logic.NewAppCallBytes(s)
+	require.NoError(t, err, s)
+	b2, err := b1.Raw()
+	require.NoError(t, err)
+	return string(b2)
+}
+
 func getRequest(t *testing.T, endpoint string, params []param) (path string, resp *http.Response, body []byte, reqErr, bodyErr error) {
 	verbose := true
 
@@ -497,11 +368,28 @@ bodyErr=%v`, resp, string(body), reqErr, bodyErr)
 	return
 }
 
+var goalEncodingExamples map[string]string = map[string]string{
+	"str":         "str",
+	"string":      "string",
+	"int":         "42",
+	"integer":     "100",
+	"addr":        basics.AppIndex(3).Address().String(),
+	"address":     basics.AppIndex(5).Address().String(),
+	"b32":         base32.StdEncoding.EncodeToString([]byte("b32")),
+	"base32":      base32.StdEncoding.EncodeToString([]byte("base32")),
+	"byte base32": base32.StdEncoding.EncodeToString([]byte("byte base32")),
+	"b64":         base64.StdEncoding.EncodeToString([]byte("b64")),
+	"base64":      base64.StdEncoding.EncodeToString([]byte("base64")),
+	"byte base64": base64.StdEncoding.EncodeToString([]byte("byte base64")),
+	"abi":         `(uint64,string,bool[]):[399,"pls pass",[true,false]]`,
+}
+
 func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	deleted := "DELETED"
 
 	firstAppid := basics.AppIndex(1)
 	secondAppid := basics.AppIndex(3)
+	thirdAppid := basics.AppIndex(5)
 
 	// ---- ROUND 1: create and fund the box app and another app which won't have boxes ---- //
 	currentRound := basics.Round(1)
@@ -517,7 +405,12 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	payNewAppTxn2 := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountB, secondAppid.Address(), basics.Address{},
 		basics.Address{})
 
-	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn, &createTxn2, &payNewAppTxn2)
+	createTxn3, err := test.MakeComplexCreateAppTxn(test.AccountC, test.BoxApprovalProgram, test.BoxClearProgram, 8)
+	require.NoError(t, err)
+	payNewAppTxn3 := test.MakePaymentTxn(1000, 500000, 0, 0, 0, 0, test.AccountC, thirdAppid.Address(), basics.Address{},
+		basics.Address{})
+
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &createTxn, &payNewAppTxn, &createTxn2, &payNewAppTxn2, &createTxn3, &payNewAppTxn3)
 	require.NoError(t, err)
 
 	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
@@ -543,7 +436,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 
 	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
 	expectedAppBoxes[firstAppid] = map[string]string{}
-	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range boxNames {
 		expectedAppBoxes[firstAppid][logic.MakeBoxKey(firstAppid, boxName)] = newBoxValue
@@ -577,7 +470,6 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	}
 
 	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
-	expectedAppBoxes[firstAppid] = make(map[string]string)
 	for boxName, valPrefix := range appBoxesToSet {
 		args := []string{"set", boxName, valPrefix}
 		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(firstAppid), test.AccountA, args, []string{boxName})
@@ -678,6 +570,56 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
 	require.NoError(t, err)
 
+	// block header handoff: round 6 --> round 7
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	// ---- ROUND 7: create GOAL-encoding boxes for appid == 5  ---- //
+	currentRound = basics.Round(7)
+
+	encodingExamples := make(map[string]string, len(goalEncodingExamples))
+	for k, v := range goalEncodingExamples {
+		encodingExamples[k] = goalEncode(t, k+":"+v)
+	}
+
+	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	expectedAppBoxes[thirdAppid] = map[string]string{}
+	for _, boxName := range encodingExamples {
+		args := []string{"create", boxName}
+		expectedAppBoxes[thirdAppid][logic.MakeBoxKey(thirdAppid, boxName)] = newBoxValue
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(thirdAppid), test.AccountC, args, []string{boxName})
+		boxTxns = append(boxTxns, &boxTxn)
+	}
+
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+
+	// block header handoff: round 7 --> round 8
+	blockHdr, err = l.BlockHdr(currentRound)
+	require.NoError(t, err)
+
+	// ---- ROUND 8: populate GOAL-encoding boxes for appid == 5  ---- //
+	currentRound = basics.Round(8)
+
+	boxTxns = make([]*transactions.SignedTxnWithAD, 0)
+	for _, valPrefix := range encodingExamples {
+		require.LessOrEqual(t, len(valPrefix), 40)
+		args := []string{"set", valPrefix, valPrefix}
+		boxTxn := test.MakeAppCallTxnWithBoxes(uint64(thirdAppid), test.AccountC, args, []string{valPrefix})
+		boxTxns = append(boxTxns, &boxTxn)
+
+		key := logic.MakeBoxKey(thirdAppid, valPrefix)
+		expectedAppBoxes[thirdAppid][key] = valPrefix + newBoxValue[len(valPrefix):]
+	}
+	block, err = test.MakeBlockForTxns(blockHdr, boxTxns...)
+	require.NoError(t, err)
+
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+
 	// ---- SUMMARY ---- //
 
 	totals := map[basics.AppIndex]map[string]int{}
@@ -742,18 +684,59 @@ func generateLiveFixture(t *testing.T, seed fixture) (live fixture) {
 	return
 }
 
+func validateLiveVsSaved(t *testing.T, seed *fixture, live *fixture) {
+	require.True(t, live.Frozen, "should be frozen for assertions")
+	saved := readFixture(t, fixturesDirectory, seed)
+
+	require.Equal(t, saved.Owner, live.Owner, "unexpected discrepancy in Owner")
+	// sanity check:
+	require.Equal(t, seed.Owner, saved.Owner, "unexpected discrepancy in Owner")
+
+	require.Equal(t, saved.File, live.File, "unexpected discrepancy in File")
+	// sanity check:
+	require.Equal(t, seed.File, saved.File, "unexpected discrepancy in File")
+
+	numSeedCases, numSavedCases, numLiveCases := len(seed.Cases), len(saved.Cases), len(live.Cases)
+	require.Equal(t, numSavedCases, numLiveCases, "numSavedCases=%d but numLiveCases=%d", numSavedCases, numLiveCases)
+	// sanity check:
+	require.Equal(t, numSeedCases, numSavedCases, "numSeedCases=%d but numSavedCases=%d", numSeedCases, numSavedCases)
+
+	for i, seedCase := range seed.Cases {
+		savedCase, liveCase := saved.Cases[i], live.Cases[i]
+		msg := fmt.Sprintf("(%d)[%s]. discrepency in seed=\n%+v\nsaved=\n%+v\nlive=\n%+v\n", i, seedCase.Name, seedCase, savedCase, liveCase)
+
+		require.Equal(t, savedCase.Name, liveCase.Name, msg)
+		// sanity check:
+		require.Equal(t, seedCase.Name, savedCase.Name, msg)
+
+		// only saved vs live:
+		require.Equal(t, savedCase.Request, liveCase.Request, msg)
+		require.Equal(t, savedCase.Response, liveCase.Response, msg)
+
+		prove, err := savedCase.proverFromEndoint()
+		require.NoError(t, err, msg)
+		require.NotNil(t, prove, msg)
+
+		savedProof, savedErrStr := prove(savedCase.Response)
+		liveProof, liveErrStr := prove(liveCase.Response)
+		require.Equal(t, savedProof, liveProof, msg)
+		require.Equal(t, savedErrStr, liveErrStr, msg)
+		// sanity check:
+		require.Equal(t, savedCase.WitnessError, liveCase.WitnessError, msg)
+		require.Equal(t, savedCase.WitnessError == nil, savedCase.Witness != nil, msg)
+	}
+}
+
 // When the provided seed has `seed.Frozen == false` assertions will be skipped.
 // On the other hand, when `seed.Frozen == false` assertions are made:
-// * ownerVariable == seed.Owner == saved.Owner == live.Owner sanity checks
-// * seed.File ( == saved.File == live.File sanity checks)
-// * len(seed.Cases) == len(saved.Cases) (== len(live.Cases) sanity check)
-// * for each seedCase in seed.Cases:
-//   * seedCase.Name == savedCase.Name (== liveCase.Name sanity check)
-//   * seedCase.Request == savedCase.Request (== liveCase.Request sanity check)
-//   * seedCase.Witness == savedCase.Witness (== liveCase.Witness sanity check)
-//   * savedCase.Response == liveCase.Response
-//   * seedCase.Proof(liveCase.Response) == savedCase.Witness
-// Regardless of `seed.Frozen`, saved fixture `live` to `fixturesDirectory + "_" + seed.File`
+// * ownerVariable == saved.Owner == live.Owner
+// * saved.File == live.File
+// * len(saved.Cases) == len(live.Cases)
+// * for each savedCase:
+//   * savedCase.Name == liveCase.Name
+//   * savedCase.Request == liveCase.Request
+//   * recalculated savedCase.Witness == recalculated liveCase.Witness
+// Regardless of `seed.Frozen`, `live` is saved to `fixturesDirectory + "_" + seed.File`
 // NOTE: `live.Witness` is always recalculated via `seed.proof(live.Response)`
 func validateOrGenerateFixtures(t *testing.T, db *postgres.IndexerDb, seed fixture, owner string) {
 	require.Equal(t, owner, seed.Owner, "mismatch between purported owners of fixture")
@@ -765,62 +748,10 @@ func validateOrGenerateFixtures(t *testing.T, db *postgres.IndexerDb, seed fixtu
 	}
 }
 
-func validateLiveVsSaved(t *testing.T, seed *fixture, live *fixture) {
-	require.True(t, live.Frozen, "should be frozen for assertions")
-	saved := readFixture(t, fixturesDirectory, seed)
-
-	require.Equal(t, seed.Owner, saved.Owner, "unexpected discrepancy in Owner")
-	// sanity check:
-	require.Equal(t, saved.Owner, live.Owner, "unexpected discrepancy in Owner")
-
-	require.Equal(t, seed.File, saved.File, "unexpected discrepancy in File")
-	// sanity check:
-	require.Equal(t, saved.File, live.File, "unexpected discrepancy in File")
-
-	numSeedCases, numSavedCases, numLiveCases := len(seed.Cases), len(saved.Cases), len(live.Cases)
-	require.Equal(t, numSeedCases, numSavedCases, "numSeedCases=%d but numSavedCases=%d", numSeedCases, numSavedCases)
-	// sanity check:
-	require.Equal(t, numSavedCases, numLiveCases, "numSavedCases=%d but numLiveCases=%d", numSavedCases, numLiveCases)
-
-	for i, seedCase := range seed.Cases {
-		savedCase, liveCase := saved.Cases[i], live.Cases[i]
-		msg := fmt.Sprintf("(%d)[%s]. discrepency in seed=\n%+v\nsaved=\n%+v\nlive=\n%+v\n", i, seedCase.Name, seedCase, savedCase, liveCase)
-
-		require.Equal(t, seedCase.Name, savedCase.Name, msg)
-		// sanity check:
-		require.Equal(t, savedCase.Name, liveCase.Name, msg)
-
-		// only saved vs live:
-		require.Equal(t, savedCase.Request, liveCase.Request, msg)
-		require.Equal(t, savedCase.Witness, liveCase.Witness, msg)
-		require.Equal(t, savedCase.Response, liveCase.Response, msg)
-
-		// require.NotNil(t, seedCase.proof, msg)
-		prove, err := savedCase.proverFromEndoint()
-		require.NoError(t, err, msg)
-		require.NotNil(t, prove, msg)
-
-		proof, errStr := prove(liveCase.Response)
-		require.Equal(t, seedCase.Witness, proof, msg)
-		if seedCase.WitnessError == nil {
-			require.Nil(t, errStr)
-		} else {
-			require.Equal(t, *seedCase.WitnessError, *errStr)
-		}
-	}
-}
-
-/*
-expectedAppBoxes=map[1:map[AVM is the new EVM:yes we can! I will be assimilated:THE BORG I'm destined for deletion:DELETED a great box:it's a wonderful box another great box:I'm wonderful too box #8:eight is beautiful disappointing box:you made it! don't box me in this way:non box-conforming fantabulous:Italian food's the best! not so great box:DELETED]]
-expected totals=map[1:map[tBoxBytes:317 tBoxes:8]]
-appIdx=1
-appAddr=WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM
-path=/v2/accounts/WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM
-*/
 var boxSeedFixture = fixture{
 	File:   "boxes.json",
 	Owner:  "TestBoxes",
-	Frozen: false,
+	Frozen: true,
 	Cases: []testCase{
 		// /v2/accounts - 1 case
 		{
@@ -838,7 +769,7 @@ var boxSeedFixture = fixture{
 				Params: []param{},
 			},
 		},
-		// /v2/applications/:app-id - 3 cases
+		// /v2/applications/:app-id - 4 cases
 		{
 			Name: "Lookup non-existing app 1337",
 			Request: requestInfo{
@@ -857,6 +788,13 @@ var boxSeedFixture = fixture{
 			Name: "Lookup app (funded with boxes)",
 			Request: requestInfo{
 				Path:   "/v2/applications/1",
+				Params: []param{},
+			},
+		},
+		{
+			Name: "Lookup app (funded with encoding test named boxes)",
+			Request: requestInfo{
+				Path:   "/v2/applications/5",
 				Params: []param{},
 			},
 		},
@@ -887,6 +825,13 @@ var boxSeedFixture = fixture{
 			Name: "Boxes of app 3 with no boxes: no params",
 			Request: requestInfo{
 				Path:   "/v2/applications/3/boxes",
+				Params: []param{},
+			},
+		},
+		{
+			Name: "Boxes of app 5 with goal encoded boxes: no params",
+			Request: requestInfo{
+				Path:   "/v2/applications/5/boxes",
 				Params: []param{},
 			},
 		},
@@ -975,11 +920,128 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
-			Name: "App 1 box (a great box) - no params",
+			Name: "App 1 box (a great box)",
 			Request: requestInfo{
 				Path: "/v2/applications/1/box",
 				Params: []param{
 					{"name", "string:a great box"},
+				},
+			},
+		},
+		{
+			Name: "App 5 encoding (str:str) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/5/box",
+				Params: []param{
+					{"name", "str:str"},
+				},
+			},
+		},
+		{
+			Name: "App 5 encoding (integer:100) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/5/box",
+				Params: []param{
+					{"name", "integer:100"},
+				},
+			},
+		},
+		{
+			Name: "App 5 encoding (base32:MJQXGZJTGI======) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/5/box",
+				Params: []param{
+					{"name", "base32:MJQXGZJTGI======"},
+				},
+			},
+		},
+		{
+			Name: "App 5 encoding (b64:YjY0) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/5/box",
+				Params: []param{
+					{"name", "b64:YjY0"},
+				},
+			},
+		},
+		{
+			Name: "App 5 encoding (base64:YmFzZTY0) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/5/box",
+				Params: []param{
+					{"name", "base64:YmFzZTY0"},
+				},
+			},
+		},
+		{
+			Name: "App 5 encoding (string:string) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/5/box",
+				Params: []param{
+					{"name", "string:string"},
+				},
+			},
+		},
+		{
+			Name: "App 5 encoding (int:42) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/5/box",
+				Params: []param{
+					{"name", "int:42"},
+				},
+			},
+		},
+		{
+			Name: "App 5 encoding (abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/5/box",
+				Params: []param{
+					{"name", "abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]"},
+				},
+			},
+		},
+		{
+			Name: "App 5 encoding (addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/5/box",
+				Params: []param{
+					{"name", "addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY"},
+				},
+			},
+		},
+		{
+			Name: "App 5 encoding (address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/5/box",
+				Params: []param{
+					{"name", "address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY"},
+				},
+			},
+		},
+		{
+			Name: "App 5 encoding (b32:MIZTE===) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/5/box",
+				Params: []param{
+					{"name", "b32:MIZTE==="},
+				},
+			},
+		},
+		{
+			Name: "App 5 encoding (byte base32:MJ4XIZJAMJQXGZJTGI======) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/5/box",
+				Params: []param{
+					{"name", "byte base32:MJ4XIZJAMJQXGZJTGI======"},
+				},
+			},
+		},
+		{
+			Name: "App 5 encoding (byte base64:Ynl0ZSBiYXNlNjQ=) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/5/box",
+				Params: []param{
+					{"name", "byte base64:Ynl0ZSBiYXNlNjQ="},
 				},
 			},
 		},

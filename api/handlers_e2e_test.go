@@ -1626,7 +1626,7 @@ func runBoxCreateMutateDelete(t *testing.T, comparator postgres.BoxTestComparato
 	expectedAppBoxes := map[basics.AppIndex]map[string]string{}
 
 	expectedAppBoxes[appid] = map[string]string{}
-	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
+	newBoxValue := "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00"
 	boxTxns := make([]*transactions.SignedTxnWithAD, 0)
 	for _, boxName := range boxNames {
 		expectedAppBoxes[appid][logic.MakeBoxKey(appid, boxName)] = newBoxValue

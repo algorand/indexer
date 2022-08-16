@@ -8,18 +8,18 @@ const BoxApprovalProgram string = `#pragma version 8
 	byte "create"			// [arg[0], "create"] // create box named arg[1]
 	==                      // [arg[0]=?="create"]
 	bz del                  // "create" ? continue : goto del
-	int 24                  // [24]
-	txn NumAppArgs          // [24, NumAppArgs]
-	int 2                   // [24, NumAppArgs, 2]
-	==                      // [24, NumAppArgs=?=2]
+	int 32                  // [32]
+	txn NumAppArgs          // [32, NumAppArgs]
+	int 2                   // [32, NumAppArgs, 2]
+	==                      // [32, NumAppArgs=?=2]
 	bnz default             // WARNING: Assumes that when "create" provided, NumAppArgs >= 3
-	pop						// get rid of 24 // NumAppArgs != 2
+	pop						// get rid of 32 // NumAppArgs != 2
 	txn ApplicationArgs 2   // [arg[2]]         // ERROR when NumAppArgs == 1
 	btoi                    // [btoi(arg[2])]
-default:                    // [24] // NumAppArgs >= 3
-	txn ApplicationArgs 1   // [24, arg[1]]
-	swap                   // [arg[1], 24]
-	box_create              // [] // boxes: arg[1] -> [24]byte
+default:                    // [32] // NumAppArgs >= 3
+	txn ApplicationArgs 1   // [32, arg[1]]
+	swap                   // [arg[1], 32]
+	box_create              // [] // boxes: arg[1] -> [32]byte
 	assert
 	b end
 del:						// delete box arg[1]

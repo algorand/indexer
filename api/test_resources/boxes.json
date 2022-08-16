@@ -1,8 +1,8 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-08-15 17:26:36.225627 -0500 CDT m=+10.491774287",
-  "frozen": false,
+  "lastModified": "2022-08-15 22:42:07.862101 -0500 CDT m=+2.910442711",
+  "frozen": true,
   "cases": [
     {
       "name": "What are all the accounts?",
@@ -14,7 +14,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"accounts\":[{\"address\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":3,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE\",\"amount\":1000000000000,\"amount-without-pending-rewards\":1000000000000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":405,\"total-boxes\":9,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"ZROKLZW4GVOK5WQIF2GUR6LHFVEZBMV56BIQEQD4OTIZL2BPSYYUKFBSHM\",\"amount\":2000,\"amount-without-pending-rewards\":2000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM\",\"amount\":100000,\"amount-without-pending-rewards\":100000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"NotParticipating\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI\",\"amount\":1000000000000,\"amount-without-pending-rewards\":1000000000000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0}],\"current-round\":6,\"next-token\":\"6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI\"}\n"
+        "body": "{\"accounts\":[{\"address\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":8,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":8,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":3,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":8,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE\",\"amount\":999999499000,\"amount-without-pending-rewards\":999999499000,\"created-apps\":[{\"created-at-round\":1,\"deleted\":false,\"id\":5,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":8,\"sig-type\":\"sig\",\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":1,\"total-created-assets\":0},{\"address\":\"WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":8,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":477,\"total-boxes\":9,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"ZROKLZW4GVOK5WQIF2GUR6LHFVEZBMV56BIQEQD4OTIZL2BPSYYUKFBSHM\",\"amount\":3000,\"amount-without-pending-rewards\":3000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":8,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":8,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":570,\"total-boxes\":13,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"4C3S3A5II6AYMEADSW7EVL7JAKVU2ASJMMJAGVUROIJHYMS6B24NCXVEWM\",\"amount\":100000,\"amount-without-pending-rewards\":100000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":8,\"status\":\"NotParticipating\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},{\"address\":\"6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI\",\"amount\":1000000000000,\"amount-without-pending-rewards\":1000000000000,\"created-at-round\":0,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":8,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0}],\"current-round\":8,\"next-token\":\"6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI\"}\n"
       },
       "witness": {
         "goType": "generated.AccountsResponse",
@@ -30,7 +30,7 @@
                   "deleted": false,
                   "id": 1,
                   "params": {
-                    "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+                    "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
                     "clear-state-program": "CIEB",
                     "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
                     "global-state-schema": {
@@ -49,7 +49,7 @@
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
-              "round": 6,
+              "round": 8,
               "sig-type": "sig",
               "status": "Offline",
               "total-apps-opted-in": 0,
@@ -68,7 +68,7 @@
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
-              "round": 6,
+              "round": 8,
               "status": "Offline",
               "total-apps-opted-in": 0,
               "total-assets-opted-in": 0,
@@ -87,7 +87,7 @@
                   "deleted": false,
                   "id": 3,
                   "params": {
-                    "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+                    "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
                     "clear-state-program": "CIEB",
                     "creator": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU",
                     "global-state-schema": {
@@ -106,7 +106,7 @@
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
-              "round": 6,
+              "round": 8,
               "sig-type": "sig",
               "status": "Offline",
               "total-apps-opted-in": 0,
@@ -118,20 +118,41 @@
             },
             {
               "address": "OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE",
-              "amount": 1000000000000,
-              "amount-without-pending-rewards": 1000000000000,
+              "amount": 999999499000,
+              "amount-without-pending-rewards": 999999499000,
+              "created-apps": [
+                {
+                  "created-at-round": 1,
+                  "deleted": false,
+                  "id": 5,
+                  "params": {
+                    "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+                    "clear-state-program": "CIEB",
+                    "creator": "OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE",
+                    "global-state-schema": {
+                      "num-byte-slice": 0,
+                      "num-uint": 0
+                    },
+                    "local-state-schema": {
+                      "num-byte-slice": 0,
+                      "num-uint": 0
+                    }
+                  }
+                }
+              ],
               "created-at-round": 0,
               "deleted": false,
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
-              "round": 6,
+              "round": 8,
+              "sig-type": "sig",
               "status": "Offline",
               "total-apps-opted-in": 0,
               "total-assets-opted-in": 0,
               "total-box-bytes": 0,
               "total-boxes": 0,
-              "total-created-apps": 0,
+              "total-created-apps": 1,
               "total-created-assets": 0
             },
             {
@@ -143,30 +164,48 @@
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
-              "round": 6,
+              "round": 8,
               "status": "Offline",
               "total-apps-opted-in": 0,
               "total-assets-opted-in": 0,
-              "total-box-bytes": 405,
+              "total-box-bytes": 477,
               "total-boxes": 9,
               "total-created-apps": 0,
               "total-created-assets": 0
             },
             {
               "address": "ZROKLZW4GVOK5WQIF2GUR6LHFVEZBMV56BIQEQD4OTIZL2BPSYYUKFBSHM",
-              "amount": 2000,
-              "amount-without-pending-rewards": 2000,
+              "amount": 3000,
+              "amount-without-pending-rewards": 3000,
               "created-at-round": 1,
               "deleted": false,
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
-              "round": 6,
+              "round": 8,
               "status": "Offline",
               "total-apps-opted-in": 0,
               "total-assets-opted-in": 0,
               "total-box-bytes": 0,
               "total-boxes": 0,
+              "total-created-apps": 0,
+              "total-created-assets": 0
+            },
+            {
+              "address": "2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY",
+              "amount": 500000,
+              "amount-without-pending-rewards": 500000,
+              "created-at-round": 1,
+              "deleted": false,
+              "pending-rewards": 0,
+              "reward-base": 0,
+              "rewards": 0,
+              "round": 8,
+              "status": "Offline",
+              "total-apps-opted-in": 0,
+              "total-assets-opted-in": 0,
+              "total-box-bytes": 570,
+              "total-boxes": 13,
               "total-created-apps": 0,
               "total-created-assets": 0
             },
@@ -179,7 +218,7 @@
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
-              "round": 6,
+              "round": 8,
               "status": "NotParticipating",
               "total-apps-opted-in": 0,
               "total-assets-opted-in": 0,
@@ -197,7 +236,7 @@
               "pending-rewards": 0,
               "reward-base": 0,
               "rewards": 0,
-              "round": 6,
+              "round": 8,
               "status": "Offline",
               "total-apps-opted-in": 0,
               "total-assets-opted-in": 0,
@@ -207,7 +246,7 @@
               "total-created-assets": 0
             }
           ],
-          "current-round": 6,
+          "current-round": 8,
           "next-token": "6TB2ZQA2GEEDH6XTIOH5A7FUSGINXDPW5ONN6XBOBBGGUXVHRQTITAIIVI"
         }
       },
@@ -223,7 +262,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"applications\":[{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},{\"created-at-round\":1,\"deleted\":false,\"id\":3,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"current-round\":6,\"next-token\":\"3\"}\n"
+        "body": "{\"applications\":[{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},{\"created-at-round\":1,\"deleted\":false,\"id\":3,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},{\"created-at-round\":1,\"deleted\":false,\"id\":5,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}}],\"current-round\":8,\"next-token\":\"5\"}\n"
       },
       "witness": {
         "goType": "generated.ApplicationsResponse",
@@ -234,7 +273,7 @@
               "deleted": false,
               "id": 1,
               "params": {
-                "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+                "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
                 "clear-state-program": "CIEB",
                 "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
                 "global-state-schema": {
@@ -252,7 +291,7 @@
               "deleted": false,
               "id": 3,
               "params": {
-                "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+                "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
                 "clear-state-program": "CIEB",
                 "creator": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU",
                 "global-state-schema": {
@@ -264,10 +303,28 @@
                   "num-uint": 0
                 }
               }
+            },
+            {
+              "created-at-round": 1,
+              "deleted": false,
+              "id": 5,
+              "params": {
+                "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+                "clear-state-program": "CIEB",
+                "creator": "OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE",
+                "global-state-schema": {
+                  "num-byte-slice": 0,
+                  "num-uint": 0
+                },
+                "local-state-schema": {
+                  "num-byte-slice": 0,
+                  "num-uint": 0
+                }
+              }
             }
           ],
-          "current-round": 6,
-          "next-token": "3"
+          "current-round": 8,
+          "next-token": "5"
         }
       },
       "witnessError": null
@@ -297,7 +354,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application\":{\"created-at-round\":1,\"deleted\":false,\"id\":3,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},\"current-round\":6}\n"
+        "body": "{\"application\":{\"created-at-round\":1,\"deleted\":false,\"id\":3,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},\"current-round\":8}\n"
       },
       "witness": {
         "goType": "generated.ApplicationResponse",
@@ -307,7 +364,7 @@
             "deleted": false,
             "id": 3,
             "params": {
-              "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+              "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
               "clear-state-program": "CIEB",
               "creator": "N5T74SANUWLHI6ZWYFQBEB6J2VXBTYUYZNWQB2V26DCF4ARKC7GDUW3IRU",
               "global-state-schema": {
@@ -320,7 +377,7 @@
               }
             }
           },
-          "current-round": 6
+          "current-round": 8
         }
       },
       "witnessError": null
@@ -335,7 +392,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application\":{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},\"current-round\":6}\n"
+        "body": "{\"application\":{\"created-at-round\":1,\"deleted\":false,\"id\":1,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},\"current-round\":8}\n"
       },
       "witness": {
         "goType": "generated.ApplicationResponse",
@@ -345,7 +402,7 @@
             "deleted": false,
             "id": 1,
             "params": {
-              "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgRgxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+              "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
               "clear-state-program": "CIEB",
               "creator": "GJR76Q6OXNZ2CYIVCFCDTJRBAAR6TYEJJENEII3G2U3JH546SPBQA62IFY",
               "global-state-schema": {
@@ -358,7 +415,45 @@
               }
             }
           },
-          "current-round": 6
+          "current-round": 8
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "Lookup app (funded with encoding test named boxes)",
+      "request": {
+        "path": "/v2/applications/5",
+        "params": [],
+        "url": "http://localhost:8999/v2/applications/5",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"application\":{\"created-at-round\":1,\"deleted\":false,\"id\":5,\"params\":{\"approval-program\":\"CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=\",\"clear-state-program\":\"CIEB\",\"creator\":\"OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE\",\"global-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0},\"local-state-schema\":{\"num-byte-slice\":0,\"num-uint\":0}}},\"current-round\":8}\n"
+      },
+      "witness": {
+        "goType": "generated.ApplicationResponse",
+        "app": {
+          "application": {
+            "created-at-round": 1,
+            "deleted": false,
+            "id": 5,
+            "params": {
+              "approval-program": "CCABADEYQQB1NhoAgAZjcmVhdGUSQQAYgSAxG4ECEkAABUg2GgIXNhoBTLlEQgBONhoAgAZkZWxldGUSQQAINhoBvERCADc2GgCAA3NldBJBAAs2GgEiNhoCu0IAIDYaAIAFY2hlY2sSQQARNhoBIjYaAhW6NhoCEkRCAAEAgQE=",
+              "clear-state-program": "CIEB",
+              "creator": "OKUWMFFEKF4B4D7FRQYBVV3C2SNS54ZO4WZ2MJ3576UYKFDHM5P3AFMRWE",
+              "global-state-schema": {
+                "num-byte-slice": 0,
+                "num-uint": 0
+              },
+              "local-state-schema": {
+                "num-byte-slice": 0,
+                "num-uint": 0
+              }
+            }
+          },
+          "current-round": 8
         }
       },
       "witnessError": null
@@ -373,7 +468,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"account\":{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":6}\n"
+        "body": "{\"account\":{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":8,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":8}\n"
       },
       "witness": {
         "goType": "generated.AccountResponse",
@@ -387,7 +482,7 @@
             "pending-rewards": 0,
             "reward-base": 0,
             "rewards": 0,
-            "round": 6,
+            "round": 8,
             "status": "Offline",
             "total-apps-opted-in": 0,
             "total-assets-opted-in": 0,
@@ -396,7 +491,7 @@
             "total-created-apps": 0,
             "total-created-assets": 0
           },
-          "current-round": 6
+          "current-round": 8
         }
       },
       "witnessError": null
@@ -411,7 +506,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"account\":{\"address\":\"WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":6,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":405,\"total-boxes\":9,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":6}\n"
+        "body": "{\"account\":{\"address\":\"WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":8,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":477,\"total-boxes\":9,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":8}\n"
       },
       "witness": {
         "goType": "generated.AccountResponse",
@@ -425,16 +520,16 @@
             "pending-rewards": 0,
             "reward-base": 0,
             "rewards": 0,
-            "round": 6,
+            "round": 8,
             "status": "Offline",
             "total-apps-opted-in": 0,
             "total-assets-opted-in": 0,
-            "total-box-bytes": 405,
+            "total-box-bytes": 477,
             "total-boxes": 9,
             "total-created-apps": 0,
             "total-created-assets": 0
           },
-          "current-round": 6
+          "current-round": 8
         }
       },
       "witnessError": null
@@ -449,7 +544,7 @@
       },
       "response": {
         "statusCode": 404,
-        "body": "{\"message\":\"no application found for application-id: round=6, appid=1337\"}\n"
+        "body": "{\"message\":\"no application found for application-id: round=8, appid=1337\"}\n"
       },
       "witness": null,
       "witnessError": "404 error"
@@ -471,6 +566,68 @@
         "boxes": {
           "application-id": 3,
           "boxes": []
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "Boxes of app 5 with goal encoded boxes: no params",
+      "request": {
+        "path": "/v2/applications/5/boxes",
+        "params": [],
+        "url": "http://localhost:8999/v2/applications/5/boxes",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"application-id\":5,\"boxes\":[{\"name\":\"AAAAAAAAACo=\"},{\"name\":\"AAAAAAAAAGQ=\"},{\"name\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==\"},{\"name\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\"},{\"name\":\"YjMy\"},{\"name\":\"YjY0\"},{\"name\":\"YmFzZTMy\"},{\"name\":\"YmFzZTY0\"},{\"name\":\"Ynl0ZSBiYXNlMzI=\"},{\"name\":\"Ynl0ZSBiYXNlNjQ=\"},{\"name\":\"c3Ry\"},{\"name\":\"c3RyaW5n\"},{\"name\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}],\"next-token\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxesResponse",
+        "boxes": {
+          "application-id": 5,
+          "boxes": [
+            {
+              "name": "AAAAAAAAACo="
+            },
+            {
+              "name": "AAAAAAAAAGQ="
+            },
+            {
+              "name": "AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA=="
+            },
+            {
+              "name": "WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M="
+            },
+            {
+              "name": "YjMy"
+            },
+            {
+              "name": "YjY0"
+            },
+            {
+              "name": "YmFzZTMy"
+            },
+            {
+              "name": "YmFzZTY0"
+            },
+            {
+              "name": "Ynl0ZSBiYXNlMzI="
+            },
+            {
+              "name": "Ynl0ZSBiYXNlNjQ="
+            },
+            {
+              "name": "c3Ry"
+            },
+            {
+              "name": "c3RyaW5n"
+            },
+            {
+              "name": "1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg="
+            }
+          ],
+          "next-token": "1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg="
         }
       },
       "witnessError": null
@@ -730,7 +887,7 @@
       },
       "response": {
         "statusCode": 404,
-        "body": "{\"message\":\"no application found for application-id: round=6, appid=1337, boxName=string:non-existing\"}\n"
+        "body": "{\"message\":\"no application found for application-id: round=8, appid=1337, boxName=string:non-existing\"}\n"
       },
       "witness": null,
       "witnessError": "404 error"
@@ -750,7 +907,7 @@
       },
       "response": {
         "statusCode": 404,
-        "body": "{\"message\":\"no applications boxes found: round=6, appid=3, boxName=string:non-existing\"}\n"
+        "body": "{\"message\":\"no applications boxes found: round=8, appid=3, boxName=string:non-existing\"}\n"
       },
       "witness": null,
       "witnessError": "404 error"
@@ -770,13 +927,13 @@
       },
       "response": {
         "statusCode": 404,
-        "body": "{\"message\":\"no applications boxes found: round=6, appid=1, boxName=string:non-existing\"}\n"
+        "body": "{\"message\":\"no applications boxes found: round=8, appid=1, boxName=string:non-existing\"}\n"
       },
       "witness": null,
       "witnessError": "404 error"
     },
     {
-      "name": "App 1 box (a great box) - no params",
+      "name": "App 1 box (a great box)",
       "request": {
         "path": "/v2/applications/1/box",
         "params": [
@@ -790,13 +947,351 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"name\":\"YSBncmVhdCBib3g=\",\"value\":\"aXQncyBhIHdvbmRlcmZ1bCBib3gAAAAA\"}\n"
+        "body": "{\"name\":\"YSBncmVhdCBib3g=\",\"value\":\"aXQncyBhIHdvbmRlcmZ1bCBib3gAAAAAAAAAAAAAAAA=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxResponse",
         "box": {
           "name": "YSBncmVhdCBib3g=",
-          "value": "aXQncyBhIHdvbmRlcmZ1bCBib3gAAAAA"
+          "value": "aXQncyBhIHdvbmRlcmZ1bCBib3gAAAAAAAAAAAAAAAA="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "App 5 encoding (str:str) - no params",
+      "request": {
+        "path": "/v2/applications/5/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "str:str"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/5/box?name=str%3Astr",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"name\":\"c3Ry\",\"value\":\"c3RyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxResponse",
+        "box": {
+          "name": "c3Ry",
+          "value": "c3RyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "App 5 encoding (integer:100) - no params",
+      "request": {
+        "path": "/v2/applications/5/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "integer:100"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/5/box?name=integer%3A100",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"name\":\"AAAAAAAAAGQ=\",\"value\":\"AAAAAAAAAGQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxResponse",
+        "box": {
+          "name": "AAAAAAAAAGQ=",
+          "value": "AAAAAAAAAGQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "App 5 encoding (base32:MJQXGZJTGI======) - no params",
+      "request": {
+        "path": "/v2/applications/5/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "base32:MJQXGZJTGI======"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/5/box?name=base32%3AMJQXGZJTGI%3D%3D%3D%3D%3D%3D",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"name\":\"YmFzZTMy\",\"value\":\"YmFzZTMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxResponse",
+        "box": {
+          "name": "YmFzZTMy",
+          "value": "YmFzZTMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "App 5 encoding (b64:YjY0) - no params",
+      "request": {
+        "path": "/v2/applications/5/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "b64:YjY0"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/5/box?name=b64%3AYjY0",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"name\":\"YjY0\",\"value\":\"YjY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxResponse",
+        "box": {
+          "name": "YjY0",
+          "value": "YjY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "App 5 encoding (base64:YmFzZTY0) - no params",
+      "request": {
+        "path": "/v2/applications/5/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "base64:YmFzZTY0"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/5/box?name=base64%3AYmFzZTY0",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"name\":\"YmFzZTY0\",\"value\":\"YmFzZTY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxResponse",
+        "box": {
+          "name": "YmFzZTY0",
+          "value": "YmFzZTY0AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "App 5 encoding (string:string) - no params",
+      "request": {
+        "path": "/v2/applications/5/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "string:string"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/5/box?name=string%3Astring",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"name\":\"c3RyaW5n\",\"value\":\"c3RyaW5nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxResponse",
+        "box": {
+          "name": "c3RyaW5n",
+          "value": "c3RyaW5nAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "App 5 encoding (int:42) - no params",
+      "request": {
+        "path": "/v2/applications/5/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "int:42"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/5/box?name=int%3A42",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"name\":\"AAAAAAAAACo=\",\"value\":\"AAAAAAAAACoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxResponse",
+        "box": {
+          "name": "AAAAAAAAACo=",
+          "value": "AAAAAAAAACoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "App 5 encoding (abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]) - no params",
+      "request": {
+        "path": "/v2/applications/5/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "abi:(uint64,string,bool[]):[399,\"pls pass\",[true,false]]"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/5/box?name=abi%3A%28uint64%2Cstring%2Cbool%5B%5D%29%3A%5B399%2C%22pls+pass%22%2C%5Btrue%2Cfalse%5D%5D",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"name\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==\",\"value\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgAAAAAAAAAA=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxResponse",
+        "box": {
+          "name": "AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==",
+          "value": "AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgAAAAAAAAAA="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "App 5 encoding (addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY) - no params",
+      "request": {
+        "path": "/v2/applications/5/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "addr:LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/5/box?name=addr%3ALMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"name\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\",\"value\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxResponse",
+        "box": {
+          "name": "WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=",
+          "value": "WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "App 5 encoding (address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY) - no params",
+      "request": {
+        "path": "/v2/applications/5/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "address:2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/5/box?name=address%3A2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"name\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\",\"value\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxResponse",
+        "box": {
+          "name": "1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=",
+          "value": "1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "App 5 encoding (b32:MIZTE===) - no params",
+      "request": {
+        "path": "/v2/applications/5/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "b32:MIZTE==="
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/5/box?name=b32%3AMIZTE%3D%3D%3D",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"name\":\"YjMy\",\"value\":\"YjMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxResponse",
+        "box": {
+          "name": "YjMy",
+          "value": "YjMyAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "App 5 encoding (byte base32:MJ4XIZJAMJQXGZJTGI======) - no params",
+      "request": {
+        "path": "/v2/applications/5/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "byte base32:MJ4XIZJAMJQXGZJTGI======"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/5/box?name=byte+base32%3AMJ4XIZJAMJQXGZJTGI%3D%3D%3D%3D%3D%3D",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"name\":\"Ynl0ZSBiYXNlMzI=\",\"value\":\"Ynl0ZSBiYXNlMzIAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxResponse",
+        "box": {
+          "name": "Ynl0ZSBiYXNlMzI=",
+          "value": "Ynl0ZSBiYXNlMzIAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "App 5 encoding (byte base64:Ynl0ZSBiYXNlNjQ=) - no params",
+      "request": {
+        "path": "/v2/applications/5/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "byte base64:Ynl0ZSBiYXNlNjQ="
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/5/box?name=byte+base64%3AYnl0ZSBiYXNlNjQ%3D",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"name\":\"Ynl0ZSBiYXNlNjQ=\",\"value\":\"Ynl0ZSBiYXNlNjQAAAAAAAAAAAAAAAAAAAAAAAAAAAA=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxResponse",
+        "box": {
+          "name": "Ynl0ZSBiYXNlNjQ=",
+          "value": "Ynl0ZSBiYXNlNjQAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
         }
       },
       "witnessError": null
