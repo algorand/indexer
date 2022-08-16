@@ -17,7 +17,7 @@ import (
 	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/dummy"
 	_ "github.com/algorand/indexer/idb/postgres"
-	_ "github.com/algorand/indexer/util/disable_deadlock"
+	_ "github.com/algorand/indexer/util/disabledeadlock"
 	"github.com/algorand/indexer/util/metrics"
 	"github.com/algorand/indexer/version"
 )

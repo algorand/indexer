@@ -1,4 +1,4 @@
-package disable_deadlock
+package disabledeadlock
 
 import "github.com/algorand/go-deadlock"
 
