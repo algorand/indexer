@@ -203,7 +203,7 @@ func (p *pipelineImpl) Start() error {
 				Name: (*processor).Metadata().Name(),
 			},
 		)
-		jsonEncode = string(json.Encode(p.cfg.Processors[idx]))
+		jsonEncode = string(json.Encode(p.cfg.Processors[idx].Config))
 		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(jsonEncode), processorLogger)
 		processorName := (*processor).Metadata().Name()
 		if err != nil {
