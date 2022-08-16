@@ -66,6 +66,7 @@ func CatchupServiceCatchup(ctx context.Context, logger *log.Logger, catchpoint, 
 
 	start := time.Now()
 	cfg := config.AutogenLocal
+	cfg.DeadlockDetection = 0
 
 	node := makeNodeProvider(ctx)
 	l, err := util.MakeLedger(logger, false, &genesis, dataDir)
