@@ -139,16 +139,9 @@ func (p *pipelineImpl) Start() error {
 
 	// TODO Need to change interfaces to accept config of map[string]interface{}
 
+	// Initialize Exporter first since the pipeline derives its round from the Exporter
 	exporterLogger := log.New()
-	exporterLogger.SetFormatter(
-		PluginLogFormatter{
-			Formatter: &log.JSONFormatter{
-				DisableHTMLEscape: true,
-			},
-			Type: "Exporter",
-			Name: (*p.exporter).Metadata().Name(),
-		},
-	)
+	exporterLogger.SetFormatter(makePluginLogFormatter(plugins.Exporter, (*p.exporter).Metadata().Name()))
 
 	jsonEncode := string(json.Encode(p.cfg.Exporter.Config))
 	err := (*p.exporter).Init(plugins.PluginConfig(jsonEncode), exporterLogger)
@@ -158,16 +151,9 @@ func (p *pipelineImpl) Start() error {
 	}
 	p.logger.Infof("Initialized Exporter: %s", exporterName)
 
+	// Initialize Importer
 	importerLogger := log.New()
-	importerLogger.SetFormatter(
-		PluginLogFormatter{
-			Formatter: &log.JSONFormatter{
-				DisableHTMLEscape: true,
-			},
-			Type: "Importer",
-			Name: (*p.importer).Metadata().Name(),
-		},
-	)
+	importerLogger.SetFormatter(makePluginLogFormatter(plugins.Importer, (*p.importer).Metadata().Name()))
 
 	// TODO modify/fix ?
 	jsonEncode = string(json.Encode(p.cfg.Importer.Config))
@@ -184,25 +170,16 @@ func (p *pipelineImpl) Start() error {
 	}
 	p.logger.Infof("Initialized Importer: %s", importerName)
 
+	// Initialize Processors
 	var initProvider data.InitProvider = &PipelineInitProvider{
 		currentRound: &p.round,
 		genesis:      genesis,
 	}
-
 	p.initProvider = &initProvider
 
 	for idx, processor := range p.processors {
-
 		processorLogger := log.New()
-		processorLogger.SetFormatter(
-			PluginLogFormatter{
-				Formatter: &log.JSONFormatter{
-					DisableHTMLEscape: true,
-				},
-				Type: "Processor",
-				Name: (*processor).Metadata().Name(),
-			},
-		)
+		processorLogger.SetFormatter(makePluginLogFormatter(plugins.Processor, (*processor).Metadata().Name()))
 		jsonEncode = string(json.Encode(p.cfg.Processors[idx].Config))
 		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(jsonEncode), processorLogger)
 		processorName := (*processor).Metadata().Name()
@@ -210,7 +187,6 @@ func (p *pipelineImpl) Start() error {
 			return fmt.Errorf("Pipeline.Start(): could not initialize processor (%s): %w", processorName, err)
 		}
 		p.logger.Infof("Initialized Processor: %s", processorName)
-
 	}
 
 	return p.RunPipeline()

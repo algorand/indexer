@@ -18,3 +18,13 @@ func (f PluginLogFormatter) Format(entry *log.Entry) ([]byte, error) {
 	entry.Data["_name"] = f.Name
 	return f.Formatter.Format(entry)
 }
+
+func makePluginLogFormatter(pluginType string, pluginName string) PluginLogFormatter {
+	return PluginLogFormatter{
+		Formatter: &log.JSONFormatter{
+			DisableHTMLEscape: true,
+		},
+		Type: pluginType,
+		Name: pluginName,
+	}
+}
