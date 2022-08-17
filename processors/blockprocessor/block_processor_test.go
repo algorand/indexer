@@ -68,7 +68,7 @@ func TestFailedProcess(t *testing.T) {
 	proc := blockprocessor.MakeBlockProcessorHandlerAdapter(&pr, nil)
 	assert.Nil(t, err)
 	err = proc(nil)
-	assert.Contains(t, err.Error(), "invalid round")
+	assert.Nil(t, err)
 
 	genesisBlock, err := l.Block(basics.Round(0))
 	assert.Nil(t, err)

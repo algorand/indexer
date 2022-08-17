@@ -2,6 +2,9 @@ package processors
 
 import (
 	"context"
+
+	"github.com/sirupsen/logrus"
+
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/plugins"
 )
@@ -18,7 +21,7 @@ type Processor interface {
 	// Typically, used for things like initializing network connections.
 	// The Context passed to Init() will be used for deadlines, cancel signals and other early terminations
 	// The Config passed to Init() will contain the unmarshalled config file specific to this plugin.
-	Init(ctx context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig) error
+	Init(ctx context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig, logger *logrus.Logger) error
 
 	// Close will be called during termination of the Indexer process.
 	Close() error

@@ -69,15 +69,17 @@ func (proc *blockProcessor) Config() plugins.PluginConfig {
 	return proc.cfg
 }
 
-func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig) error {
+func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProvider, cfg plugins.PluginConfig, logger *log.Logger) error {
+	proc.ctx = ctx
+	proc.logger = logger
 
 	// First get the configuration from the string
 	var pCfg processors.BlockProcessorConfig
 	err := yaml.Unmarshal([]byte(cfg), &pCfg)
-
 	if err != nil {
 		return fmt.Errorf("blockprocessor init error: %w", err)
 	}
+	proc.cfg = cfg
 
 	genesis := initProvider.Genesis()
 	round := uint64(initProvider.NextDBRound())
@@ -94,43 +96,27 @@ func (proc *blockProcessor) Init(ctx context.Context, initProvider data.InitProv
 	if l == nil {
 		return fmt.Errorf("ledger was created with nil pointer")
 	}
+	proc.ledger = l
 
 	if uint64(l.Latest()) > round {
 		return fmt.Errorf("the ledger cache is ahead of the required round (%d > %d) and must be re-initialized", l.Latest(), round)
 	}
 
-	if l.Latest() == 0 {
-		blk, cert, err := l.BlockCert(0)
-		if err != nil {
-			return fmt.Errorf("error getting block and certificate: %w", err)
-		}
-		vb := ledgercore.MakeValidatedBlock(blk, ledgercore.StateDelta{})
-
-		blockData := data.MakeBlockDataFromValidatedBlock(vb)
-		blockData.Certificate = &cert
-
-		proc.saveLastValidatedInformation(vb, blk.Round(), cert)
-		err = proc.OnComplete(data.BlockData{})
-
-		if err != nil {
-			return fmt.Errorf("error adding gensis block: %w", err)
-		}
-	}
-
-	proc.ledger = l
-	proc.ctx = ctx
-	proc.cfg = cfg
-
 	return nil
 }
 
 func (proc *blockProcessor) extractValidatedBlockAndPayset(blockCert *rpcs.EncodedBlockCert) (ledgercore.ValidatedBlock, transactions.Payset, error) {
-
+	var vb ledgercore.ValidatedBlock
+	var payset transactions.Payset
 	if blockCert == nil {
-		return ledgercore.ValidatedBlock{}, transactions.Payset{}, fmt.Errorf("cannot process a nil block")
+		return vb, payset, fmt.Errorf("cannot process a nil block")
+	}
+	if blockCert.Block.Round() == 0 && proc.ledger.Latest() == 0 {
+		vb = ledgercore.MakeValidatedBlock(blockCert.Block, ledgercore.StateDelta{})
+		return vb, blockCert.Block.Payset, nil
 	}
 	if blockCert.Block.Round() != (proc.ledger.Latest() + 1) {
-		return ledgercore.ValidatedBlock{}, transactions.Payset{}, fmt.Errorf("invalid round blockCert.Block.Round(): %d nextRoundToProcess: %d", blockCert.Block.Round(), uint64(proc.ledger.Latest())+1)
+		return vb, payset, fmt.Errorf("invalid round blockCert.Block.Round(): %d nextRoundToProcess: %d", blockCert.Block.Round(), uint64(proc.ledger.Latest())+1)
 	}
 
 	// Make sure "AssetCloseAmount" is enabled. If it isn't, override the
@@ -138,7 +124,7 @@ func (proc *blockProcessor) extractValidatedBlockAndPayset(blockCert *rpcs.Encod
 	// apply data.
 	proto, ok := config.Consensus[blockCert.Block.BlockHeader.CurrentProtocol]
 	if !ok {
-		return ledgercore.ValidatedBlock{}, transactions.Payset{}, fmt.Errorf(
+		return vb, payset, fmt.Errorf(
 			"cannot find proto version %s", blockCert.Block.BlockHeader.CurrentProtocol)
 	}
 	protoChanged := !proto.EnableAssetCloseAmount
@@ -152,13 +138,11 @@ func (proc *blockProcessor) extractValidatedBlockAndPayset(blockCert *rpcs.Encod
 	}
 
 	delta, payset, err := ledger.EvalForIndexer(ledgerForEval, &blockCert.Block, proto, resources)
-
 	if err != nil {
-		return ledgercore.ValidatedBlock{}, transactions.Payset{}, fmt.Errorf("eval err: %w", err)
+		return vb, transactions.Payset{}, fmt.Errorf("eval err: %w", err)
 	}
 
 	// validated block
-	var vb ledgercore.ValidatedBlock
 	if protoChanged {
 		block := bookkeeping.Block{
 			BlockHeader: blockCert.Block.BlockHeader,
@@ -255,6 +239,9 @@ func (proc *blockProcessor) Process(input data.BlockData) (data.BlockData, error
 
 func (proc *blockProcessor) OnComplete(_ data.BlockData) error {
 
+	if proc.lastValidatedBlockRound == basics.Round(0) {
+		return nil
+	}
 	// write to ledger
 	err := proc.ledger.AddValidatedBlock(proc.lastValidatedBlock, proc.lastValidatedBlockCertificate)
 	if err != nil {

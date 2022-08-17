@@ -131,6 +131,7 @@ type pipelineImpl struct {
 	importer   *importers.Importer
 	processors []*processors.Processor
 	exporter   *exporters.Exporter
+	round      basics.Round
 }
 
 func (p *pipelineImpl) Start() error {
@@ -138,77 +139,57 @@ func (p *pipelineImpl) Start() error {
 
 	// TODO Need to change interfaces to accept config of map[string]interface{}
 
+	// Initialize Exporter first since the pipeline derives its round from the Exporter
+	exporterLogger := log.New()
+	exporterLogger.SetFormatter(makePluginLogFormatter(plugins.Exporter, (*p.exporter).Metadata().Name()))
+
+	jsonEncode := string(json.Encode(p.cfg.Exporter.Config))
+	err := (*p.exporter).Init(plugins.PluginConfig(jsonEncode), exporterLogger)
+	exporterName := (*p.exporter).Metadata().Name()
+	if err != nil {
+		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", exporterName, err)
+	}
+	p.logger.Infof("Initialized Exporter: %s", exporterName)
+
+	// Initialize Importer
 	importerLogger := log.New()
-	importerLogger.SetFormatter(
-		PluginLogFormatter{
-			Formatter: &log.JSONFormatter{
-				DisableHTMLEscape: true,
-			},
-			Type: "Importer",
-			Name: (*p.importer).Metadata().Name(),
-		},
-	)
+	importerLogger.SetFormatter(makePluginLogFormatter(plugins.Importer, (*p.importer).Metadata().Name()))
 
 	// TODO modify/fix ?
-	jsonEncode := string(json.Encode(p.cfg.Importer.Config))
+	jsonEncode = string(json.Encode(p.cfg.Importer.Config))
 	genesis, err := (*p.importer).Init(p.ctx, plugins.PluginConfig(jsonEncode), importerLogger)
-
-	currentRound := basics.Round(0)
-
-	var initProvider data.InitProvider = &PipelineInitProvider{
-		currentRound: &currentRound,
-		genesis:      genesis,
-	}
-
-	p.initProvider = &initProvider
 
 	importerName := (*p.importer).Metadata().Name()
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not initialize importer (%s): %w", importerName, err)
 	}
+	p.round = basics.Round((*p.exporter).Round())
+	err = (*p.exporter).HandleGenesis(*genesis)
+	if err != nil {
+		return fmt.Errorf("Pipeline.Start(): exporter could not handle genesis (%s): %w", exporterName, err)
+	}
 	p.logger.Infof("Initialized Importer: %s", importerName)
 
-	for _, processor := range p.processors {
+	// Initialize Processors
+	var initProvider data.InitProvider = &PipelineInitProvider{
+		currentRound: &p.round,
+		genesis:      genesis,
+	}
+	p.initProvider = &initProvider
 
+	for idx, processor := range p.processors {
 		processorLogger := log.New()
-		processorLogger.SetFormatter(
-			PluginLogFormatter{
-				Formatter: &log.JSONFormatter{
-					DisableHTMLEscape: true,
-				},
-				Type: "Processor",
-				Name: (*processor).Metadata().Name(),
-			},
-		)
-
-		err := (*processor).Init(p.ctx, *p.initProvider, "")
+		processorLogger.SetFormatter(makePluginLogFormatter(plugins.Processor, (*processor).Metadata().Name()))
+		jsonEncode = string(json.Encode(p.cfg.Processors[idx].Config))
+		err := (*processor).Init(p.ctx, *p.initProvider, plugins.PluginConfig(jsonEncode), processorLogger)
 		processorName := (*processor).Metadata().Name()
 		if err != nil {
 			return fmt.Errorf("Pipeline.Start(): could not initialize processor (%s): %w", processorName, err)
 		}
 		p.logger.Infof("Initialized Processor: %s", processorName)
-
 	}
 
-	exporterLogger := log.New()
-	exporterLogger.SetFormatter(
-		PluginLogFormatter{
-			Formatter: &log.JSONFormatter{
-				DisableHTMLEscape: true,
-			},
-			Type: "Exporter",
-			Name: (*p.exporter).Metadata().Name(),
-		},
-	)
-
-	err = (*p.exporter).Init("", p.logger)
-	ExporterName := (*p.exporter).Metadata().Name()
-	if err != nil {
-		return fmt.Errorf("Pipeline.Start(): could not initialize Exporter (%s): %w", ExporterName, err)
-	}
-	p.logger.Infof("Initialized Exporter: %s", ExporterName)
-
-	return nil
+	return p.RunPipeline()
 }
 
 func (p *pipelineImpl) Stop() error {
@@ -229,6 +210,44 @@ func (p *pipelineImpl) Stop() error {
 	}
 
 	return nil
+}
+
+// RunPipeline pushes block data through the pipeline
+func (p *pipelineImpl) RunPipeline() error {
+	for {
+		// TODO Retries?
+		p.logger.Infof("Pipeline round: %v", p.round)
+		// fetch block
+		blkData, err := (*p.importer).GetBlock(uint64(p.round))
+		if err != nil {
+			p.logger.Errorf("%v\n", err)
+			return err
+		}
+		// run through processors
+		for _, proc := range p.processors {
+			blkData, err = (*proc).Process(blkData)
+			if err != nil {
+				p.logger.Errorf("%v\n", err)
+				return err
+			}
+		}
+		// run through exporter
+		err = (*p.exporter).Receive(blkData)
+		if err != nil {
+			p.logger.Errorf("%v\n", err)
+			return err
+		}
+		// Callback Processors
+		for _, proc := range p.processors {
+			err = (*proc).OnComplete(blkData)
+			if err != nil {
+				p.logger.Errorf("%v\n", err)
+				return err
+			}
+		}
+		// Increment Round
+		p.round++
+	}
 }
 
 // MakePipeline creates a Pipeline
