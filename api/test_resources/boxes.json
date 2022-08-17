@@ -1,8 +1,8 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-08-15 22:42:07.862101 -0500 CDT m=+2.910442711",
-  "frozen": true,
+  "lastModified": "2022-08-17 17:33:37.6225 -0500 CDT m=+15.163576900",
+  "frozen": false,
   "cases": [
     {
       "name": "What are all the accounts?",
@@ -868,6 +868,47 @@
         "boxes": {
           "application-id": 1,
           "boxes": []
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "Boxes of app 1 with boxes: limit 3 - page 1 because empty b64",
+      "request": {
+        "path": "/v2/applications/1/boxes",
+        "params": [
+          {
+            "name": "limit",
+            "value": "3"
+          },
+          {
+            "name": "next",
+            "value": "b64:"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3A",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}],\"next-token\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxesResponse",
+        "boxes": {
+          "application-id": 1,
+          "boxes": [
+            {
+              "name": "QVZNIGlzIHRoZSBuZXcgRVZN"
+            },
+            {
+              "name": "SSB3aWxsIGJlIGFzc2ltaWxhdGVk"
+            },
+            {
+              "name": "Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
+            }
+          ],
+          "next-token": "Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
         }
       },
       "witnessError": null
