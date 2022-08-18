@@ -2069,10 +2069,10 @@
           "x-algorand-format": "uint64"
         },
         "state-proof": {
-          "$ref": "#/definitions/StateProof"
+          "$ref": "#/definitions/StateProofFields"
         },
         "message": {
-          "$ref": "#/definitions/StateProofMessage",
+          "$ref": "#/definitions/IndexerStateProofMessage",
           "description": "\\[spmsg\\]"
         }
       }
@@ -2265,7 +2265,7 @@
         }
       }
     },
-    "StateProof": {
+    "StateProofFields": {
       "description": "\\[sp\\] represents a state proof.\n\nDefinition:\ncrypto/stateproof/structs.go : StateProof",
       "type": "object",
       "properties": {
@@ -2308,7 +2308,7 @@
         }
       }
     },
-    "StateProofMessage": {
+    "IndexerStateProofMessage": {
       "type": "object",
       "properties": {
         "block-headers-commitment": {
