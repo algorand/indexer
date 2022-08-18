@@ -1156,7 +1156,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 			Rewards:                &rewards,
 			Round:                  uint64(blockHeader.Round),
 			Seed:                   blockHeader.Seed[:],
-			StateProofTracking:		&trackingArray,
+			StateProofTracking:     &trackingArray,
 			Timestamp:              uint64(blockHeader.TimeStamp),
 			Transactions:           nil,
 			TransactionsRoot:       blockHeader.TxnCommitments.NativeSha512_256Commitment[:],
