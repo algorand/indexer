@@ -1,5 +1,15 @@
-| master <br> [![CircleCI](https://circleci.com/gh/algorand/indexer/tree/master.svg?style=svg)](https://circleci.com/gh/algorand/indexer/tree/master) | develop <br> [![CircleCI](https://circleci.com/gh/algorand/indexer/tree/develop.svg?style=svg)](https://circleci.com/gh/algorand/indexer/tree/develop) |
-| --- | --- |
+<div style="text-align:center" align="center">
+  <picture>
+    <img src="./docs/assets/algorand_logo_mark_black.svg" alt="Algorand" width="400">
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/algorand_logo_mark_white.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./docs/assets/algorand_logo_mark_black.svg">
+  </picture>
+
+[![CircleCI](https://img.shields.io/circleci/build/github/algorand/indexer/develop?label=develop)](https://circleci.com/gh/algorand/indexer/tree/develop)
+[![CircleCI](https://img.shields.io/circleci/build/github/algorand/indexer/master?label=master)](https://circleci.com/gh/algorand/indexer/tree/master)
+![Github](https://img.shields.io/github/license/algorand/indexer)
+[![Contribute](https://img.shields.io/badge/contributor-guide-blue?logo=github)](https://github.com/algorand/go-algorand/blob/master/CONTRIBUTING.md)
+</div>
 
 # Algorand Indexer
 
@@ -25,6 +35,7 @@ For a simple deployment the following configuration works well:
 * Network: Indexer, Algod and PostgreSQL should all be on the same network.
 * Indexer: 2 CPU and 8 GB of ram.
 * Database: When hosted on AWS a `db.r5.xlarge` instance works well.
+* Storage: 20 GiB
 
 A database with replication can be used to scale read volume. Configure multiple Indexer daemons with a single writer and multiple readers.
 
@@ -72,18 +83,18 @@ You should use a process manager, like systemd, to ensure the daemon is always r
 
 To start indexer as a daemon in update mode, provide the required fields:
 ```
-~$ algorand-indexer daemon --algod-net yournode.com:1234 --algod-token token --genesis ~/path/to/genesis.json  --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
+~$ algorand-indexer daemon --data-dir /tmp --algod-net yournode.com:1234 --algod-token token --genesis ~/path/to/genesis.json  --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
 ```
 
 Alternatively if indexer is running on the same host as the archival node, a simplified command may be used:
 ```
-~$ algorand-indexer daemon --algod-net yournode.com:1234 -d /path/to/algod/data/dir --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
+~$ algorand-indexer daemon --data-dir /tmp --algod-net yournode.com:1234 -d /path/to/algod/data/dir --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
 ```
 
 ### Read only
 It is possible to set up one daemon as a writer and one or more readers. The Indexer pulling new data from algod can be started as above. Starting the indexer daemon without $ALGORAND_DATA or -d/--algod/--algod-net/--algod-token will start it without writing new data to the database. For further isolation, a `readonly` user can be created for the database.
 ```
-~$ algorand-indexer daemon --no-algod --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
+~$ algorand-indexer daemon --data-dir /tmp --no-algod --postgres "user=readonly password=YourPasswordHere {other connection string options for your database}"
 ```
 
 The Postgres backend does specifically note the username "readonly" and changes behavior to avoid writing to the database. But the primary benefit is that Postgres can enforce restricted access to this user. This can be configured with:
@@ -144,6 +155,8 @@ Below is a snippet of the output from `algorand-indexer api-config`:
 
 Seeing this we know that the `/v2/accounts` endpoint will return an error if either `currency-greater-than` or `currency-less-than` is provided.  Additionally, because a "required" parameter is provided for `/v2/assets/{asset-id}/transactions` then we know this entire endpoint is disabled.  The optional parameters are provided so that you can understand what else is disabled if you enable all "required" parameters.
 
+**NOTE: An empty parameter configuration file results in all parameters being ENABLED.**
+
 For more information on disabling parameters see the [Disabling Parameters Guide](docs/DisablingParametersGuide.md).
 
 ## Metrics
@@ -171,16 +184,17 @@ Settings can be provided from the command line, a configuration file, or an envi
 | Command Line Flag (long)      | (short) | Config File                   | Environment Variable                  |
 |-------------------------------|---------|-------------------------------|---------------------------------------|
 | postgres                      | P       | postgres-connection-string    | INDEXER_POSTGRES_CONNECTION_STRING    |
+| data-dir                      | i       | data                          | INDEXER_DATA                          |
 | pidfile                       |         | pidfile                       | INDEXER_PIDFILE                       |
-| algod                         | d       | algod-data-dir                | INDEXER_ALGOD_DATA_DIR                |
+| algod                         | d       | algod-data-dir                | INDEXER_ALGOD_DATA_DIR / ALGORAND_DATA|
 | algod-net                     |         | algod-address                 | INDEXER_ALGOD_ADDRESS                 |
 | algod-token                   |         | algod-token                   | INDEXER_ALGOD_TOKEN                   |
-| genesis                       | g       | genesis                       | INDEXER_GENESIS                       |
 | server                        | S       | server-address                | INDEXER_SERVER_ADDRESS                |
 | no-algod                      |         | no-algod                      | INDEXER_NO_ALGOD                      |
 | token                         | t       | api-token                     | INDEXER_API_TOKEN                     |
-| dev-mode                      |         | dev-mode                      | INDEXER_DEV_MODE                      |
 | metrics-mode                  |         | metrics-mode                  | INDEXER_METRICS_MODE                  |
+| logfile                       | f       | logfile                       | INDEXER_LOGFILE                       |
+| loglevel                      | l       | loglevel                      | INDEXER_LOGLEVEL                      |
 | max-conn                      |         | max-conn                      | INDEXER_MAX_CONN                      |
 | write-timeout                 |         | write-timeout                 | INDEXER_WRITE_TIMEOUT                 |
 | read-timeout                  |         | read-timeout                  | INDEXER_READ_TIMEOUT                  |
@@ -195,42 +209,37 @@ Settings can be provided from the command line, a configuration file, or an envi
 | default-balances-limit        |         | default-balances-limit        | INDEXER_DEFAULT_BALANCES_LIMIT        |
 | max-applications-limit        |         | max-applications-limit        | INDEXER_MAX_APPLICATIONS_LIMIT        |
 | default-applications-limit    |         | default-applications-limit    | INDEXER_DEFAULT_APPLICATIONS_LIMIT    |
+| enable-all-parameters         |         | enable-all-parameters         | INDEXER_ENABLE_ALL_PARAMETERS         |
+| catchpoint                    |         | catchpoint                    | INDEXER_CATCHPOINT                    |
 
 ## Command line
 
 The command line arguments always take priority over the config file and environment variables.
 
 ```
-~$ ./algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"`
+~$ ./algorand-indexer daemon --data-dir /tmp --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"`
 ```
 
-## Configuration file
-Default values are placed in the configuration file. They can be overridden with environment variables and command line arguments.
+## Data Directory
 
-The configuration file must named **indexer**, **indexer.yml**, or **indexer.yaml**. The filepath may be set on the CLI using `--configfile` or `-c`.
-When the filepath is not provided on the CLI, it must also be in the correct location. Only one configuration file is loaded, the path is searched in the following order:
-* `./` (current working directory)
-* `$HOME`
-* `$HOME/.algorand-indexer`
-* `$HOME/.config/algorand-indexer`
-* `/etc/algorand-indexer/`
+The Indexer data directory is the location where the Indexer can store and/or load data needed for runtime operation and configuration.
 
-Here is an example **indexer.yml** file:
-```
-postgres-connection-string: "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
-pidfile: "/var/lib/algorand/algorand-indexer.pid"
-algod-data-dir: "/var/lib/algorand"
-```
+**It is a required argument for Indexer daemon operation. Supply it to the Indexer via the `--data-dir`/`-i` flag.**
 
-If it is in the current working directory along with the indexer command we can start the indexer daemon with:
-```
-~$ ./algorand-indexer daemon
-```
+**It is HIGHLY recommended placing the data directory in a separate, stateful directory for production usage of the Indexer.**
 
-If it is not in the current working directory along with the indexer command we can start the indexer daemon with:
-```
-~$ ./algorand-indexer daemon -c <full-file-location>/indexer.yml
-```
+For more information on the data directory see [Indexer Data Directory](docs/DataDirectory.md).
+
+### Auto-Loading Configuration
+
+The Indexer will scan the data directory at startup and load certain configuration files if they are present.  The files are as follows:
+
+- `indexer.yml` - Indexer Configuration File
+- `api_config.yml` - API Parameter Enable/Disable Configuration File
+
+**NOTE:** It is not allowed to supply both the command line flag AND have an auto-loading configuration file in the data directory.  Doing so will result in an error.
+
+To see an example of how to use the data directory to load a configuration file check out the [Disabling Parameters Guide](docs/DisablingParametersGuide.md).
 
 ## Example environment variable
 
@@ -241,8 +250,28 @@ The same indexer configuration from earlier can be made in bash with the followi
 ~$ export INDEXER_POSTGRES_CONNECTION_STRING="host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
 ~$ export INDEXER_PIDFILE="/var/lib/algorand/algorand-indexer.pid"
 ~$ export INDEXER_ALGOD_DATA_DIR="/var/lib/algorand"
+~$ export INDEXER_DATA="/tmp"
 ~$ ./algorand-indexer daemon
 ```
+
+
+## Configuration file
+Default values are placed in the configuration file. They can be overridden with environment variables and command line arguments.
+
+The configuration file must named **indexer.yml** and placed in the data directory (see above). The filepath may be set on the CLI using `--configfile` or `-c` but this functionality is deprecated.
+
+Here is an example **indexer.yml** file:
+```
+postgres-connection-string: "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
+pidfile: "/var/lib/algorand/algorand-indexer.pid"
+algod-data-dir: "/var/lib/algorand"
+```
+
+Place this file in the data directory (`/tmp/data-dir` in this example) and supply it to the Indexer daemon:
+```
+~$ ./algorand-indexer daemon --data-dir /tmp/data-dir
+```
+
 
 # Systemd
 
@@ -251,7 +280,7 @@ The same indexer configuration from earlier can be made in bash with the followi
 ```
 [Service]
 ExecStart=
-ExecStart=/usr/bin/algorand-indexer daemon --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
+ExecStart=/usr/bin/algorand-indexer daemon --data-dir /tmp --pidfile /var/lib/algorand/algorand-indexer.pid --algod /var/lib/algorand --postgres "host=mydb.mycloud.com user=postgres password=password dbname=mainnet"
 PIDFile=/var/lib/algorand/algorand-indexer.pid
 
 ```

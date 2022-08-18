@@ -13,7 +13,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/jackc/pgx/v4"
@@ -37,6 +36,7 @@ type Args struct {
 	ReportDirectory          string
 	ResetReportDir           bool
 	RunValidation            bool
+	KeepDataDir              bool
 }
 
 // Run is a public helper to run the tests.
@@ -73,6 +73,10 @@ func (r *Args) run() error {
 	baseNameNoExt := strings.TrimSuffix(baseName, filepath.Ext(baseName))
 	reportfile := path.Join(r.ReportDirectory, fmt.Sprintf("%s.report", baseNameNoExt))
 	logfile := path.Join(r.ReportDirectory, fmt.Sprintf("%s.indexer-log", baseNameNoExt))
+	dataDir := path.Join(r.ReportDirectory, fmt.Sprintf("%s_data", baseNameNoExt))
+	if !r.KeepDataDir {
+		defer os.RemoveAll(dataDir)
+	}
 
 	// This middleware allows us to lock the block endpoint
 	var freezeMutex sync.Mutex
@@ -94,7 +98,7 @@ func (r *Args) run() error {
 		}
 	}()
 
-	indexerShutdownFunc, err := startIndexer(logfile, r.LogLevel, r.IndexerBinary, algodNet, indexerNet, r.PostgresConnectionString, r.CPUProfilePath)
+	indexerShutdownFunc, err := startIndexer(dataDir, logfile, r.LogLevel, r.IndexerBinary, algodNet, indexerNet, r.PostgresConnectionString, r.CPUProfilePath)
 	if err != nil {
 		return fmt.Errorf("failed to start indexer: %w", err)
 	}
@@ -270,15 +274,17 @@ func (r *Args) runTest(report *os.File, indexerURL string, generatorURL string) 
 
 	// Run for r.RunDuration
 	start := time.Now()
+	count := 1
 	for time.Since(start) < r.RunDuration {
 		time.Sleep(r.RunDuration / 10)
 
 		if err := collector.Collect(metrics.AllMetricNames...); err != nil {
-			return fmt.Errorf("problem collecting metrics: %w", err)
+			return fmt.Errorf("problem collecting metrics (%d / %s): %w", count, time.Since(start), err)
 		}
+		count++
 	}
 	if err := collector.Collect(metrics.AllMetricNames...); err != nil {
-		return fmt.Errorf("problem collecting metrics: %w", err)
+		return fmt.Errorf("problem collecting final metrics (%d / %s): %w", count, time.Since(start), err)
 	}
 
 	// Collect results.
@@ -396,7 +402,7 @@ func startGenerator(configFile string, addr string, blockMiddleware func(http.Ha
 
 // startIndexer resets the postgres database and executes the indexer binary. It performs some simple verification to
 // ensure that the service has started properly.
-func startIndexer(logfile string, loglevel string, indexerBinary string, algodNet string, indexerNet string, postgresConnectionString string, cpuprofile string) (func() error, error) {
+func startIndexer(dataDir string, logfile string, loglevel string, indexerBinary string, algodNet string, indexerNet string, postgresConnectionString string, cpuprofile string) (func() error, error) {
 	{
 		conn, err := pgx.Connect(context.Background(), postgresConnectionString)
 		if err != nil {
@@ -421,7 +427,8 @@ func startIndexer(logfile string, loglevel string, indexerBinary string, algodNe
 		"--server", indexerNet,
 		"--logfile", logfile,
 		"--loglevel", loglevel,
-		"--cpuprofile", cpuprofile)
+		"--cpuprofile", cpuprofile,
+		"--data-dir", dataDir)
 
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
@@ -444,10 +451,15 @@ func startIndexer(logfile string, loglevel string, indexerBinary string, algodNe
 	resp.Body.Close()
 
 	return func() error {
-		if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
-			return fmt.Errorf("failed to kill indexer process: %w", err)
+		if err := cmd.Process.Signal(os.Interrupt); err != nil {
+			fmt.Printf("failed to kill indexer process: %s\n", err)
+			if err := cmd.Process.Kill(); err != nil {
+				return fmt.Errorf("failed to kill indexer process: %w", err)
+			}
 		}
-
+		if err := cmd.Wait(); err != nil {
+			fmt.Printf("ignoring error while waiting for process to stop: %s\n", err)
+		}
 		return nil
 	}, nil
 }

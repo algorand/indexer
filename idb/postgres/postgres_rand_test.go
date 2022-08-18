@@ -2,25 +2,27 @@ package postgres
 
 import (
 	"context"
+	"encoding/base64"
+	"fmt"
 	"math/rand"
 	"testing"
+
+	"github.com/jackc/pgx/v4"
+	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
-	"github.com/algorand/go-algorand/ledger"
 	"github.com/algorand/go-algorand/ledger/ledgercore"
-	ledgerforevaluator "github.com/algorand/indexer/idb/postgres/internal/ledger_for_evaluator"
+
+	models "github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/idb"
 	"github.com/algorand/indexer/idb/postgres/internal/writer"
 	"github.com/algorand/indexer/util/test"
-	"github.com/jackc/pgx/v4"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func generateAddress(t *testing.T) basics.Address {
 	var res basics.Address
-
 	_, err := rand.Read(res[:])
 	require.NoError(t, err)
 
@@ -33,8 +35,6 @@ func generateAccountData() ledgercore.AccountData {
 		return ledgercore.AccountData{}
 	}
 
-	const numCreatables = 20
-
 	res := ledgercore.AccountData{
 		AccountBaseData: ledgercore.AccountBaseData{
 			MicroAlgos: basics.MicroAlgos{Raw: uint64(rand.Int63())},
@@ -44,21 +44,37 @@ func generateAccountData() ledgercore.AccountData {
 	return res
 }
 
+func maybeGetAccount(t *testing.T, db *IndexerDb, address basics.Address) *models.Account {
+	resultCh, _ := db.GetAccounts(context.Background(), idb.AccountQueryOptions{EqualToAddress: address[:]})
+	num := 0
+	var result *models.Account
+	for row := range resultCh {
+		num++
+		require.NoError(t, row.Error)
+		acct := row.Account
+		result = &acct
+	}
+	require.LessOrEqual(t, num, 1, "There should be at most one result for the address.")
+	return result
+}
+
 // Write random account data for many random accounts, then read it and compare.
 // Tests in particular that batch writing and reading is done in the same order
 // and that there are no problems around passing account address pointers to the postgres
 // driver which could be the same pointer if we are not careful.
 func TestWriteReadAccountData(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	db, shutdownFunc, _, ld := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
+	defer ld.Close()
 
-	addresses := make(map[basics.Address]struct{})
+	data := make(map[basics.Address]ledgercore.AccountData)
 	var delta ledgercore.StateDelta
 	for i := 0; i < 1000; i++ {
 		address := generateAddress(t)
 
-		addresses[address] = struct{}{}
-		delta.Accts.Upsert(address, generateAccountData())
+		acctData := generateAccountData()
+		data[address] = acctData
+		delta.Accts.Upsert(address, acctData)
 	}
 
 	f := func(tx pgx.Tx) error {
@@ -78,24 +94,13 @@ func TestWriteReadAccountData(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledgerforevaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
-	require.NoError(t, err)
-	defer l.Close()
+	for address, expected := range data {
+		account := maybeGetAccount(t, db, address)
 
-	ret, err := l.LookupWithoutRewards(addresses)
-	require.NoError(t, err)
-
-	for address := range addresses {
-		expected, ok := delta.Accts.GetData(address)
-		require.True(t, ok)
-
-		ret, ok := ret[address]
-		require.True(t, ok)
-
-		if ret == nil {
-			require.True(t, expected.IsZero())
+		if expected.IsZero() {
+			require.Nil(t, account)
 		} else {
-			require.Equal(t, &expected, ret)
+			require.Equal(t, expected.AccountBaseData.MicroAlgos.Raw, account.Amount)
 		}
 	}
 }
@@ -213,39 +218,43 @@ func generateAppLocalStateDelta(t *testing.T) ledgercore.AppLocalStateDelta {
 // and that there are no problems around passing account address pointers to the postgres
 // driver which could be the same pointer if we are not careful.
 func TestWriteReadResources(t *testing.T) {
-	db, shutdownFunc := setupIdb(t, test.MakeGenesis(), test.MakeGenesisBlock())
+	db, shutdownFunc, _, ld := setupIdb(t, test.MakeGenesis())
 	defer shutdownFunc()
+	defer ld.Close()
 
-	resources := make(map[basics.Address]map[ledger.Creatable]struct{})
+	type datum struct {
+		assetIndex  basics.AssetIndex
+		assetParams ledgercore.AssetParamsDelta
+		holding     ledgercore.AssetHoldingDelta
+		appIndex    basics.AppIndex
+		appParams   ledgercore.AppParamsDelta
+		localState  ledgercore.AppLocalStateDelta
+	}
+
+	data := make(map[basics.Address]datum)
 	var delta ledgercore.StateDelta
 	for i := 0; i < 1000; i++ {
 		address := generateAddress(t)
+
 		assetIndex := basics.AssetIndex(rand.Int63())
+		assetParams := generateAssetParamsDelta()
+		holding := generateAssetHoldingDelta()
+
 		appIndex := basics.AppIndex(rand.Int63())
+		appParamsDelta := generateAppParamsDelta(t)
+		localState := generateAppLocalStateDelta(t)
 
-		{
-			c := make(map[ledger.Creatable]struct{})
-			resources[address] = c
-
-			creatable := ledger.Creatable{
-				Index: basics.CreatableIndex(assetIndex),
-				Type:  basics.AssetCreatable,
-			}
-			c[creatable] = struct{}{}
-
-			creatable = ledger.Creatable{
-				Index: basics.CreatableIndex(appIndex),
-				Type:  basics.AppCreatable,
-			}
-			c[creatable] = struct{}{}
+		data[address] = datum{
+			assetIndex:  assetIndex,
+			assetParams: assetParams,
+			holding:     holding,
+			appIndex:    appIndex,
+			appParams:   appParamsDelta,
+			localState:  localState,
 		}
 
-		delta.Accts.UpsertAssetResource(
-			address, assetIndex, generateAssetParamsDelta(),
-			generateAssetHoldingDelta())
-		delta.Accts.UpsertAppResource(
-			address, appIndex, generateAppParamsDelta(t),
-			generateAppLocalStateDelta(t))
+		delta.Accts.UpsertAssetResource(address, assetIndex, assetParams, holding)
+		delta.Accts.UpsertAppResource(address, appIndex, appParamsDelta, localState)
 	}
 
 	f := func(tx pgx.Tx) error {
@@ -265,39 +274,19 @@ func TestWriteReadResources(t *testing.T) {
 	require.NoError(t, err)
 	defer tx.Rollback(context.Background())
 
-	l, err := ledgerforevaluator.MakeLedgerForEvaluator(tx, basics.Round(0))
-	require.NoError(t, err)
-	defer l.Close()
+	for address, datum := range data {
+		fmt.Println(base64.StdEncoding.EncodeToString(address[:]))
 
-	ret, err := l.LookupResources(resources)
-	require.NoError(t, err)
+		// asset info
+		assetParams, _ := delta.Accts.GetAssetParams(address, datum.assetIndex)
+		require.Equal(t, datum.assetParams, assetParams)
+		holding, _ := delta.Accts.GetAssetHolding(address, datum.assetIndex)
+		require.Equal(t, datum.holding, holding)
 
-	for address, creatables := range resources {
-		ret, ok := ret[address]
-		require.True(t, ok)
-
-		for creatable := range creatables {
-			ret, ok := ret[creatable]
-			require.True(t, ok)
-
-			switch creatable.Type {
-			case basics.AssetCreatable:
-				assetParamsDelta, _ :=
-					delta.Accts.GetAssetParams(address, basics.AssetIndex(creatable.Index))
-				assert.Equal(t, assetParamsDelta.Params, ret.AssetParams)
-
-				assetHoldingDelta, _ :=
-					delta.Accts.GetAssetHolding(address, basics.AssetIndex(creatable.Index))
-				assert.Equal(t, assetHoldingDelta.Holding, ret.AssetHolding)
-			case basics.AppCreatable:
-				appParamsDelta, _ :=
-					delta.Accts.GetAppParams(address, basics.AppIndex(creatable.Index))
-				assert.Equal(t, appParamsDelta.Params, ret.AppParams)
-
-				appLocalStateDelta, _ :=
-					delta.Accts.GetAppLocalState(address, basics.AppIndex(creatable.Index))
-				assert.Equal(t, appLocalStateDelta.LocalState, ret.AppLocalState)
-			}
-		}
+		// app info
+		appParams, _ := delta.Accts.GetAppParams(address, datum.appIndex)
+		require.Equal(t, datum.appParams, appParams)
+		localState, _ := delta.Accts.GetAppLocalState(address, datum.appIndex)
+		require.Equal(t, datum.localState, localState)
 	}
 }

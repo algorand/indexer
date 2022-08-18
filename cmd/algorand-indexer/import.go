@@ -16,11 +16,11 @@ var importCmd = &cobra.Command{
 	Short: "import block file or tar file of blocks",
 	Long:  "import block file or tar file of blocks. arguments are interpret as file globs (e.g. *.tar.bz2)",
 	Run: func(cmd *cobra.Command, args []string) {
-		config.BindFlags(cmd)
+		config.BindFlagSet(cmd.Flags())
 		err := configureLogger()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "failed to configure logger: %v", err)
-			os.Exit(1)
+			panic(exit{1})
 		}
 
 		db, availableCh := indexerDbFromFlags(idb.IndexerDbOptions{})

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime/pprof"
 	"strings"
 
 	log "github.com/sirupsen/logrus"
@@ -13,7 +12,6 @@ import (
 	"github.com/spf13/viper"
 
 	bg "github.com/algorand/indexer/cmd/block-generator/core"
-	iv "github.com/algorand/indexer/cmd/import-validator/core"
 	v "github.com/algorand/indexer/cmd/validator/core"
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/idb"
@@ -23,12 +21,36 @@ import (
 	"github.com/algorand/indexer/version"
 )
 
+const autoLoadIndexerConfigName = config.FileName + "." + config.FileType
+const autoLoadParameterConfigName = "api_config.yml"
+
+// Calling os.Exit() directly will not honor any defer'd statements.
+// Instead, we will create an exit type and handler so that we may panic
+// and handle any exit specific errors
+type exit struct {
+	RC int // The exit code
+}
+
+// exitHandler will handle a panic with type of exit (see above)
+func exitHandler() {
+	if err := recover(); err != nil {
+		if exit, ok := err.(exit); ok {
+			os.Exit(exit.RC)
+		}
+
+		// It's not actually an exit type, restore panic
+		panic(err)
+	}
+}
+
+// Requires that main (and every go-routine that this is used)
+// have defer exitHandler() called first
 func maybeFail(err error, errfmt string, params ...interface{}) {
 	if err == nil {
 		return
 	}
 	logger.WithError(err).Errorf(errfmt, params...)
-	os.Exit(1)
+	panic(exit{1})
 }
 
 var rootCmd = &cobra.Command{
@@ -43,47 +65,7 @@ var rootCmd = &cobra.Command{
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
 		if doVersion {
 			fmt.Printf("%s\n", version.LongVersion())
-			os.Exit(0)
-			return
-		}
-		if pidFilePath != "" {
-			fout, err := os.Create(pidFilePath)
-			maybeFail(err, "%s: could not create pid file, %v", pidFilePath, err)
-			_, err = fmt.Fprintf(fout, "%d", os.Getpid())
-			maybeFail(err, "%s: could not write pid file, %v", pidFilePath, err)
-			err = fout.Close()
-			maybeFail(err, "%s: could not close pid file, %v", pidFilePath, err)
-		}
-		if cpuProfile != "" {
-			var err error
-			profFile, err = os.Create(cpuProfile)
-			maybeFail(err, "%s: create, %v", cpuProfile, err)
-			err = pprof.StartCPUProfile(profFile)
-			maybeFail(err, "%s: start pprof, %v", cpuProfile, err)
-		}
-		if configFile != "" {
-			configs, err := os.Open(configFile)
-			if err != nil {
-				maybeFail(err, "%v", err)
-			}
-			defer configs.Close()
-			err = viper.ReadConfig(configs)
-			if err != nil {
-				maybeFail(err, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
-			}
-			fmt.Printf("Using configuration file: %s\n", configFile)
-		}
-	},
-	PersistentPostRun: func(cmd *cobra.Command, args []string) {
-		if cpuProfile != "" {
-			pprof.StopCPUProfile()
-			profFile.Close()
-		}
-		if pidFilePath != "" {
-			err := os.Remove(pidFilePath)
-			if err != nil {
-				logger.WithError(err).Errorf("%s: could not remove pid file", pidFilePath)
-			}
+			panic(exit{0})
 		}
 	},
 }
@@ -92,13 +74,10 @@ var (
 	postgresAddr   string
 	dummyIndexerDb bool
 	doVersion      bool
-	cpuProfile     string
-	pidFilePath    string
 	profFile       io.WriteCloser
 	logLevel       string
 	logFile        string
 	logger         *log.Logger
-	configFile     string
 )
 
 func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}) {
@@ -111,8 +90,7 @@ func indexerDbFromFlags(opts idb.IndexerDbOptions) (idb.IndexerDb, chan struct{}
 		return dummy.IndexerDb(), nil
 	}
 	logger.Errorf("no import db set")
-	os.Exit(1)
-	return nil, nil
+	panic(exit{1})
 }
 
 func init() {
@@ -122,7 +100,6 @@ func init() {
 		Short: "Utilities for testing Indexer operation and correctness.",
 		Long:  "Utilities used for Indexer development. These are low level tools that may require low level knowledge of Indexer deployment and operation. They are included as part of this binary for ease of deployment and automation, and to publicize their existance to people who may find them useful. More detailed documention may be found on github in README files located the different 'cmd' directories.",
 	}
-	utilsCmd.AddCommand(iv.ImportValidatorCmd)
 	utilsCmd.AddCommand(v.ValidatorCmd)
 	utilsCmd.AddCommand(bg.BlockGenerator)
 	rootCmd.AddCommand(utilsCmd)
@@ -136,6 +113,7 @@ func init() {
 
 	rootCmd.AddCommand(importCmd)
 	importCmd.Hidden = true
+	daemonCmd := DaemonCmd()
 	rootCmd.AddCommand(daemonCmd)
 	rootCmd.AddCommand(apiConfigCmd)
 
@@ -147,9 +125,6 @@ func init() {
 		cmd.Flags().StringVarP(&logFile, "logfile", "f", "", "file to write logs to, if unset logs are written to standard out")
 		cmd.Flags().StringVarP(&postgresAddr, "postgres", "P", "", "connection string for postgres database")
 		cmd.Flags().BoolVarP(&dummyIndexerDb, "dummydb", "n", false, "use dummy indexer db")
-		cmd.Flags().StringVarP(&cpuProfile, "cpuprofile", "", "", "file to record cpu profile to")
-		cmd.Flags().StringVarP(&pidFilePath, "pidfile", "", "", "file to write daemon's process id to")
-		cmd.Flags().StringVarP(&configFile, "configfile", "c", "", "file path to configuration file (indexer.yml)")
 		cmd.Flags().BoolVarP(&doVersion, "version", "v", false, "print version and exit")
 	}
 	addFlags(daemonCmd)
@@ -160,9 +135,6 @@ func init() {
 	// Setup configuration file
 	viper.SetConfigName(config.FileName)
 	viper.SetConfigType(config.FileType)
-	for _, k := range config.ConfigPaths {
-		viper.AddConfigPath(k)
-	}
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
 	if err := viper.ReadInConfig(); err != nil {
@@ -170,7 +142,7 @@ func init() {
 			// Config file not found, not an error since it may be set on the CLI.
 		} else {
 			fmt.Fprintf(os.Stderr, "invalid config file (%s): %v", viper.ConfigFileUsed(), err)
-			os.Exit(1)
+			panic(exit{1})
 		}
 	} else {
 		fmt.Printf("Using configuration file: %s\n", viper.ConfigFileUsed())
@@ -217,6 +189,9 @@ func main() {
 		}
 		os.Exit(0)
 	}
+
+	// Setup our exit handler for maybeFail() and other exit panics
+	defer exitHandler()
 
 	if err := rootCmd.Execute(); err != nil {
 		logger.WithError(err).Error("an error occurred running indexer")

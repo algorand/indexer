@@ -13,6 +13,7 @@ import (
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
+	"github.com/algorand/go-algorand/ledger/ledgercore"
 
 	models "github.com/algorand/indexer/api/generated/v2"
 )
@@ -161,7 +162,7 @@ type IndexerDb interface {
 	Close()
 
 	// Import a block and do the accounting.
-	AddBlock(block *bookkeeping.Block) error
+	AddBlock(block *ledgercore.ValidatedBlock) error
 
 	LoadGenesis(genesis bookkeeping.Genesis) (err error)
 
@@ -380,6 +381,11 @@ type IndexerDbOptions struct {
 	// This means the total number of active queries that can be running
 	// concurrently can never be more than this
 	MaxConn uint32
+
+	IndexerDatadir string
+	AlgodDataDir   string
+	AlgodToken     string
+	AlgodAddr      string
 }
 
 // Health is the response object that IndexerDb objects need to return from the Health method.

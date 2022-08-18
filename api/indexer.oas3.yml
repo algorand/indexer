@@ -234,7 +234,8 @@
             "acfg",
             "axfer",
             "afrz",
-            "appl"
+            "appl",
+            "stpf"
           ],
           "type": "string"
         }
@@ -1151,6 +1152,13 @@
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string"
           },
+          "state-proof-tracking": {
+            "description": "Tracks the status of state proofs.",
+            "items": {
+              "$ref": "#/components/schemas/StateProofTracking"
+            },
+            "type": "array"
+          },
           "timestamp": {
             "description": "\\[ts\\] Block creation timestamp in seconds since eposh",
             "type": "integer"
@@ -1320,6 +1328,24 @@
         ],
         "type": "object"
       },
+      "HashFactory": {
+        "properties": {
+          "hash-type": {
+            "description": "\\[t\\]",
+            "type": "integer",
+            "x-algorand-format": "uint16"
+          }
+        },
+        "type": "object"
+      },
+      "Hashtype": {
+        "description": "The type of hash function used to create the proof, must be one of: \n* sha512_256 \n* sha256",
+        "enum": [
+          "sha512_256",
+          "sha256"
+        ],
+        "type": "string"
+      },
       "HealthCheck": {
         "description": "A health check response.",
         "properties": {
@@ -1357,6 +1383,28 @@
           "round",
           "version"
         ],
+        "type": "object"
+      },
+      "MerkleArrayProof": {
+        "properties": {
+          "hash-factory": {
+            "$ref": "#/components/schemas/HashFactory"
+          },
+          "path": {
+            "description": "\\[pth\\]",
+            "items": {
+              "format": "byte",
+              "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "tree-depth": {
+            "description": "\\[td\\]",
+            "type": "integer",
+            "x-algorand-format": "uint8"
+          }
+        },
         "type": "object"
       },
       "MiniAssetHolding": {
@@ -1412,6 +1460,185 @@
           "$ref": "#/components/schemas/EvalDeltaKeyValue"
         },
         "type": "array"
+      },
+      "StateProof": {
+        "description": "\\[sp\\] represents a state proof.\n\nDefinition:\ncrypto/stateproof/structs.go : StateProof",
+        "properties": {
+          "part-proofs": {
+            "$ref": "#/components/schemas/MerkleArrayProof"
+          },
+          "positions-to-reveal": {
+            "description": "\\[pr\\] Sequence of reveal positions.",
+            "items": {
+              "type": "integer",
+              "x-algorand-format": "uint64"
+            },
+            "type": "array"
+          },
+          "reveals": {
+            "description": "\\[r\\] Note that this is actually stored as a map[uint64] - Reveal in the actual msgp",
+            "items": {
+              "$ref": "#/components/schemas/StateProofReveal"
+            },
+            "type": "array"
+          },
+          "salt-version": {
+            "description": "\\[v\\] Salt version of the merkle signature.",
+            "type": "integer"
+          },
+          "sig-commit": {
+            "description": "\\[c\\]",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "sig-proofs": {
+            "$ref": "#/components/schemas/MerkleArrayProof"
+          },
+          "signed-weight": {
+            "description": "\\[w\\]",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          }
+        },
+        "type": "object"
+      },
+      "StateProofMessage": {
+        "properties": {
+          "block-headers-commitment": {
+            "description": "\\[b\\]",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "first-attested-round": {
+            "description": "\\[f\\]",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "latest-attested-round": {
+            "description": "\\[l\\]",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "ln-proven-weight": {
+            "description": "\\[P\\]",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "voters-commitment": {
+            "description": "\\[v\\]",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "StateProofParticipant": {
+        "properties": {
+          "verifier": {
+            "$ref": "#/components/schemas/StateProofVerifier"
+          },
+          "weight": {
+            "description": "\\[w\\]",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          }
+        },
+        "type": "object"
+      },
+      "StateProofReveal": {
+        "properties": {
+          "participant": {
+            "$ref": "#/components/schemas/StateProofParticipant"
+          },
+          "position": {
+            "description": "The position in the signature and participants arrays corresponding to this entry.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "sig-slot": {
+            "$ref": "#/components/schemas/StateProofSigSlot"
+          }
+        },
+        "type": "object"
+      },
+      "StateProofSigSlot": {
+        "properties": {
+          "lower-sig-weight": {
+            "description": "\\[l\\] The total weight of signatures in the lower-numbered slots.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "signature": {
+            "$ref": "#/components/schemas/StateProofSignature"
+          }
+        },
+        "type": "object"
+      },
+      "StateProofSignature": {
+        "properties": {
+          "falcon-signature": {
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "merkle-array-index": {
+            "type": "integer",
+            "x-algorand-foramt": "uint64"
+          },
+          "proof": {
+            "$ref": "#/components/schemas/MerkleArrayProof"
+          },
+          "verifying-key": {
+            "description": "\\[vkey\\]",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "StateProofTracking": {
+        "properties": {
+          "next-round": {
+            "description": "\\[n\\] Next round for which we will accept a state proof transaction.",
+            "type": "integer"
+          },
+          "online-total-weight": {
+            "description": "\\[t\\] The total number of microalgos held by the online accounts during the StateProof round.",
+            "type": "integer"
+          },
+          "type": {
+            "description": "State Proof Type. Note the raw object uses map with this as key.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "voters-commitment": {
+            "description": "\\[v\\] Root of a vector commitment containing online accounts that will help sign the proof.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "StateProofVerifier": {
+        "properties": {
+          "commitment": {
+            "description": "\\[cmt\\] Represents the root of the vector commitment tree.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "key-lifetime": {
+            "description": "\\[lf\\] Key lifetime.",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          }
+        },
+        "type": "object"
       },
       "StateSchema": {
         "description": "Represents a \\[apls\\] local-state or \\[apgs\\] global-state schema. These schemas determine how much storage may be used in a local-state or global-state for an application. The more space used, the larger minimum balance must be maintained in the account holding the data.",
@@ -1624,15 +1851,19 @@
           "signature": {
             "$ref": "#/components/schemas/TransactionSignature"
           },
+          "state-proof-transaction": {
+            "$ref": "#/components/schemas/TransactionStateProof"
+          },
           "tx-type": {
-            "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction",
+            "description": "\\[type\\] Indicates what type of transaction this is. Different types have different fields.\n\nValid types, and where their fields are stored:\n* \\[pay\\] payment-transaction\n* \\[keyreg\\] keyreg-transaction\n* \\[acfg\\] asset-config-transaction\n* \\[axfer\\] asset-transfer-transaction\n* \\[afrz\\] asset-freeze-transaction\n* \\[appl\\] application-transaction\n* \\[stpf\\] state-proof-transaction",
             "enum": [
               "pay",
               "keyreg",
               "acfg",
               "axfer",
               "afrz",
-              "appl"
+              "appl",
+              "stpf"
             ],
             "type": "string",
             "x-algorand-format": "tx-type-enum"
@@ -1939,6 +2170,23 @@
             "format": "byte",
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "TransactionStateProof": {
+        "description": "Fields for a state proof transaction. \n\nDefinition:\ndata/transactions/stateproof.go : StateProofTxnFields",
+        "properties": {
+          "message": {
+            "$ref": "#/components/schemas/StateProofMessage"
+          },
+          "state-proof": {
+            "$ref": "#/components/schemas/StateProof"
+          },
+          "state-proof-type": {
+            "description": "\\[sptype\\] Type of the state proof. Integer representing an entry defined in protocol/stateproof.go",
+            "type": "integer",
+            "x-algorand-format": "uint64"
           }
         },
         "type": "object"
@@ -2952,7 +3200,8 @@
                 "acfg",
                 "axfer",
                 "afrz",
-                "appl"
+                "appl",
+                "stpf"
               ],
               "type": "string"
             }
@@ -3889,7 +4138,8 @@
                 "acfg",
                 "axfer",
                 "afrz",
-                "appl"
+                "appl",
+                "stpf"
               ],
               "type": "string"
             }
@@ -4223,7 +4473,8 @@
                 "acfg",
                 "axfer",
                 "afrz",
-                "appl"
+                "appl",
+                "stpf"
               ],
               "type": "string"
             }
