@@ -432,7 +432,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 		}
 		sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 		reveals := make([]generated.StateProofReveal, len(stxn.Txn.StateProof.Reveals))
-		for _, key := range keys {
+		for i, key := range keys {
 			revToConv := stxn.Txn.StateProof.Reveals[key]
 			commitment := revToConv.Part.PK.Commitment[:]
 			falconSig := []byte(revToConv.SigSlot.Sig.Signature)
@@ -442,7 +442,7 @@ func signedTxnWithAdToTransaction(stxn *transactions.SignedTxnWithAD, extra rowD
 				proofPath[idx] = proofPart
 			}
 
-			reveals[key] = generated.StateProofReveal{
+			reveals[i] = generated.StateProofReveal{
 				Participant: &generated.StateProofParticipant{
 					Verifier: &generated.StateProofVerifier{
 						Commitment:  &commitment,
