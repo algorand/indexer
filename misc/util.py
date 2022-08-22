@@ -158,13 +158,7 @@ def ensure_test_db(connection_string, keep_temps=False):
 
 # whoever calls this will need to import boto and get the s3 client
 def firstFromS3Prefix(
-    s3,
-    bucket,
-    prefix,
-    desired_filename,
-    outdir=None,
-    outpath=None,
-    max_s3_keys=50,
+    s3, bucket, prefix, desired_filename, outdir=None, outpath=None
 ) -> bool:
     haystack = []
     found_needle = False
@@ -181,7 +175,7 @@ def firstFromS3Prefix(
 
     atexit.register(report)
 
-    response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=max_s3_keys)
+    response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix, MaxKeys=50)
     if (not response.get("KeyCount")) or ("Contents" not in response):
         raise Exception("nothing found in s3://{}/{}".format(bucket, prefix))
     for x in response["Contents"]:
