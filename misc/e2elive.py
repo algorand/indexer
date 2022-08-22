@@ -74,7 +74,9 @@ def main():
     if not (source_is_tar or (sourcenet and os.path.isdir(sourcenet))):
         tarname = args.s3_source_net
         if not tarname:
-            raise Exception("Must provide either local or s3 network to run test against")
+            raise Exception(
+                "Must provide either local or s3 network to run test against"
+            )
         tarname = f"{tarname}.tar.bz2"
 
         # fetch test data from S3
@@ -82,10 +84,13 @@ def main():
         import boto3
         from botocore.config import Config
         from botocore import UNSIGNED
+
         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
         tarpath = os.path.join(tempdir, tarname)
         prefix = "indexer/e2e4"
-        success = firstFromS3Prefix(s3, bucket, prefix, tarname, outpath=tarpath)
+        success = firstFromS3Prefix(
+            s3, bucket, prefix, tarname, outpath=tarpath, max_s3_keys=300
+        )
         if not success:
             raise Exception(
                 f"failed to locate tarname={tarname} from AWS S3 path {bucket}/{prefix}"
