@@ -1030,7 +1030,7 @@ func TestKeyregTransactionWithStateProofKeys(t *testing.T) {
 	var selectionPK crypto.VRFVerifier
 	selectionPK[0] = 1
 
-	var stateProofPK merklesignature.Verifier
+	var stateProofPK merklesignature.Commitment
 	stateProofPK[0] = 1
 
 	txn := transactions.SignedTxnWithAD{
