@@ -19,8 +19,6 @@ workflows:
           matrix: &go-version-matrix
             parameters:
               go_version: ["1.17.9"]
-            environment:
-              CI_E2E_FILENAME: "net_done"
 
   circleci_build_and_test_nightly:
     triggers:
