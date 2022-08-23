@@ -18,7 +18,7 @@
 #    python3 -m venv ve3
 #    ve3/bin/pip install py-algorand-sdk
 #    . ve3/bin/activate
-#    ./misc/buildtestdata.sh
+#    ./misc/buildtestdata.sh <filename>
 
 set -x
 set -e
@@ -49,4 +49,4 @@ mkdir -p "${E2EDATA}"
 RSTAMP=$(TZ=UTC python -c 'import time; print("{:08x}".format(0xffffffff - int(time.time() - time.mktime((2020,1,1,0,0,0,-1,-1,-1)))))')
 
 echo "COPY AND PASTE THIS TO UPLOAD:"
-echo aws s3 cp --acl public-read "${E2EDATA}/net_done.tar.bz2" s3://algorand-testdata/indexer/e2e4/"${RSTAMP}"/net_done.tar.bz2
+aws s3 cp --acl public-read "${E2EDATA}/net_done.tar.bz2" s3://algorand-testdata/indexer/e2e4/"${RSTAMP}"/$1
