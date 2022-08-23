@@ -7,7 +7,7 @@ services:
       dockerfile: ./misc/Dockerfile    
     environment:
       CONNECTION_STRING: "host=e2e-db port=5432 user=algorand password=algorand dbname=indexer_db sslmode=disable"
-      CI_E2E_FILENAME: "tzaffi-box-e2e-improvements"
+      CI_E2E_FILENAME: "feature-avm-box"
 
   e2e-db:
     image: "postgres:13-alpine"
