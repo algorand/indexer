@@ -86,7 +86,6 @@ jobs:
       image: << pipeline.parameters.ubuntu_image >>
     steps:
       - install_dependencies
-      - update_submodules
       - run_indexer_vs_algod
       - slack/notify: &slack-fail-event
           event: fail
@@ -120,17 +119,13 @@ commands:
           name: sync submodules (go-algorand)
           command: |
             git submodule sync
+            git submodule update --init
 
       - run: echo 'export PATH=$PATH:/usr/local/go/bin' >> $BASH_ENV
 
       - run: 
           name: Install golint
           command: go install golang.org/x/lint/golint@latest
-
-  update_submodules:
-    description: get latst submodule (go-algorand) updates
-    steps:
-      - run: git submodule update -init
 
   run_tests:
     steps:
