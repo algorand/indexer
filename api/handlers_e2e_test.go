@@ -61,6 +61,10 @@ var defaultOpts = ExtraOptions{
 	DisabledMapConfig: MakeDisabledMapConfig(),
 }
 
+// BoxTestComparator is a type used for testing in postres and api
+type BoxTestComparator func(t *testing.T, db *postgres.IndexerDb, appBoxes map[basics.AppIndex]map[string]string,
+	deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool)
+
 func testServerImplementation(db idb.IndexerDb) *ServerImplementation {
 	return &ServerImplementation{db: db, timeout: 30 * time.Second, opts: defaultOpts}
 }
@@ -1570,7 +1574,7 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 }
 
 // test runner copy/pastad/tweaked in handlers_e2e_test.go and postgres_integration_test.go
-func runBoxCreateMutateDelete(t *testing.T, comparator postgres.BoxTestComparator) {
+func runBoxCreateMutateDelete(t *testing.T, comparator BoxTestComparator) {
 	start := time.Now()
 
 	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())

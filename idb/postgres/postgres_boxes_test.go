@@ -25,6 +25,10 @@ import (
 	"github.com/algorand/indexer/util/test"
 )
 
+// BoxTestComparator is a type used for testing in postres and api
+type BoxTestComparator func(t *testing.T, db *IndexerDb, appBoxes map[basics.AppIndex]map[string]string,
+	deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool)
+
 // compareAppBoxesAgainstDB is of type testing.BoxTestComparator
 func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 	appBoxes map[basics.AppIndex]map[string]string,

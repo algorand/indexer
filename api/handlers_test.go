@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/algorand/go-algorand/rpcs"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -20,12 +19,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/algorand/go-algorand-sdk/encoding/msgpack"
-	"github.com/algorand/go-algorand/crypto"
-	"github.com/algorand/go-algorand/crypto/merklesignature"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
@@ -750,47 +748,6 @@ func TestFetchAccountsRewindRoundTooLarge(t *testing.T) {
 	_, _, err := si.fetchAccounts(context.Background(), idb.AccountQueryOptions{}, &atRound)
 	assert.Error(t, err)
 	assert.True(t, strings.HasPrefix(err.Error(), errRewindingAccount), err.Error())
-}
-
-// createTxn allows saving msgp-encoded canonical object to a file in order to add more test data
-func createTxn(t *testing.T, target string) []byte {
-	defer assert.Fail(t, "this method should only be used for generating test inputs.")
-	addr1, err := basics.UnmarshalChecksumAddress("PT4K5LK4KYIQYYRAYPAZIEF47NVEQRDX3CPYWJVH25LKO2METIRBKRHRAE")
-	assert.Error(t, err)
-	var votePK crypto.OneTimeSignatureVerifier
-	votePK[0] = 1
-
-	var selectionPK crypto.VRFVerifier
-	selectionPK[0] = 1
-
-	var sprfkey merklesignature.Commitment
-	sprfkey[0] = 1
-
-	stxnad := transactions.SignedTxnWithAD{
-		SignedTxn: transactions.SignedTxn{
-			Txn: transactions.Transaction{
-				Type: protocol.KeyRegistrationTx,
-				Header: transactions.Header{
-					Sender: addr1,
-				},
-				KeyregTxnFields: transactions.KeyregTxnFields{
-					VotePK:           votePK,
-					SelectionPK:      selectionPK,
-					StateProofPK:     sprfkey,
-					VoteFirst:        basics.Round(0),
-					VoteLast:         basics.Round(100),
-					VoteKeyDilution:  1000,
-					Nonparticipation: false,
-				},
-			},
-		},
-		ApplyData: transactions.ApplyData{},
-	}
-
-	data := msgpack.Encode(stxnad)
-	err = ioutil.WriteFile(target, data, 0644)
-	assert.NoError(t, err)
-	return data
 }
 
 func TestLookupApplicationLogsByID(t *testing.T) {

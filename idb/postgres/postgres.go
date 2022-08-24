@@ -12,7 +12,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-	"testing"
 	"time"
 
 	"github.com/algorand/go-algorand/config"
@@ -116,10 +115,6 @@ type IndexerDb struct {
 	migration      *migration.Migration
 	accountingLock sync.Mutex
 }
-
-// BoxTestComparator is a type used for testing in postres and api
-type BoxTestComparator func(t *testing.T, db *IndexerDb, appBoxes map[basics.AppIndex]map[string]string,
-	deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool)
 
 // Close is part of idb.IndexerDb.
 func (db *IndexerDb) Close() {
