@@ -1437,7 +1437,7 @@ type SearchForApplicationBoxesParams struct {
 	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
 	Limit *uint64 `json:"limit,omitempty"`
 
-	// The next page of results starting from a box name in goal-arg form 'encoding:value'. Use the next token provided by the previous results.
+	// The next page of results with strict lower bound given by box name in goal-arg form 'encoding:value'. Use the next token provided by the previous results.
 	Next *string `json:"next,omitempty"`
 }
 
