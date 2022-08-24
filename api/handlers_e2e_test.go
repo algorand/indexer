@@ -61,7 +61,6 @@ var defaultOpts = ExtraOptions{
 	DisabledMapConfig: MakeDisabledMapConfig(),
 }
 
-// boxTestComparator is a type used for testing in postres and api
 type boxTestComparator func(t *testing.T, db *postgres.IndexerDb, appBoxes map[basics.AppIndex]map[string]string,
 	deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool)
 
