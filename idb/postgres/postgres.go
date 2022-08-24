@@ -2296,7 +2296,18 @@ func (db *IndexerDb) yieldApplicationsThread(rows pgx.Rows, out chan idb.Applica
 	}
 }
 
-// ApplicationBoxes is part of interface idb.IndexerDB
+// ApplicationBoxes is part of interface idb.IndexerDB. The most complex query formed looks like:
+//
+// WITH apps AS (SELECT index AS app FROM app WHERE index = $1)
+// SELECT a.app, ab.name, ab.value
+// FROM apps a
+// LEFT OUTER JOIN app_box ab ON ab.app = a.app AND name [= or >] $2 ORDER BY ab.name [ASC or DESC] LIMIT {queryOpts.Limit}
+//
+// where the binary operator in the last line is `=` for the box lookup and `>` for boxes search
+// with query substitutions:
+// $1 <-- queryOpts.ApplicationID
+// $2 <-- queryOpts.BoxName
+// $3 <-- queryOpts.PrevFinalBox
 func (db *IndexerDb) ApplicationBoxes(ctx context.Context, queryOpts idb.ApplicationBoxQuery) (<-chan idb.ApplicationBoxRow, uint64) {
 	out := make(chan idb.ApplicationBoxRow, 1)
 
