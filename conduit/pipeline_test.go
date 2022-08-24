@@ -216,6 +216,8 @@ func TestPipelineRun(t *testing.T) {
 	err := pImpl.RunPipeline()
 	assert.Nil(t, err)
 
+	assert.Equal(t, mProcessor.finalRound, basics.Round(uniqueBlockData.BlockHeader.Round+1))
+
 	mock.AssertExpectationsForObjects(t, &mImporter, &mProcessor, &mExporter)
 
 }
