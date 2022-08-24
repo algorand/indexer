@@ -320,9 +320,9 @@ func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	fmt.Printf("runBoxCreateMutateDelete total time: %s\n", time.Since(start))
 }
 
-// generateBoxes generates a random slice of box keys and values for an app using future consensus params for guidance.
+// generateRandomBoxes generates a random slice of box keys and values for an app using future consensus params for guidance.
 // NOTE: no attempt is made to adhere to the constraints BytesPerBoxReference etc.
-func generateBoxes(t *testing.T, appIdx basics.AppIndex, maxBoxes int) map[string]string {
+func generateRandomBoxes(t *testing.T, appIdx basics.AppIndex, maxBoxes int) map[string]string {
 	future := config.Consensus[protocol.ConsensusFuture]
 
 	numBoxes := rand.Intn(maxBoxes + 1)
@@ -357,7 +357,7 @@ func createRandomBoxesWithDelta(t *testing.T, numApps, maxBoxes int) (map[basics
 
 	for i := 0; i < numApps; i++ {
 		appIndex := basics.AppIndex(rand.Int63())
-		boxes := generateBoxes(t, appIndex, maxBoxes)
+		boxes := generateRandomBoxes(t, appIndex, maxBoxes)
 		appBoxes[appIndex] = boxes
 
 		for key, value := range boxes {
