@@ -15,7 +15,7 @@ DIFF_TYPES = [NEW, OVERLAP, DROPPED, FULL]
 ASSERTIONS = [DROPPED, FULL]
 
 # When non-empty, keep only:
-PATH_INCLUDES = {"paths": [], "definitions": []}
+PATH_INCLUDES = {"definitions": ["Account"]}
 
 # Any diffs past one of the following keys in a path will be ignored:
 PATH_KEY_EXCLUDES = []
