@@ -25,8 +25,7 @@ import (
 	"github.com/algorand/indexer/util/test"
 )
 
-// BoxTestComparator is a type used for testing in postres and api
-type BoxTestComparator func(t *testing.T, db *IndexerDb, appBoxes map[basics.AppIndex]map[string]string,
+type boxTestComparator func(t *testing.T, db *IndexerDb, appBoxes map[basics.AppIndex]map[string]string,
 	deletedBoxes map[basics.AppIndex]map[string]bool, verifyTotals bool)
 
 // compareAppBoxesAgainstDB is of type testing.BoxTestComparator
@@ -104,7 +103,7 @@ func compareAppBoxesAgainstDB(t *testing.T, db *IndexerDb,
 }
 
 // test runner copy/pastad/tweaked in handlers_e2e_test.go and postgres_integration_test.go
-func runBoxCreateMutateDelete(t *testing.T, comparator BoxTestComparator) {
+func runBoxCreateMutateDelete(t *testing.T, comparator boxTestComparator) {
 	start := time.Now()
 
 	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
