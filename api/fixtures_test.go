@@ -467,31 +467,6 @@ func validateLiveVsSaved(t *testing.T, seed *fixture, live *fixture) {
 		require.Equal(t, savedCase.Request, liveCase.Request, msg)
 		require.Equal(t, savedCase.Response, liveCase.Response, msg)
 
-		/* EXPERIMENTAL - PROBLY CAN'T GET RIGHT
-		// need to convert witnesses first to same type before comparing
-		liveWitness := map[string]interface{}{}
-		savedWitness := map[string]interface{}{}
-		// err = mapstructure.Decode(liveCase.Witness, &liveWitness)
-
-		liveConfig := &mapstructure.DecoderConfig{
-			TagName: "json",
-			Result:  &liveWitness,
-		}
-		decoder, err := mapstructure.NewDecoder(liveConfig)
-		require.NoError(t, err, msg)
-
-		err = decoder.Decode(liveCase.Witness)
-		require.NoError(t, err, msg)
-
-		err = mapstructure.Decode(savedCase.Witness, &savedWitness)
-		require.NoError(t, err, msg)
-
-		dequal := reflect.DeepEqual(savedWitness, liveWitness)
-		require.True(t, dequal, msg)
-		require.Equal(t, savedWitness, liveWitness, msg)
-		// require.Equal(t, savedCase.Witness, liveWitness, msg)
-		END OF EXPERIMENTAL */
-
 		prove, err := savedCase.proverFromEndoint()
 		require.NoError(t, err, msg)
 		require.NotNil(t, prove, msg)
