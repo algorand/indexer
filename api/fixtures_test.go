@@ -56,7 +56,7 @@ In particular, one could craft a generic cucumber test that looks something like
 The third step ("fixture validation") is unusually high-level for our cucumber tests, but it would allow for a more streamlined unit tests bootstrapping.
 Implementoing the "fixture validation" step would logically be broken down as follows:
 
-For each `testCase`` in the parsed fixture:
+For each `testCase` in the parsed fixture:
 	1. Use the `witness` type together with the `request` to find an appropriate calling SDK `method`.
 	2. Call the SDK `method` against the mock indexer server.
 	3. Validate that the resulting SDK object comports with the `witness`.
