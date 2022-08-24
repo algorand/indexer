@@ -603,44 +603,7 @@ func MakeAppCallWithInnerAppCall(appSender basics.Address) transactions.SignedTx
 	return createApp
 }
 
-// TODO: remove the following:
-/*
-// GroupifyTxns attempts to create a single group transaction
-// compatible with indexer import by
-// * acceptind a slice of signed transactions
-// * ignores their signatures
-// * signs _as a group_ the raw transactions
-func GroupifyTxns(signedTxns []*transactions.SignedTxnWithAD) error {
-	// txgroup := make([]transactions.Transaction, len(signedTxns))
-	// for _, signedTxn := range signedTxns {
-	// 	txgroup := append(txgroup, signedTxn.Txn)
-	// }
-
-	var group transactions.TxGroup
-	// for _, tx := range txgroup {
-	for _, stx := range signedTxns {
-		if !stx.Txn.Group.IsZero() {
-			return fmt.Errorf("stx %v already has a group %v", stx, stx.Txn.Group)
-
-		}
-
-		group.TxGroupHashes = append(group.TxGroupHashes, crypto.Digest(stx.Txn.ID()))
-	}
-	gid := crypto.HashObj(group)
-	for _, stx := range signedTxns {
-		stx.Txn.Group = gid
-		// in test setting: no need to provide a new signature into stx.Sig
-	}
-	// stxgroup := make([]transactions.SignedTxn, len(txgroup))
-	// for i, txn := range txgroup {
-	// 	txn.Group = gid
-	// 	stxgroup[i] = txn.Sign(pps.accounts[senders[i]].sk)
-	// }
-	return nil
-}
-*/
-
-// MakeBlockForTxns takes some signed transactions and constructs a block compatible with the indexer import function.
+// MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
 func MakeBlockForTxns(prevHeader bookkeeping.BlockHeader, inputs ...*transactions.SignedTxnWithAD) (bookkeeping.Block, error) {
 	res := bookkeeping.MakeBlock(prevHeader)
 
