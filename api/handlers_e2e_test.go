@@ -1481,13 +1481,6 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 			}
 
 			c, api, rec := setupRequest("/v2/applications/:appidx/box/", "appidx", strconv.Itoa(int(appIdx)))
-			// TODO for prefix in
-			//  []string{"str", "string", "int", "integer", "addr", "address",
-			//		    "b32", "base32", "byte base32",
-			//			"b64", "base64", "byte base64",
-			//			"abi"
-			//			}
-			// ... do the right thing
 			prefixedName := fmt.Sprintf("str:%s", boxName)
 			params := generated.LookupApplicationBoxByIDandNameParams{Name: prefixedName}
 			err = api.LookupApplicationBoxByIDandName(c, uint64(appIdx), params)
