@@ -302,7 +302,7 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 var boxSeedFixture = fixture{
 	File:   "boxes.json",
 	Owner:  "TestBoxes",
-	Frozen: false,
+	Frozen: true,
 	Cases: []testCase{
 		// /v2/accounts - 1 case
 		{
@@ -349,7 +349,14 @@ var boxSeedFixture = fixture{
 				Params: []param{},
 			},
 		},
-		// /v2/accounts/:account-id using AppIndex.Address() - 2 cases
+		// /v2/accounts/:account-id - 1 non-app case and 2 cases using AppIndex.Address()
+		{
+			Name: "Creator account - not an app account - no params",
+			Request: requestInfo{
+				Path:   "/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+				Params: []param{},
+			},
+		},
 		{
 			Name: "App 3 (as account) totals no boxes - no params",
 			Request: requestInfo{

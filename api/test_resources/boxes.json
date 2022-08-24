@@ -1,7 +1,7 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-08-17 17:33:37.6225 -0500 CDT m=+15.163576900",
+  "lastModified": "2022-08-24 15:42:07.262002 -0500 CDT m=+2.894254390",
   "frozen": false,
   "cases": [
     {
@@ -452,6 +452,44 @@
                 "num-uint": 0
               }
             }
+          },
+          "current-round": 8
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "Creator account - not an app account - no params",
+      "request": {
+        "path": "/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+        "params": [],
+        "url": "http://localhost:8999/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 200,
+        "body": "{\"account\":{\"address\":\"LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY\",\"amount\":500000,\"amount-without-pending-rewards\":500000,\"created-at-round\":1,\"deleted\":false,\"pending-rewards\":0,\"reward-base\":0,\"rewards\":0,\"round\":8,\"status\":\"Offline\",\"total-apps-opted-in\":0,\"total-assets-opted-in\":0,\"total-box-bytes\":0,\"total-boxes\":0,\"total-created-apps\":0,\"total-created-assets\":0},\"current-round\":8}\n"
+      },
+      "witness": {
+        "goType": "generated.AccountResponse",
+        "account": {
+          "account": {
+            "address": "LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
+            "amount": 500000,
+            "amount-without-pending-rewards": 500000,
+            "created-at-round": 1,
+            "deleted": false,
+            "pending-rewards": 0,
+            "reward-base": 0,
+            "rewards": 0,
+            "round": 8,
+            "status": "Offline",
+            "total-apps-opted-in": 0,
+            "total-assets-opted-in": 0,
+            "total-box-bytes": 0,
+            "total-boxes": 0,
+            "total-created-apps": 0,
+            "total-created-assets": 0
           },
           "current-round": 8
         }
@@ -948,7 +986,7 @@
       },
       "response": {
         "statusCode": 404,
-        "body": "{\"message\":\"no applications boxes found: round=8, appid=3, boxName=string:non-existing\"}\n"
+        "body": "{\"message\":\"no application boxes found: round=8, appid=3, boxName=string:non-existing\"}\n"
       },
       "witness": null,
       "witnessError": "404 error"
@@ -968,7 +1006,7 @@
       },
       "response": {
         "statusCode": 404,
-        "body": "{\"message\":\"no applications boxes found: round=8, appid=1, boxName=string:non-existing\"}\n"
+        "body": "{\"message\":\"no application boxes found: round=8, appid=1, boxName=string:non-existing\"}\n"
       },
       "witness": null,
       "witnessError": "404 error"
