@@ -21,6 +21,7 @@ import (
 	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/go-algorand/rpcs"
 
+	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/processor/blockprocessor"
 	itest "github.com/algorand/indexer/util/test"
 )
@@ -90,21 +91,61 @@ func createTempDir(t *testing.T) string {
 	return dir
 }
 
-// Make sure we output and return an error when both an API Config and
-// enable all parameters are provided together.
-func TestConfigWithEnableAllParamsExpectError(t *testing.T) {
+// TestParameterConfigErrorWhenBothFileTypesArePresent test that if both file types are there then it is an error
+func TestParameterConfigErrorWhenBothFileTypesArePresent(t *testing.T) {
+
 	indexerDataDir := createTempDir(t)
 	defer os.RemoveAll(indexerDataDir)
-	autoloadPath := filepath.Join(indexerDataDir, autoLoadIndexerConfigName)
-	os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+	for _, configFiletype := range config.FileTypes {
+		autoloadPath := filepath.Join(indexerDataDir, autoLoadParameterConfigFileName+"."+configFiletype)
+		os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+	}
+
 	daemonConfig := &daemonConfig{}
 	daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
 	daemonConfig.indexerDataDir = indexerDataDir
-	daemonConfig.enableAllParameters = true
-	daemonConfig.suppliedAPIConfigFile = "foobar"
 	err := runDaemon(daemonConfig)
-	errorStr := "not allowed to supply an api config file and enable all parameters"
-	assert.EqualError(t, err, errorStr)
+	errorStr := fmt.Errorf("config filename (%s) in data directory (%s) matched more than one filetype: %v",
+		autoLoadParameterConfigFileName, indexerDataDir, config.FileTypes)
+	assert.EqualError(t, err, errorStr.Error())
+}
+
+// TestIndexerConfigErrorWhenBothFileTypesArePresent test that if both file types are there then it is an error
+func TestIndexerConfigErrorWhenBothFileTypesArePresent(t *testing.T) {
+
+	indexerDataDir := createTempDir(t)
+	defer os.RemoveAll(indexerDataDir)
+	for _, configFiletype := range config.FileTypes {
+		autoloadPath := filepath.Join(indexerDataDir, autoLoadIndexerConfigFileName+"."+configFiletype)
+		os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+	}
+
+	daemonConfig := &daemonConfig{}
+	daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
+	daemonConfig.indexerDataDir = indexerDataDir
+	err := runDaemon(daemonConfig)
+	errorStr := fmt.Errorf("config filename (%s) in data directory (%s) matched more than one filetype: %v",
+		autoLoadIndexerConfigFileName, indexerDataDir, config.FileTypes)
+	assert.EqualError(t, err, errorStr.Error())
+}
+
+// Make sure we output and return an error when both an API Config and
+// enable all parameters are provided together.
+func TestConfigWithEnableAllParamsExpectError(t *testing.T) {
+	for _, configFiletype := range config.FileTypes {
+		indexerDataDir := createTempDir(t)
+		defer os.RemoveAll(indexerDataDir)
+		autoloadPath := filepath.Join(indexerDataDir, autoLoadIndexerConfigFileName+"."+configFiletype)
+		os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+		daemonConfig := &daemonConfig{}
+		daemonConfig.flags = pflag.NewFlagSet("indexer", 0)
+		daemonConfig.indexerDataDir = indexerDataDir
+		daemonConfig.enableAllParameters = true
+		daemonConfig.suppliedAPIConfigFile = "foobar"
+		err := runDaemon(daemonConfig)
+		errorStr := "not allowed to supply an api config file and enable all parameters"
+		assert.EqualError(t, err, errorStr)
+	}
 }
 
 func TestConfigDoesNotExistExpectError(t *testing.T) {
@@ -153,20 +194,23 @@ func TestConfigSpecifiedTwiceExpectError(t *testing.T) {
 }
 
 func TestLoadAPIConfigGivenAutoLoadAndUserSuppliedExpectError(t *testing.T) {
-	indexerDataDir := createTempDir(t)
-	defer os.RemoveAll(indexerDataDir)
 
-	autoloadPath := filepath.Join(indexerDataDir, autoLoadParameterConfigName)
-	userSuppliedPath := filepath.Join(indexerDataDir, "foobar.yml")
-	os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
-	cfg := &daemonConfig{}
-	cfg.indexerDataDir = indexerDataDir
-	cfg.suppliedAPIConfigFile = userSuppliedPath
+	for _, configFiletype := range config.FileTypes {
+		indexerDataDir := createTempDir(t)
+		defer os.RemoveAll(indexerDataDir)
 
-	err := loadIndexerParamConfig(cfg)
-	errorStr := fmt.Sprintf("api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
-		autoloadPath)
-	assert.EqualError(t, err, errorStr)
+		autoloadPath := filepath.Join(indexerDataDir, autoLoadParameterConfigFileName+"."+configFiletype)
+		userSuppliedPath := filepath.Join(indexerDataDir, "foobar.yml")
+		os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+		cfg := &daemonConfig{}
+		cfg.indexerDataDir = indexerDataDir
+		cfg.suppliedAPIConfigFile = userSuppliedPath
+
+		err := loadIndexerParamConfig(cfg)
+		errorStr := fmt.Sprintf("api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
+			autoloadPath)
+		assert.EqualError(t, err, errorStr)
+	}
 }
 
 func TestLoadAPIConfigGivenUserSuppliedExpectSuccess(t *testing.T) {
@@ -183,17 +227,19 @@ func TestLoadAPIConfigGivenUserSuppliedExpectSuccess(t *testing.T) {
 }
 
 func TestLoadAPIConfigGivenAutoLoadExpectSuccess(t *testing.T) {
-	indexerDataDir := createTempDir(t)
-	defer os.RemoveAll(indexerDataDir)
+	for _, configFiletype := range config.FileTypes {
+		indexerDataDir := createTempDir(t)
+		defer os.RemoveAll(indexerDataDir)
 
-	autoloadPath := filepath.Join(indexerDataDir, autoLoadParameterConfigName)
-	os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
-	cfg := &daemonConfig{}
-	cfg.indexerDataDir = indexerDataDir
+		autoloadPath := filepath.Join(indexerDataDir, autoLoadParameterConfigFileName+"."+configFiletype)
+		os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+		cfg := &daemonConfig{}
+		cfg.indexerDataDir = indexerDataDir
 
-	err := loadIndexerParamConfig(cfg)
-	assert.NoError(t, err)
-	assert.Equal(t, autoloadPath, cfg.suppliedAPIConfigFile)
+		err := loadIndexerParamConfig(cfg)
+		assert.NoError(t, err)
+		assert.Equal(t, autoloadPath, cfg.suppliedAPIConfigFile)
+	}
 }
 
 func TestIndexerDataDirNotProvidedExpectError(t *testing.T) {
@@ -217,18 +263,20 @@ func TestIndexerPidFileExpectSuccess(t *testing.T) {
 }
 
 func TestIndexerPidFileCreateFailExpectError(t *testing.T) {
-	indexerDataDir := createTempDir(t)
-	defer os.RemoveAll(indexerDataDir)
-	autoloadPath := filepath.Join(indexerDataDir, autoLoadIndexerConfigName)
-	os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+	for _, configFiletype := range config.FileTypes {
+		indexerDataDir := createTempDir(t)
+		defer os.RemoveAll(indexerDataDir)
+		autoloadPath := filepath.Join(indexerDataDir, autoLoadIndexerConfigFileName+"."+configFiletype)
+		os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
 
-	invalidDir := filepath.Join(indexerDataDir, "foo", "bar")
-	cfg := &daemonConfig{}
-	cfg.pidFilePath = invalidDir
+		invalidDir := filepath.Join(indexerDataDir, "foo", "bar")
+		cfg := &daemonConfig{}
+		cfg.pidFilePath = invalidDir
 
-	cfg.flags = pflag.NewFlagSet("indexer", 0)
-	cfg.indexerDataDir = indexerDataDir
+		cfg.flags = pflag.NewFlagSet("indexer", 0)
+		cfg.indexerDataDir = indexerDataDir
 
-	assert.ErrorContains(t, runDaemon(cfg), "pid file")
-	assert.Error(t, createIndexerPidFile(cfg.pidFilePath))
+		assert.ErrorContains(t, runDaemon(cfg), "pid file")
+		assert.Error(t, createIndexerPidFile(cfg.pidFilePath))
+	}
 }

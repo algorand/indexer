@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/algorand/go-algorand/rpcs"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -399,6 +400,15 @@ func loadTransactionFromFile(path string) generated.Transaction {
 	return ret
 }
 
+func loadBlockFromFile(path string) generated.Block {
+	data := loadResourceFileOrPanic(path)
+	var ret generated.Block
+	if err := json.Unmarshal(data, &ret); err != nil {
+		panic(fmt.Sprintf("Failed to build block from file: %s", path))
+	}
+	return ret
+}
+
 func TestFetchTransactions(t *testing.T) {
 	// Add in txnRows (with TxnBytes to parse), verify that they are properly serialized to generated.TransactionResponse
 	tests := []struct {
@@ -609,6 +619,24 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/app_call_inner_acfg.response"),
 			},
 		},
+		{
+			name: "State Proof Txn",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/state_proof.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/state_proof.response"),
+			},
+		},
+		{
+			name: "State Proof Txn - High Reveal Index",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/state_proof_with_index.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/state_proof_with_index.response"),
+			},
+		},
 	}
 
 	// use for the brach below and createTxn helper func to add a new test case
@@ -621,8 +649,8 @@ func TestFetchTransactions(t *testing.T) {
 			response []generated.Transaction
 			created  uint64
 		}{
-			name:     "Key Registration with state proof key",
-			txnBytes: [][]byte{createTxn(t, "test_resources/keyregwithsprfkey.txn")},
+			name:     "State Proof Txn",
+			txnBytes: [][]byte{loadResourceFileOrPanic("test_resources/state_proof.txn")},
 		})
 	}
 
@@ -735,7 +763,7 @@ func createTxn(t *testing.T, target string) []byte {
 	var selectionPK crypto.VRFVerifier
 	selectionPK[0] = 1
 
-	var sprfkey merklesignature.Verifier
+	var sprfkey merklesignature.Commitment
 	sprfkey[0] = 1
 
 	stxnad := transactions.SignedTxnWithAD{
@@ -1235,7 +1263,80 @@ func TestBigNumbers(t *testing.T) {
 			assert.Equal(t, http.StatusNotFound, rec1.Code)
 			bodyStr := rec1.Body.String()
 			require.Contains(t, bodyStr, tc.errString)
+		})
+	}
+}
 
+func TestFetchBlock(t *testing.T) {
+	testcases := []struct {
+		name       string
+		blockBytes []byte
+		expected   generated.Block
+		created    uint64
+	}{
+		{
+			name:       "State Proof Block",
+			blockBytes: loadResourceFileOrPanic("test_resources/stpf_block.block"),
+			expected:   loadBlockFromFile("test_resources/stpf_block_response.json"),
+		},
+		{
+			name:       "State Proof Block - High Reveal Index",
+			blockBytes: loadResourceFileOrPanic("test_resources/stpf_block_high_index.block"),
+			expected:   loadBlockFromFile("test_resources/stpf_block_high_index_response.json"),
+		},
+	}
+
+	for _, tc := range testcases {
+		// Mock backend
+		mockIndexer := &mocks.IndexerDb{}
+		si := testServerImplementation(mockIndexer)
+		si.timeout = 1 * time.Second
+
+		roundTime := time.Now()
+		roundTime64 := uint64(roundTime.Unix())
+
+		t.Run(tc.name, func(t *testing.T) {
+			blk := new(rpcs.EncodedBlockCert)
+			err := protocol.Decode(tc.blockBytes, blk)
+			require.NoError(t, err)
+			txnRows := make([]idb.TxnRow, len(blk.Block.Payset))
+			for idx, stxn := range blk.Block.Payset {
+				txnRows[idx] = idb.TxnRow{
+					Round:     1,
+					Intra:     2,
+					RoundTime: roundTime,
+					Txn:       &stxn.SignedTxnWithAD,
+					AssetID:   tc.created,
+					Extra: idb.TxnExtra{
+						AssetCloseAmount: 0,
+					},
+					Error: nil,
+				}
+			}
+			// bookkeeping.BlockHeader, []idb.TxnRow, error
+			mockIndexer.
+				On("GetBlock", mock.Anything, mock.Anything, mock.Anything).
+				Return(blk.Block.BlockHeader, txnRows, nil)
+
+			blkOutput, err := si.fetchBlock(context.Background(), 1)
+			require.NoError(t, err)
+			actualStr, _ := json.Marshal(blkOutput)
+			fmt.Printf("%s\n", actualStr)
+
+			// Set RoundTime which is overridden in the mock above
+			if tc.expected.Transactions != nil {
+				for i := range *tc.expected.Transactions {
+					actual := (*blkOutput.Transactions)[i]
+					(*tc.expected.Transactions)[i].RoundTime = &roundTime64
+					if (*tc.expected.Transactions)[i].InnerTxns != nil {
+						for j := range *(*tc.expected.Transactions)[i].InnerTxns {
+							(*(*tc.expected.Transactions)[i].InnerTxns)[j].RoundTime = &roundTime64
+						}
+					}
+					assert.EqualValues(t, (*tc.expected.Transactions)[i], actual)
+				}
+			}
+			assert.EqualValues(t, tc.expected, blkOutput)
 		})
 	}
 }
