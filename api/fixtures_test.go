@@ -28,6 +28,46 @@ import (
 	"github.com/algorand/indexer/util/test"
 )
 
+/* **************************************
+This Fixtures Test simulates calling indexer GET endpoints and in so doing validates:
+* Hand crafted URL's are:
+	* routed to the correct endpoint
+	* handled as expected
+* HTTP Responses are:
+	* well formatted and can be parsed to produce results of the expected type
+	* have the state that is expected for a "real" blockchain
+
+This is achieved as follows:
+A. Set up the state of the blockchain
+B. Iterate through a hard-coded `xyzSeedFixture` to generate an `xyzLiveFixture` as follows. For each seed object in `xyzSeedFixture`:
+	1. Query indexer via HTTP for the state of the blockchain using the `seed`'s `Request.Path` + `Request.Params`
+	2. Query the test-internal `proverRoutes` struct for a route-compatible `prover`
+	3. Employ the `prover` to parse the indexer's response into a route appropriate `witness` object
+C. Save `xyzLiveFixture` into a non-git-committed fixture `./test_resources/_FIXTURE_NAME.json` (NOTICE THE `_` PREFIX)
+D. Assert that the non-git-commited fixture equals the git-committed version `./test_resources/FIXTURE_NAME.json`
+
+It is the responsibility of the test writer to check that the generated fixture represent the expected results.
+
+----
+TODO: SHOULD this be used to auto-generate unit test cases in the SDK's?
+In particular, one could craft a generic cucumber test that looks something like:
+
+* ("fixture parsing")
+	Given an indexer fixture file <file-name>.
+* ("fixture mock setup")
+	When a mock indexer server has been set up using the urls and responses provided by the indexer fixture,
+* ("fixture validation")
+	Then iterate through all of the fixture's test cases: query the mock indexer server, parse the response into an SDK object, and validate that it comports with the witness.
+
+The third step ("fixture validation") is unusually high-level for our cucumber tests, but it would allow for a more streamlined unit tests bootstrapping.
+Implementoing the "fixture validation" step would logically be broken down as follows:
+
+For each `testCase`` in the parsed fixture:
+	1. Use the `witness` type together with the `request` to find an appropriate calling SDK `method`.
+	2. Call the SDK `method` against the mock indexer server.
+	3. Validate that the resulting SDK object comports with the `witness`.
+************************************** */
+
 const fixtestListenAddr = "localhost:8999"
 const fixtestBaseURL = "http://" + fixtestListenAddr
 const fixtestMaxStartup time.Duration = 5 * time.Second
@@ -51,7 +91,7 @@ type requestInfo struct {
 	Path   string  `json:"path"`
 	Params []param `json:"params"`
 	URL    string  `json:"url"`
-	Route  string  `json:"route"` // `Route` is really a test artifact from matching against `proverRoutes`
+	Route  string  `json:"route"` // `Route` stores the simulated route found in `proverRoutes`
 }
 type param struct {
 	Name  string `json:"name"`
@@ -636,6 +676,9 @@ func setupLiveBoxes(t *testing.T, proc processor.Processor, l *ledger.Ledger) {
 		}
 	}
 
+	// This is a manual sanity check only.
+	// Validations of db and response contents prior to server response are tested elsewhere.
+	// TODO: consider incorporating such stateful validations here as well.
 	fmt.Printf("expectedAppBoxes=%+v\n", expectedAppBoxes)
 	fmt.Printf("expected totals=%+v\n", totals)
 }
