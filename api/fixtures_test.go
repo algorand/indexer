@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/base32"
 	"encoding/base64"
-	stdJson "encoding/json"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -166,7 +166,7 @@ func parseForProver(resp responseInfo, reconstructed interface{}) (errStr *strin
 		errStr = &s
 		return
 	}
-	err := stdJson.Unmarshal([]byte(resp.Body), reconstructed)
+	err := json.Unmarshal([]byte(resp.Body), reconstructed)
 	if err != nil {
 		s := fmt.Sprintf("unmarshal err: %s", err)
 		errStr = &s
@@ -288,14 +288,14 @@ func readFixture(t *testing.T, path string, seed *fixture) fixture {
 	require.NoError(t, err)
 
 	saved := fixture{}
-	err = stdJson.Unmarshal(fileBytes, &saved)
+	err = json.Unmarshal(fileBytes, &saved)
 	require.NoError(t, err)
 
 	return saved
 }
 
 func writeFixture(t *testing.T, path string, save fixture) {
-	fileBytes, err := stdJson.MarshalIndent(save, "", "  ")
+	fileBytes, err := json.MarshalIndent(save, "", "  ")
 	require.NoError(t, err)
 
 	err = ioutil.WriteFile(path+save.File, fileBytes, 0644)
