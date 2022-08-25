@@ -3689,8 +3689,8 @@
     },
     "/v2/applications/{application-id}/box": {
       "get": {
-        "description": "Given an application ID and box name, returns base64 encoded box name and value. Box names must be in the goal-arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, encode base 64 and use 'b64' prefix as in 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
-        "operationId": "lookupApplicationBoxByIDandName",
+        "description": "Given an application ID and box name, returns base64 encoded box name and value. Box names must be in the goal app call arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, encode base 64 and use 'b64' prefix as in 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.",
+        "operationId": "lookupApplicationBoxByIDAndName",
         "parameters": [
           {
             "in": "path",
@@ -3818,7 +3818,7 @@
             }
           },
           {
-            "description": "The next page of results with strict lower bound given by box name in goal-arg form 'encoding:value'. Use the next token provided by the previous results.",
+            "description": "The next page of results with strict lower bound given by box name in goal app call arg form 'encoding:value'. Use the next token provided by the previous results.",
             "in": "query",
             "name": "next",
             "schema": {

@@ -1424,8 +1424,8 @@ type LookupApplicationByIDParams struct {
 	IncludeAll *bool `json:"include-all,omitempty"`
 }
 
-// LookupApplicationBoxByIDandNameParams defines parameters for LookupApplicationBoxByIDandName.
-type LookupApplicationBoxByIDandNameParams struct {
+// LookupApplicationBoxByIDAndNameParams defines parameters for LookupApplicationBoxByIDAndName.
+type LookupApplicationBoxByIDAndNameParams struct {
 
 	// A box name in goal-arg form 'encoding:value'. For ints, use the form 'int:1234'. For raw bytes, use the form 'b64:A=='. For printable strings, use the form 'str:hello'. For addresses, use the form 'addr:XYZ...'.
 	Name string `json:"name"`
@@ -1437,7 +1437,7 @@ type SearchForApplicationBoxesParams struct {
 	// Maximum number of results to return. There could be additional pages even if the limit is not reached.
 	Limit *uint64 `json:"limit,omitempty"`
 
-	// The next page of results with strict lower bound given by box name in goal-arg form 'encoding:value'. Use the next token provided by the previous results.
+	// The next page of results with strict lower bound given by box name in goal app call arg form 'encoding:value'. Use the next token provided by the previous results.
 	Next *string `json:"next,omitempty"`
 }
 

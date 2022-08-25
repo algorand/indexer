@@ -564,10 +564,10 @@ func (si *ServerImplementation) LookupApplicationByID(ctx echo.Context, applicat
 	})
 }
 
-// LookupApplicationBoxByIDandName returns the value of an application's box
+// LookupApplicationBoxByIDAndName returns the value of an application's box
 // (GET /v2/applications/{application-id}/box)
-func (si *ServerImplementation) LookupApplicationBoxByIDandName(ctx echo.Context, applicationID uint64, params generated.LookupApplicationBoxByIDandNameParams) error {
-	if err := si.verifyHandler("LookupApplicationBoxByIDandName", ctx); err != nil {
+func (si *ServerImplementation) LookupApplicationBoxByIDAndName(ctx echo.Context, applicationID uint64, params generated.LookupApplicationBoxByIDAndNameParams) error {
+	if err := si.verifyHandler("LookupApplicationBoxByIDAndName", ctx); err != nil {
 		return badRequest(ctx, err.Error())
 	}
 

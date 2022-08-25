@@ -1482,8 +1482,8 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 
 			c, api, rec := setupRequest("/v2/applications/:appidx/box/", "appidx", strconv.Itoa(int(appIdx)))
 			prefixedName := fmt.Sprintf("str:%s", boxName)
-			params := generated.LookupApplicationBoxByIDandNameParams{Name: prefixedName}
-			err = api.LookupApplicationBoxByIDandName(c, uint64(appIdx), params)
+			params := generated.LookupApplicationBoxByIDAndNameParams{Name: prefixedName}
+			err = api.LookupApplicationBoxByIDAndName(c, uint64(appIdx), params)
 			require.NoError(t, err, msg)
 			require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
 
