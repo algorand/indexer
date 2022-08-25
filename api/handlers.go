@@ -1077,10 +1077,6 @@ func (si *ServerImplementation) fetchApplicationBoxes(ctx context.Context, param
 
 		return nil
 	})
-	if err != nil {
-		return
-	}
-
 	return
 }
 
