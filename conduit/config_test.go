@@ -24,18 +24,13 @@ func TestConfigValid(t *testing.T) {
 		dataDir string
 		err     error
 	}{
-		// The name "valid" is important for the test logic
-		{"valid", "", nil},
+		{"valid", t.TempDir(), nil},
 		{"nil data dir", "", fmt.Errorf("supplied data directory was empty")},
 		{"invalid data dir", "/tmp/this_directory_should_not_exist", fmt.Errorf("supplied data directory (/tmp/this_directory_should_not_exist) was not valid")},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			cfg := Config{ConduitDataDir: test.dataDir}
-			if test.name == "valid" {
-				cfg.ConduitDataDir = t.TempDir()
-			}
-
 			assert.Equal(t, test.err, cfg.Valid())
 		})
 	}
