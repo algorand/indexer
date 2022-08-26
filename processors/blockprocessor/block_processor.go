@@ -165,7 +165,9 @@ func (proc *blockProcessor) saveLastValidatedInformation(lastValidatedBlock ledg
 }
 
 func (proc *blockProcessor) Close() error {
-	proc.ledger.Close()
+	if proc.ledger != nil {
+		proc.ledger.Close()
+	}
 	return nil
 }
 
