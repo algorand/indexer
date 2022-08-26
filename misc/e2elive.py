@@ -84,7 +84,15 @@ def main():
         from botocore import UNSIGNED
         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
         tarpath = os.path.join(tempdir, tarname)
-        prefix = "indexer/e2e4"
+        if tarname=="net_done":
+            command= "cd ../third_party/go-algorand; git rev-parse --short HEAD; "
+            commit_hash=subprocess.run(command, capture_output=True, shell=True).stdout.decode().strip()
+            prefix = f'indexer/e2e4/{commit_hash}'
+            #return to /misc/
+            command= "cd ../../misc;"
+            subprocess.run(command, capture_output=False, shell=True)
+        else:
+            prefix = "indexer/e2e4"
         success = firstFromS3Prefix(s3, bucket, prefix, tarname, outpath=tarpath)
         if not success:
             raise Exception(
