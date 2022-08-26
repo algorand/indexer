@@ -193,7 +193,7 @@ def countblocks(path):
     return row[0]
 
 
-def tryhealthurl(healthurl, verbose=False, waitforround=100):
+def tryhealthurl(healthurl, verbose=False, waitforround=200):
     try:
         response = urllib.request.urlopen(healthurl)
         if response.code != 200:

@@ -215,38 +215,46 @@ func (p *pipelineImpl) Stop() error {
 // RunPipeline pushes block data through the pipeline
 func (p *pipelineImpl) RunPipeline() error {
 	for {
-		// TODO Retries?
-		p.logger.Infof("Pipeline round: %v", p.round)
-		// fetch block
-		blkData, err := (*p.importer).GetBlock(uint64(p.round))
-		if err != nil {
-			p.logger.Errorf("%v\n", err)
-			return err
-		}
-		// run through processors
-		for _, proc := range p.processors {
-			blkData, err = (*proc).Process(blkData)
-			if err != nil {
-				p.logger.Errorf("%v\n", err)
-				return err
+		select {
+		case <-p.ctx.Done():
+			return nil
+		default:
+			{
+				// TODO Retries?
+				p.logger.Infof("Pipeline round: %v", p.round)
+				// fetch block
+				blkData, err := (*p.importer).GetBlock(uint64(p.round))
+				if err != nil {
+					p.logger.Errorf("%v\n", err)
+					return err
+				}
+				// run through processors
+				for _, proc := range p.processors {
+					blkData, err = (*proc).Process(blkData)
+					if err != nil {
+						p.logger.Errorf("%v\n", err)
+						return err
+					}
+				}
+				// run through exporter
+				err = (*p.exporter).Receive(blkData)
+				if err != nil {
+					p.logger.Errorf("%v\n", err)
+					return err
+				}
+				// Callback Processors
+				for _, proc := range p.processors {
+					err = (*proc).OnComplete(blkData)
+					if err != nil {
+						p.logger.Errorf("%v\n", err)
+						return err
+					}
+				}
+				// Increment Round
+				p.round++
 			}
 		}
-		// run through exporter
-		err = (*p.exporter).Receive(blkData)
-		if err != nil {
-			p.logger.Errorf("%v\n", err)
-			return err
-		}
-		// Callback Processors
-		for _, proc := range p.processors {
-			err = (*proc).OnComplete(blkData)
-			if err != nil {
-				p.logger.Errorf("%v\n", err)
-				return err
-			}
-		}
-		// Increment Round
-		p.round++
+
 	}
 }
 
