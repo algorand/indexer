@@ -260,10 +260,8 @@ func TestPipelineErrors(t *testing.T) {
 	var pProcessor processors.Processor = &mProcessor
 	var pExporter exporters.Exporter = &mExporter
 
-	ctx, _ := context.WithCancel(context.Background())
-
 	pImpl := pipelineImpl{
-		ctx:          ctx,
+		ctx:          context.Background(),
 		cfg:          &PipelineConfig{},
 		logger:       log.New(),
 		initProvider: nil,
