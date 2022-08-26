@@ -78,7 +78,9 @@ func (exp *postgresqlExporter) Config() plugins.PluginConfig {
 }
 
 func (exp *postgresqlExporter) Close() error {
-	exp.db.Close()
+	if exp.db != nil {
+		exp.db.Close()
+	}
 	return nil
 }
 

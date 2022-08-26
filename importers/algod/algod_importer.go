@@ -97,7 +97,9 @@ func (algodImp *algodImporter) Config() plugins.PluginConfig {
 }
 
 func (algodImp *algodImporter) Close() error {
-	algodImp.cancel()
+	if algodImp.cancel != nil {
+		algodImp.cancel()
+	}
 	return nil
 }
 
