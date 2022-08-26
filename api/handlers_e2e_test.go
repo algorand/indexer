@@ -1510,10 +1510,8 @@ func compareAppBoxesAgainstHandler(t *testing.T, db *postgres.IndexerDb,
 		expectedBoxes := remainingBoxes[appIdx]
 
 		c, api, rec := setupRequest("/v2/applications/:appidx/boxes", "appidx", strconv.Itoa(int(appIdx)))
-		// TODO: should we add Order to the search params?
 		params := generated.SearchForApplicationBoxesParams{}
 
-		// TODO: also test non-nil Limit, Next
 		err := api.SearchForApplicationBoxes(c, uint64(appIdx), params)
 		require.NoError(t, err, msg)
 		require.Equal(t, http.StatusOK, rec.Code, fmt.Sprintf("msg: %s. unexpected return code, body: %s", msg, rec.Body.String()))
