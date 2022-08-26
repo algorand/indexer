@@ -67,6 +67,30 @@ const fixtestBaseURL = "http://" + fixtestListenAddr
 const fixtestMaxStartup time.Duration = 5 * time.Second
 const fixturesDirectory = "test_resources/"
 
+var fixtestServerOpts = ExtraOptions{
+	MaxAPIResourcesPerAccount: 1000,
+
+	MaxTransactionsLimit:     10000,
+	DefaultTransactionsLimit: 1000,
+
+	MaxAccountsLimit:     1000,
+	DefaultAccountsLimit: 100,
+
+	MaxAssetsLimit:     1000,
+	DefaultAssetsLimit: 100,
+
+	MaxBalancesLimit:     10000,
+	DefaultBalancesLimit: 1000,
+
+	MaxApplicationsLimit:     1000,
+	DefaultApplicationsLimit: 100,
+
+	MaxBoxesLimit:     10000,
+	DefaultBoxesLimit: 1000,
+
+	DisabledMapConfig: MakeDisabledMapConfig(),
+}
+
 type fixture struct {
 	File         string     `json:"file"`
 	Owner        string     `json:"owner"`
@@ -334,30 +358,6 @@ func writeFixture(t *testing.T, path string, save fixture) {
 
 	err = ioutil.WriteFile(path+save.File, fileBytes, 0644)
 	require.NoError(t, err)
-}
-
-var fixtestServerOpts = ExtraOptions{
-	MaxAPIResourcesPerAccount: 1000,
-
-	MaxTransactionsLimit:     10000,
-	DefaultTransactionsLimit: 1000,
-
-	MaxAccountsLimit:     1000,
-	DefaultAccountsLimit: 100,
-
-	MaxAssetsLimit:     1000,
-	DefaultAssetsLimit: 100,
-
-	MaxBalancesLimit:     10000,
-	DefaultBalancesLimit: 1000,
-
-	MaxApplicationsLimit:     1000,
-	DefaultApplicationsLimit: 100,
-
-	MaxBoxesLimit:     10000,
-	DefaultBoxesLimit: 1000,
-
-	DisabledMapConfig: MakeDisabledMapConfig(),
 }
 
 func getRequest(t *testing.T, endpoint string, params []param) (path string, resp *http.Response, body []byte, reqErr, bodyErr error) {

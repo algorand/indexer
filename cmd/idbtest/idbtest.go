@@ -139,7 +139,6 @@ func main() {
 			IncludeAssetParams:   true,
 			IncludeAppLocalState: true,
 			IncludeAppParams:     true,
-			IncludeBoxTotals:     false,
 			AlgosGreaterThan:     uint64Ptr(10000000000),
 			Limit:                20})
 		printAccountQuery(db, idb.AccountQueryOptions{HasAssetID: 312769, Limit: 19})
