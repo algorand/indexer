@@ -68,7 +68,7 @@ integration: cmd/algorand-indexer/algorand-indexer
 	test/postgres_integration_test.sh
 
 e2e: cmd/algorand-indexer/algorand-indexer
-	cd misc && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && TEST_FILENAME=${CI_E2E_FILENAME} docker-compose up --exit-code-from e2e
+	cd misc && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && VERSION=${CI_E2E_FILE_VERSION} docker-compose up --exit-code-from e2e
 
 deploy:
 	mule/deploy.sh

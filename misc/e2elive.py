@@ -84,7 +84,7 @@ def main():
         from botocore import UNSIGNED
         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
         tarpath = os.path.join(tempdir, tarname)
-        if tarname=="net_done":
+        if os.getenv("E2E_FILE_VERSION")=="submodule":
             command= "cd ../third_party/go-algorand; git rev-parse --short HEAD; "
             commit_hash=subprocess.run(command, capture_output=True, shell=True).stdout.decode().strip()
             prefix = f'indexer/e2e4/{commit_hash}'

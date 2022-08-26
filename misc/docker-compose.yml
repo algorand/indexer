@@ -1,13 +1,14 @@
-version: '3'    
-    
-services:    
-  e2e:    
-    build:    
+version: '3'
+
+services:
+  e2e:
+    build:
       context: ../.
-      dockerfile: ./misc/Dockerfile    
+      dockerfile: ./misc/Dockerfile
     environment:
       CONNECTION_STRING: "host=e2e-db port=5432 user=algorand password=algorand dbname=indexer_db sslmode=disable"
-      CI_E2E_FILENAME: "${TEST_FILENAME}"
+      CI_E2E_FILENAME: "rel-nightly"
+      CI_E2E_FILE_VERSION: "${VERSION}"
 
   e2e-db:
     image: "postgres:13-alpine"
