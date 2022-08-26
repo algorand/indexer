@@ -144,38 +144,59 @@ var uniqueBlockData = data.BlockData{
 type mockImporter struct {
 	mock.Mock
 	importers.Importer
+	returnError bool
 }
 
 func (m *mockImporter) GetBlock(rnd uint64) (data.BlockData, error) {
+	var err error
+	if m.returnError {
+		err = fmt.Errorf("importer")
+	}
 	m.Called(rnd)
-	return uniqueBlockData, nil
+	// Return an error to make sure we
+	return uniqueBlockData, err
 }
 
 type mockProcessor struct {
 	mock.Mock
 	processors.Processor
-	finalRound basics.Round
+	finalRound      basics.Round
+	returnError     bool
+	onCompleteError bool
 }
 
 func (m *mockProcessor) Process(input data.BlockData) (data.BlockData, error) {
+	var err error
+	if m.returnError {
+		err = fmt.Errorf("process")
+	}
 	m.Called(input)
 	input.BlockHeader.Round++
-	return input, nil
+	return input, err
 }
 func (m *mockProcessor) OnComplete(input data.BlockData) error {
+	var err error
+	if m.onCompleteError {
+		err = fmt.Errorf("on complete")
+	}
 	m.finalRound = input.BlockHeader.Round
 	m.Called(input)
-	return nil
+	return err
 }
 
 type mockExporter struct {
 	mock.Mock
 	exporters.Exporter
+	returnError bool
 }
 
 func (m *mockExporter) Receive(exportData data.BlockData) error {
+	var err error
+	if m.returnError {
+		err = fmt.Errorf("receive")
+	}
 	m.Called(exportData)
-	return nil
+	return err
 }
 
 // TestPipelineRun tests that running the pipeline calls the correct functions with mocking
@@ -219,5 +240,57 @@ func TestPipelineRun(t *testing.T) {
 	assert.Equal(t, mProcessor.finalRound, basics.Round(uniqueBlockData.BlockHeader.Round+1))
 
 	mock.AssertExpectationsForObjects(t, &mImporter, &mProcessor, &mExporter)
+
+}
+
+// TestPipelineErrors tests the pipeline erroring out at different stages
+func TestPipelineErrors(t *testing.T) {
+
+	mImporter := mockImporter{}
+	mImporter.On("GetBlock", mock.Anything).Return(uniqueBlockData, nil)
+	mProcessor := mockProcessor{}
+	processorData := uniqueBlockData
+	processorData.BlockHeader.Round++
+	mProcessor.On("Process", mock.Anything).Return(processorData)
+	mProcessor.On("OnComplete", mock.Anything).Return(nil)
+	mExporter := mockExporter{}
+	mExporter.On("Receive", mock.Anything).Return(nil)
+
+	var pImporter importers.Importer = &mImporter
+	var pProcessor processors.Processor = &mProcessor
+	var pExporter exporters.Exporter = &mExporter
+
+	ctx, _ := context.WithCancel(context.Background())
+
+	pImpl := pipelineImpl{
+		ctx:          ctx,
+		cfg:          &PipelineConfig{},
+		logger:       log.New(),
+		initProvider: nil,
+		importer:     &pImporter,
+		processors:   []*processors.Processor{&pProcessor},
+		exporter:     &pExporter,
+		round:        0,
+	}
+
+	mImporter.returnError = true
+
+	err := pImpl.RunPipeline()
+	assert.Error(t, err, fmt.Errorf("importer"))
+
+	mImporter.returnError = false
+	mProcessor.returnError = true
+	err = pImpl.RunPipeline()
+	assert.Error(t, err, fmt.Errorf("process"))
+
+	mProcessor.returnError = false
+	mProcessor.onCompleteError = true
+	err = pImpl.RunPipeline()
+	assert.Error(t, err, fmt.Errorf("on complete"))
+
+	mProcessor.onCompleteError = false
+	mExporter.returnError = true
+	err = pImpl.RunPipeline()
+	assert.Error(t, err, fmt.Errorf("exporter"))
 
 }
