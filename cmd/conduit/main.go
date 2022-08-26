@@ -114,6 +114,7 @@ func conduitCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConduitCmdWithConfig(cfg)
 		},
+		SilenceUsage: true,
 	}
 
 	cfg.Flags = conduitCmd.PersistentFlags()
