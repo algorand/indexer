@@ -87,10 +87,8 @@
         "name": "name",
         "required": true,
         "schema": {
-          "type": "string",
-          "x-algorand-format": "GOALarg"
-        },
-        "x-algorand-format": "GOALarg"
+          "type": "string"
+        }
       },
       "currency-greater-than": {
         "description": "Results should have an amount greater than this value. MicroAlgos are the default currency unless an asset-id is provided, in which case the asset will be used.",
@@ -3706,10 +3704,8 @@
             "name": "name",
             "required": true,
             "schema": {
-              "type": "string",
-              "x-algorand-format": "GOALarg"
-            },
-            "x-algorand-format": "GOALarg"
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -3822,10 +3818,8 @@
             "in": "query",
             "name": "next",
             "schema": {
-              "type": "string",
-              "x-algorand-format": "GOALarg"
-            },
-            "x-algorand-format": "GOALarg"
+              "type": "string"
+            }
           }
         ],
         "responses": {

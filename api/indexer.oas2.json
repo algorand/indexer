@@ -512,8 +512,7 @@
             "type": "string",
             "description": "The next page of results with strict lower bound given by box name in goal app call arg form 'encoding:value'. Use the next token provided by the previous results.",
             "name": "next",
-            "in": "query",
-            "x-algorand-format": "GOALarg"
+            "in": "query"
           }
         ],
         "responses": {
@@ -2667,8 +2666,7 @@
       "type": "string",
       "name": "name",
       "in": "query",
-      "required": true,
-      "x-algorand-format": "GOALarg"
+      "required": true
     },
     "currency-greater-than": {
       "type": "integer",
