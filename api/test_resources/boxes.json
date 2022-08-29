@@ -1,8 +1,8 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-08-24 15:42:07.262002 -0500 CDT m=+2.894254390",
-  "frozen": false,
+  "lastModified": "2022-08-29 11:22:33.427014 -0500 CDT m=+3.829631489",
+  "frozen": true,
   "cases": [
     {
       "name": "What are all the accounts?",

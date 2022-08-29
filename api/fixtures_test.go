@@ -479,6 +479,8 @@ func validateLiveVsSaved(t *testing.T, seed *fixture, live *fixture) {
 		require.Equal(t, savedCase.WitnessError, liveCase.WitnessError, msg)
 		require.Equal(t, savedCase.WitnessError == nil, savedCase.Witness != nil, msg)
 	}
+	// and the saved fixture should be frozen as well before release:
+	require.True(t, saved.Frozen, "Please ensure that the saved fixture is frozen before merging.")
 }
 
 // When the provided seed has `seed.Frozen == false` assertions will be skipped.
