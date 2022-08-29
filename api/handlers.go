@@ -627,7 +627,7 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	}
 	if params.Next != nil {
 		encodedBoxName := *params.Next
-		boxNameBytes, err := logic.NewAppCallBytes(encodedBoxName)
+		boxNameBytes, err := logic.NewAppCallBytes(fmt.Sprintf("b64:%s", encodedBoxName))
 		if err != nil {
 			return badRequest(ctx, err.Error())
 		}

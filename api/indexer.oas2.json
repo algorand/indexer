@@ -509,10 +509,7 @@
             "$ref": "#/parameters/limit"
           },
           {
-            "type": "string",
-            "description": "The next page of results with strict lower bound given by box name in goal app call arg form 'encoding:value'. Use the next token provided by the previous results.",
-            "name": "next",
-            "in": "query"
+            "$ref": "#/parameters/next"
           }
         ],
         "responses": {

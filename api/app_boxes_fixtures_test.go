@@ -415,7 +415,7 @@ var boxSeedFixture = fixture{
 				Path: "/v2/applications/1/boxes",
 				Params: []param{
 					{"limit", "3"},
-					{"next", "b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="},
+					{"next", "Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="},
 				},
 			},
 		},
@@ -425,12 +425,22 @@ var boxSeedFixture = fixture{
 				Path: "/v2/applications/1/boxes",
 				Params: []param{
 					{"limit", "3"},
+					{"next", "Ym94ICM4"},
+				},
+			},
+		},
+		{
+			Name: "Boxes of app 1 with boxes: limit 3 - DON'T ACCEPT goal app arg encoding b64",
+			Request: requestInfo{
+				Path: "/v2/applications/1/boxes",
+				Params: []param{
+					{"limit", "3"},
 					{"next", "b64:Ym94ICM4"},
 				},
 			},
 		},
 		{
-			Name: "Boxes of app 1 with boxes: limit 3 - page 3 - string",
+			Name: "Boxes of app 1 with boxes: limit 3 - DON'T ACCEPT goal app arg encoding str",
 			Request: requestInfo{
 				Path: "/v2/applications/1/boxes",
 				Params: []param{
@@ -445,17 +455,17 @@ var boxSeedFixture = fixture{
 				Path: "/v2/applications/1/boxes",
 				Params: []param{
 					{"limit", "3"},
-					{"next", "b64:ZmFudGFidWxvdXM="},
+					{"next", "ZmFudGFidWxvdXM="},
 				},
 			},
 		},
 		{
-			Name: "Boxes of app 1 with boxes: limit 3 - page 1 because empty b64",
+			Name: "Boxes of app 1 with boxes: limit 3 - page 1 because empty next",
 			Request: requestInfo{
 				Path: "/v2/applications/1/boxes",
 				Params: []param{
 					{"limit", "3"},
-					{"next", "b64:"},
+					{"next", ""},
 				},
 			},
 		},

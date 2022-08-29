@@ -1,7 +1,7 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-08-29 16:28:13.083487 -0500 CDT m=+3.065016814",
+  "lastModified": "2022-08-29 18:24:37.473865 -0500 CDT m=+3.382292875",
   "frozen": true,
   "cases": [
     {
@@ -768,10 +768,10 @@
           },
           {
             "name": "next",
-            "value": "b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
+            "value": "Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3AUv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ%3D%3D",
+        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ%3D%3D",
         "route": ""
       },
       "response": {
@@ -809,10 +809,10 @@
           },
           {
             "name": "next",
-            "value": "b64:Ym94ICM4"
+            "value": "Ym94ICM4"
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3AYm94ICM4",
+        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=Ym94ICM4",
         "route": ""
       },
       "response": {
@@ -840,7 +840,31 @@
       "witnessError": null
     },
     {
-      "name": "Boxes of app 1 with boxes: limit 3 - page 3 - string",
+      "name": "Boxes of app 1 with boxes: limit 3 - DON'T ACCEPT goal app arg encoding b64",
+      "request": {
+        "path": "/v2/applications/1/boxes",
+        "params": [
+          {
+            "name": "limit",
+            "value": "3"
+          },
+          {
+            "name": "next",
+            "value": "b64:Ym94ICM4"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3AYm94ICM4",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 400,
+        "body": "{\"message\":\"Could not decode base64-encoded string (b64:Ym94ICM4): illegal base64 data at input byte 3\"}\n"
+      },
+      "witness": null,
+      "witnessError": "400 error"
+    },
+    {
+      "name": "Boxes of app 1 with boxes: limit 3 - DON'T ACCEPT goal app arg encoding str",
       "request": {
         "path": "/v2/applications/1/boxes",
         "params": [
@@ -857,28 +881,11 @@
         "route": ""
       },
       "response": {
-        "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"ZmFudGFidWxvdXM=\"}\n"
+        "statusCode": 400,
+        "body": "{\"message\":\"Could not decode base64-encoded string (str:box #8): illegal base64 data at input byte 3\"}\n"
       },
-      "witness": {
-        "goType": "generated.BoxesResponse",
-        "boxes": {
-          "application-id": 1,
-          "boxes": [
-            {
-              "name": "ZGlzYXBwb2ludGluZyBib3g="
-            },
-            {
-              "name": "ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5"
-            },
-            {
-              "name": "ZmFudGFidWxvdXM="
-            }
-          ],
-          "next-token": "ZmFudGFidWxvdXM="
-        }
-      },
-      "witnessError": null
+      "witness": null,
+      "witnessError": "400 error"
     },
     {
       "name": "Boxes of app 1 with boxes: limit 3 - page 4 (empty) - b64",
@@ -891,10 +898,10 @@
           },
           {
             "name": "next",
-            "value": "b64:ZmFudGFidWxvdXM="
+            "value": "ZmFudGFidWxvdXM="
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3AZmFudGFidWxvdXM%3D",
+        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=ZmFudGFidWxvdXM%3D",
         "route": ""
       },
       "response": {
@@ -911,7 +918,7 @@
       "witnessError": null
     },
     {
-      "name": "Boxes of app 1 with boxes: limit 3 - page 1 because empty b64",
+      "name": "Boxes of app 1 with boxes: limit 3 - page 1 because empty next",
       "request": {
         "path": "/v2/applications/1/boxes",
         "params": [
@@ -921,10 +928,10 @@
           },
           {
             "name": "next",
-            "value": "b64:"
+            "value": ""
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3A",
+        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=",
         "route": ""
       },
       "response": {
