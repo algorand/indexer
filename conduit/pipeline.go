@@ -26,7 +26,8 @@ func init() {
 
 const autoLoadParameterConfigName = "conduit.yml"
 
-type nameConfigPair struct {
+// NameConfigPair is a generic structure used across plugin configuration ser/de
+type NameConfigPair struct {
 	Name   string                 `yaml:"Name"`
 	Config map[string]interface{} `yaml:"Config"`
 }
@@ -41,9 +42,9 @@ type PipelineConfig struct {
 	pipelineLogLevel string `yaml:"LogLevel"`
 	PipelineLogLevel log.Level
 	// Store a local copy to access parent variables
-	Importer   nameConfigPair   `yaml:"Importer"`
-	Processors []nameConfigPair `yaml:"Processors"`
-	Exporter   nameConfigPair   `yaml:"Exporter"`
+	Importer   NameConfigPair   `yaml:"Importer"`
+	Processors []NameConfigPair `yaml:"Processors"`
+	Exporter   NameConfigPair   `yaml:"Exporter"`
 }
 
 // Valid validates pipeline config

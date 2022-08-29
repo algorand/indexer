@@ -33,17 +33,17 @@ func TestPipelineConfigValidity(t *testing.T) {
 		{"valid", PipelineConfig{
 			ConduitConfig:    &Config{ConduitDataDir: ""},
 			pipelineLogLevel: "info",
-			Importer:         nameConfigPair{"test", map[string]interface{}{"a": "a"}},
+			Importer:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
 			Processors:       nil,
-			Exporter:         nameConfigPair{"test", map[string]interface{}{"a": "a"}},
+			Exporter:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
 		}, ""},
 
 		{"valid 2", PipelineConfig{
 			ConduitConfig:    &Config{ConduitDataDir: ""},
 			pipelineLogLevel: "info",
-			Importer:         nameConfigPair{"test", map[string]interface{}{"a": "a"}},
-			Processors:       []nameConfigPair{{"test", map[string]interface{}{"a": "a"}}},
-			Exporter:         nameConfigPair{"test", map[string]interface{}{"a": "a"}},
+			Importer:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
+			Processors:       []NameConfigPair{{"test", map[string]interface{}{"a": "a"}}},
+			Exporter:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
 		}, ""},
 
 		{"empty config", PipelineConfig{ConduitConfig: nil}, "PipelineConfig.Valid(): conduit configuration was nil"},
@@ -52,16 +52,16 @@ func TestPipelineConfigValidity(t *testing.T) {
 			PipelineConfig{
 				ConduitConfig:    &Config{ConduitDataDir: ""},
 				pipelineLogLevel: "info",
-				Importer:         nameConfigPair{"test", map[string]interface{}{}},
+				Importer:         NameConfigPair{"test", map[string]interface{}{}},
 			}, "PipelineConfig.Valid(): importer configuration was empty"},
 
 		{"exporter config was 0",
 			PipelineConfig{
 				ConduitConfig:    &Config{ConduitDataDir: ""},
 				pipelineLogLevel: "info",
-				Importer:         nameConfigPair{"test", map[string]interface{}{"a": "a"}},
-				Processors:       []nameConfigPair{{"test", map[string]interface{}{"a": "a"}}},
-				Exporter:         nameConfigPair{"test", map[string]interface{}{}},
+				Importer:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
+				Processors:       []NameConfigPair{{"test", map[string]interface{}{"a": "a"}}},
+				Exporter:         NameConfigPair{"test", map[string]interface{}{}},
 			}, "PipelineConfig.Valid(): exporter configuration was empty"},
 	}
 	for _, test := range tests {

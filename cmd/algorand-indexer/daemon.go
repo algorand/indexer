@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/algorand/indexer/conduit"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -26,10 +27,7 @@ import (
 	"github.com/algorand/indexer/config"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/importer"
-	"github.com/algorand/indexer/processors"
 	"github.com/algorand/indexer/processors/blockprocessor"
-	iutil "github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
 )
 
@@ -342,7 +340,7 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	var wg sync.WaitGroup
 	if bot != nil {
 		wg.Add(1)
-		go runBlockImporter(ctx, daemonConfig, &wg, db, availableCh, bot, opts)
+		go runConduitPipeline(&wg, availableCh, daemonConfig)
 	} else {
 		logger.Info("No block importer configured.")
 	}
@@ -357,7 +355,42 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	return err
 }
 
-func runBlockImporter(ctx context.Context, cfg *daemonConfig, wg *sync.WaitGroup, db idb.IndexerDb, dbAvailable chan struct{}, bot fetcher.Fetcher, opts idb.IndexerDbOptions) {
+func makeConduitConfig(dCfg *daemonConfig) conduit.PipelineConfig {
+	return conduit.PipelineConfig{
+		ConduitConfig:    &conduit.Config{},
+		PipelineLogLevel: logger.GetLevel(),
+		Importer: conduit.NameConfigPair{
+			Name: "algod",
+			Config: map[string]interface{}{
+				"NetAddr": dCfg.algodAddr,
+				"Token":   dCfg.algodToken,
+			},
+		},
+		Processors: []conduit.NameConfigPair{
+			{
+				Name: "block_evaluator",
+				Config: map[string]interface{}{
+					"CatchPoint":     dCfg.catchpoint,
+					"IndexerDataDir": dCfg.indexerDataDir,
+					"AlgodDataDir":   dCfg.algodDataDir,
+					"AlgodToken":     dCfg.algodToken,
+					"AlgodAddr":      dCfg.algodAddr,
+				},
+			},
+		},
+		Exporter: conduit.NameConfigPair{
+			Name: "postgresql",
+			Config: map[string]interface{}{
+				"ConnectionString": postgresAddr,
+				"MaxConn":          dCfg.maxConn,
+				"Test":             dummyIndexerDb,
+			},
+		},
+	}
+
+}
+
+func runConduitPipeline(wg *sync.WaitGroup, dbAvailable chan struct{}, dCfg *daemonConfig) error {
 	// Need to redefine exitHandler() for every go-routine
 	defer exitHandler()
 	defer wg.Done()
@@ -365,48 +398,19 @@ func runBlockImporter(ctx context.Context, cfg *daemonConfig, wg *sync.WaitGroup
 	// Wait until the database is available.
 	<-dbAvailable
 
-	// Initial import if needed.
-	genesisReader := importer.GetGenesisFile(cfg.genesisJSONPath, bot.Algod(), logger)
-	genesis, err := iutil.ReadGenesis(genesisReader)
-	maybeFail(err, "Error reading genesis file")
-
-	_, err = importer.EnsureInitialImport(db, genesis)
-	maybeFail(err, "importer.EnsureInitialImport() error")
-
-	// sync local ledger
-	nextDBRound, err := db.GetNextRoundToAccount()
-	maybeFail(err, "Error getting DB round")
-
-	logger.Info("Initializing block import handler.")
-	imp := importer.NewImporter(db)
-
-	processorOpts := processors.BlockProcessorConfig{
-		Catchpoint:     cfg.catchpoint,
-		IndexerDatadir: opts.IndexerDatadir,
-		AlgodDataDir:   opts.AlgodDataDir,
-		AlgodToken:     opts.AlgodToken,
-		AlgodAddr:      opts.AlgodAddr,
+	var pipeline conduit.Pipeline
+	var err error
+	pcfg := makeConduitConfig(dCfg)
+	if pipeline, err = conduit.MakePipeline(&pcfg, logger); err != nil {
+		return err
 	}
-
-	logger.Info("Initializing local ledger.")
-	proc, err := blockprocessor.MakeBlockProcessorWithLedgerInit(ctx, logger, nextDBRound, &genesis, processorOpts, imp.ImportBlock)
-	if err != nil {
-		maybeFail(err, "blockprocessor.MakeBlockProcessor() err %v", err)
-	}
-
-	bot.SetNextRound(proc.NextRoundToProcess())
-	handler := blockHandler(&proc, imp.ImportBlock, 1*time.Second)
-	bot.SetBlockHandler(handler)
-
-	logger.Info("Starting block importer.")
-	err = bot.Run(ctx)
-	if err != nil {
-		// If context is not expired.
-		if ctx.Err() == nil {
-			logger.WithError(err).Errorf("fetcher exited with error")
-			panic(exit{1})
+	defer func(pipeline conduit.Pipeline) {
+		if err := pipeline.Stop(); err != nil {
+			logger.Errorf("Pipeline stoppage failure: %v", err)
 		}
-	}
+	}(pipeline)
+
+	return pipeline.Start()
 }
 
 // makeOptions converts CLI options to server options
