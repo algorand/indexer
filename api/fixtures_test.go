@@ -492,12 +492,13 @@ func validateLiveVsSaved(t *testing.T, seed *fixture, live *fixture) {
 //   * recalculated savedCase.Witness == recalculated liveCase.Witness
 // Regardless of `seed.Frozen`, `live` is saved to `fixturesDirectory + "_" + seed.File`
 // NOTE: `live.Witness` is always recalculated via `seed.proof(live.Response)`
+// NOTE: by design, the function always fails the test in the case that the seed fixture is not frozen
+// as a reminder to freeze the test before merging, so that regressions may be detected going forward.
 func validateOrGenerateFixtures(t *testing.T, db *postgres.IndexerDb, seed fixture, owner string) {
 	require.Equal(t, owner, seed.Owner, "mismatch between purported owners of fixture")
 
 	live := generateLiveFixture(t, seed)
 
-	if seed.Frozen {
-		validateLiveVsSaved(t, &seed, &live)
-	}
+	require.True(t, seed.Frozen, "To guard against regressions, please ensure that the seed is frozen before merging.")
+	validateLiveVsSaved(t, &seed, &live)
 }
