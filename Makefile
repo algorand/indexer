@@ -1,7 +1,7 @@
 SRCPATH		:= $(shell pwd)
 VERSION		:= $(shell $(SRCPATH)/mule/scripts/compute_build_number.sh)
 OS_TYPE		?= $(shell $(SRCPATH)/mule/scripts/ostype.sh)
-ARCH			?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
+ARCH		?= $(shell $(SRCPATH)/mule/scripts/archtype.sh)
 PKG_DIR		= $(SRCPATH)/tmp/node_pkgs/$(OS_TYPE)/$(ARCH)/$(VERSION)
 ifeq ($(OS_TYPE), darwin)
 ifeq ($(ARCH), arm64)

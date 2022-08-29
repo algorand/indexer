@@ -38,3 +38,6 @@ coverage.txt
 
 # mac OS
 .DS_store
+
+# asdf
+.tool-versions

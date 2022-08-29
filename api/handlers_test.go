@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"github.com/algorand/go-algorand/rpcs"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -279,6 +280,90 @@ func TestValidateTransactionFilter(t *testing.T) {
 			errorContains: []string{
 				errZeroAddressAssetSenderRole, errZeroAddressAssetCloseToRole},
 		},
+		{
+			name: "Round > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				Round: uint64Ptr(math.MaxInt64 + 1),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "MinRound > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				MinRound: uint64(math.MaxInt64 + 1),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "MaxRound > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				MaxRound: uint64(math.MaxInt64 + 1),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "application-id > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				ApplicationID: math.MaxInt64 + 1,
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "asset-id > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				AssetID: math.MaxInt64 + 1,
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "offset > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				Offset: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "offsetLT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				OffsetLT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "offsetGT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				OffsetGT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "algosLT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				AlgosLT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "algosGT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				AlgosGT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "effectiveAmountLT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				EffectiveAmountLT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
+		{
+			name: "effectiveAmountGT > math.MaxInt64",
+			filter: idb.TransactionFilter{
+				EffectiveAmountGT: uint64Ptr(uint64(math.MaxInt64 + 1)),
+			},
+			errorContains: []string{errValueExceedingInt64},
+		},
 	}
 
 	for _, test := range tests {
@@ -311,6 +396,15 @@ func loadTransactionFromFile(path string) generated.Transaction {
 	var ret generated.Transaction
 	if err := json.Unmarshal(data, &ret); err != nil {
 		panic(fmt.Sprintf("Failed to build transaction from file: %s", path))
+	}
+	return ret
+}
+
+func loadBlockFromFile(path string) generated.Block {
+	data := loadResourceFileOrPanic(path)
+	var ret generated.Block
+	if err := json.Unmarshal(data, &ret); err != nil {
+		panic(fmt.Sprintf("Failed to build block from file: %s", path))
 	}
 	return ret
 }
@@ -525,6 +619,24 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/app_call_inner_acfg.response"),
 			},
 		},
+		{
+			name: "State Proof Txn",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/state_proof.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/state_proof.response"),
+			},
+		},
+		{
+			name: "State Proof Txn - High Reveal Index",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/state_proof_with_index.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/state_proof_with_index.response"),
+			},
+		},
 	}
 
 	// use for the brach below and createTxn helper func to add a new test case
@@ -537,8 +649,8 @@ func TestFetchTransactions(t *testing.T) {
 			response []generated.Transaction
 			created  uint64
 		}{
-			name:     "Key Registration with state proof key",
-			txnBytes: [][]byte{createTxn(t, "test_resources/keyregwithsprfkey.txn")},
+			name:     "State Proof Txn",
+			txnBytes: [][]byte{loadResourceFileOrPanic("test_resources/state_proof.txn")},
 		})
 	}
 
@@ -651,7 +763,7 @@ func createTxn(t *testing.T, target string) []byte {
 	var selectionPK crypto.VRFVerifier
 	selectionPK[0] = 1
 
-	var sprfkey merklesignature.Verifier
+	var sprfkey merklesignature.Commitment
 	sprfkey[0] = 1
 
 	stxnad := transactions.SignedTxnWithAD{
@@ -963,6 +1075,268 @@ func TestApplicationLimits(t *testing.T) {
 				Limit: tc.limit,
 			})
 			require.NoError(t, err)
+		})
+	}
+}
+
+func TestBigNumbers(t *testing.T) {
+
+	testcases := []struct {
+		name        string
+		errString   string
+		callHandler func(ctx echo.Context, si ServerImplementation) error
+	}{
+		{
+			name:      "SearchForTransactionsInvalidRound",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForTransactions(ctx, generated.SearchForTransactionsParams{Round: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "SearchForTransactionsInvalidAppID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForTransactions(ctx, generated.SearchForTransactionsParams{ApplicationId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "SearchForTransactionsInvalidAssetID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForTransactions(ctx, generated.SearchForTransactionsParams{AssetId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAccountTransactionsInvalidRound",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountTransactions(ctx, "", generated.LookupAccountTransactionsParams{Round: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAccountTransactionsInvalidAssetID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountTransactions(ctx, "", generated.LookupAccountTransactionsParams{AssetId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAssetTransactionsInvalidAssetID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAssetTransactions(ctx, math.MaxInt64+1, generated.LookupAssetTransactionsParams{})
+			},
+		},
+		{
+			name:      "LookupAssetTransactionsInvalidRound",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAssetTransactions(ctx, 12, generated.LookupAssetTransactionsParams{Round: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupApplicaitonLogsByID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupApplicationLogsByID(ctx, math.MaxInt64+1, generated.LookupApplicationLogsByIDParams{})
+			},
+		},
+		{
+			name:      "LookupApplicationByID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupApplicationByID(ctx, math.MaxInt64+1, generated.LookupApplicationByIDParams{})
+			},
+		},
+		{
+			name:      "SearchForApplications",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForApplications(ctx, generated.SearchForApplicationsParams{ApplicationId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "SearchForAccountInvalidRound",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForAccounts(ctx, generated.SearchForAccountsParams{Round: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "SearchForAccountInvalidAppID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForAccounts(ctx, generated.SearchForAccountsParams{ApplicationId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "SearchForAccountInvalidAssetID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForAccounts(ctx, generated.SearchForAccountsParams{AssetId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAccountByID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountByID(ctx,
+					"PBH2JQNVP5SBXLTOWNHHPGU6FUMBVS4ZDITPK5RA5FG2YIIFS6UYEMFM2Y",
+					generated.LookupAccountByIDParams{Round: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "SearchForAssets",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.SearchForAssets(ctx, generated.SearchForAssetsParams{AssetId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAssetByID",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAssetByID(ctx, math.MaxInt64+1, generated.LookupAssetByIDParams{})
+			},
+		},
+		{
+			name:      "LookupAssetBalances",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAssetBalances(ctx, math.MaxInt64+1, generated.LookupAssetBalancesParams{})
+			},
+		},
+		{
+			name:      "LookupBlock",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupBlock(ctx, math.MaxInt64+1)
+			},
+		},
+		{
+			name:      "LookupAccountAppLocalStates",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountAppLocalStates(ctx, "10", generated.LookupAccountAppLocalStatesParams{ApplicationId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAccountAssets",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountAssets(ctx, "10", generated.LookupAccountAssetsParams{AssetId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAccountCreatedApplications",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountCreatedApplications(ctx, "10", generated.LookupAccountCreatedApplicationsParams{ApplicationId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+		{
+			name:      "LookupAccountCreatedAssets",
+			errString: errValueExceedingInt64,
+			callHandler: func(ctx echo.Context, si ServerImplementation) error {
+				return si.LookupAccountCreatedAssets(ctx, "10", generated.LookupAccountCreatedAssetsParams{AssetId: uint64Ptr(uint64(math.MaxInt64 + 1))})
+			},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			// Make a mock indexer.
+			mockIndexer := &mocks.IndexerDb{}
+
+			si := testServerImplementation(mockIndexer)
+
+			// Setup context...
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			rec1 := httptest.NewRecorder()
+			c := e.NewContext(req, rec1)
+
+			// call handler
+			tc.callHandler(c, *si)
+			assert.Equal(t, http.StatusNotFound, rec1.Code)
+			bodyStr := rec1.Body.String()
+			require.Contains(t, bodyStr, tc.errString)
+		})
+	}
+}
+
+func TestFetchBlock(t *testing.T) {
+	testcases := []struct {
+		name       string
+		blockBytes []byte
+		expected   generated.Block
+		created    uint64
+	}{
+		{
+			name:       "State Proof Block",
+			blockBytes: loadResourceFileOrPanic("test_resources/stpf_block.block"),
+			expected:   loadBlockFromFile("test_resources/stpf_block_response.json"),
+		},
+		{
+			name:       "State Proof Block - High Reveal Index",
+			blockBytes: loadResourceFileOrPanic("test_resources/stpf_block_high_index.block"),
+			expected:   loadBlockFromFile("test_resources/stpf_block_high_index_response.json"),
+		},
+	}
+
+	for _, tc := range testcases {
+		// Mock backend
+		mockIndexer := &mocks.IndexerDb{}
+		si := testServerImplementation(mockIndexer)
+		si.timeout = 1 * time.Second
+
+		roundTime := time.Now()
+		roundTime64 := uint64(roundTime.Unix())
+
+		t.Run(tc.name, func(t *testing.T) {
+			blk := new(rpcs.EncodedBlockCert)
+			err := protocol.Decode(tc.blockBytes, blk)
+			require.NoError(t, err)
+			txnRows := make([]idb.TxnRow, len(blk.Block.Payset))
+			for idx, stxn := range blk.Block.Payset {
+				txnRows[idx] = idb.TxnRow{
+					Round:     1,
+					Intra:     2,
+					RoundTime: roundTime,
+					Txn:       &stxn.SignedTxnWithAD,
+					AssetID:   tc.created,
+					Extra: idb.TxnExtra{
+						AssetCloseAmount: 0,
+					},
+					Error: nil,
+				}
+			}
+			// bookkeeping.BlockHeader, []idb.TxnRow, error
+			mockIndexer.
+				On("GetBlock", mock.Anything, mock.Anything, mock.Anything).
+				Return(blk.Block.BlockHeader, txnRows, nil)
+
+			blkOutput, err := si.fetchBlock(context.Background(), 1)
+			require.NoError(t, err)
+			actualStr, _ := json.Marshal(blkOutput)
+			fmt.Printf("%s\n", actualStr)
+
+			// Set RoundTime which is overridden in the mock above
+			if tc.expected.Transactions != nil {
+				for i := range *tc.expected.Transactions {
+					actual := (*blkOutput.Transactions)[i]
+					(*tc.expected.Transactions)[i].RoundTime = &roundTime64
+					if (*tc.expected.Transactions)[i].InnerTxns != nil {
+						for j := range *(*tc.expected.Transactions)[i].InnerTxns {
+							(*(*tc.expected.Transactions)[i].InnerTxns)[j].RoundTime = &roundTime64
+						}
+					}
+					assert.EqualValues(t, (*tc.expected.Transactions)[i], actual)
+				}
+			}
+			assert.EqualValues(t, tc.expected, blkOutput)
 		})
 	}
 }
