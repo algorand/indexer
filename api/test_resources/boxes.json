@@ -1,7 +1,7 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-08-29 11:22:33.427014 -0500 CDT m=+3.829631489",
+  "lastModified": "2022-08-29 16:28:13.083487 -0500 CDT m=+3.065016814",
   "frozen": true,
   "cases": [
     {
@@ -970,6 +970,36 @@
       },
       "witness": null,
       "witnessError": "404 error"
+    },
+    {
+      "name": "A box attempt for a non-existing app 1337 - without the required box name param",
+      "request": {
+        "path": "/v2/applications/1337/box",
+        "params": [],
+        "url": "http://localhost:8999/v2/applications/1337/box",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 400,
+        "body": "{\"message\":\"Query argument name is required, but not found\"}\n"
+      },
+      "witness": null,
+      "witnessError": "400 error"
+    },
+    {
+      "name": "A box attempt for a existing app 3 - without the required box name param",
+      "request": {
+        "path": "/v2/applications/3/box",
+        "params": [],
+        "url": "http://localhost:8999/v2/applications/3/box",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 400,
+        "body": "{\"message\":\"Query argument name is required, but not found\"}\n"
+      },
+      "witness": null,
+      "witnessError": "400 error"
     },
     {
       "name": "App 3 box (non-existing)",

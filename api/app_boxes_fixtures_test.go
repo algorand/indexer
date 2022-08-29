@@ -470,6 +470,20 @@ var boxSeedFixture = fixture{
 			},
 		},
 		{
+			Name: "A box attempt for a non-existing app 1337 - without the required box name param",
+			Request: requestInfo{
+				Path:   "/v2/applications/1337/box",
+				Params: []param{},
+			},
+		},
+		{
+			Name: "A box attempt for a existing app 3 - without the required box name param",
+			Request: requestInfo{
+				Path:   "/v2/applications/3/box",
+				Params: []param{},
+			},
+		},
+		{
 			Name: "App 3 box (non-existing)",
 			Request: requestInfo{
 				Path: "/v2/applications/3/box",
