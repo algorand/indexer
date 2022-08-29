@@ -5,7 +5,6 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	"gopkg.in/yaml.v3"
 	"testing"
@@ -15,11 +14,11 @@ var nc = &Constructor{}
 
 var ne = nc.New()
 
-func TestExporterByName(t *testing.T) {
-	logger, _ := test.NewNullLogger()
+func TestExporterBuilderByName(t *testing.T) {
 	exporters.RegisterExporter(noopExporterMetadata.ExpName, nc)
-	ne, err := exporters.ExporterByName(noopExporterMetadata.ExpName, "", logger)
+	neBuilder, err := exporters.ExporterBuilderByName(noopExporterMetadata.ExpName)
 	assert.NoError(t, err)
+	ne := neBuilder.New()
 	assert.Implements(t, (*exporters.Exporter)(nil), ne)
 }
 
