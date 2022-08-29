@@ -2,8 +2,6 @@ package exporters
 
 import (
 	"fmt"
-	"github.com/algorand/indexer/plugins"
-	"github.com/sirupsen/logrus"
 )
 
 // ExporterConstructor must be implemented by each Exporter.
@@ -23,23 +21,6 @@ var exporterImpls = make(map[string]ExporterConstructor)
 // driver's are configured and used.
 func RegisterExporter(name string, constructor ExporterConstructor) {
 	exporterImpls[name] = constructor
-}
-
-// ExporterByName is used to construct an Exporter object by name.
-// Returns an Exporter object, an availability channel that closes when the database
-// becomes available, and an error object.
-func ExporterByName(name string, dataDir string, logger *logrus.Logger) (Exporter, error) {
-	var constructor ExporterConstructor
-	var ok bool
-	if constructor, ok = exporterImpls[name]; !ok {
-		return nil, fmt.Errorf("no Exporter Constructor for %s", name)
-	}
-	val := constructor.New()
-	cfg := plugins.LoadConfig(logger, dataDir, val.Metadata())
-	if err := val.Init(cfg, logger); err != nil {
-		return nil, err
-	}
-	return val, nil
 }
 
 // ExporterBuilderByName returns a Processor constructor for the name provided

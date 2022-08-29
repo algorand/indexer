@@ -1,12 +1,7 @@
 package processors
 
 import (
-	"context"
 	"fmt"
-	"github.com/sirupsen/logrus"
-
-	"github.com/algorand/indexer/data"
-	"github.com/algorand/indexer/plugins"
 )
 
 // ProcessorConstructor must be implemented by each Processor.
@@ -30,22 +25,6 @@ func RegisterProcessor(name string, constructor ProcessorConstructor) error {
 	}
 	processorImpls[name] = constructor
 	return nil
-}
-
-// ProcessorByName is used to construct an Processor object by name.
-// Returns a Processor object
-func ProcessorByName(ctx context.Context, name string, dataDir string, initProvider data.InitProvider, logger *logrus.Logger) (Processor, error) {
-	var constructor ProcessorConstructor
-	var ok bool
-	if constructor, ok = processorImpls[name]; !ok {
-		return nil, fmt.Errorf("no Processor Constructor for %s", name)
-	}
-	processor := constructor.New()
-	cfg := plugins.LoadConfig(logger, dataDir, processor.Metadata())
-	if err := processor.Init(ctx, initProvider, cfg, logger); err != nil {
-		return nil, err
-	}
-	return processor, nil
 }
 
 // ProcessorBuilderByName returns a Processor constructor for the name provided

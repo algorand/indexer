@@ -1,12 +1,9 @@
 package exporters
 
 import (
-	"fmt"
-	"github.com/algorand/indexer/plugins"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"testing"
 )
 
@@ -17,19 +14,7 @@ func init() {
 }
 
 type mockExporter struct {
-	mock.Mock
 	Exporter
-}
-
-func (m *mockExporter) Init(config plugins.PluginConfig, logger *logrus.Logger) error {
-	args := m.Called(config, logger)
-	return args.Error(0)
-}
-
-func (m *mockExporter) Metadata() ExporterMetadata {
-	return ExporterMetadata{
-		ExpName: "foobar",
-	}
 }
 
 type mockExporterConstructor struct {
@@ -42,25 +27,16 @@ func (c *mockExporterConstructor) New() Exporter {
 
 func TestExporterByNameSuccess(t *testing.T) {
 	me := mockExporter{}
-	me.On("Init", mock.Anything, mock.Anything).Return(nil)
 	RegisterExporter("foobar", &mockExporterConstructor{&me})
 
-	exp, err := ExporterByName("foobar", "", logger)
+	expC, err := ExporterBuilderByName("foobar")
 	assert.NoError(t, err)
+	exp := expC.New()
 	assert.Implements(t, (*Exporter)(nil), exp)
 }
 
 func TestExporterByNameNotFound(t *testing.T) {
-	_, err := ExporterByName("barfoo", "", logger)
+	_, err := ExporterBuilderByName("barfoo")
 	expectedErr := "no Exporter Constructor for barfoo"
 	assert.EqualError(t, err, expectedErr)
-}
-
-func TestExporterByNameConnectFailure(t *testing.T) {
-	me := mockExporter{}
-	expectedErr := fmt.Errorf("connect failure")
-	me.On("Init", mock.Anything, mock.Anything).Return(expectedErr)
-	RegisterExporter("baz", &mockExporterConstructor{&me})
-	_, err := ExporterByName("baz", "", logger)
-	assert.EqualError(t, err, expectedErr.Error())
 }
