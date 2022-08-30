@@ -1,7 +1,7 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-08-29 18:24:37.473865 -0500 CDT m=+3.382292875",
+  "lastModified": "2022-08-29 19:06:01.763019 -0500 CDT m=+3.143482338",
   "frozen": true,
   "cases": [
     {
@@ -573,6 +573,36 @@
       "witnessError": null
     },
     {
+      "name": "Boxes of a app with id == math.MaxInt64",
+      "request": {
+        "path": "/v2/applications/9223372036854775807/boxes",
+        "params": [],
+        "url": "http://localhost:8999/v2/applications/9223372036854775807/boxes",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 404,
+        "body": "{\"message\":\"no application found for application-id: round=8, appid=9223372036854775807\"}\n"
+      },
+      "witness": null,
+      "witnessError": "404 error"
+    },
+    {
+      "name": "Boxes of a app with id == math.MaxInt64 + 1",
+      "request": {
+        "path": "/v2/applications/9223372036854775808/boxes",
+        "params": [],
+        "url": "http://localhost:8999/v2/applications/9223372036854775808/boxes",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 500,
+        "body": "{\"message\":\"failed while searching for application boxes: round=?=8, appid=9223372036854775808: 9223372036854775808 is greater than maximum value for Int8\"}\n"
+      },
+      "witness": null,
+      "witnessError": "500 error"
+    },
+    {
       "name": "Boxes of a non-existing app 1337",
       "request": {
         "path": "/v2/applications/1337/boxes",
@@ -957,6 +987,46 @@
         }
       },
       "witnessError": null
+    },
+    {
+      "name": "Boxes (with made up name param) of a app with id == math.MaxInt64",
+      "request": {
+        "path": "/v2/applications/9223372036854775807/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "string:non-existing"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/9223372036854775807/box?name=string%3Anon-existing",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 404,
+        "body": "{\"message\":\"no application found for application-id: round=8, appid=9223372036854775807, boxName=string:non-existing\"}\n"
+      },
+      "witness": null,
+      "witnessError": "404 error"
+    },
+    {
+      "name": "Box (with made up name param) of a app with id == math.MaxInt64 + 1",
+      "request": {
+        "path": "/v2/applications/9223372036854775808/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "string:non-existing"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/9223372036854775808/box?name=string%3Anon-existing",
+        "route": ""
+      },
+      "response": {
+        "statusCode": 500,
+        "body": "{\"message\":\"failed while looking up application boxes: round=?=8, appid=9223372036854775808, boxName=string:non-existing: 9223372036854775808 is greater than maximum value for Int8\"}\n"
+      },
+      "witness": null,
+      "witnessError": "500 error"
     },
     {
       "name": "A box attempt for a non-existing app 1337",

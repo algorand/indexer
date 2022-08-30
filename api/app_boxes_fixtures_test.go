@@ -371,7 +371,21 @@ var boxSeedFixture = fixture{
 				Params: []param{},
 			},
 		},
-		// /v2/applications/:app-id/boxes - 3 apps with lots of param variations
+		// /v2/applications/:app-id/boxes - 5 apps with lots of param variations
+		{
+			Name: "Boxes of a app with id == math.MaxInt64",
+			Request: requestInfo{
+				Path:   "/v2/applications/9223372036854775807/boxes",
+				Params: []param{},
+			},
+		},
+		{
+			Name: "Boxes of a app with id == math.MaxInt64 + 1",
+			Request: requestInfo{
+				Path:   "/v2/applications/9223372036854775808/boxes",
+				Params: []param{},
+			},
+		},
 		{
 			Name: "Boxes of a non-existing app 1337",
 			Request: requestInfo{
@@ -470,6 +484,25 @@ var boxSeedFixture = fixture{
 			},
 		},
 		// /v2/applications/:app-id/box?name=...  - lots and lots
+		{
+			Name: "Boxes (with made up name param) of a app with id == math.MaxInt64",
+			Request: requestInfo{
+				Path: "/v2/applications/9223372036854775807/box",
+				Params: []param{
+					{"name", "string:non-existing"},
+				},
+			},
+		},
+		{
+			Name: "Box (with made up name param) of a app with id == math.MaxInt64 + 1",
+			Request: requestInfo{
+				Path: "/v2/applications/9223372036854775808/box",
+				Params: []param{
+					{"name", "string:non-existing"},
+				},
+			},
+		},
+
 		{
 			Name: "A box attempt for a non-existing app 1337",
 			Request: requestInfo{
