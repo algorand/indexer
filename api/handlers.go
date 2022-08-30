@@ -569,7 +569,7 @@ func (si *ServerImplementation) LookupApplicationBoxByIDAndName(ctx echo.Context
 	encodedBoxName := params.Name
 	boxNameBytes, err := logic.NewAppCallBytes(encodedBoxName)
 	if err != nil {
-		return badRequest(ctx, fmt.Sprintf("LookupApplicationBoxByIDAndName receieved illegal box name (%s): %s", encodedBoxName, err.Error()))
+		return badRequest(ctx, fmt.Sprintf("LookupApplicationBoxByIDAndName received illegal box name (%s): %s", encodedBoxName, err.Error()))
 	}
 	boxName, err := boxNameBytes.Raw()
 	if err != nil {
