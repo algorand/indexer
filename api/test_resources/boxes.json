@@ -1,7 +1,7 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-08-29 19:06:01.763019 -0500 CDT m=+3.143482338",
+  "lastModified": "2022-08-29 22:14:08.015116 -0500 CDT m=+3.271606630",
   "frozen": true,
   "cases": [
     {
@@ -10,7 +10,7 @@
         "path": "/v2/accounts",
         "params": [],
         "url": "http://localhost:8999/v2/accounts",
-        "route": ""
+        "route": "/v2/accounts"
       },
       "response": {
         "statusCode": 200,
@@ -258,7 +258,7 @@
         "path": "/v2/applications",
         "params": [],
         "url": "http://localhost:8999/v2/applications",
-        "route": ""
+        "route": "/v2/applications"
       },
       "response": {
         "statusCode": 200,
@@ -335,7 +335,7 @@
         "path": "/v2/applications/1337",
         "params": [],
         "url": "http://localhost:8999/v2/applications/1337",
-        "route": ""
+        "route": "/v2/applications/:application-id"
       },
       "response": {
         "statusCode": 404,
@@ -350,7 +350,7 @@
         "path": "/v2/applications/3",
         "params": [],
         "url": "http://localhost:8999/v2/applications/3",
-        "route": ""
+        "route": "/v2/applications/:application-id"
       },
       "response": {
         "statusCode": 200,
@@ -388,7 +388,7 @@
         "path": "/v2/applications/1",
         "params": [],
         "url": "http://localhost:8999/v2/applications/1",
-        "route": ""
+        "route": "/v2/applications/:application-id"
       },
       "response": {
         "statusCode": 200,
@@ -426,7 +426,7 @@
         "path": "/v2/applications/5",
         "params": [],
         "url": "http://localhost:8999/v2/applications/5",
-        "route": ""
+        "route": "/v2/applications/:application-id"
       },
       "response": {
         "statusCode": 200,
@@ -464,7 +464,7 @@
         "path": "/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
         "params": [],
         "url": "http://localhost:8999/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
-        "route": ""
+        "route": "/v2/accounts/:account-id"
       },
       "response": {
         "statusCode": 200,
@@ -502,7 +502,7 @@
         "path": "/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
         "params": [],
         "url": "http://localhost:8999/v2/accounts/LMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
-        "route": ""
+        "route": "/v2/accounts/:account-id"
       },
       "response": {
         "statusCode": 200,
@@ -540,7 +540,7 @@
         "path": "/v2/accounts/WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM",
         "params": [],
         "url": "http://localhost:8999/v2/accounts/WCS6TVPJRBSARHLN2326LRU5BYVJZUKI2VJ53CAWKYYHDE455ZGKANWMGM",
-        "route": ""
+        "route": "/v2/accounts/:account-id"
       },
       "response": {
         "statusCode": 200,
@@ -578,7 +578,7 @@
         "path": "/v2/applications/9223372036854775807/boxes",
         "params": [],
         "url": "http://localhost:8999/v2/applications/9223372036854775807/boxes",
-        "route": ""
+        "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 404,
@@ -593,7 +593,7 @@
         "path": "/v2/applications/9223372036854775808/boxes",
         "params": [],
         "url": "http://localhost:8999/v2/applications/9223372036854775808/boxes",
-        "route": ""
+        "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 500,
@@ -608,7 +608,7 @@
         "path": "/v2/applications/1337/boxes",
         "params": [],
         "url": "http://localhost:8999/v2/applications/1337/boxes",
-        "route": ""
+        "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 404,
@@ -623,7 +623,7 @@
         "path": "/v2/applications/3/boxes",
         "params": [],
         "url": "http://localhost:8999/v2/applications/3/boxes",
-        "route": ""
+        "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
@@ -644,7 +644,7 @@
         "path": "/v2/applications/5/boxes",
         "params": [],
         "url": "http://localhost:8999/v2/applications/5/boxes",
-        "route": ""
+        "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
@@ -706,7 +706,7 @@
         "path": "/v2/applications/1/boxes",
         "params": [],
         "url": "http://localhost:8999/v2/applications/1/boxes",
-        "route": ""
+        "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
@@ -761,7 +761,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/1/boxes?limit=3",
-        "route": ""
+        "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
@@ -802,7 +802,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ%3D%3D",
-        "route": ""
+        "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
@@ -843,7 +843,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=Ym94ICM4",
-        "route": ""
+        "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
@@ -884,7 +884,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3AYm94ICM4",
-        "route": ""
+        "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 400,
@@ -908,7 +908,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=str%3Abox+%238",
-        "route": ""
+        "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 400,
@@ -932,7 +932,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=ZmFudGFidWxvdXM%3D",
-        "route": ""
+        "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
@@ -962,7 +962,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=",
-        "route": ""
+        "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
@@ -999,7 +999,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/9223372036854775807/box?name=string%3Anon-existing",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 404,
@@ -1019,7 +1019,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/9223372036854775808/box?name=string%3Anon-existing",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 500,
@@ -1039,7 +1039,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/1337/box?name=string%3Anon-existing",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 404,
@@ -1054,7 +1054,7 @@
         "path": "/v2/applications/1337/box",
         "params": [],
         "url": "http://localhost:8999/v2/applications/1337/box",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 400,
@@ -1069,7 +1069,7 @@
         "path": "/v2/applications/3/box",
         "params": [],
         "url": "http://localhost:8999/v2/applications/3/box",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 400,
@@ -1089,7 +1089,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/3/box?name=string%3Anon-existing",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 404,
@@ -1109,7 +1109,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/1/box?name=string%3Anon-existing",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 404,
@@ -1129,7 +1129,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/1/box?name=string%3Aa+great+box",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 200,
@@ -1155,7 +1155,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/5/box?name=str%3Astr",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 200,
@@ -1181,7 +1181,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/5/box?name=integer%3A100",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 200,
@@ -1207,7 +1207,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/5/box?name=base32%3AMJQXGZJTGI%3D%3D%3D%3D%3D%3D",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 200,
@@ -1233,7 +1233,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/5/box?name=b64%3AYjY0",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 200,
@@ -1259,7 +1259,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/5/box?name=base64%3AYmFzZTY0",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 200,
@@ -1285,7 +1285,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/5/box?name=string%3Astring",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 200,
@@ -1311,7 +1311,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/5/box?name=int%3A42",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 200,
@@ -1337,7 +1337,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/5/box?name=abi%3A%28uint64%2Cstring%2Cbool%5B%5D%29%3A%5B399%2C%22pls+pass%22%2C%5Btrue%2Cfalse%5D%5D",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 200,
@@ -1363,7 +1363,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/5/box?name=addr%3ALMTOYRT2WPSUY6JTCW2URER6YN3GETJ5FHTQBA55EVK66JG2QOB32WPIHY",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 200,
@@ -1389,7 +1389,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/5/box?name=address%3A2SYXFSCZAQCZ7YIFUCUZYOVR7G6Y3UBGSJIWT4EZ4CO3T6WVYTMHVSANOY",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 200,
@@ -1415,7 +1415,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/5/box?name=b32%3AMIZTE%3D%3D%3D",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 200,
@@ -1441,7 +1441,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/5/box?name=byte+base32%3AMJ4XIZJAMJQXGZJTGI%3D%3D%3D%3D%3D%3D",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 200,
@@ -1467,7 +1467,7 @@
           }
         ],
         "url": "http://localhost:8999/v2/applications/5/box?name=byte+base64%3AYnl0ZSBiYXNlNjQ%3D",
-        "route": ""
+        "route": "/v2/applications/:application-id/box"
       },
       "response": {
         "statusCode": 200,

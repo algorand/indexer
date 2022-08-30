@@ -41,25 +41,6 @@ C. Save `xyzLiveFixture` into a non-git-committed fixture `./test_resources/_FIX
 D. Assert that the non-git-commited fixture equals the git-committed version `./test_resources/FIXTURE_NAME.json`
 
 It is the responsibility of the test writer to check that the generated fixture represent the expected results.
-
-----
-TODO: SHOULD this be used to auto-generate unit test cases in the SDK's?
-In particular, one could craft a generic cucumber test that looks something like:
-
-* ("fixture parsing")
-	Given an indexer fixture file <file-name>.
-* ("fixture mock setup")
-	When a mock indexer server has been set up using the urls and responses provided by the indexer fixture,
-* ("fixture validation")
-	Then iterate through all of the fixture's test cases: query the mock indexer server, parse the response into an SDK object, and validate that it comports with the witness.
-
-The third step ("fixture validation") is unusually high-level for our cucumber tests, but it would allow for a more streamlined unit tests bootstrapping.
-Implementing the "fixture validation" step would logically be broken down as follows:
-
-For each `testCase` in the parsed fixture:
-	1. Use the `witness` type together with the `request` to find an appropriate calling SDK `method`.
-	2. Call the SDK `method` against the mock indexer server.
-	3. Validate that the resulting SDK object comports with the `witness`.
 ************************************** */
 
 const fixtestListenAddr = "localhost:8999"
@@ -235,13 +216,12 @@ func parseForProver(resp responseInfo, reconstructed interface{}) (errStr *strin
 
 // ---- END provers / witness generators ---- //
 
-func (f *testCase) proverFromEndoint() (prover, error) {
+func (f *testCase) proverFromEndoint() (string, prover, error) {
 	path := f.Request.Path
 	if len(path) == 0 || path[0] != '/' {
-		return nil, fmt.Errorf("invalid endpoint [%s]", path)
+		return "", nil, fmt.Errorf("invalid endpoint [%s]", path)
 	}
-	_, p, e := getProof(path[1:])
-	return p, e
+	return getProof(path[1:])
 }
 
 type proofPath struct {
@@ -421,8 +401,11 @@ func generateLiveFixture(t *testing.T, seed fixture) (live fixture) {
 		}
 		msg += fmt.Sprintf(" newResponse=%+v", liveCase.Response)
 
-		prove, err := seedCase.proverFromEndoint()
+		route, prove, err := seedCase.proverFromEndoint()
 		require.NoError(t, err, msg)
+		require.Positive(t, len(route), msg)
+
+		liveCase.Request.Route = route
 
 		if prove != nil {
 			witness, errStr := prove(liveCase.Response)
@@ -467,9 +450,10 @@ func validateLiveVsSaved(t *testing.T, seed *fixture, live *fixture) {
 		require.Equal(t, savedCase.Request, liveCase.Request, msg)
 		require.Equal(t, savedCase.Response, liveCase.Response, msg)
 
-		prove, err := savedCase.proverFromEndoint()
+		route, prove, err := savedCase.proverFromEndoint()
 		require.NoError(t, err, msg)
 		require.NotNil(t, prove, msg)
+		require.Equal(t, savedCase.Request.Route, route, msg)
 
 		savedProof, savedErrStr := prove(savedCase.Response)
 		liveProof, liveErrStr := prove(liveCase.Response)
