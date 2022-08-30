@@ -1,7 +1,7 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-08-30 10:26:09.078316 -0500 CDT m=+3.608934999",
+  "lastModified": "2022-08-30 11:26:15.13125 -0500 CDT m=+3.954735675",
   "frozen": true,
   "cases": [
     {
@@ -1497,7 +1497,7 @@
       },
       "response": {
         "statusCode": 400,
-        "body": "{\"message\":\"LookupApplicationBoxByIDAndName receieved illegal box name (just a plain string): all arguments and box names should be of the form 'encoding:value'\"}\n"
+        "body": "{\"message\":\"LookupApplicationBoxByIDAndName received illegal box name (just a plain string): all arguments and box names should be of the form 'encoding:value'\"}\n"
       },
       "witness": null,
       "witnessError": "400 error"
@@ -1517,7 +1517,7 @@
       },
       "response": {
         "statusCode": 400,
-        "body": "{\"message\":\"LookupApplicationBoxByIDAndName receieved illegal box name (just a plain string): all arguments and box names should be of the form 'encoding:value'\"}\n"
+        "body": "{\"message\":\"LookupApplicationBoxByIDAndName received illegal box name (just a plain string): all arguments and box names should be of the form 'encoding:value'\"}\n"
       },
       "witness": null,
       "witnessError": "400 error"
