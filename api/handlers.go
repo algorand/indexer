@@ -569,7 +569,7 @@ func (si *ServerImplementation) LookupApplicationBoxByIDAndName(ctx echo.Context
 	encodedBoxName := params.Name
 	boxNameBytes, err := logic.NewAppCallBytes(encodedBoxName)
 	if err != nil {
-		return badRequest(ctx, err.Error())
+		return badRequest(ctx, fmt.Sprintf("LookupApplicationBoxByIDAndName receieved illegal box name (%s): %s", encodedBoxName, err.Error()))
 	}
 	boxName, err := boxNameBytes.Raw()
 	if err != nil {
@@ -627,15 +627,15 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	}
 	if params.Next != nil {
 		encodedBoxName := *params.Next
-		boxNameBytes, err := logic.NewAppCallBytes(fmt.Sprintf("b64:%s", encodedBoxName))
+		boxNameBytes, err := logic.NewAppCallBytes(encodedBoxName)
 		if err != nil {
-			return badRequest(ctx, err.Error())
+			return badRequest(ctx, fmt.Sprintf("SearchForApplication received illegal next token (%s): %s", encodedBoxName, err.Error()))
 		}
 		prevBox, err := boxNameBytes.Raw()
 		if err != nil {
 			return badRequest(ctx, err.Error())
 		}
-		q.PrevFinalBox = prevBox
+		q.PrevFinalBox = []byte(prevBox)
 	}
 
 	appid, boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
@@ -658,6 +658,9 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	if finalNameBytes != nil {
 		encoded := base64.StdEncoding.EncodeToString(finalNameBytes)
 		next = strPtr(encoded)
+		if next != nil {
+			next = strPtr("b64:" + string(*next))
+		}
 	}
 	res := generated.BoxesResponse{
 		ApplicationId: applicationID,

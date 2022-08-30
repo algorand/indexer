@@ -429,7 +429,7 @@ var boxSeedFixture = fixture{
 				Path: "/v2/applications/1/boxes",
 				Params: []param{
 					{"limit", "3"},
-					{"next", "Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="},
+					{"next", "b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="},
 				},
 			},
 		},
@@ -439,22 +439,22 @@ var boxSeedFixture = fixture{
 				Path: "/v2/applications/1/boxes",
 				Params: []param{
 					{"limit", "3"},
-					{"next", "Ym94ICM4"},
-				},
-			},
-		},
-		{
-			Name: "Boxes of app 1 with boxes: limit 3 - DON'T ACCEPT goal app arg encoding b64",
-			Request: requestInfo{
-				Path: "/v2/applications/1/boxes",
-				Params: []param{
-					{"limit", "3"},
 					{"next", "b64:Ym94ICM4"},
 				},
 			},
 		},
 		{
-			Name: "Boxes of app 1 with boxes: limit 3 - DON'T ACCEPT goal app arg encoding str",
+			Name: "Boxes of app 1 with boxes: limit 3 - MISSING b64 prefix",
+			Request: requestInfo{
+				Path: "/v2/applications/1/boxes",
+				Params: []param{
+					{"limit", "3"},
+					{"next", "Ym94ICM4"},
+				},
+			},
+		},
+		{
+			Name: "Boxes of app 1 with boxes: limit 3 - goal app arg encoding str",
 			Request: requestInfo{
 				Path: "/v2/applications/1/boxes",
 				Params: []param{
@@ -469,12 +469,12 @@ var boxSeedFixture = fixture{
 				Path: "/v2/applications/1/boxes",
 				Params: []param{
 					{"limit", "3"},
-					{"next", "ZmFudGFidWxvdXM="},
+					{"next", "b64:ZmFudGFidWxvdXM="},
 				},
 			},
 		},
 		{
-			Name: "Boxes of app 1 with boxes: limit 3 - page 1 because empty next",
+			Name: "Boxes of app 1 with boxes: limit 3 - ERROR because when next param provided -even empty string- it must be goal app arg encoded",
 			Request: requestInfo{
 				Path: "/v2/applications/1/boxes",
 				Params: []param{
@@ -667,6 +667,24 @@ var boxSeedFixture = fixture{
 				Path: "/v2/applications/5/box",
 				Params: []param{
 					{"name", "byte base64:Ynl0ZSBiYXNlNjQ="},
+				},
+			},
+		},
+		{
+			Name: "App 5 illegal encoding (just a plain string) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/5/box",
+				Params: []param{
+					{"name", "just a plain string"},
+				},
+			},
+		},
+		{
+			Name: "App 1337 non-existing with illegal encoding (just a plain string) - no params",
+			Request: requestInfo{
+				Path: "/v2/applications/1337/box",
+				Params: []param{
+					{"name", "just a plain string"},
 				},
 			},
 		},

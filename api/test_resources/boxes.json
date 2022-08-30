@@ -1,7 +1,7 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-08-29 22:14:08.015116 -0500 CDT m=+3.271606630",
+  "lastModified": "2022-08-30 10:26:09.078316 -0500 CDT m=+3.608934999",
   "frozen": true,
   "cases": [
     {
@@ -648,7 +648,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":5,\"boxes\":[{\"name\":\"AAAAAAAAACo=\"},{\"name\":\"AAAAAAAAAGQ=\"},{\"name\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==\"},{\"name\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\"},{\"name\":\"YjMy\"},{\"name\":\"YjY0\"},{\"name\":\"YmFzZTMy\"},{\"name\":\"YmFzZTY0\"},{\"name\":\"Ynl0ZSBiYXNlMzI=\"},{\"name\":\"Ynl0ZSBiYXNlNjQ=\"},{\"name\":\"c3Ry\"},{\"name\":\"c3RyaW5n\"},{\"name\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}],\"next-token\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}\n"
+        "body": "{\"application-id\":5,\"boxes\":[{\"name\":\"AAAAAAAAACo=\"},{\"name\":\"AAAAAAAAAGQ=\"},{\"name\":\"AAAAAAAAAY8ADAAWAAhwbHMgcGFzcwACgA==\"},{\"name\":\"WybsRnqz5Ux5MxW1SJI+w3ZiTT0p5wCDvSVV7yTag4M=\"},{\"name\":\"YjMy\"},{\"name\":\"YjY0\"},{\"name\":\"YmFzZTMy\"},{\"name\":\"YmFzZTY0\"},{\"name\":\"Ynl0ZSBiYXNlMzI=\"},{\"name\":\"Ynl0ZSBiYXNlNjQ=\"},{\"name\":\"c3Ry\"},{\"name\":\"c3RyaW5n\"},{\"name\":\"1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}],\"next-token\":\"b64:1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
@@ -695,7 +695,7 @@
               "name": "1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg="
             }
           ],
-          "next-token": "1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg="
+          "next-token": "b64:1LFyyFkEBZ/hBaCpnDqx+b2N0CaSUWnwmeCdufrVxNg="
         }
       },
       "witnessError": null
@@ -710,7 +710,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"},{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"Ym94ICM4\"},{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"ZmFudGFidWxvdXM=\"}\n"
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"},{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"Ym94ICM4\"},{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\"}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
@@ -745,7 +745,7 @@
               "name": "ZmFudGFidWxvdXM="
             }
           ],
-          "next-token": "ZmFudGFidWxvdXM="
+          "next-token": "b64:ZmFudGFidWxvdXM="
         }
       },
       "witnessError": null
@@ -765,7 +765,7 @@
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}],\"next-token\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}\n"
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}],\"next-token\":\"b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
@@ -782,7 +782,7 @@
               "name": "Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
             }
           ],
-          "next-token": "Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
+          "next-token": "b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
         }
       },
       "witnessError": null
@@ -798,15 +798,15 @@
           },
           {
             "name": "next",
-            "value": "Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
+            "value": "b64:Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ%3D%3D",
+        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3AUv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ%3D%3D",
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
         "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"Ym94ICM4\"}],\"next-token\":\"Ym94ICM4\"}\n"
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"YSBncmVhdCBib3g=\"},{\"name\":\"YW5vdGhlciBncmVhdCBib3g=\"},{\"name\":\"Ym94ICM4\"}],\"next-token\":\"b64:Ym94ICM4\"}\n"
       },
       "witness": {
         "goType": "generated.BoxesResponse",
@@ -823,54 +823,13 @@
               "name": "Ym94ICM4"
             }
           ],
-          "next-token": "Ym94ICM4"
+          "next-token": "b64:Ym94ICM4"
         }
       },
       "witnessError": null
     },
     {
       "name": "Boxes of app 1 with boxes: limit 3 - page 3 - b64",
-      "request": {
-        "path": "/v2/applications/1/boxes",
-        "params": [
-          {
-            "name": "limit",
-            "value": "3"
-          },
-          {
-            "name": "next",
-            "value": "Ym94ICM4"
-          }
-        ],
-        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=Ym94ICM4",
-        "route": "/v2/applications/:application-id/boxes"
-      },
-      "response": {
-        "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"ZmFudGFidWxvdXM=\"}\n"
-      },
-      "witness": {
-        "goType": "generated.BoxesResponse",
-        "boxes": {
-          "application-id": 1,
-          "boxes": [
-            {
-              "name": "ZGlzYXBwb2ludGluZyBib3g="
-            },
-            {
-              "name": "ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5"
-            },
-            {
-              "name": "ZmFudGFidWxvdXM="
-            }
-          ],
-          "next-token": "ZmFudGFidWxvdXM="
-        }
-      },
-      "witnessError": null
-    },
-    {
-      "name": "Boxes of app 1 with boxes: limit 3 - DON'T ACCEPT goal app arg encoding b64",
       "request": {
         "path": "/v2/applications/1/boxes",
         "params": [
@@ -887,14 +846,55 @@
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
+        "statusCode": 200,
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\"}\n"
+      },
+      "witness": {
+        "goType": "generated.BoxesResponse",
+        "boxes": {
+          "application-id": 1,
+          "boxes": [
+            {
+              "name": "ZGlzYXBwb2ludGluZyBib3g="
+            },
+            {
+              "name": "ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5"
+            },
+            {
+              "name": "ZmFudGFidWxvdXM="
+            }
+          ],
+          "next-token": "b64:ZmFudGFidWxvdXM="
+        }
+      },
+      "witnessError": null
+    },
+    {
+      "name": "Boxes of app 1 with boxes: limit 3 - MISSING b64 prefix",
+      "request": {
+        "path": "/v2/applications/1/boxes",
+        "params": [
+          {
+            "name": "limit",
+            "value": "3"
+          },
+          {
+            "name": "next",
+            "value": "Ym94ICM4"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=Ym94ICM4",
+        "route": "/v2/applications/:application-id/boxes"
+      },
+      "response": {
         "statusCode": 400,
-        "body": "{\"message\":\"Could not decode base64-encoded string (b64:Ym94ICM4): illegal base64 data at input byte 3\"}\n"
+        "body": "{\"message\":\"SearchForApplication received illegal next token (Ym94ICM4): all arguments and box names should be of the form 'encoding:value'\"}\n"
       },
       "witness": null,
       "witnessError": "400 error"
     },
     {
-      "name": "Boxes of app 1 with boxes: limit 3 - DON'T ACCEPT goal app arg encoding str",
+      "name": "Boxes of app 1 with boxes: limit 3 - goal app arg encoding str",
       "request": {
         "path": "/v2/applications/1/boxes",
         "params": [
@@ -911,11 +911,28 @@
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
-        "statusCode": 400,
-        "body": "{\"message\":\"Could not decode base64-encoded string (str:box #8): illegal base64 data at input byte 3\"}\n"
+        "statusCode": 200,
+        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"ZGlzYXBwb2ludGluZyBib3g=\"},{\"name\":\"ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5\"},{\"name\":\"ZmFudGFidWxvdXM=\"}],\"next-token\":\"b64:ZmFudGFidWxvdXM=\"}\n"
       },
-      "witness": null,
-      "witnessError": "400 error"
+      "witness": {
+        "goType": "generated.BoxesResponse",
+        "boxes": {
+          "application-id": 1,
+          "boxes": [
+            {
+              "name": "ZGlzYXBwb2ludGluZyBib3g="
+            },
+            {
+              "name": "ZG9uJ3QgYm94IG1lIGluIHRoaXMgd2F5"
+            },
+            {
+              "name": "ZmFudGFidWxvdXM="
+            }
+          ],
+          "next-token": "b64:ZmFudGFidWxvdXM="
+        }
+      },
+      "witnessError": null
     },
     {
       "name": "Boxes of app 1 with boxes: limit 3 - page 4 (empty) - b64",
@@ -928,10 +945,10 @@
           },
           {
             "name": "next",
-            "value": "ZmFudGFidWxvdXM="
+            "value": "b64:ZmFudGFidWxvdXM="
           }
         ],
-        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=ZmFudGFidWxvdXM%3D",
+        "url": "http://localhost:8999/v2/applications/1/boxes?limit=3\u0026next=b64%3AZmFudGFidWxvdXM%3D",
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
@@ -948,7 +965,7 @@
       "witnessError": null
     },
     {
-      "name": "Boxes of app 1 with boxes: limit 3 - page 1 because empty next",
+      "name": "Boxes of app 1 with boxes: limit 3 - ERROR because when next param provided -even empty string- it must be goal app arg encoded",
       "request": {
         "path": "/v2/applications/1/boxes",
         "params": [
@@ -965,28 +982,11 @@
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
-        "statusCode": 200,
-        "body": "{\"application-id\":1,\"boxes\":[{\"name\":\"QVZNIGlzIHRoZSBuZXcgRVZN\"},{\"name\":\"SSB3aWxsIGJlIGFzc2ltaWxhdGVk\"},{\"name\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}],\"next-token\":\"Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ==\"}\n"
+        "statusCode": 400,
+        "body": "{\"message\":\"SearchForApplication received illegal next token (): all arguments and box names should be of the form 'encoding:value'\"}\n"
       },
-      "witness": {
-        "goType": "generated.BoxesResponse",
-        "boxes": {
-          "application-id": 1,
-          "boxes": [
-            {
-              "name": "QVZNIGlzIHRoZSBuZXcgRVZN"
-            },
-            {
-              "name": "SSB3aWxsIGJlIGFzc2ltaWxhdGVk"
-            },
-            {
-              "name": "Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
-            }
-          ],
-          "next-token": "Uv38ByGCZU8WP18PmmIdcpVmx00QA3xNe7sEB9HixkmBhVrYaB0NhtHpHgAWeTnLZpTSxCKs0gigByk5SH9pmQ=="
-        }
-      },
-      "witnessError": null
+      "witness": null,
+      "witnessError": "400 error"
     },
     {
       "name": "Boxes (with made up name param) of a app with id == math.MaxInt64",
@@ -1481,6 +1481,46 @@
         }
       },
       "witnessError": null
+    },
+    {
+      "name": "App 5 illegal encoding (just a plain string) - no params",
+      "request": {
+        "path": "/v2/applications/5/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "just a plain string"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/5/box?name=just+a+plain+string",
+        "route": "/v2/applications/:application-id/box"
+      },
+      "response": {
+        "statusCode": 400,
+        "body": "{\"message\":\"LookupApplicationBoxByIDAndName receieved illegal box name (just a plain string): all arguments and box names should be of the form 'encoding:value'\"}\n"
+      },
+      "witness": null,
+      "witnessError": "400 error"
+    },
+    {
+      "name": "App 1337 non-existing with illegal encoding (just a plain string) - no params",
+      "request": {
+        "path": "/v2/applications/1337/box",
+        "params": [
+          {
+            "name": "name",
+            "value": "just a plain string"
+          }
+        ],
+        "url": "http://localhost:8999/v2/applications/1337/box?name=just+a+plain+string",
+        "route": "/v2/applications/:application-id/box"
+      },
+      "response": {
+        "statusCode": 400,
+        "body": "{\"message\":\"LookupApplicationBoxByIDAndName receieved illegal box name (just a plain string): all arguments and box names should be of the form 'encoding:value'\"}\n"
+      },
+      "witness": null,
+      "witnessError": "400 error"
     }
   ]
 }
