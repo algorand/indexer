@@ -242,7 +242,7 @@ func loadIndexerParamConfig(cfg *daemonConfig) error {
 
 func createIndexerPidFile(pidFilePath string) error {
 	var err error
-	logger.Infof("Creating PID file at: %s\n", pidFilePath)
+	logger.Infof("Creating PID file at: %s", pidFilePath)
 	fout, err := os.Create(pidFilePath)
 	if err != nil {
 		err = fmt.Errorf("%s: could not create pid file, %v", pidFilePath, err)

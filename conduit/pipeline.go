@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"runtime/pprof"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
@@ -32,6 +33,9 @@ type nameConfigPair struct {
 // PipelineConfig stores configuration specific to the conduit pipeline
 type PipelineConfig struct {
 	ConduitConfig *Config
+
+	CPUProfile  string `yaml:"CPUProfile"`
+	PIDFilePath string `yaml:"PIDFilePath"`
 
 	pipelineLogLevel string `yaml:"LogLevel"`
 	PipelineLogLevel log.Level
@@ -88,6 +92,10 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 	logger.Infof("Auto-loading Conduit Configuration: %s", autoloadParamConfigPath)
 
 	file, err := os.Open(autoloadParamConfigPath)
+	if err != nil {
+		return nil, fmt.Errorf("MakePipelineConfig(): error opening file: %w", err)
+	}
+	defer file.Close()
 
 	err = viper.ReadConfig(file)
 	if err != nil {
@@ -134,8 +142,62 @@ type pipelineImpl struct {
 	round      basics.Round
 }
 
+func createIndexerPidFile(logger *log.Logger, pidFilePath string) error {
+	var err error
+	logger.Infof("Creating PID file at: %s", pidFilePath)
+	fout, err := os.Create(pidFilePath)
+	if err != nil {
+		err = fmt.Errorf("%s: could not create pid file, %v", pidFilePath, err)
+		logger.Error(err)
+		return err
+	}
+	_, err = fmt.Fprintf(fout, "%d", os.Getpid())
+	if err != nil {
+		err = fmt.Errorf("%s: could not write pid file, %v", pidFilePath, err)
+		logger.Error(err)
+		return err
+	}
+	err = fout.Close()
+	if err != nil {
+		err = fmt.Errorf("%s: could not close pid file, %v", pidFilePath, err)
+		logger.Error(err)
+		return err
+	}
+	return err
+}
+
 func (p *pipelineImpl) Start() error {
 	p.logger.Infof("Starting Pipeline Initialization")
+
+	if p.cfg.CPUProfile != "" {
+		p.logger.Infof("Creating CPU Profile file at %s", p.cfg.CPUProfile)
+		var err error
+		profFile, err := os.Create(p.cfg.CPUProfile)
+		if err != nil {
+			p.logger.WithError(err).Errorf("%s: create, %v", p.cfg.CPUProfile, err)
+			return err
+		}
+		defer profFile.Close()
+		err = pprof.StartCPUProfile(profFile)
+		if err != nil {
+			p.logger.WithError(err).Errorf("%s: start pprof, %v", p.cfg.CPUProfile, err)
+			return err
+		}
+		defer pprof.StopCPUProfile()
+	}
+
+	if p.cfg.PIDFilePath != "" {
+		err := createIndexerPidFile(p.logger, p.cfg.PIDFilePath)
+		if err != nil {
+			return err
+		}
+		defer func(name string) {
+			err := os.Remove(name)
+			if err != nil {
+				p.logger.WithError(err).Errorf("%s: could not remove pid file", p.cfg.PIDFilePath)
+			}
+		}(p.cfg.PIDFilePath)
+	}
 
 	// TODO Need to change interfaces to accept config of map[string]interface{}
 
@@ -153,13 +215,13 @@ func (p *pipelineImpl) Start() error {
 
 	// Initialize Importer
 	importerLogger := log.New()
-	importerLogger.SetFormatter(makePluginLogFormatter(plugins.Importer, (*p.importer).Metadata().Name()))
+	importerName := (*p.importer).Metadata().Name()
+	importerLogger.SetFormatter(makePluginLogFormatter(plugins.Importer, importerName))
 
 	// TODO modify/fix ?
 	jsonEncode = string(json.Encode(p.cfg.Importer.Config))
 	genesis, err := (*p.importer).Init(p.ctx, plugins.PluginConfig(jsonEncode), importerLogger)
 
-	importerName := (*p.importer).Metadata().Name()
 	if err != nil {
 		return fmt.Errorf("Pipeline.Start(): could not initialize importer (%s): %w", importerName, err)
 	}
