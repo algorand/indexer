@@ -2,12 +2,14 @@
 #
 
 import atexit
+from git import Repo
 import glob
 import gzip
 import io
 import json
 import logging
 import os
+from pathlib import Path
 import random
 import shutil
 import sqlite3
@@ -22,6 +24,8 @@ from util import xrun, atexitrun, find_indexer, ensure_test_db, firstFromS3Prefi
 
 logger = logging.getLogger(__name__)
 
+REPO_DIR = Path.cwd()
+GOAL_DIR = REPO_DIR / "third_party" / "go-algorand"
 
 def main():
     start = time.time()
@@ -85,12 +89,9 @@ def main():
         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
         tarpath = os.path.join(tempdir, tarname)
         if os.getenv("E2E_FILE_VERSION")=="submodule":
-            command= "cd ../third_party/go-algorand; git rev-parse --short HEAD; "
-            commit_hash=subprocess.run(command, capture_output=True, shell=True).stdout.decode().strip()
-            prefix = f'indexer/e2e4/{commit_hash}'
-            #return to /misc/
-            command= "cd ../../misc;"
-            subprocess.run(command, capture_output=False, shell=True)
+            goal = Repo(GOAL_DIR)
+            goal_commit = goal.git.rev_parse("HEAD", short=8)
+            prefix = f'indexer/e2e4/{goal_commit}'
         else:
             prefix = "indexer/e2e4"
         success = firstFromS3Prefix(s3, bucket, prefix, tarname, outpath=tarpath)
