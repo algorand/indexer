@@ -94,6 +94,6 @@ indexer-v-algod-swagger:
 indexer-v-algod: nightly-setup indexer-v-algod-swagger nightly-teardown
 
 update-submodule:
-	cd third_party/go-algorand && git fetch && git checkout rel/nightly && git pull
+	git submodule update --remote
 
 .PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod
