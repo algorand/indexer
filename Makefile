@@ -68,7 +68,7 @@ integration: cmd/algorand-indexer/algorand-indexer
 	test/postgres_integration_test.sh
 
 e2e: cmd/algorand-indexer/algorand-indexer
-	cd misc && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && VERSION=${CI_E2E_FILE_VERSION} docker-compose up --exit-code-from e2e
+	cd misc && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e
 
 deploy:
 	mule/deploy.sh
@@ -94,6 +94,6 @@ indexer-v-algod-swagger:
 indexer-v-algod: nightly-setup indexer-v-algod-swagger nightly-teardown
 
 update-submodule:
-	./scripts/update_submodule.sh
+	cd third_party/go-algorand && git fetch && git checkout rel/nightly
 
 .PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod
