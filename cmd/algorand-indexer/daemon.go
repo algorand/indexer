@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -25,9 +24,12 @@ import (
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/config"
+	_ "github.com/algorand/indexer/exporters/postgresql"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
+	_ "github.com/algorand/indexer/importers/algod"
 	"github.com/algorand/indexer/processors/blockprocessor"
+	_ "github.com/algorand/indexer/processors/blockprocessor"
 	"github.com/algorand/indexer/util/metrics"
 )
 
@@ -311,19 +313,18 @@ func runDaemon(daemonConfig *daemonConfig) error {
 		}()
 	}
 
-	var bot fetcher.Fetcher
-	if daemonConfig.noAlgod {
-		logger.Info("algod block following disabled")
-	} else if daemonConfig.algodAddr != "" && daemonConfig.algodToken != "" {
-		bot, err = fetcher.ForNetAndToken(daemonConfig.algodAddr, daemonConfig.algodToken, logger)
-		maybeFail(err, "fetcher setup, %v", err)
-	} else if daemonConfig.algodDataDir != "" {
-		bot, err = fetcher.ForDataDir(daemonConfig.algodDataDir, logger)
-		maybeFail(err, "fetcher setup, %v", err)
-	} else {
+	if daemonConfig.algodDataDir != "" {
+		daemonConfig.algodAddr, daemonConfig.algodToken, _, err = fetcher.AlgodArgsForDataDir(daemonConfig.algodDataDir)
+		maybeFail(err, "algod data dir err, %v", err)
+	} else if daemonConfig.algodAddr == "" || daemonConfig.algodToken == "" {
 		// no algod was found
+		logger.Info("no algod was found, provide either --algod OR --algod-net and --algod-token to enable")
 		daemonConfig.noAlgod = true
 	}
+	if daemonConfig.noAlgod {
+		logger.Info("algod block following disabled")
+	}
+
 	opts := idb.IndexerDbOptions{}
 	if daemonConfig.noAlgod && !daemonConfig.allowMigration {
 		opts.ReadOnly = true
@@ -337,10 +338,13 @@ func runDaemon(daemonConfig *daemonConfig) error {
 
 	db, availableCh := indexerDbFromFlags(opts)
 	defer db.Close()
-	var wg sync.WaitGroup
-	if bot != nil {
-		wg.Add(1)
-		go runConduitPipeline(&wg, availableCh, daemonConfig)
+	var dataError func() error
+	if daemonConfig.noAlgod != true {
+		pipeline := runConduitPipeline(ctx, availableCh, daemonConfig)
+		if pipeline != nil {
+			dataError = pipeline.Error
+			defer pipeline.Stop()
+		}
 	} else {
 		logger.Info("No block importer configured.")
 	}
@@ -350,50 +354,48 @@ func runDaemon(daemonConfig *daemonConfig) error {
 
 	options := makeOptions(daemonConfig)
 
-	api.Serve(ctx, daemonConfig.daemonServerAddr, db, bot, logger, options)
-	wg.Wait()
+	api.Serve(ctx, daemonConfig.daemonServerAddr, db, dataError, logger, options)
 	return err
 }
 
 func makeConduitConfig(dCfg *daemonConfig) conduit.PipelineConfig {
 	return conduit.PipelineConfig{
 		ConduitConfig:    &conduit.Config{},
-		PipelineLogLevel: logger.GetLevel(),
+		PipelineLogLevel: logger.GetLevel().String(),
 		Importer: conduit.NameConfigPair{
 			Name: "algod",
 			Config: map[string]interface{}{
-				"NetAddr": dCfg.algodAddr,
-				"Token":   dCfg.algodToken,
+				"netaddr": dCfg.algodAddr,
+				"token":   dCfg.algodToken,
 			},
 		},
 		Processors: []conduit.NameConfigPair{
 			{
 				Name: "block_evaluator",
 				Config: map[string]interface{}{
-					"CatchPoint":     dCfg.catchpoint,
-					"IndexerDataDir": dCfg.indexerDataDir,
-					"AlgodDataDir":   dCfg.algodDataDir,
-					"AlgodToken":     dCfg.algodToken,
-					"AlgodAddr":      dCfg.algodAddr,
+					"catchpoint":       dCfg.catchpoint,
+					"indexer-data-dir": dCfg.indexerDataDir,
+					"algod-data-dir":   dCfg.algodDataDir,
+					"algod-token":      dCfg.algodToken,
+					"algod-addr":       dCfg.algodAddr,
 				},
 			},
 		},
 		Exporter: conduit.NameConfigPair{
 			Name: "postgresql",
 			Config: map[string]interface{}{
-				"ConnectionString": postgresAddr,
-				"MaxConn":          dCfg.maxConn,
-				"Test":             dummyIndexerDb,
+				"connection-string": postgresAddr,
+				"max-conn":          dCfg.maxConn,
+				"test":              dummyIndexerDb,
 			},
 		},
 	}
 
 }
 
-func runConduitPipeline(wg *sync.WaitGroup, dbAvailable chan struct{}, dCfg *daemonConfig) error {
+func runConduitPipeline(ctx context.Context, dbAvailable chan struct{}, dCfg *daemonConfig) conduit.Pipeline {
 	// Need to redefine exitHandler() for every go-routine
 	defer exitHandler()
-	defer wg.Done()
 
 	// Wait until the database is available.
 	<-dbAvailable
@@ -401,16 +403,16 @@ func runConduitPipeline(wg *sync.WaitGroup, dbAvailable chan struct{}, dCfg *dae
 	var pipeline conduit.Pipeline
 	var err error
 	pcfg := makeConduitConfig(dCfg)
-	if pipeline, err = conduit.MakePipeline(&pcfg, logger); err != nil {
-		return err
+	if pipeline, err = conduit.MakePipeline(ctx, &pcfg, logger); err != nil {
+		logger.Errorf("%v", err)
+		panic(exit{1})
 	}
-	defer func(pipeline conduit.Pipeline) {
-		if err := pipeline.Stop(); err != nil {
-			logger.Errorf("Pipeline stoppage failure: %v", err)
-		}
-	}(pipeline)
-
-	return pipeline.Start()
+	err = pipeline.Start()
+	if err != nil {
+		logger.Errorf("%v", err)
+		panic(exit{1})
+	}
+	return pipeline
 }
 
 // makeOptions converts CLI options to server options

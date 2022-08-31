@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"fmt"
-	"github.com/algorand/indexer/conduit"
+	"os"
+
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"os"
+
+	"github.com/algorand/indexer/conduit"
 )
 
 import (
@@ -75,23 +78,14 @@ func runConduitCmdWithConfig(cfg *conduit.Config) error {
 		return err
 	}
 
-	logger.SetLevel(pCfg.PipelineLogLevel)
-	logger.Infof("Log level set to: %s", pCfg.PipelineLogLevel)
-
 	logger.Info("Conduit configuration is valid")
 
-	pipeline, err := conduit.MakePipeline(pCfg, logger)
+	ctx := context.Background()
+
+	pipeline, err := conduit.MakePipeline(ctx, pCfg, logger)
 	if err != nil {
 		return fmt.Errorf("pipeline creation error: %w", err)
 	}
-
-	// Make sure to call this so we can shutdown if there is an error
-	defer func(pipeline conduit.Pipeline) {
-		err := pipeline.Stop()
-		if err != nil {
-			logger.Errorf("Pipeline stoppage failure: %v", err)
-		}
-	}(pipeline)
 
 	// TODO decide if blocking or not
 	err = pipeline.Start()
@@ -100,7 +94,16 @@ func runConduitCmdWithConfig(cfg *conduit.Config) error {
 		return err
 	}
 
-	return nil
+	// Make sure to call this so we can shutdown if there is an error
+	defer pipeline.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+	}
 }
 
 // conduitCmd creates the main cobra command, initializes flags, and viper aliases
