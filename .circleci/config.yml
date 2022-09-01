@@ -41,7 +41,7 @@ workflows:
 jobs:
   test:
     machine:
-      image: << pipeline.parameters.ubuntu_image >> 
+      image: << pipeline.parameters.ubuntu_image >>
     parameters:
       go_version:
         type: string
@@ -53,7 +53,7 @@ jobs:
       - codecov/upload
   test_nightly:
     machine:
-      image: << pipeline.parameters.ubuntu_image >> 
+      image: << pipeline.parameters.ubuntu_image >>
     parameters:
       go_version:
         type: string
@@ -119,7 +119,7 @@ commands:
 
       - run: echo 'export PATH=$PATH:/usr/local/go/bin' >> $BASH_ENV
 
-      - run: 
+      - run:
           name: Install golint
           command: go install golang.org/x/lint/golint@latest
 
