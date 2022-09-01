@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -153,6 +152,10 @@ func (m *mockImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Lo
 	return &bookkeeping.Genesis{}, nil
 }
 
+func (m *mockImporter) Close() error {
+	return nil
+}
+
 func (m *mockImporter) Metadata() importers.ImporterMetadata {
 	return importers.ImporterMetadata{ImpName: "mockImporter"}
 }
@@ -176,6 +179,10 @@ type mockProcessor struct {
 }
 
 func (m *mockProcessor) Init(_ context.Context, _ data.InitProvider, _ plugins.PluginConfig, _ *log.Logger) error {
+	return nil
+}
+
+func (m *mockProcessor) Close() error {
 	return nil
 }
 
@@ -215,6 +222,10 @@ func (m *mockExporter) Metadata() exporters.ExporterMetadata {
 }
 
 func (m *mockExporter) Init(_ plugins.PluginConfig, _ *log.Logger) error {
+	return nil
+}
+
+func (m *mockExporter) Close() error {
 	return nil
 }
 
@@ -303,6 +314,7 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 
 	pImpl := pipelineImpl{
 		ctx: ctx,
+		cf:  cf,
 		cfg: &PipelineConfig{
 			Importer: NameConfigPair{
 				Name:   "",
@@ -327,47 +339,29 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 		round:        0,
 	}
 
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-
-	go func() {
-		err := pImpl.Start()
-		assert.Nil(t, err)
-		wg.Done()
-	}()
-
-	// Give some time for the goroutine to start
-	time.Sleep(1 * time.Second)
+	err := pImpl.Start()
+	assert.Nil(t, err)
 
 	// Test that file is not created
-	_, err := os.Stat(pidFilePath)
+	_, err = os.Stat(pidFilePath)
 	assert.ErrorIs(t, err, os.ErrNotExist)
 
 	_, err = os.Stat(cpuFilepath)
 	assert.ErrorIs(t, err, os.ErrNotExist)
 
-	cf()
-	wg.Wait()
+	pImpl.Stop()
 
 	// Test that they were created
 
 	ctx, cf = context.WithCancel(context.Background())
 
 	pImpl.ctx = ctx
+	pImpl.cf = cf
 	pImpl.cfg.PIDFilePath = pidFilePath
 	pImpl.cfg.CPUProfile = cpuFilepath
 
-	wg.Add(1)
-
-	go func() {
-		err := pImpl.Start()
-		assert.Nil(t, err)
-		wg.Done()
-	}()
-
-	// Give some time for the goroutine to start
-	time.Sleep(1 * time.Second)
+	err = pImpl.Start()
+	assert.Nil(t, err)
 
 	// Test that file is created
 	_, err = os.Stat(cpuFilepath)
@@ -376,8 +370,7 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 	_, err = os.Stat(pidFilePath)
 	assert.Nil(t, err)
 
-	cf()
-	wg.Wait()
+	pImpl.Stop()
 }
 
 // TestPipelineErrors tests the pipeline erroring out at different stages

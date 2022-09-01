@@ -128,12 +128,13 @@ type Pipeline interface {
 }
 
 type pipelineImpl struct {
-	ctx     context.Context
-	cf      context.CancelFunc
-	running sync.WaitGroup
-	cfg     *PipelineConfig
-	logger  *log.Logger
-	err     error
+	ctx      context.Context
+	cf       context.CancelFunc
+	running  sync.WaitGroup
+	cfg      *PipelineConfig
+	logger   *log.Logger
+	err      error
+	profFile *os.File
 
 	initProvider *data.InitProvider
 
@@ -158,13 +159,12 @@ func (p *pipelineImpl) Start() error {
 			p.logger.WithError(err).Errorf("%s: create, %v", p.cfg.CPUProfile, err)
 			return err
 		}
-		defer profFile.Close()
+		p.profFile = profFile
 		err = pprof.StartCPUProfile(profFile)
 		if err != nil {
 			p.logger.WithError(err).Errorf("%s: start pprof, %v", p.cfg.CPUProfile, err)
 			return err
 		}
-		defer pprof.StopCPUProfile()
 	}
 
 	if p.cfg.PIDFilePath != "" {
@@ -172,12 +172,6 @@ func (p *pipelineImpl) Start() error {
 		if err != nil {
 			return err
 		}
-		defer func(name string) {
-			err := os.Remove(name)
-			if err != nil {
-				p.logger.WithError(err).Errorf("%s: could not remove pid file", p.cfg.PIDFilePath)
-			}
-		}(p.cfg.PIDFilePath)
 	}
 
 	// TODO Need to change interfaces to accept config of map[string]interface{}
@@ -239,6 +233,19 @@ func (p *pipelineImpl) Start() error {
 func (p *pipelineImpl) Stop() {
 	p.cf()
 	p.running.Wait()
+
+	if p.profFile != nil {
+		if err := p.profFile.Close(); err != nil {
+			p.logger.WithError(err).Errorf("%s: could not close CPUProf file", p.profFile.Name())
+		}
+		pprof.StopCPUProfile()
+	}
+
+	if p.cfg.PIDFilePath != "" {
+		if err := os.Remove(p.cfg.PIDFilePath); err != nil {
+			p.logger.WithError(err).Errorf("%s: could not remove pid file", p.cfg.PIDFilePath)
+		}
+	}
 
 	if err := (*p.importer).Close(); err != nil {
 		// Log and continue on closing the rest of the pipeline

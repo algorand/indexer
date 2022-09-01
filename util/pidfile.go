@@ -18,7 +18,7 @@ func CreateIndexerPidFile(logger *log.Logger, pidFilePath string) error {
 		return err
 	}
 
-	if _, err := fmt.Fprintf(fout, "%d", os.Getpid()); err != nil {
+	if _, err = fmt.Fprintf(fout, "%d", os.Getpid()); err != nil {
 		err = fmt.Errorf("%s: could not write pid file, %v", pidFilePath, err)
 		logger.Error(err)
 		return err
