@@ -304,17 +304,17 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 	pImpl := pipelineImpl{
 		ctx: ctx,
 		cfg: &PipelineConfig{
-			Importer: nameConfigPair{
+			Importer: NameConfigPair{
 				Name:   "",
 				Config: map[string]interface{}{},
 			},
-			Processors: []nameConfigPair{
+			Processors: []NameConfigPair{
 				{
 					Name:   "",
 					Config: map[string]interface{}{},
 				},
 			},
-			Exporter: nameConfigPair{
+			Exporter: NameConfigPair{
 				Name:   "",
 				Config: map[string]interface{}{},
 			},

@@ -30,6 +30,7 @@ import (
 	_ "github.com/algorand/indexer/importers/algod"
 	"github.com/algorand/indexer/processors/blockprocessor"
 	_ "github.com/algorand/indexer/processors/blockprocessor"
+	iutil "github.com/algorand/indexer/util"
 	"github.com/algorand/indexer/util/metrics"
 )
 
