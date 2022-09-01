@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/algorand/indexer/util"
+	log "github.com/sirupsen/logrus"
 	"io/fs"
 	"os"
 	"path"
@@ -260,7 +262,7 @@ func TestIndexerPidFileExpectSuccess(t *testing.T) {
 	defer os.RemoveAll(indexerDataDir)
 
 	pidFilePath := path.Join(indexerDataDir, "pidFile")
-	assert.NoError(t, createIndexerPidFile(pidFilePath))
+	assert.NoError(t, util.CreateIndexerPidFile(log.New(), pidFilePath))
 }
 
 func TestIndexerPidFileCreateFailExpectError(t *testing.T) {
@@ -278,6 +280,6 @@ func TestIndexerPidFileCreateFailExpectError(t *testing.T) {
 		cfg.indexerDataDir = indexerDataDir
 
 		assert.ErrorContains(t, runDaemon(cfg), "pid file")
-		assert.Error(t, createIndexerPidFile(cfg.pidFilePath))
+		assert.Error(t, util.CreateIndexerPidFile(log.New(), cfg.pidFilePath))
 	}
 }

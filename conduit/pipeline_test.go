@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/importers"
+	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"
 )
 
@@ -147,6 +149,14 @@ type mockImporter struct {
 	returnError bool
 }
 
+func (m *mockImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Logger) (*bookkeeping.Genesis, error) {
+	return &bookkeeping.Genesis{}, nil
+}
+
+func (m *mockImporter) Metadata() importers.ImporterMetadata {
+	return importers.ImporterMetadata{ImpName: "mockImporter"}
+}
+
 func (m *mockImporter) GetBlock(rnd uint64) (data.BlockData, error) {
 	var err error
 	if m.returnError {
@@ -163,6 +173,14 @@ type mockProcessor struct {
 	finalRound      basics.Round
 	returnError     bool
 	onCompleteError bool
+}
+
+func (m *mockProcessor) Init(_ context.Context, _ data.InitProvider, _ plugins.PluginConfig, _ *log.Logger) error {
+	return nil
+}
+
+func (m *mockProcessor) Metadata() processors.ProcessorMetadata {
+	return processors.MakeProcessorMetadata("mockProcessor", "", false)
 }
 
 func (m *mockProcessor) Process(input data.BlockData) (data.BlockData, error) {
@@ -188,6 +206,24 @@ type mockExporter struct {
 	mock.Mock
 	exporters.Exporter
 	returnError bool
+}
+
+func (m *mockExporter) Metadata() exporters.ExporterMetadata {
+	return exporters.ExporterMetadata{
+		ExpName: "mockExporter",
+	}
+}
+
+func (m *mockExporter) Init(_ plugins.PluginConfig, _ *log.Logger) error {
+	return nil
+}
+
+func (m *mockExporter) HandleGenesis(_ bookkeeping.Genesis) error {
+	return nil
+}
+
+func (m *mockExporter) Round() uint64 {
+	return 0
 }
 
 func (m *mockExporter) Receive(exportData data.BlockData) error {
@@ -241,6 +277,107 @@ func TestPipelineRun(t *testing.T) {
 
 	mock.AssertExpectationsForObjects(t, &mImporter, &mProcessor, &mExporter)
 
+}
+
+// TestPipelineCpuPidFiles tests that cpu and pid files are created when specified
+func TestPipelineCpuPidFiles(t *testing.T) {
+
+	mImporter := mockImporter{}
+	mImporter.On("GetBlock", mock.Anything).Return(uniqueBlockData, nil)
+	mProcessor := mockProcessor{}
+	processorData := uniqueBlockData
+	processorData.BlockHeader.Round++
+	mProcessor.On("Process", mock.Anything).Return(processorData)
+	mProcessor.On("OnComplete", mock.Anything).Return(nil)
+	mExporter := mockExporter{}
+	mExporter.On("Receive", mock.Anything).Return(nil)
+
+	var pImporter importers.Importer = &mImporter
+	var pProcessor processors.Processor = &mProcessor
+	var pExporter exporters.Exporter = &mExporter
+
+	pidFilePath := filepath.Join(t.TempDir(), "pidfile")
+	cpuFilepath := filepath.Join(t.TempDir(), "cpufile")
+
+	ctx, cf := context.WithCancel(context.Background())
+
+	pImpl := pipelineImpl{
+		ctx: ctx,
+		cfg: &PipelineConfig{
+			Importer: nameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+			Processors: []nameConfigPair{
+				{
+					Name:   "",
+					Config: map[string]interface{}{},
+				},
+			},
+			Exporter: nameConfigPair{
+				Name:   "",
+				Config: map[string]interface{}{},
+			},
+		},
+		logger:       log.New(),
+		initProvider: nil,
+		importer:     &pImporter,
+		processors:   []*processors.Processor{&pProcessor},
+		exporter:     &pExporter,
+		round:        0,
+	}
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+
+	go func() {
+		err := pImpl.Start()
+		assert.Nil(t, err)
+		wg.Done()
+	}()
+
+	// Give some time for the goroutine to start
+	time.Sleep(1 * time.Second)
+
+	// Test that file is not created
+	_, err := os.Stat(pidFilePath)
+	assert.ErrorIs(t, err, os.ErrNotExist)
+
+	_, err = os.Stat(cpuFilepath)
+	assert.ErrorIs(t, err, os.ErrNotExist)
+
+	cf()
+	wg.Wait()
+
+	// Test that they were created
+
+	ctx, cf = context.WithCancel(context.Background())
+
+	pImpl.ctx = ctx
+	pImpl.cfg.PIDFilePath = pidFilePath
+	pImpl.cfg.CPUProfile = cpuFilepath
+
+	wg.Add(1)
+
+	go func() {
+		err := pImpl.Start()
+		assert.Nil(t, err)
+		wg.Done()
+	}()
+
+	// Give some time for the goroutine to start
+	time.Sleep(1 * time.Second)
+
+	// Test that file is created
+	_, err = os.Stat(cpuFilepath)
+	assert.Nil(t, err)
+
+	_, err = os.Stat(pidFilePath)
+	assert.Nil(t, err)
+
+	cf()
+	wg.Wait()
 }
 
 // TestPipelineErrors tests the pipeline erroring out at different stages
