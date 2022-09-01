@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/algorand/indexer/util"
+	log "github.com/sirupsen/logrus"
 	"io/fs"
 	"os"
 	"path"
@@ -260,24 +262,25 @@ func TestIndexerPidFileExpectSuccess(t *testing.T) {
 	defer os.RemoveAll(indexerDataDir)
 
 	pidFilePath := path.Join(indexerDataDir, "pidFile")
-	assert.NoError(t, createIndexerPidFile(pidFilePath))
+	assert.NoError(t, util.CreateIndexerPidFile(log.New(), pidFilePath))
 }
 
 func TestIndexerPidFileCreateFailExpectError(t *testing.T) {
-	for _, configFiletype := range config.FileTypes {
-		indexerDataDir := createTempDir(t)
-		defer os.RemoveAll(indexerDataDir)
-		autoloadPath := filepath.Join(indexerDataDir, autoLoadIndexerConfigFileName+"."+configFiletype)
-		os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
+for _, configFiletype := range config.FileTypes {
+indexerDataDir := createTempDir(t)
+defer os.RemoveAll(indexerDataDir)
+autoloadPath := filepath.Join(indexerDataDir, autoLoadIndexerConfigFileName+"."+configFiletype)
+os.WriteFile(autoloadPath, []byte{}, fs.ModePerm)
 
-		invalidDir := filepath.Join(indexerDataDir, "foo", "bar")
-		cfg := &daemonConfig{}
-		cfg.pidFilePath = invalidDir
+invalidDir := filepath.Join(indexerDataDir, "foo", "bar")
+cfg := &daemonConfig{}
+cfg.pidFilePath = invalidDir
 
-		cfg.flags = pflag.NewFlagSet("indexer", 0)
-		cfg.indexerDataDir = indexerDataDir
+cfg.flags = pflag.NewFlagSet("indexer", 0)
+cfg.indexerDataDir = indexerDataDir
 
-		assert.ErrorContains(t, runDaemon(cfg), "pid file")
-		assert.Error(t, createIndexerPidFile(cfg.pidFilePath))
-	}
+assert.ErrorContains(t, runDaemon(cfg), "pid file")
+assert.Error(t, util.CreateIndexerPidFile(log.New(), cfg.pidFilePath))
+}
+}
 }

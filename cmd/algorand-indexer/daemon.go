@@ -240,30 +240,6 @@ func loadIndexerParamConfig(cfg *daemonConfig) error {
 	return err
 }
 
-func createIndexerPidFile(pidFilePath string) error {
-	var err error
-	logger.Infof("Creating PID file at: %s", pidFilePath)
-	fout, err := os.Create(pidFilePath)
-	if err != nil {
-		err = fmt.Errorf("%s: could not create pid file, %v", pidFilePath, err)
-		logger.Error(err)
-		return err
-	}
-	_, err = fmt.Fprintf(fout, "%d", os.Getpid())
-	if err != nil {
-		err = fmt.Errorf("%s: could not write pid file, %v", pidFilePath, err)
-		logger.Error(err)
-		return err
-	}
-	err = fout.Close()
-	if err != nil {
-		err = fmt.Errorf("%s: could not close pid file, %v", pidFilePath, err)
-		logger.Error(err)
-		return err
-	}
-	return err
-}
-
 func runDaemon(daemonConfig *daemonConfig) error {
 	var err error
 	config.BindFlagSet(daemonConfig.flags)
@@ -291,7 +267,7 @@ func runDaemon(daemonConfig *daemonConfig) error {
 	}
 
 	if daemonConfig.pidFilePath != "" {
-		err = createIndexerPidFile(daemonConfig.pidFilePath)
+		err = iutil.CreateIndexerPidFile(logger, daemonConfig.pidFilePath)
 		if err != nil {
 			return err
 		}

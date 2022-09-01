@@ -3,6 +3,7 @@ package conduit
 import (
 	"context"
 	"fmt"
+	"github.com/algorand/indexer/util"
 	"os"
 	"runtime/pprof"
 
@@ -142,31 +143,6 @@ type pipelineImpl struct {
 	round      basics.Round
 }
 
-func createIndexerPidFile(logger *log.Logger, pidFilePath string) error {
-	var err error
-	logger.Infof("Creating PID file at: %s", pidFilePath)
-	fout, err := os.Create(pidFilePath)
-	if err != nil {
-		err = fmt.Errorf("%s: could not create pid file, %v", pidFilePath, err)
-		logger.Error(err)
-		return err
-	}
-
-	if _, err := fmt.Fprintf(fout, "%d", os.Getpid()); err != nil {
-		err = fmt.Errorf("%s: could not write pid file, %v", pidFilePath, err)
-		logger.Error(err)
-		return err
-	}
-
-	err = fout.Close()
-	if err != nil {
-		err = fmt.Errorf("%s: could not close pid file, %v", pidFilePath, err)
-		logger.Error(err)
-		return err
-	}
-	return err
-}
-
 func (p *pipelineImpl) Start() error {
 	p.logger.Infof("Starting Pipeline Initialization")
 
@@ -188,7 +164,7 @@ func (p *pipelineImpl) Start() error {
 	}
 
 	if p.cfg.PIDFilePath != "" {
-		err := createIndexerPidFile(p.logger, p.cfg.PIDFilePath)
+		err := util.CreateIndexerPidFile(p.logger, p.cfg.PIDFilePath)
 		if err != nil {
 			return err
 		}
