@@ -181,8 +181,7 @@ def firstFromS3Prefix(
     for x in response["Contents"]:
         path = x["Key"]
         haystack.append(path)
-        _, fname = path.rsplit("/", 1)
-        if fname == desired_filename:
+        if desired_filename in path:
             if outpath is None:
                 if outdir is None:
                     outdir = "."

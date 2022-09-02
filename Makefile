@@ -93,4 +93,12 @@ indexer-v-algod-swagger:
 
 indexer-v-algod: nightly-setup indexer-v-algod-swagger nightly-teardown
 
+# fetch and update submodule. it's default to latest rel/nightly branch.
+# to use a different branch, update the branch in .gitmodules for CI build,
+# and for local testing, you may checkout a specific branch in the submodule.
+# after submodule is updated, CI_E2E_FILE in circleci/config.yml should also
+# be updated to use a newer artifact. path copied from s3 bucket, s3://algorand-testdata/indexer/e2e4/
+update-submodule:
+	git submodule update --remote
+
 .PHONY: test e2e integration fmt lint deploy sign test-package package fakepackage cmd/algorand-indexer/algorand-indexer idb/mocks/IndexerDb.go go-algorand indexer-v-algod
