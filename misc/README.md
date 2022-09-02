@@ -21,3 +21,5 @@ Once the developer has built the code they want to test, perform the following:
 
 If the error is related to goal then the most likely cause is that the goal binary hasn't been installed as a package in the GOPATH system variable. Navigate to the go-algorand repository directory and run `make install`. If the error persists then run `export GOPATH=$(go env GOPATH)` followed by `export PATH=$PATH:$GOPATH/bin` in order to verify that the binary is accessible.
 
+The test data used in `make e2e` during CI build is pinned to a version of rel/nightly artifact defined by CI_E2E_FILENAME in .circleci/config.yml.
+`make update-submodule` updates the submodule and CI_E2E_FILENAME should be updated accordingly.  
