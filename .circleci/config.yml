@@ -45,6 +45,8 @@ jobs:
     parameters:
       go_version:
         type: string
+    environment:
+      CI_E2E_FILENAME: "faf9d19e/rel-nightly"
     steps:
       - go/install:
           version: << parameters.go_version >>
@@ -57,6 +59,8 @@ jobs:
     parameters:
       go_version:
         type: string
+    environment:
+      CI_E2E_FILENAME: "rel-nightly"
     steps:
       - go/install:
           version: << parameters.go_version >>

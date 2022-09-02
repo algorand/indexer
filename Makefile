@@ -93,6 +93,8 @@ indexer-v-algod-swagger:
 
 indexer-v-algod: nightly-setup indexer-v-algod-swagger nightly-teardown
 
+# fetch and update submodule to latest rel/nightly.
+# CI_E2E_FILE in circleci/config.yml should also be updated to use newer artifact
 update-submodule:
 	git submodule update --remote
 
