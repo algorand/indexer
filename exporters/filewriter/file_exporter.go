@@ -52,10 +52,11 @@ func (exp *fileExporter) Init(cfg plugins.PluginConfig, logger *logrus.Logger) e
 	if err = exp.unmarhshalConfig(string(cfg)); err != nil {
 		return fmt.Errorf("connect failure in unmarshalConfig: %w", err)
 	}
-	exp.fh, err = os.OpenFile(exp.cfg.BlockFilepath, os.O_APPEND|os.O_WRONLY, 0755)
+	exp.fh, err = os.OpenFile(exp.cfg.BlockFilepath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
 		return fmt.Errorf("error opening file: %w", err)
 	}
+	exp.round = exp.cfg.Round
 	return err
 }
 

@@ -7,6 +7,7 @@ import (
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters/filewriter"
 	"github.com/algorand/indexer/plugins"
+	log "github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,16 +19,21 @@ func TestExporterMetadata(t *testing.T) {
 	meta := fileExp.Metadata()
 	assert.Equal(t, plugins.PluginType(plugins.Exporter), meta.Type())
 	assert.Equal(t, "filewriter", meta.Name())
-	assert.Equal(t, "", meta.Description())
-	assert.Equal(t, "", meta.Deprecated())
-}
-
-func TestExporterInit(t *testing.T) {
-	assert.Panics(t, func() { fileExp.Init("", nil) })
+	assert.Equal(t, "Exporter for writing data to a file.", meta.Description())
+	assert.Equal(t, false, meta.Deprecated())
 }
 
 func TestExporterConfig(t *testing.T) {
-	assert.Panics(t, func() { fileExp.Config() })
+	config := "round: 10\n" +
+		"path: /tmp/blocks.json\n"
+	err := fileExp.Init(plugins.PluginConfig(config), log.New())
+	assert.NoError(t, err)
+	pluginConfig := fileExp.Config()
+	assert.Equal(t, config, string(pluginConfig))
+	assert.Equal(t, uint64(10), fileExp.Round())
+}
+func TestExporterHandleGenesis(t *testing.T) {
+	assert.Panics(t, func() { fileExp.HandleGenesis(bookkeeping.Genesis{}) })
 }
 
 func TestExporterClose(t *testing.T) {
@@ -36,12 +42,4 @@ func TestExporterClose(t *testing.T) {
 
 func TestExporterReceive(t *testing.T) {
 	assert.Panics(t, func() { fileExp.Receive(data.BlockData{}) })
-}
-
-func TestExporterHandleGenesis(t *testing.T) {
-	assert.Panics(t, func() { fileExp.HandleGenesis(bookkeeping.Genesis{}) })
-}
-
-func TestExporterRound(t *testing.T) {
-	assert.Panics(t, func() { fileExp.Round() })
 }

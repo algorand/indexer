@@ -2,6 +2,9 @@ package filewriter
 
 // ExporterConfig specific to the file exporter
 type ExporterConfig struct {
-	Round         uint64 `yaml:"round"`
-	BlockFilepath string
+	// round to start at
+	Round uint64 `yaml:"round"`
+	// full file path to existing block file.
+	// Create if file doesn't exist
+	BlockFilepath string `yaml:"path"`
 }
