@@ -34,10 +34,11 @@ logger = logging.getLogger(__name__)
 
 # GOOS GOARCH DEB_HOST_ARCH
 osArchArch = [
-    ("linux", "amd64", "amd64"),
-    ("linux", "arm", "armhf"),
-    ("linux", "arm64", "arm64"),
-    ("darwin", "amd64", None),
+    ('linux', 'amd64', 'amd64'),
+    ('linux', 'arm', 'armhf'),
+    ('linux', 'arm64', 'arm64'),
+    ('darwin', 'amd64', None),
+    ('darwin', 'arm64', None),
 ]
 
 channel = "indexer"
