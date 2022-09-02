@@ -65,19 +65,28 @@ func (exp *fileExporter) Config() plugins.PluginConfig {
 }
 
 func (exp *fileExporter) Close() error {
+	exp.logger.Infof("latest round on file: %d", exp.round)
 	if exp.fh != nil {
-		return exp.fh.Close()
+		err := exp.fh.Close()
+		if err != nil {
+			return fmt.Errorf("error closing file %s: %w", exp.fh.Name(), err)
+		}
 	}
 	return nil
 }
 
 func (exp *fileExporter) Receive(exportData data.BlockData) error {
+	if exportData.Round() != exp.round {
+		return fmt.Errorf("wrong block. received round %d, expected round %d", exportData.Round(), exp.round)
+	}
 	//write block to file
 	block, err := json.MarshalIndent(exportData, "", " ")
 	if err != nil {
-		fmt.Errorf("error getting block file stats: %w", err)
+		return fmt.Errorf("error marshal block data: %w", err)
 	}
 	_, err = fmt.Fprintln(exp.fh, block)
+	exp.logger.Infof("Added block %d", exportData.Round())
+	exp.round++
 	return nil
 }
 
@@ -90,7 +99,7 @@ func (exp *fileExporter) HandleGenesis(genesis bookkeeping.Genesis) error {
 	}
 	if size := stat.Size(); size == 0 {
 		// if block file is empty, record genesis hash
-		exp.fh.WriteString(fmt.Sprintf("# Genesis Hash:%s", gh))
+		fmt.Fprintln(exp.fh, fmt.Sprintf("# Genesis Hash:%s", gh))
 	} else {
 		var genesisTag string
 		scanner := bufio.NewScanner(exp.fh)
@@ -103,7 +112,7 @@ func (exp *fileExporter) HandleGenesis(genesis bookkeeping.Genesis) error {
 		}
 		ghFromFile := strings.Split(genesisTag, ":")[1]
 		if ghFromFile != gh {
-			return fmt.Errorf("genesis hash in file %s does not match expected value. genesis hash %s, expected %s ", exp.cfg.BlockFilepath, ghFromFile, gh)
+			return fmt.Errorf("genesis hash in file %s does not match expected value. actual %s, expected %s ", exp.cfg.BlockFilepath, gh, ghFromFile)
 		}
 	}
 	return nil
