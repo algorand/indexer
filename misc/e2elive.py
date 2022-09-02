@@ -89,7 +89,6 @@ def main():
         else:
             tarpath = os.path.join(tempdir, tarname)
         prefix = "indexer/e2e4"
-        print("tarpath: " ,tarpath)
         success = firstFromS3Prefix(s3, bucket, prefix, tarname, outpath=tarpath)
         if not success:
             raise Exception(
