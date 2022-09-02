@@ -45,8 +45,6 @@ jobs:
     parameters:
       go_version:
         type: string
-    environment:
-      CI_E2E_FILE_VERSION: "submodule"
     steps:
       - go/install:
           version: << parameters.go_version >>
@@ -59,8 +57,6 @@ jobs:
     parameters:
       go_version:
         type: string
-    environment:
-      CI_E2E_FILE_VERSION: "latest"
     steps:
       - go/install:
           version: << parameters.go_version >>
