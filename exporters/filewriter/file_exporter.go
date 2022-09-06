@@ -21,7 +21,7 @@ const exporterName = "filewriter"
 
 type fileExporter struct {
 	round  uint64
-	fh     *os.File
+	fd     *os.File
 	cfg    ExporterConfig
 	logger *logrus.Logger
 }
@@ -52,7 +52,7 @@ func (exp *fileExporter) Init(cfg plugins.PluginConfig, logger *logrus.Logger) e
 	if err = exp.unmarhshalConfig(string(cfg)); err != nil {
 		return fmt.Errorf("connect failure in unmarshalConfig: %w", err)
 	}
-	exp.fh, err = os.OpenFile(exp.cfg.BlockFilepath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0755)
+	exp.fd, err = os.OpenFile(exp.cfg.BlockFilepath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0755)
 	if err != nil {
 		return fmt.Errorf("error opening file: %w", err)
 	}
@@ -67,25 +67,28 @@ func (exp *fileExporter) Config() plugins.PluginConfig {
 
 func (exp *fileExporter) Close() error {
 	exp.logger.Infof("latest round on file: %d", exp.round)
-	if exp.fh != nil {
-		err := exp.fh.Close()
+	if exp.fd != nil {
+		err := exp.fd.Close()
 		if err != nil {
-			return fmt.Errorf("error closing file %s: %w", exp.fh.Name(), err)
+			return fmt.Errorf("error closing file %s: %w", exp.fd.Name(), err)
 		}
 	}
 	return nil
 }
 
 func (exp *fileExporter) Receive(exportData data.BlockData) error {
+	if exp.fd == nil {
+		return fmt.Errorf("exporter not initialized")
+	}
 	if exportData.Round() != exp.round {
 		return fmt.Errorf("wrong block. received round %d, expected round %d", exportData.Round(), exp.round)
 	}
 	//write block to file
-	block, err := json.MarshalIndent(exportData, "", " ")
+	blockData, err := json.Marshal(exportData)
 	if err != nil {
-		return fmt.Errorf("error marshal block data: %w", err)
+		return fmt.Errorf("error serializing block data: %w", err)
 	}
-	_, err = fmt.Fprintln(exp.fh, block)
+	_, err = fmt.Fprintln(exp.fd, string(blockData))
 	exp.logger.Infof("Added block %d", exportData.Round())
 	exp.round++
 	return nil
@@ -94,16 +97,16 @@ func (exp *fileExporter) Receive(exportData data.BlockData) error {
 func (exp *fileExporter) HandleGenesis(genesis bookkeeping.Genesis) error {
 	// check genesis hash
 	gh := crypto.HashObj(genesis).String()
-	stat, err := exp.fh.Stat()
+	stat, err := exp.fd.Stat()
 	if err != nil {
 		return fmt.Errorf("error getting block file stats: %w", err)
 	}
 	if size := stat.Size(); size == 0 {
 		// if block file is empty, record genesis hash
-		fmt.Fprintln(exp.fh, fmt.Sprintf("# Genesis Hash:%s", gh))
+		fmt.Fprintln(exp.fd, fmt.Sprintf("# Genesis Hash:%s", gh))
 	} else {
 		var genesisTag string
-		scanner := bufio.NewScanner(exp.fh)
+		scanner := bufio.NewScanner(exp.fd)
 		for scanner.Scan() {
 			genesisTag = scanner.Text()
 			break
