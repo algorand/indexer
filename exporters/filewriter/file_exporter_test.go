@@ -35,6 +35,7 @@ func TestExporterMetadata(t *testing.T) {
 
 func TestExporterConfig(t *testing.T) {
 	fileExp := fileCons.New()
+	assert.Equal(t, uint64(0), fileExp.Round())
 	config := "round: 10\n" +
 		"path: /tmp/blocks1.json\n"
 	// creates a new output file
