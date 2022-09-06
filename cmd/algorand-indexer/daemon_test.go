@@ -2,89 +2,19 @@ package main
 
 import (
 	"bytes"
-	"context"
-	"errors"
 	"fmt"
 	"github.com/algorand/indexer/util"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/pflag"
+	"github.com/stretchr/testify/assert"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
-	"sync"
 	"testing"
-	"time"
-
-	"github.com/sirupsen/logrus/hooks/test"
-	"github.com/spf13/pflag"
-	"github.com/stretchr/testify/assert"
-
-	"github.com/algorand/go-algorand/data/bookkeeping"
-	"github.com/algorand/go-algorand/ledger/ledgercore"
-	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/config"
-	"github.com/algorand/indexer/processors/blockprocessor"
-	itest "github.com/algorand/indexer/util/test"
 )
-
-type mockImporter struct {
-}
-
-var errMockImportBlock = errors.New("invalid round blockCert.Block.Round(): 1234 nextRoundToProcess: 1")
-
-func (imp *mockImporter) ImportBlock(vb *ledgercore.ValidatedBlock) error {
-	return nil
-}
-
-func TestImportRetryAndCancel(t *testing.T) {
-	// connect debug logger
-	nullLogger, hook := test.NewNullLogger()
-	logger = nullLogger
-
-	// cancellable context
-	ctx := context.Background()
-	cctx, cancel := context.WithCancel(ctx)
-
-	// create handler with mock importer and start, it should generate errors until cancelled.
-	imp := &mockImporter{}
-	ledgerLogger, _ := test.NewNullLogger()
-	l, err := itest.MakeTestLedger(ledgerLogger)
-	assert.NoError(t, err)
-	defer l.Close()
-	proc, err := blockprocessor.MakeBlockProcessorWithLedger(logger, l, imp.ImportBlock)
-	assert.Nil(t, err)
-	handler := blockHandler(&proc, imp.ImportBlock, 50*time.Millisecond)
-	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		block := rpcs.EncodedBlockCert{
-			Block: bookkeeping.Block{
-				BlockHeader: bookkeeping.BlockHeader{
-					Round: 1234,
-				},
-			},
-		}
-		handler(cctx, &block)
-	}()
-
-	// accumulate some errors
-	for len(hook.Entries) < 5 {
-		time.Sleep(25 * time.Millisecond)
-	}
-
-	for _, entry := range hook.Entries {
-		assert.Equal(t, entry.Message, "block 1234 import failed")
-
-		tmpStr := entry.Data["error"].(error).Error()
-		assert.Contains(t, tmpStr, errMockImportBlock.Error())
-	}
-
-	// Wait for handler to exit.
-	cancel()
-	wg.Wait()
-}
 
 func createTempDir(t *testing.T) string {
 	dir, err := os.MkdirTemp("", "indexer")

@@ -267,6 +267,7 @@ func TestPipelineRun(t *testing.T) {
 
 	pImpl := pipelineImpl{
 		ctx:          ctx,
+		cf:           cf,
 		cfg:          &PipelineConfig{},
 		logger:       log.New(),
 		initProvider: nil,
@@ -281,10 +282,11 @@ func TestPipelineRun(t *testing.T) {
 		cf()
 	}()
 
-	pImpl.runPipeline()
-	assert.Nil(t, pImpl.Error())
+	pImpl.Start()
+	pImpl.Wait()
+	assert.NoError(t, pImpl.Error())
 
-	assert.Equal(t, mProcessor.finalRound, basics.Round(uniqueBlockData.BlockHeader.Round+1))
+	assert.Equal(t, mProcessor.finalRound, uniqueBlockData.BlockHeader.Round+1)
 
 	mock.AssertExpectationsForObjects(t, &mImporter, &mProcessor, &mExporter)
 
@@ -293,28 +295,14 @@ func TestPipelineRun(t *testing.T) {
 // TestPipelineCpuPidFiles tests that cpu and pid files are created when specified
 func TestPipelineCpuPidFiles(t *testing.T) {
 
-	mImporter := mockImporter{}
-	mImporter.On("GetBlock", mock.Anything).Return(uniqueBlockData, nil)
-	mProcessor := mockProcessor{}
-	processorData := uniqueBlockData
-	processorData.BlockHeader.Round++
-	mProcessor.On("Process", mock.Anything).Return(processorData)
-	mProcessor.On("OnComplete", mock.Anything).Return(nil)
-	mExporter := mockExporter{}
-	mExporter.On("Receive", mock.Anything).Return(nil)
-
-	var pImporter importers.Importer = &mImporter
-	var pProcessor processors.Processor = &mProcessor
-	var pExporter exporters.Exporter = &mExporter
+	var pImporter importers.Importer = &mockImporter{}
+	var pProcessor processors.Processor = &mockProcessor{}
+	var pExporter exporters.Exporter = &mockExporter{}
 
 	pidFilePath := filepath.Join(t.TempDir(), "pidfile")
 	cpuFilepath := filepath.Join(t.TempDir(), "cpufile")
 
-	ctx, cf := context.WithCancel(context.Background())
-
 	pImpl := pipelineImpl{
-		ctx: ctx,
-		cf:  cf,
 		cfg: &PipelineConfig{
 			Importer: NameConfigPair{
 				Name:   "",
@@ -339,8 +327,8 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 		round:        0,
 	}
 
-	err := pImpl.Start()
-	assert.Nil(t, err)
+	err := pImpl.Init()
+	assert.NoError(t, err)
 
 	// Test that file is not created
 	_, err = os.Stat(pidFilePath)
@@ -349,19 +337,13 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 	_, err = os.Stat(cpuFilepath)
 	assert.ErrorIs(t, err, os.ErrNotExist)
 
-	pImpl.Stop()
-
 	// Test that they were created
 
-	ctx, cf = context.WithCancel(context.Background())
-
-	pImpl.ctx = ctx
-	pImpl.cf = cf
 	pImpl.cfg.PIDFilePath = pidFilePath
 	pImpl.cfg.CPUProfile = cpuFilepath
 
-	err = pImpl.Start()
-	assert.Nil(t, err)
+	err = pImpl.Init()
+	assert.NoError(t, err)
 
 	// Test that file is created
 	_, err = os.Stat(cpuFilepath)
@@ -369,8 +351,6 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 
 	_, err = os.Stat(pidFilePath)
 	assert.Nil(t, err)
-
-	pImpl.Stop()
 }
 
 // TestPipelineErrors tests the pipeline erroring out at different stages
@@ -405,40 +385,40 @@ func TestPipelineErrors(t *testing.T) {
 
 	mImporter.returnError = true
 
-	go pImpl.runPipeline()
+	go pImpl.Start()
 	time.Sleep(time.Millisecond)
 	pImpl.cf()
-	pImpl.running.Wait()
+	pImpl.Wait()
 	assert.Error(t, pImpl.Error(), fmt.Errorf("importer"))
 
 	mImporter.returnError = false
 	mProcessor.returnError = true
 	pImpl.ctx, pImpl.cf = context.WithCancel(context.Background())
-	pImpl.err = nil
-	go pImpl.runPipeline()
+	pImpl.setError(nil)
+	go pImpl.Start()
 	time.Sleep(time.Millisecond)
 	pImpl.cf()
-	pImpl.running.Wait()
+	pImpl.Wait()
 	assert.Error(t, pImpl.Error(), fmt.Errorf("process"))
 
 	mProcessor.returnError = false
 	mProcessor.onCompleteError = true
 	pImpl.ctx, pImpl.cf = context.WithCancel(context.Background())
-	pImpl.err = nil
-	go pImpl.runPipeline()
+	pImpl.setError(nil)
+	go pImpl.Start()
 	time.Sleep(time.Millisecond)
 	pImpl.cf()
-	pImpl.running.Wait()
+	pImpl.Wait()
 	assert.Error(t, pImpl.Error(), fmt.Errorf("on complete"))
 
 	mProcessor.onCompleteError = false
 	mExporter.returnError = true
 	pImpl.ctx, pImpl.cf = context.WithCancel(context.Background())
-	pImpl.err = nil
-	go pImpl.runPipeline()
+	pImpl.setError(nil)
+	go pImpl.Start()
 	time.Sleep(time.Millisecond)
 	pImpl.cf()
-	pImpl.running.Wait()
+	pImpl.Wait()
 	assert.Error(t, pImpl.Error(), fmt.Errorf("exporter"))
 
 }

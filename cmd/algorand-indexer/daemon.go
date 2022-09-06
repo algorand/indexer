@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/algorand/indexer/conduit"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -17,21 +16,18 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-algorand/util"
 
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/config"
 	_ "github.com/algorand/indexer/exporters/postgresql"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
 	_ "github.com/algorand/indexer/importers/algod"
-	"github.com/algorand/indexer/processors/blockprocessor"
 	_ "github.com/algorand/indexer/processors/blockprocessor"
 	iutil "github.com/algorand/indexer/util"
-	"github.com/algorand/indexer/util/metrics"
 )
 
 // GetConfigFromDataDir Given the data directory, configuration filename and a list of types, see if
@@ -408,11 +404,12 @@ func runConduitPipeline(ctx context.Context, dbAvailable chan struct{}, dCfg *da
 		logger.Errorf("%v", err)
 		panic(exit{1})
 	}
-	err = pipeline.Start()
+	err = pipeline.Init()
 	if err != nil {
 		logger.Errorf("%v", err)
 		panic(exit{1})
 	}
+	pipeline.Start()
 	return pipeline
 }
 
@@ -479,56 +476,4 @@ func makeOptions(daemonConfig *daemonConfig) (options api.ExtraOptions) {
 	}
 
 	return
-}
-
-// blockHandler creates a handler complying to the fetcher block handler interface. In case of a failure it keeps
-// attempting to add the block until the fetcher shuts down.
-func blockHandler(proc *blockprocessor.BlockProcessor, blockHandler func(block *ledgercore.ValidatedBlock) error, retryDelay time.Duration) func(context.Context, *rpcs.EncodedBlockCert) error {
-	return func(ctx context.Context, block *rpcs.EncodedBlockCert) error {
-		for {
-			err := handleBlock(block, proc, blockHandler)
-			if err == nil {
-				// return on success.
-				return nil
-			}
-
-			// Delay or terminate before next attempt.
-			select {
-			case <-ctx.Done():
-				return err
-			case <-time.After(retryDelay):
-				break
-			}
-		}
-	}
-}
-
-func handleBlock(block *rpcs.EncodedBlockCert, proc *blockprocessor.BlockProcessor, handler func(block *ledgercore.ValidatedBlock) error) error {
-	start := time.Now()
-	f := blockprocessor.MakeBlockProcessorHandlerAdapter(proc, handler)
-	err := f(block)
-	if err != nil {
-		logger.WithError(err).Errorf(
-			"block %d import failed", block.Block.Round())
-		return fmt.Errorf("handleBlock() err: %w", err)
-	}
-	dt := time.Since(start)
-
-	// Ignore round 0 (which is empty).
-	if block.Block.Round() > 0 {
-		metrics.BlockImportTimeSeconds.Observe(dt.Seconds())
-		metrics.ImportedTxnsPerBlock.Observe(float64(len(block.Block.Payset)))
-		metrics.ImportedRoundGauge.Set(float64(block.Block.Round()))
-		txnCountByType := make(map[string]int)
-		for _, txn := range block.Block.Payset {
-			txnCountByType[string(txn.Txn.Type)]++
-		}
-		for k, v := range txnCountByType {
-			metrics.ImportedTxns.WithLabelValues(k).Set(float64(v))
-		}
-	}
-
-	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())
-
-	return nil
 }

@@ -87,23 +87,14 @@ func runConduitCmdWithConfig(cfg *conduit.Config) error {
 		return fmt.Errorf("pipeline creation error: %w", err)
 	}
 
-	// TODO decide if blocking or not
-	err = pipeline.Start()
+	err = pipeline.Init()
 	if err != nil {
-		logger.Errorf("Pipeline start failure: %v", err)
-		return err
+		return fmt.Errorf("pipeline init error: %w", err)
 	}
-
-	// Make sure to call this so we can shutdown if there is an error
+	pipeline.Start()
 	defer pipeline.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		default:
-		}
-	}
+	pipeline.Wait()
+	return pipeline.Error()
 }
 
 // conduitCmd creates the main cobra command, initializes flags, and viper aliases

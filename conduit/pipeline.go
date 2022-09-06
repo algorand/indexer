@@ -3,13 +3,12 @@ package conduit
 import (
 	"context"
 	"fmt"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
 	"runtime/pprof"
 	"sync"
-
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand/data/basics"
@@ -122,19 +121,22 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 // sequence of events, taking in importers, processors and
 // exporters and generating the result
 type Pipeline interface {
-	Start() error
+	Init() error
+	Start()
 	Stop()
 	Error() error
+	Wait()
 }
 
 type pipelineImpl struct {
 	ctx      context.Context
 	cf       context.CancelFunc
-	running  sync.WaitGroup
+	wg       sync.WaitGroup
 	cfg      *PipelineConfig
 	logger   *log.Logger
-	err      error
 	profFile *os.File
+	err      error
+	mu       sync.RWMutex
 
 	initProvider *data.InitProvider
 
@@ -145,10 +147,19 @@ type pipelineImpl struct {
 }
 
 func (p *pipelineImpl) Error() error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	return p.err
 }
 
-func (p *pipelineImpl) Start() error {
+func (p *pipelineImpl) setError(err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.err = err
+}
+
+// Init prepares the pipeline for processing block data
+func (p *pipelineImpl) Init() error {
 	p.logger.Infof("Starting Pipeline Initialization")
 
 	if p.cfg.CPUProfile != "" {
@@ -226,13 +237,12 @@ func (p *pipelineImpl) Start() error {
 		p.logger.Infof("Initialized Processor: %s", processorName)
 	}
 
-	go p.runPipeline()
 	return err
 }
 
 func (p *pipelineImpl) Stop() {
 	p.cf()
-	p.running.Wait()
+	p.wg.Wait()
 
 	if p.profFile != nil {
 		if err := p.profFile.Close(); err != nil {
@@ -264,58 +274,63 @@ func (p *pipelineImpl) Stop() {
 	}
 }
 
-// runPipeline pushes block data through the pipeline
-func (p *pipelineImpl) runPipeline() {
-	p.running.Add(1)
-	p.err = nil
-	defer p.running.Done()
-	for {
-	pipelineRun:
-		select {
-		case <-p.ctx.Done():
-			return
-		default:
-			{
-				p.logger.Infof("Pipeline round: %v", p.round)
-				// fetch block
-				blkData, err := (*p.importer).GetBlock(uint64(p.round))
-				if err != nil {
-					p.logger.Errorf("%v", err)
-					p.err = err
-					goto pipelineRun
-				}
-				// run through processors
-				for _, proc := range p.processors {
-					blkData, err = (*proc).Process(blkData)
+// Start pushes block data through the pipeline
+func (p *pipelineImpl) Start() {
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		for {
+		pipelineRun:
+			select {
+			case <-p.ctx.Done():
+				return
+			default:
+				{
+					p.logger.Infof("Pipeline round: %v", p.round)
+					// fetch block
+					blkData, err := (*p.importer).GetBlock(uint64(p.round))
 					if err != nil {
 						p.logger.Errorf("%v", err)
-						p.err = err
+						p.setError(err)
 						goto pipelineRun
 					}
-				}
-				// run through exporter
-				err = (*p.exporter).Receive(blkData)
-				if err != nil {
-					p.logger.Errorf("%v", err)
-					p.err = err
-					goto pipelineRun
-				}
-				// Callback Processors
-				for _, proc := range p.processors {
-					err = (*proc).OnComplete(blkData)
+					// run through processors
+					for _, proc := range p.processors {
+						blkData, err = (*proc).Process(blkData)
+						if err != nil {
+							p.logger.Errorf("%v", err)
+							p.setError(err)
+							goto pipelineRun
+						}
+					}
+					// run through exporter
+					err = (*p.exporter).Receive(blkData)
 					if err != nil {
 						p.logger.Errorf("%v", err)
-						p.err = err
+						p.setError(err)
 						goto pipelineRun
 					}
+					// Callback Processors
+					for _, proc := range p.processors {
+						err = (*proc).OnComplete(blkData)
+						if err != nil {
+							p.logger.Errorf("%v", err)
+							p.setError(err)
+							goto pipelineRun
+						}
+					}
+					// Increment Round
+					p.setError(nil)
+					p.round++
 				}
-				// Increment Round
-				p.err = nil
-				p.round++
 			}
-		}
 
-	}
+		}
+	}()
+}
+
+func (p *pipelineImpl) Wait() {
+	p.wg.Wait()
 }
 
 // MakePipeline creates a Pipeline
