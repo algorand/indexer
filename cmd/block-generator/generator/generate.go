@@ -352,9 +352,9 @@ func (g *generator) WriteBlock(output io.Writer, round uint64) error {
 		UpgradeState: bookkeeping.UpgradeState{
 			CurrentProtocol: g.protocol,
 		},
-		UpgradeVote: bookkeeping.UpgradeVote{},
-		TxnCounter:  g.txnCounter + numTxnForBlock,
-		CompactCert: nil,
+		UpgradeVote:        bookkeeping.UpgradeVote{},
+		TxnCounter:         g.txnCounter + numTxnForBlock,
+		StateProofTracking: nil,
 	}
 
 	// Generate the transactions

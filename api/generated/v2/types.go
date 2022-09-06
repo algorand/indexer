@@ -330,6 +330,9 @@ type Block struct {
 	// \[seed\] Sortition seed.
 	Seed []byte `json:"seed"`
 
+	// Tracks the status of state proofs.
+	StateProofTracking *[]StateProofTracking `json:"state-proof-tracking,omitempty"`
+
 	// \[ts\] Block creation timestamp in seconds since eposh
 	Timestamp uint64 `json:"timestamp"`
 
@@ -338,6 +341,9 @@ type Block struct {
 
 	// \[txn\] TransactionsRoot authenticates the set of transactions appearing in the block. More specifically, it's the root of a merkle tree whose leaves are the block's Txids, in lexicographic order. For the empty block, it's 0. Note that the TxnRoot does not authenticate the signatures on the transactions, only the transactions themselves. Two blocks with the same transactions but in a different order and with different signatures will have the same TxnRoot.
 	TransactionsRoot []byte `json:"transactions-root"`
+
+	// \[txn256\] TransactionsRootSHA256 is an auxiliary TransactionRoot, built using a vector commitment instead of a merkle tree, and SHA256 hash function instead of the default SHA512_256. This commitment can be used on environments where only the SHA256 function exists.
+	TransactionsRootSha256 []byte `json:"transactions-root-sha256"`
 
 	// \[tc\] TxnCounter counts the number of transactions committed in the ledger, from the time at which support for this feature was introduced.
 	//
@@ -426,6 +432,13 @@ type EvalDeltaKeyValue struct {
 	Value EvalDelta `json:"value"`
 }
 
+// HashFactory defines model for HashFactory.
+type HashFactory struct {
+
+	// \[t\]
+	HashType *uint64 `json:"hash-type,omitempty"`
+}
+
 // Hashtype defines model for Hashtype.
 type Hashtype string
 
@@ -440,6 +453,36 @@ type HealthCheck struct {
 
 	// Current version.
 	Version string `json:"version"`
+}
+
+// IndexerStateProofMessage defines model for IndexerStateProofMessage.
+type IndexerStateProofMessage struct {
+
+	// \[b\]
+	BlockHeadersCommitment *[]byte `json:"block-headers-commitment,omitempty"`
+
+	// \[f\]
+	FirstAttestedRound *uint64 `json:"first-attested-round,omitempty"`
+
+	// \[l\]
+	LatestAttestedRound *uint64 `json:"latest-attested-round,omitempty"`
+
+	// \[P\]
+	LnProvenWeight *uint64 `json:"ln-proven-weight,omitempty"`
+
+	// \[v\]
+	VotersCommitment *[]byte `json:"voters-commitment,omitempty"`
+}
+
+// MerkleArrayProof defines model for MerkleArrayProof.
+type MerkleArrayProof struct {
+	HashFactory *HashFactory `json:"hash-factory,omitempty"`
+
+	// \[pth\]
+	Path *[][]byte `json:"path,omitempty"`
+
+	// \[td\]
+	TreeDepth *uint64 `json:"tree-depth,omitempty"`
 }
 
 // MiniAssetHolding defines model for MiniAssetHolding.
@@ -463,6 +506,88 @@ type OnCompletion string
 
 // StateDelta defines model for StateDelta.
 type StateDelta []EvalDeltaKeyValue
+
+// StateProofFields defines model for StateProofFields.
+type StateProofFields struct {
+	PartProofs *MerkleArrayProof `json:"part-proofs,omitempty"`
+
+	// \[pr\] Sequence of reveal positions.
+	PositionsToReveal *[]uint64 `json:"positions-to-reveal,omitempty"`
+
+	// \[r\] Note that this is actually stored as a map[uint64] - Reveal in the actual msgp
+	Reveals *[]StateProofReveal `json:"reveals,omitempty"`
+
+	// \[v\] Salt version of the merkle signature.
+	SaltVersion *uint64 `json:"salt-version,omitempty"`
+
+	// \[c\]
+	SigCommit *[]byte           `json:"sig-commit,omitempty"`
+	SigProofs *MerkleArrayProof `json:"sig-proofs,omitempty"`
+
+	// \[w\]
+	SignedWeight *uint64 `json:"signed-weight,omitempty"`
+}
+
+// StateProofParticipant defines model for StateProofParticipant.
+type StateProofParticipant struct {
+	Verifier *StateProofVerifier `json:"verifier,omitempty"`
+
+	// \[w\]
+	Weight *uint64 `json:"weight,omitempty"`
+}
+
+// StateProofReveal defines model for StateProofReveal.
+type StateProofReveal struct {
+	Participant *StateProofParticipant `json:"participant,omitempty"`
+
+	// The position in the signature and participants arrays corresponding to this entry.
+	Position *uint64            `json:"position,omitempty"`
+	SigSlot  *StateProofSigSlot `json:"sig-slot,omitempty"`
+}
+
+// StateProofSigSlot defines model for StateProofSigSlot.
+type StateProofSigSlot struct {
+
+	// \[l\] The total weight of signatures in the lower-numbered slots.
+	LowerSigWeight *uint64              `json:"lower-sig-weight,omitempty"`
+	Signature      *StateProofSignature `json:"signature,omitempty"`
+}
+
+// StateProofSignature defines model for StateProofSignature.
+type StateProofSignature struct {
+	FalconSignature  *[]byte           `json:"falcon-signature,omitempty"`
+	MerkleArrayIndex *uint64           `json:"merkle-array-index,omitempty"`
+	Proof            *MerkleArrayProof `json:"proof,omitempty"`
+
+	// \[vkey\]
+	VerifyingKey *[]byte `json:"verifying-key,omitempty"`
+}
+
+// StateProofTracking defines model for StateProofTracking.
+type StateProofTracking struct {
+
+	// \[n\] Next round for which we will accept a state proof transaction.
+	NextRound *uint64 `json:"next-round,omitempty"`
+
+	// \[t\] The total number of microalgos held by the online accounts during the StateProof round.
+	OnlineTotalWeight *uint64 `json:"online-total-weight,omitempty"`
+
+	// State Proof Type. Note the raw object uses map with this as key.
+	Type *uint64 `json:"type,omitempty"`
+
+	// \[v\] Root of a vector commitment containing online accounts that will help sign the proof.
+	VotersCommitment *[]byte `json:"voters-commitment,omitempty"`
+}
+
+// StateProofVerifier defines model for StateProofVerifier.
+type StateProofVerifier struct {
+
+	// \[cmt\] Represents the root of the vector commitment tree.
+	Commitment *[]byte `json:"commitment,omitempty"`
+
+	// \[lf\] Key lifetime.
+	KeyLifetime *uint64 `json:"key-lifetime,omitempty"`
+}
 
 // StateSchema defines model for StateSchema.
 type StateSchema struct {
@@ -619,6 +744,12 @@ type Transaction struct {
 	// Validation signature associated with some data. Only one of the signatures should be provided.
 	Signature *TransactionSignature `json:"signature,omitempty"`
 
+	// Fields for a state proof transaction.
+	//
+	// Definition:
+	// data/transactions/stateproof.go : StateProofTxnFields
+	StateProofTransaction *TransactionStateProof `json:"state-proof-transaction,omitempty"`
+
 	// \[type\] Indicates what type of transaction this is. Different types have different fields.
 	//
 	// Valid types, and where their fields are stored:
@@ -628,6 +759,7 @@ type Transaction struct {
 	// * \[axfer\] asset-transfer-transaction
 	// * \[afrz\] asset-freeze-transaction
 	// * \[appl\] application-transaction
+	// * \[stpf\] state-proof-transaction
 	TxType string `json:"tx-type"`
 }
 
@@ -827,6 +959,20 @@ type TransactionSignatureMultisigSubsignature struct {
 
 	// \[s\]
 	Signature *[]byte `json:"signature,omitempty"`
+}
+
+// TransactionStateProof defines model for TransactionStateProof.
+type TransactionStateProof struct {
+	Message *IndexerStateProofMessage `json:"message,omitempty"`
+
+	// \[sp\] represents a state proof.
+	//
+	// Definition:
+	// crypto/stateproof/structs.go : StateProof
+	StateProof *StateProofFields `json:"state-proof,omitempty"`
+
+	// \[sptype\] Type of the state proof. Integer representing an entry defined in protocol/stateproof.go
+	StateProofType *uint64 `json:"state-proof-type,omitempty"`
 }
 
 // AccountId defines model for account-id.

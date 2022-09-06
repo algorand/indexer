@@ -1,5 +1,15 @@
-| master <br> [![CircleCI](https://circleci.com/gh/algorand/indexer/tree/master.svg?style=svg)](https://circleci.com/gh/algorand/indexer/tree/master) | develop <br> [![CircleCI](https://circleci.com/gh/algorand/indexer/tree/develop.svg?style=svg)](https://circleci.com/gh/algorand/indexer/tree/develop) |
-| --- | --- |
+<div style="text-align:center" align="center">
+  <picture>
+    <img src="./docs/assets/algorand_logo_mark_black.svg" alt="Algorand" width="400">
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/assets/algorand_logo_mark_white.svg">
+    <source media="(prefers-color-scheme: light)" srcset="./docs/assets/algorand_logo_mark_black.svg">
+  </picture>
+
+[![CircleCI](https://img.shields.io/circleci/build/github/algorand/indexer/develop?label=develop)](https://circleci.com/gh/algorand/indexer/tree/develop)
+[![CircleCI](https://img.shields.io/circleci/build/github/algorand/indexer/master?label=master)](https://circleci.com/gh/algorand/indexer/tree/master)
+![Github](https://img.shields.io/github/license/algorand/indexer)
+[![Contribute](https://img.shields.io/badge/contributor-guide-blue?logo=github)](https://github.com/algorand/go-algorand/blob/master/CONTRIBUTING.md)
+</div>
 
 # Algorand Indexer
 

@@ -7,6 +7,7 @@ services:
       dockerfile: ./misc/Dockerfile    
     environment:
       CONNECTION_STRING: "host=e2e-db port=5432 user=algorand password=algorand dbname=indexer_db sslmode=disable"
+      CI_E2E_FILENAME: "rel-nightly"
 
   e2e-db:
     image: "postgres:13-alpine"
