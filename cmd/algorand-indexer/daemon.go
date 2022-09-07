@@ -32,6 +32,32 @@ import (
 	"github.com/algorand/indexer/util/metrics"
 )
 
+// GetConfigFromDataDir Given the data directory, configuration filename and a list of types, see if
+// a configuration file that matches was located there.  If no configuration file was there then an
+// empty string is returned.  If more than one filetype was matched, an error is returned.
+func GetConfigFromDataDir(dataDirectory string, configFilename string, configFileTypes []string) (string, error) {
+	count := 0
+	fullPath := ""
+	var err error
+
+	for _, configFileType := range configFileTypes {
+		autoloadParamConfigPath := filepath.Join(dataDirectory, configFilename+"."+configFileType)
+		if util.FileExists(autoloadParamConfigPath) {
+			count++
+			fullPath = autoloadParamConfigPath
+		}
+	}
+
+	if count > 1 {
+		return "", fmt.Errorf("config filename (%s) in data directory (%s) matched more than one filetype: %v",
+			configFilename, dataDirectory, configFileTypes)
+	}
+
+	// if count == 0 then the fullpath will be set to "" and error will be nil
+	// if count == 1 then it fullpath will be correct
+	return fullPath, err
+}
+
 type daemonConfig struct {
 	flags                     *pflag.FlagSet
 	algodDataDir              string
@@ -146,17 +172,22 @@ func configureIndexerDataDir(indexerDataDir string) error {
 func loadIndexerConfig(indexerDataDir string, configFile string) error {
 	var err error
 	var resolvedConfigPath string
-	indexerConfigAutoLoadPath := filepath.Join(indexerDataDir, autoLoadIndexerConfigName)
-	indexerConfigFound := util.FileExists(indexerConfigAutoLoadPath)
+	potentialIndexerConfigPath, err := GetConfigFromDataDir(indexerDataDir, autoLoadIndexerConfigFileName, config.FileTypes[:])
+	if err != nil {
+		logger.Error(err)
+		return err
+	}
+	indexerConfigFound := potentialIndexerConfigPath != ""
+
 	if indexerConfigFound {
 		//autoload
 		if configFile != "" {
 			err = fmt.Errorf("indexer configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
-				indexerConfigAutoLoadPath)
+				potentialIndexerConfigPath)
 			logger.Error(err)
 			return err
 		}
-		resolvedConfigPath = indexerConfigAutoLoadPath
+		resolvedConfigPath = potentialIndexerConfigPath
 	} else if configFile != "" {
 		// user specified
 		resolvedConfigPath = configFile
@@ -188,17 +219,21 @@ func loadIndexerParamConfig(cfg *daemonConfig) error {
 		logger.WithError(err).Errorf("API Parameter Error: %v", err)
 		return err
 	}
-	autoloadParamConfigPath := filepath.Join(cfg.indexerDataDir, autoLoadParameterConfigName)
-	paramConfigFound := util.FileExists(autoloadParamConfigPath)
+	potentialParamConfigPath, err := GetConfigFromDataDir(cfg.indexerDataDir, autoLoadParameterConfigFileName, config.FileTypes[:])
+	if err != nil {
+		logger.Error(err)
+		return err
+	}
+	paramConfigFound := potentialParamConfigPath != ""
 	// If we auto-loaded configs but a user supplied them as well, we have an error
 	if paramConfigFound {
 		if cfg.suppliedAPIConfigFile != "" {
 			err = fmt.Errorf("api parameter configuration was found in data directory (%s) as well as supplied via command line.  Only provide one",
-				filepath.Join(cfg.indexerDataDir, autoLoadParameterConfigName))
+				potentialParamConfigPath)
 			logger.WithError(err).Errorf("indexer parameter config error: %v", err)
 			return err
 		}
-		cfg.suppliedAPIConfigFile = autoloadParamConfigPath
+		cfg.suppliedAPIConfigFile = potentialParamConfigPath
 		logger.Infof("Auto-loading parameter configuration file: %s", suppliedAPIConfigFile)
 	}
 	return err

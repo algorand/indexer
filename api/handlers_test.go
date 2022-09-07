@@ -628,6 +628,15 @@ func TestFetchTransactions(t *testing.T) {
 				loadTransactionFromFile("test_resources/state_proof.response"),
 			},
 		},
+		{
+			name: "State Proof Txn - High Reveal Index",
+			txnBytes: [][]byte{
+				loadResourceFileOrPanic("test_resources/state_proof_with_index.txn"),
+			},
+			response: []generated.Transaction{
+				loadTransactionFromFile("test_resources/state_proof_with_index.response"),
+			},
+		},
 	}
 
 	// use for the brach below and createTxn helper func to add a new test case
@@ -1269,6 +1278,11 @@ func TestFetchBlock(t *testing.T) {
 			name:       "State Proof Block",
 			blockBytes: loadResourceFileOrPanic("test_resources/stpf_block.block"),
 			expected:   loadBlockFromFile("test_resources/stpf_block_response.json"),
+		},
+		{
+			name:       "State Proof Block - High Reveal Index",
+			blockBytes: loadResourceFileOrPanic("test_resources/stpf_block_high_index.block"),
+			expected:   loadBlockFromFile("test_resources/stpf_block_high_index_response.json"),
 		},
 	}
 

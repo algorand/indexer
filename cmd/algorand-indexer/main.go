@@ -22,8 +22,8 @@ import (
 	"github.com/algorand/indexer/version"
 )
 
-const autoLoadIndexerConfigName = config.FileName + "." + config.FileType
-const autoLoadParameterConfigName = "api_config.yml"
+const autoLoadIndexerConfigFileName = config.FileName
+const autoLoadParameterConfigFileName = "api_config"
 
 // Calling os.Exit() directly will not honor any defer'd statements.
 // Instead, we will create an exit type and handler so that we may panic
@@ -135,7 +135,8 @@ func init() {
 
 	// Setup configuration file
 	viper.SetConfigName(config.FileName)
-	viper.SetConfigType(config.FileType)
+	// just hard-code yaml since we support multiple yaml filetypes
+	viper.SetConfigType("yaml")
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
 	if err := viper.ReadInConfig(); err != nil {
