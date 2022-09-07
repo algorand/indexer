@@ -1176,6 +1176,12 @@
             "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
             "type": "string"
           },
+          "transactions-root-sha256": {
+            "description": "\\[txn256\\] TransactionsRootSHA256 is an auxiliary TransactionRoot, built using a vector commitment instead of a merkle tree, and SHA256 hash function instead of the default SHA512_256. This commitment can be used on environments where only the SHA256 function exists.",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
           "txn-counter": {
             "description": "\\[tc\\] TxnCounter counts the number of transactions committed in the ledger, from the time at which support for this feature was introduced.\n\nSpecifically, TxnCounter is the number of the next transaction that will be committed after this block.  It is 0 when no transactions have ever been committed (since TxnCounter started being supported).",
             "type": "integer"
@@ -1194,7 +1200,8 @@
           "round",
           "seed",
           "timestamp",
-          "transactions-root"
+          "transactions-root",
+          "transactions-root-sha256"
         ],
         "type": "object"
       },
@@ -1378,6 +1385,38 @@
         ],
         "type": "object"
       },
+      "IndexerStateProofMessage": {
+        "properties": {
+          "block-headers-commitment": {
+            "description": "\\[b\\]",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          },
+          "first-attested-round": {
+            "description": "\\[f\\]",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "latest-attested-round": {
+            "description": "\\[l\\]",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "ln-proven-weight": {
+            "description": "\\[P\\]",
+            "type": "integer",
+            "x-algorand-format": "uint64"
+          },
+          "voters-commitment": {
+            "description": "\\[v\\]",
+            "format": "byte",
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "MerkleArrayProof": {
         "properties": {
           "hash-factory": {
@@ -1454,7 +1493,7 @@
         },
         "type": "array"
       },
-      "StateProof": {
+      "StateProofFields": {
         "description": "\\[sp\\] represents a state proof.\n\nDefinition:\ncrypto/stateproof/structs.go : StateProof",
         "properties": {
           "part-proofs": {
@@ -1492,38 +1531,6 @@
             "description": "\\[w\\]",
             "type": "integer",
             "x-algorand-format": "uint64"
-          }
-        },
-        "type": "object"
-      },
-      "StateProofMessage": {
-        "properties": {
-          "block-headers-commitment": {
-            "description": "\\[b\\]",
-            "format": "byte",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": "string"
-          },
-          "first-attested-round": {
-            "description": "\\[f\\]",
-            "type": "integer",
-            "x-algorand-format": "uint64"
-          },
-          "latest-attested-round": {
-            "description": "\\[l\\]",
-            "type": "integer",
-            "x-algorand-format": "uint64"
-          },
-          "ln-proven-weight": {
-            "description": "\\[P\\]",
-            "type": "integer",
-            "x-algorand-format": "uint64"
-          },
-          "voters-commitment": {
-            "description": "\\[v\\]",
-            "format": "byte",
-            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$",
-            "type": "string"
           }
         },
         "type": "object"
@@ -2171,10 +2178,10 @@
         "description": "Fields for a state proof transaction. \n\nDefinition:\ndata/transactions/stateproof.go : StateProofTxnFields",
         "properties": {
           "message": {
-            "$ref": "#/components/schemas/StateProofMessage"
+            "$ref": "#/components/schemas/IndexerStateProofMessage"
           },
           "state-proof": {
-            "$ref": "#/components/schemas/StateProof"
+            "$ref": "#/components/schemas/StateProofFields"
           },
           "state-proof-type": {
             "description": "\\[sptype\\] Type of the state proof. Integer representing an entry defined in protocol/stateproof.go",
