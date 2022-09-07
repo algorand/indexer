@@ -1227,7 +1227,7 @@ type SearchForAccountsParams struct {
 	// Include accounts configured to use this spending key.
 	AuthAddr *string `json:"auth-addr,omitempty"`
 
-	// Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.
+	// Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations. Using application-id or asset-id filters will return both creator and opt-in accounts. Filtering by include-all will return creator and opt-in accounts for deleted assets and accounts. Non-opt-in managers are not included in the results when asset-id is used.
 	Round *uint64 `json:"round,omitempty"`
 
 	// Application ID
