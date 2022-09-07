@@ -3,6 +3,7 @@ package filewriter_test
 import (
 	"bufio"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -144,10 +145,14 @@ func TestExporterReceive(t *testing.T) {
 }
 
 func TestExporterClose(t *testing.T) {
+	configsPath := "/tmp/exporter/configs.yml"
+	f, err := os.OpenFile(configsPath, os.O_CREATE|os.O_WRONLY, 0755)
+	assert.NoError(t, err)
+	defer f.Close()
 	fileExp := fileCons.New()
 	config := "round: 13\n" +
 		"path: /tmp/blocks3.json\n" +
-		"configs: /tmp/exporter/configs.yml"
+		fmt.Sprintf("configs: %s", configsPath)
 	fileExp.Init(plugins.PluginConfig(config), logger)
 	block := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{
@@ -158,10 +163,10 @@ func TestExporterClose(t *testing.T) {
 		Certificate: nil,
 	}
 	fileExp.Receive(block)
-	err := fileExp.Close()
+	err = fileExp.Close()
 	assert.NoError(t, err)
 	// assert round is updated correctly
-	configs, err := ioutil.ReadFile("/tmp/exporter/configs.yml")
+	configs, err := ioutil.ReadFile(configsPath)
 	assert.NoError(t, err)
 	var exporterConfig filewriter.ExporterConfig
 	err = yaml.Unmarshal(configs, &exporterConfig)
