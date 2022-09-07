@@ -145,7 +145,7 @@ func TestExporterReceive(t *testing.T) {
 }
 
 func TestExporterClose(t *testing.T) {
-	configsPath := "/tmp/exporter/configs.yml"
+	configsPath := "/tmp/configs.yml"
 	f, err := os.OpenFile(configsPath, os.O_CREATE|os.O_WRONLY, 0755)
 	assert.NoError(t, err)
 	defer f.Close()
