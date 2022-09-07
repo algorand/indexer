@@ -544,6 +544,7 @@ func MakeAppCallWithInnerAppCall(appSender basics.Address) transactions.SignedTx
 // MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
 func MakeBlockForTxns(prevHeader bookkeeping.BlockHeader, inputs ...*transactions.SignedTxnWithAD) (bookkeeping.Block, error) {
 	res := bookkeeping.MakeBlock(prevHeader)
+
 	res.RewardsState = bookkeeping.RewardsState{
 		FeeSink:     FeeAddr,
 		RewardsPool: RewardAddr,
