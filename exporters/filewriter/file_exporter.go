@@ -67,6 +67,9 @@ func (exp *fileExporter) Config() plugins.PluginConfig {
 
 func (exp *fileExporter) Close() error {
 	exp.logger.Infof("latest round on file: %d", exp.round)
+	if err := updateRoundInConfigs(exp.cfg.ConfigFilePath, exp.cfg, exp.round); err != nil {
+		exp.logger.Warnf("unable to update round in configuration file %s", exp.cfg.ConfigFilePath)
+	}
 	if exp.fd != nil {
 		err := exp.fd.Close()
 		if err != nil {
@@ -132,4 +135,24 @@ func (exp *fileExporter) unmarhshalConfig(cfg string) error {
 
 func init() {
 	exporters.RegisterExporter(exporterName, &Constructor{})
+}
+
+func updateRoundInConfigs(path string, cfg ExporterConfig, round uint64) error {
+	fd, err := os.OpenFile(path, os.O_WRONLY, 0755)
+	if err != nil {
+		return fmt.Errorf("error opening file: %w", err)
+	}
+	defer fd.Close()
+	exporterConfigs := ExporterConfig{
+		Round:          round,
+		BlockFilepath:  cfg.ConfigFilePath,
+		ConfigFilePath: cfg.ConfigFilePath,
+	}
+
+	ret, _ := yaml.Marshal(exporterConfigs)
+	_, err = fd.WriteString(string(ret))
+	if err != nil {
+		return fmt.Errorf("error writing configurations: %w", err)
+	}
+	return nil
 }

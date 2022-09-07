@@ -3,6 +3,7 @@ package filewriter_test
 import (
 	"bufio"
 	"encoding/json"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 var logger *logrus.Logger
@@ -141,9 +143,25 @@ func TestExporterReceive(t *testing.T) {
 func TestExporterClose(t *testing.T) {
 	fileExp := fileCons.New()
 	config := "round: 13\n" +
-		"path: /tmp/blocks3.json\n"
+		"path: /tmp/blocks3.json\n" +
+		"configs: /tmp/exporter/configs.yml"
 	fileExp.Init(plugins.PluginConfig(config), logger)
+	block := data.BlockData{
+		BlockHeader: bookkeeping.BlockHeader{
+			Round: 13,
+		},
+		Payset:      nil,
+		Delta:       nil,
+		Certificate: nil,
+	}
+	fileExp.Receive(block)
 	err := fileExp.Close()
 	assert.NoError(t, err)
-	assert.Equal(t, uint64(13), fileExp.Round())
+	// assert round is updated correctly
+	configs, err := ioutil.ReadFile("/tmp/exporter/configs.yml")
+	assert.NoError(t, err)
+	var exporterConfig filewriter.ExporterConfig
+	err = yaml.Unmarshal(configs, &exporterConfig)
+	assert.NoError(t, err)
+	assert.Equal(t, uint64(14), exporterConfig.Round)
 }

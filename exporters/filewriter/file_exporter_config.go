@@ -7,4 +7,6 @@ type ExporterConfig struct {
 	// full file path to existing block file.
 	// Create if file doesn't exist
 	BlockFilepath string `yaml:"path"`
+	// full file path to a configuration file.
+	ConfigFilePath string `yaml:"configs"`
 }
