@@ -1522,6 +1522,9 @@
         },
         "upgrade-vote": {
           "$ref": "#/definitions/BlockUpgradeVote"
+        },
+        "participation-updates": {
+          "$ref": "#/definitions/ParticipationUpdates"
         }
       }
     },
@@ -1607,6 +1610,19 @@
         "upgrade-propose": {
           "description": "\\[upgradeprop\\] Indicates a proposed upgrade.",
           "type": "string"
+        }
+      }
+    },
+    "ParticipationUpdates": {
+      "description": "Participation account data that needs to be checked/acted on by the network.",
+      "type": "object",
+      "properties": {
+        "expired-participation-accounts": {
+          "description": "\\[partupdrmv\\] a list of online accounts that needs to be converted to offline since their participation key expired.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },

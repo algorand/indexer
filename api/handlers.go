@@ -1129,6 +1129,14 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 			UpgradePropose: strPtr(string(blockHeader.UpgradePropose)),
 		}
 
+		addrs := make([]string, len(blockHeader.ExpiredParticipationAccounts))
+		for i := 0; i < len(addrs); i++ {
+			addrs[i] = blockHeader.ExpiredParticipationAccounts[i].String()
+		}
+		partUpdates := generated.ParticipationUpdates{
+			ExpiredParticipationAccounts: strArrayPtr(addrs),
+		}
+
 		// order these so they're deterministic
 		orderedTrackingTypes := make([]protocol.StateProofType, len(blockHeader.StateProofTracking))
 		trackingArray := make([]generated.StateProofTracking, len(blockHeader.StateProofTracking))
@@ -1152,6 +1160,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 		ret = generated.Block{
 			GenesisHash:            blockHeader.GenesisHash[:],
 			GenesisId:              blockHeader.GenesisID,
+			ParticipationUpdates:   &partUpdates,
 			PreviousBlockHash:      blockHeader.Branch[:],
 			Rewards:                &rewards,
 			Round:                  uint64(blockHeader.Round),

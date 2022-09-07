@@ -2,13 +2,14 @@ package test
 
 import (
 	"fmt"
+	"math/rand"
+
 	"github.com/algorand/go-algorand/config"
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
-	"math/rand"
 )
 
 var (
@@ -543,7 +544,6 @@ func MakeAppCallWithInnerAppCall(appSender basics.Address) transactions.SignedTx
 // MakeBlockForTxns takes some transactions and constructs a block compatible with the indexer import function.
 func MakeBlockForTxns(prevHeader bookkeeping.BlockHeader, inputs ...*transactions.SignedTxnWithAD) (bookkeeping.Block, error) {
 	res := bookkeeping.MakeBlock(prevHeader)
-
 	res.RewardsState = bookkeeping.RewardsState{
 		FeeSink:     FeeAddr,
 		RewardsPool: RewardAddr,

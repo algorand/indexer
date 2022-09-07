@@ -1428,3 +1428,47 @@ func TestLookupMultiInnerLogs(t *testing.T) {
 		})
 	}
 }
+
+func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
+	db, shutdownFunc, proc, l := setupIdb(t, test.MakeGenesis())
+	defer shutdownFunc()
+	defer l.Close()
+
+	///////////
+	// Given // a DB with a block containing expired participation accounts.
+	///////////
+	appCreate := test.MakeCreateAppTxn(test.AccountA)
+	block, err := test.MakeBlockForTxns(test.MakeGenesisBlock().BlockHeader, &appCreate)
+	block.ExpiredParticipationAccounts = append(block.ExpiredParticipationAccounts, test.AccountB, test.AccountC)
+	require.NoError(t, err)
+	err = proc.Process(&rpcs.EncodedBlockCert{Block: block})
+	require.NoError(t, err)
+
+	////////////
+	// When // We query for a block containing expired participation accounts.
+	////////////
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	c.SetPath("/v2/blocks/:round-number")
+	c.SetParamNames("round-number")
+	c.SetParamValues(strconv.Itoa(1))
+
+	api := testServerImplementation(db)
+	err = api.LookupBlock(c, 1)
+	require.NoError(t, err)
+
+	////////////
+	// Then // A 200 gets returned and expired participation accounts match the expected accounts.
+	////////////
+	require.Equal(t, http.StatusOK, rec.Code)
+	var response generated.Block
+	fmt.Println(rec.Body.String())
+	err = json.Decode(rec.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.NotNil(t, response.ParticipationUpdates)
+	expiredPartAccts := *response.ParticipationUpdates.ExpiredParticipationAccounts
+	assert.Equal(t, test.AccountB.String(), expiredPartAccts[0])
+	assert.Equal(t, test.AccountC.String(), expiredPartAccts[1])
+}
