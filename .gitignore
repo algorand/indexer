@@ -31,6 +31,9 @@ __pycache__
 # jetbrains IDE
 .idea
 
+# VS Code
+.vscode
+
 .deb_tmp
 .tar_tmp
 *.deb
