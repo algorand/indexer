@@ -46,7 +46,7 @@ jobs:
       go_version:
         type: string
     environment:
-      CI_E2E_FILENAME: "fafa8862/rel-nightly"
+      CI_E2E_FILENAME: "feature-avm-box"
     steps:
       - go/install:
           version: << parameters.go_version >>
