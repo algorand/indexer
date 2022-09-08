@@ -1464,7 +1464,6 @@ func TestFetchBlockWithExpiredPartAccts(t *testing.T) {
 	////////////
 	require.Equal(t, http.StatusOK, rec.Code)
 	var response generated.Block
-	fmt.Println(rec.Body.String())
 	err = json.Decode(rec.Body.Bytes(), &response)
 	assert.NoError(t, err)
 	assert.NotNil(t, response.ParticipationUpdates)
