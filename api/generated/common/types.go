@@ -91,12 +91,6 @@ type Account struct {
 	// The count of all assets that have been opted in, equivalent to the count of AssetHolding objects held by this account.
 	TotalAssetsOptedIn uint64 `json:"total-assets-opted-in"`
 
-	// For app-accounts only. The total number of bytes allocated for the keys and values of boxes which belong to the associated application.
-	TotalBoxBytes uint64 `json:"total-box-bytes"`
-
-	// For app-accounts only. The total number of boxes which belong to the associated application.
-	TotalBoxes uint64 `json:"total-boxes"`
-
 	// The count of all apps (AppParams objects) created by this account.
 	TotalCreatedApps uint64 `json:"total-created-apps"`
 
@@ -348,6 +342,9 @@ type Block struct {
 	// \[txn\] TransactionsRoot authenticates the set of transactions appearing in the block. More specifically, it's the root of a merkle tree whose leaves are the block's Txids, in lexicographic order. For the empty block, it's 0. Note that the TxnRoot does not authenticate the signatures on the transactions, only the transactions themselves. Two blocks with the same transactions but in a different order and with different signatures will have the same TxnRoot.
 	TransactionsRoot []byte `json:"transactions-root"`
 
+	// \[txn256\] TransactionsRootSHA256 is an auxiliary TransactionRoot, built using a vector commitment instead of a merkle tree, and SHA256 hash function instead of the default SHA512_256. This commitment can be used on environments where only the SHA256 function exists.
+	TransactionsRootSha256 []byte `json:"transactions-root-sha256"`
+
 	// \[tc\] TxnCounter counts the number of transactions committed in the ledger, from the time at which support for this feature was introduced.
 	//
 	// Specifically, TxnCounter is the number of the next transaction that will be committed after this block.  It is 0 when no transactions have ever been committed (since TxnCounter started being supported).
@@ -414,23 +411,6 @@ type BlockUpgradeVote struct {
 	UpgradePropose *string `json:"upgrade-propose,omitempty"`
 }
 
-// Box defines model for Box.
-type Box struct {
-
-	// \[name\] box name, base64 encoded
-	Name []byte `json:"name"`
-
-	// \[value\] box value, base64 encoded.
-	Value []byte `json:"value"`
-}
-
-// BoxDescriptor defines model for BoxDescriptor.
-type BoxDescriptor struct {
-
-	// Base64 encoded box name
-	Name []byte `json:"name"`
-}
-
 // EvalDelta defines model for EvalDelta.
 type EvalDelta struct {
 
@@ -475,6 +455,25 @@ type HealthCheck struct {
 	Version string `json:"version"`
 }
 
+// IndexerStateProofMessage defines model for IndexerStateProofMessage.
+type IndexerStateProofMessage struct {
+
+	// \[b\]
+	BlockHeadersCommitment *[]byte `json:"block-headers-commitment,omitempty"`
+
+	// \[f\]
+	FirstAttestedRound *uint64 `json:"first-attested-round,omitempty"`
+
+	// \[l\]
+	LatestAttestedRound *uint64 `json:"latest-attested-round,omitempty"`
+
+	// \[P\]
+	LnProvenWeight *uint64 `json:"ln-proven-weight,omitempty"`
+
+	// \[v\]
+	VotersCommitment *[]byte `json:"voters-commitment,omitempty"`
+}
+
 // MerkleArrayProof defines model for MerkleArrayProof.
 type MerkleArrayProof struct {
 	HashFactory *HashFactory `json:"hash-factory,omitempty"`
@@ -508,8 +507,8 @@ type OnCompletion string
 // StateDelta defines model for StateDelta.
 type StateDelta []EvalDeltaKeyValue
 
-// StateProof defines model for StateProof.
-type StateProof struct {
+// StateProofFields defines model for StateProofFields.
+type StateProofFields struct {
 	PartProofs *MerkleArrayProof `json:"part-proofs,omitempty"`
 
 	// \[pr\] Sequence of reveal positions.
@@ -527,25 +526,6 @@ type StateProof struct {
 
 	// \[w\]
 	SignedWeight *uint64 `json:"signed-weight,omitempty"`
-}
-
-// StateProofMessage defines model for StateProofMessage.
-type StateProofMessage struct {
-
-	// \[b\]
-	BlockHeadersCommitment *[]byte `json:"block-headers-commitment,omitempty"`
-
-	// \[f\]
-	FirstAttestedRound *uint64 `json:"first-attested-round,omitempty"`
-
-	// \[l\]
-	LatestAttestedRound *uint64 `json:"latest-attested-round,omitempty"`
-
-	// \[P\]
-	LnProvenWeight *uint64 `json:"ln-proven-weight,omitempty"`
-
-	// \[v\]
-	VotersCommitment *[]byte `json:"voters-commitment,omitempty"`
 }
 
 // StateProofParticipant defines model for StateProofParticipant.
@@ -983,13 +963,13 @@ type TransactionSignatureMultisigSubsignature struct {
 
 // TransactionStateProof defines model for TransactionStateProof.
 type TransactionStateProof struct {
-	Message *StateProofMessage `json:"message,omitempty"`
+	Message *IndexerStateProofMessage `json:"message,omitempty"`
 
 	// \[sp\] represents a state proof.
 	//
 	// Definition:
 	// crypto/stateproof/structs.go : StateProof
-	StateProof *StateProof `json:"state-proof,omitempty"`
+	StateProof *StateProofFields `json:"state-proof,omitempty"`
 
 	// \[sptype\] Type of the state proof. Integer representing an entry defined in protocol/stateproof.go
 	StateProofType *uint64 `json:"state-proof-type,omitempty"`
@@ -1018,9 +998,6 @@ type AuthAddr string
 
 // BeforeTime defines model for before-time.
 type BeforeTime time.Time
-
-// BoxName defines model for box-name.
-type BoxName string
 
 // CurrencyGreaterThan defines model for currency-greater-than.
 type CurrencyGreaterThan uint64
@@ -1188,20 +1165,6 @@ type AssetsResponse struct {
 
 // BlockResponse defines model for BlockResponse.
 type BlockResponse Block
-
-// BoxResponse defines model for BoxResponse.
-type BoxResponse Box
-
-// BoxesResponse defines model for BoxesResponse.
-type BoxesResponse struct {
-
-	// \[appidx\] application index.
-	ApplicationId uint64          `json:"application-id"`
-	Boxes         []BoxDescriptor `json:"boxes"`
-
-	// Base64 encoded final box name result. Used for pagination, when making another request provide this token with the next parameter and prepend with "b64:" if keeping the provided encoding.
-	NextToken *string `json:"next-token,omitempty"`
-}
 
 // ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {

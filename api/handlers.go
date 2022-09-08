@@ -1294,19 +1294,20 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 		}
 
 		ret = generated.Block{
-			GenesisHash:        blockHeader.GenesisHash[:],
-			GenesisId:          blockHeader.GenesisID,
-			PreviousBlockHash:  blockHeader.Branch[:],
-			Rewards:            &rewards,
-			Round:              uint64(blockHeader.Round),
-			Seed:               blockHeader.Seed[:],
-			StateProofTracking: &trackingArray,
-			Timestamp:          uint64(blockHeader.TimeStamp),
-			Transactions:       nil,
-			TransactionsRoot:   blockHeader.TxnCommitments.NativeSha512_256Commitment[:],
-			TxnCounter:         uint64Ptr(blockHeader.TxnCounter),
-			UpgradeState:       &upgradeState,
-			UpgradeVote:        &upgradeVote,
+			GenesisHash:            blockHeader.GenesisHash[:],
+			GenesisId:              blockHeader.GenesisID,
+			PreviousBlockHash:      blockHeader.Branch[:],
+			Rewards:                &rewards,
+			Round:                  uint64(blockHeader.Round),
+			Seed:                   blockHeader.Seed[:],
+			StateProofTracking:     &trackingArray,
+			Timestamp:              uint64(blockHeader.TimeStamp),
+			Transactions:           nil,
+			TransactionsRoot:       blockHeader.TxnCommitments.NativeSha512_256Commitment[:],
+			TransactionsRootSha256: blockHeader.TxnCommitments.Sha256Commitment[:],
+			TxnCounter:             uint64Ptr(blockHeader.TxnCounter),
+			UpgradeState:           &upgradeState,
+			UpgradeVote:            &upgradeVote,
 		}
 
 		results := make([]generated.Transaction, 0)
