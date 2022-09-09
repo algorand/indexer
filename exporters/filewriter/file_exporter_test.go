@@ -1,13 +1,13 @@
 package filewriter_test
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
 
+	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/basics"
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/indexer/data"
@@ -16,17 +16,15 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
-	"gopkg.in/yaml.v3"
 )
 
 var logger *logrus.Logger
 var fileCons = &filewriter.Constructor{}
+var config = "block-dir: /tmp/blocks\n"
 
 func init() {
 	logger, _ = test.NewNullLogger()
-	os.Remove("/tmp/block1.json")
-	os.Remove("/tmp/block2.json")
-	os.Remove("/tmp/block3.json")
+	os.RemoveAll("/tmp/blocks")
 }
 
 func TestExporterMetadata(t *testing.T) {
@@ -38,30 +36,25 @@ func TestExporterMetadata(t *testing.T) {
 	assert.Equal(t, false, meta.Deprecated())
 }
 
-func TestExporterConfig(t *testing.T) {
+func TestExporterInit(t *testing.T) {
 	fileExp := fileCons.New()
 	assert.Equal(t, uint64(0), fileExp.Round())
-	config := "round: 10\n" +
-		"path: /tmp/blocks1.json\n" +
-		"configs: \"\"\n"
 	// creates a new output file
 	err := fileExp.Init(plugins.PluginConfig(config), logger)
-	defer fileExp.Close()
 	assert.NoError(t, err)
 	pluginConfig := fileExp.Config()
 	assert.Equal(t, config, string(pluginConfig))
-	assert.Equal(t, uint64(10), fileExp.Round())
+	assert.Equal(t, uint64(0), fileExp.Round())
+	fileExp.Close()
 	// can open existing file
 	err = fileExp.Init(plugins.PluginConfig(config), logger)
-	defer fileExp.Close()
 	assert.NoError(t, err)
+	fileExp.Close()
+
 }
 func TestExporterHandleGenesis(t *testing.T) {
 	fileExp := fileCons.New()
-	config := "round: 10\n" +
-		"path: /tmp/blocks2.json\n"
 	fileExp.Init(plugins.PluginConfig(config), logger)
-	defer fileExp.Close()
 	genesisA := bookkeeping.Genesis{
 		SchemaID:    "test",
 		Network:     "test",
@@ -74,14 +67,18 @@ func TestExporterHandleGenesis(t *testing.T) {
 		DevMode:     true,
 	}
 	err := fileExp.HandleGenesis(genesisA)
+	fileExp.Close()
 	assert.NoError(t, err)
-	fd, _ := os.OpenFile("/tmp/blocks2.json", os.O_RDONLY, 0755)
-	stat, _ := fd.Stat()
-	assert.Greater(t, int(stat.Size()), 0)
+	configs, err := ioutil.ReadFile("/tmp/blocks/metadata.json")
+	assert.NoError(t, err)
+	var blockMetaData filewriter.BlockMetaData
+	err = json.Unmarshal(configs, &blockMetaData)
+	assert.Equal(t, uint64(0), blockMetaData.NextRound)
+	assert.Equal(t, string(genesisA.Network), blockMetaData.Network)
+	assert.Equal(t, crypto.HashObj(genesisA).String(), blockMetaData.GenesisHash)
 
 	// genesis mismatch
 	fileExp.Init(plugins.PluginConfig(config), logger)
-	defer fileExp.Close()
 	genesisB := bookkeeping.Genesis{
 		SchemaID:    "test",
 		Network:     "test",
@@ -95,7 +92,9 @@ func TestExporterHandleGenesis(t *testing.T) {
 	}
 
 	err = fileExp.HandleGenesis(genesisB)
-	assert.Contains(t, err.Error(), "genesis hash in file /tmp/blocks2.json does not match expected value")
+	assert.Contains(t, err.Error(), "genesis hash in metadata does not match expected value")
+	fileExp.Close()
+
 }
 
 func TestExporterReceive(t *testing.T) {
@@ -111,17 +110,31 @@ func TestExporterReceive(t *testing.T) {
 	// exporter not initialized
 	err := fileExp.Receive(block)
 	assert.Contains(t, err.Error(), "exporter not initialized")
+
 	// initialize
-	config := "round: 2\n" +
-		"path: /tmp/blocks3.json\n"
 	fileExp.Init(plugins.PluginConfig(config), logger)
-	defer fileExp.Close()
+
 	// incorrect round
 	err = fileExp.Receive(block)
-	assert.Contains(t, err.Error(), "received round 3, expected round 2")
+	assert.Contains(t, err.Error(), "received round 3, expected round 0")
+
+	// genesis
+	genesis := bookkeeping.Genesis{
+		SchemaID:    "test",
+		Network:     "test",
+		Proto:       "test",
+		Allocation:  nil,
+		RewardsPool: "AAAAAAA",
+		FeeSink:     "AAAAAAA",
+		Timestamp:   1234,
+		Comment:     "",
+		DevMode:     true,
+	}
+	err = fileExp.HandleGenesis(genesis)
+	assert.NoError(t, err)
 
 	// write block to file
-	for i := 2; i < 8; i++ {
+	for i := 0; i < 5; i++ {
 		block = data.BlockData{
 			BlockHeader: bookkeeping.BlockHeader{
 				Round: basics.Round(i),
@@ -133,43 +146,42 @@ func TestExporterReceive(t *testing.T) {
 		err = fileExp.Receive(block)
 		assert.NoError(t, err)
 		assert.Equal(t, uint64(i+1), fileExp.Round())
+
 	}
+	fileExp.Close()
+
 	// written data are valid
-	fd, _ := os.OpenFile("/tmp/blocks3.json", os.O_RDONLY, 0755)
-	scanner := bufio.NewScanner(fd)
-	var blockData data.BlockData
-	for scanner.Scan() {
-		err := json.Unmarshal([]byte(scanner.Text()), &blockData)
+	for i := 0; i < 5; i++ {
+		b, _ := os.ReadFile(fmt.Sprintf("/tmp/blocks/block_%d.json", i))
+		var blockData data.BlockData
+		err = json.Unmarshal(b, &blockData)
 		assert.NoError(t, err)
 	}
+
+	//	should continue from round 6 after restart
+	fileExp.Init(plugins.PluginConfig(config), logger)
+	assert.Equal(t, uint64(5), fileExp.Round())
+	fileExp.Close()
 }
 
 func TestExporterClose(t *testing.T) {
-	configsPath := "/tmp/configs.yml"
-	f, err := os.OpenFile(configsPath, os.O_CREATE|os.O_WRONLY, 0755)
-	assert.NoError(t, err)
-	defer f.Close()
 	fileExp := fileCons.New()
-	config := "round: 13\n" +
-		"path: /tmp/blocks3.json\n" +
-		fmt.Sprintf("configs: %s", configsPath)
 	fileExp.Init(plugins.PluginConfig(config), logger)
 	block := data.BlockData{
 		BlockHeader: bookkeeping.BlockHeader{
-			Round: 13,
+			Round: 5,
 		},
 		Payset:      nil,
 		Delta:       nil,
 		Certificate: nil,
 	}
 	fileExp.Receive(block)
-	err = fileExp.Close()
+	err := fileExp.Close()
 	assert.NoError(t, err)
 	// assert round is updated correctly
-	configs, err := ioutil.ReadFile(configsPath)
+	configs, err := ioutil.ReadFile("/tmp/blocks/metadata.json")
 	assert.NoError(t, err)
-	var exporterConfig filewriter.ExporterConfig
-	err = yaml.Unmarshal(configs, &exporterConfig)
-	assert.NoError(t, err)
-	assert.Equal(t, uint64(14), exporterConfig.Round)
+	var blockMetaData filewriter.BlockMetaData
+	err = json.Unmarshal(configs, &blockMetaData)
+	assert.Equal(t, uint64(6), blockMetaData.NextRound)
 }

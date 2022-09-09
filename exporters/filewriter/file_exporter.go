@@ -1,35 +1,43 @@
 package filewriter
 
 import (
-	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
-	"strings"
+	"path"
 
+	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 
 	"github.com/algorand/go-algorand/crypto"
 	"github.com/algorand/go-algorand/data/bookkeeping"
+
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/plugins"
-	"github.com/sirupsen/logrus"
 )
 
 const exporterName = "filewriter"
 
 type fileExporter struct {
-	round  uint64
-	fd     *os.File
-	cfg    ExporterConfig
-	logger *logrus.Logger
+	round             uint64
+	blockMetadataFile *os.File
+	blockMetadata     BlockMetaData
+	cfg               ExporterConfig
+	logger            *logrus.Logger
 }
 
 var fileExporterMetadata = exporters.ExporterMetadata{
 	ExpName:        exporterName,
 	ExpDescription: "Exporter for writing data to a file.",
 	ExpDeprecated:  false,
+}
+
+type BlockMetaData struct {
+	GenesisHash string `json:"genesis-hash"`
+	Network     string `json:"network"`
+	NextRound   uint64 `json:"next-round"`
 }
 
 // Constructor is the ExporterConstructor implementation for the filewriter exporter
@@ -48,15 +56,43 @@ func (exp *fileExporter) Metadata() exporters.ExporterMetadata {
 
 func (exp *fileExporter) Init(cfg plugins.PluginConfig, logger *logrus.Logger) error {
 	exp.logger = logger
-	var err error
-	if err = exp.unmarhshalConfig(string(cfg)); err != nil {
+	if err := exp.unmarhshalConfig(string(cfg)); err != nil {
 		return fmt.Errorf("connect failure in unmarshalConfig: %w", err)
 	}
-	exp.fd, err = os.OpenFile(exp.cfg.BlockFilepath, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0755)
-	if err != nil {
-		return fmt.Errorf("error opening file: %w", err)
+	// create block directory
+	err := os.Mkdir(exp.cfg.BlocksDir, 0755)
+	if err != nil && errors.Is(err, os.ErrExist) {
+	} else if err != nil {
+		return fmt.Errorf("Init() error: %w", err)
 	}
-	exp.round = exp.cfg.Round
+	// initialize block metadata
+	file := path.Join(exp.cfg.BlocksDir, "metadata.json")
+	if _, err = os.Stat(file); errors.Is(err, os.ErrNotExist) {
+		exp.blockMetadataFile, err = os.Create(file)
+		if err != nil {
+			return fmt.Errorf("error creating file: %w", err)
+		}
+		exp.blockMetadata = BlockMetaData{
+			GenesisHash: "",
+			Network:     "",
+			NextRound:   exp.round,
+		}
+	} else {
+		exp.blockMetadataFile, err = os.OpenFile(file, os.O_WRONLY, 0775)
+		if err != nil {
+			return fmt.Errorf("error opening file: %w", err)
+		}
+		var data []byte
+		data, err = os.ReadFile(file)
+		if err != nil {
+			return fmt.Errorf("error reading metadata: %w", err)
+		}
+		err = json.Unmarshal(data, &exp.blockMetadata)
+		if err != nil {
+			return fmt.Errorf("error reading metadata: %w", err)
+		}
+	}
+	exp.round = exp.blockMetadata.NextRound
 	return err
 }
 
@@ -66,62 +102,48 @@ func (exp *fileExporter) Config() plugins.PluginConfig {
 }
 
 func (exp *fileExporter) Close() error {
+	defer exp.blockMetadataFile.Close()
 	exp.logger.Infof("latest round on file: %d", exp.round)
-	if exp.cfg.ConfigFilePath != "" {
-		if err := updateRoundInConfigs(exp.cfg.ConfigFilePath, exp.cfg, exp.round); err != nil {
-			exp.logger.Warnf("unable to update round in configuration file %s", exp.cfg.ConfigFilePath)
-		}
-	}
-	if exp.fd != nil {
-		err := exp.fd.Close()
-		if err != nil {
-			return fmt.Errorf("error closing file %s: %w", exp.fd.Name(), err)
-		}
+	err := json.NewEncoder(exp.blockMetadataFile).Encode(exp.blockMetadata)
+	if err != nil {
+		return fmt.Errorf("Close() encoding err %w", err)
 	}
 	return nil
 }
 
 func (exp *fileExporter) Receive(exportData data.BlockData) error {
-	if exp.fd == nil {
+	if exp.blockMetadataFile == nil {
 		return fmt.Errorf("exporter not initialized")
 	}
 	if exportData.Round() != exp.round {
 		return fmt.Errorf("wrong block. received round %d, expected round %d", exportData.Round(), exp.round)
 	}
 	//write block to file
-	blockData, err := json.Marshal(exportData)
+	blockFile := path.Join(exp.cfg.BlocksDir, fmt.Sprintf("block_%d.json", exportData.Round()))
+	file, err := os.OpenFile(blockFile, os.O_WRONLY|os.O_CREATE, 0755)
 	if err != nil {
-		return fmt.Errorf("error serializing block data: %w", err)
+		return fmt.Errorf("error opening file %s, %w", blockFile, err)
 	}
-	_, err = fmt.Fprintln(exp.fd, string(blockData))
+	defer file.Close()
+	err = json.NewEncoder(file).Encode(exportData)
+	if err != nil {
+		return fmt.Errorf("error encoding exportData in Receive(), %w", err)
+	}
 	exp.logger.Infof("Added block %d", exportData.Round())
 	exp.round++
+	exp.blockMetadata.NextRound = exp.round
 	return nil
 }
 
 func (exp *fileExporter) HandleGenesis(genesis bookkeeping.Genesis) error {
 	// check genesis hash
 	gh := crypto.HashObj(genesis).String()
-	stat, err := exp.fd.Stat()
-	if err != nil {
-		return fmt.Errorf("error getting block file stats: %w", err)
-	}
-	if size := stat.Size(); size == 0 {
-		// if block file is empty, record genesis hash
-		fmt.Fprintln(exp.fd, fmt.Sprintf("# Genesis Hash:%s", gh))
+	if exp.blockMetadata.GenesisHash == "" {
+		exp.blockMetadata.GenesisHash = gh
+		exp.blockMetadata.Network = string(genesis.Network)
 	} else {
-		var genesisTag string
-		scanner := bufio.NewScanner(exp.fd)
-		for scanner.Scan() {
-			genesisTag = scanner.Text()
-			break
-		}
-		if err = scanner.Err(); err != nil {
-			return fmt.Errorf("error reading file: %w", err)
-		}
-		ghFromFile := strings.Split(genesisTag, ":")[1]
-		if ghFromFile != gh {
-			return fmt.Errorf("genesis hash in file %s does not match expected value. actual %s, expected %s ", exp.cfg.BlockFilepath, gh, ghFromFile)
+		if exp.blockMetadata.GenesisHash != gh {
+			return fmt.Errorf("genesis hash in metadata does not match expected value. actual %s, expected %s ", gh, exp.blockMetadata.GenesisHash)
 		}
 	}
 	return nil
@@ -137,24 +159,4 @@ func (exp *fileExporter) unmarhshalConfig(cfg string) error {
 
 func init() {
 	exporters.RegisterExporter(exporterName, &Constructor{})
-}
-
-func updateRoundInConfigs(path string, cfg ExporterConfig, round uint64) error {
-	fd, err := os.OpenFile(path, os.O_WRONLY, 0755)
-	if err != nil {
-		return fmt.Errorf("error opening file: %w", err)
-	}
-	defer fd.Close()
-	exporterConfigs := ExporterConfig{
-		Round:          round,
-		BlockFilepath:  cfg.ConfigFilePath,
-		ConfigFilePath: cfg.ConfigFilePath,
-	}
-
-	ret, _ := yaml.Marshal(exporterConfigs)
-	_, err = fd.WriteString(string(ret))
-	if err != nil {
-		return fmt.Errorf("error writing configurations: %w", err)
-	}
-	return nil
 }
