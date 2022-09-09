@@ -34,6 +34,7 @@ var fileExporterMetadata = exporters.ExporterMetadata{
 	ExpDeprecated:  false,
 }
 
+// BlockMetaData contains the metadata for block file storage
 type BlockMetaData struct {
 	GenesisHash string `json:"genesis-hash"`
 	Network     string `json:"network"`
