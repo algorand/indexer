@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -32,36 +31,36 @@ func TestPipelineConfigValidity(t *testing.T) {
 	}{
 		{"valid", PipelineConfig{
 			ConduitConfig:    &Config{ConduitDataDir: ""},
-			pipelineLogLevel: "info",
-			Importer:         nameConfigPair{"test", map[string]interface{}{"a": "a"}},
+			PipelineLogLevel: "info",
+			Importer:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
 			Processors:       nil,
-			Exporter:         nameConfigPair{"test", map[string]interface{}{"a": "a"}},
+			Exporter:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
 		}, ""},
 
 		{"valid 2", PipelineConfig{
 			ConduitConfig:    &Config{ConduitDataDir: ""},
-			pipelineLogLevel: "info",
-			Importer:         nameConfigPair{"test", map[string]interface{}{"a": "a"}},
-			Processors:       []nameConfigPair{{"test", map[string]interface{}{"a": "a"}}},
-			Exporter:         nameConfigPair{"test", map[string]interface{}{"a": "a"}},
+			PipelineLogLevel: "info",
+			Importer:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
+			Processors:       []NameConfigPair{{"test", map[string]interface{}{"a": "a"}}},
+			Exporter:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
 		}, ""},
 
 		{"empty config", PipelineConfig{ConduitConfig: nil}, "PipelineConfig.Valid(): conduit configuration was nil"},
-		{"invalid log level", PipelineConfig{ConduitConfig: &Config{ConduitDataDir: ""}, pipelineLogLevel: "asdf"}, "PipelineConfig.Valid(): pipeline log level (asdf) was invalid:"},
+		{"invalid log level", PipelineConfig{ConduitConfig: &Config{ConduitDataDir: ""}, PipelineLogLevel: "asdf"}, "PipelineConfig.Valid(): pipeline log level (asdf) was invalid:"},
 		{"importer config was 0",
 			PipelineConfig{
 				ConduitConfig:    &Config{ConduitDataDir: ""},
-				pipelineLogLevel: "info",
-				Importer:         nameConfigPair{"test", map[string]interface{}{}},
+				PipelineLogLevel: "info",
+				Importer:         NameConfigPair{"test", map[string]interface{}{}},
 			}, "PipelineConfig.Valid(): importer configuration was empty"},
 
 		{"exporter config was 0",
 			PipelineConfig{
 				ConduitConfig:    &Config{ConduitDataDir: ""},
-				pipelineLogLevel: "info",
-				Importer:         nameConfigPair{"test", map[string]interface{}{"a": "a"}},
-				Processors:       []nameConfigPair{{"test", map[string]interface{}{"a": "a"}}},
-				Exporter:         nameConfigPair{"test", map[string]interface{}{}},
+				PipelineLogLevel: "info",
+				Importer:         NameConfigPair{"test", map[string]interface{}{"a": "a"}},
+				Processors:       []NameConfigPair{{"test", map[string]interface{}{"a": "a"}}},
+				Exporter:         NameConfigPair{"test", map[string]interface{}{}},
 			}, "PipelineConfig.Valid(): exporter configuration was empty"},
 	}
 	for _, test := range tests {
@@ -114,7 +113,7 @@ Exporter:
 
 	pCfg, err := MakePipelineConfig(l, cfg)
 	assert.Nil(t, err)
-	assert.Equal(t, pCfg.PipelineLogLevel, log.InfoLevel)
+	assert.Equal(t, pCfg.PipelineLogLevel, "info")
 	assert.Equal(t, pCfg.Valid(), nil)
 	assert.Equal(t, pCfg.Importer.Name, "algod")
 	assert.Equal(t, pCfg.Importer.Config["token"], "e36c01fc77e490f23e61899c0c22c6390d0fff1443af2c95d056dc5ce4e61302")
@@ -153,6 +152,10 @@ func (m *mockImporter) Init(_ context.Context, _ plugins.PluginConfig, _ *log.Lo
 	return &bookkeeping.Genesis{}, nil
 }
 
+func (m *mockImporter) Close() error {
+	return nil
+}
+
 func (m *mockImporter) Metadata() importers.ImporterMetadata {
 	return importers.ImporterMetadata{ImpName: "mockImporter"}
 }
@@ -176,6 +179,10 @@ type mockProcessor struct {
 }
 
 func (m *mockProcessor) Init(_ context.Context, _ data.InitProvider, _ plugins.PluginConfig, _ *log.Logger) error {
+	return nil
+}
+
+func (m *mockProcessor) Close() error {
 	return nil
 }
 
@@ -218,6 +225,10 @@ func (m *mockExporter) Init(_ plugins.PluginConfig, _ *log.Logger) error {
 	return nil
 }
 
+func (m *mockExporter) Close() error {
+	return nil
+}
+
 func (m *mockExporter) HandleGenesis(_ bookkeeping.Genesis) error {
 	return nil
 }
@@ -256,6 +267,7 @@ func TestPipelineRun(t *testing.T) {
 
 	pImpl := pipelineImpl{
 		ctx:          ctx,
+		cf:           cf,
 		cfg:          &PipelineConfig{},
 		logger:       log.New(),
 		initProvider: nil,
@@ -270,10 +282,11 @@ func TestPipelineRun(t *testing.T) {
 		cf()
 	}()
 
-	err := pImpl.RunPipeline()
-	assert.Nil(t, err)
+	pImpl.Start()
+	pImpl.Wait()
+	assert.NoError(t, pImpl.Error())
 
-	assert.Equal(t, mProcessor.finalRound, basics.Round(uniqueBlockData.BlockHeader.Round+1))
+	assert.Equal(t, mProcessor.finalRound, uniqueBlockData.BlockHeader.Round+1)
 
 	mock.AssertExpectationsForObjects(t, &mImporter, &mProcessor, &mExporter)
 
@@ -282,39 +295,26 @@ func TestPipelineRun(t *testing.T) {
 // TestPipelineCpuPidFiles tests that cpu and pid files are created when specified
 func TestPipelineCpuPidFiles(t *testing.T) {
 
-	mImporter := mockImporter{}
-	mImporter.On("GetBlock", mock.Anything).Return(uniqueBlockData, nil)
-	mProcessor := mockProcessor{}
-	processorData := uniqueBlockData
-	processorData.BlockHeader.Round++
-	mProcessor.On("Process", mock.Anything).Return(processorData)
-	mProcessor.On("OnComplete", mock.Anything).Return(nil)
-	mExporter := mockExporter{}
-	mExporter.On("Receive", mock.Anything).Return(nil)
-
-	var pImporter importers.Importer = &mImporter
-	var pProcessor processors.Processor = &mProcessor
-	var pExporter exporters.Exporter = &mExporter
+	var pImporter importers.Importer = &mockImporter{}
+	var pProcessor processors.Processor = &mockProcessor{}
+	var pExporter exporters.Exporter = &mockExporter{}
 
 	pidFilePath := filepath.Join(t.TempDir(), "pidfile")
 	cpuFilepath := filepath.Join(t.TempDir(), "cpufile")
 
-	ctx, cf := context.WithCancel(context.Background())
-
 	pImpl := pipelineImpl{
-		ctx: ctx,
 		cfg: &PipelineConfig{
-			Importer: nameConfigPair{
+			Importer: NameConfigPair{
 				Name:   "",
 				Config: map[string]interface{}{},
 			},
-			Processors: []nameConfigPair{
+			Processors: []NameConfigPair{
 				{
 					Name:   "",
 					Config: map[string]interface{}{},
 				},
 			},
-			Exporter: nameConfigPair{
+			Exporter: NameConfigPair{
 				Name:   "",
 				Config: map[string]interface{}{},
 			},
@@ -327,47 +327,23 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 		round:        0,
 	}
 
-	var wg sync.WaitGroup
-
-	wg.Add(1)
-
-	go func() {
-		err := pImpl.Start()
-		assert.Nil(t, err)
-		wg.Done()
-	}()
-
-	// Give some time for the goroutine to start
-	time.Sleep(1 * time.Second)
+	err := pImpl.Init()
+	assert.NoError(t, err)
 
 	// Test that file is not created
-	_, err := os.Stat(pidFilePath)
+	_, err = os.Stat(pidFilePath)
 	assert.ErrorIs(t, err, os.ErrNotExist)
 
 	_, err = os.Stat(cpuFilepath)
 	assert.ErrorIs(t, err, os.ErrNotExist)
 
-	cf()
-	wg.Wait()
-
 	// Test that they were created
 
-	ctx, cf = context.WithCancel(context.Background())
-
-	pImpl.ctx = ctx
 	pImpl.cfg.PIDFilePath = pidFilePath
 	pImpl.cfg.CPUProfile = cpuFilepath
 
-	wg.Add(1)
-
-	go func() {
-		err := pImpl.Start()
-		assert.Nil(t, err)
-		wg.Done()
-	}()
-
-	// Give some time for the goroutine to start
-	time.Sleep(1 * time.Second)
+	err = pImpl.Init()
+	assert.NoError(t, err)
 
 	// Test that file is created
 	_, err = os.Stat(cpuFilepath)
@@ -375,9 +351,6 @@ func TestPipelineCpuPidFiles(t *testing.T) {
 
 	_, err = os.Stat(pidFilePath)
 	assert.Nil(t, err)
-
-	cf()
-	wg.Wait()
 }
 
 // TestPipelineErrors tests the pipeline erroring out at different stages
@@ -397,8 +370,10 @@ func TestPipelineErrors(t *testing.T) {
 	var pProcessor processors.Processor = &mProcessor
 	var pExporter exporters.Exporter = &mExporter
 
+	ctx, cf := context.WithCancel(context.Background())
 	pImpl := pipelineImpl{
-		ctx:          context.Background(),
+		ctx:          ctx,
+		cf:           cf,
 		cfg:          &PipelineConfig{},
 		logger:       log.New(),
 		initProvider: nil,
@@ -410,22 +385,40 @@ func TestPipelineErrors(t *testing.T) {
 
 	mImporter.returnError = true
 
-	err := pImpl.RunPipeline()
-	assert.Error(t, err, fmt.Errorf("importer"))
+	go pImpl.Start()
+	time.Sleep(time.Millisecond)
+	pImpl.cf()
+	pImpl.Wait()
+	assert.Error(t, pImpl.Error(), fmt.Errorf("importer"))
 
 	mImporter.returnError = false
 	mProcessor.returnError = true
-	err = pImpl.RunPipeline()
-	assert.Error(t, err, fmt.Errorf("process"))
+	pImpl.ctx, pImpl.cf = context.WithCancel(context.Background())
+	pImpl.setError(nil)
+	go pImpl.Start()
+	time.Sleep(time.Millisecond)
+	pImpl.cf()
+	pImpl.Wait()
+	assert.Error(t, pImpl.Error(), fmt.Errorf("process"))
 
 	mProcessor.returnError = false
 	mProcessor.onCompleteError = true
-	err = pImpl.RunPipeline()
-	assert.Error(t, err, fmt.Errorf("on complete"))
+	pImpl.ctx, pImpl.cf = context.WithCancel(context.Background())
+	pImpl.setError(nil)
+	go pImpl.Start()
+	time.Sleep(time.Millisecond)
+	pImpl.cf()
+	pImpl.Wait()
+	assert.Error(t, pImpl.Error(), fmt.Errorf("on complete"))
 
 	mProcessor.onCompleteError = false
 	mExporter.returnError = true
-	err = pImpl.RunPipeline()
-	assert.Error(t, err, fmt.Errorf("exporter"))
+	pImpl.ctx, pImpl.cf = context.WithCancel(context.Background())
+	pImpl.setError(nil)
+	go pImpl.Start()
+	time.Sleep(time.Millisecond)
+	pImpl.cf()
+	pImpl.Wait()
+	assert.Error(t, pImpl.Error(), fmt.Errorf("exporter"))
 
 }

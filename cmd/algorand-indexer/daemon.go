@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"runtime/pprof"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -17,20 +16,18 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 
-	"github.com/algorand/go-algorand/rpcs"
 	"github.com/algorand/go-algorand/util"
 
-	"github.com/algorand/go-algorand/ledger/ledgercore"
 	"github.com/algorand/indexer/api"
 	"github.com/algorand/indexer/api/generated/v2"
+	"github.com/algorand/indexer/conduit"
 	"github.com/algorand/indexer/config"
+	_ "github.com/algorand/indexer/exporters/postgresql"
 	"github.com/algorand/indexer/fetcher"
 	"github.com/algorand/indexer/idb"
-	"github.com/algorand/indexer/importer"
-	"github.com/algorand/indexer/processors"
-	"github.com/algorand/indexer/processors/blockprocessor"
+	_ "github.com/algorand/indexer/importers/algod"
+	_ "github.com/algorand/indexer/processors/blockprocessor"
 	iutil "github.com/algorand/indexer/util"
-	"github.com/algorand/indexer/util/metrics"
 )
 
 // GetConfigFromDataDir Given the data directory, configuration filename and a list of types, see if
@@ -313,19 +310,18 @@ func runDaemon(daemonConfig *daemonConfig) error {
 		}()
 	}
 
-	var bot fetcher.Fetcher
-	if daemonConfig.noAlgod {
-		logger.Info("algod block following disabled")
-	} else if daemonConfig.algodAddr != "" && daemonConfig.algodToken != "" {
-		bot, err = fetcher.ForNetAndToken(daemonConfig.algodAddr, daemonConfig.algodToken, logger)
-		maybeFail(err, "fetcher setup, %v", err)
-	} else if daemonConfig.algodDataDir != "" {
-		bot, err = fetcher.ForDataDir(daemonConfig.algodDataDir, logger)
-		maybeFail(err, "fetcher setup, %v", err)
-	} else {
+	if daemonConfig.algodDataDir != "" {
+		daemonConfig.algodAddr, daemonConfig.algodToken, _, err = fetcher.AlgodArgsForDataDir(daemonConfig.algodDataDir)
+		maybeFail(err, "algod data dir err, %v", err)
+	} else if daemonConfig.algodAddr == "" || daemonConfig.algodToken == "" {
 		// no algod was found
+		logger.Info("no algod was found, provide either --algod OR --algod-net and --algod-token to enable")
 		daemonConfig.noAlgod = true
 	}
+	if daemonConfig.noAlgod {
+		logger.Info("algod block following disabled")
+	}
+
 	opts := idb.IndexerDbOptions{}
 	if daemonConfig.noAlgod && !daemonConfig.allowMigration {
 		opts.ReadOnly = true
@@ -339,10 +335,13 @@ func runDaemon(daemonConfig *daemonConfig) error {
 
 	db, availableCh := indexerDbFromFlags(opts)
 	defer db.Close()
-	var wg sync.WaitGroup
-	if bot != nil {
-		wg.Add(1)
-		go runBlockImporter(ctx, daemonConfig, &wg, db, availableCh, bot, opts)
+	var dataError func() error
+	if daemonConfig.noAlgod != true {
+		pipeline := runConduitPipeline(ctx, availableCh, daemonConfig)
+		if pipeline != nil {
+			dataError = pipeline.Error
+			defer pipeline.Stop()
+		}
 	} else {
 		logger.Info("No block importer configured.")
 	}
@@ -352,61 +351,66 @@ func runDaemon(daemonConfig *daemonConfig) error {
 
 	options := makeOptions(daemonConfig)
 
-	api.Serve(ctx, daemonConfig.daemonServerAddr, db, bot, logger, options)
-	wg.Wait()
+	api.Serve(ctx, daemonConfig.daemonServerAddr, db, dataError, logger, options)
 	return err
 }
 
-func runBlockImporter(ctx context.Context, cfg *daemonConfig, wg *sync.WaitGroup, db idb.IndexerDb, dbAvailable chan struct{}, bot fetcher.Fetcher, opts idb.IndexerDbOptions) {
+func makeConduitConfig(dCfg *daemonConfig) conduit.PipelineConfig {
+	return conduit.PipelineConfig{
+		ConduitConfig:    &conduit.Config{},
+		PipelineLogLevel: logger.GetLevel().String(),
+		Importer: conduit.NameConfigPair{
+			Name: "algod",
+			Config: map[string]interface{}{
+				"netaddr": dCfg.algodAddr,
+				"token":   dCfg.algodToken,
+			},
+		},
+		Processors: []conduit.NameConfigPair{
+			{
+				Name: "block_evaluator",
+				Config: map[string]interface{}{
+					"catchpoint":       dCfg.catchpoint,
+					"indexer-data-dir": dCfg.indexerDataDir,
+					"algod-data-dir":   dCfg.algodDataDir,
+					"algod-token":      dCfg.algodToken,
+					"algod-addr":       dCfg.algodAddr,
+				},
+			},
+		},
+		Exporter: conduit.NameConfigPair{
+			Name: "postgresql",
+			Config: map[string]interface{}{
+				"connection-string": postgresAddr,
+				"max-conn":          dCfg.maxConn,
+				"test":              dummyIndexerDb,
+			},
+		},
+	}
+
+}
+
+func runConduitPipeline(ctx context.Context, dbAvailable chan struct{}, dCfg *daemonConfig) conduit.Pipeline {
 	// Need to redefine exitHandler() for every go-routine
 	defer exitHandler()
-	defer wg.Done()
 
 	// Wait until the database is available.
 	<-dbAvailable
 
-	// Initial import if needed.
-	genesisReader := importer.GetGenesisFile(cfg.genesisJSONPath, bot.Algod(), logger)
-	genesis, err := iutil.ReadGenesis(genesisReader)
-	maybeFail(err, "Error reading genesis file")
-
-	_, err = importer.EnsureInitialImport(db, genesis)
-	maybeFail(err, "importer.EnsureInitialImport() error")
-
-	// sync local ledger
-	nextDBRound, err := db.GetNextRoundToAccount()
-	maybeFail(err, "Error getting DB round")
-
-	logger.Info("Initializing block import handler.")
-	imp := importer.NewImporter(db)
-
-	processorOpts := processors.BlockProcessorConfig{
-		Catchpoint:     cfg.catchpoint,
-		IndexerDatadir: opts.IndexerDatadir,
-		AlgodDataDir:   opts.AlgodDataDir,
-		AlgodToken:     opts.AlgodToken,
-		AlgodAddr:      opts.AlgodAddr,
+	var pipeline conduit.Pipeline
+	var err error
+	pcfg := makeConduitConfig(dCfg)
+	if pipeline, err = conduit.MakePipeline(ctx, &pcfg, logger); err != nil {
+		logger.Errorf("%v", err)
+		panic(exit{1})
 	}
-
-	logger.Info("Initializing local ledger.")
-	proc, err := blockprocessor.MakeBlockProcessorWithLedgerInit(ctx, logger, nextDBRound, &genesis, processorOpts, imp.ImportBlock)
+	err = pipeline.Init()
 	if err != nil {
-		maybeFail(err, "blockprocessor.MakeBlockProcessor() err %v", err)
+		logger.Errorf("%v", err)
+		panic(exit{1})
 	}
-
-	bot.SetNextRound(proc.NextRoundToProcess())
-	handler := blockHandler(&proc, imp.ImportBlock, 1*time.Second)
-	bot.SetBlockHandler(handler)
-
-	logger.Info("Starting block importer.")
-	err = bot.Run(ctx)
-	if err != nil {
-		// If context is not expired.
-		if ctx.Err() == nil {
-			logger.WithError(err).Errorf("fetcher exited with error")
-			panic(exit{1})
-		}
-	}
+	pipeline.Start()
+	return pipeline
 }
 
 // makeOptions converts CLI options to server options
@@ -472,56 +476,4 @@ func makeOptions(daemonConfig *daemonConfig) (options api.ExtraOptions) {
 	}
 
 	return
-}
-
-// blockHandler creates a handler complying to the fetcher block handler interface. In case of a failure it keeps
-// attempting to add the block until the fetcher shuts down.
-func blockHandler(proc *blockprocessor.BlockProcessor, blockHandler func(block *ledgercore.ValidatedBlock) error, retryDelay time.Duration) func(context.Context, *rpcs.EncodedBlockCert) error {
-	return func(ctx context.Context, block *rpcs.EncodedBlockCert) error {
-		for {
-			err := handleBlock(block, proc, blockHandler)
-			if err == nil {
-				// return on success.
-				return nil
-			}
-
-			// Delay or terminate before next attempt.
-			select {
-			case <-ctx.Done():
-				return err
-			case <-time.After(retryDelay):
-				break
-			}
-		}
-	}
-}
-
-func handleBlock(block *rpcs.EncodedBlockCert, proc *blockprocessor.BlockProcessor, handler func(block *ledgercore.ValidatedBlock) error) error {
-	start := time.Now()
-	f := blockprocessor.MakeBlockProcessorHandlerAdapter(proc, handler)
-	err := f(block)
-	if err != nil {
-		logger.WithError(err).Errorf(
-			"block %d import failed", block.Block.Round())
-		return fmt.Errorf("handleBlock() err: %w", err)
-	}
-	dt := time.Since(start)
-
-	// Ignore round 0 (which is empty).
-	if block.Block.Round() > 0 {
-		metrics.BlockImportTimeSeconds.Observe(dt.Seconds())
-		metrics.ImportedTxnsPerBlock.Observe(float64(len(block.Block.Payset)))
-		metrics.ImportedRoundGauge.Set(float64(block.Block.Round()))
-		txnCountByType := make(map[string]int)
-		for _, txn := range block.Block.Payset {
-			txnCountByType[string(txn.Txn.Type)]++
-		}
-		for k, v := range txnCountByType {
-			metrics.ImportedTxns.WithLabelValues(k).Set(float64(v))
-		}
-	}
-
-	logger.Infof("round r=%d (%d txn) imported in %s", block.Block.Round(), len(block.Block.Payset), dt.String())
-
-	return nil
 }

@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"github.com/algorand/indexer/util/test"
 	"github.com/stretchr/testify/assert"
+	"io/fs"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -92,4 +95,47 @@ func TestFetcherImplCatchupLoopBlockError(t *testing.T) {
 	err = fetcher.catchupLoop(context.Background())
 	require.NoError(t, err, "FetcherImpl returned an unexpected error from catchupLoop")
 	require.Equal(t, "", fetcher.Error(), "FetcherImpl set an unexpected error from algod client during catchupLoop")
+}
+
+func TestAlgodArgsForDataDirNetDoesNotExist(t *testing.T) {
+	_, _, _, err := AlgodArgsForDataDir("foobar")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "foobar/algod.net: ")
+}
+
+func TestAlgodArgsForDataDirTokenDoesNotExist(t *testing.T) {
+	dir, err := os.MkdirTemp("", "datadir")
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	err = os.WriteFile(filepath.Join(dir, "algod.net"), []byte("127.0.0.1:8080"), fs.ModePerm)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	defer os.RemoveAll(dir)
+	_, _, _, err = AlgodArgsForDataDir(dir)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), fmt.Sprintf("%v/algod.token: ", dir))
+}
+
+func TestAlgodArgsForDataDirSuccess(t *testing.T) {
+	dir, err := os.MkdirTemp("", "datadir")
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	err = os.WriteFile(filepath.Join(dir, "algod.net"), []byte("127.0.0.1:8080"), fs.ModePerm)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	err = os.WriteFile(filepath.Join(dir, "algod.token"), []byte("abc123"), fs.ModePerm)
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	defer os.RemoveAll(dir)
+	netAddr, token, lastmod, err := AlgodArgsForDataDir(dir)
+	assert.NoError(t, err)
+	assert.Equal(t, netAddr, "http://127.0.0.1:8080")
+	assert.Equal(t, token, "abc123")
+	assert.NotNil(t, lastmod)
+
 }

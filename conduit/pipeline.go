@@ -3,21 +3,22 @@ package conduit
 import (
 	"context"
 	"fmt"
-	"github.com/algorand/indexer/util"
-	"os"
-	"runtime/pprof"
-
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"os"
 	"path/filepath"
+	"runtime/pprof"
+	"sync"
 
 	"github.com/algorand/go-algorand-sdk/encoding/json"
 	"github.com/algorand/go-algorand/data/basics"
+
 	"github.com/algorand/indexer/data"
 	"github.com/algorand/indexer/exporters"
 	"github.com/algorand/indexer/importers"
 	"github.com/algorand/indexer/plugins"
 	"github.com/algorand/indexer/processors"
+	"github.com/algorand/indexer/util"
 )
 
 func init() {
@@ -26,7 +27,8 @@ func init() {
 
 const autoLoadParameterConfigName = "conduit.yml"
 
-type nameConfigPair struct {
+// NameConfigPair is a generic structure used across plugin configuration ser/de
+type NameConfigPair struct {
 	Name   string                 `yaml:"Name"`
 	Config map[string]interface{} `yaml:"Config"`
 }
@@ -38,12 +40,11 @@ type PipelineConfig struct {
 	CPUProfile  string `yaml:"CPUProfile"`
 	PIDFilePath string `yaml:"PIDFilePath"`
 
-	pipelineLogLevel string `yaml:"LogLevel"`
-	PipelineLogLevel log.Level
+	PipelineLogLevel string `yaml:"LogLevel"`
 	// Store a local copy to access parent variables
-	Importer   nameConfigPair   `yaml:"Importer"`
-	Processors []nameConfigPair `yaml:"Processors"`
-	Exporter   nameConfigPair   `yaml:"Exporter"`
+	Importer   NameConfigPair   `yaml:"Importer"`
+	Processors []NameConfigPair `yaml:"Processors"`
+	Exporter   NameConfigPair   `yaml:"Exporter"`
 }
 
 // Valid validates pipeline config
@@ -52,8 +53,8 @@ func (cfg *PipelineConfig) Valid() error {
 		return fmt.Errorf("PipelineConfig.Valid(): conduit configuration was nil")
 	}
 
-	if _, err := log.ParseLevel(cfg.pipelineLogLevel); err != nil {
-		return fmt.Errorf("PipelineConfig.Valid(): pipeline log level (%s) was invalid: %w", cfg.pipelineLogLevel, err)
+	if _, err := log.ParseLevel(cfg.PipelineLogLevel); err != nil {
+		return fmt.Errorf("PipelineConfig.Valid(): pipeline log level (%s) was invalid: %w", cfg.PipelineLogLevel, err)
 	}
 
 	if len(cfg.Importer.Config) == 0 {
@@ -78,7 +79,7 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 		return nil, fmt.Errorf("MakePipelineConfig(): %w", err)
 	}
 
-	pCfg := PipelineConfig{pipelineLogLevel: logger.Level.String(), ConduitConfig: cfg}
+	pCfg := PipelineConfig{PipelineLogLevel: logger.Level.String(), ConduitConfig: cfg}
 
 	// Search for pipeline configuration in data directory
 	autoloadParamConfigPath := filepath.Join(cfg.ConduitDataDir, autoLoadParameterConfigName)
@@ -112,12 +113,6 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) had mal-formed schema: %w", autoloadParamConfigPath, err)
 	}
 
-	pCfg.PipelineLogLevel, err = log.ParseLevel(pCfg.pipelineLogLevel)
-	if err != nil {
-		// Belt and suspenders.  Valid() should have caught this
-		return nil, fmt.Errorf("MakePipelineConfig(): config file (%s) had mal-formed log level: %w", autoloadParamConfigPath, err)
-	}
-
 	return &pCfg, nil
 
 }
@@ -126,14 +121,22 @@ func MakePipelineConfig(logger *log.Logger, cfg *Config) (*PipelineConfig, error
 // sequence of events, taking in importers, processors and
 // exporters and generating the result
 type Pipeline interface {
-	Start() error
-	Stop() error
+	Init() error
+	Start()
+	Stop()
+	Error() error
+	Wait()
 }
 
 type pipelineImpl struct {
-	ctx    context.Context
-	cfg    *PipelineConfig
-	logger *log.Logger
+	ctx      context.Context
+	cf       context.CancelFunc
+	wg       sync.WaitGroup
+	cfg      *PipelineConfig
+	logger   *log.Logger
+	profFile *os.File
+	err      error
+	mu       sync.RWMutex
 
 	initProvider *data.InitProvider
 
@@ -143,7 +146,20 @@ type pipelineImpl struct {
 	round      basics.Round
 }
 
-func (p *pipelineImpl) Start() error {
+func (p *pipelineImpl) Error() error {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	return p.err
+}
+
+func (p *pipelineImpl) setError(err error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.err = err
+}
+
+// Init prepares the pipeline for processing block data
+func (p *pipelineImpl) Init() error {
 	p.logger.Infof("Starting Pipeline Initialization")
 
 	if p.cfg.CPUProfile != "" {
@@ -154,13 +170,12 @@ func (p *pipelineImpl) Start() error {
 			p.logger.WithError(err).Errorf("%s: create, %v", p.cfg.CPUProfile, err)
 			return err
 		}
-		defer profFile.Close()
+		p.profFile = profFile
 		err = pprof.StartCPUProfile(profFile)
 		if err != nil {
 			p.logger.WithError(err).Errorf("%s: start pprof, %v", p.cfg.CPUProfile, err)
 			return err
 		}
-		defer pprof.StopCPUProfile()
 	}
 
 	if p.cfg.PIDFilePath != "" {
@@ -168,12 +183,6 @@ func (p *pipelineImpl) Start() error {
 		if err != nil {
 			return err
 		}
-		defer func(name string) {
-			err := os.Remove(name)
-			if err != nil {
-				p.logger.WithError(err).Errorf("%s: could not remove pid file", p.cfg.PIDFilePath)
-			}
-		}(p.cfg.PIDFilePath)
 	}
 
 	// TODO Need to change interfaces to accept config of map[string]interface{}
@@ -228,10 +237,26 @@ func (p *pipelineImpl) Start() error {
 		p.logger.Infof("Initialized Processor: %s", processorName)
 	}
 
-	return p.RunPipeline()
+	return err
 }
 
-func (p *pipelineImpl) Stop() error {
+func (p *pipelineImpl) Stop() {
+	p.cf()
+	p.wg.Wait()
+
+	if p.profFile != nil {
+		if err := p.profFile.Close(); err != nil {
+			p.logger.WithError(err).Errorf("%s: could not close CPUProf file", p.profFile.Name())
+		}
+		pprof.StopCPUProfile()
+	}
+
+	if p.cfg.PIDFilePath != "" {
+		if err := os.Remove(p.cfg.PIDFilePath); err != nil {
+			p.logger.WithError(err).Errorf("%s: could not remove pid file", p.cfg.PIDFilePath)
+		}
+	}
+
 	if err := (*p.importer).Close(); err != nil {
 		// Log and continue on closing the rest of the pipeline
 		p.logger.Errorf("Pipeline.Stop(): Importer (%s) error on close: %v", (*p.importer).Metadata().Name(), err)
@@ -247,58 +272,69 @@ func (p *pipelineImpl) Stop() error {
 	if err := (*p.exporter).Close(); err != nil {
 		p.logger.Errorf("Pipeline.Stop(): Exporter (%s) error on close: %v", (*p.exporter).Metadata().Name(), err)
 	}
-
-	return nil
 }
 
-// RunPipeline pushes block data through the pipeline
-func (p *pipelineImpl) RunPipeline() error {
-	for {
-		select {
-		case <-p.ctx.Done():
-			return nil
-		default:
-			{
-				// TODO Retries?
-				p.logger.Infof("Pipeline round: %v", p.round)
-				// fetch block
-				blkData, err := (*p.importer).GetBlock(uint64(p.round))
-				if err != nil {
-					p.logger.Errorf("%v\n", err)
-					return err
-				}
-				// run through processors
-				for _, proc := range p.processors {
-					blkData, err = (*proc).Process(blkData)
+// Start pushes block data through the pipeline
+func (p *pipelineImpl) Start() {
+	p.wg.Add(1)
+	go func() {
+		defer p.wg.Done()
+		for {
+		pipelineRun:
+			select {
+			case <-p.ctx.Done():
+				return
+			default:
+				{
+					p.logger.Infof("Pipeline round: %v", p.round)
+					// fetch block
+					blkData, err := (*p.importer).GetBlock(uint64(p.round))
 					if err != nil {
-						p.logger.Errorf("%v\n", err)
-						return err
+						p.logger.Errorf("%v", err)
+						p.setError(err)
+						goto pipelineRun
 					}
-				}
-				// run through exporter
-				err = (*p.exporter).Receive(blkData)
-				if err != nil {
-					p.logger.Errorf("%v\n", err)
-					return err
-				}
-				// Callback Processors
-				for _, proc := range p.processors {
-					err = (*proc).OnComplete(blkData)
+					// run through processors
+					for _, proc := range p.processors {
+						blkData, err = (*proc).Process(blkData)
+						if err != nil {
+							p.logger.Errorf("%v", err)
+							p.setError(err)
+							goto pipelineRun
+						}
+					}
+					// run through exporter
+					err = (*p.exporter).Receive(blkData)
 					if err != nil {
-						p.logger.Errorf("%v\n", err)
-						return err
+						p.logger.Errorf("%v", err)
+						p.setError(err)
+						goto pipelineRun
 					}
+					// Callback Processors
+					for _, proc := range p.processors {
+						err = (*proc).OnComplete(blkData)
+						if err != nil {
+							p.logger.Errorf("%v", err)
+							p.setError(err)
+							goto pipelineRun
+						}
+					}
+					// Increment Round
+					p.setError(nil)
+					p.round++
 				}
-				// Increment Round
-				p.round++
 			}
-		}
 
-	}
+		}
+	}()
+}
+
+func (p *pipelineImpl) Wait() {
+	p.wg.Wait()
 }
 
 // MakePipeline creates a Pipeline
-func MakePipeline(cfg *PipelineConfig, logger *log.Logger) (Pipeline, error) {
+func MakePipeline(ctx context.Context, cfg *PipelineConfig, logger *log.Logger) (Pipeline, error) {
 
 	if cfg == nil {
 		return nil, fmt.Errorf("MakePipeline(): pipeline config was empty")
@@ -311,9 +347,18 @@ func MakePipeline(cfg *PipelineConfig, logger *log.Logger) (Pipeline, error) {
 	if logger == nil {
 		return nil, fmt.Errorf("MakePipeline(): logger was empty")
 	}
+	logLevel, err := log.ParseLevel(cfg.PipelineLogLevel)
+	if err != nil {
+		// Belt and suspenders.  Valid() should have caught this
+		return nil, fmt.Errorf("MakePipeline(): config had mal-formed log level: %w", err)
+	}
+	logger.SetLevel(logLevel)
+
+	cancelContext, cancelFunc := context.WithCancel(ctx)
 
 	pipeline := &pipelineImpl{
-		ctx:          context.Background(),
+		ctx:          cancelContext,
+		cf:           cancelFunc,
 		cfg:          cfg,
 		logger:       logger,
 		initProvider: nil,
