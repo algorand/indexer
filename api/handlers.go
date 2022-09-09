@@ -566,6 +566,9 @@ func (si *ServerImplementation) LookupApplicationBoxByIDAndName(ctx echo.Context
 	if err := si.verifyHandler("LookupApplicationBoxByIDAndName", ctx); err != nil {
 		return badRequest(ctx, err.Error())
 	}
+	if uint64(applicationID) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
+	}
 
 	encodedBoxName := params.Name
 	boxNameBytes, err := logic.NewAppCallBytes(encodedBoxName)
@@ -622,6 +625,9 @@ func (si *ServerImplementation) LookupApplicationBoxByIDAndName(ctx echo.Context
 func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, applicationID uint64, params generated.SearchForApplicationBoxesParams) error {
 	if err := si.verifyHandler("SearchForApplicationBoxes", ctx); err != nil {
 		return badRequest(ctx, err.Error())
+	}
+	if uint64(applicationID) > math.MaxInt64 {
+		return notFound(ctx, errValueExceedingInt64)
 	}
 
 	q := idb.ApplicationBoxQuery{

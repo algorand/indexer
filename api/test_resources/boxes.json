@@ -1,7 +1,7 @@
 {
   "file": "boxes.json",
   "owner": "TestBoxes",
-  "lastModified": "2022-08-30 11:26:15.13125 -0500 CDT m=+3.954735675",
+  "lastModified": "2022-09-08 21:02:40.534512 -0500 CDT m=+3.770931351",
   "frozen": true,
   "cases": [
     {
@@ -596,11 +596,11 @@
         "route": "/v2/applications/:application-id/boxes"
       },
       "response": {
-        "statusCode": 500,
-        "body": "{\"message\":\"failed while searching for application boxes: round=?=8, appid=9223372036854775808: 9223372036854775808 is greater than maximum value for Int8\"}\n"
+        "statusCode": 404,
+        "body": "{\"message\":\"searching by round or application-id or asset-id or filter by value greater than 9223372036854775807 is not supported\"}\n"
       },
       "witness": null,
-      "witnessError": "500 error"
+      "witnessError": "404 error"
     },
     {
       "name": "Boxes of a non-existing app 1337",
@@ -1022,11 +1022,11 @@
         "route": "/v2/applications/:application-id/box"
       },
       "response": {
-        "statusCode": 500,
-        "body": "{\"message\":\"failed while looking up application boxes: round=?=8, appid=9223372036854775808, boxName=string:non-existing: 9223372036854775808 is greater than maximum value for Int8\"}\n"
+        "statusCode": 404,
+        "body": "{\"message\":\"searching by round or application-id or asset-id or filter by value greater than 9223372036854775807 is not supported\"}\n"
       },
       "witness": null,
-      "witnessError": "500 error"
+      "witnessError": "404 error"
     },
     {
       "name": "A box attempt for a non-existing app 1337",
