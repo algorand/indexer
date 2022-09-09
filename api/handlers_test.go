@@ -1336,7 +1336,6 @@ func TestFetchBlock(t *testing.T) {
 					assert.EqualValues(t, (*tc.expected.Transactions)[i], actual)
 				}
 			}
-			// set
 			assert.EqualValues(t, tc.expected, blkOutput)
 		})
 	}
