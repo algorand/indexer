@@ -1129,12 +1129,17 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 			UpgradePropose: strPtr(string(blockHeader.UpgradePropose)),
 		}
 
-		addrs := make([]string, len(blockHeader.ExpiredParticipationAccounts))
-		for i := 0; i < len(addrs); i++ {
-			addrs[i] = blockHeader.ExpiredParticipationAccounts[i].String()
-		}
-		partUpdates := generated.ParticipationUpdates{
-			ExpiredParticipationAccounts: strArrayPtr(addrs),
+		var partUpdates *generated.ParticipationUpdates
+		if len(blockHeader.ExpiredParticipationAccounts) > 0 {
+			addrs := make([]string, len(blockHeader.ExpiredParticipationAccounts))
+			for i := 0; i < len(addrs); i++ {
+				addrs[i] = blockHeader.ExpiredParticipationAccounts[i].String()
+			}
+			partUpdates = &generated.ParticipationUpdates{
+				ExpiredParticipationAccounts: strArrayPtr(addrs),
+			}
+		} else {
+			partUpdates = nil
 		}
 
 		// order these so they're deterministic
@@ -1160,7 +1165,7 @@ func (si *ServerImplementation) fetchBlock(ctx context.Context, round uint64) (g
 		ret = generated.Block{
 			GenesisHash:            blockHeader.GenesisHash[:],
 			GenesisId:              blockHeader.GenesisID,
-			ParticipationUpdates:   &partUpdates,
+			ParticipationUpdates:   partUpdates,
 			PreviousBlockHash:      blockHeader.Branch[:],
 			Rewards:                &rewards,
 			Round:                  uint64(blockHeader.Round),
