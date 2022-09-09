@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -583,12 +584,17 @@ func (si *ServerImplementation) LookupApplicationBoxByIDAndName(ctx echo.Context
 	appid, boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
 
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%+v", errNoApplicationsFound, round, applicationID, encodedBoxName))
+		}
+		// sql.ErrNoRows is the only expected error condition
 		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", errFailedLookingUpBoxes, round, applicationID, encodedBoxName)
 		return indexerError(ctx, fmt.Errorf("%s: %w", msg, err))
 	}
 
-	if len(boxes) == 0 {
-		return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d, boxName=%+v", errNoApplicationsFound, round, applicationID, encodedBoxName))
+	if len(boxes) == 0 { // this is an unexpected situation as should have received a sql.ErrNoRows from fetchApplicationBoxes's err
+		msg := fmt.Sprintf("%s: round=?=%d, appid=%d, boxName=%s", errFailedLookingUpBoxes, round, applicationID, encodedBoxName)
+		return indexerError(ctx, fmt.Errorf(msg))
 	}
 
 	if appid != generated.ApplicationId(applicationID) {
@@ -641,12 +647,17 @@ func (si *ServerImplementation) SearchForApplicationBoxes(ctx echo.Context, appl
 	appid, boxes, round, err := si.fetchApplicationBoxes(ctx.Request().Context(), q)
 
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d", errNoApplicationsFound, round, applicationID))
+		}
+		// sql.ErrNoRows is the only expected error condition
 		msg := fmt.Sprintf("%s: round=?=%d, appid=%d", errFailedSearchingBoxes, round, applicationID)
 		return indexerError(ctx, fmt.Errorf("%s: %w", msg, err))
 	}
 
-	if len(boxes) == 0 {
-		return notFound(ctx, fmt.Sprintf("%s: round=%d, appid=%d", errNoApplicationsFound, round, applicationID))
+	if len(boxes) == 0 { // this is an unexpected situation as should have received a sql.ErrNoRows from fetchApplicationBoxes's err
+		msg := fmt.Sprintf("%s: round=?=%d, appid=%d", errFailedSearchingBoxes, round, applicationID)
+		return indexerError(ctx, fmt.Errorf(msg))
 	}
 
 	if appid != generated.ApplicationId(applicationID) {

@@ -2378,7 +2378,9 @@ LEFT OUTER JOIN app_box ab ON ab.app = a.app`, columns)
 func (db *IndexerDb) yieldApplicationBoxThread(omitValues bool, rows pgx.Rows, out chan idb.ApplicationBoxRow) {
 	defer rows.Close()
 
+	gotRows := false
 	for rows.Next() {
+		gotRows = true
 		var app uint64
 		var name []byte
 		var value []byte
@@ -2403,6 +2405,8 @@ func (db *IndexerDb) yieldApplicationBoxThread(omitValues bool, rows pgx.Rows, o
 	}
 	if err := rows.Err(); err != nil {
 		out <- idb.ApplicationBoxRow{Error: err}
+	} else if !gotRows {
+		out <- idb.ApplicationBoxRow{Error: sql.ErrNoRows}
 	}
 }
 
