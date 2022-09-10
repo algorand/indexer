@@ -22,26 +22,7 @@ import (
 	"github.com/algorand/indexer/util/test"
 )
 
-/* **************************************
-This Fixtures Test simulates calling indexer GET endpoints and in so doing validates:
-* Hand crafted URL's are:
-	* routed to the correct endpoint
-	* handled as expected
-* HTTP Responses are:
-	* well formatted and can be parsed to produce results of the expected type
-	* have the state that is expected for a "real" blockchain
-
-This is achieved as follows:
-A. Set up the state of the blockchain
-B. Iterate through a hard-coded `xyzSeedFixture` to generate an `xyzLiveFixture` as follows. For each seed object in `xyzSeedFixture`:
-	1. Query indexer via HTTP for the state of the blockchain using the `seed`'s `Request.Path` + `Request.Params`
-	2. Query the test-internal `proverRoutes` struct for a route-compatible `prover`
-	3. Employ the `prover` to parse the indexer's response into a route appropriate `witness` object
-C. Save `xyzLiveFixture` into a non-git-committed fixture `./test_resources/_FIXTURE_NAME.json` (NOTICE THE `_` PREFIX)
-D. Assert that the non-git-commited fixture equals the git-committed version `./test_resources/FIXTURE_NAME.json`
-
-It is the responsibility of the test writer to check that the generated fixture represent the expected results.
-************************************** */
+/* See the README.md in this directory for more details about Fixtures Tests */
 
 const fixtestListenAddr = "localhost:8999"
 const fixtestBaseURL = "http://" + fixtestListenAddr
@@ -473,9 +454,10 @@ func validateLiveVsSaved(t *testing.T, seed *fixture, live *fixture) {
 // * saved.File == live.File
 // * len(saved.Cases) == len(live.Cases)
 // * for each savedCase:
-//   * savedCase.Name == liveCase.Name
-//   * savedCase.Request == liveCase.Request
-//   * recalculated savedCase.Witness == recalculated liveCase.Witness
+//   - savedCase.Name == liveCase.Name
+//   - savedCase.Request == liveCase.Request
+//   - recalculated savedCase.Witness == recalculated liveCase.Witness
+//
 // Regardless of `seed.Frozen`, `live` is saved to `fixturesDirectory + "_" + seed.File`
 // NOTE: `live.Witness` is always recalculated via `seed.proof(live.Response)`
 // NOTE: by design, the function always fails the test in the case that the seed fixture is not frozen
