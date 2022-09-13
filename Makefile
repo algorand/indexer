@@ -75,7 +75,7 @@ integration: cmd/algorand-indexer/algorand-indexer
 e2e: cmd/algorand-indexer/algorand-indexer
 	cd misc/e2e_tests/docker/indexer/ && docker-compose build --build-arg GO_IMAGE=${GO_IMAGE} && docker-compose up --exit-code-from e2e
 
-e2e-conduit: cmd/conduit/conduit
+e2e-conduit: conduit
 	pip3 install misc/e2e_tests/ && e2econduit --s3-source-net rel-nightly --conduit-bin cmd/conduit/conduit
 
 deploy:
