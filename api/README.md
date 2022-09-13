@@ -44,7 +44,7 @@ A fixtures test should allow one to quickly stand up an end-to-end test to valid
 
 [func TestBoxes](https://github.com/algorand/indexer/blob/b5025ad640fabac0d778b4cac60d558a698ed560/api/app_boxes_fixtures_test.go#L694_L704) shows the basic structure of a fixtures test.
 
-1. `setupLiveServerAndReturnShutdownFunc()` is called to set up the Indexer database
+1. `setupIdbAndReturnShutdownFunc()` is called to set up the Indexer database
   * this isn't expected to require modification
   2. `setupLiveBoxes()` is used to prepare the local ledger and process blocks in order to bring Indexer into a particular state
   * this will always depend on what the test is trying to achieve
