@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"github.com/algorand/go-algorand/rpcs"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -26,6 +25,7 @@ import (
 	"github.com/algorand/go-algorand/data/bookkeeping"
 	"github.com/algorand/go-algorand/data/transactions"
 	"github.com/algorand/go-algorand/protocol"
+	"github.com/algorand/go-algorand/rpcs"
 
 	"github.com/algorand/indexer/api/generated/v2"
 	"github.com/algorand/indexer/idb"
