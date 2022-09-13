@@ -6,7 +6,9 @@ class BlockEvaluator(PluginFixture):
         self.name = "block_evaluator"
         super(BlockEvaluator, self).__init__()
 
-    def setup(self, algod_data_dir, algod_token, algod_net, indexer_data_dir, catchpoint=""):
+    def setup(
+        self, algod_data_dir, algod_token, algod_net, indexer_data_dir, catchpoint=""
+    ):
         self.algod_data_dir = algod_data_dir
         self.algod_token = algod_token
         self.algod_net = algod_net
@@ -21,5 +23,3 @@ class BlockEvaluator(PluginFixture):
             "algod-token": self.algod_token,
             "algod-addr": self.algod_net,
         }
-
-

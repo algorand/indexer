@@ -22,19 +22,29 @@ class PostgresqlExporter(PluginFixture):
         super(PostgresqlExporter, self).__init__()
 
     def setup(self, max_conn=0):
-        self.container_name = "".join(random.choice(string.ascii_lowercase) for i in range(10))
+        self.container_name = "".join(
+            random.choice(string.ascii_lowercase) for i in range(10)
+        )
         self.max_conn = max_conn
         try:
-            xrun([
-                "docker", "run",
-                "-d",
-                "--name", self.container_name,
-                "-p", f"{self.port}:5432",
-                "-e", f"POSTGRES_PASSWORD={self.password}",
-                "-e", f"POSTGRES_USER={self.user}",
-                "-e", f"POSTGRES_DB={self.db_name}",
-                "postgres:13-alpine"
-            ])
+            xrun(
+                [
+                    "docker",
+                    "run",
+                    "-d",
+                    "--name",
+                    self.container_name,
+                    "-p",
+                    f"{self.port}:5432",
+                    "-e",
+                    f"POSTGRES_PASSWORD={self.password}",
+                    "-e",
+                    f"POSTGRES_USER={self.user}",
+                    "-e",
+                    f"POSTGRES_DB={self.db_name}",
+                    "postgres:13-alpine",
+                ]
+            )
             # Sleep 15 seconds to let postgresql start--otherwise conduit might fail on startup
             time.sleep(15)
             atexitrun(["docker", "kill", self.container_name])
@@ -45,7 +55,5 @@ class PostgresqlExporter(PluginFixture):
     def resolve_config_input(self):
         self.config_input = {
             "connection-string": f"host=localhost port={self.port} user={self.user} password={self.password} dbname={self.db_name} sslmode=disable",
-            "max-conn": self.max_conn
+            "max-conn": self.max_conn,
         }
-
-

@@ -19,15 +19,15 @@ class AlgodImporter(PluginFixture):
         super(AlgodImporter, self).__init__()
 
     def resolve_config_input(self):
-        with open(os.path.join(self.algoddir, 'algod.net'), 'r') as algod_net:
-            self.config_input['netaddr'] = "http://" + algod_net.read().strip()
-        with open(os.path.join(self.algoddir, 'algod.token'), 'r') as algod_token:
-            self.config_input['token'] = algod_token.read().strip()
+        with open(os.path.join(self.algoddir, "algod.net"), "r") as algod_net:
+            self.config_input["netaddr"] = "http://" + algod_net.read().strip()
+        with open(os.path.join(self.algoddir, "algod.token"), "r") as algod_token:
+            self.config_input["token"] = algod_token.read().strip()
 
     def resolve_config_output(self):
-        self.config_output['token'] = self.config_input['token']
-        self.config_output['netaddr'] = self.config_input['netaddr']
-        self.config_output['algoddir'] = self.algoddir
+        self.config_output["token"] = self.config_input["token"]
+        self.config_output["netaddr"] = self.config_input["netaddr"]
+        self.config_output["algoddir"] = self.algoddir
 
     def setup(self, tempdir, sourcenet):
         source_is_tar = hassuffix(sourcenet, ".tar", ".tar.gz", ".tar.bz2", ".tar.xz")
@@ -39,6 +39,7 @@ class AlgodImporter(PluginFixture):
             import boto3
             from botocore.config import Config
             from botocore import UNSIGNED
+
             s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
             tarpath = os.path.join(tempdir, tarname)
             prefix = "indexer/e2e4"
@@ -55,8 +56,8 @@ class AlgodImporter(PluginFixture):
         else:
             xrun(["rsync", "-a", sourcenet + "/", tempnet + "/"])
         blockfiles = glob.glob(
-                os.path.join(tempdir, "net", "Primary", "*", "*.block.sqlite")
-                )
+            os.path.join(tempdir, "net", "Primary", "*", "*.block.sqlite")
+        )
         self.lastblock = countblocks(blockfiles[0])
         try:
             xrun(["goal", "network", "start", "-r", tempnet])

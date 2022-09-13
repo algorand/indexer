@@ -17,7 +17,15 @@ import threading
 import time
 import urllib.request
 
-from e2e_common.util import xrun, atexitrun, find_binary, ensure_test_db, firstFromS3Prefix, hassuffix, countblocks
+from e2e_common.util import (
+    xrun,
+    atexitrun,
+    find_binary,
+    ensure_test_db,
+    firstFromS3Prefix,
+    hassuffix,
+    countblocks,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -73,7 +81,9 @@ def main():
     if not (source_is_tar or (sourcenet and os.path.isdir(sourcenet))):
         tarname = args.s3_source_net
         if not tarname:
-            raise Exception("Must provide either local or s3 network to run test against")
+            raise Exception(
+                "Must provide either local or s3 network to run test against"
+            )
         tarname = f"{tarname}.tar.bz2"
 
         # fetch test data from S3
@@ -81,6 +91,7 @@ def main():
         import boto3
         from botocore.config import Config
         from botocore import UNSIGNED
+
         s3 = boto3.client("s3", config=Config(signature_version=UNSIGNED))
         if "/" in tarname:
             tarname = tarname.split("/")[1]

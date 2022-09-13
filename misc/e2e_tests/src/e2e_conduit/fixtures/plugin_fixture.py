@@ -8,4 +8,3 @@ class PluginFixture:
 
     def resolve_config_output(self):
         pass
-

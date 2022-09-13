@@ -61,7 +61,6 @@ def main():
     if not (sourcenet or args.s3_source_net):
         raise Exception("Must provide either local or s3 network to run test against")
 
-
     # Setup tempdir for conduit data dir
     tempdir = tempfile.mkdtemp()
     if not args.keep_temps:
@@ -78,11 +77,11 @@ def main():
     # Setup block_evaluator processor
     block_evaluator = processors.BlockEvaluator()
     block_evaluator.setup(
-        algod_importer.config_output['algoddir'],
-        algod_importer.config_output['token'],
-        algod_importer.config_output['netaddr'],
+        algod_importer.config_output["algoddir"],
+        algod_importer.config_output["token"],
+        algod_importer.config_output["netaddr"],
         tempdir,
-        catchpoint=""
+        catchpoint="",
     )
     block_evaluator.resolve_config_input()
     block_evaluator.resolve_config_output()
@@ -93,31 +92,30 @@ def main():
     pgsql_exporter.resolve_config_output()
 
     # Write conduit config to data directory
-    with open(os.path.join(tempdir, 'conduit.yml'), 'w') as conduit_cfg:
-        yaml.dump({
-            "LogLevel": "info",
-            "Importer": {
-                "Name": algod_importer.name,
-                "Config": algod_importer.config_input
+    with open(os.path.join(tempdir, "conduit.yml"), "w") as conduit_cfg:
+        yaml.dump(
+            {
+                "LogLevel": "info",
+                "Importer": {
+                    "Name": algod_importer.name,
+                    "Config": algod_importer.config_input,
+                },
+                "Processors": [
+                    {
+                        "Name": block_evaluator.name,
+                        "Config": block_evaluator.config_input,
+                    }
+                ],
+                "Exporter": {
+                    "Name": pgsql_exporter.name,
+                    "Config": pgsql_exporter.config_input,
+                },
             },
-            "Processors": [
-                {
-                    "Name": block_evaluator.name,
-                    "Config": block_evaluator.config_input
-                }
-            ],
-            "Exporter": {
-                "Name": pgsql_exporter.name,
-                "Config": pgsql_exporter.config_input
-            }
-        },
-        conduit_cfg)
+            conduit_cfg,
+        )
 
     # Run conduit
-    cmd = [
-        conduit_bin,
-        "-d", tempdir
-    ]
+    cmd = [conduit_bin, "-d", tempdir]
     logger.debug("%s", " ".join(map(repr, cmd)))
     indexerdp = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     atexit.register(indexerdp.kill)
@@ -151,7 +149,7 @@ class subslurp:
         self.gz = gzip.open(self.buf, "wb")
         self.timeout = timedelta(seconds=120)
         # Matches conduit log output: "Pipeline round: 110"
-        self.round_re = re.compile(b'.*\"Pipeline round: ([0-9]+)\"')
+        self.round_re = re.compile(b'.*"Pipeline round: ([0-9]+)"')
         self.round = 0
         self.error_log = None
 
@@ -170,10 +168,13 @@ class subslurp:
         if len(self.f.peek().strip()) == 0:
             logger.info("No Conduit output found")
             return
-        
+
         start = datetime.now()
         lastlog = datetime.now()
-        while datetime.now() - start < self.timeout and datetime.now() - lastlog < timedelta(seconds=15):
+        while (
+            datetime.now() - start < self.timeout
+            and datetime.now() - lastlog < timedelta(seconds=15)
+        ):
             for line in self.f:
                 logger.info(line)
                 lastlog = datetime.now()
@@ -192,13 +193,6 @@ class subslurp:
         self.buf.seek(0)
         r = gzip.open(self.buf, "rt")
         return r.read()
-
-"""
-Instead of a config file what I should create are setup fixtures.
-A given fixture should run the setup required and output given parameters.
-Certain fixtures can pull input from previous fixtures' outputs--such as the algod importer setup should output token/net (and dir?)
-and that will be fed into the block_processor plugin config.
-"""
 
 
 if __name__ == "__main__":
