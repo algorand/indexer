@@ -4,6 +4,7 @@ import atexit
 import logging
 import os
 import random
+import sqlite3
 import subprocess
 import sys
 import time
@@ -125,16 +126,16 @@ def atexitrun(cmd, *args, **kwargs):
     atexit.register(xrun, *cargs, **kwargs)
 
 
-def find_indexer(indexer_bin, exc=True):
-    if indexer_bin:
-        return indexer_bin
-    # manually search local build and PATH for algorand-indexer
-    path = ["cmd/algorand-indexer"] + os.getenv("PATH").split(":")
+def find_binary(binary, exc=True, binary_name="algorand-indexer"):
+    if binary:
+        return binary
+    # manually search local build and PATH for binary_name
+    path = [f"cmd/{binary_name}"] + os.getenv("PATH").split(":")
     for pd in path:
-        ib = os.path.join(pd, "algorand-indexer")
+        ib = os.path.join(pd, binary_name)
         if os.path.exists(ib):
             return ib
-    msg = "could not find algorand-indexer. use --indexer-bin or PATH environment variable."
+    msg = f"could not find {binary_name} at the provided location or PATH environment variable."
     if exc:
         raise Exception(msg)
     logger.error(msg)
@@ -194,3 +195,20 @@ def firstFromS3Prefix(
 
     logger.warning("file not found in s3://{}/{}".format(bucket, prefix))
     return found_needle
+
+
+def countblocks(path):
+    db = sqlite3.connect(path)
+    cursor = db.cursor()
+    cursor.execute("SELECT max(rnd) FROM blocks")
+    row = cursor.fetchone()
+    cursor.close()
+    db.close()
+    return row[0]
+
+
+def hassuffix(x, *suffixes):
+    for s in suffixes:
+        if x.endswith(s):
+            return True
+    return False

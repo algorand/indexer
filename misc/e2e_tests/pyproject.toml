@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "indexer_e2e_tests"
+description = "End to end tests for Algorand Indexer/Conduit"
+version = "0.0.1"
+requires-python = ">=3.8"
+dependencies = [
+    "boto3 >=1.14.9,<2",
+    "markdown2 >=2.3.9,<3",
+    "msgpack >=1,<2",
+    "py-algorand-sdk >=1.3.0,<2",
+    "pytest==6.2.5",
+    "GitPython==3.1.26",
+    "PyYAML==6.0",
+    "setuptools >=65.3.0",
+]
+
+
+[project.scripts]
+e2elive = "e2e_indexer.e2elive:main"
+e2econduit = "e2e_conduit.e2econduit:main"
+validate-accounting = "e2e_indexer.validate_accounting:main"

@@ -25,6 +25,9 @@ tmp/
 
 # Python
 __pycache__
+misc/e2e_tests/dist
+misc/e2e_tests/build
+misc/e2e_tests/*egg-info*
 
 # jetbrains IDE
 .idea

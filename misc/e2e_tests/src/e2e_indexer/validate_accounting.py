@@ -23,7 +23,7 @@ import urllib.parse
 import algosdk
 from algosdk.v2client.algod import AlgodClient
 
-from util import maybedecode, mloads, unmsgpack
+from e2e_common.util import maybedecode, mloads, unmsgpack
 
 logger = logging.getLogger(__name__)
 
