@@ -59,7 +59,7 @@ A fixtures test should allow one to quickly stand up an end-to-end test to valid
 
 ## Which Endpoints are Currently _Testable_ in a Fixtures Test?
 
-Endpoints defined in [proverRoutes](https://github.com/algorand/indexer/blob/b955a31b10d8dce7177383895ed8e57206d69f67/api/fixtures_test.go#L213) are testable.
+Endpoints defined in [proverRoutes](https://github.com/algorand/indexer/blob/b955a31b10d8dce7177383895ed8e57206d69f67/api/fixtures_test.go#L232-L263) are testable.
 
 Currently (September 2022) these are:
 
