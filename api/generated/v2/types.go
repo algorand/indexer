@@ -342,6 +342,9 @@ type Block struct {
 	// \[txn\] TransactionsRoot authenticates the set of transactions appearing in the block. More specifically, it's the root of a merkle tree whose leaves are the block's Txids, in lexicographic order. For the empty block, it's 0. Note that the TxnRoot does not authenticate the signatures on the transactions, only the transactions themselves. Two blocks with the same transactions but in a different order and with different signatures will have the same TxnRoot.
 	TransactionsRoot []byte `json:"transactions-root"`
 
+	// \[txn256\] TransactionsRootSHA256 is an auxiliary TransactionRoot, built using a vector commitment instead of a merkle tree, and SHA256 hash function instead of the default SHA512_256. This commitment can be used on environments where only the SHA256 function exists.
+	TransactionsRootSha256 []byte `json:"transactions-root-sha256"`
+
 	// \[tc\] TxnCounter counts the number of transactions committed in the ledger, from the time at which support for this feature was introduced.
 	//
 	// Specifically, TxnCounter is the number of the next transaction that will be committed after this block.  It is 0 when no transactions have ever been committed (since TxnCounter started being supported).
@@ -452,6 +455,25 @@ type HealthCheck struct {
 	Version string `json:"version"`
 }
 
+// IndexerStateProofMessage defines model for IndexerStateProofMessage.
+type IndexerStateProofMessage struct {
+
+	// \[b\]
+	BlockHeadersCommitment *[]byte `json:"block-headers-commitment,omitempty"`
+
+	// \[f\]
+	FirstAttestedRound *uint64 `json:"first-attested-round,omitempty"`
+
+	// \[l\]
+	LatestAttestedRound *uint64 `json:"latest-attested-round,omitempty"`
+
+	// \[P\]
+	LnProvenWeight *uint64 `json:"ln-proven-weight,omitempty"`
+
+	// \[v\]
+	VotersCommitment *[]byte `json:"voters-commitment,omitempty"`
+}
+
 // MerkleArrayProof defines model for MerkleArrayProof.
 type MerkleArrayProof struct {
 	HashFactory *HashFactory `json:"hash-factory,omitempty"`
@@ -485,8 +507,8 @@ type OnCompletion string
 // StateDelta defines model for StateDelta.
 type StateDelta []EvalDeltaKeyValue
 
-// StateProof defines model for StateProof.
-type StateProof struct {
+// StateProofFields defines model for StateProofFields.
+type StateProofFields struct {
 	PartProofs *MerkleArrayProof `json:"part-proofs,omitempty"`
 
 	// \[pr\] Sequence of reveal positions.
@@ -504,25 +526,6 @@ type StateProof struct {
 
 	// \[w\]
 	SignedWeight *uint64 `json:"signed-weight,omitempty"`
-}
-
-// StateProofMessage defines model for StateProofMessage.
-type StateProofMessage struct {
-
-	// \[b\]
-	BlockHeadersCommitment *[]byte `json:"block-headers-commitment,omitempty"`
-
-	// \[f\]
-	FirstAttestedRound *uint64 `json:"first-attested-round,omitempty"`
-
-	// \[l\]
-	LatestAttestedRound *uint64 `json:"latest-attested-round,omitempty"`
-
-	// \[P\]
-	LnProvenWeight *uint64 `json:"ln-proven-weight,omitempty"`
-
-	// \[v\]
-	VotersCommitment *[]byte `json:"voters-commitment,omitempty"`
 }
 
 // StateProofParticipant defines model for StateProofParticipant.
@@ -960,13 +963,13 @@ type TransactionSignatureMultisigSubsignature struct {
 
 // TransactionStateProof defines model for TransactionStateProof.
 type TransactionStateProof struct {
-	Message *StateProofMessage `json:"message,omitempty"`
+	Message *IndexerStateProofMessage `json:"message,omitempty"`
 
 	// \[sp\] represents a state proof.
 	//
 	// Definition:
 	// crypto/stateproof/structs.go : StateProof
-	StateProof *StateProof `json:"state-proof,omitempty"`
+	StateProof *StateProofFields `json:"state-proof,omitempty"`
 
 	// \[sptype\] Type of the state proof. Integer representing an entry defined in protocol/stateproof.go
 	StateProofType *uint64 `json:"state-proof-type,omitempty"`
@@ -1224,7 +1227,7 @@ type SearchForAccountsParams struct {
 	// Include accounts configured to use this spending key.
 	AuthAddr *string `json:"auth-addr,omitempty"`
 
-	// Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations.
+	// Include results for the specified round. For performance reasons, this parameter may be disabled on some configurations. Using application-id or asset-id filters will return both creator and opt-in accounts. Filtering by include-all will return creator and opt-in accounts for deleted assets and accounts. Non-opt-in managers are not included in the results when asset-id is used.
 	Round *uint64 `json:"round,omitempty"`
 
 	// Application ID

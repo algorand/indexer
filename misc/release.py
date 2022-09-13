@@ -38,6 +38,7 @@ osArchArch = [
     ("linux", "arm", "armhf"),
     ("linux", "arm64", "arm64"),
     ("darwin", "amd64", None),
+    ("darwin", "arm64", None)
 ]
 
 channel = "indexer"
