@@ -10,3 +10,18 @@ type BlockProcessorConfig struct {
 	AlgodToken     string `yaml:"algod-token"`
 	AlgodAddr      string `yaml:"algod-addr"`
 }
+
+// FilterProcessorSubConfig is the configuration needed for each additional filter
+type FilterProcessorSubConfig struct {
+	// The tag of the struct to analyze
+	FilterTag string `yaml:"tag"`
+	// The type of expression to search for "const" or "regex"
+	ExpressionType string `yaml:"expression-type"`
+	// The expression to search
+	Expression string `yaml:"expression"`
+}
+
+// FilterProcessorConfig configuration for the filter processor
+type FilterProcessorConfig struct {
+	Filters []map[string][]FilterProcessorSubConfig `yaml:"filters"`
+}
